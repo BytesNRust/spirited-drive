@@ -21,6 +21,8 @@ add_library(tnfs_core STATIC
     src/formats/tri.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
+    src/game/gfx/quad.c
+    src/game/gfx/quad_tri.c
     src/game/race/horizon.c
     src/game/race/sky_ring.c
     src/game/race/track_art.c
@@ -81,7 +83,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn chunk mesh palette race_settings config_dat tri sky_ring)
+    foreach(name qfs fsh ffn chunk mesh palette race_settings config_dat tri sky_ring quad)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -136,4 +138,8 @@ if(NOT EMSCRIPTEN)
     add_executable(qfs_unpack tools/qfs_unpack.c)
     target_link_libraries(qfs_unpack PRIVATE tnfs_core)
     target_compile_options(qfs_unpack PRIVATE ${TNFS_WARNINGS})
+
+    add_executable(quad_draw tools/quad_draw.c)
+    target_link_libraries(quad_draw PRIVATE tnfs_core)
+    target_compile_options(quad_draw PRIVATE ${TNFS_WARNINGS})
 endif()
