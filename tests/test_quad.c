@@ -181,6 +181,15 @@ static void test_triangle(void)
     tri_draw(&t, &tex, uv, skew, 1);
     CHECK_EQ_INT(crc32(s, SIZE), 0xea321527u);
     free(s);
+
+    /* all corners on one row: nothing drawn, no read past the corners */
+    s = new_surface();
+    t = target(s, FULL_CLIP);
+    const uint32_t blank = crc32(s, SIZE);
+    const int32_t flat[6] = { 140, 10, 150, 10, 145, 10 };
+    tri_draw(&t, &tex, uv, flat, 0);
+    CHECK_EQ_INT(crc32(s, SIZE), blank);
+    free(s);
 }
 
 /* Bad targets and textures draw nothing instead of corrupting memory. */

@@ -203,6 +203,8 @@ static void draw_triangle(Mapper *m, const int32_t uv[6], const int32_t scr[6])
 {
     int top, bottom, mid;
     sort_vertices(scr, &top, &bottom, &mid);
+    /* All three on one row: mid would be 3, and dy is 0 below anyway. */
+    if (top == bottom) return;
     const Shape s0 = {
         { scr[2 * top], scr[2 * top + 1] }, { scr[2 * mid], scr[2 * mid + 1] },
         { scr[2 * bottom], scr[2 * bottom + 1] },
