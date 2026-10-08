@@ -1,49 +1,34 @@
 #include "viewer/object_sink.h"
 
+#include "game/gfx/object_mappers.h"
 #include "game/gfx/quad.h"
 
 #include <string.h>
 
-/* Mode 1 of every table is the colour 0xFF transparent mapper.
- * TODO(004aa510, 004aa600, 004ab060, 004aaf14): mode 2, drawn as mode 1. */
-static int transparent(int mode)
-{
-    return mode != 0;
-}
-
-static void triangle(const QuadTarget *t, const FshEntry *tex, const Object3DCorners *c, int a, int b, int d,
-                     int mode)
-{
-    const int32_t uv[6] = { c->uv[2 * a], c->uv[2 * a + 1], c->uv[2 * b], c->uv[2 * b + 1], c->uv[2 * d],
-                            c->uv[2 * d + 1] };
-    const int32_t scr[6] = { c->screen[2 * a], c->screen[2 * a + 1], c->screen[2 * b], c->screen[2 * b + 1],
-                             c->screen[2 * d], c->screen[2 * d + 1] };
-    tri_draw(t, tex, uv, scr, transparent(mode));
-}
-
+/* 00491a82 indexes five tables of three thunks back to back, so a mode past
+ * 2 lands in the next table; past the last one the original crashes. */
 static void textured(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
-    switch (table) {
-    case OBJECT3D_TABLE_TRIANGLE:  /* 00486400 / 004858f0 */
-        triangle(s->target, texture, c, 0, 1, 2, mode);
+    const int slot = (int)table * 3 + mode;
+    if (slot >= 15) return;
+    const ObjShape shape = (ObjShape)(slot / 3);
+    const MapMode m = (MapMode)(slot % 3);
+    switch (shape) {
+    case OBJ_TRIANGLE:
+        obj_draw_triangle(s->target, texture, c->uv, c->screen, m, s->shade);
         break;
-    case OBJECT3D_TABLE_QUAD_UV: { /* 00487180 / 00486950 */
-        /* TODO(0052f124): the uv units the table entries expect. */
-        int32_t uv[8];
-        for (int i = 0; i < 8; i++) uv[i] = c->uv[i] * 65536;
-        quad_draw(s->target, texture, uv, c->screen, transparent(mode));
+    case OBJ_QUAD:
+        obj_draw_quad(s->target, texture, c->uv, c->screen, m, s->shade);
         break;
-    }
-    case OBJECT3D_TABLE_QUAD_UV_TRIANGLES:
-        triangle(s->target, texture, c, 0, 1, 2, mode);
-        triangle(s->target, texture, c, 0, 2, 3, mode);
+    case OBJ_QUAD_TRIS:
+        obj_draw_quad_tris(s->target, texture, c->uv, c->screen, m, s->shade);
         break;
-    case OBJECT3D_TABLE_QUAD_WHOLE:  /* 00487a10 / 004879b0 */
-        quad_draw_full(s->target, texture, c->screen, transparent(mode));
+    case OBJ_FULL:
+        obj_draw_full(s->target, texture, c->screen, m, s->shade);
         break;
-    case OBJECT3D_TABLE_QUAD_WHOLE_TRIANGLES:  /* TODO(00486804, 004865d4) */
-        quad_draw_full_tri(s->target, texture, c->screen, transparent(mode));
+    case OBJ_INSET:
+        obj_draw_inset(s->target, texture, c->screen, m, s->shade);
         break;
     }
 }
@@ -77,8 +62,22 @@ static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
     tex.payload_size = sizeof texel;
     Object3DCorners z = *c;
     memset(z.uv, 0, sizeof z.uv);
-    triangle(s->target, &tex, &z, 0, 1, 2, 0);
-    if (c->corners == 4) triangle(s->target, &tex, &z, 0, 2, 3, 0);
+    obj_draw_triangle(s->target, &tex, z.uv, z.screen, MAP_OPAQUE, NULL);
+    if (c->corners == 4) {
+        const int32_t scr[6] = { z.screen[0], z.screen[1], z.screen[4], z.screen[5], z.screen[6], z.screen[7] };
+        obj_draw_triangle(s->target, &tex, z.uv, scr, MAP_OPAQUE, NULL);
+    }
+}
+
+/* TODO(004c6604): the game's shade table; here each colour's nearest match
+ * at half brightness. */
+void object_sink_shade(const uint8_t palette[768], uint8_t shade[256])
+{
+    for (int i = 0; i < 256; i++) {
+        const uint32_t rgb = (uint32_t)(palette[3 * i] / 2) | (uint32_t)(palette[3 * i + 1] / 2) << 8 |
+                             (uint32_t)(palette[3 * i + 2] / 2) << 16;
+        shade[i] = nearest(palette, rgb);
+    }
 }
 
 Object3DSink object_sink(ObjectSink *s)

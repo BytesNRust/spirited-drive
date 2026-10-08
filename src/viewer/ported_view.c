@@ -180,6 +180,8 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     } else {
         car_node = -1;
     }
-    object_pixels = (ObjectSink){ &quad, art->palette };
+    static uint8_t shade[256];
+    object_sink_shade(art->palette, shade);
+    object_pixels = (ObjectSink){ &quad, art->palette, shade };
     track_render_draw(&render, &cam, &ctx, 0, 0);
 }
