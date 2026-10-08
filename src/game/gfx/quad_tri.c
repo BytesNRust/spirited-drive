@@ -15,6 +15,7 @@
  * ported (the clipped path gives the same pixels when nothing needs clipping). */
 #include "game/gfx/quad.h"
 
+#include "game/gfx/quad_pixel.h"
 #include "game/gfx/x86_int.h"
 
 #include <stddef.h>
@@ -35,7 +36,7 @@ typedef struct {
 typedef struct {
     const QuadTarget *target;
     const FshEntry *texture;
-    int transparent;
+    Paint paint;
     int32_t width;                 /* texture width, signed as the game reads it */
     int32_t offsets[TABLE_SIZE];   /* DAT_0052d3a8, zero where not built */
 } Mapper;
@@ -86,12 +87,11 @@ static void build_offsets(Mapper *m, int32_t du, int32_t dv, int32_t count)
     }
 }
 
-/* 0048cc49 and 0048c89a: count pixels, each texel at start + offsets[i]. */
+/* 0048cc49, 0048c89a and 0048ca53: count pixels, each texel at start + offsets[i]. */
 static void blit(const Mapper *m, uint8_t *dst, int32_t start, int32_t count)
 {
     for (int32_t i = 0; i < count; i++) {
-        const uint8_t texel = texel_at(m->texture, x_add(start, offset_at(m, i)));
-        if (!m->transparent || texel != 0xFF) dst[i] = texel;
+        paint_texel(&m->paint, dst + i, texel_at(m->texture, x_add(start, offset_at(m, i))));
     }
 }
 
@@ -247,30 +247,40 @@ static void draw_triangle_pixels(Mapper *m, const int32_t uv[6], const int32_t s
     draw_triangle(m, fuv, fscr);
 }
 
-static int tri_inputs_valid(const QuadTarget *t, const FshEntry *e)
+static int tri_inputs_valid(const QuadTarget *t, const FshEntry *e, const Paint *paint)
 {
-    return t != NULL && t->pixels != NULL && t->pitch > 0 && e != NULL && e->payload != NULL &&
+    return paint_valid(paint) && t != NULL && t->pixels != NULL && t->pitch > 0 && e != NULL && e->payload != NULL &&
            (e->type == FSH_TYPE_BITMAP || e->type == FSH_TYPE_BITMAP_TRANSPARENT) &&
            t->clip_left >= 0 && t->clip_left < t->clip_right && t->clip_right <= MAX_CLIP_RIGHT &&
            t->clip_top >= 0 && t->clip_top < t->clip_bottom && t->clip_bottom <= 768;
 }
 
-/* 00486400 (opaque) and 004858f0 (transparent). */
+/* 00486400 (MAP_OPAQUE), 004858f0 (MAP_TRANSPARENT) and 004aa510 (MAP_SHADE): the
+ * latter is 004a9b08, a copy of the transparent mapper 00484ee8 whose row
+ * blitter 0048ca53 also handles colour 0xFE. */
+void tri_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
+                   const int32_t screen[6], MapMode mode, const uint8_t *shade)
+{
+    const Paint paint = { mode, shade };
+    if (!tri_inputs_valid(target, texture, &paint) || uv == NULL || screen == NULL) return;
+    Mapper m = { .target = target, .texture = texture, .paint = paint,
+                 .width = (int16_t)texture->width };
+    draw_triangle_pixels(&m, uv, screen);
+}
+
 void tri_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
               const int32_t screen[6], int transparent)
 {
-    if (!tri_inputs_valid(target, texture) || uv == NULL || screen == NULL) return;
-    Mapper m = { .target = target, .texture = texture, .transparent = transparent,
-                 .width = (int16_t)texture->width };
-    draw_triangle_pixels(&m, uv, screen);
+    tri_draw_mode(target, texture, uv, screen, transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL);
 }
 
 /* 00486720 and 004864f0. */
 void quad_draw_full_tri(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8],
                         int transparent)
 {
-    if (!tri_inputs_valid(target, texture) || screen == NULL) return;
-    Mapper m = { .target = target, .texture = texture, .transparent = transparent,
+    const Paint paint = { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL };
+    if (!tri_inputs_valid(target, texture, &paint) || screen == NULL) return;
+    Mapper m = { .target = target, .texture = texture, .paint = paint,
                  .width = (int16_t)texture->width };
     const int32_t right = (int32_t)(int16_t)texture->width - 2;
     const int32_t bottom = (int32_t)(int16_t)texture->height - 2;
