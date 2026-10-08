@@ -45,6 +45,9 @@ typedef struct {
     TrackInfo info;
     ViewModel models[TRACK_MODELS];
     int model_ok[TRACK_MODELS];
+    uint8_t *car_file;      /* TNFS_CAR=NAME: CARFAMS/NAME.CFM parked ahead */
+    ViewModel car[2];       /* high and low detail */
+    int car_ok;
 } Track;
 
 
@@ -94,8 +97,33 @@ static int load_track(Track *t, const char *data_root, const char *name)
     return 1;
 }
 
+enum { CAR_AHEAD = 2 };
+
+/* A CFM's high (children 0, 1) and low (2, 3) detail models. */
+static int load_car_half(ViewModel *m, const Chunk *cfm, uint32_t mesh, uint32_t bitmaps)
+{
+    Chunk orip, shpi;
+    if (chunk_child(cfm, mesh, &orip) != CHUNK_OK || mesh_open(&m->mesh, &orip) != MESH_OK) return 0;
+    m->has_textures = chunk_child(cfm, bitmaps, &shpi) == CHUNK_OK && shpi.kind == CHUNK_KIND_BITMAP &&
+                      chunk_bitmaps(&shpi, &m->textures) == FSH_OK;
+    return 1;
+}
+
+static void load_car(Track *t, const char *data_root, const char *name)
+{
+    static const char *const suffixes[] = { ".CFM", ".cfm", NULL };
+    size_t size = 0;
+    Chunk cfm;
+    t->car_file = read_any(data_root, "CARFAMS", name, suffixes, &size);
+    t->car_ok = t->car_file != NULL && chunk_open(&cfm, t->car_file, size) == CHUNK_OK &&
+                load_car_half(&t->car[0], &cfm, CFM_CHILD_MESH_HIGH, CFM_CHILD_BITMAPS_HIGH) &&
+                load_car_half(&t->car[1], &cfm, CFM_CHILD_MESH_LOW, CFM_CHILD_BITMAPS_LOW);
+    if (!t->car_ok) fprintf(stderr, "track_viewer: no car %s\n", name);
+}
+
 static void free_track(Track *t)
 {
+    platform_free_file(t->car_file);
     platform_free_file(t->tri_file);
     platform_free_file(t->fam_file);
     free(t->objects);
@@ -257,6 +285,7 @@ static void render(const Track *t, uint32_t node, float yaw, int stand_in, uint8
         return;
     }
     ported_view_set_models(t->models, t->model_ok);
+    if (t->car_ok) ported_view_set_car(&t->car[0], &t->car[1], CAR_AHEAD);
     ported_view_render(&t->tri, &t->art, &t->info, node, (int32_t)(yaw / (2.0f * 3.14159265f) * 0x1000000), pixels);
 }
 
@@ -299,6 +328,7 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
 {
     Track t;
     int ok = load_track(&t, data_root, name);
+    if (ok && getenv("TNFS_CAR") != NULL) load_car(&t, data_root, getenv("TNFS_CAR"));
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
     ok = ok && pixels != NULL;
     if (ok) {

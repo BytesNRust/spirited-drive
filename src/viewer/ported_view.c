@@ -5,6 +5,7 @@
 #include "game/race/sky_ring.h"
 #include "game/race/track_render.h"
 #include "game/race/view.h"
+#include "game/race/car_draw.h"
 #include "game/race/model_draw.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
@@ -74,6 +75,41 @@ void ported_view_set_models(const ViewModel *list, const int *ok)
     models = list;
 }
 
+/* One parked car on the road, drawn with its row (0045a848). */
+static Object3D car_objects[2];
+static CarModel car;
+static int car_ok, car_ahead;
+static CarPose car_pose;
+static int32_t car_node = -1;
+
+void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)
+{
+    if (car_ok) {
+        car_model_free(&car);
+        object3d_free(&car_objects[0]);
+        object3d_free(&car_objects[1]);
+        car_ok = 0;
+    }
+    if (high == NULL || low == NULL) return;
+    if (!object3d_create(&car_objects[0], &high->mesh)) return;
+    if (!object3d_create(&car_objects[1], &low->mesh)) {
+        object3d_free(&car_objects[0]);
+        return;
+    }
+    if (high->has_textures) object3d_bind(&car_objects[0], &high->textures);
+    if (low->has_textures) object3d_bind(&car_objects[1], &low->textures);
+    car_ok = car_model_init(&car, &car_objects[0], &car_objects[1]);
+    car_ahead = ahead;
+}
+
+static void draw_cars(void *user, int32_t node)
+{
+    (void)user;
+    if (!car_ok || node != car_node) return;
+    const Object3DSink sink = object_sink(&object_pixels);
+    car_draw(&car, &car_pose, &model_view, 0, &sink);
+}
+
 typedef struct {
     const QuadTarget *quad;
     const RasterTarget *raster;
@@ -120,7 +156,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     RasterTarget target = { pixels, WIDTH, HEIGHT, 0, 0 };
     QuadTarget quad = { pixels, WIDTH, 0, 0, WIDTH, HEIGHT };
     DrawContext ctx = { &view, { 0, 0, WIDTH, HEIGHT }, WORLD_SHIFT, { 0, 0, 0x1999 },
-                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model } };
+                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars } };
     TrackCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, { 0 }, (int32_t)node };
     const int32_t cam_yaw = n.orientation * 0x400 + yaw;
     track_camera_matrix(0, cam_yaw, 0, 0, cam.matrix);
@@ -137,6 +173,13 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     track_render_build(&render, tri, art, (int32_t)node);
     track_render_transform(&render, &cam, &ctx);
     model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
+    TriNode cn;
+    car_node = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
+    if (car_ok && tri_node(tri, (uint32_t)car_node, &cn) == TRI_OK) {
+        car_pose = (CarPose){ { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
+    } else {
+        car_node = -1;
+    }
     object_pixels = (ObjectSink){ &quad, art->palette };
     track_render_draw(&render, &cam, &ctx, 0, 0);
 }
