@@ -62,6 +62,7 @@ add_executable(tnfs
     src/game/sys/video.c
     src/viewer/asset_viewer.c
     src/viewer/model_view.c
+    src/viewer/object_sink.c
     src/viewer/ported_view.c
     src/viewer/raster.c
     src/viewer/track_viewer.c

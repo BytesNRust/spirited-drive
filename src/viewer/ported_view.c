@@ -5,6 +5,8 @@
 #include "game/race/sky_ring.h"
 #include "game/race/track_render.h"
 #include "game/race/view.h"
+#include "game/race/model_draw.h"
+#include "viewer/object_sink.h"
 #include "viewer/raster.h"
 
 #include <stdlib.h>
@@ -45,24 +47,31 @@ static void draw_full_alt(void *user, const FshEntry *texture, const int32_t scr
     quad_draw_full(user, texture, screen, transparent(texture));
 }
 
-/* The 3D engine is not ported: the viewer's stand-in draws the models. */
+/* Scenery models through the ported 3D engine (00458c04), one object per
+ * model as the race keeps them. */
 static const ViewModel *models;
-static const int *model_ok;
-static RasterTarget model_target;
-static Camera model_camera;
+static Object3D objects[PORTED_VIEW_MODELS];
+static int object_ok[PORTED_VIEW_MODELS];
+static ModelView model_view;
+static ObjectSink object_pixels;
 
 static void draw_model(void *user, int model, const int32_t position[3], uint32_t heading)
 {
     (void)user;
-    if (models == NULL || model < 0 || model >= PORTED_VIEW_MODELS || !model_ok[model]) return;
-    model_draw(&models[model], &model_target, &model_camera, (TrackPoint){ position[0], position[1], position[2] },
-               heading);
+    if (model < 0 || model >= PORTED_VIEW_MODELS || !object_ok[model]) return;
+    const Object3DSink sink = object_sink(&object_pixels);
+    model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
 }
 
 void ported_view_set_models(const ViewModel *list, const int *ok)
 {
+    if (list == models) return;
+    for (int i = 0; i < PORTED_VIEW_MODELS; i++) {
+        if (object_ok[i]) object3d_free(&objects[i]);
+        object_ok[i] = list != NULL && ok[i] && object3d_create(&objects[i], &list[i].mesh);
+        if (object_ok[i] && list[i].has_textures) object3d_bind(&objects[i], &list[i].textures);
+    }
     models = list;
-    model_ok = ok;
 }
 
 typedef struct {
@@ -127,11 +136,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     }
     track_render_build(&render, tri, art, (int32_t)node);
     track_render_transform(&render, &cam, &ctx);
-    /* The stand-in model drawing works in metres with float axes. */
-    model_target = (RasterTarget){ pixels, WIDTH, HEIGHT, (float)view.focal_x, 0.3f };
-    model_camera.eye = (Vec3){ cam.position[0] / 65536.0f, cam.position[1] / 65536.0f, cam.position[2] / 65536.0f };
-    model_camera.right = (Vec3){ cam.matrix[0] / 65536.0f, cam.matrix[3] / 65536.0f, cam.matrix[6] / 65536.0f };
-    model_camera.up = (Vec3){ cam.matrix[1] / 65536.0f, cam.matrix[4] / 65536.0f, cam.matrix[7] / 65536.0f };
-    model_camera.forward = (Vec3){ cam.matrix[2] / 65536.0f, cam.matrix[5] / 65536.0f, cam.matrix[8] / 65536.0f };
+    model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
+    object_pixels = (ObjectSink){ &quad, art->palette };
     track_render_draw(&render, &cam, &ctx, 0, 0);
 }
