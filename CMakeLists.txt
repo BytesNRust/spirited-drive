@@ -16,6 +16,7 @@ endif()
 add_library(tnfs_core STATIC
     src/formats/qfs.c
     src/formats/qfs_btree.c
+    src/formats/qfs_huffman.c
     src/formats/qfs_refpack.c
 )
 target_include_directories(tnfs_core PUBLIC src)
@@ -56,4 +57,8 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_assets_qfs PRIVATE ${TNFS_WARNINGS})
         add_test(NAME assets_qfs COMMAND test_assets_qfs ${TNFS_QFS_FILES})
     endif()
+
+    add_executable(qfs_unpack tools/qfs_unpack.c)
+    target_link_libraries(qfs_unpack PRIVATE tnfs_core)
+    target_compile_options(qfs_unpack PRIVATE ${TNFS_WARNINGS})
 endif()

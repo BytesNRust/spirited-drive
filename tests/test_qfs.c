@@ -1,5 +1,5 @@
 /* QFS decoder tests. Expected behaviour follows the game's own decoders:
- * dispatcher 004a2520, RefPack 004a823c, BTree 004a96f4. */
+ * dispatcher 004a2520, RefPack 004a823c, BTree 004a96f4, Huffman 004a83b0. */
 #include "formats/qfs.h"
 #include "test.h"
 
@@ -108,6 +108,42 @@ static void test_btree(void)
     CHECK_EQ_INT(qfs_decompress(truncated, sizeof truncated, out, sizeof out), QFS_ERR_TRUNCATED);
 }
 
+/* Huffman (30FB): clue byte, per-length symbol counts (getnum) until the code
+ * space is full, symbols as skips over unused byte values, then canonical
+ * codes. clue + getnum n>0 repeats the last byte n times; clue + 0 + bit 0 +
+ * 8 bits is a literal; clue + 0 + bit 1 ends. Built by hand: clue F0, symbols
+ * 'A' (code 0) and F0 (code 1), data "AAA", run x3, literal 'z', end. */
+static void test_huffman(void)
+{
+    uint8_t src[] = { 0x30, 0xFB, 0x00, 0x00, 0x07,
+                      0xF0, 0xC1, 0x14, 0x16, 0x43, 0xF0, 0xF5, 0x90 };
+    uint8_t out[7];
+    CHECK(qfs_is_compressed(src, sizeof src));
+    CHECK_EQ_INT(qfs_decompress(src, sizeof src, out, sizeof out), QFS_OK);
+    CHECK_MEM(out, "AAAAAAz", 7);
+
+    /* 32FB: same stream, then a running sum over the output. */
+    src[0] = 0x32;
+    const uint8_t delta[] = { 0x41, 0x82, 0xC3, 0x04, 0x45, 0x86, 0x00 };
+    CHECK_EQ_INT(qfs_decompress(src, sizeof src, out, sizeof out), QFS_OK);
+    CHECK_MEM(out, delta, 7);
+
+    /* 34FB: running sum of the running sum. */
+    src[0] = 0x34;
+    const uint8_t delta2[] = { 0x41, 0xC3, 0x86, 0x8A, 0xCF, 0x55, 0x55 };
+    CHECK_EQ_INT(qfs_decompress(src, sizeof src, out, sizeof out), QFS_OK);
+    CHECK_MEM(out, delta2, 7);
+
+    /* Stream cut before the end marker. */
+    src[0] = 0x30;
+    CHECK_EQ_INT(qfs_decompress(src, 10, out, sizeof out), QFS_ERR_TRUNCATED);
+
+    /* A run with nothing decoded yet has no byte to repeat. */
+    const uint8_t run_first[] = { 0x30, 0xFB, 0x00, 0x00, 0x03,
+                                  0xF0, 0xC1, 0x14, 0x16, 0x5F, 0xFF, 0xFF };
+    CHECK_EQ_INT(qfs_decompress(run_first, sizeof run_first, out, sizeof out), QFS_ERR_CORRUPT);
+}
+
 static void test_unsupported_codes(void)
 {
     const uint8_t unknown[] = { 0x20, 0xFB, 0x00, 0x00, 0x01, 0xFC };
@@ -149,6 +185,7 @@ int main(void)
     test_medium_copy();
     test_long_copy();
     test_btree();
+    test_huffman();
     test_unsupported_codes();
     test_corrupt_input();
     return TEST_REPORT();

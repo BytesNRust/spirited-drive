@@ -62,6 +62,10 @@ QfsResult qfs_decompress(const uint8_t *src, size_t src_len, uint8_t *dst, size_
     switch (codec_of(src)) {
     case CODEC_REFPACK:
         return qfs_refpack_decode(src, src_len, start, dst, expected);
+    case CODEC_HUFF:
+    case CODEC_HUFF_DELTA:
+    case CODEC_HUFF_DELTA2:
+        return qfs_huffman_decode(src, src_len, start, dst, expected);
     case CODEC_BTREE:
         return qfs_btree_decode(src, src_len, start, dst, expected);
     default:

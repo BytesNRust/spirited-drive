@@ -6,6 +6,7 @@
 #include "formats/qfs.h"
 
 QfsResult qfs_refpack_decode(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len);
+QfsResult qfs_huffman_decode(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len);
 QfsResult qfs_btree_decode(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len);
 
 #endif
