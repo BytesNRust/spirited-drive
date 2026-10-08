@@ -1,0 +1,6 @@
+# Copyrighted game binaries/data extracted from the user-owned ISO. Never commit.
+original/
+.cache/
+build/
+ghidra/project/
+analysis/*.log
