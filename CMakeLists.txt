@@ -23,6 +23,8 @@ add_library(tnfs_core STATIC
     src/game/frontend/race_settings.c
     src/game/race/track_art.c
     src/game/race/track_geometry.c
+    src/game/race/track_objects.c
+    src/game/sys/fixed_math.c
     src/game/sys/palette.c
     src/formats/qfs.c
     src/formats/qfs_btree.c
@@ -48,6 +50,7 @@ add_executable(tnfs
     src/game/sys/timer.c
     src/game/sys/video.c
     src/viewer/asset_viewer.c
+    src/viewer/model_view.c
     src/viewer/raster.c
     src/viewer/track_viewer.c
     src/viewer/viewer_main.c

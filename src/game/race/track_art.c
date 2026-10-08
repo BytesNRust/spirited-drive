@@ -83,6 +83,37 @@ static void load_stage(TrackArt *art, const Chunk *terrain)
     }
 }
 
+static void set_scenery(TrackTexture *t, const Fsh *fsh, const char name[4])
+{
+    uint32_t index;
+    if (fsh_find(fsh, name, &index) != FSH_OK || fsh_entry(fsh, index, &t->bitmap) != FSH_OK
+        || t->bitmap.type != FSH_TYPE_BITMAP || (size_t)t->bitmap.width * t->bitmap.height > t->bitmap.payload_size)
+        return;
+    t->present = 1;
+    t->transparent = has_transparency(&t->bitmap);
+}
+
+/* 0044c36c, scenery part. */
+static void load_scenery(TrackArt *art, const Chunk *root)
+{
+    Chunk scenery, child;
+    Fsh fsh;
+    if (chunk_child(root, FAM_CHILD_SCENERY, &scenery) != CHUNK_OK || scenery.kind != CHUNK_KIND_HEADER) return;
+    if (scenery.count == 1) {
+        if (chunk_child(&scenery, 0, &child) != CHUNK_OK || !open_shpi(&child, &fsh)) return;
+        for (int id = 0; id < TRACK_SCENERY_TEXTURES; id++) {
+            char name[5];
+            snprintf(name, sizeof name, "%02d00", id);
+            set_scenery(&art->scenery[id], &fsh, name);
+        }
+        return;
+    }
+    for (uint32_t n = 0; n < scenery.count && n < TRACK_SCENERY_TEXTURES; n++) {
+        if (chunk_child(&scenery, n, &child) == CHUNK_OK && open_shpi(&child, &fsh))
+            set_scenery(&art->scenery[n], &fsh, "0000");
+    }
+}
+
 int track_art_load(TrackArt *art, const Chunk *root)
 {
     memset(art, 0, sizeof *art);
@@ -100,7 +131,7 @@ int track_art_load(TrackArt *art, const Chunk *root)
         uint32_t index;
         art->has_horizon = fsh_find(&fsh, "horz", &index) == FSH_OK && fsh_entry(&fsh, index, &art->horizon) == FSH_OK;
     }
-    /* TODO(0044c36c): scenery textures (child 1, "%02d00") and the palette
-     * setup of 004471dc / 00446f90 / 00446f58. */
+    load_scenery(art, root);
+    /* TODO(0044c36c): the palette setup of 004471dc / 00446f90 / 00446f58. */
     return 1;
 }

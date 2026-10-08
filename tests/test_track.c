@@ -4,6 +4,8 @@
 #include "formats/tri.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
+#include "game/race/track_objects.h"
+#include "game/sys/fixed_math.h"
 #include "test.h"
 
 #include <stdlib.h>
@@ -118,13 +120,61 @@ static void test_art(const char *dir)
     free(art);
 }
 
+static void test_fixed_math(void)
+{
+    CHECK_EQ_INT(fx_sin(0), 0);
+    CHECK_EQ_INT(fx_sin(0x100), 0x10000);      /* quarter turn */
+    CHECK_EQ_INT(fx_sin(0x200), 0);
+    CHECK_EQ_INT(fx_sin(0x300), -0x10000);
+    CHECK_EQ_INT(fx_cos(0), 0x10000);
+    CHECK_EQ_INT(fx_sin(8), 3215);              /* the table truncates: 3216 when rounded */
+    CHECK_EQ_INT(fx_sin(0x100 + 8), fx_sin(0x100 - 8));
+    CHECK_EQ_INT(fx_sin(0x400 + 5), fx_sin(5)); /* wraps per turn */
+}
+
+/* TR1 record 1: a two-sided billboard (descriptor 6, 10 x 5 m, side 7 m) at
+ * node 1, offset (8543, 20, 209) << 8. */
+static void test_objects(const char *dir)
+{
+    size_t size = 0;
+    Tri tri;
+    uint8_t *data = read_file(dir, "MISC/TR1.TRI", &size);
+    if (data == NULL || tri_open(&tri, data, size) != TRI_OK) {
+        CHECK(!"TR1.TRI");
+        free(data);
+        return;
+    }
+    TrackObject o;
+    TriNode n;
+    CHECK_EQ_INT(track_object(&tri, 1, &o), TRI_OK);
+    CHECK_EQ_INT(tri_node(&tri, 1, &n), TRI_OK);
+    CHECK_EQ_INT(o.node, 1);
+    CHECK_EQ_INT(o.descriptor.type, TRACK_OBJECT_TWO_SIDED);
+    CHECK_EQ_INT(o.corner_count, 6);
+    CHECK(same_point(o.origin, n.position.x + 8543 * 256, n.position.y + 20 * 256, n.position.z + 209 * 256));
+    CHECK_EQ_INT(o.corners[0].y - o.corners[3].y, 5 * 65536);  /* height */
+    CHECK_EQ_INT(o.corners[2].y, o.origin.y);                  /* bottom on the origin */
+    /* the bottom edge is centred on the origin */
+    CHECK_EQ_INT(o.corners[2].x + o.corners[3].x, 2 * o.origin.x);
+    CHECK_EQ_INT(o.corners[2].z + o.corners[3].z, 2 * o.origin.z);
+    CHECK_EQ_INT(o.corners[4].y - o.corners[5].y, 5 * 65536);
+
+    CHECK_EQ_INT(track_object(&tri, 0, &o), TRI_OK);            /* record 0: a 3D object */
+    CHECK_EQ_INT(o.descriptor.type, TRACK_OBJECT_MODEL);
+    CHECK_EQ_INT(o.corner_count, 0);
+    CHECK(track_object(&tri, tri.scenery_count, &o) != TRI_OK);
+    free(data);
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
         fprintf(stderr, "usage: %s SIMDATA_DIR\n", argv[0]);
         return 1;
     }
+    test_fixed_math();
     test_geometry(argv[1]);
+    test_objects(argv[1]);
     test_art(argv[1]);
     return TEST_REPORT();
 }

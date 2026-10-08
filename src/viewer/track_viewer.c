@@ -9,7 +9,10 @@
 #include "formats/tri.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
+#include "game/race/track_objects.h"
 #include "platform/platform.h"
+#include "viewer/camera.h"
+#include "viewer/model_view.h"
 #include "viewer/raster.h"
 
 #include <math.h>
@@ -22,7 +25,8 @@ enum {
     SCREEN_H = 480,
     DRAW_SEGMENTS = 40,   /* segments ahead of the camera */
     STRIPS = 10,          /* 5 on each side of the centre */
-    SKY_COLOUR = 0
+    SKY_COLOUR = 0,
+    TRACK_MODELS = 64      /* 005150f0, 0x138 bytes each */
 };
 
 static const float UNIT = 65536.0f;       /* node positions are 16.16 */
@@ -34,15 +38,12 @@ typedef struct {
     Tri tri;
     Chunk fam;
     TrackArt art;
+    TrackObject *objects;   /* one per scenery record */
+    uint32_t object_count;
+    ViewModel models[TRACK_MODELS];
+    int model_ok[TRACK_MODELS];
 } Track;
 
-typedef struct {
-    float x, y, z;
-} Vec3;
-
-typedef struct {
-    Vec3 eye, forward, right, up;
-} Camera;
 
 static uint8_t *read_any(const char *data_root, const char *dir, const char *name, const char *const *suffixes,
                          size_t *size)
@@ -72,6 +73,14 @@ static int load_track(Track *t, const char *data_root, const char *name)
         fprintf(stderr, "track_viewer: %s: tri %s, fam %s\n", name, tri_result_str(tr), chunk_result_str(cr));
         return 0;
     }
+    t->objects = calloc(t->tri.scenery_count + 1u, sizeof *t->objects);
+    if (t->objects == NULL) return 0;
+    Chunk objects, pair;
+    if (chunk_child(&t->fam, FAM_CHILD_OBJECTS, &objects) == CHUNK_OK && objects.kind == CHUNK_KIND_HEADER)
+        for (uint32_t i = 0; i < objects.count && i < TRACK_MODELS; i++)
+            t->model_ok[i] = chunk_child(&objects, i, &pair) == CHUNK_OK && model_load(&t->models[i], &pair);
+    for (uint32_t i = 0; i < t->tri.scenery_count; i++)
+        if (track_object(&t->tri, i, &t->objects[t->object_count]) == TRI_OK) t->object_count++;
     return 1;
 }
 
@@ -79,6 +88,7 @@ static void free_track(Track *t)
 {
     platform_free_file(t->tri_file);
     platform_free_file(t->fam_file);
+    free(t->objects);
 }
 
 static Vec3 to_world(TrackPoint p)
@@ -114,10 +124,7 @@ static Camera place_camera(const Tri *tri, uint32_t node, float yaw)
 
 static RasterVertex to_camera(const Camera *c, Vec3 p, float u, float v)
 {
-    const Vec3 d = { p.x - c->eye.x, p.y - c->eye.y, p.z - c->eye.z };
-    return (RasterVertex){ d.x * c->right.x + d.y * c->right.y + d.z * c->right.z,
-                           d.x * c->up.x + d.y * c->up.y + d.z * c->up.z,
-                           d.x * c->forward.x + d.y * c->forward.y + d.z * c->forward.z, u, v };
+    return camera_project(c, p, u, v);
 }
 
 /* Strip s joins chain points: 0-4 run from the centre along points 1..5,
@@ -150,6 +157,42 @@ static void draw_band(const RasterTarget *target, const Camera *cam, const Track
         strip_points(s, &inner, &outer);
         const Vec3 q[4] = { to_world(a[inner]), to_world(a[outer]), to_world(b[outer]), to_world(b[inner]) };
         draw_quad(target, cam, art, q, texture[s]);
+    }
+}
+
+static void draw_face(const RasterTarget *target, const Camera *cam, const TrackArt *art, const TrackPoint *c0,
+                      const TrackPoint *c1, const TrackPoint *c2, const TrackPoint *c3, uint8_t resource)
+{
+    /* The resource id indexes 005100c4 in dwords, 4 per texture. */
+    const TrackTexture *tex = resource / 4 < TRACK_SCENERY_TEXTURES ? &art->scenery[resource / 4] : NULL;
+    if (tex == NULL || !tex->present) return;
+    const float w = tex->bitmap.width, h = tex->bitmap.height;
+    const RasterVertex v[4] = { to_camera(cam, to_world(*c0), 0, 0), to_camera(cam, to_world(*c1), w, 0),
+                                to_camera(cam, to_world(*c2), w, h), to_camera(cam, to_world(*c3), 0, h) };
+    raster_polygon(target, v, 4, &tex->bitmap, tex->transparent, 0);
+}
+
+/* Objects standing on the nodes of one segment, farthest node first. */
+static void draw_objects(const RasterTarget *target, const Camera *cam, const Track *t, uint32_t segment)
+{
+    const uint32_t mask = t->tri.ring_nodes - 1;
+    for (int row = TRACK_SEGMENT_ROWS - 1; row >= 0; row--) {
+        const uint32_t node = (segment * TRI_NODES_PER_SEGMENT + (uint32_t)row) & mask;
+        /* The original walks the records backwards (0044a4b0). */
+        for (uint32_t i = t->object_count; i-- > 0;) {
+            const TrackObject *o = &t->objects[i];
+            if (o->node != node) continue;
+            if (o->descriptor.type == TRACK_OBJECT_MODEL) {
+                const uint8_t m = o->descriptor.resource_id;
+                if (m < TRACK_MODELS && t->model_ok[m]) model_draw(&t->models[m], target, cam, o->origin, o->heading);
+                continue;
+            }
+            if (o->corner_count == 0) continue;
+            const TrackPoint *c = o->corners;
+            draw_face(target, cam, &t->art, &c[0], &c[1], &c[2], &c[3], o->descriptor.resource_id);
+            if (o->corner_count == 6)
+                draw_face(target, cam, &t->art, &c[0], &c[4], &c[5], &c[3], o->descriptor.resource2_id);
+        }
     }
 }
 
@@ -189,6 +232,7 @@ static void render(const Track *t, uint32_t node, float yaw, uint8_t *pixels)
             const TrackPoint *far = r + 1 < TRACK_SEGMENT_ROWS ? seg.rows[r + 1] : next.rows[0];
             draw_band(&target, &cam, &t->art, seg.rows[r], far, seg.texture);
         }
+        draw_objects(&target, &cam, t, (uint32_t)((index + segments) % segments));
     }
 }
 
