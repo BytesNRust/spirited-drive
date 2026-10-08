@@ -43,3 +43,51 @@ int32_t fx_cos(uint32_t angle)
 {
     return fx_sin(angle + 0x100);
 }
+
+/* 00472fc0 / 00473030: 16-bit angles (0x10000 per turn). The table gives the
+ * 10-bit step; the low 6 bits interpolate along the derivative, with
+ * 0x6487e = 2 pi in 16.16. Shifts as in the original, which drop bits. */
+static int32_t interpolate(int32_t base, int32_t slope, uint32_t angle)
+{
+    const int32_t frac = (int32_t)((angle & 0x3F) * 0x6487Eu) >> 9;
+    return base + ((int32_t)((uint32_t)(slope >> 2) * (uint32_t)frac) >> 21);
+}
+
+int32_t fx_sin16(int32_t angle)
+{
+    const uint32_t a10 = (uint32_t)(angle >> 6);
+    return interpolate(fx_sin(a10), fx_cos(a10), (uint32_t)angle);
+}
+
+int32_t fx_cos16(int32_t angle)
+{
+    const uint32_t a10 = (uint32_t)(angle >> 6);
+    return interpolate(fx_cos(a10), -fx_sin(a10), (uint32_t)angle);
+}
+
+/* 00475d4c: out = a * b, each product shifted down before the sum. */
+void mat3_mul(const int32_t a[9], const int32_t b[9], int32_t out[9])
+{
+    int32_t r[9];
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            r[i * 3 + j] = fx_mul(a[i * 3], b[j]) + fx_mul(a[i * 3 + 1], b[3 + j]) + fx_mul(a[i * 3 + 2], b[6 + j]);
+    for (int i = 0; i < 9; i++) out[i] = r[i];
+}
+
+/* 00475da8: row vector times matrix, the three products summed in 64 bits. */
+void mat3_apply(const int32_t v[3], const int32_t m[9], int32_t out[3])
+{
+    int32_t r[3];
+    for (int j = 0; j < 3; j++) {
+        const int64_t sum = (int64_t)v[0] * m[j] + (int64_t)v[1] * m[3 + j] + (int64_t)v[2] * m[6 + j];
+        r[j] = (int32_t)(uint32_t)((uint64_t)sum >> 16);
+    }
+    out[0] = r[0], out[1] = r[1], out[2] = r[2];
+}
+
+/* imul + shrd 16: the low 32 bits of the product shifted right (floor). */
+int32_t fx_mul(int32_t a, int32_t b)
+{
+    return (int32_t)(uint32_t)((uint64_t)((int64_t)a * b) >> 16);
+}

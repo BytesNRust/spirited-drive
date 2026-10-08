@@ -24,6 +24,8 @@ add_library(tnfs_core STATIC
     src/game/race/track_art.c
     src/game/race/track_geometry.c
     src/game/race/track_objects.c
+    src/game/race/track_tables.c
+    src/game/race/view.c
     src/game/sys/fixed_math.c
     src/game/sys/palette.c
     src/formats/qfs.c
@@ -120,6 +122,10 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_models PRIVATE ${TNFS_WARNINGS})
         add_test(NAME models COMMAND test_models ${TNFS_MODEL_FILES})
     endif()
+
+    add_executable(probe_3d tools/probe_3d.c)
+    target_link_libraries(probe_3d PRIVATE tnfs_core)
+    target_compile_options(probe_3d PRIVATE ${TNFS_WARNINGS})
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
     target_link_libraries(qfs_unpack PRIVATE tnfs_core)
