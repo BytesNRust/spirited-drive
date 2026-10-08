@@ -245,18 +245,29 @@ static void draw_triangle_pixels(Mapper *m, const int32_t uv[6], const int32_t s
     draw_triangle(m, fuv, fscr);
 }
 
+static int tri_inputs_valid(const QuadTarget *t, const FshEntry *e)
+{
+    return t != NULL && t->pixels != NULL && t->pitch > 0 && e != NULL && e->payload != NULL &&
+           (e->type == FSH_TYPE_BITMAP || e->type == FSH_TYPE_BITMAP_TRANSPARENT) &&
+           t->clip_left >= 0 && t->clip_left < t->clip_right && t->clip_right <= MAX_CLIP_RIGHT &&
+           t->clip_top >= 0 && t->clip_top < t->clip_bottom && t->clip_bottom <= 768;
+}
+
+/* 00486400 (opaque) and 004858f0 (transparent). */
+void tri_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
+              const int32_t screen[6], int transparent)
+{
+    if (!tri_inputs_valid(target, texture) || uv == NULL || screen == NULL) return;
+    Mapper m = { .target = target, .texture = texture, .transparent = transparent,
+                 .width = (int16_t)texture->width };
+    draw_triangle_pixels(&m, uv, screen);
+}
+
 /* 00486720 and 004864f0. */
 void quad_draw_full_tri(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8],
                         int transparent)
 {
-    if (target == NULL || target->pixels == NULL || target->pitch <= 0 || texture == NULL ||
-        texture->payload == NULL || screen == NULL ||
-        (texture->type != FSH_TYPE_BITMAP && texture->type != FSH_TYPE_BITMAP_TRANSPARENT) ||
-        target->clip_left < 0 || target->clip_left >= target->clip_right ||
-        target->clip_right > MAX_CLIP_RIGHT || target->clip_top < 0 ||
-        target->clip_top >= target->clip_bottom || target->clip_bottom > 768) {
-        return;
-    }
+    if (!tri_inputs_valid(target, texture) || screen == NULL) return;
     Mapper m = { .target = target, .texture = texture, .transparent = transparent,
                  .width = (int16_t)texture->width };
     const int32_t right = (int32_t)(int16_t)texture->width - 2;

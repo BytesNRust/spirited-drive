@@ -54,4 +54,13 @@ void quad_draw_full(const QuadTarget *target, const FshEntry *texture, const int
 void quad_draw_full_tri(const QuadTarget *target, const FshEntry *texture,
                         const int32_t screen[8], int transparent);
 
+/* One textured triangle (the sky ring's mapper, called by 004252ec once per
+ * half of a quad): 00486400 (opaque) and 004858f0 (colour 0xFF transparent).
+ * uv is 3 x (u, v) in whole texels, screen 3 x (x, y) in whole pixels; both
+ * are taken as pixel centres (+0.5) and a pixel is drawn when its centre is
+ * inside, so x runs from floor(left) up to but excluding floor(right).
+ * Needs clip_right <= 32768 (see quad_tri.c). */
+void tri_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
+              const int32_t screen[6], int transparent);
+
 #endif

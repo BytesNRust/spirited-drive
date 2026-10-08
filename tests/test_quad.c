@@ -1,5 +1,5 @@
 /* Quad and triangle mapper tests. Every expected value comes from the original
- * code (NFS_WIN.EXE 00487180, 00486950, 00487a10, 004879b0, 00486720, 004864f0)
+ * code (NFS_WIN.EXE 00487180, 00486950, 00487a10, 004879b0, 00486720, 004864f0, 00486400, 004858f0)
  * run under Unicorn by `tools/emu_oracle.py quad-golden`: the CRC-32 of the
  * whole 640 x 480 surface plus 8 guard rows above and below, and for two
  * cases the drawn pixels themselves. The random comparison against the
@@ -160,6 +160,29 @@ static void test_two_triangles(void)
     free(s);
 }
 
+/* A bare triangle, as the sky ring draws: pixel centres inside, the right
+ * edge excluded, so the top row of this right triangle is 10 pixels wide. */
+static void test_triangle(void)
+{
+    uint8_t *s = new_surface();
+    FshEntry tex = texture(6, 6, tex6);
+    QuadTarget t = target(s, FULL_CLIP);
+    const int32_t uv[6] = { 0, 0, 5, 0, 5, 5 };
+    const int32_t screen[6] = { 140, 10, 150, 10, 150, 20 };
+    tri_draw(&t, &tex, uv, screen, 0);
+    CHECK_EQ_INT(crc32(s, SIZE), 0x85212103u);
+    static const uint8_t top[10] = { 0x01, 0x02, 0x02, 0xFF, 0xFF, 0x04, 0x04, 0x05, 0x05, 0x06 };
+    CHECK_MEM(row(s, 140, 10), top, 10);
+    free(s);
+
+    s = new_surface();
+    t = target(s, FULL_CLIP);
+    const int32_t skew[6] = { 160, 10, 170, 14, 162, 24 };
+    tri_draw(&t, &tex, uv, skew, 1);
+    CHECK_EQ_INT(crc32(s, SIZE), 0xea321527u);
+    free(s);
+}
+
 /* Bad targets and textures draw nothing instead of corrupting memory. */
 static void test_rejected_input(void)
 {
@@ -179,6 +202,7 @@ static void test_rejected_input(void)
     quad_draw(&good, NULL, uv, screen, 0);
     quad_draw(NULL, &tex, uv, screen, 0);
     quad_draw_full_tri(&empty, &tex, screen, 0);
+    tri_draw(&empty, &tex, uv, screen, 0);
     CHECK_EQ_INT(crc32(s, SIZE), before);
     free(s);
 }
@@ -191,6 +215,7 @@ int main(void)
     test_skewed_and_transparent();
     test_whole_texture();
     test_two_triangles();
+    test_triangle();
     test_rejected_input();
     return TEST_REPORT();
 }
