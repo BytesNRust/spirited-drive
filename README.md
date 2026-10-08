@@ -41,5 +41,5 @@ nix develop .#re -c sh -c '"$(dirname "$(readlink -f "$(which ghidra)")")/suppor
 
 - `src/platform/platform.h`: the only OS interface game code may use
 - `src/platform/sdl3/`: SDL3 backend (native and Emscripten)
-- `ghidra/scripts/`: headless Ghidra scripts
+- `ghidra/scripts/`: headless Ghidra scripts (`tools/ghidra_rebuild.sh` runs the full pipeline)
 - `analysis/`: exported maps of the original binary

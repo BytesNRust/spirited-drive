@@ -6,3 +6,6 @@ ghidra/project/
 analysis/*.log
 reference/
 __pycache__/
+# Regenerable decompiler output derived from the EA binary
+analysis/decomp/
+analysis/asm/
