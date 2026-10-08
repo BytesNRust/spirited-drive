@@ -153,6 +153,7 @@ static void add_segment(TrackRender *r, int32_t segment, int rows, ObjectCursor 
                                                          r->world[r->vertex_count - 1][2] };
     }
     memcpy(rec->texture, seg.texture, sizeof rec->texture);
+    rec->fence = seg.fence;
     const uint8_t *select = TRACK_LODS[rec->lod].select;
     for (int row = 0; row < rows; row++) {
         for (int point = 0; *select != 0xFF && point < ROW_POINTS; point++) {
@@ -405,6 +406,61 @@ static void draw_object(const TrackRender *r, const DrawContext *ctx, const Trac
     if (side != NULL && on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, side, screen);
 }
 
+/* ---- fences (0044a2b4) ---- */
+
+/* 0044a1c4: a world point to the screen, pushed onto the near plane. */
+static void fence_point(const TrackCamera *cam, const DrawContext *ctx, const int32_t world[3], int32_t camera[3],
+                        int32_t screen[2])
+{
+    const int shift = ctx->world_shift;
+    const int32_t t[3] = { (world[0] - cam->position[0]) >> shift, (world[1] - cam->position[1]) >> shift,
+                           (world[2] - cam->position[2]) >> shift };
+    mat3_apply(t, cam->matrix, camera);
+    int32_t p[3] = { camera[0], camera[1], camera[2] };
+    push_to(p, NEAR_PLANE >> shift, ctx->near_dir);
+    view_project(ctx->view, p, screen);
+}
+
+/* A fence along one road edge of the row just finished: the edge's two
+ * vertices (from the LOD table, per node phase), raised by 2 m, or 0.9 m
+ * when the segment's fence byte has bit 0x20. Textured like the row's last
+ * polygon, from texture slot 0x20 + (fence & 0x1f). */
+static void draw_fence(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, const uint8_t pair[2],
+                       int base, const TrackUv *uv, int variant, int texture, int tall)
+{
+    const int a = base + pair[0], b = base + pair[1];
+    const int32_t near = NEAR_PLANE >> ctx->world_shift;
+    if (a < 0 || b < 0 || a >= r->vertex_count || b >= r->vertex_count || r->camera[b][2] < near) return;
+    const int32_t height = tall ? 0x20000 : 0xE666;
+    const int32_t top_b[3] = { r->world[b][0], r->world[b][1] + height, r->world[b][2] };
+    const int32_t top_a[3] = { r->world[a][0], r->world[a][1] + height, r->world[a][2] };
+    int32_t cam_tb[3], cam_ta[3], screen[8];
+    fence_point(cam, ctx, top_b, cam_tb, &screen[0]);
+    fence_point(cam, ctx, top_a, cam_ta, &screen[2]);
+    screen[4] = r->screen[a][0], screen[5] = r->screen[a][1];
+    screen[6] = r->screen[b][0], screen[7] = r->screen[b][1];
+    if (outcode_shared(&ctx->clip, screen, 4) != 0) return;
+    const FshEntry *tex = texture_of(r->art, texture, uv->variant + variant);
+    if (tex == NULL) return;
+    if (uv->variant == 0) {
+        const int32_t *corners[4] = { cam_tb, cam_ta, r->camera[a], r->camera[b] };
+        track_draw_subdivided(ctx, tex, uv->u_level, 0, uv->u_cell, 0, corners, screen, near);
+    } else {
+        ctx->sink.draw_full_alt(ctx->sink.user, tex, screen);
+    }
+}
+
+/* Both edges, as 0044b510 / 0044ad5c do after a row band. */
+static void draw_fences(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx,
+                        const TrackSegmentRecord *rec, int32_t node, int base, const TrackUv *uv, int variant)
+{
+    const uint8_t fence = rec->fence;
+    const int texture = (fence & 0x1F) + 0x20, tall = (fence & 0x20) == 0, phase = (node & 3) * 2;
+    const TrackLod *lod = &TRACK_LODS[rec->lod];
+    if (fence & TRI_FENCE_LEFT) draw_fence(r, cam, ctx, &lod->fence[8 + phase], base, uv, variant, texture, tall);
+    if (fence & TRI_FENCE_RIGHT) draw_fence(r, cam, ctx, &lod->fence[phase], base, uv, variant, texture, tall);
+}
+
 /* After a band of rows: each row's objects, then the next row. */
 static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w, int rows)
 {
@@ -452,6 +508,7 @@ static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawCon
                 if (tex != NULL) ctx->sink.draw_full(ctx->sink.user, tex, screen);
             }
             if (p->rows_done != 0) {
+                if (drawable(r, segment)) draw_fences(r, cam, ctx, rec, w->node, base, &TRACK_UVS[p->uv], variant);
                 pass_rows(r, ctx, w, p->rows_done);
                 row -= p->rows_done;
                 rows_left -= p->rows_done;
@@ -490,6 +547,7 @@ static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawCo
                 if (tex != NULL) track_draw_subdivided(ctx, tex, uv->u_level, 0, uv->u_cell, 0, corners, screen, near);
             }
             if (p->rows_done != 0) {
+                if (drawable(r, segment)) draw_fences(r, cam, ctx, rec, w->node, base, &TRACK_UVS[p->uv], variant);
                 pass_rows(r, ctx, w, p->rows_done);
                 row -= p->rows_done;
                 variant = variant_near(row);

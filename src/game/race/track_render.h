@@ -8,9 +8,10 @@
  *                           4 nearest with subdivision (00425718)
  *
  * Scenery is placed while the vertex list is built (0043eca4) and drawn
- * after each row of road (0044a4b0), farthest first. Fences, cars and
- * shadows, which the original also interleaves row by row, are not drawn
- * yet (TODO(0044a2b4), TODO(00459eb8)). */
+ * after each row of road (0044a4b0), farthest first. Fences go up at
+ * the end of each row band (0044a2b4). Cars and shadows, which the
+ * original also interleaves row by row, are not drawn yet
+ * (TODO(00459eb8)). */
 #ifndef TNFS_TRACK_RENDER_H
 #define TNFS_TRACK_RENDER_H
 
@@ -45,6 +46,7 @@ typedef struct {
     int first;      /* 0050422a */
     int count;      /* 0050422c */
     uint8_t texture[10];
+    uint8_t fence;  /* TRI_FENCE_* */
 } TrackSegmentRecord;
 
 typedef struct {
