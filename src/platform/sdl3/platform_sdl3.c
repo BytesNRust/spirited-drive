@@ -15,6 +15,11 @@ static uint32_t *rgb_buffer;
 static int fb_width;
 static int fb_height;
 
+enum { KEY_QUEUE_SIZE = 16 };
+static PlatformKey key_queue[KEY_QUEUE_SIZE];
+static int key_head;
+static int key_count;
+
 bool platform_init(const PlatformConfig *config)
 {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
@@ -56,13 +61,49 @@ void platform_shutdown(void)
     SDL_Quit();
 }
 
+static PlatformKey translate_key(SDL_Keycode key)
+{
+    switch (key) {
+    case SDLK_LEFT: return PLATFORM_KEY_LEFT;
+    case SDLK_RIGHT: return PLATFORM_KEY_RIGHT;
+    case SDLK_RETURN: return PLATFORM_KEY_ENTER;
+    case SDLK_ESCAPE: return PLATFORM_KEY_ESCAPE;
+    default: return PLATFORM_KEY_NONE;
+    }
+}
+
 bool platform_poll_events(void)
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) return false;
+        if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
+            const PlatformKey key = translate_key(event.key.key);
+            if (key != PLATFORM_KEY_NONE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
+        }
     }
     return true;
+}
+
+PlatformKey platform_next_key(void)
+{
+    if (key_count == 0) return PLATFORM_KEY_NONE;
+    const PlatformKey key = key_queue[key_head];
+    key_head = (key_head + 1) % KEY_QUEUE_SIZE;
+    key_count--;
+    return key;
+}
+
+uint8_t *platform_read_file(const char *path, size_t *size)
+{
+    uint8_t *data = SDL_LoadFile(path, size);
+    if (data == NULL) fprintf(stderr, "platform: cannot read %s: %s\n", path, SDL_GetError());
+    return data;
+}
+
+void platform_free_file(uint8_t *data)
+{
+    SDL_free(data);
 }
 
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])

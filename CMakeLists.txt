@@ -14,6 +14,7 @@ endif()
 
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
+    src/formats/fsh.c
     src/formats/qfs.c
     src/formats/qfs_btree.c
     src/formats/qfs_huffman.c
@@ -24,6 +25,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 add_executable(tnfs
     src/main.c
+    src/viewer/asset_viewer.c
     src/platform/sdl3/platform_sdl3.c
 )
 target_link_libraries(tnfs PRIVATE tnfs_core)
@@ -40,7 +42,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs)
+    foreach(name qfs fsh)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -50,12 +52,14 @@ endif()
 
 # Integration tests over the user's own CD data (original/ is gitignored).
 if(NOT EMSCRIPTEN)
-    file(GLOB_RECURSE TNFS_QFS_FILES "${CMAKE_SOURCE_DIR}/original/*.QFS" "${CMAKE_SOURCE_DIR}/original/*.qfs")
-    if(TNFS_QFS_FILES)
-        add_executable(test_assets_qfs tests/test_assets_qfs.c)
-        target_link_libraries(test_assets_qfs PRIVATE tnfs_core)
-        target_compile_options(test_assets_qfs PRIVATE ${TNFS_WARNINGS})
-        add_test(NAME assets_qfs COMMAND test_assets_qfs ${TNFS_QFS_FILES})
+    file(GLOB_RECURSE TNFS_ASSET_FILES
+        "${CMAKE_SOURCE_DIR}/original/*.QFS" "${CMAKE_SOURCE_DIR}/original/*.qfs"
+        "${CMAKE_SOURCE_DIR}/original/*.FSH" "${CMAKE_SOURCE_DIR}/original/*.fsh")
+    if(TNFS_ASSET_FILES)
+        add_executable(test_assets tests/test_assets.c)
+        target_link_libraries(test_assets PRIVATE tnfs_core)
+        target_compile_options(test_assets PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME assets COMMAND test_assets ${TNFS_ASSET_FILES})
     endif()
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
