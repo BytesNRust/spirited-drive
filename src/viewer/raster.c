@@ -125,3 +125,27 @@ void raster_screen_quad(const RasterTarget *t, const int32_t screen[8], const in
     screen_triangle(t, xa, ya, ua, va, texture, transparent);
     screen_triangle(t, xb, yb, ub, vb, texture, transparent);
 }
+
+void raster_screen_triangle(const RasterTarget *t, const int32_t screen[6], const int32_t uv[6], const FshEntry *texture,
+                            int transparent)
+{
+    float x[3], y[3], u[3], v[3];
+    for (int i = 0; i < 3; i++) {
+        if (screen[2 * i] < -100000 || screen[2 * i] > 100000 || screen[2 * i + 1] < -100000 || screen[2 * i + 1] > 100000)
+            return;  /* behind the eye */
+        x[i] = (float)screen[2 * i], y[i] = (float)screen[2 * i + 1];
+        u[i] = (float)uv[2 * i], v[i] = (float)uv[2 * i + 1];
+    }
+    screen_triangle(t, x, y, u, v, texture, transparent);
+}
+
+void raster_fill(const RasterTarget *t, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
+{
+    int64_t x1 = (int64_t)x + w, y1 = (int64_t)y + h;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x1 > t->width) x1 = t->width;
+    if (y1 > t->height) y1 = t->height;
+    for (int64_t row = y; row < y1; row++)
+        for (int64_t col = x; col < x1; col++) t->pixels[row * t->width + col] = colour;
+}

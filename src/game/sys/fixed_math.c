@@ -92,6 +92,14 @@ int32_t fx_mul(int32_t a, int32_t b)
     return (int32_t)(uint32_t)((uint64_t)((int64_t)a * b) >> 16);
 }
 
+/* imul + shrd 16 + adc 0: the low 32 bits of the product shifted right,
+ * plus bit 15 (round half up). */
+int32_t fx_mul_round(int32_t a, int32_t b)
+{
+    const uint64_t p = (uint64_t)((int64_t)a * b);
+    return (int32_t)((uint32_t)(p >> 16) + (uint32_t)((p >> 15) & 1));
+}
+
 /* 004f4074: atan over [0, 1] in 256 steps, 16-bit angles. */
 static const uint16_t ATAN_TABLE[257] = {
     0, 41, 81, 122, 163, 204, 244, 285, 326, 367, 407, 448,

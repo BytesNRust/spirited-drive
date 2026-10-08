@@ -38,13 +38,19 @@ void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale
     }
 }
 
-int32_t horizon_line(const View *view, int world_shift, int32_t yaw, const int32_t matrix[9])
+void horizon_point(const View *view, int world_shift, int32_t yaw, const int32_t matrix[9], int32_t screen[2])
 {
     const uint32_t a = (uint32_t)(yaw >> 14);
     const int32_t far[3] = { (fx_sin(a) * 0x100) >> world_shift, 0, (fx_cos(a) * 0x100) >> world_shift };
-    int32_t cam[3], screen[2];
+    int32_t cam[3];
     mat3_apply(far, matrix, cam);
     view_project(view, cam, screen);
+}
+
+int32_t horizon_line(const View *view, int world_shift, int32_t yaw, const int32_t matrix[9])
+{
+    int32_t screen[2];
+    horizon_point(view, world_shift, yaw, matrix, screen);
     return screen[1];
 }
 

@@ -30,4 +30,12 @@ void raster_polygon(const RasterTarget *t, const RasterVertex *in, int count, co
 void raster_screen_quad(const RasterTarget *t, const int32_t screen[8], const int32_t uv[8], const FshEntry *texture,
                         int transparent);
 
+/* Screen-space triangle with affine texture mapping: screen is 3 corners of
+ * (x, y) pixels, uv 3 corners of (u, v) texels (not 16.16). */
+void raster_screen_triangle(const RasterTarget *t, const int32_t screen[6], const int32_t uv[6], const FshEntry *texture,
+                            int transparent);
+
+/* A solid rectangle clipped to the target. */
+void raster_fill(const RasterTarget *t, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour);
+
 #endif
