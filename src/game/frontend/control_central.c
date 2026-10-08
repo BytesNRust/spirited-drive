@@ -6,6 +6,7 @@
 #include "game/frontend/frontend.h"
 
 #include "game/frontend/dialog.h"
+#include "game/frontend/config.h"
 #include "game/frontend/race_settings.h"
 
 #include "formats/fsh.h"
@@ -120,8 +121,7 @@ typedef struct {
 
 /* 00524e5b...: kept between visits, as the original's globals. */
 static RaceSettings settings;
-static int settings_ready;
-static const Unlocks unlocks;  /* TODO(0042a010): from config.dat (0052ad3e) */
+static Unlocks unlocks;  /* from the unlock level in config.dat (0052ad40) */
 
 static int in_rect(const Rect *r)
 {
@@ -389,14 +389,25 @@ static void unload(Central *c)
     resource_free(c->data);
 }
 
+/* 00432ff4: the race setup comes from config.dat (0042a010) and the unlocks
+ * from its unlock level; the track variants always start off. */
+static void load_settings(void)
+{
+    ConfigDat *config = config_current();
+    if (!config_dat_get_race(config, &settings)) {
+        ConfigDat defaults;
+        config_dat_defaults(&defaults, resource_german());
+        config_dat_get_race(&defaults, &settings);
+    }
+    settings.variant_m = settings.variant_r = 0;
+    unlocks = config_dat_unlocks(config);
+    if (settings.track == TRACK_LOST_VEGAS && !unlocks.lost_vegas) settings.track = 0;
+}
+
 int control_central(void)
 {
     Central c = { 0 };
-    if (!settings_ready) {
-        /* TODO(00466ae4): defaults come from config.dat in the original. */
-        race_settings_init(&settings);
-        settings_ready = 1;
-    }
+    load_settings();
     if (settings.player_car == CAR_WARRIOR && !unlocks.warrior) settings.player_car = 0;
     c.focus = FOCUS_PLAYER;
     c.redraw = c.fade_in = c.key_armed = c.button_armed = 1;
@@ -411,5 +422,6 @@ int control_central(void)
     video_fade_out(0, PALETTE_COLORS);
     video_set_overlay(NULL, 0, 0);
     unload(&c);
+    config_dat_set_race(config_current(), &settings);
     return c.result;
 }

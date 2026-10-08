@@ -16,6 +16,7 @@ endif()
 add_library(tnfs_core STATIC
     src/formats/ffn.c
     src/formats/fsh.c
+    src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
     src/game/sys/palette.c
     src/formats/qfs.c
@@ -28,6 +29,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 add_executable(tnfs
     src/main.c
+    src/game/frontend/config.c
     src/game/frontend/control_central.c
     src/game/frontend/dialog.c
     src/game/frontend/frontend.c
@@ -58,7 +60,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn palette race_settings)
+    foreach(name qfs fsh ffn palette race_settings config_dat)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -77,6 +79,13 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_assets PRIVATE tnfs_core)
         target_compile_options(test_assets PRIVATE ${TNFS_WARNINGS})
         add_test(NAME assets COMMAND test_assets ${TNFS_ASSET_FILES})
+    endif()
+
+    file(GLOB TNFS_CONFIG_DAT "${CMAKE_SOURCE_DIR}/original/GAMEDATA/CONFIG/CONFIG.DAT"
+        "${CMAKE_SOURCE_DIR}/original/gamedata/config/config.dat")
+    if(TNFS_CONFIG_DAT)
+        list(GET TNFS_CONFIG_DAT 0 TNFS_CONFIG_DAT_FILE)
+        add_test(NAME config_dat_cd COMMAND test_config_dat ${TNFS_CONFIG_DAT_FILE})
     endif()
 
     add_executable(qfs_unpack tools/qfs_unpack.c)

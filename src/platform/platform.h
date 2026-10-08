@@ -66,6 +66,12 @@ bool platform_mouse(int *x, int *y, unsigned *buttons);
 uint8_t *platform_read_file(const char *path, size_t *size);
 void platform_free_file(uint8_t *data);
 
+/* Per-user writable storage for what the game saves (config.dat). The CD
+ * data is read-only and must never be written. Names are plain file names,
+ * no directories. */
+uint8_t *platform_read_user_file(const char *name, size_t *size);  /* release with platform_free_file */
+bool platform_write_user_file(const char *name, const uint8_t *data, size_t size);
+
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
 

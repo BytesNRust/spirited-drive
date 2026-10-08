@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -328,6 +329,41 @@ uint8_t *platform_read_file(const char *path, size_t *size)
 void platform_free_file(uint8_t *data)
 {
     SDL_free(data);
+}
+
+/* The writable directory of the game, from SDL_GetPrefPath; NULL when the
+ * platform has none. */
+static const char *user_path(const char *name, char *out, size_t out_size)
+{
+    static char *pref;
+    if (pref == NULL) pref = SDL_GetPrefPath("tnfs", "tnfs");
+    if (pref == NULL || strpbrk(name, "/\\") != NULL) return NULL;
+    SDL_snprintf(out, out_size, "%s%s", pref, name);
+    return out;
+}
+
+uint8_t *platform_read_user_file(const char *name, size_t *size)
+{
+    char path[1024];
+    if (user_path(name, path, sizeof path) == NULL) return NULL;
+    return SDL_LoadFile(path, size);
+}
+
+bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
+{
+    char path[1024], temp[1100];
+    if (user_path(name, path, sizeof path) == NULL) return false;
+    /* Write beside the target and rename, so a crash cannot truncate a good file. */
+    SDL_snprintf(temp, sizeof temp, "%s.tmp", path);
+    if (!SDL_SaveFile(temp, data, size)) {
+        fprintf(stderr, "platform: cannot write %s: %s\n", temp, SDL_GetError());
+        return false;
+    }
+    if (!SDL_RenamePath(temp, path)) {
+        fprintf(stderr, "platform: cannot rename %s: %s\n", temp, SDL_GetError());
+        return false;
+    }
+    return true;
 }
 
 static void capture_frame(void)
