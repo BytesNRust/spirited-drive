@@ -15,6 +15,7 @@ endif()
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
     src/formats/fsh.c
+    src/game/sys/palette.c
     src/formats/qfs.c
     src/formats/qfs_btree.c
     src/formats/qfs_huffman.c
@@ -25,7 +26,14 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 add_executable(tnfs
     src/main.c
+    src/game/frontend/frontend.c
+    src/game/frontend/screens.c
+    src/game/sys/input.c
+    src/game/sys/resource.c
+    src/game/sys/timer.c
+    src/game/sys/video.c
     src/viewer/asset_viewer.c
+    src/viewer/viewer_main.c
     src/platform/sdl3/platform_sdl3.c
 )
 target_link_libraries(tnfs PRIVATE tnfs_core)
@@ -42,7 +50,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh)
+    foreach(name qfs fsh palette)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

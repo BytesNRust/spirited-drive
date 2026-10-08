@@ -26,6 +26,20 @@ nix develop .#web -c sh -c 'emcmake cmake -S . -B build/web -G Ninja && cmake --
 
 Serve `build/web/` over HTTP (`python3 -m http.server -d build/web`) and open `tnfs.html`.
 
+## Run
+
+```sh
+./build/native/tnfs [--data original] [--german]      # boot: EA logo, title (menu not ported yet)
+./build/native/tnfs --view original/FRONTEND/ART/TITLE.QFS   # browse FSH/QFS bitmaps
+```
+
+Headless check of the boot screens (every 15th presented frame as PPM):
+
+```sh
+SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software TNFS_CAPTURE_DIR=/tmp/frames \
+  TNFS_CAPTURE_EVERY=15 ./build/native/tnfs
+```
+
 ## Analysis
 
 ```sh
@@ -34,11 +48,18 @@ nix develop .#re -c sh -c '"$(dirname "$(readlink -f "$(which ghidra)")")/suppor
   -scriptPath ghidra/scripts -postScript ExportMap.java "$PWD/analysis/nfs_win"'
 ```
 
-`ExportMap.java` writes memory blocks, imports, functions and strings as TSV to
-`analysis/nfs_win/`. Open the project interactively with `nix develop .#re -c ghidra`.
+`ExportMap.java` writes memory blocks, imports, functions, call edges and
+strings as TSV to `analysis/nfs_win/`. Helpers: `tools/callgraph.py` (paths and
+trees), `tools/fsummary.py` (per-function APIs, strings, callees),
+`tools/peek.py` (initialised data), `tools/emu_oracle.py` (runs original
+functions under Unicorn for byte-exact checks). Open the project interactively with `nix develop .#re -c ghidra`.
 
 ## Layout
 
+- `src/game/`: recovered game code; each function names its NFS_WIN.EXE address
+  - `sys/`: EA system layer (timer, video and palette fades, input, resources)
+  - `frontend/`: boot screens and the front-end state machine
+- `src/formats/`: QFS (RefPack, Huffman, BTree) and FSH, verified against the original
 - `src/platform/platform.h`: the only OS interface game code may use
 - `src/platform/sdl3/`: SDL3 backend (native and Emscripten)
 - `ghidra/scripts/`: headless Ghidra scripts (`tools/ghidra_rebuild.sh` runs the full pipeline)

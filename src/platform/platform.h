@@ -25,8 +25,11 @@ typedef enum {
     PLATFORM_KEY_NONE = 0,
     PLATFORM_KEY_LEFT,
     PLATFORM_KEY_RIGHT,
+    PLATFORM_KEY_UP,
+    PLATFORM_KEY_DOWN,
     PLATFORM_KEY_ENTER,
-    PLATFORM_KEY_ESCAPE
+    PLATFORM_KEY_ESCAPE,
+    PLATFORM_KEY_SPACE
 } PlatformKey;
 
 /* Pumps OS events. Returns false once the user asked to quit. */
@@ -41,6 +44,10 @@ void platform_free_file(uint8_t *data);
 
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
+
+/* Blocks until the next display refresh (paced at 60 Hz on every target).
+ * The original waited on DirectDraw's WaitForVerticalBlank. */
+void platform_wait_vblank(void);
 
 uint32_t platform_ticks_ms(void);
 

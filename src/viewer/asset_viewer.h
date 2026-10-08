@@ -23,4 +23,8 @@ void asset_viewer_free(AssetViewer *viewer);
 /* Draws the n-th bitmap (0 .. bitmap_count-1) into an 8-bit framebuffer. */
 int asset_viewer_render(const AssetViewer *viewer, uint32_t bitmap, uint8_t *pixels, int width, int height);
 
+/* viewer_main.c: window (left/right to browse) or, with a screenshot path, a
+ * headless PPM render of one bitmap. */
+int asset_viewer_main(const char *path, uint32_t entry, const char *screenshot);
+
 #endif

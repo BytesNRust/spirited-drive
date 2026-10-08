@@ -15,7 +15,14 @@ static uint32_t *rgb_buffer;
 static int fb_width;
 static int fb_height;
 
-enum { KEY_QUEUE_SIZE = 16 };
+enum { KEY_QUEUE_SIZE = 16, VBLANK_HZ = 60 };
+
+/* TNFS_CAPTURE_DIR=dir [TNFS_CAPTURE_EVERY=n]: write every n-th presented
+ * frame as dir/frame_NNNNN.ppm, to check the game's screens headless. */
+static const char *capture_dir;
+static int capture_every = 30;
+static unsigned presented_frames;
+static uint64_t next_vblank_ns;
 static PlatformKey key_queue[KEY_QUEUE_SIZE];
 static int key_head;
 static int key_count;
@@ -35,7 +42,9 @@ bool platform_init(const PlatformConfig *config)
         return false;
     }
     SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
-    SDL_SetRenderVSync(renderer, 1);
+    capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
+    const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
+    if (every != NULL && SDL_atoi(every) > 0) capture_every = SDL_atoi(every);
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, fb_width, fb_height);
     rgb_buffer = malloc((size_t)fb_width * (size_t)fb_height * sizeof *rgb_buffer);
@@ -66,8 +75,11 @@ static PlatformKey translate_key(SDL_Keycode key)
     switch (key) {
     case SDLK_LEFT: return PLATFORM_KEY_LEFT;
     case SDLK_RIGHT: return PLATFORM_KEY_RIGHT;
+    case SDLK_UP: return PLATFORM_KEY_UP;
+    case SDLK_DOWN: return PLATFORM_KEY_DOWN;
     case SDLK_RETURN: return PLATFORM_KEY_ENTER;
     case SDLK_ESCAPE: return PLATFORM_KEY_ESCAPE;
+    case SDLK_SPACE: return PLATFORM_KEY_SPACE;
     default: return PLATFORM_KEY_NONE;
     }
 }
@@ -106,6 +118,30 @@ void platform_free_file(uint8_t *data)
     SDL_free(data);
 }
 
+static void capture_frame(void)
+{
+    if (capture_dir == NULL || presented_frames++ % (unsigned)capture_every != 0) return;
+    char path[1024];
+    SDL_snprintf(path, sizeof path, "%s/frame_%05u.ppm", capture_dir, presented_frames - 1);
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) return;
+    fprintf(f, "P6\n%d %d\n255\n", fb_width, fb_height);
+    for (int i = 0; i < fb_width * fb_height; i++) {
+        const uint8_t px[3] = { (uint8_t)(rgb_buffer[i] >> 16), (uint8_t)(rgb_buffer[i] >> 8), (uint8_t)rgb_buffer[i] };
+        fwrite(px, 1, 3, f);
+    }
+    fclose(f);
+}
+
+void platform_wait_vblank(void)
+{
+    const uint64_t period = SDL_NS_PER_SECOND / VBLANK_HZ;
+    const uint64_t now = SDL_GetTicksNS();
+    if (next_vblank_ns == 0 || now > next_vblank_ns + period) next_vblank_ns = now;  /* resync after stalls */
+    next_vblank_ns += period;
+    if (next_vblank_ns > now) platform_sleep_ms((uint32_t)((next_vblank_ns - now) / SDL_NS_PER_MS));
+}
+
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
 {
     uint32_t lut[256];
@@ -116,6 +152,7 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
     for (size_t i = 0; i < count; i++) {
         rgb_buffer[i] = lut[pixels[i]];
     }
+    capture_frame();
     SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
