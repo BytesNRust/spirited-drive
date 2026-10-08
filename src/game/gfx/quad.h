@@ -24,6 +24,16 @@
 
 #include <stdint.h>
 
+/* How a texel reaches the surface. The object engine's third table column
+ * (mode 2) is the shadow variant: colour 0xFF is skipped as in MAP_TRANSPARENT
+ * and colour 0xFE is replaced by shade[destination pixel], the 256-entry
+ * lookup the game keeps at 004c6604 (it darkens what is already there). */
+typedef enum {
+    MAP_OPAQUE = 0,
+    MAP_TRANSPARENT = 1,
+    MAP_SHADE = 2
+} MapMode;
+
 typedef struct {
     uint8_t *pixels;  /* 8-bit surface; row y starts at pixels + y * pitch */
     int pitch;        /* bytes per row */
@@ -40,6 +50,11 @@ typedef struct {
 /* Opaque (00487180) or, with transparent set, colour 0xFF skipped (00486950). */
 void quad_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
                const int32_t screen[8], int transparent);
+
+/* The same as quad_draw, with any MapMode: 00487180, 00486950 or 004aa600.
+ * shade is read only for MAP_SHADE and must then point at 256 bytes. */
+void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
+                    const int32_t screen[8], MapMode mode, const uint8_t *shade);
 
 /* The whole texture mapped onto the screen corners as one quad, uv from
  * (0,0) to ((width << 16) - 1, (height << 16) - 1): 00487a10 (opaque) and
@@ -62,5 +77,9 @@ void quad_draw_full_tri(const QuadTarget *target, const FshEntry *texture,
  * Needs clip_right <= 32768 (see quad_tri.c). */
 void tri_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
               const int32_t screen[6], int transparent);
+
+/* The same as tri_draw, with any MapMode: 00486400, 004858f0 or 004aa510. */
+void tri_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
+                   const int32_t screen[6], MapMode mode, const uint8_t *shade);
 
 #endif

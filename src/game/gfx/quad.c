@@ -9,6 +9,7 @@
  * only matters for self-intersecting quads that leave rows unwritten. */
 #include "game/gfx/quad.h"
 
+#include "game/gfx/quad_pixel.h"
 #include "game/gfx/x86_int.h"
 
 #include <stddef.h>
@@ -17,7 +18,6 @@
 enum {
     ROWS = 768,            /* entries in each per-scanline table (0x300) */
     TEXEL_BITS = 8,        /* bits per texel and per surface pixel */
-    TRANSPARENT_TEXEL = 0xFF,
     FSH_TYPE_BITMAP_TRANSPARENT = 0x45
 };
 
@@ -189,13 +189,12 @@ static void trace_outline(const Outline *o, int step)
  * reads one texel ahead through them, which comes to the same thing. The
  * original stores whole dwords in the opaque case, the bytes are the same. */
 static void draw_span(uint8_t *dst, const FshEntry *tex, int64_t offset, const Span *s,
-                      int transparent)
+                      const Paint *paint)
 {
     uint32_t u_frac = (uint16_t)s->u, v_frac = (uint16_t)s->v;
     const uint32_t du = (uint16_t)s->du, dv = (uint16_t)s->dv;
     for (int32_t i = 0; i < s->count; i++) {
-        const uint8_t texel = texel_at(tex, offset);
-        if (!transparent || texel != TRANSPARENT_TEXEL) dst[i] = texel;
+        paint_texel(paint, dst + i, texel_at(tex, offset));
         u_frac += du;
         v_frac += dv;
         offset += (int64_t)(u_frac >> 16) + ((v_frac >> 16) ? s->step_carry : s->step_plain);
@@ -214,7 +213,7 @@ static int64_t texel_offset(const Texture *tex, int32_t u, int32_t v)
 /* Per-row setup in 00487180: clips the row's span horizontally, derives the
  * u and v steps and the two texel offset steps, and draws it. */
 static void draw_row(const QuadTarget *t, const Texture *tex, Edges *e, int32_t y, int32_t width,
-                     int transparent)
+                     const Paint *paint)
 {
     int32_t left = e->x_left[y];
     int32_t u = e->u_left[y], v = e->v_left[y];
@@ -238,7 +237,7 @@ static void draw_row(const QuadTarget *t, const Texture *tex, Edges *e, int32_t 
         .count = width,
     };
     uint8_t *dst = t->pixels + (size_t)y * (size_t)t->pitch + left;
-    draw_span(dst, tex->texture, texel_offset(tex, u, v), &span, transparent);
+    draw_span(dst, tex->texture, texel_offset(tex, u, v), &span, paint);
 }
 
 static int span_visible(const QuadTarget *t, const Edges *e, int32_t y)
@@ -279,7 +278,7 @@ static int choose_direction(const int32_t screen[8], int top)
 }
 
 static void draw_quad(const QuadTarget *t, const FshEntry *texture, const int32_t uv[8],
-                      const int32_t screen[8], int transparent)
+                      const int32_t screen[8], const Paint *paint)
 {
     Edges edges;
     memset(&edges, 0, sizeof edges);
@@ -309,16 +308,27 @@ static void draw_quad(const QuadTarget *t, const FshEntry *texture, const int32_
             rows++;
             continue;
         }
-        if (span_visible(t, &edges, y)) draw_row(t, &tex, &edges, y, width, transparent);
+        if (span_visible(t, &edges, y)) draw_row(t, &tex, &edges, y, width, paint);
         y++;
     }
+}
+
+/* 00487180 (MAP_OPAQUE), 00486950 (MAP_TRANSPARENT), 004aa600 (MAP_SHADE): the
+ * three are one function but for the span routine they call. */
+void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
+                    const int32_t screen[8], MapMode mode, const uint8_t *shade)
+{
+    const Paint paint = { mode, shade };
+    if (!target_valid(target) || !texture_valid(texture) || uv == NULL || screen == NULL ||
+        !paint_valid(&paint))
+        return;
+    draw_quad(target, texture, uv, screen, &paint);
 }
 
 void quad_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
                const int32_t screen[8], int transparent)
 {
-    if (!target_valid(target) || !texture_valid(texture) || uv == NULL || screen == NULL) return;
-    draw_quad(target, texture, uv, screen, transparent);
+    quad_draw_mode(target, texture, uv, screen, transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL);
 }
 
 /* 00487a10 and 004879b0. */
