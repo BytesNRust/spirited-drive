@@ -5,6 +5,8 @@
  * Field comments name the original's locals. */
 #include "game/frontend/frontend.h"
 
+#include "game/frontend/dialog.h"
+
 #include "formats/fsh.h"
 #include "game/sys/input.h"
 #include "game/sys/palette.h"
@@ -110,10 +112,12 @@ static void choose(Menu *m)
 
 static void exit_to_system(Menu *m)
 {
-    /* TODO(00465f4c): "Exit to system?" yes/no dialog; needs FFN fonts.
-     * Until then the request is taken as confirmed. */
-    m->done = 1;
-    m->result = 1;
+    /* TODO(0046492c): select sound 0x48. */
+    const char *title = resource_german() ? "Zur\xFC" "ck zum system ?" : "Exit to system ?";
+    if (dialog_yes_no(title)) {
+        m->done = 1;
+        m->result = 1;
+    }
 }
 
 static void move_selection(Menu *m, int step)

@@ -44,8 +44,61 @@ static void test_fade_steps(void)
     CHECK_EQ_INT(palette_fade_out_step(16), 0);
 }
 
+static void test_nearest(void)
+{
+    uint8_t pal[768] = { 0 };
+    uint8_t usable[256];
+    memset(usable, 1, sizeof usable);
+    pal[3 * 1] = 250; pal[3 * 1 + 1] = 10;  pal[3 * 1 + 2] = 10;   /* red */
+    pal[3 * 2] = 10;  pal[3 * 2 + 1] = 250; pal[3 * 2 + 2] = 10;   /* green */
+    pal[3 * 3] = 250; pal[3 * 3 + 1] = 10;  pal[3 * 3 + 2] = 10;   /* red again */
+
+    CHECK_EQ_INT(palette_nearest(pal, usable, 255, 0, 0), 1);      /* first of equals wins */
+    CHECK_EQ_INT(palette_nearest(pal, usable, 0, 200, 0), 2);
+    usable[1] = 0;
+    CHECK_EQ_INT(palette_nearest(pal, usable, 255, 0, 0), 3);      /* unusable entries skipped */
+    CHECK_EQ_INT(palette_nearest(pal, usable, 0, 0, 0), 0);
+}
+
+/* 0048f370: level i = (fg * i + bg * (15 - i)) >> 4 per channel, then nearest. */
+static void test_text_ramp(void)
+{
+    uint8_t pal[768] = { 0 };
+    uint8_t usable[256];
+    uint8_t ramp[16];
+    memset(usable, 1, sizeof usable);
+    usable[254] = usable[255] = 0;
+    for (int i = 0; i < 256; i++) pal[3 * i] = pal[3 * i + 1] = pal[3 * i + 2] = (uint8_t)i;  /* grey ramp */
+    pal[3 * 255] = pal[3 * 255 + 1] = pal[3 * 255 + 2] = 240;  /* unusable, closer for level 15 */
+
+    palette_text_ramp(pal, usable, 200, 0, ramp);  /* fg = grey 200, bg = black */
+    CHECK_EQ_INT(ramp[0], 0);
+    CHECK_EQ_INT(ramp[8], (200 * 8) >> 4);    /* 100 */
+    CHECK_EQ_INT(ramp[15], (200 * 15) >> 4);  /* 187: never full fg, divides by 16 */
+}
+
+/* 004824a0 via 0048263c(k, k, k): channel * k / 65536 rounded half up, clamped
+ * to 63, then the colour with the smallest 2*dr^2 + 3*dg^2 + db^2 (< 9999). */
+static void test_shade_table(void)
+{
+    uint8_t pal[768] = { 0 };
+    uint8_t usable[256], table[256];
+    memset(usable, 1, sizeof usable);
+    for (int i = 0; i < 256; i++) pal[3 * i] = pal[3 * i + 1] = pal[3 * i + 2] = (uint8_t)i;
+
+    palette_shade_table(pal, usable, 0x9000, table);
+    CHECK_EQ_INT(table[0], 0);
+    CHECK_EQ_INT(table[100], 56);   /* 100 * 0.5625 = 56.25 -> 56 */
+    CHECK_EQ_INT(table[104], 59);   /* 58.5 rounds up */
+    CHECK_EQ_INT(table[200], 63);   /* 112.5 clamped to 63 */
+    CHECK_EQ_INT(table[255], 63);
+}
+
 int main(void)
 {
+    test_shade_table();
+    test_nearest();
+    test_text_ramp();
     test_scale();
     test_scale_range();
     test_fade_steps();

@@ -1,8 +1,10 @@
 /* Integration test over the real CD data. Every QFS given on the command line
  * must decompress cleanly and its SHPI length field must equal the decoded
  * size (an oracle independent of the decoder). Every SHPI container, from a
- * QFS or a plain FSH, must parse entry by entry, palettes included.
+ * QFS or a plain FSH, must parse entry by entry, palettes included. Every
+ * FNTF font must open and hold glyphs for all codes 0x20..0xFF.
  * Registered by CMake only when original/ holds the extracted CD. */
+#include "formats/ffn.h"
 #include "formats/fsh.h"
 #include "formats/qfs.h"
 
@@ -30,6 +32,7 @@ static uint8_t *read_file(const char *path, size_t *size)
 }
 
 typedef struct {
+    int fonts;
     int containers;
     int entries;
     int bitmaps;
@@ -63,6 +66,25 @@ static int check_fsh(const char *path, const uint8_t *data, size_t size, Stats *
     return 1;
 }
 
+static int check_ffn(const char *path, const uint8_t *data, size_t size, Stats *stats)
+{
+    Ffn font;
+    FfnResult r = ffn_open(&font, data, size);
+    if (r != FFN_OK) {
+        fprintf(stderr, "%s: font error %d\n", path, (int)r);
+        return 0;
+    }
+    for (unsigned code = 0x20; code <= 0xFF; code++) {
+        FfnGlyph g;
+        if (!ffn_glyph(&font, code, &g)) {
+            fprintf(stderr, "%s: no glyph for 0x%02x\n", path, code);
+            return 0;
+        }
+    }
+    stats->fonts++;
+    return 1;
+}
+
 static int check_file(const char *path, int *shpi_count, Stats *stats)
 {
     size_t src_len = 0, out_len = 0;
@@ -70,6 +92,11 @@ static int check_file(const char *path, int *shpi_count, Stats *stats)
     if (src == NULL) {
         fprintf(stderr, "%s: cannot read\n", path);
         return 0;
+    }
+    if (src_len >= 4 && memcmp(src, "FNTF", 4) == 0) {
+        int ok = check_ffn(path, src, src_len, stats);
+        free(src);
+        return ok;
     }
     if (!qfs_is_compressed(src, src_len)) {
         int ok = check_fsh(path, src, src_len, stats);
@@ -103,12 +130,12 @@ static int check_file(const char *path, int *shpi_count, Stats *stats)
 int main(int argc, char **argv)
 {
     int failures = 0, shpi = 0;
-    Stats stats = { 0, 0, 0, 0 };
+    Stats stats = { 0, 0, 0, 0, 0 };
     for (int i = 1; i < argc; i++) {
         if (!check_file(argv[i], &shpi, &stats)) failures++;
     }
     fprintf(stderr, "%d files, %d QFS sizes verified, %d SHPI containers, %d entries "
-            "(%d bitmaps, %d palettes), %d failures\n", argc - 1, shpi, stats.containers,
-            stats.entries, stats.bitmaps, stats.palettes, failures);
+            "(%d bitmaps, %d palettes), %d fonts, %d failures\n", argc - 1, shpi, stats.containers,
+            stats.entries, stats.bitmaps, stats.palettes, stats.fonts, failures);
     return failures == 0 && argc > 1 ? 0 : 1;
 }

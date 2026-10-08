@@ -28,7 +28,7 @@ static int key_head;
 static int key_count;
 
 /* TNFS_INPUT_SCRIPT="ms:KEY,ms:MOUSE:x:y,...": scripted input for headless
- * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE) is held for 100 ms
+ * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, Y, N, J) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
  * the pointer. */
@@ -145,6 +145,7 @@ static int script_key(const char *name)
     static const struct { const char *name; int scancode; } KEYS[] = {
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
+        { "Y", 0x15 }, { "N", 0x31 }, { "J", 0x24 },
     };
     for (size_t i = 0; i < sizeof KEYS / sizeof KEYS[0]; i++) {
         if (SDL_strcmp(name, KEYS[i].name) == 0) return KEYS[i].scancode;

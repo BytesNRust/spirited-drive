@@ -14,6 +14,7 @@ endif()
 
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
+    src/formats/ffn.c
     src/formats/fsh.c
     src/game/sys/palette.c
     src/formats/qfs.c
@@ -26,12 +27,14 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 add_executable(tnfs
     src/main.c
+    src/game/frontend/dialog.c
     src/game/frontend/frontend.c
     src/game/frontend/main_menu.c
     src/game/frontend/screens.c
     src/game/sys/input.c
     src/game/sys/pointer.c
     src/game/sys/resource.c
+    src/game/sys/text.c
     src/game/sys/timer.c
     src/game/sys/video.c
     src/viewer/asset_viewer.c
@@ -52,7 +55,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh palette)
+    foreach(name qfs fsh ffn palette)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -64,7 +67,8 @@ endif()
 if(NOT EMSCRIPTEN)
     file(GLOB_RECURSE TNFS_ASSET_FILES
         "${CMAKE_SOURCE_DIR}/original/*.QFS" "${CMAKE_SOURCE_DIR}/original/*.qfs"
-        "${CMAKE_SOURCE_DIR}/original/*.FSH" "${CMAKE_SOURCE_DIR}/original/*.fsh")
+        "${CMAKE_SOURCE_DIR}/original/*.FSH" "${CMAKE_SOURCE_DIR}/original/*.fsh"
+        "${CMAKE_SOURCE_DIR}/original/*.FFN" "${CMAKE_SOURCE_DIR}/original/*.ffn")
     if(TNFS_ASSET_FILES)
         add_executable(test_assets tests/test_assets.c)
         target_link_libraries(test_assets PRIVATE tnfs_core)

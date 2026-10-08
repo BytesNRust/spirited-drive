@@ -11,6 +11,12 @@
 enum { PATH_MAX_LEN = 512 };
 
 static char dirs[PATH_COUNT][PATH_MAX_LEN];
+static int is_german;
+
+int resource_german(void)
+{
+    return is_german;
+}
 
 void resource_init(const char *data_root, int german)
 {
@@ -21,6 +27,7 @@ void resource_init(const char *data_root, int german)
         [PATH_REPLAY] = { "gamedata/replay/", "gamedata/replay/" },
         [PATH_CONFIG] = { "gamedata/config/", "gamedata/config/" },
     };
+    is_german = german;
     for (int i = 0; i < PATH_COUNT; i++) {
         snprintf(dirs[i], sizeof dirs[i], "%s/%s", data_root, defaults[i][german ? 1 : 0]);
     }

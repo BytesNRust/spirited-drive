@@ -6,6 +6,7 @@
 #include "game/frontend/frontend.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
+#include "game/sys/text.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
 #include "platform/platform.h"
@@ -61,7 +62,9 @@ static int run_game(const Options *opt)
     /* 004322f8 loads the pointer; TODO(004322f8): CD/memory checks, fonts,
      * config; TODO(004100ec): network. */
     pointer_load(0);
+    text_init();
     frontend_run();
+    text_free();
     pointer_free();
     video_shutdown();
     platform_shutdown();

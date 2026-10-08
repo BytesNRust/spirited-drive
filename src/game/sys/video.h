@@ -28,6 +28,17 @@ void video_fade_out(int first, int count);                            /* 00463ef
  * with save-under (004416cc). NULL hides it. Re-presents the screen. */
 void video_set_overlay(const FshEntry *shape, int x, int y);
 
+/* Dialog helpers, all on the back buffer. */
+void video_copy_front_to_back(void);
+/* Copies a w x h block between the back buffer and a caller buffer (the
+ * original saved the area under a dialog in an offscreen surface, 00476e28). */
+void video_read_rect(int x, int y, int w, int h, uint8_t *out);
+void video_write_rect(int x, int y, int w, int h, const uint8_t *in);
+/* Replaces every pixel p in the block with table[p] (darkened dialog boxes). */
+void video_shade_rect(int x, int y, int w, int h, const uint8_t table[256]);
+/* One-pixel outline from (x0, y0) to (x1, y1) inclusive. */
+void video_frame_rect(int x0, int y0, int x1, int y1, uint8_t color);
+
 /* Draws a bitmap entry into the back buffer at (x, y), clipped. */
 void video_blit(const FshEntry *shape, int x, int y);                 /* 004737d0 */
 /* Same at the shape's own screen position (misc[2], misc[3]). */
