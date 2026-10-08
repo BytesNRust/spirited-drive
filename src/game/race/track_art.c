@@ -36,6 +36,7 @@ static void fill_slot(TrackTexture slot[TRACK_TEXTURE_VARIANTS], const Fsh *fsh,
         if (find_bitmap(fsh, name, &t.bitmap)) {
             t.present = 1;
             t.transparent = has_transparency(&t.bitmap);
+            if (t.transparent) t.bitmap.type = TRACK_TEXTURE_TRANSPARENT_TYPE;
         } else if (v > 0) {
             t = slot[v - 1];
         }
@@ -91,6 +92,7 @@ static void set_scenery(TrackTexture *t, const Fsh *fsh, const char name[4])
         return;
     t->present = 1;
     t->transparent = has_transparency(&t->bitmap);
+    if (t->transparent) t->bitmap.type = TRACK_TEXTURE_TRANSPARENT_TYPE;
 }
 
 /* 0044c36c, scenery part. */

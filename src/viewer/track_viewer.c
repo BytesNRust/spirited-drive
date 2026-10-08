@@ -1,8 +1,8 @@
 /* `tnfs --track NAME`: development fly-through of a track (simdata/misc/NAME.TRI
  * with its simdata/ntrackfm/NAME_[TMR]01.FAM textures). Up/Down move along the
- * road, Left/Right turn the camera. With --screenshot it renders one frame
- * headless. Geometry and textures come from the ported loaders; the drawing
- * is the viewer's own (viewer/raster.h), not the original renderer yet. */
+ * road, Left/Right turn the camera, Space switches between the ported
+ * renderer and the earlier stand-in (which also draws the scenery; with
+ * --screenshot, TNFS_STAND_IN=1 picks it). */
 #include "viewer/track_viewer.h"
 
 #include "formats/chunk.h"
@@ -13,6 +13,7 @@
 #include "platform/platform.h"
 #include "viewer/camera.h"
 #include "viewer/model_view.h"
+#include "viewer/ported_view.h"
 #include "viewer/raster.h"
 
 #include <math.h>
@@ -217,7 +218,7 @@ static void draw_horizon(uint8_t *pixels, const TrackArt *art, float heading)
     }
 }
 
-static void render(const Track *t, uint32_t node, float yaw, uint8_t *pixels)
+static void render_stand_in(const Track *t, uint32_t node, float yaw, uint8_t *pixels)
 {
     const Camera cam = place_camera(&t->tri, node, yaw);
     draw_horizon(pixels, &t->art, atan2f(cam.forward.x, cam.forward.z));
@@ -239,6 +240,19 @@ static void render(const Track *t, uint32_t node, float yaw, uint8_t *pixels)
     }
 }
 
+/* The ported renderer by default; the stand-in still draws the scenery. */
+static void render(const Track *t, uint32_t node, float yaw, int stand_in, uint8_t *pixels)
+{
+    if (stand_in) {
+        render_stand_in(t, node, yaw, pixels);
+        return;
+    }
+    TriNode n;
+    const float heading = tri_node(&t->tri, node, &n) == TRI_OK ? n.orientation * (2.0f * 3.14159265f / 0x4000) : 0;
+    draw_horizon(pixels, &t->art, heading + yaw);
+    ported_view_render(&t->tri, &t->art, node, (int32_t)(yaw / (2.0f * 3.14159265f) * 0x1000000), pixels);
+}
+
 static int write_ppm(const char *path, const uint8_t *pixels, const uint8_t *rgb)
 {
     FILE *f = fopen(path, "wb");
@@ -256,14 +270,17 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
     for (int i = 0; i < 256; i++)
         palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
     float yaw = 0;
+    int stand_in = 0;
     for (int running = 1; running && platform_poll_events();) {
-        for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
+        for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;) {
             if (key == PLATFORM_KEY_ESCAPE) running = 0;
+            if (key == PLATFORM_KEY_SPACE) stand_in = !stand_in;
+        }
         if (platform_key_down(0x48)) node = (node + 1) % t->tri.node_count;
         if (platform_key_down(0x50)) node = (node + t->tri.node_count - 1) % t->tri.node_count;
         if (platform_key_down(0x4B)) yaw -= 0.03f;
         if (platform_key_down(0x4D)) yaw += 0.03f;
-        render(t, node, yaw, pixels);
+        render(t, node, yaw, stand_in, pixels);
         platform_present(pixels, palette);
         platform_wait_vblank();
     }
@@ -281,7 +298,7 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
         printf("%s: %u segments, %s\n", name, t.tri.segment_count, tri_is_circuit(&t.tri) ? "circuit" : "stage");
         node %= t.tri.node_count;
         if (screenshot != NULL) {
-            render(&t, node, 0, pixels);
+            render(&t, node, 0, getenv("TNFS_STAND_IN") != NULL, pixels);
             ok = write_ppm(screenshot, pixels, t.art.palette);
         } else {
             ok = run_window(&t, pixels, node);

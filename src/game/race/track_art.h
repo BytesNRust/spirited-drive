@@ -27,7 +27,8 @@ enum {
     TRACK_TEXTURE_IDS = 48,
     TRACK_TEXTURE_SLOTS = TRACK_TEXTURE_IDS * 3,  /* 0x90 */
     TRACK_TEXTURE_VARIANTS = 8,
-    TRACK_SCENERY_TEXTURES = 64   /* 005100c4, 0x10 bytes each */
+    TRACK_SCENERY_TEXTURES = 64,  /* 005100c4, 0x10 bytes each */
+    TRACK_TEXTURE_TRANSPARENT_TYPE = 0x45  /* 0044c290 retypes such bitmaps */
 };
 
 typedef struct {

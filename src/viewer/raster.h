@@ -24,4 +24,10 @@ typedef struct {
 void raster_polygon(const RasterTarget *t, const RasterVertex *in, int count, const FshEntry *texture,
                     int transparent, uint8_t colour);
 
+/* Screen-space quad with affine texture mapping: screen and uv are 4 corners
+ * of (x, y) pixels and (u, v) 16.16. A stand-in for EA's quad mapper until
+ * the port of 00487180 lands. */
+void raster_screen_quad(const RasterTarget *t, const int32_t screen[8], const int32_t uv[8], const FshEntry *texture,
+                        int transparent);
+
 #endif
