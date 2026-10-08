@@ -21,6 +21,8 @@ add_library(tnfs_core STATIC
     src/formats/tri.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
+    src/game/race/track_art.c
+    src/game/race/track_geometry.c
     src/game/sys/palette.c
     src/formats/qfs.c
     src/formats/qfs_btree.c
@@ -46,10 +48,15 @@ add_executable(tnfs
     src/game/sys/timer.c
     src/game/sys/video.c
     src/viewer/asset_viewer.c
+    src/viewer/raster.c
+    src/viewer/track_viewer.c
     src/viewer/viewer_main.c
     src/platform/sdl3/platform_sdl3.c
 )
 target_link_libraries(tnfs PRIVATE tnfs_core)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(tnfs PRIVATE m)
+endif()
 target_compile_options(tnfs PRIVATE ${TNFS_WARNINGS})
 
 if(EMSCRIPTEN)
@@ -95,6 +102,10 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.tri")
     if(TNFS_TRI_FILES)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
+        add_executable(test_track tests/test_track.c)
+        target_link_libraries(test_track PRIVATE tnfs_core)
+        target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME track COMMAND test_track "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
     file(GLOB_RECURSE TNFS_MODEL_FILES

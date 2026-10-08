@@ -1,0 +1,86 @@
+#include "viewer/raster.h"
+
+#include <math.h>
+
+enum { MAX_VERTS = 16 };
+
+typedef struct {
+    float sx, sy;      /* screen */
+    float iz, uz, vz;  /* 1/z, u/z, v/z */
+} Projected;
+
+static RasterVertex lerp(RasterVertex a, RasterVertex b, float t)
+{
+    return (RasterVertex){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
+                           a.u + (b.u - a.u) * t, a.v + (b.v - a.v) * t };
+}
+
+/* Sutherland-Hodgman against z >= near. */
+static int clip_near(const RasterVertex *in, int count, float near_z, RasterVertex *out)
+{
+    int n = 0;
+    for (int i = 0; i < count; i++) {
+        const RasterVertex a = in[i], b = in[(i + 1) % count];
+        const int a_in = a.z >= near_z, b_in = b.z >= near_z;
+        if (a_in) out[n++] = a;
+        if (a_in != b_in) out[n++] = lerp(a, b, (near_z - a.z) / (b.z - a.z));
+    }
+    return n;
+}
+
+static uint8_t texel(const FshEntry *tex, float u, float v)
+{
+    int x = (int)floorf(u) % tex->width, y = (int)floorf(v) % tex->height;
+    if (x < 0) x += tex->width;
+    if (y < 0) y += tex->height;
+    return tex->payload[(size_t)y * tex->width + x];
+}
+
+static float edge(const Projected *a, const Projected *b, float x, float y)
+{
+    return (b->sx - a->sx) * (y - a->sy) - (b->sy - a->sy) * (x - a->sx);
+}
+
+static void triangle(const RasterTarget *t, const Projected *p0, const Projected *p1, const Projected *p2,
+                     const FshEntry *tex, int transparent, uint8_t colour)
+{
+    const float area = edge(p0, p1, p2->sx, p2->sy);
+    if (fabsf(area) < 1e-6f) return;
+    const int x0 = (int)fmaxf(0.0f, floorf(fminf(p0->sx, fminf(p1->sx, p2->sx))));
+    const int x1 = (int)fminf((float)t->width - 1, ceilf(fmaxf(p0->sx, fmaxf(p1->sx, p2->sx))));
+    const int y0 = (int)fmaxf(0.0f, floorf(fminf(p0->sy, fminf(p1->sy, p2->sy))));
+    const int y1 = (int)fminf((float)t->height - 1, ceilf(fmaxf(p0->sy, fmaxf(p1->sy, p2->sy))));
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+            const float px = x + 0.5f, py = y + 0.5f;
+            const float w0 = edge(p1, p2, px, py) / area, w1 = edge(p2, p0, px, py) / area;
+            const float w2 = 1.0f - w0 - w1;
+            if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+            uint8_t c = colour;
+            if (tex != NULL) {
+                const float iz = w0 * p0->iz + w1 * p1->iz + w2 * p2->iz;
+                c = texel(tex, (w0 * p0->uz + w1 * p1->uz + w2 * p2->uz) / iz,
+                          (w0 * p0->vz + w1 * p1->vz + w2 * p2->vz) / iz);
+                if (transparent && c == 0xFF) continue;
+            }
+            t->pixels[y * t->width + x] = c;
+        }
+    }
+}
+
+void raster_polygon(const RasterTarget *t, const RasterVertex *in, int count, const FshEntry *texture,
+                    int transparent, uint8_t colour)
+{
+    RasterVertex clipped[MAX_VERTS];
+    if (count < 3 || count > 8) return;
+    const int n = clip_near(in, count, t->near_z, clipped);
+    if (n < 3) return;
+    Projected p[MAX_VERTS];
+    for (int i = 0; i < n; i++) {
+        const float iz = 1.0f / clipped[i].z;
+        p[i] = (Projected){ t->width * 0.5f + clipped[i].x * t->focal * iz,
+                            t->height * 0.5f - clipped[i].y * t->focal * iz, iz, clipped[i].u * iz,
+                            clipped[i].v * iz };
+    }
+    for (int i = 1; i + 1 < n; i++) triangle(t, &p[0], &p[i], &p[i + 1], texture, transparent, colour);
+}

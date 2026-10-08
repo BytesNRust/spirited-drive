@@ -33,6 +33,12 @@ Serve `build/web/` over HTTP (`python3 -m http.server -d build/web`) and open `t
 ./build/native/tnfs --view original/FRONTEND/ART/TITLE.QFS   # browse FSH/QFS bitmaps
 ```
 
+Track viewer (development): `./build/native/tnfs --track TR1` flies along a
+track (Up/Down move, Left/Right turn; names as in `SIMDATA/MISC`: TR1..TR7, AL1..AL3,
+CL1..CL3, CY1..CY3). `--node N --screenshot out.ppm` renders one frame headless.
+Geometry and textures use the ported loaders; the drawing is a stand-in until the
+original renderer is ported.
+
 Headless runs: `TNFS_CAPTURE_DIR` writes every n-th presented frame as PPM and
 `TNFS_INPUT_SCRIPT` replays input (`ms:KEY` held until the game reads it,
 `ms:MOUSE:x:y`). Example: boot, move down twice, then choose Exit with the mouse:
