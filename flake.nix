@@ -56,7 +56,7 @@
         # DOSBox-X to run the original as reference, Watcom runtime libraries for signatures,
         # Unicorn to execute original functions as test oracles.
         re = pkgs.mkShell {
-          packages = with pkgs; [ ghidra-bin (python3.withPackages (ps: [ ps.unicorn ])) dosbox-x ];
+          packages = with pkgs; [ ghidra-bin (python3.withPackages (ps: [ ps.unicorn ps.capstone ])) dosbox-x ];
           WATCOM11_LIBS = "${watcom11Libs pkgs}/lib386";
         };
       });
