@@ -5,8 +5,8 @@
  * Descriptor types (TriDescriptor.type) are also the number of corners:
  *   1  3D object from the FAM objects child (resource_id), drawn rotated
  *   4  billboard: one quad facing the object's heading
- *   6  two-sided billboard: that quad plus a second one at 90 degrees from
- *      its last corner (resource2_id textures the second face) */
+ *   6  two-sided billboard: that quad plus a second one at 90 degrees along
+ *      its right edge: corners 1, 4, 5, 2 (resource2_id textures it) */
 #ifndef TNFS_TRACK_OBJECTS_H
 #define TNFS_TRACK_OBJECTS_H
 

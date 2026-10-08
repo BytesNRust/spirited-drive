@@ -190,8 +190,11 @@ static void draw_objects(const RasterTarget *target, const Camera *cam, const Tr
             if (o->corner_count == 0) continue;
             const TrackPoint *c = o->corners;
             draw_face(target, cam, &t->art, &c[0], &c[1], &c[2], &c[3], o->descriptor.resource_id);
-            if (o->corner_count == 6)
-                draw_face(target, cam, &t->art, &c[0], &c[4], &c[5], &c[3], o->descriptor.resource2_id);
+            /* 0044a4b0: descriptor flag bit 1 starts the second face at corner 4. */
+            if (o->corner_count == 6 && (o->descriptor.flags & 2) == 0)
+                draw_face(target, cam, &t->art, &c[1], &c[4], &c[5], &c[2], o->descriptor.resource2_id);
+            else if (o->corner_count == 6)
+                draw_face(target, cam, &t->art, &c[4], &c[5], &c[2], &c[1], o->descriptor.resource2_id);
         }
     }
 }

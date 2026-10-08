@@ -158,6 +158,13 @@ static void test_objects(const char *dir)
     CHECK_EQ_INT(o.corners[2].x + o.corners[3].x, 2 * o.origin.x);
     CHECK_EQ_INT(o.corners[2].z + o.corners[3].z, 2 * o.origin.z);
     CHECK_EQ_INT(o.corners[4].y - o.corners[5].y, 5 * 65536);
+    /* the side face starts at the bottom-right corner, at a right angle */
+    {
+        const long long fx = o.corners[2].x - o.corners[3].x, fz = o.corners[2].z - o.corners[3].z;
+        const long long sx = o.corners[5].x - o.corners[2].x, sz = o.corners[5].z - o.corners[2].z;
+        CHECK(llabs(fx * sx + fz * sz) < (llabs(fx) + llabs(fz)) * 2048);
+        CHECK(sx != 0 || sz != 0);
+    }
 
     CHECK_EQ_INT(track_object(&tri, 0, &o), TRI_OK);            /* record 0: a 3D object */
     CHECK_EQ_INT(o.descriptor.type, TRACK_OBJECT_MODEL);
