@@ -32,4 +32,8 @@ enum {
 /* Pumps OS events; exits the process when the window is closed. */
 int input_get_key(void);  /* 00464bd0 */
 
+/* 0049b6fc: next typed character in the game's encoding (CP437, as its
+ * fonts), 0x08 backspace, 0x0d Enter, 0x1b Escape, KEY_DELETE, or 0. */
+int input_next_char(void);
+
 #endif

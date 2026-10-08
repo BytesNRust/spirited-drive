@@ -43,6 +43,16 @@ PlatformKey platform_next_key(void);
  * same numbers as their BIOS codes (0x48 Up, 0x52 Insert, 0x53 Delete). */
 bool platform_key_down(int scancode);
 
+/* Typed text, for name entry: the next Unicode code point typed, one of the
+ * editing codes below, or 0 when the queue is empty. */
+enum {
+    PLATFORM_TEXT_BACKSPACE = 0x08,
+    PLATFORM_TEXT_ENTER = 0x0D,
+    PLATFORM_TEXT_ESCAPE = 0x1B,
+    PLATFORM_TEXT_DELETE = 0x7F
+};
+uint32_t platform_next_text(void);
+
 enum {
     PLATFORM_MOUSE_LEFT = 1,
     PLATFORM_MOUSE_RIGHT = 2

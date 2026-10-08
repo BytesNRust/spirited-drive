@@ -31,6 +31,7 @@ add_executable(tnfs
     src/game/frontend/frontend.c
     src/game/frontend/main_menu.c
     src/game/frontend/screens.c
+    src/game/frontend/text_field.c
     src/game/sys/input.c
     src/game/sys/pointer.c
     src/game/sys/resource.c

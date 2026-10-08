@@ -2,6 +2,10 @@
 #ifndef TNFS_FRONTEND_H
 #define TNFS_FRONTEND_H
 
+/* 00524df0: the player's name (up to 8 characters). TODO(0042a010): loaded
+ * from config.dat by the original. */
+extern char frontend_player_name[42];
+
 /* show_screen modes, the second argument of 00466f68. */
 enum {
     SCREEN_WAIT = 0,     /* fade in, wait 5 s (3 s with music) or a key, fade out */

@@ -4,6 +4,7 @@
  * with the selection in yellow. No is selected first. */
 #include "game/frontend/dialog.h"
 
+#include "game/frontend/text_field.h"
 #include "game/sys/input.h"
 #include "game/sys/palette.h"
 #include "game/sys/pointer.h"
@@ -11,6 +12,7 @@
 #include "game/sys/text.h"
 #include "game/sys/video.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum {
@@ -42,21 +44,31 @@ static const char *option_label(int option)
     return resource_german() ? "Nein" : "No";
 }
 
-static void draw_box(const char *title)
+typedef struct {
+    int x, y, w, h;
+    int shade;            /* 0048263c scale, 16.16 */
+    int title_y;          /* box-relative; the title is centred on the box */
+} Box;
+
+static const Box YES_NO_BOX = { BOX_X, BOX_Y, BOX_W, BOX_H, SHADE, 20 };          /* 00465f4c */
+static const Box NAME_BOX = { 80, 190, 480, 100, 0x6000, 10 };                     /* 004667fc */
+
+/* The screen behind darkened, a red double outline, the title in red. */
+static void draw_box(const Box *box, const char *title)
 {
     uint8_t pal[PALETTE_BYTES], usable[256], shade[256];
     video_get_palette(pal);
     memset(usable, 1, sizeof usable);
     usable[254] = usable[255] = 0;
-    palette_shade_table(pal, usable, SHADE, shade);
-    video_shade_rect(BOX_X, BOX_Y, BOX_W, BOX_H, shade);
+    palette_shade_table(pal, usable, box->shade, shade);
+    video_shade_rect(box->x, box->y, box->w, box->h, shade);
     /* TODO(004827f0): outline geometry read from a partial decompile. */
     const uint8_t red = (uint8_t)palette_nearest(pal, usable, 0xFF, 0x00, 0x00);
-    video_frame_rect(BOX_X + 2, BOX_Y + 2, BOX_X + BOX_W - 3, BOX_Y + BOX_H - 3, red);
-    video_frame_rect(BOX_X + 3, BOX_Y + 3, BOX_X + BOX_W - 4, BOX_Y + BOX_H - 4, red);
+    video_frame_rect(box->x + 2, box->y + 2, box->x + box->w - 3, box->y + box->h - 3, red);
+    video_frame_rect(box->x + 3, box->y + 3, box->x + box->w - 4, box->y + box->h - 4, red);
     text_build_styles();
     text_select(TEXT_RED);
-    text_draw_centered(title, BOX_X + 170, BOX_Y + 20);
+    text_draw_centered(title, box->x + box->w / 2, box->y + box->title_y);
 }
 
 static void draw_options(int selected)
@@ -113,7 +125,7 @@ int dialog_yes_no(const char *title)
     video_copy_front_to_back();
     video_read_rect(BOX_X, BOX_Y, BOX_W, BOX_H, saved);
     if (!pointer_active()) pointer_move_to(POINTER_X[CHOICE_NO], POINTER_Y);
-    draw_box(title);
+    draw_box(&YES_NO_BOX, title);
 
     while (input_get_key() != KEY_NONE) {
         /* TODO(0046417c): service streamed music. */
@@ -133,4 +145,20 @@ int dialog_yes_no(const char *title)
     video_flip();
     pointer_show();
     return d.result;
+}
+
+int dialog_enter_name(char *name)
+{
+    uint8_t *saved = malloc((size_t)NAME_BOX.w * NAME_BOX.h);
+    if (saved == NULL) return 0;
+    video_copy_front_to_back();
+    video_read_rect(NAME_BOX.x, NAME_BOX.y, NAME_BOX.w, NAME_BOX.h, saved);
+    draw_box(&NAME_BOX, resource_german() ? "Bitte Namen Eingeben" : "Please Enter Name");
+    video_flip();
+    const int accepted = text_field_edit(name, 8, 320, 230, 1);
+    /* TODO(004667fc): on accept the original also clears 0052b30a and 0052b306. */
+    video_write_rect(NAME_BOX.x, NAME_BOX.y, NAME_BOX.w, NAME_BOX.h, saved);
+    video_flip();
+    free(saved);
+    return accepted;
 }

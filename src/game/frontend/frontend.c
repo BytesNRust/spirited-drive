@@ -10,6 +10,8 @@ enum {
     FRONTEND_TITLE_INSTANT = 3
 };
 
+char frontend_player_name[42];
+
 void frontend_run(void)
 {
     int state = FRONTEND_INTRO;

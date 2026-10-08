@@ -31,19 +31,64 @@ static int key_count;
  * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, Y, N, J) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
- * the pointer. */
+ * the pointer; ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
+ * typed-text queue. */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100 };
 typedef struct {
     uint32_t at_ms;
-    int scancode;  /* set-1, 0 for mouse moves */
+    int scancode;  /* set-1, 0 for mouse moves and text */
     int x, y;
     bool seen;     /* held until the game has read it at least once */
+    bool queued;   /* text / editing code already pushed to the text queue */
+    char text[16]; /* TEXT events */
 } ScriptEvent;
 static ScriptEvent script[SCRIPT_MAX];
 static int script_count;
 static uint32_t script_start_ms;
 
 static void load_script(void);
+
+enum { TEXT_QUEUE_SIZE = 32 };
+static uint32_t text_queue[TEXT_QUEUE_SIZE];
+static int text_head, text_count;
+
+static void push_text(uint32_t code)
+{
+    if (text_count < TEXT_QUEUE_SIZE) text_queue[(text_head + text_count++) % TEXT_QUEUE_SIZE] = code;
+}
+
+static void push_utf8(const char *s)
+{
+    const unsigned char *p = (const unsigned char *)s;
+    while (*p) {
+        uint32_t cp = *p;
+        int extra = cp >= 0xF0 ? 3 : cp >= 0xE0 ? 2 : cp >= 0xC0 ? 1 : 0;
+        cp &= extra == 3 ? 0x07 : extra == 2 ? 0x0F : extra == 1 ? 0x1F : 0x7F;
+        p++;
+        for (; extra > 0 && (*p & 0xC0) == 0x80; extra--, p++) cp = (cp << 6) | (*p & 0x3F);
+        push_text(cp);
+    }
+}
+
+static void push_editing_key(SDL_Keycode key)
+{
+    if (key == SDLK_BACKSPACE) push_text(PLATFORM_TEXT_BACKSPACE);
+    if (key == SDLK_RETURN || key == SDLK_KP_ENTER) push_text(PLATFORM_TEXT_ENTER);
+    if (key == SDLK_ESCAPE) push_text(PLATFORM_TEXT_ESCAPE);
+    if (key == SDLK_DELETE) push_text(PLATFORM_TEXT_DELETE);
+}
+
+static void apply_script_text(void);
+
+uint32_t platform_next_text(void)
+{
+    if (script_count > 0) apply_script_text();
+    if (text_count == 0) return 0;
+    const uint32_t code = text_queue[text_head];
+    text_head = (text_head + 1) % TEXT_QUEUE_SIZE;
+    text_count--;
+    return code;
+}
 
 static float mouse_x, mouse_y;
 static unsigned mouse_buttons;
@@ -65,6 +110,7 @@ bool platform_init(const PlatformConfig *config)
     }
     SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
     load_script();
+    SDL_StartTextInput(window);
     capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
     const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
     if (every != NULL && SDL_atoi(every) > 0) capture_every = SDL_atoi(every);
@@ -123,6 +169,8 @@ bool platform_poll_events(void)
                 : event.button.button == SDL_BUTTON_RIGHT ? PLATFORM_MOUSE_RIGHT : 0;
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
         }
+        if (event.type == SDL_EVENT_TEXT_INPUT) push_utf8(event.text.text);
+        if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
             const PlatformKey key = translate_key(event.key.key);
             if (key != PLATFORM_KEY_NONE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
@@ -162,9 +210,12 @@ static void load_script(void)
     char *save = NULL;
     for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
          item = SDL_strtok_r(NULL, ",", &save)) {
-        ScriptEvent e = { 0, 0, 0, 0, false };
+        ScriptEvent e = { 0, 0, 0, 0, false, false, "" };
         char name[16] = "";
         if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
+            script[script_count++] = e;
+        } else if (SDL_sscanf(item, "%u:TEXT:%15s", &e.at_ms, e.text) == 2) {
+            e.scancode = -2;
             script[script_count++] = e;
         } else if (SDL_sscanf(item, "%u:%15s", &e.at_ms, name) == 2 && (e.scancode = script_key(name)) > 0) {
             script[script_count++] = e;
@@ -186,6 +237,19 @@ static bool script_key_down(int scancode)
         }
     }
     return false;
+}
+
+static void apply_script_text(void)
+{
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    for (int i = 0; i < script_count; i++) {
+        ScriptEvent *e = &script[i];
+        if (e->queued || now < e->at_ms) continue;
+        if (e->scancode == -2) push_utf8(e->text);
+        if (e->scancode == 0x1C) push_text(PLATFORM_TEXT_ENTER);
+        if (e->scancode == 0x01) push_text(PLATFORM_TEXT_ESCAPE);
+        e->queued = true;
+    }
 }
 
 static void apply_script_mouse(void)

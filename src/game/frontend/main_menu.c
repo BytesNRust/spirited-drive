@@ -94,9 +94,10 @@ static void choose(Menu *m)
     /* TODO(0046492c): select sound 0x48. */
     switch (m->selected) {
     case OPTION_SINGLE:
-        /* TODO(004667fc): "Please Enter Name" dialog; needs FFN fonts. */
-        m->done = 1;
-        m->result = 0;
+        if (dialog_enter_name(frontend_player_name)) {
+            m->done = 1;
+            m->result = 0;
+        }
         break;
     case OPTION_MODEM:   /* TODO(00453000): modem / serial setup */
     case OPTION_NETWORK: /* TODO(00442514, 00454b78): network */
@@ -113,7 +114,8 @@ static void choose(Menu *m)
 static void exit_to_system(Menu *m)
 {
     /* TODO(0046492c): select sound 0x48. */
-    const char *title = resource_german() ? "Zur\xFC" "ck zum system ?" : "Exit to system ?";
+    /* The fonts are CP437: 0x81 is u-umlaut. */
+    const char *title = resource_german() ? "Zur\x81" "ck zum system ?" : "Exit to system ?";
     if (dialog_yes_no(title)) {
         m->done = 1;
         m->result = 1;
