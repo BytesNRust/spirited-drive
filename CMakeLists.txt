@@ -14,8 +14,10 @@ endif()
 
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
+    src/formats/chunk.c
     src/formats/ffn.c
     src/formats/fsh.c
+    src/formats/mesh.c
     src/game/frontend/race_settings.c
     src/game/sys/palette.c
     src/formats/qfs.c
@@ -58,7 +60,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn palette race_settings)
+    foreach(name qfs fsh ffn chunk mesh palette race_settings)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -77,6 +79,16 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_assets PRIVATE tnfs_core)
         target_compile_options(test_assets PRIVATE ${TNFS_WARNINGS})
         add_test(NAME assets COMMAND test_assets ${TNFS_ASSET_FILES})
+    endif()
+
+    file(GLOB_RECURSE TNFS_MODEL_FILES
+        "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.FAM" "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.fam"
+        "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.CFM" "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.cfm")
+    if(TNFS_MODEL_FILES)
+        add_executable(test_models tests/test_models.c)
+        target_link_libraries(test_models PRIVATE tnfs_core)
+        target_compile_options(test_models PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME models COMMAND test_models ${TNFS_MODEL_FILES})
     endif()
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
