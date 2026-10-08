@@ -20,6 +20,11 @@ typedef struct {
     void (*draw_uv)(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8]);
     /* 004f9e9c: the whole texture */
     void (*draw_full)(void *user, const FshEntry *texture, const int32_t screen[8]);
+    /* 004f9e90: the whole texture, the faces of two-sided scenery */
+    void (*draw_full_alt)(void *user, const FshEntry *texture, const int32_t screen[8]);
+    /* 00458c04: a 3D scenery object (FAM objects child `model`) at a world
+     * position (16.16) with a 24-bit heading; the 3D engine is not ported */
+    void (*draw_model)(void *user, int model, const int32_t position[3], uint32_t heading);
 } QuadSink;
 
 typedef struct {

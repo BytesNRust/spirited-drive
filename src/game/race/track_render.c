@@ -72,9 +72,65 @@ static int property_of(const Tri *tri, int32_t segment)
     return n.property < TRACK_PROPERTIES ? n.property : 0;
 }
 
+/* Scenery records are sorted by node; the cursor walks them in step with
+ * the rows being built (005041c4 / 005041c8). */
+typedef struct {
+    uint32_t next;
+    int done;
+} ObjectCursor;
+
+/* 0044a9b8: the first record at or after a node. */
+static ObjectCursor objects_from(const Tri *tri, int32_t node)
+{
+    ObjectCursor c = { 0, tri->scenery_count == 0 };
+    TriScenery s;
+    while (c.next < tri->scenery_count && tri_scenery(tri, c.next, &s) == TRI_OK && s.node < node) c.next++;
+    if (c.next >= tri->scenery_count) {
+        c.next = 0;
+        c.done = !tri_is_circuit(tri);
+    }
+    return c;
+}
+
+/* 0043eca4, scenery part: every record on this node, placed. */
+static void add_objects(TrackRender *r, ObjectCursor *c, int32_t node)
+{
+    TriScenery s;
+    uint32_t guard = 0;
+    while (!c->done && guard++ < r->tri->scenery_count && tri_scenery(r->tri, c->next, &s) == TRI_OK
+           && s.node == node) {
+        TrackRenderObject *o = r->object_count < TRACK_MAX_OBJECTS ? &r->objects[r->object_count] : NULL;
+        if (o != NULL && track_object(r->tri, c->next, &o->placed) == TRI_OK) {
+            const int corners = o->placed.descriptor.type == TRACK_OBJECT_MODEL ? 1 : o->placed.corner_count;
+            if (r->object_vertex_count + corners <= TRACK_MAX_OBJECT_VERTICES) {
+                o->node = node;
+                o->record = c->next;
+                o->descriptor = o->placed.descriptor;
+                o->record_flag = s.flags[2];
+                o->first = r->object_vertex_count;
+                o->count = corners;
+                for (int k = 0; k < corners; k++) {
+                    const TrackPoint p = corners == 1 && o->placed.corner_count == 0 ? o->placed.origin
+                                                                                     : o->placed.corners[k];
+                    r->object_world[r->object_vertex_count][0] = p.x;
+                    r->object_world[r->object_vertex_count][1] = p.y;
+                    r->object_world[r->object_vertex_count][2] = p.z;
+                    r->object_vertex_count++;
+                }
+                r->object_count++;
+            }
+        }
+        if (++c->next >= r->tri->scenery_count) {
+            c->next = 0;
+            c->done = !tri_is_circuit(r->tri);
+        }
+    }
+}
+
 /* 0043eca4, terrain part: the LOD's selected points of the first `rows`
- * rows, appended to the vertex list. */
-static void add_segment(TrackRender *r, int32_t segment, int rows)
+ * rows, appended to the vertex list; with a cursor, the scenery of each
+ * row's node too. */
+static void add_segment(TrackRender *r, int32_t segment, int rows, ObjectCursor *objects)
 {
     TrackSegmentRecord *rec = record(r, segment);
     TrackSegment seg;
@@ -112,6 +168,8 @@ static void add_segment(TrackRender *r, int32_t segment, int rows)
         }
         while (*select != 0xFF) select++;  /* the original stops at 0xFF */
         select++;
+        if (objects != NULL)
+            add_objects(r, objects, ((segment * TRI_NODES_PER_SEGMENT) + row) & (int32_t)(r->tri->ring_nodes - 1));
     }
     rec->count = r->vertex_count - rec->first;
 }
@@ -122,11 +180,14 @@ void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int
     r->tri = tri;
     r->art = art;
     r->vertex_count = 0;
+    r->object_count = 0;
+    r->object_vertex_count = 0;
     r->first_segment = camera_node / 4;  /* rounds toward zero, as the original */
     int32_t s = r->first_segment;
-    for (int i = 0; i < TRACK_DRAW_SEGMENTS - 1; i++, s++) add_segment(r, s, 4);
-    add_segment(r, s, 4);
-    add_segment(r, s + 1, 1);
+    ObjectCursor objects = objects_from(tri, (s * TRI_NODES_PER_SEGMENT) & (int32_t)(tri->ring_nodes - 1));
+    for (int i = 0; i < TRACK_DRAW_SEGMENTS - 1; i++, s++) add_segment(r, s, 4, &objects);
+    add_segment(r, s, 4, NULL);
+    add_segment(r, s + 1, 1, NULL);
 }
 
 /* ---- camera space and projection (0044aa94) ---- */
@@ -183,6 +244,12 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
         }
     }
     for (int i = 0; i < r->vertex_count; i++) view_project(ctx->view, r->camera[i], r->screen[i]);
+    for (int i = 0; i < r->object_vertex_count; i++) {
+        const int32_t t[3] = { (r->object_world[i][0] >> shift) + offset[0], (r->object_world[i][1] >> shift) + offset[1],
+                               (r->object_world[i][2] >> shift) + offset[2] };
+        mat3_apply(t, cam->matrix, r->object_camera[i]);
+        view_project(ctx->view, r->object_camera[i], r->object_screen[i]);
+    }
 }
 
 /* ---- visibility (00449f90, 0044a0d0) ---- */
@@ -261,6 +328,97 @@ static int variant_near(int row)
     return row >= 0 && row < TRACK_VARIANT_ROWS ? TRACK_VARIANT_NEAR[row] : 0;
 }
 
+/* ---- scenery (0044a4b0) ---- */
+
+enum { MIN_OBJECT_Z = 0x86, SCREEN_LIMIT = 0x801 };
+
+/* Walks the rows from far to near; objects are drawn when their row is
+ * passed (0044b510 / 0044ad5c, local node counter). */
+typedef struct {
+    int32_t node;
+    int cursor;     /* next object to draw, from the end */
+    int32_t frame;
+} RowWalker;
+
+/* 0044a450: every corner within 0x800 of the origin horizontally. */
+static int on_screen(const int32_t *s)
+{
+    for (int i = 0; i < 4; i++)
+        if (!(s[2 * i] < SCREEN_LIMIT && -SCREEN_LIMIT < s[2 * i])) return 0;
+    return 1;
+}
+
+static const FshEntry *scenery_texture(const TrackArt *art, int resource)
+{
+    /* 005100c4 holds 4 dwords per texture; the distance pick within them
+     * (004c2da4 / 004c2e1c) lands on copies of the same bitmap. */
+    const int id = resource / 4;
+    return id >= 0 && id < TRACK_SCENERY_TEXTURES && art->scenery[id].present ? &art->scenery[id].bitmap : NULL;
+}
+
+static void corners_of(const TrackRender *r, const TrackRenderObject *o, const int order[4], int32_t out[8])
+{
+    for (int i = 0; i < 4; i++) {
+        out[2 * i] = r->object_screen[o->first + order[i]][0];
+        out[2 * i + 1] = r->object_screen[o->first + order[i]][1];
+    }
+}
+
+static int in_front(const TrackRender *r, const TrackRenderObject *o, int from, int count)
+{
+    for (int i = from; i < from + count; i++)
+        if (r->object_camera[o->first + i][2] < MIN_OBJECT_Z) return 0;
+    return 1;
+}
+
+static void draw_object(const TrackRender *r, const DrawContext *ctx, const TrackRenderObject *o, int32_t frame)
+{
+    const TriDescriptor *d = &o->descriptor;
+    if (d->type == TRACK_OBJECT_MODEL) {
+        if (ctx->sink.draw_model != NULL) {
+            const int32_t p[3] = { o->placed.origin.x, o->placed.origin.y, o->placed.origin.z };
+            ctx->sink.draw_model(ctx->sink.user, d->resource_id, p, o->placed.heading);
+        }
+        return;
+    }
+    if (!in_front(r, o, 0, 4)) return;
+    int32_t screen[8];
+    if (d->type == TRACK_OBJECT_BILLBOARD) {
+        int resource = d->resource_id;
+        if ((d->flags & 4) != 0) {  /* animated: frames (+8) at a rate (+9) */
+            const int frames = d->unknown_08 & 0xFF, rate = d->unknown_08 >> 8;
+            if (frames != 0 && rate != 0) resource += (frame / rate) % frames * 4;
+        }
+        static const int ORDER[4] = { 0, 1, 2, 3 };
+        corners_of(r, o, ORDER, screen);
+        const FshEntry *t = scenery_texture(r->art, resource);
+        if (t != NULL && on_screen(screen)) ctx->sink.draw_full(ctx->sink.user, t, screen);
+        return;
+    }
+    if (d->type != TRACK_OBJECT_TWO_SIDED || !in_front(r, o, 4, 2)) return;
+    static const int FRONT[2][4] = { { 0, 1, 2, 3 }, { 1, 2, 3, 0 } };
+    static const int SIDE[2][4] = { { 1, 4, 5, 2 }, { 4, 5, 2, 1 } };
+    const FshEntry *front = scenery_texture(r->art, d->resource_id), *side = scenery_texture(r->art, d->resource2_id);
+    corners_of(r, o, FRONT[d->flags & 1], screen);
+    if (front != NULL && on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, front, screen);
+    corners_of(r, o, SIDE[(d->flags >> 1) & 1], screen);
+    if (side != NULL && on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, side, screen);
+}
+
+/* After a band of rows: each row's objects, then the next row. */
+static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w, int rows)
+{
+    const int32_t mask = (int32_t)(r->tri->ring_nodes - 1);
+    for (int k = 0; k < rows; k++) {
+        while (w->cursor >= 0 && r->objects[w->cursor].node == w->node) {
+            draw_object(r, ctx, &r->objects[w->cursor], w->frame);
+            w->cursor--;
+        }
+        /* TODO(00459eb8, 0045a848): cars and their shadows on this row. */
+        w->node = (w->node - 1) & mask;
+    }
+}
+
 /* Segment s and the one after it hold all the polygon's corners. */
 static int drawable(const TrackRender *r, int32_t s)
 {
@@ -270,7 +428,7 @@ static int drawable(const TrackRender *r, int32_t s)
 
 /* 0044ad5c: segments from the draw distance down to the near ones, whole
  * textures, no subdivision. */
-static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored)
+static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, RowWalker *w)
 {
     const int32_t node = cam->node;
     int row = TRACK_DRAW_SEGMENTS * 4 - (node & 3) + 3;
@@ -294,6 +452,7 @@ static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawCon
                 if (tex != NULL) ctx->sink.draw_full(ctx->sink.user, tex, screen);
             }
             if (p->rows_done != 0) {
+                pass_rows(r, ctx, w, p->rows_done);
                 row -= p->rows_done;
                 rows_left -= p->rows_done;
                 rows_in_segment += p->rows_done;
@@ -305,7 +464,8 @@ static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawCon
 }
 
 /* 0044b510: the nearest segments, subdivided. */
-static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored)
+static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored,
+                      RowWalker *w)
 {
     const int32_t node = cam->node;
     const int segments = TRACK_DRAW_SEGMENTS < TRACK_NEAR_SEGMENTS ? TRACK_DRAW_SEGMENTS : TRACK_NEAR_SEGMENTS;
@@ -330,6 +490,7 @@ static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawCo
                 if (tex != NULL) track_draw_subdivided(ctx, tex, uv->u_level, 0, uv->u_cell, 0, corners, screen, near);
             }
             if (p->rows_done != 0) {
+                pass_rows(r, ctx, w, p->rows_done);
                 row -= p->rows_done;
                 variant = variant_near(row);
             }
@@ -337,9 +498,13 @@ static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawCo
     }
 }
 
-void track_render_draw(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored)
+void track_render_draw(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored,
+                       int32_t frame)
 {
     if (r->vertex_count == 0) return;
-    draw_far(r, cam, ctx, mirrored);
-    draw_near(r, cam, ctx, mirrored);
+    const int32_t mask = (int32_t)(r->tri->ring_nodes - 1);
+    RowWalker w = { ((cam->node & ~3) + TRACK_DRAW_SEGMENTS * 4 - 1) & mask, r->object_count - 1, frame };
+    draw_far(r, cam, ctx, mirrored, &w);
+    w.node = ((cam->node & ~3) + TRACK_NEAR_SEGMENTS * 4 - 1) & mask;
+    draw_near(r, cam, ctx, mirrored, &w);
 }
