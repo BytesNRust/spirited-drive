@@ -43,5 +43,7 @@ void video_frame_rect(int x0, int y0, int x1, int y1, uint8_t color);
 void video_blit(const FshEntry *shape, int x, int y);                 /* 004737d0 */
 /* Same at the shape's own screen position (misc[2], misc[3]). */
 void video_blit_at_own_position(const FshEntry *shape);               /* 004737ec */
+/* Same with 0xFF transparent (highlight frames and arrows). */
+void video_blit_transparent_at_own_position(const FshEntry *shape);   /* 00473ab4 */
 
 #endif

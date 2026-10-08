@@ -1,8 +1,6 @@
 /* 004373c4: the front-end state machine (single-player path). */
 #include "game/frontend/frontend.h"
 
-#include <stdio.h>
-
 enum {
     FRONTEND_RACE = 0,
     FRONTEND_QUIT = 1,
@@ -35,8 +33,11 @@ void frontend_run(void)
         if (choice == FRONTEND_INTRO) show_intro = 1;
         state = choice;
         if (choice == FRONTEND_RACE) {
-            /* TODO(00466ae4, 00432ff4, 0042a504): race setup, race, save config. */
-            fprintf(stderr, "frontend: race setup (00432ff4) not ported yet, back to the menu\n");
+            /* TODO(00466ae4, 0042a504): load and save config.dat around it. */
+            if (control_central() == FRONTEND_INTRO) {
+                show_intro = 1;
+                state = FRONTEND_INTRO;
+            }
         }
     } while (state != FRONTEND_QUIT);
 }

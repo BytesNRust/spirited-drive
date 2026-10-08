@@ -16,6 +16,7 @@ endif()
 add_library(tnfs_core STATIC
     src/formats/ffn.c
     src/formats/fsh.c
+    src/game/frontend/race_settings.c
     src/game/sys/palette.c
     src/formats/qfs.c
     src/formats/qfs_btree.c
@@ -27,6 +28,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 add_executable(tnfs
     src/main.c
+    src/game/frontend/control_central.c
     src/game/frontend/dialog.c
     src/game/frontend/frontend.c
     src/game/frontend/main_menu.c
@@ -56,7 +58,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn palette)
+    foreach(name qfs fsh ffn palette race_settings)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

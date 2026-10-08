@@ -123,16 +123,27 @@ void video_fade_out(int first, int count)
     }
 }
 
-void video_blit(const FshEntry *shape, int x, int y)
+static void blit(const FshEntry *shape, int x, int y, int transparent)
 {
     for (int row = 0; row < shape->height; row++) {
         const int dy = y + row;
         if (dy < 0 || dy >= VIDEO_HEIGHT) continue;
         for (int col = 0; col < shape->width; col++) {
             const int dx = x + col;
-            if (dx >= 0 && dx < VIDEO_WIDTH) back[dy * VIDEO_WIDTH + dx] = shape->payload[(size_t)row * shape->width + col];
+            const uint8_t p = shape->payload[(size_t)row * shape->width + col];
+            if (dx >= 0 && dx < VIDEO_WIDTH && !(transparent && p == 0xFF)) back[dy * VIDEO_WIDTH + dx] = p;
         }
     }
+}
+
+void video_blit(const FshEntry *shape, int x, int y)
+{
+    blit(shape, x, y, 0);
+}
+
+void video_blit_transparent_at_own_position(const FshEntry *shape)
+{
+    blit(shape, shape->misc[2], shape->misc[3], 1);
 }
 
 void video_blit_at_own_position(const FshEntry *shape)
