@@ -82,6 +82,14 @@ typedef struct {
     void (*flat)(void *user, uint32_t rgb, const Object3DCorners *c);
 } Object3DSink;
 
+/* A run of polygon indexes drawn as one sorted group: the whole object
+ * (+0x84) or one of the mesh's named sections (0049126b). Sorting reorders
+ * it in place and the order carries over to the next frame. */
+typedef struct {
+    uint32_t count;
+    uint32_t *order;
+} Object3DList;
+
 typedef struct {
     const Mesh *mesh;
     uint32_t flags;               /* +0x10 */
@@ -115,5 +123,13 @@ void object3d_project(Object3D *obj, const View *view);
 void object3d_sort(Object3D *obj);
 /* near_z: 004c7b1c (30 in the race, set by 004585cd) */
 void object3d_draw(const Object3D *obj, int32_t near_z, const Object3DSink *sink);
+
+/* 004911f2: the section whose name matches the first 8 bytes, or -1.
+ * 0049126b: its polygon list, copied out of the mesh (free with free()). */
+int object3d_section(const Object3D *obj, const char *name);
+int object3d_section_list(const Object3D *obj, int section, Object3DList *out);
+void object3d_sort_list(const Object3D *obj, Object3DList *list);   /* 004918e1 */
+void object3d_draw_list(const Object3D *obj, const Object3DList *list, int32_t near_z,
+                        const Object3DSink *sink);                   /* 00491c8a */
 
 #endif

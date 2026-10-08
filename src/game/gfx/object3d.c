@@ -166,18 +166,26 @@ static void shell_sort(int n, int32_t *keys, uint32_t *order)
 }
 
 /* 004918e1: the key is the depth of the first two corners. */
-void object3d_sort(Object3D *obj)
+void object3d_sort_list(const Object3D *obj, Object3DList *list)
 {
     static int32_t keys[OBJECT3D_MAX_SORTED];
-    const int n = obj->order_count > OBJECT3D_MAX_SORTED ? OBJECT3D_MAX_SORTED : (int)obj->order_count;
+    const int n = list->count > OBJECT3D_MAX_SORTED ? OBJECT3D_MAX_SORTED : (int)list->count;
     for (int i = 0; i < n; i++) {
-        const Object3DPolygon *p = &obj->polygons[obj->order[i]];
-        uint32_t z = 0;  /* a corner index past the vertices counts as depth 0 */
-        for (int k = 0; k < 2; k++)
-            if (p->vertex[k] < obj->vertex_count) z += (uint32_t)obj->camera[p->vertex[k]][2];
+        uint32_t z = 0;  /* a polygon or corner index out of range counts as depth 0 */
+        if (list->order[i] < obj->polygon_count) {
+            const Object3DPolygon *p = &obj->polygons[list->order[i]];
+            for (int k = 0; k < 2; k++)
+                if (p->vertex[k] < obj->vertex_count) z += (uint32_t)obj->camera[p->vertex[k]][2];
+        }
         keys[i] = (int32_t)z;
     }
-    shell_sort(n, keys, obj->order);
+    shell_sort(n, keys, list->order);
+}
+
+void object3d_sort(Object3D *obj)
+{
+    Object3DList all = { obj->order_count, obj->order };
+    object3d_sort_list(obj, &all);
 }
 
 /* 004a31df: some corner on or in front of the near plane. */
@@ -249,7 +257,42 @@ static void draw_polygon(const Object3D *obj, uint32_t index, int32_t near_z, co
     if (flags & POLY_LINKED) draw_polygon(obj, p->link, near_z, sink, depth + 1);
 }
 
+void object3d_draw_list(const Object3D *obj, const Object3DList *list, int32_t near_z, const Object3DSink *sink)
+{
+    for (uint32_t i = 0; i < list->count; i++) draw_polygon(obj, list->order[i], near_z, sink, 0);
+}
+
 void object3d_draw(const Object3D *obj, int32_t near_z, const Object3DSink *sink)
 {
-    for (uint32_t i = 0; i < obj->order_count; i++) draw_polygon(obj, obj->order[i], near_z, sink, 0);
+    const Object3DList all = { obj->order_count, obj->order };
+    object3d_draw_list(obj, &all, near_z, sink);
+}
+
+int object3d_section(const Object3D *obj, const char *name)
+{
+    for (uint32_t i = 0; i < obj->mesh->section_b_count; i++) {
+        MeshSectionB b;
+        if (mesh_section_b(obj->mesh, i, &b) == MESH_OK && strncmp(b.name, name, 8) == 0) return (int)i;
+    }
+    return -1;
+}
+
+int object3d_section_list(const Object3D *obj, int section, Object3DList *out)
+{
+    MeshSectionB b;
+    out->count = 0;
+    out->order = NULL;
+    if (section < 0 || mesh_section_b(obj->mesh, (uint32_t)section, &b) != MESH_OK) return 0;
+    const uint32_t start = b.unknown[1], count = b.unknown[2];
+    out->order = calloc(count ? count : 1, sizeof *out->order);
+    if (out->order == NULL) return 0;
+    for (uint32_t i = 0; i < count; i++) {
+        if (mesh_vertex_map(obj->mesh, start + i, &out->order[i]) != MESH_OK) {
+            free(out->order);
+            out->order = NULL;
+            return 0;
+        }
+    }
+    out->count = count;
+    return 1;
 }

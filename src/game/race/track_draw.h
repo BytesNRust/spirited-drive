@@ -25,6 +25,8 @@ typedef struct {
     /* 00458c04: a 3D scenery object (FAM objects child `model`) at a world
      * position (16.16) with a 24-bit heading; the 3D engine is not ported */
     void (*draw_model)(void *user, int model, const int32_t position[3], uint32_t heading);
+    /* 0045a848: the cars on a road node, between the rows; may be NULL */
+    void (*draw_cars)(void *user, int32_t node);
 } QuadSink;
 
 typedef struct {

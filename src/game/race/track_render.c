@@ -461,7 +461,13 @@ static void draw_fences(const TrackRender *r, const TrackCamera *cam, const Draw
     if (fence & TRI_FENCE_RIGHT) draw_fence(r, cam, ctx, &lod->fence[phase], base, uv, variant, texture, tall);
 }
 
-/* After a band of rows: each row's objects, then the next row. */
+static void draw_cars(const DrawContext *ctx, int32_t node)
+{
+    if (ctx->sink.draw_cars != NULL) ctx->sink.draw_cars(ctx->sink.user, node);
+}
+
+/* After a band of rows: each row's objects and the cars one row further
+ * (0044b04a, 0044b88f), then the next row. */
 static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w, int rows)
 {
     const int32_t mask = (int32_t)(r->tri->ring_nodes - 1);
@@ -470,7 +476,8 @@ static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w
             draw_object(r, ctx, &r->objects[w->cursor], w->frame);
             w->cursor--;
         }
-        /* TODO(00459eb8, 0045a848): cars and their shadows on this row. */
+        /* TODO(00459eb8): the skid marks of this row, in the near pass. */
+        draw_cars(ctx, (w->node + 1) & mask);
         w->node = (w->node - 1) & mask;
     }
 }
@@ -565,4 +572,5 @@ void track_render_draw(const TrackRender *r, const TrackCamera *cam, const DrawC
     draw_far(r, cam, ctx, mirrored, &w);
     w.node = ((cam->node & ~3) + TRACK_NEAR_SEGMENTS * 4 - 1) & mask;
     draw_near(r, cam, ctx, mirrored, &w);
+    draw_cars(ctx, (w.node + 1) & mask);  /* 0044b945 */
 }
