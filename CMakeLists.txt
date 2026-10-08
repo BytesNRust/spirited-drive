@@ -21,9 +21,11 @@ add_library(tnfs_core STATIC
     src/formats/tri.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
+    src/game/gfx/object3d.c
     src/game/gfx/quad.c
     src/game/gfx/quad_tri.c
     src/game/race/horizon.c
+    src/game/race/model_draw.c
     src/game/race/sky_ring.c
     src/game/race/track_art.c
     src/game/race/track_draw.c
@@ -134,6 +136,10 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_3d tools/probe_3d.c)
     target_link_libraries(probe_3d PRIVATE tnfs_core)
     target_compile_options(probe_3d PRIVATE ${TNFS_WARNINGS})
+
+    add_executable(probe_object3d tools/probe_object3d.c)
+    target_link_libraries(probe_object3d PRIVATE tnfs_core)
+    target_compile_options(probe_object3d PRIVATE ${TNFS_WARNINGS})
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
     target_link_libraries(qfs_unpack PRIVATE tnfs_core)
