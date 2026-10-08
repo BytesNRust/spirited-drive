@@ -16,6 +16,7 @@ endif()
 add_library(tnfs_core STATIC
     src/formats/ffn.c
     src/formats/fsh.c
+    src/formats/tri.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
     src/game/sys/palette.c
@@ -60,7 +61,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn palette race_settings config_dat)
+    foreach(name qfs fsh ffn palette race_settings config_dat tri)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -86,6 +87,12 @@ if(NOT EMSCRIPTEN)
     if(TNFS_CONFIG_DAT)
         list(GET TNFS_CONFIG_DAT 0 TNFS_CONFIG_DAT_FILE)
         add_test(NAME config_dat_cd COMMAND test_config_dat ${TNFS_CONFIG_DAT_FILE})
+    endif()
+
+    file(GLOB TNFS_TRI_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.TRI"
+        "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.tri")
+    if(TNFS_TRI_FILES)
+        add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
     endif()
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
