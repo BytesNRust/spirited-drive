@@ -4,3 +4,5 @@ original/
 build/
 ghidra/project/
 analysis/*.log
+reference/
+__pycache__/
