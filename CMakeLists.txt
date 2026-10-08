@@ -24,6 +24,7 @@ add_library(tnfs_core STATIC
     src/game/race/track_art.c
     src/game/race/track_draw.c
     src/game/race/track_geometry.c
+    src/game/race/track_info.c
     src/game/race/track_objects.c
     src/game/race/track_render.c
     src/game/race/track_tables.c

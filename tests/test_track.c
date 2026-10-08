@@ -4,6 +4,7 @@
 #include "formats/tri.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
+#include "game/race/track_info.h"
 #include "game/race/track_objects.h"
 #include "game/sys/fixed_math.h"
 #include "test.h"
@@ -173,6 +174,35 @@ static void test_objects(const char *dir)
     free(data);
 }
 
+static void test_info(const char *dir)
+{
+    CHECK_EQ_INT(track_info_decimal("-45"), -45 * 65536);
+    CHECK_EQ_INT(track_info_decimal(" 0.25"), 16384);
+    CHECK_EQ_INT(track_info_decimal("1.5"), 98304);
+    CHECK_EQ_INT(track_info_decimal("-0.5"), -32768);
+    CHECK_EQ_INT(track_info_decimal("0.0001"), 6);       /* 65536 / 10000, truncated */
+
+    size_t size = 0;
+    TrackInfo info;
+    char *text = (char *)read_file(dir, "MISC/TR1INFO", &size);
+    CHECK(text != NULL && track_info_parse(&info, text, size));
+    if (text != NULL) {
+        CHECK_EQ_INT(info.height_far, 48 * 65536);
+        CHECK_EQ_INT(info.radius_far, 96 * 65536);
+        CHECK_EQ_INT(info.colour_top, (0 << 10) | (1 << 5) | 2);
+        CHECK_EQ_INT(info.ring, 1);
+        CHECK_EQ_INT(info.ring_y_offset, -45);
+        CHECK_EQ_INT(info.ring_height, 108);
+        CHECK_EQ_INT(info.time_of_day[0][0], 292);
+        CHECK_EQ_INT(info.time_of_day[0][4], 255 * 256);
+    }
+    free(text);
+    text = (char *)read_file(dir, "MISC/AL1INFO", &size);
+    CHECK(text != NULL && track_info_parse(&info, text, size));
+    if (text != NULL) CHECK_EQ_INT(info.ring, 0);
+    free(text);
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -182,6 +212,7 @@ int main(int argc, char **argv)
     test_fixed_math();
     test_geometry(argv[1]);
     test_objects(argv[1]);
+    test_info(argv[1]);
     test_art(argv[1]);
     return TEST_REPORT();
 }
