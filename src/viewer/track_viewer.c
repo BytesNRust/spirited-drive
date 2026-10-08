@@ -9,6 +9,7 @@
 #include "formats/tri.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
+#include "game/race/track_info.h"
 #include "game/race/track_objects.h"
 #include "platform/platform.h"
 #include "viewer/camera.h"
@@ -41,6 +42,7 @@ typedef struct {
     TrackArt art;
     TrackObject *objects;   /* one per scenery record */
     uint32_t object_count;
+    TrackInfo info;
     ViewModel models[TRACK_MODELS];
     int model_ok[TRACK_MODELS];
 } Track;
@@ -74,6 +76,13 @@ static int load_track(Track *t, const char *data_root, const char *name)
         fprintf(stderr, "track_viewer: %s: tri %s, fam %s\n", name, tri_result_str(tr), chunk_result_str(cr));
         return 0;
     }
+    char info_path[512];
+    size_t info_size = 0;
+    snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);
+    uint8_t *info_text = platform_read_file(info_path, &info_size);
+    if (info_text == NULL || !track_info_parse(&t->info, (const char *)info_text, info_size))
+        fprintf(stderr, "track_viewer: no sky settings in %s\n", info_path);
+    platform_free_file(info_text);
     t->objects = calloc(t->tri.scenery_count + 1u, sizeof *t->objects);
     if (t->objects == NULL) return 0;
     Chunk objects, pair;
@@ -247,10 +256,7 @@ static void render(const Track *t, uint32_t node, float yaw, int stand_in, uint8
         render_stand_in(t, node, yaw, pixels);
         return;
     }
-    TriNode n;
-    const float heading = tri_node(&t->tri, node, &n) == TRI_OK ? n.orientation * (2.0f * 3.14159265f / 0x4000) : 0;
-    draw_horizon(pixels, &t->art, heading + yaw);
-    ported_view_render(&t->tri, &t->art, node, (int32_t)(yaw / (2.0f * 3.14159265f) * 0x1000000), pixels);
+    ported_view_render(&t->tri, &t->art, &t->info, node, (int32_t)(yaw / (2.0f * 3.14159265f) * 0x1000000), pixels);
 }
 
 static int write_ppm(const char *path, const uint8_t *pixels, const uint8_t *rgb)
