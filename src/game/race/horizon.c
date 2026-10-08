@@ -4,13 +4,6 @@
 
 #include <string.h>
 
-/* (value * scale) >> 16 rounded half up, low 32 bits. */
-static int32_t mul_round(int32_t value, int32_t scale)
-{
-    const int64_t p = (int64_t)value * scale;
-    return (int32_t)((uint32_t)((uint64_t)p >> 16) + (uint32_t)(((uint64_t)p >> 15) & 1));
-}
-
 void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale)
 {
     if (width > HORIZON_MAX_WIDTH) width = HORIZON_MAX_WIDTH;
@@ -32,19 +25,25 @@ void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale
     for (int i = 0; i < HORIZON_ROWS; i++, acc += step) t->row_map[i] = (uint8_t)(acc >> 16);
     t->width = width;
     for (int i = 0; i <= half_w; i++) {
-        const int32_t column = mul_round(fx_atan2(i << 16, focal), per_angle);
+        const int32_t column = fx_mul_round(fx_atan2(i << 16, focal), per_angle);
         t->columns[half_w + i] = column;
         t->columns[half_w - i] = -column;
     }
 }
 
-int32_t horizon_line(const View *view, int world_shift, int32_t yaw, const int32_t matrix[9])
+void horizon_point(const View *view, int world_shift, int32_t yaw, const int32_t matrix[9], int32_t screen[2])
 {
     const uint32_t a = (uint32_t)(yaw >> 14);
     const int32_t far[3] = { (fx_sin(a) * 0x100) >> world_shift, 0, (fx_cos(a) * 0x100) >> world_shift };
-    int32_t cam[3], screen[2];
+    int32_t cam[3];
     mat3_apply(far, matrix, cam);
     view_project(view, cam, screen);
+}
+
+int32_t horizon_line(const View *view, int world_shift, int32_t yaw, const int32_t matrix[9])
+{
+    int32_t screen[2];
+    horizon_point(view, world_shift, yaw, matrix, screen);
     return screen[1];
 }
 
@@ -76,14 +75,14 @@ void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, cons
     /* 0043ae64: the bitmap's horizon row (misc[1]) sits on the line; it
      * turns 0x500 pixels per turn. */
     const int32_t turn = mirrored ? -yaw : yaw;
-    const int32_t x_offset = (mul_round(turn, 0x50000) >> 16) % w;
+    const int32_t x_offset = (fx_mul_round(turn, 0x50000) >> 16) % w;
     int32_t y = line - ((int32_t)((uint32_t)horz->misc[1] * (uint32_t)t->scale) >> 16);
     const int32_t bottom = y + ((int32_t)((uint32_t)(horz->height - 1) * (uint32_t)t->scale) >> 16);
     /* Above and below the bitmap: its first and last pixels. */
     fill(target, clip, clip->y0, y - clip->y0, horz->payload[0]);
     fill(target, clip, bottom, clip->y1 - bottom, horz->payload[(size_t)horz->width * horz->height - 1]);
     /* 0043a18c */
-    int32_t rows = mul_round(t->scale, horz->height - 1);
+    int32_t rows = fx_mul_round(t->scale, horz->height - 1);
     int skip = 0;
     if (y < clip->y0) {
         skip = clip->y0 - y;
