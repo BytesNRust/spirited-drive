@@ -38,6 +38,20 @@ bool platform_poll_events(void);
 /* Next key pressed since the last call, or PLATFORM_KEY_NONE. */
 PlatformKey platform_next_key(void);
 
+/* Whether a key is held now, by IBM PC set-1 scancode (0x01 Esc, 0x1C Enter,
+ * 0x48 Up ...), the codes the 1996 game itself polls. Extended keys use the
+ * same numbers as their BIOS codes (0x48 Up, 0x52 Insert, 0x53 Delete). */
+bool platform_key_down(int scancode);
+
+enum {
+    PLATFORM_MOUSE_LEFT = 1,
+    PLATFORM_MOUSE_RIGHT = 2
+};
+
+/* Mouse in framebuffer coordinates and its button mask. Returns true when
+ * the mouse moved since the previous call. */
+bool platform_mouse(int *x, int *y, unsigned *buttons);
+
 /* Whole file in a platform-owned buffer (release with platform_free_file), or NULL. */
 uint8_t *platform_read_file(const char *path, size_t *size);
 void platform_free_file(uint8_t *data);

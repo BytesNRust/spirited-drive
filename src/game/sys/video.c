@@ -6,9 +6,28 @@
 #include <stdlib.h>
 #include <string.h>
 
+enum { TRANSPARENT = 0xFF };
+
 static uint8_t *back;
 static uint8_t *front;
+static uint8_t *composed;
 static uint8_t palette[PALETTE_BYTES];  /* 0052ced8 / 0052f178 */
+static const FshEntry *overlay;
+static int overlay_x, overlay_y;
+
+static void compose_overlay(void)
+{
+    memcpy(composed, front, VIDEO_WIDTH * VIDEO_HEIGHT);
+    for (int row = 0; row < overlay->height; row++) {
+        const int dy = overlay_y + row;
+        if (dy < 0 || dy >= VIDEO_HEIGHT) continue;
+        for (int col = 0; col < overlay->width; col++) {
+            const int dx = overlay_x + col;
+            const uint8_t c = overlay->payload[(size_t)row * overlay->width + col];
+            if (c != TRANSPARENT && dx >= 0 && dx < VIDEO_WIDTH) composed[dy * VIDEO_WIDTH + dx] = c;
+        }
+    }
+}
 
 static void show(void)
 {
@@ -16,15 +35,26 @@ static void show(void)
     for (int i = 0; i < PALETTE_COLORS; i++) {
         colors[i] = (PlatformColor){ palette[3 * i], palette[3 * i + 1], palette[3 * i + 2] };
     }
-    platform_present(front, colors);
+    if (overlay != NULL) compose_overlay();
+    platform_present(overlay != NULL ? composed : front, colors);
+}
+
+void video_set_overlay(const FshEntry *shape, int x, int y)
+{
+    overlay = shape;
+    overlay_x = x;
+    overlay_y = y;
+    if (front != NULL) show();
 }
 
 int video_init(void)
 {
     back = calloc(VIDEO_WIDTH * VIDEO_HEIGHT, 1);
     front = calloc(VIDEO_WIDTH * VIDEO_HEIGHT, 1);
+    composed = calloc(VIDEO_WIDTH * VIDEO_HEIGHT, 1);
     memset(palette, 0, sizeof palette);
-    if (back == NULL || front == NULL) {
+    overlay = NULL;
+    if (back == NULL || front == NULL || composed == NULL) {
         video_shutdown();
         return 0;
     }
@@ -35,7 +65,9 @@ void video_shutdown(void)
 {
     free(back);
     free(front);
-    back = front = NULL;
+    free(composed);
+    back = front = composed = NULL;
+    overlay = NULL;
 }
 
 uint8_t *video_back_buffer(void)

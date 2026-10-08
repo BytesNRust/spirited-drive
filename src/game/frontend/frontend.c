@@ -10,13 +10,6 @@ enum {
     FRONTEND_TITLE_INSTANT = 3
 };
 
-/* 004376ac: main menu. Not ported yet: leave the front end. */
-static int main_menu(void)
-{
-    fprintf(stderr, "frontend: main menu (004376ac) not ported yet, quitting\n");
-    return FRONTEND_QUIT;
-}
-
 void frontend_run(void)
 {
     int state = FRONTEND_INTRO;
@@ -41,6 +34,7 @@ void frontend_run(void)
         state = choice;
         if (choice == FRONTEND_RACE) {
             /* TODO(00466ae4, 00432ff4, 0042a504): race setup, race, save config. */
+            fprintf(stderr, "frontend: race setup (00432ff4) not ported yet, back to the menu\n");
         }
     } while (state != FRONTEND_QUIT);
 }

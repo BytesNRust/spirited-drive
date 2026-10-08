@@ -27,6 +27,28 @@ static PlatformKey key_queue[KEY_QUEUE_SIZE];
 static int key_head;
 static int key_count;
 
+/* TNFS_INPUT_SCRIPT="ms:KEY,ms:MOUSE:x:y,...": scripted input for headless
+ * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE) is held for 100 ms
+ * starting ms milliseconds after platform_init, and longer if the game has
+ * not polled it yet (slow frame capture must not drop presses); MOUSE moves
+ * the pointer. */
+enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100 };
+typedef struct {
+    uint32_t at_ms;
+    int scancode;  /* set-1, 0 for mouse moves */
+    int x, y;
+    bool seen;     /* held until the game has read it at least once */
+} ScriptEvent;
+static ScriptEvent script[SCRIPT_MAX];
+static int script_count;
+static uint32_t script_start_ms;
+
+static void load_script(void);
+
+static float mouse_x, mouse_y;
+static unsigned mouse_buttons;
+static bool mouse_moved;
+
 bool platform_init(const PlatformConfig *config)
 {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
@@ -42,6 +64,7 @@ bool platform_init(const PlatformConfig *config)
         return false;
     }
     SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    load_script();
     capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
     const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
     if (every != NULL && SDL_atoi(every) > 0) capture_every = SDL_atoi(every);
@@ -89,6 +112,17 @@ bool platform_poll_events(void)
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) return false;
+        if (event.type == SDL_EVENT_MOUSE_MOTION) {
+            SDL_ConvertEventToRenderCoordinates(renderer, &event);
+            mouse_x = event.motion.x;
+            mouse_y = event.motion.y;
+            mouse_moved = true;
+        }
+        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            const unsigned bit = event.button.button == SDL_BUTTON_LEFT ? PLATFORM_MOUSE_LEFT
+                : event.button.button == SDL_BUTTON_RIGHT ? PLATFORM_MOUSE_RIGHT : 0;
+            mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
+        }
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
             const PlatformKey key = translate_key(event.key.key);
             if (key != PLATFORM_KEY_NONE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
@@ -104,6 +138,119 @@ PlatformKey platform_next_key(void)
     key_head = (key_head + 1) % KEY_QUEUE_SIZE;
     key_count--;
     return key;
+}
+
+static int script_key(const char *name)
+{
+    static const struct { const char *name; int scancode; } KEYS[] = {
+        { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
+        { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
+    };
+    for (size_t i = 0; i < sizeof KEYS / sizeof KEYS[0]; i++) {
+        if (SDL_strcmp(name, KEYS[i].name) == 0) return KEYS[i].scancode;
+    }
+    return -1;
+}
+
+static void load_script(void)
+{
+    const char *text = SDL_getenv("TNFS_INPUT_SCRIPT");
+    char buf[2048];
+    if (text == NULL) return;
+    SDL_strlcpy(buf, text, sizeof buf);
+    char *save = NULL;
+    for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
+         item = SDL_strtok_r(NULL, ",", &save)) {
+        ScriptEvent e = { 0, 0, 0, 0, false };
+        char name[16] = "";
+        if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
+            script[script_count++] = e;
+        } else if (SDL_sscanf(item, "%u:%15s", &e.at_ms, name) == 2 && (e.scancode = script_key(name)) > 0) {
+            script[script_count++] = e;
+        } else {
+            fprintf(stderr, "platform: bad TNFS_INPUT_SCRIPT item '%s'\n", item);
+        }
+    }
+    script_start_ms = (uint32_t)SDL_GetTicks();
+}
+
+static bool script_key_down(int scancode)
+{
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    for (int i = 0; i < script_count; i++) {
+        ScriptEvent *e = &script[i];
+        if (e->scancode == scancode && now >= e->at_ms && (!e->seen || now < e->at_ms + SCRIPT_HOLD_MS)) {
+            e->seen = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void apply_script_mouse(void)
+{
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    for (int i = 0; i < script_count; i++) {
+        if (script[i].scancode == 0 && now >= script[i].at_ms) {
+            mouse_x = (float)script[i].x;
+            mouse_y = (float)script[i].y;
+            mouse_moved = true;
+            script[i].scancode = -1;  /* consumed */
+        }
+    }
+}
+
+static SDL_Scancode from_set1(int scancode)
+{
+    switch (scancode) {
+    case 0x01: return SDL_SCANCODE_ESCAPE;
+    case 0x15: return SDL_SCANCODE_Y;
+    case 0x1C: return SDL_SCANCODE_RETURN;
+    case 0x1D: return SDL_SCANCODE_LCTRL;
+    case 0x24: return SDL_SCANCODE_J;
+    case 0x2A: return SDL_SCANCODE_LSHIFT;
+    case 0x31: return SDL_SCANCODE_N;
+    case 0x36: return SDL_SCANCODE_RSHIFT;
+    case 0x38: return SDL_SCANCODE_LALT;
+    case 0x39: return SDL_SCANCODE_SPACE;
+    case 0x3B: return SDL_SCANCODE_F1;
+    case 0x3C: return SDL_SCANCODE_F2;
+    case 0x3D: return SDL_SCANCODE_F3;
+    case 0x3E: return SDL_SCANCODE_F4;
+    case 0x3F: return SDL_SCANCODE_F5;
+    case 0x44: return SDL_SCANCODE_F10;
+    case 0x48: return SDL_SCANCODE_UP;
+    case 0x4B: return SDL_SCANCODE_LEFT;
+    case 0x4D: return SDL_SCANCODE_RIGHT;
+    case 0x50: return SDL_SCANCODE_DOWN;
+    case 0x52: return SDL_SCANCODE_INSERT;
+    case 0x53: return SDL_SCANCODE_DELETE;
+    default: return SDL_SCANCODE_UNKNOWN;
+    }
+}
+
+bool platform_key_down(int scancode)
+{
+    if (script_count > 0 && script_key_down(scancode)) return true;
+    const SDL_Scancode sc = from_set1(scancode);
+    if (sc == SDL_SCANCODE_UNKNOWN) return false;
+    const bool *state = SDL_GetKeyboardState(NULL);
+    /* Both Ctrl / Alt / Enter keys count, as on a PC keyboard. */
+    if (sc == SDL_SCANCODE_LCTRL) return state[sc] || state[SDL_SCANCODE_RCTRL];
+    if (sc == SDL_SCANCODE_LALT) return state[sc] || state[SDL_SCANCODE_RALT];
+    if (sc == SDL_SCANCODE_RETURN) return state[sc] || state[SDL_SCANCODE_KP_ENTER];
+    return state[sc];
+}
+
+bool platform_mouse(int *x, int *y, unsigned *buttons)
+{
+    if (script_count > 0) apply_script_mouse();
+    *x = (int)mouse_x;
+    *y = (int)mouse_y;
+    *buttons = mouse_buttons;
+    const bool moved = mouse_moved;
+    mouse_moved = false;
+    return moved;
 }
 
 uint8_t *platform_read_file(const char *path, size_t *size)

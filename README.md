@@ -29,15 +29,18 @@ Serve `build/web/` over HTTP (`python3 -m http.server -d build/web`) and open `t
 ## Run
 
 ```sh
-./build/native/tnfs [--data original] [--german]      # boot: EA logo, title (menu not ported yet)
+./build/native/tnfs [--data original] [--german]      # boot: EA logo, title, Game Mode menu
 ./build/native/tnfs --view original/FRONTEND/ART/TITLE.QFS   # browse FSH/QFS bitmaps
 ```
 
-Headless check of the boot screens (every 15th presented frame as PPM):
+Headless runs: `TNFS_CAPTURE_DIR` writes every n-th presented frame as PPM and
+`TNFS_INPUT_SCRIPT` replays input (`ms:KEY` held until the game reads it,
+`ms:MOUSE:x:y`). Example: boot, move down twice, then choose Exit with the mouse:
 
 ```sh
 SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software TNFS_CAPTURE_DIR=/tmp/frames \
-  TNFS_CAPTURE_EVERY=15 ./build/native/tnfs
+  TNFS_CAPTURE_EVERY=1 TNFS_INPUT_SCRIPT="16000:DOWN,17000:DOWN,22000:MOUSE:320:400,23000:ENTER" \
+  ./build/native/tnfs
 ```
 
 ## Analysis

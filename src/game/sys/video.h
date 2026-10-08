@@ -23,6 +23,11 @@ void video_get_palette(uint8_t rgb[768]);                             /* 0047664
 void video_fade_in(int first, int count, const uint8_t *target);      /* 00463e7c */
 void video_fade_out(int first, int count);                            /* 00463ef0 */
 
+/* Sprite composited over the displayed frame with 0xFF transparent: the
+ * mouse pointer, which the original drew straight onto the front surface
+ * with save-under (004416cc). NULL hides it. Re-presents the screen. */
+void video_set_overlay(const FshEntry *shape, int x, int y);
+
 /* Draws a bitmap entry into the back buffer at (x, y), clipped. */
 void video_blit(const FshEntry *shape, int x, int y);                 /* 004737d0 */
 /* Same at the shape's own screen position (misc[2], misc[3]). */

@@ -14,6 +14,7 @@ int show_screen(const char *name, int mode, int music);
 
 void title_screen(int state);  /* 004372e4 */
 int intro_sequence(void);      /* 00441abc */
+int main_menu(void);           /* 004376ac: 0 race, 1 quit, 2 back to the intro */
 void frontend_run(void);       /* 004373c4 */
 
 #endif

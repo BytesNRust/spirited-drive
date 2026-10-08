@@ -11,5 +11,6 @@ void timer_init(void);                 /* 0048c60c */
 uint32_t timer_ticks(void);            /* 0052eebc */
 void timer_set_deadline(int ticks);    /* 0047334f */
 int timer_deadline_passed(void);       /* 0047336d */
+int timer_ticks_since_last(void);      /* 00473334 */
 
 #endif

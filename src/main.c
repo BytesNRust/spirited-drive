@@ -4,6 +4,7 @@
  *   tnfs --view FILE [--entry N] [--screenshot OUT.ppm]
  *                                          browse an FSH / QFS (development) */
 #include "game/frontend/frontend.h"
+#include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
@@ -57,8 +58,11 @@ static int run_game(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     timer_init();
-    /* TODO(004322f8): CD/memory checks, fonts, config; TODO(004100ec): network. */
+    /* 004322f8 loads the pointer; TODO(004322f8): CD/memory checks, fonts,
+     * config; TODO(004100ec): network. */
+    pointer_load(0);
     frontend_run();
+    pointer_free();
     video_shutdown();
     platform_shutdown();
     return 1;
