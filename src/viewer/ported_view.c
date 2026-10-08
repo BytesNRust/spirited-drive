@@ -1,5 +1,6 @@
 #include "viewer/ported_view.h"
 
+#include "game/gfx/quad.h"
 #include "game/race/horizon.h"
 #include "game/race/sky_ring.h"
 #include "game/race/track_render.h"
@@ -19,16 +20,29 @@ enum {
     SKY_POSITION_SHIFT = 10  /* 0043af80: -position >> 10 */
 };
 
-static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
+/* The race's default mapper set (00449b90): every wrapper passes textures
+ * of type 0x45 to the transparent mapper and the rest to the opaque one. */
+static int transparent(const FshEntry *texture)
 {
-    raster_screen_quad(user, screen, uv, texture, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
+    return texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE;
 }
 
+/* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
+static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
+{
+    quad_draw(user, texture, uv, screen, transparent(texture));
+}
+
+/* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    const int32_t w = (texture->width - 1) * 65536, h = (texture->height - 1) * 65536;
-    const int32_t uv[8] = { 0, 0, w, 0, w, h, 0, h };
-    raster_screen_quad(user, screen, uv, texture, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
+    quad_draw_full_tri(user, texture, screen, transparent(texture));
+}
+
+/* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
+static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
+{
+    quad_draw_full(user, texture, screen, transparent(texture));
 }
 
 /* The 3D engine is not ported: the viewer's stand-in draws the models. */
@@ -51,18 +65,26 @@ void ported_view_set_models(const ViewModel *list, const int *ok)
     model_ok = ok;
 }
 
+typedef struct {
+    const QuadTarget *quad;
+    const RasterTarget *raster;
+} SkyTargets;
+
+/* 004f9e98 = 00425520 -> 004252ec */
 static void sky_triangle(void *user, const FshEntry *texture, const int32_t uv[6], const int32_t screen[6])
 {
-    raster_screen_triangle(user, screen, uv, texture, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
+    const SkyTargets *t = user;
+    tri_draw(t->quad, texture, uv, screen, transparent(texture));
 }
 
 static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
 {
-    raster_fill(user, x, y, w, h, colour);
+    const SkyTargets *t = user;
+    raster_fill(t->raster, x, y, w, h, colour);
 }
 
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
-static void draw_sky_ring(const RasterTarget *target, const View *view, const TrackArt *art, const TrackInfo *info,
+static void draw_sky_ring(const SkyTargets *targets, const View *view, const TrackArt *art, const TrackInfo *info,
                           const TrackCamera *cam, int32_t yaw)
 {
     static SkyRing ring;
@@ -72,7 +94,7 @@ static void draw_sky_ring(const RasterTarget *target, const View *view, const Tr
                        { 0x10000, WIDTH, 0, 0, WIDTH, HEIGHT }, WIDTH, WIDTH, 0 };
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
-    const SkySink sink = { (void *)target, sky_triangle, sky_fill };
+    const SkySink sink = { (void *)targets, sky_triangle, sky_fill };
     sky_ring_draw(&ring, info, &frame, &art->horizon, &sink);
 }
 
@@ -87,15 +109,17 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     view_init(&view, 0, 0, WIDTH, HEIGHT, FOV, FOV);
     horizon_tables(&horizon, WIDTH, FOV, 0x10000);
     RasterTarget target = { pixels, WIDTH, HEIGHT, 0, 0 };
+    QuadTarget quad = { pixels, WIDTH, 0, 0, WIDTH, HEIGHT };
     DrawContext ctx = { &view, { 0, 0, WIDTH, HEIGHT }, WORLD_SHIFT, { 0, 0, 0x1999 },
-                        { &target, draw_uv, draw_full, draw_full, draw_model } };
+                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model } };
     TrackCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, { 0 }, (int32_t)node };
     const int32_t cam_yaw = n.orientation * 0x400 + yaw;
     track_camera_matrix(0, cam_yaw, 0, 0, cam.matrix);
     /* TODO(00473680): the frame is cleared first; colour 0 for now. */
     memset(pixels, 0, WIDTH * HEIGHT);
     if (art->has_horizon && info->ring != 0) {
-        draw_sky_ring(&target, &view, art, info, &cam, cam_yaw);
+        const SkyTargets targets = { &quad, &target };
+        draw_sky_ring(&targets, &view, art, info, &cam, cam_yaw);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, WIDTH };
         horizon_draw_flat(&horizon, &ht, &ctx.clip, 0, &art->horizon, cam_yaw, 0,
