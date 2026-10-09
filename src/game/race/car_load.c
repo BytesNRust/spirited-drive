@@ -157,7 +157,7 @@ void car_reset(Car *car, uint32_t handle)
     car->gear_change_ticks = 0;
     car->steer = 0;
     car->slip_steer = 0;
-    car->unknown_33c = 0;
+    car->lane_bias = 0;
     car->throttle = car->saved_throttle = car->brake = 0;
     car->handbrake = 0;
     car->gear = -1;
@@ -166,7 +166,8 @@ void car_reset(Car *car, uint32_t handle)
     car->shift_timer = -1;
     car->on_ground = 1;
     car->airborne_ticks = 0;
-    car->unknown_158 = car->ai_speed = car->ai_target_speed = car->ai_target_lateral = 0;
+    car->zone = 0;
+    car->ai_speed = car->ai_target_speed = car->ai_target_lateral = 0;
     car->use_matrix = 0;
     memset(car->road_axes, 0, sizeof car->road_axes);
     memset(car->road_centre, 0, sizeof car->road_centre);
@@ -180,7 +181,7 @@ void car_reset(Car *car, uint32_t handle)
     car->unknown_3d9 = car->unknown_3dd = car->unknown_3e1 = 0;
     memset(car->unknown_4ea, 0, sizeof car->unknown_4ea);
     car->flags_174 = car->flags_175 = 0;
-    memset(car->unknown_176, 0, sizeof car->unknown_176);
+    memset(car->flags_176, 0, sizeof car->flags_176);
     car->unknown_088 = handle;
     car->unknown_0c0 = handle + BODY;
     car->body_extent_a = 0x457;

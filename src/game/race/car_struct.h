@@ -16,7 +16,7 @@ typedef struct {
     int32_t yaw;  /* 0x010 copied to heading (+0x351) after each tick */
     int32_t roll;  /* 0x014 about z */
     int32_t steer;  /* 0x018 the front wheels' angle; more of it at low speed, less under braking (00430cb0) */
-    int32_t slip_steer;  /* 0x01c zeroed by the reset (0043fd00); the steer the sideways speed calls for: local_velocity_x times a factor that falls to 0 with speed (0046f3e8); the gap to steer is the slide (0046d79c) */
+    int32_t slip_steer;  /* 0x01c zeroed by the reset (0043fd00); the steer the sideways speed calls for (0046f3e8) */
     int32_t use_matrix;  /* 0x020 non-zero: +0x24 is the body matrix (004591d4) */
     int32_t matrix[9];  /* 0x024 16.16 */
     int32_t node;  /* 0x048 road node under the car */
@@ -33,33 +33,43 @@ typedef struct {
     int32_t yaw_rate;  /* 0x074 turn per second, 24-bit angle, within +-0x960000 (00430cb0) */
     int32_t half_length;  /* 0x078 front axle offset? turned by 00428804 */
     int32_t half_width;  /* 0x07c turned by 00428804 */
-    int32_t road_lateral;  /* 0x080 computer cars: signed distance from the road's centre along road_axes' side row, 16.16 (0046ab24); the verge bytes of a node are times 0x2000 */
-    uint8_t pad_084[0x4];
+    int32_t road_lateral;  /* 0x080 computer cars: signed distance from the road's centre along road_axes' side row, 16.16; zeroed by 0040fa3c */
+    int32_t unknown_084;  /* 0x084 the collision body's +0x74 (0040fa3c) */
     uint32_t unknown_088;  /* 0x088 */
-    int32_t road_axes[9];  /* 0x08c zeroed by the reset; the computer cars' road frame (0046ab24): side, up and forward rows, 16.16 */
-    int32_t road_centre[3];  /* 0x0b0 zeroed by the reset; the road's centre point under the computer car (0046ab24) */
+    int32_t road_axes[9];  /* 0x08c zeroed by the reset; the computer cars' road frame at their node (00470028): three rows, 16.16 */
+    int32_t road_centre[3];  /* 0x0b0 zeroed by the reset; the road's point under the computer car (00470028) */
     int32_t unknown_0bc;  /* 0x0bc the collision body's +0x78 (004407b8) */
     uint32_t unknown_0c0;  /* 0x0c0 */
-    uint8_t pad_0c4[0x74];
+    int32_t body_matrix[9];  /* 0x0c4 the collision body (+0xc0 points here): its orientation, identity from 0041da00 */
+    int32_t body_unknown_24[15];  /* 0x0e8 the body +0x24..+0x5c, zeroed by 0041da00 */
+    int32_t body_pdn_10;  /* 0x124 the body +0x60: the PDN's +0x10 (0041da00) */
+    int32_t body_pdn_0c;  /* 0x128 the body +0x64: the PDN's +0x0c */
+    int32_t body_inverse_10;  /* 0x12c the body +0x68: 0x100000000 / +0x10 (0042ebcc) */
+    int32_t body_inverse_0c;  /* 0x130 the body +0x6c */
+    int32_t body_radius;  /* 0x134 the body +0x70: the length of the extents (0041d3b8) */
     int32_t body_extent_a;  /* 0x138 the collision body (+0xc4) +0x74; 0x457 from the reset, half the model's +0x64e (004407b8) */
     int32_t body_extent_b;  /* 0x13c +0x78; 0x8ae, half the model's +0x652 */
     int32_t body_extent_c;  /* 0x140 +0x7c; 0xd05, half the model's +0x64a */
-    int32_t ai_countdown;  /* 0x144 the collision body's +0x80: ticks until the driver 0046f3e8 runs again (0046d79c); it sets it to its interval, 8, 6 or 4 */
-    uint8_t pad_148[0x4];
-    int32_t slide_timer;  /* 0x14c the body's +0x88: 0xa0 (0x64 for racers) while not sliding, counting down while the car slides, 0 when it has slid long (0046d79c) */
-    int32_t coast_timer;  /* 0x150 the body's +0x8c: ticks the driver must not accelerate; then counts up from -20 to 0 (0046f3e8) */
-    uint8_t pad_154[0x4];
-    int32_t unknown_158;  /* 0x158 zeroed by the reset; counts the driver's rounds (0046a238) */
-    int32_t ai_speed;  /* 0x15c zeroed by the reset; the computer car's speed along the road, 16.16, moved towards ai_target_speed (0046f3e8) */
+    int32_t ai_countdown;  /* 0x144 the collision body's +0x80: ticks until the driver 0046f3e8 runs again (0046d79c) */
+    int32_t unknown_148;  /* 0x148 the body +0x84; zeroed by 0040fa3c and when a computer car is placed (0046f110) */
+    int32_t slide_timer;  /* 0x14c the body's +0x88: 0xa0 (0x64 for racers) while not sliding, counting down while it slides (0046d79c); zeroed by 0040fa3c */
+    int32_t coast_timer;  /* 0x150 the body's +0x8c: ticks the driver must not accelerate (0046f3e8); zeroed by 0040fa3c */
+    int32_t speed_factor;  /* 0x154 the body +0x90: one of ai params[14..17] at random, 16.16 (00470998); zeroed by 0040fa3c */
+    int32_t zone;  /* 0x158 the computer cars' zone record this car is placed for; zeroed by the reset (0046a238) */
+    int32_t ai_speed;  /* 0x15c zeroed by the reset; the computer car's speed along the road, 16.16 (0046f3e8) */
     int32_t ai_target_speed;  /* 0x160 zeroed by the reset; the speed the driver wants */
     int32_t ai_target_lateral;  /* 0x164 zeroed by the reset; the distance from the road's centre the driver steers for */
-    uint8_t pad_168[0xc];
+    int32_t pdn_mass;  /* 0x168 the PDN's +0x14 (0040fa3c) */
+    int32_t pdn_inverse_mass;  /* 0x16c 0x10000 / pdn_mass */
+    int32_t pdn_18;  /* 0x170 the PDN's +0x18 */
     uint8_t flags_174;  /* 0x174 */
     uint8_t flags_175;  /* 0x175 bit 1: the player's car shows its dashboard pieces (004591d4) */
-    uint8_t unknown_176[2];  /* 0x176 zeroed by the reset with flags_174 and flags_175 */
-    int32_t speed_table[100];  /* 0x178 indexed by |ai_speed| in whole units + 1: the acceleration there; the driver reads entries i and i-1 (0046f3e8) */
-    uint8_t pad_308[0x34];
-    int32_t unknown_33c;  /* 0x33c zeroed by the reset */
+    uint8_t flags_176[2];  /* 0x176 zeroed by the reset with flags_174 and flags_175 */
+    int32_t ai_speed_table[100];  /* 0x178 the PDN's +0x1c: the computer driver's speeds (0046f3e8) */
+    int32_t pdn_1ac[6];  /* 0x308 the PDN's +0x1ac */
+    int32_t pdn_1ac_inverse[6];  /* 0x320 0x10000 / pdn_1ac, 0 for 0 */
+    int32_t pdn_1c4;  /* 0x338 the PDN's +0x1c4 */
+    int32_t lane_bias;  /* 0x33c sideways bias added to the lane offset, picked at random per car (00470a34); zeroed by the reset */
     uint8_t unknown_340;  /* 0x340 zeroed by the reset */
     int32_t draw_node;  /* 0x341 node used to draw the car with its row (0045a848) */
     int32_t draw_node2;  /* 0x345 */
@@ -127,7 +137,8 @@ typedef struct {
     int32_t unknown_45d;  /* 0x45d 0042ff60: spec +0x2d0 times the inertia over spec +0x40 */
     int32_t unknown_461;  /* 0x461 00430cb0: the front tyres' lever on the yaw (16.16) */
     int32_t unknown_465;  /* 0x465 00430cb0: the rear tyres' lever on the yaw (16.16) */
-    uint8_t pad_469[0x10];
+    int32_t pdn_1c8;  /* 0x469 the PDN's +0x1c8 */
+    uint8_t pad_46d[0xc];
     uint32_t specs;  /* 0x479 the car's performance data */
     int32_t player;  /* 0x47d index of the driver (00509e1c, 0051cc5c + 0x1d2 * i) */
     uint8_t driver_name[9];  /* 0x481 the race entry's name (004400f4) */
@@ -167,7 +178,11 @@ typedef struct {
     uint8_t unknown_51b[3];  /* 0x51b zeroed with flags_51a (004406d0 writes it as a word) */
     uint8_t pad_51e[0x10];
     uint32_t body_object;  /* 0x52e 3D object, high detail */
-    uint8_t pad_532[0x134];
+    uint8_t pad_532[0x118];
+    int32_t model_length;  /* 0x64a from the model (00457d40); twice the body extent c when the PDN has none */
+    int32_t model_width;  /* 0x64e */
+    int32_t model_height;  /* 0x652 */
+    uint8_t pad_656[0x10];
     uint32_t far_object;  /* 0x666 3D object, low detail */
     uint8_t pad_66a[0x124];
     int32_t far;  /* 0x78e drawn with the low detail model this frame */
@@ -203,26 +218,42 @@ CAR_CHECK(yaw_rate, offsetof(Car, yaw_rate) == 0x74);
 CAR_CHECK(half_length, offsetof(Car, half_length) == 0x78);
 CAR_CHECK(half_width, offsetof(Car, half_width) == 0x7c);
 CAR_CHECK(road_lateral, offsetof(Car, road_lateral) == 0x80);
+CAR_CHECK(unknown_084, offsetof(Car, unknown_084) == 0x84);
 CAR_CHECK(unknown_088, offsetof(Car, unknown_088) == 0x88);
 CAR_CHECK(road_axes, offsetof(Car, road_axes) == 0x8c);
 CAR_CHECK(road_centre, offsetof(Car, road_centre) == 0xb0);
 CAR_CHECK(unknown_0bc, offsetof(Car, unknown_0bc) == 0xbc);
 CAR_CHECK(unknown_0c0, offsetof(Car, unknown_0c0) == 0xc0);
+CAR_CHECK(body_matrix, offsetof(Car, body_matrix) == 0xc4);
+CAR_CHECK(body_unknown_24, offsetof(Car, body_unknown_24) == 0xe8);
+CAR_CHECK(body_pdn_10, offsetof(Car, body_pdn_10) == 0x124);
+CAR_CHECK(body_pdn_0c, offsetof(Car, body_pdn_0c) == 0x128);
+CAR_CHECK(body_inverse_10, offsetof(Car, body_inverse_10) == 0x12c);
+CAR_CHECK(body_inverse_0c, offsetof(Car, body_inverse_0c) == 0x130);
+CAR_CHECK(body_radius, offsetof(Car, body_radius) == 0x134);
 CAR_CHECK(body_extent_a, offsetof(Car, body_extent_a) == 0x138);
 CAR_CHECK(body_extent_b, offsetof(Car, body_extent_b) == 0x13c);
 CAR_CHECK(body_extent_c, offsetof(Car, body_extent_c) == 0x140);
 CAR_CHECK(ai_countdown, offsetof(Car, ai_countdown) == 0x144);
+CAR_CHECK(unknown_148, offsetof(Car, unknown_148) == 0x148);
 CAR_CHECK(slide_timer, offsetof(Car, slide_timer) == 0x14c);
 CAR_CHECK(coast_timer, offsetof(Car, coast_timer) == 0x150);
-CAR_CHECK(unknown_158, offsetof(Car, unknown_158) == 0x158);
+CAR_CHECK(speed_factor, offsetof(Car, speed_factor) == 0x154);
+CAR_CHECK(zone, offsetof(Car, zone) == 0x158);
 CAR_CHECK(ai_speed, offsetof(Car, ai_speed) == 0x15c);
 CAR_CHECK(ai_target_speed, offsetof(Car, ai_target_speed) == 0x160);
 CAR_CHECK(ai_target_lateral, offsetof(Car, ai_target_lateral) == 0x164);
+CAR_CHECK(pdn_mass, offsetof(Car, pdn_mass) == 0x168);
+CAR_CHECK(pdn_inverse_mass, offsetof(Car, pdn_inverse_mass) == 0x16c);
+CAR_CHECK(pdn_18, offsetof(Car, pdn_18) == 0x170);
 CAR_CHECK(flags_174, offsetof(Car, flags_174) == 0x174);
 CAR_CHECK(flags_175, offsetof(Car, flags_175) == 0x175);
-CAR_CHECK(unknown_176, offsetof(Car, unknown_176) == 0x176);
-CAR_CHECK(speed_table, offsetof(Car, speed_table) == 0x178);
-CAR_CHECK(unknown_33c, offsetof(Car, unknown_33c) == 0x33c);
+CAR_CHECK(flags_176, offsetof(Car, flags_176) == 0x176);
+CAR_CHECK(ai_speed_table, offsetof(Car, ai_speed_table) == 0x178);
+CAR_CHECK(pdn_1ac, offsetof(Car, pdn_1ac) == 0x308);
+CAR_CHECK(pdn_1ac_inverse, offsetof(Car, pdn_1ac_inverse) == 0x320);
+CAR_CHECK(pdn_1c4, offsetof(Car, pdn_1c4) == 0x338);
+CAR_CHECK(lane_bias, offsetof(Car, lane_bias) == 0x33c);
 CAR_CHECK(unknown_340, offsetof(Car, unknown_340) == 0x340);
 CAR_CHECK(draw_node, offsetof(Car, draw_node) == 0x341);
 CAR_CHECK(draw_node2, offsetof(Car, draw_node2) == 0x345);
@@ -289,6 +320,7 @@ CAR_CHECK(unknown_459, offsetof(Car, unknown_459) == 0x459);
 CAR_CHECK(unknown_45d, offsetof(Car, unknown_45d) == 0x45d);
 CAR_CHECK(unknown_461, offsetof(Car, unknown_461) == 0x461);
 CAR_CHECK(unknown_465, offsetof(Car, unknown_465) == 0x465);
+CAR_CHECK(pdn_1c8, offsetof(Car, pdn_1c8) == 0x469);
 CAR_CHECK(specs, offsetof(Car, specs) == 0x479);
 CAR_CHECK(player, offsetof(Car, player) == 0x47d);
 CAR_CHECK(driver_name, offsetof(Car, driver_name) == 0x481);
@@ -325,6 +357,9 @@ CAR_CHECK(index, offsetof(Car, index) == 0x516);
 CAR_CHECK(flags_51a, offsetof(Car, flags_51a) == 0x51a);
 CAR_CHECK(unknown_51b, offsetof(Car, unknown_51b) == 0x51b);
 CAR_CHECK(body_object, offsetof(Car, body_object) == 0x52e);
+CAR_CHECK(model_length, offsetof(Car, model_length) == 0x64a);
+CAR_CHECK(model_width, offsetof(Car, model_width) == 0x64e);
+CAR_CHECK(model_height, offsetof(Car, model_height) == 0x652);
 CAR_CHECK(far_object, offsetof(Car, far_object) == 0x666);
 CAR_CHECK(far, offsetof(Car, far) == 0x78e);
 

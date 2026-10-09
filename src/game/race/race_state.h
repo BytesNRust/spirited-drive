@@ -126,6 +126,8 @@ typedef struct {
     int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     Car *cars[RACE_PLAYERS];        /* 00509e1c: the cars by slot */
+    int32_t by_node[RACE_PLAYERS];  /* 00509e68: slots by road node, the rearmost first (00440dd8) */
+    int32_t by_progress[RACE_PLAYERS];  /* 00509e44: slots by progress, last place first (00440dd8) */
     const Car *leader;              /* 00509e18: the car in slot 0, once loaded */
     const Car *second_car;          /* 00509e40: the car in slot 1, once entered */
     RaceEntry entries[RACE_PLAYERS];  /* 004fb7fa */
@@ -179,6 +181,9 @@ enum {
 /* The car whose record holds `handle` at +0x88 (the original's pointer to
  * the car, see car_reset), or NULL. */
 Car *race_car_by_handle(const RaceState *race, uint32_t handle);
+
+/* 00440dd8: sorts by_node and by_progress (ties by the lateral +0x39d). */
+void race_sort_cars(RaceState *race);
 
 /* 004b9628 * 004b9630: the next random value, 0..0xffff */
 uint32_t race_random(RaceState *race);
