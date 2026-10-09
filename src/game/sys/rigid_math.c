@@ -177,3 +177,15 @@ int32_t rm_inverse(int32_t x)
     const uint64_t value = shift >= 0 ? q >> shift : q << -shift;
     return value > INT32_MAX ? INT32_MIN : (int32_t)value;
 }
+
+void rm_set_up(int32_t m[9], const int32_t up[3])
+{
+    m[3] = up[0], m[4] = up[1], m[5] = up[2];
+    m[0] = (m[4] >> 8) * (m[8] >> 8) - (m[5] >> 8) * (m[7] >> 8);
+    m[1] = (m[5] >> 8) * (m[6] >> 8) - (m[3] >> 8) * (m[8] >> 8);
+    m[2] = (m[3] >> 8) * (m[7] >> 8) - (m[6] >> 8) * (m[4] >> 8);
+    rm_normalise(m);
+    m[6] = (m[5] >> 8) * (m[1] >> 8) - (m[2] >> 8) * (m[4] >> 8);
+    m[7] = (m[3] >> 8) * (m[2] >> 8) - (m[5] >> 8) * (m[0] >> 8);
+    m[8] = (m[4] >> 8) * (m[0] >> 8) - (m[1] >> 8) * (m[3] >> 8);
+}

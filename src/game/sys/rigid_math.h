@@ -48,4 +48,8 @@ int32_t rm_length_squared(const int32_t v[3]);
 /* 0041d33c: scaled to length 1 (at 8.8 precision); left alone when 0. */
 void rm_normalise(int32_t v[3]);
 
+/* 0046ff3c: the matrix turned so its middle row is `up`: the first row
+ * becomes up x last (normalised), the last up x first (8.8 products). */
+void rm_set_up(int32_t m[9], const int32_t up[3]);
+
 #endif
