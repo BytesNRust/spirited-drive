@@ -125,6 +125,7 @@ typedef struct {
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     const Car *cars[RACE_PLAYERS];  /* 00509e1c: the cars by slot */
     const Car *leader;              /* 00509e18: the car in slot 0, once loaded */
+    const Car *second_car;          /* 00509e40: the car in slot 1, once entered */
     RaceEntry entries[RACE_PLAYERS];  /* 004fb7fa */
     int32_t specs_loaded;           /* 004bc698: the specs are in memory already, as tuned */
     /* 004fb704: each player's controls this tick: steering in bits 0..5

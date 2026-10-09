@@ -21,6 +21,21 @@ extern const char *const car_model_names[CAR_MODELS];
  * 004c5ccc (writing "By_R&T" and zeroing the power) is left out. */
 void car_load(Car *car, CarSpecs *specs, RaceState *race);
 
+/* 0043fd00: a car at rest at the start: x one unit right of the centre,
+ * level, still, in neutral. `handle` is the car's identity where the
+ * original keeps its own address (+0x88, and the collision body at
+ * handle + 0xc4 in +0xc0). */
+void car_reset(Car *car, uint32_t handle);
+
+/* 004406d0: a car joins the race in its slot: human slots load their
+ * specs (car_load), the others become computer cars; then car_reset.
+ * TODO(004407b8, 00457d40): the collision body and sizes from the model. */
+void car_enter(Car *car, CarSpecs *specs, uint32_t handle, RaceState *race);
+
+/* The draw copies the renderer reads (node, lateral, pitch, yaw, roll),
+ * taken after each tick. */
+void car_keep_draw_state(Car *car);
+
 /* 00409990: the torque curve scaled by the power and the mass, the power
  * first trimmed for automatic gearboxes. */
 void car_specs_scale_torque(CarSpecs *specs, int automatic);

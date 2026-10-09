@@ -123,3 +123,23 @@
 0x4fa	i32	auto_ticks	ticks of autopilot (00401180)
 0x4fe	i32	auto_mode	autopilot before the start or after the finish: 1 steering off the road, 2 stopped across it (00401180)
 0x502	i32	auto_steer	the autopilot's steering when stopped across the road (00401180)
+0x01c	i32	unknown_01c	zeroed by the reset (0043fd00)
+0x08c	i32[12]	unknown_08c	zeroed by the reset
+0x0bc	i32	unknown_0bc	the collision body's +0x78 (004407b8)
+0x138	i32	body_extent_a	the collision body (+0xc4) +0x74; 0x457 from the reset, half the model's +0x64e (004407b8)
+0x13c	i32	body_extent_b	+0x78; 0x8ae, half the model's +0x652
+0x140	i32	body_extent_c	+0x7c; 0xd05, half the model's +0x64a
+0x158	i32[4]	unknown_158	zeroed by the reset
+0x176	u8[2]	unknown_176	zeroed by the reset with flags_174 and flags_175
+0x33c	i32	unknown_33c	zeroed by the reset
+0x340	u8	unknown_340	zeroed by the reset
+0x431	i32	unknown_431	0x111eb from the reset
+0x435	i32	unknown_435	0x111eb from the reset
+0x439	i32	unknown_439	zeroed by the reset
+0x4be	i32[2]	unknown_4be	zeroed by the reset
+0x4d2	i32	unknown_4d2	0x40 from the reset
+0x4d6	i32[4]	unknown_4d6	zeroed by the reset
+0x4ea	i32[3]	unknown_4ea	zeroed by the reset
+0x51b	u8[3]	unknown_51b	zeroed with flags_51a (004406d0 writes it as a word)
+0x3a1	i32	unknown_3a1	zeroed for computer cars (004406d0)
+0x3ad	i32	unknown_3ad	zeroed for computer cars (004406d0)

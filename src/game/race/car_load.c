@@ -97,3 +97,108 @@ void car_load(Car *car, CarSpecs *specs, RaceState *race)
     car->transmission = entry->automatic != 0 ? TRANSMISSION_AUTOMATIC : 0;
     car_setup_physics(car, specs, race);
 }
+
+enum {
+    START_X = 0x10000,
+    BODY = 0xc4,                  /* the collision body inside the record */
+    COMPUTER_CONTROLLER = 2,
+    COMPUTER_PHYSICS = 3,
+    COMPUTER_HALF_LENGTH = 0x50000,
+    COMPUTER_HALF_WIDTH = 0x28000,
+    COMPUTER_Z = 0x10000,
+    ENTERED = 3                   /* flags_51a */
+};
+
+void car_keep_draw_state(Car *car)
+{
+    car->draw_node = car->node;
+    car->draw_node2 = car->node;
+    car->draw_unknown_349 = car->lateral;
+    car->draw_pitch = car->pitch;
+    car->heading = car->yaw;
+    car->draw_roll = car->roll;
+}
+
+void car_reset(Car *car, uint32_t handle)
+{
+    car->speed = 0;
+    car->x = START_X;
+    car->y = 0;
+    car->lap = 1;
+    car->velocity_x = car->velocity_y = car->velocity_z = 0;
+    car->local_velocity_x = car->local_velocity_y = car->local_velocity_z = 0;
+    car->wheel_speed = 0;
+    car->yaw_rate = 0;
+    car->skid_front = car->skid_rear = 0;
+    car->unknown_40d = 0;
+    car->target_rpm = 1;
+    car->rpm = 1;
+    car->drive_force = 0;
+    car->last_gear = 0;
+    car->gear_change_ticks = 0;
+    car->steer = 0;
+    car->unknown_01c = 0;
+    car->unknown_33c = 0;
+    car->throttle = car->saved_throttle = car->brake = 0;
+    car->handbrake = 0;
+    car->gear = -1;
+    car->stalled = 0;
+    car->engaged = 0;
+    car->shift_timer = -1;
+    car->on_ground = 1;
+    car->airborne_ticks = 0;
+    memset(car->unknown_158, 0, sizeof car->unknown_158);
+    car->use_matrix = 0;
+    memset(car->unknown_08c, 0, sizeof car->unknown_08c);
+    memset(car->matrix, 0, sizeof car->matrix);
+    car->unknown_439 = 0;
+    car->unknown_431 = 0x111eb;
+    car->unknown_435 = 0x111eb;
+    car->gear_key = 0;
+    car->pitch = car->roll = car->yaw = 0;
+    car->tilt_z = car->tilt_x = 0;
+    car->unknown_3d9 = car->unknown_3dd = car->unknown_3e1 = 0;
+    memset(car->unknown_4ea, 0, sizeof car->unknown_4ea);
+    car->flags_174 = car->flags_175 = 0;
+    memset(car->unknown_176, 0, sizeof car->unknown_176);
+    car->unknown_088 = handle;
+    car->unknown_0c0 = handle + BODY;
+    car->body_extent_a = 0x457;
+    car->body_extent_b = 0x8ae;
+    car->body_extent_c = 0xd05;
+    car->unknown_340 = 0;
+    car->surface = car->off_road = 0;
+    car->node_flag_4aa = car->node_flag_4ae = 0;
+    car->traction_active = car->anti_lock_active = 0;
+    car->suspension_z_index = car->suspension_x_index = 0;
+    car->suspension_z = car->suspension_x = 0;
+    car->unknown_4d2 = 0x40;
+    memset(car->unknown_4d6, 0, sizeof car->unknown_4d6);
+    memset(car->unknown_4be, 0, sizeof car->unknown_4be);
+    car->node_flag_4c6 = car->node_flag_4ca = car->node_flag_4ce = 0;
+    car->auto_offset = car->auto_ticks = car->auto_mode = car->auto_steer = 0;
+    car->lateral = car->index * 10;
+}
+
+void car_enter(Car *car, CarSpecs *specs, uint32_t handle, RaceState *race)
+{
+    car->flags_51a = ENTERED;
+    memset(car->unknown_51b, 0, sizeof car->unknown_51b);
+    if (car == race->cars[1]) race->second_car = car;
+    if (car->index < 0 || car->index >= race->humans) {
+        car->controller = COMPUTER_CONTROLLER;
+        car->physics = COMPUTER_PHYSICS;
+        car->half_length = COMPUTER_HALF_LENGTH;
+        car->half_width = COMPUTER_HALF_WIDTH;
+        car->z = COMPUTER_Z;
+        car->node = 0;
+        car->progress = 0;
+        car->unknown_3a1 = 0;
+        car->unknown_3ad = 0;
+        if (race->player == 0) car->model = race->entries[car->index & (RACE_PLAYERS - 1)].car;
+    } else {
+        car_load(car, specs, race);
+    }
+    car_reset(car, handle);
+    car_keep_draw_state(car);
+}
