@@ -5,6 +5,7 @@
 #define TNFS_RACE_STATE_H
 
 #include "formats/tri.h"
+#include "game/race/ai_struct.h"
 #include "game/race/car.h"
 
 #include <stdint.h>
@@ -133,6 +134,17 @@ typedef struct {
      * gear up 0x1000, gear down 0x2000, look back 0x4000, handbrake 0x8000 */
     uint32_t inputs[RACE_PLAYERS];
     ControlSetup controls[RACE_PLAYERS];  /* 004fb724 */
+    /* the computer cars */
+    AiState ai;                     /* 0052b330 */
+    uint32_t random_seed;           /* 004b9628: race_random() */
+    uint32_t random_last;           /* 004b962c */
+    uint32_t random_mul;            /* 004b9630 */
+    int32_t racers;                 /* 004fb7dc: cars in the race, humans first */
+    int32_t cops;                   /* 004fb7e4: police cars after the racers */
+    int32_t traffic_setting;        /* 004fb7ec */
+    int32_t unknown_4fb7f0;         /* 004fb7f0 */
+    int32_t default_profile_odds;   /* 004c5d20 */
+    int32_t unknown_4c5cd8, unknown_4c5cdc, unknown_4c5d40;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */
@@ -143,7 +155,7 @@ typedef struct {
     int32_t arcade_turn_limit;      /* 004bae78 */
     /* the drag strip of track 3 (its first 0x61 and last nodes): times for
      * the cockpit dials and the player records */
-    int32_t strip_off;              /* 004fb7d0: non-zero skips the timing */
+    int32_t race_type;              /* 004fb7d0 (00524e5d): 0 time trial, the only one timing the strip */
     int32_t strip_brake_80_tick;    /* 004bae7c: last tick above 80 mph braking */
     int32_t strip_brake_60_tick;    /* 004bae80 */
     int32_t strip_best_60;          /* 004bae84: 0-60 ticks this run */
@@ -162,6 +174,9 @@ enum {
      * except on "tr6", come back from long jumps more slowly */
     TRACK_FLAG_LOW_GRAVITY = 0x20
 };
+
+/* 004b9628 * 004b9630: the next random value, 0..0xffff */
+uint32_t race_random(RaceState *race);
 
 /* 0044d744 */
 void race_note(RaceState *race, int32_t level);

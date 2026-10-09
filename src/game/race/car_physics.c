@@ -486,7 +486,7 @@ static void strip_braking(const Car *car, RaceState *race)
  * from 60 and 80. */
 static void drag_strip(const Car *car, RaceState *race)
 {
-    if (race->strip_off != 0 || race->track != 3) return;
+    if (race->race_type != 0 || race->track != 3) return;
     if (car->node <= STRIP_END || car->node >= STRIP_START) {
         strip_acceleration(car, race);
         strip_braking(car, race);

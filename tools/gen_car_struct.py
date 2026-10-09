@@ -9,7 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RECORDS = [("docs/car_fields.tsv", "src/game/race/car_struct.h", "Car", 0x79A),
-           ("docs/car_specs.tsv", "src/game/race/car_specs.h", "CarSpecs", 0x778)]
+           ("docs/car_specs.tsv", "src/game/race/car_specs.h", "CarSpecs", 0x778),
+           ("docs/ai_fields.tsv", "src/game/race/ai_struct.h", "AiState", 0x370)]
 TYPES = {"i32": ("int32_t", 4), "u32": ("uint32_t", 4), "i16": ("int16_t", 2), "u16": ("uint16_t", 2),
          "i8": ("int8_t", 1), "u8": ("uint8_t", 1), "ref": ("uint32_t", 4), "angle": ("int32_t", 4)}
 
