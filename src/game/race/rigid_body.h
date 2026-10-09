@@ -81,6 +81,12 @@ int rb_bodies_collide(RaceState *race, RigidBody *a, RigidBody *b, int32_t car_a
 int rb_boxes_touch(const RigidBody *a, const RigidBody *b, const int32_t b_in_a[9], const int32_t a_in_b[9],
                    const int32_t centres[6], int32_t point[3], int32_t normal[3]);
 
+/* 0041c944: two bodies whose boxes touch are moved apart, a step at a time
+ * (at most 32), until they no longer do. Returns 1 when they touched, with
+ * the last touching point and normal (00417404) in point and normal. The
+ * switches 004b90ec..004b9104 are only ever read: the shipped path only. */
+int rb_bodies_separate(RigidBody *a, RigidBody *b, int32_t point[3], int32_t normal[3]);
+
 /* 0041daa0: one tick of free flight: moved by its velocity, slowed, pulled
  * down, and turned by its spin. */
 void rb_step(RigidBody *body);

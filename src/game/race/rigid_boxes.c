@@ -6,6 +6,9 @@
  * never read and is left out. */
 #include "game/race/rigid_body.h"
 
+#include "game/sys/fixed_math.h"
+#include "game/sys/rigid_math.h"
+
 enum { FAST_APART = 0xf0000 };
 
 /* The corners in the order they are tried: signs along axes 0, 1, 2. */
@@ -129,4 +132,90 @@ int rb_boxes_touch(const RigidBody *a, const RigidBody *b, const int32_t b_in_a[
         return 1;
     }
     return 0;
+}
+
+enum {
+    SEPARATE_STEPS = 0x20,
+    CLOSING_FAST = 0x140000,      /* 004b9110 */
+    CENTRES_MET = 0x3333,         /* 004b9118 */
+    HEAD_ON = 0xd999              /* 004b9120 */
+};
+
+static int32_t dot8(const int32_t u[3], const int32_t v[3])
+{
+    return (u[0] >> 8) * (v[0] >> 8) + (u[1] >> 8) * (v[1] >> 8) + (u[2] >> 8) * (v[2] >> 8);
+}
+
+static int32_t largest(const int32_t v[3])
+{
+    int32_t most = magnitude(v[0]);
+    if (most < magnitude(v[1])) most = magnitude(v[1]);
+    if (most < magnitude(v[2])) most = magnitude(v[2]);
+    return most;
+}
+
+/* How far each body moves per step to come apart: closing fast and head on
+ * (or with the centres together), back along their own velocities; else
+ * along the line between the centres, the lighter (+0x60) moving more. */
+static void separating_push(const RigidBody *a, const RigidBody *b, const int32_t gap[3], int32_t push_a[3],
+                            int32_t push_b[3])
+{
+    int32_t closing[3];
+    for (int i = 0; i < 3; i++) closing[i] = a->velocity[i] - b->velocity[i];
+    int head_on = 0;
+    if (largest(closing) > CLOSING_FAST) {
+        head_on = 1;
+        if (largest(gap) >= CENTRES_MET) {
+            int32_t along[3] = { closing[0], closing[1], closing[2] }, across[3] = { gap[0], gap[1], gap[2] };
+            rm_unit(along);
+            rm_normalise(across);
+            head_on = dot8(along, across) > HEAD_ON;
+        }
+    }
+    if (head_on) {
+        const int32_t back = -rm_inverse(rm_length(closing)) >> 8;
+        for (int i = 0; i < 3; i++) {
+            push_a[i] = (back * (a->velocity[i] >> 8)) >> 5;
+            push_b[i] = (back * (b->velocity[i] >> 8)) >> 5;
+        }
+        return;
+    }
+    int32_t n[3] = { gap[0], gap[1], gap[2] };
+    rm_unit_rounded(n);
+    const int32_t total = a->pdn_10 + b->pdn_10;
+    const int32_t share_a = fx_div(a->pdn_10, total) >> 2, share_b = fx_div(b->pdn_10, total) >> 2;
+    for (int i = 0; i < 3; i++) {
+        push_a[i] = -((n[i] * share_b) >> 14) >> 5;
+        push_b[i] = (n[i] * share_a) >> 19;
+    }
+}
+
+int rb_bodies_separate(RigidBody *a, RigidBody *b, int32_t point[3], int32_t normal[3])
+{
+    int32_t turn[3][3], b_in_a[9], a_in_b[9];
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) turn[i][j] = dot8(&a->matrix[3 * i], &b->matrix[3 * j]);
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) {
+            b_in_a[3 * i + j] = (turn[i][j] >> 8) * (b->extents[j] >> 8);
+            a_in_b[3 * i + j] = (turn[i][j] >> 8) * (a->extents[i] >> 8);
+        }
+    int touched = 0;
+    int32_t push_a[3] = { 0, 0, 0 }, push_b[3] = { 0, 0, 0 };
+    for (int step = 0; step < SEPARATE_STEPS; step++) {
+        int32_t gap[3], centres[6];
+        for (int i = 0; i < 3; i++) gap[i] = b->position[i] - a->position[i];
+        for (int i = 0; i < 3; i++) {
+            centres[i] = dot8(&a->matrix[3 * i], gap);
+            centres[3 + i] = dot8(&b->matrix[3 * i], gap);
+        }
+        if (!rb_boxes_touch(a, b, b_in_a, a_in_b, centres, point, normal)) return touched;
+        if (!touched) separating_push(a, b, gap, push_a, push_b);
+        touched = 1;
+        for (int i = 0; i < 3; i++) {
+            a->position[i] += push_a[i];
+            b->position[i] += push_b[i];
+        }
+    }
+    return touched;
 }
