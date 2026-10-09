@@ -55,7 +55,7 @@ void car_gear_change(Car *car, const CarSpecs *specs, const RaceState *race)
 
 void car_gear_sound(const Car *car, const RaceState *race)
 {
-    if (car->gear == -1 || race->sounds.gear == NULL) return;
+    if (car->gear == -1 || race->sounds.tone == NULL) return;
     const int32_t down = car->gear < car->last_gear ? 0xb4 : 0;
     int32_t pitch;
     if (car->rpm < 0x1000) {
@@ -67,5 +67,5 @@ void car_gear_sound(const Car *car, const RaceState *race)
     } else {
         pitch = 0x2a;
     }
-    race->sounds.gear(race->sounds.user, pitch, down, 0x50);
+    race->sounds.tone(race->sounds.user, pitch, down, 0x50);
 }

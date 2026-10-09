@@ -36,15 +36,19 @@ typedef struct {
 
 typedef struct {
     void *user;
-    /* 00444028 -> 00443eac: a sound effect (arguments as the original's) */
+    /* 00443eac: a sound effect (arguments as the original's; 00444028 and
+     * 00443fc0 lead here) */
     void (*sound)(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
     /* 004646cc + 00464850: a voice sample, "besttime.eas" and the like */
     void (*speech)(void *user, const char *name);
-    /* 004acd8a: the engine note of a gear change (0043cda0) */
-    void (*gear)(void *user, int32_t pitch, int32_t down, int32_t volume);
+    /* 004acd8a: a tone, the gear change (0043cda0) or a wall scrape (0043cd58) */
+    void (*tone)(void *user, int32_t a, int32_t b, int32_t c);
     /* 0046a654 on cars 1.. of 00509e1c (0046b080): pushes from a blown engine.
      * TODO(0046a654): the push itself, once the cars collide. */
     void (*push)(void *user, int32_t car, int32_t x, int32_t y, int32_t z);
+    /* 0046a654 from a wall (004302a4) on the record car +0x88 names.
+     * TODO(0046a654): the crash physics. */
+    void (*crash)(void *user, uint32_t target, int32_t x, int32_t y, int32_t z);
 } RaceSounds;
 
 typedef struct {
@@ -88,6 +92,12 @@ typedef struct {
     int32_t launch_ready[RACE_PLAYERS];  /* 004faa5c: the other players' launches */
     int32_t wheelspin;              /* 004bad40: the drive force broke traction this tick */
     int32_t tyre_force_sum;         /* 00509e0c: the last tyre call's two forces added */
+    int16_t effects;                /* 0052b320: wall scrape tones on */
+    int32_t default_surface;        /* 004b95c0: between the verges */
+    int32_t views;                  /* 004f801c: more than one pans the sounds by position */
+    int32_t listener[3];            /* 004f802c */
+    int32_t listener_heading;       /* 004f8060 */
+    int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     /* dashboard readings the simulation leaves for the cockpit view */
     int32_t gauge_acc, gauge_ac8;   /* 004f9acc, 004f9ac8 (0041e858) */
