@@ -48,7 +48,7 @@ static void body_reset(Car *car, int32_t a, int32_t b, const int32_t extents[3])
     rm_identity(m);
     memcpy(car->body_matrix, m, sizeof m);
     memset(car->body_unknown_24, 0, sizeof car->body_unknown_24);
-    car->body_unknown_80 = 0;
+    car->ai_countdown = 0;
 }
 
 static int32_t body_radius(const Car *car)
@@ -62,7 +62,7 @@ static void body_from_pdn(Car *car, const CarPdn *pdn)
 {
     body_reset(car, pdn->unknown_10, pdn->unknown_0c, pdn->extents);
     car->body_radius = body_radius(car);
-    car->body_unknown_90 = 0;
+    car->speed_factor = 0;
     car->pdn_mass = pdn->mass;
     car->pdn_inverse_mass = fx_div(ONE, pdn->mass);
     car->pdn_18 = pdn->unknown_18;
@@ -75,9 +75,11 @@ static void body_from_pdn(Car *car, const CarPdn *pdn)
     memcpy(car->ai_speed_table, pdn->speeds, sizeof car->ai_speed_table);
     car->unknown_0bc = car->body_extent_b;
     car->unknown_084 = car->body_extent_a;
-    car->unknown_080 = 0;
-    car->body_unknown_80 = 0;
-    memset(car->body_unknown_84, 0, sizeof car->body_unknown_84);
+    car->road_lateral = 0;
+    car->ai_countdown = 0;
+    car->unknown_148 = 0;
+    car->slide_timer = 0;
+    car->coast_timer = 0;
     int32_t m[9];
     rm_identity(m);
     memcpy(car->matrix, m, sizeof m);
