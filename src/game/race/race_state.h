@@ -40,6 +40,11 @@ typedef struct {
     void (*sound)(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
     /* 004646cc + 00464850: a voice sample, "besttime.eas" and the like */
     void (*speech)(void *user, const char *name);
+    /* 004acd8a: the engine note of a gear change (0043cda0) */
+    void (*gear)(void *user, int32_t pitch, int32_t down, int32_t volume);
+    /* 0046a654 on cars 1.. of 00509e1c (0046b080): pushes from a blown engine.
+     * TODO(0046a654): the push itself, once the cars collide. */
+    void (*push)(void *user, int32_t car, int32_t x, int32_t y, int32_t z);
 } RaceSounds;
 
 typedef struct {
@@ -48,6 +53,8 @@ typedef struct {
     int32_t track;                  /* 004fb7c2: 0..7 */
     int32_t track_variant;          /* 004fb7be */
     int32_t arcade;                 /* 004fbadc */
+    int32_t game_mode;              /* 004c5d28: 4 makes blown engines push the cars */
+    int32_t car_count;              /* 004fb7e8 */
     Surface surfaces[RACE_SURFACES];  /* 004fa9b0 */
     uint32_t track_flags;           /* 004fb7d8 */
     int32_t player;                 /* 004fbb08: the car the camera follows */
@@ -87,6 +94,9 @@ void race_note(RaceState *race, int32_t level);
 
 /* 0042f734 */
 void race_surfaces_init(RaceState *race);
+
+/* 0046b080 */
+void race_blow_up(RaceState *race);
 
 /* 0041e858 and 0041e7fc: values above 500 (1200) are ignored. */
 void race_dash_gauges(RaceState *race, int32_t a, int32_t b);

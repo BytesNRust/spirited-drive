@@ -17,8 +17,8 @@
 0x054	i32	velocity_x	param_1[0x15]
 0x058	i32	velocity_y	vertical speed (00428bd8)
 0x05c	i32	velocity_z	param_1[0x17]
-0x060	i32	unknown_060
-0x068	i32	unknown_068
+0x060	i32	local_velocity_x	sideways speed in the car's frame (world velocity turned by -yaw, 00430cb0)
+0x068	i32	local_velocity_z	forward speed in the car's frame
 0x06c	i32	wheel_speed	0042ee68: times the gear ratio gives the engine revs
 0x070	i32	speed	max(|vx|,|vz|) + min/4 (00430cb0)
 0x078	i32	half_length	front axle offset? turned by 00428804
@@ -47,6 +47,9 @@
 0x3bd	i32	shift_timer	ticks left in a gear change, -1 when none (0042ed94)
 0x3c1	i32	rpm
 0x3c5	i32	target_rpm	what the wheels turn the engine at (0042ee68)
+0x3c9	i32	load_shift	this tick's change of the axle loads (00430aec)
+0x3cd	i32	axle_load_a	00430aec, 00430cb0
+0x3d1	i32	axle_load_b
 0x3d9	i32	unknown_3d9
 0x3dd	i32	unknown_3dd
 0x3e1	i32	unknown_3e1	sine of the pitch * 0x9cf (00428bd8)
@@ -60,14 +63,17 @@
 0x401	i32	airborne_ticks	00428bd8
 0x405	i32	unknown_405	left skid (0045a848 marks)
 0x409	i32	unknown_409	right skid
+0x419	i32	last_gear	the gear before the last change (00430cb0, 0043cda0)
+0x41d	i32	gear_before_last
+0x421	i32	gear_change_ticks	counts down from 0x10 after a change
 0x425	u8	unknown_425
 0x426	u8	flags_426
 0x427	u8	suspension_z_index	0042ecd0 table index
 0x428	u8	suspension_x_index	0042ecd0 table index
 0x429	i32	suspension_z	0042ecd0 amplitude
 0x42d	i32	suspension_x	0042ecd0 amplitude
-0x49a	i16	unknown_49a	zeroed by the setup
-0x49c	i16	unknown_49c	zeroed by the setup
+0x49a	i16	downforce_a	times speed squared onto axle_load_b (00430aec); zeroed by the setup
+0x49c	i16	downforce_b	onto axle_load_a; zeroed by the setup
 0x49e	i16	wind_a	0042f630: extra drag with the wind term
 0x4a0	i16	wind_b
 0x4a2	i32	surface	index into the race surfaces (004fa9b0)

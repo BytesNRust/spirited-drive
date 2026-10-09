@@ -48,9 +48,9 @@ static int32_t landing_speed(Car *car, const RaceState *race, int32_t gravity, i
 {
     *pitch = fx_atan2_10(-car->road_forward[1], car->half_length) << 14;
     *roll = fx_atan2_10(-car->road_side[1], car->half_width);
-    const int32_t from_pitch = (fx_sin((uint32_t)(*pitch >> 14)) >> 8) * (car->unknown_068 >> 8);
+    const int32_t from_pitch = (fx_sin((uint32_t)(*pitch >> 14)) >> 8) * (car->local_velocity_z >> 8);
     *roll <<= 14;
-    const int32_t from_roll = (fx_sin((uint32_t)(*roll >> 14)) >> 8) * (car->unknown_060 >> 8);
+    const int32_t from_roll = (fx_sin((uint32_t)(*roll >> 14)) >> 8) * (car->local_velocity_x >> 8);
     int32_t vy = -from_pitch - from_roll;
     if (car->airborne_ticks > VERY_LONG_JUMP_TICKS) {
         const int slow = (race->track_flags & TRACK_FLAG_LOW_GRAVITY) && strcmp(race->track_name, "tr6") != 0;

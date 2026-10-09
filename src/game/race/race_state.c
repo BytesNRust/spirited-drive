@@ -70,3 +70,10 @@ void race_dash_values(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t 
     if (c > 0) race->dash_ac0 = c;
     if (d > 0) race->dash_ac4 = d * 224 / 0x640000;
 }
+
+void race_blow_up(RaceState *race)
+{
+    if (race->game_mode != 4 || race->tick <= 300 || race->sounds.push == NULL) return;
+    for (int32_t car = 1; car < race->car_count; car++)
+        race->sounds.push(race->sounds.user, car, 0xa0000, 0xa0000, 0xa0000);
+}

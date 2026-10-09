@@ -16,7 +16,7 @@ static int32_t specs_word(const CarSpecs *specs, int32_t offset)
 static int32_t revs_in(const Car *car, const CarSpecs *specs, int32_t gear)
 {
     const int32_t ratio = specs_word(specs, (int32_t)offsetof(CarSpecs, gear_ratio) + (gear + 2) * 4);
-    return ((((car->unknown_068 >> 8) * (specs->wheel_rpm >> 8)) >> 8) * (ratio >> 8)) >> 16;
+    return ((((car->local_velocity_z >> 8) * (specs->wheel_rpm >> 8)) >> 8) * (ratio >> 8)) >> 16;
 }
 
 static int32_t shift_rpm(const CarSpecs *specs, int32_t slot)
@@ -60,4 +60,21 @@ void car_gear_change(Car *car, const CarSpecs *specs, const RaceState *race)
     car->engaged = 0;
     const int slow = car->unknown_48a == SLOW_SHIFT_CAR && (race->tick & 0x31) == 0x10;
     car->shift_timer = specs->shift_ticks + (slow ? 3 : 0);
+}
+
+void car_gear_sound(const Car *car, const RaceState *race)
+{
+    if (car->gear == -1 || race->sounds.gear == NULL) return;
+    const int32_t down = car->gear < car->last_gear ? 0xb4 : 0;
+    int32_t pitch;
+    if (car->rpm < 0x1000) {
+        pitch = 0xc;
+    } else if (car->rpm < 0x1300) {
+        pitch = 0x16;
+    } else if (car->rpm < 0x1700) {
+        pitch = 0x20;
+    } else {
+        pitch = 0x2a;
+    }
+    race->sounds.gear(race->sounds.user, pitch, down, 0x50);
 }

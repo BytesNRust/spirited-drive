@@ -13,4 +13,7 @@ void car_auto_shift(Car *car, const CarSpecs *specs);
  * automatic gearbox moves. */
 void car_gear_change(Car *car, const CarSpecs *specs, const RaceState *race);
 
+/* 0043cda0 */
+void car_gear_sound(const Car *car, const RaceState *race);
+
 #endif
