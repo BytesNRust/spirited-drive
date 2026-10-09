@@ -40,6 +40,9 @@ void rb_orthonormalise(int32_t m[9]);
 /* 0041d974: a turn by `angle` about `axis`. */
 void rb_axis_turn(int32_t out[9], int32_t angle, const int32_t axis[3]);
 
+/* 0041dc58: the turns about z, x and y (24-bit) the matrix holds. */
+void rb_angles(const int32_t m[9], int32_t *roll, int32_t *pitch, int32_t *yaw);
+
 /* 0041daa0: one tick of free flight: moved by its velocity, slowed, pulled
  * down, and turned by its spin. */
 void rb_step(RigidBody *body);

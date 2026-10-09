@@ -57,6 +57,13 @@ void rm_turn_xzy(int32_t m[9], int32_t x, int32_t z, int32_t y)
     rm_mul(m, m, t);
 }
 
+void rm_apply(int32_t out[3], const int32_t v[3], const int32_t m[9])
+{
+    for (int j = 0; j < 3; j++)
+        out[j] = (int32_t)((uint32_t)fx_mul_round(v[0], m[j]) + (uint32_t)fx_mul_round(v[1], m[3 + j]) +
+                           (uint32_t)fx_mul_round(v[2], m[6 + j]));
+}
+
 int32_t rm_dot(const int32_t a[3], const int32_t b[3])
 {
     return (int32_t)((uint32_t)fx_mul_round(a[2], b[2]) + (uint32_t)fx_mul_round(a[0], b[0]) +

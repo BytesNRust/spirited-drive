@@ -79,6 +79,21 @@ void rb_axis_turn(int32_t out[9], int32_t angle, const int32_t axis[3])
     rm_mul(out, out, t);
 }
 
+void rb_angles(const int32_t m[9], int32_t *roll, int32_t *pitch, int32_t *yaw)
+{
+    const int32_t heading = angle_of(m[0], -m[2]);
+    const int32_t flat = fx_mul_round(m[2], m[2]) + fx_mul_round(m[0], m[0]);
+    const int32_t climb = angle_of(rm_sqrt(flat, 8, fx_mul_round(m[0], m[0]) + fx_mul_round(m[2], m[2])), m[1]);
+    int32_t a[9], b[9], side[3];
+    rm_turn_y(a, -heading);
+    rm_turn_z(b, -climb);
+    rm_mul(a, a, b);
+    rm_apply(side, &m[6], a);
+    *roll = angle_of(side[2], -side[1]);
+    *pitch = climb;
+    *yaw = heading;
+}
+
 void rb_step(RigidBody *body)
 {
     for (int i = 0; i < 3; i++) body->position[i] += fx_mul_round(body->velocity[i], TICK);

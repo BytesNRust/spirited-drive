@@ -20,6 +20,9 @@ void rm_turn_xzy(int32_t m[9], int32_t x, int32_t z, int32_t y);
 /* 0041dff4: out = a * b; out may be a or b. */
 void rm_mul(int32_t out[9], const int32_t a[9], const int32_t b[9]);
 
+/* 0041df3c: out = v * m (a row vector); out must not be v. */
+void rm_apply(int32_t out[3], const int32_t v[3], const int32_t m[9]);
+
 /* 0041df00 */
 int32_t rm_dot(const int32_t a[3], const int32_t b[3]);
 
