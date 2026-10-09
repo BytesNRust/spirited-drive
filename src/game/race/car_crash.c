@@ -79,7 +79,7 @@ void car_crash_hit(Car *car, RaceState *race)
     hand_to_body(car);
     car->crashed_hard = 1;
     car->physics = PHYSICS_CRASH;
-    if (race->sounds.skids_reset != NULL) race->sounds.skids_reset(race->sounds.user);
+    crash_trail_clear(&race->trail);
     car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_DASHBOARD);
     car->ai_countdown = HIT_TICKS;
     race_note(race, NOTE_CRASH);
@@ -136,7 +136,7 @@ void car_crash_settle(Car *car, RaceState *race)
     car->roll = settled_turn(roll & 0xffffff);
     car->yaw = -yaw & 0xffffff;
     race->camera_hold = 0;
-    if (race->sounds.skids_reset != NULL) race->sounds.skids_reset(race->sounds.user);
+    crash_trail_clear(&race->trail);
     car->use_matrix = 0;
     car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_DASHBOARD);
     if (car->transmission != 0) car->transmission = 2;

@@ -7,6 +7,7 @@
 #include "formats/tri.h"
 #include "game/race/ai_struct.h"
 #include "game/race/car.h"
+#include "game/race/crash_trail.h"
 
 #include <stdint.h>
 
@@ -70,8 +71,6 @@ typedef struct {
     void (*start_line)(void *user, int32_t player);
     /* 0044435c: the followed car's engine sounds stop (a crash) */
     void (*stop_engine)(void *user);
-    /* 00456a48 on 005146ac: the skid marks start over */
-    void (*skids_reset)(void *user);
     /* 00444394: the followed car's engine sounds start again */
     void (*start_engine)(void *user);
     /* 0043d120 (1, ...): a knock felt through the controls; z speed and kick */
@@ -130,6 +129,8 @@ typedef struct {
     int32_t stop_notice[2];         /* 004b92dc, 004b92e0: the police stop's two outcomes on screen (0041e370, 0041e3a8) */
     int32_t stop_notice_tick;       /* 004b92e4: the tick they went off; -1000 at the race start */
     int32_t unknown_4c538c;         /* 004c538c: 1 when a held car drives again (00470e70) */
+    CrashTrail trail;               /* 005146ac: the crash smoke */
+    uint32_t trail_seed;            /* 004c5608: its own generator */
     int32_t notes[RACE_NOTES];      /* 00512f94 */
     int32_t circuit;                /* 00504200: laps are counted */
     int32_t segments;               /* 0050420c */

@@ -23,6 +23,9 @@ typedef struct CrashTrail {
 #pragma pack(pop)
 typedef char crash_trail_size_check[sizeof(CrashTrail) == 0x96c ? 1 : -1];
 
+/* 00456a48: every puff gone, the distances back to 0. */
+void crash_trail_clear(CrashTrail *trail);
+
 /* 00456cc4: the car moved `step` further; drop a point each time the
  * distance passes the gap. `seed` is the effect's own generator (004c5608). */
 void crash_trail_drop(CrashTrail *trail, uint32_t *seed, const Car *car, int32_t step);

@@ -14,6 +14,13 @@ static int32_t jitter(uint32_t r)
     return ((int32_t)(0x10000 - (r >> 15)) >> 8) * 0x80;
 }
 
+void crash_trail_clear(CrashTrail *trail)
+{
+    for (int i = 0; i < CRASH_TRAIL_POINTS; i++) trail->age[i] = -1;
+    trail->gap = 0;
+    trail->travelled = 0;
+}
+
 void crash_trail_drop(CrashTrail *trail, uint32_t *seed, const Car *car, int32_t step)
 {
     trail->travelled += step;
