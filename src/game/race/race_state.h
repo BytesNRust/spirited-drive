@@ -14,7 +14,7 @@ enum {
     RACE_NOTES = 0x7080 / 0x3c,   /* 00512f94: one per second of a 30 minute clock */
     RACE_TRACK_NAME = 16,
     RACE_PLAYERS = 8,
-    RACE_LAP_MARKS = 115,         /* what fits in a 0x1d2-byte player record */
+    RACE_LAP_MARKS = 114,         /* what fits in a 0x1d2-byte player record before the top speed */
     RACE_SURFACES = 3
 };
 
@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
     int32_t unknown_000;
     int32_t lap_marks[RACE_LAP_MARKS];  /* +4: [0] start, [k] end of lap k */
+    int32_t top_speed;      /* +0x1cc: the fastest forward speed, 16.16 (car_physics RECORD_TOP_SPEED; the computer cars, 0046f3e8) */
     uint8_t unknown_1d0[2];
 } PlayerRecord;
 #pragma pack(pop)
