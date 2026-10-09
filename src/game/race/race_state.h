@@ -81,11 +81,15 @@ typedef struct {
     void (*camera)(void *user, int32_t slot, int32_t mode);
 } RaceSounds;
 
-/* A computer driver's profile (0x8d bytes at 0050bae0 + 0x8d * letter, 0044941c).
- * Only what the lane code reads is known. */
+/* A computer driver's profile (0x8d bytes at *0050bae0 + 0x8d * letter,
+ * 0044941c; 00449400 points 0050bae0 at 004c2888, where profiles 0..8 are).
+ * Only what the computer cars' code reads is known. */
 #pragma pack(push, 1)
 typedef struct {
-    uint8_t unknown_00[0x79];
+    uint8_t unknown_00[0x65];
+    int32_t lane_speed_limit; /* +0x65: the fastest sideways speed toward a lane (0046f354) */
+    int32_t lane_speed_rate;  /* +0x69: that speed per unit of forward speed */
+    uint8_t unknown_6d[0x0c];
     int32_t lane_bias[4];   /* +0x79: one is picked at random as car +0x33c (00470a34) */
     int32_t reset_odds;     /* +0x89: how often a car's bias is picked again (00470028), out of 0x10000 */
 } DriverProfile;

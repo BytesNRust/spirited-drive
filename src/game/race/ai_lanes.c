@@ -99,7 +99,7 @@ static int32_t lane_width(const RaceState *race, int32_t lanes, int32_t verge)
 }
 
 /* The driver profile an ai.profiles word points at. */
-static const DriverProfile *profile_of(const RaceState *race, int32_t slot)
+const DriverProfile *ai_driver_profile(const RaceState *race, int32_t slot)
 {
     if (slot < 0 || slot >= RACE_PLAYERS) return NULL;
     const uint32_t handle = race->ai.profiles[slot];
@@ -189,7 +189,7 @@ void ai_new_bias(Car *car, RaceState *race)
 {
     const uint32_t pick = race_random(race) & 3;
     if (flags_of(car) & AI_RACER) {
-        const DriverProfile *profile = profile_of(race, car->player);
+        const DriverProfile *profile = ai_driver_profile(race, car->player);
         car->lane_bias = profile != NULL ? profile->lane_bias[pick] : 0;
     } else {
         car->lane_bias = race->ai.params[PARAM_BIAS + pick];
@@ -219,7 +219,7 @@ void ai_road_frame(Car *car, RaceState *race)
     if (slot < 0 || slot >= race->humans) {
         int32_t odds = race->default_profile_odds;
         if (race->humans <= slot && slot < race->racers) {
-            const DriverProfile *profile = profile_of(race, slot);
+            const DriverProfile *profile = ai_driver_profile(race, slot);
             odds = profile != NULL ? profile->reset_odds : 0;
         }
         if (((uint32_t)odds * race_random(race)) >> 16 == 1) ai_new_bias(car, race);

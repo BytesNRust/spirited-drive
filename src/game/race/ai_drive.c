@@ -1,5 +1,7 @@
 #include "game/race/ai_drive.h"
 
+#include "game/race/ai_lanes.h"
+
 #include "game/sys/fixed_math.h"
 #include "game/sys/rigid_math.h"
 
@@ -46,21 +48,12 @@ enum {
     TRAFFIC_RATE = 0x4000,
     WINDOW_BEHIND = 0x14,
     WINDOW_AHEAD = 0x36,
-    ZONE_RECORD = 6,
-    ZONE_END = 4,
-    ZONE_START = 5,
     LANE_SLOT_RIGHT = 4,          /* slot of the first lane right of the centre */
     LANE_ROW = 40,                /* words per row of ai.lane_width */
-    PROFILE_BASE = 0x4c2888,
-    PROFILE_SIZE = 0x8d,
-    PROFILE_COUNT = 8,
     TOP_SPEED_SHIFT = 16,
     TRI_SPEED_TABLE = 0x15b0c     /* 3 bytes per segment, the first the speed limit in units of 0x10000 */
 };
 
-/* 004c2888 + 0x8d * k, +0x65 and +0x69: the driver profiles' fastest sideways speed and its rate. */
-static const int32_t PROFILE_LIMIT[PROFILE_COUNT] = { 249036, 249036, 249036, 249036, 249036, 275251, 131072, 249036 };
-static const int32_t PROFILE_RATE = 19660;
 
 static int32_t abs32(int32_t v)
 {
@@ -77,24 +70,14 @@ static int is_racer(const Car *car)
     return (car->flags_174 & CAR_RACER) != 0;
 }
 
-/* The profile index a slot's profile pointer names, or -1. */
-static int profile_of(const RaceState *race, const Car *car)
-{
-    if ((uint32_t)car->player >= RACE_PLAYERS) return -1;
-    const uint32_t ref = race->ai.profiles[car->player];
-    if (ref < PROFILE_BASE || (ref - PROFILE_BASE) % PROFILE_SIZE != 0) return -1;
-    const uint32_t k = (ref - PROFILE_BASE) / PROFILE_SIZE;
-    return k < PROFILE_COUNT ? (int)k : -1;
-}
-
 int32_t ai_lane_speed(const Car *car, const RaceState *race, int32_t error, int32_t speed)
 {
     int32_t limit = TRAFFIC_LIMIT, rate = TRAFFIC_RATE;
     if (is_racer(car)) {
-        const int k = profile_of(race, car);
-        if (k >= 0) {
-            limit = PROFILE_LIMIT[k];
-            rate = PROFILE_RATE;
+        const DriverProfile *profile = ai_driver_profile(race, car->player);
+        if (profile != NULL) {
+            limit = profile->lane_speed_limit;
+            rate = profile->lane_speed_rate;
         }
     }
     const int32_t v = fx_mul_round(rate, speed);
@@ -116,25 +99,6 @@ int ai_human_near(const RaceState *race, const Car *car)
 {
     for (int32_t i = 0; i < race->humans; i++)
         if (ai_in_window(race, race->cars[i], car)) return 1;
-    return 0;
-}
-
-/* 0046a0f4: `node` lies within the span of zone `k` (its end and start words). */
-static int in_span(const RaceState *race, int32_t node, int k)
-{
-    const int32_t start = race->ai.zones[ZONE_RECORD * k + ZONE_START];
-    const int32_t ring = race->segments * 4;
-    int32_t length = race->ai.zones[ZONE_RECORD * k + ZONE_END] - start;
-    if (length < 0) length += ring;
-    const int32_t at = node <= start ? ring + (node - start) : node - start;
-    return at < length;
-}
-
-int32_t ai_zone(const RaceState *race, int32_t node)
-{
-    if (race->racers > 2) return 1;
-    for (int k = 0; k < 2; k++)
-        if (in_span(race, node & (int32_t)(race->tri->ring_nodes - 1u), k)) return k + 1;
     return 0;
 }
 
@@ -293,7 +257,7 @@ void ai_drive(Car *car, RaceState *race, int32_t countdown)
 
     const TriNode here = race_node(race, car->node);
     int may_accelerate = 1;
-    if (ai_zone(race, car->node) != 0) {
+    if (ai_view_zone(race, car->node) != 0) {
         const int32_t left = -(int32_t)((uint32_t)here.left_barrier << 13);
         const int32_t right = (int32_t)((uint32_t)here.right_barrier << 13);
         may_accelerate = car->road_lateral >= left && right >= car->road_lateral && car->coast_timer <= 0;

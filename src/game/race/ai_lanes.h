@@ -62,5 +62,7 @@ void ai_new_bias(Car *car, RaceState *race);
 int32_t ai_scale_speed(const Car *car, int32_t speed);
 /* 0046aab0 */
 int32_t ai_leader_speed(const Car *car, const RaceState *race);
+/* The driver profile slot `slot`'s ai.profiles word points at, or NULL. */
+const DriverProfile *ai_driver_profile(const RaceState *race, int32_t slot);
 
 #endif

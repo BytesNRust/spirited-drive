@@ -19,8 +19,4 @@ int ai_human_near(const RaceState *race, const Car *car);
 /* 0046e388: `other`'s node lies from 0x14 nodes behind to 0x36 ahead of `human`'s. */
 int ai_in_window(const RaceState *race, const Car *human, const Car *other);
 
-/* 0046a14c: the number (from 1) of the zone `node` is in, or 0; with more
- * than two racers everything counts as in the first. */
-int32_t ai_zone(const RaceState *race, int32_t node);
-
 #endif
