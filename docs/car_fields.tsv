@@ -12,7 +12,8 @@
 0x020	i32	use_matrix	non-zero: +0x24 is the body matrix (004591d4)
 0x024	i32[9]	matrix	16.16
 0x048	i32	node	road node under the car
-0x04c	i32	progress	compared between cars (00440ef0, 00430cb0)
+0x04c	i32	progress	(lap - 1) * nodes per lap + node on circuits, the node on stages (0043fa3c)
+0x050	i32	lap	laps started; the lap marks are per player (0043fa3c)
 0x054	i32	velocity_x	param_1[0x15]
 0x058	i32	velocity_y	vertical speed (00428bd8)
 0x05c	i32	velocity_z	param_1[0x17]

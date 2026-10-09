@@ -19,8 +19,8 @@ typedef struct {
     int32_t use_matrix;  /* 0x020 non-zero: +0x24 is the body matrix (004591d4) */
     int32_t matrix[9];  /* 0x024 16.16 */
     int32_t node;  /* 0x048 road node under the car */
-    int32_t progress;  /* 0x04c compared between cars (00440ef0, 00430cb0) */
-    uint8_t pad_050[0x4];
+    int32_t progress;  /* 0x04c (lap - 1) * nodes per lap + node on circuits, the node on stages (0043fa3c) */
+    int32_t lap;  /* 0x050 laps started; the lap marks are per player (0043fa3c) */
     int32_t velocity_x;  /* 0x054 param_1[0x15] */
     int32_t velocity_y;  /* 0x058 vertical speed (00428bd8) */
     int32_t velocity_z;  /* 0x05c param_1[0x17] */
@@ -110,6 +110,7 @@ CAR_CHECK(use_matrix, offsetof(Car, use_matrix) == 0x20);
 CAR_CHECK(matrix, offsetof(Car, matrix) == 0x24);
 CAR_CHECK(node, offsetof(Car, node) == 0x48);
 CAR_CHECK(progress, offsetof(Car, progress) == 0x4c);
+CAR_CHECK(lap, offsetof(Car, lap) == 0x50);
 CAR_CHECK(velocity_x, offsetof(Car, velocity_x) == 0x54);
 CAR_CHECK(velocity_y, offsetof(Car, velocity_y) == 0x58);
 CAR_CHECK(velocity_z, offsetof(Car, velocity_z) == 0x5c);
@@ -185,6 +186,7 @@ static const CarField CAR_FIELDS[] = {
     { "matrix", 0x24, 36, 0 },
     { "node", 0x48, 4, 0 },
     { "progress", 0x4c, 4, 0 },
+    { "lap", 0x50, 4, 0 },
     { "velocity_x", 0x54, 4, 0 },
     { "velocity_y", 0x58, 4, 0 },
     { "velocity_z", 0x5c, 4, 0 },

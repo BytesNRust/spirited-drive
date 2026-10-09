@@ -26,6 +26,7 @@ add_library(tnfs_core STATIC
     src/game/gfx/quad.c
     src/game/gfx/quad_tri.c
     src/game/race/car_draw.c
+    src/game/race/car_progress.c
     src/game/race/car_road.c
     src/game/race/car_vertical.c
     src/game/race/horizon.c

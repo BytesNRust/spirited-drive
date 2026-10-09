@@ -10,13 +10,27 @@
 
 enum {
     RACE_NOTES = 0x7080 / 0x3c,   /* 00512f94: one per second of a 30 minute clock */
-    RACE_TRACK_NAME = 16
+    RACE_TRACK_NAME = 16,
+    RACE_PLAYERS = 8,
+    RACE_LAP_MARKS = 115          /* what fits in a 0x1d2-byte player record */
 };
+
+/* 0051cc54 + 0x1d2 * player: the start tick, then the tick each lap ended.
+ * Only the lap marks are known so far. */
+#pragma pack(push, 1)
+typedef struct {
+    int32_t unknown_000;
+    int32_t lap_marks[RACE_LAP_MARKS];  /* +4: [0] start, [k] end of lap k */
+    uint8_t unknown_1d0[2];
+} PlayerRecord;
+#pragma pack(pop)
 
 typedef struct {
     void *user;
     /* 00444028 -> 00443eac: a sound effect (arguments as the original's) */
     void (*sound)(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
+    /* 004646cc + 00464850: a voice sample, "besttime.eas" and the like */
+    void (*speech)(void *user, const char *name);
 } RaceSounds;
 
 typedef struct {
@@ -34,6 +48,15 @@ typedef struct {
     int32_t note_tick;              /* 004c53bc */
     int32_t note_level;             /* 004c53c0 */
     int32_t notes[RACE_NOTES];      /* 00512f94 */
+    int32_t circuit;                /* 00504200: laps are counted */
+    int32_t segments;               /* 0050420c */
+    int32_t loop_nodes;             /* 00509d58: nodes in one lap */
+    int32_t laps;                   /* 00509d54 */
+    int32_t best_lap;               /* 00509e04: ticks */
+    int32_t best_lap_set;           /* 00509dfc */
+    int32_t viewed;                 /* 004fbb04: the car shown in a replay */
+    int16_t replay;                 /* 0052b316 */
+    PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     RaceSounds sounds;
 } RaceState;
 
