@@ -79,6 +79,9 @@ typedef struct {
     /* 00404530: the camera attaches to car `slot` in `mode` (a computer car
      * placed while the race has not started takes the view, 0046f110). */
     void (*camera)(void *user, int32_t slot, int32_t mode);
+    /* 0043cc84: the force-feedback jolt of a car-to-car hit felt by the followed
+     * car (_Jolt): the two cars' slots, the push along x, y and z, the impulse. */
+    void (*jolt)(void *user, int32_t car_a, int32_t car_b, int32_t x, int32_t y, int32_t z, int32_t impulse);
 } RaceSounds;
 
 /* A computer driver's profile (0x8d bytes at *0050bae0 + 0x8d * letter,
