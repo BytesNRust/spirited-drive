@@ -161,7 +161,7 @@ typedef struct {
     int32_t traction_active;  /* 0x4b2 the traction control acts this tick (00430cb0) */
     int32_t anti_lock_active;  /* 0x4b6 */
     int32_t look_back;  /* 0x4ba the input's bit 0x4000 (00438f00); the cameras read it */
-    int32_t unknown_4be[2];  /* 0x4be zeroed by the reset */
+    int32_t unknown_4be[2];  /* 0x4be zeroed by the reset; -1 when the followed car leaves a crash (0040ddb0) */
     int32_t node_flag_4c6;  /* 0x4c6 property 5 or 18 */
     int32_t node_flag_4ca;  /* 0x4ca property 14 or 17 */
     int32_t node_flag_4ce;  /* 0x4ce property 15 or 18 */

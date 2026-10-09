@@ -12,7 +12,13 @@ enum {
     SLIDE_TICKS = 0x3c,
     HIT_TICKS = 300,
     NOTE_CRASH = 0x5c,
-    FLAG_DASHBOARD = 2            /* flags_175 */
+    FLAG_DASHBOARD = 2,           /* flags_175 */
+    YAW_RATE_FROM_SPIN = 0x28be63,
+    /* 004b9078..004b9084 */
+    KICK_SPIN_KEPT = 0x5999,
+    KICK_SPIN_SIDE = -0x3d999,
+    KICK_SPIN_ALONG = -0x1d999,
+    KICK_UP = 0x5b333
 };
 
 /* 0040dc20: the body takes the car's place, speed and turn; its z axis
@@ -75,4 +81,50 @@ void car_crash_hit(Car *car, RaceState *race)
     car->ai_countdown = HIT_TICKS;
     race_note(race, NOTE_CRASH);
     if (car == heard && race->sounds.stop_engine != NULL) race->sounds.stop_engine(race->sounds.user);
+}
+
+void car_crash_end(Car *car, RaceState *race, int32_t physics)
+{
+    Car *heard = race->cars[race->viewed & (RACE_PLAYERS - 1)];
+    if (car == heard) {
+        car->unknown_4be[0] = -1;
+        car->unknown_4be[1] = -1;
+        if (car->physics == PHYSICS_CRASH && race->sounds.start_engine != NULL)
+            race->sounds.start_engine(race->sounds.user);
+    }
+    car->physics = physics;
+    const int32_t lift = car->unknown_0bc >> 8;
+    car->x = car->body_position[0] - lift * (car->body_matrix[3] >> 8);
+    car->y = car->body_position[1] - lift * (car->body_matrix[4] >> 8);
+    car->z = -(car->body_position[2] - (car->body_matrix[5] >> 8) * lift);
+    car->velocity_x = -car->body_velocity[0];
+    car->velocity_y = car->body_velocity[1];
+    car->velocity_z = -car->body_velocity[2];
+    car->yaw_rate += (-car->yaw_rate - fx_mul_round(car->body_spin[1], YAW_RATE_FROM_SPIN)) >> 1;
+    car->ai_countdown = 0;
+    car->skid_front = 0;
+    car->skid_rear = 0;
+    /* 004302a0 for the humans' cars does nothing */
+}
+
+int32_t car_body_road_speed(const Car *car)
+{
+    return (car->road_axes[6] >> 8) * (car->body_velocity[0] >> 8) +
+           (car->road_axes[7] >> 8) * (car->body_velocity[1] >> 8) +
+           (-car->body_velocity[2] >> 8) * (car->road_axes[8] >> 8);
+}
+
+void car_crash_kick(Car *car, RaceState *race)
+{
+    const int32_t kept = KICK_SPIN_KEPT >> 8, side = KICK_SPIN_SIDE >> 8, along = KICK_SPIN_ALONG >> 8;
+    for (int i = 0; i < 3; i++) car->body_spin[i] = (car->body_spin[i] >> 8) * kept;
+    for (int i = 0; i < 3; i++) car->body_spin[i] += side * (car->road_axes[i] >> 8);
+    for (int i = 0; i < 3; i++) car->body_spin[i] += along * (car->road_axes[6 + i] >> 8);
+    const int32_t up = KICK_UP >> 8;
+    const int32_t kick = up * (car->body_matrix[5] >> 8);
+    car->body_velocity[0] += up * (car->body_matrix[3] >> 8);
+    car->body_velocity[1] += up * (car->body_matrix[4] >> 8);
+    car->body_velocity[2] += kick;
+    if (race->viewed == car->index && race->effects != 0 && race->sounds.buffet != NULL)
+        race->sounds.buffet(race->sounds.user, car->body_velocity[2], kick);
 }

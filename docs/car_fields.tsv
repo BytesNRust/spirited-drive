@@ -136,7 +136,7 @@
 0x431	i32	unknown_431	0x111eb from the reset
 0x435	i32	unknown_435	0x111eb from the reset
 0x439	i32	unknown_439	zeroed by the reset
-0x4be	i32[2]	unknown_4be	zeroed by the reset
+0x4be	i32[2]	unknown_4be	zeroed by the reset; -1 when the followed car leaves a crash (0040ddb0)
 0x4d2	i32	unknown_4d2	0x40 from the reset
 0x4d6	i32[4]	unknown_4d6	zeroed by the reset
 0x4ea	i32[2]	unknown_4ea	zeroed by the reset
