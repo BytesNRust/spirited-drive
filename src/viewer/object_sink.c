@@ -1,6 +1,8 @@
 #include "viewer/object_sink.h"
 
+#include "game/gfx/flat.h"
 #include "game/gfx/object_mappers.h"
+#include "game/gfx/palette_match.h"
 #include "game/gfx/quad.h"
 
 #include <string.h>
@@ -33,39 +35,29 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
     }
 }
 
-/* TODO(00473140): the game's own palette match. */
+/* 00473140 on an 8-bit screen without the inverse table: the nearest of
+ * the palette's colours, all of them enabled. */
 static uint8_t nearest(const uint8_t palette[768], uint32_t rgb)
 {
-    const int r = (int)(rgb & 0xFF), g = (int)((rgb >> 8) & 0xFF), b = (int)((rgb >> 16) & 0xFF);
-    int best = 0, best_d = 1 << 30;
-    for (int i = 0; i < 256; i++) {
-        const int dr = palette[3 * i] - r, dg = palette[3 * i + 1] - g, db = palette[3 * i + 2] - b;
-        const int d = dr * dr + dg * dg + db * db;
-        if (d < best_d) best = i, best_d = d;
+    uint8_t quad[PALETTE_MATCH_ENTRIES * PALETTE_MATCH_ENTRY_BYTES] = { 0 };
+    uint8_t enabled[PALETTE_MATCH_ENTRIES];
+    for (int i = 0; i < PALETTE_MATCH_ENTRIES; i++) {
+        memcpy(&quad[i * PALETTE_MATCH_ENTRY_BYTES], &palette[3 * i], 3);
+        enabled[i] = 1;
     }
-    return (uint8_t)best;
+    return (uint8_t)palette_match_nearest(quad, enabled, rgb);
 }
 
-/* TODO(0048434e, 00484254): flat polygons and lines, here a one-texel
- * texture through the triangle mapper. */
+/* 004a3390: two corners a line (00484254), three or four a flat polygon
+ * (0048434e). */
 static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
-    if (c->corners < 3) return;
-    uint8_t texel[4];
-    memset(texel, nearest(s->palette, rgb), sizeof texel);
-    FshEntry tex;
-    memset(&tex, 0, sizeof tex);
-    tex.type = FSH_TYPE_BITMAP;
-    tex.width = tex.height = 2;
-    tex.payload = texel;
-    tex.payload_size = sizeof texel;
-    Object3DCorners z = *c;
-    memset(z.uv, 0, sizeof z.uv);
-    obj_draw_triangle(s->target, &tex, z.uv, z.screen, MAP_OPAQUE, NULL);
-    if (c->corners == 4) {
-        const int32_t scr[6] = { z.screen[0], z.screen[1], z.screen[4], z.screen[5], z.screen[6], z.screen[7] };
-        obj_draw_triangle(s->target, &tex, z.uv, scr, MAP_OPAQUE, NULL);
+    const uint8_t colour = nearest(s->palette, rgb);
+    if (c->corners == 2) {
+        flat_line(s->target, c->screen[0], c->screen[1], c->screen[2], c->screen[3], colour);
+    } else if (c->corners == 3 || c->corners == 4) {
+        flat_polygon(s->target, colour, c->corners, c->screen);
     }
 }
 
