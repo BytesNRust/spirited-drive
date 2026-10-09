@@ -10,12 +10,12 @@
 0x160	i32	unknown_160	80000 at the start
 0x168	i32	unknown_168	004fb7f0 at the start
 0x16c	ref[8]	profiles	driver profile per slot (0044941c: 004c2888 + 0x8d * letter)
-0x190	i32[101]	params	the computer cars' tuning (00456410)
+0x190	i32[107]	params	the computer cars' tuning (00456410); [65..85] and [86..106] are the catch-up scales 0046f3e8 reads by the gap to the first car (race type 1 and the others)
 0x33c	i32	unknown_33c	zeroed at the start
-0x340	i32	unknown_340	0x5999 at the start
+0x340	i32	racer_decel	0x5999 at the start; how fast a racer's speed falls towards a lower target per tick (0046f3e8)
 0x344	i32	unknown_344	zeroed at the start
 0x350	i32	unknown_350	zeroed at the start
 0x358	i32	unknown_358	1 at the start
-0x35c	ref	first_car	00509e1c at the start
+0x35c	ref	first_car	the first human's car (the first word of 00509e1c at the start): the computer cars' catch-up is measured against it
 0x360	i32	unknown_360	004fb7da bit 0
-0x368	i32	unknown_368	the lane width last looked up (times 0x100)
+0x368	i32	last_lane_width	the lane width last looked up (times 0x100) by 0046f3e8 and 0046d79c

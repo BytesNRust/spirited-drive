@@ -123,13 +123,22 @@
 0x4fa	i32	auto_ticks	ticks of autopilot (00401180)
 0x4fe	i32	auto_mode	autopilot before the start or after the finish: 1 steering off the road, 2 stopped across it (00401180)
 0x502	i32	auto_steer	the autopilot's steering when stopped across the road (00401180)
-0x01c	i32	unknown_01c	zeroed by the reset (0043fd00)
-0x08c	i32[12]	unknown_08c	zeroed by the reset
+0x01c	i32	slip_steer	zeroed by the reset (0043fd00); the steer the sideways speed calls for: local_velocity_x times a factor that falls to 0 with speed (0046f3e8); the gap to steer is the slide (0046d79c)
+0x08c	i32[9]	road_axes	zeroed by the reset; the computer cars' road frame (0046ab24): side, up and forward rows, 16.16
+0x0b0	i32[3]	road_centre	zeroed by the reset; the road's centre point under the computer car (0046ab24)
 0x0bc	i32	unknown_0bc	the collision body's +0x78 (004407b8)
 0x138	i32	body_extent_a	the collision body (+0xc4) +0x74; 0x457 from the reset, half the model's +0x64e (004407b8)
 0x13c	i32	body_extent_b	+0x78; 0x8ae, half the model's +0x652
 0x140	i32	body_extent_c	+0x7c; 0xd05, half the model's +0x64a
-0x158	i32[4]	unknown_158	zeroed by the reset
+0x080	i32	road_lateral	computer cars: signed distance from the road's centre along road_axes' side row, 16.16 (0046ab24); the verge bytes of a node are times 0x2000
+0x144	i32	ai_countdown	the collision body's +0x80: ticks until the driver 0046f3e8 runs again (0046d79c); it sets it to its interval, 8, 6 or 4
+0x14c	i32	slide_timer	the body's +0x88: 0xa0 (0x64 for racers) while not sliding, counting down while the car slides, 0 when it has slid long (0046d79c)
+0x150	i32	coast_timer	the body's +0x8c: ticks the driver must not accelerate; then counts up from -20 to 0 (0046f3e8)
+0x158	i32	unknown_158	zeroed by the reset; counts the driver's rounds (0046a238)
+0x15c	i32	ai_speed	zeroed by the reset; the computer car's speed along the road, 16.16, moved towards ai_target_speed (0046f3e8)
+0x160	i32	ai_target_speed	zeroed by the reset; the speed the driver wants
+0x164	i32	ai_target_lateral	zeroed by the reset; the distance from the road's centre the driver steers for
+0x178	i32[100]	speed_table	indexed by |ai_speed| in whole units + 1: the acceleration there; the driver reads entries i and i-1 (0046f3e8)
 0x176	u8[2]	unknown_176	zeroed by the reset with flags_174 and flags_175
 0x33c	i32	unknown_33c	zeroed by the reset
 0x340	u8	unknown_340	zeroed by the reset
