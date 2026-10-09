@@ -25,29 +25,25 @@ int car_pdn_read(CarPdn *pdn, const uint8_t *file, size_t size)
     return ok;
 }
 
-/* 0042ebcc: 1 / x for an unsigned 16.16 x, in x87 doubles truncated;
- * exactly 2^32 / x. Past 32 bits (x below 2) fistp gives 0x80000000. */
-static int32_t inverse(int32_t x)
-{
-    const uint32_t u = (uint32_t)x;
-    if (u < 2) return INT32_MIN;
-    return (int32_t)(uint32_t)(((uint64_t)1 << 32) / u);
-}
 
 /* 0041da00: the body at rest with its inertia and size. */
 static void body_reset(Car *car, int32_t a, int32_t b, const int32_t extents[3])
 {
     car->body_pdn_10 = a;
-    car->body_inverse_10 = inverse(a);
+    car->body_inverse_10 = rm_inverse(a);
     car->body_pdn_0c = b;
-    car->body_inverse_0c = inverse(b);
+    car->body_inverse_0c = rm_inverse(b);
     car->body_extent_a = extents[0];
     car->body_extent_b = extents[1];
     car->body_extent_c = extents[2];
     int32_t m[9];
     rm_identity(m);
     memcpy(car->body_matrix, m, sizeof m);
-    memset(car->body_unknown_24, 0, sizeof car->body_unknown_24);
+    memset(car->body_position, 0, sizeof car->body_position);
+    memset(car->body_velocity, 0, sizeof car->body_velocity);
+    memset(car->body_spin, 0, sizeof car->body_spin);
+    memset(car->body_force, 0, sizeof car->body_force);
+    memset(car->body_unknown_54, 0, sizeof car->body_unknown_54);
     car->ai_countdown = 0;
 }
 

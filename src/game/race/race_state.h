@@ -67,6 +67,14 @@ typedef struct {
     /* 0041019c: while a recording plays, the followed car is still on the
      * start line (00440afc). */
     void (*start_line)(void *user, int32_t player);
+    /* 0044435c: the followed car's engine sounds stop (a crash) */
+    void (*stop_engine)(void *user);
+    /* 00456a48 on 005146ac: the skid marks start over */
+    void (*skids_reset)(void *user);
+    /* 00444394: the followed car's engine sounds start again */
+    void (*start_engine)(void *user);
+    /* 0043d120 (1, ...): a knock felt through the controls; z speed and kick */
+    void (*buffet)(void *user, int32_t speed, int32_t kick);
     /* 00404530: the camera attaches to car `slot` in `mode` (a computer car
      * placed while the race has not started takes the view, 0046f110). */
     void (*camera)(void *user, int32_t slot, int32_t mode);
