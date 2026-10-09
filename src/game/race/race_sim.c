@@ -62,6 +62,11 @@ static void no_buffet(void *user, int32_t speed, int32_t kick)
     (void)user, (void)speed, (void)kick;
 }
 
+static void no_jolt(void *user, int32_t car_a, int32_t car_b, int32_t x, int32_t y, int32_t z, int32_t impulse)
+{
+    (void)user, (void)car_a, (void)car_b, (void)x, (void)y, (void)z, (void)impulse;
+}
+
 static void no_camera(void *user, int32_t slot, int32_t mode)
 {
     (void)user, (void)slot, (void)mode;
@@ -98,7 +103,7 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
     race->laps = laps;
     race->views = 1;
     race->catch_up = CATCH_UP;
-    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_event, no_buffet, no_camera };
+    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_event, no_buffet, no_camera, no_jolt };
     race->entries[0] = *entry;
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = 1;

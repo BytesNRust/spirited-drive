@@ -13,7 +13,8 @@ enum {
     HALF_ONE = 0x10000,
     BOUNCE = 0x7333,              /* 004b9144 */
     FRICTION = 0xcccc,            /* 004b9148 */
-    GRAVITY = 0x9cf5c             /* 9.81 */
+    GRAVITY = 0x9cf5c,            /* 9.81 */
+    COLLIDE_BOUNCE = 0x8ccc       /* 004b9140 */
 };
 
 typedef char car_body_place_check[offsetof(Car, body_matrix) == CAR_BODY_OFFSET &&
@@ -223,4 +224,46 @@ void rb_step(RigidBody *body)
     int32_t r[9];
     rb_axis_turn(r, turn, body->spin);
     rm_mul(body->matrix, body->matrix, r);
+}
+
+/* the arm from the body's centre to the contact, and its cross with the normal */
+static void hit_arm(const RigidBody *b, const int32_t point[3], const int32_t normal[3], int32_t r[3], int32_t c[3])
+{
+    for (int i = 0; i < 3; i++) r[i] = point[i] - b->position[i];
+    fx_cross(r, normal, c);
+}
+
+/* the spin a push at r gives the body (inverse_0c times r x push) */
+static void hit_spin(RigidBody *b, const int32_t r[3], const int32_t push[3], int32_t sign)
+{
+    int32_t t[3];
+    fx_cross(r, push, t);
+    for (int i = 0; i < 3; i++) b->spin[i] += sign * fx_mul_round(b->inverse_0c, t[i]);
+}
+
+int rb_bodies_collide(RaceState *race, RigidBody *a, RigidBody *b, int32_t car_a, int32_t car_b,
+                      const int32_t point[3], const int32_t normal[3], int32_t *impulse)
+{
+    int32_t ra[3], rb[3], ca[3], cb[3], va[3], vb[3], sa[3], sb[3];
+    hit_arm(a, point, normal, ra, ca);
+    hit_arm(b, point, normal, rb, cb);
+    memcpy(va, a->velocity, sizeof va), memcpy(vb, b->velocity, sizeof vb);
+    memcpy(sa, a->spin, sizeof sa), memcpy(sb, b->spin, sizeof sb);
+    const int32_t closing = rm_dot(vb, normal) - rm_dot(va, normal) - rm_dot(sa, ca) + rm_dot(sb, cb);
+    const int32_t weight = (a->inverse_10 >> 1) + (b->inverse_10 >> 1) +
+                           (fx_mul_round(rm_dot(ca, ca), a->inverse_0c) >> 1) +
+                           (fx_mul_round(rm_dot(cb, cb), b->inverse_0c) >> 1);
+    const int32_t size = fx_div(closing, weight);
+    if (size < 0) return 0;
+    const int32_t bounce = fx_mul_round(COLLIDE_BOUNCE, size);
+    if (impulse != NULL) *impulse = bounce;
+    int32_t push[3];
+    for (int i = 0; i < 3; i++) push[i] = fx_mul_round(bounce, normal[i]);
+    if (race->effects != 0 && (race->viewed == car_a || race->viewed == car_b) && race->sounds.jolt != NULL)
+        race->sounds.jolt(race->sounds.user, car_a, car_b, push[0], push[1], push[2], bounce);
+    for (int i = 0; i < 3; i++) a->velocity[i] += fx_mul_round(a->inverse_10, push[i]);
+    for (int i = 0; i < 3; i++) b->velocity[i] -= fx_mul_round(b->inverse_10, push[i]);
+    hit_spin(a, ra, push, 1);
+    hit_spin(b, rb, push, -1);
+    return 1;
 }

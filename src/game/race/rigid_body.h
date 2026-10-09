@@ -5,6 +5,7 @@
 #define TNFS_RIGID_BODY_H
 
 #include "game/race/car.h"
+#include "game/race/race_state.h"
 
 #include <stdint.h>
 
@@ -61,6 +62,15 @@ typedef struct {
  * `normal`: the deepest corner is pushed half way out, bounces off, and a
  * rising body keeps no more speed than its climb allows. */
 void rb_ground_contact(RigidBody *body, const int32_t normal[3], const int32_t point[3], RbContact *contact);
+
+/* 0041c098: two bodies in contact at `point` (world), `normal` unit: the
+ * impulse that pushes them apart along the normal, applied to velocity and
+ * spin (b takes the opposite). Returns 0 when they are already parting (the
+ * impulse is negative), else 1; `impulse` (004b9128, may be NULL) gets its
+ * size. car_a / car_b are the cars' slots (+0x516), the jolt goes to the
+ * followed one. */
+int rb_bodies_collide(RaceState *race, RigidBody *a, RigidBody *b, int32_t car_a, int32_t car_b,
+                      const int32_t point[3], const int32_t normal[3], int32_t *impulse);
 
 /* 0041daa0: one tick of free flight: moved by its velocity, slowed, pulled
  * down, and turned by its spin. */
