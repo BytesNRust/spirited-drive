@@ -15,7 +15,8 @@ typedef struct {
     int32_t pitch;  /* 0x00c about x; 00428aec eases it towards the road */
     int32_t yaw;  /* 0x010 copied to heading (+0x351) after each tick */
     int32_t roll;  /* 0x014 about z */
-    uint8_t pad_018[0x8];
+    int32_t steer;  /* 0x018 the front wheels' angle; more of it at low speed, less under braking (00430cb0) */
+    uint8_t pad_01c[0x4];
     int32_t use_matrix;  /* 0x020 non-zero: +0x24 is the body matrix (004591d4) */
     int32_t matrix[9];  /* 0x024 16.16 */
     int32_t node;  /* 0x048 road node under the car */
@@ -25,11 +26,11 @@ typedef struct {
     int32_t velocity_y;  /* 0x058 vertical speed (00428bd8) */
     int32_t velocity_z;  /* 0x05c param_1[0x17] */
     int32_t local_velocity_x;  /* 0x060 sideways speed in the car's frame (world velocity turned by -yaw, 00430cb0) */
-    uint8_t pad_064[0x4];
+    int32_t local_velocity_y;  /* 0x064 */
     int32_t local_velocity_z;  /* 0x068 forward speed in the car's frame */
     int32_t wheel_speed;  /* 0x06c 0042ee68: times the gear ratio gives the engine revs */
     int32_t speed;  /* 0x070 max(|vx|,|vz|) + min/4 (00430cb0) */
-    uint8_t pad_074[0x4];
+    int32_t yaw_rate;  /* 0x074 turn per second, 24-bit angle, within +-0x960000 (00430cb0) */
     int32_t half_length;  /* 0x078 front axle offset? turned by 00428804 */
     int32_t half_width;  /* 0x07c turned by 00428804 */
     uint8_t pad_080[0x8];
@@ -68,7 +69,7 @@ typedef struct {
     int32_t unknown_3d9;  /* 0x3d9 */
     int32_t unknown_3dd;  /* 0x3dd */
     int32_t unknown_3e1;  /* 0x3e1 sine of the pitch * 0x9cf (00428bd8) */
-    int32_t unknown_3e5;  /* 0x3e5 */
+    int32_t drive_force;  /* 0x3e5 this tick's force from the engine (0042f138, kept by 00430cb0) */
     int32_t transmission;  /* 0x3e9 non-zero: automatic (2 from the setup, 004400f4) */
     int32_t gear;  /* 0x3ed -2 reverse, -1 neutral, 0.. forward */
     int32_t engaged;  /* 0x3f1 the wheels drive the engine (on the road, in gear) */
@@ -79,7 +80,8 @@ typedef struct {
     int32_t skid_front;  /* 0x405 how far the front tyres are past their grip (0042fb88); skid marks (0045a848) */
     int32_t skid_rear;  /* 0x409 */
     int32_t unknown_40d;  /* 0x40d grip held back from wheelspin (0042f138), zeroed by 00430cb0 */
-    uint8_t pad_411[0x8];
+    int32_t lateral_force;  /* 0x411 the tyres' sideways force this tick; tilts the body (00430cb0) */
+    int32_t along_force;  /* 0x415 the tyres' forward force times spec +0x32c; pitches the body */
     int32_t last_gear;  /* 0x419 the gear before the last change (00430cb0, 0043cda0) */
     int32_t gear_before_last;  /* 0x41d */
     int32_t gear_change_ticks;  /* 0x421 counts down from 0x10 after a change */
@@ -89,7 +91,17 @@ typedef struct {
     uint8_t suspension_x_index;  /* 0x428 0042ecd0 table index */
     int32_t suspension_z;  /* 0x429 0042ecd0 amplitude */
     int32_t suspension_x;  /* 0x42d 0042ecd0 amplitude */
-    uint8_t pad_431[0x48];
+    uint8_t pad_431[0xc];
+    int32_t unknown_43d;  /* 0x43d 00430cb0: the front axle's share of the speed the tyres resist (16.16) */
+    uint8_t pad_441[0xc];
+    int32_t unknown_44d;  /* 0x44d 00430cb0: weight moved to the rear per forward force */
+    int32_t unknown_451;  /* 0x451 00430cb0: axle_load_a at rest, before the surface grip */
+    int32_t unknown_455;  /* 0x455 00430cb0: axle_load_b at rest */
+    int32_t unknown_459;  /* 0x459 00430cb0: the yaw rate's sideways pull on each axle (16.16) */
+    uint8_t pad_45d[0x4];
+    int32_t unknown_461;  /* 0x461 00430cb0: the front tyres' lever on the yaw (16.16) */
+    int32_t unknown_465;  /* 0x465 00430cb0: the rear tyres' lever on the yaw (16.16) */
+    uint8_t pad_469[0x10];
     uint32_t specs;  /* 0x479 the car's performance data */
     int32_t player;  /* 0x47d index of the driver (00509e1c, 0051cc5c + 0x1d2 * i) */
     uint8_t pad_481[0x9];
@@ -137,6 +149,7 @@ CAR_CHECK(z, offsetof(Car, z) == 0x8);
 CAR_CHECK(pitch, offsetof(Car, pitch) == 0xc);
 CAR_CHECK(yaw, offsetof(Car, yaw) == 0x10);
 CAR_CHECK(roll, offsetof(Car, roll) == 0x14);
+CAR_CHECK(steer, offsetof(Car, steer) == 0x18);
 CAR_CHECK(use_matrix, offsetof(Car, use_matrix) == 0x20);
 CAR_CHECK(matrix, offsetof(Car, matrix) == 0x24);
 CAR_CHECK(node, offsetof(Car, node) == 0x48);
@@ -146,9 +159,11 @@ CAR_CHECK(velocity_x, offsetof(Car, velocity_x) == 0x54);
 CAR_CHECK(velocity_y, offsetof(Car, velocity_y) == 0x58);
 CAR_CHECK(velocity_z, offsetof(Car, velocity_z) == 0x5c);
 CAR_CHECK(local_velocity_x, offsetof(Car, local_velocity_x) == 0x60);
+CAR_CHECK(local_velocity_y, offsetof(Car, local_velocity_y) == 0x64);
 CAR_CHECK(local_velocity_z, offsetof(Car, local_velocity_z) == 0x68);
 CAR_CHECK(wheel_speed, offsetof(Car, wheel_speed) == 0x6c);
 CAR_CHECK(speed, offsetof(Car, speed) == 0x70);
+CAR_CHECK(yaw_rate, offsetof(Car, yaw_rate) == 0x74);
 CAR_CHECK(half_length, offsetof(Car, half_length) == 0x78);
 CAR_CHECK(half_width, offsetof(Car, half_width) == 0x7c);
 CAR_CHECK(unknown_088, offsetof(Car, unknown_088) == 0x88);
@@ -181,7 +196,7 @@ CAR_CHECK(axle_load_b, offsetof(Car, axle_load_b) == 0x3d1);
 CAR_CHECK(unknown_3d9, offsetof(Car, unknown_3d9) == 0x3d9);
 CAR_CHECK(unknown_3dd, offsetof(Car, unknown_3dd) == 0x3dd);
 CAR_CHECK(unknown_3e1, offsetof(Car, unknown_3e1) == 0x3e1);
-CAR_CHECK(unknown_3e5, offsetof(Car, unknown_3e5) == 0x3e5);
+CAR_CHECK(drive_force, offsetof(Car, drive_force) == 0x3e5);
 CAR_CHECK(transmission, offsetof(Car, transmission) == 0x3e9);
 CAR_CHECK(gear, offsetof(Car, gear) == 0x3ed);
 CAR_CHECK(engaged, offsetof(Car, engaged) == 0x3f1);
@@ -192,6 +207,8 @@ CAR_CHECK(airborne_ticks, offsetof(Car, airborne_ticks) == 0x401);
 CAR_CHECK(skid_front, offsetof(Car, skid_front) == 0x405);
 CAR_CHECK(skid_rear, offsetof(Car, skid_rear) == 0x409);
 CAR_CHECK(unknown_40d, offsetof(Car, unknown_40d) == 0x40d);
+CAR_CHECK(lateral_force, offsetof(Car, lateral_force) == 0x411);
+CAR_CHECK(along_force, offsetof(Car, along_force) == 0x415);
 CAR_CHECK(last_gear, offsetof(Car, last_gear) == 0x419);
 CAR_CHECK(gear_before_last, offsetof(Car, gear_before_last) == 0x41d);
 CAR_CHECK(gear_change_ticks, offsetof(Car, gear_change_ticks) == 0x421);
@@ -201,6 +218,13 @@ CAR_CHECK(suspension_z_index, offsetof(Car, suspension_z_index) == 0x427);
 CAR_CHECK(suspension_x_index, offsetof(Car, suspension_x_index) == 0x428);
 CAR_CHECK(suspension_z, offsetof(Car, suspension_z) == 0x429);
 CAR_CHECK(suspension_x, offsetof(Car, suspension_x) == 0x42d);
+CAR_CHECK(unknown_43d, offsetof(Car, unknown_43d) == 0x43d);
+CAR_CHECK(unknown_44d, offsetof(Car, unknown_44d) == 0x44d);
+CAR_CHECK(unknown_451, offsetof(Car, unknown_451) == 0x451);
+CAR_CHECK(unknown_455, offsetof(Car, unknown_455) == 0x455);
+CAR_CHECK(unknown_459, offsetof(Car, unknown_459) == 0x459);
+CAR_CHECK(unknown_461, offsetof(Car, unknown_461) == 0x461);
+CAR_CHECK(unknown_465, offsetof(Car, unknown_465) == 0x465);
 CAR_CHECK(specs, offsetof(Car, specs) == 0x479);
 CAR_CHECK(player, offsetof(Car, player) == 0x47d);
 CAR_CHECK(unknown_48a, offsetof(Car, unknown_48a) == 0x48a);

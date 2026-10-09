@@ -53,7 +53,7 @@
 0x3d9	i32	unknown_3d9
 0x3dd	i32	unknown_3dd
 0x3e1	i32	unknown_3e1	sine of the pitch * 0x9cf (00428bd8)
-0x3e5	i32	unknown_3e5
+0x3e5	i32	drive_force	this tick's force from the engine (0042f138, kept by 00430cb0)
 0x3e9	i32	transmission	non-zero: automatic (2 from the setup, 004400f4)
 0x3ed	i32	gear	-2 reverse, -1 neutral, 0.. forward
 0x3f1	i32	engaged	the wheels drive the engine (on the road, in gear)
@@ -100,3 +100,15 @@
 0x52e	ref	body_object	3D object, high detail
 0x666	ref	far_object	3D object, low detail
 0x78e	i32	far	drawn with the low detail model this frame
+0x018	angle	steer	the front wheels' angle; more of it at low speed, less under braking (00430cb0)
+0x064	i32	local_velocity_y
+0x074	i32	yaw_rate	turn per second, 24-bit angle, within +-0x960000 (00430cb0)
+0x411	i32	lateral_force	the tyres' sideways force this tick; tilts the body (00430cb0)
+0x415	i32	along_force	the tyres' forward force times spec +0x32c; pitches the body
+0x43d	i32	unknown_43d	00430cb0: the front axle's share of the speed the tyres resist (16.16)
+0x44d	i32	unknown_44d	00430cb0: weight moved to the rear per forward force
+0x451	i32	unknown_451	00430cb0: axle_load_a at rest, before the surface grip
+0x455	i32	unknown_455	00430cb0: axle_load_b at rest
+0x459	i32	unknown_459	00430cb0: the yaw rate's sideways pull on each axle (16.16)
+0x461	i32	unknown_461	00430cb0: the front tyres' lever on the yaw (16.16)
+0x465	i32	unknown_465	00430cb0: the rear tyres' lever on the yaw (16.16)

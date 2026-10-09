@@ -5,6 +5,7 @@
 #define TNFS_RACE_STATE_H
 
 #include "formats/tri.h"
+#include "game/race/car.h"
 
 #include <stdint.h>
 
@@ -99,6 +100,25 @@ typedef struct {
     int32_t listener_heading;       /* 004f8060 */
     int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
+    const Car *cars[RACE_PLAYERS];  /* 00509e1c: the cars by slot */
+    uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
+    int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
+    int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */
+    /* 004bae70..: the arcade steering's turn rate (00430cb0); the road
+     * assist table reads on into them at high speed */
+    int32_t arcade_turn;            /* 004bae70 */
+    int32_t arcade_grip;            /* 004bae74 */
+    int32_t arcade_turn_limit;      /* 004bae78 */
+    /* the drag strip of track 3 (its first 0x61 and last nodes): times for
+     * the cockpit dials and the player records */
+    int32_t strip_off;              /* 004fb7d0: non-zero skips the timing */
+    int32_t strip_brake_80_tick;    /* 004bae7c: last tick above 80 mph braking */
+    int32_t strip_brake_60_tick;    /* 004bae80 */
+    int32_t strip_best_60;          /* 004bae84: 0-60 ticks this run */
+    int32_t strip_best_100;         /* 004bae88 */
+    int32_t strip_best_quarter;     /* 004bae8c */
+    int32_t strip_start_tick;       /* 004bae90: the car was last nearly still */
+    int32_t strip_start_progress;   /* 004bae94 */
     /* dashboard readings the simulation leaves for the cockpit view */
     int32_t gauge_acc, gauge_ac8;   /* 004f9acc, 004f9ac8 (0041e858) */
     int32_t dash_ab8, dash_abc, dash_ac0, dash_ac4;  /* 004f9ab8.. (0041e7fc) */
