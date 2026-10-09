@@ -13,4 +13,7 @@ void car_road_contact(Car *car, const RaceState *race, int use_heading);
 /* 00440a68 */
 void car_lateral(Car *car, const RaceState *race);
 
+/* 0043045c */
+void car_node_flags(Car *car, const RaceState *race);
+
 #endif

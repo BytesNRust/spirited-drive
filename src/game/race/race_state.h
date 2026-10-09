@@ -70,6 +70,9 @@ typedef struct {
     int32_t viewed;                 /* 004fbb04: the car shown in a replay */
     int16_t replay;                 /* 0052b316 */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
+    /* dashboard readings the simulation leaves for the cockpit view */
+    int32_t gauge_acc, gauge_ac8;   /* 004f9acc, 004f9ac8 (0041e858) */
+    int32_t dash_ab8, dash_abc, dash_ac0, dash_ac4;  /* 004f9ab8.. (0041e7fc) */
     RaceSounds sounds;
 } RaceState;
 
@@ -84,6 +87,10 @@ void race_note(RaceState *race, int32_t level);
 
 /* 0042f734 */
 void race_surfaces_init(RaceState *race);
+
+/* 0041e858 and 0041e7fc: values above 500 (1200) are ignored. */
+void race_dash_gauges(RaceState *race, int32_t a, int32_t b);
+void race_dash_values(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d);
 
 /* The road node under a node index, masked like the original (& 00504208). */
 TriNode race_node(const RaceState *race, int32_t node);

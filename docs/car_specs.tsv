@@ -11,9 +11,11 @@
 0x038	i32	unknown_038	00430cb0: a speed threshold
 0x03c	i32	unknown_03c	zeroed when the checksum fails
 0x054	i32	wheel_rpm	0042ee68: wheel speed to engine revs
-0x068	i32[9]	gear_ratio	0042ee68: indexed by gear + 2 (reverse -2, neutral -1)
+0x058	i32	gear_limit	top forward gear + 3 (004098a0)
+0x068	i32[10]	gear_ratio	0042ee68: indexed by gear + 2 (reverse -2, neutral -1)
 0x0ac	i32	unknown_0ac	0042ee68: revs per throttle step (8.8)
 0x0b0	i32	idle_rpm	0042ee68
+0x288	i32[11]	shift_rpm	004098a0: up above [gear + 3], down below 15/16 of [gear + 2]
 0x2d4	i32	unknown_2d4	00430cb0
 0x2d8	i32	unknown_2d8	00430cb0
 0x2dc	i32	unknown_2dc	halved in arcade mode
@@ -27,6 +29,7 @@
 0x32c	i32	unknown_32c	00430cb0
 0x334	i32	unknown_334	car +0x492 needs it positive
 0x338	i32	unknown_338	car +0x48e needs it positive
+0x354	i32	shift_ticks	the throttle is cut this long for a gear change (0042ed94)
 0x358	i32	rpm_fall	0042ee68: revs lost per tick off the throttle
 0x35c	i32	rpm_rise	0042ee68: revs gained per throttle step in neutral (8.8)
 0x360	i32	rpm_drop	0042ee68: revs lost per tick above the target

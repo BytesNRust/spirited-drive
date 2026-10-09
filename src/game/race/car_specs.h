@@ -22,12 +22,15 @@ typedef struct {
     int32_t unknown_03c;  /* 0x03c zeroed when the checksum fails */
     uint8_t pad_040[0x14];
     int32_t wheel_rpm;  /* 0x054 0042ee68: wheel speed to engine revs */
-    uint8_t pad_058[0x10];
-    int32_t gear_ratio[9];  /* 0x068 0042ee68: indexed by gear + 2 (reverse -2, neutral -1) */
-    uint8_t pad_08c[0x20];
+    int32_t gear_limit;  /* 0x058 top forward gear + 3 (004098a0) */
+    uint8_t pad_05c[0xc];
+    int32_t gear_ratio[10];  /* 0x068 0042ee68: indexed by gear + 2 (reverse -2, neutral -1) */
+    uint8_t pad_090[0x1c];
     int32_t unknown_0ac;  /* 0x0ac 0042ee68: revs per throttle step (8.8) */
     int32_t idle_rpm;  /* 0x0b0 0042ee68 */
-    uint8_t pad_0b4[0x220];
+    uint8_t pad_0b4[0x1d4];
+    int32_t shift_rpm[11];  /* 0x288 004098a0: up above [gear + 3], down below 15/16 of [gear + 2] */
+    uint8_t pad_2b4[0x20];
     int32_t unknown_2d4;  /* 0x2d4 00430cb0 */
     int32_t unknown_2d8;  /* 0x2d8 00430cb0 */
     int32_t unknown_2dc;  /* 0x2dc halved in arcade mode */
@@ -43,7 +46,8 @@ typedef struct {
     uint8_t pad_330[0x4];
     int32_t unknown_334;  /* 0x334 car +0x492 needs it positive */
     int32_t unknown_338;  /* 0x338 car +0x48e needs it positive */
-    uint8_t pad_33c[0x1c];
+    uint8_t pad_33c[0x18];
+    int32_t shift_ticks;  /* 0x354 the throttle is cut this long for a gear change (0042ed94) */
     int32_t rpm_fall;  /* 0x358 0042ee68: revs lost per tick off the throttle */
     int32_t rpm_rise;  /* 0x35c 0042ee68: revs gained per throttle step in neutral (8.8) */
     int32_t rpm_drop;  /* 0x360 0042ee68: revs lost per tick above the target */
@@ -65,9 +69,11 @@ CAR_SPECS_CHECK(drag, offsetof(CarSpecs, drag) == 0x34);
 CAR_SPECS_CHECK(unknown_038, offsetof(CarSpecs, unknown_038) == 0x38);
 CAR_SPECS_CHECK(unknown_03c, offsetof(CarSpecs, unknown_03c) == 0x3c);
 CAR_SPECS_CHECK(wheel_rpm, offsetof(CarSpecs, wheel_rpm) == 0x54);
+CAR_SPECS_CHECK(gear_limit, offsetof(CarSpecs, gear_limit) == 0x58);
 CAR_SPECS_CHECK(gear_ratio, offsetof(CarSpecs, gear_ratio) == 0x68);
 CAR_SPECS_CHECK(unknown_0ac, offsetof(CarSpecs, unknown_0ac) == 0xac);
 CAR_SPECS_CHECK(idle_rpm, offsetof(CarSpecs, idle_rpm) == 0xb0);
+CAR_SPECS_CHECK(shift_rpm, offsetof(CarSpecs, shift_rpm) == 0x288);
 CAR_SPECS_CHECK(unknown_2d4, offsetof(CarSpecs, unknown_2d4) == 0x2d4);
 CAR_SPECS_CHECK(unknown_2d8, offsetof(CarSpecs, unknown_2d8) == 0x2d8);
 CAR_SPECS_CHECK(unknown_2dc, offsetof(CarSpecs, unknown_2dc) == 0x2dc);
@@ -81,6 +87,7 @@ CAR_SPECS_CHECK(unknown_328, offsetof(CarSpecs, unknown_328) == 0x328);
 CAR_SPECS_CHECK(unknown_32c, offsetof(CarSpecs, unknown_32c) == 0x32c);
 CAR_SPECS_CHECK(unknown_334, offsetof(CarSpecs, unknown_334) == 0x334);
 CAR_SPECS_CHECK(unknown_338, offsetof(CarSpecs, unknown_338) == 0x338);
+CAR_SPECS_CHECK(shift_ticks, offsetof(CarSpecs, shift_ticks) == 0x354);
 CAR_SPECS_CHECK(rpm_fall, offsetof(CarSpecs, rpm_fall) == 0x358);
 CAR_SPECS_CHECK(rpm_rise, offsetof(CarSpecs, rpm_rise) == 0x35c);
 CAR_SPECS_CHECK(rpm_drop, offsetof(CarSpecs, rpm_drop) == 0x360);

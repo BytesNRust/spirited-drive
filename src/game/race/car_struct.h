@@ -56,9 +56,9 @@ typedef struct {
     int32_t lateral;  /* 0x39d signed distance from the road centre line (00440a68) */
     uint8_t pad_3a1[0x10];
     int32_t throttle;  /* 0x3b1 0..0xff */
-    uint8_t pad_3b5[0x4];
+    int32_t saved_throttle;  /* 0x3b5 the throttle before a gear change (0042ed94) */
     int32_t unknown_3b9;  /* 0x3b9 */
-    uint8_t pad_3bd[0x4];
+    int32_t shift_timer;  /* 0x3bd ticks left in a gear change, -1 when none (0042ed94) */
     int32_t rpm;  /* 0x3c1 */
     int32_t target_rpm;  /* 0x3c5 what the wheels turn the engine at (0042ee68) */
     uint8_t pad_3c9[0x10];
@@ -85,14 +85,22 @@ typedef struct {
     uint8_t pad_431[0x48];
     uint32_t specs;  /* 0x479 the car's performance data */
     int32_t player;  /* 0x47d index of the driver (00509e1c, 0051cc5c + 0x1d2 * i) */
-    uint8_t pad_481[0x19];
+    uint8_t pad_481[0x9];
+    int32_t unknown_48a;  /* 0x48a from the car setup; 4 changes gear more slowly now and then (0042ed94) */
+    uint8_t pad_48e[0xc];
     int16_t unknown_49a;  /* 0x49a zeroed by the setup */
     int16_t unknown_49c;  /* 0x49c zeroed by the setup */
     int16_t wind_a;  /* 0x49e 0042f630: extra drag with the wind term */
     int16_t wind_b;  /* 0x4a0 */
     int32_t surface;  /* 0x4a2 index into the race surfaces (004fa9b0) */
     int32_t off_road;  /* 0x4a6 4 on a surface flagged off-road (0042f630) */
-    uint8_t pad_4aa[0x5c];
+    int32_t node_flag_4aa;  /* 0x4aa node property 4, 7, 9, 12 or 13 (0043045c) */
+    int32_t node_flag_4ae;  /* 0x4ae those or property 8 */
+    uint8_t pad_4b2[0x14];
+    int32_t node_flag_4c6;  /* 0x4c6 property 5 or 18 */
+    int32_t node_flag_4ca;  /* 0x4ca property 14 or 17 */
+    int32_t node_flag_4ce;  /* 0x4ce property 15 or 18 */
+    uint8_t pad_4d2[0x34];
     int32_t tick_scale;  /* 0x506 0x888 (0x10000 / 30) per tick, more when catching up */
     int32_t ticks_per_second;  /* 0x50a 0x1e */
     int32_t controller;  /* 0x50e 00509dd4 index: 1 00401400, 2 0046d5c4 */
@@ -151,7 +159,9 @@ CAR_CHECK(road_point, offsetof(Car, road_point) == 0x385);
 CAR_CHECK(camera_position, offsetof(Car, camera_position) == 0x391);
 CAR_CHECK(lateral, offsetof(Car, lateral) == 0x39d);
 CAR_CHECK(throttle, offsetof(Car, throttle) == 0x3b1);
+CAR_CHECK(saved_throttle, offsetof(Car, saved_throttle) == 0x3b5);
 CAR_CHECK(unknown_3b9, offsetof(Car, unknown_3b9) == 0x3b9);
+CAR_CHECK(shift_timer, offsetof(Car, shift_timer) == 0x3bd);
 CAR_CHECK(rpm, offsetof(Car, rpm) == 0x3c1);
 CAR_CHECK(target_rpm, offsetof(Car, target_rpm) == 0x3c5);
 CAR_CHECK(unknown_3d9, offsetof(Car, unknown_3d9) == 0x3d9);
@@ -175,12 +185,18 @@ CAR_CHECK(suspension_z, offsetof(Car, suspension_z) == 0x429);
 CAR_CHECK(suspension_x, offsetof(Car, suspension_x) == 0x42d);
 CAR_CHECK(specs, offsetof(Car, specs) == 0x479);
 CAR_CHECK(player, offsetof(Car, player) == 0x47d);
+CAR_CHECK(unknown_48a, offsetof(Car, unknown_48a) == 0x48a);
 CAR_CHECK(unknown_49a, offsetof(Car, unknown_49a) == 0x49a);
 CAR_CHECK(unknown_49c, offsetof(Car, unknown_49c) == 0x49c);
 CAR_CHECK(wind_a, offsetof(Car, wind_a) == 0x49e);
 CAR_CHECK(wind_b, offsetof(Car, wind_b) == 0x4a0);
 CAR_CHECK(surface, offsetof(Car, surface) == 0x4a2);
 CAR_CHECK(off_road, offsetof(Car, off_road) == 0x4a6);
+CAR_CHECK(node_flag_4aa, offsetof(Car, node_flag_4aa) == 0x4aa);
+CAR_CHECK(node_flag_4ae, offsetof(Car, node_flag_4ae) == 0x4ae);
+CAR_CHECK(node_flag_4c6, offsetof(Car, node_flag_4c6) == 0x4c6);
+CAR_CHECK(node_flag_4ca, offsetof(Car, node_flag_4ca) == 0x4ca);
+CAR_CHECK(node_flag_4ce, offsetof(Car, node_flag_4ce) == 0x4ce);
 CAR_CHECK(tick_scale, offsetof(Car, tick_scale) == 0x506);
 CAR_CHECK(ticks_per_second, offsetof(Car, ticks_per_second) == 0x50a);
 CAR_CHECK(controller, offsetof(Car, controller) == 0x50e);

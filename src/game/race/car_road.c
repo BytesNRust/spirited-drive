@@ -63,3 +63,19 @@ void car_lateral(Car *car, const RaceState *race)
     const int32_t across = fx_mul_round(fx_sin16(angle), n.position.x - car->x);
     car->lateral = -across - fx_mul_round(fx_cos16(angle), n.position.z - car->z);
 }
+
+/* 0043045c: the road property byte (+7) of the car's node as flags. */
+void car_node_flags(Car *car, const RaceState *race)
+{
+    const uint8_t p = race_node(race, car->node).property;
+    if (p == 4 || p == 7 || p == 9 || p == 0xc || p == 0xd) {
+        car->node_flag_4aa = 1;
+        car->node_flag_4ae = 1;
+    } else {
+        car->node_flag_4aa = 0;
+        car->node_flag_4ae = p == 8;
+    }
+    car->node_flag_4c6 = p == 5 || p == 0x12;
+    car->node_flag_4ca = p == 0xe || p == 0x11;
+    car->node_flag_4ce = p == 0xf || p == 0x12;
+}

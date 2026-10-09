@@ -51,3 +51,22 @@ void race_surfaces_init(RaceState *race)
     if (race->arcade)
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i] = surface(0x180, 0x80, 0x1999, 1);
 }
+
+void race_dash_gauges(RaceState *race, int32_t a, int32_t b)
+{
+    if (a > 500) a = 0;
+    if (b > 500) b = 0;
+    if (a > 0) race->gauge_acc = a * 0xa76 / 0x2ee0 * 33 / 10;
+    if (b > 0) race->gauge_ac8 = b * 0xdf3 / 0x2ee0 * 33 / 10;
+}
+
+void race_dash_values(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d)
+{
+    if (a > 0x4b0) a = 0;
+    if (b > 0x4b0) b = 0;
+    if (c > 0x4b0) c = 0;
+    if (a > 0) race->dash_ab8 = a;
+    if (b > 0) race->dash_abc = b;
+    if (c > 0) race->dash_ac0 = c;
+    if (d > 0) race->dash_ac4 = d * 224 / 0x640000;
+}

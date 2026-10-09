@@ -42,7 +42,9 @@
 0x391	i32[3]	camera_position	camera space, world >> 9 (0045a3e8)
 0x39d	i32	lateral	signed distance from the road centre line (00440a68)
 0x3b1	i32	throttle	0..0xff
+0x3b5	i32	saved_throttle	the throttle before a gear change (0042ed94)
 0x3b9	i32	unknown_3b9
+0x3bd	i32	shift_timer	ticks left in a gear change, -1 when none (0042ed94)
 0x3c1	i32	rpm
 0x3c5	i32	target_rpm	what the wheels turn the engine at (0042ee68)
 0x3d9	i32	unknown_3d9
@@ -70,6 +72,12 @@
 0x4a0	i16	wind_b
 0x4a2	i32	surface	index into the race surfaces (004fa9b0)
 0x4a6	i32	off_road	4 on a surface flagged off-road (0042f630)
+0x4aa	i32	node_flag_4aa	node property 4, 7, 9, 12 or 13 (0043045c)
+0x4ae	i32	node_flag_4ae	those or property 8
+0x4c6	i32	node_flag_4c6	property 5 or 18
+0x4ca	i32	node_flag_4ca	property 14 or 17
+0x4ce	i32	node_flag_4ce	property 15 or 18
+0x48a	i32	unknown_48a	from the car setup; 4 changes gear more slowly now and then (0042ed94)
 0x479	ref	specs	the car's performance data
 0x47d	i32	player	index of the driver (00509e1c, 0051cc5c + 0x1d2 * i)
 0x506	i32	tick_scale	0x888 (0x10000 / 30) per tick, more when catching up
