@@ -124,6 +124,9 @@ typedef struct {
     int32_t note_tick;              /* 004c53bc */
     int32_t note_level;             /* 004c53c0 */
     int32_t camera_hold;            /* 00513e74: ticks the camera keeps its view (60 from 0045573c) */
+    int32_t stop_notice[2];         /* 004b92dc, 004b92e0: the police stop's two outcomes on screen (0041e370, 0041e3a8) */
+    int32_t stop_notice_tick;       /* 004b92e4: the tick they went off; -1000 at the race start */
+    int32_t unknown_4c538c;         /* 004c538c: 1 when a held car drives again (00470e70) */
     int32_t notes[RACE_NOTES];      /* 00512f94 */
     int32_t circuit;                /* 00504200: laps are counted */
     int32_t segments;               /* 0050420c */
