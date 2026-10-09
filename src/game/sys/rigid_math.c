@@ -129,6 +129,22 @@ int32_t rm_length_xz(const int32_t v[3])
     return (int32_t)length;
 }
 
+int32_t rm_length_squared(const int32_t v[3])
+{
+    int32_t x = v[0], y = v[1], z = v[2], halvings = 0;
+    while (abs32(x) > LENGTH_LIMIT || abs32(y) > LENGTH_LIMIT || abs32(z) > LENGTH_LIMIT) {
+        x >>= 1, y >>= 1, z >>= 1;
+        halvings++;
+    }
+    while ((square(z) >> 2) + (square(x) >> 2) + (square(y) >> 2) > SQUARES_LIMIT) {
+        x >>= 1, y >>= 1, z >>= 1;
+        halvings++;
+    }
+    uint32_t sum = square(x) + square(y) + square(z);
+    for (; halvings != 0; halvings--) sum <<= 2;
+    return (int32_t)sum;
+}
+
 void rm_normalise(int32_t v[3])
 {
     const int32_t sum = (v[1] >> 8) * (v[1] >> 8) + (v[0] >> 8) * (v[0] >> 8) + (v[2] >> 8) * (v[2] >> 8);

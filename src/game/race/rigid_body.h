@@ -43,6 +43,13 @@ void rb_axis_turn(int32_t out[9], int32_t angle, const int32_t axis[3]);
 /* 0041dc58: the turns about z, x and y (24-bit) the matrix holds. */
 void rb_angles(const int32_t m[9], int32_t *roll, int32_t *pitch, int32_t *yaw);
 
+/* 0041b9f8: the impulse of a contact at `point` (moving at `velocity`)
+ * against a surface with unit `normal`: a bounce along the normal and
+ * friction across it. Returns the bounce's size (0040b912c keeps it when
+ * positive); nothing is applied unless it pushes the body away. */
+int32_t rb_contact_impulse(RigidBody *body, const int32_t point[3], const int32_t velocity[3],
+                           const int32_t normal[3]);
+
 /* 0041daa0: one tick of free flight: moved by its velocity, slowed, pulled
  * down, and turned by its spin. */
 void rb_step(RigidBody *body);

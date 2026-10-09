@@ -42,6 +42,9 @@ int32_t rm_length(const int32_t v[3]);
 /* 0041d4b8: the same for the vector's x and z only. */
 int32_t rm_length_xz(const int32_t v[3]);
 
+/* 0041d570: the squared length, halving large vectors first as 0041d3b8. */
+int32_t rm_length_squared(const int32_t v[3]);
+
 /* 0041d33c: scaled to length 1 (at 8.8 precision); left alone when 0. */
 void rm_normalise(int32_t v[3]);
 
