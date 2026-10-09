@@ -72,6 +72,15 @@ void rb_ground_contact(RigidBody *body, const int32_t normal[3], const int32_t p
 int rb_bodies_collide(RaceState *race, RigidBody *a, RigidBody *b, int32_t car_a, int32_t car_b,
                       const int32_t point[3], const int32_t normal[3], int32_t *impulse);
 
+/* 00417404: two bodies' boxes touching: a face centre, then a corner, of b
+ * inside a, or of a inside b. b_in_a holds b's half axes in a's frame (its
+ * columns), a_in_b a's half axes in b's frame (its rows), centres b's centre
+ * in a's frame then b's frame's view of the gap (0041c944 builds them).
+ * Returns 1 with the touching point and the face's normal, else 0 and leaves
+ * them alone. */
+int rb_boxes_touch(const RigidBody *a, const RigidBody *b, const int32_t b_in_a[9], const int32_t a_in_b[9],
+                   const int32_t centres[6], int32_t point[3], int32_t normal[3]);
+
 /* 0041daa0: one tick of free flight: moved by its velocity, slowed, pulled
  * down, and turned by its spin. */
 void rb_step(RigidBody *body);
