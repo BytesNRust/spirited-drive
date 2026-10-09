@@ -1,9 +1,12 @@
 #include "game/race/car_load.h"
 
+#include "formats/qfs.h"
+
 #include "game/race/car_setup.h"
 #include "game/race/car_specs_word.h"
 #include "game/sys/fixed_math.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum {
@@ -22,6 +25,22 @@ enum {
 const char *const car_model_names[CAR_MODELS] = {
     "TSupra", "LDiabl", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7", "MRX7", "MRX7", "P911T", "Traffc"
 };
+
+int car_specs_read(CarSpecs *specs, const uint8_t *file, size_t size)
+{
+    size_t unpacked = 0;
+    if (!qfs_is_compressed(file, size)) {
+        if (size < sizeof *specs) return 0;
+        memcpy(specs, file, sizeof *specs);
+        return 1;
+    }
+    if (qfs_decompressed_size(file, size, &unpacked) != QFS_OK || unpacked < sizeof *specs) return 0;
+    uint8_t *data = malloc(unpacked);
+    const int ok = data != NULL && qfs_decompress(file, size, data, unpacked) == QFS_OK;
+    if (ok) memcpy(specs, data, sizeof *specs);
+    free(data);
+    return ok;
+}
 
 static int32_t checksum(const CarSpecs *specs)
 {

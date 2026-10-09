@@ -7,11 +7,17 @@
 #include "game/race/car_specs.h"
 #include "game/race/race_state.h"
 
+#include <stddef.h>
+
 enum { CAR_MODELS = 12 };
 
 /* 004bc664: the cars' file names (CARSPECS/<name>.PBS and the art), by
  * RaceEntry.car; 8 and 9 repeat MRX7. */
 extern const char *const car_model_names[CAR_MODELS];
+
+/* A CARSPECS/<name>.PBS file (QFS-compressed) as the specs record; 0 when
+ * it does not unpack to at least the record's size. */
+int car_specs_read(CarSpecs *specs, const uint8_t *file, size_t size);
 
 /* 004400f4 from the point the specs are read (the caller loads
  * CARSPECS/<name>.PBS): the checksum and arcade tuning unless

@@ -40,6 +40,7 @@ add_library(tnfs_core STATIC
     src/game/race/car_setup.c
     src/game/race/car_load.c
     src/game/race/car_control.c
+    src/game/race/race_sim.c
     src/game/race/car_tyres.c
     src/game/race/car_vertical.c
     src/game/race/car_walls.c
@@ -147,6 +148,10 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_track PRIVATE tnfs_core)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})
         add_test(NAME track COMMAND test_track "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_executable(test_drive tests/test_drive.c)
+        target_link_libraries(test_drive PRIVATE tnfs_core)
+        target_compile_options(test_drive PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME drive COMMAND test_drive "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
     file(GLOB_RECURSE TNFS_MODEL_FILES
