@@ -21,3 +21,33 @@ TriNode race_node(const RaceState *race, int32_t node)
     if (tri_node(race->tri, (uint32_t)node & (race->tri->ring_nodes - 1u), &n) != TRI_OK) memset(&n, 0, sizeof n);
     return n;
 }
+
+static Surface surface(int32_t grip, int32_t rolling, int32_t drag, int32_t off_road)
+{
+    return (Surface){ grip, rolling, drag, off_road };
+}
+
+/* The second and third surfaces' off_road is left alone on track 2 variant
+ * 2, as the original does. */
+void race_surfaces_init(RaceState *race)
+{
+    if (race->track == 2 && race->track_variant == 2) {
+        race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
+        race->surfaces[1] = surface(0x4c, 0x100, 0x1999, 1);
+        race->surfaces[2].grip = 0x4c, race->surfaces[2].rolling = 0x100, race->surfaces[2].drag = 0x1999;
+    } else if (race->track >= 4) {
+        race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
+        race->surfaces[1] = surface(0x133, 0x100, 0x3333, 1);
+        race->surfaces[2] = surface(0x133, 0x100, 0x3333, 1);
+    } else if (race->track == 3) {
+        race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
+        race->surfaces[1] = surface(0x100, 0x1400, 0x3333, 1);
+        race->surfaces[2] = surface(0x100, 0x1400, 0x3333, 1);
+    } else {
+        race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
+        race->surfaces[1] = surface(0xcc, 0xf00, 0x5999, 1);
+        race->surfaces[2] = surface(0xcc, 0xf00, 0x5999, 1);
+    }
+    if (race->arcade)
+        for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i] = surface(0x180, 0x80, 0x1999, 1);
+}

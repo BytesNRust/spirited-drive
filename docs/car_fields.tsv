@@ -19,6 +19,7 @@
 0x05c	i32	velocity_z	param_1[0x17]
 0x060	i32	unknown_060
 0x068	i32	unknown_068
+0x06c	i32	wheel_speed	0042ee68: times the gear ratio gives the engine revs
 0x070	i32	speed	max(|vx|,|vz|) + min/4 (00430cb0)
 0x078	i32	half_length	front axle offset? turned by 00428804
 0x07c	i32	half_width	turned by 00428804
@@ -40,25 +41,35 @@
 0x385	i32[3]	road_point	00428918: the car on the road plane (y = road height)
 0x391	i32[3]	camera_position	camera space, world >> 9 (0045a3e8)
 0x39d	i32	lateral	signed distance from the road centre line (00440a68)
+0x3b1	i32	throttle	0..0xff
 0x3b9	i32	unknown_3b9
+0x3c1	i32	rpm
+0x3c5	i32	target_rpm	what the wheels turn the engine at (0042ee68)
 0x3d9	i32	unknown_3d9
 0x3dd	i32	unknown_3dd
 0x3e1	i32	unknown_3e1	sine of the pitch * 0x9cf (00428bd8)
 0x3e5	i32	unknown_3e5
-0x3e9	i32	unknown_3e9
-0x3ed	i32	unknown_3ed
-0x3f1	i32	unknown_3f1
-0x3f5	i32	unknown_3f5
+0x3e9	i32	transmission	non-zero: automatic (2 from the setup, 004400f4)
+0x3ed	i32	gear	-2 reverse, -1 neutral, 0.. forward
+0x3f1	i32	engaged	the wheels drive the engine (on the road, in gear)
+0x3f5	i32	blown	the revs hit 11000 (0042ee68)
+0x3f9	i32	stalled	the throttle is cut (0042ee68)
 0x3fd	i32	on_ground	set while the wheels touch the road (00428bd8)
 0x401	i32	airborne_ticks	00428bd8
 0x405	i32	unknown_405	left skid (0045a848 marks)
 0x409	i32	unknown_409	right skid
 0x425	u8	unknown_425
-0x426	u8	unknown_426
+0x426	u8	flags_426
 0x427	u8	suspension_z_index	0042ecd0 table index
 0x428	u8	suspension_x_index	0042ecd0 table index
 0x429	i32	suspension_z	0042ecd0 amplitude
 0x42d	i32	suspension_x	0042ecd0 amplitude
+0x49a	i16	unknown_49a	zeroed by the setup
+0x49c	i16	unknown_49c	zeroed by the setup
+0x49e	i16	wind_a	0042f630: extra drag with the wind term
+0x4a0	i16	wind_b
+0x4a2	i32	surface	index into the race surfaces (004fa9b0)
+0x4a6	i32	off_road	4 on a surface flagged off-road (0042f630)
 0x479	ref	specs	the car's performance data
 0x47d	i32	player	index of the driver (00509e1c, 0051cc5c + 0x1d2 * i)
 0x506	i32	tick_scale	0x888 (0x10000 / 30) per tick, more when catching up

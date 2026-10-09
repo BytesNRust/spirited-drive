@@ -107,10 +107,10 @@ void car_vertical(Car *car, RaceState *race, int on_road)
         y = fallen;
         if (fallen - road_y < LONG_DROP) {
             ease_to_road(car, 0, 0);
-            if (car->on_ground == 0 && car->unknown_3ed != -1) car->unknown_3f1 = 1;
+            if (car->on_ground == 0 && car->gear != -1) car->engaged = 1;
             car->on_ground = 1;
         } else {
-            car->unknown_3f1 = 0;
+            car->engaged = 0;
             car->on_ground = 0;
             const int32_t t = ++car->airborne_ticks;
             /* in the air the nose drops and the car rolls back level */
@@ -119,7 +119,7 @@ void car_vertical(Car *car, RaceState *race, int on_road)
     } else {
         y = road_y;
         touch_down(car, race, gravity);
-        if (car->on_ground == 0 && car->unknown_3ed != -1) car->unknown_3f1 = 1;
+        if (car->on_ground == 0 && car->gear != -1) car->engaged = 1;
         car->on_ground = 1;
     }
     car->unknown_3dd = 0;
