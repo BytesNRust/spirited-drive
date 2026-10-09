@@ -154,6 +154,19 @@ void rm_normalise(int32_t v[3])
     for (int i = 0; i < 3; i++) v[i] = (v[i] >> 8) * inverse;
 }
 
+void rm_unit(int32_t v[3])
+{
+    int32_t x = v[0], y = v[1], z = v[2];
+    while (abs32(x) > LENGTH_LIMIT || abs32(y) > LENGTH_LIMIT || abs32(z) > LENGTH_LIMIT) x >>= 1, y >>= 1, z >>= 1;
+    while ((square(z) >> 2) + (square(y) >> 2) + (square(x) >> 2) > SQUARES_LIMIT) x >>= 1, y >>= 1, z >>= 1;
+    const int32_t sum = (int32_t)(square(x) + square(y) + square(z));
+    const int32_t length = rm_sqrt(sum, 8, sum);
+    if (length == 0) return;
+    v[0] = fx_div(x, length);
+    v[1] = fx_div(y, length);
+    v[2] = fx_div(z, length);
+}
+
 int32_t rm_inverse(int32_t x)
 {
     const uint64_t u = (uint32_t)x;
