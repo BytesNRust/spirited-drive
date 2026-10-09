@@ -33,6 +33,10 @@ int ai_view_zone(const RaceState *race, int32_t node);
  * car's flag in +0x176 bit 3. */
 void ai_release_cops(RaceState *race, int32_t clear_flag);
 
+/* 0046e480: every computer car out of the player's view, crashed or the
+ * police car is placed again (traffic), or settled on the road (racers). */
+void ai_recheck_cars(RaceState *race);
+
 /* 0046a238: keeps a computer car in a zone, or places it again. Returns 1
  * when it was left where it is. */
 int ai_lane_update(Car *car, RaceState *race);

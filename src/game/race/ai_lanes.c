@@ -1,5 +1,6 @@
 #include "game/race/ai_lanes.h"
 
+#include "game/race/car_crash.h"
 #include "game/race/car_progress.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/rigid_math.h"
@@ -25,6 +26,10 @@ enum {
     GRID_NODE_B = 0x14,
     OPPONENT_CAR_MODEL = 9,     /* entries[1].car: this model skips the grid */
     PHYSICS_AI = 6,             /* car +0x512 */
+    PHYSICS_AI_DRIVE = 3,
+    PHYSICS_CRASH = 4,
+    PHYSICS_CRASH_B = 5,        /* leaves the same way as 4, without the body to hand back */
+    CAR_SETTLE_WORDS = 9,       /* road_axes copied over the matrix */
     SLIDE_OPPONENT = 0x64,
     SLIDE_TRAFFIC = 0xa0,
     BEHIND_FIRST_CAR = 0xc,     /* nodes behind the first car for a car placed behind */
@@ -38,6 +43,7 @@ enum {
 
 static const uint32_t FLAGS_PLAYER_CLEAR = 0xfffedbffu;  /* what ends a police chase on the first car */
 static const uint32_t FLAGS_COP_CLEAR = 0xff87dbffu;
+static const uint32_t FLAGS_RECHECK_CLEAR = 0xfff7dbffu;  /* place-behind, its request and bit 19 (0046e480) */
 static const uint32_t FLAGS_RESPAWN_CLEAR = 0xfffd7fffu;
 
 /* The flag bytes at +0x174..+0x177 as one word. */
@@ -442,4 +448,57 @@ int ai_lane_update(Car *car, RaceState *race)
         ai_find_spawn(car, race);
     }
     return 0;
+}
+
+/* A crashed racer back on the road: at rest, facing along it. */
+static void racer_settle(Car *car)
+{
+    car->yaw_rate = 0;
+    car->steer = 0;
+    car->slip_steer = 0;
+    memcpy(car->matrix, car->road_axes, sizeof(int32_t) * CAR_SETTLE_WORDS);
+    car->velocity_x = 0;
+    car->velocity_y = 0;
+    car->velocity_z = 0;
+    car->ai_speed = 0;
+    car->on_ground = 1;
+}
+
+/* The car's road position lies between the barriers. */
+static int between_barriers(const Car *car, const RaceState *race)
+{
+    const TriNode at = race_node(race, car->node);
+    const int32_t lateral = car->road_lateral;
+    return -(int32_t)(at.left_barrier * VERGE_UNIT) <= lateral && lateral <= (int32_t)(at.right_barrier * VERGE_UNIT);
+}
+
+void ai_recheck_cars(RaceState *race)
+{
+    if (race->unknown_4fbab8 != 0) ai_release_cops(race, 1);
+    const int32_t end = race->circuit != 0 ? race->racers : race->car_count;
+    for (int32_t slot = race->humans; slot < end; slot++) {
+        Car *car = race->cars[slot];
+        const int unseen = ai_view_zone(race, car->node) == 0;
+        race->unknown_4c5cd8 = 0;
+        set_flags(car, flags_of(car) & FLAGS_RECHECK_CLEAR);
+        const int32_t physics = car->physics;
+        if (!(physics == PHYSICS_CRASH_B || physics == PHYSICS_CRASH || (flags_of(car) & AI_COP) || unseen))
+            continue;
+        if (!(flags_of(car) & AI_RACER)) {
+            const int32_t index = car->index;
+            if (index < 0 || race->racers <= index) {
+                if (physics == PHYSICS_AI) race->ai.traffic_placed--;
+                car->physics = PHYSICS_AI_DRIVE;
+                ai_place_car(car, race, 1);
+            }
+        } else if (physics == PHYSICS_CRASH) {
+            if (!between_barriers(car, race)) continue;
+            car_crash_end(car, race, PHYSICS_AI_DRIVE);
+            racer_settle(car);
+        } else if (physics == PHYSICS_CRASH_B) {
+            if (!between_barriers(car, race)) continue;
+            car->physics = PHYSICS_AI_DRIVE;
+            racer_settle(car);
+        }
+    }
 }
