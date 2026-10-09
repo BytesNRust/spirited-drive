@@ -26,8 +26,11 @@ add_library(tnfs_core STATIC
     src/game/gfx/quad.c
     src/game/gfx/quad_tri.c
     src/game/race/car_draw.c
+    src/game/race/car_road.c
+    src/game/race/car_vertical.c
     src/game/race/horizon.c
     src/game/race/model_draw.c
+    src/game/race/race_state.c
     src/game/race/sky_ring.c
     src/game/race/track_art.c
     src/game/race/track_draw.c
@@ -46,6 +49,10 @@ add_library(tnfs_core STATIC
 )
 target_include_directories(tnfs_core PUBLIC src)
 target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
+# The recovered game code keeps the original's 32-bit wraparound arithmetic.
+if(NOT MSVC)
+    target_compile_options(tnfs_core PRIVATE -fwrapv)
+endif()
 
 add_executable(tnfs
     src/main.c
@@ -143,6 +150,10 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_object3d tools/probe_object3d.c)
     target_link_libraries(probe_object3d PRIVATE tnfs_core)
     target_compile_options(probe_object3d PRIVATE ${TNFS_WARNINGS})
+
+    add_executable(probe_car tools/probe_car.c)
+    target_link_libraries(probe_car PRIVATE tnfs_core)
+    target_compile_options(probe_car PRIVATE ${TNFS_WARNINGS})
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
     target_link_libraries(qfs_unpack PRIVATE tnfs_core)

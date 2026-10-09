@@ -24,5 +24,9 @@ int32_t fx_mul_round(int32_t a, int32_t b);  /* imul, shrd 16, adc 0: rounded ha
 int32_t fx_atan2(int32_t y, int32_t x);  /* 004890f0, 16-bit angles */
 void mat3_mul(const int32_t a[9], const int32_t b[9], int32_t out[9]);   /* 00475d4c */
 void mat3_apply(const int32_t v[3], const int32_t m[9], int32_t out[3]); /* 00475da8 */
+int32_t fx_atan2_10(int32_t y, int32_t x);   /* 00484294, 10-bit angles (0x400 per turn) */
+/* 0042ece8: (x, z) turned by a 24-bit angle (>> 8 to the 16-bit sine) */
+void fx_rotate(int32_t x, int32_t z, int32_t angle, int32_t *out_x, int32_t *out_z);
+void fx_cross(const int32_t a[3], const int32_t b[3], int32_t out[3]);  /* 0042ec50, rounded products */
 
 #endif

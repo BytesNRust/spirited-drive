@@ -1,0 +1,71 @@
+# The car record (0x79a bytes, allocated at 00440883; pointers in 00509e1c).
+# offset	type	name	notes
+# Types: i32 u32 i16 u16 i8 u8, ref (a 32-bit pointer in the original: kept as
+# an opaque u32, the port resolves it elsewhere), angle (i32, 24-bit turn).
+# Generated into src/game/race/car_struct.h by tools/gen_car_struct.py.
+0x000	i32	x	world 16.16
+0x004	i32	y	world 16.16, up
+0x008	i32	z	world 16.16
+0x00c	angle	pitch	about x; 00428aec eases it towards the road
+0x010	angle	yaw	copied to heading (+0x351) after each tick
+0x014	angle	roll	about z
+0x020	i32	use_matrix	non-zero: +0x24 is the body matrix (004591d4)
+0x024	i32[9]	matrix	16.16
+0x048	i32	node	road node under the car
+0x04c	i32	progress	compared between cars (00440ef0, 00430cb0)
+0x054	i32	velocity_x	param_1[0x15]
+0x058	i32	velocity_y	vertical speed (00428bd8)
+0x05c	i32	velocity_z	param_1[0x17]
+0x060	i32	unknown_060
+0x068	i32	unknown_068
+0x070	i32	speed	max(|vx|,|vz|) + min/4 (00430cb0)
+0x078	i32	half_length	front axle offset? turned by 00428804
+0x07c	i32	half_width	turned by 00428804
+0x088	ref	unknown_088
+0x0c0	ref	unknown_0c0
+0x174	u8	flags_174
+0x175	u8	flags_175	bit 1: the player's car shows its dashboard pieces (004591d4)
+0x341	i32	draw_node	node used to draw the car with its row (0045a848)
+0x345	i32	draw_node2
+0x349	i32	draw_unknown_349	copied from +0x39d each tick
+0x34d	angle	draw_pitch	copied from +0xc each tick
+0x351	angle	heading	copied from +0x10 each tick (004591d4 Y turn)
+0x355	angle	draw_roll	copied from +0x14 each tick
+0x359	i32[3]	road_point_heading	00428918 with the heading: the car on the road plane
+0x365	angle	tilt_z	004591d4 adds 3/4 of it to the roll
+0x369	angle	tilt_x	004591d4 adds it to the pitch
+0x36d	i32[3]	road_forward	half length turned by the yaw, y from the road plane (00428918)
+0x379	i32[3]	road_side	half width turned by the yaw, y from the road plane
+0x385	i32[3]	road_point	00428918: the car on the road plane (y = road height)
+0x391	i32[3]	camera_position	camera space, world >> 9 (0045a3e8)
+0x39d	i32	lateral	signed distance from the road centre line (00440a68)
+0x3b9	i32	unknown_3b9
+0x3d9	i32	unknown_3d9
+0x3dd	i32	unknown_3dd
+0x3e1	i32	unknown_3e1	sine of the pitch * 0x9cf (00428bd8)
+0x3e5	i32	unknown_3e5
+0x3e9	i32	unknown_3e9
+0x3ed	i32	unknown_3ed
+0x3f1	i32	unknown_3f1
+0x3f5	i32	unknown_3f5
+0x3fd	i32	on_ground	set while the wheels touch the road (00428bd8)
+0x401	i32	airborne_ticks	00428bd8
+0x405	i32	unknown_405	left skid (0045a848 marks)
+0x409	i32	unknown_409	right skid
+0x425	u8	unknown_425
+0x426	u8	unknown_426
+0x427	u8	suspension_z_index	0042ecd0 table index
+0x428	u8	suspension_x_index	0042ecd0 table index
+0x429	i32	suspension_z	0042ecd0 amplitude
+0x42d	i32	suspension_x	0042ecd0 amplitude
+0x479	ref	specs	the car's performance data
+0x47d	i32	player	index of the driver (00509e1c, 0051cc5c + 0x1d2 * i)
+0x506	i32	tick_scale	0x888 (0x10000 / 30) per tick, more when catching up
+0x50a	i32	ticks_per_second	0x1e
+0x50e	i32	controller	00509dd4 index: 1 00401400, 2 0046d5c4
+0x512	i32	physics	00509dac index: 1 start countdown 00470e70, 2 driving 004286a0, ...
+0x516	i32	index	car slot
+0x51a	u8	flags_51a	bit 2: active
+0x52e	ref	body_object	3D object, high detail
+0x666	ref	far_object	3D object, low detail
+0x78e	i32	far	drawn with the low detail model this frame

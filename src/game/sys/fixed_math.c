@@ -166,3 +166,73 @@ int32_t fx_div(int32_t a, int32_t b)
     const int32_t q = a / b, r = a % b;
     return (int32_t)((uint32_t)q << 16) + (int32_t)(((int64_t)r << 16) / b);
 }
+
+/* 004f3e9c: atan over [0, 1] in 256 steps, 10-bit angles (0x80 at 1). */
+static const uint8_t ATAN8_TABLE[257] = {
+    0, 1, 1, 2, 3, 3, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10,
+    10, 11, 11, 12, 13, 13, 14, 15, 15, 16, 16, 17, 18, 18, 19, 20,
+    20, 21, 22, 22, 23, 23, 24, 25, 25, 26, 27, 27, 28, 28, 29, 30,
+    30, 31, 31, 32, 33, 33, 34, 34, 35, 36, 36, 37, 38, 38, 39, 39,
+    40, 41, 41, 42, 42, 43, 44, 44, 45, 45, 46, 46, 47, 48, 48, 49,
+    49, 50, 51, 51, 52, 52, 53, 53, 54, 55, 55, 56, 56, 57, 57, 58,
+    58, 59, 60, 60, 61, 61, 62, 62, 63, 63, 64, 65, 65, 66, 66, 67,
+    67, 68, 68, 69, 69, 70, 70, 71, 71, 72, 72, 73, 74, 74, 75, 75,
+    76, 76, 77, 77, 78, 78, 79, 79, 80, 80, 81, 81, 82, 82, 83, 83,
+    84, 84, 84, 85, 85, 86, 86, 87, 87, 88, 88, 89, 89, 90, 90, 91,
+    91, 91, 92, 92, 93, 93, 94, 94, 95, 95, 96, 96, 96, 97, 97, 98,
+    98, 99, 99, 99, 100, 100, 101, 101, 102, 102, 102, 103, 103, 104, 104, 104,
+    105, 105, 106, 106, 106, 107, 107, 108, 108, 108, 109, 109, 110, 110, 110, 111,
+    111, 112, 112, 112, 113, 113, 113, 114, 114, 115, 115, 115, 116, 116, 116, 117,
+    117, 118, 118, 118, 119, 119, 119, 120, 120, 120, 121, 121, 121, 122, 122, 122,
+    123, 123, 123, 124, 124, 124, 125, 125, 125, 126, 126, 126, 127, 127, 127, 128,
+    128
+};
+
+/* 00484294: the octant of (y, x) by signs and which is larger, the ratio of
+ * the smaller to the larger as a 32-bit fraction rounded to 8 bits (the bit
+ * shifted out is added back), then the table. */
+int32_t fx_atan2_10(int32_t y, int32_t x)
+{
+    unsigned octant = 0;
+    uint32_t a = (uint32_t)y, b = (uint32_t)x;
+    if (x < 0) octant |= 8, b = 0u - b;
+    if (y < 0) octant |= 0x10, a = 0u - a;
+    int32_t t;
+    if (a == b) {
+        t = 0x80;
+    } else {
+        if (a > b) {
+            const uint32_t swap = a;
+            a = b, b = swap;
+            octant |= 4;
+        }
+        const uint32_t ratio = (uint32_t)(((uint64_t)a << 32) / b);
+        t = ATAN8_TABLE[(ratio >> 24) + ((ratio >> 23) & 1)];
+    }
+    switch (octant) {
+    case 0x04: return 0x100 - t;
+    case 0x08: return 0x200 - t;
+    case 0x0c: return t + 0x100;
+    case 0x10: return -t;
+    case 0x14: return t - 0x100;
+    case 0x18: return t - 0x200;
+    case 0x1c: return -t - 0x100;
+    default: return t;
+    }
+}
+
+/* 0042ece8 */
+void fx_rotate(int32_t x, int32_t z, int32_t angle, int32_t *out_x, int32_t *out_z)
+{
+    const int32_t c = fx_cos16(angle >> 8), s = fx_sin16(angle >> 8);
+    *out_x = (int32_t)((uint32_t)fx_mul_round(c, x) - (uint32_t)fx_mul_round(s, z));
+    *out_z = (int32_t)((uint32_t)fx_mul_round(s, x) + (uint32_t)fx_mul_round(c, z));
+}
+
+/* 0042ec50 */
+void fx_cross(const int32_t a[3], const int32_t b[3], int32_t out[3])
+{
+    out[0] = (int32_t)((uint32_t)fx_mul_round(a[1], b[2]) - (uint32_t)fx_mul_round(a[2], b[1]));
+    out[1] = (int32_t)((uint32_t)fx_mul_round(a[2], b[0]) - (uint32_t)fx_mul_round(a[0], b[2]));
+    out[2] = (int32_t)((uint32_t)fx_mul_round(a[0], b[1]) - (uint32_t)fx_mul_round(a[1], b[0]));
+}
