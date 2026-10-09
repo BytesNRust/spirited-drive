@@ -19,6 +19,7 @@ enum {
     REST_TICKS = 0x78,           /* the inputs stay at rest this long */
     CLOCK_WRAP = 0x7080,
     CATCH_UP = 4,                /* 0042702c */
+    CRASH_SOUND_QUIET = 0x6666,  /* 004b9094 as loaded, and from 0040d8e8 */
     CAR_HANDLE = 0x10000         /* the identity the original keeps as the car's address */
 };
 
@@ -103,6 +104,7 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
     race->laps = laps;
     race->views = 1;
     race->catch_up = CATCH_UP;
+    race->crash_sound_level = CRASH_SOUND_QUIET;
     race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt };
     race->entries[0] = *entry;
     race->controls[0] = (ControlSetup){ 0, 0, 0 };

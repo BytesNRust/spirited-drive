@@ -19,6 +19,15 @@ void car_crash_end(Car *car, RaceState *race, int32_t physics);
  * the car's turns read off the body. */
 void car_crash_settle(Car *car, RaceState *race);
 
+/* The car's pitch, yaw and roll read off a body matrix (0041dc58), as
+ * 0040df24 and 0040e050 both do it. */
+void car_crash_read_turns(Car *car, const int32_t m[9]);
+
+/* 0040e050: physics model 4, one tick of a crashed car: its body moves and
+ * meets the road and barriers, and once it rests the car drives again (a
+ * player's car put back on the road, a computer car handed to model 5). */
+void car_crash_tick(Car *car, RaceState *race);
+
 /* 0040f73c: the body's speed along the road (road_axes' forward row). */
 int32_t car_body_road_speed(const Car *car);
 

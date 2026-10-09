@@ -97,7 +97,7 @@ static Car *zone_car(const RaceState *race, int32_t zone)
 
 /* ai.lane_width[lanes * 40 + (verge * 0x2000 >> 16)], read as the original
  * does from 0052b336 (past the table when the index runs on). */
-static int32_t lane_width(const RaceState *race, int32_t lanes, int32_t verge)
+int32_t ai_lane_width(const RaceState *race, int32_t lanes, int32_t verge)
 {
     const int32_t at = lanes * LANE_ROW_WORDS + ((verge * VERGE_UNIT) >> 16);
     const int64_t offset = (int64_t)offsetof(AiState, lane_width) + (int64_t)at * 2;
@@ -345,7 +345,7 @@ void ai_grid_slot(Car *car, const RaceState *race, int32_t *node)
     const int32_t first_open = (race_node(race, 0).flags[0] >> 4) == 0;
     const TriNode a = race_node(race, GRID_NODE_A);
     const int32_t grid = car->player >= 0 && car->player < RACE_PLAYERS ? race->grid[car->player] : 0;
-    const int32_t width = lane_width(race, a.flags[0] & 0xf, a.right_verge) << 8;
+    const int32_t width = ai_lane_width(race, a.flags[0] & 0xf, a.right_verge) << 8;
     const int32_t side = grid % 2;
     int32_t offset = car->lane_bias + (first_open ? width : 0) + side * width + (-width) / 2;
     const TriNode b = race_node(race, GRID_NODE_B);
@@ -398,7 +398,7 @@ void ai_place_car(Car *car, RaceState *race, int32_t activate)
     ai_choose_node(car, race, &lane, &node);
     const TriNode at = race_node(race, node);
     const uint32_t row = at.flags[0] & 0xf;
-    const int32_t width = lane_width(race, (int32_t)row, at.right_verge) << 8;
+    const int32_t width = ai_lane_width(race, (int32_t)row, at.right_verge) << 8;
     const uint32_t r = race_random(race);
     if (lane == 0 && !(flags_of(car) & AI_RACER)) {
         const int32_t count = (int32_t)((r * (uint32_t)(at.flags[0] >> 4)) >> 16) + 1;

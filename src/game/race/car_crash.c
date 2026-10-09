@@ -116,6 +116,15 @@ static int32_t settled_turn(int32_t turn)
     return turn > 0xbfffff ? turn - 0x1000000 : turn;
 }
 
+void car_crash_read_turns(Car *car, const int32_t m[9])
+{
+    int32_t pitch, yaw, roll;
+    rb_angles(m, &pitch, &roll, &yaw);
+    car->pitch = settled_turn(-pitch & 0xffffff);
+    car->roll = settled_turn(roll & 0xffffff);
+    car->yaw = -yaw & 0xffffff;
+}
+
 void car_crash_settle(Car *car, RaceState *race)
 {
     int32_t m[9];
@@ -130,11 +139,7 @@ void car_crash_settle(Car *car, RaceState *race)
     /* +0x88 holds the car's own address */
     car_crash_end(car, race, PHYSICS_DRIVING);
     car->crashed_hard = 0;
-    int32_t pitch, yaw, roll;
-    rb_angles(m, &pitch, &roll, &yaw);
-    car->pitch = settled_turn(-pitch & 0xffffff);
-    car->roll = settled_turn(roll & 0xffffff);
-    car->yaw = -yaw & 0xffffff;
+    car_crash_read_turns(car, m);
     race->camera_hold = 0;
     crash_trail_clear(&race->trail);
     car->use_matrix = 0;

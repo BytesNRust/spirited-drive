@@ -66,6 +66,9 @@ void ai_new_bias(Car *car, RaceState *race);
 int32_t ai_scale_speed(const Car *car, int32_t speed);
 /* 0046aab0 */
 int32_t ai_leader_speed(const Car *car, const RaceState *race);
+/* The word of ai.lane_width for `lanes` lanes at a verge (node +4 & 0xf,
+ * node +1), read as the original does from 0052b336, past the table too. */
+int32_t ai_lane_width(const RaceState *race, int32_t lanes, int32_t verge);
 /* The driver profile slot `slot`'s ai.profiles word points at, or NULL. */
 const DriverProfile *ai_driver_profile(const RaceState *race, int32_t slot);
 

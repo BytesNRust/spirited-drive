@@ -15,7 +15,7 @@ enum {
     RACE_NOTES = 0x7080 / 0x3c,   /* 00512f94: one per second of a 30 minute clock */
     RACE_TRACK_NAME = 16,
     RACE_PLAYERS = 8,
-    RACE_LAP_MARKS = 114,         /* what fits in a 0x1d2-byte player record before the top speed */
+    RACE_LAP_MARKS = 109,         /* what fits in a 0x1d2-byte player record before the police stop counts */
     RACE_SURFACES = 3
 };
 
@@ -27,16 +27,20 @@ typedef struct {
     int32_t off_road;   /* copied to car +0x4a6 (4 when set) */
 } Surface;
 
-/* 0051cc54 + 0x1d2 * player: the start tick, then the tick each lap ended.
- * Only the lap marks are known so far. */
+/* 0051cc54 + 0x1d2 * player: the start tick, then the tick each lap ended,
+ * and what happened to the player in the race. */
 #pragma pack(push, 1)
 typedef struct {
     int32_t unknown_000;
     int32_t lap_marks[RACE_LAP_MARKS];  /* +4: [0] start, [k] end of lap k */
+    int32_t police_stops[2];  /* +0x1b8, +0x1bc (0051ce0c, 0051ce10): the police stop's two outcomes (0046bb78) */
+    int32_t crashes;        /* +0x1c0 (0051ce14): hard crashes while racing (0040e050) */
+    int32_t unknown_1c4[2];
     int32_t top_speed;      /* +0x1cc: the fastest forward speed, 16.16 (car_physics RECORD_TOP_SPEED; the computer cars, 0046f3e8) */
     uint8_t unknown_1d0[2];
 } PlayerRecord;
 #pragma pack(pop)
+typedef char player_record_size_check[sizeof(PlayerRecord) == 0x1d2 ? 1 : -1];
 
 /* 004fb7fa + 0x4b * slot: who drives the car in a slot and how. */
 #pragma pack(push, 1)
@@ -128,7 +132,13 @@ typedef struct {
     int32_t camera_hold;            /* 00513e74: ticks the camera keeps its view (60 from 0045573c) */
     int32_t stop_notice[2];         /* 004b92dc, 004b92e0: the police stop's two outcomes on screen (0041e370, 0041e3a8) */
     int32_t stop_notice_tick;       /* 004b92e4: the tick they went off; -1000 at the race start */
-    int32_t unknown_4c538c;         /* 004c538c: 1 when a held car drives again (00470e70) */
+    int32_t unknown_4c538c;         /* 004c538c: 1 when a held car drives again (00470e70) or a crashed one (0040e050) */
+    /* a crash sounds only when louder than the last one, which fades
+     * (0040d8e8: 0x6666 once the ticks run out) */
+    int32_t crash_sound_level;      /* 004b9094: the last crash sound's impact + 0x8000 */
+    int32_t crash_sound_ticks;      /* 004b9090: 10 after a crash sound, counting down */
+    int32_t unknown_4b91c0;         /* 004b91c0: 0x1e when a player's crash ends while racing (0040e050) */
+    int32_t unknown_509d5c;         /* 00509d5c: 0 from 0043f994, 1 from 0043fbac; a crash is not counted at 2 or 3 */
     CrashTrail trail;               /* 005146ac: the crash smoke */
     uint32_t trail_seed;            /* 004c5608: its own generator */
     int32_t notes[RACE_NOTES];      /* 00512f94 */
