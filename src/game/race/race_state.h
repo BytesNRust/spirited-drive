@@ -67,6 +67,10 @@ typedef struct {
     /* 0041019c: while a recording plays, the followed car is still on the
      * start line (00440afc). */
     void (*start_line)(void *user, int32_t player);
+    /* 0044435c: the followed car's engine sounds stop (a crash) */
+    void (*stop_engine)(void *user);
+    /* 00456a48 on 005146ac: the skid marks start over */
+    void (*skids_reset)(void *user);
 } RaceSounds;
 
 /* 004fb724 + 12 * player: how a player drives. */

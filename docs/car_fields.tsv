@@ -139,14 +139,19 @@
 0x4be	i32[2]	unknown_4be	zeroed by the reset
 0x4d2	i32	unknown_4d2	0x40 from the reset
 0x4d6	i32[4]	unknown_4d6	zeroed by the reset
-0x4ea	i32[3]	unknown_4ea	zeroed by the reset
+0x4ea	i32[2]	unknown_4ea	zeroed by the reset
+0x4f2	i32	crashed_hard	1 once a crash came from a hit (0040db84); zeroed by the reset
 0x51b	u8[3]	unknown_51b	zeroed with flags_51a (004406d0 writes it as a word)
 0x3a1	i32	unknown_3a1	zeroed for computer cars (004406d0)
 0x3ad	i32	unknown_3ad	zeroed for computer cars (004406d0)
 0x080	i32	road_lateral	computer cars: signed distance from the road's centre along road_axes' side row, 16.16; zeroed by 0040fa3c
 0x084	i32	unknown_084	the collision body's +0x74 (0040fa3c)
 0x0c4	i32[9]	body_matrix	the collision body (+0xc0 points here): its orientation, identity from 0041da00
-0x0e8	i32[15]	body_unknown_24	the body +0x24..+0x5c, zeroed by 0041da00
+0x0e8	i32[3]	body_position	the body +0x24: the car's position with z negated (0040dc20), zeroed by 0041da00
+0x0f4	i32[3]	body_velocity	the body +0x30: the car's velocity, x and z negated (0040dc20)
+0x100	i32[3]	body_spin	the body +0x3c: turn rates; y from the yaw rate (0040dc20), pushed by crashes (0046a654)
+0x10c	i32[3]	body_force	the body +0x48: y is gravity, -0x9cf5c (0040dc20)
+0x118	i32[3]	body_unknown_54	the body +0x54..+0x5c, zeroed by 0041da00
 0x124	i32	body_pdn_10	the body +0x60: the PDN's +0x10 (0041da00)
 0x128	i32	body_pdn_0c	the body +0x64: the PDN's +0x0c
 0x12c	i32	body_inverse_10	the body +0x68: 0x100000000 / +0x10 (0042ebcc)

@@ -47,7 +47,11 @@ static void body_reset(Car *car, int32_t a, int32_t b, const int32_t extents[3])
     int32_t m[9];
     rm_identity(m);
     memcpy(car->body_matrix, m, sizeof m);
-    memset(car->body_unknown_24, 0, sizeof car->body_unknown_24);
+    memset(car->body_position, 0, sizeof car->body_position);
+    memset(car->body_velocity, 0, sizeof car->body_velocity);
+    memset(car->body_spin, 0, sizeof car->body_spin);
+    memset(car->body_force, 0, sizeof car->body_force);
+    memset(car->body_unknown_54, 0, sizeof car->body_unknown_54);
     car->ai_countdown = 0;
 }
 
