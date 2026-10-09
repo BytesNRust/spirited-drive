@@ -21,8 +21,12 @@ add_library(tnfs_core STATIC
     src/formats/tri.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
+    src/game/gfx/flat.c
+    src/game/gfx/flat_edge.c
+    src/game/gfx/flat_scan.c
     src/game/gfx/object3d.c
     src/game/gfx/object_mappers.c
+    src/game/gfx/palette_match.c
     src/game/gfx/quad.c
     src/game/gfx/quad_tri.c
     src/game/race/car_draw.c
@@ -99,7 +103,8 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn chunk mesh palette race_settings config_dat tri sky_ring quad object_mappers)
+    foreach(name qfs fsh ffn chunk mesh palette race_settings config_dat tri sky_ring quad object_mappers flat
+                 palette_match)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -166,4 +171,12 @@ if(NOT EMSCRIPTEN)
     add_executable(quad_draw tools/quad_draw.c)
     target_link_libraries(quad_draw PRIVATE tnfs_core)
     target_compile_options(quad_draw PRIVATE ${TNFS_WARNINGS})
+
+    add_executable(flat_draw tools/flat_draw.c)
+    target_link_libraries(flat_draw PRIVATE tnfs_core)
+    target_compile_options(flat_draw PRIVATE ${TNFS_WARNINGS})
+
+    add_executable(palette_match_run tools/palette_match_run.c)
+    target_link_libraries(palette_match_run PRIVATE tnfs_core)
+    target_compile_options(palette_match_run PRIVATE ${TNFS_WARNINGS})
 endif()
