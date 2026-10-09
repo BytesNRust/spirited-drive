@@ -10,7 +10,7 @@
 enum { CAR_GEARS = 9 };   /* -2 reverse, -1 neutral, 0..6 */
 
 /* 0042ee68 */
-void car_engine_revs(Car *car, const CarSpecs *specs);
+void car_engine_revs(Car *car, const CarSpecs *specs, const RaceState *race);
 
 /* 0042f630: the force opposing speed (along one axis of the car), rolling
  * and air drag on the car's surface, never more than stops it in a tick. */

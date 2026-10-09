@@ -11,14 +11,6 @@ enum {
     HEAVY_THROTTLE = 0xdc
 };
 
-/* 004bad20: how fast the revs catch up with the wheels, per gear (+2). */
-static const int32_t GEAR_CATCH_UP[CAR_GEARS] = { 67, 67, 67, 119, 164, 212, 263, 341, 0 };
-
-static int32_t gear_slot(int32_t gear)
-{
-    return gear + 2 >= 0 && gear + 2 < CAR_GEARS ? gear + 2 : -1;
-}
-
 /* Out of gear or in the air: the revs follow the throttle alone. */
 static void free_revs(Car *car, const CarSpecs *specs, int32_t limit)
 {
@@ -40,7 +32,7 @@ static void free_revs(Car *car, const CarSpecs *specs, int32_t limit)
 }
 
 /* In gear on the road: the revs move towards what the wheels turn. */
-static void geared_revs(Car *car, const CarSpecs *specs)
+static void geared_revs(Car *car, const CarSpecs *specs, const RaceState *race)
 {
     if (car->rpm > car->target_rpm) {
         const int32_t drop =
@@ -52,13 +44,12 @@ static void geared_revs(Car *car, const CarSpecs *specs)
     if (car->target_rpm + CATCH_UP_BAND > car->rpm) {
         car->rpm += specs->rpm_catch_up;
     } else {
-        const int32_t slot = gear_slot(car->gear);
-        car->rpm += specs->rpm_catch_up * (slot < 0 ? 0 : GEAR_CATCH_UP[slot]) / 256;
+        car->rpm += specs->rpm_catch_up * race_gear_step(race, car->gear) / 256;
     }
     if (car->rpm > car->target_rpm) car->rpm = car->target_rpm;
 }
 
-void car_engine_revs(Car *car, const CarSpecs *specs)
+void car_engine_revs(Car *car, const CarSpecs *specs, const RaceState *race)
 {
     if (car->stalled != 0) car->throttle = 0;
     const int32_t ratio = car_gear_ratio(specs, car->gear);
@@ -69,7 +60,7 @@ void car_engine_revs(Car *car, const CarSpecs *specs)
     if (car->engaged == 0) {
         free_revs(car, specs, limit);
     } else {
-        geared_revs(car, specs);
+        geared_revs(car, specs, race);
     }
     if (car->transmission != 0 && car->gear == 0 && car->rpm < specs->idle_rpm) car->rpm = specs->idle_rpm;
     if (car->rpm > MAX_RPM) {

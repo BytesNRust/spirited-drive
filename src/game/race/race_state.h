@@ -76,6 +76,17 @@ typedef struct {
     int32_t best_lap_set;           /* 00509dfc */
     int32_t viewed;                 /* 004fbb04: the car shown in a replay */
     int16_t replay;                 /* 0052b316 */
+    int16_t playback;               /* 0052b312: non-zero while a recording drives the race */
+    int32_t humans;                 /* 004fb7e0: players at the controls */
+    /* the start: holding the throttle keys for a revved launch (0042f138) */
+    int32_t start_clock;            /* 004bb8e0 */
+    int32_t start_input;            /* 004faa50: the player's start keys are read */
+    uint8_t start_keys[4];          /* 004c696d, 004c6966, 004c6972, 004c696c */
+    int32_t launch;                 /* 004badd4: a launch is under way */
+    int32_t launch_full_until;      /* 004badcc */
+    int32_t launch_end;             /* 004badd0 */
+    int32_t launch_ready[RACE_PLAYERS];  /* 004faa5c: the other players' launches */
+    int32_t wheelspin;              /* 004bad40: the drive force broke traction this tick */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     /* dashboard readings the simulation leaves for the cockpit view */
     int32_t gauge_acc, gauge_ac8;   /* 004f9acc, 004f9ac8 (0041e858) */
@@ -97,6 +108,11 @@ void race_surfaces_init(RaceState *race);
 
 /* 0046b080 */
 void race_blow_up(RaceState *race);
+
+/* 004bad20 + 4 * (gear + 2): how fast revs and wheels close on each other
+ * per gear. The table holds gears -2..5; sixth gear reads the next word,
+ * which is the wheelspin flag (004bad40). */
+int32_t race_gear_step(const RaceState *race, int32_t gear);
 
 /* 0041e858 and 0041e7fc: values above 500 (1200) are ignored. */
 void race_dash_gauges(RaceState *race, int32_t a, int32_t b);

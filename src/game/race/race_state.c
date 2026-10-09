@@ -77,3 +77,10 @@ void race_blow_up(RaceState *race)
     for (int32_t car = 1; car < race->car_count; car++)
         race->sounds.push(race->sounds.user, car, 0xa0000, 0xa0000, 0xa0000);
 }
+
+int32_t race_gear_step(const RaceState *race, int32_t gear)
+{
+    static const int32_t STEPS[8] = { 67, 67, 67, 119, 164, 212, 263, 341 };
+    if (gear >= -2 && gear <= 5) return STEPS[gear + 2];
+    return gear == 6 ? race->wheelspin : 0;
+}
