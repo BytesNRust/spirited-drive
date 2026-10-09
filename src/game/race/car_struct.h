@@ -41,7 +41,11 @@ typedef struct {
     int32_t unknown_0bc;  /* 0x0bc the collision body's +0x78 (004407b8) */
     uint32_t unknown_0c0;  /* 0x0c0 */
     int32_t body_matrix[9];  /* 0x0c4 the collision body (+0xc0 points here): its orientation, identity from 0041da00 */
-    int32_t body_unknown_24[15];  /* 0x0e8 the body +0x24..+0x5c, zeroed by 0041da00 */
+    int32_t body_position[3];  /* 0x0e8 the body +0x24: the car's position with z negated (0040dc20), zeroed by 0041da00 */
+    int32_t body_velocity[3];  /* 0x0f4 the body +0x30: the car's velocity, x and z negated (0040dc20) */
+    int32_t body_spin[3];  /* 0x100 the body +0x3c: turn rates; y from the yaw rate (0040dc20), pushed by crashes (0046a654) */
+    int32_t body_force[3];  /* 0x10c the body +0x48: y is gravity, -0x9cf5c (0040dc20) */
+    int32_t body_unknown_54[3];  /* 0x118 the body +0x54..+0x5c, zeroed by 0041da00 */
     int32_t body_pdn_10;  /* 0x124 the body +0x60: the PDN's +0x10 (0041da00) */
     int32_t body_pdn_0c;  /* 0x128 the body +0x64: the PDN's +0x0c */
     int32_t body_inverse_10;  /* 0x12c the body +0x68: 0x100000000 / +0x10 (0042ebcc) */
@@ -157,14 +161,15 @@ typedef struct {
     int32_t traction_active;  /* 0x4b2 the traction control acts this tick (00430cb0) */
     int32_t anti_lock_active;  /* 0x4b6 */
     int32_t look_back;  /* 0x4ba the input's bit 0x4000 (00438f00); the cameras read it */
-    int32_t unknown_4be[2];  /* 0x4be zeroed by the reset */
+    int32_t unknown_4be[2];  /* 0x4be zeroed by the reset; -1 when the followed car leaves a crash (0040ddb0) */
     int32_t node_flag_4c6;  /* 0x4c6 property 5 or 18 */
     int32_t node_flag_4ca;  /* 0x4ca property 14 or 17 */
     int32_t node_flag_4ce;  /* 0x4ce property 15 or 18 */
     int32_t unknown_4d2;  /* 0x4d2 0x40 from the reset */
     int32_t unknown_4d6[4];  /* 0x4d6 zeroed by the reset */
     uint8_t pad_4e6[0x4];
-    int32_t unknown_4ea[3];  /* 0x4ea zeroed by the reset */
+    int32_t unknown_4ea[2];  /* 0x4ea zeroed by the reset */
+    int32_t crashed_hard;  /* 0x4f2 1 once a crash came from a hit (0040db84); zeroed by the reset */
     int32_t auto_offset;  /* 0x4f6 sideways from the road's centre when the autopilot took over (00401180) */
     int32_t auto_ticks;  /* 0x4fa ticks of autopilot (00401180) */
     int32_t auto_mode;  /* 0x4fe autopilot before the start or after the finish: 1 steering off the road, 2 stopped across it (00401180) */
@@ -225,7 +230,11 @@ CAR_CHECK(road_centre, offsetof(Car, road_centre) == 0xb0);
 CAR_CHECK(unknown_0bc, offsetof(Car, unknown_0bc) == 0xbc);
 CAR_CHECK(unknown_0c0, offsetof(Car, unknown_0c0) == 0xc0);
 CAR_CHECK(body_matrix, offsetof(Car, body_matrix) == 0xc4);
-CAR_CHECK(body_unknown_24, offsetof(Car, body_unknown_24) == 0xe8);
+CAR_CHECK(body_position, offsetof(Car, body_position) == 0xe8);
+CAR_CHECK(body_velocity, offsetof(Car, body_velocity) == 0xf4);
+CAR_CHECK(body_spin, offsetof(Car, body_spin) == 0x100);
+CAR_CHECK(body_force, offsetof(Car, body_force) == 0x10c);
+CAR_CHECK(body_unknown_54, offsetof(Car, body_unknown_54) == 0x118);
 CAR_CHECK(body_pdn_10, offsetof(Car, body_pdn_10) == 0x124);
 CAR_CHECK(body_pdn_0c, offsetof(Car, body_pdn_0c) == 0x128);
 CAR_CHECK(body_inverse_10, offsetof(Car, body_inverse_10) == 0x12c);
@@ -345,6 +354,7 @@ CAR_CHECK(node_flag_4ce, offsetof(Car, node_flag_4ce) == 0x4ce);
 CAR_CHECK(unknown_4d2, offsetof(Car, unknown_4d2) == 0x4d2);
 CAR_CHECK(unknown_4d6, offsetof(Car, unknown_4d6) == 0x4d6);
 CAR_CHECK(unknown_4ea, offsetof(Car, unknown_4ea) == 0x4ea);
+CAR_CHECK(crashed_hard, offsetof(Car, crashed_hard) == 0x4f2);
 CAR_CHECK(auto_offset, offsetof(Car, auto_offset) == 0x4f6);
 CAR_CHECK(auto_ticks, offsetof(Car, auto_ticks) == 0x4fa);
 CAR_CHECK(auto_mode, offsetof(Car, auto_mode) == 0x4fe);

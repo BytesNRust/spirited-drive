@@ -180,6 +180,7 @@ void car_reset(Car *car, uint32_t handle)
     car->tilt_z = car->tilt_x = 0;
     car->unknown_3d9 = car->unknown_3dd = car->unknown_3e1 = 0;
     memset(car->unknown_4ea, 0, sizeof car->unknown_4ea);
+    car->crashed_hard = 0;
     car->flags_174 = car->flags_175 = 0;
     memset(car->flags_176, 0, sizeof car->flags_176);
     car->unknown_088 = handle;
