@@ -1,27 +1,18 @@
 #include "game/race/car_gearbox.h"
 
-#include <string.h>
-
-/* A 32-bit word of the specs by byte offset, as the original indexes its
- * tables with the gear; reverse reads the word before a table. */
-static int32_t specs_word(const CarSpecs *specs, int32_t offset)
-{
-    int32_t v = 0;
-    if (offset >= 0 && offset + 4 <= (int32_t)sizeof *specs) memcpy(&v, (const uint8_t *)specs + offset, sizeof v);
-    return v;
-}
+#include "game/race/car_specs_word.h"
 
 /* The engine revs the car's speed gives in a gear (car +0x68 through the
  * wheels and the gear ratio), as 004098a0 computes them. */
 static int32_t revs_in(const Car *car, const CarSpecs *specs, int32_t gear)
 {
-    const int32_t ratio = specs_word(specs, (int32_t)offsetof(CarSpecs, gear_ratio) + (gear + 2) * 4);
+    const int32_t ratio = car_gear_ratio(specs, gear);
     return ((((car->local_velocity_z >> 8) * (specs->wheel_rpm >> 8)) >> 8) * (ratio >> 8)) >> 16;
 }
 
 static int32_t shift_rpm(const CarSpecs *specs, int32_t slot)
 {
-    return specs_word(specs, (int32_t)offsetof(CarSpecs, shift_rpm) + slot * 4);
+    return car_specs_word(specs, (int32_t)offsetof(CarSpecs, shift_rpm) + slot * 4);
 }
 
 void car_auto_shift(Car *car, const CarSpecs *specs)

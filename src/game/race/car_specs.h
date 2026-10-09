@@ -24,13 +24,17 @@ typedef struct {
     int32_t wheel_rpm;  /* 0x054 0042ee68: wheel speed to engine revs */
     int32_t gear_limit;  /* 0x058 top forward gear + 3 (004098a0) */
     uint8_t pad_05c[0xc];
-    int32_t gear_ratio[10];  /* 0x068 0042ee68: indexed by gear + 2 (reverse -2, neutral -1) */
-    uint8_t pad_090[0x1c];
+    int32_t gear_ratio[8];  /* 0x068 0042ee68: indexed by gear + 2 (reverse -2, neutral -1) */
+    int32_t torque_points;  /* 0x088 entries in the torque curve (00409a04) */
+    uint8_t pad_08c[0x20];
     int32_t unknown_0ac;  /* 0x0ac 0042ee68: revs per throttle step (8.8) */
     int32_t idle_rpm;  /* 0x0b0 0042ee68 */
-    uint8_t pad_0b4[0x1d4];
+    int32_t torque_start_rpm;  /* 0x0b4 the curve's first point (00409a04) */
+    int32_t torque_curve[60];  /* 0x0b8 pairs per 200 rpm, the first word is the torque (00409a04) */
+    uint8_t pad_1a8[0xe0];
     int32_t shift_rpm[11];  /* 0x288 004098a0: up above [gear + 3], down below 15/16 of [gear + 2] */
-    uint8_t pad_2b4[0x20];
+    uint8_t pad_2b4[0x4];
+    int32_t drive_ratio[7];  /* 0x2b8 per forward gear, 8.8 (0042f138) */
     int32_t unknown_2d4;  /* 0x2d4 00430cb0 */
     int32_t unknown_2d8;  /* 0x2d8 00430cb0 */
     int32_t unknown_2dc;  /* 0x2dc halved in arcade mode */
@@ -41,7 +45,7 @@ typedef struct {
     int32_t unknown_31c;  /* 0x31c 00430cb0 */
     int32_t unknown_320;  /* 0x320 halved in arcade mode; +0x324 is 0x10000 / it */
     int32_t unknown_324;  /* 0x324 */
-    int32_t unknown_328;  /* 0x328 halved in arcade mode; +0x32c is 0x10000 / it */
+    int32_t force_scale;  /* 0x328 the drive force times it / 256 (0042f138); halved in arcade mode, +0x32c is 0x10000 / it */
     int32_t unknown_32c;  /* 0x32c 00430cb0 */
     uint8_t pad_330[0x4];
     int32_t unknown_334;  /* 0x334 car +0x492 needs it positive */
@@ -52,7 +56,8 @@ typedef struct {
     int32_t rpm_rise;  /* 0x35c 0042ee68: revs gained per throttle step in neutral (8.8) */
     int32_t rpm_drop;  /* 0x360 0042ee68: revs lost per tick above the target */
     int32_t rpm_catch_up;  /* 0x364 0042ee68: revs gained per tick below the target */
-    uint8_t pad_368[0x40c];
+    int32_t engine_brake;  /* 0x368 0042f138 */
+    uint8_t pad_36c[0x408];
     int32_t checksum;  /* 0x774 sum of the first 0x758 bytes */
 } CarSpecs;
 #pragma pack(pop)
@@ -71,9 +76,13 @@ CAR_SPECS_CHECK(unknown_03c, offsetof(CarSpecs, unknown_03c) == 0x3c);
 CAR_SPECS_CHECK(wheel_rpm, offsetof(CarSpecs, wheel_rpm) == 0x54);
 CAR_SPECS_CHECK(gear_limit, offsetof(CarSpecs, gear_limit) == 0x58);
 CAR_SPECS_CHECK(gear_ratio, offsetof(CarSpecs, gear_ratio) == 0x68);
+CAR_SPECS_CHECK(torque_points, offsetof(CarSpecs, torque_points) == 0x88);
 CAR_SPECS_CHECK(unknown_0ac, offsetof(CarSpecs, unknown_0ac) == 0xac);
 CAR_SPECS_CHECK(idle_rpm, offsetof(CarSpecs, idle_rpm) == 0xb0);
+CAR_SPECS_CHECK(torque_start_rpm, offsetof(CarSpecs, torque_start_rpm) == 0xb4);
+CAR_SPECS_CHECK(torque_curve, offsetof(CarSpecs, torque_curve) == 0xb8);
 CAR_SPECS_CHECK(shift_rpm, offsetof(CarSpecs, shift_rpm) == 0x288);
+CAR_SPECS_CHECK(drive_ratio, offsetof(CarSpecs, drive_ratio) == 0x2b8);
 CAR_SPECS_CHECK(unknown_2d4, offsetof(CarSpecs, unknown_2d4) == 0x2d4);
 CAR_SPECS_CHECK(unknown_2d8, offsetof(CarSpecs, unknown_2d8) == 0x2d8);
 CAR_SPECS_CHECK(unknown_2dc, offsetof(CarSpecs, unknown_2dc) == 0x2dc);
@@ -83,7 +92,7 @@ CAR_SPECS_CHECK(half_width, offsetof(CarSpecs, half_width) == 0x2e8);
 CAR_SPECS_CHECK(unknown_31c, offsetof(CarSpecs, unknown_31c) == 0x31c);
 CAR_SPECS_CHECK(unknown_320, offsetof(CarSpecs, unknown_320) == 0x320);
 CAR_SPECS_CHECK(unknown_324, offsetof(CarSpecs, unknown_324) == 0x324);
-CAR_SPECS_CHECK(unknown_328, offsetof(CarSpecs, unknown_328) == 0x328);
+CAR_SPECS_CHECK(force_scale, offsetof(CarSpecs, force_scale) == 0x328);
 CAR_SPECS_CHECK(unknown_32c, offsetof(CarSpecs, unknown_32c) == 0x32c);
 CAR_SPECS_CHECK(unknown_334, offsetof(CarSpecs, unknown_334) == 0x334);
 CAR_SPECS_CHECK(unknown_338, offsetof(CarSpecs, unknown_338) == 0x338);
@@ -92,6 +101,7 @@ CAR_SPECS_CHECK(rpm_fall, offsetof(CarSpecs, rpm_fall) == 0x358);
 CAR_SPECS_CHECK(rpm_rise, offsetof(CarSpecs, rpm_rise) == 0x35c);
 CAR_SPECS_CHECK(rpm_drop, offsetof(CarSpecs, rpm_drop) == 0x360);
 CAR_SPECS_CHECK(rpm_catch_up, offsetof(CarSpecs, rpm_catch_up) == 0x364);
+CAR_SPECS_CHECK(engine_brake, offsetof(CarSpecs, engine_brake) == 0x368);
 CAR_SPECS_CHECK(checksum, offsetof(CarSpecs, checksum) == 0x774);
 
 #endif

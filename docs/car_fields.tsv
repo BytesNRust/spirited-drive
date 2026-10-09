@@ -63,6 +63,7 @@
 0x401	i32	airborne_ticks	00428bd8
 0x405	i32	unknown_405	left skid (0045a848 marks)
 0x409	i32	unknown_409	right skid
+0x40d	i32	unknown_40d	grip held back from wheelspin (0042f138), zeroed by 00430cb0
 0x419	i32	last_gear	the gear before the last change (00430cb0, 0043cda0)
 0x41d	i32	gear_before_last
 0x421	i32	gear_change_ticks	counts down from 0x10 after a change

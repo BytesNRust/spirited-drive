@@ -1,5 +1,7 @@
 #include "game/race/car_engine.h"
 
+#include "game/race/car_specs_word.h"
+
 enum {
     GEAR_NEUTRAL = -1,
     MIN_TARGET_RPM = 700,
@@ -59,8 +61,7 @@ static void geared_revs(Car *car, const CarSpecs *specs)
 void car_engine_revs(Car *car, const CarSpecs *specs)
 {
     if (car->stalled != 0) car->throttle = 0;
-    const int32_t slot = gear_slot(car->gear);
-    const int32_t ratio = slot < 0 ? 0 : specs->gear_ratio[slot];
+    const int32_t ratio = car_gear_ratio(specs, car->gear);
     const int32_t wheel = ((car->wheel_speed >> 8) * (specs->wheel_rpm >> 8)) >> 8;
     car->target_rpm = ((ratio >> 8) * wheel) >> 16;
     if (car->target_rpm < MIN_TARGET_RPM) car->target_rpm = MIN_TARGET_RPM;

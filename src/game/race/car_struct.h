@@ -78,7 +78,8 @@ typedef struct {
     int32_t airborne_ticks;  /* 0x401 00428bd8 */
     int32_t unknown_405;  /* 0x405 left skid (0045a848 marks) */
     int32_t unknown_409;  /* 0x409 right skid */
-    uint8_t pad_40d[0xc];
+    int32_t unknown_40d;  /* 0x40d grip held back from wheelspin (0042f138), zeroed by 00430cb0 */
+    uint8_t pad_411[0x8];
     int32_t last_gear;  /* 0x419 the gear before the last change (00430cb0, 0043cda0) */
     int32_t gear_before_last;  /* 0x41d */
     int32_t gear_change_ticks;  /* 0x421 counts down from 0x10 after a change */
@@ -186,6 +187,7 @@ CAR_CHECK(on_ground, offsetof(Car, on_ground) == 0x3fd);
 CAR_CHECK(airborne_ticks, offsetof(Car, airborne_ticks) == 0x401);
 CAR_CHECK(unknown_405, offsetof(Car, unknown_405) == 0x405);
 CAR_CHECK(unknown_409, offsetof(Car, unknown_409) == 0x409);
+CAR_CHECK(unknown_40d, offsetof(Car, unknown_40d) == 0x40d);
 CAR_CHECK(last_gear, offsetof(Car, last_gear) == 0x419);
 CAR_CHECK(gear_before_last, offsetof(Car, gear_before_last) == 0x41d);
 CAR_CHECK(gear_change_ticks, offsetof(Car, gear_change_ticks) == 0x421);
