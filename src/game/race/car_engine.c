@@ -36,7 +36,7 @@ static void geared_revs(Car *car, const CarSpecs *specs, const RaceState *race)
 {
     if (car->rpm > car->target_rpm) {
         const int32_t drop =
-            (car->flags_426 & 2) && car->throttle > HEAVY_THROTTLE ? specs->rpm_drop / 8 : specs->rpm_drop;
+            (car->tyre_flags_rear & 2) && car->throttle > HEAVY_THROTTLE ? specs->rpm_drop / 8 : specs->rpm_drop;
         car->rpm -= drop;
         if (car->rpm < car->target_rpm) car->rpm = car->target_rpm;
         return;

@@ -14,6 +14,7 @@
 0x058	i32	gear_limit	top forward gear + 3 (004098a0)
 0x068	i32[8]	gear_ratio	0042ee68: indexed by gear + 2 (reverse -2, neutral -1)
 0x088	i32	torque_points	entries in the torque curve (00409a04)
+0x0a4	i32	max_slip	the slip angle the grip tables stop at (0042fb88)
 0x0ac	i32	unknown_0ac	0042ee68: revs per throttle step (8.8)
 0x0b0	i32	idle_rpm	0042ee68
 0x0b4	i32	torque_start_rpm	the curve's first point (00409a04)
@@ -39,4 +40,6 @@
 0x360	i32	rpm_drop	0042ee68: revs lost per tick above the target
 0x364	i32	rpm_catch_up	0042ee68: revs gained per tick below the target
 0x368	i32	engine_brake	0042f138
+0x374	u8[512]	grip_front	grip by slip angle (>> 12), x 0x200 (0042fb88)
+0x574	u8[512]	grip_rear	copied from the front in arcade mode
 0x774	i32	checksum	sum of the first 0x758 bytes

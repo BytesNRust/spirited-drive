@@ -26,7 +26,9 @@ typedef struct {
     uint8_t pad_05c[0xc];
     int32_t gear_ratio[8];  /* 0x068 0042ee68: indexed by gear + 2 (reverse -2, neutral -1) */
     int32_t torque_points;  /* 0x088 entries in the torque curve (00409a04) */
-    uint8_t pad_08c[0x20];
+    uint8_t pad_08c[0x18];
+    int32_t max_slip;  /* 0x0a4 the slip angle the grip tables stop at (0042fb88) */
+    uint8_t pad_0a8[0x4];
     int32_t unknown_0ac;  /* 0x0ac 0042ee68: revs per throttle step (8.8) */
     int32_t idle_rpm;  /* 0x0b0 0042ee68 */
     int32_t torque_start_rpm;  /* 0x0b4 the curve's first point (00409a04) */
@@ -57,7 +59,9 @@ typedef struct {
     int32_t rpm_drop;  /* 0x360 0042ee68: revs lost per tick above the target */
     int32_t rpm_catch_up;  /* 0x364 0042ee68: revs gained per tick below the target */
     int32_t engine_brake;  /* 0x368 0042f138 */
-    uint8_t pad_36c[0x408];
+    uint8_t pad_36c[0x8];
+    uint8_t grip_front[512];  /* 0x374 grip by slip angle (>> 12), x 0x200 (0042fb88) */
+    uint8_t grip_rear[512];  /* 0x574 copied from the front in arcade mode */
     int32_t checksum;  /* 0x774 sum of the first 0x758 bytes */
 } CarSpecs;
 #pragma pack(pop)
@@ -77,6 +81,7 @@ CAR_SPECS_CHECK(wheel_rpm, offsetof(CarSpecs, wheel_rpm) == 0x54);
 CAR_SPECS_CHECK(gear_limit, offsetof(CarSpecs, gear_limit) == 0x58);
 CAR_SPECS_CHECK(gear_ratio, offsetof(CarSpecs, gear_ratio) == 0x68);
 CAR_SPECS_CHECK(torque_points, offsetof(CarSpecs, torque_points) == 0x88);
+CAR_SPECS_CHECK(max_slip, offsetof(CarSpecs, max_slip) == 0xa4);
 CAR_SPECS_CHECK(unknown_0ac, offsetof(CarSpecs, unknown_0ac) == 0xac);
 CAR_SPECS_CHECK(idle_rpm, offsetof(CarSpecs, idle_rpm) == 0xb0);
 CAR_SPECS_CHECK(torque_start_rpm, offsetof(CarSpecs, torque_start_rpm) == 0xb4);
@@ -102,6 +107,8 @@ CAR_SPECS_CHECK(rpm_rise, offsetof(CarSpecs, rpm_rise) == 0x35c);
 CAR_SPECS_CHECK(rpm_drop, offsetof(CarSpecs, rpm_drop) == 0x360);
 CAR_SPECS_CHECK(rpm_catch_up, offsetof(CarSpecs, rpm_catch_up) == 0x364);
 CAR_SPECS_CHECK(engine_brake, offsetof(CarSpecs, engine_brake) == 0x368);
+CAR_SPECS_CHECK(grip_front, offsetof(CarSpecs, grip_front) == 0x374);
+CAR_SPECS_CHECK(grip_rear, offsetof(CarSpecs, grip_rear) == 0x574);
 CAR_SPECS_CHECK(checksum, offsetof(CarSpecs, checksum) == 0x774);
 
 #endif

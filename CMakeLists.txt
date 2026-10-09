@@ -36,6 +36,7 @@ add_library(tnfs_core STATIC
     src/game/race/car_grip.c
     src/game/race/car_progress.c
     src/game/race/car_road.c
+    src/game/race/car_tyres.c
     src/game/race/car_vertical.c
     src/game/race/horizon.c
     src/game/race/model_draw.c

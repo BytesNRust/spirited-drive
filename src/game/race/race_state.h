@@ -87,6 +87,7 @@ typedef struct {
     int32_t launch_end;             /* 004badd0 */
     int32_t launch_ready[RACE_PLAYERS];  /* 004faa5c: the other players' launches */
     int32_t wheelspin;              /* 004bad40: the drive force broke traction this tick */
+    int32_t tyre_force_sum;         /* 00509e0c: the last tyre call's two forces added */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     /* dashboard readings the simulation leaves for the cockpit view */
     int32_t gauge_acc, gauge_ac8;   /* 004f9acc, 004f9ac8 (0041e858) */

@@ -57,7 +57,7 @@ typedef struct {
     uint8_t pad_3a1[0x10];
     int32_t throttle;  /* 0x3b1 0..0xff */
     int32_t saved_throttle;  /* 0x3b5 the throttle before a gear change (0042ed94) */
-    int32_t unknown_3b9;  /* 0x3b9 */
+    int32_t brake;  /* 0x3b9 0..0xff; above 0xf5 without ABS the wheels lock (0042fb88) */
     int32_t shift_timer;  /* 0x3bd ticks left in a gear change, -1 when none (0042ed94) */
     int32_t rpm;  /* 0x3c1 */
     int32_t target_rpm;  /* 0x3c5 what the wheels turn the engine at (0042ee68) */
@@ -76,15 +76,15 @@ typedef struct {
     int32_t stalled;  /* 0x3f9 the throttle is cut (0042ee68) */
     int32_t on_ground;  /* 0x3fd set while the wheels touch the road (00428bd8) */
     int32_t airborne_ticks;  /* 0x401 00428bd8 */
-    int32_t unknown_405;  /* 0x405 left skid (0045a848 marks) */
-    int32_t unknown_409;  /* 0x409 right skid */
+    int32_t skid_front;  /* 0x405 how far the front tyres are past their grip (0042fb88); skid marks (0045a848) */
+    int32_t skid_rear;  /* 0x409 */
     int32_t unknown_40d;  /* 0x40d grip held back from wheelspin (0042f138), zeroed by 00430cb0 */
     uint8_t pad_411[0x8];
     int32_t last_gear;  /* 0x419 the gear before the last change (00430cb0, 0043cda0) */
     int32_t gear_before_last;  /* 0x41d */
     int32_t gear_change_ticks;  /* 0x421 counts down from 0x10 after a change */
-    uint8_t unknown_425;  /* 0x425 */
-    uint8_t flags_426;  /* 0x426 */
+    uint8_t tyre_flags_front;  /* 0x425 1 sliding, 2 driven past grip, 4 drifting (0042fb88) */
+    uint8_t tyre_flags_rear;  /* 0x426 */
     uint8_t suspension_z_index;  /* 0x427 0042ecd0 table index */
     uint8_t suspension_x_index;  /* 0x428 0042ecd0 table index */
     int32_t suspension_z;  /* 0x429 0042ecd0 amplitude */
@@ -94,7 +94,9 @@ typedef struct {
     int32_t player;  /* 0x47d index of the driver (00509e1c, 0051cc5c + 0x1d2 * i) */
     uint8_t pad_481[0x9];
     int32_t unknown_48a;  /* 0x48a from the car setup; 4 changes gear more slowly now and then (0042ed94) */
-    uint8_t pad_48e[0xc];
+    int32_t traction_control;  /* 0x48e fitted (car setup and spec +0x338) */
+    int32_t anti_lock;  /* 0x492 ABS fitted (car setup and spec +0x334) */
+    uint8_t pad_496[0x4];
     int16_t downforce_a;  /* 0x49a times speed squared onto axle_load_b (00430aec); zeroed by the setup */
     int16_t downforce_b;  /* 0x49c onto axle_load_a; zeroed by the setup */
     int16_t wind_a;  /* 0x49e 0042f630: extra drag with the wind term */
@@ -103,7 +105,9 @@ typedef struct {
     int32_t off_road;  /* 0x4a6 4 on a surface flagged off-road (0042f630) */
     int32_t node_flag_4aa;  /* 0x4aa node property 4, 7, 9, 12 or 13 (0043045c) */
     int32_t node_flag_4ae;  /* 0x4ae those or property 8 */
-    uint8_t pad_4b2[0x14];
+    int32_t traction_active;  /* 0x4b2 the traction control acts this tick (00430cb0) */
+    int32_t anti_lock_active;  /* 0x4b6 */
+    uint8_t pad_4ba[0xc];
     int32_t node_flag_4c6;  /* 0x4c6 property 5 or 18 */
     int32_t node_flag_4ca;  /* 0x4ca property 14 or 17 */
     int32_t node_flag_4ce;  /* 0x4ce property 15 or 18 */
@@ -167,7 +171,7 @@ CAR_CHECK(camera_position, offsetof(Car, camera_position) == 0x391);
 CAR_CHECK(lateral, offsetof(Car, lateral) == 0x39d);
 CAR_CHECK(throttle, offsetof(Car, throttle) == 0x3b1);
 CAR_CHECK(saved_throttle, offsetof(Car, saved_throttle) == 0x3b5);
-CAR_CHECK(unknown_3b9, offsetof(Car, unknown_3b9) == 0x3b9);
+CAR_CHECK(brake, offsetof(Car, brake) == 0x3b9);
 CAR_CHECK(shift_timer, offsetof(Car, shift_timer) == 0x3bd);
 CAR_CHECK(rpm, offsetof(Car, rpm) == 0x3c1);
 CAR_CHECK(target_rpm, offsetof(Car, target_rpm) == 0x3c5);
@@ -185,14 +189,14 @@ CAR_CHECK(blown, offsetof(Car, blown) == 0x3f5);
 CAR_CHECK(stalled, offsetof(Car, stalled) == 0x3f9);
 CAR_CHECK(on_ground, offsetof(Car, on_ground) == 0x3fd);
 CAR_CHECK(airborne_ticks, offsetof(Car, airborne_ticks) == 0x401);
-CAR_CHECK(unknown_405, offsetof(Car, unknown_405) == 0x405);
-CAR_CHECK(unknown_409, offsetof(Car, unknown_409) == 0x409);
+CAR_CHECK(skid_front, offsetof(Car, skid_front) == 0x405);
+CAR_CHECK(skid_rear, offsetof(Car, skid_rear) == 0x409);
 CAR_CHECK(unknown_40d, offsetof(Car, unknown_40d) == 0x40d);
 CAR_CHECK(last_gear, offsetof(Car, last_gear) == 0x419);
 CAR_CHECK(gear_before_last, offsetof(Car, gear_before_last) == 0x41d);
 CAR_CHECK(gear_change_ticks, offsetof(Car, gear_change_ticks) == 0x421);
-CAR_CHECK(unknown_425, offsetof(Car, unknown_425) == 0x425);
-CAR_CHECK(flags_426, offsetof(Car, flags_426) == 0x426);
+CAR_CHECK(tyre_flags_front, offsetof(Car, tyre_flags_front) == 0x425);
+CAR_CHECK(tyre_flags_rear, offsetof(Car, tyre_flags_rear) == 0x426);
 CAR_CHECK(suspension_z_index, offsetof(Car, suspension_z_index) == 0x427);
 CAR_CHECK(suspension_x_index, offsetof(Car, suspension_x_index) == 0x428);
 CAR_CHECK(suspension_z, offsetof(Car, suspension_z) == 0x429);
@@ -200,6 +204,8 @@ CAR_CHECK(suspension_x, offsetof(Car, suspension_x) == 0x42d);
 CAR_CHECK(specs, offsetof(Car, specs) == 0x479);
 CAR_CHECK(player, offsetof(Car, player) == 0x47d);
 CAR_CHECK(unknown_48a, offsetof(Car, unknown_48a) == 0x48a);
+CAR_CHECK(traction_control, offsetof(Car, traction_control) == 0x48e);
+CAR_CHECK(anti_lock, offsetof(Car, anti_lock) == 0x492);
 CAR_CHECK(downforce_a, offsetof(Car, downforce_a) == 0x49a);
 CAR_CHECK(downforce_b, offsetof(Car, downforce_b) == 0x49c);
 CAR_CHECK(wind_a, offsetof(Car, wind_a) == 0x49e);
@@ -208,6 +214,8 @@ CAR_CHECK(surface, offsetof(Car, surface) == 0x4a2);
 CAR_CHECK(off_road, offsetof(Car, off_road) == 0x4a6);
 CAR_CHECK(node_flag_4aa, offsetof(Car, node_flag_4aa) == 0x4aa);
 CAR_CHECK(node_flag_4ae, offsetof(Car, node_flag_4ae) == 0x4ae);
+CAR_CHECK(traction_active, offsetof(Car, traction_active) == 0x4b2);
+CAR_CHECK(anti_lock_active, offsetof(Car, anti_lock_active) == 0x4b6);
 CAR_CHECK(node_flag_4c6, offsetof(Car, node_flag_4c6) == 0x4c6);
 CAR_CHECK(node_flag_4ca, offsetof(Car, node_flag_4ca) == 0x4ca);
 CAR_CHECK(node_flag_4ce, offsetof(Car, node_flag_4ce) == 0x4ce);
