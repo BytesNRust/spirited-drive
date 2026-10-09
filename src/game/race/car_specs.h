@@ -9,7 +9,12 @@ enum { CAR_SPECS_SIZE = 0x778 };
 
 #pragma pack(push, 1)
 typedef struct {
-    uint8_t pad_000[0x18];
+    int32_t unknown_000;  /* 0x000 0042ff60: the front's share of the mass (16.16), times +0x14 */
+    int32_t unknown_004;  /* 0x004 0042ff60: the rear's share */
+    int32_t unknown_008;  /* 0x008 */
+    int32_t unknown_00c;  /* 0x00c */
+    int32_t unknown_010;  /* 0x010 */
+    int32_t mass;  /* 0x014 0042ff60: times the shares, and the drag (+0x34) by it once */
     int32_t unknown_018;  /* 0x018 00430cb0: share of the front drive force (8.8) */
     int32_t unknown_01c;  /* 0x01c 00430cb0: share of the front brake force (8.8) */
     uint8_t pad_020[0x4];
@@ -20,7 +25,9 @@ typedef struct {
     int32_t drag;  /* 0x034 0042f630: times the surface's rolling factor */
     int32_t unknown_038;  /* 0x038 00430cb0: a speed threshold */
     int32_t unknown_03c;  /* 0x03c zeroed when the checksum fails */
-    uint8_t pad_040[0x14];
+    int32_t unknown_040;  /* 0x040 0042ff60: a length; squared times 0x324 is the turning inertia */
+    int32_t unknown_044;  /* 0x044 0042ff60: times +0x24 the weight moved per forward force */
+    uint8_t pad_048[0xc];
     int32_t wheel_rpm;  /* 0x054 0042ee68: wheel speed to engine revs */
     int32_t gear_limit;  /* 0x058 top forward gear + 3 (004098a0) */
     uint8_t pad_05c[0xc];
@@ -36,7 +43,8 @@ typedef struct {
     uint8_t pad_1a8[0xe0];
     int32_t shift_rpm[11];  /* 0x288 004098a0: up above [gear + 3], down below 15/16 of [gear + 2] */
     uint8_t pad_2b4[0x4];
-    int32_t drive_ratio[7];  /* 0x2b8 per forward gear, 8.8 (0042f138) */
+    int32_t drive_ratio[6];  /* 0x2b8 per forward gear, 8.8 (0042f138); a sixth gear reads +0x2d0 */
+    int32_t unknown_2d0;  /* 0x2d0 0042ff60 */
     int32_t unknown_2d4;  /* 0x2d4 00430cb0 */
     int32_t unknown_2d8;  /* 0x2d8 00430cb0 */
     int32_t unknown_2dc;  /* 0x2dc halved in arcade mode */
@@ -69,6 +77,12 @@ typedef struct {
 /* C99 compile-time checks: a negative array size fails the build. */
 #define CAR_SPECS_CHECK(field, cond) typedef char car_specs_check_##field[(cond) ? 1 : -1]
 CAR_SPECS_CHECK(size, sizeof(CarSpecs) == CAR_SPECS_SIZE);
+CAR_SPECS_CHECK(unknown_000, offsetof(CarSpecs, unknown_000) == 0x0);
+CAR_SPECS_CHECK(unknown_004, offsetof(CarSpecs, unknown_004) == 0x4);
+CAR_SPECS_CHECK(unknown_008, offsetof(CarSpecs, unknown_008) == 0x8);
+CAR_SPECS_CHECK(unknown_00c, offsetof(CarSpecs, unknown_00c) == 0xc);
+CAR_SPECS_CHECK(unknown_010, offsetof(CarSpecs, unknown_010) == 0x10);
+CAR_SPECS_CHECK(mass, offsetof(CarSpecs, mass) == 0x14);
 CAR_SPECS_CHECK(unknown_018, offsetof(CarSpecs, unknown_018) == 0x18);
 CAR_SPECS_CHECK(unknown_01c, offsetof(CarSpecs, unknown_01c) == 0x1c);
 CAR_SPECS_CHECK(unknown_024, offsetof(CarSpecs, unknown_024) == 0x24);
@@ -77,6 +91,8 @@ CAR_SPECS_CHECK(unknown_02c, offsetof(CarSpecs, unknown_02c) == 0x2c);
 CAR_SPECS_CHECK(drag, offsetof(CarSpecs, drag) == 0x34);
 CAR_SPECS_CHECK(unknown_038, offsetof(CarSpecs, unknown_038) == 0x38);
 CAR_SPECS_CHECK(unknown_03c, offsetof(CarSpecs, unknown_03c) == 0x3c);
+CAR_SPECS_CHECK(unknown_040, offsetof(CarSpecs, unknown_040) == 0x40);
+CAR_SPECS_CHECK(unknown_044, offsetof(CarSpecs, unknown_044) == 0x44);
 CAR_SPECS_CHECK(wheel_rpm, offsetof(CarSpecs, wheel_rpm) == 0x54);
 CAR_SPECS_CHECK(gear_limit, offsetof(CarSpecs, gear_limit) == 0x58);
 CAR_SPECS_CHECK(gear_ratio, offsetof(CarSpecs, gear_ratio) == 0x68);
@@ -88,6 +104,7 @@ CAR_SPECS_CHECK(torque_start_rpm, offsetof(CarSpecs, torque_start_rpm) == 0xb4);
 CAR_SPECS_CHECK(torque_curve, offsetof(CarSpecs, torque_curve) == 0xb8);
 CAR_SPECS_CHECK(shift_rpm, offsetof(CarSpecs, shift_rpm) == 0x288);
 CAR_SPECS_CHECK(drive_ratio, offsetof(CarSpecs, drive_ratio) == 0x2b8);
+CAR_SPECS_CHECK(unknown_2d0, offsetof(CarSpecs, unknown_2d0) == 0x2d0);
 CAR_SPECS_CHECK(unknown_2d4, offsetof(CarSpecs, unknown_2d4) == 0x2d4);
 CAR_SPECS_CHECK(unknown_2d8, offsetof(CarSpecs, unknown_2d8) == 0x2d8);
 CAR_SPECS_CHECK(unknown_2dc, offsetof(CarSpecs, unknown_2dc) == 0x2dc);

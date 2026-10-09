@@ -93,12 +93,14 @@ typedef struct {
     int32_t suspension_x;  /* 0x42d 0042ecd0 amplitude */
     uint8_t pad_431[0xc];
     int32_t unknown_43d;  /* 0x43d 00430cb0: the front axle's share of the speed the tyres resist (16.16) */
-    uint8_t pad_441[0xc];
+    int32_t unknown_441;  /* 0x441 0042ff60: spec +0x04 times spec +0x14, the rear's share of the mass */
+    int32_t unknown_445;  /* 0x445 0042ff60: spec +0x08 times spec +0x0c */
+    int32_t unknown_449;  /* 0x449 0042ff60: spec +0x08 times spec +0x10 */
     int32_t unknown_44d;  /* 0x44d 00430cb0: weight moved to the rear per forward force */
     int32_t unknown_451;  /* 0x451 00430cb0: axle_load_a at rest, before the surface grip */
     int32_t unknown_455;  /* 0x455 00430cb0: axle_load_b at rest */
     int32_t unknown_459;  /* 0x459 00430cb0: the yaw rate's sideways pull on each axle (16.16) */
-    uint8_t pad_45d[0x4];
+    int32_t unknown_45d;  /* 0x45d 0042ff60: spec +0x2d0 times the inertia over spec +0x40 */
     int32_t unknown_461;  /* 0x461 00430cb0: the front tyres' lever on the yaw (16.16) */
     int32_t unknown_465;  /* 0x465 00430cb0: the rear tyres' lever on the yaw (16.16) */
     uint8_t pad_469[0x10];
@@ -219,10 +221,14 @@ CAR_CHECK(suspension_x_index, offsetof(Car, suspension_x_index) == 0x428);
 CAR_CHECK(suspension_z, offsetof(Car, suspension_z) == 0x429);
 CAR_CHECK(suspension_x, offsetof(Car, suspension_x) == 0x42d);
 CAR_CHECK(unknown_43d, offsetof(Car, unknown_43d) == 0x43d);
+CAR_CHECK(unknown_441, offsetof(Car, unknown_441) == 0x441);
+CAR_CHECK(unknown_445, offsetof(Car, unknown_445) == 0x445);
+CAR_CHECK(unknown_449, offsetof(Car, unknown_449) == 0x449);
 CAR_CHECK(unknown_44d, offsetof(Car, unknown_44d) == 0x44d);
 CAR_CHECK(unknown_451, offsetof(Car, unknown_451) == 0x451);
 CAR_CHECK(unknown_455, offsetof(Car, unknown_455) == 0x455);
 CAR_CHECK(unknown_459, offsetof(Car, unknown_459) == 0x459);
+CAR_CHECK(unknown_45d, offsetof(Car, unknown_45d) == 0x45d);
 CAR_CHECK(unknown_461, offsetof(Car, unknown_461) == 0x461);
 CAR_CHECK(unknown_465, offsetof(Car, unknown_465) == 0x465);
 CAR_CHECK(specs, offsetof(Car, specs) == 0x479);

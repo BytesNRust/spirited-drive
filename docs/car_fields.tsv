@@ -112,3 +112,7 @@
 0x459	i32	unknown_459	00430cb0: the yaw rate's sideways pull on each axle (16.16)
 0x461	i32	unknown_461	00430cb0: the front tyres' lever on the yaw (16.16)
 0x465	i32	unknown_465	00430cb0: the rear tyres' lever on the yaw (16.16)
+0x441	i32	unknown_441	0042ff60: spec +0x04 times spec +0x14, the rear's share of the mass
+0x445	i32	unknown_445	0042ff60: spec +0x08 times spec +0x0c
+0x449	i32	unknown_449	0042ff60: spec +0x08 times spec +0x10
+0x45d	i32	unknown_45d	0042ff60: spec +0x2d0 times the inertia over spec +0x40

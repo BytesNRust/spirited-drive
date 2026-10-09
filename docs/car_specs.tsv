@@ -20,7 +20,7 @@
 0x0b4	i32	torque_start_rpm	the curve's first point (00409a04)
 0x0b8	i32[60]	torque_curve	pairs per 200 rpm, the first word is the torque (00409a04)
 0x288	i32[11]	shift_rpm	004098a0: up above [gear + 3], down below 15/16 of [gear + 2]
-0x2b8	i32[7]	drive_ratio	per forward gear, 8.8 (0042f138)
+0x2b8	i32[6]	drive_ratio	per forward gear, 8.8 (0042f138); a sixth gear reads +0x2d0
 0x2d4	i32	unknown_2d4	00430cb0
 0x2d8	i32	unknown_2d8	00430cb0
 0x2dc	i32	unknown_2dc	halved in arcade mode
@@ -43,3 +43,12 @@
 0x374	u8[512]	grip_front	grip by slip angle (>> 12), x 0x200 (0042fb88)
 0x574	u8[512]	grip_rear	copied from the front in arcade mode
 0x774	i32	checksum	sum of the first 0x758 bytes
+0x000	i32	unknown_000	0042ff60: the front's share of the mass (16.16), times +0x14
+0x004	i32	unknown_004	0042ff60: the rear's share
+0x008	i32	unknown_008
+0x00c	i32	unknown_00c
+0x010	i32	unknown_010
+0x014	i32	mass	0042ff60: times the shares, and the drag (+0x34) by it once
+0x040	i32	unknown_040	0042ff60: a length; squared times 0x324 is the turning inertia
+0x044	i32	unknown_044	0042ff60: times +0x24 the weight moved per forward force
+0x2d0	i32	unknown_2d0	0042ff60
