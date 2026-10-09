@@ -63,7 +63,17 @@ typedef struct {
     /* 0046a654 from a wall (004302a4) on the record car +0x88 names.
      * TODO(0046a654): the crash physics. */
     void (*crash)(void *user, uint32_t target, int32_t x, int32_t y, int32_t z);
+    /* 0041019c: while a recording plays, the followed car is still on the
+     * start line (00440afc). */
+    void (*start_line)(void *user, int32_t player);
 } RaceSounds;
+
+/* 004fb724 + 12 * player: how a player drives. */
+typedef struct {
+    int32_t analog_steering;  /* 0: keys (00438954), else a wheel or stick (00438aac) */
+    int32_t pedals;           /* 1: analog (00438ff0), else keys (00438f00) */
+    int32_t unknown_8;
+} ControlSetup;
 
 typedef struct {
     const Tri *tri;                 /* 00505038 nodes, 00504208 mask (ring_nodes - 1) */
@@ -117,6 +127,11 @@ typedef struct {
     const Car *leader;              /* 00509e18: the car in slot 0, once loaded */
     RaceEntry entries[RACE_PLAYERS];  /* 004fb7fa */
     int32_t specs_loaded;           /* 004bc698: the specs are in memory already, as tuned */
+    /* 004fb704: each player's controls this tick: steering in bits 0..5
+     * (0x20 centre), the pedal in 6..11 (0x1e at rest, down brakes), then
+     * gear up 0x1000, gear down 0x2000, look back 0x4000, handbrake 0x8000 */
+    uint32_t inputs[RACE_PLAYERS];
+    ControlSetup controls[RACE_PLAYERS];  /* 004fb724 */
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */

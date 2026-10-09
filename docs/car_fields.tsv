@@ -57,7 +57,7 @@
 0x3e9	i32	transmission	non-zero: automatic (2 from the setup, 004400f4)
 0x3ed	i32	gear	-2 reverse, -1 neutral, 0.. forward
 0x3f1	i32	engaged	the wheels drive the engine (on the road, in gear)
-0x3f5	i32	blown	the revs hit 11000 (0042ee68)
+0x3f5	i32	handbrake	the input's bit 0x8000 (00438f00); the revs hitting 11000 set it too (0042ee68)
 0x3f9	i32	stalled	the throttle is cut (0042ee68)
 0x3fd	i32	on_ground	set while the wheels touch the road (00428bd8)
 0x401	i32	airborne_ticks	00428bd8
@@ -117,3 +117,9 @@
 0x445	i32	unknown_445	0042ff60: spec +0x08 times spec +0x0c
 0x449	i32	unknown_449	0042ff60: spec +0x08 times spec +0x10
 0x45d	i32	unknown_45d	0042ff60: spec +0x2d0 times the inertia over spec +0x40
+0x4ba	i32	look_back	the input's bit 0x4000 (00438f00); the cameras read it
+0x3d5	i32	gear_key	the last tick's gear key: 1 down, 2 up (00438c84)
+0x4f6	i32	auto_offset	sideways from the road's centre when the autopilot took over (00401180)
+0x4fa	i32	auto_ticks	ticks of autopilot (00401180)
+0x4fe	i32	auto_mode	autopilot before the start or after the finish: 1 steering off the road, 2 stopped across it (00401180)
+0x502	i32	auto_steer	the autopilot's steering when stopped across the road (00401180)

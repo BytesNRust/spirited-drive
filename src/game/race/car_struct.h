@@ -65,7 +65,7 @@ typedef struct {
     int32_t load_shift;  /* 0x3c9 this tick's change of the axle loads (00430aec) */
     int32_t axle_load_a;  /* 0x3cd 00430aec, 00430cb0 */
     int32_t axle_load_b;  /* 0x3d1 */
-    uint8_t pad_3d5[0x4];
+    int32_t gear_key;  /* 0x3d5 the last tick's gear key: 1 down, 2 up (00438c84) */
     int32_t unknown_3d9;  /* 0x3d9 */
     int32_t unknown_3dd;  /* 0x3dd */
     int32_t unknown_3e1;  /* 0x3e1 sine of the pitch * 0x9cf (00428bd8) */
@@ -73,7 +73,7 @@ typedef struct {
     int32_t transmission;  /* 0x3e9 non-zero: automatic (2 from the setup, 004400f4) */
     int32_t gear;  /* 0x3ed -2 reverse, -1 neutral, 0.. forward */
     int32_t engaged;  /* 0x3f1 the wheels drive the engine (on the road, in gear) */
-    int32_t blown;  /* 0x3f5 the revs hit 11000 (0042ee68) */
+    int32_t handbrake;  /* 0x3f5 the input's bit 0x8000 (00438f00); the revs hitting 11000 set it too (0042ee68) */
     int32_t stalled;  /* 0x3f9 the throttle is cut (0042ee68) */
     int32_t on_ground;  /* 0x3fd set while the wheels touch the road (00428bd8) */
     int32_t airborne_ticks;  /* 0x401 00428bd8 */
@@ -121,11 +121,16 @@ typedef struct {
     int32_t node_flag_4ae;  /* 0x4ae those or property 8 */
     int32_t traction_active;  /* 0x4b2 the traction control acts this tick (00430cb0) */
     int32_t anti_lock_active;  /* 0x4b6 */
-    uint8_t pad_4ba[0xc];
+    int32_t look_back;  /* 0x4ba the input's bit 0x4000 (00438f00); the cameras read it */
+    uint8_t pad_4be[0x8];
     int32_t node_flag_4c6;  /* 0x4c6 property 5 or 18 */
     int32_t node_flag_4ca;  /* 0x4ca property 14 or 17 */
     int32_t node_flag_4ce;  /* 0x4ce property 15 or 18 */
-    uint8_t pad_4d2[0x34];
+    uint8_t pad_4d2[0x24];
+    int32_t auto_offset;  /* 0x4f6 sideways from the road's centre when the autopilot took over (00401180) */
+    int32_t auto_ticks;  /* 0x4fa ticks of autopilot (00401180) */
+    int32_t auto_mode;  /* 0x4fe autopilot before the start or after the finish: 1 steering off the road, 2 stopped across it (00401180) */
+    int32_t auto_steer;  /* 0x502 the autopilot's steering when stopped across the road (00401180) */
     int32_t tick_scale;  /* 0x506 0x888 (0x10000 / 30) per tick, more when catching up */
     int32_t ticks_per_second;  /* 0x50a 0x1e */
     int32_t controller;  /* 0x50e 00509dd4 index: 1 00401400, 2 0046d5c4 */
@@ -195,6 +200,7 @@ CAR_CHECK(target_rpm, offsetof(Car, target_rpm) == 0x3c5);
 CAR_CHECK(load_shift, offsetof(Car, load_shift) == 0x3c9);
 CAR_CHECK(axle_load_a, offsetof(Car, axle_load_a) == 0x3cd);
 CAR_CHECK(axle_load_b, offsetof(Car, axle_load_b) == 0x3d1);
+CAR_CHECK(gear_key, offsetof(Car, gear_key) == 0x3d5);
 CAR_CHECK(unknown_3d9, offsetof(Car, unknown_3d9) == 0x3d9);
 CAR_CHECK(unknown_3dd, offsetof(Car, unknown_3dd) == 0x3dd);
 CAR_CHECK(unknown_3e1, offsetof(Car, unknown_3e1) == 0x3e1);
@@ -202,7 +208,7 @@ CAR_CHECK(drive_force, offsetof(Car, drive_force) == 0x3e5);
 CAR_CHECK(transmission, offsetof(Car, transmission) == 0x3e9);
 CAR_CHECK(gear, offsetof(Car, gear) == 0x3ed);
 CAR_CHECK(engaged, offsetof(Car, engaged) == 0x3f1);
-CAR_CHECK(blown, offsetof(Car, blown) == 0x3f5);
+CAR_CHECK(handbrake, offsetof(Car, handbrake) == 0x3f5);
 CAR_CHECK(stalled, offsetof(Car, stalled) == 0x3f9);
 CAR_CHECK(on_ground, offsetof(Car, on_ground) == 0x3fd);
 CAR_CHECK(airborne_ticks, offsetof(Car, airborne_ticks) == 0x401);
@@ -247,9 +253,14 @@ CAR_CHECK(node_flag_4aa, offsetof(Car, node_flag_4aa) == 0x4aa);
 CAR_CHECK(node_flag_4ae, offsetof(Car, node_flag_4ae) == 0x4ae);
 CAR_CHECK(traction_active, offsetof(Car, traction_active) == 0x4b2);
 CAR_CHECK(anti_lock_active, offsetof(Car, anti_lock_active) == 0x4b6);
+CAR_CHECK(look_back, offsetof(Car, look_back) == 0x4ba);
 CAR_CHECK(node_flag_4c6, offsetof(Car, node_flag_4c6) == 0x4c6);
 CAR_CHECK(node_flag_4ca, offsetof(Car, node_flag_4ca) == 0x4ca);
 CAR_CHECK(node_flag_4ce, offsetof(Car, node_flag_4ce) == 0x4ce);
+CAR_CHECK(auto_offset, offsetof(Car, auto_offset) == 0x4f6);
+CAR_CHECK(auto_ticks, offsetof(Car, auto_ticks) == 0x4fa);
+CAR_CHECK(auto_mode, offsetof(Car, auto_mode) == 0x4fe);
+CAR_CHECK(auto_steer, offsetof(Car, auto_steer) == 0x502);
 CAR_CHECK(tick_scale, offsetof(Car, tick_scale) == 0x506);
 CAR_CHECK(ticks_per_second, offsetof(Car, ticks_per_second) == 0x50a);
 CAR_CHECK(controller, offsetof(Car, controller) == 0x50e);

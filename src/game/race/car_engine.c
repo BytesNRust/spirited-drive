@@ -65,7 +65,7 @@ void car_engine_revs(Car *car, const CarSpecs *specs, const RaceState *race)
     if (car->transmission != 0 && car->gear == 0 && car->rpm < specs->idle_rpm) car->rpm = specs->idle_rpm;
     if (car->rpm > MAX_RPM) {
         car->rpm = MAX_RPM;
-        car->blown = 1;
+        car->handbrake = 1;
     }
     if (car->target_rpm > MAX_RPM) car->target_rpm = MAX_RPM;
 }

@@ -79,7 +79,7 @@ static void grip_limit(Car *car, int32_t *lateral, int32_t *along, int32_t limit
         if (spin > 0) room -= spin;
         const int32_t per = size / 256;
         const int32_t k = per == 0 ? 0 : room / per;
-        const int clamp = !((car->brake > 0x96 && car->anti_lock == 0) || car->blown != 0);
+        const int clamp = !((car->brake > 0x96 && car->anti_lock == 0) || car->handbrake != 0);
         if (!clamp) {
             *lateral = *lateral * k / 256;
             *along = *along * k / 256;
@@ -169,7 +169,7 @@ void car_tyre_forces(Car *car, const CarSpecs *specs, RaceState *race, int32_t *
         flags |= TYRE_SLIDING;
     }
     const int locked = car->brake > LOCKING_BRAKE && car->anti_lock == 0;
-    const int heavy = load * 5 / 4 < abs32(brake) && !(car->anti_lock != 0 && car->blown == 0);
+    const int heavy = load * 5 / 4 < abs32(brake) && !(car->anti_lock != 0 && car->handbrake == 0);
     if (locked || heavy) {
         if (abs32(along) > load) flags |= TYRE_SLIDING;
         friction_circle(&lateral, &along, load, &skid);

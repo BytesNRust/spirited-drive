@@ -111,7 +111,7 @@ static void tick_rate(Car *car, const RaceState *race)
 
 static void driver_aids(Car *car, const RaceState *race)
 {
-    if ((race->tick_flags & TICK_AIDS) && car->blown == 0) {
+    if ((race->tick_flags & TICK_AIDS) && car->handbrake == 0) {
         car->anti_lock_active = car->anti_lock;
         car->traction_active = car->traction_control;
     } else {
@@ -151,7 +151,7 @@ static void axle_forces(Car *car, const CarSpecs *specs, RaceState *race, Forces
         f->front_brake = (total >> 8) * (specs->unknown_01c >> 8);
         f->rear_brake = total - f->front_brake;
     }
-    if (car->blown == 1) {
+    if (car->handbrake == 1) {
         race_blow_up(race);
         f->rear_drive = 0;
         f->rear_brake = BLOWN_BRAKE;
@@ -250,13 +250,13 @@ static void tyres(Car *car, const CarSpecs *specs, RaceState *race, Forces *f)
                     f->rear_brake, 2);
 }
 
-/* Braking (or a blown engine) caps the forward force by speed; on the drag
+/* Braking (or the handbrake) caps the forward force by speed; on the drag
  * strip the sideways force too. The sideways force never passes spec
  * +0x31c plus the load change. */
 static void limit_forces(const Car *car, const CarSpecs *specs, const RaceState *race, int32_t *lateral,
                          int32_t *along)
 {
-    if (car->brake > 100 || car->blown != 0) {
+    if (car->brake > 100 || car->handbrake != 0) {
         int32_t limit;
         if (car->speed < 0x1ac7ae) {
             limit = specs->unknown_028;
@@ -513,8 +513,8 @@ void car_driving_physics(Car *car, const CarSpecs *specs, RaceState *race)
     race->wheelspin = 0;
     const int32_t ax = abs32(car->velocity_x), az = abs32(car->velocity_z);
     car->speed = ax > az ? ax + (az >> 2) : az + (ax >> 2);
-    if (car->blown == 1 && race->arcade != 0) {
-        car->blown = 0;
+    if (car->handbrake == 1 && race->arcade != 0) {
+        car->handbrake = 0;
         car->brake = 0xfa;
     }
     tick_rate(car, race);

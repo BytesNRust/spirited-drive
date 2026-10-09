@@ -54,3 +54,15 @@
 0x2d0	i32	unknown_2d0	0042ff60
 0x05c	i32	unknown_05c	00409990: a torque curve factor
 0x064	i32	unknown_064	00409990: a torque curve factor
+0x2ec	i32	steer_assist	keyboard steering: the road's aim is followed below this times the speed (00438954)
+0x300	i32	steer_rate	keyboard steering rate (00438954)
+0x30c	i32	steer_rate_base	keyboard steering, less spec +0x310 times the speed (00438954)
+0x310	i32	steer_rate_speed
+0x314	i32	steer_fast_shift	keyboard steering towards the road's aim: the rate shifted up (00438954)
+0x318	i32	steer_slow_shift	and away from it: shifted down
+0x33c	i32	throttle_up	per tick (00438b70)
+0x340	i32	throttle_down
+0x344	i32	brake_up	per tick, and a quarter more (00438bc8); below a brake of 0x90
+0x348	i32	brake_up_hard	from 0x90
+0x34c	i32	brake_down
+0x350	i32	brake_down_hard
