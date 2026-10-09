@@ -143,45 +143,53 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     sky_ring_draw(&ring, info, &frame, &art->horizon, &sink);
 }
 
-void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,
-                        uint8_t *pixels)
+void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
+                             const CarPose *pose, int32_t pose_node, uint8_t *pixels)
 {
     static TrackRender render;
     static View view;
     static HorizonTables horizon;
-    TriNode n;
-    if (tri_node(tri, node, &n) != TRI_OK) return;
     view_init(&view, 0, 0, WIDTH, HEIGHT, FOV, FOV);
     horizon_tables(&horizon, WIDTH, FOV, 0x10000);
     RasterTarget target = { pixels, WIDTH, HEIGHT, 0, 0 };
     QuadTarget quad = { pixels, WIDTH, 0, 0, WIDTH, HEIGHT };
     DrawContext ctx = { &view, { 0, 0, WIDTH, HEIGHT }, WORLD_SHIFT, { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars } };
-    TrackCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, { 0 }, (int32_t)node };
-    const int32_t cam_yaw = n.orientation * 0x400 + yaw;
-    track_camera_matrix(0, cam_yaw, 0, 0, cam.matrix);
+    TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
+    track_camera_matrix(pc->pitch, pc->yaw, 0, 0, cam.matrix);
     /* TODO(00473680): the frame is cleared first; colour 0 for now. */
     memset(pixels, 0, WIDTH * HEIGHT);
     if (art->has_horizon && info->ring != 0) {
         const SkyTargets targets = { &quad, &target };
-        draw_sky_ring(&targets, &view, art, info, &cam, cam_yaw);
+        draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, WIDTH };
-        horizon_draw_flat(&horizon, &ht, &ctx.clip, 0, &art->horizon, cam_yaw, 0,
-                          horizon_line(&view, WORLD_SHIFT, cam_yaw, cam.matrix));
+        horizon_draw_flat(&horizon, &ht, &ctx.clip, 0, &art->horizon, pc->yaw, 0,
+                          horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
     }
-    track_render_build(&render, tri, art, (int32_t)node);
+    track_render_build(&render, tri, art, pc->node);
     track_render_transform(&render, &cam, &ctx);
     model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
-    TriNode cn;
-    car_node = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
-    if (car_ok && tri_node(tri, (uint32_t)car_node, &cn) == TRI_OK) {
-        car_pose = (CarPose){ { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
-    } else {
-        car_node = -1;
-    }
+    car_node = car_ok && pose != NULL ? pose_node : -1;
+    if (pose != NULL) car_pose = *pose;
     static uint8_t shade[256];
     object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shade };
     track_render_draw(&render, &cam, &ctx, 0, 0);
+}
+
+void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,
+                        uint8_t *pixels)
+{
+    TriNode n, cn;
+    if (tri_node(tri, node, &n) != TRI_OK) return;
+    const PortedCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, n.orientation * 0x400 + yaw,
+                               0, (int32_t)node };
+    const int32_t parked = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
+    if (car_ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
+        const CarPose pose = { { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
+        ported_view_render_from(tri, art, info, &cam, &pose, parked, pixels);
+    } else {
+        ported_view_render_from(tri, art, info, &cam, NULL, -1, pixels);
+    }
 }

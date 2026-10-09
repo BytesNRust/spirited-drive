@@ -7,6 +7,8 @@
 
 #include "formats/chunk.h"
 #include "formats/tri.h"
+#include "game/race/car_load.h"
+#include "game/race/race_sim.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_info.h"
@@ -17,6 +19,7 @@
 #include "viewer/ported_view.h"
 #include "viewer/raster.h"
 
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -322,6 +325,140 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
     }
     platform_shutdown();
     return 1;
+}
+
+/* Drive mode (`tnfs --drive NAME [--car N]`): the ported race loop with
+ * one car and a stand-in chase camera. Keys as the game's defaults: arrows
+ * steer and work the pedals, A and Z change gear (an automatic starts in
+ * neutral: A for drive, Z for reverse; the gears work after 5 seconds),
+ * Space the handbrake. */
+enum {
+    KEY_A = 0x1E,
+    KEY_Z = 0x2C,
+    KEY_SPACE = 0x39,
+    KEY_UP = 0x48,
+    KEY_DOWN = 0x50,
+    KEY_LEFT = 0x4B,
+    KEY_RIGHT = 0x4D,
+    CHASE_BACK = 0x60000,     /* TODO(0045b24c): the original chase camera */
+    CHASE_UP = 0x20000,
+    CHASE_PITCH = 0x40000
+};
+
+static RaceSim drive_sim;
+
+static uint32_t read_input(void)
+{
+    uint32_t steer = 0x20, pedal = 0x1e, keys = 0;
+    if (platform_key_down(KEY_LEFT)) steer = 0;
+    if (platform_key_down(KEY_RIGHT)) steer = 0x3f;
+    if (platform_key_down(KEY_UP)) pedal = 0;
+    if (platform_key_down(KEY_DOWN)) pedal = 0x3f;
+    if (platform_key_down(KEY_A)) keys |= 0x1000;
+    if (platform_key_down(KEY_Z)) keys |= 0x2000;
+    if (platform_key_down(KEY_SPACE)) keys |= 0x8000;
+    return steer | pedal << 6 | keys;
+}
+
+static PortedCamera chase_camera(const Car *car)
+{
+    const float a = (float)car->heading / 0x1000000 * 2.0f * 3.14159265f;
+    PortedCamera cam = { { car->x - (int32_t)(sinf(a) * CHASE_BACK), car->y + CHASE_UP,
+                           car->z - (int32_t)(cosf(a) * CHASE_BACK) },
+                         car->heading, CHASE_PITCH, car->draw_node };
+    return cam;
+}
+
+/* TODO(0045a3e8): the race's draw path builds these angles itself (with
+ * the suspension of 0042ecd0); 004591d4 takes the tilt about z at 3/4. */
+static CarPose car_pose_of(const Car *car)
+{
+    return (CarPose){ { car->x, car->y, car->z }, car->draw_pitch + car->tilt_x, car->draw_roll + car->tilt_z * 3 / 4,
+                      car->heading, car->use_matrix ? car->matrix : NULL, 1 };
+}
+
+static void render_drive(const Track *t, uint8_t *pixels)
+{
+    const Car *car = &drive_sim.cars[0];
+    const PortedCamera cam = chase_camera(car);
+    const CarPose pose = car_pose_of(car);
+    ported_view_set_models(t->models, t->model_ok);
+    ported_view_render_from(&t->tri, &t->art, &t->info, &cam, &pose,
+                            (int32_t)((uint32_t)car->draw_node & (t->tri.ring_nodes - 1u)), pixels);
+}
+
+static int start_drive(Track *t, const char *data_root, const char *name, int model)
+{
+    char stem[16] = { 0 };
+    for (int i = 0; car_model_names[model][i] != '\0' && i < 15; i++)
+        stem[i] = (char)toupper((unsigned char)car_model_names[model][i]);
+    load_car(t, data_root, stem);
+    if (t->car_ok) ported_view_set_car(&t->car[0], &t->car[1], 0);
+    char path[512];
+    snprintf(path, sizeof path, "%s/SIMDATA/CARSPECS/%s.PBS", data_root, stem);
+    size_t size = 0;
+    uint8_t *file = platform_read_file(path, &size);
+    CarSpecs specs;
+    const int ok = file != NULL && car_specs_read(&specs, file, size);
+    platform_free_file(file);
+    if (!ok) {
+        fprintf(stderr, "track_viewer: no specs %s\n", path);
+        return 0;
+    }
+    RaceEntry entry;
+    memset(&entry, 0, sizeof entry);
+    strcpy(entry.name, "Player");
+    entry.car = model;
+    entry.automatic = 1;
+    race_sim_start(&drive_sim, &t->tri, name, &specs, &entry, 2, 0);
+    return 1;
+}
+
+static int drive_window(const Track *t, uint8_t *pixels)
+{
+    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
+    if (!platform_init(&config)) return 0;
+    PlatformColor palette[256];
+    for (int i = 0; i < 256; i++)
+        palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
+    int frame = 0;
+    for (int running = 1; running && platform_poll_events();) {
+        for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
+            if (key == PLATFORM_KEY_ESCAPE) running = 0;
+        if ((frame++ & 1) == 0) race_sim_tick(&drive_sim, read_input());
+        render_drive(t, pixels);
+        platform_present(pixels, palette);
+        platform_wait_vblank();
+    }
+    platform_shutdown();
+    return 1;
+}
+
+/* Headless: `ticks` steps in drive at full throttle, then a screenshot. */
+static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
+{
+    for (uint32_t i = 0; i < ticks; i++) {
+        const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
+        race_sim_tick(&drive_sim, 0x20 | (tap ? 0x1000u : 0));
+    }
+    const Car *car = &drive_sim.cars[0];
+    printf("tick %d: node %d, speed %.1f m/s, gear %d\n", drive_sim.race.tick, car->node, car->speed / 65536.0, car->gear);
+    render_drive(t, pixels);
+    return write_ppm(screenshot, pixels, t->art.palette);
+}
+
+int track_viewer_drive(const char *data_root, const char *name, int model, uint32_t ticks, const char *screenshot)
+{
+    static Track t;
+    int ok = model >= 0 && model < CAR_MODELS && load_track(&t, data_root, name);
+    ok = ok && start_drive(&t, data_root, name, model);
+    uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
+    ok = ok && pixels != NULL;
+    if (ok) ok = screenshot != NULL ? drive_screenshot(&t, pixels, ticks, screenshot) : drive_window(&t, pixels);
+    free(pixels);
+    ported_view_set_car(NULL, NULL, 0);
+    free_track(&t);
+    return ok;
 }
 
 int track_viewer_main(const char *data_root, const char *name, uint32_t node, const char *screenshot)
