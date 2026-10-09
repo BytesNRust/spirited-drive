@@ -15,6 +15,10 @@ void car_crash_hit(Car *car, RaceState *race);
 /* 0040ddb0: back from the body to the car, in physics model `physics`. */
 void car_crash_end(Car *car, RaceState *race, int32_t physics);
 
+/* 0040df24: the body came to rest upright: back to the driving model,
+ * the car's turns read off the body. */
+void car_crash_settle(Car *car, RaceState *race);
+
 /* 0040f73c: the body's speed along the road (road_axes' forward row). */
 int32_t car_body_road_speed(const Car *car);
 

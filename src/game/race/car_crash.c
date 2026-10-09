@@ -1,11 +1,14 @@
 #include "game/race/car_crash.h"
 
+#include "game/race/rigid_body.h"
+
 #include "game/sys/fixed_math.h"
 #include "game/sys/rigid_math.h"
 
 #include <string.h>
 
 enum {
+    PHYSICS_DRIVING = 2,
     PHYSICS_CRASH = 4,
     GRAVITY = -0x9cf5c,
     SPIN_FROM_YAW_RATE = 0x648,
@@ -105,6 +108,38 @@ void car_crash_end(Car *car, RaceState *race, int32_t physics)
     car->skid_front = 0;
     car->skid_rear = 0;
     /* 004302a0 for the humans' cars does nothing */
+}
+
+/* A turn kept within -0x400000..0xbfffff. */
+static int32_t settled_turn(int32_t turn)
+{
+    return turn > 0xbfffff ? turn - 0x1000000 : turn;
+}
+
+void car_crash_settle(Car *car, RaceState *race)
+{
+    int32_t m[9];
+    memcpy(m, car->body_matrix, sizeof m);
+    Car *heard = race->cars[race->viewed & (RACE_PLAYERS - 1)];
+    if (car == heard) {
+        car->unknown_4be[0] = -1;
+        car->unknown_4be[1] = -1;
+        if (car->physics == PHYSICS_CRASH && race->sounds.start_engine != NULL)
+            race->sounds.start_engine(race->sounds.user);
+    }
+    /* +0x88 holds the car's own address */
+    car_crash_end(car, race, PHYSICS_DRIVING);
+    car->crashed_hard = 0;
+    int32_t pitch, yaw, roll;
+    rb_angles(m, &pitch, &roll, &yaw);
+    car->pitch = settled_turn(-pitch & 0xffffff);
+    car->roll = settled_turn(roll & 0xffffff);
+    car->yaw = -yaw & 0xffffff;
+    race->camera_hold = 0;
+    if (race->sounds.skids_reset != NULL) race->sounds.skids_reset(race->sounds.user);
+    car->use_matrix = 0;
+    car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_DASHBOARD);
+    if (car->transmission != 0) car->transmission = 2;
 }
 
 int32_t car_body_road_speed(const Car *car)

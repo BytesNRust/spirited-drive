@@ -123,6 +123,7 @@ typedef struct {
     int32_t note_second;            /* 00513714 */
     int32_t note_tick;              /* 004c53bc */
     int32_t note_level;             /* 004c53c0 */
+    int32_t camera_hold;            /* 00513e74: ticks the camera keeps its view (60 from 0045573c) */
     int32_t notes[RACE_NOTES];      /* 00512f94 */
     int32_t circuit;                /* 00504200: laps are counted */
     int32_t segments;               /* 0050420c */
