@@ -50,6 +50,18 @@ void rb_angles(const int32_t m[9], int32_t *roll, int32_t *pitch, int32_t *yaw);
 int32_t rb_contact_impulse(RigidBody *body, const int32_t point[3], const int32_t velocity[3],
                            const int32_t normal[3]);
 
+/* What the last contact left behind (globals of the original). */
+typedef struct {
+    int32_t bounce;          /* 004b912c: the bounce impulse, 0 when none */
+    int32_t depth;           /* 004b9130: the deepest corner's distance into the surface, negative when in */
+    int32_t velocity[3];     /* 004f9614: that corner's velocity after the bounce */
+} RbContact;
+
+/* 0041b414: the body's box against the plane through `point` with unit
+ * `normal`: the deepest corner is pushed half way out, bounces off, and a
+ * rising body keeps no more speed than its climb allows. */
+void rb_ground_contact(RigidBody *body, const int32_t normal[3], const int32_t point[3], RbContact *contact);
+
 /* 0041daa0: one tick of free flight: moved by its velocity, slowed, pulled
  * down, and turned by its spin. */
 void rb_step(RigidBody *body);
