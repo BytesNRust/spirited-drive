@@ -9,11 +9,10 @@ enum { AI_STATE_SIZE = 0x370 };
 
 #pragma pack(push, 1)
 typedef struct {
-    int32_t unknown_000;  /* 0x000 zeroed by 004702d4 */
-    int32_t traffic_level;  /* 0x004 004fb7ec at the start (004702d4) */
+    int32_t lane_cars[2];  /* 0x000 traffic cars placed in each lane: [0] the oncoming lane, [1] the lane with the player; at most 004fb7ec - 1 (0046ea04); zeroed at the start (004702d4) */
     int16_t lane_width[156];  /* 0x008 row = lanes (node +4 & 0xf), [verge / 8]: the road width over the lanes, 8.8 (004702d4); row 0 zero; read as words from 0052b336 */
     int16_t unknown_140[4];  /* 0x140 0046a3c0 */
-    uint8_t zones[24];  /* 0x148 two 12-byte records, i16 at +2 end and +4 start of a span, +8 and +10 a second span (0046a070, 0046a0f4) */
+    int16_t zones[12];  /* 0x148 two records of six words, one per human player: the player's slot, the end and start nodes of the span a computer car may stay in (0046a070), a word not read yet, the end and start nodes of the span the player sees, which cars are placed just outside of (0046a0f4, 0046ea04) */
     int32_t unknown_160;  /* 0x160 80000 at the start */
     uint8_t pad_164[0x4];
     int32_t unknown_168;  /* 0x168 004fb7f0 at the start */
@@ -25,7 +24,7 @@ typedef struct {
     int32_t unknown_340;  /* 0x340 0x5999 at the start */
     int32_t unknown_344;  /* 0x344 zeroed at the start */
     uint8_t pad_348[0x8];
-    int32_t unknown_350;  /* 0x350 zeroed at the start */
+    int32_t traffic_placed;  /* 0x350 counts the traffic cars sent into physics model 6 (0046f110); zeroed at the start */
     uint8_t pad_354[0x4];
     int32_t unknown_358;  /* 0x358 1 at the start */
     uint32_t first_car;  /* 0x35c 00509e1c at the start */
@@ -39,8 +38,7 @@ typedef struct {
 /* C99 compile-time checks: a negative array size fails the build. */
 #define AI_STATE_CHECK(field, cond) typedef char ai_state_check_##field[(cond) ? 1 : -1]
 AI_STATE_CHECK(size, sizeof(AiState) == AI_STATE_SIZE);
-AI_STATE_CHECK(unknown_000, offsetof(AiState, unknown_000) == 0x0);
-AI_STATE_CHECK(traffic_level, offsetof(AiState, traffic_level) == 0x4);
+AI_STATE_CHECK(lane_cars, offsetof(AiState, lane_cars) == 0x0);
 AI_STATE_CHECK(lane_width, offsetof(AiState, lane_width) == 0x8);
 AI_STATE_CHECK(unknown_140, offsetof(AiState, unknown_140) == 0x140);
 AI_STATE_CHECK(zones, offsetof(AiState, zones) == 0x148);
@@ -51,7 +49,7 @@ AI_STATE_CHECK(params, offsetof(AiState, params) == 0x190);
 AI_STATE_CHECK(unknown_33c, offsetof(AiState, unknown_33c) == 0x33c);
 AI_STATE_CHECK(unknown_340, offsetof(AiState, unknown_340) == 0x340);
 AI_STATE_CHECK(unknown_344, offsetof(AiState, unknown_344) == 0x344);
-AI_STATE_CHECK(unknown_350, offsetof(AiState, unknown_350) == 0x350);
+AI_STATE_CHECK(traffic_placed, offsetof(AiState, traffic_placed) == 0x350);
 AI_STATE_CHECK(unknown_358, offsetof(AiState, unknown_358) == 0x358);
 AI_STATE_CHECK(first_car, offsetof(AiState, first_car) == 0x35c);
 AI_STATE_CHECK(unknown_360, offsetof(AiState, unknown_360) == 0x360);

@@ -67,7 +67,21 @@ typedef struct {
     /* 0041019c: while a recording plays, the followed car is still on the
      * start line (00440afc). */
     void (*start_line)(void *user, int32_t player);
+    /* 00404530: the camera attaches to car `slot` in `mode` (a computer car
+     * placed while the race has not started takes the view, 0046f110). */
+    void (*camera)(void *user, int32_t slot, int32_t mode);
 } RaceSounds;
+
+/* A computer driver's profile (0x8d bytes at 0050bae0 + 0x8d * letter, 0044941c).
+ * Only what the lane code reads is known. */
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t unknown_00[0x79];
+    int32_t lane_bias[4];   /* +0x79: one is picked at random as car +0x33c (00470a34) */
+    int32_t reset_odds;     /* +0x89: how often a car's bias is picked again (00470028), out of 0x10000 */
+} DriverProfile;
+#pragma pack(pop)
+typedef char driver_profile_size_check[sizeof(DriverProfile) == 0x8d ? 1 : -1];
 
 /* 004fb724 + 12 * player: how a player drives. */
 typedef struct {
@@ -136,6 +150,13 @@ typedef struct {
     ControlSetup controls[RACE_PLAYERS];  /* 004fb724 */
     /* the computer cars */
     AiState ai;                     /* 0052b330 */
+    /* ai.profiles[slot] holds the original's address of a driver profile;
+     * these map those addresses to the profiles the port holds. */
+    const DriverProfile *driver_profiles;
+    uint32_t driver_profiles_base;  /* the address of driver_profiles[0] in the original */
+    int32_t driver_profile_count;
+    int32_t grid[RACE_PLAYERS];     /* 004fba50: the starting grid place of each car */
+    int32_t camera_mode;            /* 004f8020: 7 while the race is being set up, 5 attached to a car */
     uint32_t random_seed;           /* 004b9628: race_random() */
     uint32_t random_last;           /* 004b962c */
     uint32_t random_mul;            /* 004b9630 */

@@ -25,7 +25,7 @@
 0x07c	i32	half_width	turned by 00428804
 0x088	ref	unknown_088
 0x0c0	ref	unknown_0c0
-0x174	u8	flags_174
+0x174	u8	flags_174	the computer cars: 4 an opponent (not traffic), 8 a police car (0046a238)
 0x175	u8	flags_175	bit 1: the player's car shows its dashboard pieces (004591d4)
 0x341	i32	draw_node	node used to draw the car with its row (0045a848)
 0x345	i32	draw_node2
@@ -124,14 +124,23 @@
 0x4fe	i32	auto_mode	autopilot before the start or after the finish: 1 steering off the road, 2 stopped across it (00401180)
 0x502	i32	auto_steer	the autopilot's steering when stopped across the road (00401180)
 0x01c	i32	unknown_01c	zeroed by the reset (0043fd00)
-0x08c	i32[12]	unknown_08c	zeroed by the reset
+0x08c	i32[9]	road_matrix	the road at the car's node (00470028): the node's own vector, the sideways vector and the unit vector to the next node, 16.16; zeroed by the reset
+0x0b0	i32[3]	road_point	the node's position (00470028); zeroed by the reset
 0x0bc	i32	unknown_0bc	the collision body's +0x78 (004407b8)
 0x138	i32	body_extent_a	the collision body (+0xc4) +0x74; 0x457 from the reset, half the model's +0x64e (004407b8)
 0x13c	i32	body_extent_b	+0x78; 0x8ae, half the model's +0x652
 0x140	i32	body_extent_c	+0x7c; 0xd05, half the model's +0x64a
-0x158	i32[4]	unknown_158	zeroed by the reset
-0x176	u8[2]	unknown_176	zeroed by the reset with flags_174 and flags_175
-0x33c	i32	unknown_33c	zeroed by the reset
+0x144	i32	unknown_144	the collision body (+0xc4) +0x80; zeroed when a computer car is placed (0046f110)
+0x148	i32	unknown_148	body +0x84; zeroed when a computer car is placed, then 1.. ai params[12] when it goes to physics 6 (0046f110)
+0x14c	i32	unknown_14c	body +0x88; 0x64 for opponents, 0xa0 for traffic (0046f110)
+0x150	i32	unknown_150	body +0x8c; zeroed when a computer car is placed
+0x154	i32	speed_factor	body +0x90: one of ai params[14..17] at random, 16.16; scales the target speeds (00470998)
+0x158	i32	zone	the computer cars' zone record (0052b478 + 12 * zone) this car is placed for; zeroed by the reset (0046a238)
+0x15c	i32	target_speed	the speed a computer car is set to (0046e924); zeroed by the reset
+0x160	i32	follow_speed	the speed of the car the zone follows, halved with the AI's, scaled (0046e924); zeroed by the reset
+0x164	i32	lane_offset	sideways from the road centre where a computer car is placed, 16.16 (0046ef18); zeroed by the reset
+0x176	u8[2]	flags_176	zeroed by the reset with flags_174 and flags_175; see ai_lanes.h for the computer cars' bits in the four flag bytes
+0x33c	i32	lane_bias	sideways bias added to lane_offset, picked at random per car (00470a34); zeroed by the reset
 0x340	u8	unknown_340	zeroed by the reset
 0x431	i32	unknown_431	0x111eb from the reset
 0x435	i32	unknown_435	0x111eb from the reset

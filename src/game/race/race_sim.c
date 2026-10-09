@@ -52,6 +52,11 @@ static void no_start_line(void *user, int32_t player)
     (void)user, (void)player;
 }
 
+static void no_camera(void *user, int32_t slot, int32_t mode)
+{
+    (void)user, (void)slot, (void)mode;
+}
+
 int race_sim_track_index(const char *stem)
 {
     char a = (char)tolower((unsigned char)stem[0]), b = (char)tolower((unsigned char)stem[1]);
@@ -83,7 +88,7 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
     race->laps = laps;
     race->views = 1;
     race->catch_up = CATCH_UP;
-    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line };
+    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_camera };
     race->entries[0] = *entry;
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = 1;

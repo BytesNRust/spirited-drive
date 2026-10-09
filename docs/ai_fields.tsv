@@ -2,11 +2,10 @@
 # with replays by 0044e8f8 / 0044e354. Set up by 004702d4.
 # offset	type	name	notes
 # Generated into src/game/race/ai_struct.h by tools/gen_car_struct.py.
-0x000	i32	unknown_000	zeroed by 004702d4
-0x004	i32	traffic_level	004fb7ec at the start (004702d4)
+0x000	i32[2]	lane_cars	traffic cars placed in each lane: [0] the oncoming lane, [1] the lane with the player; at most 004fb7ec - 1 (0046ea04); zeroed at the start (004702d4)
 0x008	i16[156]	lane_width	row = lanes (node +4 & 0xf), [verge / 8]: the road width over the lanes, 8.8 (004702d4); row 0 zero; read as words from 0052b336
 0x140	i16[4]	unknown_140	0046a3c0
-0x148	u8[24]	zones	two 12-byte records, i16 at +2 end and +4 start of a span, +8 and +10 a second span (0046a070, 0046a0f4)
+0x148	i16[12]	zones	two records of six words, one per human player: the player's slot, the end and start nodes of the span a computer car may stay in (0046a070), a word not read yet, the end and start nodes of the span the player sees, which cars are placed just outside of (0046a0f4, 0046ea04)
 0x160	i32	unknown_160	80000 at the start
 0x168	i32	unknown_168	004fb7f0 at the start
 0x16c	ref[8]	profiles	driver profile per slot (0044941c: 004c2888 + 0x8d * letter)
@@ -14,7 +13,7 @@
 0x33c	i32	unknown_33c	zeroed at the start
 0x340	i32	unknown_340	0x5999 at the start
 0x344	i32	unknown_344	zeroed at the start
-0x350	i32	unknown_350	zeroed at the start
+0x350	i32	traffic_placed	counts the traffic cars sent into physics model 6 (0046f110); zeroed at the start
 0x358	i32	unknown_358	1 at the start
 0x35c	ref	first_car	00509e1c at the start
 0x360	i32	unknown_360	004fb7da bit 0

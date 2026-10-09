@@ -35,21 +35,29 @@ typedef struct {
     int32_t half_width;  /* 0x07c turned by 00428804 */
     uint8_t pad_080[0x8];
     uint32_t unknown_088;  /* 0x088 */
-    int32_t unknown_08c[12];  /* 0x08c zeroed by the reset */
+    int32_t road_matrix[9];  /* 0x08c the road at the car's node (00470028): the node's own vector, the sideways vector and the unit vector to the next node, 16.16; zeroed by the reset */
+    int32_t road_point[3];  /* 0x0b0 the node's position (00470028); zeroed by the reset */
     int32_t unknown_0bc;  /* 0x0bc the collision body's +0x78 (004407b8) */
     uint32_t unknown_0c0;  /* 0x0c0 */
     uint8_t pad_0c4[0x74];
     int32_t body_extent_a;  /* 0x138 the collision body (+0xc4) +0x74; 0x457 from the reset, half the model's +0x64e (004407b8) */
     int32_t body_extent_b;  /* 0x13c +0x78; 0x8ae, half the model's +0x652 */
     int32_t body_extent_c;  /* 0x140 +0x7c; 0xd05, half the model's +0x64a */
-    uint8_t pad_144[0x14];
-    int32_t unknown_158[4];  /* 0x158 zeroed by the reset */
+    int32_t unknown_144;  /* 0x144 the collision body (+0xc4) +0x80; zeroed when a computer car is placed (0046f110) */
+    int32_t unknown_148;  /* 0x148 body +0x84; zeroed when a computer car is placed, then 1.. ai params[12] when it goes to physics 6 (0046f110) */
+    int32_t unknown_14c;  /* 0x14c body +0x88; 0x64 for opponents, 0xa0 for traffic (0046f110) */
+    int32_t unknown_150;  /* 0x150 body +0x8c; zeroed when a computer car is placed */
+    int32_t speed_factor;  /* 0x154 body +0x90: one of ai params[14..17] at random, 16.16; scales the target speeds (00470998) */
+    int32_t zone;  /* 0x158 the computer cars' zone record (0052b478 + 12 * zone) this car is placed for; zeroed by the reset (0046a238) */
+    int32_t target_speed;  /* 0x15c the speed a computer car is set to (0046e924); zeroed by the reset */
+    int32_t follow_speed;  /* 0x160 the speed of the car the zone follows, halved with the AI's, scaled (0046e924); zeroed by the reset */
+    int32_t lane_offset;  /* 0x164 sideways from the road centre where a computer car is placed, 16.16 (0046ef18); zeroed by the reset */
     uint8_t pad_168[0xc];
-    uint8_t flags_174;  /* 0x174 */
+    uint8_t flags_174;  /* 0x174 the computer cars: 4 an opponent (not traffic), 8 a police car (0046a238) */
     uint8_t flags_175;  /* 0x175 bit 1: the player's car shows its dashboard pieces (004591d4) */
-    uint8_t unknown_176[2];  /* 0x176 zeroed by the reset with flags_174 and flags_175 */
+    uint8_t flags_176[2];  /* 0x176 zeroed by the reset with flags_174 and flags_175; see ai_lanes.h for the computer cars' bits in the four flag bytes */
     uint8_t pad_178[0x1c4];
-    int32_t unknown_33c;  /* 0x33c zeroed by the reset */
+    int32_t lane_bias;  /* 0x33c sideways bias added to lane_offset, picked at random per car (00470a34); zeroed by the reset */
     uint8_t unknown_340;  /* 0x340 zeroed by the reset */
     int32_t draw_node;  /* 0x341 node used to draw the car with its row (0045a848) */
     int32_t draw_node2;  /* 0x345 */
@@ -193,17 +201,26 @@ CAR_CHECK(yaw_rate, offsetof(Car, yaw_rate) == 0x74);
 CAR_CHECK(half_length, offsetof(Car, half_length) == 0x78);
 CAR_CHECK(half_width, offsetof(Car, half_width) == 0x7c);
 CAR_CHECK(unknown_088, offsetof(Car, unknown_088) == 0x88);
-CAR_CHECK(unknown_08c, offsetof(Car, unknown_08c) == 0x8c);
+CAR_CHECK(road_matrix, offsetof(Car, road_matrix) == 0x8c);
+CAR_CHECK(road_point, offsetof(Car, road_point) == 0xb0);
 CAR_CHECK(unknown_0bc, offsetof(Car, unknown_0bc) == 0xbc);
 CAR_CHECK(unknown_0c0, offsetof(Car, unknown_0c0) == 0xc0);
 CAR_CHECK(body_extent_a, offsetof(Car, body_extent_a) == 0x138);
 CAR_CHECK(body_extent_b, offsetof(Car, body_extent_b) == 0x13c);
 CAR_CHECK(body_extent_c, offsetof(Car, body_extent_c) == 0x140);
-CAR_CHECK(unknown_158, offsetof(Car, unknown_158) == 0x158);
+CAR_CHECK(unknown_144, offsetof(Car, unknown_144) == 0x144);
+CAR_CHECK(unknown_148, offsetof(Car, unknown_148) == 0x148);
+CAR_CHECK(unknown_14c, offsetof(Car, unknown_14c) == 0x14c);
+CAR_CHECK(unknown_150, offsetof(Car, unknown_150) == 0x150);
+CAR_CHECK(speed_factor, offsetof(Car, speed_factor) == 0x154);
+CAR_CHECK(zone, offsetof(Car, zone) == 0x158);
+CAR_CHECK(target_speed, offsetof(Car, target_speed) == 0x15c);
+CAR_CHECK(follow_speed, offsetof(Car, follow_speed) == 0x160);
+CAR_CHECK(lane_offset, offsetof(Car, lane_offset) == 0x164);
 CAR_CHECK(flags_174, offsetof(Car, flags_174) == 0x174);
 CAR_CHECK(flags_175, offsetof(Car, flags_175) == 0x175);
-CAR_CHECK(unknown_176, offsetof(Car, unknown_176) == 0x176);
-CAR_CHECK(unknown_33c, offsetof(Car, unknown_33c) == 0x33c);
+CAR_CHECK(flags_176, offsetof(Car, flags_176) == 0x176);
+CAR_CHECK(lane_bias, offsetof(Car, lane_bias) == 0x33c);
 CAR_CHECK(unknown_340, offsetof(Car, unknown_340) == 0x340);
 CAR_CHECK(draw_node, offsetof(Car, draw_node) == 0x341);
 CAR_CHECK(draw_node2, offsetof(Car, draw_node2) == 0x345);
