@@ -91,3 +91,10 @@ uint32_t race_random(RaceState *race)
     race->random_seed = race->random_last & 0xffff;
     return (race->random_last & 0xffff00) >> 8;
 }
+
+Car *race_car_by_handle(const RaceState *race, uint32_t handle)
+{
+    for (int i = 0; i < RACE_PLAYERS; i++)
+        if (race->cars[i] != NULL && race->cars[i]->unknown_088 == handle) return race->cars[i];
+    return NULL;
+}
