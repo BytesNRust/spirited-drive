@@ -32,7 +32,7 @@ typedef struct {
 typedef struct {
     int32_t unknown_000;
     int32_t lap_marks[RACE_LAP_MARKS];  /* +4: [0] start, [k] end of lap k */
-    int32_t top_speed;      /* +0x1cc: the fastest forward speed, 16.16 (0042f3e8 car_physics; the computer cars' 0046f3e8) */
+    int32_t top_speed;      /* +0x1cc: the fastest forward speed, 16.16 (car_physics RECORD_TOP_SPEED; the computer cars, 0046f3e8) */
     uint8_t unknown_1d0[2];
 } PlayerRecord;
 #pragma pack(pop)
