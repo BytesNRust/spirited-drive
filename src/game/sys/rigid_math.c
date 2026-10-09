@@ -167,6 +167,15 @@ void rm_unit(int32_t v[3])
     v[2] = fx_div(z, length);
 }
 
+void rm_unit_rounded(int32_t v[3])
+{
+    const int32_t sum = (int32_t)(square(v[0]) + square(v[1]) + square(v[2]));
+    const int32_t length = rm_sqrt(sum, 8, sum);
+    if (length == 0) return;
+    const int32_t inverse = fx_div(ONE, length);
+    for (int i = 0; i < 3; i++) v[i] = fx_mul_round(v[i], inverse);
+}
+
 int32_t rm_inverse(int32_t x)
 {
     const uint64_t u = (uint32_t)x;

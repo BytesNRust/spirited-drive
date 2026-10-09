@@ -53,6 +53,10 @@ void rm_normalise(int32_t v[3]);
  * alone when the length is 0. */
 void rm_unit(int32_t v[3]);
 
+/* 0041d2a0: scaled to length 1 by the reciprocal of its length (rounded
+ * products, no halving first); left alone at length 0. */
+void rm_unit_rounded(int32_t v[3]);
+
 /* 0046ff3c: the matrix turned so its middle row is `up`: the first row
  * becomes up x last (normalised), the last up x first (8.8 products). */
 void rm_set_up(int32_t m[9], const int32_t up[3]);
