@@ -27,8 +27,17 @@ int32_t rm_dot(const int32_t a[3], const int32_t b[3]);
  * step moves less than 2^(16 - bits); 0 for 0. */
 int32_t rm_sqrt(int32_t value, int32_t bits, int32_t guess);
 
+/* 0042ebcc: 1 / x for an unsigned 16.16 x on the x87, whose divide runs
+ * at single precision (24 significant bits, to nearest, ties to even)
+ * before frndint truncates: 2^32 / x so rounded, then truncated. Past
+ * 32 bits (x below 2) fistp gives 0x80000000. */
+int32_t rm_inverse(int32_t x);
+
 /* 0041d3b8: a vector's length, halving it first while it is large. */
 int32_t rm_length(const int32_t v[3]);
+
+/* 0041d4b8: the same for the vector's x and z only. */
+int32_t rm_length_xz(const int32_t v[3]);
 
 /* 0041d33c: scaled to length 1 (at 8.8 precision); left alone when 0. */
 void rm_normalise(int32_t v[3]);
