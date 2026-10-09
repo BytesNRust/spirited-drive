@@ -41,6 +41,7 @@ add_library(tnfs_core STATIC
     src/game/race/car_load.c
     src/game/race/car_control.c
     src/game/race/race_sim.c
+    src/game/sys/rigid_math.c
     src/game/race/car_tyres.c
     src/game/race/car_vertical.c
     src/game/race/car_walls.c
@@ -172,6 +173,8 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(probe_object3d PRIVATE tnfs_core)
     target_compile_options(probe_object3d PRIVATE ${TNFS_WARNINGS})
 
+    add_executable(probe_math tools/probe_math.c)
+    target_link_libraries(probe_math PRIVATE tnfs_core)
     add_executable(probe_car tools/probe_car.c)
     target_link_libraries(probe_car PRIVATE tnfs_core)
     target_compile_options(probe_car PRIVATE ${TNFS_WARNINGS})
