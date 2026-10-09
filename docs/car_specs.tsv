@@ -9,7 +9,7 @@
 0x02c	i32	unknown_02c	halved in arcade mode
 0x034	i32	drag	0042f630: times the surface's rolling factor
 0x038	i32	unknown_038	00430cb0: a speed threshold
-0x03c	i32	unknown_03c	zeroed when the checksum fails
+0x03c	i32	power	scales the torque curve once (00409990): x 0x133/256 in arcade mode (0x14c on track 3), x 0xf8/256 automatic; zeroed when the checksum fails
 0x054	i32	wheel_rpm	0042ee68: wheel speed to engine revs
 0x058	i32	gear_limit	top forward gear + 3 (004098a0)
 0x068	i32[8]	gear_ratio	0042ee68: indexed by gear + 2 (reverse -2, neutral -1)
@@ -52,3 +52,5 @@
 0x040	i32	unknown_040	0042ff60: a length; squared times 0x324 is the turning inertia
 0x044	i32	unknown_044	0042ff60: times +0x24 the weight moved per forward force
 0x2d0	i32	unknown_2d0	0042ff60
+0x05c	i32	unknown_05c	00409990: a torque curve factor
+0x064	i32	unknown_064	00409990: a torque curve factor

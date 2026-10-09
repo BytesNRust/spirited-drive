@@ -86,7 +86,8 @@
 0x4c6	i32	node_flag_4c6	property 5 or 18
 0x4ca	i32	node_flag_4ca	property 14 or 17
 0x4ce	i32	node_flag_4ce	property 15 or 18
-0x48a	i32	unknown_48a	from the car setup; 4 changes gear more slowly now and then (0042ed94)
+0x481	u8[9]	driver_name	the race entry's name (004400f4)
+0x48a	i32	model	the car (004bc664 names), from the race entry (004400f4); 4 changes gear more slowly now and then (0042ed94)
 0x48e	i32	traction_control	fitted (car setup and spec +0x338)
 0x492	i32	anti_lock	ABS fitted (car setup and spec +0x334)
 0x479	ref	specs	the car's performance data

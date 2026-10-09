@@ -106,8 +106,8 @@ typedef struct {
     uint8_t pad_469[0x10];
     uint32_t specs;  /* 0x479 the car's performance data */
     int32_t player;  /* 0x47d index of the driver (00509e1c, 0051cc5c + 0x1d2 * i) */
-    uint8_t pad_481[0x9];
-    int32_t unknown_48a;  /* 0x48a from the car setup; 4 changes gear more slowly now and then (0042ed94) */
+    uint8_t driver_name[9];  /* 0x481 the race entry's name (004400f4) */
+    int32_t model;  /* 0x48a the car (004bc664 names), from the race entry (004400f4); 4 changes gear more slowly now and then (0042ed94) */
     int32_t traction_control;  /* 0x48e fitted (car setup and spec +0x338) */
     int32_t anti_lock;  /* 0x492 ABS fitted (car setup and spec +0x334) */
     uint8_t pad_496[0x4];
@@ -233,7 +233,8 @@ CAR_CHECK(unknown_461, offsetof(Car, unknown_461) == 0x461);
 CAR_CHECK(unknown_465, offsetof(Car, unknown_465) == 0x465);
 CAR_CHECK(specs, offsetof(Car, specs) == 0x479);
 CAR_CHECK(player, offsetof(Car, player) == 0x47d);
-CAR_CHECK(unknown_48a, offsetof(Car, unknown_48a) == 0x48a);
+CAR_CHECK(driver_name, offsetof(Car, driver_name) == 0x481);
+CAR_CHECK(model, offsetof(Car, model) == 0x48a);
 CAR_CHECK(traction_control, offsetof(Car, traction_control) == 0x48e);
 CAR_CHECK(anti_lock, offsetof(Car, anti_lock) == 0x492);
 CAR_CHECK(downforce_a, offsetof(Car, downforce_a) == 0x49a);

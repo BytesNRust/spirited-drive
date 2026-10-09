@@ -35,6 +35,19 @@ typedef struct {
 } PlayerRecord;
 #pragma pack(pop)
 
+/* 004fb7fa + 0x4b * slot: who drives the car in a slot and how. */
+#pragma pack(push, 1)
+typedef struct {
+    char name[9];
+    int32_t car;          /* +0x09: 004bc664 names, "TSupra" first */
+    int32_t automatic;    /* +0x0d */
+    int32_t traction;     /* +0x11: traction control wanted */
+    int32_t anti_lock;    /* +0x15: ABS wanted */
+    uint8_t unknown_19[0x32];
+} RaceEntry;
+#pragma pack(pop)
+typedef char race_entry_size_check[sizeof(RaceEntry) == 0x4b ? 1 : -1];
+
 typedef struct {
     void *user;
     /* 00443eac: a sound effect (arguments as the original's; 00444028 and
@@ -101,6 +114,9 @@ typedef struct {
     int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     const Car *cars[RACE_PLAYERS];  /* 00509e1c: the cars by slot */
+    const Car *leader;              /* 00509e18: the car in slot 0, once loaded */
+    RaceEntry entries[RACE_PLAYERS];  /* 004fb7fa */
+    int32_t specs_loaded;           /* 004bc698: the specs are in memory already, as tuned */
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */

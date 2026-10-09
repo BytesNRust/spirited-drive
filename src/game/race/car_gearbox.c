@@ -49,7 +49,7 @@ void car_gear_change(Car *car, const CarSpecs *specs, const RaceState *race)
     car->saved_throttle = car->throttle;
     car->stalled = 1;
     car->engaged = 0;
-    const int slow = car->unknown_48a == SLOW_SHIFT_CAR && (race->tick & 0x31) == 0x10;
+    const int slow = car->model == SLOW_SHIFT_CAR && (race->tick & 0x31) == 0x10;
     car->shift_timer = specs->shift_ticks + (slow ? 3 : 0);
 }
 

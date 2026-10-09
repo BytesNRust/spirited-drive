@@ -15,6 +15,11 @@ static inline int32_t car_specs_word(const CarSpecs *specs, int32_t offset)
     return v;
 }
 
+static inline void car_specs_set_word(CarSpecs *specs, int32_t offset, int32_t v)
+{
+    if (offset >= 0 && offset + 4 <= (int32_t)sizeof *specs) memcpy((uint8_t *)specs + offset, &v, sizeof v);
+}
+
 /* The gear ratio of a gear (-2 reverse .. ), from spec +0x70 + 4 * gear. */
 static inline int32_t car_gear_ratio(const CarSpecs *specs, int32_t gear)
 {

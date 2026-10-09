@@ -24,13 +24,15 @@ typedef struct {
     uint8_t pad_030[0x4];
     int32_t drag;  /* 0x034 0042f630: times the surface's rolling factor */
     int32_t unknown_038;  /* 0x038 00430cb0: a speed threshold */
-    int32_t unknown_03c;  /* 0x03c zeroed when the checksum fails */
+    int32_t power;  /* 0x03c scales the torque curve once (00409990): x 0x133/256 in arcade mode (0x14c on track 3), x 0xf8/256 automatic; zeroed when the checksum fails */
     int32_t unknown_040;  /* 0x040 0042ff60: a length; squared times 0x324 is the turning inertia */
     int32_t unknown_044;  /* 0x044 0042ff60: times +0x24 the weight moved per forward force */
     uint8_t pad_048[0xc];
     int32_t wheel_rpm;  /* 0x054 0042ee68: wheel speed to engine revs */
     int32_t gear_limit;  /* 0x058 top forward gear + 3 (004098a0) */
-    uint8_t pad_05c[0xc];
+    int32_t unknown_05c;  /* 0x05c 00409990: a torque curve factor */
+    uint8_t pad_060[0x4];
+    int32_t unknown_064;  /* 0x064 00409990: a torque curve factor */
     int32_t gear_ratio[8];  /* 0x068 0042ee68: indexed by gear + 2 (reverse -2, neutral -1) */
     int32_t torque_points;  /* 0x088 entries in the torque curve (00409a04) */
     uint8_t pad_08c[0x18];
@@ -90,11 +92,13 @@ CAR_SPECS_CHECK(unknown_028, offsetof(CarSpecs, unknown_028) == 0x28);
 CAR_SPECS_CHECK(unknown_02c, offsetof(CarSpecs, unknown_02c) == 0x2c);
 CAR_SPECS_CHECK(drag, offsetof(CarSpecs, drag) == 0x34);
 CAR_SPECS_CHECK(unknown_038, offsetof(CarSpecs, unknown_038) == 0x38);
-CAR_SPECS_CHECK(unknown_03c, offsetof(CarSpecs, unknown_03c) == 0x3c);
+CAR_SPECS_CHECK(power, offsetof(CarSpecs, power) == 0x3c);
 CAR_SPECS_CHECK(unknown_040, offsetof(CarSpecs, unknown_040) == 0x40);
 CAR_SPECS_CHECK(unknown_044, offsetof(CarSpecs, unknown_044) == 0x44);
 CAR_SPECS_CHECK(wheel_rpm, offsetof(CarSpecs, wheel_rpm) == 0x54);
 CAR_SPECS_CHECK(gear_limit, offsetof(CarSpecs, gear_limit) == 0x58);
+CAR_SPECS_CHECK(unknown_05c, offsetof(CarSpecs, unknown_05c) == 0x5c);
+CAR_SPECS_CHECK(unknown_064, offsetof(CarSpecs, unknown_064) == 0x64);
 CAR_SPECS_CHECK(gear_ratio, offsetof(CarSpecs, gear_ratio) == 0x68);
 CAR_SPECS_CHECK(torque_points, offsetof(CarSpecs, torque_points) == 0x88);
 CAR_SPECS_CHECK(max_slip, offsetof(CarSpecs, max_slip) == 0xa4);
