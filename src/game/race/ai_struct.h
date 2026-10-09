@@ -9,19 +9,18 @@ enum { AI_STATE_SIZE = 0x370 };
 
 #pragma pack(push, 1)
 typedef struct {
-    int32_t lane_cars[2];  /* 0x000 traffic cars placed in each lane: [0] the oncoming lane, [1] the lane with the player; at most 004fb7ec - 1 (0046ea04); zeroed at the start (004702d4) */
+    int32_t lane_cars[2];  /* 0x000 traffic cars placed in each lane: [0] the oncoming lane, [1] the player's lane (0046ea04); zeroed at the start (004702d4) */
     int16_t lane_width[156];  /* 0x008 row = lanes (node +4 & 0xf), [verge / 8]: the road width over the lanes, 8.8 (004702d4); row 0 zero; read as words from 0052b336 */
     int16_t unknown_140[4];  /* 0x140 0046a3c0 */
-    int16_t zones[12];  /* 0x148 two records of six words, one per human player: the player's slot, the end and start nodes of the span a computer car may stay in (0046a070), a word not read yet, the end and start nodes of the span the player sees, which cars are placed just outside of (0046a0f4, 0046ea04) */
+    int16_t zones[12];  /* 0x148 two records of six words, one per human: the slot, end and start nodes of the span a computer car may stay in (0046a070), a word, end and start of the span the player sees (0046a0f4, 0046ea04) */
     int32_t unknown_160;  /* 0x160 80000 at the start */
     uint8_t pad_164[0x4];
     int32_t unknown_168;  /* 0x168 004fb7f0 at the start */
     uint32_t profiles[8];  /* 0x16c driver profile per slot (0044941c: 004c2888 + 0x8d * letter) */
     uint8_t pad_18c[0x4];
-    int32_t params[101];  /* 0x190 the computer cars' tuning (00456410) */
-    uint8_t pad_324[0x18];
+    int32_t params[107];  /* 0x190 the computer cars' tuning (00456410); [65..85] and [86..106] are the catch-up scales 0046f3e8 reads by the gap to the first car */
     int32_t unknown_33c;  /* 0x33c zeroed at the start */
-    int32_t unknown_340;  /* 0x340 0x5999 at the start */
+    int32_t racer_decel;  /* 0x340 0x5999 at the start; how fast a racer's speed falls towards a lower target per tick (0046f3e8) */
     int32_t unknown_344;  /* 0x344 zeroed at the start */
     uint8_t pad_348[0x8];
     int32_t traffic_placed;  /* 0x350 counts the traffic cars sent into physics model 6 (0046f110); zeroed at the start */
@@ -30,7 +29,7 @@ typedef struct {
     uint32_t first_car;  /* 0x35c 00509e1c at the start */
     int32_t unknown_360;  /* 0x360 004fb7da bit 0 */
     uint8_t pad_364[0x4];
-    int32_t unknown_368;  /* 0x368 the lane width last looked up (times 0x100) */
+    int32_t last_lane_width;  /* 0x368 the lane width last looked up (times 0x100) by 0046f3e8 and 0046d79c */
     uint8_t pad_36c[0x4];
 } AiState;
 #pragma pack(pop)
@@ -47,12 +46,12 @@ AI_STATE_CHECK(unknown_168, offsetof(AiState, unknown_168) == 0x168);
 AI_STATE_CHECK(profiles, offsetof(AiState, profiles) == 0x16c);
 AI_STATE_CHECK(params, offsetof(AiState, params) == 0x190);
 AI_STATE_CHECK(unknown_33c, offsetof(AiState, unknown_33c) == 0x33c);
-AI_STATE_CHECK(unknown_340, offsetof(AiState, unknown_340) == 0x340);
+AI_STATE_CHECK(racer_decel, offsetof(AiState, racer_decel) == 0x340);
 AI_STATE_CHECK(unknown_344, offsetof(AiState, unknown_344) == 0x344);
 AI_STATE_CHECK(traffic_placed, offsetof(AiState, traffic_placed) == 0x350);
 AI_STATE_CHECK(unknown_358, offsetof(AiState, unknown_358) == 0x358);
 AI_STATE_CHECK(first_car, offsetof(AiState, first_car) == 0x35c);
 AI_STATE_CHECK(unknown_360, offsetof(AiState, unknown_360) == 0x360);
-AI_STATE_CHECK(unknown_368, offsetof(AiState, unknown_368) == 0x368);
+AI_STATE_CHECK(last_lane_width, offsetof(AiState, last_lane_width) == 0x368);
 
 #endif

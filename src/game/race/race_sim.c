@@ -95,6 +95,7 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
     sim->specs[0] = *specs;
     Car *car = &sim->cars[0];
     race->cars[0] = car;
+    for (int i = 0; i < RACE_PLAYERS; i++) race->by_node[i] = race->by_progress[i] = i;
     car->index = 0;
     car->player = 0;
     car_enter(car, &sim->specs[0], CAR_HANDLE, race);
@@ -131,7 +132,8 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         for (int i = 0; i < sim->count; i++)
             if ((sim->cars[i].flags_51a & FLAG_ACTIVE) && sim->cars[i].physics != 0)
                 run_physics(&sim->cars[i], &sim->specs[i], race);
-        /* TODO(00440dd8, 0040d8e8): the running order and the collisions. */
+        race_sort_cars(race);
+        /* TODO(0040d8e8): the collisions between cars. */
         for (int i = 0; i < sim->count; i++)
             if ((sim->cars[i].flags_51a & FLAG_ACTIVE) && sim->cars[i].controller != 0)
                 car_keep_draw_state(&sim->cars[i]);
