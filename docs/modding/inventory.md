@@ -285,7 +285,13 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | PATHS.DAT | 19 × 80 chars, exactly 0x5f0 bytes | `0042a188` | [X] |
 | CONFIG.DAT | exactly 24402 bytes | `0042a010` | [S] |
 | BNK table | 128 offsets, headers 72 B | [D] | [D] |
-| Heap / buffer sizes for any file, vertex/polygon/texture-ref caps in ORIP, FAM object count, SHPI bitmap count and size, QFS output size | **unknown** | allocator `00474c8c`, `004510e8`, `004576f0`, `00490ea8`, `00476268` | **[?]** |
+| FAM file size | fixed buffer `0x162400` bytes (1 451 008), reserved by `00451040` (name `004b0a54`) at `00513e3c`; `004510e8` reads at most that many, **a larger FAM is truncated silently**. The largest on the CD is `TR4_M01.FAM`, 1 444 480 bytes (`0x160a80`), i.e. only 6 528 bytes of headroom [D] | `00451040`, `004510e8` | [X][D] |
+| `wwww` tables | child count from `+4`, no cap; offsets are turned into pointers **without bounds checks** (offsets must lie inside the file). A zero offset is *not* left as 0: it receives the previous entry's pointer (`004511a4`), so a writer must keep zeros as they are | `004511a4` | [X] |
+| FAM scenery objects (child 3) | object `i` is written at `005150f0 + i × 0x138` unchecked; the next global is the PDN table `00517580`, `0x2490 = 30 × 0x138` bytes later. **At most 30 objects** (inferred from the memory layout, not from a compare in the code); object 31 overwrites the PDN table. CD maximum is 8 [D] | `004511fc` → `004585e4` → `004576f0` | [X][D] |
+| FAM object parts | child 0 = ORIP (`00490ea8`), child 1 = SHPI; a palette of type `0x24` has its `0x300` bytes shifted right by 2 | `004576f0` | [X] |
+| ORIP | `00490ea8` only relocates (offsets at `+0x18,+0x20,+0x28,+0x3c,+0x44,+0x4c,+0x50,+0x58,+0x60,+0x68` become pointers; words `+4` and `+8` of each 12-byte polygon become `[+0x50] + value × 4`; if `[+0x64] != 0` it allocates `+0x6c` via `00474bec`). **No caps there; every index must fall inside its table** | `00490ea8` | [X] |
+| SHPI entries, texture number, ORIP vertices/polygons/uv | **[?]** — in `0048d798`, `00446f58`, `00490b9a` and what `FUN_00490b21` / `004911f2` / `004912d0` call (question 3, second half) | | [?] |
+| QFS output size, BNK, other buffers | **[?]** (questions 4, 5) | | [?] |
 
 The last row is what `validate` needs most and what we do not have yet; see the questions below. A limit
 without an address does not enter the table (AC5).
@@ -316,9 +322,8 @@ Each is answerable from Ghidra between two functions. They are limits the tool n
 1. ~~TRI capacity~~ **Answered** by tnfs-decomp (see §7): fixed `0x1621c` header, `SJBO` and terrain sized by their own fields, `0x8700`
    extra reserve; `00474c8c` is the allocator (name, size, flags on the stack).
 2. ~~`descriptor_count`~~ **Answered** (see §7): only a skip count; descriptor byte `+4` is unchecked; `scenery_slots × 2` state buffer.
-3. `004511a4`/`004511fc`/`004585e4`/`004576f0`: maximum objects in the FAM's child 3, maximum SHPI directory
-   entries, any bound on texture number (`3xx+{A,B,C}`) and on per-track bitmap count; what `004510e8` does with a
-   file larger than its buffer.
+3. **Partly answered** (see §7): FAM buffer `0x162400`, 30 objects, unchecked `wwww` offsets, ORIP only relocates. Still open: SHPI
+   entry cap, texture number bound, per-ORIP vertex/polygon/uv caps (`0048d798`, `00446f58`, `00490b9a`).
 4. `00490ea8` and `FUN_00457d40` callees: caps on ORIP vertices, polygons, uv, texture refs, sections A/B/C, labels,
    and which section each of `FUN_00490b21`, `FUN_004911f2`, `FUN_004912d0` searches (§5 names).
 5. `00476268` (resource load): maximum decompressed size; behaviour on a QFS larger than the buffer.
