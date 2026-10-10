@@ -24,4 +24,10 @@ uint32_t ai_profile_handle(const RaceState *race, int32_t index);
 /* 00449400: the game's own 9 driver profiles (004c2888) become the table in use. */
 void ai_use_game_profiles(RaceState *race);
 
+/* 0046ed88: a car put on the starting grid by its grid place: two abreast
+ * (one per row of 4 nodes) up to 2 racers, else one every 2 nodes from node
+ * 32, half a lane either side of the centre line; on the open roads (track
+ * above 2) at the node's x and heading. */
+void ai_grid_place(Car *car, RaceState *race);
+
 #endif

@@ -1,8 +1,16 @@
 #include "game/race/ai_setup.h"
 
+#include "game/race/ai_lanes.h"
 #include "game/race/ai_profiles.h"
 
-enum { TRACK_FLAG_4 = 4 };
+enum {
+    TRACK_FLAG_4 = 4,
+    GRID_LANE_NODE = 10,    /* whose lanes give the gap between the two columns */
+    GRID_NARROW_NODE = 20,  /* 2 lanes left and 1 right: the left column moves a lane over */
+    GRID_FRONT = 0x20,      /* the front row's node */
+    PAIRED_RACERS = 2,      /* up to this, two cars a row */
+    OPEN_ROAD_TRACK = 2     /* above: the cars take the node's x and heading */
+};
 
 /* 00470238 by the first car's model (type 3): 0, 6, 7 -> 2; 1, 4 -> 0; 2, 3, 5 -> 1 */
 static const int8_t ROW_BY_MODEL[8] = { 2, 0, 1, 1, 0, 1, 2, 2 };
@@ -43,4 +51,22 @@ void ai_use_game_profiles(RaceState *race)
     race->driver_profiles = (const DriverProfile *)(const void *)(AI_DRIVER_DATA + AI_DRIVER_LETTERS);
     race->driver_profiles_base = AI_DRIVER_PROFILES_ADDR;
     race->driver_profile_count = AI_DRIVER_PROFILES;
+}
+
+void ai_grid_place(Car *car, RaceState *race)
+{
+    const TriNode lanes = race_node(race, GRID_LANE_NODE);
+    const int32_t gap = ai_lane_width(race, lanes.flags[0] & 0xf, lanes.right_verge) << 8;
+    const int32_t place = (uint32_t)car->player < RACE_PLAYERS ? race->grid[car->player] : 0;  /* port guard */
+    car->node = GRID_FRONT - (race->racers > PAIRED_RACERS ? place * 2 : place / 2 * 4);
+    car->x = -gap / 2 + place % 2 * gap;
+    if (race->track > OPEN_ROAD_TRACK) {
+        const TriNode at = race_node(race, car->node);
+        car->x += at.position.x;
+        car->yaw = (int32_t)((uint32_t)(int32_t)at.orientation << 10);
+    }
+    const TriNode narrow = race_node(race, GRID_NARROW_NODE);
+    if (narrow.flags[0] >> 4 == 2 && (narrow.flags[0] & 0xf) == 1 && place % 2 == 0) car->x -= gap;
+    car->lateral = 0;
+    car->z = race_node(race, car->node).position.z;
 }
