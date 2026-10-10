@@ -55,6 +55,10 @@ void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t s
  * ends first. Off when ai params[13] is 0 or 004fb7d4 is 1. */
 void ai_place_police(RaceState *race);
 
+/* 0046d580: the car's speed along its road frame's forward row (road_axes
+ * 6..8), its velocity's x negated, every term 8.8 by 8.8. */
+int32_t ai_road_speed(const Car *car);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);

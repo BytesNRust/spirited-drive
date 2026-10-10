@@ -298,3 +298,9 @@ void ai_place_police(RaceState *race)
     }
     race->police_node = node;
 }
+
+int32_t ai_road_speed(const Car *car)
+{
+    return (-car->velocity_x >> 8) * (car->road_axes[6] >> 8) + (car->road_axes[7] >> 8) * (car->velocity_y >> 8) +
+           (car->road_axes[8] >> 8) * (car->velocity_z >> 8);
+}
