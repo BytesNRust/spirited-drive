@@ -221,13 +221,13 @@ Walked all 38 files [D]:
 |---|---|---|---|
 | 128 × u32 offset table, 0 = absent | yes | yes | Match |
 | Sample header 72 B, `EACS` at `+0x28`, `+4` = header offset + `0x28` | yes | `EACS` and `+4` agree in every file | **Match** (38/38) |
-| Rate `0x3E80` (16 kHz) | yes | 16000 in every sample of every file | Match |
+| Rate `0x3E80` (16 kHz) | yes | 16000 in 299 of 334 samples; **16247 in 27 and 22050 in 8**, all in the `COLL*` banks [D] | Match for car banks; **collision banks differ**: an exporter must write the stored rate |
 | `+0x30` 1 = 8-bit, 2 = 16-bit; `+0x31` 1 = mono, 2 = stereo | yes | yes | Match |
 | Car bank = 4 samples at slots 1, 2, 3, 32 (offsets `04, 08, 0C, 80`) | engine ×2, horn, gear change | `*_sw`: slots 1, 2 stereo 16-bit; 3 mono; 32 length 0 | **Match** |
 | Header flags `+0`: 8-bit car banks `1, 2, 4000, 10` | | `*_sw`: `0x40, 0x2, 0x4000, 0x10`; `TRAFFC`: `0x2000, 2, 0x4000, 0x10`; `O*mb`: `0x10, 4, 8` (slots 65, 67, 69); `FRONT_MW`: `0xF8`; `COLL*`: `0x30`; `NFS_FMMB`: `0x100, 0x200…` | Flags differ by bank family: **meaning [?]** |
 | "S/M = 8/16 and stereo/mono" file-name rule | file suffix | 8-bit mono banks are the `O*mb`/`COLL_SB`; `*_sw` are 16-bit | Auroux's `SB` car banks are not on this CD |
 | Length at `+0x3C` in samples | yes | **0 for the 22..30 collision samples** and for the gear-change sample; their extent is the gap to the next offset | **Difference**: length is not always stored. An exporter cannot trust `+0x3C` |
-| Data entirely inside the file | | `TESTBANK.BNK` slot 3 claims 64930 samples, **ends past the file** [D] | The EXE has no string `testbank`: an unused file. **AC4's "all of `original/` passes without warnings" needs the rule "files the EXE references"**, or this file is flagged |
+| Data entirely inside the file | | `TESTBANK.BNK` slot 3 claims 64930 samples, **ends past the file** [D] | The EXE has no string `testbank`: an unused file. A second case: `OSUPMB3D.BNK` slot 70 claims 9653 bytes at 8848 in a 17744-byte file (757 past the end) [D]; no whole-string `*3D` name in the EXE either. **AC4's "all of `original/` passes without warnings" needs the rule "files the EXE references"**, or this file is flagged |
 
 BNK names the EXE references (`004b00b0..004b01f7`): `Supra_sw Diablosw 911_sw ZR1_sw tr512_sw Vipersw NSX_sw RX7_sw
 traffc OSupmb ODiamb O911mb OZR1mb O512mb OVipmb ONSXmb ORX7mb traffcO COLLSWWT3 COLSWMT3 COLLSBWT NFS_FMMB`
