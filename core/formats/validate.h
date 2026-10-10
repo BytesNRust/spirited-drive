@@ -31,6 +31,9 @@ size_t report_fatal_count(const Report *r);
  * finding is a warning. */
 void report_print(const Report *r, ValidateMode mode, FILE *out);
 
+/* The same lines in a buffer (NUL terminated, cut at `cap`). Returns the length that would be needed. */
+size_t report_text(const Report *r, ValidateMode mode, char *buf, size_t cap);
+
 /* Validates one file by its name and content (QFS unpacked first). Findings are appended. */
 void validate_file(const uint8_t *file, size_t size, const char *name, Report *r);
 

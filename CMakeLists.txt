@@ -24,6 +24,7 @@ add_library(tnfs_core STATIC
     core/formats/fsh.c
     core/formats/mesh.c
     core/formats/mesh_exchange.c
+    core/formats/modpath.c
     core/formats/pbs.c
     core/formats/pbs_fields.c
     core/formats/limits.c
@@ -172,7 +173,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -232,6 +233,16 @@ if(NOT EMSCRIPTEN)
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME studio_cli COMMAND sh ${CMAKE_SOURCE_DIR}/tests/studio_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
     endif()
+    if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_test(NAME mods_overlay COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mods_overlay.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+    endif()
+    add_executable(test_platform_mods tests/test_platform_mods.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_platform_mods PRIVATE m)
+    endif()
+    target_compile_options(test_platform_mods PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME platform_mods COMMAND test_platform_mods)
     file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
     if(TNFS_PBS_FILES)

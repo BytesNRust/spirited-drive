@@ -48,16 +48,33 @@ size_t report_fatal_count(const Report *r)
     return n;
 }
 
-void report_print(const Report *r, ValidateMode mode, FILE *out)
+size_t report_text(const Report *r, ValidateMode mode, char *buf, size_t cap)
 {
+    size_t need = 0;
+    if (cap) buf[0] = '\0';
     for (size_t i = 0; i < r->count; ++i) {
         const Finding *f = &r->item[i];
         const char *level = (mode == VALIDATE_COMPATIBLE && f->limit->fatal) ? "error" : "warning";
-        fprintf(out, "%s %s: %s: %s", level, f->limit->id, f->item, f->limit->what);
-        if (f->limit->max != 0) fprintf(out, " [value %lld, maximum %lld]", (long long)f->value, (long long)f->limit->max);
-        else if (f->value != 0) fprintf(out, " [value %lld]", (long long)f->value);
-        fprintf(out, " (EXE %s%s)\n", f->limit->exe, f->limit->inferred ? "; inferred from the memory layout" : "");
+        char line[1024];
+        int n = snprintf(line, sizeof line, "%s %s: %s: %s", level, f->limit->id, f->item, f->limit->what);
+        if (f->limit->max != 0) n += snprintf(line + n, sizeof line - (size_t)n, " [value %lld, maximum %lld]", (long long)f->value, (long long)f->limit->max);
+        else if (f->value != 0) n += snprintf(line + n, sizeof line - (size_t)n, " [value %lld]", (long long)f->value);
+        n += snprintf(line + n, sizeof line - (size_t)n, " (EXE %s%s)\n", f->limit->exe, f->limit->inferred ? "; inferred from the memory layout" : "");
+        const size_t len = n < (int)sizeof line ? (size_t)n : sizeof line - 1;
+        if (cap && need + len < cap) { memcpy(buf + need, line, len); buf[need + len] = '\0'; }
+        need += len;
     }
+    return need;
+}
+
+void report_print(const Report *r, ValidateMode mode, FILE *out)
+{
+    const size_t need = report_text(r, mode, NULL, 0);
+    char *text = malloc(need + 1);
+    if (text == NULL) return;
+    report_text(r, mode, text, need + 1);
+    fputs(text, out);
+    free(text);
 }
 
 int validate_has_extension(const char *name, const char *ext)

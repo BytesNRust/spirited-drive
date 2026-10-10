@@ -666,21 +666,17 @@ static void test_report(void)
     report_add(&r, "NO.SUCH.ID", 1, "ignored");
     CHECK_EQ_INT(r.count, 2);
     CHECK_EQ_INT(report_fatal_count(&r), 1);                  /* the polygon quirk is a warning in both modes */
-    char *text = NULL;
-    size_t len = 0;
-    FILE *f = open_memstream(&text, &len);
-    report_print(&r, VALIDATE_COMPATIBLE, f);
-    fclose(f);
+    char text[4096];
+    report_text(&r, VALIDATE_COMPATIBLE, text, sizeof text);
     CHECK(strstr(text, "error TRI.SEGMENTS: TR1.TRI: 600 segments") != NULL);
     CHECK(strstr(text, "maximum 599") != NULL);
     CHECK(strstr(text, "0043e4e0") != NULL);                  /* the limit cites its address */
     CHECK(strstr(text, "warning MESH.POLYGON_0_FLAG") != NULL);
-    free(text);
-    f = open_memstream(&text, &len);
-    report_print(&r, VALIDATE_PORT_ONLY, f);
-    fclose(f);
+    report_text(&r, VALIDATE_PORT_ONLY, text, sizeof text);
     CHECK(strstr(text, "error ") == NULL);                    /* port-only: warnings only */
-    free(text);
+    char small[16];
+    CHECK(report_text(&r, VALIDATE_COMPATIBLE, small, sizeof small) > sizeof small);   /* reports the size it needs */
+    CHECK(strlen(small) < sizeof small);
     report_free(&r);
 
     /* every limit has an address and a description (AC5) */
