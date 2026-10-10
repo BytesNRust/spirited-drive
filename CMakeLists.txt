@@ -23,8 +23,10 @@ add_library(tnfs_core STATIC
     core/formats/fsh.c
     core/formats/mesh.c
     core/formats/pbs.c
+    core/formats/pbs_fields.c
     core/formats/pdn.c
     core/formats/png.c
+    core/formats/record_exchange.c
     core/formats/shpi_exchange.c
     core/formats/tri.c
     core/formats/tri_write.c
