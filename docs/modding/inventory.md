@@ -296,7 +296,17 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 The last row is what `validate` needs most and what we do not have yet; see the questions below. A limit
 without an address does not enter the table (AC5).
 
-## 8. Decisions pending (for the user)
+## 8. Decisions (user, relayed by tnfs-decomp)
+
+**Resolved.** The user took the recommended option on all three points (relayed by tnfs-decomp; the gate approval
+itself is pending my user's direct confirmation in this session):
+
+1. Level 1 only **replaces** existing slots; adding slots is Level 2.
+2. Engine sound = one WAV per sample + TSV sidecar. Open condition: confirm in the data that 8-bit samples are
+   signed before the exporter ships.
+3. Menu names are an image edit (Level 1). Residual risk (names drawn as font text elsewhere) stays as RE question 7.
+
+The original analysis follows.
 
 1. **Add slots or only replace?** Evidence (§2): all slot names are tables in the EXE; `004c5660` has 12 race-car
    entries, track stems are a fixed list. No code enumerates a directory. **Recommendation: replace only for
