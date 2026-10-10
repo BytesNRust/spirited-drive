@@ -7,6 +7,8 @@
 
 #include <string.h>
 
+enum { EDGE_DRAG = 0x14000, EDGE_BACK = 0x10000 };  /* 0046d5c8 */
+
 enum {
     CAR_RACER = 4,                /* flags_174: a racer; 8 a police car; neither: traffic */
     CAR_COP = 8,
@@ -333,4 +335,24 @@ void ai_drive(Car *car, RaceState *race, int32_t countdown)
         }
     }
     car->ai_countdown = interval;
+}
+
+void ai_keep_off_edge(Car *car)
+{
+    const int32_t side_x = -car->road_axes[0], side_z = car->road_axes[2];
+    int32_t vx = car->velocity_x, vz = car->velocity_z;
+    int32_t out = fx_mul_round((side_x >> 8) * (vx >> 8) + (vz >> 8) * (side_z >> 8), EDGE_DRAG);
+    if ((car->road_lateral > 0 && out < 0) || (car->road_lateral < 0 && out > 0)) out = 0;
+    vz -= fx_mul_round(out, side_z);
+    vx -= fx_mul_round(out, side_x);
+    const int32_t along = (side_z >> 8) * (vz >> 8) + (side_x >> 8) * (vx >> 8);
+    if (car->road_lateral > 0 && along > -EDGE_BACK) {
+        vx -= side_x;
+        vz -= side_z;
+    } else if (car->road_lateral < 0 && along < EDGE_BACK) {
+        vx += side_x;
+        vz += side_z;
+    }
+    car->velocity_x = vx;
+    car->velocity_z = vz;
 }
