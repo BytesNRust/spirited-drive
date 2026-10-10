@@ -41,4 +41,8 @@ void ai_hold_lane_speed(Car *car, const RaceState *race, const Car *ahead, int32
 void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_PLAYERS], int32_t lane,
                    uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3]);
 
+/* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
+ * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
+void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);
+
 #endif

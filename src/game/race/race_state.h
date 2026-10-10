@@ -208,6 +208,10 @@ typedef struct {
     /* 00509d6c, 00509d70: the race's end request; 4 once the police have
      * stopped the player twice (0046bb78) */
     int32_t end_request, end_state;
+    /* 004c5fa8, 004c5fa4, 004c5fac: a sound held from one car on channel 4
+     * (00472e34 plays it from cars[car_sound_slot] while the ticks run down;
+     * set by 00472f20, 00472348 and 0047217c). What it is (a horn?) is open. */
+    int32_t car_sound_ticks, car_sound_kind, car_sound_slot;
     /* 00504218, 0050421c: the node and the segment the track's scenery was
      * last streamed in for (0043f48c); -1 makes the renderer stream it again */
     int32_t scenery_stream_node, scenery_stream_segment;

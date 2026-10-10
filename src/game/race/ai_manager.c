@@ -22,7 +22,9 @@ enum {
     FAST = 0x140000,
     PULLING_OUT = 0xa0000,
     CLOSING_FACTOR = 0x50000,
-    CLOSING_SCALE = 0x20000
+    CLOSING_SCALE = 0x20000,
+    CAR_SOUND_BASE = 5,          /* 004bc764 */
+    CAR_SOUND_SPREAD = 15        /* 004bc768 */
 };
 
 /* The weight a lane loses for `gap` (16.16) of speed, by `per` per 1/256. */
@@ -219,4 +221,17 @@ void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupie
             if (needed > fx_mul_round(nodes * ROOM_PER_NODE, steer)) first[1] = second[1] = 0;
         }
     }
+}
+
+void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind)
+{
+    if (race->car_sound_ticks != 0) return;
+    if (slot >= 0 && slot < race->racers) {
+        race->car_sound_slot = 1;
+        race->car_sound_kind = 1;
+    } else {
+        race->car_sound_slot = slot;
+        race->car_sound_kind = kind;
+    }
+    race->car_sound_ticks = race_rand_below(race, CAR_SOUND_SPREAD) + CAR_SOUND_BASE;
 }
