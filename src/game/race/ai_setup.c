@@ -1,0 +1,25 @@
+#include "game/race/ai_setup.h"
+
+enum { TRACK_FLAG_4 = 4 };
+
+/* 00470238 by the first car's model (type 3): 0, 6, 7 -> 2; 1, 4 -> 0; 2, 3, 5 -> 1 */
+static const int8_t ROW_BY_MODEL[8] = { 2, 0, 1, 1, 0, 1, 2, 2 };
+
+int32_t ai_profile_row(const RaceState *race, int32_t fallback)
+{
+    switch ((uint32_t)race->race_type) {
+    case 0:
+        return 7;
+    case 1:
+        return race->track_flags & TRACK_FLAG_4 ? 6 : 5;
+    case 2:
+        if (race->cars[2] == NULL || race->cars[3] == NULL) return fallback & 0xff;  /* port guard */
+        return race->cars[2]->model == race->cars[3]->model ? 4 : 3;
+    case 3:
+        if (race->cars[0] == NULL) return fallback & 0xff;  /* port guard */
+        if ((uint32_t)race->cars[0]->model <= 7) return ROW_BY_MODEL[race->cars[0]->model];
+        return fallback & 0xff;
+    default:
+        return fallback & 0xff;
+    }
+}
