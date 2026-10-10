@@ -18,6 +18,7 @@ add_library(tnfs_core STATIC
     src/formats/chunk.c
     src/formats/doc.c
     src/formats/ffn.c
+    src/formats/fileset.c
     src/formats/fixed_record.c
     src/formats/fsh.c
     src/formats/mesh.c
@@ -143,7 +144,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri tri_write tsv png sky_ring quad object_mappers flat
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri tri_write tsv png fileset sky_ring quad object_mappers flat
                  palette_match)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
