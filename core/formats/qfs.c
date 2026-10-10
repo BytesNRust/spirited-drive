@@ -53,15 +53,21 @@ QfsResult qfs_decompressed_size(const uint8_t *src, size_t src_len, size_t *out_
 
 QfsResult qfs_decompress(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len)
 {
+    return qfs_decompress_at(src, src_len, dst, dst_len, NULL);
+}
+
+QfsResult qfs_decompress_at(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len, size_t *at)
+{
     size_t expected;
     QfsResult r = qfs_decompressed_size(src, src_len, &expected);
     if (r != QFS_OK) return r;
     if (expected > dst_len) return QFS_ERR_OVERFLOW;
 
     const size_t start = header_length(src);
+    if (at) *at = start;   /* the Huffman and BTree decoders do not track where they stopped */
     switch (codec_of(src)) {
     case CODEC_REFPACK:
-        return qfs_refpack_decode(src, src_len, start, dst, expected);
+        return qfs_refpack_decode_at(src, src_len, start, dst, expected, at);
     case CODEC_HUFF:
     case CODEC_HUFF_DELTA:
     case CODEC_HUFF_DELTA2:

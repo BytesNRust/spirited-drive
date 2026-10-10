@@ -77,13 +77,22 @@ static QfsResult step(Decoder *d, int *done)
     return copy_back(d, offset, length);
 }
 
-QfsResult qfs_refpack_decode(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len)
+QfsResult qfs_refpack_decode_at(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len, size_t *at)
 {
     Decoder d = { src, src_len, data_start, dst, dst_len, 0 };
     int done = 0;
     while (!done) {
         QfsResult r = step(&d, &done);
-        if (r != QFS_OK) return r;
+        if (r != QFS_OK) {
+            if (at) *at = d.in;
+            return r;
+        }
     }
+    if (at) *at = d.in;
     return d.out == dst_len ? QFS_OK : QFS_ERR_SIZE;
+}
+
+QfsResult qfs_refpack_decode(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len)
+{
+    return qfs_refpack_decode_at(src, src_len, data_start, dst, dst_len, NULL);
 }

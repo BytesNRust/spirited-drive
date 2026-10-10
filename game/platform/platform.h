@@ -62,6 +62,17 @@ enum {
  * the mouse moved since the previous call. */
 bool platform_mouse(int *x, int *y, unsigned *buttons);
 
+/* Mods overlay (BYTES-0009). With a mods directory set, a file the game asks for under `data_root` is read from
+ * the mods directory when the mod has its own copy (the same relative name, or its upper-case form), else
+ * from `data_root`. A mod file is validated against the original executable's limits first (formats/validate.h):
+ * an invalid one is not handed to the game, and platform_mods_error() says which file failed and why. Names
+ * that would leave the mods directory (.. components, absolute names, symbolic links out of it) are refused.
+ * User files (config, saves, replays) go to <mods>/user/ and are read from there, so the CD data and the mod's
+ * own files are never written. Returns false when the directory does not exist. */
+bool platform_set_mods(const char *data_root, const char *mods_dir);
+/* The last mod file refused, with the reason; "" when none. */
+const char *platform_mods_error(void);
+
 /* Whole file in a platform-owned buffer (release with platform_free_file), or NULL. */
 uint8_t *platform_read_file(const char *path, size_t *size);
 void platform_free_file(uint8_t *data);

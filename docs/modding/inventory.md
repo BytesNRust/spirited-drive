@@ -131,11 +131,14 @@ Required names in the CFM [X, `00457d40`]. After loading, the car loader looks u
 - Mesh elements `inside`, `surface` (index must be < 8, else infinite loop), `outside`, `convex` (index ≥ 8 is
   tolerated and stored as 999 = absent) — names at `004b1188..004b11a0`.
 - For race cars (slot ≥ 200): `frntires`, `rertires`, `tire1..tire4` (`004c5778`); a miss on the player's own car
-  loops forever.
+  loops forever. **Where they live** [D]: the first 8 bytes of the 20-byte **texture reference** records of the high-detail ORIP
+  (`MeshTexture.label`; `frntires`, `rertires`, `tire1..tire4`, `pal` on DVIPER); `left_turn` / `right_turn` are section A
+  (parts, 8 characters compared) and `inside` / `surface` / `outside` section B (groups).
 - For the player's car: `left_turn`, `right_turn` (`004b11c0`, `004b11cc`); a miss loops forever.
 
-These are the inputs `validate` must check before the game would hang. Which ORIP section each lookup searches
-(`FUN_00490b21`, `FUN_004911f2`, `FUN_004912d0`) is **[?]**.
+These are the inputs `validate` checks before the game would hang (`CFM.REQUIRED_NAME`, `CFM.ELEMENT_INDEX`). The three lookups
+(`00490b21` texture records, `004912d0` section A, `004911f2` section B) were identified by the RE session (Q4). The bitmap
+directory names are `!PAL` (`004b1160`) and `!xxx` (`004b1180`).
 
 ## 6. Format by format: what we have, what we lack, and the Auroux contrast
 
@@ -300,7 +303,7 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | Track FAM children | fewer than 3 children calls the fatal handler `004c6f88` | `0044ca3c` | [X] |
 | Resource load (SHPI/SHPF through QFS) | file name copied unchecked into a 128-byte stack buffer: **name incl. extension < 128**; `.fsh` appended when no dot. Packed iff byte 1 is `0xfb` or `0x32` and `byte0 & 0xfe` ∈ {10,30,32,34,46,4a}; unpacked size = bytes 2..4 big endian; byte 1 `0xfb/0x32` with another code prints "INVALID PACK CODE" and **aborts the game** (`00477a40` shows a MessageBox and calls `ExitProcess`; corrected from "taken as stored"). **No cap on the unpacked size**; the handle is resized to `unpacked + 0x400` (failure: "INSUFFICIENT MEMORY TO UNPACK FILE": aborts when the loader's third argument is set, else NULL). After unpacking the data must start with `SHPI` or `SHPF`, else the same abort-or-NULL. **compatible mode: all three are fatal** | `00476268` → `004760f0` → `0048d458`, `004a261c`, `00474d90` | [X] |
 | In-place unpack | the packed bytes are moved to offset `unpacked + 0x400 − packed` and unpacked from the front. **Rule 1**: `packed ≤ unpacked + 0x400` (else a write before the buffer). **Rule 2**: at every step, output written ≤ input read + (`unpacked + 0x400 − packed`). The QFS encoder (phase 2) must check rule 2 and, when it fails, store the file unpacked | `004a2520` | [X] |
-| `<track>INFO` text file | `%s%sInfo` = paths slot 17 (misc) + stem, opened `"r"`, read only if it opens and `004fa0ec != 1`. Lines via `00429020`: `fgets` 0x7f (**≤ 126 characters**), lines starting `#`, `\n`, `\r` skipped, at EOF the last line repeats. 33 data lines: 8 decimals (16.16, `00431f38`: vert/z offset, height, radius near/far); 2 lines of 3 integers packed `a<<10 \| b<<5 \| c` unmasked (**each 0..31**); ring type, y offset, height (×200/480 when `00512018` is 0); 3 groups of 5 integers (time-of-day RGB, 5th `<<8`); a last integer (nonzero forces ring type 1); integers by `atoi`. Without the file a built-in row is picked by stem (`cl1..cy3`, `tr1..tr7`); **an unknown stem with no Info file reads through a NULL row: validate requires the Info file for any stem outside that list** | `0043a370` (from `00455a5c`), `00429020`, `00431f38` | [X] |
+| `<track>INFO` text file (**29 data lines** holding 33 values on the CD, not 33 lines [D]) | `%s%sInfo` = paths slot 17 (misc) + stem, opened `"r"`, read only if it opens and `004fa0ec != 1`. Lines via `00429020`: `fgets` 0x7f (**≤ 126 characters**), lines starting `#`, `\n`, `\r` skipped, at EOF the last line repeats. 33 data lines: 8 decimals (16.16, `00431f38`: vert/z offset, height, radius near/far); 2 lines of 3 integers packed `a<<10 \| b<<5 \| c` unmasked (**each 0..31**); ring type, y offset, height (×200/480 when `00512018` is 0); 3 groups of 5 integers (time-of-day RGB, 5th `<<8`); a last integer (nonzero forces ring type 1); integers by `atoi`. Without the file a built-in row is picked by stem (`cl1..cy3`, `tr1..tr7`); **an unknown stem with no Info file reads through a NULL row: validate requires the Info file for any stem outside that list** | `0043a370` (from `00455a5c`), `00429020`, `00431f38` | [X] |
 | CARSPECS writable | with `004c5ccc` = 1 (never written) and the German flag `0052b31e` = 0, `004400f4` opens CARSPECS/`By_R&T` `"wb"`; success zeroes `specs+0x3c` (power). **install/validate warning: keep CARSPECS read-only** | `004400f4` (`004afd90`) | [X] |
 | FSH shape types | accepted shape types (mapped by `00496f38`): `0x7a` 4 bpp, `0x7b` 8, `0x78` 16, `0x7e` 15, `0x7f` 24, `0x7d` 32; `0x68..0x6f` count as `0x78..0x7f`; `0x22`/`0x24` are palettes, not drawable. A shape whose type differs from the screen's (`004c78cd`) is converted through the 6×6 table `004c7d70` in at most 10 steps; an unknown source/target type or an unreachable pair **aborts the game** ("convertshapedepth - SOURCE SHAPE TYPE UNRECOGNIZED"). **compatible mode: an entry outside these types is fatal**. Width/height = words at `+4`/`+6`; the 2D draw `00496510` clips to the screen and has **no size cap** (3D texture mappers' limits are a separate question; textures are 64×64 on the CD) | `00496f38`, `00496510`, `004970a4`, `00496fd0` | [X] |
 | BNK load | race banks `00443924`; `"%sfront_mw.bnk"` `004648dc`; each file by `004438c8` (`00483ec0`), **a missing file is fatal** (`004c6f88`); 6 loaded-bank slots `0050a564`, counter `004bc6e8`, reset by `00443be0` | | [X] |
@@ -316,8 +319,11 @@ A limit without an address does not enter the table (AC5). Still open: see §9.
 itself is pending my user's direct confirmation in this session):
 
 1. Level 1 only **replaces** existing slots; adding slots is Level 2.
-2. Engine sound = one WAV per sample + TSV sidecar. Open condition: confirm in the data that 8-bit samples are
-   signed before the exporter ships.
+2. Engine sound = one WAV per sample + TSV sidecar. Condition met: 8-bit samples are signed (checked on `ODIAMB`, `O911MB`,
+   `COLL_SB`, `NFS_FMMB`: the bytes cluster around 0 and 255, none around 128), so the exporter converts to WAV's unsigned.
+   Found while building it: on the CD one PCM block is read by several slots, sometimes at different depths (`COLL_SB` slots 38
+   and 40 share 30933 frames as 8- and 16-bit stereo), so the exchange writes one WAV per *block* and keeps rate, bits and
+   channels per slot in `bank.tsv`.
 3. Menu names are an image edit (Level 1). Residual risk (names drawn as font text elsewhere) stays as RE question 7.
 
 The original analysis follows.
