@@ -25,6 +25,12 @@ void ai_model_tick(Car *car, RaceState *race);
  * setting allows; then it goes back to model 3 at a zone (0046a18c). */
 void ai_parked_tick(Car *car, RaceState *race);
 
+/* 0046fe34 (physics model 5): the turn rate eased towards 0 (0x23333 a
+ * tick for racers, else 0x13333; the police car ends the chase first).
+ * While a human is near it drives on as model 3 with no target speed;
+ * otherwise it is set on the road's axes at rest and goes back to model 3. */
+void ai_spun_tick(Car *car, RaceState *race);
+
 /* 0046d5c8: a computer car past the road's side line (road_lateral, signed)
  * loses the part of its speed carrying it further out (by 1.25) and is
  * nudged back by the side row unless already moving back in fast. */
