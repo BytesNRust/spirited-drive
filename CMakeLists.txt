@@ -59,6 +59,7 @@ add_library(tnfs_core STATIC
     src/game/race/race_contacts.c
     src/game/race/ai_model.c
     src/game/race/ai_parked.c
+    src/game/race/ai_spun.c
     src/game/race/ai_setup.c
     src/game/race/ai_profiles.c
     src/game/race/ai_zones.c
