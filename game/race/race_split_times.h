@@ -9,4 +9,9 @@
  * unless a time trial. */
 void race_splits_pass(RaceState *race, int32_t progress, int32_t rival_progress);
 
+/* 0045b1d0: once both have passed a split, the gap is the rival's tick
+ * minus the player's at the last split both passed; a new gap is shown
+ * for 0x5a ticks. */
+void race_splits_gap(RaceState *race);
+
 #endif

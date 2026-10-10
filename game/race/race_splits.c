@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <string.h>
 
+enum { GAP_SHOWN = 0x5a };  /* ticks a new gap stays up (0045b1d0) */
+
 /* The block as the original's bytes: the counters index it unchecked, so a
  * word is read or written at its byte offset, kept inside the block (port
  * guard: the original reaches the globals around it). */
@@ -36,4 +38,18 @@ void race_splits_pass(RaceState *race, int32_t progress, int32_t rival_progress)
     pass(s, progress, offsetof(RaceSplits, passed_ticks), offsetof(RaceSplits, passed), race->tick);
     if (race->race_type != 0)
         pass(s, rival_progress, offsetof(RaceSplits, rival_ticks), offsetof(RaceSplits, rival_passed), race->tick);
+}
+
+void race_splits_gap(RaceState *race)
+{
+    RaceSplits *s = &race->splits;
+    const int32_t was = s->gap;
+    if (s->passed != 0 && s->rival_passed != 0) {
+        const int32_t n = s->passed > s->rival_passed ? s->rival_passed : s->passed;
+        const int64_t at = (int32_t)((uint32_t)n << 2);
+        s->gap = word_at(s, offsetof(RaceSplits, rival_ticks) - 4 + at) -
+                 word_at(s, offsetof(RaceSplits, passed_ticks) - 4 + at);
+    }
+    if (was != s->gap) s->gap_shown = GAP_SHOWN;
+    if (s->gap_shown > 0) s->gap_shown--;
 }
