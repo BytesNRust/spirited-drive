@@ -25,8 +25,15 @@ enum {
     CLOSING_FACTOR = 0x50000,
     CLOSING_SCALE = 0x20000,
     CAR_SOUND_BASE = 5,          /* 004bc764 */
-    CAR_SOUND_SPREAD = 15        /* 004bc768 */
+    CAR_SOUND_SPREAD = 15,       /* 004bc768 */
+    POLICE_SWITCH = 13,          /* ai params: 0 keeps the police out */
+    POLICE_AHEAD = 0x32,         /* nodes ahead of the first car the police car is placed */
+    POLICE_SPOT = 1,             /* node +0x1a: the police car may be placed here */
+    POLICE_FAR_SIDE = 2,         /* node +0x1a: at the left barrier */
+    POLICE_STAYS = 4             /* node +0x1a: leaves +0x176 bit 1 clear */
 };
+
+static const int32_t POLICE_ODDS[4] = { 32, 64, 96, 128 };  /* 004c5d30, in 128 */
 
 /* The weight a lane loses for `gap` (16.16) of speed, by `per` per 1/256. */
 static int32_t weight(int32_t gap, int32_t per)
@@ -251,4 +258,43 @@ void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t s
     for (int i = 0; i < 3; i++) car->body_spin[i] -= loss[i];
     if (car->flags_174 & RACER) ai_release_cops(race, 0);
     car_crash_kick(car, race);
+}
+
+static void place_police_car(RaceState *race, Car *cop, const Car *first, int32_t at, const TriNode *spot)
+{
+    cop->flags_176[0] &= 0xf7;
+    const int32_t offset = (spot->unknown_1a & POLICE_FAR_SIDE) ? cop->body_extent_a - (spot->left_barrier << 13)
+                                                                : (spot->right_barrier << 13) - cop->body_extent_a;
+    const TriNode start = race_node(race, 0);
+    const int32_t lane = (start.flags[0] >> 4) == 0 || !(spot->unknown_1a & POLICE_FAR_SIDE) ? 1 : 0;
+    cop->flags_176[0] &= 0x8f;
+    cop->zone = first->zone;
+    cop->flags_175 &= 0xdb;
+    cop->flags_176[0] &= 0xf7;
+    race->unknown_4c5cd8 = 0;
+    ai_respawn(cop, race, at, lane, offset, 0);
+    cop->flags_51a |= ACTIVE;
+    if (!(spot->unknown_1a & POLICE_STAYS)) cop->flags_176[0] |= 2;
+}
+
+void ai_place_police(RaceState *race)
+{
+    if (race->ai.params[POLICE_SWITCH] == 0 || race->unknown_4fb7d4 == 1) return;
+    const Car *first = race->cars[0];
+    const int32_t node = first->node;
+    if (node > race->loop_nodes) ai_release_cops(race, 1);
+    if (node <= race->police_node) return;
+    Car *cop = race->cars[2];
+    if (!(cop->flags_51a & ACTIVE)) {
+        for (int32_t at = race->police_node + POLICE_AHEAD; at <= node + POLICE_AHEAD - 1; at++) {
+            if (at >= (int32_t)race->tri->node_count) continue;
+            const TriNode spot = race_node(race, at);
+            if (!(spot.unknown_1a & POLICE_SPOT)) continue;
+            const uint32_t chance = race_random(race);
+            if ((int32_t)((chance & 0x7f00) << 8) <= POLICE_ODDS[(spot.unknown_1a & 0x18) >> 3] << 16)
+                place_police_car(race, cop, first, at, &spot);
+            break;
+        }
+    }
+    race->police_node = node;
 }

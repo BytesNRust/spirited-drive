@@ -47,6 +47,14 @@ void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupie
  * three), a racer ends the police chase, and the first-hit kick (0040f8a8). */
 void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side);
 
+/* 0046b950: once the first car (cars[0]) passes the node it was last
+ * looked from, the inactive police car (cars[2]) may be placed on the first
+ * node 50 ahead flagged for it (node +0x1a bit 0), by that node's odds
+ * (bits 3..4: 32, 64, 96 or 128 in 128): on the barrier side the node's bit 1
+ * says, facing the way of node 0's lanes; past the lap's nodes the chase
+ * ends first. Off when ai params[13] is 0 or 004fb7d4 is 1. */
+void ai_place_police(RaceState *race);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);

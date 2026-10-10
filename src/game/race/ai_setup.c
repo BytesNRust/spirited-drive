@@ -152,7 +152,7 @@ void ai_race_setup(RaceState *race, int32_t fallback_row)
     race->ai.unknown_160 = START_UNKNOWN_160;
     race->unknown_4c5cd8 = 0;
     race->unknown_4c5cdc = 0;
-    race->unknown_4c5d40 = 0;
+    race->police_node = 0;
     race->ai.unknown_358 = 1;
     race->ai.lane_cars[1] = race->traffic_setting;
     race->ai.unknown_168 = race->unknown_4fb7f0;

@@ -204,7 +204,9 @@ typedef struct {
     int32_t traffic_setting;        /* 004fb7ec */
     int32_t unknown_4fb7f0;         /* 004fb7f0 */
     int32_t default_profile_odds;   /* 004c5d20 */
-    int32_t unknown_4c5cd8, unknown_4c5cdc, unknown_4c5d40;
+    int32_t unknown_4c5cd8, unknown_4c5cdc;
+    int32_t police_node;            /* 004c5d40: the first car's node the police placement last looked from (0046b950) */
+    int32_t unknown_4fb7d4;         /* 004fb7d4: 0052b312 != 0 at the start; 1 keeps the police car from being placed (0046b950) */
     /* 00509d6c, 00509d70: the race's end request; 4 once the police have
      * stopped the player twice (0046bb78) */
     int32_t end_request, end_state;
