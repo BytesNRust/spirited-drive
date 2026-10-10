@@ -100,6 +100,11 @@ int32_t fx_mul_round(int32_t a, int32_t b)
     return (int32_t)((uint32_t)(p >> 16) + (uint32_t)((p >> 15) & 1));
 }
 
+int32_t fx_mul_halves(uint32_t a, uint32_t b)
+{
+    return (int32_t)((uint32_t)fx_mul_round((int32_t)(a >> 1), (int32_t)(b >> 1)) << 2);
+}
+
 /* 004f4074: atan over [0, 1] in 256 steps, 16-bit angles. */
 static const uint16_t ATAN_TABLE[257] = {
     0, 41, 81, 122, 163, 204, 244, 285, 326, 367, 407, 448,

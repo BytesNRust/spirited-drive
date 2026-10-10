@@ -21,6 +21,8 @@ int32_t fx_cos16(int32_t angle);  /* 00473030 */
 int32_t fx_mul(int32_t a, int32_t b);
 int32_t fx_div(int32_t a, int32_t b);
 int32_t fx_mul_round(int32_t a, int32_t b);  /* imul, shrd 16, adc 0: rounded half up */
+/* 0042eb40: two words halved as unsigned, multiplied rounded, times 4. */
+int32_t fx_mul_halves(uint32_t a, uint32_t b);
 int32_t fx_atan2(int32_t y, int32_t x);  /* 004890f0, 16-bit angles */
 void mat3_mul(const int32_t a[9], const int32_t b[9], int32_t out[9]);   /* 00475d4c */
 void mat3_apply(const int32_t v[3], const int32_t m[9], int32_t out[3]); /* 00475da8 */
