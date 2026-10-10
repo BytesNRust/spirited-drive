@@ -206,6 +206,10 @@ typedef struct {
     /* 00509d6c, 00509d70: the race's end request; 4 once the police have
      * stopped the player twice (0046bb78) */
     int32_t end_request, end_state;
+    /* 00504218, 0050421c: the node and the segment the track's scenery was
+     * last streamed in for (0043f48c); -1 makes the renderer stream it again */
+    int32_t scenery_stream_node, scenery_stream_segment;
+    int32_t render_flags;           /* 004f8058: bit 0 the scenery must be streamed again */
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */

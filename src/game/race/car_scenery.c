@@ -11,7 +11,9 @@ enum {
     JOLT_STRENGTH_BASE = 0x46,
     JOLT_STRENGTH_MOST = 100,
     JOLT_FROM_LEFT = 0x13b,
-    JOLT_FROM_RIGHT = 0x2d
+    JOLT_FROM_RIGHT = 0x2d,
+    STREAM_NONE = -1,
+    RESTREAM = 1                /* render_flags */
 };
 
 /* The node word of record `index`; the original reads it unchecked. */
@@ -55,4 +57,11 @@ void car_scenery_jolt(const Car *car, const RaceState *race, int32_t across)
     if (strength > JOLT_STRENGTH_MOST) strength = JOLT_STRENGTH_MOST;
     if (race->sounds.tone != NULL)
         race->sounds.tone(race->sounds.user, (int32_t)strength, across < 1 ? JOLT_FROM_LEFT : JOLT_FROM_RIGHT, (int32_t)period);
+}
+
+void race_scenery_restream(RaceState *race)
+{
+    race->scenery_stream_node = STREAM_NONE;
+    race->scenery_stream_segment = STREAM_NONE;
+    race->render_flags |= RESTREAM;
 }

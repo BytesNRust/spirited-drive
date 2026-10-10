@@ -20,4 +20,7 @@ int32_t car_scenery_at(Car *car, const Tri *tri, int32_t node);
  * and which way the hit came from (`across` below 1 or not). */
 void car_scenery_jolt(const Car *car, const RaceState *race, int32_t across);
 
+/* 0043f51c: the track's scenery streamed in again (a knocked object goes). */
+void race_scenery_restream(RaceState *race);
+
 #endif
