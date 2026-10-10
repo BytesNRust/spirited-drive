@@ -25,4 +25,10 @@ void car_held_tick(Car *car, RaceState *race);
  * steers toward the police car (cars[2]) and lets the throttle go. */
 void car_pulled_over(Car *car, const RaceState *race);
 
+/* 0046d308: the car stopped by the police set down at its node, turned to
+ * the road and still, then moved across to the outside of the lanes on the
+ * left (`right` 0) or right, no closer to the barrier than its body's half
+ * width (+0x138). */
+void car_beside_road(Car *car, RaceState *race, int32_t right);
+
 #endif

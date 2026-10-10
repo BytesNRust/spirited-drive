@@ -1,6 +1,9 @@
 #include "game/race/car_held.h"
 
+#include "game/race/ai_lanes.h"
 #include "game/sys/fixed_math.h"
+
+#include <string.h>
 
 enum {
     PHYSICS_DRIVING = 2,
@@ -11,7 +14,9 @@ enum {
     STEER_MOST = 0x140000,
     HALF_TURN = 0x800000,
     TURN = 0x1000000,
-    NOTICE_TICK_UP = -1000    /* 004b92e4 while a notice is up */
+    NOTICE_TICK_UP = -1000,   /* 004b92e4 while a notice is up */
+    BARRIER_UNIT = 0x2000,    /* node barrier bytes to road units */
+    ANGLE_UNIT = 0x400        /* node angles (0x4000 a turn) to car angles */
 };
 
 void race_stop_notice_first(RaceState *race)
@@ -60,4 +65,38 @@ void car_pulled_over(Car *car, const RaceState *race)
     else if (car->steer < -STEER_MOST)
         car->steer = -STEER_MOST;
     car->throttle = 0;
+}
+
+void car_beside_road(Car *car, RaceState *race, int32_t right)
+{
+    const int32_t x = car->x, y = car->y, z = car->z;
+    const int32_t ax = car->road_axes[0], ay = car->road_axes[1], az = car->road_axes[2];
+    const int32_t cx = car->road_centre[0], cy = car->road_centre[1], cz = car->road_centre[2];
+    const TriNode n = race_node(race, car->node);
+    const int32_t lanes = n.flags[0] & 0xf, w = ai_lane_width(race, lanes, n.right_verge);
+    int32_t to;
+    if (right == 0) {
+        to = w * -0x100 * (n.flags[0] >> 4) - (w * 0x100) / 2;
+        const int32_t edge = car->body_extent_a + n.left_barrier * -BARRIER_UNIT;
+        if (to < edge) to = edge;
+    } else {
+        const int32_t unit = w * 0x100;
+        to = unit / 2 + lanes * unit;
+        const int32_t edge = n.right_barrier * BARRIER_UNIT - car->body_extent_a;
+        if (edge < to) to = edge;
+    }
+    memcpy(car->matrix, car->road_axes, sizeof car->matrix);
+    car->yaw_rate = 0;
+    car->yaw = n.orientation * ANGLE_UNIT;
+    int32_t pitch = n.slope * ANGLE_UNIT;
+    if (pitch > HALF_TURN) pitch -= TURN;
+    else if (pitch < -HALF_TURN) pitch += TURN;
+    car->pitch = -pitch;
+    car->local_velocity_z = 0;
+    car->roll = n.slant_a * ANGLE_UNIT;
+    car->velocity_x = car->velocity_y = car->velocity_z = car->local_velocity_x = 0;
+    const int32_t d = (to - ((ax >> 8) * ((x - cx) >> 8) + (ay >> 8) * ((y - cy) >> 8) + ((z - cz) >> 8) * (az >> 8))) >> 8;
+    car->x += (ax >> 8) * d;
+    car->y += (ay >> 8) * d;
+    car->z += d * (az >> 8);
 }
