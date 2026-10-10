@@ -9,6 +9,7 @@
 #include "game/race/car_load.h"
 #include "game/race/car_physics.h"
 #include "game/race/car_road.h"
+#include "game/race/race_finish.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -103,6 +104,9 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->car_count = race->racers;
     race->humans = 1;
+    /* 0043fbac */
+    race->finish_cars = race->race_type == 0 ? 1 : race->race_type == 1 ? 2 : race->racers;
+    race->finish_humans = race->race_type == 0 ? 1 : race->humans;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
     race->segments = tri->segment_count;
@@ -190,7 +194,11 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
             if ((car->flags_51a & FLAG_ACTIVE) && car->controller != 0) run_controller(car, &sim->specs[slot], race);
         }
     if (race->tick_flags & TICK_PHYSICS) {
-        /* 00440ef0: in road order, the rearmost first. */
+        /* 00440ef0: each racing car's finish first, by slot. */
+        if (race->phase == 1)
+            for (int i = 0; i < race->finish_cars && i < sim->count; i++)
+                if (race->cars[i]->flags_51a & FLAG_ACTIVE) race_car_finish(race->cars[i], race);
+        /* Then in road order, the rearmost first. */
         for (int i = 0; i < race->car_count; i++) {
             const int slot = race->by_node[i] & (RACE_PLAYERS - 1);
             Car *car = race->cars[slot];
