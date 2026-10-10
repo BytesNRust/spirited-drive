@@ -37,6 +37,7 @@ add_library(tnfs_core STATIC
     src/game/race/car_physics.c
     src/game/race/ai_lanes.c
     src/game/race/ai_police.c
+    src/game/race/ai_manager.c
     src/game/race/car_progress.c
     src/game/race/car_road.c
     src/game/race/car_scenery.c
