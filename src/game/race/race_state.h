@@ -246,6 +246,9 @@ uint32_t race_random(RaceState *race);
  * next with carry, the lowest counting up, the top word the result. */
 uint32_t race_rand(RaceState *race);
 
+/* 00443730: 0..n-1 from the low 16 bits of race_rand (signed product). */
+int32_t race_rand_below(RaceState *race, int32_t n);
+
 /* 0044d744 */
 void race_note(RaceState *race, int32_t level);
 

@@ -109,6 +109,11 @@ uint32_t race_rand(RaceState *race)
     return top;
 }
 
+int32_t race_rand_below(RaceState *race, int32_t n)
+{
+    return (int32_t)((race_rand(race) & 0xffff) * (uint32_t)n) >> 16;
+}
+
 Car *race_car_by_handle(const RaceState *race, uint32_t handle)
 {
     for (int i = 0; i < RACE_PLAYERS; i++)
