@@ -59,6 +59,18 @@ void ai_place_police(RaceState *race);
  * 6..8), its velocity's x negated, every term 8.8 by 8.8. */
 int32_t ai_road_speed(const Car *car);
 
+/* 0046bfb0: for each human car: a car at `node` (the car's, from 0046c278)
+ * up to the profile's block_reach ahead of it, with `progress` past 0x86,
+ * whose human is at least block_gap behind along the road adds 7.0 to the
+ * wish of the human's side (0 below `lane`, 1 the lane, 2 above). On a stage,
+ * closing on a human ahead in its lane faster than about 0.83 node lengths a
+ * tick (the second car's speed against 0042eb40(0x35555, gap x 6)) counts
+ * the body's +0x84 up and sounds the horn (00472f20) once a draw of 0..9 is
+ * under the count; otherwise the count goes back to 0. A car 5 nodes behind a
+ * human, or 2 behind the first car, above 0xf0000 with the human in model 1
+ * sounds it too. */
+void ai_watch_humans(Car *car, RaceState *race, int32_t lane, int32_t wish[3], int32_t node, int32_t progress);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);

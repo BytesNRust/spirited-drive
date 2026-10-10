@@ -33,6 +33,14 @@ enum {
     POLICE_STAYS = 4             /* node +0x1a: leaves +0x176 bit 1 clear */
 };
 
+enum {
+    BLOCK_PROGRESS = 0x86,       /* progress past which a car blocks humans */
+    BLOCK_PULL = 7 << 16,        /* what the wish gains toward the human's side */
+    HORN_PACE = 0x35555,         /* about 0.83 node lengths (6.0) a tick */
+    HORN_SPEED = 0xf0000,
+    HUMAN_HELD = 1               /* physics model 1 */
+};
+
 static const int32_t POLICE_ODDS[4] = { 32, 64, 96, 128 };  /* 004c5d30, in 128 */
 
 /* The weight a lane loses for `gap` (16.16) of speed, by `per` per 1/256. */
@@ -303,4 +311,39 @@ int32_t ai_road_speed(const Car *car)
 {
     return (-car->velocity_x >> 8) * (car->road_axes[6] >> 8) + (car->road_axes[7] >> 8) * (car->velocity_y >> 8) +
            (car->road_axes[8] >> 8) * (car->velocity_z >> 8);
+}
+
+/* The horn's count on the car's body: up while it closes on `human` in its
+ * lane faster than the gap allows, sounding once a draw is under it. */
+static void horn_closing(Car *car, RaceState *race, const Car *human)
+{
+    const Car *second = race->second_car;
+    const uint32_t speed = (uint32_t)magnitude(second != NULL ? second->ai_speed : 0);  /* port guard */
+    const uint32_t limit = (uint32_t)fx_mul_halves(HORN_PACE, (uint32_t)(human->node - car->node) * 6u << 16);
+    if (speed <= limit) return;
+    const int32_t draw = (int32_t)(race_random(race) * 10 >> 16);
+    car->unknown_148++;
+    if (draw >= car->unknown_148) return;
+    race_hold_car_sound(race, car->index, 0);
+    car->unknown_148 = 0;
+}
+
+void ai_watch_humans(Car *car, RaceState *race, int32_t lane, int32_t wish[3], int32_t node, int32_t progress)
+{
+    for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++) {  /* port guard */
+        const Car *human = race->cars[i];
+        const TriNode at = race_node(race, human->node);
+        const int32_t slot = ai_lane_slot(race, human, &at);
+        const DriverProfile *profile = ai_driver_profile(race, car->index);
+        if (human->node - 1 <= node && profile != NULL && node < human->node + profile->block_reach &&
+            progress > BLOCK_PROGRESS && -along_road(car, human) >= profile->block_gap)
+            wish[slot < lane ? 0 : slot == lane ? 1 : 2] += BLOCK_PULL;
+        if (car->node < human->node && slot == lane && race->circuit == 0)
+            horn_closing(car, race, human);
+        else
+            car->unknown_148 = 0;
+        if ((human->node - car->node == 5 || race->cars[0]->node - car->node == 2) && car->ai_speed > HORN_SPEED &&
+            human->physics == HUMAN_HELD)
+            race_hold_car_sound(race, car->index, 0);
+    }
 }
