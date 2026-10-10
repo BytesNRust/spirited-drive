@@ -28,7 +28,7 @@ typedef struct {
     int32_t unknown_358;  /* 0x358 1 at the start */
     uint32_t first_car;  /* 0x35c 00509e1c at the start */
     int32_t unknown_360;  /* 0x360 004fb7da bit 0 */
-    uint8_t pad_364[0x4];
+    int32_t unknown_364;  /* 0x364 the police stop's count against params[7] (0046bb78): at or past it the stop is the second kind; zeroed by a stop and when the police car closes in */
     int32_t last_lane_width;  /* 0x368 the lane width last looked up (times 0x100) by 0046f3e8 and 0046d79c */
     uint8_t pad_36c[0x4];
 } AiState;
@@ -52,6 +52,7 @@ AI_STATE_CHECK(traffic_placed, offsetof(AiState, traffic_placed) == 0x350);
 AI_STATE_CHECK(unknown_358, offsetof(AiState, unknown_358) == 0x358);
 AI_STATE_CHECK(first_car, offsetof(AiState, first_car) == 0x35c);
 AI_STATE_CHECK(unknown_360, offsetof(AiState, unknown_360) == 0x360);
+AI_STATE_CHECK(unknown_364, offsetof(AiState, unknown_364) == 0x364);
 AI_STATE_CHECK(last_lane_width, offsetof(AiState, last_lane_width) == 0x368);
 
 #endif

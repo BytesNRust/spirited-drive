@@ -17,4 +17,5 @@
 0x358	i32	unknown_358	1 at the start
 0x35c	ref	first_car	00509e1c at the start
 0x360	i32	unknown_360	004fb7da bit 0
+0x364	i32	unknown_364	the police stop's count against params[7] (0046bb78): at or past it the stop is the second kind; zeroed by a stop and when the police car closes in
 0x368	i32	last_lane_width	the lane width last looked up (times 0x100) by 0046f3e8 and 0046d79c

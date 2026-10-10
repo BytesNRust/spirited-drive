@@ -203,6 +203,9 @@ typedef struct {
     int32_t unknown_4fb7f0;         /* 004fb7f0 */
     int32_t default_profile_odds;   /* 004c5d20 */
     int32_t unknown_4c5cd8, unknown_4c5cdc, unknown_4c5d40;
+    /* 00509d6c, 00509d70: the race's end request; 4 once the police have
+     * stopped the player twice (0046bb78) */
+    int32_t end_request, end_state;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */
