@@ -17,4 +17,8 @@ int32_t ai_profile_row(const RaceState *race, int32_t fallback);
  * ('A' = 0); row 7 reads into the first profile's bytes, as the original. */
 int32_t ai_driver_letter(int32_t place, int32_t row);
 
+/* 0044941c: the handle (address in the original) of driver profile `index`
+ * in the table in use (0050bae0). */
+uint32_t ai_profile_handle(const RaceState *race, int32_t index);
+
 #endif

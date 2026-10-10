@@ -32,3 +32,8 @@ int32_t ai_driver_letter(int32_t place, int32_t row)
     if (at >= AI_DRIVER_DATA_SIZE) return -1;  /* port guard: the original reads past the table */
     return AI_DRIVER_DATA[at] - 'A';
 }
+
+uint32_t ai_profile_handle(const RaceState *race, int32_t index)
+{
+    return race->driver_profiles_base + (uint32_t)index * AI_DRIVER_PROFILE_SIZE;
+}
