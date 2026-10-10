@@ -23,4 +23,10 @@ void car_scenery_jolt(const Car *car, const RaceState *race, int32_t across);
 /* 0043f51c: the track's scenery streamed in again (a knocked object goes). */
 void race_scenery_restream(RaceState *race);
 
+/* 0040fef0: whether the scenery point `point` (x, y, z; y unused) lies in
+ * the car's box (half its width +0x64e sideways, half its length +0x64a
+ * ahead, turned by its yaw); a hit jolts (car_scenery_jolt, when effects are on) and sounds when
+ * the car is within 9 nodes of the camera. */
+int32_t car_scenery_hit(const Car *car, RaceState *race, const int32_t point[3]);
+
 #endif

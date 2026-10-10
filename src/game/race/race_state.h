@@ -169,6 +169,7 @@ typedef struct {
     int32_t views;                  /* 004f801c: more than one pans the sounds by position */
     int32_t listener[3];            /* 004f802c */
     int32_t listener_heading;       /* 004f8060 */
+    int32_t listener_node;          /* 004f8054: the camera's node; scenery hits within 9 nodes of it sound */
     int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
     Car *cars[RACE_PLAYERS];        /* 00509e1c: the cars by slot */
