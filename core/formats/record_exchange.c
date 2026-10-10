@@ -1,5 +1,6 @@
 #include "formats/record_exchange.h"
 
+#include "formats/record_value.h"
 #include "formats/tsv.h"
 
 #include <stdio.h>
@@ -7,34 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char *const kind_names[] = { "i32", "u32", "i16", "u16", "i8", "u8", "bytes" };
-static const int kind_size[] = { 4, 4, 2, 2, 1, 1, 1 };
-static const int kind_signed[] = { 1, 0, 1, 0, 1, 0, 0 };
-
-static int64_t load(const uint8_t *p, int size, int is_signed)
-{
-    uint32_t v = 0;
-    for (int i = 0; i < size; ++i) v |= (uint32_t)p[i] << (8 * i);
-    if (!is_signed) return v;
-    const int bits = 8 * size;
-    return bits == 32 ? (int64_t)(int32_t)v : (int64_t)(v ^ (1u << (bits - 1))) - (int64_t)(1u << (bits - 1));
-}
-
-static void store(uint8_t *p, int size, int64_t v)
-{
-    for (int i = 0; i < size; ++i) p[i] = (uint8_t)((uint64_t)v >> (8 * i));
-}
-
-static int fits(int64_t v, int size, int is_signed)
-{
-    const int bits = 8 * size;
-    if (is_signed) return v >= -((int64_t)1 << (bits - 1)) && v < ((int64_t)1 << (bits - 1));
-    return v >= 0 && v < ((int64_t)1 << bits);
-}
-
 static size_t field_bytes(const RecordField *f)
 {
-    return (size_t)f->count * (size_t)kind_size[f->kind];
+    return (size_t)f->count * (size_t)rec_kind_size[f->kind];
 }
 
 static int table_ok(size_t size, const RecordField *fields, size_t n)
@@ -62,12 +38,12 @@ int record_export(const uint8_t *record, size_t size, const RecordField *fields,
         snprintf(off, sizeof off, "0x%03x", f->offset);
         tsv_str(&w, off);
         tsv_str(&w, f->name);
-        tsv_str(&w, kind_names[f->kind]);
+        tsv_str(&w, rec_kind_names[f->kind]);
         if (f->kind == REC_BYTES) {
             tsv_hex(&w, record + f->offset, f->count);
         } else {
             for (uint16_t k = 0; k < f->count; ++k) {
-                const int64_t v = load(record + f->offset + (size_t)k * kind_size[f->kind], kind_size[f->kind], kind_signed[f->kind]);
+                const int64_t v = rec_load(record + f->offset + (size_t)k * rec_kind_size[f->kind], rec_kind_size[f->kind], rec_kind_signed[f->kind]);
                 if (v < 0) tsv_int(&w, (int32_t)v);
                 else tsv_uint(&w, (uint32_t)v);
             }
@@ -109,8 +85,8 @@ int record_import(uint8_t *record, size_t size, const RecordField *fields, size_
             ok = 0;
             break;
         }
-        if (strcmp(kind_names[f->kind], row.cell[2]) != 0) {
-            exchange_fail(err, "%s:%u: '%s' is %s, not %s", file, row.line, f->name, kind_names[f->kind], row.cell[2]);
+        if (strcmp(rec_kind_names[f->kind], row.cell[2]) != 0) {
+            exchange_fail(err, "%s:%u: '%s' is %s, not %s", file, row.line, f->name, rec_kind_names[f->kind], row.cell[2]);
             ok = 0;
             break;
         }
@@ -138,12 +114,12 @@ int record_import(uint8_t *record, size_t size, const RecordField *fields, size_
                 ok = 0;
                 break;
             }
-            if (!fits(v, kind_size[f->kind], kind_signed[f->kind]) && !(kind_signed[f->kind] && v >= 0 && fits(v, kind_size[f->kind], 0))) {
-                exchange_fail(err, "%s:%u: '%s'[%u] = %lld does not fit %s", file, row.line, f->name, k, (long long)v, kind_names[f->kind]);
+            if (!rec_fits(v, rec_kind_size[f->kind], rec_kind_signed[f->kind]) && !(rec_kind_signed[f->kind] && v >= 0 && rec_fits(v, rec_kind_size[f->kind], 0))) {
+                exchange_fail(err, "%s:%u: '%s'[%u] = %lld does not fit %s", file, row.line, f->name, k, (long long)v, rec_kind_names[f->kind]);
                 ok = 0;
                 break;
             }
-            store(work + f->offset + (size_t)k * kind_size[f->kind], kind_size[f->kind], v);
+            rec_store(work + f->offset + (size_t)k * rec_kind_size[f->kind], rec_kind_size[f->kind], v);
         }
     }
     tsv_reader_free(&r);
