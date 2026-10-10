@@ -41,6 +41,12 @@ void ai_hold_lane_speed(Car *car, const RaceState *race, const Car *ahead, int32
 void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_PLAYERS], int32_t lane,
                    uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3]);
 
+/* 0046a7c0: a computer car spins out: it crashes from a hit (0040db84), its
+ * body's spin gains `side` along the body's first row and `along` along the
+ * third and loses `up` along the second (the manager passes 0x190000 for all
+ * three), a racer ends the police chase, and the first-hit kick (0040f8a8). */
+void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);

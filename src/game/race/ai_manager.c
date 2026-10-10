@@ -2,6 +2,7 @@
 
 #include "game/race/ai_drive.h"
 #include "game/race/ai_lanes.h"
+#include "game/race/car_crash.h"
 #include "game/sys/fixed_math.h"
 
 enum {
@@ -234,4 +235,20 @@ void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind)
         race->car_sound_kind = kind;
     }
     race->car_sound_ticks = race_rand_below(race, CAR_SOUND_SPREAD) + CAR_SOUND_BASE;
+}
+
+void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side)
+{
+    car_crash_hit(car, race);
+    int32_t gain[3], loss[3], turn[3];
+    for (int i = 0; i < 3; i++) {
+        gain[i] = fx_mul_round(side, car->body_matrix[i]);
+        loss[i] = fx_mul_round(up, car->body_matrix[3 + i]);
+        turn[i] = fx_mul_round(along, car->body_matrix[6 + i]);
+    }
+    for (int i = 0; i < 3; i++) car->body_spin[i] += gain[i];
+    for (int i = 0; i < 3; i++) car->body_spin[i] += turn[i];
+    for (int i = 0; i < 3; i++) car->body_spin[i] -= loss[i];
+    if (car->flags_174 & RACER) ai_release_cops(race, 0);
+    car_crash_kick(car, race);
 }
