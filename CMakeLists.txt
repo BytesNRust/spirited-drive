@@ -26,6 +26,7 @@ add_library(tnfs_core STATIC
     core/formats/mesh_exchange.c
     core/formats/pbs.c
     core/formats/pbs_fields.c
+    core/formats/limits.c
     core/formats/pdn.c
     core/formats/png.c
     core/formats/record_exchange.c
@@ -36,6 +37,9 @@ add_library(tnfs_core STATIC
     core/formats/tri_exchange.c
     core/formats/tri_write.c
     core/formats/tsv.c
+    core/formats/validate.c
+    core/formats/validate_misc.c
+    core/formats/validate_track.c
     core/formats/wav.c
     core/formats/qfs.c
     core/formats/qfs_btree.c
@@ -168,7 +172,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

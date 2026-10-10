@@ -1,18 +1,25 @@
 /* tnfs-studio: unpacks the game's files into editable trees (PNG, OBJ+MTL, TSV, WAV) and packs them back.
  *   tnfs-studio unpack FILE DIR [--palette FILE] [--force]
  *   tnfs-studio pack   DIR OUT --from ORIGINAL [--palette FILE] [--force]
+ *   tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
- * overwritten without --force. Exit status 0 on success, 1 on any error with a message naming the file. */
+ * overwritten without --force. validate checks a file or a mod directory against the limits of the original
+ * executable (core/formats/limits.c): in compatible mode (the default) a file the original would mishandle
+ * ends with exit 1, in port-only mode the same findings are warnings and the exit is 0.
+ * Exit status 0 on success, 1 on any error with a message naming the file. */
 #include "formats/exchange.h"
 #include "formats/fsh.h"
 #include "formats/qfs.h"
 #include "formats/resource_exchange.h"
+#include "formats/validate.h"
 #include "studio/fsio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 typedef struct {
     const char *positional[2];
@@ -20,6 +27,8 @@ typedef struct {
     const char *from;
     const char *palette;
     int force;
+    int port_only;
+    int check_install;
 } Args;
 
 static void usage(FILE *to)
@@ -27,9 +36,13 @@ static void usage(FILE *to)
     fputs("usage:\n"
           "  tnfs-studio unpack FILE DIR [--palette FILE] [--force]\n"
           "  tnfs-studio pack   DIR OUT --from ORIGINAL [--palette FILE] [--force]\n"
+          "  tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR\n"
           "  (export = unpack, import = pack)\n"
           "--palette FILE   a game file (FSH or QFS) whose palette colours bitmaps that carry none\n"
-          "--force          overwrite existing files\n",
+          "--force          overwrite existing files\n"
+          "--compat         validate: refuse what the original executable would mishandle (default)\n"
+          "--port-only      validate: the same findings as warnings, exit 0\n"
+          "--check-install  validate: also warn when CARSPECS is writable (the original then zeroes every car's power)\n",
           to);
 }
 
@@ -38,6 +51,9 @@ static int parse(int argc, char **argv, Args *a)
     memset(a, 0, sizeof *a);
     for (int i = 2; i < argc; ++i) {
         if (strcmp(argv[i], "--force") == 0) a->force = 1;
+        else if (strcmp(argv[i], "--compat") == 0) a->port_only = 0;
+        else if (strcmp(argv[i], "--port-only") == 0) a->port_only = 1;
+        else if (strcmp(argv[i], "--check-install") == 0) a->check_install = 1;
         else if (strcmp(argv[i], "--from") == 0 && i + 1 < argc) a->from = argv[++i];
         else if (strcmp(argv[i], "--palette") == 0 && i + 1 < argc) a->palette = argv[++i];
         else if (argv[i][0] == '-' && argv[i][1] == '-') { fprintf(stderr, "tnfs-studio: unknown option '%s'\n", argv[i]); return 0; }
@@ -138,16 +154,75 @@ static int do_pack(const Args *a, const uint8_t *palette, ExchangeError *err)
     return ok;
 }
 
+static int is_directory(const char *path)
+{
+    struct stat st;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+/* The CARSPECS directory of an installation, writable or not (004400f4 opens By_R&T there for writing). */
+static void check_carspecs(const char *root, const FileSet *set, Report *r)
+{
+    for (size_t i = 0; i < set->count; ++i) {
+        const char *name = set->file[i].name;
+        const char *dir = strstr(name, "CARSPECS/");
+        if (dir == NULL) dir = strstr(name, "carspecs/");
+        if (dir == NULL || (dir != name && dir[-1] != '/')) continue;
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%.*s", root, (int)(dir - name) + 8, name);
+        if (access(path, W_OK) == 0) {
+            report_add(r, "MOD.CARSPECS_WRITABLE", 0, "%s is writable", path);
+            return;
+        }
+        return;
+    }
+}
+
+static int do_validate(const Args *a, ExchangeError *err)
+{
+    Report report;
+    report_init(&report);
+    const char *target = a->positional[0];
+    if (is_directory(target)) {
+        FileSet set;
+        fileset_init(&set);
+        if (!fsio_read_tree(target, &set, err)) { fileset_free(&set); report_free(&report); return 0; }
+        validate_tree(&set, &report);
+        if (a->check_install) check_carspecs(target, &set, &report);
+        printf("%s: %zu files checked\n", target, set.count);
+        fileset_free(&set);
+    } else {
+        size_t size = 0;
+        uint8_t *file = fsio_read_file(target, &size, err);
+        if (file == NULL) { report_free(&report); return 0; }
+        validate_file(file, size, target, &report);
+        printf("%s: checked\n", target);
+        free(file);
+    }
+    const ValidateMode mode = a->port_only ? VALIDATE_PORT_ONLY : VALIDATE_COMPATIBLE;
+    report_print(&report, mode, stdout);
+    const size_t fatal = report_fatal_count(&report);
+    if (report.count == 0) printf("no findings\n");
+    else printf("%zu findings, %zu of them errors in compatible mode\n", report.count, fatal);
+    report_free(&report);
+    if (mode == VALIDATE_COMPATIBLE && fatal > 0) {
+        exchange_fail(err, "%zu limits of the original executable are exceeded", fatal);
+        return 0;
+    }
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) { usage(stderr); return 1; }
     const char *command = argv[1];
     const int unpack = strcmp(command, "unpack") == 0 || strcmp(command, "export") == 0;
     const int pack = strcmp(command, "pack") == 0 || strcmp(command, "import") == 0;
+    const int validate = strcmp(command, "validate") == 0;
     if (strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0 || strcmp(command, "help") == 0) { usage(stdout); return 0; }
-    if (!unpack && !pack) { fprintf(stderr, "tnfs-studio: unknown command '%s'\n", command); usage(stderr); return 1; }
+    if (!unpack && !pack && !validate) { fprintf(stderr, "tnfs-studio: unknown command '%s'\n", command); usage(stderr); return 1; }
     Args a;
-    if (!parse(argc, argv, &a) || a.positionals != 2) { usage(stderr); return 1; }
+    if (!parse(argc, argv, &a) || a.positionals != (validate ? 1 : 2)) { usage(stderr); return 1; }
 
     ExchangeError err = {{0}};
     uint8_t palette[768];
@@ -156,7 +231,7 @@ int main(int argc, char **argv)
         if (!load_palette(a.palette, palette, &err)) { fprintf(stderr, "tnfs-studio: %s\n", err.message); return 1; }
         palette_ptr = palette;
     }
-    const int ok = unpack ? do_unpack(&a, palette_ptr, &err) : do_pack(&a, palette_ptr, &err);
+    const int ok = validate ? do_validate(&a, &err) : unpack ? do_unpack(&a, palette_ptr, &err) : do_pack(&a, palette_ptr, &err);
     if (!ok) { fprintf(stderr, "tnfs-studio: %s\n", err.message); return 1; }
     return 0;
 }

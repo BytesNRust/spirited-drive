@@ -96,7 +96,7 @@ typedef struct {
 } MeshPolygon;
 
 typedef struct {
-    uint32_t unknown_0[2];
+    char label[8];          /* NUL padded text the car loader looks up: frntires, rertires, tire1..tire4, pal (00490b21, compare of 8) */
     char name[4];           /* FSH entry name; all zero means no texture. Not terminated */
     uint32_t unknown_1[2];  /* 0 and 0xEF on DVIPER */
 } MeshTexture;

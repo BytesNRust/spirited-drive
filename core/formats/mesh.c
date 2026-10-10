@@ -148,8 +148,7 @@ MeshResult mesh_texture(const Mesh *mesh, uint32_t index, MeshTexture *out)
 {
     const uint8_t *p = record(mesh, mesh->texture_offset, mesh->texture_count, TEXTURE_SIZE, index);
     if (p == NULL) return MESH_ERR_INDEX;
-    out->unknown_0[0] = le_u32(p);
-    out->unknown_0[1] = le_u32(p + 4);
+    memcpy(out->label, p, sizeof out->label);
     memcpy(out->name, p + 8, sizeof out->name);
     out->unknown_1[0] = le_u32(p + 12);
     out->unknown_1[1] = le_u32(p + 16);

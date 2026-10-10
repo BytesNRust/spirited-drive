@@ -32,7 +32,7 @@ static const RecordField polygon_fields[] = {
 };
 
 static const RecordField texture_fields[] = {
-    { 0, REC_U32, 2, "unknown_0" },
+    { 0, REC_BYTES, 8, "label" },       /* 8 characters: the part names the car loader looks up (frntires, tire1, left_tur...) */
     { 8, REC_BYTES, 4, "name" },
     { 12, REC_U32, 2, "unknown_1" }
 };

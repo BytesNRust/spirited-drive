@@ -96,5 +96,33 @@ if [ -n "$f" ]; then
     grep -q "specs.tsv:" "$work/err" || fail "the refusal does not give the line: $(cat "$work/err")"
 fi
 
+# 5. validate: the CD passes without findings; a file over a limit is refused in compatible mode only
+"$studio" validate "$orig" >"$work/v.out" 2>&1 || fail "validate refused the original CD: $(head -3 "$work/v.out")"
+grep -q "no findings" "$work/v.out" || fail "validate found something on the original CD: $(head -3 "$work/v.out")"
+f=$(find_one TR1.TRI)
+if [ -n "$f" ]; then
+    cat "$f" > "$work/BIG.TRI"
+    printf '\130\002' | dd of="$work/BIG.TRI" bs=1 seek=6 conv=notrunc 2>/dev/null     # 0x0258 = 600 segments
+    "$studio" validate "$work/BIG.TRI" >"$work/v.out" 2>"$work/err"
+    [ $? -eq 1 ] || fail "validate accepted a TRI with 600 segments"
+    grep -q "TRI.SEGMENTS" "$work/v.out" || fail "the limit is not named: $(cat "$work/v.out")"
+    grep -q "value 600, maximum 599" "$work/v.out" || fail "value and maximum are not shown: $(cat "$work/v.out")"
+    grep -q "0043e4e0" "$work/v.out" || fail "the EXE address is not shown"
+    grep -q "BIG.TRI" "$work/v.out" || fail "the file is not named"
+    "$studio" validate --port-only "$work/BIG.TRI" >"$work/v.out" 2>&1 || fail "port-only validate did not exit 0"
+    grep -q "^warning TRI.SEGMENTS" "$work/v.out" || fail "port-only validate did not report a warning: $(cat "$work/v.out")"
+    "$studio" validate "$work/nonexistent.TRI" >/dev/null 2>&1 && fail "validate of a missing file exited 0"
+fi
+# the CARSPECS directory of an installation must not be writable
+mkdir -p "$work/inst/SIMDATA/CARSPECS" "$work/inst/SIMDATA/MISC"
+p=$(find_one DVIPER.PBS)
+[ -n "$p" ] && cat "$p" > "$work/inst/SIMDATA/CARSPECS/DVIPER.PBS"
+"$studio" validate --check-install "$work/inst" >"$work/v.out" 2>&1 && fail "a writable CARSPECS was accepted: $(cat "$work/v.out")"
+grep -q "MOD.CARSPECS_WRITABLE" "$work/v.out" || fail "the writable CARSPECS is not reported"
+"$studio" validate "$work/inst" >/dev/null 2>&1 || fail "without --check-install a writable CARSPECS must not matter"
+chmod a-w "$work/inst/SIMDATA/CARSPECS"
+"$studio" validate --check-install "$work/inst" >"$work/v.out" 2>&1 || fail "a read-only CARSPECS was refused: $(cat "$work/v.out")"
+chmod u+w "$work/inst/SIMDATA/CARSPECS"
+
 [ "$failures" -eq 0 ] && echo "studio_cli: all checks passed"
 exit "$failures"
