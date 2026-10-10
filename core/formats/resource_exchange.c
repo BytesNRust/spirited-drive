@@ -31,6 +31,18 @@ static int has_extension(const char *name, const char *ext)
     return 1;
 }
 
+/* The kind a file name promises, or KIND_RAW when the name says nothing. */
+static Kind promised_kind(const char *name)
+{
+    if (has_extension(name, ".tri")) return KIND_TRI;
+    if (has_extension(name, ".fam") || has_extension(name, ".cfm")) return KIND_TREE;
+    if (has_extension(name, ".fsh")) return KIND_SHPI;
+    if (has_extension(name, ".bnk")) return KIND_BNK;
+    if (has_extension(name, ".pbs")) return KIND_PBS;
+    if (has_extension(name, ".pdn")) return KIND_PDN;
+    return KIND_RAW;
+}
+
 static Kind kind_of(const uint8_t *d, size_t n, const char *name)
 {
     if (n >= 4 && memcmp(d, "SHPI", 4) == 0) return KIND_SHPI;
@@ -44,6 +56,49 @@ static Kind kind_of(const uint8_t *d, size_t n, const char *name)
         if (bnk_doc_read(d, n, &doc) == BNK_OK) { bnk_doc_free(doc); return KIND_BNK; }
     }
     return KIND_RAW;
+}
+
+/* Why a file whose name promises `want` is not one, with the offset where its structure gives out. */
+static void explain_mismatch(Kind want, const uint8_t *d, size_t n, const char *name, ExchangeError *err)
+{
+    switch (want) {
+    case KIND_TRI: {
+        Tri tri;
+        if (n < (size_t)TRI_HEADER_SIZE + 12) exchange_fail(err, "%s: truncated TRI: %zu bytes, the SJBO chunk starts at offset 0x%x", name, n, TRI_HEADER_SIZE);
+        else exchange_fail(err, "%s: damaged TRI: %s (file is %zu bytes)", name, tri_result_str(tri_open(&tri, d, n)), n);
+        break;
+    }
+    case KIND_TREE: {
+        DocNode *doc = NULL;
+        size_t at = 0;
+        const DocResult r = n >= 4 && memcmp(d, "wwww", 4) == 0 ? doc_parse_chunks_at(d, n, &doc, &at) : DOC_ERR_HEADER;
+        doc_free(doc);
+        exchange_fail(err, "%s: not a readable chunk tree: %s at offset 0x%zx (file is %zu bytes)", name, doc_result_str(r), at, n);
+        break;
+    }
+    case KIND_SHPI:
+        exchange_fail(err, "%s: not an SHPI: the tag at offset 0 must be SHPI (file is %zu bytes)", name, n);
+        break;
+    case KIND_BNK: {
+        BnkDoc *doc = NULL;
+        const BnkResult r = bnk_doc_read(d, n, &doc);
+        bnk_doc_free(doc);
+        exchange_fail(err, "%s: not a readable sound bank: %s (file is %zu bytes, the offset table needs %d)", name, bnk_result_str(r), n, BNK_TABLE_SIZE);
+        break;
+    }
+    case KIND_PBS: exchange_fail(err, "%s: a PBS record is %d bytes, this holds %zu", name, PBS_SIZE, n); break;
+    case KIND_PDN: exchange_fail(err, "%s: a PDN record is %d bytes, this holds %zu", name, PDN_SIZE, n); break;
+    default: break;
+    }
+}
+
+/* The kind of a payload; a name that promises a format the content is not is an error. */
+static int checked_kind(const uint8_t *d, size_t n, const char *name, Kind *kind, ExchangeError *err)
+{
+    const Kind found = kind_of(d, n, name), want = promised_kind(name);
+    if (want != KIND_RAW && found != want) { explain_mismatch(want, d, n, name, err); return 0; }
+    *kind = found;
+    return 1;
 }
 
 /* The payload of a file: the file itself, or its unpacked content (malloc'd). */
@@ -60,8 +115,9 @@ static int unpack(const uint8_t *file, size_t size, uint8_t **payload, size_t *p
     }
     *payload = malloc(unpacked ? unpacked : 1);
     if (*payload == NULL) { exchange_fail(err, "out of memory"); return 0; }
-    const QfsResult r = qfs_decompress(file, size, *payload, unpacked);
-    if (r != QFS_OK) { free(*payload); exchange_fail(err, "QFS stream is damaged: %s", qfs_result_str(r)); return 0; }
+    size_t at = 0;
+    const QfsResult r = qfs_decompress_at(file, size, *payload, unpacked, &at);
+    if (r != QFS_OK) { free(*payload); exchange_fail(err, "damaged QFS stream: %s at offset 0x%zx (file is %zu bytes)", qfs_result_str(r), at, size); return 0; }
     *payload_size = unpacked;
     return 1;
 }
@@ -223,7 +279,8 @@ int resource_export(const uint8_t *file, size_t size, const char *name, const ui
     size_t n = 0;
     int packed = 0;
     if (!unpack(file, size, &payload, &n, &packed, err)) return 0;
-    const Kind kind = kind_of(payload, n, name);
+    Kind kind;
+    if (!checked_kind(payload, n, name, &kind, err)) { free(payload); return 0; }
     FileSet tmp;
     fileset_init(&tmp);
     int ok = 1;
@@ -238,8 +295,9 @@ int resource_export(const uint8_t *file, size_t size, const char *name, const ui
     case KIND_BNK: ok = bnk_export(payload, n, &tmp, err); break;
     case KIND_TREE: {
         DocNode *doc = NULL;
-        const DocResult r = doc_parse_chunks(payload, n, &doc);
-        if (r != DOC_OK) { exchange_fail(err, "not a readable chunk tree: %s", doc_result_str(r)); ok = 0; break; }
+        size_t at = 0;
+        const DocResult r = doc_parse_chunks_at(payload, n, &doc, &at);
+        if (r != DOC_OK) { exchange_fail(err, "not a readable chunk tree: %s at offset 0x%zx (file is %zu bytes)", doc_result_str(r), at, n); ok = 0; break; }
         TsvWriter manifest;
         SeenList seen = {0};
         tsv_writer_init(&manifest);
@@ -276,7 +334,8 @@ int resource_import(const uint8_t *original, size_t size, const char *name, cons
     int packed = 0;
     memset(stats, 0, sizeof *stats);
     if (!unpack(original, size, &payload, &n, &packed, err)) return 0;
-    const Kind kind = kind_of(payload, n, name);
+    Kind kind;
+    if (!checked_kind(payload, n, name, &kind, err)) { free(payload); return 0; }
 
     const SetFile *res = fileset_find(in, "resource.tsv");
     if (res == NULL) { exchange_fail(err, "resource.tsv not found"); free(payload); return 0; }
