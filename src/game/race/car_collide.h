@@ -1,0 +1,15 @@
+/* Cars running into each other (0040d8e8 and what it calls): the bodies are
+ * moved apart and pushed, and a hard enough hit crashes them. */
+#ifndef TNFS_CAR_COLLIDE_H
+#define TNFS_CAR_COLLIDE_H
+
+#include "game/race/car.h"
+#include "game/race/race_state.h"
+
+/* 0040f384: two cars' bodies, both already holding their cars' state: apart
+ * and pushed (0041c944, 0041c098). A light hit hands each car back to its
+ * model with its road speed; a hard one (or a player's car in a hard crash
+ * already) crashes both. Returns 1 when they touched and pushed. */
+int car_cars_collide(Car *a, Car *b, RaceState *race);
+
+#endif
