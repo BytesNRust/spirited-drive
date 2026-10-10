@@ -71,6 +71,15 @@ int32_t ai_road_speed(const Car *car);
  * sounds it too. */
 void ai_watch_humans(Car *car, RaceState *race, int32_t lane, int32_t wish[3], int32_t node, int32_t progress);
 
+/* 0046c278: past the finish (00440afc gives 2) a car off the road's edge
+ * lanes pulls toward its grid place's side (even places +100 to wish 0, odd
+ * to wish 2) from 10 nodes before its place on; crossing up past a gear
+ * threshold (+0x308) by under 0x8000 starts the model's coast_timer; the
+ * revs (+0x3c1) ease by an eighth toward the speed through the gear ratio
+ * (3000 while coasting), at most the redline; then 0046bfb0 with the node
+ * and progress taken before the finish check. */
+void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);

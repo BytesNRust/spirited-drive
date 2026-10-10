@@ -2,6 +2,7 @@
 
 #include "game/race/ai_drive.h"
 #include "game/race/ai_lanes.h"
+#include "game/race/car_control.h"
 #include "game/race/car_crash.h"
 #include "game/sys/fixed_math.h"
 
@@ -40,6 +41,18 @@ enum {
     HORN_SPEED = 0xf0000,
     HUMAN_HELD = 1               /* physics model 1 */
 };
+
+enum {
+    FINISH_PULL = 100 << 16,     /* past the finish, toward the grid place's side */
+    FINISH_LEAD = 10,            /* nodes before its place the pull starts */
+    PAST_FINISH = 2,             /* car_race_window */
+    GEARS = 5,
+    SHIFT_WINDOW = 0x8000,
+    COAST_REVS = 3000,
+    REDLINE_MARGIN = 200
+};
+
+static const int32_t COAST_TICKS[8] = { 3, 3, 4, 5, 4, 5, 4, 3 };  /* 004c5d00, by model */
 
 static const int32_t POLICE_ODDS[4] = { 32, 64, 96, 128 };  /* 004c5d30, in 128 */
 
@@ -346,4 +359,33 @@ void ai_watch_humans(Car *car, RaceState *race, int32_t lane, int32_t wish[3], i
             human->physics == HUMAN_HELD)
             race_hold_car_sound(race, car->index, 0);
     }
+}
+
+void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3])
+{
+    const int32_t node = car->node, progress = car->progress;
+    if (car_race_window(car, race) == PAST_FINISH) {
+        const TriNode at = race_node(race, car->node);
+        if (lane != 3 - (at.flags[0] >> 4) && lane != (at.flags[0] & 0xf) + 4) {
+            const int32_t past = car_past_finish(car, race);
+            const int32_t place = car->player >= 0 && car->player < RACE_PLAYERS ? race->grid[car->player] : 0;  /* port guard */
+            if (past + FINISH_LEAD >= place / 2 * 2) wish[place % 2 != 0 ? 2 : 0] += FINISH_PULL;
+        }
+    }
+    int32_t gear = 0;
+    for (; gear < GEARS; gear++) {
+        const int32_t over = car->ai_speed - car->pdn_1ac[gear];
+        if (over > 0 && over < SHIFT_WINDOW && car->ai_speed >> 16 != 0 && car->coast_timer == 0)
+            car->coast_timer = car->model >= 0 && car->model < 8 ? COAST_TICKS[car->model] : 0;  /* port guard */
+        if (car->ai_speed < car->pdn_1ac[gear]) break;
+    }
+    int32_t revs = COAST_REVS;
+    if (car->coast_timer < 1) {
+        revs = fx_mul_round(fx_mul_round(car->ai_speed, car->pdn_1ac_inverse[gear]), car->pdn_1c4);
+        revs = (revs >> 17) + (revs >> 18);
+    }
+    car->rpm += (revs - car->rpm) / 8;
+    const int32_t redline = car->pdn_1c4 >> 16;
+    if (redline - REDLINE_MARGIN < car->rpm) car->rpm = redline;
+    ai_watch_humans(car, race, lane, wish, node, progress);
 }
