@@ -164,7 +164,8 @@ the EXE says otherwise. "Match" = the field/offset agrees and was checked on the
 | Texture index → bitmap | `3xx + (A,B,C)`, name `xxls`, closed vs open FAM | (see 6.4) | to verify in 6.4 |
 
 Unchanged risk: the file is **fixed-capacity**. The loader reads `0x1621c` header bytes in one go, so the header
-must be exactly that size. `segment_count` ≤ 599 follows from 2400 nodes + 1 closing node (`tri.h`).
+must be exactly that size. `segment_count` ≤ 599 follows from 2400 nodes + 1 closing node (`tri.h`). The 600-entry
+offset table at `0x2c` is **not read** by the load path of `0043e4e0` (RE, 2026-10-10); its role is unconfirmed.
 
 ### 6.2 FSH / SHPI (`src/formats/fsh.h`)
 
@@ -264,11 +265,17 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 
 | Element | Limit | Source | Tag |
 |---|---|---|---|
-| TRI nodes | 2400 (+1 closing); segments ≤ 599; offset table 600 entries | `tri.h`, `0043e4e0` (`+0x98c`, `+0x15b0c`, `+0x2c` table) | [S] |
-| TRI size of the header read | exactly `0x1621c` bytes | `0043e4e0` `FUN_0043dd50(base, 0x1621c)` | [X] |
-| TRI scenery records | 1000, scan stops at 16000 bytes or node `-1` | `0043e4e0` loop | [X] |
-| TRI descriptors | 64 in every file; `scenery = chunk + count × 16`; real maximum **[?]** | `0043e4e0`, `0040d6a0` | [X]+[?] |
-| TRKD record | 288 bytes; `terrain_size = 288 × segments` (checked in 17/17) | `tri.h`, [D] | [S][D] |
+| TRI header block | exactly `0x1621c` bytes reserved and read (a shorter file fails; extra bytes are read by the next chunks); nodes are 2400 × 36 from `0x98c`, so `4 × segments` ≤ 2400 and a closing node needs `segments` ≤ 599 | `0043e4e0` (asm, via tnfs-decomp) | [X] |
+| TRI circuit size | `u16` at `+4` = 0 → stage (`segments` 0x8000, mask −1); else `segments = u16(+4)`, `nodes = 4 × segments`, mask = `nodes − 1`: **nodes must be a power of two** on circuits (inference from the mask; the 7 CD circuits have 128/256 segments [D]) | `0043e4e0` | [X] |
+| TRI `SJBO` chunk | reserved and read from its own size field (`+4`); no cap other than memory | `0043e4e0` | [X] |
+| TRI terrain | reserved and read as header `+0x24` bytes; no cap other than memory (`288 × segments` in 17/17 [D]) | `0043e4e0` | [X] |
+| TRI fixed extra reserve | `0x8700` bytes, name at `004afc58` (`RoadSlices`), global `005041d8`; independent of the file | `0043e4e0` | [X] |
+| TRI scenery records | counted to the `-1` terminator, **at most 1000 (16000 bytes, `cmp 0x3e80`) → `005041d0`; extra records, or a missing terminator, are ignored silently** (all 17 CD files are terminated: 138..998 records [D]) | `0043e4e0` | [X] |
+| TRI descriptor index | the record byte `+4` (0..255) × 16 indexes the descriptor table **unchecked**; an index ≥ `descriptor_count` reads scenery bytes as a descriptor. **Limit for validate: `descriptor < descriptor_count`** (CD max 54 < 64 [D]) | `0043eca4`, `0044a4b0`, `0044a87c` | [X] |
+| TRI `descriptor_count` | only used to skip the descriptors and find `00509788 = SJBO + count × 16`; no 64-entry array depends on it | `0043e4e0`, `0040d6a0` | [X] |
+| TRI `scenery_slots` (`+0x16218`) | `0040d6a0` allocates `slots × 2` bytes of per-record state (knocked-down flag and minute), written by record index **without a check** (`0040fc64`, `0043eca4`). **`slots` must be ≥ the record count or the original writes past the buffer** (CD: 1000 everywhere [D]). The buffer is allocated only when `004b9098` is 0 | `0040d6a0` | [X] |
+| TRI model descriptors (type 1) | `byte +2` indexes the array at `005150f0` (objects of `0x4e` bytes); its size, and the cap of the position stack `004fd134` (counters `005041b4`/`005041b8`), are **[?]** (question 3) | `0043eca4` | [X]+[?] |
+| TRKD record | 288 bytes (`288 × segments` = terrain size in 17/17 [D]) | `tri.h` | [S][D] |
 | TRI chunk size | `17036` in every file (`12 + 64×16 + 1000×16`) [D] | | [D] |
 | Car CFM mesh element indices | `inside`, `surface` < 8, else infinite loop | `00457d40` | [X] |
 | Car CFM required names | see §5 | `00457d40` | [X] |
@@ -306,10 +313,9 @@ without an address does not enter the table (AC5).
 
 Each is answerable from Ghidra between two functions. They are limits the tool needs.
 
-1. `0043e4e0`: what is the capacity behind `FUN_00474c8c` for the TRI (header, `SJBO`, terrain buffers)? Is there a hard
-   cap beyond the 600-entry table? (Today the table size is the only bound.)
-2. `0040d6a0` and the descriptor users: is `descriptor_count` (`+0x16214`) honoured as a variable (≠ 64), or are there fixed
-   64-entry arrays?
+1. ~~TRI capacity~~ **Answered** by tnfs-decomp (see §7): fixed `0x1621c` header, `SJBO` and terrain sized by their own fields, `0x8700`
+   extra reserve; `00474c8c` is the allocator (name, size, flags on the stack).
+2. ~~`descriptor_count`~~ **Answered** (see §7): only a skip count; descriptor byte `+4` is unchecked; `scenery_slots × 2` state buffer.
 3. `004511a4`/`004511fc`/`004585e4`/`004576f0`: maximum objects in the FAM's child 3, maximum SHPI directory
    entries, any bound on texture number (`3xx+{A,B,C}`) and on per-track bitmap count; what `004510e8` does with a
    file larger than its buffer.
