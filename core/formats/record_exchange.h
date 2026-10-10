@@ -12,7 +12,7 @@
 typedef enum { REC_I32, REC_U32, REC_I16, REC_U16, REC_I8, REC_U8, REC_BYTES } RecordKind;
 
 typedef struct {
-    uint16_t offset;
+    uint32_t offset;
     uint8_t kind;      /* RecordKind */
     uint16_t count;    /* elements; for REC_BYTES the length in bytes */
     const char *name;

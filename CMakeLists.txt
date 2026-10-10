@@ -30,6 +30,7 @@ add_library(tnfs_core STATIC
     core/formats/shpi_exchange.c
     core/formats/table_exchange.c
     core/formats/tri.c
+    core/formats/tri_exchange.c
     core/formats/tri_write.c
     core/formats/tsv.c
     core/formats/qfs.c
@@ -155,7 +156,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -224,6 +225,7 @@ if(NOT EMSCRIPTEN)
     if(TNFS_TRI_FILES)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
         add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
+        add_test(NAME tri_exchange_cd COMMAND test_tri_exchange ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)
         target_link_libraries(test_track PRIVATE tnfs_game)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})
