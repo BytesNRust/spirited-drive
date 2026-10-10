@@ -14,10 +14,14 @@ endif()
 
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
+    src/formats/bnk.c
     src/formats/chunk.c
     src/formats/ffn.c
+    src/formats/fixed_record.c
     src/formats/fsh.c
     src/formats/mesh.c
+    src/formats/pbs.c
+    src/formats/pdn.c
     src/formats/tri.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
@@ -133,7 +137,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs fsh ffn chunk mesh palette race_settings config_dat tri sky_ring quad object_mappers flat
+    foreach(name qfs fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri sky_ring quad object_mappers flat
                  palette_match)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
@@ -160,6 +164,22 @@ if(NOT EMSCRIPTEN)
     if(TNFS_CONFIG_DAT)
         list(GET TNFS_CONFIG_DAT 0 TNFS_CONFIG_DAT_FILE)
         add_test(NAME config_dat_cd COMMAND test_config_dat ${TNFS_CONFIG_DAT_FILE})
+    endif()
+
+    file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
+        "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
+    if(TNFS_PBS_FILES)
+        add_test(NAME pbs_cd COMMAND test_pbs ${TNFS_PBS_FILES})
+    endif()
+    file(GLOB TNFS_PDN_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARFAMS/*.PDN"
+        "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARFAMS/*.pdn")
+    if(TNFS_PDN_FILES)
+        add_test(NAME pdn_cd COMMAND test_pdn ${TNFS_PDN_FILES})
+    endif()
+    file(GLOB TNFS_BNK_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/SOUNDBNK/*.BNK"
+        "${CMAKE_SOURCE_DIR}/original/SIMDATA/SOUNDBNK/*.bnk")
+    if(TNFS_BNK_FILES)
+        add_test(NAME bnk_cd COMMAND test_bnk ${TNFS_BNK_FILES})
     endif()
 
     file(GLOB TNFS_TRI_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.TRI"
