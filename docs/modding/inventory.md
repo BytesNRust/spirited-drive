@@ -47,7 +47,7 @@ directories. **Evidence points to "replace only" for Level 1**; the user decides
 |---|---|---|---|
 | car file stems, race slots | `004c5660` (16 pointers) | `TSupra LDiabl P911 CZR1 F512TR DVIPER ANSX MRX7 MRX7 MRX7 MRX7 Traffc`, then cops `CopMust CopCamaro CopCaprice CopVic` | [X] |
 | traffic stems | `004c56a0` (12 pointers) | `Wagon CRX Vandura BMW SunBird JETTA RODEO axxess probe Jeep Lemans Pickup` | [X] |
-| older car-name table | `004bc664` (`car_model_names[12]`, `car_load.h`) | `TSupra LDiabl P911 CZR1 F512TR DVIPER ANSX MRX7 MRX7 MRX7 P911T Traffc`; index 12+ is NULL | [S] |
+| PBS name table | `004bc664` (`car_model_names[12]`, `car_load.h`); used only by `004400f4`: CARSPECS + name by entry model + `.PBS` (`004afd88`) | `TSupra LDiabl P911 CZR1 F512TR DVIPER ANSX MRX7 MRX7 MRX7 P911T Traffc`; index 12+ is NULL | [S] |
 | track stems | `004af2fc..004af3dc` | `alpine springs avalley bsienna vridge tpolis lvegas citym coastm` + `…m` and `…r` variants + `cityr coastr` | [X] |
 | engine banks | `004b00b0..004b01f7` | `Supra_sw Diablosw 911_sw ZR1_sw tr512_sw Vipersw NSX_sw RX7_sw traffc` (player) and `OSupmb ODiamb O911mb OZR1mb O512mb OVipmb ONSXmb ORX7mb traffcO` (opponent), `COLLSWWT3 COLSWMT3 COLLSBWT…`, `NFS_FMMB` | [X] |
 | FAM name formats | `004b0a60..004b0a90` | `%s/%s_T%.2d.fam`, `_M%.2d`, `_R%.2d`, `%s/%s_%.3d.fam` | [X] |
@@ -58,7 +58,7 @@ How `00457d40` (car loader) turns a slot into files [X]: with `n = 004fba94[car 
 (`MTSUPRA.CFM`); `200..399` race slot `n-200`, full CFM; `>= 400` cop. The file is
 `<carFams dir><prefix><stem>.cfm` (`004b1178`); the PDN is read by `0040fa3c`/`004407b8` (see STATE.md) as
 `<stem>.PDN`. The CD's other CFMs (`F512M`, `LDIABLO`, `WARIOR`, `WARRIOR`, `TESTA`, `MF512M`, `MP911T`) have no stem in
-`004c5660`/`004c56a0` — they look unused **[?]**. `P911T` appears only in the older table `004bc664` and as a CFM.
+`004c5660`/`004c56a0` — they look unused **[?]**. `P911T` appears only in the PBS table `004bc664` (index 10, and there is no `P911T.PBS` on the CD, so model 10 would fail at the specs load; whether the frontend offers it is unchecked) and as a CFM. A car slot is two files: the PBS named by `004bc664` by model, the CFM named by `004c5660`; the tables differ only at index 10 (`004fba94` is set in `00457870`: human model + 200, 'm' mesh = 100 less in multi-car races, opponents from `004c5628`).
 
 Consequences for the epic:
 
@@ -355,7 +355,7 @@ Each is answerable from Ghidra between two functions. They are limits the tool n
    names, and from which resource?
 10. SAV: size and layout written by the EXE (`%s%s.SAV`, `004aeeb0`); needed only if tournament state must be authored.
 11. FSH entry types accepted by the draw routines (only `0x7B`/`0x22`/`0x24` seen) and maximum bitmap size.
-12. Which indices feed `004bc664` (old table) versus `004c5660`/`004c56a0`: confirm the §2 reading of `004fba94`.
+12. ~~`004bc664` versus `004c5660`~~ **Answered**: PBS table versus CFM table (see §2).
 
 ## 10. Facts with EXE addresses (for `re/STATE.md`)
 
