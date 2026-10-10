@@ -29,6 +29,7 @@ add_library(tnfs_core STATIC
     core/formats/pdn.c
     core/formats/png.c
     core/formats/record_exchange.c
+    core/formats/resource_exchange.c
     core/formats/shpi_exchange.c
     core/formats/table_exchange.c
     core/formats/tri.c
@@ -159,7 +160,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -210,6 +211,11 @@ if(NOT EMSCRIPTEN)
     file(GLOB_RECURSE TNFS_MESH_FILES "${CMAKE_SOURCE_DIR}/original/*.FAM" "${CMAKE_SOURCE_DIR}/original/*.CFM")
     if(TNFS_MESH_FILES)
         add_test(NAME mesh_exchange_cd COMMAND test_mesh_exchange ${TNFS_MESH_FILES})
+    endif()
+    file(GLOB_RECURSE TNFS_ALL_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/*" "${CMAKE_SOURCE_DIR}/original/GAMEDATA/*"
+        "${CMAKE_SOURCE_DIR}/original/FRONTEND/*")
+    if(TNFS_ALL_FILES)
+        add_test(NAME resource_exchange_cd COMMAND test_resource_exchange ${TNFS_ALL_FILES})
     endif()
     file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
