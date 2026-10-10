@@ -8,6 +8,7 @@
 #include "game/race/ai_struct.h"
 #include "game/race/car.h"
 #include "game/race/crash_trail.h"
+#include "game/race/race_splits.h"
 
 #include <stdint.h>
 
@@ -149,6 +150,7 @@ typedef struct {
     int32_t car_impulse;            /* 004b9128: the last push between two cars' bodies (0041c098), kept when they part */
     int32_t unknown_509d5c;         /* 00509d5c: 0 from 0043f994, 1 from 0043fbac; a crash is not counted at 2 or 3 */
     CrashTrail trail;               /* 005146ac: the crash smoke */
+    RaceSplits splits;              /* 0051c808 */
     uint32_t trail_seed;            /* 004c5608: its own generator */
     int32_t notes[RACE_NOTES];      /* 00512f94 */
     int32_t circuit;                /* 00504200: laps are counted */
