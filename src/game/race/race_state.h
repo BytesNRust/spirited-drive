@@ -191,6 +191,7 @@ typedef struct {
     uint32_t driver_profiles_base;  /* the address of driver_profiles[0] in the original */
     int32_t driver_profile_count;
     int32_t grid[RACE_PLAYERS];     /* 004fba50: the starting grid place of each car */
+    int32_t driver_letters[RACE_PLAYERS];  /* 004fba70: each opponent's driver profile number (0044940c) */
     int32_t camera_mode;            /* 004f8020: 7 while the race is being set up, 5 attached to a car */
     uint32_t random_seed;           /* 004b9628: race_random() */
     uint32_t random_last;           /* 004b962c */

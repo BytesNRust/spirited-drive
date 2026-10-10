@@ -34,4 +34,11 @@ void ai_grid_place(Car *car, RaceState *race);
  * words 9 and 10 are counted in seconds there and kept in ticks (x 60). */
 void ai_default_params(int32_t params[107]);
 
+/* 004702d4: the computer cars set up for a race: the game's driver profiles,
+ * each opponent's letter (on the first variant of a track) and profile, the
+ * lane widths, the zones, the counters, the tuning, the humans on the grid
+ * and the cars sorted. `fallback_row` is the letter row when the race type
+ * names none (the byte the caller left in al). */
+void ai_race_setup(RaceState *race, int32_t fallback_row);
+
 #endif

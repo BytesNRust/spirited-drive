@@ -2,6 +2,9 @@
 
 #include "game/race/ai_lanes.h"
 #include "game/race/ai_profiles.h"
+#include "game/race/ai_zones.h"
+
+#include <string.h>
 
 #include "game/sys/fixed_math.h"
 
@@ -12,6 +15,15 @@ enum {
     GRID_FRONT = 0x20,      /* the front row's node */
     PAIRED_RACERS = 2,      /* up to this, two cars a row */
     OPEN_ROAD_TRACK = 2     /* above: the cars take the node's x and heading */
+};
+
+enum {
+    LANE_WIDTHS_AT = 8,     /* ai byte offset of the lane width words, 40 a row */
+    LANE_ROW = 40,
+    LANE_ROWS = 4,          /* row 0 zeroed, rows 1..3 i / row (the last 4 words of row 3 run into ai +0x140) */
+    START_UNKNOWN_160 = 80000,
+    RACER_DECEL = 0x5999,
+    PARAM_COPS_AT = 13      /* zeroed for race type 0 and for type 1 with laps */
 };
 
 enum { PARAMS = 107, TICKS_PER_SECOND = 60, PARAM_SCALED = 18, PARAM_SCALE = 0x471c };
@@ -99,4 +111,55 @@ void ai_default_params(int32_t params[107])
     params[9] *= TICKS_PER_SECOND;
     params[10] *= TICKS_PER_SECOND;
     params[PARAM_SCALED] = fx_mul_round(params[PARAM_SCALED], PARAM_SCALE);
+}
+
+static void set_lane_width(RaceState *race, int32_t at, int32_t value)
+{
+    const int16_t word = (int16_t)value;
+    memcpy((uint8_t *)&race->ai + LANE_WIDTHS_AT + 2 * at, &word, sizeof word);
+}
+
+static void lane_widths(RaceState *race)
+{
+    for (int32_t i = 0; i < LANE_ROW; i++) set_lane_width(race, i, 0);
+    for (int32_t row = 1; row < LANE_ROWS; row++)
+        for (int32_t i = 0; i < LANE_ROW; i++)
+            set_lane_width(race, row * LANE_ROW + i, fx_div(i << 16, row << 16) >> 8);
+}
+
+static void opponents(RaceState *race, int32_t row)
+{
+    for (int32_t i = 0; i < race->car_count && i < RACE_PLAYERS; i++) race->ai.profiles[i] = 0;
+    const int32_t last = race->racers < RACE_PLAYERS ? race->racers : RACE_PLAYERS;  /* port guard */
+    if (race->track_variant == 0)
+        for (int32_t i = race->humans; i < last; i++) race->driver_letters[i] = ai_driver_letter(race->grid[i], row);
+    for (int32_t i = race->humans; i < last; i++) race->ai.profiles[i] = ai_profile_handle(race, race->driver_letters[i]);
+}
+
+void ai_race_setup(RaceState *race, int32_t fallback_row)
+{
+    ai_use_game_profiles(race);
+    const int32_t row = ai_profile_row(race, fallback_row);
+    race->ai.unknown_360 = (int32_t)(race->track_flags >> 16 & 1);
+    opponents(race, row);
+    lane_widths(race);
+    race->ai.first_car = race->cars[0] != NULL ? race->cars[0]->unknown_088 : 0;
+    race->ai.unknown_344 = 0;
+    ai_zones_init(race);
+    race->ai.lane_cars[0] = 0;
+    race->ai.traffic_placed = 0;
+    race->ai.unknown_33c = 0;
+    race->ai.unknown_160 = START_UNKNOWN_160;
+    race->unknown_4c5cd8 = 0;
+    race->unknown_4c5cdc = 0;
+    race->unknown_4c5d40 = 0;
+    race->ai.unknown_358 = 1;
+    race->ai.lane_cars[1] = race->traffic_setting;
+    race->ai.unknown_168 = race->unknown_4fb7f0;
+    ai_default_params(race->ai.params);
+    race->ai.racer_decel = RACER_DECEL;
+    if (race->race_type == 0 || (race->race_type == 1 && race->circuit != 0)) race->ai.params[PARAM_COPS_AT] = 0;
+    for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++)
+        if (race->cars[i] != NULL) ai_grid_place(race->cars[i], race);
+    race_sort_cars(race);
 }

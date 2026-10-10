@@ -9,7 +9,7 @@ enum { AI_STATE_SIZE = 0x370 };
 
 #pragma pack(push, 1)
 typedef struct {
-    int32_t lane_cars[2];  /* 0x000 traffic cars placed in each lane: [0] the oncoming lane, [1] the player's lane (0046ea04); zeroed at the start (004702d4) */
+    int32_t lane_cars[2];  /* 0x000 traffic cars placed in each lane: [0] the oncoming lane, [1] the player's lane (0046ea04); at the start (004702d4) [0] is zeroed and [1] gets the traffic setting 004fb7ec */
     int16_t lane_width[156];  /* 0x008 row = lanes (node +4 & 0xf), [verge / 8]: the road width over the lanes, 8.8 (004702d4); row 0 zero; read as words from 0052b336 */
     int16_t unknown_140[4];  /* 0x140 0046a3c0 */
     int16_t zones[12];  /* 0x148 two records of six words, one per human: the slot, end and start nodes of the span a computer car may stay in (0046a070), a word, end and start of the span the player sees (0046a0f4, 0046ea04) */
