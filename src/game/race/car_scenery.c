@@ -4,6 +4,8 @@
 
 #include "game/sys/fixed_math.h"
 
+#include <string.h>
+
 enum {
     SCENERY_RECORD = 0x10,
     SCENERY_END = -1,
@@ -17,7 +19,8 @@ enum {
     STREAM_NONE = -1,
     RESTREAM = 1,               /* render_flags */
     HEARD_NODES = 9,            /* a hit this near the camera's node sounds */
-    HIT_SOUND = 10
+    HIT_SOUND = 10,
+    MINUTE = 0x708              /* race ticks */
 };
 
 /* The node word of record `index`; the original reads it unchecked. */
@@ -90,4 +93,58 @@ int32_t car_scenery_hit(const Car *car, RaceState *race, const int32_t point[3])
         race->sounds.sound(race->sounds.user, -1, 2, HIT_SOUND, 0x10000, distance, angle);
     }
     return 1;
+}
+
+/* The int16 at `offset` in scenery record `index`, as the original reads it
+ * (a word's high half). */
+static int32_t record_half(const Tri *tri, int32_t index, size_t offset)
+{
+    const size_t at = tri->scenery_offset + (size_t)index * SCENERY_RECORD + offset;
+    if (index < 0 || at + 2 > tri->size) return 0;  /* port guard */
+    return (int16_t)(tri->data[at] | tri->data[at + 1] << 8);
+}
+
+/* A standing record at the car's node knocked over, if the car hits it. */
+static int knocks(Car *car, RaceState *race, int32_t node)
+{
+    const int32_t index = car->scenery_index;
+    if (node != car->scenery_node || index < 0 || index >= TRI_SCENERY_MAX ||  /* port guard */
+        race->scenery_state[2 * index] != 0)
+        return 0;
+    TriNode n;
+    if (tri_node(race->tri, (uint32_t)node, &n) != TRI_OK) memset(&n, 0, sizeof n);  /* port guard: the original reads on unmasked */
+    const int32_t point[3] = {
+        (int32_t)((uint32_t)n.position.x + ((uint32_t)record_half(race->tri, index, 0xa) << 8)),
+        (int32_t)((uint32_t)n.position.y + ((uint32_t)record_half(race->tri, index, 0xc) << 8)),
+        (int32_t)((uint32_t)n.position.z + ((uint32_t)record_half(race->tri, index, 0xe) << 8))
+    };
+    if (!car_scenery_hit(car, race, point)) return 0;
+    race->scenery_state[2 * index] = (uint8_t)(race->tick / MINUTE + 1);
+    race_scenery_restream(race);
+    return 1;
+}
+
+int32_t car_knocks_scenery(Car *car, RaceState *race)
+{
+    const Tri *tri = race->tri;
+    const int32_t node = car->node;
+    while (node == car->scenery_node && car->scenery_index != 0) {
+        car->scenery_index--;
+        car->scenery_node = record_node(tri, car->scenery_index);
+    }
+    if (node >= car->scenery_node && record_node(tri, car->scenery_index + 1) != SCENERY_END) {
+        for (;;) {
+            if (knocks(car, race, node)) return 1;
+            car->scenery_index++;
+            car->scenery_node = record_node(tri, car->scenery_index);
+            if (node < car->scenery_node || record_node(tri, car->scenery_index + 1) == SCENERY_END) return 0;
+        }
+    }
+    if (node >= car->scenery_node || car->scenery_index == 0) return 0;
+    for (;;) {
+        if (knocks(car, race, node)) return 1;
+        car->scenery_index--;
+        car->scenery_node = record_node(tri, car->scenery_index);
+        if (node > car->scenery_node || car->scenery_index == 0) return 0;
+    }
 }

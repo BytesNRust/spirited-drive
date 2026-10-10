@@ -29,4 +29,11 @@ void race_scenery_restream(RaceState *race);
  * the car is within 9 nodes of the camera. */
 int32_t car_scenery_hit(const Car *car, RaceState *race, const int32_t point[3]);
 
+/* 0040fc64: whether the car knocks over a standing scenery object at its
+ * node: the cursor steps back off the node, then walks to every record on
+ * it (forward, or back when the node lies behind the cursor), each tried
+ * at its node's position plus its offset x 256 (0040fef0). The first hit is
+ * marked knocked over at this minute and the scenery streamed again. */
+int32_t car_knocks_scenery(Car *car, RaceState *race);
+
 #endif
