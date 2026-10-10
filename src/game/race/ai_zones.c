@@ -1,6 +1,6 @@
 #include "game/race/ai_zones.h"
 
-enum { ZONES = 2, ZONE_WORDS = 6 };
+enum { ZONES = 2, ZONE_WORDS = 6, NOTE_ZONE_MOVED = 0x50 };
 
 static Car *slot_car(const RaceState *race, int32_t slot)
 {
@@ -22,5 +22,21 @@ void ai_swap_zones(RaceState *race, int32_t slot, int32_t zone, int32_t old)
         if (other == NULL) continue;
         if (other->zone == zone) other->zone = old;
         else if (other->zone == old) other->zone = zone;
+    }
+}
+
+void ai_zones_by_place(RaceState *race)
+{
+    int32_t zone = 0;
+    for (int32_t i = race->car_count - 1; i >= 0; i--) {
+        const Car *const car = i < RACE_PLAYERS ? slot_car(race, race->by_progress[i]) : NULL;  /* port guard */
+        if (car == NULL) continue;
+        const int32_t slot = car->index;
+        if (slot < 0 || slot >= race->racers) continue;
+        if (car->zone != zone) {
+            ai_swap_zones(race, slot, zone, car->zone);
+            race_note(race, NOTE_ZONE_MOVED);  /* the original checks +0x516 again; the swap leaves it */
+        }
+        zone++;
     }
 }

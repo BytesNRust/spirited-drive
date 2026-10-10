@@ -9,4 +9,8 @@
  * gets `old` in exchange; the computer cars of either zone swap with them. */
 void ai_swap_zones(RaceState *race, int32_t slot, int32_t zone, int32_t old);
 
+/* 0046a344: the humans take the zones in race order, the leading one zone 0;
+ * each one moved sounds note 0x50. */
+void ai_zones_by_place(RaceState *race);
+
 #endif
