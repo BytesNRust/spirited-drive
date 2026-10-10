@@ -338,6 +338,19 @@ The original analysis follows.
    from font text; one RE question below closes it. If a name does come from the EXE, AC7's rename moves to Level 2
    as the spec says, and we stop before phase 7.
 
+### 8.1 Names drawn from EXE text (answer to question 9, tnfs-decomp)
+
+- **Car short names are EXE text.** Eight names (RX-7, NSX, SUPRA, 911, ZR-1, VIPER, 512TR, DIABLO) sit in two identical
+  copies at `004b11e8..` and `004b1924..`, in fixed slots (4 bytes for NSX and 911, 8 for the others). They are drawn with
+  the font routine `00463cd8` on the results and records screens: table `004c5c84` used by `0045c45c`, `0045cea0`,
+  `0045de08`, `0045eff4` (from `0040b648` / `0040c710`) and `0046067c`; `004676d8` copies the second table (`0046741c`).
+  The index is the car number stored in the records (`00524eb4` / `00524f9e` + track × 0xa6b) or `00524e89`.
+- **Track display names appear nowhere as EXE text.**
+- The full names on the selection screens stay QFS bitmaps (Level 1).
+- **Consequence for AC7:** renaming a car on the results and records screens is EXE text = Level 2 (the only Level 1 way
+  would be a same-length binary patch inside the slot, which the spec places at Level 2). Track renames and car renames on
+  the selection screens remain image edits. **Decision for the user** before phase 7: how AC7 words the car-name case.
+
 ## 9. Questions for the RE session (tnfs-decomp)
 
 Each is answerable from Ghidra between two functions. They are limits the tool needs.
@@ -351,8 +364,7 @@ Each is answerable from Ghidra between two functions. They are limits the tool n
 6. ~~BNK loading and registration~~ **Answered** at bank level (see §7). Still open, deferred: the per-sample header fields the playback code reads and the meaning of each flag bit (`0048eea0` on); not needed by the loaders.
 7. ~~`BY_R&T`~~ **Answered** (see §6.6, §7).
 8. ~~`*INFO` parser~~ **Answered** (see §7).
-9. Is any car or track display name taken from EXE text (results, stats, car-select, replays)? Which functions draw
-   names, and from which resource?
+9. ~~Names from EXE text~~ **Answered (risk partly materialised)**: see §8.1.
 10. SAV: size and layout written by the EXE (`%s%s.SAV`, `004aeeb0`); needed only if tournament state must be authored.
 11. FSH entry types accepted by the draw routines (only `0x7B`/`0x22`/`0x24` seen) and maximum bitmap size.
 12. ~~`004bc664` versus `004c5660`~~ **Answered**: PBS table versus CFM table (see §2).
