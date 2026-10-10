@@ -4,7 +4,10 @@
 #include "game/race/ai_lanes.h"
 #include "game/race/car_control.h"
 #include "game/race/car_crash.h"
+#include "game/sys/rigid_math.h"
 #include "game/sys/fixed_math.h"
+
+#include <string.h>
 
 enum {
     ONCOMING = 0x10,            /* flags_175: drives against the first car's direction */
@@ -70,6 +73,18 @@ enum {
 };
 
 static const int32_t MODEL_PACE[8] = { 60293, 65536, 60948, 60948, 65536, 62259, 58982, 58982 };  /* 004c5ce0 */
+
+enum {
+    TRAFFIC_PACE = 18,           /* ai.params: averaged with the first car's speed for traffic */
+    PACK_LEAD = 6,               /* ai.params: what racers and police may run above the first car */
+    COP_CAR = 8,                 /* flags_174 */
+    COP_CHASING = 4,             /* flags_175 */
+    STOPS_LIMIT = 900,           /* ai.unknown_364 */
+    MODEL_SLEEPING = 3,          /* physics: the speed is left alone */
+    STOPPED = 2,                 /* flags_176[0] */
+    FLAGS_KEPT = 0xbe1c,         /* flags_174/175 as a word */
+    FLAGS_SET = 0x1e0
+};
 
 static const int32_t POLICE_ODDS[4] = { 32, 64, 96, 128 };  /* 004c5d30, in 128 */
 
@@ -463,4 +478,86 @@ int32_t ai_target_pace(Car *car, RaceState *race)
         if (car_past_finish(car, race) >= place / 2 * 2) speed = 0;
     }
     return speed;
+}
+
+/* The node's point, read at the unmasked index as the original does. */
+static TriVec32 node_point(const RaceState *race, int32_t node)
+{
+    TriNode n;
+    if (tri_node(race->tri, (uint32_t)node, &n) != TRI_OK) memset(&n, 0, sizeof n);  /* port guard */
+    return n.position;
+}
+
+/* Byte `k` of the track's speed table for the node's segment, as 16.16. */
+static int32_t segment_byte(const RaceState *race, int32_t node, int k)
+{
+    const size_t at = TRI_SPEED_TABLE + 3 * (size_t)((uint32_t)node >> 2) + (size_t)k;
+    return at < race->tri->size ? (int32_t)((uint32_t)race->tri->data[at] << 16) : 0;  /* port guard */
+}
+
+static int32_t across(const Car *car, const int32_t *v)
+{
+    return (car->road_axes[0] >> 8) * (v[0] >> 8) + (v[1] >> 8) * (car->road_axes[1] >> 8) +
+           (v[2] >> 8) * (car->road_axes[2] >> 8);
+}
+
+static void place_on_road(Car *car, RaceState *race)
+{
+    const TriVec32 at = node_point(race, car->node);
+    const int32_t d[3] = { car->x - at.x, car->y - at.y, car->z - at.z };
+    if (car->use_matrix == 0) {
+        ai_road_frame(car, race);
+        rm_turn_xzy(car->matrix, car->pitch, car->roll, car->yaw);
+    }
+    car->road_lateral = (car->road_axes[1] >> 8) * (d[1] >> 8) + (car->road_axes[0] >> 8) * (d[0] >> 8) +
+                        (d[2] >> 8) * (car->road_axes[2] >> 8);
+    const int32_t a = magnitude(across(car, &car->matrix[0])), b = magnitude(across(car, &car->matrix[3])),
+                  c = magnitude(across(car, &car->matrix[6]));
+    car->unknown_084 = (car->body_extent_a >> 8) * (a >> 8) + (car->body_extent_b >> 8) * (b >> 8) +
+                       (c >> 8) * (car->body_extent_c >> 8);
+}
+
+static void aim_speed(Car *car, RaceState *race, const Car *first, int32_t leader_progress)
+{
+    if (car->flags_175 & ONCOMING) {
+        car->ai_target_speed = ai_scale_speed(car, -ai_leader_speed(car, race));
+        return;
+    }
+    if (car->flags_174 & RACER) {
+        car->ai_target_speed = first->ai_speed;
+    } else {
+        car->ai_target_speed = (race->ai.params[TRAFFIC_PACE] >> 1) + (first->ai_speed >> 1);
+        car->ai_target_speed = ai_scale_speed(car, car->ai_target_speed);
+    }
+    if ((car->flags_174 & KEEPS_GAP) || (car->flags_175 & KEEPS_GAP)) {
+        const int32_t lead = first->ai_speed + race->ai.params[PACK_LEAD];
+        if (lead > car->ai_target_speed) car->ai_target_speed = lead;
+        if ((car->flags_174 & COP_CAR) && (car->flags_175 & COP_CHASING)) {
+            const int32_t ahead = car->progress - leader_progress;
+            const Car *player = race->cars[0];
+            if (ahead > 3 || (ahead >= -2 && race->ai.unknown_364 < STOPS_LIMIT &&
+                              segment_byte(race, car->node, 2) < player->ai_speed))
+                car->ai_target_speed = player->speed;
+        }
+    } else {
+        const int32_t cap = ai_scale_speed(car, segment_byte(race, car->node, 2));
+        if (cap < car->ai_target_speed) car->ai_target_speed = cap;
+    }
+    const int32_t pace = ai_target_pace(car, race);
+    if (pace < car->ai_target_speed || (car->flags_174 & RACER)) car->ai_target_speed = pace;
+}
+
+void ai_car_update(Car *car, RaceState *race)
+{
+    const int32_t leader_progress = race->leader != NULL ? race->leader->progress : 0;  /* port guard */
+    place_on_road(car, race);
+    const Car *first = race_car_by_handle(race, race->ai.first_car);
+    if (!(car->index >= 0 && car->index < race->humans) && first != NULL)  /* port guard: first */
+        aim_speed(car, race, first, leader_progress);
+    if (car->physics != MODEL_SLEEPING)
+        car->ai_speed = car->physics == PHYSICS_CRASHED ? car_body_road_speed(car) : ai_road_speed(car);
+    if (car->flags_176[0] & STOPPED) car->ai_target_speed = 0;
+    const uint32_t flags = ((uint32_t)car->flags_174 | (uint32_t)car->flags_175 << 8) & FLAGS_KEPT;
+    car->flags_174 = (uint8_t)(flags | FLAGS_SET);
+    car->flags_175 = (uint8_t)((flags | FLAGS_SET) >> 8);
 }

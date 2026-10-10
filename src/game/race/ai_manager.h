@@ -92,6 +92,21 @@ void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]
  * finish. Track flag 4 leaves the profile out. */
 int32_t ai_target_pace(Car *car, RaceState *race);
 
+/* 0046ab24: a computer car's road state each manager pass: without a
+ * matrix (+0x20), its road frame (00470028) and a matrix from its turns
+ * (0041ddb0); its distance from the road centre along the side row
+ * (road_lateral, from the node's point, the node read unmasked) and its
+ * body's reach across the road (+0x84). The target speed (+0x160) of a
+ * car that is not a human's: oncoming, the zone leader's speed backwards
+ * (scaled); else the first car's speed (traffic: averaged with ai params[18],
+ * scaled), raised to the first car's + params[6] for racers and police (a
+ * police car with flags_175 bit 2 near the leader takes cars[0]'s speed),
+ * or held under the segment's scaled speed byte 2; then held under
+ * 00470a9c's pace (a racer takes it). Its speed (+0x15c) follows the road
+ * (the body's in model 4, untouched in model 3); +0x176 bit 1 stops it, and
+ * flags_174/175 become (& 0xbe1c) | 0x1e0. */
+void ai_car_update(Car *car, RaceState *race);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);
