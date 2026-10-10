@@ -229,6 +229,10 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_drive PRIVATE tnfs_game)
         target_compile_options(test_drive PRIVATE ${TNFS_WARNINGS})
         add_test(NAME drive COMMAND test_drive "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_executable(test_race tests/test_race.c)
+        target_link_libraries(test_race PRIVATE tnfs_game)
+        target_compile_options(test_race PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME race COMMAND test_race "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
     file(GLOB_RECURSE TNFS_MODEL_FILES
