@@ -368,7 +368,7 @@ static Blob make_fam(uint32_t background, uint32_t foreground, uint32_t objects,
     Blob *objs = calloc(objects + 1, sizeof *objs);
     for (uint32_t i = 0; i < objects; ++i) objs[i] = pair;
     Blob objects_tree = make_wwww(objs, objects);
-    Blob filler = blob_new(pad ? pad : 8);
+    Blob filler = blob_new(pad ? pad : 12);  /* the 12-byte header written below */
     memcpy(filler.data, "SHPI", 4);
     put_u32(filler.data + 4, (uint32_t)filler.size);
     put_u32(filler.data + 8, 0);
