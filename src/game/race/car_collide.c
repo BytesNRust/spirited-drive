@@ -2,6 +2,7 @@
 
 #include "game/race/ai_lanes.h"
 #include "game/race/car_crash.h"
+#include "game/race/car_walls.h"
 #include "game/race/rigid_body.h"
 
 enum {
@@ -11,7 +12,14 @@ enum {
     MOVING_ON = 0x100000,        /* below this road speed a light hit makes no sound */
     TUMBLING = 0x8000,
     CRASH_TICKS = 300,
-    POLICE_SLOT = 2              /* 00509e24 */
+    POLICE_SLOT = 2,             /* 00509e24 */
+    NOTE_HIT = 2,                /* 00443fc0's sound and kind for two cars hitting */
+    SOUND_KIND = 2,
+    SOUND_SCALE = 0x14,
+    SOUND_GAP = 0x8000,
+    SOUND_TICKS = 10,
+    SHAKE_MOST = 0xa0000,
+    SHAKE_INDEX = 0x1c
 };
 
 /* 004b909c, by: slot 1's car (2), a player's car (4), a hard hit (8), the
@@ -88,5 +96,40 @@ int car_cars_collide(Car *a, Car *b, RaceState *race)
     tumble_on(b);
     if (player_a && a->crashed_hard == 0) first_hit(a, race);
     if (player_b && b->crashed_hard == 0) first_hit(b, race);
+    return 1;
+}
+
+/* Both suspensions shaken by the push: opposite ways along z, the same way
+ * along x, each way picked at random. */
+static void shake(Car *a, Car *b, RaceState *race, int32_t push)
+{
+    int32_t amount = push > SHAKE_MOST ? SHAKE_MOST : push;
+    if (race_rand_below(race, 10) > 5) amount = -amount;
+    a->suspension_z = amount;
+    b->suspension_z = -amount;
+    if (race_rand_below(race, 10) > 5) amount = -amount;
+    a->suspension_x = amount;
+    b->suspension_x = amount;
+    a->suspension_z_index = SHAKE_INDEX;
+    b->suspension_z_index = SHAKE_INDEX;
+    a->suspension_x_index = SHAKE_INDEX;
+    b->suspension_x_index = SHAKE_INDEX;
+}
+
+int car_cars_hit(Car *a, Car *b, RaceState *race)
+{
+    if (a->physics != PHYSICS_CRASH) car_hand_to_body(a);
+    if (b->physics != PHYSICS_CRASH) car_hand_to_body(b);
+    if (!car_cars_collide(a, b, race)) return 0;
+    if (race->crash_sound_level > race->car_impulse) return 1;
+    const Car *heard = a != race->cars[race->viewed & (RACE_PLAYERS - 1)] ? a : b;
+    const int32_t at[3] = { heard->x, heard->y, heard->z };
+    int32_t angle, distance;
+    race_sound_position(race, at, &angle, &distance);
+    if (race->sounds.sound != NULL)
+        race->sounds.sound(race->sounds.user, -1, NOTE_HIT, SOUND_KIND, race->car_impulse * SOUND_SCALE, distance, angle);
+    race->crash_sound_level = race->car_impulse + SOUND_GAP;
+    race->crash_sound_ticks = SOUND_TICKS;
+    shake(a, b, race, race->car_impulse);
     return 1;
 }

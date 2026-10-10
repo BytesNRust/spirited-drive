@@ -26,7 +26,7 @@ enum {
 
 /* 0040dc20: the body takes the car's place, speed and turn; its z axis
  * runs the other way. */
-static void hand_to_body(Car *car)
+void car_hand_to_body(Car *car)
 {
     car->body_position[0] = car->x;
     car->body_position[1] = car->y;
@@ -67,7 +67,7 @@ static const Car *followed(const RaceState *race)
 void car_crash_slide(Car *car, RaceState *race)
 {
     const Car *heard = followed(race);
-    hand_to_body(car);
+    car_hand_to_body(car);
     car->physics = PHYSICS_CRASH;
     car->ai_countdown = SLIDE_TICKS;
     if (car == heard && race->sounds.stop_engine != NULL) race->sounds.stop_engine(race->sounds.user);
@@ -76,7 +76,7 @@ void car_crash_slide(Car *car, RaceState *race)
 void car_crash_hit(Car *car, RaceState *race)
 {
     const Car *heard = followed(race);
-    hand_to_body(car);
+    car_hand_to_body(car);
     car->crashed_hard = 1;
     car->physics = PHYSICS_CRASH;
     crash_trail_clear(&race->trail);

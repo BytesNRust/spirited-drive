@@ -12,4 +12,10 @@
  * already) crashes both. Returns 1 when they touched and pushed. */
 int car_cars_collide(Car *a, Car *b, RaceState *race);
 
+/* 0040d714: two cars close enough to touch: both bodies take their cars'
+ * state (unless crashed already), then 0040f384; a push at least as loud as
+ * the last crash sound is heard (from the car not followed) and shakes both
+ * cars' suspensions. Returns 1 when they touched. */
+int car_cars_hit(Car *a, Car *b, RaceState *race);
+
 #endif

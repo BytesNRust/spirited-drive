@@ -6,6 +6,9 @@
 #include "game/race/car.h"
 #include "game/race/race_state.h"
 
+/* 0040dc20: the body takes the car's place, speed and turn. */
+void car_hand_to_body(Car *car);
+
 /* 0040db0c: a computer car sliding out of control. */
 void car_crash_slide(Car *car, RaceState *race);
 
