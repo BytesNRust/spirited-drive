@@ -1,5 +1,6 @@
 #include "studio/fsio.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
@@ -11,8 +12,11 @@
 #ifdef _WIN32
 #include <direct.h>
 #define make_dir(path) _mkdir(path)
+#define remove_dir(path) _rmdir(path)
 #else
+#include <unistd.h>
 #define make_dir(path) mkdir((path), 0777)
+#define remove_dir(path) rmdir(path)
 #endif
 
 enum { MAX_PATH_BYTES = 1024, MAX_DEPTH = 16, MAX_FILE_BYTES = 1 << 30 };
@@ -124,4 +128,105 @@ static int read_dir(const char *root, const char *relative, int depth, FileSet *
 int fsio_read_tree(const char *dir, FileSet *set, ExchangeError *err)
 {
     return read_dir(dir, "", 0, set, err);
+}
+
+int fsio_exists(const char *path)
+{
+    return exists(path);
+}
+
+int fsio_remove(const char *path)
+{
+    return remove(path) == 0 || errno == ENOENT;
+}
+
+int fsio_remove_tree(const char *path)
+{
+    struct stat st;
+    if (lstat(path, &st) != 0) return errno == ENOENT;
+    if (!S_ISDIR(st.st_mode)) return remove(path) == 0;
+    DIR *d = opendir(path);
+    if (d == NULL) return 0;
+    int ok = 1;
+    struct dirent *e;
+    while (ok && (e = readdir(d)) != NULL) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        char child[MAX_PATH_BYTES];
+        if (!join(child, sizeof child, path, e->d_name)) { ok = 0; break; }
+        ok = fsio_remove_tree(child);
+    }
+    closedir(d);
+    return ok && remove_dir(path) == 0;
+}
+
+void fsio_prune_empty(const char *dir, const char *stop)
+{
+    char path[MAX_PATH_BYTES];
+    snprintf(path, sizeof path, "%s", dir);
+    while (strlen(path) > strlen(stop) && strcmp(path, stop) != 0 && remove_dir(path) == 0) {
+        char *slash = strrchr(path, '/');
+        if (slash == NULL) break;
+        *slash = '\0';
+    }
+}
+
+static int ieq_name(const char *a, const char *b)
+{
+    for (; *a && *b; ++a, ++b)
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0;
+    return *a == *b;
+}
+
+int fsio_find_ci(const char *root, const char *rel, char *out, size_t cap)
+{
+    char dir[MAX_PATH_BYTES];
+    if (strlen(root) >= sizeof dir) return 0;
+    strcpy(dir, root);
+    const char *p = rel;
+    while (*p) {
+        const char *end = strchr(p, '/');
+        const size_t len = end ? (size_t)(end - p) : strlen(p);
+        if (len == 0 || len >= 256) return 0;
+        char part[256];
+        memcpy(part, p, len);
+        part[len] = '\0';
+        DIR *d = opendir(dir);
+        if (d == NULL) return 0;
+        int found = 0;
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL) {
+            if (!ieq_name(e->d_name, part)) continue;
+            char next[MAX_PATH_BYTES];
+            if (!join(next, sizeof next, dir, e->d_name)) break;
+            strcpy(dir, next);
+            found = 1;
+            break;
+        }
+        closedir(d);
+        if (!found) return 0;
+        p = end ? end + 1 : p + len;
+    }
+    if (strlen(dir) >= cap) return 0;
+    strcpy(out, dir);
+    return 1;
+}
+
+int fsio_write_atomic(const char *path, const uint8_t *data, size_t size, ExchangeError *err)
+{
+    char temp[MAX_PATH_BYTES];
+    if ((size_t)snprintf(temp, sizeof temp, "%s.tmp", path) >= sizeof temp) { exchange_fail(err, "%s: path too long", path); return 0; }
+    if (!fsio_write_file(temp, data, size, 1, err)) return 0;
+    if (rename(temp, path) != 0) {
+        exchange_fail(err, "%s: cannot replace: %s", path, strerror(errno));
+        remove(temp);
+        return 0;
+    }
+    return 1;
+}
+
+uint64_t fsio_hash(const uint8_t *data, size_t size)
+{
+    uint64_t h = 14695981039346656037ULL;
+    for (size_t i = 0; i < size; ++i) h = (h ^ data[i]) * 1099511628211ULL;
+    return h;
 }

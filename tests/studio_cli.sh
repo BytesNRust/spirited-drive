@@ -124,5 +124,66 @@ chmod a-w "$work/inst/SIMDATA/CARSPECS"
 "$studio" validate --check-install "$work/inst" >"$work/v.out" 2>&1 || fail "a read-only CARSPECS was refused: $(cat "$work/v.out")"
 chmod u+w "$work/inst/SIMDATA/CARSPECS"
 
+# 6. slots: replace a track in a mod directory, undo it, and the directory is as it was (AC7)
+tri3=$(find_one TR3.TRI)
+if [ -n "$tri3" ]; then
+    treesum() { (cd "$1" && find . -type f | sort | while read -r f; do cksum "$f"; done); }
+    "$studio" slot list track | grep -qx TR3 || fail "slot list does not show TR3"
+    "$studio" slot list car | grep -qx DVIPER || fail "slot list does not show DVIPER"
+    mkdir -p "$work/slot/src/SIMDATA/MISC" "$work/slot/mod/SIMDATA/MISC"
+    "$studio" unpack "$tri3" "$work/slot/t" >/dev/null 2>&1
+    awk -F'\t' 'BEGIN{OFS="\t"} $1=="30" { $8 = $8 + 5000 } { print }' "$work/slot/t/nodes.tsv" > "$work/slot/nodes" && cp "$work/slot/nodes" "$work/slot/t/nodes.tsv"
+    "$studio" pack "$work/slot/t" "$work/slot/src/SIMDATA/MISC/MYTRACK.TRI" --from "$tri3" >/dev/null 2>&1 || fail "pack the new track"
+    echo keep > "$work/slot/mod/SIMDATA/MISC/KEEP.TXT"
+    cat "$tri3" > "$work/slot/mod/SIMDATA/MISC/TR3.TRI"          # a file the mod already had in that slot
+    treesum "$work/slot/mod" > "$work/slot/before.sum"
+    "$studio" slot replace track tr3 "$work/slot/src" --mods "$work/slot/mod" --data "$orig" >"$work/out" 2>"$work/err" && fail "a file named MYTRACK.TRI was accepted without --stem"
+    grep -q "not a file of track slot TR3" "$work/err" || fail "the refusal does not say why: $(cat "$work/err")"
+    "$studio" slot replace track tr3 "$work/slot/src" --mods "$work/slot/mod" --data "$orig" --stem MYTRACK >"$work/out" 2>"$work/err" || fail "slot replace failed: $(cat "$work/err")"
+    cmp -s "$work/slot/src/SIMDATA/MISC/MYTRACK.TRI" "$work/slot/mod/SIMDATA/MISC/TR3.TRI" || fail "the mod's TR3.TRI is not the new track"
+    [ -d "$work/slot/mod/.tnfs-studio" ] || fail "no journal was kept"
+    "$studio" validate "$work/slot/mod" >/dev/null 2>&1 || fail "the replaced slot does not validate"
+    "$studio" slot undo --mods "$work/slot/mod" >/dev/null 2>"$work/err" || fail "slot undo failed: $(cat "$work/err")"
+    treesum "$work/slot/mod" > "$work/slot/after.sum"
+    cmp -s "$work/slot/before.sum" "$work/slot/after.sum" || fail "undo did not restore the mod directory"
+    [ -e "$work/slot/mod/.tnfs-studio" ] && fail "undo left its state directory behind"
+    "$studio" slot undo --mods "$work/slot/mod" >/dev/null 2>&1 && fail "undo with nothing to undo exited 0"
+
+    # a slot that is empty in the mod: the file is added, and undo removes it with the directories it made
+    "$studio" slot replace track tr3 "$work/slot/src" --mods "$work/slot/fresh" --data "$orig" --stem MYTRACK >/dev/null 2>&1 || fail "replace into a new mod directory"
+    [ -f "$work/slot/fresh/SIMDATA/MISC/TR3.TRI" ] || fail "the new mod directory has no TR3.TRI"
+    "$studio" slot undo --mods "$work/slot/fresh" >/dev/null 2>&1 || fail "undo in the new mod directory"
+    [ -z "$(find "$work/slot/fresh" -type f)" ] || fail "undo left files in the new mod directory"
+    # a file edited after the replace is not silently overwritten
+    "$studio" slot replace track tr3 "$work/slot/src" --mods "$work/slot/mod" --data "$orig" --stem MYTRACK >/dev/null 2>&1
+    echo changed >> "$work/slot/mod/SIMDATA/MISC/TR3.TRI"
+    "$studio" slot undo --mods "$work/slot/mod" >/dev/null 2>"$work/err" && fail "undo overwrote a file changed since the replace"
+    grep -q "changed since" "$work/err" || fail "undo does not say the file changed"
+    "$studio" slot undo --mods "$work/slot/mod" --force >/dev/null 2>&1 || fail "undo --force was refused"
+    # refusals: unknown slot, a file the game does not have, an invalid file; nothing is written
+    "$studio" slot replace track TR8 "$work/slot/src" --mods "$work/slot/none" --data "$orig" >/dev/null 2>"$work/err" && fail "an unknown slot was accepted"
+    grep -q "slots are fixed" "$work/err" || fail "an unknown slot is not explained"
+    mkdir -p "$work/slot/extra/SIMDATA/MISC"
+    cat "$tri3" > "$work/slot/extra/SIMDATA/MISC/TR3.TRI"
+    echo x > "$work/slot/extra/SIMDATA/MISC/TR3INFO"
+    cat "$tri3" > "$work/slot/extra/SIMDATA/MISC/ZZZ.TXT"
+    "$studio" slot replace track TR3 "$work/slot/extra" --mods "$work/slot/none" --data "$orig" --also SIMDATA/MISC/ZZZ.TXT >/dev/null 2>"$work/err" && fail "a file the data root lacks was accepted"
+    grep -q "no such file" "$work/err" || fail "a file the data root lacks is not explained: $(cat "$work/err")"
+    cat "$tri3" > "$work/slot/extra/SIMDATA/MISC/TR3.TRI"
+    printf '\130\002' | dd of="$work/slot/extra/SIMDATA/MISC/TR3.TRI" bs=1 seek=6 conv=notrunc 2>/dev/null
+    rm -f "$work/slot/extra/SIMDATA/MISC/ZZZ.TXT"
+    "$studio" slot replace track TR3 "$work/slot/extra" --mods "$work/slot/none" --data "$orig" >/dev/null 2>"$work/err" && fail "an invalid track was accepted into a slot"
+    grep -q "TRI.SEGMENTS" "$work/err" || fail "the invalid track is not explained: $(cat "$work/err")"
+    [ -e "$work/slot/none" ] && fail "a refused replace still created the mod directory"
+fi
+# a car slot mentions what Level 1 cannot rename
+pbs=$(find_one DVIPER.PBS)
+if [ -n "$pbs" ]; then
+    mkdir -p "$work/car/src/SIMDATA/CARSPECS"
+    cat "$pbs" > "$work/car/src/SIMDATA/CARSPECS/DVIPER.PBS"
+    "$studio" slot replace car dviper "$work/car/src" --mods "$work/car/mod" --data "$orig" >"$work/out" 2>&1 || fail "car slot replace failed: $(cat "$work/out")"
+    grep -q "text inside the EXE" "$work/out" || fail "the car name limit is not mentioned"
+fi
+
 [ "$failures" -eq 0 ] && echo "studio_cli: all checks passed"
 exit "$failures"

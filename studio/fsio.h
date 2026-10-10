@@ -19,4 +19,24 @@ int fsio_write_tree(const char *dir, const FileSet *set, int force, ExchangeErro
 /* Reads every regular file below `dir` (symbolic links are skipped) into the set. */
 int fsio_read_tree(const char *dir, FileSet *set, ExchangeError *err);
 
+int fsio_exists(const char *path);
+
+/* Removes a file; 1 also when it was already gone. */
+int fsio_remove(const char *path);
+
+/* Removes a directory tree below `root` (a plain walk: symbolic links are removed, not followed). */
+int fsio_remove_tree(const char *path);
+
+/* Removes `dir` and its parents up to (not including) `stop` while they are empty. */
+void fsio_prune_empty(const char *dir, const char *stop);
+
+/* Finds `rel` below `root` ignoring case in every component; `out` gets root/real-spelling. 0 when absent. */
+int fsio_find_ci(const char *root, const char *rel, char *out, size_t cap);
+
+/* Writes beside the target and renames, so an interrupted write cannot leave a half file. */
+int fsio_write_atomic(const char *path, const uint8_t *data, size_t size, ExchangeError *err);
+
+/* FNV-1a, 64 bits: enough to notice that a file changed. */
+uint64_t fsio_hash(const uint8_t *data, size_t size);
+
 #endif

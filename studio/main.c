@@ -2,6 +2,7 @@
  *   tnfs-studio unpack FILE DIR [--palette FILE] [--force]
  *   tnfs-studio pack   DIR OUT --from ORIGINAL [--palette FILE] [--force]
  *   tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR
+ *   tnfs-studio slot list|replace|undo ...        (studio/slot.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
  * overwritten without --force. validate checks a file or a mod directory against the limits of the original
@@ -14,6 +15,7 @@
 #include "formats/resource_exchange.h"
 #include "formats/validate.h"
 #include "studio/fsio.h"
+#include "studio/slot.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +39,9 @@ static void usage(FILE *to)
           "  tnfs-studio unpack FILE DIR [--palette FILE] [--force]\n"
           "  tnfs-studio pack   DIR OUT --from ORIGINAL [--palette FILE] [--force]\n"
           "  tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR\n"
+          "  tnfs-studio slot list track|car\n"
+          "  tnfs-studio slot replace track|car SLOT SOURCE_DIR --mods DIR [--data DIR] [--stem OLD] [--also REL]...\n"
+          "  tnfs-studio slot undo --mods DIR [--all] [--force]\n"
           "  (export = unpack, import = pack)\n"
           "--palette FILE   a game file (FSH or QFS) whose palette colours bitmaps that carry none\n"
           "--force          overwrite existing files\n"
@@ -216,6 +221,12 @@ int main(int argc, char **argv)
 {
     if (argc < 2) { usage(stderr); return 1; }
     const char *command = argv[1];
+    if (strcmp(command, "slot") == 0) {
+        ExchangeError slot_err = {{0}};
+        if (slot_command(argc - 1, argv + 1, &slot_err)) return 0;
+        fprintf(stderr, "tnfs-studio: %s\n", slot_err.message);
+        return 1;
+    }
     const int unpack = strcmp(command, "unpack") == 0 || strcmp(command, "export") == 0;
     const int pack = strcmp(command, "pack") == 0 || strcmp(command, "import") == 0;
     const int validate = strcmp(command, "validate") == 0;

@@ -33,6 +33,7 @@ add_library(tnfs_core STATIC
     core/formats/record_exchange.c
     core/formats/resource_exchange.c
     core/formats/shpi_exchange.c
+    core/formats/slots.c
     core/formats/table_exchange.c
     core/formats/tri.c
     core/formats/tri_exchange.c
@@ -166,7 +167,7 @@ endif()
 
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c)
+    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c)
     target_include_directories(tnfs-studio PRIVATE .)
     target_link_libraries(tnfs-studio PRIVATE tnfs_core)
     target_compile_options(tnfs-studio PRIVATE ${TNFS_WARNINGS})
@@ -174,7 +175,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
