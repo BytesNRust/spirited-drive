@@ -13,4 +13,10 @@ void ai_swap_zones(RaceState *race, int32_t slot, int32_t zone, int32_t old);
  * each one moved sounds note 0x50. */
 void ai_zones_by_place(RaceState *race);
 
+/* 0046a3c0: with 2 humans, the zones are handed out by place and each set
+ * around its human's progress: the seen span from 12 behind to 43 ahead, the
+ * keep span 8 inside it at the back and 11 past it ahead; seen spans that
+ * cross are split between the two. Spans clamped at 0 and masked to the ring. */
+void ai_zone_spans(RaceState *race);
+
 #endif
