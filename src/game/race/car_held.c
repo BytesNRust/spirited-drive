@@ -10,8 +10,15 @@ enum {
     POLICE_SLOT = 2,          /* 00509e24 */
     STEER_MOST = 0x140000,
     HALF_TURN = 0x800000,
-    TURN = 0x1000000
+    TURN = 0x1000000,
+    NOTICE_TICK_UP = -1000    /* 004b92e4 while a notice is up */
 };
+
+void race_stop_notice_first(RaceState *race)
+{
+    race->stop_notice[0] = 1;
+    race->stop_notice_tick = NOTICE_TICK_UP;
+}
 
 void race_stop_notices_clear(RaceState *race)
 {
