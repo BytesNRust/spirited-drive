@@ -211,6 +211,7 @@ typedef struct {
     int32_t default_profile_odds;   /* 004c5d20 */
     int32_t unknown_4c5cd8, unknown_4c5cdc;
     int32_t unknown_4c5cd4;         /* 004c5cd4: with one human, the manager may spin out a car near it while it looks back (0046c490); set and cleared by 00432ff4 */
+    int32_t manager_countdown;      /* 004f80fc: calls of 0040d8e8 left until the manager runs; 1 from 0040fec8, kept in replays */
     int32_t unknown_4b92d4;         /* 004b92d4: non-zero keeps the manager's car sound off (0046c490); 00472560, 0041f9a0 and others set it */
     int32_t police_node;            /* 004c5d40: the first car's node the police placement last looked from (0046b950) */
     int32_t unknown_4fb7d4;         /* 004fb7d4: 0052b312 != 0 at the start; 1 keeps the police car from being placed (0046b950) */

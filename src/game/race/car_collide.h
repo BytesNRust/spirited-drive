@@ -18,4 +18,13 @@ int car_cars_collide(Car *a, Car *b, RaceState *race);
  * cars' suspensions. Returns 1 when they touched. */
 int car_cars_hit(Car *a, Car *b, RaceState *race);
 
+/* 0040d8e8, once a tick: the crash sound's ticks count down (its level
+ * drops to 0x6666 once they are out), the computer cars' manager runs every
+ * 4 calls (0046c490); then each car in the road's order: a player's is
+ * checked for the police stop (0040d870) and, outside the lanes at its
+ * node, for scenery it knocks over (0040fc64); a car not gone, with flags_51a
+ * bits 1 and 2, is hit against each touchable car after it in the order
+ * (0040d714) within both cars' radii in x and z. */
+void race_cars_contacts(RaceState *race);
+
 #endif
