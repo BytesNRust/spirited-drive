@@ -290,11 +290,22 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | FAM scenery objects (child 3) | object `i` is written at `005150f0 + i × 0x138` unchecked; the next global is the PDN table `00517580`, `0x2490 = 30 × 0x138` bytes later. **At most 30 objects** (inferred from the memory layout, not from a compare in the code); object 31 overwrites the PDN table. CD maximum is 8 [D] | `004511fc` → `004585e4` → `004576f0` | [X][D] |
 | FAM object parts | child 0 = ORIP (`00490ea8`), child 1 = SHPI; a palette of type `0x24` has its `0x300` bytes shifted right by 2 | `004576f0` | [X] |
 | ORIP | `00490ea8` only relocates (offsets at `+0x18,+0x20,+0x28,+0x3c,+0x44,+0x4c,+0x50,+0x58,+0x60,+0x68` become pointers; words `+4` and `+8` of each 12-byte polygon become `[+0x50] + value × 4`; if `[+0x64] != 0` it allocates `+0x6c` via `00474bec`). **No caps there; every index must fall inside its table** | `00490ea8` | [X] |
-| SHPI entries, texture number, ORIP vertices/polygons/uv | **[?]** — in `0048d798`, `00446f58`, `00490b9a` and what `FUN_00490b21` / `004911f2` / `004912d0` call (question 3, second half) | | [?] |
-| QFS output size, BNK, other buffers | **[?]** (questions 4, 5) | | [?] |
+| ORIP instance | one allocation sized from the ORIP's own counts: `0x8c + V×0xc (+V×0xc per flag bit 0, bit 1) + V×8 (+V×8 for bit 2) + P×4 + T×0x14 + X×0x24` (V = `+0x10` vertices, P = `+0x24` polygons, T = `+0x38` texture entries, X = `+0x64`). **No vertex, polygon or uv cap beyond the memory of the FAM/CFM buffer** | `0048d798` (callers `004576f0`, `00457d40`; callees `004917f7`, `00491349`, `00490cc0`, `0048da62`, `0048dad1`) | [X] |
+| ORIP part list quirk | with part `-1`, `004917f7` tests only polygon 0's byte `+1` bit `0x4` for every polygon (the entry pointer never advances): if polygon 0 has that bit set the list is empty. validate warns | `004917f7` | [X] |
+| ORIP name searches | all compare 8 characters (`004a2da2`), return `-1` when absent, no cap: textures (`+0x38` count, `+0x3c` list, 0x14 B each) `00490b21`; table `+0x40/+0x44`, 0x14 B each `004912d0`; parts `+0x48/+0x4c`, 0x1c B each `004911f2`. A part's `+0x10` (first index into the `+0x50` list) and `+0x14` (count) are **not checked** against the polygon count. A `-1` makes the car loader spin forever | `00457d40`, `004917f7` | [X] |
+| Texture names | each ORIP texture entry's 4-byte name at `+8` is looked up linearly in the SHPI directory (count at SHPI `+8`, 8-byte entries from `+0x10`): no cap; a missing name leaves a null texture pointer (render behaviour not traced). **compatible mode: a missing name is an error** | `00490b9a` → `004732e4` | [X] |
+| Shape-bank registry | 16-byte entries in `0050b034`, counter `004bcbc4`; the 101st registration overwrites past the table and hangs: **at most 100 per race**. Per race: 1 (`00456a7c`, if its bank exists) + 1 FAM child 2 + 1 per bank of child 0 + 1 per bank of child 1 (`0044c36c`) + 1 (`00446a0c`) + 1 (`00450838`) ⇒ **child-0 banks + child-1 banks ≤ 96** | `00446f58`, `00447098`, `00455a5c` | [X] |
+| Track FAM child 0 (background banks) | **at most 48 banks** (bank pointers at `esp+0x100+4i` under the sprintf buffer at `esp+0x1c0`; 3 × 0x20 bytes per bank in the table `0050eec4`, cleared for exactly 48 banks; bank 48 lands on `005100c4`); the registration loop runs to the full count and registers garbage for a 49th | `0044c36c` (from `0044ca3c`) | [X] |
+| Track FAM child 1 (foreground banks) | **at most 63 banks**; with 64 the 0 terminator lands on child 0's first pointer, which is then registered as NULL | `0044c36c` | [X] |
+| Track FAM children | fewer than 3 children calls the fatal handler `004c6f88` | `0044ca3c` | [X] |
+| Resource load (SHPI/SHPF through QFS) | file name copied unchecked into a 128-byte stack buffer: **name incl. extension < 128**; `.fsh` appended when no dot. Packed iff byte 1 is `0xfb` or `0x32` and `byte0 & 0xfe` ∈ {10,30,32,34,46,4a}; unpacked size = bytes 2..4 big endian; byte 1 `0xfb/0x32` with another code prints "INVALID PACK CODE" and the data is taken as stored. **No cap on the unpacked size**; the handle is resized to `unpacked + 0x400` (failure: "INSUFFICIENT MEMORY TO UNPACK FILE", NULL). After unpacking the data must start with `SHPI` or `SHPF`, else NULL | `00476268` → `004760f0` → `0048d458`, `004a261c`, `00474d90` | [X] |
+| In-place unpack | the packed bytes are moved to offset `unpacked + 0x400 − packed` and unpacked from the front. **Rule 1**: `packed ≤ unpacked + 0x400` (else a write before the buffer). **Rule 2**: at every step, output written ≤ input read + (`unpacked + 0x400 − packed`). The QFS encoder (phase 2) must check rule 2 and, when it fails, store the file unpacked | `004a2520` | [X] |
+| BNK load | race banks `00443924`; `"%sfront_mw.bnk"` `004648dc`; each file by `004438c8` (`00483ec0`), **a missing file is fatal** (`004c6f88`); 6 loaded-bank slots `0050a564`, counter `004bc6e8`, reset by `00443be0` | | [X] |
+| BNK registration | `0048ed30`: each nonzero offset relocates the record's `+4` and the target's `+0x18` by the file base; the bank takes the first free of 5 entries (`004c79a0`). **Fatal if a sound number is already taken by a loaded bank, or no entry is free.** Banks loaded together need disjoint sound numbers (validate rule). CD numbers: `*_SW`/`TRAFFC` 1,2,3,32; `COLL*` 33.. (22–30 of them); `O*MB`/`TRAFFCO` 65,67,69; `O*MB3D` 65,67,68,69,70 (`OZR1MB3D` only 65,67,69); `FRONT_MW` 71..74; `NFS_FMMB` 97,98,100,105,106 | `0048ed30` | [X] |
+| BNK record `+0` roles | `0x40` player, `0x10` opponents, `0x30` collisions, `0xf8` front, `0x100` FM, `0x2000` TRAFFC, `4` TESTBANK. Every record's `+4` is `0x228`. Which header fields playback reads (`0048eea0` on) is still open | | [X] |
+| BNK files opened by name | the 12 `*_SW` (`00443670`), the opponent table `004436a0` (24 pointers, 2 × car), `COLLSWWT`/`COLLSWWT3`/`COLLSWMT`/`COLSWMT3` (two picked by race type 7, `004fb7c2`), `front_mw`. **Never opened**: `O*MB3D`, `COLLSW3D`, `COLL_SB`, `COLL_SW`, `TESTBANK` (no string in the EXE) | `00443670`, `004436a0` | [X] |
 
-The last row is what `validate` needs most and what we do not have yet; see the questions below. A limit
-without an address does not enter the table (AC5).
+A limit without an address does not enter the table (AC5). Still open: see §9.
 
 ## 8. Decisions (user, relayed by tnfs-decomp)
 
@@ -332,14 +343,10 @@ Each is answerable from Ghidra between two functions. They are limits the tool n
 1. ~~TRI capacity~~ **Answered** by tnfs-decomp (see §7): fixed `0x1621c` header, `SJBO` and terrain sized by their own fields, `0x8700`
    extra reserve; `00474c8c` is the allocator (name, size, flags on the stack).
 2. ~~`descriptor_count`~~ **Answered** (see §7): only a skip count; descriptor byte `+4` is unchecked; `scenery_slots × 2` state buffer.
-3. **Partly answered** (see §7): FAM buffer `0x162400`, 30 objects, unchecked `wwww` offsets, ORIP only relocates. Still open: SHPI
-   entry cap, texture number bound, per-ORIP vertex/polygon/uv caps (`0048d798`, `00446f58`, `00490b9a`).
-4. `00490ea8` and `FUN_00457d40` callees: caps on ORIP vertices, polygons, uv, texture refs, sections A/B/C, labels,
-   and which section each of `FUN_00490b21`, `FUN_004911f2`, `FUN_004912d0` searches (§5 names).
-5. `00476268` (resource load): maximum decompressed size; behaviour on a QFS larger than the buffer.
-6. BNK: where is the file read, which header fields does the sound code use (`+0` flags, `+0x34..+0x3C` loop and length,
-   `+0x40` offset), what are the flag values `0x40/2/0x4000/0x10`, `0xF8`, `0x30`, `0x100/0x200` for, and which of
-   `FRONT_MW`, `COLL_*`, `*3D`, `TESTBANK` are ever opened?
+3. ~~FAM/ORIP limits~~ **Answered** (see §7): FAM buffer `0x162400`, 30 objects, unchecked `wwww` offsets, no ORIP vertex/polygon/uv cap, shape-bank registry ≤ 100, child 0 ≤ 48 banks, child 1 ≤ 63.
+4. ~~ORIP callees and name searches~~ **Answered** (see §7).
+5. ~~Resource load / QFS output size~~ **Answered** (see §7).
+6. ~~BNK loading and registration~~ **Answered** at bank level (see §7). Still open, deferred: the per-sample header fields the playback code reads and the meaning of each flag bit (`0048eea0` on); not needed by the loaders.
 7. `BY_R&T` and `r&t%d` (`004af9b8`): what reads or writes it?
 8. `%s%sInfo` (`004afb38`): parser, field list and limits of the `*INFO` text files.
 9. Is any car or track display name taken from EXE text (results, stats, car-select, replays)? Which functions draw
