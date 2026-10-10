@@ -1,5 +1,6 @@
 #include "game/race/race_sim.h"
 
+#include "game/race/ai_setup.h"
 #include "game/race/car_control.h"
 #include "game/race/car_load.h"
 #include "game/race/car_physics.h"
@@ -117,6 +118,10 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
     car->player = 0;
     car_enter(car, &sim->specs[0], CAR_HANDLE, race);
     car->flags_51a = (uint8_t)((car->flags_51a | FLAG_ACTIVE) & ~FLAG_RETIRED);
+    /* 00455a5c runs 004702d4 after the cars are entered (00440858); the
+     * row it passes is what 00475c14(0) leaves in al, unknown, and only
+     * read for race types above 3 or models above 7. */
+    ai_race_setup(race, 0);
 }
 
 static void run_controller(Car *car, const CarSpecs *specs, RaceState *race)
