@@ -54,6 +54,23 @@ enum {
 
 static const int32_t COAST_TICKS[8] = { 3, 3, 4, 5, 4, 5, 4, 3 };  /* 004c5d00, by model */
 
+enum {
+    TRI_SPEED_TABLE = 0x15b0c,   /* 3 bytes per segment, the first the speed limit in units of 0x10000 */
+    NO_PROFILE = 4,              /* track_flags: the profiles' scales are left out */
+    PACE_BY_GAP_RACE = 23,       /* ai.params rows by the gap, race type 1 */
+    PACE_BY_GAP_OTHER = 44,
+    GAP_STEPS = 20,
+    PACE_BASE = 0xcccc,
+    CROWD_FAST = 0x13333,        /* the pace bounds with a human nearby */
+    CROWD_SLOW = 0xcccc,
+    EARLY_PROGRESS = 0x41,
+    EARLY_BOOST = 0x3f0,         /* per node of progress before EARLY_PROGRESS */
+    FIRST_CRAWLING = 0x20000,
+    PHYSICS_FIRST_WATCH = 2
+};
+
+static const int32_t MODEL_PACE[8] = { 60293, 65536, 60948, 60948, 65536, 62259, 58982, 58982 };  /* 004c5ce0 */
+
 static const int32_t POLICE_ODDS[4] = { 32, 64, 96, 128 };  /* 004c5d30, in 128 */
 
 /* The weight a lane loses for `gap` (16.16) of speed, by `per` per 1/256. */
@@ -388,4 +405,62 @@ void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]
     const int32_t redline = car->pdn_1c4 >> 16;
     if (redline - REDLINE_MARGIN < car->rpm) car->rpm = redline;
     ai_watch_humans(car, race, lane, wish, node, progress);
+}
+
+/* The track's speed byte for the node's segment, as 16.16. */
+static int32_t segment_speed(const RaceState *race, int32_t node)
+{
+    const size_t at = TRI_SPEED_TABLE + 3 * (size_t)((uint32_t)node >> 2);
+    return at < race->tri->size ? (int32_t)((uint32_t)race->tri->data[at] << 16) : 0;  /* port guard */
+}
+
+static int32_t traffic_pace(const Car *car, const RaceState *race)
+{
+    const Car *lead = race->cars[0];
+    int32_t speed = segment_speed(race, car->node);
+    if (lead->model >= 0 && lead->model <= 7) speed = fx_mul_round(speed, MODEL_PACE[lead->model]);
+    return lead->crashed_hard != 0 ? 0 : speed;
+}
+
+/* The pace through the bend at the car's node, left in ai.bend and ai.curve_pace. */
+static int32_t bend_pace(const Car *car, RaceState *race, const DriverProfile *profile)
+{
+    const TriNode here = race_node(race, car->node), before = race_node(race, car->node - 1);
+    int32_t bend = magnitude(here.orientation * 0x400 - before.orientation * 0x400);
+    race->ai.bend = bend;
+    if (bend > 0x800000) bend = 0x1000000 - bend;
+    const int32_t t = fx_mul_round(car->pdn_mass - bend, car->pdn_inverse_mass);
+    race->ai.curve_pace = (t >> 4) + (t >> 3) + (t >> 6);
+    if (profile != NULL) race->ai.curve_pace = fx_mul_round(race->ai.curve_pace, profile->bend_scale);
+    return race->ai.curve_pace;
+}
+
+int32_t ai_target_pace(Car *car, RaceState *race)
+{
+    if (!(car->flags_174 & RACER)) return traffic_pace(car, race);
+    const Car *first = race_car_by_handle(race, race->ai.first_car);
+    if (first == NULL) return 0;  /* port guard */
+    const int32_t progress = car->progress, first_progress = first->progress;
+    const int32_t limit = segment_speed(race, car->node);
+    const DriverProfile *profile = race->track_flags & NO_PROFILE ? NULL : ai_driver_profile(race, car->player);
+    const int32_t mass = profile != NULL ? fx_mul_round(profile->mass_scale, car->pdn_18) : car->pdn_18;
+    const int32_t curve = bend_pace(car, race, profile);
+    const int32_t step = (progress - first_progress) / 10 + 10;
+    race->ai.gap_step = step < 0 ? 0 : step > GAP_STEPS ? GAP_STEPS : step;
+    const int32_t own = profile != NULL ? profile->pace_by_gap[race->ai.gap_step] : 0x10000;
+    const int32_t row = race->race_type == 1 ? PACE_BY_GAP_RACE : PACE_BY_GAP_OTHER;
+    int32_t scale = fx_mul_round(race->ai.params[row + race->ai.gap_step], own);
+    if ((first->speed < FIRST_CRAWLING && first->physics == PHYSICS_FIRST_WATCH) ||
+        (progress < first_progress && first->physics == PHYSICS_CRASHED && scale > 0x10000))
+        scale = 0x10000;
+    int32_t pace = fx_mul_round(mass, fx_mul_round(curve + PACE_BASE, scale));
+    if (pace > CROWD_FAST && ai_human_near(race, car)) pace = CROWD_FAST;
+    if (pace < CROWD_SLOW && ai_human_near(race, car)) pace = CROWD_SLOW;
+    if (car->progress < EARLY_PROGRESS) pace = fx_mul_round(pace, (EARLY_PROGRESS - car->progress) * EARLY_BOOST + 0x10000);
+    int32_t speed = fx_mul_round(limit, pace);
+    if (car_race_window(car, race) == PAST_FINISH) {
+        const int32_t place = car->player >= 0 && car->player < RACE_PLAYERS ? race->grid[car->player] : 0;  /* port guard */
+        if (car_past_finish(car, race) >= place / 2 * 2) speed = 0;
+    }
+    return speed;
 }

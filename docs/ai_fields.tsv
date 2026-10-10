@@ -13,7 +13,10 @@
 0x33c	i32	unknown_33c	zeroed at the start
 0x340	i32	racer_decel	0x5999 at the start; how fast a racer's speed falls towards a lower target per tick (0046f3e8)
 0x344	i32	unknown_344	zeroed at the start
+0x348	i32	curve_pace	the pace a racer keeps through the bend at its node, mass and profile scaled (00470a9c)
+0x34c	i32	bend	|heading change| from the node before to the car's node, 24-bit turn x 0x400 (00470a9c)
 0x350	i32	traffic_placed	counts the traffic cars sent into physics model 6 (0046f110); zeroed at the start
+0x354	i32	gap_step	(progress - the first car's) / 10 + 10, kept to 0..20: the catch-up row (00470a9c)
 0x358	i32	unknown_358	1 at the start
 0x35c	ref	first_car	00509e1c at the start
 0x360	i32	unknown_360	004fb7da bit 0

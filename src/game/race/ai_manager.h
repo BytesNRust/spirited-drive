@@ -80,6 +80,18 @@ void ai_watch_humans(Car *car, RaceState *race, int32_t lane, int32_t wish[3], i
  * and progress taken before the finish check. */
 void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]);
 
+/* 00470a9c: the speed a computer car aims for at its node. Traffic: the
+ * track's speed byte for the segment times the first car's model factor,
+ * 0 once that car crashed hard. A racer: the byte times its pace, the pace
+ * being its +0x170 (by the profile's mass_scale) times the bend pace
+ * (+0x168 less the heading change from the node before, by +0x16c, 0.203
+ * of it, by bend_scale; left in ai.curve_pace and ai.bend) plus 0.8, by the
+ * catch-up scales of the gap to the first car (ai.params and the profile's
+ * pace_by_gap, row ai.gap_step); held to 1.2 / 0.8 by a human nearby,
+ * raised before progress 0x41, and 0 once past its grid place after the
+ * finish. Track flag 4 leaves the profile out. */
+int32_t ai_target_pace(Car *car, RaceState *race);
+
 /* 00472f20: unless a car sound is running, car slot `slot` (a racer: slot 1,
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);

@@ -92,7 +92,10 @@ typedef struct {
  * Only what the computer cars' code reads is known. */
 #pragma pack(push, 1)
 typedef struct {
-    uint8_t unknown_00[0x5d];
+    uint8_t unknown_00;
+    int32_t pace_by_gap[21];  /* +1: the target speed's scale by the gap to the first car (00470a9c) */
+    int32_t mass_scale;       /* +0x55: scales the car's +0x170 in its target speed */
+    int32_t bend_scale;       /* +0x59: scales its pace through bends */
     int32_t block_reach;      /* +0x5d: nodes ahead of a human within which the car leans into the human's lane (0046bfb0) */
     int32_t block_gap;        /* +0x61: how far the human must be behind along the road, 16.16 */
     int32_t lane_speed_limit; /* +0x65: the fastest sideways speed toward a lane (0046f354) */

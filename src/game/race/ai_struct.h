@@ -22,9 +22,10 @@ typedef struct {
     int32_t unknown_33c;  /* 0x33c zeroed at the start */
     int32_t racer_decel;  /* 0x340 0x5999 at the start; how fast a racer's speed falls towards a lower target per tick (0046f3e8) */
     int32_t unknown_344;  /* 0x344 zeroed at the start */
-    uint8_t pad_348[0x8];
+    int32_t curve_pace;  /* 0x348 the pace a racer keeps through the bend at its node, mass and profile scaled (00470a9c) */
+    int32_t bend;  /* 0x34c |heading change| from the node before to the car's node, 24-bit turn x 0x400 (00470a9c) */
     int32_t traffic_placed;  /* 0x350 counts the traffic cars sent into physics model 6 (0046f110); zeroed at the start */
-    uint8_t pad_354[0x4];
+    int32_t gap_step;  /* 0x354 (progress - the first car's) / 10 + 10, kept to 0..20: the catch-up row (00470a9c) */
     int32_t unknown_358;  /* 0x358 1 at the start */
     uint32_t first_car;  /* 0x35c 00509e1c at the start */
     int32_t unknown_360;  /* 0x360 004fb7da bit 0 */
@@ -48,7 +49,10 @@ AI_STATE_CHECK(params, offsetof(AiState, params) == 0x190);
 AI_STATE_CHECK(unknown_33c, offsetof(AiState, unknown_33c) == 0x33c);
 AI_STATE_CHECK(racer_decel, offsetof(AiState, racer_decel) == 0x340);
 AI_STATE_CHECK(unknown_344, offsetof(AiState, unknown_344) == 0x344);
+AI_STATE_CHECK(curve_pace, offsetof(AiState, curve_pace) == 0x348);
+AI_STATE_CHECK(bend, offsetof(AiState, bend) == 0x34c);
 AI_STATE_CHECK(traffic_placed, offsetof(AiState, traffic_placed) == 0x350);
+AI_STATE_CHECK(gap_step, offsetof(AiState, gap_step) == 0x354);
 AI_STATE_CHECK(unknown_358, offsetof(AiState, unknown_358) == 0x358);
 AI_STATE_CHECK(first_car, offsetof(AiState, first_car) == 0x35c);
 AI_STATE_CHECK(unknown_360, offsetof(AiState, unknown_360) == 0x360);
