@@ -383,3 +383,9 @@ void car_player_control(Car *car, const CarSpecs *specs, RaceState *race)
         car->auto_mode = 0;
     }
 }
+
+int32_t car_past_finish(const Car *car, const RaceState *race)
+{
+    if (race->circuit == 0) return car->node > race->loop_nodes ? car->node - race->loop_nodes : 0;
+    return car->lap > race->laps ? car->node : 0;
+}
