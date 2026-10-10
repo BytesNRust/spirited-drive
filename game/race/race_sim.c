@@ -9,6 +9,7 @@
 #include "game/race/car_load.h"
 #include "game/race/car_physics.h"
 #include "game/race/car_road.h"
+#include "game/race/race_finish.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -26,7 +27,8 @@ enum {
     CATCH_UP = 4,                /* 0042702c */
     CRASH_SOUND_QUIET = 0x6666,  /* 004b9094 as loaded, and from 0040d8e8 */
     CAR_HANDLE = 0x10000,        /* the identity the original keeps as the car's address, times the slot + 1 */
-    RACER = 0x4                  /* flags_174 (00440858) */
+    RACER = 0x4,                 /* flags_174 (00440858) */
+    STAGE_END = 0xb5             /* nodes a stage's race stops short of its last (00455a5c) */
 };
 
 static void no_sound(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
@@ -103,13 +105,16 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->car_count = race->racers;
     race->humans = 1;
+    /* 0043fbac */
+    race->finish_cars = race->race_type == 0 ? 1 : race->race_type == 1 ? 2 : race->racers;
+    race->finish_humans = race->race_type == 0 ? 1 : race->humans;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
-    race->segments = tri->segment_count;
-    /* TODO: 00509d58 is 1000 from 0043f994; the track setup that sets the
-     * real lap length is not ported yet. */
-    race->loop_nodes = (int32_t)tri->node_count;
-    race->laps = laps;
+    race->segments = (int32_t)tri->ring_segments;  /* 0050420c (0043e4e0): 0x8000 on a stage */
+    /* 00455a5c -> 0043fbac: a circuit's lap is its ring of nodes, run the
+     * laps chosen; a stage is run once, to 0xb5 nodes before its end. */
+    race->loop_nodes = race->circuit ? race->segments * 4 : (int32_t)tri->segment_count * 4 - STAGE_END;
+    race->laps = race->circuit ? laps : 1;
     race->views = 1;
     race->catch_up = CATCH_UP;
     race->crash_sound_level = CRASH_SOUND_QUIET;
@@ -190,7 +195,11 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
             if ((car->flags_51a & FLAG_ACTIVE) && car->controller != 0) run_controller(car, &sim->specs[slot], race);
         }
     if (race->tick_flags & TICK_PHYSICS) {
-        /* 00440ef0: in road order, the rearmost first. */
+        /* 00440ef0: each racing car's finish first, by slot. */
+        if (race->phase == 1)
+            for (int i = 0; i < race->finish_cars && i < sim->count; i++)
+                if (race->cars[i]->flags_51a & FLAG_ACTIVE) race_car_finish(race->cars[i], race);
+        /* Then in road order, the rearmost first. */
         for (int i = 0; i < race->car_count; i++) {
             const int slot = race->by_node[i] & (RACE_PLAYERS - 1);
             Car *car = race->cars[slot];
