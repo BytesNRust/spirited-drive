@@ -1,16 +1,14 @@
 #include "game/race/car_load.h"
 
-#include "formats/qfs.h"
+#include "formats/pbs.h"
 
 #include "game/race/car_setup.h"
 #include "game/race/car_specs_word.h"
 #include "game/sys/fixed_math.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 enum {
-    CHECKED_BYTES = 0x758,
     START_Z = 0x600000,
     START_NODE = 0x10,
     CONTROLLER_PLAYER = 1,
@@ -22,32 +20,18 @@ enum {
     TORQUE_STRIDE = 8
 };
 
+typedef char pbs_matches_car_specs[PBS_SIZE == CAR_SPECS_SIZE ? 1 : -1];
+
 const char *const car_model_names[CAR_MODELS] = {
     "TSupra", "LDiabl", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7", "MRX7", "MRX7", "P911T", "Traffc"
 };
 
 int car_specs_read(CarSpecs *specs, const uint8_t *file, size_t size)
 {
-    size_t unpacked = 0;
-    if (!qfs_is_compressed(file, size)) {
-        if (size < sizeof *specs) return 0;
-        memcpy(specs, file, sizeof *specs);
-        return 1;
-    }
-    if (qfs_decompressed_size(file, size, &unpacked) != QFS_OK || unpacked < sizeof *specs) return 0;
-    uint8_t *data = malloc(unpacked);
-    const int ok = data != NULL && qfs_decompress(file, size, data, unpacked) == QFS_OK;
-    if (ok) memcpy(specs, data, sizeof *specs);
-    free(data);
-    return ok;
-}
-
-static int32_t checksum(const CarSpecs *specs)
-{
-    const uint8_t *bytes = (const uint8_t *)specs;
-    int32_t sum = 0;
-    for (int i = 0; i < CHECKED_BYTES; ++i) sum += bytes[i];
-    return sum;
+    uint8_t record[PBS_SIZE];
+    if (!pbs_read(record, file, size)) return 0;
+    memcpy(specs, record, sizeof *specs);
+    return 1;
 }
 
 /* Arcade mode: the rear tyres grip as the front, the axles' weights and
@@ -101,7 +85,7 @@ void car_load(Car *car, CarSpecs *specs, RaceState *race)
     car->progress = START_NODE;
     car->lap = 1;
     if (race->specs_loaded == 0) {
-        if (checksum(specs) != specs->checksum) specs->power = 0;
+        if (!pbs_checksum_ok((const uint8_t *)specs)) specs->power = 0;
         if (race->arcade != 0) arcade_tuning(specs, race->track);
     }
     car_specs_scale_torque(specs, entry->automatic != 0);
