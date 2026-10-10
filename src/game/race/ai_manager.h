@@ -111,4 +111,21 @@ void ai_car_update(Car *car, RaceState *race);
  * kind 1) starts one of `kind` for 5 + race_rand_below(15) ticks. */
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind);
 
+/* 0046c490: the computer cars' manager, every 4 ticks unless 004c5cdc is
+ * set. It counts ai +0x364 up by 4, sets the zones' spans (0046a3c0), takes
+ * the human furthest on as the first car (ai +0x344, first_car), places the
+ * police car (0046b950, not with track flag 4); then each car not gone, in
+ * the road's order, gets its road state (0046ab24) and the lane slots its
+ * body covers. The leader's flags_175 bits 2..3 clear. Each active computer
+ * car that has not crashed then weighs its slot and the two beside it: the
+ * start of a race, the police stop (0046bb78), the finish and revs
+ * (0046c278), lane counts changing 11 nodes ahead or behind, the shoulders
+ * and off the road, the cars ahead (0046b0d8, 0046aed0); a spin-out near a
+ * human looking back (0046a7c0), a random car sound when oncoming (00472f20);
+ * it steers for the middle of the lane that weighs most (held between the
+ * barriers, plus its bias), holding its speed to the new lane's (0046a95c)
+ * and easing a racer's target speed before progress 0x41. A lone car in its
+ * own half keeps its slot's middle without looking, as does a stopped one. */
+void ai_manager_tick(RaceState *race);
+
 #endif
