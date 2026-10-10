@@ -92,6 +92,23 @@ uint32_t race_random(RaceState *race)
     return (race->random_last & 0xffff00) >> 8;
 }
 
+uint32_t race_rand(RaceState *race)
+{
+    uint32_t s[6];
+    for (int i = 0; i < 6; i++) s[i] = (uint32_t)race->rand_state[i];
+    uint64_t sum = (uint64_t)s[5] + s[4];
+    s[4] = (uint32_t)sum;
+    for (int i = 3; i >= 1; i--) {
+        sum = (uint64_t)s[i + 1] + s[i] + (sum >> 32);
+        s[i] = (uint32_t)sum;
+    }
+    uint32_t top = (uint32_t)((uint64_t)s[1] + s[0] + (sum >> 32));
+    if (++s[5] == 0 && ++s[4] == 0 && ++s[3] == 0 && ++s[2] == 0 && ++s[1] == 0) top++;
+    s[0] = top;
+    for (int i = 0; i < 6; i++) race->rand_state[i] = (int32_t)s[i];
+    return top;
+}
+
 Car *race_car_by_handle(const RaceState *race, uint32_t handle)
 {
     for (int i = 0; i < RACE_PLAYERS; i++)

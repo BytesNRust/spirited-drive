@@ -138,6 +138,7 @@ typedef struct {
     int32_t crash_sound_level;      /* 004b9094: the last crash sound's impact + 0x8000 */
     int32_t crash_sound_ticks;      /* 004b9090: 10 after a crash sound, counting down */
     int32_t unknown_4b91c0;         /* 004b91c0: 0x1e when a player's crash ends while racing (0040e050) */
+    int32_t rand_state[6];          /* 004c6f90..004c6fa4: 00487c2c's add-with-carry generator, top word first */
     int32_t car_impulse;            /* 004b9128: the last push between two cars' bodies (0041c098), kept when they part */
     int32_t unknown_509d5c;         /* 00509d5c: 0 from 0043f994, 1 from 0043fbac; a crash is not counted at 2 or 3 */
     CrashTrail trail;               /* 005146ac: the crash smoke */
@@ -240,6 +241,10 @@ void race_sort_cars(RaceState *race);
 
 /* 004b9628 * 004b9630: the next random value, 0..0xffff */
 uint32_t race_random(RaceState *race);
+
+/* 00487c2c: the next of the add-with-carry generator: each word added to the
+ * next with carry, the lowest counting up, the top word the result. */
+uint32_t race_rand(RaceState *race);
 
 /* 0044d744 */
 void race_note(RaceState *race, int32_t level);
