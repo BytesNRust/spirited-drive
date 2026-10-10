@@ -12,3 +12,8 @@ int32_t pdn_i32(const uint8_t record[PDN_SIZE], int offset)
 {
     return (int32_t)le_u32(record + offset);
 }
+
+QfsResult pdn_pack(const uint8_t record[PDN_SIZE], uint8_t *dst, size_t cap, size_t *len)
+{
+    return fixed_record_pack(record, PDN_SIZE, dst, cap, len);
+}

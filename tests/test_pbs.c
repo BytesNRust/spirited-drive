@@ -67,6 +67,21 @@ static void test_qfs_stream(void)
     CHECK(!pbs_read(out, src, n - 30));
 }
 
+static void test_pack(void)
+{
+    uint8_t rec[PBS_SIZE], back[PBS_SIZE], file[PBS_SIZE * 2];
+    size_t len = 0;
+    for (int i = 0; i < PBS_SIZE; ++i) rec[i] = (uint8_t)(i * 7 + 3);
+    CHECK(!pbs_checksum_ok(rec));                       /* not sealed yet */
+    CHECK_EQ_INT(pbs_pack(rec, file, sizeof file, &len), QFS_OK);
+    CHECK(pbs_read(back, file, len));
+    CHECK(pbs_checksum_ok(back));                       /* pack seals */
+    CHECK_MEM(back, rec, PBS_CHECKSUM_OFFSET);          /* nothing else changes */
+    pbs_seal(rec);
+    CHECK_MEM(back, rec, PBS_SIZE);
+    CHECK_EQ_INT(pbs_pack(rec, file, 16, &len), QFS_ERR_OVERFLOW);
+}
+
 static void test_cd(int argc, char **argv)
 {
     for (int a = 1; a < argc; ++a) {
@@ -81,6 +96,11 @@ static void test_cd(int argc, char **argv)
         uint8_t rec[PBS_SIZE];
         CHECK(got && pbs_read(rec, buf, (size_t)size));
         CHECK(got && pbs_checksum_ok(rec));
+        uint8_t packed[PBS_SIZE * 2], again[PBS_SIZE];
+        size_t packed_len = 0;
+        CHECK(got && pbs_pack(rec, packed, sizeof packed, &packed_len) == QFS_OK);
+        CHECK(got && pbs_read(again, packed, packed_len));
+        CHECK(got && memcmp(again, rec, PBS_SIZE) == 0);  /* the CD record survives pack and read */
         free(buf);
     }
 }
@@ -90,6 +110,7 @@ int main(int argc, char **argv)
     test_checksum();
     test_raw();
     test_qfs_stream();
+    test_pack();
     test_cd(argc, argv);
     return TEST_REPORT();
 }

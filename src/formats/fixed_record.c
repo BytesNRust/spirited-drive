@@ -20,3 +20,10 @@ int fixed_record_read(uint8_t *out, size_t record_size, const uint8_t *file, siz
     free(data);
     return ok;
 }
+
+QfsResult fixed_record_pack(const uint8_t *record, size_t size, uint8_t *dst, size_t cap, size_t *len)
+{
+    const QfsResult r = qfs_compress(record, size, dst, cap, len);
+    if (r != QFS_OK) return r;
+    return qfs_inplace_ok(dst, *len, size) ? QFS_OK : QFS_ERR_OVERFLOW;
+}

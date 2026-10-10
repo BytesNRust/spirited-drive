@@ -34,6 +34,17 @@ static void test_raw(void)
     CHECK(!pdn_read(out, rec, PDN_SIZE - 1));
 }
 
+static void test_pack(void)
+{
+    uint8_t rec[PDN_SIZE], back[PDN_SIZE], file[PDN_SIZE * 2];
+    size_t len = 0;
+    for (int i = 0; i < PDN_SIZE; ++i) rec[i] = (uint8_t)(i * 5);
+    CHECK_EQ_INT(pdn_pack(rec, file, sizeof file, &len), QFS_OK);
+    CHECK(pdn_read(back, file, len));
+    CHECK_MEM(back, rec, PDN_SIZE);
+    CHECK_EQ_INT(pdn_pack(rec, file, 8, &len), QFS_ERR_OVERFLOW);
+}
+
 static void test_cd(int argc, char **argv)
 {
     for (int a = 1; a < argc; ++a) {
@@ -48,6 +59,11 @@ static void test_cd(int argc, char **argv)
         uint8_t rec[PDN_SIZE];
         CHECK(got && pdn_read(rec, buf, (size_t)size));
         CHECK(got && pdn_i32(rec, PDN_MASS) > 0);
+        uint8_t packed[PDN_SIZE * 2], again[PDN_SIZE];
+        size_t packed_len = 0;
+        CHECK(got && pdn_pack(rec, packed, sizeof packed, &packed_len) == QFS_OK);
+        CHECK(got && pdn_read(again, packed, packed_len));
+        CHECK(got && memcmp(again, rec, PDN_SIZE) == 0);
         free(buf);
     }
 }
@@ -56,6 +72,7 @@ int main(int argc, char **argv)
 {
     test_words();
     test_raw();
+    test_pack();
     test_cd(argc, argv);
     return TEST_REPORT();
 }

@@ -5,6 +5,8 @@
 #ifndef TNFS_PBS_H
 #define TNFS_PBS_H
 
+#include "formats/qfs.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -23,5 +25,12 @@ int32_t pbs_checksum(const uint8_t record[PBS_SIZE]);
 /* The stored checksum equals the computed one; when it does not, 004400f4
  * zeroes the car's power. */
 int pbs_checksum_ok(const uint8_t record[PBS_SIZE]);
+
+/* Stores the checksum of the first PBS_CHECKED_BYTES bytes at PBS_CHECKSUM_OFFSET. Without it
+ * 004400f4 zeroes the car's power. */
+void pbs_seal(uint8_t record[PBS_SIZE]);
+
+/* The file bytes for a record: sealed, then packed as RefPack QFS. */
+QfsResult pbs_pack(const uint8_t record[PBS_SIZE], uint8_t *dst, size_t cap, size_t *len);
 
 #endif

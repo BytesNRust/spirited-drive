@@ -5,6 +5,8 @@
 #ifndef TNFS_PDN_H
 #define TNFS_PDN_H
 
+#include "formats/qfs.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -22,5 +24,8 @@ int pdn_read(uint8_t out[PDN_SIZE], const uint8_t *file, size_t size);
 
 /* The little-endian word at `offset` (a multiple of 4, below PDN_SIZE - 3). */
 int32_t pdn_i32(const uint8_t record[PDN_SIZE], int offset);
+
+/* The file bytes for a record, packed as RefPack QFS. */
+QfsResult pdn_pack(const uint8_t record[PDN_SIZE], uint8_t *dst, size_t cap, size_t *len);
 
 #endif
