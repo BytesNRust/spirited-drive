@@ -21,4 +21,7 @@ int32_t ai_driver_letter(int32_t place, int32_t row);
  * in the table in use (0050bae0). */
 uint32_t ai_profile_handle(const RaceState *race, int32_t index);
 
+/* 00449400: the game's own 9 driver profiles (004c2888) become the table in use. */
+void ai_use_game_profiles(RaceState *race);
+
 #endif

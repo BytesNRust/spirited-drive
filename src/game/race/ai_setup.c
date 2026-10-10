@@ -37,3 +37,10 @@ uint32_t ai_profile_handle(const RaceState *race, int32_t index)
 {
     return race->driver_profiles_base + (uint32_t)index * AI_DRIVER_PROFILE_SIZE;
 }
+
+void ai_use_game_profiles(RaceState *race)
+{
+    race->driver_profiles = (const DriverProfile *)(const void *)(AI_DRIVER_DATA + AI_DRIVER_LETTERS);
+    race->driver_profiles_base = AI_DRIVER_PROFILES_ADDR;
+    race->driver_profile_count = AI_DRIVER_PROFILES;
+}
