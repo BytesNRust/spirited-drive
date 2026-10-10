@@ -298,10 +298,11 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | Track FAM child 0 (background banks) | **at most 48 banks** (bank pointers at `esp+0x100+4i` under the sprintf buffer at `esp+0x1c0`; 3 × 0x20 bytes per bank in the table `0050eec4`, cleared for exactly 48 banks; bank 48 lands on `005100c4`); the registration loop runs to the full count and registers garbage for a 49th | `0044c36c` (from `0044ca3c`) | [X] |
 | Track FAM child 1 (foreground banks) | **at most 63 banks**; with 64 the 0 terminator lands on child 0's first pointer, which is then registered as NULL | `0044c36c` | [X] |
 | Track FAM children | fewer than 3 children calls the fatal handler `004c6f88` | `0044ca3c` | [X] |
-| Resource load (SHPI/SHPF through QFS) | file name copied unchecked into a 128-byte stack buffer: **name incl. extension < 128**; `.fsh` appended when no dot. Packed iff byte 1 is `0xfb` or `0x32` and `byte0 & 0xfe` ∈ {10,30,32,34,46,4a}; unpacked size = bytes 2..4 big endian; byte 1 `0xfb/0x32` with another code prints "INVALID PACK CODE" and the data is taken as stored. **No cap on the unpacked size**; the handle is resized to `unpacked + 0x400` (failure: "INSUFFICIENT MEMORY TO UNPACK FILE", NULL). After unpacking the data must start with `SHPI` or `SHPF`, else NULL | `00476268` → `004760f0` → `0048d458`, `004a261c`, `00474d90` | [X] |
+| Resource load (SHPI/SHPF through QFS) | file name copied unchecked into a 128-byte stack buffer: **name incl. extension < 128**; `.fsh` appended when no dot. Packed iff byte 1 is `0xfb` or `0x32` and `byte0 & 0xfe` ∈ {10,30,32,34,46,4a}; unpacked size = bytes 2..4 big endian; byte 1 `0xfb/0x32` with another code prints "INVALID PACK CODE" and **aborts the game** (`00477a40` shows a MessageBox and calls `ExitProcess`; corrected from "taken as stored"). **No cap on the unpacked size**; the handle is resized to `unpacked + 0x400` (failure: "INSUFFICIENT MEMORY TO UNPACK FILE": aborts when the loader's third argument is set, else NULL). After unpacking the data must start with `SHPI` or `SHPF`, else the same abort-or-NULL. **compatible mode: all three are fatal** | `00476268` → `004760f0` → `0048d458`, `004a261c`, `00474d90` | [X] |
 | In-place unpack | the packed bytes are moved to offset `unpacked + 0x400 − packed` and unpacked from the front. **Rule 1**: `packed ≤ unpacked + 0x400` (else a write before the buffer). **Rule 2**: at every step, output written ≤ input read + (`unpacked + 0x400 − packed`). The QFS encoder (phase 2) must check rule 2 and, when it fails, store the file unpacked | `004a2520` | [X] |
 | `<track>INFO` text file | `%s%sInfo` = paths slot 17 (misc) + stem, opened `"r"`, read only if it opens and `004fa0ec != 1`. Lines via `00429020`: `fgets` 0x7f (**≤ 126 characters**), lines starting `#`, `\n`, `\r` skipped, at EOF the last line repeats. 33 data lines: 8 decimals (16.16, `00431f38`: vert/z offset, height, radius near/far); 2 lines of 3 integers packed `a<<10 \| b<<5 \| c` unmasked (**each 0..31**); ring type, y offset, height (×200/480 when `00512018` is 0); 3 groups of 5 integers (time-of-day RGB, 5th `<<8`); a last integer (nonzero forces ring type 1); integers by `atoi`. Without the file a built-in row is picked by stem (`cl1..cy3`, `tr1..tr7`); **an unknown stem with no Info file reads through a NULL row: validate requires the Info file for any stem outside that list** | `0043a370` (from `00455a5c`), `00429020`, `00431f38` | [X] |
 | CARSPECS writable | with `004c5ccc` = 1 (never written) and the German flag `0052b31e` = 0, `004400f4` opens CARSPECS/`By_R&T` `"wb"`; success zeroes `specs+0x3c` (power). **install/validate warning: keep CARSPECS read-only** | `004400f4` (`004afd90`) | [X] |
+| FSH shape types | accepted shape types (mapped by `00496f38`): `0x7a` 4 bpp, `0x7b` 8, `0x78` 16, `0x7e` 15, `0x7f` 24, `0x7d` 32; `0x68..0x6f` count as `0x78..0x7f`; `0x22`/`0x24` are palettes, not drawable. A shape whose type differs from the screen's (`004c78cd`) is converted through the 6×6 table `004c7d70` in at most 10 steps; an unknown source/target type or an unreachable pair **aborts the game** ("convertshapedepth - SOURCE SHAPE TYPE UNRECOGNIZED"). **compatible mode: an entry outside these types is fatal**. Width/height = words at `+4`/`+6`; the 2D draw `00496510` clips to the screen and has **no size cap** (3D texture mappers' limits are a separate question; textures are 64×64 on the CD) | `00496f38`, `00496510`, `004970a4`, `00496fd0` | [X] |
 | BNK load | race banks `00443924`; `"%sfront_mw.bnk"` `004648dc`; each file by `004438c8` (`00483ec0`), **a missing file is fatal** (`004c6f88`); 6 loaded-bank slots `0050a564`, counter `004bc6e8`, reset by `00443be0` | | [X] |
 | BNK registration | `0048ed30`: each nonzero offset relocates the record's `+4` and the target's `+0x18` by the file base; the bank takes the first free of 5 entries (`004c79a0`). **Fatal if a sound number is already taken by a loaded bank, or no entry is free.** Banks loaded together need disjoint sound numbers (validate rule). CD numbers: `*_SW`/`TRAFFC` 1,2,3,32; `COLL*` 33.. (22–30 of them); `O*MB`/`TRAFFCO` 65,67,69; `O*MB3D` 65,67,68,69,70 (`OZR1MB3D` only 65,67,69); `FRONT_MW` 71..74; `NFS_FMMB` 97,98,100,105,106 | `0048ed30` | [X] |
 | BNK record `+0` roles | `0x40` player, `0x10` opponents, `0x30` collisions, `0xf8` front, `0x100` FM, `0x2000` TRAFFC, `4` TESTBANK. Every record's `+4` is `0x228`. Which header fields playback reads (`0048eea0` on) is still open | | [X] |
@@ -338,6 +339,19 @@ The original analysis follows.
    from font text; one RE question below closes it. If a name does come from the EXE, AC7's rename moves to Level 2
    as the spec says, and we stop before phase 7.
 
+### 8.1 Names drawn from EXE text (answer to question 9, tnfs-decomp)
+
+- **Car short names are EXE text.** Eight names (RX-7, NSX, SUPRA, 911, ZR-1, VIPER, 512TR, DIABLO) sit in two identical
+  copies at `004b11e8..` and `004b1924..`, in fixed slots (4 bytes for NSX and 911, 8 for the others). They are drawn with
+  the font routine `00463cd8` on the results and records screens: table `004c5c84` used by `0045c45c`, `0045cea0`,
+  `0045de08`, `0045eff4` (from `0040b648` / `0040c710`) and `0046067c`; `004676d8` copies the second table (`0046741c`).
+  The index is the car number stored in the records (`00524eb4` / `00524f9e` + track × 0xa6b) or `00524e89`.
+- **Track display names appear nowhere as EXE text.**
+- The full names on the selection screens stay QFS bitmaps (Level 1).
+- **Consequence for AC7:** renaming a car on the results and records screens is EXE text = Level 2 (the only Level 1 way
+  would be a same-length binary patch inside the slot, which the spec places at Level 2). Track renames and car renames on
+  the selection screens remain image edits. **Decision for the user** before phase 7: how AC7 words the car-name case.
+
 ## 9. Questions for the RE session (tnfs-decomp)
 
 Each is answerable from Ghidra between two functions. They are limits the tool needs.
@@ -351,10 +365,9 @@ Each is answerable from Ghidra between two functions. They are limits the tool n
 6. ~~BNK loading and registration~~ **Answered** at bank level (see §7). Still open, deferred: the per-sample header fields the playback code reads and the meaning of each flag bit (`0048eea0` on); not needed by the loaders.
 7. ~~`BY_R&T`~~ **Answered** (see §6.6, §7).
 8. ~~`*INFO` parser~~ **Answered** (see §7).
-9. Is any car or track display name taken from EXE text (results, stats, car-select, replays)? Which functions draw
-   names, and from which resource?
-10. SAV: size and layout written by the EXE (`%s%s.SAV`, `004aeeb0`); needed only if tournament state must be authored.
-11. FSH entry types accepted by the draw routines (only `0x7B`/`0x22`/`0x24` seen) and maximum bitmap size.
+9. ~~Names from EXE text~~ **Answered (risk partly materialised)**: see §8.1.
+10. ~~SAV~~ **Answered**: `0042a680` saves, `0042a484` loads, `0042ae9c` lists `*.SAV`. The file is the raw `0x5b6` bytes at `0052ad44` (game/tournament state; player records at `0052ad44 + i × 0x95`), no header, no checksum; a file of another size aborts ("BUG: Loadgame, wrong file size"). Field layout inside the block not mapped; ask if a phase needs it.
+11. ~~FSH entry types and bitmap size~~ **Answered** (see §7).
 12. ~~`004bc664` versus `004c5660`~~ **Answered**: PBS table versus CFM table (see §2).
 
 ## 10. Facts with EXE addresses (for `re/STATE.md`)

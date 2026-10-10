@@ -14,117 +14,128 @@ endif()
 
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
-    src/formats/bnk.c
-    src/formats/chunk.c
-    src/formats/doc.c
-    src/formats/ffn.c
-    src/formats/fixed_record.c
-    src/formats/fsh.c
-    src/formats/mesh.c
-    src/formats/pbs.c
-    src/formats/pdn.c
-    src/formats/tri.c
-    src/formats/tri_write.c
-    src/game/frontend/config_dat.c
-    src/game/frontend/race_settings.c
-    src/game/gfx/flat.c
-    src/game/gfx/flat_edge.c
-    src/game/gfx/flat_scan.c
-    src/game/gfx/object3d.c
-    src/game/gfx/object_mappers.c
-    src/game/gfx/palette_match.c
-    src/game/gfx/quad.c
-    src/game/gfx/quad_tri.c
-    src/game/race/car_draw.c
-    src/game/race/car_drive.c
-    src/game/race/car_engine.c
-    src/game/race/car_gearbox.c
-    src/game/race/car_grip.c
-    src/game/race/car_physics.c
-    src/game/race/ai_lanes.c
-    src/game/race/ai_police.c
-    src/game/race/ai_manager.c
-    src/game/race/ai_manager_tick.c
-    src/game/race/car_progress.c
-    src/game/race/car_road.c
-    src/game/race/car_scenery.c
-    src/game/race/car_setup.c
-    src/game/race/car_load.c
-    src/game/race/car_body.c
-    src/game/race/car_crash.c
-    src/game/race/car_crash_tick.c
-    src/game/race/crash_trail.c
-    src/game/race/rigid_boxes.c
-    src/game/race/car_collide.c
-    src/game/race/race_contacts.c
-    src/game/race/ai_model.c
-    src/game/race/ai_parked.c
-    src/game/race/ai_spun.c
-    src/game/race/ai_setup.c
-    src/game/race/ai_profiles.c
-    src/game/race/ai_zones.c
-    src/game/race/car_held.c
-    src/game/race/rigid_body.c
-    src/game/race/car_control.c
-    src/game/race/ai_drive.c
-    src/game/race/race_sim.c
-    src/game/sys/rigid_math.c
-    src/game/race/car_tyres.c
-    src/game/race/car_vertical.c
-    src/game/race/car_walls.c
-    src/game/race/horizon.c
-    src/game/race/model_draw.c
-    src/game/race/race_state.c
-    src/game/race/sky_ring.c
-    src/game/race/track_art.c
-    src/game/race/track_draw.c
-    src/game/race/track_geometry.c
-    src/game/race/track_info.c
-    src/game/race/track_objects.c
-    src/game/race/track_render.c
-    src/game/race/track_tables.c
-    src/game/race/view.c
-    src/game/sys/fixed_math.c
-    src/game/sys/palette.c
-    src/formats/qfs.c
-    src/formats/qfs_btree.c
-    src/formats/qfs_encode.c
-    src/formats/qfs_huffman.c
-    src/formats/qfs_inplace.c
-    src/formats/qfs_refpack.c
+    core/formats/bnk.c
+    core/formats/chunk.c
+    core/formats/doc.c
+    core/formats/ffn.c
+    core/formats/fileset.c
+    core/formats/fixed_record.c
+    core/formats/fsh.c
+    core/formats/mesh.c
+    core/formats/pbs.c
+    core/formats/pdn.c
+    core/formats/png.c
+    core/formats/shpi_exchange.c
+    core/formats/tri.c
+    core/formats/tri_write.c
+    core/formats/tsv.c
+    core/formats/qfs.c
+    core/formats/qfs_btree.c
+    core/formats/qfs_encode.c
+    core/formats/qfs_huffman.c
+    core/formats/qfs_inplace.c
+    core/formats/qfs_refpack.c
 )
-target_include_directories(tnfs_core PUBLIC src)
+target_include_directories(tnfs_core PUBLIC core)
 target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
+
+# The recovered game logic: platform-independent, links no SDL.
+add_library(tnfs_game STATIC
+    game/frontend/config_dat.c
+    game/frontend/race_settings.c
+    game/gfx/flat.c
+    game/gfx/flat_edge.c
+    game/gfx/flat_scan.c
+    game/gfx/object3d.c
+    game/gfx/object_mappers.c
+    game/gfx/palette_match.c
+    game/gfx/quad.c
+    game/gfx/quad_tri.c
+    game/race/car_draw.c
+    game/race/car_drive.c
+    game/race/car_engine.c
+    game/race/car_gearbox.c
+    game/race/car_grip.c
+    game/race/car_physics.c
+    game/race/ai_lanes.c
+    game/race/ai_police.c
+    game/race/ai_manager.c
+    game/race/ai_manager_tick.c
+    game/race/car_progress.c
+    game/race/car_road.c
+    game/race/car_scenery.c
+    game/race/car_setup.c
+    game/race/car_load.c
+    game/race/car_body.c
+    game/race/car_crash.c
+    game/race/car_crash_tick.c
+    game/race/crash_trail.c
+    game/race/rigid_boxes.c
+    game/race/car_collide.c
+    game/race/race_contacts.c
+    game/race/ai_model.c
+    game/race/ai_parked.c
+    game/race/ai_spun.c
+    game/race/ai_setup.c
+    game/race/ai_profiles.c
+    game/race/ai_zones.c
+    game/race/car_held.c
+    game/race/rigid_body.c
+    game/race/car_control.c
+    game/race/ai_drive.c
+    game/race/race_sim.c
+    game/sys/rigid_math.c
+    game/race/car_tyres.c
+    game/race/car_vertical.c
+    game/race/car_walls.c
+    game/race/horizon.c
+    game/race/model_draw.c
+    game/race/race_state.c
+    game/race/sky_ring.c
+    game/race/track_art.c
+    game/race/track_draw.c
+    game/race/track_geometry.c
+    game/race/track_info.c
+    game/race/track_objects.c
+    game/race/track_render.c
+    game/race/track_tables.c
+    game/race/view.c
+    game/sys/fixed_math.c
+    game/sys/palette.c
+)
+target_include_directories(tnfs_game PUBLIC game .)
+target_link_libraries(tnfs_game PUBLIC tnfs_core)
+target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
 if(NOT MSVC)
-    target_compile_options(tnfs_core PRIVATE -fwrapv)
+    target_compile_options(tnfs_game PRIVATE -fwrapv)
 endif()
 
 add_executable(tnfs
-    src/main.c
-    src/game/frontend/config.c
-    src/game/frontend/control_central.c
-    src/game/frontend/dialog.c
-    src/game/frontend/frontend.c
-    src/game/frontend/main_menu.c
-    src/game/frontend/screens.c
-    src/game/frontend/text_field.c
-    src/game/sys/input.c
-    src/game/sys/pointer.c
-    src/game/sys/resource.c
-    src/game/sys/text.c
-    src/game/sys/timer.c
-    src/game/sys/video.c
-    src/viewer/asset_viewer.c
-    src/viewer/model_view.c
-    src/viewer/object_sink.c
-    src/viewer/ported_view.c
-    src/viewer/raster.c
-    src/viewer/track_viewer.c
-    src/viewer/viewer_main.c
-    src/platform/sdl3/platform_sdl3.c
+    game/main.c
+    game/frontend/config.c
+    game/frontend/control_central.c
+    game/frontend/dialog.c
+    game/frontend/frontend.c
+    game/frontend/main_menu.c
+    game/frontend/screens.c
+    game/frontend/text_field.c
+    game/sys/input.c
+    game/sys/pointer.c
+    game/sys/resource.c
+    game/sys/text.c
+    game/sys/timer.c
+    game/sys/video.c
+    game/viewer/asset_viewer.c
+    game/viewer/model_view.c
+    game/viewer/object_sink.c
+    game/viewer/ported_view.c
+    game/viewer/raster.c
+    game/viewer/track_viewer.c
+    game/viewer/viewer_main.c
+    game/platform/sdl3/platform_sdl3.c
 )
-target_link_libraries(tnfs PRIVATE tnfs_core)
+target_link_libraries(tnfs PRIVATE tnfs_game)
 if(UNIX AND NOT APPLE)
     target_link_libraries(tnfs PRIVATE m)
 endif()
@@ -141,10 +152,15 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri tri_write sky_ring quad object_mappers flat
-                 palette_match)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
+        target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME ${name} COMMAND test_${name})
+    endforeach()
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match)
+        add_executable(test_${name} tests/test_${name}.c)
+        target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
@@ -158,7 +174,7 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/*.FFN" "${CMAKE_SOURCE_DIR}/original/*.ffn")
     if(TNFS_ASSET_FILES)
         add_executable(test_assets tests/test_assets.c)
-        target_link_libraries(test_assets PRIVATE tnfs_core)
+        target_link_libraries(test_assets PRIVATE tnfs_game)
         target_compile_options(test_assets PRIVATE ${TNFS_WARNINGS})
         add_test(NAME assets COMMAND test_assets ${TNFS_ASSET_FILES})
     endif()
@@ -179,6 +195,10 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/*.FSH" "${CMAKE_SOURCE_DIR}/original/*.QFS")
     if(TNFS_DOC_FILES)
         add_test(NAME doc_cd COMMAND test_doc ${TNFS_DOC_FILES})
+    endif()
+    file(GLOB_RECURSE TNFS_SHPI_FILES "${CMAKE_SOURCE_DIR}/original/*.FSH" "${CMAKE_SOURCE_DIR}/original/*.QFS")
+    if(TNFS_SHPI_FILES)
+        add_test(NAME shpi_exchange_cd COMMAND test_shpi_exchange ${TNFS_SHPI_FILES})
     endif()
     file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
@@ -202,11 +222,11 @@ if(NOT EMSCRIPTEN)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
         add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)
-        target_link_libraries(test_track PRIVATE tnfs_core)
+        target_link_libraries(test_track PRIVATE tnfs_game)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})
         add_test(NAME track COMMAND test_track "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_executable(test_drive tests/test_drive.c)
-        target_link_libraries(test_drive PRIVATE tnfs_core)
+        target_link_libraries(test_drive PRIVATE tnfs_game)
         target_compile_options(test_drive PRIVATE ${TNFS_WARNINGS})
         add_test(NAME drive COMMAND test_drive "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
@@ -216,23 +236,23 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.CFM" "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.cfm")
     if(TNFS_MODEL_FILES)
         add_executable(test_models tests/test_models.c)
-        target_link_libraries(test_models PRIVATE tnfs_core)
+        target_link_libraries(test_models PRIVATE tnfs_game)
         target_compile_options(test_models PRIVATE ${TNFS_WARNINGS})
         add_test(NAME models COMMAND test_models ${TNFS_MODEL_FILES})
     endif()
 
     add_executable(probe_3d tools/probe_3d.c)
-    target_link_libraries(probe_3d PRIVATE tnfs_core)
+    target_link_libraries(probe_3d PRIVATE tnfs_game)
     target_compile_options(probe_3d PRIVATE ${TNFS_WARNINGS})
 
     add_executable(probe_object3d tools/probe_object3d.c)
-    target_link_libraries(probe_object3d PRIVATE tnfs_core)
+    target_link_libraries(probe_object3d PRIVATE tnfs_game)
     target_compile_options(probe_object3d PRIVATE ${TNFS_WARNINGS})
 
     add_executable(probe_math tools/probe_math.c)
-    target_link_libraries(probe_math PRIVATE tnfs_core)
+    target_link_libraries(probe_math PRIVATE tnfs_game)
     add_executable(probe_car tools/probe_car.c)
-    target_link_libraries(probe_car PRIVATE tnfs_core)
+    target_link_libraries(probe_car PRIVATE tnfs_game)
     target_compile_options(probe_car PRIVATE ${TNFS_WARNINGS})
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
@@ -240,14 +260,14 @@ if(NOT EMSCRIPTEN)
     target_compile_options(qfs_unpack PRIVATE ${TNFS_WARNINGS})
 
     add_executable(quad_draw tools/quad_draw.c)
-    target_link_libraries(quad_draw PRIVATE tnfs_core)
+    target_link_libraries(quad_draw PRIVATE tnfs_game)
     target_compile_options(quad_draw PRIVATE ${TNFS_WARNINGS})
 
     add_executable(flat_draw tools/flat_draw.c)
-    target_link_libraries(flat_draw PRIVATE tnfs_core)
+    target_link_libraries(flat_draw PRIVATE tnfs_game)
     target_compile_options(flat_draw PRIVATE ${TNFS_WARNINGS})
 
     add_executable(palette_match_run tools/palette_match_run.c)
-    target_link_libraries(palette_match_run PRIVATE tnfs_core)
+    target_link_libraries(palette_match_run PRIVATE tnfs_game)
     target_compile_options(palette_match_run PRIVATE ${TNFS_WARNINGS})
 endif()
