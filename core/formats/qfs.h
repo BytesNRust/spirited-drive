@@ -41,6 +41,10 @@ QfsResult qfs_compress(const uint8_t *src, size_t n, uint8_t *dst, size_t dst_ca
  * written is at most the input read plus that offset. A file that fails is stored unpacked. */
 int qfs_inplace_ok(const uint8_t *packed, size_t packed_len, size_t unpacked);
 
+/* Same, and on any outcome *at gets the input offset where decoding stopped (RefPack: the opcode that
+ * failed or the stop code; the other codecs: the start of their data). */
+QfsResult qfs_decompress_at(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len, size_t *at);
+
 const char *qfs_result_str(QfsResult result);
 
 #endif

@@ -6,6 +6,7 @@
 #define TNFS_PBS_H
 
 #include "formats/qfs.h"
+#include "formats/record_exchange.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -32,5 +33,14 @@ void pbs_seal(uint8_t record[PBS_SIZE]);
 
 /* The file bytes for a record: sealed, then packed as RefPack QFS. */
 QfsResult pbs_pack(const uint8_t record[PBS_SIZE], uint8_t *dst, size_t cap, size_t *len);
+
+/* Field table of the record (generated from docs/car_specs.tsv by tools/gen_record_fields.py). */
+extern const RecordField pbs_fields[];
+extern const size_t pbs_field_count;
+
+/* specs.tsv: one row per field (record_exchange.h). Import keeps the original's unlisted rows and reseals
+ * the checksum, so a "checksum" row is informational. */
+int pbs_export(const uint8_t record[PBS_SIZE], FileSet *out, ExchangeError *err);
+int pbs_import(uint8_t record[PBS_SIZE], const FileSet *in, ExchangeError *err);
 
 #endif

@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void sealed_record(uint8_t rec[PBS_SIZE])
 {
@@ -82,6 +83,61 @@ static void test_pack(void)
     CHECK_EQ_INT(pbs_pack(rec, file, 16, &len), QFS_ERR_OVERFLOW);
 }
 
+static void test_exchange(void)
+{
+    uint8_t rec[PBS_SIZE], edited[PBS_SIZE];
+    for (int i = 0; i < PBS_SIZE; ++i) rec[i] = (uint8_t)(i * 7 + 3);
+    pbs_seal(rec);
+    FileSet files;
+    fileset_init(&files);
+    ExchangeError err = {{0}};
+    CHECK(pbs_export(rec, &files, &err));
+    const SetFile *tsv = fileset_find(&files, "specs.tsv");
+    CHECK(tsv != NULL);
+    memcpy(edited, rec, PBS_SIZE);
+    CHECK(pbs_import(edited, &files, &err));
+    CHECK_MEM(edited, rec, PBS_SIZE);                   /* unedited: identical */
+
+    /* power (+0x3c) edited in the table lands in the record and the checksum follows */
+    char *text = malloc(tsv->size + 64);
+    memcpy(text, tsv->data, tsv->size);
+    text[tsv->size] = 0;
+    char *row = strstr(text, "\tpower\ti32\t");
+    CHECK(row != NULL);
+    FileSet mod;
+    fileset_init(&mod);
+    if (row != NULL) {
+        char *value = row + strlen("\tpower\ti32\t");
+        char *end = strchr(value, '\n');
+        char patched[16384];
+        snprintf(patched, sizeof patched, "%.*s123456%s", (int)(value - text), text, end);
+        CHECK(fileset_add(&mod, "specs.tsv", (const uint8_t *)patched, strlen(patched)));
+        memcpy(edited, rec, PBS_SIZE);
+        CHECK(pbs_import(edited, &mod, &err));
+        CHECK_EQ_INT((int32_t)(edited[0x3c] | edited[0x3d] << 8 | edited[0x3e] << 16 | (uint32_t)edited[0x3f] << 24), 123456);
+        CHECK(pbs_checksum_ok(edited));
+        CHECK_MEM(edited, rec, 0x3c);
+        CHECK_MEM(edited + 0x40, rec + 0x40, PBS_CHECKED_BYTES - 0x40);
+    }
+    fileset_free(&mod);
+
+    /* refusals name the file and line */
+    const char *bad[] = { "0x03c\tpowr\ti32\t5\n", "0x03c\tpower\tu32\t5\n", "0x03c\tpower\ti32\t5x\n",
+                          "0x03c\tpower\ti32\t5\t6\n", "0x03d\tpower\ti32\t5\n" };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; ++i) {
+        FileSet f;
+        fileset_init(&f);
+        CHECK(fileset_add(&f, "specs.tsv", (const uint8_t *)bad[i], strlen(bad[i])));
+        memcpy(edited, rec, PBS_SIZE);
+        CHECK(!pbs_import(edited, &f, &err));
+        CHECK(strstr(err.message, "specs.tsv:1") != NULL);
+        CHECK_MEM(edited, rec, PBS_SIZE);               /* nothing applied on failure */
+        fileset_free(&f);
+    }
+    free(text);
+    fileset_free(&files);
+}
+
 static void test_cd(int argc, char **argv)
 {
     for (int a = 1; a < argc; ++a) {
@@ -101,6 +157,16 @@ static void test_cd(int argc, char **argv)
         CHECK(got && pbs_pack(rec, packed, sizeof packed, &packed_len) == QFS_OK);
         CHECK(got && pbs_read(again, packed, packed_len));
         CHECK(got && memcmp(again, rec, PBS_SIZE) == 0);  /* the CD record survives pack and read */
+        if (got) {
+            FileSet files;
+            ExchangeError err = {{0}};
+            uint8_t viaTsv[PBS_SIZE];
+            fileset_init(&files);
+            memcpy(viaTsv, rec, PBS_SIZE);
+            CHECK(pbs_export(rec, &files, &err) && pbs_import(viaTsv, &files, &err));
+            CHECK_MEM(viaTsv, rec, PBS_SIZE);
+            fileset_free(&files);
+        }
         free(buf);
     }
 }
@@ -111,6 +177,7 @@ int main(int argc, char **argv)
     test_raw();
     test_qfs_stream();
     test_pack();
+    test_exchange();
     test_cd(argc, argv);
     return TEST_REPORT();
 }

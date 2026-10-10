@@ -37,6 +37,10 @@ typedef struct DocNode DocNode;
  * file whose root table is sound can be rewritten. */
 DocResult doc_parse_chunks(const uint8_t *data, size_t size, DocNode **out);
 
+/* Same; on failure *at is the file offset of the table entry that is out of bounds (or of the count). */
+DocResult doc_parse_chunks_at(const uint8_t *data, size_t size, DocNode **out, size_t *at);
+DocResult doc_parse_shpi_at(const uint8_t *data, size_t size, DocNode **out, size_t *at);
+
 /* Parses an SHPI directory (header + count x (name, offset)) as a container whose
  * children are the entries. */
 DocResult doc_parse_shpi(const uint8_t *data, size_t size, DocNode **out);
