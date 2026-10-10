@@ -101,3 +101,13 @@ void ai_zone_spans(RaceState *race)
         for (int i = 0; i < 5; i++) z[order[i]] &= mask;
     }
 }
+
+void ai_zones_init(RaceState *race)
+{
+    for (int32_t k = 0; k < ZONES; k++) zone_words(race, k)[Z_SLOT] = (int16_t)k;
+    for (int32_t i = 0; i < race->car_count; i++) {
+        Car *const car = slot_car(race, i);
+        if (car != NULL) car->zone = i < ZONES ? i : 0;
+    }
+    ai_zone_spans(race);
+}

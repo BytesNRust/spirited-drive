@@ -19,4 +19,8 @@ void ai_zones_by_place(RaceState *race);
  * cross are split between the two. Spans clamped at 0 and masked to the ring. */
 void ai_zone_spans(RaceState *race);
 
+/* 0046a59c: zone k follows car k (k = 0, 1), which is placed in it; every
+ * other car in zone 0; then the spans (0046a3c0). */
+void ai_zones_init(RaceState *race);
+
 #endif
