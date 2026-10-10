@@ -86,6 +86,7 @@ add_library(tnfs_game STATIC
     game/race/rigid_boxes.c
     game/race/car_collide.c
     game/race/race_contacts.c
+    game/race/race_finish.c
     game/race/ai_model.c
     game/race/ai_parked.c
     game/race/ai_spun.c

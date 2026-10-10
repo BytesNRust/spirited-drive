@@ -35,7 +35,8 @@ typedef struct {
     int32_t lap_marks[RACE_LAP_MARKS];  /* +4: [0] start, [k] end of lap k */
     int32_t police_stops[2];  /* +0x1b8, +0x1bc (0051ce0c, 0051ce10): the police stop's two outcomes (0046bb78) */
     int32_t crashes;        /* +0x1c0 (0051ce14): hard crashes while racing (0040e050) */
-    int32_t unknown_1c4[2];
+    int32_t finish;         /* +0x1c4 (0051ce18): the tick - 300 the car finished, -999 out before the start, 0 still racing (00440c30) */
+    int32_t unknown_1c8;
     int32_t top_speed;      /* +0x1cc: the fastest forward speed, 16.16 (car_physics RECORD_TOP_SPEED; the computer cars, 0046f3e8) */
     uint8_t unknown_1d0[2];
 } PlayerRecord;
@@ -211,6 +212,7 @@ typedef struct {
     int32_t default_profile_odds;   /* 004c5d20 */
     int32_t unknown_4c5cd8, unknown_4c5cdc;
     int32_t unknown_4c5cd4;         /* 004c5cd4: with one human, the manager may spin out a car near it while it looks back (0046c490); set and cleared by 00432ff4 */
+    int32_t finish_humans;          /* 00509d84: players whose records 00440c30 marks out before the start (0043fbac: 1 in a time trial, else the humans) */
     int32_t manager_countdown;      /* 004f80fc: calls of 0040d8e8 left until the manager runs; 1 from 0040fec8, kept in replays */
     int32_t unknown_4b92d4;         /* 004b92d4: non-zero keeps the manager's car sound off (0046c490); 00472560, 0041f9a0 and others set it */
     int32_t police_node;            /* 004c5d40: the first car's node the police placement last looked from (0046b950) */
