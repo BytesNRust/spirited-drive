@@ -13,4 +13,8 @@ void race_stop_notices_clear(RaceState *race);
  * drives again, out of gear, an automatic back in D. */
 void car_held_tick(Car *car, RaceState *race);
 
+/* 0040d870: a player's car the police are pulling over (+0x176 bit 0)
+ * steers toward the police car (cars[2]) and lets the throttle go. */
+void car_pulled_over(Car *car, const RaceState *race);
+
 #endif
