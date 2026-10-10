@@ -16,6 +16,7 @@ endif()
 add_library(tnfs_core STATIC
     src/formats/bnk.c
     src/formats/chunk.c
+    src/formats/doc.c
     src/formats/ffn.c
     src/formats/fixed_record.c
     src/formats/fsh.c
@@ -138,7 +139,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri sky_ring quad object_mappers flat
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri sky_ring quad object_mappers flat
                  palette_match)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
@@ -171,6 +172,11 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/*.PDN")
     if(TNFS_QFS_FILES)
         add_test(NAME qfs_encode_cd COMMAND test_qfs_encode ${TNFS_QFS_FILES})
+    endif()
+    file(GLOB_RECURSE TNFS_DOC_FILES "${CMAKE_SOURCE_DIR}/original/*.FAM" "${CMAKE_SOURCE_DIR}/original/*.CFM"
+        "${CMAKE_SOURCE_DIR}/original/*.FSH" "${CMAKE_SOURCE_DIR}/original/*.QFS")
+    if(TNFS_DOC_FILES)
+        add_test(NAME doc_cd COMMAND test_doc ${TNFS_DOC_FILES})
     endif()
     file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
