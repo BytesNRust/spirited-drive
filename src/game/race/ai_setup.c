@@ -3,6 +3,8 @@
 #include "game/race/ai_lanes.h"
 #include "game/race/ai_profiles.h"
 
+#include "game/sys/fixed_math.h"
+
 enum {
     TRACK_FLAG_4 = 4,
     GRID_LANE_NODE = 10,    /* whose lanes give the gap between the two columns */
@@ -10,6 +12,26 @@ enum {
     GRID_FRONT = 0x20,      /* the front row's node */
     PAIRED_RACERS = 2,      /* up to this, two cars a row */
     OPEN_ROAD_TRACK = 2     /* above: the cars take the node's x and heading */
+};
+
+enum { PARAMS = 107, TICKS_PER_SECOND = 60, PARAM_SCALED = 18, PARAM_SCALE = 0x471c };
+
+/* 00456410's defaults, in the order of the words */
+static const int32_t DEFAULT_PARAMS[PARAMS] = {
+    0x14, 0x48000, 0xc, 0x0, 0x14, 0x2b0000, 0x140000, 0x190,
+    0x2, 0x1, 0x1, 0x4, 0x1f4, 0x4, 0x10000, 0xe666,
+    0xb333, 0xcccc, 0x960000, 0x0, 0x0, 0x0, 0x0, 0x20000,
+    0x20000, 0x20000, 0x20000, 0x1cccc, 0x1cccc, 0x19999, 0x16666, 0x13333,
+    0x11999, 0x10000, 0xf851, 0xeb85, 0xe666, 0xd999, 0xcccc, 0xc000,
+    0xb333, 0xa666, 0xa666, 0x9999, 0x20000, 0x20000, 0x20000, 0x20000,
+    0x1cccc, 0x16666, 0x14ccc, 0x13333, 0x11999, 0x10000, 0x10000, 0x10000,
+    0xf333, 0xe666, 0xd999, 0xcccc, 0xc000, 0xc000, 0xb333, 0xb333,
+    0x9999, 0x90000, 0x30000, 0x20000, 0x20000, 0x18000, 0x18000, 0x18000,
+    0x18000, 0x13333, 0x10000, 0x10000, 0xcccc, 0xcccc, 0x10000, 0x20000,
+    0x60000, 0x90000, 0x90000, 0x90000, 0x90000, 0x90000, 0x90000, 0x30000,
+    0x20000, 0x20000, 0x10000, 0x10000, 0x10000, 0x10000, 0x10000, 0x10000,
+    0x10000, 0x10000, 0x50000, 0x90000, 0x90000, 0x90000, 0x90000, 0x90000,
+    0x90000, 0x90000, 0x90000,
 };
 
 /* 00470238 by the first car's model (type 3): 0, 6, 7 -> 2; 1, 4 -> 0; 2, 3, 5 -> 1 */
@@ -69,4 +91,12 @@ void ai_grid_place(Car *car, RaceState *race)
     if (narrow.flags[0] >> 4 == 2 && (narrow.flags[0] & 0xf) == 1 && place % 2 == 0) car->x -= gap;
     car->lateral = 0;
     car->z = race_node(race, car->node).position.z;
+}
+
+void ai_default_params(int32_t params[107])
+{
+    for (int i = 0; i < PARAMS; i++) params[i] = DEFAULT_PARAMS[i];
+    params[9] *= TICKS_PER_SECOND;
+    params[10] *= TICKS_PER_SECOND;
+    params[PARAM_SCALED] = fx_mul_round(params[PARAM_SCALED], PARAM_SCALE);
 }

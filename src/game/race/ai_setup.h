@@ -30,4 +30,8 @@ void ai_use_game_profiles(RaceState *race);
  * above 2) at the node's x and heading. */
 void ai_grid_place(Car *car, RaceState *race);
 
+/* 00456410: the computer cars' tuning (ai.params) set to the game's defaults;
+ * words 9 and 10 are counted in seconds there and kept in ticks (x 60). */
+void ai_default_params(int32_t params[107]);
+
 #endif
