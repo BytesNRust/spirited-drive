@@ -15,6 +15,7 @@ endif()
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
     core/formats/bnk.c
+    core/formats/bnk_exchange.c
     core/formats/chunk.c
     core/formats/doc.c
     core/formats/ffn.c
@@ -157,7 +158,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -219,6 +220,7 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/SOUNDBNK/*.bnk")
     if(TNFS_BNK_FILES)
         add_test(NAME bnk_cd COMMAND test_bnk ${TNFS_BNK_FILES})
+        add_test(NAME bnk_exchange_cd COMMAND test_bnk_exchange ${TNFS_BNK_FILES})
     endif()
 
     file(GLOB TNFS_TRI_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.TRI"
