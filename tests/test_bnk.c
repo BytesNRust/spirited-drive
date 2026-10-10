@@ -125,6 +125,81 @@ static void test_bad(void)
     CHECK_EQ_INT(bnk_sample(&bnk, 1, &s), BNK_ERR_HEADER);
 }
 
+static void test_doc(void)
+{
+    uint8_t b[BANK_SIZE], out[BANK_SIZE + 64];
+    size_t len = 0, size = 0;
+    build_bank(b);
+    BnkDoc *doc = NULL;
+    CHECK_EQ_INT(bnk_doc_read(b, BANK_SIZE, &doc), BNK_OK);
+    if (doc == NULL) return;
+    CHECK_EQ_INT(bnk_doc_block_count(doc), 2);
+    CHECK_EQ_INT(bnk_doc_slot_block(doc, 1), 0);
+    CHECK_EQ_INT(bnk_doc_slot_block(doc, 32), 1);
+    CHECK_EQ_INT(bnk_doc_slot_block(doc, 2), -1);
+    CHECK_EQ_INT(bnk_doc_size(doc), BANK_SIZE);
+    CHECK_EQ_INT(bnk_doc_write(doc, out, sizeof out, &len), BNK_OK);
+    CHECK_EQ_INT(len, BANK_SIZE);
+    CHECK_MEM(out, b, BANK_SIZE);                       /* untouched: identical */
+    CHECK_EQ_INT(bnk_doc_write(doc, out, BANK_SIZE - 1, &len), BNK_ERR_CAPACITY);
+
+    /* Slot 1's PCM grows by 24 bytes: the next block moves, both headers follow. */
+    uint8_t pcm[88];
+    memset(pcm, 0x44, sizeof pcm);
+    CHECK_EQ_INT(bnk_doc_set_block(doc, 0, pcm, sizeof pcm), BNK_OK);
+    CHECK_EQ_INT(bnk_doc_set_block(doc, 5, pcm, 1), BNK_ERR_INDEX);
+    put_u32(bnk_doc_header(doc, 1) + 0x3c, 16);         /* the caller keeps the length right */
+    CHECK(bnk_doc_header(doc, 2) == NULL);
+    CHECK_EQ_INT(bnk_doc_write(doc, out, sizeof out, &len), BNK_OK);
+    CHECK_EQ_INT(len, BANK_SIZE + 24);
+    Bnk bnk;
+    BnkSample s;
+    CHECK_EQ_INT(bnk_open(&bnk, out, len), BNK_OK);
+    CHECK_EQ_INT(bnk_sample(&bnk, 1, &s), BNK_OK);
+    CHECK_EQ_INT(s.data_offset, 0x300);
+    CHECK_EQ_INT(s.length, 16);
+    CHECK_EQ_INT(bnk_sample(&bnk, 32, &s), BNK_OK);
+    CHECK_EQ_INT(s.data_offset, 0x300 + 88);
+    CHECK_MEM(out + 0x300, pcm, 88);
+    CHECK_EQ_INT(bnk_data_extent(&bnk, &s), len - (0x300 + 88));
+    CHECK(bnk_doc_block(doc, 1, &size) != NULL && size == BANK_SIZE - 0x340);
+    bnk_doc_free(doc);
+
+    /* Two slots with one data offset share a block. */
+    build_bank(b);
+    put_sample(b, 7, 0x290, 0x10, 1, 1, 4, 0x340);
+    CHECK_EQ_INT(bnk_doc_read(b, BANK_SIZE, &doc), BNK_OK);
+    if (doc != NULL) {
+        CHECK_EQ_INT(bnk_doc_block_count(doc), 2);
+        CHECK_EQ_INT(bnk_doc_slot_block(doc, 7), bnk_doc_slot_block(doc, 32));
+        CHECK_EQ_INT(bnk_doc_write(doc, out, sizeof out, &len), BNK_OK);
+        CHECK_MEM(out, b, BANK_SIZE);
+        bnk_doc_free(doc);
+    }
+
+    /* A header that lies inside the PCM, or PCM offset outside the file, is refused. */
+    build_bank(b);
+    put_sample(b, 7, 0x310, 0x10, 1, 1, 4, 0x340);
+    CHECK_EQ_INT(bnk_doc_read(b, BANK_SIZE, &doc), BNK_ERR_BOUNDS);
+    build_bank(b);
+    put_u32(b + 0x200 + 0x40, BANK_SIZE + 4);
+    CHECK_EQ_INT(bnk_doc_read(b, BANK_SIZE, &doc), BNK_ERR_BOUNDS);
+    CHECK_EQ_INT(bnk_doc_read(b, 100, &doc), BNK_ERR_TRUNCATED);
+}
+
+static void check_doc_file(const uint8_t *buf, size_t size)
+{
+    BnkDoc *doc = NULL;
+    CHECK_EQ_INT(bnk_doc_read(buf, size, &doc), BNK_OK);
+    if (doc == NULL) return;
+    uint8_t *out = malloc(size + 1);
+    size_t len = 0;
+    CHECK(out != NULL && bnk_doc_write(doc, out, size, &len) == BNK_OK);
+    CHECK(out != NULL && len == size && memcmp(out, buf, size) == 0);
+    free(out);
+    bnk_doc_free(doc);
+}
+
 static void test_cd(int argc, char **argv)
 {
     for (int a = 1; a < argc; ++a) {
@@ -151,6 +226,7 @@ static void test_cd(int argc, char **argv)
             CHECK(s.rate == 16000 || s.rate == 16247 || s.rate == 22050);
         }
         CHECK(!got || present > 0);
+        if (got) check_doc_file(buf, (size_t)size);
         free(buf);
     }
 }
@@ -160,6 +236,7 @@ int main(int argc, char **argv)
     test_parse();
     test_extent();
     test_bad();
+    test_doc();
     test_cd(argc, argv);
     return TEST_REPORT();
 }

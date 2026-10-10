@@ -35,7 +35,10 @@ typedef enum {
     BNK_ERR_SLOT,       /* slot outside 0..127 */
     BNK_ERR_BOUNDS,     /* header outside the file */
     BNK_ERR_HEADER,     /* no EACS at +0x28, +4 inconsistent, or unknown bit depth / channels */
-    BNK_ERR_DATA        /* declared PCM runs past the end of the file */
+    BNK_ERR_DATA,       /* declared PCM runs past the end of the file */
+    BNK_ERR_MEMORY,
+    BNK_ERR_CAPACITY,   /* destination too small */
+    BNK_ERR_INDEX       /* block outside the bank */
 } BnkResult;
 
 typedef struct {
@@ -63,6 +66,29 @@ int bnk_frame_bytes(const BnkSample *sample);
 /* Bytes from the sample's data up to the next higher data offset of any
  * sample in the bank, or to the end of the file. */
 size_t bnk_data_extent(const Bnk *bnk, const BnkSample *sample);
+
+/* An editable bank. The head (offset table, the 72-byte headers and anything between them,
+ * up to the first PCM) is kept verbatim; the PCM is split into blocks at the distinct data
+ * offsets, each running to the next one or to the end of the file, so the gap after a
+ * sample's frames belongs to its block. Slots whose headers carry the same data offset share
+ * a block (the O*MB banks do). Writing puts head and blocks back and patches every header's
+ * +0x40; replacing a block moves the ones after it. Replace-only: no slots added or removed.
+ * The sample length, loop fields and flags in a header are the caller's (bnk_doc_header). */
+typedef struct BnkDoc BnkDoc;
+
+/* Refuses banks whose headers do not all lie before the first PCM, or whose data offsets
+ * fall outside the file. */
+BnkResult bnk_doc_read(const uint8_t *data, size_t size, BnkDoc **out);
+void bnk_doc_free(BnkDoc *doc);
+int bnk_doc_block_count(const BnkDoc *doc);
+/* The block a slot's PCM lives in, or -1 for an absent slot. */
+int bnk_doc_slot_block(const BnkDoc *doc, int slot);
+const uint8_t *bnk_doc_block(const BnkDoc *doc, int block, size_t *size);
+BnkResult bnk_doc_set_block(BnkDoc *doc, int block, const uint8_t *pcm, size_t size);
+/* The 72-byte header of a present slot, writable in place; NULL for an absent slot. */
+uint8_t *bnk_doc_header(BnkDoc *doc, int slot);
+size_t bnk_doc_size(const BnkDoc *doc);
+BnkResult bnk_doc_write(const BnkDoc *doc, uint8_t *dst, size_t cap, size_t *len);
 
 const char *bnk_result_str(BnkResult result);
 
