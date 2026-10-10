@@ -84,6 +84,7 @@ const char *qfs_result_str(QfsResult result)
     case QFS_ERR_SIZE: return "decoded size differs from header";
     case QFS_ERR_CORRUPT: return "corrupt stream";
     case QFS_ERR_UNSUPPORTED: return "codec not implemented";
+    case QFS_ERR_MEMORY: return "out of memory";
     }
     return "unknown error";
 }
