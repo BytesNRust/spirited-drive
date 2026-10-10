@@ -10,6 +10,10 @@
  * counter 0051ce0c that ends the race once past 1). */
 void race_stop_notice_first(RaceState *race);
 
+/* 0041e3a8: the second police stop notice goes up (0046bb78, with the
+ * counter 0051ce10). */
+void race_stop_notice_second(RaceState *race);
+
 /* 0041e3c4: the police stop notices go off, noting the tick if one was up. */
 void race_stop_notices_clear(RaceState *race);
 
