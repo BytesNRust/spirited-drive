@@ -122,7 +122,7 @@ int tri_export(const uint8_t *data, size_t size, FileSet *out, ExchangeError *er
                         "scenery object descriptors", out, "descriptors.tsv", err) &&
            table_export(data + tri.scenery_offset, TRI_SCENERY_SIZE, scenery, scenery_fields, COUNT(scenery_fields),
                         "scenery placements up to the -1 terminator (at most 1000)", out, "scenery.tsv", err) &&
-           table_export(data + tri.terrain_offset + 12, TRI_SEGMENT_SIZE, tri.segment_count, segment_fields, COUNT(segment_fields),
+           table_export(data + tri.terrain_offset, TRI_SEGMENT_SIZE, tri.segment_count, segment_fields, COUNT(segment_fields),
                         "terrain strips: 4 rows of the road centre and 5 points to each side, as deltas", out, "segments.tsv", err);
 }
 
@@ -142,7 +142,7 @@ int tri_import(const uint8_t *original, size_t size, const FileSet *in, uint8_t 
                           COUNT(brightness_fields), in, "brightness.tsv", &found, err) &&
              table_import(buf + tri.descriptors_offset, TRI_DESCRIPTOR_SIZE, tri.descriptor_count, tri.descriptor_count,
                           descriptor_fields, COUNT(descriptor_fields), in, "descriptors.tsv", &found, err) &&
-             table_import(buf + tri.terrain_offset + 12, TRI_SEGMENT_SIZE, tri.segment_count, tri.segment_count, segment_fields,
+             table_import(buf + tri.terrain_offset, TRI_SEGMENT_SIZE, tri.segment_count, tri.segment_count, segment_fields,
                           COUNT(segment_fields), in, "segments.tsv", &found, err);
     if (ok) {   /* placements: any count up to the slots, then the terminator */
         ok = table_import(buf + tri.scenery_offset, TRI_SCENERY_SIZE, 0, TRI_SCENERY_MAX - 1, scenery_fields, COUNT(scenery_fields), in,

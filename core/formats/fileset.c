@@ -61,9 +61,10 @@ int fileset_add_owned(FileSet *set, const char *name, uint8_t *data, size_t size
 
 int fileset_add(FileSet *set, const char *name, const uint8_t *data, size_t size)
 {
-    uint8_t *copy = malloc(size ? size : 1);
+    uint8_t *copy = malloc(size + 1);
     if (copy == NULL) return 0;
     if (size) memcpy(copy, data, size);
+    copy[size] = '\0';   /* a text file can be read as a C string */
     if (!fileset_add_owned(set, name, copy, size)) { free(copy); return 0; }
     return 1;
 }
