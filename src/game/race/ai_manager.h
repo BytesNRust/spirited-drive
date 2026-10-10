@@ -25,4 +25,20 @@ void ai_weigh_lanes(Car *car, const int32_t first[3], const int32_t second[3], i
 void ai_hold_lane_speed(Car *car, const RaceState *race, const Car *ahead, int32_t from, int32_t to,
                         const int32_t row[3]);
 
+/* 0046b0d8: the cars ahead in the lane slots `lane` - 1, `lane` and `lane` + 1
+ * (row entries 0, 1, 2), looked for in the road's order from the car
+ * (oncoming: backwards, the car's own place first). A car counts for a slot
+ * when `occupied` (one mask per place in by_node) has the slot's bit, the slot
+ * is not in `found` yet and its node gap is 1..26 (a racer behind an oncoming
+ * car: its profile's oncoming_reach; going the way of the first car, a gap
+ * under 2 only when it is 5 ahead along the road's forward row). The slot gets
+ * the car's speed plus the gap less 2 (oncoming: plus 2) times 5 in `first`
+ * and 1.71 in `second`, and the car in `ahead`; three slots end the search.
+ * Then traffic close behind the middle car halves the rows, a racer right
+ * behind it takes 7/8 of the last car looked at's speed past 20, the road's
+ * outermost lanes halve their side, and a fast car that cannot pull out
+ * before closing on a racer ahead (as 0046a95c's room) gets 0 in the middle. */
+void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_PLAYERS], int32_t lane,
+                   uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3]);
+
 #endif

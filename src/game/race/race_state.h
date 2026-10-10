@@ -95,7 +95,8 @@ typedef struct {
     uint8_t unknown_00[0x65];
     int32_t lane_speed_limit; /* +0x65: the fastest sideways speed toward a lane (0046f354) */
     int32_t lane_speed_rate;  /* +0x69: that speed per unit of forward speed */
-    uint8_t unknown_6d[0x0c];
+    int32_t oncoming_reach;   /* +0x6d: how many nodes ahead a racer counts an oncoming car (0046b0d8) */
+    uint8_t unknown_71[0x08];
     int32_t lane_bias[4];   /* +0x79: one is picked at random as car +0x33c (00470a34) */
     int32_t reset_odds;     /* +0x89: how often a car's bias is picked again (00470028), out of 0x10000 */
 } DriverProfile;
