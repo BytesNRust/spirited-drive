@@ -116,7 +116,7 @@ static int32_t lane_width_at(const RaceState *race, uint32_t row, uint32_t colum
 /* 0046f3e8, twice inlined: which of the 8 slots across the road the car's
  * sideways position falls in (0..3 left of the centre, 4..7 right), by the
  * lane width at its node. Also leaves the width in ai.last_lane_width. */
-static int32_t lane_slot(RaceState *race, const Car *car, const TriNode *node)
+int32_t ai_lane_slot(RaceState *race, const Car *car, const TriNode *node)
 {
     const int32_t w = lane_width_at(race, node->flags[0] & 0xf, node->right_verge >> 3);
     const int32_t unit = (int32_t)((uint32_t)w << 8), p = car->road_lateral;
@@ -274,8 +274,9 @@ void ai_drive(Car *car, RaceState *race, int32_t countdown)
     slide_drag(car, drag);
 
     if ((uint32_t)car->player < RACE_PLAYERS) {
-        int32_t *top = &race->players[car->player].top_speed;
-        if (*top < car->ai_speed && track_speed_limit(race, car) >= car->ai_speed) *top = car->ai_speed;
+        const int32_t top = race->players[car->player].top_speed;
+        if (top < car->ai_speed && track_speed_limit(race, car) >= car->ai_speed)
+            race->players[car->player].top_speed = car->ai_speed;
     }
 
     /* the road frame's side row times the sideways speed, and the direction of travel */
@@ -298,7 +299,7 @@ void ai_drive(Car *car, RaceState *race, int32_t countdown)
 
     /* the lane: steer for the target distance from the centre */
     const int32_t error = car->ai_target_lateral - car->road_lateral;
-    const int32_t slot = lane_slot(race, car, &here);
+    const int32_t slot = ai_lane_slot(race, car, &here);
     const int32_t lanes = here.flags[0] & 0xf;
     int steer_lane = slot == 3 - (here.flags[0] >> 4 & 0xf) || slot == lanes + LANE_SLOT_RIGHT;
     if (!steer_lane && error != 0 && abs32(car->steer - car->slip_steer) < SLIDE_GAP_LANE) steer_lane = 1;

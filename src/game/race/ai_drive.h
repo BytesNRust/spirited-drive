@@ -9,6 +9,16 @@
 /* 0046f3e8: `countdown` is the car's ai_countdown as the tick began. */
 void ai_drive(Car *car, RaceState *race, int32_t countdown);
 
+/* Which of the 8 slots across the road the car's sideways position falls in
+ * (0..3 left of the centre, 4..7 right) by the lane width at the node; the
+ * width is left in ai.last_lane_width (0046f3e8, 0046d79c). */
+int32_t ai_lane_slot(RaceState *race, const Car *car, const TriNode *node);
+
+/* 0046d79c (physics model 3): one tick of a computer car: its zone and
+ * place on the road, its turn, the driver (0046f3e8) when due, the road's
+ * edge and the step along its speed. */
+void ai_model_tick(Car *car, RaceState *race);
+
 /* 0046d5c8: a computer car past the road's side line (road_lateral, signed)
  * loses the part of its speed carrying it further out (by 1.25) and is
  * nudged back by the side row unless already moving back in fast. */
