@@ -139,7 +139,8 @@
 0x4be	i32[2]	unknown_4be	zeroed by the reset; -1 when the followed car leaves a crash (0040ddb0)
 0x4d2	i32	unknown_4d2	0x40 from the reset
 0x4d6	i32[4]	unknown_4d6	zeroed by the reset
-0x4ea	i32[2]	unknown_4ea	zeroed by the reset
+0x4ea	i32	scenery_node	node of the scenery record the car's cursor is on (0040fbc4); zeroed by the reset
+0x4ee	i32	scenery_index	that record's index in the scenery list (00509788); zeroed by the reset
 0x4f2	i32	crashed_hard	1 once a crash came from a hit (0040db84); zeroed by the reset
 0x51b	u8[3]	unknown_51b	zeroed with flags_51a (004406d0 writes it as a word)
 0x3a1	i32	unknown_3a1	zeroed for computer cars (004406d0)

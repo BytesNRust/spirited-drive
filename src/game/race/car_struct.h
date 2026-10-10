@@ -168,7 +168,8 @@ typedef struct {
     int32_t unknown_4d2;  /* 0x4d2 0x40 from the reset */
     int32_t unknown_4d6[4];  /* 0x4d6 zeroed by the reset */
     uint8_t pad_4e6[0x4];
-    int32_t unknown_4ea[2];  /* 0x4ea zeroed by the reset */
+    int32_t scenery_node;  /* 0x4ea node of the scenery record the car's cursor is on (0040fbc4); zeroed by the reset */
+    int32_t scenery_index;  /* 0x4ee that record's index in the scenery list (00509788); zeroed by the reset */
     int32_t crashed_hard;  /* 0x4f2 1 once a crash came from a hit (0040db84); zeroed by the reset */
     int32_t auto_offset;  /* 0x4f6 sideways from the road's centre when the autopilot took over (00401180) */
     int32_t auto_ticks;  /* 0x4fa ticks of autopilot (00401180) */
@@ -353,7 +354,8 @@ CAR_CHECK(node_flag_4ca, offsetof(Car, node_flag_4ca) == 0x4ca);
 CAR_CHECK(node_flag_4ce, offsetof(Car, node_flag_4ce) == 0x4ce);
 CAR_CHECK(unknown_4d2, offsetof(Car, unknown_4d2) == 0x4d2);
 CAR_CHECK(unknown_4d6, offsetof(Car, unknown_4d6) == 0x4d6);
-CAR_CHECK(unknown_4ea, offsetof(Car, unknown_4ea) == 0x4ea);
+CAR_CHECK(scenery_node, offsetof(Car, scenery_node) == 0x4ea);
+CAR_CHECK(scenery_index, offsetof(Car, scenery_index) == 0x4ee);
 CAR_CHECK(crashed_hard, offsetof(Car, crashed_hard) == 0x4f2);
 CAR_CHECK(auto_offset, offsetof(Car, auto_offset) == 0x4f6);
 CAR_CHECK(auto_ticks, offsetof(Car, auto_ticks) == 0x4fa);
