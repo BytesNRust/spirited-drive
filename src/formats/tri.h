@@ -51,7 +51,11 @@ enum {
     TRI_SEGMENT_CAPACITY = 600,  /* offset table and brightness table size */
     TRI_NODES_PER_SEGMENT = 4,   /* one TRKD chunk holds the 4 rows of 4 nodes */
     TRI_SCENERY_MAX = 1000,      /* 16000 bytes scanned by 0043e4e0 */
-    TRI_OPEN_RING_SEGMENTS = 0x8000 /* ring size 0043e4e0 uses when circuit_segments is 0 */
+    TRI_OPEN_RING_SEGMENTS = 0x8000, /* ring size 0043e4e0 uses when circuit_segments is 0 */
+    TRI_HEADER_SIZE = 0x1621C,   /* bytes 0043e4e0 reads before the SJBO chunk */
+    TRI_SEGMENT_SIZE = 288,
+    TRI_DESCRIPTOR_SIZE = 16,
+    TRI_SCENERY_SIZE = 16
 };
 
 typedef enum {
@@ -177,6 +181,32 @@ TriResult tri_brightness(const Tri *tri, uint32_t index, uint8_t out[3]);
 
 /* The load-time scaling of 0043e4e0: value * scale (16.16), rounded. */
 uint8_t tri_brightness_scale(uint8_t value, uint32_t scale16);
+
+/* The pieces of a file, for rebuilding one. The writer recomputes what depends on the sizes
+ * (see tri_write) and copies everything else, so a file taken apart by tri_parts and written
+ * back is identical. */
+typedef struct {
+    const uint8_t *header;       /* TRI_HEADER_SIZE bytes: nodes, brightness table, ... */
+    const uint8_t *descriptors;  /* descriptor_count x TRI_DESCRIPTOR_SIZE */
+    uint32_t descriptor_count;
+    const uint8_t *scenery;      /* TRI_SCENERY_MAX x TRI_SCENERY_SIZE: the records, the -1 terminator, the padding */
+    const uint8_t *terrain;      /* segment_count x TRI_SEGMENT_SIZE */
+    uint32_t segment_count;
+    const uint8_t *trailer;      /* e.g. AL22.TRI's 12-byte "CRCF" */
+    size_t trailer_size;
+} TriParts;
+
+/* Views into an opened file; TRI_ERR_BOUNDS when the object chunk is not the usual
+ * descriptors + 1000 placements. */
+TriResult tri_parts(const Tri *tri, TriParts *parts);
+
+size_t tri_write_size(const TriParts *parts);
+
+/* Writes the file. Rewritten from the parts: segment count (+6), terrain size (+0x24), the
+ * 600 segment offsets (288 x i, as in all 17 CD files, 0043e244), descriptor count
+ * (+0x16214) and the SJBO chunk's size. TRI_ERR_BOUNDS when a count is over its capacity
+ * (600 segments) or dst is too small. */
+TriResult tri_write(const TriParts *parts, uint8_t *dst, size_t cap, size_t *len);
 
 const char *tri_result_str(TriResult result);
 

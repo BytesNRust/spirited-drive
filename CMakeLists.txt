@@ -24,6 +24,7 @@ add_library(tnfs_core STATIC
     src/formats/pbs.c
     src/formats/pdn.c
     src/formats/tri.c
+    src/formats/tri_write.c
     src/game/frontend/config_dat.c
     src/game/frontend/race_settings.c
     src/game/gfx/flat.c
@@ -139,7 +140,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri sky_ring quad object_mappers flat
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk palette race_settings config_dat tri tri_write sky_ring quad object_mappers flat
                  palette_match)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
@@ -198,6 +199,7 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.tri")
     if(TNFS_TRI_FILES)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
+        add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)
         target_link_libraries(test_track PRIVATE tnfs_core)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})
