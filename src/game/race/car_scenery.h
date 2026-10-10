@@ -5,6 +5,7 @@
 
 #include "formats/tri.h"
 #include "game/race/car.h"
+#include "game/race/race_state.h"
 
 #include <stdint.h>
 
@@ -13,5 +14,10 @@
  * original, the cursor never steps onto the last record going forward nor
  * past record 0 going back, so a record found only there reads as none. */
 int32_t car_scenery_at(Car *car, const Tri *tri, int32_t node);
+
+/* 0043cc10: the force-feedback jolt of a car hitting scenery, by its speed
+ * (local z velocity while a player watches their own car, else ai_speed)
+ * and which way the hit came from (`across` below 1 or not). */
+void car_scenery_jolt(const Car *car, const RaceState *race, int32_t across);
 
 #endif
