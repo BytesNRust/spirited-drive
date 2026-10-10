@@ -19,6 +19,12 @@ int32_t ai_lane_slot(RaceState *race, const Car *car, const TriNode *node);
  * edge and the step along its speed. */
 void ai_model_tick(Car *car, RaceState *race);
 
+/* 00470518 (physics model 6): a traffic car parked high above the track
+ * (x and z 0x80000, y by its index) until its countdown (+0x148) runs out
+ * with the racers far enough on and more cars parked than the traffic
+ * setting allows; then it goes back to model 3 at a zone (0046a18c). */
+void ai_parked_tick(Car *car, RaceState *race);
+
 /* 0046d5c8: a computer car past the road's side line (road_lateral, signed)
  * loses the part of its speed carrying it further out (by 1.25) and is
  * nudged back by the side row unless already moving back in fast. */
