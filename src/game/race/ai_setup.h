@@ -13,4 +13,8 @@
  * `fallback` (the byte the caller had in al). */
 int32_t ai_profile_row(const RaceState *race, int32_t fallback);
 
+/* 0044940c: the profile number of the letter in `row` at grid `place`
+ * ('A' = 0); row 7 reads into the first profile's bytes, as the original. */
+int32_t ai_driver_letter(int32_t place, int32_t row);
+
 #endif
