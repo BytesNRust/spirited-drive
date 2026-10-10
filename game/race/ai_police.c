@@ -66,8 +66,8 @@ static void stop(Car *cop, RaceState *race, Car *player, int32_t slot)
     if (record != NULL && record->police_stops[0] > STOPS_TO_END && race->phase == 1) {
         race->end_request = END_ARRESTED;
         race->end_state = END_ARRESTED;
-        record->unknown_1c4[0] = 0;
-        record->unknown_1c4[1] = 0;
+        record->finish = 0;
+        record->unknown_1c8 = 0;
         /* 0045aab0: an empty function */
     }
 }
