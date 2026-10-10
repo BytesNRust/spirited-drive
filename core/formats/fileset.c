@@ -76,30 +76,3 @@ void exchange_fail(ExchangeError *err, const char *format, ...)
     vsnprintf(err->message, sizeof err->message, format, args);
     va_end(args);
 }
-
-int fileset_move_prefixed(FileSet *to, FileSet *from, const char *prefix)
-{
-    int ok = 1;
-    for (size_t i = 0; i < from->count; ++i) {
-        const size_t n = strlen(prefix) + strlen(from->file[i].name) + 1;
-        char *name = malloc(n);
-        if (name == NULL) { ok = 0; continue; }
-        strcpy(name, prefix);
-        strcat(name, from->file[i].name);
-        if (fileset_add_owned(to, name, from->file[i].data, from->file[i].size)) from->file[i].data = NULL;
-        else ok = 0;
-        free(name);
-    }
-    fileset_free(from);
-    return ok;
-}
-
-int fileset_copy_stripped(FileSet *to, const FileSet *from, const char *prefix)
-{
-    const size_t p = strlen(prefix);
-    for (size_t i = 0; i < from->count; ++i) {
-        if (strncmp(from->file[i].name, prefix, p) != 0 || from->file[i].name[p] == '\0') continue;
-        if (!fileset_add(to, from->file[i].name + p, from->file[i].data, from->file[i].size)) return 0;
-    }
-    return 1;
-}

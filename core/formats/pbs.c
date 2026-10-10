@@ -35,18 +35,3 @@ QfsResult pbs_pack(const uint8_t record[PBS_SIZE], uint8_t *dst, size_t cap, siz
     pbs_seal(sealed);
     return fixed_record_pack(sealed, PBS_SIZE, dst, cap, len);
 }
-
-static const char specs_file[] = "specs.tsv";
-
-int pbs_export(const uint8_t record[PBS_SIZE], FileSet *out, ExchangeError *err)
-{
-    return record_export(record, PBS_SIZE, pbs_fields, pbs_field_count,
-                         "PBS performance record (CARSPECS/*.PBS); the checksum is recomputed on pack", out, specs_file, err);
-}
-
-int pbs_import(uint8_t record[PBS_SIZE], const FileSet *in, ExchangeError *err)
-{
-    if (!record_import(record, PBS_SIZE, pbs_fields, pbs_field_count, in, specs_file, err)) return 0;
-    pbs_seal(record);
-    return 1;
-}

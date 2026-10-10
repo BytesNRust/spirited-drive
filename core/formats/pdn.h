@@ -6,7 +6,6 @@
 #define TNFS_PDN_H
 
 #include "formats/qfs.h"
-#include "formats/record_exchange.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -28,9 +27,5 @@ int32_t pdn_i32(const uint8_t record[PDN_SIZE], int offset);
 
 /* The file bytes for a record, packed as RefPack QFS. */
 QfsResult pdn_pack(const uint8_t record[PDN_SIZE], uint8_t *dst, size_t cap, size_t *len);
-
-/* pdn.tsv: the named words and opaque words of the record (record_exchange.h). */
-int pdn_export(const uint8_t record[PDN_SIZE], FileSet *out, ExchangeError *err);
-int pdn_import(uint8_t record[PDN_SIZE], const FileSet *in, ExchangeError *err);
 
 #endif

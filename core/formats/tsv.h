@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { TSV_MAX_CELLS = 256 };
+enum { TSV_MAX_CELLS = 64 };
 
 typedef enum {
     TSV_OK = 0,

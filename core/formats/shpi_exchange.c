@@ -14,7 +14,7 @@
 enum {
     ENTRY_HEADER = 16,
     PALETTE_BYTES = 768,
-    TAIL_MAX = 1 << 24    /* bytes after the pixels one entry may carry */
+    TAIL_MAX = 8192
 };
 
 static const char entries_file[] = "entries.tsv";
@@ -191,7 +191,7 @@ typedef struct {
     uint32_t block_size, width, height;
     int32_t misc[4];
     char file[64];
-    uint8_t *tail;
+    uint8_t tail[TAIL_MAX];
     size_t tail_len;
 } Row;
 
@@ -229,11 +229,8 @@ static int parse_row(const TsvRow *r, const char *source, Row *row, ExchangeErro
         return 0;
     }
     strcpy(row->file, r->cell[11]);
-    const size_t hex_len = strlen(r->cell[12]);
-    row->tail = malloc(hex_len / 2 + 1);
-    if (row->tail == NULL) { exchange_fail(err, "out of memory"); return 0; }
-    if (tsv_get_hex(r, 12, row->tail, hex_len / 2 + 1, &row->tail_len) != TSV_OK) {
-        exchange_fail(err, "%s:%u: tail_hex is not a hex string", source, r->line);
+    if (tsv_get_hex(r, 12, row->tail, sizeof row->tail, &row->tail_len) != TSV_OK) {
+        exchange_fail(err, "%s:%u: tail_hex is not a hex string of at most %zu bytes", source, r->line, sizeof row->tail);
         return 0;
     }
     return 1;
@@ -260,16 +257,14 @@ int shpi_import(const uint8_t *original, size_t size, const uint8_t *external_pa
     TsvRow tr;
     while (ok && tsv_next(&reader, &tr) == TSV_OK) {
         Row row;
-        if (!parse_row(&tr, entries_file, &row, err)) { free(row.tail); ok = 0; break; }
+        if (!parse_row(&tr, entries_file, &row, err)) { ok = 0; break; }
         if (row.index != found || found >= count) {
             exchange_fail(err, "%s:%u: entry %u out of order or beyond the original's %u entries", entries_file, tr.line, row.index, count);
-            free(row.tail);
             ok = 0;
             break;
         }
         if (memcmp(row.name, head + 16 + 8 * (size_t)found, 4) != 0) {
             exchange_fail(err, "%s:%u: name differs from the original's entry %u (renaming entries is not supported)", entries_file, tr.line, found);
-            free(row.tail);
             ok = 0;
             break;
         }
@@ -357,7 +352,6 @@ int shpi_import(const uint8_t *original, size_t size, const uint8_t *external_pa
             *out_len = len;
         }
     }
-    if (rows != NULL) for (uint32_t i = 0; i < count; ++i) free(rows[i].tail);
     free(rows);
     doc_free(doc);
     return ok;

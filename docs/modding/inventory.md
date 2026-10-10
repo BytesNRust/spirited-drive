@@ -316,11 +316,8 @@ A limit without an address does not enter the table (AC5). Still open: see §9.
 itself is pending my user's direct confirmation in this session):
 
 1. Level 1 only **replaces** existing slots; adding slots is Level 2.
-2. Engine sound = one WAV per sample + TSV sidecar. Condition met: 8-bit samples are signed (checked on `ODIAMB`, `O911MB`,
-   `COLL_SB`, `NFS_FMMB`: the bytes cluster around 0 and 255, none around 128), so the exporter converts to WAV's unsigned.
-   Found while building it: on the CD one PCM block is read by several slots, sometimes at different depths (`COLL_SB` slots 38
-   and 40 share 30933 frames as 8- and 16-bit stereo), so the exchange writes one WAV per *block* and keeps rate, bits and
-   channels per slot in `bank.tsv`.
+2. Engine sound = one WAV per sample + TSV sidecar. Open condition: confirm in the data that 8-bit samples are
+   signed before the exporter ships.
 3. Menu names are an image edit (Level 1). Residual risk (names drawn as font text elsewhere) stays as RE question 7.
 
 The original analysis follows.

@@ -78,24 +78,24 @@ static int is_wwww(const uint8_t *p, size_t size)
     return size >= WWWW_TABLE_AT && memcmp(p, "wwww", 4) == 0;
 }
 
-static DocResult parse_container(const uint8_t *data, size_t size, const Layout *layout, int depth, int chunks, DocNode **out, size_t *at);
+static DocResult parse_container(const uint8_t *data, size_t size, const Layout *layout, int depth, int chunks, DocNode **out);
 
 /* A block's node: a nested container when it is a sound "wwww" tree, else a leaf. */
 static DocNode *make_block(const uint8_t *data, size_t size, int depth, int chunks)
 {
     if (chunks && depth < MAX_DEPTH && is_wwww(data, size)) {
         DocNode *nested = NULL;
-        if (parse_container(data, size, &wwww_layout, depth + 1, 1, &nested, NULL) == DOC_OK) return nested;
+        if (parse_container(data, size, &wwww_layout, depth + 1, 1, &nested) == DOC_OK) return nested;
     }
     return new_leaf(data, size);
 }
 
-static DocResult parse_container(const uint8_t *data, size_t size, const Layout *layout, int depth, int chunks, DocNode **out, size_t *at)
+static DocResult parse_container(const uint8_t *data, size_t size, const Layout *layout, int depth, int chunks, DocNode **out)
 {
-    if (size < layout->table_at + 4) { if (at) *at = 0; return DOC_ERR_BOUNDS; }
+    if (size < layout->table_at + 4) return DOC_ERR_BOUNDS;
     const uint32_t count = le_u32(data + layout->count_at);
     const uint64_t table_end = (uint64_t)layout->table_at + (uint64_t)count * layout->stride;
-    if (table_end > size) { if (at) *at = layout->count_at; return DOC_ERR_BOUNDS; }
+    if (table_end > size) return DOC_ERR_BOUNDS;
 
     uint32_t *offsets = malloc((count ? count : 1) * sizeof *offsets);
     uint32_t *sorted = malloc((count ? count : 1) * sizeof *sorted);
@@ -105,10 +105,7 @@ static DocResult parse_container(const uint8_t *data, size_t size, const Layout 
     uint32_t distinct = 0;
     for (uint32_t i = 0; i < count && r == DOC_OK; ++i) {
         offsets[i] = le_u32(data + layout->table_at + (size_t)i * layout->stride + layout->offset_at);
-        if (offsets[i] != 0 && (offsets[i] < table_end || offsets[i] >= size)) {
-            r = DOC_ERR_BOUNDS;
-            if (at) *at = layout->table_at + (size_t)i * layout->stride + layout->offset_at;
-        }
+        if (offsets[i] != 0 && (offsets[i] < table_end || offsets[i] >= size)) r = DOC_ERR_BOUNDS;
         if (offsets[i] != 0) sorted[distinct++] = offsets[i];
     }
     if (r == DOC_OK) {
@@ -150,28 +147,16 @@ static DocResult parse_container(const uint8_t *data, size_t size, const Layout 
     return DOC_OK;
 }
 
-DocResult doc_parse_chunks_at(const uint8_t *data, size_t size, DocNode **out, size_t *at)
-{
-    if (at) *at = 0;
-    if (!is_wwww(data, size)) return DOC_ERR_HEADER;
-    return parse_container(data, size, &wwww_layout, 0, 1, out, at);
-}
-
 DocResult doc_parse_chunks(const uint8_t *data, size_t size, DocNode **out)
 {
-    return doc_parse_chunks_at(data, size, out, NULL);
-}
-
-DocResult doc_parse_shpi_at(const uint8_t *data, size_t size, DocNode **out, size_t *at)
-{
-    if (at) *at = 0;
-    if (size < SHPI_TABLE_AT || memcmp(data, "SHPI", 4) != 0) return DOC_ERR_HEADER;
-    return parse_container(data, size, &shpi_layout, 0, 0, out, at);
+    if (!is_wwww(data, size)) return DOC_ERR_HEADER;
+    return parse_container(data, size, &wwww_layout, 0, 1, out);
 }
 
 DocResult doc_parse_shpi(const uint8_t *data, size_t size, DocNode **out)
 {
-    return doc_parse_shpi_at(data, size, out, NULL);
+    if (size < SHPI_TABLE_AT || memcmp(data, "SHPI", 4) != 0) return DOC_ERR_HEADER;
+    return parse_container(data, size, &shpi_layout, 0, 0, out);
 }
 
 DocResult doc_expand_shpi(DocNode *leaf)

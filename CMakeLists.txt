@@ -15,7 +15,6 @@ endif()
 # Platform-independent game code: file formats today, recovered game logic later.
 add_library(tnfs_core STATIC
     core/formats/bnk.c
-    core/formats/bnk_exchange.c
     core/formats/chunk.c
     core/formats/doc.c
     core/formats/ffn.c
@@ -23,20 +22,13 @@ add_library(tnfs_core STATIC
     core/formats/fixed_record.c
     core/formats/fsh.c
     core/formats/mesh.c
-    core/formats/mesh_exchange.c
     core/formats/pbs.c
-    core/formats/pbs_fields.c
     core/formats/pdn.c
     core/formats/png.c
-    core/formats/record_exchange.c
-    core/formats/resource_exchange.c
     core/formats/shpi_exchange.c
-    core/formats/table_exchange.c
     core/formats/tri.c
-    core/formats/tri_exchange.c
     core/formats/tri_write.c
     core/formats/tsv.c
-    core/formats/wav.c
     core/formats/qfs.c
     core/formats/qfs_btree.c
     core/formats/qfs_encode.c
@@ -159,17 +151,9 @@ else()
     target_link_libraries(tnfs PRIVATE SDL3::SDL3)
 endif()
 
-# The studio command line: file formats only, no game code and no SDL.
-if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c)
-    target_include_directories(tnfs-studio PRIVATE .)
-    target_link_libraries(tnfs-studio PRIVATE tnfs_core)
-    target_compile_options(tnfs-studio PRIVATE ${TNFS_WARNINGS})
-endif()
-
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -217,18 +201,6 @@ if(NOT EMSCRIPTEN)
     if(TNFS_SHPI_FILES)
         add_test(NAME shpi_exchange_cd COMMAND test_shpi_exchange ${TNFS_SHPI_FILES})
     endif()
-    file(GLOB_RECURSE TNFS_MESH_FILES "${CMAKE_SOURCE_DIR}/original/*.FAM" "${CMAKE_SOURCE_DIR}/original/*.CFM")
-    if(TNFS_MESH_FILES)
-        add_test(NAME mesh_exchange_cd COMMAND test_mesh_exchange ${TNFS_MESH_FILES})
-    endif()
-    file(GLOB_RECURSE TNFS_ALL_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/*" "${CMAKE_SOURCE_DIR}/original/GAMEDATA/*"
-        "${CMAKE_SOURCE_DIR}/original/FRONTEND/*")
-    if(TNFS_ALL_FILES)
-        add_test(NAME resource_exchange_cd COMMAND test_resource_exchange ${TNFS_ALL_FILES})
-    endif()
-    if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
-        add_test(NAME studio_cli COMMAND sh ${CMAKE_SOURCE_DIR}/tests/studio_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
-    endif()
     file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
     if(TNFS_PBS_FILES)
@@ -243,7 +215,6 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/SOUNDBNK/*.bnk")
     if(TNFS_BNK_FILES)
         add_test(NAME bnk_cd COMMAND test_bnk ${TNFS_BNK_FILES})
-        add_test(NAME bnk_exchange_cd COMMAND test_bnk_exchange ${TNFS_BNK_FILES})
     endif()
 
     file(GLOB TNFS_TRI_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/MISC/*.TRI"
@@ -251,7 +222,6 @@ if(NOT EMSCRIPTEN)
     if(TNFS_TRI_FILES)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
         add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
-        add_test(NAME tri_exchange_cd COMMAND test_tri_exchange ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)
         target_link_libraries(test_track PRIVATE tnfs_game)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})

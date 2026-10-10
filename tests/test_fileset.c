@@ -43,28 +43,6 @@ int main(void)
     CHECK(own != NULL && fileset_add_owned(&set, "own", own, 2));
     fileset_free(&set);
 
-    FileSet moved, copied;
-    fileset_init(&moved);
-    fileset_init(&copied);
-    FileSet two;
-    fileset_init(&two);
-    CHECK(fileset_add(&two, "a.tsv", bytes, 2) && fileset_add(&two, "b/c.bin", bytes, 1));
-    CHECK(fileset_move_prefixed(&moved, &two, "c1/"));
-    CHECK_EQ_INT(two.count, 0);
-    CHECK(fileset_find(&moved, "c1/a.tsv") != NULL && fileset_find(&moved, "c1/b/c.bin") != NULL);
-    CHECK(fileset_add(&moved, "other.txt", bytes, 1));
-    CHECK(fileset_copy_stripped(&copied, &moved, "c1/"));
-    CHECK_EQ_INT(copied.count, 2);
-    CHECK(fileset_find(&copied, "a.tsv") != NULL && fileset_find(&copied, "b/c.bin") != NULL);
-    CHECK(fileset_find(&copied, "other.txt") == NULL);
-    FileSet clash;
-    fileset_init(&clash);
-    CHECK(fileset_add(&clash, "a.tsv", bytes, 1) && fileset_add(&clash, "x/a.tsv", bytes, 1));
-    CHECK(fileset_move_prefixed(&moved, &clash, "zz/"));
-    CHECK(fileset_find(&moved, "zz/x/a.tsv") != NULL);
-    fileset_free(&moved);
-    fileset_free(&copied);
-
     ExchangeError e;
     exchange_fail(&e, "%s:%u: bad", "x.tsv", 7u);
     CHECK(strcmp(e.message, "x.tsv:7: bad") == 0);
