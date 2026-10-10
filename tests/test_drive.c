@@ -56,7 +56,7 @@ static int drive(const Tri *tri, const char *track, const char *simdata, int mod
     entry.car = model;
     entry.automatic = 1;
     race_sim_start(&sim, tri, track, &specs, &entry, 2, 0);
-    const Car *car = &sim.cars[0];
+    const Car *car = sim.race.cars[0];
     const int32_t start = car->progress;
     int32_t top = 0;
     for (int t = 0; t < SECONDS * RACE_SIM_TICKS_PER_SECOND; t++) {

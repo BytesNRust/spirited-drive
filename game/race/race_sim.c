@@ -1,6 +1,10 @@
 #include "game/race/race_sim.h"
 
+#include "game/race/ai_drive.h"
 #include "game/race/ai_setup.h"
+#include "game/race/car_collide.h"
+#include "game/race/car_crash.h"
+#include "game/race/car_held.h"
 #include "game/race/car_control.h"
 #include "game/race/car_load.h"
 #include "game/race/car_physics.h"
@@ -21,7 +25,8 @@ enum {
     CLOCK_WRAP = 0x7080,
     CATCH_UP = 4,                /* 0042702c */
     CRASH_SOUND_QUIET = 0x6666,  /* 004b9094 as loaded, and from 0040d8e8 */
-    CAR_HANDLE = 0x10000         /* the identity the original keeps as the car's address */
+    CAR_HANDLE = 0x10000,        /* the identity the original keeps as the car's address, times the slot + 1 */
+    RACER = 0x4                  /* flags_174 (00440858) */
 };
 
 static void no_sound(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
@@ -84,8 +89,8 @@ int race_sim_track_index(const char *stem)
     return -1;
 }
 
-void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs, const RaceEntry *entry,
-                    int laps, int arcade)
+void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
+                          const RaceField *field, int laps, int arcade)
 {
     memset(sim, 0, sizeof *sim);
     RaceState *race = &sim->race;
@@ -94,7 +99,9 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
         race->track_name[i] = (char)tolower((unsigned char)stem[i]);
     race->track = race_sim_track_index(stem);
     race->arcade = arcade;
-    race->car_count = 1;
+    race->race_type = field->race_type;
+    race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
+    race->car_count = race->racers;
     race->humans = 1;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
@@ -107,33 +114,63 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
     race->catch_up = CATCH_UP;
     race->crash_sound_level = CRASH_SOUND_QUIET;
     race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt };
-    race->entries[0] = *entry;
+    memcpy(race->entries, field->entries, sizeof race->entries);
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
-    sim->count = 1;
+    sim->count = race->car_count;
     sim->specs[0] = *specs;
-    Car *car = &sim->cars[0];
-    race->cars[0] = car;
     for (int i = 0; i < RACE_PLAYERS; i++) race->by_node[i] = race->by_progress[i] = i;
-    car->index = 0;
-    car->player = 0;
-    car_enter(car, &sim->specs[0], CAR_HANDLE, race);
-    car->flags_51a = (uint8_t)((car->flags_51a | FLAG_ACTIVE) & ~FLAG_RETIRED);
+    for (int i = 0; i < sim->count; i++) race->cars[i] = &sim->slots[i].car;
+    /* 00440858: each slot entered (004406d0), marked racer or police by its
+     * place, then its body from the PDN (004407b8). */
+    for (int i = 0; i < sim->count; i++) {
+        Car *car = &sim->slots[i].car;
+        car->index = i;
+        car->player = i;
+        car_enter(car, &sim->specs[i], CAR_HANDLE * (uint32_t)(i + 1), race);
+        car->flags_51a = (uint8_t)((car->flags_51a | FLAG_ACTIVE) & ~FLAG_RETIRED);
+        if (i >= race->humans && i < race->racers) car->flags_174 |= RACER;
+        if (field->pdns[i] != NULL) car_body_init(car, field->pdns[i]);
+    }
+    for (int i = 0; i < sim->count; i++) sim->slots[i].car.lateral = 0;
+    race_sort_cars(race);
+    race->manager_countdown = 1;  /* 0040fec8 */
     /* 00455a5c runs 004702d4 after the cars are entered (00440858); the
      * row it passes is what 00475c14(0) leaves in al, unknown, and only
      * read for race types above 3 or models above 7. */
     ai_race_setup(race, 0);
 }
 
-static void run_controller(Car *car, const CarSpecs *specs, RaceState *race)
+void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs, const RaceEntry *entry,
+                    int laps, int arcade)
 {
-    if (car->controller == CONTROLLER_PLAYER) car_player_control(car, specs, race);
-    /* TODO(0046d5c4): the computer cars' controller (2). */
+    RaceField field;
+    memset(&field, 0, sizeof field);
+    field.racers = 1;
+    field.entries[0] = *entry;
+    race_sim_start_field(sim, tri, stem, specs, &field, laps, arcade);
 }
 
-static void run_physics(Car *car, const CarSpecs *specs, RaceState *race)
+static void run_controller(Car *car, const CarSpecs *specs, RaceState *race)
 {
-    if (car->physics == PHYSICS_DRIVING) car_driving_tick(car, specs, race);
-    /* TODO(00470e70, 0046d79c, 0040e050, 0046fe34, 00470518): the other models. */
+    /* Controller 2 (0046d5c4) is a bare `ret`: the computer cars are driven
+     * by their physics model and the manager. */
+    if (car->controller == CONTROLLER_PLAYER) car_player_control(car, specs, race);
+}
+
+/* The 0043f994 table: 1 held 00470e70, 2 driving 004286a0, 3 computer
+ * 0046d79c, 4 crash 0040e050, 5 spun 0046fe34, 6 parked 00470518; then the
+ * lateral distance (00440a68). */
+static void run_physics(Car *car, CarSpecs *specs, RaceState *race)
+{
+    switch (car->physics) {
+    case 1: car_held_tick(car, race); break;
+    case PHYSICS_DRIVING: car_driving_tick(car, specs, race); break;
+    case 3: ai_model_tick(car, race); break;
+    case 4: car_crash_tick(car, race); break;
+    case 5: ai_spun_tick(car, race); break;
+    case 6: ai_parked_tick(car, race); break;
+    default: break;
+    }
     car_lateral(car, race);
 }
 
@@ -147,18 +184,24 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
     if (race->tick < REST_TICKS)
         for (int i = 0; i < race->humans; i++) race->inputs[i] = RACE_SIM_INPUT_REST;
     if (race->tick_flags & TICK_CONTROLS)
-        for (int i = 0; i < sim->count; i++)
-            if ((sim->cars[i].flags_51a & FLAG_ACTIVE) && sim->cars[i].controller != 0)
-                run_controller(&sim->cars[i], &sim->specs[i], race);
+        for (int i = 0; i < race->car_count; i++) {  /* road order too */
+            const int slot = race->by_node[i] & (RACE_PLAYERS - 1);
+            Car *car = race->cars[slot];
+            if ((car->flags_51a & FLAG_ACTIVE) && car->controller != 0) run_controller(car, &sim->specs[slot], race);
+        }
     if (race->tick_flags & TICK_PHYSICS) {
-        for (int i = 0; i < sim->count; i++)
-            if ((sim->cars[i].flags_51a & FLAG_ACTIVE) && sim->cars[i].physics != 0)
-                run_physics(&sim->cars[i], &sim->specs[i], race);
+        /* 00440ef0: in road order, the rearmost first. */
+        for (int i = 0; i < race->car_count; i++) {
+            const int slot = race->by_node[i] & (RACE_PLAYERS - 1);
+            Car *car = race->cars[slot];
+            if ((car->flags_51a & FLAG_ACTIVE) && car->physics != 0) run_physics(car, &sim->specs[slot], race);
+        }
         race_sort_cars(race);
-        /* TODO(0040d8e8): the collisions between cars. */
+        race_cars_contacts(race);
+        race_sort_cars(race);
         for (int i = 0; i < sim->count; i++)
-            if ((sim->cars[i].flags_51a & FLAG_ACTIVE) && sim->cars[i].controller != 0)
-                car_keep_draw_state(&sim->cars[i]);
+            if ((sim->slots[i].car.flags_51a & FLAG_ACTIVE) && sim->slots[i].car.controller != 0)
+                car_keep_draw_state(&sim->slots[i].car);
     }
     race->tick += 2;
 }

@@ -379,7 +379,7 @@ static CarPose car_pose_of(const Car *car)
 
 static void render_drive(const Track *t, uint8_t *pixels)
 {
-    const Car *car = &drive_sim.cars[0];
+    const Car *car = drive_sim.race.cars[0];
     const PortedCamera cam = chase_camera(car);
     const CarPose pose = car_pose_of(car);
     ported_view_set_models(t->models, t->model_ok);
@@ -441,7 +441,7 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         race_sim_tick(&drive_sim, 0x20 | (tap ? 0x1000u : 0));
     }
-    const Car *car = &drive_sim.cars[0];
+    const Car *car = drive_sim.race.cars[0];
     printf("tick %d: node %d, speed %.1f m/s, gear %d\n", drive_sim.race.tick, car->node, car->speed / 65536.0, car->gear);
     render_drive(t, pixels);
     return write_ppm(screenshot, pixels, t->art.palette);
