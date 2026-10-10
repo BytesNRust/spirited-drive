@@ -65,11 +65,11 @@ functions under Unicorn for byte-exact checks). Open the project interactively w
 
 ## Layout
 
-- `src/game/`: recovered game code; each function names its NFS_WIN.EXE address
+- `game/`: recovered game code; each function names its NFS_WIN.EXE address
   - `sys/`: EA system layer (timer, video and palette fades, input, resources)
   - `frontend/`: boot screens and the front-end state machine
-- `src/formats/`: QFS (RefPack, Huffman, BTree) and FSH, verified against the original
-- `src/platform/platform.h`: the only OS interface game code may use
-- `src/platform/sdl3/`: SDL3 backend (native and Emscripten)
+- `core/formats/`: QFS (RefPack, Huffman, BTree) and FSH, verified against the original
+- `game/platform/platform.h`: the only OS interface game code may use
+- `game/platform/sdl3/`: SDL3 backend (native and Emscripten)
 - `ghidra/scripts/`: headless Ghidra scripts (`tools/ghidra_rebuild.sh` runs the full pipeline)
 - `analysis/`: exported maps of the original binary
