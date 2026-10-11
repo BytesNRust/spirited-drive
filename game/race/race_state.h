@@ -214,6 +214,11 @@ typedef struct {
     int32_t default_profile_odds;   /* 004c5d20 */
     int32_t unknown_4c5cd8, unknown_4c5cdc;
     int32_t unknown_4c5cd4;         /* 004c5cd4: with one human, the manager may spin out a car near it while it looks back (0046c490); set and cleared by 00432ff4 */
+    int32_t unknown_509d60, unknown_509d68;  /* zeroed by 0043fbac */
+    int32_t unknown_509d78;         /* 00509d78: divided (16.16) by 004c5ce0[004fb7f0 x 8] at the start (0043fbac) */
+    int32_t unknown_509d7c;         /* 00509d7c: zeroed by 0043fbac */
+    int32_t results_order[9];       /* 00509d88: slots in finishing order (0045af80), 0..8 at the start */
+    int32_t unknown_4bc660;         /* 004bc660: zeroed by 0043fbac; 00440ef0 sets it when a player's view moves on */
     int32_t laps_setting;           /* 004fbac4: the laps chosen (0042702c) */
     int32_t record_slot;            /* 004fbad4 (00524ea3): which of a circuit's saved records the rival runs to */
     const uint8_t *records;         /* 00524ec0: the saved track records, 0xa6b bytes a track; NULL reads 0 */

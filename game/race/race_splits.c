@@ -185,3 +185,50 @@ void race_splits_start(RaceState *race)
     s->gap = 0;
     s->gap_shown = 0;
 }
+
+/* 004c5ce0 + 004fb7f0 x 0x20: the word 0043fbac divides by. The rows are
+ * not one table: the first words of the model pace factors (004c5ce0, 60293)
+ * and model coast ticks (004c5d00, 3), then default_profile_odds (004c5d20)
+ * and police_node (004c5d40). */
+static int32_t rescale_by(const RaceState *race, int32_t row)
+{
+    switch (row) {
+    case 0: return 60293;
+    case 1: return 3;
+    case 2: return race->default_profile_odds;
+    case 3: return race->police_node;
+    default: return 0;  /* port guard: further rows are other globals */
+    }
+}
+
+void race_laps_start(RaceState *race, int32_t loop_nodes, int32_t laps)
+{
+    race->loop_nodes = loop_nodes;
+    race->laps = laps;
+    race->unknown_509d60 = 0;
+    race->first_move_tick = 0;
+    race->unknown_509d68 = 0;
+    race->end_state = 0;
+    race->end_request = 0;
+    race->unknown_509d5c = 1;
+    const int32_t by = rescale_by(race, race->unknown_4fb7f0), x = race->unknown_509d78;
+    if (by != 0 && !(by == -1 && x == INT32_MIN)) {  /* port guard: the original's idiv faults there */
+        const int32_t q = x / by, rem = x % by;
+        const int64_t frac = ((int64_t)rem * 65536) / by;
+        race->unknown_509d78 = (int32_t)((uint32_t)q << 16) + (int32_t)frac;
+    }
+    race->unknown_509d7c = 0;
+    if (race->race_type == 0) {
+        race->finish_cars = 1;
+        race->finish_humans = 1;
+    } else if (race->race_type == 1) {
+        race->finish_cars = 2;
+        race->finish_humans = race->humans;
+    } else if (race->race_type == 2 || race->race_type == 3) {
+        race->finish_cars = race->racers;
+        race->finish_humans = race->humans;
+    }
+    for (int32_t i = 0; i < 9; i++) race->results_order[i] = i;
+    race_splits_start(race);
+    race->unknown_4bc660 = 0;
+}

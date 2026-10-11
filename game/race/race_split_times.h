@@ -27,4 +27,10 @@ extern const uint8_t RACE_SPLIT_TABLES[RACE_SPLIT_TABLES_SIZE];
  * is none, else cleared; the player's ticks and the gap cleared. */
 void race_splits_start(RaceState *race);
 
+/* 0043fbac: the race's lap length and laps, the start-of-race counters and
+ * end request cleared, 00509d78 rescaled by the 004fb7f0 row's first word
+ * (004c5ce0), the finishing counts by race type, the results order 0..8,
+ * the split times (0045aab4). */
+void race_laps_start(RaceState *race, int32_t loop_nodes, int32_t laps);
+
 #endif
