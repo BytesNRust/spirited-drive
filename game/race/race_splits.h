@@ -1,4 +1,4 @@
-/* The split times (0051c808..0051cc50): five checkpoints a lap on the
+/* The split times (0051c808..0051cc54): five checkpoints a lap on the
  * player's progress, the tick each was passed, the same for the rival the
  * player is measured against, and the gap the dashboard shows. */
 #ifndef TNFS_RACE_SPLITS_H
@@ -22,8 +22,9 @@ typedef struct RaceSplits {
     int32_t unknown_42c[5];
     int32_t gap;                        /* 0051cc48: rival minus player at the last split both passed (0045b1d0) */
     int32_t gap_shown;                  /* 0051cc4c: ticks left showing a new gap */
+    int32_t unknown_cc50;               /* 0051cc50: zeroed by 0045aab4 on variant 0 */
 } RaceSplits;
 #pragma pack(pop)
-typedef char race_splits_size_check[sizeof(RaceSplits) == 0x448 ? 1 : -1];
+typedef char race_splits_size_check[sizeof(RaceSplits) == 0x44c ? 1 : -1];
 
 #endif

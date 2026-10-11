@@ -14,4 +14,17 @@ void race_splits_pass(RaceState *race, int32_t progress, int32_t rival_progress)
  * for 0x5a ticks. */
 void race_splits_gap(RaceState *race);
 
+enum {
+    RACE_SPLIT_TABLES_SIZE = 0x474,     /* 004c584c..004c5cc0 */
+    RACE_SPLIT_FACTORS = 0x21c          /* 004c5a68 within it */
+};
+extern const uint8_t RACE_SPLIT_TABLES[RACE_SPLIT_TABLES_SIZE];
+
+/* 0045aab4: at the start, each finishing car's record set to no best and
+ * nothing done; the checkpoints from the track's template, a lap apart;
+ * the rival's split ticks from the other player's record in a time trial,
+ * or from the saved record time scaled by the track's factors when there
+ * is none, else cleared; the player's ticks and the gap cleared. */
+void race_splits_start(RaceState *race);
+
 #endif
