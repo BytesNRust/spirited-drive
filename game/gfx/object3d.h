@@ -122,6 +122,11 @@ int object3d_bind(Object3D *obj, const Fsh *fsh);
  * is built. Returns 0 on a texture record outside the mesh. */
 int object3d_match_colours(Object3D *obj, const PaletteMatch *m);
 
+/* 00490df3: texture slot `slot` draws `texture` from now on (the car's
+ * wheel frames, 00457d40 and 00458614). A slot past the object's is left
+ * alone (the original writes past its slots). */
+void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture);
+
 /* 0048da62 */
 void object3d_set_matrix(Object3D *obj, const int32_t matrix[9]);
 /* camera_matrix: 004c7b20; camera_position: 004c7b44 */

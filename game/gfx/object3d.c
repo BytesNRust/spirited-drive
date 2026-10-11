@@ -39,6 +39,11 @@ static int load_textures(Object3D *obj)
     return 1;
 }
 
+void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture)
+{
+    if ((uint32_t)slot < obj->texture_count) obj->textures[slot].texture = texture;
+}
+
 int object3d_match_colours(Object3D *obj, const PaletteMatch *m)
 {
     for (uint32_t slot = 0; slot < obj->texture_count; slot++) {
