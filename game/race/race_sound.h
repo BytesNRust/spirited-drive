@@ -11,4 +11,8 @@
  * 0 a quarter turn round, 0x7f three quarters. */
 int32_t race_sound_pan(int32_t angle);
 
+/* 00471fec: how loud (0..0x7f) a sound is `distance` away (00472018's
+ * estimate): 0x7f at 0, falling straight to 0 at 0x200000 (32 metres). */
+int32_t race_sound_loudness(int32_t distance);
+
 #endif
