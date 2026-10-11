@@ -259,6 +259,9 @@ typedef struct {
     uint32_t random_last;           /* 004b962c */
     uint32_t random_mul;            /* 004b9630 */
     int32_t unknown_4fbab8;         /* non-zero: 0046e480 ends the police chase first */
+    int32_t models[RACE_CARS];      /* 004fba94: each slot's car model (00457870); see race_models.h */
+    uint8_t unknown_4fb787;         /* 004fb787: non-zero puts the other humans and opponents in the 100 set (00457870) */
+    int32_t unknown_4fbad0;         /* 004fbad0: the head to head opponent pick, 00426fec of its low half (00457870) */
     int32_t racers;                 /* 004fb7dc: cars in the race, humans first */
     int32_t cops;                   /* 004fb7e4: police cars after the racers */
     int32_t traffic_setting;        /* 004fb7ec */
