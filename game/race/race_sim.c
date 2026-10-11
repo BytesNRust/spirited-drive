@@ -115,7 +115,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->views = 1;
     race->catch_up = CATCH_UP;
     race->crash_sound_level = CRASH_SOUND_QUIET;
-    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt };
+    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = race->car_count;

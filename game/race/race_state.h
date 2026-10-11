@@ -87,6 +87,9 @@ typedef struct {
     /* 0043cc84: the force-feedback jolt of a car-to-car hit felt by the followed
      * car (_Jolt): the two cars' slots, the push along x, y and z, the impulse. */
     void (*jolt)(void *user, int32_t car_a, int32_t car_b, int32_t x, int32_t y, int32_t z, int32_t impulse);
+    /* 004acd84 (_XYVectorForce): the steady force on the controls, each of
+     * x and y in -100..100 (0043ce08); NULL for none. */
+    void (*force)(void *user, int32_t x, int32_t y);
 } RaceSounds;
 
 /* A computer driver's profile (0x8d bytes at *0050bae0 + 0x8d * letter,
@@ -233,6 +236,8 @@ typedef struct {
     int16_t unknown_4f82a0[8];      /* 004f82a0: each racer's flags 0045af80 ORs into the game state (+0x5a4) */
     int32_t frontend_track;         /* 00524e85, read as a word: 0..2 stages */
     int32_t frontend_laps_word;     /* 00524e9f: the high half is the laps chosen */
+    int32_t force_off;              /* 004fcdd4: non-zero keeps 0043ce08 from sending the force */
+    int32_t force_x, force_y;       /* 004bb8f8, 004bb8fc: the force last sent */
     int32_t laps_setting;           /* 004fbac4: the laps chosen (0042702c) */
     int32_t record_slot;            /* 004fbad4 (00524ea3): which of a circuit's saved records the rival runs to */
     const uint8_t *records;         /* 00524ec0: the saved track records, 0xa6b bytes a track; NULL reads 0 */
