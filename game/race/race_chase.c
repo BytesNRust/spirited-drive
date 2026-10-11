@@ -5,7 +5,8 @@
 #include "game/sys/rigid_math.h"
 
 enum {
-    SLOT2_FLAGS = 0x42400       /* flags_174 bits 0043f8f8 looks for */
+    SLOT2_FLAGS = 0x42400,      /* flags_174 bits 0043f8f8 looks for */
+    NO_SECOND_CAR = 9           /* entries[1].car: 0043f948 never true */
 };
 
 static int32_t sub(int32_t a, int32_t b)
@@ -72,4 +73,10 @@ int race_chase_ahead_of_slot2(const RaceState *race, int32_t after, int32_t upto
                            (uint32_t)other->flags_176[0] << 16 | (uint32_t)other->flags_176[1] << 24;
     if ((flags & SLOT2_FLAGS) == 0) return 0;
     return ahead_by(race, other, after, upto);
+}
+
+int race_chase_ahead_of_other(const RaceState *race, int32_t after, int32_t upto)
+{
+    if (race->entries[1].car == NO_SECOND_CAR) return 0;
+    return ahead_by(race, slot_car(race, (int32_t)(1u - (uint32_t)race->player)), after, upto);
 }

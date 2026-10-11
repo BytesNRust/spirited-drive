@@ -51,4 +51,8 @@ void race_chase_unturn(const int32_t from[3], int32_t out[3], int32_t pitch, int
  * `upto` nodes ahead of it. */
 int race_chase_ahead_of_slot2(const RaceState *race, int32_t after, int32_t upto);
 
+/* 0043f948: slot 1's entry is not car 9 and the followed car is more than
+ * `after` and at most `upto` nodes ahead of the other of slots 0 and 1. */
+int race_chase_ahead_of_other(const RaceState *race, int32_t after, int32_t upto);
+
 #endif
