@@ -63,3 +63,11 @@ void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
         palette_remap_pixels(shape + SHAPE_PIXELS, p->table, pixels);
     }
 }
+
+void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours)
+{
+    if ((uint32_t)p->write_count >= RACE_PALETTE_WRITES)
+        return;
+    p->writes[p->write_count] = (RacePaletteWrite){ first, count, colours };
+    p->write_count++;
+}
