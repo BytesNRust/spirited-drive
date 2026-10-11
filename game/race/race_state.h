@@ -219,6 +219,19 @@ typedef struct {
     int32_t unknown_509d7c;         /* 00509d7c: zeroed by 0043fbac */
     int32_t results_order[9];       /* 00509d88: slots in finishing order (0045af80), 0..8 at the start */
     int32_t unknown_4bc660;         /* 004bc660: zeroed by 0043fbac; 00440ef0 sets it when a player's view moves on */
+    uint8_t game_state[0x5b6];      /* 0052ad44: the game / tournament state the SAV file holds; 0x95 bytes a player */
+    /* 0051dcbc..0051dccb: the results screen's words (0045b29c) */
+    int16_t results_unknown_cbc;
+    int16_t results_shown_place;    /* 0051dcbe */
+    int16_t results_rival_rank;     /* 0051dcc0 */
+    int16_t results_player_rank;    /* 0051dcc2 */
+    int16_t results_player_place;   /* 0051dcc4 */
+    int16_t results_rival;          /* 0051dcc6 */
+    int16_t results_rival_name;     /* 0051dcc8: the rival's short-name index (0042700c) */
+    int16_t results_unknown_cca;    /* the 16 words above are one block for the oracle: keep them together */
+    int16_t results_order_short[9]; /* 004fa030: results_order as shorts (0045b29c) */
+    int32_t frontend_track;         /* 00524e85, read as a word: 0..2 stages */
+    int32_t frontend_laps_word;     /* 00524e9f: the high half is the laps chosen */
     int32_t laps_setting;           /* 004fbac4: the laps chosen (0042702c) */
     int32_t record_slot;            /* 004fbad4 (00524ea3): which of a circuit's saved records the rival runs to */
     const uint8_t *records;         /* 00524ec0: the saved track records, 0xa6b bytes a track; NULL reads 0 */
