@@ -8,6 +8,7 @@
 #include "formats/chunk.h"
 #include "formats/tri.h"
 #include "game/race/car_load.h"
+#include "game/race/race_chase.h"
 #include "game/race/race_sim.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
@@ -335,10 +336,11 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
 }
 
 /* Drive mode (`tnfs --drive NAME [--car N]`): the ported race loop with
- * one car and a stand-in chase camera. Keys as the game's defaults: arrows
- * steer and work the pedals, A and Z change gear (an automatic starts in
- * neutral: A for drive, Z for reverse; the gears work after 5 seconds),
- * Space the handbrake. */
+ * the follow camera (race_chase) on the player's car. Keys as the game's
+ * defaults: arrows steer and work the pedals, A and Z change gear (an
+ * automatic starts in neutral: A for drive, Z for reverse; the gears work
+ * after 5 seconds), Space the handbrake. C steps through the camera's 14
+ * view kinds (TODO(0045573c): the race picks the kind itself). */
 enum {
     KEY_A = 0x1E,
     KEY_Z = 0x2C,
@@ -347,9 +349,8 @@ enum {
     KEY_DOWN = 0x50,
     KEY_LEFT = 0x4B,
     KEY_RIGHT = 0x4D,
-    CHASE_BACK = 0x60000,     /* TODO(0045b24c): the original chase camera */
-    CHASE_UP = 0x20000,
-    CHASE_PITCH = 0x40000
+    KEY_C = 0x2E,
+    DRIVE_VIEW = 5            /* the kind the record takes attached to a car (004f8020) */
 };
 
 static RaceSim drive_sim;
@@ -379,13 +380,12 @@ static uint32_t read_input(void)
     return steer | pedal << 6 | keys;
 }
 
-static PortedCamera chase_camera(const Car *car)
+/* The eye where 004046b0 last placed it, angles as 004496ac reads them. */
+static PortedCamera chase_camera(const RaceChase *chase, uint32_t ring_nodes)
 {
-    const float a = (float)car->heading / 0x1000000 * 2.0f * 3.14159265f;
-    PortedCamera cam = { { car->x - (int32_t)(sinf(a) * CHASE_BACK), car->y + CHASE_UP,
-                           car->z - (int32_t)(cosf(a) * CHASE_BACK) },
-                         car->heading, CHASE_PITCH, car->draw_node };
-    return cam;
+    return (PortedCamera){ { chase->position[0], chase->position[1], chase->position[2] },
+                           chase->angles[1], chase->angles[0],
+                           (int32_t)((uint32_t)chase->node & (ring_nodes - 1u)), chase->angles[2] };
 }
 
 /* TODO(0045a3e8): the race's draw path builds these angles itself (with
@@ -398,8 +398,7 @@ static CarPose car_pose_of(const Car *car)
 
 static void render_drive(const Track *t, uint8_t *pixels)
 {
-    const Car *car = drive_sim.race.cars[0];
-    const PortedCamera cam = chase_camera(car);
+    const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
     PortedCar list[RACE_PLAYERS];
     for (int i = 0; i < drive_sim.count; i++) {
         const Car *c = drive_sim.race.cars[i];
@@ -463,6 +462,7 @@ static int start_drive(const Track *t, const char *data_root, const char *name, 
             ported_view_set_car_slot(i, &drive_cars.models[i][0], &drive_cars.models[i][1]);
     }
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
+    race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     drive_cars.ended = 0;
     return 1;
 }
@@ -480,6 +480,7 @@ static void free_drive(void)
 static void drive_tick(uint32_t input)
 {
     race_sim_tick(&drive_sim, input);
+    race_chase_tick(&drive_sim.race, &drive_sim.race.chase);
     if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
@@ -492,6 +493,14 @@ static void drive_tick(uint32_t input)
     printf("\n");
 }
 
+/* The next of the 14 view kinds, taken as 00405b00 does. */
+static void next_view(void)
+{
+    RaceChase *chase = &drive_sim.race.chase;
+    race_chase_take(&drive_sim.race, chase, (chase->kind + 1) % CHASE_KINDS);
+    printf("view kind %d\n", chase->kind);
+}
+
 static int drive_window(const Track *t, uint8_t *pixels)
 {
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
@@ -499,10 +508,13 @@ static int drive_window(const Track *t, uint8_t *pixels)
     PlatformColor palette[256];
     for (int i = 0; i < 256; i++)
         palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
-    int frame = 0;
+    int frame = 0, c_down = 0;
     for (int running = 1; running && platform_poll_events();) {
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) running = 0;
+        const int c = platform_key_down(KEY_C);
+        if (c && !c_down) next_view();
+        c_down = c;
         if ((frame++ & 1) == 0) drive_tick(read_input());
         render_drive(t, pixels);
         platform_present(pixels, palette);
@@ -512,15 +524,21 @@ static int drive_window(const Track *t, uint8_t *pixels)
     return 1;
 }
 
-/* Headless: `ticks` steps in drive at full throttle, then a screenshot. */
+/* Headless: `ticks` steps in drive at full throttle, then a screenshot
+ * (TNFS_VIEW=N: from view kind N). */
 static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
+    const char *view = getenv("TNFS_VIEW");
+    if (view != NULL) race_chase_take(&drive_sim.race, &drive_sim.race.chase, atoi(view) % CHASE_KINDS);
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         drive_tick(0x20 | (tap ? 0x1000u : 0));
     }
     const Car *car = drive_sim.race.cars[0];
-    printf("tick %d: node %d, speed %.1f m/s, gear %d\n", drive_sim.race.tick, car->node, car->speed / 65536.0, car->gear);
+    const RaceChase *chase = &drive_sim.race.chase;
+    printf("tick %d: node %d, speed %.1f m/s, gear %d; view kind %d, eye node %d (%.1f, %.1f, %.1f)\n",
+           drive_sim.race.tick, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
+           chase->position[0] / 65536.0, chase->position[1] / 65536.0, chase->position[2] / 65536.0);
     render_drive(t, pixels);
     return write_ppm(screenshot, pixels, t->art.palette);
 }

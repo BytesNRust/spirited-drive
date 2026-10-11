@@ -32,6 +32,7 @@ typedef struct {
     int32_t position[3];
     int32_t yaw, pitch;
     int32_t node;
+    int32_t roll;
 } PortedCamera;
 
 /* The track from `cam`, with the car (set by ported_view_set_car) at `pose`

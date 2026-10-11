@@ -177,7 +177,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     DrawContext ctx = { &view, { 0, 0, WIDTH, HEIGHT }, WORLD_SHIFT, { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars } };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
-    track_camera_matrix(pc->pitch, pc->yaw, 0, 0, cam.matrix);
+    track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);
     /* TODO(00473680): the frame is cleared first; colour 0 for now. */
     memset(pixels, 0, WIDTH * HEIGHT);
     if (art->has_horizon && info->ring != 0) {
@@ -208,7 +208,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     TriNode n, cn;
     if (tri_node(tri, node, &n) != TRI_OK) return;
     const PortedCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, n.orientation * 0x400 + yaw,
-                               0, (int32_t)node };
+                               0, (int32_t)node, 0 };
     const int32_t parked = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
     if (cars[0].ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
         const CarPose pose = { { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
