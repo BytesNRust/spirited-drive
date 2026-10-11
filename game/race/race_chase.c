@@ -4,6 +4,10 @@
 #include "game/sys/fixed_math.h"
 #include "game/sys/rigid_math.h"
 
+enum {
+    SLOT2_FLAGS = 0x42400       /* flags_174 bits 0043f8f8 looks for */
+};
+
 static int32_t sub(int32_t a, int32_t b)
 {
     return (int32_t)((uint32_t)a - (uint32_t)b);
@@ -43,4 +47,29 @@ void race_chase_unturn(const int32_t from[3], int32_t out[3], int32_t pitch, int
     const int32_t v[3] = { from[0] >> 8, from[1] >> 8, from[2] >> 8 };
     mat3_apply(v, m, out);
     for (int i = 0; i < 3; i++) out[i] = (int32_t)((uint32_t)out[i] << 8);
+}
+
+/* port guard: a car slot outside the table or empty is none */
+static const Car *slot_car(const RaceState *race, int32_t slot)
+{
+    return slot >= 0 && slot < RACE_PLAYERS ? race->cars[slot] : NULL;
+}
+
+static int ahead_by(const RaceState *race, const Car *other, int32_t after, int32_t upto)
+{
+    const Car *car = slot_car(race, race->player);
+    if (car == NULL || other == NULL) return 0;
+    const int32_t gap = sub(car->node, other->node);
+    return after < gap && gap <= upto;
+}
+
+int race_chase_ahead_of_slot2(const RaceState *race, int32_t after, int32_t upto)
+{
+    const Car *other = slot_car(race, 2);
+    if (race->unknown_4fbab8 == 0 || other == NULL) return 0;
+    /* the word at +0x174: flags_174..flags_176[1] */
+    const uint32_t flags = (uint32_t)other->flags_174 | (uint32_t)other->flags_175 << 8 |
+                           (uint32_t)other->flags_176[0] << 16 | (uint32_t)other->flags_176[1] << 24;
+    if ((flags & SLOT2_FLAGS) == 0) return 0;
+    return ahead_by(race, other, after, upto);
 }

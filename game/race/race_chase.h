@@ -3,6 +3,7 @@
 #define TNFS_RACE_CHASE_H
 
 #include "game/race/car.h"
+#include "game/race/race_state.h"
 #include "game/race/race_view.h"
 
 #include <stdint.h>
@@ -44,5 +45,10 @@ int32_t race_chase_distance(const int32_t a[3], const int32_t b[3]);
  * by -pitch, -roll, -yaw, multiplied in that order), at 8 bits less
  * precision: out = ((from >> 8) x M) << 8. */
 void race_chase_unturn(const int32_t from[3], int32_t out[3], int32_t pitch, int32_t roll, int32_t yaw);
+
+/* 0043f8f8: 004fbab8 is set, slot 2's car has a flags_174 bit of 0x42400
+ * and the followed car (race->player) is more than `after` and at most
+ * `upto` nodes ahead of it. */
+int race_chase_ahead_of_slot2(const RaceState *race, int32_t after, int32_t upto);
 
 #endif
