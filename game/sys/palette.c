@@ -73,3 +73,10 @@ void palette_shade_table(const uint8_t *pal, const uint8_t usable[256], int k, u
                                              shade_channel(c[2], k));
     }
 }
+
+void palette_6_to_8(int count, const uint8_t *src, uint8_t *dst)
+{
+    for (int i = 0; i < count; i++, src += 3, dst += 3)
+        for (int ch = 0; ch < 3; ch++)
+            dst[ch] = (uint8_t)((src[ch] * 0xff + 0x20) / 0x3f);
+}

@@ -27,6 +27,11 @@ void palette_text_ramp(const uint8_t *pal, const uint8_t usable[256], int fg, in
  * 2*dr^2 + 3*dg^2 + db^2. Dialog boxes darken what is behind them with it. */
 void palette_shade_table(const uint8_t *pal, const uint8_t usable[256], int k, uint8_t table[256]);
 
+/* 0049a850: count 6-bit colours (0..63 a channel) to 8 bits, (v * 255 + 32)
+ * / 63 a channel, kept to a byte (a channel above 63 wraps); channel by
+ * channel, so src and dst may be the same. */
+void palette_6_to_8(int count, const uint8_t *src, uint8_t *dst);
+
 /* Brightness of frame n (0..PALETTE_FADE_STEPS-1) of a fade. */
 int palette_fade_in_step(int frame);
 int palette_fade_out_step(int frame);
