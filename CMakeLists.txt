@@ -120,6 +120,7 @@ add_library(tnfs_game STATIC
     game/race/race_sound.c
     game/race/race_palette.c
     game/race/dash_art.c
+    game/race/dash_load.c
     game/race/horizon.c
     game/race/model_draw.c
     game/race/race_state.c

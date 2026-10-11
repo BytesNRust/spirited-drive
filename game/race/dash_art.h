@@ -17,6 +17,8 @@ enum {
     DASH_YELLOW = 15,       /* 0..9, 'yelr', 'yeln', 'plus', 'mnus', 'yelb' */
     DASH_NEEDLE_LOW = 30,   /* 004fa0c0 == 0: 30 needle points, 0x20 apart */
     DASH_NEEDLE_HIGH = 40,  /* 40, 0x13 apart */
+    DASH_PART_ROWS = 3, DASH_PART_COLUMNS = 4,  /* maskhi.b00 .. maskhi.b23 */
+    DASH_STATE_WORDS = 7,
     DASH_ART_MISSING = -1   /* port guard: a name the bank lacks (the original aborts) */
 };
 
@@ -44,7 +46,9 @@ typedef struct {
  * points (004502b0; 00450838 sets the bank, the palette and 00513888..). */
 typedef struct {
     uint8_t *bank;                          /* 005137f0: the mask bank */
+    const uint8_t *palette;                 /* 005137f4: its '!pal' colours (6 bits) */
     DashRect control_box[DASH_CONTROLS];    /* 005137f8 + 16 i: control_down's boxes */
+    int32_t unknown_513888[DASH_STATE_WORDS]; /* 00513888..005138a3: 0, 0, 1, 0, 0, 1, 0 at load */
     uint8_t *grey_shown[DASH_DIGITS];       /* 005138a4: grey, copied */
     uint8_t *yellow[DASH_YELLOW];           /* 005138d4 004c54cc's */
     uint8_t *red[DASH_DIGITS];              /* 00513914 004c5508's: 'red0'.. 'redb' */
@@ -60,6 +64,9 @@ typedef struct {
     int32_t radius_x, radius_y;             /* 0051397c, 00513980 */
     int32_t needle[DASH_NEEDLE_HIGH][2];    /* 00513984: x, y round the tach */
     int32_t needle_mid[DASH_NEEDLE_HIGH][2]; /* 00513acc: halfway to the middle */
+    int32_t mmb_words[DASH_PART_ROWS][DASH_PART_COLUMNS]; /* 00513c14: the .mmb file's words 2..13 */
+    uint8_t *parts[DASH_PART_ROWS][DASH_PART_COLUMNS];    /* 00513c44: the .b%d%d files (the caller loads them) */
+    uint8_t *mmb;                           /* 00513c74: the .mmb file */
     uint8_t *replay;                        /* 00513c78 'repl' */
     uint8_t *bar;                           /* 00513c7c 'bar1' */
     uint8_t *control[DASH_CONTROLS];        /* 00513c80 004c53dc's: 'dond' 'rtsd' 'rewd' 'ford' 'fted' 'plad' 'paud' 'camd' */
