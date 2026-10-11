@@ -80,3 +80,21 @@ int race_chase_ahead_of_other(const RaceState *race, int32_t after, int32_t upto
     if (race->entries[1].car == NO_SECOND_CAR) return 0;
     return ahead_by(race, slot_car(race, (int32_t)(1u - (uint32_t)race->player)), after, upto);
 }
+
+int32_t race_chase_road_height(const RaceState *race, int32_t node, const int32_t point[3])
+{
+    const TriNode here = race_node(race, node), next = race_node(race, (int32_t)((uint32_t)node + 1u));
+    const int32_t at[3] = { here.position.x, here.position.y, here.position.z };
+    const int32_t to[3] = { next.position.x, next.position.y, next.position.z };
+    const int32_t side_at[3] = { at[0] + here.z_orientation * 2, at[1] + here.slant_b * 2, at[2] + here.x_orientation * 2 };
+    int32_t along[3], side[3], normal[3];
+    for (int i = 0; i < 3; i++) {
+        along[i] = sub(to[i], at[i]);
+        side[i] = sub(side_at[i], at[i]);
+    }
+    fx_cross(along, side, normal);
+    const int32_t rise = (int32_t)(0u - (uint32_t)fx_mul_round(normal[2], sub(point[2], to[2])) -
+                                   (uint32_t)fx_mul_round(normal[0], sub(point[0], to[0])));
+    if (normal[1] == 0 || (normal[1] == -1 && rise == INT32_MIN)) return to[1];  /* port guard: idiv faults */
+    return (int32_t)((uint32_t)fx_div(rise, normal[1]) + (uint32_t)to[1]);
+}

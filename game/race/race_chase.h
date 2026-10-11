@@ -55,4 +55,10 @@ int race_chase_ahead_of_slot2(const RaceState *race, int32_t after, int32_t upto
  * `after` and at most `upto` nodes ahead of the other of slots 0 and 1. */
 int race_chase_ahead_of_other(const RaceState *race, int32_t after, int32_t upto);
 
+/* 00405c9c: the height of the road's plane under `point` at `node`: the
+ * plane through the next node with the normal along x side, where along
+ * runs from this node to the next and side is the node's +0x1c..+0x20
+ * shorts x 2 (fx_cross, 0042ec50). */
+int32_t race_chase_road_height(const RaceState *race, int32_t node, const int32_t point[3]);
+
 #endif
