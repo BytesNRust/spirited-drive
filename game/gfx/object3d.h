@@ -135,6 +135,10 @@ int32_t object3d_texture_named(const Object3D *obj, const char *label);
  * "right_tu", the turn signals) whose name matches as 00490b21's, or -1. */
 int32_t object3d_part_named(const Object3D *obj, const char *name);
 
+/* 004910fa: the value (+8) of the first section C record ("smok", "RR1",
+ * "FL0") whose name matches as 00490b21's, or -1. */
+int32_t object3d_point_named(const Object3D *obj, const char *name);
+
 /* 0048da62 */
 void object3d_set_matrix(Object3D *obj, const int32_t matrix[9]);
 /* camera_matrix: 004c7b20; camera_position: 004c7b44 */
