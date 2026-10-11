@@ -46,6 +46,8 @@ static void usage(FILE *to)
           "  tnfs-studio slot undo --mods DIR [--all] [--force]\n"
           "  tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n"
           "  (export = unpack, import = pack)\n"
+          "Level 1 limit: a replaced car's short name on the results and records screens stays the original model's\n"
+          "  (EXE text); its full name on the selection screens is a bitmap and can be replaced (docs/modding/limitations.md)\n"
           "--palette FILE   a game file (FSH or QFS) whose palette colours bitmaps that carry none\n"
           "--force          overwrite existing files\n"
           "--compat         validate: refuse what the original executable would mishandle (default)\n"
