@@ -39,6 +39,32 @@ static int load_textures(Object3D *obj)
     return 1;
 }
 
+enum { LABEL_SIZE = 8 };
+
+/* 004a2da2 over n bytes: equal up to n or a NUL, A..Z as a..z. */
+static int labels_match(const char *a, const char *b, int n)
+{
+    for (; n > 0; n--, a++, b++) {
+        unsigned char x = (unsigned char)*a, y = (unsigned char)*b;
+        if (x > 0x40 && x < 0x5b) x += 0x20;
+        if (y > 0x40 && y < 0x5b) y += 0x20;
+        if (x != y) return 0;
+        if (y == 0) return 1;
+    }
+    return 1;
+}
+
+int32_t object3d_texture_named(const Object3D *obj, const char *label)
+{
+    const int32_t count = (int32_t)obj->mesh->texture_count;
+    for (int32_t i = 0; i < count; i++) {
+        MeshTexture t;
+        if (mesh_texture(obj->mesh, (uint32_t)i, &t) != MESH_OK) return -1;  /* port guard */
+        if (labels_match(t.label, label, LABEL_SIZE)) return i;
+    }
+    return -1;
+}
+
 void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture)
 {
     if ((uint32_t)slot < obj->texture_count) obj->textures[slot].texture = texture;

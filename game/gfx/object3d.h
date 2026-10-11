@@ -127,6 +127,10 @@ int object3d_match_colours(Object3D *obj, const PaletteMatch *m);
  * alone (the original writes past its slots). */
 void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture);
 
+/* 00490b21: the first texture ref whose label matches `label` (up to 8
+ * characters or its NUL, either case, 004a2da2), or -1. */
+int32_t object3d_texture_named(const Object3D *obj, const char *label);
+
 /* 0048da62 */
 void object3d_set_matrix(Object3D *obj, const int32_t matrix[9]);
 /* camera_matrix: 004c7b20; camera_position: 004c7b44 */
