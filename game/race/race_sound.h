@@ -4,6 +4,7 @@
 #ifndef TNFS_RACE_SOUND_H
 #define TNFS_RACE_SOUND_H
 
+#include "game/race/car_specs.h"
 #include "game/race/race_state.h"
 
 #include <stdint.h>
@@ -25,7 +26,7 @@ int32_t race_sound_loudness(int32_t distance);
  * playing. */
 void race_sound_channel(RaceState *race, int32_t channel, int32_t sound, int32_t pitch, int32_t volume, int32_t pan);
 
-/* 00444230: a countdown (race->sound_pulse) taken from the 7-word table
+/* 00444230: a countdown (race->engine_sound.pulse_*) taken from the 7-word table
  * 00443710 (1, 20, 15, 10, 5, 3, 1) by 004b92d4 when armed, cut to the
  * table's word when that is lower; at 0 sound 0x61 starts (pan 0x40, pitch
  * 0x40, the followed slot's sound volume's low byte, 0 when silent) and the
@@ -33,5 +34,18 @@ void race_sound_channel(RaceState *race, int32_t channel, int32_t sound, int32_t
  * 0..6 (the original reads its stack) or the followed slot outside the
  * entries, the port returns. */
 void race_sound_pulse(RaceState *race);
+
+/* 004444b8: the followed car's sounds each tick (car the followed one,
+ * angle and distance from the listener as 00472018 gives them, specs the
+ * followed slot's): nothing when its entry's sound volume is 0; 00444230
+ * while 004b92d4 is set; the node sound on channel 0xb; the road noise
+ * (voices[5]) from the speed, with gravel (channel 0xf) and rumble (4) on
+ * track 5; the engine's pitch from the viewed car's revs over the specs'
+ * +0xac + 2000; its two voices (voices[1] and the channel at 004bcb70)
+ * crossfaded by the eased throttle through 004bc76c, louder near, panned
+ * by the angle (unpanned for an entry's sound mode 2); voices[14] when it
+ * plays. Where the original divides by 0 or reads past its curve the port
+ * returns. */
+void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t distance, const CarSpecs *specs);
 
 #endif

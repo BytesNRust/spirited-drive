@@ -56,7 +56,9 @@ typedef struct {
     int32_t anti_lock;    /* +0x15: ABS wanted */
     uint8_t unknown_19[4];
     int32_t sound_volume; /* +0x1d (004fb817): the sound volume, read for the followed slot; 0 plays no car sounds (0044404c) */
-    uint8_t unknown_21[0x2a];
+    uint8_t unknown_21[4];
+    int32_t sound_mode;   /* +0x25 (004fb81f): 2 plays the followed car's engine unpanned (004444b8) */
+    uint8_t unknown_29[0x22];
 } RaceEntry;
 #pragma pack(pop)
 typedef char race_entry_size_check[sizeof(RaceEntry) == 0x4b ? 1 : -1];
@@ -107,11 +109,19 @@ typedef struct {
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */
-/* 00444230's countdown: armed, then the calls left before sound 0x61. */
+/* The followed car's engine sounds (004444b8), 004bcb6c..004bcb93. */
 typedef struct {
-    int32_t armed;              /* 004bcb74 */
-    int32_t count;              /* 004bcb78 */
-} RacePulse;
+    int32_t unknown_6c;         /* 004bcb6c: 0x7f as the exe starts */
+    int32_t channel;            /* 004bcb70: its low 16 bits, the voices[] channel of the engine's second voice (7) */
+    int32_t pulse_armed;        /* 004bcb74: 00444230's countdown */
+    int32_t pulse_count;        /* 004bcb78 */
+    int32_t pitch;              /* 004bcb7c: the road noise's pitch (voices[5]) */
+    int32_t revs;               /* 004bcb80: 0..0x7f the engine's pitch */
+    int32_t throttle;           /* 004bcb84: the throttle eased */
+    int32_t rising;             /* 004bcb88: the road noise's pitch swings up (1) or down */
+    int32_t node_volume;        /* 004bcb8c: the node sound on channel 0xb, up and down by 5 */
+    int32_t node_pan;           /* 004bcb90 */
+} RaceEngineSound;
 
 typedef struct {
     int32_t voice;
@@ -322,7 +332,8 @@ typedef struct {
     int32_t dash_ab8, dash_abc, dash_ac0, dash_ac4;  /* 004f9ab8.. (0041e7fc) */
     RaceVoice voices[RACE_VOICES];  /* 0050a4cc */
     int32_t sound_silent;           /* 004bc6ec: non-zero, the followed car's sounds play at volume 0 */
-    RacePulse sound_pulse;          /* 004bcb74 (00444230) */
+    RaceEngineSound engine_sound;   /* 004bcb6c */
+    int32_t unknown_4bc6f0;         /* 004bc6f0: non-zero, the engine's second voice plays (1 as the exe starts) */
     RaceSounds sounds;
 } RaceState;
 
