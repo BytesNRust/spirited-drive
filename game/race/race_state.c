@@ -85,6 +85,12 @@ int32_t race_gear_step(const RaceState *race, int32_t gear)
     return gear == 6 ? race->wheelspin : 0;
 }
 
+void race_random_seed(RaceState *race, uint32_t seed)
+{
+    race->random_seed = seed * 3 | 1;
+    race->random_mul = seed | 1;
+}
+
 uint32_t race_random(RaceState *race)
 {
     race->random_last = race->random_seed * race->random_mul;

@@ -364,6 +364,10 @@ void race_sort_cars(RaceState *race);
 /* 004b9628 * 004b9630: the next random value, 0..0xffff */
 uint32_t race_random(RaceState *race);
 
+/* 00428fe0 (004275f8 with 004fb7f4): race_random's state from a seed,
+ * the seed times 3 and the multiplier the seed, each made odd. */
+void race_random_seed(RaceState *race, uint32_t seed);
+
 /* 00487c2c: the next of the add-with-carry generator: each word added to the
  * next with carry, the lowest counting up, the top word the result. */
 uint32_t race_rand(RaceState *race);
