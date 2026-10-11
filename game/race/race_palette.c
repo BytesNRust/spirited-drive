@@ -125,6 +125,14 @@ void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint
     p->write_count++;
 }
 
+void race_palette_queue_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette, int32_t first, int32_t count)
+{
+    if ((uint32_t)p->bank_count >= RACE_PALETTE_BANKS)
+        return;
+    p->banks[p->bank_count] = (RacePaletteBank){ bank, palette, first, count };
+    p->bank_count++;
+}
+
 static uint8_t to_8_bits(uint8_t v)
 {
     return (uint8_t)(v << 2 | v >> 4);

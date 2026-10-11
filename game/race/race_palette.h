@@ -14,6 +14,7 @@ enum {
     RACE_PALETTE_COLOURS = 256,
     RACE_PALETTE_SLOTS = 16,     /* 0051c798: one byte a car slot */
     RACE_PALETTE_WRITES = 50,    /* 0050a9dc: 12 bytes each */
+    RACE_PALETTE_BANKS = 100,    /* 0050b034: 16 bytes each */
     RACE_PALETTE_MODEL_LIGHTS = 26
 };
 
@@ -39,6 +40,16 @@ typedef struct {
     const uint8_t *colours;
 } RacePaletteWrite;
 
+/* A shape bank queued for 00447098 to map onto the race palette with its
+ * own 6-bit palette (00446fd0); first and count are kept, 00447098 does
+ * not read them. */
+typedef struct {
+    uint8_t *bank;
+    const uint8_t *palette;
+    int32_t first;
+    int32_t count;
+} RacePaletteBank;
+
 typedef struct {
     uint8_t screen[RACE_PALETTE_COLOURS * PALETTE_MATCH_ENTRY_BYTES];  /* 0052f178: B, G, R, 0xff */
     uint8_t screen_rgbx[RACE_PALETTE_COLOURS * 4];                     /* 0052ced8: R, G, B, 0 */
@@ -49,6 +60,8 @@ typedef struct {
     uint8_t slot_colours[RACE_PALETTE_SLOTS];  /* 0051c798: a slot's own entry (0x47, 0x5f), kept out of the search */
     RacePaletteWrite writes[RACE_PALETTE_WRITES];  /* 0050a9dc, applied by 00447048 */
     int32_t write_count;                           /* 004bcbc8 */
+    RacePaletteBank banks[RACE_PALETTE_BANKS];     /* 0050b034, mapped by 00447098 */
+    int32_t bank_count;                            /* 004bcbc4 */
     uint8_t changed;            /* 0052d2d8: set by a write, cleared once the screen took the palette */
     int32_t screen_bits;        /* 004c6130: up to 8, the screen takes palettes */
     int32_t palette_device;     /* 004c6108: bit 0, a palette the screen can take */
@@ -79,6 +92,11 @@ void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t 
  * screen entries from `first`. The original hangs on a 51st (it writes the
  * entry past the queue first); the port drops it. */
 void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours);
+
+/* 00446f58: queues a shape bank and its 6-bit palette for 00447098. The
+ * original writes the 101st past the table and then hangs; the port drops
+ * it, and a count outside the table. */
+void race_palette_queue_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette, int32_t first, int32_t count);
 
 /* 00476460: `count` 6-bit colours into the screen entries from `first`, each
  * channel v << 2 | v >> 4 (a byte): 0052ced8 as R, G, B, 0 and 0052f178 as
