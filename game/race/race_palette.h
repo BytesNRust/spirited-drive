@@ -69,6 +69,11 @@ void race_palette_table(RacePalette *p, int first, int count, const uint8_t *rgb
  * shape first. */
 void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6, int32_t slot, int32_t police);
 
+/* 00446fd0: the same for a track, sky or object bank (00447098 runs it on
+ * the banks 00446f58 queued): table 0..0xfe from the palette, 0xff itself,
+ * no slot or police colours. */
+void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6);
+
 /* 00446f90: queues a write of `count` colours (6 bits a channel) to the
  * screen entries from `first`. The original hangs on a 51st (it writes the
  * entry past the queue first); the port drops it. */

@@ -9,6 +9,7 @@
 
 enum {
     CAR_COLOURS = 0xfa,          /* 0048f220(0, 0xfa, ...): the rest stay as they are */
+    TRACK_COLOURS = 0xff,        /* 00446fd0: 0..0xfe matched, 0xff itself */
     LIGHTS_FIRST = 0xfa,         /* the police lights, 0xfa..0xfd */
     LIGHTS = 4,
     OWN_COLOUR = 0xfe,
@@ -72,6 +73,19 @@ void race_palette_table(RacePalette *p, int first, int count, const uint8_t *rgb
     }
 }
 
+/* Every shape not named "!..." through the table, last shape first. */
+static void remap_shapes(RacePalette *p, uint8_t *bank)
+{
+    for (uint32_t i = le32(bank + BANK_COUNT); i-- > 0;) {
+        const uint8_t *entry = bank + BANK_DIRECTORY + BANK_ENTRY * i;
+        if (entry[0] == HIDDEN_MARK)
+            continue;
+        uint8_t *shape = bank + le32(entry + 4);
+        const uint32_t pixels = (uint32_t)le16s(shape + SHAPE_WIDTH) * (uint32_t)le16s(shape + SHAPE_HEIGHT);
+        palette_remap_pixels(shape + SHAPE_PIXELS, p->table, pixels);
+    }
+}
+
 void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6, int32_t slot, int32_t police)
 {
     uint8_t rgb[RACE_PALETTE_COLOURS * 3];
@@ -87,14 +101,16 @@ void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
             p->unknown_50ad2e[k] = (uint8_t)(LIGHTS_FIRST + k);
             p->table[LIGHTS_FIRST + k] = (uint8_t)(LIGHTS_FIRST + k);
         }
-    for (uint32_t i = le32(bank + BANK_COUNT); i-- > 0;) {
-        const uint8_t *entry = bank + BANK_DIRECTORY + BANK_ENTRY * i;
-        if (entry[0] == HIDDEN_MARK)
-            continue;
-        uint8_t *shape = bank + le32(entry + 4);
-        const uint32_t pixels = (uint32_t)le16s(shape + SHAPE_WIDTH) * (uint32_t)le16s(shape + SHAPE_HEIGHT);
-        palette_remap_pixels(shape + SHAPE_PIXELS, p->table, pixels);
-    }
+    remap_shapes(p, bank);
+}
+
+void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6)
+{
+    uint8_t rgb[RACE_PALETTE_COLOURS * 3];
+    palette_6_to_8(RACE_PALETTE_COLOURS, palette6, rgb);
+    race_palette_table(p, 0, TRACK_COLOURS, rgb);
+    p->table[TRACK_COLOURS] = TRACK_COLOURS;
+    remap_shapes(p, bank);
 }
 
 void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours)
