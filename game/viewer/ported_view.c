@@ -109,6 +109,11 @@ void ported_view_set_car_slot(int slot, const ViewModel *high, const ViewModel *
     c->ok = car_model_init(&c->model, &c->objects[0], &c->objects[1]);
 }
 
+Object3D *ported_view_car_object(int slot)
+{
+    return slot >= 0 && slot < PORTED_VIEW_CARS && cars[slot].ok ? &cars[slot].objects[0] : NULL;
+}
+
 void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)
 {
     ported_view_set_car_slot(0, high, low);

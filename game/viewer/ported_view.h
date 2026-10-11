@@ -26,6 +26,10 @@ void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)
  * ported_view_render_cars; NULL removes it. */
 void ported_view_set_car_slot(int slot, const ViewModel *high, const ViewModel *low);
 
+/* The high detail object of the car in `slot` (its texture refs can be
+ * rebound, the wheel frames), or NULL. */
+Object3D *ported_view_car_object(int slot);
+
 /* A camera in the world: position 16.16, 24-bit angles, the road node it
  * draws the track from. */
 typedef struct {

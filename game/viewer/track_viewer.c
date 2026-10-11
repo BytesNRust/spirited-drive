@@ -8,6 +8,7 @@
 #include "formats/chunk.h"
 #include "formats/tri.h"
 #include "game/race/car_load.h"
+#include "game/race/car_wheels.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_models.h"
 #include "game/race/race_sim.h"
@@ -369,6 +370,7 @@ typedef struct {
     ViewModel models[RACE_CARS][2];
     CarPdn pdns[RACE_CARS];
     const char *data_root;
+    int wheels[RACE_CARS];      /* setup_wheels found the slot's tyre refs */
     int ended;
 } DriveCars;
 
@@ -408,8 +410,53 @@ static CarPose car_pose_of(const Car *car)
                       car->heading, car->use_matrix ? car->matrix : NULL, 1 };
 }
 
+/* CarBindTexture for the drive: `object` is the slot, `frame` the ref
+ * (tire1..4) whose shape the wheel ref draws from now on. */
+static void bind_wheels(void *user, uint32_t object, int32_t slot, uint32_t frame)
+{
+    (void)user;
+    Object3D *obj = ported_view_car_object((int)object);
+    if (obj != NULL && frame < obj->texture_count) object3d_set_texture(obj, slot, obj->textures[frame].texture);
+}
+
+/* 00457d40's tyre part for the racers' models (200 and up): the refs
+ * 'frntires' and 'rertires' (00490b21) both bound to tire4 (00490df3),
+ * the frames tire1..tire4 (004c5778) kept for 00458614. TODO(00457d40):
+ * the rest of the loader, and the frames as the refs' indexes here where
+ * the original keeps their shapes. */
+static void setup_wheels(RaceSim *sim)
+{
+    static const char *const TIRES[4] = { "tire1", "tire2", "tire3", "tire4" };
+    for (int slot = 0; slot < sim->count; slot++) {
+        Car *car = sim->race.cars[slot];
+        const Object3D *obj = ported_view_car_object(slot);
+        drive_cars.wheels[slot] = 0;
+        if (car == NULL || obj == NULL || sim->race.models[slot] < 200) continue;
+        car->body_object = (uint32_t)slot;
+        car->front_tyres = object3d_texture_named(obj, "frntires");
+        car->rear_tyres = object3d_texture_named(obj, "rertires");
+        int ok = car->front_tyres >= 0 && car->rear_tyres >= 0;
+        for (int k = 0; k < 4 && ok; k++) {
+            const int32_t ref = object3d_texture_named(obj, TIRES[k]);
+            ok = ref >= 0;
+            car->wheel_frames[k] = (uint32_t)ref;
+        }
+        if (!ok) continue;
+        drive_cars.wheels[slot] = 1;
+        bind_wheels(NULL, car->body_object, car->front_tyres, car->wheel_frames[3]);
+        car->front_frame = 3;
+        bind_wheels(NULL, car->body_object, car->rear_tyres, car->wheel_frames[3]);
+        car->rear_frame = 3;
+    }
+}
+
 static void render_drive(const Track *t, uint8_t *pixels)
 {
+    /* 00458d4c: 00458614 on cars[004fbb08] as it draws it. TODO: only when
+     * that car is drawn this frame. */
+    RaceState *race = &drive_sim.race;
+    Car *followed = race->cars[race_slot(race->player)];
+    if (followed != NULL && drive_cars.wheels[race_slot(race->player)]) car_wheel_frames(followed, race, bind_wheels, NULL);
     const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
     PortedCar list[RACE_CARS];
     for (int i = 0; i < drive_sim.count; i++) {
@@ -495,6 +542,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
             ported_view_set_car_slot(i, &drive_cars.models[i][0], &drive_cars.models[i][1]);
     }
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
+    setup_wheels(&drive_sim);
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     drive_cars.ended = 0;
     static const char *const CARPAL[] = { ".FSH", ".fsh", NULL };
