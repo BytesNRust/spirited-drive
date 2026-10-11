@@ -131,6 +131,10 @@ void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture);
  * characters or its NUL, either case, 004a2da2), or -1. */
 int32_t object3d_texture_named(const Object3D *obj, const char *label);
 
+/* 004912d0: the first of the mesh's parts (section A: "left_tur",
+ * "right_tu", the turn signals) whose name matches as 00490b21's, or -1. */
+int32_t object3d_part_named(const Object3D *obj, const char *name);
+
 /* 0048da62 */
 void object3d_set_matrix(Object3D *obj, const int32_t matrix[9]);
 /* camera_matrix: 004c7b20; camera_position: 004c7b44 */

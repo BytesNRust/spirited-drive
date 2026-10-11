@@ -65,6 +65,17 @@ int32_t object3d_texture_named(const Object3D *obj, const char *label)
     return -1;
 }
 
+int32_t object3d_part_named(const Object3D *obj, const char *name)
+{
+    const int32_t count = (int32_t)obj->mesh->section_a_count;
+    for (int32_t i = 0; i < count; i++) {
+        MeshSectionA a;
+        if (mesh_section_a(obj->mesh, (uint32_t)i, &a) != MESH_OK) return -1;  /* port guard */
+        if (labels_match(a.name, name, LABEL_SIZE)) return i;
+    }
+    return -1;
+}
+
 void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture)
 {
     if ((uint32_t)slot < obj->texture_count) obj->textures[slot].texture = texture;
