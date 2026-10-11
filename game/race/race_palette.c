@@ -3,6 +3,8 @@
 
 #include "game/sys/palette.h"
 
+#include <stddef.h>
+
 enum {
     CAR_COLOURS = 0xfa,          /* 0048f220(0, 0xfa, ...): the rest stay as they are */
     LIGHTS_FIRST = 0xfa,         /* the police lights, 0xfa..0xfd */
@@ -94,4 +96,14 @@ void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint
         p->handed++;
         p->changed = 0;
     }
+}
+
+void race_palette_apply(RacePalette *p)
+{
+    for (int32_t i = 0; i < p->write_count && i < RACE_PALETTE_WRITES; i++) {
+        const RacePaletteWrite *w = &p->writes[i];
+        if (w->colours != NULL)
+            race_palette_write(p, w->first, w->count, w->colours);
+    }
+    p->write_count = 0;
 }

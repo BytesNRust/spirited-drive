@@ -61,4 +61,8 @@ void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint
  * device bit, which clears `changed` again. */
 void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours);
 
+/* 00447048: every queued write in order (00476460 each), then the queue is
+ * empty. */
+void race_palette_apply(RacePalette *p);
+
 #endif
