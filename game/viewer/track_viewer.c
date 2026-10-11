@@ -340,7 +340,8 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
  * defaults: arrows steer and work the pedals, A and Z change gear (an
  * automatic starts in neutral: A for drive, Z for reverse; the gears work
  * after 5 seconds), Space the handbrake. C steps through the camera's 14
- * view kinds (TODO(0045573c): the race picks the kind itself). */
+ * view kinds (the race turns to 13 while the car does not face the road:
+ * turned more than 0x1e0000 from it, or pitched or rolled past 0x240000). */
 enum {
     KEY_A = 0x1E,
     KEY_Z = 0x2C,
@@ -480,7 +481,6 @@ static void free_drive(void)
 static void drive_tick(uint32_t input)
 {
     race_sim_tick(&drive_sim, input);
-    race_chase_tick(&drive_sim.race, &drive_sim.race.chase);
     if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
@@ -493,12 +493,13 @@ static void drive_tick(uint32_t input)
     printf("\n");
 }
 
-/* The next of the 14 view kinds, taken as 00405b00 does. */
+/* The next of the 14 view kinds, chosen as 00404450 does (next_kind, the
+ * kind race_camera_pick keeps): the kind after the one chosen. */
 static void next_view(void)
 {
-    RaceChase *chase = &drive_sim.race.chase;
-    race_chase_take(&drive_sim.race, chase, (chase->kind + 1) % CHASE_KINDS);
-    printf("view kind %d\n", chase->kind);
+    RaceState *race = &drive_sim.race;
+    race_chase_follow(race, &race->chase, race->cars[0], (race->chase.next_kind + 1) % CHASE_KINDS);
+    printf("view kind %d (shown %d)\n", race->chase.next_kind, race->chase.kind);
 }
 
 static int drive_window(const Track *t, uint8_t *pixels)
@@ -529,7 +530,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
 static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
     const char *view = getenv("TNFS_VIEW");
-    if (view != NULL) race_chase_take(&drive_sim.race, &drive_sim.race.chase, atoi(view) % CHASE_KINDS);
+    if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         drive_tick(0x20 | (tap ? 0x1000u : 0));

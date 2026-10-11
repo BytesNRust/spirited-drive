@@ -1,5 +1,6 @@
 #include "game/race/race_sim.h"
 
+#include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 
 #include "game/race/ai_drive.h"
@@ -259,6 +260,8 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         race_sort_cars(race);
         race_splits_pass(race, race->cars[race->player & (RACE_PLAYERS - 1)]->progress, rival_progress(race));
         race_splits_gap(race);
+        race_camera_pick(race, race->cars[race->viewed & (RACE_PLAYERS - 1)]);
+        race_chase_tick(race, &race->chase);
         for (int i = 0; i < sim->count; i++)
             if ((sim->slots[i].car.flags_51a & FLAG_ACTIVE) && sim->slots[i].car.controller != 0)
                 car_keep_draw_state(&sim->slots[i].car);
