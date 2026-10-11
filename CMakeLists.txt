@@ -119,6 +119,7 @@ add_library(tnfs_game STATIC
     game/race/race_models.c
     game/race/race_sound.c
     game/race/race_palette.c
+    game/race/dash_art.c
     game/race/horizon.c
     game/race/model_draw.c
     game/race/race_state.c
@@ -335,6 +336,9 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_palette tools/probe_palette.c)
     target_link_libraries(probe_palette PRIVATE tnfs_game)
     target_compile_options(probe_palette PRIVATE ${TNFS_WARNINGS})
+    add_executable(probe_dash tools/probe_dash.c)
+    target_link_libraries(probe_dash PRIVATE tnfs_game)
+    target_compile_options(probe_dash PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_car tools/probe_car.c)
     target_link_libraries(probe_car PRIVATE tnfs_game)
     target_compile_options(probe_car PRIVATE ${TNFS_WARNINGS})
