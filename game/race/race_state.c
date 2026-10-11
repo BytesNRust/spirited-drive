@@ -120,6 +120,20 @@ int32_t race_rand_below(RaceState *race, int32_t n)
     return (int32_t)((race_rand(race) & 0xffff) * (uint32_t)n) >> 16;
 }
 
+int32_t race_loading_pick(RaceState *race, int clear)
+{
+    enum { PICTURES = 7 };
+    if (clear) memset(race->loading_used, 0, sizeof race->loading_used);
+    int left = 0;
+    for (int i = 0; i < PICTURES; i++) left |= !race->loading_used[i];
+    if (!left) return -1;  /* port guard */
+    int32_t n;
+    do n = race_rand_below(race, PICTURES);
+    while (race->loading_used[n]);
+    race->loading_used[n] = 1;
+    return n;
+}
+
 Car *race_car_by_handle(const RaceState *race, uint32_t handle)
 {
     for (int i = 0; i < RACE_CARS; i++)

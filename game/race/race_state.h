@@ -265,6 +265,7 @@ typedef struct {
     int32_t wheel_counter;          /* 004c5810: 00458614's 0 / 1 step */
     int32_t wheel_toggle;           /* 004c5814: frames 1 and 2 in turn below 0xa0000 */
     int32_t wheel_last_x, wheel_last_y;  /* 004c5818, 004c581c: the followed car's x, y at the last call */
+    uint8_t loading_used[20];       /* 0051c7de: the loading pictures shown this race (004571e8) */
     uint8_t unknown_4fb787;         /* 004fb787: non-zero puts the other humans and opponents in the 100 set (00457870) */
     int32_t unknown_4fbad0;         /* 004fbad0: the head to head opponent pick, 00426fec of its low half (00457870) */
     int32_t racers;                 /* 004fb7dc: cars in the race, humans first */
@@ -379,6 +380,14 @@ uint32_t race_rand(RaceState *race);
 
 /* 00443730: 0..n-1 from the low 16 bits of race_rand (signed product). */
 int32_t race_rand_below(RaceState *race, int32_t n);
+
+/* 004571e8, its pick (00455a5c with `clear` 1 at the load's start, 00440858
+ * with 0 before slot 2): a picture 0..6 drawn with 00443730(7), drawn again
+ * while loading_used has it, then marked; `clear` empties the 20 flags
+ * first. Returns the picture (the file "<paths 12><004c5660[the player's
+ * car]>s<n>.qfs", shown by the rest of 004571e8: not ported), or -1 with
+ * all 7 used, where the original draws for ever. */
+int32_t race_loading_pick(RaceState *race, int clear);
 
 /* 0044d744 */
 void race_note(RaceState *race, int32_t level);
