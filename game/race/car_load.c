@@ -74,6 +74,16 @@ static void copy_name(Car *car, const char *name)
     }
 }
 
+/* entries[slot].car as 004406d0 reads it (004fb803 + 0x4b x slot): slot 8
+ * reads 9 bytes past the eight entries, into the grid places (004fba5b:
+ * the top byte of grid[2], the low three of grid[3]). */
+static int32_t entry_car(const RaceState *race, int32_t slot)
+{
+    if (slot >= 0 && slot < RACE_PLAYERS) return race->entries[slot].car;
+    if (slot == RACE_PLAYERS) return (int32_t)((uint32_t)race->grid[2] >> 24 | (uint32_t)race->grid[3] << 8);
+    return 0;  /* port guard: further slots read other globals */
+}
+
 void car_load(Car *car, CarSpecs *specs, RaceState *race)
 {
     const RaceEntry *entry = &race->entries[car->index];
@@ -201,7 +211,7 @@ void car_enter(Car *car, CarSpecs *specs, uint32_t handle, RaceState *race)
         car->progress = 0;
         car->unknown_3a1 = 0;
         car->unknown_3ad = 0;
-        if (race->player == 0) car->model = race->entries[car->index & (RACE_PLAYERS - 1)].car;
+        if (race->player == 0) car->model = entry_car(race, car->index);
     } else {
         car_load(car, specs, race);
     }
