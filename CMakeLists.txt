@@ -129,6 +129,7 @@ add_library(tnfs_game STATIC
     game/race/view.c
     game/sys/fixed_math.c
     game/sys/palette.c
+    game/sys/shape_bank.c
 )
 target_include_directories(tnfs_game PUBLIC game .)
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
