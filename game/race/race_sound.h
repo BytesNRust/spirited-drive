@@ -48,4 +48,11 @@ void race_sound_pulse(RaceState *race);
  * returns. */
 void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t distance, const CarSpecs *specs);
 
+/* 004723b8: 004444b8 on the viewed car (004fbb04; the original picks
+ * 004fbb08 only when the two are the same), heard from the follow camera
+ * (00472018) when its kind is above 1, else at angle 0, distance 1 (the
+ * in-car views). `specs` is the followed slot's (004444b8 reads them from
+ * cars[004fbb08]). */
+void race_sound_follow(RaceState *race, const CarSpecs *specs);
+
 #endif

@@ -1,6 +1,8 @@
 /* The race's sound levels (race_sound.h). */
 #include "game/race/race_sound.h"
 
+#include "game/race/car_walls.h"
+
 enum {
     PAN_CENTRE = 0x40,            /* angle >> 16: 0x40 a quarter turn */
     PAN_BACK_FROM = 0xc0,         /* 0xc0..0x100: the last quarter, back to centre */
@@ -296,4 +298,17 @@ void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t d
         return;
     voice_volume(race, race->voices[EXTRA_VOICE].voice, scaled(race, loud, volume));
     voice_pan(race, race->voices[EXTRA_VOICE].voice, pan);
+}
+
+void race_sound_follow(RaceState *race, const CarSpecs *specs)
+{
+    if ((uint32_t)race->viewed >= RACE_PLAYERS || race->cars[race->viewed] == NULL)
+        return;
+    const Car *car = race->cars[race->viewed];
+    int32_t angle = 0, distance = 1;
+    if (race->chase.kind > 1) {
+        const int32_t at[3] = { car->x, car->y, car->z };
+        race_sound_position(race, at, &angle, &distance);
+    }
+    race_sound_engine(race, car, angle, distance, specs);
 }
