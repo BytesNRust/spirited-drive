@@ -56,10 +56,11 @@ struct RaceField {
     uint32_t seed;                      /* 004fb7f4: race_random_seed's (00428fe0) */
     int race_type;                      /* 004fb7d0: 0 time trial, 1 head to head, 2 single race, 3 tournament */
     RaceEntry entries[RACE_PLAYERS];    /* 004fb7fa: each slot's car (the computer racers' too) */
-    const CarPdn *pdns[RACE_CARS];   /* 00517580: each car's PDN; NULL asks `body` */
-    /* Called for the slots without a PDN once the models are drawn
-     * (race_models): the PDN of `model` (RaceState.models), or NULL. */
-    const CarPdn *(*body)(void *user, int32_t slot, int32_t model);
+    const CarPdn *pdns[RACE_CARS];   /* 00517580: each car's PDN; NULL takes `load`'s */
+    /* 00457d40 where 00440858 runs it, for every slot after its flags and
+     * before its body (004407b8): the car's model loaded (car_load_*, by
+     * RaceState.models) and its PDN returned, or NULL. NULL: no models. */
+    const CarPdn *(*load)(void *user, Car *car, RaceState *race);
     void *user;
 };
 

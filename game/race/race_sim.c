@@ -158,7 +158,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     for (int i = 0; i < RACE_CARS; i++) race->by_node[i] = race->by_progress[i] = i;
     for (int i = 0; i < sim->count; i++) race->cars[i] = &sim->slots[i].car;
     /* 00440858: each slot entered (004406d0), marked racer or police by its
-     * place, then its body from the PDN (004407b8). */
+     * place, its model loaded (00457d40), then its body from the PDN (004407b8). */
     for (int i = 0; i < sim->count; i++) {
         Car *car = &sim->slots[i].car;
         car->index = i;
@@ -167,8 +167,8 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
         car->flags_51a = (uint8_t)((car->flags_51a | FLAG_ACTIVE) & ~FLAG_RETIRED);
         if (i >= race->humans && i < race->racers) car->flags_174 |= RACER;
         if (i >= race->racers && i < race->racers + race->cops) car->flags_174 |= COP;
-        const CarPdn *pdn = field->pdns[i] != NULL ? field->pdns[i]
-                            : field->body != NULL ? field->body(field->user, i, race->models[i]) : NULL;
+        const CarPdn *loaded = field->load != NULL ? field->load(field->user, car, race) : NULL;  /* 00457d40 */
+        const CarPdn *pdn = field->pdns[i] != NULL ? field->pdns[i] : loaded;
         if (pdn != NULL) car_body_init(car, pdn);
     }
     for (int i = 0; i < sim->count; i++) sim->slots[i].car.lateral = 0;

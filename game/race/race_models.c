@@ -1,8 +1,6 @@
 #include "game/race/race_models.h"
 
-#include <ctype.h>
 #include <stdint.h>
-#include <stdio.h>
 
 enum {
     HUMAN_SET = 200,            /* the humans' car file set */
@@ -112,23 +110,4 @@ void race_models(RaceState *race)
     if (race->race_type == 2) single_race(race, set, other);
     else if (race->race_type == 3) tournament(race, set);
     else if (race->race_type <= 1) open_road(race, other);
-}
-
-/* 004c56a0: the traffic cars by model. */
-static const char *const TRAFFIC_NAMES[TRAFFIC_MODELS] = { "Wagon", "CRX", "Vandura", "BMW", "SunBird", "JETTA",
-                                                           "RODEO", "axxess", "probe", "Jeep", "Lemans", "Pickup" };
-/* 004c54d0 + 4 x 100 and 004c5340 + 4 x 200 hold the same 8 names. */
-static const char *const RACER_NAMES[TYPE_3_SLOTS] = { "TSupra", "LDiabl", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" };
-
-int race_model_stem(int32_t model, char stem[16])
-{
-    const char *name = NULL, *prefix = "";
-    if (model >= POLICE_MODEL) name = "CopMust";  /* 004c5690 */
-    else if (model >= HUMAN_SET && model < HUMAN_SET + TYPE_3_SLOTS) name = RACER_NAMES[model - HUMAN_SET];
-    else if (model >= OTHER_SET && model < OTHER_SET + TYPE_3_SLOTS) name = RACER_NAMES[model - OTHER_SET], prefix = "m";
-    else if (model >= 0 && model < TRAFFIC_MODELS) name = TRAFFIC_NAMES[model];
-    if (name == NULL) return 0;
-    snprintf(stem, 16, "%s%s", prefix, name);
-    for (int i = 0; stem[i] != '\0'; i++) stem[i] = (char)toupper((unsigned char)stem[i]);
-    return 1;
 }

@@ -3,8 +3,8 @@
  * draws with. The file reads (00451278 the CFM, 0048d3e8 the PDN) are the
  * caller's; car_load_path / car_load_pdn_path name the files exactly as
  * the original does and car_load_setup does the rest on the CFM read. */
-#ifndef TNFS_CAR_LOAD_H
-#define TNFS_CAR_LOAD_H
+#ifndef TNFS_CAR_MODEL_H
+#define TNFS_CAR_MODEL_H
 
 #include "core/formats/chunk.h"
 #include "core/formats/fsh.h"

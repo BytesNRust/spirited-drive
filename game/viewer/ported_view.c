@@ -79,8 +79,10 @@ void ported_view_set_models(const ViewModel *list, const int *ok)
  * also the parked car of ported_view_render. */
 typedef struct {
     Object3D objects[2];
+    Object3D *high, *low;   /* objects, or the borrowed ones */
     CarModel model;
     int ok;
+    int borrowed;
     CarPose pose;
     int32_t node;
 } ViewCar;
@@ -88,16 +90,24 @@ typedef struct {
 static ViewCar cars[PORTED_VIEW_CARS];
 static int car_count, car_ahead;
 
+static void release_car(ViewCar *c)
+{
+    if (c->ok) {
+        car_model_free(&c->model);
+        if (!c->borrowed) {
+            object3d_free(&c->objects[0]);
+            object3d_free(&c->objects[1]);
+        }
+    }
+    c->ok = c->borrowed = 0;
+    c->high = c->low = NULL;
+}
+
 void ported_view_set_car_slot(int slot, const ViewModel *high, const ViewModel *low)
 {
     if (slot < 0 || slot >= PORTED_VIEW_CARS) return;
     ViewCar *c = &cars[slot];
-    if (c->ok) {
-        car_model_free(&c->model);
-        object3d_free(&c->objects[0]);
-        object3d_free(&c->objects[1]);
-        c->ok = 0;
-    }
+    release_car(c);
     if (high == NULL || low == NULL) return;
     if (!object3d_create(&c->objects[0], &high->mesh)) return;
     if (!object3d_create(&c->objects[1], &low->mesh)) {
@@ -106,12 +116,23 @@ void ported_view_set_car_slot(int slot, const ViewModel *high, const ViewModel *
     }
     if (high->has_textures) object3d_bind(&c->objects[0], &high->textures);
     if (low->has_textures) object3d_bind(&c->objects[1], &low->textures);
-    c->ok = car_model_init(&c->model, &c->objects[0], &c->objects[1]);
+    c->high = &c->objects[0], c->low = &c->objects[1];
+    c->ok = car_model_init(&c->model, c->high, c->low);
+}
+
+void ported_view_set_car_objects(int slot, Object3D *high, Object3D *low)
+{
+    if (slot < 0 || slot >= PORTED_VIEW_CARS) return;
+    ViewCar *c = &cars[slot];
+    release_car(c);
+    if (high == NULL || low == NULL) return;
+    c->high = high, c->low = low, c->borrowed = 1;
+    c->ok = car_model_init(&c->model, high, low);
 }
 
 Object3D *ported_view_car_object(int slot)
 {
-    return slot >= 0 && slot < PORTED_VIEW_CARS && cars[slot].ok ? &cars[slot].objects[0] : NULL;
+    return slot >= 0 && slot < PORTED_VIEW_CARS && cars[slot].ok ? cars[slot].high : NULL;
 }
 
 void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)

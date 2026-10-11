@@ -14,8 +14,6 @@ enum {
 };
 
 static const uint8_t TRACK_PAL[4] = { '!', 'p', 'a', 'l' };
-static const uint8_t CAR_PAL[4] = { '!', 'P', 'A', 'L' };
-static const uint8_t CAR_OWN[4] = { '!', 'x', 'x', 'x' };
 
 /* The buffers are the caller's, read from files: writable. */
 static uint8_t *bank_of(const Chunk *c)
@@ -23,9 +21,9 @@ static uint8_t *bank_of(const Chunk *c)
     return c->kind == CHUNK_KIND_BITMAP ? (uint8_t *)(uintptr_t)c->data : NULL;
 }
 
-/* A bank's palette as 6 bits a channel: 0044c36c turns a type 0x24 '!pal'
- * into one in place (>> 2). TODO(00457d40): that the car loader does the
- * same for a CFM's '!PAL' is assumed. */
+/* A track bank's palette as 6 bits a channel: 0044c36c turns a type 0x24
+ * '!pal' into one in place (>> 2). The cars' come from their loader
+ * (00457d40), which does the same for each CFM's '!PAL' and '!xxx'. */
 static const uint8_t *palette6(uint8_t *bank, const uint8_t name[4])
 {
     uint8_t *shape = bank != NULL ? shape_bank_find(bank, name) : NULL;
@@ -65,28 +63,25 @@ static void remap_model_banks(RacePalette *p, const Chunk *models)
     }
 }
 
-/* 004574ec's car fields from each CFM: the high and low detail banks with
- * their '!PAL'. TODO(00490cc0's use): no mesh, the flat sink matches rgb. */
-static void remap_cars(RacePalette *p, const RaceState *race, const Chunk cfm[RACE_CARS])
+/* 004574ec's car fields as the loader (00457d40) left them: the high and
+ * low detail banks with their '!PAL', the high detail object. */
+static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS])
 {
     RaceCarArt art[RACE_CARS];
     memset(art, 0, sizeof art);
     for (int i = 0; i < RACE_CARS; i++) {
-        Chunk high, low;
-        if (cfm[i].kind != CHUNK_KIND_HEADER || chunk_child(&cfm[i], CFM_CHILD_BITMAPS_HIGH, &high) != CHUNK_OK ||
-            chunk_child(&cfm[i], CFM_CHILD_BITMAPS_LOW, &low) != CHUNK_OK)
-            continue;
-        art[i].bank = bank_of(&high);
-        art[i].palette = palette6(art[i].bank, CAR_PAL);
-        art[i].bank2 = bank_of(&low);
-        art[i].palette2 = palette6(art[i].bank2, CAR_PAL);
-        if (art[i].palette == NULL) art[i].bank = NULL;
-        if (art[i].palette2 == NULL) art[i].bank2 = NULL;
+        CarLoad *c = cars[i];
+        if (c == NULL) continue;
+        art[i].bank = c->has_bank[0] && c->palette[0] != NULL ? (uint8_t *)(uintptr_t)c->bank[0].data : NULL;
+        art[i].palette = c->palette[0];
+        art[i].bank2 = c->has_bank[1] && c->palette[1] != NULL ? (uint8_t *)(uintptr_t)c->bank[1].data : NULL;
+        art[i].palette2 = c->palette[1];
+        art[i].mesh = &c->object[0];
     }
     race_palette_remap_cars(p, race->car_count, art, race->unknown_4fbab8);
 }
 
-int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm[RACE_CARS], uint8_t *carpal,
+int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
                         uint8_t rgb[768])
 {
     static RacePalette p;
@@ -100,19 +95,13 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm
     p.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     p.tint_ready = 1;
     race_palette_queue(&p, TRACK_FIRST, TRACK_COUNT, track);
-    /* own[i]: slot i's '!xxx' (car +0x526), in its high detail bank. */
+    /* own[i]: slot i's '!xxx' (car +0x526), as its loader set it. */
     const uint8_t *own[RACE_CARS] = { 0 };
-    for (int i = 0; i < RACE_CARS; i++) {
-        Chunk high;
-        uint8_t *bank = cfm[i].kind == CHUNK_KIND_HEADER && chunk_child(&cfm[i], CFM_CHILD_BITMAPS_HIGH, &high) == CHUNK_OK
-                            ? bank_of(&high) : NULL;
-        const uint8_t *xxx = bank != NULL ? shape_bank_find(bank, CAR_OWN) : NULL;
-        own[i] = xxx != NULL ? xxx + SHAPE_PIXELS : NULL;
-    }
+    for (int i = 0; i < RACE_CARS; i++) own[i] = cars[i] != NULL ? cars[i]->own : NULL;
     race_palette_cars(&p, race, own, carpal);
     race_palette_apply(&p);
     race_palette_enable(&p, race);
-    remap_cars(&p, race, cfm);
+    remap_cars(&p, race, cars);
     remap_track_banks(&p, &terrain, track);
     if (chunk_child(fam, FAM_CHILD_SCENERY, &scenery) == CHUNK_OK) remap_track_banks(&p, &scenery, track);
     if (chunk_child(fam, FAM_CHILD_HORIZON, &horizon) == CHUNK_OK) {

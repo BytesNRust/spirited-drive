@@ -8,6 +8,7 @@
 #include "formats/chunk.h"
 #include "formats/tri.h"
 #include "game/race/car_load.h"
+#include "game/race/car_model.h"
 #include "game/race/car_wheels.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_models.h"
@@ -364,13 +365,13 @@ static RaceSim drive_sim;
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
-    uint8_t *file[RACE_CARS];
-    Chunk cfm[RACE_CARS];
+    uint8_t *file[RACE_CARS];   /* each slot's CFM as read: the loader works in it */
+    CarLoad load[RACE_CARS];    /* 00457d40's results */
+    int loaded[RACE_CARS];
+    RacePalette tint;           /* the tint the loader applies (0050b774): neutral */
     uint8_t *carpal;            /* CARFAMS/CARPAL.FSH */
-    ViewModel models[RACE_CARS][2];
     CarPdn pdns[RACE_CARS];
     const char *data_root;
-    int wheels[RACE_CARS];      /* setup_wheels found the slot's tyre refs */
     int ended;
 } DriveCars;
 
@@ -378,7 +379,8 @@ static DriveCars drive_cars;
 
 enum {
     SINGLE_RACE = 2,        /* RaceField.race_type */
-    DRIVE_SEED = 0x2b67     /* 004fb7f4's stand-in (the frontend's is not read) */
+    DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in (the frontend's is not read) */
+    FULL_FIELD = 8          /* entries[1].car asking 00457870 for the eight-car field */
 };
 
 static uint32_t read_input(void)
@@ -419,44 +421,15 @@ static void bind_wheels(void *user, uint32_t object, int32_t slot, uint32_t fram
     if (obj != NULL && frame < obj->texture_count) object3d_set_texture(obj, slot, obj->textures[frame].texture);
 }
 
-/* 00457d40's tyre part for the racers' models (200 and up): the refs
- * 'frntires' and 'rertires' (00490b21) both bound to tire4 (00490df3),
- * the frames tire1..tire4 (004c5778) kept for 00458614. TODO(00457d40):
- * the rest of the loader, and the frames as the refs' indexes here where
- * the original keeps their shapes. */
-static void setup_wheels(RaceSim *sim)
-{
-    static const char *const TIRES[4] = { "tire1", "tire2", "tire3", "tire4" };
-    for (int slot = 0; slot < sim->count; slot++) {
-        Car *car = sim->race.cars[slot];
-        const Object3D *obj = ported_view_car_object(slot);
-        drive_cars.wheels[slot] = 0;
-        if (car == NULL || obj == NULL || sim->race.models[slot] < 200) continue;
-        car->body_object = (uint32_t)slot;
-        car->front_tyres = object3d_texture_named(obj, "frntires");
-        car->rear_tyres = object3d_texture_named(obj, "rertires");
-        int ok = car->front_tyres >= 0 && car->rear_tyres >= 0;
-        for (int k = 0; k < 4 && ok; k++) {
-            const int32_t ref = object3d_texture_named(obj, TIRES[k]);
-            ok = ref >= 0;
-            car->wheel_frames[k] = (uint32_t)ref;
-        }
-        if (!ok) continue;
-        drive_cars.wheels[slot] = 1;
-        bind_wheels(NULL, car->body_object, car->front_tyres, car->wheel_frames[3]);
-        car->front_frame = 3;
-        bind_wheels(NULL, car->body_object, car->rear_tyres, car->wheel_frames[3]);
-        car->rear_frame = 3;
-    }
-}
-
 static void render_drive(const Track *t, uint8_t *pixels)
 {
     /* 00458d4c: 00458614 on cars[004fbb08] as it draws it. TODO: only when
      * that car is drawn this frame. */
     RaceState *race = &drive_sim.race;
     Car *followed = race->cars[race_slot(race->player)];
-    if (followed != NULL && drive_cars.wheels[race_slot(race->player)]) car_wheel_frames(followed, race, bind_wheels, NULL);
+    const int32_t player = race_slot(race->player);
+    if (followed != NULL && drive_cars.loaded[player] && race->models[player] >= 200)
+        car_wheel_frames(followed, race, bind_wheels, NULL);
     const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
     PortedCar list[RACE_CARS];
     for (int i = 0; i < drive_sim.count; i++) {
@@ -474,28 +447,51 @@ static void car_stem(int model, char stem[16])
         stem[i] = (char)toupper((unsigned char)car_model_names[model][i]);
 }
 
-static int load_pdn(const char *data_root, const char *stem, CarPdn *pdn)
+/* A file the original names in mixed case ("TSupra.cfm"); the CD's are
+ * upper case, so a case-sensitive file system gets a second try. */
+static uint8_t *read_named(const char *path, size_t dir_length, size_t *size)
 {
-    char path[512];
-    snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/%s.PDN", data_root, stem);
+    uint8_t *file = platform_read_file(path, size);
+    if (file != NULL) return file;
+    char upper[CAR_LOAD_PATH];
+    snprintf(upper, sizeof upper, "%s", path);
+    for (size_t i = dir_length; upper[i] != '\0'; i++) upper[i] = (char)toupper((unsigned char)upper[i]);
+    return platform_read_file(upper, size);
+}
+
+static int load_pdn(const char *path, size_t dir_length, CarPdn *pdn)
+{
     size_t size = 0;
-    uint8_t *file = platform_read_file(path, &size);
+    uint8_t *file = read_named(path, dir_length, &size);
     const int ok = file != NULL && car_pdn_read(pdn, file, size);
     platform_free_file(file);
     if (!ok) fprintf(stderr, "track_viewer: no body %s\n", path);
     return ok;
 }
 
-/* RaceField.body: a police or traffic car's PDN and CFM by its model
- * (00457d40's names). */
-static const CarPdn *drive_body(void *user, int32_t slot, int32_t model)
+/* RaceField.load: 00457d40 for the slot (the CFM its model names, read
+ * here), its objects to the view, then its PDN. */
+static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
 {
     (void)user;
-    char stem[16];
-    if (slot < 0 || slot >= RACE_CARS || !race_model_stem(model, stem)) return NULL;
-    if (load_cfm(drive_cars.data_root, stem, &drive_cars.file[slot], &drive_cars.cfm[slot], drive_cars.models[slot]))
-        ported_view_set_car_slot(slot, &drive_cars.models[slot][0], &drive_cars.models[slot][1]);
-    return load_pdn(drive_cars.data_root, stem, &drive_cars.pdns[slot]) ? &drive_cars.pdns[slot] : NULL;
+    const int slot = car->index;
+    if (slot < 0 || slot >= RACE_CARS) return NULL;
+    char dir[CAR_LOAD_PATH], path[CAR_LOAD_PATH], stem[16];
+    snprintf(dir, sizeof dir, "%s/SIMDATA/CARFAMS/", drive_cars.data_root);
+    if (!car_load_path(car, race, dir, path, stem)) return NULL;
+    size_t size = 0;
+    drive_cars.file[slot] = read_named(path, strlen(dir), &size);
+    const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
+        : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
+    drive_cars.loaded[slot] = r == CAR_LOAD_OK;
+    if (!drive_cars.loaded[slot]) {
+        fprintf(stderr, "track_viewer: car %s not loaded (%d)\n", path, (int)r);
+        return NULL;
+    }
+    car->body_object = (uint32_t)slot;  /* bind_wheels' token for the slot's object */
+    ported_view_set_car_objects(slot, &drive_cars.load[slot].object[0], &drive_cars.load[slot].object[1]);
+    car_load_pdn_path(dir, stem, path);
+    return load_pdn(path, strlen(dir), &drive_cars.pdns[slot]) ? &drive_cars.pdns[slot] : NULL;
 }
 
 /* Slot 0 the human's `model`, then the other race models (0..7) as
@@ -527,28 +523,31 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         racers = field.racers;
     }
     field.seed = DRIVE_SEED;
-    field.body = drive_body;
+    field.load = drive_load;
     drive_cars.data_root = data_root;
+    drive_cars.tint.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
+    drive_cars.tint.tint_ready = 1;
     for (int i = 0, next = 0; i < racers; i++) {
         if (i > 0 && next == model) next++;
         const int m = i == 0 ? model : next++;  /* the others: the 8 race models in order */
-        car_stem(m, stem);
         if (i == 0) strcpy(field.entries[i].name, "Player");
         else snprintf(field.entries[i].name, sizeof field.entries[i].name, "%s", car_model_names[m]);
         field.entries[i].car = m;
         field.entries[i].automatic = 1;
-        if (load_pdn(data_root, stem, &drive_cars.pdns[i])) field.pdns[i] = &drive_cars.pdns[i];
-        if (load_cfm(data_root, stem, &drive_cars.file[i], &drive_cars.cfm[i], drive_cars.models[i]))
-            ported_view_set_car_slot(i, &drive_cars.models[i][0], &drive_cars.models[i][1]);
     }
+    /* The frontend's stand-in: a single race with the other entry's car 8
+     * gets 00457870's field of eight different cars (004c5628); any other
+     * car there would race seven copies of it. */
+    if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
-    setup_wheels(&drive_sim);
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     drive_cars.ended = 0;
     static const char *const CARPAL[] = { ".FSH", ".fsh", NULL };
     size_t carpal_size = 0;
     drive_cars.carpal = read_any(data_root, "CARFAMS", "CARPAL", CARPAL, &carpal_size);
-    if (!drive_palette_build(&drive_sim.race, &t->fam, drive_cars.cfm, drive_cars.carpal, t->art.palette))
+    CarLoad *cars[RACE_CARS] = { 0 };
+    for (int i = 0; i < RACE_CARS; i++) cars[i] = drive_cars.loaded[i] ? &drive_cars.load[i] : NULL;
+    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
     return 1;
 }
@@ -557,6 +556,8 @@ static void free_drive(void)
 {
     for (int i = 0; i < RACE_CARS; i++) {
         ported_view_set_car_slot(i, NULL, NULL);
+        car_load_free(&drive_cars.load[i]);
+        drive_cars.loaded[i] = 0;
         platform_free_file(drive_cars.file[i]);
         drive_cars.file[i] = NULL;
     }
