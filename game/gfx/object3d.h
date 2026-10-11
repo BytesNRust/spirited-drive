@@ -139,6 +139,10 @@ int32_t object3d_part_named(const Object3D *obj, const char *name);
  * "FL0") whose name matches as 00490b21's, or -1. */
 int32_t object3d_point_named(const Object3D *obj, const char *name);
 
+/* 00491176: the polygon (+8) of the first label ("bklr", "rt_rear")
+ * whose name matches as 00490b21's, or -1. */
+int32_t object3d_label_named(const Object3D *obj, const char *name);
+
 /* 0048da62 */
 void object3d_set_matrix(Object3D *obj, const int32_t matrix[9]);
 /* camera_matrix: 004c7b20; camera_position: 004c7b44 */

@@ -87,6 +87,17 @@ int32_t object3d_point_named(const Object3D *obj, const char *name)
     return -1;
 }
 
+int32_t object3d_label_named(const Object3D *obj, const char *name)
+{
+    const int32_t count = (int32_t)obj->mesh->label_count;
+    for (int32_t i = 0; i < count; i++) {
+        MeshLabel l;
+        if (mesh_label(obj->mesh, (uint32_t)i, &l) != MESH_OK) return -1;  /* port guard */
+        if (labels_match(l.name, name, LABEL_SIZE)) return (int32_t)l.polygon;
+    }
+    return -1;
+}
+
 void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture)
 {
     if ((uint32_t)slot < obj->texture_count) obj->textures[slot].texture = texture;
