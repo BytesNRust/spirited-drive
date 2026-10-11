@@ -182,23 +182,46 @@ typedef struct {
     int32_t index;  /* 0x516 car slot */
     uint8_t flags_51a;  /* 0x51a bit 2: active */
     uint8_t unknown_51b[3];  /* 0x51b zeroed with flags_51a (004406d0 writes it as a word) */
-    uint8_t pad_51e[0x10];
+    uint32_t bank_high;  /* 0x51e the CFM's child 1, the high detail SHPI (00457d40) */
+    uint32_t palette_high;  /* 0x522 that bank's '!PAL' colours (its +0x10), made 6-bit and tinted (00457d40) */
+    uint32_t own_colours;  /* 0x526 the bank's '!xxx' colours (+0x10), set for cars not flagged 8 at +0x174 (00457d40) */
+    uint32_t mesh_high;  /* 0x52a the CFM's child 0, the high detail ORIP */
     uint32_t body_object;  /* 0x52e 3D object, high detail */
-    uint8_t pad_532[0xbc];
+    uint8_t pad_532[0x8c];
+    int32_t inside_part;  /* 0x5be the high detail object's part 'inside' (004911f2; below 8 or the load hangs) */
+    int32_t inside_count;  /* 0x5c2 its polygon count (0049126b: the section's +0x14) */
+    uint32_t inside_list;  /* 0x5c6 its polygons, the vertex map from the section's +0x10 */
+    int32_t outside_part;  /* 0x5ca 'outside' (999 when not below 8) */
+    int32_t outside_count;  /* 0x5ce 0 when the part is missing */
+    uint32_t outside_list;  /* 0x5d2 left as it was when the part is missing */
+    int32_t surface_part;  /* 0x5d6 'surface' (below 8 or the load hangs) */
+    int32_t surface_count;  /* 0x5da */
+    uint32_t surface_list;  /* 0x5de */
+    int32_t convex_part;  /* 0x5e2 'convex' (999 when not below 8) */
+    int32_t convex_count;  /* 0x5e6 0 when the part is missing */
+    uint32_t convex_list;  /* 0x5ea left as it was when the part is missing */
     uint32_t wheel_frames[4];  /* 0x5ee frames 0..3 (00457d40: the words +0xc of the object's refs 'tire1'..'tire4', shapes; the port keeps what its caller binds with) */
     int32_t front_tyres;  /* 0x5fe the object's ref 'frntires' (00490b21; 00457d40) */
     int32_t front_frame;  /* 0x602 the frame bound to it (00458614), 3 after the load */
     int32_t rear_tyres;  /* 0x606 the object's ref 'rertires' */
     int32_t rear_frame;  /* 0x60a */
-    uint8_t pad_60e[0x3c];
+    int32_t left_signal;  /* 0x60e the followed car's table entry 'left_turn' (004912d0) */
+    int32_t right_signal;  /* 0x612 'right_turn' */
+    int32_t smoke_point;  /* 0x616 the point 'smok' (004910fa) */
+    int32_t light_labels[4];  /* 0x61a the labels lt_frnt, rt_frnt, lt_rear, rt_rear (00491176) */
+    int32_t light_points[8];  /* 0x62a the points fl0, fl1, fr0, fr1, rl0, rl1, rr0, rr1 (004910fa) */
     int32_t model_length;  /* 0x64a from the model (00457d40); twice the body extent c when the PDN has none */
     int32_t model_width;  /* 0x64e */
     int32_t model_height;  /* 0x652 */
-    uint8_t pad_656[0x10];
+    uint32_t bank_low;  /* 0x656 the CFM's child 3, the low detail SHPI */
+    uint32_t palette_low;  /* 0x65a its '!PAL' colours (+0x10) */
+    uint8_t pad_65e[0x4];
+    uint32_t mesh_low;  /* 0x662 the CFM's child 2, the low detail ORIP */
     uint32_t far_object;  /* 0x666 3D object, low detail */
     uint8_t pad_66a[0x124];
     int32_t far;  /* 0x78e drawn with the low detail model this frame */
-    uint8_t pad_792[0x8];
+    uint32_t model_file;  /* 0x792 the CFM as loaded (00451278) */
+    uint8_t pad_796[0x4];
 } Car;
 #pragma pack(pop)
 
@@ -374,16 +397,41 @@ CAR_CHECK(physics, offsetof(Car, physics) == 0x512);
 CAR_CHECK(index, offsetof(Car, index) == 0x516);
 CAR_CHECK(flags_51a, offsetof(Car, flags_51a) == 0x51a);
 CAR_CHECK(unknown_51b, offsetof(Car, unknown_51b) == 0x51b);
+CAR_CHECK(bank_high, offsetof(Car, bank_high) == 0x51e);
+CAR_CHECK(palette_high, offsetof(Car, palette_high) == 0x522);
+CAR_CHECK(own_colours, offsetof(Car, own_colours) == 0x526);
+CAR_CHECK(mesh_high, offsetof(Car, mesh_high) == 0x52a);
 CAR_CHECK(body_object, offsetof(Car, body_object) == 0x52e);
+CAR_CHECK(inside_part, offsetof(Car, inside_part) == 0x5be);
+CAR_CHECK(inside_count, offsetof(Car, inside_count) == 0x5c2);
+CAR_CHECK(inside_list, offsetof(Car, inside_list) == 0x5c6);
+CAR_CHECK(outside_part, offsetof(Car, outside_part) == 0x5ca);
+CAR_CHECK(outside_count, offsetof(Car, outside_count) == 0x5ce);
+CAR_CHECK(outside_list, offsetof(Car, outside_list) == 0x5d2);
+CAR_CHECK(surface_part, offsetof(Car, surface_part) == 0x5d6);
+CAR_CHECK(surface_count, offsetof(Car, surface_count) == 0x5da);
+CAR_CHECK(surface_list, offsetof(Car, surface_list) == 0x5de);
+CAR_CHECK(convex_part, offsetof(Car, convex_part) == 0x5e2);
+CAR_CHECK(convex_count, offsetof(Car, convex_count) == 0x5e6);
+CAR_CHECK(convex_list, offsetof(Car, convex_list) == 0x5ea);
 CAR_CHECK(wheel_frames, offsetof(Car, wheel_frames) == 0x5ee);
 CAR_CHECK(front_tyres, offsetof(Car, front_tyres) == 0x5fe);
 CAR_CHECK(front_frame, offsetof(Car, front_frame) == 0x602);
 CAR_CHECK(rear_tyres, offsetof(Car, rear_tyres) == 0x606);
 CAR_CHECK(rear_frame, offsetof(Car, rear_frame) == 0x60a);
+CAR_CHECK(left_signal, offsetof(Car, left_signal) == 0x60e);
+CAR_CHECK(right_signal, offsetof(Car, right_signal) == 0x612);
+CAR_CHECK(smoke_point, offsetof(Car, smoke_point) == 0x616);
+CAR_CHECK(light_labels, offsetof(Car, light_labels) == 0x61a);
+CAR_CHECK(light_points, offsetof(Car, light_points) == 0x62a);
 CAR_CHECK(model_length, offsetof(Car, model_length) == 0x64a);
 CAR_CHECK(model_width, offsetof(Car, model_width) == 0x64e);
 CAR_CHECK(model_height, offsetof(Car, model_height) == 0x652);
+CAR_CHECK(bank_low, offsetof(Car, bank_low) == 0x656);
+CAR_CHECK(palette_low, offsetof(Car, palette_low) == 0x65a);
+CAR_CHECK(mesh_low, offsetof(Car, mesh_low) == 0x662);
 CAR_CHECK(far_object, offsetof(Car, far_object) == 0x666);
 CAR_CHECK(far, offsetof(Car, far) == 0x78e);
+CAR_CHECK(model_file, offsetof(Car, model_file) == 0x792);
 
 #endif

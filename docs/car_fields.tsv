@@ -183,3 +183,28 @@
 0x15c	i32	ai_speed	zeroed by the reset; the computer car's speed along the road, 16.16 (0046f3e8)
 0x160	i32	ai_target_speed	zeroed by the reset; the speed the driver wants
 0x164	i32	ai_target_lateral	zeroed by the reset; the distance from the road's centre the driver steers for
+0x51e	ref	bank_high	the CFM's child 1, the high detail SHPI (00457d40)
+0x522	ref	palette_high	that bank's '!PAL' colours (its +0x10), made 6-bit and tinted (00457d40)
+0x526	ref	own_colours	the bank's '!xxx' colours (+0x10), set for cars not flagged 8 at +0x174 (00457d40)
+0x52a	ref	mesh_high	the CFM's child 0, the high detail ORIP
+0x5be	i32	inside_part	the high detail object's part 'inside' (004911f2; below 8 or the load hangs)
+0x5c2	i32	inside_count	its polygon count (0049126b: the section's +0x14)
+0x5c6	ref	inside_list	its polygons, the vertex map from the section's +0x10
+0x5ca	i32	outside_part	'outside' (999 when not below 8)
+0x5ce	i32	outside_count	0 when the part is missing
+0x5d2	ref	outside_list	left as it was when the part is missing
+0x5d6	i32	surface_part	'surface' (below 8 or the load hangs)
+0x5da	i32	surface_count
+0x5de	ref	surface_list
+0x5e2	i32	convex_part	'convex' (999 when not below 8)
+0x5e6	i32	convex_count	0 when the part is missing
+0x5ea	ref	convex_list	left as it was when the part is missing
+0x60e	i32	left_signal	the followed car's table entry 'left_turn' (004912d0)
+0x612	i32	right_signal	'right_turn'
+0x616	i32	smoke_point	the point 'smok' (004910fa)
+0x61a	i32[4]	light_labels	the labels lt_frnt, rt_frnt, lt_rear, rt_rear (00491176)
+0x62a	i32[8]	light_points	the points fl0, fl1, fr0, fr1, rl0, rl1, rr0, rr1 (004910fa)
+0x656	ref	bank_low	the CFM's child 3, the low detail SHPI
+0x65a	ref	palette_low	its '!PAL' colours (+0x10)
+0x662	ref	mesh_low	the CFM's child 2, the low detail ORIP
+0x792	ref	model_file	the CFM as loaded (00451278)
