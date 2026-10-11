@@ -33,8 +33,20 @@ static int load_textures(Object3D *obj)
         MeshTexture t;
         if (mesh_texture(obj->mesh, i, &t) != MESH_OK) return 0;
         /* 00490cc0 -> 00490c38: the colour bytes r, g, b of +0xc */
-        obj->textures[i].rgb = t.unknown_1[0] & 0xFFFFFFu;
+        obj->textures[i].rgb = t.unknown_1[0];
         obj->textures[i].texture = NULL;
+    }
+    return 1;
+}
+
+int object3d_match_colours(Object3D *obj, const PaletteMatch *m)
+{
+    for (uint32_t slot = 0; slot < obj->texture_count; slot++) {
+        MeshTexture t;
+        if (mesh_texture(obj->mesh, slot, &t) != MESH_OK) return 0;
+        const uint32_t word = t.unknown_1[0];
+        obj->textures[slot].rgb = word;
+        obj->textures[slot].colour = (uint32_t)palette_match_rgb(m, word & 0xFFFFFFu);
     }
     return 1;
 }

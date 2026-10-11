@@ -22,6 +22,7 @@
 
 #include "formats/fsh.h"
 #include "formats/mesh.h"
+#include "game/gfx/palette_match.h"
 #include "game/race/view.h"
 
 #include <stdint.h>
@@ -63,6 +64,7 @@ typedef struct {
 
 typedef struct {
     uint32_t rgb;               /* +0: MeshTexture +0xc, bytes r, g, b */
+    uint32_t colour;            /* +4: the palette entry nearest rgb (object3d_match_colours) */
     const FshEntry *texture;    /* +0xc, bound by object3d_bind */
     FshEntry entry;
 } Object3DTexture;
@@ -113,6 +115,12 @@ int object3d_create(Object3D *obj, const Mesh *mesh);
 void object3d_free(Object3D *obj);
 /* Returns how many texture slots were bound. */
 int object3d_bind(Object3D *obj, const Fsh *fsh);
+
+/* 00490cc0: each texture slot takes its mesh record's +0xc as rgb and the
+ * entry 00473140 finds for its bytes 0..2 (00490c38) as colour. 0048d798
+ * runs it when the object is made and 004574ec again once the race palette
+ * is built. Returns 0 on a texture record outside the mesh. */
+int object3d_match_colours(Object3D *obj, const PaletteMatch *m);
 
 /* 0048da62 */
 void object3d_set_matrix(Object3D *obj, const int32_t matrix[9]);
