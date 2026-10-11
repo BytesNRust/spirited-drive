@@ -1,0 +1,26 @@
+/* `--drive`'s race palette, built as 00455a5c builds it from the parts that
+ * are ported (see STATE.md, Race palette): the track's colours at 0x90, the
+ * cars' (004572e0), the colour search's entries (0041f818's first part),
+ * each car's banks (004574ec) and the track's banks (00447098 with 00446fd0)
+ * mapped onto it in place. Not yet: the dash (0..0x2f, 0041f988), the
+ * horizon colours (0xf0.., 00450838), the tint of the time of day (004471ac,
+ * a neutral one here) and the cars' mesh colours (the flat sink still
+ * matches rgb itself). */
+#ifndef TNFS_DRIVE_PALETTE_H
+#define TNFS_DRIVE_PALETTE_H
+
+#include "formats/chunk.h"
+#include "game/race/race_state.h"
+
+#include <stdint.h>
+
+/* fam: the track's FAM; cfm[i]: slot i's CFM (an absent chunk: none);
+ * carpal: CARFAMS/CARPAL.FSH (NULL: none; races of type 2 and up need it).
+ * The banks are remapped in place in the files they were read from (owned
+ * by the caller, writable), so this runs once per load. rgb: the screen
+ * palette, 8 bits a channel. Returns 0 when the track has no terrain bank
+ * with a '!pal' (nothing is remapped then). */
+int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm[RACE_PLAYERS], uint8_t *carpal,
+                        uint8_t rgb[768]);
+
+#endif

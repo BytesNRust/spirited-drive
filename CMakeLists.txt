@@ -155,6 +155,7 @@ add_executable(tnfs
     game/sys/timer.c
     game/sys/video.c
     game/viewer/asset_viewer.c
+    game/viewer/drive_palette.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
     game/viewer/ported_view.c

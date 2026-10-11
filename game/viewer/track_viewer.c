@@ -16,6 +16,7 @@
 #include "game/race/track_objects.h"
 #include "platform/platform.h"
 #include "viewer/camera.h"
+#include "viewer/drive_palette.h"
 #include "viewer/model_view.h"
 #include "viewer/ported_view.h"
 #include "viewer/raster.h"
@@ -113,23 +114,26 @@ static int load_car_half(ViewModel *m, const Chunk *cfm, uint32_t mesh, uint32_t
     return 1;
 }
 
-/* CARFAMS/NAME.CFM into `file` (kept: the models point into it). */
-static int load_cfm(const char *data_root, const char *name, uint8_t **file, ViewModel models[2])
+/* CARFAMS/NAME.CFM into `file` (kept: the models point into it), its top
+ * chunk in `cfm`. */
+static int load_cfm(const char *data_root, const char *name, uint8_t **file, Chunk *cfm, ViewModel models[2])
 {
     static const char *const suffixes[] = { ".CFM", ".cfm", NULL };
     size_t size = 0;
-    Chunk cfm;
+    memset(cfm, 0, sizeof *cfm);
     *file = read_any(data_root, "CARFAMS", name, suffixes, &size);
-    const int ok = *file != NULL && chunk_open(&cfm, *file, size) == CHUNK_OK &&
-                   load_car_half(&models[0], &cfm, CFM_CHILD_MESH_HIGH, CFM_CHILD_BITMAPS_HIGH) &&
-                   load_car_half(&models[1], &cfm, CFM_CHILD_MESH_LOW, CFM_CHILD_BITMAPS_LOW);
+    const int ok = *file != NULL && chunk_open(cfm, *file, size) == CHUNK_OK &&
+                   load_car_half(&models[0], cfm, CFM_CHILD_MESH_HIGH, CFM_CHILD_BITMAPS_HIGH) &&
+                   load_car_half(&models[1], cfm, CFM_CHILD_MESH_LOW, CFM_CHILD_BITMAPS_LOW);
     if (!ok) fprintf(stderr, "track_viewer: no car %s\n", name);
+    if (!ok) memset(cfm, 0, sizeof *cfm);
     return ok;
 }
 
 static void load_car(Track *t, const char *data_root, const char *name)
 {
-    t->car_ok = load_cfm(data_root, name, &t->car_file, t->car);
+    Chunk cfm;
+    t->car_ok = load_cfm(data_root, name, &t->car_file, &cfm, t->car);
 }
 
 static void free_track(Track *t)
@@ -359,6 +363,8 @@ static RaceSim drive_sim;
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
     uint8_t *file[RACE_PLAYERS];
+    Chunk cfm[RACE_PLAYERS];
+    uint8_t *carpal;            /* CARFAMS/CARPAL.FSH */
     ViewModel models[RACE_PLAYERS][2];
     CarPdn pdns[RACE_PLAYERS];
     int ended;
@@ -431,7 +437,7 @@ static int load_pdn(const char *data_root, const char *stem, CarPdn *pdn)
 /* Slot 0 the human's `model`, then the other race models (0..7) as
  * computer racers (a single race, as test_race runs it); racers 1 drives
  * alone. */
-static int start_drive(const Track *t, const char *data_root, const char *name, int model, int racers)
+static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers)
 {
     char stem[16];
     car_stem(model, stem);
@@ -459,12 +465,17 @@ static int start_drive(const Track *t, const char *data_root, const char *name, 
         field.entries[i].car = m;
         field.entries[i].automatic = 1;
         if (load_pdn(data_root, stem, &drive_cars.pdns[i])) field.pdns[i] = &drive_cars.pdns[i];
-        if (load_cfm(data_root, stem, &drive_cars.file[i], drive_cars.models[i]))
+        if (load_cfm(data_root, stem, &drive_cars.file[i], &drive_cars.cfm[i], drive_cars.models[i]))
             ported_view_set_car_slot(i, &drive_cars.models[i][0], &drive_cars.models[i][1]);
     }
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     drive_cars.ended = 0;
+    static const char *const CARPAL[] = { ".FSH", ".fsh", NULL };
+    size_t carpal_size = 0;
+    drive_cars.carpal = read_any(data_root, "CARFAMS", "CARPAL", CARPAL, &carpal_size);
+    if (!drive_palette_build(&drive_sim.race, &t->fam, drive_cars.cfm, drive_cars.carpal, t->art.palette))
+        fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
     return 1;
 }
 
@@ -475,6 +486,8 @@ static void free_drive(void)
         platform_free_file(drive_cars.file[i]);
         drive_cars.file[i] = NULL;
     }
+    platform_free_file(drive_cars.carpal);
+    drive_cars.carpal = NULL;
 }
 
 /* One step; at the race's end the results (once), printed. */
