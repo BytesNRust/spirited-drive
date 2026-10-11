@@ -75,39 +75,52 @@ void ported_view_set_models(const ViewModel *list, const int *ok)
     models = list;
 }
 
-/* One parked car on the road, drawn with its row (0045a848). */
-static Object3D car_objects[2];
-static CarModel car;
-static int car_ok, car_ahead;
-static CarPose car_pose;
-static int32_t car_node = -1;
+/* The cars on the road, each drawn with its row (0045a848). Slot 0 is
+ * also the parked car of ported_view_render. */
+typedef struct {
+    Object3D objects[2];
+    CarModel model;
+    int ok;
+    CarPose pose;
+    int32_t node;
+} ViewCar;
+
+static ViewCar cars[PORTED_VIEW_CARS];
+static int car_count, car_ahead;
+
+void ported_view_set_car_slot(int slot, const ViewModel *high, const ViewModel *low)
+{
+    if (slot < 0 || slot >= PORTED_VIEW_CARS) return;
+    ViewCar *c = &cars[slot];
+    if (c->ok) {
+        car_model_free(&c->model);
+        object3d_free(&c->objects[0]);
+        object3d_free(&c->objects[1]);
+        c->ok = 0;
+    }
+    if (high == NULL || low == NULL) return;
+    if (!object3d_create(&c->objects[0], &high->mesh)) return;
+    if (!object3d_create(&c->objects[1], &low->mesh)) {
+        object3d_free(&c->objects[0]);
+        return;
+    }
+    if (high->has_textures) object3d_bind(&c->objects[0], &high->textures);
+    if (low->has_textures) object3d_bind(&c->objects[1], &low->textures);
+    c->ok = car_model_init(&c->model, &c->objects[0], &c->objects[1]);
+}
 
 void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)
 {
-    if (car_ok) {
-        car_model_free(&car);
-        object3d_free(&car_objects[0]);
-        object3d_free(&car_objects[1]);
-        car_ok = 0;
-    }
-    if (high == NULL || low == NULL) return;
-    if (!object3d_create(&car_objects[0], &high->mesh)) return;
-    if (!object3d_create(&car_objects[1], &low->mesh)) {
-        object3d_free(&car_objects[0]);
-        return;
-    }
-    if (high->has_textures) object3d_bind(&car_objects[0], &high->textures);
-    if (low->has_textures) object3d_bind(&car_objects[1], &low->textures);
-    car_ok = car_model_init(&car, &car_objects[0], &car_objects[1]);
+    ported_view_set_car_slot(0, high, low);
     car_ahead = ahead;
 }
 
 static void draw_cars(void *user, int32_t node)
 {
     (void)user;
-    if (!car_ok || node != car_node) return;
     const Object3DSink sink = object_sink(&object_pixels);
-    car_draw(&car, &car_pose, &model_view, 0, &sink);
+    for (int i = 0; i < car_count; i++)
+        if (cars[i].ok && cars[i].node == node) car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
 }
 
 typedef struct {
@@ -146,6 +159,14 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
 void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
                              const CarPose *pose, int32_t pose_node, uint8_t *pixels)
 {
+    const PortedCar one = { pose != NULL ? *pose : (CarPose){ { 0, 0, 0 }, 0, 0, 0, NULL, 1 },
+                            pose != NULL ? pose_node : -1 };
+    ported_view_render_cars(tri, art, info, pc, &one, 1, pixels);
+}
+
+void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
+                             const PortedCar *list, int count, uint8_t *pixels)
+{
     static TrackRender render;
     static View view;
     static HorizonTables horizon;
@@ -170,8 +191,11 @@ void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInf
     track_render_build(&render, tri, art, pc->node);
     track_render_transform(&render, &cam, &ctx);
     model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
-    car_node = car_ok && pose != NULL ? pose_node : -1;
-    if (pose != NULL) car_pose = *pose;
+    car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
+    for (int i = 0; i < car_count; i++) {
+        cars[i].pose = list[i].pose;
+        cars[i].node = list[i].node;
+    }
     static uint8_t shade[256];
     object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shade };
@@ -186,7 +210,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     const PortedCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, n.orientation * 0x400 + yaw,
                                0, (int32_t)node };
     const int32_t parked = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
-    if (car_ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
+    if (cars[0].ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
         const CarPose pose = { { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
         ported_view_render_from(tri, art, info, &cam, &pose, parked, pixels);
     } else {

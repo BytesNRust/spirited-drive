@@ -112,16 +112,23 @@ static int load_car_half(ViewModel *m, const Chunk *cfm, uint32_t mesh, uint32_t
     return 1;
 }
 
-static void load_car(Track *t, const char *data_root, const char *name)
+/* CARFAMS/NAME.CFM into `file` (kept: the models point into it). */
+static int load_cfm(const char *data_root, const char *name, uint8_t **file, ViewModel models[2])
 {
     static const char *const suffixes[] = { ".CFM", ".cfm", NULL };
     size_t size = 0;
     Chunk cfm;
-    t->car_file = read_any(data_root, "CARFAMS", name, suffixes, &size);
-    t->car_ok = t->car_file != NULL && chunk_open(&cfm, t->car_file, size) == CHUNK_OK &&
-                load_car_half(&t->car[0], &cfm, CFM_CHILD_MESH_HIGH, CFM_CHILD_BITMAPS_HIGH) &&
-                load_car_half(&t->car[1], &cfm, CFM_CHILD_MESH_LOW, CFM_CHILD_BITMAPS_LOW);
-    if (!t->car_ok) fprintf(stderr, "track_viewer: no car %s\n", name);
+    *file = read_any(data_root, "CARFAMS", name, suffixes, &size);
+    const int ok = *file != NULL && chunk_open(&cfm, *file, size) == CHUNK_OK &&
+                   load_car_half(&models[0], &cfm, CFM_CHILD_MESH_HIGH, CFM_CHILD_BITMAPS_HIGH) &&
+                   load_car_half(&models[1], &cfm, CFM_CHILD_MESH_LOW, CFM_CHILD_BITMAPS_LOW);
+    if (!ok) fprintf(stderr, "track_viewer: no car %s\n", name);
+    return ok;
+}
+
+static void load_car(Track *t, const char *data_root, const char *name)
+{
+    t->car_ok = load_cfm(data_root, name, &t->car_file, t->car);
 }
 
 static void free_track(Track *t)
@@ -347,6 +354,18 @@ enum {
 
 static RaceSim drive_sim;
 
+/* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
+typedef struct {
+    uint8_t *file[RACE_PLAYERS];
+    ViewModel models[RACE_PLAYERS][2];
+    CarPdn pdns[RACE_PLAYERS];
+    int ended;
+} DriveCars;
+
+static DriveCars drive_cars;
+
+enum { SINGLE_RACE = 2 };   /* RaceField.race_type */
+
 static uint32_t read_input(void)
 {
     uint32_t steer = 0x20, pedal = 0x1e, keys = 0;
@@ -381,19 +400,41 @@ static void render_drive(const Track *t, uint8_t *pixels)
 {
     const Car *car = drive_sim.race.cars[0];
     const PortedCamera cam = chase_camera(car);
-    const CarPose pose = car_pose_of(car);
+    PortedCar list[RACE_PLAYERS];
+    for (int i = 0; i < drive_sim.count; i++) {
+        const Car *c = drive_sim.race.cars[i];
+        list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)) };
+    }
     ported_view_set_models(t->models, t->model_ok);
-    ported_view_render_from(&t->tri, &t->art, &t->info, &cam, &pose,
-                            (int32_t)((uint32_t)car->draw_node & (t->tri.ring_nodes - 1u)), pixels);
+    ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, pixels);
 }
 
-static int start_drive(Track *t, const char *data_root, const char *name, int model)
+static void car_stem(int model, char stem[16])
 {
-    char stem[16] = { 0 };
+    memset(stem, 0, 16);
     for (int i = 0; car_model_names[model][i] != '\0' && i < 15; i++)
         stem[i] = (char)toupper((unsigned char)car_model_names[model][i]);
-    load_car(t, data_root, stem);
-    if (t->car_ok) ported_view_set_car(&t->car[0], &t->car[1], 0);
+}
+
+static int load_pdn(const char *data_root, const char *stem, CarPdn *pdn)
+{
+    char path[512];
+    snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/%s.PDN", data_root, stem);
+    size_t size = 0;
+    uint8_t *file = platform_read_file(path, &size);
+    const int ok = file != NULL && car_pdn_read(pdn, file, size);
+    platform_free_file(file);
+    if (!ok) fprintf(stderr, "track_viewer: no body %s\n", path);
+    return ok;
+}
+
+/* Slot 0 the human's `model`, then the other race models (0..7) as
+ * computer racers (a single race, as test_race runs it); racers 1 drives
+ * alone. */
+static int start_drive(const Track *t, const char *data_root, const char *name, int model, int racers)
+{
+    char stem[16];
+    car_stem(model, stem);
     char path[512];
     snprintf(path, sizeof path, "%s/SIMDATA/CARSPECS/%s.PBS", data_root, stem);
     size_t size = 0;
@@ -405,13 +446,50 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         fprintf(stderr, "track_viewer: no specs %s\n", path);
         return 0;
     }
-    RaceEntry entry;
-    memset(&entry, 0, sizeof entry);
-    strcpy(entry.name, "Player");
-    entry.car = model;
-    entry.automatic = 1;
-    race_sim_start(&drive_sim, &t->tri, name, &specs, &entry, 2, 0);
+    RaceField field;
+    memset(&field, 0, sizeof field);
+    field.racers = racers;
+    field.race_type = racers > 1 ? SINGLE_RACE : 0;
+    for (int i = 0, next = 0; i < racers; i++) {
+        if (i > 0 && next == model) next++;
+        const int m = i == 0 ? model : next++;  /* the others: the 8 race models in order */
+        car_stem(m, stem);
+        if (i == 0) strcpy(field.entries[i].name, "Player");
+        else snprintf(field.entries[i].name, sizeof field.entries[i].name, "%s", car_model_names[m]);
+        field.entries[i].car = m;
+        field.entries[i].automatic = 1;
+        if (load_pdn(data_root, stem, &drive_cars.pdns[i])) field.pdns[i] = &drive_cars.pdns[i];
+        if (load_cfm(data_root, stem, &drive_cars.file[i], drive_cars.models[i]))
+            ported_view_set_car_slot(i, &drive_cars.models[i][0], &drive_cars.models[i][1]);
+    }
+    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
+    drive_cars.ended = 0;
     return 1;
+}
+
+static void free_drive(void)
+{
+    for (int i = 0; i < RACE_PLAYERS; i++) {
+        ported_view_set_car_slot(i, NULL, NULL);
+        platform_free_file(drive_cars.file[i]);
+        drive_cars.file[i] = NULL;
+    }
+}
+
+/* One step; at the race's end the results (once), printed. */
+static void drive_tick(uint32_t input)
+{
+    race_sim_tick(&drive_sim, input);
+    if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
+    race_sim_end(&drive_sim);
+    drive_cars.ended = 1;
+    printf("race over (%d):", drive_sim.race.end_request);
+    for (int i = 0; i < drive_sim.count; i++) {
+        const int slot = drive_sim.race.results_order[i];
+        const Car *c = slot >= 0 && slot < drive_sim.count ? drive_sim.race.cars[slot] : NULL;
+        printf(" %d.%s", i + 1, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
+    }
+    printf("\n");
 }
 
 static int drive_window(const Track *t, uint8_t *pixels)
@@ -425,7 +503,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     for (int running = 1; running && platform_poll_events();) {
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) running = 0;
-        if ((frame++ & 1) == 0) race_sim_tick(&drive_sim, read_input());
+        if ((frame++ & 1) == 0) drive_tick(read_input());
         render_drive(t, pixels);
         platform_present(pixels, palette);
         platform_wait_vblank();
@@ -439,7 +517,7 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
 {
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
-        race_sim_tick(&drive_sim, 0x20 | (tap ? 0x1000u : 0));
+        drive_tick(0x20 | (tap ? 0x1000u : 0));
     }
     const Car *car = drive_sim.race.cars[0];
     printf("tick %d: node %d, speed %.1f m/s, gear %d\n", drive_sim.race.tick, car->node, car->speed / 65536.0, car->gear);
@@ -447,16 +525,17 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     return write_ppm(screenshot, pixels, t->art.palette);
 }
 
-int track_viewer_drive(const char *data_root, const char *name, int model, uint32_t ticks, const char *screenshot)
+int track_viewer_drive(const char *data_root, const char *name, int model, int racers, uint32_t ticks,
+                       const char *screenshot)
 {
     static Track t;
-    int ok = model >= 0 && model < CAR_MODELS && load_track(&t, data_root, name);
-    ok = ok && start_drive(&t, data_root, name, model);
+    int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && load_track(&t, data_root, name);
+    ok = ok && start_drive(&t, data_root, name, model, racers);
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
     ok = ok && pixels != NULL;
     if (ok) ok = screenshot != NULL ? drive_screenshot(&t, pixels, ticks, screenshot) : drive_window(&t, pixels);
     free(pixels);
-    ported_view_set_car(NULL, NULL, 0);
+    free_drive();
     free_track(&t);
     return ok;
 }

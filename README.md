@@ -39,6 +39,14 @@ CL1..CL3, CY1..CY3). `--node N --screenshot out.ppm` renders one frame headless.
 Geometry and textures use the ported loaders; the drawing is a stand-in until the
 original renderer is ported.
 
+Drive (development): `./build/native/tnfs --drive TR1 [--car N] [--racers 1..8]`
+races car N (0..7: TSupra, LDiabl, P911, CZR1, F512TR, DVIPER, ANSX, MRX7)
+against the other models as computer racers (`--racers 1` drives alone).
+Arrows steer, accelerate and brake; A / Z change gear (the cars are automatic:
+A once from N to D). The results print when the race ends.
+`--node TICKS --screenshot out.ppm` runs that many steps at full throttle
+headless and renders one frame.
+
 Headless runs: `TNFS_CAPTURE_DIR` writes every n-th presented frame as PPM and
 `TNFS_INPUT_SCRIPT` replays input (`ms:KEY` held until the game reads it,
 `ms:MOUSE:x:y`). Example: boot, move down twice, then choose Exit with the mouse:
