@@ -1,5 +1,7 @@
 #include "game/sys/fixed_math.h"
 
+#include <string.h>
+
 /* 004c6b84: sin over a quarter turn, 257 entries, 16.16. */
 static const int32_t QUARTER_SINE[257] = {
     0, 402, 804, 1206, 1608, 2010, 2412, 2814, 3215, 3617,
@@ -240,4 +242,27 @@ void fx_cross(const int32_t a[3], const int32_t b[3], int32_t out[3])
     out[0] = (int32_t)((uint32_t)fx_mul_round(a[1], b[2]) - (uint32_t)fx_mul_round(a[2], b[1]));
     out[1] = (int32_t)((uint32_t)fx_mul_round(a[2], b[0]) - (uint32_t)fx_mul_round(a[0], b[2]));
     out[2] = (int32_t)((uint32_t)fx_mul_round(a[0], b[1]) - (uint32_t)fx_mul_round(a[1], b[0]));
+}
+
+/* 00449520, 0044957c, 004495d8: a turn about x, y or z by a 24-bit angle
+ * (>> 8 to the 16-bit sine). */
+void mat3_rotate_x(int32_t m[9], int32_t a)
+{
+    const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
+    const int32_t r[9] = { 0x10000, 0, 0, 0, c, -s, 0, s, c };
+    memcpy(m, r, sizeof r);
+}
+
+void mat3_rotate_y(int32_t m[9], int32_t a)
+{
+    const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
+    const int32_t r[9] = { c, 0, s, 0, 0x10000, 0, -s, 0, c };
+    memcpy(m, r, sizeof r);
+}
+
+void mat3_rotate_z(int32_t m[9], int32_t a)
+{
+    const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
+    const int32_t r[9] = { c, -s, 0, s, c, 0, 0, 0, 0x10000 };
+    memcpy(m, r, sizeof r);
 }

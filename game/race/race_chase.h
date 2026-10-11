@@ -40,4 +40,9 @@ void race_chase_glide(RaceChase *chase, const int32_t to[3], int32_t divide, int
  * rounded, 0042eb54's root with 8 bits, the sum its first guess). */
 int32_t race_chase_distance(const int32_t a[3], const int32_t b[3]);
 
+/* 00404544: `from` turned back by the angles (the turns about x, z and y
+ * by -pitch, -roll, -yaw, multiplied in that order), at 8 bits less
+ * precision: out = ((from >> 8) x M) << 8. */
+void race_chase_unturn(const int32_t from[3], int32_t out[3], int32_t pitch, int32_t roll, int32_t yaw);
+
 #endif

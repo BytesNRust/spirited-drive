@@ -26,3 +26,21 @@ int32_t race_chase_distance(const int32_t a[3], const int32_t b[3])
     const int32_t sum = (int32_t)((uint32_t)fx_mul_round(dx, dx) + (uint32_t)fx_mul_round(dz, dz));
     return rm_sqrt(sum, 8, sum);
 }
+
+static int32_t neg(int32_t a)
+{
+    return (int32_t)(0u - (uint32_t)a);
+}
+
+void race_chase_unturn(const int32_t from[3], int32_t out[3], int32_t pitch, int32_t roll, int32_t yaw)
+{
+    int32_t x[9], z[9], y[9], xz[9], m[9];
+    mat3_rotate_x(x, neg(pitch));
+    mat3_rotate_z(z, neg(roll));
+    mat3_rotate_y(y, neg(yaw));
+    mat3_mul(x, z, xz);
+    mat3_mul(xz, y, m);
+    const int32_t v[3] = { from[0] >> 8, from[1] >> 8, from[2] >> 8 };
+    mat3_apply(v, m, out);
+    for (int i = 0; i < 3; i++) out[i] = (int32_t)((uint32_t)out[i] << 8);
+}

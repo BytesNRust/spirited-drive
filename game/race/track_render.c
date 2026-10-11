@@ -16,33 +16,12 @@ enum {
 
 /* ---- camera matrix (004496ac) ---- */
 
-static void rotate_x(int32_t m[9], int32_t a)  /* 00449520 */
-{
-    const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
-    const int32_t r[9] = { 0x10000, 0, 0, 0, c, -s, 0, s, c };
-    memcpy(m, r, sizeof r);
-}
-
-static void rotate_y(int32_t m[9], int32_t a)  /* 0044957c */
-{
-    const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
-    const int32_t r[9] = { c, 0, s, 0, 0x10000, 0, -s, 0, c };
-    memcpy(m, r, sizeof r);
-}
-
-static void rotate_z(int32_t m[9], int32_t a)  /* 004495d8 */
-{
-    const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
-    const int32_t r[9] = { c, -s, 0, s, c, 0, 0, 0, 0x10000 };
-    memcpy(m, r, sizeof r);
-}
-
 void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored, int32_t out[9])
 {
     int32_t x[9], y[9], z[9], t[9], u[9];
-    rotate_x(x, pitch);
-    rotate_z(z, roll);
-    rotate_y(y, yaw);
+    mat3_rotate_x(x, pitch);
+    mat3_rotate_z(z, roll);
+    mat3_rotate_y(y, yaw);
     /* TODO(00449670): the viewport's vertical scale; 0x10000 in every view
      * seen so far. */
     const int32_t flip[9] = { mirrored ? -0x10000 : 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
