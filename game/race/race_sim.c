@@ -29,6 +29,7 @@ enum {
     CRASH_SOUND_QUIET = 0x6666,  /* 004b9094 as loaded, and from 0040d8e8 */
     CAR_HANDLE = 0x10000,        /* the identity the original keeps as the car's address, times the slot + 1 */
     RACER = 0x4,                 /* flags_174 (00440858) */
+    EARLY_LOOP_NODES = 1000,
     STAGE_END = 0xb5             /* nodes a stage's race stops short of its last (00455a5c) */
 };
 
@@ -106,16 +107,11 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->car_count = race->racers;
     race->humans = 1;
-    /* 0043fbac */
-    race->finish_cars = race->race_type == 0 ? 1 : race->race_type == 1 ? 2 : race->racers;
-    race->finish_humans = race->race_type == 0 ? 1 : race->humans;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
     race->segments = (int32_t)tri->ring_segments;  /* 0050420c (0043e4e0): 0x8000 on a stage */
-    /* 00455a5c -> 0043fbac: a circuit's lap is its ring of nodes, run the
-     * laps chosen; a stage is run once, to 0xb5 nodes before its end. */
-    race->loop_nodes = race->circuit ? race->segments * 4 : (int32_t)tri->segment_count * 4 - STAGE_END;
-    race->laps = race->circuit ? laps : 1;
+    race->laps_setting = laps;
+    race->loop_nodes = EARLY_LOOP_NODES;  /* 0043f994, until 0043fbac sets the real one */
     race->views = 1;
     race->catch_up = CATCH_UP;
     race->crash_sound_level = CRASH_SOUND_QUIET;
@@ -144,8 +140,10 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
      * row it passes is what 00475c14(0) leaves in al, unknown, and only
      * read for race types above 3 or models above 7. */
     ai_race_setup(race, 0);
-    race->laps_setting = race->laps;
-    race_splits_start(race);  /* 00455a5c -> 0043fbac -> 0045aab4 */
+    /* 00455a5c -> 0043fbac: a circuit's lap is its ring of nodes, run the
+     * laps chosen; a stage is run once, to 0xb5 nodes before its end. */
+    if (race->circuit) race_laps_start(race, race->segments * 4, laps);
+    else race_laps_start(race, (int32_t)tri->segment_count * 4 - STAGE_END, 1);
 }
 
 /* The progress the split times measure the player against (00440ef0):
