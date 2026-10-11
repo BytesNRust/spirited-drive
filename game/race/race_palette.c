@@ -1,6 +1,7 @@
 /* The race's screen palette (race_palette.h). */
 #include "game/race/race_palette.h"
 
+#include "game/sys/fixed_math.h"
 #include "game/sys/palette.h"
 
 #include <stddef.h>
@@ -19,7 +20,10 @@ enum {
     SHAPE_PIXELS = 0x10,
     HIDDEN_MARK = '!',
     PALETTE_SCREEN_BITS = 8,     /* 00476460: 004c6130 <= 8 */
-    OPAQUE = 0xff
+    OPAQUE = 0xff,
+    TINT_SHIFT_DIVIDE = 0x100,   /* the channel scales are 8.8 */
+    SATURATION_MAX = 0x10000,
+    CHANNEL_MAX = 0x3f
 };
 
 static uint32_t le32(const uint8_t *b)
@@ -106,4 +110,38 @@ void race_palette_apply(RacePalette *p)
             race_palette_write(p, w->first, w->count, w->colours);
     }
     p->write_count = 0;
+}
+
+static int32_t scaled(uint8_t v, int32_t *scale)
+{
+    if (*scale < 0)
+        *scale = 0;
+    return (int32_t)((uint32_t)v * (uint32_t)*scale) / TINT_SHIFT_DIVIDE;
+}
+
+static int32_t channel(int32_t v)
+{
+    return v < 0 ? 0 : v > CHANNEL_MAX ? CHANNEL_MAX : v;
+}
+
+void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colours)
+{
+    RacePaletteTint *t = &p->tint;
+    if (p->tint_ready == 0)
+        return;
+    for (int32_t i = first; i < end; i++, colours += 3) {
+        int32_t c[3];
+        c[0] = scaled(colours[0], &t->red);
+        c[1] = scaled(colours[1], &t->green);
+        c[2] = scaled(colours[2], &t->blue);
+        if (t->saturation > SATURATION_MAX)
+            t->saturation = SATURATION_MAX;
+        const int32_t red_green = c[0] > c[1] ? c[0] : c[1];
+        const int32_t top = red_green > c[2] ? red_green : c[2];
+        for (int k = 0; k < 3; k++)
+            if (top - c[k] != 0)
+                c[k] += fx_mul_round(top - c[k], t->saturation);
+        for (int k = 0; k < 3; k++)
+            colours[k] = (uint8_t)channel(fx_mul_round(c[k], t->brightness));
+    }
 }

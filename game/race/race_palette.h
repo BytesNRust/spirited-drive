@@ -14,6 +14,16 @@ enum {
     RACE_PALETTE_WRITES = 50     /* 0050a9dc: 12 bytes each */
 };
 
+/* 0050b774..0050b787: the tint 004471dc gives the race's colours (the
+ * time of day). */
+typedef struct {
+    int32_t brightness;   /* 0050b774: 16.16 */
+    int32_t red;          /* 0050b778: x / 256, negatives become 0 */
+    int32_t saturation;   /* 0050b77c: 16.16 toward the brightest channel, at most 1 */
+    int32_t green;        /* 0050b780 */
+    int32_t blue;         /* 0050b784 */
+} RacePaletteTint;
+
 /* A queued write of screen palette entries: count 6-bit colours from first. */
 typedef struct {
     int32_t first;
@@ -35,6 +45,8 @@ typedef struct {
     int32_t screen_bits;        /* 004c6130: up to 8, the screen takes palettes */
     int32_t palette_device;     /* 004c6108: bit 0, a palette the screen can take */
     int32_t handed;             /* port: how often 0047de34 handed the palette to the screen */
+    RacePaletteTint tint;       /* 0050b774 */
+    int32_t tint_ready;         /* 004bcbd4: 004471dc hangs while it is 0 */
 } RacePalette;
 
 /* 004a2bf0: table[first .. first + count) = the screen entry nearest each
@@ -64,5 +76,12 @@ void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint
 /* 00447048: every queued write in order (00476460 each), then the queue is
  * empty. */
 void race_palette_apply(RacePalette *p);
+
+/* 004471dc: tints 6-bit colours in place, entries first .. end - 1 taken
+ * from `colours` on: each channel x its scale / 256, pulled toward the
+ * brightest channel by `saturation`, x `brightness`, kept to 0..0x3f. A
+ * negative channel scale and a saturation above 1 are corrected in `tint`
+ * itself. The original hangs while tint_ready is 0; the port returns. */
+void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colours);
 
 #endif
