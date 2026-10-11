@@ -31,6 +31,10 @@ typedef struct {
     uint8_t slot_colours[RACE_PALETTE_SLOTS];  /* 0051c798: a slot's own entry (0x47, 0x5f), kept out of the search */
     RacePaletteWrite writes[RACE_PALETTE_WRITES];  /* 0050a9dc, applied by 00447048 */
     int32_t write_count;                           /* 004bcbc8 */
+    uint8_t changed;            /* 0052d2d8: set by a write, cleared once the screen took the palette */
+    int32_t screen_bits;        /* 004c6130: up to 8, the screen takes palettes */
+    int32_t palette_device;     /* 004c6108: bit 0, a palette the screen can take */
+    int32_t handed;             /* port: how often 0047de34 handed the palette to the screen */
 } RacePalette;
 
 /* 004a2bf0: table[first .. first + count) = the screen entry nearest each
@@ -49,5 +53,12 @@ void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
  * screen entries from `first`. The original hangs on a 51st (it writes the
  * entry past the queue first); the port drops it. */
 void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours);
+
+/* 00476460: `count` 6-bit colours into the screen entries from `first`, each
+ * channel v << 2 | v >> 4 (a byte): 0052ced8 as R, G, B, 0 and 0052f178 as
+ * B, G, R, 0xff; then `changed`, and the palette goes to the screen
+ * (0047de34, counted in `handed`) when it has 8 bits or fewer and the
+ * device bit, which clears `changed` again. */
+void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours);
 
 #endif

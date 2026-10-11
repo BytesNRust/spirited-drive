@@ -15,7 +15,9 @@ enum {
     SHAPE_WIDTH = 4,             /* words, signed */
     SHAPE_HEIGHT = 6,
     SHAPE_PIXELS = 0x10,
-    HIDDEN_MARK = '!'
+    HIDDEN_MARK = '!',
+    PALETTE_SCREEN_BITS = 8,     /* 00476460: 004c6130 <= 8 */
+    OPAQUE = 0xff
 };
 
 static uint32_t le32(const uint8_t *b)
@@ -70,4 +72,26 @@ void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint
         return;
     p->writes[p->write_count] = (RacePaletteWrite){ first, count, colours };
     p->write_count++;
+}
+
+static uint8_t to_8_bits(uint8_t v)
+{
+    return (uint8_t)(v << 2 | v >> 4);
+}
+
+void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours)
+{
+    for (int32_t i = first; i != (int32_t)((uint32_t)first + (uint32_t)count); i++, colours += 3) {
+        const uint8_t r = to_8_bits(colours[0]), g = to_8_bits(colours[1]), b = to_8_bits(colours[2]);
+        if (i < 0 || i >= RACE_PALETTE_COLOURS)
+            continue;
+        uint8_t *rgbx = p->screen_rgbx + 4 * i, *bgra = p->screen + 4 * i;
+        rgbx[0] = r, rgbx[1] = g, rgbx[2] = b, rgbx[3] = 0;
+        bgra[0] = b, bgra[1] = g, bgra[2] = r, bgra[3] = OPAQUE;
+    }
+    p->changed = 1;
+    if (p->screen_bits <= PALETTE_SCREEN_BITS && (p->palette_device & 1) != 0) {
+        p->handed++;
+        p->changed = 0;
+    }
 }
