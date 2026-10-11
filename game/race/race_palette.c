@@ -14,6 +14,7 @@ enum {
     LIGHTS = 4,
     OWN_COLOUR = 0xfe,
     POLICE_SLOT = 2,
+    MESH_SLOTS = 2,              /* 004574ec: the slots whose mesh colours are found again */
     BANK_COUNT = 8,              /* SHPI: shapes at +8, then name and offset pairs from +0x10 */
     BANK_DIRECTORY = 0x10,
     BANK_ENTRY = 8,
@@ -246,4 +247,15 @@ void race_palette_enable(RacePalette *p, const RaceState *race)
         if (p->slot_colours[i] != 0)
             p->enabled[p->slot_colours[i]] = 0;
     p->inverse = NULL;
+}
+
+void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_PLAYERS], int32_t police)
+{
+    const PaletteMatch m = { p->inverse, p->screen, p->enabled };
+    for (int32_t slot = 0; slot < car_count && slot < RACE_PLAYERS; slot++) {
+        const RaceCarArt *a = &art[slot];
+        if (a->bank != NULL) race_palette_remap_bank(p, a->bank, a->palette, slot, police);
+        if (a->bank2 != NULL) race_palette_remap_bank(p, a->bank2, a->palette2, slot, police);
+        if (slot < MESH_SLOTS && a->mesh != NULL) object3d_match_colours(a->mesh, &m);
+    }
 }

@@ -4,6 +4,7 @@
 #ifndef TNFS_RACE_PALETTE_H
 #define TNFS_RACE_PALETTE_H
 
+#include "game/gfx/object3d.h"
 #include "game/gfx/palette_match.h"
 #include "game/race/race_state.h"
 
@@ -114,5 +115,22 @@ void race_palette_enable(RacePalette *p, const RaceState *race);
  * entry 0x47. Where the original hangs or faults (no CarPal, no '!PAL', a
  * '!PAL' of type 0x24) the port returns. */
 void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_PLAYERS], uint8_t *carpal);
+
+/* What a car slot holds for 004574ec; in the original these are car record
+ * fields. */
+typedef struct {
+    uint8_t *bank;              /* +0x51e, with its 6-bit palette +0x522 */
+    const uint8_t *palette;
+    uint8_t *bank2;             /* +0x656, with its 6-bit palette +0x65a */
+    const uint8_t *palette2;
+    Object3D *mesh;             /* +0x52e */
+} RaceCarArt;
+
+/* 004574ec: each of the race's cars (004fb7e8, up to RACE_PLAYERS) has its
+ * two banks mapped onto the race palette (004470e0, the slot passed) and,
+ * for slots 0 and 1, its mesh's texture colours found again (00490cc0).
+ * `police` is 004fbab8. A missing bank or mesh is skipped (the original
+ * faults). */
+void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_PLAYERS], int32_t police);
 
 #endif
