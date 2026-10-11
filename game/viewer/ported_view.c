@@ -168,13 +168,15 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
 }
 
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
+/* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
+ * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
 static void draw_sky_ring(const SkyTargets *targets, const View *view, const TrackArt *art, const TrackInfo *info,
-                          const TrackCamera *cam, int32_t yaw)
+                          const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
     static SkyRing ring;
     sky_ring_build(&ring, info, &art->horizon);
     if (!ring.enabled) return;
-    SkyFrame frame = { view, cam->matrix, { 0 }, yaw, 0, 0, SKY_WORLD_SHIFT, 0, { 0 },
+    SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, 0, SKY_WORLD_SHIFT, 0, { 0 },
                        { 0x10000, WIDTH, 0, 0, WIDTH, HEIGHT }, WIDTH, WIDTH, 0 };
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
@@ -204,11 +206,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars } };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);
-    /* TODO(00473680): the frame is cleared first; colour 0 for now. */
+    /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
+     * fills cover the view; cleared here only for the frames without one. */
     memset(pixels, 0, WIDTH * HEIGHT);
     if (art->has_horizon && info->ring != 0) {
         const SkyTargets targets = { &quad, &target };
-        draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw);
+        draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, WIDTH };
         horizon_draw_flat(&horizon, &ht, &ctx.clip, 0, &art->horizon, pc->yaw, 0,
