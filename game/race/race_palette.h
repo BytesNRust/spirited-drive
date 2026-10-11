@@ -5,14 +5,21 @@
 #define TNFS_RACE_PALETTE_H
 
 #include "game/gfx/palette_match.h"
+#include "game/race/race_state.h"
 
 #include <stdint.h>
 
 enum {
     RACE_PALETTE_COLOURS = 256,
     RACE_PALETTE_SLOTS = 16,     /* 0051c798: one byte a car slot */
-    RACE_PALETTE_WRITES = 50     /* 0050a9dc: 12 bytes each */
+    RACE_PALETTE_WRITES = 50,    /* 0050a9dc: 12 bytes each */
+    RACE_PALETTE_MODEL_LIGHTS = 26
 };
+
+/* The exe's colours 004572e0 queues: one a car model (004c578c, 3 bytes
+ * each), and the police lights (004c5610, 4 colours). */
+extern const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3];
+extern const uint8_t race_palette_police_light[4 * 3];
 
 /* 0050b774..0050b787: the tint 004471dc gives the race's colours (the
  * time of day). */
@@ -47,6 +54,7 @@ typedef struct {
     int32_t handed;             /* port: how often 0047de34 handed the palette to the screen */
     RacePaletteTint tint;       /* 0050b774 */
     int32_t tint_ready;         /* 004bcbd4: 004471dc hangs while it is 0 */
+    const uint8_t *carpal;      /* 004c5788: the CarPal bank, loaded for races of type 2 and up */
 } RacePalette;
 
 /* 004a2bf0: table[first .. first + count) = the screen entry nearest each
@@ -83,5 +91,17 @@ void race_palette_apply(RacePalette *p);
  * negative channel scale and a saturation above 1 are corrected in `tint`
  * itself. The original hangs while tint_ready is 0; the port returns. */
 void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colours);
+
+/* 004572e0: queues the cars' colours. Race types below 2: each car not
+ * flagged 8 at +0x174 (and not slot 2 in a type 1 race played back) puts its
+ * own colours (`own`, its '!xxx') at its slot's range (0x30 and 0x48, 0x17
+ * each; slot 2 none; slots 3.. 8 each from 0x60) and slots 0 and 1 their own
+ * entry (0x47, 0x5f) a colour of cars[0]'s model; then the 4 police-light
+ * colours at 0xfa. Types 2 and up: the CarPal bank (`carpal`, the load of
+ * "%sCarPal") has its '!PAL' tinted and queued at 0x48 (0x48 colours), the
+ * followed car's own at 0x30 (0x18), and only the followed slot gets its own
+ * entry 0x47. Where the original hangs or faults (no CarPal, no '!PAL', a
+ * '!PAL' of type 0x24) the port returns. */
+void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_PLAYERS], uint8_t *carpal);
 
 #endif

@@ -3,6 +3,7 @@
 
 #include "game/sys/fixed_math.h"
 #include "game/sys/palette.h"
+#include "game/sys/shape_bank.h"
 
 #include <stddef.h>
 
@@ -23,8 +24,32 @@ enum {
     OPAQUE = 0xff,
     TINT_SHIFT_DIVIDE = 0x100,   /* the channel scales are 8.8 */
     SATURATION_MAX = 0x10000,
-    CHANNEL_MAX = 0x3f
+    CHANNEL_MAX = 0x3f,
+    SLOT_TABLE = 10,             /* 004c56d0, 004c56f8, 004c5720: 10 dwords each */
+    OWN_FLAGGED = 8,             /* car +0x174: no colours of its own */
+    PLAYBACK_RACE_TYPE = 1,
+    PLAYBACK_SKIPPED_SLOT = 2,
+    POLICE_LIGHTS_FIRST = 0xfa,
+    CARPAL_FIRST = 0x48,         /* 004c5748, 004c574c */
+    CARPAL_COUNT = 0x48,
+    FOLLOWED_FIRST = 0x30,
+    FOLLOWED_COUNT = 0x18,
+    FOLLOWED_OWN = 0x47,
+    TINT_ALL = 0x100,
+    RGB_PALETTE_TYPE = 0x24,     /* an 8-bit '!PAL': 004572e0 hangs on it */
+    RACING_TYPE = 2
 };
+
+static const int32_t SLOT_FIRST[SLOT_TABLE] = { 0x30, 0x48, 0, 0x60, 0x68, 0x70, 0x78, 0x80, 0x88, 0x90 };  /* 004c56d0 */
+static const int32_t SLOT_COUNT[SLOT_TABLE] = { 0x17, 0x17, 0, 8, 8, 8, 8, 8, 8, 8 };                      /* 004c56f8 */
+static const uint8_t SLOT_OWN[SLOT_TABLE] = { 0x47, 0x5f, 0, 0, 0, 0, 0, 0, 0, 0 };                        /* 004c5720 */
+const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3] = {                                   /* 004c578c */
+    15, 3, 3, 15, 3, 3, 15, 3, 3, 15, 3, 3, 6, 6, 6, 15, 3, 3, 15, 3, 3, 15, 3, 3, 15, 3, 3, 15, 3, 3,
+    15, 3, 3, 30, 5, 5, 15, 3, 3, 62, 5, 5, 47, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5,
+    62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 20, 20, 62, 20, 20
+};
+const uint8_t race_palette_police_light[4 * 3] = { 63, 0, 32, 48, 0, 16, 32, 0, 63, 16, 0, 48 };           /* 004c5610 */
+static const uint8_t PAL_NAME[4] = { '!', 'P', 'A', 'L' };                                                /* 004b1160 */
 
 static uint32_t le32(const uint8_t *b)
 {
@@ -143,5 +168,48 @@ void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colo
                 c[k] += fx_mul_round(top - c[k], t->saturation);
         for (int k = 0; k < 3; k++)
             colours[k] = (uint8_t)channel(fx_mul_round(c[k], t->brightness));
+    }
+}
+
+static const uint8_t *model_light(const Car *car)
+{
+    return car != NULL && (uint32_t)car->model < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * car->model : NULL;
+}
+
+static void cars_each_own(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_PLAYERS])
+{
+    for (int32_t i = 0; i < race->car_count && i < RACE_PLAYERS && i < SLOT_TABLE; i++) {
+        const Car *car = race->cars[i];
+        if (car == NULL || (car->flags_174 & OWN_FLAGGED) != 0)
+            continue;
+        if (race->race_type == PLAYBACK_RACE_TYPE && race->playback != 0 && i == PLAYBACK_SKIPPED_SLOT)
+            continue;
+        race_palette_queue(p, SLOT_FIRST[i], SLOT_COUNT[i], own[i]);
+        p->slot_colours[i] = SLOT_OWN[i];
+        if (p->slot_colours[i] != 0)
+            race_palette_queue(p, p->slot_colours[i], 1, model_light(race->cars[0]));
+    }
+    race_palette_queue(p, POLICE_LIGHTS_FIRST, 4, race_palette_police_light);
+}
+
+void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_PLAYERS], uint8_t *carpal)
+{
+    if (race->race_type < RACING_TYPE) {
+        cars_each_own(p, race, own);
+        return;
+    }
+    p->carpal = carpal;
+    uint8_t *pal = carpal != NULL ? shape_bank_find(carpal, PAL_NAME) : NULL;
+    if (pal == NULL || (uint32_t)race->player >= RACE_PLAYERS)
+        return;
+    race_palette_tint(p, 0, TINT_ALL, pal + SHAPE_PIXELS);
+    race_palette_queue(p, CARPAL_FIRST, CARPAL_COUNT, pal + SHAPE_PIXELS);
+    race_palette_queue(p, FOLLOWED_FIRST, FOLLOWED_COUNT, own[race->player]);
+    if (pal[0] == RGB_PALETTE_TYPE)
+        return;
+    for (int32_t i = 0; i < race->car_count && i < RACE_PALETTE_SLOTS; i++) {
+        p->slot_colours[i] = i == race->player ? FOLLOWED_OWN : 0;
+        if (p->slot_colours[i] != 0)
+            race_palette_queue(p, p->slot_colours[i], 1, model_light(race->cars[race->player]));
     }
 }
