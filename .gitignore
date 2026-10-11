@@ -5,6 +5,7 @@ build/
 ghidra/project/
 analysis/*.log
 reference/
+!tests/mods/reference/
 __pycache__/
 # Regenerable decompiler output derived from the EA binary
 analysis/decomp/

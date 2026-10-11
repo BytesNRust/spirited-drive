@@ -3,6 +3,7 @@
  *   tnfs-studio pack   DIR OUT --from ORIGINAL [--palette FILE] [--force]
  *   tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR
  *   tnfs-studio slot list|replace|undo ...        (studio/slot.h)
+ *   tnfs-studio track new LAYOUT --template SLOT --out DIR ...   (studio/track_new.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
  * overwritten without --force. validate checks a file or a mod directory against the limits of the original
@@ -16,6 +17,7 @@
 #include "formats/validate.h"
 #include "studio/fsio.h"
 #include "studio/slot.h"
+#include "studio/track_new.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +44,7 @@ static void usage(FILE *to)
           "  tnfs-studio slot list track|car\n"
           "  tnfs-studio slot replace track|car SLOT SOURCE_DIR --mods DIR [--data DIR] [--stem OLD] [--also REL]...\n"
           "  tnfs-studio slot undo --mods DIR [--all] [--force]\n"
+          "  tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n"
           "  (export = unpack, import = pack)\n"
           "--palette FILE   a game file (FSH or QFS) whose palette colours bitmaps that carry none\n"
           "--force          overwrite existing files\n"
@@ -225,6 +228,12 @@ int main(int argc, char **argv)
         ExchangeError slot_err = {{0}};
         if (slot_command(argc - 1, argv + 1, &slot_err)) return 0;
         fprintf(stderr, "tnfs-studio: %s\n", slot_err.message);
+        return 1;
+    }
+    if (strcmp(command, "track") == 0) {
+        ExchangeError track_err = {{0}};
+        if (track_command(argc - 1, argv + 1, &track_err)) return 0;
+        fprintf(stderr, "tnfs-studio: %s\n", track_err.message);
         return 1;
     }
     const int unpack = strcmp(command, "unpack") == 0 || strcmp(command, "export") == 0;

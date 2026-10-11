@@ -37,6 +37,7 @@ add_library(tnfs_core STATIC
     core/formats/table_exchange.c
     core/formats/tri.c
     core/formats/tri_exchange.c
+    core/formats/track_gen.c
     core/formats/tri_write.c
     core/formats/tsv.c
     core/formats/validate.c
@@ -51,6 +52,9 @@ add_library(tnfs_core STATIC
     core/formats/qfs_refpack.c
 )
 target_include_directories(tnfs_core PUBLIC core)
+if(UNIX)
+    target_link_libraries(tnfs_core PUBLIC m)   # track_gen
+endif()
 target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 # The recovered game logic: platform-independent, links no SDL.
@@ -168,7 +172,7 @@ endif()
 
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c)
+    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c)
     target_include_directories(tnfs-studio PRIVATE .)
     target_link_libraries(tnfs-studio PRIVATE tnfs_core)
     target_compile_options(tnfs-studio PRIVATE ${TNFS_WARNINGS})
@@ -176,7 +180,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots)
+    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -238,6 +242,7 @@ if(NOT EMSCRIPTEN)
     endif()
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME mods_overlay COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mods_overlay.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+        add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
     endif()
     add_executable(test_platform_mods tests/test_platform_mods.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
@@ -246,6 +251,16 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_platform_mods PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_mods COMMAND test_platform_mods)
+    add_executable(test_reference_mod tests/test_reference_mod.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_reference_mod PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_reference_mod PRIVATE m)
+    endif()
+    target_compile_options(test_reference_mod PRIVATE ${TNFS_WARNINGS})
+    if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_test(NAME reference_mod COMMAND sh ${CMAKE_SOURCE_DIR}/tests/reference_mod.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
+                 ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:test_reference_mod>)
+    endif()
     file(GLOB TNFS_PBS_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.PBS"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARSPECS/*.pbs")
     if(TNFS_PBS_FILES)
@@ -269,6 +284,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
         add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
         add_test(NAME tri_exchange_cd COMMAND test_tri_exchange ${TNFS_TRI_FILES})
+        add_test(NAME track_gen_cd COMMAND test_track_gen ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)
         target_link_libraries(test_track PRIVATE tnfs_game)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})
