@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-enum { PORTED_VIEW_MODELS = 64, PORTED_VIEW_CARS = 8 };
+enum { PORTED_VIEW_MODELS = 64, PORTED_VIEW_CARS = 9 };
 
 /* The FAM 3D objects, drawn through the renderer's model callback. */
 void ported_view_set_models(const ViewModel *list, const int *ok);

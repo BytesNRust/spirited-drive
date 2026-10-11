@@ -18,4 +18,10 @@
  * words or loops for ever the port leaves the models as they are. */
 void race_models(RaceState *race);
 
+/* The car file stem 00457d40 builds for `model` ("WAGON", "MTSUPRA",
+ * "TSUPRA", "COPMUST"; upper case) into `stem`: traffic 004c56a0, 100.. the
+ * 'm' (004b1174) variant of 004c54d0's racer, 200.. 004c5340's, 400 and up
+ * 004c5690's first. Returns 0 for a model past the tables read so far. */
+int race_model_stem(int32_t model, char stem[16]);
+
 #endif

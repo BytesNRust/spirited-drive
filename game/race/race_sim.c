@@ -14,6 +14,7 @@
 #include "game/race/car_road.h"
 #include "game/race/race_finish.h"
 #include "game/race/race_results.h"
+#include "game/race/race_models.h"
 #include "game/race/race_sound.h"
 #include "game/race/race_split_times.h"
 
@@ -34,6 +35,7 @@ enum {
     CRASH_SOUND_QUIET = 0x6666,  /* 004b9094 as loaded, and from 0040d8e8 */
     CAR_HANDLE = 0x10000,        /* the identity the original keeps as the car's address, times the slot + 1 */
     RACER = 0x4,                 /* flags_174 (00440858) */
+    COP = 0x8,                   /* flags_174 (00440858) */
     EARLY_LOOP_NODES = 1000,
     STAGE_END = 0xb5,            /* nodes a stage's race stops short of its last (00455a5c) */
     STOPPED = 0x8000,            /* a finished human's speed (+0x70) at most this ends the race */
@@ -101,6 +103,20 @@ int race_sim_track_index(const char *stem)
     return -1;
 }
 
+void race_field_counts(RaceField *field, int track, uint32_t track_flags, int flag_52b312)
+{
+    field->cops = field->traffic = 0;
+    if (field->race_type == 2 || field->race_type == 3) field->racers = RACE_PLAYERS;
+    else if (field->race_type == 0) field->racers = 1;
+    else {
+        field->racers = 2;
+        if (!(track_flags & 4) && track < 3) {
+            field->cops = flag_52b312 == 0;
+            field->traffic = 6;
+        }
+    }
+}
+
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade)
 {
@@ -113,7 +129,10 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->arcade = arcade;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
-    race->car_count = race->racers;
+    race->cops = field->cops < 0 ? 0 : field->cops;
+    race->traffic_setting = field->traffic < 0 ? 0 : field->traffic;
+    race->car_count = race->racers + race->cops + race->traffic_setting;  /* 00439c98 */
+    if (race->car_count > RACE_CARS) race->car_count = RACE_CARS;     /* port guard: 9 slots */
     race->humans = 1;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
@@ -127,6 +146,9 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
+    /* 004275f8: 00428fe0 with 004fb7f4, then 00457870, before 00455a5c. */
+    race_random_seed(race, field->seed);
+    race_models(race);
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = race->car_count;
     sim->specs[0] = *specs;
@@ -141,7 +163,10 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
         car_enter(car, &sim->specs[i], CAR_HANDLE * (uint32_t)(i + 1), race);
         car->flags_51a = (uint8_t)((car->flags_51a | FLAG_ACTIVE) & ~FLAG_RETIRED);
         if (i >= race->humans && i < race->racers) car->flags_174 |= RACER;
-        if (field->pdns[i] != NULL) car_body_init(car, field->pdns[i]);
+        if (i >= race->racers && i < race->racers + race->cops) car->flags_174 |= COP;
+        const CarPdn *pdn = field->pdns[i] != NULL ? field->pdns[i]
+                            : field->body != NULL ? field->body(field->user, i, race->models[i]) : NULL;
+        if (pdn != NULL) car_body_init(car, pdn);
     }
     for (int i = 0; i < sim->count; i++) sim->slots[i].car.lateral = 0;
     race_sort_cars(race);

@@ -9,6 +9,7 @@
 #include "formats/tri.h"
 #include "game/race/car_load.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_models.h"
 #include "game/race/race_sim.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
@@ -362,17 +363,21 @@ static RaceSim drive_sim;
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
-    uint8_t *file[RACE_PLAYERS];
-    Chunk cfm[RACE_PLAYERS];
+    uint8_t *file[RACE_CARS];
+    Chunk cfm[RACE_CARS];
     uint8_t *carpal;            /* CARFAMS/CARPAL.FSH */
-    ViewModel models[RACE_PLAYERS][2];
-    CarPdn pdns[RACE_PLAYERS];
+    ViewModel models[RACE_CARS][2];
+    CarPdn pdns[RACE_CARS];
+    const char *data_root;
     int ended;
 } DriveCars;
 
 static DriveCars drive_cars;
 
-enum { SINGLE_RACE = 2 };   /* RaceField.race_type */
+enum {
+    SINGLE_RACE = 2,        /* RaceField.race_type */
+    DRIVE_SEED = 0x2b67     /* 004fb7f4's stand-in (the frontend's is not read) */
+};
 
 static uint32_t read_input(void)
 {
@@ -406,7 +411,7 @@ static CarPose car_pose_of(const Car *car)
 static void render_drive(const Track *t, uint8_t *pixels)
 {
     const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
-    PortedCar list[RACE_PLAYERS];
+    PortedCar list[RACE_CARS];
     for (int i = 0; i < drive_sim.count; i++) {
         const Car *c = drive_sim.race.cars[i];
         list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)) };
@@ -434,10 +439,23 @@ static int load_pdn(const char *data_root, const char *stem, CarPdn *pdn)
     return ok;
 }
 
+/* RaceField.body: a police or traffic car's PDN and CFM by its model
+ * (00457d40's names). */
+static const CarPdn *drive_body(void *user, int32_t slot, int32_t model)
+{
+    (void)user;
+    char stem[16];
+    if (slot < 0 || slot >= RACE_CARS || !race_model_stem(model, stem)) return NULL;
+    if (load_cfm(drive_cars.data_root, stem, &drive_cars.file[slot], &drive_cars.cfm[slot], drive_cars.models[slot]))
+        ported_view_set_car_slot(slot, &drive_cars.models[slot][0], &drive_cars.models[slot][1]);
+    return load_pdn(drive_cars.data_root, stem, &drive_cars.pdns[slot]) ? &drive_cars.pdns[slot] : NULL;
+}
+
 /* Slot 0 the human's `model`, then the other race models (0..7) as
  * computer racers (a single race, as test_race runs it); racers 1 drives
- * alone. */
-static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers)
+ * alone. race_type 0..3: the cars 0042702c sets for it, the police and
+ * traffic (slots past the racers) by their drawn models. */
+static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     char stem[16];
     car_stem(model, stem);
@@ -456,6 +474,14 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     memset(&field, 0, sizeof field);
     field.racers = racers;
     field.race_type = racers > 1 ? SINGLE_RACE : 0;
+    if (race_type >= 0) {
+        field.race_type = race_type;
+        race_field_counts(&field, race_sim_track_index(name), 0, 0);
+        racers = field.racers;
+    }
+    field.seed = DRIVE_SEED;
+    field.body = drive_body;
+    drive_cars.data_root = data_root;
     for (int i = 0, next = 0; i < racers; i++) {
         if (i > 0 && next == model) next++;
         const int m = i == 0 ? model : next++;  /* the others: the 8 race models in order */
@@ -481,7 +507,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
 
 static void free_drive(void)
 {
-    for (int i = 0; i < RACE_PLAYERS; i++) {
+    for (int i = 0; i < RACE_CARS; i++) {
         ported_view_set_car_slot(i, NULL, NULL);
         platform_free_file(drive_cars.file[i]);
         drive_cars.file[i] = NULL;
@@ -557,12 +583,13 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     return write_ppm(screenshot, pixels, t->art.palette);
 }
 
-int track_viewer_drive(const char *data_root, const char *name, int model, int racers, uint32_t ticks,
+int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
                        const char *screenshot)
 {
     static Track t;
-    int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && load_track(&t, data_root, name);
-    ok = ok && start_drive(&t, data_root, name, model, racers);
+    int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
+             load_track(&t, data_root, name);
+    ok = ok && start_drive(&t, data_root, name, model, racers, race_type);
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
     ok = ok && pixels != NULL;
     if (ok) ok = screenshot != NULL ? drive_screenshot(&t, pixels, ticks, screenshot) : drive_window(&t, pixels);

@@ -46,13 +46,28 @@ void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpe
                     int laps, int arcade);
 
 /* The cars of a race as 0042702c sets them up: slot 0 the human, then the
- * computer racers (time trial 1 racer, single race and tournament 8). */
-typedef struct {
+ * computer racers (time trial 1 racer, single race and tournament 8), the
+ * police cars and the traffic (race_field_counts). */
+typedef struct RaceField RaceField;
+struct RaceField {
     int racers;                         /* 004fb7dc */
+    int cops;                           /* 004fb7e4: police cars after the racers */
+    int traffic;                        /* 004fb7ec: traffic cars after the police */
+    uint32_t seed;                      /* 004fb7f4: race_random_seed's (00428fe0) */
     int race_type;                      /* 004fb7d0: 0 time trial, 1 head to head, 2 single race, 3 tournament */
     RaceEntry entries[RACE_PLAYERS];    /* 004fb7fa: each slot's car (the computer racers' too) */
-    const CarPdn *pdns[RACE_CARS];   /* 00517580: each car's PDN; NULL leaves the body unset */
-} RaceField;
+    const CarPdn *pdns[RACE_CARS];   /* 00517580: each car's PDN; NULL asks `body` */
+    /* Called for the slots without a PDN once the models are drawn
+     * (race_models): the PDN of `model` (RaceState.models), or NULL. */
+    const CarPdn *(*body)(void *user, int32_t slot, int32_t model);
+    void *user;
+};
+
+/* 0042702c's counts for a race type: types 2 and 3 race 8, type 0 one car;
+ * type 1 two, with 6 traffic cars and one police car (when 0052b312, the
+ * word that also makes the race single-human when 0, is 0) on the tracks
+ * below 3 (CY, CL, AL) when the track flags (0052b306) lack bit 2. */
+void race_field_counts(RaceField *field, int track, uint32_t track_flags, int flag_52b312);
 
 /* `field`'s cars on `tri`, the human's specs (the decompressed PBS) in slot
  * 0, entered as 00440858 does. */
