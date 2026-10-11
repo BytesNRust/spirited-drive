@@ -1,6 +1,9 @@
 /* The camera that follows a car (race_chase.h). */
 #include "game/race/race_chase.h"
 
+#include "game/sys/fixed_math.h"
+#include "game/sys/rigid_math.h"
+
 static int32_t sub(int32_t a, int32_t b)
 {
     return (int32_t)((uint32_t)a - (uint32_t)b);
@@ -15,4 +18,11 @@ void race_chase_glide(RaceChase *chase, const int32_t to[3], int32_t divide, int
         else if (ticks == -1 && gap == INT32_MIN) chase->step[i] = gap;  /* port guard: idiv faults there */
         else chase->step[i] = gap / ticks;
     }
+}
+
+int32_t race_chase_distance(const int32_t a[3], const int32_t b[3])
+{
+    const int32_t dx = sub(a[0], b[0]), dz = sub(a[2], b[2]);
+    const int32_t sum = (int32_t)((uint32_t)fx_mul_round(dx, dx) + (uint32_t)fx_mul_round(dz, dz));
+    return rm_sqrt(sum, 8, sum);
 }

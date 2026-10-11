@@ -36,4 +36,8 @@ typedef struct {
  * set) or by a 2^ticks-th of the way; nothing when ticks is 0. */
 void race_chase_glide(RaceChase *chase, const int32_t to[3], int32_t divide, int32_t ticks);
 
+/* 00404368: the distance between two points across x and z (the squares
+ * rounded, 0042eb54's root with 8 bits, the sum its first guess). */
+int32_t race_chase_distance(const int32_t a[3], const int32_t b[3]);
+
 #endif
