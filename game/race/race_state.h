@@ -18,7 +18,8 @@ enum {
     RACE_TRACK_NAME = 16,
     RACE_PLAYERS = 8,
     RACE_LAP_MARKS = 109,         /* what fits in a 0x1d2-byte player record before the police stop counts */
-    RACE_SURFACES = 3
+    RACE_SURFACES = 3,
+    RACE_VOICES = 16              /* 0050a4cc: 8 bytes each, up to the banks at 0050a54c */
 };
 
 /* 004fa9b0 + 16 * surface (car +0x4a2), set per track by 0042f734. */
@@ -53,7 +54,9 @@ typedef struct {
     int32_t automatic;    /* +0x0d */
     int32_t traction;     /* +0x11: traction control wanted */
     int32_t anti_lock;    /* +0x15: ABS wanted */
-    uint8_t unknown_19[0x32];
+    uint8_t unknown_19[4];
+    int32_t sound_volume; /* +0x1d (004fb817): the sound volume, read for the followed slot; 0 plays no car sounds (0044404c) */
+    uint8_t unknown_21[0x2a];
 } RaceEntry;
 #pragma pack(pop)
 typedef char race_entry_size_check[sizeof(RaceEntry) == 0x4b ? 1 : -1];
@@ -91,7 +94,23 @@ typedef struct {
     /* 004acd84 (_XYVectorForce): the steady force on the controls, each of
      * x and y in -100..100 (0043ce08); NULL for none. */
     void (*force)(void *user, int32_t x, int32_t y);
+    /* The sound driver's voices: 0048eea0 starts `sound` (pan, then volume
+     * and pitch as bytes) and returns the voice, negative when it could not;
+     * 00473b4c, 00473c08 and 00473bb0 set a playing voice's volume (0..0x7f),
+     * pitch (0..0x7f) and pan (0..0xff); 00473d20 is non-zero once the voice
+     * has stopped. NULL: no voice starts, and a voice counts as stopped. */
+    int32_t (*voice_start)(void *user, int32_t sound, int32_t pan, uint8_t volume, uint8_t pitch);
+    void (*voice_volume)(void *user, int32_t voice, int32_t volume);
+    void (*voice_pitch)(void *user, int32_t voice, int32_t pitch);
+    void (*voice_pan)(void *user, int32_t voice, int32_t pan);
+    int32_t (*voice_stopped)(void *user, int32_t voice);
 } RaceSounds;
+
+/* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */
+typedef struct {
+    int32_t voice;
+    int32_t sound;
+} RaceVoice;
 
 /* A computer driver's profile (0x8d bytes at *0050bae0 + 0x8d * letter,
  * 0044941c; 00449400 points 0050bae0 at 004c2888, where profiles 0..8 are).
@@ -295,6 +314,8 @@ typedef struct {
     /* dashboard readings the simulation leaves for the cockpit view */
     int32_t gauge_acc, gauge_ac8;   /* 004f9acc, 004f9ac8 (0041e858) */
     int32_t dash_ab8, dash_abc, dash_ac0, dash_ac4;  /* 004f9ab8.. (0041e7fc) */
+    RaceVoice voices[RACE_VOICES];  /* 0050a4cc */
+    int32_t sound_silent;           /* 004bc6ec: non-zero, the followed car's sounds play at volume 0 */
     RaceSounds sounds;
 } RaceState;
 
