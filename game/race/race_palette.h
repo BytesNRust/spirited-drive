@@ -98,6 +98,11 @@ void race_palette_apply(RacePalette *p);
  * itself. The original hangs while tint_ready is 0; the port returns. */
 void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colours);
 
+/* 004473d8 (from 00457d40 for each car bank's palette): a palette shape
+ * tinted whole, 004471dc(0, width x height / 3, its data at +0x10), the
+ * width and height the shorts at +4 and +6 (the product wraps; idiv). */
+void race_palette_tint_shape(RacePalette *p, uint8_t *shape);
+
 /* 0041f818, its first part (up to 0041f8dc; the rest sets up the dash):
  * the colour search may pick entries 0..0xfe again, except 0x47, 0x5f
  * (race types below 2), 0xfa..0xff and each car slot's own colour; the

@@ -191,6 +191,12 @@ void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colo
     }
 }
 
+void race_palette_tint_shape(RacePalette *p, uint8_t *shape)
+{
+    const int16_t width = (int16_t)(shape[4] | shape[5] << 8), height = (int16_t)(shape[6] | shape[7] << 8);
+    race_palette_tint(p, 0, (int32_t)((uint32_t)width * (uint32_t)height) / 3, shape + 0x10);
+}
+
 static const uint8_t *model_light(const Car *car)
 {
     return car != NULL && (uint32_t)car->model < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * car->model : NULL;
