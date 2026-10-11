@@ -97,6 +97,12 @@ void race_palette_apply(RacePalette *p);
  * itself. The original hangs while tint_ready is 0; the port returns. */
 void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colours);
 
+/* 0041f818, its first part (up to 0041f8dc; the rest sets up the dash):
+ * the colour search may pick entries 0..0xfe again, except 0x47, 0x5f
+ * (race types below 2), 0xfa..0xff and each car slot's own colour; the
+ * inverse table is dropped. */
+void race_palette_enable(RacePalette *p, const RaceState *race);
+
 /* 004572e0: queues the cars' colours. Race types below 2: each car not
  * flagged 8 at +0x174 (and not slot 2 in a type 1 race played back) puts its
  * own colours (`own`, its '!xxx') at its slot's range (0x30 and 0x48, 0x17

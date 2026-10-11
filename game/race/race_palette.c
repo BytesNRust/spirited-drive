@@ -38,7 +38,10 @@ enum {
     FOLLOWED_OWN = 0x47,
     TINT_ALL = 0x100,
     RGB_PALETTE_TYPE = 0x24,     /* an 8-bit '!PAL': 004572e0 hangs on it */
-    RACING_TYPE = 2
+    RACING_TYPE = 2,
+    ENABLED_FILL = 0xff,         /* 00481ef0 over 0..0xfe; 0xff is cleared below anyway */
+    SLOT1_OWN = 0x5f,
+    OFF_FIRST = 0xfa
 };
 
 static const int32_t SLOT_FIRST[SLOT_TABLE] = { 0x30, 0x48, 0, 0x60, 0x68, 0x70, 0x78, 0x80, 0x88, 0x90 };  /* 004c56d0 */
@@ -228,4 +231,19 @@ void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *con
         if (p->slot_colours[i] != 0)
             race_palette_queue(p, p->slot_colours[i], 1, model_light(race->cars[race->player]));
     }
+}
+
+void race_palette_enable(RacePalette *p, const RaceState *race)
+{
+    for (int i = 0; i < ENABLED_FILL; i++)
+        p->enabled[i] = 1;
+    p->enabled[FOLLOWED_OWN] = 0;
+    if (race->race_type < RACING_TYPE)
+        p->enabled[SLOT1_OWN] = 0;
+    for (int i = OFF_FIRST; i < RACE_PALETTE_COLOURS; i++)
+        p->enabled[i] = 0;
+    for (int32_t i = 0; i < race->car_count && i < RACE_PALETTE_SLOTS; i++)
+        if (p->slot_colours[i] != 0)
+            p->enabled[p->slot_colours[i]] = 0;
+    p->inverse = NULL;
 }
