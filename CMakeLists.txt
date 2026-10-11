@@ -113,6 +113,7 @@ add_library(tnfs_game STATIC
     game/race/car_tyres.c
     game/race/car_vertical.c
     game/race/car_walls.c
+    game/race/car_model.c
     game/race/car_wheels.c
     game/race/race_grid.c
     game/race/race_models.c
