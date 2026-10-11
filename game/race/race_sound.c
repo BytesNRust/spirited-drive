@@ -14,8 +14,14 @@ enum {
     LEVEL_MAX = 0x7f,
     FRESH_FROM = 0x20,            /* sounds started anew each time */
     FRESH_TO = 0x25,
-    FRESH_TOO = 0x50
+    FRESH_TOO = 0x50,
+    PULSE_SOUND = 0x61,
+    PULSE_PAN = 0x40,
+    PULSE_PITCH = 0x40,
+    PULSE_STEPS = 7
 };
+
+static const int32_t PULSE_COUNTS[PULSE_STEPS] = { 1, 20, 15, 10, 5, 3, 1 };  /* 00443710 */
 
 int32_t race_sound_pan(int32_t angle)
 {
@@ -96,4 +102,25 @@ void race_sound_channel(RaceState *race, int32_t channel, int32_t sound, int32_t
         v->voice = voice;
         v->sound = sound;
     }
+}
+
+void race_sound_pulse(RaceState *race)
+{
+    if ((uint32_t)race->unknown_4b92d4 >= PULSE_STEPS || (uint32_t)race->player >= RACE_PLAYERS)
+        return;
+    RacePulse *p = &race->sound_pulse;
+    const int32_t count = PULSE_COUNTS[race->unknown_4b92d4];
+    if (p->armed == 0) {
+        p->armed = 1;
+        p->count = count;
+    } else if (count < p->count) {
+        p->count = count;
+    }
+    if (p->count != 0) {
+        p->count = (int32_t)((uint32_t)p->count - 1u);
+        return;
+    }
+    const int32_t volume = race->sound_silent == 0 ? (uint8_t)race->entries[race->player].sound_volume : 0;
+    voice_start(race, PULSE_SOUND, PULSE_PAN, volume, PULSE_PITCH);
+    p->armed = 0;
 }

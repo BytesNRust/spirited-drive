@@ -25,4 +25,13 @@ int32_t race_sound_loudness(int32_t distance);
  * playing. */
 void race_sound_channel(RaceState *race, int32_t channel, int32_t sound, int32_t pitch, int32_t volume, int32_t pan);
 
+/* 00444230: a countdown (race->sound_pulse) taken from the 7-word table
+ * 00443710 (1, 20, 15, 10, 5, 3, 1) by 004b92d4 when armed, cut to the
+ * table's word when that is lower; at 0 sound 0x61 starts (pan 0x40, pitch
+ * 0x40, the followed slot's sound volume's low byte, 0 when silent) and the
+ * countdown is disarmed, else it goes down by one. With 004b92d4 outside
+ * 0..6 (the original reads its stack) or the followed slot outside the
+ * entries, the port returns. */
+void race_sound_pulse(RaceState *race);
+
 #endif

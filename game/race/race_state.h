@@ -107,6 +107,12 @@ typedef struct {
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */
+/* 00444230's countdown: armed, then the calls left before sound 0x61. */
+typedef struct {
+    int32_t armed;              /* 004bcb74 */
+    int32_t count;              /* 004bcb78 */
+} RacePulse;
+
 typedef struct {
     int32_t voice;
     int32_t sound;
@@ -316,6 +322,7 @@ typedef struct {
     int32_t dash_ab8, dash_abc, dash_ac0, dash_ac4;  /* 004f9ab8.. (0041e7fc) */
     RaceVoice voices[RACE_VOICES];  /* 0050a4cc */
     int32_t sound_silent;           /* 004bc6ec: non-zero, the followed car's sounds play at volume 0 */
+    RacePulse sound_pulse;          /* 004bcb74 (00444230) */
     RaceSounds sounds;
 } RaceState;
 
