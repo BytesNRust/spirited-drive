@@ -138,3 +138,13 @@ int car_draw(CarModel *car, const CarPose *pose, const ModelView *mv, int mirror
     mat3_apply(rel, mv->camera_matrix, cam);
     return car_draw_at(car, pose, cam, mv, mirror, sink);
 }
+
+/* 004bad44: the wobble by step (past 33 the words are other data). */
+static const int8_t WOBBLE[34] = { 0, 0, -1, -2, -2, -1, 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 0,
+                                   -2, -4, -6, -7, -8, -7, -6, -5, -3, 0, 4, 8, 12, 16, 16, 16, 16 };
+
+int32_t car_suspension_wobble(int32_t amplitude, int32_t step)
+{
+    if (step < 0 || step >= (int32_t)sizeof WOBBLE) return 0;  /* port guard */
+    return (int32_t)((uint32_t)WOBBLE[step] * (uint32_t)amplitude) / 16;
+}

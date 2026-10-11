@@ -52,4 +52,9 @@ int car_draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const 
 /* mirror: the second pass of 004591d4 (param_2). Returns 1 when drawn. */
 int car_draw(CarModel *car, const CarPose *pose, const ModelView *mv, int mirror, const Object3DSink *sink);
 
+/* 0042ecd0: a suspension wobble: `amplitude` x 004bad44[step] / 16 (the
+ * steps 0..33 the table holds; a car's +0x427 / +0x428 count down from
+ * 0x1e at most). */
+int32_t car_suspension_wobble(int32_t amplitude, int32_t step);
+
 #endif
