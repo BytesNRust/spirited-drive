@@ -180,7 +180,7 @@ typedef struct {
     int32_t listener_heading;       /* 004f8060 */
     int32_t listener_node;          /* 004f8054: the camera's node; scenery hits within 9 nodes of it sound */
     int32_t crash_spin;             /* 004bad18 */
-    PlayerRecord players[RACE_PLAYERS];  /* 0051cc54 */
+    PlayerRecord players[RACE_PLAYERS + 1];  /* 0051cc54; the 9th takes the place kept one on (00440c30) and the last car's model (0045af80) */
     Car *cars[RACE_PLAYERS];        /* 00509e1c: the cars by slot */
     int32_t by_node[RACE_PLAYERS];  /* 00509e68: slots by road node, the rearmost first (00440dd8) */
     int32_t by_progress[RACE_PLAYERS];  /* 00509e44: slots by progress, last place first (00440dd8) */
@@ -230,6 +230,7 @@ typedef struct {
     int16_t results_rival_name;     /* 0051dcc8: the rival's short-name index (0042700c) */
     int16_t results_unknown_cca;    /* the 16 words above are one block for the oracle: keep them together */
     int16_t results_order_short[9]; /* 004fa030: results_order as shorts (0045b29c) */
+    int16_t unknown_4f82a0[8];      /* 004f82a0: each racer's flags 0045af80 ORs into the game state (+0x5a4) */
     int32_t frontend_track;         /* 00524e85, read as a word: 0..2 stages */
     int32_t frontend_laps_word;     /* 00524e9f: the high half is the laps chosen */
     int32_t laps_setting;           /* 004fbac4: the laps chosen (0042702c) */

@@ -18,4 +18,11 @@ int32_t race_short_name_index(int16_t model);
  * lap times are kept; the record's bests and counts are copied over. */
 void race_results_record(RaceState *race);
 
+/* 0045af80: at the race's end the racers' flags into the game state; the
+ * humans' records get the race's length mark and their car; the computer
+ * cars still racing an estimated finish from how far they got; the order
+ * sorted by finish (none last); the player's finish and split ticks kept
+ * for the next race's rival; then 0045b29c unless (short)00524e9f is set. */
+void race_results_end(RaceState *race);
+
 #endif

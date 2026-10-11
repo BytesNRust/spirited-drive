@@ -133,3 +133,76 @@ void race_results_record(RaceState *race)
     for (size_t i = 0; i < sizeof COPY / sizeof COPY[0]; i++)
         set_game_word(race, g + COPY[i][0], player_word(race, r + COPY[i][1]));
 }
+
+enum {
+    FLAGS_AT = 0x5a4,             /* game_state: the racers' flags (0052b2e8) */
+    LENGTH_MARK = 0x30,           /* record +0x1c8 = loop nodes x 0x30 / 10 */
+    FINISH_OFFSET = 300,
+    SPLITS = 85,
+    GHOST_LAPS = 0x4c             /* record +0x4c: the split ticks a rival runs to (0045aab4) */
+};
+
+static void set_player_word(RaceState *race, int64_t at, int32_t v)
+{
+    if (at >= 0 && at + 4 <= (int64_t)sizeof race->players) memcpy((uint8_t *)race->players + at, &v, sizeof v);
+}
+
+/* 0051cc50 + 4 x i: RaceSplits.unknown_cc50, then the players' records. */
+static void set_after_splits(RaceState *race, int32_t i, int32_t v)
+{
+    if (i == 0) race->splits.unknown_cc50 = v;
+    else if (i > 0) set_player_word(race, 4 * ((int64_t)i - 1), v);  /* port guard: below, the splits block */
+}
+
+static void sort_by_finish(RaceState *race)
+{
+    for (int32_t pass = 0; pass < race->finish_cars; pass++)
+        for (int32_t k = 1; k < race->finish_cars && k < 9; k++) {  /* port guard: 9 slots */
+            const int32_t a = race->results_order[k - 1], b = race->results_order[k];
+            const int32_t fa = player_word(race, (int64_t)a * (int64_t)sizeof(PlayerRecord) + 0x1c4);
+            const int32_t fb = player_word(race, (int64_t)b * (int64_t)sizeof(PlayerRecord) + 0x1c4);
+            if (fa <= 0 || fb < fa) {
+                race->results_order[k - 1] = b;
+                race->results_order[k] = a;
+            }
+        }
+}
+
+void race_results_end(RaceState *race)
+{
+    for (int32_t k = 0; k < race->racers && k < 8; k++) {  /* port guard: 8 */
+        int16_t f;
+        memcpy(&f, race->game_state + FLAGS_AT + 2 * k, sizeof f);
+        f = (int16_t)(f | race->unknown_4f82a0[k]);
+        memcpy(race->game_state + FLAGS_AT + 2 * k, &f, sizeof f);
+    }
+    const int32_t mark = race->loop_nodes * LENGTH_MARK / 10;
+    const int64_t record = (int64_t)sizeof(PlayerRecord);
+    for (int32_t i = 0; i < race->finish_humans && i < RACE_PLAYERS; i++) {  /* port guard: 8 cars */
+        set_player_word(race, i * record + 0x1c8, mark);
+        set_player_word(race, (i + 1) * record + 4, race->cars[i]->model);
+    }
+    if (race->finish_humans < race->finish_cars) {
+        const int32_t run = race->loop_nodes * race->laps * race->tick - FINISH_OFFSET;
+        for (int32_t i = race->finish_humans; i < race->finish_cars && i < RACE_PLAYERS; i++) {
+            const Car *car = race->cars[i];
+            if (player_word(race, i * record + 0x1c4) == 0) {
+                const int32_t got = (car->lap - 1) * race->loop_nodes + car->node + 1;
+                /* port guard: the original divides by zero (or overflows) there */
+                const int32_t finish = got == 0 || (got == -1 && run == INT32_MIN) ? 0 : run / got;
+                set_player_word(race, i * record + 0x1c4, finish);
+                set_player_word(race, i * record + 0x1c8, mark);
+            }
+            set_player_word(race, (i + 1) * record + 4, car->model);
+        }
+    }
+    sort_by_finish(race);
+    const int64_t own = (int64_t)race->player * record;
+    set_after_splits(race, race->track_variant, player_word(race, own + 0x1c4));
+    for (int32_t n = 0; n < SPLITS; n++) {
+        int32_t k = n + race->track_variant * 5;
+        if (k > SPLITS - 1) k = SPLITS - 1;
+        set_player_word(race, own + GHOST_LAPS + 4 * (int64_t)k, race->splits.passed_ticks[n]);
+    }
+    if ((int16_t)race->frontend_laps_word == 0) race_results_record(race);
+}

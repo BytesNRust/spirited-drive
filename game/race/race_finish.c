@@ -11,8 +11,8 @@ enum {
     FINISH = 0x1c4,               /* PlayerRecord.finish */
     MARK_FINISHED = 4,            /* the lap mark the finish goes into: +4 + lap x 4 */
     MARK_OUT = 0xc,               /* out before the start: +0xc + lap x 4 */
-    PLACE = RECORD,               /* the place is kept one record on, at the next player's +0; player 7's
-                                   * lies past the 8 records (0051d0e4), where the port reads 0 */
+    PLACE = RECORD,               /* the place is kept one record on, at the next player's +0 (player 7's
+                                   * in the 9th record, 0051d0e4) */
     OUT = -999,
     FINISH_OFFSET = 300,          /* ticks taken off the finish, as the lap marks (0043fa3c) */
     BEFORE_START = 1,             /* car_race_window */
