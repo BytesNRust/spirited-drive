@@ -14,6 +14,7 @@
 #include "game/race/car_road.h"
 #include "game/race/race_finish.h"
 #include "game/race/race_results.h"
+#include "game/race/race_sound.h"
 #include "game/race/race_split_times.h"
 
 #include <ctype.h>
@@ -263,6 +264,11 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         race_splits_gap(race);
         race_camera_pick(race, race->cars[race->viewed & (RACE_PLAYERS - 1)]);
         race_chase_tick(race, &race->chase);
+        /* 00440ef0 after 004046b0: the player's sounds unless the race is
+         * over (phase 3) or their entry has the sound off. TODO: 00472e34
+         * before it, 0047217c, 00472348 and 00472560 after it, not ported. */
+        if (race->phase != 3 && race->entries[race->player & (RACE_PLAYERS - 1)].sound_volume != 0)
+            race_sound_follow(race, &sim->specs[race->player & (RACE_PLAYERS - 1)]);
         for (int i = 0; i < sim->count; i++)
             if ((sim->slots[i].car.flags_51a & FLAG_ACTIVE) && sim->slots[i].car.controller != 0)
                 car_keep_draw_state(&sim->slots[i].car);
