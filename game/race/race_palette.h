@@ -116,6 +116,11 @@ void race_palette_apply(RacePalette *p);
  * itself. The original hangs while tint_ready is 0; the port returns. */
 void race_palette_tint(RacePalette *p, int32_t first, int32_t end, uint8_t *colours);
 
+/* 004471ac (from the track's Info reader 0043a370, its time-of-day group):
+ * the tint 004471dc applies, and tint_ready set. */
+void race_palette_set_tint(RacePalette *p, int32_t red, int32_t green, int32_t blue, int32_t saturation,
+                           int32_t brightness);
+
 /* 004473d8 (from 00457d40 for each car bank's palette): a palette shape
  * tinted whole, 004471dc(0, width x height / 3, its data at +0x10), the
  * width and height the shorts at +4 and +6 (the product wraps; idiv). */

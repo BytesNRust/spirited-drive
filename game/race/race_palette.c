@@ -125,6 +125,13 @@ void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint
     p->write_count++;
 }
 
+void race_palette_set_tint(RacePalette *p, int32_t red, int32_t green, int32_t blue, int32_t saturation,
+                           int32_t brightness)
+{
+    p->tint = (RacePaletteTint){ brightness, red, saturation, green, blue };
+    p->tint_ready = 1;
+}
+
 void race_palette_queue_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette, int32_t first, int32_t count)
 {
     if ((uint32_t)p->bank_count >= RACE_PALETTE_BANKS)
