@@ -54,6 +54,39 @@ static int load_pdn(CarPdn *pdn, const char *simdata, int model)
     return ok;
 }
 
+/* The race's end (00440ef0): not before the human has a finish and has
+ * stopped; then 1, or 0x10 when out before the start; and the results
+ * (0045af80) leave every racer in the order once. */
+static int check_end(RaceSim *s)
+{
+    Car *human = s->race.cars[0];
+    static RaceSim before;  /* the race.cars pointers stay on `s`'s slots */
+    before = *s;
+    s->race.players[0].finish = s->race.tick - 300;
+    human->speed = 0x8001;
+    race_sim_tick(s, THROTTLE);
+    int ok = !race_sim_over(s);
+    s->race.players[0].finish = -999;
+    s->race.cars[0]->speed = 0;
+    race_sim_tick(s, THROTTLE);
+    ok &= s->race.end_request == 0x10;
+    *s = before;
+    s->race.players[0].finish = s->race.tick - 300;
+    s->race.cars[0]->speed = 0x8000;
+    race_sim_tick(s, THROTTLE);
+    ok &= race_sim_over(s) && s->race.end_request == 1 && s->race.end_state == 1;
+    race_sim_end(s);
+    int seen = 0;
+    for (int i = 0; i < RACE_PLAYERS; i++)
+        if (s->race.results_order[i] >= 0 && s->race.results_order[i] < RACE_PLAYERS)
+            seen |= 1 << s->race.results_order[i];
+    ok &= seen == (1 << RACE_PLAYERS) - 1;
+    printf("race end: %s, order", ok ? "ok" : "FAIL");
+    for (int i = 0; i < RACE_PLAYERS; i++) printf(" %d", s->race.results_order[i]);
+    printf("\n");
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -111,6 +144,7 @@ int main(int argc, char **argv)
         printf("%d %-7s physics %d, node %4d, %4d nodes, speed %6.1f m/s%s\n", i, car_model_names[i], car->physics,
                car->node, moved, (i == 0 ? car->speed : car->ai_speed) / 65536.0, good ? "" : "  FAIL");
     }
+    ok &= check_end(&sim);
     free(tri_file);
     return ok ? 0 : 1;
 }

@@ -10,6 +10,7 @@
 #include "game/race/car_physics.h"
 #include "game/race/car_road.h"
 #include "game/race/race_finish.h"
+#include "game/race/race_results.h"
 #include "game/race/race_split_times.h"
 
 #include <ctype.h>
@@ -30,7 +31,10 @@ enum {
     CAR_HANDLE = 0x10000,        /* the identity the original keeps as the car's address, times the slot + 1 */
     RACER = 0x4,                 /* flags_174 (00440858) */
     EARLY_LOOP_NODES = 1000,
-    STAGE_END = 0xb5             /* nodes a stage's race stops short of its last (00455a5c) */
+    STAGE_END = 0xb5,            /* nodes a stage's race stops short of its last (00455a5c) */
+    STOPPED = 0x8000,            /* a finished human's speed (+0x70) at most this ends the race */
+    END_FINISHED = 1,            /* 00509d6c / 00509d70 */
+    END_ALL_OUT = 0x10           /* no human has a finish above 0 */
 };
 
 static void no_sound(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
@@ -193,6 +197,33 @@ static void run_physics(Car *car, CarSpecs *specs, RaceState *race)
     car_lateral(car, race);
 }
 
+/* 00440ef0 after the finishes: once every human (finish_humans) has a
+ * finish and has slowed to STOPPED, the end request: 1, or 0x10 when none
+ * of them finished above 0. Not ported: the split screen's switch to the
+ * other player's car (00404530, the camera) and the network wait
+ * (0052b312 == 1). */
+static void check_end(RaceState *race)
+{
+    int32_t humans = race->finish_humans;
+    if (humans > RACE_PLAYERS) humans = RACE_PLAYERS;  /* port guard */
+    for (int32_t i = 0; i < humans; i++)
+        if (race->players[i].finish == 0 || race->cars[i]->speed > STOPPED) return;
+    int all_out = 1;
+    for (int32_t i = 0; i < humans; i++)
+        if (race->players[i].finish > 0) all_out = 0;
+    race->end_request = race->end_state = all_out ? END_ALL_OUT : END_FINISHED;
+}
+
+int race_sim_over(const RaceSim *sim)
+{
+    return sim->race.end_request != 0;
+}
+
+void race_sim_end(RaceSim *sim)
+{
+    race_results_end(&sim->race);
+}
+
 void race_sim_tick(RaceSim *sim, uint32_t input)
 {
     RaceState *race = &sim->race;
@@ -213,6 +244,7 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         if (race->phase == 1)
             for (int i = 0; i < race->finish_cars && i < sim->count; i++)
                 if (race->cars[i]->flags_51a & FLAG_ACTIVE) race_car_finish(race->cars[i], race);
+        if (race->phase == 1) check_end(race);
         /* Then in road order, the rearmost first. */
         for (int i = 0; i < race->car_count; i++) {
             const int slot = race->by_node[i] & (RACE_PLAYERS - 1);

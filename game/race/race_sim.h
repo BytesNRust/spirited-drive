@@ -62,4 +62,12 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
 /* One fixed step with the human's input word (see RaceState.inputs). */
 void race_sim_tick(RaceSim *sim, uint32_t input);
 
+/* Whether the race has ended (RaceState.end_request set): the original's
+ * race loop then stops and 004275f8 records it. */
+int race_sim_over(const RaceSim *sim);
+
+/* The race's end as 004275f8 takes it after the loop: the results and
+ * records (0045af80, then 0045b29c). */
+void race_sim_end(RaceSim *sim);
+
 #endif
