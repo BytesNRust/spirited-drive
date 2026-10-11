@@ -80,3 +80,9 @@ void palette_6_to_8(int count, const uint8_t *src, uint8_t *dst)
         for (int ch = 0; ch < 3; ch++)
             dst[ch] = (uint8_t)((src[ch] * 0xff + 0x20) / 0x3f);
 }
+
+void palette_remap_pixels(uint8_t *pixels, const uint8_t *table, uint32_t count)
+{
+    for (; count != 0; count--, pixels++)
+        *pixels = table[*pixels];
+}

@@ -32,6 +32,10 @@ void palette_shade_table(const uint8_t *pal, const uint8_t usable[256], int k, u
  * channel, so src and dst may be the same. */
 void palette_6_to_8(int count, const uint8_t *src, uint8_t *dst);
 
+/* 0048f344: each of count pixels becomes table[pixel], in place, the table
+ * read as it stands at each step (the original's callers keep it apart). */
+void palette_remap_pixels(uint8_t *pixels, const uint8_t *table, uint32_t count);
+
 /* Brightness of frame n (0..PALETTE_FADE_STEPS-1) of a fade. */
 int palette_fade_in_step(int frame);
 int palette_fade_out_step(int frame);
