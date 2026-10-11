@@ -17,6 +17,7 @@ enum {
     RACE_NOTES = 0x7080 / 0x3c,   /* 00512f94: one per second of a 30 minute clock */
     RACE_TRACK_NAME = 16,
     RACE_PLAYERS = 8,
+    RACE_CARS = 9,                /* 00509e1c, 00509e44, 00509e68: racers, police and traffic (00439c98) */
     RACE_LAP_MARKS = 109,         /* what fits in a 0x1d2-byte player record before the police stop counts */
     RACE_SURFACES = 3,
     RACE_VOICES = 16              /* 0050a4cc: 8 bytes each, up to the banks at 0050a54c */
@@ -233,9 +234,9 @@ typedef struct {
     void *view_user;
     int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS + 1];  /* 0051cc54; the 9th takes the place kept one on (00440c30) and the last car's model (0045af80) */
-    Car *cars[RACE_PLAYERS];        /* 00509e1c: the cars by slot */
-    int32_t by_node[RACE_PLAYERS];  /* 00509e68: slots by road node, the rearmost first (00440dd8) */
-    int32_t by_progress[RACE_PLAYERS];  /* 00509e44: slots by progress, last place first (00440dd8) */
+    Car *cars[RACE_CARS];        /* 00509e1c: the cars by slot */
+    int32_t by_node[RACE_CARS];  /* 00509e68: slots by road node, the rearmost first (00440dd8) */
+    int32_t by_progress[RACE_CARS];  /* 00509e44: slots by progress, last place first (00440dd8) */
     const Car *leader;              /* 00509e18: the car in slot 0, once loaded */
     const Car *second_car;          /* 00509e40: the car in slot 1, once entered */
     RaceEntry entries[RACE_PLAYERS];  /* 004fb7fa */
@@ -346,6 +347,13 @@ enum {
 /* The car whose record holds `handle` at +0x88 (the original's pointer to
  * the car, see car_reset), or NULL. */
 Car *race_car_by_handle(const RaceState *race, uint32_t handle);
+
+/* A slot of the car tables, 0..RACE_CARS - 1; anything else reads slot 0
+ * (port guard: the original indexes them unchecked). */
+static inline int32_t race_slot(int32_t slot)
+{
+    return (uint32_t)slot < RACE_CARS ? slot : 0;
+}
 
 /* 00440dd8: sorts by_node and by_progress (ties by the lateral +0x39d). */
 void race_sort_cars(RaceState *race);

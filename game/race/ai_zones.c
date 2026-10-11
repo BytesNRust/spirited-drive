@@ -14,7 +14,7 @@ enum {
 
 static Car *slot_car(const RaceState *race, int32_t slot)
 {
-    return (uint32_t)slot < RACE_PLAYERS ? race->cars[slot] : NULL;  /* port guard */
+    return (uint32_t)slot < RACE_CARS ? race->cars[slot] : NULL;  /* port guard */
 }
 
 void ai_swap_zones(RaceState *race, int32_t slot, int32_t zone, int32_t old)
@@ -39,7 +39,7 @@ void ai_zones_by_place(RaceState *race)
 {
     int32_t zone = 0;
     for (int32_t i = race->car_count - 1; i >= 0; i--) {
-        const Car *const car = i < RACE_PLAYERS ? slot_car(race, race->by_progress[i]) : NULL;  /* port guard */
+        const Car *const car = i < RACE_CARS ? slot_car(race, race->by_progress[i]) : NULL;  /* port guard */
         if (car == NULL) continue;
         const int32_t slot = car->index;
         if (slot < 0 || slot >= race->racers) continue;

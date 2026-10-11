@@ -130,7 +130,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = race->car_count;
     sim->specs[0] = *specs;
-    for (int i = 0; i < RACE_PLAYERS; i++) race->by_node[i] = race->by_progress[i] = i;
+    for (int i = 0; i < RACE_CARS; i++) race->by_node[i] = race->by_progress[i] = i;
     for (int i = 0; i < sim->count; i++) race->cars[i] = &sim->slots[i].car;
     /* 00440858: each slot entered (004406d0), marked racer or police by its
      * place, then its body from the PDN (004407b8). */
@@ -164,9 +164,9 @@ static int32_t rival_progress(const RaceState *race)
     const int32_t opponents = race->racers - race->humans;
     if (race->humans >= 2 || opponents == 1) return race->cars[race->player == 0 ? 1 : 0]->progress;
     if (opponents < 2) return 0;
-    const int32_t leader = race->by_progress[(race->car_count - 1) & (RACE_PLAYERS - 1)];
-    const int32_t rival = leader == race->player ? race->by_progress[(race->car_count - 2) & (RACE_PLAYERS - 1)] : leader;
-    return race->cars[rival & (RACE_PLAYERS - 1)]->progress;
+    const int32_t leader = race->by_progress[race_slot(race->car_count - 1)];
+    const int32_t rival = leader == race->player ? race->by_progress[race_slot(race->car_count - 2)] : leader;
+    return race->cars[race_slot(rival)]->progress;
 }
 
 void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs, const RaceEntry *entry,
@@ -241,7 +241,7 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         for (int i = 0; i < race->humans; i++) race->inputs[i] = RACE_SIM_INPUT_REST;
     if (race->tick_flags & TICK_CONTROLS)
         for (int i = 0; i < race->car_count; i++) {  /* road order too */
-            const int slot = race->by_node[i] & (RACE_PLAYERS - 1);
+            const int slot = race_slot(race->by_node[i]);
             Car *car = race->cars[slot];
             if ((car->flags_51a & FLAG_ACTIVE) && car->controller != 0) run_controller(car, &sim->specs[slot], race);
         }
@@ -253,22 +253,22 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         if (race->phase == 1) check_end(race);
         /* Then in road order, the rearmost first. */
         for (int i = 0; i < race->car_count; i++) {
-            const int slot = race->by_node[i] & (RACE_PLAYERS - 1);
+            const int slot = race_slot(race->by_node[i]);
             Car *car = race->cars[slot];
             if ((car->flags_51a & FLAG_ACTIVE) && car->physics != 0) run_physics(car, &sim->specs[slot], race);
         }
         race_sort_cars(race);
         race_cars_contacts(race);
         race_sort_cars(race);
-        race_splits_pass(race, race->cars[race->player & (RACE_PLAYERS - 1)]->progress, rival_progress(race));
+        race_splits_pass(race, race->cars[race_slot(race->player)]->progress, rival_progress(race));
         race_splits_gap(race);
-        race_camera_pick(race, race->cars[race->viewed & (RACE_PLAYERS - 1)]);
+        race_camera_pick(race, race->cars[race_slot(race->viewed)]);
         race_chase_tick(race, &race->chase);
         /* 00440ef0 after 004046b0: the player's sounds unless the race is
          * over (phase 3) or their entry has the sound off. TODO: 00472e34
          * before it, 0047217c, 00472348 and 00472560 after it, not ported. */
         if (race->phase != 3 && race->entries[race->player & (RACE_PLAYERS - 1)].sound_volume != 0)
-            race_sound_follow(race, &sim->specs[race->player & (RACE_PLAYERS - 1)]);
+            race_sound_follow(race, &sim->specs[race_slot(race->player)]);
         for (int i = 0; i < sim->count; i++)
             if ((sim->slots[i].car.flags_51a & FLAG_ACTIVE) && sim->slots[i].car.controller != 0)
                 car_keep_draw_state(&sim->slots[i].car);

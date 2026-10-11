@@ -83,10 +83,10 @@ static uint32_t lanes_at(const RaceState *race, int32_t node)
 
 /* First pass: each car's road state (0046ab24), then the slots its body
  * covers: `covered` per place in by_node, `counts` per slot. */
-static void cover_slots(RaceState *race, uint32_t covered[RACE_PLAYERS], int32_t counts[SLOTS + 1])
+static void cover_slots(RaceState *race, uint32_t covered[RACE_CARS], int32_t counts[SLOTS + 1])
 {
-    for (int32_t i = 0; i < race->car_count && i < RACE_PLAYERS; i++) {  /* port guard: 8 places */
-        Car *car = race->cars[race->by_node[i] & 7];  /* port guard: & 7 */
+    for (int32_t i = 0; i < race->car_count && i < RACE_CARS; i++) {  /* port guard: 9 places */
+        Car *car = race->cars[race_slot(race->by_node[i])];  /* port guard */
         if (car->physics == PHYSICS_GONE) continue;
         ai_car_update(car, race);
         const TriNode node = race_node(race, car->node);
@@ -214,7 +214,7 @@ static uint32_t steer_for(Car *car, const RaceState *race, const TriNode *node, 
 
 /* Second pass, one car: its wish over the slot it is in and the two
  * beside it, the cars ahead, then the lane to steer for and the speed. */
-static void drive_car(Car *car, RaceState *race, const uint32_t covered[RACE_PLAYERS],
+static void drive_car(Car *car, RaceState *race, const uint32_t covered[RACE_CARS],
                       const int32_t counts[SLOTS + 1])
 {
     const int seen = ai_view_zone(race, car->node);
@@ -282,11 +282,11 @@ void ai_manager_tick(RaceState *race)
     }
     if (!(race->track_flags & MANAGER_OFF)) ai_place_police(race);
     int32_t counts[SLOTS + 1] = { 0 };          /* [8]: the original's counts reach one past, into a row it resets */
-    uint32_t covered[RACE_PLAYERS] = { 0 };     /* port guard: the original leaves gone cars' words unset; never read */
+    uint32_t covered[RACE_CARS] = { 0 };     /* port guard: the original leaves gone cars' words unset; never read */
     cover_slots(race, covered, counts);
     ((Car *)race->leader)->flags_175 &= 0xf3;   /* the leader is one of race->cars */
-    for (int32_t i = 0; i < race->car_count && i < RACE_PLAYERS; i++) {
-        Car *car = race->cars[race->by_node[i] & 7];  /* port guard: & 7 */
+    for (int32_t i = 0; i < race->car_count && i < RACE_CARS; i++) {
+        Car *car = race->cars[race_slot(race->by_node[i])];  /* port guard */
         if (car->physics != PHYSICS_GONE) drive_car(car, race, covered, counts);
     }
 }

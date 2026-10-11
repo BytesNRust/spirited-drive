@@ -61,7 +61,7 @@ void car_hand_to_body(Car *car)
  * test it is the viewed one). */
 static const Car *followed(const RaceState *race)
 {
-    return race->cars[race->viewed & (RACE_PLAYERS - 1)];
+    return race->cars[race_slot(race->viewed)];
 }
 
 void car_crash_slide(Car *car, RaceState *race)
@@ -88,7 +88,7 @@ void car_crash_hit(Car *car, RaceState *race)
 
 void car_crash_end(Car *car, RaceState *race, int32_t physics)
 {
-    Car *heard = race->cars[race->viewed & (RACE_PLAYERS - 1)];
+    Car *heard = race->cars[race_slot(race->viewed)];
     if (car == heard) {
         car->unknown_4be[0] = -1;
         car->unknown_4be[1] = -1;
@@ -129,7 +129,7 @@ void car_crash_settle(Car *car, RaceState *race)
 {
     int32_t m[9];
     memcpy(m, car->body_matrix, sizeof m);
-    Car *heard = race->cars[race->viewed & (RACE_PLAYERS - 1)];
+    Car *heard = race->cars[race_slot(race->viewed)];
     if (car == heard) {
         car->unknown_4be[0] = -1;
         car->unknown_4be[1] = -1;

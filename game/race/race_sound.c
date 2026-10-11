@@ -274,7 +274,7 @@ void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t d
         level = level * 6 / 10;
     voice_volume(race, race->voices[ROAD_VOICE].voice, scaled(race, level, volume));
     voice_pitch(race, race->voices[ROAD_VOICE].voice, e->pitch);
-    const Car *viewed = (uint32_t)race->viewed < RACE_PLAYERS ? race->cars[race->viewed] : NULL;
+    const Car *viewed = (uint32_t)race->viewed < RACE_CARS ? race->cars[race->viewed] : NULL;
     const int32_t divisor = (int32_t)((uint32_t)specs->unknown_0ac + 2000u);
     const int32_t revs = viewed != NULL ? (int32_t)((uint32_t)viewed->rpm * LEVEL_MAX) : 0;
     if (viewed == NULL || divisor == 0 || (divisor == -1 && revs == INT32_MIN))
@@ -302,7 +302,7 @@ void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t d
 
 void race_sound_follow(RaceState *race, const CarSpecs *specs)
 {
-    if ((uint32_t)race->viewed >= RACE_PLAYERS || race->cars[race->viewed] == NULL)
+    if ((uint32_t)race->viewed >= RACE_CARS || race->cars[race->viewed] == NULL)
         return;
     const Car *car = race->cars[race->viewed];
     int32_t angle = 0, distance = 1;

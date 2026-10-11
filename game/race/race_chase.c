@@ -110,7 +110,7 @@ void race_chase_unturn(const int32_t from[3], int32_t out[3], int32_t pitch, int
 /* port guard: a car slot outside the table or empty is none */
 static const Car *slot_car(const RaceState *race, int32_t slot)
 {
-    return slot >= 0 && slot < RACE_PLAYERS ? race->cars[slot] : NULL;
+    return slot >= 0 && slot < RACE_CARS ? race->cars[slot] : NULL;
 }
 
 static int ahead_by(const RaceState *race, const Car *other, int32_t after, int32_t upto)
@@ -242,7 +242,7 @@ void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
     chase->gliding = row->glide_ticks;
     if (chase->gliding == 0) memcpy(chase->target, row->target, sizeof chase->target);
     if (row->alt_flag != 0 && kind != last && race->camera_hold == 0 &&
-        faces_road(race, race->player >= 0 && race->player < RACE_PLAYERS ? race->cars[race->player] : NULL) &&
+        faces_road(race, race->player >= 0 && race->player < RACE_CARS ? race->cars[race->player] : NULL) &&
         (last < 4 || kind == KIND_ALT))
         memcpy(chase->target, row->alt_target, sizeof chase->target);
     memset(chase->turn, 0, sizeof chase->turn);
@@ -444,7 +444,7 @@ void race_chase_tick(RaceState *race, RaceChase *chase)
     Car *car = chase->car;
     row->yaw_source = YAW_CAR;
     row->yaw_car = car;
-    const Car *viewed = race->player >= 0 && race->player < RACE_PLAYERS ? race->cars[race->player] : NULL;
+    const Car *viewed = race->player >= 0 && race->player < RACE_CARS ? race->cars[race->player] : NULL;
     if (chase->kind == KIND_PASSED) {
         if (!race_chase_ahead_of_other(race, -10, 12) || !faces_road(race, race->cars[1])) {
             race_chase_follow(race, chase, (Car *)viewed, KIND_NO_ROAD);

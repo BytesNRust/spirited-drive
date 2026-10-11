@@ -92,7 +92,7 @@ static int32_t zone_word(const RaceState *race, int32_t zone, int32_t word)
 static Car *zone_car(const RaceState *race, int32_t zone)
 {
     const int32_t slot = zone_word(race, zone, ZONE_SLOT);
-    return slot >= 0 && slot < RACE_PLAYERS ? race->cars[slot] : NULL;
+    return slot >= 0 && slot < RACE_CARS ? race->cars[slot] : NULL;
 }
 
 /* ai.lane_width[lanes * 40 + (verge * 0x2000 >> 16)], read as the original

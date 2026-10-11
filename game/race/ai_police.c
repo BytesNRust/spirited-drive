@@ -37,7 +37,7 @@ static int32_t chase_speed(const RaceState *race, uint32_t node)
 
 static PlayerRecord *record_of(RaceState *race, const Car *car)
 {
-    return car->index >= 0 && car->index < RACE_PLAYERS ? &race->players[car->index] : NULL;  /* port guard */
+    return car->index >= 0 && car->index < RACE_PLAYERS + 1 ? &race->players[car->index] : NULL;  /* port guard */
 }
 
 static void stop(Car *cop, RaceState *race, Car *player, int32_t slot)
@@ -53,7 +53,7 @@ static void stop(Car *cop, RaceState *race, Car *player, int32_t slot)
         player->unknown_148 = race->ai.params[PARAM_HOLD_FIRST];
     }
     player->physics = PHYSICS_HELD;
-    const Car *viewed = race->cars[race->player & (RACE_PLAYERS - 1)];
+    const Car *viewed = race->cars[race_slot(race->player)];
     if (viewed != NULL && viewed->unknown_088 == player->unknown_088 && viewed->physics == PHYSICS_CRASHED)
         race->sounds.start_engine(race->sounds.user);
     cop->flags_175 &= (uint8_t)~CHASE;

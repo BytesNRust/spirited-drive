@@ -116,21 +116,21 @@ int32_t race_rand_below(RaceState *race, int32_t n)
 
 Car *race_car_by_handle(const RaceState *race, uint32_t handle)
 {
-    for (int i = 0; i < RACE_PLAYERS; i++)
+    for (int i = 0; i < RACE_CARS; i++)
         if (race->cars[i] != NULL && race->cars[i]->unknown_088 == handle) return race->cars[i];
     return NULL;
 }
 
 /* Bubble sort of slots by a car field, the original's way (ties by +0x39d). */
-static void sort_slots(RaceState *race, int32_t slots[RACE_PLAYERS], int by_progress)
+static void sort_slots(RaceState *race, int32_t slots[RACE_CARS], int by_progress)
 {
-    const int last = race->car_count - 1;
+    const int last = (race->car_count > RACE_CARS ? RACE_CARS : race->car_count) - 1;  /* port guard */
     int swapped;
     do {
         swapped = 0;
         for (int i = 0; i < last; i++) {
-            const Car *a = race->cars[slots[i] & (RACE_PLAYERS - 1)];
-            const Car *b = race->cars[slots[i + 1] & (RACE_PLAYERS - 1)];
+            const Car *a = race->cars[race_slot(slots[i])];
+            const Car *b = race->cars[race_slot(slots[i + 1])];
             const int32_t ka = by_progress ? a->progress : a->node, kb = by_progress ? b->progress : b->node;
             if (kb < ka || (ka == kb && b->lateral < a->lateral)) {
                 const int32_t t = slots[i];

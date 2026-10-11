@@ -38,7 +38,7 @@ void ai_hold_lane_speed(Car *car, const RaceState *race, const Car *ahead, int32
  * behind it takes 7/8 of the last car looked at's speed past 20, the road's
  * outermost lanes halve their side, and a fast car that cannot pull out
  * before closing on a racer ahead (as 0046a95c's room) gets 0 in the middle. */
-void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_PLAYERS], int32_t lane,
+void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane,
                    uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3]);
 
 /* 0046a7c0: a computer car spins out: it crashes from a hit (0040db84), its

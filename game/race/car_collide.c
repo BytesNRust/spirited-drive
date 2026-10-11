@@ -60,7 +60,7 @@ static void first_hit(Car *car, RaceState *race)
 
 int car_cars_collide(Car *a, Car *b, RaceState *race)
 {
-    const Car *heard = race->cars[race->viewed & (RACE_PLAYERS - 1)];
+    const Car *heard = race->cars[race_slot(race->viewed)];
     RigidBody body_a, body_b;
     car_get_body(a, &body_a);
     car_get_body(b, &body_b);
@@ -122,7 +122,7 @@ int car_cars_hit(Car *a, Car *b, RaceState *race)
     if (b->physics != PHYSICS_CRASH) car_hand_to_body(b);
     if (!car_cars_collide(a, b, race)) return 0;
     if (race->crash_sound_level > race->car_impulse) return 1;
-    const Car *heard = a != race->cars[race->viewed & (RACE_PLAYERS - 1)] ? a : b;
+    const Car *heard = a != race->cars[race_slot(race->viewed)] ? a : b;
     const int32_t at[3] = { heard->x, heard->y, heard->z };
     int32_t angle, distance;
     race_sound_position(race, at, &angle, &distance);

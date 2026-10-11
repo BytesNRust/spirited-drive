@@ -154,9 +154,9 @@ void ai_hold_lane_speed(Car *car, const RaceState *race, const Car *ahead, int32
 /* The car in place `at` of the road's order, or NULL past the table. */
 static const Car *car_at(const RaceState *race, int32_t at)
 {
-    if (at < 0 || at >= RACE_PLAYERS) return NULL;  /* port guard */
+    if (at < 0 || at >= RACE_CARS) return NULL;  /* port guard */
     const int32_t slot = race->by_node[at];
-    if (slot < 0 || slot >= RACE_PLAYERS) return NULL;  /* port guard */
+    if (slot < 0 || slot >= RACE_CARS) return NULL;  /* port guard */
     return race->cars[slot];
 }
 
@@ -212,7 +212,7 @@ static int32_t reach_of(const Car *car, const RaceState *race, const Car *other)
     return profile != NULL ? profile->oncoming_reach : REACH;  /* port guard */
 }
 
-void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_PLAYERS], int32_t lane,
+void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane,
                    uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3])
 {
     const int32_t count = race->car_count;

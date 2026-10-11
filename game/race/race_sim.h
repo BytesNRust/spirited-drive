@@ -31,8 +31,8 @@ typedef union {
 
 typedef struct {
     RaceState race;                 /* race.cars[i] points at slots[i].car */
-    RaceSimSlot slots[RACE_PLAYERS];
-    CarSpecs specs[RACE_PLAYERS];
+    RaceSimSlot slots[RACE_CARS];
+    CarSpecs specs[RACE_CARS];
     int count;
 } RaceSim;
 
@@ -51,7 +51,7 @@ typedef struct {
     int racers;                         /* 004fb7dc */
     int race_type;                      /* 004fb7d0: 0 time trial, 1 head to head, 2 single race, 3 tournament */
     RaceEntry entries[RACE_PLAYERS];    /* 004fb7fa: each slot's car (the computer racers' too) */
-    const CarPdn *pdns[RACE_PLAYERS];   /* 00517580: each car's PDN; NULL leaves the body unset */
+    const CarPdn *pdns[RACE_CARS];   /* 00517580: each car's PDN; NULL leaves the body unset */
 } RaceField;
 
 /* `field`'s cars on `tri`, the human's specs (the decompressed PBS) in slot
