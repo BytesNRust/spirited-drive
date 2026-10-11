@@ -1,5 +1,7 @@
 #include "game/race/race_sim.h"
 
+#include "game/race/race_chase.h"
+
 #include "game/race/ai_drive.h"
 #include "game/race/ai_setup.h"
 #include "game/race/car_collide.h"
@@ -116,7 +118,8 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->segments = (int32_t)tri->ring_segments;  /* 0050420c (0043e4e0): 0x8000 on a stage */
     race->laps_setting = laps;
     race->loop_nodes = EARLY_LOOP_NODES;  /* 0043f994, until 0043fbac sets the real one */
-    race->views = 1;
+    race_chase_init(race);
+    race->chase.kind = 1;
     race->catch_up = CATCH_UP;
     race->crash_sound_level = CRASH_SOUND_QUIET;
     race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL };

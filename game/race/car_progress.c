@@ -4,17 +4,26 @@
 
 enum { LAP_TIME_OFFSET = 300 };  /* the lap marks are stored 300 ticks early */
 
-/* Squared distance from the car to the middle of the road edge between nodes
- * a and a + 1, in 1/256 units, 32-bit and compared unsigned as the original. */
-static uint32_t edge_distance(const Car *car, const RaceState *race, int32_t a)
+/* Squared distance from the point to the middle of the road edge between
+ * nodes a and a + 1, in 1/256 units, 32-bit and compared unsigned as the
+ * original. */
+static uint32_t edge_distance(const int32_t point[3], const RaceState *race, int32_t a)
 {
     const TriNode p = race_node(race, a), q = race_node(race, a + 1);
-    const int32_t mx = (p.position.x + q.position.x) >> 1, mz = (p.position.z + q.position.z) >> 1;
-    const int32_t dz = (car->z - mz) >> 8, dx = (car->x - mx) >> 8;
-    return (uint32_t)(dz * dz) + (uint32_t)(dx * dx);
+    const int32_t mx = (int32_t)((uint32_t)p.position.x + (uint32_t)q.position.x) >> 1;
+    const int32_t mz = (int32_t)((uint32_t)p.position.z + (uint32_t)q.position.z) >> 1;
+    const uint32_t dz = (uint32_t)((int32_t)((uint32_t)point[2] - (uint32_t)mz) >> 8);
+    const uint32_t dx = (uint32_t)((int32_t)((uint32_t)point[0] - (uint32_t)mx) >> 8);
+    return dz * dz + dx * dx;
 }
 
 int car_find_node(const Car *car, const RaceState *race, int32_t *node)
+{
+    const int32_t point[3] = { car->x, car->y, car->z };
+    return point_find_node(point, race, node);
+}
+
+int point_find_node(const int32_t point[3], const RaceState *race, int32_t *node)
 {
     const int32_t mask = (int32_t)(race->tri->ring_nodes - 1u);
     int moved = 0;
@@ -22,11 +31,11 @@ int car_find_node(const Car *car, const RaceState *race, int32_t *node)
         int32_t at;
         do {
             at = *node;
-            const uint32_t here = edge_distance(car, race, at);
-            if (edge_distance(car, race, at + 1) < here) {
+            const uint32_t here = edge_distance(point, race, at);
+            if (edge_distance(point, race, at + 1) < here) {
                 *node = at + 1;
                 moved = 1;
-            } else if ((at > 0 || race->circuit) && edge_distance(car, race, at - 1) < here) {
+            } else if ((at > 0 || race->circuit) && edge_distance(point, race, at - 1) < here) {
                 *node = at - 1;
                 moved = 1;
             }

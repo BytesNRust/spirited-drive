@@ -8,30 +8,32 @@
 
 #include <stdint.h>
 
-/* The follow record (0x94 bytes; 00511fe0 points at the one in use, e.g.
- * 004f801c). Offsets are the original's. */
-typedef struct {
-    int32_t kind;               /* +0: the view kind, a 004b6bb0 row (0x58 bytes) */
-    int32_t next_kind;          /* +4 */
-    int32_t unknown_08;
-    int32_t gliding;            /* +0xc: 2 while the eye moves by `step` (00404630) */
-    int32_t unknown_10[3];
-    int32_t eye[3];             /* +0x1c */
-    const int32_t *base;        /* +0x28: the point `offset` is from */
-    int32_t offset[3];          /* +0x2c */
-    int32_t node;               /* +0x38 */
-    int32_t flags;              /* +0x3c */
-    int32_t unknown_40[6];
-    const int32_t *matrix;      /* +0x58 */
-    int32_t turn[3];            /* +0x5c */
-    int32_t unknown_68;
-    int32_t target[3];          /* +0x6c: where the eye sits from the car */
-    int32_t yaw;                /* +0x78 */
-    int32_t step[3];            /* +0x7c: added to target each tick while gliding */
-    RaceCamera *camera;         /* +0x88 */
-    RaceCamera *camera2;        /* +0x8c */
-    Car *car;                   /* +0x90: the car followed */
-} RaceChase;
+/* The kinds' rows and the cameras as the exe starts them (004b6bb0,
+ * 004b78a8); the record is left to race_chase_follow. */
+void race_chase_init(RaceState *race);
+
+/* 00404530: chase follows `car` (nothing when NULL) from its position and
+ * angles, taking `kind` (00404450: the eye at the car, offset and turn
+ * cleared, node the car's, flags 1; yaw the car's node heading when the car
+ * is a new one; then 00405b00). */
+void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind);
+
+/* 00405b00: chase takes view kind `kind`. Kinds 0..3, 10 and 11 become 13
+ * when the car does not face the road (00405de8); during a replay (0052b316
+ * or 00513e6c) 0 and 10 become 1 and 11. The row sets the camera, the
+ * glide's ticks and the target (alt_target when first taken with alt_flag,
+ * no camera hold, the followed car facing the road and the last kind below
+ * 4 or this one 8); then 004046b0, then 00405210 on the camera's view. */
+void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind);
+
+/* 004046b0: places the eye for this tick. Kinds 0 and 1 sit in the car (its
+ * tilt and suspension in the turn), 9 at the row's target; the others look
+ * ahead along the road from behind the car, glide while gliding (taking the
+ * row's next kind at the end), keep above the road at physics model 4
+ * (00405c9c) and inside its barriers. Kinds 6 and 7 fall back to 13 when
+ * the other car is not just behind (0043f948, 0043f8f8) or does not face
+ * the road. */
+void race_chase_tick(RaceState *race, RaceChase *chase);
 
 /* 00404630: the step that takes target to `to` in `ticks` ticks (divide
  * set) or by a 2^ticks-th of the way; nothing when ticks is 0. */

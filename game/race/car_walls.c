@@ -37,10 +37,10 @@ static int32_t reach(const Car *car, int32_t road_heading)
 
 void race_sound_position(RaceState *race, const int32_t position[3], int32_t *angle, int32_t *distance)
 {
-    const int32_t dx = position[0] - race->listener[0], dz = position[2] - race->listener[2];
-    const int32_t dy = abs32(position[1] - race->listener[1]);
-    if (race->listener_heading < 0) race->listener_heading += 0x1000000;
-    *angle = race->listener_heading - (fx_atan2(dx, dz) << 8);
+    const int32_t dx = position[0] - race->chase.position[0], dz = position[2] - race->chase.position[2];
+    const int32_t dy = abs32(position[1] - race->chase.position[1]);
+    if (race->chase.angles[1] < 0) race->chase.angles[1] += 0x1000000;
+    *angle = race->chase.angles[1] - (fx_atan2(dx, dz) << 8);
     if (*angle < 0) *angle += 0x1000000;
     if (*angle > 0x1000000) *angle -= 0x1000000;
     const int32_t ax = abs32(dx), az = abs32(dz);
@@ -103,7 +103,7 @@ static void hit_sound(const Car *car, RaceState *race, int32_t across, int32_t h
 {
     if (race->viewed != car->player || race->sounds.sound == NULL) return;
     int32_t pan, volume;
-    if (race->views <= 1) {
+    if (race->chase.kind <= 1) {
         pan = across > 0 ? 0xd70000 : 0x280000;
         volume = 1;
     } else {

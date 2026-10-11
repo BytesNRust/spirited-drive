@@ -368,8 +368,8 @@ void ai_respawn(Car *car, RaceState *race, int32_t node, int32_t lane, int32_t o
     car->steer = 0;
     car->ai_countdown = 0;
     car->yaw_rate = 0;
-    if ((flags_of(car) & AI_COP) && race->phase != 1 && race->camera_mode == 7) {
-        race->camera_mode = 5;
+    if ((flags_of(car) & AI_COP) && race->phase != 1 && race->chase.next_kind == 7) {
+        race->chase.next_kind = 5;
         if (race->sounds.camera != NULL) race->sounds.camera(race->sounds.user, race->player, 5);
     }
     ai_respawn_flags(car, race);

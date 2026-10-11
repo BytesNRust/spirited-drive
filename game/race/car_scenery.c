@@ -70,7 +70,7 @@ void race_scenery_restream(RaceState *race)
 {
     race->scenery_stream_node = STREAM_NONE;
     race->scenery_stream_segment = STREAM_NONE;
-    race->render_flags |= RESTREAM;
+    race->chase.flags |= RESTREAM;
 }
 
 int32_t car_scenery_hit(const Car *car, RaceState *race, const int32_t point[3])
@@ -85,7 +85,7 @@ int32_t car_scenery_hit(const Car *car, RaceState *race, const int32_t point[3])
     const int32_t half_length = car->model_length >> 1;
     if (ahead > half_length || ahead < -half_length) return 0;
     if (race->effects != 0) car_scenery_jolt(car, race, side);
-    const int32_t near = car->node - race->listener_node;
+    const int32_t near = car->node - race->chase.node;
     if (near <= HEARD_NODES && near > -HEARD_NODES && race->sounds.sound != NULL) {
         int32_t angle, distance;
         const int32_t at[3] = { car->x, car->y, car->z };

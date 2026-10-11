@@ -7,6 +7,7 @@
 #include "formats/tri.h"
 #include "game/race/ai_struct.h"
 #include "game/race/car.h"
+#include "game/race/chase_struct.h"
 #include "game/race/crash_trail.h"
 #include "game/race/race_splits.h"
 
@@ -178,10 +179,23 @@ typedef struct {
     int32_t tyre_force_sum;         /* 00509e0c: the last tyre call's two forces added */
     int16_t effects;                /* 0052b320: wall scrape tones on */
     int32_t default_surface;        /* 004b95c0: between the verges */
-    int32_t views;                  /* 004f801c: more than one pans the sounds by position */
-    int32_t listener[3];            /* 004f802c */
-    int32_t listener_heading;       /* 004f8060 */
-    int32_t listener_node;          /* 004f8054: the camera's node; scenery hits within 9 nodes of it sound */
+    /* 004f801c, the follow camera: kind above 1 pans the sounds by position,
+     * position (004f802c) and angles[1] (004f8060) are the listener, node
+     * (004f8054) the camera's node (scenery hits within 9 nodes of it sound),
+     * flags (004f8058) bit 0 the scenery must be streamed again */
+    RaceChase chase;
+    ChaseKind chase_kinds[CHASE_KINDS];  /* 004b6bb0 (race_chase_init) */
+    RaceCamera cameras[RACE_CAMERAS];    /* 004b78a8 */
+    int32_t window_size;            /* 00511ff0: picks a view row's layout */
+    int32_t camera_pitch;           /* 004f9b70: added to the in-car view's pitch (0041f9a0, 0042270c) */
+    int32_t camera_tilt;            /* 004b91cc: 0x10000, the share of the car's tilt the in-car view takes */
+    int32_t camera_roll_add;        /* 004c53a8: added to the roll as placed when the kind is above 1 */
+    int32_t view_taken;             /* 0052b8f8: set when a kind is taken (00405b00) */
+    int32_t unknown_513e6c;         /* 00513e6c: the phase as 00440ef0 saw it; with replay, kinds 0 and 10 become 1 and 11 */
+    /* 00405210 on the camera in use (race_view_select): the view and the
+     * window size; NULL for none */
+    void (*select_view)(void *user, RaceCamera *camera, int32_t view, int32_t size);
+    void *view_user;
     int32_t crash_spin;             /* 004bad18 */
     PlayerRecord players[RACE_PLAYERS + 1];  /* 0051cc54; the 9th takes the place kept one on (00440c30) and the last car's model (0045af80) */
     Car *cars[RACE_PLAYERS];        /* 00509e1c: the cars by slot */
@@ -205,7 +219,6 @@ typedef struct {
     int32_t driver_profile_count;
     int32_t grid[RACE_PLAYERS];     /* 004fba50: the starting grid place of each car */
     int32_t driver_letters[RACE_PLAYERS];  /* 004fba70: each opponent's driver profile number (0044940c) */
-    int32_t camera_mode;            /* 004f8020: 7 while the race is being set up, 5 attached to a car */
     uint32_t random_seed;           /* 004b9628: race_random() */
     uint32_t random_last;           /* 004b962c */
     uint32_t random_mul;            /* 004b9630 */
@@ -258,7 +271,6 @@ typedef struct {
     /* 00504218, 0050421c: the node and the segment the track's scenery was
      * last streamed in for (0043f48c); -1 makes the renderer stream it again */
     int32_t scenery_stream_node, scenery_stream_segment;
-    int32_t render_flags;           /* 004f8058: bit 0 the scenery must be streamed again */
     /* 004b9098 (0040d6a0's buffer): two bytes per scenery record, the first
      * the minute (race tick / 0x708) + 1 it was knocked over, 0 standing */
     uint8_t scenery_state[2 * TRI_SCENERY_MAX];

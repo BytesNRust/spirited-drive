@@ -9,6 +9,9 @@
 /* 0043ea04: walks *node to the nearest road node. Returns 1 when it moved. */
 int car_find_node(const Car *car, const RaceState *race, int32_t *node);
 
+/* 0043ea04 on any point (the follow camera's eye). */
+int point_find_node(const int32_t point[3], const RaceState *race, int32_t *node);
+
 /* 0043fa3c: follows the car's node and counts laps. Returns car_find_node's
  * result. */
 int car_progress(Car *car, RaceState *race);

@@ -196,7 +196,7 @@ static void gear_display(Car *car, const RaceState *race)
     }
     if (car->gear_change_ticks <= 0) return;
     if (car->gear_change_ticks > 12 || car->shift_timer < 1) car->gear_change_ticks--;
-    if (race->viewed == car->player && car->gear_change_ticks == 11 && race->views == 0 && car->shift_timer < 1 &&
+    if (race->viewed == car->player && car->gear_change_ticks == 11 && race->chase.kind == 0 && car->shift_timer < 1 &&
         race->sounds.sound != NULL)
         race->sounds.sound(race->sounds.user, -1, 0xd, 0, 0, 1, 0xf00000);
 }
