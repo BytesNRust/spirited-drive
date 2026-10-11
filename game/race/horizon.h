@@ -30,7 +30,8 @@ typedef struct {
 
 /* 00405154 -> 0043a028: for a viewport `width` pixels wide with a
  * horizontal field of view of `fov` degrees; viewport_scale is the
- * viewport's 16.16 vertical scale (+4 of the viewport struct, 0x10000). */
+ * viewport's 16.16 vertical scale (+4 of the viewport struct, 0x10000).
+ * With half the fov at most 10 nothing is written (the tables stay). */
 void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale);
 
 /* 0043af80: the projected horizon point (x, y), (INT32_MIN, INT32_MIN) if

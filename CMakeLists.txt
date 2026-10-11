@@ -94,6 +94,7 @@ add_library(tnfs_game STATIC
     game/race/race_finish.c
     game/race/race_camera.c
     game/race/race_results.c
+    game/race/race_view.c
     game/race/race_splits.c
     game/race/race_split_tables.c
     game/race/ai_model.c

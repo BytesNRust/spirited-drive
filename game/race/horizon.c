@@ -6,7 +6,8 @@
 
 void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale)
 {
-    if (width > HORIZON_MAX_WIDTH) width = HORIZON_MAX_WIDTH;
+    /* port guard: wider ones write past the columns (2 x (width / 2) is the last) */
+    if (width > HORIZON_MAX_WIDTH + 1) width = HORIZON_MAX_WIDTH + 1;
     const int half_fov = fov / 2;
     /* 00405154: the bitmap spans 0x500 pixels per turn. */
     const int32_t span = (int32_t)((uint32_t)(((fov << 8) / 0x168) * 0x50000) >> 16);
@@ -17,8 +18,7 @@ void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale
     const int32_t tangent = c == 0 ? 0x11 : fx_div(fx_sin16(angle), c);
     const int32_t focal = fx_div(half_w << 16, tangent);
     const int32_t per_angle = fx_div(span / 2, angle);
-    memset(t, 0, sizeof *t);
-    if (half_fov <= 10) return;
+    if (half_fov <= 10) return;  /* the tables stay as they were */
     t->scale = scale;
     const int32_t step = fx_div(0x10000, scale);
     int32_t acc = 0;
