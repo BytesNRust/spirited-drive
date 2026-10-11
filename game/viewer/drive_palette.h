@@ -20,7 +20,7 @@
  * by the caller, writable), so this runs once per load. rgb: the screen
  * palette, 8 bits a channel. Returns 0 when the track has no terrain bank
  * with a '!pal' (nothing is remapped then). */
-int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm[RACE_PLAYERS], uint8_t *carpal,
+int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm[RACE_CARS], uint8_t *carpal,
                         uint8_t rgb[768]);
 
 #endif

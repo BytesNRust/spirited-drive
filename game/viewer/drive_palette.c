@@ -67,11 +67,11 @@ static void remap_model_banks(RacePalette *p, const Chunk *models)
 
 /* 004574ec's car fields from each CFM: the high and low detail banks with
  * their '!PAL'. TODO(00490cc0's use): no mesh, the flat sink matches rgb. */
-static void remap_cars(RacePalette *p, const RaceState *race, const Chunk cfm[RACE_PLAYERS])
+static void remap_cars(RacePalette *p, const RaceState *race, const Chunk cfm[RACE_CARS])
 {
-    RaceCarArt art[RACE_PLAYERS];
+    RaceCarArt art[RACE_CARS];
     memset(art, 0, sizeof art);
-    for (int i = 0; i < RACE_PLAYERS; i++) {
+    for (int i = 0; i < RACE_CARS; i++) {
         Chunk high, low;
         if (cfm[i].kind != CHUNK_KIND_HEADER || chunk_child(&cfm[i], CFM_CHILD_BITMAPS_HIGH, &high) != CHUNK_OK ||
             chunk_child(&cfm[i], CFM_CHILD_BITMAPS_LOW, &low) != CHUNK_OK)
@@ -83,10 +83,10 @@ static void remap_cars(RacePalette *p, const RaceState *race, const Chunk cfm[RA
         if (art[i].palette == NULL) art[i].bank = NULL;
         if (art[i].palette2 == NULL) art[i].bank2 = NULL;
     }
-    race_palette_remap_cars(p, race->car_count, art, 0);
+    race_palette_remap_cars(p, race->car_count, art, race->unknown_4fbab8);
 }
 
-int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm[RACE_PLAYERS], uint8_t *carpal,
+int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm[RACE_CARS], uint8_t *carpal,
                         uint8_t rgb[768])
 {
     static RacePalette p;
@@ -101,8 +101,8 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, const Chunk cfm
     p.tint_ready = 1;
     race_palette_queue(&p, TRACK_FIRST, TRACK_COUNT, track);
     /* own[i]: slot i's '!xxx' (car +0x526), in its high detail bank. */
-    const uint8_t *own[RACE_PLAYERS] = { 0 };
-    for (int i = 0; i < RACE_PLAYERS; i++) {
+    const uint8_t *own[RACE_CARS] = { 0 };
+    for (int i = 0; i < RACE_CARS; i++) {
         Chunk high;
         uint8_t *bank = cfm[i].kind == CHUNK_KIND_HEADER && chunk_child(&cfm[i], CFM_CHILD_BITMAPS_HIGH, &high) == CHUNK_OK
                             ? bank_of(&high) : NULL;

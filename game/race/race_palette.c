@@ -196,9 +196,9 @@ static const uint8_t *model_light(const Car *car)
     return car != NULL && (uint32_t)car->model < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * car->model : NULL;
 }
 
-static void cars_each_own(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_PLAYERS])
+static void cars_each_own(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_CARS])
 {
-    for (int32_t i = 0; i < race->car_count && i < RACE_PLAYERS && i < SLOT_TABLE; i++) {
+    for (int32_t i = 0; i < race->car_count && i < RACE_CARS && i < SLOT_TABLE; i++) {
         const Car *car = race->cars[i];
         if (car == NULL || (car->flags_174 & OWN_FLAGGED) != 0)
             continue;
@@ -212,7 +212,7 @@ static void cars_each_own(RacePalette *p, const RaceState *race, const uint8_t *
     race_palette_queue(p, POLICE_LIGHTS_FIRST, 4, race_palette_police_light);
 }
 
-void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_PLAYERS], uint8_t *carpal)
+void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_CARS], uint8_t *carpal)
 {
     if (race->race_type < RACING_TYPE) {
         cars_each_own(p, race, own);
@@ -249,10 +249,10 @@ void race_palette_enable(RacePalette *p, const RaceState *race)
     p->inverse = NULL;
 }
 
-void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_PLAYERS], int32_t police)
+void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_CARS], int32_t police)
 {
     const PaletteMatch m = { p->inverse, p->screen, p->enabled };
-    for (int32_t slot = 0; slot < car_count && slot < RACE_PLAYERS; slot++) {
+    for (int32_t slot = 0; slot < car_count && slot < RACE_CARS; slot++) {
         const RaceCarArt *a = &art[slot];
         if (a->bank != NULL) race_palette_remap_bank(p, a->bank, a->palette, slot, police);
         if (a->bank2 != NULL) race_palette_remap_bank(p, a->bank2, a->palette2, slot, police);
