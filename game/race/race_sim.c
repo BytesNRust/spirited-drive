@@ -14,6 +14,7 @@
 #include "game/race/car_road.h"
 #include "game/race/race_finish.h"
 #include "game/race/race_results.h"
+#include "game/race/race_grid.h"
 #include "game/race/race_models.h"
 #include "game/race/race_sound.h"
 #include "game/race/race_split_times.h"
@@ -146,7 +147,9 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
-    /* 004275f8: 00428fe0 with 004fb7f4, then 00457870, before 00455a5c. */
+    /* 004275f8: 0042748c (the grid places), 00428fe0 with 004fb7f4, then
+     * 00457870, before 00455a5c. */
+    race_grid(race, (int16_t)race->race_type, (int16_t)race->track_variant);
     race_random_seed(race, field->seed);
     race_models(race);
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
