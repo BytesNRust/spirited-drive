@@ -260,6 +260,10 @@ typedef struct {
     uint32_t random_mul;            /* 004b9630 */
     int32_t unknown_4fbab8;         /* non-zero: 0046e480 ends the police chase first */
     int32_t models[RACE_CARS];      /* 004fba94: each slot's car model (00457870); see race_models.h */
+    int32_t wheel_tick;             /* 0051c7f4: the tick 00458614 last turned the wheels on */
+    int32_t wheel_counter;          /* 004c5810: 00458614's 0 / 1 step */
+    int32_t wheel_toggle;           /* 004c5814: frames 1 and 2 in turn below 0xa0000 */
+    int32_t wheel_last_x, wheel_last_y;  /* 004c5818, 004c581c: the followed car's x, y at the last call */
     uint8_t unknown_4fb787;         /* 004fb787: non-zero puts the other humans and opponents in the 100 set (00457870) */
     int32_t unknown_4fbad0;         /* 004fbad0: the head to head opponent pick, 00426fec of its low half (00457870) */
     int32_t racers;                 /* 004fb7dc: cars in the race, humans first */

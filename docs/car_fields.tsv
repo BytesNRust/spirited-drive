@@ -99,6 +99,11 @@
 0x516	i32	index	car slot
 0x51a	u8	flags_51a	bit 2: active
 0x52e	ref	body_object	3D object, high detail
+0x5ee	u32[4]	wheel_frames	frames 0..3 (00457d40: the words +0xc of the object's refs 'tire1'..'tire4', shapes; the port keeps what its caller binds with)
+0x5fe	i32	front_tyres	the object's ref 'frntires' (00490b21; 00457d40)
+0x602	i32	front_frame	the frame bound to it (00458614), 3 after the load
+0x606	i32	rear_tyres	the object's ref 'rertires'
+0x60a	i32	rear_frame
 0x666	ref	far_object	3D object, low detail
 0x78e	i32	far	drawn with the low detail model this frame
 0x018	angle	steer	the front wheels' angle; more of it at low speed, less under braking (00430cb0)

@@ -184,7 +184,13 @@ typedef struct {
     uint8_t unknown_51b[3];  /* 0x51b zeroed with flags_51a (004406d0 writes it as a word) */
     uint8_t pad_51e[0x10];
     uint32_t body_object;  /* 0x52e 3D object, high detail */
-    uint8_t pad_532[0x118];
+    uint8_t pad_532[0xbc];
+    uint32_t wheel_frames[4];  /* 0x5ee frames 0..3 (00457d40: the words +0xc of the object's refs 'tire1'..'tire4', shapes; the port keeps what its caller binds with) */
+    int32_t front_tyres;  /* 0x5fe the object's ref 'frntires' (00490b21; 00457d40) */
+    int32_t front_frame;  /* 0x602 the frame bound to it (00458614), 3 after the load */
+    int32_t rear_tyres;  /* 0x606 the object's ref 'rertires' */
+    int32_t rear_frame;  /* 0x60a */
+    uint8_t pad_60e[0x3c];
     int32_t model_length;  /* 0x64a from the model (00457d40); twice the body extent c when the PDN has none */
     int32_t model_width;  /* 0x64e */
     int32_t model_height;  /* 0x652 */
@@ -369,6 +375,11 @@ CAR_CHECK(index, offsetof(Car, index) == 0x516);
 CAR_CHECK(flags_51a, offsetof(Car, flags_51a) == 0x51a);
 CAR_CHECK(unknown_51b, offsetof(Car, unknown_51b) == 0x51b);
 CAR_CHECK(body_object, offsetof(Car, body_object) == 0x52e);
+CAR_CHECK(wheel_frames, offsetof(Car, wheel_frames) == 0x5ee);
+CAR_CHECK(front_tyres, offsetof(Car, front_tyres) == 0x5fe);
+CAR_CHECK(front_frame, offsetof(Car, front_frame) == 0x602);
+CAR_CHECK(rear_tyres, offsetof(Car, rear_tyres) == 0x606);
+CAR_CHECK(rear_frame, offsetof(Car, rear_frame) == 0x60a);
 CAR_CHECK(model_length, offsetof(Car, model_length) == 0x64a);
 CAR_CHECK(model_width, offsetof(Car, model_width) == 0x64e);
 CAR_CHECK(model_height, offsetof(Car, model_height) == 0x652);
