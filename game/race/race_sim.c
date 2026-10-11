@@ -10,6 +10,7 @@
 #include "game/race/car_physics.h"
 #include "game/race/car_road.h"
 #include "game/race/race_finish.h"
+#include "game/race/race_split_times.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -143,6 +144,21 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
      * row it passes is what 00475c14(0) leaves in al, unknown, and only
      * read for race types above 3 or models above 7. */
     ai_race_setup(race, 0);
+    race->laps_setting = race->laps;
+    race_splits_start(race);  /* 00455a5c -> 0043fbac -> 0045aab4 */
+}
+
+/* The progress the split times measure the player against (00440ef0):
+ * the other car when two drive or one opponent races, else the leader, or
+ * the second when the player leads; none without opponents. */
+static int32_t rival_progress(const RaceState *race)
+{
+    const int32_t opponents = race->racers - race->humans;
+    if (race->humans >= 2 || opponents == 1) return race->cars[race->player == 0 ? 1 : 0]->progress;
+    if (opponents < 2) return 0;
+    const int32_t leader = race->by_progress[(race->car_count - 1) & (RACE_PLAYERS - 1)];
+    const int32_t rival = leader == race->player ? race->by_progress[(race->car_count - 2) & (RACE_PLAYERS - 1)] : leader;
+    return race->cars[rival & (RACE_PLAYERS - 1)]->progress;
 }
 
 void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs, const RaceEntry *entry,
@@ -208,6 +224,8 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
         race_sort_cars(race);
         race_cars_contacts(race);
         race_sort_cars(race);
+        race_splits_pass(race, race->cars[race->player & (RACE_PLAYERS - 1)]->progress, rival_progress(race));
+        race_splits_gap(race);
         for (int i = 0; i < sim->count; i++)
             if ((sim->slots[i].car.flags_51a & FLAG_ACTIVE) && sim->slots[i].car.controller != 0)
                 car_keep_draw_state(&sim->slots[i].car);
