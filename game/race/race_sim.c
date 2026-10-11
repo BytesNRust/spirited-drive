@@ -152,6 +152,9 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race_grid(race, (int16_t)race->race_type, (int16_t)race->track_variant);
     race_random_seed(race, field->seed);
     race_models(race);
+    /* 00455a5c: 004571e8(1), the loading picture (its draws from race_rand).
+     * TODO: whether the loads between it and 00440858 draw too is unread. */
+    race_loading_pick(race, 1);
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = race->car_count;
     sim->specs[0] = *specs;
@@ -160,6 +163,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     /* 00440858: each slot entered (004406d0), marked racer or police by its
      * place, its model loaded (00457d40), then its body from the PDN (004407b8). */
     for (int i = 0; i < sim->count; i++) {
+        if (i == 2) race_loading_pick(race, 0);  /* 00440858: 004571e8(0) before slot 2 */
         Car *car = &sim->slots[i].car;
         car->index = i;
         car->player = i;
