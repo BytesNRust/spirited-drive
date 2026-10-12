@@ -9,6 +9,7 @@
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_view.h"
 #include "game/race/hud_mask.h"
 #include "game/race/hud_redraw.h"
 
@@ -465,15 +466,20 @@ static void draw_map(DriveHud *h, const RaceState *race)
     hud_map_draw(&ops, &in, &h->map_blink);
 }
 
-/* 00422598 / 0042270c's start: while a stop notice is up, 004214e4 and nothing else this frame (then 004b9568, the
+/* 00422598 / 0042270c's start: while a stop notice is up, 004214e4 and the calls below, nothing else this frame (then 004b9568, the
  * full redraw, or 004f9a24); else 004217a8, the dash loaded again when the notice freed it.
- * TODO(00405260, 0044d640): 00422598's other calls with the notice. */
+ * 00422598 then runs 00405260 (view_user is --drive's RaceViews) and 0044d640 (nothing outside a replay).
+ * 0042270c the same without 00405260. */
 static int police_or_reload(DriveHud *h, RaceState *race, CockpitSurfaces *s, int in_car)
 {
     if (race->stop_notice[0] != 0 || race->stop_notice[1] != 0) {
         draw_police(h, race, s);
         if (in_car) h->hud.unknown_4f9a20[1] = 1;
-        else h->changed = 1;
+        else {
+            if (race->view_user != NULL && race->chase.camera != NULL)
+                race_view_reselect(race->view_user, race->chase.camera, race->window_size);
+            h->changed = 1;
+        }
         return 1;
     }
     if (h->dash_fmm != NULL && h->cockpit.bank == NULL) reload_cockpit(h, race, s);
