@@ -15,4 +15,7 @@ void clip_set(QuadTarget *t, int32_t left, int32_t right, int32_t top, int32_t b
 /* 0044987c: the clip to the w x h box at (x, y), through 0047383c. */
 void clip_box(QuadTarget *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t surface_w, int32_t surface_h);
 
+/* 0044985c: the clip to the screen (0051201c x 00512020), through 0047383c. */
+void clip_screen(QuadTarget *t, int32_t screen_w, int32_t screen_h, int32_t surface_w, int32_t surface_h);
+
 #endif
