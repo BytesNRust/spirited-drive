@@ -9,6 +9,8 @@ enum {
     AI_GEARS = 6,
     YELLOW_BLANK = 14,
     YELLOW_FIRST_GEAR = 1, YELLOW_REVERSE = 10, YELLOW_NEUTRAL = 11,
+    SECONDS_LIMIT = 1200,
+    SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
 
@@ -51,6 +53,16 @@ void hud_draw_number_blank(const QuadTarget *t, uint8_t *const *digit_shapes, in
             leading = 0;
         }
     }
+}
+
+void hud_draw_seconds(const QuadTarget *t, uint8_t *const *yellow, int32_t ticks, int32_t high_res, HudPlace high,
+                      HudPlace low)
+{
+    if (ticks > SECONDS_LIMIT) ticks = 0;
+    const HudPlace p = high_res != 0 ? high : low;
+    const int32_t gap = high_res != 0 ? SECONDS_GAP_HIGH : SECONDS_GAP_LOW;
+    hud_draw_number_blank(t, yellow, ticks / TICKS_A_SECOND, p.x, p.y, p.step, 2);
+    hud_draw_number_blank(t, yellow, ticks % TICKS_A_SECOND / TICKS_A_TENTH, p.step * 2 + p.x + gap, p.y, p.step, 1);
 }
 
 void hud_draw_speed(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,

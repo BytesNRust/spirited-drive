@@ -59,6 +59,17 @@ void hud_draw_number(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t 
 void hud_draw_number_blank(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t value, int32_t x, int32_t y,
                            int32_t step, int32_t digits);
 
+/* Where a HUD number goes: its first digit and the step to the next. */
+typedef struct {
+    int32_t x, y, step;
+} HudPlace;
+
+/* 0041e8d0: ticks (0 past 1200) as seconds (two digits) and tenths (one)
+ * with hud_draw_number_blank and the yellow digits, at `high` (004fa0c0
+ * set; the tenths 8 pixels past the seconds) or `low` (2 pixels past). */
+void hud_draw_seconds(const QuadTarget *t, uint8_t *const *yellow, int32_t ticks, int32_t high_res, HudPlace high,
+                      HudPlace low);
+
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
  * |forward speed| (+0x68 while race->viewed < race->humans, else the
