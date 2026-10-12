@@ -14,7 +14,8 @@ typedef enum {
     HUD_SURFACE_VIEW = 0,       /* 004c2d90: the offscreen view */
     HUD_SURFACE_SCREEN = 1,     /* 004c2da0, when 004b95b4 is set */
     HUD_SURFACE_DEFAULT = 2,    /* 004735dc's (0052d2f0) otherwise */
-    HUD_SURFACE_BACK = 3        /* 004c2d98: 0x71 x 0x8c high, 0x39 x 0x34 low (0044ca3c); its shape at +0x2c */
+    HUD_SURFACE_BACK = 3,       /* 004c2d98: 0x71 x 0x8c high, 0x39 x 0x34 low (0044ca3c); its shape at +0x2c */
+    HUD_SURFACE_MAP = 4         /* 004c2d9c: the track map's (00422ce0) */
 } HudSurface;
 
 typedef struct {
