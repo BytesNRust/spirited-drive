@@ -94,4 +94,19 @@ void needle_edges_y(NeedleLine *n, const QuadTarget *t);
  * their slopes and x_start by dx. */
 void needle_edges_x(NeedleLine *n, const QuadTarget *t);
 
+/* 0048383b (cdecl x0, y0, x1, y1, block, width0, width1; all 16.16): the
+ * needle from (x0, y0), width0 across, to (x1, y1), width1 across, in the
+ * colour of 00482a36's block (its first byte into fade_first's low byte,
+ * its rows from block + 4). Nothing when both |dx| and |dy| are below one
+ * pixel. Along y when |dy| > |dx|, else along x: started from the end with
+ * the smaller major coordinate, its edges that end's centre -+ its width / 2
+ * (toward zero), the step 0x10000 on the major axis and dminor / (dmajor >>
+ * 16) on the other, each edge's slope that -+ (width1 - width0) / (2 x
+ * (dmajor >> 16)) (with the sign of dmajor). Then the clip (00482bad /
+ * 00482e15), and when it leaves something: the edge pass when clipped, the
+ * span pass while rows are left, the edge pass again while rows are left.
+ * The line's clip (left, top, right, bottom) is kept from 0041f818. */
+void needle_draw(NeedleLine *n, const QuadTarget *t, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                 const uint8_t *block, int32_t width0, int32_t width1);
+
 #endif

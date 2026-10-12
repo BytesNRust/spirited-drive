@@ -201,3 +201,55 @@ void needle_edges_x(NeedleLine *n, const QuadTarget *t)
         column++;
     }
 }
+
+/* 0049f522: neg when negative (INT32_MIN stays itself). */
+static int32_t x_abs(int32_t v) { return v < 0 ? x_sub(0, v) : v; }
+
+void needle_draw(NeedleLine *n, const QuadTarget *t, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                 const uint8_t *block, int32_t width0, int32_t width1)
+{
+    n->dx = x_sub(x1, x0);
+    n->dy = x_sub(y1, y0);
+    if (x_abs(n->dx) < 0x10000 && x_abs(n->dy) < 0x10000) return;
+    n->fade_first = (int32_t)(((uint32_t)n->fade_first & 0xffffff00u) | block[0]);
+    n->fade = block + 4;
+    if (x_abs(n->dy) > x_abs(n->dx)) {
+        const int32_t rows = x_sar(n->dy, 16);
+        const int32_t taper = x_div(x_sub(width1, width0), x_add(rows, rows));
+        if (n->dy < 0) {
+            n->y_start = y1, n->y_end = y0;
+            n->xa = x_sub(x1, x_div(width1, 2)), n->xb = x_add(x1, x_div(width1, 2));
+        } else {
+            n->y_start = y0, n->y_end = y1;
+            n->xa = x_sub(x0, x_div(width0, 2)), n->xb = x_add(x0, x_div(width0, 2));
+        }
+        n->dx = x_div(n->dx, rows);
+        n->dy = 0x10000;
+        n->slope_xa = x_sub(n->dx, taper);
+        n->slope_xb = x_add(n->dx, taper);
+        if (needle_clip_y(n) <= 0) return;
+        if (n->clipped) needle_edges_y(n, t);
+        if (n->y_start >= n->y_end) return;
+        needle_span_y(n, t->pixels, t->pitch);
+        if (n->y_start < n->y_end) needle_edges_y(n, t);
+    } else {
+        const int32_t columns = x_sar(n->dx, 16);
+        const int32_t taper = x_div(x_sub(width1, width0), x_add(columns, columns));
+        if (n->dx < 0) {
+            n->x_start = x1, n->x_end = x0;
+            n->ya = x_sub(y1, x_div(width1, 2)), n->yb = x_add(y1, x_div(width1, 2));
+        } else {
+            n->x_start = x0, n->x_end = x1;
+            n->ya = x_sub(y0, x_div(width0, 2)), n->yb = x_add(y0, x_div(width0, 2));
+        }
+        n->dy = x_div(n->dy, columns);
+        n->dx = 0x10000;
+        n->slope_ya = x_sub(n->dy, taper);
+        n->slope_yb = x_add(n->dy, taper);
+        if (needle_clip_x(n) <= 0) return;
+        if (n->clipped) needle_edges_x(n, t);
+        if (n->x_start >= n->x_end) return;
+        needle_span_x(n, t->pixels, t->pitch);
+        if (n->x_start < n->x_end) needle_edges_x(n, t);
+    }
+}
