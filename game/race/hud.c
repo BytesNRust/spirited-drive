@@ -11,6 +11,8 @@ enum {
     YELLOW_BLANK = 14, YELLOW_PLUS = 12, YELLOW_MINUS = 13,
     YELLOW_FIRST_GEAR = 1, YELLOW_REVERSE = 10, YELLOW_NEUTRAL = 11,
     SECONDS_LIMIT = 1200,
+    DISTANCE_SCALE = 0x30, MILE_NODES = 1600, KM_NODES = 1000,
+    YELLOW_ONE = 1,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
@@ -158,7 +160,71 @@ void hud_draw_gap(const QuadTarget *t, HudState *hud, const DashArt *dash, int32
     const int32_t seconds_x = x + step + space;
     hud_draw_number(t, yellow, hud->clock.seconds, seconds_x, y, step, 2);
     hud_draw_number(t, yellow, hud->clock.tenths, space + seconds_x + step * 2, y, step, 1);
-    hud->unknown_4f9a78 = HUD_GAP_UNSET;
-    hud->unknown_4f9a6c = HUD_GAP_UNSET;
-    hud->unknown_4f9a70 = HUD_GAP_UNSET;
+    hud->lap_shown = HUD_GAP_UNSET;
+    hud->distance_tens_shown = HUD_GAP_UNSET;
+    hud->distance_ones_shown = HUD_GAP_UNSET;
+}
+
+/* A shape of the mask bank at its own place; nothing when the bank lacks
+ * it (port guard: the original aborts). */
+static void draw_named(const QuadTarget *t, const DashArt *dash, const char name[5])
+{
+    const uint8_t *shape = shape_bank_find(dash->bank, (const uint8_t *)name);
+    if (shape != NULL) blit_shape_placed(t, shape);
+}
+
+static void draw_yellow(const QuadTarget *t, const DashArt *dash, int32_t index, int32_t x, int32_t y)
+{
+    if (index >= 0 && index < DASH_YELLOW)  /* port guard: the original reads the next globals */
+        blit_shape(t, dash->yellow[index], x, y, BLIT_OPAQUE);
+}
+
+void hud_draw_distance(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
+                       int16_t german, int32_t x, int32_t y, int32_t step, int32_t space)
+{
+    if (hud->distance_tens_shown == HUD_GAP_UNSET) draw_named(t, dash, "mile");
+    const int32_t nodes = german != 0 ? KM_NODES : MILE_NODES;
+    const int32_t left = car->node < race->loop_nodes
+        ? (int32_t)((uint32_t)(race->loop_nodes - car->node) * DISTANCE_SCALE) / nodes + 1 : 0;
+    const int32_t tens = left / 10, ones = left % 10;
+    const int32_t next = step + x;
+    if (tens == hud->distance_tens_shown) {
+        if (german != 0) x = next;
+    } else {
+        hud->distance_tens_shown = tens;
+        if (german == 0) {
+            draw_yellow(t, dash, tens, x, y);
+        } else if (tens < 10) {
+            draw_yellow(t, dash, YELLOW_BLANK, x, y);
+            draw_yellow(t, dash, tens, next, y);
+            x = next;
+        } else {
+            draw_yellow(t, dash, YELLOW_ONE, x, y);
+            draw_yellow(t, dash, 0, next, y);
+            x = next;
+        }
+    }
+    if (ones != hud->distance_ones_shown) {
+        hud->distance_ones_shown = ones;
+        draw_yellow(t, dash, ones, x + step + space, y);
+    }
+    hud->gap_shown = HUD_GAP_UNSET;
+}
+
+void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
+                  int32_t x, int32_t y, int32_t step, int32_t laps_x, int32_t laps_y)
+{
+    if (hud->lap_shown == HUD_GAP_UNSET) draw_named(t, dash, "lap#");
+    const int32_t lap = race->laps_setting < car->lap ? race->laps_setting : car->lap;
+    if (lap != hud->lap_shown) {
+        hud->lap_shown = lap;
+        if (lap < 10) {
+            hud_draw_number(t, dash->yellow, lap, step + x, y, step, 1);
+            draw_yellow(t, dash, YELLOW_BLANK, x, y);
+        } else {
+            hud_draw_number(t, dash->yellow, lap, x, y, step, 2);
+        }
+        hud_draw_number(t, dash->yellow, race->laps, laps_x, laps_y, step, race->laps < 10 ? 1 : 2);
+    }
+    hud->gap_shown = HUD_GAP_UNSET;
 }

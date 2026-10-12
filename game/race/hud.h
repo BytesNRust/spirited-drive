@@ -41,10 +41,10 @@ typedef struct {
     int32_t minutes_shown;              /* 004f9a4c */
     int32_t unknown_4f9a50[6];          /* 004f9a50..004f9a64 */
     int32_t place_shown;                /* 004f9a68 */
-    int32_t unknown_4f9a6c;             /* set to HUD_GAP_UNSET with the gap */
-    int32_t unknown_4f9a70;             /* likewise */
+    int32_t distance_tens_shown;        /* 004f9a6c: HUD_GAP_UNSET until first drawn (and after the gap) */
+    int32_t distance_ones_shown;        /* 004f9a70 */
     int32_t unknown_4f9a74;
-    int32_t unknown_4f9a78;             /* likewise */
+    int32_t lap_shown;                  /* 004f9a78: HUD_GAP_UNSET until first drawn (and after the gap) */
     int32_t gear_shown;                 /* 004f9a7c */
     int32_t unknown_4f9a80[4];          /* 004f9a80..004f9a8c */
     int32_t redraw;                     /* 004f9a90 */
@@ -94,6 +94,19 @@ void hud_draw_splits(const QuadTarget *t, HudState *hud, uint8_t *const *yellow,
  * are left holding the gap's minutes, seconds and tenths. */
 void hud_draw_gap(const QuadTarget *t, HudState *hud, const DashArt *dash, int32_t gap, int32_t x, int32_t y,
                   int32_t step, int32_t space);
+
+/* 0041f044 (a race without laps): the distance left, (loop_nodes - node)
+ * x 0x30 / 1600 (miles) or / 1000 (km, German) + 1 tenths, 0 at or past
+ * the end, as tens at x and ones at x + 2 step + space ... (see hud.c);
+ * the 'mile' shape first while the tens were never shown. */
+void hud_draw_distance(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
+                       int16_t german, int32_t x, int32_t y, int32_t step, int32_t space);
+
+/* 0041f1cc (a circuit): the car's lap (at most race->laps_setting) in one
+ * digit after a blank or two at x, and race->laps at laps_x, laps_y; the
+ * 'lap#' shape first while the lap was never shown. */
+void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
+                  int32_t x, int32_t y, int32_t step, int32_t laps_x, int32_t laps_y);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
