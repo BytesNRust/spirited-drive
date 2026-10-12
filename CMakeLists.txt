@@ -131,6 +131,7 @@ add_library(tnfs_game STATIC
     game/race/hud.c
     game/race/hud_keys.c
     game/race/hud_mask.c
+    game/race/hud_map.c
     game/race/hud_needle.c
     game/race/hud_redraw.c
     game/race/race_view_tables.c
