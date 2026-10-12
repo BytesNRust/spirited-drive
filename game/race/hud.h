@@ -54,6 +54,11 @@ void hud_clock_split(HudClock *clock, int32_t ticks);
 void hud_draw_number(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t value, int32_t x, int32_t y,
                      int32_t step, int32_t digits);
 
+/* 0041e5ec: as hud_draw_number, but leading zeros (not the last digit)
+ * are drawn with digit_shapes[14] (the yellow blank, table + 0x38). */
+void hud_draw_number_blank(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t value, int32_t x, int32_t y,
+                           int32_t step, int32_t digits);
+
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
  * |forward speed| (+0x68 while race->viewed < race->humans, else the

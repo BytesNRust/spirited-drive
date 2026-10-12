@@ -7,6 +7,7 @@
 enum {
     MPH = 0x23d70, KMH = 0x39999,  /* 16.16 from the speed's units */
     AI_GEARS = 6,
+    YELLOW_BLANK = 14,
     YELLOW_FIRST_GEAR = 1, YELLOW_REVERSE = 10, YELLOW_NEUTRAL = 11,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
@@ -29,6 +30,27 @@ void hud_draw_number(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t 
         value /= 10;
     }
     for (int32_t i = digits - 1; i >= 0; i--, x += step) blit_shape(t, digit_shapes[digit[i]], x, y, BLIT_OPAQUE);
+}
+
+void hud_draw_number_blank(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t value, int32_t x, int32_t y,
+                           int32_t step, int32_t digits)
+{
+    if (value < 0 || digits > HUD_MAX_DIGITS) return;
+    int32_t digit[HUD_MAX_DIGITS];
+    for (int32_t i = 0; i < digits; i++) {
+        digit[i] = value % 10;
+        value /= 10;
+    }
+    int leading = 1;
+    for (int32_t i = 0; i < digits; i++, x += step) {
+        const int32_t d = digit[digits - 1 - i];
+        if (d == 0 && i < digits - 1 && leading) {
+            blit_shape(t, digit_shapes[YELLOW_BLANK], x, y, BLIT_OPAQUE);
+        } else {
+            blit_shape(t, digit_shapes[d], x, y, BLIT_OPAQUE);
+            leading = 0;
+        }
+    }
 }
 
 void hud_draw_speed(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
