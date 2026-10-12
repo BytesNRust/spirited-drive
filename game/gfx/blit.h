@@ -39,6 +39,9 @@ int blit_shape_centred(const QuadTarget *t, const uint8_t *shape, int32_t x, int
  * 004c61d4; its 16-bit surface path is not ported). */
 int blit_shape_placed_transparent(const QuadTarget *t, const uint8_t *shape);
 
+/* 00473a98: the shape at (x, y), colour 0xff skipped (004739b0). */
+int blit_shape_at_transparent(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y);
+
 /* 00483fa0: the runs of a run list copied from an 8-bit shape (type 0x7b) of
  * the screen's size to the surface, `width` pixels a row (004c78b4). The list
  * (an .mmb part): +8 a word, the 64k-pixel blocks; +0xa a word, the entries of
