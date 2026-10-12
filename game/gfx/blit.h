@@ -26,6 +26,10 @@ int blit_shape_placed(const QuadTarget *t, const uint8_t *shape);
 /* 004737d0: the shape at (x, y), opaque. */
 int blit_shape_at(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y);
 
+/* 0047380c: the shape opaque with its hotspot (the words at +8, +0xa) at
+ * (x, y). */
+int blit_shape_centred(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y);
+
 /* 00473ab4: the shape at its own place, colour 0xff skipped (004739b0 with
  * 004c61d4; its 16-bit surface path is not ported). */
 int blit_shape_placed_transparent(const QuadTarget *t, const uint8_t *shape);

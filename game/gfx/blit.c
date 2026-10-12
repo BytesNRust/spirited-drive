@@ -6,7 +6,7 @@
 
 enum {
     SHAPE_TYPE_8_BIT = 0x7b,
-    SHAPE_WIDTH = 4, SHAPE_HEIGHT = 6, SHAPE_X = 0xc, SHAPE_Y = 0xe, SHAPE_PIXELS = 0x10,
+    SHAPE_WIDTH = 4, SHAPE_HEIGHT = 6, SHAPE_HOT_X = 8, SHAPE_HOT_Y = 0xa, SHAPE_X = 0xc, SHAPE_Y = 0xe, SHAPE_PIXELS = 0x10,
     TRANSPARENT_COLOUR = 0xff,
     RUNS_BLOCKS = 8, RUNS_STEP = 0xc, RUNS_FIRST = 0x14, RUN_SIZE = 8,
     RUN_TO = 4, RUN_COUNT = 6, BLOCK_PIXELS_SHIFT = 16
@@ -78,6 +78,11 @@ int blit_shape_placed(const QuadTarget *t, const uint8_t *shape)
 int blit_shape_at(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y)
 {
     return blit_shape(t, shape, x, y, BLIT_OPAQUE);
+}
+
+int blit_shape_centred(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y)
+{
+    return blit_shape(t, shape, x - s16(shape + SHAPE_HOT_X), y - s16(shape + SHAPE_HOT_Y), BLIT_OPAQUE);
 }
 
 int blit_shape_placed_transparent(const QuadTarget *t, const uint8_t *shape)
