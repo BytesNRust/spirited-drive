@@ -7,6 +7,8 @@
 #ifndef TNFS_GFX_NEEDLE_H
 #define TNFS_GFX_NEEDLE_H
 
+#include "game/gfx/quad.h"
+
 #include <stdint.h>
 
 typedef struct {
@@ -72,5 +74,18 @@ void needle_span_y(NeedleLine *n, uint8_t *pixels, int32_t pitch);
  * pixel alone is left when its level (both covers - 16) is not above 0.
  * Port guard as 004832c2's for edge b above edge a. */
 void needle_span_x(NeedleLine *n, uint8_t *pixels, int32_t pitch);
+
+/* 0048307d (watcall ()): the y-major needle's rows that cross the
+ * surface's clip (004c78bc..c8; left and right taken as their low 16 bits,
+ * signed), through the surface's pixel read, plot and fill (0048f5f0,
+ * 0049f3a0, 004829b0). Returns at the first row inside the clip (left <=
+ * xa >> 16, xb >> 16 < right; 004832c2 takes over), or wholly left or
+ * wholly right of it, or at y_end. A row: one pixel alone faded by both
+ * covers - 16 when above 0; else edge a's pixel by its cover when that is
+ * not 0 and the pixel is right of `left` (strictly: a pixel on the left
+ * edge is left as it is), the pixels between filled with fade_first,
+ * edge b's by its cover when not 0 and left of `right`. Then the edges by
+ * their slopes, y_start by dy. */
+void needle_edges_y(NeedleLine *n, const QuadTarget *t);
 
 #endif

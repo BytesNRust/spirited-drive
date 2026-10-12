@@ -1,5 +1,7 @@
 #include "game/gfx/needle.h"
 
+#include "game/gfx/flat.h"
+#include "game/gfx/flat_internal.h"
 #include "game/gfx/x86_int.h"
 
 /* imul + shrd 16 + adc 0: bit 15 of the product rounds. */
@@ -140,5 +142,37 @@ void needle_span_x(NeedleLine *n, uint8_t *pixels, int32_t pitch)
         n->yb = x_add(n->yb, n->slope_yb);
         n->x_start = x_add(n->x_start, n->dx);
         column++;
+    }
+}
+
+/* An edge pixel through the surface's own read and plot (0048f5f0,
+ * 0049f3a0): faded by level / 16, dropped outside the clip. */
+static void fade_plot(const NeedleLine *n, const QuadTarget *t, int32_t x, int32_t y, int32_t level)
+{
+    flat_plot(t, x, y, n->fade[(level - 1) * 256 + (int32_t)flat_peek(t, x, y)]);
+}
+
+void needle_edges_y(NeedleLine *n, const QuadTarget *t)
+{
+    int32_t row = x_sar(n->y_start, 16);
+    while (n->y_start < n->y_end) {
+        const int32_t b = x_sar(n->xb, 16), a = x_sar(n->xa, 16);
+        const int32_t left = (int16_t)t->clip_left, right = (int16_t)t->clip_right;
+        if (left <= a && b < right) return;
+        if (a < left && b < left) return;
+        if (a >= right && b >= right) return;
+        const int32_t fa = (0x10000 - (n->xa & 0xffff)) >> 12;
+        const int32_t fb = (n->xb & 0xffff) >> 12;
+        if (b == a) {
+            if (fa + fb - 16 > 0) fade_plot(n, t, b, row, fa + fb - 16);
+        } else {
+            if (fa != 0 && left < a) fade_plot(n, t, a, row, fa);
+            if (a + 1 < b) flat_fill_rect(t, a + 1, row, b - (a + 1), 1, n->fade_first & 0xff);
+            if (fb != 0 && b < right) fade_plot(n, t, b, row, fb);
+        }
+        n->xa = x_add(n->xa, n->slope_xa);
+        n->xb = x_add(n->xb, n->slope_xb);
+        n->y_start = x_add(n->y_start, n->dy);
+        row++;
     }
 }
