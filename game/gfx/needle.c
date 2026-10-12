@@ -176,3 +176,28 @@ void needle_edges_y(NeedleLine *n, const QuadTarget *t)
         row++;
     }
 }
+
+void needle_edges_x(NeedleLine *n, const QuadTarget *t)
+{
+    int32_t column = x_sar(n->x_start, 16);
+    while (n->x_start < n->x_end) {
+        const int32_t a = x_sar(n->ya, 16), b = x_sar(n->yb, 16);
+        const int32_t top = (int16_t)t->clip_top, bottom = (int16_t)t->clip_bottom;
+        if (top <= a && b < bottom) return;
+        if (a < top && b < top) return;
+        if (a >= bottom && b >= bottom) return;
+        const int32_t fa = (0x10000 - (n->ya & 0xffff)) >> 12;
+        const int32_t fb = (n->yb & 0xffff) >> 12;
+        if (a == b) {
+            if (fa + fb - 16 > 0) fade_plot(n, t, column, a, fa + fb - 16);
+        } else {
+            if (fa != 0 && top < a) fade_plot(n, t, column, a, fa);
+            if (a + 1 < b) flat_fill_rect(t, column, a + 1, 1, b - (a + 1), n->fade_first & 0xff);
+            if (fb != 0 && b < bottom) fade_plot(n, t, column, b, fb);
+        }
+        n->ya = x_add(n->ya, n->slope_ya);
+        n->yb = x_add(n->yb, n->slope_yb);
+        n->x_start = x_add(n->x_start, n->dx);
+        column++;
+    }
+}

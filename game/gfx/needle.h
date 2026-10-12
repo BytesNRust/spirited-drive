@@ -88,4 +88,10 @@ void needle_span_x(NeedleLine *n, uint8_t *pixels, int32_t pitch);
  * their slopes, y_start by dy. */
 void needle_edges_y(NeedleLine *n, const QuadTarget *t);
 
+/* 00483458 (watcall ()): 0048307d by columns for the x-major needle: the
+ * clip's top and bottom (low 16 bits, signed) for its left and right, a
+ * column from ya >> 16 down to yb >> 16 (the fill 1 wide), the edges by
+ * their slopes and x_start by dx. */
+void needle_edges_x(NeedleLine *n, const QuadTarget *t);
+
 #endif
