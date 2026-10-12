@@ -7,6 +7,7 @@
 #include "game/race/cockpit.h"
 #include "game/race/dash_art.h"
 #include "game/race/hud.h"
+#include "game/race/hud_map.h"
 #include "game/race/hud_keys.h"
 #include "game/race/hud_needle.h"
 #include "game/race/race_palette.h"
@@ -19,7 +20,9 @@ enum {
     DRIVE_HUD_W = 640, DRIVE_HUD_H = 32,    /* the top strip ('stat', 004829b0's fill) */
     DRIVE_VIEW_W = 640, DRIVE_VIEW_H = 480, /* the view surface (004c2d90) */
     DRIVE_VIEW_HEADER = 0x10,               /* drawn from as an 8-bit shape (type 0x7b) */
-    DRIVE_BACK_W = 0x71, DRIVE_BACK_H = 0x8c /* 004c2d98, high resolution (0044ca3c) */
+    DRIVE_BACK_W = 0x71, DRIVE_BACK_H = 0x8c, /* 004c2d98, high resolution (0044ca3c) */
+    DRIVE_MAP_W = 0x74, DRIVE_MAP_H = 0x8e,  /* 004c2d9c, high resolution (0044ca3c) */
+    DRIVE_MAP_X = 0x206, DRIVE_MAP_Y = 0x130 /* where 00422598 / 0042270c copy it (004737d0) */
 };
 
 typedef struct {
@@ -50,6 +53,10 @@ typedef struct {
     int in_car;                 /* 00512054: the last frame was 0042270c's */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
     uint8_t back[DRIVE_VIEW_HEADER + DRIVE_BACK_W * DRIVE_BACK_H];  /* 004c2d98's shape */
+    uint8_t map[DRIVE_VIEW_HEADER + DRIVE_MAP_W * DRIVE_MAP_H];     /* 004c2d9c's shape: the track map */
+    int32_t map_blink;          /* 004f9b5c */
+    uint32_t road_colour, frame_colour;  /* 0050b7b0, 004f9b60 (00446bac) */
+    uint8_t car_colours[HUD_MAP_COLOURS]; /* 0050b7d4.. (00446bac) */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
@@ -75,7 +82,9 @@ void drive_hud_start(DriveHud *h, RacePalette *p);
  * the screen), else the frame itself. */
 uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
 
-/* 00422598's order: 00421c18 (after a view change with 1: 'tach' into the
+/* 00422598's order, after 00422ce0 (the track map into 004c2d9c, as 0044cc74
+ * runs it after the 3D view, while a cockpit is loaded: its 004f9b40 and
+ * 004f9b64): 00421c18 (after a view change with 1: 'tach' into the
  * view surface, all of it to the frame; otherwise the view surface through
  * the run list of the camera's view and window size 0), 00420710 (the labels
  * 10 ticks after the start lights were last drawn; F7 / F8 / F9) and the top row
@@ -84,7 +93,8 @@ uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
  * revs, `redline` its specs' +0xac). In the car (chase kind 0, no dash
  * camera, a cockpit loaded) 0042270c's part instead: on its first frame
  * 0041e364, then 00421160 while 004f9a24 / 004f9a28 is set, then the keys and
- * the top row. `pixels` is the persistent frame (the original redraws only
+ * the top row. Both copy the map to (0x206, 0x130) while 004f9b3c (set by
+ * 0044ca3c at the start), 00422598 after the needle. `pixels` is the persistent frame (the original redraws only
  * what changed). TODO: the parts key (no .b%d%d parts read).
  * pixels NULL: the strip only (a frame not shown). */
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);

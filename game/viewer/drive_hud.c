@@ -96,6 +96,10 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     race_palette_remap_track_bank(p, h->bank, h->art.palette);
     h->strip_colour = (uint32_t)race_palette_nearest(p, 0, 0, 0);
     h->needle_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0, 0);  /* 00446bac */
+    h->road_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0x3f, 0x3f);
+    h->frame_colour = (uint32_t)race_palette_nearest(p, 0x1a, 0x1a, 0x1a);
+    const uint8_t car_colours[HUD_MAP_COLOURS] = { 0xf5, 0xf8, 0xf0, 0xfa, (uint8_t)h->road_colour, 0xf9, 0xfc, 0xfb };
+    memcpy(h->car_colours, car_colours, sizeof car_colours);
     uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34; the search's entries 004c5ff8 as 0041f818 left them */
     race_palette_read(p, 0, RACE_PALETTE_COLOURS, copy);
     palette_shade_table(copy, p->enabled, SHADE_SCALE, h->shade);
@@ -120,6 +124,11 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->shown_view = -1;
     memset(&h->keys, 0, sizeof h->keys);
     h->keys.armed = 1;  /* 004b9460's start */
+    h->keys.use_parts = 1;  /* 0044ca3c; the mask still draws from the .mmb (its use_parts 0: no parts read) */
+    memset(h->map, 0, sizeof h->map);
+    h->map[0] = SHAPE_8_BIT;
+    h->map[4] = DRIVE_MAP_W, h->map[6] = DRIVE_MAP_H;
+    h->map_blink = 0;
 }
 
 uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels)
@@ -404,6 +413,31 @@ static void draw_cockpit(DriveHud *h, CockpitSurfaces *s)
     h->hud.unknown_4f9a20[1] = h->hud.unknown_4f9a20[2] = 0;
 }
 
+static QuadTarget *map_select(void *ctx, HudSurface s)
+{
+    (void)s;  /* 00422ce0 selects only 004c2d9c */
+    return ctx;
+}
+
+/* 00422ce0 into the map's surface, from the race's and the cockpit's words. */
+static void draw_map(DriveHud *h, const RaceState *race)
+{
+    QuadTarget t = { h->map + DRIVE_VIEW_HEADER, DRIVE_MAP_W, 0, 0, DRIVE_MAP_W, DRIVE_MAP_H };
+    const HudMapOps ops = { &t, map_select };
+    const Car *police = race->cars[2];
+    const int32_t ring = race->circuit ? race->segments * 4 : 0x20000;  /* 0043e4e0 */
+    HudMapInputs in = {
+        race->tri, race->circuit ? ring - 1 : -1, ring, h->cockpit_world.unknown_4f9b40, HIGH_RES,
+        h->keys.use_parts, race->mirrored, race->race_type, race->track, race->track_variant,
+        race->chase.kind, h->keys.dash_camera, h->cockpit_world.back_saved, h->back,
+        h->bank, race->viewed, { 0 }, police != NULL, police != NULL ? police->flags_51a : 0,
+        race->unknown_4fbab8, h->hud.place, race->car_places, h->car_colours, h->frame_colour,
+        h->road_colour, h->needle_colour, DRIVE_MAP_W, DRIVE_MAP_H };
+    for (int i = 0; i < HUD_MAP_CARS; i++)
+        in.car_node[i] = race->cars[i] != NULL ? (int16_t)race->cars[i]->node : 0;  /* port guard: no car, node 0 */
+    hud_map_draw(&ops, &in, &h->map_blink);
+}
+
 /* 00422598 / 0042270c's start: while a stop notice is up, 004214e4 and nothing else this frame (then 004b9568, the
  * full redraw, or 004f9a24); else 004217a8, the dash loaded again when the notice freed it.
  * TODO(00405260, 0044d640): 00422598's other calls with the notice. */
@@ -428,6 +462,7 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     int in_car = h->cockpit_ready && race->chase.kind == 0 && h->keys.dash_camera == 0;  /* 0044cc74 */
     if (!in_car) h->in_car = 0;
     if (full) {
+        if (h->cockpit_ready) draw_map(h, race);
         CockpitSurfaces s = { h, race, { pixels, width, 0, 0, width, height },
                               { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
         if (police_or_reload(h, race, &s, in_car)) return;
@@ -442,10 +477,12 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     const int w = width < DRIVE_HUD_W ? width : DRIVE_HUD_W;
     for (int y = 0; y < DRIVE_HUD_H && y < height; y++)
         memcpy(pixels + (size_t)y * (size_t)width, h->strip + (size_t)y * DRIVE_HUD_W, (size_t)w);
-    if (in_car) return;  /* 0042270c does not run 0042221c */
     QuadTarget screen = { pixels, width, 0, 0, width, height };
-    hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
-                    h->needle_colour);
+    if (!in_car)  /* 0042270c does not run 0042221c */
+        hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
+                        h->needle_colour);
+    if (full && h->cockpit_ready && h->keys.use_parts != 0)
+        blit_shape_at(&screen, h->map, DRIVE_MAP_X, DRIVE_MAP_Y);
 }
 
 void drive_hud_free(DriveHud *h)
