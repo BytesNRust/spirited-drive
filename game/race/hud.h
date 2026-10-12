@@ -66,6 +66,20 @@ void hud_clock_split(HudClock *clock, int32_t ticks);
  * 004f9a2c and the split_shown words 0, lights_until 0x7d000. */
 void hud_reset(HudState *hud);
 
+/* What 0041e3f4 reads besides the HUD's own. */
+typedef struct {
+    int32_t unknown_4c5390;         /* 1: the clip waits on 004f9a24 / 004f9a28 */
+    int32_t high_res;               /* 004fa0c0 */
+    int32_t width, height;          /* 0051201c, 00512020 */
+    int32_t surface_w, surface_h;   /* 004c78b4, 004c78b8, for 0047383c */
+} HudViewClipInputs;
+
+/* 0041e3f4: with 004c5390 == 1, the screen (0, 0, width x height) when
+ * 004f9a24 is set, else when 004f9a28 is set the box (0, 0x1c0 high / 0xb4
+ * low, width x height) and 004f9a28 = 0, else nothing; otherwise the box
+ * (0, 0, width x 0x1c0 high / 0xb4 low). All through 0044987c. */
+void hud_view_clip(QuadTarget *t, HudState *hud, const HudViewClipInputs *in);
+
 /* 0041e794: ticks (as hud_clock_split, into hud->clock) as mm:ss.t in the
  * grey digits (dash->grey_shown, 005138a4): minutes at x, seconds 2 steps
  * + space on, tenths 2 steps + space further. */

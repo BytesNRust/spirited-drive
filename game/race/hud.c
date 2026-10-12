@@ -2,6 +2,7 @@
 #include "game/race/hud.h"
 
 #include "game/gfx/blit.h"
+#include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/shape_bank.h"
@@ -21,6 +22,7 @@ enum {
     LIGHT_STEP_LOW = 0x41, LIGHT_STEP_HIGH = 0x82,
     STRIP_W_LOW = 0x140, STRIP_H_LOW = 0x10, STRIP_W_HIGH = 0x280, STRIP_H_HIGH = 0x20,
     LIGHTS_HOLD = 10, LIGHTS_RESET = 0x7d000,
+    VIEW_H_HIGH = 0x1c0, VIEW_H_LOW = 0xb4,  /* 0041e3f4's box height and top */
     LABELS_FROM = 0x168, RACE_TIME_FROM = 0x186,
     START_NODES = 12,
     TOP_ROW_FROM = 0x169, LAST_LAP_SHOWN = 0xf0,
@@ -295,6 +297,22 @@ void hud_reset(HudState *hud)
     hud->lights_until = LIGHTS_RESET;
     hud->waiting = 0;
     for (int k = 0; k < HUD_SPLITS; k++) hud->split_shown[k] = 0;
+}
+
+void hud_view_clip(QuadTarget *t, HudState *hud, const HudViewClipInputs *in)
+{
+    const int32_t view_h = in->high_res != 0 ? VIEW_H_HIGH : VIEW_H_LOW;
+    if (in->unknown_4c5390 != 1) {
+        clip_box(t, 0, 0, in->width, view_h, in->surface_w, in->surface_h);
+        return;
+    }
+    if (hud->unknown_4f9a20[1] != 0) {
+        clip_box(t, 0, 0, in->width, in->height, in->surface_w, in->surface_h);
+        return;
+    }
+    if (hud->unknown_4f9a20[2] == 0) return;
+    clip_box(t, 0, view_h, in->width, in->height, in->surface_w, in->surface_h);
+    hud->unknown_4f9a20[2] = 0;
 }
 
 void hud_draw_time(const QuadTarget *t, HudState *hud, uint8_t *const *grey, int32_t ticks, int32_t x, int32_t y,
