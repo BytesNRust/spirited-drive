@@ -14,7 +14,8 @@ enum {
     HUD_START_TICKS = 300,  /* the clock counts from here (the countdown) */
     HUD_MAX_DIGITS = 10,    /* 0041e55c's buffer */
     HUD_SPEED_DIGITS = 3,
-    HUD_BLANK = 10          /* the blank digit shape, and "shown blank" */
+    HUD_BLANK = 10,         /* the blank digit shape, and "shown blank" */
+    HUD_SPLITS = 6
 };
 
 /* 004f9a0c..004f9a14: the race clock 0041e48c splits. */
@@ -24,7 +25,7 @@ typedef struct {
     int32_t minutes;    /* 004f9a14 */
 } HudClock;
 
-/* 004f9a0c..004f9a9f: the HUD's state, word for word. A *_shown word is
+/* 004f9a0c..004f9acf: the HUD's state, word for word. A *_shown word is
  * what is on screen now: a digit is drawn again only when it changes. */
 typedef struct {
     HudClock clock;                     /* 004f9a0c */
@@ -41,6 +42,8 @@ typedef struct {
     int32_t unknown_4f9a80[4];          /* 004f9a80..004f9a8c */
     int32_t redraw;                     /* 004f9a90 */
     int32_t unknown_4f9a94[3];          /* 004f9a94..004f9a9c */
+    int32_t split_shown[HUD_SPLITS];    /* 004f9aa0 */
+    int32_t split[HUD_SPLITS];          /* 004f9ab8: 0..2 times in ticks, 3..5 counts */
 } HudState;
 
 /* 0041e48c: ticks (60 a second) past HUD_START_TICKS into minutes, seconds
@@ -69,6 +72,11 @@ typedef struct {
  * set; the tenths 8 pixels past the seconds) or `low` (2 pixels past). */
 void hud_draw_seconds(const QuadTarget *t, uint8_t *const *yellow, int32_t ticks, int32_t high_res, HudPlace high,
                       HudPlace low);
+
+/* 0041e9a0 (top row layout 2): each split that changed since shown,
+ * redrawn: 0..2 as seconds and tenths (hud_draw_seconds), 3..5 in three
+ * yellow digits, leading zeros blank (in the order 3, 5, 4). */
+void hud_draw_splits(const QuadTarget *t, HudState *hud, uint8_t *const *yellow, int32_t high_res);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:

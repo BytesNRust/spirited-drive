@@ -107,3 +107,26 @@ void hud_draw_gear(const QuadTarget *t, HudState *hud, const DashArt *dash, cons
     blit_shape(t, dash->yellow[shape], x, y, BLIT_OPAQUE);
     hud->gear_shown = gear;
 }
+
+/* 0041e9a0's places: the three times (high, low), then the counts. */
+static const HudPlace SPLIT_HIGH[3] = { { 0x25, 6, 0x13 }, { 0x8d, 6, 0x13 }, { 0xf5, 6, 0x13 } };
+static const HudPlace SPLIT_LOW[3] = { { 0x14, 1, 8 }, { 0x45, 1, 8 }, { 0x76, 1, 8 } };
+static const int SPLIT_COUNT_ORDER[3] = { 3, 5, 4 };
+static const HudPlace COUNT_HIGH[3] = { { 0x14f, 6, 0x13 }, { 0x234, 6, 0x13 }, { 0x1cc, 6, 0x13 } };
+static const HudPlace COUNT_LOW[3] = { { 0xaa, 1, 8 }, { 0x11f, 1, 8 }, { 0xee, 1, 8 } };
+
+void hud_draw_splits(const QuadTarget *t, HudState *hud, uint8_t *const *yellow, int32_t high_res)
+{
+    for (int k = 0; k < 3; k++) {
+        if (hud->split_shown[k] == hud->split[k]) continue;
+        hud_draw_seconds(t, yellow, hud->split[k], high_res, SPLIT_HIGH[k], SPLIT_LOW[k]);
+        hud->split_shown[k] = hud->split[k];
+    }
+    for (int i = 0; i < 3; i++) {
+        const int k = SPLIT_COUNT_ORDER[i];
+        if (hud->split_shown[k] == hud->split[k]) continue;
+        const HudPlace p = high_res != 0 ? COUNT_HIGH[i] : COUNT_LOW[i];
+        hud_draw_number_blank(t, yellow, hud->split[k], p.x, p.y, p.step, 3);
+        hud->split_shown[k] = hud->split[k];
+    }
+}
