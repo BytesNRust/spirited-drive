@@ -45,6 +45,10 @@ void flat_polygon(const QuadTarget *target, uint32_t colour, int count, const in
 void flat_polygon_merge(const QuadTarget *target, uint32_t colour, int count,
                         const int32_t *points);
 
+/* 004829b0 for an 8-bit surface: a clipped w x h rectangle of one colour. */
+void flat_fill_rect(const QuadTarget *target, int32_t x, int32_t y, int32_t w, int32_t h,
+                    uint32_t colour);
+
 /* 00484254: a line from (x0, y0) to (x1, y1), both ends drawn. */
 void flat_line(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
                uint32_t colour);

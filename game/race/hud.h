@@ -16,7 +16,9 @@ enum {
     HUD_SPEED_DIGITS = 3,
     HUD_BLANK = 10,         /* the blank digit shape, and "shown blank" */
     HUD_SPLITS = 6,
-    HUD_GAP_UNSET = -99
+    HUD_GAP_UNSET = -99,
+    HUD_LIGHTS = 5,
+    HUD_BEEPS = 6           /* 00513e78..00513e82: green, then lights 3, 1, 0, 4, 2 */
 };
 
 /* 004f9a0c..004f9a14: the race clock 0041e48c splits. */
@@ -48,7 +50,9 @@ typedef struct {
     int32_t gear_shown;                 /* 004f9a7c */
     int32_t unknown_4f9a80[4];          /* 004f9a80..004f9a8c */
     int32_t redraw;                     /* 004f9a90 */
-    int32_t unknown_4f9a94[3];          /* 004f9a94..004f9a9c */
+    int32_t lights_until;               /* 004f9a94: the tick the start lights were last drawn + 10 */
+    int32_t unknown_4f9a98;
+    int32_t strip_dirty;                /* 004f9a9c: the top strip is cleared before the lights */
     int32_t split_shown[HUD_SPLITS];    /* 004f9aa0 */
     int32_t split[HUD_SPLITS];          /* 004f9ab8: 0..2 times in ticks, 3..5 counts */
 } HudState;
@@ -107,6 +111,16 @@ void hud_draw_distance(const QuadTarget *t, HudState *hud, const DashArt *dash, 
  * 'lap#' shape first while the lap was never shown. */
 void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
                   int32_t x, int32_t y, int32_t step, int32_t laps_x, int32_t laps_y);
+
+/* 0041ec88: the start lights, before the clock runs (00421e40 below tick
+ * 0x168). The top strip first when hud->strip_dirty (flat fill of 320 x 16,
+ * or 640 x 32 at high resolution, in `strip_colour`, 0050b7b4). Before tick
+ * 300: three red then two yellow lights 0x41 (0x82) apart at y 0 (1), lit
+ * up to tick / 60, else dark; from 300 five green. A light's beep word is
+ * cleared when it is lit (the original's sound call 0044372c is empty).
+ * hud->lights_until = tick + 10. */
+void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *dash, int16_t beeps[HUD_BEEPS],
+                           int32_t tick, int32_t high_res, uint32_t strip_colour);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:

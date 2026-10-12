@@ -2,6 +2,7 @@
 #include "game/race/hud.h"
 
 #include "game/gfx/blit.h"
+#include "game/gfx/flat.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/shape_bank.h"
 
@@ -13,6 +14,10 @@ enum {
     SECONDS_LIMIT = 1200,
     DISTANCE_SCALE = 0x30, MILE_NODES = 1600, KM_NODES = 1000,
     YELLOW_ONE = 1,
+    LIGHTS_START = 300, LIGHT_TICKS = 60, RED_LIGHTS = 3,
+    LIGHT_STEP_LOW = 0x41, LIGHT_STEP_HIGH = 0x82,
+    STRIP_W_LOW = 0x140, STRIP_H_LOW = 0x10, STRIP_W_HIGH = 0x280, STRIP_H_HIGH = 0x20,
+    LIGHTS_HOLD = 10,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
@@ -227,4 +232,42 @@ void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const
         hud_draw_number(t, dash->yellow, race->laps, laps_x, laps_y, step, race->laps < 10 ? 1 : 2);
     }
     hud->gap_shown = HUD_GAP_UNSET;
+}
+
+/* Which beep word goes with each light (00513e7e, 7c, 82, 7a, 80), and the
+ * green one (00513e78). */
+static const int LIGHT_BEEP[HUD_LIGHTS] = { 3, 2, 5, 1, 4 };
+enum { GREEN_BEEP = 0 };
+
+void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *dash, int16_t beeps[HUD_BEEPS],
+                           int32_t tick, int32_t high_res, uint32_t strip_colour)
+{
+    if (hud->strip_dirty != 0) {
+        if (high_res != 0) flat_fill_rect(t, 0, 0, STRIP_W_HIGH, STRIP_H_HIGH, strip_colour);
+        else flat_fill_rect(t, 0, 0, STRIP_W_LOW, STRIP_H_LOW, strip_colour);
+        hud->strip_dirty = 0;
+    }
+    const int32_t y = high_res != 0;
+    const int32_t step = high_res != 0 ? LIGHT_STEP_HIGH : LIGHT_STEP_LOW;
+    int32_t x = 0;
+    if (tick < LIGHTS_START) {
+        const int32_t lit = tick / LIGHT_TICKS;
+        for (int32_t i = 0; i < HUD_LIGHTS; i++, x += step) {
+            const int red = i < RED_LIGHTS;
+            const uint8_t *shape;
+            if (i > lit) {
+                shape = red ? dash->srdd : dash->syld;
+            } else {
+                beeps[LIGHT_BEEP[i]] = 0;
+                shape = red ? dash->srdl : dash->syll;
+            }
+            blit_shape(t, shape, x, y, BLIT_OPAQUE);
+        }
+    } else {
+        for (int32_t i = 0; i < HUD_LIGHTS; i++, x += step) {
+            beeps[GREEN_BEEP] = 0;
+            blit_shape(t, dash->green, x, y, BLIT_OPAQUE);
+        }
+    }
+    hud->lights_until = tick + LIGHTS_HOLD;
 }

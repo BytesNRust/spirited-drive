@@ -81,11 +81,9 @@ void flat_scan_first(RowTables *tables, const Clip *clip, int clipping, const Ed
 void flat_scan_second(RowTables *tables, const Clip *clip, int clipping, int merge,
                       const Edge *edge);
 
-/* 0049f3a0 and 004829b0 for an 8-bit surface: one clipped pixel, and a
- * clipped w x h rectangle of one colour. */
+/* 0049f3a0 for an 8-bit surface: one clipped pixel (flat_fill_rect is in
+ * flat.h). */
 void flat_plot(const QuadTarget *target, int32_t x, int32_t y, uint32_t colour);
-void flat_fill_rect(const QuadTarget *target, int32_t x, int32_t y, int32_t w, int32_t h,
-                    uint32_t colour);
 
 /* 004a0048: draws a set-up edge as a line of edge->colour. */
 void flat_draw_edge(const QuadTarget *target, const Edge *edge);
