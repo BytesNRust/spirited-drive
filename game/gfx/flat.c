@@ -1,5 +1,6 @@
 /* Flat-colour polygon and line fill. Ported from NFS_WIN.EXE 0048434e,
- * 00484377, 00484389 (the polygon, three entry points sharing one body),
+ * 00484377, 00484389 (the polygon, three entry points sharing one body;
+ * 0048274c enters the same body with the span filler 0049f13c),
  * 00484254 (line), 004a0048 (line drawer), 004a0290 (span filler) and the
  * pixel and rectangle routines below them, 0049f3a0 and 004829b0 / 00496510,
  * for an 8-bit surface.
@@ -75,6 +76,19 @@ static void fill_rows(const QuadTarget *t, const int32_t *left, const int32_t *r
 {
     for (int32_t i = 0; i < count; i++)
         flat_fill_rect(t, left[i], x_add(y, i), x_add(x_sub(right[i], left[i]), 1), 1, colour);
+}
+
+/* 0049f13c: rows y .. y + count - 1, each pixel from left[i] to right[i]
+ * inclusive replaced by remap[pixel]. Unlike 004a0290 it does not clip x;
+ * the port drops the pixels outside the surface's row. */
+static void shade_rows(const QuadTarget *t, const int32_t *left, const int32_t *right, int32_t y,
+                       int32_t count, const uint8_t *remap)
+{
+    for (int32_t i = 0; i < count; i++) {
+        uint8_t *row = t->pixels + (size_t)x_add(y, i) * (size_t)t->pitch;
+        for (int64_t x = left[i]; x <= right[i]; x++)
+            if (x >= 0 && x < t->pitch) row[x] = remap[row[x]];
+    }
 }
 
 /* 004a0048: the line drawer. Positions are rounded 16.16 values whose
@@ -172,8 +186,10 @@ static void draw_chains(RowTables *tables, const Clip *clip, int clipping, int m
     }
 }
 
-static void polygon(const QuadTarget *target, uint32_t colour, int count, const int32_t *pts,
-                    int merge)
+/* remap NULL: 004a0290 fills the rows with colour; else 0049f13c remaps them
+ * (0048274c), and colour is only that of the line fallbacks. */
+static void polygon(const QuadTarget *target, uint32_t colour, const uint8_t *remap, int count,
+                    const int32_t *pts, int merge)
 {
     if (!target_valid(target) || pts == NULL || count < 1) return;
     if (count == 1) {
@@ -212,16 +228,23 @@ static void polygon(const QuadTarget *target, uint32_t colour, int count, const 
         left[i] = table_get(&tables, x_add(first, i));
         right[i] = table_get(&tables, (int64_t)x_add(first, i) + FLAT_MAX_ROWS);
     }
-    fill_rows(target, left, right, first, rows + 1, colour);
+    if (remap != NULL) shade_rows(target, left, right, first, rows + 1, remap);
+    else fill_rows(target, left, right, first, rows + 1, colour);
 }
 
 void flat_polygon(const QuadTarget *target, uint32_t colour, int count, const int32_t *points)
 {
-    polygon(target, colour, count, points, 0);
+    polygon(target, colour, NULL, count, points, 0);
 }
 
 void flat_polygon_merge(const QuadTarget *target, uint32_t colour, int count,
                         const int32_t *points)
 {
-    polygon(target, colour, count, points, 1);
+    polygon(target, colour, NULL, count, points, 1);
+}
+
+void flat_polygon_shade(const QuadTarget *target, const uint8_t *remap, int count, const int32_t *points,
+                        int merge)
+{
+    if (remap != NULL) polygon(target, 0, remap, count, points, merge != 0);
 }

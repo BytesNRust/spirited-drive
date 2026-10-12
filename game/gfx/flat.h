@@ -45,6 +45,15 @@ void flat_polygon(const QuadTarget *target, uint32_t colour, int count, const in
 void flat_polygon_merge(const QuadTarget *target, uint32_t colour, int count,
                         const int32_t *points);
 
+/* 004827cf (points inline) and 00482794 (through a pointer), merge 0;
+ * 004827b1 and 00482777, merge 1: all through 0048274c, the polygon of
+ * flat_polygon / flat_polygon_merge with each pixel inside replaced by
+ * remap[pixel] (0049f13c; the original's table is 004c6604) instead of
+ * filled, x not clipped. One point, or all on one column, still draw
+ * flat_polygon's line, in colour 0. */
+void flat_polygon_shade(const QuadTarget *target, const uint8_t *remap, int count, const int32_t *points,
+                        int merge);
+
 /* 004829b0 for an 8-bit surface: a clipped w x h rectangle of one colour. */
 void flat_fill_rect(const QuadTarget *target, int32_t x, int32_t y, int32_t w, int32_t h,
                     uint32_t colour);
