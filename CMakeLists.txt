@@ -72,6 +72,7 @@ add_library(tnfs_game STATIC
     game/gfx/palette_match.c
     game/gfx/quad.c
     game/gfx/quad_tri.c
+    game/gfx/needle.c
     game/race/car_draw.c
     game/race/car_drive.c
     game/race/car_engine.c
