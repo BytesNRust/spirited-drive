@@ -28,6 +28,7 @@ enum {
 typedef struct {
     uint8_t strip[DRIVE_HUD_W * DRIVE_HUD_H];  /* what the HUD drew: it redraws only what changed */
     uint8_t *bank, *mmb;        /* the files, the caller's to free with drive_hud_free */
+    uint8_t *parts[DASH_PART_ROWS][DASH_PART_COLUMNS];  /* the .b%d%d files (00483e60), all or none */
     DashArt art;
     ReplayArt replay;
     HudState hud;
@@ -60,7 +61,9 @@ typedef struct {
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
- * retry for case-sensitive file systems). 0 when either is missing. */
+ * retry for case-sensitive file systems). 0 when either is missing. The
+ * parts maskhi.b00..b23 too: without all of them the mask draws from the
+ * .mmb (a message, the race goes on). */
 int drive_hud_read(DriveHud *h, const char *data_root);
 
 /* Inside the race palette's build, before the queue is applied: 00450838's

@@ -63,6 +63,12 @@ int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const
     return h->cockpit_ready;
 }
 
+static void free_parts(DriveHud *h)
+{
+    for (int r = 0; r < DASH_PART_ROWS; r++)
+        for (int c = 0; c < DASH_PART_COLUMNS; c++) platform_free_file(h->parts[r][c]), h->parts[r][c] = NULL;
+}
+
 int drive_hud_read(DriveHud *h, const char *data_root)
 {
     memset(h, 0, sizeof *h);
@@ -77,14 +83,22 @@ int drive_hud_read(DriveHud *h, const char *data_root)
         drive_hud_free(h);
         return 0;
     }
+    int parts = 1;
+    for (int r = 0; r < DASH_PART_ROWS; r++)
+        for (int c = 0; c < DASH_PART_COLUMNS; c++)
+            parts = parts && (h->parts[r][c] = read_named(files.parts[r][c], (size_t)n)) != NULL;
+    if (!parts) {
+        fprintf(stderr, "drive_hud: no %s and the other parts, the mask from %s\n", files.parts[0][0], files.mmb);
+        free_parts(h);
+    }
     return 1;
 }
 
 void drive_hud_setup(DriveHud *h, RacePalette *p)
 {
     if (h->bank == NULL) return;
-    /* TODO(00483e60): the view-mask parts (.b%d%d) are not read: art.parts stays NULL. */
     h->ready = dash_load_setup(&h->art, &h->replay, p, h->bank, h->mmb, HIGH_RES, 0) == 0;
+    memcpy(h->art.parts, h->parts, sizeof h->parts);
     if (!h->ready) fprintf(stderr, "drive_hud: the mask bank lacks a shape the HUD needs\n");
 }
 
@@ -124,7 +138,7 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->shown_view = -1;
     memset(&h->keys, 0, sizeof h->keys);
     h->keys.armed = 1;  /* 004b9460's start */
-    h->keys.use_parts = 1;  /* 0044ca3c; the mask still draws from the .mmb (its use_parts 0: no parts read) */
+    h->keys.use_parts = 1;  /* 0044ca3c */
     memset(h->map, 0, sizeof h->map);
     h->map[0] = SHAPE_8_BIT;
     h->map[4] = DRIVE_MAP_W, h->map[6] = DRIVE_MAP_H;
@@ -211,7 +225,8 @@ static void draw_mask(DriveHud *h, const RaceState *race, uint8_t *pixels, int w
     m.target = &m.screen;
     const HudMaskOps ops = { &m, mask_select, mask_clip, mask_fill, mask_draw, mask_view_clip, mask_present, mask_runs };
     const RaceCamera *camera = race->chase.camera;
-    const HudMaskInputs in = { camera != NULL ? camera->view : 0, 0, 0, 0, 0, width, height, h->strip_colour };
+    const int32_t use_parts = h->keys.use_parts != 0 && h->parts[0][0] != NULL;  /* 004f9b3c, while the parts were read */
+    const HudMaskInputs in = { camera != NULL ? camera->view : 0, 0, 0, use_parts, 0, width, height, h->strip_colour };
     uint8_t clear_view = 0;
     hud_mask_draw(&ops, &h->art, &h->hud, &clear_view, &in, h->changed);
     h->changed = 0;
@@ -491,6 +506,7 @@ void drive_hud_free(DriveHud *h)
     platform_free_file(h->mmb);
     platform_free_file(h->dash_bank);
     platform_free_file(h->dash_fmm);
+    free_parts(h);
     resource_free(h->police.screen_bank);
     h->police.screen_bank = NULL, h->police.screen = NULL;
     h->bank = h->mmb = h->dash_bank = h->dash_fmm = NULL;
