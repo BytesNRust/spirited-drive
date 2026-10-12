@@ -229,4 +229,34 @@ void cockpit_colours(RacePalette *p, const RaceState *race, const Cockpit *c, co
  * the port keeps: those are skipped (port guard). */
 void cockpit_lights(const QuadTarget *t, const Cockpit *c, int32_t count, int32_t big_lit, int32_t *shown);
 
+
+typedef struct {
+    void *ctx;
+    QuadTarget *(*select)(void *ctx, HudSurface s); /* 00473680 / 004735dc */
+} CockpitSelectOps;
+
+typedef struct {
+    int32_t back_buffer;            /* 004b95b4 */
+    int32_t use_parts;              /* 004f9b3c */
+    HudViewClipInputs view_clip;    /* for 0041e3f4 */
+    int32_t gate_always;            /* 004b92c0: the gate drawn also before a gear change */
+} CockpitGateInputs;
+
+/* 0041f5bc (watcall car, from 0042270c): the screen selected (004b95b4 ?
+ * 004c2da0 : 004735dc's); with 004f9b3c set nothing more. Else 0041e3f4,
+ * then with 004b92c0 0 and no gear change ticking (+0x421 <= 0): state 0,
+ * 'gbak' at its place (004737ec) when *state (004b945c) was not 0. Else the
+ * state and its point among the gate points, a = gear before last (+0x41d)
+ * + 2, b = gear (+0x3ed) + 2: ticks below 0xb with no shift (+0x3bd < 1)
+ * 1 at b; ticks from 0xe 2 at a; 0xd 3 at (a's x, point 1's y); 0xc 4 at
+ * (b's x, point 1's y); 0xb with no shift 5 at b; else 0 at (0, 0). When
+ * the state changed: 'gate' at its place and, with 4 lights found
+ * (004f9738), lights 3..0 with 0xff skipped (00473a98) centred (their width
+ * and height / 2, toward 0) from point 1 on in steps of a quarter of the
+ * way (/ 4, toward 0); else light 0 centred at the point. *state = the
+ * state. A gate point past the 9 reads (0, 0) and a NULL shape draws
+ * nothing (port guards: the original reads on). */
+void cockpit_gate(const CockpitSelectOps *ops, HudState *hud, const Cockpit *c, const Car *car,
+                  const CockpitGateInputs *in, int32_t *state);
+
 #endif
