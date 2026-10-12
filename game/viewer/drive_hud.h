@@ -113,6 +113,10 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
  * full 1. 0 when a file is missing or the load fails. */
 int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem);
 
+/* 00422c20 at the race's end (00455a5c): the dash bank, the police screen
+ * and the .fmm freed, the palette's entries enabled again, the notices off. */
+void drive_hud_end(DriveHud *h, RaceState *race);
+
 void drive_hud_free(DriveHud *h);
 
 #endif

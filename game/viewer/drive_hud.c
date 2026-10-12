@@ -663,6 +663,42 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
         blit_shape_at(&screen, h->map, DRIVE_MAP_X, DRIVE_MAP_Y);
 }
 
+static void end_free_bank(void *ctx, uint8_t *bank)
+{
+    DriveHud *h = ctx;
+    (void)bank;
+    platform_free_file(h->dash_bank);
+    h->dash_bank = NULL;
+}
+
+static void end_free_screen(void *ctx, uint8_t *bank)
+{
+    DriveHud *h = ctx;
+    (void)bank;
+    resource_free(h->police.screen_bank);
+    h->police.screen = NULL;
+}
+
+static void end_free_fmm(void *ctx, const uint8_t *fmm)
+{
+    DriveHud *h = ctx;
+    (void)fmm;
+    platform_free_file(h->dash_fmm);
+    h->dash_fmm = NULL;  /* the original keeps 004f9a04; nothing reads it before the next load */
+}
+
+static void end_none(void *ctx) { (void)ctx; }  /* the fade block and the inverse table are the port's own arrays */
+
+void drive_hud_end(DriveHud *h, RaceState *race)
+{
+    static RacePalette scratch;  /* port guard: no race palette was kept */
+    int32_t unknown_513e60 = 0, unknown_4b91c8 = 0;
+    const CockpitTeardownWords w = { &unknown_513e60, &unknown_4b91c8 };
+    const CockpitTeardownOps ops = { h, end_free_bank, end_free_screen, end_none, end_none, end_free_fmm };
+    cockpit_teardown(&ops, &h->cockpit, &h->police, h->palette != NULL ? h->palette : &scratch, race, &w);
+    h->cockpit_ready = 0;
+}
+
 void drive_hud_free(DriveHud *h)
 {
     platform_free_file(h->bank);

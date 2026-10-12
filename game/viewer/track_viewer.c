@@ -611,6 +611,7 @@ static void free_drive(void)
     }
     platform_free_file(drive_cars.carpal);
     drive_cars.carpal = NULL;
+    drive_hud_end(&drive_hud, &drive_sim.race);
     drive_hud_free(&drive_hud);
 }
 
