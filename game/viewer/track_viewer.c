@@ -19,6 +19,7 @@
 #include "game/race/track_objects.h"
 #include "platform/platform.h"
 #include "viewer/camera.h"
+#include "viewer/drive_hud.h"
 #include "viewer/drive_palette.h"
 #include "viewer/model_view.h"
 #include "viewer/ported_view.h"
@@ -376,6 +377,7 @@ typedef struct {
 } DriveCars;
 
 static DriveCars drive_cars;
+static DriveHud drive_hud;
 
 enum {
     SINGLE_RACE = 2,        /* RaceField.race_type */
@@ -438,6 +440,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     }
     ported_view_set_models(t->models, t->model_ok);
     ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, pixels);
+    drive_hud_draw(&drive_hud, race, pixels, SCREEN_W, SCREEN_H);
 }
 
 static void car_stem(int model, char stem[16])
@@ -547,7 +550,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_cars.carpal = read_any(data_root, "CARFAMS", "CARPAL", CARPAL, &carpal_size);
     CarLoad *cars[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) cars[i] = drive_cars.loaded[i] ? &drive_cars.load[i] : NULL;
-    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, t->art.palette))
+    if (!drive_hud_read(&drive_hud, data_root)) fprintf(stderr, "track_viewer: no HUD\n");
+    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
     return 1;
 }
@@ -563,6 +567,7 @@ static void free_drive(void)
     }
     platform_free_file(drive_cars.carpal);
     drive_cars.carpal = NULL;
+    drive_hud_free(&drive_hud);
 }
 
 /* One step; at the race's end the results (once), printed. */
@@ -622,6 +627,7 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         drive_tick(0x20 | (tap ? 0x1000u : 0));
+        drive_hud_draw(&drive_hud, &drive_sim.race, NULL, 0, 0);  /* the HUD keeps drawing every frame */
     }
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;

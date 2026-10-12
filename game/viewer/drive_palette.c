@@ -82,7 +82,7 @@ static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const car
 }
 
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
-                        uint8_t rgb[768])
+                        DriveHud *hud, uint8_t rgb[768])
 {
     static RacePalette p;
     Chunk terrain, scenery, horizon, models, first;
@@ -99,6 +99,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     const uint8_t *own[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) own[i] = cars[i] != NULL ? cars[i]->own : NULL;
     race_palette_cars(&p, race, own, carpal);
+    if (hud != NULL) drive_hud_setup(hud, &p);  /* 00450838 after 004572e0, as 00455a5c */
     race_palette_apply(&p);
     race_palette_enable(&p, race);
     remap_cars(&p, race, cars);
@@ -109,6 +110,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
         remap_track_banks(&p, &horizon, sky != NULL ? sky : track);
     }
     if (chunk_child(fam, FAM_CHILD_OBJECTS, &models) == CHUNK_OK) remap_model_banks(&p, &models);
+    if (hud != NULL) drive_hud_start(hud, &p);
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];
         rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];
