@@ -23,4 +23,21 @@ int blit_shape(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y, 
 /* 00473780: the shape at its own place (+0xc, +0xe), opaque. */
 int blit_shape_placed(const QuadTarget *t, const uint8_t *shape);
 
+/* 00483fa0: the runs of a run list copied from an 8-bit shape (type 0x7b) of
+ * the screen's size to the surface, `width` pixels a row (004c78b4). The list
+ * (an .mmb part): +8 a word, the 64k-pixel blocks; +0xa a word, the entries of
+ * the index table 0049f580 builds; +0xc the 16.16 step through the source;
+ * from +0x14, for each block a word (its runs) and that many runs of 8 bytes:
+ * the source pixel (a long, divided by the shape's width into row and column),
+ * the destination pixel in the block (a word) and the count (a word). A run
+ * past the end of a row goes on at column 0 of the next source and
+ * destination rows. Each pixel is source[(k x step) >> 16] (0048cc49 through
+ * the index table); a run longer than the table reads the table's stale
+ * entries in the original, which the port does not keep. Left out as in
+ * blit_shape: the banked surface (004c78d8), the time slices (004c6184,
+ * 00477470) and the flag 004c6180 that skips the whole draw. Returns 0, or -1
+ * for a shape the port does not draw. Where the original divides by zero (a
+ * shape or a surface of width 0) the port stops. */
+int blit_runs(const QuadTarget *t, int32_t width, const uint8_t *shape, const uint8_t *runs);
+
 #endif
