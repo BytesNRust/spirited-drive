@@ -85,6 +85,10 @@ void flat_scan_second(RowTables *tables, const Clip *clip, int clipping, int mer
  * flat.h). */
 void flat_plot(const QuadTarget *target, int32_t x, int32_t y, uint32_t colour);
 
+/* 0048f5f0 (cdecl x, y) for an 8-bit linear surface: the pixel at (x, y),
+ * 0 outside the clip rectangle. */
+uint32_t flat_peek(const QuadTarget *target, int32_t x, int32_t y);
+
 /* 004a0048: draws a set-up edge as a line of edge->colour. */
 void flat_draw_edge(const QuadTarget *target, const Edge *edge);
 

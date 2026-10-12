@@ -42,6 +42,13 @@ void flat_plot(const QuadTarget *t, int32_t x, int32_t y, uint32_t colour)
     t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x] = (uint8_t)colour;
 }
 
+/* 0048f5f0: one pixel read, 0 outside the clip rectangle. */
+uint32_t flat_peek(const QuadTarget *t, int32_t x, int32_t y)
+{
+    if (x < t->clip_left || x >= t->clip_right || y < t->clip_top || y >= t->clip_bottom) return 0;
+    return t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x];
+}
+
 /* 004829b0 -> 00496510: a w x h rectangle of one colour (the 8-bit fill at
  * 0049f290), clipped to the clip rectangle. The size is a pair of 16-bit
  * fields in the original, so w and h wrap to 16 bits signed. */
