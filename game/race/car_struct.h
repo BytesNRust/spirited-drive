@@ -205,8 +205,8 @@ typedef struct {
     int32_t front_frame;  /* 0x602 the frame bound to it (00458614), 3 after the load */
     int32_t rear_tyres;  /* 0x606 the object's ref 'rertires' */
     int32_t rear_frame;  /* 0x60a */
-    int32_t left_signal;  /* 0x60e the followed car's table entry 'left_turn' (004912d0) */
-    int32_t right_signal;  /* 0x612 'right_turn' */
+    int32_t left_turn;  /* 0x60e the followed car's part 'left_turn' (004912d0): the front left wheel, moved by the steering (00458818 -> 004914b8) */
+    int32_t right_turn;  /* 0x612 'right_turn': the front right wheel */
     int32_t smoke_point;  /* 0x616 the point 'smok' (004910fa) */
     int32_t light_labels[4];  /* 0x61a the labels lt_frnt, rt_frnt, lt_rear, rt_rear (00491176) */
     int32_t light_points[8];  /* 0x62a the points fl0, fl1, fr0, fr1, rl0, rl1, rr0, rr1 (004910fa) */
@@ -419,8 +419,8 @@ CAR_CHECK(front_tyres, offsetof(Car, front_tyres) == 0x5fe);
 CAR_CHECK(front_frame, offsetof(Car, front_frame) == 0x602);
 CAR_CHECK(rear_tyres, offsetof(Car, rear_tyres) == 0x606);
 CAR_CHECK(rear_frame, offsetof(Car, rear_frame) == 0x60a);
-CAR_CHECK(left_signal, offsetof(Car, left_signal) == 0x60e);
-CAR_CHECK(right_signal, offsetof(Car, right_signal) == 0x612);
+CAR_CHECK(left_turn, offsetof(Car, left_turn) == 0x60e);
+CAR_CHECK(right_turn, offsetof(Car, right_turn) == 0x612);
 CAR_CHECK(smoke_point, offsetof(Car, smoke_point) == 0x616);
 CAR_CHECK(light_labels, offsetof(Car, light_labels) == 0x61a);
 CAR_CHECK(light_points, offsetof(Car, light_points) == 0x62a);

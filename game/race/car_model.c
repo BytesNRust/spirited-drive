@@ -190,9 +190,9 @@ static CarLoadResult tyres(Car *car, const RaceState *race, CarLoad *m)
 static CarLoadResult signals(Car *car, CarLoad *m)
 {
     const Object3D *obj = &m->object[0];
-    car->left_signal = object3d_part_named(obj, "left_turn");
-    car->right_signal = object3d_part_named(obj, "right_turn");
-    if (car->left_signal < 0 || car->right_signal < 0) return CAR_LOAD_HANGS;
+    car->left_turn = object3d_part_named(obj, "left_turn");
+    car->right_turn = object3d_part_named(obj, "right_turn");
+    if (car->left_turn < 0 || car->right_turn < 0) return CAR_LOAD_HANGS;
     car->smoke_point = object3d_point_named(obj, "smok");
     if (car->smoke_point < 0) return CAR_LOAD_HANGS;
     for (int i = 0; i < LIGHTS; i++) {

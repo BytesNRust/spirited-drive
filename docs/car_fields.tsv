@@ -199,8 +199,8 @@
 0x5e2	i32	convex_part	'convex' (999 when not below 8)
 0x5e6	i32	convex_count	0 when the part is missing
 0x5ea	ref	convex_list	left as it was when the part is missing
-0x60e	i32	left_signal	the followed car's table entry 'left_turn' (004912d0)
-0x612	i32	right_signal	'right_turn'
+0x60e	i32	left_turn	the followed car's part 'left_turn' (004912d0): the front left wheel, moved by the steering (00458818 -> 004914b8)
+0x612	i32	right_turn	'right_turn': the front right wheel
 0x616	i32	smoke_point	the point 'smok' (004910fa)
 0x61a	i32[4]	light_labels	the labels lt_frnt, rt_frnt, lt_rear, rt_rear (00491176)
 0x62a	i32[8]	light_points	the points fl0, fl1, fr0, fr1, rl0, rl1, rr0, rr1 (004910fa)
