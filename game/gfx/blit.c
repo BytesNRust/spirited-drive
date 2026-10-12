@@ -75,6 +75,11 @@ int blit_shape_placed(const QuadTarget *t, const uint8_t *shape)
     return blit_shape(t, shape, s16(shape + SHAPE_X), s16(shape + SHAPE_Y), BLIT_OPAQUE);
 }
 
+int blit_shape_placed_transparent(const QuadTarget *t, const uint8_t *shape)
+{
+    return blit_shape(t, shape, s16(shape + SHAPE_X), s16(shape + SHAPE_Y), BLIT_TRANSPARENT);
+}
+
 /* 0048cc49 on an 8-bit surface, through 0049f580's table (from 0, the step
  * across, nothing down): entry k is (k x step) >> 16. */
 static void run_copy(uint8_t *dst, const uint8_t *src, int32_t count, uint32_t step)
