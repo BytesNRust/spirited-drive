@@ -4,6 +4,7 @@
 #define TNFS_COCKPIT_H
 
 #include "game/race/hud.h"
+#include "game/race/hud_mask.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_state.h"
 
@@ -61,6 +62,7 @@ typedef struct {
     int32_t unknown_4b91c4;
     int32_t unknown_4b92c4[4];                  /* 004b92c4..004b92d0 */
     int32_t unknown_4f9b48;
+    int32_t back_saved;                         /* 004f9b64: 00421160 saved the box under 004c2d98 */
 } CockpitWorld;
 
 typedef struct {
@@ -92,5 +94,28 @@ void cockpit_queue_palette(RacePalette *pal, const uint8_t *palette);
  * list not found inside the bank) or a count above the port's 30. */
 int cockpit_load(Cockpit *c, CockpitWorld *w, HudState *hud, RaceState *race, int32_t *dash_camera, uint8_t *bank,
                  size_t bank_size, const uint8_t *fmm, const char *name, int32_t high, int32_t full);
+
+typedef struct {
+    void *ctx;
+    QuadTarget *(*select)(void *ctx, HudSurface s);  /* 00473680 / 004735dc: the draw surface, its clip its own */
+    void (*labels)(void *ctx);                       /* 00420370 */
+} CockpitRedrawOps;
+
+typedef struct {
+    int32_t back_buffer;            /* 004b95b4 */
+    HudViewClipInputs view_clip;    /* for 0041e3f4; its high_res (004fa0c0) also picks the box */
+    uint8_t *back_shape;            /* [004c2d98 + 0x2c] */
+    const uint8_t *remap;           /* 004c6604 */
+} CockpitRedrawInputs;
+
+/* 00421160: on the screen (004b95b4 ? 004c2da0 : 004735dc's), 0041e3f4's
+ * clip, the dash (004f9628) at (0, 0) with 0xff skipped (00473a98);
+ * 004f9b64 = 1; the screen under the back shape's box at (0x208, 0x132)
+ * high / (0x104, 0x7f) low grabbed into it (00476e28); on 004c2d98 the box
+ * (0, 0)..(0x70, 0x8b) high / (0x38, 0x3b) low shaded through 004c6604
+ * twice (004827cf); the screen again, 00420370, 004f9a20 = 99, 004f9a24 =
+ * 0, 0041e230. */
+void cockpit_redraw(const CockpitRedrawOps *ops, HudState *hud, const Cockpit *c, CockpitWorld *w,
+                    const CockpitRedrawInputs *in);
 
 #endif
