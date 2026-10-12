@@ -2,6 +2,7 @@
 #include "game/race/hud_needle.h"
 
 #include "game/gfx/blit.h"
+#include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/sys/fixed_math.h"
 
@@ -22,21 +23,11 @@ static int32_t max32(int32_t a, int32_t b)
     return a > b ? a : b;
 }
 
-/* 0047383c. */
-static void set_clip(QuadTarget *t, int32_t left, int32_t right, int32_t top, int32_t bottom, int32_t surface_w,
-                     int32_t surface_h)
-{
-    t->clip_left = left < 0 ? 0 : left;
-    t->clip_top = top < 0 ? 0 : top;
-    t->clip_right = right > surface_w ? surface_w : right;
-    t->clip_bottom = bottom > surface_h ? surface_h : bottom;
-}
-
 /* The tach redrawn over the box from (ax, ay) to (bx, by), MARGIN out. */
 static void erase(QuadTarget *t, const DashArt *art, int32_t ax, int32_t ay, int32_t bx, int32_t by,
                   int32_t surface_w, int32_t surface_h)
 {
-    set_clip(t, min32(ax, bx) - MARGIN, max32(ax, bx) + MARGIN, min32(ay, by) - MARGIN, max32(ay, by) + MARGIN,
+    clip_set(t, min32(ax, bx) - MARGIN, max32(ax, bx) + MARGIN, min32(ay, by) - MARGIN, max32(ay, by) + MARGIN,
              surface_w, surface_h);
     blit_shape_placed_transparent(t, art->tach);
 }
@@ -57,7 +48,7 @@ void hud_draw_needle(QuadTarget *t, HudNeedle *needle, const DashArt *art, int32
     const int32_t mid_x = (needle->tip_x + needle->inner_x) / 2, mid_y = (needle->tip_y + needle->inner_y) / 2;
     erase(t, art, mid_x, mid_y, needle->tip_x, needle->tip_y, surface_w, surface_h);
     erase(t, art, mid_x, mid_y, needle->inner_x, needle->inner_y, surface_w, surface_h);
-    set_clip(t, 0, screen_w, 0, screen_h, surface_w, surface_h);
+    clip_set(t, 0, screen_w, 0, screen_h, surface_w, surface_h);
     if (high_res != 0) {
         flat_line(t, tip_x, tip_y, inner_x, inner_y, colour);
         flat_line(t, tip_x + 1, tip_y, inner_x + 1, inner_y, colour);

@@ -1,0 +1,11 @@
+/* The draw surface's clip rectangle (clip.h). */
+#include "game/gfx/clip.h"
+
+void clip_set(QuadTarget *t, int32_t left, int32_t right, int32_t top, int32_t bottom, int32_t surface_w,
+              int32_t surface_h)
+{
+    t->clip_left = left < 0 ? 0 : left;
+    t->clip_top = top < 0 ? 0 : top;
+    t->clip_right = right > surface_w ? surface_w : right;
+    t->clip_bottom = bottom > surface_h ? surface_h : bottom;
+}
