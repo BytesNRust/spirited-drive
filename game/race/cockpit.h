@@ -220,4 +220,13 @@ typedef struct {
 void cockpit_colours(RacePalette *p, const RaceState *race, const Cockpit *c, const CockpitWorld *w, HudState *hud,
                      CockpitColours *out);
 
+
+/* 004212d4 (watcall (), from 0042270c), lights the count 004b92d4 sets:
+ * while it is not 0, 'bglt' (004f9b48 set) or 'bgdk' opaque (00473764) at
+ * dash point 2; when it differs from *shown (004f9a88): 0 puts 'bgdk' at
+ * point 2 and 'smdk' at points 3..7, else 'smlt' at the first min(count, 5) of them and 'smdk'
+ * at the rest; *shown = count. A count below -3 starts before the points
+ * the port keeps: those are skipped (port guard). */
+void cockpit_lights(const QuadTarget *t, const Cockpit *c, int32_t count, int32_t big_lit, int32_t *shown);
+
 #endif
