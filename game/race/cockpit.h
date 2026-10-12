@@ -118,4 +118,41 @@ typedef struct {
 void cockpit_redraw(const CockpitRedrawOps *ops, HudState *hud, const Cockpit *c, CockpitWorld *w,
                     const CockpitRedrawInputs *in);
 
+typedef struct {
+    void *ctx;
+    void (*free_saved)(void *ctx);                  /* 00475260(004f9620) */
+    void (*flip)(void *ctx);                        /* 00464a30 */
+    QuadTarget *(*select)(void *ctx, HudSurface s); /* 00473680 / 004735dc */
+    void (*restore)(void *ctx);                     /* 00473614 */
+    void (*load)(void *ctx);                        /* 0041f9a0(004f9ad8, 0): the bank again */
+    void (*palette_copy)(void *ctx);                /* 00476460(0, 0xfe, 004f9b80) */
+    void (*palette_bank)(void *ctx, uint8_t *bank, uint8_t *palette); /* 00446fd0(004f9740, 004f973c) */
+    void (*redraw)(void *ctx);                      /* 00421160 */
+} CockpitReloadOps;
+
+typedef struct {
+    int32_t back_buffer;        /* 004b95b4 */
+    int32_t unknown_509d70;     /* set: no palette and no redraw */
+    int32_t unknown_4b92dc, unknown_4b92e0, unknown_4b94dc;
+    int32_t dash_camera;        /* 004f9b7c */
+    int32_t chase_kind;         /* 004f801c */
+    int32_t unknown_4c5390;
+} CockpitReloadInputs;
+
+/* The words 004217a8 sets. */
+typedef struct {
+    int32_t unknown_4f9620;     /* freed (00475260) and cleared when set */
+    int32_t unknown_513898;     /* 1 when 004c5390 != 1 */
+    int32_t unknown_52b8f8;     /* 1 when 004c5390 == 1 */
+} CockpitReloadState;
+
+/* 004217a8 (on a view change), only while the bank (004f9740) is NULL:
+ * 004f9620 freed and cleared when set; the screen (004b95b4: 00464a30 then
+ * 004c2da0, else 004735dc's) filled with 0 within its clip (00482980(0));
+ * 00473614 when 004b95b4 is 0; 0041f9a0(004f9ad8, 0); then unless 00509d70
+ * is set: 00476460(0, 0xfe, 004f9b80), 00446fd0(004f9740, 004f973c), the
+ * screen again, 00421160 when 004b92dc, 004b92e0, 004f9b7c, 004f801c and
+ * 004b94dc are all 0, and 0052b8f8 = 1 when 004c5390 == 1, else 00513898 = 1. */
+void cockpit_reload(const CockpitReloadOps *ops, Cockpit *c, CockpitReloadState *st, const CockpitReloadInputs *in);
+
 #endif
