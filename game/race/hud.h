@@ -32,7 +32,7 @@ typedef struct {
  * what is on screen now: a digit is drawn again only when it changes. */
 typedef struct {
     HudClock clock;                     /* 004f9a0c */
-    int32_t unknown_4f9a18;
+    int32_t place;                      /* 004f9a18: the viewed car's place (0041f434) */
     int32_t mode;                       /* 004f9a1c: 0, 1, 2 pick the top row's layout */
     int32_t unknown_4f9a20[4];          /* 004f9a20..004f9a2c */
     int32_t gap_shown;                  /* 004f9a30: HUD_GAP_UNSET until the gap is first drawn */
@@ -153,6 +153,22 @@ void hud_draw_labels(const QuadTarget *t, HudState *hud, const DashArt *dash, co
 void hud_draw_race_time(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, int32_t gap,
                         int32_t gap_ticks, int32_t high_res, uint32_t strip_colour, int32_t ticks, int32_t x,
                         int32_t y, int32_t step, int32_t space);
+
+/* 00440ba4: where a car is in the race: 1 before the start (node < 12, or
+ * lap < 1 on a circuit), 2 past the end (node > loop_nodes, lap > laps), 0
+ * racing. */
+int32_t hud_race_stage(const RaceState *race, const Car *car);
+
+/* 0041f434: the viewed car's place (hud->place) in one yellow
+ * digit at x, y when it changed (place_shown). Finished: 1 + the racers
+ * that finished before it. Race type 0: 1 ahead of the rival (gap >= 1),
+ * else 2. Otherwise from by_progress (last first): each slot's place into
+ * car_places and the record one on (players[slot + 1] +0, as 00440c30;
+ * the port skips slot 8's, past the records); type 1: 1 ahead of the other
+ * human, else 2; other types car_count - the viewed car's index. The viewed
+ * car's place goes to players[viewed + 1] +0 as well. */
+void hud_draw_place(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, int32_t gap, int32_t x,
+                    int32_t y, int32_t step);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:

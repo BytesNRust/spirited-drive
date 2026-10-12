@@ -21,6 +21,7 @@ enum {
     STRIP_W_LOW = 0x140, STRIP_H_LOW = 0x10, STRIP_W_HIGH = 0x280, STRIP_H_HIGH = 0x20,
     LIGHTS_HOLD = 10, LIGHTS_RESET = 0x7d000,
     LABELS_FROM = 0x168, RACE_TIME_FROM = 0x186,
+    START_NODES = 12,
     RECORDS_TRACK = 0xa6b, RECORDS_VARIANT = 0x27, RECORDS_CIRCUIT = 0xea, RECORDS_SLOT = 0x186,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
@@ -389,4 +390,63 @@ void hud_draw_race_time(const QuadTarget *t, HudState *hud, const DashArt *dash,
     hud->redraw = 1;
     hud_draw_labels(t, hud, dash, race, gap, gap_ticks, high_res, strip_colour);
     race->best_lap_set = 0;
+}
+
+int32_t hud_race_stage(const RaceState *race, const Car *car)
+{
+    if (race->circuit == 0) {
+        if (car->node < START_NODES) return 1;
+        if (race->loop_nodes < car->node) return 2;
+    } else {
+        if (car->lap < 1) return 1;
+        if (race->laps < car->lap) return 2;
+    }
+    return 0;
+}
+
+/* players[slot + 1] +0: the original keeps a slot's place one record on. */
+static void keep_place(RaceState *race, int32_t slot, int32_t place)
+{
+    if (slot >= 0 && slot + 1 <= RACE_PLAYERS) race->players[slot + 1].unknown_000 = place;  /* port guard */
+}
+
+static int32_t finished_place(const RaceState *race)
+{
+    int32_t place = 1;
+    const int32_t mine = race->players[race->viewed].finish;
+    for (int32_t i = 0; i < race->racers && i <= RACE_PLAYERS; i++)
+        if (race->players[i].finish != 0 && race->players[i].finish < mine) place++;
+    return place;
+}
+
+void hud_draw_place(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, int32_t gap, int32_t x,
+                    int32_t y, int32_t step)
+{
+    const Car *car = race->cars[race_slot(race->viewed)];
+    int32_t place = hud->place;
+    if (car != NULL && hud_race_stage(race, car) == 2) {
+        place = finished_place(race);
+    } else {
+        if (race->race_type == 0) {
+            place = gap < 1 ? 2 : 1;
+        } else {
+            int32_t rival_at = 0;
+            const int32_t rival = race->viewed == 0;
+            for (int32_t i = 0; i < race->car_count && i < RACE_CARS; i++) {
+                const int32_t slot = race->by_progress[i];
+                if ((uint32_t)slot < RACE_CARS) race->car_places[slot] = (uint8_t)(race->car_count - i);
+                if (slot == race->viewed) place = i;
+                else if (slot == rival) rival_at = i;
+                keep_place(race, slot, race->car_count - i);
+            }
+            if (race->race_type == 1) place = place <= rival_at ? 2 : 1;
+            else place = race->car_count - place;
+        }
+        keep_place(race, race->viewed, place);
+    }
+    hud->place = place;
+    if (place != hud->place_shown) {
+        hud_draw_number(t, dash->yellow, place, x, y, step, 1);
+        hud->place_shown = place;
+    }
 }
