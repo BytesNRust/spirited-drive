@@ -22,8 +22,8 @@ unsigned outcode_shared(const ClipRect *clip, const int32_t *screen, int count)
 
 /* 004255ec: cell (u_cell, v_cell) of a texture split 2^u_level by 2^v_level;
  * cells are counted from the far edge. */
-static void draw_cell(const DrawContext *ctx, const FshEntry *t, int u_level, int v_level, int u_cell, int v_cell,
-                      const int32_t screen[8])
+void track_draw_cell(const DrawContext *ctx, const FshEntry *t, int u_level, int v_level, int u_cell, int v_cell,
+                     const int32_t screen[8])
 {
     const int32_t w = t->width >> u_level, h = t->height >> v_level;
     const int32_t u0 = (int32_t)((uint32_t)((((1 << u_level) - 1) - u_cell) * w) << 16);
@@ -44,7 +44,7 @@ static int32_t mul_round(int32_t value, int32_t t)
 
 /* A point in front of the near plane is pushed onto it along the road
  * direction before projecting (the same as 0044aa94 does for vertices). */
-static void project_near(const DrawContext *ctx, const int32_t p[3], int32_t near, int32_t screen[2])
+void track_project_near(const DrawContext *ctx, const int32_t p[3], int32_t near, int32_t screen[2])
 {
     int32_t q[3] = { p[0], p[1], p[2] };
     if (p[2] < near) {
@@ -85,7 +85,7 @@ void track_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int 
     const int32_t limit = TRACK_SUBDIVIDE_Z[depth] >> ctx->world_shift;
     if ((cam[1][2] >= limit && cam[2][2] >= limit) || depth >= TRACK_SUBDIVIDE_MAX) {
         if ((outcode_shared(&ctx->clip, screen, 4) & 7) == 0)
-            draw_cell(ctx, texture, u_level, depth, u_cell, v_cell, screen);
+            track_draw_cell(ctx, texture, u_level, depth, u_cell, v_cell, screen);
         return;
     }
     /* Four children; the camera-space corners passed down are the plain
@@ -93,19 +93,19 @@ void track_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int 
     int32_t m01[3], m23[3], m03[3], mc[3], m12[3];
     int32_t s01[2], s23[2], s03[2], sc[2], s12[2];
     midpoint(cam[0], cam[1], m01);
-    project_near(ctx, m01, near, s01);
+    track_project_near(ctx, m01, near, s01);
     midpoint(cam[2], cam[3], m23);
-    project_near(ctx, m23, near, s23);
+    track_project_near(ctx, m23, near, s23);
     midpoint(cam[0], cam[3], m03);
-    project_near(ctx, m03, near, s03);
+    track_project_near(ctx, m03, near, s03);
     midpoint(m23, m01, mc);
-    project_near(ctx, mc, near, sc);
+    track_project_near(ctx, mc, near, sc);
     const int u = u_level + 1, d = depth + 1;
     child(ctx, texture, u, d, 2 * u_cell + 1, 2 * v_cell + 1, cam[0], m01, mc, m03, &screen[0], s01, sc, s03, near);
     child(ctx, texture, u, d, 2 * u_cell + 1, 2 * v_cell, m03, mc, m23, cam[3], s03, sc, s23, &screen[6], near);
     if (near > m23[2] && near > m01[2]) return;
     midpoint(cam[1], cam[2], m12);
-    project_near(ctx, m12, near, s12);
+    track_project_near(ctx, m12, near, s12);
     child(ctx, texture, u, d, 2 * u_cell, 2 * v_cell + 1, m01, cam[1], m12, mc, s01, &screen[2], s12, sc, near);
     child(ctx, texture, u, d, 2 * u_cell, 2 * v_cell, mc, m12, cam[2], m23, sc, s12, &screen[4], s23, near);
 }

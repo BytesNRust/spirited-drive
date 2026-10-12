@@ -4,6 +4,7 @@
 #define TNFS_MIRROR_SCENE_H
 
 #include "game/race/race_view.h"
+#include "game/race/track_draw.h"
 
 #include <stdint.h>
 
@@ -27,5 +28,13 @@ enum { MIRROR_SEGMENT_RECORD = 0x21c, MIRROR_SEGMENT_CACHE = 0x8700 };
 /* 0043e95c: the byte offset of a segment's record in the segment cache
  * (005041d8): (segment & 00504210) x 0x21c (32-bit) mod 0x8700, unsigned. */
 uint32_t mirror_segment_offset(int32_t segment, int32_t mask);
+
+/* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
+ * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
+ * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around
+ * the edge midpoints (01, 23, their middle, 12; 03 only after the first two,
+ * and not when near is past both 23 and 01), each a quarter of the cell. */
+void mirror_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int u_level, int depth, int u_cell,
+                            int v_cell, const int32_t *const cam[4], const int32_t screen[8], int32_t near);
 
 #endif

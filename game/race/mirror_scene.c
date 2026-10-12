@@ -2,6 +2,7 @@
 #include "game/race/mirror_scene.h"
 
 #include "game/gfx/x86_int.h"
+#include "game/race/track_tables.h"
 
 void mirror_bounds(const ViewLayout *layout, MirrorBounds *b)
 {
@@ -14,6 +15,49 @@ void mirror_bounds(const ViewLayout *layout, MirrorBounds *b)
 uint32_t mirror_segment_offset(int32_t segment, int32_t mask)
 {
     return ((uint32_t)(segment & mask) * MIRROR_SEGMENT_RECORD) % MIRROR_SEGMENT_CACHE;
+}
+
+static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
+{
+    for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;
+}
+
+static void quarter(const DrawContext *ctx, const FshEntry *t, int u_level, int depth, int u_cell, int v_cell,
+                    const int32_t *c0, const int32_t *c1, const int32_t *c2, const int32_t *c3, const int32_t *s0,
+                    const int32_t *s1, const int32_t *s2, const int32_t *s3, int32_t near)
+{
+    const int32_t *const cam[4] = { c0, c1, c2, c3 };
+    const int32_t screen[8] = { s0[0], s0[1], s1[0], s1[1], s2[0], s2[1], s3[0], s3[1] };
+    mirror_draw_subdivided(ctx, t, u_level, depth, u_cell, v_cell, cam, screen, near);
+}
+
+void mirror_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int u_level, int depth, int u_cell,
+                            int v_cell, const int32_t *const cam[4], const int32_t screen[8], int32_t near)
+{
+    if (near > cam[2][2] && near > cam[1][2]) return;
+    const int32_t limit = TRACK_SUBDIVIDE_Z[depth] >> ctx->world_shift;
+    if (limit <= cam[3][2] || depth >= TRACK_SUBDIVIDE_MAX) {
+        track_draw_cell(ctx, texture, u_level, depth, u_cell, v_cell, screen);
+        return;
+    }
+    int32_t m01[3], m23[3], mc[3], m12[3], m03[3];
+    int32_t s01[2], s23[2], sc[2], s12[2], s03[2];
+    midpoint(cam[0], cam[1], m01);
+    track_project_near(ctx, m01, near, s01);
+    midpoint(cam[2], cam[3], m23);
+    track_project_near(ctx, m23, near, s23);
+    midpoint(m23, m01, mc);
+    track_project_near(ctx, mc, near, sc);
+    midpoint(cam[1], cam[2], m12);
+    track_project_near(ctx, m12, near, s12);
+    const int u = u_level + 1, d = depth + 1;
+    quarter(ctx, texture, u, d, 2 * u_cell + 1, 2 * v_cell + 1, m01, cam[1], m12, mc, s01, &screen[2], s12, sc, near);
+    quarter(ctx, texture, u, d, 2 * u_cell + 1, 2 * v_cell, mc, m12, cam[2], m23, sc, s12, &screen[4], s23, near);
+    if (m23[2] < near && near > m01[2]) return;
+    midpoint(cam[0], cam[3], m03);
+    track_project_near(ctx, m03, near, s03);
+    quarter(ctx, texture, u, d, 2 * u_cell, 2 * v_cell + 1, cam[0], m01, mc, m03, &screen[0], s01, sc, s03, near);
+    quarter(ctx, texture, u, d, 2 * u_cell, 2 * v_cell, m03, mc, m23, cam[3], s03, sc, s23, &screen[6], near);
 }
 
 int mirror_quad_visible(const MirrorBounds *b, const int32_t screen[8])

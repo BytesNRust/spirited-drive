@@ -41,6 +41,15 @@ typedef struct {
  * points; 0 when the polygon may be visible. */
 unsigned outcode_shared(const ClipRect *clip, const int32_t *screen, int count);
 
+/* 004255ec: cell (u_cell, v_cell) of a texture split 2^u_level by
+ * 2^v_level, counted from the far edge, through draw_uv. */
+void track_draw_cell(const DrawContext *ctx, const FshEntry *t, int u_level, int v_level, int u_cell, int v_cell,
+                     const int32_t screen[8]);
+
+/* A camera-space point projected; one in front of the near plane is first
+ * pushed onto it along near_dir (as 00425718 / 00425ed4 do). */
+void track_project_near(const DrawContext *ctx, const int32_t p[3], int32_t near, int32_t screen[2]);
+
 /* 00425718. cam: camera-space corners; screen: their projections. u_level and
  * depth split the texture into cells (u_cell, v_cell); near is the near plane
  * of the 3D code (view struct +4). */
