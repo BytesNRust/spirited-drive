@@ -368,4 +368,27 @@ typedef struct {
 void cockpit_frame(const CockpitFrameOps *ops, HudState *hud, RaceState *race, const Cockpit *c, const Car *car,
                    const CockpitFrameWords *w, const CockpitFrameInputs *in);
 
+/* 00422c20's frees (00475260 each). */
+typedef struct {
+    void *ctx;
+    void (*free_bank)(void *ctx, uint8_t *bank);        /* 004f9740 */
+    void (*free_screen)(void *ctx, uint8_t *bank);      /* 004f9620 */
+    void (*free_fade)(void *ctx);                       /* 004f9744 (the port's block is CockpitColours.fade) */
+    void (*free_inverse)(void *ctx);                    /* 00474558: 004c5ff4 */
+    void (*free_fmm)(void *ctx, const uint8_t *fmm);    /* 004f9a04 */
+} CockpitTeardownOps;
+
+typedef struct {
+    int32_t *unknown_513e60;    /* 1 cleared (00455a5c sets it; 0044cc74 reads it) */
+    int32_t *unknown_4b91c8;    /* cleared (0044cc74 reads it) */
+} CockpitTeardownWords;
+
+/* 00422c20 (watcall (), from 00455a5c's end at 00456044): the dash bank,
+ * the police screen's bank, the fade block and the inverse table (00474558)
+ * freed when set, each then NULL; the palette entries 0x5e, 0x5f and
+ * 0xfa..0xfd enabled again; both stop notices 0; 00513e60 0 when it was 1;
+ * 004b91c8 0; the .fmm freed even when NULL, its pointer left as it was. */
+void cockpit_teardown(const CockpitTeardownOps *ops, Cockpit *c, CockpitPoliceState *st, RacePalette *p,
+                      RaceState *race, const CockpitTeardownWords *w);
+
 #endif
