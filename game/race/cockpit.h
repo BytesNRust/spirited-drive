@@ -155,6 +155,49 @@ typedef struct {
  * 004b94dc are all 0, and 0052b8f8 = 1 when 004c5390 == 1, else 00513898 = 1. */
 void cockpit_reload(const CockpitReloadOps *ops, Cockpit *c, CockpitReloadState *st, const CockpitReloadInputs *in);
 
+typedef struct {
+    void *ctx;
+    void (*free_bank)(void *ctx, uint8_t *bank);                      /* 00475260(004f9740) */
+    uint8_t *(*load)(void *ctx, const char *path);                     /* 00476268(path, 0) */
+    void (*palette_read)(void *ctx);                                   /* 004766b8(0, 0x100, 004f9b80) */
+    void (*palette_write)(void *ctx, const uint8_t *colours);          /* 00476460(0, 0xfe, colours) */
+    void (*palette_bank)(void *ctx, uint8_t *bank, const uint8_t *palette); /* 00446fd0 */
+    QuadTarget *(*select)(void *ctx, HudSurface s);                   /* 00473680 / 004735dc */
+    void (*movie)(void *ctx);                                          /* 00464240 */
+} CockpitPoliceOps;
+
+typedef struct {
+    int32_t back_buffer;            /* 004b95b4 */
+    int32_t ticket;                 /* 004b92dc: the ticket, else (004b92e0) the warning */
+    int16_t german;                 /* 0052b31c: the 'g' names */
+    int16_t unknown_524e63;         /* set: 00464240 */
+    const char *dir;                /* 005246e8: paths slot 17 */
+    HudViewClipInputs view_clip;    /* 0041e3f4's; its unknown_4c5390 == 1 picks the 'D' names, else 'R', its
+                                       high_res 'H' / 'L' */
+} CockpitPoliceInputs;
+
+/* The words 004214e4 keeps. */
+typedef struct {
+    uint8_t *screen_bank;           /* 004f9620: the loaded .qfs */
+    uint8_t *screen;                /* 004f9624: its 'scrn' */
+    int32_t loading;                /* 004fcdac: 1 while the file loads */
+} CockpitPoliceState;
+
+/* 004214e4 (from 00422598 / 0042270c while 004b92dc or 004b92e0 is set):
+ * when 004f9620 is NULL: 004fcdac = 1; the dash bank freed (00475260) and
+ * 004f9740 = 0; dir + "ticket" / "tickeg" (ticket, german) or "warn" /
+ * "gwarn", + 'D' (004c5390 == 1) / 'R', + 'H' / 'L', + ".qfs" loaded
+ * (00476268); 004f9624 = its 'scrn' (004732dd; missing: a hang);
+ * 004766b8(0, 0x100, 004f9b80); its '!pal' + 0x10 (004732e4) to the screen
+ * entries 0..0xfd (00476460) when 004c5390 == 1, else the bank mapped onto
+ * the palette with it (00446fd0); 004fcdac = 0. Then the screen
+ * (004b95b4 ? 004c2da0 : 004735dc's), 00464240 when the word 00524e63 is
+ * set, 0041e3f4, 'scrn' at its place opaque (004737ec = 00473780). -1
+ * where the original hangs or reads through NULL (no file, no 'scrn', no
+ * '!pal', a path past its 80 bytes), 0 otherwise. */
+int cockpit_police(const CockpitPoliceOps *ops, Cockpit *c, CockpitPoliceState *st, HudState *hud,
+                   const CockpitPoliceInputs *in);
+
 /* 0041f818's results outside the palette: 00482a36's block (004f9744
  * points at it), the 16.16 clip of the anti-aliased line 0048383b
  * (0052d384 left, 0052d380 top, 0052d354 right, 0052d35c bottom) and the
