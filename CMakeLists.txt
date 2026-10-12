@@ -125,6 +125,7 @@ add_library(tnfs_game STATIC
     game/race/dash_load.c
     game/race/cockpit.c
     game/race/hud.c
+    game/race/hud_keys.c
     game/race/hud_mask.c
     game/race/hud_needle.c
     game/race/hud_redraw.c
