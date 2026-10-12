@@ -18,6 +18,17 @@ enum { PORTED_VIEW_MODELS = 64, PORTED_VIEW_CARS = 9 };
 /* The FAM 3D objects, drawn through the renderer's model callback. */
 void ported_view_set_models(const ViewModel *list, const int *ok);
 
+/* Where the 3D view sits on the 640 x 480 frame (a race camera's 004b7080
+ * row: left + x, top + y, width, height; its horizon scale; the sky ring's
+ * rectangle +0x18..+0x24) and the camera's fov. The default is the whole
+ * frame at fov 96. */
+typedef struct {
+    int32_t left, top, width, height, fov, scale;
+    int32_t sky_left, sky_top, sky_width, sky_height;
+} PortedViewport;
+
+void ported_view_set_viewport(const PortedViewport *viewport);
+
 /* A parked car (a CFM's two models) `ahead` nodes in front of the camera;
  * NULL removes it. */
 void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead);

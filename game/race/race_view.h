@@ -41,6 +41,10 @@ typedef struct {
     HorizonTables horizon;      /* 0043a028's */
 } RaceViews;
 
+/* 004b7080 and 004b75d0 as the exe starts (race_view_tables.c, generated). */
+extern const ViewLayout race_view_layouts[VIEW_SCREEN_MODES][VIEW_LAYOUTS];
+extern const ViewRow race_view_rows[VIEW_SCREEN_MODES][VIEW_ROWS];
+
 /* A camera record (0x20 bytes: 004b78a8, 004b78c8, 004b78e8, 004f801c). */
 typedef struct {
     int32_t fov;                /* +0: degrees, across and down */

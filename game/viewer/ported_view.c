@@ -170,6 +170,13 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
+static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT };
+
+void ported_view_set_viewport(const PortedViewport *v)
+{
+    viewport = *v;
+}
+
 static void draw_sky_ring(const SkyTargets *targets, const View *view, const TrackArt *art, const TrackInfo *info,
                           const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
@@ -177,7 +184,8 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     sky_ring_build(&ring, info, &art->horizon);
     if (!ring.enabled) return;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, 0, SKY_WORLD_SHIFT, 0, { 0 },
-                       { 0x10000, WIDTH, 0, 0, WIDTH, HEIGHT }, WIDTH, WIDTH, 0 };
+                       { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
+                         viewport.sky_height }, WIDTH, WIDTH, 0 };
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill };
@@ -198,11 +206,13 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     static TrackRender render;
     static View view;
     static HorizonTables horizon;
-    view_init(&view, 0, 0, WIDTH, HEIGHT, FOV, FOV);
-    horizon_tables(&horizon, WIDTH, FOV, 0x10000);
+    const PortedViewport *vp = &viewport;
+    view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov);
+    horizon_tables(&horizon, vp->width, vp->fov, vp->scale);
     RasterTarget target = { pixels, WIDTH, HEIGHT, 0, 0 };
-    QuadTarget quad = { pixels, WIDTH, 0, 0, WIDTH, HEIGHT };
-    DrawContext ctx = { &view, { 0, 0, WIDTH, HEIGHT }, WORLD_SHIFT, { 0, 0, 0x1999 },
+    QuadTarget quad = { pixels, WIDTH, vp->left, vp->top, vp->left + vp->width, vp->top + vp->height };
+    DrawContext ctx = { &view, { vp->left, vp->top, vp->left + vp->width, vp->top + vp->height }, WORLD_SHIFT,
+                        { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars } };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);

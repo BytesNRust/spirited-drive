@@ -19,6 +19,7 @@
 #include "game/race/track_objects.h"
 #include "platform/platform.h"
 #include "viewer/camera.h"
+#include "game/race/race_view.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_palette.h"
 #include "viewer/model_view.h"
@@ -379,6 +380,27 @@ typedef struct {
 
 static DriveCars drive_cars;
 static DriveHud drive_hud;
+static RaceViews drive_views;
+
+enum { HIGH_SCREEN = 1 };  /* 00512018 for 640 x 480 */
+
+/* 00405210 for the race (race->select_view): the camera takes its view's
+ * layout for the window size. */
+static void select_view(void *user, RaceCamera *camera, int32_t view, int32_t size)
+{
+    race_view_select(user, camera, view, size);
+}
+
+/* The camera in use's layout as the 3D view's place on the frame. */
+static void set_drive_viewport(const RaceState *race)
+{
+    const RaceCamera *camera = race->chase.camera;
+    const ViewLayout *l = camera != NULL ? camera->layout_row : NULL;
+    if (l == NULL || l->width <= 0 || l->height <= 0) return;
+    const PortedViewport vp = { l->left + l->x, l->top + l->y, l->width, l->height, camera->fov, l->scale,
+                                l->left, l->top, l->unknown_20, l->unknown_24 };
+    ported_view_set_viewport(&vp);
+}
 
 enum {
     SINGLE_RACE = 2,        /* RaceField.race_type */
@@ -445,6 +467,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
         car_steer_wheels(followed, race, morph_wheels, NULL);
     }
     drive_cars.ticked = 0;
+    set_drive_viewport(race);
     const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
     PortedCar list[RACE_CARS];
     for (int i = 0; i < drive_sim.count; i++) {
@@ -556,6 +579,12 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
+    memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
+    memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
+    drive_views.mode = HIGH_SCREEN;
+    drive_sim.race.select_view = select_view;
+    drive_sim.race.view_user = &drive_views;
+    drive_sim.race.window_size = 0;
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     drive_cars.ended = 0;
     static const char *const CARPAL[] = { ".FSH", ".fsh", NULL };
