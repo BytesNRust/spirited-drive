@@ -289,4 +289,83 @@ typedef struct {
  * (a negative speed) or a missing shape draws nothing. */
 void cockpit_gauges(const QuadTarget *t, NeedleLine *line, const Cockpit *c, const CockpitGaugeInputs *in);
 
+/* 0042270c's callees; the car (esi) is the context's. */
+typedef struct {
+    void *ctx;
+    int32_t (*rand_below)(void *ctx, int32_t n);    /* 00443730 */
+    void (*police)(void *ctx);                      /* 004214e4 */
+    void (*reload)(void *ctx);                      /* 004217a8 */
+    void (*redraw)(void *ctx);                      /* 00421160 */
+    void (*select)(void *ctx, HudSurface s);        /* 00473680 / 004735dc */
+    /* 0047383c: the clip rectangle (left, right, top, bottom) */
+    void (*clip)(void *ctx, int32_t left, int32_t right, int32_t top, int32_t bottom);
+    void (*fill)(void *ctx, uint32_t colour);       /* 00482980: the clip rectangle filled */
+    /* 00483fa0([004c2d90 + 0x2c], runs): the view surface through a run list, a .fmm word (004f99f4) */
+    void (*runs)(void *ctx, int32_t runs);
+    void (*restore)(void *ctx);                     /* 00473614 */
+    void (*mirror)(void *ctx, int32_t x, int32_t y);    /* 0044c060: the rear-view mirror at dash point 0 */
+    void (*clip_box)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);    /* 0044987c */
+    void (*draw)(void *ctx, const uint8_t *shape);  /* 00473ab4: at its place, 0xff skipped */
+    void (*place)(void *ctx, const uint8_t *shape); /* 00473780: at its place, opaque */
+    void (*place_skip)(void *ctx, const uint8_t *shape);    /* 00473a50: at its place, 0xff skipped */
+    void (*present)(void *ctx);                     /* 004737ec([004c2d90 + 0x2c]): the view surface at (0, 0) */
+    void (*gauges)(void *ctx);                      /* 00420d0c(car) */
+    void (*gate)(void *ctx);                        /* 0041f5bc(car) */
+    void (*lights)(void *ctx);                      /* 004212d4 */
+    void (*keys)(void *ctx);                        /* 00420710 */
+    void (*top_row)(void *ctx);                     /* 00421e40(car) */
+    void (*map)(void *ctx, int32_t x, int32_t y);   /* 004737d0([004c2d9c + 0x2c], x, y) */
+    void (*replay)(void *ctx);                      /* 0044d640 */
+} CockpitFrameOps;
+
+typedef struct {
+    int32_t unknown_509d70;         /* set: nothing at all */
+    int32_t back_buffer;            /* 004b95b4 */
+    int32_t high;                   /* 004fa0c0 */
+    uint8_t screen_kind;            /* 004fb789: 3 copies the two last .fmm words */
+    int32_t window_size;            /* 00511ff0 */
+    int32_t unknown_4c5390;         /* 1: the taller box */
+    int32_t model;                  /* the followed car's (cars[004fbb08] +0x48a) */
+    int32_t use_parts;              /* 004f9b3c: the map drawn */
+    uint32_t strip_colour;          /* 0050b7b4 */
+    int32_t width, height;          /* 0051201c, 00512020 */
+    int32_t unknown_4b9570;
+} CockpitFrameInputs;
+
+/* The words 0042270c keeps that live in other functions' states. */
+typedef struct {
+    int32_t *loading;               /* 004fcdac (CockpitPoliceState's) */
+    uint8_t *clear_view;            /* 004fb78a (HudKeysState's) */
+    int32_t *unknown_4b956c;        /* = 004b9570 */
+} CockpitFrameWords;
+
+/* 0042270c (watcall car, from 00422598 every frame in the car): nothing
+ * while 00509d70 is set. The view's shake race->camera_pitch (004f9b70):
+ * -0x8000 while landing_shake (004f9b74) is above 1, else 0, or off road
+ * (+0x4a6) above 1.0 of speed (|+0x68|) rand_below(0x80) << 8 - 0x40.
+ * With a stop notice (004b92dc / 004b92e0): 004214e4, hud 004f9a24 = 1,
+ * 0044d640, done. Else 004fcdac = 1 around 004217a8, stop_notice_tick
+ * (004b92e4) = -1000, 00421160 when hud 004f9a24 or 004f9a28 is set and
+ * both 0. The steering frame from |+0x18|: high 0x21999, 0x70000, 0xc8000,
+ * 0x133333, 0x1b0000 give 0..4, beyond 5; low 0x26666, 0x66666 give 0, 1,
+ * up to 0x74ccc 2, then 0x154ccc, 0x1c6666 give 4, 5, beyond 6 (no 3: its
+ * branch tests 0xa9999 under 0x74ccc). On the screen (004b95b4 ? 004c2da0
+ * : 004735dc's) the view through the .fmm runs: screen kind 3 takes word 3,
+ * first with clear_view the view surface filled with the strip colour
+ * (clip the screen) and copied through word 2, clear_view 0; else word
+ * window_size. 004b956c = 004b9570; without the back buffer 00473614 and
+ * 004735dc around the mirror (0044c060 at dash point 0); 0044987c(0, 0,
+ * 0x206 / 0x102, 0x1e0 / 0xc8 when 004c5390 is 1 else 0x1c0 / 0xb4). The
+ * signed frame (negative steering negates it) against hud 004f9a20: on a
+ * change the 'w' frame drawn, the left ones when steering left on a plain
+ * track or right on a mirrored one (004fbad8); 004f9a20 = it. On the view
+ * surface (clip the screen) 'tach', 'sped' (model 0xb with 0xff skipped),
+ * 00420d0c, the 't' and 's' frames; on the screen the view surface clipped
+ * to the tach's box and the sped's; 0041f5bc, 004212d4, 00420710,
+ * 00421e40; with 004f9b3c the map at (0x206, 0x130) / (0x103, 0x7e);
+ * 0044d640. A window size outside the four words skips its runs (port
+ * guard: the original reads the words after them). */
+void cockpit_frame(const CockpitFrameOps *ops, HudState *hud, RaceState *race, const Cockpit *c, const Car *car,
+                   const CockpitFrameWords *w, const CockpitFrameInputs *in);
+
 #endif
