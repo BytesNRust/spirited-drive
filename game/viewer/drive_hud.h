@@ -6,6 +6,7 @@
 
 #include "game/race/dash_art.h"
 #include "game/race/hud.h"
+#include "game/race/hud_needle.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_state.h"
 
@@ -28,6 +29,8 @@ typedef struct {
     uint32_t strip_colour;      /* 0050b7b4 */
     uint8_t view[DRIVE_VIEW_HEADER + DRIVE_VIEW_W * DRIVE_VIEW_H];  /* 004c2d90's shape: the 3D view goes here */
     int presented;              /* 00421c18(1) has run: the screen holds the view surface and the tach */
+    HudNeedle needle;           /* 004b9558..: the needle last drawn */
+    uint32_t needle_colour;     /* 0050b790 */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
@@ -55,10 +58,11 @@ uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels);
  * list of the camera's view and window size 0), 00420710's first part (the
  * labels 10 ticks after the start lights were last drawn) and the top row
  * (00421e40) for the viewed car into the strip, which then covers the
- * frame's top rows. `pixels` is the persistent frame (the original redraws
- * only what changed). TODO: 00420710's keys, 0041e3f4, 0042221c (the
- * needle). pixels NULL: the strip only (a frame not shown). */
-void drive_hud_draw(DriveHud *h, RaceState *race, uint8_t *pixels, int width, int height);
+ * frame's top rows, then 0042221c (the tach's needle at the viewed car's
+ * revs, `redline` its specs' +0xac). `pixels` is the persistent frame (the
+ * original redraws only what changed). TODO: 00420710's keys, 0041e3f4.
+ * pixels NULL: the strip only (a frame not shown). */
+void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);
 
 void drive_hud_free(DriveHud *h);
 

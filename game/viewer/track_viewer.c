@@ -476,7 +476,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     }
     ported_view_set_models(t->models, t->model_ok);
     ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, pixels));
-    drive_hud_draw(&drive_hud, race, pixels, SCREEN_W, SCREEN_H);
+    drive_hud_draw(&drive_hud, race, drive_sim.specs[race_slot(race->player)].unknown_0ac, pixels, SCREEN_W, SCREEN_H);
 }
 
 static void car_stem(int model, char stem[16])
@@ -674,7 +674,7 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         drive_tick((i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0));
-        drive_hud_draw(&drive_hud, &drive_sim.race, NULL, 0, 0);  /* the HUD keeps drawing every frame */
+        drive_hud_draw(&drive_hud, &drive_sim.race, 0, NULL, 0, 0);  /* the HUD keeps drawing every frame */
     }
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;

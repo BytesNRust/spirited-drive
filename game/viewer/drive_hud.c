@@ -49,14 +49,16 @@ void drive_hud_setup(DriveHud *h, RacePalette *p)
     if (!h->ready) fprintf(stderr, "drive_hud: the mask bank lacks a shape the HUD needs\n");
 }
 
-/* TODO(00446880): the colour search for black; here the darkest entry. */
-static uint32_t nearest_black(const RacePalette *p)
+/* TODO(00446880): the colour search; here the entry nearest (r, g, b) by
+ * squared distance. */
+static uint32_t nearest_colour(const RacePalette *p, int r, int g, int b)
 {
-    uint32_t best = 0, best_sum = 0xffffffffu;
+    uint32_t best = 0, best_d = 0xffffffffu;
     for (uint32_t i = 0; i < RACE_PALETTE_COLOURS; i++) {
         const uint8_t *c = p->screen_rgbx + 4 * i;
-        const uint32_t sum = (uint32_t)c[0] + c[1] + c[2];
-        if (sum < best_sum) best = i, best_sum = sum;
+        const int dr = c[0] - r, dg = c[1] - g, db = c[2] - b;
+        const uint32_t d = (uint32_t)(dr * dr + dg * dg + db * db);
+        if (d < best_d) best = i, best_d = d;
     }
     return best;
 }
@@ -66,7 +68,9 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     if (!h->ready) return;
     /* TODO(00447098): the queued banks' remap; here the mask bank alone. */
     race_palette_remap_track_bank(p, h->bank, h->art.palette);
-    h->strip_colour = nearest_black(p);
+    h->strip_colour = nearest_colour(p, 0, 0, 0);
+    h->needle_colour = nearest_colour(p, 0xff, 0, 0);  /* 00446bac: 00446880(0x3f, 0, 0) */
+    memset(&h->needle, 0, sizeof h->needle);
     memset(&h->hud, 0, sizeof h->hud);
     hud_reset(&h->hud);
     h->hud.mode = 0;
@@ -149,7 +153,7 @@ static void draw_mask(DriveHud *h, const RaceState *race, uint8_t *pixels, int w
     hud_mask_draw(&ops, &h->art, &h->hud, &clear_view, &in, 0);
 }
 
-void drive_hud_draw(DriveHud *h, RaceState *race, uint8_t *pixels, int width, int height)
+void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height)
 {
     if (!h->ready) return;
     const Car *car = race->cars[race_slot(race->viewed)];
@@ -166,6 +170,9 @@ void drive_hud_draw(DriveHud *h, RaceState *race, uint8_t *pixels, int width, in
     const int w = width < DRIVE_HUD_W ? width : DRIVE_HUD_W;
     for (int y = 0; y < DRIVE_HUD_H && y < height; y++)
         memcpy(pixels + (size_t)y * (size_t)width, h->strip + (size_t)y * DRIVE_HUD_W, (size_t)w);
+    QuadTarget screen = { pixels, width, 0, 0, width, height };
+    hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
+                    h->needle_colour);
 }
 
 void drive_hud_free(DriveHud *h)
