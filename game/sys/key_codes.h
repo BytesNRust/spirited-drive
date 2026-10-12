@@ -13,4 +13,9 @@
  * none matches. */
 int32_t key_code(uint16_t key);
 
+/* 00426b28 (watcall key), german the word 0052b31c: 0, the key as it is;
+ * else 0x21..0x40, 0x5b..0x60, 0x7b..0x9a and 0xe1 through the German
+ * layout's table (0 where it has none), Y and Z swapped, the rest as it is. */
+int32_t key_layout(int32_t key, int32_t german);
+
 #endif
