@@ -12,7 +12,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { DRIVE_HUD_W = 640, DRIVE_HUD_H = 32 };  /* the top strip ('stat', 004829b0's fill) */
+enum {
+    DRIVE_HUD_W = 640, DRIVE_HUD_H = 32,    /* the top strip ('stat', 004829b0's fill) */
+    DRIVE_VIEW_W = 640, DRIVE_VIEW_H = 480, /* the view surface (004c2d90) */
+    DRIVE_VIEW_HEADER = 0x10                /* drawn from as an 8-bit shape (type 0x7b) */
+};
 
 typedef struct {
     uint8_t strip[DRIVE_HUD_W * DRIVE_HUD_H];  /* what the HUD drew: it redraws only what changed */
@@ -22,6 +26,8 @@ typedef struct {
     HudState hud;
     int ready;                  /* set up: drawn each frame */
     uint32_t strip_colour;      /* 0050b7b4 */
+    uint8_t view[DRIVE_VIEW_HEADER + DRIVE_VIEW_W * DRIVE_VIEW_H];  /* 004c2d90's shape: the 3D view goes here */
+    int presented;              /* 00421c18(1) has run: the screen holds the view surface and the tach */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
@@ -39,11 +45,19 @@ void drive_hud_setup(DriveHud *h, RacePalette *p);
  * (0041f9a0: layout 0, redraw on; 0041e230). */
 void drive_hud_start(DriveHud *h, RacePalette *p);
 
-/* 00420710's first part (the labels 10 ticks after the start lights were
- * last drawn) and 00422598's top row (00421e40) for the viewed car, into the
- * strip, which then covers the frame's top rows. TODO: 00420710's keys,
- * the 3D view below the strip (00511ff0) instead of under it. pixels NULL:
- * the strip only (a frame not shown). */
+/* Where the 3D view is drawn: the view surface's pixels when the HUD is
+ * set up (00421c18 copies them to the screen through the .mmb's runs), else
+ * the frame itself. */
+uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels);
+
+/* 00422598's order: 00421c18 (the first time with 1: 'tach' into the view
+ * surface, all of it to the frame; then the view surface through the run
+ * list of the camera's view and window size 0), 00420710's first part (the
+ * labels 10 ticks after the start lights were last drawn) and the top row
+ * (00421e40) for the viewed car into the strip, which then covers the
+ * frame's top rows. `pixels` is the persistent frame (the original redraws
+ * only what changed). TODO: 00420710's keys, 0041e3f4, 0042221c (the
+ * needle). pixels NULL: the strip only (a frame not shown). */
 void drive_hud_draw(DriveHud *h, RaceState *race, uint8_t *pixels, int width, int height);
 
 void drive_hud_free(DriveHud *h);

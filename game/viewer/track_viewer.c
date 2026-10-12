@@ -475,7 +475,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
         list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)) };
     }
     ported_view_set_models(t->models, t->model_ok);
-    ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, pixels);
+    ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, pixels));
     drive_hud_draw(&drive_hud, race, pixels, SCREEN_W, SCREEN_H);
 }
 
