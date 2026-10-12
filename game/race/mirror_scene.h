@@ -17,4 +17,9 @@ typedef struct {
 /* 00449f50: the box of the camera's layout (*(00511fe8) +0x1c). */
 void mirror_bounds(const ViewLayout *layout, MirrorBounds *b);
 
+/* 0044a154: 0 when the quad's four x (screen[0, 2, 4, 6]) are all left of
+ * the box or all right of it, or its points 1 and 2 are both below it
+ * (screen[3], screen[5] past bottom); else 1. */
+int mirror_quad_visible(const MirrorBounds *b, const int32_t screen[8]);
+
 #endif
