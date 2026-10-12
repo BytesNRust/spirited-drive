@@ -75,6 +75,11 @@ int blit_shape_placed(const QuadTarget *t, const uint8_t *shape)
     return blit_shape(t, shape, s16(shape + SHAPE_X), s16(shape + SHAPE_Y), BLIT_OPAQUE);
 }
 
+int blit_shape_at(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y)
+{
+    return blit_shape(t, shape, x, y, BLIT_OPAQUE);
+}
+
 int blit_shape_placed_transparent(const QuadTarget *t, const uint8_t *shape)
 {
     return blit_shape(t, shape, s16(shape + SHAPE_X), s16(shape + SHAPE_Y), BLIT_TRANSPARENT);
