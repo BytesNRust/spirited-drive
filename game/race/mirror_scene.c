@@ -11,6 +11,11 @@ void mirror_bounds(const ViewLayout *layout, MirrorBounds *b)
     b->bottom = x_add(b->top, layout->unknown_24);
 }
 
+uint32_t mirror_segment_offset(int32_t segment, int32_t mask)
+{
+    return ((uint32_t)(segment & mask) * MIRROR_SEGMENT_RECORD) % MIRROR_SEGMENT_CACHE;
+}
+
 int mirror_quad_visible(const MirrorBounds *b, const int32_t screen[8])
 {
     int left = 1, right = 1;

@@ -22,4 +22,10 @@ void mirror_bounds(const ViewLayout *layout, MirrorBounds *b);
  * (screen[3], screen[5] past bottom); else 1. */
 int mirror_quad_visible(const MirrorBounds *b, const int32_t screen[8]);
 
+enum { MIRROR_SEGMENT_RECORD = 0x21c, MIRROR_SEGMENT_CACHE = 0x8700 };
+
+/* 0043e95c: the byte offset of a segment's record in the segment cache
+ * (005041d8): (segment & 00504210) x 0x21c (32-bit) mod 0x8700, unsigned. */
+uint32_t mirror_segment_offset(int32_t segment, int32_t mask);
+
 #endif
