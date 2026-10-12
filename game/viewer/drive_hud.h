@@ -6,6 +6,7 @@
 
 #include "game/race/dash_art.h"
 #include "game/race/hud.h"
+#include "game/race/hud_keys.h"
 #include "game/race/hud_needle.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_state.h"
@@ -32,6 +33,7 @@ typedef struct {
     int32_t shown_view;         /* the view drawn for (-1 none yet) */
     HudNeedle needle;           /* 004b9558..: the needle last drawn */
     uint32_t needle_colour;     /* 0050b790 */
+    HudKeysState keys;          /* 00420710's edge, parts mode, dash camera, view change */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
@@ -58,12 +60,12 @@ uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
 
 /* 00422598's order: 00421c18 (after a view change with 1: 'tach' into the
  * view surface, all of it to the frame; otherwise the view surface through
- * the run list of the camera's view and window size 0), 00420710's first part (the
- * labels 10 ticks after the start lights were last drawn) and the top row
+ * the run list of the camera's view and window size 0), 00420710 (the labels
+ * 10 ticks after the start lights were last drawn; F7 / F8 / F9) and the top row
  * (00421e40) for the viewed car into the strip, which then covers the
  * frame's top rows, then 0042221c (the tach's needle at the viewed car's
  * revs, `redline` its specs' +0xac). `pixels` is the persistent frame (the
- * original redraws only what changed). TODO: 00420710's keys, 0041e3f4.
+ * original redraws only what changed). TODO: 0041e3f4; the parts key (no .b%d%d parts read).
  * pixels NULL: the strip only (a frame not shown). */
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);
 

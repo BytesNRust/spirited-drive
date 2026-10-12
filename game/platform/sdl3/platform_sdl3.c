@@ -202,6 +202,7 @@ static int script_key(const char *name)
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
         { "Y", 0x15 }, { "N", 0x31 }, { "J", 0x24 }, { "A", 0x1E }, { "Z", 0x2C }, { "C", 0x2E },
+        { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 },
     };
     for (size_t i = 0; i < sizeof KEYS / sizeof KEYS[0]; i++) {
         if (SDL_strcmp(name, KEYS[i].name) == 0) return KEYS[i].scancode;
@@ -294,6 +295,9 @@ static SDL_Scancode from_set1(int scancode)
     case 0x3D: return SDL_SCANCODE_F3;
     case 0x3E: return SDL_SCANCODE_F4;
     case 0x3F: return SDL_SCANCODE_F5;
+    case 0x41: return SDL_SCANCODE_F7;
+    case 0x42: return SDL_SCANCODE_F8;
+    case 0x43: return SDL_SCANCODE_F9;
     case 0x44: return SDL_SCANCODE_F10;
     case 0x48: return SDL_SCANCODE_UP;
     case 0x4B: return SDL_SCANCODE_LEFT;

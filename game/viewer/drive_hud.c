@@ -4,6 +4,8 @@
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
 #include "game/race/dash_load.h"
+#include "game/race/hud_keys.h"
+#include "game/race/race_chase.h"
 #include "game/race/hud_mask.h"
 #include "game/race/hud_redraw.h"
 
@@ -71,6 +73,8 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     memset(h->view + DRIVE_VIEW_HEADER, (int)h->strip_colour, sizeof h->view - DRIVE_VIEW_HEADER);
     h->changed = 0;
     h->shown_view = -1;
+    memset(&h->keys, 0, sizeof h->keys);
+    h->keys.armed = 1;  /* 004b9460's start */
 }
 
 uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels)
@@ -152,6 +156,45 @@ static void draw_mask(DriveHud *h, const RaceState *race, uint8_t *pixels, int w
     h->changed = 0;
 }
 
+/* 00420710's calls: the labels into the strip, the chase's kind taken
+ * again; 00420918 is not reached (the parts key is unmapped). */
+typedef struct {
+    DriveHud *h;
+    RaceState *race;
+    const QuadTarget *strip;
+} KeysCalls;
+
+static void keys_labels(void *ctx)
+{
+    KeysCalls *k = ctx;
+    hud_draw_labels(k->strip, &k->h->hud, &k->h->art, k->race, k->race->splits.gap, k->race->splits.gap_shown, HIGH_RES,
+                    k->h->strip_colour);
+}
+
+static void keys_parts_redraw(void *ctx)
+{
+    (void)ctx;  /* TODO(00420918): with the parts key, once the .b%d%d parts are read */
+}
+
+static void keys_take(void *ctx, int32_t kind)
+{
+    KeysCalls *k = ctx;
+    race_chase_take(k->race, &k->race->chase, kind);
+}
+
+static void draw_keys(DriveHud *h, RaceState *race, const QuadTarget *strip)
+{
+    uint8_t keys[0x100] = { 0 };
+    for (int code = HUD_KEY_REDRAW; code <= HUD_KEY_CAMERA; code++) keys[code] = platform_key_down(code) ? 1 : 0;
+    KeysCalls calls = { h, race, strip };
+    const HudKeysOps ops = { &calls, keys_labels, keys_parts_redraw, keys_take };
+    /* parts_key 0: no key has set-1 code 0, so the parts mode stays off; no pad */
+    const HudKeysInputs in = { keys, 0, 0, { 0, 0 }, 0, 0 };
+    hud_keys(&ops, &h->hud, &h->keys, race, &in);
+    if (h->keys.view_changed == 999) h->changed = 1;  /* 00511fec: the full redraw and 00421c18(1) */
+    h->keys.view_changed = 0;
+}
+
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height)
 {
     if (!h->ready) return;
@@ -159,11 +202,7 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     if (car == NULL) return;
     if (pixels != NULL && width == DRIVE_VIEW_W && height == DRIVE_VIEW_H) draw_mask(h, race, pixels, width, height);
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
-    if (h->hud.lights_until < race->tick) {  /* 00420710 */
-        hud_draw_labels(&t, &h->hud, &h->art, race, race->splits.gap, race->splits.gap_shown, HIGH_RES,
-                        h->strip_colour);
-        h->hud.waiting = 0;
-    }
+    draw_keys(h, race, &t);
     hud_draw_top_row(&t, &h->hud, &h->art, race, car, ENGLISH, HIGH_RES, h->strip_colour);
     if (pixels == NULL) return;
     const int w = width < DRIVE_HUD_W ? width : DRIVE_HUD_W;
