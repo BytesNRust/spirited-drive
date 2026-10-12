@@ -40,6 +40,8 @@ typedef struct {
     HudNeedle needle;           /* 004b9558..: the needle last drawn */
     uint32_t needle_colour;     /* 0050b790 */
     HudKeysState keys;          /* 00420710's edge, parts mode, dash camera, view change */
+    int32_t parts_key;          /* 004fb700: M (00426ddc) */
+    int parts_pending;          /* 00420918 asked for on a frame not shown: run on the next one shown */
     uint8_t *dash_bank, *dash_fmm;  /* SIMDATA/DASH/<stem>DH.fsh / .fmm */
     Cockpit cockpit;            /* 004f9628.. */
     CockpitWorld cockpit_world;
@@ -98,7 +100,8 @@ uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
  * 0041e364, then 00421160 while 004f9a24 / 004f9a28 is set, then the keys and
  * the top row. Both copy the map to (0x206, 0x130) while 004f9b3c (set by
  * 0044ca3c at the start), 00422598 after the needle. `pixels` is the persistent frame (the original redraws only
- * what changed). TODO: the parts key (no .b%d%d parts read).
+ * what changed). The parts key (M) flips 004f9b3c; on its way off with a
+ * chase camera 00420918 repaints the map's box.
  * pixels NULL: the strip only (a frame not shown). */
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);
 

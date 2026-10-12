@@ -3,6 +3,7 @@
 #include "game/platform/platform.h"
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
+#include "game/sys/key_codes.h"
 #include "game/sys/palette.h"
 #include "game/sys/resource.h"
 #include "game/race/dash_load.h"
@@ -18,7 +19,8 @@
 enum {
     HIGH_RES = 1, ENGLISH = 0, SHAPE_8_BIT = 0x7b,
     LIVE_RACE = 1,      /* 004c5390: 00455a5c sets 1 once the race runs (0044e700 2 / 3 in replays) */
-    SHADE_SCALE = 0x9999 /* 00446bac's 00482698 */
+    SHADE_SCALE = 0x9999, /* 00446bac's 00482698 */
+    PARTS_KEY_CONFIG = 0x4d /* 0052ad3e's default, 'M' */
 };
 
 /* A name 00450838 builds in mixed case; the CD's files are upper case. */
@@ -139,10 +141,21 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     memset(&h->keys, 0, sizeof h->keys);
     h->keys.armed = 1;  /* 004b9460's start */
     h->keys.use_parts = 1;  /* 0044ca3c */
+    h->parts_key = key_code((uint16_t)key_layout(PARTS_KEY_CONFIG, ENGLISH));  /* 00426ddc */
+    h->parts_pending = 0;
     memset(h->map, 0, sizeof h->map);
     h->map[0] = SHAPE_8_BIT;
     h->map[4] = DRIVE_MAP_W, h->map[6] = DRIVE_MAP_H;
     h->map_blink = 0;
+}
+
+/* The camera's view row's frame (00511fe8). */
+static HudFrame view_frame(const RaceState *race)
+{
+    const RaceCamera *camera = race->chase.camera;
+    const ViewRow *row = camera != NULL ? camera->view_row : NULL;
+    return row != NULL ? (HudFrame){ row->unknown_14[4], row->unknown_14[5], row->unknown_14[6], row->unknown_14[7] }
+                       : (HudFrame){ 0, 0, 0, 0 };
 }
 
 uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels)
@@ -153,11 +166,8 @@ uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels)
     if (view != h->shown_view) h->shown_view = view, h->changed = 1;
     if (h->changed) {
         const QuadTarget t = { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H };
-        const ViewRow *row = camera != NULL ? camera->view_row : NULL;
         const HudRedrawInputs in = {
-            row != NULL ? (HudFrame){ row->unknown_14[4], row->unknown_14[5], row->unknown_14[6], row->unknown_14[7] }
-                        : (HudFrame){ 0, 0, 0, 0 },
-            1, DRIVE_VIEW_W, DRIVE_VIEW_H, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour };
+            view_frame(race), 1, DRIVE_VIEW_W, DRIVE_VIEW_H, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour };
         hud_redraw(&t, &h->hud, &h->art, race, &in);
     }
     return h->view + DRIVE_VIEW_HEADER;
@@ -249,7 +259,7 @@ static void keys_labels(void *ctx)
 
 static void keys_parts_redraw(void *ctx)
 {
-    (void)ctx;  /* TODO(00420918): with the parts key, once the .b%d%d parts are read */
+    ((KeysCalls *)ctx)->h->parts_pending = 1;  /* 00420918, onto the frame (drive_hud_draw) */
 }
 
 static void keys_take(void *ctx, int32_t kind)
@@ -262,10 +272,12 @@ static void draw_keys(DriveHud *h, RaceState *race, const QuadTarget *strip)
 {
     uint8_t keys[0x100] = { 0 };
     for (int code = HUD_KEY_REDRAW; code <= HUD_KEY_CAMERA; code++) keys[code] = platform_key_down(code) ? 1 : 0;
+    if (h->parts_key > 0 && h->parts_key < (int32_t)sizeof keys) keys[h->parts_key] = platform_key_down(h->parts_key) ? 1 : 0;
     KeysCalls calls = { h, race, strip };
     const HudKeysOps ops = { &calls, keys_labels, keys_parts_redraw, keys_take };
-    /* parts_key 0: no key has set-1 code 0, so the parts mode stays off; no pad */
-    const HudKeysInputs in = { keys, 0, 0, { 0, 0 }, 0, 0 };
+    /* no pad */
+    const HudKeysInputs in = { keys, h->parts_key > 0 && h->parts_key < (int32_t)sizeof keys ? h->parts_key : 0, 0,
+                               { 0, 0 }, 0, 0 };
     hud_keys(&ops, &h->hud, &h->keys, race, &in);
     if (h->keys.view_changed == 999) h->changed = 1;  /* 00511fec: the full redraw and 00421c18(1) */
     h->keys.view_changed = 0;
@@ -493,6 +505,11 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     for (int y = 0; y < DRIVE_HUD_H && y < height; y++)
         memcpy(pixels + (size_t)y * (size_t)width, h->strip + (size_t)y * DRIVE_HUD_W, (size_t)w);
     QuadTarget screen = { pixels, width, 0, 0, width, height };
+    if (full && h->parts_pending) {
+        const HudPartsInputs parts = { view_frame(race), 1, width, height, HIGH_RES, width, height };
+        hud_parts_redraw(&screen, &h->art, &parts);
+        h->parts_pending = 0;
+    }
     if (!in_car)  /* 0042270c does not run 0042221c */
         hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
                         h->needle_colour);
