@@ -518,7 +518,7 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     }
     if (!in_car)  /* 0042270c does not run 0042221c */
         hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
-                        h->needle_colour);
+                        h->needle_colour, NULL, NULL);
     if (full && h->cockpit_ready && h->keys.use_parts != 0)
         blit_shape_at(&screen, h->map, DRIVE_MAP_X, DRIVE_MAP_Y);
 }

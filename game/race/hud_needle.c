@@ -10,7 +10,8 @@ enum {
     RPM_OVER = 0x3d4,       /* past the redline the needle stops here */
     SWEEP = 600,            /* of 1024 a turn, 0 to the redline */
     START_ANGLE = 0x1a9,
-    MARGIN = 2              /* the erase boxes reach this far past the old needle */
+    MARGIN = 2,             /* the erase boxes reach this far past the old needle */
+    LOW_WIDTH = 0x10000     /* the low resolution needle: one pixel at both ends */
 };
 
 static int32_t min32(int32_t a, int32_t b)
@@ -34,7 +35,7 @@ static void erase(QuadTarget *t, const DashArt *art, int32_t ax, int32_t ay, int
 
 void hud_draw_needle(QuadTarget *t, HudNeedle *needle, const DashArt *art, int32_t rpm, int32_t redline,
                      int32_t surface_w, int32_t surface_h, int32_t screen_w, int32_t screen_h, int32_t high_res,
-                     uint32_t colour)
+                     uint32_t colour, NeedleLine *line, const uint8_t *fade)
 {
     const int32_t top = (int32_t)((uint32_t)redline + RPM_OVER);
     if (rpm > top) rpm = top;
@@ -53,6 +54,9 @@ void hud_draw_needle(QuadTarget *t, HudNeedle *needle, const DashArt *art, int32
         flat_line(t, tip_x, tip_y, inner_x, inner_y, colour);
         flat_line(t, tip_x + 1, tip_y, inner_x + 1, inner_y, colour);
         flat_line(t, tip_x, tip_y + 1, inner_x, inner_y + 1, colour);
+    } else if (line != NULL && fade != NULL) {
+        needle_draw(line, t, (int32_t)((uint32_t)inner_x << 16), (int32_t)((uint32_t)inner_y << 16),
+                    (int32_t)((uint32_t)tip_x << 16), (int32_t)((uint32_t)tip_y << 16), fade, LOW_WIDTH, LOW_WIDTH);
     }
     *needle = (HudNeedle){ tip_x, tip_y, inner_x, inner_y };
 }

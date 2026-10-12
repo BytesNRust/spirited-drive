@@ -2,6 +2,7 @@
 #ifndef TNFS_HUD_NEEDLE_H
 #define TNFS_HUD_NEEDLE_H
 
+#include "game/gfx/needle.h"
 #include "game/gfx/quad.h"
 #include "game/race/dash_art.h"
 
@@ -20,12 +21,15 @@ typedef struct {
  * (00473ab4) clipped to the boxes old tip..midpoint and midpoint..old inner,
  * 2 pixels out; then the clip is the screen (screen_w x screen_h) and at high
  * resolution the needle is three lines (00484254: as is, one right, one
- * down) in `colour` (0050b790). Each clip goes through 0047383c (kept inside
- * the surface, surface_w x surface_h) and is left in t. TODO(0048383b): the
- * low resolution needle is not drawn. Where the original divides by zero
- * (redline 0) or overflows the division the port draws nothing. */
+ * down) in `colour` (0050b790), at low resolution the anti-aliased needle
+ * (0048383b, needle_draw) from inner to tip, one pixel wide at both ends,
+ * in 00482a36's colour (`fade`, 004f9744's block) through `line` (its clip
+ * 0041f818's). Each clip goes through 0047383c (kept inside the surface,
+ * surface_w x surface_h) and is left in t. Where the original divides by
+ * zero (redline 0) or overflows the division the port draws nothing; with
+ * no line or block the low resolution needle is not drawn (port guard). */
 void hud_draw_needle(QuadTarget *t, HudNeedle *needle, const DashArt *art, int32_t rpm, int32_t redline,
                      int32_t surface_w, int32_t surface_h, int32_t screen_w, int32_t screen_h, int32_t high_res,
-                     uint32_t colour);
+                     uint32_t colour, NeedleLine *line, const uint8_t *fade);
 
 #endif
