@@ -280,3 +280,13 @@ void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt
         if (slot < MESH_SLOTS && a->mesh != NULL) object3d_match_colours(a->mesh, &m);
     }
 }
+
+void race_palette_read(const RacePalette *p, int32_t first, int32_t count, uint8_t *out)
+{
+    const uint8_t *e = p->screen + (ptrdiff_t)first * PALETTE_MATCH_ENTRY_BYTES;
+    for (int32_t i = 0; i < count; i++, e += PALETTE_MATCH_ENTRY_BYTES, out += 3) {
+        out[0] = e[2] >> 2;
+        out[1] = e[1] >> 2;
+        out[2] = e[0] >> 2;
+    }
+}
