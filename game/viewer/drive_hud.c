@@ -91,11 +91,9 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     race_palette_remap_track_bank(p, h->bank, h->art.palette);
     h->strip_colour = (uint32_t)race_palette_nearest(p, 0, 0, 0);
     h->needle_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0, 0);  /* 00446bac */
-    uint8_t copy[RACE_PALETTE_COLOURS * 3], usable[256];  /* 0050ad34; 004c5ff8 as the exe holds it */
+    uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34; the search's entries 004c5ff8 as 0041f818 left them */
     race_palette_read(p, 0, RACE_PALETTE_COLOURS, copy);
-    memset(usable, 1, sizeof usable);
-    usable[254] = usable[255] = 0;
-    palette_shade_table(copy, usable, SHADE_SCALE, h->shade);
+    palette_shade_table(copy, p->enabled, SHADE_SCALE, h->shade);
     memset(h->back, 0, sizeof h->back);
     h->back[0] = SHAPE_8_BIT;
     h->back[4] = DRIVE_BACK_W, h->back[6] = DRIVE_BACK_H;

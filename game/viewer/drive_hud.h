@@ -40,6 +40,7 @@ typedef struct {
     Cockpit cockpit;            /* 004f9628.. */
     CockpitWorld cockpit_world;
     int cockpit_ready;
+    CockpitColours colours;     /* 0041f818's: 004f9744's block, the line clip, 004f9b80 */
     int in_car;                 /* 00512054: the last frame was 0042270c's */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
     uint8_t back[DRIVE_VIEW_HEADER + DRIVE_BACK_W * DRIVE_BACK_H];  /* 004c2d98's shape */

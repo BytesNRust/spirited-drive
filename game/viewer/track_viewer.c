@@ -593,9 +593,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     CarLoad *cars[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) cars[i] = drive_cars.loaded[i] ? &drive_cars.load[i] : NULL;
     if (!drive_hud_read(&drive_hud, data_root)) fprintf(stderr, "track_viewer: no HUD\n");
+    /* 0041f9a0 from 004400f4, before 00455a5c builds the palette (0041f818 maps the dash onto it) */
+    drive_hud_cockpit(&drive_hud, &drive_sim.race, data_root, stem);
     if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
-    drive_hud_cockpit(&drive_hud, &drive_sim.race, data_root, stem);  /* 0041f9a0 from 004400f4 */
     return 1;
 }
 
