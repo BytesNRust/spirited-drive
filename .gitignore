@@ -10,3 +10,18 @@ __pycache__/
 # Regenerable decompiler output derived from the EA binary
 analysis/decomp/
 analysis/asm/
+
+# OS / editor / tooling noise
+.DS_Store
+._*
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+*.pyc
+.direnv/
+result
+result-*
+compile_commands.json
+.code-review-graph/
