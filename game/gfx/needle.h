@@ -64,4 +64,13 @@ int32_t needle_clip_x(NeedleLine *n);
  * runs down through 0 and on over memory). */
 void needle_span_y(NeedleLine *n, uint8_t *pixels, int32_t pitch);
 
+/* 0048369d (watcall ()): 004832c2 by columns for the x-major needle: from
+ * column x_start >> 16 while x_start < x_end, edge b above `bottom` and
+ * edge a not above `top`; pixels ya >> 16 down to yb >> 16, a step the
+ * surface's width (004c78b4; the port's pitch, the same on a linear
+ * surface); then the edges by their slopes and x_start by dx. Here one
+ * pixel alone is left when its level (both covers - 16) is not above 0.
+ * Port guard as 004832c2's for edge b above edge a. */
+void needle_span_x(NeedleLine *n, uint8_t *pixels, int32_t pitch);
+
 #endif

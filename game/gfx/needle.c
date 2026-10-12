@@ -120,3 +120,25 @@ void needle_span_y(NeedleLine *n, uint8_t *pixels, int32_t pitch)
         row++;
     }
 }
+
+void needle_span_x(NeedleLine *n, uint8_t *pixels, int32_t pitch)
+{
+    int32_t column = x_sar(n->x_start, 16);
+    while (n->x_start < n->x_end && n->yb < n->bottom && n->ya >= n->top) {
+        const int32_t fb = (n->yb & 0xffff) >> 12;
+        const int32_t fa = (0x10000 - (n->ya & 0xffff)) >> 12;
+        int32_t count = x_sub(x_sar(n->yb, 16), x_sar(n->ya, 16));
+        uint8_t *p = pixels + (intptr_t)x_sar(n->ya, 16) * pitch + column;
+        if (count == 0) {
+            if (fa + fb - 16 > 0) fade_pixel(n, p, fa + fb - 16);
+        } else if (count > 0) {
+            if (fa != 0) fade_pixel(n, p, fa);
+            while (p += pitch, --count != 0) *p = (uint8_t)n->fade_first;
+            if (fb != 0) fade_pixel(n, p, fb);
+        }
+        n->ya = x_add(n->ya, n->slope_ya);
+        n->yb = x_add(n->yb, n->slope_yb);
+        n->x_start = x_add(n->x_start, n->dx);
+        column++;
+    }
+}
