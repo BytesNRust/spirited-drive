@@ -61,6 +61,16 @@ typedef struct {
  * and tenths; 0 before. */
 void hud_clock_split(HudClock *clock, int32_t ticks);
 
+/* 0041e230: every *_shown word to HUD_GAP_UNSET (so all is drawn again),
+ * 004f9a2c and the split_shown words 0, lights_until 0x7d000. */
+void hud_reset(HudState *hud);
+
+/* 0041e794: ticks (as hud_clock_split, into hud->clock) as mm:ss.t in the
+ * grey digits (dash->grey_shown, 005138a4): minutes at x, seconds 2 steps
+ * + space on, tenths 2 steps + space further. */
+void hud_draw_time(const QuadTarget *t, HudState *hud, uint8_t *const *grey, int32_t ticks, int32_t x, int32_t y,
+                   int32_t step, int32_t space);
+
 /* 0041e55c: `value` in `digits` digits, the most significant first, each
  * shape digit_shapes[d] drawn opaque (00473764) at x + i * step, y. The
  * original overruns its buffer past 10 digits and reads before the table

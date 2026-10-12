@@ -6,6 +6,8 @@
 #include "game/sys/fixed_math.h"
 #include "game/sys/shape_bank.h"
 
+#include <stddef.h>
+
 enum {
     MPH = 0x23d70, KMH = 0x39999,  /* 16.16 from the speed's units */
     AI_GEARS = 6,
@@ -17,7 +19,7 @@ enum {
     LIGHTS_START = 300, LIGHT_TICKS = 60, RED_LIGHTS = 3,
     LIGHT_STEP_LOW = 0x41, LIGHT_STEP_HIGH = 0x82,
     STRIP_W_LOW = 0x140, STRIP_H_LOW = 0x10, STRIP_W_HIGH = 0x280, STRIP_H_HIGH = 0x20,
-    LIGHTS_HOLD = 10,
+    LIGHTS_HOLD = 10, LIGHTS_RESET = 0x7d000,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
@@ -270,4 +272,32 @@ void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *da
         }
     }
     hud->lights_until = tick + LIGHTS_HOLD;
+}
+
+void hud_reset(HudState *hud)
+{
+    int32_t *const unset[] = {
+        &hud->gear_shown, &hud->unknown_4f9a80[0], &hud->unknown_4f9a80[1], &hud->unknown_4f9a80[2],
+        &hud->place_shown, &hud->lap_shown, &hud->gap_shown,
+        &hud->unknown_4f9a50[2], &hud->unknown_4f9a50[3], &hud->unknown_4f9a50[4], &hud->unknown_4f9a50[5],
+        &hud->distance_tens_shown, &hud->distance_ones_shown, &hud->unknown_4f9a74,
+        &hud->speed_shown[0], &hud->speed_shown[1], &hud->speed_shown[2], &hud->unknown_4f9a40,
+        &hud->tenths_shown, &hud->seconds_shown, &hud->minutes_shown,
+        &hud->unknown_4f9a50[0], &hud->unknown_4f9a50[1]
+    };
+    hud->unknown_4f9a20[3] = 0;
+    for (size_t i = 0; i < sizeof unset / sizeof unset[0]; i++) *unset[i] = HUD_GAP_UNSET;
+    hud->lights_until = LIGHTS_RESET;
+    hud->unknown_4f9a98 = 0;
+    for (int k = 0; k < HUD_SPLITS; k++) hud->split_shown[k] = 0;
+}
+
+void hud_draw_time(const QuadTarget *t, HudState *hud, uint8_t *const *grey, int32_t ticks, int32_t x, int32_t y,
+                   int32_t step, int32_t space)
+{
+    hud_clock_split(&hud->clock, ticks);
+    hud_draw_number(t, grey, hud->clock.minutes, x, y, step, 2);
+    const int32_t seconds_x = x + step * 2 + space;
+    hud_draw_number(t, grey, hud->clock.seconds, seconds_x, y, step, 2);
+    hud_draw_number(t, grey, hud->clock.tenths, seconds_x + step * 2 + space, y, step, 1);
 }
