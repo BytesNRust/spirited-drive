@@ -5,6 +5,7 @@
 #include "game/gfx/flat.h"
 #include "game/race/dash_load.h"
 #include "game/race/hud_mask.h"
+#include "game/race/hud_redraw.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -81,12 +82,26 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->view[4] = DRIVE_VIEW_W & 0xff, h->view[5] = DRIVE_VIEW_W >> 8;
     h->view[6] = DRIVE_VIEW_H & 0xff, h->view[7] = DRIVE_VIEW_H >> 8;
     memset(h->view + DRIVE_VIEW_HEADER, (int)h->strip_colour, sizeof h->view - DRIVE_VIEW_HEADER);
-    h->presented = 0;
+    h->changed = 0;
+    h->shown_view = -1;
 }
 
-uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels)
+uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels)
 {
-    return h->ready ? h->view + DRIVE_VIEW_HEADER : pixels;
+    if (!h->ready) return pixels;
+    const RaceCamera *camera = race->chase.camera;
+    const int32_t view = camera != NULL ? camera->view : 0;
+    if (view != h->shown_view) h->shown_view = view, h->changed = 1;
+    if (h->changed) {
+        const QuadTarget t = { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H };
+        const ViewRow *row = camera != NULL ? camera->view_row : NULL;
+        const HudRedrawInputs in = {
+            row != NULL ? (HudFrame){ row->unknown_14[4], row->unknown_14[5], row->unknown_14[6], row->unknown_14[7] }
+                        : (HudFrame){ 0, 0, 0, 0 },
+            1, DRIVE_VIEW_W, DRIVE_VIEW_H, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour };
+        hud_redraw(&t, &h->hud, &h->art, race, &in);
+    }
+    return h->view + DRIVE_VIEW_HEADER;
 }
 
 /* 00421c18's surfaces: the view surface and the frame (004c2da0 and the
@@ -146,11 +161,8 @@ static void draw_mask(DriveHud *h, const RaceState *race, uint8_t *pixels, int w
     const RaceCamera *camera = race->chase.camera;
     const HudMaskInputs in = { camera != NULL ? camera->view : 0, 0, 0, 0, 0, width, height, h->strip_colour };
     uint8_t clear_view = 0;
-    if (!h->presented) {
-        hud_mask_draw(&ops, &h->art, &h->hud, &clear_view, &in, 1);
-        h->presented = 1;
-    }
-    hud_mask_draw(&ops, &h->art, &h->hud, &clear_view, &in, 0);
+    hud_mask_draw(&ops, &h->art, &h->hud, &clear_view, &in, h->changed);
+    h->changed = 0;
 }
 
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height)

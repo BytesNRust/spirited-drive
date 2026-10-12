@@ -28,7 +28,8 @@ typedef struct {
     int ready;                  /* set up: drawn each frame */
     uint32_t strip_colour;      /* 0050b7b4 */
     uint8_t view[DRIVE_VIEW_HEADER + DRIVE_VIEW_W * DRIVE_VIEW_H];  /* 004c2d90's shape: the 3D view goes here */
-    int presented;              /* 00421c18(1) has run: the screen holds the view surface and the tach */
+    int changed;                /* 00511fec: the camera took a view; the full redraw and 00421c18(1) are due */
+    int32_t shown_view;         /* the view drawn for (-1 none yet) */
     HudNeedle needle;           /* 004b9558..: the needle last drawn */
     uint32_t needle_colour;     /* 0050b790 */
 } DriveHud;
@@ -48,14 +49,16 @@ void drive_hud_setup(DriveHud *h, RacePalette *p);
  * (0041f9a0: layout 0, redraw on; 0041e230). */
 void drive_hud_start(DriveHud *h, RacePalette *p);
 
-/* Where the 3D view is drawn: the view surface's pixels when the HUD is
- * set up (00421c18 copies them to the screen through the .mmb's runs), else
- * the frame itself. */
-uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels);
+/* Before the 3D view is drawn, as 0044cc74 does: when the camera's view
+ * changed (00511fec), 004218d0 into the view surface (the tiles, the labels,
+ * the frame round the view, the tach). Returns where the 3D view is drawn:
+ * the view surface's pixels when the HUD is set up (00421c18 copies them to
+ * the screen), else the frame itself. */
+uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
 
-/* 00422598's order: 00421c18 (the first time with 1: 'tach' into the view
- * surface, all of it to the frame; then the view surface through the run
- * list of the camera's view and window size 0), 00420710's first part (the
+/* 00422598's order: 00421c18 (after a view change with 1: 'tach' into the
+ * view surface, all of it to the frame; otherwise the view surface through
+ * the run list of the camera's view and window size 0), 00420710's first part (the
  * labels 10 ticks after the start lights were last drawn) and the top row
  * (00421e40) for the viewed car into the strip, which then covers the
  * frame's top rows, then 0042221c (the tach's needle at the viewed car's

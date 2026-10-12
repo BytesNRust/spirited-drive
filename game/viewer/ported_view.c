@@ -217,8 +217,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
-     * fills cover the view; cleared here only for the frames without one. */
-    memset(pixels, 0, WIDTH * HEIGHT);
+     * fills cover the view; the view (only: the rest of the surface holds
+     * 004218d0's tiles and frame) cleared here for the frames without one. */
+    for (int32_t y = vp->top < 0 ? 0 : vp->top; y < vp->top + vp->height && y < HEIGHT; y++) {
+        const int32_t x0 = vp->left < 0 ? 0 : vp->left, x1 = vp->left + vp->width > WIDTH ? WIDTH : vp->left + vp->width;
+        if (x1 > x0) memset(pixels + (size_t)y * WIDTH + x0, 0, (size_t)(x1 - x0));
+    }
     if (art->has_horizon && info->ring != 0) {
         const SkyTargets targets = { &quad, &target };
         draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
