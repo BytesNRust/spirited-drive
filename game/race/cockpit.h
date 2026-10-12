@@ -3,6 +3,7 @@
 #ifndef TNFS_COCKPIT_H
 #define TNFS_COCKPIT_H
 
+#include "game/gfx/needle.h"
 #include "game/race/hud.h"
 #include "game/race/hud_mask.h"
 #include "game/race/race_palette.h"
@@ -258,5 +259,34 @@ typedef struct {
  * nothing (port guards: the original reads on). */
 void cockpit_gate(const CockpitSelectOps *ops, HudState *hud, const Cockpit *c, const Car *car,
                   const CockpitGateInputs *in, int32_t *state);
+
+/* 00420d0c's inputs: the car's revs (+0x3c1), its specs' +0xac and its
+ * speed (+0x68); the followed car's model (cars[004fbb08] +0x48a); the
+ * resolution (004fa0c0), the language word (0052b31c: km/h) and 00482a36's
+ * block (004f9744, CockpitColours.fade). */
+typedef struct {
+    int32_t rpm, redline, speed;
+    int32_t model;
+    int32_t high, german;
+    const uint8_t *fade;
+} CockpitGaugeInputs;
+
+/* 00420d0c (watcall (car), from 0042270c): the tachometer's needle (0048383b)
+ * from the point tach_count - 1 to the mark of min(rpm, redline + 0x3d4):
+ * tach point rpm >> 10 moved toward the next by (rpm & 0x3ff) / 1024
+ * (rounded down after the product); then the speed, |speed| x 0x23d70
+ * (mph) or x 0x39999 (km/h) in 16.16 rounded at bit 15, then >> 16. Without the digits
+ * (004f970c) the speedometer's needle from the point after the tachometer's
+ * sped_count - 1 (sped_count 0 reads the last tach point) to speed point
+ * speed / 10 (20 in km/h) moved toward the next by the rest (the product
+ * divided, toward zero); 0 and below the first point. With them: three
+ * digits, hundreds first, from (0xb0, 0xeb) 0xe apart high / (0x58, 0x62) 7
+ * low, model 3 (0x131, 0x16d) 9 / (0x99, 0x98) 4; a 0 in the first two
+ * places before any other digit is 'numb'; model 0xb skips colour 0xff
+ * (004739b0), the others opaque (00473764). The needles are 0x20000 wide
+ * at both ends for every model (004b91dc / e0), 0x10000 at low resolution.
+ * Port guards: a point past the gate's reads (0, 0), a digit outside 0..9
+ * (a negative speed) or a missing shape draws nothing. */
+void cockpit_gauges(const QuadTarget *t, NeedleLine *line, const Cockpit *c, const CockpitGaugeInputs *in);
 
 #endif
