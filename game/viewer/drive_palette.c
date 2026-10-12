@@ -92,6 +92,10 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     const uint8_t *track = palette6(bank_of(&first), TRACK_PAL);
     if (track == NULL) return 0;
     memset(&p, 0, sizeof p);
+    /* 004c79b4 starts as the identity in the exe: the entries a car bank's
+     * remap leaves alone (0xff, which the transparent mappers skip, and
+     * 0xfa..0xfd outside the police slot) map to themselves. */
+    for (int i = 0; i < RACE_PALETTE_COLOURS; i++) p.table[i] = (uint8_t)i;
     p.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     p.tint_ready = 1;
     race_palette_queue(&p, TRACK_FIRST, TRACK_COUNT, track);
