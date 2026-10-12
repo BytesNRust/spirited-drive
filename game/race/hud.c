@@ -3,11 +3,12 @@
 
 #include "game/gfx/blit.h"
 #include "game/sys/fixed_math.h"
+#include "game/sys/shape_bank.h"
 
 enum {
     MPH = 0x23d70, KMH = 0x39999,  /* 16.16 from the speed's units */
     AI_GEARS = 6,
-    YELLOW_BLANK = 14,
+    YELLOW_BLANK = 14, YELLOW_PLUS = 12, YELLOW_MINUS = 13,
     YELLOW_FIRST_GEAR = 1, YELLOW_REVERSE = 10, YELLOW_NEUTRAL = 11,
     SECONDS_LIMIT = 1200,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
@@ -129,4 +130,35 @@ void hud_draw_splits(const QuadTarget *t, HudState *hud, uint8_t *const *yellow,
         hud_draw_number_blank(t, yellow, hud->split[k], p.x, p.y, p.step, 3);
         hud->split_shown[k] = hud->split[k];
     }
+}
+
+static uint8_t *gap_sign(const DashArt *dash, int32_t gap)
+{
+    return dash->yellow[gap < 0 ? YELLOW_PLUS : YELLOW_MINUS];
+}
+
+void hud_draw_gap(const QuadTarget *t, HudState *hud, const DashArt *dash, int32_t gap, int32_t x, int32_t y,
+                  int32_t step, int32_t space)
+{
+    if (hud->gap_shown == HUD_GAP_UNSET) {
+        const uint8_t *split = shape_bank_find(dash->bank, (const uint8_t *)"splt");
+        if (split == NULL) return;  /* port guard: the original aborts */
+        blit_shape_placed(t, split);
+        blit_shape_placed(t, gap_sign(dash, gap));
+    }
+    if (gap == hud->gap_shown) return;
+    if ((gap >= 0) != (hud->gap_shown >= 0)) blit_shape_placed(t, gap_sign(dash, gap));
+    hud->gap_shown = gap;
+    const int32_t v = gap < 1 ? (int32_t)(0u - (uint32_t)gap) : gap;
+    hud->clock.minutes = v / TICKS_A_MINUTE;
+    hud->clock.seconds = v % TICKS_A_MINUTE / TICKS_A_SECOND;
+    hud->clock.tenths = v % TICKS_A_MINUTE % TICKS_A_SECOND / TICKS_A_TENTH;
+    uint8_t *const *yellow = dash->yellow;
+    hud_draw_number(t, yellow, hud->clock.minutes, x, y, step, 1);
+    const int32_t seconds_x = x + step + space;
+    hud_draw_number(t, yellow, hud->clock.seconds, seconds_x, y, step, 2);
+    hud_draw_number(t, yellow, hud->clock.tenths, space + seconds_x + step * 2, y, step, 1);
+    hud->unknown_4f9a78 = HUD_GAP_UNSET;
+    hud->unknown_4f9a6c = HUD_GAP_UNSET;
+    hud->unknown_4f9a70 = HUD_GAP_UNSET;
 }

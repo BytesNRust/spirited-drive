@@ -15,7 +15,8 @@ enum {
     HUD_MAX_DIGITS = 10,    /* 0041e55c's buffer */
     HUD_SPEED_DIGITS = 3,
     HUD_BLANK = 10,         /* the blank digit shape, and "shown blank" */
-    HUD_SPLITS = 6
+    HUD_SPLITS = 6,
+    HUD_GAP_UNSET = -99
 };
 
 /* 004f9a0c..004f9a14: the race clock 0041e48c splits. */
@@ -31,13 +32,19 @@ typedef struct {
     HudClock clock;                     /* 004f9a0c */
     int32_t unknown_4f9a18;
     int32_t mode;                       /* 004f9a1c: 0, 1, 2 pick the top row's layout */
-    int32_t unknown_4f9a20[5];          /* 004f9a20..004f9a30 */
+    int32_t unknown_4f9a20[4];          /* 004f9a20..004f9a2c */
+    int32_t gap_shown;                  /* 004f9a30: HUD_GAP_UNSET until the gap is first drawn */
     int32_t speed_shown[HUD_SPEED_DIGITS]; /* 004f9a34: red digits, HUD_BLANK for a blank */
     int32_t unknown_4f9a40;
     int32_t tenths_shown;               /* 004f9a44 */
     int32_t seconds_shown;              /* 004f9a48 */
     int32_t minutes_shown;              /* 004f9a4c */
-    int32_t unknown_4f9a50[11];         /* 004f9a50..004f9a78 */
+    int32_t unknown_4f9a50[6];          /* 004f9a50..004f9a64 */
+    int32_t place_shown;                /* 004f9a68 */
+    int32_t unknown_4f9a6c;             /* set to HUD_GAP_UNSET with the gap */
+    int32_t unknown_4f9a70;             /* likewise */
+    int32_t unknown_4f9a74;
+    int32_t unknown_4f9a78;             /* likewise */
     int32_t gear_shown;                 /* 004f9a7c */
     int32_t unknown_4f9a80[4];          /* 004f9a80..004f9a8c */
     int32_t redraw;                     /* 004f9a90 */
@@ -77,6 +84,16 @@ void hud_draw_seconds(const QuadTarget *t, uint8_t *const *yellow, int32_t ticks
  * redrawn: 0..2 as seconds and tenths (hud_draw_seconds), 3..5 in three
  * yellow digits, leading zeros blank (in the order 3, 5, 4). */
 void hud_draw_splits(const QuadTarget *t, HudState *hud, uint8_t *const *yellow, int32_t high_res);
+
+/* 0041f2a8: the gap to the rival (RaceSplits.gap, ticks) as m:ss.t in
+ * yellow digits at x (minutes), x + step + space (seconds), then the
+ * tenths a further 2 steps + space on. While hud->gap_shown is
+ * HUD_GAP_UNSET the 'splt' shape and the sign are drawn first at their
+ * own places (yellow 'mnus' for a gap >= 0, 'plus' below); the sign again
+ * when it changes; the digits only when the gap changes. The clock words
+ * are left holding the gap's minutes, seconds and tenths. */
+void hud_draw_gap(const QuadTarget *t, HudState *hud, const DashArt *dash, int32_t gap, int32_t x, int32_t y,
+                  int32_t step, int32_t space);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
