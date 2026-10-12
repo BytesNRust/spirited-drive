@@ -36,7 +36,9 @@ typedef struct {
     int32_t tenths_shown;               /* 004f9a44 */
     int32_t seconds_shown;              /* 004f9a48 */
     int32_t minutes_shown;              /* 004f9a4c */
-    int32_t unknown_4f9a50[16];         /* 004f9a50..004f9a8c */
+    int32_t unknown_4f9a50[11];         /* 004f9a50..004f9a78 */
+    int32_t gear_shown;                 /* 004f9a7c */
+    int32_t unknown_4f9a80[4];          /* 004f9a80..004f9a8c */
     int32_t redraw;                     /* 004f9a90 */
     int32_t unknown_4f9a94[3];          /* 004f9a94..004f9a9c */
 } HudState;
@@ -60,5 +62,13 @@ void hud_draw_number(const QuadTarget *t, uint8_t *const *digit_shapes, int32_t 
  * speed; the port draws nothing then. */
 void hud_draw_speed(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
                     int16_t german, int32_t x, int32_t y, int32_t step);
+
+/* 0041efb4: the gear in a yellow shape at x, y, drawn only when it differs
+ * from hud->gear_shown: the car's gear (+0x3ed) while race->viewed <
+ * race->humans, else how many of the PDN's speeds (+0x308, up to 6, in
+ * turn) the computer speed (+0x15c) is past. 0.. 'yel1'.. (dash->yellow[1
+ * + gear]), -1 'yeln', below 'yelr'. */
+void hud_draw_gear(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
+                   int32_t x, int32_t y);
 
 #endif

@@ -6,6 +6,8 @@
 
 enum {
     MPH = 0x23d70, KMH = 0x39999,  /* 16.16 from the speed's units */
+    AI_GEARS = 6,
+    YELLOW_FIRST_GEAR = 1, YELLOW_REVERSE = 10, YELLOW_NEUTRAL = 11,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
 
@@ -52,4 +54,22 @@ void hud_draw_speed(const QuadTarget *t, HudState *hud, const DashArt *dash, con
             hud->speed_shown[i] = shown;
         }
     }
+}
+
+static int32_t computer_gear(const Car *car)
+{
+    int32_t gear = 0;
+    while (gear < AI_GEARS && car->ai_speed > car->pdn_1ac[gear]) gear++;
+    return gear;
+}
+
+void hud_draw_gear(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
+                   int32_t x, int32_t y)
+{
+    const int32_t gear = race->viewed < race->humans ? car->gear : computer_gear(car);
+    if (gear == hud->gear_shown) return;
+    const int shape = gear >= 0 ? YELLOW_FIRST_GEAR + gear : gear == -1 ? YELLOW_NEUTRAL : YELLOW_REVERSE;
+    if (shape >= DASH_YELLOW) return;  /* port guard: the original reads past the yellow shapes */
+    blit_shape(t, dash->yellow[shape], x, y, BLIT_OPAQUE);
+    hud->gear_shown = gear;
 }
