@@ -3,6 +3,7 @@
 #include "game/platform/platform.h"
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
+#include "game/sys/palette.h"
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
 #include "game/race/race_chase.h"
@@ -13,7 +14,11 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { HIGH_RES = 1, ENGLISH = 0, SHAPE_8_BIT = 0x7b };
+enum {
+    HIGH_RES = 1, ENGLISH = 0, SHAPE_8_BIT = 0x7b,
+    LIVE_RACE = 1,      /* 004c5390: 00455a5c sets 1 once the race runs (0044e700 2 / 3 in replays) */
+    SHADE_SCALE = 0x9999 /* 00446bac's 00482698 */
+};
 
 /* A name 00450838 builds in mixed case; the CD's files are upper case. */
 static uint8_t *read_named(const char *path, size_t dir_length)
@@ -86,6 +91,15 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     race_palette_remap_track_bank(p, h->bank, h->art.palette);
     h->strip_colour = (uint32_t)race_palette_nearest(p, 0, 0, 0);
     h->needle_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0, 0);  /* 00446bac */
+    uint8_t copy[RACE_PALETTE_COLOURS * 3], usable[256];  /* 0050ad34; 004c5ff8 as the exe holds it */
+    race_palette_read(p, 0, RACE_PALETTE_COLOURS, copy);
+    memset(usable, 1, sizeof usable);
+    usable[254] = usable[255] = 0;
+    palette_shade_table(copy, usable, SHADE_SCALE, h->shade);
+    memset(h->back, 0, sizeof h->back);
+    h->back[0] = SHAPE_8_BIT;
+    h->back[4] = DRIVE_BACK_W, h->back[6] = DRIVE_BACK_H;
+    h->in_car = 0;
     memset(&h->needle, 0, sizeof h->needle);
     memset(&h->hud, 0, sizeof h->hud);
     hud_reset(&h->hud);
@@ -152,9 +166,16 @@ static void mask_draw(void *ctx, uint8_t *shape)
     blit_shape_placed_transparent(((MaskSurfaces *)ctx)->target, shape);
 }
 
+static HudViewClipInputs view_clip_inputs(int width, int height)
+{
+    return (HudViewClipInputs){ LIVE_RACE, HIGH_RES, width, height, width, height };
+}
+
 static void mask_view_clip(void *ctx)
 {
-    (void)ctx;  /* TODO(0041e3f4) */
+    MaskSurfaces *m = ctx;
+    const HudViewClipInputs in = view_clip_inputs(DRIVE_VIEW_W, DRIVE_VIEW_H);
+    hud_view_clip(m->target, &m->h->hud, &in);
 }
 
 static void mask_present(void *ctx)
@@ -221,12 +242,57 @@ static void draw_keys(DriveHud *h, RaceState *race, const QuadTarget *strip)
     h->keys.view_changed = 0;
 }
 
+/* 00421160's surfaces: the frame (004c2da0 and the default both) and 004c2d98. */
+typedef struct {
+    DriveHud *h;
+    RaceState *race;
+    QuadTarget screen, back, target;
+} CockpitSurfaces;
+
+static QuadTarget *cockpit_select(void *ctx, HudSurface s)
+{
+    CockpitSurfaces *c = ctx;
+    c->target = s == HUD_SURFACE_BACK ? c->back : c->screen;
+    return &c->target;
+}
+
+static void cockpit_labels(void *ctx)
+{
+    CockpitSurfaces *c = ctx;
+    const QuadTarget strip = { c->h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
+    hud_draw_labels(&strip, &c->h->hud, &c->h->art, c->race, c->race->splits.gap, c->race->splits.gap_shown,
+                    HIGH_RES, c->h->strip_colour);
+}
+
+/* 0042270c's part that is ported: 00421160 while 004f9a24 / 004f9a28 is set.
+ * TODO(0042270c): the rest (the view through 00483fa0's runs, the wheel, the
+ * gauges); until then the view goes to the frame whole and the dash over it. */
+static void draw_cockpit(DriveHud *h, RaceState *race, uint8_t *pixels, int width, int height)
+{
+    if (!h->in_car) h->hud.unknown_4f9a20[1] = 1, h->in_car = 1;  /* 0041e364 */
+    CockpitSurfaces s = { h, race, { pixels, width, 0, 0, width, height },
+                          { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
+    blit_shape(&s.screen, h->view, 0, 0, BLIT_OPAQUE);
+    if (h->hud.unknown_4f9a20[1] == 0 && h->hud.unknown_4f9a20[2] == 0) {
+        blit_shape_at_transparent(&s.screen, h->cockpit.dash, 0, 0);
+        return;
+    }
+    const CockpitRedrawOps ops = { &s, cockpit_select, cockpit_labels };
+    const CockpitRedrawInputs in = { 0, view_clip_inputs(width, height), h->back, h->shade };
+    cockpit_redraw(&ops, &h->hud, &h->cockpit, &h->cockpit_world, &in);
+    h->hud.unknown_4f9a20[1] = h->hud.unknown_4f9a20[2] = 0;
+}
+
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height)
 {
     if (!h->ready) return;
     const Car *car = race->cars[race_slot(race->viewed)];
     if (car == NULL) return;
-    if (pixels != NULL && width == DRIVE_VIEW_W && height == DRIVE_VIEW_H) draw_mask(h, race, pixels, width, height);
+    const int full = pixels != NULL && width == DRIVE_VIEW_W && height == DRIVE_VIEW_H;
+    const int in_car = h->cockpit_ready && race->chase.kind == 0 && h->keys.dash_camera == 0;  /* 0044cc74 */
+    if (!in_car) h->in_car = 0;
+    if (full && in_car) draw_cockpit(h, race, pixels, width, height);
+    else if (full) draw_mask(h, race, pixels, width, height);
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
     draw_keys(h, race, &t);
     hud_draw_top_row(&t, &h->hud, &h->art, race, car, ENGLISH, HIGH_RES, h->strip_colour);
@@ -234,6 +300,7 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     const int w = width < DRIVE_HUD_W ? width : DRIVE_HUD_W;
     for (int y = 0; y < DRIVE_HUD_H && y < height; y++)
         memcpy(pixels + (size_t)y * (size_t)width, h->strip + (size_t)y * DRIVE_HUD_W, (size_t)w);
+    if (in_car) return;  /* 0042270c does not run 0042221c */
     QuadTarget screen = { pixels, width, 0, 0, width, height };
     hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
                     h->needle_colour);

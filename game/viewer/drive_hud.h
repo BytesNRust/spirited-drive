@@ -18,7 +18,8 @@
 enum {
     DRIVE_HUD_W = 640, DRIVE_HUD_H = 32,    /* the top strip ('stat', 004829b0's fill) */
     DRIVE_VIEW_W = 640, DRIVE_VIEW_H = 480, /* the view surface (004c2d90) */
-    DRIVE_VIEW_HEADER = 0x10                /* drawn from as an 8-bit shape (type 0x7b) */
+    DRIVE_VIEW_HEADER = 0x10,               /* drawn from as an 8-bit shape (type 0x7b) */
+    DRIVE_BACK_W = 0x71, DRIVE_BACK_H = 0x8c /* 004c2d98, high resolution (0044ca3c) */
 };
 
 typedef struct {
@@ -39,6 +40,9 @@ typedef struct {
     Cockpit cockpit;            /* 004f9628.. */
     CockpitWorld cockpit_world;
     int cockpit_ready;
+    int in_car;                 /* 00512054: the last frame was 0042270c's */
+    uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
+    uint8_t back[DRIVE_VIEW_HEADER + DRIVE_BACK_W * DRIVE_BACK_H];  /* 004c2d98's shape */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
@@ -52,7 +56,8 @@ void drive_hud_setup(DriveHud *h, RacePalette *p);
 
 /* After the palette is applied: the bank mapped onto it with its own
  * '!pal' (what 00447098 does with the queued banks), the strip colour
- * (00446880(0, 0, 0)), the needle's red (00446bac: 00446880(0x3f, 0, 0)) and the HUD's start state
+ * (00446880(0, 0, 0)), the needle's red (00446bac: 00446880(0x3f, 0, 0)), 004c6604 (00446bac:
+ * 0048263c(0x9999) over the palette read back, 004826f0) and the HUD's start state
  * (0041f9a0: layout 0, redraw on; 0041e230). */
 void drive_hud_start(DriveHud *h, RacePalette *p);
 
@@ -69,8 +74,11 @@ uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
  * 10 ticks after the start lights were last drawn; F7 / F8 / F9) and the top row
  * (00421e40) for the viewed car into the strip, which then covers the
  * frame's top rows, then 0042221c (the tach's needle at the viewed car's
- * revs, `redline` its specs' +0xac). `pixels` is the persistent frame (the
- * original redraws only what changed). TODO: 0041e3f4; the parts key (no .b%d%d parts read).
+ * revs, `redline` its specs' +0xac). In the car (chase kind 0, no dash
+ * camera, a cockpit loaded) 0042270c's part instead: on its first frame
+ * 0041e364, then 00421160 while 004f9a24 / 004f9a28 is set, then the keys and
+ * the top row. `pixels` is the persistent frame (the original redraws only
+ * what changed). TODO: the parts key (no .b%d%d parts read).
  * pixels NULL: the strip only (a frame not shown). */
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);
 
