@@ -132,6 +132,7 @@ add_library(tnfs_game STATIC
     game/race/cockpit_frame.c
     game/race/race_panel.c
     game/race/mirror_sky.c
+    game/race/mirror_scene.c
     game/race/cockpit_teardown.c
     game/race/cockpit_redraw.c
     game/race/hud.c
