@@ -24,3 +24,8 @@ void race_view_select(RaceViews *views, RaceCamera *camera, int32_t view, int32_
     }
     views->changed = 1;
 }
+
+void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size)
+{
+    if (camera->view >= 0) race_view_select(views, camera, camera->view, size);
+}

@@ -66,4 +66,9 @@ void race_view_layout(RaceViews *views, RaceCamera *camera, int32_t layout);
  * window size `size` (00405154); views->changed is set. */
 void race_view_select(RaceViews *views, RaceCamera *camera, int32_t view, int32_t size);
 
+/* 00405260 (watcall ()), on the follow record's camera (00511fe0 +0x88) and
+ * the window size 00511ff0: its own view selected again (00405210) unless
+ * the view is negative. */
+void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size);
+
 #endif
