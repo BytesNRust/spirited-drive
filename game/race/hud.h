@@ -145,6 +145,15 @@ void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *da
 void hud_draw_labels(const QuadTarget *t, HudState *hud, const DashArt *dash, const RaceState *race, int32_t gap,
                      int32_t gap_ticks, int32_t high_res, uint32_t strip_colour);
 
+/* 0041e6bc: from race tick 0x186, the race time `ticks` (as
+ * hud_clock_split) in yellow: minutes (2 digits) at x, seconds (2) 2 steps
+ * + space on, tenths (1) 2 steps + space further, each only when it differs
+ * from what is shown; then, when a best lap was set (race->best_lap_set,
+ * cleared here), the labels again (hud->redraw = 1, hud_draw_labels). */
+void hud_draw_race_time(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, int32_t gap,
+                        int32_t gap_ticks, int32_t high_res, uint32_t strip_colour, int32_t ticks, int32_t x,
+                        int32_t y, int32_t step, int32_t space);
+
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
  * |forward speed| (+0x68 while race->viewed < race->humans, else the

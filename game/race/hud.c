@@ -20,7 +20,7 @@ enum {
     LIGHT_STEP_LOW = 0x41, LIGHT_STEP_HIGH = 0x82,
     STRIP_W_LOW = 0x140, STRIP_H_LOW = 0x10, STRIP_W_HIGH = 0x280, STRIP_H_HIGH = 0x20,
     LIGHTS_HOLD = 10, LIGHTS_RESET = 0x7d000,
-    LABELS_FROM = 0x168,
+    LABELS_FROM = 0x168, RACE_TIME_FROM = 0x186,
     RECORDS_TRACK = 0xa6b, RECORDS_VARIANT = 0x27, RECORDS_CIRCUIT = 0xea, RECORDS_SLOT = 0x186,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
@@ -363,4 +363,30 @@ void hud_draw_labels(const QuadTarget *t, HudState *hud, const DashArt *dash, co
     if (hud->mode < 2) draw_named(t, dash, race->race_type == 0 || race->race_type == 1 ? "head" : "sing");
     hud_reset(hud);
     hud->strip_dirty = 1;
+}
+
+/* A part of the race time, drawn when it changed. */
+static void race_time_part(const QuadTarget *t, uint8_t *const *yellow, int32_t value, int32_t *shown, int32_t x,
+                           int32_t y, int32_t step, int32_t digits)
+{
+    if (value == *shown) return;
+    hud_draw_number(t, yellow, value, x, y, step, digits);
+    *shown = value;
+}
+
+void hud_draw_race_time(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, int32_t gap,
+                        int32_t gap_ticks, int32_t high_res, uint32_t strip_colour, int32_t ticks, int32_t x,
+                        int32_t y, int32_t step, int32_t space)
+{
+    if (race->tick < RACE_TIME_FROM) return;
+    hud_clock_split(&hud->clock, ticks);
+    race_time_part(t, dash->yellow, hud->clock.minutes, &hud->minutes_shown, x, y, step, 2);
+    x += step * 2 + space;
+    race_time_part(t, dash->yellow, hud->clock.seconds, &hud->seconds_shown, x, y, step, 2);
+    x += step * 2 + space;
+    race_time_part(t, dash->yellow, hud->clock.tenths, &hud->tenths_shown, x, y, step, 1);
+    if (race->best_lap_set == 0) return;
+    hud->redraw = 1;
+    hud_draw_labels(t, hud, dash, race, gap, gap_ticks, high_res, strip_colour);
+    race->best_lap_set = 0;
 }
