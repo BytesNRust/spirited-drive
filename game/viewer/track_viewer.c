@@ -374,6 +374,7 @@ typedef struct {
     CarPdn pdns[RACE_CARS];
     const char *data_root;
     int ended;
+    int ticked;                 /* a tick since the last frame drawn */
 } DriveCars;
 
 static DriveCars drive_cars;
@@ -423,15 +424,27 @@ static void bind_wheels(void *user, uint32_t object, int32_t slot, uint32_t fram
     if (obj != NULL && frame < obj->texture_count) object3d_set_texture(obj, slot, obj->textures[frame].texture);
 }
 
+static void morph_wheels(void *user, uint32_t object, int32_t part, int32_t weight)
+{
+    (void)user;
+    Object3D *obj = ported_view_car_object((int)object);
+    if (obj != NULL) object3d_morph_part(obj, part, weight);
+}
+
 static void render_drive(const Track *t, uint8_t *pixels)
 {
-    /* 00458d4c: 00458614 on cars[004fbb08] as it draws it. TODO: only when
-     * that car is drawn this frame. */
+    /* 00458d4c: 00458614 and 00458818 on cars[004fbb08] as it draws it.
+     * The wheel frames only after a tick: the window draws two frames a
+     * tick, and a frame without one sees the car still (its front wheels
+     * would stop). TODO: only when that car is drawn this frame. */
     RaceState *race = &drive_sim.race;
     Car *followed = race->cars[race_slot(race->player)];
     const int32_t player = race_slot(race->player);
-    if (followed != NULL && drive_cars.loaded[player] && race->models[player] >= 200)
-        car_wheel_frames(followed, race, bind_wheels, NULL);
+    if (followed != NULL && drive_cars.loaded[player] && race->models[player] >= 200) {
+        if (drive_cars.ticked) car_wheel_frames(followed, race, bind_wheels, NULL);
+        car_steer_wheels(followed, race, morph_wheels, NULL);
+    }
+    drive_cars.ticked = 0;
     const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
     PortedCar list[RACE_CARS];
     for (int i = 0; i < drive_sim.count; i++) {
@@ -574,6 +587,7 @@ static void free_drive(void)
 static void drive_tick(uint32_t input)
 {
     race_sim_tick(&drive_sim, input);
+    drive_cars.ticked = 1;
     if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
@@ -619,14 +633,18 @@ static int drive_window(const Track *t, uint8_t *pixels)
 }
 
 /* Headless: `ticks` steps in drive at full throttle, then a screenshot
- * (TNFS_VIEW=N: from view kind N). */
+ * (TNFS_VIEW=N: from view kind N; TNFS_STEER=left / right: full lock at the
+ * end). */
 static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
     const char *view = getenv("TNFS_VIEW");
     if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
+    /* TNFS_STEER=left / right: that lock over the last 20 ticks. */
+    const char *steer_env = getenv("TNFS_STEER");
+    const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
-        drive_tick(0x20 | (tap ? 0x1000u : 0));
+        drive_tick((i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0));
         drive_hud_draw(&drive_hud, &drive_sim.race, NULL, 0, 0);  /* the HUD keeps drawing every frame */
     }
     const Car *car = drive_sim.race.cars[0];
