@@ -17,6 +17,22 @@ uint32_t mirror_segment_offset(int32_t segment, int32_t mask)
     return ((uint32_t)(segment & mask) * MIRROR_SEGMENT_RECORD) % MIRROR_SEGMENT_CACHE;
 }
 
+enum { PHYSICS_SKIPPED = 6, MIRROR_PASS = 1 };
+
+void mirror_cars(const MirrorCarsOps *ops, const MirrorCarsInputs *in, int32_t node)
+{
+    const int32_t behind = node <= in->camera_node ? x_sub(in->camera_node, node)
+                                                   : x_add(in->camera_node, x_sub(x_shl(in->segments, 2), node));
+    if (behind >= MIRROR_CAR_ROWS || behind < 0 || in->rows[behind] == 0) return;
+    for (int32_t i = 0; i <= x_sub(in->count, 1); i++) {
+        Car *car = in->list[i];
+        if (car->physics == PHYSICS_SKIPPED || node != car->draw_node2) continue;
+        if (car == in->followed && in->chase_kind == 0) continue;
+        ops->prepare(ops->ctx, car, MIRROR_PASS);
+        ops->draw(ops->ctx, car, MIRROR_PASS);
+    }
+}
+
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
 {
     for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;

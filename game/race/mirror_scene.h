@@ -3,6 +3,7 @@
 #ifndef TNFS_MIRROR_SCENE_H
 #define TNFS_MIRROR_SCENE_H
 
+#include "game/race/car_struct.h"
 #include "game/race/race_view.h"
 #include "game/race/track_draw.h"
 
@@ -28,6 +29,31 @@ enum { MIRROR_SEGMENT_RECORD = 0x21c, MIRROR_SEGMENT_CACHE = 0x8700 };
 /* 0043e95c: the byte offset of a segment's record in the segment cache
  * (005041d8): (segment & 00504210) x 0x21c (32-bit) mod 0x8700, unsigned. */
 uint32_t mirror_segment_offset(int32_t segment, int32_t mask);
+
+enum { MIRROR_CAR_ROWS = 11 };
+
+typedef struct {
+    void *ctx;
+    void (*prepare)(void *ctx, Car *car, int mirror);  /* 0045a724 */
+    void (*draw)(void *ctx, Car *car, int mirror);     /* 004591d4 */
+} MirrorCarsOps;
+
+typedef struct {
+    int32_t camera_node;        /* chase +0x38 */
+    int32_t segments;           /* 0050420c */
+    const uint8_t *rows;        /* 0051c7a1: MIRROR_CAR_ROWS flags, by nodes behind the camera */
+    Car *const *list;           /* 00509e8c: the cars to draw */
+    int32_t count;              /* 00509e14 */
+    const Car *followed;        /* cars[004fbb08] */
+    int32_t chase_kind;         /* 004f801c */
+} MirrorCarsInputs;
+
+/* 0045a8fc: the cars on `node` in the mirror (the mirror pass of 0045a848).
+ * Nothing unless the node is 0..10 behind the camera (around the ring of
+ * 0050420c x 4 nodes) with that row's flag set; then each listed car whose
+ * physics (+0x512) is not 6 and whose draw_node2 (+0x345) is the node,
+ * except the followed car while the chase kind is 0: 0045a724, 004591d4. */
+void mirror_cars(const MirrorCarsOps *ops, const MirrorCarsInputs *in, int32_t node);
 
 /* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
