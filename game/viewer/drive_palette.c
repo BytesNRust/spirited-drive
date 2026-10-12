@@ -117,7 +117,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
         remap_track_banks(&p, &horizon, sky != NULL ? sky : track);
     }
     if (chunk_child(fam, FAM_CHILD_OBJECTS, &models) == CHUNK_OK) remap_model_banks(&p, &models);
-    if (hud != NULL) drive_hud_start(hud, &p);
+    if (hud != NULL) drive_hud_start(hud, &p), hud->rgb = rgb;
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];
         rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];

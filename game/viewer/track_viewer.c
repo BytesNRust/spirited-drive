@@ -645,8 +645,6 @@ static int drive_window(const Track *t, uint8_t *pixels)
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
     PlatformColor palette[256];
-    for (int i = 0; i < 256; i++)
-        palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
     int frame = 0, c_down = 0;
     for (int running = 1; running && platform_poll_events();) {
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
@@ -656,6 +654,8 @@ static int drive_window(const Track *t, uint8_t *pixels)
         c_down = c;
         if ((frame++ & 1) == 0) drive_tick(read_input());
         render_drive(t, pixels);
+        for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
+            palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
         platform_present(pixels, palette);
         platform_wait_vblank();
     }
@@ -665,7 +665,8 @@ static int drive_window(const Track *t, uint8_t *pixels)
 
 /* Headless: `ticks` steps in drive at full throttle, then a screenshot
  * (TNFS_VIEW=N: from view kind N; TNFS_STEER=left / right: full lock at the
- * end). */
+ * end; TNFS_NOTICE=1 / 2: that police stop notice up for the last 10 ticks,
+ * TNFS_NOTICE=1off / 2off: and down again for the last 5). */
 static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
     const char *view = getenv("TNFS_VIEW");
@@ -676,6 +677,12 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         drive_tick((i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0));
+        const char *notice = getenv("TNFS_NOTICE");
+        if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
+            drive_sim.race.stop_notice[notice[0] - '1'] = !(notice[1] == 'o' && i + 5 >= ticks);
+            render_drive(t, pixels);  /* whole frames, so the screen comes and goes as on screen */
+            continue;
+        }
         drive_hud_draw(&drive_hud, &drive_sim.race, 0, NULL, 0, 0);  /* the HUD keeps drawing every frame */
     }
     const Car *car = drive_sim.race.cars[0];

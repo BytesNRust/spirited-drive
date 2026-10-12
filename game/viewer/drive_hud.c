@@ -4,6 +4,7 @@
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
 #include "game/sys/palette.h"
+#include "game/sys/resource.h"
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
 #include "game/race/race_chase.h"
@@ -49,6 +50,10 @@ int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const
     CockpitFiles files;
     if (n < 0 || n >= (int)sizeof dir || cockpit_paths(&files, dir, stem, HIGH_RES) != 0) return 0;
     size_t bank_size = 0, fmm_size = 0;
+    snprintf(h->dash_path, sizeof h->dash_path, "%s", files.bank);
+    snprintf(h->dash_stem, sizeof h->dash_stem, "%s", stem);
+    snprintf(h->misc_dir, sizeof h->misc_dir, "%s/SIMDATA/MISC/", data_root);
+    h->dash_dir_length = (size_t)n;
     h->dash_bank = read_sized(files.bank, (size_t)n, &bank_size);
     h->dash_fmm = read_sized(files.fmm, (size_t)n, &fmm_size);
     h->cockpit_ready = h->dash_bank != NULL && h->dash_fmm != NULL && fmm_size >= 0x18 &&
@@ -94,6 +99,8 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34; the search's entries 004c5ff8 as 0041f818 left them */
     race_palette_read(p, 0, RACE_PALETTE_COLOURS, copy);
     palette_shade_table(copy, p->enabled, SHADE_SCALE, h->shade);
+    h->palette = p;
+    memset(&h->police, 0, sizeof h->police);
     memset(h->back, 0, sizeof h->back);
     h->back[0] = SHAPE_8_BIT;
     h->back[4] = DRIVE_BACK_W, h->back[6] = DRIVE_BACK_H;
@@ -262,23 +269,154 @@ static void cockpit_labels(void *ctx)
                     HIGH_RES, c->h->strip_colour);
 }
 
+static void cockpit_redraw_now(DriveHud *h, CockpitSurfaces *s)
+{
+    const CockpitRedrawOps ops = { s, cockpit_select, cockpit_labels };
+    const CockpitRedrawInputs in = { 0, view_clip_inputs(s->screen.pitch, s->screen.clip_bottom), h->back, h->shade };
+    cockpit_redraw(&ops, &h->hud, &h->cockpit, &h->cockpit_world, &in);
+}
+
+/* The frame's colours from the race palette's after 00476460 wrote it. */
+static void rgb_from_palette(DriveHud *h)
+{
+    if (h->rgb == NULL || h->palette == NULL) return;
+    for (int i = 0; i < RACE_PALETTE_COLOURS; i++)
+        for (int k = 0; k < 3; k++) h->rgb[3 * i + k] = h->palette->screen_rgbx[4 * i + k];
+}
+
+/* 004214e4's calls: the file from SIMDATA/MISC (upper case on a case-sensitive file system; the original's dir
+ * 005246e8 is passed empty, the port's path being longer than its 80 bytes), the race palette. */
+static void police_free_bank(void *ctx, uint8_t *bank)
+{
+    DriveHud *h = ((CockpitSurfaces *)ctx)->h;
+    (void)bank;
+    platform_free_file(h->dash_bank);
+    h->dash_bank = NULL;
+}
+
+static uint8_t *police_load(void *ctx, const char *name)
+{
+    const DriveHud *h = ((CockpitSurfaces *)ctx)->h;
+    char path[2 * COCKPIT_PATH];
+    const size_t dir = strlen(h->misc_dir);
+    snprintf(path, sizeof path, "%s%s", h->misc_dir, name);
+    size_t size = 0;
+    uint8_t *file = resource_load(path, &size);
+    if (file != NULL) return file;
+    for (size_t i = dir; path[i] != '\0'; i++) path[i] = (char)toupper((unsigned char)path[i]);
+    return resource_load(path, &size);
+}
+
+static void police_palette_read(void *ctx)
+{
+    DriveHud *h = ((CockpitSurfaces *)ctx)->h;
+    race_palette_read(h->palette, 0, RACE_PALETTE_COLOURS, h->colours.saved);
+}
+
+static void police_palette_write(void *ctx, const uint8_t *colours)
+{
+    DriveHud *h = ((CockpitSurfaces *)ctx)->h;
+    race_palette_write(h->palette, 0, 0xfe, colours);
+    rgb_from_palette(h);
+}
+
+static void police_palette_bank(void *ctx, uint8_t *bank, const uint8_t *palette)
+{
+    race_palette_remap_track_bank(((CockpitSurfaces *)ctx)->h->palette, bank, palette);
+}
+
+static void police_movie(void *ctx) { (void)ctx; }  /* 00464240: the word 00524e63 is 0 in --drive */
+
+static void draw_police(DriveHud *h, RaceState *race, CockpitSurfaces *s)
+{
+    const CockpitPoliceOps ops = { s, police_free_bank, police_load, police_palette_read, police_palette_write,
+                                   police_palette_bank, cockpit_select, police_movie };
+    const CockpitPoliceInputs in = { 0, race->stop_notice[0], 0, 0, "",
+                                     view_clip_inputs(s->screen.pitch, s->screen.clip_bottom) };
+    const int had = h->police.screen_bank != NULL;
+    if (cockpit_police(&ops, &h->cockpit, &h->police, &h->hud, &in) != 0 && !had)
+        fprintf(stderr, "drive_hud: no police screen\n");
+}
+
+/* 004217a8's calls. */
+static void reload_free_saved(void *ctx)
+{
+    DriveHud *h = ((CockpitSurfaces *)ctx)->h;
+    resource_free(h->police.screen_bank);
+    h->police.screen_bank = NULL, h->police.screen = NULL;
+}
+
+static void reload_none(void *ctx) { (void)ctx; }  /* 00464a30 (no back buffer here); TODO(00473614) */
+
+static void reload_load(void *ctx)
+{
+    CockpitSurfaces *s = ctx;
+    DriveHud *h = s->h;
+    size_t size = 0;
+    h->dash_bank = read_sized(h->dash_path, h->dash_dir_length, &size);
+    if (h->dash_bank == NULL || cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, s->race, &h->keys.dash_camera,
+                                             h->dash_bank, size, h->dash_fmm, h->dash_stem, HIGH_RES, 0) != 0) {
+        fprintf(stderr, "drive_hud: the dashboard did not load again\n");
+        h->cockpit_ready = 0;
+    }
+}
+
+static void reload_palette_copy(void *ctx)
+{
+    DriveHud *h = ((CockpitSurfaces *)ctx)->h;
+    race_palette_write(h->palette, 0, 0xfe, h->colours.saved);
+    rgb_from_palette(h);
+}
+
+static void reload_palette_bank(void *ctx, uint8_t *bank, uint8_t *palette)
+{
+    if (bank != NULL && palette != NULL) race_palette_remap_track_bank(((CockpitSurfaces *)ctx)->h->palette, bank, palette);
+}
+
+static void reload_redraw(void *ctx)
+{
+    CockpitSurfaces *s = ctx;
+    if (s->h->cockpit_ready) cockpit_redraw_now(s->h, s);
+}
+
+static void reload_cockpit(DriveHud *h, RaceState *race, CockpitSurfaces *s)
+{
+    const CockpitReloadOps ops = { s, reload_free_saved, reload_none, cockpit_select, reload_none, reload_load,
+                                   reload_palette_copy, reload_palette_bank, reload_redraw };
+    CockpitReloadState st = { h->police.screen_bank != NULL, 0, 0 };
+    const CockpitReloadInputs in = { 0, 0, race->stop_notice[0], race->stop_notice[1], 0, h->keys.dash_camera,
+                                     race->chase.kind, LIVE_RACE };
+    cockpit_reload(&ops, &h->cockpit, &st, &in);
+}
+
 /* 0042270c's part that is ported: 00421160 while 004f9a24 / 004f9a28 is set.
  * TODO(0042270c): the rest (the view through 00483fa0's runs, the wheel, the
  * gauges); until then the view goes to the frame whole and the dash over it. */
-static void draw_cockpit(DriveHud *h, RaceState *race, uint8_t *pixels, int width, int height)
+static void draw_cockpit(DriveHud *h, CockpitSurfaces *s)
 {
     if (!h->in_car) h->hud.unknown_4f9a20[1] = 1, h->in_car = 1;  /* 0041e364 */
-    CockpitSurfaces s = { h, race, { pixels, width, 0, 0, width, height },
-                          { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
-    blit_shape(&s.screen, h->view, 0, 0, BLIT_OPAQUE);
+    blit_shape(&s->screen, h->view, 0, 0, BLIT_OPAQUE);
     if (h->hud.unknown_4f9a20[1] == 0 && h->hud.unknown_4f9a20[2] == 0) {
-        blit_shape_at_transparent(&s.screen, h->cockpit.dash, 0, 0);
+        blit_shape_at_transparent(&s->screen, h->cockpit.dash, 0, 0);
         return;
     }
-    const CockpitRedrawOps ops = { &s, cockpit_select, cockpit_labels };
-    const CockpitRedrawInputs in = { 0, view_clip_inputs(width, height), h->back, h->shade };
-    cockpit_redraw(&ops, &h->hud, &h->cockpit, &h->cockpit_world, &in);
+    cockpit_redraw_now(h, s);
     h->hud.unknown_4f9a20[1] = h->hud.unknown_4f9a20[2] = 0;
+}
+
+/* 00422598 / 0042270c's start: while a stop notice is up, 004214e4 and nothing else this frame (then 004b9568, the
+ * full redraw, or 004f9a24); else 004217a8, the dash loaded again when the notice freed it.
+ * TODO(00405260, 0044d640): 00422598's other calls with the notice. */
+static int police_or_reload(DriveHud *h, RaceState *race, CockpitSurfaces *s, int in_car)
+{
+    if (race->stop_notice[0] != 0 || race->stop_notice[1] != 0) {
+        draw_police(h, race, s);
+        if (in_car) h->hud.unknown_4f9a20[1] = 1;
+        else h->changed = 1;
+        return 1;
+    }
+    if (h->dash_fmm != NULL && h->cockpit.bank == NULL) reload_cockpit(h, race, s);
+    return 0;
 }
 
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height)
@@ -287,10 +425,16 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
     const Car *car = race->cars[race_slot(race->viewed)];
     if (car == NULL) return;
     const int full = pixels != NULL && width == DRIVE_VIEW_W && height == DRIVE_VIEW_H;
-    const int in_car = h->cockpit_ready && race->chase.kind == 0 && h->keys.dash_camera == 0;  /* 0044cc74 */
+    int in_car = h->cockpit_ready && race->chase.kind == 0 && h->keys.dash_camera == 0;  /* 0044cc74 */
     if (!in_car) h->in_car = 0;
-    if (full && in_car) draw_cockpit(h, race, pixels, width, height);
-    else if (full) draw_mask(h, race, pixels, width, height);
+    if (full) {
+        CockpitSurfaces s = { h, race, { pixels, width, 0, 0, width, height },
+                              { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
+        if (police_or_reload(h, race, &s, in_car)) return;
+        in_car = in_car && h->cockpit_ready;
+        if (in_car) draw_cockpit(h, &s);
+        else draw_mask(h, race, pixels, width, height);
+    }
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
     draw_keys(h, race, &t);
     hud_draw_top_row(&t, &h->hud, &h->art, race, car, ENGLISH, HIGH_RES, h->strip_colour);
@@ -310,6 +454,8 @@ void drive_hud_free(DriveHud *h)
     platform_free_file(h->mmb);
     platform_free_file(h->dash_bank);
     platform_free_file(h->dash_fmm);
+    resource_free(h->police.screen_bank);
+    h->police.screen_bank = NULL, h->police.screen = NULL;
     h->bank = h->mmb = h->dash_bank = h->dash_fmm = NULL;
     h->cockpit_ready = 0;
     h->ready = 0;

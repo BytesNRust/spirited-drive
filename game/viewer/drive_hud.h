@@ -41,6 +41,12 @@ typedef struct {
     CockpitWorld cockpit_world;
     int cockpit_ready;
     CockpitColours colours;     /* 0041f818's: 004f9744's block, the line clip, 004f9b80 */
+    CockpitPoliceState police;  /* 004214e4's 004f9620 / 004f9624 / 004fcdac */
+    char dash_path[COCKPIT_PATH], misc_dir[COCKPIT_PATH];  /* the dash bank (004217a8 reloads it); SIMDATA/MISC/ */
+    char dash_stem[COCKPIT_NAME];
+    size_t dash_dir_length;
+    RacePalette *palette;       /* the race palette, kept for the police screen and the reload */
+    uint8_t *rgb;               /* the frame's 8-bit palette, redone from palette->screen_rgbx after a write */
     int in_car;                 /* 00512054: the last frame was 0042270c's */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
     uint8_t back[DRIVE_VIEW_HEADER + DRIVE_BACK_W * DRIVE_BACK_H];  /* 004c2d98's shape */
