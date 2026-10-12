@@ -52,4 +52,16 @@ int32_t needle_clip_y(NeedleLine *n);
  * against right / left, its own axis. */
 int32_t needle_clip_x(NeedleLine *n);
 
+/* 004832c2 (watcall ()): the clipped y-major needle drawn row by row into
+ * the 8-bit surface (004c78e0 + 004c78dc's row offsets: pixels + row *
+ * pitch), from row y_start >> 16 while y_start < y_end, edge b left of
+ * `right` and edge a not left of `left`. A row covers pixels xa >> 16 to
+ * xb >> 16: the inner ones take fade_first, the outer two the fade row by
+ * their cover in 16ths (edge a's (0x10000 - fraction) >> 12, 0 skipped;
+ * edge b's fraction >> 12, 0 skipped), one pixel alone both covers - 16.
+ * Then both edges move by their slopes and y_start by dy. Port guard: a
+ * row whose edge b is left of edge a draws nothing (the original's count
+ * runs down through 0 and on over memory). */
+void needle_span_y(NeedleLine *n, uint8_t *pixels, int32_t pitch);
+
 #endif

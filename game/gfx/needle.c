@@ -87,3 +87,36 @@ int32_t needle_clip_x(NeedleLine *n)
     }
     return 1;
 }
+
+/* The pixel under *p faded toward the needle's colour by level / 16: the
+ * fade block's row level - 1 (n->fade is the block + 4, its first word the
+ * colour and its three bytes). Port guard: a level whose row starts before
+ * the block (the original reads the heap in front of it) leaves the pixel. */
+static void fade_pixel(const NeedleLine *n, uint8_t *p, int32_t level)
+{
+    const int32_t at = (level - 1) * 256 + *p;
+    if (at < -4) return;
+    *p = n->fade[at];
+}
+
+void needle_span_y(NeedleLine *n, uint8_t *pixels, int32_t pitch)
+{
+    int32_t row = x_sar(n->y_start, 16);
+    while (n->y_start < n->y_end && n->xb < n->right && n->xa >= n->left) {
+        const int32_t fb = (n->xb & 0xffff) >> 12;
+        const int32_t fa = (0x10000 - (n->xa & 0xffff)) >> 12;
+        int32_t count = x_sub(x_sar(n->xb, 16), x_sar(n->xa, 16));
+        uint8_t *p = pixels + (intptr_t)row * pitch + x_sar(n->xa, 16);
+        if (count == 0) {
+            fade_pixel(n, p, fa + fb - 16);
+        } else if (count > 0) {
+            if (fa != 0) fade_pixel(n, p, fa);
+            while (p++, --count != 0) *p = (uint8_t)n->fade_first;
+            if (fb != 0) fade_pixel(n, p, fb);
+        }
+        n->xa = x_add(n->xa, n->slope_xa);
+        n->xb = x_add(n->xb, n->slope_xb);
+        n->y_start = x_add(n->y_start, n->dy);
+        row++;
+    }
+}
