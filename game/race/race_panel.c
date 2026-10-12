@@ -22,7 +22,7 @@ void race_panel(const RacePanelOps *ops, RacePanelViews *v, const RacePanelInput
         ops->dash(ops->ctx);
         return;
     }
-    if (in->replay == 0 && in->player == in->followed && in->unknown_513e6c == 0) return;
+    if (in->replay == 0 && in->viewed == in->player && in->unknown_513e6c == 0) return;
     if (kind >= REPLAY_KIND_FIRST && kind <= REPLAY_KIND_LAST && kind != v->replay_view)
         show(&v->replay_view, &v->replay_redraw, kind);
     else if (kind == KIND_SPECIAL) show(&v->replay_view, &v->replay_redraw, KIND_SPECIAL_SHOWN);

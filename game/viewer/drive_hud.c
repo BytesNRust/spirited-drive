@@ -10,6 +10,7 @@
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_panel.h"
 #include "game/race/race_view.h"
 #include "game/race/hud_mask.h"
 #include "game/race/hud_redraw.h"
@@ -443,7 +444,10 @@ static int frame_shapes(const FrameCalls *f) { return f->s->h->cockpit_ready; }
 
 static int32_t frame_rand(void *ctx, int32_t n) { return race_rand_below(((FrameCalls *)ctx)->s->race, n); }
 static void frame_police(void *ctx) { FrameCalls *f = ctx; draw_police(f->s->h, f->s->race, f->s); }
-static void frame_none(void *ctx) { (void)ctx; }  /* 00420710, 00421e40 (drive_hud_draw); TODO(00473614, 0044d640) */
+static void frame_none(void *ctx) { (void)ctx; }  /* 00420710, 00421e40 (drive_hud_draw) */
+/* 00473614: the DirectDraw surface unlocked, 004c78b4's descriptor cleared, the display restored; the port's
+ * surfaces need none of it (the next select sets the target). */
+static void frame_restore(void *ctx) { (void)ctx; }
 
 static void frame_reload(void *ctx)
 {
@@ -541,6 +545,22 @@ static void frame_lights(void *ctx)
 
 static void frame_map(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* drive_hud_draw's copy */
 
+static void panel_none(void *ctx) { (void)ctx; }  /* TODO(00450d60, 00471364): the panels themselves */
+
+/* 0044d640 over the race's words; the views kept where the original keeps them. */
+static void draw_panel(DriveHud *h, const RaceState *race)
+{
+    const RacePanelOps ops = { h, panel_none, panel_none };
+    const RacePanelInputs in = { LIVE_RACE, race->replay, race->viewed, race->player, race->unknown_513e6c,
+                                 race->chase.kind };
+    RacePanelViews v = { h->art.unknown_513888[2], h->art.unknown_513888[4], h->replay.ready, h->replay_redraw };
+    race_panel(&ops, &v, &in);
+    h->art.unknown_513888[2] = v.dash_view, h->art.unknown_513888[4] = v.dash_redraw;
+    h->replay.ready = v.replay_view, h->replay_redraw = v.replay_redraw;
+}
+
+static void frame_panel(void *ctx) { FrameCalls *f = ctx; draw_panel(f->s->h, f->s->race); }
+
 /* 0042270c; 1 when a stop notice was up (004214e4 drew it, nothing else this frame). */
 static int draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
 {
@@ -550,9 +570,9 @@ static int draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t
                      s->screen, NULL };
     f.target = &f.screen;
     const CockpitFrameOps ops = { &f, frame_rand, frame_police, frame_reload, frame_redraw, frame_select, frame_clip,
-                                  frame_fill, frame_runs, frame_none, frame_mirror, frame_clip_box, frame_place_skip,
+                                  frame_fill, frame_runs, frame_restore, frame_mirror, frame_clip_box, frame_place_skip,
                                   frame_place, frame_place_skip, frame_present, frame_gauges, frame_gate, frame_lights,
-                                  frame_none, frame_none, frame_map, frame_none };
+                                  frame_none, frame_none, frame_map, frame_panel };
     uint8_t clear_view = 0;
     int32_t unknown_4b956c = 0;
     const CockpitFrameWords w = { &h->police.loading, &clear_view, &unknown_4b956c };
@@ -588,7 +608,7 @@ static void draw_map(DriveHud *h, const RaceState *race)
 }
 
 /* 00422598's start: while a stop notice is up, 004214e4, 00405260 (view_user is --drive's RaceViews) and 0044d640
- * (nothing outside a replay), nothing else this frame (then 004b9568, the full redraw); else 004217a8, the dash
+ * (race_panel), nothing else this frame (then 004b9568, the full redraw); else 004217a8, the dash
  * loaded again when the notice freed it. 0042270c does its own (draw_cockpit). */
 static int police_or_reload(DriveHud *h, RaceState *race, CockpitSurfaces *s)
 {
@@ -596,6 +616,7 @@ static int police_or_reload(DriveHud *h, RaceState *race, CockpitSurfaces *s)
         draw_police(h, race, s);
         if (race->view_user != NULL && race->chase.camera != NULL)
             race_view_reselect(race->view_user, race->chase.camera, race->window_size);
+        draw_panel(h, race);
         h->changed = 1;
         return 1;
     }
