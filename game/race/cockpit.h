@@ -39,7 +39,7 @@ typedef struct {
     int32_t light_count;                        /* 004f9738: the lights found, plus one past a missing one */
     uint8_t *palette;                           /* 004f973c: 0x300 bytes, 6-bit */
     uint8_t *bank;                              /* 004f9740 */
-    int32_t unknown_4f9744;
+    int32_t unknown_4f9744;                     /* the original's pointer to 00482a36's block: CockpitColours.fade */
     int32_t tach_count, sped_count;             /* 004f9748, 004f974c */
     int32_t unknown_4f9750;
     CockpitPoint dash_points[COCKPIT_DASH_POINTS];  /* 004f9754; 8 and 9 made relative to 2 and 3 */
@@ -154,5 +154,27 @@ typedef struct {
  * screen again, 00421160 when 004b92dc, 004b92e0, 004f9b7c, 004f801c and
  * 004b94dc are all 0, and 0052b8f8 = 1 when 004c5390 == 1, else 00513898 = 1. */
 void cockpit_reload(const CockpitReloadOps *ops, Cockpit *c, CockpitReloadState *st, const CockpitReloadInputs *in);
+
+/* 0041f818's results outside the palette: 00482a36's block (004f9744
+ * points at it), the 16.16 clip of the anti-aliased line 0048383b
+ * (0052d384 left, 0052d380 top, 0052d354 right, 0052d35c bottom) and the
+ * screen palette as it stood at the end (004f9b80, 6-bit, 004766b8). */
+typedef struct {
+    uint8_t fade[RACE_FADE_BYTES];
+    int32_t line_left, line_top, line_right, line_bottom;
+    uint8_t saved[RACE_PALETTE_COLOURS * 3];
+} CockpitColours;
+
+/* 0041f818 (from 00455a5c, before 004574ec): the screen palette read into
+ * p->copy (004766b8); race_palette_enable (its first part); the inverse
+ * table built (0047463c); the fade toward the followed car's model's colour
+ * (004b91d0 row: (255, 0, 0), model 3 (255, 64, 0); 00482a36 over p->copy);
+ * the line clip (0, 0, width << 16, height << 16 from 0051201c / 00512020);
+ * the dash bank mapped onto the race palette with its own (00446fd0);
+ * 0041e230; 004f9a24 = 004f9a28 = 0; the dash palette tinted in place
+ * (004471dc(0, 0x100)); the screen palette read into out->saved. A model
+ * past the table's 12 rows takes row 0 (the original reads past it). */
+void cockpit_colours(RacePalette *p, const RaceState *race, const Cockpit *c, const CockpitWorld *w, HudState *hud,
+                     CockpitColours *out);
 
 #endif
