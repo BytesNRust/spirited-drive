@@ -38,7 +38,9 @@ static void row(uint8_t *dst, const uint8_t *src, int32_t count, BlitMode mode)
         if (src[i] != TRANSPARENT_COLOUR) dst[i] = src[i];
 }
 
-int blit_shape(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y, BlitMode mode)
+/* 00496510's walk; into != NULL: the row table 004c6260, whose rows copy the
+ * surface into the shape's pixels (0048ecc8) instead. */
+static int walk(const QuadTarget *t, const uint8_t *shape, uint8_t *into, int32_t x, int32_t y, BlitMode mode)
 {
     if (shape[0] != SHAPE_TYPE_8_BIT) return -1;
     int32_t width = s16(shape + SHAPE_WIDTH), height = s16(shape + SHAPE_HEIGHT);
@@ -66,8 +68,24 @@ int blit_shape(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y, 
     }
     if (width <= 0 || height <= 0) return 0;
     uint8_t *dst = t->pixels + (ptrdiff_t)y * t->pitch + x;
-    for (; height > 0; height--, src += width + skip, dst += t->pitch) row(dst, src, width, mode);
+    for (; height > 0; height--, src += width + skip, dst += t->pitch) {
+        if (into != NULL) memmove(into + (src - shape), dst, (size_t)width);
+        else row(dst, src, width, mode);
+    }
     return 0;
+}
+
+int blit_shape(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y, BlitMode mode)
+{
+    return walk(t, shape, NULL, x, y, mode);
+}
+
+int blit_grab(const QuadTarget *t, uint8_t *shape, int32_t x, int32_t y)
+{
+    const int r = walk(t, shape, shape, x, y, BLIT_OPAQUE);
+    shape[SHAPE_X] = (uint8_t)x, shape[SHAPE_X + 1] = (uint8_t)(x >> 8);
+    shape[SHAPE_Y] = (uint8_t)y, shape[SHAPE_Y + 1] = (uint8_t)(y >> 8);
+    return r;
 }
 
 int blit_shape_placed(const QuadTarget *t, const uint8_t *shape)

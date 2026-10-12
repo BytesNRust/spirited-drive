@@ -20,6 +20,11 @@ typedef enum {
 /* 00496510: returns 0, or -1 for a shape the port does not draw. */
 int blit_shape(const QuadTarget *t, const uint8_t *shape, int32_t x, int32_t y, BlitMode mode);
 
+/* 00476e28: the surface under the shape's box at (x, y), clipped as the
+ * draw, copied into the shape's pixels (00496510 with the row table 004c6260);
+ * then the shape's place (+0xc, +0xe) = x, y, also when nothing was copied. */
+int blit_grab(const QuadTarget *t, uint8_t *shape, int32_t x, int32_t y);
+
 /* 00473780: the shape at its own place (+0xc, +0xe), opaque. */
 int blit_shape_placed(const QuadTarget *t, const uint8_t *shape);
 
