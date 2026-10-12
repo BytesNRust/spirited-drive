@@ -152,6 +152,22 @@ void race_palette_enable(RacePalette *p, const RaceState *race);
  * distance buffer cannot be had, as when 00474cdc fails. */
 int race_palette_inverse(RacePalette *p);
 
+enum {
+    RACE_FADE_LEVELS = 16,
+    RACE_FADE_BYTES = 4 + RACE_FADE_LEVELS * RACE_PALETTE_COLOURS  /* 0x1004, 00482a36's block */
+};
+
+/* 00482a36 (watcall red, green, blue, the 6-bit palette `copy6` in ecx):
+ * out[0] = 00473140(red << 16 | green << 8 | blue), out[1..3] the three
+ * bytes; then for level i (0..15) and colour c, out[4 + 256 i + c] =
+ * 00473140 of each channel copy6[3 c + k] x 4 moved toward red / green /
+ * blue by (i + 1) / 16 (0049f380: a + (b - a) x t >> 16, rounded at bit
+ * 15), the three ORed unmasked as red << 16 | green << 8 | blue. The match
+ * is 00473140's 8-bit path (the race's surface) with the inverse table
+ * when it is set. The original allocates the block (00474c8c). */
+void race_palette_fade(const RacePalette *p, int32_t red, int32_t green, int32_t blue, const uint8_t *copy6,
+                       uint8_t out[RACE_FADE_BYTES]);
+
 /* 004572e0: queues the cars' colours. Race types below 2: each car not
  * flagged 8 at +0x174 (and not slot 2 in a type 1 race played back) puts its
  * own colours (`own`, its '!xxx') at its slot's range (0x30 and 0x48, 0x17

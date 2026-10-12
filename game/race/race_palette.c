@@ -281,6 +281,31 @@ int race_palette_inverse(RacePalette *p)
     return 1;
 }
 
+/* 0049f380 */
+static uint32_t lerp16(uint32_t a, uint32_t b, int32_t t)
+{
+    const int64_t product = (int64_t)(int32_t)(b - a) * t;
+    return a + (uint32_t)(product >> 16) + (uint32_t)((product >> 15) & 1);
+}
+
+void race_palette_fade(const RacePalette *p, int32_t red, int32_t green, int32_t blue, const uint8_t *copy6,
+                       uint8_t out[RACE_FADE_BYTES])
+{
+    const PaletteMatch m = { p->inverse, p->screen, p->enabled };
+    const uint32_t target[3] = { (uint32_t)red, (uint32_t)green, (uint32_t)blue };
+    out[0] = (uint8_t)palette_match_rgb(&m, target[0] << 16 | target[1] << 8 | target[2]);
+    out[1] = (uint8_t)red, out[2] = (uint8_t)green, out[3] = (uint8_t)blue;
+    uint8_t *o = out + 4;
+    for (int level = 0; level < RACE_FADE_LEVELS; level++) {
+        const int32_t t = ((level + 1) << 16) / RACE_FADE_LEVELS;
+        for (int c = 0; c < RACE_PALETTE_COLOURS; c++) {
+            uint32_t ch[3];
+            for (int k = 0; k < 3; k++) ch[k] = lerp16((uint32_t)copy6[3 * c + k] << 2, target[k], t);
+            *o++ = (uint8_t)palette_match_rgb(&m, ch[0] << 16 | ch[1] << 8 | ch[2]);
+        }
+    }
+}
+
 void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_CARS], int32_t police)
 {
     const PaletteMatch m = { p->inverse, p->screen, p->enabled };
