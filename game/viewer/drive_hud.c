@@ -113,7 +113,7 @@ static void mask_fill(void *ctx, uint32_t colour)
 
 static void mask_draw(void *ctx, uint8_t *shape)
 {
-    blit_shape_placed(((MaskSurfaces *)ctx)->target, shape);
+    blit_shape_placed_transparent(((MaskSurfaces *)ctx)->target, shape);
 }
 
 static void mask_view_clip(void *ctx)
