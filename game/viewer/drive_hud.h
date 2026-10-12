@@ -47,6 +47,7 @@ typedef struct {
     CockpitWorld cockpit_world;
     int cockpit_ready;
     CockpitColours colours;     /* 0041f818's: 004f9744's block, the line clip, 004f9b80 */
+    NeedleLine needle_line;     /* 0052d354..: 0048383b's state, its clip colours.line_* */
     CockpitPoliceState police;  /* 004214e4's 004f9620 / 004f9624 / 004fcdac */
     char dash_path[COCKPIT_PATH], misc_dir[COCKPIT_PATH];  /* the dash bank (004217a8 reloads it); SIMDATA/MISC/ */
     char dash_stem[COCKPIT_NAME];

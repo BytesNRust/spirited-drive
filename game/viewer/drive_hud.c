@@ -2,6 +2,7 @@
 
 #include "game/platform/platform.h"
 #include "game/gfx/blit.h"
+#include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/sys/key_codes.h"
 #include "game/sys/palette.h"
@@ -429,16 +430,74 @@ static void reload_cockpit(DriveHud *h, RaceState *race, CockpitSurfaces *s)
 /* 0042270c's part that is ported: 00421160 while 004f9a24 / 004f9a28 is set.
  * TODO(0042270c): the rest (the view through 00483fa0's runs, the wheel, the
  * gauges); until then the view goes to the frame whole and the dash over it. */
-static void draw_cockpit(DriveHud *h, CockpitSurfaces *s)
+/* 0042270c's steering frame at high resolution: |steer| below 0x21999,
+ * 0x70000, 0xc8000, 0x133333, 0x1b0000 gives 0..4, beyond 5. */
+static int32_t steer_frame(int32_t steer)
+{
+    static const int32_t edges[] = { 0x21999, 0x70000, 0xc8000, 0x133333, 0x1b0000 };
+    const uint32_t a = steer > 0 ? (uint32_t)steer : 0u - (uint32_t)steer;
+    int32_t i = 0;
+    while (i < 5 && (int32_t)a >= edges[i]) i++;
+    return i;
+}
+
+/* The left frames when steering left on a plain track or right on a mirrored one. */
+static int steer_left(const RaceState *race, const Car *car)
+{
+    return race->mirrored != 0 ? car->steer >= 0 : car->steer < 0;
+}
+
+static void placed_transparent(QuadTarget *t, const uint8_t *shape)
+{
+    if (shape != NULL) blit_shape_placed_transparent(t, shape);
+}
+
+/* 0042270c's gauges: on the view surface (004c2d90, clip the screen) 'tach'
+ * and 'sped' at their places (00473780; model 0xb's 'sped' with 0xff skipped,
+ * 00473a50: the same instructions as 00473ab4), then 00420d0c, then the
+ * steering frames over them ('t' and 's', left or right, 00473a50); then on
+ * the screen the view surface at (0, 0) (004737ec) clipped to the tach's box
+ * and to the sped's. */
+static void draw_gauges(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
+{
+    const Cockpit *c = &h->cockpit;
+    QuadTarget view = { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H };
+    if (c->tach != NULL) blit_shape_placed(&view, c->tach);
+    if (c->sped != NULL) {
+        if (car->model == 0xb) blit_shape_placed_transparent(&view, c->sped);
+        else blit_shape_placed(&view, c->sped);
+    }
+    NeedleLine *line = &h->needle_line;
+    line->left = h->colours.line_left, line->top = h->colours.line_top;
+    line->right = h->colours.line_right, line->bottom = h->colours.line_bottom;
+    const CockpitGaugeInputs in = { car->rpm, redline, car->local_velocity_z, car->model, HIGH_RES, ENGLISH,
+                                    h->colours.fade };
+    cockpit_gauges(&view, line, c, &in);
+    const int32_t frame = steer_frame(car->steer);
+    const int left = steer_left(s->race, car);
+    placed_transparent(&view, c->frames[left ? 2 : 4][frame]);  /* 004f966c / 004f96a4: 't' */
+    placed_transparent(&view, c->frames[left ? 3 : 5][frame]);  /* 004f9688 / 004f96c0: 's' */
+    QuadTarget screen = s->screen;
+    clip_set(&screen, c->tach_x, c->tach_x + c->tach_w, c->tach_y, c->tach_y + c->tach_h, DRIVE_VIEW_W, DRIVE_VIEW_H);
+    blit_shape_placed(&screen, h->view);
+    clip_set(&screen, c->sped_x, c->sped_x + c->sped_w, c->sped_y, c->sped_y + c->sped_h, DRIVE_VIEW_W, DRIVE_VIEW_H);
+    blit_shape_placed(&screen, h->view);
+}
+
+static void draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
 {
     if (!h->in_car) h->hud.unknown_4f9a20[1] = 1, h->in_car = 1;  /* 0041e364 */
     blit_shape(&s->screen, h->view, 0, 0, BLIT_OPAQUE);
     if (h->hud.unknown_4f9a20[1] == 0 && h->hud.unknown_4f9a20[2] == 0) {
         blit_shape_at_transparent(&s->screen, h->cockpit.dash, 0, 0);
-        return;
+    } else {
+        cockpit_redraw_now(h, s);
+        h->hud.unknown_4f9a20[1] = h->hud.unknown_4f9a20[2] = 0;
     }
-    cockpit_redraw_now(h, s);
-    h->hud.unknown_4f9a20[1] = h->hud.unknown_4f9a20[2] = 0;
+    /* 0042270c's wheel ('w', 004f9634 / 004f9650) on the screen: the original draws it when the signed frame
+     * changes (004f9a20) onto a screen it keeps; --drive redraws the dash every frame, so every frame. */
+    placed_transparent(&s->screen, h->cockpit.frames[steer_left(s->race, car) ? 0 : 1][steer_frame(car->steer)]);
+    draw_gauges(h, s, car, redline);
 }
 
 static QuadTarget *map_select(void *ctx, HudSurface s)
@@ -500,7 +559,7 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
                               { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
         if (police_or_reload(h, race, &s, in_car)) return;
         in_car = in_car && h->cockpit_ready;
-        if (in_car) draw_cockpit(h, &s);
+        if (in_car) draw_cockpit(h, &s, car, redline);
         else draw_mask(h, race, pixels, width, height);
     }
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
