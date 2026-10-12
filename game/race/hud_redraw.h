@@ -42,4 +42,28 @@ typedef struct {
 void hud_redraw(const QuadTarget *t, HudState *hud, const DashArt *art, const RaceState *race,
                 const HudRedrawInputs *in);
 
+/* What 00420918 reads. */
+typedef struct {
+    HudFrame frame;             /* 00511fe8's view row */
+    int32_t high_screen;        /* 00512018 */
+    int32_t width, height;      /* 0051201c, 00512020 */
+    int32_t high_res;           /* 004fa0c0 */
+    int32_t surface_w, surface_h;  /* 004c78b4, 004c78b8: 0047383c keeps the clips inside */
+} HudPartsInputs;
+
+/* 00420918 (from 00420710 when the parts mode 004f9b3c is switched off with
+ * a camera or 004f9b7c set): the lower right quarter of the tiles (columns
+ * from width / w / 2, rows from height / h / 2, as 004218d0 places them)
+ * drawn twice, clipped (0044987c) first to the box below the view (high
+ * resolution (0x206, top + height + 2, 0x74, 0x1bd - top - height), low
+ * (0xfe, top + height + 1, 0x50, 0xb3 - top - height)) then to the one right
+ * of it (high (left + width + 2, 0x130, 0x74, 0x84), low (left + width + 1,
+ * 0x75, 0x50, 0x3f)); then the clip is the screen (high, 0044985c) or the
+ * low box again; then the frame's lower right: 'b00b' at (x, bottom) for x
+ * from left + width - 5 w ('b00t''s width) while below right, 'b00r' at
+ * (right, y + 1) for y from top + height - 4 h - 1 ('b00l''s height) while
+ * at most bottom - h, 'b002' at (right, bottom), all with 0047380c. The
+ * clip is left in t. Port guards as hud_redraw. */
+void hud_parts_redraw(QuadTarget *t, const DashArt *art, const HudPartsInputs *in);
+
 #endif
