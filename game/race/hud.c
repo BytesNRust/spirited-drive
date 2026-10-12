@@ -20,6 +20,8 @@ enum {
     LIGHT_STEP_LOW = 0x41, LIGHT_STEP_HIGH = 0x82,
     STRIP_W_LOW = 0x140, STRIP_H_LOW = 0x10, STRIP_W_HIGH = 0x280, STRIP_H_HIGH = 0x20,
     LIGHTS_HOLD = 10, LIGHTS_RESET = 0x7d000,
+    LABELS_FROM = 0x168,
+    RECORDS_TRACK = 0xa6b, RECORDS_VARIANT = 0x27, RECORDS_CIRCUIT = 0xea, RECORDS_SLOT = 0x186,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
 };
@@ -300,4 +302,65 @@ void hud_draw_time(const QuadTarget *t, HudState *hud, uint8_t *const *grey, int
     const int32_t seconds_x = x + step * 2 + space;
     hud_draw_number(t, grey, hud->clock.seconds, seconds_x, y, step, 2);
     hud_draw_number(t, grey, hud->clock.tenths, seconds_x + step * 2 + space, y, step, 1);
+}
+
+static void fill_strip(const QuadTarget *t, int32_t high_res, uint32_t colour)
+{
+    if (high_res != 0) flat_fill_rect(t, 0, 0, STRIP_W_HIGH, STRIP_H_HIGH, colour);
+    else flat_fill_rect(t, 0, 0, STRIP_W_LOW, STRIP_H_LOW, colour);
+}
+
+/* A word of the saved records (00524ec0); 0 without them. */
+static int32_t record_word(const RaceState *race, int32_t offset)
+{
+    if (race->records == NULL) return 0;
+    const uint8_t *b = race->records + offset;
+    return (int32_t)((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24);
+}
+
+/* The record time's place: (x, y, step, space) low and high. */
+static void draw_record(const QuadTarget *t, HudState *hud, const DashArt *dash, int32_t ticks, int32_t high_res)
+{
+    if (high_res != 0) hud_draw_time(t, hud, dash->grey_shown, ticks + HUD_START_TICKS, 0x1f, 8, 0xd, 7);
+    else hud_draw_time(t, hud, dash->grey_shown, ticks + HUD_START_TICKS, 0x11, 3, 6, 2);
+}
+
+static uint8_t *label_sign(const DashArt *dash, int32_t gap)
+{
+    return dash->yellow[gap < 0 ? YELLOW_MINUS : YELLOW_PLUS];
+}
+
+void hud_draw_labels(const QuadTarget *t, HudState *hud, const DashArt *dash, const RaceState *race, int32_t gap,
+                     int32_t gap_ticks, int32_t high_res, uint32_t strip_colour)
+{
+    if (hud->redraw == 0 || race->tick < LABELS_FROM) {
+        fill_strip(t, high_res, strip_colour);
+        return;
+    }
+    draw_named(t, dash, "stat");
+    const int32_t track = race->track * RECORDS_TRACK;
+    if (hud->mode == 1) {
+        draw_named(t, dash, "rtet");
+        const int32_t slot = race->circuit != 0 ? race->record_slot * RECORDS_SLOT : 0;
+        draw_record(t, hud, dash, record_word(race, RECORDS_CIRCUIT + track + slot), high_res);
+        draw_named(t, dash, "splt");
+        blit_shape_placed(t, label_sign(dash, gap));
+    } else if (hud->mode == 0) {
+        draw_named(t, dash, "segt");
+        if (gap_ticks < 1) {
+            draw_named(t, dash, race->circuit != 0 ? "lap#" : "mile");
+        } else {
+            draw_named(t, dash, "splt");
+            blit_shape_placed(t, label_sign(dash, gap));
+        }
+        const int32_t record = race->circuit != 0 ? race->best_lap
+                                                  : record_word(race, track + race->track_variant * RECORDS_VARIANT);
+        draw_record(t, hud, dash, record, high_res);
+    } else if (hud->mode == 2) {
+        blit_shape_placed(t, dash->acct);
+        hud_draw_splits(t, hud, dash->yellow, high_res);
+    }
+    if (hud->mode < 2) draw_named(t, dash, race->race_type == 0 || race->race_type == 1 ? "head" : "sing");
+    hud_reset(hud);
+    hud->strip_dirty = 1;
 }

@@ -132,6 +132,19 @@ void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const
 void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *dash, int16_t beeps[HUD_BEEPS],
                            int32_t tick, int32_t high_res, uint32_t strip_colour);
 
+/* 00420370: with hud->redraw set and past tick 0x167, the top row's fixed
+ * shapes at their places and the record to beat: 'stat'; layout 1 'rtet',
+ * the circuit record (race->records + 0xea + track x 0xa6b, + record_slot
+ * x 0x186 on a circuit) as a grey time, 'splt' and the sign ('mnus' for a
+ * gap below 0); layout 0 'segt', 'mile' / 'lap#' when no gap is showing
+ * (gap_ticks < 1) else 'splt' and the sign, the stage record (records +
+ * track x 0xa6b + track_variant x 0x27) or race->best_lap on a circuit;
+ * layout 2 'acct' and the splits; below layout 2 'head' (race types 0, 1)
+ * or 'sing'; then hud_reset and strip_dirty. Otherwise the top strip is
+ * filled with strip_colour. */
+void hud_draw_labels(const QuadTarget *t, HudState *hud, const DashArt *dash, const RaceState *race, int32_t gap,
+                     int32_t gap_ticks, int32_t high_res, uint32_t strip_colour);
+
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
  * |forward speed| (+0x68 while race->viewed < race->humans, else the
