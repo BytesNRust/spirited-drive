@@ -45,7 +45,7 @@ void drive_hud_setup(DriveHud *h, RacePalette *p);
 
 /* After the palette is applied: the bank mapped onto it with its own
  * '!pal' (what 00447098 does with the queued banks), the strip colour
- * (00446880(0, 0, 0): the entry nearest black) and the HUD's start state
+ * (00446880(0, 0, 0)), the needle's red (00446bac: 00446880(0x3f, 0, 0)) and the HUD's start state
  * (0041f9a0: layout 0, redraw on; 0041e230). */
 void drive_hud_start(DriveHud *h, RacePalette *p);
 
