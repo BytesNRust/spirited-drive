@@ -238,6 +238,7 @@ typedef struct {
     int32_t by_node[RACE_CARS];  /* 00509e68: slots by road node, the rearmost first (00440dd8) */
     int32_t by_progress[RACE_CARS];  /* 00509e44: slots by progress, last place first (00440dd8) */
     uint8_t car_places[RACE_CARS];  /* 004f9e83: each slot's place, 1 first (0041f434) */
+    int16_t start_beeps[6];         /* 00513e78..00513e82: one a start light, cleared when it lights (0041ec88) */
     const Car *leader;              /* 00509e18: the car in slot 0, once loaded */
     const Car *second_car;          /* 00509e40: the car in slot 1, once entered */
     RaceEntry entries[RACE_PLAYERS];  /* 004fb7fa */

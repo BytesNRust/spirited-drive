@@ -7,6 +7,7 @@
 #include "game/sys/shape_bank.h"
 
 #include <stddef.h>
+#include <string.h>
 
 enum {
     MPH = 0x23d70, KMH = 0x39999,  /* 16.16 from the speed's units */
@@ -22,6 +23,7 @@ enum {
     LIGHTS_HOLD = 10, LIGHTS_RESET = 0x7d000,
     LABELS_FROM = 0x168, RACE_TIME_FROM = 0x186,
     START_NODES = 12,
+    TOP_ROW_FROM = 0x169, LAST_LAP_SHOWN = 0xf0,
     RECORDS_TRACK = 0xa6b, RECORDS_VARIANT = 0x27, RECORDS_CIRCUIT = 0xea, RECORDS_SLOT = 0x186,
     SECONDS_GAP_HIGH = 8, SECONDS_GAP_LOW = 2,
     TICKS_A_MINUTE = 3600, TICKS_A_SECOND = 60, TICKS_A_TENTH = 6
@@ -291,7 +293,7 @@ void hud_reset(HudState *hud)
     hud->unknown_4f9a20[3] = 0;
     for (size_t i = 0; i < sizeof unset / sizeof unset[0]; i++) *unset[i] = HUD_GAP_UNSET;
     hud->lights_until = LIGHTS_RESET;
-    hud->unknown_4f9a98 = 0;
+    hud->waiting = 0;
     for (int k = 0; k < HUD_SPLITS; k++) hud->split_shown[k] = 0;
 }
 
@@ -449,4 +451,98 @@ void hud_draw_place(const QuadTarget *t, HudState *hud, const DashArt *dash, Rac
         hud_draw_number(t, dash->yellow, place, x, y, step, 1);
         hud->place_shown = place;
     }
+}
+
+/* 0051cc50 + 4 i: RaceSplits.unknown_cc50, then the players' records word
+ * by word (the earlier stages' times). */
+static int32_t after_splits(const RaceState *race, int32_t i)
+{
+    if (i == 0) return race->splits.unknown_cc50;
+    const int64_t at = 4 * ((int64_t)i - 1);
+    if (i < 0 || at + 4 > (int64_t)sizeof race->players) return 0;  /* port guard */
+    int32_t v;
+    memcpy(&v, (const uint8_t *)race->players + at, sizeof v);
+    return v;
+}
+
+static const PlayerRecord *record_of(const RaceState *race, const Car *car)
+{
+    return (uint32_t)car->player <= RACE_PLAYERS ? &race->players[car->player] : NULL;  /* port guard */
+}
+
+/* The time the top row shows (0041e48c's ticks). */
+static int32_t top_row_ticks(const HudState *hud, const RaceState *race, const Car *car)
+{
+    int32_t ticks = race->tick;
+    const PlayerRecord *record = record_of(race, car);
+    if (race->circuit == 0) {
+        if (race->loop_nodes < car->node && record != NULL) ticks = record->finish + HUD_START_TICKS;
+    } else if (1 < car->lap && record != NULL && car->lap < RACE_LAP_MARKS) {
+        ticks = record->lap_marks[car->lap] + HUD_START_TICKS;
+        if (race->tick - ticks < LAST_LAP_SHOWN) {
+            if (hud->mode == 0 && 2 < car->lap) ticks -= record->lap_marks[car->lap - 1];
+        } else {
+            ticks = race->tick;
+            if (hud->mode == 0) ticks = race->tick - record->lap_marks[car->lap];
+        }
+    }
+    if (hud->mode == 1)
+        for (int32_t i = 0; i < race->track_variant; i++) ticks += after_splits(race, i);
+    return ticks;
+}
+
+typedef struct {
+    int32_t speed[3], gear[2], place[3];        /* x, y, step; gear x, y */
+    int32_t time[4], gap[4];                    /* x, y, step, space */
+    int32_t distance[4], lap[5];                /* x, y, step, space; x, y, step, laps x, laps y */
+} TopRowPlaces;
+
+static const TopRowPlaces TOP_ROW_LOW = {
+    { 0x7a, 1, 0xe }, { 0xba, 1 }, { 0x121, 1, 7 }, { 0x48, 1, 8, 3 }, { 0xe0, 1, 8, 3 },
+    { 0xd9, 1, 8, 2 }, { 0xde, 1, 8, 0xf5, 1 }
+};
+static const TopRowPlaces TOP_ROW_HIGH = {
+    { 0x106, 2, 0x1b }, { 0x17a, 5 }, { 0x244, 5, 0x13 }, { 0x90, 5, 0x13, 8 }, { 0x1c0, 5, 0x13, 8 },
+    { 0x1b8, 5, 0x13, 7 }, { 0x1c0, 5, 0x13, 0x1f2, 5 }
+};
+
+void hud_draw_top_row(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, const Car *car,
+                      int16_t german, int32_t high_res, uint32_t strip_colour)
+{
+    if (hud->waiting != 0) {
+        blit_shape_placed(t, dash->wait);
+        return;
+    }
+    const int32_t ticks = top_row_ticks(hud, race, car);
+    const int32_t gap = race->splits.gap, gap_ticks = race->splits.gap_shown;
+    if (hud->redraw == 0 || race->tick < TOP_ROW_FROM) {
+        if (race->tick < LABELS_FROM) {
+            hud_draw_start_lights(t, hud, dash, race->start_beeps, race->tick, high_res, strip_colour);
+            return;
+        }
+    } else {
+        const TopRowPlaces *p = high_res != 0 ? &TOP_ROW_HIGH : &TOP_ROW_LOW;
+        if (hud->mode < 2) {
+            hud_draw_speed(t, hud, dash, car, race, german, p->speed[0], p->speed[1], p->speed[2]);
+            hud_draw_gear(t, hud, dash, car, race, p->gear[0], p->gear[1]);
+            hud_draw_place(t, hud, dash, race, gap, p->place[0], p->place[1], p->place[2]);
+        }
+        if (hud->mode == 0 || hud->mode == 1) {
+            hud_draw_race_time(t, hud, dash, race, gap, gap_ticks, high_res, strip_colour, ticks, p->time[0],
+                               p->time[1], p->time[2], p->time[3]);
+            if (hud->mode == 0 && gap_ticks < 1) {
+                if (race->circuit == 0)
+                    hud_draw_distance(t, hud, dash, car, race, german, p->distance[0], p->distance[1], p->distance[2],
+                                      p->distance[3]);
+                else
+                    hud_draw_lap(t, hud, dash, car, race, p->lap[0], p->lap[1], p->lap[2], p->lap[3], p->lap[4]);
+            } else {
+                hud_draw_gap(t, hud, dash, gap, p->gap[0], p->gap[1], p->gap[2], p->gap[3]);
+            }
+        } else if (hud->mode == 2) {
+            hud_draw_splits(t, hud, dash->yellow, high_res);
+        }
+        hud->strip_dirty = 1;
+    }
+    if (hud->lost != 0) blit_shape_placed(t, dash->lost);
 }

@@ -48,10 +48,11 @@ typedef struct {
     int32_t unknown_4f9a74;
     int32_t lap_shown;                  /* 004f9a78: HUD_GAP_UNSET until first drawn (and after the gap) */
     int32_t gear_shown;                 /* 004f9a7c */
-    int32_t unknown_4f9a80[4];          /* 004f9a80..004f9a8c */
+    int32_t unknown_4f9a80[3];          /* 004f9a80..004f9a88 */
+    int32_t lost;                       /* 004f9a8c: the 'lost' shape goes over the top row */
     int32_t redraw;                     /* 004f9a90 */
     int32_t lights_until;               /* 004f9a94: the tick the start lights were last drawn + 10 */
-    int32_t unknown_4f9a98;
+    int32_t waiting;                    /* 004f9a98: only the 'wait' shape is drawn */
     int32_t strip_dirty;                /* 004f9a9c: the top strip is cleared before the lights */
     int32_t split_shown[HUD_SPLITS];    /* 004f9aa0 */
     int32_t split[HUD_SPLITS];          /* 004f9ab8: 0..2 times in ticks, 3..5 counts */
@@ -169,6 +170,17 @@ int32_t hud_race_stage(const RaceState *race, const Car *car);
  * car's place goes to players[viewed + 1] +0 as well. */
 void hud_draw_place(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, int32_t gap, int32_t x,
                     int32_t y, int32_t step);
+
+/* 00421e40: the top row for `car` (the followed car). With hud->waiting
+ * only 'wait'. Before tick 0x168 the start lights; from 0x169 with
+ * hud->redraw set, by hud->mode and resolution: speed, gear and place
+ * (modes below 2), the race time (the tick; a finished stage's end, a lap's
+ * end on a circuit or for 240 ticks the last lap's time; plus the earlier
+ * stages' times in mode 1), then the gap (mode 1, or mode 0 while a gap is
+ * showing), the distance or the lap (mode 0), the splits (mode 2); then
+ * 'lost' when hud->lost. See hud.c for the places. */
+void hud_draw_top_row(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, const Car *car,
+                      int16_t german, int32_t high_res, uint32_t strip_colour);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
