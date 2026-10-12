@@ -4,6 +4,7 @@
 #ifndef TNFS_DRIVE_HUD_H
 #define TNFS_DRIVE_HUD_H
 
+#include "game/race/cockpit.h"
 #include "game/race/dash_art.h"
 #include "game/race/hud.h"
 #include "game/race/hud_keys.h"
@@ -34,6 +35,10 @@ typedef struct {
     HudNeedle needle;           /* 004b9558..: the needle last drawn */
     uint32_t needle_colour;     /* 0050b790 */
     HudKeysState keys;          /* 00420710's edge, parts mode, dash camera, view change */
+    uint8_t *dash_bank, *dash_fmm;  /* SIMDATA/DASH/<stem>DH.fsh / .fmm */
+    Cockpit cockpit;            /* 004f9628.. */
+    CockpitWorld cockpit_world;
+    int cockpit_ready;
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case
@@ -68,6 +73,11 @@ uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
  * original redraws only what changed). TODO: 0041e3f4; the parts key (no .b%d%d parts read).
  * pixels NULL: the strip only (a frame not shown). */
 void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);
+
+/* As 004400f4 does for the followed car: its dashboard (paths slot 16
+ * SIMDATA/DASH/, the 004bc664 stem, high resolution) read and 0041f9a0 with
+ * full 1. 0 when a file is missing or the load fails. */
+int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem);
 
 void drive_hud_free(DriveHud *h);
 

@@ -27,6 +27,32 @@ static uint8_t *read_named(const char *path, size_t dir_length)
     return platform_read_file(upper, &size);
 }
 
+static uint8_t *read_sized(const char *path, size_t dir_length, size_t *size)
+{
+    uint8_t *file = platform_read_file(path, size);
+    if (file != NULL) return file;
+    char upper[COCKPIT_PATH];
+    snprintf(upper, sizeof upper, "%s", path);
+    for (size_t i = dir_length; upper[i] != '\0'; i++) upper[i] = (char)toupper((unsigned char)upper[i]);
+    return platform_read_file(upper, size);
+}
+
+int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem)
+{
+    char dir[COCKPIT_PATH];
+    const int n = snprintf(dir, sizeof dir, "%s/SIMDATA/DASH/", data_root);
+    CockpitFiles files;
+    if (n < 0 || n >= (int)sizeof dir || cockpit_paths(&files, dir, stem, HIGH_RES) != 0) return 0;
+    size_t bank_size = 0, fmm_size = 0;
+    h->dash_bank = read_sized(files.bank, (size_t)n, &bank_size);
+    h->dash_fmm = read_sized(files.fmm, (size_t)n, &fmm_size);
+    h->cockpit_ready = h->dash_bank != NULL && h->dash_fmm != NULL && fmm_size >= 0x18 &&
+                       cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, race, &h->keys.dash_camera, h->dash_bank,
+                                    bank_size, h->dash_fmm, stem, HIGH_RES, 1) == 0;
+    if (!h->cockpit_ready) fprintf(stderr, "drive_hud: no dashboard from %s\n", files.bank);
+    return h->cockpit_ready;
+}
+
 int drive_hud_read(DriveHud *h, const char *data_root)
 {
     memset(h, 0, sizeof *h);
@@ -217,6 +243,9 @@ void drive_hud_free(DriveHud *h)
 {
     platform_free_file(h->bank);
     platform_free_file(h->mmb);
-    h->bank = h->mmb = NULL;
+    platform_free_file(h->dash_bank);
+    platform_free_file(h->dash_fmm);
+    h->bank = h->mmb = h->dash_bank = h->dash_fmm = NULL;
+    h->cockpit_ready = 0;
     h->ready = 0;
 }
