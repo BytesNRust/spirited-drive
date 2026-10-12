@@ -55,6 +55,7 @@ typedef struct {
     uint8_t screen_rgbx[RACE_PALETTE_COLOURS * 4];                     /* 0052ced8: R, G, B, 0 */
     uint8_t enabled[RACE_PALETTE_COLOURS];                             /* 004c5ff8: entries the search may pick */
     const uint8_t *inverse;                                            /* 004c5ff4: NULL for the search */
+    uint8_t inverse_table[PALETTE_MATCH_INVERSE_SIZE];  /* port: the block 0047463c builds 004c5ff4 in */
     uint8_t table[RACE_PALETTE_COLOURS];                               /* 004c79b4 */
     uint8_t unknown_50ad2e[5];  /* 0050ad2e: 0xfa..0xfd for the police lights, then the slot's own colour */
     uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34: the screen palette as 6-bit R, G, B (004766b8) */
@@ -142,6 +143,14 @@ void race_palette_tint_shape(RacePalette *p, uint8_t *shape);
  * (race types below 2), 0xfa..0xff and each car slot's own colour; the
  * inverse table is dropped. */
 void race_palette_enable(RacePalette *p, const RaceState *race);
+
+/* 0047463c: the inverse table built again from the screen entries (0052f178
+ * copied out, 00476688) the search may pick (004c5ff8), 5 bits a channel
+ * (00474578 -> 00473d80, inverse_map_build: Thomas's incremental scan,
+ * near but not always the nearest entry); a cell no entry claims stays 0
+ * (the port's block starts zeroed). Returns 0 with no table when the
+ * distance buffer cannot be had, as when 00474cdc fails. */
+int race_palette_inverse(RacePalette *p);
 
 /* 004572e0: queues the cars' colours. Race types below 2: each car not
  * flagged 8 at +0x174 (and not slot 2 in a type 1 race played back) puts its

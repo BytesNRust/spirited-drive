@@ -1,11 +1,13 @@
 /* The race's screen palette (race_palette.h). */
 #include "game/race/race_palette.h"
 
+#include "game/gfx/inverse_map.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/palette.h"
 #include "game/sys/shape_bank.h"
 
 #include <stddef.h>
+#include <string.h>
 
 enum {
     CAR_COLOURS = 0xfa,          /* 0048f220(0, 0xfa, ...): the rest stay as they are */
@@ -268,6 +270,15 @@ void race_palette_enable(RacePalette *p, const RaceState *race)
         if (p->slot_colours[i] != 0)
             p->enabled[p->slot_colours[i]] = 0;
     p->inverse = NULL;
+}
+
+int race_palette_inverse(RacePalette *p)
+{
+    p->inverse = NULL;
+    memset(p->inverse_table, 0, sizeof p->inverse_table);  /* the original's block as 00474cdc gives it */
+    if (!inverse_map_build(p->screen, p->enabled, p->inverse_table)) return 0;
+    p->inverse = p->inverse_table;
+    return 1;
 }
 
 void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_CARS], int32_t police)

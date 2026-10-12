@@ -68,6 +68,7 @@ add_library(tnfs_game STATIC
     game/gfx/blit.c
     game/gfx/clip.c
     game/gfx/object_mappers.c
+    game/gfx/inverse_map.c
     game/gfx/palette_match.c
     game/gfx/quad.c
     game/gfx/quad_tri.c
