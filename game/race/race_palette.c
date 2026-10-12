@@ -290,3 +290,23 @@ void race_palette_read(const RacePalette *p, int32_t first, int32_t count, uint8
         out[2] = e[0] >> 2;
     }
 }
+
+enum { NEAREST_ENTRIES = 0xff, NEAREST_START = 99999 };
+
+static int32_t distance(int32_t a, int32_t b)
+{
+    const int32_t d = a - b;
+    return d < 1 ? -d : d;
+}
+
+int32_t race_palette_nearest(RacePalette *p, int32_t red, int32_t green, int32_t blue)
+{
+    race_palette_read(p, 0, RACE_PALETTE_COLOURS, p->copy);
+    int32_t best = NEAREST_START, found = 0;
+    for (int32_t i = 0; i < NEAREST_ENTRIES; i++) {
+        const uint8_t *c = p->copy + 3 * i;
+        const int32_t d = distance(c[2], blue) + distance(c[0], red) + distance(c[1], green);
+        if (d < best) best = d, found = i;
+    }
+    return found;
+}

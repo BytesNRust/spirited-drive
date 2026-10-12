@@ -57,6 +57,7 @@ typedef struct {
     const uint8_t *inverse;                                            /* 004c5ff4: NULL for the search */
     uint8_t table[RACE_PALETTE_COLOURS];                               /* 004c79b4 */
     uint8_t unknown_50ad2e[5];  /* 0050ad2e: 0xfa..0xfd for the police lights, then the slot's own colour */
+    uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34: the screen palette as 6-bit R, G, B (004766b8) */
     uint8_t slot_colours[RACE_PALETTE_SLOTS];  /* 0051c798: a slot's own entry (0x47, 0x5f), kept out of the search */
     RacePaletteWrite writes[RACE_PALETTE_WRITES];  /* 0050a9dc, applied by 00447048 */
     int32_t write_count;                           /* 004bcbc8 */
@@ -108,6 +109,12 @@ void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint
 /* 004766b8: `count` screen entries from `first` (0052f178) out as 6-bit
  * R, G, B (each channel >> 2). */
 void race_palette_read(const RacePalette *p, int32_t first, int32_t count, uint8_t *out);
+
+/* 00446880: the palette read into `copy` (004766b8), then the entry among
+ * 0..0xfe nearest the 6-bit (red, green, blue) by the sum of the channels'
+ * differences, the first of equals. The original returns its stack when no
+ * entry is nearer than 99999 (a colour far outside 0..63); the port 0. */
+int32_t race_palette_nearest(RacePalette *p, int32_t red, int32_t green, int32_t blue);
 
 /* 00447048: every queued write in order (00476460 each), then the queue is
  * empty. */
