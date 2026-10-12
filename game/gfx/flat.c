@@ -69,6 +69,24 @@ void flat_fill_rect(const QuadTarget *t, int32_t x, int32_t y, int32_t w, int32_
     for (int32_t i = 0; i < h; i++, row += t->pitch) memset(row, (int)(colour & 0xFF), (size_t)w);
 }
 
+/* 004827f0 */
+void flat_frame_rect(const QuadTarget *t, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t colour)
+{
+    if (x1 < x0) {
+        const int32_t x = x0;
+        x0 = x1, x1 = x;
+    }
+    if (y1 < y0) {
+        const int32_t y = y0;
+        y0 = y1, y1 = y;
+    }
+    const int32_t w = x1 - x0 + 1, h = y1 - y0 - 1;
+    flat_fill_rect(t, x0, y0, w, 1, colour);
+    flat_fill_rect(t, x1, y0 + 1, 1, h, colour);
+    flat_fill_rect(t, x0, y0 + 1, 1, h, colour);
+    flat_fill_rect(t, x0, y1, w, 1, colour);
+}
+
 /* 004a0290: rows y .. y + count - 1, each filled from left[i] to right[i]
  * inclusive. */
 static void fill_rows(const QuadTarget *t, const int32_t *left, const int32_t *right, int32_t y,

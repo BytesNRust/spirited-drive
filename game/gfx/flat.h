@@ -58,6 +58,12 @@ void flat_polygon_shade(const QuadTarget *target, const uint8_t *remap, int coun
 void flat_fill_rect(const QuadTarget *target, int32_t x, int32_t y, int32_t w, int32_t h,
                     uint32_t colour);
 
+/* 004827f0: the outline of the box with corners (x0, y0) and (x1, y1) in either
+ * order, one pixel wide: four flat_fill_rect calls (top row, right column,
+ * left column, bottom row). */
+void flat_frame_rect(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                     uint32_t colour);
+
 /* 00484254: a line from (x0, y0) to (x1, y1), both ends drawn. */
 void flat_line(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
                uint32_t colour);
