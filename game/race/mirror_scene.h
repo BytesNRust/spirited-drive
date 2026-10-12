@@ -55,6 +55,46 @@ typedef struct {
  * except the followed car while the chase kind is 0: 0045a724, 004591d4. */
 void mirror_cars(const MirrorCarsOps *ops, const MirrorCarsInputs *in, int32_t node);
 
+enum {
+    MIRROR_SEGMENTS = 5,        /* 004c2e94's rows; 00509330 holds 5 segments' points */
+    MIRROR_ROW_POINTS = 11,
+    /* 00509330: camera points (3 words each), then at 005095c4 (word 165)
+     * screen points (2 words each); a camera index past 55 reads on into them */
+    MIRROR_SCREEN_WORDS_AT = MIRROR_SEGMENTS * MIRROR_ROW_POINTS * 3
+};
+
+typedef struct {
+    void *ctx;
+    const FshEntry *(*texture)(void *ctx, int32_t flat);  /* 0050eec4[flat], NULL for none */
+    /* 00425ed4 at depth 0 and v cell 0 */
+    void (*subdivide)(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
+                      const int32_t screen[8], int32_t near);
+    void (*cars)(void *ctx, int32_t node);  /* 0045a8fc */
+} MirrorSceneOps;
+
+typedef struct {
+    int32_t skip;               /* 004c535c */
+    const ViewLayout *layout;   /* *(00511fe8) +0x1c */
+    int32_t near;               /* *(00511fe8) +4 */
+    int32_t camera_node;        /* chase +0x38 */
+    int32_t segment_mask;       /* 00504210 */
+    int32_t circuit;            /* 00504200: 0 on a stage, where a negative first segment becomes 0 */
+    int32_t node_mask;          /* 00504208 */
+    const uint8_t *segments;    /* 00504228: 6 bytes a segment, +1 the mirror's LOD */
+    const uint8_t *cache;       /* 005041d8: the segment records (0x21c each, +2 the 10 texture bytes) */
+    const int32_t *vertices;    /* 00509330, as described above */
+} MirrorSceneInputs;
+
+/* 0044baa4 (watcall count, 00504224): the mirror's box (00449f50), then
+ * `count` segments from 4 before the camera's ((node + 3) / 4 - 4), one row
+ * of points each: the LOD's polygons last to first, each culled (0044a154),
+ * then subdivided (00425ed4) with texture [record +2 + strip] x 8 + its uv
+ * variant + 004c2e94's row; polygons that end a row band draw the cars on
+ * the next 5 nodes (0045a8fc, from the segment's first node less 5, at
+ * least 0). Then the cars 2 and 1 nodes before the last. Nothing while
+ * 004c535c is set. */
+void mirror_scene(const MirrorSceneOps *ops, const MirrorSceneInputs *in, int32_t count);
+
 /* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
  * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around

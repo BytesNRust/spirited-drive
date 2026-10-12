@@ -33,6 +33,62 @@ void mirror_cars(const MirrorCarsOps *ops, const MirrorCarsInputs *in, int32_t n
     }
 }
 
+/* 004c2e94: the variant added by distance, nearest segment last. */
+static const int32_t MIRROR_VARIANT_ROWS[MIRROR_SEGMENTS] = { 1, 1, 1, 1, 1 };
+
+enum { CARS_BEHIND = 5, CARS_ROWS = 5, CARS_AFTER_A = 2, CARS_AFTER_B = 1, SEGMENT_STRIDE = 6, SEGMENT_LOD = 1,
+       RECORD_TEXTURES = 2, FLAT_VARIANTS = 8, SEGMENTS_BEHIND = 4 };
+
+static int32_t at_least_zero(int32_t v)
+{
+    return v < 0 ? 0 : v;
+}
+
+static void scene_polygon(const MirrorSceneOps *ops, const MirrorSceneInputs *in, const MirrorBounds *box,
+                          const TrackPolygon *p, int32_t base, const uint8_t *record, int32_t row)
+{
+    int32_t screen[8];
+    const int32_t *cam[4];
+    for (int i = 0; i < 4; i++) {
+        const int32_t v = base + p->corner[i];
+        screen[2 * i] = in->vertices[MIRROR_SCREEN_WORDS_AT + 2 * v];
+        screen[2 * i + 1] = in->vertices[MIRROR_SCREEN_WORDS_AT + 2 * v + 1];
+        cam[i] = in->vertices + 3 * v;
+    }
+    if (!mirror_quad_visible(box, screen)) return;
+    const TrackUv *uv = &TRACK_UVS[p->uv];
+    const int32_t flat = record[RECORD_TEXTURES + p->strip] * FLAT_VARIANTS + uv->variant + MIRROR_VARIANT_ROWS[row];
+    const FshEntry *t = ops->texture(ops->ctx, flat);
+    if (t != NULL) ops->subdivide(ops->ctx, t, uv->u_level, uv->u_cell, cam, screen, in->near);
+}
+
+void mirror_scene(const MirrorSceneOps *ops, const MirrorSceneInputs *in, int32_t count)
+{
+    if (in->skip != 0) return;
+    MirrorBounds box;
+    mirror_bounds(in->layout, &box);
+    int32_t segment = (x_add(in->camera_node, 3) / 4 - SEGMENTS_BEHIND) & in->segment_mask;
+    if (in->circuit == 0 && segment < 0) segment = 0;
+    int32_t node = x_shl(segment, 2);
+    if (count > MIRROR_SEGMENTS) count = MIRROR_SEGMENTS;  /* port guard: 004c2e94 and 00509330 hold 5 */
+    for (int32_t k = 0, row = count - 1; row >= 0; k++, row--) {
+        const TrackLod *lod = &TRACK_LODS[in->segments[(uint32_t)segment * SEGMENT_STRIDE + SEGMENT_LOD]];
+        const uint8_t *record = in->cache + mirror_segment_offset(segment, in->segment_mask);
+        for (int32_t p = lod->first_polygon + lod->polygon_count - 1; p >= lod->first_polygon; p--) {
+            const TrackPolygon *poly = &TRACK_POLYGONS[p];
+            scene_polygon(ops, in, &box, poly, k * MIRROR_ROW_POINTS, record, row);
+            if (poly->rows_done == 0) continue;
+            for (int i = 0; i < CARS_ROWS; i++) {
+                ops->cars(ops->ctx, at_least_zero(x_sub(node, CARS_BEHIND)));
+                node = x_add(node, 1) & in->node_mask;
+            }
+        }
+        segment = (segment + 1) & in->segment_mask;
+    }
+    ops->cars(ops->ctx, at_least_zero(x_sub(node, CARS_AFTER_A)));
+    ops->cars(ops->ctx, at_least_zero(x_sub(node, CARS_AFTER_B)));
+}
+
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
 {
     for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;
