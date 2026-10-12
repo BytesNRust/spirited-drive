@@ -46,4 +46,10 @@ typedef struct {
  * otherwise. */
 int32_t needle_clip_y(NeedleLine *n);
 
+/* 00482e15 (watcall ()): 00482bad with the axes swapped, the x-major line
+ * clipped: x for y, left / right for top / bottom, edge a (ya) for xa and
+ * edge b (yb) for xb. Here the new start after an edge crossing is tested
+ * against right / left, its own axis. */
+int32_t needle_clip_x(NeedleLine *n);
+
 #endif

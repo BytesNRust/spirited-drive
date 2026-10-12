@@ -52,3 +52,38 @@ int32_t needle_clip_y(NeedleLine *n)
     }
     return 1;
 }
+
+int32_t needle_clip_x(NeedleLine *n)
+{
+    if (n->x_end < n->left) return 0;
+    if (n->x_start >= n->right) return 0;
+    if (n->x_start < n->left) {
+        const int32_t skip = x_sub(n->left, n->x_start);
+        n->ya = x_add(n->ya, mul_round(n->slope_ya, skip));
+        n->yb = x_add(n->yb, mul_round(n->slope_yb, skip));
+        n->x_start = n->left;
+    }
+    if (n->x_end > n->right) n->x_end = n->right;
+    n->clipped = n->ya < n->top || n->yb >= n->bottom;
+    if (n->yb < n->top) {
+        if (n->slope_yb <= 0) return 0;
+        const int32_t skip = div_16(x_sub(n->top, n->yb), n->slope_yb);
+        n->x_start = x_add(n->x_start, skip);
+        if (n->x_start >= n->right) return 0;
+        if (n->x_start < n->left) return 0;
+        n->yb = n->top;
+        n->ya = x_add(n->ya, mul_round(n->slope_ya, skip));
+        n->clipped = 1;
+    }
+    if (n->ya >= n->bottom) {
+        if (n->slope_ya >= 0) return 0;
+        const int32_t skip = div_16(x_add(x_sub(n->bottom, n->ya), 1), n->slope_ya);
+        n->x_start = x_add(n->x_start, skip);
+        if (n->x_start >= n->right) return 0;
+        if (n->x_start < n->left) return 0;
+        n->yb = x_add(n->yb, mul_round(n->slope_yb, skip));
+        n->ya = x_sub(n->bottom, 1);
+        n->clipped = 1;
+    }
+    return 1;
+}
