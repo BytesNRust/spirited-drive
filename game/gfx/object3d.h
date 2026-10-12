@@ -132,8 +132,17 @@ void object3d_set_texture(Object3D *obj, int32_t slot, const FshEntry *texture);
 int32_t object3d_texture_named(const Object3D *obj, const char *label);
 
 /* 004912d0: the first of the mesh's parts (section A: "left_tur",
- * "right_tu", the turn signals) whose name matches as 00490b21's, or -1. */
+ * "right_tu", the front wheels' steering parts) whose name matches as
+ * 00490b21's, or -1. */
 int32_t object3d_part_named(const Object3D *obj, const char *name);
+
+/* 004914b8: part `part` of the mesh's section A (a record: +8 the count,
+ * +0xc its first vertex map slot, +0x10 its first offset vertex) moved by
+ * `weight` (16.16): each of its vertices v in obj->model becomes the
+ * mesh's v plus offset k x weight (each product rounded, 004a2ed0), the
+ * offsets being the mesh vertices from +0x10 on; weight 0 copies v, 1.0
+ * adds the offsets as they are. Nothing for a part outside the section. */
+void object3d_morph_part(Object3D *obj, int32_t part, int32_t weight);
 
 /* 004910fa: the value (+8) of the first section C record ("smok", "RR1",
  * "FL0") whose name matches as 00490b21's, or -1. */

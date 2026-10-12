@@ -372,3 +372,32 @@ int object3d_section_list(const Object3D *obj, int section, Object3DList *out)
     out->count = count;
     return 1;
 }
+
+void object3d_morph_part(Object3D *obj, int32_t part, int32_t weight)
+{
+    const Mesh *mesh = obj->mesh;
+    MeshSectionA sa;
+    if (part < 0 || (uint32_t)part >= mesh->section_a_count || mesh_section_a(mesh, (uint32_t)part, &sa) != MESH_OK)
+        return;
+    for (uint32_t k = 0; k < sa.unknown[0]; k++) {
+        uint32_t v;
+        MeshVertex base, offset;
+        if (mesh_vertex_map(mesh, sa.unknown[1] + k, &v) != MESH_OK || v >= obj->vertex_count ||
+            mesh_vertex(mesh, v, &base) != MESH_OK)
+            return;  /* port guard: past the mesh's tables */
+        int32_t *out = obj->model[v];
+        if (weight == 0) {
+            out[0] = base.x, out[1] = base.y, out[2] = base.z;
+            continue;
+        }
+        if (mesh_vertex(mesh, sa.unknown[2] + k, &offset) != MESH_OK) return;
+        if (weight != 0x10000) {
+            offset.x = fx_mul_round(offset.x, weight);
+            offset.y = fx_mul_round(offset.y, weight);
+            offset.z = fx_mul_round(offset.z, weight);
+        }
+        out[0] = (int32_t)((uint32_t)base.x + (uint32_t)offset.x);
+        out[1] = (int32_t)((uint32_t)base.y + (uint32_t)offset.y);
+        out[2] = (int32_t)((uint32_t)base.z + (uint32_t)offset.z);
+    }
+}
