@@ -55,6 +55,7 @@ typedef struct {
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */
     uint8_t *rgb;               /* the frame's 8-bit palette, redone from palette->screen_rgbx after a write */
     int in_car;                 /* 00512054: the last frame was 0042270c's */
+    int32_t gate_state;         /* 004b945c: 0041f5bc's */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
     uint8_t back[DRIVE_VIEW_HEADER + DRIVE_BACK_W * DRIVE_BACK_H];  /* 004c2d98's shape */
     uint8_t map[DRIVE_VIEW_HEADER + DRIVE_MAP_W * DRIVE_MAP_H];     /* 004c2d9c's shape: the track map */

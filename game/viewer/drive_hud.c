@@ -427,77 +427,139 @@ static void reload_cockpit(DriveHud *h, RaceState *race, CockpitSurfaces *s)
     cockpit_reload(&ops, &h->cockpit, &st, &in);
 }
 
-/* 0042270c's part that is ported: 00421160 while 004f9a24 / 004f9a28 is set.
- * TODO(0042270c): the rest (the view through 00483fa0's runs, the wheel, the
- * gauges); until then the view goes to the frame whole and the dash over it. */
-/* 0042270c's steering frame at high resolution: |steer| below 0x21999,
- * 0x70000, 0xc8000, 0x133333, 0x1b0000 gives 0..4, beyond 5. */
-static int32_t steer_frame(int32_t steer)
+/* 0042270c's calls: the view surface (004c2d90) and the frame (004c2da0
+ * and the default both). The shapes are drawn only while the dashboard is
+ * loaded: a reload that failed leaves them pointing into the freed bank.
+ * 00421e40 and 00420710 into the strip and the map's copy run after it in
+ * drive_hud_draw for every view, so here they do nothing. */
+typedef struct {
+    CockpitSurfaces *s;
+    const Car *car;
+    int32_t redline;
+    QuadTarget view, screen, *target;
+} FrameCalls;
+
+static int frame_shapes(const FrameCalls *f) { return f->s->h->cockpit_ready; }
+
+static int32_t frame_rand(void *ctx, int32_t n) { return race_rand_below(((FrameCalls *)ctx)->s->race, n); }
+static void frame_police(void *ctx) { FrameCalls *f = ctx; draw_police(f->s->h, f->s->race, f->s); }
+static void frame_none(void *ctx) { (void)ctx; }  /* 00420710, 00421e40 (drive_hud_draw); TODO(00473614, 0044d640) */
+
+static void frame_reload(void *ctx)
 {
-    static const int32_t edges[] = { 0x21999, 0x70000, 0xc8000, 0x133333, 0x1b0000 };
-    const uint32_t a = steer > 0 ? (uint32_t)steer : 0u - (uint32_t)steer;
-    int32_t i = 0;
-    while (i < 5 && (int32_t)a >= edges[i]) i++;
-    return i;
+    FrameCalls *f = ctx;
+    if (f->s->h->dash_fmm != NULL) reload_cockpit(f->s->h, f->s->race, f->s);
 }
 
-/* The left frames when steering left on a plain track or right on a mirrored one. */
-static int steer_left(const RaceState *race, const Car *car)
+static void frame_redraw(void *ctx)
 {
-    return race->mirrored != 0 ? car->steer >= 0 : car->steer < 0;
+    FrameCalls *f = ctx;
+    if (frame_shapes(f)) cockpit_redraw_now(f->s->h, f->s);
 }
 
-static void placed_transparent(QuadTarget *t, const uint8_t *shape)
+static void frame_select(void *ctx, HudSurface s)
 {
-    if (shape != NULL) blit_shape_placed_transparent(t, shape);
+    FrameCalls *f = ctx;
+    f->target = s == HUD_SURFACE_VIEW ? &f->view : &f->screen;
 }
 
-/* 0042270c's gauges: on the view surface (004c2d90, clip the screen) 'tach'
- * and 'sped' at their places (00473780; model 0xb's 'sped' with 0xff skipped,
- * 00473a50: the same instructions as 00473ab4), then 00420d0c, then the
- * steering frames over them ('t' and 's', left or right, 00473a50); then on
- * the screen the view surface at (0, 0) (004737ec) clipped to the tach's box
- * and to the sped's. */
-static void draw_gauges(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
+static void frame_clip(void *ctx, int32_t left, int32_t right, int32_t top, int32_t bottom)
 {
-    const Cockpit *c = &h->cockpit;
-    QuadTarget view = { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H };
-    if (c->tach != NULL) blit_shape_placed(&view, c->tach);
-    if (c->sped != NULL) {
-        if (car->model == 0xb) blit_shape_placed_transparent(&view, c->sped);
-        else blit_shape_placed(&view, c->sped);
-    }
+    FrameCalls *f = ctx;
+    clip_set(f->target, left, right, top, bottom, f->target == &f->view ? DRIVE_VIEW_W : f->screen.pitch,
+             f->target == &f->view ? DRIVE_VIEW_H : f->screen.clip_bottom);
+}
+
+static void frame_fill(void *ctx, uint32_t colour)
+{
+    const QuadTarget *t = ((FrameCalls *)ctx)->target;
+    flat_fill_rect(t, t->clip_left, t->clip_top, t->clip_right - t->clip_left, t->clip_bottom - t->clip_top, colour);
+}
+
+static void frame_runs(void *ctx, int32_t runs)
+{
+    FrameCalls *f = ctx;
+    blit_runs(f->target, DRIVE_VIEW_W, f->s->h->view, f->s->h->dash_fmm + runs);  /* relocated as 004511a4 does */
+}
+
+static void frame_mirror(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* TODO(0044c060) */
+
+static void frame_clip_box(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    frame_clip(ctx, x, x + w, y, y + h);  /* 0044987c */
+}
+
+static void frame_place_skip(void *ctx, const uint8_t *shape)
+{
+    FrameCalls *f = ctx;
+    if (frame_shapes(f) && shape != NULL) blit_shape_placed_transparent(f->target, shape);
+}
+
+static void frame_place(void *ctx, const uint8_t *shape)
+{
+    FrameCalls *f = ctx;
+    if (frame_shapes(f) && shape != NULL) blit_shape_placed(f->target, shape);
+}
+
+static void frame_present(void *ctx)
+{
+    FrameCalls *f = ctx;
+    blit_shape_placed(f->target, f->s->h->view);
+}
+
+static void frame_gauges(void *ctx)
+{
+    FrameCalls *f = ctx;
+    DriveHud *h = f->s->h;
+    if (!frame_shapes(f)) return;
     NeedleLine *line = &h->needle_line;
     line->left = h->colours.line_left, line->top = h->colours.line_top;
     line->right = h->colours.line_right, line->bottom = h->colours.line_bottom;
-    const CockpitGaugeInputs in = { car->rpm, redline, car->local_velocity_z, car->model, HIGH_RES, ENGLISH,
+    const CockpitGaugeInputs in = { f->car->rpm, f->redline, f->car->local_velocity_z, f->car->model, HIGH_RES, ENGLISH,
                                     h->colours.fade };
-    cockpit_gauges(&view, line, c, &in);
-    const int32_t frame = steer_frame(car->steer);
-    const int left = steer_left(s->race, car);
-    placed_transparent(&view, c->frames[left ? 2 : 4][frame]);  /* 004f966c / 004f96a4: 't' */
-    placed_transparent(&view, c->frames[left ? 3 : 5][frame]);  /* 004f9688 / 004f96c0: 's' */
-    QuadTarget screen = s->screen;
-    clip_set(&screen, c->tach_x, c->tach_x + c->tach_w, c->tach_y, c->tach_y + c->tach_h, DRIVE_VIEW_W, DRIVE_VIEW_H);
-    blit_shape_placed(&screen, h->view);
-    clip_set(&screen, c->sped_x, c->sped_x + c->sped_w, c->sped_y, c->sped_y + c->sped_h, DRIVE_VIEW_W, DRIVE_VIEW_H);
-    blit_shape_placed(&screen, h->view);
+    cockpit_gauges(f->target, line, &h->cockpit, &in);
 }
 
-static void draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
+static void frame_gate(void *ctx)
+{
+    FrameCalls *f = ctx;
+    DriveHud *h = f->s->h;
+    if (!frame_shapes(f)) return;
+    const CockpitSelectOps ops = { f->s, cockpit_select };
+    const CockpitGateInputs in = { 0, h->keys.use_parts, view_clip_inputs(f->screen.pitch, f->screen.clip_bottom), 0 };
+    cockpit_gate(&ops, &h->hud, &h->cockpit, f->car, &in, &h->gate_state);
+}
+
+static void frame_lights(void *ctx)
+{
+    FrameCalls *f = ctx;
+    DriveHud *h = f->s->h;
+    if (frame_shapes(f))
+        cockpit_lights(&f->screen, &h->cockpit, f->s->race->unknown_4b92d4, h->cockpit_world.unknown_4f9b48,
+                       &h->hud.unknown_4f9a80[2]);
+}
+
+static void frame_map(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* drive_hud_draw's copy */
+
+/* 0042270c; 1 when a stop notice was up (004214e4 drew it, nothing else this frame). */
+static int draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
 {
     if (!h->in_car) h->hud.unknown_4f9a20[1] = 1, h->in_car = 1;  /* 0041e364 */
-    blit_shape(&s->screen, h->view, 0, 0, BLIT_OPAQUE);
-    if (h->hud.unknown_4f9a20[1] == 0 && h->hud.unknown_4f9a20[2] == 0) {
-        blit_shape_at_transparent(&s->screen, h->cockpit.dash, 0, 0);
-    } else {
-        cockpit_redraw_now(h, s);
-        h->hud.unknown_4f9a20[1] = h->hud.unknown_4f9a20[2] = 0;
-    }
-    /* 0042270c's wheel ('w', 004f9634 / 004f9650) on the screen: the original draws it when the signed frame
-     * changes (004f9a20) onto a screen it keeps; --drive redraws the dash every frame, so every frame. */
-    placed_transparent(&s->screen, h->cockpit.frames[steer_left(s->race, car) ? 0 : 1][steer_frame(car->steer)]);
-    draw_gauges(h, s, car, redline);
+    const int notice = s->race->stop_notice[0] != 0 || s->race->stop_notice[1] != 0;
+    FrameCalls f = { s, car, redline, { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H },
+                     s->screen, NULL };
+    f.target = &f.screen;
+    const CockpitFrameOps ops = { &f, frame_rand, frame_police, frame_reload, frame_redraw, frame_select, frame_clip,
+                                  frame_fill, frame_runs, frame_none, frame_mirror, frame_clip_box, frame_place_skip,
+                                  frame_place, frame_place_skip, frame_present, frame_gauges, frame_gate, frame_lights,
+                                  frame_none, frame_none, frame_map, frame_none };
+    uint8_t clear_view = 0;
+    int32_t unknown_4b956c = 0;
+    const CockpitFrameWords w = { &h->police.loading, &clear_view, &unknown_4b956c };
+    const CockpitFrameInputs in = { 0, 0, HIGH_RES, 0, s->race->window_size, LIVE_RACE, car->model, h->keys.use_parts,
+                                    h->strip_colour, s->screen.pitch, s->screen.clip_bottom, 0 };
+    cockpit_frame(&ops, &h->hud, s->race, &h->cockpit, car, &w, &in);
+    return notice;
 }
 
 static QuadTarget *map_select(void *ctx, HudSurface s)
@@ -525,20 +587,16 @@ static void draw_map(DriveHud *h, const RaceState *race)
     hud_map_draw(&ops, &in, &h->map_blink);
 }
 
-/* 00422598 / 0042270c's start: while a stop notice is up, 004214e4 and the calls below, nothing else this frame (then 004b9568, the
- * full redraw, or 004f9a24); else 004217a8, the dash loaded again when the notice freed it.
- * 00422598 then runs 00405260 (view_user is --drive's RaceViews) and 0044d640 (nothing outside a replay).
- * 0042270c the same without 00405260. */
-static int police_or_reload(DriveHud *h, RaceState *race, CockpitSurfaces *s, int in_car)
+/* 00422598's start: while a stop notice is up, 004214e4, 00405260 (view_user is --drive's RaceViews) and 0044d640
+ * (nothing outside a replay), nothing else this frame (then 004b9568, the full redraw); else 004217a8, the dash
+ * loaded again when the notice freed it. 0042270c does its own (draw_cockpit). */
+static int police_or_reload(DriveHud *h, RaceState *race, CockpitSurfaces *s)
 {
     if (race->stop_notice[0] != 0 || race->stop_notice[1] != 0) {
         draw_police(h, race, s);
-        if (in_car) h->hud.unknown_4f9a20[1] = 1;
-        else {
-            if (race->view_user != NULL && race->chase.camera != NULL)
-                race_view_reselect(race->view_user, race->chase.camera, race->window_size);
-            h->changed = 1;
-        }
+        if (race->view_user != NULL && race->chase.camera != NULL)
+            race_view_reselect(race->view_user, race->chase.camera, race->window_size);
+        h->changed = 1;
         return 1;
     }
     if (h->dash_fmm != NULL && h->cockpit.bank == NULL) reload_cockpit(h, race, s);
@@ -557,10 +615,12 @@ void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixe
         if (h->cockpit_ready) draw_map(h, race);
         CockpitSurfaces s = { h, race, { pixels, width, 0, 0, width, height },
                               { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
-        if (police_or_reload(h, race, &s, in_car)) return;
-        in_car = in_car && h->cockpit_ready;
-        if (in_car) draw_cockpit(h, &s, car, redline);
-        else draw_mask(h, race, pixels, width, height);
+        if (in_car) {
+            if (draw_cockpit(h, &s, car, redline)) return;
+        } else {
+            if (police_or_reload(h, race, &s)) return;
+            draw_mask(h, race, pixels, width, height);
+        }
     }
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
     draw_keys(h, race, &t);
