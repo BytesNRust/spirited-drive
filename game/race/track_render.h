@@ -107,6 +107,12 @@ int track_visible_near(const MirrorBounds *b, const int32_t s[8], int strip, int
  * track_visible_near. */
 int track_visible_far(const ClipRect *clip, const int32_t s[8], int strip, int mirrored);
 
+/* 004497d8 (watcall segment): the road direction across the camera's
+ * segment, camera[next] - camera[0] (next: the segment's point count, the
+ * short at 0050422c), 32-bit wrap; z of magnitude below 0x1999 (INT32_MIN
+ * too) becomes 0x1999. */
+void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[3]);
+
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */

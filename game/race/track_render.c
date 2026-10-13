@@ -2,6 +2,7 @@
 
 #include "game/race/track_geometry.h"
 #include "game/race/track_tables.h"
+#include "game/gfx/x86_int.h"
 #include "game/sys/fixed_math.h"
 
 #include <string.h>
@@ -208,6 +209,14 @@ static int32_t clamp_symmetric(int32_t v, int32_t limit)
     return v;
 }
 
+/* 004497d8 */
+void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[3])
+{
+    for (int k = 0; k < 3; k++) dir[k] = x_sub(camera[next][k], camera[0][k]);
+    const int32_t z = dir[2] > 0 ? dir[2] : x_sub(0, dir[2]);
+    if (z < MIN_DIR_Z) dir[2] = MIN_DIR_Z;
+}
+
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx)
 {
     const int shift = ctx->world_shift;
@@ -217,11 +226,9 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
                                (r->world[i][2] >> shift) + offset[2] };
         mat3_apply(t, cam->matrix, r->camera[i]);
     }
-    /* 004497d8: the road direction across the camera's segment. */
     const TrackSegmentRecord *first = crecord(r, cam->node / 4);
-    const int next = first != NULL && first->count < r->vertex_count ? first->count : 0;
-    for (int k = 0; k < 3; k++) ctx->near_dir[k] = r->camera[next][k] - r->camera[0][k];
-    if ((ctx->near_dir[2] < 0 ? -ctx->near_dir[2] : ctx->near_dir[2]) < MIN_DIR_Z) ctx->near_dir[2] = MIN_DIR_Z;
+    const int next = first != NULL && first->count >= 0 && first->count < r->vertex_count ? first->count : 0;  /* port guard */
+    track_near_direction((const int32_t (*)[3])r->camera, next, ctx->near_dir);
 
     const int32_t near = NEAR_PLANE >> shift;
     const int near_count = r->vertex_count - (TRACK_DRAW_SEGMENTS - 3) * ROW_POINTS;
