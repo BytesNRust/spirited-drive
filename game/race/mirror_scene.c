@@ -171,6 +171,13 @@ void *mirror_create(void *(*make)(void *ctx, int32_t width, int32_t height, int3
     return make(ctx, *width, *height, 0);
 }
 
+void mirror_free(void (*release)(void *ctx, void *picture), void *ctx, void **picture)
+{
+    if (*picture == NULL) return;
+    release(ctx, *picture);
+    *picture = NULL;
+}
+
 void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int32_t state, int32_t x, int32_t y)
 {
     if (state != 0) place(ctx, x, y);

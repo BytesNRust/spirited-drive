@@ -159,6 +159,10 @@ void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_
 void *mirror_create(void *(*make)(void *ctx, int32_t width, int32_t height, int32_t flags), void *ctx,
                     const int32_t box[4], int32_t *width, int32_t *height);
 
+/* 0044bdbc: the picture (004c2d94) freed (00475260) when there is one, then
+ * NULL. */
+void mirror_free(void (*release)(void *ctx, void *picture), void *ctx, void **picture);
+
 /* 0044c060 (watcall (x, y), from 0042270c): with 00511ff4 set, the
  * picture's shape (004c2d94 +0x2c) placed at x, y (004737d0). */
 void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int32_t state, int32_t x, int32_t y);
