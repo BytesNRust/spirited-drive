@@ -30,6 +30,18 @@ void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored,
     mat3_mul(u, flip, out);
 }
 
+void track_camera_rear_matrix(int32_t pitch, int32_t yaw, int32_t roll, int32_t out[9])
+{
+    int32_t x[9], y[9], z[9], t[9], u[9], half[9];
+    mat3_rotate_x(x, pitch);
+    mat3_rotate_z(z, roll);
+    mat3_rotate_y(y, yaw);
+    mat3_rotate_y(half, 0x800000);
+    mat3_mul(y, z, t);
+    mat3_mul(t, x, u);
+    mat3_mul(u, half, out);
+}
+
 /* ---- vertex list (0043f48c, 0043eca4) ---- */
 
 static TrackSegmentRecord *record(TrackRender *r, int32_t segment)

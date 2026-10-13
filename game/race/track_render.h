@@ -75,6 +75,10 @@ typedef struct {
 /* 004496ac: camera matrix from pitch (+0x40), yaw (+0x44) and roll (+0x48),
  * 24-bit angles; mirrored for the "m" tracks (004fbad8). */
 void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored, int32_t out[9]);
+/* 004496ac's last product (camera struct +0xb8, the mirror's): yaw, roll and
+ * pitch as for the front, then a half turn (0x800000) about y; no scale, no
+ * mirroring. */
+void track_camera_rear_matrix(int32_t pitch, int32_t yaw, int32_t roll, int32_t out[9]);
 
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
