@@ -32,3 +32,9 @@ void menu_sound_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSou
 {
     if (music_allowed(m, c) && m->music_on) ops->voice_stop(ops->ctx, m->music);
 }
+
+/* 00464604 */
+void menu_sound_music_fade_to(const MenuSound *m, const ConfigDat *c, int volume, const MenuSoundOps *ops)
+{
+    if (music_allowed(m, c)) ops->voice_ramp(ops->ctx, m->music, 0x32, (int16_t)volume);
+}

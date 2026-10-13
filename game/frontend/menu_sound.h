@@ -38,4 +38,8 @@ void menu_sound_music_fade_out(const MenuSound *m, const ConfigDat *c, const Men
 /* 00464534: 00473c68 on the music's voice, under the same four guards. */
 void menu_sound_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
+/* 00464604: 00473b00 on the music's voice with 0x32 and the short volume,
+ * under the guards but whether the music plays. */
+void menu_sound_music_fade_to(const MenuSound *m, const ConfigDat *c, int volume, const MenuSoundOps *ops);
+
 #endif
