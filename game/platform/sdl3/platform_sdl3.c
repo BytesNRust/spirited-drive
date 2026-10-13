@@ -280,13 +280,18 @@ static SDL_Scancode from_set1(int scancode)
     case 0x01: return SDL_SCANCODE_ESCAPE;
     case 0x15: return SDL_SCANCODE_Y;
     case 0x1C: return SDL_SCANCODE_RETURN;
+    case 0x11: return SDL_SCANCODE_W;
+    case 0x13: return SDL_SCANCODE_R;
     case 0x1D: return SDL_SCANCODE_LCTRL;
     case 0x1E: return SDL_SCANCODE_A;
+    case 0x23: return SDL_SCANCODE_H;
     case 0x24: return SDL_SCANCODE_J;
     case 0x2A: return SDL_SCANCODE_LSHIFT;
     case 0x2C: return SDL_SCANCODE_Z;
     case 0x2E: return SDL_SCANCODE_C;
+    case 0x30: return SDL_SCANCODE_B;
     case 0x31: return SDL_SCANCODE_N;
+    case 0x32: return SDL_SCANCODE_M;
     case 0x36: return SDL_SCANCODE_RSHIFT;
     case 0x38: return SDL_SCANCODE_LALT;
     case 0x39: return SDL_SCANCODE_SPACE;

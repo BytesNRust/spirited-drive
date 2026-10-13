@@ -21,6 +21,7 @@
 #include "viewer/camera.h"
 #include "game/race/race_view.h"
 #include "viewer/drive_hud.h"
+#include "viewer/drive_input.h"
 #include "viewer/drive_palette.h"
 #include "viewer/drive_smoke.h"
 #include "viewer/model_view.h"
@@ -353,18 +354,12 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
  * view kinds (the race turns to 13 while the car does not face the road:
  * turned more than 0x1e0000 from it, or pitched or rolled past 0x240000). */
 enum {
-    KEY_A = 0x1E,
-    KEY_Z = 0x2C,
-    KEY_SPACE = 0x39,
-    KEY_UP = 0x48,
-    KEY_DOWN = 0x50,
-    KEY_LEFT = 0x4B,
-    KEY_RIGHT = 0x4D,
     KEY_C = 0x2E,
     DRIVE_VIEW = 5            /* the kind the record takes attached to a car (004f8020) */
 };
 
 static RaceSim drive_sim;
+static DriveInput drive_input;
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
@@ -426,19 +421,6 @@ enum {
     DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in (the frontend's is not read) */
     FULL_FIELD = 8          /* entries[1].car asking 00457870 for the eight-car field */
 };
-
-static uint32_t read_input(void)
-{
-    uint32_t steer = 0x20, pedal = 0x1e, keys = 0;
-    if (platform_key_down(KEY_LEFT)) steer = 0;
-    if (platform_key_down(KEY_RIGHT)) steer = 0x3f;
-    if (platform_key_down(KEY_UP)) pedal = 0;
-    if (platform_key_down(KEY_DOWN)) pedal = 0x3f;
-    if (platform_key_down(KEY_A)) keys |= 0x1000;
-    if (platform_key_down(KEY_Z)) keys |= 0x2000;
-    if (platform_key_down(KEY_SPACE)) keys |= 0x8000;
-    return steer | pedal << 6 | keys;
-}
 
 /* The eye where 004046b0 last placed it, angles as 004496ac reads them. */
 static PortedCamera chase_camera(const RaceChase *chase, uint32_t ring_nodes)
@@ -624,6 +606,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
+    drive_input_start(&drive_input, &drive_sim.race);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
     memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
     drive_views.mode = HIGH_SCREEN;
@@ -704,7 +687,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
         const int c = platform_key_down(KEY_C);
         if (c && !c_down) next_view();
         c_down = c;
-        if ((frame++ & 1) == 0) drive_tick(read_input());
+        if ((frame++ & 1) == 0) drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
         render_drive(t, pixels);
         for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
             palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
