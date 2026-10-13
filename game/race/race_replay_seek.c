@@ -171,3 +171,33 @@ void race_replay_tick(RaceState *race, const RaceReplayTickOps *ops)
         ops->record(ops->ctx);
     race->replay_mark_countdown = x_sub(race->replay_mark_countdown, 1);
 }
+
+enum {
+    PICK_TENTHS = 10, PICK_SLOT2_FROM = 6, PICK_LOW = 0xd6, PICK_HIGH = 0xf7, PICK_FAR_FROM = 8, KIND_FAR = 2,
+    PICK_MID_LOW = 0xdb, PICK_MID_HIGH = 0xe3, PICK_MID_KINDS = 5, PICK_KINDS = 4
+};
+
+void race_replay_camera(RaceState *race, int32_t word)
+{
+    const int behind2 = race_chase_ahead_of_slot2(race, AHEAD_AFTER, AHEAD_UPTO);
+    const int behind_other = race_chase_ahead_of_other(race, AHEAD_AFTER, AHEAD_UPTO);
+    int32_t kind, slot = race->player;
+    if (!behind2 && !behind_other) {
+        if (word >= PICK_LOW && word <= PICK_HIGH && race_rand_below(race, PICK_TENTHS) >= PICK_FAR_FROM)
+            kind = KIND_FAR;
+        else if (word >= PICK_MID_LOW && word <= PICK_MID_HIGH)
+            kind = race_rand_below(race, PICK_MID_KINDS);
+        else
+            kind = race_rand_below(race, PICK_KINDS) + 1;
+    } else if (!behind2 || !behind_other) {
+        kind = behind2 ? KIND_SLOT2 : KIND_OTHER;
+    } else {
+        kind = race_rand_below(race, PICK_TENTHS) < PICK_SLOT2_FROM ? KIND_OTHER : KIND_SLOT2;
+    }
+    if (kind == KIND_SLOT2) slot = SLOT2;
+    else if (kind == KIND_OTHER) slot = race->player == 0;
+    race->chase.next_kind = kind;
+    if (race->sounds.camera != NULL) race->sounds.camera(race->sounds.user, slot, kind);
+    if (race->unknown_512f78 >= 0 && kind > 0) (void)race_rand_below(race, PICK_TENTHS);
+    race->camera_roll_add = 0;
+}

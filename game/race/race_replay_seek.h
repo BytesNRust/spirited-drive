@@ -38,6 +38,17 @@ typedef struct {
  * the player's car is in physics 1 or 2, else 0044435c. */
 void race_replay_seek(RaceState *race, const RaceReplaySeekOps *ops, int32_t clock, int32_t mark);
 
+/* 0044eb34 (eax a word of 00512d9c's row; from 0044ed3f in 0044ecc4): the
+ * replay's camera. 0043f8f8(0, 5) (slot 2's car just behind) and
+ * 0043f948(0, 5) (the other of slots 0 and 1): both: race_rand_below(10)
+ * < 6 picks 6, else 7; one: that one; 6 follows the other of slots 0 and
+ * 1, 7 slot 2's car. Neither: the player's car in 2 when the word is
+ * 0xd6..0xf7 and race_rand_below(10) >= 8, else 0..4 (race_rand_below(5))
+ * for 0xdb..0xe3, else 1..4. The kind to the record's next kind (004f8020),
+ * the camera follows; 00512f78 >= 0 and the kind above 0 draw one more
+ * race_rand_below(10), unused; 004c53a8 = 0. */
+void race_replay_camera(RaceState *race, int32_t word);
+
 typedef struct {
     void *ctx;
     void (*input_tick)(void *ctx, int32_t clock);               /* 004397f4 */

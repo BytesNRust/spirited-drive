@@ -349,6 +349,7 @@ typedef struct {
      * after each), the clock 004397f4 takes its slot from (004c5590) and
      * the dropped network game (0052b314) */
     int32_t replay_mark_countdown, input_clock;
+    int32_t unknown_512f78;         /* 00512f78: 0044ecc4 picks the camera from 00512d9c[it] (12 bytes a row) when above -2 */
     int16_t dropped;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
