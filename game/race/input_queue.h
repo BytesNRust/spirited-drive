@@ -11,7 +11,7 @@ enum { INPUT_SLOTS = 64 };
 typedef struct {
     int32_t active;                /* +0: 0 takes nothing */
     int32_t gave_up;               /* +4: set by 004397f4 after 4000 idle polls */
-    int32_t unknown_8;             /* +8: 2 more each slot 00439b24 fills itself */
+    int32_t clock;                 /* +8: twice the next slot to fill (00439738) */
     int16_t input[INPUT_SLOTS];    /* +0xc: the slot's control word */
     int16_t ready[INPUT_SLOTS];    /* +0x8c: the slot holds a word not yet taken */
     int16_t filled[INPUT_SLOTS];   /* +0x10c: the slot's word is in already */
@@ -29,7 +29,8 @@ typedef struct {
     int32_t w4fbb0c;    /* 004fbb0c */
     int32_t player;     /* 004fbb08 */
     int32_t waiting;    /* 004bb8e8: written */
-} InputTakeWords;
+    int32_t w4fcdac;    /* 004fcdac: written */
+} InputWords;
 
 /* 00439a7c (eax queue, edx control, ebx slot), returns 1 when the control
  * word is set. An inactive queue: 1, nothing changed. Playback and dropped
@@ -40,17 +41,25 @@ typedef struct {
  * waiting = 1 unless playback is 1 or *control (the caller's player index)
  * is the followed player. Taken: *control = input[slot] sign-extended, the
  * slot no longer ready. */
-int input_take(InputQueue *q, uint32_t *control, int slot, InputTakeWords *w);
+int input_take(InputQueue *q, uint32_t *control, int slot, InputWords *w);
 
 /* 00439b24 (no arguments): slot = (clock 004fb7a0 / 2, toward zero) & 63.
  * For each of the humans (004fb7e0, at most 8: a ninth queue would run
  * into 004fb704) queues: gave up: input[slot] = 0x803f
- * (steering full, no pedal, handbrake) and +8 += 2; else a slot not filled
+ * (steering full, no pedal, handbrake) and the queue's clock += 2; else a slot not filled
  * repeats the slot before it (63 before 0), or 0x87a0 when stand_in[i]
- * (004f82a0) is set, and +8 += 2; then the slot is ready and not filled.
+ * (004f82a0) is set, and the queue's clock += 2; then the slot is ready and not filled.
  * Then clock += 2 and 00445e00(0, words, 18): the word 2, then each human's
  * input[slot] (the stack buffer holds 10 words; past the humans its words
  * are whatever the stack held, 0 here). */
 void input_store(InputQueue *queues, int32_t *clock, int32_t humans, const int16_t *stand_in, const InputSendOps *ops);
+
+/* 00439738 (eax queue, edx word): nothing for an inactive queue. slot =
+ * (clock / 2, toward zero) & 63. Playback 1: when the slot is still ready,
+ * or filled with 004fbb0c set, and not dropped yet: dropped = 1, 004fcdac =
+ * 1, waiting = 1. Otherwise: waiting = 1 when slot + 42 (& 63) is ready
+ * (the reader is 22 slots behind). Then the slot is ready and filled with
+ * the word, clock += 2. */
+void input_put(InputQueue *q, int16_t word, InputWords *w);
 
 #endif
