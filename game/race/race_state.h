@@ -110,6 +110,11 @@ typedef struct {
     /* 0043d120 (0): with 004fcdd4 set, 0043cbf4 lets the controls' force
      * go (00444394, the wall tones on); NULL for none. */
     void (*force_release)(void *user);
+    /* 004acd72 / 004acd6c (_XVibration, _YVibration; axis 0 / 1): the
+     * controls shake with three words (cdecl, as the exe passes them);
+     * 004acd7e / 004acd78 (_X / _YVibrationClear) stop it. NULL for none. */
+    void (*vibration)(void *user, int32_t axis, int32_t a, int32_t b, int32_t c);
+    void (*vibration_clear)(void *user, int32_t axis);
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */
@@ -305,6 +310,9 @@ typedef struct {
     int32_t frontend_laps_word;     /* 00524e9f: the high half is the laps chosen */
     int32_t force_off;              /* 004fcdd4: non-zero keeps 0043ce08 from sending the force */
     int32_t force_x, force_y;       /* 004bb8f8, 004bb8fc: the force last sent */
+    /* 0043ce88's: the x and y shakes on (004bb8ec, 004bb8f0), the level and
+     * strength last sent (004bb900, 004bb904) */
+    int32_t vibration_x_on, vibration_y_on, vibration_level, vibration_strength;
     int32_t laps_setting;           /* 004fbac4: the laps chosen (0042702c) */
     int32_t record_slot;            /* 004fbad4 (00524ea3): which of a circuit's saved records the rival runs to */
     const uint8_t *records;         /* 00524ec0: the saved track records, 0xa6b bytes a track; NULL reads 0 */

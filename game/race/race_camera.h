@@ -22,4 +22,15 @@ void race_camera_pick(RaceState *race, const Car *car);
  * +100 either way; sent only when it differs from the last. */
 void race_send_force(const Car *car, RaceState *race);
 
+/* 0043ce88 (eax the player's car; from 00441453 with 0052b320 set): the
+ * controls' shake from the speed (+0x68 while the viewed car is a human's,
+ * else +0x15c): |speed| x 0x23d70 >> 16 rounded, >> 16 again. 0: both
+ * shakes cleared (those on). Else a level and strength from the speed
+ * (below 5, 10, 15, 20, 30, 40, 80, 150: 5..12 with 0xf..0x16; else 13,
+ * 0x18), by the car's surface (+0x4a2): 1 _XVibration(s - 2, s - 2, l - 2),
+ * 2 (s, s, l), 3 (s, s, 1) then _YVibration(0, s - 4, l with l = 1 after
+ * an x send), each sent when its shake is off or the pair changed; 0 and
+ * any other clear them. The pair kept, except after a send's return. */
+void race_send_vibration(const Car *car, RaceState *race);
+
 #endif

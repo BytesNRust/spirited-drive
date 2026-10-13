@@ -2,6 +2,9 @@
 #include "game/race/race_camera.h"
 
 #include "game/race/race_chase.h"
+#include "game/gfx/x86_int.h"
+
+#include <stdint.h>
 
 enum {
     HALF_TURN = 0x800000,         /* 24-bit angles */
@@ -63,4 +66,86 @@ void race_camera_pick(RaceState *race, const Car *car)
         kind = chase->next_kind == 0 ? KIND_DRIVER : chase->next_kind == KIND_IN_CAR ? KIND_DRIVER_2 : chase->next_kind;
     }
     race_chase_take(race, chase, kind);
+}
+
+enum {
+    SHAKE_X, SHAKE_Y,
+    SHAKE_SCALE = 0x23d70, SHAKE_SHIFT = 16,
+    SURFACE_NONE = 0, SURFACE_SOFT = 1, SURFACE_HARD = 2, SURFACE_BOTH = 3,
+    SOFT_DROP = 2, Y_DROP = 4, BOTH_LEVEL = 1
+};
+
+/* 0043ce88's speed steps: below `upto`, the level and the strength */
+static const struct {
+    int32_t upto, level, strength;
+} SHAKES[] = { { 5, 5, 0xf }, { 10, 6, 0x10 }, { 15, 7, 0x11 }, { 20, 8, 0x12 }, { 30, 9, 0x13 },
+               { 40, 10, 0x14 }, { 80, 11, 0x15 }, { 150, 12, 0x16 }, { INT32_MAX, 13, 0x18 } };
+
+static void shake_clear(RaceState *race, int32_t axis)
+{
+    int32_t *on = axis == SHAKE_X ? &race->vibration_x_on : &race->vibration_y_on;
+    if (*on == 0) return;
+    if (race->sounds.vibration_clear != NULL) race->sounds.vibration_clear(race->sounds.user, axis);
+    *on = 0;
+}
+
+static int shake_due(const RaceState *race, int32_t on, int32_t level, int32_t strength)
+{
+    return on == 0 || level != race->vibration_level || strength != race->vibration_strength;
+}
+
+static void shake(RaceState *race, int32_t axis, int32_t a, int32_t b, int32_t c)
+{
+    *(axis == SHAKE_X ? &race->vibration_x_on : &race->vibration_y_on) = 1;
+    if (race->sounds.vibration != NULL) race->sounds.vibration(race->sounds.user, axis, a, b, c);
+}
+
+static void keep_shake(RaceState *race, int32_t level, int32_t strength)
+{
+    race->vibration_strength = strength;
+    race->vibration_level = level;
+}
+
+void race_send_vibration(const Car *car, RaceState *race)
+{
+    int32_t speed = race->viewed < race->humans ? car->local_velocity_z : car->ai_speed;
+    if (speed <= 0) speed = x_sub(0, speed);
+    const int64_t product = (int64_t)speed * SHAKE_SCALE;
+    const int32_t rounded = (int32_t)(uint32_t)((uint64_t)(product >> SHAKE_SHIFT) + (uint64_t)(product >> (SHAKE_SHIFT - 1) & 1));
+    const int32_t step = rounded >> SHAKE_SHIFT;
+    if (step == 0) {
+        shake_clear(race, SHAKE_X);
+        shake_clear(race, SHAKE_Y);
+        return;
+    }
+    size_t k = 0;
+    while (step >= SHAKES[k].upto) k++;
+    int32_t level = SHAKES[k].level;
+    const int32_t strength = SHAKES[k].strength;
+    switch (car->surface) {
+    case SURFACE_SOFT:
+        if (!shake_due(race, race->vibration_x_on, level, strength)) break;
+        shake(race, SHAKE_X, strength - SOFT_DROP, strength - SOFT_DROP, level - SOFT_DROP);
+        keep_shake(race, level, strength);
+        return;
+    case SURFACE_HARD:
+        if (!shake_due(race, race->vibration_x_on, level, strength)) break;
+        shake(race, SHAKE_X, strength, strength, level);
+        keep_shake(race, level, strength);
+        return;
+    case SURFACE_BOTH:
+        if (shake_due(race, race->vibration_x_on, level, strength)) {
+            shake(race, SHAKE_X, strength, strength, BOTH_LEVEL);
+            level = BOTH_LEVEL;
+        }
+        if (!shake_due(race, race->vibration_y_on, level, strength)) break;
+        shake(race, SHAKE_Y, 0, strength - Y_DROP, level);
+        keep_shake(race, level, strength);
+        return;
+    default:  /* 0 and any other (an unsigned test) */
+        shake_clear(race, SHAKE_X);
+        shake_clear(race, SHAKE_Y);
+        break;
+    }
+    keep_shake(race, level, strength);
 }
