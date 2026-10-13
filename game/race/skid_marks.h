@@ -3,6 +3,7 @@
 #ifndef TNFS_SKID_MARKS_H
 #define TNFS_SKID_MARKS_H
 
+#include "game/gfx/quad.h"
 #include "game/race/car_struct.h"
 
 #include <stdint.h>
@@ -36,6 +37,12 @@ typedef struct {
     int32_t tick;               /* 00513e70 */
     int32_t surface_word;       /* 004fa9b0[car +0x4a2] +0xc */
 } SkidInputs;
+
+/* 00459e1c (watcall (x0, y0, x1, y1; s, t, width), ret 0xc): the stroke
+ * from (x0, y0) to (x1, y1) drawn (00491fa0) when either end lies on the
+ * left of s -> t or on it (the 32-bit cross products' signs). */
+void skid_stroke(const QuadTarget *target, const uint8_t *remap, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                 const int32_t s[2], const int32_t t[2], int32_t width);
 
 /* 004596a8 (car; forward, side, point: 0045a3e8's box >> 10 and road
  * point). */

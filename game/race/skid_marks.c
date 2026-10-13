@@ -1,12 +1,26 @@
 /* The followed car's skid marks (004596a8). */
 #include "game/race/skid_marks.h"
 
+#include "game/gfx/thick_line.h"
 #include "game/gfx/x86_int.h"
 
 #include <string.h>
 
 enum { SKID_FROM = 0x3c0000, SKID_TYRES = 3, MARK_STEP = 0xa666, MARK_SMOOTH = 0x30000, BEFORE_FIRST = 0x7d,
        MARK_SMOOTHED = 12 };
+
+/* (t - s) x (p - s), 32-bit. */
+static int32_t side_of(const int32_t s[2], const int32_t t[2], int32_t x, int32_t y)
+{
+    return x_sub(x_mul(x_sub(t[1], s[1]), x_sub(x, s[0])), x_mul(x_sub(t[0], s[0]), x_sub(y, s[1])));
+}
+
+void skid_stroke(const QuadTarget *target, const uint8_t *remap, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                 const int32_t s[2], const int32_t t[2], int32_t width)
+{
+    if (side_of(s, t, x0, y0) < 0 && side_of(s, t, x1, y1) < 0) return;
+    thick_line_shade(target, remap, x0, y0, x1, y1, width);
+}
 
 static int32_t next_of(int32_t i)
 {
