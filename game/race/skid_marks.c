@@ -22,6 +22,20 @@ void skid_stroke(const QuadTarget *target, const uint8_t *remap, int32_t x0, int
     thick_line_shade(target, remap, x0, y0, x1, y1, width);
 }
 
+void skid_rows(SkidMarks *m, const SkidRing *ring, int32_t node)
+{
+    if (ring->alternate != 0) return;
+    memset(m->rows, 0, SKID_ROWS);
+    const int32_t base = x_sub(node, 2) & ring->node_mask;
+    for (int32_t i = 0; i < SKID_RECORDS; i++) {
+        if (m->marks[i][SKID_FRONT_ON] == 0 && m->marks[i][SKID_REAR_ON] == 0) continue;
+        int32_t d = m->marks[i][SKID_NODE];
+        if (d < base) d = x_add(d, x_shl(ring->segments, 2));
+        d = x_sub(d, base);
+        if (d < SKID_ROWS) m->rows[d] = 1;
+    }
+}
+
 static int32_t next_of(int32_t i)
 {
     return i + 1 < SKID_RECORDS ? i + 1 : 0;
