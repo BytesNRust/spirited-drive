@@ -248,9 +248,8 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
 
 static const int TRIANGLES[3][3] = { { 1, 2, 3 }, { 3, 0, 1 }, { 2, 3, 0 } };  /* 004c5320.. */
 
-/* 00449f0c / 0048f750: twice the signed area of a screen triangle, reversed
- * on mirrored tracks. 32-bit wrap as in the original. */
-static int32_t winding(const int32_t *s, const int *tri, int mirrored)
+/* 00449f0c / 0048f750 */
+int32_t track_winding(const int32_t *s, const int tri[3], int mirrored)
 {
     const int a = mirrored ? tri[2] : tri[0], b = tri[1], c = mirrored ? tri[0] : tri[2];
     const uint32_t ax = (uint32_t)s[2 * a], ay = (uint32_t)s[2 * a + 1];
@@ -263,7 +262,7 @@ static int32_t winding(const int32_t *s, const int *tri, int mirrored)
 static int faces_camera(const int32_t *s, int strip, int triangles, int mirrored)
 {
     for (int t = 0; t < triangles; t++) {
-        const int32_t w = winding(s, TRIANGLES[t], mirrored);
+        const int32_t w = track_winding(s, TRIANGLES[t], mirrored);
         if (strip < 5 ? w < 0 : w >= 1) return 1;
     }
     return 0;

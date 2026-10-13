@@ -89,6 +89,11 @@ void track_point_screen(const TrackCamera *cam, const DrawContext *ctx, const in
  * within 0x800 of 0, else 0. */
 int track_quad_on_screen(const int32_t s[8]);
 
+/* 00449f0c / 0048f750: twice the signed area of the screen triangle whose
+ * points (x, y pairs in s) tri names, its first and last swapped on
+ * mirrored tracks (004fbad8); 32-bit wrap as in the original. */
+int32_t track_winding(const int32_t *s, const int tri[3], int mirrored);
+
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */
