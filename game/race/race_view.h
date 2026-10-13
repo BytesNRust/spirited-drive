@@ -71,4 +71,20 @@ void race_view_select(RaceViews *views, RaceCamera *camera, int32_t view, int32_
  * the view is negative. */
 void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size);
 
+/* The follow record's two cameras and their matrices: +0x88 and +0x94 ahead,
+ * +0x8c and +0xb8 behind (the mirror). */
+typedef struct {
+    const RaceCamera *front, *rear;
+    const int32_t *front_matrix, *rear_matrix;
+} RaceCameraPair;
+
+/* 0040586c (watcall (chase, rear)): the camera (into 00511fe8) and matrix
+ * (00511fe4) for the side; the projection set from the camera's layout box
+ * (+0x1c: x + left, y + top, width, height) and fov both ways (00475f68,
+ * 00475fab; the camera's own reciprocal table, 00475e30, being the one
+ * 00475e44 makes for it); ahead the centre moves by 004f8010 / 004f8014;
+ * then both centres shift left by 004c2d84. */
+void race_camera_view(View *view, const RaceCameraPair *pair, int rear, const int32_t shake[2], int32_t screen_shift,
+                      const RaceCamera **camera, const int32_t **matrix);
+
 #endif

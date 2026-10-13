@@ -1,6 +1,8 @@
 /* The race's views (race_view.h). */
 #include "game/race/race_view.h"
 
+#include "game/gfx/x86_int.h"
+
 void race_view_layout(RaceViews *views, RaceCamera *camera, int32_t layout)
 {
     camera->layout = layout;
@@ -23,6 +25,18 @@ void race_view_select(RaceViews *views, RaceCamera *camera, int32_t view, int32_
         race_view_layout(views, camera, row->layouts[size]);
     }
     views->changed = 1;
+}
+
+void race_camera_view(View *view, const RaceCameraPair *pair, int rear, const int32_t shake[2], int32_t screen_shift,
+                      const RaceCamera **camera, const int32_t **matrix)
+{
+    const RaceCamera *c = rear ? pair->rear : pair->front;
+    *camera = c;
+    *matrix = rear ? pair->rear_matrix : pair->front_matrix;
+    const ViewLayout *l = c->layout_row;
+    view_init(view, x_add(l->x, l->left), x_add(l->y, l->top), l->width, l->height, c->fov, c->fov);
+    if (!rear) view->centre_x = x_add(view->centre_x, shake[0]), view->centre_y = x_add(view->centre_y, shake[1]);
+    view->centre_x = x_shl(view->centre_x, screen_shift & 31), view->centre_y = x_shl(view->centre_y, screen_shift & 31);
 }
 
 void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size)
