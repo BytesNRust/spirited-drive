@@ -12,10 +12,7 @@
 static const int16_t DEFAULT_CONFIG[INPUT_CONFIG_WORDS] = { 0, 0, 0, 0x4b00, 0x4d00, 0x4800, 0x5000,
                                                             0x41, 0x5a, 0x20, 0x43, 0x48, 0x4d };
 
-/* 0043915c's three-key gear trick (input_read.c) reads these codes directly. */
-static const uint8_t CHEAT_CODES[] = { 0x30, 0x13, 0x11 };
-
-enum { WAIT_LIMIT = 4000 };  /* a stand-in for 004397f4's idle count: the queue is filled before each take */
+enum { WAIT_LIMIT = 4000, KEY_CODES = 0x59 };  /* set-1 codes up to F12 */  /* a stand-in for 004397f4's idle count: the queue is filled before each take */
 
 typedef struct {
     DriveInput *in;
@@ -39,7 +36,7 @@ static uint32_t read_word(void *ctx)
     const InputReadOps ops = { NULL, no_pad, { NULL, no_range, no_buttons, pointer_x } };
     InputPad pad = { 0, 0, 0 };
     MouseSteerWords mouse = { c->race->replay, c->race->viewed, 0, c->race->unknown_513e6c, 0, 0, 0x20 };
-    const InputReadInputs inputs = { c->in->keys, c->in->codes, c->in->stand_in, c->race->controls,
+    const InputReadInputs inputs = { c->in->keys, c->in->codes, c->in->stand_in_block + 1, c->race->controls,
                                      c->race->entries, 0, 0, 0 };
     return input_read(&ops, &pad, &mouse, &inputs);
 }
@@ -72,18 +69,15 @@ void drive_input_start(DriveInput *in, RaceState *race)
     in->queues[0].active = 1;
 }
 
-static void read_keys(DriveInput *in)
+void drive_input_read_keys(DriveInput *in)
 {
     memset(in->keys, 0, sizeof in->keys);
-    for (int i = 0; i < INPUT_KEY_CODES; i++)
-        if (in->codes[i] > 0 && in->codes[i] < 256) in->keys[in->codes[i]] = platform_key_down(in->codes[i]);
-    for (size_t i = 0; i < sizeof CHEAT_CODES; i++) in->keys[CHEAT_CODES[i]] = platform_key_down(CHEAT_CODES[i]);
+    for (int code = 1; code < KEY_CODES; code++) in->keys[code] = platform_key_down(code);
 }
 
 uint32_t drive_input_tick(DriveInput *in, RaceState *race)
 {
     DriveCtx c = { in, race, { race->playback, 0, 1, 0, 0, 0 }, 0, NULL };
-    read_keys(in);
     const InputPollOps poll = { &c, read_word, no_send, put_word, no_call };
     InputPollWords pw = { race->replay, race->playback, 0, 1, 0, 0 };
     input_poll(&poll, &pw);
@@ -91,7 +85,7 @@ uint32_t drive_input_tick(DriveInput *in, RaceState *race)
     c.dropped = &tw.dropped;
     const InputTickOps tick = { &c, take_word, no_call, wait_service, no_call, no_call, no_call, no_drop };
     uint32_t inputs[RACE_PLAYERS] = { 0 };
-    input_tick(&tick, &tw, in->ticks, in->queues, inputs, in->stand_in, race->players, race->launch_ready);
+    input_tick(&tick, &tw, in->ticks, in->queues, inputs, in->stand_in_block + 1, race->players, race->launch_ready);
     in->ticks += 2;
     return inputs[0];
 }

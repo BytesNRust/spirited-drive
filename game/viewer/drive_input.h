@@ -14,15 +14,18 @@ typedef struct {
     InputQueue queues[RACE_PLAYERS];  /* 004faa7c */
     int32_t codes[INPUT_KEY_CODES];   /* 004fb6dc */
     uint8_t keys[256];                /* 004c693c: a flag per key code */
-    int16_t stand_in[RACE_PLAYERS];   /* 004f82a0 */
+    int16_t stand_in_block[1 + RACE_PLAYERS];  /* 004f829e: the kind word (0041019c), then 004f82a0's stand-ins */
     int32_t ticks;                    /* the tick's clock (004bb8e0's role): twice the ticks taken */
 } DriveInput;
 
 /* 00426ddc on config.dat's default words for player 0; the player's queue on. */
 void drive_input_start(DriveInput *in, RaceState *race);
 
-/* One tick's word for player 0: the keys read, polled into the queue and
- * taken back for the tick. */
+/* Every key code's flag (004c693c) from the keys held now. */
+void drive_input_read_keys(DriveInput *in);
+
+/* One tick's word for player 0 from the keys last read, polled into the
+ * queue and taken back for the tick. */
 uint32_t drive_input_tick(DriveInput *in, RaceState *race);
 
 #endif

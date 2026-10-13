@@ -22,6 +22,7 @@
 #include "game/race/race_view.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
+#include "viewer/drive_keys.h"
 #include "viewer/drive_palette.h"
 #include "viewer/drive_smoke.h"
 #include "viewer/model_view.h"
@@ -350,16 +351,18 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
  * the follow camera (race_chase) on the player's car. Keys as the game's
  * defaults: arrows steer and work the pedals, A and Z change gear (an
  * automatic starts in neutral: A for drive, Z for reverse; the gears work
- * after 5 seconds), Space the handbrake. C steps through the camera's 14
- * view kinds (the race turns to 13 while the car does not face the road:
- * turned more than 0x1e0000 from it, or pitched or rolled past 0x240000). */
+ * after 5 seconds), Space and H the 0x8000 / 0x4000 bits. The race's key
+ * commands (004381f8, drive_keys): C the next view kind (0040594c; the race
+ * turns to 13 while the car does not face the road), Alt + Ctrl + 1..8
+ * another car, F1 the next view row, F2 the window size, F3 the detail,
+ * F4 / F6 their flags (F5's music is not wired). */
 enum {
-    KEY_C = 0x2E,
     DRIVE_VIEW = 5            /* the kind the record takes attached to a car (004f8020) */
 };
 
 static RaceSim drive_sim;
 static DriveInput drive_input;
+static DriveKeys drive_keys;
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
@@ -607,6 +610,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
     drive_input_start(&drive_input, &drive_sim.race);
+    drive_keys_start(&drive_keys);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
     memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
     drive_views.mode = HIGH_SCREEN;
@@ -666,27 +670,17 @@ static void drive_tick(uint32_t input)
     printf("\n");
 }
 
-/* The next of the 14 view kinds, chosen as 00404450 does (next_kind, the
- * kind race_camera_pick keeps): the kind after the one chosen. */
-static void next_view(void)
-{
-    RaceState *race = &drive_sim.race;
-    race_chase_follow(race, &race->chase, race->cars[0], (race->chase.next_kind + 1) % CHASE_KINDS);
-    printf("view kind %d (shown %d)\n", race->chase.next_kind, race->chase.kind);
-}
-
 static int drive_window(const Track *t, uint8_t *pixels)
 {
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
     PlatformColor palette[256];
-    int frame = 0, c_down = 0;
+    int frame = 0;
     for (int running = 1; running && platform_poll_events();) {
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) running = 0;
-        const int c = platform_key_down(KEY_C);
-        if (c && !c_down) next_view();
-        c_down = c;
+        drive_input_read_keys(&drive_input);
+        drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
         if ((frame++ & 1) == 0) drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
         render_drive(t, pixels);
         for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */

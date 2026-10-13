@@ -202,6 +202,7 @@ static int script_key(const char *name)
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
         { "Y", 0x15 }, { "N", 0x31 }, { "J", 0x24 }, { "A", 0x1E }, { "Z", 0x2C }, { "C", 0x2E },
+        { "F1", 0x3B }, { "F2", 0x3C }, { "F3", 0x3D }, { "F4", 0x3E }, { "F5", 0x3F }, { "F6", 0x40 },
         { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 },
     };
     for (size_t i = 0; i < sizeof KEYS / sizeof KEYS[0]; i++) {
@@ -278,6 +279,15 @@ static SDL_Scancode from_set1(int scancode)
 {
     switch (scancode) {
     case 0x01: return SDL_SCANCODE_ESCAPE;
+    case 0x02: return SDL_SCANCODE_1;
+    case 0x03: return SDL_SCANCODE_2;
+    case 0x04: return SDL_SCANCODE_3;
+    case 0x05: return SDL_SCANCODE_4;
+    case 0x06: return SDL_SCANCODE_5;
+    case 0x07: return SDL_SCANCODE_6;
+    case 0x08: return SDL_SCANCODE_7;
+    case 0x09: return SDL_SCANCODE_8;
+    case 0x0F: return SDL_SCANCODE_TAB;
     case 0x15: return SDL_SCANCODE_Y;
     case 0x1C: return SDL_SCANCODE_RETURN;
     case 0x11: return SDL_SCANCODE_W;
@@ -300,14 +310,18 @@ static SDL_Scancode from_set1(int scancode)
     case 0x3D: return SDL_SCANCODE_F3;
     case 0x3E: return SDL_SCANCODE_F4;
     case 0x3F: return SDL_SCANCODE_F5;
+    case 0x40: return SDL_SCANCODE_F6;
     case 0x41: return SDL_SCANCODE_F7;
     case 0x42: return SDL_SCANCODE_F8;
     case 0x43: return SDL_SCANCODE_F9;
     case 0x44: return SDL_SCANCODE_F10;
     case 0x48: return SDL_SCANCODE_UP;
+    case 0x49: return SDL_SCANCODE_PAGEUP;
     case 0x4B: return SDL_SCANCODE_LEFT;
     case 0x4D: return SDL_SCANCODE_RIGHT;
+    case 0x4F: return SDL_SCANCODE_END;
     case 0x50: return SDL_SCANCODE_DOWN;
+    case 0x51: return SDL_SCANCODE_PAGEDOWN;
     case 0x52: return SDL_SCANCODE_INSERT;
     case 0x53: return SDL_SCANCODE_DELETE;
     default: return SDL_SCANCODE_UNKNOWN;

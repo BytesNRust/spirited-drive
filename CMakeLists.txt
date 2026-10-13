@@ -205,6 +205,7 @@ add_executable(tnfs
     game/viewer/drive_palette.c
     game/viewer/drive_smoke.c
     game/viewer/drive_input.c
+    game/viewer/drive_keys.c
     game/viewer/drive_hud.c
     game/viewer/drive_mirror.c
     game/viewer/model_view.c
