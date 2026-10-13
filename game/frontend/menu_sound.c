@@ -38,3 +38,9 @@ void menu_sound_music_fade_to(const MenuSound *m, const ConfigDat *c, int volume
 {
     if (music_allowed(m, c)) ops->voice_ramp(ops->ctx, m->music, 0x32, (int16_t)volume);
 }
+
+/* 0046463c */
+void menu_sound_music_volume(const MenuSound *m, const ConfigDat *c, int volume, const MenuSoundOps *ops)
+{
+    if (music_allowed(m, c)) ops->voice_ramp(ops->ctx, m->music, 0, (int16_t)volume);
+}

@@ -42,4 +42,7 @@ void menu_sound_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSou
  * under the guards but whether the music plays. */
 void menu_sound_music_fade_to(const MenuSound *m, const ConfigDat *c, int volume, const MenuSoundOps *ops);
 
+/* 0046463c: the same with 0 for 0x32. */
+void menu_sound_music_volume(const MenuSound *m, const ConfigDat *c, int volume, const MenuSoundOps *ops);
+
 #endif
