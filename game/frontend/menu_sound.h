@@ -43,7 +43,7 @@ typedef struct MenuSound {
     int32_t music;     /* 0052480c: the music's voice */
     int music_off;     /* the short 0052b31e */
     int music_on;      /* the short 004c5cc8: the music is playing */
-    int music_wait;    /* the short 004c5cc6: 00464568 waits for the music to play out */
+    int music_voiced;  /* the short 004c5cc6: the music's voice started (0046417c) */
     int32_t stream;    /* 00524830: the music's stream (0048a674, 00464428) */
     int32_t chunk;     /* 0052481c: the last chunk 0048bcfc gave (004640d0) */
     int small_stream;  /* the short 004c5cca: a 0x19000-byte stream, else 0x7d000 */
@@ -86,8 +86,8 @@ int menu_sound_4a_done(const MenuSound *m, const MenuSoundOps *ops);
 void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops);
 
 /* 00464568: under 004644f0's four guards, waits (00475c14) while the music
- * has not stopped (00473d20) and music_wait is set, closes the stream
- * (0048a92c) and clears music_on and music_wait. */
+ * has not stopped (00473d20) and music_voiced is set, closes the stream
+ * (0048a92c) and clears music_on and music_voiced. */
 void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 /* 00464428: with music allowed, on in config.dat and the sound on: the
@@ -108,8 +108,8 @@ void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps 
 /* 0046417c: services the music. With music allowed: 00475c14(0) in a
  * 0052b312 game; then with it on in config.dat, the sound on and the music
  * playing, reads a chunk (0048bcfc); the first time 0048e054 is past the
- * stream's size (music_wait still 0) the voice starts (0048dedc), takes
- * config.dat's music volume (the short 00524e67, 00473b4c) and music_wait
+ * stream's size (music_voiced still 0) the voice starts (0048dedc), takes
+ * config.dat's music volume (the short 00524e67, 00473b4c) and music_voiced
  * becomes 1; a chunk that is not 0 is played (0048df3c). */
 void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops);
 

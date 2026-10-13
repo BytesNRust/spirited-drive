@@ -81,9 +81,9 @@ void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops)
 void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
 {
     if (!music_allowed(m, c) || !m->music_on) return;
-    while (!ops->voice_stopped(ops->ctx, m->music) && m->music_wait) ops->wait(ops->ctx);
+    while (!ops->voice_stopped(ops->ctx, m->music) && m->music_voiced) ops->wait(ops->ctx);
     ops->stream_close(ops->ctx, m->stream);
-    m->music_on = 0, m->music_wait = 0;
+    m->music_on = 0, m->music_voiced = 0;
 }
 
 /* 00464428 */
@@ -130,10 +130,10 @@ void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSe
     const int32_t size = m->small_stream ? 0x14000 : 0x64000;
     if (!m->sound_on || !m->music_on) return;
     m->chunk = ops->stream_read(ops->ctx, m->stream);
-    if (!m->music_wait && ops->queued(ops->ctx) > size) {
+    if (!m->music_voiced && ops->queued(ops->ctx) > size) {
         m->music = ops->stream_voice(ops->ctx);
         ops->voice_volume(ops->ctx, m->music, short_at(c, 0x00524e67));
-        m->music_wait = 1;
+        m->music_voiced = 1;
     }
     if (m->chunk != 0) ops->chunk_play(ops->ctx, m->chunk);
 }
