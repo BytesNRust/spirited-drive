@@ -21,7 +21,7 @@ enum {
 /* The exe's colours 004572e0 queues: one a car model (004c578c, 3 bytes
  * each), and the police lights (004c5610, 4 colours). */
 extern const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3];
-extern const uint8_t race_palette_police_light[4 * 3];
+extern const uint8_t race_palette_police_light[2 * 4 * 3];  /* 004c5610, 004c561c */
 
 /* 0050b774..0050b787: the tint 004471dc gives the race's colours (the
  * time of day). */

@@ -55,7 +55,9 @@ const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3] = {       
     15, 3, 3, 30, 5, 5, 15, 3, 3, 62, 5, 5, 47, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5,
     62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 20, 20, 62, 20, 20
 };
-const uint8_t race_palette_police_light[4 * 3] = { 63, 0, 32, 48, 0, 16, 32, 0, 63, 16, 0, 48 };           /* 004c5610 */
+/* 004c5610: the police lights' four colours, then (004c561c) the other phase of the flash */
+const uint8_t race_palette_police_light[2 * 4 * 3] = { 63, 0, 32, 48, 0, 16, 32, 0, 63, 16, 0, 48,
+                                                       32, 0, 63, 16, 0, 48, 63, 0, 32, 48, 0, 16 };
 static const uint8_t PAL_NAME[4] = { '!', 'P', 'A', 'L' };                                                /* 004b1160 */
 
 static uint32_t le32(const uint8_t *b)
