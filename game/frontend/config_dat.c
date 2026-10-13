@@ -171,3 +171,10 @@ Unlocks config_dat_unlocks(const ConfigDat *c)
     u.warrior = level > 0;
     return u;
 }
+
+/* 00464670: the division truncates toward 0 and only the top is clamped. */
+int config_dat_level_e69(const ConfigDat *c)
+{
+    const int level = (int16_t)word_at(c, 0x00524e69) * 3 / 2;
+    return level > 0x7f ? 0x7f : level;
+}

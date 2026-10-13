@@ -89,4 +89,9 @@ void config_dat_set_unlock_level(ConfigDat *c, int level);
 /* Unlocks as derived in 00432ff4 from the unlock level. */
 Unlocks config_dat_unlocks(const ConfigDat *c);
 
+/* 00464670: the short 00524e69 (default 0x7f) times 3 / 2, at most 0x7f.
+ * Called on the race side (004027c0, 00402911, 00402a62) next to
+ * 00473b4c; what the level is for is not known yet. */
+int config_dat_level_e69(const ConfigDat *c);
+
 #endif
