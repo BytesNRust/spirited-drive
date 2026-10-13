@@ -82,6 +82,18 @@ typedef struct {
 void skid_draw(const SkidView *v, const SkidRing *ring, SkidMarks *m, int32_t index, int32_t node, int32_t row,
                int32_t halve, const int32_t s[2], const int32_t t[2]);
 
+typedef struct {
+    void *ctx;
+    void (*puff_1)(void *ctx, int32_t x, int32_t y, int32_t size);      /* 00456bd4: a mark's surface word 1 */
+    void (*puff_other)(void *ctx, int32_t x, int32_t y, int32_t size);  /* 00456c28 */
+} SkidPuffOps;
+
+/* 004588ac (watcall (corner, size)): the 4 newest marks (from 004c565c - 1
+ * back): each with corner's pair skid (0, 1 front, 2, 3 rear), 1..0x2f ticks
+ * old and its screen x there (word 27 + 2 corner) not INT32_MIN gets a puff
+ * at that point, size x 1, 2, 3, 4 newest first, by its surface word. */
+void skid_puffs(const SkidPuffOps *ops, const SkidMarks *m, int32_t tick, int32_t corner, int32_t size);
+
 /* 004596a8 (car; forward, side, point: 0045a3e8's box >> 10 and road
  * point). */
 void skid_record(const SkidOps *ops, SkidMarks *m, const Car *car, const SkidInputs *in, const int32_t forward[3],

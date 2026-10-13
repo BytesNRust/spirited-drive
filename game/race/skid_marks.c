@@ -141,6 +141,23 @@ void skid_draw(const SkidView *v, const SkidRing *ring, SkidMarks *m, int32_t in
     }
 }
 
+enum { PUFF_MARKS = 4, PUFF_AGE = 0x30 };
+
+void skid_puffs(const SkidPuffOps *ops, const SkidMarks *m, int32_t tick, int32_t corner, int32_t size)
+{
+    int32_t i = previous_of(m->index), grown = size;
+    for (int n = 0; n < PUFF_MARKS; n++) {
+        const int32_t *mark = m->marks[i];
+        const int32_t *at = mark + SKID_SCREEN + 2 * corner;
+        const int32_t age = x_sub(tick, mark[SKID_TICK]);
+        if (mark[corner < 2 ? SKID_FRONT_ON : SKID_REAR_ON] != 0 && age < PUFF_AGE && age > 0 && at[0] != INT32_MIN) {
+            if (mark[SKID_SURFACE] == 1) ops->puff_1(ops->ctx, at[0], at[1], grown);
+            else ops->puff_other(ops->ctx, at[0], at[1], grown);
+        }
+        i = previous_of(i), grown = x_add(grown, size);
+    }
+}
+
 static int32_t next_of(int32_t i)
 {
     return i + 1 < SKID_RECORDS ? i + 1 : 0;
