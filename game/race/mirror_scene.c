@@ -5,6 +5,8 @@
 #include "game/race/track_tables.h"
 #include "game/sys/fixed_math.h"
 
+#include <string.h>
+
 void mirror_bounds(const ViewLayout *layout, MirrorBounds *b)
 {
     b->left = layout->left;
@@ -19,6 +21,25 @@ uint32_t mirror_segment_offset(int32_t segment, int32_t mask)
 }
 
 enum { PHYSICS_SKIPPED = 6, MIRROR_PASS = 1 };
+
+enum { LATERAL_BIAS = 0x29999, LATERAL_NEXT = 0x50000 };
+
+void mirror_car_rows(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node, uint8_t rows[MIRROR_CAR_ROWS])
+{
+    memset(rows, 0, MIRROR_CAR_ROWS);
+    const int32_t ring = x_shl(segments, 2);
+    for (int32_t i = 0; i < count; i++) {
+        Car *car = cars[i];
+        if (car->physics == PHYSICS_SKIPPED) continue;
+        int32_t node = car->draw_node2;
+        if (x_add(car->lateral, LATERAL_BIAS) > LATERAL_NEXT) node = x_add(node, 1);
+        if (node > ring) node = x_sub(node, ring);
+        car->draw_node2 = node;
+        const int32_t behind = node <= camera_node ? x_sub(camera_node, node) : x_add(x_sub(ring, node), camera_node);
+        if (behind >= MIRROR_CAR_ROWS || behind < 0) continue;  /* port guard: < 0 writes before 0051c7a1 */
+        rows[behind] = 1;
+    }
+}
 
 void mirror_cars(const MirrorCarsOps *ops, const MirrorCarsInputs *in, int32_t node)
 {

@@ -48,6 +48,13 @@ typedef struct {
     int32_t chase_kind;         /* 004f801c */
 } MirrorCarsInputs;
 
+/* 00459cc4 (watcall (camera node), from 00459d70 at 0044ce3f): `rows`
+ * (0051c7a1, MIRROR_CAR_ROWS) cleared; each of the `count` cars (00509e1c,
+ * 004fb7e8) not physics 6 moves its draw_node2 (+0x345) on by one when its
+ * lateral (+0x39d) + 0x29999 is above 0x50000, back by the ring (0050420c x
+ * 4) past it; the row it is behind the camera, under 11, is set. */
+void mirror_car_rows(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node, uint8_t rows[MIRROR_CAR_ROWS]);
+
 /* 0045a8fc: the cars on `node` in the mirror (the mirror pass of 0045a848).
  * Nothing unless the node is 0..10 behind the camera (around the ring of
  * 0050420c x 4 nodes) with that row's flag set; then each listed car whose
