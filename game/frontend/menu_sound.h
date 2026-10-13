@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+enum { MENU_SOUND_PATH = 0x50 };
+
 typedef struct MenuSoundOps {
     /* 0048eea0: starts `sound` at pan, volume and pitch; returns the voice. */
     int32_t (*voice_start)(void *ctx, int32_t sound, int32_t pan, int32_t volume, int32_t pitch);
@@ -19,6 +21,10 @@ typedef struct MenuSoundOps {
     void (*file_free)(void *ctx, void *data);                        /* 0047529c (cdecl) */
     void (*wait)(void *ctx);                    /* 00475c14(0), cdecl: what it does is not known */
     void (*stream_close)(void *ctx, int32_t stream);  /* 0048a92c (cdecl) */
+    void (*drain)(void *ctx);                   /* 004770ac: loops until 0049b6fc gives 0 */
+    int32_t (*stream_open)(void *ctx, int32_t size, int32_t block, int32_t count);  /* 0048a674 (cdecl) */
+    void (*stream_load)(void *ctx, int32_t stream, const char *path);  /* 0048aa78 (cdecl) */
+    void (*stream_start)(void *ctx, int32_t stream);  /* 0048de54: eax the stream */
     void *ctx;
 } MenuSoundOps;
 
@@ -33,6 +39,8 @@ typedef struct MenuSound {
     int music_on;      /* the short 004c5cc8: the music is playing */
     int music_wait;    /* the short 004c5cc6: 00464568 waits for the music to play out */
     int32_t stream;    /* 00524830: the music's stream (0048a674, 00464428) */
+    int small_stream;  /* the short 004c5cca: a 0x19000-byte stream, else 0x7d000 */
+    char music_path[MENU_SOUND_PATH];  /* 00524798: the music's file (00464428) */
 } MenuSound;
 
 /* 0046492c: with the sound on, starts the short `sound` centred (0x40) at
@@ -74,5 +82,13 @@ void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops);
  * has not stopped (00473d20) and music_wait is set, closes the stream
  * (0048a92c) and clears music_on and music_wait. */
 void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
+
+/* 00464428: with music allowed, on in config.dat and the sound on: the
+ * music playing is stopped (00473c68) and played out (00464568); 004770ac;
+ * music_path = dir + name ("%s%s"; the two must fit); a stream opened
+ * (0048a674 with 0x19000 or 0x7d000, 0x800, 0x20), loaded with the path
+ * (0048aa78) and started (0048de54); music_on = 1. */
+void menu_sound_music_start(MenuSound *m, const ConfigDat *c, const char *dir, const char *name,
+                            const MenuSoundOps *ops);
 
 #endif

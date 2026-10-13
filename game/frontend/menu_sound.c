@@ -1,5 +1,7 @@
 #include "game/frontend/menu_sound.h"
 
+#include <stdio.h>
+
 static int16_t short_at(const ConfigDat *c, uint32_t at)
 {
     const uint8_t *b = c->image + (at - 0x00524df0);
@@ -82,4 +84,21 @@ void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *
     while (!ops->voice_stopped(ops->ctx, m->music) && m->music_wait) ops->wait(ops->ctx);
     ops->stream_close(ops->ctx, m->stream);
     m->music_on = 0, m->music_wait = 0;
+}
+
+/* 00464428 */
+void menu_sound_music_start(MenuSound *m, const ConfigDat *c, const char *dir, const char *name,
+                            const MenuSoundOps *ops)
+{
+    if (!music_allowed(m, c)) return;
+    if (m->music_on) {
+        ops->voice_stop(ops->ctx, m->music);
+        menu_sound_music_end(m, c, ops);
+    }
+    ops->drain(ops->ctx);
+    snprintf(m->music_path, sizeof m->music_path, "%s%s", dir, name);
+    m->stream = ops->stream_open(ops->ctx, m->small_stream ? 0x19000 : 0x7d000, 0x800, 0x20);
+    ops->stream_load(ops->ctx, m->stream, m->music_path);
+    ops->stream_start(ops->ctx, m->stream);
+    m->music_on = 1;
 }
