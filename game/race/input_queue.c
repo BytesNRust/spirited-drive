@@ -3,7 +3,7 @@
 
 #include "game/gfx/x86_int.h"
 
-enum { STAND_IN = 0x87a0, GAVE_UP = 0x803f, SEND_WORDS = 10, SEND_SIZE = 0x12, SEND_KIND = 2, BEHIND = 0x2a, POLL_SIZE = 4, LATE_MAX = 0xf };
+enum { STAND_IN_KIND = 10, STAND_IN_SIZE = 0x12, GAVE_UP_TIME = 999999, STAND_IN = 0x87a0, GAVE_UP = 0x803f, SEND_WORDS = 10, SEND_SIZE = 0x12, SEND_KIND = 2, BEHIND = 0x2a, POLL_SIZE = 4, LATE_MAX = 0xf };
 
 int input_take(InputQueue *q, uint32_t *control, int slot, InputWords *w)
 {
@@ -84,4 +84,16 @@ void input_poll(const InputPollOps *ops, InputPollWords *w)
     }
     ops->put(ops->ctx, w->player, put);
     if (w->playback == 1 && w->w4fbb0c != 0) ops->store(ops->ctx);
+}
+
+void input_stand_in(int32_t player, int16_t *block, PlayerRecord *records, const InputStandInWords *w,
+                    const InputSendOps *ops)
+{
+    if (w->race_type == 0 || w->replay != 0) return;
+    if (player == w->player && records[player].finish != 0) return;
+    if (block[1 + player] != 0 && w->playback != 3 && w->playback != 2) return;
+    block[0] = STAND_IN_KIND;
+    block[1 + player] = 1;
+    if (w->playback != 0) ops->send(ops->ctx, 0, block, STAND_IN_SIZE);
+    if (w->w4fbb0c != 0) records[player].finish = GAVE_UP_TIME;
 }

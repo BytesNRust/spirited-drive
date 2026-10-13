@@ -4,6 +4,8 @@
 #ifndef TNFS_INPUT_QUEUE_H
 #define TNFS_INPUT_QUEUE_H
 
+#include "game/race/race_state.h"
+
 #include <stdint.h>
 
 enum { INPUT_SLOTS = 64 };
@@ -85,5 +87,21 @@ typedef struct {
  * sign-extended from 16 bits). Else put(player, word) and, playback 1 with
  * 004fbb0c set, store(). */
 void input_poll(const InputPollOps *ops, InputPollWords *w);
+
+typedef struct {
+    int16_t race_type;  /* 00524e5d: 0 a time trial */
+    int16_t replay;     /* 0052b316 */
+    int16_t playback;   /* 0052b312 */
+    int32_t player;     /* 004fbb08 */
+    int32_t w4fbb0c;    /* 004fbb0c */
+} InputStandInWords;
+
+/* 0041019c (eax player): nothing in a time trial, a replay, for the followed
+ * player once finished (record +0x1c4), or for one stood in already unless
+ * playback is 2 or 3; else block[0] (004f829e) = 10 and the player's stand-in
+ * (block[1 + player], 004f82a0) = 1, sent (00445e00 (0, block, 0x12)) when
+ * playback is on, and with 004fbb0c set the record's finish = 999999. */
+void input_stand_in(int32_t player, int16_t *block, PlayerRecord *records, const InputStandInWords *w,
+                    const InputSendOps *ops);
 
 #endif
