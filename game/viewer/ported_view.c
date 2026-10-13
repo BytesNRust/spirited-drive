@@ -10,6 +10,7 @@
 #include "game/race/car_shadow.h"
 #include "game/gfx/flat.h"
 #include "game/race/model_draw.h"
+#include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
@@ -216,25 +217,64 @@ static void draw_skids(void *user, int32_t row, const int32_t s[2], const int32_
     skid_draw(&v, &ring, &skid_marks, -999, skid_node, row, 0, s, t);
 }
 
-/* 0045a724 pass 0: the shadow's corners (0045a3e8), then 00482794 darkens them. */
-static void draw_shadow(Car *car)
+/* 0051c7ac: the rows ahead of the camera holding a car (00459d70). */
+static uint8_t ahead_rows[ROW_CARS_AHEAD];
+
+void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS])
 {
-    if (car == NULL || shadow_race == NULL || shadow_remap == NULL) return;
-    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed };
-    const int followed = car == shadow_race->cars[race_slot(shadow_race->player)];
-    int32_t screen[8];
-    if (car_shadow(&ops, car, &model_view, 0, followed, screen)) flat_polygon_shade(object_pixels.target, shadow_remap, 4, screen, 0);
+    if (shadow_race == NULL) return;
+    const SkidRing ring = skid_ring();
+    skid_rows(&skid_marks, &ring, shadow_race->chase.node);
+    car_rows_ahead(shadow_race->cars, shadow_race->car_count, shadow_race->segments, shadow_race->chase.node, ahead_rows,
+                   behind);
 }
 
+static const Car *followed_car(void)
+{
+    return shadow_race->cars[race_slot(shadow_race->player)];
+}
+
+/* 0045a724 */
+static void row_prepare(void *ctx, Car *car, int pass)
+{
+    (void)ctx;
+    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed };
+    int32_t screen[8];
+    car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
+}
+
+/* 004591d4: the car's model, at the pose the list gave it. */
+static void row_draw(void *ctx, Car *car, int pass)
+{
+    (void)ctx;
+    const Object3DSink sink = object_sink(&object_pixels);
+    for (int i = 0; i < car_count; i++)
+        if (cars[i].ok && cars[i].car == car) car_draw(&cars[i].model, &cars[i].pose, &model_view, pass, &sink);
+}
+
+/* 0045a768 */
+static void row_unseen(void *ctx, Car *car)
+{
+    (void)ctx;
+    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed };
+    car_skid_unseen(&ops, car);
+}
+
+/* 0045a848 in a race (00509e8c / 00509e14 taken as the race's cars); else each listed car on the node. */
 static void draw_cars(void *user, int32_t node)
 {
     (void)user;
+    if (shadow_race != NULL && shadow_remap != NULL) {
+        const RaceState *race = shadow_race;
+        const RowCarsOps ops = { NULL, row_prepare, row_draw, row_unseen };
+        const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->cars, race->car_count, followed_car(),
+                                   race->chase.kind, 0 };
+        cars_on_row(&ops, &in, node);
+        return;
+    }
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].node == node) {
-            draw_shadow(cars[i].car);
-            car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
-        }
+        if (cars[i].ok && cars[i].node == node) car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
 }
 
 typedef struct {
@@ -341,10 +381,6 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shade };
     skid_node = pc->node;
-    if (shadow_race != NULL) {
-        const SkidRing ring = skid_ring();
-        skid_rows(&skid_marks, &ring, skid_node);  /* 0044ce32, before the track */
-    }
     track_render_draw(&render, &cam, &ctx, 0, 0);
 }
 

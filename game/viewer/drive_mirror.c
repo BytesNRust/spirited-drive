@@ -4,6 +4,7 @@
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
 #include "game/gfx/shape_flip.h"
+#include "game/race/car_shadow.h"
 #include "game/race/mirror_sky.h"
 #include "game/race/race_view.h"
 #include "game/race/track_geometry.h"
@@ -230,10 +231,23 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
     mirror_draw_subdivided(&dc, t, u_level, 0, u_cell, 0, cam, screen, near);
 }
 
-/* 0045a724: the heading from the body matrix for cars with one (0042ebbc; car_draw draws those by the matrix), then
- * 0045a3e8 with pass 1, which only stores the camera-space place (car_draw's own) and returns 0: no shadow
- * (00482794) in the mirror. */
-static void car_prepare(void *ctx, Car *car, int mirror) { (void)ctx, (void)car, (void)mirror; }
+static void no_contact(void *ctx, Car *car) { (void)ctx, (void)car; }
+
+static void no_skids(void *ctx, Car *car, const int32_t f[3], const int32_t s[3], const int32_t p[3])
+{
+    (void)ctx, (void)car, (void)f, (void)s, (void)p;
+}
+
+/* 0045a724 pass 1: the heading from the body matrix for cars with one, then 0045a3e8 stores the camera-space place
+ * and gives 0 (neither op runs): no shadow in the mirror. */
+static void mirror_prepare(void *ctx, Car *car, int mirror)
+{
+    Frame *f = ctx;
+    const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix, 0 };
+    const CarShadowOps ops = { NULL, no_contact, no_skids };
+    int32_t screen[8];
+    car_prepare(&ops, car, &mv, mirror, 0, &f->target, NULL, screen);
+}
 
 static void car_draw_op(void *ctx, Car *car, int mirror)
 {
@@ -249,7 +263,7 @@ static void scene_cars(void *ctx, int32_t node)
 {
     Frame *f = ctx;
     const RaceState *race = f->w->race;
-    const MirrorCarsOps ops = { f, car_prepare, car_draw_op };
+    const MirrorCarsOps ops = { f, mirror_prepare, car_draw_op };
     const MirrorCarsInputs in = { race->chase.node, race->segments, f->m->car_rows, race->cars, race->car_count,
                                   f->w->followed, race->chase.kind };
     mirror_cars(&ops, &in, node);
@@ -278,8 +292,7 @@ void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w)
                 &race_view_layouts[HIGH_MODE][row->layouts[size]], race->chase.angles[0], race->chase.angles[1],
                 race->chase.angles[2] };
     mirror_rows(&f);
-    /* 00459d70's mirror part (00459cc4), at 0044ce3f */
-    mirror_car_rows(race->cars, race->car_count, race->segments, race->chase.node, m->car_rows);
+    /* m->car_rows: 00459d70's mirror part (00459cc4), at 0044ce3f (ported_view_frame_rows) */
     const MirrorFrameOps ops = { &f, view_op, transform_op, select_op, sky_op, scene_op, flip_op };
     /* TODO(0044cc74): 004b91c8 (2 or more keeps the mirror's last picture) and 004fb787 are 0 in --drive */
     const MirrorFrameInputs in = { race->chase.unknown_68, 0, 0, MIRROR_SEGMENTS };

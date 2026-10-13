@@ -9,6 +9,7 @@
 #include "game/gfx/quad.h"
 #include "game/race/car_draw.h"
 #include "game/race/race_state.h"
+#include "game/race/mirror_scene.h"
 #include "game/race/track_info.h"
 
 #include "viewer/model_view.h"
@@ -78,6 +79,12 @@ typedef struct {
 /* The cars' shadows (0045a724's 0045a3e8 pass 0 and 00482794): the race whose road planes they take and the remap
  * they darken with (004c6604); NULL draws none. */
 void ported_view_set_shadows(const RaceState *race, const uint8_t *remap);
+
+/* 0044ce32 / 0044ce3f, before the mirror and the 3D view: the rows holding
+ * skid marks (00459c50) and cars (00459d70: those ahead kept here, those
+ * behind into `behind`, 0051c7a1); nothing without ported_view_set_shadows'
+ * race. */
+void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS]);
 
 /* The track from `cam` with `count` cars, list[i] drawn with slot i's model. */
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *cam,
