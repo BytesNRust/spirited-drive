@@ -6,6 +6,9 @@
 #include "game/race/track_render.h"
 #include "game/race/view.h"
 #include "game/race/car_draw.h"
+#include "game/race/car_road.h"
+#include "game/race/car_shadow.h"
+#include "game/gfx/flat.h"
 #include "game/race/model_draw.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
@@ -85,6 +88,7 @@ typedef struct {
     int borrowed;
     CarPose pose;
     int32_t node;
+    Car *car;
 } ViewCar;
 
 static ViewCar cars[PORTED_VIEW_CARS];
@@ -153,12 +157,44 @@ void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)
     car_ahead = ahead;
 }
 
+static const RaceState *shadow_race;
+static const uint8_t *shadow_remap;
+
+void ported_view_set_shadows(const RaceState *race, const uint8_t *remap)
+{
+    shadow_race = race, shadow_remap = remap;
+}
+
+static void shadow_contact(void *ctx, Car *car)
+{
+    (void)ctx;
+    car_road_contact(car, shadow_race, 1);  /* 00428918(car, 1) */
+}
+
+static void shadow_followed(void *ctx, Car *car, const int32_t f[3], const int32_t s[3], const int32_t p[3])
+{
+    (void)ctx, (void)car, (void)f, (void)s, (void)p;  /* TODO(004596a8): the followed car's skid marks */
+}
+
+/* 0045a724 pass 0: the shadow's corners (0045a3e8), then 00482794 darkens them. */
+static void draw_shadow(Car *car)
+{
+    if (car == NULL || shadow_race == NULL || shadow_remap == NULL) return;
+    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed };
+    const int followed = car == shadow_race->cars[race_slot(shadow_race->player)];
+    int32_t screen[8];
+    if (car_shadow(&ops, car, &model_view, 0, followed, screen)) flat_polygon_shade(object_pixels.target, shadow_remap, 4, screen, 0);
+}
+
 static void draw_cars(void *user, int32_t node)
 {
     (void)user;
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].node == node) car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
+        if (cars[i].ok && cars[i].node == node) {
+            draw_shadow(cars[i].car);
+            car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
+        }
 }
 
 typedef struct {
@@ -216,7 +252,7 @@ void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInf
                              const CarPose *pose, int32_t pose_node, uint8_t *pixels)
 {
     const PortedCar one = { pose != NULL ? *pose : (CarPose){ { 0, 0, 0 }, 0, 0, 0, NULL, 1 },
-                            pose != NULL ? pose_node : -1 };
+                            pose != NULL ? pose_node : -1, NULL };
     ported_view_render_cars(tri, art, info, pc, &one, 1, pixels);
 }
 
@@ -258,6 +294,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
     for (int i = 0; i < car_count; i++) {
         cars[i].pose = list[i].pose;
+        cars[i].car = list[i].car;
         cars[i].node = list[i].node;
     }
     static uint8_t shade[256];

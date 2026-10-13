@@ -8,6 +8,7 @@
 #include "game/race/track_art.h"
 #include "game/gfx/quad.h"
 #include "game/race/car_draw.h"
+#include "game/race/race_state.h"
 #include "game/race/track_info.h"
 
 #include "viewer/model_view.h"
@@ -71,7 +72,12 @@ void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInf
 typedef struct {
     CarPose pose;
     int32_t node;
+    Car *car;                   /* the race's car, for its shadow (NULL: none) */
 } PortedCar;
+
+/* The cars' shadows (0045a724's 0045a3e8 pass 0 and 00482794): the race whose road planes they take and the remap
+ * they darken with (004c6604); NULL draws none. */
+void ported_view_set_shadows(const RaceState *race, const uint8_t *remap);
 
 /* The track from `cam` with `count` cars, list[i] drawn with slot i's model. */
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *cam,
