@@ -92,6 +92,7 @@ add_library(tnfs_game STATIC
     game/race/car_crash.c
     game/race/car_crash_tick.c
     game/race/crash_trail.c
+    game/race/car_tag.c
     game/race/rigid_boxes.c
     game/race/car_collide.c
     game/race/race_contacts.c
