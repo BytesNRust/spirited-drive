@@ -93,6 +93,7 @@ add_library(tnfs_game STATIC
     game/race/car_crash_tick.c
     game/race/crash_trail.c
     game/race/car_tag.c
+    game/race/input_queue.c
     game/race/car_lights.c
     game/race/rigid_boxes.c
     game/race/car_collide.c
@@ -373,6 +374,9 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_frontend tools/probe_frontend.c)
     target_link_libraries(probe_frontend PRIVATE tnfs_game)
     target_compile_options(probe_frontend PRIVATE ${TNFS_WARNINGS})
+    add_executable(probe_input tools/probe_input.c)
+    target_link_libraries(probe_input PRIVATE tnfs_game)
+    target_compile_options(probe_input PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_needle tools/probe_needle.c)
     target_link_libraries(probe_needle PRIVATE tnfs_game)
     target_compile_options(probe_needle PRIVATE ${TNFS_WARNINGS})
