@@ -27,6 +27,10 @@ typedef struct {
     void (*draw_model)(void *user, int model, const int32_t position[3], uint32_t heading);
     /* 0045a848: the cars on a road node, between the rows; may be NULL */
     void (*draw_cars)(void *user, int32_t node);
+    /* 00459eb8 (-999): the skid marks about road node `row`, kept to the side
+     * of s -> t (the row's last polygon's corners 0 and 3), in the near pass
+     * before its cars; may be NULL */
+    void (*draw_skids)(void *user, int32_t row, const int32_t s[2], const int32_t t[2]);
 } QuadSink;
 
 typedef struct {

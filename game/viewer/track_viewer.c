@@ -685,7 +685,9 @@ static int drive_window(const Track *t, uint8_t *pixels)
 /* Headless: `ticks` steps in drive at full throttle, then a screenshot
  * (TNFS_VIEW=N: from view kind N; TNFS_STEER=left / right: full lock at the
  * end; TNFS_NOTICE=1 / 2: that police stop notice up for the last 10 ticks,
- * TNFS_NOTICE=1off / 2off: and down again for the last 5). */
+ * TNFS_NOTICE=1off / 2off: and down again for the last 5; TNFS_FRAMES=N:
+ * whole frames over the last N ticks, so what builds up while drawing, the
+ * skid marks, does). */
 static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
     const char *view = getenv("TNFS_VIEW");
@@ -693,6 +695,8 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     /* TNFS_STEER=left / right: that lock over the last 20 ticks. */
     const char *steer_env = getenv("TNFS_STEER");
     const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
+    const char *frames_env = getenv("TNFS_FRAMES");
+    const uint32_t frames = frames_env == NULL ? 0 : (uint32_t)atoi(frames_env);
     for (uint32_t i = 0; i < ticks; i++) {
         const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
         drive_tick((i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0));
@@ -700,6 +704,10 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
             drive_sim.race.stop_notice[notice[0] - '1'] = !(notice[1] == 'o' && i + 5 >= ticks);
             render_drive(t, pixels);  /* whole frames, so the screen comes and goes as on screen */
+            continue;
+        }
+        if (i + frames >= ticks) {
+            render_drive(t, pixels);
             continue;
         }
         drive_hud_draw(&drive_hud, &drive_sim.race, 0, NULL, 0, 0);  /* the HUD keeps drawing every frame */

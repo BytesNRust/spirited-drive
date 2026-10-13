@@ -457,9 +457,10 @@ static void draw_cars(const DrawContext *ctx, int32_t node)
     if (ctx->sink.draw_cars != NULL) ctx->sink.draw_cars(ctx->sink.user, node);
 }
 
-/* After a band of rows: each row's objects and the cars one row further
- * (0044b04a, 0044b88f), then the next row. */
-static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w, int rows)
+/* After a band of rows: each row's objects, in the near pass (screen: the
+ * band's last polygon) its skid marks, and the cars one row further
+ * (0044b04a, 0044b87d, 0044b88f), then the next row. */
+static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w, int rows, const int32_t *screen)
 {
     const int32_t mask = (int32_t)(r->tri->ring_nodes - 1);
     for (int k = 0; k < rows; k++) {
@@ -467,7 +468,7 @@ static void pass_rows(const TrackRender *r, const DrawContext *ctx, RowWalker *w
             draw_object(r, ctx, &r->objects[w->cursor], w->frame);
             w->cursor--;
         }
-        /* TODO(00459eb8): the skid marks of this row, in the near pass. */
+        if (screen != NULL && ctx->sink.draw_skids != NULL) ctx->sink.draw_skids(ctx->sink.user, w->node, screen, screen + 6);
         draw_cars(ctx, (w->node + 1) & mask);
         w->node = (w->node - 1) & mask;
     }
@@ -507,7 +508,7 @@ static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawCon
             }
             if (p->rows_done != 0) {
                 if (drawable(r, segment)) draw_fences(r, cam, ctx, rec, w->node, base, &TRACK_UVS[p->uv], variant);
-                pass_rows(r, ctx, w, p->rows_done);
+                pass_rows(r, ctx, w, p->rows_done, NULL);
                 row -= p->rows_done;
                 rows_left -= p->rows_done;
                 rows_in_segment += p->rows_done;
@@ -546,7 +547,7 @@ static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawCo
             }
             if (p->rows_done != 0) {
                 if (drawable(r, segment)) draw_fences(r, cam, ctx, rec, w->node, base, &TRACK_UVS[p->uv], variant);
-                pass_rows(r, ctx, w, p->rows_done);
+                pass_rows(r, ctx, w, p->rows_done, screen);
                 row -= p->rows_done;
                 variant = variant_near(row);
             }

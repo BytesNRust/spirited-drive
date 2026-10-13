@@ -10,6 +10,7 @@
 #include "game/race/car_shadow.h"
 #include "game/gfx/flat.h"
 #include "game/race/model_draw.h"
+#include "game/race/skid_marks.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
 
@@ -171,9 +172,48 @@ static void shadow_contact(void *ctx, Car *car)
     car_road_contact(car, shadow_race, 1);  /* 00428918(car, 1) */
 }
 
+/* 00517620..: the followed car's skid marks; 0051c7cf the rows holding one. */
+static SkidMarks skid_marks;
+static int32_t skid_node;   /* the camera's node (chase +0x38) */
+
+enum { SKID_HIGH_RES = 1 };  /* 004fa0c0, as drive_hud's HIGH_RES */
+
+static SkidRing skid_ring(void)
+{
+    return (SkidRing){ 0, (int32_t)shadow_race->tri->ring_nodes - 1, shadow_race->segments };
+}
+
+static SkidView skid_view(void)
+{
+    return (SkidView){ object_pixels.target, shadow_remap, &model_view, SKID_HIGH_RES, 0 };
+}
+
+/* 004596a8's 00459eb8(index): the newest marks, as they are laid. */
+static void skid_draw_new(void *ctx, int32_t index)
+{
+    (void)ctx;
+    const SkidView v = skid_view();
+    const SkidRing ring = skid_ring();
+    skid_draw(&v, &ring, &skid_marks, index, 0, 0, 0, NULL, NULL);
+}
+
 static void shadow_followed(void *ctx, Car *car, const int32_t f[3], const int32_t s[3], const int32_t p[3])
 {
-    (void)ctx, (void)car, (void)f, (void)s, (void)p;  /* TODO(004596a8): the followed car's skid marks */
+    (void)ctx;
+    const int32_t surface = car->surface;
+    const SkidInputs in = { 0, shadow_race->tick, shadow_race->surfaces[surface].off_road };
+    const SkidOps ops = { NULL, skid_draw_new };
+    skid_record(&ops, &skid_marks, car, &in, f, s, p);
+}
+
+/* 0044b87d: 00459eb8(-999, camera node, row; s, t). */
+static void draw_skids(void *user, int32_t row, const int32_t s[2], const int32_t t[2])
+{
+    (void)user;
+    if (shadow_race == NULL || shadow_remap == NULL) return;
+    const SkidView v = skid_view();
+    const SkidRing ring = skid_ring();
+    skid_draw(&v, &ring, &skid_marks, -999, skid_node, row, 0, s, t);
 }
 
 /* 0045a724 pass 0: the shadow's corners (0045a3e8), then 00482794 darkens them. */
@@ -269,7 +309,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     QuadTarget quad = { pixels, WIDTH, vp->left, vp->top, vp->left + vp->width, vp->top + vp->height };
     DrawContext ctx = { &view, { vp->left, vp->top, vp->left + vp->width, vp->top + vp->height }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
-                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars } };
+                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids } };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
@@ -300,6 +340,11 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     static uint8_t shade[256];
     object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shade };
+    skid_node = pc->node;
+    if (shadow_race != NULL) {
+        const SkidRing ring = skid_ring();
+        skid_rows(&skid_marks, &ring, skid_node);  /* 0044ce32, before the track */
+    }
     track_render_draw(&render, &cam, &ctx, 0, 0);
 }
 
