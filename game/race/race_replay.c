@@ -21,6 +21,20 @@ void race_replay_record(const RaceReplayWords *w, const uint32_t *inputs, uint8_
     }
 }
 
+static uint8_t get(const uint8_t *recording, size_t size, int64_t at)
+{
+    return at >= 0 && (uint64_t)at < size ? recording[at] : 0;  /* port guard: the original reads unchecked */
+}
+
+void race_replay_play(const RaceReplayWords *w, uint32_t *inputs, const uint8_t *recording, size_t size)
+{
+    const int32_t slot = w->clock / CLOCK_STEP;
+    for (int32_t i = 0; i < w->humans; i++) {
+        const int64_t at = (int64_t)i * REPLAY_SLOTS + slot;
+        inputs[i] = (uint32_t)get(recording, size, at) | (uint32_t)get(recording, size, at + REPLAY_HIGH) << BYTE;
+    }
+}
+
 /* 0044dc40's copies: snapshot offset, car offset, bytes (the body's 0x94
  * bytes are read where the car's +0xc0 points, its own +0xc4) */
 static const struct {

@@ -26,6 +26,11 @@ typedef struct {
  * and its next byte 0x3840 further (clock / 4 toward zero). */
 void race_replay_record(const RaceReplayWords *w, const uint32_t *inputs, uint8_t *recording, size_t size);
 
+/* 0044dbc8 (; from 0044eced in 0044ecc4), always: for each human i the
+ * control word (004fb704 + 4i) back from the recording, recording[i x
+ * 0x1c20 + clock / 4] | recording[that + 0x3840] << 8. */
+void race_replay_play(const RaceReplayWords *w, uint32_t *inputs, const uint8_t *recording, size_t size);
+
 enum { REPLAY_CAR_SNAPSHOT = 0x168 };
 
 /* 0044dc40 (eax car, edx snapshot): with 004fbb0c set and playback not 1,
