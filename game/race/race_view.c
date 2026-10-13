@@ -61,3 +61,9 @@ void race_view_next(RaceViews *views, RaceCamera *camera, int32_t size)
     const int32_t next = views->rows[views->mode][camera->view].next;
     if (next > -1) race_view_select(views, camera, next, size);
 }
+
+void race_view_window(const RaceCamera *second, int32_t window_size, int32_t *span, int32_t *size)
+{
+    *size = window_size;
+    *span = (int32_t)((uint32_t)second->view - (uint32_t)second->unknown_08);
+}

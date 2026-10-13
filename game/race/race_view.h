@@ -83,6 +83,11 @@ void race_view_next(RaceViews *views, RaceCamera *camera, int32_t size);
  * (00438628, 00441117) pass a byte. */
 void race_view_size(RaceViews *views, RaceCamera *camera, int32_t *window_size, int32_t size);
 
+/* 004054cc (eax span, edx size; from 004279df, 00441091, 004410e5,
+ * 0044110b, 00447c93): *size = the window size (00511ff0), then *span =
+ * the second camera record's (004b78c8) +0xc - +8. */
+void race_view_window(const RaceCamera *second, int32_t window_size, int32_t *span, int32_t *size);
+
 /* The follow record's two cameras and their matrices: +0x88 and +0x94 ahead,
  * +0x8c and +0xb8 behind (the mirror). */
 typedef struct {
