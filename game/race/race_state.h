@@ -152,9 +152,9 @@ typedef char driver_profile_size_check[sizeof(DriverProfile) == 0x8d ? 1 : -1];
 
 /* 004fb724 + 12 * player: how a player drives. */
 typedef struct {
-    int32_t analog_steering;  /* 0: keys (00438954), else a wheel or stick (00438aac) */
-    int32_t pedals;           /* 1: analog (00438ff0), else keys (00438f00) */
-    int32_t unknown_8;
+    int32_t analog_steering;  /* 0: keys (00438954), else a wheel or stick (00438aac); 0043915c: 1 the pad, 2.. the mouse */
+    int32_t pedals;           /* 1: analog (00438ff0), else keys (00438f00); 0043915c: 3 the pad's buttons, 2 the mouse */
+    int32_t gears;            /* 0043915c: 0 keys, 3 the pad's buttons, else the mouse's */
 } ControlSetup;
 
 typedef struct {

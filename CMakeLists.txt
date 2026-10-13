@@ -95,6 +95,7 @@ add_library(tnfs_game STATIC
     game/race/car_tag.c
     game/race/input_queue.c
     game/race/mouse_steer.c
+    game/race/input_read.c
     game/race/car_lights.c
     game/race/rigid_boxes.c
     game/race/car_collide.c
