@@ -42,8 +42,13 @@ typedef struct {
     int variant_r;   /* 004baf10 */
     int lost_vegas;  /* 004baf18 */
     int hidden;      /* 004baf14 */
-    int warrior;     /* 004c5cc4 */
+    int warrior;     /* 004c5cc4, a short */
 } Unlocks;
+
+/* 00432e48: raises u to the unlock level (the short 0052ad40) and never
+ * lowers it: Lost Vegas takes the level itself while it is 0, level >= 1
+ * sets the Warrior and the "m" variants, level >= 2 the "r" variants. */
+void unlocks_raise(Unlocks *u, int level);
 
 void race_settings_init(RaceSettings *s);
 void race_type_step(RaceSettings *s, const Unlocks *u, int dir);   /* 00432720 + 00432974 */

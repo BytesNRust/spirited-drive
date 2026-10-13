@@ -165,6 +165,17 @@ void race_settings_track_backward(RaceSettings *s, const Unlocks *u)
     else if (u->variant_m) s->variant_m = 1;
 }
 
+/* 00432e48 */
+void unlocks_raise(Unlocks *u, int level)
+{
+    if (!u->lost_vegas) u->lost_vegas = level;
+    if (level >= 1) {
+        u->warrior = 1;
+        u->variant_m = 1;
+    }
+    if (level >= 2) u->variant_r = 1;
+}
+
 void track_step(RaceSettings *s, const Unlocks *u, int dir)
 {
     const int track = s->track;
