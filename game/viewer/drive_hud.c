@@ -118,6 +118,8 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->needle_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0, 0);  /* 00446bac */
     h->road_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0x3f, 0x3f);
     h->frame_colour = (uint32_t)race_palette_nearest(p, 0x1a, 0x1a, 0x1a);
+    h->mirror.enclosed_colour = (uint32_t)race_palette_nearest(p, 0x20, 0x20, 0x20);  /* 0050b7c0 */
+    h->mirror.property8_colour = (uint32_t)race_palette_nearest(p, 0, 0x20, 0);       /* 0050b79c */
     const uint8_t car_colours[HUD_MAP_COLOURS] = { 0xf5, 0xf8, 0xf0, 0xfa, (uint8_t)h->road_colour, 0xf9, 0xfc, 0xfb };
     memcpy(h->car_colours, car_colours, sizeof car_colours);
     uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34; the search's entries 004c5ff8 as 0041f818 left them */

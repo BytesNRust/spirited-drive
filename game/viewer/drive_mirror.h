@@ -26,6 +26,8 @@ typedef struct {
     int32_t vertices[MIRROR_SCREEN_WORDS_AT + 2 * (MIRROR_POINTS + 11) + 2];  /* 00509330, 005095c4 */
     uint8_t cache[MIRROR_SEGMENT_CACHE];    /* the records 0043f3a8 / 0044baa4 read (005041d8) */
     uint8_t *horz;              /* a one-shape bank holding the track's 'horz' (0051203c) */
+    uint32_t enclosed_colour;   /* 0050b7c0 (00446bac: grey 0x20) */
+    uint32_t property8_colour;  /* 0050b79c (00446bac: green 0x20) */
     View view;
 } DriveMirror;
 

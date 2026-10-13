@@ -203,8 +203,8 @@ static void sky_op(void *ctx)
     if (f->m->horz == NULL) return;
     const RaceState *race = f->w->race;
     const ViewRow *row = &race_view_rows[HIGH_MODE][MIRROR_VIEW];
-    /* TODO(00446bac): 0050b7c0 / 0050b79c, the enclosed roads' colours, are not set yet */
-    const MirrorSkyInputs in = { race->chase.node, f->pitch, f->yaw, HIGH_MODE, row->unknown_14[3], f->layout->y, 0, 0,
+    const MirrorSkyInputs in = { race->chase.node, f->pitch, f->yaw, HIGH_MODE, row->unknown_14[3], f->layout->y,
+                                 f->m->enclosed_colour, f->m->property8_colour,
                                  (int16_t)race->frontend_track, 0, f->m->width, f->m->height, f->m->horz };
     const MirrorSkyOps ops = { f, node_property, sky_fill, sky_rect, sky_quad };
     mirror_sky(&ops, &in);
