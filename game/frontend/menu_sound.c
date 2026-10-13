@@ -44,3 +44,11 @@ void menu_sound_music_volume(const MenuSound *m, const ConfigDat *c, int volume,
 {
     if (music_allowed(m, c)) ops->voice_ramp(ops->ctx, m->music, 0, (int16_t)volume);
 }
+
+/* 004645d8 */
+void menu_sound_effects_volume(const MenuSound *m, int volume, const MenuSoundOps *ops)
+{
+    if (!m->sound_on) return;
+    ops->voice_volume(ops->ctx, m->voice, (int16_t)volume);
+    ops->voice_volume(ops->ctx, m->voice_4a, (int16_t)volume);
+}

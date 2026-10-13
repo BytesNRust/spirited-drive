@@ -13,6 +13,7 @@ typedef struct MenuSoundOps {
      * music out); what they mean in the driver is not known. */
     void (*voice_ramp)(void *ctx, int32_t voice, int32_t edx, int32_t ebx);
     void (*voice_stop)(void *ctx, int32_t voice);  /* 00473c68: eax a voice */
+    void (*voice_volume)(void *ctx, int32_t voice, int32_t volume);  /* 00473b4c */
     void *ctx;
 } MenuSoundOps;
 
@@ -44,5 +45,9 @@ void menu_sound_music_fade_to(const MenuSound *m, const ConfigDat *c, int volume
 
 /* 0046463c: the same with 0 for 0x32. */
 void menu_sound_music_volume(const MenuSound *m, const ConfigDat *c, int volume, const MenuSoundOps *ops);
+
+/* 004645d8: with the sound on, 00473b4c gives the short volume to the
+ * effects' voice, then to 0x4a's. */
+void menu_sound_effects_volume(const MenuSound *m, int volume, const MenuSoundOps *ops);
 
 #endif
