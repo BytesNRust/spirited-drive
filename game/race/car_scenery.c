@@ -169,3 +169,11 @@ void race_scenery_restore(RaceState *race)
     const uint32_t slots = scenery_slots(race);
     for (uint32_t i = 0; i < slots; i++) race->scenery_state[2 * i] = race->scenery_state[2 * i + 1];
 }
+
+void race_scenery_rewind(RaceState *race, int32_t minute)
+{
+    if (race->unknown_4fbb0c == 0 || race->playback == 1) return;
+    const uint32_t slots = scenery_slots(race);
+    for (uint32_t i = 0; i < slots; i++)
+        if ((int32_t)race->scenery_state[2 * i] - 1 >= minute) race->scenery_state[2 * i] = 0;
+}

@@ -28,6 +28,11 @@ void race_scenery_keep(RaceState *race);
  * state byte copied back to its first (004501fc's undone). */
 void race_scenery_restore(RaceState *race);
 
+/* 004501a8 (eax minute): with 004fbb0c set and playback not 1, each record
+ * knocked over at that minute or later (state byte - 1 >= minute, signed;
+ * a standing 0 counts as -1) standing again. */
+void race_scenery_rewind(RaceState *race, int32_t minute);
+
 /* 0043f51c: the track's scenery streamed in again (a knocked object goes). */
 void race_scenery_restream(RaceState *race);
 
