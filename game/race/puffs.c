@@ -1,7 +1,9 @@
 /* The tyre smoke's puffs (00456820). */
 #include "game/race/puffs.h"
 
-enum { CHANNEL_MAX = 0xff };
+#include "game/gfx/sprite_scaled.h"
+
+enum { CHANNEL_MAX = 0xff, DIRT_MOST = 0x10000 };
 
 static int32_t lift(int32_t under, int32_t added)
 {
@@ -22,4 +24,23 @@ void puff_blend_build(uint8_t table[PUFF_BLEND_SIZE], const uint8_t palette[1024
             table[a * 256 + b] = nearest(ctx, rgb);
         }
     }
+}
+
+static int32_t at_resolution(const PuffView *v, int32_t size)
+{
+    return v->high_res != 0 ? size : size / 2;
+}
+
+void puff_smoke(const PuffView *v, int32_t x, int32_t y, int32_t size)
+{
+    const int32_t pick = v->rand_below(v->ctx, 2) * 2;
+    sprite_scaled_blend_at(v->target, v->blend, v->smoke[pick], at_resolution(v, size), x, y);
+}
+
+void puff_dirt(const PuffView *v, int32_t x, int32_t y, int32_t size)
+{
+    const int32_t pick = v->rand_below(v->ctx, 3);
+    size = at_resolution(v, size);
+    if (size > DIRT_MOST) size = DIRT_MOST;
+    sprite_scaled_at(v->target, v->dirt[pick], size, x, y);
 }
