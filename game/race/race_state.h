@@ -236,6 +236,8 @@ typedef struct {
     PlayerRecord players[RACE_PLAYERS + 1];  /* 0051cc54; the 9th takes the place kept one on (00440c30) and the last car's model (0045af80) */
     Car *cars[RACE_CARS];        /* 00509e1c: the cars by slot */
     int32_t by_node[RACE_CARS];  /* 00509e68: slots by road node, the rearmost first (00440dd8) */
+    Car *drawn[RACE_CARS];       /* 00509e8c: the cars drawn, by_node's order (004414e0) */
+    int32_t drawn_count;         /* 00509e14 */
     int32_t by_progress[RACE_CARS];  /* 00509e44: slots by progress, last place first (00440dd8) */
     uint8_t car_places[RACE_CARS];  /* 004f9e83: each slot's place, 1 first (0041f434) */
     int16_t start_beeps[6];         /* 00513e78..00513e82: one a start light, cleared when it lights (0041ec88) */

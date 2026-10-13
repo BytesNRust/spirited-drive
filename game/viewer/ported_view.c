@@ -260,14 +260,14 @@ static void row_unseen(void *ctx, Car *car)
     car_skid_unseen(&ops, car);
 }
 
-/* 0045a848 in a race (00509e8c / 00509e14 taken as the race's cars); else each listed car on the node. */
+/* 0045a848 in a race; else each listed car on the node. */
 static void draw_cars(void *user, int32_t node)
 {
     (void)user;
     if (shadow_race != NULL && shadow_remap != NULL) {
         const RaceState *race = shadow_race;
         const RowCarsOps ops = { NULL, row_prepare, row_draw, row_unseen };
-        const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->cars, race->car_count, followed_car(),
+        const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->drawn, race->drawn_count, followed_car(),
                                    race->chase.kind, 0 };
         cars_on_row(&ops, &in, node);
         return;

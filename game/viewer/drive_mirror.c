@@ -258,13 +258,13 @@ static void car_draw_op(void *ctx, Car *car, int mirror)
     f->w->draw_car(f->w->user, car, &mv, &f->target);
 }
 
-/* 0045a8fc. TODO(004414ea): 00509e8c / 00509e14 (the cars drawn) taken as the race's cars. */
+/* 0045a8fc */
 static void scene_cars(void *ctx, int32_t node)
 {
     Frame *f = ctx;
     const RaceState *race = f->w->race;
     const MirrorCarsOps ops = { f, mirror_prepare, car_draw_op };
-    const MirrorCarsInputs in = { race->chase.node, race->segments, f->m->car_rows, race->cars, race->car_count,
+    const MirrorCarsInputs in = { race->chase.node, race->segments, f->m->car_rows, race->drawn, race->drawn_count,
                                   f->w->followed, race->chase.kind };
     mirror_cars(&ops, &in, node);
 }

@@ -301,9 +301,14 @@ void race_sim_tick(RaceSim *sim, uint32_t input)
          * before it, 0047217c, 00472348 and 00472560 after it, not ported. */
         if (race->phase != 3 && race->entries[race->player & (RACE_PLAYERS - 1)].sound_volume != 0)
             race_sound_follow(race, &sim->specs[race_slot(race->player)]);
-        for (int i = 0; i < sim->count; i++)
-            if ((sim->slots[i].car.flags_51a & FLAG_ACTIVE) && sim->slots[i].car.controller != 0)
-                car_keep_draw_state(&sim->slots[i].car);
+        /* 004414a7: the cars drawn, by road node, each keeping its draw state */
+        race->drawn_count = 0;
+        for (int i = 0; i < race->car_count; i++) {
+            Car *car = race->cars[race_slot(race->by_node[i])];
+            if ((car->flags_51a & FLAG_ACTIVE) == 0 || car->controller == 0) continue;
+            race->drawn[race->drawn_count++] = car;
+            car_keep_draw_state(car);
+        }
     }
     race->tick += 2;
 }
