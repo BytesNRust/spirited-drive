@@ -4,6 +4,7 @@
 #define TNFS_RACE_REPLAY_H
 
 #include "game/race/car_struct.h"
+#include "game/race/race_state.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -41,5 +42,26 @@ void race_replay_save_car(int32_t w4fbb0c, int16_t playback, const Car *car, uin
  * progress (+0x4c) = (lap (+0x50) - 1) x segments (0050420c) x 4 + node
  * (+0x48), 32-bit. */
 void race_replay_load_car(Car *car, const uint8_t *snapshot, int32_t segments);
+
+enum {
+    REPLAY_HUMANS_AT = 0x7080,       /* the humans' minutes after the two byte planes */
+    REPLAY_HUMAN_MINUTE = 0x1a4,     /* a human's minute: the snapshot and 0x3c bytes more */
+    REPLAY_HUMAN = 0x10 * REPLAY_HUMAN_MINUTE,
+    REPLAY_OTHERS_AT = REPLAY_HUMANS_AT + 2 * REPLAY_HUMAN,
+    REPLAY_OTHER = 0x172,            /* another car's minute: the snapshot and 10 bytes more */
+    REPLAY_OTHER_MINUTE = 8 * REPLAY_OTHER,
+    REPLAY_SIZE = REPLAY_OTHERS_AT + 0x10 * REPLAY_OTHER_MINUTE
+};
+
+/* 0044df20 (eax human, edx minute, ebx index; from 0044e354), always.
+ * human != 0: the record at 0x7080 + index x 0x1a4 x 16 + minute x 0x1a4
+ * goes into cars[index] through 0044dd9c, then the human's fields after
+ * the snapshot (+0x168..+0x1a0: the gear bytes, the dwords, +0x16b - 100,
+ * +0x185 - 2, +0x16c split in halves, +0x186's bits), 004c5f98 and
+ * 004c5f9c = -1, +0x425 = 0. human 0: the record at 0xa500 + minute x
+ * 0xb90 + index x 0x172 into cars[its +8 >> 24], then +0x160, +0x164,
+ * +0x3fd (a byte) and the byte +0x340. */
+void race_replay_restore_car(RaceState *race, int32_t human, int32_t minute, int32_t index,
+                             const uint8_t *recording, size_t size);
 
 #endif

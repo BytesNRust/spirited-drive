@@ -329,6 +329,9 @@ typedef struct {
      * the minute (race tick / 0x708) + 1 it was knocked over, 0 standing */
     uint8_t scenery_state[2 * TRI_SCENERY_MAX];
     int32_t unknown_4fbb0c;         /* 004fbb0c: with playback not 1, 004501fc copies each record's first state byte to its second */
+    /* 004c5f98, 004c5f9c: read by 0047217c (a sound; not ported) when the
+     * first is not negative; 0044df20 sets both to -1 */
+    int32_t unknown_4c5f98, unknown_4c5f9c;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */

@@ -67,3 +67,66 @@ void race_replay_load_car(Car *car, const uint8_t *snapshot, int32_t segments)
     const uint32_t lap = raw32(to + LAP_AT), node = raw32(to + NODE_AT);
     put32(to + PROGRESS_AT, (lap - 1u) * (uint32_t)segments * NODES_A_SEGMENT + node);
 }
+
+/* 0044df20's human fields: record offset, car offset (dwords as they are) */
+static const struct {
+    uint16_t from, to;
+} HUMAN_WORDS[] = {
+    { 0x170, 0x3c9 }, { 0x174, 0x3cd }, { 0x178, 0x3d1 }, { 0x190, 0x3d9 }, { 0x194, 0x3dd }, { 0x198, 0x3e1 },
+    { 0x19c, 0x3e5 }, { 0x18c, 0x3d5 }, { 0x180, 0x40d }, { 0x17c, 0x06c }, { 0x188, 0x401 }, { 0x1a0, 0x4a2 }
+};
+
+/* the byte +0x186's bits to the car's dwords */
+static const struct {
+    uint8_t bit;
+    uint16_t to;
+} HUMAN_BITS[] = { { 3, 0x3f1 }, { 2, 0x3f5 }, { 1, 0x3f9 }, { 0, 0x3fd } };
+
+enum { HALF = 16, HALF_MASK = 0xffff, BRAKE_BIT = 5, BRAKE_ON = 2, NONE = -1 };
+
+static void restore_human(RaceState *race, Car *car, const uint8_t *r)
+{
+    uint8_t *c = (uint8_t *)car;
+    put32(c + 0x3b1, r[0x168]);
+    put32(c + 0x3b5, r[0x169]);
+    put32(c + 0x3b9, r[0x16a]);
+    for (size_t i = 0; i < sizeof HUMAN_WORDS / sizeof HUMAN_WORDS[0]; i++)
+        put32(c + HUMAN_WORDS[i].to, raw32(r + HUMAN_WORDS[i].from));
+    put32(c + 0x3e9, r[0x184]);
+    put32(c + 0x3bd, (uint32_t)r[0x16b] - 100u);
+    put32(c + 0x3ed, (uint32_t)r[0x185] - 2u);
+    const uint32_t split = raw32(r + 0x16c);
+    put32(c + 0x3c5, (uint32_t)((int32_t)split >> HALF));
+    put32(c + 0x3c1, split & HALF_MASK);
+    const uint8_t bits = r[0x186];
+    c[0x426] = (bits >> BRAKE_BIT & 1) != 0 ? BRAKE_ON : 0;
+    for (size_t i = 0; i < sizeof HUMAN_BITS / sizeof HUMAN_BITS[0]; i++)
+        put32(c + HUMAN_BITS[i].to, bits >> HUMAN_BITS[i].bit & 1u);
+    race->unknown_4c5f98 = NONE;
+    c[0x425] = 0;
+    race->unknown_4c5f9c = NONE;
+}
+
+void race_replay_restore_car(RaceState *race, int32_t human, int32_t minute, int32_t index,
+                             const uint8_t *recording, size_t size)
+{
+    const int64_t at = human != 0
+        ? REPLAY_HUMANS_AT + (int64_t)index * REPLAY_HUMAN + (int64_t)minute * REPLAY_HUMAN_MINUTE
+        : REPLAY_OTHERS_AT + (int64_t)minute * REPLAY_OTHER_MINUTE + (int64_t)index * REPLAY_OTHER;
+    const int64_t length = human != 0 ? REPLAY_HUMAN_MINUTE : REPLAY_OTHER;
+    if (at < 0 || (uint64_t)(at + length) > size) return;  /* port guard: the original reads unchecked */
+    const uint8_t *r = recording + at;
+    const int32_t slot = human != 0 ? index : (int32_t)raw32(r + PACKED_AT) >> SLOT_SHIFT;
+    if (slot < 0 || slot >= RACE_CARS || race->cars[slot] == NULL) return;  /* port guard */
+    Car *car = race->cars[slot];
+    race_replay_load_car(car, r, race->segments);
+    if (human != 0) {
+        restore_human(race, car, r);
+        return;
+    }
+    uint8_t *c = (uint8_t *)car;
+    put32(c + 0x160, raw32(r + 0x168));
+    put32(c + 0x164, raw32(r + 0x16c));
+    put32(c + 0x3fd, r[0x170]);
+    c[0x340] = r[0x171];
+}
