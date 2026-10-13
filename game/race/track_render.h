@@ -101,6 +101,12 @@ int32_t track_winding(const int32_t *s, const int tri[3], int mirrored);
  * faces the camera (track_winding < 0 for strips 0..4, > 0 for the rest). */
 int track_visible_near(const MirrorBounds *b, const int32_t s[8], int strip, int mirrored);
 
+/* 0044a0d0 (watcall points, strip): 0 when the four points share an
+ * outcode against the clip (00487b0e); else 1 when the triangle 004c5344 or
+ * 004c5350 (the values of 004c5320's first two) faces the camera as for
+ * track_visible_near. */
+int track_visible_far(const ClipRect *clip, const int32_t s[8], int strip, int mirrored);
+
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */

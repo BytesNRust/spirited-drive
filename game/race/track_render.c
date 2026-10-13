@@ -279,7 +279,7 @@ int track_visible_near(const MirrorBounds *b, const int32_t s[8], int strip, int
 }
 
 /* 0044a0d0 */
-static int visible_far(const ClipRect *clip, const int32_t *s, int strip, int mirrored)
+int track_visible_far(const ClipRect *clip, const int32_t s[8], int strip, int mirrored)
 {
     if (outcode_shared(clip, s, 4) != 0) return 0;
     return faces_camera(s, strip, 2, mirrored);
@@ -500,7 +500,7 @@ static void draw_far(const TrackRender *r, const TrackCamera *cam, const DrawCon
             int32_t screen[8];
             const int32_t *corners[4];
             gather(r, base, p, screen, corners);
-            if (drawable(r, segment) && visible_far(&ctx->clip, screen, p->strip, mirrored) && corners[3][2] > 0) {
+            if (drawable(r, segment) && track_visible_far(&ctx->clip, screen, p->strip, mirrored) && corners[3][2] > 0) {
                 const FshEntry *tex = texture_of(r->art, rec->texture[p->strip], TRACK_UVS[p->uv].variant + variant);
                 if (tex != NULL) ctx->sink.draw_full(ctx->sink.user, tex, screen);
             }
