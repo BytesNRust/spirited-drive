@@ -46,3 +46,25 @@ void tournament_new(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s, const 
     uint8_t *to = game_state;
     while ((*to++ = *from++) != 0) {}
 }
+
+/* 00432720 */
+void race_settings_type_step(RaceSettings *s, Unlocks *u, FrontendSession *f, uint8_t game_state[GAME_STATE_SIZE],
+                             const ConfigDat *c, int key, TournamentAsk ask, void *ctx)
+{
+    enum { KEY_RIGHT = 0x4d00 };
+    if (f->tournament_on) {
+        if ((int16_t)ask(f->german, ctx) == 0) return;
+        s->race_type = RACE_HEAD_TO_HEAD;
+        tournament_new(game_state, s, c, f);
+        f->tournament_on = 0;  /* 00432767, already 0 from 00466ae4 */
+    } else {
+        const int right = key == KEY_RIGHT;
+        s->race_type = (int16_t)((s->race_type + (right ? 1 : 3)) % 4);
+        if (f->flag_52b312) {
+            if (s->race_type == RACE_TIME_TRIAL) s->race_type = right ? RACE_HEAD_TO_HEAD : RACE_TOURNAMENT;
+            if (s->race_type == RACE_HEAD_TO_HEAD && f->unknown_4f81d2 > 2)
+                s->race_type = right ? RACE_SINGLE : RACE_TOURNAMENT;
+        }
+    }
+    race_settings_type_changed(s, u, f);
+}

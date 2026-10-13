@@ -71,9 +71,10 @@ void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
     }
 }
 
-/* TODO(00432720): the draft's race type step; the level and the 00432974
- * session are guessed (the level from Lost Vegas, no 0052b312 game) and the
- * Lost Vegas it writes is dropped. */
+/* TODO(00432ff4): the draft's race type step, until Control Central uses
+ * the verified race_settings_type_step (00432720, tournament.c); the level
+ * and the 00432974 session are guessed (the level from Lost Vegas, no
+ * 0052b312 game) and the Lost Vegas it writes is dropped. */
 static void race_type_changed(RaceSettings *s, const Unlocks *u)
 {
     Unlocks scratch = *u;

@@ -32,4 +32,16 @@ void tournament_default_names(uint8_t game_state[GAME_STATE_SIZE], int from);
  * config.dat's player name is strcpy'd to player 0's record. */
 void tournament_new(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s, const ConfigDat *c, FrontendSession *f);
 
+/* The Yes / No question 00465f4c asks with the text for the language
+ * ("quit the tournament?", 004af7cc German, 004af7e0 English); not 0 is yes. */
+typedef int (*TournamentAsk)(int german, void *ctx);
+
+/* 00432720: the race type arrows (key 0x4d00 right, any other left). During a
+ * tournament: asks to quit it, and on yes the race type becomes 1 and a new
+ * tournament (00466ae4) clears it; on no nothing at all. Otherwise the type
+ * steps mod 4; in a 0052b312 game 0 is skipped and so is 1 when
+ * f->unknown_4f81d2 is above 2. Then 00432974. */
+void race_settings_type_step(RaceSettings *s, Unlocks *u, FrontendSession *f, uint8_t game_state[GAME_STATE_SIZE],
+                             const ConfigDat *c, int key, TournamentAsk ask, void *ctx);
+
 #endif

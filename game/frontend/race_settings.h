@@ -59,6 +59,8 @@ typedef struct {
     int unknown_4c5cc2;  /* the short 004c5cc2, cleared */
     int unknown_4bafb6;  /* the short 004bafb6, set to 0x14 */
     int tournament_on;   /* the short 0052b310: a tournament is under way (cleared by 00466ae4) */
+    int german;          /* the short 0052b31c: the language, 1 German */
+    int unknown_4f81d2;  /* the short 004f81d2: above 2 a 0052b312 game skips head to head */
 } FrontendSession;
 
 /* 00432e48: raises u to the unlock level (the short 0052ad40) and never
