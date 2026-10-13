@@ -3,7 +3,7 @@
 
 #include "game/gfx/x86_int.h"
 
-enum { STAND_IN = 0x87a0, GAVE_UP = 0x803f, SEND_WORDS = 10, SEND_SIZE = 0x12, SEND_KIND = 2, BEHIND = 0x2a };
+enum { STAND_IN = 0x87a0, GAVE_UP = 0x803f, SEND_WORDS = 10, SEND_SIZE = 0x12, SEND_KIND = 2, BEHIND = 0x2a, POLL_SIZE = 4, LATE_MAX = 0xf };
 
 int input_take(InputQueue *q, uint32_t *control, int slot, InputWords *w)
 {
@@ -64,4 +64,24 @@ void input_put(InputQueue *q, int16_t word, InputWords *w)
     q->filled[slot] = 1;
     q->input[slot] = word;
     q->clock = x_add(q->clock, 2);
+}
+
+void input_poll(const InputPollOps *ops, InputPollWords *w)
+{
+    if (w->replay != 0) return;
+    const uint32_t word = ops->read(ops->ctx);
+    const int32_t put = (int16_t)(uint16_t)word;
+    if (w->w4fbb0c == 0 || w->playback == 2 || w->playback == 3) {
+        const int16_t words[2] = { SEND_KIND, (int16_t)(uint16_t)word };
+        ops->send(ops->ctx, 0, words, POLL_SIZE);
+        if (w->playback == 1) {
+            w->late = x_add(w->late, 1);
+            if (w->late > LATE_MAX) w->waiting = 1;
+        } else {
+            ops->put(ops->ctx, w->player, put);
+        }
+        return;
+    }
+    ops->put(ops->ctx, w->player, put);
+    if (w->playback == 1 && w->w4fbb0c != 0) ops->store(ops->ctx);
 }

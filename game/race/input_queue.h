@@ -62,4 +62,28 @@ void input_store(InputQueue *queues, int32_t *clock, int32_t humans, const int16
  * the word, clock += 2. */
 void input_put(InputQueue *q, int16_t word, InputWords *w);
 
+typedef struct {
+    void *ctx;
+    uint32_t (*read)(void *ctx);                        /* 0043915c */
+    void (*send)(void *ctx, int32_t to, const int16_t *words, int32_t size);  /* 00445e00 */
+    void (*put)(void *ctx, int32_t player, int32_t word);  /* 00439738 on 004faa7c + player x 0x18c */
+    void (*store)(void *ctx);                           /* 00439b24 */
+} InputPollOps;
+
+typedef struct {
+    int16_t replay;     /* 0052b316 */
+    int16_t playback;   /* 0052b312 */
+    int32_t player;     /* 004fbb08 */
+    int32_t w4fbb0c;    /* 004fbb0c */
+    int32_t late;       /* 004fb790: polls sent while playback 1 */
+    int32_t waiting;    /* 004bb8e8: written */
+} InputPollWords;
+
+/* 004394dc (no arguments, from 0043b970): nothing in a replay. Else word =
+ * read(). With 004fbb0c 0 or playback 2 or 3: send(0, { 2, word }, 4),
+ * then playback 1: late += 1, waiting = 1 past 15; else put(player, word
+ * sign-extended from 16 bits). Else put(player, word) and, playback 1 with
+ * 004fbb0c set, store(). */
+void input_poll(const InputPollOps *ops, InputPollWords *w);
+
 #endif
