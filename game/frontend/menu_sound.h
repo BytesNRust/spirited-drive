@@ -50,4 +50,7 @@ void menu_sound_music_volume(const MenuSound *m, const ConfigDat *c, int volume,
  * effects' voice, then to 0x4a's. */
 void menu_sound_effects_volume(const MenuSound *m, int volume, const MenuSoundOps *ops);
 
+/* 00464980: with the sound on, 00473c68 on 0x4a's voice. */
+void menu_sound_stop_4a(const MenuSound *m, const MenuSoundOps *ops);
+
 #endif

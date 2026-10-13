@@ -52,3 +52,9 @@ void menu_sound_effects_volume(const MenuSound *m, int volume, const MenuSoundOp
     ops->voice_volume(ops->ctx, m->voice, (int16_t)volume);
     ops->voice_volume(ops->ctx, m->voice_4a, (int16_t)volume);
 }
+
+/* 00464980 */
+void menu_sound_stop_4a(const MenuSound *m, const MenuSoundOps *ops)
+{
+    if (m->sound_on) ops->voice_stop(ops->ctx, m->voice_4a);
+}
