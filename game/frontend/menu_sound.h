@@ -15,12 +15,16 @@ typedef struct MenuSoundOps {
     void (*voice_stop)(void *ctx, int32_t voice);  /* 00473c68: eax a voice */
     void (*voice_volume)(void *ctx, int32_t voice, int32_t volume);  /* 00473b4c */
     int32_t (*voice_stopped)(void *ctx, int32_t voice);              /* 00473d20: non-zero once stopped */
+    void (*bank_unregister)(void *ctx, int32_t bank);                /* 0048edfc: eax 0048ed30's handle */
+    void (*file_free)(void *ctx, void *data);                        /* 0047529c (cdecl) */
     void *ctx;
 } MenuSoundOps;
 
 typedef struct MenuSound {
     int sound_on;      /* the short 0052b304 */
     int32_t voice_4a;  /* 005247e8: the voice of sound 0x4a */
+    int32_t bank;      /* 005247ec: front_mw.bnk's handle (0048ed30, 004648dc) */
+    void *bank_data;   /* 00524804: front_mw.bnk's file (00483ec0, 004648dc) */
     int32_t voice;     /* 00524808: the voice of any other */
     int32_t music;     /* 0052480c: the music's voice */
     int music_off;     /* the short 0052b31e */
@@ -57,5 +61,9 @@ void menu_sound_stop_4a(const MenuSound *m, const MenuSoundOps *ops);
 /* 00464994: 1 when 0x4a has played out (no voice, or 00473d20 says
  * stopped); 0 while it plays and with the sound off. */
 int menu_sound_4a_done(const MenuSound *m, const MenuSoundOps *ops);
+
+/* 004649c8: with the sound on, unregisters front_mw.bnk (0048edfc) and
+ * frees its file (0047529c); both are left set. */
+void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops);
 
 #endif

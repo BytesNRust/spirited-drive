@@ -66,3 +66,11 @@ int menu_sound_4a_done(const MenuSound *m, const MenuSoundOps *ops)
     if (m->voice_4a == 0) return 1;
     return ops->voice_stopped(ops->ctx, m->voice_4a) != 0;
 }
+
+/* 004649c8 */
+void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops)
+{
+    if (!m->sound_on) return;
+    ops->bank_unregister(ops->ctx, m->bank);
+    ops->file_free(ops->ctx, m->bank_data);
+}
