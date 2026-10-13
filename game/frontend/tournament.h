@@ -4,6 +4,7 @@
 #ifndef TNFS_TOURNAMENT_H
 #define TNFS_TOURNAMENT_H
 
+#include "game/frontend/config_dat.h"
 #include "game/frontend/race_settings.h"
 
 #include <stdint.h>
@@ -24,5 +25,11 @@ void tournament_reset(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s);
  * start of the records of players max(from, 1)..7; nothing when from is
  * past 7 or negative (the original's unsigned test). Player 0's never. */
 void tournament_default_names(uint8_t game_state[GAME_STATE_SIZE], int from);
+
+/* 00466ae4: a new tournament. The controls (config.dat's 26 bytes at
+ * 0052ad26) go to +0x554, 00466a3c, the shorts at +0x570 (8), +0x580 (9) and
+ * +0x592 (9) are cleared, 00466b90 from player 1, f->tournament_on = 0, and
+ * config.dat's player name is strcpy'd to player 0's record. */
+void tournament_new(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s, const ConfigDat *c, FrontendSession *f);
 
 #endif
