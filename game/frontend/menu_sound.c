@@ -15,3 +15,14 @@ void menu_sound_play(MenuSound *m, const ConfigDat *c, int sound, const MenuSoun
     if ((int16_t)sound == SOUND_4A) m->voice_4a = voice;
     else m->voice = voice;
 }
+
+static int music_allowed(const MenuSound *m, const ConfigDat *c)
+{
+    return !m->music_off && short_at(c, 0x00524e63) && m->sound_on;
+}
+
+/* 004644f0 */
+void menu_sound_music_fade_out(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
+{
+    if (music_allowed(m, c) && m->music_on) ops->voice_ramp(ops->ctx, m->music, 0x64, -1);
+}
