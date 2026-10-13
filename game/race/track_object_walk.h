@@ -4,7 +4,8 @@
  * back from its last record, farthest first, in step with the road rows.
  *
  *   track_objects_from_last  0044a804: the walker on the run's last record
- *   track_objects_back_to    0044a87c: and back from there to a node */
+ *   track_objects_back_to    0044a87c: and back from there to a node
+ *   track_objects_start      0044a9b8: an empty run from the camera's segment */
 #ifndef TNFS_TRACK_OBJECT_WALK_H
 #define TNFS_TRACK_OBJECT_WALK_H
 
@@ -22,6 +23,7 @@ typedef struct {
     int32_t first;            /* 005041c0: the run's first record */
     int32_t count;            /* 005041cc: the run's length, objects placed */
     int32_t vertex_count;     /* 005041b4: object points placed */
+    int32_t vertex_total;     /* 005041b8: the same, kept apart by the build */
     int32_t cursor;           /* 005041c4: the walker's record */
     int32_t node;             /* 005041c8: its node, -1 when none */
     int32_t vertex_cursor;    /* 005041bc: the walker's object points */
@@ -42,5 +44,12 @@ void track_objects_from_last(TrackObjectWalk *w);
  * than 0x100 behind it; past record 0 to the last record, whose node is
  * -1 on a stage. */
 void track_objects_back_to(TrackObjectWalk *w, int32_t node);
+
+/* 0044a9b8 (watcall segment): unless record 0's node is negative (no
+ * records), the run starts by bisection at a record about segment x 4,
+ * back over the records sharing that record's node onto the one before
+ * them, then forward while its node is below segment x 4 (not past the
+ * last record); 0 otherwise. The walker on it, its node read; the counts 0. */
+void track_objects_start(TrackObjectWalk *w, int32_t segment);
 
 #endif

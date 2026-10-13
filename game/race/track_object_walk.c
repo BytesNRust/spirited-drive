@@ -61,3 +61,29 @@ void track_objects_back_to(TrackObjectWalk *w, int32_t node)
         bound = d > 0 && last < -WALK_BEHIND ? d : last;
     }
 }
+
+/* 0044a9b8 */
+void track_objects_start(TrackObjectWalk *w, int32_t segment)
+{
+    const int32_t node = (int32_t)((uint32_t)segment << 2);
+    int32_t at = 0;
+    if (record_node(w, 0) >= 0) {
+        int32_t lo = 0, hi = w->record_count - 1;
+        at = hi / 2;
+        while (lo + 1 < hi) {
+            at = (lo + hi) / 2;
+            if (node > record_node(w, at)) lo = at;
+            else hi = at;
+        }
+        /* back over the records on its node, onto the one before them */
+        const int32_t on = record_node(w, at);
+        while (at > 0 && record_node(w, at) == on) at--;
+        while (node > record_node(w, at) && at < w->record_count - 1) at++;
+    }
+    w->first = at;
+    w->cursor = at;
+    w->vertex_total = 0;
+    w->count = 0;
+    w->vertex_count = 0;
+    w->node = record_node(w, at);
+}
