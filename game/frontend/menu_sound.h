@@ -14,6 +14,7 @@ typedef struct MenuSoundOps {
     void (*voice_ramp)(void *ctx, int32_t voice, int32_t edx, int32_t ebx);
     void (*voice_stop)(void *ctx, int32_t voice);  /* 00473c68: eax a voice */
     void (*voice_volume)(void *ctx, int32_t voice, int32_t volume);  /* 00473b4c */
+    int32_t (*voice_stopped)(void *ctx, int32_t voice);              /* 00473d20: non-zero once stopped */
     void *ctx;
 } MenuSoundOps;
 
@@ -52,5 +53,9 @@ void menu_sound_effects_volume(const MenuSound *m, int volume, const MenuSoundOp
 
 /* 00464980: with the sound on, 00473c68 on 0x4a's voice. */
 void menu_sound_stop_4a(const MenuSound *m, const MenuSoundOps *ops);
+
+/* 00464994: 1 when 0x4a has played out (no voice, or 00473d20 says
+ * stopped); 0 while it plays and with the sound off. */
+int menu_sound_4a_done(const MenuSound *m, const MenuSoundOps *ops);
 
 #endif

@@ -58,3 +58,11 @@ void menu_sound_stop_4a(const MenuSound *m, const MenuSoundOps *ops)
 {
     if (m->sound_on) ops->voice_stop(ops->ctx, m->voice_4a);
 }
+
+/* 00464994 */
+int menu_sound_4a_done(const MenuSound *m, const MenuSoundOps *ops)
+{
+    if (!m->sound_on) return 0;
+    if (m->voice_4a == 0) return 1;
+    return ops->voice_stopped(ops->ctx, m->voice_4a) != 0;
+}
