@@ -35,4 +35,11 @@ enum { REPLAY_CAR_SNAPSHOT = 0x168 };
  * +0xc4 in the car), then +0x15c and +0x158 (swapped), +0x33c, +0x4f2. */
 void race_replay_save_car(int32_t w4fbb0c, int16_t playback, const Car *car, uint8_t *snapshot);
 
+/* 0044dd9c (eax car, edx snapshot), always: 0044dc40's snapshot back into
+ * the car (the slot = +8 >> 24, signed; the dword at +0x51a = +8 >> 8 &
+ * 0xffff; the body where +0xc0 points), then +0x405 and +0x409 = 0 and the
+ * progress (+0x4c) = (lap (+0x50) - 1) x segments (0050420c) x 4 + node
+ * (+0x48), 32-bit. */
+void race_replay_load_car(Car *car, const uint8_t *snapshot, int32_t segments);
+
 #endif

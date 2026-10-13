@@ -32,11 +32,17 @@ static const struct {
     { 0x0c4, 0x0c4, 0x94 }, { 0x158, 0x15c, 4 }, { 0x15c, 0x158, 4 }, { 0x160, 0x33c, 4 }, { 0x164, 0x4f2, 4 }
 };
 
-enum { SLOT_AT = 0x516, FLAGS_AT = 0x51a, PACKED_AT = 8, SLOT_SHIFT = 24, FLAGS_SHIFT = 8 };
+enum { SLOT_AT = 0x516, FLAGS_AT = 0x51a, PACKED_AT = 8, SLOT_SHIFT = 24, FLAGS_SHIFT = 8, FLAGS_MASK = 0xffff,
+       CLEARED_A = 0x405, CLEARED_B = 0x409, NODE_AT = 0x48, PROGRESS_AT = 0x4c, LAP_AT = 0x50, NODES_A_SEGMENT = 4 };
 
 static uint32_t raw32(const uint8_t *b)
 {
     return (uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24;
+}
+
+static void put32(uint8_t *b, uint32_t v)
+{
+    for (int k = 0; k < 4; k++) b[k] = (uint8_t)(v >> (8 * k));
 }
 
 void race_replay_save_car(int32_t w4fbb0c, int16_t playback, const Car *car, uint8_t *snapshot)
@@ -45,6 +51,19 @@ void race_replay_save_car(int32_t w4fbb0c, int16_t playback, const Car *car, uin
     const uint8_t *from = (const uint8_t *)car;
     for (size_t i = 0; i < sizeof SAVED / sizeof SAVED[0]; i++)
         memcpy(snapshot + SAVED[i].to, from + SAVED[i].from, SAVED[i].size);
-    const uint32_t packed = raw32(from + SLOT_AT) << SLOT_SHIFT | raw32(from + FLAGS_AT) << FLAGS_SHIFT;
-    for (int k = 0; k < 4; k++) snapshot[PACKED_AT + k] = (uint8_t)(packed >> (8 * k));
+    put32(snapshot + PACKED_AT, raw32(from + SLOT_AT) << SLOT_SHIFT | raw32(from + FLAGS_AT) << FLAGS_SHIFT);
+}
+
+void race_replay_load_car(Car *car, const uint8_t *snapshot, int32_t segments)
+{
+    uint8_t *to = (uint8_t *)car;
+    for (size_t i = 0; i < sizeof SAVED / sizeof SAVED[0]; i++)
+        memcpy(to + SAVED[i].from, snapshot + SAVED[i].to, SAVED[i].size);
+    const int32_t packed = (int32_t)raw32(snapshot + PACKED_AT);
+    put32(to + SLOT_AT, (uint32_t)(packed >> SLOT_SHIFT));
+    put32(to + FLAGS_AT, (uint32_t)(packed >> FLAGS_SHIFT) & FLAGS_MASK);
+    put32(to + CLEARED_A, 0);
+    put32(to + CLEARED_B, 0);
+    const uint32_t lap = raw32(to + LAP_AT), node = raw32(to + NODE_AT);
+    put32(to + PROGRESS_AT, (lap - 1u) * (uint32_t)segments * NODES_A_SEGMENT + node);
 }
