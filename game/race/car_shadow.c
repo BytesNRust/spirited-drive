@@ -1,6 +1,7 @@
 /* A car's place in camera space and its shadow's corners (0045a3e8). */
 #include "game/race/car_shadow.h"
 
+#include "game/gfx/flat.h"
 #include "game/gfx/x86_int.h"
 #include "game/sys/fixed_math.h"
 
@@ -44,6 +45,15 @@ int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass,
         view_project(mv->view, p, screen + 2 * k);
     }
     if (followed) ops->followed(ops->ctx, car, f, s, point);
+    return 1;
+}
+
+int car_prepare(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass, int followed, const QuadTarget *target,
+                const uint8_t *remap, int32_t screen[8])
+{
+    if (car->use_matrix != 0) car->heading = (int32_t)((uint32_t)fx_atan2(car->matrix[6], car->matrix[8]) << 8);
+    if (!car_shadow(ops, car, mv, pass, followed, screen)) return 0;
+    flat_polygon_shade(target, remap, 4, screen, 0);
     return 1;
 }
 

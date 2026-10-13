@@ -3,6 +3,7 @@
 #ifndef TNFS_CAR_SHADOW_H
 #define TNFS_CAR_SHADOW_H
 
+#include "game/gfx/quad.h"
 #include "game/race/car_struct.h"
 #include "game/race/model_draw.h"
 
@@ -29,5 +30,12 @@ int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass,
  * the in-car view): 00428918, then 004596a8 with the box >> 10 and the road
  * point, as 0045a3e8 gives them. */
 void car_skid_unseen(const CarShadowOps *ops, Car *car);
+
+/* 0045a724 (watcall (car, pass)): a car with a body matrix (+0x20) gets
+ * its heading back from it (+0x351 = 0042ebbc(m[8], m[6]): atan2(m[6],
+ * m[8]) << 8); then 0045a3e8 and, when it gives 1, the shadow darkened
+ * (00482794: 4 points, the 004c6604 remap). Returns 0045a3e8's answer. */
+int car_prepare(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass, int followed, const QuadTarget *target,
+                const uint8_t *remap, int32_t screen[8]);
 
 #endif
