@@ -61,6 +61,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 add_library(tnfs_game STATIC
     game/frontend/config_dat.c
     game/frontend/race_settings.c
+    game/frontend/tournament.c
     game/gfx/flat.c
     game/gfx/flat_edge.c
     game/gfx/flat_scan.c

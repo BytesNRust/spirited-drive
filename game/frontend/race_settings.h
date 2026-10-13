@@ -34,6 +34,7 @@ typedef struct {
     int difficulty;  /* 00524ea3 */
     int car_flag_a;  /* 00524e89 low half, set by 00465ec8 (meaning unknown) */
     int car_flag_b;  /* 00524e7f low half, set by 00465ec8 (meaning unknown) */
+    int variant;     /* 00524e83: the race's variant, read by the grid (0042748c) */
 } RaceSettings;
 
 /* Content unlocked by tournament progress (from 0052ad3e). */
