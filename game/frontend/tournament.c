@@ -13,3 +13,14 @@ void tournament_reset(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s)
     }
     s->variant = 0;
 }
+
+/* 00466b90 */
+void tournament_default_names(uint8_t game_state[GAME_STATE_SIZE], int from)
+{
+    static const char *const NAME[GAME_STATE_PLAYERS] = {
+        NULL, "Drifter", "Burnout", "Psycho", "Phreak", "Hacker", "Razor", "Mr. Ice"
+    };
+    if ((unsigned)from >= GAME_STATE_PLAYERS) return;
+    for (int p = from < 1 ? 1 : from; p < GAME_STATE_PLAYERS; p++)
+        memcpy(game_state + GAME_STATE_PLAYER * p, NAME[p], strlen(NAME[p]) + 1);
+}
