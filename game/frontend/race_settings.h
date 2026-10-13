@@ -57,7 +57,10 @@ void race_settings_next_track(RaceSettings *s, const Unlocks *u);
 
 /* 00432c40: base -> "m" -> "r" -> the next track (00432cd4), a variant
  * only when unlocked and never in a tournament. */
-void race_settings_track_forward(RaceSettings *s, const Unlocks *u);       /* 00432c40 / 00432d48 */
+void race_settings_track_forward(RaceSettings *s, const Unlocks *u);       /* 00432c40 */
+
+/* 00432d48: the same order backwards. */
+void race_settings_track_backward(RaceSettings *s, const Unlocks *u);
 void track_changed(RaceSettings *s);                               /* laps, tournament car */
 
 #endif

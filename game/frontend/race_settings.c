@@ -1,5 +1,6 @@
 #include "game/frontend/race_settings.h"
 
+#include <stdint.h>
 #include <string.h>
 
 /* 004baef8: tournament car class per track (first car of the class). */
@@ -144,7 +145,7 @@ void race_settings_track_forward(RaceSettings *s, const Unlocks *u)
 }
 
 /* 00432d48: the same order backwards. */
-static void track_backward(RaceSettings *s, const Unlocks *u)
+void race_settings_track_backward(RaceSettings *s, const Unlocks *u)
 {
     const int last = u->lost_vegas ? TRACK_LOST_VEGAS : TRACK_COUNT - 1;
     if (s->variant_r) {
@@ -156,7 +157,8 @@ static void track_backward(RaceSettings *s, const Unlocks *u)
         s->variant_m = 0;
         return;
     }
-    s->track = s->track == TRACK_HIDDEN ? last : s->track - 1;
+    /* the short's dec: -32768 wraps to 32767 */
+    s->track = s->track == TRACK_HIDDEN ? last : (int16_t)(s->track - 1);
     if (s->track < 0) s->track = u->hidden ? TRACK_HIDDEN : last;
     if (s->track == TRACK_HIDDEN || s->race_type == RACE_TOURNAMENT) return;
     if (u->variant_r) s->variant_r = 1;
@@ -167,6 +169,6 @@ void track_step(RaceSettings *s, const Unlocks *u, int dir)
 {
     const int track = s->track;
     if (dir > 0) race_settings_track_forward(s, u);
-    else track_backward(s, u);
+    else race_settings_track_backward(s, u);
     if (s->track != track) track_changed(s);
 }
