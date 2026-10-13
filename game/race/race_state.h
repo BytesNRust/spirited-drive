@@ -227,6 +227,8 @@ typedef struct {
     int32_t camera_tilt;            /* 004b91cc: 0x10000, the share of the car's tilt the in-car view takes */
     int32_t camera_roll_add;        /* 004c53a8: added to the roll as placed when the kind is above 1 */
     int32_t view_taken;             /* 0052b8f8: set when a kind is taken (00405b00) */
+    int32_t chase_auto;             /* 004b7a28: 1 at the start; 0040594c's turn to view 6 or 7 needs it and
+                                     * clears it, taking view 5 there sets it again */
     int32_t unknown_513e6c;         /* 00513e6c: the phase as 00440ef0 saw it; with replay, kinds 0 and 10 become 1 and 11 */
     /* 00405210 on the camera in use (race_view_select): the view and the
      * window size; NULL for none */

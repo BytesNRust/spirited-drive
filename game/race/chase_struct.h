@@ -14,6 +14,9 @@ enum {
     RACE_CAMERAS = 3            /* 004b78a8: 0x20 bytes each; the kinds use 0 and 1, camera2 is 2 */
 };
 
+/* ChaseKind.cycle's columns (0040594c) */
+enum { CYCLE_RACING, CYCLE_IDLE, CYCLE_OWN };
+
 /* What a kind's +0x10 points at. 004046b0 sets it before every read. */
 enum {
     YAW_UNSET,                  /* NULL, as the exe starts */
@@ -29,7 +32,10 @@ typedef struct {
     int32_t yaw_source;         /* +0x10: the yaw the camera turns to (YAW_*) */
     int32_t scale;              /* +0x14: how far ahead along the road the camera looks, 16.16 */
     int32_t mode;               /* +0x18: 0 still, 1 and 2 slide sideways with the car, 3 the car's yaw, 4 the road's */
-    int32_t unknown_1c[4];
+    /* +0x1c: the kind 0040594c moves on to: [CYCLE_RACING] racing with a
+     * replay or another car shown, [CYCLE_IDLE] not racing (phase not 1),
+     * [CYCLE_OWN] racing, the player's own car live; [3] unknown */
+    int32_t cycle[4];
     int32_t shift;              /* +0x2c: the glide's ticks (00404630) and the yaw's easing shift */
     int32_t divide;             /* +0x30: the glide divides by its ticks; the glide may end near the target */
     int32_t unknown_34;

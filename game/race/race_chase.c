@@ -160,6 +160,7 @@ void race_chase_init(RaceState *race)
 {
     memcpy(race->chase_kinds, KINDS, sizeof KINDS);
     memcpy(race->cameras, CAMERAS, sizeof CAMERAS);
+    race->chase_auto = 1;  /* 004b7a28 as the exe holds it */
 }
 
 /* 0042ebbc(eax, edx) */
@@ -210,6 +211,74 @@ void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind
     if (car != chase->car) chase->yaw = node_heading(race, car->node);
     chase->car = car;
     race_chase_take(race, chase, kind);
+}
+
+enum {
+    KIND_OTHER = 6, KIND_POLICE = 7, KIND_ATTACHED = 5, KIND_LAST_OUTSIDE = 3, KIND_NEAR_A = 10, KIND_NEAR_B = 11,
+    POLICE_SLOT = 2, AHEAD_POLICE = -1, AHEAD_OTHER = -10, AHEAD_UPTO = 12, RACING = 1
+};
+
+/* 0040594c's choice of the next kind */
+static int32_t cycle_pick(RaceState *race, const RaceChase *chase)
+{
+    const int32_t *cycle = race->chase_kinds[chase->kind].cycle;
+    if (race->phase == RACING) {
+        if (race->replay == 0 && race->viewed == race->player && race->unknown_513e6c == 0) return cycle[CYCLE_OWN];
+        return cycle[CYCLE_RACING];
+    }
+    if (chase->kind != KIND_POLICE && race->cops != 0 && race_chase_ahead_of_slot2(race, AHEAD_POLICE, AHEAD_UPTO) &&
+        race->chase_auto != 0) {
+        race->chase_auto = 0;
+        return KIND_POLICE;
+    }
+    if (chase->kind != KIND_OTHER && race_chase_ahead_of_other(race, AHEAD_OTHER, AHEAD_UPTO) && race->chase_auto != 0 &&
+        chase->kind != KIND_NEAR_A) {
+        race->chase_auto = 0;
+        return KIND_OTHER;
+    }
+    if (cycle[CYCLE_IDLE] == KIND_POLICE && race->cops == 0) return race->cops;
+    return cycle[CYCLE_IDLE];
+}
+
+static Car *cycle_car(RaceState *race, int32_t slot)
+{
+    return slot >= 0 && slot < RACE_CARS ? race->cars[slot] : NULL;  /* port guard */
+}
+
+void race_chase_cycle(RaceState *race, RaceChase *chase)
+{
+    const int32_t was = chase->next_kind;
+    /* port guard: a table whose kinds lead back to a 6 or 7 not ahead runs on
+     * for ever in the original; the exe's own table does not */
+    for (int turns = 0; turns <= CHASE_KINDS; turns++) {
+        if (chase->kind < 0 || chase->kind >= CHASE_KINDS) return;  /* port guard: the original indexes unchecked */
+        chase->next_kind = cycle_pick(race, chase);
+        const int32_t kind = chase->next_kind;
+        Car *car;
+        if (kind == KIND_OTHER) {
+            if (!race_chase_ahead_of_other(race, AHEAD_OTHER, AHEAD_UPTO)) {
+                chase->kind = kind;
+                continue;
+            }
+            car = cycle_car(race, race->player == 0);
+        } else if (kind == KIND_POLICE && race->unknown_4fbab8 != 0) {
+            if (!race_chase_ahead_of_slot2(race, AHEAD_POLICE, AHEAD_UPTO)) {
+                chase->kind = kind;
+                continue;
+            }
+            car = cycle_car(race, POLICE_SLOT);
+        } else {
+            if ((kind == KIND_NEAR_A || kind == KIND_NEAR_B || kind <= KIND_LAST_OUTSIDE) && race->camera_hold != 0) {
+                chase->next_kind = was;
+                return;
+            }
+            car = cycle_car(race, race->viewed);
+        }
+        race_chase_follow(race, chase, car, kind);
+        if (chase->next_kind == KIND_ATTACHED) race->chase_auto = 1;
+        race_chase_take(race, chase, chase->next_kind);
+        return;
+    }
 }
 
 void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)

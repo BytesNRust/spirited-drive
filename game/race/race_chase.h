@@ -18,6 +18,20 @@ void race_chase_init(RaceState *race);
  * is a new one; then 00405b00). */
 void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind);
 
+/* 0040594c (eax = the record, 004f801c), the view key: next_kind becomes
+ * the kind's cycle entry: racing (phase 1), CYCLE_OWN when there is no
+ * replay, the player's car is viewed and 00513e6c is 0, else CYCLE_RACING;
+ * not racing, 7 (police) when the kind is not 7, there are cops, slot 2 is
+ * ahead (0043f8f8 (-1, 12)) and chase_auto is set; 6 (the other car) when
+ * the kind is not 6 or 10, slot 1 is ahead (0043f948 (-10, 12)) and
+ * chase_auto is set (either clears it); else CYCLE_IDLE, 0 for a 7 without
+ * cops. Then 6 follows the car of slot (player == 0), 7 with 004fbab8 set
+ * slot 2's car, each only while still ahead (else the kind becomes it and
+ * the choice runs again); kinds 0..3, 10 and 11 with camera_hold left keep
+ * the next_kind there was and stop; the rest follow the viewed car
+ * (00404530). Taking 5 sets chase_auto; last 00405b00 on next_kind. */
+void race_chase_cycle(RaceState *race, RaceChase *chase);
+
 /* 00405b00: chase takes view kind `kind`. Kinds 0..3, 10 and 11 become 13
  * when the car does not face the road (00405de8); during a replay (0052b316
  * or 00513e6c) 0 and 10 become 1 and 11. The row sets the camera, the
