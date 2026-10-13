@@ -95,6 +95,25 @@ typedef struct {
  * 004c535c is set. */
 void mirror_scene(const MirrorSceneOps *ops, const MirrorSceneInputs *in, int32_t count);
 
+enum { MIRROR_POINTS = MIRROR_SEGMENTS * MIRROR_ROW_POINTS };
+
+typedef struct {
+    int32_t near_plane;         /* 004c52c0, world 16.16 */
+    int32_t world_shift;        /* 004c52bc (its low byte shifts) */
+    const int32_t *position;    /* chase +0x10 */
+    const int32_t *matrix;      /* 00511fe4 */
+    const View *view;
+    int32_t count;              /* 00509784 */
+    const int32_t (*world)[3];  /* 0050909c: the points 0043f3a8 picked */
+} MirrorTransformInputs;
+
+/* 0044b970: the camera record's near (+4) = 004c52c0 >> shift; each point
+ * (world >> shift) - (position >> shift) (0048cf08), through the matrix
+ * (0048cf60) into `vertices`' camera words, projected (0048cdd0) into its
+ * screen words; points nearer than 0x23333 >> shift are projected again at
+ * twice that depth. */
+void mirror_transform(const MirrorTransformInputs *in, int32_t *near, int32_t *vertices);
+
 /* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
  * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around

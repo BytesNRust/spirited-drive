@@ -3,6 +3,7 @@
 
 #include "game/gfx/x86_int.h"
 #include "game/race/track_tables.h"
+#include "game/sys/fixed_math.h"
 
 void mirror_bounds(const ViewLayout *layout, MirrorBounds *b)
 {
@@ -87,6 +88,30 @@ void mirror_scene(const MirrorSceneOps *ops, const MirrorSceneInputs *in, int32_
     }
     ops->cars(ops->ctx, at_least_zero(x_sub(node, CARS_AFTER_A)));
     ops->cars(ops->ctx, at_least_zero(x_sub(node, CARS_AFTER_B)));
+}
+
+enum { MIRROR_CLOSE = 0x23333 };
+
+void mirror_transform(const MirrorTransformInputs *in, int32_t *near, int32_t *vertices)
+{
+    const int shift = in->world_shift & 31;
+    *near = in->near_plane >> shift;
+    const int32_t offset[3] = { x_sub(0, in->position[0]) >> shift, x_sub(0, in->position[1]) >> shift,
+                                x_sub(0, in->position[2]) >> shift };
+    const int32_t count = in->count < MIRROR_POINTS ? in->count : MIRROR_POINTS;  /* port guard: 00509330 holds 55 */
+    for (int32_t i = 0; i < count; i++) {
+        const int32_t t[3] = { x_add(in->world[i][0] >> shift, offset[0]), x_add(in->world[i][1] >> shift, offset[1]),
+                               x_add(in->world[i][2] >> shift, offset[2]) };
+        mat3_apply(t, in->matrix, vertices + 3 * i);
+    }
+    int32_t *screen = vertices + MIRROR_SCREEN_WORDS_AT;
+    for (int32_t i = 0; i < count; i++) view_project(in->view, vertices + 3 * i, screen + 2 * i);
+    const int32_t close = MIRROR_CLOSE >> shift;
+    for (int32_t i = 0; i < count; i++) {
+        if (close <= vertices[3 * i + 2]) continue;
+        const int32_t pushed[3] = { vertices[3 * i], vertices[3 * i + 1], x_add(close, close) };
+        view_project(in->view, pushed, screen + 2 * i);
+    }
 }
 
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
