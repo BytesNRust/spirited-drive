@@ -71,6 +71,19 @@ static void follow(RaceState *race)
     if (race->sounds.camera != NULL) race->sounds.camera(race->sounds.user, slot, kind);
 }
 
+/* 00443820, then 00444394 for the player's car in physics 1 or 2, else 0044435c */
+static void restart_sounds(RaceState *race)
+{
+    race_sound_start_voices(race);
+    const Car *car = (uint32_t)race->player < RACE_CARS ? race->cars[race->player] : NULL;  /* port guard */
+    const int32_t physics = car != NULL ? car->physics : 0;
+    if (physics == PHYSICS_DRIVING || physics == PHYSICS_COUNTDOWN) {
+        if (race->sounds.start_engine != NULL) race->sounds.start_engine(race->sounds.user);
+    } else if (race->sounds.stop_engine != NULL) {
+        race->sounds.stop_engine(race->sounds.user);
+    }
+}
+
 void race_replay_seek(RaceState *race, const RaceReplaySeekOps *ops, int32_t clock, int32_t mark)
 {
     int32_t minute;
@@ -106,14 +119,7 @@ void race_replay_seek(RaceState *race, const RaceReplaySeekOps *ops, int32_t clo
     if (race->phase != RACING) follow(race);
     if (race->unknown_513734 == 0) return;
     race->unknown_513734 = 0;
-    race_sound_start_voices(race);
-    const Car *car = (uint32_t)race->player < RACE_CARS ? race->cars[race->player] : NULL;  /* port guard */
-    const int32_t physics = car != NULL ? car->physics : 0;
-    if (physics == PHYSICS_DRIVING || physics == PHYSICS_COUNTDOWN) {
-        if (race->sounds.start_engine != NULL) race->sounds.start_engine(race->sounds.user);
-    } else if (race->sounds.stop_engine != NULL) {
-        race->sounds.stop_engine(race->sounds.user);
-    }
+    restart_sounds(race);
 }
 
 static void keep_state(const RaceState *race, uint8_t *m)
@@ -200,4 +206,30 @@ void race_replay_camera(RaceState *race, int32_t word)
     if (race->sounds.camera != NULL) race->sounds.camera(race->sounds.user, slot, kind);
     if (race->unknown_512f78 >= 0 && kind > 0) (void)race_rand_below(race, PICK_TENTHS);
     race->camera_roll_add = 0;
+}
+
+enum { CUT_ROWS = 39, CUT_CLOCK = -1, CYCLE_TICK = 0xfc, TICK_BYTE = 0xff };
+
+static void after_seek(RaceState *race, const RaceReplayStepOps *ops)
+{
+    race->unknown_4c538c = 0;
+    if (race->sounds.camera != NULL) race->sounds.camera(race->sounds.user, race->player, race->chase.next_kind);
+    const int32_t row = race->unknown_512f78;
+    if (row == CUT_CLOCK) ops->camera(ops->ctx, race->clock);  /* row -1 is the clock (00512d90) */
+    else if (row >= 0 && row < CUT_ROWS) ops->camera(ops->ctx, race->unknown_512d9c[row][0]);  /* port guard: the rows */
+    race->unknown_4c5370 = 0;
+    race->unknown_513728 = 0;
+    if (race->unknown_512f7c != 0) {
+        race->unknown_512f7c = 0;
+        if (race->unknown_4fbb0c != 0 && race->playback != 1) race->replay_mark_ticks[0] = race->tick;
+    }
+    restart_sounds(race);
+}
+
+void race_replay_step(RaceState *race, const RaceReplayStepOps *ops)
+{
+    if (race->clock % MINUTE_TICKS == 0) ops->seek(ops->ctx, race->clock, -1);
+    ops->play(ops->ctx);
+    if (race->unknown_513728 != 0) after_seek(race, ops);
+    if (race->unknown_51371c != 0 && (race->tick & TICK_BYTE) == CYCLE_TICK) ops->cycle(ops->ctx);
 }

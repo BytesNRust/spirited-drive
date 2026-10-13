@@ -51,6 +51,25 @@ void race_replay_camera(RaceState *race, int32_t word);
 
 typedef struct {
     void *ctx;
+    void (*seek)(void *ctx, int32_t clock, int32_t mark);   /* 0044e354 */
+    void (*play)(void *ctx);                                /* 0044dbc8 */
+    void (*camera)(void *ctx, int32_t word);                /* 0044eb34 */
+    void (*cycle)(void *ctx);                               /* 0040594c(004f801c) */
+} RaceReplayStepOps;
+
+/* 0044ecc4 (no arguments; from 0044fc69, 0044fe18, 0044fe4e, 0044ff1e,
+ * 0044ffa9, 00450153): a replay's frame. On a minute (00512d90 % 0x708 0)
+ * 0044e354(clock, -1); 0044dbc8. 00513728 set (a seek happened):
+ * 004c538c = 0, the camera follows the player's car in the record's next
+ * kind, 00512f78 >= -1: 0044eb34(00512d9c[00512f78][0]); 004c5370 and
+ * 00513728 = 0; 00512f7c set: cleared, and with 004fbb0c and playback not
+ * 1 the tick to 00512f84; 00443820; 00444394 for the player's car in
+ * physics 1 or 2, else 0044435c. Then 0051371c set and the tick's low
+ * byte 0xfc: 0040594c. */
+void race_replay_step(RaceState *race, const RaceReplayStepOps *ops);
+
+typedef struct {
+    void *ctx;
     void (*input_tick)(void *ctx, int32_t clock);               /* 004397f4 */
     void (*record)(void *ctx);                                  /* 0044db34 */
     void (*save_car)(void *ctx, int32_t slot, int32_t index);   /* 0044e154 on cars[slot] */

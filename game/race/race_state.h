@@ -350,6 +350,12 @@ typedef struct {
      * the dropped network game (0052b314) */
     int32_t replay_mark_countdown, input_clock;
     int32_t unknown_512f78;         /* 00512f78: 0044ecc4 picks the camera from 00512d9c[it] (12 bytes a row) when above -2 */
+    /* 00512d9c: rows of three words; 0044ecc4 hands the first of row
+     * 00512f78 to 0044eb34 (row -1 is 00512d90, the clock) */
+    int32_t unknown_512d9c[39][3];
+    int32_t unknown_512f7c;         /* 00512f7c: 0044ecc4 clears it and then marks the tick in 00512f84 */
+    int32_t unknown_4c5370;         /* 004c5370: cleared by 0044ecc4 and at 0044e8b3 */
+    int32_t unknown_51371c;         /* 0051371c: set, 0044ecc4 steps the camera's kind (0040594c) on ticks & 0xff == 0xfc */
     int16_t dropped;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
