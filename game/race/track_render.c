@@ -10,7 +10,7 @@
 enum {
     ROW_POINTS = TRACK_ROW_POINTS,
     NEAR_PLANE = 62259,      /* 004c52c0, world 16.16 */
-    CLAMP_X = 0xA80000,      /* 004c52c8 */
+    CLAMP_X = 5376,          /* 004c52c8 (004c52c4 holds 0xa80000, 5376 << 11, not read here) */
     CLAMP_Y = 5376,          /* 004c52cc */
     MIN_DIR_Z = 0x1999       /* 004497d8 */
 };
@@ -176,6 +176,7 @@ void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int
     r->object_count = 0;
     r->object_vertex_count = 0;
     r->first_segment = camera_node / 4;  /* rounds toward zero, as the original */
+    r->draw_segments = TRACK_DRAW_SEGMENTS;
     int32_t s = r->first_segment;
     ObjectCursor objects = objects_from(tri, (s * TRI_NODES_PER_SEGMENT) & (int32_t)(tri->ring_nodes - 1));
     for (int i = 0; i < TRACK_DRAW_SEGMENTS - 1; i++, s++) add_segment(r, s, 4, &objects);
@@ -195,10 +196,10 @@ static int32_t mul_round(int32_t value, int32_t t)
 static void push_to(int32_t v[3], int32_t limit, const int32_t dir[3])
 {
     if (v[2] >= limit) return;
-    const int32_t gap = limit - v[2];
-    const int32_t t = (int32_t)(((int64_t)(gap % dir[2]) << 16) / dir[2]) + (int32_t)((uint32_t)(gap / dir[2]) << 16);
-    v[0] += mul_round(t, dir[0]);
-    v[1] += mul_round(t, dir[1]);
+    const int32_t gap = x_sub(limit, v[2]);
+    const int32_t t = x_add((int32_t)((int64_t)(gap % dir[2]) * 65536 / dir[2]), (int32_t)((uint32_t)(gap / dir[2]) << 16));
+    v[0] = x_add(v[0], mul_round(t, dir[0]));
+    v[1] = x_add(v[1], mul_round(t, dir[1]));
     v[2] = limit;
 }
 
@@ -217,23 +218,28 @@ void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[
     if (z < MIN_DIR_Z) dir[2] = MIN_DIR_Z;
 }
 
+/* 0044aa94 */
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx)
 {
     const int shift = ctx->world_shift;
-    const int32_t offset[3] = { -cam->position[0] >> shift, -cam->position[1] >> shift, -cam->position[2] >> shift };
+    const int32_t offset[3] = { x_sub(0, cam->position[0]) >> shift, x_sub(0, cam->position[1]) >> shift,
+                                x_sub(0, cam->position[2]) >> shift };
     for (int i = 0; i < r->vertex_count; i++) {
-        const int32_t t[3] = { (r->world[i][0] >> shift) + offset[0], (r->world[i][1] >> shift) + offset[1],
-                               (r->world[i][2] >> shift) + offset[2] };
+        const int32_t t[3] = { x_add(r->world[i][0] >> shift, offset[0]), x_add(r->world[i][1] >> shift, offset[1]),
+                               x_add(r->world[i][2] >> shift, offset[2]) };
         mat3_apply(t, cam->matrix, r->camera[i]);
     }
     const TrackSegmentRecord *first = crecord(r, cam->node / 4);
     const int next = first != NULL && first->count >= 0 && first->count < r->vertex_count ? first->count : 0;  /* port guard */
     track_near_direction((const int32_t (*)[3])r->camera, next, ctx->near_dir);
 
+    /* The clamps and the near plane push work on a copy (0048ec60 into
+     * 00510764), which is what is projected; the draws read r->camera. */
+    memcpy(r->clamped, r->camera, (size_t)r->vertex_count * sizeof r->camera[0]);
     const int32_t near = NEAR_PLANE >> shift;
-    const int near_count = r->vertex_count - (TRACK_DRAW_SEGMENTS - 3) * ROW_POINTS;
+    const int near_count = r->vertex_count - (r->draw_segments - 3) * ROW_POINTS;
     for (int i = 0; i < r->vertex_count; i++) {
-        int32_t *v = r->camera[i];
+        int32_t *v = r->clamped[i];
         if (i < near_count) {
             v[0] = clamp_symmetric(v[0], v[2] < near * 2 ? CLAMP_X / 4 : CLAMP_X);
             v[1] = clamp_symmetric(v[1], CLAMP_Y);
@@ -242,10 +248,12 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
             push_to(v, near * 8, ctx->near_dir);
         }
     }
-    for (int i = 0; i < r->vertex_count; i++) view_project(ctx->view, r->camera[i], r->screen[i]);
+    for (int i = 0; i < r->vertex_count; i++) view_project(ctx->view, r->clamped[i], r->screen[i]);
+    if (r->object_count <= 0) return;
     for (int i = 0; i < r->object_vertex_count; i++) {
-        const int32_t t[3] = { (r->object_world[i][0] >> shift) + offset[0], (r->object_world[i][1] >> shift) + offset[1],
-                               (r->object_world[i][2] >> shift) + offset[2] };
+        const int32_t t[3] = { x_add(r->object_world[i][0] >> shift, offset[0]),
+                               x_add(r->object_world[i][1] >> shift, offset[1]),
+                               x_add(r->object_world[i][2] >> shift, offset[2]) };
         mat3_apply(t, cam->matrix, r->object_camera[i]);
         view_project(ctx->view, r->object_camera[i], r->object_screen[i]);
     }

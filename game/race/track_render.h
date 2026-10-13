@@ -3,7 +3,8 @@
  *
  *   track_render_build      0043f48c / 0043eca4: the vertex list, a run of
  *                           selected terrain points per segment
- *   track_render_transform  0044aa94: to camera space, clamped, projected
+ *   track_render_transform  0044aa94: to camera space, a copy clamped and
+ *                           projected
  *   track_render_draw       0044b510: far segments (0044ad5c) whole, then the
  *                           4 nearest with subdivision (00425718)
  *
@@ -61,9 +62,11 @@ typedef struct {
     const TrackArt *art;
     int32_t first_segment;
     TrackSegmentRecord segments[TRACK_WINDOW];
+    int draw_segments;                       /* 00504220 */
     int vertex_count;                        /* 00509780 */
     int32_t world[TRACK_MAX_VERTICES][3];    /* 0050503c */
     int32_t camera[TRACK_MAX_VERTICES][3];   /* 00506860 */
+    int32_t clamped[TRACK_MAX_VERTICES][3];  /* 00510764: camera clamped and pushed, what is projected */
     int32_t screen[TRACK_MAX_VERTICES][2];   /* 00508084 */
     int object_count;                        /* 005041cc */
     TrackRenderObject objects[TRACK_MAX_OBJECTS];
