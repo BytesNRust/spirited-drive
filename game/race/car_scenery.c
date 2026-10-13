@@ -148,3 +148,11 @@ int32_t car_knocks_scenery(Car *car, RaceState *race)
         if (node > car->scenery_node || car->scenery_index == 0) return 0;
     }
 }
+
+void race_scenery_keep(RaceState *race)
+{
+    if (race->unknown_4fbb0c == 0 || race->playback == 1) return;
+    uint32_t slots = race->tri != NULL ? race->tri->scenery_slots : 0;
+    if (slots > TRI_SCENERY_MAX) slots = TRI_SCENERY_MAX;  /* port guard: the buffer holds 2 x slots bytes */
+    for (uint32_t i = 0; i < slots; i++) race->scenery_state[2 * i + 1] = race->scenery_state[2 * i];
+}
