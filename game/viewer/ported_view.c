@@ -4,6 +4,7 @@
 #include "game/race/horizon.h"
 #include "game/race/sky_ring.h"
 #include "game/race/track_render.h"
+#include "game/gfx/sprite_scaled.h"
 #include "game/race/view.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
@@ -241,11 +242,12 @@ static const PuffArt *puff_art;
 static const PuffBlend *puff_blend;
 static int32_t (*puff_rand)(void *ctx, int32_t n);
 static void *puff_rand_ctx;
+static CrashTrail *puff_trail;   /* 005146ac */
 
 void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (*rand_below)(void *ctx, int32_t n),
-                           void *ctx)
+                           void *ctx, CrashTrail *trail)
 {
-    puff_art = art, puff_blend = blend, puff_rand = rand_below, puff_rand_ctx = ctx;
+    puff_art = art, puff_blend = blend, puff_rand = rand_below, puff_rand_ctx = ctx, puff_trail = trail;
 }
 
 static PuffView puff_view(void)
@@ -291,6 +293,42 @@ static void smoke_draw(void *ctx, int in_car)
     tyre_smoke(&ops, (const Car *)ctx, in_car, shadow_race->camera_roll_add);
 }
 
+/* 00490570 with *004c55e0 ('smok') */
+static void trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y)
+{
+    (void)ctx;
+    sprite_scaled_blend_at(object_pixels.target, puff_blend->rows, puff_art->smok, scale, x, y);
+}
+
+enum { CAR_SMOKE = 2 };  /* car +0x175 bit 1: the crash smoke runs (car_crash_tick.c's FLAG_SMOKE) */
+
+static int32_t last_near_dir[3];
+
+/* 004591d4 after the car: the crash smoke while the followed car's +0x175 bit 1 is set, outside replays; its puffs
+ * moved by the model's 'smok' point on screen less the car's place on screen (0044a1c4), or not for the far model. */
+static void draw_crash_trail(const Car *car, const CarModel *model)
+{
+    if (puff_trail == NULL || puff_art->smok == NULL || shadow_race->replay != 0 || !(car->flags_175 & CAR_SMOKE)) return;
+    int32_t offset[2] = { 0, 0 };
+    const int32_t point = car->smoke_point;
+    if (car->far == 0 && point >= 0 && (uint32_t)point < model->body->vertex_count) {
+        TrackCamera cam = { { 0 }, { 0 }, 0 };
+        memcpy(cam.position, model_view.camera_position, sizeof cam.position);
+        memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
+        DrawContext dc = { 0 };
+        dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
+        memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
+        const int32_t place[3] = { car->x, car->y, car->z };
+        int32_t camera[3], screen[2];
+        track_point_screen(&cam, &dc, place, camera, screen);
+        offset[0] = model->body->screen[point][0] - screen[0];
+        offset[1] = model->body->screen[point][1] - screen[1];
+    }
+    const CrashTrailView v = { model_view.view, model_view.camera_position, model_view.camera_matrix, WORLD_SHIFT, NULL,
+                               trail_puff };
+    crash_trail_draw(puff_trail, offset, &v);
+}
+
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
 {
@@ -300,16 +338,28 @@ static void row_prepare(void *ctx, Car *car, int pass)
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
 }
 
-/* 004591d4: the car's model, at the pose the list gave it. */
+/* 004591d4's +0x78e, set once the car is in view (0045a3e8's camera-space place, +0x391 / +0x399): the low detail
+ * model past 0x1900 (not for slot 2), past 0xa00 in the mirror pass, which leaves out cars past 0x2100. */
+static void set_far(Car *car, int pass)
+{
+    const int32_t x = car->camera_position[0], z = car->camera_position[2];
+    const int64_t across = x < 0 ? -(int64_t)x : x;
+    if (z < CAR_MIN_Z || z > CAR_MAX_Z || 2 * (int64_t)z < across || (pass && z > CAR_MIRROR_MAX_Z)) return;
+    car->far = pass ? z > CAR_MIRROR_FAR_Z : z > CAR_FAR_Z && car->index != 2;
+}
+
+/* 004591d4: the car's model, at the pose the list gave it; for the followed car its tyre smoke and crash smoke. */
 static void row_draw(void *ctx, Car *car, int pass)
 {
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
+    set_far(car, pass);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
             const CarSmokeHook smoke = { car, smoke_draw };
             const int smoking = car == followed_car() && puff_art != NULL && puff_blend != NULL && puff_rand != NULL;
-            car_draw_smoking(&cars[i].model, &cars[i].pose, &model_view, pass, &sink, smoking ? &smoke : NULL);
+            const int drawn = car_draw_smoking(&cars[i].model, &cars[i].pose, &model_view, pass, &sink, smoking ? &smoke : NULL);
+            if (smoking && drawn) draw_crash_trail(car, &cars[i].model);
         }
 }
 

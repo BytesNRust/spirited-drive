@@ -80,6 +80,11 @@ void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored,
  * mirroring. */
 void track_camera_rear_matrix(int32_t pitch, int32_t yaw, int32_t roll, int32_t out[9]);
 
+/* 0044a1c4: a world point to the screen ((world - position) >> shift through
+ * the matrix), pushed onto the near plane along the road direction first. */
+void track_point_screen(const TrackCamera *cam, const DrawContext *ctx, const int32_t world[3], int32_t camera[3],
+                        int32_t screen[2]);
+
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */

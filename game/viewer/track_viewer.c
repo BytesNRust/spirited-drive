@@ -643,7 +643,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const DrivePaletteLate late = { &drive_smoke, drive_smoke_palette };
     if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
-    if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, draw_rand, NULL);
+    if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, draw_rand, NULL, &drive_sim.race.trail);
     return 1;
 }
 
@@ -660,7 +660,7 @@ static void free_drive(void)
     drive_cars.carpal = NULL;
     drive_hud_end(&drive_hud, &drive_sim.race);
     drive_hud_free(&drive_hud);
-    ported_view_set_puffs(NULL, NULL, NULL, NULL);
+    ported_view_set_puffs(NULL, NULL, NULL, NULL, NULL);
     drive_smoke_free(&drive_smoke);
 }
 

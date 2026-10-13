@@ -399,8 +399,7 @@ static void draw_object(const TrackRender *r, const DrawContext *ctx, const Trac
 
 /* ---- fences (0044a2b4) ---- */
 
-/* 0044a1c4: a world point to the screen, pushed onto the near plane. */
-static void fence_point(const TrackCamera *cam, const DrawContext *ctx, const int32_t world[3], int32_t camera[3],
+void track_point_screen(const TrackCamera *cam, const DrawContext *ctx, const int32_t world[3], int32_t camera[3],
                         int32_t screen[2])
 {
     const int shift = ctx->world_shift;
@@ -426,8 +425,8 @@ static void draw_fence(const TrackRender *r, const TrackCamera *cam, const DrawC
     const int32_t top_b[3] = { r->world[b][0], r->world[b][1] + height, r->world[b][2] };
     const int32_t top_a[3] = { r->world[a][0], r->world[a][1] + height, r->world[a][2] };
     int32_t cam_tb[3], cam_ta[3], screen[8];
-    fence_point(cam, ctx, top_b, cam_tb, &screen[0]);
-    fence_point(cam, ctx, top_a, cam_ta, &screen[2]);
+    track_point_screen(cam, ctx, top_b, cam_tb, &screen[0]);
+    track_point_screen(cam, ctx, top_a, cam_ta, &screen[2]);
     screen[4] = r->screen[a][0], screen[5] = r->screen[a][1];
     screen[6] = r->screen[b][0], screen[7] = r->screen[b][1];
     if (outcode_shared(&ctx->clip, screen, 4) != 0) return;
