@@ -9,6 +9,8 @@
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
 #include "game/race/car_shadow.h"
+#include "game/race/car_tag.h"
+#include "game/gfx/x86_int.h"
 #include "game/race/car_wheels.h"
 #include "game/gfx/flat.h"
 #include "game/race/model_draw.h"
@@ -338,6 +340,53 @@ static void row_prepare(void *ctx, Car *car, int pass)
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
 }
 
+/* 0050b7d4 / 0050b7b4 */
+static const uint8_t *tag_colours;
+static int tag_colour_count;
+static uint32_t tag_outline;
+
+void ported_view_set_tags(const uint8_t *colours, int count, uint32_t outline)
+{
+    tag_colours = colours, tag_colour_count = count, tag_outline = outline;
+}
+
+static void tag_polygon(void *ctx, uint32_t colour, int count, const int32_t *points)
+{
+    (void)ctx;
+    flat_polygon(object_pixels.target, colour, count, points);
+}
+
+static void tag_line(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t colour)
+{
+    (void)ctx;
+    flat_line(object_pixels.target, x0, y0, x1, y1, colour);
+}
+
+enum { TAG_HIGH_LIFT = 0x3800, TAG_HIGH_GAP = 15, TAG_LOW_LIFT = 0x2000, TAG_LOW_GAP = 7 };
+
+/* 004591d4's tail for a car other than the viewed one (or any in a replay): in races of type 1 and up, a racer
+ * (slot below 004fb7dc) gets its mark (00459064) above its place on screen (0044a1c4), lifted by 0x3800 / z + 15
+ * (0x2000 / z + 7 at low resolution). */
+static void draw_tag(const Car *car)
+{
+    const RaceState *race = shadow_race;
+    if (tag_colours == NULL || race->race_type < 1 || car->index > race->racers - 1 || car->index >= tag_colour_count) return;
+    TrackCamera cam = { { 0 }, { 0 }, 0 };
+    memcpy(cam.position, model_view.camera_position, sizeof cam.position);
+    memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
+    DrawContext dc = { 0 };
+    dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
+    memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
+    const int32_t place[3] = { car->x, car->y, car->z };
+    int32_t camera[3], screen[2];
+    track_point_screen(&cam, &dc, place, camera, screen);
+    const int high = SKID_HIGH_RES != 0;
+    const int32_t lift = x_div(high ? TAG_HIGH_LIFT : TAG_LOW_LIFT, camera[2]) + (high ? TAG_HIGH_GAP : TAG_LOW_GAP);
+    const CarTagOps ops = { NULL, tag_polygon, tag_line };
+    const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, race->humans, 0 };
+    car_tag(&ops, &v, screen[0], screen[1] - lift, car->index, camera[2]);
+}
+
 /* 004591d4's +0x78e, set once the car is in view (0045a3e8's camera-space place, +0x391 / +0x399): the low detail
  * model past 0x1900 (not for slot 2), past 0xa00 in the mirror pass, which leaves out cars past 0x2100. */
 static void set_far(Car *car, int pass)
@@ -359,7 +408,12 @@ static void row_draw(void *ctx, Car *car, int pass)
             const CarSmokeHook smoke = { car, smoke_draw };
             const int smoking = car == followed_car() && puff_art != NULL && puff_blend != NULL && puff_rand != NULL;
             const int drawn = car_draw_smoking(&cars[i].model, &cars[i].pose, &model_view, pass, &sink, smoking ? &smoke : NULL);
-            if (smoking && drawn) draw_crash_trail(car, &cars[i].model);
+            if (!drawn) continue;
+            if (car == followed_car() && shadow_race->replay == 0) {
+                if (smoking) draw_crash_trail(car, &cars[i].model);
+            } else {
+                draw_tag(car);
+            }
         }
 }
 

@@ -85,6 +85,10 @@ void ported_view_set_shadows(const RaceState *race, const uint8_t *remap);
  * smoke (004591d4's 00456f34 on `trail`): the shapes and blend, and the
  * draws of race_rand the tyres take (the caller counts them once a tick);
  * art NULL draws none. */
+/* The marks over the other racers (00459064): their fill colours by slot
+ * (0050b7d4, `count` of them) and the outline (0050b7b4); NULL draws none. */
+void ported_view_set_tags(const uint8_t *colours, int count, uint32_t outline);
+
 void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (*rand_below)(void *ctx, int32_t n),
                            void *ctx, CrashTrail *trail);
 
