@@ -1,10 +1,31 @@
 #include "game/race/track_object_walk.h"
 
+#include "game/gfx/x86_int.h"
+
+enum {
+    WALK_FAR = 9999,      /* 0044a87c's first bound */
+    WALK_BEHIND = 0x100   /* a record this far behind the node is a lap back */
+};
+
 static int32_t record_node(const TrackObjectWalk *w, int32_t index)
 {
     if (index < 0 || index >= w->record_count) return -1;  /* port guard: the build keeps count <= record_count */
     const uint8_t *p = w->records + (uint32_t)index * TRACK_WALK_RECORD_SIZE;
     return (int32_t)((uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24);
+}
+
+static int32_t record_points(const TrackObjectWalk *w, int32_t index)
+{
+    if (index < 0 || index >= w->record_count) return 0;  /* port guard, as record_node */
+    return w->descriptors[(uint32_t)w->records[(uint32_t)index * TRACK_WALK_RECORD_SIZE + 4] * TRACK_WALK_RECORD_SIZE + 1];
+}
+
+static void on_last(TrackObjectWalk *w)
+{
+    w->cursor = w->first + w->count - 1;
+    if (w->cursor >= w->record_count) w->cursor -= w->record_count;
+    w->vertex_cursor = w->vertex_count;
+    w->node = record_node(w, w->cursor);
 }
 
 /* 0044a804 */
@@ -15,8 +36,28 @@ void track_objects_from_last(TrackObjectWalk *w)
         w->node = -1;
         return;
     }
-    w->cursor = w->first + w->count - 1;
-    if (w->cursor >= w->record_count) w->cursor -= w->record_count;
-    w->vertex_cursor = w->vertex_count;
-    w->node = record_node(w, w->cursor);
+    on_last(w);
+}
+
+/* 0044a87c */
+void track_objects_back_to(TrackObjectWalk *w, int32_t node)
+{
+    if (w->count <= 0) return;
+    const int32_t target = (int32_t)((uint32_t)node & w->node_mask);
+    on_last(w);
+    int32_t d = x_sub(w->node, target), bound = WALK_FAR;
+    /* port guard: the original runs on when no record ends the walk */
+    for (int32_t steps = 0; steps <= 2 * w->record_count + 1; steps++) {
+        if (!((d > 0 && d <= bound) || (w->circuit != 0 && x_sub(target, w->node) > WALK_BEHIND))) break;
+        w->vertex_cursor = x_sub(w->vertex_cursor, record_points(w, w->cursor));
+        if (--w->cursor < 0) {
+            w->cursor = w->record_count - 1;
+            w->node = w->circuit != 0 ? record_node(w, w->cursor) : -1;
+        } else {
+            w->node = record_node(w, w->cursor);
+        }
+        const int32_t last = d;
+        d = x_sub(w->node, target);
+        bound = d > 0 && last < -WALK_BEHIND ? d : last;
+    }
 }
