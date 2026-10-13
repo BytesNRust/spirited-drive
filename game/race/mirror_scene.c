@@ -114,6 +114,36 @@ void mirror_transform(const MirrorTransformInputs *in, int32_t *near, int32_t *v
     }
 }
 
+/* 004bc464 (0x18 bytes a road property, its first word): the mirror's LOD. */
+static const uint8_t MIRROR_LOD_BY_PROPERTY[TRACK_PROPERTIES] = { 7, 3, 10, 3, 3, 3, 3, 18, 3, 21, 3, 3, 25, 28, 3, 3, 3,
+                                                                  3, 3 };
+
+enum { RECORD_ROW = 0xc, ROW_POINT_BYTES = 12 };
+
+static int32_t record_word(const uint8_t *b)
+{
+    return (int32_t)((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24);
+}
+
+void mirror_row(const MirrorRowOps *ops, const uint8_t *cache, int32_t segment_mask, int32_t segment,
+                int32_t (*world)[3], int32_t *count, uint8_t *segments)
+{
+    const uint8_t *record = cache + mirror_segment_offset(segment, segment_mask);
+    const uint8_t property = ops->property(ops->ctx, x_shl(segment, 2));
+    if (property >= TRACK_PROPERTIES) return;  /* port guard: the original reads past 004bc464 */
+    const uint8_t lod = MIRROR_LOD_BY_PROPERTY[property];
+    const uint8_t *select = TRACK_LODS[lod].select;
+    for (int p = 0; p < MIRROR_ROW_POINTS; p++) {
+        if (*select != p) continue;
+        select++;
+        if (*count >= MIRROR_POINTS) continue;  /* port guard: 0050909c holds 55 */
+        const uint8_t *point = record + RECORD_ROW + ROW_POINT_BYTES * p;
+        for (int c = 0; c < 3; c++) world[*count][c] = record_word(point + 4 * c);
+        *count = x_add(*count, 1);
+    }
+    segments[(uint32_t)(segment & segment_mask) * SEGMENT_STRIDE + SEGMENT_LOD] = lod;
+}
+
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
 {
     for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;

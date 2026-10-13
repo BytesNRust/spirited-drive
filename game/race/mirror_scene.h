@@ -114,6 +114,19 @@ typedef struct {
  * twice that depth. */
 void mirror_transform(const MirrorTransformInputs *in, int32_t *near, int32_t *vertices);
 
+typedef struct {
+    void *ctx;
+    uint8_t (*property)(void *ctx, int32_t node);  /* the road node's +7 (00505038, masked by 00504208) */
+} MirrorRowOps;
+
+/* 0043f3a8: segment's mirror LOD (004bc464 by the property of its first
+ * node, segment x 4) picks points of the record's first row (+0xc, 11 points
+ * of 3 words) by the LOD's row selection; they are appended to `world`
+ * (0050909c, *count at 00509784) and the LOD stored as byte 00504229[segment
+ * x 6] in `segments` (00504228). */
+void mirror_row(const MirrorRowOps *ops, const uint8_t *cache, int32_t segment_mask, int32_t segment,
+                int32_t (*world)[3], int32_t *count, uint8_t *segments);
+
 /* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
  * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around
