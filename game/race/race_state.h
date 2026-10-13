@@ -335,6 +335,16 @@ typedef struct {
     /* 0052b31e (the German word, re/STATE.md) and 0052b30e (written at
      * 0043234e): the first set and the second 0 keeps 00443820's voices off */
     int16_t unknown_52b31e, unknown_52b30e;
+    /* 0044e354's: the minute marks the replay seeks to (005120d8, 0xa2
+     * bytes each: minutes 0..15, then the four marks 00512f84 holds the
+     * ticks of), what it sets besides (004c5fa0, read by 00472xxx's sounds;
+     * 00509e10; 004b9624), 0051372c (1 while a mark's humans come back),
+     * 00513728 (1 after a seek to a mark) and 00513734 (the voices start
+     * again at the next seek) */
+    uint8_t replay_marks[0x14 * 0xa2];
+    int32_t replay_mark_ticks[4];
+    int32_t unknown_4c5fa0, unknown_509e10, unknown_4b9624;
+    int32_t unknown_51372c, unknown_513728, unknown_513734;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */
