@@ -17,6 +17,8 @@ typedef struct MenuSoundOps {
     int32_t (*voice_stopped)(void *ctx, int32_t voice);              /* 00473d20: non-zero once stopped */
     void (*bank_unregister)(void *ctx, int32_t bank);                /* 0048edfc: eax 0048ed30's handle */
     void (*file_free)(void *ctx, void *data);                        /* 0047529c (cdecl) */
+    void (*wait)(void *ctx);                    /* 00475c14(0), cdecl: what it does is not known */
+    void (*stream_close)(void *ctx, int32_t stream);  /* 0048a92c (cdecl) */
     void *ctx;
 } MenuSoundOps;
 
@@ -29,6 +31,8 @@ typedef struct MenuSound {
     int32_t music;     /* 0052480c: the music's voice */
     int music_off;     /* the short 0052b31e */
     int music_on;      /* the short 004c5cc8: the music is playing */
+    int music_wait;    /* the short 004c5cc6: 00464568 waits for the music to play out */
+    int32_t stream;    /* 00524830: the music's stream (0048a674, 00464428) */
 } MenuSound;
 
 /* 0046492c: with the sound on, starts the short `sound` centred (0x40) at
@@ -65,5 +69,10 @@ int menu_sound_4a_done(const MenuSound *m, const MenuSoundOps *ops);
 /* 004649c8: with the sound on, unregisters front_mw.bnk (0048edfc) and
  * frees its file (0047529c); both are left set. */
 void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops);
+
+/* 00464568: under 004644f0's four guards, waits (00475c14) while the music
+ * has not stopped (00473d20) and music_wait is set, closes the stream
+ * (0048a92c) and clears music_on and music_wait. */
+void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 #endif

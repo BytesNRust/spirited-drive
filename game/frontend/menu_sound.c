@@ -74,3 +74,12 @@ void menu_sound_bank_free(const MenuSound *m, const MenuSoundOps *ops)
     ops->bank_unregister(ops->ctx, m->bank);
     ops->file_free(ops->ctx, m->bank_data);
 }
+
+/* 00464568 */
+void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
+{
+    if (!music_allowed(m, c) || !m->music_on) return;
+    while (!ops->voice_stopped(ops->ctx, m->music) && m->music_wait) ops->wait(ops->ctx);
+    ops->stream_close(ops->ctx, m->stream);
+    m->music_on = 0, m->music_wait = 0;
+}
