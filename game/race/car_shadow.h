@@ -25,4 +25,9 @@ typedef struct {
  * words); the followed car then gets 004596a8; 1. */
 int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass, int followed, int32_t screen[8]);
 
+/* 0045a768 (watcall (car)): the followed car when it is not drawn (0045a848,
+ * the in-car view): 00428918, then 004596a8 with the box >> 10 and the road
+ * point, as 0045a3e8 gives them. */
+void car_skid_unseen(const CarShadowOps *ops, Car *car);
+
 #endif

@@ -46,3 +46,12 @@ int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass,
     if (followed) ops->followed(ops->ctx, car, f, s, point);
     return 1;
 }
+
+void car_skid_unseen(const CarShadowOps *ops, Car *car)
+{
+    ops->road_contact(ops->ctx, car);
+    int32_t f[3], s[3];
+    const int32_t point[3] = { car->road_point_heading[0], car->road_point_heading[1], car->road_point_heading[2] };
+    for (int i = 0; i < 3; i++) f[i] = car->road_forward[i] >> BOX_SHIFT, s[i] = car->road_side[i] >> BOX_SHIFT;
+    ops->followed(ops->ctx, car, f, s, point);
+}
