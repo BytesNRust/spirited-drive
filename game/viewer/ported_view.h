@@ -29,6 +29,9 @@ typedef struct {
 
 void ported_view_set_viewport(const PortedViewport *viewport);
 
+/* 00512040..00512048 as the last frame's track transform left them (004497d8). */
+void ported_view_near_dir(int32_t out[3]);
+
 /* A parked car (a CFM's two models) `ahead` nodes in front of the camera;
  * NULL removes it. */
 void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead);

@@ -12,6 +12,7 @@
 #include "game/race/hud_needle.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_state.h"
+#include "game/viewer/drive_mirror.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -63,6 +64,7 @@ typedef struct {
     int32_t map_blink;          /* 004f9b5c */
     uint32_t road_colour, frame_colour;  /* 0050b7b0, 004f9b60 (00446bac) */
     uint8_t car_colours[HUD_MAP_COLOURS]; /* 0050b7d4.. (00446bac) */
+    DriveMirror mirror;         /* 004c2d94 and the mirror's state: made with the cockpit (0044bd64) */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case

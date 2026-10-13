@@ -65,6 +65,7 @@ int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const
                        cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, race, &h->keys.dash_camera, h->dash_bank,
                                     bank_size, h->dash_fmm, stem, HIGH_RES, 1) == 0;
     if (!h->cockpit_ready) fprintf(stderr, "drive_hud: no dashboard from %s\n", files.bank);
+    else if (!drive_mirror_start(&h->mirror, &h->cockpit)) fprintf(stderr, "drive_hud: no mirror picture\n");  /* 0044bd64 */
     return h->cockpit_ready;
 }
 
@@ -486,7 +487,11 @@ static void frame_runs(void *ctx, int32_t runs)
     blit_runs(f->target, DRIVE_VIEW_W, f->s->h->view, f->s->h->dash_fmm + runs);  /* relocated as 004511a4 does */
 }
 
-static void frame_mirror(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* TODO(0044c060) */
+static void frame_mirror(void *ctx, int32_t x, int32_t y)
+{
+    FrameCalls *f = ctx;
+    drive_mirror_place(&f->s->h->mirror, f->target, x, y);  /* 0044c060 */
+}
 
 static void frame_clip_box(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
 {
@@ -696,6 +701,7 @@ void drive_hud_end(DriveHud *h, RaceState *race)
     const CockpitTeardownWords w = { &unknown_513e60, &unknown_4b91c8 };
     const CockpitTeardownOps ops = { h, end_free_bank, end_free_screen, end_none, end_none, end_free_fmm };
     cockpit_teardown(&ops, &h->cockpit, &h->police, h->palette != NULL ? h->palette : &scratch, race, &w);
+    drive_mirror_free(&h->mirror);  /* 0044bdbc */
     h->cockpit_ready = 0;
 }
 
@@ -708,6 +714,7 @@ void drive_hud_free(DriveHud *h)
     free_parts(h);
     resource_free(h->police.screen_bank);
     h->police.screen_bank = NULL, h->police.screen = NULL;
+    drive_mirror_free(&h->mirror);
     h->bank = h->mmb = h->dash_bank = h->dash_fmm = NULL;
     h->cockpit_ready = 0;
     h->ready = 0;

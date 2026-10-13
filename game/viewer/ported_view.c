@@ -172,6 +172,14 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
 static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT };
 
+/* 00512040..: the road direction the last frame's transform left (the mirror draws with it). */
+static int32_t last_near_dir[3] = { 0, 0, 0x1999 };
+
+void ported_view_near_dir(int32_t out[3])
+{
+    memcpy(out, last_near_dir, sizeof last_near_dir);
+}
+
 void ported_view_set_viewport(const PortedViewport *v)
 {
     viewport = *v;
@@ -233,6 +241,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     track_render_build(&render, tri, art, pc->node);
     track_render_transform(&render, &cam, &ctx);
+    memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
     car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
     for (int i = 0; i < car_count; i++) {

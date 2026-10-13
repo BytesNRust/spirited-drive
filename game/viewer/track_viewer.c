@@ -475,6 +475,10 @@ static void render_drive(const Track *t, uint8_t *pixels)
         list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)) };
     }
     ported_view_set_models(t->models, t->model_ok);
+    /* 0044ce4b, before the 3D view in 0044cc74: the mirror's picture, from the last frame's road direction */
+    DriveMirrorWorld mirror = { &t->tri, &t->art, race, { 0, 0, 0 } };
+    ported_view_near_dir(mirror.near_dir);
+    drive_mirror_frame(&drive_hud.mirror, &mirror);
     ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, race, pixels));
     drive_hud_draw(&drive_hud, race, drive_sim.specs[race_slot(race->player)].unknown_0ac, pixels, SCREEN_W, SCREEN_H);
 }
