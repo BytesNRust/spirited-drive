@@ -12,6 +12,7 @@ typedef struct MenuSoundOps {
     /* 00473b00: eax a voice, edx and ebx two words (0x64 and -1 fade the
      * music out); what they mean in the driver is not known. */
     void (*voice_ramp)(void *ctx, int32_t voice, int32_t edx, int32_t ebx);
+    void (*voice_stop)(void *ctx, int32_t voice);  /* 00473c68: eax a voice */
     void *ctx;
 } MenuSoundOps;
 
@@ -33,5 +34,8 @@ void menu_sound_play(MenuSound *m, const ConfigDat *c, int sound, const MenuSoun
  * plays, with music allowed (0052b31e 0), on in config.dat (the short
  * 00524e63) and the sound on. */
 void menu_sound_music_fade_out(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
+
+/* 00464534: 00473c68 on the music's voice, under the same four guards. */
+void menu_sound_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 #endif

@@ -26,3 +26,9 @@ void menu_sound_music_fade_out(const MenuSound *m, const ConfigDat *c, const Men
 {
     if (music_allowed(m, c) && m->music_on) ops->voice_ramp(ops->ctx, m->music, 0x64, -1);
 }
+
+/* 00464534 */
+void menu_sound_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
+{
+    if (music_allowed(m, c) && m->music_on) ops->voice_stop(ops->ctx, m->music);
+}
