@@ -55,6 +55,39 @@ static int draw_scaled(const QuadTarget *t, const uint8_t *const *blend, const u
     return 0;
 }
 
+static int32_t word_at(const uint8_t *shape, int at)
+{
+    return (int16_t)(shape[at] | shape[at + 1] << 8);
+}
+
+/* imul; shrd 16; adc 0 */
+static int32_t round16(int32_t a, int32_t b)
+{
+    const int64_t p = (int64_t)a * b;
+    return x_add((int32_t)(uint32_t)((uint64_t)p >> 16), (int32_t)(((uint64_t)p >> 15) & 1));
+}
+
+static int draw_at(const QuadTarget *t, const uint8_t *const *blend, const uint8_t *shape, int32_t scale, int32_t x, int32_t y)
+{
+    const int32_t size = scale > 0 ? scale : x_sub(0, scale);
+    const int32_t width = word_at(shape, 4), height = word_at(shape, 6), hot_x = word_at(shape, 8), hot_y = word_at(shape, 10);
+    const int32_t w = x_sar(x_mul(scale, width), 16), h = x_sar(x_mul(height, size), 16);
+    x = scale >= 0 ? x_sub(x, round16(scale, hot_x)) : x_add(x, round16(scale, x_sub(width, hot_x)));
+    y = x_sub(y, round16(size, hot_y));
+    return draw_scaled(t, blend, shape, w, h, x, y);
+}
+
+int sprite_scaled_blend_at(const QuadTarget *t, const uint8_t *const blend[256], const uint8_t *shape, int32_t scale,
+                           int32_t x, int32_t y)
+{
+    return draw_at(t, blend, shape, scale, x, y);
+}
+
+int sprite_scaled_at(const QuadTarget *t, const uint8_t *shape, int32_t scale, int32_t x, int32_t y)
+{
+    return draw_at(t, NULL, shape, scale, x, y);
+}
+
 int sprite_scaled_blend(const QuadTarget *t, const uint8_t *const blend[256], const uint8_t *shape, int32_t w, int32_t h,
                         int32_t x, int32_t y)
 {

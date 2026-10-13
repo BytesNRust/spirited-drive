@@ -22,4 +22,15 @@ int sprite_scaled_blend(const QuadTarget *t, const uint8_t *const blend[256], co
 /* 00490638: the same, each texel but colour 0xff copied (0048c89a). */
 int sprite_scaled(const QuadTarget *t, const uint8_t *shape, int32_t w, int32_t h, int32_t x, int32_t y);
 
+/* 00490440 (cdecl scale, shape, x, y; scale 16.16): w = scale x width >> 16,
+ * h = |scale| x height >> 16 (32-bit products), the hotspot (words +8, +0xa)
+ * at (x, y): x - round(scale x hot x) (x + round(scale x (width - hot x))
+ * when scale < 0, mirrored), y - round(|scale| x hot y), round = the 64-bit
+ * product >> 16 plus its bit 15; then 004900a8. */
+int sprite_scaled_blend_at(const QuadTarget *t, const uint8_t *const blend[256], const uint8_t *shape, int32_t scale,
+                           int32_t x, int32_t y);
+
+/* 004909d0: the same through 00490638. */
+int sprite_scaled_at(const QuadTarget *t, const uint8_t *shape, int32_t scale, int32_t x, int32_t y);
+
 #endif
