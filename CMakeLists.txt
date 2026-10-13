@@ -101,6 +101,7 @@ add_library(tnfs_game STATIC
     game/race/race_keys.c
     game/race/race_detail.c
     game/race/race_loop.c
+    game/race/race_timer.c
     game/race/car_lights.c
     game/race/rigid_boxes.c
     game/race/car_collide.c
