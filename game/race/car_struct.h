@@ -67,7 +67,7 @@ typedef struct {
     int32_t pdn_inverse_mass;  /* 0x16c 0x10000 / pdn_mass */
     int32_t pdn_18;  /* 0x170 the PDN's +0x18 */
     uint8_t flags_174;  /* 0x174 */
-    uint8_t flags_175;  /* 0x175 bit 1: the player's car shows its dashboard pieces (004591d4) */
+    uint8_t flags_175;  /* 0x175 bit 1: the crash smoke runs (004591d4 draws the trail, 00456f34) */
     uint8_t flags_176[2];  /* 0x176 zeroed by the reset with flags_174 and flags_175 */
     int32_t ai_speed_table[100];  /* 0x178 the PDN's +0x1c: the computer driver's speeds (0046f3e8) */
     int32_t pdn_1ac[6];  /* 0x308 the PDN's +0x1ac */

@@ -19,7 +19,7 @@ enum {
     PHYSICS_COMPUTER = 3,
     PHYSICS_MODEL_5 = 5,          /* 0046fe34 */
     PHYSICS_MODEL_6 = 6,          /* 00470518 */
-    FLAG_SMOKE = 2,               /* flags_175: the crash smoke runs (car_crash.c's FLAG_DASHBOARD bit) */
+    FLAG_SMOKE = 2,               /* flags_175: the crash smoke runs (004591d4 draws the trail) */
     PHASE_RACING = 1,
     RPM_IDLE = 0x5dc,
     RPM_DROP = 200,

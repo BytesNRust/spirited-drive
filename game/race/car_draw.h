@@ -3,10 +3,10 @@
  * "surface", "outside", "convex"), far cars as their low detail model.
  *
  * Car models are in world 16.16 >> 9 units (0045a3e8), not the >> 12 of
- * scenery. Left out for now: the brake and police light palette changes
- * (TODO(00476460)), the dashboard pieces (TODO(00458614, 00458818)) and
- * the name tags (TODO(00459064)). The followed car's tyre smoke comes in
- * through car_draw_smoking. */
+ * scenery. The rest of 00458d4c / 004591d4 lives beside it: the lights
+ * (car_lights.c), the wheels (car_wheels.c), the tyre smoke (through
+ * car_draw_smoking), the crash smoke (crash_trail.c) and the other racers'
+ * marks (car_tag.c), wired in the viewer's row_draw. */
 #ifndef TNFS_CAR_DRAW_H
 #define TNFS_CAR_DRAW_H
 

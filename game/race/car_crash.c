@@ -15,7 +15,7 @@ enum {
     SLIDE_TICKS = 0x3c,
     HIT_TICKS = 300,
     NOTE_CRASH = 0x5c,
-    FLAG_DASHBOARD = 2,           /* flags_175 */
+    FLAG_SMOKE = 2,           /* flags_175 */
     YAW_RATE_FROM_SPIN = 0x28be63,
     /* 004b9078..004b9084 */
     KICK_SPIN_KEPT = 0x5999,
@@ -80,7 +80,7 @@ void car_crash_hit(Car *car, RaceState *race)
     car->crashed_hard = 1;
     car->physics = PHYSICS_CRASH;
     crash_trail_clear(&race->trail);
-    car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_DASHBOARD);
+    car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_SMOKE);
     car->ai_countdown = HIT_TICKS;
     race_note(race, NOTE_CRASH);
     if (car == heard && race->sounds.stop_engine != NULL) race->sounds.stop_engine(race->sounds.user);
@@ -143,7 +143,7 @@ void car_crash_settle(Car *car, RaceState *race)
     race->camera_hold = 0;
     crash_trail_clear(&race->trail);
     car->use_matrix = 0;
-    car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_DASHBOARD);
+    car->flags_175 = (uint8_t)(car->flags_175 & ~FLAG_SMOKE);
     if (car->transmission != 0) car->transmission = 2;
 }
 
