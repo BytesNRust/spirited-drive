@@ -230,8 +230,9 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
     mirror_draw_subdivided(&dc, t, u_level, 0, u_cell, 0, cam, screen, near);
 }
 
-/* 0045a724: TODO(0042ebbc) the heading from the body matrix for cars with one; 0045a3e8 (camera space) is car_draw's
- * own; TODO(00482794) its call after. */
+/* 0045a724: the heading from the body matrix for cars with one (0042ebbc; car_draw draws those by the matrix), then
+ * 0045a3e8 with pass 1, which only stores the camera-space place (car_draw's own) and returns 0: no shadow
+ * (00482794) in the mirror. */
 static void car_prepare(void *ctx, Car *car, int mirror) { (void)ctx, (void)car, (void)mirror; }
 
 static void car_draw_op(void *ctx, Car *car, int mirror)
