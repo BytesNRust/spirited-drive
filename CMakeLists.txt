@@ -140,6 +140,7 @@ add_library(tnfs_game STATIC
     game/race/track_step.c
     game/gfx/shape_flip.c
     game/gfx/thick_line.c
+    game/gfx/sprite_scaled.c
     game/race/cockpit_teardown.c
     game/race/cockpit_redraw.c
     game/race/hud.c
