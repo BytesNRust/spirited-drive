@@ -24,6 +24,10 @@ void car_scenery_jolt(const Car *car, const RaceState *race, int32_t across);
  * state byte copied to the byte after it (header +0x16218 records). */
 void race_scenery_keep(RaceState *race);
 
+/* 00450250 (): with 004fbb0c set and playback not 1, each record's second
+ * state byte copied back to its first (004501fc's undone). */
+void race_scenery_restore(RaceState *race);
+
 /* 0043f51c: the track's scenery streamed in again (a knocked object goes). */
 void race_scenery_restream(RaceState *race);
 

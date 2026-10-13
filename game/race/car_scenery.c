@@ -149,10 +149,23 @@ int32_t car_knocks_scenery(Car *car, RaceState *race)
     }
 }
 
+/* 004501fc and its kin: the records 0043e4e0 counted (header +0x16218) */
+static uint32_t scenery_slots(const RaceState *race)
+{
+    const uint32_t slots = race->tri != NULL ? race->tri->scenery_slots : 0;
+    return slots > TRI_SCENERY_MAX ? TRI_SCENERY_MAX : slots;  /* port guard: the buffer holds 2 x slots bytes */
+}
+
 void race_scenery_keep(RaceState *race)
 {
     if (race->unknown_4fbb0c == 0 || race->playback == 1) return;
-    uint32_t slots = race->tri != NULL ? race->tri->scenery_slots : 0;
-    if (slots > TRI_SCENERY_MAX) slots = TRI_SCENERY_MAX;  /* port guard: the buffer holds 2 x slots bytes */
+    const uint32_t slots = scenery_slots(race);
     for (uint32_t i = 0; i < slots; i++) race->scenery_state[2 * i + 1] = race->scenery_state[2 * i];
+}
+
+void race_scenery_restore(RaceState *race)
+{
+    if (race->unknown_4fbb0c == 0 || race->playback == 1) return;
+    const uint32_t slots = scenery_slots(race);
+    for (uint32_t i = 0; i < slots; i++) race->scenery_state[2 * i] = race->scenery_state[2 * i + 1];
 }
