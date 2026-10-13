@@ -38,4 +38,23 @@ typedef struct {
  * the player's car is in physics 1 or 2, else 0044435c. */
 void race_replay_seek(RaceState *race, const RaceReplaySeekOps *ops, int32_t clock, int32_t mark);
 
+typedef struct {
+    void *ctx;
+    void (*input_tick)(void *ctx, int32_t clock);               /* 004397f4 */
+    void (*record)(void *ctx);                                  /* 0044db34 */
+    void (*save_car)(void *ctx, int32_t slot, int32_t index);   /* 0044e154 on cars[slot] */
+    void (*seek)(void *ctx, int32_t clock, int32_t mark);       /* 0044e354 */
+} RaceReplayTickOps;
+
+enum { REPLAY_MARK_EVERY = 0x1c2, REPLAY_INPUT_WAIT = 0x7a0, REPLAY_INPUT_TICKS = 0x78 };
+
+/* 0044e8f8 (no arguments; from 0045009f): 004397f4(004c5590). Then with
+ * 004fbb0c set, playback not 1 and (playback 0 or 0052b314 0): before tick
+ * 0x78 each human's control word 0x7a0. The countdown (005120d4) 0: it is
+ * 0x1c2, 004501fc, and this minute's mark (00512d90 / 0x708) takes what
+ * 0044e354 restores (+0x98 and +0x99 whole bytes), then 0044db34, 0044e154
+ * on each car with the count of those not human so far, that count to +0x50
+ * and 0044e354(00512d90, -1). Else 0044db34. Either way the countdown - 1. */
+void race_replay_tick(RaceState *race, const RaceReplayTickOps *ops);
+
 #endif

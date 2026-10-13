@@ -4,6 +4,7 @@
 #include "game/race/car_scenery.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_sound.h"
+#include "game/gfx/x86_int.h"
 
 #include <string.h>
 
@@ -18,6 +19,11 @@ enum {
     KIND_SLOT2 = 7, KIND_OTHER = 6, KIND_FOLLOW = 5, AHEAD_AFTER = 0, AHEAD_UPTO = 5, SLOT2 = 2,
     PHYSICS_COUNTDOWN = 1, PHYSICS_DRIVING = 2
 };
+
+static void put32(uint8_t *b, int32_t v)
+{
+    for (int k = 0; k < 4; k++) b[k] = (uint8_t)((uint32_t)v >> (8 * k));
+}
 
 static int32_t raw32(const uint8_t *b)
 {
@@ -108,4 +114,60 @@ void race_replay_seek(RaceState *race, const RaceReplaySeekOps *ops, int32_t clo
     } else if (race->sounds.stop_engine != NULL) {
         race->sounds.stop_engine(race->sounds.user);
     }
+}
+
+static void keep_state(const RaceState *race, uint8_t *m)
+{
+    for (int32_t i = 0; i < race->car_count && i < RACE_CARS; i++) {  /* port guard: RACE_CARS */
+        put32(m + BY_NODE_AT + 4 * i, race->by_node[i]);
+        put32(m + BY_PROGRESS_AT + 4 * i, race->by_progress[i]);
+    }
+    put32(m + COUNTDOWN_AT, race->manager_countdown);
+    put32(m + SEED_AT, (int32_t)race->random_seed);
+    put32(m + POLICE_NODE_AT, race->police_node);
+    put32(m + LANE_CARS_AT, race->ai.lane_cars[0]);
+    put32(m + LANE_CARS_AT + 4, race->ai.lane_cars[1]);
+    put32(m + TRAFFIC_AT, race->ai.traffic_placed);
+    put32(m + UNKNOWN_509E10_AT, race->unknown_509e10);
+    m[UNKNOWN_4B9624_AT] = (uint8_t)race->unknown_4b9624;
+    put32(m + UNKNOWN_4C5CD8_AT, race->unknown_4c5cd8);
+    put32(m + POLICE_STOPS_AT, race->ai.unknown_364);
+    m[UNKNOWN_33C_AT] = (uint8_t)race->ai.unknown_33c;
+    put32(m + UNKNOWN_4C5FA0_AT, race->unknown_4c5fa0);
+    memcpy(m + ZONES_AT, race->ai.zones, sizeof race->ai.zones);
+    put32(m + PASSED_AT, race->splits.passed);
+    put32(m + RIVAL_PASSED_AT, race->splits.rival_passed);
+}
+
+static void mark(RaceState *race, const RaceReplayTickOps *ops, int32_t minute)
+{
+    /* 0045aab0, a bare ret, first */
+    race_scenery_keep(race);
+    race->replay_mark_countdown = REPLAY_MARK_EVERY;
+    uint8_t *m = race->replay_marks + minute * REPLAY_MARK;
+    keep_state(race, m);
+    ops->record(ops->ctx);
+    int32_t others = 0;
+    for (int32_t i = 0; i < race->car_count; i++) {
+        ops->save_car(ops->ctx, i, others);
+        const Car *car = i < RACE_CARS ? race->cars[i] : NULL;  /* port guard */
+        if (car != NULL && car->index >= race->humans) others++;
+    }
+    put32(m + OTHERS_AT, others);
+    ops->seek(ops->ctx, race->clock, -1);
+}
+
+void race_replay_tick(RaceState *race, const RaceReplayTickOps *ops)
+{
+    ops->input_tick(ops->ctx, race->input_clock);
+    if (race->unknown_4fbb0c == 0 || race->playback == 1 || (race->playback != 0 && race->dropped != 0)) return;
+    if (race->tick < REPLAY_INPUT_TICKS)
+        for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++)  /* port guard: RACE_PLAYERS */
+            race->inputs[i] = REPLAY_INPUT_WAIT;
+    const int32_t minute = race->clock / MINUTE_TICKS;
+    if (race->replay_mark_countdown == 0 && minute >= 0 && minute < REPLAY_MARKS)  /* port guard: the minute */
+        mark(race, ops, minute);
+    else
+        ops->record(ops->ctx);
+    race->replay_mark_countdown = x_sub(race->replay_mark_countdown, 1);
 }

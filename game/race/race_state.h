@@ -345,6 +345,11 @@ typedef struct {
     int32_t replay_mark_ticks[4];
     int32_t unknown_4c5fa0, unknown_509e10, unknown_4b9624;
     int32_t unknown_51372c, unknown_513728, unknown_513734;
+    /* 0044e8f8's: the calls left until the next mark (005120d4, 0x1c2
+     * after each), the clock 004397f4 takes its slot from (004c5590) and
+     * the dropped network game (0052b314) */
+    int32_t replay_mark_countdown, input_clock;
+    int16_t dropped;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */
