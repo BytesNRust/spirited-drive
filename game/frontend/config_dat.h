@@ -96,4 +96,11 @@ int config_dat_level_e69(const ConfigDat *c);
 /* 00464698: the short 00524e67 (default 100) times 12 / 10, at most 0x7f. */
 int config_dat_level_e67(const ConfigDat *c);
 
+/* 00465d54: 1 when two of the controls (the shorts 0052ad26..0052ad3c) clash.
+ * The first three clash among themselves when equal and not 0; each of them
+ * that is not 0 stands for a pair of the next six (it replaces them with
+ * the marks 0 / 1, 2 / 3, 4 / 5), and then any two of the nine left that are
+ * equal clash. */
+int config_dat_controls_clash(const ConfigDat *c);
+
 #endif

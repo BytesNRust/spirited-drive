@@ -185,3 +185,23 @@ int config_dat_level_e67(const ConfigDat *c)
     const int level = (int16_t)word_at(c, 0x00524e67) * 12 / 10;
     return level > 0x7f ? 0x7f : level;
 }
+
+/* 00465d54 */
+int config_dat_controls_clash(const ConfigDat *c)
+{
+    enum { PAIRED = 3, KEYS = 9 };
+    int head[PAIRED], key[KEYS], clash = 0;
+    for (int i = 0; i < PAIRED; i++) head[i] = (int16_t)get16(c, OFFSET_CONTROLS + 2 * i);
+    for (int i = 0; i < PAIRED; i++) {
+        const int a = head[i], b = head[(i + 1) % PAIRED];
+        if (a && b && a == b) clash = 1;
+    }
+    for (int i = 0; i < PAIRED; i++)
+        for (int k = 0; k < 2; k++)
+            key[2 * i + k] = head[i] ? 2 * i + k : (int16_t)get16(c, OFFSET_CONTROLS + 2 * (PAIRED + 2 * i + k));
+    for (int i = 2 * PAIRED; i < KEYS; i++) key[i] = (int16_t)get16(c, OFFSET_CONTROLS + 2 * (PAIRED + i));
+    for (int i = 0; i < KEYS; i++)
+        for (int j = i + 1; j < KEYS; j++)
+            if (key[i] == key[j]) clash = 1;
+    return clash;
+}
