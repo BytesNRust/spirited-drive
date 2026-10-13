@@ -93,5 +93,7 @@ Unlocks config_dat_unlocks(const ConfigDat *c);
  * Called on the race side (004027c0, 00402911, 00402a62) next to
  * 00473b4c; what the level is for is not known yet. */
 int config_dat_level_e69(const ConfigDat *c);
+/* 00464698: the short 00524e67 (default 100) times 12 / 10, at most 0x7f. */
+int config_dat_level_e67(const ConfigDat *c);
 
 #endif

@@ -178,3 +178,10 @@ int config_dat_level_e69(const ConfigDat *c)
     const int level = (int16_t)word_at(c, 0x00524e69) * 3 / 2;
     return level > 0x7f ? 0x7f : level;
 }
+
+/* 00464698 */
+int config_dat_level_e67(const ConfigDat *c)
+{
+    const int level = (int16_t)word_at(c, 0x00524e67) * 12 / 10;
+    return level > 0x7f ? 0x7f : level;
+}
