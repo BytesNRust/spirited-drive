@@ -135,6 +135,7 @@ add_library(tnfs_game STATIC
     game/race/mirror_scene.c
     game/race/car_shadow.c
     game/race/skid_marks.c
+    game/race/row_cars.c
     game/race/track_step.c
     game/gfx/shape_flip.c
     game/gfx/thick_line.c
