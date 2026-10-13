@@ -152,6 +152,10 @@ typedef struct {
  * 004fb787 set bit 1 toggles, skipping every other frame. */
 void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_t *state);
 
+/* 0044c060 (watcall (x, y), from 0042270c): with 00511ff4 set, the
+ * picture's shape (004c2d94 +0x2c) placed at x, y (004737d0). */
+void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int32_t state, int32_t x, int32_t y);
+
 /* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
  * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around

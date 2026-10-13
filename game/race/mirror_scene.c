@@ -163,6 +163,11 @@ void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_
     if (in->alternate != 0) *state ^= MIRROR_SKIP;
 }
 
+void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int32_t state, int32_t x, int32_t y)
+{
+    if (state != 0) place(ctx, x, y);
+}
+
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
 {
     for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;
