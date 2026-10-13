@@ -57,7 +57,7 @@ typedef struct {
     int other_index;     /* the short 004baf20 (the high half of the dword 004baf1e), 0..7 */
     int unknown_4fbb0c;  /* 004fbb0c */
     int unknown_4c5cc2;  /* the short 004c5cc2, cleared */
-    int unknown_4bafb6;  /* the short 004bafb6, set to 0x14 */
+    int unknown_4bafb4[6];  /* the shorts 004bafb4..004bafbe, set to 0x14 (00432884 all, 00432974 the second) */
     int tournament_on;   /* the short 0052b310: a tournament is under way (cleared by 00466ae4) */
     int german;          /* the short 0052b31c: the language, 1 German */
     int unknown_4f81d2;  /* the short 004f81d2: above 2 a 0052b312 game skips head to head */

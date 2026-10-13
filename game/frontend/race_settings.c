@@ -40,7 +40,7 @@ void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
     const int other = f->flag_52b312 && !f->unknown_4faa56;
     switch (s->race_type) {
     case RACE_TIME_TRIAL:
-        f->unknown_4c5cc2 = 0, f->unknown_4bafb6 = 0x14;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = 0x14;
         s->opponent = OPPONENT_CLOCK;
         u->lost_vegas = earned;
         break;
@@ -49,13 +49,13 @@ void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
         if (s->opponent >= OPPONENT_FIELD && s->opponent <= OPPONENT_TOURNAMENT) s->opponent = s->player_car;
         break;
     case RACE_SINGLE:
-        f->unknown_4c5cc2 = 0, f->unknown_4bafb6 = 0x14;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = 0x14;
         u->lost_vegas = earned;
         if (f->flag_52b312 && f->unknown_4fbb0c) s->unknown_524e9d = 8;
         s->opponent = other ? s->other_car[f->other_index] : OPPONENT_FIELD;
         break;
     case RACE_TOURNAMENT:
-        f->unknown_4c5cc2 = 0, f->unknown_4bafb6 = 0x14;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = 0x14;
         s->variant_m = s->variant_r = 0;
         if (f->flag_52b312 || !f->unlock_level) u->lost_vegas = 0;
         if (!u->lost_vegas && s->track == TRACK_LOST_VEGAS) s->track = 0;

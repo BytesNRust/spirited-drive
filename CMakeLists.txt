@@ -61,6 +61,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 add_library(tnfs_game STATIC
     game/frontend/cheat_code.c
     game/frontend/config_dat.c
+    game/frontend/control_central_art.c
     game/frontend/file_list.c
     game/frontend/palette_put.c
     game/frontend/race_settings.c
