@@ -144,6 +144,25 @@ void mirror_row(const MirrorRowOps *ops, const uint8_t *cache, int32_t segment_m
     segments[(uint32_t)(segment & segment_mask) * SEGMENT_STRIDE + SEGMENT_LOD] = lod;
 }
 
+enum { MIRROR_ON = 1, MIRROR_SKIP = 2, MIRROR_DRAWN_BELOW = 2 };
+
+void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_t *state)
+{
+    if (in->wanted != 0) *state |= MIRROR_ON;
+    else *state = 0;
+    if ((*state & MIRROR_ON) == 0) return;
+    if (*state == MIRROR_ON && in->unknown_4b91c8 < MIRROR_DRAWN_BELOW) {
+        ops->view(ops->ctx, 1);
+        ops->transform(ops->ctx);
+        ops->select(ops->ctx);
+        ops->sky(ops->ctx);
+        ops->scene(ops->ctx, in->count);
+        ops->flip(ops->ctx);
+        ops->view(ops->ctx, 0);
+    }
+    if (in->alternate != 0) *state ^= MIRROR_SKIP;
+}
+
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
 {
     for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;

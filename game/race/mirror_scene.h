@@ -127,6 +127,31 @@ typedef struct {
 void mirror_row(const MirrorRowOps *ops, const uint8_t *cache, int32_t segment_mask, int32_t segment,
                 int32_t (*world)[3], int32_t *count, uint8_t *segments);
 
+typedef struct {
+    void *ctx;
+    void (*view)(void *ctx, int rear);           /* 0040586c(chase, rear) */
+    void (*transform)(void *ctx);                /* 0044b970 */
+    void (*select)(void *ctx);                   /* 00473680(004c2d94): the mirror's picture */
+    void (*sky)(void *ctx);                      /* 0044bddc */
+    void (*scene)(void *ctx, int32_t count);     /* 0044baa4 */
+    void (*flip)(void *ctx);                     /* 0048f7a0(004c2d94 +0x2c) */
+} MirrorFrameOps;
+
+typedef struct {
+    int32_t wanted;             /* chase +0x68: the camera kind shows the mirror */
+    int32_t unknown_4b91c8;     /* the mirror is drawn below 2 */
+    uint8_t alternate;          /* 004fb787: the mirror drawn every other frame */
+    int32_t count;              /* 00504224: segments in the mirror */
+} MirrorFrameInputs;
+
+/* 0044ce4b..0044cee2 (inside 0044cc74, the race's frame; 0044c098 and 0044c080
+ * are uncalled copies of its parts): *state (00511ff4) |= 1 while the
+ * camera wants the mirror, else 0. With bit 0: when *state is exactly 1 and
+ * 004b91c8 < 2 the mirror's picture is made (the rear view, its points, the
+ * picture selected, sky, scene, mirrored, the front view back); then with
+ * 004fb787 set bit 1 toggles, skipping every other frame. */
+void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_t *state);
+
 /* 00425ed4, the mirror's 00425718: nothing when near is past corners 2 and
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
  * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around
