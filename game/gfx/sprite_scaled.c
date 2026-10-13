@@ -5,7 +5,7 @@
 
 #include <stddef.h>
 
-enum { SHAPE_8_BIT = 0x7b, SHAPE_PIXELS = 0x10, MAX_ROW = 4096 };
+enum { SHAPE_8_BIT = 0x7b, SHAPE_PIXELS = 0x10, MAX_ROW = 4096, TRANSPARENT = 0xff };
 
 static int32_t half(int32_t v)
 {
@@ -17,8 +17,9 @@ static int32_t magnitude(int32_t v)
     return v > 0 ? v : x_sub(0, v);
 }
 
-int sprite_scaled_blend(const QuadTarget *t, const uint8_t *const blend[256], const uint8_t *shape, int32_t w, int32_t h,
-                        int32_t x, int32_t y)
+/* 004900a8 / 00490638 with blend NULL: colour 0xff skipped. */
+static int draw_scaled(const QuadTarget *t, const uint8_t *const *blend, const uint8_t *shape, int32_t w, int32_t h, int32_t x,
+                       int32_t y)
 {
     const int32_t width = (int16_t)(shape[4] | shape[5] << 8), height = (int16_t)(shape[6] | shape[7] << 8);
     if (w == 0 || h == 0) return 0;
@@ -45,7 +46,22 @@ int sprite_scaled_blend(const QuadTarget *t, const uint8_t *const blend[256], co
     uint8_t *row = t->pixels + (ptrdiff_t)y * t->pitch + x;
     for (int32_t r = 0; r < h; r++, row += t->pitch, v = x_add(v, dv)) {
         const uint8_t *texels = shape + SHAPE_PIXELS + x_mul(x_sar(v, 16), width);
-        for (int32_t k = 0; k < w; k++) row[k] = blend[texels[offsets[k]]][row[k]];
+        if (blend != NULL)
+            for (int32_t k = 0; k < w; k++) row[k] = blend[texels[offsets[k]]][row[k]];
+        else
+            for (int32_t k = 0; k < w; k++)
+                if (texels[offsets[k]] != TRANSPARENT) row[k] = texels[offsets[k]];
     }
     return 0;
+}
+
+int sprite_scaled_blend(const QuadTarget *t, const uint8_t *const blend[256], const uint8_t *shape, int32_t w, int32_t h,
+                        int32_t x, int32_t y)
+{
+    return draw_scaled(t, blend, shape, w, h, x, y);
+}
+
+int sprite_scaled(const QuadTarget *t, const uint8_t *shape, int32_t w, int32_t h, int32_t x, int32_t y)
+{
+    return draw_scaled(t, NULL, shape, w, h, x, y);
 }

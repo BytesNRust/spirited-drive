@@ -19,4 +19,7 @@
 int sprite_scaled_blend(const QuadTarget *t, const uint8_t *const blend[256], const uint8_t *shape, int32_t w, int32_t h,
                         int32_t x, int32_t y);
 
+/* 00490638: the same, each texel but colour 0xff copied (0048c89a). */
+int sprite_scaled(const QuadTarget *t, const uint8_t *shape, int32_t w, int32_t h, int32_t x, int32_t y);
+
 #endif
