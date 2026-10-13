@@ -22,6 +22,7 @@
 #include "game/race/race_view.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_palette.h"
+#include "viewer/drive_smoke.h"
 #include "viewer/model_view.h"
 #include "viewer/ported_view.h"
 #include "viewer/raster.h"
@@ -380,6 +381,24 @@ typedef struct {
 
 static DriveCars drive_cars;
 static DriveHud drive_hud;
+static DriveSmoke drive_smoke;
+
+/* race_rand taken while drawing (the tyre smoke), counted once a tick: the window draws two frames a tick, the first
+ * after a tick draws and logs, the others replay the log. */
+enum { DRAW_RANDS = 256 };
+static struct {
+    int32_t value[DRAW_RANDS];
+    int count, at;
+} draw_rands;
+
+static int32_t draw_rand(void *ctx, int32_t n)
+{
+    (void)ctx;
+    if (draw_rands.at < draw_rands.count) return draw_rands.value[draw_rands.at++];
+    const int32_t r = race_rand_below(&drive_sim.race, n);
+    if (draw_rands.count < DRAW_RANDS) draw_rands.value[draw_rands.count++] = r, draw_rands.at = draw_rands.count;
+    return r;
+}
 static RaceViews drive_views;
 
 enum { HIGH_SCREEN = 1 };  /* 00512018 for 640 x 480 */
@@ -480,6 +499,8 @@ static void render_drive(const Track *t, uint8_t *pixels)
     }
     const int ticked = drive_cars.ticked;
     drive_cars.ticked = 0;
+    if (ticked) draw_rands.count = 0;
+    draw_rands.at = 0;
     set_drive_viewport(race);
     const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
     PortedCar list[RACE_CARS];
@@ -617,8 +638,12 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (!drive_hud_read(&drive_hud, data_root)) fprintf(stderr, "track_viewer: no HUD\n");
     /* 0041f9a0 from 004400f4, before 00455a5c builds the palette (0041f818 maps the dash onto it) */
     drive_hud_cockpit(&drive_hud, &drive_sim.race, data_root, stem);
-    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, t->art.palette))
+    /* 00456a7c from 00455a5c (after the cars' load), its bank and 00456948 at 00447098's end */
+    drive_smoke_setup(&drive_smoke, data_root, &drive_sim.race.trail);
+    const DrivePaletteLate late = { &drive_smoke, drive_smoke_palette };
+    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
+    if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, draw_rand, NULL);
     return 1;
 }
 
@@ -635,6 +660,8 @@ static void free_drive(void)
     drive_cars.carpal = NULL;
     drive_hud_end(&drive_hud, &drive_sim.race);
     drive_hud_free(&drive_hud);
+    ported_view_set_puffs(NULL, NULL, NULL, NULL);
+    drive_smoke_free(&drive_smoke);
 }
 
 /* One step; at the race's end the results (once), printed. */

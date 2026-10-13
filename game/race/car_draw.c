@@ -74,7 +74,7 @@ static void place(Object3D *obj, const int32_t matrix[9], const int32_t eye[3], 
 
 /* 00458d4c */
 static void draw_body(CarModel *car, int far, const int32_t matrix[9], const int32_t cam[3], const View *view,
-                      const Object3DSink *sink)
+                      const Object3DSink *sink, const CarSmokeHook *smoke)
 {
     const int32_t eye[3] = { (int32_t)(0u - (uint32_t)cam[0]), (int32_t)(0u - (uint32_t)cam[1]),
                              (int32_t)(0u - (uint32_t)cam[2]) };
@@ -85,11 +85,13 @@ static void draw_body(CarModel *car, int far, const int32_t matrix[9], const int
         return;
     }
     place(car->body, matrix, eye, view);
+    if (smoke != NULL) smoke->draw(smoke->ctx, 1);
     for (int i = 0; i < CAR_SECTIONS; i++) {
         if (car->sections[i].order == NULL) continue;
         object3d_sort_list(car->body, &car->sections[i]);
         object3d_draw_list(car->body, &car->sections[i], MODEL_NEAR_Z, sink);
     }
+    if (smoke != NULL) smoke->draw(smoke->ctx, 0);
 }
 
 static uint32_t magnitude(int32_t v)
@@ -106,8 +108,8 @@ static void set_near(Object3D *obj, int on)
     }
 }
 
-int car_draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const ModelView *mv, int mirror,
-                const Object3DSink *sink)
+static int draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const ModelView *mv, int mirror,
+                   const Object3DSink *sink, const CarSmokeHook *smoke)
 {
     const int32_t z = cam[2];
     if (z < CAR_MIN_Z || z > CAR_MAX_Z) return 0;
@@ -125,18 +127,30 @@ int car_draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const 
     mat3_mul(body, mv->camera_matrix, combined);
     set_near(car->body, z < MODEL_NEAR_FLAG_Z);
     if (car->far != NULL) set_near(car->far, z < MODEL_NEAR_FLAG_Z);
-    draw_body(car, far, combined, cam, mv->view, sink);
+    draw_body(car, far, combined, cam, mv->view, sink, smoke);
     return 1;
 }
 
+int car_draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const ModelView *mv, int mirror,
+                const Object3DSink *sink)
+{
+    return draw_at(car, pose, cam, mv, mirror, sink, NULL);
+}
+
 int car_draw(CarModel *car, const CarPose *pose, const ModelView *mv, int mirror, const Object3DSink *sink)
+{
+    return car_draw_smoking(car, pose, mv, mirror, sink, NULL);
+}
+
+int car_draw_smoking(CarModel *car, const CarPose *pose, const ModelView *mv, int mirror, const Object3DSink *sink,
+                     const CarSmokeHook *smoke)
 {
     /* 0045a3e8: camera space at world >> 9 */
     int32_t rel[3], cam[3];
     for (int i = 0; i < 3; i++)
         rel[i] = (int32_t)((uint32_t)pose->position[i] - (uint32_t)mv->camera_position[i]) >> 9;
     mat3_apply(rel, mv->camera_matrix, cam);
-    return car_draw_at(car, pose, cam, mv, mirror, sink);
+    return draw_at(car, pose, cam, mv, mirror, sink, smoke);
 }
 
 /* 004bad44: the wobble by step (past 33 the words are other data). */

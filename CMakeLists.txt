@@ -193,6 +193,7 @@ add_executable(tnfs
     game/sys/video.c
     game/viewer/asset_viewer.c
     game/viewer/drive_palette.c
+    game/viewer/drive_smoke.c
     game/viewer/drive_hud.c
     game/viewer/drive_mirror.c
     game/viewer/model_view.c

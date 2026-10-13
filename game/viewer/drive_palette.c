@@ -82,7 +82,7 @@ static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const car
 }
 
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
-                        DriveHud *hud, uint8_t rgb[768])
+                        DriveHud *hud, const DrivePaletteLate *late, uint8_t rgb[768])
 {
     static RacePalette p;
     Chunk terrain, scenery, horizon, models, first;
@@ -117,6 +117,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
         remap_track_banks(&p, &horizon, sky != NULL ? sky : track);
     }
     if (chunk_child(fam, FAM_CHILD_OBJECTS, &models) == CHUNK_OK) remap_model_banks(&p, &models);
+    if (late != NULL) late->run(late->ctx, &p);
     if (hud != NULL) drive_hud_start(hud, &p), hud->rgb = rgb;
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];

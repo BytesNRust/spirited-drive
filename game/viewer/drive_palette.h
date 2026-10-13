@@ -11,6 +11,7 @@
 
 #include "formats/chunk.h"
 #include "game/race/car_model.h"
+#include "game/race/race_palette.h"
 #include "game/race/race_state.h"
 #include "viewer/drive_hud.h"
 
@@ -23,7 +24,13 @@
  * by the caller, writable), so this runs once per load. rgb: the screen
  * palette, 8 bits a channel. Returns 0 when the track has no terrain bank
  * with a '!pal' (nothing is remapped then). */
+/* late (NULL: none) runs where 00447098 ends with 00456948, after the banks. */
+typedef struct {
+    void *ctx;
+    void (*run)(void *ctx, RacePalette *p);
+} DrivePaletteLate;
+
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
-                        DriveHud *hud, uint8_t rgb[768]);
+                        DriveHud *hud, const DrivePaletteLate *late, uint8_t rgb[768]);
 
 #endif

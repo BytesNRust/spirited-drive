@@ -4,9 +4,9 @@
  *
  * Car models are in world 16.16 >> 9 units (0045a3e8), not the >> 12 of
  * scenery. Left out for now: the brake and police light palette changes
- * (TODO(00476460)), the light glows of the player's car (TODO(00458988)),
- * the dashboard pieces (TODO(00458614, 00458818)) and the name tags
- * (TODO(00459064)). */
+ * (TODO(00476460)), the dashboard pieces (TODO(00458614, 00458818)) and
+ * the name tags (TODO(00459064)). The followed car's tyre smoke comes in
+ * through car_draw_smoking. */
 #ifndef TNFS_CAR_DRAW_H
 #define TNFS_CAR_DRAW_H
 
@@ -48,6 +48,17 @@ void car_model_free(CarModel *car);
 /* 004591d4 from the car's camera-space position (car +0x391, 0045a3e8). */
 int car_draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const ModelView *mv, int mirror,
                 const Object3DSink *sink);
+
+/* 00458d4c's 00458988 calls for cars[004fbb08]: in_car 1 once the near body
+ * is placed, in_car 0 after its sections (none for the far model). */
+typedef struct {
+    void *ctx;
+    void (*draw)(void *ctx, int in_car);
+} CarSmokeHook;
+
+/* car_draw with the smoke drawn about the body; smoke NULL draws none. */
+int car_draw_smoking(CarModel *car, const CarPose *pose, const ModelView *mv, int mirror, const Object3DSink *sink,
+                     const CarSmokeHook *smoke);
 
 /* mirror: the second pass of 004591d4 (param_2). Returns 1 when drawn. */
 int car_draw(CarModel *car, const CarPose *pose, const ModelView *mv, int mirror, const Object3DSink *sink);

@@ -8,10 +8,12 @@
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
 #include "game/race/car_shadow.h"
+#include "game/race/car_wheels.h"
 #include "game/gfx/flat.h"
 #include "game/race/model_draw.h"
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
+#include "game/race/tyre_smoke.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
 
@@ -234,6 +236,61 @@ static const Car *followed_car(void)
     return shadow_race->cars[race_slot(shadow_race->player)];
 }
 
+/* 00513e88 / 00514298, *004c795c: NULL until the race has its smoke. */
+static const PuffArt *puff_art;
+static const PuffBlend *puff_blend;
+static int32_t (*puff_rand)(void *ctx, int32_t n);
+static void *puff_rand_ctx;
+
+void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (*rand_below)(void *ctx, int32_t n),
+                           void *ctx)
+{
+    puff_art = art, puff_blend = blend, puff_rand = rand_below, puff_rand_ctx = ctx;
+}
+
+static PuffView puff_view(void)
+{
+    PuffView v = { object_pixels.target, puff_blend->rows, { 0 }, { 0 }, SKID_HIGH_RES, puff_rand_ctx, puff_rand };
+    for (int k = 0; k < PUFF_SHAPES; k++) v.smoke[k] = puff_art->smoke[k], v.dirt[k] = puff_art->dirt[k];
+    return v;
+}
+
+static void puff_1(void *ctx, int32_t x, int32_t y, int32_t size)
+{
+    (void)ctx;
+    const PuffView v = puff_view();
+    puff_smoke(&v, x, y, size);
+}
+
+static void puff_other(void *ctx, int32_t x, int32_t y, int32_t size)
+{
+    (void)ctx;
+    const PuffView v = puff_view();
+    puff_dirt(&v, x, y, size);
+}
+
+/* 004588ac */
+static void smoke_puffs(void *ctx, int32_t corner, int32_t size)
+{
+    (void)ctx;
+    const SkidPuffOps ops = { NULL, puff_1, puff_other };
+    skid_puffs(&ops, &skid_marks, shadow_race->tick, corner, size);
+}
+
+/* 004587ac */
+static int32_t smoke_view_angle(void *ctx, const Car *car)
+{
+    (void)ctx;
+    return car_view_angle(car, shadow_race);
+}
+
+/* 00458988 */
+static void smoke_draw(void *ctx, int in_car)
+{
+    const TyreSmokeOps ops = { puff_rand_ctx, smoke_view_angle, puff_rand, smoke_puffs };
+    tyre_smoke(&ops, (const Car *)ctx, in_car, shadow_race->camera_roll_add);
+}
+
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
 {
@@ -249,7 +306,11 @@ static void row_draw(void *ctx, Car *car, int pass)
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].car == car) car_draw(&cars[i].model, &cars[i].pose, &model_view, pass, &sink);
+        if (cars[i].ok && cars[i].car == car) {
+            const CarSmokeHook smoke = { car, smoke_draw };
+            const int smoking = car == followed_car() && puff_art != NULL && puff_blend != NULL && puff_rand != NULL;
+            car_draw_smoking(&cars[i].model, &cars[i].pose, &model_view, pass, &sink, smoking ? &smoke : NULL);
+        }
 }
 
 /* 0045a768 */

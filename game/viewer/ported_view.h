@@ -4,6 +4,7 @@
 #ifndef TNFS_PORTED_VIEW_H
 #define TNFS_PORTED_VIEW_H
 
+#include "game/race/puffs.h"
 #include "formats/tri.h"
 #include "game/race/track_art.h"
 #include "game/gfx/quad.h"
@@ -79,6 +80,12 @@ typedef struct {
 /* The cars' shadows (0045a724's 0045a3e8 pass 0 and 00482794): the race whose road planes they take and the remap
  * they darken with (004c6604); NULL draws none. */
 void ported_view_set_shadows(const RaceState *race, const uint8_t *remap);
+
+/* The tyre smoke of the followed car (00458d4c's 00458988): its shapes and
+ * blend, and the draws of race_rand it takes (the caller counts them once a
+ * tick); art NULL draws none. */
+void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (*rand_below)(void *ctx, int32_t n),
+                           void *ctx);
 
 /* 0044ce32 / 0044ce3f, before the mirror and the 3D view: the rows holding
  * skid marks (00459c50) and cars (00459d70: those ahead kept here, those
