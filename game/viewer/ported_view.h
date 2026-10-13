@@ -89,6 +89,11 @@ void ported_view_set_shadows(const RaceState *race, const uint8_t *remap);
  * (0050b7d4, `count` of them) and the outline (0050b7b4); NULL draws none. */
 void ported_view_set_tags(const uint8_t *colours, int count, uint32_t outline);
 
+/* The cars' lights in the palette (00458d4c's 00476460 calls): the write,
+ * and the slots' own entries (0051c798); write NULL leaves them. */
+void ported_view_set_lights(void (*write)(void *ctx, int32_t first, int32_t count, const uint8_t *colours), void *ctx,
+                            const uint8_t *slot_colours);
+
 void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (*rand_below)(void *ctx, int32_t n),
                            void *ctx, CrashTrail *trail);
 

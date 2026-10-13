@@ -10,6 +10,7 @@
 #include "game/race/car_road.h"
 #include "game/race/car_shadow.h"
 #include "game/race/car_tag.h"
+#include "game/race/car_lights.h"
 #include "game/gfx/x86_int.h"
 #include "game/race/car_wheels.h"
 #include "game/gfx/flat.h"
@@ -387,14 +388,38 @@ static void draw_tag(const Car *car)
     car_tag(&ops, &v, screen[0], screen[1] - lift, car->index, camera[2]);
 }
 
+/* 00476460 and 0051c798; 0051c7f8 / 004c5820 the police flash's last turn and phase */
+static void (*light_write)(void *ctx, int32_t first, int32_t count, const uint8_t *colours);
+static void *light_ctx;
+static const uint8_t *light_slots;
+static int32_t flash_tick, flash = 1;
+
+void ported_view_set_lights(void (*write)(void *ctx, int32_t first, int32_t count, const uint8_t *colours), void *ctx,
+                            const uint8_t *slot_colours)
+{
+    light_write = write, light_ctx = ctx, light_slots = slot_colours;
+}
+
+/* 00458d4c before the near model: the car's lights in the palette. */
+static void set_lights(const Car *car)
+{
+    if (light_write == NULL || car->far != 0) return;
+    const RaceState *race = shadow_race;
+    const CarLightInputs in = { { race->stop_notice[0], race->stop_notice[1] }, light_slots, race->finish_cars, race->tick,
+                                &flash_tick, &flash };
+    const CarLightOps ops = { light_ctx, light_write };
+    car_lights(&ops, &in, car);
+}
+
 /* 004591d4's +0x78e, set once the car is in view (0045a3e8's camera-space place, +0x391 / +0x399): the low detail
  * model past 0x1900 (not for slot 2), past 0xa00 in the mirror pass, which leaves out cars past 0x2100. */
-static void set_far(Car *car, int pass)
+static int set_far(Car *car, int pass)
 {
     const int32_t x = car->camera_position[0], z = car->camera_position[2];
     const int64_t across = x < 0 ? -(int64_t)x : x;
-    if (z < CAR_MIN_Z || z > CAR_MAX_Z || 2 * (int64_t)z < across || (pass && z > CAR_MIRROR_MAX_Z)) return;
+    if (z < CAR_MIN_Z || z > CAR_MAX_Z || 2 * (int64_t)z < across || (pass && z > CAR_MIRROR_MAX_Z)) return 0;
     car->far = pass ? z > CAR_MIRROR_FAR_Z : z > CAR_FAR_Z && car->index != 2;
+    return 1;
 }
 
 /* 004591d4: the car's model, at the pose the list gave it; for the followed car its tyre smoke and crash smoke. */
@@ -402,7 +427,7 @@ static void row_draw(void *ctx, Car *car, int pass)
 {
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
-    set_far(car, pass);
+    if (set_far(car, pass) && pass == 0) set_lights(car);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
             const CarSmokeHook smoke = { car, smoke_draw };

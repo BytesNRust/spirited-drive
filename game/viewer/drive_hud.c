@@ -326,6 +326,14 @@ static void rgb_from_palette(DriveHud *h)
         for (int k = 0; k < 3; k++) h->rgb[3 * i + k] = h->palette->screen_rgbx[4 * i + k];
 }
 
+void drive_hud_palette_write(void *hud, int32_t first, int32_t count, const uint8_t *colours)
+{
+    DriveHud *h = hud;
+    if (h->palette == NULL) return;
+    race_palette_write(h->palette, first, count, colours);
+    rgb_from_palette(h);
+}
+
 /* 004214e4's calls: the file from SIMDATA/MISC (upper case on a case-sensitive file system; the original's dir
  * 005246e8 is passed empty, the port's path being longer than its 80 bytes), the race palette. */
 static void police_free_bank(void *ctx, uint8_t *bank)

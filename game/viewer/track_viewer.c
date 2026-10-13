@@ -512,6 +512,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     ported_view_set_models(t->models, t->model_ok);
     ported_view_set_shadows(race, drive_hud.ready ? drive_hud.shade : NULL);
     if (drive_hud.ready) ported_view_set_tags(drive_hud.car_colours, HUD_MAP_COLOURS, drive_hud.strip_colour);
+    if (drive_hud.palette != NULL) ported_view_set_lights(drive_hud_palette_write, &drive_hud, drive_hud.palette->slot_colours);
     /* 0044ce32 / 0044ce3f once a tick: 00459d70 moves the draw nodes back, and the window draws two frames a tick
      * (the second would put the cars a row further back, under the road); the other frame keeps the rows */
     if (ticked) ported_view_frame_rows(drive_hud.mirror.car_rows);

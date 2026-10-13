@@ -85,6 +85,10 @@ void drive_hud_setup(DriveHud *h, RacePalette *p);
  * (0041f9a0: layout 0, redraw on; 0041e230). */
 void drive_hud_start(DriveHud *h, RacePalette *p);
 
+/* 00476460 during the race (the cars' lights): `count` 6-bit colours into
+ * the race palette from `first`, and the frame's colours after it. */
+void drive_hud_palette_write(void *hud, int32_t first, int32_t count, const uint8_t *colours);
+
 /* Before the 3D view is drawn, as 0044cc74 does: when the camera's view
  * changed (00511fec), 004218d0 into the view surface (the tiles, the labels,
  * the frame round the view, the tach). Returns where the 3D view is drawn:
