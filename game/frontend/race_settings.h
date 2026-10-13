@@ -50,6 +50,11 @@ typedef struct {
  * sets the Warrior and the "m" variants, level >= 2 the "r" variants. */
 void unlocks_raise(Unlocks *u, int level);
 
+/* 00465ec8: car_flag_a = 0 or 2 and car_flag_b = 1 or 2 from two per-car
+ * tables; player_car must be 0..11 (the original reads its own stack past
+ * them). */
+void race_settings_car_flags(RaceSettings *s);
+
 void race_settings_init(RaceSettings *s);
 void race_type_step(RaceSettings *s, const Unlocks *u, int dir);   /* 00432720 + 00432974 */
 void player_car_step(RaceSettings *s, const Unlocks *u, int dir);  /* player arrows + 00465ec8 */

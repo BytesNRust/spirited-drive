@@ -5,12 +5,12 @@
 
 /* 004baef8: tournament car class per track (first car of the class). */
 static const int TOURNAMENT_CAR[10] = { 0, 3, 6, 0, 3, 3, 6, 6, 7, 3 };
-/* 00461f1c / 00461f34: per-car tables read by 00465ec8. */
+/* 00461f1c / 00461f34: per-car tables (shorts) read by 00465ec8. */
 static const int CAR_TABLE_A[12] = { 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0 };
 static const int CAR_TABLE_B[12] = { 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
 
 /* 00465ec8 */
-static void update_car_flags(RaceSettings *s)
+void race_settings_car_flags(RaceSettings *s)
 {
     s->car_flag_a = CAR_TABLE_A[s->player_car] ? 0 : 2;
     s->car_flag_b = (CAR_TABLE_B[s->player_car] == 0) + 1;
@@ -25,7 +25,7 @@ void track_changed(RaceSettings *s)
 {
     if (s->race_type == RACE_TOURNAMENT) {
         s->player_car = TOURNAMENT_CAR[s->track];
-        update_car_flags(s);
+        race_settings_car_flags(s);
         s->opponent = OPPONENT_TOURNAMENT;
     }
     static const int LAPS[3][2] = { { 4, 2 }, { 8, 6 }, { 16, 12 } };
@@ -50,7 +50,7 @@ static void race_type_changed(RaceSettings *s, const Unlocks *u)
         s->variant_m = s->variant_r = 0;
         if ((s->track == TRACK_LOST_VEGAS && !u->lost_vegas) || s->track == TRACK_HIDDEN) s->track = 0;
         s->player_car = TOURNAMENT_CAR[s->track];
-        update_car_flags(s);
+        race_settings_car_flags(s);
         s->opponent = OPPONENT_TOURNAMENT;
         s->difficulty = 1;
         s->laps = short_track(s->track) ? 6 : 8;
@@ -62,7 +62,7 @@ void race_settings_init(RaceSettings *s)
 {
     static const Unlocks none = { 0, 0, 0, 0, 0 };
     memset(s, 0, sizeof *s);
-    update_car_flags(s);
+    race_settings_car_flags(s);
     track_changed(s);
     race_type_changed(s, &none);
 }
@@ -99,7 +99,7 @@ void player_car_step(RaceSettings *s, const Unlocks *u, int dir)
     } else {
         s->player_car = s->player_car + 1 >= CAR_COUNT ? 0 : s->player_car + 1;
     }
-    update_car_flags(s);
+    race_settings_car_flags(s);
 }
 
 void opponent_step(RaceSettings *s, int dir)
