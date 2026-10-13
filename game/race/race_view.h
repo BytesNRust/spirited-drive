@@ -71,6 +71,11 @@ void race_view_select(RaceViews *views, RaceCamera *camera, int32_t view, int32_
  * the view is negative. */
 void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size);
 
+/* 00405324 (watcall ()), on the follow record's camera (00511fe0 +0x88) and
+ * the window size 00511ff0: the next view of its view's row (row +0, read
+ * by the camera's +0xc) selected (00405210) when it is not negative. */
+void race_view_next(RaceViews *views, RaceCamera *camera, int32_t size);
+
 /* The follow record's two cameras and their matrices: +0x88 and +0x94 ahead,
  * +0x8c and +0xb8 behind (the mirror). */
 typedef struct {

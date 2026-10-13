@@ -43,3 +43,11 @@ void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size)
 {
     if (camera->view >= 0) race_view_select(views, camera, camera->view, size);
 }
+
+void race_view_next(RaceViews *views, RaceCamera *camera, int32_t size)
+{
+    /* port guard: the original indexes both unchecked */
+    if (views->mode < 0 || views->mode >= VIEW_SCREEN_MODES || camera->view < 0 || camera->view >= VIEW_ROWS) return;
+    const int32_t next = views->rows[views->mode][camera->view].next;
+    if (next > -1) race_view_select(views, camera, next, size);
+}
