@@ -63,6 +63,7 @@ add_library(tnfs_game STATIC
     game/frontend/config_dat.c
     game/frontend/control_central_art.c
     game/frontend/file_list.c
+    game/frontend/menu_sound.c
     game/frontend/palette_put.c
     game/frontend/race_settings.c
     game/frontend/random_pick.c
