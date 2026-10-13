@@ -225,6 +225,12 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
                             const int32_t screen[8], int32_t near)
 {
     Frame *f = ctx;
+    /* The last band (the 5th segment's row to a 6th that 0043f3a8 never made) has corners past the count's points:
+     * the original reads on into other globals there (00509780 the front view's vertex count, 00509784, the
+     * scenery pointer 00509788), the port into zeros, which put corners at (0, 0) inside the mirror; whenever the
+     * camera has just entered a segment the band filled the mirror. The port draws none of them. */
+    for (int i = 0; i < 4; i++)
+        if (cam[i] >= f->m->vertices + 3 * f->m->count) return;
     const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
                              { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL } };
