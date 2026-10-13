@@ -133,6 +133,7 @@ add_library(tnfs_game STATIC
     game/race/race_panel.c
     game/race/mirror_sky.c
     game/race/mirror_scene.c
+    game/race/car_shadow.c
     game/race/track_step.c
     game/gfx/shape_flip.c
     game/race/cockpit_teardown.c
