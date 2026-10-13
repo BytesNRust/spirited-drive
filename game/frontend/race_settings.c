@@ -112,8 +112,7 @@ void opponent_step(RaceSettings *s, int dir)
     }
 }
 
-/* 00432cd4 */
-static void next_track(RaceSettings *s, const Unlocks *u)
+void race_settings_next_track(RaceSettings *s, const Unlocks *u)
 {
     if (s->track == TRACK_HIDDEN) {
         s->track = 0;
@@ -123,9 +122,7 @@ static void next_track(RaceSettings *s, const Unlocks *u)
     if (u->hidden && s->track == 0) s->track = TRACK_HIDDEN;
 }
 
-/* 00432c40: base -> "m" -> "r" -> next track, variants only when unlocked
- * and never in a tournament. */
-static void track_forward(RaceSettings *s, const Unlocks *u)
+void race_settings_track_forward(RaceSettings *s, const Unlocks *u)
 {
     const int variants_allowed = s->race_type != RACE_TOURNAMENT;
     if (s->variant_m) {
@@ -143,7 +140,7 @@ static void track_forward(RaceSettings *s, const Unlocks *u)
         s->variant_r = 1;
         return;
     }
-    next_track(s, u);
+    race_settings_next_track(s, u);
 }
 
 /* 00432d48: the same order backwards. */
@@ -169,7 +166,7 @@ static void track_backward(RaceSettings *s, const Unlocks *u)
 void track_step(RaceSettings *s, const Unlocks *u, int dir)
 {
     const int track = s->track;
-    if (dir > 0) track_forward(s, u);
+    if (dir > 0) race_settings_track_forward(s, u);
     else track_backward(s, u);
     if (s->track != track) track_changed(s);
 }

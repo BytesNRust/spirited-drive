@@ -49,7 +49,15 @@ void race_settings_init(RaceSettings *s);
 void race_type_step(RaceSettings *s, const Unlocks *u, int dir);   /* 00432720 + 00432974 */
 void player_car_step(RaceSettings *s, const Unlocks *u, int dir);  /* player arrows + 00465ec8 */
 void opponent_step(RaceSettings *s, int dir);                      /* opponent arrows */
-void track_step(RaceSettings *s, const Unlocks *u, int dir);       /* 00432c40 / 00432d48 */
+void track_step(RaceSettings *s, const Unlocks *u, int dir);
+
+/* 00432cd4: the hidden track goes to 0; else track + 1 mod 8 (9 with Lost
+ * Vegas), and 0 becomes the hidden track once it is unlocked. */
+void race_settings_next_track(RaceSettings *s, const Unlocks *u);
+
+/* 00432c40: base -> "m" -> "r" -> the next track (00432cd4), a variant
+ * only when unlocked and never in a tournament. */
+void race_settings_track_forward(RaceSettings *s, const Unlocks *u);       /* 00432c40 / 00432d48 */
 void track_changed(RaceSettings *s);                               /* laps, tournament car */
 
 #endif
