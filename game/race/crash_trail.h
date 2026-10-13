@@ -5,6 +5,7 @@
 #define TNFS_CRASH_TRAIL_H
 
 #include "game/race/car.h"
+#include "game/race/view.h"
 
 #include <stdint.h>
 
@@ -33,5 +34,26 @@ void crash_trail_drop(CrashTrail *trail, uint32_t *seed, const Car *car, int32_t
 /* 00456e38: the puffs age by `dt`, rising and drifting; one past its
  * lifetime is gone. Returns 1 while any puff is still alive. */
 int32_t crash_trail_age(CrashTrail *trail, int32_t dt);
+
+typedef struct {
+    const View *view;           /* 0048cdd0's projection; focal_x is 004c623c */
+    const int32_t *position;    /* the camera's place, chase +0x10 (*00511fe0) */
+    const int32_t *matrix;      /* 00511fe4 */
+    int32_t world_shift;        /* 004c52bc (its low byte shifts) */
+    void *ctx;
+    /* 00490570 (cdecl scale, shape, x, y) with the shape *004c55e0 ('smok') */
+    void (*puff)(void *ctx, int32_t scale, int32_t x, int32_t y);
+} CrashTrailView;
+
+/* 00456f34 (eax = the trail, edx = a screen offset x, y): the 100 points
+ * into camera space ((p >> shift) + (-position >> shift), 0048cf08; the
+ * matrix, 0048cf60), z kept to 1..0x7fff; the draw order (+0x640)
+ * insertion-sorted far to near (a point moves forward while its z is
+ * strictly greater); projected (004497c8). In that order each live point
+ * (age >= 0) farther than 0x4ccc >> shift gets a puff of scale
+ * ((focal_x << (16 - shift)) / z as 16.16 >> 9) x ((0x10000 - ((0x10000 -
+ * age) >> 8)^2 + 0xccc) >> 8) >> 8 x 0x300 >> 4 at its screen point plus
+ * the offset. */
+void crash_trail_draw(CrashTrail *trail, const int32_t offset[2], const CrashTrailView *v);
 
 #endif
