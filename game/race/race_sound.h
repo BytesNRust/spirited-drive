@@ -35,6 +35,13 @@ void race_sound_channel(RaceState *race, int32_t channel, int32_t sound, int32_t
  * entries, the port returns. */
 void race_sound_pulse(RaceState *race);
 
+/* 00444394 (), the followed car's engine sounds started again: the engine's
+ * second channel (004bcb70's low 16 bits) starts sound 1 (pan 0x40,
+ * volume 0, pitch 0x40) unless it holds sound 1 already; the road noise
+ * (channel 5) starts sound 0x29 the same way, always; 004bc6f0 = 1; with
+ * the wall tones on (0052b320) 0043d120 (0). */
+void race_sound_start_engine(RaceState *race);
+
 /* 004444b8: the followed car's sounds each tick (car the followed one,
  * angle and distance from the listener as 00472018 gives them, specs the
  * followed slot's): nothing when its entry's sound volume is 0; 00444230

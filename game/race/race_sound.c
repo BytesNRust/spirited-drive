@@ -31,6 +31,8 @@ enum {
     RUMBLE_CHANNEL = 4,           /* track 5 on a +0x4c6 node */
     RUMBLE_SOUND = 0x21,
     ENGINE_SOUND = 1,
+    ROAD_SOUND = 0x29,
+    START_PAN = 0x40, START_VOLUME = 0, START_PITCH = 0x40,  /* 00444394's voices */
     ROAD_VOICE = 5,               /* 0050a4f4 */
     ENGINE_VOICE = 1,             /* 0050a4d4 */
     EXTRA_VOICE = 14,             /* 0050a53c, -1 when unused */
@@ -311,4 +313,18 @@ void race_sound_follow(RaceState *race, const CarSpecs *specs)
         race_sound_position(race, at, &angle, &distance);
     }
     race_sound_engine(race, car, angle, distance, specs);
+}
+
+void race_sound_start_engine(RaceState *race)
+{
+    const int32_t channel = (int16_t)race->engine_sound.channel;
+    /* port guard: the original writes 0050a4cc + 8 x channel unchecked */
+    if ((uint32_t)channel < RACE_VOICES && race->voices[channel].sound != ENGINE_SOUND) {
+        race->voices[channel].voice = voice_start(race, ENGINE_SOUND, START_PAN, START_VOLUME, START_PITCH);
+        race->voices[channel].sound = ENGINE_SOUND;
+    }
+    race->voices[ROAD_VOICE].voice = voice_start(race, ROAD_SOUND, START_PAN, START_VOLUME, START_PITCH);
+    race->unknown_4bc6f0 = 1;
+    race->voices[ROAD_VOICE].sound = ROAD_SOUND;
+    if (race->effects != 0 && race->sounds.force_release != NULL) race->sounds.force_release(race->sounds.user);
 }

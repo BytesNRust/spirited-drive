@@ -107,6 +107,9 @@ typedef struct {
     void (*voice_pitch)(void *user, int32_t voice, int32_t pitch);
     void (*voice_pan)(void *user, int32_t voice, int32_t pan);
     int32_t (*voice_stopped)(void *user, int32_t voice);
+    /* 0043d120 (0): with 004fcdd4 set, 0043cbf4 lets the controls' force
+     * go (00444394, the wall tones on); NULL for none. */
+    void (*force_release)(void *user);
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */
