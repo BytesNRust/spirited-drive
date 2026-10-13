@@ -30,6 +30,7 @@ typedef struct MenuSoundOps {
     int32_t (*queued)(void *ctx);                     /* 0048e054(0): compared with the stream's size */
     int32_t (*stream_read)(void *ctx, int32_t stream);  /* 0048bcfc (cdecl): a chunk or 0 */
     void (*chunk_play)(void *ctx, int32_t chunk);     /* 0048df3c: eax the chunk */
+    int32_t (*stream_voice)(void *ctx);               /* 0048dedc: the voice the stream plays on */
     void *ctx;
 } MenuSoundOps;
 
@@ -103,5 +104,13 @@ void menu_sound_music_start(MenuSound *m, const ConfigDat *c, const char *dir, c
  * (0x14000 small, else 0x64000), and stops early once the ticks summed
  * as a short pass 0x64 and 0048e054 gives 0. */
 void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
+
+/* 0046417c: services the music. With music allowed: 00475c14(0) in a
+ * 0052b312 game; then with it on in config.dat, the sound on and the music
+ * playing, reads a chunk (0048bcfc); the first time 0048e054 is past the
+ * stream's size (music_wait still 0) the voice starts (0048dedc), takes
+ * config.dat's music volume (the short 00524e67, 00473b4c) and music_wait
+ * becomes 1; a chunk that is not 0 is played (0048df3c). */
+void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops);
 
 #endif

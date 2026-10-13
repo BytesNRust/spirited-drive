@@ -120,3 +120,20 @@ void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps 
         queued = ops->queued(ops->ctx);
     } while (((int16_t)ticks <= 0x64 || queued != 0) && queued < size);
 }
+
+/* 0046417c */
+void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops)
+{
+    if (m->music_off) return;
+    if (f->flag_52b312) ops->wait(ops->ctx);
+    if (!short_at(c, 0x00524e63)) return;
+    const int32_t size = m->small_stream ? 0x14000 : 0x64000;
+    if (!m->sound_on || !m->music_on) return;
+    m->chunk = ops->stream_read(ops->ctx, m->stream);
+    if (!m->music_wait && ops->queued(ops->ctx) > size) {
+        m->music = ops->stream_voice(ops->ctx);
+        ops->voice_volume(ops->ctx, m->music, short_at(c, 0x00524e67));
+        m->music_wait = 1;
+    }
+    if (m->chunk != 0) ops->chunk_play(ops->ctx, m->chunk);
+}
