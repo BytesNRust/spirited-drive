@@ -5,6 +5,7 @@
 
 #include "game/gfx/quad.h"
 #include "game/race/car_struct.h"
+#include "game/race/model_draw.h"
 
 #include <stdint.h>
 
@@ -57,6 +58,29 @@ void skid_stroke(const QuadTarget *target, const uint8_t *remap, int32_t x0, int
 /* 00459c50 (watcall (node)): which of the 15 rows from node - 2 on (round
  * the ring) hold a mark with either skid. */
 void skid_rows(SkidMarks *m, const SkidRing *ring, int32_t node);
+
+typedef struct {
+    const QuadTarget *target;   /* 00491fa0's surface */
+    const uint8_t *remap;       /* and its shade (004c6604) */
+    const ModelView *mv;        /* the camera (00511fe0 +0x10, 00511fe4) and 00475eac's view */
+    int32_t high_res;           /* 004fa0c0: 0 halves the width */
+    uint8_t screen_kind;        /* 004fb789: not 0 halves it */
+} SkidView;
+
+/* 00459eb8 (watcall (index, node, row, halve; s, t), ret 8). index -999: the
+ * marks about road row `row` (when rows[] has it, counted from node - 2),
+ * newest first, 123 looked at, each stroke kept to s -> t's side
+ * (00459e1c); else mark `index` and the two older ones (00491fa0). A mark
+ * within 2 nodes of the row (of mark index's node) is placed in camera space
+ * (words 15..: its point less the camera's, >> 9, turned, plus each corner
+ * turned) and projected (27..); each corner joined to the newer mark's when
+ * that one was within too: clipped at z 0x40 (the newer one projected again
+ * when it moved; both behind, nothing) and stroked when both marks had that
+ * pair's skid (corners 0, 1 front, 2, 3 rear), 0x2580 / the farther z wide,
+ * at most 15, halved for each of high_res 0, screen_kind and halve, at
+ * least 1. */
+void skid_draw(const SkidView *v, const SkidRing *ring, SkidMarks *m, int32_t index, int32_t node, int32_t row,
+               int32_t halve, const int32_t s[2], const int32_t t[2]);
 
 /* 004596a8 (car; forward, side, point: 0045a3e8's box >> 10 and road
  * point). */

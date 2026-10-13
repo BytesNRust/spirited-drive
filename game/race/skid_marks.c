@@ -3,6 +3,8 @@
 
 #include "game/gfx/thick_line.h"
 #include "game/gfx/x86_int.h"
+#include "game/race/view.h"
+#include "game/sys/fixed_math.h"
 
 #include <string.h>
 
@@ -33,6 +35,109 @@ void skid_rows(SkidMarks *m, const SkidRing *ring, int32_t node)
         if (d < base) d = x_add(d, x_shl(ring->segments, 2));
         d = x_sub(d, base);
         if (d < SKID_ROWS) m->rows[d] = 1;
+    }
+}
+
+enum { SKID_EVERY = -999, SKID_LOOKED = 0x7b, SKID_AROUND = 2, SKID_OWN = 3, SKID_NEAR = 0x40, SKID_WIDTH = 0x2580,
+       SKID_WIDEST = 15, SKID_CAMERA = 15, SKID_SCREEN = 27, SKID_CORNERS = 4, CAMERA_SHIFT = 9 };
+
+static int32_t previous_of(int32_t i)
+{
+    return i - 1 >= 0 ? i - 1 : SKID_RECORDS - 1;
+}
+
+static int row_marked(const SkidRing *ring, const SkidMarks *m, int32_t node, int32_t row)
+{
+    const int32_t base = x_sub(node, 2) & ring->node_mask;
+    const int32_t d = x_sub(base > row ? x_add(row, x_shl(ring->segments, 2)) : row, base);
+    return d <= SKID_ROWS && m->rows[d] != 0;
+}
+
+/* The corner behind moved along the edge to z 0x40. */
+static void clip_near(int32_t behind[3], const int32_t front[3])
+{
+    const int32_t span = x_add(x_sub(front[2], behind[2]), 1), k = x_sub(front[2], SKID_NEAR);
+    behind[2] = SKID_NEAR;
+    for (int i = 0; i < 2; i++) behind[i] = x_add(x_div(x_mul(x_sub(behind[i], front[i]), k), span), front[i]);
+}
+
+/* z is 0x40 or more here: the original's 100 for z 0 never shows. */
+static int32_t stroke_width(const SkidView *v, int32_t z, int32_t halve)
+{
+    int32_t w = x_div(SKID_WIDTH, z);
+    if (w > SKID_WIDEST) w = SKID_WIDEST;
+    if (v->high_res == 0) w /= 2;
+    if (v->screen_kind != 0) w /= 2;
+    if (halve != 0) w /= 2;
+    return w < 1 ? 1 : w;
+}
+
+typedef struct {
+    const SkidView *v;
+    SkidMarks *m;
+    int every;
+    int32_t halve;
+    const int32_t *s, *t;
+} DrawPass;
+
+/* Corner k of mark cur, placed; joined to the newer mark prev's. */
+static void draw_corner(const DrawPass *p, int32_t cur, int32_t prev, int k, int joined)
+{
+    int32_t *c = p->m->marks[cur], *b = p->m->marks[prev];
+    int32_t *cc = c + SKID_CAMERA + 3 * k, *bc = b + SKID_CAMERA + 3 * k;
+    if (joined && (cc[2] < SKID_NEAR || bc[2] < SKID_NEAR)) {
+        if (cc[2] <= SKID_NEAR) {
+            if (bc[2] < SKID_NEAR) return;
+            clip_near(cc, bc);
+        } else {
+            clip_near(bc, cc);
+            view_project(p->v->mv->view, bc, b + SKID_SCREEN + 2 * k);
+        }
+    }
+    view_project(p->v->mv->view, cc, c + SKID_SCREEN + 2 * k);
+    if (!joined) return;
+    const int pair = k < 2 ? SKID_FRONT_ON : SKID_REAR_ON;
+    if (b[pair] == 0 || c[pair] == 0) return;
+    const int32_t w = stroke_width(p->v, bc[2] >= cc[2] ? bc[2] : cc[2], p->halve);
+    const int32_t *a = c + SKID_SCREEN + 2 * k, *e = b + SKID_SCREEN + 2 * k;
+    if (p->every) skid_stroke(p->v->target, p->v->remap, a[0], a[1], e[0], e[1], p->s, p->t, w);
+    else thick_line_shade(p->v->target, p->v->remap, a[0], a[1], e[0], e[1], w);
+}
+
+static void draw_mark(const DrawPass *p, int32_t cur, int32_t prev, int joined)
+{
+    int32_t *c = p->m->marks[cur];
+    const ModelView *mv = p->v->mv;
+    int32_t rel[3], at[3];
+    for (int i = 0; i < 3; i++) rel[i] = x_sub(c[SKID_POINT + i], mv->camera_position[i]) >> CAMERA_SHIFT;
+    mat3_apply(rel, mv->camera_matrix, at);
+    for (int k = 0; k < SKID_CORNERS; k++) {
+        int32_t *cc = c + SKID_CAMERA + 3 * k;
+        mat3_apply(c + 3 * k, mv->camera_matrix, cc);
+        for (int i = 0; i < 3; i++) cc[i] = x_add(cc[i], at[i]);
+        draw_corner(p, cur, prev, k, joined);
+    }
+}
+
+void skid_draw(const SkidView *v, const SkidRing *ring, SkidMarks *m, int32_t index, int32_t node, int32_t row,
+               int32_t halve, const int32_t s[2], const int32_t t[2])
+{
+    if (ring->alternate != 0) return;
+    const int every = index == SKID_EVERY;
+    int32_t cur = index, near = row, left = SKID_OWN;
+    if (every) {
+        if (!row_marked(ring, m, node, row)) return;
+        cur = previous_of(m->index);
+    } else near = m->marks[index][SKID_NODE];
+    const DrawPass p = { v, m, every, halve, s, t };
+    int joined = 0;
+    for (int32_t looked = 0, prev = cur; looked < SKID_LOOKED; looked++) {
+        const int32_t d = x_sub(near, m->marks[cur][SKID_NODE]);
+        const int within = d >= -SKID_AROUND && d <= SKID_AROUND;
+        if (within) draw_mark(&p, cur, prev, joined);
+        joined = within;
+        prev = cur, cur = previous_of(cur);
+        if (!every && --left == 0) return;
     }
 }
 
