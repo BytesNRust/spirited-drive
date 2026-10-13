@@ -11,7 +11,8 @@ enum {
     VIEW_SCREEN_MODES = 2,      /* 00512018 */
     VIEW_LAYOUTS = 17,          /* 0x2a8 bytes a mode */
     VIEW_ROWS = 7,              /* 004b75d0: 0x16c bytes a mode */
-    VIEW_SIZES = 4              /* 00511ff0: the window size picks a row's layout */
+    VIEW_SIZES = 4,             /* 00511ff0: the window size picks a row's layout */
+    VIEW_SIZE_LARGEST = 2       /* 00405370 holds the window size to it */
 };
 
 /* A row of 004b7080 (0x28 bytes): where a viewport sits on the screen.
@@ -75,6 +76,12 @@ void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size);
  * the window size 00511ff0: the next view of its view's row (row +0, read
  * by the camera's +0xc) selected (00405210) when it is not negative. */
 void race_view_next(RaceViews *views, RaceCamera *camera, int32_t size);
+
+/* 00405370 (watcall size), on the follow record's camera: size held to 2;
+ * unless it is *window_size (00511ff0) already, *window_size = size and the
+ * camera takes its view row's layout for that size (00405154). Its callers
+ * (00438628, 00441117) pass a byte. */
+void race_view_size(RaceViews *views, RaceCamera *camera, int32_t *window_size, int32_t size);
 
 /* The follow record's two cameras and their matrices: +0x88 and +0x94 ahead,
  * +0x8c and +0xb8 behind (the mirror). */

@@ -44,6 +44,16 @@ void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size)
     if (camera->view >= 0) race_view_select(views, camera, camera->view, size);
 }
 
+void race_view_size(RaceViews *views, RaceCamera *camera, int32_t *window_size, int32_t size)
+{
+    if (size > VIEW_SIZE_LARGEST) size = VIEW_SIZE_LARGEST;
+    if (size == *window_size) return;
+    *window_size = size;
+    /* port guard: the callers pass a byte; the original indexes the row unchecked */
+    if (camera->view_row == NULL || size < 0) return;
+    race_view_layout(views, camera, camera->view_row->layouts[size]);
+}
+
 void race_view_next(RaceViews *views, RaceCamera *camera, int32_t size)
 {
     /* port guard: the original indexes both unchecked */
