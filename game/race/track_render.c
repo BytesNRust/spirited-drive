@@ -269,11 +269,11 @@ static int faces_camera(const int32_t *s, int strip, int triangles, int mirrored
 }
 
 /* 00449f90 */
-static int visible_near(const ClipRect *clip, const int32_t *s, int strip, int mirrored)
+int track_visible_near(const MirrorBounds *b, const int32_t s[8], int strip, int mirrored)
 {
-    const int right = s[0] > clip->x1 && s[2] > clip->x1 && s[4] > clip->x1 && s[6] > clip->x1;
-    const int left = s[0] < clip->x0 && s[2] < clip->x0 && s[4] < clip->x0 && s[6] < clip->x0;
-    const int below = s[1] > clip->y1 && s[7] > clip->y1;
+    const int right = s[0] > b->right && s[2] > b->right && s[4] > b->right && s[6] > b->right;
+    const int left = s[0] < b->left && s[2] < b->left && s[4] < b->left && s[6] < b->left;
+    const int below = s[1] > b->bottom && s[7] > b->bottom;
     if (right || left || below) return 0;
     return faces_camera(s, strip, 3, mirrored);
 }
@@ -527,6 +527,9 @@ static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawCo
     int row = segments * 4 - (node & 3) + 3;
     int variant = variant_near(row);
     const int32_t near = NEAR_PLANE >> ctx->world_shift;
+    /* TODO(0044b510): 00449f50 makes the box from the camera's layout; the
+     * clip (0047383c) holds the same edges unless they pass the surface. */
+    const MirrorBounds box = { ctx->clip.y1, ctx->clip.x1, ctx->clip.x0, ctx->clip.y0 };
     for (int k = segments - 1; k >= 0; k--) {
         const int32_t segment = node / 4 + k;
         const TrackSegmentRecord *rec = crecord(r, segment);
@@ -538,7 +541,7 @@ static void draw_near(const TrackRender *r, const TrackCamera *cam, const DrawCo
             int32_t screen[8];
             const int32_t *corners[4];
             gather(r, base, p, screen, corners);
-            if (drawable(r, segment) && visible_near(&ctx->clip, screen, p->strip, mirrored)) {
+            if (drawable(r, segment) && track_visible_near(&box, screen, p->strip, mirrored)) {
                 const TrackUv *uv = &TRACK_UVS[p->uv];
                 const FshEntry *tex = texture_of(r->art, rec->texture[p->strip], uv->variant + variant);
                 if (tex != NULL) track_draw_subdivided(ctx, tex, uv->u_level, 0, uv->u_cell, 0, corners, screen, near);

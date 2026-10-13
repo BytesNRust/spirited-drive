@@ -16,6 +16,7 @@
 #define TNFS_TRACK_RENDER_H
 
 #include "formats/tri.h"
+#include "game/race/mirror_scene.h"
 #include "game/race/track_art.h"
 #include "game/race/track_draw.h"
 #include "game/race/track_objects.h"
@@ -93,6 +94,12 @@ int track_quad_on_screen(const int32_t s[8]);
  * points (x, y pairs in s) tri names, its first and last swapped on
  * mirrored tracks (004fbad8); 32-bit wrap as in the original. */
 int32_t track_winding(const int32_t *s, const int tri[3], int mirrored);
+
+/* 00449f90 (watcall points, strip): 0 when the quad's four x are all
+ * right of the camera's box or all left of it, or its points 0 and 3 are
+ * both below it; else 1 when one of the triangles 004c5320 / 2c / 38
+ * faces the camera (track_winding < 0 for strips 0..4, > 0 for the rest). */
+int track_visible_near(const MirrorBounds *b, const int32_t s[8], int strip, int mirrored);
 
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
