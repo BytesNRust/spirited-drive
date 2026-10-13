@@ -4,6 +4,7 @@
 #define TNFS_PUFFS_H
 
 #include "game/gfx/quad.h"
+#include "game/race/crash_trail.h"
 #include "game/race/race_palette.h"
 
 #include <stdint.h>
@@ -33,6 +34,24 @@ void puff_blend_init(PuffBlend *b, uint8_t table[PUFF_BLEND_SIZE], const RacePal
                      uint8_t (*nearest)(void *ctx, uint32_t rgb), void *ctx);
 
 enum { PUFF_SHAPES = 4 };
+
+typedef struct {
+    uint8_t *bank;                  /* 004c55dc: smoke.qfs, read once */
+    uint8_t *smok;                  /* 004c55e0 */
+    uint8_t *palette;               /* 004c55e4: '!PAL' + 0x10, 6-bit, tinted */
+    uint8_t *smoke[PUFF_SHAPES];    /* 00513e88: 'smo1'..'smo4' */
+    uint8_t *dirt[PUFF_SHAPES];     /* 00514298: 'dir1'..'dir4' */
+} PuffArt;
+
+/* 00456a7c (eax = 005146ac, from 00455b74 only): unless the bank is in,
+ * dir (005246e8) + "smoke.qfs" read (00476268), its shapes found (004732dd
+ * for 'smok', 004732e4 for the rest), the palette tinted (004471dc, 0 ..
+ * 0x100) and queued with the bank (00446f58, from 0, 0xfa colours); then
+ * the trail's +0x640 words k (their index) and its ages 0xffff0000, and the trail cleared
+ * (00456a48's body, inline). The original faults on a bank with no '!PAL'
+ * and aborts with no 'smok'; the port leaves the palette out then. */
+void puff_art_start(PuffArt *art, CrashTrail *trail, RacePalette *p, const char *dir,
+                    uint8_t *(*load)(void *ctx, const char *path), void *ctx);
 
 typedef struct {
     const QuadTarget *target;
