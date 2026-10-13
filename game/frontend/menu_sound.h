@@ -25,6 +25,11 @@ typedef struct MenuSoundOps {
     int32_t (*stream_open)(void *ctx, int32_t size, int32_t block, int32_t count);  /* 0048a674 (cdecl) */
     void (*stream_load)(void *ctx, int32_t stream, const char *path);  /* 0048aa78 (cdecl) */
     void (*stream_start)(void *ctx, int32_t stream);  /* 0048de54: eax the stream */
+    /* 004640d0's: what each gives is guessed from how it is used. */
+    int32_t (*ticks)(void *ctx);                      /* 00473334: summed against 0x64 */
+    int32_t (*queued)(void *ctx);                     /* 0048e054(0): compared with the stream's size */
+    int32_t (*stream_read)(void *ctx, int32_t stream);  /* 0048bcfc (cdecl): a chunk or 0 */
+    void (*chunk_play)(void *ctx, int32_t chunk);     /* 0048df3c: eax the chunk */
     void *ctx;
 } MenuSoundOps;
 
@@ -39,6 +44,7 @@ typedef struct MenuSound {
     int music_on;      /* the short 004c5cc8: the music is playing */
     int music_wait;    /* the short 004c5cc6: 00464568 waits for the music to play out */
     int32_t stream;    /* 00524830: the music's stream (0048a674, 00464428) */
+    int32_t chunk;     /* 0052481c: the last chunk 0048bcfc gave (004640d0) */
     int small_stream;  /* the short 004c5cca: a 0x19000-byte stream, else 0x7d000 */
     char music_path[MENU_SOUND_PATH];  /* 00524798: the music's file (00464428) */
 } MenuSound;
@@ -90,5 +96,12 @@ void menu_sound_music_end(MenuSound *m, const ConfigDat *c, const MenuSoundOps *
  * (0048aa78) and started (0048de54); music_on = 1. */
 void menu_sound_music_start(MenuSound *m, const ConfigDat *c, const char *dir, const char *name,
                             const MenuSoundOps *ops);
+
+/* 004640d0: keeps the music fed. With music allowed and on in config.dat:
+ * 00475c14(0); then, with the sound on and the music playing, reads and
+ * plays chunks of the stream while 0048e054 is under the stream's size
+ * (0x14000 small, else 0x64000), and stops early once the ticks summed
+ * as a short pass 0x64 and 0048e054 gives 0. */
+void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 #endif

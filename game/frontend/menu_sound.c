@@ -102,3 +102,21 @@ void menu_sound_music_start(MenuSound *m, const ConfigDat *c, const char *dir, c
     ops->stream_start(ops->ctx, m->stream);
     m->music_on = 1;
 }
+
+/* 004640d0 */
+void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
+{
+    if (m->music_off || !short_at(c, 0x00524e63)) return;
+    const int32_t size = m->small_stream ? 0x14000 : 0x64000;
+    ops->wait(ops->ctx);
+    if (!m->sound_on || !m->music_on) return;
+    ops->ticks(ops->ctx);
+    if (ops->queued(ops->ctx) >= size) return;
+    int32_t ticks = 0, queued;
+    do {
+        ticks += ops->ticks(ops->ctx);
+        m->chunk = ops->stream_read(ops->ctx, m->stream);
+        if (m->chunk != 0) ops->chunk_play(ops->ctx, m->chunk);
+        queued = ops->queued(ops->ctx);
+    } while (((int16_t)ticks <= 0x64 || queued != 0) && queued < size);
+}
