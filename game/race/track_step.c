@@ -11,7 +11,7 @@ void track_stream_step(const TrackStepOps *ops, const TrackStepInputs *in)
     ops->stream(ops->ctx, segment);
     if (*in->unknown_4c53a4 != 0) *in->unknown_4c53a4 = 0;
     if (in->stream_node / 4 != segment || in->stream_node < 0) ops->build(ops->ctx, in->node, segment, in->draw_segments);
-    if (*in->mirror_wanted == 0) return;
+    if (*in->rows_again == 0) return;
     int32_t first = (x_add(in->node, NODE_ROUND) / 4 - MIRROR_BEHIND) & in->segment_mask;
     if (first != *in->mirror_segment) {
         *in->mirror_segment = first;
@@ -21,5 +21,5 @@ void track_stream_step(const TrackStepOps *ops, const TrackStepInputs *in)
             first = (first + 1) & in->segment_mask;
         }
     }
-    *in->mirror_wanted = 0;
+    *in->rows_again = 0;
 }

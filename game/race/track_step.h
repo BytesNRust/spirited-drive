@@ -15,7 +15,7 @@ typedef struct {
 
 typedef struct {
     int32_t node;               /* chase +0x38 */
-    int32_t *mirror_wanted;     /* chase +0x3c: cleared once the mirror's points are made */
+    int32_t *rows_again;        /* chase +0x3c (004f8058 bit 0, set by 0043f51c): the mirror's rows to be made again; cleared */
     int32_t stream_node;        /* 00504218: the node 0043f48c last built for (-1: build again) */
     int32_t *mirror_segment;    /* 0050421c: the mirror's first segment last made */
     int32_t *unknown_4c53a4;    /* cleared */
