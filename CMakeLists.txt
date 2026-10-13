@@ -137,6 +137,7 @@ add_library(tnfs_game STATIC
     game/race/skid_marks.c
     game/race/row_cars.c
     game/race/tyre_smoke.c
+    game/race/puffs.c
     game/race/track_step.c
     game/gfx/shape_flip.c
     game/gfx/thick_line.c
