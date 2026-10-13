@@ -85,6 +85,10 @@ void track_camera_rear_matrix(int32_t pitch, int32_t yaw, int32_t roll, int32_t 
 void track_point_screen(const TrackCamera *cam, const DrawContext *ctx, const int32_t world[3], int32_t camera[3],
                         int32_t screen[2]);
 
+/* 0044a450: 1 when the x of each of four screen points (x, y pairs) is
+ * within 0x800 of 0, else 0. */
+int track_quad_on_screen(const int32_t s[8]);
+
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */

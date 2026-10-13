@@ -332,8 +332,8 @@ typedef struct {
     int32_t frame;
 } RowWalker;
 
-/* 0044a450: every corner within 0x800 of the origin horizontally. */
-static int on_screen(const int32_t *s)
+/* 0044a450 */
+int track_quad_on_screen(const int32_t s[8])
 {
     for (int i = 0; i < 4; i++)
         if (!(s[2 * i] < SCREEN_LIMIT && -SCREEN_LIMIT < s[2 * i])) return 0;
@@ -384,7 +384,7 @@ static void draw_object(const TrackRender *r, const DrawContext *ctx, const Trac
         static const int ORDER[4] = { 0, 1, 2, 3 };
         corners_of(r, o, ORDER, screen);
         const FshEntry *t = scenery_texture(r->art, resource);
-        if (t != NULL && on_screen(screen)) ctx->sink.draw_full(ctx->sink.user, t, screen);
+        if (t != NULL && track_quad_on_screen(screen)) ctx->sink.draw_full(ctx->sink.user, t, screen);
         return;
     }
     if (d->type != TRACK_OBJECT_TWO_SIDED || !in_front(r, o, 4, 2)) return;
@@ -392,9 +392,9 @@ static void draw_object(const TrackRender *r, const DrawContext *ctx, const Trac
     static const int SIDE[2][4] = { { 1, 4, 5, 2 }, { 4, 5, 2, 1 } };
     const FshEntry *front = scenery_texture(r->art, d->resource_id), *side = scenery_texture(r->art, d->resource2_id);
     corners_of(r, o, FRONT[d->flags & 1], screen);
-    if (front != NULL && on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, front, screen);
+    if (front != NULL && track_quad_on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, front, screen);
     corners_of(r, o, SIDE[(d->flags >> 1) & 1], screen);
-    if (side != NULL && on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, side, screen);
+    if (side != NULL && track_quad_on_screen(screen)) ctx->sink.draw_full_alt(ctx->sink.user, side, screen);
 }
 
 /* ---- fences (0044a2b4) ---- */
