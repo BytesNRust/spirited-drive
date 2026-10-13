@@ -64,4 +64,15 @@ enum {
 void race_replay_restore_car(RaceState *race, int32_t human, int32_t minute, int32_t index,
                              const uint8_t *recording, size_t size);
 
+/* 0044e154 (eax car, edx index; from 0044eacf, each car of 00509e1c with its
+ * index): with 004fbb0c set and playback not 1, the car into this minute
+ * (clock / 0x708) of the recording: a human (slot +0x516 < humans) at
+ * 0x7080 + slot x 0x1a40 + minute x 0x1a4 through 0044dc40 and the fields
+ * 0044df20 reads back (the bytes and the dwords; +0x16c = +0x3c5 << 16 |
+ * +0x3c1; +0x186 the four flag bytes as bits 3..0, | 0x20 when +0x426 has
+ * bit 1; +0x185 = +0x3ed + 2, +0x16b = +0x3bd + 100, as bytes); another car
+ * at 0xa500 + minute x 0xb90 + index x 0x172 through 0044dc40, then +0x160,
+ * +0x164, the bytes +0x340 and +0x3fd. */
+void race_replay_save_minute(const RaceState *race, const Car *car, int32_t index, uint8_t *recording, size_t size);
+
 #endif

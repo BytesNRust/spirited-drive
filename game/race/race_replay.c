@@ -130,3 +130,48 @@ void race_replay_restore_car(RaceState *race, int32_t human, int32_t minute, int
     put32(c + 0x3fd, r[0x170]);
     c[0x340] = r[0x171];
 }
+
+enum { REPLAY_MINUTE_TICKS = 0x708, BRAKE_FLAG = 0x20 };
+
+static void save_human(const Car *car, uint8_t *r)
+{
+    const uint8_t *c = (const uint8_t *)car;
+    for (size_t i = 0; i < sizeof HUMAN_WORDS / sizeof HUMAN_WORDS[0]; i++)
+        put32(r + HUMAN_WORDS[i].from, raw32(c + HUMAN_WORDS[i].to));
+    r[0x184] = c[0x3e9];
+    r[0x168] = c[0x3b1];
+    r[0x169] = c[0x3b5];
+    r[0x16a] = c[0x3b9];
+    put32(r + 0x16c, raw32(c + 0x3c5) << HALF | raw32(c + 0x3c1));
+    uint8_t bits = 0;
+    for (size_t i = 0; i < sizeof HUMAN_BITS / sizeof HUMAN_BITS[0]; i++)
+        bits |= (uint8_t)(c[HUMAN_BITS[i].to] << HUMAN_BITS[i].bit);
+    if ((c[0x426] & BRAKE_ON) != 0) bits |= BRAKE_FLAG;
+    r[0x186] = bits;
+    r[0x185] = (uint8_t)(c[0x3ed] + 2);
+    r[0x16b] = (uint8_t)(c[0x3bd] + 100);
+}
+
+void race_replay_save_minute(const RaceState *race, const Car *car, int32_t index, uint8_t *recording, size_t size)
+{
+    if (race->unknown_4fbb0c == 0 || race->playback == 1) return;
+    const int32_t minute = race->clock / REPLAY_MINUTE_TICKS;
+    const int32_t slot = (int32_t)raw32((const uint8_t *)car + SLOT_AT);
+    const int human = slot < race->humans;
+    const int64_t at = human
+        ? REPLAY_HUMANS_AT + (int64_t)slot * REPLAY_HUMAN + (int64_t)minute * REPLAY_HUMAN_MINUTE
+        : REPLAY_OTHERS_AT + (int64_t)minute * REPLAY_OTHER_MINUTE + (int64_t)index * REPLAY_OTHER;
+    const int64_t length = human ? REPLAY_HUMAN_MINUTE : REPLAY_OTHER;
+    if (at < 0 || (uint64_t)(at + length) > size) return;  /* port guard: the original writes unchecked */
+    uint8_t *r = recording + at;
+    race_replay_save_car(race->unknown_4fbb0c, race->playback, car, r);
+    if (human) {
+        save_human(car, r);
+        return;
+    }
+    const uint8_t *c = (const uint8_t *)car;
+    put32(r + 0x168, raw32(c + 0x160));
+    put32(r + 0x16c, raw32(c + 0x164));
+    r[0x171] = c[0x340];
+    r[0x170] = c[0x3fd];
+}
