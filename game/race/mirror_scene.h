@@ -152,6 +152,13 @@ typedef struct {
  * 004fb787 set bit 1 toggles, skipping every other frame. */
 void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_t *state);
 
+/* 0044bd64 (from 0044ccb6, the race's start): the mirror's box from dash
+ * points 0 and 1 (004212b4: 004f9754..004f9760), its size into *width,
+ * *height (00512034 / 00512038: point 1 - point 0 + 1 each way) and the
+ * picture made for it (004c2d94 = 0047310c(width, height, 0)). */
+void *mirror_create(void *(*make)(void *ctx, int32_t width, int32_t height, int32_t flags), void *ctx,
+                    const int32_t box[4], int32_t *width, int32_t *height);
+
 /* 0044c060 (watcall (x, y), from 0042270c): with 00511ff4 set, the
  * picture's shape (004c2d94 +0x2c) placed at x, y (004737d0). */
 void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int32_t state, int32_t x, int32_t y);

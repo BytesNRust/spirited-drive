@@ -163,6 +163,14 @@ void mirror_frame(const MirrorFrameOps *ops, const MirrorFrameInputs *in, int32_
     if (in->alternate != 0) *state ^= MIRROR_SKIP;
 }
 
+void *mirror_create(void *(*make)(void *ctx, int32_t width, int32_t height, int32_t flags), void *ctx,
+                    const int32_t box[4], int32_t *width, int32_t *height)
+{
+    *width = x_add(x_sub(box[2], box[0]), 1);
+    *height = x_add(x_sub(box[3], box[1]), 1);
+    return make(ctx, *width, *height, 0);
+}
+
 void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int32_t state, int32_t x, int32_t y)
 {
     if (state != 0) place(ctx, x, y);
