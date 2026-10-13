@@ -453,6 +453,18 @@ static void morph_wheels(void *user, uint32_t object, int32_t part, int32_t weig
     if (obj != NULL) object3d_morph_part(obj, part, weight);
 }
 
+/* drive_mirror's 004591d4 pass 1: the car's slot model at its pose. */
+static void mirror_car(void *user, const Car *car, const ModelView *mv, const QuadTarget *target)
+{
+    const Track *t = user;
+    for (int i = 0; i < RACE_CARS; i++)
+        if (drive_sim.race.cars[i] == car) {
+            const CarPose pose = car_pose_of(car);
+            ported_view_draw_car(i, &pose, mv, 1, target, t->art.palette);
+            return;
+        }
+}
+
 static void render_drive(const Track *t, uint8_t *pixels)
 {
     /* 00458d4c: 00458614 and 00458818 on cars[004fbb08] as it draws it.
@@ -476,7 +488,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     }
     ported_view_set_models(t->models, t->model_ok);
     /* 0044ce4b, before the 3D view in 0044cc74: the mirror's picture, from the last frame's road direction */
-    DriveMirrorWorld mirror = { &t->tri, &t->art, race, { 0, 0, 0 } };
+    DriveMirrorWorld mirror = { &t->tri, &t->art, race, { 0, 0, 0 }, followed, (void *)t, mirror_car };
     ported_view_near_dir(mirror.near_dir);
     drive_mirror_frame(&drive_hud.mirror, &mirror);
     ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, race, pixels));

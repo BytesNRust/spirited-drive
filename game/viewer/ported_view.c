@@ -130,6 +130,18 @@ void ported_view_set_car_objects(int slot, Object3D *high, Object3D *low)
     c->ok = car_model_init(&c->model, high, low);
 }
 
+int ported_view_draw_car(int slot, const CarPose *pose, const ModelView *mv, int mirror, const QuadTarget *target,
+                         const uint8_t palette[768])
+{
+    if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
+    static uint8_t shade[256];
+    static const uint8_t *shaded;
+    if (shaded != palette) object_sink_shade(palette, shade), shaded = palette;
+    ObjectSink pixels = { target, palette, shade };
+    const Object3DSink sink = object_sink(&pixels);
+    return car_draw(&cars[slot].model, pose, mv, mirror, &sink);
+}
+
 Object3D *ported_view_car_object(int slot)
 {
     return slot >= 0 && slot < PORTED_VIEW_CARS && cars[slot].ok ? cars[slot].high : NULL;

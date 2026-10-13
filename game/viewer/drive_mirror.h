@@ -9,6 +9,7 @@
 #include "game/gfx/quad.h"
 #include "game/race/cockpit.h"
 #include "game/race/mirror_scene.h"
+#include "game/race/model_draw.h"
 #include "game/race/race_state.h"
 #include "game/race/track_art.h"
 #include "game/race/view.h"
@@ -28,6 +29,8 @@ typedef struct {
     uint8_t *horz;              /* a one-shape bank holding the track's 'horz' (0051203c) */
     uint32_t enclosed_colour;   /* 0050b7c0 (00446bac: grey 0x20) */
     uint32_t property8_colour;  /* 0050b79c (00446bac: green 0x20) */
+    uint8_t car_rows[MIRROR_CAR_ROWS];      /* 0051c7a1 */
+    int32_t matrix[9];          /* the mirror camera's (chase +0xb8) */
     View view;
 } DriveMirror;
 
@@ -36,6 +39,10 @@ typedef struct {
     const TrackArt *art;
     const RaceState *race;
     int32_t near_dir[3];        /* 00512040..: as the front view last left them */
+    const Car *followed;        /* cars[004fbb08] */
+    void *user;
+    /* 004591d4's mirror pass for a car with the mirror's view into the picture */
+    void (*draw_car)(void *user, const Car *car, const ModelView *mv, const QuadTarget *target);
 } DriveMirrorWorld;
 
 /* 0044bd64 at the race's start, once the cockpit is loaded; 0 without one. */

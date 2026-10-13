@@ -157,9 +157,8 @@ static void view_op(void *ctx, int rear)
     if (!rear) return;  /* the front view is the port's own (ported_view.c) */
     static RaceCamera camera;
     camera.fov = MIRROR_FOV, camera.layout_row = f->layout;
-    static int32_t matrix[9];
-    track_camera_rear_matrix(f->pitch, f->yaw, f->roll, matrix);
-    const RaceCameraPair pair = { &camera, &camera, matrix, matrix };
+    track_camera_rear_matrix(f->pitch, f->yaw, f->roll, f->m->matrix);
+    const RaceCameraPair pair = { &camera, &camera, f->m->matrix, f->m->matrix };
     static const int32_t still[2] = { 0, 0 };  /* 004f8010 / 004f8014 apply ahead only */
     const RaceCamera *picked;
     const int32_t *m;
@@ -169,9 +168,7 @@ static void view_op(void *ctx, int rear)
 static void transform_op(void *ctx)
 {
     Frame *f = ctx;
-    int32_t matrix[9];
-    track_camera_rear_matrix(f->pitch, f->yaw, f->roll, matrix);
-    const MirrorTransformInputs in = { NEAR_PLANE, WORLD_SHIFT, f->w->race->chase.position, matrix, &f->m->view,
+    const MirrorTransformInputs in = { NEAR_PLANE, WORLD_SHIFT, f->w->race->chase.position, f->m->matrix, &f->m->view,
                                        f->m->count, (const int32_t (*)[3])f->m->world };
     mirror_transform(&in, &f->m->near, f->m->vertices);
 }
@@ -233,7 +230,29 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
     mirror_draw_subdivided(&dc, t, u_level, 0, u_cell, 0, cam, screen, near);
 }
 
-static void scene_cars(void *ctx, int32_t node) { (void)ctx, (void)node; }  /* TODO(0045a8fc): the cars in the mirror */
+/* 0045a724: TODO(0042ebbc) the heading from the body matrix for cars with one; 0045a3e8 (camera space) is car_draw's
+ * own; TODO(00482794) its call after. */
+static void car_prepare(void *ctx, Car *car, int mirror) { (void)ctx, (void)car, (void)mirror; }
+
+static void car_draw_op(void *ctx, Car *car, int mirror)
+{
+    Frame *f = ctx;
+    (void)mirror;
+    if (f->w->draw_car == NULL) return;
+    const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix, 0 };
+    f->w->draw_car(f->w->user, car, &mv, &f->target);
+}
+
+/* 0045a8fc. TODO(004414ea): 00509e8c / 00509e14 (the cars drawn) taken as the race's cars. */
+static void scene_cars(void *ctx, int32_t node)
+{
+    Frame *f = ctx;
+    const RaceState *race = f->w->race;
+    const MirrorCarsOps ops = { f, car_prepare, car_draw_op };
+    const MirrorCarsInputs in = { race->chase.node, race->segments, f->m->car_rows, race->cars, race->car_count,
+                                  f->w->followed, race->chase.kind };
+    mirror_cars(&ops, &in, node);
+}
 
 static void scene_op(void *ctx, int32_t count)
 {
@@ -258,6 +277,8 @@ void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w)
                 &race_view_layouts[HIGH_MODE][row->layouts[size]], race->chase.angles[0], race->chase.angles[1],
                 race->chase.angles[2] };
     mirror_rows(&f);
+    /* 00459d70's mirror part (00459cc4), at 0044ce3f */
+    mirror_car_rows(race->cars, race->car_count, race->segments, race->chase.node, m->car_rows);
     const MirrorFrameOps ops = { &f, view_op, transform_op, select_op, sky_op, scene_op, flip_op };
     /* TODO(0044cc74): 004b91c8 (2 or more keeps the mirror's last picture) and 004fb787 are 0 in --drive */
     const MirrorFrameInputs in = { race->chase.unknown_68, 0, 0, MIRROR_SEGMENTS };
