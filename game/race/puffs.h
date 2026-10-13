@@ -4,6 +4,7 @@
 #define TNFS_PUFFS_H
 
 #include "game/gfx/quad.h"
+#include "game/race/race_palette.h"
 
 #include <stdint.h>
 
@@ -15,6 +16,21 @@ enum { PUFF_BLEND_SIZE = 256 * 256 };
  * (00473140). Row a is the sprite's texel, column b what lies under it. */
 void puff_blend_build(uint8_t table[PUFF_BLEND_SIZE], const uint8_t palette[1024],
                       uint8_t (*nearest)(void *ctx, uint32_t rgb), void *ctx);
+
+enum { PUFF_BLEND_ROWS = 256 };
+
+typedef struct {
+    uint8_t palette[1024];                     /* 00513e98: 4 bytes a colour, the 4th 0x80 (the last 0) */
+    const uint8_t *rows[PUFF_BLEND_ROWS];      /* 005142a8: table + a x 256 (*004c795c, 0048c88d) */
+} PuffBlend;
+
+/* 00456948: the screen palette read as 6-bit (004766b8), each channel back
+ * to v x 255 / 63 in the screen's order (the read's R, G, B as bytes 2, 1,
+ * 0), the 4th byte 0x80 and the last entry's 0; then table (the original
+ * allocates it, 'lut' 0x10000 at 005146a8) built from it (00456820) and the
+ * rows pointed into it. */
+void puff_blend_init(PuffBlend *b, uint8_t table[PUFF_BLEND_SIZE], const RacePalette *p,
+                     uint8_t (*nearest)(void *ctx, uint32_t rgb), void *ctx);
 
 enum { PUFF_SHAPES = 4 };
 

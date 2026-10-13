@@ -3,7 +3,7 @@
 
 #include "game/gfx/sprite_scaled.h"
 
-enum { CHANNEL_MAX = 0xff, DIRT_MOST = 0x10000 };
+enum { CHANNEL_MAX = 0xff, DIRT_MOST = 0x10000, SIX_BIT_MAX = 0x3f, SPARE = 0x80 };
 
 static int32_t lift(int32_t under, int32_t added)
 {
@@ -24,6 +24,22 @@ void puff_blend_build(uint8_t table[PUFF_BLEND_SIZE], const uint8_t palette[1024
             table[a * 256 + b] = nearest(ctx, rgb);
         }
     }
+}
+
+void puff_blend_init(PuffBlend *b, uint8_t table[PUFF_BLEND_SIZE], const RacePalette *p,
+                     uint8_t (*nearest)(void *ctx, uint32_t rgb), void *ctx)
+{
+    uint8_t six[3 * PUFF_BLEND_ROWS];
+    race_palette_read(p, 0, PUFF_BLEND_ROWS, six);
+    for (int i = 0; i < PUFF_BLEND_ROWS; i++) {
+        for (int c = 0; c < 3; c++)
+            b->palette[4 * i + 2 - c] = (uint8_t)(six[3 * i + c] * CHANNEL_MAX / SIX_BIT_MAX);
+        b->palette[4 * i + 3] = SPARE;
+    }
+    b->palette[sizeof b->palette - 1] = 0;
+    puff_blend_build(table, b->palette, nearest, ctx);
+    for (int a = 0; a < PUFF_BLEND_ROWS; a++)
+        b->rows[a] = table + a * 256;
 }
 
 static int32_t at_resolution(const PuffView *v, int32_t size)
