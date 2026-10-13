@@ -7,6 +7,22 @@
 
 enum { PHYSICS_SKIPPED = 6, LANE_EDGE = 0x29999 };
 
+void cars_on_row(const RowCarsOps *ops, const RowCarsInputs *in, int32_t row)
+{
+    const int32_t d = x_sub(row >= in->camera_node ? row : x_add(x_shl(in->segments, 2), row), in->camera_node);
+    if (d >= ROW_CARS_AHEAD || d < 0 || in->ahead[d] == 0) return;
+    for (int32_t i = x_sub(in->count, 1); i >= 0; i--) {
+        Car *car = in->list[i];
+        if (car->physics == PHYSICS_SKIPPED || row != car->draw_node) continue;
+        if (car == in->followed && in->chase_kind == 0) {
+            if (in->alternate == 0) ops->unseen(ops->ctx, car);
+            continue;
+        }
+        ops->prepare(ops->ctx, car, 0);
+        ops->draw(ops->ctx, car, 0);
+    }
+}
+
 void car_rows_ahead(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node,
                     uint8_t ahead[ROW_CARS_AHEAD], uint8_t behind[MIRROR_CAR_ROWS])
 {

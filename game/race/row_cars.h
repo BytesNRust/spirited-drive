@@ -19,4 +19,30 @@ enum { ROW_CARS_AHEAD = 0x23 };
 void car_rows_ahead(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node,
                     uint8_t ahead[ROW_CARS_AHEAD], uint8_t behind[MIRROR_CAR_ROWS]);
 
+typedef struct {
+    void *ctx;
+    void (*prepare)(void *ctx, Car *car, int pass);  /* 0045a724 */
+    void (*draw)(void *ctx, Car *car, int pass);     /* 004591d4 */
+    void (*unseen)(void *ctx, Car *car);             /* 0045a768 */
+} RowCarsOps;
+
+typedef struct {
+    int32_t camera_node;        /* chase +0x38 */
+    int32_t segments;           /* 0050420c */
+    const uint8_t *ahead;       /* 0051c7ac: ROW_CARS_AHEAD flags (car_rows_ahead) */
+    Car *const *list;           /* 00509e8c: the cars to draw */
+    int32_t count;              /* 00509e14 */
+    const Car *followed;        /* cars[004fbb08] */
+    int32_t chase_kind;         /* 004f801c */
+    uint8_t alternate;          /* 004fb787 */
+} RowCarsInputs;
+
+/* 0045a848 (watcall (row), between the track's rows): nothing unless the row
+ * is 0..0x22 ahead of the camera (round the ring) with its flag set; then the
+ * listed cars, last first, not physics 6 and with draw_node (+0x341) the
+ * row: the followed car while the chase kind is 0 (in the car) only lays
+ * its skid marks (0045a768, not when alternate), the others 0045a724 and
+ * 004591d4, pass 0. */
+void cars_on_row(const RowCarsOps *ops, const RowCarsInputs *in, int32_t row);
+
 #endif
