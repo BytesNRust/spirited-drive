@@ -33,29 +33,53 @@ void track_changed(RaceSettings *s)
     s->laps = LAPS[level][short_track(s->track)];
 }
 
-/* 00432974, single player. */
-static void race_type_changed(RaceSettings *s, const Unlocks *u)
+/* 00432974 */
+void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
 {
+    const int earned = f->unknown_4baf1c || f->unlock_level;
+    const int other = f->flag_52b312 && !f->unknown_4faa56;
     switch (s->race_type) {
     case RACE_TIME_TRIAL:
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb6 = 0x14;
         s->opponent = OPPONENT_CLOCK;
+        u->lost_vegas = earned;
         break;
     case RACE_HEAD_TO_HEAD:
+        u->lost_vegas = earned;
         if (s->opponent >= OPPONENT_FIELD && s->opponent <= OPPONENT_TOURNAMENT) s->opponent = s->player_car;
         break;
     case RACE_SINGLE:
-        s->opponent = OPPONENT_FIELD;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb6 = 0x14;
+        u->lost_vegas = earned;
+        if (f->flag_52b312 && f->unknown_4fbb0c) s->unknown_524e9d = 8;
+        s->opponent = other ? s->other_car[f->other_index] : OPPONENT_FIELD;
         break;
-    default:
+    case RACE_TOURNAMENT:
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb6 = 0x14;
         s->variant_m = s->variant_r = 0;
-        if ((s->track == TRACK_LOST_VEGAS && !u->lost_vegas) || s->track == TRACK_HIDDEN) s->track = 0;
+        if (f->flag_52b312 || !f->unlock_level) u->lost_vegas = 0;
+        if (!u->lost_vegas && s->track == TRACK_LOST_VEGAS) s->track = 0;
+        if (s->track == TRACK_HIDDEN) s->track = 0;
         s->player_car = TOURNAMENT_CAR[s->track];
         race_settings_car_flags(s);
-        s->opponent = OPPONENT_TOURNAMENT;
+        s->opponent = other ? s->other_car[f->other_index] : OPPONENT_TOURNAMENT;
         s->difficulty = 1;
         s->laps = short_track(s->track) ? 6 : 8;
         break;
+    default:
+        break;
     }
+}
+
+/* TODO(00432720): the draft's race type step; the level and the 00432974
+ * session are guessed (the level from Lost Vegas, no 0052b312 game) and the
+ * Lost Vegas it writes is dropped. */
+static void race_type_changed(RaceSettings *s, const Unlocks *u)
+{
+    Unlocks scratch = *u;
+    FrontendSession f = { 0 };
+    f.unlock_level = u->lost_vegas;
+    race_settings_type_changed(s, &scratch, &f);
 }
 
 void race_settings_init(RaceSettings *s)
