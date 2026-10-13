@@ -332,6 +332,9 @@ typedef struct {
     /* 004c5f98, 004c5f9c: read by 0047217c (a sound; not ported) when the
      * first is not negative; 0044df20 sets both to -1 */
     int32_t unknown_4c5f98, unknown_4c5f9c;
+    /* 0052b31e (the German word, re/STATE.md) and 0052b30e (written at
+     * 0043234e): the first set and the second 0 keeps 00443820's voices off */
+    int16_t unknown_52b31e, unknown_52b30e;
     uint8_t tick_flags;             /* 004fcdb0: 4 runs the engine and the notes, 0x10 the driver aids */
     int32_t catch_up;               /* 004fbac0: two players: the trailing car runs this many ticks a second more at most */
     int32_t first_move_tick;        /* 00509d64: the tick after the car first moved, 0 before */

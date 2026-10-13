@@ -42,6 +42,13 @@ void race_sound_pulse(RaceState *race);
  * the wall tones on (0052b320) 0043d120 (0). */
 void race_sound_start_engine(RaceState *race);
 
+/* 00443820 (no arguments; from the race's start and its returns from the
+ * menus and the replay): 0052b31e 0 or 0052b30e set, and the voice on the
+ * channel at 004bcb70 negative (none): that channel starts sound 1 (pan
+ * 0x40, volume 0, pitch 0x40), voices[1] sound 2, voices[5] sound 0x29,
+ * each voice's sound noted. */
+void race_sound_start_voices(RaceState *race);
+
 /* 004444b8: the followed car's sounds each tick (car the followed one,
  * angle and distance from the listener as 00472018 gives them, specs the
  * followed slot's): nothing when its entry's sound volume is 0; 00444230
