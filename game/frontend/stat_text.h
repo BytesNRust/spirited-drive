@@ -20,4 +20,10 @@ void stat_speed_text(char out[STAT_TEXT], int german, int32_t speed);
  * when it is 0 or less, or 99999 or 999999 (no time). */
 void stat_time_text(char out[STAT_TEXT], int32_t ticks);
 
+/* 00466e5c: an average speed, distance over ticks, as distance x 1344 /
+ * ticks tenths of mph ("%d.%dmph"), or x 2160 in German ("%d.%d" and the
+ * km/h sign); the product wraps at 32 bits. "N/A" when either is 0 or
+ * less, or the ticks are 99999 or 999999 (no time). */
+void stat_average_speed_text(char out[STAT_TEXT], int german, int32_t ticks, int32_t distance);
+
 #endif
