@@ -119,6 +119,13 @@ void race_sound_signal_off(RaceState *race);
  * angle) (00472018 first if the distance is still -1), else 00444324. */
 void race_sound_tyres(RaceState *race);
 
+/* 00472560 (watcall (), from 00440ef0 every tick): the police siren (with
+ * 004fbab8, the police car cars[2] near the heard car: 004b92d4 and the
+ * cockpit's lights toggle `police_lights`, 004f9b48; channels 9 and 11) and
+ * the two loudest other cars on channels 2 and 3 (their engines, or the
+ * skid effect while the heard human has no finish). See race_sound.c. */
+void race_sound_others(RaceState *race, int32_t *police_lights);
+
 /* 004720ec (watcall car, angle out; from 00472560): the listener's heading
  * (004f8060, chase angles[1]) taken into 0..0x1000000 in place when
  * negative, less 0042ebbc of the car's x and z from the listener each sar

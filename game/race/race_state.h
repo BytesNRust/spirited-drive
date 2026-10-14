@@ -359,6 +359,13 @@ typedef struct {
     int32_t replay_mark_ticks[4];
     int32_t unknown_4c5fa0, unknown_509e10, unknown_4b9624;
     int32_t unknown_51372c, unknown_513728, unknown_513734;
+    /* 004c5fb0..004c5fbc (00472560): the siren playing (channels 9 / 11),
+     * the second siren's count (3 as the exe starts), the police car's
+     * node last heard, the siren's pitch (0x40 as the exe starts). In this
+     * order: probe_car copies them as one block. */
+    int32_t siren_on, siren_count, siren_node, siren_pitch;
+    /* 004c5fc0, 004c5fc4: the cars last heard on channels 2 and 3 (00472560) */
+    const Car *sound_loud, *sound_second;
     /* 0044e8f8's: the calls left until the next mark (005120d4, 0x1c2
      * after each), the clock 004397f4 takes its slot from (004c5590) and
      * the dropped network game (0052b314) */
