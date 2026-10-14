@@ -1,5 +1,7 @@
 #include "game/frontend/game_file.h"
 
+#include "game/frontend/config_dat.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -40,4 +42,16 @@ int32_t game_file_copy_replay(const char *path, const GameFileOps *ops)
     const int32_t written = ops->write(ops->ctx, path, block, size);
     ops->block_free(ops->ctx, block);
     return written;
+}
+
+/* 0042a504 */
+void game_file_save_config(const uint8_t *image, const char *dir, const GameFileOps *ops)
+{
+    if (!ops->has_room(ops->ctx, CONFIG_DAT_SIZE)) return;
+    char path[GAME_FILE_PATH];
+    snprintf(path, sizeof path, "%sconfig.dat", dir);
+    uint8_t *block = ops->alloc(ops->ctx, "config", CONFIG_DAT_SIZE, 0);
+    memcpy(block, image, CONFIG_DAT_SIZE);
+    ops->write(ops->ctx, path, block, ops->block_size(ops->ctx, block));
+    ops->block_free(ops->ctx, block);
 }

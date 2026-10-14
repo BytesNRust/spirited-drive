@@ -39,4 +39,9 @@ int32_t game_file_save(const char *path, const uint8_t game[GAME_FILE_SIZE], con
  * and the block is not freed. */
 int32_t game_file_copy_replay(const char *path, const GameFileOps *ops);
 
+/* 0042a504: with room on the disk for it, config.dat's image copied into
+ * a "config" block and written to dir + "config.dat" (it must fit) with
+ * the block's size, the block freed. */
+void game_file_save_config(const uint8_t *image, const char *dir, const GameFileOps *ops);
+
 #endif
