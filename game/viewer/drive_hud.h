@@ -37,6 +37,7 @@ typedef struct {
     uint32_t strip_colour;      /* 0050b7b4 */
     uint8_t view[DRIVE_VIEW_HEADER + DRIVE_VIEW_W * DRIVE_VIEW_H];  /* 004c2d90's shape: the 3D view goes here */
     int changed;                /* 00511fec: the camera took a view; the full redraw and 00421c18(1) are due */
+    int32_t redraw;             /* 004b9568: 00422598's full redraw (004218d0 onto the frame) asked for */
     int32_t shown_view;         /* the view drawn for (-1 none yet) */
     HudNeedle needle;           /* 004b9558..: the needle last drawn */
     uint32_t needle_colour;     /* 0050b790 */
