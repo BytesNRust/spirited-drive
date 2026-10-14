@@ -444,3 +444,12 @@ void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t
 {
     if (race->sounds.sound != NULL) race->sounds.sound(race->sounds.user, a, b & 0xff, c & 0xff, d, e, f);
 }
+
+enum { SIGNAL_CHANNEL = 14, SIGNAL_SOUND = 3, SIGNAL_PITCH = 0x40, SIGNAL_CENTRE = 0x40, SIGNAL_NEAR = 2 };
+
+void race_sound_signal(RaceState *race, int32_t distance, int32_t angle)
+{
+    const int32_t volume = race_sound_loudness(distance);
+    const int32_t pan = distance < SIGNAL_NEAR ? SIGNAL_CENTRE : race_sound_pan(angle);
+    race_sound_channel(race, SIGNAL_CHANNEL, SIGNAL_SOUND, SIGNAL_PITCH, volume, pan);
+}

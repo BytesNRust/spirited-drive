@@ -93,6 +93,12 @@ void race_sound_channel_stop(RaceState *race, int32_t channel);
  * sound hook) with b and c cut to bytes. */
 void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
 
+/* 004442ec (watcall distance, angle; from 0047217c while the viewed car's
+ * +0x4ba is set, a horn?): sound 3 on channel 14 at pitch 0x40, as loud as
+ * 00471fec makes `distance`, panned by `angle` (00443c48) unless distance
+ * is below 2 (0x40). */
+void race_sound_signal(RaceState *race, int32_t distance, int32_t angle);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and
