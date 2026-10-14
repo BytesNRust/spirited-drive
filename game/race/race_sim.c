@@ -62,16 +62,6 @@ static void no_tone(void *user, int32_t a, int32_t b, int32_t c)
     (void)user, (void)a, (void)b, (void)c;
 }
 
-static void no_push(void *user, int32_t car, int32_t x, int32_t y, int32_t z)
-{
-    (void)user, (void)car, (void)x, (void)y, (void)z;
-}
-
-static void no_crash(void *user, uint32_t target, int32_t x, int32_t y, int32_t z)
-{
-    (void)user, (void)target, (void)x, (void)y, (void)z;
-}
-
 static void no_start_line(void *user, int32_t player)
 {
     (void)user, (void)player;
@@ -154,9 +144,6 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->car_count = race->racers + race->cops + race->traffic_setting;  /* 00439c98 */
     if (race->car_count > RACE_CARS) race->car_count = RACE_CARS;     /* port guard: 9 slots */
     race->humans = 1;
-    race->sounds.user = race;
-    race->sounds.push = sim_push;
-    race->sounds.crash = sim_crash;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
     race->segments = (int32_t)tri->ring_segments;  /* 0050420c (0043e4e0): 0x8000 on a stage */
@@ -166,7 +153,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->chase.kind = 1;
     race->catch_up = CATCH_UP;
     race->crash_sound_level = CRASH_SOUND_QUIET;
-    race->sounds = (RaceSounds){ NULL, no_sound, no_speech, no_tone, no_push, no_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
+    race->sounds = (RaceSounds){ race, no_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
     /* 004275f8: 0042748c (the grid places), 00428fe0 with 004fb7f4, then
