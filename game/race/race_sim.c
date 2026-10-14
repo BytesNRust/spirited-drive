@@ -4,6 +4,7 @@
 #include "game/race/race_chase.h"
 
 #include "game/race/ai_drive.h"
+#include "game/race/ai_manager.h"
 #include "game/race/ai_setup.h"
 #include "game/race/car_collide.h"
 #include "game/race/car_crash.h"
@@ -120,6 +121,22 @@ void race_field_counts(RaceField *field, int track, uint32_t track_flags, int fl
     }
 }
 
+/* RaceSounds.push / crash: 0046a654 on the car, from a blown engine
+ * (0046b080, a slot) or a wall hit (004302a4, the car +0x88 names). */
+static void sim_push(void *user, int32_t car, int32_t up, int32_t along, int32_t side)
+{
+    RaceState *race = user;
+    Car *pushed = race->cars[race_slot(car)];
+    if (pushed != NULL) car_push_spin(pushed, race, up, along, side);
+}
+
+static void sim_crash(void *user, uint32_t target, int32_t up, int32_t along, int32_t side)
+{
+    RaceState *race = user;
+    Car *pushed = race_car_by_handle(race, target);
+    if (pushed != NULL) car_push_spin(pushed, race, up, along, side);
+}
+
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade)
 {
@@ -137,6 +154,9 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->car_count = race->racers + race->cops + race->traffic_setting;  /* 00439c98 */
     if (race->car_count > RACE_CARS) race->car_count = RACE_CARS;     /* port guard: 9 slots */
     race->humans = 1;
+    race->sounds.user = race;
+    race->sounds.push = sim_push;
+    race->sounds.crash = sim_crash;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
     race->segments = (int32_t)tri->ring_segments;  /* 0050420c (0043e4e0): 0x8000 on a stage */
