@@ -39,6 +39,13 @@ void race_camera_view(View *view, const RaceCameraPair *pair, int rear, const in
     view->centre_x = x_shl(view->centre_x, screen_shift & 31), view->centre_y = x_shl(view->centre_y, screen_shift & 31);
 }
 
+int32_t race_view_choose(RaceViews *views, RaceCamera *camera, int32_t view, int32_t size)
+{
+    if (view <= -1) return 0;
+    race_view_select(views, camera, view, size);
+    return 1;
+}
+
 void race_view_reselect(RaceViews *views, RaceCamera *camera, int32_t size)
 {
     if (camera->view >= 0) race_view_select(views, camera, camera->view, size);
