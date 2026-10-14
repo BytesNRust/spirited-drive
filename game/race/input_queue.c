@@ -97,3 +97,13 @@ void input_stand_in(int32_t player, int16_t *block, PlayerRecord *records, const
     if (w->playback != 0) ops->send(ops->ctx, 0, block, STAND_IN_SIZE);
     if (w->w4fbb0c != 0) records[player].finish = GAVE_UP_TIME;
 }
+
+void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c)
+{
+    q->active = 0;
+    q->clock = 1;
+    q->gave_up = 0;
+    for (int i = 0; i < INPUT_SLOTS; i++) q->ready[i] = q->filled[i] = 0;
+    *late = 0;
+    *unknown_4fb78c = 0;
+}

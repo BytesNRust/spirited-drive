@@ -43,6 +43,11 @@ typedef struct {
  * waiting = 1 unless playback is 1 or *control (the caller's player index)
  * is the followed player. Taken: *control = input[slot] sign-extended, the
  * slot no longer ready. */
+/* 00439430 (watcall queue, from 00455a5c's start for each human): active
+ * and gave_up 0, clock 1, every slot's ready and filled flags 0; 004fb790
+ * (`late`) and 004fb78c 0. The inputs are left as they are. */
+void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c);
+
 int input_take(InputQueue *q, uint32_t *control, int slot, InputWords *w);
 
 /* 00439b24 (no arguments): slot = (clock 004fb7a0 / 2, toward zero) & 63.
