@@ -100,6 +100,8 @@ typedef struct {
     const DriveMirrorWorld *w;
     QuadTarget target;          /* the picture */
     const ViewLayout *layout;   /* the mirror camera's */
+    const uint8_t *cache;       /* 005041d8, the renderer's */
+    int32_t segment_mask;       /* 00504210 */
     int32_t pitch, yaw, roll;
 } Frame;
 
@@ -110,44 +112,25 @@ static uint8_t node_property(void *ctx, int32_t node)
     return tri_node(tri, (uint32_t)node & (tri->ring_nodes - 1u), &n) == TRI_OK ? n.property : 0;
 }
 
-/* A segment's record as the cache holds it: its 12 header bytes, then its
- * rows of 11 points (track_geometry.h). */
-static void encode_record(const Frame *f, int32_t segment)
-{
-    TrackSegment s;
-    const uint32_t mask = f->w->tri->ring_segments - 1u;
-    if (track_decode_segment(f->w->tri, (uint32_t)segment & mask, &s) != TRI_OK) memset(&s, 0, sizeof s);
-    uint8_t *r = f->m->cache + mirror_segment_offset(segment, (int32_t)mask);
-    r[0] = s.unknown_0c, r[1] = s.fence;
-    memcpy(r + 2, s.texture, sizeof s.texture);
-    for (int row = 0; row < TRACK_SEGMENT_ROWS; row++)
-        for (int p = 0; p < TRACK_ROW_POINTS; p++) {
-            uint8_t *at = r + 12 + 12 * (row * TRACK_ROW_POINTS + p);
-            put32(at, s.rows[row][p].x), put32(at + 4, s.rows[row][p].y), put32(at + 8, s.rows[row][p].z);
-        }
-}
-
 static void step_none(void *ctx, int32_t segment) { (void)ctx, (void)segment; }
 static void build_none(void *ctx, int32_t node, int32_t segment, int32_t count) { (void)ctx, (void)node, (void)segment, (void)count; }
 
 static void mirror_row_op(void *ctx, int32_t segment)
 {
     Frame *f = ctx;
-    encode_record(f, segment);
     const MirrorRowOps ops = { f, node_property };
-    mirror_row(&ops, f->m->cache, (int32_t)(f->w->tri->ring_segments - 1u), segment, f->m->world, &f->m->count,
-               segment_bytes);
+    mirror_row(&ops, f->cache, f->segment_mask, segment, f->m->world, &f->m->count, segment_bytes);
 }
 
-/* 0043f540's mirror part. The port's renderer builds its own list each frame
- * (0043e300 and 0043f48c empty here); chase +0x3c is taken as set each frame,
- * so the rows follow the camera's segment. TODO(0043f540): who sets +0x3c. */
+/* 0043f540: the cache and list part ran before (w->track; 0043e300 and
+ * 0043f48c empty here); the mirror's rows from the same cache while chase
+ * +0x3c is set (004046b0 as the camera's node changes, 0043f670, 0043f51c). */
 static void mirror_rows(Frame *f)
 {
     const RaceState *race = f->w->race;
-    int32_t again = 1, w4c53a4 = 0;
-    const TrackStepInputs in = { race->chase.node, &again, race->chase.node, &f->m->first_segment, &w4c53a4,
-                                 &f->m->count, race->circuit, (int32_t)(f->w->tri->ring_segments - 1u), 0 };
+    int32_t w4c53a4 = 0;
+    const TrackStepInputs in = { race->chase.node, f->w->rows_again, race->chase.node, &f->m->first_segment, &w4c53a4,
+                                 &f->m->count, race->circuit, f->segment_mask, 0 };
     const TrackStepOps ops = { f, step_none, build_none, mirror_row_op };
     track_stream_step(&ops, &in);
 }
@@ -279,8 +262,8 @@ static void scene_op(void *ctx, int32_t count)
 {
     Frame *f = ctx;
     const Tri *tri = f->w->tri;
-    const MirrorSceneInputs in = { 0, f->layout, f->m->near, f->w->race->chase.node, (int32_t)(tri->ring_segments - 1u),
-                                   f->w->race->circuit, (int32_t)(tri->ring_nodes - 1u), segment_bytes, f->m->cache,
+    const MirrorSceneInputs in = { 0, f->layout, f->m->near, f->w->race->chase.node, f->segment_mask,
+                                   f->w->race->circuit, (int32_t)(tri->ring_nodes - 1u), segment_bytes, f->cache,
                                    f->m->vertices };
     const MirrorSceneOps ops = { f, scene_texture, scene_subdivide, scene_cars };
     mirror_scene(&ops, &in, count);
@@ -295,8 +278,9 @@ void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w)
     const ViewRow *row = &race_view_rows[HIGH_MODE][MIRROR_VIEW];
     const int32_t size = race->window_size >= 0 && race->window_size < VIEW_SIZES ? race->window_size : 0;
     Frame f = { m, w, { m->picture + SHAPE_HEADER, m->width, 0, 0, m->width, m->height },
-                &race_view_layouts[HIGH_MODE][row->layouts[size]], race->chase.angles[0], race->chase.angles[1],
+                &race_view_layouts[HIGH_MODE][row->layouts[size]], NULL, 0, race->chase.angles[0], race->chase.angles[1],
                 race->chase.angles[2] };
+    f.cache = w->track->cache, f.segment_mask = (int32_t)w->track->build.segment_mask;
     mirror_rows(&f);
     /* m->car_rows: 00459d70's mirror part (00459cc4), at 0044ce3f (ported_view_frame_rows) */
     const MirrorFrameOps ops = { &f, view_op, transform_op, select_op, sky_op, scene_op, flip_op };

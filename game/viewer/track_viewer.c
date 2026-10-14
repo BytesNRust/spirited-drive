@@ -502,7 +502,9 @@ static void render_drive(const Track *t, uint8_t *pixels)
      * (the second would put the cars a row further back, under the road); the other frame keeps the rows */
     if (ticked) ported_view_frame_rows(drive_hud.mirror.car_rows);
     /* 0044ce4b, before the 3D view in 0044cc74: the mirror's picture, from the last frame's road direction */
-    DriveMirrorWorld mirror = { &t->tri, &t->art, race, { 0, 0, 0 }, followed, (void *)t, mirror_car };
+    /* 0043f540 runs in 0044cc74 before the mirror (0044cd7e): its cache and list part here, the rows in the mirror */
+    DriveMirrorWorld mirror = { &t->tri, &t->art, race, ported_view_stream(&t->tri, &t->art, cam.node), &race->chase.flags,
+                                { 0, 0, 0 }, followed, (void *)t, mirror_car };
     ported_view_near_dir(mirror.near_dir);
     drive_mirror_frame(&drive_hud.mirror, &mirror);
     ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, race, pixels));

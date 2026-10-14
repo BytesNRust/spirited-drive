@@ -532,9 +532,10 @@ void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInf
 
 static TrackRender render;
 
-void ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
+const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 {
     track_render_build(&render, tri, art, camera_node);
+    return &render;
 }
 
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,

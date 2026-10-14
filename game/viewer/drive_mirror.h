@@ -12,6 +12,7 @@
 #include "game/race/model_draw.h"
 #include "game/race/race_state.h"
 #include "game/race/track_art.h"
+#include "game/race/track_render.h"
 #include "game/race/view.h"
 
 #include <stdint.h>
@@ -25,7 +26,6 @@ typedef struct {
     int32_t near;               /* the mirror camera's +4 (0044b970) */
     int32_t world[MIRROR_POINTS][3];        /* 0050909c */
     int32_t vertices[MIRROR_SCREEN_WORDS_AT + 2 * (MIRROR_POINTS + 11) + 2];  /* 00509330, 005095c4 */
-    uint8_t cache[MIRROR_SEGMENT_CACHE];    /* the records 0043f3a8 / 0044baa4 read (005041d8) */
     uint8_t *horz;              /* a one-shape bank holding the track's 'horz' (0051203c) */
     uint32_t enclosed_colour;   /* 0050b7c0 (00446bac: grey 0x20) */
     uint32_t property8_colour;  /* 0050b79c (00446bac: green 0x20) */
@@ -38,6 +38,8 @@ typedef struct {
     const Tri *tri;
     const TrackArt *art;
     const RaceState *race;
+    const TrackRender *track;   /* 0043f540's cache and list part already run this frame (ported_view_stream) */
+    int32_t *rows_again;        /* chase +0x3c (004f8058): the mirror's rows to be made again; cleared */
     int32_t near_dir[3];        /* 00512040..: as the front view last left them */
     const Car *followed;        /* cars[004fbb08] */
     void *user;
@@ -48,7 +50,7 @@ typedef struct {
 /* 0044bd64 at the race's start, once the cockpit is loaded; 0 without one. */
 int drive_mirror_start(DriveMirror *m, const Cockpit *c);
 
-/* 0043f540's mirror rows, then 0044ce4b..0044cee2: the picture made while
+/* 0043f540's mirror rows from the cache w->track holds, then 0044ce4b..0044cee2: the picture made while
  * the camera kind wants the mirror. */
 void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w);
 
