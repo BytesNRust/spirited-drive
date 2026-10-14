@@ -32,4 +32,9 @@ typedef struct {
  * shapes[1 + pointer] drawn there; x, y (as shorts) and the phase kept. */
 void race_pointer_show(const RacePointerOps *ops, const RacePointerInputs *in, RacePointerKept *kept, int32_t pointer);
 
+/* 00441938 (watcall ()): the screen selected as in 004418a4; when the phase
+ * is the one the background was kept in, shapes[0] placed back at the kept
+ * x, y (sign-extended shorts). */
+void race_pointer_hide(const RacePointerOps *ops, const RacePointerInputs *in, const RacePointerKept *kept);
+
 #endif

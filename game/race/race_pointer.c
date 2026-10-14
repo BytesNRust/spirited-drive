@@ -14,3 +14,9 @@ void race_pointer_show(const RacePointerOps *ops, const RacePointerInputs *in, R
     kept->y = (int16_t)in->y;
     kept->phase = in->phase;
 }
+
+void race_pointer_hide(const RacePointerOps *ops, const RacePointerInputs *in, const RacePointerKept *kept)
+{
+    select_screen(ops, in->back_buffer);
+    if (kept->phase == in->phase) ops->place(ops->ctx, in->shapes[0], kept->x, kept->y);
+}
