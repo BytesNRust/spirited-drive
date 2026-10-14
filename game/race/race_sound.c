@@ -458,3 +458,57 @@ void race_sound_signal_off(RaceState *race)
 {
     race_sound_channel_stop(race, SIGNAL_CHANNEL);
 }
+
+enum {
+    TYRE_FRONT_CHANNEL = 4, TYRE_REAR_CHANNEL = 12, TYRE_SOUND = 4, TYRE_ON_ROAD = 1, TYRE_OFF_ROAD = 8,
+    TYRE_FADE_FIRST = 0x26, TYRE_FADE_LAST = 0x2e, TYRE_LATERAL_SCALE = 6, TYRE_TURN = 0x1000000, TYRE_REAR_ANGLE = 0x800000,
+    IN_CAR_KINDS = 1
+};
+
+static int tyre_heard(const RaceState *race, int32_t channel, int32_t skid)
+{
+    const int32_t sound = race->voices[channel].sound;
+    return skid > 0 || (sound <= TYRE_FADE_LAST && sound >= TYRE_FADE_FIRST);
+}
+
+void race_sound_tyres(RaceState *race)
+{
+    Car *car = race->cars[race_slot(race->viewed)];  /* 0052b316 / 004fbb08 / 00513e6c pick the same car */
+    if (car == NULL) return;  /* port guard */
+    int32_t distance = -1, angle, rear_distance, rear_angle;
+    if (race->chase.kind <= IN_CAR_KINDS) {
+        angle = x_mul(x_sub(0, car->lateral_force), TYRE_LATERAL_SCALE);
+        if (angle < 0) angle = x_add(angle, TYRE_TURN);
+        rear_angle = TYRE_REAR_ANGLE;
+        distance = rear_distance = 0;
+    } else {
+        const int32_t at[3] = { car->x, car->y, car->z };
+        race_sound_position(race, at, &angle, &distance);
+        rear_distance = distance, rear_angle = angle;
+    }
+    int32_t sound, byte;
+    if (race->unknown_4c5f98 >= 0) {
+        sound = race->unknown_4c5f98, byte = race->unknown_4c5f9c;
+    } else {
+        sound = TYRE_SOUND;
+        byte = race->surfaces[(uint32_t)car->surface < RACE_SURFACES ? car->surface : 0].off_road == 0  /* port guard */
+            ? TYRE_ON_ROAD : TYRE_OFF_ROAD;
+    }
+    if (race->unknown_4bc6f0 != 0) {
+        if (tyre_heard(race, TYRE_FRONT_CHANNEL, car->skid_front))
+            race_sound_effect(race, TYRE_FRONT_CHANNEL, sound, byte, car->skid_front, x_add(distance, 1), angle);
+        if (tyre_heard(race, TYRE_REAR_CHANNEL, car->skid_rear))
+            race_sound_effect(race, TYRE_REAR_CHANNEL, sound, byte, car->skid_rear, x_add(rear_distance, 1), rear_angle);
+    } else {
+        race->car_sound_ticks = 0;
+    }
+    if (car->look_back == 0 || race->viewed < 0 || race->viewed >= race->humans) {
+        race_sound_signal_off(race);
+        return;
+    }
+    if (distance < 0) {
+        const int32_t at[3] = { car->x, car->y, car->z };
+        race_sound_position(race, at, &angle, &distance);
+    }
+    race_sound_signal(race, distance, angle);
+}

@@ -102,6 +102,19 @@ void race_sound_signal(RaceState *race, int32_t distance, int32_t angle);
 /* 00444324 (falls into 0044432c with 14): channel 14 stopped. */
 void race_sound_signal_off(RaceState *race);
 
+/* 0047217c (watcall (), from 00440ef0 every tick): the viewed car's tyres
+ * and its +0x4ba signal. In the car's views (kind 1 or less) the distance is
+ * 0, the front's angle -lateral_force x 6 (+ 0x1000000 when negative, a byte
+ * increment of its top byte) and the rear's 0x800000; else both from
+ * 00472018. The sound and its byte: 004c5f98 and 004c5f9c when the first is
+ * not negative, else 4 with 1 (8 on an off-road surface, 004fa9bc). With
+ * 004bc6f0 set, channel 4 (front) and 12 (rear) get 00443f9c(channel,
+ * sound, byte, skid, distance + 1, angle) while that skid is above 0 or the
+ * channel still plays 0x26..0x2e; with it clear, 004c5fa8 = 0. Then, while
+ * +0x4ba is set and 004fbb04 is a human's (0..004fb7e0), 004442ec(distance,
+ * angle) (00472018 first if the distance is still -1), else 00444324. */
+void race_sound_tyres(RaceState *race);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and
