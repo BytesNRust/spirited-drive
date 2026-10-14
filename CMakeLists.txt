@@ -176,6 +176,7 @@ add_library(tnfs_game STATIC
     game/race/race_pointer.c
     game/race/race_tick.c
     game/race/frame_draw.c
+    game/race/race_run.c
     game/race/track_far.c
     game/race/track_fence.c
     game/race/track_near.c
