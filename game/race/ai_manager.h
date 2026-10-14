@@ -41,10 +41,16 @@ void ai_hold_lane_speed(Car *car, const RaceState *race, const Car *ahead, int32
 void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane,
                    uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3]);
 
-/* 0046a7c0: a computer car spins out: it crashes from a hit (0040db84), its
- * body's spin gains `side` along the body's first row and `along` along the
- * third and loses `up` along the second (the manager passes 0x190000 for all
- * three), a racer ends the police chase, and the first-hit kick (0040f8a8). */
+/* 0046a654 (watcall car, up, along, side; a blown engine's push on cars 1..
+ * (0046b080), a wall hit (004302a4)): the car crashes from a hit (0040db84),
+ * its body's spin gains `side` along the body's first row and `along` along
+ * the third and loses `up` along the second (each product 16.16 rounded,
+ * the sums 32-bit), and a racer ends the police chase (0046a5fc(0)). */
+void car_push_spin(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side);
+
+/* 0046a7c0: a computer car spins out: 0046a654's body (car_push_spin; the
+ * manager passes 0x190000 for all three), then the first-hit kick
+ * (0040f8a8). */
 void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side);
 
 /* 0046b950: once the first car (cars[0]) passes the node it was last

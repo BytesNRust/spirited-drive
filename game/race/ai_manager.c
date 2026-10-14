@@ -1,5 +1,7 @@
 #include "game/race/ai_manager.h"
 
+#include "game/gfx/x86_int.h"
+
 #include "game/race/ai_drive.h"
 #include "game/race/ai_lanes.h"
 #include "game/race/car_control.h"
@@ -297,7 +299,7 @@ void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind)
     race->car_sound_ticks = race_rand_below(race, CAR_SOUND_SPREAD) + CAR_SOUND_BASE;
 }
 
-void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side)
+void car_push_spin(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side)
 {
     car_crash_hit(car, race);
     int32_t gain[3], loss[3], turn[3];
@@ -306,10 +308,15 @@ void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t s
         loss[i] = fx_mul_round(up, car->body_matrix[3 + i]);
         turn[i] = fx_mul_round(along, car->body_matrix[6 + i]);
     }
-    for (int i = 0; i < 3; i++) car->body_spin[i] += gain[i];
-    for (int i = 0; i < 3; i++) car->body_spin[i] += turn[i];
-    for (int i = 0; i < 3; i++) car->body_spin[i] -= loss[i];
+    for (int i = 0; i < 3; i++) car->body_spin[i] = x_add(car->body_spin[i], gain[i]);
+    for (int i = 0; i < 3; i++) car->body_spin[i] = x_add(car->body_spin[i], turn[i]);
+    for (int i = 0; i < 3; i++) car->body_spin[i] = x_sub(car->body_spin[i], loss[i]);
     if (car->flags_174 & RACER) ai_release_cops(race, 0);
+}
+
+void ai_spin_out(Car *car, RaceState *race, int32_t up, int32_t along, int32_t side)
+{
+    car_push_spin(car, race, up, along, side);
     car_crash_kick(car, race);
 }
 
