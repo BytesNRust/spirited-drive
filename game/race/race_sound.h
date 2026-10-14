@@ -99,6 +99,9 @@ void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t
  * is below 2 (0x40). */
 void race_sound_signal(RaceState *race, int32_t distance, int32_t angle);
 
+/* 00444324 (falls into 0044432c with 14): channel 14 stopped. */
+void race_sound_signal_off(RaceState *race);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and

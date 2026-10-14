@@ -453,3 +453,8 @@ void race_sound_signal(RaceState *race, int32_t distance, int32_t angle)
     const int32_t pan = distance < SIGNAL_NEAR ? SIGNAL_CENTRE : race_sound_pan(angle);
     race_sound_channel(race, SIGNAL_CHANNEL, SIGNAL_SOUND, SIGNAL_PITCH, volume, pan);
 }
+
+void race_sound_signal_off(RaceState *race)
+{
+    race_sound_channel_stop(race, SIGNAL_CHANNEL);
+}
