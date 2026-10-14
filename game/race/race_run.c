@@ -111,7 +111,7 @@ static void start(const RaceRunOps *ops, RaceState *race, RaceRunWords *w)
     w->tick_flags_upper = 0xffffff;
     for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++) {  /* port guard: eight queues */
         ops->queue_reset(ops->ctx, &w->queues[i]);
-        ops->queue_clear(ops->ctx, &w->queues[i]);
+        ops->queue_prime(ops->ctx, &w->queues[i]);
     }
     for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++) w->queues[i].active = 1;
     if (race->unknown_4fb7d4 == 1 && w->net_failed == 0 && w->laps_low == 0) {

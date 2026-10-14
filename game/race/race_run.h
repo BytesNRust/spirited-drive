@@ -52,7 +52,7 @@ typedef struct {
     void (*select_front)(void *ctx);                                /* 00473604 */
     void (*clip)(void *ctx, int32_t left, int32_t right, int32_t top, int32_t bottom);  /* 0047383c */
     void (*queue_reset)(void *ctx, InputQueue *queue);              /* 00439430 */
-    void (*queue_clear)(void *ctx, InputQueue *queue);              /* 00439478 */
+    void (*queue_prime)(void *ctx, InputQueue *queue);              /* 00439478 */
     void (*show_loading)(void *ctx);                                /* 004737ec(00513970) */
     void (*video_flip)(void *ctx);                                  /* 004733ec */
     void (*wait_screen)(void *ctx);                                 /* 0041ec0c */

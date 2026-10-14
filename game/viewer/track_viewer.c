@@ -687,6 +687,7 @@ typedef struct {
     uint32_t base_ms;
     int quit;
     int32_t headless_ticks;     /* TNFS_RUN with --screenshot: a frame due each pass, no window, this many frames */
+    int32_t late, unknown_4fb78c, store_clock;  /* 004fb790, 004fb78c, 004fb7a0: the network's, unread here */
 } DriveRun;
 
 enum { DRIVE_TIMER_HZ = 30, DRIVE_IDLE_MS = 1 };
@@ -716,7 +717,17 @@ static void run_service(void *ctx)
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
-static void run_queue(void *ctx, InputQueue *q) { (void)ctx, (void)q; }
+static void run_queue_reset(void *ctx, InputQueue *q)
+{
+    DriveRun *r = ctx;
+    input_queue_reset(q, &r->late, &r->unknown_4fb78c);
+}
+
+static void run_queue_prime(void *ctx, InputQueue *q)
+{
+    DriveRun *r = ctx;
+    input_queue_prime(q, drive_sim.race.unknown_4fb7d4, r->w->wait_ticks, &r->store_clock, &r->w->replay_due);
+}
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
 static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
@@ -758,7 +769,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.unknown_4c53a0 = 0;
-    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0 };
+    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
@@ -779,7 +790,7 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
 {
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
-    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks };
+    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
@@ -793,7 +804,7 @@ static const RaceRunOps *drive_run_ops(void)
         NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none_i,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none_i, run_net_wait, run_none, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
-        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue, run_queue, run_none,
+        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none };
     return &ops;
