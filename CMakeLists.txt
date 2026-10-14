@@ -169,6 +169,7 @@ add_library(tnfs_game STATIC
     game/race/race_state.c
     game/race/sky_ring.c
     game/race/track_art.c
+    game/race/track_build.c
     game/race/track_draw.c
     game/race/track_geometry.c
     game/race/track_info.c
