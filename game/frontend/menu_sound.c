@@ -156,3 +156,9 @@ void menu_sound_track_music_stop(const MenuSound *m, const ConfigDat *c, const M
 {
     if (track_music_allowed(m, c)) ops->track_stop(ops->ctx);
 }
+
+/* 00464850 */
+void menu_sound_track_music_play(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
+{
+    if (track_music_allowed(m, c)) ops->track_play(ops->ctx);
+}

@@ -33,6 +33,7 @@ typedef struct MenuSoundOps {
     int32_t (*stream_voice)(void *ctx);               /* 0048dedc: the voice the stream plays on */
     void (*block_free)(void *ctx, int32_t block);     /* 00475260 (cdecl) */
     void (*track_stop)(void *ctx);                    /* 00492620 */
+    void (*track_play)(void *ctx);                    /* 004925a8: [004c7c0c] = 1 */
     void *ctx;
 } MenuSoundOps;
 
@@ -122,5 +123,8 @@ void menu_sound_track_music_free(MenuSound *m, const ConfigDat *c, const MenuSou
 
 /* 0046486c: under 004648a8's two guards, stops the track music (00492620). */
 void menu_sound_track_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
+
+/* 00464850: under the same guards, lets the track music play (004925a8). */
+void menu_sound_track_music_play(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 #endif
