@@ -34,6 +34,10 @@ typedef struct MenuSoundOps {
     void (*block_free)(void *ctx, int32_t block);     /* 00475260 (cdecl) */
     void (*track_stop)(void *ctx);                    /* 00492620 */
     void (*track_play)(void *ctx);                    /* 004925a8: [004c7c0c] = 1 */
+    int32_t (*file_load)(void *ctx, const char *path, int32_t flags);  /* 00483e80 (cdecl): the file or 0 */
+    /* 00492438: eax and edx 4 and 4, ebx the volume; what the 4s pick in EA's player is not known. */
+    void (*track_volume)(void *ctx, int32_t eax, int32_t edx, int32_t volume);
+    void (*track_begin)(void *ctx, int32_t music, int32_t edx);  /* 004924f8: eax the music, edx 0 */
     void *ctx;
 } MenuSoundOps;
 
@@ -52,6 +56,7 @@ typedef struct MenuSound {
     int small_stream;  /* the short 004c5cca: a 0x19000-byte stream, else 0x7d000 */
     char music_path[MENU_SOUND_PATH];  /* 00524798: the music's file (00464428) */
     int32_t track_music;  /* 00524828: the track screen's music (00464788's 00483e80) */
+    int track_silent;     /* the short 004c5cbe: the track music starts at volume 0 */
 } MenuSound;
 
 /* 0046492c: with the sound on, starts the short `sound` centred (0x40) at
@@ -126,5 +131,13 @@ void menu_sound_track_music_stop(const MenuSound *m, const ConfigDat *c, const M
 
 /* 00464850: under the same guards, lets the track music play (004925a8). */
 void menu_sound_track_music_play(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
+
+/* 00464788: path = dir + name ("%s%s"; the two must fit); under the same
+ * guards, feeds the menu music (004640d0), frees the track music there is
+ * (00475260), loads path's (00483e80) and, when it loaded, sets its volume
+ * (00492438 with 4, 4 and 0 when track_silent, else config.dat's short
+ * 00524e69 * 3 / 2, at most 0x7f) and starts it (004924f8). */
+void menu_sound_track_music_start(MenuSound *m, const ConfigDat *c, const char *dir, const char *name,
+                                  const MenuSoundOps *ops);
 
 #endif

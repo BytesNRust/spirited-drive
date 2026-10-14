@@ -162,3 +162,24 @@ void menu_sound_track_music_play(const MenuSound *m, const ConfigDat *c, const M
 {
     if (track_music_allowed(m, c)) ops->track_play(ops->ctx);
 }
+
+/* 00464788 */
+void menu_sound_track_music_start(MenuSound *m, const ConfigDat *c, const char *dir, const char *name,
+                                  const MenuSoundOps *ops)
+{
+    enum { PATH = 0x50, VOLUME_MAX = 0x7f };
+    char path[PATH];
+    snprintf(path, sizeof path, "%s%s", dir, name);
+    if (!track_music_allowed(m, c)) return;
+    menu_sound_music_feed(m, c, ops);
+    if (m->track_music) ops->block_free(ops->ctx, m->track_music);
+    m->track_music = ops->file_load(ops->ctx, path, 0);
+    if (!m->track_music) return;
+    int32_t volume = 0;
+    if (!m->track_silent) {
+        volume = short_at(c, 0x00524e69) * 3 / 2;
+        if (volume > VOLUME_MAX) volume = VOLUME_MAX;
+    }
+    ops->track_volume(ops->ctx, 4, 4, volume);
+    ops->track_begin(ops->ctx, m->track_music, 0);
+}
