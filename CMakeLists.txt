@@ -64,6 +64,7 @@ add_library(tnfs_game STATIC
     game/frontend/control_central_art.c
     game/frontend/disk_room.c
     game/frontend/file_list.c
+    game/frontend/frame_bench.c
     game/frontend/game_file.c
     game/frontend/key_name.c
     game/frontend/menu_sound.c
