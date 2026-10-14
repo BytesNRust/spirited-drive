@@ -2,6 +2,7 @@
 #include "game/race/race_sound.h"
 
 #include "game/gfx/x86_int.h"
+#include "game/sys/fixed_math.h"
 
 #include "game/race/car_walls.h"
 
@@ -533,4 +534,16 @@ int32_t race_sound_speed_level(const Car *car, const Car *followed)
     const int32_t own = x_shl(estimate(magnitude(car->velocity_z), magnitude(car->velocity_x)), 1);
     const int32_t level = x_sar(own > apart ? own : apart, 16);
     return level > SPEED_LEVEL_TOP ? SPEED_LEVEL_TOP : level;
+}
+
+enum { ANGLE_TURN = 0x1000000, ANGLE_FINE = 8 };
+
+void race_sound_angle(RaceState *race, const Car *car, int32_t *angle)
+{
+    const int32_t dx = x_sar(x_sub(car->x, race->chase.position[0]), ANGLE_FINE);
+    const int32_t dz = x_sar(x_sub(car->z, race->chase.position[2]), ANGLE_FINE);
+    if (race->chase.angles[1] < 0) race->chase.angles[1] = x_add(race->chase.angles[1], ANGLE_TURN);
+    *angle = x_sub(race->chase.angles[1], x_shl(fx_atan2(dx, dz), ANGLE_FINE));
+    if (*angle < 0) *angle = x_add(*angle, ANGLE_TURN);
+    if (*angle > ANGLE_TURN) *angle = x_sub(*angle, ANGLE_TURN);
 }

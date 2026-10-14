@@ -119,6 +119,13 @@ void race_sound_signal_off(RaceState *race);
  * angle) (00472018 first if the distance is still -1), else 00444324. */
 void race_sound_tyres(RaceState *race);
 
+/* 004720ec (watcall car, angle out; from 00472560): the listener's heading
+ * (004f8060, chase angles[1]) taken into 0..0x1000000 in place when
+ * negative, less 0042ebbc of the car's x and z from the listener each sar
+ * 8 (fx_atan2(dx, dz) << 8), then into 0..0x1000000 (+ 0x1000000 below 0,
+ * - 0x1000000 past it). Its y difference is worked out and not used. */
+void race_sound_angle(RaceState *race, const Car *car, int32_t *angle);
+
 /* 004724dc (watcall car, from 00472560): how loud another car's engine is,
  * 0..0x40: the larger of its velocity's x / z difference from the followed
  * car's (004f80ac, chase +0x90) plus a quarter (sar 2) of the smaller, or
