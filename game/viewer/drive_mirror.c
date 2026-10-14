@@ -95,15 +95,7 @@ void drive_mirror_place(const DriveMirror *m, const QuadTarget *target, int32_t 
     if (m->picture != NULL && m->state != 0) blit_shape_at(target, m->picture, x, y);  /* 0044c060: 004737d0 */
 }
 
-typedef struct {
-    DriveMirror *m;
-    const DriveMirrorWorld *w;
-    QuadTarget target;          /* the picture */
-    const ViewLayout *layout;   /* the mirror camera's */
-    const uint8_t *cache;       /* 005041d8, the renderer's */
-    int32_t segment_mask;       /* 00504210 */
-    int32_t pitch, yaw, roll;
-} Frame;
+typedef DriveMirrorFrame Frame;
 
 static uint8_t node_property(void *ctx, int32_t node)
 {
@@ -271,20 +263,32 @@ static void scene_op(void *ctx, int32_t count)
 
 static void flip_op(void *ctx) { shape_flip(((Frame *)ctx)->m->picture); }
 
-void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w)
+int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFrame *f)
 {
-    if (m->picture == NULL || w->tri->ring_segments > RING_SEGMENTS_MAX) return;
+    if (m->picture == NULL || w->tri->ring_segments > RING_SEGMENTS_MAX) return 0;
     const RaceState *race = w->race;
     const ViewRow *row = &race_view_rows[HIGH_MODE][MIRROR_VIEW];
     const int32_t size = race->window_size >= 0 && race->window_size < VIEW_SIZES ? race->window_size : 0;
-    Frame f = { m, w, { m->picture + SHAPE_HEADER, m->width, 0, 0, m->width, m->height },
-                &race_view_layouts[HIGH_MODE][row->layouts[size]], NULL, 0, race->chase.angles[0], race->chase.angles[1],
-                race->chase.angles[2] };
-    f.cache = w->track->cache, f.segment_mask = (int32_t)w->track->build.segment_mask;
-    mirror_rows(&f);
+    *f = (Frame){ m, w, { m->picture + SHAPE_HEADER, m->width, 0, 0, m->width, m->height },
+                  &race_view_layouts[HIGH_MODE][row->layouts[size]], NULL, 0, race->chase.angles[0], race->chase.angles[1],
+                  race->chase.angles[2] };
+    f->cache = w->track->cache, f->segment_mask = (int32_t)w->track->build.segment_mask;
+    mirror_rows(f);
     /* m->car_rows: 00459d70's mirror part (00459cc4), at 0044ce3f (ported_view_frame_rows) */
-    const MirrorFrameOps ops = { &f, view_op, transform_op, select_op, sky_op, scene_op, flip_op };
+    return 1;
+}
+
+MirrorFrameOps drive_mirror_ops(DriveMirrorFrame *f)
+{
+    return (MirrorFrameOps){ f, view_op, transform_op, select_op, sky_op, scene_op, flip_op };
+}
+
+void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w)
+{
+    Frame f;
+    if (!drive_mirror_begin(m, w, &f)) return;
+    const MirrorFrameOps ops = drive_mirror_ops(&f);
     /* TODO(0044cc74): 004b91c8 (2 or more keeps the mirror's last picture) and 004fb787 are 0 in --drive */
-    const MirrorFrameInputs in = { race->chase.unknown_68, 0, 0, MIRROR_SEGMENTS };
+    const MirrorFrameInputs in = { w->race->chase.unknown_68, 0, 0, MIRROR_SEGMENTS };
     mirror_frame(&ops, &in, &m->state);
 }

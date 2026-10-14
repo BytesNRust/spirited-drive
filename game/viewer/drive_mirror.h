@@ -47,12 +47,29 @@ typedef struct {
     void (*draw_car)(void *user, const Car *car, const ModelView *mv, const QuadTarget *target);
 } DriveMirrorWorld;
 
+/* One frame's mirror pass: the picture, the mirror camera's layout and angles, the renderer's cache. */
+typedef struct {
+    DriveMirror *m;
+    const DriveMirrorWorld *w;
+    QuadTarget target;          /* the picture */
+    const ViewLayout *layout;   /* the mirror camera's */
+    const uint8_t *cache;       /* 005041d8, the renderer's */
+    int32_t segment_mask;       /* 00504210 */
+    int32_t pitch, yaw, roll;
+} DriveMirrorFrame;
+
 /* 0044bd64 at the race's start, once the cockpit is loaded; 0 without one. */
 int drive_mirror_start(DriveMirror *m, const Cockpit *c);
 
 /* 0043f540's mirror rows from the cache w->track holds, then 0044ce4b..0044cee2: the picture made while
  * the camera kind wants the mirror. */
 void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w);
+
+/* drive_mirror_frame's first half: the pass set up in `f` and the mirror's rows made; 0 without a picture. */
+int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFrame *f);
+
+/* mirror_frame's ops on the pass `f` (the front view is the port's own: view(0) does nothing). */
+MirrorFrameOps drive_mirror_ops(DriveMirrorFrame *f);
 
 /* 0044c060: the picture at x, y on the screen target. */
 void drive_mirror_place(const DriveMirror *m, const QuadTarget *target, int32_t x, int32_t y);
