@@ -509,6 +509,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     ported_view_near_dir(mirror.near_dir);
     drive_mirror_frame(&drive_hud.mirror, &mirror);
     ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, race, pixels));
+    drive_hud.cockpit_world.unknown_4f9b48 = drive_sim.police_lights;  /* 004f9b48: 00472560 toggles it in the tick */
     drive_hud_draw(&drive_hud, race, drive_sim.specs[race_slot(race->player)].unknown_0ac, pixels, SCREEN_W, SCREEN_H);
 }
 

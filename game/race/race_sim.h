@@ -34,6 +34,7 @@ typedef struct {
     RaceSimSlot slots[RACE_CARS];
     CarSpecs specs[RACE_CARS];
     int count;
+    int32_t police_lights;          /* 004f9b48 (00472560 toggles it; the cockpit, CockpitWorld, draws by it) */
 } RaceSim;
 
 /* The track index of a TRI stem ("TR1", "cy2"): CY 0, CL 1, AL 2, TR1..7

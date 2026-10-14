@@ -153,6 +153,8 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->chase.kind = 1;
     race->catch_up = CATCH_UP;
     race->unknown_4bc6f0 = 1;  /* 004bc6f0 as the exe starts; 00444394 in 00455a5c's setup sets it again */
+    race->siren_count = 3;     /* 004c5fb4 and 004c5fbc as the exe starts */
+    race->siren_pitch = 0x40;
     race->crash_sound_level = CRASH_SOUND_QUIET;
     race->sounds = (RaceSounds){ race, no_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
@@ -309,8 +311,9 @@ static void sim_follow(void *ctx)
 static void sim_other_human(void *ctx) { race_sound_other_human(&((RaceSim *)ctx)->race); }
 static void sim_held_car(void *ctx) { race_sound_held_car(&((RaceSim *)ctx)->race); }
 static void sim_tyres(void *ctx) { race_sound_tyres(&((RaceSim *)ctx)->race); }
+static void sim_others(void *ctx) { race_sound_others(&((RaceSim *)ctx)->race, &((RaceSim *)ctx)->police_lights); }
 
-/* 00476f94 (a platform thunk) and the sound not ported yet: TODO(00472560) */
+/* 00476f94 (a platform thunk) */
 static void sim_none(void *ctx) { (void)ctx; }
 static void sim_frame_none(void *ctx, int16_t frame) { (void)ctx, (void)frame; }
 
@@ -320,7 +323,7 @@ static void sim_tick(void *ctx)
                                      sim_chase_take, sim_engines, sim_service, sim_service, sim_physics, sim_lateral,
                                      sim_sort, sim_contacts, sim_splits_pass, sim_splits_gap, sim_camera_pick,
                                      sim_chase_tick, sim_none, sim_scrape, sim_force, sim_held_car, sim_follow, sim_tyres,
-                                     sim_other_human, sim_none };
+                                     sim_other_human, sim_others };
     RaceTickOps o = ops;
     o.ctx = ctx;
     RaceTickWords w = { 0, 0, 0, 0, 0, &sim_wait_timer, { 0, 0 } };
