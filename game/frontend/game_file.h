@@ -21,6 +21,8 @@ typedef struct GameFileOps {
     int32_t (*block_size)(void *ctx, const uint8_t *block);          /* 0047596c (cdecl): an alloc's size */
     int32_t (*write)(void *ctx, const char *path, const uint8_t *data, int32_t size);  /* 004885b4 (cdecl) */
     void (*block_free)(void *ctx, uint8_t *block);                   /* 00475260 (cdecl) */
+    void (*defaults)(void *ctx);                                     /* 00429278: config.dat's defaults */
+    void (*remove_file)(void *ctx, const char *path);                /* 0048855b: eax (a C library call, guessed) */
     void *ctx;
 } GameFileOps;
 
@@ -43,5 +45,13 @@ int32_t game_file_copy_replay(const char *path, const GameFileOps *ops);
  * a "config" block and written to dir + "config.dat" (it must fit) with
  * the block's size, the block freed. */
 void game_file_save_config(const uint8_t *image, const char *dir, const GameFileOps *ops);
+
+/* 0042a010: dir + "config.dat" read whole into the image (through a
+ * "config" block); no file: the defaults (00429278) and 1; a file of
+ * another size: it is released and removed (0048855b), the defaults, 1; else
+ * 0. Then, unless keep_controls (004fcdcc), a control left at 1..3 in the
+ * shorts 0052ad26 / 0052ad2a / 0052ad28 goes back to 0 with its pair of keys
+ * (the arrows 0x4b00 / 0x4d00, 'A' / 'Z', 0x4800 / 0x5000). */
+int game_file_load_config(uint8_t *image, const char *dir, int keep_controls, const GameFileOps *ops);
 
 #endif
