@@ -16,11 +16,21 @@ typedef struct GameFileOps {
     void (*fatal)(void *ctx, const char *message);                    /* 00477a40 (cdecl) */
     void (*copy)(void *ctx, const void *from, void *to, int32_t n);  /* 004884d8 (cdecl): from, to, n */
     void (*release)(void *ctx, void *data);                          /* 004884c8 (cdecl): 00488428's data */
+    int32_t (*has_room)(void *ctx, int32_t bytes);                   /* 0046733c: eax (disk_has_room) */
+    uint8_t *(*alloc)(void *ctx, const char *tag, int32_t size, int32_t flags);  /* 00474c8c (cdecl) */
+    int32_t (*block_size)(void *ctx, const uint8_t *block);          /* 0047596c (cdecl): an alloc's size */
+    int32_t (*write)(void *ctx, const char *path, const uint8_t *data, int32_t size);  /* 004885b4 (cdecl) */
+    void (*block_free)(void *ctx, uint8_t *block);                   /* 00475260 (cdecl) */
     void *ctx;
 } GameFileOps;
 
 /* 0042a484: the saved game `name` ("%s"; it must fit) read whole into the
  * game state; a file of another size is a fatal "BUG" first. */
 void game_file_load(const char *name, uint8_t game[GAME_FILE_SIZE], const GameFileOps *ops);
+
+/* 0042a580: with room on the disk for it, the game state copied into a
+ * "SAVEGAME" block and written to path (004885b4, the block's own size);
+ * returns what 004885b4 gave, or 0 without room. */
+int32_t game_file_save(const char *path, const uint8_t game[GAME_FILE_SIZE], const GameFileOps *ops);
 
 #endif
