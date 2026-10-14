@@ -9,4 +9,8 @@
  * 8..0x1c. 0044c118 sets 00504220 from it unless it is -1. */
 void race_detail_request(int32_t segments, int32_t *pending);
 
+/* 0044c0ec (watcall step, from 0044cc74): *pending (004c5360) = the draw
+ * segments (00504220) + step (32-bit), held to 8..0x1c. */
+void race_detail_step(int32_t step, int32_t draw_segments, int32_t *pending);
+
 #endif
