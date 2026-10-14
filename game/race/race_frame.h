@@ -3,6 +3,7 @@
 #ifndef TNFS_RACE_FRAME_H
 #define TNFS_RACE_FRAME_H
 
+#include "game/race/hud.h"
 #include "game/race/race_state.h"
 
 #include <stdint.h>
@@ -23,5 +24,17 @@ typedef struct {
  * (else 0); tick; then, unless phase is 4, or phase 2 with 004c5398 0 and
  * 004c539c at most 0: 004c539c - 1 when above 0, tick + 2. */
 void race_frame(const RaceFrameOps *ops, RaceState *race, int16_t music_on, int16_t frame);
+
+typedef struct {
+    void *ctx;
+    void (*draw)(void *ctx);    /* 0044cc74 */
+} RaceDrawOps;
+
+/* 0044d26c (watcall (), from 00455a5c's loop): when the display mode's
+ * change count (004c7ac4, bumped by 0047d840) differs from the one last seen
+ * (004c536c): 0041e364, 00513898 = 1, 0052b8f8 (view_taken) = 1, the count
+ * seen; then draw. */
+void race_draw_frame(const RaceDrawOps *ops, HudState *hud, RaceState *race, int32_t display_changes,
+                     int32_t *display_seen, int32_t *dash_redraw);
 
 #endif

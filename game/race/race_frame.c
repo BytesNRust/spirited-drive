@@ -28,3 +28,15 @@ void race_frame(const RaceFrameOps *ops, RaceState *race, int16_t music_on, int1
     if (race->unknown_4c539c > 0) race->unknown_4c539c--;
     race->tick = x_add(race->tick, TICK_STEP);
 }
+
+void race_draw_frame(const RaceDrawOps *ops, HudState *hud, RaceState *race, int32_t display_changes,
+                     int32_t *display_seen, int32_t *dash_redraw)
+{
+    if (*display_seen != display_changes) {
+        hud_clear_request(hud);
+        *dash_redraw = 1;
+        race->view_taken = 1;
+        *display_seen = display_changes;
+    }
+    ops->draw(ops->ctx);
+}
