@@ -32,7 +32,8 @@ void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored,
     mat3_rotate_y(y, yaw);
     /* TODO(00449670): the viewport's vertical scale; 0x10000 in every view
      * seen so far. */
-    const int32_t flip[9] = { mirrored ? -0x10000 : 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
+    int32_t flip[9];
+    mat3_scale_x(flip, mirrored ? -0x10000 : 0x10000);
     mat3_mul(y, z, t);
     mat3_mul(t, x, u);
     mat3_mul(u, flip, out);

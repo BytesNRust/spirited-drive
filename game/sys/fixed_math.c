@@ -246,6 +246,15 @@ void fx_cross(const int32_t a[3], const int32_t b[3], int32_t out[3])
 
 /* 00449520, 0044957c, 004495d8: a turn about x, y or z by a 24-bit angle
  * (>> 8 to the 16-bit sine). */
+void mat3_scale_x(int32_t m[9], int32_t x)
+{
+    m[1] = m[2] = m[3] = 0;
+    m[4] = 0x10000;
+    m[5] = m[6] = m[7] = 0;
+    m[8] = 0x10000;
+    m[0] = x;
+}
+
 void mat3_rotate_x(int32_t m[9], int32_t a)
 {
     const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
