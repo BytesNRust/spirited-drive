@@ -386,3 +386,10 @@ int32_t race_sound_doppler(Car *car, const RaceChase *chase)
     car->unknown_3ad = chase->kind;
     return factor;
 }
+
+void race_sound_channel_at(RaceState *race, int32_t channel, int32_t sound, int32_t pitch, int32_t volume, int32_t angle)
+{
+    const int32_t pan = race_sound_pan(angle);
+    if (volume > LEVEL_MAX) volume = LEVEL_MAX;
+    race_sound_channel(race, channel, sound, pitch, ENGINE_CURVE[volume < 0 ? 0 : volume], pan);  /* port guard */
+}

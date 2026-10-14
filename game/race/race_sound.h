@@ -69,6 +69,13 @@ void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t d
  * cars[004fbb08]). */
 void race_sound_follow(RaceState *race, const CarSpecs *specs);
 
+/* 00444204 (watcall channel, sound, pitch, volume; the angle on the stack):
+ * 0044404c on the channel with the pan of `angle` (00443c48) and the volume
+ * held to 0x7f from above, then eased through 004bc76c. The callers pass
+ * volumes of 0 or more (a negative one reads before the table in the
+ * original; the port takes 0). */
+void race_sound_channel_at(RaceState *race, int32_t channel, int32_t sound, int32_t pitch, int32_t volume, int32_t angle);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and
