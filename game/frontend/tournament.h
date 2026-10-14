@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 enum {
-    GAME_STATE_SIZE = 0x5b6,
+    GAME_STATE_SIZE = 0x5bc,
     GAME_STATE_PLAYERS = 8,
     GAME_STATE_PLAYER = 0x95,
     GAME_STATE_FLAGS = 0x5a4
