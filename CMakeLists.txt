@@ -71,6 +71,7 @@ add_library(tnfs_game STATIC
     game/frontend/random_pick.c
     game/frontend/screen_clear.c
     game/frontend/standings.c
+    game/frontend/stat_text.c
     game/frontend/track_select.c
     game/frontend/tournament.c
     game/frontend/yes_no_box.c
