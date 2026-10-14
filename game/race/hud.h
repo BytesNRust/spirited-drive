@@ -62,6 +62,9 @@ typedef struct {
  * and tenths; 0 before. */
 void hud_clock_split(HudClock *clock, int32_t ticks);
 
+/* 0041e364: 004f9a24 = 1, the view's box cleared on the next 00421160. */
+void hud_clear_request(HudState *hud);
+
 /* 0041e230: every *_shown word to HUD_GAP_UNSET (so all is drawn again),
  * 004f9a2c and the split_shown words 0, lights_until 0x7d000. */
 void hud_reset(HudState *hud);

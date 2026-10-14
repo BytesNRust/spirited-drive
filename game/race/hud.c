@@ -281,6 +281,11 @@ void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *da
     hud->lights_until = tick + LIGHTS_HOLD;
 }
 
+void hud_clear_request(HudState *hud)
+{
+    hud->unknown_4f9a20[1] = 1;
+}
+
 void hud_reset(HudState *hud)
 {
     int32_t *const unset[] = {

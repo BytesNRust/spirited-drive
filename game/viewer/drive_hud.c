@@ -579,7 +579,7 @@ static void frame_panel(void *ctx) { FrameCalls *f = ctx; draw_panel(f->s->h, f-
 /* 0042270c; 1 when a stop notice was up (004214e4 drew it, nothing else this frame). */
 static int draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
 {
-    if (!h->in_car) h->hud.unknown_4f9a20[1] = 1, h->in_car = 1;  /* 0041e364 */
+    if (!h->in_car) hud_clear_request(&h->hud), h->in_car = 1;  /* 0041e364 */
     const int notice = s->race->stop_notice[0] != 0 || s->race->stop_notice[1] != 0;
     FrameCalls f = { s, car, redline, { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H },
                      s->screen, NULL };
