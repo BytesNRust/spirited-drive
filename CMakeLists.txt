@@ -62,6 +62,7 @@ add_library(tnfs_game STATIC
     game/frontend/cheat_code.c
     game/frontend/config_dat.c
     game/frontend/control_central_art.c
+    game/frontend/disk_room.c
     game/frontend/file_list.c
     game/frontend/menu_sound.c
     game/frontend/message_banner.c
