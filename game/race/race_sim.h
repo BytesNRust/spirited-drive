@@ -78,6 +78,17 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
 /* One fixed step with the human's input word (see RaceState.inputs). */
 void race_sim_tick(RaceSim *sim, uint32_t input);
 
+/* 00440ef0 alone (race_tick on the sim's ops), as 00455a5c's start runs it. */
+void race_sim_tick_only(RaceSim *sim);
+
+/* 00455a5c's setup and start, their part on the race (race_run does the
+ * same through its ops): the start beeps 1, tick, phase, camera hold,
+ * 00513e60 / 64 / 6c 0; a time trial on track 3 starts at node 5 (z
+ * 0x1e0000); 004fcdb0 every flag, three ticks (00440ef0) in phase 0, then
+ * racing (00513e64 1, 00513e60 0, phase 1). For callers that do not run
+ * race_run (--drive's screenshots). */
+void race_sim_begin(RaceSim *sim);
+
 /* Whether the race has ended (RaceState.end_request set): the original's
  * race loop then stops and 004275f8 records it. */
 int race_sim_over(const RaceSim *sim);

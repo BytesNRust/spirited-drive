@@ -12,6 +12,7 @@
 #include "game/race/car_wheels.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_models.h"
+#include "game/race/race_run.h"
 #include "game/race/race_sim.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
@@ -672,26 +673,140 @@ static void drive_tick(uint32_t input)
     printf("\n");
 }
 
+/* The window's race: 00455a5c (race_run) on --drive. Its setup and
+ * teardown calls are start_drive's / free_drive's work, done there (no-ops
+ * here); the start's three ticks run on the sim; the services poll the
+ * window and run the timer at 30 a second (60 race ticks, two a frame);
+ * a frame is the keys and race_sim_tick; a draw is render_drive and the
+ * present. */
+typedef struct {
+    const Track *t;
+    uint8_t *pixels;
+    RaceRunWords *w;
+    uint32_t base_ms;
+    int quit;
+    int32_t headless_ticks;     /* TNFS_RUN with --screenshot: a frame due each pass, no window, this many frames */
+} DriveRun;
+
+enum { DRIVE_TIMER_HZ = 30, DRIVE_IDLE_MS = 1 };
+
+static void run_none(void *ctx) { (void)ctx; }
+static void run_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
+
+static void run_service(void *ctx)
+{
+    DriveRun *r = ctx;
+    if (r->headless_ticks > 0) {
+        const int last = r->w->done >= r->headless_ticks;
+        if (last) r->w->running = 0;
+        r->w->timer = last ? r->w->done : r->w->done + 1;
+        return;
+    }
+    if (!platform_poll_events()) r->quit = 1;
+    for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
+        if (key == PLATFORM_KEY_ESCAPE) r->quit = 1;
+    if (r->quit) r->w->running = 0;
+    const uint32_t now = platform_ticks_ms();
+    if (r->w->timer == 0 && r->w->done == 0) r->base_ms = now;  /* the start zeroes the timer: count from here */
+    r->w->timer = (int32_t)((uint64_t)(now - r->base_ms) * DRIVE_TIMER_HZ / 1000u);
+    if (r->w->timer <= r->w->done) platform_sleep_ms(DRIVE_IDLE_MS);
+}
+
+static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
+static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
+static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
+static void run_queue(void *ctx, InputQueue *q) { (void)ctx, (void)q; }
+static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
+static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
+
+static uint32_t screenshot_input(uint32_t i, uint32_t ticks);
+
+static void run_frame(void *ctx, int32_t frame)
+{
+    const DriveRun *r = ctx;  /* race_sim_tick runs 0045597c with the race's own tick */
+    if (r->headless_ticks > 0) {
+        drive_tick(screenshot_input((uint32_t)frame, (uint32_t)r->headless_ticks));
+        return;
+    }
+    drive_input_read_keys(&drive_input);
+    drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
+    drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
+}
+
+static void present_drive(const Track *t, uint8_t *pixels)
+{
+    PlatformColor palette[256];
+    for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
+        palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
+    platform_present(pixels, palette);
+}
+
+static void run_draw(void *ctx)
+{
+    DriveRun *r = ctx;
+    render_drive(r->t, r->pixels);
+    if (r->headless_ticks == 0) present_drive(r->t, r->pixels);
+}
+
+static const RaceRunOps *drive_run_ops(void);
+
 static int drive_window(const Track *t, uint8_t *pixels)
 {
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
-    PlatformColor palette[256];
-    int frame = 0;
-    for (int running = 1; running && platform_poll_events();) {
+    RaceRunWords w = { 0 };
+    w.queues = drive_input.queues;
+    w.unknown_4c53a0 = 0;
+    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0 };
+    RaceRunOps ops = *drive_run_ops();
+    ops.ctx = &r;
+    race_run(&ops, &drive_sim.race, &w);
+    while (!r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
-            if (key == PLATFORM_KEY_ESCAPE) running = 0;
-        drive_input_read_keys(&drive_input);
-        drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
-        if ((frame++ & 1) == 0) drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
+            if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
         render_drive(t, pixels);
-        for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
-            palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
-        platform_present(pixels, palette);
+        present_drive(t, pixels);
         platform_wait_vblank();
     }
     platform_shutdown();
     return 1;
+}
+
+/* TNFS_RUN=1 with --screenshot: race_run as the window runs it, without a
+ * window or a clock, until the race tick reaches `ticks`. */
+static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
+{
+    RaceRunWords w = { 0 };
+    w.queues = drive_input.queues;
+    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks };
+    RaceRunOps ops = *drive_run_ops();
+    ops.ctx = &r;
+    race_run(&ops, &drive_sim.race, &w);
+    render_drive(t, pixels);
+    return write_ppm(screenshot, pixels, t->art.palette);
+}
+
+static const RaceRunOps *drive_run_ops(void)
+{
+    static const RaceRunOps ops = {
+        NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none_i,
+        run_none, run_none, run_none, run_none, run_none, run_none, run_none_i, run_net_wait, run_none, run_none, run_none,
+        run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
+        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue, run_queue, run_none,
+        run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,
+        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none };
+    return &ops;
+}
+
+/* The screenshots' input on step i of `ticks`: full throttle, a tap of
+ * 0x1000 while the race tick is 320..327, and over the last 20 steps the
+ * lock TNFS_STEER=left / right asks for. */
+static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
+{
+    const char *steer_env = getenv("TNFS_STEER");
+    const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
+    const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
+    return (i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0);
 }
 
 /* Headless: `ticks` steps in drive at full throttle, then a screenshot
@@ -704,14 +819,10 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
 {
     const char *view = getenv("TNFS_VIEW");
     if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
-    /* TNFS_STEER=left / right: that lock over the last 20 ticks. */
-    const char *steer_env = getenv("TNFS_STEER");
-    const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
     const char *frames_env = getenv("TNFS_FRAMES");
     const uint32_t frames = frames_env == NULL ? 0 : (uint32_t)atoi(frames_env);
     for (uint32_t i = 0; i < ticks; i++) {
-        const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
-        drive_tick((i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0));
+        drive_tick(screenshot_input(i, ticks));
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
             drive_sim.race.stop_notice[notice[0] - '1'] = !(notice[1] == 'o' && i + 5 >= ticks);
@@ -743,7 +854,12 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     ok = ok && start_drive(&t, data_root, name, model, racers, race_type);
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
     ok = ok && pixels != NULL;
-    if (ok) ok = screenshot != NULL ? drive_screenshot(&t, pixels, ticks, screenshot) : drive_window(&t, pixels);
+    if (ok && screenshot != NULL && getenv("TNFS_RUN") != NULL)
+        ok = drive_run_screenshot(&t, pixels, ticks, screenshot);
+    else if (ok && screenshot != NULL)
+        ok = (race_sim_begin(&drive_sim), drive_screenshot(&t, pixels, ticks, screenshot));
+    else if (ok)
+        ok = drive_window(&t, pixels);
     free(pixels);
     free_drive();
     free_track(&t);

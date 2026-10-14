@@ -325,6 +325,29 @@ static void sim_tick(void *ctx)
 /* 0045597c: the music, the deferred calls (the in-race menu and pause), the
  * Esc / P keys and 004381f8's commands are --drive's (track_viewer.c) or not
  * yet ported there; the tick and its count as the frame runs them. */
+void race_sim_tick_only(RaceSim *sim)
+{
+    sim_tick(sim);
+}
+
+void race_sim_begin(RaceSim *sim)
+{
+    RaceState *race = &sim->race;
+    for (int i = 0; i < 6; i++) race->start_beeps[i] = 1;  /* 00455a62: the setup's words */
+    race->tick = race->phase = race->camera_hold = 0;
+    race->unknown_513e64 = race->unknown_513e60 = race->unknown_513e6c = 0;
+    if (race->race_type == 0 && race->track == 3 && race->cars[0] != NULL) {  /* 00455bd8 */
+        race->cars[0]->node = 5;
+        race->cars[0]->progress = 5;
+        race->cars[0]->z = 0x1e0000;
+    }
+    race->tick_flags = 0xff;  /* 00455d3a: the dword -1; the ticks run in phase 0 */
+    for (int i = 0; i < 3; i++) sim_tick(sim);
+    race->unknown_513e64 = 1;
+    race->unknown_513e60 = 0;
+    race->phase = 1;
+}
+
 void race_sim_tick(RaceSim *sim, uint32_t input)
 {
     RaceState *race = &sim->race;
