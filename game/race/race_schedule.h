@@ -44,4 +44,38 @@ void race_schedule_set(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDU
  * eax is not read by 0045597c. */
 void race_schedule_run(const RaceScheduleOps *ops, RaceScheduled sched[RACE_SCHEDULE_SLOTS], int16_t frame);
 
+typedef struct {
+    void *ctx;
+    int32_t (*notice_up)(void *ctx);                                     /* 0041e38c */
+    void (*set)(void *ctx, int16_t frame, int32_t which, int16_t arg);   /* 00410a70 */
+    void (*detail)(void *ctx, int32_t segments);                         /* 0044c1bc */
+} RaceMenuKeysOps;
+
+typedef struct {
+    int32_t tick;               /* 00513e70 */
+    int32_t phase;              /* 004c5390 */
+    uint8_t esc, pause;         /* 004c693d, 004c6955: keys 1 and 0x19 */
+    uint8_t lshift, rshift;     /* 004c6966, 004c6972: keys 0x2a and 0x36 */
+    int16_t playback;           /* 0052b312 */
+    int16_t replay;             /* 0052b316 */
+    uint8_t detail;             /* 004fb785 */
+} RaceMenuKeysInputs;
+
+typedef struct {
+    int32_t pending;            /* 00513e50: a call scheduled, until the tick is below 0x3c again */
+    int32_t last;               /* 00513e54: the tick it was scheduled at */
+    int16_t dropped;            /* 0052b314: written 1 */
+    int32_t w509d70;            /* 00509d70: written 2 */
+} RaceMenuKeysState;
+
+/* 004557f4 (watcall (frame), from 0045597c each frame): tick < 0x3c: pending
+ * and last = 0. Esc with phase 1, tick > 0x78 and nothing pending: during
+ * playback with a shift held, dropped = 1 and 00509d70 = 2; else once tick >=
+ * last + 0xb4: last = tick, and without 0052b316 the menu at frame + 1
+ * (00410a70(frame + 1, 0, 1)), pending = 1 and 0044c1bc(0x1c / 0xe / 9) for
+ * detail 0 / 1 / 2. Otherwise, without playback, P with tick > 0x78, nothing
+ * pending, no stop notice (0041e38c) and tick >= last + 0x78: last = tick,
+ * the pause at frame + 1 (00410a70(frame + 1, 1, 1)), pending = 1. */
+void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, RaceMenuKeysState *st, int16_t frame);
+
 #endif
