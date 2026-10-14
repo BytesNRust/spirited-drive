@@ -138,10 +138,21 @@ void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSe
     if (m->chunk != 0) ops->chunk_play(ops->ctx, m->chunk);
 }
 
+static int track_music_allowed(const MenuSound *m, const ConfigDat *c)
+{
+    return m->sound_on && short_at(c, 0x00524e6b);
+}
+
 /* 004648a8 */
 void menu_sound_track_music_free(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
 {
-    if (!m->sound_on || !short_at(c, 0x00524e6b)) return;
+    if (!track_music_allowed(m, c)) return;
     if (m->track_music) ops->block_free(ops->ctx, m->track_music);
     m->track_music = 0;
+}
+
+/* 0046486c */
+void menu_sound_track_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops)
+{
+    if (track_music_allowed(m, c)) ops->track_stop(ops->ctx);
 }

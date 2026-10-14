@@ -32,6 +32,7 @@ typedef struct MenuSoundOps {
     void (*chunk_play)(void *ctx, int32_t chunk);     /* 0048df3c: eax the chunk */
     int32_t (*stream_voice)(void *ctx);               /* 0048dedc: the voice the stream plays on */
     void (*block_free)(void *ctx, int32_t block);     /* 00475260 (cdecl) */
+    void (*track_stop)(void *ctx);                    /* 00492620 */
     void *ctx;
 } MenuSoundOps;
 
@@ -118,5 +119,8 @@ void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSe
 /* 004648a8: with the sound on and the short 00524e6b set in config.dat,
  * frees the track music (00475260) when there is one and clears it. */
 void menu_sound_track_music_free(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
+
+/* 0046486c: under 004648a8's two guards, stops the track music (00492620). */
+void menu_sound_track_music_stop(const MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 #endif
