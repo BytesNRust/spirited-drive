@@ -2,6 +2,7 @@
 
 #include "game/gfx/x86_int.h"
 
+#include <stddef.h>
 #include <string.h>
 
 enum { DELTA_SHIFT = 9 };  /* * 0x200 */
@@ -69,11 +70,13 @@ static int32_t delta(const uint8_t *p)
 /* 0043dfd0 */
 void track_segment_record(const TrackSegmentSource *src, uint32_t segment, uint8_t record[TRACK_SEGMENT_RECORD])
 {
-    const uint32_t offset = (uint32_t)rd32(src->header + CHUNK_OFFSETS + 4 * (segment & src->segment_mask));
-    const uint8_t *data = src->terrain + offset + CHUNK_RECORD;
+    /* 32-bit address sums: a negative index or offset lands before the table, as in the original */
+    const int32_t offset = rd32(src->header + CHUNK_OFFSETS + 4 * (ptrdiff_t)(int32_t)(segment & src->segment_mask));
+    const uint8_t *data = src->terrain + (ptrdiff_t)offset + CHUNK_RECORD;
     memcpy(record, data, RECORD_HEAD);
     for (uint32_t row = 0; row < TRACK_SEGMENT_ROWS; row++) {
-        const uint8_t *node = src->nodes + ((segment * TRI_NODES_PER_SEGMENT + row) & src->node_mask) * NODE_SIZE + NODE_POSITION;
+        const int32_t n = (int32_t)((segment * TRI_NODES_PER_SEGMENT + row) & src->node_mask);
+        const uint8_t *node = src->nodes + (ptrdiff_t)n * NODE_SIZE + NODE_POSITION;
         const uint8_t *d = data + RECORD_HEAD + row * CHUNK_ROW;
         uint8_t *out = record + RECORD_HEAD + row * RECORD_ROW;
         int32_t centre[3], p[3];
