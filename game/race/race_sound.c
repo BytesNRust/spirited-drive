@@ -439,3 +439,8 @@ void race_sound_held_car(RaceState *race)
         ? x_mul(x_sar(x_sub(CAR_SOUND_RANGE, distance), CAR_SOUND_DOWN), CAR_SOUND_LOUD) / CAR_SOUND_SPAN : 0;
     race_sound_channel_at(race, CAR_SOUND_CHANNEL, sound, pitch, volume, angle);
 }
+
+void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
+{
+    if (race->sounds.sound != NULL) race->sounds.sound(race->sounds.user, a, b & 0xff, c & 0xff, d, e, f);
+}

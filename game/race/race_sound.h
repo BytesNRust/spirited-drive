@@ -89,6 +89,10 @@ void race_sound_held_car(RaceState *race);
  * it has one (not negative), then the channel's voice and sound -1. */
 void race_sound_channel_stop(RaceState *race, int32_t channel);
 
+/* 00443f9c (watcall a, b, c, d; e, f on the stack, ret 8): 00443eac (the
+ * sound hook) with b and c cut to bytes. */
+void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and
