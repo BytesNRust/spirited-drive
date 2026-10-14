@@ -127,8 +127,9 @@ void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps 
     } while (((int16_t)ticks <= 0x64 || queued != 0) && queued < size);
 }
 
-/* 0046417c */
-void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops)
+/* 0046417c and 00464240: the volume is the short at volume_at */
+static void music_service_at(MenuSound *m, const ConfigDat *c, const FrontendSession *f, uint32_t volume_at,
+                             const MenuSoundOps *ops)
 {
     if (m->music_off) return;
     if (f->flag_52b312) ops->wait(ops->ctx);
@@ -138,10 +139,22 @@ void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSe
     m->chunk = ops->stream_read(ops->ctx, m->stream);
     if (!m->music_voiced && ops->queued(ops->ctx) > size) {
         m->music = ops->stream_voice(ops->ctx);
-        ops->voice_volume(ops->ctx, m->music, short_at(c, 0x00524e67));
+        ops->voice_volume(ops->ctx, m->music, short_at(c, volume_at));
         m->music_voiced = 1;
     }
     if (m->chunk != 0) ops->chunk_play(ops->ctx, m->chunk);
+}
+
+/* 0046417c */
+void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops)
+{
+    music_service_at(m, c, f, 0x00524e67, ops);
+}
+
+/* 00464240 */
+void menu_sound_music_service_2(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops)
+{
+    music_service_at(m, c, f, 0x00524e65, ops);
 }
 
 static int track_music_allowed(const MenuSound *m, const ConfigDat *c)

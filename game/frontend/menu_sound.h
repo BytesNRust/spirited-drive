@@ -129,6 +129,11 @@ void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps 
  * becomes 1; a chunk that is not 0 is played (0048df3c). */
 void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops);
 
+/* 00464240: the same, but the voice takes the short 00524e65 instead of
+ * 00524e67 (what 00524e65 holds is not known). The race calls it while it
+ * loads the police screen (main's cockpit.h movie). */
+void menu_sound_music_service_2(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops);
+
 /* 004648a8: with the sound on and the short 00524e6b set in config.dat,
  * frees the track music (00475260) when there is one and clears it. */
 void menu_sound_track_music_free(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
