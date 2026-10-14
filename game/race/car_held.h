@@ -14,6 +14,9 @@ void race_stop_notice_first(RaceState *race);
  * counter 0051ce10). */
 void race_stop_notice_second(RaceState *race);
 
+/* 0041e38c: 1 while a police stop notice is up (004b92dc or 004b92e0), else 0. */
+int32_t race_stop_notice_up(const RaceState *race);
+
 /* 0041e3c4: the police stop notices go off, noting the tick if one was up. */
 void race_stop_notices_clear(RaceState *race);
 
