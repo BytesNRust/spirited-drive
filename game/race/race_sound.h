@@ -69,6 +69,14 @@ void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t d
  * cars[004fbb08]). */
 void race_sound_follow(RaceState *race, const CarSpecs *specs);
 
+/* 00472448 (watcall car): the car's distance from the listener (chase
+ * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
+ * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and
+ * the distance moved by less than 0x96000 either way, the pitch factor
+ * 0x1bcccc00 / (0x1bcccc + moved) (0x100 when still), else 0; the view kind
+ * kept in +0x3ad. */
+int32_t race_sound_doppler(Car *car, const RaceChase *chase);
+
 /* 00472348 (watcall (), from 00440ef0 with two humans or more): the first
  * human (a 16-bit count up to 004fb7e0) other than the viewed one whose car
  * looks back (+0x4ba) and has no finish (its record +0x1c4) holds the car

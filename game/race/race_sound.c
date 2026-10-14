@@ -1,6 +1,8 @@
 /* The race's sound levels (race_sound.h). */
 #include "game/race/race_sound.h"
 
+#include "game/gfx/x86_int.h"
+
 #include "game/race/car_walls.h"
 
 enum {
@@ -362,4 +364,25 @@ void race_sound_other_human(RaceState *race)
     }
     race->car_sound_ticks = 0;
     race->viewed = viewed;
+}
+
+enum { DOPPLER_NEAR = 0x96000, DOPPLER_SPEED = 0x1bcccc, DOPPLER_SCALE = 0x1bcccc00 };
+
+static int32_t magnitude(int32_t v)
+{
+    return v > 0 ? v : x_sub(0, v);
+}
+
+int32_t race_sound_doppler(Car *car, const RaceChase *chase)
+{
+    const int32_t dz = magnitude(x_sub(car->z, chase->position[2]));
+    const int32_t dx = magnitude(x_sub(car->x, chase->position[0]));
+    const int32_t distance = dx > dz ? x_add(dz >> 2, dx) : x_add(dz, dx >> 2);
+    const int32_t moved = x_sub(distance, car->unknown_3a1);
+    car->unknown_3a1 = distance;
+    int32_t factor = 0;
+    if (car->unknown_3ad == chase->kind && magnitude(moved) < DOPPLER_NEAR)
+        factor = DOPPLER_SCALE / x_add(moved, DOPPLER_SPEED);
+    car->unknown_3ad = chase->kind;
+    return factor;
 }
