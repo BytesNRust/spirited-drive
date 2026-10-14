@@ -306,6 +306,7 @@ static void trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y)
 enum { CAR_SMOKE = 2 };  /* car +0x175 bit 1: the crash smoke runs (car_crash_tick.c's FLAG_SMOKE) */
 
 static int32_t last_near_dir[3];
+static int32_t last_near;
 
 /* 004591d4 after the car: the crash smoke while the followed car's +0x175 bit 1 is set, outside replays; its puffs
  * moved by the model's 'smok' point on screen less the car's place on screen (0044a1c4), or not for the far model. */
@@ -321,6 +322,7 @@ static void draw_crash_trail(const Car *car, const CarModel *model)
         DrawContext dc = { 0 };
         dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
         memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
+        dc.near = last_near;
         const int32_t place[3] = { car->x, car->y, car->z };
         int32_t camera[3], screen[2];
         track_point_screen(&cam, &dc, place, camera, screen);
@@ -378,6 +380,7 @@ static void draw_tag(const Car *car)
     DrawContext dc = { 0 };
     dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
     memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
+    dc.near = last_near;
     const int32_t place[3] = { car->x, car->y, car->z };
     int32_t camera[3], screen[2];
     track_point_screen(&cam, &dc, place, camera, screen);
@@ -492,6 +495,7 @@ static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDT
 
 /* 00512040..: the road direction the last frame's transform left (the mirror draws with it). */
 static int32_t last_near_dir[3] = { 0, 0, 0x1999 };
+static int32_t last_near = 62259 >> WORLD_SHIFT;  /* *(00511fe8) +4 as the last frame's transform left it */
 
 void ported_view_near_dir(int32_t out[3])
 {
@@ -539,7 +543,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     QuadTarget quad = { pixels, WIDTH, vp->left, vp->top, vp->left + vp->width, vp->top + vp->height };
     DrawContext ctx = { &view, { vp->left, vp->top, vp->left + vp->width, vp->top + vp->height }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
-                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids } };
+                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0 };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
@@ -560,6 +564,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     track_render_build(&render, tri, art, pc->node);
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
+    last_near = ctx.near;
     model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
     car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
     for (int i = 0; i < car_count; i++) {

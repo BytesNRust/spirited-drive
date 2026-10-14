@@ -174,6 +174,7 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
      * 00510764), which is what is projected; the draws read r->camera. */
     memcpy(r->clamped, r->camera, (size_t)r->vertex_count * sizeof r->camera[0]);
     const int32_t near = NEAR_PLANE >> shift;
+    ctx->near = near;  /* the camera record's +4 */
     const int near_count = r->vertex_count - (r->draw_segments - 3) * ROW_POINTS;
     for (int i = 0; i < r->vertex_count; i++) {
         int32_t *v = r->clamped[i];
@@ -261,12 +262,12 @@ int track_quad_on_screen(const int32_t s[8])
 void track_point_screen(const TrackCamera *cam, const DrawContext *ctx, const int32_t world[3], int32_t camera[3],
                         int32_t screen[2])
 {
-    const int shift = ctx->world_shift;
-    const int32_t t[3] = { (world[0] - cam->position[0]) >> shift, (world[1] - cam->position[1]) >> shift,
-                           (world[2] - cam->position[2]) >> shift };
+    const int shift = ctx->world_shift & 31;  /* sar by cl */
+    const int32_t t[3] = { x_sub(world[0], cam->position[0]) >> shift, x_sub(world[1], cam->position[1]) >> shift,
+                           x_sub(world[2], cam->position[2]) >> shift };
     mat3_apply(t, cam->matrix, camera);
     int32_t p[3] = { camera[0], camera[1], camera[2] };
-    push_to(p, NEAR_PLANE >> shift, ctx->near_dir);
+    push_to(p, ctx->near, ctx->near_dir);
     view_project(ctx->view, p, screen);
 }
 
@@ -370,7 +371,7 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
     const TrackNearOps near_ops = { (void *)&g, skids, no_alternate };
     const TrackFarInputs far = { r->entries, r->build.segment_mask, r->cache, r->vertex_count, mirrored, 0,
                                  { (const int32_t (*)[3])r->world, (const int32_t (*)[3])r->camera,
-                                   (const int32_t (*)[2])r->screen, NEAR_PLANE >> ctx->world_shift, ctx->clip },
+                                   (const int32_t (*)[2])r->screen, ctx->near, ctx->clip },
                                  &fence_ops, &objects, &r->quarter };
     /* 00449f50 reads the camera's layout; the clip holds its edges */
     const ViewLayout layout = { 0, 0, 0, 0, 0, 0, ctx->clip.x0, ctx->clip.y0, x_sub(ctx->clip.x1, ctx->clip.x0),
