@@ -70,6 +70,11 @@ typedef struct {
 void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *cam,
                              const CarPose *pose, int32_t car_node, uint8_t *pixels);
 
+/* 0043f540 on a frame that is not drawn (the headless ticks): the segment
+ * cache's window and the point list follow the camera as in the race loop,
+ * which runs it every frame. */
+void ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node);
+
 /* A car's pose and the road node whose row draws it; node -1 leaves it out. */
 typedef struct {
     CarPose pose;

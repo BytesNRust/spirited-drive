@@ -1,5 +1,6 @@
 #include "game/race/track_render.h"
 
+#include "game/race/track_cache.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_near.h"
 #include "game/race/track_tables.h"
@@ -14,7 +15,11 @@ enum {
     CLAMP_X = 5376,          /* 004c52c8 (004c52c4 holds 0xa80000, 5376 << 11, not read here) */
     CLAMP_Y = 5376,          /* 004c52cc */
     MIN_DIR_Z = 0x1999,      /* 004497d8 */
-    NODES_AT = 0x98C         /* the header's nodes (0043e4e0: 00505038) */
+    NODES_AT = 0x98C,        /* the header's nodes (0043e4e0: 00505038) */
+    WINDOW_AHEAD = 0x1E,     /* 005041e8, 0043e4e0 */
+    WINDOW_BEHIND = WINDOW_AHEAD + 5,  /* 005041e4 */
+    WINDOW_HEAD = -9999,     /* 005041dc, 0043dca4 */
+    STAGE_RING = 0x8000      /* 0050420c on a stage */
 };
 
 /* ---- camera matrix (004496ac) ---- */
@@ -76,43 +81,55 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
                          circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu },
                        0, -1 };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
+    r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
+                                    circuit ? (int32_t)tri->ring_segments : STAGE_RING,
+                                    circuit ? (int32_t)tri->ring_segments - 1 : -1 };
 }
 
-/* A segment's record as 0043e244 leaves it in the cache: its 12 header
- * bytes, then its rows of 11 points. Past a stage's last segment the port
- * repeats the last row it had, so the polygons there have no area. */
-static void cache_record(TrackRender *r, int32_t segment)
+/* Port guard: past a stage's last segment the header's table points past
+ * the terrain block, where the original reads beyond its buffer (see STATE,
+ * open hypotheses); the port repeats the record before's last row, so the
+ * polygons there have no area. */
+static void stage_end_record(TrackRender *r, int32_t segment)
 {
-    TrackSegment s;
     uint8_t *at = r->cache + mirror_segment_offset(segment, (int32_t)r->build.segment_mask);
-    if (track_decode_segment(r->tri, (uint32_t)segment & (r->tri->ring_segments - 1u), &s) == TRI_OK &&
-        (segment >= 0 || tri_is_circuit(r->tri))) {
-        at[0] = s.unknown_0c, at[1] = s.fence;
-        memcpy(at + 2, s.texture, sizeof s.texture);
-        for (int row = 0; row < TRACK_SEGMENT_ROWS; row++)
-            for (int p = 0; p < ROW_POINTS; p++)
-                for (int k = 0; k < 3; k++) {
-                    const int32_t v = k == 0 ? s.rows[row][p].x : k == 1 ? s.rows[row][p].y : s.rows[row][p].z;
-                    memcpy(at + 12 + 12 * (row * ROW_POINTS + p) + 4 * k, &v, 4);
-                }
-        return;
-    }
     const uint8_t *before = r->cache + mirror_segment_offset(segment - 1, (int32_t)r->build.segment_mask);
     memset(at, 0, 12);
     for (int row = 0; row < TRACK_SEGMENT_ROWS; row++)
         memmove(at + 12 + 12 * row * ROW_POINTS, before + 12 + 12 * (TRACK_SEGMENT_ROWS - 1) * ROW_POINTS, 12 * ROW_POINTS);
 }
 
+/* 00477008: the whole file is read before the race (tri_open checked every
+ * chunk's tag), so the wait never runs. */
+static void chunk_wait(void *ctx) { (void)ctx; }
+
+/* 0043e244 for 0043e300 */
+static void load_segment(void *ctx, int32_t segment)
+{
+    TrackRender *r = ctx;
+    const Tri *tri = r->tri;
+    const int32_t s = (int32_t)((uint32_t)segment & r->build.segment_mask);
+    if (s >= 0 && (uint32_t)s >= tri->segment_count) {
+        stage_end_record(r, segment);  /* port guard */
+        return;
+    }
+    const TrackSegmentSource src = { tri->data, tri->data + tri->terrain_offset, r->nodes, r->build.segment_mask,
+                                     r->build.walk.node_mask };
+    const TrackCacheOps ops = { NULL, chunk_wait };
+    track_cache_load(&ops, &src, tri_is_circuit(tri), r->cache, segment);
+}
+
+/* 0043f540's cache and list (its mirror part is drive_mirror.c's) */
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node)
 {
     if (r->tri != tri) bind_track(r, tri, art);
     r->art = art;
     const int32_t segment = camera_node / 4;
-    /* 0043f540: the list is built again when the camera's segment changes */
-    if (camera_node >= 0 && segment + r->draw_segments + 1 < TRACK_SEGMENT_ENTRIES &&  /* port guard */
-        (r->build.first_node < 0 || r->build.first_node / 4 != segment)) {
-        for (int32_t s = segment; s <= segment + r->draw_segments + 1; s++) cache_record(r, s);  /* 0043e300's window, port glue */
-        track_build(&r->build, camera_node, segment, r->draw_segments);
+    if (camera_node >= 0 && segment + r->draw_segments + 1 < TRACK_SEGMENT_ENTRIES) {  /* port guard */
+        const TrackWindowOps ops = { r, load_segment };
+        track_cache_window(&ops, &r->window, segment);
+        if (r->build.first_node < 0 || r->build.first_node / 4 != segment)
+            track_build(&r->build, camera_node, segment, r->draw_segments);
     }
     /* what 0044aa94 reads: 00509780, 005041cc (0044a804 may have reset it), 005041b4 */
     r->vertex_count = r->build.vertex_count;

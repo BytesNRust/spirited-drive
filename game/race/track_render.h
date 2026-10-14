@@ -2,9 +2,9 @@
  * drawn far to near with per-segment levels of detail, on the original's
  * state (0043e4e0's: the segment cache, the nodes, the scenery records).
  *
- *   track_render_build      0043f540: the segment cache (port glue for
- *                           0043e300), the vertex list again when the
- *                           camera's segment changes (0043f48c)
+ *   track_render_build      0043f540: the segment cache's window (0043e300,
+ *                           loading through 0043e244), the vertex list
+ *                           again when the camera's segment changes (0043f48c)
  *   track_render_transform  0044aa94: to camera space, a copy clamped and
  *                           projected
  *   track_render_draw       0044a804, then 0044b510: far segments (0044ad5c)
@@ -21,6 +21,7 @@
 #include "game/race/mirror_scene.h"
 #include "game/race/track_art.h"
 #include "game/race/track_build.h"
+#include "game/race/track_cache.h"
 #include "game/race/track_draw.h"
 #include "game/race/track_objects.h"
 
@@ -63,6 +64,7 @@ typedef struct {
     uint8_t knocked[2 * TRI_SCENERY_MAX];                                 /* 004b9098 */
     TrackSegmentEntry entries[TRACK_SEGMENT_ENTRIES];                     /* 00504228 */
     TrackBuild build;                        /* its segments: entries; the walk: 005041b4..d0, 00504200..08 */
+    TrackCacheWindow window;                 /* 005041dc..e8, 0050420c, 00504210 */
     uint32_t side_face;                      /* 00511fac */
     uint8_t quarter;                         /* 0051204c */
     MirrorBounds bounds;                     /* 00511f88 */
