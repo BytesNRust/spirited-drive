@@ -1,5 +1,7 @@
 #include "game/frontend/text_box.h"
 
+#include <string.h>
+
 /* 00463934 */
 void text_box_show(const char *text, int32_t x, int32_t y, int32_t screen, const TextBoxOps *ops)
 {
@@ -19,4 +21,19 @@ void text_box_show(const char *text, int32_t x, int32_t y, int32_t screen, const
     ops->blit_own(ops->ctx, ops->picture_shape(ops->ctx, screen));
     ops->flip(ops->ctx);
     ops->picture_free(ops->ctx, picture);
+}
+
+/* 00463a18 */
+void text_box_fit_show(const char *text, int32_t x, int32_t y, int32_t width, int32_t screen,
+                       const TextBoxOps *ops)
+{
+    /* the original's buffer is 0x28 bytes but the cut writes up to 0x31, into its frame's unused bytes */
+    enum { BUF = 0x32, FIRST = 7 };
+    char buf[BUF] = { 0 };
+    for (int n = FIRST; n < BUF; n++) {
+        strncpy(buf, text, (size_t)n);
+        buf[n] = 0;
+        if (ops->text_width(ops->ctx, buf) > width) break;
+    }
+    text_box_show(buf, x, y, screen, ops);
 }

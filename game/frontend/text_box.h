@@ -28,4 +28,10 @@ typedef struct TextBoxOps {
  * blitted at its own place, flipped, and the picture freed. */
 void text_box_show(const char *text, int32_t x, int32_t y, int32_t screen, const TextBoxOps *ops);
 
+/* 00463a18: the text cut as 00463d34 cuts it (the first n characters, n
+ * from 7, stopping at the first whose width passes `width`, or at 49), then
+ * put on the screen as text_box_show puts it. */
+void text_box_fit_show(const char *text, int32_t x, int32_t y, int32_t width, int32_t screen,
+                       const TextBoxOps *ops);
+
 #endif
