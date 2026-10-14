@@ -1,24 +1,26 @@
 /* The race's track renderer: terrain of the segments ahead of the camera,
- * drawn far to near with per-segment levels of detail.
+ * drawn far to near with per-segment levels of detail, on the original's
+ * state (0043e4e0's: the segment cache, the nodes, the scenery records).
  *
- *   track_render_build      0043f48c / 0043eca4: the vertex list, a run of
- *                           selected terrain points per segment
+ *   track_render_build      0043f540: the segment cache (port glue for
+ *                           0043e300), the vertex list again when the
+ *                           camera's segment changes (0043f48c)
  *   track_render_transform  0044aa94: to camera space, a copy clamped and
  *                           projected
- *   track_render_draw       0044b510: far segments (0044ad5c) whole, then the
- *                           4 nearest with subdivision (00425718)
+ *   track_render_draw       0044a804, then 0044b510: far segments (0044ad5c)
+ *                           whole, then the 4 nearest with subdivision
  *
  * Scenery is placed while the vertex list is built (0043eca4) and drawn
- * after each row of road (0044a4b0), farthest first. Fences go up at
- * the end of each row band (0044a2b4). The cars (0045a848) and, in the
- * near pass, the skid marks (00459eb8) go out row by row through the
- * sink. */
+ * after each row of road (0044a4b0), farthest first. Fences go up at the
+ * end of each row band (0044a2b4). The cars (0045a848) and, in the near
+ * pass, the skid marks (00459eb8) go out row by row through the sink. */
 #ifndef TNFS_TRACK_RENDER_H
 #define TNFS_TRACK_RENDER_H
 
 #include "formats/tri.h"
 #include "game/race/mirror_scene.h"
 #include "game/race/track_art.h"
+#include "game/race/track_build.h"
 #include "game/race/track_draw.h"
 #include "game/race/track_objects.h"
 
@@ -28,28 +30,10 @@ enum {
     TRACK_DRAW_SEGMENTS = 0x1C,   /* 00504220, set by 0043e4e0 */
     TRACK_NEAR_SEGMENTS = 4,      /* 0044b510 subdivides at most 4 */
     TRACK_MAX_VERTICES = 2048,    /* 0050503c holds 0x8700 / 12... ample */
-    TRACK_WINDOW = TRACK_DRAW_SEGMENTS + 2,
-    TRACK_MAX_OBJECTS = 180,          /* 0044a804 resets past 0xb4 */
-    TRACK_MAX_OBJECT_VERTICES = 1024
+    TRACK_MAX_OBJECT_VERTICES = 1024,
+    TRACK_SEGMENT_ENTRIES = TRI_SEGMENT_CAPACITY + 64,   /* 00504228: a stage indexes it by segment */
+    TRACK_NODE_SPARE = 4 * 64                           /* nodes read past a stage's last */
 };
-
-typedef struct {
-    int32_t node;           /* road node, masked */
-    uint32_t record;        /* scenery record */
-    TriDescriptor descriptor;
-    uint8_t record_flag;    /* record +8 */
-    int first, count;       /* object vertices */
-    TrackObject placed;
-} TrackRenderObject;
-
-typedef struct {
-    int valid;      /* 0 past the end of a stage */
-    uint8_t lod;    /* 00504228 */
-    int first;      /* 0050422a */
-    int count;      /* 0050422c */
-    uint8_t texture[10];
-    uint8_t fence;  /* TRI_FENCE_* */
-} TrackSegmentRecord;
 
 typedef struct {
     int32_t position[3];   /* world 16.16 (camera struct +0x10) */
@@ -60,8 +44,6 @@ typedef struct {
 typedef struct {
     const Tri *tri;
     const TrackArt *art;
-    int32_t first_segment;
-    TrackSegmentRecord segments[TRACK_WINDOW];
     int draw_segments;                       /* 00504220 */
     int vertex_count;                        /* 00509780 */
     int32_t world[TRACK_MAX_VERTICES][3];    /* 0050503c */
@@ -69,11 +51,21 @@ typedef struct {
     int32_t clamped[TRACK_MAX_VERTICES][3];  /* 00510764: camera clamped and pushed, what is projected */
     int32_t screen[TRACK_MAX_VERTICES][2];   /* 00508084 */
     int object_count;                        /* 005041cc */
-    TrackRenderObject objects[TRACK_MAX_OBJECTS];
-    int object_vertex_count;                 /* 005041b8 */
+    int object_vertex_count;                 /* 005041b4 */
     int32_t object_world[TRACK_MAX_OBJECT_VERTICES][3];   /* 004fd134 */
     int32_t object_camera[TRACK_MAX_OBJECT_VERTICES][3];  /* 004ffb64 */
     int32_t object_screen[TRACK_MAX_OBJECT_VERTICES][2];  /* 00502594 */
+    /* the original's state the build and the draws work on */
+    uint8_t cache[TRACK_BUILD_CACHE_SIZE];                                /* 005041d8 */
+    uint8_t nodes[(TRI_NODE_CAPACITY + TRACK_NODE_SPARE) * TRACK_BUILD_NODE_SIZE];  /* 00505038 */
+    uint8_t descriptors[256 * TRI_DESCRIPTOR_SIZE];                       /* 00504204 */
+    uint8_t records[(TRI_SCENERY_MAX + 1) * TRI_SCENERY_SIZE];            /* 00509788 */
+    uint8_t knocked[2 * TRI_SCENERY_MAX];                                 /* 004b9098 */
+    TrackSegmentEntry entries[TRACK_SEGMENT_ENTRIES];                     /* 00504228 */
+    TrackBuild build;                        /* its segments: entries; the walk: 005041b4..d0, 00504200..08 */
+    uint32_t side_face;                      /* 00511fac */
+    uint8_t quarter;                         /* 0051204c */
+    MirrorBounds bounds;                     /* 00511f88 */
 } TrackRender;
 
 /* 004496ac: camera matrix from pitch (+0x40), yaw (+0x44) and roll (+0x48),
@@ -119,7 +111,6 @@ void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */
-void track_render_draw(const TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored,
-                       int32_t frame);
+void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame);
 
 #endif
