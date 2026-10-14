@@ -70,6 +70,7 @@ add_library(tnfs_game STATIC
     game/frontend/key_name.c
     game/frontend/menu_sound.c
     game/frontend/message_banner.c
+    game/frontend/name_box.c
     game/frontend/palette_put.c
     game/frontend/race_settings.c
     game/frontend/random_pick.c
