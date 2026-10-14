@@ -8,6 +8,12 @@ static int16_t short_at(const ConfigDat *c, uint32_t at)
     return (int16_t)(uint16_t)(b[0] | b[1] << 8);
 }
 
+static void put_short(ConfigDat *c, uint32_t at, int16_t v)
+{
+    uint8_t *b = c->image + (at - 0x00524df0);
+    b[0] = (uint8_t)v, b[1] = (uint8_t)((uint16_t)v >> 8);
+}
+
 /* 0046492c */
 void menu_sound_play(MenuSound *m, const ConfigDat *c, int sound, const MenuSoundOps *ops)
 {
@@ -192,4 +198,38 @@ void menu_sound_bank_load(MenuSound *m, const char *dir, const MenuSoundOps *ops
     if (!m->sound_on) return;
     m->bank_data = ops->file_read(ops->ctx, path, 0);
     m->bank = ops->bank_register(ops->ctx, *(const int32_t *)m->bank_data);
+}
+
+/* 00464304 */
+void menu_sound_detect(MenuSound *m, ConfigDat *c, const MenuSoundOps *ops)
+{
+    static const int16_t MODES[3] = { 3, 2, 0 };  /* 00461f16 */
+    enum { ANY = -1, CARD_MODE = 0x00524e61, CARD_OTHER = 0x00524e6d };
+    if (!m->sound_on) return;
+    int32_t again = 0;
+    m->card_bit1_clear = 0, m->card_bit0 = 1;
+    ops->driver_reset(ops->ctx);
+    const int32_t first = ops->driver_open(ops->ctx, ANY);
+    if ((int16_t)first >= 0) {
+        const int bit1_clear = !(first & 2), bit0 = first & 1;
+        m->card_bit1_clear = bit1_clear, m->card_bit0 = bit0;
+        if (bit1_clear && !bit0) {
+            put_short(c, CARD_OTHER, 0);
+            put_short(c, CARD_MODE, 2);
+        } else if (!bit1_clear && !bit0) {
+            const int16_t mode = short_at(c, CARD_MODE);
+            if (mode == 0) put_short(c, CARD_MODE, 1);
+            else if (mode == 2) {
+                put_short(c, CARD_OTHER, 0);
+                ops->driver_reset(ops->ctx);
+                again = ops->driver_open(ops->ctx, 0);
+            }
+        } else if (!bit1_clear) {
+            /* the original indexes a table on its stack: only 0..2 are in it */
+            const int16_t mode = short_at(c, CARD_MODE);
+            ops->driver_reset(ops->ctx);
+            again = ops->driver_open(ops->ctx, mode >= 0 && mode < 3 ? MODES[mode] : 0);
+        }
+    }
+    if ((int16_t)first < 0 || (int16_t)again < 0) m->sound_on = 0, m->sound_alt = 0;
 }

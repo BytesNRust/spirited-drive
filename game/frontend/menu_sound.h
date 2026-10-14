@@ -40,6 +40,8 @@ typedef struct MenuSoundOps {
     void (*track_begin)(void *ctx, int32_t music, int32_t edx);  /* 004924f8: eax the music, edx 0 */
     void *(*file_read)(void *ctx, const char *path, int32_t flags);  /* 00483ec0 (cdecl): the file */
     int32_t (*bank_register)(void *ctx, int32_t first);  /* 0048ed30: eax the file's first dword; the handle */
+    void (*driver_reset)(void *ctx);                     /* 004922b0 */
+    int32_t (*driver_open)(void *ctx, int32_t mode);     /* 0049212c: eax the mode (-1 first); read as a short */
     void *ctx;
 } MenuSoundOps;
 
@@ -59,6 +61,9 @@ typedef struct MenuSound {
     char music_path[MENU_SOUND_PATH];  /* 00524798: the music's file (00464428) */
     int32_t track_music;  /* 00524828: the track screen's music (00464788's 00483e80) */
     int track_silent;     /* the short 004c5cbe: the track music starts at volume 0 */
+    int sound_alt;        /* the short 0052b30e: cleared with sound_on when the card fails (meaning not known) */
+    int card_bit1_clear;  /* the short 0052b32a: bit 1 of 0049212c(-1)'s answer clear (meaning not known) */
+    int card_bit0;        /* the short 0052b32c: bit 0 of it */
 } MenuSound;
 
 /* 0046492c: with the sound on, starts the short `sound` centred (0x40) at
@@ -146,5 +151,14 @@ void menu_sound_track_music_start(MenuSound *m, const ConfigDat *c, const char *
  * reads the file (00483ec0) and registers it (0048ed30 on its first dword;
  * the file is not checked for NULL). */
 void menu_sound_bank_load(MenuSound *m, const char *dir, const MenuSoundOps *ops);
+
+/* 00464304: the sound card, with the sound on: 004922b0 and 0049212c(-1);
+ * an answer below 0 (as a short) turns the sound off (and 0052b30e). Else
+ * by its bits 1 and 0: both clear, config.dat's 00524e6d = 0 and 00524e61
+ * = 2; bit 1 alone, 00524e61 0 becomes 1, and 2 clears 00524e6d and opens
+ * the card again with 0; both set, opens it again with {3, 2, 0}[00524e61]
+ * (00461f16); bit 0 alone, nothing. A second answer below 0 turns the
+ * sound off too. */
+void menu_sound_detect(MenuSound *m, ConfigDat *c, const MenuSoundOps *ops);
 
 #endif
