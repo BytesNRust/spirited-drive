@@ -3,7 +3,7 @@
 
 #include "game/gfx/x86_int.h"
 
-enum { NEAREST = 8, FARTHEST = 0x1c };
+enum { NEAREST = 8, FARTHEST = 0x1c, RATE_AFTER = 0xa, RATE_SCALE = 100 };
 
 void race_detail_request(int32_t segments, int32_t *pending)
 {
@@ -18,4 +18,17 @@ void race_detail_step(int32_t step, int32_t draw_segments, int32_t *pending)
     if (segments > FARTHEST) segments = FARTHEST;
     else if (segments < NEAREST) segments = NEAREST;
     *pending = segments;
+}
+
+void race_frame_rate(RaceFrameRate *fr, int32_t elapsed)
+{
+    int32_t frames = x_add(fr->frames, 1);
+    int32_t time = x_add(fr->elapsed, elapsed);
+    if (time > RATE_AFTER) {
+        fr->rate = x_mul(frames, RATE_SCALE) / time;
+        frames = 0;
+        time = 0;
+    }
+    fr->frames = frames;
+    fr->elapsed = time;
 }

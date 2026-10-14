@@ -13,4 +13,15 @@ void race_detail_request(int32_t segments, int32_t *pending);
  * segments (00504220) + step (32-bit), held to 8..0x1c. */
 void race_detail_step(int32_t step, int32_t draw_segments, int32_t *pending);
 
+typedef struct {
+    int32_t frames;             /* 004c5364 */
+    int32_t elapsed;            /* 004c5368 */
+    int32_t rate;               /* 005104c4: frames x 100 / elapsed, what 0044cc74 steps the draw distance by */
+} RaceFrameRate;
+
+/* 0044c150 (watcall elapsed, from 0044cc74 with 00473334()'s time since the
+ * last frame): frames + 1, elapsed + it (32-bit); past 10: rate = frames x
+ * 100 / elapsed (wrapping product, idiv) and both 0. */
+void race_frame_rate(RaceFrameRate *fr, int32_t elapsed);
+
 #endif
