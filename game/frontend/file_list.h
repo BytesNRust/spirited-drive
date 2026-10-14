@@ -7,6 +7,9 @@
 
 enum { FILE_LIST_NAME = 0x14 };
 
+/* 00488723 (stricmp) == 0: only A..Z are folded. */
+int file_list_same_name(const uint8_t *a, const char *b);
+
 /* 0042ad94: drops the names equal, ignoring the case of A..Z, to
  * REPLAY.RPL or REPLAY1..3.RPL. A drop copies each later name over the one
  * before it with strcpy, through the name just past the end (so names holds

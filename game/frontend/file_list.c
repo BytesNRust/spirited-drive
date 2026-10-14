@@ -2,8 +2,7 @@
 
 #include <stddef.h>
 
-/* 00488723 (stricmp) == 0: only A..Z are folded. */
-static int same_name(const uint8_t *a, const char *b)
+int file_list_same_name(const uint8_t *a, const char *b)
 {
     for (;; a++, b++) {
         const int x = *a >= 'A' && *a <= 'Z' ? *a + 0x20 : *a;
@@ -22,7 +21,7 @@ void file_list_drop_replays(uint8_t *names, int16_t *count)
         uint8_t *name = names + FILE_LIST_NAME * (size_t)i;
         int drop = 0;
         for (size_t r = 0; r < sizeof REPLAY / sizeof REPLAY[0]; r++)
-            if (same_name(name, REPLAY[r])) drop = 1;
+            if (file_list_same_name(name, REPLAY[r])) drop = 1;
         if (!drop) continue;
         for (int j = i; j < *count; j++) {
             uint8_t *to = names + FILE_LIST_NAME * (size_t)j;
