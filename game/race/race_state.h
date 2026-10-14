@@ -178,6 +178,10 @@ typedef struct {
     int32_t player;                 /* 004fbb08: the car the camera follows */
     int32_t phase;                  /* 004c5390: 1 while racing */
     int32_t tick;                   /* 00513e70 */
+    int32_t unknown_513e60;         /* 00513e60: 0045597c runs the tick only while 0 */
+    int32_t unknown_513e64;         /* 00513e64: 0045597c runs the tick only while set */
+    int32_t unknown_4c5398;         /* 004c5398: with phase 2 and 0, the tick count stands (0045597c) */
+    int32_t unknown_4c539c;         /* 004c539c: counted down by 0045597c while above 0 */
     int32_t clock;                  /* 00512d90: tick % 0x7080 */
     int32_t last_node;              /* 004fa18c */
     int32_t landing_shake;          /* 004f9b74: frames of camera shake after a jump */
