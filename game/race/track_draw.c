@@ -1,5 +1,6 @@
 #include "game/race/track_draw.h"
 
+#include "game/gfx/x86_int.h"
 #include "game/race/track_tables.h"
 
 #include <string.h>
@@ -48,10 +49,10 @@ void track_project_near(const DrawContext *ctx, const int32_t p[3], int32_t near
 {
     int32_t q[3] = { p[0], p[1], p[2] };
     if (p[2] < near) {
-        const int32_t dz = ctx->near_dir[2], gap = near - p[2];
+        const int32_t dz = ctx->near_dir[2], gap = x_sub(near, p[2]);
         const int32_t t = (int32_t)(((int64_t)(gap % dz) << 16) / dz) + (int32_t)((uint32_t)(gap / dz) << 16);
-        q[0] = p[0] + mul_round(t, ctx->near_dir[0]);
-        q[1] = p[1] + mul_round(t, ctx->near_dir[1]);
+        q[0] = x_add(p[0], mul_round(t, ctx->near_dir[0]));
+        q[1] = x_add(p[1], mul_round(t, ctx->near_dir[1]));
         q[2] = near;
     }
     view_project(ctx->view, q, screen);
@@ -59,7 +60,7 @@ void track_project_near(const DrawContext *ctx, const int32_t p[3], int32_t near
 
 static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
 {
-    for (int i = 0; i < 3; i++) out[i] = (a[i] + b[i]) / 2;
+    for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;
 }
 
 static void pack(int32_t out[8], const int32_t *s0, const int32_t *s1, const int32_t *s2, const int32_t *s3)
@@ -82,7 +83,7 @@ void track_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int 
                            int v_cell, const int32_t *const cam[4], const int32_t screen[8], int32_t near)
 {
     if (near > cam[3][2] && near > cam[0][2]) return;
-    const int32_t limit = TRACK_SUBDIVIDE_Z[depth] >> ctx->world_shift;
+    const int32_t limit = TRACK_SUBDIVIDE_Z[depth] >> (ctx->world_shift & 31);  /* sar by cl */
     if ((cam[1][2] >= limit && cam[2][2] >= limit) || depth >= TRACK_SUBDIVIDE_MAX) {
         if ((outcode_shared(&ctx->clip, screen, 4) & 7) == 0)
             track_draw_cell(ctx, texture, u_level, depth, u_cell, v_cell, screen);
