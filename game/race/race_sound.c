@@ -517,3 +517,20 @@ void race_sound_tyres(RaceState *race)
     }
     race_sound_signal(race, distance, angle);
 }
+
+enum { SPEED_LEVEL_TOP = 0x40 };
+
+/* the larger of two magnitudes plus a quarter of the smaller (ties quarter the second) */
+static int32_t estimate(int32_t first, int32_t second)
+{
+    return second > first ? x_add(second, first >> 2) : x_add(second >> 2, first);
+}
+
+int32_t race_sound_speed_level(const Car *car, const Car *followed)
+{
+    const int32_t apart = estimate(magnitude(x_sub(followed->velocity_z, car->velocity_z)),
+                                   magnitude(x_sub(followed->velocity_x, car->velocity_x)));
+    const int32_t own = x_shl(estimate(magnitude(car->velocity_z), magnitude(car->velocity_x)), 1);
+    const int32_t level = x_sar(own > apart ? own : apart, 16);
+    return level > SPEED_LEVEL_TOP ? SPEED_LEVEL_TOP : level;
+}

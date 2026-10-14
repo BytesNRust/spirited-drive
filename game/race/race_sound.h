@@ -119,6 +119,13 @@ void race_sound_signal_off(RaceState *race);
  * angle) (00472018 first if the distance is still -1), else 00444324. */
 void race_sound_tyres(RaceState *race);
 
+/* 004724dc (watcall car, from 00472560): how loud another car's engine is,
+ * 0..0x40: the larger of its velocity's x / z difference from the followed
+ * car's (004f80ac, chase +0x90) plus a quarter (sar 2) of the smaller, or
+ * twice the same estimate of its own velocity when that is more, sar 16,
+ * held to 0x40 from above (not below). */
+int32_t race_sound_speed_level(const Car *car, const Car *followed);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and
