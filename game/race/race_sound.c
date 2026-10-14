@@ -402,3 +402,40 @@ void race_sound_channel_stop(RaceState *race, int32_t channel)
     v->voice = -1;
     v->sound = -1;
 }
+
+enum {
+    CAR_SOUND_CHANNEL = 4, CAR_SOUND_FIRST = 0x3f, CAR_SOUND_LAST = 0x41, CAR_SOUND_ROWS = 10,
+    CAR_SOUND_RANGE = 0x200000, CAR_SOUND_DOWN = 8, CAR_SOUND_LOUD = 0x7f, CAR_SOUND_SPAN = 0x2000, PITCH_UNIT = 0x100
+};
+
+/* 00471f40 (by slot) and 00471f68 (by kind) */
+static const int32_t CAR_SOUND_BY_SLOT[CAR_SOUND_ROWS] = { 0x41, 0x41, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f };
+static const int32_t CAR_SOUND_PITCH[CAR_SOUND_ROWS] = { 64, 64, 100, 90, 80, 70, 60, 50, 45, 40 };
+
+static int32_t car_sound_row(int32_t i)
+{
+    return (uint32_t)i < CAR_SOUND_ROWS ? i : 0;  /* port guard: the original reads its stack past the copied table */
+}
+
+void race_sound_held_car(RaceState *race)
+{
+    if (race->car_sound_ticks == 0) {
+        const RaceVoice *v = &race->voices[CAR_SOUND_CHANNEL];
+        if (v->voice >= 0 && v->sound >= CAR_SOUND_FIRST && v->sound <= CAR_SOUND_LAST)
+            race_sound_channel_stop(race, CAR_SOUND_CHANNEL);
+        return;
+    }
+    Car *car = race->cars[race_slot(race->car_sound_slot)];
+    if (car == NULL) return;  /* port guard */
+    const int32_t at[3] = { car->x, car->y, car->z };
+    int32_t angle, distance;
+    race_sound_position(race, at, &angle, &distance);
+    const int32_t factor = race_sound_doppler(car, &race->chase);
+    race->car_sound_ticks = x_sub(race->car_sound_ticks, 1);
+    if (factor == 0) return;
+    const int32_t sound = CAR_SOUND_BY_SLOT[car_sound_row(race->car_sound_slot)];
+    const int32_t pitch = x_mul(factor, CAR_SOUND_PITCH[car_sound_row(race->car_sound_kind)]) / PITCH_UNIT;
+    const int32_t volume = distance < CAR_SOUND_RANGE
+        ? x_mul(x_sar(x_sub(CAR_SOUND_RANGE, distance), CAR_SOUND_DOWN), CAR_SOUND_LOUD) / CAR_SOUND_SPAN : 0;
+    race_sound_channel_at(race, CAR_SOUND_CHANNEL, sound, pitch, volume, angle);
+}

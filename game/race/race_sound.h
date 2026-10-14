@@ -76,6 +76,15 @@ void race_sound_follow(RaceState *race, const CarSpecs *specs);
  * original; the port takes 0). */
 void race_sound_channel_at(RaceState *race, int32_t channel, int32_t sound, int32_t pitch, int32_t volume, int32_t angle);
 
+/* 00472e34 (watcall (), from 00440ef0): the held car sound (race->car_sound_*)
+ * on channel 4. While its ticks run: cars[slot]'s place (00472018) and
+ * Doppler factor (00472448), the ticks - 1, then, when the factor is not 0, sound
+ * 00471f40[slot] at pitch factor x 00471f68[kind] / 256 and volume
+ * (0x200000 - distance) / 256 x 127 / 8192 inside 0x200000 (0 past it),
+ * through 00444204 at the angle. With no ticks: channel 4 stopped
+ * (0044432c) while it plays one of the car sounds 0x3f..0x41. */
+void race_sound_held_car(RaceState *race);
+
 /* 0044432c (watcall channel): the channel's voice stopped (00473c68) when
  * it has one (not negative), then the channel's voice and sound -1. */
 void race_sound_channel_stop(RaceState *race, int32_t channel);
