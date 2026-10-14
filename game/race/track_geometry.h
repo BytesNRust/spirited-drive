@@ -34,4 +34,23 @@ typedef struct {
  * ring size as the original does). */
 TriResult track_decode_segment(const Tri *tri, uint32_t segment, TrackSegment *out);
 
+enum { TRACK_SEGMENT_RECORD = 0x21c };
+
+/* What 0043dfd0 reads, as 0043e4e0 leaves it. */
+typedef struct {
+    const uint8_t *header;    /* 005041fc: +0x2c the segments' chunk offsets, a dword each */
+    const uint8_t *terrain;   /* 005041f4: the chunks */
+    const uint8_t *nodes;     /* 00505038: 0x24 bytes a node, +8 its position */
+    uint32_t segment_mask;    /* 00504210 */
+    uint32_t node_mask;       /* 00504208 */
+} TrackSegmentSource;
+
+/* 0043dfd0 (watcall segment, record): the record of a segment as the cache
+ * holds it: the chunk's bytes +0xc..+0x17, then 4 rows of 11 points (12
+ * bytes each), the row's node (segment x 4 + row, masked) position plus the
+ * centre's delta, then two chains of 5 from the centre outward, each point
+ * the one before plus its delta (deltas i16 x 0x200 at chunk +0x18, 0x42 a
+ * row; 32-bit sums). */
+void track_segment_record(const TrackSegmentSource *src, uint32_t segment, uint8_t record[TRACK_SEGMENT_RECORD]);
+
 #endif
