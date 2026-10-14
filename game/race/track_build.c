@@ -136,3 +136,19 @@ void track_build_segment(TrackBuild *b, int32_t first, int32_t segment, int32_t 
     e->count = (int16_t)(b->world_next - start);
     b->vertex_count = x_add(b->vertex_count, e->count);
 }
+
+/* 0043f48c */
+void track_build(TrackBuild *b, int32_t node, int32_t segment, int32_t count)
+{
+    const int32_t first = node / 4;
+    b->first_node = node;
+    b->first_segment = first;
+    b->world_next = 0;
+    b->vertex_count = 0;
+    track_objects_start(&b->walk, (int32_t)(b->segment_mask & (uint32_t)first));
+    const int32_t with_objects = x_sub(count, 1);
+    for (int32_t i = 0; i < with_objects; i++, segment = x_add(segment, 1))
+        track_build_segment(b, first, segment, 4, 1);
+    track_build_segment(b, first, segment, 4, 0);
+    track_build_segment(b, first, x_add(segment, 1), 1, 0);
+}

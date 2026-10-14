@@ -3,7 +3,8 @@
  * row, the scenery records on that row's node placed as object points
  * through the object walk (track_object_walk.h).
  *
- *   track_build_segment  0043eca4 */
+ *   track_build_segment  0043eca4
+ *   track_build          0043f48c: the segments ahead of the camera's node */
 #ifndef TNFS_TRACK_BUILD_H
 #define TNFS_TRACK_BUILD_H
 
@@ -37,6 +38,8 @@ typedef struct {
     int32_t (*object_world)[3];    /* 004fd134 */
     int32_t object_capacity;
     TrackObjectWalk walk;
+    int32_t first_segment;         /* 00504214 */
+    int32_t first_node;            /* 00504218 */
 } TrackBuild;
 
 /* 0043eca4 (watcall first, segment, rows, objects): the LOD of the segment
@@ -48,5 +51,12 @@ typedef struct {
  * when knocked over; two-sided ones two corners more. The segment's entry
  * (lod, first point, count) set and vertex_count raised by the count. */
 void track_build_segment(TrackBuild *b, int32_t first, int32_t segment, int32_t rows, int objects);
+
+/* 0043f48c (watcall node, segment, count): from the camera's node, its
+ * segment (node / 4) kept with it and the lists emptied, the object run
+ * started there (0044a9b8, on the masked segment), then count - 1 segments
+ * from `segment` built with their objects, the next without them and the
+ * one after it a single row. */
+void track_build(TrackBuild *b, int32_t node, int32_t segment, int32_t count);
 
 #endif
