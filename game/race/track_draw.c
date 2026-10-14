@@ -26,10 +26,11 @@ unsigned outcode_shared(const ClipRect *clip, const int32_t *screen, int count)
 void track_draw_cell(const DrawContext *ctx, const FshEntry *t, int u_level, int v_level, int u_cell, int v_cell,
                      const int32_t screen[8])
 {
-    const int32_t w = t->width >> u_level, h = t->height >> v_level;
-    const int32_t u0 = (int32_t)((uint32_t)((((1 << u_level) - 1) - u_cell) * w) << 16);
-    const int32_t v0 = (int32_t)((uint32_t)(h * (((1 << v_level) - 1) - v_cell)) << 16);
-    const int32_t u1 = u0 + (int32_t)((uint32_t)(w - 1) << 16), v1 = v0 + (int32_t)((uint32_t)(h - 1) << 16);
+    /* the entry's +4 / +6 read as signed words; shifts by cl, 32-bit products */
+    const int32_t w = (int16_t)t->width >> (u_level & 31), h = (int16_t)t->height >> (v_level & 31);
+    const int32_t u0 = x_shl(x_mul(x_sub(x_sub(x_shl(1, u_level & 31), 1), u_cell), w), 16);
+    const int32_t v0 = x_shl(x_mul(h, x_sub(x_sub(x_shl(1, v_level & 31), 1), v_cell)), 16);
+    const int32_t u1 = x_add(u0, x_shl(w - 1, 16)), v1 = x_add(v0, x_shl(h - 1, 16));
     if (u0 < u1 && v0 < v1) {
         const int32_t uv[8] = { u0, v0, u1, v0, u1, v1, u0, v1 };
         ctx->sink.draw_uv(ctx->sink.user, t, uv, screen);
