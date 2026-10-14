@@ -552,7 +552,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                         { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0 };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
-    track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, cam.matrix);
+    track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */

@@ -24,19 +24,19 @@ enum {
 
 /* ---- camera matrix (004496ac) ---- */
 
-void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored, int32_t out[9])
+void track_camera_matrix(int32_t pitch, int32_t yaw, int32_t roll, int mirrored, int32_t vertical_scale, int32_t out[9])
 {
-    int32_t x[9], y[9], z[9], t[9], u[9];
+    int32_t x[9], y[9], z[9], t[9], u[9], s[9], v[9];
     mat3_rotate_x(x, pitch);
     mat3_rotate_z(z, roll);
     mat3_rotate_y(y, yaw);
-    /* TODO(00449670): the viewport's vertical scale; 0x10000 in every view
-     * seen so far. */
+    mat3_scale_y(s, vertical_scale);
     int32_t flip[9];
     mat3_scale_x(flip, mirrored ? -0x10000 : 0x10000);
     mat3_mul(y, z, t);
     mat3_mul(t, x, u);
-    mat3_mul(u, flip, out);
+    mat3_mul(u, s, v);
+    mat3_mul(v, flip, out);
 }
 
 void track_camera_rear_matrix(int32_t pitch, int32_t yaw, int32_t roll, int32_t out[9])

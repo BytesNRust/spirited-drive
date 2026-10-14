@@ -31,6 +31,7 @@ int32_t fx_atan2_10(int32_t y, int32_t x);   /* 00484294, 10-bit angles (0x400 p
 void fx_rotate(int32_t x, int32_t z, int32_t angle, int32_t *out_x, int32_t *out_z);
 void fx_cross(const int32_t a[3], const int32_t b[3], int32_t out[3]);  /* 0042ec50, rounded products */
 void mat3_scale_x(int32_t m[9], int32_t x);   /* 00449634: diag(x, 1, 1) in 16.16 */
+void mat3_scale_y(int32_t m[9], int32_t y);   /* 00449670: diag(1, y, 1) in 16.16 */
 void mat3_rotate_x(int32_t m[9], int32_t a);  /* 00449520, a 24-bit angle */
 void mat3_rotate_y(int32_t m[9], int32_t a);  /* 0044957c */
 void mat3_rotate_z(int32_t m[9], int32_t a);  /* 004495d8 */

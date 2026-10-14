@@ -255,6 +255,15 @@ void mat3_scale_x(int32_t m[9], int32_t x)
     m[0] = x;
 }
 
+void mat3_scale_y(int32_t m[9], int32_t y)
+{
+    m[0] = 0x10000;
+    m[1] = m[2] = m[3] = 0;
+    m[5] = m[6] = m[7] = 0;
+    m[8] = 0x10000;
+    m[4] = y;
+}
+
 void mat3_rotate_x(int32_t m[9], int32_t a)
 {
     const int32_t s = fx_sin16(a >> 8), c = fx_cos16(a >> 8);
