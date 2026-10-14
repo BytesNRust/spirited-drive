@@ -445,6 +445,11 @@ void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t
     if (race->sounds.sound != NULL) race->sounds.sound(race->sounds.user, a, b & 0xff, c & 0xff, d, e, f);
 }
 
+void race_sound_effect_scaled(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
+{
+    if (race->sounds.sound != NULL) race->sounds.sound(race->sounds.user, a, b & 0xff, c & 0xff, x_sar(d, 4), e, f);
+}
+
 enum { SIGNAL_CHANNEL = 14, SIGNAL_SOUND = 3, SIGNAL_PITCH = 0x40, SIGNAL_CENTRE = 0x40, SIGNAL_NEAR = 2 };
 
 void race_sound_signal(RaceState *race, int32_t distance, int32_t angle)

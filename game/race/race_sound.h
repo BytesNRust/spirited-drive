@@ -93,6 +93,10 @@ void race_sound_channel_stop(RaceState *race, int32_t channel);
  * sound hook) with b and c cut to bytes. */
 void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
 
+/* 00444000 (as 00443f9c, from 00472560): 00443eac with b and c cut to bytes
+ * and d sar 4. */
+void race_sound_effect_scaled(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
+
 /* 004442ec (watcall distance, angle; from 0047217c while the viewed car's
  * +0x4ba is set, a horn?): sound 3 on channel 14 at pitch 0x40, as loud as
  * 00471fec makes `distance`, panned by `angle` (00443c48) unless distance
