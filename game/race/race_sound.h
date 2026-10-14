@@ -69,4 +69,11 @@ void race_sound_engine(RaceState *race, const Car *car, int32_t angle, int32_t d
  * cars[004fbb08]). */
 void race_sound_follow(RaceState *race, const CarSpecs *specs);
 
+/* 00472348 (watcall (), from 00440ef0 with two humans or more): the first
+ * human (a 16-bit count up to 004fb7e0) other than the viewed one whose car
+ * looks back (+0x4ba) and has no finish (its record +0x1c4) holds the car
+ * sound: slot it, 999 ticks, kind 1; none, the ticks 0. 004fbb04 is written
+ * back as read. */
+void race_sound_other_human(RaceState *race);
+
 #endif

@@ -343,3 +343,23 @@ void race_sound_start_engine(RaceState *race)
     race->voices[ROAD_VOICE].sound = ROAD_SOUND;
     if (race->effects != 0 && race->sounds.force_release != NULL) race->sounds.force_release(race->sounds.user);
 }
+
+enum { OTHER_HUMAN_TICKS = 999, OTHER_HUMAN_KIND = 1 };
+
+void race_sound_other_human(RaceState *race)
+{
+    const int32_t viewed = race->viewed;
+    for (int16_t i = 0; i < race->humans; i = (int16_t)(i + 1)) {
+        if (i == viewed) continue;
+        const Car *car = race->cars[race_slot(i)];  /* port guard */
+        if (car == NULL || car->look_back == 0) continue;
+        if (race->players[(uint16_t)i <= RACE_PLAYERS ? i : 0].finish != 0) continue;  /* port guard */
+        race->car_sound_slot = i;
+        race->car_sound_ticks = OTHER_HUMAN_TICKS;
+        race->car_sound_kind = OTHER_HUMAN_KIND;
+        race->viewed = viewed;
+        return;
+    }
+    race->car_sound_ticks = 0;
+    race->viewed = viewed;
+}
