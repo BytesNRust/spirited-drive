@@ -31,6 +31,7 @@ typedef struct MenuSoundOps {
     int32_t (*stream_read)(void *ctx, int32_t stream);  /* 0048bcfc (cdecl): a chunk or 0 */
     void (*chunk_play)(void *ctx, int32_t chunk);     /* 0048df3c: eax the chunk */
     int32_t (*stream_voice)(void *ctx);               /* 0048dedc: the voice the stream plays on */
+    void (*block_free)(void *ctx, int32_t block);     /* 00475260 (cdecl) */
     void *ctx;
 } MenuSoundOps;
 
@@ -48,6 +49,7 @@ typedef struct MenuSound {
     int32_t chunk;     /* 0052481c: the last chunk 0048bcfc gave (004640d0) */
     int small_stream;  /* the short 004c5cca: a 0x19000-byte stream, else 0x7d000 */
     char music_path[MENU_SOUND_PATH];  /* 00524798: the music's file (00464428) */
+    int32_t track_music;  /* 00524828: the track screen's music (00464788's 00483e80) */
 } MenuSound;
 
 /* 0046492c: with the sound on, starts the short `sound` centred (0x40) at
@@ -112,5 +114,9 @@ void menu_sound_music_feed(MenuSound *m, const ConfigDat *c, const MenuSoundOps 
  * config.dat's music volume (the short 00524e67, 00473b4c) and music_voiced
  * becomes 1; a chunk that is not 0 is played (0048df3c). */
 void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops);
+
+/* 004648a8: with the sound on and the short 00524e6b set in config.dat,
+ * frees the track music (00475260) when there is one and clears it. */
+void menu_sound_track_music_free(MenuSound *m, const ConfigDat *c, const MenuSoundOps *ops);
 
 #endif
