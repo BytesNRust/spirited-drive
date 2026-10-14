@@ -183,3 +183,13 @@ void menu_sound_track_music_start(MenuSound *m, const ConfigDat *c, const char *
     ops->track_volume(ops->ctx, 4, 4, volume);
     ops->track_begin(ops->ctx, m->track_music, 0);
 }
+
+/* 004648dc */
+void menu_sound_bank_load(MenuSound *m, const char *dir, const MenuSoundOps *ops)
+{
+    char path[0x50];
+    snprintf(path, sizeof path, "%sfront_mw.bnk", dir);
+    if (!m->sound_on) return;
+    m->bank_data = ops->file_read(ops->ctx, path, 0);
+    m->bank = ops->bank_register(ops->ctx, *(const int32_t *)m->bank_data);
+}

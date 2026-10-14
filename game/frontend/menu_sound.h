@@ -38,6 +38,8 @@ typedef struct MenuSoundOps {
     /* 00492438: eax and edx 4 and 4, ebx the volume; what the 4s pick in EA's player is not known. */
     void (*track_volume)(void *ctx, int32_t eax, int32_t edx, int32_t volume);
     void (*track_begin)(void *ctx, int32_t music, int32_t edx);  /* 004924f8: eax the music, edx 0 */
+    void *(*file_read)(void *ctx, const char *path, int32_t flags);  /* 00483ec0 (cdecl): the file */
+    int32_t (*bank_register)(void *ctx, int32_t first);  /* 0048ed30: eax the file's first dword; the handle */
     void *ctx;
 } MenuSoundOps;
 
@@ -139,5 +141,10 @@ void menu_sound_track_music_play(const MenuSound *m, const ConfigDat *c, const M
  * 00524e69 * 3 / 2, at most 0x7f) and starts it (004924f8). */
 void menu_sound_track_music_start(MenuSound *m, const ConfigDat *c, const char *dir, const char *name,
                                   const MenuSoundOps *ops);
+
+/* 004648dc: path = dir + "front_mw.bnk" (it must fit); with the sound on,
+ * reads the file (00483ec0) and registers it (0048ed30 on its first dword;
+ * the file is not checked for NULL). */
+void menu_sound_bank_load(MenuSound *m, const char *dir, const MenuSoundOps *ops);
 
 #endif
