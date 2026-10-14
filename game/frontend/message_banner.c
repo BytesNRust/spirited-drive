@@ -29,3 +29,33 @@ void message_banner_show(const char *text, const MessageBannerInputs *in, const 
     ops->flip(ops->ctx);
     ops->picture_free(ops->ctx, picture);
 }
+
+/* 00467214 */
+void message_banner_wait(const char *text, int32_t time, int32_t screen, int *pointer_active,
+                         int *pointer_buttons, const MessageBannerWaitOps *ops)
+{
+    enum { X = 0x64, Y = 0xd2, W = 0x1b8, H = 0x3c, FOREVER = -1, SETTLE = 10 };
+    ops->music_service(ops->ctx);
+    const int32_t picture = ops->picture_new(ops->ctx, W, H, 0);
+    ops->select(ops->ctx, screen);
+    ops->grab(ops->ctx, ops->picture_shape(ops->ctx, picture), X, Y);
+    ops->banner(ops->ctx, text);
+    if (time != FOREVER) ops->deadline_set(ops->ctx, time);
+    ops->select(ops->ctx, screen);
+    ops->blit(ops->ctx, ops->picture_shape(ops->ctx, picture), X, Y);
+    ops->picture_free(ops->ctx, picture);
+    if (time == FOREVER) return;
+    *pointer_buttons = 0;
+    ops->pointer_show(ops->ctx);
+    while (!ops->deadline_passed(ops->ctx) && !ops->key(ops->ctx) && *pointer_buttons == 0) {
+        if ((int16_t)*pointer_active != 0) *pointer_buttons = (int16_t)ops->pointer_buttons(ops->ctx);
+        ops->music_service(ops->ctx);
+    }
+    ops->deadline_set(ops->ctx, SETTLE);
+    while (!ops->deadline_passed(ops->ctx)) ops->music_service(ops->ctx);
+    ops->select_default(ops->ctx);
+    ops->blit_own(ops->ctx, ops->picture_shape(ops->ctx, screen));
+    ops->flip(ops->ctx);
+    ops->select(ops->ctx, screen);
+    ops->pointer_show(ops->ctx);
+}

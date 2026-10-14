@@ -42,4 +42,33 @@ typedef struct MessageBannerInputs {
  * the picture freed. */
 void message_banner_show(const char *text, const MessageBannerInputs *in, const MessageBannerOps *ops);
 
+/* The calls 00467214 makes past 0046667c's. */
+typedef struct MessageBannerWaitOps {
+    void (*music_service)(void *ctx);                                        /* 0046417c */
+    int32_t (*picture_new)(void *ctx, int32_t w, int32_t h, int32_t flags);  /* 0047310c (cdecl) */
+    int32_t (*picture_shape)(void *ctx, int32_t picture);                    /* the picture's dword +0x2c */
+    void (*select)(void *ctx, int32_t picture);                    /* 00473680 (cdecl) */
+    void (*grab)(void *ctx, int32_t shape, int32_t x, int32_t y);  /* 00476e28 (cdecl) */
+    void (*banner)(void *ctx, const char *text);                   /* 0046667c (message_banner_show) */
+    void (*deadline_set)(void *ctx, int32_t time);                 /* 0047334f (cdecl) */
+    void (*blit)(void *ctx, int32_t shape, int32_t x, int32_t y);  /* 004737d0 (cdecl) */
+    void (*picture_free)(void *ctx, int32_t picture);              /* 004746a0 (cdecl) */
+    void (*pointer_show)(void *ctx);                               /* 00441798 */
+    int32_t (*deadline_passed)(void *ctx);                         /* 0047336d */
+    int32_t (*key)(void *ctx);                                     /* 00464bd0 */
+    int32_t (*pointer_buttons)(void *ctx);                         /* 004417f8 */
+    void (*select_default)(void *ctx);                             /* 00473604 */
+    void (*blit_own)(void *ctx, int32_t shape);                    /* 004737ec (cdecl) */
+    void (*flip)(void *ctx);                                       /* 004733ec */
+    void *ctx;
+} MessageBannerWaitOps;
+
+/* 00467214: the banner over the screen picture, the screen under it put
+ * back on the picture at once (0x1b8 x 0x3c at 0x64, 0xd2). With a time
+ * other than -1 it stays shown until the time passes, a key, or a button
+ * of the active pointer (the short 00524792, cleared first), then 10 more,
+ * and the screen picture is shown again; the music is serviced all along. */
+void message_banner_wait(const char *text, int32_t time, int32_t screen, int *pointer_active,
+                         int *pointer_buttons, const MessageBannerWaitOps *ops);
+
 #endif
