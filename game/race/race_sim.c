@@ -18,6 +18,8 @@
 #include "game/race/race_models.h"
 #include "game/race/race_sound.h"
 #include "game/race/race_split_times.h"
+#include "game/race/race_frame.h"
+#include "game/race/race_tick.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -191,16 +193,6 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
 /* The progress the split times measure the player against (00440ef0):
  * the other car when two drive or one opponent races, else the leader, or
  * the second when the player leads; none without opponents. */
-static int32_t rival_progress(const RaceState *race)
-{
-    const int32_t opponents = race->racers - race->humans;
-    if (race->humans >= 2 || opponents == 1) return race->cars[race->player == 0 ? 1 : 0]->progress;
-    if (opponents < 2) return 0;
-    const int32_t leader = race->by_progress[race_slot(race->car_count - 1)];
-    const int32_t rival = leader == race->player ? race->by_progress[race_slot(race->car_count - 2)] : leader;
-    return race->cars[race_slot(rival)]->progress;
-}
-
 void race_sim_start(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs, const RaceEntry *entry,
                     int laps, int arcade)
 {
@@ -235,23 +227,6 @@ static void run_physics(Car *car, CarSpecs *specs, RaceState *race)
     car_lateral(car, race);
 }
 
-/* 00440ef0 after the finishes: once every human (finish_humans) has a
- * finish and has slowed to STOPPED, the end request: 1, or 0x10 when none
- * of them finished above 0. Not ported: the split screen's switch to the
- * other player's car (00404530, the camera) and the network wait
- * (0052b312 == 1). */
-static void check_end(RaceState *race)
-{
-    int32_t humans = race->finish_humans;
-    if (humans > RACE_PLAYERS) humans = RACE_PLAYERS;  /* port guard */
-    for (int32_t i = 0; i < humans; i++)
-        if (race->players[i].finish == 0 || race->cars[i]->speed > STOPPED) return;
-    int all_out = 1;
-    for (int32_t i = 0; i < humans; i++)
-        if (race->players[i].finish > 0) all_out = 0;
-    race->end_request = race->end_state = all_out ? END_ALL_OUT : END_FINISHED;
-}
-
 int race_sim_over(const RaceSim *sim)
 {
     return sim->race.end_request != 0;
@@ -262,53 +237,92 @@ void race_sim_end(RaceSim *sim)
     race_results_end(&sim->race);
 }
 
+/* race_tick's callees on the port's functions */
+static int32_t sim_slot(const RaceState *race, const Car *car)
+{
+    for (int32_t i = 0; i < RACE_CARS; i++)
+        if (race->cars[i] == car) return i;
+    return 0;
+}
+
+static void sim_replay(void *ctx)
+{
+    RaceState *race = &((RaceSim *)ctx)->race;
+    race->clock = race->tick % CLOCK_WRAP;  /* 00450020's clock; its replay player is not ported (no replays here) */
+}
+
+static void sim_controller(void *ctx, Car *car, int32_t kind)
+{
+    RaceSim *sim = ctx;
+    (void)kind;
+    run_controller(car, &sim->specs[sim_slot(&sim->race, car)], &sim->race);
+}
+
+/* 004054cc / 00405370: reached only on split screens (screen kinds 4 and 5), which race_sim has not */
+static void sim_window(void *ctx, int32_t *first, int32_t *size) { (void)ctx, *first = 0, *size = 0; }
+static void sim_window_set(void *ctx, int32_t size) { (void)ctx, (void)size; }
+static void sim_finish(void *ctx, Car *car) { race_car_finish(car, &((RaceSim *)ctx)->race); }
+static void sim_chase_take(void *ctx, Car *car)
+{
+    RaceState *race = &((RaceSim *)ctx)->race;
+    race_chase_follow(race, &race->chase, car, 3);
+}
+
+static void sim_engines(void *ctx) { race_sound_start_engine(&((RaceSim *)ctx)->race); }
+static int32_t sim_wait_timer;  /* 004bb8d8: reached only in a network game's playback (0052b312 == 1) */
+static void sim_service(void *ctx) { (void)ctx, sim_wait_timer++; }
+static void sim_physics(void *ctx, Car *car, int32_t kind)
+{
+    RaceSim *sim = ctx;
+    (void)kind;
+    run_physics(car, &sim->specs[sim_slot(&sim->race, car)], &sim->race);
+}
+
+static void sim_lateral(void *ctx, Car *car) { car_lateral(car, &((RaceSim *)ctx)->race); }
+static void sim_sort(void *ctx) { race_sort_cars(&((RaceSim *)ctx)->race); }
+static void sim_contacts(void *ctx) { race_cars_contacts(&((RaceSim *)ctx)->race); }
+static void sim_splits_pass(void *ctx, int32_t mine, int32_t rival) { race_splits_pass(&((RaceSim *)ctx)->race, mine, rival); }
+static void sim_splits_gap(void *ctx) { race_splits_gap(&((RaceSim *)ctx)->race); }
+static void sim_camera_pick(void *ctx, Car *car) { race_camera_pick(&((RaceSim *)ctx)->race, car); }
+static void sim_chase_tick(void *ctx)
+{
+    RaceState *race = &((RaceSim *)ctx)->race;
+    race_chase_tick(race, &race->chase);
+}
+
+static void sim_scrape(void *ctx, Car *car) { race_send_vibration(car, &((RaceSim *)ctx)->race); }
+static void sim_force(void *ctx, Car *car) { race_send_force(car, &((RaceSim *)ctx)->race); }
+static void sim_follow(void *ctx)
+{
+    RaceSim *sim = ctx;
+    race_sound_follow(&sim->race, &sim->specs[race_slot(sim->race.player)]);
+}
+
+/* 00476f94 (a platform thunk) and the sounds not ported yet: TODO(00472e34, 0047217c, 00472348, 00472560) */
+static void sim_none(void *ctx) { (void)ctx; }
+static void sim_frame_none(void *ctx, int16_t frame) { (void)ctx, (void)frame; }
+
+static void sim_tick(void *ctx)
+{
+    static const RaceTickOps ops = { NULL, sim_replay, sim_controller, sim_window, sim_window_set, sim_finish,
+                                     sim_chase_take, sim_engines, sim_service, sim_service, sim_physics, sim_lateral,
+                                     sim_sort, sim_contacts, sim_splits_pass, sim_splits_gap, sim_camera_pick,
+                                     sim_chase_tick, sim_none, sim_scrape, sim_force, sim_none, sim_follow, sim_none,
+                                     sim_none, sim_none };
+    RaceTickOps o = ops;
+    o.ctx = ctx;
+    RaceTickWords w = { 0, 0, 0, 0, 0, &sim_wait_timer, { 0, 0 } };
+    race_tick(&o, &((RaceSim *)ctx)->race, &w);
+}
+
+/* 0045597c: the music, the deferred calls (the in-race menu and pause), the
+ * Esc / P keys and 004381f8's commands are --drive's (track_viewer.c) or not
+ * yet ported there; the tick and its count as the frame runs them. */
 void race_sim_tick(RaceSim *sim, uint32_t input)
 {
     RaceState *race = &sim->race;
-    race->tick_flags = (uint8_t)(((race->tick & 1) == 0 ? TICK_PHYSICS : 0) |
-                                 ((race->tick & 3) == 0 ? TICK_CONTROLS : 0) | ((race->tick & 7) == 0 ? TICK_AIDS : 0));
-    race->clock = race->tick % CLOCK_WRAP;  /* 00450020 */
     race->inputs[0] = input;
-    if (race->tick < REST_TICKS)
-        for (int i = 0; i < race->humans; i++) race->inputs[i] = RACE_SIM_INPUT_REST;
-    if (race->tick_flags & TICK_CONTROLS)
-        for (int i = 0; i < race->car_count; i++) {  /* road order too */
-            const int slot = race_slot(race->by_node[i]);
-            Car *car = race->cars[slot];
-            if ((car->flags_51a & FLAG_ACTIVE) && car->controller != 0) run_controller(car, &sim->specs[slot], race);
-        }
-    if (race->tick_flags & TICK_PHYSICS) {
-        /* 00440ef0: each racing car's finish first, by slot. */
-        if (race->phase == 1)
-            for (int i = 0; i < race->finish_cars && i < sim->count; i++)
-                if (race->cars[i]->flags_51a & FLAG_ACTIVE) race_car_finish(race->cars[i], race);
-        if (race->phase == 1) check_end(race);
-        /* Then in road order, the rearmost first. */
-        for (int i = 0; i < race->car_count; i++) {
-            const int slot = race_slot(race->by_node[i]);
-            Car *car = race->cars[slot];
-            if ((car->flags_51a & FLAG_ACTIVE) && car->physics != 0) run_physics(car, &sim->specs[slot], race);
-        }
-        race_sort_cars(race);
-        race_cars_contacts(race);
-        race_sort_cars(race);
-        race_splits_pass(race, race->cars[race_slot(race->player)]->progress, rival_progress(race));
-        race_splits_gap(race);
-        race_camera_pick(race, race->cars[race_slot(race->viewed)]);
-        race_chase_tick(race, &race->chase);
-        /* 00440ef0 after 004046b0: the player's sounds unless the race is
-         * over (phase 3) or their entry has the sound off. TODO: 00472e34
-         * before it, 0047217c, 00472348 and 00472560 after it, not ported. */
-        if (race->phase != 3 && race->entries[race->player & (RACE_PLAYERS - 1)].sound_volume != 0)
-            race_sound_follow(race, &sim->specs[race_slot(race->player)]);
-        /* 004414a7: the cars drawn, by road node, each keeping its draw state */
-        race->drawn_count = 0;
-        for (int i = 0; i < race->car_count; i++) {
-            Car *car = race->cars[race_slot(race->by_node[i])];
-            if ((car->flags_51a & FLAG_ACTIVE) == 0 || car->controller == 0) continue;
-            race->drawn[race->drawn_count++] = car;
-            car_keep_draw_state(car);
-        }
-    }
-    race->tick += 2;
+    race->unknown_513e64 = 1;
+    const RaceFrameOps frame = { sim, sim_none, sim_none, sim_frame_none, sim_frame_none, sim_none, sim_tick };
+    race_frame(&frame, race, 0, (int16_t)race->tick);
 }
