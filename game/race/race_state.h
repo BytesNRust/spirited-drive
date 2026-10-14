@@ -73,11 +73,11 @@ typedef struct {
     void (*speech)(void *user, const char *name);
     /* 004acd8a: a tone, the gear change (0043cda0) or a wall scrape (0043cd58) */
     void (*tone)(void *user, int32_t a, int32_t b, int32_t c);
-    /* 0046a654 on cars 1.. of 00509e1c (0046b080): pushes from a blown engine.
-     * TODO(0046a654): the push itself, once the cars collide. */
+    /* 0046a654 on cars 1.. of 00509e1c (0046b080): pushes from a blown engine
+     * (race_sim: car_push_spin). */
     void (*push)(void *user, int32_t car, int32_t x, int32_t y, int32_t z);
-    /* 0046a654 from a wall (004302a4) on the record car +0x88 names.
-     * TODO(0046a654): the crash physics. */
+    /* 0046a654 from a wall (004302a4) on the record car +0x88 names
+     * (race_sim: car_push_spin). */
     void (*crash)(void *user, uint32_t target, int32_t x, int32_t y, int32_t z);
     /* 0041019c: while a recording plays, the followed car is still on the
      * start line (00440afc). */
@@ -115,6 +115,8 @@ typedef struct {
      * 004acd7e / 004acd78 (_X / _YVibrationClear) stop it. NULL for none. */
     void (*vibration)(void *user, int32_t axis, int32_t a, int32_t b, int32_t c);
     void (*vibration_clear)(void *user, int32_t axis);
+    /* 00473c68: a playing voice stopped; NULL for none. */
+    void (*voice_stop)(void *user, int32_t voice);
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */

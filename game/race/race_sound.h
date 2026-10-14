@@ -76,6 +76,10 @@ void race_sound_follow(RaceState *race, const CarSpecs *specs);
  * original; the port takes 0). */
 void race_sound_channel_at(RaceState *race, int32_t channel, int32_t sound, int32_t pitch, int32_t volume, int32_t angle);
 
+/* 0044432c (watcall channel): the channel's voice stopped (00473c68) when
+ * it has one (not negative), then the channel's voice and sound -1. */
+void race_sound_channel_stop(RaceState *race, int32_t channel);
+
 /* 00472448 (watcall car): the car's distance from the listener (chase
  * position x, z: the larger of |dx|, |dz| plus a quarter (sar 2) of the
  * other) kept in +0x3a1; when the view kind is the one kept in +0x3ad and

@@ -393,3 +393,12 @@ void race_sound_channel_at(RaceState *race, int32_t channel, int32_t sound, int3
     if (volume > LEVEL_MAX) volume = LEVEL_MAX;
     race_sound_channel(race, channel, sound, pitch, ENGINE_CURVE[volume < 0 ? 0 : volume], pan);  /* port guard */
 }
+
+void race_sound_channel_stop(RaceState *race, int32_t channel)
+{
+    if ((uint32_t)channel >= RACE_VOICES) return;  /* port guard: the original indexes 0050a4cc unchecked */
+    RaceVoice *v = &race->voices[channel];
+    if (v->voice >= 0 && race->sounds.voice_stop != NULL) race->sounds.voice_stop(race->sounds.user, v->voice);
+    v->voice = -1;
+    v->sound = -1;
+}
