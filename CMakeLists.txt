@@ -172,6 +172,7 @@ add_library(tnfs_game STATIC
     game/race/track_build.c
     game/race/track_far.c
     game/race/track_fence.c
+    game/race/track_near.c
     game/race/track_object_draw.c
     game/race/track_draw.c
     game/race/track_geometry.c
