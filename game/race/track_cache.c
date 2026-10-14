@@ -28,3 +28,35 @@ void track_cache_load(const TrackCacheOps *ops, const TrackSegmentSource *src, i
     if (offset + TRACK_SEGMENT_RECORD > TRACK_CACHE_SIZE) return;
     track_segment_record(src, s, cache + offset);
 }
+
+/* the original's fold: above half the ring it takes ring - d, not d - ring */
+static int32_t fold(int32_t d, int32_t ring)
+{
+    if (d > ring / 2) return x_sub(ring, d);
+    if (d < x_sub(0, ring) / 2) return x_add(d, ring);
+    return d;
+}
+
+/* 0043e300 */
+void track_cache_window(const TrackWindowOps *ops, TrackCacheWindow *w, int32_t segment)
+{
+    int32_t d = fold(x_sub(w->head, segment), w->ring);
+    int32_t from_back = x_sub(segment, x_sub(w->head, w->ahead));
+    if (from_back < 1) from_back = x_sub(0, from_back);
+    if (fold(from_back, w->ring) > w->behind) {
+        w->head = x_sub(x_add(w->ahead, segment), w->behind) & w->mask;
+        d = x_sub(w->ahead, w->behind);
+    }
+    while (d < w->ahead) {
+        w->loading = x_add(w->head, 1) & w->mask;
+        ops->load(ops->ctx, w->head);
+        w->head = x_add(w->head, 1) & w->mask;
+        d = fold(x_sub(w->head, segment), w->ring);
+    }
+    while (d > w->ahead) {
+        w->loading = x_sub(w->head, 1) & w->mask;
+        ops->load(ops->ctx, x_sub(x_sub(w->head, 1), w->behind));
+        w->head = x_sub(w->head, 1) & w->mask;
+        d = fold(x_sub(w->head, segment), w->ring);
+    }
+}
