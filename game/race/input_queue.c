@@ -107,3 +107,23 @@ void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c)
     *late = 0;
     *unknown_4fb78c = 0;
 }
+
+enum { PRIME_WORD = 0x7a0, PRIME_LEAST = 2 };
+
+void input_queue_prime(InputQueue *q, int32_t net_start, int32_t wait_ticks, int32_t *clock, int32_t *replay_due)
+{
+    if (net_start != 1) {
+        q->clock = 0;
+        return;
+    }
+    int32_t n = wait_ticks >> 1;
+    if (n < PRIME_LEAST) n = PRIME_LEAST;
+    for (int32_t i = 0; i < n && i < INPUT_SLOTS; i++) {  /* port guard: the original writes on past the queue */
+        q->input[i] = PRIME_WORD;
+        q->ready[i] = 1;
+    }
+    n = x_add(n, n);
+    *clock = n;
+    q->clock = n;
+    *replay_due = x_sub(n, 2);
+}

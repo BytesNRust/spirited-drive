@@ -48,6 +48,11 @@ typedef struct {
  * (`late`) and 004fb78c 0. The inputs are left as they are. */
 void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c);
 
+/* 00439478 (watcall queue, after 00439430): in a network game (004fb7d4 1)
+ * the first n = max(004fbac8 sar 1, 2) slots hold 0x7a0, ready; the clock
+ * (and 004fb7a0) 2n, 004c5598 2n - 2. Else the clock 0. */
+void input_queue_prime(InputQueue *q, int32_t net_start, int32_t wait_ticks, int32_t *clock, int32_t *replay_due);
+
 int input_take(InputQueue *q, uint32_t *control, int slot, InputWords *w);
 
 /* 00439b24 (no arguments): slot = (clock 004fb7a0 / 2, toward zero) & 63.
