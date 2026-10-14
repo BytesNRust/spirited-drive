@@ -306,8 +306,9 @@ static void sim_follow(void *ctx)
 }
 
 static void sim_other_human(void *ctx) { race_sound_other_human(&((RaceSim *)ctx)->race); }
+static void sim_held_car(void *ctx) { race_sound_held_car(&((RaceSim *)ctx)->race); }
 
-/* 00476f94 (a platform thunk) and the sounds not ported yet: TODO(00472e34, 0047217c, 00472560) */
+/* 00476f94 (a platform thunk) and the sounds not ported yet: TODO(0047217c, 00472560) */
 static void sim_none(void *ctx) { (void)ctx; }
 static void sim_frame_none(void *ctx, int16_t frame) { (void)ctx, (void)frame; }
 
@@ -316,7 +317,7 @@ static void sim_tick(void *ctx)
     static const RaceTickOps ops = { NULL, sim_replay, sim_controller, sim_window, sim_window_set, sim_finish,
                                      sim_chase_take, sim_engines, sim_service, sim_service, sim_physics, sim_lateral,
                                      sim_sort, sim_contacts, sim_splits_pass, sim_splits_gap, sim_camera_pick,
-                                     sim_chase_tick, sim_none, sim_scrape, sim_force, sim_none, sim_follow, sim_none,
+                                     sim_chase_tick, sim_none, sim_scrape, sim_force, sim_held_car, sim_follow, sim_none,
                                      sim_other_human, sim_none };
     RaceTickOps o = ops;
     o.ctx = ctx;
