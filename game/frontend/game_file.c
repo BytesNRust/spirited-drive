@@ -26,3 +26,18 @@ int32_t game_file_save(const char *path, const uint8_t game[GAME_FILE_SIZE], con
     ops->block_free(ops->ctx, block);
     return written;
 }
+
+/* 0042a5e8 */
+int32_t game_file_copy_replay(const char *path, const GameFileOps *ops)
+{
+    void *data;
+    int32_t flags = 0, size;
+    ops->read(ops->ctx, "gamedata/replay/replay.rpl", &data, &flags, &size);
+    uint8_t *block = ops->alloc(ops->ctx, "LOADREPLAY", size, 0);
+    ops->copy(ops->ctx, data, block, size);
+    ops->release(ops->ctx, data);
+    if (!ops->has_room(ops->ctx, size)) return 0;
+    const int32_t written = ops->write(ops->ctx, path, block, size);
+    ops->block_free(ops->ctx, block);
+    return written;
+}

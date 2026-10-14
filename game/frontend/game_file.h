@@ -33,4 +33,10 @@ void game_file_load(const char *name, uint8_t game[GAME_FILE_SIZE], const GameFi
  * returns what 004885b4 gave, or 0 without room. */
 int32_t game_file_save(const char *path, const uint8_t game[GAME_FILE_SIZE], const GameFileOps *ops);
 
+/* 0042a5e8: gamedata/replay/replay.rpl read whole and copied into a
+ * "LOADREPLAY" block of its size; with room on the disk for it, written to
+ * path and the block freed, returning what 004885b4 gave; without room 0,
+ * and the block is not freed. */
+int32_t game_file_copy_replay(const char *path, const GameFileOps *ops);
+
 #endif
