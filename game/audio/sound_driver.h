@@ -102,4 +102,11 @@ int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume);
  * (00497750) and the voice's gains (00497e8a); 0. */
 int32_t sound_set_pan(SoundDriver *d, int32_t handle, int32_t pan);
 
+/* 00473c08 (eax the handle, edx the pitch): a handle 00497af8 passes (else
+ * -1) on a bank sample's channel (+0xd 1, else -15), a pitch 0..0x7f (else
+ * -16): the voice's step (00497f05: 0049847d with the voice's rate +0xc)
+ * for the cents 00497724 gives with the channel's range +0xf and base +8;
+ * 0. The channel's pitch +0xe stays as it was. */
+int32_t sound_set_pitch(SoundDriver *d, int32_t handle, int32_t pitch);
+
 #endif

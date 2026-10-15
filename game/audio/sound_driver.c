@@ -152,3 +152,17 @@ int32_t sound_set_pan(SoundDriver *d, int32_t handle, int32_t pan)
     channel_gains(d, d->channels.handle[handle]); /* 00497a1c */
     return 0;
 }
+
+enum { NOT_A_SAMPLE = -15, BAD_PITCH = -16 };
+
+/* 00473c08 */
+int32_t sound_set_pitch(SoundDriver *d, int32_t handle, int32_t pitch)
+{
+    const SoundChannel *c = sound_handle_channel(&d->channels, handle);
+    if (c == NULL) return -1;
+    if (c->kind != 1) return NOT_A_SAMPLE;
+    if (pitch < 0 || pitch > TOP_LEVEL) return BAD_PITCH;
+    MixVoice *v = &d->voice[d->channels.handle[handle]]; /* 00497a1c */
+    v->step = sound_voice_step(v->rate, sound_pitch_cents(pitch, c->range, c->pitch_base), d->mix_rate); /* 00497f05 */
+    return 0;
+}
