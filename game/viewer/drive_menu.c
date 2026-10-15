@@ -11,21 +11,21 @@
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
+#include "game/sys/timer.h"
 #include "game/sys/video.h"
 
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* TICK_HZ: 004bb8dc (counted by the timer callback 0043b9e8) and 0052eebc (00473334's) both run on the
- * master timer, 004c6170 = 100 a second (0048c60c) */
-enum { KEY_ESC_SCANCODE = 1, TICK_HZ = 100, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
+/* 004bb8dc is counted by the master timer's callback 0043b9e8 (TIMER_HZ) */
+enum { KEY_ESC_SCANCODE = 1, TICK_HZ = TIMER_HZ, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
 
 typedef struct {
     DriveMenu *m;
     RaceMenuWorld *w;
     uint8_t *pixels;            /* 00524834: the menu's surface, VIDEO_WIDTH x VIDEO_HEIGHT */
-    uint32_t clock_ms, ticks_ms;  /* where 004bb8dc's and 00473334's ticks were last counted */
+    uint32_t clock_ms;          /* where 004bb8dc's ticks were last counted */
 } MenuCtx;
 
 /* Ticks at TICK_HZ since *since (moved on by the ticks counted) */
@@ -153,7 +153,7 @@ static void blit_at(void *ctx, const uint8_t *shape, int32_t x, int32_t y)
 }
 
 static int16_t buttons(void *ctx) { return (void)ctx, (int16_t)pointer_read_buttons(); }
-static int32_t ticks(void *ctx) { return ticks_since(&((MenuCtx *)ctx)->ticks_ms); }
+static int32_t ticks(void *ctx) { return (void)ctx, timer_ticks_since_last(); }
 static uint16_t key(void *ctx) { return (void)ctx, (uint16_t)input_get_key(); }
 static int16_t ask(void *ctx, const char *question) { return (void)ctx, (int16_t)dialog_yes_no(question); }
 static void notice(void *ctx, const char *text, int32_t time) { (void)ctx, (void)text, (void)time; }
@@ -197,7 +197,7 @@ void drive_menu_run(void *menu)
     static uint8_t pixels[VIDEO_WIDTH * VIDEO_HEIGHT];
     RaceMenuWorld w = { 0 };
     world_from_race(m, &w);
-    MenuCtx c = { m, &w, pixels, platform_ticks_ms(), platform_ticks_ms() };
+    MenuCtx c = { m, &w, pixels, platform_ticks_ms() };
     const RaceMenuOps ops = { &c, call, sounds, kept, fill, fade, set_palette, mode, clip, surface_free, surface_new,
                               select_surface, present, pointer_to, music, load, load_inventory, unload, palette, number,
                               inside, chat, blit_own, blit_at, buttons, ticks, key, ask, notice, net_send, net_wait,
@@ -223,6 +223,7 @@ static void track_of(const char *name, int16_t *track, int16_t *variant)
 int drive_menu_open(DriveMenu *m, const char *data_root, const char *name)
 {
     track_of(name, &m->track, &m->variant);
+    timer_init();
     if (!video_init()) return 0;
     resource_init(data_root, 0);
     if (!pointer_load(0) || !text_init()) {
