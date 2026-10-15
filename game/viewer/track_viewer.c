@@ -13,6 +13,7 @@
 #include "game/race/car_scenery.h"
 #include "game/race/frame_draw.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_draw_setup.h"
 #include "game/race/race_models.h"
 #include "game/race/race_run.h"
 #include "game/race/race_sim.h"
@@ -476,16 +477,42 @@ static void mirror_car(void *user, const Car *car, const ModelView *mv, const Qu
 static FrameDraw drive_frame;
 
 enum {
-    MIRROR_COUNT = 4,           /* 00504224: 0044ca3c's, its only writer */
-    FIRST_SEGMENTS = 0x1c,      /* 004c5360 from 0044ca3c at detail 0 (004fb785) */
     RATE_TICK_MS = 10           /* 00473334's unit: hundredths */
 };
 
-/* 0044ca3c's part for the frame (from race_run's 0044d2c4): the restart and the draw distance asked for. */
-static void drive_frame_setup(void)
+/* 0044d2c4 / 0044ca3c's calls in --drive: the surfaces, the track, its textures and the palette are the port's
+ * own (start_drive), the camera follows the player; 00405630, 00404404, 0044c140, 0044c148, 00449be4, 00449430 and
+ * 0040540c are not ported (TODO). */
+static void ds_none(void *ctx) { (void)ctx; }
+static void ds_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
+static void ds_palette_get(void *ctx, uint8_t rgb[DRAW_SETUP_PALETTE]) { (void)ctx, (void)rgb; }
+static void ds_palette_set(void *ctx, int32_t f, int32_t n, const uint8_t *rgb) { (void)ctx, (void)f, (void)n, (void)rgb; }
+static void ds_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
+static int32_t ds_surface(void *ctx, int32_t w, int32_t h, int32_t flags) { (void)ctx, (void)w, (void)h, (void)flags; return 0; }
+static void ds_screen(void *ctx, int32_t size, int32_t kind) { (void)ctx, (void)size, (void)kind; }
+
+static void ds_follow(void *ctx, int32_t kind)
 {
-    drive_frame.restart = 1;
-    drive_frame.pending_segments = FIRST_SEGMENTS;
+    RaceState *race = ctx;
+    race_chase_follow(race, &race->chase, race->cars[race_slot(race->player)], kind);
+}
+
+/* 0044d2c4 from race_run: its words into drive_frame (the restart, 00511fc4, the draw distance asked for, the
+ * mirror's count and state) and the HUD (004f9b3c). */
+static void drive_frame_setup(RaceState *race)
+{
+    const RaceDrawSetupOps ops = { race, ds_palette_get, ds_none, ds_palette_set, ds_none_i, ds_mode, ds_surface, ds_none,
+                                   ds_none, ds_follow, ds_none, ds_none, ds_none_i, ds_none_i, ds_none, ds_none, ds_screen };
+    RaceDrawSetup st = { 0 };
+    st.restart = drive_frame.restart, st.mirror_state = drive_hud.mirror.state, st.use_parts = drive_hud.keys.use_parts;
+    st.high = HIGH_SCREEN, st.width = SCREEN_W, st.height = SCREEN_H, st.back_buffer = 0;
+    st.replay_kind = 0, st.chase_kind = race->chase.kind, st.detail = 0, st.pending_segments = drive_frame.pending_segments;
+    st.screen_kind = drive_frame.screen_kind, st.clear_view = drive_frame.clear_view;
+    race_draw_start(&ops, &st);
+    drive_frame.restart = st.restart, drive_frame.unknown_511fc4 = st.unknown_511fc4;
+    drive_frame.pending_segments = st.pending_segments, drive_frame.mirror_count = st.mirror_count;
+    drive_frame.clear_view = st.clear_view;
+    drive_hud.mirror.state = st.mirror_state, drive_hud.keys.use_parts = st.use_parts;
 }
 
 /* render_drive's frame: what 0044cc74's calls need from --drive. */
@@ -633,7 +660,6 @@ static void drive_frame_in(FrameDraw *d, RaceState *race)
     if (drive_views.changed) d->changed = 1, drive_views.changed = 0;
     d->window_size = race->window_size;
     d->mirror_state = drive_hud.mirror.state;
-    d->mirror_count = MIRROR_COUNT;
     d->net_start = race->unknown_4fb7d4;
     d->unknown_4f9b7c = drive_hud.keys.dash_camera;
     d->width = SCREEN_W, d->height = SCREEN_H;
@@ -783,6 +809,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.view_user = &drive_views;
     drive_sim.race.window_size = 0;
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
+    /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
+    drive_frame = (FrameDraw){ 0 };
+    drive_frame.pending_segments = -1;
+    drive_frame.mirror_count = DRAW_SETUP_MIRROR_COUNT;
     drive_cars.ended = 0;
     static const char *const CARPAL[] = { ".FSH", ".fsh", NULL };
     size_t carpal_size = 0;
@@ -878,7 +908,7 @@ static void run_service(void *ctx)
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
-static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(); }  /* 0044d2c4 -> 0044ca3c's frame part */
+static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(&drive_sim.race); }  /* 0044d2c4 */
 
 static void run_queue_reset(void *ctx, InputQueue *q)
 {
