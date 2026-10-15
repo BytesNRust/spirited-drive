@@ -48,6 +48,16 @@ void race_sound_start_engine(RaceState *race);
  * the 16 channels' voice and sound -1. */
 void race_sound_setup(RaceState *race, void (*music_volume)(void *user, int16_t volume), void *user);
 
+/* 00443768 (watcall (); F5 on, from 004381f8 and the menus): every
+ * channel's voice (0050a4cc, negative ones too) at volume 0 (00473b4c),
+ * the music at once to 0 (0046463c, `music_now`), 004bc6ec = 1. */
+void race_sound_mute(RaceState *race, void (*music_now)(void *user, int16_t volume), void *user);
+
+/* 0044379c (watcall (); F5 off): 004bc6ec = 0, the music back to the
+ * followed entry's music volume (+0x21 as a short; 00464604). The voices'
+ * volumes come back with the next ticks' sounds. */
+void race_sound_unmute(RaceState *race, void (*music_volume)(void *user, int16_t volume), void *user);
+
 /* 00443820 (no arguments; from the race's start and its returns from the
  * menus and the replay): 0052b31e 0 or 0052b30e set, and the voice on the
  * channel at 004bcb70 negative (none): that channel starts sound 1 (pan
