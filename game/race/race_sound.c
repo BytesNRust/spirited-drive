@@ -320,6 +320,25 @@ void race_sound_start_voices(RaceState *race)
     race->voices[ROAD_VOICE].sound = ROAD_SOUND;
 }
 
+/* 00443670: each car's own bank, 004436a0: its opponent bank (2 per car) */
+static const char *const player_banks[12] = { "Supra_sw.bnk", "Diablosw.bnk", "911_sw.bnk", "ZR1_sw.bnk", "tr512_sw.bnk", "Vipersw.bnk",
+                                              "NSX_sw.bnk", "RX7_sw.bnk", "RX7_sw.bnk", "RX7_sw.bnk", "911_sw.bnk", "traffc.bnk" };
+static const char *const opponent_banks[12] = { "OSupmb.bnk", "ODiamb.bnk", "O911mb.bnk", "OZR1mb.bnk", "O512mb.bnk", "OVipmb.bnk",
+                                                "ONSXmb.bnk", "ORX7mb.bnk", "O911mb.bnk", "O911mb.bnk", "O911mb.bnk", "traffcO.bnk" };
+
+/* 00443924 */
+void race_sound_load_banks(RaceState *race, void (*load)(void *user, const char *name), void *user)
+{
+    if (race->entries[race_slot(race->player)].sound_on == 0) return;
+    const uint32_t car = (uint32_t)race->entries[race_slot(race->player)].car;
+    if (car < 12) load(user, player_banks[car]);
+    const uint32_t other = (uint32_t)race->entries[race->player == 0 ? 1 : 0].car;
+    if (other < 12) load(user, opponent_banks[other]);
+    load(user, race->track == 7 ? "COLLSWMT.BNK" : "COLLSWWT.BNK");
+    load(user, "NFS_FMmb.bnk");
+    race_sound_start_voices(race);
+}
+
 void race_sound_follow(RaceState *race, const CarSpecs *specs)
 {
     if ((uint32_t)race->viewed >= RACE_CARS || race->cars[race->viewed] == NULL)

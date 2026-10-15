@@ -59,7 +59,8 @@ typedef struct {
     int32_t sound_volume; /* +0x1d (004fb817): the sound volume, read for the followed slot; 0 plays no car sounds (0044404c) */
     int32_t music_volume; /* +0x21 (004fb81b): 00464604's (the music's) volume, read for the followed slot */
     int32_t sound_mode;   /* +0x25 (004fb81f): 2 plays the followed car's engine unpanned (004444b8) */
-    uint8_t unknown_29[0x22];
+    int32_t sound_on;     /* +0x29 (004fb823): non-zero, the race loads its sound banks for the followed slot (00443924) */
+    uint8_t unknown_2d[0x1e];
 } RaceEntry;
 #pragma pack(pop)
 typedef char race_entry_size_check[sizeof(RaceEntry) == 0x4b ? 1 : -1];

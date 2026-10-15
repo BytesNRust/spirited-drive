@@ -55,6 +55,16 @@ void race_sound_setup(RaceState *race, void (*music_volume)(void *user, int16_t 
  * each voice's sound noted. */
 void race_sound_start_voices(RaceState *race);
 
+/* 00443924 (no arguments; the race's setup): with the followed slot's
+ * entry +0x29 set, four banks loaded through 004438c8 (the bank directory
+ * 005245f8 + the name; `load` here, given the name alone): the followed
+ * car's (00443670[car]), the other of slots 0 and 1's opponent bank
+ * (004436a0[car x 2]; the original's switch to 7 needs the car >= 8 and
+ * == 2, never), COLLSWMT.BNK on track 7 else COLLSWWT.BNK, NFS_FMmb.bnk;
+ * then 00443820. A car outside 0..11 reads past the tables in the
+ * original; the port skips that bank. */
+void race_sound_load_banks(RaceState *race, void (*load)(void *user, const char *name), void *user);
+
 /* 004444b8: the followed car's sounds each tick (car the followed one,
  * angle and distance from the listener as 00472018 gives them, specs the
  * followed slot's): nothing when its entry's sound volume is 0; 00444230
