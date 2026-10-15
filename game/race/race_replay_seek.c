@@ -373,3 +373,73 @@ void race_replay_frame(RaceState *race, RaceReplayDirector *w, const RaceReplayF
     }
     if (race->unknown_512f78 >= 0) ops->next_cut(ops->ctx);
 }
+
+enum { STOPPED = 4, PAUSE_TICKS = 2, TICK_GROUP = 4 };
+
+typedef struct {
+    int32_t direct_ticks, frames, panel, panel2, speed;
+    int unmute;
+} ReplaySpeed;
+
+/* buttons 6..9: 004c5398, 004c53a0, 00513730, 00513888, 00513894; 00513898 is 1 for each */
+static const ReplaySpeed REPLAY_SPEEDS[] = {
+    { 4, 0, 6, 6, 0, 1 }, { 3, 2, 8, 6, 1, 1 }, { 2, 4, 9, 6, 2, 1 }, { 1, 8, 10, 6, 3, 0 }
+};
+
+void race_replay_button(RaceState *race, RaceReplayDirector *w, const RaceReplayButtonOps *ops, int32_t button,
+                        int32_t held)
+{
+    if (race->phase == RACING) return;
+    if (button >= REPLAY_PLAY && button <= REPLAY_SLOWEST) {
+        const ReplaySpeed *s = &REPLAY_SPEEDS[button - REPLAY_PLAY];
+        race->unknown_4c5398 = s->direct_ticks;
+        w->unknown_4c53a0 = s->frames;
+        w->unknown_513730 = s->panel;
+        w->unknown_513888 = s->panel2;
+        w->unknown_513894 = s->speed;
+        w->unknown_513898 = 1;
+        if (s->unmute) ops->unmute(ops->ctx);
+    } else if (button == REPLAY_PAUSE && held == 0) {
+        if (race->phase != CATCHING_UP && race->unknown_4c539c == 0) {
+            ops->mute(ops->ctx);
+            race->unknown_4c5398 = 0;
+            race->unknown_4c539c = PAUSE_TICKS;
+            w->unknown_513730 = STILL_PANEL;
+        }
+    } else {
+        return;
+    }
+    if (race->phase == STOPPED) {
+        w->phase_before = STOPPED;
+        race->unknown_512f7c = 1;
+        ops->jump(ops->ctx, race->tick - race->tick % TICK_GROUP, w->end_clock);
+        race->unknown_51371c = 0;
+    }
+}
+
+enum { END_BACK = 8, NO_CUT = -2, END_KIND = 4, LEADER_TILT_LOW = 0x1e0000, LEADER_TILT_HIGH = 0xdc0000 };
+
+void race_replay_to_end(RaceState *race, RaceReplayDirector *w, const RaceReplayToEndOps *ops)
+{
+    int32_t from = (int32_t)((uint32_t)w->end_clock - END_BACK);
+    if (from < 0) from = 0;
+    ops->jump(ops->ctx, from - from % TICK_GROUP, w->end_clock);
+    race->unknown_512f78 = NO_CUT;
+    race->unknown_4c5398 = CUT_DIRECT_TICKS;
+    w->unknown_513730 = CUT_PANEL;
+    w->phase_before = RACING;
+    race->camera_roll_add = 0;
+    w->unknown_4c53a0 = 0;
+    w->unknown_513888 = 0;
+    w->unknown_513894 = 0;
+    w->unknown_513898 = 1;
+    race->view_taken = 1;
+    race->chase.next_kind = w->saved_kind;
+    if (w->saved_kind == 0 && race->leader != NULL && race->leader->roll > LEADER_TILT_LOW &&
+        race->leader->roll < LEADER_TILT_HIGH)  /* port guard: no leader */
+        race->chase.kind = END_KIND;
+    w->unknown_4c5388 = 0;
+    ops->unmute(ops->ctx);
+    restart_sounds(race);
+    ops->road_yaw(ops->ctx);
+}

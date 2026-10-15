@@ -106,6 +106,7 @@ typedef struct {
     uint8_t unknown_5137e4;     /* 005137e4: set, the director stops at its last cut */
     int32_t phase_before;       /* 004c5394: the phase the replay came from */
     int32_t unknown_4c53ac;
+    int32_t saved_kind;         /* 00512f80: the camera kind the replay began with */
 } RaceReplayDirector;
 
 typedef struct {
@@ -180,5 +181,43 @@ typedef struct {
  * 00443820, and 00444394 for the player's car in physics 1 or 2, else
  * 0044435c. Otherwise with 00512f78 >= 0: 0044fc74. */
 void race_replay_frame(RaceState *race, RaceReplayDirector *w, const RaceReplayFrameOps *ops);
+
+typedef struct {
+    void *ctx;
+    void (*mute)(void *ctx);                                /* 00443768 */
+    void (*unmute)(void *ctx);                              /* 0044379c */
+    void (*jump)(void *ctx, int32_t clock, int32_t until);  /* 0044e700 */
+} RaceReplayButtonOps;
+
+typedef struct {
+    void *ctx;
+    void (*jump)(void *ctx, int32_t clock, int32_t until);  /* 0044e700 */
+    void (*unmute)(void *ctx);                              /* 0044379c */
+    void (*road_yaw)(void *ctx);                            /* 004043d4 */
+} RaceReplayToEndOps;
+
+/* 0044f090 (no arguments; from 0044f9b8): the replay to the recording's
+ * end, to race on from there: 0044e700(max(005120c8 - 8, 0) rounded down
+ * to 4, 005120c8); 00512f78 = -2, 004c5398 = 4, 00513730 = 6, 004c5394 =
+ * 1, 004c53a8 = 004c53a0 = 00513888 = 00513894 = 0, 00513898 = 1,
+ * 0052b8f8 = 1, the record's next kind (004f8020) 00512f80, and with that
+ * 0 and the leading car's (00509e18) +0x14 inside (0x1e0000, 0xdc0000)
+ * the record's kind (004f801c) 4; 004c5388 = 0; 0044379c; 00443820, then
+ * 00444394 for the player's car in physics 1 or 2, else 0044435c;
+ * 004043d4. */
+void race_replay_to_end(RaceState *race, RaceReplayDirector *w, const RaceReplayToEndOps *ops);
+
+enum { REPLAY_PAUSE = 5, REPLAY_PLAY = 6, REPLAY_SLOW = 7, REPLAY_SLOWER = 8, REPLAY_SLOWEST = 9 };
+
+/* 0044f378 (eax button, edx held; from 0044f9b8): a replay panel button,
+ * nothing while racing (phase 1). The speeds set 004c5398, 004c53a0,
+ * 00513730, 00513888, 00513894 and 00513898: 6 (4, 0, 6, 6, 0, 1), 7 (3,
+ * 2, 8, 6, 1, 1), 8 (2, 4, 9, 6, 2, 1), 9 (1, 8, 10, 6, 3, 1); all but 9
+ * then 0044379c. 5 (pause) only when not held: in phase 3 or with 004c539c
+ * not 0 nothing, else 00443768, 004c5398 = 0, 004c539c = 2, 00513730 = 5.
+ * Any other button: nothing. After 5..9 in phase 4: 004c5394 = 4,
+ * 00512f7c = 1, 0044e700(tick - tick % 4, 005120c8), 0051371c = 0. */
+void race_replay_button(RaceState *race, RaceReplayDirector *w, const RaceReplayButtonOps *ops, int32_t button,
+                        int32_t held);
 
 #endif
