@@ -233,3 +233,41 @@ void race_replay_step(RaceState *race, const RaceReplayStepOps *ops)
     if (race->unknown_513728 != 0) after_seek(race, ops);
     if (race->unknown_51371c != 0 && (race->tick & TICK_BYTE) == CYCLE_TICK) ops->cycle(ops->ctx);
 }
+
+enum { CLOCK_WRAP = 0x10 * MINUTE_TICKS, CATCHING_UP = 3, NOTICE_TICK_START = -1000 };
+
+void race_replay_jump(RaceState *race, RaceReplayJumpWords *w, const RaceReplayJumpOps *ops, int32_t clock, int32_t until)
+{
+    w->until = until > w->end_clock ? w->end_clock : until;
+    const int on_minute = clock % CLOCK_WRAP % MINUTE_TICKS == 0;
+    race->tick = on_minute ? clock : clock / MINUTE_TICKS * MINUTE_TICKS;
+    if (!on_minute) w->target = clock;
+    if (race->phase == RACING) {
+        ops->keep_scenery(ops->ctx);
+        w->saved_timer = w->timer;
+        w->saved_input_clock = race->input_clock;
+        w->saved_due = w->due;
+    }
+    race->phase = on_minute ? SEEKING : CATCHING_UP;
+    ops->channels_stop(ops->ctx);
+    race->unknown_513728 = on_minute;
+    w->loading = 0;
+    race->clock = race->tick % CLOCK_WRAP;
+    uint8_t flags = (race->tick & 1) == 0 ? EVEN_TICK : 0;
+    if ((race->tick & 3) == 0) flags |= FOURTH_TICK;
+    if ((race->tick & 7) == 0) flags |= EIGHTH_TICK;
+    race->tick_flags = flags;
+    race->unknown_51372c = 1;
+    ops->trail_clear(ops->ctx);
+    ops->notices_off(ops->ctx);
+    race->unknown_4b91c0 = 0;
+    w->unknown_4b91c4 = 0;
+    w->jump_clock = clock;
+    race->stop_notice_tick = NOTICE_TICK_START;
+    race->unknown_4c5370 = 1;
+    ops->marks_back(ops->ctx);
+    race->unknown_513734 = 1;
+    race->splits.gap = 0;
+    race->splits.gap_shown = 0;
+    ops->road_yaw(ops->ctx);
+}
