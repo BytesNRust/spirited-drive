@@ -121,6 +121,17 @@ int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume);
  * 004a4ac0 moves it. */
 int32_t sound_volume_ramp(SoundDriver *d, int32_t handle, int32_t steps, int32_t target);
 
+/* 004a4ac0 (the driver's periodic service, registered by 004921xx through
+ * 0048c3a0 into 0052ee88), its channel loop: each busy channel (+0x12 == 1)
+ * with a ramp (+0x14 != 0) has its level +0x18 stepped, at or past the
+ * target +0x1c (by the step's sign) set to it and the ramp ended; then a
+ * level of 0 or more sets the volume (00473b4c, level >> 16; a refusal
+ * ignored), below 0 stops it (00473c68). Then a countdown +4 of 0 or more
+ * is decremented and stops the channel when it goes below 0. Around the
+ * loop the original also runs 00492330 (when 004c7b60), 004ab480 (when
+ * 004f6ca4) and, after it, 004a4668 (when 0052f144 == 1): the caller's. */
+void sound_driver_tick(SoundDriver *d);
+
 /* 00473bb0 (eax the handle, edx the pan): a handle 00497af8 passes (else
  * -1), a pan 0..0xff (else -14): the channel's pan +0x23, its mixed volume
  * (00497750) and the voice's gains (00497e8a); 0. */

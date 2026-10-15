@@ -172,6 +172,25 @@ int32_t sound_volume_ramp(SoundDriver *d, int32_t handle, int32_t steps, int32_t
     return 0;
 }
 
+/* 004a4ac0's channel loop */
+void sound_driver_tick(SoundDriver *d)
+{
+    for (int k = 0; k < SOUND_CHANNELS; k++) {
+        SoundChannel *c = &d->channels.channel[k];
+        if (c->busy != 1) continue;
+        if (c->ramp_step != 0) {
+            c->ramp_level = (int32_t)((uint32_t)c->ramp_level + (uint32_t)c->ramp_step);
+            if (c->ramp_step > 0 ? c->ramp_level >= c->ramp_target : c->ramp_level <= c->ramp_target) {
+                c->ramp_level = c->ramp_target;
+                c->ramp_step = 0;
+            }
+            if (c->ramp_level >= 0) sound_set_volume(d, c->handle, c->ramp_level >> RAMP_SHIFT); /* 004979e8: the handle */
+            else sound_stop(d, c->handle);
+        }
+        if (c->last >= 0 && --c->last < 0) sound_stop(d, c->handle);
+    }
+}
+
 enum { BAD_PAN = -14, PAN_TOP = 0xff };
 
 /* 00473bb0 */
