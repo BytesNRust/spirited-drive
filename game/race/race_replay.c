@@ -189,3 +189,30 @@ void race_replay_save_minute(const RaceState *race, const Car *car, int32_t inde
     r[0x171] = c[0x340];
     r[0x170] = c[0x3fd];
 }
+
+enum {
+    START_VIEWS = 3, START_52B8F0 = 4, MARK_EVERY = 0x1c2, NO_CAMERA_ROW = -2, START_513730 = 6
+};
+
+void race_replay_start(RaceReplayStart *w, uint8_t *(*alloc)(void *ctx, int32_t size), void *ctx)
+{
+    w->view_taken = 1;
+    w->split_views[0] = w->split_views[1] = START_VIEWS;
+    w->unknown_52b8ec = 1;
+    w->unknown_52b8e8 = START_VIEWS;
+    w->unknown_52b8e4 = 1;
+    w->unknown_52b8e0 = 0;
+    w->unknown_52b8f0 = START_52B8F0;
+    if (w->w4fbb0c == 0 || w->playback == 1) return;
+    w->recording = alloc(ctx, REPLAY_RECORDING_SIZE);
+    w->mark_countdown = MARK_EVERY;
+    w->unknown_512f78 = NO_CAMERA_ROW;
+    w->unknown_513898 = w->unknown_513718 = 1;
+    w->unknown_5120c4 = w->unknown_5120c8 = w->unknown_512f7c = 0;
+    w->unknown_513728 = w->unknown_51372c = w->unknown_51371c = 0;
+    w->unknown_513894 = w->note_second = 0;
+    w->unknown_513730 = w->unknown_513888 = START_513730;
+    for (int i = 0; i < RACE_NOTES; i++) w->notes[i] = 0;
+    w->camera_roll_add = w->unknown_4c5388 = w->unknown_51371c = 0;
+    w->unknown_5137e4 = 0;
+}

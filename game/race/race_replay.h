@@ -80,4 +80,34 @@ void race_replay_restore_car(RaceState *race, int32_t human, int32_t minute, int
  * +0x164, the bytes +0x340 and +0x3fd. */
 void race_replay_save_minute(const RaceState *race, const Car *car, int32_t index, uint8_t *recording, size_t size);
 
+enum { REPLAY_RECORDING_SIZE = 0x15e00 };  /* 004c53b4's allocation */
+
+/* 0044edd8's words; the recording's allocator is its one call (00474c8c("..." 004b06c8, 0x15e00, 0)). */
+typedef struct {
+    int32_t view_taken;              /* 0052b8f8 */
+    int32_t split_views[2];          /* 0052b8d4, 0052b8d8 */
+    int32_t unknown_52b8e0, unknown_52b8e4, unknown_52b8e8, unknown_52b8ec, unknown_52b8f0;
+    int32_t w4fbb0c;                 /* 004fbb0c (read) */
+    int16_t playback;                /* 0052b312 (read) */
+    uint8_t *recording;              /* 004c53b4 */
+    int32_t mark_countdown;          /* 005120d4 */
+    int32_t unknown_512f78, unknown_513898, unknown_513718, unknown_5120c4, unknown_5120c8, unknown_512f7c;
+    int32_t unknown_513728, unknown_51372c, unknown_51371c, unknown_513894;
+    int32_t note_second;             /* 00513714 */
+    int32_t unknown_513730, unknown_513888;
+    int32_t *notes;                  /* 00512f94: RACE_NOTES words */
+    int32_t camera_roll_add;         /* 004c53a8 */
+    int32_t unknown_4c5388;
+    uint8_t unknown_5137e4;
+} RaceReplayStart;
+
+/* 0044edd8 (watcall (), from 00455a5c): 0052b8f8 = 1, 0052b8d4 = 0052b8d8 =
+ * 3, 0052b8ec = 1, 0052b8e8 = 3, 0052b8e4 = 1, 0052b8e0 = 0, 0052b8f0 = 4.
+ * With 004fbb0c set and playback not 1: the recording allocated (0x15e00),
+ * 005120d4 = 0x1c2, 00512f78 = -2, 00513898 = 00513718 = 1, 005120c4 =
+ * 005120c8 = 00512f7c = 00513728 = 0051372c = 0051371c = 00513894 =
+ * 00513714 = 0, 00513730 = 00513888 = 6, the 0x1e0 notes from 00512f94 0,
+ * 004c53a8 = 004c5388 = 0051371c = 0, the byte 005137e4 = 0. */
+void race_replay_start(RaceReplayStart *w, uint8_t *(*alloc)(void *ctx, int32_t size), void *ctx);
+
 #endif
