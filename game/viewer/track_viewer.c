@@ -15,6 +15,7 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_draw_setup.h"
 #include "game/race/race_models.h"
+#include "game/race/race_replay.h"
 #include "game/race/race_run.h"
 #include "game/race/race_sim.h"
 #include "game/race/track_art.h"
@@ -908,6 +909,29 @@ static void run_service(void *ctx)
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
+/* 00474c8c for the recording: --drive records nothing yet (TODO: race_replay_record's glue), so none is made. */
+static uint8_t *run_no_recording(void *ctx, int32_t size) { (void)ctx, (void)size; return NULL; }
+
+/* 0044edd8 on the race's words; the ones without a home in the port (0052b8d4..0052b8f0, 005120c4, 005120c8,
+ * 00513718, 00513730, 00513888..98, 004c5388, 005137e4) are this call's own. */
+static void run_replay_start(void *ctx)
+{
+    (void)ctx;
+    RaceState *race = &drive_sim.race;
+    RaceReplayStart w = { 0 };
+    w.view_taken = race->view_taken, w.w4fbb0c = race->unknown_4fbb0c, w.playback = race->playback;
+    w.mark_countdown = race->replay_mark_countdown, w.unknown_512f78 = race->unknown_512f78;
+    w.unknown_512f7c = race->unknown_512f7c, w.unknown_513728 = race->unknown_513728;
+    w.unknown_51372c = race->unknown_51372c, w.unknown_51371c = race->unknown_51371c;
+    w.note_second = race->note_second, w.notes = race->notes, w.camera_roll_add = race->camera_roll_add;
+    race_replay_start(&w, run_no_recording, NULL);
+    race->view_taken = w.view_taken, race->replay_mark_countdown = w.mark_countdown;
+    race->unknown_512f78 = w.unknown_512f78, race->unknown_512f7c = w.unknown_512f7c;
+    race->unknown_513728 = w.unknown_513728, race->unknown_51372c = w.unknown_51372c;
+    race->unknown_51371c = w.unknown_51371c, race->note_second = w.note_second;
+    race->camera_roll_add = w.camera_roll_add;
+}
+
 static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(&drive_sim.race); }  /* 0044d2c4 */
 
 static void run_queue_reset(void *ctx, InputQueue *q)
@@ -995,7 +1019,7 @@ static const RaceRunOps *drive_run_ops(void)
 {
     static const RaceRunOps ops = {
         NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none_i,
-        run_none, run_none, run_none, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
+        run_none, run_none, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,
