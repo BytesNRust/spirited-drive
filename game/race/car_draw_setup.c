@@ -18,3 +18,17 @@ void car_draw_models_free(const CarDrawSetup *s, void (*release)(void *ctx, uint
     for (int i = 0; i < CAR_DRAW_MODELS; i++)
         if (s->model_first[i] != 0) release(ctx, s->model_object[i]);
 }
+
+void car_draw_free(const CarDrawFreeOps *ops, const CarDrawSetup *s, uintptr_t *pdns, int32_t car_count,
+                   uintptr_t *carpal)
+{
+    ops->free(ops->ctx, (uintptr_t)s->buffer);
+    car_draw_models_free(s, ops->release, ops->ctx);
+    for (int32_t i = 0; i < car_count && i < CAR_DRAW_PDNS; i++) {
+        ops->free(ops->ctx, pdns[i]);
+        pdns[i] = 0;
+    }
+    if (*carpal == 0) return;
+    ops->free(ops->ctx, *carpal);
+    *carpal = 0;
+}

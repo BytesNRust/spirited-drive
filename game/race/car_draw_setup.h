@@ -12,7 +12,8 @@ enum {
     CAR_DRAW_STEPS = 5,         /* 00515018..00515028 */
     CAR_DRAW_FAR_STEPS = 3,     /* 005175a8..005175b0 */
     CAR_DRAW_MODELS = 30,       /* 005150f0's records (0x138 bytes) whose first word is cleared */
-    CAR_DRAW_BUFFER = 0x7d0     /* 0051c770's allocation */
+    CAR_DRAW_BUFFER = 0x7d0,    /* 0051c770's allocation */
+    CAR_DRAW_PDNS = 9           /* 00517580: a PDN a car (RACE_CARS) */
 };
 
 typedef struct {
@@ -31,5 +32,18 @@ void car_draw_setup(CarDrawSetup *s, SkidMarks *marks, uint8_t *(*alloc)(void *c
 /* 0045aa04 (watcall ()): each of the 30 models with its first word set:
  * release (0048da33) its object (+0x10). */
 void car_draw_models_free(const CarDrawSetup *s, void (*release)(void *ctx, uint32_t object), void *ctx);
+
+typedef struct {
+    void *ctx;
+    void (*free)(void *ctx, uintptr_t block);      /* 00475260 */
+    void (*release)(void *ctx, uint32_t object);   /* 0048da33 */
+} CarDrawFreeOps;
+
+/* 0045aa34 (watcall ()): free the buffer (0051c770), the models'
+ * objects (0045aa04), then for each car below the car count (004fb7e8)
+ * its PDN (00517580[i]) freed and cleared; with the CarPal bank (004c5788)
+ * held, it freed and cleared. */
+void car_draw_free(const CarDrawFreeOps *ops, const CarDrawSetup *s, uintptr_t *pdns, int32_t car_count,
+                   uintptr_t *carpal);
 
 #endif
