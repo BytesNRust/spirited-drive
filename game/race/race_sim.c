@@ -92,12 +92,19 @@ static void no_camera(void *user, int32_t slot, int32_t mode)
 
 int race_sim_track_index(const char *stem)
 {
+    static const char LOOPS[] = "5126374";  /* tr5 first: launched as track 3 */
     char a = (char)tolower((unsigned char)stem[0]), b = (char)tolower((unsigned char)stem[1]);
     if (a == 'c' && b == 'y') return 0;
     if (a == 'c' && b == 'l') return 1;
     if (a == 'a' && b == 'l') return 2;
-    if (a == 't' && b == 'r' && stem[2] >= '1' && stem[2] <= '7') return stem[2] - '1' + 3;
-    return -1;
+    const char *at = a == 't' && b == 'r' && stem[2] != '\0' ? strchr(LOOPS, stem[2]) : NULL;
+    return at == NULL ? -1 : at == LOOPS ? 3 : (int)(at - LOOPS) + 2;
+}
+
+int race_sim_track_variant(const char *stem)
+{
+    const int track = race_sim_track_index(stem);
+    return track >= 0 && track < 3 && stem[2] >= '1' && stem[2] <= '3' ? stem[2] - '1' : 0;
 }
 
 void race_field_counts(RaceField *field, int track, uint32_t track_flags, int flag_52b312)
@@ -180,6 +187,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     for (size_t i = 0; stem[i] != '\0' && i + 1 < sizeof race->track_name; i++)
         race->track_name[i] = (char)tolower((unsigned char)stem[i]);
     race->track = race_sim_track_index(stem);
+    race->track_variant = race_sim_track_variant(stem);
     race->arcade = arcade;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;

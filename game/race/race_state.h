@@ -185,7 +185,7 @@ typedef struct {
 typedef struct {
     const Tri *tri;                 /* 00505038 nodes, 00504208 mask (ring_nodes - 1) */
     char track_name[RACE_TRACK_NAME];  /* 004fb7c6, "tr6" */
-    int32_t track;                  /* 004fb7c2: 0..7 */
+    int32_t track;                  /* 004fb7c2 (00524e85): 0..8 (race_sim_track_index) */
     int32_t track_variant;          /* 004fb7be */
     int32_t arcade;                 /* 004fbadc */
     int32_t game_mode;              /* 004c5d28: 4 makes blown engines push the cars */

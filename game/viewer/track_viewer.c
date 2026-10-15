@@ -428,7 +428,6 @@ static DriveReplay drive_replay;
 enum { KEY_F9 = 0x43 };
 static DrivePause drive_pause;
 static DriveMenu drive_menu;
-static char drive_name[16];  /* the track the menu maps */
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
@@ -934,7 +933,6 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_input_start(&drive_input, &drive_sim.race);
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
-    snprintf(drive_name, sizeof drive_name, "%s", name);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
     memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
     drive_views.mode = HIGH_SCREEN;
@@ -1211,8 +1209,8 @@ static int drive_window(const Track *t, uint8_t *pixels)
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
     drive_audio_open(&drive_sim.race, drive_cars.data_root);
-    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, -1, 0, 0 };
-    if (drive_menu_open(&drive_menu, drive_cars.data_root, drive_name))
+    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, 0 };
+    if (drive_menu_open(&drive_menu, drive_cars.data_root))
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;

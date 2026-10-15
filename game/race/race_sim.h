@@ -41,9 +41,14 @@ typedef struct {
     void *replay_user;
 } RaceSim;
 
-/* The track index of a TRI stem ("TR1", "cy2"): CY 0, CL 1, AL 2, TR1..7
- * 3..9 (Control Central's order); -1 when unknown. */
+/* The track index of a TRI stem ("TR1", "cy2"), 00524e85 / 004fb7c2: CY 0,
+ * CL 1, AL 2; 3..8 tr1, tr2, tr6, tr3, tr7, tr4 (00427ae0 launches the race
+ * with the stem from the table at 00426660 by it); tr5 3 (004275f8 swaps it
+ * in for track 3); -1 when unknown. */
 int race_sim_track_index(const char *stem);
+
+/* 00524e83 / 004fb7be: the city tracks' digit less 1 ("cy2" 1), else 0 */
+int race_sim_track_variant(const char *stem);
 
 /* One human car (specs: the decompressed PBS) on `tri`, as the game sets
  * up a single player: slot 0, the given entry, laps on circuits. */

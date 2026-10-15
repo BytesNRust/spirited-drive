@@ -16,7 +16,6 @@
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
 
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -185,8 +184,8 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
 {
     const RaceState *race = m->race;
     put16(w->settings, RACE_MENU_MUSIC, drive_audio_music_setting());
-    put16(w->settings, RACE_MENU_TRACK, m->track);
-    put16(w->settings, RACE_MENU_VARIANT, m->variant);
+    put16(w->settings, RACE_MENU_TRACK, (int16_t)race->track);
+    put16(w->settings, RACE_MENU_VARIANT, (int16_t)race->track_variant);
     memcpy(w->saved, w->settings, RACE_MENU_SETTINGS);
     w->high = 1;
     w->race_type = race->race_type, w->player = race->player;
@@ -204,7 +203,7 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
 void drive_menu_run(void *menu)
 {
     DriveMenu *m = menu;
-    if (!m->ready || m->track < 0) return;
+    if (!m->ready || m->race->track < 0) return;  /* no map past track 8: 00447564 draws none, --drive opens none */
     static uint8_t pixels[VIDEO_WIDTH * VIDEO_HEIGHT];
     RaceMenuWorld w = { 0 };
     world_from_race(m, &w);
@@ -217,23 +216,8 @@ void drive_menu_run(void *menu)
     m->race->dropped = w.dropped, m->race->end_state = w.end_state, m->keys->pending = w.unknown_513e50;
 }
 
-/* The map by the track's stem: CY / CL / AL 1..3 the tracks 0..2 and their variants; TR1, TR2, TR6, TR3, TR7
- * the loops 3..7 ("loop1", "loop2", "loop6", "loop3", "loop7"), TR4 taken as "loopx" (8, Lost Vegas) */
-static void track_of(const char *name, int16_t *track, int16_t *variant)
+int drive_menu_open(DriveMenu *m, const char *data_root)
 {
-    static const char *const CITIES[3] = { "CY", "CL", "AL" };
-    static const char LOOPS[] = "126374";
-    char up[3] = { (char)toupper((unsigned char)name[0]), name[0] ? (char)toupper((unsigned char)name[1]) : 0, 0 };
-    const char digit = name[0] && name[1] ? name[2] : 0;
-    *track = -1, *variant = 0;
-    for (int16_t k = 0; k < 3; k++)
-        if (strcmp(up, CITIES[k]) == 0 && digit >= '1' && digit <= '3') *track = k, *variant = (int16_t)(digit - '1');
-    if (strcmp(up, "TR") == 0 && digit != 0 && strchr(LOOPS, digit) != NULL) *track = (int16_t)(3 + (strchr(LOOPS, digit) - LOOPS));
-}
-
-int drive_menu_open(DriveMenu *m, const char *data_root, const char *name)
-{
-    track_of(name, &m->track, &m->variant);
     timer_init();
     if (!video_init()) return 0;
     resource_init(data_root, 0);

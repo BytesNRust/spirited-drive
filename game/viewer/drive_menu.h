@@ -16,14 +16,13 @@ typedef struct {
     DriveReplay *replay;        /* 0044f534's request goes to its director */
     DriveHud *hud;              /* 0041e364 on the way back */
     RaceMenuKeysState *keys;    /* 00513e50 / 00513e54: 004557f4's pending call and its tick */
-    int16_t track, variant;     /* 00524e85 / 00524e83 for the map; track -1: the track has no map, no menu */
     int ready;                  /* the frontend's layer is up */
 } DriveMenu;
 
 /* After platform_init: the frontend's video, art paths, pointer and font
- * (as 00437540 sets them up), and the track's map from its name. 0 when the
- * menu cannot run (Esc then does nothing). */
-int drive_menu_open(DriveMenu *m, const char *data_root, const char *name);
+ * (as 00437540 sets them up). 0 when the menu cannot run (Esc then does
+ * nothing). The map is the race's track and variant (004fb7c2 / 004fb7be). */
+int drive_menu_open(DriveMenu *m, const char *data_root);
 
 /* 00447564 on the race; the race's 0052b314 / 00509d70 written back. */
 void drive_menu_run(void *menu);
