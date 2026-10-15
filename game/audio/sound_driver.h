@@ -149,4 +149,10 @@ int32_t sound_stream_header(SoundDriver *d, uint32_t block);
  * (0048ab4c) and the block freed (0); another -1. */
 int32_t sound_stream_block(SoundDriver *d, uint32_t block);
 
+/* 0048dedc: with the driver open (00492324: 004c7b54) and the stream on a
+ * channel (004c796c >= 0; else -1), a stream just set up (state 3) starts:
+ * nothing played, the channel's mixed volume (00497750), its header's
+ * voice (00497784 on 004c7980), state 2. The stream's handle (0052eecc). */
+int32_t sound_stream_start(SoundDriver *d);
+
 #endif

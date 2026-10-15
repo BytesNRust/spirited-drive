@@ -265,3 +265,30 @@ int32_t sound_stream_block(SoundDriver *d, uint32_t block)
     default: return -1;
     }
 }
+
+enum { STREAM_SET_UP = 3, STREAM_PLAYING = 2 };
+
+/* The stream's EACS header in its ring as 00497784 reads it */
+static SoundSample ring_sample(const SoundRing *r, uint32_t h)
+{
+    const uint8_t *b = sound_ring_at(r, h);
+    return (SoundSample){ sound_ring_get(r, h), sound_ring_get(r, h + 4), b[8], b[9], b[0xa], (int8_t)b[0xb],
+                          sound_ring_get(r, h + 0xc), sound_ring_get(r, h + 0x10), sound_ring_get(r, h + 0x14),
+                          sound_ring_at(r, sound_ring_get(r, h + 0x18)), b[0x1c] };
+}
+
+/* 0048dedc */
+int32_t sound_stream_start(SoundDriver *d)
+{
+    SoundStream *s = &d->stream;
+    if (d->channels.open == 0 || s->channel < 0) return -1; /* 00492324: 004c7b54 */
+    if (s->state == STREAM_SET_UP) {
+        s->played = 0;
+        sound_channel_mix_volume(&d->channels.channel[s->channel]); /* 00497750 */
+        SoundSample h = ring_sample(&s->ring, s->header);
+        sound_sample_start(d, &h); /* 00497784 */
+        *sound_ring_at(&s->ring, s->header + 0x1c) = h.channel;
+        s->state = STREAM_PLAYING;
+    }
+    return s->handle;
+}
