@@ -77,4 +77,18 @@ int race_chase_ahead_of_other(const RaceState *race, int32_t after, int32_t upto
  * shorts x 2 (fx_cross, 0042ec50). */
 int32_t race_chase_road_height(const RaceState *race, int32_t node, const int32_t point[3]);
 
+typedef struct {
+    void *ctx;
+    void (*views)(void *ctx);                                       /* 00405630 */
+    void (*layout)(void *ctx, RaceCamera *camera, int32_t layout);  /* 00405154 */
+    void (*view)(void *ctx, int32_t rear);                          /* 0040586c(004f801c, rear) */
+} RaceChaseStartOps;
+
+/* 00404404 (watcall (), from 0044ca3c): the record's +0x78 = the road
+ * node's (00505038, node +0x38 & 00504208, 36 bytes a node) dword at +0x16
+ * >> 16, << 10; 00405630; 00405154 on the record's camera (+0x88) with
+ * layout 0 (edx, zeroed before 00405630, which keeps it); 0040586c(record,
+ * 0). */
+void race_chase_start_view(const RaceChaseStartOps *ops, RaceChase *chase, const uint8_t *nodes, int32_t mask);
+
 #endif

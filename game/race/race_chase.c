@@ -543,3 +543,15 @@ void race_chase_tick(RaceState *race, RaceChase *chase)
     memcpy(chase->angles, chase->aim, sizeof chase->angles);
     if (chase->kind > 1) chase->angles[2] = add(chase->angles[2], race->camera_roll_add);
 }
+
+enum { ROAD_NODE_BYTES = 36, ROAD_HEADING_AT = 0x16, HEADING_SHIFT = 10, FIRST_LAYOUT = 0, FRONT = 0 };
+
+void race_chase_start_view(const RaceChaseStartOps *ops, RaceChase *chase, const uint8_t *nodes, int32_t mask)
+{
+    int32_t word;
+    memcpy(&word, nodes + (size_t)(uint32_t)(chase->node & mask) * ROAD_NODE_BYTES + ROAD_HEADING_AT, sizeof word);
+    chase->yaw = (int32_t)((uint32_t)(word >> 16) << HEADING_SHIFT);
+    ops->views(ops->ctx);
+    ops->layout(ops->ctx, chase->camera, FIRST_LAYOUT);
+    ops->view(ops->ctx, FRONT);
+}
