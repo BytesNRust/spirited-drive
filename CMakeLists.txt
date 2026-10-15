@@ -237,6 +237,7 @@ add_executable(tnfs
     game/viewer/drive_keys.c
     game/viewer/drive_pause.c
     game/viewer/drive_hud.c
+    game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/model_view.c
     game/viewer/object_sink.c

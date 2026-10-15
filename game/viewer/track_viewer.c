@@ -29,6 +29,7 @@
 #include "platform/platform.h"
 #include "viewer/camera.h"
 #include "game/race/race_view.h"
+#include "viewer/drive_audio.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_keys.h"
@@ -1018,6 +1019,7 @@ static void run_service(void *ctx)
         r->w->timer = last ? r->w->done : r->w->done + 1;
         return;
     }
+    drive_audio_pump();
     if (!platform_poll_events()) r->quit = 1;
     for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
         if (key == PLATFORM_KEY_ESCAPE) r->quit = 1;
@@ -1106,12 +1108,12 @@ static void run_stand_in_start(void *ctx)
     input_stand_in_start(drive_input.stand_in_block, drive_sim.race.players, &w, &ops);
 }
 /* 00443be0: --drive loads no sound banks (audio output waits, option B), so only the channels stop */
-static void run_bank_none(void *ctx, uint32_t word) { (void)ctx, (void)word; }
-static void run_sound_end(void *ctx)
-{
-    RaceSoundBanks banks = { { 0 }, { 0 }, 0 };
-    race_sound_end(&drive_sim.race, &banks, &(const RaceSoundBankOps){ ctx, run_bank_none, run_bank_none });
-}
+static RaceSoundBanks drive_banks;
+
+static void run_sound_end(void *ctx) { (void)ctx, race_sound_end(&drive_sim.race, &drive_banks, drive_audio_bank_ops()); }
+static void run_sound_banks(void *ctx) { (void)ctx, race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks); }  /* 00443924 */
+static void run_start_voices(void *ctx) { (void)ctx, race_sound_start_voices(&drive_sim.race); }  /* 00443820 */
+static void run_engines_start(void *ctx) { (void)ctx, race_sound_start_engine(&drive_sim.race); }  /* 00444394 */
 /* 0043cbe0 / 0043cbf4 / 0043cbcc: the controls' forces (no force hooks in --drive) */
 static void run_forces_on(void *ctx) { (void)ctx, race_forces_enable(&drive_sim.race); }
 static void run_forces_clear(void *ctx) { (void)ctx, race_forces_clear(&drive_sim.race); }
@@ -1160,6 +1162,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
 {
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
+    drive_audio_open(&drive_sim.race, drive_cars.data_root);
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.unknown_4c53a0 = 0;
@@ -1172,8 +1175,10 @@ static int drive_window(const Track *t, uint8_t *pixels)
             if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
         render_drive(t, pixels);
         present_drive(t, pixels);
+        drive_audio_pump();
         platform_wait_vblank();
     }
+    drive_audio_close();
     platform_shutdown();
     return 1;
 }
@@ -1195,7 +1200,8 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
 static const RaceRunOps *drive_run_ops(void)
 {
     static const RaceRunOps ops = {
-        NULL, run_service, run_screen_mode, run_none_i, run_forces_on, run_forces_clear, run_sound_setup, run_none, run_none, run_none, run_none_i,
+        NULL, run_service, run_screen_mode, run_none_i, run_forces_on, run_forces_clear, run_sound_setup, run_sound_banks, run_start_voices,
+        run_engines_start, run_none_i,
         run_none, run_car_draw_setup, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_last_grey, run_none, run_none, run_music_start, run_none, run_none, run_clip, run_queue_reset, run_queue_prime,

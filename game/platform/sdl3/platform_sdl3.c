@@ -134,8 +134,48 @@ bool platform_init(const PlatformConfig *config)
     return true;
 }
 
+static SDL_AudioStream *audio;
+
+bool platform_audio_open(int rate)
+{
+    if (audio != NULL) return true;
+    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        fprintf(stderr, "platform: no audio: %s\n", SDL_GetError());
+        return false;
+    }
+    const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
+    audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+    if (audio == NULL || !SDL_ResumeAudioStreamDevice(audio)) {
+        fprintf(stderr, "platform: no audio device: %s\n", SDL_GetError());
+        platform_audio_close();
+        return false;
+    }
+    return true;
+}
+
+void platform_audio_close(void)
+{
+    if (audio != NULL) SDL_DestroyAudioStream(audio);
+    audio = NULL;
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+}
+
+uint32_t platform_audio_queued(void)
+{
+    if (audio == NULL) return 0;
+    const int bytes = SDL_GetAudioStreamQueued(audio);
+    return bytes > 0 ? (uint32_t)bytes / 4 : 0;
+}
+
+void platform_audio_push(const int16_t *frames, uint32_t count)
+{
+    if (audio != NULL && !SDL_PutAudioStreamData(audio, frames, (int)(count * 4)))
+        fprintf(stderr, "platform: audio: %s\n", SDL_GetError());
+}
+
 void platform_shutdown(void)
 {
+    if (audio != NULL) platform_audio_close();
     free(rgb_buffer);
     rgb_buffer = NULL;
     if (texture != NULL) SDL_DestroyTexture(texture);

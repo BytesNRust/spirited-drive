@@ -90,6 +90,15 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
  * The original waited on DirectDraw's WaitForVerticalBlank. */
 void platform_wait_vblank(void);
 
+/* Sound out: 16-bit stereo frames at `rate` Hz, queued by the game (the
+ * original's mixer filled DirectSound's buffer the same way). Without a
+ * device (none, or SDL's dummy driver refusing) open fails, and push and
+ * queued do nothing. */
+bool platform_audio_open(int rate);
+void platform_audio_close(void);
+uint32_t platform_audio_queued(void);  /* frames not yet played */
+void platform_audio_push(const int16_t *frames, uint32_t count);
+
 uint32_t platform_ticks_ms(void);
 
 /* Yields to the OS (and to the browser event loop on the web build). */
