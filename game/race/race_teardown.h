@@ -24,6 +24,28 @@ void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm);
  * freed whatever it holds; not cleared. */
 void race_sky_ring_free(const RaceFreeOps *ops, uint32_t ring);
 
+/* 005041d4..005041fc and 004bba5c: the track's open file and loads. */
+typedef struct {
+    uint32_t file;              /* 005041d4: closed through 0043dc38 */
+    uint32_t cache;             /* 005041d8: the segment records' ring */
+    int32_t unknown_5041ec;
+    uint32_t unknown_5041f0;
+    uint32_t terrain;           /* 005041f4: the chunks */
+    uint32_t header;            /* 005041fc */
+    int32_t unknown_4bba5c;
+} RaceTrackFiles;
+
+typedef struct {
+    void *ctx;
+    void (*close)(void *ctx, uint32_t file);   /* 0043dc38 (eax): 004884c8(file) */
+    void (*free)(void *ctx, uint32_t block);   /* 00475260 */
+} RaceTrackFreeOps;
+
+/* 0043e8bc (watcall ()): the file closed, the cache freed, 005041ec and
+ * 004bba5c 0, then 005041f0, the header and the terrain freed; none of the
+ * pointers cleared. */
+void race_track_free(const RaceTrackFreeOps *ops, RaceTrackFiles *t);
+
 /* 004c2d88..004c2da3: the draw's surfaces (0044ca3c) and two flags. */
 typedef struct {
     int32_t set_up;     /* 004c2d88: 0044ca3c ran */

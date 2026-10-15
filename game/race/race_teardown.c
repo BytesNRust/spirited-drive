@@ -18,6 +18,17 @@ void race_sky_ring_free(const RaceFreeOps *ops, uint32_t ring)
     ops->free(ops->ctx, ring);
 }
 
+void race_track_free(const RaceTrackFreeOps *ops, RaceTrackFiles *t)
+{
+    ops->close(ops->ctx, t->file);
+    ops->free(ops->ctx, t->cache);
+    t->unknown_5041ec = 0;
+    t->unknown_4bba5c = 0;
+    ops->free(ops->ctx, t->unknown_5041f0);
+    ops->free(ops->ctx, t->header);
+    ops->free(ops->ctx, t->terrain);
+}
+
 static void free_held(const RaceDrawFreeOps *ops, uint32_t *surface)
 {
     if (*surface == 0) return;
