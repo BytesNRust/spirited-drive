@@ -91,4 +91,10 @@ enum { SOUND_NO_CHANNEL = -20, SOUND_NOT_EACS = -10, SOUND_PAN_OWN = -1 };
 int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id, int32_t pan, int32_t volume,
                           int32_t pitch);
 
+/* 00473b4c (eax the handle, edx the volume): a handle 00497af8 passes
+ * (else -1), a volume 0..0x7f (else -12), a busy channel (else -13): the
+ * channel's volume +0x20, its mixed volume (00497750) and the voice's gains
+ * (00497e8a, with the pan +0x23); 0. */
+int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume);
+
 #endif

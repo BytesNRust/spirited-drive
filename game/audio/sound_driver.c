@@ -118,3 +118,24 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
     sound_sample_start(d, s);
     return handle;
 }
+
+enum { BAD_VOLUME = -12, NOT_BUSY = -13 };
+
+static void channel_gains(SoundDriver *d, int32_t slot)
+{
+    SoundChannel *c = &d->channels.channel[slot];
+    sound_channel_mix_volume(c);                                      /* 00497750 */
+    d->voice[slot].gains = sound_pan_gains(c->pan, c->mixed_volume);  /* 00497e8a */
+}
+
+/* 00473b4c */
+int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume)
+{
+    SoundChannel *c = sound_handle_channel(&d->channels, handle);
+    if (c == NULL) return -1;
+    if (volume > TOP_LEVEL || volume < 0) return BAD_VOLUME;
+    if (!c->busy) return NOT_BUSY;
+    c->volume = (uint8_t)volume;
+    channel_gains(d, d->channels.handle[handle]); /* 00497a1c */
+    return 0;
+}
