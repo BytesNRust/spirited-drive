@@ -247,6 +247,7 @@ add_executable(tnfs
     game/viewer/drive_input.c
     game/viewer/drive_keys.c
     game/viewer/drive_replay.c
+    game/viewer/drive_panel.c
     game/viewer/drive_pause.c
     game/viewer/drive_hud.c
     game/viewer/drive_audio.c

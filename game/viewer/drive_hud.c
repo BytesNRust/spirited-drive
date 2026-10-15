@@ -6,6 +6,7 @@
 #include "game/gfx/flat.h"
 #include "game/sys/key_codes.h"
 #include "game/sys/resource.h"
+#include "game/race/dash_controls.h"
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
 #include "game/race/race_chase.h"
@@ -150,6 +151,7 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->map[0] = SHAPE_8_BIT;
     h->map[4] = DRIVE_MAP_W, h->map[6] = DRIVE_MAP_H;
     h->map_blink = 0;
+    drive_panel_start(&h->panel);
 }
 
 /* The camera's view row's frame (00511fe8). */
@@ -560,21 +562,31 @@ static void frame_lights(void *ctx)
 
 static void frame_map(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* drive_hud_in_car's copy */
 
-static void panel_none(void *ctx) { (void)ctx; }  /* TODO(00450d60, 00471364): the panels themselves */
+/* 0044d640's panels on the frame (drive_panel.c) */
+typedef struct {
+    DriveHud *h;
+    DrivePanelDraw d;
+} PanelCalls;
 
-/* 0044d640 over the race's words; the views kept where the original keeps them. */
-static void draw_panel(DriveHud *h, const RaceState *race)
+static void panel_dash(void *ctx) { PanelCalls *c = ctx; drive_panel_dash(&c->h->panel, &c->d); }
+static void panel_replay(void *ctx) { PanelCalls *c = ctx; drive_panel_replay(&c->h->panel, &c->d); }
+
+/* 0044d640 over the race's words; the views kept where the original keeps them (00513898 is the director's). */
+static void draw_panel(DriveHud *h, RaceState *race, const QuadTarget *screen)
 {
-    const RacePanelOps ops = { h, panel_none, panel_none };
-    const RacePanelInputs in = { LIVE_RACE, race->replay, race->viewed, race->player, race->unknown_513e6c,
+    PanelCalls c = { h, { screen, DRIVE_VIEW_W, DRIVE_VIEW_H, &h->art, &h->replay, &h->hud, race, h->director,
+                          h->car_colours, h->mirror.property8_colour, h->strip_colour } };
+    const RacePanelOps ops = { &c, panel_dash, panel_replay };
+    const RacePanelInputs in = { race->phase, race->replay, race->viewed, race->player, race->unknown_513e6c,
                                  race->chase.kind };
-    RacePanelViews v = { h->art.unknown_513888[2], h->art.unknown_513888[4], h->replay.camera, h->replay_redraw };
+    int32_t *redraw = h->director != NULL ? &h->director->unknown_513898 : &h->art.unknown_513888[DASH_REDRAW];
+    RacePanelViews v = { h->art.unknown_513888[DASH_VIEW], *redraw, h->replay.camera, h->panel.panel.redraw };
     race_panel(&ops, &v, &in);
-    h->art.unknown_513888[2] = v.dash_view, h->art.unknown_513888[4] = v.dash_redraw;
-    h->replay.camera = v.replay_view, h->replay_redraw = v.replay_redraw;
+    h->art.unknown_513888[DASH_VIEW] = v.dash_view, *redraw = v.dash_redraw;
+    h->replay.camera = v.replay_view, h->panel.panel.redraw = v.replay_redraw;
 }
 
-static void frame_panel(void *ctx) { FrameCalls *f = ctx; draw_panel(f->s->h, f->s->race); }
+static void frame_panel(void *ctx) { FrameCalls *f = ctx; draw_panel(f->s->h, f->s->race, &f->s->screen); }
 
 /* 0042270c; 1 when a stop notice was up (004214e4 drew it, nothing else this frame). */
 static int draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
@@ -653,7 +665,7 @@ typedef struct {
 static void hud_police(void *ctx) { HudCalls *c = ctx; draw_police(c->s->h, c->s->race, c->s); }
 static void hud_none(void *ctx) { (void)ctx; }
 static void hud_select(void *ctx, HudSurface s) { (void)ctx, (void)s; }
-static void hud_panel(void *ctx) { HudCalls *c = ctx; draw_panel(c->s->h, c->s->race); }
+static void hud_panel(void *ctx) { HudCalls *c = ctx; draw_panel(c->s->h, c->s->race, &c->s->screen); }
 
 static void hud_reselect(void *ctx)
 {

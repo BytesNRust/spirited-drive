@@ -84,8 +84,14 @@ static void next_cut(void *ctx)
     race_replay_next_cut(&r->sim->race, &r->dir, &ops);
 }
 
-/* 0041e358: 004f9a28 = 1, the HUD drawn whole again; --drive draws it whole each frame */
-static void hud_redraw(void *ctx) { (void)ctx; }
+enum { HUD_WHOLE = 2 };  /* 004f9a28 in HudState.unknown_4f9a20 (004f9a20..) */
+
+/* 0041e358: 004f9a28 = 1, the screen drawn whole again (00421160 in the car: the replay's panel drawn over) */
+static void hud_redraw(void *ctx)
+{
+    DriveReplay *r = ctx;
+    if (r->hud != NULL) r->hud->unknown_4f9a20[HUD_WHOLE] = 1;
+}
 
 static void reselect(void *ctx)
 {

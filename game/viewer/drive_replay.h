@@ -3,6 +3,7 @@
 #ifndef TNFS_DRIVE_REPLAY_H
 #define TNFS_DRIVE_REPLAY_H
 
+#include "game/race/hud.h"
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
 #include "game/race/race_view.h"
@@ -16,6 +17,7 @@ typedef struct {
     RaceViews *views;
     int key_down;         /* the development key's state the frame before */
     int32_t *pace;        /* race_run's copy of 004c53a0 (RaceRunWords), kept equal to the director's; NULL none */
+    HudState *hud;        /* 0041e358's 004f9a28 (hud->unknown_4f9a20[2]); NULL none */
 } DriveReplay;
 
 /* 0044edd8 on the sim's race, in a local game (004fbb0c 1): the recording

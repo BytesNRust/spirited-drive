@@ -13,6 +13,7 @@
 #include "game/race/race_palette.h"
 #include "game/race/race_state.h"
 #include "game/viewer/drive_mirror.h"
+#include "game/viewer/drive_panel.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -57,7 +58,8 @@ typedef struct {
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */
     uint8_t *rgb;               /* the frame's 8-bit palette, redone from palette->screen_rgbx after a write */
     int32_t gate_state;         /* 004b945c: 0041f5bc's */
-    int32_t replay_redraw;      /* 0052b8f4: 0044d640's */
+    DrivePanel panel;           /* 0044d640's two panels' words (0052b8f4 is panel.panel.redraw) */
+    RaceReplayDirector *director;  /* the replay's (00513888.., 005120c8), NULL when none records */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
     uint8_t back[DRIVE_VIEW_HEADER + DRIVE_BACK_W * DRIVE_BACK_H];  /* 004c2d98's shape */
     uint8_t map[DRIVE_VIEW_HEADER + DRIVE_MAP_W * DRIVE_MAP_H];     /* 004c2d9c's shape: the track map */
