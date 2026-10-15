@@ -179,11 +179,12 @@ static void test_objects(const char *dir)
 
 static void test_info(const char *dir)
 {
-    CHECK_EQ_INT(track_info_decimal("-45"), -45 * 65536);
-    CHECK_EQ_INT(track_info_decimal(" 0.25"), 16384);
-    CHECK_EQ_INT(track_info_decimal("1.5"), 98304);
-    CHECK_EQ_INT(track_info_decimal("-0.5"), -32768);
-    CHECK_EQ_INT(track_info_decimal("0.0001"), 6);       /* 65536 / 10000, truncated */
+    char d1[] = "-45", d2[] = " 0.25", d3[] = "1.5", d4[] = "-0.5", d5[] = "0.0001";  /* parsed in place */
+    CHECK_EQ_INT(track_info_decimal(d1), -45 * 65536);
+    CHECK_EQ_INT(track_info_decimal(d2), 16384);
+    CHECK_EQ_INT(track_info_decimal(d3), 98304);
+    CHECK_EQ_INT(track_info_decimal(d4), -32768);
+    CHECK_EQ_INT(track_info_decimal(d5), 6);       /* 65536 / 10000, truncated */
 
     size_t size = 0;
     TrackInfo info;
@@ -197,7 +198,7 @@ static void test_info(const char *dir)
         CHECK_EQ_INT(info.ring_y_offset, -45);
         CHECK_EQ_INT(info.ring_height, 108);
         CHECK_EQ_INT(info.time_of_day[0][0], 292);
-        CHECK_EQ_INT(info.time_of_day[0][4], 255 * 256);
+        CHECK_EQ_INT(info.time_of_day[4][0], 255 * 256);  /* group 0's brightness */
     }
     free(text);
     text = (char *)read_file(dir, "MISC/AL1INFO", &size);

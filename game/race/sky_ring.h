@@ -77,7 +77,7 @@ typedef struct {
 } SkySink;
 
 /* 0043b298. info supplies ring_y_offset, ring_height (004fcd20, 004fcd24) and
- * final_flag (004fcd74). TODO(0043b298): the sky-off option (004fb786 != 0),
+ * sky_flag (004fcd74). TODO(0043b298): the sky-off option (004fb786 != 0),
  * which replaces the triangles and fills by calls to 00484389, is not
  * ported; the game never sets it by default. */
 void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *frame, const FshEntry *horz,

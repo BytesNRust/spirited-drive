@@ -177,7 +177,7 @@ void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f
                                sub(b[0], dx_down), sub(b[1], dy_down), sub(a[0], dx_down), sub(a[1], dy_down) };
         if (!slice_visible(q, f->mirrored, f->clip_right, f->clip_left)) continue;
         const int32_t cell = start + k;
-        const int set = info->final_flag != 0 && ((cell >> FINAL_FLAG_BIT) & 1);
+        const int set = info->sky_flag != 0 && ((cell >> FINAL_FLAG_BIT) & 1);
         draw_quad(sink, horz, ring->uv[set][cell & 7], q, f->screen_shift);
     }
 }
