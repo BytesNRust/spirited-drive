@@ -21,8 +21,9 @@ void drive_audio_load(void *user, const char *name);
 /* race_sound_end's ops: 0048edfc and the file freed */
 const RaceSoundBankOps *drive_audio_bank_ops(void);
 
-/* Keeps the stream fed: mixes (00497cb2) while fewer frames are queued
- * than a few frames' worth. */
+/* Runs the driver's 100 Hz service (004a4ac0: volume ramps, countdowns)
+ * for the ticks due, then keeps the stream fed: mixes (00497cb2) while
+ * fewer frames are queued than a few frames' worth. */
 void drive_audio_pump(void);
 
 void drive_audio_close(void);

@@ -13,7 +13,9 @@ enum {
     QUEUE_FRAMES = 0x600,   /* ~70 ms ahead */
     SOUND_VOLUME = 0x7f,    /* 00524e69 */
     MUSIC_VOLUME = 100,     /* 00524e65 */
-    RAND_SEED = 1           /* the C library's rand() before any srand */
+    RAND_SEED = 1,          /* the C library's rand() before any srand */
+    TICK_MS = 10,           /* 0048c290's 100 Hz thread runs 004a4ac0 each tick */
+    TICK_CATCH_UP = 10      /* ticks run at most per pump; a longer stall is dropped */
 };
 
 static SoundDriver driver;
@@ -21,6 +23,7 @@ static SoundBank banks[RACE_SOUND_BANKS];
 static uint8_t *files[RACE_SOUND_BANKS];
 static const char *root;
 static int open_;
+static uint32_t ticked_ms;
 
 static int32_t voice_start(void *user, int32_t sound, int32_t pan, uint8_t volume, uint8_t pitch)
 {
@@ -48,6 +51,7 @@ int drive_audio_open(RaceState *race, const char *data_root)
         driver.rand_seed = RAND_SEED;
         sound_driver_init(&driver, MIX_RATE);
         driver.channels.open = 1;  /* 004c7b54 */
+        ticked_ms = platform_ticks_ms();
     }
     RaceEntry *followed = &race->entries[race_slot(race->player)];
     followed->sound_volume = open_ ? SOUND_VOLUME : 0;
@@ -112,6 +116,9 @@ const RaceSoundBankOps *drive_audio_bank_ops(void)
 void drive_audio_pump(void)
 {
     if (!open_) return;
+    const uint32_t now = platform_ticks_ms();
+    for (int i = 0; i < TICK_CATCH_UP && now - ticked_ms >= TICK_MS; i++, ticked_ms += TICK_MS) sound_driver_tick(&driver);
+    if (now - ticked_ms >= TICK_MS) ticked_ms = now;
     static int16_t out[2 * MIX_CHUNK];
     for (int i = 0; i < QUEUE_FRAMES / MIX_CHUNK && platform_audio_queued() < QUEUE_FRAMES; i++) {
         sound_mix_frames(&driver.mixer, out, MIX_CHUNK);
