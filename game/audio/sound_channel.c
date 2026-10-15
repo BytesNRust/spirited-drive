@@ -28,3 +28,12 @@ int32_t sound_handle_alloc(SoundChannels *s, int32_t channel)
         if (handle_take(s, i, channel)) return (int32_t)i;
     return -1;
 }
+
+/* 00497a34 */
+int32_t sound_handle_check(const SoundChannels *s, int32_t handle)
+{
+    if (!s->open || handle < 0 || handle >= SOUND_HANDLES) return -1;
+    const int32_t channel = s->handle[handle];
+    if (channel < 0 || channel >= SOUND_CHANNELS) return -1;
+    return s->channel[channel].busy ? 0 : -1;
+}

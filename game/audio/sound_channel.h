@@ -27,6 +27,7 @@ typedef struct {
     SoundChannel channel[SOUND_CHANNELS];  /* 0052f978 */
     int32_t handle[SOUND_HANDLES];         /* 004c7d94: the channel, -1 free */
     uint32_t handle_cursor;                /* 004c7f28 */
+    int32_t open;                          /* 004c7b54: the driver is open */
 } SoundChannels;
 
 /* 00497750 (eax the channel): +0x22 = +0x21 x +0x20 / 0x7f. */
@@ -37,5 +38,9 @@ void sound_channel_mix_volume(SoundChannel *c);
  * cursor moved past it (100 -> 0); -1 for a channel outside 0..15 or no
  * free handle (the cursor kept). */
 int32_t sound_handle_alloc(SoundChannels *s, int32_t channel);
+
+/* 00497a34 (eax the handle): 0 when the driver is open and the handle
+ * (0..99) names a channel (0..15) that is busy (+0x12), else -1. */
+int32_t sound_handle_check(const SoundChannels *s, int32_t handle);
 
 #endif
