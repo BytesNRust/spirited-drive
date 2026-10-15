@@ -10,18 +10,21 @@
  * words), 0..0x1600 (88 steps). */
 enum { SOUND_ADPCM_INDEX_MAX = 0x1600 };
 
+/* A voice's decoder (+0x58): both take the same six arguments */
+typedef void SoundDecoder(uint32_t first, const uint8_t *src, int16_t *dst, int32_t count, uint32_t *sample, uint32_t *index);
+
 /* 004a553c (cdecl first, src, dst, end, &sample, &index): mono, nibble by
  * nibble from nibble `first` of `src` (an even one is a byte's high half),
  * until nibble `end` - not counting `first` (end += first); one at least
  * (the loop tests after a sample). *sample's low 16 bits signed are the
  * predictor, *index the step index x 64; both written back as 32-bit
  * words. Each sample saturated to s16, the index held to 0..0x1600. */
-void sound_adpcm_mono(uint32_t first, const uint8_t *src, int16_t *dst, int32_t count, int32_t *sample, uint32_t *index);
+SoundDecoder sound_adpcm_mono;
 
 /* 004a55e4 (the same arguments; `first` unused): stereo, a byte a frame,
  * its high nibble left and low nibble right, into interleaved frames;
  * *sample and *index hold left in the low half and right in the high half
  * (the predictors as s16). One frame at least. */
-void sound_adpcm_stereo(const uint8_t *src, int16_t *dst, int32_t count, uint32_t *sample, uint32_t *index);
+SoundDecoder sound_adpcm_stereo;
 
 #endif

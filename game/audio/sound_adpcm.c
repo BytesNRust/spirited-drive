@@ -35,7 +35,7 @@ static uint32_t next_index(uint32_t index, uint32_t nibble)
 }
 
 /* 004a553c */
-void sound_adpcm_mono(uint32_t first, const uint8_t *src, int16_t *dst, int32_t count, int32_t *sample, uint32_t *index)
+void sound_adpcm_mono(uint32_t first, const uint8_t *src, int16_t *dst, int32_t count, uint32_t *sample, uint32_t *index)
 {
     const int32_t end = count + (int32_t)first;
     uint32_t at = first, idx = *index;
@@ -47,13 +47,14 @@ void sound_adpcm_mono(uint32_t first, const uint8_t *src, int16_t *dst, int32_t 
         at++;
         idx = next_index(idx, nibble);
     } while ((int32_t)at < end);
-    *sample = s;
+    *sample = (uint32_t)s;
     *index = idx;
 }
 
 /* 004a55e4 */
-void sound_adpcm_stereo(const uint8_t *src, int16_t *dst, int32_t count, uint32_t *sample, uint32_t *index)
+void sound_adpcm_stereo(uint32_t first, const uint8_t *src, int16_t *dst, int32_t count, uint32_t *sample, uint32_t *index)
 {
+    (void)first;
     int32_t left = (int16_t)*sample, right = (int16_t)(*sample >> 16);
     uint32_t li = *index & 0xffff, ri = *index >> 16;
     int32_t frame = 0;

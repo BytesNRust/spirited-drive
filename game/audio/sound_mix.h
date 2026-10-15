@@ -3,6 +3,8 @@
 #ifndef TNFS_SOUND_MIX_H
 #define TNFS_SOUND_MIX_H
 
+#include "game/audio/sound_adpcm.h"
+
 #include <stdint.h>
 
 /* 0049847d's three words in the voice's mixer record (+0x24, +0x28, +0x2c). */
@@ -42,6 +44,9 @@ SoundGains sound_pan_gains(uint32_t pan, uint32_t volume);
  * shifted right by `shift`, the port the frame from `data`. */
 typedef struct MixVoice MixVoice;
 
+/* 004eb8ac..004f38ac: 0x8000 bytes */
+enum { SOUND_DECODE_SAMPLES = 0x4000 };
+
 struct MixVoice {
     uint8_t on;            /* +0: 1 while it plays */
     uint8_t looped;        /* +1 */
@@ -57,6 +62,18 @@ struct MixVoice {
     uint32_t loop_start;   /* +0x1c */
     uint32_t loop_end;     /* +0x20 */
     SoundStep step;        /* +0x24..+0x2c */
+    uint32_t index;        /* +0x30: compressed: the decoder's step index(es) */
+    uint32_t sample;       /* +0x34: the decoder's predictor(s) */
+    uint32_t src_pos;      /* +0x38: the source's position, nibbles (mono) or bytes (stereo) */
+    uint32_t src_frac;     /* +0x3c */
+    const uint8_t *src;    /* +0x40: the compressed data */
+    uint32_t src_loop_start; /* +0x44 */
+    uint32_t src_loop_end; /* +0x48 */
+    uint32_t src_end;      /* +0x4c */
+    uint32_t saved_sample; /* +0x50: +0x34 at the loop's start */
+    uint32_t saved_index;  /* +0x54 */
+    SoundDecoder *decode;  /* +0x58 */
+    int16_t *buffer;       /* 004eb8ac: what a compressed span decodes into, SOUND_DECODE_SAMPLES */
     void (*mix)(MixVoice *v, int32_t *acc, uint32_t count);  /* +0x5c: the format's mixer */
     int32_t (*span)(MixVoice *v, int32_t left);              /* +0x60: frames to the segment's end */
     SoundGains gains;      /* +0x64, +0x68 */
@@ -93,6 +110,15 @@ int32_t sound_span_once(MixVoice *v, int32_t left);
  * fraction 0 and again (a loop of no frames: the original spins, the port
  * gives 0). */
 int32_t sound_span_loop(MixVoice *v, int32_t left);
+
+/* 004983c5 (as 0049808a, a compressed one-shot voice): the frames before
+ * the source's end (+0x4c, from +0x38), at most `left` (0 stops it); then
+ * the source those frames step over - (n x step) >> 24, plus the carry of
+ * the fraction +0x3c gathers and one more while it is not 0 - decoded
+ * through +0x58 into the buffer (from nibble +0x38 of +0x40 mono, byte
+ * +0x38 stereo; the predictors +0x34 and indices +0x30 carried), +0x38
+ * past it and the voice's position the buffer's first frame (+0x18 kept). */
+int32_t sound_span_packed(MixVoice *v, int32_t left);
 
 /* 00499c08 (the mixer's output 004f38e8 for 16-bit stereo; 004f38bc the
  * buffer, 004f38b8 the frames): each accumulator word (004e98ac, left and

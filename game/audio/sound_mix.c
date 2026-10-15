@@ -11,6 +11,15 @@ enum {
     STEP_WHOLE_MASK = 0xff
 };
 
+enum {
+    VOICE_STEREO = 4,
+    VOICE_16BIT = 8,
+    VOICE_FORMAT = VOICE_STEREO | VOICE_16BIT,
+    VOICE_COMPRESSED = 2,
+    VOICE_HEADER = 0x10,
+    VOICE_KIND_COMPRESSED = 2
+};
+
 /* 004c7f2c: 0x10000 x 2^(i / 1200) */
 static const uint32_t CENTS[CENTS_STEPS] = {
     0x10000, 0x10025, 0x1004b, 0x10071, 0x10097, 0x100bd, 0x100e3, 0x10109, 0x1012f, 0x10155,
@@ -261,12 +270,14 @@ void sound_mix_stereo16(MixVoice *v, int32_t *acc, uint32_t count)
  * over the step (div edx:eax; the fraction is not counted). The original
  * faults when the step is 0 or the quotient passes 32 bits; the port gives
  * 0 for the first and keeps the low word of the second. */
-static uint32_t frames_to(const MixVoice *v, uint32_t mark)
+static uint32_t frames_between(uint32_t pos, uint32_t mark, uint32_t step)
 {
-    const int32_t diff = (int32_t)(mark - v->pos);
-    if (v->step.step == 0) return 0;
-    return (uint32_t)(((uint64_t)(uint32_t)(diff < 0 ? 0 : diff) << STEP_FRACTION_BITS) / v->step.step);
+    const int32_t diff = (int32_t)(mark - pos);
+    if (step == 0) return 0;
+    return (uint32_t)(((uint64_t)(uint32_t)(diff < 0 ? 0 : diff) << STEP_FRACTION_BITS) / step);
 }
+
+static uint32_t frames_to(const MixVoice *v, uint32_t mark) { return frames_between(v->pos, mark, v->step.step); }
 
 static int32_t at_most(uint32_t frames, int32_t left)
 {
@@ -293,6 +304,38 @@ int32_t sound_span_loop(MixVoice *v, int32_t left)
         if (frames == 0) return 0; /* the original loops forever */
     }
     return at_most(frames, left);
+}
+
+/* 004983c5 / 00498198 / 004982a5's tail: `n` frames' source decoded into
+ * the buffer. The original writes past 004f38ac when the count passes the
+ * buffer; the port holds it to the buffer. */
+static int32_t decode_span(MixVoice *v, int32_t n)
+{
+    const uint64_t moved = (uint64_t)(uint32_t)n * v->step.step;
+    const uint32_t part = (uint32_t)moved << (32 - STEP_FRACTION_BITS);
+    uint32_t count = (uint32_t)(moved >> STEP_FRACTION_BITS);
+    v->src_frac += part;
+    if (v->src_frac < part) count++;
+    if (v->src_frac != 0) count++;
+    const int stereo = (v->flags & VOICE_STEREO) != 0;
+    const uint32_t room = stereo ? SOUND_DECODE_SAMPLES / 2 : SOUND_DECODE_SAMPLES;
+    const uint32_t first = stereo ? count : v->src_pos & 1;
+    v->decode(first, v->src + (stereo ? v->src_pos : v->src_pos >> 1), v->buffer,
+              (int32_t)(count < room ? count : room), &v->sample, &v->index);
+    v->src_pos += count;
+    v->data = (const uint8_t *)v->buffer;
+    v->pos = 0;
+    return n;
+}
+
+int32_t sound_span_packed(MixVoice *v, int32_t left)
+{
+    const uint32_t frames = frames_between(v->src_pos, v->src_end, v->step.step);
+    if (frames == 0) {
+        v->on = 0;
+        return 0;
+    }
+    return decode_span(v, at_most(frames, left));
 }
 
 /* 00499c08 */
@@ -324,15 +367,6 @@ int sound_mix_frames(SoundMixer *m, int16_t *out, int32_t frames)
     sound_out_s16(m->acc, out, (uint32_t)frames);
     return 1;
 }
-
-enum {
-    VOICE_STEREO = 4,
-    VOICE_16BIT = 8,
-    VOICE_FORMAT = VOICE_STEREO | VOICE_16BIT,
-    VOICE_COMPRESSED = 2,
-    VOICE_HEADER = 0x10,
-    VOICE_KIND_COMPRESSED = 2
-};
 
 /* 00497f9e's mixer for the format (004f38b0 is 0) */
 static void (*voice_mixer(uint32_t flags))(MixVoice *, int32_t *, uint32_t)
