@@ -38,7 +38,7 @@ typedef struct {
  * the player's car is in physics 1 or 2, else 0044435c. */
 void race_replay_seek(RaceState *race, const RaceReplaySeekOps *ops, int32_t clock, int32_t mark);
 
-/* 0044eb34 (eax a word of 00512d9c's row; from 0044ed3f in 0044ecc4): the
+/* 0044eb34 (eax a cut's word, 00512d9c + 12 i; from 0044ed3f in 0044ecc4): the
  * replay's camera. 0043f8f8(0, 5) (slot 2's car just behind) and
  * 0043f948(0, 5) (the other of slots 0 and 1): both: race_rand_below(10)
  * < 6 picks 6, else 7; one: that one; 6 follows the other of slots 0 and
@@ -61,7 +61,7 @@ typedef struct {
  * 0044ffa9, 00450153): a replay's frame. On a minute (00512d90 % 0x708 0)
  * 0044e354(clock, -1); 0044dbc8. 00513728 set (a seek happened):
  * 004c538c = 0, the camera follows the player's car in the record's next
- * kind, 00512f78 >= -1: 0044eb34(00512d9c[00512f78][0]); 004c5370 and
+ * kind, 00512f78 >= -1: 0044eb34(cut 00512f78's word); 004c5370 and
  * 00513728 = 0; 00512f7c set: cleared, and with 004fbb0c and playback not
  * 1 the tick to 00512f84; 00443820; 00444394 for the player's car in
  * physics 1 or 2, else 0044435c. Then 0051371c set and the tick's low
@@ -126,5 +126,35 @@ typedef struct {
  * 004043d4. (0045aab0, called before 004501fc, is a bare ret; 004fcdac's 1
  * while racing is overwritten before anything reads it.) */
 void race_replay_jump(RaceState *race, RaceReplayJumpWords *w, const RaceReplayJumpOps *ops, int32_t clock, int32_t until);
+
+/* 0044fc74's words outside RaceState */
+typedef struct {
+    int32_t unknown_4c5388, unknown_4c53a0;
+    int32_t unknown_513730, unknown_513888, unknown_513894, unknown_513898;
+    int32_t close_up;           /* 004c53d8: 1 while a close cut plays */
+    uint8_t unknown_5137e4;     /* 005137e4 (read): set, the director stops at its last cut */
+} RaceReplayCutWords;
+
+typedef struct {
+    void *ctx;
+    void (*jump)(void *ctx, int32_t clock, int32_t until);  /* 0044e700 */
+    void (*step)(void *ctx);                                /* 0044ecc4 */
+} RaceReplayCutOps;
+
+/* 0044fc74 (no arguments; from 0044fe84 with 00512f78 >= 0): the
+ * director's next cut. 004c5388 = 004c53a8 = 004c53a0 = 00513894 = 0,
+ * 004c5398 = 4, 00513730 = 00513888 = 6, 00513898 = 1; 00512f78 + 1.
+ * Past the last (>= 00512f74, signed): unless 005137e4, back to cut 0
+ * (00512f78 = 0, 0044e700(its clock, until), 0044ecc4, 004c53d8 = 0);
+ * with it the end state 00509d70 = 0x20. Else race_rand_below(10); the
+ * cut's word 0xe4: near when another human's car (slot below 004fb7e0,
+ * not the player's) is within 3 nodes (|node difference| < 3) of the
+ * player's, else always near; a word 0xdb..0xf7, the draw above 4, no
+ * close cut playing (004c53d8 0) and near: a close cut (004c5398 = 3,
+ * 004c53a0 = 2, 00513730 = 8, 00513888 = 6, 00513894 = 00513898 =
+ * 004c53d8 = 1), else 004c53d8 = 0. Then 0044e700(the cut's clock,
+ * until) and 0044ecc4. (004fbb08 is written back as read.) A cut past
+ * the 40 (the original reads on) returns after the count. */
+void race_replay_next_cut(RaceState *race, RaceReplayCutWords *w, const RaceReplayCutOps *ops);
 
 #endif

@@ -20,8 +20,16 @@ enum {
     RACE_CARS = 9,                /* 00509e1c, 00509e44, 00509e68: racers, police and traffic (00439c98) */
     RACE_LAP_MARKS = 109,         /* what fits in a 0x1d2-byte player record before the police stop counts */
     RACE_SURFACES = 3,
-    RACE_VOICES = 16              /* 0050a4cc: 8 bytes each, up to the banks at 0050a54c */
+    RACE_VOICES = 16,             /* 0050a4cc: 8 bytes each, up to the banks at 0050a54c */
+    REPLAY_CUTS = 40              /* 00512d94..00512f74 */
 };
+
+/* 00512d94 + 12 * i: a cut of the replay's director (0044fc74 steps through
+ * them): the clock it jumps to, the clock it plays until (0044e700) and the
+ * camera's word (0044eb34). */
+typedef struct {
+    int32_t clock, until, word;
+} ReplayCut;
 
 /* 004fa9b0 + 16 * surface (car +0x4a2), set per track by 0042f734. */
 typedef struct {
@@ -376,10 +384,10 @@ typedef struct {
      * after each), the clock 004397f4 takes its slot from (004c5590) and
      * the dropped network game (0052b314) */
     int32_t replay_mark_countdown, input_clock;
-    int32_t unknown_512f78;         /* 00512f78: 0044ecc4 picks the camera from 00512d9c[it] (12 bytes a row) when above -2 */
-    /* 00512d9c: rows of three words; 0044ecc4 hands the first of row
-     * 00512f78 to 0044eb34 (row -1 is 00512d90, the clock) */
-    int32_t unknown_512d9c[39][3];
+    int32_t unknown_512f78;         /* 00512f78: the cut playing; 0044ecc4 hands its word to 0044eb34 when above -2 */
+    /* 00512d94: the cuts; cut -1's word is 00512d90, the clock */
+    ReplayCut replay_cuts[REPLAY_CUTS];
+    int32_t replay_cut_count;       /* 00512f74 */
     int32_t unknown_512f7c;         /* 00512f7c: 0044ecc4 clears it and then marks the tick in 00512f84 */
     int32_t unknown_4c5370;         /* 004c5370: cleared by 0044ecc4 and at 0044e8b3 */
     int32_t unknown_51371c;         /* 0051371c: set, 0044ecc4 steps the camera's kind (0040594c) on ticks & 0xff == 0xfc */

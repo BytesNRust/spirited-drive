@@ -208,7 +208,7 @@ void race_replay_camera(RaceState *race, int32_t word)
     race->camera_roll_add = 0;
 }
 
-enum { CUT_ROWS = 39, CUT_CLOCK = -1, CYCLE_TICK = 0xfc, TICK_BYTE = 0xff };
+enum { CUT_CLOCK = -1, CYCLE_TICK = 0xfc, TICK_BYTE = 0xff };
 
 static void after_seek(RaceState *race, const RaceReplayStepOps *ops)
 {
@@ -216,7 +216,7 @@ static void after_seek(RaceState *race, const RaceReplayStepOps *ops)
     if (race->sounds.camera != NULL) race->sounds.camera(race->sounds.user, race->player, race->chase.next_kind);
     const int32_t row = race->unknown_512f78;
     if (row == CUT_CLOCK) ops->camera(ops->ctx, race->clock);  /* row -1 is the clock (00512d90) */
-    else if (row >= 0 && row < CUT_ROWS) ops->camera(ops->ctx, race->unknown_512d9c[row][0]);  /* port guard: the rows */
+    else if (row >= 0 && row < REPLAY_CUTS) ops->camera(ops->ctx, race->replay_cuts[row].word);  /* port guard: the cuts */
     race->unknown_4c5370 = 0;
     race->unknown_513728 = 0;
     if (race->unknown_512f7c != 0) {
@@ -270,4 +270,64 @@ void race_replay_jump(RaceState *race, RaceReplayJumpWords *w, const RaceReplayJ
     race->splits.gap = 0;
     race->splits.gap_shown = 0;
     ops->road_yaw(ops->ctx);
+}
+
+enum {
+    CUT_DIRECT_TICKS = 4, CUT_FRAMES = 0, CUT_PANEL = 6, CLOSE_TICKS = 3, CLOSE_FRAMES = 2, CLOSE_PANEL = 8,
+    CLOSE_WORD = 0xe4, CLOSE_FIRST = 0xdb, CLOSE_LAST = 0xf7, CLOSE_TENTHS = 10, CLOSE_ABOVE = 4, NEAR_NODES = 3,
+    DIRECTOR_DONE = 0x20
+};
+
+/* Another human's car within NEAR_NODES nodes of the player's */
+static int human_near(const RaceState *race)
+{
+    const Car *player = race->player >= 0 && race->player < RACE_CARS ? race->cars[race->player] : NULL;
+    for (int32_t i = 0; i < race->humans && i < RACE_CARS; i++) {  /* port guard: the slots */
+        if (i == race->player || player == NULL || race->cars[i] == NULL) continue;
+        int32_t d = (int32_t)((uint32_t)player->node - (uint32_t)race->cars[i]->node);
+        if (d <= 0) d = (int32_t)(0u - (uint32_t)d);
+        if (d < NEAR_NODES) return 1;
+    }
+    return 0;
+}
+
+void race_replay_next_cut(RaceState *race, RaceReplayCutWords *w, const RaceReplayCutOps *ops)
+{
+    w->unknown_4c5388 = 0;
+    race->camera_roll_add = 0;
+    race->unknown_4c5398 = CUT_DIRECT_TICKS;
+    w->unknown_4c53a0 = CUT_FRAMES;
+    w->unknown_513730 = CUT_PANEL;
+    w->unknown_513888 = CUT_PANEL;
+    w->unknown_513894 = 0;
+    w->unknown_513898 = 1;
+    const int32_t row = ++race->unknown_512f78;
+    if (row >= race->replay_cut_count) {
+        if (w->unknown_5137e4 != 0) {
+            race->end_state = DIRECTOR_DONE;
+            return;
+        }
+        race->unknown_512f78 = 0;
+        ops->jump(ops->ctx, race->replay_cuts[0].clock, race->replay_cuts[0].until);
+        ops->step(ops->ctx);
+        w->close_up = 0;
+        return;
+    }
+    if (row < 0 || row >= REPLAY_CUTS) return;  /* port guard: the original reads past the cuts */
+    const int32_t draw = race_rand_below(race, CLOSE_TENTHS);
+    const ReplayCut *cut = &race->replay_cuts[row];
+    const int near = cut->word == CLOSE_WORD ? human_near(race) : 1;
+    if (cut->word >= CLOSE_FIRST && cut->word <= CLOSE_LAST && draw > CLOSE_ABOVE && w->close_up == 0 && near) {
+        race->unknown_4c5398 = CLOSE_TICKS;
+        w->unknown_4c53a0 = CLOSE_FRAMES;
+        w->unknown_513730 = CLOSE_PANEL;
+        w->unknown_513888 = CUT_PANEL;
+        w->unknown_513894 = 1;
+        w->unknown_513898 = 1;
+        w->close_up = 1;
+    } else {
+        w->close_up = 0;
+    }
+    ops->jump(ops->ctx, cut->clock, cut->until);
+    ops->step(ops->ctx);
 }
