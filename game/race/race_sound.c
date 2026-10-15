@@ -847,6 +847,20 @@ void race_sound_unmute(RaceState *race, void (*music_volume)(void *user, int16_t
     music_volume(user, (int16_t)race->entries[race_slot(race->player)].music_volume);  /* port guard: race_slot */
 }
 
+/* 004437c8 */
+void race_sound_voices_off(RaceState *race, void (*music_now)(void *user, int16_t volume), void *user)
+{
+    for (int i = 0; i < RACE_VOICES; i++)
+        if (race->sounds.voice_volume != NULL) race->sounds.voice_volume(race->sounds.user, race->voices[i].voice, 0);
+    music_now(user, 0);
+}
+
+/* 004437f0 */
+void race_sound_music_back(RaceState *race, void (*music_volume)(void *user, int16_t volume), void *user)
+{
+    if (race->sound_silent == 0) music_volume(user, (int16_t)race->entries[race_slot(race->player)].music_volume);  /* port guard: race_slot */
+}
+
 enum { MUSIC_ANY = 1, MUSIC_FIRST_HALF = 2, MUSIC_SECOND_HALF = 3, MUSIC_FIXED = 4, MUSIC_LAST = 15, MUSIC_TRACKS = 12,
        MUSIC_HALF = 6 };
 

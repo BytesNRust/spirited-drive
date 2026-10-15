@@ -227,6 +227,17 @@ int32_t race_sound_doppler(Car *car, const RaceChase *chase);
  * back as read. */
 void race_sound_other_human(RaceState *race);
 
+/* 004437c8 (watcall (), the pause: 00455600 through 004b90dc[1]): every
+ * channel's voice (0050a4cc, negative ones too) at volume 0 (00473b4c) and
+ * the music at once to 0 (0046463c, `music_now`); as 00443768 without
+ * 004bc6ec. */
+void race_sound_voices_off(RaceState *race, void (*music_now)(void *user, int16_t volume), void *user);
+
+/* 004437f0 (watcall (), the pause's end): unless F5 silenced the sound
+ * (004bc6ec), the music back to the followed entry's music volume (+0x21
+ * as a short; 00464604). */
+void race_sound_music_back(RaceState *race, void (*music_volume)(void *user, int16_t volume), void *user);
+
 typedef struct {
     void *ctx;
     int32_t (*rand_below)(void *ctx, int32_t n);  /* 00443730 */
