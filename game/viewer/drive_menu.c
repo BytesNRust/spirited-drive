@@ -17,7 +17,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { KEY_ESC_SCANCODE = 1, TICK_HZ = 60, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
+/* TICK_HZ: 004bb8dc (counted by the timer callback 0043b9e8) and 0052eebc (00473334's) both run on the
+ * master timer, 004c6170 = 100 a second (0048c60c) */
+enum { KEY_ESC_SCANCODE = 1, TICK_HZ = 100, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
 
 typedef struct {
     DriveMenu *m;
@@ -26,7 +28,7 @@ typedef struct {
     uint32_t clock_ms, ticks_ms;  /* where 004bb8dc's and 00473334's ticks were last counted */
 } MenuCtx;
 
-/* Ticks at 60 a second since *since (moved on by the ticks counted) */
+/* Ticks at TICK_HZ since *since (moved on by the ticks counted) */
 static int32_t ticks_since(uint32_t *since)
 {
     const uint32_t now = platform_ticks_ms();
