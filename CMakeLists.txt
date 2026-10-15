@@ -59,6 +59,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 # The recovered game logic: platform-independent, links no SDL.
 add_library(tnfs_game STATIC
+    game/frontend/best_times.c
     game/frontend/cheat_code.c
     game/frontend/config_dat.c
     game/frontend/control_central_art.c
