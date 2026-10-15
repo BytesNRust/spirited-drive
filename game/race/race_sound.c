@@ -748,3 +748,20 @@ void race_sound_setup(RaceState *race, void (*music_volume)(void *user, int16_t 
     music_volume(user, (int16_t)entry->music_volume);
     for (int i = 0; i < RACE_VOICES; i++) race->voices[i].voice = race->voices[i].sound = -1;
 }
+
+enum { MUSIC_ANY = 1, MUSIC_FIRST_HALF = 2, MUSIC_SECOND_HALF = 3, MUSIC_FIXED = 4, MUSIC_LAST = 15, MUSIC_TRACKS = 12,
+       MUSIC_HALF = 6 };
+
+void race_music_start(const RaceMusicOps *ops, int16_t music)
+{
+    int32_t track;
+    switch (music) {
+    case MUSIC_ANY: track = ops->rand_below(ops->ctx, MUSIC_TRACKS); break;
+    case MUSIC_FIRST_HALF: track = ops->rand_below(ops->ctx, MUSIC_HALF); break;
+    case MUSIC_SECOND_HALF: track = ops->rand_below(ops->ctx, MUSIC_HALF) + MUSIC_HALF; break;
+    default:
+        if (music < MUSIC_FIXED || music > MUSIC_LAST) return;
+        track = music - MUSIC_FIXED;
+    }
+    ops->play(ops->ctx, track);
+}

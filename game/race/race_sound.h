@@ -161,4 +161,17 @@ int32_t race_sound_doppler(Car *car, const RaceChase *chase);
  * back as read. */
 void race_sound_other_human(RaceState *race);
 
+typedef struct {
+    void *ctx;
+    int32_t (*rand_below)(void *ctx, int32_t n);  /* 00443730 */
+    void (*play)(void *ctx, int32_t track);       /* 00464428(004c55ac[track]) */
+} RaceMusicOps;
+
+/* 00456244 (watcall (), from 00455a5c's setup) on the music setting (the
+ * word 00524e63): 1 a track 00443730(12), 2 00443730(6), 3 00443730(6) + 6,
+ * 4..15 setting - 4; then, the setting not 0, that track played (00464428
+ * with 004c55ac's name). 0 plays nothing; past 15 or below 0 the original
+ * indexes with eax as it came, the port plays nothing. */
+void race_music_start(const RaceMusicOps *ops, int16_t music);
+
 #endif
