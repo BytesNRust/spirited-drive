@@ -1,5 +1,7 @@
 #include "game/audio/sound_channel.h"
 
+#include <stddef.h>
+
 enum { FULL_VOLUME = 0x7f };
 
 /* 00497750 */
@@ -36,4 +38,11 @@ int32_t sound_handle_check(const SoundChannels *s, int32_t handle)
     const int32_t channel = s->handle[handle];
     if (channel < 0 || channel >= SOUND_CHANNELS) return -1;
     return s->channel[channel].busy ? 0 : -1;
+}
+
+/* 00497af8 */
+SoundChannel *sound_handle_channel(SoundChannels *s, int32_t handle)
+{
+    if (sound_handle_check(s, handle) < 0) return NULL;
+    return &s->channel[s->handle[handle]];
 }

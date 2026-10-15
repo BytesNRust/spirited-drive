@@ -43,4 +43,8 @@ int32_t sound_handle_alloc(SoundChannels *s, int32_t channel);
  * (0..99) names a channel (0..15) that is busy (+0x12), else -1. */
 int32_t sound_handle_check(const SoundChannels *s, int32_t handle);
 
+/* 00497af8 (eax the handle): the handle's channel when 00497a34 passes it,
+ * else NULL. */
+SoundChannel *sound_handle_channel(SoundChannels *s, int32_t handle);
+
 #endif
