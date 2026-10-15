@@ -20,7 +20,22 @@ typedef struct {
     uint8_t pan;           /* +0x23 */
 } SoundChannel;
 
+enum { SOUND_CHANNELS = 16, SOUND_HANDLES = 100, SOUND_HANDLE_FREE = -1 };
+
+/* The channels and the handles that name them */
+typedef struct {
+    SoundChannel channel[SOUND_CHANNELS];  /* 0052f978 */
+    int32_t handle[SOUND_HANDLES];         /* 004c7d94: the channel, -1 free */
+    uint32_t handle_cursor;                /* 004c7f28 */
+} SoundChannels;
+
 /* 00497750 (eax the channel): +0x22 = +0x21 x +0x20 / 0x7f. */
 void sound_channel_mix_volume(SoundChannel *c);
+
+/* 004978a0 (eax the channel): the first free handle from the cursor on,
+ * then from 0 up to it, made the channel's (+0x11, its low byte) and the
+ * cursor moved past it (100 -> 0); -1 for a channel outside 0..15 or no
+ * free handle (the cursor kept). */
+int32_t sound_handle_alloc(SoundChannels *s, int32_t channel);
 
 #endif
