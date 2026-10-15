@@ -144,18 +144,6 @@ void ported_view_set_car_objects(int slot, Object3D *high, Object3D *low)
     c->ok = car_model_init(&c->model, high, low);
 }
 
-int ported_view_draw_car(int slot, const CarPose *pose, const ModelView *mv, int mirror, const QuadTarget *target,
-                         const uint8_t palette[768])
-{
-    if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
-    static uint8_t shade[256];
-    static const uint8_t *shaded;
-    if (shaded != palette) object_sink_shade(palette, shade), shaded = palette;
-    ObjectSink pixels = { target, palette, shade };
-    const Object3DSink sink = object_sink(&pixels);
-    return car_draw(&cars[slot].model, pose, mv, mirror, &sink);
-}
-
 Object3D *ported_view_car_object(int slot)
 {
     return slot >= 0 && slot < PORTED_VIEW_CARS && cars[slot].ok ? cars[slot].high : NULL;
@@ -335,14 +323,12 @@ void ported_view_set_tags(const uint8_t *colours, int count, uint32_t outline)
 
 static void tag_polygon(void *ctx, uint32_t colour, int count, const int32_t *points)
 {
-    (void)ctx;
-    flat_polygon(object_pixels.target, colour, count, points);
+    flat_polygon(ctx, colour, count, points);
 }
 
 static void tag_line(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t colour)
 {
-    (void)ctx;
-    flat_line(object_pixels.target, x0, y0, x1, y1, colour);
+    flat_line(ctx, x0, y0, x1, y1, colour);
 }
 
 /* 004591d4 / 00458d4c on the slot's CarModel: car +0x52e / +0x666 hold no handles in the port, so the model is the
@@ -352,6 +338,8 @@ typedef struct {
     ViewCar *vc;
     Car *car;
     const Object3DSink *sink;
+    const ModelView *mv;        /* the main view's, or the mirror's (0040586c sets 00511fe0.. for either) */
+    const QuadTarget *target;   /* where the marks go */
     int32_t eye[3];
     int part;
 } BodyCtx;
@@ -366,7 +354,7 @@ static void body_transform(void *ctx, uint32_t object)
 {
     (void)object, object3d_transform(body_model(ctx), IDENTITY, ((BodyCtx *)ctx)->eye, 0);
 }
-static void body_project(void *ctx, uint32_t object) { (void)object, object3d_project(body_model(ctx), model_view.view); }
+static void body_project(void *ctx, uint32_t object) { (void)object, object3d_project(body_model(ctx), ((BodyCtx *)ctx)->mv->view); }
 static void body_sort(void *ctx, uint32_t object) { (void)object, object3d_sort(body_model(ctx)); }
 static void body_draw(void *ctx, uint32_t object)
 {
@@ -476,15 +464,15 @@ static void render_vertex(void *ctx, uint32_t object, int32_t index, int32_t out
     out[1] = in_range ? body->screen[index][1] : 0;
 }
 
-/* 0044a1c4 with the frame's camera */
+/* 0044a1c4 with the pass's camera; the near plane is the main view's last (the mirror's own is not kept here) */
 static void render_point(void *ctx, Car *car, int32_t camera[3], int32_t screen[2])
 {
-    (void)ctx;
+    const ModelView *mv = ((BodyCtx *)ctx)->mv;
     TrackCamera cam = { { 0 }, { 0 }, 0 };
-    memcpy(cam.position, model_view.camera_position, sizeof cam.position);
-    memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
+    memcpy(cam.position, mv->camera_position, sizeof cam.position);
+    memcpy(cam.matrix, mv->camera_matrix, sizeof cam.matrix);
     DrawContext dc = { 0 };
-    dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
+    dc.view = mv->view, dc.world_shift = WORLD_SHIFT;
     memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
     dc.near = last_near;
     const int32_t place[3] = { car->x, car->y, car->z };
@@ -494,19 +482,17 @@ static void render_point(void *ctx, Car *car, int32_t camera[3], int32_t screen[
 /* 00456f34(005146ac, offset) */
 static void render_trail(void *ctx, const int32_t offset[2])
 {
-    (void)ctx;
+    const ModelView *mv = ((BodyCtx *)ctx)->mv;
     if (puff_trail == NULL || puff_art == NULL || puff_art->smok == NULL) return;
-    const CrashTrailView v = { model_view.view, model_view.camera_position, model_view.camera_matrix, WORLD_SHIFT, NULL,
-                               trail_puff };
+    const CrashTrailView v = { mv->view, mv->camera_position, mv->camera_matrix, WORLD_SHIFT, NULL, trail_puff };
     crash_trail_draw(puff_trail, offset, &v);
 }
 
 /* 00459064 */
 static void render_tag(void *ctx, int32_t x, int32_t y, int32_t slot, int32_t z)
 {
-    (void)ctx;
     if (tag_colours == NULL || slot < 0 || slot >= tag_colour_count) return;
-    const CarTagOps ops = { NULL, tag_polygon, tag_line };
+    const CarTagOps ops = { (void *)((BodyCtx *)ctx)->target, tag_polygon, tag_line };
     const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, shadow_race->humans, 0 };
     car_tag(&ops, &v, x, y, slot, z);
 }
@@ -514,20 +500,37 @@ static void render_tag(void *ctx, int32_t x, int32_t y, int32_t slot, int32_t z)
 /* 0051c774 */
 static int32_t car_world[9];
 
+static void render_slot(ViewCar *vc, Car *car, int pass, const ModelView *mv, const Object3DSink *sink,
+                        const QuadTarget *target)
+{
+    BodyCtx b = { vc, car, sink, mv, target, { 0, 0, 0 }, 0 };
+    const RaceState *race = shadow_race;
+    const CarRenderOps ops = { &b, render_body, render_near, render_vertex, render_point, render_trail, render_tag };
+    const CarRenderInputs in = { mv->camera_matrix, race->player, race->replay, race->race_type, race->racers, SKID_HIGH_RES };
+    car_render(&ops, &in, car, pass, car_world);
+}
+
 /* 004591d4 */
 static void row_draw(void *ctx, Car *car, int pass)
 {
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].car == car) {
-            BodyCtx b = { &cars[i], car, &sink, { 0, 0, 0 }, 0 };
-            const RaceState *race = shadow_race;
-            const CarRenderOps ops = { &b, render_body, render_near, render_vertex, render_point, render_trail, render_tag };
-            const CarRenderInputs in = { model_view.camera_matrix, race->player, race->replay, race->race_type, race->racers,
-                                         SKID_HIGH_RES };
-            car_render(&ops, &in, car, pass, car_world);
-        }
+        if (cars[i].ok && cars[i].car == car) render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
+}
+
+int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const QuadTarget *target, const uint8_t palette[768])
+{
+    if (shadow_race == NULL) return 0;
+    static uint8_t shade[256];
+    static const uint8_t *shaded;
+    if (shaded != palette) object_sink_shade(palette, shade), shaded = palette;
+    ObjectSink pixels = { target, palette, shade };
+    const Object3DSink sink = object_sink(&pixels);
+    const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
+    if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
+    render_slot(&cars[slot], car, mirror, mv, &sink, target);
+    return 1;
 }
 
 /* 0045a768 */

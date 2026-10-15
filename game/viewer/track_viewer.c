@@ -512,16 +512,11 @@ static void morph_wheels(void *user, uint32_t object, int32_t part, int32_t weig
     if (obj != NULL) object3d_morph_part(obj, part, weight);
 }
 
-/* drive_mirror's 004591d4 pass 1: the car's slot model at its pose. */
-static void mirror_car(void *user, const Car *car, const ModelView *mv, const QuadTarget *target)
+/* drive_mirror's 004591d4 pass 1 (car_render with mirror 1) in the mirror's view. */
+static void mirror_car(void *user, Car *car, const ModelView *mv, const QuadTarget *target)
 {
     const Track *t = user;
-    for (int i = 0; i < RACE_CARS; i++)
-        if (drive_sim.race.cars[i] == car) {
-            const CarPose pose = car_pose_of(car);
-            ported_view_draw_car(i, &pose, mv, 1, target, t->art.palette);
-            return;
-        }
+    ported_view_render_car(car, mv, 1, target, t->art.palette);
 }
 
 /* 0044cc74's words (frame_draw.h), 00511fec among them (DriveHud.view_changed points here). */

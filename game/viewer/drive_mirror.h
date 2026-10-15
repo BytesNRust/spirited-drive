@@ -44,7 +44,7 @@ typedef struct {
     const Car *followed;        /* cars[004fbb08] */
     void *user;
     /* 004591d4's mirror pass for a car with the mirror's view into the picture */
-    void (*draw_car)(void *user, const Car *car, const ModelView *mv, const QuadTarget *target);
+    void (*draw_car)(void *user, Car *car, const ModelView *mv, const QuadTarget *target);
 } DriveMirrorWorld;
 
 /* One frame's mirror pass: the picture, the mirror camera's layout and angles, the renderer's cache. */

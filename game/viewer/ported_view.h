@@ -35,9 +35,9 @@ typedef struct {
 
 void ported_view_set_viewport(const PortedViewport *viewport);
 
-/* 004591d4 for a car slot's model at `pose` into `target` (the mirror's pass with mirror 1). 0 when not drawn. */
-int ported_view_draw_car(int slot, const CarPose *pose, const ModelView *mv, int mirror, const QuadTarget *target,
-                         const uint8_t palette[768]);
+/* 004591d4 on the race's `car` (its slot's model) with the view `mv`: mirror 1 for the rear view mirror's pass.
+ * 0 when the car has no model here. */
+int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const QuadTarget *target, const uint8_t palette[768]);
 
 /* 00512040..00512048 as the last frame's track transform left them (004497d8). */
 void ported_view_near_dir(int32_t out[3]);
