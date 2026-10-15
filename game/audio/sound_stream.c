@@ -52,3 +52,18 @@ void sound_stream_next(SoundStream *s, const uint8_t **block, int32_t *frames)
     *block = at(&s->ring, head + BLOCK_DATA);
     *frames = block_frames(s, head);
 }
+
+/* 0048e018 */
+void sound_stream_drop(SoundStream *s)
+{
+    if (s->tail == 0 || s->head == 0) return; /* the original writes address 0 */
+    put(&s->ring, s->tail, SOUND_BLOCK_FREE);
+    uint32_t block = s->head;
+    while (block != s->tail) {
+        const uint32_t next = get(&s->ring, block);
+        put(&s->ring, block, SOUND_BLOCK_FREE);
+        block = next;
+    }
+    put(&s->ring, block, SOUND_BLOCK_FREE);
+    s->head = block;
+}

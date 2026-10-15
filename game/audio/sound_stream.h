@@ -44,4 +44,9 @@ typedef struct SoundStream {
  * and 0. */
 void sound_stream_next(SoundStream *s, const uint8_t **block, int32_t *frames);
 
+/* 0048e018: every block from the head to the tail freed (-2; the tail
+ * first, then again), the head left at the tail. No head or tail: the
+ * original writes address 0; the port does nothing. */
+void sound_stream_drop(SoundStream *s);
+
 #endif
