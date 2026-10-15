@@ -6,6 +6,8 @@
 #include "game/audio/sound_channel.h"
 #include "game/audio/sound_mix.h"
 
+enum { SOUND_BANK_SLOTS = 5 };
+
 typedef struct {
     SoundChannels channels;
     SoundMixer mixer;               /* its stop hook 00497870 on `channels` */
@@ -13,6 +15,7 @@ typedef struct {
     uint32_t mix_rate;              /* 004f38b4 */
     uint32_t rand_seed;             /* the C library's rand() seed, which nothing else draws during a race */
     const struct SoundBankSound *registry[128]; /* 0052eed4: the registered banks' sounds by number */
+    const struct SoundBank *banks[SOUND_BANK_SLOTS]; /* 004c79a0 */
 } SoundDriver;
 
 /* The mixer's voices and its stop hook (00497bb5 sets 004f38ec to
