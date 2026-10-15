@@ -49,4 +49,30 @@ typedef struct {
  * above 1, the first slot 1..n-1 whose link is `link`; else -1. */
 int32_t race_net_slot_of(const RaceNetSlots *s, uint32_t link);
 
+/* A link's entry (0x54 bytes). The handlers are the exe's addresses: the
+ * transport that calls them is not ported. */
+enum {
+    RACE_NET_NAME = 20, RACE_NET_ENTRIES = 15,  /* 0050a5dc's 7 (kind != 0), then 0050a828's 8 (kind 0) */
+    RACE_NET_KIND0_FIRST = 7,
+    RACE_NET_HANDLER_14 = 0x443494, RACE_NET_HANDLER_LOST = 0x4460cc, RACE_NET_HANDLER_1C = 0x446058
+};
+
+typedef struct {
+    uint32_t unknown_00;
+    int32_t unknown_04, unknown_08, unknown_0c, unknown_10;  /* set 1, 0x19, 0xf, 10 */
+    uint32_t handler_14, handler_lost, handler_1c;          /* 00443494, 004460cc (a link gone), 00446058 */
+    uint32_t unknown_20;
+    uint32_t owner;                                         /* +0x24: 00442ad0 / 00442f58 pass 0050a260 */
+    uint8_t name[RACE_NET_NAME];                            /* +0x28 */
+    uint32_t unknown_3c[6];
+} RaceNetLink;
+
+/* 00442e3c (watcall (owner, name, slot, kind), from 00442ad0 and 00442f58):
+ * the entry for `slot` (a signed short) in 0050a5dc when kind (16 bits) !=
+ * 0, else in 0050a828 (seven entries on, so 0050a5dc's slot 7 is 0050a828's
+ * slot 0): +4..+0x10 1, 0x19, 0xf, 10, the three handlers, +0x24 the owner,
+ * the name's 20 bytes at +0x28; returns it. NULL past the 15 (port guard). */
+RaceNetLink *race_net_link_fill(RaceNetLink entries[RACE_NET_ENTRIES], uint32_t owner, const uint8_t *name,
+                                int16_t slot, int16_t kind);
+
 #endif
