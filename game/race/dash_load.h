@@ -40,4 +40,14 @@ int dash_load_paths(DashFiles *files, const char *dir, int16_t german, int32_t h
 int dash_load_setup(DashArt *art, ReplayArt *replay_art, RacePalette *pal, uint8_t *bank, uint8_t *mmb,
                     int32_t high, int16_t replay);
 
+typedef struct {
+    void *ctx;
+    void (*free)(void *ctx, void *block);   /* 00475260 */
+} DashFreeOps;
+
+/* 00450a68 (watcall ()): the bank (005137f0) freed when held, then each
+ * part (00513c44, row by row) and the .mmb (00513c74) whatever they hold;
+ * no pointer is cleared. */
+void dash_art_free(const DashFreeOps *ops, const DashArt *art);
+
 #endif

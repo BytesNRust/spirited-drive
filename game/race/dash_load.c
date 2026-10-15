@@ -69,3 +69,11 @@ int dash_load_setup(DashArt *art, ReplayArt *replay_art, RacePalette *pal, uint8
             art->mmb_words[r][c] = word(mmb + MMB_WORDS + 4 * (DASH_PART_COLUMNS * r + c));
     return 0;
 }
+
+void dash_art_free(const DashFreeOps *ops, const DashArt *art)
+{
+    if (art->bank != NULL) ops->free(ops->ctx, art->bank);
+    for (int r = 0; r < DASH_PART_ROWS; r++)
+        for (int c = 0; c < DASH_PART_COLUMNS; c++) ops->free(ops->ctx, art->parts[r][c]);
+    ops->free(ops->ctx, art->mmb);
+}
