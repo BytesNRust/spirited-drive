@@ -47,4 +47,8 @@ int32_t sound_handle_check(const SoundChannels *s, int32_t handle);
  * else NULL. */
 SoundChannel *sound_handle_channel(SoundChannels *s, int32_t handle);
 
+/* 00497980 (eax the handle): a handle (0..99) naming a channel (0..15)
+ * frees both (+0x12 = 0, the handle -1), 0; else -1. */
+int32_t sound_handle_free(SoundChannels *s, int32_t handle);
+
 #endif

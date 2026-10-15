@@ -46,3 +46,14 @@ SoundChannel *sound_handle_channel(SoundChannels *s, int32_t handle)
     if (sound_handle_check(s, handle) < 0) return NULL;
     return &s->channel[s->handle[handle]];
 }
+
+/* 00497980 */
+int32_t sound_handle_free(SoundChannels *s, int32_t handle)
+{
+    if (handle < 0 || handle >= SOUND_HANDLES) return -1;
+    const int32_t channel = s->handle[handle];
+    if (channel < 0 || channel >= SOUND_CHANNELS) return -1;
+    s->channel[channel].busy = 0;
+    s->handle[handle] = SOUND_HANDLE_FREE;
+    return 0;
+}
