@@ -114,4 +114,26 @@ typedef struct {
 void input_stand_in(int32_t player, int16_t *block, PlayerRecord *records, const InputStandInWords *w,
                     const InputSendOps *ops);
 
+typedef struct {
+    int32_t w4fbb0c;    /* 004fbb0c */
+    int16_t playback;   /* 0052b312 */
+    int32_t racers;     /* 004fb7dc */
+    int32_t humans;     /* 004fb7e0 */
+} InputStandInStartWords;
+
+typedef struct {
+    void *ctx;
+    /* 00445e00 (eax to, edx data, ebx size): the network send */
+    void (*send)(void *ctx, int32_t to, const int16_t *words, int32_t size);
+    /* [0050a578 + 4 player]'s first dword: non-zero while the player's link is up */
+    int32_t (*linked)(void *ctx, int32_t player);
+} InputStandInStartOps;
+
+/* 00410250 (): with 004fbb0c set, player 0's finish (record +0x1c4) and
+ * stand-in (block[1]) = 0; then with playback on, each racer 1..racers - 1:
+ * a human with playback 1 whose link is down stands in (1) with the finish
+ * 999999, any other 0 and 0; then block[0] = 10, sent (0, block, 0x12). */
+void input_stand_in_start(int16_t *block, PlayerRecord *records, const InputStandInStartWords *w,
+                          const InputStandInStartOps *ops);
+
 #endif

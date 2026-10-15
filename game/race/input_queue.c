@@ -98,6 +98,22 @@ void input_stand_in(int32_t player, int16_t *block, PlayerRecord *records, const
     if (w->w4fbb0c != 0) records[player].finish = GAVE_UP_TIME;
 }
 
+void input_stand_in_start(int16_t *block, PlayerRecord *records, const InputStandInStartWords *w,
+                          const InputStandInStartOps *ops)
+{
+    if (w->w4fbb0c == 0) return;
+    records[0].finish = 0;
+    block[1] = 0;
+    if (w->playback == 0) return;
+    for (int32_t i = 1; i < w->racers && i < RACE_PLAYERS; i++) {
+        const int out = i < w->humans && w->playback == 1 && ops->linked(ops->ctx, i) == 0;
+        block[1 + i] = (int16_t)out;
+        records[i].finish = out ? GAVE_UP_TIME : 0;
+    }
+    block[0] = STAND_IN_KIND;
+    ops->send(ops->ctx, 0, block, STAND_IN_SIZE);
+}
+
 void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c)
 {
     q->active = 0;
