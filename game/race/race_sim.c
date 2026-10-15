@@ -48,9 +48,11 @@ enum {
     END_ALL_OUT = 0x10           /* no human has a finish above 0 */
 };
 
-static void no_sound(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
+/* RaceSounds.sound: 00443eac, which picks the sound and plays it through
+ * 0044404c (the voices are NULL until the audio output exists) */
+static void sim_sound(void *user, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f)
 {
-    (void)user, (void)a, (void)b, (void)c, (void)d, (void)e, (void)f;
+    race_sound_play(user, a, b, c, d, e, f);
 }
 
 static void no_speech(void *user, const char *name)
@@ -198,7 +200,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->siren_count = 3;     /* 004c5fb4 and 004c5fbc as the exe starts */
     race->siren_pitch = 0x40;
     race->crash_sound_level = CRASH_SOUND_QUIET;
-    race->sounds = (RaceSounds){ race, no_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
+    race->sounds = (RaceSounds){ race, sim_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
     /* 004275f8: 0042748c (the grid places), 00428fe0 with 004fb7f4, then
