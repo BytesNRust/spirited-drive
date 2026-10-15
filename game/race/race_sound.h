@@ -135,6 +135,10 @@ void race_sound_end(RaceState *race, RaceSoundBanks *banks, const RaceSoundBankO
  * it has one (not negative), then the channel's voice and sound -1. */
 void race_sound_channel_stop(RaceState *race, int32_t channel);
 
+/* 00443c34 (watcall (), from 0044e700, a replay's jump): channels 0..15
+ * stopped (0044432c), in order. */
+void race_sound_channels_stop(RaceState *race);
+
 /* 00443f9c (watcall a, b, c, d; e, f on the stack, ret 8): 00443eac (the
  * sound hook) with b and c cut to bytes. */
 void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
