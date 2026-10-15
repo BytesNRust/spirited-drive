@@ -54,6 +54,7 @@ int32_t sound_bank_register(SoundDriver *d, SoundBank *bank, const uint8_t *file
     if (file == NULL || !bank_fits(file, size)) return SOUND_BANK_NONE;
     const int slot = bank_slot(d);
     if (slot < 0) return SOUND_BANK_TAKEN;
+    for (int n = 0; n < SOUND_BANK_SOUNDS; n++) bank->has[n] = u32(file + 4 * n) != 0;
     for (int n = 0; n < SOUND_BANK_SOUNDS; n++) {
         const uint32_t at = u32(file + 4 * n);
         if (at == 0) continue;
@@ -63,4 +64,19 @@ int32_t sound_bank_register(SoundDriver *d, SoundBank *bank, const uint8_t *file
     }
     d->banks[slot] = bank;
     return slot;
+}
+
+/* 0048edfc */
+int32_t sound_bank_unregister(SoundDriver *d, int32_t slot)
+{
+    if (slot == SOUND_BANK_ALL) {
+        for (int i = 0; i < SOUND_BANK_SLOTS; i++) sound_bank_unregister(d, i);
+        return 0;
+    }
+    if (slot < 0 || slot >= SOUND_BANK_SLOTS || d->banks[slot] == NULL) return SOUND_BANK_NOT_HERE;
+    const SoundBank *bank = d->banks[slot];
+    for (int n = 0; n < SOUND_BANK_SOUNDS; n++)
+        if (bank->has[n]) d->registry[n] = NULL;
+    d->banks[slot] = NULL;
+    return 0;
 }

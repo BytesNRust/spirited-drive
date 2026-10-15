@@ -13,13 +13,16 @@ enum {
     SOUND_BANK_RECORD = 0x20,     /* the record (+4 the header's offset) */
     SOUND_BANK_HEADER = 0x20,     /* the EACS header (+0x18 the data's offset) */
     SOUND_BANK_TAKEN = -17,
-    SOUND_BANK_NONE = -6
+    SOUND_BANK_NONE = -6,
+    SOUND_BANK_NOT_HERE = -18,
+    SOUND_BANK_ALL = -1
 };
 
 /* A registered bank: its records and headers read from the file. */
 typedef struct SoundBank {
     SoundBankSound sound[SOUND_BANK_SOUNDS];
     SoundSample sample[SOUND_BANK_SOUNDS];
+    uint8_t has[SOUND_BANK_SOUNDS]; /* the numbers whose offset is not 0 */
 } SoundBank;
 
 /* 0048ed30 (eax the file in memory): the first free of the 5 bank entries
@@ -32,5 +35,11 @@ typedef struct SoundBank {
  * original reads past it; no CD bank shares a record or header between
  * numbers, which the original would relocate twice. */
 int32_t sound_bank_register(SoundDriver *d, SoundBank *bank, const uint8_t *file, size_t size);
+
+/* 0048edfc (eax the entry): -1 takes back the 5 in turn and returns 0;
+ * outside 0..4 or empty, -18; else every number the bank's file has is
+ * cleared from the registry (whichever bank holds it now) and the entry
+ * emptied: 0. */
+int32_t sound_bank_unregister(SoundDriver *d, int32_t slot);
 
 #endif
