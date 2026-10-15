@@ -142,6 +142,7 @@ add_library(tnfs_game STATIC
     game/race/race_palette.c
     game/race/dash_art.c
     game/race/dash_load.c
+    game/race/hud_colours.c
     game/race/hud_frame.c
     game/race/cockpit.c
     game/race/cockpit_colours.c
