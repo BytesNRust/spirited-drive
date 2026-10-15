@@ -142,4 +142,10 @@ int32_t sound_play(SoundDriver *d, int32_t id, int32_t pan, int32_t volume, int3
  * when the stream has not failed; 0. */
 int32_t sound_stream_header(SoundDriver *d, uint32_t block);
 
+/* 0048df3c (eax a block the reader read, in the stream's ring): '1SNd'
+ * queued (0048dcec's; -1 when the stream failed), '1SNe' made -1 and
+ * queued (0), '1SNh' 0048db70, '1SNl' the reader asked to loop to its +8
+ * (0048ab4c) and the block freed (0); another -1. */
+int32_t sound_stream_block(SoundDriver *d, uint32_t block);
+
 #endif

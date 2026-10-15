@@ -38,6 +38,10 @@ typedef struct SoundStream {
     uint32_t tail;         /* 0052eec8: the last block queued */
     int32_t handle;        /* 0052eecc: the stream's sound handle */
     uint32_t head;         /* 0052eed0: the block playing, 0 none */
+    /* 0048ab4c (cdecl file, offset): asks the reader to go on from the
+     * file's `offset` (a '1SNl' block's +8: the loop) */
+    void (*loop)(void *ctx, uint32_t file, uint32_t offset);
+    void *loop_ctx;
 } SoundStream;
 
 /* 0048dda8 (cdecl &block, &frames; the mixer's): with blocks queued past the

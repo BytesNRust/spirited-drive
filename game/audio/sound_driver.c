@@ -234,3 +234,30 @@ int32_t sound_stream_header(SoundDriver *d, uint32_t block)
     sound_stream_append(s, block); /* when the stream has not failed */
     return 0;
 }
+
+enum {
+    TAG_DATA = 0x644e5331,   /* '1SNd' */
+    TAG_END = 0x654e5331,    /* '1SNe' */
+    TAG_HEADER = 0x684e5331, /* '1SNh' */
+    TAG_LOOP = 0x6c4e5331,   /* '1SNl' */
+    LOOP_OFFSET = 8
+};
+
+/* 0048df3c */
+int32_t sound_stream_block(SoundDriver *d, uint32_t block)
+{
+    SoundStream *s = &d->stream;
+    switch (sound_ring_get(&s->ring, block)) {
+    case TAG_DATA: return sound_stream_append(s, block);
+    case TAG_END:
+        sound_ring_put(&s->ring, block, SOUND_BLOCK_END);
+        sound_stream_append(s, block);
+        return 0;
+    case TAG_HEADER: return sound_stream_header(d, block);
+    case TAG_LOOP:
+        if (s->loop != NULL) s->loop(s->loop_ctx, s->file, sound_ring_get(&s->ring, block + LOOP_OFFSET)); /* 0048ab4c */
+        sound_ring_put(&s->ring, block, SOUND_BLOCK_FREE); /* 0048bde8 */
+        return 0;
+    default: return -1;
+    }
+}
