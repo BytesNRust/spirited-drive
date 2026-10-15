@@ -117,6 +117,7 @@ add_library(tnfs_game STATIC
     game/race/race_timer.c
     game/race/race_replay.c
     game/race/race_replay_seek.c
+    game/race/race_replay_cuts.c
     game/race/car_body_draw.c
     game/race/car_lights.c
     game/race/car_render.c

@@ -21,7 +21,8 @@ enum {
     RACE_LAP_MARKS = 109,         /* what fits in a 0x1d2-byte player record before the police stop counts */
     RACE_SURFACES = 3,
     RACE_VOICES = 16,             /* 0050a4cc: 8 bytes each, up to the banks at 0050a54c */
-    REPLAY_CUTS = 40              /* 00512d94..00512f74 */
+    REPLAY_CUTS = 40,             /* 00512d94..00512f74 */
+    REPLAY_PICKS = 30             /* 0044d7d8: at most 30 cuts; its picks fill the last 10 rows */
 };
 
 /* 00512d94 + 12 * i: a cut of the replay's director (0044fc74 steps through
@@ -385,7 +386,9 @@ typedef struct {
      * the dropped network game (0052b314) */
     int32_t replay_mark_countdown, input_clock;
     int32_t unknown_512f78;         /* 00512f78: the cut playing; 0044ecc4 hands its word to 0044eb34 when above -2 */
-    /* 00512d94: the cuts; cut -1's word is 00512d90, the clock */
+    /* 00512d94: the cuts; cut -1's word is 00512d90, the clock. 0044d7d8
+     * writes at most 30; the 30 seconds it picks them from (00512efc) lie
+     * where rows 30..39 would (race_replay_cuts.c views them as words). */
     ReplayCut replay_cuts[REPLAY_CUTS];
     int32_t replay_cut_count;       /* 00512f74 */
     int32_t unknown_512f7c;         /* 00512f7c: 0044ecc4 clears it and then marks the tick in 00512f84 */

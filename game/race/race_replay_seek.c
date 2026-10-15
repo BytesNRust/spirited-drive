@@ -3,6 +3,7 @@
 
 #include "game/race/car_scenery.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_replay_cuts.h"
 #include "game/race/race_sound.h"
 #include "game/gfx/x86_int.h"
 
@@ -442,4 +443,182 @@ void race_replay_to_end(RaceState *race, RaceReplayDirector *w, const RaceReplay
     ops->unmute(ops->ctx);
     restart_sounds(race);
     ops->road_yaw(ops->ctx);
+}
+
+enum { SCRUB_TAIL = 300, SCRUB_SPAN = 0x6cfc, SCRUB_STEP_HELD = 16, SCRUB_BACK_PANEL = 4, SCRUB_ON_PANEL = 3 };
+
+static int32_t minus(int32_t a, int32_t b) { return (int32_t)((uint32_t)a - (uint32_t)b); }
+
+void race_replay_scrub(RaceState *race, RaceReplayDirector *w, const RaceReplayScrubOps *ops, int32_t button,
+                       int32_t held)
+{
+    const int32_t step = held == 0 ? TICK_GROUP : (int32_t)((uint32_t)(held / SCRUB_STEP_HELD) << 2);
+    const int32_t last = minus(w->end_clock, SCRUB_TAIL);
+    const int32_t first = minus(w->end_clock, SCRUB_SPAN);
+    int32_t t = race->tick > last ? last : race->tick;
+    int32_t panel = -1;
+    if (button == REPLAY_TO_START) {
+        t = first < 0 ? 0 : first;
+        panel = SCRUB_BACK_PANEL;
+    } else if (button == REPLAY_TO_END) {
+        t = last < first ? first : last;
+        if (t < 0) t = 0;
+        panel = SCRUB_ON_PANEL;
+    } else if (button == REPLAY_BACK) {
+        if (t > step) t = minus(t, step);
+        if (t < first) t = first;
+        panel = SCRUB_BACK_PANEL;
+    } else if (button == REPLAY_FORWARD) {
+        if (t < minus(last, step)) t = (int32_t)((uint32_t)t + (uint32_t)step);
+        if (t < 0) t = 0;
+        panel = SCRUB_ON_PANEL;
+    }
+    if (panel >= 0) {
+        w->unknown_513730 = panel;
+        race->unknown_51371c = 0;
+    }
+    race->tick = t - t % TICK_GROUP;
+    if (race->phase == RACING) ops->keep_scenery(ops->ctx);
+    race->phase = STOPPED;
+    w->unknown_4b92cc = 0;
+    race->unknown_512f78 = NO_CUT;
+    race->camera_roll_add = 0;
+    race->unknown_4c5398 = CUT_DIRECT_TICKS;
+    w->unknown_4c53a0 = 0;
+    ops->mute(ops->ctx);
+}
+
+enum { BEGIN_LONG_BACK = 27000, BEGIN_BACK = 600, CUT_PLAYING = -1 };
+
+void race_replay_begin(RaceState *race, RaceReplayDirector *w, const RaceReplayJumpTo *ops, int32_t how)
+{
+    if (how == REPLAY_DIRECTED) {
+        if (race->phase == RACING) w->saved_kind = race->chase.next_kind;
+        race_replay_cuts_build(race, w->end_clock);
+        if (race->replay_cut_count > 0) {
+            race->unknown_512f78 = 0;
+            ops->jump(ops->ctx, race->replay_cuts[0].clock, race->replay_cuts[0].until);
+            w->unknown_4c53a0 = 0;
+            w->unknown_513730 = CUT_PANEL;
+            w->unknown_513888 = CUT_PANEL;
+            w->unknown_513894 = 0;
+            race->unknown_4c5398 = CUT_DIRECT_TICKS;
+            w->unknown_513898 = 1;
+        }
+        return;
+    }
+    race->unknown_512f78 = NO_CUT;
+    race->camera_roll_add = 0;
+    race->unknown_4c5398 = CUT_DIRECT_TICKS;
+    w->unknown_4c53a0 = 0;
+    w->unknown_513730 = CUT_PANEL;
+    w->unknown_513888 = CUT_PANEL;
+    w->unknown_513894 = 0;
+    race->tick = minus(w->end_clock, how == REPLAY_LONG ? BEGIN_LONG_BACK : BEGIN_BACK);
+    w->unknown_513898 = 1;
+    if (race->tick < 0) race->tick = 0;
+    race->unknown_512f7c = 1;
+    w->phase_before = STOPPED;
+    ops->jump(ops->ctx, race->tick - race->tick % TICK_GROUP, w->end_clock);
+    if (how == REPLAY_LONG) race->unknown_51371c = 1;
+    race->unknown_512f78 = CUT_PLAYING;
+}
+
+enum {
+    REQUEST_SAVE_LONG = 4, REQUEST_SAVE = 5, REQUEST_SAVE_STOP = 8, REQUEST_STOP = 6, REQUEST_RACE_ON = 7,
+    END_STOP = 0x20, END_STOP_LAST = 0x40, BUTTON_VIEW = 10, BUTTON_PLAY_FIRST = 5, BUTTON_PLAY_LAST = 9
+};
+
+static void keys_request(RaceState *race, RaceReplayDirector *w, const RaceReplayKeysOps *ops)
+{
+    if (w->request == REQUEST_SAVE_LONG) {
+        ops->save(ops->ctx);
+        w->request = REPLAY_LONG;
+    }
+    if (w->request == REQUEST_SAVE || w->request == REQUEST_SAVE_STOP) {
+        if (w->request == REQUEST_SAVE_STOP) w->unknown_5137e4 = 1;
+        ops->save(ops->ctx);
+        w->request = REPLAY_DIRECTED;
+    }
+    if (w->request != 0 && w->request <= REPLAY_LONG) {
+        ops->begin(ops->ctx, w->request);
+        w->request = 0;
+    } else if (w->request == REQUEST_RACE_ON) {
+        if (w->unknown_513740 == 0) ops->to_end(ops->ctx);
+        else race->end_state = w->unknown_5137e4 != 0 ? END_STOP_LAST : END_STOP;
+        race->unknown_51371c = 0;
+        w->request = 0;
+    } else if (w->request == REQUEST_STOP) {
+        race->end_state = END_STOP;
+    }
+}
+
+void race_replay_keys(RaceState *race, RaceReplayDirector *w, const RaceReplayKeysOps *ops)
+{
+    if (w->request != 0) keys_request(race, w, ops);
+    if (race->phase == RACING) {
+        if (race->replay != 0 || race->viewed != race->player || race->unknown_513e6c != 0) ops->panel_draw(ops->ctx);
+        return;
+    }
+    w->button = 0;
+    ops->panel_input(ops->ctx);
+    if (w->button == 0) {
+        w->held = 0;
+    } else {
+        if (w->button == w->last_button) {
+            w->held++;
+        } else {
+            w->held = 0;
+            w->unknown_513888 = 0;
+            w->unknown_513898 = 1;
+        }
+        if (w->button >= REPLAY_TO_START && w->button <= REPLAY_FORWARD) {
+            ops->scrub(ops->ctx, w->button, w->held);
+            w->unknown_4c5388 = 1;
+            race->unknown_51371c = 0;
+        } else if (w->held == 0 && w->button == BUTTON_VIEW && race->phase != STOPPED) {
+            ops->cycle_view(ops->ctx);
+            race->camera_roll_add = 0;
+            if (race->phase == SEEKING && race->unknown_4c5398 == 0 && race->unknown_4c539c <= 0)
+                race->unknown_4c539c = SEEKING;
+            w->unknown_4c5388 = 0;
+            race->unknown_51371c = 0;
+        } else if (w->button >= BUTTON_PLAY_FIRST && w->button <= BUTTON_PLAY_LAST) {
+            ops->button(ops->ctx, w->button, w->held);
+            w->unknown_4c5388 = 0;
+        }
+    }
+    w->last_button = w->button;
+}
+
+enum { SEEKING_ON = 3, CLOCK_SPAN = 0x7080 };
+
+void race_replay_update(RaceState *race, RaceReplayDirector *w, const RaceReplayUpdateOps *ops, uint32_t camera_keys)
+{
+    if (camera_keys == REPLAY_END_KEYS && race->end_request != 0 && race->phase != SEEKING_ON && w->frames_played > 0) {
+        race->end_state = race->end_request;
+        race->camera_roll_add = 0;
+        w->unknown_4c5388 = 0;
+        return;
+    }
+    ops->keys(ops->ctx);
+    if ((race->tick_flags & FOURTH_TICK) == 0) return;
+    race->clock = race->tick % CLOCK_SPAN;
+    if (race->phase == RACING) {
+        ops->record(ops->ctx);
+        w->end_clock = race->tick;
+    } else if (race->phase == SEEKING) {
+        ops->frame(ops->ctx);
+        w->frames_played++;
+    } else if (race->phase == SEEKING_ON) {
+        if (race->tick >= w->target) {
+            race->phase = SEEKING;
+            restart_sounds(race);
+            w->frames_played++;
+            race->unknown_513728 = 1;
+        }
+        if (race->tick < w->until) ops->step(ops->ctx);
+    } else if (race->phase == STOPPED) {
+        race_replay_tick_flags(race);
+    }
 }

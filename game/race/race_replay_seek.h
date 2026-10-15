@@ -107,6 +107,13 @@ typedef struct {
     int32_t phase_before;       /* 004c5394: the phase the replay came from */
     int32_t unknown_4c53ac;
     int32_t saved_kind;         /* 00512f80: the camera kind the replay began with */
+    int32_t unknown_4b92cc;     /* written 0 by 0044ef3c and 0041f9a0 (CockpitWorld's unknown_4b92c4[2]), read nowhere */
+    int32_t request;            /* 00513738: what 0044f9b8 does next (1..3 begin, 4 / 5 / 8 save first, 6 / 7 end) */
+    int32_t unknown_513740;     /* 00513740: 0, request 7 races on from the end (0044f090) */
+    int32_t button;             /* 0051373c: the panel's button this frame (0044f55c) */
+    int32_t last_button;        /* 004c53d0 */
+    int32_t held;               /* 004c53d4: the frames last_button has been held */
+    int32_t frames_played;      /* 00513718: 00450020 counts the replay's frames (also RaceReplayWords') */
 } RaceReplayDirector;
 
 typedef struct {
@@ -206,6 +213,94 @@ typedef struct {
  * 00444394 for the player's car in physics 1 or 2, else 0044435c;
  * 004043d4. */
 void race_replay_to_end(RaceState *race, RaceReplayDirector *w, const RaceReplayToEndOps *ops);
+
+typedef struct {
+    void *ctx;
+    void (*keep_scenery)(void *ctx);    /* 004501fc */
+    void (*mute)(void *ctx);            /* 00443768 */
+} RaceReplayScrubOps;
+
+enum { REPLAY_TO_START = 1, REPLAY_TO_END = 2, REPLAY_BACK = 3, REPLAY_FORWARD = 4 };
+
+/* 0044ef3c (eax button, edx held; from 0044f9b8): the replay wound. The
+ * step is (held / 16) x 4 (4 when held is 0); the tick held to 005120c8 -
+ * 300 from above first. 1: to 005120c8 - 0x6cfc (0 below 0), 00513730 = 4;
+ * 2: to 005120c8 - 300, at least the start, at least 0, 00513730 = 3; 3:
+ * back by the step when the tick is above it, at least the start, 00513730
+ * = 4; 4: on by the step while the tick is below 005120c8 - 300 - step, at
+ * least 0, 00513730 = 3; each 0051371c = 0 (any other button moves only
+ * the clamp). Then the tick rounded down to 4 (tick - tick % 4); racing
+ * (phase 1): 004501fc; phase 4, 004b92cc = 0, 00512f78 = -2, 004c53a8 = 0,
+ * 004c5398 = 4, 004c53a0 = 0, 00443768. */
+void race_replay_scrub(RaceState *race, RaceReplayDirector *w, const RaceReplayScrubOps *ops, int32_t button,
+                       int32_t held);
+
+typedef struct {
+    void *ctx;
+    void (*jump)(void *ctx, int32_t clock, int32_t until);  /* 0044e700 */
+} RaceReplayJumpTo;
+
+enum { REPLAY_DIRECTED = 2, REPLAY_LONG = 3 };
+
+/* 0044f188 (eax how; from 0044f9b8; jump 0044e700): a replay begun. 2, the
+ * director's: racing (phase 1) 00512f80 = the chase's next kind (004f8020);
+ * the cuts built (0044d7d8); with any, 00512f78 = 0, jump(cut 0), 004c53a0 =
+ * 0, 00513730 = 00513888 = 6, 00513894 = 0, 004c5398 = 4, 00513898 = 1.
+ * Otherwise from 005120c8 - 27000 (3) or - 600 (any other), at least 0, into
+ * the tick: 00512f78 = -2, 004c53a8 = 004c53a0 = 00513894 = 0, 004c5398 =
+ * 4, 00513730 = 00513888 = 6, 00513898 = 1, 00512f7c = 1, 004c5394 = 4,
+ * jump(the tick rounded down to 4, 005120c8), for 3 0051371c = 1, then
+ * 00512f78 = -1. */
+void race_replay_begin(RaceState *race, RaceReplayDirector *w, const RaceReplayJumpTo *ops, int32_t how);
+
+typedef struct {
+    void *ctx;
+    void (*save)(void *ctx);                                    /* 0044d514 */
+    void (*begin)(void *ctx, int32_t how);                      /* 0044f188 */
+    void (*to_end)(void *ctx);                                  /* 0044f090 */
+    void (*panel_draw)(void *ctx);                              /* 00471460 */
+    void (*panel_input)(void *ctx);                             /* 0044f55c: sets w->button */
+    void (*scrub)(void *ctx, int32_t button, int32_t held);     /* 0044ef3c */
+    void (*button)(void *ctx, int32_t button, int32_t held);    /* 0044f378 */
+    void (*cycle_view)(void *ctx);                              /* 0040594c(004f801c) */
+} RaceReplayKeysOps;
+
+/* 0044f9b8 (from 00450020): the replay's keys. The request 00513738 first:
+ * 4 saves (0044d514) and becomes 3; 5 or 8 (8 also 005137e4 = 1) save and
+ * become 2; then 3 or below (but 0) begins (0044f188 with it), 0; 7 races
+ * on from the end (0044f090) with 00513740 0, else 00509d70 = 0x40 with
+ * 005137e4 set or 0x20, 0051371c = 0, 0; 6 00509d70 = 0x20. Racing (phase
+ * 1): the panel drawn (00471460) in a replay (0052b316), with 004fbb04 !=
+ * 004fbb08 or with 00513e6c; done. Else 0051373c = 0, 0044f55c; 0: 004c53d4
+ * = 0. The same button as 004c53d0: 004c53d4 + 1, else 004c53d4 = 0,
+ * 00513888 = 0, 00513898 = 1. 1..4: 0044ef3c(button, 004c53d4), 004c5388 =
+ * 1, 0051371c = 0. 10 first pressed outside phase 4: 0040594c, 004c53a8 = 0,
+ * in phase 2 with 004c5398 0 and 004c539c <= 0 004c539c = 2, 004c5388 =
+ * 0051371c = 0. 5..9: 0044f378(button, 004c53d4), 004c5388 = 0. Always
+ * 004c53d0 = 0051373c at the end. */
+void race_replay_keys(RaceState *race, RaceReplayDirector *w, const RaceReplayKeysOps *ops);
+
+typedef struct {
+    void *ctx;
+    void (*keys)(void *ctx);    /* 0044f9b8 */
+    void (*record)(void *ctx);  /* 0044e8f8 */
+    void (*frame)(void *ctx);   /* 0044fe84 */
+    void (*step)(void *ctx);    /* 0044ecc4 */
+} RaceReplayUpdateOps;
+
+enum { REPLAY_END_KEYS = 0x1000000 };
+
+/* 00450020 (from the race tick; camera_keys 004fb7b4): the replay's frame.
+ * With 004fb7b4 0x1000000, an end request (00509d6c), not seeking (phase
+ * 3) and a frame played (00513718 > 0): 00509d70 = the request, 004c53a8
+ * = 004c5388 = 0; done. Else 0044f9b8; on a tick with flag 4 (004fcdb0):
+ * the clock (00512d90) the tick % 0x7080; racing (phase 1): 0044e8f8 and
+ * 005120c8 = the tick; playing (2): 0044fe84, 00513718 + 1; seeking (3):
+ * at 00513724 phase 2, the sounds restarted (00443820, then 00444394 /
+ * 0044435c by the player's physics), 00513718 + 1, 00513728 = 1; then
+ * 0044ecc4 while the tick is before 00513720; stopped (4): the tick's
+ * flags. */
+void race_replay_update(RaceState *race, RaceReplayDirector *w, const RaceReplayUpdateOps *ops, uint32_t camera_keys);
 
 enum { REPLAY_PAUSE = 5, REPLAY_PLAY = 6, REPLAY_SLOW = 7, REPLAY_SLOWER = 8, REPLAY_SLOWEST = 9 };
 
