@@ -1,11 +1,13 @@
 /* --drive's deferred calls (drive_pause.h). */
 #include "viewer/drive_pause.h"
 
+#include "viewer/drive_audio.h"
 #include "game/platform/platform.h"
 #include "game/race/car_held.h"
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
+#include "game/race/race_sound.h"
 
 #include <string.h>
 
@@ -53,14 +55,31 @@ static void take(void *ctx, int32_t kind)
     race_chase_take(c->race, &c->race->chase, kind);
 }
 
-/* 00455600. The sound calls (0041eba4, 004437c8, 004437f0) wait for the
- * audio (option B); 0043cbcc / 0043cbe0 turn the controls' forces off and
- * on (with 0052b320; no force hooks here); 00524e63 is 0 here, so 00464240
- * is not reached; 004fb7d4 is 0 (no network). */
+/* 004437c8 / 004437f0: the voices and the music to 0 at once, the music
+ * ramped back (unless F5 silenced it) */
+static void music_now(void *user, int16_t volume) { (void)user, drive_audio_music_volume_now(volume); }
+static void music_ramped(void *user, int16_t volume) { (void)user, drive_audio_music_volume(volume); }
+static void voices_off(void *ctx) { race_sound_voices_off(((PauseCtx *)ctx)->race, music_now, NULL); }
+static void music_back(void *ctx) { race_sound_music_back(((PauseCtx *)ctx)->race, music_ramped, NULL); }
+
+/* 00464240 while paused (00524e63 set): the stream fed and, the original's
+ * mixer running on its own, the sound mixed (at volume 0) and its 100 Hz
+ * service run, so the music fades back in where the song has got to */
+static void serve_music(void *ctx)
+{
+    serve(ctx);
+    drive_audio_pump();
+    drive_audio_music_pump();
+}
+
+/* 00455600. 0041eba4 (the screen's, not a sound call) is not ported;
+ * 0043cbcc / 0043cbe0 turn the controls' forces off and on (with 0052b320;
+ * no force hooks here); 004fb7d4 is 0 (no network). */
 static void pause(PauseCtx *c)
 {
-    c->pause = (RacePauseInputs){ c->in->keys[KEY_PAUSE], 0, c->race->chase.kind, 0, 0, c->race->tick };
-    const RacePauseOps ops = { c, none, none, forces_off, serve, serve, hud_clear, take, none, none_i, none_wait, none, forces_on };
+    c->pause = (RacePauseInputs){ c->in->keys[KEY_PAUSE], drive_audio_music_setting(), c->race->chase.kind, 0, 0, c->race->tick };
+    const RacePauseOps ops = { c, none, voices_off, forces_off, serve_music, serve, hud_clear, take, none, none_i, none_wait, music_back,
+                               forces_on };
     const uint32_t start = platform_ticks_ms();
     race_pause(&ops, &c->pause, &c->p->keys, &c->hud->police.loading);
     c->p->paused_ms += platform_ticks_ms() - start;

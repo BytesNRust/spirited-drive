@@ -41,6 +41,7 @@ void drive_audio_music_fill(void);
 void drive_audio_music_pump(void);
 void drive_audio_music_volume(int16_t volume);
 void drive_audio_music_volume_now(int16_t volume);  /* 0046463c */
+int16_t drive_audio_music_setting(void);            /* 00524e63 */
 
 void drive_audio_close(void);
 

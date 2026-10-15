@@ -230,6 +230,7 @@ void drive_audio_music_fill(void) { race_music_fill(&music_ops, &music); }
 void drive_audio_music_pump(void) { race_music_pump(&music_ops, &music); }
 void drive_audio_music_volume(int16_t volume) { race_music_volume(&music_ops, &music, volume); }
 void drive_audio_music_volume_now(int16_t volume) { race_music_volume_now(&music_ops, &music, volume); }
+int16_t drive_audio_music_setting(void) { return music.setting; }
 
 void drive_audio_close(void)
 {
