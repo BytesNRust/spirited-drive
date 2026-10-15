@@ -169,14 +169,21 @@ void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f
     /* The first and last pixels of the bitmap colour the sky. */
     const uint8_t top = horz->payload[0];
     const uint8_t bottom = horz->payload[(size_t)horz->width * horz->height - 1];
-    /* TODO(0043b298): 004fb786 (sky off) skips this and calls 00484389. */
-    sky_fills(&f->viewport, roll, f->horizon, below, above, top, bottom, sink);
+    if (!f->sky_off) sky_fills(&f->viewport, roll, f->horizon, below, above, top, bottom, sink);
     for (int k = 0; k < slices; k++) {
         const int32_t *a = screen[k], *b = screen[k + 1];
         const int32_t q[8] = { add(a[0], dx_up), add(a[1], dy_up), add(b[0], dx_up), add(b[1], dy_up),
                                sub(b[0], dx_down), sub(b[1], dy_down), sub(a[0], dx_down), sub(a[1], dy_down) };
         if (!slice_visible(q, f->mirrored, f->clip_right, f->clip_left)) continue;
         const int32_t cell = start + k;
+        if (f->sky_off) {
+            const int32_t floor = add(f->viewport.y, f->viewport.h);
+            const int32_t up[8] = { a[0], f->viewport.y, b[0], f->viewport.y, b[0], b[1], a[0], a[1] };
+            const int32_t down[8] = { a[0], floor, b[0], floor, b[0], b[1], a[0], a[1] };
+            sink->polygon(sink->user, top, up);
+            sink->polygon(sink->user, bottom, down);
+            continue;
+        }
         const int set = info->sky_flag != 0 && ((cell >> FINAL_FLAG_BIT) & 1);
         draw_quad(sink, horz, ring->uv[set][cell & 7], q, f->screen_shift);
     }

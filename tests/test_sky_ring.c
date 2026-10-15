@@ -83,9 +83,9 @@ static void test_draw(void)
     view_init(&view, 0, 0, 640, 480, 96, 96);
     const int32_t matrix[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
     SkyFrame frame = { &view, matrix, { 0 }, 0x320000, 0, 0, 8, 0, { 320, 240 },
-                       { 0x10000, 640, 0, 0, 640, 480 }, 640, 640, 0 };
+                       { 0x10000, 640, 0, 0, 640, 480 }, 640, 640, 0, 0 };
     Count count = { 0 };
-    const SkySink sink = { &count, on_triangle, on_fill };
+    const SkySink sink = { &count, on_triangle, on_fill, NULL };
     sky_ring_draw(&ring, &info, &frame, &h, &sink);
     /* four fills, then triangles in pairs; the first fill is the top left,
      * coloured with the first pixel of the bitmap */

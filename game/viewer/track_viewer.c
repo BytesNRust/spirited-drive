@@ -1180,6 +1180,7 @@ static void run_frame(void *ctx, int32_t frame)
     }
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
+    ported_view_set_sky_off(drive_keys.state.w4fb786);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }

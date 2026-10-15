@@ -65,6 +65,7 @@ typedef struct {
     int32_t reference_width;    /* 0051201c (640) */
     int32_t clip_right;         /* 00512024 (640) */
     int32_t clip_left;          /* 0051202c (0) */
+    int sky_off;                /* 004fb786 (F4, 004381f8) */
 } SkyFrame;
 
 typedef struct {
@@ -74,12 +75,15 @@ typedef struct {
     void (*triangle)(void *user, const FshEntry *texture, const int32_t uv[6], const int32_t screen[6]);
     /* 004829b0: a solid rectangle. */
     void (*fill)(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour);
+    /* 00484389: a flat polygon through 4 points (x, y). */
+    void (*polygon)(void *user, uint8_t colour, const int32_t points[8]);
 } SkySink;
 
 /* 0043b298. info supplies ring_y_offset, ring_height (004fcd20, 004fcd24) and
- * sky_flag (004fcd74). TODO(0043b298): the sky-off option (004fb786 != 0),
- * which replaces the triangles and fills by calls to 00484389, is not
- * ported; the game never sets it by default. */
+ * sky_flag (004fcd74). With the sky off (004fb786) there are no fills, and
+ * each slice that would be drawn is two flat polygons instead: the first
+ * pixel's colour from the viewport's top down to the ring's line, the last
+ * pixel's from the line down to the viewport's bottom. */
 void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *frame, const FshEntry *horz,
                    const SkySink *sink);
 

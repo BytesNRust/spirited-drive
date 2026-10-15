@@ -576,6 +576,20 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
     raster_fill(t->raster, x, y, w, h, colour);
 }
 
+/* 00484389 */
+static void sky_polygon(void *user, uint8_t colour, const int32_t points[8])
+{
+    const SkyTargets *t = user;
+    flat_polygon(t->quad, colour, 4, points);
+}
+
+static int sky_off;  /* 004fb786 */
+
+void ported_view_set_sky_off(int off)
+{
+    sky_off = off;
+}
+
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
@@ -603,10 +617,10 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     if (!ring.enabled) return;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, 0, SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
-                         viewport.sky_height }, WIDTH, WIDTH, 0 };
+                         viewport.sky_height }, WIDTH, WIDTH, 0, sky_off };
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
-    const SkySink sink = { (void *)targets, sky_triangle, sky_fill };
+    const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
     sky_ring_draw(&ring, info, &frame, &art->horizon, &sink);
 }
 
@@ -655,7 +669,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, WIDTH };
-        horizon_draw_flat(&horizon, &ht, &ctx.clip, 0, &art->horizon, pc->yaw, 0,
+        horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, 0, sky_off,
                           horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
     }
     track_render_build(&render, tri, art, pc->node);

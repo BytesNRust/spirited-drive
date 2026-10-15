@@ -36,6 +36,9 @@ typedef struct {
 
 void ported_view_set_viewport(const PortedViewport *viewport);
 
+/* 004fb786 (F4, 004381f8): the sky off, flat colours in place of the horizon's bitmap or ring. */
+void ported_view_set_sky_off(int off);
+
 /* 004591d4 on the race's `car` (its slot's model) with the view `mv`: mirror 1 for the rear view mirror's pass.
  * 0 when the car has no model here. */
 int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const QuadTarget *target, const uint8_t palette[768]);

@@ -47,8 +47,32 @@ typedef struct {
     int pitch;
 } HorizonTarget;
 
-/* 0043ae64 + 0043a18c: the flat horizon. */
-void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip, int left,
-                       const FshEntry *horz, int32_t yaw, int mirrored, int32_t line);
+/* *(*(00511fe8) + 0x1c) +0x18..+0x24: the view the horizon fills. */
+typedef struct {
+    int32_t x, y, w, h;
+} HorizonBox;
+
+typedef struct {
+    void *user;
+    /* 004829b0: a solid rectangle. */
+    void (*fill)(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour);
+    /* 0043a18c: the bitmap's rows from `first_row` on, shifted x_offset
+     * columns, drawn from (x, y) down. */
+    void (*band)(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y);
+} HorizonFlatSink;
+
+/* 0043ae64 (watcall, the line's y): the flat horizon on `line`, turned by
+ * the camera's yaw (+0x44, negated on mirrored tracks 004fbad8) at 0x500
+ * pixels per turn. The bitmap's horizon row (misc[1]) sits on the line,
+ * scaled by 004fcd70. The first pixel's colour fills from the box's top
+ * with the line's y as its height, the last pixel's from the bitmap's
+ * bottom down to the box's; with the sky off (004fb786) there is no bitmap
+ * and the two colours meet one scaled row above the line. */
+void horizon_flat(const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t scale, const HorizonBox *box,
+                  int32_t line, const HorizonFlatSink *sink);
+
+/* 0043ae64 + 0043a18c: the flat horizon in the clip rectangle (the box). */
+void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
+                       const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line);
 
 #endif

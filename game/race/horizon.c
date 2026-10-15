@@ -47,6 +47,24 @@ int32_t horizon_line(const View *view, int world_shift, int32_t yaw, const int32
     return screen[1];
 }
 
+static int32_t scaled(int32_t rows, int32_t scale) { return (int32_t)((uint32_t)rows * (uint32_t)scale) >> 16; }
+
+void horizon_flat(const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t scale, const HorizonBox *box,
+                  int32_t line, const HorizonFlatSink *sink)
+{
+    const int32_t w = (int16_t)horz->width, h = (int16_t)horz->height;
+    const int32_t turn = mirrored ? (int32_t)(0u - (uint32_t)yaw) : yaw;
+    const int32_t x_offset = (fx_mul_round(turn, 0x50000) >> 16) % w;
+    const int32_t above = sky_off ? 0 : (int16_t)horz->misc[1];
+    const int32_t rows = sky_off ? 0 : h;
+    const int32_t y = (int32_t)((uint32_t)line - (uint32_t)scaled(above, scale));
+    const int32_t bottom = (int32_t)((uint32_t)y + (uint32_t)scaled(rows - 1, scale));
+    sink->fill(sink->user, box->x, box->y, box->w, y, horz->payload[0]);
+    if (!sky_off) sink->band(sink->user, horz, x_offset, 1, box->x, y);
+    sink->fill(sink->user, box->x, bottom, box->w, (int32_t)((uint32_t)box->y + (uint32_t)box->h - (uint32_t)bottom),
+               horz->payload[w * h - 1]);
+}
+
 /* dst[i] = src[base + columns[i]] (0048cc49), skipping reads outside the
  * bitmap. */
 static void gather(uint8_t *dst, const FshEntry *src, int32_t base, const int32_t *columns, int count)
@@ -67,21 +85,27 @@ static void fill(const HorizonTarget *target, const ClipRect *clip, int32_t y, i
         memset(target->pixels + (size_t)(y + r) * target->pitch + clip->x0, colour, (size_t)(clip->x1 - clip->x0));
 }
 
-void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip, int left,
-                       const FshEntry *horz, int32_t yaw, int mirrored, int32_t line)
+typedef struct {
+    const HorizonTables *t;
+    const HorizonTarget *target;
+    const ClipRect *clip;
+} FlatDraw;
+
+/* 004829b0 over the clip's width, clipped to its rows. */
+static void flat_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t rows, uint8_t colour)
 {
-    if (t->width == 0 || line == INT32_MIN) return;
+    const FlatDraw *d = user;
+    (void)x, (void)w;
+    fill(d->target, d->clip, y, rows, colour);
+}
+
+/* 0043a18c */
+static void flat_band(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
+{
+    const FlatDraw *d = user;
+    const HorizonTables *t = d->t;
+    const ClipRect *clip = d->clip;
     const int32_t w = horz->width;
-    /* 0043ae64: the bitmap's horizon row (misc[1]) sits on the line; it
-     * turns 0x500 pixels per turn. */
-    const int32_t turn = mirrored ? -yaw : yaw;
-    const int32_t x_offset = (fx_mul_round(turn, 0x50000) >> 16) % w;
-    int32_t y = line - ((int32_t)((uint32_t)horz->misc[1] * (uint32_t)t->scale) >> 16);
-    const int32_t bottom = y + ((int32_t)((uint32_t)(horz->height - 1) * (uint32_t)t->scale) >> 16);
-    /* Above and below the bitmap: its first and last pixels. */
-    fill(target, clip, clip->y0, y - clip->y0, horz->payload[0]);
-    fill(target, clip, bottom, clip->y1 - bottom, horz->payload[(size_t)horz->width * horz->height - 1]);
-    /* 0043a18c */
     int32_t rows = fx_mul_round(t->scale, horz->height - 1);
     int skip = 0;
     if (y < clip->y0) {
@@ -90,7 +114,6 @@ void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, cons
         rows -= skip;
     }
     if (clip->y1 < y + rows) rows = clip->y1 - y;
-    int first_row = 1;
     int split = 0;
     if (t->columns[0] + x_offset < 0) {
         first_row++;
@@ -101,8 +124,18 @@ void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, cons
     for (int r = 0; r < rows; r++) {
         const int source_row = skip + r < HORIZON_ROWS ? t->row_map[skip + r] : t->row_map[HORIZON_ROWS - 1];
         const int32_t base = x_offset + w * (first_row + source_row);
-        uint8_t *dst = target->pixels + (size_t)(y + r) * target->pitch + left;
+        uint8_t *dst = d->target->pixels + (size_t)(y + r) * d->target->pitch + x;
         gather(dst, horz, base, t->columns, split);
         gather(dst + split, horz, base - w, t->columns + split, t->width - split);
     }
+}
+
+void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
+                       const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line)
+{
+    if (t->width == 0 || line == INT32_MIN) return;
+    const FlatDraw d = { t, target, clip };
+    const HorizonFlatSink sink = { (void *)&d, flat_fill, flat_band };
+    const HorizonBox box = { clip->x0, clip->y0, clip->x1 - clip->x0, clip->y1 - clip->y0 };
+    horizon_flat(horz, yaw, mirrored, sky_off, t->scale, &box, line, &sink);
 }
