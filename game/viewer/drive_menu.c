@@ -20,7 +20,8 @@
 #include <string.h>
 
 /* 004bb8dc is counted by the master timer's callback 0043b9e8 (TIMER_HZ) */
-enum { KEY_ESC_SCANCODE = 1, TICK_HZ = TIMER_HZ, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
+enum { LEADER_PLACE = 7,  /* 00509e60 = 00509e44[7]: the slots by progress, last first, 8 racers */
+       KEY_ESC_SCANCODE = 1, TICK_HZ = TIMER_HZ, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
 
 typedef struct {
     DriveMenu *m;
@@ -198,6 +199,7 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
     w->end_state = race->end_state, w->unknown_4fbb0c = race->unknown_4fbb0c;
     w->follow = race->chase.kind, w->phase = race->phase;
     w->unknown_513e50 = m->keys->pending;
+    w->leader = (int16_t)race->by_progress[LEADER_PLACE];  /* 00509e60 */
 }
 
 void drive_menu_run(void *menu)
