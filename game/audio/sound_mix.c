@@ -458,13 +458,32 @@ static void (*voice_mixer(uint32_t flags))(MixVoice *, int32_t *, uint32_t)
     }
 }
 
-/* 00497f9e's span: 004980d4 looped, 0049808a one-shot; the streamed and
- * compressed ones (00498119, 00498198, 004982a5, 004983c5) are not ported */
+/* 00497f9e's span by flags & 0x12: looped 00498198 (2) or 004980d4;
+ * one-shot 004982a5 (0x12), 004983c5 (2), 00498119 (0x10) or 0049808a */
 static int32_t (*voice_span(uint32_t flags, int looped))(MixVoice *, int32_t)
 {
     const uint32_t kind = flags & (VOICE_COMPRESSED | VOICE_HEADER);
-    if (looped) return kind == VOICE_COMPRESSED ? NULL : sound_span_loop;
-    return kind == 0 ? sound_span_once : NULL;
+    if (looped) return kind == VOICE_COMPRESSED ? sound_span_packed_loop : sound_span_loop;
+    switch (kind) {
+    case VOICE_COMPRESSED | VOICE_HEADER: return sound_span_packed_stream;
+    case VOICE_COMPRESSED: return sound_span_packed;
+    case VOICE_HEADER: return sound_span_stream;
+    default: return sound_span_once;
+    }
+}
+
+/* 00497d5b's compressed words: the source from its start, the loop; a
+ * header's data is a stream block's (its samples - 1, the data at +0x14;
+ * the decoder's state starts at 0, not from the block) */
+static void voice_packed(MixVoice *v, const SoundStart *s)
+{
+    v->index = 0, v->sample = 0, v->src_pos = 0, v->src_frac = 0;
+    v->src_loop_start = s->loop_start;
+    v->src_loop_end = s->loop_start + s->loop_frames;
+    v->src_end = s->frames;
+    v->src = s->data;
+    if (v->has_header) v->src_end = block_word(s->data, BLOCK_SAMPLES) - 1, v->src = s->data + BLOCK_DATA;
+    v->decode = (s->flags & VOICE_STEREO) != 0 ? sound_adpcm_stereo : sound_adpcm_mono; /* 00497f9e */
 }
 
 /* 00497d5b */
@@ -482,12 +501,13 @@ void sound_voice_start(MixVoice *v, const SoundStart *s, uint32_t mix_rate)
     v->loop_start = s->loop_start;
     v->loop_end = s->loop_start + s->loop_frames;
     v->kind = (s->flags & VOICE_COMPRESSED) ? VOICE_KIND_COMPRESSED : 0;
+    if (v->kind != 0) voice_packed(v, s);
     v->rate = s->rate;
     v->step = sound_voice_step(s->rate, s->cents, mix_rate);
     v->mix = voice_mixer(s->flags);
     v->span = voice_span(s->flags, v->looped);
     v->gains = sound_pan_gains(s->pan, s->volume);
-    v->on = v->span != NULL; /* the original: 1 */
+    v->on = 1;
 }
 
 /* 00497e6a */

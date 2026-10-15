@@ -9,7 +9,11 @@ static void channel_stopped(void *ctx, uint32_t slot)
 
 void sound_driver_wire(SoundDriver *d)
 {
-    for (int k = 0; k < SOUND_VOICES; k++) d->mixer.voice[k] = &d->voice[k];
+    for (int k = 0; k < SOUND_VOICES; k++) {
+        d->mixer.voice[k] = &d->voice[k];
+        d->voice[k].buffer = d->decoded;
+        d->voice[k].stream = &d->stream;
+    }
     d->mixer.stopped = channel_stopped;
     d->mixer.ctx = &d->channels;
 }

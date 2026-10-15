@@ -198,11 +198,12 @@ typedef struct {
  * filled: the shift from the format, the position the data's first frame,
  * the end frames - 1, the loop from its start for its length (looped when
  * that is not 0), the step (0049847d), the format's mixer and the span
- * (00497f9e), the gains (00497e8a), then +0 = 1. The compressed decoder's
- * words (+0x30..+0x4c, +0x58) and its spans and those of a one-shot with a
- * header (00498119, a stream that asks 0048dda8 for more) are not ported:
- * no CD bank sound is compressed or streamed; such a voice gets no span
- * (NULL) and stays off. */
+ * (00497f9e), the gains (00497e8a), then +0 = 1. A compressed voice
+ * (flag 2) also gets its source words: +0x30..+0x3c 0, the loop +0x44 /
+ * +0x48 as the frames', +0x4c the frames, +0x40 the data - with a header
+ * (0x10, a stream's first block) +0x4c the block's samples - 1 and +0x40
+ * its data (+0x14) - and the decoder (+0x58, by the stereo flag). The
+ * voice's buffer and stream are the driver's (sound_driver_wire). */
 void sound_voice_start(MixVoice *v, const SoundStart *s, uint32_t mix_rate);
 
 #endif
