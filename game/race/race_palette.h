@@ -112,6 +112,10 @@ void race_palette_queue_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
  * device bit, which clears `changed` again. */
 void race_palette_write(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours);
 
+/* 00446918 (watcall (), from 00455a5c's setup): 00476460(0xff, 1, {0x14,
+ * 0x14, 0x14}): the last screen entry a dark grey. */
+void race_palette_last_grey(void (*write)(void *ctx, int32_t first, int32_t count, const uint8_t *colours), void *ctx);
+
 /* 004766b8: `count` screen entries from `first` (0052f178) out as 6-bit
  * R, G, B (each channel >> 2). */
 void race_palette_read(const RacePalette *p, int32_t first, int32_t count, uint8_t *out);

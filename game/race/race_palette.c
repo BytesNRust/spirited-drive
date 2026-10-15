@@ -356,3 +356,11 @@ void race_palette_map_banks(RacePalette *p, void (*after)(void *ctx), void *ctx)
     p->bank_count = 0;
     after(ctx);
 }
+
+enum { LAST_ENTRY = 0xff, LAST_GREY = 0x14 };
+
+void race_palette_last_grey(void (*write)(void *ctx, int32_t first, int32_t count, const uint8_t *colours), void *ctx)
+{
+    const uint8_t grey[3] = { LAST_GREY, LAST_GREY, LAST_GREY };
+    write(ctx, LAST_ENTRY, 1, grey);
+}
