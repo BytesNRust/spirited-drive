@@ -1095,6 +1095,15 @@ static void run_queue_prime(void *ctx, InputQueue *q)
     DriveRun *r = ctx;
     input_queue_prime(q, drive_sim.race.unknown_4fb7d4, r->w->wait_ticks, &r->store_clock, &r->w->replay_due);
 }
+/* 00410250: a local game has no links and sends nothing; 004fbb0c taken as 1 in a local game, as drive_input does */
+static void run_send_none(void *ctx, int32_t to, const int16_t *words, int32_t size) { (void)ctx, (void)to, (void)words, (void)size; }
+static int32_t run_linked(void *ctx, int32_t player) { (void)ctx, (void)player; return 1; }
+static void run_stand_in_start(void *ctx)
+{
+    const InputStandInStartWords w = { 1, drive_sim.race.playback, drive_sim.race.racers, drive_sim.race.humans };
+    const InputStandInStartOps ops = { ctx, run_send_none, run_linked };
+    input_stand_in_start(drive_input.stand_in_block, drive_sim.race.players, &w, &ops);
+}
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
 static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
@@ -1179,7 +1188,7 @@ static const RaceRunOps *drive_run_ops(void)
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_last_grey, run_none, run_none, run_music_start, run_none, run_none, run_clip, run_queue_reset, run_queue_prime,
         run_none,
-        run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,
+        run_none, run_none, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none };
     return &ops;
 }
