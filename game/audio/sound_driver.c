@@ -139,3 +139,16 @@ int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume)
     channel_gains(d, d->channels.handle[handle]); /* 00497a1c */
     return 0;
 }
+
+enum { BAD_PAN = -14, PAN_TOP = 0xff };
+
+/* 00473bb0 */
+int32_t sound_set_pan(SoundDriver *d, int32_t handle, int32_t pan)
+{
+    SoundChannel *c = sound_handle_channel(&d->channels, handle);
+    if (c == NULL) return -1;
+    if (pan > PAN_TOP || pan < 0) return BAD_PAN;
+    c->pan = (uint8_t)pan;
+    channel_gains(d, d->channels.handle[handle]); /* 00497a1c */
+    return 0;
+}

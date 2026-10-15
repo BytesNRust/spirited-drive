@@ -97,4 +97,9 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
  * (00497e8a, with the pan +0x23); 0. */
 int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume);
 
+/* 00473bb0 (eax the handle, edx the pan): a handle 00497af8 passes (else
+ * -1), a pan 0..0xff (else -14): the channel's pan +0x23, its mixed volume
+ * (00497750) and the voice's gains (00497e8a); 0. */
+int32_t sound_set_pan(SoundDriver *d, int32_t handle, int32_t pan);
+
 #endif
