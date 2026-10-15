@@ -348,3 +348,11 @@ int32_t race_palette_nearest(RacePalette *p, int32_t red, int32_t green, int32_t
     }
     return found;
 }
+
+void race_palette_map_banks(RacePalette *p, void (*after)(void *ctx), void *ctx)
+{
+    for (int32_t i = 0; i < p->bank_count && i < RACE_PALETTE_BANKS; i++)  /* port guard: the queue's 100 rows */
+        race_palette_remap_track_bank(p, p->banks[i].bank, p->banks[i].palette);
+    p->bank_count = 0;
+    after(ctx);
+}

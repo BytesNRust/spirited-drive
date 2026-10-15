@@ -95,6 +95,11 @@ void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t 
  * entry past the queue first); the port drops it. */
 void race_palette_queue(RacePalette *p, int32_t first, int32_t count, const uint8_t *colours);
 
+/* 00447098 (watcall (), from 00455a5c): each queued bank (bank_count re-read
+ * each turn) through 00446fd0 with its palette, then none queued, then
+ * `after` (00456948, the smoke's colours). */
+void race_palette_map_banks(RacePalette *p, void (*after)(void *ctx), void *ctx);
+
 /* 00446f58: queues a shape bank and its 6-bit palette for 00447098. The
  * original writes the 101st past the table and then hangs; the port drops
  * it, and a count outside the table. */
