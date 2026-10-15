@@ -42,6 +42,12 @@ void race_sound_pulse(RaceState *race);
  * the wall tones on (0052b320) 0043d120 (0). */
 void race_sound_start_engine(RaceState *race);
 
+/* 00443b64 (watcall (), from 00455a5c): 0052b31e set and 0052b30e 0: the
+ * followed slot's entry's sound volume (+0x1d) 0. Then with that volume not
+ * 0: music_volume (00464604) with its music volume (+0x21, as a short) and
+ * the 16 channels' voice and sound -1. */
+void race_sound_setup(RaceState *race, void (*music_volume)(void *user, int16_t volume), void *user);
+
 /* 00443820 (no arguments; from the race's start and its returns from the
  * menus and the replay): 0052b31e 0 or 0052b30e set, and the voice on the
  * channel at 004bcb70 negative (none): that channel starts sound 1 (pan

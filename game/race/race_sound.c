@@ -739,3 +739,12 @@ void race_sound_others(RaceState *race, int32_t *police_lights)
     other_car(race, SECOND_CHANNEL, &second, RACER_SOUND_SECOND, TRAFFIC_SOUND_SECOND);
     if (second.car != NULL) race->sound_second = second.car;
 }
+
+void race_sound_setup(RaceState *race, void (*music_volume)(void *user, int16_t volume), void *user)
+{
+    RaceEntry *entry = &race->entries[race_slot(race->player)];  /* port guard: the original indexes unchecked */
+    if (race->unknown_52b31e != 0 && race->unknown_52b30e == 0) entry->sound_volume = 0;
+    if (entry->sound_volume == 0) return;
+    music_volume(user, (int16_t)entry->music_volume);
+    for (int i = 0; i < RACE_VOICES; i++) race->voices[i].voice = race->voices[i].sound = -1;
+}

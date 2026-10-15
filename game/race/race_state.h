@@ -57,7 +57,7 @@ typedef struct {
     int32_t anti_lock;    /* +0x15: ABS wanted */
     uint8_t unknown_19[4];
     int32_t sound_volume; /* +0x1d (004fb817): the sound volume, read for the followed slot; 0 plays no car sounds (0044404c) */
-    uint8_t unknown_21[4];
+    int32_t music_volume; /* +0x21 (004fb81b): 00464604's (the music's) volume, read for the followed slot */
     int32_t sound_mode;   /* +0x25 (004fb81f): 2 plays the followed car's engine unpanned (004444b8) */
     uint8_t unknown_29[0x22];
 } RaceEntry;
