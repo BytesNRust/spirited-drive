@@ -128,7 +128,7 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
     c->sound_volume = sound_volume(d, rec);
     c->pan = sound_pan(d, rec, pan);
     c->volume = (uint8_t)volume;
-    c->cleared = 0;
+    c->ramp_step = 0;
     sound_channel_mix_volume(c);
     s->channel = (uint8_t)ch;
     const int32_t handle = sound_handle_alloc(&d->channels, ch);
@@ -155,6 +155,20 @@ int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume)
     if (!c->busy) return NOT_BUSY;
     c->volume = (uint8_t)volume;
     channel_gains(d, d->channels.handle[handle]); /* 00497a1c */
+    return 0;
+}
+
+enum { RAMP_SHIFT = 16 };
+
+/* 00473b00 */
+int32_t sound_volume_ramp(SoundDriver *d, int32_t handle, int32_t steps, int32_t target)
+{
+    SoundChannel *c = sound_handle_channel(&d->channels, handle);
+    if (c == NULL) return -1;
+    if (steps < 1) steps = 1;
+    c->ramp_target = (int32_t)((uint32_t)target << RAMP_SHIFT);
+    c->ramp_level = (int32_t)((uint32_t)c->volume << RAMP_SHIFT);
+    c->ramp_step = (int32_t)((uint32_t)(target - c->volume) << RAMP_SHIFT) / steps;
     return 0;
 }
 
@@ -220,7 +234,7 @@ int32_t sound_stream_header(SoundDriver *d, uint32_t block)
     s->handle = sound_handle_alloc(&d->channels, ch);
     if (s->handle < 0) return -1;
     c->sound = NULL, c->id = STREAM_NO_SOUND, c->last = -1, c->pitch = STREAM_CENTRE, c->range = 0, c->pitch_base = 0;
-    c->busy = 1, c->priority = STREAM_PRIORITY, c->cleared = 0, c->kind = SOUND_KIND_STREAM, c->pan = STREAM_CENTRE;
+    c->busy = 1, c->priority = STREAM_PRIORITY, c->ramp_step = 0, c->kind = SOUND_KIND_STREAM, c->pan = STREAM_CENTRE;
     c->sound_volume = *sound_ring_at(r, h + 0x1d);
     c->volume = (uint8_t)s->volume;
     const uint32_t frame_bytes = (uint32_t)*sound_ring_at(r, h + 8) * *sound_ring_at(r, h + 9);

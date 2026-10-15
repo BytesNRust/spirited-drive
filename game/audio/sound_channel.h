@@ -19,7 +19,9 @@ typedef struct {
     uint8_t handle;        /* +0x11 */
     uint8_t busy;          /* +0x12 */
     uint8_t id;            /* +0x13: the sound's number in the registry */
-    uint32_t cleared;      /* +0x14: 0 at the start */
+    int32_t ramp_step;     /* +0x14: the volume ramp's step, << 16 (0 at the start: none) */
+    int32_t ramp_level;    /* +0x18: the ramp's volume, << 16 */
+    int32_t ramp_target;   /* +0x1c: where it stops, << 16 */
     uint8_t volume;        /* +0x20: the caller's */
     uint8_t sound_volume;  /* +0x21: the sound's, with its spread */
     uint8_t mixed_volume;  /* +0x22 */

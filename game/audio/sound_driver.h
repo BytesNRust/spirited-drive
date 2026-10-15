@@ -113,6 +113,14 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
  * (00497e8a, with the pan +0x23); 0. */
 int32_t sound_set_volume(SoundDriver *d, int32_t handle, int32_t volume);
 
+/* 00473b00 (eax the handle, edx the steps, ebx the target volume): a
+ * handle 00497af8 passes (else -1; busy or not, the target unchecked): the
+ * channel's ramp from its volume +0x20 to the target in that many steps
+ * (fewer than 1: 1), all << 16 - the target +0x1c, the level +0x18 and the
+ * step +0x14 (the difference / steps, toward 0); 0. The periodic service
+ * 004a4ac0 moves it. */
+int32_t sound_volume_ramp(SoundDriver *d, int32_t handle, int32_t steps, int32_t target);
+
 /* 00473bb0 (eax the handle, edx the pan): a handle 00497af8 passes (else
  * -1), a pan 0..0xff (else -14): the channel's pan +0x23, its mixed volume
  * (00497750) and the voice's gains (00497e8a); 0. */
