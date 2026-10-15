@@ -527,8 +527,7 @@ enum {
 };
 
 /* 0044d2c4 / 0044ca3c's calls in --drive: the surfaces, the track, its textures and the palette are the port's
- * own (start_drive), the camera follows the player; 00404404, 0044c140, 0044c148 and 00449be4 are not ported
- * (TODO); 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
+ * own (start_drive), the camera follows the player; 0044c140, 0044c148 and 00449be4 are not ported (TODO); 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
 static void ds_none(void *ctx) { (void)ctx; }
 static void ds_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void ds_palette_get(void *ctx, uint8_t rgb[DRAW_SETUP_PALETTE]) { (void)ctx, (void)rgb; }
@@ -536,6 +535,11 @@ static void ds_palette_set(void *ctx, int32_t f, int32_t n, const uint8_t *rgb) 
 static void ds_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t ds_surface(void *ctx, int32_t w, int32_t h, int32_t flags) { (void)ctx, (void)w, (void)h, (void)flags; return 0; }
 static void ds_layout(void *ctx, RaceCamera *camera, int32_t layout) { race_view_layout(ctx, camera, layout); }
+static void ds_chase_layout(void *ctx, RaceCamera *camera, int32_t layout)
+{
+    (void)ctx;
+    race_view_layout(&drive_views, camera, layout);
+}
 
 static void dv_viewport(void *ctx, int32_t left, int32_t top, int32_t width, int32_t height, int32_t fov)
 {
@@ -561,6 +565,23 @@ static void ds_views(void *ctx)
     race->chase_kinds[0].target[1] = out.eye[1];
 }
 
+enum { TRI_NODES_AT = 0x98c, TRI_NODE_BYTES = 36 };  /* the header's nodes (track_render.c's NODES_AT: 00505038) */
+
+static void ds_front_view(void *ctx, int32_t rear) { (void)ctx, (void)rear; }  /* 0040586c: the front is ported_view's */
+
+/* 00404404 on the follow record and the TRI's nodes (00504208: ring_nodes - 1 on a circuit, -1 on a stage) */
+static void ds_chase_start(void *ctx)
+{
+    RaceState *race = ctx;
+    const Tri *tri = race->tri;
+    if (tri == NULL) return;
+    const int32_t mask = tri_is_circuit(tri) ? (int32_t)(tri->ring_nodes - 1u) : -1;
+    const uint32_t node = (uint32_t)(race->chase.node & mask);
+    if (node >= TRI_NODE_CAPACITY || TRI_NODES_AT + (size_t)(node + 1) * TRI_NODE_BYTES > tri->size) return;  /* port guard */
+    const RaceChaseStartOps ops = { race, ds_views, ds_chase_layout, ds_front_view };
+    race_chase_start_view(&ops, &race->chase, tri->data + TRI_NODES_AT, mask);
+}
+
 /* 0040540c on the race's first two cameras (004b78a8, 004b78c8) and --drive's views */
 static void ds_screen(void *ctx, int32_t step, int32_t size)
 {
@@ -580,7 +601,7 @@ static void ds_follow(void *ctx, int32_t kind)
 static void drive_frame_setup(RaceState *race)
 {
     const RaceDrawSetupOps ops = { race, ds_palette_get, ds_none, ds_palette_set, ds_none_i, ds_mode, ds_surface, ds_none,
-                                   ds_none, ds_follow, ds_views, ds_none, ds_none_i, ds_none_i, ds_none, ds_none, ds_screen };
+                                   ds_none, ds_follow, ds_views, ds_chase_start, ds_none_i, ds_none_i, ds_none, ds_none, ds_screen };
     RaceDrawSetup st = { 0 };
     st.restart = drive_frame.restart, st.mirror_state = drive_hud.mirror.state, st.use_parts = drive_hud.keys.use_parts;
     st.high = HIGH_SCREEN, st.width = SCREEN_W, st.height = SCREEN_H, st.back_buffer = 0;
