@@ -4,8 +4,7 @@
  * each car's banks (004574ec) and the track's banks (00446fd0) mapped onto
  * it in place, then the queued banks (00447098); the mask bank's colours (0xf0.., 00450838) and
  * bank when `hud` has its files. Not yet: the dashboard (0..0x2f,
- * 0041f988), the tint of the time of day (004471ac, a neutral one here) and
- * the cars' mesh colours (the flat sink still matches rgb itself). */
+ * 0041f988) and the cars' mesh colours (the flat sink still matches rgb itself). */
 #ifndef TNFS_DRIVE_PALETTE_H
 #define TNFS_DRIVE_PALETTE_H
 
@@ -22,7 +21,8 @@
  * carpal: CARFAMS/CARPAL.FSH (NULL: none; races of type 2 and up need it).
  * The banks are remapped in place in the files they were read from (owned
  * by the caller, writable), so this runs once per load. rgb: the screen
- * palette, 8 bits a channel. Returns 0 when the track has no terrain bank
+ * palette, 8 bits a channel; tint: the time of day's (0043a370's 004471ac;
+ * NULL: neutral). Returns 0 when the track has no terrain bank
  * with a '!pal' (nothing is remapped then). */
 /* late (NULL: none): run where 00456a7c queues its bank (before the HUD's
  * start), after_banks as 00447098's last call (00456948), once the queued
@@ -34,6 +34,6 @@ typedef struct {
 } DrivePaletteLate;
 
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
-                        DriveHud *hud, const DrivePaletteLate *late, uint8_t rgb[768]);
+                        DriveHud *hud, const DrivePaletteLate *late, const RacePaletteTint *tint, uint8_t rgb[768]);
 
 #endif

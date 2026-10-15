@@ -94,7 +94,7 @@ static void after_banks(void *ctx)
 }
 
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
-                        DriveHud *hud, const DrivePaletteLate *late, uint8_t rgb[768])
+                        DriveHud *hud, const DrivePaletteLate *late, const RacePaletteTint *tint, uint8_t rgb[768])
 {
     static RacePalette p;
     Chunk terrain, scenery, horizon, models, first;
@@ -108,7 +108,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
      * remap leaves alone (0xff, which the transparent mappers skip, and
      * 0xfa..0xfd outside the police slot) map to themselves. */
     for (int i = 0; i < RACE_PALETTE_COLOURS; i++) p.table[i] = (uint8_t)i;
-    p.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
+    p.tint = tint != NULL ? *tint : (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     p.tint_ready = 1;
     race_palette_queue(&p, TRACK_FIRST, TRACK_COUNT, track);
     /* own[i]: slot i's '!xxx' (car +0x526), as its loader set it. */

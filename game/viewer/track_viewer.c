@@ -16,6 +16,7 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_draw_setup.h"
 #include "game/race/race_models.h"
+#include "game/race/race_palette.h"
 #include "game/race/race_replay.h"
 #include "game/race/race_run.h"
 #include "game/race/race_sound.h"
@@ -63,6 +64,7 @@ typedef struct {
     TrackObject *objects;   /* one per scenery record */
     uint32_t object_count;
     TrackInfo info;
+    RacePaletteTint tint;   /* 0050b774: 0043a370's 004471ac for the time of day */
     ViewModel models[TRACK_MODELS];
     int model_ok[TRACK_MODELS];
     uint8_t *car_file;      /* TNFS_CAR=NAME: CARFAMS/NAME.CFM parked ahead */
@@ -70,6 +72,50 @@ typedef struct {
     int car_ok;
 } Track;
 
+
+/* 0043a370's file: the INFO text read whole (the port's name, not "%s%sInfo"). */
+typedef struct {
+    const char *p, *end;
+    Track *t;
+} InfoFile;
+
+static int32_t info_open(void *ctx, const char *name) { (void)name; return ((InfoFile *)ctx)->p < ((InfoFile *)ctx)->end; }
+static void info_close(void *ctx, int32_t file) { (void)ctx, (void)file; }
+
+static int info_gets(void *ctx, char *line, int32_t size, int32_t file)
+{
+    (void)file;
+    InfoFile *f = ctx;
+    if (f->p >= f->end) return 0;
+    int32_t n = 0;
+    while (f->p < f->end && n + 1 < size) {
+        const char c = *f->p++;
+        line[n++] = c;
+        if (c == '\n') break;
+    }
+    line[n] = '\0';
+    return 1;
+}
+
+static void info_tint(void *ctx, int32_t red, int32_t green, int32_t blue, int32_t saturation, int32_t brightness)
+{
+    static RacePalette scratch;  /* 004471ac on the tint's words alone */
+    race_palette_set_tint(&scratch, red, green, blue, saturation, brightness);
+    ((InfoFile *)ctx)->t->tint = scratch.tint;
+}
+
+/* 0043a370 for the track `name` (its stem lower case as the frontend gives it), the time of day 0, 640 x 480. */
+static void load_info(Track *t, const char *name, const char *text, size_t size)
+{
+    char stem[16] = { 0 };
+    for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof stem; i++) stem[i] = (char)tolower((unsigned char)name[i]);
+    InfoFile f = { text, text + size, t };
+    t->tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
+    const TrackInfoOps ops = { &f, info_open, info_gets, info_close, info_tint };
+    const TrackInfoInputs in = { stem, "", 1, 0, 1 };
+    memset(&t->info, 0, sizeof t->info);
+    track_info_load(&ops, &in, &t->info);
+}
 
 static uint8_t *read_any(const char *data_root, const char *dir, const char *name, const char *const *suffixes,
                          size_t *size)
@@ -103,8 +149,8 @@ static int load_track(Track *t, const char *data_root, const char *name)
     size_t info_size = 0;
     snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);
     uint8_t *info_text = platform_read_file(info_path, &info_size);
-    if (info_text == NULL || !track_info_parse(&t->info, (const char *)info_text, info_size))
-        fprintf(stderr, "track_viewer: no sky settings in %s\n", info_path);
+    if (info_text == NULL) fprintf(stderr, "track_viewer: no %s, the built-in sky settings\n", info_path);
+    load_info(t, name, (const char *)info_text, info_text != NULL ? info_size : 0);
     platform_free_file(info_text);
     t->objects = calloc(t->tri.scenery_count + 1u, sizeof *t->objects);
     if (t->objects == NULL) return 0;
@@ -828,7 +874,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     /* 00456a7c from 00455a5c (after the cars' load), its bank and 00456948 at 00447098's end */
     drive_smoke_setup(&drive_smoke, data_root, &drive_sim.race.trail);
     const DrivePaletteLate late = { &drive_smoke, drive_smoke_palette, drive_smoke_blend };
-    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, t->art.palette))
+    if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, &t->tint, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
     if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, draw_rand, NULL, &drive_sim.race.trail);
     return 1;
