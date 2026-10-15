@@ -1000,6 +1000,7 @@ typedef struct {
     int quit;
     int32_t headless_ticks;     /* TNFS_RUN with --screenshot: a frame due each pass, no window, this many frames */
     int32_t late, unknown_4fb78c, store_clock;  /* 004fb790, 004fb78c, 004fb7a0: the network's, unread here */
+    int32_t timer_written;      /* the timer run_service last wrote (-1 none yet) */
 } DriveRun;
 
 enum { DRIVE_TIMER_HZ = 30, DRIVE_IDLE_MS = 1 };
@@ -1021,8 +1022,10 @@ static void run_service(void *ctx)
         if (key == PLATFORM_KEY_ESCAPE) r->quit = 1;
     if (r->quit) r->w->running = 0;
     const uint32_t now = platform_ticks_ms();
-    if (r->w->timer == 0 && r->w->done == 0) r->base_ms = now;  /* the start zeroes the timer: count from here */
+    /* the timer written elsewhere (the start zeroes it): count on from its value */
+    if (r->w->timer != r->timer_written) r->base_ms = now - (uint32_t)((int64_t)r->w->timer * 1000 / DRIVE_TIMER_HZ);
     r->w->timer = (int32_t)((uint64_t)(now - r->base_ms) * DRIVE_TIMER_HZ / 1000u);
+    r->timer_written = r->w->timer;
     if (r->w->timer <= r->w->done) platform_sleep_ms(DRIVE_IDLE_MS);
 }
 
@@ -1139,7 +1142,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.unknown_4c53a0 = 0;
-    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0 };
+    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
@@ -1160,7 +1163,7 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
 {
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
-    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0 };
+    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
