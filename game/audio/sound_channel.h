@@ -28,6 +28,9 @@ typedef struct {
 
 enum { SOUND_CHANNELS = 16, SOUND_HANDLES = 100, SOUND_HANDLE_FREE = -1 };
 
+/* A channel's +0xd */
+enum { SOUND_KIND_SAMPLE = 1, SOUND_KIND_STREAM = 2 };
+
 /* The channels and the handles that name them */
 typedef struct {
     SoundChannel channel[SOUND_CHANNELS];  /* 0052f978 */

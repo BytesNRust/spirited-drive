@@ -29,8 +29,10 @@ int32_t sound_driver_init(SoundDriver *d, uint32_t rate)
 /* 00473c68 */
 int32_t sound_stop(SoundDriver *d, int32_t handle)
 {
-    if (sound_handle_channel(&d->channels, handle) == NULL) return -1;
+    const SoundChannel *c = sound_handle_channel(&d->channels, handle);
+    if (c == NULL) return -1;
     sound_voice_stop(&d->mixer, (uint32_t)d->channels.handle[handle]); /* 00497a1c */
+    if (c->kind == SOUND_KIND_STREAM) sound_stream_drop(&d->stream);
     return 0;
 }
 
@@ -116,7 +118,7 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
     c->priority = rec->priority;
     c->id = (uint8_t)id;
     c->sound_1c = rec->sound_1c;
-    c->kind = 1;
+    c->kind = SOUND_KIND_SAMPLE;
     c->pitch_base = rec->pitch_base != 0 || rec->pitch_spread != 0
                         ? sound_spread(&d->rand_seed, rec->pitch_spread) + rec->pitch_base : 0;
     c->sound_volume = sound_volume(d, rec);
@@ -172,7 +174,7 @@ int32_t sound_set_pitch(SoundDriver *d, int32_t handle, int32_t pitch)
 {
     const SoundChannel *c = sound_handle_channel(&d->channels, handle);
     if (c == NULL) return -1;
-    if (c->kind != 1) return NOT_A_SAMPLE;
+    if (c->kind != SOUND_KIND_SAMPLE) return NOT_A_SAMPLE;
     if (pitch < 0 || pitch > TOP_LEVEL) return BAD_PITCH;
     MixVoice *v = &d->voice[d->channels.handle[handle]]; /* 00497a1c */
     v->step = sound_voice_step(v->rate, sound_pitch_cents(pitch, c->range, c->pitch_base), d->mix_rate); /* 00497f05 */
