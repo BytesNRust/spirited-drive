@@ -1067,20 +1067,31 @@ static void run_car_draw_setup(void *ctx)
     car_draw_setup(&words, ported_view_skids(), run_no_recording, NULL);
 }
 
-/* 00464604: the music's volume; the music is not played yet (option B: the sound output waits for the full race). */
-static void run_music_volume(void *user, int16_t volume) { (void)user, (void)volume; }
+/* 00464604: the music's volume ramped to */
+static void run_music_volume(void *user, int16_t volume) { (void)user, drive_audio_music_volume(volume); }
 
 static void run_last_grey(void *ctx) { (void)ctx, race_palette_last_grey(drive_hud_palette_write, &drive_hud); }  /* 00446918 */
 
-/* 00456244 on the music setting (00524e63, 0 in --drive: nothing drawn, nothing played); the track itself waits for
- * the audio (option B). */
-enum { DRIVE_MUSIC_SETTING = 0 };
+/* 00456244 on the music setting (00524e63: the CONFIG default 1, a track of the twelve drawn) at the music volume
+ * (00524e65: 100); 00464428 plays the track */
+enum { DRIVE_MUSIC_SETTING = 1, DRIVE_MUSIC_VOLUME = 100, DRIVE_MUSIC_TRACKS = 12 };
+static const char *const drive_music_names[DRIVE_MUSIC_TRACKS] = {  /* 004c55ac */
+    "rock1.as4", "rock2.as4", "rock3.as4", "rock4.as4", "rock5.as4", "rock6.as4",
+    "techno1.as4", "techno2.as4", "techno3.as4", "techno4.as4", "techno5.as4", "techno6.as4"
+};
 static int32_t run_music_rand(void *ctx, int32_t n) { (void)ctx; return race_rand_below(&drive_sim.race, n); }
-static void run_music_play(void *ctx, int32_t track) { (void)ctx, (void)track; }
+static void run_music_play(void *ctx, int32_t track)
+{
+    (void)ctx;
+    if (track >= 0 && track < DRIVE_MUSIC_TRACKS) drive_audio_music_play(drive_music_names[track]);
+}
+static void run_music_fill(void *ctx) { (void)ctx, drive_audio_music_fill(); }  /* 004640d0 */
 static void run_music_start(void *ctx)
 {
+    const DriveRun *r = ctx;
+    drive_audio_music_set(r->w->music_on, DRIVE_MUSIC_VOLUME, r->w->music_started);
     const RaceMusicOps ops = { ctx, run_music_rand, run_music_play };
-    race_music_start(&ops, DRIVE_MUSIC_SETTING);
+    race_music_start(&ops, r->w->music_on);
 }
 
 static void run_sound_setup(void *ctx) { (void)ctx, race_sound_setup(&drive_sim.race, run_music_volume, NULL); }  /* 00443b64 */
@@ -1131,6 +1142,7 @@ static void run_frame(void *ctx, int32_t frame)
         return;
     }
     drive_input_read_keys(&drive_input);
+    drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);
     if (drive_pause.paused_ms != 0) {  /* the timer stood still */
         r->base_ms += drive_pause.paused_ms;
@@ -1165,6 +1177,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     drive_audio_open(&drive_sim.race, drive_cars.data_root);
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
+    w.music_on = DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
@@ -1189,6 +1202,7 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
 {
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
+    w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
     DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
@@ -1204,7 +1218,7 @@ static const RaceRunOps *drive_run_ops(void)
         run_engines_start, run_none_i,
         run_none, run_car_draw_setup, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
-        run_none, run_last_grey, run_none, run_none, run_music_start, run_none, run_none, run_clip, run_queue_reset, run_queue_prime,
+        run_none, run_last_grey, run_none, run_none, run_music_start, run_music_fill, run_none, run_clip, run_queue_reset, run_queue_prime,
         run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_forces_off, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_sound_end };

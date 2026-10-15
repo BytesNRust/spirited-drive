@@ -26,6 +26,21 @@ const RaceSoundBankOps *drive_audio_bank_ops(void);
  * fewer frames are queued than a few frames' worth. */
 void drive_audio_pump(void);
 
+/* The race's music (game/race/race_music.c) on the driver's stream and the
+ * port's reader (music_reader.h) over frontend/music/: 00464428 the track
+ * `name` (004c55ac's), 004640d0 the stream filled ahead, 00464240 a block a
+ * frame (its voice started once enough is queued), 00464604 the volume
+ * ramped to. `setting` is 00524e63 (0 no music), `volume` 00524e65 and
+ * `small` 004c5cca (the small ring, which race_run sets); the device
+ * closed: no music. A track whose
+ * file does not load leaves the music off (the original's reader thread
+ * fails without a word). */
+void drive_audio_music_set(int16_t setting, int16_t volume, int16_t small);
+void drive_audio_music_play(const char *name);
+void drive_audio_music_fill(void);
+void drive_audio_music_pump(void);
+void drive_audio_music_volume(int16_t volume);
+
 void drive_audio_close(void);
 
 #endif
