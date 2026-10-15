@@ -189,3 +189,48 @@ int32_t sound_play(SoundDriver *d, int32_t id, int32_t pan, int32_t volume, int3
     if (id < 0 || id >= SOUND_IDS || d->registry[id] == NULL) return NO_SOUND;
     return sound_play_record(d, d->registry[id], id, pan, volume, pitch);
 }
+
+enum {
+    EACS_TAG = 0x53434145,   /* 'EACS' */
+    STREAM_HEADER = 8,       /* the '1SNh' block's EACS header */
+    STREAM_DATA = 0x28,      /* its samples */
+    STREAM_PRIORITY = 0x65,
+    STREAM_CENTRE = 0x40,
+    STREAM_COMPRESSED = 2,
+    STREAM_NO_SOUND = 0xff
+};
+
+/* 0048db70 */
+int32_t sound_stream_header(SoundDriver *d, uint32_t block)
+{
+    SoundStream *s = &d->stream;
+    const SoundRing *r = &s->ring;
+    const uint32_t h = block + STREAM_HEADER;
+    const int32_t ch = sound_ring_get(r, h) == EACS_TAG ? (int32_t)sound_ring_get(r, h + 8) >> 24 : -1;
+    if (ch < 0 || ch >= SOUND_CHANNELS) {
+        s->state = 0;
+        return -1;
+    }
+    SoundChannel *c = &d->channels.channel[ch];
+    if (c->busy == 1) sound_stop(d, c->handle); /* 004979e8: the channel's handle */
+    s->handle = sound_handle_alloc(&d->channels, ch);
+    if (s->handle < 0) return -1;
+    c->sound = NULL, c->id = STREAM_NO_SOUND, c->last = -1, c->pitch = STREAM_CENTRE, c->range = 0, c->pitch_base = 0;
+    c->busy = 1, c->priority = STREAM_PRIORITY, c->cleared = 0, c->kind = SOUND_KIND_STREAM, c->pan = STREAM_CENTRE;
+    c->sound_volume = *sound_ring_at(r, h + 0x1d);
+    c->volume = (uint8_t)s->volume;
+    const uint32_t frame_bytes = (uint32_t)*sound_ring_at(r, h + 8) * *sound_ring_at(r, h + 9);
+    sound_ring_put(r, h + 0x18, block + STREAM_DATA);
+    const uint32_t bytes = sound_ring_get(r, block + 4) - STREAM_DATA;
+    s->channel = ch;
+    s->header = h;
+    sound_ring_put(r, h + 0x10, 0xffffffffu); /* no loop */
+    s->frame_bytes = (int32_t)frame_bytes;
+    sound_ring_put(r, h + 0x14, 0);
+    sound_ring_put(r, h + 0xc, frame_bytes == 0 ? 0 : bytes / frame_bytes); /* the original faults on 0 */
+    s->played = 0;
+    s->rate = sound_ring_get(r, h + 4);
+    s->frame_scale = *sound_ring_at(r, h + 0xa) == STREAM_COMPRESSED ? 4 : 1;
+    sound_stream_append(s, block); /* when the stream has not failed */
+    return 0;
+}

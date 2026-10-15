@@ -7,20 +7,20 @@
 enum { BLOCK_SIZE = 4, BLOCK_DATA = 8, SOUND_STREAM_SET_UP = 3, SOUND_STREAM_VOLUME = 0x7f };
 
 /* A link outside the ring is a broken queue (the original reads wherever it points) */
-static uint8_t *at(const SoundRing *r, uint32_t address)
+uint8_t *sound_ring_at(const SoundRing *r, uint32_t address)
 {
     assert(address - r->base <= r->size - sizeof(uint32_t));
     return r->bytes + (address - r->base);
 }
 
-static uint32_t get(const SoundRing *r, uint32_t address)
+uint32_t sound_ring_get(const SoundRing *r, uint32_t address)
 {
     uint32_t w;
-    memcpy(&w, at(r, address), sizeof w);
+    memcpy(&w, sound_ring_at(r, address), sizeof w);
     return w;
 }
 
-static void put(const SoundRing *r, uint32_t address, uint32_t w) { memcpy(at(r, address), &w, sizeof w); }
+void sound_ring_put(const SoundRing *r, uint32_t address, uint32_t w) { memcpy(sound_ring_at(r, address), &w, sizeof w); }
 
 /* idiv: the original faults on 0 and on INT32_MIN / -1; the port gives 0
  * and INT32_MIN */
@@ -36,7 +36,7 @@ static int32_t times(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uin
 
 static int32_t block_frames(const SoundStream *s, uint32_t block)
 {
-    return quotient((int32_t)(get(&s->ring, block + BLOCK_SIZE) - BLOCK_DATA), s->frame_bytes);
+    return quotient((int32_t)(sound_ring_get(&s->ring, block + BLOCK_SIZE) - BLOCK_DATA), s->frame_bytes);
 }
 
 /* 0048dda8 */
@@ -48,21 +48,21 @@ void sound_stream_next(SoundStream *s, const uint8_t **block, int32_t *frames)
         return;
     }
     if (head != s->tail) {
-        const uint32_t next = get(&s->ring, head);
-        *block = at(&s->ring, next + BLOCK_DATA);
+        const uint32_t next = sound_ring_get(&s->ring, head);
+        *block = sound_ring_at(&s->ring, next + BLOCK_DATA);
         *frames = block_frames(s, next);
         s->head = next;
         s->played++;
-        put(&s->ring, head, SOUND_BLOCK_FREE);
+        sound_ring_put(&s->ring, head, SOUND_BLOCK_FREE);
         return;
     }
-    if (get(&s->ring, head) == SOUND_BLOCK_END) {
-        put(&s->ring, head, SOUND_BLOCK_FREE); /* 0048bde8 */
+    if (sound_ring_get(&s->ring, head) == SOUND_BLOCK_END) {
+        sound_ring_put(&s->ring, head, SOUND_BLOCK_FREE); /* 0048bde8 */
         *block = NULL, *frames = 0;
         s->state = 1;
         return;
     }
-    *block = at(&s->ring, head + BLOCK_DATA);
+    *block = sound_ring_at(&s->ring, head + BLOCK_DATA);
     *frames = block_frames(s, head);
 }
 
@@ -70,14 +70,14 @@ void sound_stream_next(SoundStream *s, const uint8_t **block, int32_t *frames)
 void sound_stream_drop(SoundStream *s)
 {
     if (s->tail == 0 || s->head == 0) return; /* the original writes address 0 */
-    put(&s->ring, s->tail, SOUND_BLOCK_FREE);
+    sound_ring_put(&s->ring, s->tail, SOUND_BLOCK_FREE);
     uint32_t block = s->head;
     while (block != s->tail) {
-        const uint32_t next = get(&s->ring, block);
-        put(&s->ring, block, SOUND_BLOCK_FREE);
+        const uint32_t next = sound_ring_get(&s->ring, block);
+        sound_ring_put(&s->ring, block, SOUND_BLOCK_FREE);
         block = next;
     }
-    put(&s->ring, block, SOUND_BLOCK_FREE);
+    sound_ring_put(&s->ring, block, SOUND_BLOCK_FREE);
     s->head = block;
 }
 
@@ -89,10 +89,10 @@ int32_t sound_stream_queued(const SoundStream *s, uint32_t unit)
     if (block == 0) return 0;
     int32_t bytes = 0;
     for (;;) {
-        bytes = (int32_t)((uint32_t)bytes + get(&s->ring, block + BLOCK_SIZE));
-        const uint32_t link = get(&s->ring, block);
+        bytes = (int32_t)((uint32_t)bytes + sound_ring_get(&s->ring, block + BLOCK_SIZE));
+        const uint32_t link = sound_ring_get(&s->ring, block);
         if (link != 0) block = link;
-        if (block == SOUND_BLOCK_FREE || block == SOUND_BLOCK_END || get(&s->ring, block) == 0) break;
+        if (block == SOUND_BLOCK_FREE || block == SOUND_BLOCK_END || sound_ring_get(&s->ring, block) == 0) break;
     }
     const int32_t frames = quotient(bytes, s->frame_bytes);
     switch (unit) {
@@ -107,9 +107,9 @@ int32_t sound_stream_queued(const SoundStream *s, uint32_t unit)
 int32_t sound_stream_append(SoundStream *s, uint32_t block)
 {
     if (s->state == 0) return -1;
-    if (get(&s->ring, block) != SOUND_BLOCK_END) put(&s->ring, block, SOUND_BLOCK_LAST);
+    if (sound_ring_get(&s->ring, block) != SOUND_BLOCK_END) sound_ring_put(&s->ring, block, SOUND_BLOCK_LAST);
     if (s->head == 0) s->head = block;
-    else put(&s->ring, s->tail, block);
+    else sound_ring_put(&s->ring, s->tail, block);
     s->tail = block;
     return 0;
 }

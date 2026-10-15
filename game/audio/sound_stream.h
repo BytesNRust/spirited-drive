@@ -14,6 +14,11 @@ typedef struct SoundRing {
     uint32_t size;
 } SoundRing;
 
+/* A ring address's byte, and its 32-bit word read and written */
+uint8_t *sound_ring_at(const SoundRing *r, uint32_t address);
+uint32_t sound_ring_get(const SoundRing *r, uint32_t address);
+void sound_ring_put(const SoundRing *r, uint32_t address, uint32_t w);
+
 /* A block's first word once queued: the next block's address, or one of */
 #define SOUND_BLOCK_LAST 0u           /* the queue's tail, more may follow */
 #define SOUND_BLOCK_END 0xffffffffu   /* '1SNe': the stream's end */

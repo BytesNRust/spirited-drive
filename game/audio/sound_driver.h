@@ -129,4 +129,17 @@ int32_t sound_set_pitch(SoundDriver *d, int32_t handle, int32_t pitch);
  * (0048eed8). */
 int32_t sound_play(SoundDriver *d, int32_t id, int32_t pan, int32_t volume, int32_t pitch);
 
+/* 0048db70 (eax the '1SNh' block's address in the stream's ring): its EACS
+ * header (+8) names the channel (+0xb, signed); not 'EACS' or a channel
+ * outside 0..15 fails the stream (state 0), -1. A busy channel is stopped
+ * (00473c68 on its +0x11), a handle taken for it (004978a0, into 0052eecc;
+ * none: -1), the channel set up as a stream's (+0xd 2, priority 0x65,
+ * pitch and pan 0x40, volume 004c7978, its own volume the header's
+ * +0x1d); the header's data (+0x18) the block's +0x28, its frames (+0xc)
+ * (the block's size - 0x28) / (+8 x +9 bytes), no loop (+0x10 -1, +0x14
+ * 0); the stream's channel, header, frame bytes, rate (+4), scale (4 when
+ * +0xa is 2) set and nothing played; the block queued as 0048dcec does
+ * when the stream has not failed; 0. */
+int32_t sound_stream_header(SoundDriver *d, uint32_t block);
+
 #endif
