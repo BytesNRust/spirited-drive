@@ -16,4 +16,8 @@ typedef struct {
  * the pointer = 0. */
 void race_scenery_state_free(const RaceFreeOps *ops, uint32_t *scenery_state);
 
+/* 0045106c (watcall ()): with the "RRSM_Buffer" (00513e3c, 0x162400 bytes
+ * from 00451040) held, free it and the pointer = 0. */
+void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm);
+
 #endif
