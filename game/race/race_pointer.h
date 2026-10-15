@@ -13,6 +13,7 @@ typedef struct {
     void (*grab)(void *ctx, const uint8_t *shape, int32_t x, int32_t y);      /* 00476e28 */
     void (*draw)(void *ctx, const uint8_t *shape, int32_t x, int32_t y);      /* 00473ad0: at x, y less its hot spot */
     void (*place)(void *ctx, const uint8_t *shape, int32_t x, int32_t y);     /* 004737d0 */
+    void (*warp)(void *ctx, int32_t x, int32_t y);                            /* 004772bc: the mouse moved there */
 } RacePointerOps;
 
 typedef struct {
@@ -36,5 +37,9 @@ void race_pointer_show(const RacePointerOps *ops, const RacePointerInputs *in, R
  * is the one the background was kept in, shapes[0] placed back at the kept
  * x, y (sign-extended shorts). */
 void race_pointer_hide(const RacePointerOps *ops, const RacePointerInputs *in, const RacePointerKept *kept);
+
+/* 00441990 (watcall (x, y)): the mouse moved to x, y (004772bc), the
+ * pointer (004c6110, 004c6114) there. */
+void race_pointer_place(const RacePointerOps *ops, int32_t *pointer_x, int32_t *pointer_y, int32_t x, int32_t y);
 
 #endif

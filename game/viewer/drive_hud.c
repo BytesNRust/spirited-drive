@@ -568,10 +568,10 @@ static void draw_panel(DriveHud *h, const RaceState *race)
     const RacePanelOps ops = { h, panel_none, panel_none };
     const RacePanelInputs in = { LIVE_RACE, race->replay, race->viewed, race->player, race->unknown_513e6c,
                                  race->chase.kind };
-    RacePanelViews v = { h->art.unknown_513888[2], h->art.unknown_513888[4], h->replay.ready, h->replay_redraw };
+    RacePanelViews v = { h->art.unknown_513888[2], h->art.unknown_513888[4], h->replay.camera, h->replay_redraw };
     race_panel(&ops, &v, &in);
     h->art.unknown_513888[2] = v.dash_view, h->art.unknown_513888[4] = v.dash_redraw;
-    h->replay.ready = v.replay_view, h->replay_redraw = v.replay_redraw;
+    h->replay.camera = v.replay_view, h->replay_redraw = v.replay_redraw;
 }
 
 static void frame_panel(void *ctx) { FrameCalls *f = ctx; draw_panel(f->s->h, f->s->race); }

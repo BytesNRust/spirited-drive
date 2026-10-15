@@ -39,7 +39,7 @@ typedef struct {
     uint8_t *view_lit[REPLAY_VIEWS];    /* 0052b75c 004c5ee8's: 'buml'.. 'chal' */
     uint8_t *glyph[REPLAY_GLYPHS];      /* 0052b774 004c5f00's: '00d ', '1d  '.. '0z  ' */
     DashRect box[REPLAY_BUTTONS];       /* 0052b804: button_down's boxes */
-    int32_t ready;                      /* 0052b8dc */
+    int32_t camera;                     /* 0052b8dc: the panel's camera button, 1..5 (0044d640) */
 } ReplayArt;
 
 /* 005137f0..00513d97: the dash's shapes and the tachometer's needle

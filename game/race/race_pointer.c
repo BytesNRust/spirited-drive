@@ -20,3 +20,10 @@ void race_pointer_hide(const RacePointerOps *ops, const RacePointerInputs *in, c
     select_screen(ops, in->back_buffer);
     if (kept->phase == in->phase) ops->place(ops->ctx, in->shapes[0], kept->x, kept->y);
 }
+
+void race_pointer_place(const RacePointerOps *ops, int32_t *pointer_x, int32_t *pointer_y, int32_t x, int32_t y)
+{
+    ops->warp(ops->ctx, x, y);
+    *pointer_x = x;
+    *pointer_y = y;
+}

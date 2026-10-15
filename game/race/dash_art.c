@@ -163,6 +163,6 @@ int dash_replay_art(ReplayArt *art, uint8_t *bank, int16_t replay)
             return DASH_ART_MISSING;
     for (int i = 0; i < REPLAY_GLYPHS; i++)
         if (!find(&art->glyph[i], bank, GLYPH[i])) return DASH_ART_MISSING;
-    art->ready = 1;
+    art->camera = 1;
     return 0;
 }
