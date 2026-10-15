@@ -527,15 +527,23 @@ enum {
 };
 
 /* 0044d2c4 / 0044ca3c's calls in --drive: the surfaces, the track, its textures and the palette are the port's
- * own (start_drive), the camera follows the player; 00405630, 00404404, 0044c140, 0044c148, 00449be4, 00449430 and
- * 0040540c are not ported (TODO). */
+ * own (start_drive), the camera follows the player; 00405630, 00404404, 0044c140, 0044c148 and 00449be4 are not
+ * ported (TODO); 00449430 has no effect. */
 static void ds_none(void *ctx) { (void)ctx; }
 static void ds_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void ds_palette_get(void *ctx, uint8_t rgb[DRAW_SETUP_PALETTE]) { (void)ctx, (void)rgb; }
 static void ds_palette_set(void *ctx, int32_t f, int32_t n, const uint8_t *rgb) { (void)ctx, (void)f, (void)n, (void)rgb; }
 static void ds_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t ds_surface(void *ctx, int32_t w, int32_t h, int32_t flags) { (void)ctx, (void)w, (void)h, (void)flags; return 0; }
-static void ds_screen(void *ctx, int32_t size, int32_t kind) { (void)ctx, (void)size, (void)kind; }
+static void ds_layout(void *ctx, RaceCamera *camera, int32_t layout) { race_view_layout(ctx, camera, layout); }
+
+/* 0040540c on the race's first two cameras (004b78a8, 004b78c8) and --drive's views */
+static void ds_screen(void *ctx, int32_t step, int32_t size)
+{
+    RaceState *race = ctx;
+    const RaceViewScreenOps ops = { &drive_views, ds_layout };
+    race_view_screen(&ops, &drive_views, &race->cameras[0], &race->cameras[1], step, size, &race->window_size);
+}
 
 static void ds_follow(void *ctx, int32_t kind)
 {
