@@ -102,3 +102,14 @@ int32_t sound_stream_queued(const SoundStream *s, uint32_t unit)
     default: return -1;
     }
 }
+
+/* 0048dcec */
+int32_t sound_stream_append(SoundStream *s, uint32_t block)
+{
+    if (s->state == 0) return -1;
+    if (get(&s->ring, block) != SOUND_BLOCK_END) put(&s->ring, block, SOUND_BLOCK_LAST);
+    if (s->head == 0) s->head = block;
+    else put(&s->ring, s->tail, block);
+    s->tail = block;
+    return 0;
+}

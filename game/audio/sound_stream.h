@@ -60,4 +60,9 @@ enum { SOUND_STREAM_BYTES, SOUND_STREAM_FRAMES, SOUND_STREAM_TIME };
  * (rate >> 4) x 004c7988: 1/65536 s); another unit -1. No head: 0. */
 int32_t sound_stream_queued(const SoundStream *s, uint32_t unit);
 
+/* 0048dcec (eax the block's address): with the stream not failed (else
+ * -1), the block queued after the tail (or as the head of an empty queue)
+ * and made the tail, its word 0 unless it is -1 (the end); 0. */
+int32_t sound_stream_append(SoundStream *s, uint32_t block);
+
 #endif
