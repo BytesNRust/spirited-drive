@@ -84,6 +84,7 @@ add_library(tnfs_game STATIC
     game/frontend/standings.c
     game/frontend/stat_text.c
     game/frontend/text_box.c
+    game/frontend/text_entry.c
     game/frontend/text_fit.c
     game/frontend/title.c
     game/frontend/track_select.c
