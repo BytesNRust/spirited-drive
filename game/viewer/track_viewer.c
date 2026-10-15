@@ -527,7 +527,8 @@ enum {
 };
 
 /* 0044d2c4 / 0044ca3c's calls in --drive: the surfaces, the track, its textures and the palette are the port's
- * own (start_drive), the camera follows the player; 0044c140, 0044c148 and 00449be4 are not ported (TODO); 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
+ * own (start_drive), the camera follows the player; 00449be4 is not ported (TODO: 00511fb8 / 00511fbc = 0; the
+ * mappers it names are ported_view's own); 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
 static void ds_none(void *ctx) { (void)ctx; }
 static void ds_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void ds_palette_get(void *ctx, uint8_t rgb[DRAW_SETUP_PALETTE]) { (void)ctx, (void)rgb; }
@@ -567,6 +568,10 @@ static void ds_views(void *ctx)
 
 enum { TRI_NODES_AT = 0x98c, TRI_NODE_BYTES = 36 };  /* the header's nodes (track_render.c's NODES_AT: 00505038) */
 
+/* 0044c140 / 0044c148: mov [005104c8] / [005104cc], eax; ret (the rate's target, the automatic detail) */
+static void ds_rate_target(void *ctx, int32_t v) { (void)ctx, drive_frame.rate_target = v; }
+static void ds_auto_detail(void *ctx, int32_t v) { (void)ctx, drive_frame.auto_detail = v; }
+
 static void ds_front_view(void *ctx, int32_t rear) { (void)ctx, (void)rear; }  /* 0040586c: the front is ported_view's */
 
 /* 00404404 on the follow record and the TRI's nodes (00504208: ring_nodes - 1 on a circuit, -1 on a stage) */
@@ -601,7 +606,8 @@ static void ds_follow(void *ctx, int32_t kind)
 static void drive_frame_setup(RaceState *race)
 {
     const RaceDrawSetupOps ops = { race, ds_palette_get, ds_none, ds_palette_set, ds_none_i, ds_mode, ds_surface, ds_none,
-                                   ds_none, ds_follow, ds_views, ds_chase_start, ds_none_i, ds_none_i, ds_none, ds_none, ds_screen };
+                                   ds_none, ds_follow, ds_views, ds_chase_start, ds_rate_target, ds_auto_detail, ds_none, ds_none,
+                                   ds_screen };
     RaceDrawSetup st = { 0 };
     st.restart = drive_frame.restart, st.mirror_state = drive_hud.mirror.state, st.use_parts = drive_hud.keys.use_parts;
     st.high = HIGH_SCREEN, st.width = SCREEN_W, st.height = SCREEN_H, st.back_buffer = 0;
