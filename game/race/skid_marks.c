@@ -228,3 +228,15 @@ void skid_record(const SkidOps *ops, SkidMarks *m, const Car *car, const SkidInp
     }
     m->front = front, m->rear = rear;
 }
+
+enum { RESET_NODE = 0x10000 };
+
+void skid_reset(SkidMarks *m)
+{
+    for (int r = 0; r < SKID_RECORDS; r++) {
+        m->marks[r][SKID_NODE] = RESET_NODE;
+        m->marks[r][SKID_FRONT_ON] = 0;
+        m->marks[r][SKID_REAR_ON] = 0;
+    }
+    m->index = 0;
+}

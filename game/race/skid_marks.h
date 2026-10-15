@@ -55,6 +55,10 @@ typedef struct {
 void skid_stroke(const QuadTarget *target, const uint8_t *remap, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
                  const int32_t s[2], const int32_t t[2], int32_t width);
 
+/* 00457560 (watcall (), from 00457594): marks 0..124 get node (+0x8c)
+ * 0x10000 and no skids (+0x90, +0x94 0); the index (004c565c) 0. */
+void skid_reset(SkidMarks *m);
+
 /* 00459c50 (watcall (node)): which of the 15 rows from node - 2 on (round
  * the ring) hold a mark with either skid. */
 void skid_rows(SkidMarks *m, const SkidRing *ring, int32_t node);
