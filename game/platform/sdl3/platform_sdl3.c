@@ -201,7 +201,7 @@ static int script_key(const char *name)
     static const struct { const char *name; int scancode; } KEYS[] = {
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
-        { "Y", 0x15 }, { "N", 0x31 }, { "J", 0x24 }, { "A", 0x1E }, { "Z", 0x2C }, { "C", 0x2E },
+        { "Y", 0x15 }, { "N", 0x31 }, { "J", 0x24 }, { "A", 0x1E }, { "Z", 0x2C }, { "C", 0x2E }, { "P", 0x19 },
         { "F1", 0x3B }, { "F2", 0x3C }, { "F3", 0x3D }, { "F4", 0x3E }, { "F5", 0x3F }, { "F6", 0x40 },
         { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 },
     };
@@ -289,6 +289,7 @@ static SDL_Scancode from_set1(int scancode)
     case 0x09: return SDL_SCANCODE_8;
     case 0x0F: return SDL_SCANCODE_TAB;
     case 0x15: return SDL_SCANCODE_Y;
+    case 0x19: return SDL_SCANCODE_P;
     case 0x1C: return SDL_SCANCODE_RETURN;
     case 0x11: return SDL_SCANCODE_W;
     case 0x13: return SDL_SCANCODE_R;

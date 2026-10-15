@@ -31,6 +31,7 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_keys.h"
+#include "viewer/drive_pause.h"
 #include "viewer/drive_palette.h"
 #include "viewer/drive_smoke.h"
 #include "viewer/model_view.h"
@@ -416,6 +417,7 @@ enum {
 static RaceSim drive_sim;
 static DriveInput drive_input;
 static DriveKeys drive_keys;
+static DrivePause drive_pause;
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
@@ -851,6 +853,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
     drive_input_start(&drive_input, &drive_sim.race);
     drive_keys_start(&drive_keys);
+    drive_pause_start(&drive_pause);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
     memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
     drive_views.mode = HIGH_SCREEN;
@@ -1014,12 +1017,18 @@ static uint32_t screenshot_input(uint32_t i, uint32_t ticks);
 
 static void run_frame(void *ctx, int32_t frame)
 {
-    const DriveRun *r = ctx;  /* race_sim_tick runs 0045597c with the race's own tick */
+    DriveRun *r = ctx;  /* race_sim_tick runs 0045597c with the race's own tick */
     if (r->headless_ticks > 0) {
         drive_tick(screenshot_input((uint32_t)frame, (uint32_t)r->headless_ticks));
         return;
     }
     drive_input_read_keys(&drive_input);
+    drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);
+    if (drive_pause.paused_ms != 0) {  /* the timer stood still */
+        r->base_ms += drive_pause.paused_ms;
+        drive_pause.paused_ms = 0;
+    }
+    if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
