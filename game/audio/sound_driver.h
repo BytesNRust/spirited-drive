@@ -10,6 +10,7 @@ typedef struct {
     SoundChannels channels;
     SoundMixer mixer;               /* its stop hook 00497870 on `channels` */
     MixVoice voice[SOUND_VOICES];   /* 004f38f0[] */
+    uint32_t mix_rate;              /* 004f38b4 */
 } SoundDriver;
 
 /* The mixer's voices and its stop hook (00497bb5 sets 004f38ec to
@@ -29,5 +30,29 @@ int32_t sound_stop(SoundDriver *d, int32_t handle);
  * stopped (its handle +0x11 through 00473c68); the cursor moved past it
  * (16 -> 0) and the channel returned; -20 when none. */
 int32_t sound_channel_pick(SoundDriver *d, uint32_t mask, int32_t priority);
+
+/* A sample's header as the driver keeps it in memory (+0 'EACS'), the
+ * words 00497784 reads. */
+typedef struct {
+    uint32_t rate;            /* +4 */
+    uint8_t sample_size;      /* +8: 2 16-bit */
+    uint8_t channels;         /* +9: 2 stereo */
+    uint8_t compression;      /* +0xa: 2 compressed */
+    int8_t type;              /* +0xb: >= 0 a fixed channel (a header) */
+    uint32_t frames;          /* +0xc */
+    uint32_t loop_start;      /* +0x10 */
+    uint32_t loop_frames;     /* +0x14 */
+    const uint8_t *data;      /* +0x18 */
+    uint8_t channel;          /* +0x1c: the channel it plays on */
+} SoundSample;
+
+/* 00497784 (eax the header): its flags (8 for a sample size of 2, 4 for 2
+ * channels, 2 for compression 2, 0x10 for a type >= 0, which also makes
+ * the type its channel), the channel's mixed volume (00497750, inline),
+ * then the voice started (00497d5b) on the header's channel with its data,
+ * frames and loop, its rate, the channel's pan +0x23 and mixed volume
+ * +0x22, and the cents 00497724 gives for the channel's pitch +0xe, range
+ * +0xf and base +8 (all read from the channel the header named first). */
+void sound_sample_start(SoundDriver *d, SoundSample *s);
 
 #endif

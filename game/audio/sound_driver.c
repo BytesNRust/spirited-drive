@@ -45,3 +45,28 @@ int32_t sound_channel_pick(SoundDriver *d, uint32_t mask, int32_t priority)
     }
     return NO_CHANNEL;
 }
+
+enum {
+    SAMPLE_WIDE = 2,       /* +8, +9, +0xa: the value that sets the flag */
+    FLAG_16BIT = 8,
+    FLAG_STEREO = 4,
+    FLAG_COMPRESSED = 2,
+    FLAG_HEADER = 0x10
+};
+
+/* 00497784 */
+void sound_sample_start(SoundDriver *d, SoundSample *s)
+{
+    const SoundChannel *named = &d->channels.channel[s->channel];
+    uint32_t flags = (s->sample_size == SAMPLE_WIDE ? FLAG_16BIT : 0) | (s->channels == SAMPLE_WIDE ? FLAG_STEREO : 0) |
+                     (s->compression == SAMPLE_WIDE ? FLAG_COMPRESSED : 0);
+    if (s->type >= 0) {
+        flags |= FLAG_HEADER;
+        s->channel = (uint8_t)s->type;
+    }
+    sound_channel_mix_volume(&d->channels.channel[s->channel]); /* 00497750, inline */
+    const SoundStart start = { s->data, s->frames, s->loop_start, s->loop_frames, s->rate, named->pan,
+                               named->mixed_volume, flags,
+                               sound_pitch_cents(named->pitch, named->range, named->pitch_base) };
+    sound_voice_start(&d->voice[s->channel], &start, d->mix_rate);
+}
