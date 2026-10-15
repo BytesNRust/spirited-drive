@@ -105,6 +105,7 @@ add_library(tnfs_game STATIC
     game/audio/sound_bank.c
     game/audio/sound_adpcm.c
     game/audio/sound_stream.c
+    game/audio/music_reader.c
     game/race/mouse_steer.c
     game/race/input_read.c
     game/race/input_setup.c
@@ -280,7 +281,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match)
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
