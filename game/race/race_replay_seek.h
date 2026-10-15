@@ -87,20 +87,26 @@ enum { REPLAY_MARK_EVERY = 0x1c2, REPLAY_INPUT_WAIT = 0x7a0, REPLAY_INPUT_TICKS 
  * and 0044e354(00512d90, -1). Else 0044db34. Either way the countdown - 1. */
 void race_replay_tick(RaceState *race, const RaceReplayTickOps *ops);
 
-/* 0044e700's words outside RaceState */
+/* The replay's words outside RaceState (0044e700, 0044fc74, 0044fe84) */
 typedef struct {
-    int32_t end_clock;          /* 005120c8 (read): the recording's last clock */
-    int32_t until;              /* 00513720: the jump's end, at most end_clock */
+    int32_t end_clock;          /* 005120c8: the recording's last clock */
+    int32_t until;              /* 00513720: a jump's end, at most end_clock */
     int32_t target;             /* 00513724: the clock run forward to (phase 3) */
     int32_t saved_timer;        /* 00512d80: 004bb8d8 when the replay began */
     int32_t saved_input_clock;  /* 00512d84: 004c5590 */
     int32_t saved_due;          /* 00512d88: 004c5594 */
-    int32_t timer;              /* 004bb8d8 (read) */
-    int32_t due;                /* 004c5594 (read) */
-    int32_t loading;            /* 004fcdac: 0 */
-    int32_t jump_clock;         /* 004c53b0: the clock asked for */
-    int32_t unknown_4b91c4;     /* 004b91c4: 0 */
-} RaceReplayJumpWords;
+    int32_t timer;              /* 004bb8d8 */
+    int32_t due;                /* 004c5594 */
+    int32_t loading;            /* 004fcdac */
+    int32_t jump_clock;         /* 004c53b0: the clock a jump asked for */
+    int32_t unknown_4b91c4;
+    int32_t unknown_4c5388, unknown_4c53a0;
+    int32_t unknown_513730, unknown_513888, unknown_513894, unknown_513898;
+    int32_t close_up;           /* 004c53d8: 1 while a close cut plays */
+    uint8_t unknown_5137e4;     /* 005137e4: set, the director stops at its last cut */
+    int32_t phase_before;       /* 004c5394: the phase the replay came from */
+    int32_t unknown_4c53ac;
+} RaceReplayDirector;
 
 typedef struct {
     void *ctx;
@@ -112,7 +118,7 @@ typedef struct {
     void (*road_yaw)(void *ctx);        /* 004043d4 */
 } RaceReplayJumpOps;
 
-/* 0044e700 (eax clock, edx until; from 0044f090, 0044f188, 0044f378,
+/* 0044e700 (eax clock, edx until; RaceReplayDirector's first eleven; from 0044f090, 0044f188, 0044f378,
  * 0044fc74, 0044fe84): the replay jumps to `clock`. until held to 005120c8
  * from above (signed) into 00513720; the clock % 0x7080 (16 minutes) on a
  * minute (% 0x708 == 0): the tick the clock, else the minute's first tick
@@ -125,15 +131,7 @@ typedef struct {
  * 00457560, 00513734 = 1, the split gap 0051cc48 and its count 0051cc4c 0,
  * 004043d4. (0045aab0, called before 004501fc, is a bare ret; 004fcdac's 1
  * while racing is overwritten before anything reads it.) */
-void race_replay_jump(RaceState *race, RaceReplayJumpWords *w, const RaceReplayJumpOps *ops, int32_t clock, int32_t until);
-
-/* 0044fc74's words outside RaceState */
-typedef struct {
-    int32_t unknown_4c5388, unknown_4c53a0;
-    int32_t unknown_513730, unknown_513888, unknown_513894, unknown_513898;
-    int32_t close_up;           /* 004c53d8: 1 while a close cut plays */
-    uint8_t unknown_5137e4;     /* 005137e4 (read): set, the director stops at its last cut */
-} RaceReplayCutWords;
+void race_replay_jump(RaceState *race, RaceReplayDirector *w, const RaceReplayJumpOps *ops, int32_t clock, int32_t until);
 
 typedef struct {
     void *ctx;
@@ -155,6 +153,32 @@ typedef struct {
  * 004c53d8 = 1), else 004c53d8 = 0. Then 0044e700(the cut's clock,
  * until) and 0044ecc4. (004fbb08 is written back as read.) A cut past
  * the 40 (the original reads on) returns after the count. */
-void race_replay_next_cut(RaceState *race, RaceReplayCutWords *w, const RaceReplayCutOps *ops);
+void race_replay_next_cut(RaceState *race, RaceReplayDirector *w, const RaceReplayCutOps *ops);
+
+/* 0044daf4 (no arguments): the tick flags (004fcdb0) from the tick
+ * 00513e70: 1 on an even tick, | 4 every 4th, | 0x10 every 8th. */
+void race_replay_tick_flags(RaceState *race);
+
+typedef struct {
+    void *ctx;
+    void (*step)(void *ctx);                                /* 0044ecc4 */
+    void (*next_cut)(void *ctx);                            /* 0044fc74 */
+    void (*jump)(void *ctx, int32_t clock, int32_t until);  /* 0044e700 */
+    void (*hud_redraw)(void *ctx);                          /* 0041e358: 004f9a28 = 1 */
+    void (*reselect)(void *ctx);                            /* 00405260 */
+} RaceReplayFrameOps;
+
+/* 0044fe84 (no arguments; from 00450020 in phase 2): a replay's frame.
+ * 004c5398 0 and 004c539c <= 0 (a still frame): 00513730 = 5, the tick
+ * flags (0044daf4's), done. Before 00513720 (signed) with 004c538c 0 or
+ * 00512f78 < 0: 004c5388 = 0, 0044ecc4, done. At the recording's end
+ * (00513720 == 005120c8) with 00512f78 < 0: the phase back from
+ * 004c5394, 0041e358, 00405260 (00446b48 is a bare ret); racing again
+ * (phase 1): 004bb8d8 / 004c5590 / 004c5594 back from 00512d80 / 84 / 88
+ * and 004c53ac = 1; else 004c5388 = 0, the tick 00512f84, its flags, the
+ * clock the tick % 0x7080, 0044e700(tick, 005120c8), 0044ecc4. Then
+ * 00443820, and 00444394 for the player's car in physics 1 or 2, else
+ * 0044435c. Otherwise with 00512f78 >= 0: 0044fc74. */
+void race_replay_frame(RaceState *race, RaceReplayDirector *w, const RaceReplayFrameOps *ops);
 
 #endif

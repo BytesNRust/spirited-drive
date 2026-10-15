@@ -234,9 +234,17 @@ void race_replay_step(RaceState *race, const RaceReplayStepOps *ops)
     if (race->unknown_51371c != 0 && (race->tick & TICK_BYTE) == CYCLE_TICK) ops->cycle(ops->ctx);
 }
 
+void race_replay_tick_flags(RaceState *race)
+{
+    uint8_t flags = (race->tick & 1) == 0 ? EVEN_TICK : 0;  /* a dword write: 004fcdb1..3 are read nowhere */
+    if ((race->tick & 3) == 0) flags |= FOURTH_TICK;
+    if ((race->tick & 7) == 0) flags |= EIGHTH_TICK;
+    race->tick_flags = flags;
+}
+
 enum { CLOCK_WRAP = 0x10 * MINUTE_TICKS, CATCHING_UP = 3, NOTICE_TICK_START = -1000 };
 
-void race_replay_jump(RaceState *race, RaceReplayJumpWords *w, const RaceReplayJumpOps *ops, int32_t clock, int32_t until)
+void race_replay_jump(RaceState *race, RaceReplayDirector *w, const RaceReplayJumpOps *ops, int32_t clock, int32_t until)
 {
     w->until = until > w->end_clock ? w->end_clock : until;
     const int on_minute = clock % CLOCK_WRAP % MINUTE_TICKS == 0;
@@ -253,10 +261,7 @@ void race_replay_jump(RaceState *race, RaceReplayJumpWords *w, const RaceReplayJ
     race->unknown_513728 = on_minute;
     w->loading = 0;
     race->clock = race->tick % CLOCK_WRAP;
-    uint8_t flags = (race->tick & 1) == 0 ? EVEN_TICK : 0;
-    if ((race->tick & 3) == 0) flags |= FOURTH_TICK;
-    if ((race->tick & 7) == 0) flags |= EIGHTH_TICK;
-    race->tick_flags = flags;
+    race_replay_tick_flags(race);
     race->unknown_51372c = 1;
     ops->trail_clear(ops->ctx);
     ops->notices_off(ops->ctx);
@@ -291,7 +296,7 @@ static int human_near(const RaceState *race)
     return 0;
 }
 
-void race_replay_next_cut(RaceState *race, RaceReplayCutWords *w, const RaceReplayCutOps *ops)
+void race_replay_next_cut(RaceState *race, RaceReplayDirector *w, const RaceReplayCutOps *ops)
 {
     w->unknown_4c5388 = 0;
     race->camera_roll_add = 0;
@@ -330,4 +335,41 @@ void race_replay_next_cut(RaceState *race, RaceReplayCutWords *w, const RaceRepl
     }
     ops->jump(ops->ctx, cut->clock, cut->until);
     ops->step(ops->ctx);
+}
+
+enum { STILL_PANEL = 5 };
+
+void race_replay_frame(RaceState *race, RaceReplayDirector *w, const RaceReplayFrameOps *ops)
+{
+    if (race->unknown_4c5398 == 0 && race->unknown_4c539c <= 0) {
+        w->unknown_513730 = STILL_PANEL;
+        race_replay_tick_flags(race);
+        return;
+    }
+    if (race->tick < w->until && (race->unknown_4c538c == 0 || race->unknown_512f78 < 0)) {
+        w->unknown_4c5388 = 0;
+        ops->step(ops->ctx);
+        return;
+    }
+    if (w->until == w->end_clock && race->unknown_512f78 < 0) {
+        race->phase = w->phase_before;
+        ops->hud_redraw(ops->ctx);
+        ops->reselect(ops->ctx);
+        if (race->phase == RACING) {
+            w->timer = w->saved_timer;
+            race->input_clock = w->saved_input_clock;
+            w->unknown_4c53ac = RACING;
+            w->due = w->saved_due;
+        } else {
+            w->unknown_4c5388 = 0;
+            race->tick = race->replay_mark_ticks[0];
+            race_replay_tick_flags(race);
+            race->clock = race->tick % CLOCK_WRAP;
+            ops->jump(ops->ctx, race->tick, w->end_clock);
+            ops->step(ops->ctx);
+        }
+        restart_sounds(race);
+        return;
+    }
+    if (race->unknown_512f78 >= 0) ops->next_cut(ops->ctx);
 }
