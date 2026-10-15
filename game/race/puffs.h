@@ -54,6 +54,16 @@ void puff_art_start(PuffArt *art, CrashTrail *trail, RacePalette *p, const char 
                     uint8_t *(*load)(void *ctx, const char *path), void *ctx);
 
 typedef struct {
+    void *ctx;
+    void (*free)(void *ctx, void *block);   /* 00475260 */
+} PuffFreeOps;
+
+/* 00456c84 (eax = 005146ac, unread; from 00455a5c's teardown): the bank
+ * freed whatever it holds, the blend table (005146a8, 'lut') freed and
+ * cleared when held, then the bank cleared. */
+void puff_art_free(const PuffFreeOps *ops, PuffArt *art, uint8_t **table);
+
+typedef struct {
     const QuadTarget *target;
     const uint8_t *const *blend;              /* *004c795c: 256 rows */
     const uint8_t *smoke[PUFF_SHAPES];        /* 00513e88: 'smo1'..'smo4' */

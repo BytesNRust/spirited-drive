@@ -99,3 +99,13 @@ void puff_dirt(const PuffView *v, int32_t x, int32_t y, int32_t size)
     if (size > DIRT_MOST) size = DIRT_MOST;
     sprite_scaled_at(v->target, v->dirt[pick], size, x, y);
 }
+
+void puff_art_free(const PuffFreeOps *ops, PuffArt *art, uint8_t **table)
+{
+    ops->free(ops->ctx, art->bank);
+    if (*table != NULL) {
+        ops->free(ops->ctx, *table);
+        *table = NULL;
+    }
+    art->bank = NULL;
+}
