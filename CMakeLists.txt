@@ -99,6 +99,7 @@ add_library(tnfs_game STATIC
     game/race/car_draw_setup.c
     game/race/race_enter.c
     game/race/race_teardown.c
+    game/audio/sound_mix.c
     game/race/mouse_steer.c
     game/race/input_read.c
     game/race/input_setup.c
