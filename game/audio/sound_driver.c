@@ -166,3 +166,12 @@ int32_t sound_set_pitch(SoundDriver *d, int32_t handle, int32_t pitch)
     v->step = sound_voice_step(v->rate, sound_pitch_cents(pitch, c->range, c->pitch_base), d->mix_rate); /* 00497f05 */
     return 0;
 }
+
+enum { NO_SOUND = -19, SOUND_IDS = 0x80 };
+
+/* 0048eea0 */
+int32_t sound_play(SoundDriver *d, int32_t id, int32_t pan, int32_t volume, int32_t pitch)
+{
+    if (id < 0 || id >= SOUND_IDS || d->registry[id] == NULL) return NO_SOUND;
+    return sound_play_record(d, d->registry[id], id, pan, volume, pitch);
+}

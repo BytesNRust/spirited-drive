@@ -12,6 +12,7 @@ typedef struct {
     MixVoice voice[SOUND_VOICES];   /* 004f38f0[] */
     uint32_t mix_rate;              /* 004f38b4 */
     uint32_t rand_seed;             /* the C library's rand() seed, which nothing else draws during a race */
+    const struct SoundBankSound *registry[128]; /* 0052eed4: the registered banks' sounds by number */
 } SoundDriver;
 
 /* The mixer's voices and its stop hook (00497bb5 sets 004f38ec to
@@ -59,7 +60,7 @@ void sound_sample_start(SoundDriver *d, SoundSample *s);
 
 /* A bank's sound record (the registry 0052eed4[128]), the words 0048eed8
  * reads. */
-typedef struct {
+typedef struct SoundBankSound {
     uint32_t mask;            /* +0: the channels it may take */
     SoundSample *sample;      /* +4 */
     int32_t count;            /* +8 */
@@ -108,5 +109,10 @@ int32_t sound_set_pan(SoundDriver *d, int32_t handle, int32_t pan);
  * for the cents 00497724 gives with the channel's range +0xf and base +8;
  * 0. The channel's pitch +0xe stays as it was. */
 int32_t sound_set_pitch(SoundDriver *d, int32_t handle, int32_t pitch);
+
+/* 0048eea0 (eax the sound's number, edx the pan, ebx the volume, ecx the
+ * pitch): a number 0..0x7f with a registered record (else -19) played
+ * (0048eed8). */
+int32_t sound_play(SoundDriver *d, int32_t id, int32_t pan, int32_t volume, int32_t pitch);
 
 #endif
