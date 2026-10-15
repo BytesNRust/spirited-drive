@@ -1,6 +1,7 @@
 /* --drive's key commands (drive_keys.h). */
 #include "viewer/drive_keys.h"
 
+#include "viewer/drive_audio.h"
 #include "game/race/input_queue.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
@@ -77,12 +78,13 @@ static void detail(void *ctx, int32_t value)
     race_detail_request(value, &((KeysCtx *)ctx)->keys->detail_pending);
 }
 
-/* 0046463c / 00464604: no music in --drive yet */
-static void no_music(void *user, int16_t volume) { (void)user, (void)volume; }
+/* 0046463c / 00464604: the music at once / ramped */
+static void music_now(void *user, int16_t volume) { (void)user, drive_audio_music_volume_now(volume); }
+static void music_ramped(void *user, int16_t volume) { (void)user, drive_audio_music_volume(volume); }
 
 /* 00443768 / 0044379c: F5, the sound off and on */
-static void sound_off(void *ctx) { race_sound_mute(((KeysCtx *)ctx)->race, no_music, NULL); }
-static void sound_on(void *ctx) { race_sound_unmute(((KeysCtx *)ctx)->race, no_music, NULL); }
+static void sound_off(void *ctx) { race_sound_mute(((KeysCtx *)ctx)->race, music_now, NULL); }
+static void sound_on(void *ctx) { race_sound_unmute(((KeysCtx *)ctx)->race, music_ramped, NULL); }
 
 void drive_keys_start(DriveKeys *k)
 {

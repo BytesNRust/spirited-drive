@@ -30,7 +30,7 @@ void drive_audio_pump(void);
  * port's reader (music_reader.h) over frontend/music/: 00464428 the track
  * `name` (004c55ac's), 004640d0 the stream filled ahead, 00464240 a block a
  * frame (its voice started once enough is queued), 00464604 the volume
- * ramped to. `setting` is 00524e63 (0 no music), `volume` 00524e65 and
+ * ramped to (0046463c at once). `setting` is 00524e63 (0 no music), `volume` 00524e65 and
  * `small` 004c5cca (the small ring, which race_run sets); the device
  * closed: no music. A track whose
  * file does not load leaves the music off (the original's reader thread
@@ -40,6 +40,7 @@ void drive_audio_music_play(const char *name);
 void drive_audio_music_fill(void);
 void drive_audio_music_pump(void);
 void drive_audio_music_volume(int16_t volume);
+void drive_audio_music_volume_now(int16_t volume);  /* 0046463c */
 
 void drive_audio_close(void);
 

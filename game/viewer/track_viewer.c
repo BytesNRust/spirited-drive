@@ -411,7 +411,7 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
  * commands (004381f8, drive_keys): C the next view kind (0040594c; the race
  * turns to 13 while the car does not face the road), Alt + Ctrl + 1..8
  * another car, F1 the next view row, F2 the window size, F3 the detail,
- * F4 / F6 their flags (F5's music is not wired). */
+ * F4 / F6 their flags, F5 the sound and music off and on. */
 enum {
     DRIVE_VIEW = 5            /* the kind the record takes attached to a car (004f8020) */
 };

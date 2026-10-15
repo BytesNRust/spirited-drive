@@ -229,6 +229,7 @@ void drive_audio_music_play(const char *name) { race_music_play(&music_ops, &mus
 void drive_audio_music_fill(void) { race_music_fill(&music_ops, &music); }
 void drive_audio_music_pump(void) { race_music_pump(&music_ops, &music); }
 void drive_audio_music_volume(int16_t volume) { race_music_volume(&music_ops, &music, volume); }
+void drive_audio_music_volume_now(int16_t volume) { race_music_volume_now(&music_ops, &music, volume); }
 
 void drive_audio_close(void)
 {
