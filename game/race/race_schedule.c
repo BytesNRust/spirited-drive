@@ -59,3 +59,41 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
     ops->set(ops->ctx, next, RACE_SCHEDULE_PAUSE, 1);
     st->pending = 1;
 }
+
+enum { PAUSE_NET_TO = -1, PAUSE_NET_WAIT = 5 };
+
+static void pause_serve(const RacePauseOps *ops, const RacePauseInputs *in)
+{
+    if (in->movie != 0)
+        ops->movie(ops->ctx);
+    else
+        ops->service(ops->ctx);
+}
+
+static void pause_while_down(const RacePauseOps *ops, const RacePauseInputs *in)
+{
+    while (in->pause != 0) pause_serve(ops, in);
+}
+
+void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeysState *st, int32_t *loading)
+{
+    *loading = 1;
+    ops->sound_pause(ops->ctx);
+    ops->voices_off(ops->ctx);
+    ops->end_43cbcc(ops->ctx);
+    pause_while_down(ops, in);
+    while (in->pause == 0) pause_serve(ops, in);
+    ops->hud_clear(ops->ctx);
+    ops->take(ops->ctx, in->follow_kind);
+    pause_while_down(ops, in);
+    if (in->w4fb7d4 == 1 && in->w524e9f == 0) {
+        ops->wait_screen(ops->ctx);
+        ops->net_send(ops->ctx, PAUSE_NET_TO);
+        ops->net_wait(ops->ctx, PAUSE_NET_WAIT);
+    }
+    ops->music_on(ops->ctx);
+    st->pending = 0;
+    st->last = in->tick;
+    ops->setup_43cbe0(ops->ctx);
+    *loading = 0;
+}

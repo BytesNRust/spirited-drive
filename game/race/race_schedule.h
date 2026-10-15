@@ -78,4 +78,38 @@ typedef struct {
  * the pause at frame + 1 (00410a70(frame + 1, 1, 1)), pending = 1. */
 void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, RaceMenuKeysState *st, int16_t frame);
 
+typedef struct {
+    void *ctx;
+    void (*sound_pause)(void *ctx);                  /* 0041eba4 */
+    void (*voices_off)(void *ctx);                   /* 004437c8 */
+    void (*end_43cbcc)(void *ctx);                   /* 0043cbcc */
+    void (*movie)(void *ctx);                        /* 00464240 */
+    void (*service)(void *ctx);                      /* 00475c14(0) */
+    void (*hud_clear)(void *ctx);                    /* 0041e364 */
+    void (*take)(void *ctx, int32_t kind);           /* 00405b00 on the follow record 004f801c */
+    void (*wait_screen)(void *ctx);                  /* 0041ec0c */
+    void (*net_send)(void *ctx, int32_t to);         /* 00410b7c */
+    int32_t (*net_wait)(void *ctx, int32_t kind);    /* 00410c18 */
+    void (*music_on)(void *ctx);                     /* 004437f0 */
+    void (*setup_43cbe0)(void *ctx);                 /* 0043cbe0 */
+} RacePauseOps;
+
+/* Read again after every call (the services move the key and 00524e63 on). */
+typedef struct {
+    uint8_t pause;              /* 004c6955: key 0x19 */
+    int16_t movie;              /* 00524e63: 00464240 rather than 00475c14(0) */
+    int32_t follow_kind;        /* 004f801c */
+    int32_t w4fb7d4;            /* 004fb7d4 */
+    int16_t w524e9f;            /* 00524e9f */
+    int32_t tick;               /* 00513e70 */
+} RacePauseInputs;
+
+/* 00455600 (004b90dc[1], from 00410b04): 004fcdac = 1; 0041eba4, 004437c8,
+ * 0043cbcc; served (00464240 while 00524e63, else 00475c14(0)) while P is
+ * down, then until it is down again; 0041e364 and 00405b00(004f801c,
+ * [004f801c]); served while P is down; with 004fb7d4 1 and 00524e9f 0:
+ * 0041ec0c, 00410b7c(-1), 00410c18(5); 004437f0; pending 0 and last the
+ * tick; 0043cbe0; 004fcdac = 0. */
+void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeysState *st, int32_t *loading);
+
 #endif
