@@ -35,7 +35,8 @@ void car_reset(Car *car, uint32_t handle);
 
 /* 004406d0: a car joins the race in its slot: human slots load their
  * specs (car_load), the others become computer cars; then car_reset.
- * TODO(004407b8, 00457d40): the collision body and sizes from the model. */
+ * The collision body and sizes from the model are not here: race_sim
+ * loads them after it (004407b8, car_body.h; 00457d40, RaceField.load). */
 void car_enter(Car *car, CarSpecs *specs, uint32_t handle, RaceState *race);
 
 /* The draw copies the renderer reads (node, lateral, pitch, yaw, roll),

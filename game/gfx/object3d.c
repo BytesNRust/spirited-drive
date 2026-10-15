@@ -219,7 +219,8 @@ void object3d_transform(Object3D *obj, const int32_t camera_matrix[9], const int
 
 void object3d_project(Object3D *obj, const View *view)
 {
-    /* TODO(004a30c6): the subpixel path of objects created with flag 4. */
+    /* 00491690's other path (+0x10 & 0x20: 004a30c6, 16.16 then rounded) is for objects created
+     * with flag 4; the race creates them with 0 and 1 only (004576f0, 00457d40). */
     for (uint32_t v = 0; v < obj->vertex_count; v++) view_project(view, obj->camera[v], obj->screen[v]);
 }
 
