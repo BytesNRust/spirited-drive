@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <string.h>
 
-enum { BLOCK_SIZE = 4, BLOCK_DATA = 8 };
+enum { BLOCK_SIZE = 4, BLOCK_DATA = 8, SOUND_STREAM_SET_UP = 3, SOUND_STREAM_VOLUME = 0x7f };
 
 /* A link outside the ring is a broken queue (the original reads wherever it points) */
 static uint8_t *at(const SoundRing *r, uint32_t address)
@@ -111,5 +111,18 @@ int32_t sound_stream_append(SoundStream *s, uint32_t block)
     if (s->head == 0) s->head = block;
     else put(&s->ring, s->tail, block);
     s->tail = block;
+    return 0;
+}
+
+/* 0048de54 */
+int32_t sound_stream_reset(SoundStream *s, uint32_t file)
+{
+    s->file = file;
+    s->played = 0;
+    s->state = SOUND_STREAM_SET_UP;
+    s->volume = SOUND_STREAM_VOLUME;
+    s->channel = -1;
+    s->head = 0;
+    s->tail = 0;
     return 0;
 }

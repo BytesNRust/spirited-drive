@@ -25,7 +25,7 @@ typedef struct SoundStream {
     int32_t channel;       /* 004c796c */
     int32_t frame_bytes;   /* 004c7970 */
     uint32_t rate;         /* 004c7974 */
-    uint8_t volume;        /* 004c7978 */
+    uint32_t volume;       /* 004c7978: written as a word, read as its low byte */
     uint32_t file;         /* 004c797c: the reader's */
     uint32_t header;       /* 004c7980: the '1SNh' block's EACS header */
     int32_t played;        /* 004c7984: blocks handed to the mixer */
@@ -64,5 +64,9 @@ int32_t sound_stream_queued(const SoundStream *s, uint32_t unit);
  * -1), the block queued after the tail (or as the head of an empty queue)
  * and made the tail, its word 0 unless it is -1 (the end); 0. */
 int32_t sound_stream_append(SoundStream *s, uint32_t block);
+
+/* 0048de54 (eax the reader's file): the stream set up (state 3) with no
+ * channel (-1), the volume 0x7f, nothing played or queued; 0. */
+int32_t sound_stream_reset(SoundStream *s, uint32_t file);
 
 #endif
