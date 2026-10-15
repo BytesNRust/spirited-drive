@@ -36,9 +36,9 @@ typedef struct {
     int ready;                  /* set up: drawn each frame */
     uint32_t strip_colour;      /* 0050b7b4 */
     uint8_t view[DRIVE_VIEW_HEADER + DRIVE_VIEW_W * DRIVE_VIEW_H];  /* 004c2d90's shape: the 3D view goes here */
-    int changed;                /* 00511fec: the camera took a view; the full redraw and 00421c18(1) are due */
+    int32_t *view_changed;      /* 00511fec: 0044cc74's word (FrameDraw.changed); the keys write 999 into it */
+    int32_t unknown_511fec;     /* where view_changed points until the frame sets it */
     int32_t redraw;             /* 004b9568: 00422598's full redraw (004218d0 onto the frame) asked for */
-    int32_t shown_view;         /* the view drawn for (-1 none yet) */
     HudNeedle needle;           /* 004b9558..: the needle last drawn */
     uint32_t needle_colour;     /* 0050b790 */
     HudKeysState keys;          /* 00420710's edge, parts mode, dash camera, view change */
@@ -56,7 +56,6 @@ typedef struct {
     size_t dash_dir_length;
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */
     uint8_t *rgb;               /* the frame's 8-bit palette, redone from palette->screen_rgbx after a write */
-    int in_car;                 /* 00512054: the last frame was 0042270c's */
     int32_t gate_state;         /* 004b945c: 0041f5bc's */
     int32_t replay_redraw;      /* 0052b8f4: 0044d640's */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */
@@ -90,30 +89,38 @@ void drive_hud_start(DriveHud *h, RacePalette *p);
  * the race palette from `first`, and the frame's colours after it. */
 void drive_hud_palette_write(void *hud, int32_t first, int32_t count, const uint8_t *colours);
 
-/* Before the 3D view is drawn, as 0044cc74 does: when the camera's view
- * changed (00511fec), 004218d0 into the view surface (the tiles, the labels,
- * the frame round the view, the tach). Returns where the 3D view is drawn:
- * the view surface's pixels when the HUD is set up (00421c18 copies them to
- * the screen), else the frame itself. */
-uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels);
+/* 004218d0 into the view surface (0044cc74 after a view change): the
+ * tiles, the labels, the frame round the view, the tach. */
+void drive_hud_tiles(DriveHud *h, const RaceState *race);
 
-/* 00422598's order, after 00422ce0 (the track map into 004c2d9c, as 0044cc74
- * runs it after the 3D view, while a cockpit is loaded: its 004f9b40 and
- * 004f9b64): 00421c18 (after a view change with 1: 'tach' into the
- * view surface, all of it to the frame; otherwise the view surface through
- * the run list of the camera's view and window size 0), 00420710 (the labels
- * 10 ticks after the start lights were last drawn; F7 / F8 / F9) and the top row
- * (00421e40) for the viewed car into the strip, which then covers the
- * frame's top rows, then 0042221c (the tach's needle at the viewed car's
- * revs, `redline` its specs' +0xac). In the car (chase kind 0, no dash
- * camera, a cockpit loaded) 0042270c's part instead: on its first frame
- * 0041e364, then 00421160 while 004f9a24 / 004f9a28 is set, then the keys and
- * the top row. Both copy the map to (0x206, 0x130) while 004f9b3c (set by
- * 0044ca3c at the start), 00422598 after the needle. `pixels` is the persistent frame (the original redraws only
- * what changed). The parts key (M) flips 004f9b3c; on its way off with a
- * chase camera 00420918 repaints the map's box.
- * pixels NULL: the strip only (a frame not shown). */
-void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height);
+/* Where the 3D view is drawn: the view surface's pixels when the HUD is set
+ * up (00421c18 copies them to the screen), else the frame itself. */
+uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels);
+
+/* 0041e364: the HUD's next draw is a full one (0044cc74 on the first frame
+ * in the car). */
+void drive_hud_clear(DriveHud *h);
+
+/* 00422ce0, the track map into 004c2d9c, while a cockpit is loaded (its
+ * 004f9b40 and 004f9b64). */
+void drive_hud_map(DriveHud *h, const RaceState *race);
+
+/* 00422598 (hud_frame) on the frame `pixels` (640 x 480), for `car` (the
+ * viewed one; `redline` its specs' +0xac): the stop notice, or the dash
+ * reloaded, 004b9568's full redraw onto the frame, 00421c18(changed), the
+ * keys, the top row into the strip that then covers the frame's top rows,
+ * the needle, the map copied to (0x206, 0x130) while 004f9b3c. The parts key
+ * (M) flips 004f9b3c; on its way off with a chase camera 00420918 repaints
+ * the map's box. */
+void drive_hud_outside(DriveHud *h, RaceState *race, const Car *car, int32_t redline, uint8_t *pixels, int32_t changed);
+
+/* 0042270c's part (cockpit_frame) for `car` (the followed one), then the
+ * keys and the top row as drive_hud_outside, and the map's copy; without a
+ * cockpit, drive_hud_outside. */
+void drive_hud_in_car(DriveHud *h, RaceState *race, const Car *car, int32_t redline, uint8_t *pixels);
+
+/* A frame not shown: the keys and the top row into the strip only. */
+void drive_hud_strip(DriveHud *h, RaceState *race);
 
 /* As 004400f4 does for the followed car: its dashboard (paths slot 16
  * SIMDATA/DASH/, the 004bc664 stem, high resolution) read and 0041f9a0 with

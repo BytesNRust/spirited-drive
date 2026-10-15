@@ -61,11 +61,8 @@ typedef struct {
 /* 0044bd64 at the race's start, once the cockpit is loaded; 0 without one. */
 int drive_mirror_start(DriveMirror *m, const Cockpit *c);
 
-/* 0043f540's mirror rows from the cache w->track holds, then 0044ce4b..0044cee2: the picture made while
- * the camera kind wants the mirror. */
-void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w);
-
-/* drive_mirror_frame's first half: the pass set up in `f` and the mirror's rows made; 0 without a picture. */
+/* 0043f540's mirror rows from the cache w->track holds, the pass set up in `f` for 0044cc74's mirror block
+ * (mirror_frame, with drive_mirror_ops); 0 without a picture. */
 int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFrame *f);
 
 /* mirror_frame's ops on the pass `f` (the front view is the port's own: view(0) does nothing). */

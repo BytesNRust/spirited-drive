@@ -10,6 +10,8 @@
 #include "game/race/car_load.h"
 #include "game/race/car_model.h"
 #include "game/race/car_wheels.h"
+#include "game/race/car_scenery.h"
+#include "game/race/frame_draw.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_models.h"
 #include "game/race/race_run.h"
@@ -470,6 +472,174 @@ static void mirror_car(void *user, const Car *car, const ModelView *mv, const Qu
         }
 }
 
+/* 0044cc74's words (frame_draw.h), 00511fec among them (DriveHud.view_changed points here). */
+static FrameDraw drive_frame;
+
+enum {
+    MIRROR_COUNT = 4,           /* 00504224: 0044ca3c's, its only writer */
+    FIRST_SEGMENTS = 0x1c,      /* 004c5360 from 0044ca3c at detail 0 (004fb785) */
+    RATE_TICK_MS = 10           /* 00473334's unit: hundredths */
+};
+
+/* 0044ca3c's part for the frame (from race_run's 0044d2c4): the restart and the draw distance asked for. */
+static void drive_frame_setup(void)
+{
+    drive_frame.restart = 1;
+    drive_frame.pending_segments = FIRST_SEGMENTS;
+}
+
+/* render_drive's frame: what 0044cc74's calls need from --drive. */
+typedef struct {
+    const Track *t;
+    uint8_t *pixels;
+    RaceState *race;
+    FrameDraw *d;
+    int ticked;
+    PortedCamera cam;
+    DriveMirrorWorld mirror;
+    DriveMirrorFrame mirror_pass;
+    MirrorFrameOps mirror_ops;
+    int mirror_on;
+    uint32_t last_ms;
+} DriveFrame;
+
+static void df_none(void *ctx) { (void)ctx; }
+static void df_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
+static void df_select(void *ctx, HudSurface s) { (void)ctx, (void)s; }  /* the targets are the ops' own */
+static int32_t df_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
+static void df_chase_tick(void *ctx) { DriveFrame *f = ctx; race_chase_tick(f->race, &f->race->chase); }
+static void df_restream(void *ctx) { race_scenery_restream(((DriveFrame *)ctx)->race); }
+static void df_tiles(void *ctx) { drive_hud_tiles(&drive_hud, ((DriveFrame *)ctx)->race); }
+static void df_map(void *ctx) { drive_hud_map(&drive_hud, ((DriveFrame *)ctx)->race); }
+static void df_hud_clear(void *ctx) { (void)ctx; drive_hud_clear(&drive_hud); }
+static void df_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
+static void df_text_colour(void *ctx, int32_t colour, int32_t back) { (void)ctx, (void)colour, (void)back; }
+static void df_text(void *ctx, int32_t x, int32_t y, int32_t node, int32_t letter) { (void)ctx, (void)x, (void)y, (void)node, (void)letter; }
+static void df_line(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t c) { (void)ctx, (void)x0, (void)y0, (void)x1, (void)y1, (void)c; }
+static void df_show(void *ctx, HudSurface s) { (void)ctx, (void)s; }  /* run_draw presents the frame */
+
+/* 0043f540: the renderer's cache and list part (ported_view_stream), then the mirror's rows (drive_mirror_begin). */
+static void df_stream(void *ctx)
+{
+    DriveFrame *f = ctx;
+    const Track *t = f->t;
+    RaceState *race = f->race;
+    f->mirror = (DriveMirrorWorld){ &t->tri, &t->art, race, ported_view_stream(&t->tri, &t->art, f->cam.node),
+                                    &race->chase.flags, { 0, 0, 0 }, race->cars[race_slot(race->player)], (void *)t,
+                                    mirror_car };
+    ported_view_near_dir(f->mirror.near_dir);  /* as the front view last left them */
+    f->mirror_on = drive_mirror_begin(&drive_hud.mirror, &f->mirror, &f->mirror_pass);
+    if (f->mirror_on) f->mirror_ops = drive_mirror_ops(&f->mirror_pass);
+}
+
+/* 0040586c: the front view is the port's own (ported_view_render_cars), the rear the mirror's. */
+static void df_view(void *ctx, int rear)
+{
+    DriveFrame *f = ctx;
+    if (rear && f->mirror_on) f->mirror_ops.view(f->mirror_ops.ctx, 1);
+}
+
+static void df_view_choose(void *ctx, int32_t view, int32_t size)
+{
+    DriveFrame *f = ctx;
+    if (race_view_choose(&drive_views, f->race->chase.camera, view, size)) f->d->changed = 1;  /* 00511fec */
+    drive_views.changed = 0;
+}
+
+/* 00459c50 and 00459d70 (ported_view_frame_rows does both): once a tick, as the window draws two frames a tick
+ * (the second would put the cars a row further back, under the road); the other frame keeps the rows. */
+static void df_ahead(void *ctx, int32_t node)
+{
+    (void)node;
+    if (((DriveFrame *)ctx)->ticked) ported_view_frame_rows(drive_hud.mirror.car_rows);
+}
+
+static void df_mirror_transform(void *ctx) { DriveFrame *f = ctx; if (f->mirror_on) f->mirror_ops.transform(f->mirror_ops.ctx); }
+static void df_mirror_select(void *ctx) { DriveFrame *f = ctx; if (f->mirror_on) f->mirror_ops.select(f->mirror_ops.ctx); }
+static void df_mirror_sky(void *ctx) { DriveFrame *f = ctx; if (f->mirror_on) f->mirror_ops.sky(f->mirror_ops.ctx); }
+static void df_mirror_flip(void *ctx) { DriveFrame *f = ctx; if (f->mirror_on) f->mirror_ops.flip(f->mirror_ops.ctx); }
+
+static void df_mirror_scene(void *ctx, int32_t count)
+{
+    DriveFrame *f = ctx;
+    if (f->mirror_on) f->mirror_ops.scene(f->mirror_ops.ctx, count);
+}
+
+/* 0044b510 with 004496ac, 0044aa94, 0044a804 and 0043af80 before it: the port's front view, cars and all. */
+static void df_near(void *ctx, int32_t segments, int32_t node)
+{
+    (void)segments, (void)node;  /* the port's renderer keeps its own distance */
+    DriveFrame *f = ctx;
+    const Track *t = f->t;
+    PortedCar list[RACE_CARS];
+    for (int i = 0; i < drive_sim.count; i++) {
+        const Car *c = f->race->cars[i];
+        list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)), f->race->cars[i] };
+    }
+    ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, drive_hud_view(&drive_hud, f->pixels));
+}
+
+/* The redline: the player's specs' +0xac, for the cockpit's car and the HUD's alike. */
+static int32_t drive_redline(const RaceState *race)
+{
+    return drive_sim.specs[race_slot(race->player)].unknown_0ac;
+}
+
+static void df_cockpit(void *ctx, Car *car)
+{
+    DriveFrame *f = ctx;
+    drive_hud.cockpit_world.unknown_4f9b48 = drive_sim.police_lights;  /* 004f9b48: 00472560 toggles it in the tick */
+    drive_hud.mirror.state = f->d->mirror_state;  /* 00511ff4 as the mirror block left it; 0044c060 reads it */
+    drive_hud_in_car(&drive_hud, f->race, car, drive_redline(f->race), f->pixels);
+}
+
+static void df_hud(void *ctx, Car *car, int32_t changed)
+{
+    DriveFrame *f = ctx;
+    drive_hud.cockpit_world.unknown_4f9b48 = drive_sim.police_lights;
+    drive_hud_outside(&drive_hud, f->race, car, drive_redline(f->race), f->pixels, changed);
+}
+
+static int32_t df_time(void *ctx)
+{
+    DriveFrame *f = ctx;
+    const uint32_t now = platform_ticks_ms(), elapsed = (now - f->last_ms) / RATE_TICK_MS;
+    f->last_ms += elapsed * RATE_TICK_MS;
+    return (int32_t)elapsed;
+}
+
+static void df_format_rate(void *ctx, char *text, int32_t whole, int32_t tenth)
+{
+    (void)ctx;
+    snprintf(text, FRAME_TEXT, "%2d.%1d", (int)whole, (int)tenth);
+}
+
+static const FrameDrawOps drive_frame_ops = {
+    NULL, df_chase_tick, df_none, df_none_i, df_net_wait, df_restream, df_stream, df_view, df_none, df_select,
+    df_view_choose, df_tiles, df_none, df_none, df_none_i, df_ahead, df_mirror_transform, df_mirror_select,
+    df_mirror_sky, df_mirror_scene, df_mirror_flip, df_none, df_clip, df_none, df_none_i, df_near, df_map, df_none,
+    df_text_colour, df_text, df_hud_clear, df_cockpit, df_line, df_hud, df_show, df_none, df_none, df_time,
+    df_format_rate, df_none };
+
+/* The race's words 0044cc74 reads, from --drive's state; 00511fec taken over from a camera's view select. */
+static void drive_frame_in(FrameDraw *d, RaceState *race)
+{
+    d->chase = &race->chase;
+    d->camera = race->chase.camera;
+    d->cars = race->cars;
+    d->followed = race->player;
+    d->viewed = race->viewed;
+    d->unknown_513e60 = race->unknown_513e60;
+    if (drive_views.changed) d->changed = 1, drive_views.changed = 0;
+    d->window_size = race->window_size;
+    d->mirror_state = drive_hud.mirror.state;
+    d->mirror_count = MIRROR_COUNT;
+    d->net_start = race->unknown_4fb7d4;
+    d->unknown_4f9b7c = drive_hud.keys.dash_camera;
+    d->width = SCREEN_W, d->height = SCREEN_H;
+    drive_hud.view_changed = &d->changed;
+}
+
 static void render_drive(const Track *t, uint8_t *pixels)
 {
     /* 00458d4c: 00458614 and 00458818 on cars[004fbb08] as it draws it.
@@ -487,30 +657,21 @@ static void render_drive(const Track *t, uint8_t *pixels)
     drive_cars.ticked = 0;
     if (ticked) draw_rands.count = 0;
     draw_rands.at = 0;
-    set_drive_viewport(race);
-    const PortedCamera cam = chase_camera(&drive_sim.race.chase, t->tri.ring_nodes);
-    PortedCar list[RACE_CARS];
-    for (int i = 0; i < drive_sim.count; i++) {
-        const Car *c = drive_sim.race.cars[i];
-        list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)),
-                               drive_sim.race.cars[i] };
-    }
     ported_view_set_models(t->models, t->model_ok);
     ported_view_set_shadows(race, drive_hud.ready ? drive_hud.shade : NULL);
     if (drive_hud.ready) ported_view_set_tags(drive_hud.car_colours, HUD_MAP_COLOURS, drive_hud.strip_colour);
     if (drive_hud.palette != NULL) ported_view_set_lights(drive_hud_palette_write, &drive_hud, drive_hud.palette->slot_colours);
-    /* 0044ce32 / 0044ce3f once a tick: 00459d70 moves the draw nodes back, and the window draws two frames a tick
-     * (the second would put the cars a row further back, under the road); the other frame keeps the rows */
-    if (ticked) ported_view_frame_rows(drive_hud.mirror.car_rows);
-    /* 0044ce4b, before the 3D view in 0044cc74: the mirror's picture, from the last frame's road direction */
-    /* 0043f540 runs in 0044cc74 before the mirror (0044cd7e): its cache and list part here, the rows in the mirror */
-    DriveMirrorWorld mirror = { &t->tri, &t->art, race, ported_view_stream(&t->tri, &t->art, cam.node), &race->chase.flags,
-                                { 0, 0, 0 }, followed, (void *)t, mirror_car };
-    ported_view_near_dir(mirror.near_dir);
-    drive_mirror_frame(&drive_hud.mirror, &mirror);
-    ported_view_render_cars(&t->tri, &t->art, &t->info, &cam, list, drive_sim.count, drive_hud_view(&drive_hud, race, pixels));
-    drive_hud.cockpit_world.unknown_4f9b48 = drive_sim.police_lights;  /* 004f9b48: 00472560 toggles it in the tick */
-    drive_hud_draw(&drive_hud, race, drive_sim.specs[race_slot(race->player)].unknown_0ac, pixels, SCREEN_W, SCREEN_H);
+    static uint32_t last_ms;
+    DriveFrame f = { 0 };
+    f.t = t, f.pixels = pixels, f.race = race, f.d = &drive_frame, f.ticked = ticked, f.last_ms = last_ms;
+    drive_frame_in(&drive_frame, race);
+    set_drive_viewport(race);
+    f.cam = chase_camera(&race->chase, t->tri.ring_nodes);
+    FrameDrawOps ops = drive_frame_ops;
+    ops.ctx = &f;
+    frame_draw(&ops, &drive_frame);
+    drive_hud.mirror.state = drive_frame.mirror_state;
+    last_ms = f.last_ms;
 }
 
 static void car_stem(int model, char stem[16])
@@ -717,6 +878,8 @@ static void run_service(void *ctx)
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
+static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(); }  /* 0044d2c4 -> 0044ca3c's frame part */
+
 static void run_queue_reset(void *ctx, InputQueue *q)
 {
     DriveRun *r = ctx;
@@ -802,7 +965,7 @@ static const RaceRunOps *drive_run_ops(void)
 {
     static const RaceRunOps ops = {
         NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none_i,
-        run_none, run_none, run_none, run_none, run_none, run_none, run_none_i, run_net_wait, run_none, run_none, run_none,
+        run_none, run_none, run_none, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,
@@ -845,7 +1008,7 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
             render_drive(t, pixels);
             continue;
         }
-        drive_hud_draw(&drive_hud, &drive_sim.race, 0, NULL, 0, 0);  /* the HUD keeps drawing every frame */
+        drive_hud_strip(&drive_hud, &drive_sim.race);  /* the HUD keeps drawing every frame */
         ported_view_stream(&t->tri, &t->art, chase_camera(&drive_sim.race.chase, t->tri.ring_nodes).node);  /* and 0043f540 */
     }
     const Car *car = drive_sim.race.cars[0];

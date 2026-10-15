@@ -131,7 +131,6 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     memset(h->back, 0, sizeof h->back);
     h->back[0] = SHAPE_8_BIT;
     h->back[4] = DRIVE_BACK_W, h->back[6] = DRIVE_BACK_H;
-    h->in_car = 0;
     memset(&h->needle, 0, sizeof h->needle);
     memset(&h->hud, 0, sizeof h->hud);
     hud_reset(&h->hud);
@@ -143,9 +142,9 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->view[4] = DRIVE_VIEW_W & 0xff, h->view[5] = DRIVE_VIEW_W >> 8;
     h->view[6] = DRIVE_VIEW_H & 0xff, h->view[7] = DRIVE_VIEW_H >> 8;
     memset(h->view + DRIVE_VIEW_HEADER, (int)h->strip_colour, sizeof h->view - DRIVE_VIEW_HEADER);
-    h->changed = 0;
     h->redraw = 0;
-    h->shown_view = -1;
+    h->view_changed = &h->unknown_511fec;
+    h->unknown_511fec = 0;
     memset(&h->keys, 0, sizeof h->keys);
     h->keys.armed = 1;  /* 004b9460's start */
     h->keys.use_parts = 1;  /* 0044ca3c */
@@ -166,19 +165,23 @@ static HudFrame view_frame(const RaceState *race)
                        : (HudFrame){ 0, 0, 0, 0 };
 }
 
-uint8_t *drive_hud_view(DriveHud *h, RaceState *race, uint8_t *pixels)
+void drive_hud_tiles(DriveHud *h, const RaceState *race)
 {
-    if (!h->ready) return pixels;
-    const RaceCamera *camera = race->chase.camera;
-    const int32_t view = camera != NULL ? camera->view : 0;
-    if (view != h->shown_view) h->shown_view = view, h->changed = 1;
-    if (h->changed) {
-        const QuadTarget t = { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H };
-        const HudRedrawInputs in = {
-            view_frame(race), 1, DRIVE_VIEW_W, DRIVE_VIEW_H, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour };
-        hud_redraw(&t, &h->hud, &h->art, race, &in);
-    }
-    return h->view + DRIVE_VIEW_HEADER;
+    if (!h->ready) return;
+    const QuadTarget t = { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H };
+    const HudRedrawInputs in = {
+        view_frame(race), 1, DRIVE_VIEW_W, DRIVE_VIEW_H, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour };
+    hud_redraw(&t, &h->hud, &h->art, race, &in);
+}
+
+uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels)
+{
+    return h->ready ? h->view + DRIVE_VIEW_HEADER : pixels;
+}
+
+void drive_hud_clear(DriveHud *h)
+{
+    hud_clear_request(&h->hud);
 }
 
 /* 00421c18's surfaces: the view surface and the frame (004c2da0 and the
@@ -266,7 +269,7 @@ static void keys_labels(void *ctx)
 
 static void keys_parts_redraw(void *ctx)
 {
-    ((KeysCalls *)ctx)->h->parts_pending = 1;  /* 00420918, onto the frame (drive_hud_draw) */
+    ((KeysCalls *)ctx)->h->parts_pending = 1;  /* 00420918, onto the frame (strip_draw, hud_top_row) */
 }
 
 static void keys_take(void *ctx, int32_t kind)
@@ -285,9 +288,9 @@ static void draw_keys(DriveHud *h, RaceState *race, const QuadTarget *strip)
     /* no pad */
     const HudKeysInputs in = { keys, h->parts_key > 0 && h->parts_key < (int32_t)sizeof keys ? h->parts_key : 0, 0,
                                { 0, 0 }, 0, 0 };
+    h->keys.view_changed = *h->view_changed;
     hud_keys(&ops, &h->hud, &h->keys, race, &in);
-    if (h->keys.view_changed == 999) h->changed = 1;  /* 00511fec: the full redraw and 00421c18(1) */
-    h->keys.view_changed = 0;
+    *h->view_changed = h->keys.view_changed;  /* 00511fec: 999 after F9, 0044cc74 makes it 1 for the next frame */
 }
 
 /* 00421160's surfaces: the frame (004c2da0 and the default both) and 004c2d98. */
@@ -444,7 +447,7 @@ static void reload_cockpit(DriveHud *h, RaceState *race, CockpitSurfaces *s)
  * and the default both). The shapes are drawn only while the dashboard is
  * loaded: a reload that failed leaves them pointing into the freed bank.
  * 00421e40 and 00420710 into the strip and the map's copy run after it in
- * drive_hud_draw for every view, so here they do nothing. */
+ * drive_hud_in_car for every view, so here they do nothing. */
 typedef struct {
     CockpitSurfaces *s;
     const Car *car;
@@ -456,7 +459,7 @@ static int frame_shapes(const FrameCalls *f) { return f->s->h->cockpit_ready; }
 
 static int32_t frame_rand(void *ctx, int32_t n) { return race_rand_below(((FrameCalls *)ctx)->s->race, n); }
 static void frame_police(void *ctx) { FrameCalls *f = ctx; draw_police(f->s->h, f->s->race, f->s); }
-static void frame_none(void *ctx) { (void)ctx; }  /* 00420710, 00421e40 (drive_hud_draw) */
+static void frame_none(void *ctx) { (void)ctx; }  /* 00420710, 00421e40 (drive_hud_in_car) */
 /* 00473614: the DirectDraw surface unlocked, 004c78b4's descriptor cleared, the display restored; the port's
  * surfaces need none of it (the next select sets the target). */
 static void frame_restore(void *ctx) { (void)ctx; }
@@ -559,7 +562,7 @@ static void frame_lights(void *ctx)
                        &h->hud.unknown_4f9a80[2]);
 }
 
-static void frame_map(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* drive_hud_draw's copy */
+static void frame_map(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }  /* drive_hud_in_car's copy */
 
 static void panel_none(void *ctx) { (void)ctx; }  /* TODO(00450d60, 00471364): the panels themselves */
 
@@ -580,7 +583,6 @@ static void frame_panel(void *ctx) { FrameCalls *f = ctx; draw_panel(f->s->h, f-
 /* 0042270c; 1 when a stop notice was up (004214e4 drew it, nothing else this frame). */
 static int draw_cockpit(DriveHud *h, CockpitSurfaces *s, const Car *car, int32_t redline)
 {
-    if (!h->in_car) hud_clear_request(&h->hud), h->in_car = 1;  /* 0041e364 */
     const int notice = s->race->stop_notice[0] != 0 || s->race->stop_notice[1] != 0;
     FrameCalls f = { s, car, redline, { h->view + DRIVE_VIEW_HEADER, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H },
                      s->screen, NULL };
@@ -605,8 +607,9 @@ static QuadTarget *map_select(void *ctx, HudSurface s)
 }
 
 /* 00422ce0 into the map's surface, from the race's and the cockpit's words. */
-static void draw_map(DriveHud *h, const RaceState *race)
+void drive_hud_map(DriveHud *h, const RaceState *race)
 {
+    if (!h->ready || !h->cockpit_ready) return;
     QuadTarget t = { h->map + DRIVE_VIEW_HEADER, DRIVE_MAP_W, 0, 0, DRIVE_MAP_W, DRIVE_MAP_H };
     const HudMapOps ops = { &t, map_select };
     const Car *police = race->cars[2];
@@ -684,7 +687,6 @@ static void hud_mask(void *ctx, int32_t changed)
 {
     HudCalls *c = ctx;
     draw_mask(c->s->h, c->s->race, c->s->screen.pixels, c->width, c->height, changed);
-    c->s->h->changed = 0;  /* taken; F9 in the keys after it sets it for the next frame */
 }
 
 static void hud_keys_op(void *ctx)
@@ -724,43 +726,43 @@ static void hud_map(void *ctx, int32_t x, int32_t y)
     if (c->s->h->cockpit_ready) blit_shape_at(&c->s->screen, c->s->h->map, x, y);  /* the map is drawn with a cockpit */
 }
 
-static void hud_frame_draw(DriveHud *h, RaceState *race, CockpitSurfaces *s, const Car *car, int32_t redline)
+static CockpitSurfaces frame_surfaces(DriveHud *h, RaceState *race, uint8_t *pixels)
 {
-    HudCalls c = { s, car, redline, s->screen.pitch, s->screen.clip_bottom };
+    return (CockpitSurfaces){ h, race, { pixels, DRIVE_VIEW_W, 0, 0, DRIVE_VIEW_W, DRIVE_VIEW_H },
+                              { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
+}
+
+void drive_hud_outside(DriveHud *h, RaceState *race, const Car *car, int32_t redline, uint8_t *pixels, int32_t changed)
+{
+    if (!h->ready || car == NULL || pixels == NULL) return;
+    CockpitSurfaces s = frame_surfaces(h, race, pixels);
+    HudCalls c = { &s, car, redline, DRIVE_VIEW_W, DRIVE_VIEW_H };
     const HudFrameOps ops = { &c, hud_police, hud_reselect, hud_panel, hud_reload, hud_none, hud_select, hud_tiles,
                               hud_none, hud_none, hud_none, hud_mask, hud_keys_op, hud_top_row, hud_none, hud_needle,
                               hud_map };
     const HudFrameWords w = { &h->redraw, &h->police.loading, &race->stop_notice_tick };
     const HudFrameInputs in = { 0, race->stop_notice[0], race->stop_notice[1], 0, h->keys.use_parts, HIGH_RES };
-    hud_frame(&ops, &w, &in, h->changed);
+    hud_frame(&ops, &w, &in, changed);
 }
 
-void drive_hud_draw(DriveHud *h, RaceState *race, int32_t redline, uint8_t *pixels, int width, int height)
+void drive_hud_in_car(DriveHud *h, RaceState *race, const Car *car, int32_t redline, uint8_t *pixels)
+{
+    if (!h->ready || car == NULL || pixels == NULL) return;
+    if (!h->cockpit_ready) {  /* port guard: the original always has its dash loaded here */
+        drive_hud_outside(h, race, car, redline, pixels, 0);
+        return;
+    }
+    CockpitSurfaces s = frame_surfaces(h, race, pixels);
+    if (draw_cockpit(h, &s, car, redline)) return;
+    strip_draw(h, race, car, pixels, DRIVE_VIEW_W, DRIVE_VIEW_H);
+    if (h->keys.use_parts != 0) blit_shape_at(&s.screen, h->map, DRIVE_MAP_X, DRIVE_MAP_Y);
+}
+
+void drive_hud_strip(DriveHud *h, RaceState *race)
 {
     if (!h->ready) return;
     const Car *car = race->cars[race_slot(race->viewed)];
-    if (car == NULL) return;
-    const int full = pixels != NULL && width == DRIVE_VIEW_W && height == DRIVE_VIEW_H;
-    int in_car = h->cockpit_ready && race->chase.kind == 0 && h->keys.dash_camera == 0;  /* 0044cc74 */
-    if (!in_car) h->in_car = 0;
-    if (full) {
-        if (h->cockpit_ready) draw_map(h, race);
-        CockpitSurfaces s = { h, race, { pixels, width, 0, 0, width, height },
-                              { h->back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, 0, 0, DRIVE_BACK_W, DRIVE_BACK_H }, { 0 } };
-        if (!in_car) {
-            hud_frame_draw(h, race, &s, car, redline);
-            return;
-        }
-        if (draw_cockpit(h, &s, car, redline)) return;
-    }
-    strip_draw(h, race, car, pixels, width, height);
-    if (pixels == NULL) return;
-    QuadTarget screen = { pixels, width, 0, 0, width, height };
-    if (!in_car)  /* 0042270c does not run 0042221c */
-        hud_draw_needle(&screen, &h->needle, &h->art, car->rpm, redline, width, height, width, height, HIGH_RES,
-                        h->needle_colour, NULL, NULL);
-    if (full && h->cockpit_ready && h->keys.use_parts != 0)
-        blit_shape_at(&screen, h->map, DRIVE_MAP_X, DRIVE_MAP_Y);
+    if (car != NULL) strip_draw(h, race, car, NULL, 0, 0);
 }
 
 static void end_free_bank(void *ctx, uint8_t *bank)

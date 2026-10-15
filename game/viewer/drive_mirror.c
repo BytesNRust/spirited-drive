@@ -282,13 +282,3 @@ MirrorFrameOps drive_mirror_ops(DriveMirrorFrame *f)
 {
     return (MirrorFrameOps){ f, view_op, transform_op, select_op, sky_op, scene_op, flip_op };
 }
-
-void drive_mirror_frame(DriveMirror *m, const DriveMirrorWorld *w)
-{
-    Frame f;
-    if (!drive_mirror_begin(m, w, &f)) return;
-    const MirrorFrameOps ops = drive_mirror_ops(&f);
-    /* TODO(0044cc74): 004b91c8 (2 or more keeps the mirror's last picture) and 004fb787 are 0 in --drive */
-    const MirrorFrameInputs in = { w->race->chase.unknown_68, 0, 0, MIRROR_SEGMENTS };
-    mirror_frame(&ops, &in, &m->state);
-}
