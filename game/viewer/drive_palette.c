@@ -81,6 +81,18 @@ static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const car
     race_palette_remap_cars(p, race->car_count, art, race->unknown_4fbab8);
 }
 
+typedef struct {
+    const DrivePaletteLate *late;
+    RacePalette *p;
+} AfterBanks;
+
+/* 00447098's last call, 00456948 (the smoke's colours), when --drive has smoke. */
+static void after_banks(void *ctx)
+{
+    const AfterBanks *a = ctx;
+    if (a->late != NULL && a->late->after_banks != NULL) a->late->after_banks(a->late->ctx, a->p);
+}
+
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
                         DriveHud *hud, const DrivePaletteLate *late, uint8_t rgb[768])
 {
@@ -119,6 +131,8 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     if (chunk_child(fam, FAM_CHILD_OBJECTS, &models) == CHUNK_OK) remap_model_banks(&p, &models);
     if (late != NULL) late->run(late->ctx, &p);
     if (hud != NULL) drive_hud_start(hud, &p), hud->rgb = rgb;
+    AfterBanks after = { late, &p };
+    race_palette_map_banks(&p, after_banks, &after);  /* 00447098: the mask's and the smoke's banks */
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];
         rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];

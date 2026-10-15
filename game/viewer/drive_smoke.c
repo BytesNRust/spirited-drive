@@ -44,11 +44,15 @@ void drive_smoke_palette(void *ctx, RacePalette *p)
         fprintf(stderr, "drive_smoke: no %ssmoke.qfs\n", s->misc_dir);
         return;
     }
-    race_palette_remap_track_bank(p, s->art.bank, s->art.palette);
-    puff_blend_init(&s->blend, s->table, p, nearest, p);
     s->ready = 1;
     for (int k = 0; k < PUFF_SHAPES; k++)
         if (s->art.smoke[k] == NULL || s->art.dirt[k] == NULL) s->ready = 0;
+}
+
+void drive_smoke_blend(void *ctx, RacePalette *p)
+{
+    DriveSmoke *s = ctx;
+    if (s->art.bank != NULL && s->art.palette != NULL) puff_blend_init(&s->blend, s->table, p, nearest, p);
 }
 
 void drive_smoke_free(DriveSmoke *s)

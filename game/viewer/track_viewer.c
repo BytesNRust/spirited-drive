@@ -827,7 +827,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_hud_cockpit(&drive_hud, &drive_sim.race, data_root, stem);
     /* 00456a7c from 00455a5c (after the cars' load), its bank and 00456948 at 00447098's end */
     drive_smoke_setup(&drive_smoke, data_root, &drive_sim.race.trail);
-    const DrivePaletteLate late = { &drive_smoke, drive_smoke_palette };
+    const DrivePaletteLate late = { &drive_smoke, drive_smoke_palette, drive_smoke_blend };
     if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, t->art.palette))
         fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
     if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, draw_rand, NULL, &drive_sim.race.trail);

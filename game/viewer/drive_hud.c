@@ -112,8 +112,6 @@ void drive_hud_setup(DriveHud *h, RacePalette *p)
 void drive_hud_start(DriveHud *h, RacePalette *p)
 {
     if (!h->ready) return;
-    /* TODO(00447098): the queued banks' remap; here the mask bank alone. */
-    race_palette_remap_track_bank(p, h->bank, h->art.palette);
     HudColours colours;  /* 00446bac */
     hud_colours(p, &colours);
     h->strip_colour = (uint32_t)colours.colours[HUD_COLOUR_BLACK];

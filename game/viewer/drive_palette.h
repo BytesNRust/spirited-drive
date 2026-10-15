@@ -1,8 +1,8 @@
 /* `--drive`'s race palette, built as 00455a5c builds it from the parts that
  * are ported (see STATE.md, Race palette): the track's colours at 0x90, the
  * cars' (004572e0), the colour search's entries (0041f818's first part),
- * each car's banks (004574ec) and the track's banks (00447098 with 00446fd0)
- * mapped onto it in place; the mask bank's colours (0xf0.., 00450838) and
+ * each car's banks (004574ec) and the track's banks (00446fd0) mapped onto
+ * it in place, then the queued banks (00447098); the mask bank's colours (0xf0.., 00450838) and
  * bank when `hud` has its files. Not yet: the dashboard (0..0x2f,
  * 0041f988), the tint of the time of day (004471ac, a neutral one here) and
  * the cars' mesh colours (the flat sink still matches rgb itself). */
@@ -24,10 +24,13 @@
  * by the caller, writable), so this runs once per load. rgb: the screen
  * palette, 8 bits a channel. Returns 0 when the track has no terrain bank
  * with a '!pal' (nothing is remapped then). */
-/* late (NULL: none) runs where 00447098 ends with 00456948, after the banks. */
+/* late (NULL: none): run where 00456a7c queues its bank (before the HUD's
+ * start), after_banks as 00447098's last call (00456948), once the queued
+ * banks are mapped. */
 typedef struct {
     void *ctx;
     void (*run)(void *ctx, RacePalette *p);
+    void (*after_banks)(void *ctx, RacePalette *p);
 } DrivePaletteLate;
 
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,

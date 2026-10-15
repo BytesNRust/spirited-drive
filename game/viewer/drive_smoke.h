@@ -17,9 +17,12 @@ typedef struct {
 /* Before the palette is built: where smoke.qfs lies and the race's trail. */
 void drive_smoke_setup(DriveSmoke *s, const char *data_root, CrashTrail *trail);
 
-/* At 00447098's place in the palette's build: 00456a7c, its bank remapped
- * (00446fd0; the port runs no queue loop, the entry stays), then 00456948. */
+/* 00456a7c in the palette's build: smoke.qfs read and its bank queued
+ * (00447098 maps it). */
 void drive_smoke_palette(void *ctx, RacePalette *p);
+
+/* 00456948, 00447098's last call: the smoke's blend from the palette. */
+void drive_smoke_blend(void *ctx, RacePalette *p);
 
 void drive_smoke_free(DriveSmoke *s);
 
