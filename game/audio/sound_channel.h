@@ -9,13 +9,17 @@
 /* A channel (0052f978[16], 0x24 bytes), the words the port has read. */
 typedef struct {
     const void *sound;     /* +0: the bank's sound record */
+    int32_t last;          /* +4: the sound's +8, less 1 */
     int32_t pitch_base;    /* +8: cents */
+    uint8_t sound_1c;      /* +0xc: the sound's +0x1c */
     uint8_t kind;          /* +0xd: 1 a bank sample, 2 a stream */
     uint8_t pitch;         /* +0xe: 0x40 the sound's own */
     uint8_t range;         /* +0xf: the pitch range (the sound's +0x17) */
     uint8_t priority;      /* +0x10: the sound's +0x14 */
     uint8_t handle;        /* +0x11 */
     uint8_t busy;          /* +0x12 */
+    uint8_t id;            /* +0x13: the sound's number in the registry */
+    uint32_t cleared;      /* +0x14: 0 at the start */
     uint8_t volume;        /* +0x20: the caller's */
     uint8_t sound_volume;  /* +0x21: the sound's, with its spread */
     uint8_t mixed_volume;  /* +0x22 */

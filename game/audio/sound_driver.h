@@ -11,6 +11,7 @@ typedef struct {
     SoundMixer mixer;               /* its stop hook 00497870 on `channels` */
     MixVoice voice[SOUND_VOICES];   /* 004f38f0[] */
     uint32_t mix_rate;              /* 004f38b4 */
+    uint32_t rand_seed;             /* the C library's rand() seed, which nothing else draws during a race */
 } SoundDriver;
 
 /* The mixer's voices and its stop hook (00497bb5 sets 004f38ec to
@@ -34,6 +35,7 @@ int32_t sound_channel_pick(SoundDriver *d, uint32_t mask, int32_t priority);
 /* A sample's header as the driver keeps it in memory (+0 'EACS'), the
  * words 00497784 reads. */
 typedef struct {
+    uint32_t magic;           /* +0: 'EACS' */
     uint32_t rate;            /* +4 */
     uint8_t sample_size;      /* +8: 2 16-bit */
     uint8_t channels;         /* +9: 2 stereo */
@@ -54,5 +56,39 @@ typedef struct {
  * +0x22, and the cents 00497724 gives for the channel's pitch +0xe, range
  * +0xf and base +8 (all read from the channel the header named first). */
 void sound_sample_start(SoundDriver *d, SoundSample *s);
+
+/* A bank's sound record (the registry 0052eed4[128]), the words 0048eed8
+ * reads. */
+typedef struct {
+    uint32_t mask;            /* +0: the channels it may take */
+    SoundSample *sample;      /* +4 */
+    int32_t count;            /* +8 */
+    int32_t pitch_spread;     /* +0xc: cents */
+    int32_t pitch_base;       /* +0x10: cents */
+    uint8_t priority;         /* +0x14 */
+    uint8_t range;            /* +0x17 */
+    uint8_t pan;              /* +0x18 */
+    uint8_t volume;           /* +0x19 */
+    uint8_t volume_spread;    /* +0x1a */
+    uint8_t sound_1c;         /* +0x1c */
+    uint8_t pan_spread;       /* +0x1d */
+} SoundBankSound;
+
+enum { SOUND_NO_CHANNEL = -20, SOUND_NOT_EACS = -10, SOUND_PAN_OWN = -1 };
+
+#define SOUND_EACS 0x53434145u /* 'EACS' */
+
+/* 0048eed8 (eax the record, edx its number, ebx the pan, ecx the volume,
+ * pushed the pitch): a channel for its mask and priority (00497640; -20
+ * when none), its header checked ('EACS', else -10), the channel filled:
+ * the sound, the pitch, its range and priority, the base cents (+0x10, plus
+ * a spread draw of +0xc when either is set), the sound's volume (+0x19 plus
+ * a draw of +0x1a, kept to 0..0x7f), the pan (-1: the sound's +0x18, or
+ * with a spread +0x1d a draw + 0x40, kept to 0x7f; when the first draw is
+ * below that the original draws again and takes the second, unclamped),
+ * the volume; the mixed volume (00497750), a handle (004978a0), busy, the
+ * sample started on it (00497784); the handle returned. */
+int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id, int32_t pan, int32_t volume,
+                          int32_t pitch);
 
 #endif
