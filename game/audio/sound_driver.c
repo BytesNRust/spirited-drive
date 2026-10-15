@@ -14,6 +14,18 @@ void sound_driver_wire(SoundDriver *d)
     d->mixer.ctx = &d->channels;
 }
 
+/* 00497bb5 */
+int32_t sound_driver_init(SoundDriver *d, uint32_t rate)
+{
+    sound_driver_wire(d);
+    if (!d->mixer_ready) {
+        d->mixer_ready = 1;
+        for (int k = SOUND_VOICES - 1; k >= 0; k--) d->mixer.voice[k]->on = 0;
+    }
+    d->mix_rate = rate;
+    return SOUND_VOICES;
+}
+
 /* 00473c68 */
 int32_t sound_stop(SoundDriver *d, int32_t handle)
 {

@@ -13,6 +13,7 @@ typedef struct {
     SoundMixer mixer;               /* its stop hook 00497870 on `channels` */
     MixVoice voice[SOUND_VOICES];   /* 004f38f0[] */
     uint32_t mix_rate;              /* 004f38b4 */
+    uint8_t mixer_ready;            /* 004f38ac: the voices were turned off once */
     uint32_t rand_seed;             /* the C library's rand() seed, which nothing else draws during a race */
     const struct SoundBankSound *registry[128]; /* 0052eed4: the registered banks' sounds by number */
     const struct SoundBank *banks[SOUND_BANK_SLOTS]; /* 004c79a0 */
@@ -21,6 +22,15 @@ typedef struct {
 /* The mixer's voices and its stop hook (00497bb5 sets 004f38ec to
  * 00497870). */
 void sound_driver_wire(SoundDriver *d);
+
+/* 00497bb5 (cdecl format, rate, stop hook; 0049212c passes 1 or 8 (8- or
+ * 16-bit) | 4 (stereo), 0x5622 and 00497870): the volume table 004c91ec
+ * built (004984f6; the port's mixers compute its entries), the 16 voices
+ * turned off on the first call only (004f38ac), the mix rate and the stop
+ * hook set, the output 004f38e8 chosen by the format; 16. The port always
+ * mixes 16-bit stereo (format 0xc, output 00499c08) and its hook is
+ * 00497870 on the driver's channels. */
+int32_t sound_driver_init(SoundDriver *d, uint32_t rate);
 
 /* 00473c68 (eax the handle): a handle that 00497af8 passes stops its
  * channel's voice (00497a1c the slot, 00497e6a, whose hook frees the
