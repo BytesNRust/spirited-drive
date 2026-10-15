@@ -180,6 +180,8 @@ static int32_t node_heading(const RaceState *race, int32_t node)
     return race_node(race, node).orientation * HEADING_SCALE;
 }
 
+void race_chase_road_yaw(const RaceState *race, RaceChase *chase) { chase->yaw = node_heading(race, chase->node); }
+
 static int32_t magnitude(int32_t v)
 {
     return v < 1 ? neg(v) : v;

@@ -49,6 +49,10 @@ void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind);
  * the road. */
 void race_chase_tick(RaceState *race, RaceChase *chase);
 
+/* 004043d4 (watcall (), from 0044e700 and 0044f090): the record's yaw
+ * (+0x78) the heading of its eye's road node (+0x38 & 00504208) x 0x400. */
+void race_chase_road_yaw(const RaceState *race, RaceChase *chase);
+
 /* 00404630: the step that takes target to `to` in `ticks` ticks (divide
  * set) or by a 2^ticks-th of the way; nothing when ticks is 0. */
 void race_chase_glide(RaceChase *chase, const int32_t to[3], int32_t divide, int32_t ticks);
