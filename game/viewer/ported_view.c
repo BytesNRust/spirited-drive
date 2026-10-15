@@ -635,8 +635,10 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov);
     horizon_tables(&horizon, vp->width, vp->fov, vp->scale);
     RasterTarget target = { pixels, WIDTH, HEIGHT, 0, 0 };
-    QuadTarget quad = { pixels, WIDTH, vp->left, vp->top, vp->left + vp->width, vp->top + vp->height };
-    DrawContext ctx = { &view, { vp->left, vp->top, vp->left + vp->width, vp->top + vp->height }, WORLD_SHIFT,
+    /* the box (00449f50: the layout's left, top, +0x20, +0x24); left + x, top + y only place the projection */
+    const int32_t box[4] = { vp->sky_left, vp->sky_top, vp->sky_left + vp->sky_width, vp->sky_top + vp->sky_height };
+    QuadTarget quad = { pixels, WIDTH, box[0], box[1], box[2], box[3] };
+    DrawContext ctx = { &view, { box[0], box[1], box[2], box[3] }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0 };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
@@ -644,8 +646,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */
-    for (int32_t y = vp->top < 0 ? 0 : vp->top; y < vp->top + vp->height && y < HEIGHT; y++) {
-        const int32_t x0 = vp->left < 0 ? 0 : vp->left, x1 = vp->left + vp->width > WIDTH ? WIDTH : vp->left + vp->width;
+    for (int32_t y = box[1] < 0 ? 0 : box[1]; y < box[3] && y < HEIGHT; y++) {
+        const int32_t x0 = box[0] < 0 ? 0 : box[0], x1 = box[2] > WIDTH ? WIDTH : box[2];
         if (x1 > x0) memset(pixels + (size_t)y * WIDTH + x0, 0, (size_t)(x1 - x0));
     }
     if (art->has_horizon && info->ring != 0) {

@@ -25,8 +25,9 @@ enum { PORTED_VIEW_MODELS = 64, PORTED_VIEW_CARS = 9 };
 void ported_view_set_models(const ViewModel *list, const int *ok);
 
 /* Where the 3D view sits on the 640 x 480 frame (a race camera's 004b7080
- * row: left + x, top + y, width, height; its horizon scale; the sky ring's
- * rectangle +0x18..+0x24) and the camera's fov. The default is the whole
+ * row: left + x, top + y, width, height for the projection; its horizon
+ * scale; the box +0x18..+0x24 the view is clipped to and the sky ring
+ * fills) and the camera's fov. The default is the whole
  * frame at fov 96. */
 typedef struct {
     int32_t left, top, width, height, fov, scale;

@@ -527,8 +527,8 @@ enum {
 };
 
 /* 0044d2c4 / 0044ca3c's calls in --drive: the surfaces, the track, its textures and the palette are the port's
- * own (start_drive), the camera follows the player; 00405630, 00404404, 0044c140, 0044c148 and 00449be4 are not
- * ported (TODO); 00449430 has no effect. */
+ * own (start_drive), the camera follows the player; 00404404, 0044c140, 0044c148 and 00449be4 are not ported
+ * (TODO); 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
 static void ds_none(void *ctx) { (void)ctx; }
 static void ds_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void ds_palette_get(void *ctx, uint8_t rgb[DRAW_SETUP_PALETTE]) { (void)ctx, (void)rgb; }
@@ -536,6 +536,30 @@ static void ds_palette_set(void *ctx, int32_t f, int32_t n, const uint8_t *rgb) 
 static void ds_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t ds_surface(void *ctx, int32_t w, int32_t h, int32_t flags) { (void)ctx, (void)w, (void)h, (void)flags; return 0; }
 static void ds_layout(void *ctx, RaceCamera *camera, int32_t layout) { race_view_layout(ctx, camera, layout); }
+
+static void dv_viewport(void *ctx, int32_t left, int32_t top, int32_t width, int32_t height, int32_t fov)
+{
+    view_init(&((RaceViews *)ctx)->view, left, top, width, height, fov, fov);
+}
+static void dv_none(void *ctx) { (void)ctx; }  /* 00475e44: view_init makes the reciprocals */
+static int32_t dv_recip_table(void *ctx) { (void)ctx; return VIEW_RECIP_TABLE; }  /* 00475e30: the table's own word */
+
+/* 00405630 on the race's first three cameras, --drive's views and the followed car's specs; the target y of view
+ * kinds 0 and 10 is the in-car eye. */
+static void ds_views(void *ctx)
+{
+    RaceState *race = ctx;
+    const int32_t slot = race_slot(race->player);
+    const Car *car = race->cars[slot];
+    if (car == NULL || car->model < 0 || car->model >= VIEW_MODELS) return;  /* port guard: 004b790c is read unchecked */
+    const CarSpecs *specs = &drive_sim.specs[slot];
+    const RaceViewStartOps ops = { &drive_views, ds_layout, dv_viewport, dv_none, dv_recip_table };
+    const RaceViewStartInputs in = { 0, specs->eye_height, specs->dash_drop, car->model, race_view_model_y };
+    RaceViewStartOut out = { 0, { 0, 0 } };
+    race_view_start(&ops, &drive_views, race->cameras, &in, &out);
+    race->chase_kinds[10].target[1] = out.eye[0];
+    race->chase_kinds[0].target[1] = out.eye[1];
+}
 
 /* 0040540c on the race's first two cameras (004b78a8, 004b78c8) and --drive's views */
 static void ds_screen(void *ctx, int32_t step, int32_t size)
@@ -556,7 +580,7 @@ static void ds_follow(void *ctx, int32_t kind)
 static void drive_frame_setup(RaceState *race)
 {
     const RaceDrawSetupOps ops = { race, ds_palette_get, ds_none, ds_palette_set, ds_none_i, ds_mode, ds_surface, ds_none,
-                                   ds_none, ds_follow, ds_none, ds_none, ds_none_i, ds_none_i, ds_none, ds_none, ds_screen };
+                                   ds_none, ds_follow, ds_views, ds_none, ds_none_i, ds_none_i, ds_none, ds_none, ds_screen };
     RaceDrawSetup st = { 0 };
     st.restart = drive_frame.restart, st.mirror_state = drive_hud.mirror.state, st.use_parts = drive_hud.keys.use_parts;
     st.high = HIGH_SCREEN, st.width = SCREEN_W, st.height = SCREEN_H, st.back_buffer = 0;
