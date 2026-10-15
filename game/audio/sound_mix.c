@@ -292,3 +292,10 @@ int32_t sound_span_loop(MixVoice *v, int32_t left)
     }
     return at_most(frames, left);
 }
+
+/* 00499c08 */
+void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames)
+{
+    for (uint32_t i = 0; i < 2 * frames; i++)
+        out[i] = (int16_t)(acc[i] > INT16_MAX ? INT16_MAX : acc[i] < INT16_MIN ? INT16_MIN : acc[i]);
+}

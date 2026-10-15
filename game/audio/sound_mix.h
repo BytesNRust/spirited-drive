@@ -89,4 +89,10 @@ int32_t sound_span_once(MixVoice *v, int32_t left);
  * gives 0). */
 int32_t sound_span_loop(MixVoice *v, int32_t left);
 
+/* 00499c08 (the mixer's output 004f38e8 for 16-bit stereo; 004f38bc the
+ * buffer, 004f38b8 the frames): each accumulator word (004e98ac, left and
+ * right) saturated to 16 bits. 0 frames: the original's loop counts from
+ * -1 through the whole address space; the port writes nothing. */
+void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames);
+
 #endif
