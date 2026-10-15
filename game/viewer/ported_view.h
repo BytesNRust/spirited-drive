@@ -4,6 +4,7 @@
 #ifndef TNFS_PORTED_VIEW_H
 #define TNFS_PORTED_VIEW_H
 
+#include "game/race/skid_marks.h"
 #include "game/race/puffs.h"
 #include "formats/tri.h"
 #include "game/race/track_art.h"
@@ -108,6 +109,9 @@ void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (
  * skid marks (00459c50) and cars (00459d70: those ahead kept here, those
  * behind into `behind`, 0051c7a1); nothing without ported_view_set_shadows'
  * race. */
+/* The followed car's skid marks (00517620), for 00457594's reset at the race's start. */
+SkidMarks *ported_view_skids(void);
+
 void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS]);
 
 /* The track from `cam` with `count` cars, list[i] drawn with slot i's model. */

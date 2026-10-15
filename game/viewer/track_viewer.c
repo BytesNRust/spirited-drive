@@ -10,6 +10,7 @@
 #include "game/race/car_load.h"
 #include "game/race/car_model.h"
 #include "game/race/car_wheels.h"
+#include "game/race/car_draw_setup.h"
 #include "game/race/car_scenery.h"
 #include "game/race/frame_draw.h"
 #include "game/race/race_chase.h"
@@ -909,7 +910,7 @@ static void run_service(void *ctx)
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
-/* 00474c8c for the recording: --drive records nothing yet (TODO: race_replay_record's glue), so none is made. */
+/* 00474c8c: --drive records nothing yet (TODO: race_replay_record's glue) and reads no 0051c770, so none is made. */
 static uint8_t *run_no_recording(void *ctx, int32_t size) { (void)ctx, (void)size; return NULL; }
 
 /* 0044edd8 on the race's words; the ones without a home in the port (0052b8d4..0052b8f0, 005120c4, 005120c8,
@@ -930,6 +931,15 @@ static void run_replay_start(void *ctx)
     race->unknown_513728 = w.unknown_513728, race->unknown_51372c = w.unknown_51372c;
     race->unknown_51371c = w.unknown_51371c, race->note_second = w.note_second;
     race->camera_roll_add = w.camera_roll_add;
+}
+
+/* 00457594: the distance steps and the buffer have no reader in the port yet (its car drawing keeps its own);
+ * the skid marks are ported_view's. */
+static void run_car_draw_setup(void *ctx)
+{
+    (void)ctx;
+    static CarDrawSetup words;
+    car_draw_setup(&words, ported_view_skids(), run_no_recording, NULL);
 }
 
 static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(&drive_sim.race); }  /* 0044d2c4 */
@@ -1019,7 +1029,7 @@ static const RaceRunOps *drive_run_ops(void)
 {
     static const RaceRunOps ops = {
         NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none_i,
-        run_none, run_none, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
+        run_none, run_car_draw_setup, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,

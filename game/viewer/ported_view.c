@@ -181,6 +181,11 @@ static void shadow_contact(void *ctx, Car *car)
 
 /* 00517620..: the followed car's skid marks; 0051c7cf the rows holding one. */
 static SkidMarks skid_marks;
+
+SkidMarks *ported_view_skids(void)
+{
+    return &skid_marks;
+}
 static int32_t skid_node;   /* the camera's node (chase +0x38) */
 
 enum { SKID_HIGH_RES = 1 };  /* 004fa0c0, as drive_hud's HIGH_RES */
