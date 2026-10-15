@@ -188,6 +188,7 @@ add_library(tnfs_game STATIC
     game/race/race_view_tables.c
     game/race/race_menu.c
     game/race/race_menu_tables.c
+    game/race/race_net.c
     game/race/horizon.c
     game/race/model_draw.c
     game/race/race_state.c
@@ -430,7 +431,7 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_frontend tools/probe_frontend.c)
     target_link_libraries(probe_frontend PRIVATE tnfs_game)
     target_compile_options(probe_frontend PRIVATE ${TNFS_WARNINGS})
-    add_executable(probe_input tools/probe_input.c tools/probe_race_menu.c)
+    add_executable(probe_input tools/probe_input.c tools/probe_race_menu.c tools/probe_race_net.c)
     target_link_libraries(probe_input PRIVATE tnfs_game)
     target_compile_options(probe_input PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_needle tools/probe_needle.c)
