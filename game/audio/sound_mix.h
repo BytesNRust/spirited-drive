@@ -37,4 +37,44 @@ typedef struct {
 
 SoundGains sound_pan_gains(uint32_t pan, uint32_t volume);
 
+/* A mixer voice record (004f38f0[slot], 0x70 bytes), the words the port
+ * keeps. Positions are frames: the original keeps the sample's address
+ * shifted right by `shift`, the port the frame from `data`. */
+typedef struct {
+    uint8_t on;            /* +0: 1 while it plays */
+    uint8_t looped;        /* +1 */
+    uint8_t kind;          /* +2: 2 compressed (no CD bank is) */
+    uint8_t has_header;    /* +3 */
+    uint32_t flags;        /* +4: 8 16-bit, 4 stereo, 2 compressed, 0x10 a fixed channel */
+    uint32_t shift;        /* +8: log2 of the bytes per frame */
+    const uint8_t *data;   /* the sample's first byte */
+    uint32_t end;          /* +0x10: the last frame */
+    uint32_t pos;          /* +0x14 */
+    uint32_t frac;         /* +0x18 */
+    uint32_t loop_start;   /* +0x1c */
+    uint32_t loop_end;     /* +0x20 */
+    SoundStep step;        /* +0x24..+0x2c */
+    SoundGains gains;      /* +0x64, +0x68 */
+} MixVoice;
+
+/* 00498552 (esi the record; 004f38c8 the first frame of the accumulator
+ * 004e98ac, 004f38cc the count): `count` frames of an 8-bit mono voice
+ * added into the accumulator's left / right words through the volume table
+ * 004c91ec (built by 004984f6: (int8) sample x 2 x row, the row the gain
+ * >> 10), the position stepped by whole and fraction (the fraction's carry
+ * into the frame); the position and fraction written back. */
+void sound_mix_mono8(MixVoice *v, int32_t *acc, uint32_t count);
+
+/* 00498896 (as 00498552, 16-bit mono): each frame's signed 16-bit sample x
+ * (gain >> 10) >> 7 (arithmetic) into left and right. */
+void sound_mix_mono16(MixVoice *v, int32_t *acc, uint32_t count);
+
+/* 00498c44 (as 00498552, 8-bit stereo): the frame's first byte through the
+ * left gain, its second through the right. */
+void sound_mix_stereo8(MixVoice *v, int32_t *acc, uint32_t count);
+
+/* 00499052 (as 00498896, 16-bit stereo; 004f38b0 is 0): the frame's first
+ * sample through the left gain, its second through the right. */
+void sound_mix_stereo16(MixVoice *v, int32_t *acc, uint32_t count);
+
 #endif

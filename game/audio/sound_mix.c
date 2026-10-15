@@ -178,3 +178,79 @@ SoundGains sound_pan_gains(uint32_t pan, uint32_t volume)
                            (uint32_t)((uint64_t)right * volume / GAIN_FULL) << GAIN_SHIFT };
     return g;
 }
+
+/* 004c91ec[row][sample]: (int8) sample x 2 x row */
+static int32_t volume_row(uint32_t gain, uint8_t sample)
+{
+    return (int32_t)((uint32_t)(int32_t)(int8_t)sample * 2u * (gain >> GAIN_SHIFT));
+}
+
+static void advance(MixVoice *v, uint32_t *pos, uint32_t *frac)
+{
+    const uint32_t f = *frac + v->step.fraction;
+    *pos += v->step.whole + (f < *frac);
+    *frac = f;
+}
+
+void sound_mix_mono8(MixVoice *v, int32_t *acc, uint32_t count)
+{
+    uint32_t pos = v->pos, frac = v->frac;
+    for (uint32_t i = 0; i < count; i++) {
+        const uint8_t s = v->data[pos];
+        acc[2 * i] = (int32_t)((uint32_t)acc[2 * i] + (uint32_t)volume_row(v->gains.left, s));
+        acc[2 * i + 1] = (int32_t)((uint32_t)acc[2 * i + 1] + (uint32_t)volume_row(v->gains.right, s));
+        advance(v, &pos, &frac);
+    }
+    v->pos = pos;
+    v->frac = frac;
+}
+
+enum { SAMPLE16_SHIFT = 7 };
+
+static int32_t sample16(const uint8_t *data, uint32_t frame)
+{
+    return (int16_t)(uint16_t)(data[2 * frame] | data[2 * frame + 1] << 8);
+}
+
+/* imul / sar 7 */
+static uint32_t scaled16(int32_t s, uint32_t gain)
+{
+    return (uint32_t)((int32_t)((uint32_t)s * (gain >> GAIN_SHIFT)) >> SAMPLE16_SHIFT);
+}
+
+void sound_mix_mono16(MixVoice *v, int32_t *acc, uint32_t count)
+{
+    uint32_t pos = v->pos, frac = v->frac;
+    for (uint32_t i = 0; i < count; i++) {
+        const int32_t s = sample16(v->data, pos);
+        acc[2 * i] = (int32_t)((uint32_t)acc[2 * i] + scaled16(s, v->gains.left));
+        acc[2 * i + 1] = (int32_t)((uint32_t)acc[2 * i + 1] + scaled16(s, v->gains.right));
+        advance(v, &pos, &frac);
+    }
+    v->pos = pos;
+    v->frac = frac;
+}
+
+void sound_mix_stereo8(MixVoice *v, int32_t *acc, uint32_t count)
+{
+    uint32_t pos = v->pos, frac = v->frac;
+    for (uint32_t i = 0; i < count; i++) {
+        acc[2 * i] = (int32_t)((uint32_t)acc[2 * i] + (uint32_t)volume_row(v->gains.left, v->data[2 * pos]));
+        acc[2 * i + 1] = (int32_t)((uint32_t)acc[2 * i + 1] + (uint32_t)volume_row(v->gains.right, v->data[2 * pos + 1]));
+        advance(v, &pos, &frac);
+    }
+    v->pos = pos;
+    v->frac = frac;
+}
+
+void sound_mix_stereo16(MixVoice *v, int32_t *acc, uint32_t count)
+{
+    uint32_t pos = v->pos, frac = v->frac;
+    for (uint32_t i = 0; i < count; i++) {
+        acc[2 * i] = (int32_t)((uint32_t)acc[2 * i] + scaled16(sample16(v->data, 2 * pos), v->gains.left));
+        acc[2 * i + 1] = (int32_t)((uint32_t)acc[2 * i + 1] + scaled16(sample16(v->data, 2 * pos + 1), v->gains.right));
+        advance(v, &pos, &frac);
+    }
+    v->pos = pos;
+    v->frac = frac;
+}
