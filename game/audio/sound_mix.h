@@ -140,6 +140,15 @@ int32_t sound_span_packed_loop(MixVoice *v, int32_t left);
  * original spins) gives 0. */
 int32_t sound_span_packed_stream(MixVoice *v, int32_t left);
 
+/* 00498119 (as 0049808a, a plain streamed voice): at its last frame (+0x10)
+ * the stream's next block (0048dda8 into +0x14 / +0x10): its data the
+ * voice's (+0x14 >>= the shift), its last frame the frames given - 1 on
+ * from there (+0x18 kept), and again; none (the stream's end): the voice
+ * stops, 0. A block of no frames handed back again (the original spins)
+ * gives 0. The blocks' data is frame-aligned (the original keeps the
+ * address >> shift). */
+int32_t sound_span_stream(MixVoice *v, int32_t left);
+
 /* 00499c08 (the mixer's output 004f38e8 for 16-bit stereo; 004f38bc the
  * buffer, 004f38b8 the frames): each accumulator word (004e98ac, left and
  * right) saturated to 16 bits. 0 frames: the original's loop counts from

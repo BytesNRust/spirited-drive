@@ -397,6 +397,26 @@ int32_t sound_span_packed_stream(MixVoice *v, int32_t left)
     }
 }
 
+int32_t sound_span_stream(MixVoice *v, int32_t left)
+{
+    const uint8_t *last = NULL;
+    for (;;) {
+        const uint32_t frames = frames_to(v, v->end);
+        if (frames != 0) return at_most(frames, left);
+        const uint8_t *block = NULL;
+        int32_t count = 0;
+        sound_stream_next(v->stream, &block, &count); /* 0048dda8 */
+        v->data = block, v->pos = 0, v->end = (uint32_t)count;
+        if (block == NULL) {
+            v->on = 0;
+            return 0;
+        }
+        if (block == last) return 0; /* the original spins */
+        last = block;
+        v->end = (uint32_t)count - 1;
+    }
+}
+
 /* 00499c08 */
 void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames)
 {
