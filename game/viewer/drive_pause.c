@@ -3,6 +3,7 @@
 
 #include "game/platform/platform.h"
 #include "game/race/car_held.h"
+#include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
 
@@ -43,6 +44,9 @@ static void serve(void *ctx)
 
 static void hud_clear(void *ctx) { drive_hud_clear(((PauseCtx *)ctx)->hud); }
 
+static void forces_off(void *ctx) { race_forces_disable(((PauseCtx *)ctx)->race); }
+static void forces_on(void *ctx) { race_forces_enable(((PauseCtx *)ctx)->race); }
+
 static void take(void *ctx, int32_t kind)
 {
     PauseCtx *c = ctx;
@@ -50,13 +54,13 @@ static void take(void *ctx, int32_t kind)
 }
 
 /* 00455600. The sound calls (0041eba4, 004437c8, 004437f0) wait for the
- * audio (option B); 0043cbcc / 0043cbe0 act only with the CD audio
- * (0052b320); 00524e63 is 0 here, so 00464240 is not reached; 004fb7d4 is 0
- * (no network). */
+ * audio (option B); 0043cbcc / 0043cbe0 turn the controls' forces off and
+ * on (with 0052b320; no force hooks here); 00524e63 is 0 here, so 00464240
+ * is not reached; 004fb7d4 is 0 (no network). */
 static void pause(PauseCtx *c)
 {
     c->pause = (RacePauseInputs){ c->in->keys[KEY_PAUSE], 0, c->race->chase.kind, 0, 0, c->race->tick };
-    const RacePauseOps ops = { c, none, none, none, serve, serve, hud_clear, take, none, none_i, none_wait, none, none };
+    const RacePauseOps ops = { c, none, none, forces_off, serve, serve, hud_clear, take, none, none_i, none_wait, none, forces_on };
     const uint32_t start = platform_ticks_ms();
     race_pause(&ops, &c->pause, &c->p->keys, &c->hud->police.loading);
     c->p->paused_ms += platform_ticks_ms() - start;

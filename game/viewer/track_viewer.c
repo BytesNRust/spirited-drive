@@ -13,6 +13,7 @@
 #include "game/race/car_draw_setup.h"
 #include "game/race/car_scenery.h"
 #include "game/race/frame_draw.h"
+#include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_draw_setup.h"
 #include "game/race/race_models.h"
@@ -1111,6 +1112,10 @@ static void run_sound_end(void *ctx)
     RaceSoundBanks banks = { { 0 }, { 0 }, 0 };
     race_sound_end(&drive_sim.race, &banks, &(const RaceSoundBankOps){ ctx, run_bank_none, run_bank_none });
 }
+/* 0043cbe0 / 0043cbf4 / 0043cbcc: the controls' forces (no force hooks in --drive) */
+static void run_forces_on(void *ctx) { (void)ctx, race_forces_enable(&drive_sim.race); }
+static void run_forces_clear(void *ctx) { (void)ctx, race_forces_clear(&drive_sim.race); }
+static void run_forces_off(void *ctx) { (void)ctx, race_forces_disable(&drive_sim.race); }
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
 static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
@@ -1190,12 +1195,12 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
 static const RaceRunOps *drive_run_ops(void)
 {
     static const RaceRunOps ops = {
-        NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_sound_setup, run_none, run_none, run_none, run_none_i,
+        NULL, run_service, run_screen_mode, run_none_i, run_forces_on, run_forces_clear, run_sound_setup, run_none, run_none, run_none, run_none_i,
         run_none, run_car_draw_setup, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_last_grey, run_none, run_none, run_music_start, run_none, run_none, run_clip, run_queue_reset, run_queue_prime,
         run_none,
-        run_none, run_none, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_none, run_none, run_none,
+        run_none, run_none, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_forces_off, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_sound_end };
     return &ops;
 }
