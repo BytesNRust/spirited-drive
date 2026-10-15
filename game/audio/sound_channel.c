@@ -2,7 +2,28 @@
 
 #include <stddef.h>
 
-enum { FULL_VOLUME = 0x7f };
+enum {
+    FULL_VOLUME = 0x7f,
+    RAND_MUL = 0x41c64e6d,
+    RAND_ADD = 0x3039,
+    RAND_MAX15 = 0x7fff,
+    SPREAD_MAX = 0x10000,
+    SPREAD_HALF = 0x4000
+};
+
+/* 00487bf8 */
+int32_t sound_rand(uint32_t *seed)
+{
+    *seed = *seed * RAND_MUL + RAND_ADD;
+    return (int32_t)(*seed >> 16 & RAND_MAX15);
+}
+
+/* 00497b64 */
+int32_t sound_spread(uint32_t *seed, int32_t spread)
+{
+    const int32_t amount = spread > SPREAD_MAX ? SPREAD_MAX : spread < 0 ? 0 : spread;
+    return (sound_rand(seed) - SPREAD_HALF) * amount / SPREAD_HALF;
+}
 
 /* 00497750 */
 void sound_channel_mix_volume(SoundChannel *c)

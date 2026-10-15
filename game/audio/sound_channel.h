@@ -33,6 +33,14 @@ typedef struct {
     int32_t open;                          /* 004c7b54: the driver is open */
 } SoundChannels;
 
+/* 00487bf8, the C library's rand(): the seed (the thread block [004f3dd8]()
+ * + 0xc) x 0x41c64e6d + 0x3039, its bits 16..30. */
+int32_t sound_rand(uint32_t *seed);
+
+/* 00497b64 (eax the spread): a draw in -spread..spread: the spread kept to
+ * 0..0x10000 (below 0 is 0), x (rand() - 0x4000), / 0x4000 toward 0. */
+int32_t sound_spread(uint32_t *seed, int32_t spread);
+
 /* 00497750 (eax the channel): +0x22 = +0x21 x +0x20 / 0x7f. */
 void sound_channel_mix_volume(SoundChannel *c);
 
