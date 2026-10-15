@@ -142,7 +142,9 @@ typedef struct {
     int32_t unknown_461;  /* 0x461 00430cb0: the front tyres' lever on the yaw (16.16) */
     int32_t unknown_465;  /* 0x465 00430cb0: the rear tyres' lever on the yaw (16.16) */
     int32_t pdn_1c8;  /* 0x469 the PDN's +0x1c8 */
-    uint8_t pad_46d[0xc];
+    uint8_t pad_46d[4];
+    uint32_t unknown_471;  /* 0x471 freed for a human by 00440968 when the specs were loaded already (004bc698) */
+    uint32_t unknown_475;  /* 0x475 the same */
     uint32_t specs;  /* 0x479 the car's performance data */
     int32_t player;  /* 0x47d index of the driver (00509e1c, 0051cc5c + 0x1d2 * i) */
     uint8_t driver_name[9];  /* 0x481 the race entry's name (004400f4) */

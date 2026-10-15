@@ -27,4 +27,19 @@ typedef struct {
  * cops) | 8; load; body(car, i). Then each car's +0x39d 0, and sort. */
 void race_cars_enter(const RaceEnterOps *ops, RaceState *race);
 
+typedef struct {
+    void *ctx;
+    void (*free)(void *ctx, uint32_t block);       /* 00475260 */
+    void (*release)(void *ctx, uint32_t object);   /* 0048da33: the object's count (its first dword's +0xc) - 1, then freed */
+    void (*free_car)(void *ctx, Car *car);         /* 00475260 on the car */
+} RaceLeaveOps;
+
+/* 00440968 (watcall ()): each human i (004fb7e0): free the specs
+ * (+0x479), and with the specs loaded already (004bc698) also +0x471 and
+ * +0x475; then each car below the car count (004fb7e8): release the body
+ * (+0x52e) and far (+0x666) objects, free the model file (+0x792), then
+ * the car. */
+void race_cars_leave(const RaceLeaveOps *ops, Car *const *cars, int32_t humans, int32_t car_count,
+                     int32_t specs_loaded);
+
 #endif

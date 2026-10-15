@@ -28,3 +28,22 @@ void race_cars_enter(const RaceEnterOps *ops, RaceState *race)
     for (int32_t i = 0; i < race->car_count && i < RACE_CARS; i++) race->cars[i]->lateral = 0;
     ops->sort(ops->ctx);
 }
+
+void race_cars_leave(const RaceLeaveOps *ops, Car *const *cars, int32_t humans, int32_t car_count,
+                     int32_t specs_loaded)
+{
+    for (int32_t i = 0; i < humans && i < RACE_CARS; i++) {
+        ops->free(ops->ctx, cars[i]->specs);
+        if (specs_loaded != 0) {
+            ops->free(ops->ctx, cars[i]->unknown_471);
+            ops->free(ops->ctx, cars[i]->unknown_475);
+        }
+    }
+    for (int32_t i = 0; i < car_count && i < RACE_CARS; i++) {
+        Car *car = cars[i];
+        ops->release(ops->ctx, car->body_object);
+        ops->release(ops->ctx, car->far_object);
+        ops->free(ops->ctx, car->model_file);
+        ops->free_car(ops->ctx, car);
+    }
+}
