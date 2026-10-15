@@ -451,6 +451,69 @@ void race_sound_effect_scaled(RaceState *race, int32_t a, int32_t b, int32_t c, 
     if (race->sounds.sound != NULL) race->sounds.sound(race->sounds.user, a, b & 0xff, c & 0xff, x_sar(d, 4), e, f);
 }
 
+/* 00443db8: the rows are tested in this order; b and c are compared as bytes. */
+enum { PICK_NONE = 0, PICK_20 = 0x20, PICK_21 = 0x21, PICK_22 = 0x22, PICK_23 = 0x23, PICK_24 = 0x24, PICK_25 = 0x25 };
+
+int32_t race_sound_pick_any(int32_t speed, int32_t b, int32_t c)
+{
+    const int32_t s = x_sar(speed, 16);
+    const uint8_t kb = (uint8_t)b, kc = (uint8_t)c;
+    if (kb == 0xe || kb == 0xc) return PICK_NONE;
+    if (kb == 0xd) return PICK_20;
+    if (kb == 4 && kc == 1) return PICK_25;
+    if (kb == 2 && kc == 9) return PICK_23;
+    if (kb == 2 && kc == 0xa) return PICK_21;
+    if (kb == 2 && kc == 1) {
+        if (s > 0x50) return PICK_24;
+        if (s > 0x16) return PICK_22;
+        if (s > 0x10) return PICK_23;
+        return PICK_21;
+    }
+    if (s > 0x6e) return PICK_24;
+    if (s > 0x3c) return PICK_22;
+    return PICK_21;
+}
+
+/* 00443c90: every row is tested and the last that matches wins (the engine's
+ * channel may be 2, 3, 4 or 12 too). */
+typedef struct { int32_t channel, b, c, sound; } SoundPick;
+
+enum { PICK_ENGINE = -1 };
+
+static const SoundPick SOUND_PICKS[] = {
+    { PICK_ENGINE, 4, 1, 0x2d }, { PICK_ENGINE, 2, 1, 0x27 }, { PICK_ENGINE, 4, 8, 0x2e },
+    { 2, 4, 1, 0x38 }, { 2, 4, 8, 0x38 }, { 2, 2, 1, 0x34 },
+    { 3, 4, 1, 0x3a }, { 3, 4, 8, 0x3a }, { 3, 2, 1, 0x36 },
+    { 4, 4, 1, 0x2a }, { 4, 4, 8, 0x26 },
+    { 12, 4, 1, 0x2b }, { 12, 4, 8, 0x28 },
+};
+
+int32_t race_sound_pick(const RaceState *race, int32_t channel, int32_t b, int32_t c)
+{
+    const int32_t engine = (int16_t)race->engine_sound.channel;
+    int32_t sound = PICK_NONE;
+    for (size_t i = 0; i < sizeof SOUND_PICKS / sizeof SOUND_PICKS[0]; i++) {
+        const SoundPick *p = &SOUND_PICKS[i];
+        const int32_t want = p->channel == PICK_ENGINE ? engine : p->channel;
+        if (channel == want && (uint8_t)b == p->b && (uint8_t)c == p->c) sound = p->sound;
+    }
+    return sound;
+}
+
+enum { HELD_PITCH_FREE = 4 };
+
+int32_t race_sound_held_pitch(RaceState *race, int32_t channel, int32_t sound, int32_t speed)
+{
+    const int32_t pitch = x_sar(speed, 16);
+    if (channel == HELD_PITCH_FREE) return pitch;
+    if ((uint32_t)channel >= RACE_VOICES) return pitch;  /* port guard: the original indexes unchecked */
+    if (sound != race->voices[channel].sound) {
+        race->sound_pitch[channel] = pitch;
+        return pitch;
+    }
+    return race->sound_pitch[channel];
+}
+
 enum { SIGNAL_CHANNEL = 14, SIGNAL_SOUND = 3, SIGNAL_PITCH = 0x40, SIGNAL_CENTRE = 0x40, SIGNAL_NEAR = 2 };
 
 void race_sound_signal(RaceState *race, int32_t distance, int32_t angle)
@@ -775,4 +838,28 @@ void race_sound_end(RaceState *race, RaceSoundBanks *banks, const RaceSoundBankO
         ops->free(ops->ctx, banks->file[i]);
     }
     banks->count = 0;
+}
+
+enum { PLAY_PHASE_QUIET = 3, PLAY_MODE_MONO = 2, PLAY_ANY_CHANNEL = 4, PLAY_ANY_PITCH = 0x40, PLAY_LOUD_SHIFT = 7 };
+
+void race_sound_play(RaceState *race, int32_t channel, int32_t b, int32_t c, int32_t speed, int32_t distance, int32_t angle)
+{
+    if (race->phase == PLAY_PHASE_QUIET || player_entry(race)->sound_volume == 0) return;
+    if (player_entry(race)->sound_mode == PLAY_MODE_MONO) angle = 0;
+    const int32_t pan = race_sound_pan(angle);
+    const int32_t loud = race_sound_loudness(distance);
+    b &= 0xff, c &= 0xff;
+    if (channel < 0) {
+        race_sound_channel(race, PLAY_ANY_CHANNEL, race_sound_pick_any(speed, b, c), PLAY_ANY_PITCH, loud, pan);
+        return;
+    }
+    if (speed <= 0) {
+        if ((uint32_t)channel < RACE_VOICES && race->voices[channel].voice >= 0)  /* port guard: unchecked in the original */
+            race_sound_channel_stop(race, channel);
+        return;
+    }
+    const int32_t sound = race_sound_pick(race, channel, b, c);
+    const int32_t pitch = race_sound_held_pitch(race, channel, sound, speed);
+    const int32_t volume = channel == PLAY_ANY_CHANNEL ? x_sar(x_mul(speed, loud), PLAY_LOUD_SHIFT) : loud;
+    race_sound_channel(race, channel, sound, pitch, volume, pan);
 }

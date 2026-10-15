@@ -123,6 +123,32 @@ void race_sound_effect(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t
  * and d sar 4. */
 void race_sound_effect_scaled(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
 
+/* 00443db8 (watcall speed, b, c; 00443eac's sound for channel -1, played on
+ * channel 4): b 0xe / 0xc none (0), 0xd 0x20, (4, 1) 0x25, (2, 9) 0x23,
+ * (2, 10) 0x21; (2, 1) by speed >> 16: above 0x50 0x24, 0x16 0x22, 0x10
+ * 0x23, else 0x21; anything else: above 0x6e 0x24, 0x3c 0x22, else 0x21. */
+int32_t race_sound_pick_any(int32_t speed, int32_t b, int32_t c);
+
+/* 00443c90 (watcall channel, b, c): the sound of (channel, b, c) from a fixed
+ * list, the engine's channel (004bcb70's low 16 bits) among the channels;
+ * the last row that matches wins, 0 for none. */
+int32_t race_sound_pick(const RaceState *race, int32_t channel, int32_t b, int32_t c);
+
+/* 00443e70 (watcall channel, sound, speed): speed >> 16 for channel 4; on
+ * another channel the pitch kept for it (004bc6f4) while it plays `sound`,
+ * else speed >> 16, kept. */
+int32_t race_sound_held_pitch(RaceState *race, int32_t channel, int32_t sound, int32_t speed);
+
+/* 00443eac (watcall channel, b, c, speed; distance, angle on the stack, ret
+ * 8; RaceSounds.sound in the race): nothing in phase 3 or while the followed
+ * slot's sound volume is 0; its sound mode 2 takes the angle as 0. pan =
+ * 00443c48(angle), loud = 00471fec(distance), b and c cut to bytes. A
+ * negative channel: 00443db8's sound on channel 4 at pitch 0x40, volume loud.
+ * Else speed 0 or below stops the channel (0044432c) when it has a voice;
+ * otherwise 00443c90's sound at 00443e70's pitch, volume loud (channel 4:
+ * speed x loud >> 7), through 0044404c. */
+void race_sound_play(RaceState *race, int32_t channel, int32_t b, int32_t c, int32_t speed, int32_t distance, int32_t angle);
+
 /* 004442ec (watcall distance, angle; from 0047217c while the viewed car's
  * +0x4ba is set, a horn?): sound 3 on channel 14 at pitch 0x40, as loud as
  * 00471fec makes `distance`, panned by `angle` (00443c48) unless distance
