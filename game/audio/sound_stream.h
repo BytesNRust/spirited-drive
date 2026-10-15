@@ -49,4 +49,15 @@ void sound_stream_next(SoundStream *s, const uint8_t **block, int32_t *frames);
  * original writes address 0; the port does nothing. */
 void sound_stream_drop(SoundStream *s);
 
+/* 0048e054's units */
+enum { SOUND_STREAM_BYTES, SOUND_STREAM_FRAMES, SOUND_STREAM_TIME };
+
+/* 0048e054 (eax the unit): with the stream not failed (state != 0; else
+ * -1), the bytes queued from the head - its size (+4) and each next
+ * block's while that block links on (the walk stops at a block whose word
+ * is 0, so the tail itself counts only as the head), or at -1 / -2 - then
+ * as bytes, frames (/ 004c7970 x 004c7988) or time ((frames << 12) /
+ * (rate >> 4) x 004c7988: 1/65536 s); another unit -1. No head: 0. */
+int32_t sound_stream_queued(const SoundStream *s, uint32_t unit);
+
 #endif
