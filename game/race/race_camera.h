@@ -33,4 +33,16 @@ void race_send_force(const Car *car, RaceState *race);
  * any other clear them. The pair kept, except after a send's return. */
 void race_send_vibration(const Car *car, RaceState *race);
 
+/* 0043cbe0 (watcall (), from 00455a5c's setup and the pause's end): with
+ * the forces on (0052b320, a word), _EnableForces. */
+void race_forces_enable(RaceState *race);
+
+/* 0043cbcc (watcall (), from 00455a5c's teardown and the pause): with the
+ * forces on, _DisableForces. */
+void race_forces_disable(RaceState *race);
+
+/* 0043cbf4 (watcall (), from 00455a5c's setup / teardown and 0043d120):
+ * with the forces on, _ClearForces and 004fcdd4 = 0. */
+void race_forces_clear(RaceState *race);
+
 #endif

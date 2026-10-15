@@ -117,6 +117,11 @@ typedef struct {
     void (*vibration_clear)(void *user, int32_t axis);
     /* 00473c68: a playing voice stopped; NULL for none. */
     void (*voice_stop)(void *user, int32_t voice);
+    /* 004acd90 / 004acd96 / 004acd9c (_EnableForces, _DisableForces,
+     * _ClearForces): the controls' forces; NULL for none. */
+    void (*forces_enable)(void *user);
+    void (*forces_disable)(void *user);
+    void (*forces_clear)(void *user);
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */

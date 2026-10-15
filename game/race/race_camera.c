@@ -149,3 +149,20 @@ void race_send_vibration(const Car *car, RaceState *race)
     }
     keep_shake(race, level, strength);
 }
+
+void race_forces_enable(RaceState *race)
+{
+    if (race->effects != 0 && race->sounds.forces_enable != NULL) race->sounds.forces_enable(race->sounds.user);
+}
+
+void race_forces_disable(RaceState *race)
+{
+    if (race->effects != 0 && race->sounds.forces_disable != NULL) race->sounds.forces_disable(race->sounds.user);
+}
+
+void race_forces_clear(RaceState *race)
+{
+    if (race->effects == 0) return;
+    if (race->sounds.forces_clear != NULL) race->sounds.forces_clear(race->sounds.user);
+    race->force_off = 0;
+}
