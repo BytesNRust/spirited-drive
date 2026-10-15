@@ -91,3 +91,10 @@ int32_t sound_handle_stopped(const SoundChannels *s, int32_t handle)
 {
     return sound_handle_check(s, handle) < 0;
 }
+
+/* 00497b34 */
+void sound_channels_reset(SoundChannels *s)
+{
+    for (int k = 0; k < SOUND_CHANNELS; k++) s->channel[k].busy = 0;
+    for (int i = 0; i < SOUND_HANDLES; i++) s->handle[i] = SOUND_HANDLE_FREE;
+}

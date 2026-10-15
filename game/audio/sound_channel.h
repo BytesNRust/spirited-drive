@@ -37,6 +37,10 @@ typedef struct {
     int32_t open;                          /* 004c7b54: the driver is open */
 } SoundChannels;
 
+/* 00497b34 (from 0049212c, before the device opens; its 3 arguments
+ * unused): each channel not busy (+0x12 = 0), every handle free (-1). */
+void sound_channels_reset(SoundChannels *s);
+
 /* 00487bf8, the C library's rand(): the seed (the thread block [004f3dd8]()
  * + 0xc) x 0x41c64e6d + 0x3039, its bits 16..30. */
 int32_t sound_rand(uint32_t *seed);
