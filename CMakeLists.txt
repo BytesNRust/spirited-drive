@@ -104,6 +104,7 @@ add_library(tnfs_game STATIC
     game/audio/sound_driver.c
     game/audio/sound_bank.c
     game/audio/sound_adpcm.c
+    game/audio/sound_stream.c
     game/race/mouse_steer.c
     game/race/input_read.c
     game/race/input_setup.c
