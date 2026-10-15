@@ -23,4 +23,11 @@ void sound_driver_wire(SoundDriver *d);
  * during a race). */
 int32_t sound_stop(SoundDriver *d, int32_t handle);
 
+/* 00497640 (eax the channel mask, edx the priority): from the cursor
+ * 004c7f24 round, the first channel in the mask that is free (+0x12 0);
+ * else the first whose priority (+0x10) is at most `priority`, its sound
+ * stopped (its handle +0x11 through 00473c68); the cursor moved past it
+ * (16 -> 0) and the channel returned; -20 when none. */
+int32_t sound_channel_pick(SoundDriver *d, uint32_t mask, int32_t priority);
+
 #endif

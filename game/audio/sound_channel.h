@@ -28,6 +28,7 @@ typedef struct {
     SoundChannel channel[SOUND_CHANNELS];  /* 0052f978 */
     int32_t handle[SOUND_HANDLES];         /* 004c7d94: the channel, -1 free */
     uint32_t handle_cursor;                /* 004c7f28 */
+    uint32_t channel_cursor;               /* 004c7f24 */
     int32_t open;                          /* 004c7b54: the driver is open */
 } SoundChannels;
 
