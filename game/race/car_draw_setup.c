@@ -12,3 +12,9 @@ void car_draw_setup(CarDrawSetup *s, SkidMarks *marks, uint8_t *(*alloc)(void *c
     for (int i = 0; i < CAR_DRAW_MODELS; i++) s->model_first[i] = 0;
     skid_reset(marks);
 }
+
+void car_draw_models_free(const CarDrawSetup *s, void (*release)(void *ctx, uint32_t object), void *ctx)
+{
+    for (int i = 0; i < CAR_DRAW_MODELS; i++)
+        if (s->model_first[i] != 0) release(ctx, s->model_object[i]);
+}
