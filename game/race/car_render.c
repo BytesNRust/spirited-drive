@@ -3,6 +3,8 @@
 #include "game/race/car_draw.h"
 #include "game/sys/fixed_math.h"
 
+#include <string.h>
+
 enum {
     MIN_Z = 0x20, MAX_Z = 0x5a00, MIRROR_MAX_Z = 0x2100, MIRROR_FAR_Z = 0xa00, FAR_Z = 0x1900, NEAR_Z = 0x219,
     ALWAYS_NEAR_SLOT = 2, ANGLE_SHIFT = 14, TRAIL_BIT = 2,
@@ -87,7 +89,9 @@ void car_render(const CarRenderOps *ops, const CarRenderInputs *in, Car *car, in
     mat3_mul(body, in->camera_matrix, world);
     ops->near(ops->ctx, car->body_object, z < NEAR_Z);
     ops->near(ops->ctx, car->far_object, z < NEAR_Z);
-    ops->body(ops->ctx, car, world, car->camera_position);
+    int32_t position[3];  /* +0x391 copied: the packed record's field is not aligned for a pointer */
+    memcpy(position, car->camera_position, sizeof position);
+    ops->body(ops->ctx, car, world, position);
     if (in->followed == car->index && in->replay == 0) {
         if (car->flags_175 & TRAIL_BIT) draw_trail(ops, car);
         return;
