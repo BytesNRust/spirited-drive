@@ -765,3 +765,14 @@ void race_music_start(const RaceMusicOps *ops, int16_t music)
     }
     ops->play(ops->ctx, track);
 }
+
+void race_sound_end(RaceState *race, RaceSoundBanks *banks, const RaceSoundBankOps *ops)
+{
+    for (int32_t k = 0; k < RACE_VOICES; k++) race_sound_channel_stop(race, k);
+    for (int32_t i = banks->count - 1; i >= 0; i--) {
+        if (i >= RACE_SOUND_BANKS) continue;  /* port guard: the original reads past the six */
+        ops->unregister(ops->ctx, banks->registered[i]);
+        ops->free(ops->ctx, banks->file[i]);
+    }
+    banks->count = 0;
+}

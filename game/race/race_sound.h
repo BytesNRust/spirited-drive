@@ -91,6 +91,26 @@ void race_sound_channel_at(RaceState *race, int32_t channel, int32_t sound, int3
  * (0044432c) while it plays one of the car sounds 0x3f..0x41. */
 void race_sound_held_car(RaceState *race);
 
+enum { RACE_SOUND_BANKS = 6 };
+
+/* 0050a54c / 0050a564 / 004bc6e8: the sound banks 004438c8 loaded, each
+ * registered with the driver (0048ed30) and its file. */
+typedef struct {
+    uint32_t registered[RACE_SOUND_BANKS];  /* 0050a54c */
+    uint32_t file[RACE_SOUND_BANKS];        /* 0050a564 */
+    int32_t count;                          /* 004bc6e8 */
+} RaceSoundBanks;
+
+typedef struct {
+    void *ctx;
+    void (*unregister)(void *ctx, uint32_t bank);   /* 0048edfc (eax) */
+    void (*free)(void *ctx, uint32_t file);         /* 0047529c */
+} RaceSoundBankOps;
+
+/* 00443be0 (watcall ()): channels 0..15 stopped (0044432c), then the
+ * banks from the last down: unregister, its file freed; the count 0. */
+void race_sound_end(RaceState *race, RaceSoundBanks *banks, const RaceSoundBankOps *ops);
+
 /* 0044432c (watcall channel): the channel's voice stopped (00473c68) when
  * it has one (not negative), then the channel's voice and sound -1. */
 void race_sound_channel_stop(RaceState *race, int32_t channel);
