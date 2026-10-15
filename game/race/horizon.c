@@ -99,21 +99,27 @@ static void flat_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t rows,
     fill(d->target, d->clip, y, rows, colour);
 }
 
-/* 0043a18c */
-static void flat_band(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
+/* 004fbb10 + i: past the 0x1e0 rows the original reads on into 004fbcf0 (the columns). */
+static int row_at(const HorizonTables *t, int32_t i)
 {
-    const FlatDraw *d = user;
-    const HorizonTables *t = d->t;
-    const ClipRect *clip = d->clip;
-    const int32_t w = horz->width;
-    int32_t rows = fx_mul_round(t->scale, horz->height - 1);
-    int skip = 0;
-    if (y < clip->y0) {
-        skip = clip->y0 - y;
-        y = clip->y0;
+    if (i < HORIZON_ROWS) return t->row_map[i];
+    const int32_t c = (i - HORIZON_ROWS) / 4;
+    if (c > HORIZON_MAX_WIDTH) return t->row_map[HORIZON_ROWS - 1];  /* port guard: past 004fc6f4 */
+    return (int)(((uint32_t)t->columns[c] >> (8 * ((i - HORIZON_ROWS) % 4))) & 0xFF);
+}
+
+void horizon_band(const HorizonTables *t, const HorizonTarget *target, int32_t clip_top, int32_t clip_bottom,
+                  const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
+{
+    const int32_t w = (int16_t)horz->width;
+    int32_t rows = fx_mul_round(t->scale, (int16_t)horz->height - 1);
+    int32_t skip = 0;
+    if (y < clip_top) {
+        skip = clip_top - y;
+        y = clip_top;
         rows -= skip;
     }
-    if (clip->y1 < y + rows) rows = clip->y1 - y;
+    if (clip_bottom < y + rows) rows = clip_bottom - y;
     int split = 0;
     if (t->columns[0] + x_offset < 0) {
         first_row++;
@@ -121,13 +127,18 @@ static void flat_band(void *user, const FshEntry *horz, int32_t x_offset, int32_
     } else {
         while (split < t->width && t->columns[split] + x_offset < w) split++;
     }
-    for (int r = 0; r < rows; r++) {
-        const int source_row = skip + r < HORIZON_ROWS ? t->row_map[skip + r] : t->row_map[HORIZON_ROWS - 1];
-        const int32_t base = x_offset + w * (first_row + source_row);
-        uint8_t *dst = d->target->pixels + (size_t)(y + r) * d->target->pitch + x;
-        gather(dst, horz, base, t->columns, split);
-        gather(dst + split, horz, base - w, t->columns + split, t->width - split);
+    for (int32_t r = 0; r < rows; r++) {
+        const int32_t base = x_offset + w * (first_row + row_at(t, skip + r));
+        uint8_t *dst = target->pixels + (size_t)(y + r) * target->pitch + x;
+        if (split != 0) gather(dst, horz, base, t->columns, split);
+        if (t->width - split != 0) gather(dst + split, horz, base - w, t->columns + split, t->width - split);
     }
+}
+
+static void flat_band(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
+{
+    const FlatDraw *d = user;
+    horizon_band(d->t, d->target, d->clip->y0, d->clip->y1, horz, x_offset, first_row, x, y);
 }
 
 void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,

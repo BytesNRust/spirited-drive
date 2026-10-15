@@ -71,6 +71,17 @@ typedef struct {
 void horizon_flat(const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t scale, const HorizonBox *box,
                   int32_t line, const HorizonFlatSink *sink);
 
+/* 0043a18c (watcall horz, x_offset, first_row, x; y on the stack): the
+ * bitmap's rows through the tables (row_map 004fbb10, columns 004fbcf0,
+ * width 004fcd6c, scale 004fcd70) from (x, y) down, (height - 1) x scale
+ * rows clipped to clip_top..clip_bottom (004c78c0, 004c78c8). Each row is
+ * two runs of 0048cc49: the columns that fall left of the bitmap's edge
+ * (or right of it) read the neighbouring bitmap row, wrapping the panorama.
+ * Reads outside the bitmap are skipped (the original reads whatever lies
+ * there). */
+void horizon_band(const HorizonTables *t, const HorizonTarget *target, int32_t clip_top, int32_t clip_bottom,
+                  const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y);
+
 /* 0043ae64 + 0043a18c: the flat horizon in the clip rectangle (the box). */
 void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
                        const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line);
