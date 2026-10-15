@@ -338,6 +338,33 @@ int32_t sound_span_packed(MixVoice *v, int32_t left)
     return decode_span(v, at_most(frames, left));
 }
 
+enum { PACKED_LOOP_LIMIT = 0xffff };  /* 004f38d8's start */
+
+int32_t sound_span_packed_loop(MixVoice *v, int32_t left)
+{
+    int32_t limit = PACKED_LOOP_LIMIT;
+    if ((int32_t)(v->src_loop_start - v->src_pos) >= 0) {
+        const uint32_t to_start = frames_between(v->src_pos, v->src_loop_start, v->step.step);
+        if (to_start == 0) {
+            v->saved_sample = v->sample;
+            v->saved_index = v->index;
+        } else {
+            limit = (int32_t)to_start;
+        }
+    }
+    uint32_t frames = frames_between(v->src_pos, v->src_loop_end, v->step.step);
+    if (frames == 0) {
+        v->src_pos = v->src_loop_start;
+        v->src_frac = 0;
+        v->frac = 0;
+        v->sample = v->saved_sample;
+        v->index = v->saved_index;
+        frames = frames_between(v->src_pos, v->src_loop_end, v->step.step);
+        if (frames == 0) return 0; /* the original loops forever */
+    }
+    return decode_span(v, at_most((uint32_t)at_most(frames, left), limit));
+}
+
 /* 00499c08 */
 void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames)
 {

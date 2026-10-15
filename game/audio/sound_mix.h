@@ -120,6 +120,15 @@ int32_t sound_span_loop(MixVoice *v, int32_t left);
  * past it and the voice's position the buffer's first frame (+0x18 kept). */
 int32_t sound_span_packed(MixVoice *v, int32_t left);
 
+/* 00498198 (as 004983c5, a compressed looped voice): at or past the loop's
+ * start (+0x44) no limit (0xffff), less than a frame before it the decoder's
+ * state saved (+0x34 / +0x30 into +0x50 / +0x54), further before it at most
+ * the frames to it; at the loop's end (+0x48) back to its start with both
+ * fractions 0 and the state restored (a loop of no frames: the original
+ * spins, the port gives 0); the frames to the loop's end at most
+ * `left` and the limit, decoded as 004983c5. */
+int32_t sound_span_packed_loop(MixVoice *v, int32_t left);
+
 /* 00499c08 (the mixer's output 004f38e8 for 16-bit stereo; 004f38bc the
  * buffer, 004f38b8 the frames): each accumulator word (004e98ac, left and
  * right) saturated to 16 bits. 0 frames: the original's loop counts from
