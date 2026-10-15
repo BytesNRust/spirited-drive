@@ -1064,6 +1064,8 @@ static void run_car_draw_setup(void *ctx)
 /* 00464604: the music's volume; the music is not played yet (option B: the sound output waits for the full race). */
 static void run_music_volume(void *user, int16_t volume) { (void)user, (void)volume; }
 
+static void run_last_grey(void *ctx) { (void)ctx, race_palette_last_grey(drive_hud_palette_write, &drive_hud); }  /* 00446918 */
+
 static void run_sound_setup(void *ctx) { (void)ctx, race_sound_setup(&drive_sim.race, run_music_volume, NULL); }  /* 00443b64 */
 
 static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(&drive_sim.race); }  /* 0044d2c4 */
@@ -1161,7 +1163,7 @@ static const RaceRunOps *drive_run_ops(void)
         NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_sound_setup, run_none, run_none, run_none, run_none_i,
         run_none, run_car_draw_setup, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
-        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
+        run_none, run_last_grey, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_none, run_frame, run_draw, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none };
     return &ops;
