@@ -2,6 +2,7 @@
 
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_enter.h"
 
 #include "game/race/ai_drive.h"
 #include "game/race/ai_manager.h"
@@ -127,6 +128,47 @@ static void sim_crash(void *user, uint32_t target, int32_t up, int32_t along, in
     if (pushed != NULL) car_push_spin(pushed, race, up, along, side);
 }
 
+/* 00440858's calls in race_sim: the cars are the sim's slots, each entered with its specs and handle, its PDN
+ * (the field's own, else what its load gives) for the body. */
+typedef struct {
+    RaceSim *sim;
+    const RaceField *field;
+    const CarPdn *loaded;
+} EnterCtx;
+
+static void enter_tables(void *ctx) { (void)ctx; }  /* 0043f994: race_sim_start_field set its words before */
+static void enter_load_pick(void *ctx, int32_t first) { race_loading_pick(&((EnterCtx *)ctx)->sim->race, first); }
+static void enter_sort(void *ctx) { race_sort_cars(&((EnterCtx *)ctx)->sim->race); }
+
+static Car *enter_alloc(void *ctx, int32_t size)
+{
+    (void)size;
+    RaceSim *sim = ((EnterCtx *)ctx)->sim;
+    int32_t i = 0;
+    while (i < RACE_CARS - 1 && sim->race.cars[i] != NULL) i++;  /* made in slot order */
+    return &sim->slots[i].car;
+}
+
+static void enter_car(void *ctx, Car *car)
+{
+    RaceSim *sim = ((EnterCtx *)ctx)->sim;
+    const int i = car->index;
+    car_enter(car, &sim->specs[i], CAR_HANDLE * (uint32_t)(i + 1), &sim->race);
+}
+
+static void enter_load(void *ctx, Car *car)
+{
+    EnterCtx *e = ctx;
+    e->loaded = e->field->load != NULL ? e->field->load(e->field->user, car, &e->sim->race) : NULL;  /* 00457d40 */
+}
+
+static void enter_body(void *ctx, Car *car, int32_t slot)
+{
+    EnterCtx *e = ctx;
+    const CarPdn *pdn = e->field->pdns[slot] != NULL ? e->field->pdns[slot] : e->loaded;
+    if (pdn != NULL) car_body_init(car, pdn);
+}
+
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade)
 {
@@ -171,24 +213,10 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     sim->count = race->car_count;
     sim->specs[0] = *specs;
     for (int i = 0; i < RACE_CARS; i++) race->by_node[i] = race->by_progress[i] = i;
-    for (int i = 0; i < sim->count; i++) race->cars[i] = &sim->slots[i].car;
-    /* 00440858: each slot entered (004406d0), marked racer or police by its
-     * place, its model loaded (00457d40), then its body from the PDN (004407b8). */
-    for (int i = 0; i < sim->count; i++) {
-        if (i == 2) race_loading_pick(race, 0);  /* 00440858: 004571e8(0) before slot 2 */
-        Car *car = &sim->slots[i].car;
-        car->index = i;
-        car->player = i;
-        car_enter(car, &sim->specs[i], CAR_HANDLE * (uint32_t)(i + 1), race);
-        car->flags_51a = (uint8_t)((car->flags_51a | FLAG_ACTIVE) & ~FLAG_RETIRED);
-        if (i >= race->humans && i < race->racers) car->flags_174 |= RACER;
-        if (i >= race->racers && i < race->racers + race->cops) car->flags_174 |= COP;
-        const CarPdn *loaded = field->load != NULL ? field->load(field->user, car, race) : NULL;  /* 00457d40 */
-        const CarPdn *pdn = field->pdns[i] != NULL ? field->pdns[i] : loaded;
-        if (pdn != NULL) car_body_init(car, pdn);
-    }
-    for (int i = 0; i < sim->count; i++) sim->slots[i].car.lateral = 0;
-    race_sort_cars(race);
+    EnterCtx ctx = { sim, field, NULL };
+    const RaceEnterOps ops = { &ctx, enter_tables, enter_load_pick, enter_alloc, enter_car, enter_load, enter_body,
+                               enter_sort };
+    race_cars_enter(&ops, race);  /* 00440858 */
     race->manager_countdown = 1;  /* 0040fec8 */
     /* 00455a5c runs 004702d4 after the cars are entered (00440858); the
      * row it passes is what 00475c14(0) leaves in al, unknown, and only
