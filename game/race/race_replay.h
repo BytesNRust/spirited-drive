@@ -110,4 +110,16 @@ typedef struct {
  * 004c53a8 = 004c5388 = 0051371c = 0, the byte 005137e4 = 0. */
 void race_replay_start(RaceReplayStart *w, uint8_t *(*alloc)(void *ctx, int32_t size), void *ctx);
 
+typedef struct {
+    void *ctx;
+    void (*save)(void *ctx);                 /* 0044d420: the replay written to its file */
+    void (*free)(void *ctx, uint8_t *block); /* 00475260 */
+} RaceReplayEndOps;
+
+/* 0044eef8 (watcall (), from 00455a5c's teardown): with 004fbb0c set and
+ * playback not 1: save unless the end state (00509d70) is 0x40 or 0x20,
+ * then the recording (004c53b4) freed when held (not cleared). */
+void race_replay_end(const RaceReplayEndOps *ops, int32_t w4fbb0c, int16_t playback, int32_t end_state,
+                     uint8_t *recording);
+
 #endif

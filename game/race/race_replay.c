@@ -4,6 +4,7 @@
 #include <string.h>
 
 enum { CLOCK_STEP = 4, BYTE = 8 };
+enum { END_NO_SAVE = 0x40, END_NO_SAVE_TOO = 0x20 };  /* 0044eef8: the end states (00509d70) that save no replay */
 
 static void put(uint8_t *recording, size_t size, int64_t at, uint8_t value)
 {
@@ -215,4 +216,12 @@ void race_replay_start(RaceReplayStart *w, uint8_t *(*alloc)(void *ctx, int32_t 
     for (int i = 0; i < RACE_NOTES; i++) w->notes[i] = 0;
     w->camera_roll_add = w->unknown_4c5388 = w->unknown_51371c = 0;
     w->unknown_5137e4 = 0;
+}
+
+void race_replay_end(const RaceReplayEndOps *ops, int32_t w4fbb0c, int16_t playback, int32_t end_state,
+                     uint8_t *recording)
+{
+    if (w4fbb0c == 0 || playback == 1) return;
+    if (end_state != END_NO_SAVE && end_state != END_NO_SAVE_TOO) ops->save(ops->ctx);
+    if (recording != NULL) ops->free(ops->ctx, recording);
 }
