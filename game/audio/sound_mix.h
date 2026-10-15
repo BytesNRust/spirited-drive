@@ -40,7 +40,9 @@ SoundGains sound_pan_gains(uint32_t pan, uint32_t volume);
 /* A mixer voice record (004f38f0[slot], 0x70 bytes), the words the port
  * keeps. Positions are frames: the original keeps the sample's address
  * shifted right by `shift`, the port the frame from `data`. */
-typedef struct {
+typedef struct MixVoice MixVoice;
+
+struct MixVoice {
     uint8_t on;            /* +0: 1 while it plays */
     uint8_t looped;        /* +1 */
     uint8_t kind;          /* +2: 2 compressed (no CD bank is) */
@@ -54,8 +56,10 @@ typedef struct {
     uint32_t loop_start;   /* +0x1c */
     uint32_t loop_end;     /* +0x20 */
     SoundStep step;        /* +0x24..+0x2c */
+    void (*mix)(MixVoice *v, int32_t *acc, uint32_t count);  /* +0x5c: the format's mixer */
+    int32_t (*span)(MixVoice *v, int32_t left);              /* +0x60: frames to the segment's end */
     SoundGains gains;      /* +0x64, +0x68 */
-} MixVoice;
+};
 
 /* 00498552 (esi the record; 004f38c8 the first frame of the accumulator
  * 004e98ac, 004f38cc the count): `count` frames of an 8-bit mono voice
@@ -94,5 +98,26 @@ int32_t sound_span_loop(MixVoice *v, int32_t left);
  * right) saturated to 16 bits. 0 frames: the original's loop counts from
  * -1 through the whole address space; the port writes nothing. */
 void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames);
+
+enum { SOUND_VOICES = 16, SOUND_MIX_FRAMES = 0x400 };
+
+/* The mixer's state: the 16 records 004f38f0[], the accumulator 004e98ac
+ * and the driver's stop hook 004f38ec (the slot of a one-shot voice that
+ * reached its end). */
+typedef struct {
+    MixVoice *voice[SOUND_VOICES];
+    void (*stopped)(void *ctx, uint32_t slot);
+    void *ctx;
+    int32_t acc[2 * SOUND_MIX_FRAMES];
+} SoundMixer;
+
+/* 00497cb2 (cdecl buffer, frames): more than 0x400 frames does nothing (0);
+ * else the accumulator cleared (00499d13), each playing voice (+0 == 1) in
+ * slot order mixed segment by segment (its span, then its mixer on the
+ * span's frames from the first not yet mixed) until the frames are filled
+ * or the span gives less than 1, then the output 004f38e8 (00499c08 for
+ * 16-bit stereo) into `out`. 0 or fewer frames: the original's clear and
+ * output run past their buffers; the port does nothing. */
+int sound_mix_frames(SoundMixer *m, int16_t *out, int32_t frames);
 
 #endif

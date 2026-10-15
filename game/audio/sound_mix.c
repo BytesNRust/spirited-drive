@@ -1,5 +1,7 @@
 #include "game/audio/sound_mix.h"
 
+#include <stddef.h>
+
 enum {
     CENTS_STEPS = 1200,       /* one octave */
     CENTS_BIAS = 0x2000,
@@ -298,4 +300,27 @@ void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames)
 {
     for (uint32_t i = 0; i < 2 * frames; i++)
         out[i] = (int16_t)(acc[i] > INT16_MAX ? INT16_MAX : acc[i] < INT16_MIN ? INT16_MIN : acc[i]);
+}
+
+/* 00497cb2 */
+int sound_mix_frames(SoundMixer *m, int16_t *out, int32_t frames)
+{
+    if (frames > SOUND_MIX_FRAMES) return 0;
+    if (frames < 1) return 1; /* the original runs past its buffers */
+    for (int32_t i = 0; i < 2 * frames; i++) m->acc[i] = 0; /* 00499d13 */
+    for (uint32_t slot = 0; slot < SOUND_VOICES; slot++) {
+        MixVoice *v = m->voice[slot];
+        if (v == NULL || v->on != 1) continue;
+        int32_t left = frames, first = 0;
+        do {
+            const int32_t count = v->span(v, left);
+            if (v->on == 0 && m->stopped != NULL) m->stopped(m->ctx, slot); /* 00497e6a's hook 004f38ec */
+            if (count < 1) break;
+            left -= count;
+            v->mix(v, m->acc + 2 * first, (uint32_t)count);
+            first += count;
+        } while (left > 0);
+    }
+    sound_out_s16(m->acc, out, (uint32_t)frames);
+    return 1;
 }
