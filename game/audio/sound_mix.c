@@ -376,3 +376,10 @@ void sound_voice_start(MixVoice *v, const SoundStart *s, uint32_t mix_rate)
     v->gains = sound_pan_gains(s->pan, s->volume);
     v->on = v->span != NULL; /* the original: 1 */
 }
+
+/* 00497e6a */
+void sound_voice_stop(SoundMixer *m, uint32_t slot)
+{
+    m->voice[slot]->on = 0;
+    if (m->stopped != NULL) m->stopped(m->ctx, slot);
+}

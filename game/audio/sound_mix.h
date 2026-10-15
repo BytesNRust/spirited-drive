@@ -121,6 +121,10 @@ typedef struct {
  * output run past their buffers; the port does nothing. */
 int sound_mix_frames(SoundMixer *m, int16_t *out, int32_t frames);
 
+/* 00497e6a (cdecl slot): the slot's voice off (+0 = 0), then the stop hook
+ * 004f38ec with the slot. */
+void sound_voice_stop(SoundMixer *m, uint32_t slot);
+
 /* 00497d5b's arguments (cdecl slot, then these in order) */
 typedef struct {
     const uint8_t *data;   /* the first sample byte */
