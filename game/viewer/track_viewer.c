@@ -717,19 +717,34 @@ static void drive_frame_in(FrameDraw *d, RaceState *race)
     drive_hud.view_changed = &d->changed;
 }
 
+/* 00458d4c's 00458614 and 00458818 on cars[004fbb08] as it draws it (models 200 and up have the wheel refs). The
+ * wheel frames only after a tick: the window draws two frames a tick, and a frame without one sees the car still
+ * (its front wheels would stop). */
+static int render_ticked;
+
+static int has_wheels(const Car *car)
+{
+    const int32_t slot = car->index;
+    return slot >= 0 && slot < RACE_CARS && drive_cars.loaded[slot] && drive_sim.race.models[slot] >= 200;
+}
+
+static void drive_wheel_frames(void *ctx, Car *car)
+{
+    (void)ctx;
+    if (render_ticked && has_wheels(car)) car_wheel_frames(car, &drive_sim.race, bind_wheels, NULL);
+}
+
+static void drive_steer(void *ctx, Car *car)
+{
+    (void)ctx;
+    if (has_wheels(car)) car_steer_wheels(car, &drive_sim.race, morph_wheels, NULL);
+}
+
 static void render_drive(const Track *t, uint8_t *pixels)
 {
-    /* 00458d4c: 00458614 and 00458818 on cars[004fbb08] as it draws it.
-     * The wheel frames only after a tick: the window draws two frames a
-     * tick, and a frame without one sees the car still (its front wheels
-     * would stop). TODO: only when that car is drawn this frame. */
     RaceState *race = &drive_sim.race;
-    Car *followed = race->cars[race_slot(race->player)];
-    const int32_t player = race_slot(race->player);
-    if (followed != NULL && drive_cars.loaded[player] && race->models[player] >= 200) {
-        if (drive_cars.ticked) car_wheel_frames(followed, race, bind_wheels, NULL);
-        car_steer_wheels(followed, race, morph_wheels, NULL);
-    }
+    render_ticked = drive_cars.ticked;
+    ported_view_set_wheels(drive_wheel_frames, drive_steer, NULL);
     const int ticked = drive_cars.ticked;
     drive_cars.ticked = 0;
     if (ticked) draw_rands.count = 0;

@@ -11,6 +11,8 @@
 #include "game/race/car_shadow.h"
 #include "game/race/car_tag.h"
 #include "game/race/car_lights.h"
+#include "game/race/car_body_draw.h"
+#include "game/race/car_render.h"
 #include "game/gfx/x86_int.h"
 #include "game/race/car_wheels.h"
 #include "game/gfx/flat.h"
@@ -308,36 +310,9 @@ static void trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y)
     sprite_scaled_blend_at(object_pixels.target, puff_blend->rows, puff_art->smok, scale, x, y);
 }
 
-enum { CAR_SMOKE = 2 };  /* car +0x175 bit 1: the crash smoke runs (car_crash_tick.c's FLAG_SMOKE) */
 
 static int32_t last_near_dir[3];
 static int32_t last_near;
-
-/* 004591d4 after the car: the crash smoke while the followed car's +0x175 bit 1 is set, outside replays; its puffs
- * moved by the model's 'smok' point on screen less the car's place on screen (0044a1c4), or not for the far model. */
-static void draw_crash_trail(const Car *car, const CarModel *model)
-{
-    if (puff_trail == NULL || puff_art->smok == NULL || shadow_race->replay != 0 || !(car->flags_175 & CAR_SMOKE)) return;
-    int32_t offset[2] = { 0, 0 };
-    const int32_t point = car->smoke_point;
-    if (car->far == 0 && point >= 0 && (uint32_t)point < model->body->vertex_count) {
-        TrackCamera cam = { { 0 }, { 0 }, 0 };
-        memcpy(cam.position, model_view.camera_position, sizeof cam.position);
-        memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
-        DrawContext dc = { 0 };
-        dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
-        memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
-        dc.near = last_near;
-        const int32_t place[3] = { car->x, car->y, car->z };
-        int32_t camera[3], screen[2];
-        track_point_screen(&cam, &dc, place, camera, screen);
-        offset[0] = model->body->screen[point][0] - screen[0];
-        offset[1] = model->body->screen[point][1] - screen[1];
-    }
-    const CrashTrailView v = { model_view.view, model_view.camera_position, model_view.camera_matrix, WORLD_SHIFT, NULL,
-                               trail_puff };
-    crash_trail_draw(puff_trail, offset, &v);
-}
 
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
@@ -370,30 +345,78 @@ static void tag_line(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, 
     flat_line(object_pixels.target, x0, y0, x1, y1, colour);
 }
 
-enum { TAG_HIGH_LIFT = 0x3800, TAG_HIGH_GAP = 15, TAG_LOW_LIFT = 0x2000, TAG_LOW_GAP = 7 };
+/* 004591d4 / 00458d4c on the slot's CarModel: car +0x52e / +0x666 hold no handles in the port, so the model is the
+ * far one while +0x78e is set, and the parts come in 00458d4c's order (inside, surface, outside, convex, those below
+ * 8), as CarModel keeps its sections. */
+typedef struct {
+    ViewCar *vc;
+    Car *car;
+    const Object3DSink *sink;
+    int32_t eye[3];
+    int part;
+} BodyCtx;
 
-/* 004591d4's tail for a car other than the viewed one (or any in a replay): in races of type 1 and up, a racer
- * (slot below 004fb7dc) gets its mark (00459064) above its place on screen (0044a1c4), lifted by 0x3800 / z + 15
- * (0x2000 / z + 7 at low resolution). */
-static void draw_tag(const Car *car)
+static const int32_t IDENTITY[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
+
+static Object3D *body_model(const BodyCtx *b) { return b->car->far != 0 ? b->vc->model.far : b->vc->model.body; }
+
+static void body_eye(void *ctx, const int32_t eye[3]) { memcpy(((BodyCtx *)ctx)->eye, eye, sizeof ((BodyCtx *)ctx)->eye); }
+static void body_matrix(void *ctx, uint32_t object, const void *m) { (void)object, object3d_set_matrix(body_model(ctx), m); }
+static void body_transform(void *ctx, uint32_t object)
 {
-    const RaceState *race = shadow_race;
-    if (tag_colours == NULL || race->race_type < 1 || car->index > race->racers - 1 || car->index >= tag_colour_count) return;
-    TrackCamera cam = { { 0 }, { 0 }, 0 };
-    memcpy(cam.position, model_view.camera_position, sizeof cam.position);
-    memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
-    DrawContext dc = { 0 };
-    dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
-    memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
-    dc.near = last_near;
-    const int32_t place[3] = { car->x, car->y, car->z };
-    int32_t camera[3], screen[2];
-    track_point_screen(&cam, &dc, place, camera, screen);
-    const int high = SKID_HIGH_RES != 0;
-    const int32_t lift = x_div(high ? TAG_HIGH_LIFT : TAG_LOW_LIFT, camera[2]) + (high ? TAG_HIGH_GAP : TAG_LOW_GAP);
-    const CarTagOps ops = { NULL, tag_polygon, tag_line };
-    const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, race->humans, 0 };
-    car_tag(&ops, &v, screen[0], screen[1] - lift, car->index, camera[2]);
+    (void)object, object3d_transform(body_model(ctx), IDENTITY, ((BodyCtx *)ctx)->eye, 0);
+}
+static void body_project(void *ctx, uint32_t object) { (void)object, object3d_project(body_model(ctx), model_view.view); }
+static void body_sort(void *ctx, uint32_t object) { (void)object, object3d_sort(body_model(ctx)); }
+static void body_draw(void *ctx, uint32_t object)
+{
+    (void)object, object3d_draw(body_model(ctx), MODEL_NEAR_Z, ((BodyCtx *)ctx)->sink);
+}
+
+static int32_t part_of(const Car *car, int k)
+{
+    const int32_t parts[CAR_SECTIONS] = { car->inside_part, car->surface_part, car->outside_part, car->convex_part };
+    return parts[k];
+}
+
+/* the next part below 8 from b->part on (004918e1 and 00491c8a come in pairs) */
+static Object3DList *body_list(BodyCtx *b)
+{
+    while (b->part < CAR_SECTIONS && (uint32_t)part_of(b->car, b->part) >= 8) b->part++;
+    return b->part < CAR_SECTIONS ? &b->vc->model.sections[b->part] : NULL;
+}
+static void body_sort_list(void *ctx, uint32_t object, int32_t count, uint32_t list)
+{
+    (void)object, (void)count, (void)list;
+    Object3DList *l = body_list(ctx);
+    if (l != NULL && l->order != NULL) object3d_sort_list(body_model(ctx), l);
+}
+static void body_draw_list(void *ctx, uint32_t object, int32_t count, uint32_t list)
+{
+    (void)object, (void)count, (void)list;
+    BodyCtx *b = ctx;
+    const Object3DList *l = body_list(b);
+    if (l != NULL && l->order != NULL) object3d_draw_list(body_model(b), l, MODEL_NEAR_Z, b->sink);
+    b->part++;
+}
+
+/* 00458614 / 00458818: the viewer's hooks (track_viewer.c keeps when the wheels turn). */
+static void (*wheel_frames_hook)(void *ctx, Car *car);
+static void (*steer_hook)(void *ctx, Car *car);
+static void *wheel_ctx;
+
+void ported_view_set_wheels(void (*frames)(void *ctx, Car *car), void (*steer)(void *ctx, Car *car), void *ctx)
+{
+    wheel_frames_hook = frames, steer_hook = steer, wheel_ctx = ctx;
+}
+
+static void body_wheels(void *ctx, Car *car) { (void)ctx; if (wheel_frames_hook != NULL) wheel_frames_hook(wheel_ctx, car); }
+static void body_steer(void *ctx, Car *car) { (void)ctx; if (steer_hook != NULL) steer_hook(wheel_ctx, car); }
+
+static void body_smoke(void *ctx, Car *car, int32_t in_car)
+{
+    (void)ctx;
+    if (puff_art != NULL && puff_blend != NULL && puff_rand != NULL) smoke_draw(car, in_car);
 }
 
 /* 00476460 and 0051c798; 0051c7f8 / 004c5820 the police flash's last turn and phase */
@@ -408,45 +431,102 @@ void ported_view_set_lights(void (*write)(void *ctx, int32_t first, int32_t coun
     light_write = write, light_ctx = ctx, light_slots = slot_colours;
 }
 
-/* 00458d4c before the near model: the car's lights in the palette. */
-static void set_lights(const Car *car)
+static void body_palette(void *ctx, int32_t first, int32_t count, const uint8_t *colours)
 {
-    if (light_write == NULL || car->far != 0) return;
+    (void)ctx;
+    if (light_write != NULL) light_write(light_ctx, first, count, colours);
+}
+
+static const uint8_t NO_SLOT_COLOURS[RACE_CARS + 1];
+
+/* 00458d4c(car, 0051c774, +0x391) */
+static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int32_t position[3])
+{
+    BodyCtx *b = ctx;
     const RaceState *race = shadow_race;
-    const CarLightInputs in = { { race->stop_notice[0], race->stop_notice[1] }, light_slots, race->finish_cars, race->tick,
+    const CarBodyOps ops = { b, body_eye, body_matrix, body_transform, body_project, body_sort, body_draw, body_sort_list,
+                             body_draw_list, body_wheels, body_steer, body_smoke, body_palette };
+    const CarLightInputs in = { { race->stop_notice[0], race->stop_notice[1] },
+                                light_slots != NULL ? light_slots : NO_SLOT_COLOURS, race->finish_cars, race->tick,
                                 &flash_tick, &flash };
-    const CarLightOps ops = { light_ctx, light_write };
-    car_lights(&ops, &in, car);
+    b->part = 0;
+    car_body_draw(&ops, &in, car, followed_car(), matrix, position);
 }
 
-/* 004591d4's +0x78e, set once the car is in view (0045a3e8's camera-space place, +0x391 / +0x399): the low detail
- * model past 0x1900 (not for slot 2), past 0xa00 in the mirror pass, which leaves out cars past 0x2100. */
-static int set_far(Car *car, int pass)
+/* the object's +0x10 bit 1, on both models (the port's handles do not tell them apart) */
+static void render_near(void *ctx, uint32_t object, int on)
 {
-    const int32_t x = car->camera_position[0], z = car->camera_position[2];
-    const int64_t across = x < 0 ? -(int64_t)x : x;
-    if (z < CAR_MIN_Z || z > CAR_MAX_Z || 2 * (int64_t)z < across || (pass && z > CAR_MIRROR_MAX_Z)) return 0;
-    car->far = pass ? z > CAR_MIRROR_FAR_Z : z > CAR_FAR_Z && car->index != 2;
-    return 1;
+    (void)object;
+    const BodyCtx *b = ctx;
+    Object3D *models[2] = { b->vc->model.body, b->vc->model.far };
+    for (int i = 0; i < 2; i++) {
+        if (models[i] == NULL) continue;
+        if (on) models[i]->flags |= OBJECT3D_FLAG_NEAR;
+        else models[i]->flags &= ~(uint32_t)OBJECT3D_FLAG_NEAR;
+    }
 }
 
-/* 004591d4: the car's model, at the pose the list gave it; for the followed car its tyre smoke and crash smoke. */
+/* the near model's projected point (its +0x7c) */
+static void render_vertex(void *ctx, uint32_t object, int32_t index, int32_t out[2])
+{
+    (void)object;
+    const Object3D *body = ((BodyCtx *)ctx)->vc->model.body;
+    const int in_range = index >= 0 && (uint32_t)index < body->vertex_count;
+    out[0] = in_range ? body->screen[index][0] : 0;
+    out[1] = in_range ? body->screen[index][1] : 0;
+}
+
+/* 0044a1c4 with the frame's camera */
+static void render_point(void *ctx, Car *car, int32_t camera[3], int32_t screen[2])
+{
+    (void)ctx;
+    TrackCamera cam = { { 0 }, { 0 }, 0 };
+    memcpy(cam.position, model_view.camera_position, sizeof cam.position);
+    memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
+    DrawContext dc = { 0 };
+    dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
+    memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
+    dc.near = last_near;
+    const int32_t place[3] = { car->x, car->y, car->z };
+    track_point_screen(&cam, &dc, place, camera, screen);
+}
+
+/* 00456f34(005146ac, offset) */
+static void render_trail(void *ctx, const int32_t offset[2])
+{
+    (void)ctx;
+    if (puff_trail == NULL || puff_art == NULL || puff_art->smok == NULL) return;
+    const CrashTrailView v = { model_view.view, model_view.camera_position, model_view.camera_matrix, WORLD_SHIFT, NULL,
+                               trail_puff };
+    crash_trail_draw(puff_trail, offset, &v);
+}
+
+/* 00459064 */
+static void render_tag(void *ctx, int32_t x, int32_t y, int32_t slot, int32_t z)
+{
+    (void)ctx;
+    if (tag_colours == NULL || slot < 0 || slot >= tag_colour_count) return;
+    const CarTagOps ops = { NULL, tag_polygon, tag_line };
+    const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, shadow_race->humans, 0 };
+    car_tag(&ops, &v, x, y, slot, z);
+}
+
+/* 0051c774 */
+static int32_t car_world[9];
+
+/* 004591d4 */
 static void row_draw(void *ctx, Car *car, int pass)
 {
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
-    if (set_far(car, pass) && pass == 0) set_lights(car);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
-            const CarSmokeHook smoke = { car, smoke_draw };
-            const int smoking = car == followed_car() && puff_art != NULL && puff_blend != NULL && puff_rand != NULL;
-            const int drawn = car_draw_smoking(&cars[i].model, &cars[i].pose, &model_view, pass, &sink, smoking ? &smoke : NULL);
-            if (!drawn) continue;
-            if (car == followed_car() && shadow_race->replay == 0) {
-                if (smoking) draw_crash_trail(car, &cars[i].model);
-            } else {
-                draw_tag(car);
-            }
+            BodyCtx b = { &cars[i], car, &sink, { 0, 0, 0 }, 0 };
+            const RaceState *race = shadow_race;
+            const CarRenderOps ops = { &b, render_body, render_near, render_vertex, render_point, render_trail, render_tag };
+            const CarRenderInputs in = { model_view.camera_matrix, race->player, race->replay, race->race_type, race->racers,
+                                         SKID_HIGH_RES };
+            car_render(&ops, &in, car, pass, car_world);
         }
 }
 

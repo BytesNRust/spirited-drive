@@ -102,6 +102,9 @@ void ported_view_set_tags(const uint8_t *colours, int count, uint32_t outline);
 void ported_view_set_lights(void (*write)(void *ctx, int32_t first, int32_t count, const uint8_t *colours), void *ctx,
                             const uint8_t *slot_colours);
 
+/* 00458d4c's 00458614 and 00458818 for the followed car as it is drawn. */
+void ported_view_set_wheels(void (*frames)(void *ctx, Car *car), void (*steer)(void *ctx, Car *car), void *ctx);
+
 void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (*rand_below)(void *ctx, int32_t n),
                            void *ctx, CrashTrail *trail);
 
