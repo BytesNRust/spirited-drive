@@ -4,6 +4,7 @@
 #define TNFS_SOUND_MIX_H
 
 #include "game/audio/sound_adpcm.h"
+#include "game/audio/sound_stream.h"
 
 #include <stdint.h>
 
@@ -74,6 +75,7 @@ struct MixVoice {
     uint32_t saved_index;  /* +0x54 */
     SoundDecoder *decode;  /* +0x58 */
     int16_t *buffer;       /* 004eb8ac: what a compressed span decodes into, SOUND_DECODE_SAMPLES */
+    SoundStream *stream;   /* a streamed voice's queue (the original's globals) */
     void (*mix)(MixVoice *v, int32_t *acc, uint32_t count);  /* +0x5c: the format's mixer */
     int32_t (*span)(MixVoice *v, int32_t left);              /* +0x60: frames to the segment's end */
     SoundGains gains;      /* +0x64, +0x68 */
@@ -128,6 +130,15 @@ int32_t sound_span_packed(MixVoice *v, int32_t left);
  * spins, the port gives 0); the frames to the loop's end at most
  * `left` and the limit, decoded as 004983c5. */
 int32_t sound_span_packed_loop(MixVoice *v, int32_t left);
+
+/* 004982a5 (as 004983c5, a compressed streamed voice): at the source's
+ * end, the stream's next block (0048dda8 into +0x38 / +0x4c): its five
+ * words - samples (+0x4c), left / right step index (+0x30 = l << 6 |
+ * r << 22) and predictors (+0x34 = l & 0xffff | r << 16) - and its data at
+ * +0x14 (+0x40, +0x38 0), and again; none (the stream's end): the voice
+ * stops, 0. A block of no samples that the queue hands back again (the
+ * original spins) gives 0. */
+int32_t sound_span_packed_stream(MixVoice *v, int32_t left);
 
 /* 00499c08 (the mixer's output 004f38e8 for 16-bit stereo; 004f38bc the
  * buffer, 004f38b8 the frames): each accumulator word (004e98ac, left and

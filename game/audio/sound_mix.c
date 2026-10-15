@@ -365,6 +365,38 @@ int32_t sound_span_packed_loop(MixVoice *v, int32_t left)
     return decode_span(v, at_most((uint32_t)at_most(frames, left), limit));
 }
 
+enum { BLOCK_SAMPLES = 0, BLOCK_INDEX_L = 4, BLOCK_INDEX_R = 8, BLOCK_SAMPLE_L = 0xc, BLOCK_SAMPLE_R = 0x10, BLOCK_DATA = 0x14 };
+
+static uint32_t block_word(const uint8_t *b, uint32_t at)
+{
+    return (uint32_t)b[at] | (uint32_t)b[at + 1] << 8 | (uint32_t)b[at + 2] << 16 | (uint32_t)b[at + 3] << 24;
+}
+
+int32_t sound_span_packed_stream(MixVoice *v, int32_t left)
+{
+    const uint8_t *last = NULL;
+    for (;;) {
+        const uint32_t frames = frames_between(v->src_pos, v->src_end, v->step.step);
+        if (frames != 0) return decode_span(v, at_most(frames, left));
+        const uint8_t *block = NULL;
+        int32_t count = 0;
+        sound_stream_next(v->stream, &block, &count); /* 0048dda8 */
+        v->src_end = (uint32_t)count;
+        if (block == NULL) {
+            v->src_pos = 0;
+            v->on = 0;
+            return 0;
+        }
+        if (block == last) return 0; /* the original spins */
+        last = block;
+        v->src = block + BLOCK_DATA;
+        v->src_end = block_word(block, BLOCK_SAMPLES);
+        v->src_pos = 0;
+        v->index = block_word(block, BLOCK_INDEX_L) << 6 | block_word(block, BLOCK_INDEX_R) << 22;
+        v->sample = (block_word(block, BLOCK_SAMPLE_L) & 0xffff) | block_word(block, BLOCK_SAMPLE_R) << 16;
+    }
+}
+
 /* 00499c08 */
 void sound_out_s16(const int32_t *acc, int16_t *out, uint32_t frames)
 {
