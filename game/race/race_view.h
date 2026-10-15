@@ -109,4 +109,19 @@ typedef struct {
 void race_camera_view(View *view, const RaceCameraPair *pair, int rear, const int32_t shake[2], int32_t screen_shift,
                       const RaceCamera **camera, const int32_t **matrix);
 
+typedef struct {
+    void *ctx;
+    void (*layout)(void *ctx, RaceCamera *camera, int32_t layout);  /* 00405154 */
+} RaceViewScreenOps;
+
+/* 0040540c (watcall (step, size), from 0044ca3c with the bytes 004fb784 and
+ * 004fb789): size held to 2. The first camera (004b78a8): view (+0xc) =
+ * its +8, *window_size (00511ff0) = size, its row (+0x18) that view's of
+ * the mode, 00405154 on the row's layout for size. The second (004b78c8):
+ * view = its +8 + step, its row, views->changed (00511fec) = 1, 00405154 on
+ * the row's layout for *window_size; changed = 1 again. The rows are
+ * indexed unchecked (the port's callers keep the views 0..6). */
+void race_view_screen(const RaceViewScreenOps *ops, RaceViews *views, RaceCamera *first, RaceCamera *second,
+                      int32_t step, int32_t size, int32_t *window_size);
+
 #endif

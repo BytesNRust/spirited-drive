@@ -74,3 +74,18 @@ void race_view_window(const RaceCamera *second, int32_t window_size, int32_t *sp
     *size = window_size;
     *span = (int32_t)((uint32_t)second->view - (uint32_t)second->unknown_08);
 }
+
+void race_view_screen(const RaceViewScreenOps *ops, RaceViews *views, RaceCamera *first, RaceCamera *second,
+                      int32_t step, int32_t size, int32_t *window_size)
+{
+    if (size > VIEW_SIZE_LARGEST) size = VIEW_SIZE_LARGEST;
+    first->view = first->unknown_08;
+    *window_size = size;
+    first->view_row = &views->rows[views->mode][first->view];
+    ops->layout(ops->ctx, first, first->view_row->layouts[size]);
+    second->view = x_add(second->unknown_08, step);
+    second->view_row = &views->rows[views->mode][second->view];
+    views->changed = 1;
+    ops->layout(ops->ctx, second, second->view_row->layouts[*window_size]);
+    views->changed = 1;
+}
