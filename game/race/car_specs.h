@@ -81,7 +81,8 @@ typedef struct {
     int32_t rpm_drop;  /* 0x360 0042ee68: revs lost per tick above the target */
     int32_t rpm_catch_up;  /* 0x364 0042ee68: revs gained per tick below the target */
     int32_t engine_brake;  /* 0x368 0042f138 */
-    uint8_t pad_36c[0x8];
+    int32_t eye_height;  /* 0x36c the in-car eye's height, into view kinds 0 and 10 (00405630) */
+    int32_t dash_drop;  /* 0x370 less 0x6c: how far the in-car layouts move down (00405630) */
     uint8_t grip_front[512];  /* 0x374 grip by slip angle (>> 12), x 0x200 (0042fb88) */
     uint8_t grip_rear[512];  /* 0x574 copied from the front in arcade mode */
     int32_t checksum;  /* 0x774 sum of the first 0x758 bytes */

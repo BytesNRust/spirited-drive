@@ -89,3 +89,60 @@ void race_view_screen(const RaceViewScreenOps *ops, RaceViews *views, RaceCamera
     ops->layout(ops->ctx, second, second->view_row->layouts[*window_size]);
     views->changed = 1;
 }
+
+enum { DASH_BASE = 0x6c, DASH_LOW_DIV = 200, DASH_HIGH_ROWS = 480, VIEW_SIZE_FIRST = 0 };
+
+static void start_camera(const RaceViewStartOps *ops, RaceViews *views, RaceCamera *cam, int32_t view, int changed)
+{
+    cam->view = view;
+    const ViewRow *row = &views->rows[views->mode][view];
+    if (changed) views->changed = 1;
+    cam->view_row = row;
+    ops->layout(ops->ctx, cam, row->layouts[VIEW_SIZE_FIRST]);
+}
+
+static void start_viewport(const RaceViewStartOps *ops, const RaceCamera *cam)
+{
+    const ViewLayout *l = cam->layout_row;
+    ops->viewport(ops->ctx, x_add(l->left, l->x), x_add(l->top, l->y), l->width, l->height, cam->fov);
+    ops->reciprocals(ops->ctx);
+}
+
+/* 004055d0 (watcall model) */
+static void model_heights(RaceViews *views, const int32_t (*model_y)[VIEW_MODELS][3], int32_t model)
+{
+    const int32_t mode = views->mode;
+    const int32_t v = model_y[mode][model][0];
+    views->layouts[mode][0].unknown_24 = v;
+    views->layouts[mode][1].unknown_24 = v;
+    views->layouts[mode][2].unknown_24 = v / 2;
+}
+
+static void drop_layouts(RaceViews *views, int mode, int32_t drop, int32_t divide)
+{
+    for (int k = 0; k < VIEW_SIZES; k++) {
+        ViewLayout *l = &views->layouts[mode][views->rows[mode][0].layouts[k]];
+        l->y = (int32_t)((uint32_t)l->height * (uint32_t)drop) / divide;
+    }
+}
+
+void race_view_start(const RaceViewStartOps *ops, RaceViews *views, RaceCamera cams[VIEW_START_CAMERAS],
+                     const RaceViewStartInputs *in, RaceViewStartOut *out)
+{
+    start_camera(ops, views, &cams[0], cams[0].unknown_08, 0);
+    start_camera(ops, views, &cams[1], x_add(cams[1].unknown_08, in->step), 1);
+    start_camera(ops, views, &cams[2], cams[2].unknown_08, 1);
+    views->changed = 1;
+    start_viewport(ops, &cams[0]);
+    out->recip = ops->recip_table(ops->ctx);
+    start_viewport(ops, &cams[2]);
+    cams[0].unknown_14 = out->recip;
+    cams[1].unknown_14 = out->recip;
+    cams[2].unknown_14 = VIEW_RECIP_TABLE;
+    out->eye[0] = in->eye_height;
+    out->eye[1] = in->eye_height;
+    model_heights(views, in->model_y, in->model);
+    const int32_t drop = x_sub(in->dash, DASH_BASE);
+    drop_layouts(views, 0, drop, DASH_LOW_DIV);
+    drop_layouts(views, 1, (int32_t)((uint32_t)drop * (uint32_t)DASH_HIGH_ROWS) / DASH_LOW_DIV, DASH_HIGH_ROWS);
+}

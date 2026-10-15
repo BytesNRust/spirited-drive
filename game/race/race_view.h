@@ -124,4 +124,44 @@ typedef struct {
 void race_view_screen(const RaceViewScreenOps *ops, RaceViews *views, RaceCamera *first, RaceCamera *second,
                       int32_t step, int32_t size, int32_t *window_size);
 
+enum { VIEW_START_CAMERAS = 3, VIEW_MODELS = 12, VIEW_RECIP_TABLE = 0x4f7010 };
+
+typedef struct {
+    void *ctx;
+    void (*layout)(void *ctx, RaceCamera *camera, int32_t layout);                                     /* 00405154 */
+    void (*viewport)(void *ctx, int32_t left, int32_t top, int32_t width, int32_t height, int32_t fov);  /* 00405284 */
+    void (*reciprocals)(void *ctx);                                                                    /* 00475e44 */
+    int32_t (*recip_table)(void *ctx);                                                  /* 00475e30(004f7010) */
+} RaceViewStartOps;
+
+typedef struct {
+    int32_t step;               /* 004fa0c4: added to the second camera's view */
+    int32_t eye_height;         /* the followed car's (00509e1c[004fbb08]) specs +0x36c */
+    int32_t dash;               /* its specs +0x370 */
+    int32_t model;              /* its +0x48a */
+    const int32_t (*model_y)[VIEW_MODELS][3];  /* 004b790c: by mode and model, the first word read */
+} RaceViewStartInputs;
+
+typedef struct {
+    int32_t recip;              /* 004f8018: 00475e30's answer */
+    int32_t eye[2];             /* 004b6f28, 004b6bb8: view kinds 10 and 0's target y */
+} RaceViewStartOut;
+
+/* 00405630 (watcall (), from 00404404): the three cameras 004b78a8 / c8 / e8
+ * take their +8 as view (the second plus step), its row of the mode, and
+ * 00405154 on the row's layout for size 0, 00511fec = 1 after the first;
+ * 00405284(left + x, top + y, width, height, fov) on the first's and the
+ * third's layout rows (+0x1c), each followed by 00475e44, 004f8018 =
+ * 00475e30(004f7010) between them; the first two cameras' +0x14 = it, the
+ * third's 004f7010. Kinds 10 and 0 take the eye height. 004055d0(model):
+ * layouts 0, 1, 2 of the mode get +0x24 = model_y[mode][model], the same,
+ * half of it. Then with d = dash - 0x6c, each layout of mode 0's row 0
+ * (sizes 0..3) has y = height x d / 200, and mode 1's height x (d x 480 /
+ * 200) / 480 (32-bit products, idiv). */
+/* 004b790c as the exe starts (race_view_tables.c). */
+extern const int32_t race_view_model_y[VIEW_SCREEN_MODES][VIEW_MODELS][3];
+
+void race_view_start(const RaceViewStartOps *ops, RaceViews *views, RaceCamera cams[VIEW_START_CAMERAS],
+                     const RaceViewStartInputs *in, RaceViewStartOut *out);
+
 #endif
