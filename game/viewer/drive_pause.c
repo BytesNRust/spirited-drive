@@ -85,10 +85,16 @@ static void pause(PauseCtx *c)
     c->p->paused_ms += platform_ticks_ms() - start;
 }
 
-/* 004b90dc: the in-race menu (00447564) is not ported yet. */
+/* 004b90dc: the in-race menu (00447564, drive_menu) or the pause; the timer stands still through either */
 static void call(void *ctx, int which)
 {
-    if (which == RACE_SCHEDULE_PAUSE) pause(ctx);
+    PauseCtx *c = ctx;
+    if (which == RACE_SCHEDULE_PAUSE) pause(c);
+    if (which == RACE_SCHEDULE_MENU && c->p->menu != NULL) {
+        const uint32_t start = platform_ticks_ms();
+        c->p->menu(c->p->menu_user);
+        c->p->paused_ms += platform_ticks_ms() - start;
+    }
 }
 
 static int32_t notice_up(void *ctx) { return race_stop_notice_up(((PauseCtx *)ctx)->race); }

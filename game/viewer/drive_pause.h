@@ -15,6 +15,8 @@ typedef struct {
     RaceMenuKeysState keys;                    /* 00513e50, 00513e54, 0052b314, 00509d70 */
     uint32_t paused_ms;     /* the time the last pause took: the timer stands still while 004fcdac is set (0043b970) */
     int quit;               /* the window closed during the pause */
+    void (*menu)(void *user);  /* 004b90dc[0], the in-race menu (00447564); NULL none */
+    void *menu_user;
 } DrivePause;
 
 void drive_pause_start(DrivePause *p);

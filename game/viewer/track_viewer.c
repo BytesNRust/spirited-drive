@@ -33,6 +33,7 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_keys.h"
+#include "viewer/drive_menu.h"
 #include "viewer/drive_pause.h"
 #include "viewer/drive_replay.h"
 #include "viewer/drive_palette.h"
@@ -426,6 +427,8 @@ static DriveKeys drive_keys;
 static DriveReplay drive_replay;
 enum { KEY_F9 = 0x43 };
 static DrivePause drive_pause;
+static DriveMenu drive_menu;
+static char drive_name[16];  /* the track the menu maps */
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
 typedef struct {
@@ -931,6 +934,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_input_start(&drive_input, &drive_sim.race);
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
+    snprintf(drive_name, sizeof drive_name, "%s", name);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
     memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
     drive_views.mode = HIGH_SCREEN;
@@ -1032,8 +1036,8 @@ static void run_service(void *ctx)
     }
     drive_audio_pump();
     if (!platform_poll_events()) r->quit = 1;
-    for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
-        if (key == PLATFORM_KEY_ESCAPE) r->quit = 1;
+    for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)  /* Esc is the menu's (004557f4) */
+        if (key == PLATFORM_KEY_ESCAPE && drive_pause.menu == NULL) r->quit = 1;
     if (r->quit) r->w->running = 0;
     const uint32_t now = platform_ticks_ms();
     /* the timer written elsewhere (the start zeroes it): count on from its value */
@@ -1207,6 +1211,9 @@ static int drive_window(const Track *t, uint8_t *pixels)
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
     drive_audio_open(&drive_sim.race, drive_cars.data_root);
+    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys.pending, -1, 0, 0 };
+    if (drive_menu_open(&drive_menu, drive_cars.data_root, drive_name))
+        drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;
@@ -1225,6 +1232,8 @@ static int drive_window(const Track *t, uint8_t *pixels)
         drive_audio_pump();
         platform_wait_vblank();
     }
+    drive_pause.menu = NULL;
+    if (drive_menu.ready) drive_menu_close(&drive_menu);
     drive_audio_close();
     platform_shutdown();
     return 1;
