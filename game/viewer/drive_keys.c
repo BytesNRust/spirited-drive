@@ -77,11 +77,12 @@ static void detail(void *ctx, int32_t value)
     race_detail_request(value, &((KeysCtx *)ctx)->keys->detail_pending);
 }
 
-/* 00443768 / 0044379c: the music on and off, waiting for the audio */
-static void no_music(void *ctx)
-{
-    (void)ctx;
-}
+/* 0046463c / 00464604: no music in --drive yet */
+static void no_music(void *user, int16_t volume) { (void)user, (void)volume; }
+
+/* 00443768 / 0044379c: F5, the sound off and on */
+static void sound_off(void *ctx) { race_sound_mute(((KeysCtx *)ctx)->race, no_music, NULL); }
+static void sound_on(void *ctx) { race_sound_unmute(((KeysCtx *)ctx)->race, no_music, NULL); }
 
 void drive_keys_start(DriveKeys *k)
 {
@@ -92,8 +93,8 @@ void drive_keys_start(DriveKeys *k)
 void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *views)
 {
     KeysCtx c = { k, in, race, views };
-    const RaceKeysOps ops = { &c, follow, viewed_changed, follow_own, own_changed, reset, f1, screen, detail, no_music,
-                              no_music };
+    const RaceKeysOps ops = { &c, follow, viewed_changed, follow_own, own_changed, reset, f1, screen, detail, sound_off,
+                              sound_on };
     const RaceKeysInputs inputs = { in->keys, in->codes[INPUT_KEY_HOLD], 0, 0, race->humans, race->phase,
                                     W513730_UNKNOWN, race->race_type, race->replay, race->playback, TIMER_8D8_UNKNOWN, race->player, 0,
                                     HIGH_RESOLUTION };
