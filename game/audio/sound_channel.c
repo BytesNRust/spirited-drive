@@ -57,3 +57,10 @@ int32_t sound_handle_free(SoundChannels *s, int32_t handle)
     s->handle[handle] = SOUND_HANDLE_FREE;
     return 0;
 }
+
+/* 00497870 */
+int32_t sound_channel_stopped(SoundChannels *s, int32_t slot)
+{
+    const int32_t handle = slot < 0 || slot >= SOUND_CHANNELS ? -1 : s->channel[slot].handle;
+    return sound_handle_free(s, handle);
+}

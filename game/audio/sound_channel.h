@@ -51,4 +51,9 @@ SoundChannel *sound_handle_channel(SoundChannels *s, int32_t handle);
  * frees both (+0x12 = 0, the handle -1), 0; else -1. */
 int32_t sound_handle_free(SoundChannels *s, int32_t handle);
 
+/* 00497870 (eax the mixer slot; the mixer's stop hook 004f38ec): the
+ * slot's channel's handle (+0x11; -1 for a slot outside 0..15) freed
+ * (00497980). */
+int32_t sound_channel_stopped(SoundChannels *s, int32_t slot);
+
 #endif
