@@ -20,6 +20,10 @@ void race_scenery_state_free(const RaceFreeOps *ops, uint32_t *scenery_state);
  * from 00451040) held, free it and the pointer = 0. */
 void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm);
 
+/* 00446acc (watcall ()): with the pointer's bank (004bcbd0, gmouse.fsh
+ * from 00446a0c) held, free it and the pointer = 0. */
+void race_pointer_bank_free(const RaceFreeOps *ops, uint32_t *bank);
+
 /* 0043b924 (watcall ()): the sky ring's object (004fccf0, 0043abfc's)
  * freed whatever it holds; not cleared. */
 void race_sky_ring_free(const RaceFreeOps *ops, uint32_t ring);

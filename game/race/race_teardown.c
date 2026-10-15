@@ -13,6 +13,13 @@ void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm)
     *rrsm = 0;
 }
 
+void race_pointer_bank_free(const RaceFreeOps *ops, uint32_t *bank)
+{
+    if (*bank == 0) return;
+    ops->free(ops->ctx, *bank);
+    *bank = 0;
+}
+
 void race_sky_ring_free(const RaceFreeOps *ops, uint32_t ring)
 {
     ops->free(ops->ctx, ring);
