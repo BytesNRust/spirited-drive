@@ -5,8 +5,10 @@
 #include "game/frontend/dialog.h"
 #include "game/gfx/blit.h"
 #include "game/platform/platform.h"
+#include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_menu.h"
+#include "game/race/race_sound.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
@@ -58,6 +60,7 @@ static QuadTarget target(const MenuCtx *c)
 static void call(void *ctx, uint32_t address)
 {
     MenuCtx *c = ctx;
+    RaceState *race = c->m->race;
     switch (address) {
     case 0x4104d0:  /* the loop's network poll; the race's clock 004bb8dc and the keyboard's 004c693d run on */
         drive_audio_pump();
@@ -78,7 +81,15 @@ static void call(void *ctx, uint32_t address)
     case 0x441814: pointer_click_feedback(); break;
     case 0x464088: pointer_activate_if_moved(); break;
     case 0x41e364: drive_hud_clear(c->m->hud); break;
-    default: break;  /* the sound, music, network and screen-mode calls: --drive keeps its own */
+    case 0x443c34: race_sound_channels_stop(race); break;
+    case 0x443820: race_sound_start_voices(race); break;
+    case 0x444394: if (race->sounds.start_engine != NULL) race->sounds.start_engine(race->sounds.user); break;
+    case 0x44435c: if (race->sounds.stop_engine != NULL) race->sounds.stop_engine(race->sounds.user); break;
+    case 0x43cbcc: race_forces_disable(race); break;
+    case 0x43cbe0: race_forces_enable(race); break;
+    case 0x43cbf4: race_forces_clear(race); break;
+    case 0x4557e8: c->m->keys->last = race->tick; break;  /* 00513e54 = 00513e70 */
+    default: break;  /* the menu's own sounds and music, the network and the screen modes: not in --drive */
     }
 }
 
@@ -187,7 +198,7 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
     w->esc_down = esc_down();
     w->end_state = race->end_state, w->unknown_4fbb0c = race->unknown_4fbb0c;
     w->follow = race->chase.kind, w->phase = race->phase;
-    w->unknown_513e50 = *m->pending;
+    w->unknown_513e50 = m->keys->pending;
 }
 
 void drive_menu_run(void *menu)
@@ -203,7 +214,7 @@ void drive_menu_run(void *menu)
                               inside, chat, blit_own, blit_at, buttons, ticks, key, ask, notice, net_send, net_wait,
                               take, view_screen };
     race_menu(&w, &ops);
-    m->race->dropped = w.dropped, m->race->end_state = w.end_state, *m->pending = w.unknown_513e50;
+    m->race->dropped = w.dropped, m->race->end_state = w.end_state, m->keys->pending = w.unknown_513e50;
 }
 
 /* The map by the track's stem: CY / CL / AL 1..3 the tracks 0..2 and their variants; TR1, TR2, TR6, TR3, TR7

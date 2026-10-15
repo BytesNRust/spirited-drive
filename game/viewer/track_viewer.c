@@ -1211,7 +1211,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
     drive_audio_open(&drive_sim.race, drive_cars.data_root);
-    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys.pending, -1, 0, 0 };
+    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, -1, 0, 0 };
     if (drive_menu_open(&drive_menu, drive_cars.data_root, drive_name))
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
