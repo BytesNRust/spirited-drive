@@ -88,6 +88,7 @@ add_library(tnfs_game STATIC
     game/frontend/title.c
     game/frontend/track_select.c
     game/frontend/tournament.c
+    game/frontend/wide_field.c
     game/frontend/yes_no_box.c
     game/gfx/flat.c
     game/gfx/flat_edge.c
