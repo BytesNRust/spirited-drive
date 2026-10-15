@@ -324,3 +324,55 @@ int sound_mix_frames(SoundMixer *m, int16_t *out, int32_t frames)
     sound_out_s16(m->acc, out, (uint32_t)frames);
     return 1;
 }
+
+enum {
+    VOICE_STEREO = 4,
+    VOICE_16BIT = 8,
+    VOICE_FORMAT = VOICE_STEREO | VOICE_16BIT,
+    VOICE_COMPRESSED = 2,
+    VOICE_HEADER = 0x10,
+    VOICE_KIND_COMPRESSED = 2
+};
+
+/* 00497f9e's mixer for the format (004f38b0 is 0) */
+static void (*voice_mixer(uint32_t flags))(MixVoice *, int32_t *, uint32_t)
+{
+    switch (flags & VOICE_FORMAT) {
+    case VOICE_FORMAT: return sound_mix_stereo16;
+    case VOICE_STEREO: return sound_mix_stereo8;
+    case VOICE_16BIT: return sound_mix_mono16;
+    default: return sound_mix_mono8;
+    }
+}
+
+/* 00497f9e's span: 004980d4 looped, 0049808a one-shot; the streamed and
+ * compressed ones (00498119, 00498198, 004982a5, 004983c5) are not ported */
+static int32_t (*voice_span(uint32_t flags, int looped))(MixVoice *, int32_t)
+{
+    const uint32_t kind = flags & (VOICE_COMPRESSED | VOICE_HEADER);
+    if (looped) return kind == VOICE_COMPRESSED ? NULL : sound_span_loop;
+    return kind == 0 ? sound_span_once : NULL;
+}
+
+/* 00497d5b */
+void sound_voice_start(MixVoice *v, const SoundStart *s, uint32_t mix_rate)
+{
+    v->on = 0;
+    v->flags = s->flags;
+    v->looped = s->loop_frames != 0;
+    v->has_header = (s->flags & VOICE_HEADER) != 0;
+    v->shift = ((s->flags & VOICE_16BIT) != 0) + ((s->flags & VOICE_STEREO) != 0);
+    v->data = s->data;
+    v->pos = 0;
+    v->frac = 0;
+    v->end = s->frames - 1;
+    v->loop_start = s->loop_start;
+    v->loop_end = s->loop_start + s->loop_frames;
+    v->kind = (s->flags & VOICE_COMPRESSED) ? VOICE_KIND_COMPRESSED : 0;
+    v->rate = s->rate;
+    v->step = sound_voice_step(s->rate, s->cents, mix_rate);
+    v->mix = voice_mixer(s->flags);
+    v->span = voice_span(s->flags, v->looped);
+    v->gains = sound_pan_gains(s->pan, s->volume);
+    v->on = v->span != NULL; /* the original: 1 */
+}

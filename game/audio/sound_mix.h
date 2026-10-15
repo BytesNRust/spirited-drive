@@ -50,6 +50,7 @@ struct MixVoice {
     uint32_t flags;        /* +4: 8 16-bit, 4 stereo, 2 compressed, 0x10 a fixed channel */
     uint32_t shift;        /* +8: log2 of the bytes per frame */
     const uint8_t *data;   /* the sample's first byte */
+    uint32_t rate;         /* +0xc: Hz */
     uint32_t end;          /* +0x10: the last frame */
     uint32_t pos;          /* +0x14 */
     uint32_t frac;         /* +0x18 */
@@ -119,5 +120,30 @@ typedef struct {
  * 16-bit stereo) into `out`. 0 or fewer frames: the original's clear and
  * output run past their buffers; the port does nothing. */
 int sound_mix_frames(SoundMixer *m, int16_t *out, int32_t frames);
+
+/* 00497d5b's arguments (cdecl slot, then these in order) */
+typedef struct {
+    const uint8_t *data;   /* the first sample byte */
+    uint32_t frames;       /* the sample's length */
+    uint32_t loop_start;   /* frames from the start */
+    uint32_t loop_frames;  /* 0: one-shot */
+    uint32_t rate;         /* Hz, +0xc */
+    uint32_t pan;
+    uint32_t volume;
+    uint32_t flags;        /* +4: 8 16-bit, 4 stereo, 2 compressed, 0x10 a header */
+    int32_t cents;         /* 0049847d's */
+} SoundStart;
+
+/* 00497d5b (cdecl slot, data, frames, loop start, loop frames, rate, pan,
+ * volume, flags, cents; 004f38b4 the mix rate): the slot's record reset and
+ * filled: the shift from the format, the position the data's first frame,
+ * the end frames - 1, the loop from its start for its length (looped when
+ * that is not 0), the step (0049847d), the format's mixer and the span
+ * (00497f9e), the gains (00497e8a), then +0 = 1. The compressed decoder's
+ * words (+0x30..+0x4c, +0x58) and its spans and those of a one-shot with a
+ * header (00498119, a stream that asks 0048dda8 for more) are not ported:
+ * no CD bank sound is compressed or streamed; such a voice gets no span
+ * (NULL) and stays off. */
+void sound_voice_start(MixVoice *v, const SoundStart *s, uint32_t mix_rate);
 
 #endif
