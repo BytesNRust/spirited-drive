@@ -255,7 +255,7 @@ void race_replay_begin(RaceState *race, RaceReplayDirector *w, const RaceReplayJ
 
 typedef struct {
     void *ctx;
-    void (*save)(void *ctx);                                    /* 0044d514 */
+    void (*load)(void *ctx);                                    /* 0044d514: the saved replay read back */
     void (*begin)(void *ctx, int32_t how);                      /* 0044f188 */
     void (*to_end)(void *ctx);                                  /* 0044f090 */
     void (*panel_draw)(void *ctx);                              /* 00471460 */
@@ -266,7 +266,7 @@ typedef struct {
 } RaceReplayKeysOps;
 
 /* 0044f9b8 (from 00450020): the replay's keys. The request 00513738 first:
- * 4 saves (0044d514) and becomes 3; 5 or 8 (8 also 005137e4 = 1) save and
+ * 4 loads (0044d514) and becomes 3; 5 or 8 (8 also 005137e4 = 1) load and
  * become 2; then 3 or below (but 0) begins (0044f188 with it), 0; 7 races
  * on from the end (0044f090) with 00513740 0, else 00509d70 = 0x40 with
  * 005137e4 set or 0x20, 0051371c = 0, 0; 6 00509d70 = 0x20. Racing (phase

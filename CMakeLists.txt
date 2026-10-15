@@ -118,6 +118,8 @@ add_library(tnfs_game STATIC
     game/race/race_replay.c
     game/race/race_replay_seek.c
     game/race/race_replay_cuts.c
+    game/race/race_replay_file.c
+    game/race/race_view_pick.c
     game/race/car_body_draw.c
     game/race/car_lights.c
     game/race/car_render.c
@@ -209,6 +211,8 @@ add_library(tnfs_game STATIC
     game/race/view.c
     game/sys/fixed_math.c
     game/sys/key_codes.c
+    game/sys/joystick.c
+    game/sys/menu_key.c
     game/sys/palette.c
     game/sys/shape_bank.c
 )

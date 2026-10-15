@@ -532,12 +532,12 @@ enum {
 static void keys_request(RaceState *race, RaceReplayDirector *w, const RaceReplayKeysOps *ops)
 {
     if (w->request == REQUEST_SAVE_LONG) {
-        ops->save(ops->ctx);
+        ops->load(ops->ctx);
         w->request = REPLAY_LONG;
     }
     if (w->request == REQUEST_SAVE || w->request == REQUEST_SAVE_STOP) {
         if (w->request == REQUEST_SAVE_STOP) w->unknown_5137e4 = 1;
-        ops->save(ops->ctx);
+        ops->load(ops->ctx);
         w->request = REPLAY_DIRECTED;
     }
     if (w->request != 0 && w->request <= REPLAY_LONG) {
