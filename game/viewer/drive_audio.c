@@ -42,6 +42,7 @@ static int32_t voice_stopped(void *user, int32_t voice)
 int drive_audio_open(RaceState *race, const char *data_root)
 {
     root = data_root;
+    sound_channels_reset(&driver.channels);  /* 0049212c: 00497b34 first */
     open_ = platform_audio_open(MIX_RATE);
     if (open_) {
         driver.rand_seed = RAND_SEED;
