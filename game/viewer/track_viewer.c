@@ -1104,6 +1104,13 @@ static void run_stand_in_start(void *ctx)
     const InputStandInStartOps ops = { ctx, run_send_none, run_linked };
     input_stand_in_start(drive_input.stand_in_block, drive_sim.race.players, &w, &ops);
 }
+/* 00443be0: --drive loads no sound banks (audio output waits, option B), so only the channels stop */
+static void run_bank_none(void *ctx, uint32_t word) { (void)ctx, (void)word; }
+static void run_sound_end(void *ctx)
+{
+    RaceSoundBanks banks = { { 0 }, { 0 }, 0 };
+    race_sound_end(&drive_sim.race, &banks, &(const RaceSoundBankOps){ ctx, run_bank_none, run_bank_none });
+}
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
 static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
@@ -1189,7 +1196,7 @@ static const RaceRunOps *drive_run_ops(void)
         run_none, run_last_grey, run_none, run_none, run_music_start, run_none, run_none, run_clip, run_queue_reset, run_queue_prime,
         run_none,
         run_none, run_none, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_none, run_none, run_none,
-        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none };
+        run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_sound_end };
     return &ops;
 }
 
