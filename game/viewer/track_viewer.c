@@ -18,6 +18,7 @@
 #include "game/race/race_models.h"
 #include "game/race/race_replay.h"
 #include "game/race/race_run.h"
+#include "game/race/race_sound.h"
 #include "game/race/race_sim.h"
 #include "game/race/track_art.h"
 #include "game/race/track_geometry.h"
@@ -942,6 +943,11 @@ static void run_car_draw_setup(void *ctx)
     car_draw_setup(&words, ported_view_skids(), run_no_recording, NULL);
 }
 
+/* 00464604: the music's volume; the music is not played yet (option B: the sound output waits for the full race). */
+static void run_music_volume(void *user, int16_t volume) { (void)user, (void)volume; }
+
+static void run_sound_setup(void *ctx) { (void)ctx, race_sound_setup(&drive_sim.race, run_music_volume, NULL); }  /* 00443b64 */
+
 static void run_draw_setup(void *ctx) { (void)ctx, drive_frame_setup(&drive_sim.race); }  /* 0044d2c4 */
 
 static void run_queue_reset(void *ctx, InputQueue *q)
@@ -1028,7 +1034,7 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
 static const RaceRunOps *drive_run_ops(void)
 {
     static const RaceRunOps ops = {
-        NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none_i,
+        NULL, run_service, run_screen_mode, run_none_i, run_none, run_none, run_sound_setup, run_none, run_none, run_none, run_none_i,
         run_none, run_car_draw_setup, run_replay_start, run_none, run_none, run_none, run_none_i, run_net_wait, run_draw_setup, run_none, run_none,
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_clip, run_queue_reset, run_queue_prime, run_none,
