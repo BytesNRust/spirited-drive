@@ -254,3 +254,41 @@ void sound_mix_stereo16(MixVoice *v, int32_t *acc, uint32_t count)
     v->pos = pos;
     v->frac = frac;
 }
+
+/* 0049808a / 004980d4's frames to a mark: (mark - pos, 0 if past it) << 24
+ * over the step (div edx:eax; the fraction is not counted). The original
+ * faults when the step is 0 or the quotient passes 32 bits; the port gives
+ * 0 for the first and keeps the low word of the second. */
+static uint32_t frames_to(const MixVoice *v, uint32_t mark)
+{
+    const int32_t diff = (int32_t)(mark - v->pos);
+    if (v->step.step == 0) return 0;
+    return (uint32_t)(((uint64_t)(uint32_t)(diff < 0 ? 0 : diff) << STEP_FRACTION_BITS) / v->step.step);
+}
+
+static int32_t at_most(uint32_t frames, int32_t left)
+{
+    return (int32_t)frames < left ? (int32_t)frames : left;
+}
+
+int32_t sound_span_once(MixVoice *v, int32_t left)
+{
+    const uint32_t frames = frames_to(v, v->end);
+    if (frames == 0) {
+        v->on = 0;
+        return 0;
+    }
+    return at_most(frames, left);
+}
+
+int32_t sound_span_loop(MixVoice *v, int32_t left)
+{
+    uint32_t frames = frames_to(v, v->loop_end);
+    if (frames == 0) {
+        v->pos = v->loop_start;
+        v->frac = 0;
+        frames = frames_to(v, v->loop_end);
+        if (frames == 0) return 0; /* the original loops forever */
+    }
+    return at_most(frames, left);
+}

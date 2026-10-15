@@ -77,4 +77,16 @@ void sound_mix_stereo8(MixVoice *v, int32_t *acc, uint32_t count);
  * sample through the left gain, its second through the right. */
 void sound_mix_stereo16(MixVoice *v, int32_t *acc, uint32_t count);
 
+/* 0049808a (esi the record, 004f38c4 the frames the mix still needs): the
+ * frames a one-shot voice plays before its last frame (+0x10), at most
+ * `left`; 0 stops it (00497e6a: +0 cleared, then the driver's stop hook
+ * 004f38ec, which the caller runs). */
+int32_t sound_span_once(MixVoice *v, int32_t left);
+
+/* 004980d4 (as 0049808a, a looped voice): the frames before the loop's end
+ * (+0x20), at most `left`; at it, back to the loop's start (+0x1c) with the
+ * fraction 0 and again (a loop of no frames: the original spins, the port
+ * gives 0). */
+int32_t sound_span_loop(MixVoice *v, int32_t left);
+
 #endif
