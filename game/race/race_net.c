@@ -15,3 +15,11 @@ void race_net_count_down(RaceNetCounts *c, int32_t kind)
     if (kind != 0) c->unknown_4bc6d8 = (int16_t)(c->unknown_4bc6d8 - 1);
     else c->unknown_4bc6da = (int16_t)(c->unknown_4bc6da - 1);
 }
+
+int32_t race_net_slot_of(const RaceNetSlots *s, uint32_t link)
+{
+    const int32_t n = (int32_t)s->unknown_4f81d2 + s->unknown_4f81d4;
+    for (int32_t i = 1; i < n && i < RACE_NET_LINKS; i++)  /* port guard: the original reads on past 8 */
+        if (s->links[i] == link) return i;
+    return RACE_NET_NO_SLOT;
+}

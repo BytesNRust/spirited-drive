@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-enum { RACE_NET_NO_DEADLINE = -1 };
+enum { RACE_NET_NO_DEADLINE = -1, RACE_NET_LINKS = 8, RACE_NET_NO_SLOT = -1 };
 
 typedef struct {
     void *ctx;
@@ -36,5 +36,17 @@ int32_t race_net_wait_step(const RaceNetOps *ops, const RaceNetWords *w);
 /* 00442dd8 (watcall (kind)): kind (all 32 bits) != 0: 004bc6d8 - 1, else
  * 004bc6da - 1 (16-bit, wrapping) */
 void race_net_count_down(RaceNetCounts *c, int32_t kind);
+
+/* The machines' links by slot (0050a578, slot 0 this one) and the two
+ * counts that bound them */
+typedef struct {
+    int16_t unknown_4f81d2;           /* 004f81d2 (004f81d0's high half): the humans (0042702c) */
+    int16_t unknown_4f81d4;           /* 004f81d4 */
+    uint32_t links[RACE_NET_LINKS];   /* 0050a578: each slot's link (a pointer) */
+} RaceNetSlots;
+
+/* 0044659c (watcall (link), from 004465e4): with n = 004f81d2 + 004f81d4
+ * above 1, the first slot 1..n-1 whose link is `link`; else -1. */
+int32_t race_net_slot_of(const RaceNetSlots *s, uint32_t link);
 
 #endif
