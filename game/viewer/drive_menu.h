@@ -4,6 +4,7 @@
 #ifndef TNFS_DRIVE_MENU_H
 #define TNFS_DRIVE_MENU_H
 
+#include "game/race/race_run.h"
 #include "game/race/race_schedule.h"
 #include "game/race/race_state.h"
 #include "viewer/drive_hud.h"
@@ -16,6 +17,9 @@ typedef struct {
     DriveReplay *replay;        /* 0044f534's request goes to its director */
     DriveHud *hud;              /* 0041e364 on the way back */
     RaceMenuKeysState *keys;    /* 00513e50 / 00513e54: 004557f4's pending call and its tick */
+    RaceRunWords *words;        /* 004c5cca (music_started): the music's small ring */
+    void (*music_start)(void *user);  /* 00456244: a race track drawn and played */
+    void *music_user;
     int ready;                  /* the frontend's layer is up */
 } DriveMenu;
 

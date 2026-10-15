@@ -64,6 +64,7 @@ static void call(void *ctx, uint32_t address)
     switch (address) {
     case 0x4104d0:  /* the loop's network poll; the race's clock 004bb8dc and the keyboard's 004c693d run on */
         drive_audio_pump();
+        drive_audio_music_pump();  /* the stream fed as the original's reader feeds it on its own (glue) */
         poll(c->m);
         c->w->esc_down = esc_down();
         c->w->blink_clock += ticks_since(&c->clock_ms);
@@ -89,6 +90,14 @@ static void call(void *ctx, uint32_t address)
     case 0x43cbe0: race_forces_enable(race); break;
     case 0x43cbf4: race_forces_clear(race); break;
     case 0x4557e8: c->m->keys->last = race->tick; break;  /* 00513e54 = 00513e70 */
+    case 0x464534: drive_audio_music_cut(); break;
+    case 0x4644f0: drive_audio_music_fade(); break;
+    case 0x464568: drive_audio_music_stop(); break;
+    case 0x4640d0: drive_audio_music_fill(); break;
+    case 0x456244:
+        if (c->m->words != NULL) c->m->words->music_started = c->w->unknown_4c5cca;
+        if (c->m->music_start != NULL) c->m->music_start(c->m->music_user);
+        break;
     default: break;  /* the menu's own sounds and music, the network and the screen modes: not in --drive */
     }
 }
@@ -117,7 +126,12 @@ static void present(void *ctx, uint32_t s)
 }
 
 static void pointer_to(void *ctx, int16_t x, int16_t y) { (void)ctx, pointer_move_to(x, y); }
-static void music(void *ctx, const char *name) { (void)ctx, (void)name; }
+/* 00464428 on the menu's track, on the small ring when 004c5cca is set */
+static void music(void *ctx, const char *name)
+{
+    drive_audio_music_small(((MenuCtx *)ctx)->w->unknown_4c5cca);
+    drive_audio_music_play(name);
+}
 
 static uint8_t *load(void *ctx, const char *name)
 {
@@ -200,6 +214,7 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
     w->follow = race->chase.kind, w->phase = race->phase;
     w->unknown_513e50 = m->keys->pending;
     w->leader = (int16_t)race->by_progress[LEADER_PLACE];  /* 00509e60 */
+    if (m->words != NULL) w->unknown_4c5cca = m->words->music_started;
 }
 
 void drive_menu_run(void *menu)
@@ -216,6 +231,7 @@ void drive_menu_run(void *menu)
                               take, view_screen };
     race_menu(&w, &ops);
     m->race->dropped = w.dropped, m->race->end_state = w.end_state, m->keys->pending = w.unknown_513e50;
+    if (m->words != NULL) m->words->music_started = w.unknown_4c5cca;
 }
 
 int drive_menu_open(DriveMenu *m, const char *data_root)

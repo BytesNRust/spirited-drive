@@ -42,6 +42,13 @@ void drive_audio_music_pump(void);
 void drive_audio_music_volume(int16_t volume);
 void drive_audio_music_volume_now(int16_t volume);  /* 0046463c */
 int16_t drive_audio_music_setting(void);            /* 00524e63 */
+void drive_audio_music_small(int16_t small);        /* 004c5cca */
+/* 00464534: the track's voice stopped (0052b31e clear, the setting, the
+ * sound and a track open); 004644f0: on the same terms faded out over 100
+ * ticks to -1, which stops it; 00464568: the track closed once it has stopped */
+void drive_audio_music_cut(void);
+void drive_audio_music_fade(void);
+void drive_audio_music_stop(void);
 
 void drive_audio_close(void);
 

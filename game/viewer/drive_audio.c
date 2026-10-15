@@ -231,6 +231,23 @@ void drive_audio_music_pump(void) { race_music_pump(&music_ops, &music); }
 void drive_audio_music_volume(int16_t volume) { race_music_volume(&music_ops, &music, volume); }
 void drive_audio_music_volume_now(int16_t volume) { race_music_volume_now(&music_ops, &music, volume); }
 int16_t drive_audio_music_setting(void) { return music.setting; }
+void drive_audio_music_small(int16_t small) { music.small = small; }
+
+enum { MUSIC_FADE_STEPS = 100, MUSIC_FADE_TO_STOP = -1 };  /* 004644f0: 00473b00(handle, 100, -1) */
+
+static int music_playing(void) { return music.unknown_52b31e == 0 && music.setting != 0 && music.sound_on != 0 && music.open != 0; }
+
+void drive_audio_music_cut(void)
+{
+    if (music_playing()) music_stop(NULL, music.handle);
+}
+
+void drive_audio_music_fade(void)
+{
+    if (music_playing()) music_ramp(NULL, music.handle, MUSIC_FADE_STEPS, MUSIC_FADE_TO_STOP);
+}
+
+void drive_audio_music_stop(void) { race_music_stop(&music_ops, &music); }
 
 void drive_audio_close(void)
 {

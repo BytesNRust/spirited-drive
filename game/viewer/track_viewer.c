@@ -1209,7 +1209,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!platform_init(&config)) return 0;
     drive_audio_open(&drive_sim.race, drive_cars.data_root);
-    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, 0 };
+    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, NULL, NULL, NULL, 0 };
     if (drive_menu_open(&drive_menu, drive_cars.data_root))
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
@@ -1220,7 +1220,9 @@ static int drive_window(const Track *t, uint8_t *pixels)
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
+    drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
     race_run(&ops, &drive_sim.race, &w);
+    drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
     drive_replay.pace = NULL;
     while (!r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
