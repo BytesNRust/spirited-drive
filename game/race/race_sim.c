@@ -287,8 +287,12 @@ static int32_t sim_slot(const RaceState *race, const Car *car)
 
 static void sim_replay(void *ctx)
 {
-    RaceState *race = &((RaceSim *)ctx)->race;
-    race->clock = race->tick % CLOCK_WRAP;  /* 00450020's clock; its replay player is not ported (no replays here) */
+    RaceSim *sim = ctx;
+    if (sim->replay != NULL) {
+        sim->replay(sim->replay_user);
+        return;
+    }
+    sim->race.clock = sim->race.tick % CLOCK_WRAP;  /* 00450020's clock, without a recording */
 }
 
 static void sim_controller(void *ctx, Car *car, int32_t kind)
@@ -384,6 +388,7 @@ void race_sim_begin(RaceSim *sim)
     race->unknown_513e64 = 1;
     race->unknown_513e60 = 0;
     race->phase = 1;
+    race->replay_mark_countdown = 0;  /* 00455e6d: the first mark at once */
 }
 
 void race_sim_tick(RaceSim *sim, uint32_t input)

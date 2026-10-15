@@ -102,7 +102,6 @@ typedef struct {
     int32_t wait_ticks;         /* 004fbac8 */
     int32_t unknown_4c53a0;     /* 004c53a0: phase 2's frames between ticks */
     int32_t unknown_513e84;     /* 00513e84 */
-    int32_t unknown_5120d4;     /* 005120d4 */
 } RaceRunWords;
 
 /* 00455a5c (watcall ()). See race_run.c for the steps. */

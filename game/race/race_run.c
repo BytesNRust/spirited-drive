@@ -132,7 +132,7 @@ static void start(const RaceRunOps *ops, RaceState *race, RaceRunWords *w)
     race->unknown_513e64 = 1;
     race->unknown_513e60 = 0;
     race->phase = PHASE_RACING;
-    w->unknown_4fcdac = w->waiting = w->unknown_4fcd90 = w->unknown_5120d4 = 0;
+    w->unknown_4fcdac = w->waiting = w->unknown_4fcd90 = race->replay_mark_countdown = 0;
 }
 
 /* 00455e8c..00455f1b: the frames due: the timer live, less the wait

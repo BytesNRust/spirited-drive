@@ -35,6 +35,10 @@ typedef struct {
     CarSpecs specs[RACE_CARS];
     int count;
     int32_t police_lights;          /* 004f9b48 (00472560 toggles it; the cockpit, CockpitWorld, draws by it) */
+    /* 00450020, the replay's frame, run first in each tick (race_tick's
+     * replay op); NULL: only its clock (the tick % 0x7080) */
+    void (*replay)(void *user);
+    void *replay_user;
 } RaceSim;
 
 /* The track index of a TRI stem ("TR1", "cy2"): CY 0, CL 1, AL 2, TR1..7

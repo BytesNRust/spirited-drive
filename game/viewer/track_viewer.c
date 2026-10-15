@@ -34,6 +34,7 @@
 #include "viewer/drive_input.h"
 #include "viewer/drive_keys.h"
 #include "viewer/drive_pause.h"
+#include "viewer/drive_replay.h"
 #include "viewer/drive_palette.h"
 #include "viewer/drive_smoke.h"
 #include "viewer/model_view.h"
@@ -411,7 +412,10 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
  * commands (004381f8, drive_keys): C the next view kind (0040594c; the race
  * turns to 13 while the car does not face the road), Alt + Ctrl + 1..8
  * another car, F1 the next view row, F2 the window size, F3 the detail,
- * F4 / F6 their flags, F5 the sound and music off and on. */
+ * F4 / F6 their flags, F5 the sound and music off and on. F9, a
+ * development key standing in for the menus: the director's replay, and
+ * during it back to the race (drive_replay.h). Headless, TNFS_REPLAY_AT and
+ * TNFS_REPLAY_BACK press it on those frames. */
 enum {
     DRIVE_VIEW = 5            /* the kind the record takes attached to a car (004f8020) */
 };
@@ -419,6 +423,8 @@ enum {
 static RaceSim drive_sim;
 static DriveInput drive_input;
 static DriveKeys drive_keys;
+static DriveReplay drive_replay;
+enum { KEY_F9 = 0x43 };
 static DrivePause drive_pause;
 
 /* The drive's cars: each slot's CFM (drawn) and PDN (its body). */
@@ -932,6 +938,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.view_user = &drive_views;
     drive_sim.race.window_size = 0;
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
+    if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) fprintf(stderr, "track_viewer: no replay recording\n");
     /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
     drive_frame = (FrameDraw){ 0 };
     drive_frame.pending_segments = -1;
@@ -965,6 +972,7 @@ static void free_drive(void)
     }
     platform_free_file(drive_cars.carpal);
     drive_cars.carpal = NULL;
+    drive_replay_end(&drive_replay);
     drive_hud_end(&drive_hud, &drive_sim.race);
     drive_hud_free(&drive_hud);
     ported_view_set_puffs(NULL, NULL, NULL, NULL, NULL);
@@ -1134,10 +1142,29 @@ static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
 static uint32_t screenshot_input(uint32_t i, uint32_t ticks);
 
+/* A frame number from the environment, -1 when unset */
+static int32_t env_frame(const char *name)
+{
+    const char *v = getenv(name);
+    return v != NULL ? (int32_t)strtol(v, NULL, 10) : -1;
+}
+
+/* Headless, F9 down on the frames TNFS_REPLAY_AT and TNFS_REPLAY_BACK name,
+ * once each (race_run's frame count stands while a replay seeks) */
+static int env_press(int32_t frame)
+{
+    static int fired[2];
+    static const char *const NAMES[2] = { "TNFS_REPLAY_AT", "TNFS_REPLAY_BACK" };
+    for (int k = 0; k < 2; k++)
+        if (!fired[k] && env_frame(NAMES[k]) == frame) return fired[k] = 1;
+    return 0;
+}
+
 static void run_frame(void *ctx, int32_t frame)
 {
     DriveRun *r = ctx;  /* race_sim_tick runs 0045597c with the race's own tick */
     if (r->headless_ticks > 0) {
+        drive_replay_key(&drive_replay, env_press(frame));
         drive_tick(screenshot_input((uint32_t)frame, (uint32_t)r->headless_ticks));
         return;
     }
@@ -1150,6 +1177,7 @@ static void run_frame(void *ctx, int32_t frame)
     }
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
+    drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
@@ -1179,10 +1207,12 @@ static int drive_window(const Track *t, uint8_t *pixels)
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
+    drive_replay.pace = &w.unknown_4c53a0;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
+    drive_replay.pace = NULL;
     while (!r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
@@ -1203,10 +1233,12 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
+    drive_replay.pace = &w.unknown_4c53a0;
     DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
+    drive_replay.pace = NULL;
     render_drive(t, pixels);
     return write_ppm(screenshot, pixels, t->art.palette);
 }
@@ -1249,6 +1281,7 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     const char *frames_env = getenv("TNFS_FRAMES");
     const uint32_t frames = frames_env == NULL ? 0 : (uint32_t)atoi(frames_env);
     for (uint32_t i = 0; i < ticks; i++) {
+        drive_replay_key(&drive_replay, env_press((int32_t)i));
         drive_tick(screenshot_input(i, ticks));
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
@@ -1265,8 +1298,8 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
     }
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;
-    printf("tick %d: node %d, speed %.1f m/s, gear %d; view kind %d, eye node %d (%.1f, %.1f, %.1f)\n",
-           drive_sim.race.tick, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
+    printf("tick %d (phase %d): node %d, speed %.1f m/s, gear %d; view kind %d, eye node %d (%.1f, %.1f, %.1f)\n",
+           drive_sim.race.tick, drive_sim.race.phase, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
            chase->position[0] / 65536.0, chase->position[1] / 65536.0, chase->position[2] / 65536.0);
     render_drive(t, pixels);
     return write_ppm(screenshot, pixels, t->art.palette);
