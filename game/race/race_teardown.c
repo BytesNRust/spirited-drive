@@ -13,6 +13,11 @@ void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm)
     *rrsm = 0;
 }
 
+void race_sky_ring_free(const RaceFreeOps *ops, uint32_t ring)
+{
+    ops->free(ops->ctx, ring);
+}
+
 static void free_held(const RaceDrawFreeOps *ops, uint32_t *surface)
 {
     if (*surface == 0) return;
