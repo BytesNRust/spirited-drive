@@ -5,13 +5,13 @@
 #include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/sys/key_codes.h"
-#include "game/sys/palette.h"
 #include "game/sys/resource.h"
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_panel.h"
 #include "game/race/race_view.h"
+#include "game/race/hud_colours.h"
 #include "game/race/hud_frame.h"
 #include "game/race/hud_mask.h"
 #include "game/race/hud_redraw.h"
@@ -23,7 +23,6 @@
 enum {
     HIGH_RES = 1, ENGLISH = 0, SHAPE_8_BIT = 0x7b,
     LIVE_RACE = 1,      /* 004c5390: 00455a5c sets 1 once the race runs (0044e700 2 / 3 in replays) */
-    SHADE_SCALE = 0x9999, /* 00446bac's 00482698 */
     PARTS_KEY_CONFIG = 0x4d /* 0052ad3e's default, 'M' */
 };
 
@@ -115,17 +114,16 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     if (!h->ready) return;
     /* TODO(00447098): the queued banks' remap; here the mask bank alone. */
     race_palette_remap_track_bank(p, h->bank, h->art.palette);
-    h->strip_colour = (uint32_t)race_palette_nearest(p, 0, 0, 0);
-    h->needle_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0, 0);  /* 00446bac */
-    h->road_colour = (uint32_t)race_palette_nearest(p, 0x3f, 0x3f, 0x3f);
-    h->frame_colour = (uint32_t)race_palette_nearest(p, 0x1a, 0x1a, 0x1a);
-    h->mirror.enclosed_colour = (uint32_t)race_palette_nearest(p, 0x20, 0x20, 0x20);  /* 0050b7c0 */
-    h->mirror.property8_colour = (uint32_t)race_palette_nearest(p, 0, 0x20, 0);       /* 0050b79c */
-    const uint8_t car_colours[HUD_MAP_COLOURS] = { 0xf5, 0xf8, 0xf0, 0xfa, (uint8_t)h->road_colour, 0xf9, 0xfc, 0xfb };
-    memcpy(h->car_colours, car_colours, sizeof car_colours);
-    uint8_t copy[RACE_PALETTE_COLOURS * 3];  /* 0050ad34; the search's entries 004c5ff8 as 0041f818 left them */
-    race_palette_read(p, 0, RACE_PALETTE_COLOURS, copy);
-    palette_shade_table(copy, p->enabled, SHADE_SCALE, h->shade);
+    HudColours colours;  /* 00446bac */
+    hud_colours(p, &colours);
+    h->strip_colour = (uint32_t)colours.colours[HUD_COLOUR_BLACK];
+    h->needle_colour = (uint32_t)colours.colours[0];
+    h->road_colour = (uint32_t)colours.colours[HUD_COLOUR_WHITE];
+    h->frame_colour = (uint32_t)colours.frame_colour;
+    h->mirror.enclosed_colour = (uint32_t)colours.colours[HUD_COLOUR_GREY];             /* 0050b7c0 */
+    h->mirror.property8_colour = (uint32_t)colours.colours[HUD_COLOUR_GREEN_DARK];      /* 0050b79c */
+    memcpy(h->car_colours, colours.map_cars, sizeof h->car_colours);
+    memcpy(h->shade, colours.remap, sizeof h->shade);  /* 004c6604 */
     h->palette = p;
     memset(&h->police, 0, sizeof h->police);
     memset(h->back, 0, sizeof h->back);
