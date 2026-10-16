@@ -3,6 +3,8 @@
 #ifndef TNFS_RACE_NET_H
 #define TNFS_RACE_NET_H
 
+#include "game/race/input_queue.h"
+
 #include <stdint.h>
 
 enum { RACE_NET_NO_DEADLINE = -1, RACE_NET_LINKS = 8, RACE_NET_NO_SLOT = -1 };
@@ -230,5 +232,40 @@ typedef struct {
  * set, each failure dropping that entry's slot (the counts and links read
  * anew). A link outside the eleven entries reads +0 as 0 (port guard). */
 void race_net_send(const RaceNetSendOps *ops, RaceNetSend *s, uint32_t link, const uint8_t *data, int32_t size);
+
+enum { RACE_NET_GONE_FINISH = 999999 };
+
+typedef struct {
+    void *ctx;
+    void (*close)(void *ctx, uint32_t link);                     /* 0047b250 (cdecl), the transport's */
+    void (*forget)(void *ctx, uint32_t session, uint32_t name);  /* 004799a8, through 00442db8 */
+    void (*stand_in)(void *ctx, int16_t player);                 /* 0041019c */
+} RaceNetDropOps;
+
+/* The words 004463ec reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int32_t unknown_4fbb0c;
+    int16_t unknown_4bc6ac;
+    int16_t play;                     /* 0052b312 */
+    int16_t dropped;                  /* 0052b314 */
+    int32_t joined;                   /* 0050a5a8: the links that took */
+    int16_t unknown_50a5bc;
+    RaceNetCounts counts;             /* 004bc6d8 / 004bc6da */
+    const uint32_t *links;            /* 0050a578: RACE_NET_LINKS */
+    InputQueue *queues;               /* 004faa7c: by slot */
+    PlayerRecord *records;            /* 0051cc54: by slot */
+} RaceNetDrop;
+
+/* 004463ec (watcall (slot), from 00445e00 and 004397f4): nothing for slot 0
+ * or with 004fbb0c 0. The link at 0050a578[slot] is a player's (1) when it
+ * is one of entries 0..6, a viewer's (0) when one of 7..10, else -1. With
+ * 004bc6ac 0, a kind not 0 and the slot's queue +4 (gave up) set: nothing.
+ * Else 0050a5a8 - 1, 0050a5bc = 1; with 004bc6ac 0047b250 on the link and
+ * 00442db8 on it (read anew); 00442dd8(kind); then, 004bc6ac read anew and
+ * 0: a kind not 0 sets the queue's gave up to 1, the slot's record finish to
+ * 999999 and runs 0041019c(slot); 0050a5a8 (read anew) 0 sets 0052b314. A
+ * slot below 0 or past 7: nothing (port guard; the original reads before /
+ * past 0050a578, 004faa7c and 0051cc54). */
+void race_net_drop(const RaceNetDropOps *ops, RaceNetDrop *d, int16_t slot);
 
 #endif

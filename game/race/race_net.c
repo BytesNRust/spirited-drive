@@ -215,3 +215,29 @@ void race_net_send(const RaceNetSendOps *ops, RaceNetSend *s, uint32_t link, con
         if (s->entries[k].unknown_00 != 0 && ops->send(ops->ctx, entry_at(k), data, size) == 0)
             ops->drop(ops->ctx, slot_now(s, entry_at(k)));
 }
+
+void race_net_drop(const RaceNetDropOps *ops, RaceNetDrop *d, int16_t slot)
+{
+    if (slot == 0 || d->unknown_4fbb0c == 0) return;
+    if (slot < 0 || slot >= RACE_NET_LINKS) return;  /* port guard */
+    int32_t kind = -1;
+    for (int k = 0; k < RACE_NET_SEATS; k++)
+        if (d->links[slot] == entry_at(k)) kind = 1;
+    for (int k = 0; k < RACE_NET_VIEWERS; k++)
+        if (d->links[slot] == entry_at(RACE_NET_KIND0_FIRST + k)) kind = 0;
+    if (d->unknown_4bc6ac == 0 && kind != 0 && d->queues[slot].gave_up != 0) return;
+    d->joined = (int32_t)((uint32_t)d->joined - 1);
+    d->unknown_50a5bc = 1;
+    if (d->unknown_4bc6ac != 0) {
+        ops->close(ops->ctx, d->links[slot]);
+        if (d->play == 1) ops->forget(ops->ctx, RACE_NET_SESSION, d->links[slot] + RACE_NET_NAME_AT);  /* 00442db8 */
+    }
+    race_net_count_down(&d->counts, kind);
+    if (d->unknown_4bc6ac != 0) return;
+    if (kind != 0) {
+        d->queues[slot].gave_up = 1;
+        d->records[slot].finish = RACE_NET_GONE_FINISH;
+        ops->stand_in(ops->ctx, slot);
+    }
+    if (d->joined == 0) d->dropped = 1;
+}
