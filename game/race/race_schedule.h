@@ -44,6 +44,22 @@ void race_schedule_set(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDU
  * eax is not read by 0045597c. */
 void race_schedule_run(const RaceScheduleOps *ops, RaceScheduled sched[RACE_SCHEDULE_SLOTS], int16_t frame);
 
+/* Read again after the send (the ctx may change them) */
+typedef struct {
+    int16_t playback;           /* 0052b312 */
+    int32_t w4fbb0c;            /* 004fbb0c */
+    int16_t clock;              /* 004bb8d8 (its low word) */
+} RaceScheduleInWords;
+
+/* 004109e4 (004bcb98[3], message kind 3: eax link, edx data, the message
+ * 00410a70 sends): with playback 1 and 004fbb0c, the message's frame (+6)
+ * becomes 1 in place. The entry (the short at +2) takes frame +6 and arg +4.
+ * With playback 1 and 004fbb0c again: the 8 bytes relayed (00445e00(0, copy,
+ * 8)) and the entry's frame = 004bb8d8 + 8 (read after). Port guard: an entry
+ * outside 0..2 stores nothing (the original writes past 004f8100). */
+void race_schedule_on_message(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDULE_SLOTS],
+                              const RaceScheduleInWords *w, uint8_t *data);
+
 typedef struct {
     void *ctx;
     int32_t (*notice_up)(void *ctx);                                     /* 0041e38c */

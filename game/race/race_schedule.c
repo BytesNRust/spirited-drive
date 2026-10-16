@@ -97,3 +97,20 @@ void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeys
     ops->setup_43cbe0(ops->ctx);
     *loading = 0;
 }
+
+static int16_t message_word(const uint8_t *data, int at) { return (int16_t)(uint16_t)(data[at] | data[at + 1] << 8); }
+
+void race_schedule_on_message(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDULE_SLOTS],
+                              const RaceScheduleInWords *w, uint8_t *data)
+{
+    const int relay = w->playback == 1 && w->w4fbb0c != 0;
+    if (relay) data[6] = 1, data[7] = 0;
+    const int16_t which = message_word(data, 2);
+    if (which < 0 || which >= RACE_SCHEDULE_SLOTS) return;  /* port guard */
+    sched[which].frame = message_word(data, 6);
+    sched[which].arg = message_word(data, 4);
+    if (!relay) return;
+    const int16_t message[4] = { message_word(data, 0), which, message_word(data, 4), message_word(data, 6) };
+    send->send(send->ctx, 0, message, MESSAGE_BYTES);
+    sched[which].frame = (int16_t)(w->clock + SENT_DELAY);
+}
