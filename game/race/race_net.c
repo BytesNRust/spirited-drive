@@ -447,3 +447,98 @@ void race_net_give_up(const RaceNetGiveUpOps *ops, RaceNetGiveUp *g)
     g->followed = 0;
     g->dropped = 1;
 }
+
+static int32_t set_dword(const uint8_t *at) { return (int32_t)((uint32_t)at[0] | (uint32_t)at[1] << 8 | (uint32_t)at[2] << 16 | (uint32_t)at[3] << 24); }
+static void put_set_dword(uint8_t *at, int32_t v)
+{
+    for (int k = 0; k < 4; k++) at[k] = (uint8_t)((uint32_t)v >> (8 * k));
+}
+
+static int settings_match(const RaceNetSync *s)
+{
+    const uint8_t *t = s->settings;
+    return state_word(t, RACE_NET_SET_TYPE) == s->race_type && state_word(t, RACE_NET_SET_TRACK) == s->track &&
+           state_word(t, RACE_NET_SET_524EA1) == s->unknown_524ea1 && state_word(t, RACE_NET_SET_524EA3) == s->unknown_524ea3 &&
+           state_word(t, RACE_NET_SET_524E9D) == s->unknown_524e9d && state_word(t, RACE_NET_SET_CARS) == s->unknown_524e8b[0] &&
+           state_word(t, RACE_NET_SET_4C5CC2) == s->unknown_4c5cc2 && set_dword(t + RACE_NET_SET_4FBAD8) == s->unknown_4fbad8 &&
+           set_dword(t + RACE_NET_SET_4FBADC) == s->unknown_4fbadc && state_word(t, RACE_NET_SET_READY) == s->unknown_52b318;
+}
+
+static void bump(int16_t *w) { *w = (int16_t)(*w + 1); }
+
+static void sync_host(const RaceNetSyncOps *ops, RaceNetSync *s)
+{
+    uint8_t *t = s->settings;
+    if (s->unknown_50a5bc != 0 && s->unknown_52b302 == 0 && s->play == 1) {
+        ops->poll(ops->ctx);
+        memset(t + RACE_NET_SET_READY, 0, 2 * RACE_NET_SET_READIES);
+        s->unknown_50a5ba = 1, bump(&s->unknown_52b31a);
+        return;
+    }
+    if (s->unknown_50a5ba == 0 && settings_match(s)) {
+        s->unknown_52b31a = 0;
+        return;
+    }
+    put_state_word(t, 0, RACE_NET_SETTINGS_KIND), put_state_word(t, RACE_NET_SET_TYPE, s->race_type);
+    put_state_word(t, RACE_NET_SET_TRACK, s->track), put_state_word(t, RACE_NET_SET_524EA1, s->unknown_524ea1);
+    put_state_word(t, RACE_NET_SET_524EA3, s->unknown_524ea3), put_state_word(t, RACE_NET_SET_524E9D, s->unknown_524e9d);
+    put_state_word(t, RACE_NET_SET_4C5CC2, s->unknown_4c5cc2);
+    put_set_dword(t + RACE_NET_SET_4FBAD8, s->unknown_4fbad8), put_set_dword(t + RACE_NET_SET_4FBADC, s->unknown_4fbadc);
+    put_state_word(t, RACE_NET_SET_READY, s->unknown_52b318), put_state_word(t, RACE_NET_SET_CARS, s->unknown_524e8b[0]);
+    ops->lock(ops->ctx, s->lock);
+    for (int i = 0; i < RACE_NET_SET_WORDS; i++) put_state_word(t, RACE_NET_SET_52B2B4 + 2 * i, s->unknown_52b2b4[i]);
+    for (int i = 0; i < state_word(s->state, RACE_NET_AT_HUMANS) && i < RACE_NET_SET_WORDS; i++)  /* port guard: 8 */
+        s->unknown_524e8b[1 + i] = state_word(t, RACE_NET_SET_CARS + 2 * i);
+    if (s->unknown_50a5ba != 0) s->unknown_50a5ba = 0, bump(&s->unknown_52b31a);
+    ops->send(ops->ctx, 0, t, RACE_NET_SETTINGS);
+    ops->unlock(ops->ctx, s->lock);
+    bump(&s->unknown_52b31a);
+}
+
+static void sync_client(const RaceNetSyncOps *ops, RaceNetSync *s)
+{
+    uint8_t *t = s->settings;
+    if (s->unknown_50a5bc != 0 && s->unknown_52b302 == 0 && s->play == 1) {
+        ops->lock(ops->ctx, s->lock);
+        memcpy(s->state, s->in, RACE_NET_STATE);
+        s->followed = state_word(s->state, RACE_NET_AT_TO), s->unknown_50a5bc = 0;
+        ops->unlock(ops->ctx, s->lock);
+        bump(&s->unknown_52b31a);
+        return;
+    }
+    if (s->unknown_50a5ba != 0 && s->unknown_52b302 == 0) {
+        ops->lock(ops->ctx, s->lock);
+        if (s->race_type != state_word(t, RACE_NET_SET_TYPE) && s->unknown_52b310 != 0) ops->menu(ops->ctx);
+        s->race_type = state_word(t, RACE_NET_SET_TYPE), s->track = state_word(t, RACE_NET_SET_TRACK);
+        s->unknown_524ea1 = state_word(t, RACE_NET_SET_524EA1), s->unknown_524ea3 = state_word(t, RACE_NET_SET_524EA3);
+        s->unknown_524e9d = state_word(t, RACE_NET_SET_524E9D), s->unknown_4c5cc2 = state_word(t, RACE_NET_SET_4C5CC2);
+        s->unknown_4fbad8 = set_dword(t + RACE_NET_SET_4FBAD8), s->unknown_4fbadc = set_dword(t + RACE_NET_SET_4FBADC);
+        for (int i = 0; i < RACE_NET_SET_WORDS; i++)
+            s->unknown_524e8b[1 + i] = state_word(t, RACE_NET_SET_CARS + 2 * i), s->unknown_52b2b4[i] = state_word(t, RACE_NET_SET_52B2B4 + 2 * i);
+        s->unknown_50a5ba = 0;
+        ops->unlock(ops->ctx, s->lock);
+        bump(&s->unknown_52b31a);
+        return;
+    }
+    const int16_t slot = state_word(s->state, RACE_NET_AT_TO);
+    const int cars = RACE_NET_SET_CARS + 2 * slot, ready = RACE_NET_SET_READY + 2 * slot;
+    if (slot >= 0 && slot < RACE_NET_SET_WORDS &&  /* port guard */
+        (s->unknown_524e8b[0] != state_word(t, cars) || s->unknown_52b318 != state_word(t, ready)) && s->unknown_52b316 == 0) {
+        put_state_word(t, cars, s->unknown_524e8b[0]), put_state_word(t, ready, s->unknown_52b318);
+        uint8_t choice[RACE_NET_CHOICE];
+        put_state_word(choice, 0, RACE_NET_SETTINGS_KIND), put_state_word(choice, 2, s->unknown_524e8b[0]);
+        put_state_word(choice, 4, s->unknown_52b318);
+        ops->send(ops->ctx, 0, choice, RACE_NET_CHOICE);
+        return;
+    }
+    s->unknown_52b31a = 0;
+}
+
+void race_net_sync(const RaceNetSyncOps *ops, RaceNetSync *s)
+{
+    if (s->play == 0) return;
+    ops->service(ops->ctx);
+    if (s->host != 0) sync_host(ops, s);
+    else sync_client(ops, s);
+    ops->service(ops->ctx);
+}

@@ -521,4 +521,64 @@ typedef struct {
  * 00446528, 004bc6ac = 0, 0052b316 = 0, 004fbb08 = 0, 0052b314 = 1. */
 void race_net_give_up(const RaceNetGiveUpOps *ops, RaceNetGiveUp *g);
 
+/* 004f8250: the race's settings as the host sends them (kind 7, 0x4e bytes) */
+enum {
+    RACE_NET_SETTINGS = 0x4e, RACE_NET_SETTINGS_KIND = 7, RACE_NET_SET_TYPE = 2, RACE_NET_SET_TRACK = 4,
+    RACE_NET_SET_524EA1 = 6, RACE_NET_SET_524EA3 = 8, RACE_NET_SET_524E9D = 0xa,
+    RACE_NET_SET_CARS = 0xc,       /* 004f825c: a word a slot (8), slot 0 the host's 00524e8b */
+    RACE_NET_SET_READY = 0x1c,     /* 004f826c: a word a slot (12), 0052b318 */
+    RACE_NET_SET_52B2B4 = 0x34,    /* 004f8284: 8 words */
+    RACE_NET_SET_4C5CC2 = 0x44, RACE_NET_SET_4FBAD8 = 0x46, RACE_NET_SET_4FBADC = 0x4a,
+    RACE_NET_SET_WORDS = 8, RACE_NET_SET_READIES = 12, RACE_NET_CHOICE = 6  /* a client's 7 / 00524e8b / 0052b318 */
+};
+
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);                        /* 00475c14(0) */
+    void (*lock)(void *ctx, uint32_t lock);            /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);          /* 00476cfc (cdecl) */
+    void (*poll)(void *ctx);                           /* 00411050 */
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+    void (*menu)(void *ctx);                           /* 00466ae4, the frontend's */
+} RaceNetSyncOps;
+
+/* The words 004104d0 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t play;                     /* 0052b312 */
+    int16_t host;                     /* 00524e7b */
+    int16_t unknown_52b302, unknown_52b310, unknown_52b316, unknown_52b318, unknown_52b31a;
+    int16_t unknown_50a5ba;           /* the settings came in (or were asked for) */
+    int16_t unknown_50a5bc;           /* the host's state came in */
+    uint32_t lock;                    /* 004f815c */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    const uint8_t *in;                /* 004f81d8: the host's state as it came in */
+    uint8_t *settings;                /* 004f8250: RACE_NET_SETTINGS bytes */
+    int32_t followed;                 /* 004fbb08 */
+    int16_t race_type;                /* 00524e5d */
+    int16_t track;                    /* 00524e85 */
+    int16_t unknown_524ea1, unknown_524ea3, unknown_524e9d, unknown_4c5cc2;
+    int16_t *unknown_524e8b;          /* 00524e8b (this machine's), then 00524e8d's 8 */
+    int16_t *unknown_52b2b4;          /* 8 */
+    int32_t unknown_4fbad8, unknown_4fbadc;
+} RaceNetSync;
+
+/* 004104d0 (watcall (), 12 callers): nothing without 0052b312; else
+ * 00475c14(0) first and last (each way out below ends with it). The host
+ * (00524e7b): with 0050a5bc, 0052b302 0 and 0052b312 == 1: 00411050, the
+ * readies 004f826c zeroed (__STOSB, 0x18), 0050a5ba = 1, 0052b31a + 1. Else
+ * with 0050a5ba 0 and the settings as the menu's: 0052b31a = 0 (a loop over
+ * 004f8138 before it only sets 0052b31a to 1, overwritten). Else the settings
+ * taken from the menu (kind 7 at +0), lock, 0052b2b4 into +0x34, +0xc's words
+ * into 00524e8d for each human (004f81d2), 0050a5ba set: 0, 0052b31a + 1;
+ * 00445e00(0, settings, 0x4e), unlock, 0052b31a + 1. A client: with
+ * 0050a5bc, 0052b302 0 and 0052b312 == 1: lock, the state from 004f81d8,
+ * 004fbb08 = its slot (004f81d6), 0050a5bc = 0, unlock, 0052b31a + 1. Else
+ * with 0050a5ba and 0052b302 0: lock, 00466ae4 when the race type moved and
+ * 0052b310, the menu's from the settings (all 8 of 00524e8d and 0052b2b4),
+ * 0050a5ba = 0, unlock, 0052b31a + 1. Else when 00524e8b or 0052b318 is not
+ * its slot's in the settings and 0052b316 0: both stored there and sent to
+ * the host (6 bytes: 7, 00524e8b, 0052b318); else 0052b31a = 0. Port guards:
+ * the humans loop stops at 8, a slot outside 0..7 sends nothing. */
+void race_net_sync(const RaceNetSyncOps *ops, RaceNetSync *s);
+
 #endif
