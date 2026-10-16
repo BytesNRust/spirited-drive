@@ -42,6 +42,9 @@ enum { NET_QUEUE_CHANGED = 1 };
  * the node's next NULL, the flags' bit 0 set, 1. */
 int32_t net_queue_remove(NetQueue *q, NetNode *n);
 
+/* 0049c7f0 (cdecl (queue), from 0047ab80, 0047b250 and 004818dc): the mutex closed (00476c58(+0x18)) */
+void net_queue_close(const NetMutexOps *ops, const NetQueue *q);
+
 /* 0049ca14 (cdecl (queue), from 00478f0c, 004790b0 and 0047ab80): its count, unlocked */
 uint32_t net_queue_count(const NetQueue *q);
 
