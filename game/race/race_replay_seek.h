@@ -265,6 +265,10 @@ typedef struct {
     void (*cycle_view)(void *ctx);                              /* 0040594c(004f801c) */
 } RaceReplayKeysOps;
 
+/* 0044f534 (watcall (request), from 004275f8 and the in-race menu): 00513738
+ * = request; 4, 5 and 8 (the ones that save first) also 00513740 = 1. */
+void race_replay_request(RaceReplayDirector *w, int32_t request);
+
 /* 0044f528 (watcall (), from 004275f8 before a race): 00513740 = 0. */
 void race_replay_end_clear(RaceReplayDirector *w);
 

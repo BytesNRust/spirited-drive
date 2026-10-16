@@ -624,3 +624,9 @@ void race_replay_update(RaceState *race, RaceReplayDirector *w, const RaceReplay
 }
 
 void race_replay_end_clear(RaceReplayDirector *w) { w->unknown_513740 = 0; }
+
+void race_replay_request(RaceReplayDirector *w, int32_t request)
+{
+    w->request = request;
+    if (request == 4 || request == 5 || request == 8) w->unknown_513740 = 1;
+}
