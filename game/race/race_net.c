@@ -356,3 +356,13 @@ void race_net_clear_flags(int16_t a[RACE_NET_FLAGS_A], int16_t b[RACE_NET_FLAGS_
     for (int16_t i = 0; i < RACE_NET_FLAGS_A; i++) a[i] = 0;
     for (int16_t i = 0; i < RACE_NET_FLAGS_B; i++) b[i] = 0;
 }
+
+void race_net_reset(const RaceNetResetOps *ops, RaceNetReset *r)
+{
+    race_net_clear_flags(r->flags_a, r->flags_b);
+    ops->transport_reset(ops->ctx);
+    r->unknown_4bcb94 = 1;
+    memset(r->unknown_4f8138, 0, RACE_NET_WORDS_4F8138 * sizeof *r->unknown_4f8138);
+    memset(r->entries, 0, RACE_NET_TABLE_ENTRIES * sizeof *r->entries);
+    memset(r->tags, 0, RACE_NET_TABLE_ENTRIES * RACE_NET_TAG);
+}

@@ -418,4 +418,25 @@ enum { RACE_NET_FLAGS_A = 11, RACE_NET_FLAGS_B = 12 };
 /* 00446528 (watcall (), from 0044655c and 00446220): both tables zeroed */
 void race_net_clear_flags(int16_t a[RACE_NET_FLAGS_A], int16_t b[RACE_NET_FLAGS_B]);
 
+enum { RACE_NET_TABLE_ENTRIES = 11, RACE_NET_WORDS_4F8138 = 8 };  /* 0050a5dc's eleven in the exe; 004f8138's dwords */
+
+typedef struct {
+    void *ctx;
+    void (*transport_reset)(void *ctx);  /* 0047ab10, the transport's */
+} RaceNetResetOps;
+
+typedef struct {
+    int16_t *flags_a, *flags_b;       /* 0050a5ac, 0050a5c2 */
+    int32_t unknown_4bcb94;
+    int32_t *unknown_4f8138;          /* RACE_NET_WORDS_4F8138 */
+    RaceNetLink *entries;             /* 0050a5dc */
+    uint8_t *tags;                    /* 0050a978 */
+} RaceNetReset;
+
+/* 0044655c (watcall (), from 00442970, 00442ad0 and 0045147c): 00446528,
+ * 0047ab10, 004bcb94 = 1, the eight dwords at 004f8138 = 0, and 0x3ff bytes
+ * from 0050a5dc zeroed (0048f1d4): the eleven entries and their eleven
+ * tags. */
+void race_net_reset(const RaceNetResetOps *ops, RaceNetReset *r);
+
 #endif
