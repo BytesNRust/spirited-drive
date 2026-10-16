@@ -780,3 +780,28 @@ void race_net_on_hello(RaceNetHelloIn *h, const uint8_t *data)
     for (int i = 0; i < RACE_NET_TAG; i++)  /* port guard: entry 0's tag */
         if ((h->tags[i] = data[4 + i]) == 0) return;
 }
+
+static void answer_ping(const RaceNetPingOps *ops, uint32_t link, int16_t answer)
+{
+    uint8_t message[RACE_NET_PING];
+    put_state_word(message, 0, RACE_NET_PING_KIND), put_state_word(message, 2, answer);
+    ops->send(ops->ctx, link, message, RACE_NET_PING);
+}
+
+void race_net_on_ping(const RaceNetPingOps *ops, RaceNetPingIn *p, uint32_t link, const uint8_t *data)
+{
+    switch ((uint16_t)state_word(data, 2)) {
+    case 0: answer_ping(ops, link, 1); break;
+    case 1: answer_ping(ops, link, 2); break;
+    case 2:
+        p->flags_a[RACE_NET_PINGED_FLAG] = 1;
+        answer_ping(ops, link, 3);
+        break;
+    case 3: {
+        const int16_t slot = ops->slot_of(ops->ctx, link);
+        if (slot >= 0 && slot < RACE_NET_PINGS) p->unknown_4f8108[slot] = p->clock;  /* port guard */
+        break;
+    }
+    default: break;
+    }
+}

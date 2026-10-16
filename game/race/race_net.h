@@ -879,4 +879,30 @@ typedef struct {
  * block, and within RACE_NET_TAG bytes of the hello and of the tag. */
 void race_net_on_hello(RaceNetHelloIn *h, const uint8_t *data);
 
+enum {
+    RACE_NET_PING_KIND = 4, RACE_NET_PING = 4,
+    RACE_NET_PINGS = 12,        /* 004f8108's dwords, up to 004f8138 */
+    RACE_NET_PINGED_FLAG = 4    /* 0050a5b4 = 0050a5ac[4] */
+};
+
+typedef struct {
+    void *ctx;
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+    int16_t (*slot_of)(void *ctx, uint32_t link);                              /* 0044659c */
+} RaceNetPingOps;
+
+/* The words handler 4 reads and writes */
+typedef struct {
+    int16_t *flags_a;                 /* 0050a5ac */
+    int32_t clock;                    /* 004bb8e0 */
+    int32_t *unknown_4f8108;          /* RACE_NET_PINGS: the clock a machine last answered at */
+} RaceNetPingIn;
+
+/* 00410f90, message kind 4 (eax link, edx data): by the word at +2 (unsigned;
+ * past 3 nothing): 0 and 1 answer the sender (00445e00(link, {4, 1 / 2}, 4));
+ * 2 sets 0050a5b4 (0050a5ac[4]) = 1 and answers {4, 3}; 3 stores 004bb8e0 at
+ * 004f8108[(short) 0044659c(link)]. Port guard: a slot outside 0..11 stores
+ * nothing. */
+void race_net_on_ping(const RaceNetPingOps *ops, RaceNetPingIn *p, uint32_t link, const uint8_t *data);
+
 #endif
