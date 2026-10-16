@@ -72,6 +72,7 @@ add_library(tnfs_game STATIC
     game/frontend/game_mode.c
     game/frontend/intro.c
     game/frontend/key_capture.c
+    game/frontend/load_save.c
     game/frontend/key_name.c
     game/frontend/menu_sound.c
     game/frontend/message_banner.c
