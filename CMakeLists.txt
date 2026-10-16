@@ -68,6 +68,7 @@ add_library(tnfs_game STATIC
     game/frontend/frame_bench.c
     game/frontend/frontend_loop.c
     game/frontend/game_file.c
+    game/frontend/game_list.c
     game/frontend/game_mode.c
     game/frontend/intro.c
     game/frontend/key_capture.c
