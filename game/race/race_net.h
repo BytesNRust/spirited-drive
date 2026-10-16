@@ -1003,4 +1003,20 @@ typedef struct {
  * on (wait_release), 1. */
 int32_t race_net_link_escape(const RaceNetEscapeOps *ops, uint8_t esc, int32_t *unknown_513e48);
 
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);       /* 0046417c, the frontend's */
+} RaceNetSessionEscapeOps;
+
+/* Read again after every call (the service moves the keys on) */
+typedef struct {
+    uint8_t esc;                      /* 004c693d: key 1 */
+    int32_t unknown_50a2fc;
+} RaceNetSessionEscape;
+
+/* 00443494 (a transport callback, no arguments): 0046417c; Esc down:
+ * 0046417c again, then while Esc is down 0046417c, and 1. Esc up: 1 when
+ * 0050a2fc is 0, else 0. */
+int32_t race_net_session_escape(const RaceNetSessionEscapeOps *ops, const RaceNetSessionEscape *e);
+
 #endif

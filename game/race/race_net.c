@@ -881,3 +881,12 @@ int32_t race_net_link_escape(const RaceNetEscapeOps *ops, uint8_t esc, int32_t *
     ops->wait_release(ops->ctx);
     return 1;
 }
+
+int32_t race_net_session_escape(const RaceNetSessionEscapeOps *ops, const RaceNetSessionEscape *e)
+{
+    ops->service(ops->ctx);
+    if (e->esc == 0) return e->unknown_50a2fc == 0;
+    ops->service(ops->ctx);
+    while (e->esc != 0) ops->service(ops->ctx);
+    return 1;
+}
