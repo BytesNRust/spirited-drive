@@ -156,3 +156,24 @@ void net_queue_push_back(const NetMutexOps *ops, NetQueue *q, NetNode *n)
     }
     ops->unlock(ops->ctx, q->mutex);
 }
+
+NetNode *net_queue_pop_back(const NetMutexOps *ops, NetQueue *q)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *const n = q->tail;
+    if (n != NULL) {
+        q->count--;
+        NetNode *const first = q->head;
+        if (n == first) {
+            q->head = q->tail = NULL;
+        } else {
+            q->tail = first;
+            while (q->tail->next != n) q->tail = q->tail->next;
+            q->tail->next = NULL;
+        }
+        n->next = NULL;
+    }
+    q->flags |= NET_QUEUE_CHANGED;
+    ops->unlock(ops->ctx, q->mutex);
+    return n;
+}

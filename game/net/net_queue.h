@@ -75,6 +75,14 @@ void net_queue_push_back(const NetMutexOps *ops, NetQueue *q, NetNode *n);
  * bit 0 set even with none. The node, or NULL. */
 NetNode *net_queue_pop_front(const NetMutexOps *ops, NetQueue *q);
 
+/* 0049c8e8 (cdecl (queue), no direct callers): under the mutex (+0x18, read
+ * again for the unlock), the tail taken: count - 1; it the head, head and
+ * tail NULL; else the tail walked from the head (the tail word itself the
+ * walk's place) to the node before it, whose next is NULLed; its next NULL.
+ * The flags' bit 0 set even with none. The node, or NULL. The tail must be
+ * on the chain from the head (the original faults past its end). */
+NetNode *net_queue_pop_back(const NetMutexOps *ops, NetQueue *q);
+
 /* 0049c9d8 (cdecl (queue, node), from 004790b0, 0047a434, 0047ac18 and
  * 0047b250): 0049c714 under the mutex (+0x18, read again for the unlock),
  * its answer. Port guard: a NULL node answers 0 (the original returns ebx as
