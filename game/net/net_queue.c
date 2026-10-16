@@ -27,3 +27,8 @@ void net_put_big(uint8_t *to, uint32_t value, int32_t n)
 {
     for (int32_t i = n - 1; i >= 0; i--, value >>= 8) to[i] = (uint8_t)value;
 }
+
+void net_put_little(uint8_t *to, uint32_t value, int32_t n)
+{
+    for (int32_t i = 0; i < n; i++, value >>= 8) to[i] = (uint8_t)value;
+}

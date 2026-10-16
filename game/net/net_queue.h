@@ -33,4 +33,9 @@ int32_t net_queue_remove(NetQueue *q, NetNode *n);
  * 4, zeros first); n at most 0 writes nothing. */
 void net_put_big(uint8_t *to, uint32_t value, int32_t n);
 
+/* 0049c6cb (cdecl (to, value, n), from 0048f7a0, 004926d4 and 0049f3a0):
+ * value's low n bytes to to[0..n-1], the first the lowest (above 4, zeros
+ * last); n at most 0 writes nothing. */
+void net_put_little(uint8_t *to, uint32_t value, int32_t n);
+
 #endif
