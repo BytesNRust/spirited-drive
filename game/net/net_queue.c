@@ -89,3 +89,12 @@ NetNode *net_queue_pop_front(const NetMutexOps *ops, NetQueue *q)
     ops->unlock(ops->ctx, q->mutex);
     return n;
 }
+
+int32_t net_queue_remove_locked(const NetMutexOps *ops, NetQueue *q, NetNode *n)
+{
+    int32_t removed = 0;
+    ops->lock(ops->ctx, q->mutex);
+    if (n != NULL) removed = net_queue_remove(q, n);
+    ops->unlock(ops->ctx, q->mutex);
+    return removed;
+}

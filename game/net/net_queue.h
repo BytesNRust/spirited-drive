@@ -69,6 +69,12 @@ void net_queue_push_front(const NetMutexOps *ops, NetQueue *q, NetNode *n);
  * bit 0 set even with none. The node, or NULL. */
 NetNode *net_queue_pop_front(const NetMutexOps *ops, NetQueue *q);
 
+/* 0049c9d8 (cdecl (queue, node), from 004790b0, 0047a434, 0047ac18 and
+ * 0047b250): 0049c714 under the mutex (+0x18, read again for the unlock),
+ * its answer. Port guard: a NULL node answers 0 (the original returns ebx as
+ * it came; its callers pass nodes). */
+int32_t net_queue_remove_locked(const NetMutexOps *ops, NetQueue *q, NetNode *n);
+
 /* 0049c6a8 (cdecl (to, value, n), 10 callers: the packets' words in network
  * order): value's low n bytes to to[0..n-1], the last byte the lowest (above
  * 4, zeros first); n at most 0 writes nothing. */
