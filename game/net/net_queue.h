@@ -50,6 +50,13 @@ uintptr_t net_queue_key_self(const NetNode *n, uintptr_t arg);
  * 0, the key (0049c6f0 for NULL) and its argument. */
 void net_queue_init(const NetMutexOps *ops, NetQueue *q, NetQueueKey key, uintptr_t arg);
 
+/* 0049c954 (cdecl (queue, node), from 0047a50c, 0047a82c, 0047ac18 and
+ * 0047b17c): under the mutex (+0x18, read again for the unlock), a node (not
+ * NULL) put before the first whose key is not below its own (the key and
+ * its argument read again for every call), count + 1 (read after the
+ * node's key), the tail when none is, the flags' bit 0 set. */
+void net_queue_insert(const NetMutexOps *ops, NetQueue *q, NetNode *n);
+
 /* 0049c6a8 (cdecl (to, value, n), 10 callers: the packets' words in network
  * order): value's low n bytes to to[0..n-1], the last byte the lowest (above
  * 4, zeros first); n at most 0 writes nothing. */

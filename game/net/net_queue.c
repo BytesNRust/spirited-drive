@@ -44,3 +44,20 @@ void net_queue_init(const NetMutexOps *ops, NetQueue *q, NetQueueKey key, uintpt
     q->key = key != NULL ? key : net_queue_key_self;
     q->key_arg = arg;
 }
+
+void net_queue_insert(const NetMutexOps *ops, NetQueue *q, NetNode *n)
+{
+    ops->lock(ops->ctx, q->mutex);
+    if (n != NULL) {
+        const uintptr_t key = q->key(n, q->key_arg);
+        q->count++;
+        NetNode *prev = NULL, *p = q->head;
+        while (p != NULL && q->key(p, q->key_arg) < key) prev = p, p = p->next;
+        n->next = p;
+        if (prev == NULL) q->head = n;
+        else prev->next = n;
+        if (p == NULL) q->tail = n;
+        q->flags |= NET_QUEUE_CHANGED;
+    }
+    ops->unlock(ops->ctx, q->mutex);
+}
