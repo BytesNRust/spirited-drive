@@ -17,8 +17,27 @@ typedef struct {
     int32_t acked;  /* +0xc */
 } NetLink;
 
+/* A connection's driver's methods (its +4: a table; the link its first argument) */
+typedef struct NetDriver NetDriver;
+struct NetDriver {
+    void *ctx;
+    uint32_t (*room)(void *ctx, NetLink *link);                                      /* +0xc (cdecl) */
+    uint32_t (*send)(void *ctx, NetLink *link, const uint8_t *data, uint32_t length);  /* +0x18 (cdecl) */
+};
+
+/* A packet: a queue node (+0), its sequence (+4), +8, then its bytes on the
+ * wire (+0xc: 0xfe, 0, the kind, the sequence acknowledged, the checksum,
+ * the data); 0047ac18 lays them (sum_size + the most + 0x13) & ~3 apart */
+typedef struct {
+    NetNode node;
+    int32_t seq;     /* +4 */
+    int32_t sent;    /* +8: 1 while unsent, then the link's +0xc */
+    uint8_t wire[];  /* +0xc */
+} NetPacket;
+
 /* A packet connection's words read here; read again after every call */
 typedef struct {
+    const NetDriver *driver;  /* +4 */
     NetLink *link;       /* +8 */
     uint8_t id;          /* +0xc */
     int32_t sum_size;    /* +0x2c: the checksum's bytes (0047ac18: 0 or 2) */
@@ -58,5 +77,14 @@ uint8_t net_packet_acked(const NetPacketOps *ops, NetPacketConn *c);
  * last first: all the same 1; else out put back and 0. Port guard: n above 4
  * (its keep is 4 bytes on the stack) or negative (0048ec60 stops the game) 0. */
 int32_t net_checksum_check(const NetPacketConn *c, const uint8_t *data, uint8_t *out, uint32_t length);
+
+/* 0047a204 (watcall (packet, connection, kind), from 0047a2ac, 0047a82c and
+ * 0047b250): a control packet (its header alone) sent. length = +0x2c + 4;
+ * packet +8 = 1; the driver's room (+4's +0xc (+8)) below length: 0. Else
+ * the header 0xfe, 0, kind, 00479f94's; 00479ed4(+0xc4, +0xc, +0x10, length,
+ * +0x2c read again); the driver's send (+4's +0x18 (+8, +0xc, length), +4
+ * and +8 read again); all sent: 1, and with kind (all 32 bits) at most 0x7f
+ * packet +8 = the link's (+8 read again) +0xc; else 0. */
+int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c, uint32_t kind);
 
 #endif

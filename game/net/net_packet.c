@@ -38,3 +38,16 @@ int32_t net_checksum_check(const NetPacketConn *c, const uint8_t *data, uint8_t 
     }
     return 1;
 }
+
+int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c, uint32_t kind)
+{
+    const uint32_t length = (uint32_t)c->sum_size + 4;
+    p->sent = 1;
+    if (c->driver->room(c->driver->ctx, c->link) < length) return 0;
+    const uint8_t acked = net_packet_acked(ops, c);
+    p->wire[0] = 0xfe, p->wire[1] = 0, p->wire[2] = (uint8_t)kind, p->wire[3] = acked;
+    net_checksum_put(c->sum, p->wire, p->wire + 4, length, c->sum_size);
+    const int32_t sent = c->driver->send(c->driver->ctx, c->link, p->wire, length) == length;
+    if (sent && kind <= 0x7f) p->sent = c->link->acked;
+    return sent;
+}
