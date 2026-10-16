@@ -268,4 +268,38 @@ typedef struct {
  * past 0050a578, 004faa7c and 0051cc54). */
 void race_net_drop(const RaceNetDropOps *ops, RaceNetDrop *d, int16_t slot);
 
+typedef struct {
+    void *ctx;
+    void (*lock)(void *ctx, uint32_t lock);       /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);     /* 00476cfc (cdecl) */
+    void (*stand_in)(void *ctx, int16_t player);  /* 0041019c */
+} RaceNetLostOps;
+
+/* The words 004460cc reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    int16_t dropped;                  /* 0052b314 */
+    uint32_t lock;                    /* 004f815c */
+    int32_t joined;                   /* 0050a5a8 */
+    int16_t unknown_50a5bc;
+    int16_t unknown_4bc6ac;
+    RaceNetCounts counts;             /* 004bc6d8 / 004bc6da */
+    const uint8_t *state;             /* 004f8164: the counts at RACE_NET_AT_HUMANS / RACE_NET_AT_OTHERS */
+    const uint32_t *links;            /* 0050a578: RACE_NET_LINKS */
+    InputQueue *queues;               /* 004faa7c: by slot */
+    PlayerRecord *records;            /* 0051cc54: by slot */
+} RaceNetLost;
+
+/* 004460cc (watcall (_, _, kind, _, link on the stack), an entry's
+ * handler_lost, called by the transport): returns 0. Not the host: 0052b314
+ * = 1, queue 0's gave up 1, record 0's finish 999999. The host: inside the
+ * lock 004f815c (read anew for the unlock), 0050a5a8 - 1, 0050a5bc = 1; with
+ * 004bc6ac 0 the link's slot (0044659c's search) below 004f81d2 gets gave up
+ * 1, finish 999999 and 0041019c(slot), then 0050a5a8 (read anew) 0 sets
+ * 0052b314; then kind becomes 1 when the link is one of entries 0..6, 0 when
+ * one of 7..10 (else it stays) and 00442dd8(kind). Port guard: a link with
+ * no slot (-1) marks nobody (the original writes before the queues and
+ * records and runs 0041019c(-1)). */
+int32_t race_net_link_lost(const RaceNetLostOps *ops, RaceNetLost *l, int32_t kind, uint32_t link);
+
 #endif
