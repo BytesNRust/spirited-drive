@@ -8,6 +8,7 @@
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_menu.h"
+#include "game/race/race_replay_seek.h"
 #include "game/race/race_sound.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
@@ -153,7 +154,7 @@ static void palette(void *ctx, uint8_t *to, const uint8_t *from, int16_t count)
 static void number(void *ctx, uint32_t address, int32_t value)
 {
     MenuCtx *c = ctx;
-    if (address == 0x44f534 && c->m->replay != NULL && c->m->replay->recording != NULL) c->m->replay->dir.request = value;
+    if (address == 0x44f534 && c->m->replay != NULL && c->m->replay->recording != NULL) race_replay_request(&c->m->replay->dir, value);
 }
 
 static int32_t inside(void *ctx, int16_t l, int16_t r, int16_t t, int16_t b)
