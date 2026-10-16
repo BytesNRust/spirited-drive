@@ -861,4 +861,22 @@ typedef struct {
  * stores nothing. */
 void race_net_on_stage(const RaceNetSlotOps *ops, RaceNetStageIn *s, uint32_t link, const uint8_t *data);
 
+/* The words handler 9 reads and writes */
+typedef struct {
+    int32_t unknown_4fbb0c;           /* this machine's side */
+    int16_t dropped;                  /* 0052b314 */
+    int32_t unknown_513e44;           /* both machines took the same side */
+    int16_t unknown_50a5be;           /* the other's hello came in */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    uint8_t *tags;                    /* 0050a978: RACE_NET_TAGS bytes */
+} RaceNetHelloIn;
+
+/* 0045156c, message kind 9 (eax link, edx data: 00451660's hello): the
+ * sender's side (the short at +2) equal to 004fbb0c (all 32 bits): 0052b314
+ * = 1 and 00513e44 = 1. Else 0050a5be = 1 and the sender's name (+4) copied
+ * to its NUL into the state block's name 004fbb0c, and with 004fbb0c not 0
+ * also into 0050a978 (entry 0's tag). Port guard: the name within the state
+ * block, and within RACE_NET_TAG bytes of the hello and of the tag. */
+void race_net_on_hello(RaceNetHelloIn *h, const uint8_t *data);
+
 #endif

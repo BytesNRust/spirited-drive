@@ -766,3 +766,17 @@ void race_net_on_stage(const RaceNetSlotOps *ops, RaceNetStageIn *s, uint32_t li
         s->flags_a[RACE_NET_STAGE_FLAG] = state_word(data, 2);
     }
 }
+
+void race_net_on_hello(RaceNetHelloIn *h, const uint8_t *data)
+{
+    if (state_word(data, 2) == h->unknown_4fbb0c) {
+        h->dropped = 1, h->unknown_513e44 = 1;
+        return;
+    }
+    h->unknown_50a5be = 1;
+    const int64_t at = RACE_NET_AT_NAMES + (int64_t)h->unknown_4fbb0c * RACE_NET_TAG;
+    if (at >= 0 && at < RACE_NET_STATE) copy_name(h->state, (int)at, data + 4, RACE_NET_TAG);  /* port guard */
+    if (h->unknown_4fbb0c == 0) return;
+    for (int i = 0; i < RACE_NET_TAG; i++)  /* port guard: entry 0's tag */
+        if ((h->tags[i] = data[4 + i]) == 0) return;
+}
