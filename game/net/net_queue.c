@@ -132,3 +132,12 @@ NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, 
     ops->unlock(ops->ctx, q->mutex);
     return p;
 }
+
+NetNode *net_queue_nth(const NetMutexOps *ops, NetQueue *q, uint32_t n)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *p = q->head;
+    for (uint32_t k = 0; p != NULL && k < n; k++) p = p->next;
+    ops->unlock(ops->ctx, q->mutex);
+    return p;
+}
