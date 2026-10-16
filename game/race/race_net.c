@@ -890,3 +890,10 @@ int32_t race_net_session_escape(const RaceNetSessionEscapeOps *ops, const RaceNe
     while (e->esc != 0) ops->service(ops->ctx);
     return 1;
 }
+
+void race_net_send_info(const RaceNetInfoSendOps *ops, int16_t play, int16_t replay, uint8_t *record)
+{
+    if (play == 0 || replay != 0) return;
+    put_state_word(record, 0, 0);
+    ops->send(ops->ctx, 0, record, RACE_NET_INFO);
+}

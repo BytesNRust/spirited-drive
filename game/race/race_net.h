@@ -919,6 +919,15 @@ typedef struct {
  * for a slot in 0..7 only, the word for one in 0..11. */
 void race_net_on_info(const RaceNetSlotOps *ops, RaceNetInfoIn *in, uint32_t link, const uint8_t *data);
 
+typedef struct {
+    void *ctx;
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+} RaceNetInfoSendOps;
+
+/* 00439c30 (eax record, from 004273d0): with 0052b312 set and 0052b316 0, the
+ * record's first word = 0 (kind 0) and 00445e00(0, record, 0x4b). */
+void race_net_send_info(const RaceNetInfoSendOps *ops, int16_t play, int16_t replay, uint8_t *record);
+
 enum {
     RACE_NET_SETUP = 0x348,           /* 004fb7bc: the race's setup (REPLAY_SETUP_SIZE) */
     RACE_NET_SETUP_CHUNK = 0xf7,      /* a message's share: {1, chunk byte, its bytes} */
