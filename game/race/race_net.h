@@ -411,4 +411,11 @@ typedef struct {
  * connected" for 200, 1. */
 int32_t race_net_connect(const RaceNetConnectOps *ops, RaceNetConnect *c, const uint8_t *address);
 
+/* Two word tables after 0050a5a8: eleven at 0050a5ac (0050a5bc, set when the host's state came in, is [8]) and
+ * twelve at 0050a5c2 */
+enum { RACE_NET_FLAGS_A = 11, RACE_NET_FLAGS_B = 12 };
+
+/* 00446528 (watcall (), from 0044655c and 00446220): both tables zeroed */
+void race_net_clear_flags(int16_t a[RACE_NET_FLAGS_A], int16_t b[RACE_NET_FLAGS_B]);
+
 #endif

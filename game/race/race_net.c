@@ -350,3 +350,9 @@ int32_t race_net_connect(const RaceNetConnectOps *ops, RaceNetConnect *c, const 
     ops->message(ops->ctx, net_text(c, RACE_NET_CONNECTED, RACE_NET_CONNECTED_G), RACE_NET_CREATED_TICKS);
     return 1;
 }
+
+void race_net_clear_flags(int16_t a[RACE_NET_FLAGS_A], int16_t b[RACE_NET_FLAGS_B])
+{
+    for (int16_t i = 0; i < RACE_NET_FLAGS_A; i++) a[i] = 0;
+    for (int16_t i = 0; i < RACE_NET_FLAGS_B; i++) b[i] = 0;
+}
