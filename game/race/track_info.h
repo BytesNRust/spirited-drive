@@ -75,6 +75,13 @@ void track_info_load(const TrackInfoOps *ops, const TrackInfoInputs *in, TrackIn
  * becomes a NUL, and past four digits after the leading zeros another. */
 int32_t track_info_decimal(char *text);
 
+enum { TRACK_STEM = 0x40 };  /* 004fd0f4..004fd133 (004fd134 is another word) */
+
+/* 0043e9b4 (watcall (name), from 004275f8 with the setup's name 004fb7c6):
+ * the name to the track's stem 004fd0f4, NUL and all. Port guard: within
+ * TRACK_STEM bytes (the original copies on). */
+void track_stem_set(char stem[TRACK_STEM], const char *name);
+
 /* track_info_load on a file's text (high resolution, time of day 0, no
  * tint); 0 for an empty text. */
 int track_info_parse(TrackInfo *info, const char *text, size_t size);

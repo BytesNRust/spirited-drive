@@ -241,3 +241,9 @@ int track_info_parse(TrackInfo *info, const char *text, size_t size)
     track_info_load(&ops, &in, info);
     return 1;
 }
+
+void track_stem_set(char stem[TRACK_STEM], const char *name)
+{
+    for (int k = 0; k < TRACK_STEM; k++)  /* port guard */
+        if ((stem[k] = name[k]) == 0) break;
+}
