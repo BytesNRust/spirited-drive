@@ -174,6 +174,13 @@ void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q);
  * the string within the ten asks. */
 int32_t race_net_queue_push(RaceNetQueue *q, const uint8_t *name, int16_t viewer, const uint8_t *link);
 
+/* 00442ec0 (the join handler the transport calls; the request its second stack argument): room for a viewer is
+ * 004bc6da < 4, for a player 004bc6d8 < 8 (16-bit, both read first). A request whose +0x14 is 'V' takes viewer
+ * room, else player room; any other takes player room, else viewer room; with neither, 0. The count taken + 1,
+ * then 00443560(req + 0x48, viewer, req), 0050a5bc = 1, 1. */
+enum { RACE_NET_REQ_KIND = 0x14, RACE_NET_REQ_NAME = 0x48, RACE_NET_MAX_PLAYERS = 8, RACE_NET_MAX_VIEWERS = 4 };
+int32_t race_net_join_request(RaceNetQueue *q, const uint8_t *req);
+
 /* The seats 004465e4 rebuilds: the state block's names (9 bytes a slot from
  * +2, this machine's at slot 0, the viewers' from slot 8), its counts, the
  * links by slot (0050a578, the entries' exe addresses; viewers past eight

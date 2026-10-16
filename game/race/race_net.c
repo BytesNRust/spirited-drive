@@ -128,6 +128,18 @@ int32_t race_net_queue_push(RaceNetQueue *q, const uint8_t *name, int16_t viewer
     return next / RACE_NET_ASKS;
 }
 
+int32_t race_net_join_request(RaceNetQueue *q, const uint8_t *req)
+{
+    const int viewer_room = q->counts.unknown_4bc6da < RACE_NET_MAX_VIEWERS, player_room = q->counts.unknown_4bc6d8 < RACE_NET_MAX_PLAYERS;
+    const int viewer = req[RACE_NET_REQ_KIND] == 'V' ? viewer_room : !player_room;
+    if (viewer ? !viewer_room : !player_room) return 0;
+    if (viewer) q->counts.unknown_4bc6da = (int16_t)(q->counts.unknown_4bc6da + 1);
+    else q->counts.unknown_4bc6d8 = (int16_t)(q->counts.unknown_4bc6d8 + 1);
+    race_net_queue_push(q, req + RACE_NET_REQ_NAME, viewer, req);
+    q->unknown_50a5bc = 1;
+    return 1;
+}
+
 /* A string copied up to its NUL into the state block (port guard: within the block and `room` source bytes) */
 static void copy_name(uint8_t *state, int at, const uint8_t *from, int room)
 {
