@@ -7,10 +7,14 @@
 
 #include <stdint.h>
 
+typedef struct NetServer NetServer;
+
 /* The session record's words read here; read again after every call */
 typedef struct {
     int32_t tcp;          /* +4: not 0, the TCP layer's hooks instead of the driver's methods */
+    NetServer *server;    /* +0xc: the game server's record, NULL on the clients */
     uint32_t handle;      /* +0x10: the driver's, its methods' eax */
+    const uint8_t *self;  /* +0x28: this machine's address */
 } NetSession;
 
 typedef struct {
@@ -22,11 +26,11 @@ typedef struct {
 enum { NET_PLAYERS = 31, NET_PLAYER_SIZE = 100, NET_PLAYER_SEEN = 0x5c };
 
 /* The server's record (the session's +0xc); read again after every call */
-typedef struct {
+struct NetServer {
     NetSession *session;  /* +4 */
     uint32_t players;     /* +0x4c: a bit for each entry in use */
     uint8_t *entries;     /* +0x94: NET_PLAYERS entries of NET_PLAYER_SIZE bytes, each the player's address first */
-} NetServer;
+};
 
 /* 00479ad4 (cdecl (session, a, b), from 00477e94, 00478030, 00479250,
  * 00479770 and 004799a8): two network addresses the same? With +4 set the
@@ -62,5 +66,30 @@ extern const char NET_SURFACE_LOCKED[];     /* 004b293c */
  * 00477a40(the message, name); then with 004c62b8 at least 1 0047f244(name,
  * 0, 0, 0, 0, 0). */
 void net_check(const NetCheckOps *ops, const NetCheck *c, const char *name);
+
+enum { NET_KILL = (int32_t)0xea6f7574 };  /* the driver's +0x54 message killnetplayer sends */
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetEqualOps *equal;
+    int32_t (*tcp_kill)(void *ctx, NetSession *s, const uint8_t *address);  /* 0052cdf0 (cdecl; 00480f04) */
+    /* the driver's +0x54 (eax handle, edx entry, ebx message, ecx, one argument on the stack) */
+    void (*driver_send)(void *ctx, uint32_t handle, uint8_t *entry, int32_t message, int32_t ecx, int32_t arg);
+    void (*message)(void *ctx, const char *text);                         /* 00477a40 (cdecl) */
+} NetKillOps;
+
+extern const char NET_KILL_NOT_SERVER[];   /* 004b2ab4 */
+extern const char NET_KILL_SERVER[];       /* 004b2a84 */
+
+/* 004799a8 killnetplayer (cdecl (session, address), from 00442db8 and
+ * 004465e4): 00478e18("killnetplayer"); with +4 the TCP layer's 0052cdf0
+ * (session, address) returned. Else 0, after: no server (+0xc) the message
+ * 004b2ab4; else the player 00477e94 finds (+0xc read again) told by the
+ * driver's +0x54 (the handle, the entry, NET_KILL, 0, 0) and its bit in the
+ * server's +0x4c (read after it) cleared; none, and the address this
+ * machine's (00479ad4 against +0x28), the message 004b2a84. */
+int32_t net_kill_player(const NetKillOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
+                        const int32_t *now);
 
 #endif
