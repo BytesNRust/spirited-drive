@@ -115,14 +115,18 @@ int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n)
     return place;
 }
 
-uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q)
+static uintptr_t head_key(const NetMutexOps *ops, NetQueue *q, uintptr_t none)
 {
-    uintptr_t key = (uintptr_t)-1;
+    uintptr_t key = none;
     ops->lock(ops->ctx, q->mutex);
     if (q->head != NULL) key = q->key(q->head, q->key_arg);
     ops->unlock(ops->ctx, q->mutex);
     return key;
 }
+
+uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q) { return head_key(ops, q, (uintptr_t)-1); }
+
+uintptr_t net_queue_head_key_or_zero(const NetMutexOps *ops, NetQueue *q) { return head_key(ops, q, 0); }
 
 NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, uintptr_t arg)
 {

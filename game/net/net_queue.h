@@ -107,6 +107,10 @@ int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n);
  * (head, +0x14), never NULL there), or -1 with no head. */
 uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q);
 
+/* 0049cae0 (cdecl (queue), no caller in the call graph): 0049caa0's, with 0
+ * for no head. */
+uintptr_t net_queue_head_key_or_zero(const NetMutexOps *ops, NetQueue *q);
+
 /* A node's test (0049cb1c stops at the first not 0) */
 typedef int32_t (*NetQueueTest)(NetNode *n, uintptr_t arg);
 
