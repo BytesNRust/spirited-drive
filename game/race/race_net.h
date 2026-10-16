@@ -11,6 +11,7 @@ typedef struct {
     void *ctx;
     void (*keys)(void *ctx);     /* 0046417c: the keys read again (and the music fed) */
     void (*service)(void *ctx);  /* 00475c14(0) */
+    void (*forget)(void *ctx, uint32_t session, uint32_t name);  /* 004799a8 (cdecl): the transport's */
 } RaceNetOps;
 
 /* The words the waits read; `keys` may change them (the caller's ctx) */
@@ -74,5 +75,46 @@ typedef struct {
  * the name's 20 bytes at +0x28; returns it. NULL past the 15 (port guard). */
 RaceNetLink *race_net_link_fill(RaceNetLink entries[RACE_NET_ENTRIES], uint32_t owner, const uint8_t *name,
                                 int16_t slot, int16_t kind);
+
+enum { RACE_NET_SESSION = 0x50a260, RACE_NET_NAME_AT = 0x28 };
+
+/* 00442db8 (watcall (entry), from 004463ec and 004465e4): with the word
+ * 0052b312 == 1, 004799a8(0050a260, entry + 0x28), the entry's name. */
+void race_net_forget(const RaceNetOps *ops, int16_t play, uint32_t entry);
+
+/* The block 004f8164..004f81d7, sent whole (0x74 bytes) by 00411050: its
+ * first word the message's kind, then the counts it carries */
+enum {
+    RACE_NET_STATE = 0x74, RACE_NET_STATE_KIND = 8,
+    RACE_NET_AT_HUMANS = 0x6e,    /* 004f81d2 */
+    RACE_NET_AT_OTHERS = 0x70,    /* 004f81d4 */
+    RACE_NET_AT_TO = 0x72         /* 004f81d6: the slot it is sent to (0 for the others) */
+};
+
+typedef struct {
+    void *ctx;
+    void (*update)(void *ctx);                         /* 00442f58 */
+    void (*lock)(void *ctx, uint32_t lock);            /* 00476c78 (cdecl) */
+    void (*handle)(void *ctx);                         /* 004465e4 */
+    void (*unlock)(void *ctx, uint32_t lock);          /* 00476cfc (cdecl) */
+    void (*service)(void *ctx);                        /* 00475c14(0) */
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+} RaceNetPollOps;
+
+/* The words 00411050 reads; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    uint32_t lock;                    /* 004f815c */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    const uint32_t *links;            /* 0050a578 */
+} RaceNetPoll;
+
+/* 00411050 (watcall (), from 004104d0): nothing unless 00524e7b. Else
+ * 00442f58; 004465e4 inside the lock 004f815c; 00475c14(0); the kind 8 at
+ * 004f8164; for slot 1 while below 004f81d2 (each read anew): 004f81d6 =
+ * slot, the state sent to links[slot], 00475c14(0); then 004f81d6 = 0 and for
+ * slot from 004f81d2 while below 004f81d2 + 004f81d4 (read anew): the state
+ * sent to links[slot], 00475c14(0). The slot is a short. */
+void race_net_poll(const RaceNetPollOps *ops, const RaceNetPoll *p);
 
 #endif

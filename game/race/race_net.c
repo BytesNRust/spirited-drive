@@ -41,3 +41,37 @@ RaceNetLink *race_net_link_fill(RaceNetLink entries[RACE_NET_ENTRIES], uint32_t 
     memcpy(e->name, name, RACE_NET_NAME);
     return e;
 }
+
+void race_net_forget(const RaceNetOps *ops, int16_t play, uint32_t entry)
+{
+    if (play == 1) ops->forget(ops->ctx, RACE_NET_SESSION, entry + RACE_NET_NAME_AT);
+}
+
+static int16_t state_word(const uint8_t *state, int at) { return (int16_t)(uint16_t)(state[at] | state[at + 1] << 8); }
+static void put_state_word(uint8_t *state, int at, int16_t v) { state[at] = (uint8_t)v, state[at + 1] = (uint8_t)((uint16_t)v >> 8); }
+
+static void send_state(const RaceNetPollOps *ops, const RaceNetPoll *p, int16_t slot)
+{
+    const uint32_t link = (uint32_t)slot < RACE_NET_LINKS ? p->links[slot] : 0;  /* port guard: the original reads on */
+    ops->send(ops->ctx, link, p->state, RACE_NET_STATE);
+    ops->service(ops->ctx);
+}
+
+void race_net_poll(const RaceNetPollOps *ops, const RaceNetPoll *p)
+{
+    if (p->host == 0) return;
+    ops->update(ops->ctx);
+    ops->lock(ops->ctx, p->lock);
+    ops->handle(ops->ctx);
+    ops->unlock(ops->ctx, p->lock);
+    ops->service(ops->ctx);
+    put_state_word(p->state, 0, RACE_NET_STATE_KIND);
+    for (int16_t slot = 1; slot < state_word(p->state, RACE_NET_AT_HUMANS); slot++) {
+        put_state_word(p->state, RACE_NET_AT_TO, slot);
+        send_state(ops, p, slot);
+    }
+    put_state_word(p->state, RACE_NET_AT_TO, 0);
+    for (int16_t slot = state_word(p->state, RACE_NET_AT_HUMANS);
+         slot < (int32_t)state_word(p->state, RACE_NET_AT_HUMANS) + state_word(p->state, RACE_NET_AT_OTHERS); slot++)
+        send_state(ops, p, slot);
+}
