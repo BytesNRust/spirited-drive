@@ -24,4 +24,27 @@ typedef struct {
  * remainder), then the count + 1 unless phase is 3. */
 void race_timer_tick(const RaceTimerOps *ops, RaceTimerWords *w);
 
+/* The words 004fcd78..004fcd8f the start and the level set (read nowhere
+ * else in the code seen so far) */
+typedef struct {
+    int32_t unknown_4fcd78;
+    int32_t unknown_4fcd7c;
+    int32_t unknown_4fcd80;
+    int32_t unknown_4fcd84;
+    int32_t unknown_4fcd88;
+    int32_t unknown_4fcd8c;
+} RaceTimerLevel;
+
+/* 0043bb44 (watcall (), from 004275f8) on the level 004fbabc: 0: 004fcd88 4,
+ * 004fcd8c 3; 1: 3, 3; 2: 2, 3; 3: 3, 2; 4: 2, 2; 5: 1, 2; else left. */
+void race_timer_level(RaceTimerLevel *l, int32_t level);
+
+/* 0043ba6c (watcall (), from 004275f8): 004fcd78 = 004fcd7c = 3, 004fcd88 4,
+ * 004fcd8c 3, then 0043bb44's levels; the tick count 004bb8d8 = 0 and
+ * 004bb8e4 = 1 (running). */
+void race_timer_start(RaceTimerLevel *l, int32_t level, int32_t *ticks, int32_t *running);
+
+/* 0043bbec (watcall (), from 004275f8): 004bb8e4 = 0. */
+void race_timer_stop(int32_t *running);
+
 #endif
