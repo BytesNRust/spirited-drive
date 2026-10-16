@@ -265,6 +265,9 @@ typedef struct {
     void (*cycle_view)(void *ctx);                              /* 0040594c(004f801c) */
 } RaceReplayKeysOps;
 
+/* 0044f528 (watcall (), from 004275f8 before a race): 00513740 = 0. */
+void race_replay_end_clear(RaceReplayDirector *w);
+
 /* 0044f9b8 (from 00450020): the replay's keys. The request 00513738 first:
  * 4 loads (0044d514) and becomes 3; 5 or 8 (8 also 005137e4 = 1) load and
  * become 2; then 3 or below (but 0) begins (0044f188 with it), 0; 7 races

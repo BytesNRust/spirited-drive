@@ -622,3 +622,5 @@ void race_replay_update(RaceState *race, RaceReplayDirector *w, const RaceReplay
         race_replay_tick_flags(race);
     }
 }
+
+void race_replay_end_clear(RaceReplayDirector *w) { w->unknown_513740 = 0; }
