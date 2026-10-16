@@ -722,3 +722,11 @@ int32_t race_net_link_up(const RaceNetLinkOps *ops, RaceNetLinkUp *l)
     if (l->play == 0) l->dropped = 0;
     return l->play;
 }
+
+void race_net_on_stand_ins(const RaceNetStandInOps *ops, RaceNetStandIns *s, uint32_t link, const uint8_t *data)
+{
+    if (s->unknown_4fbb0c != 0) ops->stand_in(ops->ctx, ops->slot_of(ops->ctx, link));
+    else memcpy(s->block, data, RACE_NET_STANDIN_BLOCK);
+    for (int32_t i = 0; i < s->racers && i < RACE_NET_PLAYERS; i++)  /* port guard: eight */
+        if (state_word(s->block, 2 + 2 * i) != 0) s->records[i].finish = RACE_NET_GONE_FINISH;
+}

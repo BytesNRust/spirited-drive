@@ -781,4 +781,26 @@ typedef struct {
  * 0052b304 back, 004562e8, 0052b314 = 0 without 0052b312; returns 0052b312. */
 int32_t race_net_link_up(const RaceNetLinkOps *ops, RaceNetLinkUp *l);
 
+enum { RACE_NET_STANDIN_BLOCK = 0x12 };  /* 004f829e: the kind word, then the eight stand-ins (004f82a0) */
+
+typedef struct {
+    void *ctx;
+    int16_t (*slot_of)(void *ctx, uint32_t link);      /* 0044659c */
+    void (*stand_in)(void *ctx, int16_t player);       /* 0041019c */
+} RaceNetStandInOps;
+
+/* The words handler 10 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int32_t unknown_4fbb0c;
+    uint8_t *block;                   /* 004f829e: RACE_NET_STANDIN_BLOCK bytes */
+    int32_t racers;                   /* 004fb7dc */
+    PlayerRecord *records;            /* 0051cc54: by slot */
+} RaceNetStandIns;
+
+/* 00410324, message kind 10 (the handler table 004bcb98; eax link, edx
+ * data): with 004fbb0c, 0041019c(0044659c(link)); else the 0x12 bytes into
+ * 004f829e. Then each racer below 004fb7dc whose stand-in word is set
+ * finishes at 999999. Port guard: eight racers at most. */
+void race_net_on_stand_ins(const RaceNetStandInOps *ops, RaceNetStandIns *s, uint32_t link, const uint8_t *data);
+
 #endif
