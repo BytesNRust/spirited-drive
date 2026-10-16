@@ -40,4 +40,27 @@ int32_t net_address_equal(const NetEqualOps *ops, NetSession *s, const uint8_t *
  * first the same gets +0x5c = *now (004c62a4) and is returned; else NULL. */
 uint8_t *net_find_player(const NetEqualOps *ops, NetServer *v, const uint8_t *address, const int32_t *now);
 
+/* The words 00478e18 reads; read again after every call */
+typedef struct {
+    int32_t surface_locked;  /* 004c7ac0 */
+    int32_t trace_level;     /* 004c62b8 */
+} NetCheck;
+
+typedef struct {
+    void *ctx;
+    int32_t (*main_thread)(void *ctx, uint32_t thread);              /* 00476968 (cdecl): 0 the main one's */
+    void (*fatal)(void *ctx, const char *format, const char *name);  /* 00477a40 (cdecl) */
+    void (*trace)(void *ctx, const char *name, uint32_t data, uint32_t text, int32_t value, int32_t flagged,
+                  int32_t kind);                                     /* 0047f244 (cdecl): the trace ring */
+} NetCheckOps;
+
+extern const char NET_NOT_MAIN_THREAD[];    /* 004b2910 */
+extern const char NET_SURFACE_LOCKED[];     /* 004b293c */
+
+/* 00478e18 (watcall (name), first in 12 of the transport's calls): not on
+ * the main thread (00476968(0) 0) or else with the surface locked (004c7ac0)
+ * 00477a40(the message, name); then with 004c62b8 at least 1 0047f244(name,
+ * 0, 0, 0, 0, 0). */
+void net_check(const NetCheckOps *ops, const NetCheck *c, const char *name);
+
 #endif
