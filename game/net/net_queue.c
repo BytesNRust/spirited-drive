@@ -114,3 +114,12 @@ int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n)
     ops->unlock(ops->ctx, q->mutex);
     return place;
 }
+
+uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q)
+{
+    uintptr_t key = (uintptr_t)-1;
+    ops->lock(ops->ctx, q->mutex);
+    if (q->head != NULL) key = q->key(q->head, q->key_arg);
+    ops->unlock(ops->ctx, q->mutex);
+    return key;
+}

@@ -82,6 +82,11 @@ int32_t net_queue_remove_locked(const NetMutexOps *ops, NetQueue *q, NetNode *n)
  * NULL next, or a node whose key (+0x14 read again) is above the node's. */
 int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n);
 
+/* 0049caa0 (cdecl (queue), from 004790b0, 0047a50c, 0047a82c and 0047b17c):
+ * under the mutex (+0x18, read again for the unlock), the head's key (+0x10
+ * (head, +0x14), never NULL there), or -1 with no head. */
+uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q);
+
 /* 0049c6a8 (cdecl (to, value, n), 10 callers: the packets' words in network
  * order): value's low n bytes to to[0..n-1], the last byte the lowest (above
  * 4, zeros first); n at most 0 writes nothing. */
