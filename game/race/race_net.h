@@ -581,4 +581,39 @@ typedef struct {
  * the humans loop stops at 8, a slot outside 0..7 sends nothing. */
 void race_net_sync(const RaceNetSyncOps *ops, RaceNetSync *s);
 
+enum { RACE_NET_STAGE_KIND = 5, RACE_NET_STAGE_FLAG = 5 /* 0050a5b6 = 0050a5ac[5] */ };
+
+typedef struct {
+    void *ctx;
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+    void (*service)(void *ctx);                        /* 00475c14(0) */
+    int32_t (*step)(void *ctx);                        /* 00410bac (race_net_wait_step) */
+    void (*drop)(void *ctx, int16_t slot);             /* 004463ec */
+    void (*sync)(void *ctx);                           /* 004104d0 */
+} RaceNetWaitOps;
+
+/* The words 00410c18 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t play;                     /* 0052b312 */
+    int16_t dropped;                  /* 0052b314 */
+    int16_t unknown_52b302;
+    int32_t unknown_4fbb0c;
+    const uint8_t *state;             /* 004f8164: the counts at RACE_NET_AT_HUMANS / RACE_NET_AT_OTHERS */
+    const uint32_t *links;            /* 0050a578: RACE_NET_LINKS */
+    const RaceNetLink *entries;       /* 0050a5dc: 0..6 players, 7..10 viewers */
+    int16_t *flags_a, *flags_b;       /* 0050a5ac, 0050a5c2 */
+} RaceNetWait;
+
+/* 00410c18 (watcall (stage), 6 callers): the wait for the others to reach
+ * a stage. Without 0052b312: 1. With 004fbb0c: 00445e00(0, {5, stage}, 4),
+ * 00475c14(0); then for each slot from 1 while below 004f81d2 + 004f81d4
+ * (read each pass): while its link's entry +0 is set and 0050a5c2[slot] is
+ * not the stage (both read each pass): 00410bac answering stops it and
+ * drops the slot (004463ec), else with stage 1 and 0052b302 0 004104d0;
+ * then 0050a5c2[slot] = 0, and 0 when 0052b314 is set; at the end 1. Else
+ * while 0050a5b6 (0050a5ac[5]) is not the stage: 00410bac answering sets
+ * 0052b314 = 1 and gives 0; then 0050a5b6 = 0, 00445e00(0, {5, stage}, 4),
+ * 00475c14(0), 1. Port guards: a slot past the eight links ends the wait (1). */
+int32_t race_net_wait(const RaceNetWaitOps *ops, RaceNetWait *w, int16_t stage);
+
 #endif

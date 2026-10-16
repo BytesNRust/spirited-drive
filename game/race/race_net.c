@@ -542,3 +542,47 @@ void race_net_sync(const RaceNetSyncOps *ops, RaceNetSync *s)
     else sync_client(ops, s);
     ops->service(ops->ctx);
 }
+
+static void send_stage(const RaceNetWaitOps *ops, int16_t stage)
+{
+    uint8_t msg[4];
+    put_state_word(msg, 0, RACE_NET_STAGE_KIND), put_state_word(msg, 2, stage);
+    ops->send(ops->ctx, 0, msg, sizeof msg);
+    ops->service(ops->ctx);
+}
+
+/* A slot's link has a live entry and has not reported the stage */
+static int still_waiting(const RaceNetWait *w, int slot, int16_t stage)
+{
+    const RaceNetSend at = { .entries = w->entries };
+    return link_word(&at, w->links[slot]) != 0 && stage != w->flags_b[slot];
+}
+
+int32_t race_net_wait(const RaceNetWaitOps *ops, RaceNetWait *w, int16_t stage)
+{
+    if (w->play == 0) return 1;
+    if (w->unknown_4fbb0c != 0) {
+        send_stage(ops, stage);
+        for (int slot = 1; slot < state_word(w->state, RACE_NET_AT_HUMANS) + state_word(w->state, RACE_NET_AT_OTHERS); slot++) {
+            if (slot >= RACE_NET_LINKS) return 1;  /* port guard */
+            while (still_waiting(w, slot, stage)) {
+                if (ops->step(ops->ctx) != 0) {
+                    ops->drop(ops->ctx, (int16_t)slot);
+                    break;
+                }
+                if (stage == 1 && w->unknown_52b302 == 0) ops->sync(ops->ctx);
+            }
+            w->flags_b[slot] = 0;
+            if (w->dropped != 0) return 0;
+        }
+        return 1;
+    }
+    while (stage != w->flags_a[RACE_NET_STAGE_FLAG])
+        if (ops->step(ops->ctx) != 0) {
+            w->dropped = 1;
+            return 0;
+        }
+    w->flags_a[RACE_NET_STAGE_FLAG] = 0;
+    send_stage(ops, stage);
+    return 1;
+}
