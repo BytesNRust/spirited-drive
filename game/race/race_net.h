@@ -844,4 +844,21 @@ typedef struct {
  * outside 0..7 stores nothing (the original writes around the arrays). */
 void race_net_on_settings(const RaceNetSettingsInOps *ops, RaceNetSettingsIn *s, uint32_t link, const uint8_t *data);
 
+typedef struct {
+    void *ctx;
+    int16_t (*slot_of)(void *ctx, uint32_t link);      /* 0044659c */
+} RaceNetSlotOps;
+
+/* The words handler 5 reads and writes */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    int16_t *flags_a, *flags_b;       /* 0050a5ac, 0050a5c2 */
+} RaceNetStageIn;
+
+/* 00410bf0, message kind 5 (eax link, edx data): the stage another machine
+ * reached (data +2). The host stores it at 0050a5c2[(short) 0044659c(link)],
+ * a client at 0050a5b6 (0050a5ac[5]). Port guard: a slot outside 0..11
+ * stores nothing. */
+void race_net_on_stage(const RaceNetSlotOps *ops, RaceNetStageIn *s, uint32_t link, const uint8_t *data);
+
 #endif

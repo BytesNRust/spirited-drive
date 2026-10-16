@@ -756,3 +756,13 @@ void race_net_on_settings(const RaceNetSettingsInOps *ops, RaceNetSettingsIn *s,
     s->unknown_50a5ba = 1;
     ops->unlock(ops->ctx, s->lock);
 }
+
+void race_net_on_stage(const RaceNetSlotOps *ops, RaceNetStageIn *s, uint32_t link, const uint8_t *data)
+{
+    if (s->host != 0) {
+        const int16_t slot = ops->slot_of(ops->ctx, link);
+        if (slot >= 0 && slot < RACE_NET_FLAGS_B) s->flags_b[slot] = state_word(data, 2);  /* port guard */
+    } else {
+        s->flags_a[RACE_NET_STAGE_FLAG] = state_word(data, 2);
+    }
+}
