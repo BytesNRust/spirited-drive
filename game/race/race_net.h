@@ -669,4 +669,29 @@ typedef struct {
  * 00410c18(1); 0 answered: "Connection Aborted" for 300 ticks, 0052b314 = 1. */
 void race_net_host_ready(const RaceNetHostReadyOps *ops, RaceNetHostReady *r);
 
+/* The serial / modem link's entry (0050a5dc, entry 0) as 0045147c fills it */
+enum {
+    RACE_NET_SERIAL_HANDLER_14 = 0x451450, RACE_NET_SERIAL_9A = 0x52ac9a, RACE_NET_SERIAL_D6 = 0x52acd6,
+    RACE_NET_SERIAL_FE = 0x52acfe  /* +0x50 only when 004fbb0c is 0 */
+};
+
+typedef struct {
+    void *ctx;
+    void (*reset)(void *ctx);                          /* 0044655c (race_net_reset) */
+} RaceNetSerialOps;
+
+/* The words 0045147c reads and writes; the op may change them (the caller's ctx) */
+typedef struct {
+    RaceNetLink *entry;               /* 0050a5dc */
+    int16_t unknown_52ac90, unknown_52ac92, unknown_52ac94, unknown_52ac96;
+    int32_t unknown_4fbb0c;
+} RaceNetSerial;
+
+/* 0045147c (watcall (), from 00451320): 0044655c, then entry 0's +4..+0x1c
+ * 1, 0x19, 5, 10, 00451450, 004460cc, 00446058; +0x28 0052ac92, +0x2c
+ * 1 << (0052ac94 & 31), +0x30 0052ac90, +0x34 / +0x38 0, +0x3c 3, +0x40 1,
+ * +0x44 0052ac96 (the words sign-extended), +0x48 0052ac9a, +0x4c 0052acd6,
+ * +0x50 0 with 004fbb0c, else 0052acfe. */
+void race_net_serial_setup(const RaceNetSerialOps *ops, RaceNetSerial *s);
+
 #endif

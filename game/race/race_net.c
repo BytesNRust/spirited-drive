@@ -617,3 +617,20 @@ void race_net_host_ready(const RaceNetHostReadyOps *ops, RaceNetHostReady *r)
     ops->message(ops->ctx, r->german != 0 ? RACE_NET_START_ABORTED_G : RACE_NET_START_ABORTED, RACE_NET_START_ABORTED_TICKS);
     r->dropped = 1;
 }
+
+void race_net_serial_setup(const RaceNetSerialOps *ops, RaceNetSerial *s)
+{
+    ops->reset(ops->ctx);
+    uint8_t *e = (uint8_t *)s->entry;
+    static const struct { int at; int32_t v; } fixed[] = {
+        { 0x04, 1 }, { 0x08, 0x19 }, { 0x0c, 5 }, { 0x10, 10 }, { 0x14, RACE_NET_SERIAL_HANDLER_14 },
+        { 0x18, RACE_NET_HANDLER_LOST }, { 0x1c, RACE_NET_HANDLER_1C }, { 0x34, 0 }, { 0x38, 0 }, { 0x3c, 3 },
+        { 0x40, 1 }, { 0x48, RACE_NET_SERIAL_9A }, { 0x4c, RACE_NET_SERIAL_D6 }
+    };
+    for (size_t k = 0; k < sizeof fixed / sizeof *fixed; k++) put_set_dword(e + fixed[k].at, fixed[k].v);
+    put_set_dword(e + 0x28, s->unknown_52ac92);
+    put_set_dword(e + 0x2c, (int32_t)(1u << (s->unknown_52ac94 & 31)));
+    put_set_dword(e + 0x30, s->unknown_52ac90);
+    put_set_dword(e + 0x44, s->unknown_52ac96);
+    put_set_dword(e + 0x50, s->unknown_4fbb0c != 0 ? 0 : RACE_NET_SERIAL_FE);
+}
