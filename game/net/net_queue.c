@@ -32,3 +32,15 @@ void net_put_little(uint8_t *to, uint32_t value, int32_t n)
 {
     for (int32_t i = 0; i < n; i++, value >>= 8) to[i] = (uint8_t)value;
 }
+
+uintptr_t net_queue_key_self(const NetNode *n, uintptr_t arg) { return (void)arg, (uintptr_t)n; }
+
+void net_queue_init(const NetMutexOps *ops, NetQueue *q, NetQueueKey key, uintptr_t arg)
+{
+    void *const mutex = ops->create(ops->ctx);
+    q->count = q->flags = 0;
+    q->head = q->tail = NULL;
+    q->mutex = mutex;
+    q->key = key != NULL ? key : net_queue_key_self;
+    q->key_arg = arg;
+}
