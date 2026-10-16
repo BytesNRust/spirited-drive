@@ -20,6 +20,17 @@ void race_scenery_state_free(const RaceFreeOps *ops, uint32_t *scenery_state);
  * from 00451040) held, free it and the pointer = 0. */
 void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm);
 
+typedef struct {
+    void *ctx;
+    uint32_t (*alloc)(void *ctx, const char *name, int32_t size, int32_t flags);  /* 00474c8c (cdecl) */
+} RaceAllocOps;
+
+enum { RACE_RRSM_SIZE = 0x162400 };
+
+/* 00451040 (watcall (), from 004275f8; race_rrsm_free's pair): 00513e3c =
+ * 00474c8c("RRSM_Buffer" 004b0a54, 0x162400, 0); 00513e30, 00513e34 0. */
+void race_rrsm_alloc(const RaceAllocOps *ops, uint32_t *rrsm, int32_t *unknown_513e30, int32_t *unknown_513e34);
+
 /* 00446acc (watcall ()): with the pointer's bank (004bcbd0, gmouse.fsh
  * from 00446a0c) held, free it and the pointer = 0. */
 void race_pointer_bank_free(const RaceFreeOps *ops, uint32_t *bank);

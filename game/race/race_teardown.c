@@ -13,6 +13,12 @@ void race_rrsm_free(const RaceFreeOps *ops, uint32_t *rrsm)
     *rrsm = 0;
 }
 
+void race_rrsm_alloc(const RaceAllocOps *ops, uint32_t *rrsm, int32_t *unknown_513e30, int32_t *unknown_513e34)
+{
+    *rrsm = ops->alloc(ops->ctx, "RRSM_Buffer", RACE_RRSM_SIZE, 0);
+    *unknown_513e30 = *unknown_513e34 = 0;
+}
+
 void race_pointer_bank_free(const RaceFreeOps *ops, uint32_t *bank)
 {
     if (*bank == 0) return;
