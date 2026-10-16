@@ -75,3 +75,41 @@ void race_net_poll(const RaceNetPollOps *ops, const RaceNetPoll *p)
          slot < (int32_t)state_word(p->state, RACE_NET_AT_HUMANS) + state_word(p->state, RACE_NET_AT_OTHERS); slot++)
         send_state(ops, p, slot);
 }
+
+/* The ask's name string, up to its NUL (port guard: within the ask's 31 bytes; the original reads on) */
+static void copy_tag(uint8_t *tag, const uint8_t *ask)
+{
+    for (int i = 0; i < RACE_NET_ASK; i++)
+        if ((tag[i] = ask[i]) == 0) return;
+}
+
+void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q)
+{
+    ops->service(ops->ctx);
+    while (q->count != 0) {
+        uint8_t ask[RACE_NET_ASK];
+        memcpy(ask, q->asks[(uint32_t)q->head < RACE_NET_ASKS ? q->head : 0], RACE_NET_ASK);  /* port guard */
+        ops->lock(ops->ctx, q->lock);
+        q->head = (int32_t)((uint32_t)q->head + 1) % RACE_NET_ASKS;
+        q->count = (int32_t)((uint32_t)q->count - 1);
+        ops->unlock(ops->ctx, q->lock);
+        const int16_t player = (ask[RACE_NET_ASK_VIEWER] | ask[RACE_NET_ASK_VIEWER + 1]) == 0;
+        const int first = player ? 0 : RACE_NET_KIND0_FIRST, n = player ? RACE_NET_PLAYERS : RACE_NET_VIEWERS;
+        int16_t slot = 0;
+        while (slot < n && q->entries[first + slot].unknown_00 != 0) slot++;
+        if (slot == n) {
+            ops->abort(ops->ctx, player ? RACE_NET_PLAYER_OVERFLOW : RACE_NET_VIEWER_OVERFLOW);
+            return;  /* the original has ended the process */
+        }
+        copy_tag(q->tags + (first + slot) * RACE_NET_TAG, ask);
+        ops->service(ops->ctx);
+        const RaceNetLink *e = race_net_link_fill(q->entries, RACE_NET_SESSION, ask + RACE_NET_ASK_NAME, slot, player);
+        if (ops->join(ops->ctx, e) != 0) {
+            q->joined = (int32_t)((uint32_t)q->joined + 1);
+            continue;
+        }
+        if (q->play == 1) ops->forget(ops->ctx, RACE_NET_SESSION, e->name);
+        race_net_count_down(&q->counts, player);
+    }
+    q->unknown_50a5bc = 0;
+}

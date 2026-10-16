@@ -117,4 +117,50 @@ typedef struct {
  * sent to links[slot], 00475c14(0). The slot is a short. */
 void race_net_poll(const RaceNetPollOps *ops, const RaceNetPoll *p);
 
+/* The newcomers' queue (0050a368 head, 0050a370 count, 0050a374 ten asks of
+ * 31 bytes) that 00442f58 ("AddNewPlayers") empties: an ask's name (a string
+ * at +0) goes to the 9-byte tags at 0050a978 (one an entry), the word at +9
+ * picks a viewer (!= 0) or a player, the 20 bytes at +0xb the link's name */
+enum {
+    RACE_NET_ASKS = 10, RACE_NET_ASK = 31, RACE_NET_ASK_VIEWER = 9, RACE_NET_ASK_NAME = 0xb,
+    RACE_NET_TAG = 9, RACE_NET_PLAYERS = 8, RACE_NET_VIEWERS = 4,
+    RACE_NET_TAGS = RACE_NET_ENTRIES * RACE_NET_TAG,
+    RACE_NET_PLAYER_OVERFLOW = 0x4b004c, RACE_NET_VIEWER_OVERFLOW = 0x4afff4  /* 00477a40's messages */
+};
+
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);                                 /* 00475c14(0) */
+    void (*lock)(void *ctx, uint32_t lock);                     /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);                   /* 00476cfc (cdecl) */
+    void (*abort)(void *ctx, uint32_t message);                 /* 00477a40: the original ends the process */
+    int32_t (*join)(void *ctx, const RaceNetLink *entry);       /* 00479a6c(entry, 0x20, 0, 0xfa, 6), cdecl */
+    void (*forget)(void *ctx, uint32_t session, const uint8_t *name);  /* 004799a8 (cdecl) */
+} RaceNetJoinOps;
+
+/* The words 00442f58 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int32_t head;                     /* 0050a368 */
+    int32_t count;                    /* 0050a370 */
+    uint8_t asks[RACE_NET_ASKS][RACE_NET_ASK];  /* 0050a374 */
+    uint32_t lock;                    /* 004f815c */
+    int16_t play;                     /* 0052b312 */
+    int32_t joined;                   /* 0050a5a8: the links that took */
+    int16_t unknown_50a5bc;           /* set 0 at the end */
+    RaceNetCounts counts;             /* 004bc6d8 / 004bc6da */
+    RaceNetLink *entries;             /* 0050a5dc: RACE_NET_ENTRIES */
+    uint8_t *tags;                    /* 0050a978: RACE_NET_TAGS bytes */
+} RaceNetQueue;
+
+/* 00442f58 (watcall (), from 00411050): 00475c14(0); while 0050a370 != 0
+ * (read anew): the ask at the head copied, the lock 004f815c taken, head =
+ * (head + 1) % 10 and count - 1 (both read after the lock), the lock left;
+ * a viewer takes the first entry 7..10 whose +0 is 0 (else 00477a40 "Viewer
+ * Overflow"), a player the first of 0..7 (else "Player Overflow"); the name
+ * string copied to that entry's tag; 00475c14(0); 00442e3c(0050a260, the
+ * ask's +0xb, slot, player) and 00479a6c on it: nonzero, 0050a5a8 + 1; zero,
+ * the entry forgotten when 0052b312 == 1 (004799a8) and 004bc6d8 (player) or
+ * 004bc6da (viewer) - 1. Then 0050a5bc = 0. */
+void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q);
+
 #endif
