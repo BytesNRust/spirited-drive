@@ -1072,6 +1072,31 @@ void race_net_host_setup(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h, co
  * bytes) to +0x3c and to +0x87. */
 void race_net_setup_both(uint8_t *setup, const uint8_t *record);
 
+typedef struct {
+    void *ctx;
+    void (*setup_both)(void *ctx, uint8_t *setup, const uint8_t *record);                          /* 00439f54 */
+    void (*host_setup)(void *ctx, uint8_t *setup, const uint8_t *first, const uint8_t *second);    /* 00439c98 */
+    void (*send_setup)(void *ctx, uint8_t *setup);                                                  /* 00439de0 */
+    void (*keys)(void *ctx);                                                                        /* 0046417c, the frontend's */
+    void (*send_info)(void *ctx, uint8_t *record);                                                  /* 00439c30 */
+    void (*wait_setup)(void *ctx);                                                                  /* 00439ea0 */
+} RaceNetExchangeOps;
+
+/* Read again after every call (the ctx may change them) */
+typedef struct {
+    int32_t once;                     /* 00513e58: the setup went out once (a solo race's) */
+    int32_t unknown_4fbb0c;           /* the host's */
+    int16_t play;                     /* 0052b312 */
+    uint8_t *setup;                   /* 004fb7bc: RACE_NET_SETUP bytes (004fb7d4 at +0x18) */
+} RaceNetExchange;
+
+/* 004273d0 (eax record, edx record): with 00513e58: 00439f54(004fb7bc, the
+ * first), done. The host (004fbb0c): 00439c98(004fb7bc, first, second); else
+ * 0046417c and 00439c30(first). Then with 0052b312 0 and 004fb7d4 1:
+ * 00513e58 = 1, done; else the host 00439de0(004fb7bc), a client 00439ea0;
+ * and again with 0052b312 0 and 004fb7d4 1: 00513e58 = 1. */
+void race_net_exchange_setup(const RaceNetExchangeOps *ops, RaceNetExchange *x, uint8_t *first, uint8_t *second);
+
 enum {
     RACE_NET_CHAT = 0xdf,             /* {6, the sender's name (+2), its text (+0xb), more text (+0x75)} */
     RACE_NET_CHAT_NAME = 2, RACE_NET_CHAT_TEXT = 0xb, RACE_NET_CHAT_MORE = 0x75,

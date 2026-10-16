@@ -1002,6 +1002,33 @@ void race_net_setup_both(uint8_t *setup, const uint8_t *record)
     memcpy(setup + RACE_NET_SETUP_RECORD_B, record, RACE_NET_INFO);
 }
 
+/* 0052b312 0 and 004fb7d4 1: 00513e58 = 1 (once); 1 then */
+static int exchange_once(RaceNetExchange *x)
+{
+    if (x->play != 0 || setup_dword(x->setup, SETUP_RACE_W4FB7D4) != 1) return 0;
+    x->once = 1;
+    return 1;
+}
+
+void race_net_exchange_setup(const RaceNetExchangeOps *ops, RaceNetExchange *x, uint8_t *first, uint8_t *second)
+{
+    if (x->once != 0) {
+        ops->setup_both(ops->ctx, x->setup, first);
+        return;
+    }
+    if (x->unknown_4fbb0c != 0) {
+        ops->host_setup(ops->ctx, x->setup, first, second);
+        if (exchange_once(x)) return;
+        ops->send_setup(ops->ctx, x->setup);
+    } else {
+        ops->keys(ops->ctx);
+        ops->send_info(ops->ctx, first);
+        if (exchange_once(x)) return;
+        ops->wait_setup(ops->ctx);
+    }
+    exchange_once(x);
+}
+
 static int32_t ping_all_wait(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
 {
     while (p->flags_a[RACE_NET_PINGED_FLAG] == 0) {
