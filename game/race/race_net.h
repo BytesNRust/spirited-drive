@@ -457,4 +457,20 @@ typedef struct {
 
 void race_net_release(const RaceNetReleaseOps *ops, RaceNetBuffers *b);
 
+typedef struct {
+    void *ctx;
+    void (*close_session)(void *ctx, uint32_t session, int32_t how);  /* 004794b4 (cdecl), the transport's */
+} RaceNetCloseOps;
+
+/* The words 00442d60 reads and writes; the op may change them (the caller's ctx) */
+typedef struct {
+    int32_t unknown_4fbb0c;
+    int16_t play;                     /* 0052b312 */
+    int16_t unknown_4bc6ac;
+} RaceNetClose;
+
+/* 00442d60 (watcall (), from 00446220 and others): with 004fbb0c, 0052b312
+ * == 1 and 004bc6ac: 004794b4(0050a260, 0) and 004bc6ac = 0. */
+void race_net_close_session(const RaceNetCloseOps *ops, RaceNetClose *c);
+
 #endif

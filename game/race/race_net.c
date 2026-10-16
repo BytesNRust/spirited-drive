@@ -380,3 +380,10 @@ void race_net_release(const RaceNetReleaseOps *ops, RaceNetBuffers *b)
         b->buffer_4bc6ce = 0;
     }
 }
+
+void race_net_close_session(const RaceNetCloseOps *ops, RaceNetClose *c)
+{
+    if (c->unknown_4fbb0c == 0 || c->play != 1 || c->unknown_4bc6ac == 0) return;
+    ops->close_session(ops->ctx, RACE_NET_SESSION, 0);
+    c->unknown_4bc6ac = 0;
+}
