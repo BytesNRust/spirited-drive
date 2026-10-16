@@ -1067,6 +1067,11 @@ typedef struct {
  * Port guard: 8 slots, 8 names, each within its record. */
 void race_net_host_setup(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h, const uint8_t *first, const uint8_t *second);
 
+/* 00439f54 (eax setup, edx record; from 004273d0 with 004fb7bc once 00513e58
+ * is set): the setup's +0x2c = +0x28 + +0x20 + +0x30; the record (RACE_NET_INFO
+ * bytes) to +0x3c and to +0x87. */
+void race_net_setup_both(uint8_t *setup, const uint8_t *record);
+
 enum {
     RACE_NET_CHAT = 0xdf,             /* {6, the sender's name (+2), its text (+0xb), more text (+0x75)} */
     RACE_NET_CHAT_NAME = 2, RACE_NET_CHAT_TEXT = 0xb, RACE_NET_CHAT_MORE = 0x75,

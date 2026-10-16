@@ -972,12 +972,18 @@ static void host_setup_wait(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h)
     }
 }
 
+/* The setup's +0x2c = +0x28 + +0x20 + +0x30 (wrapping) */
+static void setup_sum(uint8_t *setup)
+{
+    const int32_t sum = x_add(x_add(setup_dword(setup, RACE_NET_SETUP_SUM_A), setup_dword(setup, RACE_NET_SETUP_RACERS)),
+                              setup_dword(setup, RACE_NET_SETUP_SUM_B));
+    for (int k = 0; k < 4; k++) setup[RACE_NET_SETUP_SUM + k] = (uint8_t)((uint32_t)sum >> 8 * k);
+}
+
 void race_net_host_setup(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h, const uint8_t *first, const uint8_t *second)
 {
     ops->service(ops->ctx);
-    const int32_t sum = x_add(x_add(setup_dword(h->setup, RACE_NET_SETUP_SUM_A), setup_dword(h->setup, RACE_NET_SETUP_RACERS)),
-                              setup_dword(h->setup, RACE_NET_SETUP_SUM_B));
-    for (int k = 0; k < 4; k++) h->setup[RACE_NET_SETUP_SUM + k] = (uint8_t)((uint32_t)sum >> 8 * k);
+    setup_sum(h->setup);
     memcpy(h->setup + RACE_NET_SETUP_RECORD_A, first, RACE_NET_INFO);
     if (setup_dword(h->setup, SETUP_RACE_W4FB7D4) != 1) {
         memcpy(h->setup + RACE_NET_SETUP_RECORD_B, second, RACE_NET_INFO);
@@ -987,6 +993,13 @@ void race_net_host_setup(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h, co
     const int32_t humans = setup_dword(h->setup, RACE_NET_SETUP_HUMANS);
     copy_names(h->names, h->setup + RACE_NET_SETUP_RECORD_A, humans);
     ops->names_done(ops->ctx, humans);
+}
+
+void race_net_setup_both(uint8_t *setup, const uint8_t *record)
+{
+    setup_sum(setup);
+    memcpy(setup + RACE_NET_SETUP_RECORD_A, record, RACE_NET_INFO);
+    memcpy(setup + RACE_NET_SETUP_RECORD_B, record, RACE_NET_INFO);
 }
 
 static int32_t ping_all_wait(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
