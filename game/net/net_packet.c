@@ -22,3 +22,19 @@ uint8_t net_packet_acked(const NetPacketOps *ops, NetPacketConn *c)
     if (*ops->trace_level >= 3) ops->trace(ops->ctx, NET_ACK_TRACE, &k, 0, 0, 0, c->id);
     return (uint8_t)(k & 0x7f);
 }
+
+int32_t net_checksum_check(const NetPacketConn *c, const uint8_t *data, uint8_t *out, uint32_t length)
+{
+    const int32_t n = c->sum_size;
+    if (n == 0) return 1;
+    if (n < 0 || n > 4) return 0;
+    uint8_t kept[4];
+    memmove(kept, out, (size_t)n);
+    net_checksum_put(c->sum, data, out, length, c->sum_size);
+    for (int32_t i = n - 1; i >= 0; i--) {
+        if (out[i] == kept[i]) continue;
+        memmove(out, kept, (size_t)n);
+        return 0;
+    }
+    return 1;
+}
