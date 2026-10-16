@@ -920,3 +920,24 @@ void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const u
     }
     ops->send(ops->ctx, 0, message, RACE_NET_SETUP_END);
 }
+
+void race_net_wait_setup(const RaceNetSetupWaitOps *ops, RaceNetSetupWait *w)
+{
+    if (w->play == 0) return;
+    ops->deadline(ops->ctx, -1);
+    while (w->flags_a[RACE_NET_SETUP_FLAG] == 0) {
+        if (ops->step(ops->ctx) != 0) {
+            w->dropped = 1;
+            break;
+        }
+        if (w->play == 0) return;
+    }
+    w->flags_a[RACE_NET_SETUP_FLAG] = 0;
+    for (int32_t i = 0; i < w->humans && i < RACE_NET_PLAYERS; i++) {  /* port guard */
+        const uint8_t *from = w->records + i * RACE_NET_INFO + 2;
+        uint8_t *to = w->names + i * RACE_NET_MENU_NAME;
+        for (int k = 0; k < RACE_NET_INFO - 2; k++)  /* port guard */
+            if ((to[k] = from[k]) == 0) break;
+    }
+    ops->names_done(ops->ctx, w->humans);
+}

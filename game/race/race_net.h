@@ -964,6 +964,32 @@ typedef struct {
  * and last 00445e00(0, message, 2), what handler 1 (00439d98) takes. */
 void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state);
 
+enum { RACE_NET_MENU_NAME = 0x95 };  /* 0052ad44's names, one a player */
+
+typedef struct {
+    void *ctx;
+    void (*deadline)(void *ctx, int32_t ticks);      /* 00410b7c */
+    int32_t (*step)(void *ctx);                      /* 00410bac (race_net_wait_step) */
+    void (*names_done)(void *ctx, int32_t humans);   /* 00466b90, the frontend's */
+} RaceNetSetupWaitOps;
+
+/* Read again after every call (the ctx may change them) */
+typedef struct {
+    int16_t play;                     /* 0052b312 */
+    int16_t dropped;                  /* 0052b314 */
+    int16_t *flags_a;                 /* 0050a5ac ([1] 0050a5ae: the setup came in) */
+    int32_t humans;                   /* 004fb7e0 */
+    const uint8_t *records;           /* 004fb7f8: RACE_NET_INFO bytes a player, the name at +2 */
+    uint8_t *names;                   /* 0052ad44: RACE_NET_MENU_NAME bytes a player */
+} RaceNetSetupWait;
+
+/* 00439ea0 (watcall (), from 004273d0): with 0052b312: 00410b7c(-1); until
+ * 0050a5ae: 00410bac, answering: 0052b314 = 1 and on; else 0052b312 gone:
+ * return. Then 0050a5ae = 0, each of the 004fb7e0 humans' names (record +2)
+ * to 0052ad44 + 0x95 i, 00466b90(004fb7e0). Port guard: 8 names at most,
+ * each within the record. */
+void race_net_wait_setup(const RaceNetSetupWaitOps *ops, RaceNetSetupWait *w);
+
 enum {
     RACE_NET_CHAT = 0xdf,             /* {6, the sender's name (+2), its text (+0xb), more text (+0x75)} */
     RACE_NET_CHAT_NAME = 2, RACE_NET_CHAT_TEXT = 0xb, RACE_NET_CHAT_MORE = 0x75,
