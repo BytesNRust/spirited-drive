@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-enum { INPUT_SLOTS = 64 };
+enum { INPUT_SLOTS = 64, INPUT_QUEUES = 8 };
 
 typedef struct {
     int32_t active;                /* +0: 0 takes nothing */
@@ -47,6 +47,20 @@ typedef struct {
  * and gave_up 0, clock 1, every slot's ready and filled flags 0; 004fb790
  * (`late`) and 004fb78c 0. The inputs are left as they are. */
 void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c);
+
+typedef struct {
+    int32_t camera_keys;   /* 004fb7b4 */
+    int32_t w4fb7ac;       /* 004fb7ac */
+    int32_t w4fb7b0;       /* 004fb7b0 */
+    int32_t w4bafe4;       /* 004bafe4 */
+    int32_t late;          /* 004fb790 */
+    int32_t w4fb78c;       /* 004fb78c */
+} InputResetWords;
+
+/* 004381ac (watcall (), from 004275f8): 004fb7b4, 004fb7ac, 004fb7b0 and
+ * 004bafe4 0, then 00439430 on each human's queue (004fb7e0 of them).
+ * Port guard: at most the 8 queues. */
+void input_queues_reset(InputQueue *queues, int32_t humans, InputResetWords *w);
 
 /* 00439478 (watcall queue, after 00439430): in a network game (004fb7d4 1)
  * the first n = max(004fbac8 sar 1, 2) slots hold 0x7a0, ready; the clock

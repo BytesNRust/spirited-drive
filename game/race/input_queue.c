@@ -124,6 +124,13 @@ void input_queue_reset(InputQueue *q, int32_t *late, int32_t *unknown_4fb78c)
     *unknown_4fb78c = 0;
 }
 
+void input_queues_reset(InputQueue *queues, int32_t humans, InputResetWords *w)
+{
+    w->camera_keys = w->w4fb7ac = w->w4fb7b0 = w->w4bafe4 = 0;
+    for (int32_t i = 0; i < humans && i < INPUT_QUEUES; i++)  /* port guard */
+        input_queue_reset(&queues[i], &w->late, &w->w4fb78c);
+}
+
 enum { PRIME_WORD = 0x7a0, PRIME_LEAST = 2 };
 
 void input_queue_prime(InputQueue *q, int32_t net_start, int32_t wait_ticks, int32_t *clock, int32_t *replay_due)
