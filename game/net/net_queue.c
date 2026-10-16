@@ -22,3 +22,8 @@ int32_t net_queue_remove(NetQueue *q, NetNode *n)
     q->flags |= NET_QUEUE_CHANGED;
     return 1;
 }
+
+void net_put_big(uint8_t *to, uint32_t value, int32_t n)
+{
+    for (int32_t i = n - 1; i >= 0; i--, value >>= 8) to[i] = (uint8_t)value;
+}
