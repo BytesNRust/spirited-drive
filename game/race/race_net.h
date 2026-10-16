@@ -469,8 +469,16 @@ typedef struct {
     int16_t unknown_4bc6ac;
 } RaceNetClose;
 
-/* 00442d60 (watcall (), from 00446220 and others): with 004fbb0c, 0052b312
+/* 00442d60 (watcall (), from 00446220 and 00446284): with 004fbb0c, 0052b312
  * == 1 and 004bc6ac: 004794b4(0050a260, 0) and 004bc6ac = 0. */
 void race_net_close_session(const RaceNetCloseOps *ops, RaceNetClose *c);
+
+typedef struct {
+    void *ctx;
+    void (*leave)(void *ctx, uint32_t session);  /* 004795fc (cdecl), the transport's */
+} RaceNetLeaveOps;
+
+/* 00442d9c (watcall (), from 00446220): with 0052b312 == 1, 004795fc(0050a260). */
+void race_net_leave(const RaceNetLeaveOps *ops, int16_t play);
 
 #endif

@@ -387,3 +387,8 @@ void race_net_close_session(const RaceNetCloseOps *ops, RaceNetClose *c)
     ops->close_session(ops->ctx, RACE_NET_SESSION, 0);
     c->unknown_4bc6ac = 0;
 }
+
+void race_net_leave(const RaceNetLeaveOps *ops, int16_t play)
+{
+    if (play == 1) ops->leave(ops->ctx, RACE_NET_SESSION);
+}
