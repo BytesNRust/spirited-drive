@@ -826,3 +826,41 @@ void race_net_on_setup(RaceNetSetupIn *in, const uint8_t *data, int32_t size)
     for (int32_t k = 0; k < size - RACE_NET_SETUP_HEAD && at + k < RACE_NET_SETUP; k++)  /* port guard */
         in->setup[at + k] = data[RACE_NET_SETUP_HEAD + k];
 }
+
+static const uint8_t CHAT_INDENT[] = "   ";  /* 0040a3c0 */
+
+/* strcpy (at 0) or strcat (at the line's NUL) into line c->line; port guard: within the line, a line in 0..8 */
+static void chat_put(RaceNetChatIn *c, const uint8_t *from, int append)
+{
+    if (c->line < 0 || c->line >= RACE_NET_CHAT_LINES) return;
+    uint8_t *line = c->lines + c->line * RACE_NET_CHAT_LINE;
+    int at = 0;
+    if (append)
+        while (at < RACE_NET_CHAT_LINE && line[at] != 0) at++;
+    for (; at < RACE_NET_CHAT_LINE; at++, from++)
+        if ((line[at] = *from) == 0) return;
+}
+
+static void chat_next(RaceNetChatIn *c)
+{
+    c->line = (int16_t)(c->line + 1);
+    if (c->line == RACE_NET_CHAT_LINES) c->line = 0;
+}
+
+void race_net_on_chat(const RaceNetChatOps *ops, RaceNetChatIn *c, uint32_t link, const uint8_t *data)
+{
+    uint8_t copy[RACE_NET_CHAT];
+    memcpy(copy, data, sizeof copy);
+    if (c->host != 0 && link != 0) ops->send(ops->ctx, 0, copy, RACE_NET_CHAT);
+    ops->lock(ops->ctx, c->lock);
+    chat_put(c, data + RACE_NET_CHAT_NAME, 0);
+    chat_next(c);
+    chat_put(c, CHAT_INDENT, 0), chat_put(c, data + RACE_NET_CHAT_TEXT, 1);
+    chat_next(c);
+    if (data[RACE_NET_CHAT_MORE] != 0) {
+        chat_put(c, CHAT_INDENT, 0), chat_put(c, data + RACE_NET_CHAT_MORE, 1);
+        chat_next(c);
+    }
+    c->unknown_4b9062 = 1;
+    ops->unlock(ops->ctx, c->lock);
+}

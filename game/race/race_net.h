@@ -942,4 +942,35 @@ typedef struct {
  * original's count wraps). */
 void race_net_on_setup(RaceNetSetupIn *in, const uint8_t *data, int32_t size);
 
+enum {
+    RACE_NET_CHAT = 0xdf,             /* {6, the sender's name (+2), its text (+0xb), more text (+0x75)} */
+    RACE_NET_CHAT_NAME = 2, RACE_NET_CHAT_TEXT = 0xb, RACE_NET_CHAT_MORE = 0x75,
+    RACE_NET_CHAT_LINES = 9, RACE_NET_CHAT_LINE = 0x277  /* 004b7a30's lines */
+};
+
+typedef struct {
+    void *ctx;
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+    void (*lock)(void *ctx, uint32_t lock);            /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);          /* 00476cfc (cdecl) */
+} RaceNetChatOps;
+
+/* The words handler 6 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    uint32_t lock;                    /* 004f824c */
+    uint8_t *lines;                   /* 004b7a30: RACE_NET_CHAT_LINES x RACE_NET_CHAT_LINE */
+    int16_t line;                     /* 004b905f: the next line to write */
+    int16_t unknown_4b9062;           /* a line came in */
+} RaceNetChatIn;
+
+/* 0040a3f0, message kind 6 (eax link, edx data: a chat message): with
+ * 00524e7b and a link not 0, the 0xdf bytes relayed (00445e00(0, a stack
+ * copy, 0xdf)). lock(004f824c); then (004b905f read after it) the line takes
+ * the name (+2), the next "   " and the text (+0xb), and with a byte at +0x75
+ * the next "   " and that text; the line count goes on by one after each,
+ * back to 0 at exactly 9. 004b9062 = 1, unlock (004f824c read anew). Port
+ * guard: a line outside 0..8 is not written, the strings kept within it. */
+void race_net_on_chat(const RaceNetChatOps *ops, RaceNetChatIn *c, uint32_t link, const uint8_t *data);
+
 #endif
