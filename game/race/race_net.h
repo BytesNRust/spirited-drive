@@ -1029,6 +1029,45 @@ typedef struct {
 void race_net_wait_setup(const RaceNetSetupWaitOps *ops, RaceNetSetupWait *w);
 
 enum {
+    RACE_NET_SETUP_RECORD_A = 0x3c,   /* 004fb7f8: record 0 (RACE_NET_INFO bytes) */
+    RACE_NET_SETUP_RECORD_B = 0x87,   /* 004fb843: record 1 */
+    RACE_NET_SETUP_RACERS = 0x20,     /* 004fb7dc */
+    RACE_NET_SETUP_HUMANS = 0x24,     /* 004fb7e0 */
+    RACE_NET_SETUP_SUM = 0x2c,        /* 004fb7e8 = +0x28 + +0x20 + +0x30 */
+    RACE_NET_SETUP_SUM_A = 0x28, RACE_NET_SETUP_SUM_B = 0x30,
+    RACE_NET_SEATED = 4               /* 0050a5c2[slot]: the slot's info came in */
+};
+
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);                      /* 00475c14(0) */
+    void (*deadline)(void *ctx, int32_t ticks);      /* 00410b7c */
+    int32_t (*step)(void *ctx);                      /* 00410bac (race_net_wait_step) */
+    void (*drop)(void *ctx, int16_t slot);           /* 004463ec */
+    void (*names_done)(void *ctx, int32_t humans);   /* 00466b90, the frontend's */
+} RaceNetSetupHostOps;
+
+/* Read again after every call (the ctx may change them) */
+typedef struct {
+    uint8_t *setup;                   /* 004fb7bc: RACE_NET_SETUP bytes (the records and 004fb7e0 in it) */
+    const uint8_t *state;             /* 004f8164: the humans at RACE_NET_AT_HUMANS (004f81d2) */
+    const uint32_t *links;            /* 0050a578: RACE_NET_LINKS */
+    const RaceNetLink *entries;       /* 0050a5dc */
+    int16_t *flags_b;                 /* 0050a5c2: RACE_NET_FLAGS_B */
+    uint8_t *names;                   /* 0052ad44: RACE_NET_MENU_NAME bytes a player */
+} RaceNetSetupHost;
+
+/* 00439c98 (eax setup, edx record, ebx record; from 004273d0 with 004fb7bc):
+ * 00475c14(0); the setup's +0x2c = +0x28 + +0x20 + +0x30; the first record
+ * (RACE_NET_INFO bytes) to +0x3c. With +0x18 (004fb7d4) not 1: the second to
+ * +0x87, done. Else 00410b7c(-1); each slot 1 .. the short 004f81d2 - 1 (read
+ * each time) whose link's first dword is set: 00410bac until 0050a5c2[slot]
+ * is 4, an answer then 004463ec(slot); 0050a5c2[slot] = 0. Then each of the
+ * 004fb7e0 humans' names (record +2) to 0052ad44 + 0x95 i, 00466b90(004fb7e0).
+ * Port guard: 8 slots, 8 names, each within its record. */
+void race_net_host_setup(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h, const uint8_t *first, const uint8_t *second);
+
+enum {
     RACE_NET_CHAT = 0xdf,             /* {6, the sender's name (+2), its text (+0xb), more text (+0x75)} */
     RACE_NET_CHAT_NAME = 2, RACE_NET_CHAT_TEXT = 0xb, RACE_NET_CHAT_MORE = 0x75,
     RACE_NET_CHAT_LINES = 9, RACE_NET_CHAT_LINE = 0x277  /* 004b7a30's lines */

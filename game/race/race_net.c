@@ -923,6 +923,17 @@ void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const u
     ops->send(ops->ctx, 0, message, RACE_NET_SETUP_END);
 }
 
+/* Each of the humans' names (their record +2) to the menu's, 8 at most and each within its record (port guards) */
+static void copy_names(uint8_t *names, const uint8_t *records, int32_t humans)
+{
+    for (int32_t i = 0; i < humans && i < RACE_NET_PLAYERS; i++) {  /* port guard */
+        const uint8_t *from = records + i * RACE_NET_INFO + 2;
+        uint8_t *to = names + i * RACE_NET_MENU_NAME;
+        for (int k = 0; k < RACE_NET_INFO - 2; k++)  /* port guard */
+            if ((to[k] = from[k]) == 0) break;
+    }
+}
+
 void race_net_wait_setup(const RaceNetSetupWaitOps *ops, RaceNetSetupWait *w)
 {
     if (w->play == 0) return;
@@ -935,13 +946,47 @@ void race_net_wait_setup(const RaceNetSetupWaitOps *ops, RaceNetSetupWait *w)
         if (w->play == 0) return;
     }
     w->flags_a[RACE_NET_SETUP_FLAG] = 0;
-    for (int32_t i = 0; i < w->humans && i < RACE_NET_PLAYERS; i++) {  /* port guard */
-        const uint8_t *from = w->records + i * RACE_NET_INFO + 2;
-        uint8_t *to = w->names + i * RACE_NET_MENU_NAME;
-        for (int k = 0; k < RACE_NET_INFO - 2; k++)  /* port guard */
-            if ((to[k] = from[k]) == 0) break;
-    }
+    copy_names(w->names, w->records, w->humans);
     ops->names_done(ops->ctx, w->humans);
+}
+
+static int32_t setup_dword(const uint8_t *setup, int at)
+{
+    return (int32_t)((uint32_t)setup[at] | (uint32_t)setup[at + 1] << 8 | (uint32_t)setup[at + 2] << 16 |
+                     (uint32_t)setup[at + 3] << 24);
+}
+
+/* Each slot's wait for its info (0050a5c2[slot] 4) */
+static void host_setup_wait(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h)
+{
+    const RaceNetSend at = { .entries = h->entries };
+    ops->deadline(ops->ctx, -1);
+    for (int16_t slot = 1; slot < state_word(h->state, RACE_NET_AT_HUMANS) && slot < RACE_NET_LINKS; slot++) {  /* port guard */
+        if (link_word(&at, h->links[slot]) != 0)
+            while (h->flags_b[slot] != RACE_NET_SEATED)
+                if (ops->step(ops->ctx) != 0) {
+                    ops->drop(ops->ctx, slot);
+                    break;
+                }
+        h->flags_b[slot] = 0;
+    }
+}
+
+void race_net_host_setup(const RaceNetSetupHostOps *ops, RaceNetSetupHost *h, const uint8_t *first, const uint8_t *second)
+{
+    ops->service(ops->ctx);
+    const int32_t sum = x_add(x_add(setup_dword(h->setup, RACE_NET_SETUP_SUM_A), setup_dword(h->setup, RACE_NET_SETUP_RACERS)),
+                              setup_dword(h->setup, RACE_NET_SETUP_SUM_B));
+    for (int k = 0; k < 4; k++) h->setup[RACE_NET_SETUP_SUM + k] = (uint8_t)((uint32_t)sum >> 8 * k);
+    memcpy(h->setup + RACE_NET_SETUP_RECORD_A, first, RACE_NET_INFO);
+    if (setup_dword(h->setup, SETUP_RACE_W4FB7D4) != 1) {
+        memcpy(h->setup + RACE_NET_SETUP_RECORD_B, second, RACE_NET_INFO);
+        return;
+    }
+    host_setup_wait(ops, h);
+    const int32_t humans = setup_dword(h->setup, RACE_NET_SETUP_HUMANS);
+    copy_names(h->names, h->setup + RACE_NET_SETUP_RECORD_A, humans);
+    ops->names_done(ops->ctx, humans);
 }
 
 static int32_t ping_all_wait(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
