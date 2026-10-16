@@ -272,3 +272,32 @@ int32_t race_net_link_lost(const RaceNetLostOps *ops, RaceNetLost *l, int32_t ki
     ops->unlock(ops->ctx, l->lock);
     return 0;
 }
+
+int32_t race_net_host_start(const RaceNetHostOps *ops, RaceNetHost *h, const uint8_t *name)
+{
+    static const uint8_t no_password[1] = { 0 };  /* the byte at 00442510 */
+    h->host = 1;
+    h->dropped = 0;
+    put_state_word(h->state, RACE_NET_AT_TO, 0);
+    put_state_word(h->state, RACE_NET_AT_HUMANS, 1);
+    h->counts.unknown_4bc6d8 = 1, h->counts.unknown_4bc6da = 0;
+    h->unknown_4fbb0c = 1;
+    h->joined = 0;
+    put_state_word(h->state, RACE_NET_AT_OTHERS, 0);
+    h->queue_head = 0, h->unknown_50a36c = 0, h->queue_count = 0;
+    copy_name(h->state, RACE_NET_AT_NAMES, h->me, RACE_NET_STATE);
+    h->unknown_50a360 = RACE_NET_SESSION_KIND;
+    for (int i = 0; i < RACE_NET_SESSION_NAME; i++)  /* port guard: within 0050a320's 0x40 (the original runs on into 0050a360) */
+        if ((h->session_name[i] = name[i]) == 0) break;
+    ops->reset(ops->ctx);
+    if (ops->create(ops->ctx, RACE_NET_SESSION, h->session_name, no_password, RACE_NET_JOIN_HANDLER) == 0) {
+        ops->message(ops->ctx, h->german != 0 ? RACE_NET_CREATE_FAILED_G : RACE_NET_CREATE_FAILED, RACE_NET_FAILED_TICKS);
+        ops->shut_down(ops->ctx);
+        return 0;
+    }
+    h->unknown_4bc6ac = 1;
+    h->play = 1;
+    ops->release(ops->ctx);
+    ops->message(ops->ctx, h->german != 0 ? RACE_NET_CREATED_G : RACE_NET_CREATED, RACE_NET_CREATED_TICKS);
+    return 1;
+}

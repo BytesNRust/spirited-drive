@@ -302,4 +302,49 @@ typedef struct {
  * records and runs 0041019c(-1)). */
 int32_t race_net_link_lost(const RaceNetLostOps *ops, RaceNetLost *l, int32_t kind, uint32_t link);
 
+/* The host's start: the session's name (0050a320, 0x40 bytes before 0050a360), the joins' handler 00442ec0 the
+ * transport calls, the four messages (00467214's text) and how long they stay */
+enum {
+    RACE_NET_SESSION_NAME = 0x40, RACE_NET_SESSION_KIND = 0xc, RACE_NET_JOIN_HANDLER = 0x442ec0,
+    RACE_NET_CREATED = 0x4aff00, RACE_NET_CREATED_G = 0x4afef0, RACE_NET_CREATE_FAILED = 0x4afedc,
+    RACE_NET_CREATE_FAILED_G = 0x4afeb8, RACE_NET_CREATED_TICKS = 200, RACE_NET_FAILED_TICKS = 300
+};
+
+typedef struct {
+    void *ctx;
+    void (*reset)(void *ctx);                                       /* 0044655c */
+    int32_t (*create)(void *ctx, uint32_t session, const uint8_t *name, const uint8_t *password,
+                      uint32_t handler);                            /* 00479338 (cdecl), the transport's: 0 failed */
+    void (*message)(void *ctx, uint32_t text, int32_t ticks);       /* 00467214, the menu library's */
+    void (*shut_down)(void *ctx);                                   /* 0047ab80, the transport's */
+    void (*release)(void *ctx);                                     /* 00442dec: frees 004bc6c6 / 004bc6ce (00475260) */
+} RaceNetHostOps;
+
+/* The words 00442970 writes and reads; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    int16_t dropped;                  /* 0052b314 */
+    int16_t play;                     /* 0052b312 */
+    int16_t german;                   /* 0052b31c */
+    int16_t unknown_4bc6ac;
+    int32_t unknown_4fbb0c;
+    int32_t joined;                   /* 0050a5a8 */
+    RaceNetCounts counts;             /* 004bc6d8 / 004bc6da */
+    int32_t queue_head, unknown_50a36c, queue_count;  /* 0050a368, 0050a36c, 0050a370 */
+    const uint8_t *me;                /* 00524df0: this machine's name (a string) */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    uint8_t *session_name;            /* 0050a320: RACE_NET_SESSION_NAME bytes */
+    int32_t unknown_50a360;
+} RaceNetHost;
+
+/* 00442970 (watcall (name), from 00453ef4): 00524e7b = 1, 0052b314 = 0,
+ * 004f81d6 = 0, 004f81d2 = 1, 004bc6d8 = 1, 004bc6da = 0, 004fbb0c = 1,
+ * 0050a5a8 = 0, 004f81d4 = 0, the queue's 0050a368 / 0050a36c / 0050a370 = 0;
+ * this machine's name to 004f8166, `name` to 0050a320, 0050a360 = 0xc;
+ * 0044655c; 00479338(0050a260, 0050a320, "", 00442ec0): 0 shows "Create Game
+ * Failed" (0052b31c: the German one) for 300 and 0047ab80, returns 0; else
+ * 004bc6ac = 1, 0052b312 = 1, 00442dec, "Game Created" for 200, returns 1.
+ * Strings copied up to their NUL (port guard: within the destination). */
+int32_t race_net_host_start(const RaceNetHostOps *ops, RaceNetHost *h, const uint8_t *name);
+
 #endif
