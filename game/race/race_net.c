@@ -113,3 +113,70 @@ void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q)
     }
     q->unknown_50a5bc = 0;
 }
+
+/* A string copied up to its NUL into the state block (port guard: within the block and `room` source bytes) */
+static void copy_name(uint8_t *state, int at, const uint8_t *from, int room)
+{
+    for (int i = 0; i < room && at + i >= 0 && at + i < RACE_NET_STATE; i++)
+        if ((state[at + i] = from[i]) == 0) return;
+}
+
+static uint32_t entry_at(int k) { return RACE_NET_PLAYERS_AT + (uint32_t)k * RACE_NET_ENTRY_SIZE; }
+
+/* 0044659c on player entry k, the slots read from the state block */
+static int16_t seat_of(const RaceNetSeats *s, int k)
+{
+    RaceNetSlots slots = { state_word(s->state, RACE_NET_AT_HUMANS), state_word(s->state, RACE_NET_AT_OTHERS), { 0 } };
+    memcpy(slots.links, s->links, sizeof slots.links);
+    return (int16_t)race_net_slot_of(&slots, entry_at(k));
+}
+
+/* An entry seated at links[at] with its tag in name slot `name`, the count at `count` + 1; or one gone, closed */
+static void seat_entry(const RaceNetSeatOps *ops, RaceNetSeats *s, int k, int32_t at, int32_t name, int count)
+{
+    const RaceNetLink *e = &s->entries[k];
+    if (e->unknown_00 == 0) {
+        if (e->unknown_20 == 0) return;
+        ops->close(ops->ctx, e);
+        if (s->play == 1) ops->forget(ops->ctx, RACE_NET_SESSION, e->name);  /* 00442db8 */
+        return;
+    }
+    if (at >= 0 && at < RACE_NET_LINK_ROOM) s->links[at] = entry_at(k);  /* port guard */
+    const int from = k * RACE_NET_TAG;
+    copy_name(s->state, RACE_NET_AT_NAMES + name * RACE_NET_TAG, s->tags + from, RACE_NET_TAGS - from);
+    put_state_word(s->state, count, (int16_t)(state_word(s->state, count) + 1));
+}
+
+static void swap_words(int16_t *w, int a, int b)
+{
+    const int16_t t = w[a];
+    w[a] = w[b], w[b] = t;
+}
+
+void race_net_seat(const RaceNetSeatOps *ops, RaceNetSeats *s)
+{
+    if (s->host == 0 || s->play == 0) return;
+    int16_t before[RACE_NET_SEATS] = { 0 }, after[RACE_NET_SEATS] = { 0 };
+    for (int k = 0; k < RACE_NET_SEATS && s->unknown_52b310 != 0; k++) before[k] = seat_of(s, k);
+    put_state_word(s->state, RACE_NET_AT_TO, 0);
+    put_state_word(s->state, RACE_NET_AT_HUMANS, 1);
+    copy_name(s->state, RACE_NET_AT_NAMES, s->me, RACE_NET_STATE);
+    for (int k = 0; k < RACE_NET_SEATS; k++) {
+        const int16_t h = state_word(s->state, RACE_NET_AT_HUMANS);
+        seat_entry(ops, s, k, h, h, RACE_NET_AT_HUMANS);
+    }
+    for (int k = 0; k < RACE_NET_SEATS && s->unknown_52b310 != 0; k++) after[k] = seat_of(s, k);
+    if (s->unknown_52b310 != 0)
+        for (int k = 0; k < RACE_NET_SEATS; k++) {
+            const int a = after[k], b = before[k];
+            if (a == RACE_NET_NO_SLOT || a == b) continue;
+            if (a < -1 || a >= RACE_NET_LINKS || b < -1 || b >= RACE_NET_LINKS) continue;  /* port guard */
+            swap_words(s->unknown_52b2b4, a, b);
+            swap_words(s->unknown_524e8d, a, b);
+        }
+    put_state_word(s->state, RACE_NET_AT_OTHERS, 0);
+    for (int k = 0; k < RACE_NET_VIEWERS; k++) {
+        const int16_t h = state_word(s->state, RACE_NET_AT_HUMANS), o = state_word(s->state, RACE_NET_AT_OTHERS);
+        seat_entry(ops, s, RACE_NET_KIND0_FIRST + k, (int32_t)h + o, RACE_NET_VIEWER_NAMES + o, RACE_NET_AT_OTHERS);
+    }
+}

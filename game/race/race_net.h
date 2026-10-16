@@ -163,4 +163,45 @@ typedef struct {
  * 004bc6da (viewer) - 1. Then 0050a5bc = 0. */
 void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q);
 
+/* The seats 004465e4 rebuilds: the state block's names (9 bytes a slot from
+ * +2, this machine's at slot 0, the viewers' from slot 8), its counts, the
+ * links by slot (0050a578, the entries' exe addresses; viewers past eight
+ * machines run on into the four words after) and two words a slot swapped
+ * when a machine's slot moves */
+enum {
+    RACE_NET_AT_NAMES = 2, RACE_NET_VIEWER_NAMES = 8, RACE_NET_LINK_ROOM = 12, RACE_NET_SEATS = 7,
+    RACE_NET_ENTRY_SIZE = 0x54, RACE_NET_PLAYERS_AT = 0x50a5dc
+};
+
+typedef struct {
+    void *ctx;
+    void (*close)(void *ctx, const RaceNetLink *entry);                /* 0047b250 (cdecl), the transport's */
+    void (*forget)(void *ctx, uint32_t session, const uint8_t *name);  /* 004799a8, through 00442db8 */
+} RaceNetSeatOps;
+
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    int16_t play;                     /* 0052b312 */
+    int16_t unknown_52b310;
+    const uint8_t *me;                /* 00524df0: this machine's name (a string) */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    uint32_t *links;                  /* 0050a578: RACE_NET_LINK_ROOM */
+    const RaceNetLink *entries;       /* 0050a5dc: 0..6 players, 7..10 viewers */
+    const uint8_t *tags;              /* 0050a978: RACE_NET_TAGS bytes */
+    int16_t *unknown_52b2b4;          /* by slot, [-1] too (a link that had no slot) */
+    int16_t *unknown_524e8d;          /* the same */
+} RaceNetSeats;
+
+/* 004465e4 (watcall (), from 00411050): nothing unless 00524e7b and 0052b312.
+ * While 0052b310: each player entry's slot (0044659c) before. 004f81d6 = 0,
+ * 004f81d2 = 1, this machine's name to 004f8166; for players 0..6: an entry
+ * whose +0 is set goes to links[004f81d2] and its tag to the name slot
+ * 004f81d2, which then grows; else with +0x20 set, 0047b250 and 00442db8 on
+ * it. While 0052b310: the slots after; with 0052b310 (read once) each entry
+ * whose slot moved (and has one now) swaps 0052b2b4[] and 00524e8d[] between
+ * its new and old slot. 004f81d4 = 0; viewers 7..10 the same, to links[004f81d2
+ * + 004f81d4] and the name slot 8 + 004f81d4. Each string copied up to its
+ * NUL (port guard: within the state block and the source). */
+void race_net_seat(const RaceNetSeatOps *ops, RaceNetSeats *s);
+
 #endif
