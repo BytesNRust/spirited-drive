@@ -366,3 +366,17 @@ void race_net_reset(const RaceNetResetOps *ops, RaceNetReset *r)
     memset(r->entries, 0, RACE_NET_TABLE_ENTRIES * sizeof *r->entries);
     memset(r->tags, 0, RACE_NET_TABLE_ENTRIES * RACE_NET_TAG);
 }
+
+void race_net_release(const RaceNetReleaseOps *ops, RaceNetBuffers *b)
+{
+    b->unknown_4bc6c4 = 0;
+    b->unknown_4bc6cc = 0;
+    if (b->buffer_4bc6c6 != 0) {
+        ops->free_handle(ops->ctx, b->buffer_4bc6c6);
+        b->buffer_4bc6c6 = 0;
+    }
+    if (b->buffer_4bc6ce != 0) {
+        ops->free_handle(ops->ctx, b->buffer_4bc6ce);
+        b->buffer_4bc6ce = 0;
+    }
+}

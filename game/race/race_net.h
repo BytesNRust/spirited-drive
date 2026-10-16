@@ -317,7 +317,7 @@ typedef struct {
                       uint32_t handler);                            /* 00479338 (cdecl), the transport's: 0 failed */
     void (*message)(void *ctx, uint32_t text, int32_t ticks);       /* 00467214, the menu library's */
     void (*shut_down)(void *ctx);                                   /* 0047ab80, the transport's */
-    void (*release)(void *ctx);                                     /* 00442dec: frees 004bc6c6 / 004bc6ce (00475260) */
+    void (*release)(void *ctx);                                     /* 00442dec (race_net_release) */
 } RaceNetHostOps;
 
 /* The words 00442970 writes and reads; the ops may change them (the caller's ctx) */
@@ -438,5 +438,23 @@ typedef struct {
  * from 0050a5dc zeroed (0048f1d4): the eleven entries and their eleven
  * tags. */
 void race_net_reset(const RaceNetResetOps *ops, RaceNetReset *r);
+
+/* Two buffers the network keeps at 004bc6c4: a word then a handle (unaligned) each, 004bc6ca between them untouched */
+typedef struct {
+    int16_t unknown_4bc6c4;
+    uint32_t buffer_4bc6c6;
+    int16_t unknown_4bc6cc;
+    uint32_t buffer_4bc6ce;
+} RaceNetBuffers;
+
+/* 00442dec (watcall (), from 00442970 and 00442ad0): 004bc6c4 = 0, 004bc6cc =
+ * 0; each handle (004bc6c6, then 004bc6ce) that is set freed (00475260) and
+ * zeroed. */
+typedef struct {
+    void *ctx;
+    void (*free_handle)(void *ctx, uint32_t handle);  /* 00475260 (cdecl) */
+} RaceNetReleaseOps;
+
+void race_net_release(const RaceNetReleaseOps *ops, RaceNetBuffers *b);
 
 #endif
