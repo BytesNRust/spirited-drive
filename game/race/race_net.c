@@ -660,3 +660,65 @@ int32_t race_net_serial_start(const RaceNetSerialStartOps *ops, RaceNetSerialSta
     s->followed = 0, s->play = 0, s->host = 1, s->unknown_4fbb0c = 1;
     return 0;
 }
+
+static void send_hello(const RaceNetLinkOps *ops, const RaceNetLinkUp *l)
+{
+    uint8_t hello[RACE_NET_HELLO] = { 0 };
+    put_state_word(hello, 0, RACE_NET_HELLO_KIND), put_state_word(hello, 2, (int16_t)l->unknown_4fbb0c);
+    for (int i = 4; i < RACE_NET_HELLO; i++)  /* port guard: the name within the hello */
+        if ((hello[i] = l->me[i - 4]) == 0) break;
+    ops->send(ops->ctx, RACE_NET_PLAYERS_AT, hello, RACE_NET_HELLO);
+    ops->deadline(ops->ctx, RACE_NET_LINK_DEADLINE);
+}
+
+/* Until the flag is set: 00410bac answering gives up and ends it */
+static void wait_flag(const RaceNetLinkOps *ops, const int16_t *flag)
+{
+    while (*flag == 0)
+        if (ops->step(ops->ctx) != 0) {
+            ops->give_up(ops->ctx);
+            return;
+        }
+}
+
+static void link_result(const RaceNetLinkOps *ops, const RaceNetLinkUp *l)
+{
+    static const uint8_t dial_g[] = "Ein spieler mu\xe1 w\x84hlen", answer_g[] = "Ein spieler mu\xe1 antworten";
+    if (l->unknown_513e44 != 0) {
+        if (l->german == 0) ops->message(ops->ctx, l->unknown_4fbb0c != 0 ? RACE_NET_DIAL : RACE_NET_ANSWER, RACE_NET_WHO_TICKS);
+        else ops->message_text(ops->ctx, l->unknown_4fbb0c != 0 ? dial_g : answer_g, RACE_NET_WHO_TICKS);
+    }
+    ops->message(ops->ctx, l->german != 0 ? RACE_NET_NO_LINK_G : RACE_NET_NO_LINK, RACE_NET_LINK_TICKS);
+}
+
+int32_t race_net_link_up(const RaceNetLinkOps *ops, RaceNetLinkUp *l)
+{
+    l->unknown_513e44 = 0;
+    ops->message(ops->ctx, l->german != 0 ? RACE_NET_TRYING_G : RACE_NET_TRYING, -1);
+    const int16_t kept = l->unknown_52b304;
+    ops->menu_a(ops->ctx), ops->menu_b(ops->ctx);
+    l->unknown_52b304 = 0, l->joined = 0;
+    if (ops->start(ops->ctx) != 0) {
+        const int host = l->unknown_4fbb0c != 0;
+        send_hello(ops, l);
+        wait_flag(ops, &l->unknown_50a5be);
+        if (host) {
+            ops->seats(ops->ctx);
+            l->unknown_50a5ba = 1;
+        } else {
+            ops->deadline(ops->ctx, RACE_NET_LINK_DEADLINE);
+            wait_flag(ops, &l->unknown_50a5ba);
+        }
+    }
+    if (l->dropped != 0) l->play = 0;
+    else if (l->play != 0) ops->sync(ops->ctx);
+    if (l->play != 0) {
+        l->joined++;
+        ops->message(ops->ctx, l->german != 0 ? RACE_NET_LINKED_G : RACE_NET_LINKED, RACE_NET_LINK_TICKS);
+    } else if (l->unknown_513e48 != 0) ops->message(ops->ctx, l->german != 0 ? RACE_NET_CUT_G : RACE_NET_CUT, RACE_NET_LINK_TICKS);
+    else link_result(ops, l);
+    l->unknown_52b304 = kept;
+    ops->after(ops->ctx);
+    if (l->play == 0) l->dropped = 0;
+    return l->play;
+}

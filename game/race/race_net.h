@@ -728,4 +728,57 @@ typedef struct {
  * = 1, 004fbb0c = 1. Returns it. Port guard: the name stays in the block. */
 int32_t race_net_serial_start(const RaceNetSerialStartOps *ops, RaceNetSerialStart *s);
 
+/* 00451660's texts (English / German) */
+enum {
+    RACE_NET_TRYING = 0x4b0abc, RACE_NET_TRYING_G = 0x4b0aa0, RACE_NET_LINKED = 0x4b0aec, RACE_NET_LINKED_G = 0x4b0ad4,
+    RACE_NET_CUT = 0x4b0b1c, RACE_NET_CUT_G = 0x4b0b04, RACE_NET_DIAL = 0x4b0b4c, RACE_NET_ANSWER = 0x4b0b84,
+    RACE_NET_NO_LINK = 0x4b0bb8, RACE_NET_NO_LINK_G = 0x4b0ba4,
+    RACE_NET_LINK_TICKS = 200, RACE_NET_WHO_TICKS = 400, RACE_NET_LINK_DEADLINE = 6000,
+    RACE_NET_HELLO_KIND = 9, RACE_NET_HELLO = 13  /* kind, 004fbb0c's word, this machine's name */
+};
+
+typedef struct {
+    void *ctx;
+    void (*message)(void *ctx, uint32_t text, int32_t ticks);           /* 00467214, the frontend's menu library */
+    void (*message_text)(void *ctx, const uint8_t *text, int32_t ticks); /* the same with 00473d43's text */
+    void (*menu_a)(void *ctx);                                          /* 004644f0, the frontend's */
+    void (*menu_b)(void *ctx);                                          /* 00464568, the frontend's */
+    int32_t (*start)(void *ctx);                                        /* 00451320 (race_net_serial_start) */
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+    void (*deadline)(void *ctx, int32_t ticks);                         /* 00410b7c */
+    int32_t (*step)(void *ctx);                                         /* 00410bac (race_net_wait_step) */
+    void (*give_up)(void *ctx);                                         /* 00446220 (race_net_give_up) */
+    void (*seats)(void *ctx);                                           /* 004465e4 */
+    void (*sync)(void *ctx);                                            /* 004104d0 (race_net_sync) */
+    void (*after)(void *ctx);                                           /* 004562e8 */
+} RaceNetLinkOps;
+
+/* The words 00451660 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int32_t unknown_513e44;           /* set by the link's handlers: nobody dialled / answered */
+    int32_t unknown_513e48;           /* set by 00451450 (Esc) */
+    int16_t german;                   /* 0052b31c */
+    int16_t unknown_52b304;           /* 0 while it runs, then back */
+    int16_t play;                     /* 0052b312 */
+    int16_t dropped;                  /* 0052b314 */
+    int32_t joined;                   /* 0050a5a8 */
+    int32_t unknown_4fbb0c;
+    int16_t unknown_50a5ba, unknown_50a5be;
+    const uint8_t *me;                /* 00524df0: this machine's name (a string) */
+} RaceNetLinkUp;
+
+/* 00451660 (watcall (), from 00453000): the link connect action. 00513e44
+ * = 0; "Attempting to connect" (-1 ticks); 0052b304 kept; 004644f0,
+ * 00464568; 0052b304 = 0, 0050a5a8 = 0; 00451320 answering: the 13-byte
+ * hello {9, 004fbb0c's word, the name} to 0050a5dc, 00410b7c(6000), until
+ * 0050a5be 00410bac (answering: 00446220, the wait ends); the host
+ * (004fbb0c) then 004465e4 and 0050a5ba = 1, a client 00410b7c(6000) and
+ * the same wait on 0050a5ba. Then 0052b314 set: 0052b312 = 0, else with
+ * 0052b312 004104d0. The result for 200 ticks: 0052b312 "Successfully
+ * connected" (0050a5a8 + 1), 00513e48 "Connection Aborted", else (after,
+ * with 00513e44, "One person needs to Dial / Answer" for 400) "Connection
+ * Failed"; the German ones, the who-dials texts formatted with 0xe1 / 0x84.
+ * 0052b304 back, 004562e8, 0052b314 = 0 without 0052b312; returns 0052b312. */
+int32_t race_net_link_up(const RaceNetLinkOps *ops, RaceNetLinkUp *l);
+
 #endif
