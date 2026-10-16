@@ -63,6 +63,12 @@ void net_queue_insert(const NetMutexOps *ops, NetQueue *q, NetNode *n);
  * the tail when its next is NULL, the flags' bit 0 set. */
 void net_queue_push_front(const NetMutexOps *ops, NetQueue *q, NetNode *n);
 
+/* 0049c894 (cdecl (queue), from 0047a308 and 0047b17c): under the mutex
+ * (+0x18, read again for the unlock), the head taken: it the tail, head and
+ * tail NULL, else the head its next; count - 1; its next NULL. The flags'
+ * bit 0 set even with none. The node, or NULL. */
+NetNode *net_queue_pop_front(const NetMutexOps *ops, NetQueue *q);
+
 /* 0049c6a8 (cdecl (to, value, n), 10 callers: the packets' words in network
  * order): value's low n bytes to to[0..n-1], the last byte the lowest (above
  * 4, zeros first); n at most 0 writes nothing. */

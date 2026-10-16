@@ -74,3 +74,18 @@ void net_queue_push_front(const NetMutexOps *ops, NetQueue *q, NetNode *n)
     }
     ops->unlock(ops->ctx, q->mutex);
 }
+
+NetNode *net_queue_pop_front(const NetMutexOps *ops, NetQueue *q)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *const n = q->head;
+    if (n != NULL) {
+        if (n == q->tail) q->head = q->tail = NULL;
+        else q->head = n->next;
+        q->count--;
+        n->next = NULL;
+    }
+    q->flags |= NET_QUEUE_CHANGED;
+    ops->unlock(ops->ctx, q->mutex);
+    return n;
+}
