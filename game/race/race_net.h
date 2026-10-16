@@ -642,4 +642,31 @@ typedef struct {
  * 0; 1. Else 0. */
 int32_t race_net_ready(const RaceNetReadyOps *ops, RaceNetReady *r);
 
+enum { RACE_NET_START_ABORTED = 0x4b03f4, RACE_NET_START_ABORTED_G = 0x4b03dc, RACE_NET_START_ABORTED_TICKS = 300 };  /* "Connection Aborted" */
+
+typedef struct {
+    void *ctx;
+    void (*message)(void *ctx, uint32_t text, int32_t ticks);  /* 00467214, the frontend's menu library */
+    void (*close)(void *ctx);                          /* 00442d60 (race_net_close_session) */
+    void (*sync)(void *ctx);                           /* 004104d0 */
+    void (*service)(void *ctx);                        /* 00475c14(0) */
+    void (*deadline)(void *ctx, int32_t ticks);        /* 00410b7c */
+    int32_t (*wait)(void *ctx, int16_t stage);         /* 00410c18 */
+} RaceNetHostReadyOps;
+
+/* The words 00446284 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t play;                     /* 0052b312 */
+    int32_t unknown_4fbb0c;
+    int16_t german;                   /* 0052b31c */
+    int16_t unknown_52b302, unknown_52b31a;
+    int16_t dropped;                  /* 0052b314 */
+} RaceNetHostReady;
+
+/* 00446284 (watcall (), from the frontend's 00432ff4): only with 0052b312
+ * and 004fbb0c: the waiting message (00467214(text, -1)), 00442d60; with
+ * 0052b302 0, 004104d0 and 00475c14(0) until 0052b31a is 0; 00410b7c(-1),
+ * 00410c18(1); 0 answered: "Connection Aborted" for 300 ticks, 0052b314 = 1. */
+void race_net_host_ready(const RaceNetHostReadyOps *ops, RaceNetHostReady *r);
+
 #endif

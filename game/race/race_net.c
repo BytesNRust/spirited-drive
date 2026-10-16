@@ -601,3 +601,19 @@ int32_t race_net_ready(const RaceNetReadyOps *ops, RaceNetReady *r)
         } while (r->unknown_52b31a != 0);
     return 1;
 }
+
+void race_net_host_ready(const RaceNetHostReadyOps *ops, RaceNetHostReady *r)
+{
+    if (r->play == 0 || r->unknown_4fbb0c == 0) return;
+    ops->message(ops->ctx, r->german != 0 ? RACE_NET_WAITING_DE : RACE_NET_WAITING_EN, -1);
+    ops->close(ops->ctx);
+    if (r->unknown_52b302 == 0)
+        do {
+            ops->sync(ops->ctx);
+            ops->service(ops->ctx);
+        } while (r->unknown_52b31a != 0);
+    ops->deadline(ops->ctx, -1);
+    if (ops->wait(ops->ctx, 1) != 0) return;
+    ops->message(ops->ctx, r->german != 0 ? RACE_NET_START_ABORTED_G : RACE_NET_START_ABORTED, RACE_NET_START_ABORTED_TICKS);
+    r->dropped = 1;
+}
