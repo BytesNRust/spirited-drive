@@ -18,11 +18,19 @@ static const int16_t HEAD_TO_HEAD[16] = { 7, 6, 0, 2, 3, 5, 4, 1, 8, 9, 10, 11, 
 /* 004c5628: the opponents of car 8, by slot. */
 static const uint8_t CAR_8_OPPONENTS[TYPE_3_SLOTS] = { 7, 6, 0, 3, 2, 5, 1, 4 };
 
+int32_t race_head_to_head_model(int16_t pick)
+{
+    /* cwde, then ax from the table: the high half is the pick's sign */
+    const uint32_t high = pick < 0 ? 0xffff0000u : 0;
+    const int16_t model = pick >= 0 && pick < 16 ? HEAD_TO_HEAD[pick] : 0;  /* port guard */
+    return (int32_t)(high | (uint16_t)model);
+}
+
 /* 00426fec(004fbad0); -1 past its table (the original reads its stack). */
 static int32_t head_to_head(const RaceState *race)
 {
     const int16_t at = (int16_t)race->unknown_4fbad0;
-    return at >= 0 && at < 16 ? HEAD_TO_HEAD[at] : -1;
+    return at >= 0 && at < 16 ? (int16_t)race_head_to_head_model(at) : -1;
 }
 
 static void set_model(RaceState *race, int32_t slot, int32_t model)

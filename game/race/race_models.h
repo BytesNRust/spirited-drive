@@ -18,4 +18,10 @@
  * words or loops for ever the port leaves the models as they are. */
 void race_models(RaceState *race);
 
+/* 00426fec (watcall (pick), from 00457870 and 0042702c): the head to head
+ * opponent's model for `pick` (00426620: 7, 6, 0, 2, 3, 5, 4, 1, then 8..15
+ * as themselves); the high half is the pick's sign, as the original leaves
+ * it. Port guard: 0 past the table (the original reads its stack). */
+int32_t race_head_to_head_model(int16_t pick);
+
 #endif
