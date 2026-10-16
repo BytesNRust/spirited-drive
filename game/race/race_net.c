@@ -873,3 +873,11 @@ int32_t race_net_receive(const RaceNetReceiveOps *ops, int16_t dropped, uint32_t
     else if (kind >= 0) ops->handle(ops->ctx, kind, link, data, size);  /* port guard */
     return 1;
 }
+
+int32_t race_net_link_escape(const RaceNetEscapeOps *ops, uint8_t esc, int32_t *unknown_513e48)
+{
+    if (esc == 0) return 0;
+    *unknown_513e48 = 1;
+    ops->wait_release(ops->ctx);
+    return 1;
+}

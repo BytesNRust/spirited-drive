@@ -993,4 +993,14 @@ typedef struct {
  * the words before the table). */
 int32_t race_net_receive(const RaceNetReceiveOps *ops, int16_t dropped, uint32_t link, const uint8_t *data, int32_t size);
 
+typedef struct {
+    void *ctx;
+    void (*wait_release)(void *ctx);  /* port: the original spins on the key's flag as read (a hang while it is down) */
+} RaceNetEscapeOps;
+
+/* 00451450 (the transport's escape callback, set by 0045147c): Esc (key 1,
+ * 004c693d) up: 0. Down: 00513e48 = 1, the key's flag read again and spun
+ * on (wait_release), 1. */
+int32_t race_net_link_escape(const RaceNetEscapeOps *ops, uint8_t esc, int32_t *unknown_513e48);
+
 #endif
