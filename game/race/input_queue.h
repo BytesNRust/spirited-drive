@@ -76,6 +76,35 @@ void input_put(InputQueue *q, int16_t word, InputWords *w);
 
 typedef struct {
     void *ctx;
+    void (*lock)(void *ctx, uint32_t lock);            /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);          /* 00476cfc (cdecl) */
+    int16_t (*slot_of)(void *ctx, uint32_t link);      /* 0044659c */
+} InputMessageOps;
+
+/* Read again after every call (the ctx may change them) */
+typedef struct {
+    uint32_t sem;       /* 004f8160 */
+    InputWords w;       /* playback, dropped, 004fbb0c, player (004fbb08), waiting, 004fcdac */
+    int32_t late;       /* 004fb790: written 0 */
+    int32_t w4fb78c;    /* 004fb78c */
+    int32_t w4c5598;    /* 004c5598: written, a queue's clock */
+    int16_t humans;     /* 004f81d2 */
+} InputMessageWords;
+
+/* 004395cc (004bcb98[2], message kind 2: eax link, edx data): lock(004f8160).
+ * Playback not 1: 004c5598 = queue[004fbb0c]'s clock, then 00439738 on queue
+ * 1 when 004fbb08 is 0, else 0, with the word at +2. Playback 1 with
+ * 004fbb0c: the sender's queue (short) 0044659c(link): its clock past queue
+ * 0's + 2 (signed): the word at +2 replaces its last slot's (clock - 2, / 2
+ * toward zero, & 63); else 00439738 with it. Playback 1 without: 004fb790 =
+ * 0, 004bb8e8 = 0 unless 004fb78c, 004c5598 = queue 0's clock, then 00439738
+ * on queue i with the word at +2 + 2i for each of the 004f81d2 humans.
+ * unlock(004f8160 read anew). Port guard: queues 0..7 only. */
+void input_on_message(const InputMessageOps *ops, InputQueue queues[RACE_PLAYERS], InputMessageWords *m, uint32_t link,
+                      const uint8_t *data);
+
+typedef struct {
+    void *ctx;
     uint32_t (*read)(void *ctx);                        /* 0043915c */
     void (*send)(void *ctx, int32_t to, const int16_t *words, int32_t size);  /* 00445e00 */
     void (*put)(void *ctx, int32_t player, int32_t word);  /* 00439738 on 004faa7c + player x 0x18c */

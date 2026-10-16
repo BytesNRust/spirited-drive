@@ -143,3 +143,36 @@ void input_queue_prime(InputQueue *q, int32_t net_start, int32_t wait_ticks, int
     q->clock = n;
     *replay_due = x_sub(n, 2);
 }
+
+static int16_t message_word(const uint8_t *data, int at) { return (int16_t)(uint16_t)(data[at] | data[at + 1] << 8); }
+
+static void on_host_message(const InputMessageOps *ops, InputQueue queues[RACE_PLAYERS], InputMessageWords *m,
+                            uint32_t link, const uint8_t *data)
+{
+    const int16_t slot = ops->slot_of(ops->ctx, link);
+    if (slot < 0 || slot >= RACE_PLAYERS) return;  /* port guard */
+    InputQueue *q = &queues[slot];
+    if (x_add(queues[0].clock, 2) < q->clock)
+        q->input[(x_add(q->clock, -2) / 2) & (INPUT_SLOTS - 1)] = message_word(data, 2);
+    else
+        input_put(q, message_word(data, 2), &m->w);
+}
+
+void input_on_message(const InputMessageOps *ops, InputQueue queues[RACE_PLAYERS], InputMessageWords *m, uint32_t link,
+                      const uint8_t *data)
+{
+    ops->lock(ops->ctx, m->sem);
+    if (m->w.playback != 1) {
+        if (m->w.w4fbb0c >= 0 && m->w.w4fbb0c < RACE_PLAYERS) m->w4c5598 = queues[m->w.w4fbb0c].clock;  /* port guard */
+        input_put(&queues[m->w.player == 0 ? 1 : 0], message_word(data, 2), &m->w);
+    } else if (m->w.w4fbb0c != 0) {
+        on_host_message(ops, queues, m, link, data);
+    } else {
+        m->late = 0;
+        if (m->w4fb78c == 0) m->w.waiting = 0;
+        m->w4c5598 = queues[0].clock;
+        for (int16_t i = 0; i < m->humans && i < RACE_PLAYERS; i++)  /* port guard */
+            input_put(&queues[i], message_word(data, 2 + 2 * i), &m->w);
+    }
+    ops->unlock(ops->ctx, m->sem);
+}
