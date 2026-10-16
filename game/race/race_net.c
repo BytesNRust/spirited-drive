@@ -634,3 +634,29 @@ void race_net_serial_setup(const RaceNetSerialOps *ops, RaceNetSerial *s)
     put_set_dword(e + 0x44, s->unknown_52ac96);
     put_set_dword(e + 0x50, s->unknown_4fbb0c != 0 ? 0 : RACE_NET_SERIAL_FE);
 }
+
+int32_t race_net_serial_start(const RaceNetSerialStartOps *ops, RaceNetSerialStart *s)
+{
+    s->unknown_52b316 = 0;
+    s->unknown_4fbb0c = s->host;
+    const int16_t slot = (int16_t)(1 - (uint16_t)s->unknown_4fbb0c);
+    put_state_word(s->state, RACE_NET_AT_OTHERS, 0), put_state_word(s->state, RACE_NET_AT_TO, slot);
+    s->unknown_513e48 = 0;
+    put_state_word(s->state, RACE_NET_AT_HUMANS, RACE_NET_SERIAL_HUMANS);
+    s->followed = slot, s->dropped = 0;
+    copy_name(s->state, RACE_NET_AT_NAMES + slot * RACE_NET_TAG, s->me, RACE_NET_STATE);
+    ops->setup(ops->ctx);
+    s->unknown_4bb8dc = 0;
+    int32_t got = 0;
+    if (s->link_kind == RACE_NET_DIRECT) {
+        s->play = RACE_NET_PLAY_DIRECT;
+        got = ops->connect_direct(ops->ctx, RACE_NET_PLAYERS_AT, 0x20, 0, 0xfa, 6);
+    } else if (s->link_kind == RACE_NET_MODEM) {
+        s->play = RACE_NET_PLAY_MODEM;
+        got = ops->connect_modem(ops->ctx, RACE_NET_PLAYERS_AT, 0x20, 0, 0xfa, 6);
+    }
+    if (got != 0) return got;
+    ops->give_up(ops->ctx);
+    s->followed = 0, s->play = 0, s->host = 1, s->unknown_4fbb0c = 1;
+    return 0;
+}

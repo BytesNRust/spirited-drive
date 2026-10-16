@@ -694,4 +694,38 @@ typedef struct {
  * +0x50 0 with 004fbb0c, else 0052acfe. */
 void race_net_serial_setup(const RaceNetSerialOps *ops, RaceNetSerial *s);
 
+enum { RACE_NET_SERIAL_HUMANS = 2, RACE_NET_DIRECT = 0, RACE_NET_MODEM = 1, RACE_NET_PLAY_DIRECT = 3, RACE_NET_PLAY_MODEM = 2 };
+
+typedef struct {
+    void *ctx;
+    void (*setup)(void *ctx);                          /* 0045147c (race_net_serial_setup) */
+    int32_t (*connect_direct)(void *ctx, uint32_t entry, int32_t a, int32_t b, int32_t c, int32_t d);  /* 0048fe2c (cdecl) */
+    int32_t (*connect_modem)(void *ctx, uint32_t entry, int32_t a, int32_t b, int32_t c, int32_t d);   /* 0048ffdc (cdecl) */
+    void (*give_up)(void *ctx);                        /* 00446220 (race_net_give_up) */
+} RaceNetSerialStartOps;
+
+/* The words 00451320 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t unknown_52b316;
+    int32_t unknown_4fbb0c;
+    int16_t host;                     /* 00524e7b */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    int32_t unknown_513e48;           /* set by 00451450 (Esc) */
+    int32_t followed;                 /* 004fbb08 */
+    int16_t dropped;                  /* 0052b314 */
+    const uint8_t *me;                /* 00524df0: this machine's name (a string) */
+    int16_t link_kind;                /* 0052ac98: 0 direct (serial), 1 modem */
+    int32_t unknown_4bb8dc;           /* an idle clock (100 a second) */
+    int16_t play;                     /* 0052b312 */
+} RaceNetSerialStart;
+
+/* 00451320 (watcall (), from 00453000): 0052b316 = 0, 004fbb0c = 00524e7b
+ * (sign-extended), 004f81d4 = 0, 004f81d6 = 1 - 00524e7b (16-bit), 00513e48
+ * = 0, 004f81d2 = 2, 004fbb08 = 004f81d6, 0052b314 = 0; this machine's name
+ * into slot 004f81d6's name; 0045147c; 004bb8dc = 0; 0052ac98 0: 0052b312 =
+ * 3 and 0048fe2c(0050a5dc, 0x20, 0, 0xfa, 6), 1: 0052b312 = 2 and 0048ffdc
+ * (the same), else 0. 0 back: 00446220, 004fbb08 = 0, 0052b312 = 0, 00524e7b
+ * = 1, 004fbb0c = 1. Returns it. Port guard: the name stays in the block. */
+int32_t race_net_serial_start(const RaceNetSerialStartOps *ops, RaceNetSerialStart *s);
+
 #endif
