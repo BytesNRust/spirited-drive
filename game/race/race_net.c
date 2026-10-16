@@ -805,3 +805,11 @@ void race_net_on_ping(const RaceNetPingOps *ops, RaceNetPingIn *p, uint32_t link
     default: break;
     }
 }
+
+void race_net_on_info(const RaceNetSlotOps *ops, RaceNetInfoIn *in, uint32_t link, const uint8_t *data)
+{
+    const int16_t slot = ops->slot_of(ops->ctx, link);
+    if (slot < 0) return;  /* port guard */
+    if (slot < RACE_NET_PLAYERS) memcpy(in->infos + slot * RACE_NET_INFO, data, RACE_NET_INFO);  /* port guard */
+    if (slot < RACE_NET_FLAGS_B) in->flags_b[slot] = RACE_NET_INFO_STAGE;  /* port guard */
+}

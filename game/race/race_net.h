@@ -905,4 +905,18 @@ typedef struct {
  * nothing. */
 void race_net_on_ping(const RaceNetPingOps *ops, RaceNetPingIn *p, uint32_t link, const uint8_t *data);
 
+enum { RACE_NET_INFO = 0x4b, RACE_NET_INFO_STAGE = 4 };  /* a player's record at 004fb7f8; 0050a5c2's word after it */
+
+/* The words handler 0 writes */
+typedef struct {
+    int16_t *flags_b;                 /* 0050a5c2 */
+    uint8_t *infos;                   /* 004fb7f8: RACE_NET_INFO bytes a player (8) */
+} RaceNetInfoIn;
+
+/* 00439c5c, message kind 0 (eax link, edx data): slot = (short)
+ * 0044659c(link); the 0x4b bytes from the data (its kind word too) into
+ * 004fb7f8 + 0x4b x slot, then 0050a5c2[slot] = 4. Port guard: the record
+ * for a slot in 0..7 only, the word for one in 0..11. */
+void race_net_on_info(const RaceNetSlotOps *ops, RaceNetInfoIn *in, uint32_t link, const uint8_t *data);
+
 #endif
