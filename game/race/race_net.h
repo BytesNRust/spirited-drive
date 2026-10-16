@@ -616,4 +616,30 @@ typedef struct {
  * 00475c14(0), 1. Port guards: a slot past the eight links ends the wait (1). */
 int32_t race_net_wait(const RaceNetWaitOps *ops, RaceNetWait *w, int16_t stage);
 
+enum { RACE_NET_WAITING_EN = 0x4b03bc, RACE_NET_WAITING_DE = 0x4b03a0 };  /* "Waiting for other players..." */
+
+typedef struct {
+    void *ctx;
+    void (*sync)(void *ctx);                           /* 004104d0 */
+    void (*message)(void *ctx, uint32_t text, int32_t ticks);  /* 00467214, the frontend's menu library */
+    void (*deadline)(void *ctx, int32_t ticks);        /* 00410b7c */
+    int32_t (*wait)(void *ctx, int16_t stage);         /* 00410c18 */
+    void (*service)(void *ctx);                        /* 00475c14(0) */
+} RaceNetReadyOps;
+
+/* The words 0044633c reads; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t unknown_52b31a, unknown_50a5bc, unknown_50a5ba;
+    int16_t stage_flag;               /* 0050a5b6 */
+    int16_t german;                   /* 0052b31c */
+    int16_t unknown_52b302;
+} RaceNetReady;
+
+/* 0044633c (watcall (), from the frontend's 00432ff4): 004104d0; then
+ * only with 0052b31a, 0050a5bc and 0050a5ba 0 and 0050a5b6 == 1: the
+ * waiting message (00467214(text, -1)), 00410b7c(-1), 00410c18(1); that
+ * answering: with 0052b302 0, 004104d0 and 00475c14(0) until 0052b31a is
+ * 0; 1. Else 0. */
+int32_t race_net_ready(const RaceNetReadyOps *ops, RaceNetReady *r);
+
 #endif

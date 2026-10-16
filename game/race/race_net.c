@@ -586,3 +586,18 @@ int32_t race_net_wait(const RaceNetWaitOps *ops, RaceNetWait *w, int16_t stage)
     send_stage(ops, stage);
     return 1;
 }
+
+int32_t race_net_ready(const RaceNetReadyOps *ops, RaceNetReady *r)
+{
+    ops->sync(ops->ctx);
+    if (r->unknown_52b31a != 0 || r->unknown_50a5bc != 0 || r->unknown_50a5ba != 0 || r->stage_flag != 1) return 0;
+    ops->message(ops->ctx, r->german != 0 ? RACE_NET_WAITING_DE : RACE_NET_WAITING_EN, -1);
+    ops->deadline(ops->ctx, -1);
+    if (ops->wait(ops->ctx, 1) == 0) return 0;
+    if (r->unknown_52b302 == 0)
+        do {
+            ops->sync(ops->ctx);
+            ops->service(ops->ctx);
+        } while (r->unknown_52b31a != 0);
+    return 1;
+}
