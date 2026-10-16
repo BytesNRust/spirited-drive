@@ -1,6 +1,8 @@
 /* The race's side of the network game (race_net.h). */
 #include "game/race/race_net.h"
 
+#include "game/gfx/x86_int.h"
+
 #include <string.h>
 
 typedef char race_net_link_size_check[sizeof(RaceNetLink) == 0x54 ? 1 : -1];
@@ -940,4 +942,70 @@ void race_net_wait_setup(const RaceNetSetupWaitOps *ops, RaceNetSetupWait *w)
             if ((to[k] = from[k]) == 0) break;
     }
     ops->names_done(ops->ctx, w->humans);
+}
+
+static int32_t ping_all_wait(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
+{
+    while (p->flags_a[RACE_NET_PINGED_FLAG] == 0) {
+        if (ops->step(ops->ctx) != 0) {
+            p->dropped = 1;
+            return -2;
+        }
+        ops->service(ops->ctx);
+    }
+    p->flags_a[RACE_NET_PINGED_FLAG] = 0;
+    return 1;
+}
+
+static int32_t ping_all_count(const RaceNetPingAll *p)
+{
+    return state_word(p->state, RACE_NET_AT_HUMANS) + state_word(p->state, RACE_NET_AT_OTHERS);
+}
+
+/* One round over the slots; 0 once the last one is reached (all linked ones answered), else until */
+static int32_t ping_all_round(const RaceNetPingAllOps *ops, const RaceNetPingAll *p, int32_t until)
+{
+    const RaceNetSend at = { .entries = p->entries };
+    for (int16_t slot = 1; slot < ping_all_count(p) && slot < RACE_NET_LINKS; slot++) {  /* port guard */
+        ops->service(ops->ctx);
+        if (link_word(&at, p->links[slot]) != 0 && p->pings[slot] == 0) break;
+        if (slot == ping_all_count(p) - 1) until = 0;
+    }
+    return until;
+}
+
+int32_t race_net_ping_all(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
+{
+    if (p->unknown_4fbb0c == 0) {
+        ops->service(ops->ctx);
+        p->deadline = RACE_NET_NO_DEADLINE;
+        return ping_all_wait(ops, p);
+    }
+    for (int16_t i = 0; i < 2 * state_word(p->state, RACE_NET_AT_HUMANS) && i < RACE_NET_PINGS_CLEARED; i++)  /* port guard */
+        p->pings[i] = 0;
+    const int32_t start = p->clock;
+    uint8_t ping[RACE_NET_PING];
+    put_state_word(ping, 0, RACE_NET_PING_KIND), put_state_word(ping, 2, 0);
+    ops->send(ops->ctx, 0, ping, RACE_NET_PING);
+    int32_t until = x_add(p->clock, RACE_NET_PING_WAIT);
+    if (until > p->clock)
+        do {
+            until = ping_all_round(ops, p, until);
+            ops->service(ops->ctx);
+        } while (until > p->clock);
+    int16_t answered = 0;
+    int32_t largest = 0;
+    for (int16_t slot = 1; slot < ping_all_count(p) && slot < RACE_NET_LINKS; slot++) {  /* port guard */
+        ops->service(ops->ctx);
+        if (p->pings[slot] == 0) {
+            ops->drop(ops->ctx, slot);
+            continue;
+        }
+        const int32_t half = x_add(p->pings[slot], -start) / 2;
+        answered = (int16_t)(answered + 1);
+        if (largest <= half) largest = half;
+    }
+    if (answered == 0) return -1;
+    p->unknown_4fbac8 = ops->latency(ops->ctx, largest);
+    return largest;
 }

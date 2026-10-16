@@ -905,6 +905,44 @@ typedef struct {
  * nothing. */
 void race_net_on_ping(const RaceNetPingOps *ops, RaceNetPingIn *p, uint32_t link, const uint8_t *data);
 
+enum { RACE_NET_PINGS_CLEARED = 16, RACE_NET_PING_WAIT = 400 };  /* 004f8108's dwords 00410d80 may clear (into 004f8138's) */
+
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);                                                 /* 00475c14(0) */
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+    int32_t (*step)(void *ctx);                                                 /* 00410bac (race_net_wait_step) */
+    void (*drop)(void *ctx, int16_t slot);                                      /* 004463ec */
+    int32_t (*latency)(void *ctx, int32_t ticks);                               /* 00411160 */
+} RaceNetPingAllOps;
+
+/* Read again after every call (the ctx may change them) */
+typedef struct {
+    int32_t unknown_4fbb0c;
+    const uint8_t *state;             /* 004f8164: the counts at RACE_NET_AT_HUMANS / RACE_NET_AT_OTHERS */
+    const uint32_t *links;            /* 0050a578: RACE_NET_LINKS */
+    const RaceNetLink *entries;       /* 0050a5dc: 0..6 players, 7..10 viewers */
+    int32_t *pings;                   /* 004f8108: RACE_NET_PINGS_CLEARED */
+    int32_t clock;                    /* 004bb8e0 */
+    int32_t deadline;                 /* 004f8158 */
+    int16_t *flags_a;                 /* 0050a5ac ([4] 0050a5b4: pinged) */
+    int16_t dropped;                  /* 0052b314 */
+    int32_t unknown_4fbac8;           /* written: 00411160 of the result */
+} RaceNetPingAll;
+
+/* 00410d80 (watcall (), from 004273d0). A client (004fbb0c 0): 00475c14(0),
+ * 004f8158 = -1, until 0050a5b4: 00410bac answering: 0052b314 = 1, -2;
+ * 00475c14(0). Then 0050a5b4 = 0, 1. The host: 004f8108's first 2 x humans
+ * dwords 0; start = 004bb8e0; 00445e00(0, {4, 0}, 4); until = 004bb8e0 +
+ * 400; while until > 004bb8e0 (signed, from the start only if so): for slot
+ * 1.. below humans + others, 00475c14(0) each: a slot with a link (its
+ * entry's +0) and no answer (004f8108[slot] 0) ends the round; the last
+ * slot reached ends the wait (until = 0); then 00475c14(0). Then for slot 1..:
+ * 00475c14(0); answered: (answer - start) / 2 (toward zero), the largest
+ * kept; else 004463ec(slot). None answered: -1; else 004fbac8 =
+ * 00411160(largest), largest. Port guards: 16 dwords cleared, 8 slots. */
+int32_t race_net_ping_all(const RaceNetPingAllOps *ops, RaceNetPingAll *p);
+
 enum { RACE_NET_INFO = 0x4b, RACE_NET_INFO_STAGE = 4 };  /* a player's record at 004fb7f8; 0050a5c2's word after it */
 
 /* The words handler 0 writes */
