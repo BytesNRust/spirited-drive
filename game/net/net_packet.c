@@ -62,6 +62,11 @@ void net_wait_ticks(const NetWaitOps *ops, const int32_t *clock, int32_t ticks)
     while ((int32_t)((uint32_t)*clock - end) < 0);
 }
 
+uintptr_t net_packet_seq_key(const NetNode *n, uintptr_t arg)
+{
+    return (void)arg, (uint32_t)((const NetPacket *)(const void *)n)->seq;
+}
+
 static void close_say_goodbye(const NetCloseOps *ops, NetPacketHandle *h, NetPacketConn *c, const NetDriver *driver)
 {
     h->open = 0;

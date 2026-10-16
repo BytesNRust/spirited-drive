@@ -38,6 +38,10 @@ typedef struct {
     uint8_t wire[];  /* +0xc */
 } NetPacket;
 
+/* 0047a800 (cdecl (node, arg), the key of a connection's +0x68, +0x8c and
+ * +0xa8): the packet's sequence (+4); arg unused. */
+uintptr_t net_packet_seq_key(const NetNode *n, uintptr_t arg);
+
 /* A packet connection (0047ac18's 200 bytes); its words read again after every call */
 typedef struct {
     NetNode node;             /* +0: in the open (0052ce40) or closed (0052ce24) list */
