@@ -87,6 +87,14 @@ int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n);
  * (head, +0x14), never NULL there), or -1 with no head. */
 uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q);
 
+/* A node's test (0049cb1c stops at the first not 0) */
+typedef int32_t (*NetQueueTest)(NetNode *n, uintptr_t arg);
+
+/* 0049cb1c (cdecl (queue, test, arg); no direct callers): under the mutex
+ * (+0x18, read again for the unlock), the first node from the head (read
+ * after the lock; each next read after the test) the test accepts, or NULL. */
+NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, uintptr_t arg);
+
 /* 0049c6a8 (cdecl (to, value, n), 10 callers: the packets' words in network
  * order): value's low n bytes to to[0..n-1], the last byte the lowest (above
  * 4, zeros first); n at most 0 writes nothing. */

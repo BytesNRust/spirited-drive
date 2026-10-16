@@ -123,3 +123,12 @@ uintptr_t net_queue_head_key(const NetMutexOps *ops, NetQueue *q)
     ops->unlock(ops->ctx, q->mutex);
     return key;
 }
+
+NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, uintptr_t arg)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *p = q->head;
+    while (p != NULL && test(p, arg) == 0) p = p->next;
+    ops->unlock(ops->ctx, q->mutex);
+    return p;
+}
