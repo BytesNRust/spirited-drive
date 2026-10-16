@@ -730,3 +730,11 @@ void race_net_on_stand_ins(const RaceNetStandInOps *ops, RaceNetStandIns *s, uin
     for (int32_t i = 0; i < s->racers && i < RACE_NET_PLAYERS; i++)  /* port guard: eight */
         if (state_word(s->block, 2 + 2 * i) != 0) s->records[i].finish = RACE_NET_GONE_FINISH;
 }
+
+void race_net_on_state(const RaceNetLockOps *ops, RaceNetStateIn *s, const uint8_t *data)
+{
+    ops->lock(ops->ctx, s->lock);
+    memcpy(s->in, data, RACE_NET_STATE);
+    s->unknown_50a5bc = 1;
+    ops->unlock(ops->ctx, s->lock);
+}

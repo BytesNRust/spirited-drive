@@ -803,4 +803,21 @@ typedef struct {
  * finishes at 999999. Port guard: eight racers at most. */
 void race_net_on_stand_ins(const RaceNetStandInOps *ops, RaceNetStandIns *s, uint32_t link, const uint8_t *data);
 
+typedef struct {
+    void *ctx;
+    void (*lock)(void *ctx, uint32_t lock);            /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);          /* 00476cfc (cdecl) */
+} RaceNetLockOps;
+
+/* The words handler 8 writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    uint32_t lock;                    /* 004f815c */
+    uint8_t *in;                      /* 004f81d8: RACE_NET_STATE bytes */
+    int16_t unknown_50a5bc;
+} RaceNetStateIn;
+
+/* 00410384, message kind 8 (eax link, edx data): lock, the host's 0x74-byte
+ * state into 004f81d8, 0050a5bc = 1, unlock (004f815c read anew). */
+void race_net_on_state(const RaceNetLockOps *ops, RaceNetStateIn *s, const uint8_t *data);
+
 #endif
