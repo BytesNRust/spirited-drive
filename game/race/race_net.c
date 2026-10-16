@@ -897,3 +897,26 @@ void race_net_send_info(const RaceNetInfoSendOps *ops, int16_t play, int16_t rep
     put_state_word(record, 0, 0);
     ops->send(ops->ctx, 0, record, RACE_NET_INFO);
 }
+
+enum { SETUP_RACE_W4FB7D4 = 0x18 };
+
+void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state)
+{
+    if ((uint32_t)(setup[SETUP_RACE_W4FB7D4] | setup[SETUP_RACE_W4FB7D4 + 1] << 8 | setup[SETUP_RACE_W4FB7D4 + 2] << 16 |
+                   (uint32_t)setup[SETUP_RACE_W4FB7D4 + 3] << 24) != 1)
+        return;
+    const int32_t slot = state_word(state, RACE_NET_AT_TO);
+    for (int k = 0; k < 4; k++) setup[RACE_NET_SETUP_4FBACC + k] = (uint8_t)((uint32_t)slot >> 8 * k);
+    put_state_word(setup, 0, 1);
+    uint8_t message[RACE_NET_SETUP_HEAD + RACE_NET_SETUP_CHUNK] = { 1, 0 };
+    int32_t left = RACE_NET_SETUP;
+    for (uint8_t chunk = 0; left > 0; chunk++) {
+        const int32_t n = left > RACE_NET_SETUP_CHUNK ? RACE_NET_SETUP_CHUNK : left;
+        message[2] = chunk;
+        memcpy(message + RACE_NET_SETUP_HEAD, setup + RACE_NET_SETUP - left, (size_t)n);
+        left -= n;
+        ops->service(ops->ctx);
+        ops->send(ops->ctx, 0, message, n + RACE_NET_SETUP_HEAD);
+    }
+    ops->send(ops->ctx, 0, message, RACE_NET_SETUP_END);
+}

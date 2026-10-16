@@ -951,6 +951,19 @@ typedef struct {
  * original's count wraps). */
 void race_net_on_setup(RaceNetSetupIn *in, const uint8_t *data, int32_t size);
 
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);                                                 /* 00475c14(0) */
+    void (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 00445e00 */
+} RaceNetSetupSendOps;
+
+/* 00439de0 (eax setup, from 004273d0 with 004fb7bc): with the setup's dword
+ * +0x18 (004fb7d4) 1: 004fbacc (+0x310) = the short 004f81d6, the setup's
+ * first word = 1; then {1, 0, chunk, up to 0xf7 bytes of the setup} for
+ * chunks 0, 1, ... (00475c14(0) before each 00445e00(0, message, n + 3)),
+ * and last 00445e00(0, message, 2), what handler 1 (00439d98) takes. */
+void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state);
+
 enum {
     RACE_NET_CHAT = 0xdf,             /* {6, the sender's name (+2), its text (+0xb), more text (+0x75)} */
     RACE_NET_CHAT_NAME = 2, RACE_NET_CHAT_TEXT = 0xb, RACE_NET_CHAT_MORE = 0x75,
