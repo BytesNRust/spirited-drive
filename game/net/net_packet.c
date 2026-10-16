@@ -8,6 +8,16 @@ const char NET_CLOSE_TRACE[] = "ClosePktConn";
 const char NET_CLOSE_NOT_OPEN[] = "closepacketconnection - DID NOT FIND ACTIVE PKTCONN IN CONN LIST.\n";
 const char NET_CLOSE_NOT_CLOSED[] = "closepacketconnection - DID NOT FIND PKTCONN IN CLOSED LIST.\n";
 
+uint32_t net_crc16(const uint8_t *data, uint32_t length)
+{
+    uint32_t crc = 0xfbea;
+    for (int32_t i = 0; i < (int32_t)length; i++) {
+        crc ^= data[i];
+        for (int k = 0; k < 8; k++) crc = (crc & 1) != 0 ? crc >> 1 ^ 0xa001 : crc >> 1;
+    }
+    return crc;
+}
+
 void net_checksum_put(NetChecksum sum, const uint8_t *data, uint8_t *out, uint32_t length, int32_t n)
 {
     if (n <= 0) return;

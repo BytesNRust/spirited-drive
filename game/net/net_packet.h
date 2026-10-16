@@ -11,6 +11,12 @@
 /* A connection's checksum (its +0xc4, cdecl (data, length)) */
 typedef uint32_t (*NetChecksum)(const uint8_t *data, uint32_t length);
 
+/* 0049d158 (cdecl (data, length), 0047ac18's checksum; also from 00495254
+ * and 004a1e58): CRC-16/ARC (004f39b0 is poly 0xa001 reflected's table)
+ * from 0xfbea, the bytes in order (four a turn, then the rest); length 0 or
+ * below (signed) 0xfbea. */
+uint32_t net_crc16(const uint8_t *data, uint32_t length);
+
 /* The driver's link record (a connection's +8); read again after every call */
 typedef struct {
     int32_t now;    /* +8 */
