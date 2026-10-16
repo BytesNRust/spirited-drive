@@ -919,4 +919,27 @@ typedef struct {
  * for a slot in 0..7 only, the word for one in 0..11. */
 void race_net_on_info(const RaceNetSlotOps *ops, RaceNetInfoIn *in, uint32_t link, const uint8_t *data);
 
+enum {
+    RACE_NET_SETUP = 0x348,           /* 004fb7bc: the race's setup (REPLAY_SETUP_SIZE) */
+    RACE_NET_SETUP_CHUNK = 0xf7,      /* a message's share: {1, chunk byte, its bytes} */
+    RACE_NET_SETUP_HEAD = 3,
+    RACE_NET_SETUP_END = 2,           /* the size of the last message, {1} */
+    RACE_NET_SETUP_4FBACC = 0x310,
+    RACE_NET_SETUP_FLAG = 1           /* 0050a5ae = 0050a5ac[1] */
+};
+
+/* The words handler 1 reads and writes */
+typedef struct {
+    int16_t *flags_a;                 /* 0050a5ac */
+    const uint8_t *state;             /* 004f8164: RACE_NET_STATE bytes */
+    uint8_t *setup;                   /* 004fb7bc: RACE_NET_SETUP bytes */
+} RaceNetSetupIn;
+
+/* 00439d98, message kind 1 (eax link, edx data, ebx size): size 2 (all 32
+ * bits): 0050a5ae = 1 and the dword 004fbacc = the short 004f81d6. Else
+ * size - 3 bytes from data +3 into the setup at 0xf7 x the byte at +2. Port
+ * guard: the copy within the setup, nothing for a size below 3 (the
+ * original's count wraps). */
+void race_net_on_setup(RaceNetSetupIn *in, const uint8_t *data, int32_t size);
+
 #endif

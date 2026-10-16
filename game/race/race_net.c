@@ -813,3 +813,16 @@ void race_net_on_info(const RaceNetSlotOps *ops, RaceNetInfoIn *in, uint32_t lin
     if (slot < RACE_NET_PLAYERS) memcpy(in->infos + slot * RACE_NET_INFO, data, RACE_NET_INFO);  /* port guard */
     if (slot < RACE_NET_FLAGS_B) in->flags_b[slot] = RACE_NET_INFO_STAGE;  /* port guard */
 }
+
+void race_net_on_setup(RaceNetSetupIn *in, const uint8_t *data, int32_t size)
+{
+    if (size == RACE_NET_SETUP_END) {
+        in->flags_a[RACE_NET_SETUP_FLAG] = 1;
+        const int32_t slot = state_word(in->state, RACE_NET_AT_TO);
+        for (int k = 0; k < 4; k++) in->setup[RACE_NET_SETUP_4FBACC + k] = (uint8_t)((uint32_t)slot >> 8 * k);
+        return;
+    }
+    const int32_t at = data[2] * RACE_NET_SETUP_CHUNK;
+    for (int32_t k = 0; k < size - RACE_NET_SETUP_HEAD && at + k < RACE_NET_SETUP; k++)  /* port guard */
+        in->setup[at + k] = data[RACE_NET_SETUP_HEAD + k];
+}
