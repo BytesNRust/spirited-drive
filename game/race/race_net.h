@@ -204,4 +204,31 @@ typedef struct {
  * NUL (port guard: within the state block and the source). */
 void race_net_seat(const RaceNetSeatOps *ops, RaceNetSeats *s);
 
+typedef struct {
+    void *ctx;
+    int32_t (*send)(void *ctx, uint32_t link, const uint8_t *data, int32_t size);  /* 0047b17c (cdecl), the transport's: 0 failed */
+    void (*drop)(void *ctx, int16_t slot);                                         /* 004463ec */
+} RaceNetSendOps;
+
+/* The words 00445e00 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    int16_t play;                     /* 0052b312 */
+    int16_t dropped;                  /* 0052b314 */
+    int32_t unknown_4fbb0c;
+    const uint8_t *state;             /* 004f8164: the counts at RACE_NET_AT_HUMANS / RACE_NET_AT_OTHERS */
+    const uint32_t *links;            /* 0050a578: RACE_NET_LINKS */
+    const RaceNetLink *entries;       /* 0050a5dc: 0..6 players, 7..10 viewers */
+} RaceNetSend;
+
+/* 00445e00 (watcall (link, data, size)): nothing once 0052b314 is set. A link
+ * (an entry's exe address): sent there (0047b17c) when its +0 is set; when
+ * it is not or the send fails, with 004fbb0c and 0052b312 == 1 its slot
+ * (0044659c's search) dropped (004463ec), else 0052b314 = 1. No link and not
+ * the host: sent to entry 0 when its +0 is set, a failure sets 0052b314. No
+ * link on the host: sent to each player 0..6 and viewer 7..10 whose +0 is
+ * set, each failure dropping that entry's slot (the counts and links read
+ * anew). A link outside the eleven entries reads +0 as 0 (port guard). */
+void race_net_send(const RaceNetSendOps *ops, RaceNetSend *s, uint32_t link, const uint8_t *data, int32_t size);
+
 #endif

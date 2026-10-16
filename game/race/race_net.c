@@ -180,3 +180,38 @@ void race_net_seat(const RaceNetSeatOps *ops, RaceNetSeats *s)
         seat_entry(ops, s, RACE_NET_KIND0_FIRST + k, (int32_t)h + o, RACE_NET_VIEWER_NAMES + o, RACE_NET_AT_OTHERS);
     }
 }
+
+/* 0044659c's search on the counts and links as they are now */
+static int16_t slot_now(const RaceNetSend *s, uint32_t link)
+{
+    RaceNetSlots slots = { state_word(s->state, RACE_NET_AT_HUMANS), state_word(s->state, RACE_NET_AT_OTHERS), { 0 } };
+    memcpy(slots.links, s->links, sizeof slots.links);
+    return (int16_t)race_net_slot_of(&slots, link);
+}
+
+/* The word at an entry's exe address (port guard: 0 outside the eleven entries) */
+static uint32_t link_word(const RaceNetSend *s, uint32_t link)
+{
+    const uint32_t at = link - RACE_NET_PLAYERS_AT, room = (RACE_NET_KIND0_FIRST + RACE_NET_VIEWERS) * RACE_NET_ENTRY_SIZE;
+    if (link < RACE_NET_PLAYERS_AT || at > room - 4) return 0;
+    const uint8_t *b = (const uint8_t *)s->entries + at;
+    return (uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24;
+}
+
+void race_net_send(const RaceNetSendOps *ops, RaceNetSend *s, uint32_t link, const uint8_t *data, int32_t size)
+{
+    if (s->dropped != 0) return;
+    if (link != 0) {
+        if (link_word(s, link) != 0 && ops->send(ops->ctx, link, data, size) != 0) return;
+        if (s->unknown_4fbb0c == 0 || s->play != 1) s->dropped = 1;
+        else ops->drop(ops->ctx, slot_now(s, link));
+        return;
+    }
+    if (s->host == 0) {
+        if (s->entries[0].unknown_00 != 0 && ops->send(ops->ctx, entry_at(0), data, size) == 0) s->dropped = 1;
+        return;
+    }
+    for (int k = 0; k < RACE_NET_KIND0_FIRST + RACE_NET_VIEWERS; k++)
+        if (s->entries[k].unknown_00 != 0 && ops->send(ops->ctx, entry_at(k), data, size) == 0)
+            ops->drop(ops->ctx, slot_now(s, entry_at(k)));
+}
