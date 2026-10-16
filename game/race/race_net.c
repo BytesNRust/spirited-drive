@@ -301,3 +301,52 @@ int32_t race_net_host_start(const RaceNetHostOps *ops, RaceNetHost *h, const uin
     ops->message(ops->ctx, h->german != 0 ? RACE_NET_CREATED_G : RACE_NET_CREATED, RACE_NET_CREATED_TICKS);
     return 1;
 }
+
+static uint32_t net_text(const RaceNetConnect *c, uint32_t english, uint32_t german) { return c->german != 0 ? german : english; }
+
+int32_t race_net_connect(const RaceNetConnectOps *ops, RaceNetConnect *c, const uint8_t *address)
+{
+    static const uint8_t no_password[1] = { 0 };  /* the byte at 00442511 */
+    c->host = 0;
+    c->unknown_4fbb0c = 0;
+    c->dropped = 0;
+    if (ops->connect(ops->ctx, RACE_NET_SESSION, address, no_password) <= 0) {
+        ops->message(ops->ctx, net_text(c, RACE_NET_CONNECT_FAILED, RACE_NET_CONNECT_FAILED_G), RACE_NET_FAILED_TICKS);
+        return 0;
+    }
+    ops->message(ops->ctx, net_text(c, RACE_NET_CONNECTING, RACE_NET_CONNECTING_G), RACE_NET_MESSAGE_STAYS);
+    while (c->connected == 0) {
+        if (c->esc != 0) {
+            while (c->esc != 0) ops->service(ops->ctx);
+            ops->message(ops->ctx, net_text(c, RACE_NET_ABORTED, RACE_NET_ABORTED_G), RACE_NET_FAILED_TICKS);
+            return 0;
+        }
+        ops->service(ops->ctx);
+    }
+    ops->reset(ops->ctx);
+    c->unknown_4bc6dc = 0;
+    const RaceNetLink *e = race_net_link_fill(c->entries, RACE_NET_SESSION, c->link_name, 0, 1);
+    if (ops->join(ops->ctx, e) == 0) {
+        if (c->unknown_4bc6dc != 0) ops->message(ops->ctx, net_text(c, RACE_NET_ABORTED, RACE_NET_ABORTED_G), RACE_NET_ABORTED_TICKS);
+        else ops->message(ops->ctx, net_text(c, RACE_NET_LINK_FAILED, RACE_NET_LINK_FAILED_G), RACE_NET_FAILED_TICKS);
+        ops->shut_down(ops->ctx);
+        return 0;
+    }
+    ops->deadline(ops->ctx, RACE_NET_NO_DEADLINE);
+    while (c->unknown_50a5bc == 0)
+        if (ops->wait(ops->ctx) != 0) {
+            ops->give_up(ops->ctx);
+            ops->message(ops->ctx, net_text(c, RACE_NET_ABORTED, RACE_NET_ABORTED_G), RACE_NET_FAILED_TICKS);
+            return 0;
+        }
+    ops->lock(ops->ctx, c->lock);
+    memcpy(c->state, c->incoming, RACE_NET_STATE);
+    c->unknown_50a5bc = 0;
+    c->followed = state_word(c->state, RACE_NET_AT_TO);
+    ops->unlock(ops->ctx, c->lock);
+    c->play = 1;
+    c->unknown_52b316 = state_word(c->state, RACE_NET_AT_TO) == 0;
+    ops->release(ops->ctx);
+    ops->message(ops->ctx, net_text(c, RACE_NET_CONNECTED, RACE_NET_CONNECTED_G), RACE_NET_CREATED_TICKS);
+    return 1;
+}

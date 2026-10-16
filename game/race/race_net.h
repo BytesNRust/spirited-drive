@@ -347,4 +347,68 @@ typedef struct {
  * Strings copied up to their NUL (port guard: within the destination). */
 int32_t race_net_host_start(const RaceNetHostOps *ops, RaceNetHost *h, const uint8_t *name);
 
+/* The connection's messages (00467214's text; the German ones when 0052b31c) and how long they stay (-1 until the
+ * next one) */
+enum {
+    RACE_NET_CONNECT_FAILED = 0x4aff2c, RACE_NET_CONNECT_FAILED_G = 0x4aff10,
+    RACE_NET_CONNECTING = 0x4aff58, RACE_NET_CONNECTING_G = 0x4aff40,
+    RACE_NET_ABORTED = 0x4aff88, RACE_NET_ABORTED_G = 0x4aff70,
+    RACE_NET_LINK_FAILED = 0x4affb0, RACE_NET_LINK_FAILED_G = 0x4aff9c,
+    RACE_NET_CONNECTED = 0x4affdc, RACE_NET_CONNECTED_G = 0x4affc4,
+    RACE_NET_MESSAGE_STAYS = -1, RACE_NET_ABORTED_TICKS = 200
+};
+
+typedef struct {
+    void *ctx;
+    int32_t (*connect)(void *ctx, uint32_t session, const uint8_t *address,
+                       const uint8_t *password);                 /* 00479250 (cdecl), the transport's: above 0 connected */
+    void (*message)(void *ctx, uint32_t text, int32_t ticks);    /* 00467214, the menu library's */
+    void (*service)(void *ctx);                                  /* 00475c14(0) */
+    void (*reset)(void *ctx);                                    /* 0044655c */
+    int32_t (*join)(void *ctx, const RaceNetLink *entry);        /* 00479a6c(entry, 0x20, 0, 0xfa, 6), cdecl */
+    void (*shut_down)(void *ctx);                                /* 0047ab80, the transport's */
+    void (*deadline)(void *ctx, int32_t ticks);                  /* 00410b7c: 004f8158 = clock + ticks, -1 none */
+    int32_t (*wait)(void *ctx);                                  /* 00410bac (race_net_wait_step) */
+    void (*give_up)(void *ctx);                                  /* 00446220 */
+    void (*lock)(void *ctx, uint32_t lock);                      /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);                    /* 00476cfc (cdecl) */
+    void (*release)(void *ctx);                                  /* 00442dec */
+} RaceNetConnectOps;
+
+/* The words 00442ad0 writes and reads; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t host;                     /* 00524e7b */
+    int16_t dropped;                  /* 0052b314 */
+    int16_t play;                     /* 0052b312 */
+    int16_t german;                   /* 0052b31c */
+    int16_t unknown_52b316;
+    int16_t unknown_4bc6dc;           /* set 0 before the join; the transport sets it when the link was cut */
+    int16_t unknown_50a5bc;           /* set when the host's state came in */
+    uint8_t esc;                      /* 004c693d: Esc held */
+    int32_t unknown_4fbb0c;
+    int32_t followed;                 /* 004fbb08 */
+    int32_t connected;                /* 0050a2f8: the transport's, set once the session answers */
+    uint32_t lock;                    /* 004f815c */
+    uint8_t *state;                   /* 004f8164: RACE_NET_STATE bytes */
+    const uint8_t *incoming;          /* 004f81d8: the host's state block, RACE_NET_STATE bytes */
+    const uint8_t *link_name;         /* 0050a274: RACE_NET_NAME bytes */
+    RaceNetLink *entries;             /* 0050a5dc: RACE_NET_ENTRIES */
+} RaceNetConnect;
+
+/* 00442ad0 (watcall (address), from 00453ef4): 00524e7b = 0, 004fbb0c = 0,
+ * 0052b314 = 0; 00479250(0050a260, address, "") not above 0: "Failed To
+ * Connect" for 300, 0. Else "Connecting to server..." until the next; while
+ * 0050a2f8 is 0: Esc (004c693d) held waits with 00475c14(0) until let go and
+ * ends with "Connection Aborted" for 300, 0; else 00475c14(0). Then 0044655c,
+ * 004bc6dc = 0, entry 0 filled (00442e3c(0050a260, 0050a274, 0, 1)) and
+ * joined (00479a6c): 0 shows "Connection Aborted" for 200 when 004bc6dc was
+ * set, else "Connection Failed" for 300, 0047ab80, 0. Else 00410b7c(-1); while
+ * 0050a5bc is 0: 00410bac, nonzero runs 00446220 and ends "Connection
+ * Aborted" for 300, 0. Then inside the lock 004f815c (read anew for the
+ * unlock) the host's block 004f81d8 copied over 004f8164 (0x74 bytes),
+ * 0050a5bc = 0, 004fbb08 = 004f81d6 (this machine's slot, sign-extended);
+ * 0052b312 = 1, 0052b316 = (004f81d6 == 0), 00442dec, "Successfully
+ * connected" for 200, 1. */
+int32_t race_net_connect(const RaceNetConnectOps *ops, RaceNetConnect *c, const uint8_t *address);
+
 #endif
