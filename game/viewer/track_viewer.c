@@ -954,6 +954,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (!drive_hud_read(&drive_hud, data_root)) fprintf(stderr, "track_viewer: no HUD\n");
     drive_hud.director = drive_replay.recording != NULL ? &drive_replay.dir : NULL;  /* the dash controls' words */
     drive_replay.hud = &drive_hud.hud;
+    drive_replay.key_flags = drive_input.keys;  /* 0044f55c reads 004c693c */
+    drive_replay.dash = &drive_hud.art;
     /* 0041f9a0 from 004400f4, before 00455a5c builds the palette (0041f818 maps the dash onto it) */
     drive_hud_cockpit(&drive_hud, &drive_sim.race, data_root, stem);
     /* 00456a7c from 00455a5c (after the cars' load), its bank and 00456948 at 00447098's end */

@@ -3,6 +3,7 @@
 #ifndef TNFS_DRIVE_REPLAY_H
 #define TNFS_DRIVE_REPLAY_H
 
+#include "game/race/dash_art.h"
 #include "game/race/hud.h"
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
@@ -18,6 +19,10 @@ typedef struct {
     int key_down;         /* the development key's state the frame before */
     int32_t *pace;        /* race_run's copy of 004c53a0 (RaceRunWords), kept equal to the director's; NULL none */
     HudState *hud;        /* 0041e358's 004f9a28 (hud->unknown_4f9a20[2]); NULL none */
+    const uint8_t *key_flags;  /* 004c693c (drive_input's keys) for 0044f55c; NULL: the controls take no keys */
+    DashArt *dash;        /* the controls' boxes, lit shapes and words 00513888.. (0044f55c); NULL none */
+    int32_t last_key;     /* 004c53c4 */
+    int32_t last_pressed; /* 004c53cc */
 } DriveReplay;
 
 /* 0044edd8 on the sim's race, in a local game (004fbb0c 1): the recording
@@ -26,7 +31,8 @@ typedef struct {
 int drive_replay_start(DriveReplay *r, RaceSim *sim, RaceViews *views);
 
 /* A development key standing in for the menus (the in-race menu's replay,
- * 00447564, and the replay panel 00471460 / 0044f55c, are the frontend's):
+ * 00447564, and the view panel 00471460, are not wired; the controls,
+ * 0044f55c, are, through key_flags and dash):
  * pressed while racing, the director's replay from the start (request 2,
  * 0044f188 with 2); pressed during a replay, back to the race where it
  * stood (request 7, 0044f090). `down` is the key's state this frame. */

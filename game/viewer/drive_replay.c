@@ -9,6 +9,9 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
 #include "game/race/race_sound.h"
+#include "game/race/dash_controls.h"
+#include "game/race/replay_controls.h"
+#include "game/sys/menu_key.h"
 #include "game/race/skid_marks.h"
 #include "viewer/ported_view.h"
 
@@ -148,9 +151,51 @@ static void to_end(void *ctx)
     race_replay_to_end(&r->sim->race, &r->dir, &ops);
 }
 
-/* 00471460 / 0044f55c: the replay panel, the frontend's menu library (no button pressed) */
+/* 00471460: the view panel, drawn by drive_panel */
 static void panel_draw(void *ctx) { (void)ctx; }
-static void panel_input(void *ctx) { (void)ctx; }
+
+/* 0044f55c's calls: --drive has no mouse (the pointer stands still, never in a box) nor joystick */
+static void no_window(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d) { (void)ctx, (void)a, (void)b, (void)c, (void)d; }
+static int16_t no_buttons(void *ctx) { return (void)ctx, 0; }
+static int32_t never_in(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
+{
+    return (void)ctx, (void)x0, (void)x1, (void)y0, (void)y1, 0;
+}
+static int32_t no_joy(void *ctx, int32_t device, uint32_t *buttons, int32_t axis[JOY_AXES])
+{
+    return (void)ctx, (void)device, (void)buttons, (void)axis, 0;
+}
+static int32_t controls_key(void *ctx)
+{
+    const DriveReplay *r = ctx;
+    JoyState j = { 0 };
+    return menu_key(r->key_flags, &j, 0, 0, &(const JoyOps){ NULL, no_joy });  /* 00465358 */
+}
+static void no_place(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
+
+/* 0044f55c on the dash's words and the director's */
+static void panel_input(void *ctx)
+{
+    DriveReplay *r = ctx;
+    if (r->key_flags == NULL || r->dash == NULL) return;
+    DashArt *d = r->dash;
+    int32_t *w = d->unknown_513888;
+    ReplayInput in = { .high = 1, .pressed = r->dir.unknown_513888, .cursor = w[DASH_CURSOR],
+                       .redraw = r->dir.unknown_513898, .kind = r->dir.unknown_513730, .last_key = r->last_key,
+                       .escape = r->key_flags[1], .timer = r->dir.timer, .request = r->dir.request, .speed = w[5],
+                       .button = r->dir.button, .last_pressed = r->last_pressed, .phase = r->sim->race.phase,
+                       .unknown_5138a0 = w[6] };
+    for (int i = 0; i <= REPLAY_INPUT_BUTTONS && i < DASH_CONTROLS; i++) {
+        const DashRect b = d->control_box[i];
+        in.rects[i][0] = b.left, in.rects[i][1] = b.top, in.rects[i][2] = b.right, in.rects[i][3] = b.bottom;
+        in.shapes[i] = d->control_lit[i];
+    }
+    replay_controls_input(&in, &(const ReplayInputOps){ r, no_window, no_buttons, never_in, controls_key, no_place });
+    r->dir.unknown_513888 = w[DASH_PRESSED] = in.pressed, w[DASH_CURSOR] = in.cursor;
+    r->dir.unknown_513898 = w[DASH_REDRAW] = in.redraw;
+    r->dir.request = in.request, r->dir.button = in.button, w[5] = in.speed, w[6] = in.unknown_5138a0;
+    r->last_key = in.last_key, r->last_pressed = in.last_pressed;
+}
 
 static void scrub(void *ctx, int32_t button, int32_t held)
 {
