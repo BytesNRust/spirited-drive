@@ -738,3 +738,21 @@ void race_net_on_state(const RaceNetLockOps *ops, RaceNetStateIn *s, const uint8
     s->unknown_50a5bc = 1;
     ops->unlock(ops->ctx, s->lock);
 }
+
+void race_net_on_settings(const RaceNetSettingsInOps *ops, RaceNetSettingsIn *s, uint32_t link, const uint8_t *data)
+{
+    ops->lock(ops->ctx, s->lock);
+    if (s->host != 0) {
+        const int16_t slot = ops->slot_of(ops->ctx, link);
+        if (slot >= 0 && slot < RACE_NET_SET_WORDS) {  /* port guard */
+            put_state_word(s->settings, RACE_NET_SET_READY + 2 * slot, state_word(data, 4));
+            put_state_word(s->settings, RACE_NET_SET_CARS + 2 * slot, state_word(data, 2));
+            s->unknown_4f8138[slot] = 1;
+        }
+    } else {
+        /* word by word in the exe (the five words, +0x44, the two dwords, the cars with 004f8284's eight, the readies): all of +2..+0x4e */
+        memcpy(s->settings + RACE_NET_SET_TYPE, data + RACE_NET_SET_TYPE, RACE_NET_SETTINGS - RACE_NET_SET_TYPE);
+    }
+    s->unknown_50a5ba = 1;
+    ops->unlock(ops->ctx, s->lock);
+}

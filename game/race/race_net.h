@@ -820,4 +820,28 @@ typedef struct {
  * state into 004f81d8, 0050a5bc = 1, unlock (004f815c read anew). */
 void race_net_on_state(const RaceNetLockOps *ops, RaceNetStateIn *s, const uint8_t *data);
 
+typedef struct {
+    void *ctx;
+    void (*lock)(void *ctx, uint32_t lock);            /* 00476c78 (cdecl) */
+    void (*unlock)(void *ctx, uint32_t lock);          /* 00476cfc (cdecl) */
+    int16_t (*slot_of)(void *ctx, uint32_t link);      /* 0044659c */
+} RaceNetSettingsInOps;
+
+/* The words handler 7 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    uint32_t lock;                    /* 004f815c */
+    int16_t host;                     /* 00524e7b */
+    uint8_t *settings;                /* 004f8250: RACE_NET_SETTINGS bytes */
+    int32_t *unknown_4f8138;          /* RACE_NET_WORDS_4F8138 */
+    int16_t unknown_50a5ba;
+} RaceNetSettingsIn;
+
+/* 004103c4, message kind 7 (eax link, edx data): lock, then 00524e7b (read
+ * after it): the host takes the sender's car (data +2) and ready word (+4)
+ * into its slot (short) 0044659c(link) of the settings and sets the slot's
+ * 004f8138 dword to 1; a client takes the whole block but its kind word
+ * (+2..+0x4e). 0050a5ba = 1, unlock (004f815c read anew). Port guard: a slot
+ * outside 0..7 stores nothing (the original writes around the arrays). */
+void race_net_on_settings(const RaceNetSettingsInOps *ops, RaceNetSettingsIn *s, uint32_t link, const uint8_t *data);
+
 #endif
