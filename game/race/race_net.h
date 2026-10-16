@@ -481,4 +481,28 @@ typedef struct {
 /* 00442d9c (watcall (), from 00446220): with 0052b312 == 1, 004795fc(0050a260). */
 void race_net_leave(const RaceNetLeaveOps *ops, int16_t play);
 
+typedef struct {
+    void *ctx;
+    void (*close_session)(void *ctx, uint32_t session, int32_t how);  /* 004794b4, through 00442d60 */
+    void (*leave)(void *ctx, uint32_t session);                       /* 004795fc, through 00442d9c */
+    void (*shut_down)(void *ctx);                                     /* 0047ab80, the transport's */
+} RaceNetGiveUpOps;
+
+/* The words 00446220 reads and writes; the ops may change them (the caller's ctx) */
+typedef struct {
+    int16_t *stand_ins;               /* 004f82a0: 8 shorts */
+    int32_t unknown_4bcb94;
+    RaceNetClose close;               /* 004fbb0c, 0052b312, 004bc6ac */
+    int16_t *flags_a, *flags_b;       /* 0050a5ac, 0050a5c2 */
+    int16_t unknown_52b316;
+    int32_t followed;                 /* 004fbb08 */
+    int16_t dropped;                  /* 0052b314 */
+} RaceNetGiveUp;
+
+/* 00446220 (watcall (), from 004373c4, 00442ad0, 00451320 and 00451660): the
+ * eight stand-ins at 004f82a0 zeroed (__STOSB, 16 bytes); then, with
+ * 004bcb94: 00442d60, 00442d9c (0052b312 read anew), 0047ab80, 004bcb94 = 0,
+ * 00446528, 004bc6ac = 0, 0052b316 = 0, 004fbb08 = 0, 0052b314 = 1. */
+void race_net_give_up(const RaceNetGiveUpOps *ops, RaceNetGiveUp *g);
+
 #endif

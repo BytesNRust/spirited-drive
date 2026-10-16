@@ -392,3 +392,32 @@ void race_net_leave(const RaceNetLeaveOps *ops, int16_t play)
 {
     if (play == 1) ops->leave(ops->ctx, RACE_NET_SESSION);
 }
+
+static void give_up_close(void *ctx, uint32_t session, int32_t how)
+{
+    const RaceNetGiveUpOps *ops = ctx;
+    ops->close_session(ops->ctx, session, how);
+}
+
+static void give_up_leave(void *ctx, uint32_t session)
+{
+    const RaceNetGiveUpOps *ops = ctx;
+    ops->leave(ops->ctx, session);
+}
+
+void race_net_give_up(const RaceNetGiveUpOps *ops, RaceNetGiveUp *g)
+{
+    memset(g->stand_ins, 0, RACE_NET_PLAYERS * sizeof *g->stand_ins);
+    if (g->unknown_4bcb94 == 0) return;
+    const RaceNetCloseOps close = { (void *)ops, give_up_close };
+    const RaceNetLeaveOps leave = { (void *)ops, give_up_leave };
+    race_net_close_session(&close, &g->close);
+    race_net_leave(&leave, g->close.play);
+    ops->shut_down(ops->ctx);
+    g->unknown_4bcb94 = 0;
+    race_net_clear_flags(g->flags_a, g->flags_b);
+    g->close.unknown_4bc6ac = 0;
+    g->unknown_52b316 = 0;
+    g->followed = 0;
+    g->dropped = 1;
+}
