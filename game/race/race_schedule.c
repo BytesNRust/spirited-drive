@@ -11,6 +11,11 @@ void race_schedule_run(const RaceScheduleOps *ops, RaceScheduled sched[RACE_SCHE
     }
 }
 
+void race_schedule_clear(RaceScheduled sched[RACE_SCHEDULE_SLOTS])
+{
+    for (int i = 0; i < RACE_SCHEDULE_RUN; i++) sched[i] = (RaceScheduled){ 0, 0 };
+}
+
 enum { MESSAGE_KIND = 3, MESSAGE_BYTES = 8, SENT_DELAY = 8, PLAYBACK_DELAY = 600 };
 
 void race_schedule_set(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDULE_SLOTS], const RaceScheduleWords *w,

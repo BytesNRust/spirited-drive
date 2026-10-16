@@ -44,6 +44,10 @@ void race_schedule_set(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDU
  * eax is not read by 0045597c. */
 void race_schedule_run(const RaceScheduleOps *ops, RaceScheduled sched[RACE_SCHEDULE_SLOTS], int16_t frame);
 
+/* 00410b5c (watcall (), from 004275f8 before a race): the menu's and the
+ * pause's entries (frame and arg) = 0; the third is left. */
+void race_schedule_clear(RaceScheduled sched[RACE_SCHEDULE_SLOTS]);
+
 /* Read again after the send (the ctx may change them) */
 typedef struct {
     int16_t playback;           /* 0052b312 */
