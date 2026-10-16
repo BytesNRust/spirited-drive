@@ -177,3 +177,5 @@ NetNode *net_queue_pop_back(const NetMutexOps *ops, NetQueue *q)
     ops->unlock(ops->ctx, q->mutex);
     return n;
 }
+
+uint32_t net_queue_count(const NetQueue *q) { return q->count; }

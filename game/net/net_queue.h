@@ -42,6 +42,9 @@ enum { NET_QUEUE_CHANGED = 1 };
  * the node's next NULL, the flags' bit 0 set, 1. */
 int32_t net_queue_remove(NetQueue *q, NetNode *n);
 
+/* 0049ca14 (cdecl (queue), from 00478f0c, 004790b0 and 0047ab80): its count, unlocked */
+uint32_t net_queue_count(const NetQueue *q);
+
 /* 0049c6f0 (cdecl (node, arg)): the default key, the node's own address */
 uintptr_t net_queue_key_self(const NetNode *n, uintptr_t arg);
 
