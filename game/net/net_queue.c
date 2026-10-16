@@ -61,3 +61,16 @@ void net_queue_insert(const NetMutexOps *ops, NetQueue *q, NetNode *n)
     }
     ops->unlock(ops->ctx, q->mutex);
 }
+
+void net_queue_push_front(const NetMutexOps *ops, NetQueue *q, NetNode *n)
+{
+    ops->lock(ops->ctx, q->mutex);
+    if (n != NULL) {
+        n->next = q->head;
+        q->head = n;
+        q->count++;
+        if (n->next == NULL) q->tail = n;
+        q->flags |= NET_QUEUE_CHANGED;
+    }
+    ops->unlock(ops->ctx, q->mutex);
+}
