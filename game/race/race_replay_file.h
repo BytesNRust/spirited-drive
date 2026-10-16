@@ -47,6 +47,22 @@ typedef struct {
  * left alone. */
 int32_t race_replay_load(const RaceReplayLoad *in, const RaceReplayFileOps *ops);
 
+typedef struct {
+    const char *name;         /* 00513744 */
+    uint8_t *setup;           /* 004fb7bc, REPLAY_SETUP_SIZE */
+    int32_t *followed;        /* 004fbb08 */
+    int32_t *request;         /* 00513738 */
+    int32_t *unknown_509d70;  /* 00509d70 */
+    int32_t *loaded;          /* 004c53b8 */
+} RaceReplaySetupRead;
+
+/* 0044d3b0 (watcall (), from 004275f8 for a replay): the file `name` opened
+ * "rb"; none: the request 00513738 = 6 and 00509d70 = 0x20; else its first
+ * 0x348 bytes read into the setup. Then 004fbb08 = 004fbacc (setup +0x310),
+ * fclose (on the handle even when none came), 004c53b8 = 1. Returns
+ * fclose's. */
+int32_t race_replay_setup_read(const RaceReplaySetupRead *in, const RaceReplayFileOps *ops);
+
 enum { REPLAY_PATH_SIZE = 0x50 };  /* 0044d420's buffer, as each of the paths 00524328.. */
 
 typedef struct {

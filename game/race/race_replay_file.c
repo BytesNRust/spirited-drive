@@ -68,3 +68,21 @@ void race_replay_save(const RaceReplaySave *in, const RaceReplayFileOps *ops)
     for (int k = 0; k < REPLAY_RECORDS; k++) ops->write(ops->ctx, in->records + k * REPLAY_RECORD_SIZE, REPLAY_RECORD_SIZE, 1, file);
     ops->close(ops->ctx, file);
 }
+
+enum { SETUP_READ_FAILED = 6, SETUP_READ_STATE = 0x20, SETUP_FOLLOWED = 0x310 };
+
+int32_t race_replay_setup_read(const RaceReplaySetupRead *in, const RaceReplayFileOps *ops)
+{
+    void *file = ops->open(ops->ctx, in->name, "rb");
+    if (file == NULL) {
+        *in->request = SETUP_READ_FAILED;
+        *in->unknown_509d70 = SETUP_READ_STATE;
+    } else {
+        ops->read(ops->ctx, in->setup, REPLAY_SETUP_SIZE, 1, file);
+    }
+    const uint8_t *f = in->setup + SETUP_FOLLOWED;
+    *in->followed = (int32_t)((uint32_t)f[0] | (uint32_t)f[1] << 8 | (uint32_t)f[2] << 16 | (uint32_t)f[3] << 24);
+    const int32_t closed = ops->close(ops->ctx, file);
+    *in->loaded = 1;
+    return closed;
+}
