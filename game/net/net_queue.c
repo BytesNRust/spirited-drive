@@ -98,3 +98,19 @@ int32_t net_queue_remove_locked(const NetMutexOps *ops, NetQueue *q, NetNode *n)
     ops->unlock(ops->ctx, q->mutex);
     return removed;
 }
+
+int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n)
+{
+    int32_t place = -1;
+    ops->lock(ops->ctx, q->mutex);
+    if (n != NULL) {
+        const NetQueueKey key = q->key;
+        NetNode *p = q->head;
+        const uintptr_t own = key != NULL ? key(n, q->key_arg) : 0;
+        place = 0;
+        while (p != NULL && p != n && (key == NULL || key(p, q->key_arg) <= own)) p = p->next, place++;
+        if (p != n) place = -1;
+    }
+    ops->unlock(ops->ctx, q->mutex);
+    return place;
+}

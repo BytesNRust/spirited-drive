@@ -75,6 +75,13 @@ NetNode *net_queue_pop_front(const NetMutexOps *ops, NetQueue *q);
  * it came; its callers pass nodes). */
 int32_t net_queue_remove_locked(const NetMutexOps *ops, NetQueue *q, NetNode *n);
 
+/* 0049ca1c (cdecl (queue, node), from 004790b0, 004795fc and 0047a068):
+ * under the mutex (+0x18, read again for the unlock), the node's place from
+ * the head (0 first), -1 for none or NULL. The head is read, then the key
+ * (+0x10, read once; NULL none) of the node; the walk stops at the node, a
+ * NULL next, or a node whose key (+0x14 read again) is above the node's. */
+int32_t net_queue_place(const NetMutexOps *ops, NetQueue *q, NetNode *n);
+
 /* 0049c6a8 (cdecl (to, value, n), 10 callers: the packets' words in network
  * order): value's low n bytes to to[0..n-1], the last byte the lowest (above
  * 4, zeros first); n at most 0 writes nothing. */
