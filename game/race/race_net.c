@@ -864,3 +864,12 @@ void race_net_on_chat(const RaceNetChatOps *ops, RaceNetChatIn *c, uint32_t link
     c->unknown_4b9062 = 1;
     ops->unlock(ops->ctx, c->lock);
 }
+
+int32_t race_net_receive(const RaceNetReceiveOps *ops, int16_t dropped, uint32_t link, const uint8_t *data, int32_t size)
+{
+    if (dropped != 0) return 1;
+    const int16_t kind = state_word(data, 0);
+    if (kind >= RACE_NET_KINDS) ops->bug(ops->ctx, RACE_NET_BUG_TEXT, kind, link);
+    else if (kind >= 0) ops->handle(ops->ctx, kind, link, data, size);  /* port guard */
+    return 1;
+}

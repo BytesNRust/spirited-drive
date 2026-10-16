@@ -973,4 +973,24 @@ typedef struct {
  * guard: a line outside 0..8 is not written, the strings kept within it. */
 void race_net_on_chat(const RaceNetChatOps *ops, RaceNetChatIn *c, uint32_t link, const uint8_t *data);
 
+enum { RACE_NET_KINDS = 11, RACE_NET_BUG_TEXT = 0x4b0370 };  /* 004bcb98's handlers; "BUG: Unknow Packet Index Received <%d> pc<%p>" */
+
+typedef struct {
+    void *ctx;
+    /* 004bcb98[kind] (eax link, edx data, ebx size): 0 00439c5c race_net_on_info, 1 00439d98 race_net_on_setup,
+     * 2 004395cc input_on_message, 3 004109e4 race_schedule_on_message, 4 00410f90 race_net_on_ping,
+     * 5 00410bf0 race_net_on_stage, 6 0040a3f0 race_net_on_chat, 7 004103c4 race_net_on_settings,
+     * 8 00410384 race_net_on_state, 9 0045156c race_net_on_hello, 10 00410324 race_net_on_stand_ins */
+    void (*handle)(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, int32_t size);
+    /* 00473d43(buffer, text, kind, link), then 00477a40(buffer): the fatal error */
+    void (*bug)(void *ctx, uint32_t text, int32_t kind, uint32_t link);
+} RaceNetReceiveOps;
+
+/* 00446058 (cdecl (link, data, size), the transport's receive callback):
+ * 1 always. With 0052b314 (dropped) nothing; else the kind (the word at
+ * data, signed) below 11 goes to its handler, past it to the BUG abort.
+ * Port guard: a negative kind does nothing (the original calls through
+ * the words before the table). */
+int32_t race_net_receive(const RaceNetReceiveOps *ops, int16_t dropped, uint32_t link, const uint8_t *data, int32_t size);
+
 #endif
