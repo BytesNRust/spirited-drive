@@ -114,6 +114,20 @@ void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q)
     q->unknown_50a5bc = 0;
 }
 
+int32_t race_net_queue_push(RaceNetQueue *q, const uint8_t *name, int16_t viewer, const uint8_t *link)
+{
+    if ((uint32_t)q->tail >= RACE_NET_ASKS) return 0;  /* port guard */
+    uint8_t *ask = q->asks[q->tail], *end = (uint8_t *)q->asks + sizeof q->asks;
+    ask[RACE_NET_ASK_VIEWER] = (uint8_t)viewer, ask[RACE_NET_ASK_VIEWER + 1] = (uint8_t)((uint16_t)viewer >> 8);
+    for (uint8_t *at = ask; at < end; at++)  /* port guard: within the ten asks */
+        if ((*at = *name++) == 0) break;
+    memcpy(ask + RACE_NET_ASK_NAME, link, RACE_NET_NAME);
+    const int32_t next = q->tail + 1;
+    q->tail = next % RACE_NET_ASKS;
+    q->count = (int32_t)((uint32_t)q->count + 1);
+    return next / RACE_NET_ASKS;
+}
+
 /* A string copied up to its NUL into the state block (port guard: within the block and `room` source bytes) */
 static void copy_name(uint8_t *state, int at, const uint8_t *from, int room)
 {

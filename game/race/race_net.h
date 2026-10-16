@@ -143,6 +143,7 @@ typedef struct {
 /* The words 00442f58 reads and writes; the ops may change them (the caller's ctx) */
 typedef struct {
     int32_t head;                     /* 0050a368 */
+    int32_t tail;                     /* 0050a36c: where 00443560 puts the next ask */
     int32_t count;                    /* 0050a370 */
     uint8_t asks[RACE_NET_ASKS][RACE_NET_ASK];  /* 0050a374 */
     uint32_t lock;                    /* 004f815c */
@@ -164,6 +165,14 @@ typedef struct {
  * the entry forgotten when 0052b312 == 1 (004799a8) and 004bc6d8 (player) or
  * 004bc6da (viewer) - 1. Then 0050a5bc = 0. */
 void race_net_add_new_players(const RaceNetJoinOps *ops, RaceNetQueue *q);
+
+/* 00443560 (watcall (name, viewer, link), from the join handler 00442ec0):
+ * the ask at 0050a36c gets the viewer word at +9, then the name string from
+ * +0 up to its NUL (a long one runs over the word and on), then the link's
+ * 20 bytes at +0xb; 0050a36c = (0050a36c + 1) % 10, 0050a370 + 1; returns
+ * (0050a36c + 1) / 10. Port guards: the tail within 0..9 (else nothing, 0),
+ * the string within the ten asks. */
+int32_t race_net_queue_push(RaceNetQueue *q, const uint8_t *name, int16_t viewer, const uint8_t *link);
 
 /* The seats 004465e4 rebuilds: the state block's names (9 bytes a slot from
  * +2, this machine's at slot 0, the viewers' from slot 8), its counts, the
