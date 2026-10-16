@@ -87,4 +87,16 @@ int32_t net_checksum_check(const NetPacketConn *c, const uint8_t *data, uint8_t 
  * packet +8 = the link's (+8 read again) +0xc; else 0. */
 int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c, uint32_t kind);
 
+typedef struct {
+    void *ctx;
+    void (*service)(void *ctx);  /* 00475c14(0) */
+} NetWaitOps;
+
+/* 0047337d (cdecl (ticks), from 00479174, 0047b250 and three more): the
+ * clock (0052eebc) plus ticks kept; 00475c14(0) until the clock (read again
+ * after each) less that is not negative (32-bit, wrapping); at least once.
+ * (00475c14's stores to the stack are its locals': the 0 pushed once
+ * stays 0.) */
+void net_wait_ticks(const NetWaitOps *ops, const int32_t *clock, int32_t ticks);
+
 #endif

@@ -51,3 +51,10 @@ int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacket
     if (sent && kind <= 0x7f) p->sent = c->link->acked;
     return sent;
 }
+
+void net_wait_ticks(const NetWaitOps *ops, const int32_t *clock, int32_t ticks)
+{
+    const uint32_t end = (uint32_t)ticks + (uint32_t)*clock;
+    do ops->service(ops->ctx);
+    while ((int32_t)((uint32_t)*clock - end) < 0);
+}
