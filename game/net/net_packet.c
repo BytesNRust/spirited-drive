@@ -4,6 +4,9 @@
 #include <string.h>
 
 const char NET_ACK_TRACE[] = "ACKt";
+const char NET_CLOSE_TRACE[] = "ClosePktConn";
+const char NET_CLOSE_NOT_OPEN[] = "closepacketconnection - DID NOT FIND ACTIVE PKTCONN IN CONN LIST.\n";
+const char NET_CLOSE_NOT_CLOSED[] = "closepacketconnection - DID NOT FIND PKTCONN IN CLOSED LIST.\n";
 
 void net_checksum_put(NetChecksum sum, const uint8_t *data, uint8_t *out, uint32_t length, int32_t n)
 {
@@ -15,7 +18,7 @@ void net_checksum_put(NetChecksum sum, const uint8_t *data, uint8_t *out, uint32
 
 uint8_t net_packet_acked(const NetPacketOps *ops, NetPacketConn *c)
 {
-    int32_t k = (int32_t)(uint32_t)net_queue_head_key(ops->mutex, &c->unacked);
+    int32_t k = (int32_t)(uint32_t)net_queue_head_key(ops->mutex, &c->incoming);
     if (k == -1) k = c->next_seq;
     k--;
     c->stamp = c->link->now;
@@ -57,4 +60,41 @@ void net_wait_ticks(const NetWaitOps *ops, const int32_t *clock, int32_t ticks)
     const uint32_t end = (uint32_t)ticks + (uint32_t)*clock;
     do ops->service(ops->ctx);
     while ((int32_t)((uint32_t)*clock - end) < 0);
+}
+
+static void close_say_goodbye(const NetCloseOps *ops, NetPacketHandle *h, NetPacketConn *c, const NetDriver *driver)
+{
+    h->open = 0;
+    for (int tries = 4; net_packet_send_control(ops->packet, c->control, c, 0xff) == 0 && tries-- != 0;)
+        net_wait_ticks(ops->wait, ops->clock, 1);
+    net_wait_ticks(ops->wait, ops->clock, 1);
+    driver->close(driver->ctx, h);
+}
+
+int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)
+{
+    if (h == NULL || h->conn == NULL) return 0;
+    NetPacketConn *const c = h->conn;
+    const NetDriver *const driver = c->driver;
+    const NetPacketOps *const p = ops->packet;
+    if (*p->trace_level >= 1) p->trace(p->ctx, NET_CLOSE_TRACE, NULL, 0, 0, 0, c->id);
+    if (net_queue_remove_locked(p->mutex, ops->open, &c->node) != 0) {
+        if (h->open != 0) close_say_goodbye(ops, h, c, driver);
+        net_queue_push_front(p->mutex, ops->closed, &c->node);
+    } else if (h->open != 0) {
+        ops->message(ops->ctx, NET_CLOSE_NOT_OPEN);
+    }
+    if (net_queue_remove_locked(p->mutex, ops->closed, &c->node) != 0) {
+        net_queue_close(p->mutex, &c->spare);
+        net_queue_close(p->mutex, &c->queue_68);
+        net_queue_close(p->mutex, &c->incoming);
+        net_queue_close(p->mutex, &c->queue_a8);
+        p->mutex->close(p->mutex->ctx, c->mutex);
+        ops->release(ops->ctx, c);
+        h->conn = NULL;
+    } else {
+        ops->message(ops->ctx, NET_CLOSE_NOT_CLOSED);
+    }
+    ops->wait->service(ops->wait->ctx);
+    return 1;
 }

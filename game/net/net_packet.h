@@ -17,10 +17,13 @@ typedef struct {
     int32_t acked;  /* +0xc */
 } NetLink;
 
+typedef struct NetPacketHandle NetPacketHandle;
+
 /* A connection's driver's methods (its +4: a table; the link its first argument) */
 typedef struct NetDriver NetDriver;
 struct NetDriver {
     void *ctx;
+    void (*close)(void *ctx, NetPacketHandle *h);                                     /* +4 (cdecl) */
     uint32_t (*room)(void *ctx, NetLink *link);                                      /* +0xc (cdecl) */
     uint32_t (*send)(void *ctx, NetLink *link, const uint8_t *data, uint32_t length);  /* +0x18 (cdecl) */
 };
@@ -35,17 +38,29 @@ typedef struct {
     uint8_t wire[];  /* +0xc */
 } NetPacket;
 
-/* A packet connection's words read here; read again after every call */
+/* A packet connection (0047ac18's 200 bytes); its words read again after every call */
 typedef struct {
+    NetNode node;             /* +0: in the open (0052ce40) or closed (0052ce24) list */
     const NetDriver *driver;  /* +4 */
-    NetLink *link;       /* +8 */
-    uint8_t id;          /* +0xc */
-    int32_t sum_size;    /* +0x2c: the checksum's bytes (0047ac18: 0 or 2) */
-    int32_t stamp;       /* +0x40: the link's +8 at the last sequence taken */
-    int32_t next_seq;    /* +0x88: the sequence with nothing unacknowledged */
-    NetQueue unacked;    /* +0x8c: the packets sent, keyed by sequence */
-    NetChecksum sum;     /* +0xc4: 0049d158 or NULL */
+    NetLink *link;            /* +8 */
+    uint8_t id;               /* +0xc: 004c62f8, counted up */
+    void *mutex;              /* +0x14 */
+    NetPacket *control;       /* +0x1c: the header-only packet */
+    int32_t sum_size;         /* +0x2c: the checksum's bytes (0047ac18: 0 or 2) */
+    int32_t stamp;            /* +0x40: the link's +8 at the last sequence taken */
+    NetQueue spare;           /* +0x4c: the packets free, no key */
+    NetQueue queue_68;        /* +0x68: keyed by 0047a800 */
+    int32_t next_seq;         /* +0x88: the next receive slot's sequence */
+    NetQueue incoming;        /* +0x8c: the receive slots, keyed by sequence (0047a800): the head the one expected */
+    NetQueue queue_a8;        /* +0xa8: keyed by 0047a800 */
+    NetChecksum sum;          /* +0xc4: 0049d158 or NULL */
 } NetPacketConn;
+
+/* A caller's handle on a packet connection (openpacketconnection's first argument) */
+struct NetPacketHandle {
+    int32_t open;          /* +0: 1000000000 once open, 0 once closing */
+    NetPacketConn *conn;   /* +0x20 */
+};
 
 typedef struct {
     void *ctx;
@@ -98,5 +113,33 @@ typedef struct {
  * (00475c14's stores to the stack are its locals': the 0 pushed once
  * stays 0.) */
 void net_wait_ticks(const NetWaitOps *ops, const int32_t *clock, int32_t ticks);
+
+typedef struct {
+    void *ctx;
+    const NetPacketOps *packet;
+    const NetWaitOps *wait;
+    const int32_t *clock;                                 /* 0052eebc */
+    NetQueue *open;                                       /* 0052ce40 */
+    NetQueue *closed;                                     /* 0052ce24 */
+    void (*message)(void *ctx, const char *text);          /* 0048a080 (cdecl): the debug printf */
+    void (*release)(void *ctx, NetPacketConn *c);         /* 00475260 (cdecl) */
+} NetCloseOps;
+
+extern const char NET_CLOSE_TRACE[];       /* 004b2e5c */
+extern const char NET_CLOSE_NOT_OPEN[];    /* 004b2e6c */
+extern const char NET_CLOSE_NOT_CLOSED[];  /* 004b2eb0 */
+
+/* 0047b250 closepacketconnection (cdecl (handle), from 004463ec, 004465e4,
+ * 0047ab80 and 0047ac18): no handle or no +0x20: 0. Else the connection's
+ * +4 kept; with 004c62fc at least 1 0047f244("ClosePktConn", 0, 0, 0, 0,
+ * +0xc). Taken off the open list (0049c9d8 on 0052ce40): with +0 set, +0 =
+ * 0, 0047a204(+0x1c, the connection, 0xff) tried up to 5 times with
+ * 0047337d(1) between, 0047337d(1), the kept driver's +4 (handle); then
+ * 0049c804 onto the closed list. Not there: with +0 set the message
+ * 004b2e6c. Then taken off the closed list (0049c9d8 on 0052ce24): the
+ * queues +0x4c, +0x68, +0x8c and +0xa8 closed (0049c7f0), the mutex +0x14
+ * (00476c58), 00475260 and +0x20 = 0; not there the message 004b2eb0.
+ * 00475c14(0); 1. */
+int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h);
 
 #endif
