@@ -205,6 +205,7 @@ add_library(tnfs_game STATIC
     game/race/race_session.c
     game/race/race_from_menu.c
     game/net/net_session.c
+    game/net/net_queue.c
     game/race/replay_controls.c
     game/race/track_far.c
     game/race/track_fence.c
