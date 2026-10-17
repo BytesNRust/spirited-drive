@@ -8,6 +8,13 @@
 
 #include <stdint.h>
 
+enum { NET_GAME_NAME = 43 };  /* "EAGAME." and the GUID's 35 hex digits and dots, a 0 */
+
+/* 00477b78 (watcall (guid, out), from 00479338 and two more): 00473d43
+ * (sprintf) of "EAGAME.%08x.%04x%04x.%02x%02x%02x%02x.%02x%02x%02x%02x"
+ * (004b2764): the GUID's dword +0, words +4 and +6, bytes +8..+0xf. */
+void net_game_name(const uint8_t *guid, char *out);
+
 typedef struct {
     void *ctx;
     const NetCheckOps *check;
