@@ -119,3 +119,12 @@ void net_serial_open(NetSerial *s, int32_t port, const NetSerialOps *ops)
     s->port[port] = p;
     ops->command(ops->ctx, s, port, CMD_OPEN);
 }
+
+int32_t net_serial_send(NetSerial *s, int32_t port, int32_t size, const uint8_t *data, const NetSerialOps *ops)
+{
+    int32_t sent = 0;
+    lock(s, ops);
+    if (net_serial_is_open(s, port) && ops->room(ops->ctx, s, port) >= size) sent = ops->queue(ops->ctx, s, port, size, data);
+    unlock(s, ops);
+    return sent;
+}

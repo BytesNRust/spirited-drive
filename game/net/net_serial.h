@@ -105,4 +105,9 @@ void net_serial_close(NetSerial *s, int32_t port, const NetSerialOps *ops);
  * rest 0) 0: 0048f9ec. The slot = the block, 0047b6a8(port, 1). */
 void net_serial_open(NetSerial *s, int32_t port, const NetSerialOps *ops);
 
+/* 0047bfc8 (cdecl (port, size, data)): under 004c6310, an open port with
+ * room (0047c454(port)) for size (signed): 0047c158(port, size, data)'s
+ * answer, else 0. */
+int32_t net_serial_send(NetSerial *s, int32_t port, int32_t size, const uint8_t *data, const NetSerialOps *ops);
+
 #endif
