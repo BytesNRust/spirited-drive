@@ -194,3 +194,11 @@ int32_t net_open_packet_connection(const NetOpenOps *ops, NetPacketHandle *h, co
     const int32_t r = driver->open(driver->ctx, h) != 0 ? open_poll(ops, h, driver, c) : 0;
     return open_finish(ops, h, c, r, old_18);
 }
+
+int32_t net_open_net_connection(const NetConnectOps *ops, const NetCheck *c, NetPacketHandle *h, uint32_t tag,
+                                int32_t crc32, uint32_t size, uint32_t bits)
+{
+    net_check(ops->check, c, "opennetconnection");
+    if (h->session->tcp != 0) return ops->tcp_open(ops->ctx, h, tag, crc32, size, bits);
+    return net_open_packet_connection(ops->open, h, ops->driver, tag, crc32, size, bits);
+}

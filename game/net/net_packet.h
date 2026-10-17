@@ -5,6 +5,7 @@
 #define TNFS_NET_PACKET_H
 
 #include "game/net/net_queue.h"
+#include "game/net/net_session.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -38,6 +39,7 @@ struct NetPacketHandle {
     NetHandleHook hook_18; /* +0x18 */
     NetHandleHook hook_1c; /* +0x1c */
     NetPacketConn *conn;   /* +0x20 */
+    NetSession *session;   /* +0x24: its session (the race's 0050a260); +4 set, the TCP layer's */
 };
 
 /* A connection's driver (its +4: a table of methods, the handle their first
@@ -215,5 +217,22 @@ NetPacket *net_packet_at(NetPacketConn *c, int32_t i);
  * bits), from 00479a6c, 0048104c, 0048fe2c and 0048ffdc); see net_packet_open.c. */
 int32_t net_open_packet_connection(const NetOpenOps *ops, NetPacketHandle *h, const NetDriver *driver, uint32_t tag,
                                    int32_t crc32, uint32_t size, uint32_t bits);
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetOpenOps *open;
+    const NetDriver *driver;  /* 004c62c8 */
+    int32_t (*tcp_open)(void *ctx, NetPacketHandle *h, uint32_t tag, int32_t crc32, uint32_t size,
+                        uint32_t bits);  /* 0052ce00 (cdecl; 0047fab0 sets it) */
+} NetConnectOps;
+
+/* 00479a6c opennetconnection (cdecl (handle, tag, crc32, size, bits), from
+ * 00442ad0 and 00442f58): 00478e18("opennetconnection" 004b2af4); the
+ * handle's session (+0x24, read after) +4 set: 0052ce00(handle, tag, crc32,
+ * size, bits), else 0047ac18(handle, 004c62c8, tag, crc32, size, bits); its
+ * eax returned. */
+int32_t net_open_net_connection(const NetConnectOps *ops, const NetCheck *c, NetPacketHandle *h, uint32_t tag,
+                                int32_t crc32, uint32_t size, uint32_t bits);
 
 #endif
