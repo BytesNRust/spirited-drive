@@ -16,6 +16,10 @@ const char NET_NAK_GOT_TRACE[] = "nakr";
 const char NET_CLOSE_TRACE[] = "ClosePktConn";
 const char NET_CLOSE_NOT_OPEN[] = "closepacketconnection - DID NOT FIND ACTIVE PKTCONN IN CONN LIST.\n";
 const char NET_CLOSE_NOT_CLOSED[] = "closepacketconnection - DID NOT FIND PKTCONN IN CLOSED LIST.\n";
+const char NET_SHUTDOWN_TRACE[] = "shutdownconn";
+const char NET_DISCONNECT_TRACE[] = "disconnect";
+const char NET_CONN_CLOSED_TRACE[] = "connclosed";
+const char NET_DUP_SHUTDOWN_TRACE[] = "dup shutdown";
 
 uint32_t net_crc16(const uint8_t *data, uint32_t length)
 {
@@ -169,6 +173,22 @@ static void close_say_goodbye(const NetCloseOps *ops, NetPacketHandle *h, NetPac
         net_wait_ticks(ops->wait, ops->clock, 1);
     net_wait_ticks(ops->wait, ops->clock, 1);
     driver->close(driver->ctx, h);
+}
+
+void net_packet_conn_shutdown(const NetCloseOps *ops, NetPacketConn *c)
+{
+    const NetPacketOps *const p = ops->packet;
+    if (*p->trace_level >= 2) p->trace(p->ctx, NET_SHUTDOWN_TRACE, NULL, NULL, 0, 1, (uint8_t)c->id);
+    if (net_queue_remove_locked(p->mutex, ops->open, &c->node) == 0) {
+        if (*p->trace_level >= 1) p->trace(p->ctx, NET_DUP_SHUTDOWN_TRACE, NULL, NULL, 0, 1, (uint8_t)c->id);
+        return;
+    }
+    if (*p->trace_level >= 1) p->trace(p->ctx, NET_DISCONNECT_TRACE, NULL, NULL, 0, 1, (uint8_t)c->id);
+    c->link->open = 0;
+    c->driver->close(c->driver->ctx, c->link);
+    c->link->hook_18(c->link);
+    net_queue_push_front(p->mutex, ops->closed, &c->node);
+    if (*p->trace_level >= 2) p->trace(p->ctx, NET_CONN_CLOSED_TRACE, NULL, NULL, 0, 1, (uint8_t)c->id);
 }
 
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)

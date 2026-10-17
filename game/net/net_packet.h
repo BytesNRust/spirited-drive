@@ -234,6 +234,19 @@ extern const char NET_CLOSE_NOT_CLOSED[];  /* 004b2eb0 */
  * 00475c14(0); 1. */
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h);
 
+extern const char NET_SHUTDOWN_TRACE[];       /* 004b2ba8 */
+extern const char NET_DISCONNECT_TRACE[];     /* 004b2bb8 */
+extern const char NET_CONN_CLOSED_TRACE[];    /* 004b2bc4 */
+extern const char NET_DUP_SHUTDOWN_TRACE[];   /* 004b2bd0 */
+
+/* 0047a434 (watcall (connection), from 0047a50c and 0047a82c): the peer
+ * gone. At 004c62fc >= 2 0047f244("shutdownconn", 0, 0, 0, 1, +0xc). Taken
+ * off the open list (0049c9d8 on 0052ce40): at >= 1 "disconnect", the
+ * handle's (+8) +0 = 0, the driver's (+4) close (+4 (+8 read again)), the
+ * handle's (+8 read again) +0x18 (itself), 0049c804 onto the closed list
+ * (0052ce24), at >= 2 "connclosed". Not there: at >= 1 "dup shutdown". */
+void net_packet_conn_shutdown(const NetCloseOps *ops, NetPacketConn *c);
+
 typedef struct {
     void *ctx;
     const NetCloseOps *close;
