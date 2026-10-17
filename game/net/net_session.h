@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 typedef struct NetServer NetServer;
+typedef struct NetRequest NetRequest;
 
 /* The session record's words read here; read again after every call */
 typedef struct {
@@ -20,6 +21,7 @@ typedef struct {
     NetNode node;         /* +0: its place in the sessions' list (0052cdd0) */
     uint8_t *address;     /* +0x14: the game server's address (inline) */
     int32_t joined;       /* +0x98: in a game */
+    NetRequest *request;  /* +0x94: the request awaiting its answer (00477da4) */
     int32_t word_9c;      /* +0x9c: cleared with +0x98 */
 } NetSession;
 
