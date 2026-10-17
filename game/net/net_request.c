@@ -2,6 +2,7 @@
 #include "game/net/net_request.h"
 
 #include "game/net/net_queue.h"
+#include "game/net/net_service.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -89,4 +90,27 @@ int32_t net_get_players(const NetPlayersOps *ops, const NetCheck *c, NetSession 
         if (++i >= 32) return count;
     }
     return count;
+}
+
+int32_t net_get_games(const NetGamesOps *ops, const NetCheck *c, NetSession *s, const void *callback,
+                      int32_t timeout)
+{
+    net_check(ops->check, c, "getnetgames");
+    if (s->tcp != 0) return ops->tcp_games(ops->ctx, s, callback, timeout);
+    char name[48];
+    NetRequest r = { 0 };  /* 00477b18's zero bytes */
+    net_game_name(s->guid, name);
+    r.session = s;
+    r.id = 0;
+    r.games = callback;
+    s->request = &r;
+    *ops->deadline = (int32_t)((uint32_t)ops->clock->clock(ops->clock->ctx) + (uint32_t)timeout);
+    int32_t found = 0;
+    do {
+        if (found == 0) found = ops->driver_find(ops->ctx, s->handle, name);
+        net_wait_ticks(ops->wait, ops->wait_clock, 1);
+    } while (net_request_expired(ops->clock, ops->deadline) == 0 && r.games != NULL);
+    if (found != 0) ops->driver_stop_find(ops->ctx, s->handle);
+    s->request = NULL;
+    return found;
 }

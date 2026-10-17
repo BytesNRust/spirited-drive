@@ -22,7 +22,7 @@ struct NetRequest {
     int32_t answered;     /* +4: set by the answer's handler (-3: no such player) */
     uint32_t players;     /* +8: getnetplayers' answer, a bit for each player */
     NetSession *session;  /* +0xc */
-    int32_t word_10;      /* +0x10 */
+    const void *games;    /* +0x10: getnetgames' callback, cleared to end its wait */
     const NetPlayerCallback *callback;  /* +0x14: getnetplayers' */
 };
 
@@ -103,5 +103,29 @@ typedef struct {
  * 004c6170 * 2); +4 -3: 0, else counted. The count returned. */
 int32_t net_get_players(const NetPlayersOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
                         const NetPlayerCallback *cb);
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetClockOps *clock;   /* 00473324 */
+    const NetWaitOps *wait;     /* 0047337d's service */
+    const int32_t *wait_clock;  /* 0052eebc, 0047337d's */
+    int32_t *deadline;          /* 004c62c0 */
+    int32_t (*tcp_games)(void *ctx, NetSession *s, const void *callback, int32_t timeout);  /* 0052cdfc (cdecl) */
+    int32_t (*driver_find)(void *ctx, uint32_t handle, const char *name);  /* the driver's +0x34 (eax, edx) */
+    void (*driver_stop_find)(void *ctx, uint32_t handle);                   /* the driver's +0x38 (eax) */
+} NetGamesOps;
+
+/* 00479174 getnetgames (cdecl (session, callback, timeout), from 00442684):
+ * 00442684): 00478e18("getnetgames" 004b29a8); +4 set: 0052cdfc
+ * (session, callback, timeout) returned. Else 00477b78(+0x84) names the game
+ * (48 bytes on the stack); a request from 00477b18's 24 zero bytes, +0xc the
+ * session, +0 0, +0x10 the callback, the session's +0x94; 004c62c0 =
+ * 00473324() + timeout. Until the driver's +0x34(+0x10, the name) answers not
+ * 0 it is asked again each turn; 0047337d(1); on while 00473324() less
+ * 004c62c0 is below 0 and +0x10 is not 0. Its answer not 0: the driver's
+ * +0x38(+0x10). +0x94 0; the answer returned. */
+int32_t net_get_games(const NetGamesOps *ops, const NetCheck *c, NetSession *s, const void *callback,
+                      int32_t timeout);
 
 #endif
