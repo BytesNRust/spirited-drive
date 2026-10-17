@@ -22,6 +22,11 @@ const char NET_CONN_CLOSED_TRACE[] = "connclosed";
 const char NET_DUP_SHUTDOWN_TRACE[] = "dup shutdown";
 const char NET_QUEUED_TRACE[] = "qdat";
 const char NET_CLOSE_MSG_TRACE[] = "closeconnmsg";
+const char NET_FAILED_CONN_TRACE[] = "failedconn";
+const char NET_RECV_TRACE[] = "recv";
+const char NET_DENY_TRACE[] = "deny";
+const char NET_GARBAGE_TRACE[] = "grbg";
+const char NET_BAD_SEQ_TRACE[] = "bad#";
 
 uint32_t net_crc16(const uint8_t *data, uint32_t length)
 {
@@ -291,10 +296,81 @@ int32_t net_packet_poll(const NetPacketRecvOps *ops, NetPacketConn *c)
         }
     } while (r != 0 && h->open != 0);
     if ((d->flags & NET_DRIVER_SINGLE) == 0 && used != 0) {
-        memmove(c->recv, c->recv + used, left);
+        net_copy(c->recv + used, c->recv, (int32_t)left);
         c->recv_used = (int32_t)left;
     }
     return queued != 0;
+}
+
+static int32_t resend_visit(void *ctx, NetNode *n, uintptr_t arg)
+{
+    return net_packet_resend(ctx, (NetPacket *)n, (NetPacketConn *)arg);
+}
+
+/* 0047a82c's rounds: the packets in order handed up, 0047a6ec between */
+static void service_deliver(const NetPacketRecvOps *ops, NetPacketConn *c, NetPacketHandle *h, const NetDriver *d)
+{
+    const NetPacketOps *const p = ops->close->packet;
+    int32_t more = 1;
+    c->word_3c = 0;
+    do {
+        NetPacket *k = (NetPacket *)net_queue_fetch(p->mutex, ops->message, &c->queue_a8, (uint32_t)c->word_84);
+        while (k != NULL && more != 0) {
+            if (*p->trace_level >= 3)
+                p->trace(p->ctx, NET_RECV_TRACE, &k->seq, k->wire + 4 + c->sum_size, k->wire[1], 0, (uint8_t)c->id);
+            if (h->deliver(h, k->wire + 4 + c->sum_size, k->wire[1]) != 0) {
+                p->mutex->lock(p->mutex->ctx, c->mutex);
+                k->seq = c->next_seq;
+                c->next_seq = (int32_t)((uint32_t)k->seq + 1);
+                c->word_84 = (int32_t)((uint32_t)c->word_84 + 1);
+                p->mutex->unlock(p->mutex->ctx, c->mutex);
+                k->sent = 0;
+                net_queue_insert(p->mutex, &c->incoming, &k->node);
+                k = (NetPacket *)net_queue_fetch(p->mutex, ops->message, &c->queue_a8, (uint32_t)c->word_84);
+            } else {
+                if (*p->trace_level >= 3) p->trace(p->ctx, NET_DENY_TRACE, &k->seq, NULL, 0, 1, (uint8_t)c->id);
+                net_queue_insert(p->mutex, &c->queue_a8, &k->node);
+                more = 0;
+            }
+        }
+        more = d->ready(d->ctx, h) != 0 ? more & net_packet_poll(ops, c) : 0;
+    } while (more != 0 && h->open != 0);
+}
+
+int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t tick)
+{
+    const NetPacketOps *const p = ops->close->packet;
+    NetPacketHandle *const h = c->link;
+    const NetDriver *const d = c->driver;
+    p->mutex->lock(p->mutex->ctx, c->mutex);
+    const int32_t busy = c->busy;
+    if (busy == 0) c->busy = 1;
+    p->mutex->unlock(p->mutex->ctx, c->mutex);
+    if (busy != 0) return 1;
+    if (tick != 0 && h->open != 0) {
+        if (d->alive(d->ctx, h) == 0 || (h->open = (int32_t)((uint32_t)h->open - 1)) == 0) {
+            if (*p->trace_level >= 2) p->trace(p->ctx, NET_FAILED_CONN_TRACE, &h->open, NULL, 0, 1, (uint8_t)c->id);
+            net_packet_conn_shutdown(ops->close, c);
+        }
+    }
+    if (h->open != 0) service_deliver(ops, c, h, d);
+    if (h->open != 0) {
+        int32_t key = (int32_t)net_queue_head_key(p->mutex, &c->queue_a8);
+        if (c->word_3c != 0 || (key != -1 && key != c->word_84)) {
+            if (*p->trace_level >= 4)
+                p->trace(p->ctx, c->word_3c != 0 ? NET_GARBAGE_TRACE : NET_BAD_SEQ_TRACE, &key, NULL, 0, 1, (uint8_t)c->id);
+            net_packet_nak(p, (NetPacket *)c->incoming.head, c);
+        }
+        if (tick != 0) {
+            const NetQueueVisit visit = { (void *)p, resend_visit };
+            net_queue_walk(p->mutex, &c->queue_68, &visit, (uintptr_t)c);
+            const int32_t left = c->stamp;
+            c->stamp = (int32_t)((uint32_t)left - 1);
+            if (left <= 0) net_packet_send_control(p, c->control, c, 0xfb);
+        }
+    }
+    c->busy = 0;
+    return 1;
 }
 
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)

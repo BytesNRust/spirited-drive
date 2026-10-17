@@ -2,6 +2,7 @@
 #include "game/net/net_queue.h"
 
 #include <stddef.h>
+#include <string.h>
 
 const char NET_QUEUE_FETCH_LOST[] = "qfetchpriority -- FOUND ELEMENT THAT COULD NOT BE REMOVED!";
 
@@ -228,3 +229,13 @@ NetNode *net_queue_pop_back(const NetMutexOps *ops, NetQueue *q)
 uint32_t net_queue_count(const NetQueue *q) { return q->count; }
 
 void net_queue_close(const NetMutexOps *ops, const NetQueue *q) { ops->close(ops->ctx, q->mutex); }
+
+void net_copy(const uint8_t *from, uint8_t *to, int32_t n)
+{
+    if (n <= 0) return;
+    if (n < 4 || (to > from && to < from + n)) {
+        for (int32_t i = n - 1; i >= 0; i--) to[i] = from[i];
+        return;
+    }
+    memmove(to, from, (size_t)n);
+}

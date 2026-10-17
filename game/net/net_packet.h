@@ -22,9 +22,11 @@ uint32_t net_crc16(const uint8_t *data, uint32_t length);
 typedef struct NetPacketHandle NetPacketHandle;
 typedef struct NetPacketConn NetPacketConn;
 
-/* A handle's hooks (00479eb0, returning 0, by default; the receive's
- * arguments for +0x18 and +0x1c not yet known) */
+/* A handle's hooks (00479eb0, returning 0, by default; the arguments for
+ * +0x18 not yet known) */
 typedef int32_t (*NetHandleHook)(NetPacketHandle *h);
+/* +0x1c: a received packet's data handed up (0047a82c), 0 refusing it */
+typedef int32_t (*NetHandleDeliver)(NetPacketHandle *h, const uint8_t *data, uint32_t n);
 
 /* A caller's handle on a packet connection (openpacketconnection's first
  * argument; a connection's +8, its driver's methods' argument); read again
@@ -37,7 +39,7 @@ struct NetPacketHandle {
     int32_t data_time;     /* +0x10: 50 by default; a sent data packet's +8 takes it (0047a068) */
     NetHandleHook poll;    /* +0x14: polled until the connection's +0x10 is set */
     NetHandleHook hook_18; /* +0x18 */
-    NetHandleHook hook_1c; /* +0x1c */
+    NetHandleDeliver deliver; /* +0x1c */
     NetPacketConn *conn;   /* +0x20 */
     NetSession *session;   /* +0x24: its session (the race's 0050a260); +4 set, the TCP layer's */
     uint8_t *address;      /* +0x28: inline, the peer's address (0x14 bytes; net_link.h's driver) */
@@ -51,6 +53,7 @@ struct NetDriver {
     void *ctx;
     int32_t (*open)(void *ctx, NetPacketHandle *h);                                         /* +0 (cdecl) */
     void (*close)(void *ctx, NetPacketHandle *h);                                           /* +4 (cdecl) */
+    int32_t (*alive)(void *ctx, NetPacketHandle *h);                                        /* +8 (cdecl) */
     uint32_t (*room)(void *ctx, NetPacketHandle *h);                                        /* +0xc (cdecl) */
     int32_t (*ready)(void *ctx, NetPacketHandle *h);                                        /* +0x10 (cdecl) */
     uint32_t (*read)(void *ctx, NetPacketHandle *h, uint8_t *to, uint32_t size);            /* +0x14 (cdecl) */
@@ -85,7 +88,7 @@ struct NetPacketConn {
     uint32_t id;              /* +0xc: 004c62f8, counted up; its low byte traced */
     int32_t connected;        /* +0x10: 0047ac18 waits for it */
     void *mutex;              /* +0x14 */
-    int32_t word_18;          /* +0x18: 0 */
+    int32_t busy;             /* +0x18: 0; 1 while 0047a82c runs */
     NetPacket *control;       /* +0x1c: the header-only packet */
     uint8_t *recv;            /* +0x20: the receive buffer, after the packets */
     int32_t recv_size;        /* +0x24 */
@@ -294,6 +297,29 @@ uint32_t net_packet_receive(const NetPacketRecvOps *ops, NetPacketConn *c, int32
  * Packets queued (0047a50c's count) not 0: 1, else 0. */
 int32_t net_packet_poll(const NetPacketRecvOps *ops, NetPacketConn *c);
 
+extern const char NET_FAILED_CONN_TRACE[];  /* 004b2bf8 */
+extern const char NET_RECV_TRACE[];         /* 004b2c04 */
+extern const char NET_DENY_TRACE[];         /* 004b2c0c */
+extern const char NET_GARBAGE_TRACE[];      /* 004b2c14 */
+extern const char NET_BAD_SEQ_TRACE[];      /* 004b2c1c */
+
+/* 0047a82c (cdecl (connection, tick), from 0047b230): a connection
+ * serviced. h (+8) and the driver (+4) read once. Under the mutex (+0x14,
+ * read again for the unlock) +0x18 tested and set: it was set, 1 (left).
+ * tick and h's +0 not 0: the driver's +8 (h) 0, or h's +0 - 1 now 0: at
+ * 004c62fc >= 2 "failedconn" (h, 0, 0, 1, +0xc), 0047a434. h's +0 not 0:
+ * +0x3c = 0, then: each packet 0049cd48(+0xa8, +0x84) gives: at >= 3
+ * "recv" (&+4, +0x10 + +0x2c, its n (+0xd), 0, +0xc); h's +0x1c (h, the
+ * same) not 0: under the mutex its +4 = +0x88, +0x88 + 1, +0x84 + 1; its +8
+ * 0, 0049c954(+0x8c), the next; 0: at >= 3 "deny" (&+4, 0, 0, 1, +0xc),
+ * 0049c954(+0xa8), and the round stops. The driver's +0x10 (h) not 0:
+ * 0047a6ec, again while it answers 1, the round didn't stop and h's +0 is
+ * not 0. h's +0 still not 0: k = 0049caa0(+0xa8); +0x3c not 0, or k not -1
+ * and not +0x84: at >= 4 "grbg" (+0x3c) else "bad#" (&k, 0, 0, 1, +0xc),
+ * 0047a2ac(+0x94, the incoming head). tick: 0049cdc4(+0x68, 0047a808, it);
+ * +0x40 - 1, the old at most 0: 0047a204(+0x1c, it, 0xfb). +0x18 = 0, 1. */
+int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t tick);
+
 typedef struct {
     void *ctx;
     const NetCloseOps *close;
@@ -324,6 +350,7 @@ void net_packet_start(const NetStartOps *ops);
 
 /* 00479eb0 (cdecl, a handle's hooks' default): 0. */
 int32_t net_packet_hook_none(NetPacketHandle *h);
+int32_t net_packet_deliver_none(NetPacketHandle *h, const uint8_t *data, uint32_t n);  /* 00479eb0 as +0x1c */
 
 typedef struct {
     void *ctx;

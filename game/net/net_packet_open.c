@@ -45,6 +45,7 @@ const char NET_OPEN_FAILED[] = "OpenPktConn Failed";
 enum { NET_OPENING = 1000000000, NET_CONN_SIZE = 0xc8 };
 
 int32_t net_packet_hook_none(NetPacketHandle *h) { return (void)h, 0; }
+int32_t net_packet_deliver_none(NetPacketHandle *h, const uint8_t *data, uint32_t n) { return (void)h, (void)data, (void)n, 0; }
 
 static size_t align8(size_t n) { return (n + 7) & ~(size_t)7; }
 
@@ -82,7 +83,7 @@ static void handle_defaults(NetPacketHandle *h, NetPacketConn *c)
     const NetHandleHook poll = h->poll;
     h->hook_18 = net_packet_hook_none;
     if (poll == NULL) h->poll = net_packet_hook_none;
-    if (h->hook_1c == NULL) h->hook_1c = net_packet_hook_none;
+    if (h->deliver == NULL) h->deliver = net_packet_deliver_none;
     if (h->word_4 == 0) h->word_4 = 1;
     if (h->ack_time == 0) h->ack_time = 10;
     if (h->resend_time == 0) h->resend_time = 25;
@@ -100,7 +101,7 @@ static void conn_fill(const NetOpenOps *ops, NetPacketConn *c, NetPacketHandle *
     c->driver = t->driver;
     ++*ops->next_id;
     c->mutex = mutex->create(mutex->ctx);
-    c->word_18 = 0, c->connected = 0, c->send_seq = 1, c->acked_seq = 0;
+    c->busy = 0, c->connected = 0, c->send_seq = 1, c->acked_seq = 0;
     net_queue_init(mutex, &c->spare, NULL, 0);
     net_queue_init(mutex, &c->queue_68, net_packet_seq_key, (uintptr_t)c);
     c->word_84 = 1, c->next_seq = 1;

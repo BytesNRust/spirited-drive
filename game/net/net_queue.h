@@ -168,4 +168,11 @@ void net_put_big(uint8_t *to, uint32_t value, int32_t n);
  * last); n at most 0 writes nothing. */
 void net_put_little(uint8_t *to, uint32_t value, int32_t n);
 
+/* 0048ec60 (cdecl (from, to, n), 39 callers): n bytes from from to to;
+ * below 4, or to above from inside its n, a byte at a time from the end;
+ * else forward (0048eb50: to's alignment in bytes, words, the rest). So
+ * memmove's, except below 4 with to below from and overlapping. Port: n
+ * negative copies nothing (the original reports it, 00477a40, and runs on). */
+void net_copy(const uint8_t *from, uint8_t *to, int32_t n);
+
 #endif
