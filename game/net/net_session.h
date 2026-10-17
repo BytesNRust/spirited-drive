@@ -25,6 +25,8 @@ typedef struct {
     int32_t word_9c;      /* +0x9c: cleared with +0x98 */
     int32_t word_a0;      /* +0xa0: cleared by killnetservice */
     int32_t word_a4;      /* +0xa4: killnetservice waits for it to drop to 0 */
+    const uint8_t *guid;  /* +0x84: inline, 16 bytes; the game's name made from it (00477b78) */
+    int32_t word_a8;      /* +0xa8: newnetgame's fourth argument */
 } NetSession;
 
 typedef struct {
@@ -42,6 +44,8 @@ struct NetServer {
     uint8_t *entries;     /* +0x94: NET_PLAYERS entries of NET_PLAYER_SIZE bytes, each the player's address first */
     int32_t word_8;       /* +8: 0, endnetgame leaves as the game server */
     uint8_t *game;        /* +0xc: inline; the driver's +0x30 gets it, its first byte cleared on leaving */
+    char *password;       /* +0x3c: inline, 16 bytes */
+    uint8_t *params;      /* +0x50: inline, newnetgame's 0x44 bytes (+0x40 the most players) */
 };
 
 /* 00479ad4 (cdecl (session, a, b), from 00477e94, 00478030, 00479250,

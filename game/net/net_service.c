@@ -2,9 +2,14 @@
 #include "game/net/net_service.h"
 
 #include "game/net/net_queue.h"
+#include "game/net/net_request.h"
 
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
+
+const char NET_NEW_TWO[] = "newnetgame -- MAXPLAYERS CANNOT BE 2.";
+const char NET_NEW_MOST[] = "newnetgame -- MAXPLAYERS CANNOT EXCEED %d.";
 
 int32_t net_kill_service(const NetKillServiceOps *ops, const NetCheck *c, NetSession *s)
 {
@@ -31,4 +36,41 @@ void net_game_name(const uint8_t *guid, char *out)
     snprintf(out, NET_GAME_NAME, "EAGAME.%08x.%04x%04x.%02x%02x%02x%02x.%02x%02x%02x%02x", d,
              (unsigned)(guid[4] | guid[5] << 8), (unsigned)(guid[6] | guid[7] << 8), guid[8], guid[9], guid[10],
              guid[11], guid[12], guid[13], guid[14], guid[15]);
+}
+
+static uint32_t net_most_players(const uint8_t *params)
+{
+    return (uint32_t)params[0x40] | (uint32_t)params[0x41] << 8 | (uint32_t)params[0x42] << 16 |
+           (uint32_t)params[0x43] << 24;
+}
+
+int32_t net_new_game(const NetNewGameOps *ops, const NetCheck *c, NetSession *s, uint8_t *params,
+                     const char *password, int32_t arg)
+{
+    net_check(ops->check, c, "newnetgame");
+    if (s->tcp != 0) return ops->tcp_new(ops->ctx, s, params, password, arg);
+    if (net_most_players(params) == 0) params[0x40] = NET_MOST_PLAYERS, params[0x41] = params[0x42] = params[0x43] = 0;
+    if (s->joined != 0) {
+        net_end_game(ops->end, c, s);
+        s->joined = 0;
+    }
+    if (net_most_players(params) < 2) ops->message(ops->ctx, NET_NEW_TWO, 0);
+    if (net_most_players(params) > NET_MOST_PLAYERS) ops->message(ops->ctx, NET_NEW_MOST, NET_MOST_PLAYERS);
+    const uint32_t size = (net_most_players(params) - 2) * NET_PLAYER_SIZE + 0xf8;
+    s->server = ops->alloc(ops->ctx, "netserv", size, *ops->tag);
+    if (s->server == NULL) return 0;
+    s->server->session = s;
+    memcpy(s->server->params, params, NET_GAME_PARAMS);
+    s->server->word_8 = 0;
+    s->server->players = 0;
+    s->joined = *ops->now;
+    s->word_a8 = arg;
+    s->word_9c = *ops->stamp;
+    memcpy(s->address, s->self, NET_ADDRESS);
+    strncpy(s->server->password, password, NET_PASSWORD);  /* 00482890: strncpy's padding too */
+    net_game_name(s->guid, (char *)s->server->game);
+    if (ops->driver_open(ops->ctx, s->handle, s->server->game) != 0) return 1;
+    ops->release(ops->ctx, s->server);
+    s->server = NULL;
+    return 0;
 }
