@@ -21,6 +21,16 @@ void stat_speed_number_text(char out[STAT_TEXT], int32_t speed)
     else snprintf(out, STAT_TEXT, "%d.%d", (speed >> 16) * 224 / 100 + 1, (int32_t)(((uint32_t)speed & 0xffff) * 10 >> 16));
 }
 
+/* 0045b7e8 */
+void stat_distance_text(char out[STAT_TEXT], int german, int32_t distance)
+{
+    enum { SHORTEST = 100, NONE = 999, SCALE = 3000, DIVISOR = 12000 };
+    const int32_t metres = (int32_t)((uint32_t)distance * SCALE) / DIVISOR;
+    if (distance < SHORTEST || distance == NONE) snprintf(out, STAT_TEXT, "N/A");
+    else if (german) snprintf(out, STAT_TEXT, "%d M", metres);
+    else snprintf(out, STAT_TEXT, "%d Ft", metres * 33 / 10);
+}
+
 /* 00466d5c */
 void stat_time_text(char out[STAT_TEXT], int32_t ticks)
 {
