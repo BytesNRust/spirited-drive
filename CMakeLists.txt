@@ -85,6 +85,7 @@ add_library(tnfs_game STATIC
     game/frontend/central_select.c
     game/frontend/central_keys.c
     game/frontend/key_name.c
+    game/frontend/menu_race.c
     game/frontend/menu_sound.c
     game/frontend/message_banner.c
     game/frontend/name_box.c
