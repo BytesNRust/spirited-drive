@@ -94,4 +94,15 @@ void net_serial_flush_output(NetSerial *s, int32_t port, const NetSerialOps *ops
  * 004768c4(0052ce80), 00476c58 on 004c630c and 004c6310. */
 void net_serial_close(NetSerial *s, int32_t port, const NetSerialOps *ops);
 
+/* 0047be14 (cdecl (port)): past 0..7 00477a40("serialopen - INVALID PORT
+ * %d\n", port). A free slot: 004c6308 + 1; the first: 0049d215(0047b690),
+ * 004c630c = 00476ba8, 004c6310 = 00476c68, 00476820(0047ba18, 0, 2, -1,
+ * 0052ce80) 0: both closed, 004c6308 - 1, done. sprintf("\\.\COM%d", port +
+ * 1), CreateFileA(name, 0xc0000000, 0, 0, 3, 0x40000080, 0); -1: 0048f9ec,
+ * done (004c6308 kept). The block 00474c8c(name, 0x450, 004c6304): +8 0, +4
+ * the file, +0x28 CreateEventA(0, 1, 0, 0), +0xc / +0x10 / +0x22c 0, +0x24c
+ * another, +0x230 / +0x234 0; SetCommTimeouts(file, read constant 0x19, the
+ * rest 0) 0: 0048f9ec. The slot = the block, 0047b6a8(port, 1). */
+void net_serial_open(NetSerial *s, int32_t port, const NetSerialOps *ops);
+
 #endif

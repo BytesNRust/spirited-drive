@@ -10,6 +10,10 @@ enum {
     READ_CONSTANT = 0x19
 };
 
+static const uint32_t GENERIC_READ_WRITE = 0xc0000000u, OVERLAPPED_NORMAL = 0x40000080u;
+
+static const char INVALID_PORT[] = "serialopen - INVALID PORT %d\n";  /* 004b2f78 */
+
 int32_t net_serial_is_open(const NetSerial *s, int32_t port)
 {
     return port >= 0 && port < NET_SERIAL_PORTS && s->port[port] != NULL;
@@ -75,4 +79,43 @@ void net_serial_close(NetSerial *s, int32_t port, const NetSerialOps *ops)
         ops->mutex->close(ops->mutex->ctx, s->wake);
         ops->mutex->close(ops->mutex->ctx, s->lock);
     }
+}
+
+void net_serial_open(NetSerial *s, int32_t port, const NetSerialOps *ops)
+{
+    if (port < 0 || port >= NET_SERIAL_PORTS) {
+        ops->fatal(ops->ctx, INVALID_PORT, port);
+        return;
+    }
+    if (s->port[port] != NULL) return;
+    if (++s->opened == 1) {
+        ops->at_exit(ops->ctx);
+        s->wake = ops->create_wake(ops->ctx);
+        s->lock = ops->mutex->create(ops->mutex->ctx);
+        if (ops->thread_start(ops->ctx, 0, THREAD_PRIORITY, -1, s->thread) == 0) {
+            ops->mutex->close(ops->mutex->ctx, s->wake);
+            ops->mutex->close(ops->mutex->ctx, s->lock);
+            s->opened--;
+            return;
+        }
+    }
+    char name[NET_SERIAL_NAME];
+    snprintf(name, sizeof name, "\\\\.\\COM%d", port + 1);
+    void *const file = ops->create_file(ops->ctx, name, GENERIC_READ_WRITE, 0, OPEN_EXISTING, OVERLAPPED_NORMAL);
+    if (file == NET_SERIAL_NO_FILE) {
+        ops->fail(ops->ctx);
+        return;
+    }
+    NetSerialPort *const p = ops->alloc(ops->ctx, name, NET_SERIAL_BLOCK, s->pool);
+    p->word_08 = 0;
+    p->file = file;
+    p->in_event = ops->create_event(ops->ctx, 1, 0);
+    p->in_0c = p->in_10 = 0;
+    p->word_22c = 0;
+    p->out_event = ops->create_event(ops->ctx, 1, 0);
+    p->out_start = p->out_count = 0;
+    const NetSerialTimeouts t = { .read_constant = READ_CONSTANT };
+    if (ops->set_timeouts(ops->ctx, file, &t) == 0) ops->fail(ops->ctx);
+    s->port[port] = p;
+    ops->command(ops->ctx, s, port, CMD_OPEN);
 }
