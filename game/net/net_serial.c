@@ -52,3 +52,8 @@ void net_serial_flush_input(NetSerial *s, int32_t port, const NetSerialOps *ops)
 {
     if (net_serial_is_open(s, port)) ops->command(ops->ctx, s, port, CMD_FLUSH_INPUT);
 }
+
+void net_serial_flush_output(NetSerial *s, int32_t port, const NetSerialOps *ops)
+{
+    if (net_serial_is_open(s, port)) ops->command(ops->ctx, s, port, CMD_FLUSH_OUTPUT);
+}
