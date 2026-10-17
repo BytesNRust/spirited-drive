@@ -269,6 +269,7 @@ add_library(tnfs_game STATIC
     game/sys/inverse_load.c
     game/sys/key_codes.c
     game/sys/joystick.c
+    game/sys/hot_key.c
     game/sys/menu_key.c
     game/sys/palette.c
     game/sys/pointer_state.c
