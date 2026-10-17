@@ -8,6 +8,7 @@
 #define TNFS_NET_LINK_H
 
 #include "game/net/net_packet.h"
+#include "game/net/net_server.h"
 
 #include <stdint.h>
 
@@ -24,6 +25,10 @@ typedef struct {
     int32_t (*driver_ready)(void *ctx, uint32_t handle);  /* the session's driver's +0x4c (eax handle) */
     const uint32_t *room;                                /* 004c62e4 */
     int32_t (*driver_query)(void *ctx, uint32_t handle);  /* the session's driver's +0x50 (eax handle) */
+    const NetServeOps *serve;  /* 00478030's; its trace for "->DataRecv" */
+    /* the session's driver's +0x58 (eax handle, edx address, ebx &message, ecx data, the size on the stack) */
+    int32_t (*driver_receive)(void *ctx, uint32_t handle, uint8_t *address, int32_t *message, uint8_t *data,
+                              int32_t size);
 } NetLinkOps;
 
 /* 00479b40 (cdecl (handle), 004c62c8's +0): the session (+0x24, its words
@@ -50,5 +55,18 @@ uint32_t net_link_room(const NetLinkOps *ops, const NetPacketHandle *h);
 /* 00479cb0 (cdecl (handle), 004c62c8's +0x10): the session's driver's
  * +0x50(+0x10) returned. */
 int32_t net_link_query(const NetLinkOps *ops, const NetPacketHandle *h);
+
+/* 00479cc4 (cdecl (handle, data, size), 004c62c8's +0x14, the receive): a
+ * request of 00477b60's 24 zero bytes with +0xc the session (read once).
+ * Until a dat: the word set to dat, the handle's +0x28 to an address (0x14
+ * bytes on the stack), the session's driver's +0x58(+0x10, address, &word,
+ * data, size) its length; a word not 0: the session's +0x94 0 gets the
+ * request, at 004c62b8 >= 5 0047f244("->DataRecv", &word, data, length, 0,
+ * 0), 00478030(+0x94, address, word, data, length), +0x94 back to 0 if it
+ * still holds the request; a dat: the address to the handle's +0x28, the
+ * length returned. The word 0: the session's +0xa4 0: at >= 5
+ * 0047f244("NullFlush "), the driver's +0x5c(+0x10, 0, dat, 0); else at >= 6
+ * 0047f244("NullRecv  "); 0. */
+int32_t net_link_receive(const NetLinkOps *ops, NetPacketHandle *h, uint8_t *data, int32_t size);
 
 #endif
