@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+const char NET_QUEUE_FETCH_LOST[] = "qfetchpriority -- FOUND ELEMENT THAT COULD NOT BE REMOVED!";
+
 int32_t net_queue_remove(NetQueue *q, NetNode *n)
 {
     if (n == NULL || q->count == 0) return 0;
@@ -143,6 +145,21 @@ NetNode *net_queue_find_key(const NetMutexOps *ops, NetQueue *q, uintptr_t key)
     NetNode *p = q->head;
     while (p != NULL && q->key(p, q->key_arg) < key) p = p->next;
     if (p != NULL && q->key(p, q->key_arg) != key) p = NULL;
+    ops->unlock(ops->ctx, q->mutex);
+    return p;
+}
+
+NetNode *net_queue_fetch(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, uintptr_t key)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *p = q->head;
+    while (p != NULL && q->key(p, q->key_arg) < key) p = p->next;
+    if (p == NULL || q->key(p, q->key_arg) != key) {
+        p = NULL;
+    } else if (net_queue_remove(q, p) == 0) {
+        message->fn(message->ctx, NET_QUEUE_FETCH_LOST);
+        p = NULL;
+    }
     ops->unlock(ops->ctx, q->mutex);
     return p;
 }

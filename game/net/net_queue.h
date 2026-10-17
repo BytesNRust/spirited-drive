@@ -126,6 +126,20 @@ NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, 
  * node, else NULL; NULL past the end. */
 NetNode *net_queue_find_key(const NetMutexOps *ops, NetQueue *q, uintptr_t key);
 
+/* 00477a40 (cdecl), the transport's message box */
+typedef struct {
+    void *ctx;
+    void (*fn)(void *ctx, const char *text);
+} NetQueueMessage;
+
+extern const char NET_QUEUE_FETCH_LOST[];  /* 004b5f0c */
+
+/* 0049cd48 qfetchpriority (cdecl (queue, key), from 0047a50c): 0049cbb4's
+ * walk under the mutex (+0x18, read again for the unlock); the node of key
+ * itself taken out (0049c714): it; 0049c714 failing (a count of 0)
+ * 00477a40(004b5f0c) and NULL; no such node NULL. */
+NetNode *net_queue_fetch(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, uintptr_t key);
+
 /* 0049cdc4 (cdecl (queue, visit, arg), from 00478db4): under the mutex
  * (+0x18, read again each time) bit 0 of +4 kept aside and cleared; outside
  * it each node from the head (read after the unlock; each next read after
