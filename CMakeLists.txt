@@ -254,6 +254,7 @@ add_library(tnfs_game STATIC
     game/net/net_link.c
     game/net/net_serial.c
     game/net/net_udp.c
+    game/net/net_udp_service.c
     game/race/replay_controls.c
     game/race/track_far.c
     game/race/track_fence.c
@@ -351,7 +352,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp)
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
