@@ -183,6 +183,20 @@ extern const char NET_CLOSE_NOT_CLOSED[];  /* 004b2eb0 */
  * 00475c14(0); 1. */
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h);
 
+typedef struct {
+    void *ctx;
+    const NetCloseOps *close;
+    void (*unservice)(void *ctx);  /* 0049d0a0(0047aaf4) (cdecl): the packet layer's service off the list */
+    int32_t *started;              /* 004c62f4: 0047ab10 sets it */
+} NetShutdownOps;
+
+/* 0047ab80 (watcall (), from 00442970, 00442ad0 and 00446220): with
+ * 004c62f4 set, while the open list (0052ce40) counts any, 0047b250(its
+ * head's +8: the connection's handle); the same for the closed list
+ * (0052ce24); then 0049d0a0(0047aaf4), 0049c7f0 on the open list and the
+ * closed one, 00475c14(0), 004c62f4 = 0. */
+void net_packet_shutdown(const NetShutdownOps *ops);
+
 /* 00479eb0 (cdecl, a handle's hooks' default): 0. */
 int32_t net_packet_hook_none(NetPacketHandle *h);
 

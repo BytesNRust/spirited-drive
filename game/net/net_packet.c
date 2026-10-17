@@ -113,3 +113,19 @@ int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)
     ops->wait->service(ops->wait->ctx);
     return 1;
 }
+
+/* A list's head connection's handle (its node first: +8) */
+static NetPacketHandle *head_handle(const NetQueue *q) { return ((NetPacketConn *)(void *)q->head)->link; }
+
+void net_packet_shutdown(const NetShutdownOps *ops)
+{
+    const NetCloseOps *close = ops->close;
+    if (*ops->started == 0) return;
+    while (net_queue_count(close->open) != 0) net_close_packet_connection(close, head_handle(close->open));
+    while (net_queue_count(close->closed) != 0) net_close_packet_connection(close, head_handle(close->closed));
+    ops->unservice(ops->ctx);
+    net_queue_close(close->packet->mutex, close->open);
+    net_queue_close(close->packet->mutex, close->closed);
+    close->wait->service(close->wait->ctx);
+    *ops->started = 0;
+}
