@@ -177,4 +177,10 @@ typedef struct {
 int32_t net_init_service(const NetInitServiceOps *ops, const NetCheck *c, NetSession *s, const uint8_t *guid,
                          const uint8_t *service, const char *text_3c, const char *text_70);
 
+/* 00478dd0 (no arguments, ebx / ecx / edx kept; 00487b78's handler at the
+ * program's exit, set by initnetservice): while 0049ca14(0052cdd0) is not
+ * 0, 004790b0(its head, 0052cdd8); 0049c7f0(0052cdd0) (its mutex closed);
+ * 00476c58(004c62c4). */
+void net_service_exit(const NetKillServiceOps *ops, const NetCheck *c, void *const *lock);
+
 #endif

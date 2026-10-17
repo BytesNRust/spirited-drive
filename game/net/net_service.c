@@ -173,3 +173,12 @@ int32_t net_init_service(const NetInitServiceOps *ops, const NetCheck *c, NetSes
     net_queue_push_front(ops->mutex, ops->sessions, &s->node);
     return 1;
 }
+
+void net_service_exit(const NetKillServiceOps *ops, const NetCheck *c, void *const *lock)
+{
+    NetQueue *const q = ops->end->sessions;
+    while (net_queue_count(q) != 0)
+        net_kill_service(ops, c, (NetSession *)(void *)((char *)q->head - offsetof(NetSession, node)));
+    net_queue_close(ops->end->mutex, q);
+    ops->end->mutex->close(ops->end->mutex->ctx, *lock);
+}
