@@ -43,3 +43,8 @@ uint32_t net_link_room(const NetLinkOps *ops, const NetPacketHandle *h)
 {
     return ops->driver_ready(ops->ctx, h->session->handle) != 0 ? *ops->room : 0;
 }
+
+int32_t net_link_query(const NetLinkOps *ops, const NetPacketHandle *h)
+{
+    return ops->driver_query(ops->ctx, h->session->handle);
+}
