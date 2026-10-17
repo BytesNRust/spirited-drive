@@ -78,3 +78,8 @@ int32_t net_end_game(const NetEndOps *ops, const NetCheck *c, NetSession *s)
     s->joined = 0, s->word_9c = 0;
     return 1;
 }
+
+int32_t net_request_expired(const NetClockOps *ops, const int32_t *deadline)
+{
+    return (int32_t)((uint32_t)ops->clock(ops->ctx) - (uint32_t)*deadline) >= 0;
+}

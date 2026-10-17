@@ -100,6 +100,15 @@ extern const char NET_KILL_SERVER[];       /* 004b2a84 */
 int32_t net_kill_player(const NetKillOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
                         const int32_t *now);
 
+typedef struct {
+    void *ctx;
+    int32_t (*clock)(void *ctx);  /* 00473324 */
+} NetClockOps;
+
+/* 00477c50 (watcall (), from 00477da4): a request's time up: 00473324()
+ * less 004c62c0 (its deadline) not below 0 (signed, wrapping); 0 / 1. */
+int32_t net_request_expired(const NetClockOps *ops, const int32_t *deadline);
+
 enum { NET_BYE = (int32_t)0xea627965 };  /* the driver's +0x54 message endnetgame sends */
 
 typedef struct {
