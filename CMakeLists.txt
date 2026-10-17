@@ -59,8 +59,48 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 
 # The recovered game logic: platform-independent, links no SDL.
 add_library(tnfs_game STATIC
+    game/frontend/best_times.c
+    game/frontend/cheat_code.c
     game/frontend/config_dat.c
+    game/frontend/control_central_art.c
+    game/frontend/disk_room.c
+    game/frontend/file_list.c
+    game/frontend/frame_bench.c
+    game/frontend/frontend_loop.c
+    game/frontend/game_file.c
+    game/frontend/game_list.c
+    game/frontend/game_mode.c
+    game/frontend/intro.c
+    game/frontend/key_capture.c
+    game/frontend/load_save.c
+    game/frontend/load_save2.c
+    game/frontend/central.c
+    game/frontend/central_follow.c
+    game/frontend/central_draw.c
+    game/frontend/central_select.c
+    game/frontend/central_keys.c
+    game/frontend/key_name.c
+    game/frontend/menu_sound.c
+    game/frontend/message_banner.c
+    game/frontend/name_box.c
+    game/frontend/number_field.c
+    game/frontend/palette_put.c
     game/frontend/race_settings.c
+    game/frontend/random_pick.c
+    game/frontend/replay_box.c
+    game/frontend/save_box.c
+    game/frontend/screen_clear.c
+    game/frontend/screen_show.c
+    game/frontend/standings.c
+    game/frontend/stat_text.c
+    game/frontend/text_box.c
+    game/frontend/text_entry.c
+    game/frontend/text_fit.c
+    game/frontend/title.c
+    game/frontend/track_select.c
+    game/frontend/tournament.c
+    game/frontend/wide_field.c
+    game/frontend/yes_no_box.c
     game/gfx/flat.c
     game/gfx/flat_edge.c
     game/gfx/flat_scan.c
