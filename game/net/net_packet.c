@@ -31,8 +31,8 @@ uint8_t net_packet_acked(const NetPacketOps *ops, NetPacketConn *c)
     int32_t k = (int32_t)(uint32_t)net_queue_head_key(ops->mutex, &c->incoming);
     if (k == -1) k = c->next_seq;
     k--;
-    c->stamp = c->link->now;
-    if (*ops->trace_level >= 3) ops->trace(ops->ctx, NET_ACK_TRACE, &k, 0, 0, 0, c->id);
+    c->stamp = c->link->ack_time;
+    if (*ops->trace_level >= 3) ops->trace(ops->ctx, NET_ACK_TRACE, &k, 0, 0, 0, (uint8_t)c->id);
     return (uint8_t)(k & 0x7f);
 }
 
@@ -61,7 +61,7 @@ int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacket
     p->wire[0] = 0xfe, p->wire[1] = 0, p->wire[2] = (uint8_t)kind, p->wire[3] = acked;
     net_checksum_put(c->sum, p->wire, p->wire + 4, length, c->sum_size);
     const int32_t sent = c->driver->send(c->driver->ctx, c->link, p->wire, length) == length;
-    if (sent && kind <= 0x7f) p->sent = c->link->acked;
+    if (sent && kind <= 0x7f) p->sent = c->link->resend_time;
     return sent;
 }
 
@@ -92,7 +92,7 @@ int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)
     NetPacketConn *const c = h->conn;
     const NetDriver *const driver = c->driver;
     const NetPacketOps *const p = ops->packet;
-    if (*p->trace_level >= 1) p->trace(p->ctx, NET_CLOSE_TRACE, NULL, 0, 0, 0, c->id);
+    if (*p->trace_level >= 1) p->trace(p->ctx, NET_CLOSE_TRACE, NULL, 0, 0, 0, (uint8_t)c->id);
     if (net_queue_remove_locked(p->mutex, ops->open, &c->node) != 0) {
         if (h->open != 0) close_say_goodbye(ops, h, c, driver);
         net_queue_push_front(p->mutex, ops->closed, &c->node);

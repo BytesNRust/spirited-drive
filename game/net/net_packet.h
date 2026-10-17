@@ -6,6 +6,7 @@
 
 #include "game/net/net_queue.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* A connection's checksum (its +0xc4, cdecl (data, length)) */
@@ -17,22 +18,43 @@ typedef uint32_t (*NetChecksum)(const uint8_t *data, uint32_t length);
  * below (signed) 0xfbea. */
 uint32_t net_crc16(const uint8_t *data, uint32_t length);
 
-/* The driver's link record (a connection's +8); read again after every call */
-typedef struct {
-    int32_t now;    /* +8 */
-    int32_t acked;  /* +0xc */
-} NetLink;
-
 typedef struct NetPacketHandle NetPacketHandle;
+typedef struct NetPacketConn NetPacketConn;
 
-/* A connection's driver's methods (its +4: a table; the link its first argument) */
+/* A handle's hooks (00479eb0, returning 0, by default; the receive's
+ * arguments for +0x18 and +0x1c not yet known) */
+typedef int32_t (*NetHandleHook)(NetPacketHandle *h);
+
+/* A caller's handle on a packet connection (openpacketconnection's first
+ * argument; a connection's +8, its driver's methods' argument); read again
+ * after every call */
+struct NetPacketHandle {
+    int32_t open;          /* +0: 1000000000 while opening, 004c6300 once open, 0 once closing */
+    int32_t word_4;        /* +4: 1 by default; a connection's +0x38 takes it */
+    int32_t ack_time;      /* +8: 10 by default; a connection's +0x40 takes it */
+    int32_t resend_time;   /* +0xc: 25 by default; a sent packet's +8 takes it */
+    int32_t word_10;       /* +0x10: 50 by default */
+    NetHandleHook poll;    /* +0x14: polled until the connection's +0x10 is set */
+    NetHandleHook hook_18; /* +0x18 */
+    NetHandleHook hook_1c; /* +0x1c */
+    NetPacketConn *conn;   /* +0x20 */
+};
+
+/* A connection's driver (its +4: a table of methods, the handle their first
+ * argument, and limits); read again after every call */
 typedef struct NetDriver NetDriver;
 struct NetDriver {
     void *ctx;
-    void (*close)(void *ctx, NetPacketHandle *h);                                     /* +4 (cdecl) */
-    uint32_t (*room)(void *ctx, NetLink *link);                                      /* +0xc (cdecl) */
-    uint32_t (*send)(void *ctx, NetLink *link, const uint8_t *data, uint32_t length);  /* +0x18 (cdecl) */
+    int32_t (*open)(void *ctx, NetPacketHandle *h);                                         /* +0 (cdecl) */
+    void (*close)(void *ctx, NetPacketHandle *h);                                           /* +4 (cdecl) */
+    uint32_t (*room)(void *ctx, NetPacketHandle *h);                                        /* +0xc (cdecl) */
+    uint32_t (*send)(void *ctx, NetPacketHandle *h, const uint8_t *data, uint32_t length);  /* +0x18 (cdecl) */
+    uint32_t max_size;     /* +0x1c: 0 none; else a packet's size + 8 at most */
+    uint32_t min_size;     /* +0x20: a packet's size at least */
+    uint8_t flags;         /* +0x24: NET_DRIVER_NO_SUM, NET_DRIVER_SINGLE */
 };
+
+enum { NET_DRIVER_NO_SUM = 1, NET_DRIVER_SINGLE = 4 };  /* no checksum; the receive buffer not doubled */
 
 /* A packet: a queue node (+0), its sequence (+4), +8, then its bytes on the
  * wire (+0xc: 0xfe, 0, the kind, the sequence acknowledged, the checksum,
@@ -40,7 +62,7 @@ struct NetDriver {
 typedef struct {
     NetNode node;
     int32_t seq;     /* +4 */
-    int32_t sent;    /* +8: 1 while unsent, then the link's +0xc */
+    int32_t sent;    /* +8: 1 while unsent, then the handle's +0xc */
     uint8_t wire[];  /* +0xc */
 } NetPacket;
 
@@ -48,28 +70,35 @@ typedef struct {
  * +0xa8): the packet's sequence (+4); arg unused. */
 uintptr_t net_packet_seq_key(const NetNode *n, uintptr_t arg);
 
-/* A packet connection (0047ac18's 200 bytes); its words read again after every call */
-typedef struct {
+/* A packet connection (0047ac18's 200 bytes, then its packets and its
+ * receive buffer); its words read again after every call */
+struct NetPacketConn {
     NetNode node;             /* +0: in the open (0052ce40) or closed (0052ce24) list */
     const NetDriver *driver;  /* +4 */
-    NetLink *link;            /* +8 */
-    uint8_t id;               /* +0xc: 004c62f8, counted up */
+    NetPacketHandle *link;    /* +8: the handle */
+    uint32_t id;              /* +0xc: 004c62f8, counted up; its low byte traced */
+    int32_t connected;        /* +0x10: 0047ac18 waits for it */
     void *mutex;              /* +0x14 */
+    int32_t word_18;          /* +0x18: 0 */
     NetPacket *control;       /* +0x1c: the header-only packet */
+    uint8_t *recv;            /* +0x20: the receive buffer, after the packets */
+    int32_t recv_size;        /* +0x24 */
+    int32_t recv_used;        /* +0x28: 0 */
     int32_t sum_size;         /* +0x2c: the checksum's bytes (0047ac18: 0 or 2) */
-    int32_t stamp;            /* +0x40: the link's +8 at the last sequence taken */
+    uint32_t max;             /* +0x30: a packet's data at most */
+    int32_t window;           /* +0x34: 1 << the window bits */
+    int32_t word_38;          /* +0x38: the handle's +4 */
+    int32_t word_3c;          /* +0x3c: never set (0047ac18's template; 0 here) */
+    int32_t stamp;            /* +0x40: the handle's +8 (at the last sequence taken) */
+    int32_t word_44;          /* +0x44: 1 */
+    int32_t word_48;          /* +0x48: 0 */
     NetQueue spare;           /* +0x4c: the packets free, no key */
     NetQueue queue_68;        /* +0x68: keyed by 0047a800 */
+    int32_t word_84;          /* +0x84: 1 */
     int32_t next_seq;         /* +0x88: the next receive slot's sequence */
     NetQueue incoming;        /* +0x8c: the receive slots, keyed by sequence (0047a800): the head the one expected */
     NetQueue queue_a8;        /* +0xa8: keyed by 0047a800 */
     NetChecksum sum;          /* +0xc4: 0049d158 or NULL */
-} NetPacketConn;
-
-/* A caller's handle on a packet connection (openpacketconnection's first argument) */
-struct NetPacketHandle {
-    int32_t open;          /* +0: 1000000000 once open, 0 once closing */
-    NetPacketConn *conn;   /* +0x20 */
 };
 
 typedef struct {
@@ -92,7 +121,7 @@ void net_checksum_put(NetChecksum sum, const uint8_t *data, uint8_t *out, uint32
 /* 00479f94 (watcall (connection), from 0047a068 and 0047a204): the
  * sequence acknowledged so far, in al (& 0x7f; eax's other bytes not
  * returned): k = the unacknowledged queue's head key (0049caa0 on +0x8c), -1
- * there +0x88, less 1; +0x40 = the link's (+8) +8; with 004c62fc at least 3
+ * there +0x88, less 1; +0x40 = the handle's (+8) +8; with 004c62fc at least 3
  * 0047f244("ACKt", &k, 0, 0, 0, +0xc), k read after it. */
 uint8_t net_packet_acked(const NetPacketOps *ops, NetPacketConn *c);
 
@@ -109,7 +138,7 @@ int32_t net_checksum_check(const NetPacketConn *c, const uint8_t *data, uint8_t 
  * the header 0xfe, 0, kind, 00479f94's; 00479ed4(+0xc4, +0xc, +0x10, length,
  * +0x2c read again); the driver's send (+4's +0x18 (+8, +0xc, length), +4
  * and +8 read again); all sent: 1, and with kind (all 32 bits) at most 0x7f
- * packet +8 = the link's (+8 read again) +0xc; else 0. */
+ * packet +8 = the handle's (+8 read again) +0xc; else 0. */
 int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c, uint32_t kind);
 
 typedef struct {
@@ -151,5 +180,40 @@ extern const char NET_CLOSE_NOT_CLOSED[];  /* 004b2eb0 */
  * (00476c58), 00475260 and +0x20 = 0; not there the message 004b2eb0.
  * 00475c14(0); 1. */
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h);
+
+/* 00479eb0 (cdecl, a handle's hooks' default): 0. */
+int32_t net_packet_hook_none(NetPacketHandle *h);
+
+typedef struct {
+    void *ctx;
+    const NetCloseOps *close;
+    int32_t (*main_thread)(void *ctx, uint32_t thread);                  /* 00476968 (cdecl): 0 the main one's */
+    const int32_t *surface_locked;                                       /* 004c7ac0 */
+    void (*fatal)(void *ctx, const char *format, int32_t value);          /* 00477a40 (cdecl) */
+    /* 00474cdc (cdecl (name, size, tag)); bytes the port's own size for it */
+    NetPacketConn *(*alloc)(void *ctx, const char *name, uint32_t size, uint32_t tag, size_t bytes);
+    int32_t *next_id;                                                     /* 004c62f8 */
+    const int32_t *open_state;                                           /* 004c6300: 400 at first */
+} NetOpenOps;
+
+extern const char NET_OPEN_TOO_BIG[];        /* 004b2c24 */
+extern const char NET_OPEN_OVER_DRIVER[];    /* 004b2c64 */
+extern const char NET_OPEN_ACTIVE[];         /* 004b2cb4 */
+extern const char NET_OPEN_NOT_MAIN[];       /* 004b2cec */
+extern const char NET_OPEN_SURFACE[];        /* 004b2d28 */
+extern const char NET_OPEN_CRC32[];          /* 004b2d80 */
+extern const char NET_OPEN_BUFFER[];         /* 004b2db4 */
+extern const char NET_OPEN_TRACE[];          /* 004b2dc0 */
+extern const char NET_OPEN_FAILED[];         /* 004b2dcc */
+
+/* The port's bytes for a connection 0047ac18 sizes (window - 1) packets of
+ * stride bytes (from +0xc on: the wire) and a receive buffer of recv bytes */
+size_t net_packet_conn_bytes(int32_t window, uint32_t stride, int32_t recv);
+NetPacket *net_packet_at(NetPacketConn *c, int32_t i);
+
+/* 0047ac18 openpacketconnection (cdecl (handle, driver, tag, crc32, size,
+ * bits), from 00479a6c, 0048104c, 0048fe2c and 0048ffdc); see net_packet_open.c. */
+int32_t net_open_packet_connection(const NetOpenOps *ops, NetPacketHandle *h, const NetDriver *driver, uint32_t tag,
+                                   int32_t crc32, uint32_t size, uint32_t bits);
 
 #endif
