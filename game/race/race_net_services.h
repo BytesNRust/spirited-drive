@@ -53,4 +53,9 @@ uint8_t *race_net_services_list(const RaceNetServicesOps *ops, RaceNetServices *
  * set, 0x12c), NULL. Else 004bc6d6 0 and the block (its first entry). */
 uint8_t *race_net_services_first(const RaceNetServicesOps *ops, RaceNetServices *s, int16_t german);
 
+/* 004425a0 (watcall (), from 00454b78): no block: 00442514's answer.
+ * Else 004bc6d2 set: cleared, 004790b0(0050a260); 004bc6d6 + 1, back to 0
+ * when not below 004bc6d4 (signed shorts); that entry. */
+uint8_t *race_net_services_next(const RaceNetServicesOps *ops, RaceNetServices *s, int16_t german);
+
 #endif

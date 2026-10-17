@@ -53,3 +53,15 @@ uint8_t *race_net_services_first(const RaceNetServicesOps *ops, RaceNetServices 
     s->count = 0;
     return s->list;
 }
+
+uint8_t *race_net_services_next(const RaceNetServicesOps *ops, RaceNetServices *s, int16_t german)
+{
+    if (s->list == NULL) return race_net_services_first(ops, s, german);
+    if (s->open != 0) {
+        s->open = 0;
+        ops->kill_service(ops->ctx);
+    }
+    s->count = (int16_t)(s->count + 1);
+    if (s->count >= s->shown) s->count = 0;
+    return s->list + s->count * RACE_NET_SERVICE_SIZE;
+}
