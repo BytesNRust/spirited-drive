@@ -5,6 +5,8 @@
 #include <string.h>
 
 const char RACE_NET_SERVICE_LIST[] = "ServiceList";
+const char RACE_NET_NO_SERVICES[] = "No network services found.";
+const char RACE_NET_NO_SERVICES_DE[] = "Keinen Netzwerk-Service gefunden.";
 
 int32_t race_net_service_found(void *ctx, const uint8_t *guid, const char *name, int32_t a, int32_t b)
 {
@@ -34,5 +36,20 @@ uint8_t *race_net_services_list(const RaceNetServicesOps *ops, RaceNetServices *
         ops->free(ops->ctx, s->list);
         s->list = NULL;
     }
+    return s->list;
+}
+
+uint8_t *race_net_services_first(const RaceNetServicesOps *ops, RaceNetServices *s, int16_t german)
+{
+    if (s->open != 0) {
+        s->open = 0;
+        ops->kill_service(ops->ctx);
+    }
+    if (s->list == NULL) race_net_services_list(ops, s, 0x2580, 0, 0xc);
+    if (s->list == NULL) {
+        ops->banner_wait(ops->ctx, german != 0 ? RACE_NET_NO_SERVICES_DE : RACE_NET_NO_SERVICES, 0x12c);
+        return NULL;
+    }
+    s->count = 0;
     return s->list;
 }
