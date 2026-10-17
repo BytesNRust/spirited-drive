@@ -209,6 +209,7 @@ add_library(tnfs_game STATIC
     game/net/net_packet.c
     game/net/net_packet_open.c
     game/net/net_request.c
+    game/net/net_service.c
     game/race/replay_controls.c
     game/race/track_far.c
     game/race/track_fence.c

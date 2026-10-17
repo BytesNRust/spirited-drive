@@ -23,6 +23,8 @@ typedef struct {
     int32_t joined;       /* +0x98: in a game */
     NetRequest *request;  /* +0x94: the request awaiting its answer (00477da4) */
     int32_t word_9c;      /* +0x9c: cleared with +0x98 */
+    int32_t word_a0;      /* +0xa0: cleared by killnetservice */
+    int32_t word_a4;      /* +0xa4: killnetservice waits for it to drop to 0 */
 } NetSession;
 
 typedef struct {
