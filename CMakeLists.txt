@@ -266,6 +266,7 @@ add_library(tnfs_game STATIC
     game/race/track_tables.c
     game/race/view.c
     game/sys/fixed_math.c
+    game/sys/inverse_load.c
     game/sys/key_codes.c
     game/sys/joystick.c
     game/sys/menu_key.c
