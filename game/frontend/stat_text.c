@@ -21,14 +21,23 @@ void stat_speed_number_text(char out[STAT_TEXT], int32_t speed)
     else snprintf(out, STAT_TEXT, "%d.%d", (speed >> 16) * 224 / 100 + 1, (int32_t)(((uint32_t)speed & 0xffff) * 10 >> 16));
 }
 
-/* 0045b7e8 */
-void stat_distance_text(char out[STAT_TEXT], int german, int32_t distance)
+/* 0045b7e8 / 0045b878: the distance scaled to metres */
+static void distance_text(char out[STAT_TEXT], int german, int32_t distance, uint32_t scale)
 {
-    enum { SHORTEST = 100, NONE = 999, SCALE = 3000, DIVISOR = 12000 };
-    const int32_t metres = (int32_t)((uint32_t)distance * SCALE) / DIVISOR;
+    enum { SHORTEST = 100, NONE = 999, DIVISOR = 12000 };
+    const int32_t metres = (int32_t)((uint32_t)distance * scale) / DIVISOR;
     if (distance < SHORTEST || distance == NONE) snprintf(out, STAT_TEXT, "N/A");
     else if (german) snprintf(out, STAT_TEXT, "%d M", metres);
     else snprintf(out, STAT_TEXT, "%d Ft", metres * 33 / 10);
+}
+
+/* 0045b7e8 */
+void stat_distance_text(char out[STAT_TEXT], int german, int32_t distance) { distance_text(out, german, distance, 3000); }
+
+/* 0045b878 */
+void stat_distance_long_text(char out[STAT_TEXT], int german, int32_t distance)
+{
+    distance_text(out, german, distance, 3857);
 }
 
 /* 00466d5c */
