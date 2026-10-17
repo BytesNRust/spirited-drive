@@ -57,6 +57,7 @@ typedef struct ResultsOps {
     void (*fade_out)(void *ctx, int32_t first, int32_t count); /* 00463ef0: eax, edx */
     void (*free)(void *ctx, int32_t bank);                     /* 00475260 (cdecl) */
     void (*free_inverse)(void *ctx);                           /* 00474558 */
+    void (*blit_masked)(void *ctx, const uint8_t *shape);      /* 00473ab4 (cdecl): 0045c45c's */
     void *ctx;
 } ResultsOps;
 

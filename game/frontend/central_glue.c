@@ -342,7 +342,7 @@ static void results(const TrackViewerResults *r, int32_t mode)
         select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
         select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, no_name, nothing,
         deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, nothing, nothing, fade_out,
-        free_bank, free_handle_inverse, &p };
+        free_bank, free_handle_inverse, blit_masked, &p };
     results_screen(mode, &in, &st, &p, &ops);
 }
 
