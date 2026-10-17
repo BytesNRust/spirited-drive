@@ -11,9 +11,9 @@
 
 char frontend_player_name[42];
 
-/* TODO(00466ae4): the tournament and session reset; 00446220 only runs with a link game, which the build has not
- * got yet */
+/* TODO(00446220): only runs with a link game, which the build has not got yet */
 static void glue_nothing(void *ctx) { (void)ctx; }
+static void glue_reset(void *ctx) { (void)ctx; glue_game_reset(); }
 static void glue_music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
 static void glue_music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
 static void glue_music_by_idle(void *ctx) { (void)ctx; menu_audio_music_by_idle(); }
@@ -41,7 +41,7 @@ static int32_t glue_leave(void *ctx) { (void)ctx; return 1; }
 void frontend_run(void)
 {
     const FrontendLoopOps ops = { glue_config_load, glue_title, glue_no_network, glue_fatal, glue_no_name, glue_yes,
-                                  glue_leave, glue_nothing, glue_control_central, glue_config_save, glue_nothing,
+                                  glue_leave, glue_reset, glue_control_central, glue_config_save, glue_nothing,
                                   glue_music_fade_out, glue_music_end, glue_intro, glue_music_by_idle, glue_music_feed,
                                   glue_main_menu, NULL };
     const FrontendLoopState st = { 0, 0, &menu_words.link_game, &menu_words.network_raced };

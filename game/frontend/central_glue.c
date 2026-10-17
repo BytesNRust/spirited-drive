@@ -530,6 +530,19 @@ static void load(void)
     g.pointer_active = (int16_t)pointer_active();
 }
 
+/* 00466ae4 before Control Central: the game state for a new tournament (the controls, the names: config.dat's for
+ * player 0, the computer players' for the rest), the race settings read from config.dat and put back to it */
+void glue_game_reset(void)
+{
+    load();
+    RaceSettings s = settings_of();
+    FrontendSession f = session_of();
+    tournament_new(game_state, &s, config_current(), &f);
+    settings_put(&s);
+    session_put(&f);
+    config_dat_set_race(config_current(), &s);
+}
+
 int32_t glue_central(void)
 {
     static const ControlCentralOps OPS = {
