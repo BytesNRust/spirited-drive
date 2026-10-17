@@ -43,4 +43,28 @@ typedef struct {
 void net_request_send(const NetRequestOps *ops, NetSession *s, NetRequest *r, int32_t message, uint8_t *out,
                       int32_t size, int32_t timeout);
 
+enum { NET_SET_GAME = (int32_t)0xea616464, NET_SET_SIZE = 0x70, NET_PASSWORD = 0x10, NET_ADDRESS = 0x14,
+       NET_RECORD = 0x5c };
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetEqualOps *equal;
+    const NetEndOps *end;
+    const NetRequestOps *request;
+    int32_t (*tcp_set)(void *ctx, NetSession *s, const uint8_t *address, const char *password);  /* 0052cdf8 (cdecl) */
+    const int32_t *timeout;  /* 004c6170: 100, doubled */
+} NetSetOps;
+
+/* 00479250 setnetgame (cdecl (session, address, password), from 00442ad0):
+ * 00478e18("setnetgame" 004b29b4); +4 set: 0052cdf8(session, address,
+ * password) returned. Else a request from 00477b30's 24 zero bytes; with
+ * +0x98 set, 00479ad4(session, +0x14, address) not 0: 1, else 004795fc
+ * (session) and +0x98 0. The out buffer (0x70 bytes): +0x14 on the 0x5c
+ * bytes from +0x28, +0x14..+0x27 the address's 0x14 bytes, +4 00482890
+ * (strncpy) of the password, 16 bytes; then 00477da4(session, &request,
+ * 0xea616464, out, 0x70, 004c6170 * 2) and the request's +4 returned. */
+int32_t net_set_game(const NetSetOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
+                     const char *password);
+
 #endif
