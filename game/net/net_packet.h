@@ -92,7 +92,7 @@ struct NetPacketConn {
     uint32_t max;             /* +0x30: a packet's data at most */
     int32_t window;           /* +0x34: 1 << the window bits */
     int32_t word_38;          /* +0x38: the handle's +4 */
-    int32_t word_3c;          /* +0x3c: never set (0047ac18's template; 0 here) */
+    int32_t word_3c;          /* +0x3c: 0 (0047ac18's template); 0047a50c counts the receives that skipped bytes */
     int32_t stamp;            /* +0x40: the handle's +8 (at the last sequence taken) */
     int32_t send_seq;         /* +0x44: 1; the next data packet's sequence (00479ffc) */
     int32_t acked_seq;        /* +0x48: 0; the last sequence the peer acknowledged (0047a308) */
@@ -246,6 +246,34 @@ extern const char NET_DUP_SHUTDOWN_TRACE[];   /* 004b2bd0 */
  * handle's (+8 read again) +0x18 (itself), 0049c804 onto the closed list
  * (0052ce24), at >= 2 "connclosed". Not there: at >= 1 "dup shutdown". */
 void net_packet_conn_shutdown(const NetCloseOps *ops, NetPacketConn *c);
+
+typedef struct {
+    const NetCloseOps *close;        /* its packet ops, lists and 0047a434's */
+    const NetQueueMessage *message;  /* 0049cd48's 00477a40 */
+    const int32_t *open_state;       /* 004c6300 */
+} NetPacketRecvOps;
+
+extern const char NET_QUEUED_TRACE[];      /* 004b2be0 */
+extern const char NET_CLOSE_MSG_TRACE[];   /* 004b2be8 */
+
+/* 0047a50c (watcall (connection, &queued, data, length), from 0047a6ec):
+ * one packet taken from data; the bytes used returned. Without the driver's
+ * (+4) flags bit 2 the bytes before the first 0xfe skipped (the walk stops
+ * at length). That byte (data[at], at == length too) not 0xfe: length
+ * returned, nothing counted. Else, all lengths 32-bit unsigned: at + 4 +
+ * +0x2c past length: at. n (+1) above +0x30: at + 1 (n 0xfe) or 2. at + 4 +
+ * +0x2c + n past length: at. size = 4 + +0x2c + n; 00479f1c(the connection,
+ * the header, header + 4, size) 0: at + 3. Else the handle's (+8) +0 not 0
+ * = 004c6300; +0x10 + 1; at + size; +3 at most 0x7f: 0047a308(it); then n
+ * (read again) not 0 and +2 at most 0x7f: k = (+0x84 & ~0x7f) | +2, + 0x80
+ * when below +0x84; 0049cd48(+0x8c, k) found: 0048ec60 size header bytes to
+ * its +0xc, 0049c954(+0xa8, it), queued + 1, at 004c62fc >= 3
+ * 0047f244("qdat", &its +4, its +0x10 + +0x2c, its +0xd, 0, +0xc).
+ * Otherwise +2 at most 0x7f: 0047a3bc(it); 0xff: at >= 2
+ * 0047f244("closeconnmsg", 0, 0, 0, 1, +0xc), 0047a434. Every return but the
+ * first: +0x3c + 1 when the bytes returned pass size (0 for the early ones). */
+uint32_t net_packet_receive(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t *queued, uint8_t *data,
+                            uint32_t length);
 
 typedef struct {
     void *ctx;

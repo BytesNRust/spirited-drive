@@ -20,6 +20,8 @@ const char NET_SHUTDOWN_TRACE[] = "shutdownconn";
 const char NET_DISCONNECT_TRACE[] = "disconnect";
 const char NET_CONN_CLOSED_TRACE[] = "connclosed";
 const char NET_DUP_SHUTDOWN_TRACE[] = "dup shutdown";
+const char NET_QUEUED_TRACE[] = "qdat";
+const char NET_CLOSE_MSG_TRACE[] = "closeconnmsg";
 
 uint32_t net_crc16(const uint8_t *data, uint32_t length)
 {
@@ -82,7 +84,8 @@ void net_packet_fill(const NetMutexOps *mutex, NetPacket *p, NetPacketConn *c, c
 {
     uint8_t *const out = p->wire + 4 + c->sum_size;
     mutex->lock(mutex->ctx, c->mutex);
-    p->seq = c->send_seq++;
+    p->seq = c->send_seq;
+    c->send_seq = (int32_t)((uint32_t)p->seq + 1);  /* wraps as the original's */
     mutex->unlock(mutex->ctx, c->mutex);
     p->sent = 0;
     p->wire[0] = 0xfe, p->wire[1] = (uint8_t)n, p->wire[2] = (uint8_t)(p->seq & 0x7f);
@@ -189,6 +192,71 @@ void net_packet_conn_shutdown(const NetCloseOps *ops, NetPacketConn *c)
     c->link->hook_18(c->link);
     net_queue_push_front(p->mutex, ops->closed, &c->node);
     if (*p->trace_level >= 2) p->trace(p->ctx, NET_CONN_CLOSED_TRACE, NULL, NULL, 0, 1, (uint8_t)c->id);
+}
+
+/* 0047a50c's data packet: into its receive slot, onto +0xa8 */
+static void receive_data(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t *queued, const uint8_t *header,
+                         uint32_t size)
+{
+    const NetPacketOps *const p = ops->close->packet;
+    const uint32_t base = (uint32_t)c->word_84;
+    uint32_t k = (base & ~0x7fu) | header[2];
+    if (k < base) k += 0x80;
+    NetPacket *const slot = (NetPacket *)net_queue_fetch(p->mutex, ops->message, &c->incoming, k);
+    if (slot == NULL) return;
+    memmove(slot->wire, header, size);
+    net_queue_insert(p->mutex, &c->queue_a8, &slot->node);
+    *queued = (int32_t)((uint32_t)*queued + 1);
+    if (*p->trace_level >= 3)
+        p->trace(p->ctx, NET_QUEUED_TRACE, &slot->seq, slot->wire + 4 + c->sum_size, slot->wire[1], 0, (uint8_t)c->id);
+}
+
+/* 0047a50c's checked packet: size bytes at header */
+static void receive_packet(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t *queued, const uint8_t *header,
+                           uint32_t size)
+{
+    const NetPacketOps *const p = ops->close->packet;
+    NetPacketHandle *const h = c->link;
+    if (h->open != 0) h->open = *ops->open_state;
+    c->connected = (int32_t)((uint32_t)c->connected + 1);
+    const uint8_t ack = header[3];
+    if (ack <= 0x7f) net_packet_ack(p, c, ack);
+    if (header[1] != 0 && header[2] <= 0x7f) {
+        receive_data(ops, c, queued, header, size);
+    } else if (header[2] <= 0x7f) {
+        net_packet_nak_got(p, c, header[2]);
+    } else if (header[2] == 0xff) {
+        if (*p->trace_level >= 2) p->trace(p->ctx, NET_CLOSE_MSG_TRACE, NULL, NULL, 0, 1, (uint8_t)c->id);
+        net_packet_conn_shutdown(ops->close, c);
+    }
+}
+
+uint32_t net_packet_receive(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t *queued, uint8_t *data,
+                            uint32_t length)
+{
+    uint32_t at = 0, used = 0;
+    if ((c->driver->flags & NET_DRIVER_SINGLE) == 0)
+        while (at < length && data[at] != 0xfe) at++;
+    uint8_t *const header = data + at;
+    if (*header != 0xfe) return length;
+    const uint32_t end = at + 4 + (uint32_t)c->sum_size;
+    if (end <= length) {
+        const uint32_t n = header[1];
+        if (n > c->max) {
+            at += n != 0xfe ? 2 : 1;
+        } else if (end + n <= length) {
+            const uint32_t size = end + n - at;
+            if (net_checksum_check(c, header, header + 4, size) == 0) {
+                at += 3;
+            } else {
+                at += size;
+                used = size;
+                receive_packet(ops, c, queued, header, size);
+            }
+        }
+    }
+    c->word_3c = (int32_t)((uint32_t)c->word_3c + (at > used));
+    return at;
 }
 
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)
