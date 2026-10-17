@@ -332,7 +332,7 @@ static void results(const TrackViewerResults *r, int32_t mode)
     const int32_t screen = ea_screen();
     const ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES, g.lost_vegas };
+                               CAR_NAMES, g.lost_vegas, g.variant_r };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;
     pointer_position(&x, &y);

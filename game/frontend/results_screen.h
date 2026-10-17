@@ -82,6 +82,7 @@ typedef struct ResultsInputs {
     int32_t screen_shape;       /* [00524834] + 0x2c */
     const char *const *car_names;  /* 004c5c84: RESULTS_CARS short names */
     int32_t lost_vegas;         /* 004baf18: 0045de08's, a ninth track counted */
+    int32_t variant_r;          /* 004fbadc: 0046067c's, the track's "r" layout */
 } ResultsInputs;
 
 typedef struct ResultsState {
