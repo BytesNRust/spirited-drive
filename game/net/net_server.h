@@ -119,4 +119,24 @@ typedef struct {
  *  - anything else: "BadMessage". */
 void net_serve(const NetServeOps *ops, NetRequest *r, uint8_t *address, int32_t message, uint8_t *data, int32_t size);
 
+enum { NET_RECEIVE_SIZE = 0x70 };
+
+typedef struct {
+    void *ctx;
+    const NetServeOps *serve;  /* 00478030's; its trace and 004c62b8 too */
+    /* the driver's +0x58 (eax handle, edx address, ebx &message, ecx data, the size on the stack): the size */
+    int32_t (*driver_receive)(void *ctx, uint32_t handle, uint8_t *address, int32_t *message, uint8_t *data,
+                              int32_t size);
+} NetReceiveOps;
+
+/* 00477f74 (watcall (session, request), from 00478c14): until a message
+ * word comes back 0: the word set to dat (0xea646174), 0048ec60 (bcopy) the
+ * session's +0x28 to an address (0x14 bytes on the stack), the driver's
+ * +0x58(+0x10, address, &message, a 0x70-byte buffer (kept from turn to
+ * turn), 0x70) the size; a word not 0: at 004c62b8 >= 5
+ * 0047f244("->NtwkRecv", &message, buffer, size, 0, 0), 00478030(request,
+ * address, message, buffer, size). The session's +8 and +0x10 read again
+ * each turn. */
+void net_receive(const NetReceiveOps *ops, NetSession *s, NetRequest *r);
+
 #endif

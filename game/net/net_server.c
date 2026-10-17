@@ -242,3 +242,17 @@ void net_serve(const NetServeOps *ops, NetRequest *r, uint8_t *address, int32_t 
     default: serve_trace(ops, 3, "BadMessage", &message, data, size); return;
     }
 }
+
+void net_receive(const NetReceiveOps *ops, NetSession *s, NetRequest *r)
+{
+    uint8_t address[NET_ADDRESS];
+    uint8_t data[NET_RECEIVE_SIZE];
+    for (;;) {
+        int32_t message = NET_DATA;
+        memcpy(address, s->self, NET_ADDRESS);
+        const int32_t size = ops->driver_receive(ops->ctx, s->handle, address, &message, data, NET_RECEIVE_SIZE);
+        if (message == 0) return;
+        serve_trace(ops->serve, 5, "->NtwkRecv", &message, data, size);
+        net_serve(ops->serve, r, address, message, data, size);
+    }
+}
