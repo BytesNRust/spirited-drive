@@ -17,7 +17,7 @@ static void glue_nothing(void *ctx) { (void)ctx; }
 static int32_t glue_config_load(void *ctx) { (void)ctx; return config_load(); }
 static void glue_title(void *ctx, int32_t state) { (void)ctx; glue_title_screen(state); }
 static int32_t glue_main_menu(void *ctx) { (void)ctx; return glue_game_mode(); }
-static int32_t glue_control_central(void *ctx) { (void)ctx; return control_central(); }
+static int32_t glue_control_central(void *ctx) { (void)ctx; return glue_central(); }
 static void glue_config_save(void *ctx) { (void)ctx; config_save(); }
 static void glue_intro(void *ctx) { (void)ctx; intro_sequence(); }
 

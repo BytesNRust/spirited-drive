@@ -28,5 +28,11 @@ extern MenuCheats menu_cheats;
 
 void glue_title_screen(int32_t state);  /* 004372e4 */
 int32_t glue_game_mode(void);           /* 004376ac: 0 race, 1 leave, 2 the intro again */
+int32_t glue_central(void);             /* 00432ff4 (central_glue.c): 2 the timer, else 0 */
+
+/* the boxes as ops (ctx unused) for the other screens' glue */
+int32_t glue_yes_no(void *ctx, const char *text);  /* 00465f4c */
+void glue_banner(void *ctx, const char *text);     /* 0046667c */
+void glue_drain(void *ctx);                        /* 004770ac */
 
 #endif

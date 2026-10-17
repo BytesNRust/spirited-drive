@@ -14,6 +14,8 @@ int32_t ea_picture_new(int32_t w, int32_t h);                 /* 0047310c: 0 whe
 void ea_picture_free(int32_t picture);                        /* 004746a0 */
 int32_t ea_picture_shape(int32_t picture);                    /* the picture's +0x2c: its shape */
 int32_t ea_screen(void);                                      /* 00524834: the screen's 640 x 480 picture */
+int32_t *ea_screen_slot(void);                                /* 00524834 itself, for a screen that frees it */
+void ea_free(int32_t handle);                                 /* 00475260: a bank or a picture */
 
 void ea_select(int32_t picture);                              /* 00473680: drawing goes to it */
 void ea_select_default(void);                                 /* 00473604: drawing goes to the back buffer */

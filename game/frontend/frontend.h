@@ -17,7 +17,6 @@ enum {
 int show_screen(const char *name, int mode, int music);
 
 int intro_sequence(void);      /* 00441abc */
-int control_central(void);    /* 00432ff4: 0 back to the menu, 2 back to the intro */
 void frontend_run(void);       /* 004373c4 */
 
 #endif

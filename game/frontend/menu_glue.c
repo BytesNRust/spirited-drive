@@ -208,3 +208,7 @@ int32_t glue_game_mode(void)
                               st.network_raced };
     return result;
 }
+
+int32_t glue_yes_no(void *ctx, const char *text) { return yes_no(ctx, text); }
+void glue_banner(void *ctx, const char *text) { banner(ctx, text); }
+void glue_drain(void *ctx) { drain(ctx); }

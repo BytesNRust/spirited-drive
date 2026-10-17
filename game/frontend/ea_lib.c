@@ -13,6 +13,8 @@
 #include <string.h>
 
 enum { BANKS = 32, PICTURES = 16, ENTRY_HEADER = 16, TYPE_BITMAP = 0x7b };
+/* pictures are numbered from here, banks from 1, so one free (00475260) can take either */
+enum { PICTURE_BASE = 0x80 };
 /* a picture's shape handle: this bit and its slot; real shapes are pointers into a bank */
 enum { PICTURE_SHAPE = 0x40000000 };
 
@@ -23,7 +25,10 @@ static int32_t screen;
 static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 
 static uint8_t *bank_of(int32_t bank) { return bank >= 1 && bank <= BANKS ? banks[bank - 1] : NULL; }
-static uint8_t *picture_of(int32_t picture) { return picture >= 1 && picture <= PICTURES ? pictures[picture - 1] : NULL; }
+static uint8_t *picture_of(int32_t picture)
+{
+    return picture > PICTURE_BASE && picture <= PICTURE_BASE + PICTURES ? pictures[picture - PICTURE_BASE - 1] : NULL;
+}
 
 int32_t ea_bank_load(const char *name)
 {
@@ -64,7 +69,7 @@ int32_t ea_picture_new(int32_t w, int32_t h)
         p[0] = TYPE_BITMAP;
         p[4] = (uint8_t)w, p[5] = (uint8_t)(w >> 8), p[6] = (uint8_t)h, p[7] = (uint8_t)(h >> 8);
         pictures[i] = p;
-        return i + 1;
+        return PICTURE_BASE + i + 1;
     }
     fprintf(stderr, "ea_picture_new: no room\n");
     return 0;
@@ -76,7 +81,13 @@ void ea_picture_free(int32_t picture)
     if (p == NULL) return;
     if (picture == screen) screen = 0;
     free(p);
-    pictures[picture - 1] = NULL;
+    pictures[picture - PICTURE_BASE - 1] = NULL;
+}
+
+void ea_free(int32_t handle)
+{
+    if (handle > PICTURE_BASE) ea_picture_free(handle);
+    else ea_bank_free(handle);
 }
 
 int32_t ea_picture_shape(int32_t picture)
@@ -86,8 +97,13 @@ int32_t ea_picture_shape(int32_t picture)
 
 int32_t ea_screen(void)
 {
+    return *ea_screen_slot();
+}
+
+int32_t *ea_screen_slot(void)
+{
     if (screen == 0) screen = ea_picture_new(VIDEO_WIDTH, VIDEO_HEIGHT);
-    return screen;
+    return &screen;
 }
 
 void ea_select(int32_t picture)
