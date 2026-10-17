@@ -86,7 +86,7 @@ static void handle_defaults(NetPacketHandle *h, NetPacketConn *c)
     if (h->word_4 == 0) h->word_4 = 1;
     if (h->ack_time == 0) h->ack_time = 10;
     if (h->resend_time == 0) h->resend_time = 25;
-    if (h->word_10 == 0) h->word_10 = 50;
+    if (h->data_time == 0) h->data_time = 50;
 }
 
 /* The template's words, then the words set on the block */
@@ -100,7 +100,7 @@ static void conn_fill(const NetOpenOps *ops, NetPacketConn *c, NetPacketHandle *
     c->driver = t->driver;
     ++*ops->next_id;
     c->mutex = mutex->create(mutex->ctx);
-    c->word_18 = 0, c->connected = 0, c->word_44 = 1, c->word_48 = 0;
+    c->word_18 = 0, c->connected = 0, c->send_seq = 1, c->acked_seq = 0;
     net_queue_init(mutex, &c->spare, NULL, 0);
     net_queue_init(mutex, &c->queue_68, net_packet_seq_key, (uintptr_t)c);
     c->word_84 = 1, c->next_seq = 1;

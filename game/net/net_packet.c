@@ -4,6 +4,15 @@
 #include <string.h>
 
 const char NET_ACK_TRACE[] = "ACKt";
+const char NET_RESEND_TRACE[] = "rsnd";
+const char NET_SENT_TRACE[] = "sent";
+const char NET_WRITE_FAIL_TRACE[] = "write failure";
+const char NET_BUSY_TRACE[] = "busy";
+const char NET_HOLD_TRACE[] = "hold";
+const char NET_NAK_TRACE[] = "NAKt";
+const char NET_ACK_NEW_TRACE[] = "ackr";
+const char NET_ACK_OLD_TRACE[] = "ack?";
+const char NET_NAK_GOT_TRACE[] = "nakr";
 const char NET_CLOSE_TRACE[] = "ClosePktConn";
 const char NET_CLOSE_NOT_OPEN[] = "closepacketconnection - DID NOT FIND ACTIVE PKTCONN IN CONN LIST.\n";
 const char NET_CLOSE_NOT_CLOSED[] = "closepacketconnection - DID NOT FIND PKTCONN IN CLOSED LIST.\n";
@@ -63,6 +72,82 @@ int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacket
     const int32_t sent = c->driver->send(c->driver->ctx, c->link, p->wire, length) == length;
     if (sent && kind <= 0x7f) p->sent = c->link->resend_time;
     return sent;
+}
+
+void net_packet_fill(const NetMutexOps *mutex, NetPacket *p, NetPacketConn *c, const uint8_t *data, uint32_t n)
+{
+    uint8_t *const out = p->wire + 4 + c->sum_size;
+    mutex->lock(mutex->ctx, c->mutex);
+    p->seq = c->send_seq++;
+    mutex->unlock(mutex->ctx, c->mutex);
+    p->sent = 0;
+    p->wire[0] = 0xfe, p->wire[1] = (uint8_t)n, p->wire[2] = (uint8_t)(p->seq & 0x7f);
+    memmove(out, data, n);
+}
+
+int32_t net_packet_send_data(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c)
+{
+    int32_t length = c->sum_size + p->wire[1] + 4;
+    NetPacketHandle *const h = c->link;
+    int32_t sent = 0;
+    if (c->driver->room(c->driver->ctx, h) < (uint32_t)length) {
+        const int32_t place = net_queue_place(ops->mutex, &c->queue_68, &p->node);
+        if (*ops->trace_level >= 3)
+            ops->trace(ops->ctx, place == -1 ? NET_BUSY_TRACE : NET_HOLD_TRACE, &p->seq, NULL, 0, 1, (uint8_t)c->id);
+    } else {
+        const uint8_t acked = net_packet_acked(ops, c);
+        length = c->sum_size + p->wire[1] + 4;
+        p->wire[3] = acked;
+        net_checksum_put(c->sum, p->wire, p->wire + 4, (uint32_t)length, c->sum_size);
+        if (c->driver->send(c->driver->ctx, h, p->wire, (uint32_t)length) == (uint32_t)length) {
+            if (*ops->trace_level >= 3)
+                ops->trace(ops->ctx, p->sent != 0 ? NET_RESEND_TRACE : NET_SENT_TRACE, &p->seq,
+                           p->wire + 4 + c->sum_size, p->wire[1], 0, (uint8_t)c->id);
+            sent = 1;
+        } else if (*ops->trace_level >= 1) {
+            ops->trace(ops->ctx, NET_WRITE_FAIL_TRACE, &length, p->wire, length, 1, (uint8_t)c->id);
+        }
+    }
+    p->sent = sent ? h->data_time : 1;
+    return sent;
+}
+
+int32_t net_packet_nak(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c)
+{
+    if (p == NULL) return 1;
+    const int32_t left = p->sent;
+    p->sent = (int32_t)((uint32_t)left - 1);
+    if (left > 0) return 1;
+    if (*ops->trace_level >= 3) ops->trace(ops->ctx, NET_NAK_TRACE, &p->seq, NULL, 0, 1, (uint8_t)c->id);
+    return net_packet_send_control(ops, c->control, c, (uint32_t)p->seq & 0x7f);
+}
+
+void net_packet_ack(const NetPacketOps *ops, NetPacketConn *c, uint8_t ack)
+{
+    const uint32_t acked = (uint32_t)c->acked_seq;
+    uint32_t k = (acked & ~0x7fu) | ack;
+    if (k < acked) k += 0x80;
+    int32_t seq = (int32_t)k;
+    const char *name = NET_ACK_OLD_TRACE;
+    if (k < (uint32_t)c->send_seq && k > (uint32_t)c->acked_seq) c->acked_seq = seq, name = NET_ACK_NEW_TRACE;
+    if (*ops->trace_level >= 3) ops->trace(ops->ctx, name, &seq, NULL, 0, 0, (uint8_t)c->id);
+    while ((uint32_t)net_queue_head_key(ops->mutex, &c->queue_68) <= (uint32_t)c->acked_seq) {
+        NetNode *const n = net_queue_pop_front(ops->mutex, &c->queue_68);
+        if (n == NULL) break;
+        net_queue_push_front(ops->mutex, &c->spare, n);
+    }
+}
+
+void net_packet_nak_got(const NetPacketOps *ops, NetPacketConn *c, uint8_t nak)
+{
+    const uint32_t head = (uint32_t)net_queue_head_key(ops->mutex, &c->queue_68);
+    uint32_t k = (head & ~0x7fu) | nak;
+    if (k < head) k += 0x80;
+    int32_t seq = (int32_t)k;
+    NetPacket *const p = (NetPacket *)net_queue_find_key(ops->mutex, &c->queue_68, k);
+    if (p == NULL) return;
+    if (*ops->trace_level >= 3) ops->trace(ops->ctx, NET_NAK_GOT_TRACE, &seq, NULL, 0, 1, (uint8_t)c->id);
+    p->sent = 0;
 }
 
 void net_wait_ticks(const NetWaitOps *ops, const int32_t *clock, int32_t ticks)

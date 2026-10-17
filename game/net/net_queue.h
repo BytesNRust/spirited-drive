@@ -119,6 +119,13 @@ typedef int32_t (*NetQueueTest)(NetNode *n, uintptr_t arg);
  * after the lock; each next read after the test) the test accepts, or NULL. */
 NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, uintptr_t arg);
 
+/* 0049cbb4 (cdecl (queue, key), from 0047a3bc): under the mutex (+0x18,
+ * read again for the unlock), from the head (read after the lock) the first
+ * node whose key (+0x10 (node, +0x14), both read again for each call) is
+ * not below key (32-bit unsigned); its key asked again: key itself that
+ * node, else NULL; NULL past the end. */
+NetNode *net_queue_find_key(const NetMutexOps *ops, NetQueue *q, uintptr_t key);
+
 /* 0049cdc4 (cdecl (queue, visit, arg), from 00478db4): under the mutex
  * (+0x18, read again each time) bit 0 of +4 kept aside and cleared; outside
  * it each node from the head (read after the unlock; each next read after

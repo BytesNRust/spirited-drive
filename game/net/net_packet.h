@@ -34,7 +34,7 @@ struct NetPacketHandle {
     int32_t word_4;        /* +4: 1 by default; a connection's +0x38 takes it */
     int32_t ack_time;      /* +8: 10 by default; a connection's +0x40 takes it */
     int32_t resend_time;   /* +0xc: 25 by default; a sent packet's +8 takes it */
-    int32_t word_10;       /* +0x10: 50 by default */
+    int32_t data_time;     /* +0x10: 50 by default; a sent data packet's +8 takes it (0047a068) */
     NetHandleHook poll;    /* +0x14: polled until the connection's +0x10 is set */
     NetHandleHook hook_18; /* +0x18 */
     NetHandleHook hook_1c; /* +0x1c */
@@ -94,8 +94,8 @@ struct NetPacketConn {
     int32_t word_38;          /* +0x38: the handle's +4 */
     int32_t word_3c;          /* +0x3c: never set (0047ac18's template; 0 here) */
     int32_t stamp;            /* +0x40: the handle's +8 (at the last sequence taken) */
-    int32_t word_44;          /* +0x44: 1 */
-    int32_t word_48;          /* +0x48: 0 */
+    int32_t send_seq;         /* +0x44: 1; the next data packet's sequence (00479ffc) */
+    int32_t acked_seq;        /* +0x48: 0; the last sequence the peer acknowledged (0047a308) */
     NetQueue spare;           /* +0x4c: the packets free, no key */
     NetQueue queue_68;        /* +0x68: keyed by 0047a800 */
     int32_t word_84;          /* +0x84: 1 */
@@ -109,11 +109,20 @@ typedef struct {
     void *ctx;
     const NetMutexOps *mutex;
     const int32_t *trace_level;  /* 004c62fc: the packet layer's */
-    void (*trace)(void *ctx, const char *name, const int32_t *data, uint32_t text, int32_t value, int32_t flagged,
-                  int32_t kind);  /* 0047f244 (cdecl): the trace ring */
+    void (*trace)(void *ctx, const char *name, const int32_t *data, const uint8_t *text, int32_t value,
+                  int32_t flagged, int32_t kind);  /* 0047f244 (cdecl): the trace ring */
 } NetPacketOps;
 
-extern const char NET_ACK_TRACE[];  /* 004b2b50 */
+extern const char NET_ACK_TRACE[];        /* 004b2b50 */
+extern const char NET_RESEND_TRACE[];     /* 004b2b58 */
+extern const char NET_SENT_TRACE[];       /* 004b2b60 */
+extern const char NET_WRITE_FAIL_TRACE[]; /* 004b2b68 */
+extern const char NET_BUSY_TRACE[];       /* 004b2b78 */
+extern const char NET_HOLD_TRACE[];       /* 004b2b80 */
+extern const char NET_NAK_TRACE[];        /* 004b2b88 */
+extern const char NET_ACK_NEW_TRACE[];    /* 004b2b90 */
+extern const char NET_ACK_OLD_TRACE[];    /* 004b2b98 */
+extern const char NET_NAK_GOT_TRACE[];    /* 004b2ba0 */
 
 /* 00479ed4 (watcall (sum, data, out, length, n), from 00479f1c, 0047a068 and
  * 0047a204): n 0 nothing; else out[0..n) zeroed (0048f158), then sum(data,
@@ -144,6 +153,46 @@ int32_t net_checksum_check(const NetPacketConn *c, const uint8_t *data, uint8_t 
  * and +8 read again); all sent: 1, and with kind (all 32 bits) at most 0x7f
  * packet +8 = the handle's (+8 read again) +0xc; else 0. */
 int32_t net_packet_send_control(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c, uint32_t kind);
+
+/* 00479ffc (watcall (packet, connection, data, n), from 0047b17c): a data
+ * packet laid out. Its data at +0x10 + the connection's +0x2c (read first);
+ * under the mutex (+0x14, read again for each) the sequence +0x44 taken to
+ * the packet's +4 and counted up; +8 = 0; the header 0xfe, n, the sequence
+ * & 0x7f (its +0xf left); then n bytes of data there (0048ec60). */
+void net_packet_fill(const NetMutexOps *mutex, NetPacket *p, NetPacketConn *c, const uint8_t *data, uint32_t n);
+
+/* 0047a068 (watcall (packet, connection), from 0047a50c and 0047b17c): a
+ * data packet sent. length = +0x2c + its n (+0xd) + 4, the handle (+8) kept;
+ * the driver's room (+4's +0xc (handle)) below length: 0049ca1c(+0x68, the
+ * packet), then at 004c62fc >= 3 0047f244(-1 "busy" else "hold", &+4, 0, 0,
+ * 1, +0xc). Else +0xf = 00479f94's; 00479ed4(+0xc4, +0xc, +0x10, length, +0x2c);
+ * the driver's send (+4 read again; +0x18 (handle, +0xc, length)) all of
+ * length: at >= 3 0047f244(+8 set "rsnd" else "sent", &+4, +0x10 + +0x2c, n,
+ * 0, +0xc), 1; short: at >= 1 0047f244("write failure", &length, +0xc,
+ * length, 1, +0xc). Sent: +8 = the handle's +0x10, else 1; sent returned. */
+int32_t net_packet_send_data(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c);
+
+/* 0047a2ac (watcall (packet, connection), from 0047a50c): a packet's wait
+ * counted down. No packet: 1. +8 - 1, the old +8 above 0 (signed): 1. Else
+ * at 004c62fc >= 3 0047f244("NAKt", &+4, 0, 0, 1, +0xc), and 0047a204(the
+ * connection's +0x1c, the connection, +4 & 0x7f) returned. */
+int32_t net_packet_nak(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c);
+
+/* 0047a308 (watcall (connection, ack: a byte), from 0047a50c): k = +0x48
+ * with its low 7 bits replaced by ack's 8 (an or), + 0x80 when below +0x48
+ * (32-bit unsigned compares throughout). k below +0x44 and above +0x48 (read
+ * again): +0x48 = k and at 004c62fc >= 3 0047f244("ackr", &k, 0, 0, 0,
+ * +0xc); else at >= 3 0047f244("ack?", ...). Then while the head key of
+ * +0x68 (0049caa0) is not above +0x48 (read after it): 0049c894(+0x68), NULL
+ * ends it, else 0049c804(+0x4c, it). */
+void net_packet_ack(const NetPacketOps *ops, NetPacketConn *c, uint8_t ack);
+
+/* 0047a3bc (watcall (connection, nak: a byte), from 0047a50c): h = the head
+ * key of +0x68 (0049caa0; -1 for none), k = h with its low 7 bits replaced
+ * by nak's 8 (an or), + 0x80 when below h (unsigned); the packet of key k on
+ * +0x68 (0049cbb4) found: at 004c62fc >= 3 0047f244("nakr", &k, 0, 0, 1,
+ * +0xc), its +8 = 0 (sent again at once). */
+void net_packet_nak_got(const NetPacketOps *ops, NetPacketConn *c, uint8_t nak);
 
 typedef struct {
     void *ctx;

@@ -137,6 +137,16 @@ NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, 
     return p;
 }
 
+NetNode *net_queue_find_key(const NetMutexOps *ops, NetQueue *q, uintptr_t key)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *p = q->head;
+    while (p != NULL && q->key(p, q->key_arg) < key) p = p->next;
+    if (p != NULL && q->key(p, q->key_arg) != key) p = NULL;
+    ops->unlock(ops->ctx, q->mutex);
+    return p;
+}
+
 int32_t net_queue_walk(const NetMutexOps *ops, NetQueue *q, const NetQueueVisit *visit, uintptr_t arg)
 {
     ops->lock(ops->ctx, q->mutex);
