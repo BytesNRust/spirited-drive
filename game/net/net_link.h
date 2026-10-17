@@ -30,4 +30,10 @@ typedef struct {
  * session's +0xa4 + 1, +0x3c = 1. +0x3c returned. */
 int32_t net_link_open(const NetLinkOps *ops, NetPacketHandle *h);
 
+/* 00479be4 (cdecl (handle), 004c62c8's +4): the session's driver handle
+ * (+0x10) and its open links (+0xa4) both set: under 004c62c4's mutex +0xa4
+ * - 1, the driver's +0x5c(+0x10, handle + 0x28, dat, 1), at 004c62b8 >= 3
+ * 0047f244("Flushed2"). +0x3c = 0; 1. */
+int32_t net_link_close(const NetLinkOps *ops, NetPacketHandle *h);
+
 #endif
