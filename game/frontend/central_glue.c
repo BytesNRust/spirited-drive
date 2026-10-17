@@ -23,7 +23,6 @@
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
 #include "game/viewer/track_viewer.h"
-#include "platform/platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,8 +176,18 @@ static int32_t no_cheat(void *ctx, int which) { (void)ctx, (void)which; return 0
 static int32_t not_down(void *ctx, int32_t scancode) { (void)ctx, (void)scancode; return 0; }
 static int32_t scancode(void *ctx, int32_t c) { (void)ctx; return c & 0xff; }
 
-/* 00427ae0: the race, as the build drives one (track_viewer_drive, its own window): the track's stem from 00426660's
- * table (an open road's first segment, the city's by 00524e83), the car's model by 00426fec, the race type's field */
+/* config.dat's short at 00524df0 + at */
+static int16_t image_short(int at)
+{
+    int16_t v;
+    memcpy(&v, config_current()->image + at, sizeof v);
+    return v;
+}
+
+/* 00427ae0: the race, as the build drives one (track_viewer_drive in the menus' window): the track's stem from
+ * 00426660's table (an open road's first segment, the city's by 00524e83), the car's model by 00426fec, the race
+ * type's field; the options from config.dat (track_viewer.h's TrackViewerMenus; Options' 0 is on, 1 off, 2 none).
+ * TODO(00427ae0, 004275f8): the difficulty (00524ea3) and the results screens after the race */
 static void race(void *ctx)
 {
     (void)ctx;
@@ -191,18 +200,16 @@ static void race(void *ctx)
     if (g.track < 3) snprintf(name, sizeof name, "%s%d", STEMS[g.track], g.track == 0 ? g.variant + 1 : 1);
     else snprintf(name, sizeof name, "%s", STEMS[g.track]);
     const int model = race_head_to_head_model(g.player_car);
-    const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
+    const RaceSettings s = settings_of();
+    config_dat_set_race(config_current(), &s);
+    const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
+                                     g.opponent, image_short(0x73), image_short(0x75), image_short(0x79),
+                                     image_short(0x71) };
     ea_select_default();
-    text_free(), pointer_free();  /* the drive loads its own (drive_menu_open) and frees them */
-    menu_audio_close();           /* the drive opens the device itself (drive_audio_open) */
-    platform_shutdown();
+    menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
+    track_viewer_drive_menus(&menus);
     if (!track_viewer_drive(resource_root(), name, model, 1, g.race_type, 0, NULL))
         fprintf(stderr, "control_central: the race on %s could not start\n", name);
-    /* the drive's pause menu (drive_menu_close) frees the fonts and the pointer it loaded over the menus' own */
-    if (!platform_init(&config) || !pointer_load(0) || !text_init()) {
-        fprintf(stderr, "control_central: the window, the pointer or the fonts could not be loaded again\n");
-        exit(1);
-    }
     menu_audio_open();
     menu_audio_bank_load();
 }

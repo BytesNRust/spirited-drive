@@ -17,4 +17,23 @@ enum { TRACK_VIEWER_RACERS = 8 };  /* the most cars a drive races (RACE_PLAYERS)
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
                        const char *screenshot);
 
+/* The front end's race (glue standing in for what 00427ae0 / 004275f8 take
+ * from config.dat): the player's gearbox and aids, the laps, the head to
+ * head opponent, the music and the volumes; the race runs in the menus'
+ * window (not made or closed here) and, once over, returns at once instead
+ * of waiting for Escape. Set before each track_viewer_drive from the menus;
+ * the next drive takes it once. */
+typedef struct {
+    int automatic;      /* 00524e87 0 */
+    int anti_lock;      /* 00524e89 1 */
+    int traction;       /* 00524e7f 1 */
+    int laps;           /* 00524ea1, 0 the drive's 2 */
+    int opponent;       /* 00524e81: the head to head rival's car */
+    int music;          /* 00524e63: the music setting, 0 none */
+    int music_volume;   /* the short 00524e65 */
+    int sound_volume;   /* the short 00524e69 */
+    int sound_mode;     /* the short 00524e61 */
+} TrackViewerMenus;
+void track_viewer_drive_menus(const TrackViewerMenus *menus);
+
 #endif
