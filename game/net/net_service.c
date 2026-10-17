@@ -74,3 +74,20 @@ int32_t net_new_game(const NetNewGameOps *ops, const NetCheck *c, NetSession *s,
     s->server = NULL;
     return 0;
 }
+
+int32_t net_shut_game(const NetShutGameOps *ops, const NetCheck *c, NetSession *s, int32_t release)
+{
+    net_check(ops->check, c, "shutnetgame");
+    if (s->tcp != 0) return ops->tcp_shut(ops->ctx, s, release);
+    if (s->server == NULL) return 0;
+    if (s->server->word_8 == 0) {
+        ops->driver_leave(ops->ctx, s->handle, s->server->game);
+        s->server->game[0] = 0;
+        s->server->word_8 = 1;
+    }
+    if (release != 0) {
+        ops->release(ops->ctx, s->server);
+        s->server = NULL;
+    }
+    return 1;
+}

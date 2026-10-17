@@ -66,4 +66,19 @@ typedef struct {
 int32_t net_new_game(const NetNewGameOps *ops, const NetCheck *c, NetSession *s, uint8_t *params,
                      const char *password, int32_t arg);
 
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    int32_t (*tcp_shut)(void *ctx, NetSession *s, int32_t release);   /* 0052ce08 (cdecl) */
+    void (*driver_leave)(void *ctx, uint32_t handle, uint8_t *game);  /* the driver's +0x30 (eax, edx) */
+    void (*release)(void *ctx, NetServer *v);                         /* 00475260 (cdecl) */
+} NetShutGameOps;
+
+/* 004794b4 shutnetgame (cdecl (session, release), from 00442970):
+ * 00478e18("shutnetgame" 004b2a28); +4 set: 0052ce08(session, release)
+ * returned. No server (+0xc): 0. Its +8 0: the driver's +0x30(+0x10, server
+ * + 0xc), then (+0xc read again) its +0xc byte 0 and +8 1. Release not 0:
+ * 00475260(server), +0xc 0. 1. */
+int32_t net_shut_game(const NetShutGameOps *ops, const NetCheck *c, NetSession *s, int32_t release);
+
 #endif
