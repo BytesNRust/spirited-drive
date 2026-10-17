@@ -49,3 +49,196 @@ uint32_t net_add_player(const NetAddPlayerOps *ops, NetServer *v, const uint8_t 
     ops->message(ops->ctx, NET_ADD_NO_SLOT);
     return 0;
 }
+
+static uint32_t net_big(const uint8_t *b) { return (uint32_t)b[0] << 24 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 8 | b[3]; }
+
+static void serve_trace(const NetServeOps *ops, int32_t level, const char *name, const int32_t *message, uint8_t *out,
+                        int32_t size)
+{
+    if (*ops->trace_level >= level) ops->trace(ops->ctx, name, message, out, size);
+}
+
+static int32_t serve_from_server(const NetServeOps *ops, NetSession *s, const uint8_t *address)
+{
+    return net_address_equal(ops->equal, s, address, s->address);
+}
+
+static void serve_game(const NetServeOps *ops, NetRequest *r, NetSession *s, uint8_t *address, const int32_t *message,
+                       uint8_t *data, int32_t size)
+{
+    const uint32_t id = net_big(data);
+    int32_t ours = id == 0 && r->id == 0 && r->games != NULL;
+    if (ours == 0)
+        ours = r->games == NULL && r->id != 0 && id == (uint32_t)r->id && serve_from_server(ops, s, address) != 0;
+    if (ours == 0) return;
+    if (s->word_9c != 0 && r->games == NULL) s->word_9c = *ops->stamp;
+    uint8_t info[0x44];
+    for (int i = 0; i < 5; i++) net_put_little(info + 0x30 + 4 * i, net_big(data + 0x38 + 4 * i), 4);
+    strncpy((char *)info, (const char *)data + 8, 0x20);
+    strncpy((char *)info + 0x20, (const char *)data + 0x28, 0x10);
+    r->players = net_big(data + 4);
+    r->answered = 1;
+    serve_trace(ops, 3, "->GameInfo", message, data, size);
+    if (r->games == NULL) return;
+    if (r->games->fn(r->games->ctx, s, info, net_bit_count(net_word(data + 4)), address) == 0) r->games = NULL;
+}
+
+static void serve_player(const NetServeOps *ops, NetSession *s, uint8_t *address, const uint8_t *data)
+{
+    if (s->server == NULL) return;
+    int32_t message = NET_PLAYER_INFO;
+    int32_t size = 8 + NET_PLAYER_SEEN;
+    uint8_t out[8 + NET_PLAYER_SEEN];
+    memcpy(out, data, 8);
+    const uint32_t id = net_big(data + 4);
+    if (id == 0xffffffffu) {
+        memcpy(out + 8, s->self, NET_PLAYER_SEEN);
+    } else if ((s->server->players >> (id & 31) & 1) != 0) {
+        memcpy(out + 8, s->server->entries + id * NET_PLAYER_SIZE, NET_PLAYER_SEEN);
+    } else {
+        message = NET_BAD_PLAYER;
+        size = 8;
+    }
+    serve_trace(ops, 3, "PlyrInfo->", &message, out, size);
+    ops->driver_send(ops->ctx, s->handle, address, message, out, size);
+}
+
+static void serve_player_answer(const NetServeOps *ops, NetRequest *r, NetSession *s, const uint8_t *address,
+                                const int32_t *message, uint8_t *data, int32_t size)
+{
+    if (serve_from_server(ops, s, address) == 0) {
+        serve_trace(ops, 3, "BadRspAddr", message, data, size);
+        return;
+    }
+    if (s->word_9c != 0) s->word_9c = *ops->stamp;
+    if (r->callback == NULL || net_big(data) != (uint32_t)r->id) {
+        serve_trace(ops, 3, "BadPlyrReq", message, data, size);
+        return;
+    }
+    serve_trace(ops, 3, "->PlyrInfo", message, data, size);
+    if (*message == NET_PLAYER_INFO &&
+        r->callback->fn(r->callback->ctx, r->session, data + 8, net_big(data + 4) == 0xffffffffu) == 0)
+        r->callback = NULL;
+    r->id = 0;
+    r->answered = 1;
+}
+
+static void serve_response(const NetServeOps *ops, NetRequest *r, NetSession *s, const uint8_t *address,
+                           const int32_t *message, uint8_t *data, int32_t size)
+{
+    if (serve_from_server(ops, s, address) == 0) {
+        serve_trace(ops, 3, "BadSrvAddr", message, data, size);
+        return;
+    }
+    if (net_big(data) != (uint32_t)r->id) {
+        serve_trace(ops, 3, "BadSrvResp", message, data, size);
+        return;
+    }
+    serve_trace(ops, 3, "->Response", message, data, size);
+    r->answered = (int32_t)net_big(data + 4);
+    r->id = 0;
+    if (r->answered != 1) return;
+    s->joined = *ops->now;
+    s->word_9c = *ops->stamp;
+}
+
+/* The add's answer when the address is not a player yet: its name in the trace */
+static const char *serve_join(const NetServeOps *ops, NetSession *s, const uint8_t *address, uint8_t *data, uint8_t *out)
+{
+    if ((uint32_t)net_bit_count(s->server->players) >= net_word(s->server->params + 0x40)) {
+        net_put_big(out + 4, (uint32_t)-2, 4);
+        return "GameFull->";
+    }
+    if (s->server->password[0] != 0 && strncmp(s->server->password, (const char *)data + 4, NET_PASSWORD) != 0) {
+        net_put_big(out + 4, (uint32_t)-1, 4);
+        return "BadPsswd->";
+    }
+    memcpy(data + 0x14, address, NET_ADDRESS);
+    if (s->word_a8 != 0 && ops->accept(ops->ctx, s->word_a8, s, data + 0x14) == 0) {
+        net_put_big(out + 4, (uint32_t)-3, 4);
+        return "DenyJoin->";
+    }
+    net_put_big(out + 4, 1, 4);
+    net_put_big(out + 8, net_add_player(ops->add, s->server, data + 0x14), 4);
+    return "AddPlayr->";
+}
+
+static void serve_add(const NetServeOps *ops, NetSession *s, uint8_t *address, uint8_t *data)
+{
+    if (s->server == NULL || s->server->word_8 != 0) return;
+    const uint8_t *const e = net_find_player(ops->equal, s->server, address, ops->now);
+    int32_t message = NET_RESPONSE;
+    uint8_t out[NET_ADD_ANSWER] = { 0 };
+    memcpy(out, data, 4);
+    if (e != NULL) {
+        net_put_big(out + 4, 1, 4);
+        net_put_big(out + 8, (uint32_t)((e - s->server->entries) / NET_PLAYER_SIZE), 4);
+        serve_trace(ops, 4, "OldPlayr->", &message, out, NET_ADD_ANSWER);
+    } else {
+        const char *const name = serve_join(ops, s, address, data, out);
+        serve_trace(ops, 3, name, &message, out, NET_ADD_ANSWER);
+    }
+    if (ops->driver_send(ops->ctx, s->handle, address, message, out, NET_ADD_ANSWER) == 0)
+        serve_trace(ops, 3, "SrvFailRsp", &message, out, NET_ADD_ANSWER);
+}
+
+static void serve_ack(const NetServeOps *ops, NetSession *s, uint8_t *address, const int32_t *message)
+{
+    if (s->server != NULL) {
+        const uint8_t *const e = net_find_player(ops->equal, s->server, address, ops->now);
+        if (e != NULL && *ops->trace_level >= 4) {
+            int32_t slot;
+            memcpy(&slot, e + NET_PLAYER_SEEN + 4, 4);
+            ops->trace(ops->ctx, "ClientAlive!", &slot, NULL, 0);
+        }
+        return;
+    }
+    if (s->joined == 0 || s->word_9c == 0 || serve_from_server(ops, s, address) == 0) return;
+    s->joined = *ops->now;
+    ops->driver_send(ops->ctx, s->handle, s->address, NET_ACK, NULL, 0);
+    serve_trace(ops, 4, "ClientPulse!", message, NULL, 0);
+}
+
+static void serve_leave(const NetServeOps *ops, NetSession *s, uint8_t *address, const int32_t *message, uint8_t *data,
+                        int32_t size)
+{
+    serve_trace(ops, 2, "->Leave", message, data, size);
+    if (s->server == NULL) {
+        s->joined = 0;
+        s->word_9c = 0;
+        return;
+    }
+    uint8_t *const e = net_find_player(ops->equal, s->server, address, ops->now);
+    if (e == NULL) return;
+    const int32_t slot = (int32_t)((e - s->server->entries) / NET_PLAYER_SIZE);
+    s->server->players &= ~(1u << (slot & 31));
+    net_put_little(e + NET_PLAYER_SEEN, 0, 4);
+}
+
+void net_serve(const NetServeOps *ops, NetRequest *r, uint8_t *address, int32_t message, uint8_t *data, int32_t size)
+{
+    NetSession *const s = r->session;
+    switch (message) {
+    case NET_GAME_INFO: serve_game(ops, r, s, address, &message, data, size); return;
+    case NET_PLAYER_GET: serve_player(ops, s, address, data); return;
+    case NET_PLAYER_INFO:
+    case NET_BAD_PLAYER: serve_player_answer(ops, r, s, address, &message, data, size); return;
+    case NET_RESPONSE: serve_response(ops, r, s, address, &message, data, size); return;
+    case NET_PLAYERS_ASK:
+        if (s != NULL && s->server != NULL) net_game_info(ops->info, s->server, address, net_big(data));
+        return;
+    case NET_SERVER_ASK:
+        if (s != NULL && s->server != NULL && strncmp((const char *)s->server->game, (const char *)data, 0x20) == 0)
+            net_game_info(ops->info, s->server, address, 0);
+        return;
+    case NET_SET_GAME: serve_add(ops, s, address, data); return;
+    case NET_ACK: serve_ack(ops, s, address, &message); return;
+    case NET_DATA:
+        if (s->server != NULL) net_find_player(ops->equal, s->server, address, ops->now);
+        else if (serve_from_server(ops, s, address) != 0 && s->word_9c != 0) s->word_9c = *ops->stamp;
+        return;
+    case NET_BYE:
+    case NET_KILL: serve_leave(ops, s, address, &message, data, size); return;
+    default: serve_trace(ops, 3, "BadMessage", &message, data, size); return;
+    }
+}

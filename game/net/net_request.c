@@ -92,8 +92,8 @@ int32_t net_get_players(const NetPlayersOps *ops, const NetCheck *c, NetSession 
     return count;
 }
 
-int32_t net_get_games(const NetGamesOps *ops, const NetCheck *c, NetSession *s, const void *callback,
-                      int32_t timeout)
+int32_t net_get_games(const NetGamesOps *ops, const NetCheck *c, NetSession *s,
+                      const NetGamesCallback *callback, int32_t timeout)
 {
     net_check(ops->check, c, "getnetgames");
     if (s->tcp != 0) return ops->tcp_games(ops->ctx, s, callback, timeout);
