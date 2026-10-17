@@ -324,6 +324,14 @@ int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_
  * else 0047a82c(its +0x20, 0). */
 int32_t net_packet_service_handle(const NetPacketRecvOps *ops, NetPacketHandle *h);
 
+extern const char NET_DUMP_FORMAT[];  /* 004b2f70 */
+
+/* 0047b5f0 (cdecl (handle, which, out), no direct callers): a debug dump.
+ * No handle or its +0 0: nothing. The connection's (+0x20) queue by which
+ * (0 +0x68, 1 +0x8c, 2 +0xa8, else none): from its head each node's +4 by
+ * 00473d43("%08x\n") into 16 bytes, appended to out. */
+void net_packet_dump(const NetPacketHandle *h, uint32_t which, char *out);
+
 extern const char NET_SEND_TOO_BIG[];     /* 004b2de0 */
 extern const char NET_SEND_TOO_MANY[];    /* 004b2e14 */
 extern const char NET_NO_BUFFERS_TRACE[]; /* 004b2e50 */

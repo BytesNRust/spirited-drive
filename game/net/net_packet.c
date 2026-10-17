@@ -1,6 +1,7 @@
 /* The network transport's packet layer (net_packet.h) */
 #include "game/net/net_packet.h"
 
+#include <stdio.h>
 #include <string.h>
 
 const char NET_ACK_TRACE[] = "ACKt";
@@ -27,6 +28,7 @@ const char NET_RECV_TRACE[] = "recv";
 const char NET_DENY_TRACE[] = "deny";
 const char NET_GARBAGE_TRACE[] = "grbg";
 const char NET_BAD_SEQ_TRACE[] = "bad#";
+const char NET_DUMP_FORMAT[] = "%08x\n";
 const char NET_SEND_TOO_BIG[] = "sendpacket -- too much data to fit in one packet.";
 const char NET_SEND_TOO_MANY[] = "sendpacket -- sorry, too many packets have been sent.  WOW.";
 const char NET_NO_BUFFERS_TRACE[] = "nobuffers";
@@ -374,6 +376,19 @@ int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_
     }
     c->busy = 0;
     return 1;
+}
+
+void net_packet_dump(const NetPacketHandle *h, uint32_t which, char *out)
+{
+    if (h == NULL || h->open == 0) return;
+    const NetPacketConn *const c = h->conn;
+    const NetQueue *const q = which == 0 ? &c->queue_68 : which == 1 ? &c->incoming : which == 2 ? &c->queue_a8 : NULL;
+    if (q == NULL) return;
+    for (const NetNode *n = q->head; n != NULL; n = n->next) {
+        char text[16];
+        snprintf(text, sizeof text, NET_DUMP_FORMAT, (uint32_t)((const NetPacket *)n)->seq);
+        strcat(out, text);
+    }
 }
 
 int32_t net_packet_service_handle(const NetPacketRecvOps *ops, NetPacketHandle *h)
