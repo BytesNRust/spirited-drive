@@ -99,6 +99,7 @@ add_library(tnfs_game STATIC
     game/frontend/best_totals_screen.c
     game/frontend/track_results.c
     game/frontend/lap_times.c
+    game/frontend/circuit_results.c
     game/frontend/save_box.c
     game/frontend/screen_clear.c
     game/frontend/screen_show.c

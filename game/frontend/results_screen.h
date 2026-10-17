@@ -62,6 +62,9 @@ typedef struct ResultsOps {
     int32_t (*top_record)(void *ctx);                          /* 0045c2d0: 1 when beaten (ax) */
     int32_t (*leads)(void *ctx);                               /* 0045b73c: the player leads the tournament */
     void (*best_totals)(void *ctx, int32_t row, int32_t top);  /* 0045c45c: eax, edx */
+    int32_t (*lap_record)(void *ctx);                          /* 0045b908: 0045eff4's, 1 when beaten (ax) */
+    void (*results_order)(void *ctx);                          /* 0045b6c8: the finishers (finish) by total */
+    int32_t (*lap_times)(void *ctx, int32_t record, int32_t tune);  /* 0046067c: eax, edx; ax */
     void *ctx;
 } ResultsOps;
 
@@ -83,6 +86,9 @@ typedef struct ResultsInputs {
     const char *const *car_names;  /* 004c5c84: RESULTS_CARS short names */
     int32_t lost_vegas;         /* 004baf18: 0045de08's, a ninth track counted */
     int32_t variant_r;          /* 004fbadc: 0046067c's, the track's "r" layout */
+    int circuit_place;          /* the short 0051dcc4: 0045eff4's player's place, from 0 */
+    int circuit_rival_place;    /* the short 0051dcbe: 0045eff4's rival's */
+    const int32_t *finish;      /* 0051dccc: 8 dwords, the players by total (results_order fills it) */
 } ResultsInputs;
 
 typedef struct ResultsState {
