@@ -13,6 +13,14 @@ void stat_speed_text(char out[STAT_TEXT], int german, int32_t speed)
     else snprintf(out, STAT_TEXT, "%d.%dmph", whole * 224 / 100 + 1, tenths);
 }
 
+/* 0045b778 */
+void stat_speed_number_text(char out[STAT_TEXT], int32_t speed)
+{
+    enum { SLOWEST = 0x9fff6 };
+    if (speed <= SLOWEST) snprintf(out, STAT_TEXT, "N/A");
+    else snprintf(out, STAT_TEXT, "%d.%d", (speed >> 16) * 224 / 100 + 1, (int32_t)(((uint32_t)speed & 0xffff) * 10 >> 16));
+}
+
 /* 00466d5c */
 void stat_time_text(char out[STAT_TEXT], int32_t ticks)
 {

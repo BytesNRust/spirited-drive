@@ -15,6 +15,10 @@ enum {
  * fraction. */
 void stat_speed_text(char out[STAT_TEXT], int german, int32_t speed);
 
+/* 0045b778: a 16.16 speed as 00466c9c's English one without the unit
+ * ("%d.%d"), in either language. */
+void stat_speed_number_text(char out[STAT_TEXT], int32_t speed);
+
 /* 00466d5c: a time in ticks of 1/60 s as "%d:%02d.%d" (minutes, seconds,
  * tenths) from a minute on, "%d.%d" (seconds, tenths) under it, and "N/A"
  * when it is 0 or less, or 99999 or 999999 (no time). */
