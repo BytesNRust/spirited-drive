@@ -320,6 +320,19 @@ extern const char NET_BAD_SEQ_TRACE[];      /* 004b2c1c */
  * +0x40 - 1, the old at most 0: 0047a204(+0x1c, it, 0xfb). +0x18 = 0, 1. */
 int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t tick);
 
+extern const char NET_SEND_TOO_BIG[];     /* 004b2de0 */
+extern const char NET_SEND_TOO_MANY[];    /* 004b2e14 */
+extern const char NET_NO_BUFFERS_TRACE[]; /* 004b2e50 */
+
+/* 0047b17c sendpacket (cdecl (handle, data, n), from 00445e00): no handle
+ * or its +0 0: 0. The connection (+0x20): 0049c894(+0x4c) a spare packet;
+ * n above +0x30 (unsigned) 00477a40(004b2de0) and on. A packet: 00479ffc
+ * (it, the connection, data, n), 0047a068, 0049c954(+0x68); +0x44 then 0
+ * 00477a40(004b2e14); 1. None: at 004c62fc >= 2 "nobuffers" (0, data, n,
+ * 1, +0xc); 0. */
+int32_t net_packet_write(const NetPacketOps *ops, const NetQueueMessage *message, NetPacketHandle *h,
+                         const uint8_t *data, uint32_t n);
+
 typedef struct {
     void *ctx;
     const NetCloseOps *close;

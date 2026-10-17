@@ -27,6 +27,9 @@ const char NET_RECV_TRACE[] = "recv";
 const char NET_DENY_TRACE[] = "deny";
 const char NET_GARBAGE_TRACE[] = "grbg";
 const char NET_BAD_SEQ_TRACE[] = "bad#";
+const char NET_SEND_TOO_BIG[] = "sendpacket -- too much data to fit in one packet.";
+const char NET_SEND_TOO_MANY[] = "sendpacket -- sorry, too many packets have been sent.  WOW.";
+const char NET_NO_BUFFERS_TRACE[] = "nobuffers";
 
 uint32_t net_crc16(const uint8_t *data, uint32_t length)
 {
@@ -370,6 +373,24 @@ int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_
         }
     }
     c->busy = 0;
+    return 1;
+}
+
+int32_t net_packet_write(const NetPacketOps *ops, const NetQueueMessage *message, NetPacketHandle *h,
+                         const uint8_t *data, uint32_t n)
+{
+    if (h == NULL || h->open == 0) return 0;
+    NetPacketConn *const c = h->conn;
+    NetPacket *const p = (NetPacket *)net_queue_pop_front(ops->mutex, &c->spare);
+    if (n > c->max) message->fn(message->ctx, NET_SEND_TOO_BIG);
+    if (p == NULL) {
+        if (*ops->trace_level >= 2) ops->trace(ops->ctx, NET_NO_BUFFERS_TRACE, NULL, data, (int32_t)n, 1, (uint8_t)c->id);
+        return 0;
+    }
+    net_packet_fill(ops->mutex, p, c, data, n);
+    net_packet_send_data(ops, p, c);
+    net_queue_insert(ops->mutex, &c->queue_68, &p->node);
+    if (c->send_seq == 0) message->fn(message->ctx, NET_SEND_TOO_MANY);
     return 1;
 }
 
