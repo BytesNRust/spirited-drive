@@ -149,6 +149,14 @@ extern const char NET_QUEUE_FETCH_TEST_LOST[];  /* 004b5e68 */
 NetNode *net_queue_fetch_test(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, NetQueueTest test,
                               uintptr_t arg);
 
+extern const char NET_QUEUE_FETCH_INDEX_LOST[];  /* 004b5e9c */
+
+/* 0049cc74 qfetchindex (cdecl (queue, n), no direct callers): 0049cb60's
+ * walk under the mutex (+0x18, read again for the unlock); the node n
+ * places from the head taken out (0049c714): it; 0049c714 failing
+ * 00477a40(004b5e9c) and NULL; past the end (or no head) NULL. */
+NetNode *net_queue_fetch_index(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, uint32_t n);
+
 /* 0049cdc4 (cdecl (queue, visit, arg), from 00478db4): under the mutex
  * (+0x18, read again each time) bit 0 of +4 kept aside and cleared; outside
  * it each node from the head (read after the unlock; each next read after
