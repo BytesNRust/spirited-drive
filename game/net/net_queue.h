@@ -119,6 +119,14 @@ typedef int32_t (*NetQueueTest)(NetNode *n, uintptr_t arg);
  * after the lock; each next read after the test) the test accepts, or NULL. */
 NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, uintptr_t arg);
 
+/* 0049cdc4 (cdecl (queue, visit, arg), from 00478db4): under the mutex
+ * (+0x18, read again each time) bit 0 of +4 kept aside and cleared; outside
+ * it each node from the head (read after the unlock; each next read after
+ * the visit) visited while bit 0 stays clear, a visit answering 0 setting
+ * it; under the mutex again: the bit still clear (the walk ran to its end)
+ * -1, else the nodes visited; the kept bit set again. */
+int32_t net_queue_walk(const NetMutexOps *ops, NetQueue *q, NetQueueTest visit, uintptr_t arg);
+
 /* 0049cb60 (cdecl (queue, n), no direct callers): under the mutex (+0x18,
  * read again for the unlock), the node n places from the head (read after
  * the lock), or NULL past the end. */
