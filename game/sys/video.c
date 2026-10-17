@@ -9,6 +9,8 @@
 enum { TRANSPARENT = 0xFF };
 
 static uint8_t *back;
+static uint8_t *target;  /* where drawing goes: back, or a picture (00473680) */
+static int target_w = VIDEO_WIDTH, target_h = VIDEO_HEIGHT;
 static uint8_t *front;
 static uint8_t *composed;
 static uint8_t palette[PALETTE_BYTES];  /* 0052ced8 / 0052f178 */
@@ -75,6 +77,24 @@ uint8_t *video_back_buffer(void)
     return back;
 }
 
+static uint8_t *drawn(void)
+{
+    return target != NULL ? target : back;
+}
+
+void video_select_target(uint8_t *pixels, int w, int h)
+{
+    target = pixels != NULL ? pixels : back;
+    target_w = pixels != NULL ? w : VIDEO_WIDTH;
+    target_h = pixels != NULL ? h : VIDEO_HEIGHT;
+}
+
+uint8_t *video_target(int *w, int *h)
+{
+    *w = target_w, *h = target_h;
+    return drawn();
+}
+
 void video_clear_back(void)
 {
     memset(back, 0, VIDEO_WIDTH * VIDEO_HEIGHT);
@@ -125,13 +145,15 @@ void video_fade_out(int first, int count)
 
 static void blit(const FshEntry *shape, int x, int y, int transparent)
 {
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
     for (int row = 0; row < shape->height; row++) {
         const int dy = y + row;
-        if (dy < 0 || dy >= VIDEO_HEIGHT) continue;
+        if (dy < 0 || dy >= th) continue;
         for (int col = 0; col < shape->width; col++) {
             const int dx = x + col;
             const uint8_t p = shape->payload[(size_t)row * shape->width + col];
-            if (dx >= 0 && dx < VIDEO_WIDTH && !(transparent && p == 0xFF)) back[dy * VIDEO_WIDTH + dx] = p;
+            if (dx >= 0 && dx < tw && !(transparent && p == 0xFF)) to[dy * tw + dx] = p;
         }
     }
 }
@@ -156,7 +178,7 @@ void video_copy_front_to_back(void)
     memcpy(back, front, VIDEO_WIDTH * VIDEO_HEIGHT);
 }
 
-/* Clips a block to the screen; returns 0 when nothing is left. */
+/* Clips a block to the target; returns 0 when nothing is left. */
 static int clip(int *x, int *y, int *w, int *h, int *skip_x, int *skip_y)
 {
     *skip_x = *x < 0 ? -*x : 0;
@@ -165,8 +187,8 @@ static int clip(int *x, int *y, int *w, int *h, int *skip_x, int *skip_y)
     *y += *skip_y;
     *w -= *skip_x;
     *h -= *skip_y;
-    if (*x + *w > VIDEO_WIDTH) *w = VIDEO_WIDTH - *x;
-    if (*y + *h > VIDEO_HEIGHT) *h = VIDEO_HEIGHT - *y;
+    if (*x + *w > target_w) *w = target_w - *x;
+    if (*y + *h > target_h) *h = target_h - *y;
     return *w > 0 && *h > 0;
 }
 
@@ -175,7 +197,7 @@ void video_read_rect(int x, int y, int w, int h, uint8_t *out)
     const int stride = w;
     int sx, sy;
     if (!clip(&x, &y, &w, &h, &sx, &sy)) return;
-    for (int row = 0; row < h; row++) memcpy(out + (size_t)(row + sy) * stride + sx, back + (y + row) * VIDEO_WIDTH + x, (size_t)w);
+    for (int row = 0; row < h; row++) memcpy(out + (size_t)(row + sy) * stride + sx, drawn() + (y + row) * target_w + x, (size_t)w);
 }
 
 void video_write_rect(int x, int y, int w, int h, const uint8_t *in)
@@ -183,7 +205,7 @@ void video_write_rect(int x, int y, int w, int h, const uint8_t *in)
     const int stride = w;
     int sx, sy;
     if (!clip(&x, &y, &w, &h, &sx, &sy)) return;
-    for (int row = 0; row < h; row++) memcpy(back + (y + row) * VIDEO_WIDTH + x, in + (size_t)(row + sy) * stride + sx, (size_t)w);
+    for (int row = 0; row < h; row++) memcpy(drawn() + (y + row) * target_w + x, in + (size_t)(row + sy) * stride + sx, (size_t)w);
 }
 
 void video_shade_rect(int x, int y, int w, int h, const uint8_t table[256])
@@ -191,14 +213,14 @@ void video_shade_rect(int x, int y, int w, int h, const uint8_t table[256])
     int sx, sy;
     if (!clip(&x, &y, &w, &h, &sx, &sy)) return;
     for (int row = 0; row < h; row++) {
-        uint8_t *p = back + (y + row) * VIDEO_WIDTH + x;
+        uint8_t *p = drawn() + (y + row) * target_w + x;
         for (int col = 0; col < w; col++) p[col] = table[p[col]];
     }
 }
 
 static void plot(int x, int y, uint8_t color)
 {
-    if (x >= 0 && x < VIDEO_WIDTH && y >= 0 && y < VIDEO_HEIGHT) back[y * VIDEO_WIDTH + x] = color;
+    if (x >= 0 && x < target_w && y >= 0 && y < target_h) drawn()[y * target_w + x] = color;
 }
 
 void video_frame_rect(int x0, int y0, int x1, int y1, uint8_t color)

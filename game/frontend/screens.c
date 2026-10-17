@@ -70,17 +70,6 @@ int show_screen(const char *name, int mode, int music)
     return skipped;
 }
 
-void title_screen(int state)
-{
-    timer_set_deadline(WAIT_TICKS);
-    show_screen("title.qfs", state == 3 ? SCREEN_INSTANT : SCREEN_HOLD, 1);
-    /* TODO(network): "Connection Terminated" message when a net game dropped. */
-    while (!timer_deadline_passed() && input_get_key() == KEY_NONE) {
-        /* TODO(0046417c): service streamed music; TODO: joystick buttons. */
-    }
-    video_fade_out(0, PALETTE_COLORS);
-}
-
 int intro_sequence(void)
 {
     video_clear_back();

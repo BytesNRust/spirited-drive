@@ -79,14 +79,15 @@ int text_line_height(void)
 
 static void draw_glyph(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ramp[16])
 {
-    uint8_t *back = video_back_buffer();
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
     for (int y = 0; y < g->height; y++) {
         const int dy = pen_y + g->y_offset + y;
-        if (dy < 0 || dy >= VIDEO_HEIGHT) continue;
+        if (dy < 0 || dy >= th) continue;
         for (int x = 0; x < g->width; x++) {
             const int dx = pen_x + g->x_offset + x;
             const int level = ffn_glyph_level(&font, g, x, y);
-            if (level != 0 && dx >= 0 && dx < VIDEO_WIDTH) back[dy * VIDEO_WIDTH + dx] = ramp[level];
+            if (level != 0 && dx >= 0 && dx < tw) to[dy * tw + dx] = ramp[level];
         }
     }
 }

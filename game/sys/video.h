@@ -14,6 +14,10 @@ int video_init(void);
 void video_shutdown(void);
 
 uint8_t *video_back_buffer(void);
+/* Where drawing (the blits, the rects, the text) goes: a w x h block of pixels, NULL for the back buffer (the
+ * default). The front end's pictures (0047310c / 00473680) are such blocks. */
+void video_select_target(uint8_t *pixels, int w, int h);
+uint8_t *video_target(int *w, int *h);
 void video_clear_back(void);                                          /* PTR_004c618c */
 void video_flip(void);                                                /* 004733ec */
 void video_wait_vblank(void);                                         /* 004735bc */
