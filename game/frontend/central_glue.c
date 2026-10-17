@@ -9,6 +9,7 @@
 #include "game/frontend/control_central_art.h"
 #include "game/frontend/credits.h"
 #include "game/frontend/ea_lib.h"
+#include "game/frontend/menu_audio.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
 #include "game/frontend/race_settings.h"
@@ -153,13 +154,21 @@ static void art_free(void *ctx)
     session_put(&f);
 }
 
-/* TODO(004648dc, 0046492c, 004649c8, 004640d0, 0046417c, 00464428, 004644f0, 00464568): the menu sounds and music;
- * TODO(00408724, 004562e8, 004676d8, 00461540, 0040a5d8): the showcase, the best times, the standings (no
- * tournament results yet) and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
+/* TODO(00464788, 0046486c, 00464850, 004648a8): the track screen's own music (EA's player, 00492xxx);
+ * TODO(00408724, 004676d8, 00461540, 0040a5d8): the showcase, the best times, the standings (no tournament results
+ * yet) and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
  * game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
-static void no_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
-static void no_music(void *ctx, const char *name) { (void)ctx, (void)name; }
+static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
+static void sound_load(void *ctx) { (void)ctx; menu_audio_bank_load(); }
+static void sound_free(void *ctx) { (void)ctx; menu_audio_bank_free(); }
+static void music(void *ctx) { (void)ctx; menu_audio_music_service(); }
+static void music_feed(void *ctx) { (void)ctx; menu_audio_music_feed(); }
+static void music_start(void *ctx, const char *name) { (void)ctx; menu_audio_music_start(name); }
+static void music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
+static void music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
+static void music_fade_to(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
+static void music_pick(void *ctx) { (void)ctx; menu_audio_music_pick(); }
 static void no_mode(void *ctx, int32_t mode) { (void)ctx, (void)mode; }
 static void no_kick(void *ctx, int32_t player) { (void)ctx, (void)player; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
@@ -185,6 +194,7 @@ static void race(void *ctx)
     const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
     ea_select_default();
     text_free(), pointer_free();  /* the drive loads its own (drive_menu_open) and frees them */
+    menu_audio_close();           /* the drive opens the device itself (drive_audio_open) */
     platform_shutdown();
     if (!track_viewer_drive(resource_root(), name, model, 1, g.race_type, 0, NULL))
         fprintf(stderr, "control_central: the race on %s could not start\n", name);
@@ -193,6 +203,8 @@ static void race(void *ctx)
         fprintf(stderr, "control_central: the window, the pointer or the fonts could not be loaded again\n");
         exit(1);
     }
+    menu_audio_open();
+    menu_audio_bank_load();
 }
 
 static void palette_clear(void *ctx, uint8_t *rgb) { (void)ctx; palette_put_clear(rgb); }
@@ -294,11 +306,11 @@ static void track_select(void *ctx)
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
     const TrackSelectOps ops = {
-        flush, move_to, load_bank, no_inverse, nothing, shape, set_palette, nothing, styles, poll_pointer, hide,
+        flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
-        show, mark_at, buttons, no_name, fade_in, nothing, deadline_set, no_sound, ticks, activate, key, click,
-        nothing, nothing, fade_out, free_bank, free_handle_inverse, no_best_times, image_car_flags, off, nothing,
-        deadline_passed, nothing, nothing, &p };
+        show, mark_at, buttons, no_name, fade_in, nothing, deadline_set, sound, ticks, activate, key, click,
+        nothing, nothing, fade_out, free_bank, free_handle_inverse, no_best_times, image_car_flags, off, music,
+        deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) settings_put(&after);
@@ -313,6 +325,7 @@ static void credits_tick(void *ctx)
     const uint32_t now = timer_ticks();
     credits_idle += (int32_t)(now - credits_last);
     credits_last = now;
+    menu_audio_music_service();
 }
 static int32_t read_buttons(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
 static void blit_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
@@ -324,9 +337,9 @@ static const int16_t no_quit;  /* 0050a5b6: nothing asks the screens to leave ye
 static void credits(void *ctx, int32_t mode)
 {
     (void)mode;
-    const CreditsOps ops = { load_art, shape, palette_set, nothing, select_picture, blit, select_default,
+    const CreditsOps ops = { load_art, shape, palette_set, music_feed, select_picture, blit, select_default,
                              picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
-                             free_handle_inverse, nothing, nothing, free_bank, mark, ctx };
+                             free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx };
     const CreditsState st = { ea_screen_slot(), &g.pointer_active, &g.buttons, &no_quit, &credits_idle };
     credits_last = timer_ticks();
     credits_show(&st, &ops);
@@ -367,11 +380,11 @@ static void options(void *ctx)
     config_dat_set_race(config, &before);
     opt_out();
     const OptionsMenuOps ops = {
-        move_to, load_art, no_inverse, nothing, shape, palette_set, styles, poll, mark, in_rect, select_picture, blit,
-        select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, no_sound,
+        move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
+        blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, no_mode, no_mode, no_mode, no_mode,
-        nothing, nothing, no_music, credits, nothing, opt_car_flags, no_wait, off, nothing, nothing, deadline_passed,
-        ctx };
+        music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, nothing,
+        deadline_passed, ctx };
     static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
@@ -402,13 +415,13 @@ static void load(void)
 int32_t glue_central(void)
 {
     static const ControlCentralOps OPS = {
-        no_wait, palette_clear, move_to, nothing, load_art, picture_new, nothing, no_inverse, nothing, mark, shape,
+        no_wait, palette_clear, move_to, music, load_art, picture_new, sound_load, no_inverse, music_feed, mark, shape,
         palette_set, nothing, in_rect, car_flags, type_changed, ticks, zero, select_picture, blit, blit_masked,
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
-        show, buttons, fade_in, nothing, styles, no_sound, deadline_set, deadline_passed, key, scancode, no_cheat,
-        not_down, activate, zero, click, no_kick, nothing, fade_out, nothing, no_music, nothing, nothing,
-        step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options, nothing,
-        glue_yes_no, glue_drain, glue_banner, nothing, nothing, picture_free, flush, race, off, NULL };
+        show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, no_cheat,
+        not_down, activate, zero, click, no_kick, music_fade_out, fade_out, music_end, music_start, nothing,
+        music_pick, step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options,
+        nothing, glue_yes_no, glue_drain, glue_banner, nothing, sound_free, picture_free, flush, race, off, NULL };
     load();
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,

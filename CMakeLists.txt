@@ -301,6 +301,7 @@ add_executable(tnfs
     game/frontend/frontend.c
     game/frontend/menu_glue.c
     game/frontend/central_glue.c
+    game/frontend/menu_audio.c
     game/frontend/screens.c
     game/frontend/text_field.c
     game/sys/input.c

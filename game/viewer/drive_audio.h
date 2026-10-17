@@ -14,6 +14,14 @@
  * hooks go on race->sounds either way. */
 int drive_audio_open(RaceState *race, const char *data_root);
 
+/* The device part of drive_audio_open alone (the menus' sound): 1 with a device */
+int drive_audio_device_open(const char *data_root);
+
+/* 0048eea0 on the driver: `sound` of the banks loaded at pan, volume and pitch; its voice (0 without a device) */
+int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pitch);
+/* 00473c68 on the driver: the voice stopped */
+void drive_audio_voice_stop(int32_t voice);
+
 /* 004438c8 for race_sound_load_banks: the bank from simdata/soundbnk/,
  * registered (0048ed30), noted in `banks` (user). */
 void drive_audio_load(void *user, const char *name);
