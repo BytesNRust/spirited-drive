@@ -32,4 +32,19 @@ typedef struct {
  * 0xea646563 (the caller's ebp, not this function's output). */
 void net_game_info(const NetGameInfoOps *ops, NetServer *v, uint8_t *address, uint32_t id);
 
+extern const char NET_ADD_NO_SLOT[];  /* 004b27b4 */
+
+typedef struct {
+    void *ctx;
+    void (*message)(void *ctx, const char *text);  /* 00477a40 (cdecl) */
+    const int32_t *now;                            /* 004c62a4 */
+} NetAddPlayerOps;
+
+/* 00477ef8 addnewplayer (watcall (server, record), from 00478030): the
+ * first slot below the most players (+0x90, read again) less 1 (unsigned)
+ * whose +0x4c bit is free: the bit set, the record's 0x5c bytes to the entry
+ * (+0x94 + slot * 100), its +0x5c 004c62a4, +0x60 the slot; the slot. None:
+ * 00477a40(004b27b4), 0. */
+uint32_t net_add_player(const NetAddPlayerOps *ops, NetServer *v, const uint8_t *record);
+
 #endif
