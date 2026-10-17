@@ -376,6 +376,12 @@ int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_
     return 1;
 }
 
+int32_t net_packet_service_handle(const NetPacketRecvOps *ops, NetPacketHandle *h)
+{
+    if (h == NULL || h->open == 0) return 0;
+    return net_packet_service(ops, h->conn, 0);
+}
+
 int32_t net_packet_write(const NetPacketOps *ops, const NetQueueMessage *message, NetPacketHandle *h,
                          const uint8_t *data, uint32_t n)
 {

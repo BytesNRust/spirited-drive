@@ -320,6 +320,10 @@ extern const char NET_BAD_SEQ_TRACE[];      /* 004b2c1c */
  * +0x40 - 1, the old at most 0: 0047a204(+0x1c, it, 0xfb). +0x18 = 0, 1. */
 int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t tick);
 
+/* 0047b230 (cdecl (handle), no direct callers): no handle or its +0 0: 0;
+ * else 0047a82c(its +0x20, 0). */
+int32_t net_packet_service_handle(const NetPacketRecvOps *ops, NetPacketHandle *h);
+
 extern const char NET_SEND_TOO_BIG[];     /* 004b2de0 */
 extern const char NET_SEND_TOO_MANY[];    /* 004b2e14 */
 extern const char NET_NO_BUFFERS_TRACE[]; /* 004b2e50 */
