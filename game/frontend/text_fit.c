@@ -16,3 +16,10 @@ void text_fit_shadowed(const char *text, int32_t x, int32_t y, int32_t width, co
     ops->ramp(ops->ctx, 0);
     ops->draw(ops->ctx, buf, x, y);
 }
+
+/* 00438090 */
+void text_lower(char *text)
+{
+    for (uint8_t *p = (uint8_t *)text; *p != 0; p++)
+        if (*p > 0x40 && *p < 0x5b) *p = (uint8_t)(*p + 0x20);
+}

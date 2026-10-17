@@ -19,4 +19,8 @@ typedef struct TextFitOps {
  * the current one at x, y. */
 void text_fit_shadowed(const char *text, int32_t x, int32_t y, int32_t width, const TextFitOps *ops);
 
+/* 00438090 (from 00453ef4, for a text wider than 0x9b): A..Z lowered in
+ * place, up to the NUL. */
+void text_lower(char *text);
+
 #endif
