@@ -257,6 +257,7 @@ add_library(tnfs_game STATIC
     game/net/net_udp.c
     game/net/net_udp_service.c
     game/race/race_net_services.c
+    game/race/race_net_players.c
     game/race/replay_controls.c
     game/race/track_far.c
     game/race/track_fence.c
