@@ -270,6 +270,7 @@ add_library(tnfs_game STATIC
     game/sys/joystick.c
     game/sys/menu_key.c
     game/sys/palette.c
+    game/sys/pointer_state.c
     game/sys/shape_bank.c
 )
 target_include_directories(tnfs_game PUBLIC game .)
