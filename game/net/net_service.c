@@ -91,3 +91,21 @@ int32_t net_shut_game(const NetShutGameOps *ops, const NetCheck *c, NetSession *
     }
     return 1;
 }
+
+int32_t net_open_game(const NetOpenGameOps *ops, const NetCheck *c, NetSession *s)
+{
+    net_check(ops->check, c, "opennetgame");
+    if (s->tcp != 0) return ops->tcp_open(ops->ctx, s);
+    if (s->server == NULL || s->server->word_8 == 0) return 0;
+    s->server->word_8 = 1;
+    net_game_name(s->guid, (char *)s->server->game);
+    if (ops->driver_open(ops->ctx, s->handle, s->server->game) == 0) {
+        s->server->word_8 = 0;
+        return 0;
+    }
+    const int32_t now = *ops->now;
+    s->word_9c = 1;
+    for (uint32_t i = 0; i < net_most_players(s->server->params); i++)
+        net_put_little(s->server->entries + i * NET_PLAYER_SIZE + NET_PLAYER_SEEN, (uint32_t)now, 4);
+    return 1;
+}

@@ -81,4 +81,20 @@ typedef struct {
  * 00475260(server), +0xc 0. 1. */
 int32_t net_shut_game(const NetShutGameOps *ops, const NetCheck *c, NetSession *s, int32_t release);
 
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    int32_t (*tcp_open)(void *ctx, NetSession *s);                     /* 0052ce04 (cdecl) */
+    int32_t (*driver_open)(void *ctx, uint32_t handle, uint8_t *game);  /* the driver's +0x2c (eax, edx) */
+    const int32_t *now;  /* 004c62a4 */
+} NetOpenGameOps;
+
+/* 00479534 opennetgame (cdecl (session), no direct callers): 00478e18
+ * ("opennetgame" 004b2a34); +4 set: 0052ce04(session) returned. No server
+ * (+0xc) or its +8 0: 0. Else +8 1, 00477b78(+0x84, server + 0xc), the
+ * driver's +0x2c(+0x10, server + 0xc) 0: +8 0, 0. Else +0x9c 1, each of the
+ * server's +0x90 (its params' most players, read again) entries' +0x5c =
+ * 004c62a4 (read after +0x2c); 1. */
+int32_t net_open_game(const NetOpenGameOps *ops, const NetCheck *c, NetSession *s);
+
 #endif
