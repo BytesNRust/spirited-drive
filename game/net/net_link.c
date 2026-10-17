@@ -79,3 +79,10 @@ int32_t net_link_receive(const NetLinkOps *ops, NetPacketHandle *h, uint8_t *dat
     }
     return 0;
 }
+
+int32_t net_link_send(const NetLinkOps *ops, NetPacketHandle *h, uint8_t *data, int32_t size)
+{
+    int32_t message = NET_DATA;
+    if (*ops->trace_level >= 5) ops->serve->trace(ops->serve->ctx, "DataSend->", &message, data, size);
+    return ops->driver_send(ops->ctx, h->session->handle, h->address, message, data, size) != 0 ? size : 0;
+}

@@ -29,6 +29,8 @@ typedef struct {
     /* the session's driver's +0x58 (eax handle, edx address, ebx &message, ecx data, the size on the stack) */
     int32_t (*driver_receive)(void *ctx, uint32_t handle, uint8_t *address, int32_t *message, uint8_t *data,
                               int32_t size);
+    /* the session's driver's +0x54 (eax handle, edx address, ebx message, ecx data, the size on the stack) */
+    int32_t (*driver_send)(void *ctx, uint32_t handle, uint8_t *address, int32_t message, uint8_t *data, int32_t size);
 } NetLinkOps;
 
 /* 00479b40 (cdecl (handle), 004c62c8's +0): the session (+0x24, its words
@@ -68,5 +70,10 @@ int32_t net_link_query(const NetLinkOps *ops, const NetPacketHandle *h);
  * 0047f244("NullFlush "), the driver's +0x5c(+0x10, 0, dat, 0); else at >= 6
  * 0047f244("NullRecv  "); 0. */
 int32_t net_link_receive(const NetLinkOps *ops, NetPacketHandle *h, uint8_t *data, int32_t size);
+
+/* 00479e40 (cdecl (handle, data, size), 004c62c8's send): at 004c62b8 >= 5
+ * 0047f244("DataSend->", &dat, data, size, 0, 0); the session's driver's
+ * +0x54(+0x10, handle + 0x28, dat, data, size) not 0: the size, else 0. */
+int32_t net_link_send(const NetLinkOps *ops, NetPacketHandle *h, uint8_t *data, int32_t size);
 
 #endif
