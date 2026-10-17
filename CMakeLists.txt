@@ -367,6 +367,11 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
+    add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c)
+    target_include_directories(test_object_sink PRIVATE game)
+    target_link_libraries(test_object_sink PRIVATE tnfs_game)
+    target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME object_sink COMMAND test_object_sink)
 endif()
 
 # Integration tests over the user's own CD data (original/ is gitignored).
