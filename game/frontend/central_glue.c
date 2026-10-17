@@ -11,6 +11,7 @@
 #include "game/frontend/palette_put.h"
 #include "game/frontend/race_settings.h"
 #include "game/frontend/tournament.h"
+#include "game/frontend/track_select.h"
 #include "game/race/race_models.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
@@ -150,7 +151,7 @@ static void art_free(void *ctx)
 }
 
 /* TODO(004648dc, 0046492c, 004649c8, 004640d0, 0046417c, 00464428, 004644f0, 00464568): the menu sounds and music;
- * TODO(00408724, 004562e8, 004687d0, 00461540, 00444bb0, 0040a5d8): the showcase, the track slides, the standings,
+ * TODO(00408724, 004562e8, 004676d8, 00461540, 00444bb0, 0040a5d8): the showcase, the best times, the standings,
  * Options and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
  * game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
@@ -180,11 +181,13 @@ static void race(void *ctx)
     const int model = race_head_to_head_model(g.player_car);
     const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
     ea_select_default();
+    text_free(), pointer_free();  /* the drive loads its own (drive_menu_open) and frees them */
     platform_shutdown();
     if (!track_viewer_drive(resource_root(), name, model, 1, g.race_type, 0, NULL))
         fprintf(stderr, "control_central: the race on %s could not start\n", name);
-    if (!platform_init(&config)) {
-        fprintf(stderr, "control_central: the window could not be opened again\n");
+    /* the drive's pause menu (drive_menu_close) frees the fonts and the pointer it loaded over the menus' own */
+    if (!platform_init(&config) || !pointer_load(0) || !text_init()) {
+        fprintf(stderr, "control_central: the window, the pointer or the fonts could not be loaded again\n");
         exit(1);
     }
 }
@@ -239,6 +242,65 @@ static void shadowed(void *ctx, const char *text, int32_t x, int32_t y) { (void)
 static void text_at(void *ctx, const char *text, int32_t x, int32_t y) { (void)ctx; text_draw(text, x, y); }
 static void styles(void *ctx) { (void)ctx; text_build_styles(); }
 
+/* 004687d0's pointer: ctx is its DialogPointer */
+static void poll_pointer(void *ctx)
+{
+    DialogPointer *const p = ctx;
+    int x, y;
+    pointer_sync_from_os();
+    pointer_position(&x, &y);
+    p->x = x, p->y = y;
+}
+static void hide(void *ctx) { (void)ctx; video_set_overlay(NULL, 0, 0); }
+static void mark_at(void *ctx, DialogPointer *p)
+{
+    (void)ctx;
+    p->mark_x = (int16_t)p->x, p->mark_y = (int16_t)p->y;
+    pointer_mark();
+}
+static void set_palette(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
+static void no_name(void *ctx, const char *name) { (void)ctx, (void)name; }
+static int32_t no_best_times(void *ctx) { (void)ctx; return 0; }
+static void free_handle_inverse(void *ctx) { (void)ctx; }
+
+static int32_t time_of_day[10];  /* 004fbae0 */
+
+/* 00465ec8 on config.dat's image, which 004687d0 changes */
+static void image_car_flags(void *ctx)
+{
+    (void)ctx;
+    ConfigDat *const config = config_current();
+    RaceSettings s = settings_of();
+    if (!config_dat_get_race(config, &s)) return;
+    race_settings_car_flags(&s);
+    config_dat_set_race(config, &s);
+}
+
+/* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
+static void track_select(void *ctx)
+{
+    (void)ctx;
+    ConfigDat *const config = config_current();
+    const RaceSettings before = settings_of();
+    config_dat_set_race(config, &before);
+    const int32_t screen = ea_screen();
+    const TrackSelectInputs in = { "", resource_german(), g.variant_m, g.variant_r, g.lost_vegas, screen,
+                                   ea_picture_shape(screen) };
+    TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette };
+    int x, y;
+    pointer_position(&x, &y);
+    DialogPointer p = { pointer_active(), 0, x, y, x, y };
+    const TrackSelectOps ops = {
+        flush, move_to, load_bank, no_inverse, nothing, shape, set_palette, nothing, styles, poll_pointer, hide,
+        in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
+        show, mark_at, buttons, no_name, fade_in, nothing, deadline_set, no_sound, ticks, activate, key, click,
+        nothing, nothing, fade_out, free_bank, free_handle_inverse, no_best_times, image_car_flags, off, nothing,
+        deadline_passed, nothing, nothing, &p };
+    track_select_screen(&in, &st, &p, &ops);
+    RaceSettings after = before;
+    if (config_dat_get_race(config, &after)) settings_put(&after);
+}
+
 /* config.dat's race settings and unlock level into the globals, as the draft read them */
 static void load(void)
 {
@@ -262,7 +324,7 @@ int32_t glue_central(void)
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
         show, buttons, fade_in, nothing, styles, no_sound, deadline_set, deadline_passed, key, scancode, no_cheat,
         not_down, activate, zero, click, no_kick, nothing, fade_out, nothing, no_music, nothing, nothing,
-        step_race_type, track_forward, track_backward, nothing, no_mode, nothing, art_free, nothing, nothing,
+        step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, nothing, nothing,
         glue_yes_no, glue_drain, glue_banner, nothing, nothing, picture_free, flush, race, off, NULL };
     load();
     ControlCentralState st = {
