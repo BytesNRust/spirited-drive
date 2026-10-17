@@ -77,4 +77,9 @@ int32_t net_serial_is_open(const NetSerial *s, int32_t port);
 void net_serial_clear_dtr(NetSerial *s, int32_t port, const NetSerialOps *ops);
 void net_serial_set_dtr(NetSerial *s, int32_t port, const NetSerialOps *ops);
 
+/* 0047bc28 (cdecl (port)): under 004c6310, 1 unless the port is open and
+ * GetCommModemStatus(+4, &status) returns 0, then (status & 0x80) != 0; it
+ * returning not 0: 0048f9ec (the original's test is the wrong way round). */
+int32_t net_serial_carrier(NetSerial *s, int32_t port, const NetSerialOps *ops);
+
 #endif

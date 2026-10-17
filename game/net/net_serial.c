@@ -34,3 +34,16 @@ void net_serial_set_dtr(NetSerial *s, int32_t port, const NetSerialOps *ops)
 {
     escape(s, port, NET_SERIAL_SET_DTR, ops);
 }
+
+int32_t net_serial_carrier(NetSerial *s, int32_t port, const NetSerialOps *ops)
+{
+    int32_t on = 1;
+    lock(s, ops);
+    if (net_serial_is_open(s, port)) {
+        uint32_t status = 0;
+        if (ops->modem_status(ops->ctx, s->port[port]->file, &status) != 0) ops->fail(ops->ctx);
+        else on = (status & NET_SERIAL_RLSD_ON) != 0;
+    }
+    unlock(s, ops);
+    return on;
+}
