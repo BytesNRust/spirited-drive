@@ -4,7 +4,8 @@
 
 enum {
     SEGMENT = 0x93, TRACK = 0x95, CAR = 0x9b, NO_RECORDS_CAR = 0xb, TRACK_RECORDS = 0xa6b, SEGMENT_RECORDS = 0x27,
-    PLAYER = 0x95, TIME = 0x59, SPEED = 0x61, CAR_A = 0x53a, CAR_B = 0x536, GEARBOX = 0x50c
+    PLAYER = 0x95, NAME_AT = 0, LAPS = 9, LAP_COUNT = 20, TIME = 0x59, SPEED = 0x61, TOP = 0x6d, CAR_A = 0x53a,
+    CAR_B = 0x536, GEARBOX = 0x50c
 };
 
 /* the two records' fields, from the segment's row */
@@ -21,14 +22,15 @@ static int32_t g32(const uint8_t *at)
 
 static void p32(uint8_t *at, int32_t v) { memcpy(at, &(uint32_t){ (uint32_t)v }, 4); }
 
-/* the player's name (strcpy), times and car into the record */
-static void take(uint8_t *row, const RecordAt *r, const uint8_t game[RECORD_CHECK_GAME], const uint8_t *me)
+/* the player's name (strcpy; the original's sprintf, the names having no '%'), time, speed and car into the record */
+static void take(uint8_t *row, const RecordAt *r, const uint8_t game[RECORD_CHECK_GAME], const uint8_t *me,
+                 int32_t time, int32_t speed)
 {
     size_t n = 0;
-    do row[r->name + n] = me[n];
-    while (me[n++] != 0);
-    p32(row + r->time, g32(me + TIME));
-    p32(row + r->speed, g32(me + SPEED));
+    do row[r->name + n] = me[NAME_AT + n];
+    while (me[NAME_AT + n++] != 0);
+    p32(row + r->time, time);
+    p32(row + r->speed, speed);
     p32(row + r->car_a, g16(game + CAR_A));
     p32(row + r->car_b, g16(game + CAR_B));
     p32(row + r->gearbox, g16(game + GEARBOX));
@@ -46,12 +48,29 @@ int32_t record_check(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECOR
     int32_t beaten = 0;
     const int32_t time = g32(me + TIME);
     if (time < g32(row + TIME_RECORD.time) && time > 0) {
-        take(row, &TIME_RECORD, game, me);
+        take(row, &TIME_RECORD, game, me, g32(me + TIME), g32(me + SPEED));
         beaten += 1;
     }
     if (g32(row + SPEED_RECORD.speed) < g32(me + SPEED)) {
-        take(row, &SPEED_RECORD, game, me);
+        take(row, &SPEED_RECORD, game, me, g32(me + TIME), g32(me + SPEED));
         beaten += 2;
     }
     return beaten;
+}
+
+/* 0045b908 */
+int32_t record_check_lap(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player)
+{
+    const uint8_t *const me = game + PLAYER * player;
+    int best = 0;
+    for (int i = 0; i < LAP_COUNT; i++) {
+        const int32_t lap = g32(me + LAPS + 4 * i);
+        if (lap < g32(me + LAPS + 4 * best) && lap > 0) best = i;
+    }
+    if (g16(image + CAR) == NO_RECORDS_CAR) return 0;
+    uint8_t *const row = image + TRACK_RECORDS * g16(image + TRACK);
+    const int32_t lap = g32(me + LAPS + 4 * best);
+    if (!(lap < g32(row + TIME_RECORD.time) && lap > 0)) return 0;
+    take(row, &TIME_RECORD, game, me, lap, g32(me + TOP));
+    return 1;
 }

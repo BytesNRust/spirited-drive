@@ -18,4 +18,10 @@ enum { RECORD_CHECK_IMAGE = 0x5f34, RECORD_CHECK_GAME = 0x5bc };
  * second, 3 for both. */
 int32_t record_check(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player);
 
+/* 0045b908 (a circuit's): the player's best lap (the first smallest of the
+ * 20 at game state +9 above 0) below the track's lap record (+0xd0, its
+ * first row) takes it as 0045bad8's first record does, with the best top
+ * speed (+0x6d); 1 when it did. */
+int32_t record_check_lap(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player);
+
 #endif
