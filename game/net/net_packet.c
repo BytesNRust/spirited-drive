@@ -119,6 +119,14 @@ int32_t net_packet_send_data(const NetPacketOps *ops, NetPacket *p, NetPacketCon
     return sent;
 }
 
+int32_t net_packet_resend(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c)
+{
+    const int32_t left = p->sent;
+    p->sent = (int32_t)((uint32_t)left - 1);
+    if (left > 0) return 1;
+    return net_packet_send_data(ops, p, c);
+}
+
 int32_t net_packet_nak(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c)
 {
     if (p == NULL) return 1;

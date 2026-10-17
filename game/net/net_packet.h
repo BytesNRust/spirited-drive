@@ -174,6 +174,11 @@ void net_packet_fill(const NetMutexOps *mutex, NetPacket *p, NetPacketConn *c, c
  * length, 1, +0xc). Sent: +8 = the handle's +0x10, else 1; sent returned. */
 int32_t net_packet_send_data(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c);
 
+/* 0047a808 (cdecl (packet, connection), no direct callers): a packet's
+ * resend counted down. +8 - 1, the old +8 above 0 (signed): 1. Else
+ * 0047a068's answer. */
+int32_t net_packet_resend(const NetPacketOps *ops, NetPacket *p, NetPacketConn *c);
+
 /* 0047a2ac (watcall (packet, connection), from 0047a50c): a packet's wait
  * counted down. No packet: 1. +8 - 1, the old +8 above 0 (signed): 1. Else
  * at 004c62fc >= 3 0047f244("NAKt", &+4, 0, 0, 1, +0xc), and 0047a204(the
