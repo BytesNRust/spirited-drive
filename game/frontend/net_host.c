@@ -334,3 +334,10 @@ int32_t net_host_join(NetHostState *st, const NetHostOps *ops)
         return ops->connect(ops->ctx, b.games->list + (b.scroll + b.selected - 1) * RACE_NET_GAME_SIZE + RACE_NET_GAME_ADDRESS);
     return 0;
 }
+
+/* 00432e90 */
+void net_kick(int16_t german, int32_t player, const NetKickOps *ops)
+{
+    const char *const text = german != 0 ? "Spieler ausschlie\xe1" "en?" : "Kick this player out ?";  /* 004af7f4 with 0xe1 / 004af80c */
+    if ((int16_t)ops->yes_no(ops->ctx, text) != 0) ops->drop(ops->ctx, (int16_t)player);
+}

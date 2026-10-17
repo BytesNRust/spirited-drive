@@ -1,4 +1,4 @@
-/* The network host / join screen (00453ef4) and the players it lists (00453e40). */
+/* The network host / join screen (00453ef4), the players it lists (00453e40) and the kick (00432e90). */
 #ifndef TNFS_NET_HOST_H
 #define TNFS_NET_HOST_H
 
@@ -80,5 +80,16 @@ typedef struct NetHostState {
  * New: 00442970(00524df0) not 0; a game: 00442ad0(its address); Cancel,
  * Escape, the right button: 0. */
 int32_t net_host_join(NetHostState *st, const NetHostOps *ops);
+
+typedef struct NetKickOps {
+    int32_t (*yes_no)(void *ctx, const char *text);  /* 00465f4c: eax (a short) */
+    void (*drop)(void *ctx, int16_t slot);           /* 004463ec: eax (race_net_drop) */
+    void *ctx;
+} NetKickOps;
+
+/* 00432e90 (watcall (player), from 00432ff4): "Kick this player out ?" (or
+ * "Spieler ausschlie\xe1en?", sprintf'd with 0xe1, with 0052b31c set) through
+ * 00465f4c; yes (its short not 0): 004463ec(the player's short). */
+void net_kick(int16_t german, int32_t player, const NetKickOps *ops);
 
 #endif
