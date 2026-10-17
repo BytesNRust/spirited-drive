@@ -197,6 +197,20 @@ typedef struct {
  * closed one, 00475c14(0), 004c62f4 = 0. */
 void net_packet_shutdown(const NetShutdownOps *ops);
 
+typedef struct {
+    void *ctx;
+    const NetMutexOps *mutex;
+    NetQueue *open, *closed;      /* 0052ce40 / 0052ce24 */
+    void (*service)(void *ctx);   /* 0049d028(0047aaf4) (cdecl): the packet layer's service onto the list */
+    void (*at_exit)(void *ctx);   /* 00487b78(0047ab80) (cdecl): its shutdown at the program's exit */
+    int32_t *started;             /* 004c62f4 */
+} NetStartOps;
+
+/* 0047ab10 (watcall (), from 00478f0c): with 004c62f4 0, 0049c7a8 on the
+ * open list (0052ce40) then the closed one (0052ce24), no key; 0049d028
+ * (0047aaf4), 00487b78(0047ab80), 004c62f4 = 1. */
+void net_packet_start(const NetStartOps *ops);
+
 /* 00479eb0 (cdecl, a handle's hooks' default): 0. */
 int32_t net_packet_hook_none(NetPacketHandle *h);
 
