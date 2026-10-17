@@ -9,3 +9,11 @@ void pointer_state_activate_if_moved(PointerState *p)
 {
     if (p->active == 0 && (p->buttons != 0 || p->mark_x != p->x || p->mark_y != p->y)) p->active = 1;
 }
+
+void pointer_state_off(PointerState *p, const PointerOffOps *ops)
+{
+    if (p->active == 0) return;
+    ops->poll(ops->ctx);
+    ops->hide(ops->ctx);
+    p->active = 0;
+}

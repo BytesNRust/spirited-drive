@@ -13,6 +13,12 @@ typedef struct PointerState {
     int32_t x, y;            /* 004c6110 / 004c6114 */
 } PointerState;
 
+typedef struct PointerOffOps {
+    void *ctx;
+    void (*poll)(void *ctx);  /* [004c6194] */
+    void (*hide)(void *ctx);  /* [004c618c] */
+} PointerOffOps;
+
 /* 00463f80 (eax x0, edx x1, ebx y0, ecx y1, each as a short): 1 when
  * x0 <= x <= x1 and y0 <= y <= y1, else 0. */
 int32_t pointer_state_in_rect(const PointerState *p, int32_t x0, int32_t x1, int32_t y0, int32_t y1);
@@ -20,5 +26,9 @@ int32_t pointer_state_in_rect(const PointerState *p, int32_t x0, int32_t x1, int
 /* 00464088: not active yet, it becomes active when a button is held or the
  * pointer left its mark (the marks sign-extended against the dwords). */
 void pointer_state_activate_if_moved(PointerState *p);
+
+/* 00464060: only while active, [004c6194] then [004c618c], and no longer
+ * active. */
+void pointer_state_off(PointerState *p, const PointerOffOps *ops);
 
 #endif

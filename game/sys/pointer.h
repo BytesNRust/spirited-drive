@@ -18,6 +18,7 @@ void pointer_sync_from_os(void);                      /* window thread, WM_MOUSE
 void pointer_move_to(int x, int y);                   /* 00464038 */
 int pointer_in_rect(int x0, int x1, int y0, int y1);  /* 00463f80 */
 void pointer_activate_if_moved(void);                 /* 00464088 */
+void pointer_off(void);                               /* 00464060 */
 int pointer_active(void);                             /* 00524790 */
 void pointer_show(void);                              /* 00441798 */
 int pointer_read_buttons(void);                       /* 004417f8 */

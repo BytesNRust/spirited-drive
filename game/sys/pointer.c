@@ -72,6 +72,24 @@ void pointer_activate_if_moved(void)
     pointer_state_activate_if_moved(&ptr);
 }
 
+static void off_poll(void *ctx)
+{
+    (void)ctx;
+    pointer_sync_from_os();
+}
+
+static void off_hide(void *ctx)
+{
+    (void)ctx;
+    video_set_overlay(NULL, 0, 0);
+}
+
+void pointer_off(void)
+{
+    const PointerOffOps ops = { NULL, off_poll, off_hide };
+    pointer_state_off(&ptr, &ops);
+}
+
 int pointer_active(void)
 {
     return ptr.active;
