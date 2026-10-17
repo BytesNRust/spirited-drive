@@ -256,3 +256,44 @@ void net_receive(const NetReceiveOps *ops, NetSession *s, NetRequest *r)
         net_serve(ops->serve, r, address, message, data, size);
     }
 }
+
+static void poll_players(const NetPollOps *ops, NetSession *s, NetServer *v, int32_t pulse)
+{
+    for (uint32_t i = 0; i < net_word(v->params + 0x40); i++) {
+        if ((v->players >> (i & 31) & 1) == 0) continue;
+        uint8_t *const e = v->entries + i * NET_PLAYER_SIZE;
+        const uint32_t seen = net_word(e + NET_PLAYER_SEEN);
+        net_put_little(e + NET_PLAYER_SEEN, seen - 1, 4);
+        if (seen == 0) {
+            const int32_t slot = (int32_t)i;
+            if (*ops->trace_level >= 2) ops->trace(ops->ctx, "PlayerTimeout", &slot, 1);
+            v->players &= ~(1u << (i & 31));
+        } else if (pulse != 0) {
+            ops->driver_send(ops->ctx, s->handle, e, NET_ACK, NULL, 0);
+        }
+    }
+}
+
+int32_t net_poll_session(const NetPollOps *ops, NetSession *s)
+{
+    if (s->tcp != 0) return 1;
+    if (s->word_a4 == 0) {
+        NetRequest local = { 0 };  /* 00477b00's zero bytes */
+        local.session = s;
+        net_receive(ops->receive, s, s->request != NULL ? s->request : &local);
+        if (s->joined != 0 && s->server == NULL) s->joined--;
+    }
+    NetServer *const v = s->server;
+    if (v == NULL || v->word_8 != 0 || v->players == 0) return 1;
+    const int32_t message = NET_ACK;
+    int32_t pulse = 0;
+    if (s->word_9c < 2) {
+        s->word_9c = *ops->stamp;
+        if (*ops->trace_level >= 3) ops->trace(ops->ctx, "ServerPulse!", &message, 0);
+        pulse = 1;
+    } else {
+        s->word_9c--;
+    }
+    poll_players(ops, s, v, pulse);
+    return 1;
+}

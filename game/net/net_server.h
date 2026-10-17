@@ -139,4 +139,26 @@ typedef struct {
  * each turn. */
 void net_receive(const NetReceiveOps *ops, NetSession *s, NetRequest *r);
 
+typedef struct {
+    void *ctx;
+    const NetReceiveOps *receive;  /* 00477f74's */
+    const int32_t *trace_level;    /* 004c62b8 */
+    const int32_t *stamp;          /* 004c62a8 */
+    void (*trace)(void *ctx, const char *name, const int32_t *word, int32_t flagged);  /* 0047f244(name, word, 0, 0, flagged, 0) */
+    /* the driver's +0x54 (eax handle, edx address, ebx message, ecx out, the size on the stack); its eax unused */
+    int32_t (*driver_send)(void *ctx, uint32_t handle, uint8_t *address, int32_t message, uint8_t *out, int32_t size);
+} NetPollOps;
+
+/* 00478c14 (cdecl (session), from 00478db4's walk of the sessions'
+ * list 0052cdd0): +4 set: 1. +0xa4 0: 00477f74(session, +0x94 or a request
+ * of 00477b00's 24 zero bytes with +0xc the session), then +0x98 not 0 with
+ * no server (+0xc): +0x98 - 1. The server set, its +8 0 and its +0x4c not 0:
+ * +0x9c below 2 (signed): +0x9c = 004c62a8, at 004c62b8 >= 3
+ * 0047f244("ServerPulse!", &ack, 0, 0, 0, 0) and the pulse on; else +0x9c -
+ * 1. For each slot below the most players (+0x90, unsigned, read again)
+ * with its +0x4c bit: its entry's +0x5c counted down, from 0 at 004c62b8 >=
+ * 2 0047f244("PlayerTimeout", &slot, 0, 0, 1, 0) and the bit cleared; else
+ * with the pulse on the driver's +0x54(+0x10, the entry, ack, 0, 0). 1. */
+int32_t net_poll_session(const NetPollOps *ops, NetSession *s);
+
 #endif
