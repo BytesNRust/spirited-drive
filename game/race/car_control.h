@@ -19,4 +19,9 @@ int car_race_window(Car *car, RaceState *race);
  * nodes; else 0. */
 int32_t car_past_finish(const Car *car, const RaceState *race);
 
+/* 00438b70 (watcall car, target): the throttle (+0x3b1) towards target, by
+ * at most specs +0x33c up or +0x340 down a call; within a step it lands. */
+void car_throttle_towards(Car *car, const CarSpecs *specs, int32_t target);
+
+
 #endif

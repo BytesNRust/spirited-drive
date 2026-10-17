@@ -201,17 +201,17 @@ static int32_t pedal_keys(Car *car, const CarSpecs *specs, const RaceState *race
     return centred(input >> 6, INPUT_PEDAL_REST);
 }
 
-/* 00438b70 */
-static void throttle_towards(Car *car, const CarSpecs *specs, int32_t target)
+/* 00438b70; the differences and steps wrap as the original's 32-bit sums do */
+void car_throttle_towards(Car *car, const CarSpecs *specs, int32_t target)
 {
     if (car->throttle < target) {
-        if (specs->throttle_up < target - car->throttle) {
-            car->throttle += specs->throttle_up;
+        if (specs->throttle_up < (int32_t)((uint32_t)target - (uint32_t)car->throttle)) {
+            car->throttle = (int32_t)((uint32_t)car->throttle + (uint32_t)specs->throttle_up);
             return;
         }
     } else if (car->throttle > target) {
-        if (specs->throttle_down < car->throttle - target) {
-            car->throttle -= specs->throttle_down;
+        if (specs->throttle_down < (int32_t)((uint32_t)car->throttle - (uint32_t)target)) {
+            car->throttle = (int32_t)((uint32_t)car->throttle - (uint32_t)specs->throttle_down);
             return;
         }
     } else {
@@ -249,14 +249,14 @@ static void key_pedals(Car *car, const CarSpecs *specs, const RaceState *race, u
     const int32_t pedal = pedal_keys(car, specs, race, input);
     if (pedal < -0xf) {
         car->brake = 0;
-        throttle_towards(car, specs, 0xff);
+        car_throttle_towards(car, specs, 0xff);
     } else if (pedal > 0xf) {
         brake_towards(car, specs, 0xff);
-        throttle_towards(car, specs, 0);
+        car_throttle_towards(car, specs, 0);
     } else {
         if (car->brake > 100) car->brake = 100;
         if (car->throttle != 0) {
-            throttle_towards(car, specs, 0);
+            car_throttle_towards(car, specs, 0);
         } else if (car->brake != 0) {
             brake_towards(car, specs, 0);
         }
