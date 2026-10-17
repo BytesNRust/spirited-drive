@@ -40,6 +40,8 @@ struct NetPacketHandle {
     NetHandleHook hook_1c; /* +0x1c */
     NetPacketConn *conn;   /* +0x20 */
     NetSession *session;   /* +0x24: its session (the race's 0050a260); +4 set, the TCP layer's */
+    uint8_t *address;      /* +0x28: inline, the peer's address (0x14 bytes; net_link.h's driver) */
+    int32_t linked;        /* +0x3c: 1 while net_link.h's driver holds it open */
 };
 
 /* A connection's driver (its +4: a table of methods, the handle their first
