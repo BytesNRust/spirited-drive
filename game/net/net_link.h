@@ -36,4 +36,8 @@ int32_t net_link_open(const NetLinkOps *ops, NetPacketHandle *h);
  * 0047f244("Flushed2"). +0x3c = 0; 1. */
 int32_t net_link_close(const NetLinkOps *ops, NetPacketHandle *h);
 
+/* 00479c74 (cdecl (handle), 004c62c8's +8): 1 with +0x3c set and the
+ * session's +0xa0 (cleared by killnetservice) set, else 0. */
+int32_t net_link_alive(const NetPacketHandle *h);
+
 #endif

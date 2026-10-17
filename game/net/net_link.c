@@ -33,3 +33,8 @@ int32_t net_link_close(const NetLinkOps *ops, NetPacketHandle *h)
     h->linked = 0;
     return 1;
 }
+
+int32_t net_link_alive(const NetPacketHandle *h)
+{
+    return h->linked != 0 && h->session->word_a0 != 0;
+}
