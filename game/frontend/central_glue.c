@@ -16,6 +16,7 @@
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
 #include "game/frontend/race_settings.h"
+#include "game/frontend/record_check.h"
 #include "game/frontend/results_screen.h"
 #include "game/frontend/stat_text.h"
 #include "game/frontend/text_fit.h"
@@ -195,7 +196,7 @@ static int16_t image_short(int at)
  * 00426660's table (an open road's first segment, the city's by 00524e83), the car's model by 00426fec, the race
  * type's field; the options from config.dat (track_viewer.h's TrackViewerMenus; Options' 0 is on, 1 off, 2 none).
  * After a finished race (0052b2fe, 00509d6c, 1) its results screen (0045cea0).
- * TODO(00427ae0, 004275f8): the difficulty (00524ea3); the records (0045bad8) and the other screens after the race
+ * TODO(00427ae0, 004275f8): the difficulty (00524ea3); the other screens after the race
  * (00461540 standings, 0045de08, 0045eff4) */
 static void results(const TrackViewerResults *r);
 static void race(void *ctx)
@@ -354,7 +355,8 @@ static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
     stat_average_speed_text(out, resource_german(), time, distance);
 }
 static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_german(), speed); }
-static int32_t no_records(void *ctx) { (void)ctx; return 0; }  /* TODO(0045bad8): the records beaten */
+/* 0045bad8 on config.dat's image and the menus' game state, this machine's player 0 */
+static int32_t records(void *ctx) { (void)ctx; return record_check(config_current()->image, game_state, 0); }
 
 /* 0045cea0(1) after the race, on the race's results and config.dat's image */
 static void results(const TrackViewerResults *r)
@@ -371,7 +373,7 @@ static void results(const TrackViewerResults *r)
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
     const ResultsOps ops = {
-        no_records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
+        records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
         select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
         select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, no_name, nothing,
         deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, nothing, nothing, fade_out,
