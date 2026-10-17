@@ -23,5 +23,9 @@ int32_t car_past_finish(const Car *car, const RaceState *race);
  * at most specs +0x33c up or +0x340 down a call; within a step it lands. */
 void car_throttle_towards(Car *car, const CarSpecs *specs, int32_t target);
 
+/* 00438bc8 (watcall car, target): the brake (+0x3b9) towards target; up by
+ * specs +0x344 (+0x348 from a brake of 0x90) plus a quarter of it (signed
+ * / 4), down by +0x34c (+0x350 from 0x90); within a step it lands. */
+void car_brake_towards(Car *car, const CarSpecs *specs, int32_t target);
 
 #endif

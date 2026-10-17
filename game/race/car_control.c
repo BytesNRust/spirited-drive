@@ -221,20 +221,20 @@ void car_throttle_towards(Car *car, const CarSpecs *specs, int32_t target)
 }
 
 /* 00438bc8 */
-static void brake_towards(Car *car, const CarSpecs *specs, int32_t target)
+void car_brake_towards(Car *car, const CarSpecs *specs, int32_t target)
 {
     const int hard = car->brake >= 0x90;
     if (car->brake < target) {
         const int32_t up = hard ? specs->brake_up_hard : specs->brake_up;
-        const int32_t step = up / 4 + up;
-        if (step < target - car->brake) {
-            car->brake += step;
+        const int32_t step = (int32_t)((uint32_t)(up / 4) + (uint32_t)up);
+        if (step < (int32_t)((uint32_t)target - (uint32_t)car->brake)) {
+            car->brake = (int32_t)((uint32_t)car->brake + (uint32_t)step);
             return;
         }
     } else if (car->brake > target) {
         const int32_t step = hard ? specs->brake_down_hard : specs->brake_down;
-        if (step < car->brake - target) {
-            car->brake -= step;
+        if (step < (int32_t)((uint32_t)car->brake - (uint32_t)target)) {
+            car->brake = (int32_t)((uint32_t)car->brake - (uint32_t)step);
             return;
         }
     } else {
@@ -251,14 +251,14 @@ static void key_pedals(Car *car, const CarSpecs *specs, const RaceState *race, u
         car->brake = 0;
         car_throttle_towards(car, specs, 0xff);
     } else if (pedal > 0xf) {
-        brake_towards(car, specs, 0xff);
+        car_brake_towards(car, specs, 0xff);
         car_throttle_towards(car, specs, 0);
     } else {
         if (car->brake > 100) car->brake = 100;
         if (car->throttle != 0) {
             car_throttle_towards(car, specs, 0);
         } else if (car->brake != 0) {
-            brake_towards(car, specs, 0);
+            car_brake_towards(car, specs, 0);
         }
     }
 }
@@ -276,7 +276,7 @@ static void analog_pedals(Car *car, const CarSpecs *specs, const RaceState *race
         const int32_t brake = pedal * PEDAL_STEP / 256;
         car->throttle = 0;
         if (car->anti_lock == 0) {
-            brake_towards(car, specs, brake);
+            car_brake_towards(car, specs, brake);
         } else {
             car->brake = brake;
         }
