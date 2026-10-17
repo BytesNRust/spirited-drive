@@ -21,6 +21,7 @@ enum { PICTURE_SHAPE = 0x40000000 };
 static uint8_t *banks[BANKS];
 static uint8_t *pictures[PICTURES];  /* each a raw shape: the 16-byte header, then w x h pixels */
 static int32_t screen;
+static int32_t selected;  /* the picture drawing goes to, 0 the back buffer */
 
 static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 
@@ -80,6 +81,7 @@ void ea_picture_free(int32_t picture)
     uint8_t *const p = picture_of(picture);
     if (p == NULL) return;
     if (picture == screen) screen = 0;
+    if (picture == selected) ea_select_default();
     free(p);
     pictures[picture - PICTURE_BASE - 1] = NULL;
 }
@@ -114,11 +116,13 @@ void ea_select(int32_t picture)
         return;
     }
     video_select_target(p + ENTRY_HEADER, le16(p + 4), le16(p + 6));
+    selected = picture;
 }
 
 void ea_select_default(void)
 {
     video_select_target(NULL, 0, 0);
+    selected = 0;
 }
 
 /* a raw shape (a bank's entry or a picture's) as an FshEntry; 0 when it is none */

@@ -22,6 +22,7 @@ typedef enum {
 void resource_init(const char *data_root, int german);
 int resource_german(void);  /* 0052b31c: language, 0 English, 1 German */
 const char *resource_dir(GamePath which);
+const char *resource_root(void);  /* the directory holding the CD data, as resource_init got it */
 
 /* 00476268: whole file, decompressed when it is a QFS. NULL on failure. */
 uint8_t *resource_load(const char *path, size_t *size);

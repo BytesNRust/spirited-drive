@@ -40,7 +40,7 @@ static int key_count;
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
  * the pointer; ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
- * typed-text queue. */
+ * typed-text queue, and the arrows, ENTER, ESC and SPACE the key queue (platform_next_key). */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100 };
 typedef struct {
     uint32_t at_ms;
@@ -48,6 +48,7 @@ typedef struct {
     int x, y;
     bool seen;     /* held until the game has read it at least once */
     bool queued;   /* text / editing code already pushed to the text queue */
+    bool keyed;    /* pushed to the key queue, as a real press is */
     char text[16]; /* TEXT events */
 } ScriptEvent;
 static ScriptEvent script[SCRIPT_MAX];
@@ -227,8 +228,26 @@ bool platform_poll_events(void)
     return true;
 }
 
+static void apply_script_keys(void)
+{
+    static const struct { int scancode; PlatformKey key; } KEYS[] = {
+        { 0x4B, PLATFORM_KEY_LEFT }, { 0x4D, PLATFORM_KEY_RIGHT }, { 0x48, PLATFORM_KEY_UP }, { 0x50, PLATFORM_KEY_DOWN },
+        { 0x1C, PLATFORM_KEY_ENTER }, { 0x01, PLATFORM_KEY_ESCAPE }, { 0x39, PLATFORM_KEY_SPACE }
+    };
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    for (int i = 0; i < script_count; i++) {
+        ScriptEvent *e = &script[i];
+        if (e->keyed || now < e->at_ms) continue;
+        for (size_t k = 0; k < sizeof KEYS / sizeof KEYS[0]; k++)
+            if (KEYS[k].scancode == e->scancode && key_count < KEY_QUEUE_SIZE)
+                key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = KEYS[k].key;
+        e->keyed = true;
+    }
+}
+
 PlatformKey platform_next_key(void)
 {
+    if (script_count > 0) apply_script_keys();
     if (key_count == 0) return PLATFORM_KEY_NONE;
     const PlatformKey key = key_queue[key_head];
     key_head = (key_head + 1) % KEY_QUEUE_SIZE;

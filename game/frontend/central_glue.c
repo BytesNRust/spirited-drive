@@ -11,14 +11,18 @@
 #include "game/frontend/palette_put.h"
 #include "game/frontend/race_settings.h"
 #include "game/frontend/tournament.h"
+#include "game/race/race_models.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
+#include "game/viewer/track_viewer.h"
+#include "platform/platform.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /* the globals 00432ff4 writes (central.h gives each address) */
 static struct {
@@ -147,9 +151,9 @@ static void art_free(void *ctx)
 
 /* TODO(004648dc, 0046492c, 004649c8, 004640d0, 0046417c, 00464428, 004644f0, 00464568): the menu sounds and music;
  * TODO(00408724, 004562e8, 004687d0, 00461540, 00444bb0, 0040a5d8): the showcase, the track slides, the standings,
- * Options and chat; TODO(00446284, 00427ae0): the race; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
+ * Options and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
  * game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
-static void wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
+static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void no_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
 static void no_music(void *ctx, const char *name) { (void)ctx, (void)name; }
 static void no_mode(void *ctx, int32_t mode) { (void)ctx, (void)mode; }
@@ -159,7 +163,31 @@ static int32_t no_inverse(void *ctx, const char *name) { (void)ctx, (void)name; 
 static int32_t no_cheat(void *ctx, int which) { (void)ctx, (void)which; return 0; }
 static int32_t not_down(void *ctx, int32_t scancode) { (void)ctx, (void)scancode; return 0; }
 static int32_t scancode(void *ctx, int32_t c) { (void)ctx; return c & 0xff; }
-static void race(void *ctx) { (void)ctx; fprintf(stderr, "control_central: the race (00427ae0) is not wired yet\n"); }
+
+/* 00427ae0: the race, as the build drives one (track_viewer_drive, its own window): the track's stem from 00426660's
+ * table (an open road's first segment, the city's by 00524e83), the car's model by 00426fec, the race type's field */
+static void race(void *ctx)
+{
+    (void)ctx;
+    static const char *const STEMS[9] = { "CY", "CL", "AL", "TR1", "TR2", "TR6", "TR3", "TR7", "TR4" };
+    if (g.track < 0 || g.track >= 9) {
+        fprintf(stderr, "control_central: no race for track %d\n", g.track);
+        return;
+    }
+    char name[8];
+    if (g.track < 3) snprintf(name, sizeof name, "%s%d", STEMS[g.track], g.track == 0 ? g.variant + 1 : 1);
+    else snprintf(name, sizeof name, "%s", STEMS[g.track]);
+    const int model = race_head_to_head_model(g.player_car);
+    const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
+    ea_select_default();
+    platform_shutdown();
+    if (!track_viewer_drive(resource_root(), name, model, 1, g.race_type, 0, NULL))
+        fprintf(stderr, "control_central: the race on %s could not start\n", name);
+    if (!platform_init(&config)) {
+        fprintf(stderr, "control_central: the window could not be opened again\n");
+        exit(1);
+    }
+}
 
 static void palette_clear(void *ctx, uint8_t *rgb) { (void)ctx; palette_put_clear(rgb); }
 static void palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
@@ -229,7 +257,7 @@ static void load(void)
 int32_t glue_central(void)
 {
     static const ControlCentralOps OPS = {
-        wait, palette_clear, move_to, nothing, load_art, picture_new, nothing, no_inverse, nothing, mark, shape,
+        no_wait, palette_clear, move_to, nothing, load_art, picture_new, nothing, no_inverse, nothing, mark, shape,
         palette_set, nothing, in_rect, car_flags, type_changed, ticks, zero, select_picture, blit, blit_masked,
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
         show, buttons, fade_in, nothing, styles, no_sound, deadline_set, deadline_passed, key, scancode, no_cheat,
