@@ -124,7 +124,7 @@ int32_t net_get_services(const NetServicesOps *ops, const NetCheck *c, const Net
             NetServiceDriver *const d = ops->drivers[i];
             int32_t a, b;
             if (ops->driver_info(ops->ctx, d, &a, &b) == 0) continue;
-            if (cb->fn(cb->ctx, ops->drivers[i]->guid, ops->drivers[i]->id, a, b) == 0) return 0;
+            if (cb->fn(cb->ctx, ops->drivers[i]->guid, ops->drivers[i]->name, a, b) == 0) return 0;
         }
     }
     if (ops->tcp_services == NULL) return 1;

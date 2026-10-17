@@ -104,16 +104,17 @@ typedef struct {
 int32_t net_open_game(const NetOpenGameOps *ops, const NetCheck *c, NetSession *s);
 
 /* A network service's driver (the tables at 0052cdc0, 004c62a0 of them):
- * +0 its id, +4 its GUID (inline); its methods' table is the driver */
+ * +0 its name (a pointer: 00443258 copies the string), +4 its GUID
+ * (inline); its methods' table is the driver */
 typedef struct NetServiceDriver {
-    int32_t id;           /* +0 */
+    const char *name;     /* +0 */
     const uint8_t *guid;  /* +4: inline, 16 bytes */
 } NetServiceDriver;
 
-/* getnetservices' callback (cdecl (guid, id, a, b)): 0 stops it */
+/* getnetservices' callback (cdecl (guid, name, a, b)): 0 stops it */
 typedef struct {
     void *ctx;
-    int32_t (*fn)(void *ctx, const uint8_t *guid, int32_t id, int32_t a, int32_t b);
+    int32_t (*fn)(void *ctx, const uint8_t *guid, const char *name, int32_t a, int32_t b);
 } NetServicesCallback;
 
 enum { NET_SERVICES_MOST = 32 };

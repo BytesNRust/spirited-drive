@@ -13,7 +13,7 @@
 
 enum { NET_UDP_HANDLES = 4 };
 
-extern const NetServiceDriver NET_UDP_DRIVER;  /* its GUID ("TNFS UDP LAN/IP") for initnetservice */
+extern const NetServiceDriver NET_UDP_DRIVER;  /* "UDP (LAN / IP)", its GUID ("TNFS UDP LAN/IP") for initnetservice */
 
 typedef struct {
     uint16_t port;                        /* the one to bind (0: any) */

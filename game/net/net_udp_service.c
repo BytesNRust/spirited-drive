@@ -5,7 +5,7 @@
 
 static const uint8_t UDP_GUID[16] = { 'T', 'N', 'F', 'S', ' ', 'U', 'D', 'P', ' ', 'L', 'A', 'N', '/', 'I', 'P', 0 };
 
-const NetServiceDriver NET_UDP_DRIVER = { 1, UDP_GUID };
+const NetServiceDriver NET_UDP_DRIVER = { "UDP (LAN / IP)", UDP_GUID };
 
 uint32_t net_udp_service_open(NetUdpService *s)
 {
