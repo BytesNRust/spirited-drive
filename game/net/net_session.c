@@ -51,3 +51,30 @@ int32_t net_kill_player(const NetKillOps *ops, const NetCheck *c, NetSession *s,
     }
     return 0;
 }
+
+int32_t net_end_game(const NetEndOps *ops, const NetCheck *c, NetSession *s)
+{
+    int32_t message = NET_BYE;
+    net_check(ops->check, c, "endnetgame");
+    if (net_queue_place(ops->mutex, ops->sessions, &s->node) == -1) return 1;
+    if (s->tcp != 0) return ops->tcp_end(ops->ctx, s);
+    if (s->joined == 0) return 1;
+    if (s->server != NULL && s->server->word_8 == 0) {
+        ops->driver_leave(ops->ctx, s->handle, s->server->game);
+        s->server->game[0] = 0;
+        if (c->trace_level >= 2) ops->trace(ops->ctx, "SrvLeave->", &message);
+        for (int i = 0; i < NET_PLAYERS && s->server->players != 0; i++) {
+            const uint32_t bit = 1u << i;
+            if ((s->server->players & bit) == 0) continue;
+            ops->driver_send(ops->ctx, s->handle, s->server->entries + i * NET_PLAYER_SIZE, message, 0, 0);
+            s->server->players &= ~bit;
+        }
+        ops->release(ops->ctx, s->server);
+        s->server = NULL;
+    } else if (s->server == NULL) {
+        if (c->trace_level >= 2) ops->trace(ops->ctx, "CliLeave->", &message);
+        ops->driver_send(ops->ctx, s->handle, s->address, message, 0, 0);
+    }
+    s->joined = 0, s->word_9c = 0;
+    return 1;
+}

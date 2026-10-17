@@ -5,6 +5,8 @@
 #ifndef TNFS_NET_SESSION_H
 #define TNFS_NET_SESSION_H
 
+#include "game/net/net_queue.h"
+
 #include <stdint.h>
 
 typedef struct NetServer NetServer;
@@ -15,6 +17,10 @@ typedef struct {
     NetServer *server;    /* +0xc: the game server's record, NULL on the clients */
     uint32_t handle;      /* +0x10: the driver's, its methods' eax */
     const uint8_t *self;  /* +0x28: this machine's address */
+    NetNode node;         /* +0: its place in the sessions' list (0052cdd0) */
+    uint8_t *address;     /* +0x14: the game server's address (inline) */
+    int32_t joined;       /* +0x98: in a game */
+    int32_t word_9c;      /* +0x9c: cleared with +0x98 */
 } NetSession;
 
 typedef struct {
@@ -30,6 +36,8 @@ struct NetServer {
     NetSession *session;  /* +4 */
     uint32_t players;     /* +0x4c: a bit for each entry in use */
     uint8_t *entries;     /* +0x94: NET_PLAYERS entries of NET_PLAYER_SIZE bytes, each the player's address first */
+    int32_t word_8;       /* +8: 0, endnetgame leaves as the game server */
+    uint8_t *game;        /* +0xc: inline; the driver's +0x30 gets it, its first byte cleared on leaving */
 };
 
 /* 00479ad4 (cdecl (session, a, b), from 00477e94, 00478030, 00479250,
@@ -91,5 +99,33 @@ extern const char NET_KILL_SERVER[];       /* 004b2a84 */
  * machine's (00479ad4 against +0x28), the message 004b2a84. */
 int32_t net_kill_player(const NetKillOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
                         const int32_t *now);
+
+enum { NET_BYE = (int32_t)0xea627965 };  /* the driver's +0x54 message endnetgame sends */
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetMutexOps *mutex;
+    NetQueue *sessions;                                                      /* 0052cdd0 */
+    int32_t (*tcp_end)(void *ctx, NetSession *s);                            /* 0052ce18 (cdecl) */
+    void (*driver_leave)(void *ctx, uint32_t handle, uint8_t *game);         /* the driver's +0x30 (eax, edx) */
+    /* the driver's +0x54 (eax handle, edx address, ebx message, ecx, one argument on the stack) */
+    void (*driver_send)(void *ctx, uint32_t handle, uint8_t *address, int32_t message, int32_t ecx, int32_t arg);
+    void (*trace)(void *ctx, const char *name, const int32_t *message);    /* 0047f244 (name, &message, 0, 0, 0, 0) */
+    void (*release)(void *ctx, NetServer *v);                                /* 00475260 (cdecl) */
+} NetEndOps;
+
+/* 004795fc endnetgame (cdecl (session), from 00442d9c (the race's),
+ * 004790b0, 00479250 and 00479338): 00478e18("endnetgame" 004b2a40); not in
+ * 0052cdd0 (0049ca1c -1): 1. +4 set: 0052ce18(session) returned. +0x98 0: 1.
+ * Else, with the server (+0xc) there and its +8 0: the driver's +0x30
+ * (+0x10, server + 0xc), the server's +0xc byte 0, 004c62b8 >= 2
+ * 0047f244("SrvLeave->", &0xea627965, 0, ...), then for each of the 31
+ * entries while +0x4c (read again) has any bit, the set ones get the driver's
+ * +0x54(+0x10, the entry, 0xea627965, 0, 0) and lose their bit; 00475260
+ * (server), +0xc 0. No server: 004c62b8 >= 2 0047f244("CliLeave->", ...),
+ * the driver's +0x54(+0x10, session + 0x14, 0xea627965, 0, 0). Then +0x98 and
+ * +0x9c 0; 1. */
+int32_t net_end_game(const NetEndOps *ops, const NetCheck *c, NetSession *s);
 
 #endif
