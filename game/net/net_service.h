@@ -8,6 +8,12 @@
 
 #include <stdint.h>
 
+enum { NET_GUID = 16 };
+
+/* 00477bcc (watcall (a, b), from 00478f0c): two GUIDs the same? The dword
+ * +0, the words +4 and +6, the bytes +8..+0xf; 1 / 0. */
+int32_t net_guid_equal(const uint8_t *a, const uint8_t *b);
+
 enum { NET_GAME_NAME = 43 };  /* "EAGAME." and the GUID's 35 hex digits and dots, a 0 */
 
 /* 00477b78 (watcall (guid, out), from 00479338 and two more): 00473d43

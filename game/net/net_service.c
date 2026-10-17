@@ -30,6 +30,11 @@ int32_t net_kill_service(const NetKillServiceOps *ops, const NetCheck *c, NetSes
     return r;
 }
 
+int32_t net_guid_equal(const uint8_t *a, const uint8_t *b)
+{
+    return memcmp(a, b, NET_GUID) == 0;
+}
+
 void net_game_name(const uint8_t *guid, char *out)
 {
     const uint32_t d = (uint32_t)guid[0] | (uint32_t)guid[1] << 8 | (uint32_t)guid[2] << 16 | (uint32_t)guid[3] << 24;
