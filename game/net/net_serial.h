@@ -82,4 +82,7 @@ void net_serial_set_dtr(NetSerial *s, int32_t port, const NetSerialOps *ops);
  * returning not 0: 0048f9ec (the original's test is the wrong way round). */
 int32_t net_serial_carrier(NetSerial *s, int32_t port, const NetSerialOps *ops);
 
+/* 0047bcb4 (cdecl (port)): an open port's 0047b6a8(port, 2). */
+void net_serial_flush_input(NetSerial *s, int32_t port, const NetSerialOps *ops);
+
 #endif

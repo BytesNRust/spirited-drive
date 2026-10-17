@@ -47,3 +47,8 @@ int32_t net_serial_carrier(NetSerial *s, int32_t port, const NetSerialOps *ops)
     unlock(s, ops);
     return on;
 }
+
+void net_serial_flush_input(NetSerial *s, int32_t port, const NetSerialOps *ops)
+{
+    if (net_serial_is_open(s, port)) ops->command(ops->ctx, s, port, CMD_FLUSH_INPUT);
+}
