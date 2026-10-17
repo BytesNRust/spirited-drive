@@ -252,6 +252,7 @@ add_library(tnfs_game STATIC
     game/net/net_service.c
     game/net/net_server.c
     game/net/net_link.c
+    game/net/net_serial.c
     game/race/replay_controls.c
     game/race/track_far.c
     game/race/track_fence.c
@@ -488,7 +489,7 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_input tools/probe_input.c tools/probe_race_menu.c tools/probe_race_net.c tools/probe_race_session.c
         tools/probe_transport.c tools/probe_packet_open.c tools/probe_net_request.c
         tools/probe_net_service.c tools/probe_net_serve.c tools/probe_net_link.c
-        tools/probe_net_pktdata.c)
+        tools/probe_net_pktdata.c tools/probe_net_serial.c)
     target_link_libraries(probe_input PRIVATE tnfs_game)
     target_compile_options(probe_input PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_needle tools/probe_needle.c)
