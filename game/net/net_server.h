@@ -161,4 +161,15 @@ typedef struct {
  * with the pulse on the driver's +0x54(+0x10, the entry, ack, 0, 0). 1. */
 int32_t net_poll_session(const NetPollOps *ops, NetSession *s);
 
+typedef struct {
+    const NetMutexOps *mutex;
+    NetQueue *sessions;     /* 0052cdd0 */
+    const NetPollOps *poll; /* 00478c14's */
+} NetSessionsOps;
+
+/* 00478db4 (no arguments, ecx and edx kept; 0049d028's service, set by
+ * initnetservice): 0049cdc4(0052cdd0, 00478c14, 1), its answer returned
+ * (00478c14 always answers 1, so -1 unless the list changed meanwhile). */
+int32_t net_sessions_service(const NetSessionsOps *ops);
+
 #endif

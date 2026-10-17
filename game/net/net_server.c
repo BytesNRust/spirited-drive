@@ -3,6 +3,7 @@
 
 #include "game/net/net_queue.h"
 
+#include <stddef.h>
 #include <string.h>
 
 const char NET_ADD_NO_SLOT[] = "addnewplayer -- FAILED TO FIND EMPTY PLAYER SLOT, SHOULD HAVE NEVER GOT THIS FAR.";
@@ -296,4 +297,16 @@ int32_t net_poll_session(const NetPollOps *ops, NetSession *s)
     }
     poll_players(ops, s, v, pulse);
     return 1;
+}
+
+static int32_t sessions_visit(void *ctx, NetNode *n, uintptr_t arg)
+{
+    (void)arg;  /* 1, unread */
+    return net_poll_session(ctx, (NetSession *)(void *)((char *)n - offsetof(NetSession, node)));
+}
+
+int32_t net_sessions_service(const NetSessionsOps *ops)
+{
+    const NetQueueVisit visit = { (void *)ops->poll, sessions_visit };
+    return net_queue_walk(ops->mutex, ops->sessions, &visit, 1);
 }

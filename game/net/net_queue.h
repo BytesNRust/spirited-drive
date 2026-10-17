@@ -125,7 +125,12 @@ NetNode *net_queue_find(const NetMutexOps *ops, NetQueue *q, NetQueueTest test, 
  * the visit) visited while bit 0 stays clear, a visit answering 0 setting
  * it; under the mutex again: the bit still clear (the walk ran to its end)
  * -1, else the nodes visited; the kept bit set again. */
-int32_t net_queue_walk(const NetMutexOps *ops, NetQueue *q, NetQueueTest visit, uintptr_t arg);
+typedef struct {
+    void *ctx;
+    int32_t (*fn)(void *ctx, NetNode *n, uintptr_t arg);  /* 0 stops the walk */
+} NetQueueVisit;
+
+int32_t net_queue_walk(const NetMutexOps *ops, NetQueue *q, const NetQueueVisit *visit, uintptr_t arg);
 
 /* 0049cb60 (cdecl (queue, n), no direct callers): under the mutex (+0x18,
  * read again for the unlock), the node n places from the head (read after
