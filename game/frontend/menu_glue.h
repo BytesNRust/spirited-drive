@@ -34,5 +34,6 @@ int32_t glue_central(void);             /* 00432ff4 (central_glue.c): 2 the time
 int32_t glue_yes_no(void *ctx, const char *text);  /* 00465f4c */
 void glue_banner(void *ctx, const char *text);     /* 0046667c */
 void glue_drain(void *ctx);                        /* 004770ac */
+void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y);  /* 00463934 */
 
 #endif

@@ -216,3 +216,4 @@ int32_t glue_game_mode(void)
 int32_t glue_yes_no(void *ctx, const char *text) { return yes_no(ctx, text); }
 void glue_banner(void *ctx, const char *text) { banner(ctx, text); }
 void glue_drain(void *ctx) { drain(ctx); }
+void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y) { boxed(ctx, text, x, y); }

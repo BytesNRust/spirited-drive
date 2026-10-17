@@ -7,8 +7,11 @@
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
+#include "game/frontend/controls_menu.h"
 #include "game/frontend/credits.h"
 #include "game/frontend/ea_lib.h"
+#include "game/frontend/key_capture.h"
+#include "game/frontend/key_name.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
@@ -25,6 +28,7 @@
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
+#include "game/platform/platform.h"
 #include "game/viewer/track_viewer.h"
 
 #include <stdio.h>
@@ -433,7 +437,58 @@ static void opt_car_flags(void *ctx)
     opt_out();
 }
 
-/* TODO(004015dc, 00423d28, 00413cb0, 0042c498): audio, graphics, controls and load / save */
+/* 00413cb0's controls: config.dat's 13 shorts from 0052ad26, copied to aligned shorts around the screen */
+enum { CONTROLS_AT = 0x5f36 };
+static int16_t controls_kept[CONTROLS_SHORTS];
+static void controls_out(void) { memcpy(controls_kept, config_current()->image + CONTROLS_AT, sizeof controls_kept); }
+static void controls_in(void) { memcpy(config_current()->image + CONTROLS_AT, controls_kept, sizeof controls_kept); }
+static void grab(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_save(s, x, y); }
+static void key_name(void *ctx, int32_t k, char *out) { (void)ctx; key_name_text(out, resource_german(), k); }
+static int32_t clash(void *ctx)
+{
+    (void)ctx;
+    controls_in();
+    return config_dat_controls_clash(config_current());
+}
+/* 00476f94: the arrows from the key queue, anything else typed from the text queue (Enter, Escape among them) */
+static int32_t key_read(void *ctx)
+{
+    (void)ctx;
+    static const int32_t ARROWS[] = { [PLATFORM_KEY_LEFT] = 0x4b00, [PLATFORM_KEY_RIGHT] = 0x4d00,
+                                      [PLATFORM_KEY_UP] = 0x4800, [PLATFORM_KEY_DOWN] = 0x5000 };
+    for (PlatformKey k; (k = platform_next_key()) != PLATFORM_KEY_NONE;)
+        if (k <= PLATFORM_KEY_DOWN) return ARROWS[k];
+    return input_next_char();
+}
+static int32_t keys_pending(void *ctx) { (void)ctx; return input_get_key(); }
+static int32_t capture_buttons(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
+static int32_t capture(void *ctx, char *name)
+{
+    KeyCaptureState st = { pointer_active(), 0, 0, 0, 0 };
+    const KeyCaptureOps ops = { keys_pending, music, capture_buttons, nothing, ticks, glue_drain, key_read, nothing,
+                                ctx };
+    return key_capture(name, resource_german(), &st, &ops);
+}
+static void controls(void *ctx, int32_t mode)
+{
+    static const int16_t no_joystick_b = 0, quit = 0, net_off = 1;  /* no joysticks, no link game */
+    static const int32_t no_joystick_a = 0, no_calibration = 0;
+    const int16_t german = (int16_t)resource_german();
+    int32_t *const screen = ea_screen_slot();
+    controls_out();
+    const ControlsMenuState st = { controls_kept, &german, &no_joystick_a, &no_joystick_b, &no_calibration,
+                                   &g.pointer_active, &g.buttons, screen, &g.inverse, &net_off, &quit };
+    const ControlsMenuOps ops = {
+        picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
+        styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
+        select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
+        glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, nothing,
+        picture_free, free_bank, ctx };
+    controls_menu(&st, mode, &ops);
+    controls_in();
+}
+
+/* TODO(004015dc, 00423d28, 0042c498): audio, graphics and load / save */
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -443,7 +498,7 @@ static void options(void *ctx)
     const OptionsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
-        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, no_mode, no_mode, no_mode, no_mode,
+        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, no_mode, no_mode, controls, no_mode,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, nothing,
         deadline_passed, ctx };
     static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */
