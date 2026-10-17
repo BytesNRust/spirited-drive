@@ -44,3 +44,49 @@ int32_t net_set_game(const NetSetOps *ops, const NetCheck *c, NetSession *s, con
     net_request_send(ops->request, s, &r, NET_SET_GAME, out, NET_SET_SIZE, (int32_t)((uint32_t)*ops->timeout * 2));
     return r.answered;
 }
+
+static int32_t net_server_players(const NetPlayerCallback *cb, NetSession *s)
+{
+    if (cb->fn(cb->ctx, s, s->self, 1) == 0) return 0;
+    int32_t count = 1;
+    for (int32_t i = 0; i < NET_PLAYERS; i++) {
+        if ((s->server->players & 1u << i) == 0) continue;
+        if (cb->fn(cb->ctx, s, s->server->entries + i * NET_PLAYER_SIZE, 0) == 0) return count;
+        count++;
+    }
+    return count;
+}
+
+int32_t net_get_players(const NetPlayersOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
+                        const NetPlayerCallback *cb)
+{
+    net_check(ops->check, c, "getnetplayers");
+    if (s->tcp != 0) return ops->tcp_players(ops->ctx, s, address, cb);
+    if (address == NULL && s->joined != 0) {
+        address = s->address;
+    } else {
+        if (address == NULL || s->joined != 0) return 0;
+        memcpy(s->address, address, NET_ADDRESS);
+    }
+    if (s->server != NULL && net_address_equal(ops->equal, s, s->address, address) != 0) return net_server_players(cb, s);
+    NetRequest r = { 0 };  /* 00477b48's zero bytes */
+    uint8_t out[NET_SET_SIZE];
+    net_request_send(ops->request, s, &r, NET_PLAYERS_ASK, out, NET_PLAYERS_SIZE,
+                     (int32_t)((uint32_t)*ops->timeout * 2));
+    if (r.answered == 0) return 0;
+    const uint32_t players = r.players;
+    r.callback = cb;
+    r.answered = 1;
+    int32_t count = 0;
+    for (int32_t i = -1; r.answered != 0;) {
+        if (i == -1 || (players & 1u << i) != 0) {
+            net_put_big(out + 4, (uint32_t)i, 4);
+            net_request_send(ops->request, s, &r, NET_PLAYER_GET, out, NET_PLAYER_SIZE_OUT,
+                             (int32_t)((uint32_t)*ops->timeout * 2));
+            if (r.answered == -3) r.answered = 0;
+            else count++;
+        }
+        if (++i >= 32) return count;
+    }
+    return count;
+}

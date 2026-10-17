@@ -8,12 +8,22 @@
 
 #include <stdint.h>
 
+/* 00479770's callback (cdecl (session, the player's record, 1 for the
+ * session's own +0x28)): 0 stops it */
+typedef struct {
+    void *ctx;
+    int32_t (*fn)(void *ctx, NetSession *s, const uint8_t *record, int32_t self);
+} NetPlayerCallback;
+
 /* A request awaiting its answer (00477da4's edx; the session's +0x94 while
  * it waits); read again after every call */
 struct NetRequest {
     int32_t id;           /* +0: 004c62bc's count */
-    int32_t answered;     /* +4: set by the answer's handler */
+    int32_t answered;     /* +4: set by the answer's handler (-3: no such player) */
+    uint32_t players;     /* +8: getnetplayers' answer, a bit for each player */
     NetSession *session;  /* +0xc */
+    int32_t word_10;      /* +0x10 */
+    const NetPlayerCallback *callback;  /* +0x14: getnetplayers' */
 };
 
 typedef struct {
@@ -66,5 +76,32 @@ typedef struct {
  * 0xea616464, out, 0x70, 004c6170 * 2) and the request's +4 returned. */
 int32_t net_set_game(const NetSetOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
                      const char *password);
+
+enum { NET_PLAYERS_ASK = (int32_t)0xea726571, NET_PLAYERS_SIZE = 0x4c, NET_PLAYER_GET = (int32_t)0xea676574,
+       NET_PLAYER_SIZE_OUT = 8 };
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetEqualOps *equal;
+    const NetRequestOps *request;
+    int32_t (*tcp_players)(void *ctx, NetSession *s, const uint8_t *address, const NetPlayerCallback *cb);  /* 0052ce0c (cdecl) */
+    const int32_t *timeout;  /* 004c6170: doubled */
+} NetPlayersOps;
+
+/* 00479770 getnetplayers (cdecl (session, address, callback), from 004428fc):
+ * 00478e18("getnetplayers" 004b2a64); +4 set: 0052ce0c(session, address,
+ * callback) returned. No address: +0x14 with +0x98 set, else 0; an address
+ * with +0x98 set: 0; else its 0x14 bytes to +0x14. A server (+0xc) and
+ * 00479ad4(session, +0x14, address) not 0: callback(session, +0x28, 1), then
+ * for the 31 entries whose bit of the server's +0x4c (both read again) is
+ * set, callback(session, the entry, 0), counted until one gives 0. Else a
+ * request from 00477b48's 24 zero bytes: 00477da4(0xea726571, out, 0x4c,
+ * 004c6170 * 2); its +4 0: 0. Else +0x14 the callback, +4 1, and for i from
+ * -1 to 31 while +4 is not 0, i -1 or its bit set in +8 (as the first
+ * answer left it): 0049c6a8(out + 4, i, 4), 00477da4(0xea676574, out, 8,
+ * 004c6170 * 2); +4 -3: 0, else counted. The count returned. */
+int32_t net_get_players(const NetPlayersOps *ops, const NetCheck *c, NetSession *s, const uint8_t *address,
+                        const NetPlayerCallback *cb);
 
 #endif
