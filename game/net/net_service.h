@@ -97,4 +97,39 @@ typedef struct {
  * 004c62a4 (read after +0x2c); 1. */
 int32_t net_open_game(const NetOpenGameOps *ops, const NetCheck *c, NetSession *s);
 
+/* A network service's driver (the tables at 0052cdc0, 004c62a0 of them):
+ * +0 its id, +4 its name (inline); its methods' table is the driver */
+typedef struct {
+    int32_t id;           /* +0 */
+    const uint8_t *name;  /* +4: inline */
+} NetServiceDriver;
+
+/* getnetservices' callback (cdecl (name, id, a, b)): 0 stops it */
+typedef struct {
+    void *ctx;
+    int32_t (*fn)(void *ctx, const uint8_t *name, int32_t id, int32_t a, int32_t b);
+} NetServicesCallback;
+
+enum { NET_SERVICES_MOST = 32 };
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    NetServiceDriver *const *drivers;  /* 0052cdc0 */
+    const int32_t *count;              /* 004c62a0 */
+    /* the driver's +0x14 (eax &a, edx &b): not 0, the driver there */
+    int32_t (*driver_info)(void *ctx, NetServiceDriver *d, int32_t *a, int32_t *b);
+    /* 0052ce20 (cdecl, getnetservices' four), NULL when not set */
+    int32_t (*tcp_services)(void *ctx, const NetServicesCallback *cb, int32_t arg2, int32_t arg3, uint32_t most);
+} NetServicesOps;
+
+/* 00478e6c getnetservices (cdecl (callback, arg2, arg3, most), from
+ * 004432d4): 00478e18("getnetservices" 004b2978). most at most
+ * 32 (unsigned): for each of the 004c62a0 (read again, signed) drivers at
+ * 0052cdc0 whose +0x14(&a, &b) is not 0, callback(driver + 4, *driver, a, b);
+ * 0 from it: 0. Then 0052ce20 set: 0052ce20(callback, arg2, arg3, most)
+ * returned, else 1. */
+int32_t net_get_services(const NetServicesOps *ops, const NetCheck *c, const NetServicesCallback *cb, int32_t arg2,
+                         int32_t arg3, uint32_t most);
+
 #endif

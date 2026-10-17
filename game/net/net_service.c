@@ -109,3 +109,19 @@ int32_t net_open_game(const NetOpenGameOps *ops, const NetCheck *c, NetSession *
         net_put_little(s->server->entries + i * NET_PLAYER_SIZE + NET_PLAYER_SEEN, (uint32_t)now, 4);
     return 1;
 }
+
+int32_t net_get_services(const NetServicesOps *ops, const NetCheck *c, const NetServicesCallback *cb, int32_t arg2,
+                         int32_t arg3, uint32_t most)
+{
+    net_check(ops->check, c, "getnetservices");
+    if (most <= NET_SERVICES_MOST) {
+        for (int32_t i = 0; i < *ops->count; i++) {
+            NetServiceDriver *const d = ops->drivers[i];
+            int32_t a, b;
+            if (ops->driver_info(ops->ctx, d, &a, &b) == 0) continue;
+            if (cb->fn(cb->ctx, ops->drivers[i]->name, ops->drivers[i]->id, a, b) == 0) return 0;
+        }
+    }
+    if (ops->tcp_services == NULL) return 1;
+    return ops->tcp_services(ops->ctx, cb, arg2, arg3, most);
+}
