@@ -104,16 +104,16 @@ typedef struct {
 int32_t net_open_game(const NetOpenGameOps *ops, const NetCheck *c, NetSession *s);
 
 /* A network service's driver (the tables at 0052cdc0, 004c62a0 of them):
- * +0 its id, +4 its name (inline); its methods' table is the driver */
-typedef struct {
+ * +0 its id, +4 its GUID (inline); its methods' table is the driver */
+typedef struct NetServiceDriver {
     int32_t id;           /* +0 */
-    const uint8_t *name;  /* +4: inline */
+    const uint8_t *guid;  /* +4: inline, 16 bytes */
 } NetServiceDriver;
 
-/* getnetservices' callback (cdecl (name, id, a, b)): 0 stops it */
+/* getnetservices' callback (cdecl (guid, id, a, b)): 0 stops it */
 typedef struct {
     void *ctx;
-    int32_t (*fn)(void *ctx, const uint8_t *name, int32_t id, int32_t a, int32_t b);
+    int32_t (*fn)(void *ctx, const uint8_t *guid, int32_t id, int32_t a, int32_t b);
 } NetServicesCallback;
 
 enum { NET_SERVICES_MOST = 32 };
@@ -132,10 +132,49 @@ typedef struct {
 /* 00478e6c getnetservices (cdecl (callback, arg2, arg3, most), from
  * 004432d4): 00478e18("getnetservices" 004b2978). most at most
  * 32 (unsigned): for each of the 004c62a0 (read again, signed) drivers at
- * 0052cdc0 whose +0x14(&a, &b) is not 0, callback(driver + 4, *driver, a, b);
+ * 0052cdc0 whose +0x14(&a, &b) is not 0, callback(its GUID (+4), *driver, a, b);
  * 0 from it: 0. Then 0052ce20 set: 0052ce20(callback, arg2, arg3, most)
  * returned, else 1. */
 int32_t net_get_services(const NetServicesOps *ops, const NetCheck *c, const NetServicesCallback *cb, int32_t arg2,
                          int32_t arg3, uint32_t most);
+
+enum { NET_SESSION_SIZE = 0xc0, NET_TEXT_3C = 0x34, NET_TEXT_70 = 0x14 };
+
+typedef struct {
+    void *ctx;
+    const NetCheckOps *check;
+    const NetMutexOps *mutex;
+    NetQueue *sessions;                /* 0052cdd0 */
+    NetServiceDriver *const *drivers;  /* 0052cdc0 */
+    const int32_t *count;              /* 004c62a0 */
+    int32_t *started;                  /* 004c62f0 */
+    void **lock;                       /* 004c62c4: 00476c68's mutex */
+    int32_t *resend;                   /* 004c62ac */
+    const int32_t *timeout;            /* 004c6170 */
+    void (*at_exit)(void *ctx);                 /* 00487b78(00478dd0) */
+    void (*clear)(void *ctx, NetSession *s);    /* 0048f1d4(session, 0xc0): the record's bytes 0 */
+    /* 0052ce1c (cdecl, initnetservice's five), NULL when not set */
+    int32_t (*tcp_init)(void *ctx, NetSession *s, const uint8_t *guid, const uint8_t *service, const char *text_3c,
+                        const char *text_70);
+    int32_t (*driver_present)(void *ctx, const NetServiceDriver *d);   /* +0x18 (eax the driver) */
+    uint32_t (*driver_open)(void *ctx, const NetServiceDriver *d);     /* +0x20 (eax 0, edx 0): a handle */
+    void (*driver_stop)(void *ctx, const NetServiceDriver *d);         /* +0x1c (eax the driver) */
+    void (*driver_self)(void *ctx, const NetServiceDriver *d, uint32_t handle, uint8_t *self);  /* +0x44 (eax, edx) */
+    void (*service_on)(void *ctx);                                     /* 0049d028(00478db4) */
+} NetInitServiceOps;
+
+/* 00478f0c initnetservice (cdecl (session, guid, service, text_3c,
+ * text_70), from 004432d4): 00478e18("initnetservice" 004b2988). 004c62f0 0:
+ * 004c62c4 = 00476c68(), 0049c7a8(0052cdd0, 0, 0), 00487b78(00478dd0),
+ * 004c62f0 1. 004c62ac 0: (004c6170 + 9) / 10. 0048f1d4(session, 0xc0).
+ * 0052ce1c set and (session, guid, service, text_3c, text_70) not 0: 1.
+ * Else the first of the 004c62a0 (read again) drivers whose GUID 00477bcc
+ * finds the service's; one: +4 0, +8 it, its +0x18 not 0: +0x10 = its +0x20
+ * (0, 0), 0: its +0x1c; else 1, its +0x44(the handle, +0x28), +0xa0 1. With
+ * 1: 0048ec60 (bcopy) the guid's 16 bytes to +0x84, 00482890 text_3c to
+ * +0x3c (0x34) and text_70 to +0x70 (0x14), 0049d028(00478db4) when
+ * 0052cdd0 is empty, 0049c804(0052cdd0, session). The 0 / 1. */
+int32_t net_init_service(const NetInitServiceOps *ops, const NetCheck *c, NetSession *s, const uint8_t *guid,
+                         const uint8_t *service, const char *text_3c, const char *text_70);
 
 #endif

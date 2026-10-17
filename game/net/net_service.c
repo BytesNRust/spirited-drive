@@ -124,9 +124,52 @@ int32_t net_get_services(const NetServicesOps *ops, const NetCheck *c, const Net
             NetServiceDriver *const d = ops->drivers[i];
             int32_t a, b;
             if (ops->driver_info(ops->ctx, d, &a, &b) == 0) continue;
-            if (cb->fn(cb->ctx, ops->drivers[i]->name, ops->drivers[i]->id, a, b) == 0) return 0;
+            if (cb->fn(cb->ctx, ops->drivers[i]->guid, ops->drivers[i]->id, a, b) == 0) return 0;
         }
     }
     if (ops->tcp_services == NULL) return 1;
     return ops->tcp_services(ops->ctx, cb, arg2, arg3, most);
+}
+
+static int32_t net_service_driver(const NetInitServiceOps *ops, NetSession *s, const uint8_t *service)
+{
+    int32_t i = 0;
+    while (i < *ops->count && net_guid_equal(ops->drivers[i]->guid, service) == 0) i++;
+    if (i >= *ops->count) return 0;
+    s->tcp = 0;
+    s->driver = ops->drivers[i];
+    if (ops->driver_present(ops->ctx, s->driver) == 0) return 0;
+    const uint32_t handle = ops->driver_open(ops->ctx, s->driver);
+    s->handle = handle;
+    if (handle == 0) {
+        ops->driver_stop(ops->ctx, s->driver);
+        return 0;
+    }
+    ops->driver_self(ops->ctx, s->driver, handle, s->self);
+    s->word_a0 = 1;
+    return 1;
+}
+
+int32_t net_init_service(const NetInitServiceOps *ops, const NetCheck *c, NetSession *s, const uint8_t *guid,
+                         const uint8_t *service, const char *text_3c, const char *text_70)
+{
+    net_check(ops->check, c, "initnetservice");
+    if (*ops->started == 0) {
+        *ops->lock = ops->mutex->create(ops->mutex->ctx);
+        net_queue_init(ops->mutex, ops->sessions, NULL, 0);
+        ops->at_exit(ops->ctx);
+        *ops->started = 1;
+    }
+    if (*ops->resend == 0) *ops->resend = (int32_t)((uint32_t)*ops->timeout + 9) / 10;
+    ops->clear(ops->ctx, s);
+    int32_t r;
+    if (ops->tcp_init != NULL && ops->tcp_init(ops->ctx, s, guid, service, text_3c, text_70) != 0) r = 1;
+    else r = net_service_driver(ops, s, service);
+    if (r == 0) return 0;
+    memmove(s->guid, guid, NET_GUID);  /* 0048ec60 */
+    strncpy(s->text_3c, text_3c, NET_TEXT_3C);
+    strncpy(s->text_70, text_70, NET_TEXT_70);
+    if (net_queue_count(ops->sessions) == 0) ops->service_on(ops->ctx);
+    net_queue_push_front(ops->mutex, ops->sessions, &s->node);
+    return 1;
 }

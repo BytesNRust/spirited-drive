@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 typedef struct NetServer NetServer;
+struct NetServiceDriver;
 typedef struct NetRequest NetRequest;
 
 /* The session record's words read here; read again after every call */
@@ -17,7 +18,7 @@ typedef struct {
     int32_t tcp;          /* +4: not 0, the TCP layer's hooks instead of the driver's methods */
     NetServer *server;    /* +0xc: the game server's record, NULL on the clients */
     uint32_t handle;      /* +0x10: the driver's, its methods' eax */
-    const uint8_t *self;  /* +0x28: this machine's address */
+    uint8_t *self;        /* +0x28: this machine's address (inline, 0x14 bytes) */
     NetNode node;         /* +0: its place in the sessions' list (0052cdd0) */
     uint8_t *address;     /* +0x14: the game server's address (inline) */
     int32_t joined;       /* +0x98: in a game */
@@ -25,7 +26,10 @@ typedef struct {
     int32_t word_9c;      /* +0x9c: cleared with +0x98 */
     int32_t word_a0;      /* +0xa0: cleared by killnetservice */
     int32_t word_a4;      /* +0xa4: killnetservice waits for it to drop to 0 */
-    const uint8_t *guid;  /* +0x84: inline, 16 bytes; the game's name made from it (00477b78) */
+    uint8_t *guid;        /* +0x84: inline, 16 bytes; the game's name made from it (00477b78) */
+    const struct NetServiceDriver *driver;  /* +8: the service's driver, its method table */
+    char *text_3c;        /* +0x3c: inline, 0x34 bytes; initnetservice's fourth argument */
+    char *text_70;        /* +0x70: inline, 0x14 bytes; its fifth */
     int32_t word_a8;      /* +0xa8: newnetgame's fourth argument */
 } NetSession;
 
