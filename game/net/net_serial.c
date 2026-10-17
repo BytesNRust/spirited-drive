@@ -57,3 +57,22 @@ void net_serial_flush_output(NetSerial *s, int32_t port, const NetSerialOps *ops
 {
     if (net_serial_is_open(s, port)) ops->command(ops->ctx, s, port, CMD_FLUSH_OUTPUT);
 }
+
+void net_serial_close(NetSerial *s, int32_t port, const NetSerialOps *ops)
+{
+    lock(s, ops);
+    if (net_serial_is_open(s, port)) {
+        NetSerialPort *const p = s->port[port];
+        ops->command(ops->ctx, s, port, CMD_CLOSE);
+        unlock(s, ops);
+        while (s->port[port] != NULL) ops->sleep(ops->ctx, 1);  /* the thread clears it */
+        ops->release(ops->ctx, p);
+        s->opened--;
+    }
+    else unlock(s, ops);
+    if (s->opened == 0) {
+        ops->thread_kill(ops->ctx, s->thread);
+        ops->mutex->close(ops->mutex->ctx, s->wake);
+        ops->mutex->close(ops->mutex->ctx, s->lock);
+    }
+}
