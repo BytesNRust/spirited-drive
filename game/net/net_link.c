@@ -38,3 +38,8 @@ int32_t net_link_alive(const NetPacketHandle *h)
 {
     return h->linked != 0 && h->session->word_a0 != 0;
 }
+
+uint32_t net_link_room(const NetLinkOps *ops, const NetPacketHandle *h)
+{
+    return ops->driver_ready(ops->ctx, h->session->handle) != 0 ? *ops->room : 0;
+}

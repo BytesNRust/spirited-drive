@@ -21,6 +21,8 @@ typedef struct {
     void (*driver_prepare)(void *ctx, uint32_t handle, uint8_t *address);
     /* the session's driver's +0x5c (eax handle, edx address, ebx message, ecx 0 to open, 1 to close) */
     void (*driver_link)(void *ctx, uint32_t handle, uint8_t *address, int32_t message, int32_t closing);
+    int32_t (*driver_ready)(void *ctx, uint32_t handle);  /* the session's driver's +0x4c (eax handle) */
+    const uint32_t *room;                                /* 004c62e4 */
 } NetLinkOps;
 
 /* 00479b40 (cdecl (handle), 004c62c8's +0): the session (+0x24, its words
@@ -39,5 +41,9 @@ int32_t net_link_close(const NetLinkOps *ops, NetPacketHandle *h);
 /* 00479c74 (cdecl (handle), 004c62c8's +8): 1 with +0x3c set and the
  * session's +0xa0 (cleared by killnetservice) set, else 0. */
 int32_t net_link_alive(const NetPacketHandle *h);
+
+/* 00479c94 (cdecl (handle), 004c62c8's +0xc room): the session's driver's
+ * +0x4c(+0x10) not 0: 004c62e4, else 0. */
+uint32_t net_link_room(const NetLinkOps *ops, const NetPacketHandle *h);
 
 #endif
