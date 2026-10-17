@@ -7,8 +7,10 @@
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
+#include "game/frontend/credits.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/palette_put.h"
+#include "game/frontend/options_menu.h"
 #include "game/frontend/race_settings.h"
 #include "game/frontend/tournament.h"
 #include "game/frontend/track_select.h"
@@ -24,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* the globals 00432ff4 writes (central.h gives each address) */
 static struct {
@@ -151,8 +154,8 @@ static void art_free(void *ctx)
 }
 
 /* TODO(004648dc, 0046492c, 004649c8, 004640d0, 0046417c, 00464428, 004644f0, 00464568): the menu sounds and music;
- * TODO(00408724, 004562e8, 004676d8, 00461540, 00444bb0, 0040a5d8): the showcase, the best times, the standings,
- * Options and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
+ * TODO(00408724, 004562e8, 004676d8, 00461540, 0040a5d8): the showcase, the best times, the standings (no
+ * tournament results yet) and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
  * game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void no_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
@@ -301,6 +304,86 @@ static void track_select(void *ctx)
     if (config_dat_get_race(config, &after)) settings_put(&after);
 }
 
+/* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */
+static int32_t credits_idle;
+static uint32_t credits_last;
+static void credits_tick(void *ctx)
+{
+    (void)ctx;
+    const uint32_t now = timer_ticks();
+    credits_idle += (int32_t)(now - credits_last);
+    credits_last = now;
+}
+static int32_t read_buttons(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
+static void blit_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
+static void poll(void *ctx) { (void)ctx; pointer_sync_from_os(); }
+
+static const int16_t no_quit;  /* 0050a5b6: nothing asks the screens to leave yet */
+
+/* 004166e0 from Options */
+static void credits(void *ctx, int32_t mode)
+{
+    (void)mode;
+    const CreditsOps ops = { load_art, shape, palette_set, nothing, select_picture, blit, select_default,
+                             picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
+                             free_handle_inverse, nothing, nothing, free_bank, mark, ctx };
+    const CreditsState st = { ea_screen_slot(), &g.pointer_active, &g.buttons, &no_quit, &credits_idle };
+    credits_last = timer_ticks();
+    credits_show(&st, &ops);
+}
+
+/* 00444bb0's shorts in config.dat's image (offsets from 00524df0), all at odd addresses: copied out to aligned
+ * shorts around the screen */
+enum { OPT_TRANSMISSION, OPT_AUTOMATIC, OPT_ABS, OPT_TRACTION, OPT_RACE_TYPE, OPT_TRACK, OPT_OPPONENT, OPT_CAR,
+       OPT_NET_CAR, OPT_LAPS, OPT_DIFFICULTY, OPT_MUSIC_VOLUME, OPT_SHORTS };
+static const uint16_t OPT_AT[OPT_SHORTS] = { 0x97, 0x8d, 0x99, 0x8f, 0x6d, 0x95, 0x91, 0x9b, 0xad, 0xb1, 0xb3, 0x77 };
+static int16_t opt[OPT_SHORTS];
+
+static void opt_out(void)
+{
+    const ConfigDat *const config = config_current();
+    for (int i = 0; i < OPT_SHORTS; i++) memcpy(&opt[i], config->image + OPT_AT[i], sizeof opt[i]);
+}
+
+static void opt_in(void)
+{
+    ConfigDat *const config = config_current();
+    for (int i = 0; i < OPT_SHORTS; i++) memcpy(config->image + OPT_AT[i], &opt[i], sizeof opt[i]);
+}
+
+/* 00465ec8 on the screen's shorts */
+static void opt_car_flags(void *ctx)
+{
+    opt_in();
+    image_car_flags(ctx);
+    opt_out();
+}
+
+/* TODO(004015dc, 00423d28, 00413cb0, 0042c498): audio, graphics, controls and load / save */
+static void options(void *ctx)
+{
+    ConfigDat *const config = config_current();
+    const RaceSettings before = settings_of();
+    config_dat_set_race(config, &before);
+    opt_out();
+    const OptionsMenuOps ops = {
+        move_to, load_art, no_inverse, nothing, shape, palette_set, styles, poll, mark, in_rect, select_picture, blit,
+        select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, no_sound,
+        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, no_mode, no_mode, no_mode, no_mode,
+        nothing, nothing, no_music, credits, nothing, opt_car_flags, no_wait, off, nothing, nothing, deadline_passed,
+        ctx };
+    static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */
+    OptionsMenuState st = {
+        &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
+        &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
+        &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, &g.pointer_active, &g.buttons, ea_screen_slot(), &g.inverse,
+        &net_off, &no_quit, &menu_words.redraw };
+    options_menu(&st, &ops);
+    opt_in();
+    RaceSettings after = before;
+    if (config_dat_get_race(config, &after)) settings_put(&after);
+}
+
 /* config.dat's race settings and unlock level into the globals, as the draft read them */
 static void load(void)
 {
@@ -324,7 +407,7 @@ int32_t glue_central(void)
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
         show, buttons, fade_in, nothing, styles, no_sound, deadline_set, deadline_passed, key, scancode, no_cheat,
         not_down, activate, zero, click, no_kick, nothing, fade_out, nothing, no_music, nothing, nothing,
-        step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, nothing, nothing,
+        step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options, nothing,
         glue_yes_no, glue_drain, glue_banner, nothing, nothing, picture_free, flush, race, off, NULL };
     load();
     ControlCentralState st = {
