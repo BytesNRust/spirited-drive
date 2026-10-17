@@ -20,6 +20,18 @@ void tournament_reset(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s)
     s->variant = 0;
 }
 
+/* 0045b73c */
+int32_t tournament_leads(const uint8_t game_state[GAME_STATE_SIZE], int32_t player)
+{
+    int32_t top = 0;
+    for (int p = 0; p < GAME_STATE_PLAYERS; p++) {
+        const int16_t points = (int16_t)(game_state[STANDINGS_AT + 2 * p] | game_state[STANDINGS_AT + 2 * p + 1] << 8);
+        if (top < points) top = points;
+    }
+    const uint8_t *const mine = game_state + STANDINGS_AT + 2 * player;
+    return (int16_t)(mine[0] | mine[1] << 8) == top;
+}
+
 /* 00466b90 */
 void tournament_default_names(uint8_t game_state[GAME_STATE_SIZE], int from)
 {
