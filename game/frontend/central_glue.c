@@ -332,7 +332,7 @@ static void results(const TrackViewerResults *r, int32_t mode)
     const int32_t screen = ea_screen();
     const ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES };
+                               CAR_NAMES, g.lost_vegas };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;
     pointer_position(&x, &y);
@@ -342,7 +342,7 @@ static void results(const TrackViewerResults *r, int32_t mode)
         select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
         select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, no_name, nothing,
         deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, nothing, nothing, fade_out,
-        free_bank, free_handle_inverse, blit_masked, &p };
+        free_bank, free_handle_inverse, blit_masked, NULL, NULL, NULL, NULL, &p };
     results_screen(mode, &in, &st, &p, &ops);
 }
 

@@ -97,6 +97,7 @@ add_library(tnfs_game STATIC
     game/frontend/replay_box.c
     game/frontend/results_screen.c
     game/frontend/best_totals_screen.c
+    game/frontend/track_results.c
     game/frontend/save_box.c
     game/frontend/screen_clear.c
     game/frontend/screen_show.c

@@ -58,6 +58,10 @@ typedef struct ResultsOps {
     void (*free)(void *ctx, int32_t bank);                     /* 00475260 (cdecl) */
     void (*free_inverse)(void *ctx);                           /* 00474558 */
     void (*blit_masked)(void *ctx, const uint8_t *shape);      /* 00473ab4 (cdecl): 0045c45c's */
+    int32_t (*totals)(void *ctx);                              /* 0045be50: 0045de08's, the row or 0x14 (ax) */
+    int32_t (*top_record)(void *ctx);                          /* 0045c2d0: 1 when beaten (ax) */
+    int32_t (*leads)(void *ctx);                               /* 0045b73c: the player leads the tournament */
+    void (*best_totals)(void *ctx, int32_t row, int32_t top);  /* 0045c45c: eax, edx */
     void *ctx;
 } ResultsOps;
 
@@ -77,6 +81,7 @@ typedef struct ResultsInputs {
     int32_t screen;             /* 00524834 */
     int32_t screen_shape;       /* [00524834] + 0x2c */
     const char *const *car_names;  /* 004c5c84: RESULTS_CARS short names */
+    int32_t lost_vegas;         /* 004baf18: 0045de08's, a ninth track counted */
 } ResultsInputs;
 
 typedef struct ResultsState {
