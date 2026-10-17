@@ -259,6 +259,36 @@ uint32_t net_packet_receive(const NetPacketRecvOps *ops, NetPacketConn *c, int32
     return at;
 }
 
+int32_t net_packet_poll(const NetPacketRecvOps *ops, NetPacketConn *c)
+{
+    int32_t queued = 0;
+    NetPacketHandle *const h = c->link;
+    const NetDriver *const d = c->driver;
+    c->word_38 = (int32_t)((uint32_t)c->word_38 - 1);
+    if (c->word_38 != 0) return 0;
+    c->word_38 = h->word_4;
+    if (d->flags & NET_DRIVER_SINGLE) c->recv_used = 0;
+    if ((uint32_t)c->recv_used < (uint32_t)c->recv_size && d->ready(d->ctx, h) != 0) {
+        const uint32_t used = (uint32_t)c->recv_used;
+        const uint32_t got = d->read(d->ctx, h, c->recv + used, (uint32_t)c->recv_size - used);
+        c->recv_used = (int32_t)((uint32_t)c->recv_used + got);
+    }
+    uint32_t used = 0, left = (uint32_t)c->recv_used, r;
+    do {
+        r = net_packet_receive(ops, c, &queued, c->recv + used, left);
+        if (d->flags & NET_DRIVER_SINGLE) {
+            left = d->ready(d->ctx, h) != 0 ? d->read(d->ctx, h, c->recv, (uint32_t)c->recv_size) : 0;
+        } else if (r != 0) {
+            used += r, left -= r;
+        }
+    } while (r != 0 && h->open != 0);
+    if ((d->flags & NET_DRIVER_SINGLE) == 0 && used != 0) {
+        memmove(c->recv, c->recv + used, left);
+        c->recv_used = (int32_t)left;
+    }
+    return queued != 0;
+}
+
 int32_t net_close_packet_connection(const NetCloseOps *ops, NetPacketHandle *h)
 {
     if (h == NULL || h->conn == NULL) return 0;

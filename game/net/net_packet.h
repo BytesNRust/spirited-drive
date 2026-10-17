@@ -52,6 +52,8 @@ struct NetDriver {
     int32_t (*open)(void *ctx, NetPacketHandle *h);                                         /* +0 (cdecl) */
     void (*close)(void *ctx, NetPacketHandle *h);                                           /* +4 (cdecl) */
     uint32_t (*room)(void *ctx, NetPacketHandle *h);                                        /* +0xc (cdecl) */
+    int32_t (*ready)(void *ctx, NetPacketHandle *h);                                        /* +0x10 (cdecl) */
+    uint32_t (*read)(void *ctx, NetPacketHandle *h, uint8_t *to, uint32_t size);            /* +0x14 (cdecl) */
     uint32_t (*send)(void *ctx, NetPacketHandle *h, const uint8_t *data, uint32_t length);  /* +0x18 (cdecl) */
     uint32_t max_size;     /* +0x1c: 0 none; else a packet's size + 8 at most */
     uint32_t min_size;     /* +0x20: a packet's size at least */
@@ -274,6 +276,18 @@ extern const char NET_CLOSE_MSG_TRACE[];   /* 004b2be8 */
  * first: +0x3c + 1 when the bytes returned pass size (0 for the early ones). */
 uint32_t net_packet_receive(const NetPacketRecvOps *ops, NetPacketConn *c, int32_t *queued, uint8_t *data,
                             uint32_t length);
+
+/* 0047a6ec (watcall (connection), from 0047a82c): the handle (+8) and the
+ * driver (+4) kept. +0x38 - 1 not 0: 0. Else +0x38 = the handle's +4;
+ * flags bit 2: +0x28 = 0; +0x28 below +0x24 (unsigned) and the driver's
+ * +0x10 (handle) not 0: +0x28 += its +0x14 (handle, +0x20 + +0x28, +0x24 -
+ * +0x28). Then from +0x20 (read again each time) + used (0), left = +0x28:
+ * 0047a50c(c, &queued, there, left) r; flags bit 2 (read again): left =
+ * +0x10 not 0 ? +0x14 (handle, +0x20, +0x24) : 0; else r added to used,
+ * taken from left; again while r and the handle's +0. Without bit 2 and
+ * used not 0: 0048ec60 left bytes from +0x20 + used to +0x20, +0x28 = left.
+ * Packets queued (0047a50c's count) not 0: 1, else 0. */
+int32_t net_packet_poll(const NetPacketRecvOps *ops, NetPacketConn *c);
 
 typedef struct {
     void *ctx;
