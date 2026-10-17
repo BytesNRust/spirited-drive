@@ -255,4 +255,10 @@ typedef struct {
  * indexes with eax as it came, the port plays nothing. */
 void race_music_start(const RaceMusicOps *ops, int16_t music);
 
+/* 004562e8 (watcall (), the menus' and 00411050's pick): the short 004c5cca
+ * (the small ring) cleared; then by the setting: 1 a track 00443730(12), 2
+ * and 4..9 00443730(6), 3 and 10..15 00443730(6) + 6 (004c55c4's names),
+ * played (00464428); 0 and past 15 nothing. */
+void race_music_pick(const RaceMusicOps *ops, int16_t music, int16_t *small);
+
 #endif

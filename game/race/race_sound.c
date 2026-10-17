@@ -878,6 +878,23 @@ void race_music_start(const RaceMusicOps *ops, int16_t music)
     ops->play(ops->ctx, track);
 }
 
+void race_music_pick(const RaceMusicOps *ops, int16_t music, int16_t *small)
+{
+    int32_t track;
+    *small = 0;
+    switch (music) {
+    case MUSIC_ANY: track = ops->rand_below(ops->ctx, MUSIC_TRACKS); break;
+    case MUSIC_FIRST_HALF: case 4: case 5: case 6: case 7: case 8: case 9:
+        track = ops->rand_below(ops->ctx, MUSIC_HALF);
+        break;
+    case MUSIC_SECOND_HALF: case 10: case 11: case 12: case 13: case 14: case MUSIC_LAST:
+        track = ops->rand_below(ops->ctx, MUSIC_HALF) + MUSIC_HALF;
+        break;
+    default: return;
+    }
+    ops->play(ops->ctx, track);
+}
+
 void race_sound_channels_stop(RaceState *race)
 {
     for (int32_t k = 0; k < RACE_VOICES; k++) race_sound_channel_stop(race, k);
