@@ -891,6 +891,9 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
  * traffic (slots past the racers) by their drawn models. */
 static TrackViewerMenus menus;
 static int menus_on;
+static TrackViewerResults results;
+
+TrackViewerResults track_viewer_drive_results(void) { return results; }
 
 void track_viewer_drive_menus(const TrackViewerMenus *m)
 {
@@ -945,6 +948,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, menus_on && menus.laps > 0 ? menus.laps : 2, 0);
+    if (menus_on && menus.game_state != NULL)
+        memcpy(drive_sim.race.game_state, menus.game_state, sizeof drive_sim.race.game_state);
+    results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
@@ -1009,6 +1015,12 @@ static void drive_tick(uint32_t input)
     if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
+    const RaceState *race = &drive_sim.race;
+    results = (TrackViewerResults){ 1, (int16_t)race->end_request, race->results_player_rank, race->results_rival_rank,
+                                    race->results_rival, race->results_rival_name, { 0 } };
+    memcpy(results.dropped, race->unknown_4f82a0, sizeof results.dropped);
+    if (menus_on && menus.game_state != NULL)
+        memcpy(menus.game_state, race->game_state, sizeof race->game_state);
     printf("race over (%d):", drive_sim.race.end_request);
     for (int i = 0; i < drive_sim.count; i++) {
         const int slot = drive_sim.race.results_order[i];

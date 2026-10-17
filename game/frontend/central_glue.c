@@ -13,6 +13,9 @@
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
 #include "game/frontend/race_settings.h"
+#include "game/frontend/results_screen.h"
+#include "game/frontend/stat_text.h"
+#include "game/frontend/text_fit.h"
 #include "game/frontend/tournament.h"
 #include "game/frontend/track_select.h"
 #include "game/race/race_models.h"
@@ -187,7 +190,10 @@ static int16_t image_short(int at)
 /* 00427ae0: the race, as the build drives one (track_viewer_drive in the menus' window): the track's stem from
  * 00426660's table (an open road's first segment, the city's by 00524e83), the car's model by 00426fec, the race
  * type's field; the options from config.dat (track_viewer.h's TrackViewerMenus; Options' 0 is on, 1 off, 2 none).
- * TODO(00427ae0, 004275f8): the difficulty (00524ea3) and the results screens after the race */
+ * After a finished race (0052b2fe, 00509d6c, 1) its results screen (0045cea0).
+ * TODO(00427ae0, 004275f8): the difficulty (00524ea3); the records (0045bad8) and the other screens after the race
+ * (00461540 standings, 0045de08, 0045eff4) */
+static void results(const TrackViewerResults *r);
 static void race(void *ctx)
 {
     (void)ctx;
@@ -204,7 +210,7 @@ static void race(void *ctx)
     config_dat_set_race(config_current(), &s);
     const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
                                      g.opponent, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71) };
+                                     image_short(0x71), game_state };
     ea_select_default();
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
@@ -212,6 +218,10 @@ static void race(void *ctx)
         fprintf(stderr, "control_central: the race on %s could not start\n", name);
     menu_audio_open();
     menu_audio_bank_load();
+    const TrackViewerResults r = track_viewer_drive_results();
+    const int16_t raced = r.over ? r.end_request : 0;
+    memcpy(game_state + 0x5ba, &raced, sizeof raced);  /* 0052b2fe = 00509d6c (004275f8) */
+    if (raced == 1) results(&r);
 }
 
 static void palette_clear(void *ctx, uint8_t *rgb) { (void)ctx; palette_put_clear(rgb); }
@@ -321,6 +331,50 @@ static void track_select(void *ctx)
     track_select_screen(&in, &st, &p, &ops);
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) settings_put(&after);
+}
+
+/* 0045cea0's text: 00463d34 as text_fit.c cuts it, 00466d5c / 00466e5c / 00466c9c as stat_text.c writes them */
+static int32_t fit_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
+static void fit_ramp(void *ctx, int shadow) { (void)ctx; text_ramp(shadow); }
+static void fit_draw(void *ctx, const char *text, int32_t x, int32_t y) { (void)ctx; text_draw(text, x, y); }
+static void fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
+{
+    (void)ctx;
+    static const TextFitOps ops = { fit_width, fit_ramp, fit_draw, NULL };
+    text_fit_shadowed(text, x, y, width, &ops);
+}
+static void time_text(void *ctx, char *out, int32_t time) { (void)ctx; stat_time_text(out, time); }
+static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
+{
+    (void)ctx;
+    stat_average_speed_text(out, resource_german(), time, distance);
+}
+static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_german(), speed); }
+static int32_t no_records(void *ctx) { (void)ctx; return 0; }  /* TODO(0045bad8): the records beaten */
+
+/* 0045cea0(1) after the race, on the race's results and config.dat's image */
+static void results(const TrackViewerResults *r)
+{
+    static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
+                                                         "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
+    int32_t *const slot = ea_screen_slot();
+    const int32_t screen = *slot = ea_picture_new(0x280, 0x1e0);  /* 00427ae0's 0047310c(0x280, 0x1e0, 0) */
+    const ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
+                               r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
+                               CAR_NAMES };
+    ResultsState st = { g.inverse, screen_palette, 0 };
+    int x, y;
+    pointer_position(&x, &y);
+    DialogPointer p = { pointer_active(), 0, x, y, x, y };
+    const ResultsOps ops = {
+        no_records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
+        select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
+        select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, no_name, nothing,
+        deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, nothing, nothing, fade_out,
+        free_bank, free_handle_inverse, &p };
+    results_screen(1, &in, &st, &p, &ops);
+    ea_picture_free(screen);  /* Control Central makes its own next */
+    *slot = 0;
 }
 
 /* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */

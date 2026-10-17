@@ -33,7 +33,19 @@ typedef struct {
     int music_volume;   /* the short 00524e65 */
     int sound_volume;   /* the short 00524e69 */
     int sound_mode;     /* the short 00524e61 */
+    uint8_t *game_state;  /* 0052ad44 (NULL: none): the race starts on its first 0x5b6 bytes and writes its results back */
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
+
+/* The last drive's end: over once the race ended (race_sim_over), with
+ * 00509d6c and the results screen's words 0051dcbc..0051dccb and
+ * 004f82a0 as 0045af80 / 0045b29c left them. */
+typedef struct {
+    int over;
+    int16_t end_request;  /* 00509d6c: 1 finished, 0x10 out */
+    int16_t place, rival_place, rival, rival_car;  /* 0051dcc2, 0051dcc0, 0051dcc6, 0051dcc8 */
+    int16_t dropped[8];   /* 004f82a0 */
+} TrackViewerResults;
+TrackViewerResults track_viewer_drive_results(void);
 
 #endif
