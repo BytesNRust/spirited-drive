@@ -44,4 +44,9 @@ typedef struct IntroState {
  * the replay. Then black at 640 x 480. Returns 1. */
 int intro_show(IntroState *s, const IntroOps *ops);
 
+/* 004419c0 (eax the movie's file name; the showcase's and 004283c4's): with
+ * 0052b2fc, the pointer hidden, black at 320 x 200, the movie <movie_dir><name>
+ * (its answer unused), black at 640 x 480; without, nothing. Returns 1. */
+int intro_movie(IntroState *s, const IntroOps *ops, const char *name);
+
 #endif

@@ -72,3 +72,27 @@ int intro_show(IntroState *s, const IntroOps *ops)
     black(pal, ops);
     return 1;
 }
+
+/* 004419c0 */
+int intro_movie(IntroState *s, const IntroOps *ops, const char *name)
+{
+    uint8_t pal[PALETTE_PUT_BYTES];
+    if (!s->intro_movies) return 1;
+    ops->pointer_hide(ops->ctx);
+    palette_put_clear(pal);
+    ops->drain(ops->ctx);
+    ops->video_reset(ops->ctx);
+    black(pal, ops);
+    ops->video_reset(ops->ctx);
+    ops->mode_set(ops->ctx, 0x140, 0xc8, 8);
+    ops->video_reset(ops->ctx);
+    black(pal, ops);
+    snprintf(s->movie_path, INTRO_PATH, "%s%s", s->movie_dir, name);
+    ops->movie(ops->ctx, s->movie_path);
+    ops->video_reset(ops->ctx);
+    black(pal, ops);
+    ops->mode_set(ops->ctx, 0x280, 0x1e0, 8);
+    ops->video_reset(ops->ctx);
+    black(pal, ops);
+    return 1;
+}
