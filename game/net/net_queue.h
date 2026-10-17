@@ -140,6 +140,15 @@ extern const char NET_QUEUE_FETCH_LOST[];  /* 004b5f0c */
  * 00477a40(004b5f0c) and NULL; no such node NULL. */
 NetNode *net_queue_fetch(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, uintptr_t key);
 
+extern const char NET_QUEUE_FETCH_TEST_LOST[];  /* 004b5e68 */
+
+/* 0049cc10 qfetch (cdecl (queue, test, arg), no direct callers): 0049cb1c's
+ * walk under the mutex (+0x18, read again for the unlock); the node found
+ * taken out (0049c714): it; 0049c714 failing (a count of 0)
+ * 00477a40(004b5e68) and NULL; none NULL. */
+NetNode *net_queue_fetch_test(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, NetQueueTest test,
+                              uintptr_t arg);
+
 /* 0049cdc4 (cdecl (queue, visit, arg), from 00478db4): under the mutex
  * (+0x18, read again each time) bit 0 of +4 kept aside and cleared; outside
  * it each node from the head (read after the unlock; each next read after

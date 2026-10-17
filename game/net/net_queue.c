@@ -5,6 +5,7 @@
 #include <string.h>
 
 const char NET_QUEUE_FETCH_LOST[] = "qfetchpriority -- FOUND ELEMENT THAT COULD NOT BE REMOVED!";
+const char NET_QUEUE_FETCH_TEST_LOST[] = "qfetch -- FOUND ELEMENT THAT COULD NOT BE REMOVED!";
 
 int32_t net_queue_remove(NetQueue *q, NetNode *n)
 {
@@ -159,6 +160,20 @@ NetNode *net_queue_fetch(const NetMutexOps *ops, const NetQueueMessage *message,
         p = NULL;
     } else if (net_queue_remove(q, p) == 0) {
         message->fn(message->ctx, NET_QUEUE_FETCH_LOST);
+        p = NULL;
+    }
+    ops->unlock(ops->ctx, q->mutex);
+    return p;
+}
+
+NetNode *net_queue_fetch_test(const NetMutexOps *ops, const NetQueueMessage *message, NetQueue *q, NetQueueTest test,
+                              uintptr_t arg)
+{
+    ops->lock(ops->ctx, q->mutex);
+    NetNode *p = q->head;
+    while (p != NULL && test(p, arg) == 0) p = p->next;
+    if (p != NULL && net_queue_remove(q, p) == 0) {
+        message->fn(message->ctx, NET_QUEUE_FETCH_TEST_LOST);
         p = NULL;
     }
     ops->unlock(ops->ctx, q->mutex);
