@@ -24,4 +24,9 @@ int32_t record_check(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECOR
  * speed (+0x6d); 1 when it did. */
 int32_t record_check_lap(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player);
 
+/* 0045c2d0 (a circuit's): the player's best top speed (+0x6d) above the
+ * track's top speed record (+0x650) takes it (+0x631 name, +0x64c the
+ * total +0x65, +0x650, +0x640, +0x644, +0x654, +0x648 = 1); 1 when it did. */
+int32_t record_check_top(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player);
+
 #endif
