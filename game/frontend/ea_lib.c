@@ -2,6 +2,8 @@
 #include "game/frontend/ea_lib.h"
 
 #include "formats/fsh.h"
+#include "game/gfx/flat.h"
+#include "game/sys/palette.h"
 #include "game/sys/resource.h"
 #include "game/sys/shape_bank.h"
 #include "game/sys/video.h"
@@ -142,4 +144,62 @@ void ea_save(int32_t shape, int32_t x, int32_t y)
     FshEntry e;
     if (!entry_of((const uint8_t *)(intptr_t)shape, &e)) return;
     video_read_rect(x, y, e.width, e.height, (uint8_t *)(uintptr_t)e.payload);
+}
+
+static uint8_t *shade;  /* 004826f0's table */
+static int32_t clip_x0, clip_y0, clip_x1 = VIDEO_WIDTH, clip_y1 = VIDEO_HEIGHT;
+
+/* the colours a menu may draw with: all but 0xfe and 0xff (the pointer's and the see-through one) */
+static void usable_colours(uint8_t usable[256])
+{
+    memset(usable, 1, 256);
+    usable[254] = usable[255] = 0;
+}
+
+void ea_shade_table(int32_t r, const uint8_t *pal, uint8_t *table)
+{
+    uint8_t usable[256];
+    usable_colours(usable);
+    palette_shade_table(pal, usable, r, table);
+}
+
+void ea_shade_set(uint8_t *table)
+{
+    shade = table;
+}
+
+/* the drawing's target, clipped to 0047723c's box */
+static QuadTarget quad_target(void)
+{
+    int w, h;
+    uint8_t *const p = video_target(&w, &h);
+    return (QuadTarget){ p, w, clip_x0 > 0 ? clip_x0 : 0, clip_y0 > 0 ? clip_y0 : 0, clip_x1 < w ? clip_x1 : w,
+                         clip_y1 < h ? clip_y1 : h };
+}
+
+void ea_shade_polygon(int32_t count, const int32_t *xy)
+{
+    if (shade == NULL) return;
+    const QuadTarget t = quad_target();
+    flat_polygon_shade(&t, shade, count, xy, 0);
+}
+
+int32_t ea_colour(int32_t rgb)
+{
+    uint8_t pal[PALETTE_BYTES], usable[256];
+    video_get_palette(pal);
+    usable_colours(usable);
+    return palette_nearest(pal, usable, rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff);
+}
+
+void ea_frame(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t colour)
+{
+    const QuadTarget t = quad_target();
+    flat_frame_rect(&t, x0, y0, x1, y1, (uint32_t)colour);
+}
+
+/* TODO(0047723c): the blits (video.c) do not keep to the box yet, only the polygons and frames */
+void ea_clip(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+{
+    clip_x0 = x0, clip_y0 = y0, clip_x1 = x1, clip_y1 = y1;
 }

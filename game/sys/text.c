@@ -114,9 +114,16 @@ static void draw_with(const char *text, int x, int y, const uint8_t ramp[16])
     }
 }
 
+static const uint8_t *drawn_ramp = current;  /* 0048ec60's choice for 0048c264 */
+
+void text_ramp(int use_shadow)
+{
+    drawn_ramp = use_shadow ? shadow : current;
+}
+
 void text_draw(const char *text, int x, int y)
 {
-    draw_with(text, x, y, current);
+    draw_with(text, x, y, drawn_ramp);
 }
 
 void text_draw_shadowed(const char *text, int x, int y)

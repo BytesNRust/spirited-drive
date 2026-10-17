@@ -127,3 +127,14 @@ void pointer_click_feedback(void)
     }
     timer_set_deadline(IDLE_TICKS_AFTER);
 }
+
+void pointer_position(int *x, int *y)
+{
+    *x = ptr.x, *y = ptr.y;
+}
+
+void pointer_mark(void)
+{
+    ptr.mark_x = (int16_t)ptr.x;
+    ptr.mark_y = (int16_t)ptr.y;
+}

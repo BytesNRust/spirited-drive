@@ -22,4 +22,12 @@ void ea_blit_masked(const uint8_t *shape);                    /* 00473ab4: the s
 void ea_restore(int32_t shape, int32_t x, int32_t y);         /* 004737d0: a shape at (x, y) */
 void ea_save(int32_t shape, int32_t x, int32_t y);            /* 00476e28: (x, y) of the drawing copied into it */
 
+/* 0048263c: table[i] = the colour nearest pal[i] scaled by r (16.16; the menus pass r = g = b) */
+void ea_shade_table(int32_t r, const uint8_t *pal, uint8_t *table);
+void ea_shade_set(uint8_t *table);                            /* 004826f0 */
+void ea_shade_polygon(int32_t count, const int32_t *xy);      /* 004827cf: the polygon's pixels through the table */
+int32_t ea_colour(int32_t rgb);                               /* 00473140: the screen palette's nearest */
+void ea_frame(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t colour);  /* 004827f0 */
+void ea_clip(int32_t x0, int32_t y0, int32_t x1, int32_t y1); /* 0047723c: the shapes and polygons kept inside */
+
 #endif

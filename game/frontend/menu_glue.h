@@ -18,6 +18,14 @@ typedef struct MenuWords {
 
 extern MenuWords menu_words;
 
+/* the cheats' words (00432ff4 sets them, 004667fc clears them) */
+typedef struct MenuCheats {
+    int32_t keys_506;  /* 0052b306 */
+    int32_t keys_50a;  /* 0052b30a */
+} MenuCheats;
+
+extern MenuCheats menu_cheats;
+
 void glue_title_screen(int32_t state);  /* 004372e4 */
 int32_t glue_game_mode(void);           /* 004376ac: 0 race, 1 leave, 2 the intro again */
 

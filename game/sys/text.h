@@ -18,6 +18,7 @@ void text_build_styles(void);                           /* 0046376c, from the cu
 void text_select(TextStyle style);                      /* 004638c0 */
 int text_width(const char *text);                       /* 004770f4 */
 int text_line_height(void);
+void text_ramp(int use_shadow);                         /* 0048ec60: text_draw's ramp, the shadow's or the style's */
 void text_draw(const char *text, int x, int y);         /* 0048c264 */
 void text_draw_shadowed(const char *text, int x, int y); /* 00463cd8: black shadow at +2,+2 */
 void text_draw_centered(const char *text, int cx, int y); /* 00463c60: same, centred on cx */
