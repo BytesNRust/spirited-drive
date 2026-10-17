@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-enum { RECORD_CHECK_IMAGE = 0x5f34, RECORD_CHECK_GAME = 0x5bc };
+enum { RECORD_CHECK_IMAGE = 0x5f34, RECORD_CHECK_GAME = 0x5bc, RECORD_CHECK_TIMES = 7, RECORD_CHECK_NONE = 0x14 };
 
 /* 0045bad8 (no arguments; eax the answer): on config.dat's image (from
  * 00524df0) for the track (00524e95) and segment (00524e83 - 1, 2 when 0),
@@ -28,5 +28,16 @@ int32_t record_check_lap(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[R
  * track's top speed record (+0x650) takes it (+0x631 name, +0x64c the
  * total +0x65, +0x650, +0x640, +0x644, +0x654, +0x648 = 1); 1 when it did. */
 int32_t record_check_top(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player);
+
+/* 0045be50: unless the car is 0xb, the player's total (+0x65), above 0,
+ * below one of the track's ten best (+0x1ba of rows 0x27 apart, a circuit's
+ * 0x186 x the difficulty (00524ea3) on) goes in before the first it beats:
+ * the rows from there move down one (the tenth dropped), the row takes the
+ * name, the total, the best top speed (+0x6d) and the car as the records
+ * do. A stage's also keeps the run's three top speeds and totals (times:
+ * 004fa0cc, from [1] and [4]) at +0x664 / +0x658. The row, or
+ * RECORD_CHECK_NONE (ax; the original's high half is its stack's). */
+int32_t record_check_totals(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
+                            const int32_t times[RECORD_CHECK_TIMES]);
 
 #endif

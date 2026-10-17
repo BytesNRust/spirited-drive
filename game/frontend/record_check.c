@@ -5,7 +5,8 @@
 enum {
     SEGMENT = 0x93, TRACK = 0x95, CAR = 0x9b, NO_RECORDS_CAR = 0xb, TRACK_RECORDS = 0xa6b, SEGMENT_RECORDS = 0x27,
     PLAYER = 0x95, NAME_AT = 0, LAPS = 9, LAP_COUNT = 20, TIME = 0x59, SPEED = 0x61, TOTAL = 0x65, TOP = 0x6d, CAR_A = 0x53a,
-    CAR_B = 0x536, GEARBOX = 0x50c
+    CAR_B = 0x536, GEARBOX = 0x50c, DIFFICULTY = 0xb3, BEST_STRIDE = 0x186, BEST_ROWS = 10, STAGE_SPEEDS = 0x664,
+    STAGE_TOTALS = 0x658, STAGE_RUNS = 3
 };
 
 /* the two records' fields, from the segment's row */
@@ -14,6 +15,8 @@ static const RecordAt TIME_RECORD = { 0xb5, 0xd0, 0xd4, 0xc4, 0xc8, 0xd8, 0xcc }
 static const RecordAt SPEED_RECORD = { 0x12a, 0x145, 0x149, 0x139, 0x13d, 0x14d, 0x141 };
 /* a circuit's top speed record, past the segments' rows */
 static const RecordAt TOP_RECORD = { 0x631, 0x64c, 0x650, 0x640, 0x644, 0x654, 0x648 };
+/* the ten best totals' rows (the difficulty's on a circuit) */
+static const RecordAt BEST_RECORD = { 0x19f, 0x1ba, 0x1be, 0x1ae, 0x1b2, 0x1c2, 0x1b6 };
 
 static int16_t g16(const uint8_t *at) { return (int16_t)(uint16_t)(at[0] | at[1] << 8); }
 
@@ -86,4 +89,31 @@ int32_t record_check_top(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[R
     if (!(g32(row + TOP_RECORD.speed) < g32(me + TOP))) return 0;
     take(row, &TOP_RECORD, game, me, g32(me + TOTAL), g32(me + TOP));
     return 1;
+}
+
+/* 0045be50 */
+int32_t record_check_totals(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
+                            const int32_t times[RECORD_CHECK_TIMES])
+{
+    if (g16(image + CAR) == NO_RECORDS_CAR) return RECORD_CHECK_NONE;
+    const int circuit = g16(image + TRACK) > 2;
+    uint8_t *const records = image + TRACK_RECORDS * g16(image + TRACK);
+    uint8_t *const table = records + (circuit ? BEST_STRIDE * g16(image + DIFFICULTY) : 0);
+    const uint8_t *const me = game + PLAYER * player;
+    const int32_t total = g32(me + TOTAL);
+    for (int i = 0; i < BEST_ROWS; i++) {
+        uint8_t *const row = table + SEGMENT_RECORDS * i;
+        if (!(total < g32(row + BEST_RECORD.time) && total > 0)) continue;
+        memmove(row + SEGMENT_RECORDS + BEST_RECORD.name, row + BEST_RECORD.name,
+                (size_t)SEGMENT_RECORDS * (size_t)(BEST_ROWS - 1 - i));
+        take(row, &BEST_RECORD, game, me, total, g32(me + TOP));
+        if (!circuit) {
+            for (int k = 0; k < STAGE_RUNS; k++) {
+                p32(records + STAGE_SPEEDS + 4 * k, times[1 + k]);
+                p32(records + STAGE_TOTALS + 4 * k, times[1 + STAGE_RUNS + k]);
+            }
+        }
+        return i;
+    }
+    return RECORD_CHECK_NONE;
 }
