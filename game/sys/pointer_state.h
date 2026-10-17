@@ -17,4 +17,8 @@ typedef struct PointerState {
  * x0 <= x <= x1 and y0 <= y <= y1, else 0. */
 int32_t pointer_state_in_rect(const PointerState *p, int32_t x0, int32_t x1, int32_t y0, int32_t y1);
 
+/* 00464088: not active yet, it becomes active when a button is held or the
+ * pointer left its mark (the marks sign-extended against the dwords). */
+void pointer_state_activate_if_moved(PointerState *p);
+
 #endif

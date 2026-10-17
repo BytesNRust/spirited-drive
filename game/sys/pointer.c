@@ -68,7 +68,8 @@ int pointer_in_rect(int x0, int x1, int y0, int y1)
 
 void pointer_activate_if_moved(void)
 {
-    if (!ptr.active && (os_buttons != 0 || ptr.mark_x != ptr.x || ptr.mark_y != ptr.y)) ptr.active = 1;
+    ptr.buttons = (int16_t)os_buttons;  /* the original's 00524792; the port reads the OS buttons */
+    pointer_state_activate_if_moved(&ptr);
 }
 
 int pointer_active(void)
