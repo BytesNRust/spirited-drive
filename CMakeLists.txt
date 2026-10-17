@@ -260,7 +260,6 @@ add_library(tnfs_game STATIC
     game/race/race_net_services.c
     game/race/race_net_players.c
     game/race/race_net_games.c
-    game/race/race_net_host.c
     game/race/replay_controls.c
     game/race/track_far.c
     game/race/track_fence.c
