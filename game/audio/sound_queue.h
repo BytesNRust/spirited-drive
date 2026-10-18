@@ -41,4 +41,9 @@ int32_t sound_queue_add(const SoundDriver *d, SoundQueue *q, SoundSample *s, con
 /* 004925a8: playing (004c7c0c = 1), unchecked. */
 void sound_queue_play(SoundQueue *q);
 
+/* 00492620: with the driver open and the queue set up: not playing, the sounds before and now stopped (00473c68),
+ * the queue emptied (004923f8: every entry's sample cleared, both indexes 0, the next channel the first), and the
+ * queue no longer set up. (It checks the driver and the queue twice; nothing between changes them.) */
+void sound_queue_stop(SoundDriver *d, SoundQueue *q);
+
 #endif

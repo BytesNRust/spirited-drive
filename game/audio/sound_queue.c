@@ -35,3 +35,23 @@ void sound_queue_play(SoundQueue *q)
 {
     q->playing = 1;
 }
+
+/* 004923f8 */
+static void queue_clear(SoundQueue *q)
+{
+    q->playing = 0;
+    for (int i = 0; i < SOUND_QUEUE_ENTRIES; i++) q->entry[i].sample = NULL;
+    q->write = 0, q->read = 0;
+    q->channel = q->channel_a;
+}
+
+/* 00492620 */
+void sound_queue_stop(SoundDriver *d, SoundQueue *q)
+{
+    if (!d->channels.open || !q->ready) return;
+    q->playing = 0;
+    sound_stop(d, q->last);
+    sound_stop(d, q->handle);
+    queue_clear(q);
+    q->ready = 0;
+}
