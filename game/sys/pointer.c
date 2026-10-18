@@ -1,6 +1,7 @@
 #include "game/sys/pointer.h"
 
 #include "formats/fsh.h"
+#include "game/sys/input.h"
 #include "game/sys/pointer_state.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
@@ -20,6 +21,26 @@ static Fsh fsh;
 static FshEntry sprite;          /* ptr0 */
 static PointerState ptr = { .x = 320, .y = 240 };
 static unsigned os_buttons;
+static int16_t *bound;           /* pointer_bind_active's copy */
+
+static void active_set(int16_t active)
+{
+    ptr.active = active;
+    if (bound != NULL) *bound = active;
+}
+
+int16_t *pointer_active_word(void)
+{
+    return &ptr.active;
+}
+
+int16_t *pointer_bind_active(int16_t *copy)
+{
+    int16_t *const was = bound;
+    bound = copy;
+    if (bound != NULL) *bound = ptr.active;
+    return was;
+}
 
 int pointer_load(int variant)
 {
@@ -41,7 +62,7 @@ void pointer_free(void)
     video_set_overlay(NULL, 0, 0);
     resource_free(data);
     data = NULL;
-    ptr.active = 0;
+    active_set(0);
 }
 
 void pointer_sync_from_os(void)
@@ -70,6 +91,7 @@ void pointer_activate_if_moved(void)
 {
     ptr.buttons = (int16_t)os_buttons;  /* the original's 00524792; the port reads the OS buttons */
     pointer_state_activate_if_moved(&ptr);
+    active_set(ptr.active);
 }
 
 static void off_poll(void *ctx)
@@ -88,6 +110,7 @@ void pointer_off(void)
 {
     const PointerOffOps ops = { NULL, off_poll, off_hide };
     pointer_state_off(&ptr, &ops);
+    active_set(ptr.active);
 }
 
 int pointer_active(void)
@@ -105,7 +128,7 @@ static void draw(void)
 void pointer_show(void)
 {
     draw();
-    ptr.active = 1;
+    active_set(1);
 }
 
 int pointer_read_buttons(void)
@@ -121,8 +144,7 @@ void pointer_click_feedback(void)
     /* TODO(004416cc): the original redraws the pointer in its pressed state. */
     timer_set_deadline(PRESS_TICKS);
     while (!timer_deadline_passed()) {
-        platform_poll_events();
-        platform_sleep_ms(1);
+        input_pump();
         /* TODO(0046417c): service streamed music. */
     }
     timer_set_deadline(IDLE_TICKS_AFTER);

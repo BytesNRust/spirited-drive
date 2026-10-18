@@ -127,6 +127,8 @@ static void dialog_poll(void *ctx, DialogPointer *p)
     pointer_position(&x, &y);
     p->x = x, p->y = y;
 }
+/* 00441798 on the box's own short 00524790 (ctx its DialogPointer) */
+static void dialog_show(void *ctx) { pointer_show(), ((DialogPointer *)ctx)->active = pointer_active(); }
 static int32_t dialog_buttons(void *ctx, DialogPointer *p)
 {
     dialog_poll(ctx, p);
@@ -156,12 +158,14 @@ static int32_t yes_no(void *ctx, const char *text)
     (void)ctx;
     video_get_palette(banner_palette);
     const MessageBannerInputs in = { ea_screen(), banner_palette };
-    const YesNoOps ops = { &BANNER, shadowed, boxed, nothing, dialog_poll, show, dialog_buttons, click, move_to,
-                           dialog_mark, key, music, sound, drain, NULL };
     int x, y;
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
-    return yes_no_box(text, resource_german(), &p, &in, &ops);
+    const YesNoOps ops = { &BANNER, shadowed, boxed, nothing, dialog_poll, dialog_show, dialog_buttons, click, move_to,
+                           dialog_mark, key, music, sound, drain, &p };
+    const int32_t yes = yes_no_box(text, resource_german(), &p, &in, &ops);
+    *pointer_active_word() = (int16_t)p.active;  /* 00465f4c sets and clears the one word itself */
+    return yes;
 }
 static int32_t typed(void *ctx) { (void)ctx; return input_next_char(); }
 static int32_t pointer_poll(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
@@ -174,7 +178,10 @@ static int32_t text_field(void *ctx, char *text, int32_t length, int32_t x, int3
                                blit_at, blit_picture, blit_at, style, shadowed, key, nothing, drain, pointer_poll,
                                nothing, typed, ticks, picture_free, nothing, nothing, NULL };
     TextEntryState st = { ea_screen(), (int16_t)pointer_active(), 0, 0 };
-    return text_entry_edit(text, length, x, y, one, resource_german(), &st, &ops);
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
+    const int32_t result = text_entry_edit(text, length, x, y, one, resource_german(), &st, &ops);
+    pointer_bind_active(was);
+    return result;
 }
 
 /* 004667fc (name_box.c) */
@@ -316,7 +323,9 @@ int32_t glue_game_mode(void)
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
     const int32_t result = game_mode_menu(resource_german(), &st, &ops);
+    pointer_bind_active(was);
     menu_words = (MenuWords){ st.lost, st.lost_shown, st.mode_menu, st.redraw, st.intro_seen, st.single,
                               st.network_raced };
     return result;

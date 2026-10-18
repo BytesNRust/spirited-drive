@@ -5,6 +5,8 @@
 #ifndef TNFS_POINTER_H
 #define TNFS_POINTER_H
 
+#include <stdint.h>
+
 enum {
     POINTER_BUTTON_NONE = 0,
     POINTER_BUTTON_SELECT = 1,  /* left */
@@ -25,5 +27,12 @@ int pointer_read_buttons(void);                       /* 004417f8 */
 void pointer_click_feedback(void);                    /* 00441814 */
 void pointer_position(int *x, int *y);                /* 004c6110 / 004c6114 */
 void pointer_mark(void);                              /* 00441858: the marks where it is */
+
+/* The short 00524790 itself, which the screens read while show, activate
+ * and off write it: one word, as the original's. */
+int16_t *pointer_active_word(void);
+/* A screen holding the short by value: `copy` kept equal to it while bound
+ * (NULL none); the binding before is returned to restore on leaving. */
+int16_t *pointer_bind_active(int16_t *copy);
 
 #endif
