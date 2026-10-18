@@ -50,4 +50,8 @@ typedef struct {
  * which must outlive the TrackArt. Returns 0 when the layout is unexpected. */
 int track_art_load(TrackArt *art, const Chunk *root);
 
+/* 0044c36c's "ga%d0" on a circuit (one terrain SHPI): with id the TRI header's short +0x28 / 3, slot id * 3 + k
+ * (k 0..2) takes "ga<k>0".."ga<k>7" over what track_art_load gave it, when "ga<k>0" is there. Nothing on a stage. */
+void track_art_load_animated(TrackArt *art, const Chunk *root, const uint8_t *tri_header);
+
 #endif

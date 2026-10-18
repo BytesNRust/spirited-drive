@@ -268,7 +268,7 @@ static int race_item(CentralRun *r)
     o->picture_free(o->ctx, *st->screen);
     o->flush(o->ctx);
     if (*st->music_silent != 0) {
-        st->volumes[2] = st->kept[2], st->volumes[1] = st->kept[1];
+        st->volumes[2] = st->kept[3], st->volumes[1] = st->kept[2];
         *st->music_silent = 0;
         st->volumes[0] = st->kept[0];
     }

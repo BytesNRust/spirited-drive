@@ -36,6 +36,10 @@ void menu_audio_music_by_idle(void);            /* 0045638c, the idle timer the 
 /* F5 (00464bd0's 00464a68): the sound off or back, config.dat's volumes kept meanwhile (0052b322..); the music
  * takes config.dat's menu volume again (0 while off) */
 void menu_audio_sound_toggle(void);
+/* The game's one short 004c5cbe (the sound off by F5, the track music silent) and the volumes it keeps meanwhile,
+ * 0052b322..0052b329 as four shorts (+0, +4 and +6 used: 00524e65's, 00524e67's and 00524e69's), for the screens */
+int16_t *menu_audio_silent(void);
+int16_t *menu_audio_kept(void);
 /* A movie's sound, an EACS sample kept by the caller until it stops (tgv_player.h); 0 when nothing plays */
 int menu_audio_movie_sound(const uint8_t *eacs, size_t size);
 void menu_audio_movie_sound_stop(void);

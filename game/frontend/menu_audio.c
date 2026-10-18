@@ -18,7 +18,8 @@ enum { MUSIC_SETTING = 0x73, MUSIC_VOLUME = 0x77, MUSIC_TRACKS = 12 };  /* 00524
 static MenuSound sound;       /* sound_on, the voices */
 static RaceSoundBanks banks;  /* front_mw.bnk */
 static int16_t small;         /* 004c5cca */
-static int16_t kept[3];       /* 0052b322, 0052b326, 0052b328: 00464a68's */
+static int16_t silent;        /* 004c5cbe: sound.track_silent's word, the screens' */
+static int16_t kept[4];       /* 0052b322..0052b329 */
 
 static int16_t config_short(int at)
 {
@@ -141,7 +142,11 @@ static void toggle_poll(void *ctx) { (void)ctx, pointer_sync_from_os(); }
 void menu_audio_sound_toggle(void)
 {
     static const MenuSoundWaitOps WAIT = { toggle_deadline, toggle_passed, toggle_service, toggle_poll, NULL };
-    menu_sound_toggle(&sound, config_current(), kept, pointer_active_word(), &VOICE_OPS, &WAIT);
+    int16_t three[3] = { kept[0], kept[2], kept[3] };
+    sound.track_silent = silent;
+    menu_sound_toggle(&sound, config_current(), three, pointer_active_word(), &VOICE_OPS, &WAIT);
+    silent = (int16_t)sound.track_silent;
+    kept[0] = three[0], kept[2] = three[1], kept[3] = three[2];
     music_words();  /* the music is drive_audio's stream, not a voice: 00473b4c on 0052480c's place */
 }
 
@@ -189,7 +194,14 @@ static const MenuSoundOps TRACK_OPS = { .wait = track_wait, .file_load = track_l
 
 static const char *speech_dir(void) { return resource_german() ? "frontend/gspeech/" : "frontend/speech/"; }
 
-void menu_audio_track_music(const char *name) { menu_sound_track_music_start(&sound, config_current(), speech_dir(), name, &TRACK_OPS); }
+void menu_audio_track_music(const char *name)
+{
+    sound.track_silent = silent;
+    menu_sound_track_music_start(&sound, config_current(), speech_dir(), name, &TRACK_OPS);
+}
+
+int16_t *menu_audio_silent(void) { return &silent; }
+int16_t *menu_audio_kept(void) { return kept; }
 void menu_audio_track_play(void) { menu_sound_track_music_play(&sound, config_current(), &TRACK_OPS); }
 void menu_audio_track_stop(void) { menu_sound_track_music_stop(&sound, config_current(), &TRACK_OPS); }
 void menu_audio_track_free(void) { menu_sound_track_music_free(&sound, config_current(), &TRACK_OPS); }
