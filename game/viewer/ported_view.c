@@ -524,8 +524,8 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     if (shadow_race == NULL) return 0;
     static uint8_t shade[256];
     static const uint8_t *shaded;
-    if (shaded != palette) object_sink_shade(palette, shade), shaded = palette;
-    ObjectSink pixels = { target, palette, shade };
+    if (shadow_remap == NULL && shaded != palette) object_sink_shade(palette, shade), shaded = palette;
+    ObjectSink pixels = { target, palette, shadow_remap != NULL ? shadow_remap : shade };
     const Object3DSink sink = object_sink(&pixels);
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
@@ -692,8 +692,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         cars[i].node = list[i].node;
     }
     static uint8_t shade[256];
-    object_sink_shade(art->palette, shade);
-    object_pixels = (ObjectSink){ &quad, art->palette, shade };
+    if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
+    object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade };
     skid_node = pc->node;
     track_render_draw(&render, &cam, &ctx, 0, anim_tick);
 }

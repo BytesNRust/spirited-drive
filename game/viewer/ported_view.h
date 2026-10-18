@@ -92,7 +92,7 @@ typedef struct {
 } PortedCar;
 
 /* The cars' shadows (0045a724's 0045a3e8 pass 0 and 00482794): the race whose road planes they take and the remap
- * they darken with (004c6604); NULL draws none. */
+ * they darken with (004c6604), which the objects' shaded polygons take too; NULL draws none. */
 void ported_view_set_shadows(const RaceState *race, const uint8_t *remap);
 
 /* The tyre smoke of the followed car (00458d4c's 00458988) and its crash

@@ -62,8 +62,9 @@ static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
     }
 }
 
-/* TODO(004c6604): the game's shade table; here each colour's nearest match
- * at half brightness. */
+/* port: a stand-in for 004c6604 where no race built it (the track viewer); a
+ * race gives hud_colours' table (ported_view_set_shadows). Here each colour's
+ * nearest match at half brightness. */
 void object_sink_shade(const uint8_t palette[768], uint8_t shade[256])
 {
     for (int i = 0; i < 256; i++) {

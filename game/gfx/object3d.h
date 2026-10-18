@@ -80,7 +80,7 @@ typedef struct {
     void (*textured)(void *user, Object3DTable table, int mode, const FshEntry *texture,
                      const Object3DCorners *c);
     /* 004a3390: 2 corners a line (00484254), 3 or 4 a flat polygon (0048434e).
-     * TODO(00473140): rgb to palette index happens in the sink for now. */
+     * port: the sink finds the slot's colour (00473140) at each draw; 00490cc0 keeps it in the slot. */
     void (*flat)(void *user, uint32_t rgb, const Object3DCorners *c);
 } Object3DSink;
 
