@@ -115,6 +115,7 @@ add_library(tnfs_game STATIC
     game/frontend/text_entry.c
     game/frontend/text_fit.c
     game/frontend/tgv.c
+    game/frontend/tgv_frame.c
     game/frontend/title.c
     game/frontend/track_select.c
     game/frontend/tournament.c
@@ -379,7 +380,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service replay_image)
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service replay_image tgv_frame)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
