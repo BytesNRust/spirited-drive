@@ -209,6 +209,7 @@ static void midpoint(const int32_t *a, const int32_t *b, int32_t out[3])
     for (int i = 0; i < 3; i++) out[i] = x_add(a[i], b[i]) / 2;
 }
 
+/* 00425e68: a quarter's corners and screen points copied together, then 00425ed4 on them */
 static void quarter(const DrawContext *ctx, const FshEntry *t, int u_level, int depth, int u_cell, int v_cell,
                     const int32_t *c0, const int32_t *c1, const int32_t *c2, const int32_t *c3, const int32_t *s0,
                     const int32_t *s1, const int32_t *s2, const int32_t *s3, int32_t near)

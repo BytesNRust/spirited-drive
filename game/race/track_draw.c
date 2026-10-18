@@ -70,6 +70,7 @@ static void pack(int32_t out[8], const int32_t *s0, const int32_t *s1, const int
     for (int i = 0; i < 4; i++) out[2 * i] = s[i][0], out[2 * i + 1] = s[i][1];
 }
 
+/* 004256ac: a quarter's corners and screen points copied together, then 00425718 on them */
 static void child(const DrawContext *ctx, const FshEntry *t, int u_level, int depth, int u_cell, int v_cell,
                   const int32_t *c0, const int32_t *c1, const int32_t *c2, const int32_t *c3, const int32_t *s0,
                   const int32_t *s1, const int32_t *s2, const int32_t *s3, int32_t near)
