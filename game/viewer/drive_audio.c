@@ -34,6 +34,12 @@ static uint32_t tick_frames;  /* the frames mixed since the last tick, x 100 */
 static SoundQueue speech;                                  /* 004c7b60 */
 static SoundSample speech_sample[SOUND_QUEUE_ENTRIES];     /* each queued file's header, by the writer it took */
 
+/* The game's hold on the driver (platform_audio_lock, recursive), counted so a wait can let the device's thread
+ * run (music_service) */
+static int held;
+static void lock(void) { platform_audio_lock(), held++; }
+static void unlock(void) { held--, platform_audio_unlock(); }
+
 /* The device's thread, the stream locked (platform_audio_lock keeps the game's changes out meanwhile): the driver
  * mixed (00497cb2) with its 100 Hz service (004a4ac0: the speech queue, volume ramps, countdowns) run every
  * TICK_FRAMES of the sample clock, as 0048c290's thread ran it beside the mixing */
@@ -58,42 +64,42 @@ static void mix(void *user, int16_t *frames, uint32_t count)
 static int32_t voice_start(void *user, int32_t sound, int32_t pan, uint8_t volume, uint8_t pitch)
 {
     (void)user;
-    platform_audio_lock();
+    lock();
     const int32_t voice = sound_play(&driver, sound, pan, volume, pitch);
-    platform_audio_unlock();
+    unlock();
     return voice;
 }
 
 static void voice_volume(void *user, int32_t voice, int32_t volume)
 {
     (void)user;
-    platform_audio_lock(), sound_set_volume(&driver, voice, volume), platform_audio_unlock();
+    lock(), sound_set_volume(&driver, voice, volume), unlock();
 }
 
 static void voice_pitch(void *user, int32_t voice, int32_t pitch)
 {
     (void)user;
-    platform_audio_lock(), sound_set_pitch(&driver, voice, pitch), platform_audio_unlock();
+    lock(), sound_set_pitch(&driver, voice, pitch), unlock();
 }
 
 static void voice_pan(void *user, int32_t voice, int32_t pan)
 {
     (void)user;
-    platform_audio_lock(), sound_set_pan(&driver, voice, pan), platform_audio_unlock();
+    lock(), sound_set_pan(&driver, voice, pan), unlock();
 }
 
 static void voice_stop(void *user, int32_t voice)
 {
     (void)user;
-    platform_audio_lock(), sound_stop(&driver, voice), platform_audio_unlock();
+    lock(), sound_stop(&driver, voice), unlock();
 }
 
 static int32_t voice_stopped(void *user, int32_t voice)
 {
     (void)user;
-    platform_audio_lock();
+    lock();
     const int32_t stopped = sound_handle_stopped(&driver.channels, voice);
-    platform_audio_unlock();
+    unlock();
     return stopped;
 }
 
@@ -101,7 +107,7 @@ int drive_audio_device_open(const char *data_root)
 {
     root = data_root;
     open_ = platform_audio_open(MIX_RATE, mix, NULL);
-    platform_audio_lock();
+    lock();
     sound_channels_reset(&driver.channels);  /* 0049212c: 00497b34 first */
     if (open_) {
         driver.rand_seed = RAND_SEED;
@@ -110,16 +116,16 @@ int drive_audio_device_open(const char *data_root)
         tick_frames = 0;
         mixing = 1;
     }
-    platform_audio_unlock();
+    unlock();
     return open_;
 }
 
 int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pitch)
 {
     if (!open_) return 0;
-    platform_audio_lock();
+    lock();
     const int32_t voice = sound_play(&driver, sound, pan, volume, pitch);
-    platform_audio_unlock();
+    unlock();
     return voice;
 }
 
@@ -173,9 +179,9 @@ void drive_audio_load(void *user, const char *name)
     if (i < 0 || i >= RACE_SOUND_BANKS) return;
     size_t size = 0;
     uint8_t *file = read_bank(name, &size);
-    platform_audio_lock();
+    lock();
     const int32_t slot = file != NULL ? sound_bank_register(&driver, &banks[i], file, size) : SOUND_BANK_NONE;
-    platform_audio_unlock();
+    unlock();
     if (slot < 0) {  /* the original stops the game here (004c6f88) */
         fprintf(stderr, "drive_audio: bank %s not loaded (%d)\n", name, slot);
         platform_free_file(file);
@@ -190,7 +196,7 @@ void drive_audio_load(void *user, const char *name)
 static void bank_unregister(void *ctx, uint32_t bank)
 {
     (void)ctx;
-    platform_audio_lock(), sound_bank_unregister(&driver, (int32_t)bank), platform_audio_unlock();
+    lock(), sound_bank_unregister(&driver, (int32_t)bank), unlock();
 }
 
 /* under the lock: a voice still on the file stops mixing it before it goes */
@@ -198,10 +204,10 @@ static void bank_free(void *ctx, uint32_t file)
 {
     (void)ctx;
     if (file >= RACE_SOUND_BANKS) return;
-    platform_audio_lock();
+    lock();
     platform_free_file(files[file]);
     files[file] = NULL;
-    platform_audio_unlock();
+    unlock();
 }
 
 const RaceSoundBankOps *drive_audio_bank_ops(void)
@@ -222,9 +228,9 @@ static uint32_t le32(const uint8_t *p)
 
 int32_t drive_audio_speech_setup(int32_t channel_a, int32_t channel_b, uint32_t volume)
 {
-    platform_audio_lock();
+    lock();
     const int32_t r = sound_queue_setup(&driver, &speech, channel_a, channel_b, volume);
-    platform_audio_unlock();
+    unlock();
     return r;
 }
 
@@ -234,19 +240,19 @@ int32_t drive_audio_speech_add(const uint8_t *file, size_t size, uint32_t percen
     const uint8_t *h = file;
     const uint64_t bytes = (uint64_t)le32(h + 0xc) * h[8] * h[9];
     if (h[0xa] != 0 || bytes > size - EACS_HEADER) return -1;  /* the frames past the file: a cut or packed file */
-    platform_audio_lock();
+    lock();
     SoundSample *s = &speech_sample[speech.write];
     *s = (SoundSample){ le32(h), le32(h + 4), h[8], h[9], h[0xa], (int8_t)h[0xb], le32(h + 0xc), le32(h + 0x10),
                         le32(h + 0x14), NULL, h[0x1c] };
     const int32_t r = sound_queue_add(&driver, &speech, s, file, percent);
-    platform_audio_unlock();
+    unlock();
     return r;
 }
 
-void drive_audio_speech_play(void) { platform_audio_lock(), sound_queue_play(&speech), platform_audio_unlock(); }
+void drive_audio_speech_play(void) { lock(), sound_queue_play(&speech), unlock(); }
 
 /* under the lock: once it returns the file is the caller's to free */
-void drive_audio_speech_stop(void) { platform_audio_lock(), sound_queue_stop(&driver, &speech), platform_audio_unlock(); }
+void drive_audio_speech_stop(void) { lock(), sound_queue_stop(&driver, &speech), unlock(); }
 
 /* The music: the race's words, the reader, its ring and the file */
 static RaceMusic music;
@@ -256,7 +262,16 @@ static uint8_t *music_file;
 static char music_path[512];
 static uint32_t music_ticks_ms;
 
-static void music_service(void *ctx) { (void)ctx, drive_audio_pump(); }  /* 00475c14(0): the sound kept going */
+/* 00475c14(0): the sound kept going - the lock let go meanwhile, so the device's thread mixes and ticks (00464568
+ * waits here for a fade to stop the music's voice) */
+static void music_service(void *ctx)
+{
+    (void)ctx;
+    const int depth = held;
+    for (int i = 0; i < depth; i++) unlock();
+    platform_sleep_ms(1);
+    for (int i = 0; i < depth; i++) lock();
+}
 
 /* 00473334: the 100 Hz ticks since its last call */
 static int32_t music_ticks(void *ctx)
@@ -342,13 +357,13 @@ void drive_audio_music_set(int16_t setting, int16_t volume, int16_t small)
     music_ticks_ms = platform_ticks_ms();
 }
 
-void drive_audio_music_play(const char *name) { platform_audio_lock(), race_music_play(&music_ops, &music, name), platform_audio_unlock(); }
-void drive_audio_music_fill(void) { platform_audio_lock(), race_music_fill(&music_ops, &music), platform_audio_unlock(); }
-void drive_audio_music_pump(void) { platform_audio_lock(), race_music_pump(&music_ops, &music), platform_audio_unlock(); }
-void drive_audio_music_volume(int16_t volume) { platform_audio_lock(), race_music_volume(&music_ops, &music, volume), platform_audio_unlock(); }
+void drive_audio_music_play(const char *name) { lock(), race_music_play(&music_ops, &music, name), unlock(); }
+void drive_audio_music_fill(void) { lock(), race_music_fill(&music_ops, &music), unlock(); }
+void drive_audio_music_pump(void) { lock(), race_music_pump(&music_ops, &music), unlock(); }
+void drive_audio_music_volume(int16_t volume) { lock(), race_music_volume(&music_ops, &music, volume), unlock(); }
 void drive_audio_music_volume_now(int16_t volume)
 {
-    platform_audio_lock(), race_music_volume_now(&music_ops, &music, volume), platform_audio_unlock();
+    lock(), race_music_volume_now(&music_ops, &music, volume), unlock();
 }
 int16_t drive_audio_music_setting(void) { return music.setting; }
 void drive_audio_music_small(int16_t small) { music.small = small; }
@@ -359,23 +374,23 @@ static int music_playing(void) { return music.unknown_52b31e == 0 && music.setti
 
 void drive_audio_music_cut(void)
 {
-    platform_audio_lock();
+    lock();
     if (music_playing()) music_stop(NULL, music.handle);
-    platform_audio_unlock();
+    unlock();
 }
 
 void drive_audio_music_fade(void)
 {
-    platform_audio_lock();
+    lock();
     if (music_playing()) music_ramp(NULL, music.handle, MUSIC_FADE_STEPS, MUSIC_FADE_TO_STOP);
-    platform_audio_unlock();
+    unlock();
 }
 
-void drive_audio_music_stop(void) { platform_audio_lock(), race_music_stop(&music_ops, &music), platform_audio_unlock(); }
+void drive_audio_music_stop(void) { lock(), race_music_stop(&music_ops, &music), unlock(); }
 
 void drive_audio_close(void)
 {
-    platform_audio_lock();
+    lock();
     if (music.open) music_stop(NULL, music.handle), race_music_stop(&music_ops, &music);
     music_close(NULL, MUSIC_READER);
     sound_bank_unregister(&driver, SOUND_BANK_ALL);
@@ -387,7 +402,7 @@ void drive_audio_close(void)
     speech = (SoundQueue){ 0 };
     music.open = 0, music.started = 0;
     mixing = 0;
-    platform_audio_unlock();
+    unlock();
     if (open_) platform_audio_close();
     open_ = 0;
 }
