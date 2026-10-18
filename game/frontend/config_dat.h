@@ -53,6 +53,7 @@
 
 enum {
     CONFIG_DAT_SIZE = 0x5f52,
+    CONFIG_DAT_CONTROLS = 0x5f36,  /* 0052ad26: the 13 control words (00413cb0's) */
     CONFIG_NAME_SIZE = 42
 };
 

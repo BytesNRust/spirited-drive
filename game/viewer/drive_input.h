@@ -1,6 +1,6 @@
 /* --drive's controls: the race's own input path (0043915c read, 004394dc
  * poll into the player's queue, 004397f4 taking the tick's word), with the
- * keys config.dat gives by default (00426ddc). */
+ * keys config.dat gives (00426ddc). */
 #ifndef TNFS_DRIVE_INPUT_H
 #define TNFS_DRIVE_INPUT_H
 
@@ -18,7 +18,7 @@ typedef struct {
     int32_t ticks;                    /* the tick's clock (004bb8e0's role): twice the ticks taken */
 } DriveInput;
 
-/* 00426ddc on config.dat's default words for player 0; the player's queue on. */
+/* 00426ddc on config.dat's control words (its defaults when it was not loaded) for player 0; the player's queue on. */
 void drive_input_start(DriveInput *in, RaceState *race);
 
 /* Every key code's flag (004c693c) from the keys held now. */

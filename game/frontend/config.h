@@ -17,4 +17,8 @@ void config_save(void);
 /* The loaded config; Control Central reads and updates it. */
 ConfigDat *config_current(void);
 
+/* The same once config_load ran, else NULL (the viewer's paths that start
+ * no game). */
+const ConfigDat *config_loaded(void);
+
 #endif

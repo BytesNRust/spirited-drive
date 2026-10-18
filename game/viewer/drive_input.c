@@ -2,8 +2,10 @@
 #include "viewer/drive_input.h"
 
 #include "platform/platform.h"
+#include "game/frontend/config.h"
 #include "game/race/input_read.h"
 #include "game/race/input_tick.h"
+#include "game/sys/resource.h"
 #include "viewer/drive_joy.h"
 
 #include <string.h>
@@ -66,9 +68,14 @@ void drive_input_start(DriveInput *in, RaceState *race)
 {
     uint8_t w4fb788;
     memset(in, 0, sizeof *in);
-    /* TODO(00426ddc): config.dat's controls (0052ad26, as 00413cb0 leaves them) rather than its defaults, so a
-     * pad present can steer; until then it gives look back and the handbrake (input_read's buttons) */
-    input_setup(DEFAULT_CONFIG, 0, 0, race->controls, in->codes, &w4fb788);
+    /* 0052ad26 as the controls screen (00413cb0) left it; config.dat's defaults when none was loaded */
+    int16_t config[INPUT_CONFIG_WORDS];
+    const ConfigDat *loaded = config_loaded();
+    for (int i = 0; i < INPUT_CONFIG_WORDS; i++) {
+        const uint8_t *w = loaded != NULL ? loaded->image + CONFIG_DAT_CONTROLS + 2 * i : NULL;
+        config[i] = w != NULL ? (int16_t)(uint16_t)(w[0] | w[1] << 8) : DEFAULT_CONFIG[i];
+    }
+    input_setup(config, (int16_t)resource_german(), 0, race->controls, in->codes, &w4fb788);
     in->queues[0].active = 1;
 }
 

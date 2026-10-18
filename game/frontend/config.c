@@ -14,10 +14,16 @@ enum { PATH_MAX_LEN = 512 };
 static const char CONFIG_NAME[] = "config.dat";
 
 static ConfigDat config;
+static int loaded;
 
 ConfigDat *config_current(void)
 {
     return &config;
+}
+
+const ConfigDat *config_loaded(void)
+{
+    return loaded ? &config : NULL;
 }
 
 static int parse_file(uint8_t *data, size_t size, const char *origin)
@@ -52,6 +58,7 @@ int config_load(void)
     config_dat_name(&config, frontend_player_name);
     /* 0042a010's end: without the pad (004fcdcc, 0043c744 ran first) the joystick's controls back to keys */
     if (!drive_joy_state()->present) game_file_controls_to_keys(config.image);
+    loaded = 1;
     return found ? 0 : 1;
 }
 
