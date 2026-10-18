@@ -42,6 +42,8 @@ void input_on_keys(void (*mute)(void),
                    void (*joystick)(JoyState **j, int32_t *present, int32_t *device, const JoyOps **ops));
 /* The short 004f9e8c input_get_key reads F1..F4 by while set (the graphics screen's); NULL none. */
 void input_function_keys(const int16_t *flag);
+/* Ctrl+F10's words: the short 0052b312 (a link game) and 0052b314 it sets to 1 then (the link dropped); NULL none. */
+void input_link_words(int16_t *link_game, int16_t *link_lost);
 
 /* The OS events pumped, the pointer synced, 1 ms given back; a window closed
  * ends the process after input_on_close's hook. */

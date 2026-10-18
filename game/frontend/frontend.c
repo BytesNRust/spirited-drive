@@ -14,7 +14,6 @@
 
 char frontend_player_name[42];
 
-/* TODO(00446220): only runs with a link game, which the build has not got yet */
 static void glue_reset(void *ctx) { (void)ctx; glue_game_reset(); }
 static void glue_music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
 static void glue_music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
@@ -33,6 +32,7 @@ static int32_t glue_config_load(void *ctx)
     (void)ctx;
     const int32_t defaults = config_load();
     input_on_close(save_on_close);
+    input_link_words(&menu_words.link_game, &menu_words.link_lost);
     return defaults;
 }
 static void glue_title(void *ctx, int32_t state) { (void)ctx; glue_title_screen(state); }

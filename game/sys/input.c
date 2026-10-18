@@ -37,6 +37,10 @@ void input_on_keys(void (*mute_hook)(void),
 
 void input_function_keys(const int16_t *flag) { function_keys = flag; }
 
+static int16_t *link_game, *link_lost;
+
+void input_link_words(int16_t *game, int16_t *lost) { link_game = game, link_lost = lost; }
+
 static void (*on_close)(void);
 
 void input_on_close(void (*hook)(void)) { on_close = hook; }
@@ -69,10 +73,12 @@ int input_get_key(void)
     int32_t present = 0, device = 0;
     const JoyOps *joy_ops = &NO_JOY;
     if (joystick != NULL) joystick(&j, &present, &device, &joy_ops);
-    /* Ctrl+F10's drop of a net game (0052b314) is the link's: TODO(network) */
     HotKeyState s = { 0 };
-    return menu_hot_key(&s, flags, function_keys != NULL ? *function_keys : 0, j, present, device,
-                        &(const HotKeyOps){ NULL, no_shot, mute }, joy_ops);
+    if (link_game != NULL) s.playback = *link_game, s.dropped = *link_lost;
+    const int32_t key = menu_hot_key(&s, flags, function_keys != NULL ? *function_keys : 0, j, present, device,
+                                     &(const HotKeyOps){ NULL, no_shot, mute }, joy_ops);
+    if (link_lost != NULL) *link_lost = s.dropped;
+    return key;
 }
 
 /* German characters the name field accepts (004626d0), Unicode -> CP437. */
