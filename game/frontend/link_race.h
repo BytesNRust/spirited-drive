@@ -6,8 +6,9 @@
 
 #include <stdint.h>
 
-/* Before the drive, in a link game: each slot's car pick (the menus' 00524e8d by slot, this machine's 00524e8b) */
-void link_race_begin(int16_t own_car, const int16_t *cars_by_slot);
+/* Before the drive, in a link game: each slot's car pick (the menus' 00524e8d by slot, this machine's 00524e8b) and
+ * the chat screen (0040a5d8, the frontend's) the in-race menu's chat item opens */
+void link_race_begin(int16_t own_car, const int16_t *cars_by_slot, void (*chat)(void *ctx));
 
 /* After the drive: the race's messages no longer go to it */
 void link_race_end(void);

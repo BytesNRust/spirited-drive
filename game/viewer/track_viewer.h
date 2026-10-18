@@ -62,6 +62,13 @@ typedef struct TrackViewerLink {
     void (*service)(void);              /* 00475c14(0): the transport's */
     int32_t (*wait)(int32_t stage);     /* 00410c18: nonzero when all came */
     int16_t (*slot_of)(uint32_t link);  /* 0044659c */
+    void (*sync)(void);                 /* 004104d0 */
+    void (*host_ready)(void);           /* 00446284 */
+    void (*deadline)(int32_t ticks);    /* 00410b7c */
+    int16_t (*any_ready)(void);         /* 004109b4 */
+    void (*chat)(void);                 /* 0040a5d8 */
+    int16_t *stage_flag;                /* 0050a5b6, the link's: the stage the host sent */
+    int16_t *lost;                      /* 0052b314, the link's: the game dropped */
 } TrackViewerLink;
 void track_viewer_drive_link(const TrackViewerLink *link);
 

@@ -2,6 +2,7 @@
 #include "viewer/drive_menu.h"
 
 #include "viewer/drive_audio.h"
+#include "viewer/track_viewer.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/menu_glue.h"
 #include "game/gfx/blit.h"
@@ -52,6 +53,21 @@ static void poll(DriveMenu *m)
 }
 
 /* 004c693d: Esc's state as the keyboard's handler keeps it */
+/* A link race's live words: 0050a5b6 and 0052b314 put back before each link op and read again after */
+static void link_out(const MenuCtx *c)
+{
+    const struct TrackViewerLink *l = c->m->link;
+    *l->stage_flag = c->w->unknown_50a5b6;
+    if (c->w->dropped != 0) *l->lost = c->w->dropped;
+}
+
+static void link_in(const MenuCtx *c)
+{
+    const struct TrackViewerLink *l = c->m->link;
+    c->w->unknown_50a5b6 = *l->stage_flag;
+    if (*l->lost != 0) c->w->dropped = *l->lost;
+}
+
 static uint8_t esc_down(void) { return platform_key_down(KEY_ESC_SCANCODE) ? 0x80 : 0; }
 
 static QuadTarget target(const MenuCtx *c)
@@ -68,6 +84,7 @@ static void call(void *ctx, uint32_t address)
         drive_audio_pump();
         drive_audio_music_pump();  /* the stream fed as the original's reader feeds it on its own (glue) */
         poll(c->m);
+        if (c->m->link != NULL) link_out(c), c->m->link->sync(), link_in(c);
         c->w->esc_down = esc_down();
         c->w->blink_clock += ticks_since(&c->clock_ms);
         platform_sleep_ms(IDLE_MS);
@@ -76,6 +93,12 @@ static void call(void *ctx, uint32_t address)
         poll(c->m);
         c->w->esc_down = esc_down();
         platform_sleep_ms(IDLE_MS);
+        break;
+    case 0x446284:  /* the host's start again: the others told and waited for */
+        if (c->m->link != NULL) link_out(c), c->m->link->host_ready(), link_in(c);
+        break;
+    case 0x40a5d8:  /* chat (the menu's chat item, a link race's only) */
+        if (c->m->link != NULL) link_out(c), c->m->link->chat(), link_in(c);
         break;
     case 0x4c618c: video_clear_back(); break;
     case 0x4733ec: video_flip(); break;
@@ -164,7 +187,12 @@ static int32_t inside(void *ctx, int16_t l, int16_t r, int16_t t, int16_t b)
     return (void)ctx, pointer_in_rect(l, r, t, b);
 }
 
-static int16_t chat(void *ctx) { return (void)ctx, 0; }
+/* 004109b4: a chat line waiting (none racing alone) */
+static int16_t chat(void *ctx)
+{
+    const MenuCtx *c = ctx;
+    return c->m->link != NULL ? c->m->link->any_ready() : 0;
+}
 static void blit_own(void *ctx, const uint8_t *shape)
 {
     const QuadTarget t = target(ctx);
@@ -185,9 +213,23 @@ static int16_t buttons(void *ctx) { return (void)ctx, pointer_sync_from_os(), (i
 static int32_t ticks(void *ctx) { return (void)ctx, timer_ticks_since_last(); }
 static uint16_t key(void *ctx) { return (void)ctx, (uint16_t)input_get_key(); }
 static int16_t ask(void *ctx, const char *question) { return (void)ctx, (int16_t)glue_yes_no(NULL, question); }  /* 00465f4c */
-static void notice(void *ctx, const char *text, int32_t time) { (void)ctx, (void)text, (void)time; }
-static void net_send(void *ctx, int32_t to) { (void)ctx, (void)to; }
-static int32_t net_wait(void *ctx, int32_t what) { return (void)ctx, (void)what, 1; }
+static void notice(void *ctx, const char *text, int32_t time) { (void)ctx, glue_banner_wait(NULL, text, time); }  /* 00467214 */
+/* 00410b7c (the deadline) and 00410c18 in a link race; alone nothing is sent and every wait ends */
+static void net_send(void *ctx, int32_t to)
+{
+    MenuCtx *c = ctx;
+    if (c->m->link != NULL) link_out(c), c->m->link->deadline(to), link_in(c);
+}
+
+static int32_t net_wait(void *ctx, int32_t what)
+{
+    MenuCtx *c = ctx;
+    if (c->m->link == NULL) return 1;
+    link_out(c);
+    const int32_t r = c->m->link->wait(what);
+    link_in(c);
+    return r;
+}
 
 static void take(void *ctx, int32_t kind)
 {
@@ -214,7 +256,8 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
     w->playback = race->playback, w->dropped = race->dropped, w->german = (int16_t)resource_german();
     w->mouse_on = (int16_t)pointer_active();
     w->esc_down = esc_down();
-    w->end_state = race->end_state, w->unknown_4fbb0c = race->unknown_4fbb0c;
+    w->end_state = race->end_state, w->unknown_4fbb0c = race->unknown_4fbb0c, w->net_game = race->unknown_4fb7d4;
+    if (m->link != NULL) w->unknown_50a5b6 = *m->link->stage_flag;
     w->follow = race->chase.kind, w->phase = race->phase;
     w->unknown_513e50 = m->keys->pending;
     w->leader = (int16_t)race->by_progress[LEADER_PLACE];  /* 00509e60 */
@@ -238,6 +281,7 @@ void drive_menu_run(void *menu)
                               inside, chat, blit_own, blit_at, buttons, ticks, key, ask, notice, net_send, net_wait,
                               take, view_screen };
     race_menu(&w, &ops);
+    if (m->link != NULL) link_out(&c);
     m->race->dropped = w.dropped, m->race->end_state = w.end_state, m->keys->pending = w.unknown_513e50;
     if (m->words != NULL) m->words->music_started = w.unknown_4c5cca;
 }

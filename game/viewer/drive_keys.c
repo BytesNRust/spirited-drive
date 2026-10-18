@@ -2,6 +2,7 @@
 #include "viewer/drive_keys.h"
 
 #include "viewer/drive_audio.h"
+#include "viewer/track_viewer.h"
 #include "game/race/input_queue.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
@@ -47,17 +48,20 @@ static void own_changed(void *ctx)
     race_loop_clear_51371c(&((KeysCtx *)ctx)->keys->w51371c);
 }
 
-static void no_send(void *ctx, int32_t to, const int16_t *words, int32_t size)
+/* 00445e00: nothing alone, through the link in a link race */
+static void send_stand_in(void *ctx, int32_t to, const int16_t *words, int32_t size)
 {
-    (void)ctx, (void)to, (void)words, (void)size;
+    const KeysCtx *c = ctx;
+    if (c->in->link != NULL) c->in->link->send(to, words, size);
 }
 
 static void reset(void *ctx, int32_t player)
 {
     KeysCtx *c = ctx;
-    const InputSendOps send = { NULL, no_send };
-    /* 004fbb0c taken as 1 in a local game, as drive_input does */
-    const InputStandInWords w = { (int16_t)c->race->race_type, c->race->replay, c->race->playback, c->race->player, 1 };
+    const InputSendOps send = { c, send_stand_in };
+    /* 004fbb0c taken as 1 in a local game, as drive_input does; the link's in a link race */
+    const int32_t host = c->in->link != NULL ? c->in->link->host : 1;
+    const InputStandInWords w = { (int16_t)c->race->race_type, c->race->replay, c->race->playback, c->race->player, host };
     if (player >= 0 && player < RACE_PLAYERS) input_stand_in(player, c->in->stand_in_block, c->race->players, &w, &send);
 }
 

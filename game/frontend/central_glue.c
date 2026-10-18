@@ -491,6 +491,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
  * config.dat (track_viewer.h's TrackViewerMenus; Options' 0 is on, 1 off, 2 none); its end (0052b2fe = 00509d6c,
  * 0 when not over) and results kept for 0045cea0 */
 static TrackViewerResults last_drive;
+static void chat(void *ctx);
 static void drive(void *ctx, int32_t argc, char *const *argv)
 {
     (void)ctx, (void)argc;
@@ -503,7 +504,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
                                      g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r };
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
-    if (menu_words.link_game != 0) link_race_begin(g.player_car, g.other_car);
+    if (menu_words.link_game != 0) link_race_begin(g.player_car, g.other_car, chat);
     if (!track_viewer_drive(resource_root(), name, race_head_to_head_model(g.player_car), 1, g.race_type, 0, NULL))
         fprintf(stderr, "control_central: the race on %s could not start\n", name);
     link_race_end();

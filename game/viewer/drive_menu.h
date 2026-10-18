@@ -12,6 +12,8 @@
 
 #include <stdint.h>
 
+struct TrackViewerLink;
+
 typedef struct {
     RaceState *race;
     DriveReplay *replay;        /* 0044f534's request goes to its director */
@@ -22,6 +24,7 @@ typedef struct {
     void *music_user;
     int ready;                  /* the frontend's layer is up */
     int shared;                 /* it was up already (the menus' race): used as it is and left up */
+    const struct TrackViewerLink *link;  /* a link race's (track_viewer.h), NULL racing alone */
 } DriveMenu;
 
 /* After platform_init: the frontend's video, art paths, pointer and font
