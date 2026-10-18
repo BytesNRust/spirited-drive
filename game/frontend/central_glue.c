@@ -4,6 +4,7 @@
 #include "game/frontend/menu_glue.h"
 
 #include "game/frontend/audio_menu.h"
+#include "game/frontend/best_times.h"
 #include "game/frontend/best_totals_screen.h"
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
@@ -174,7 +175,7 @@ static void art_free(void *ctx)
 }
 
 /* TODO(00464788, 0046486c, 00464850, 004648a8): the track screen's own music (EA's player, 00492xxx);
- * TODO(004676d8, 0040a5d8): the best times and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
+ * TODO(0040a5d8): chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
  * 0044633c, 00432e90): the link game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
@@ -273,7 +274,6 @@ static void mark_at(void *ctx, DialogPointer *p)
 }
 static void set_palette(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
 static void no_name(void *ctx, const char *name) { (void)ctx, (void)name; }
-static int32_t no_best_times(void *ctx) { (void)ctx; return 0; }
 static void free_handle_inverse(void *ctx) { (void)ctx; }
 
 static int32_t time_of_day[10];  /* 004fbae0 */
@@ -290,6 +290,7 @@ static void image_car_flags(void *ctx)
 }
 
 /* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
+static int32_t best_times(void *ctx);
 static void track_select(void *ctx)
 {
     (void)ctx;
@@ -307,7 +308,7 @@ static void track_select(void *ctx)
         flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
         show, mark_at, buttons, no_name, fade_in, nothing, deadline_set, sound, ticks, activate, key, click,
-        nothing, nothing, fade_out, free_bank, free_handle_inverse, no_best_times, image_car_flags, off, music,
+        nothing, nothing, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags, off, music,
         deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     RaceSettings after = before;
@@ -331,6 +332,23 @@ static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
     stat_average_speed_text(out, resource_german(), time, distance);
 }
 static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_german(), speed); }
+
+/* 004676d8 from the track screen on config.dat's image and its records; ctx is the track screen's pointer */
+static int32_t best_times(void *ctx)
+{
+    uint8_t *const image = config_current()->image;
+    const int32_t screen = ea_screen();
+    const BestTimesInputs in = { "", resource_german(), g.lost_vegas, screen, ea_picture_shape(screen),
+                                 image + (0x524f8f - 0x524df0) };
+    BestTimesState st = { image + (0x524df9 - 0x524df0), g.inverse, screen_palette };
+    const BestTimesOps ops = {
+        move_to, load_art, no_inverse, music_feed, shape, flush, set_palette, nothing, styles, poll_pointer, mark_at,
+        in_rect, select_picture, blit, blit_masked, blit_word, style, fit, time_text, speed_text, shadowed,
+        select_default, hide, nothing, nothing, flip, show, buttons, fade_in, deadline_set, sound, ticks, activate,
+        key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off, music,
+        deadline_passed, music_fade_out, music_end, ctx };
+    return best_times_screen(&in, &st, ctx, &ops);
+}
 /* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;
  * the shorts 0051ce24 + 0x1d2 x player, the cars' points (TODO(0045aec8): none given yet) */
 static int32_t race_times[MENU_RACE_TIMES];
