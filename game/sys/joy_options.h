@@ -11,4 +11,11 @@
  * words 1, 2, 4, 8 in turn, nothing turned over. */
 void joy_options_default(JoyState *j);
 
+/* 0043d37c (all registers kept): what the options leave as read. 004fce14
+ * (raw) 0 unless every button is on, none turned over and they land on bits
+ * 0..3 in turn; 004fce18 (upright) 0 when an axis on is turned over;
+ * 004fce48 (raw_axes) 0 when an axis on goes to a word not its own (1, 2, 4,
+ * 8). Each only cleared, never set. */
+void joy_options_check(JoyState *j);
+
 #endif

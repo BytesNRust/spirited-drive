@@ -14,3 +14,16 @@ void joy_options_default(JoyState *j)
     for (int k = 0; k < JOY_BUTTONS; k++) j->invert[k] = 0;
     for (int k = 0; k < JOY_AXES; k++) j->axis_invert[k] = 0;
 }
+
+/* 0043d37c */
+void joy_options_check(JoyState *j)
+{
+    int plain = 1;
+    for (int k = 0; k < JOY_BUTTONS; k++)
+        if (j->button_on[k] == 0 || j->invert[k] != 0 || j->button_bit[k] != k) plain = 0;
+    if (!plain) j->raw = 0;
+    for (int k = 0; k < JOY_AXES; k++)
+        if (j->axis_on[k] != 0 && j->axis_invert[k] != 0) j->upright = 0;
+    for (int k = 0; k < JOY_AXES; k++)
+        if (j->axis_on[k] != 0 && j->axis_slot[k] != IN_TURN[k]) j->raw_axes = 0;
+}

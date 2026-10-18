@@ -12,7 +12,7 @@ enum { JOY_AXES = 4, JOY_BUTTONS = 4 };
 typedef struct {
     uint8_t unknown_ce10[4];
     int32_t raw;                    /* 004fce14: set, the buttons are taken as read (no 0043da50) */
-    uint8_t unknown_ce18[4];
+    int32_t upright;                /* 004fce18: set, no axis on is turned over (0043db50 not needed) */
     int16_t unknown_ce1c;
     int16_t button_on[JOY_BUTTONS]; /* 004fce1e: each button's bit kept (sign-extended into the mask) */
     int16_t axis_on[JOY_AXES];      /* 004fce26 */
