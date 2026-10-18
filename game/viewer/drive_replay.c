@@ -15,6 +15,7 @@
 #include "game/race/race_view_pick.h"
 #include "game/sys/menu_key.h"
 #include "game/sys/pointer.h"
+#include "game/sys/video.h"
 #include "game/race/skid_marks.h"
 #include "viewer/ported_view.h"
 #include "platform/platform.h"
@@ -202,10 +203,15 @@ static void to_end(void *ctx)
 }
 
 /* 0044f55c's and 004718c0's calls: the menus' pointer (game/sys/pointer.h), no joystick. 0047723c, the box
- * the pointer is kept to over a panel (replay_panel.h), is not applied: the pointer goes anywhere. The buttons are read without 004417f8's drawing (the menus' overlay would
+ * the pointer is kept to over a panel (replay_panel.h), is not applied: the pointer goes anywhere, the whole
+ * screen its range (a box a menu kept it to before, e.g. Load and Save's list's, would hold it off the bar's Done). The buttons are read without 004417f8's drawing (the menus' overlay would
  * show their screen over the race's frame); 00441990 moves the pointer and not the OS's mouse, as the menus'
  * 00464038 does */
-static void no_window(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d) { (void)ctx, (void)a, (void)b, (void)c, (void)d; }
+static void any_window(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d)
+{
+    (void)ctx, (void)a, (void)b, (void)c, (void)d;
+    pointer_range(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
+}
 static int16_t mouse_buttons(void *ctx) { return (void)ctx, (int16_t)pointer_buttons_unseen(); }
 static int32_t in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
@@ -244,7 +250,7 @@ static int32_t view_mouse(void *ctx)
     pointer_now(&x, &y);
     r->view_mouse.present = *pointer_active_word();
     const ReplayPanelMouseInputs in = { x, y, 1, race->racers, race->humans, race->viewed, race->replay };
-    const ReplayPanelMouseOps ops = { r, no_window, view_buttons, view_inside };
+    const ReplayPanelMouseOps ops = { r, any_window, view_buttons, view_inside };
     return replay_panel_mouse(&r->panel->panel, r->replay_art->box, &r->view_mouse, &in, &ops);
 }
 
@@ -303,7 +309,7 @@ static void panel_input(void *ctx)
         in.rects[i][0] = b.left, in.rects[i][1] = b.top, in.rects[i][2] = b.right, in.rects[i][3] = b.bottom;
         in.shapes[i] = d->control_lit[i];
     }
-    replay_controls_input(&in, &(const ReplayInputOps){ r, no_window, mouse_buttons, in_rect, controls_key, place });
+    replay_controls_input(&in, &(const ReplayInputOps){ r, any_window, mouse_buttons, in_rect, controls_key, place });
     r->mouse_buttons = in.mouse_buttons, r->last_x = in.last_x, r->last_y = in.last_y;
     r->dir.unknown_513888 = w[DASH_PRESSED] = in.pressed, w[DASH_CURSOR] = in.cursor;
     r->dir.unknown_513898 = w[DASH_REDRAW] = in.redraw;

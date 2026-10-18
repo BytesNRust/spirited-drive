@@ -45,10 +45,12 @@ static int key_count;
  * ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
  * typed-text queue, and the arrows, ENTER, ESC and SPACE the key queue (platform_next_key).
  * TNFS_INPUT_SETTLE=N: the events one after another, each ms after the last one is done (a key let go, a click
- * read, text queued), and a click or a mouse move only once no frame has been presented for N ms (the menus
- * present only on a change, so a still screen is one waiting for its input, however slow the build runs) or,
- * on a screen that never stills (a movie, a blinking cursor), after SCRIPT_SETTLE_CAP_MS. */
-enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000 };
+ * read, text queued), and a click or a mouse move only once no frame has been presented for N ms and the pointer
+ * has been read all that time with no gap over SCRIPT_READ_GAP_MS (the menus present only on a change and poll
+ * the pointer while they wait, so that is a screen waiting for its input, however slow the build runs; a load
+ * presents nothing either, but reads no pointer) or, on a screen that never stills (a movie, a blinking
+ * cursor), after SCRIPT_SETTLE_CAP_MS. */
+enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000, SCRIPT_READ_GAP_MS = 250 };
 typedef struct {
     uint32_t at_ms;
     int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks */
@@ -64,6 +66,7 @@ static ScriptEvent script[SCRIPT_MAX];
 static int script_count;
 static uint32_t script_start_ms;
 static uint32_t settle_ms, last_present_ms, script_last_ms;  /* TNFS_INPUT_SETTLE */
+static uint32_t last_read_ms, reading_since_ms;               /* the pointer read with no gap since */
 static int script_next;
 
 static void load_script(void);
@@ -363,7 +366,8 @@ static void script_sequence(void)
         }
         const bool pointer = e->scancode == 0 || e->scancode == -3;
         const uint32_t due = script_last_ms + e->delay;
-        if (now < due || (pointer && now - last_present_ms < settle_ms && now < due + SCRIPT_SETTLE_CAP_MS)) return;
+        const bool still = now - last_present_ms >= settle_ms && now - reading_since_ms >= settle_ms;
+        if (now < due || (pointer && !still && now < due + SCRIPT_SETTLE_CAP_MS)) return;
         e->at_ms = now;
         return;
     }
@@ -399,8 +403,10 @@ static void apply_script_text(void)
 
 static void apply_script_mouse(void)
 {
-    script_sequence();
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    if (now - last_read_ms > SCRIPT_READ_GAP_MS) reading_since_ms = now;
+    last_read_ms = now;
+    script_sequence();
     for (int i = 0; i < script_count; i++) {
         if (script[i].scancode == 0 && now >= script[i].at_ms) {
             mouse_x = (float)script[i].x;
