@@ -36,7 +36,8 @@ static int key_head;
 static int key_count;
 
 /* TNFS_INPUT_SCRIPT="ms:KEY,ms:MOUSE:x:y,...": scripted input for headless
- * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, Y, N, J, A, Z, C) is held for 100 ms
+ * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, a letter, a digit, F1..F9, CTRL, ALT;
+ * several at one ms are held together) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
  * the pointer; ms:CLICK:x:y moves it there and holds the left button 100 ms;
@@ -280,7 +281,7 @@ static int script_key(const char *name)
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
         { "F1", 0x3B }, { "F2", 0x3C }, { "F3", 0x3D }, { "F4", 0x3E }, { "F5", 0x3F }, { "F6", 0x40 },
-        { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 },
+        { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 }, { "CTRL", 0x1D }, { "ALT", 0x38 },
     };
     /* the letters' set-1 scancodes, A..Z */
     static const uint8_t LETTERS[26] = { 0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
@@ -289,6 +290,8 @@ static int script_key(const char *name)
         if (SDL_strcmp(name, KEYS[i].name) == 0) return KEYS[i].scancode;
     }
     if (name[0] >= 'A' && name[0] <= 'Z' && name[1] == '\0') return LETTERS[name[0] - 'A'];
+    if (name[0] >= '1' && name[0] <= '9' && name[1] == '\0') return 0x02 + (name[0] - '1');  /* the digits' row */
+    if (name[0] == '0' && name[1] == '\0') return 0x0B;
     return -1;
 }
 

@@ -12,6 +12,7 @@
 #include "game/race/race_sound.h"
 #include "game/race/dash_controls.h"
 #include "game/race/replay_controls.h"
+#include "game/race/race_view_pick.h"
 #include "game/sys/menu_key.h"
 #include "game/sys/pointer.h"
 #include "game/race/skid_marks.h"
@@ -200,11 +201,8 @@ static void to_end(void *ctx)
     race_replay_to_end(&r->sim->race, &r->dir, &ops);
 }
 
-/* 00471460: the view panel, drawn by drive_panel */
-static void panel_draw(void *ctx) { (void)ctx; }
-
-/* 0044f55c's calls: the menus' pointer (game/sys/pointer.h), no joystick. 0047723c's box is for drawing, which
- * the port's panels clip on their own. The buttons are read without 004417f8's drawing (the menus' overlay would
+/* 0044f55c's and 004718c0's calls: the menus' pointer (game/sys/pointer.h), no joystick. 0047723c, the box
+ * the pointer is kept to over a panel (replay_panel.h), is not applied: the pointer goes anywhere. The buttons are read without 004417f8's drawing (the menus' overlay would
  * show their screen over the race's frame); 00441990 moves the pointer and not the OS's mouse, as the menus'
  * 00464038 does */
 static void no_window(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d) { (void)ctx, (void)a, (void)b, (void)c, (void)d; }
@@ -225,6 +223,66 @@ static int32_t controls_key(void *ctx)
 }
 static void place(void *ctx, int32_t x, int32_t y) { (void)ctx, pointer_move_to(x, y); }
 
+/* the OS's mouse read as the window thread would have (and 00524790 set once it moves, as 00464088 sets it in the
+ * menus: a race started without them has it clear) */
+static void pointer_now(int *x, int *y)
+{
+    pointer_sync_from_os();
+    pointer_activate_if_moved();
+    pointer_position(x, y);
+}
+
+static int16_t view_buttons(void *ctx) { return mouse_buttons(ctx); }
+static int32_t view_inside(void *ctx, int16_t l, int16_t r, int16_t t, int16_t b) { return in_rect(ctx, l, r, t, b); }
+
+/* 004718c0 */
+static int32_t view_mouse(void *ctx)
+{
+    DriveReplay *r = ctx;
+    const RaceState *race = race_of(ctx);
+    int x, y;
+    pointer_now(&x, &y);
+    r->view_mouse.present = *pointer_active_word();
+    const ReplayPanelMouseInputs in = { x, y, 1, race->racers, race->humans, race->viewed, race->replay };
+    const ReplayPanelMouseOps ops = { r, no_window, view_buttons, view_inside };
+    return replay_panel_mouse(&r->panel->panel, r->replay_art->box, &r->view_mouse, &in, &ops);
+}
+
+/* 00471a38 on 0052b8d4 / d8 / f4 (RaceViewPick's are the panel's words) */
+static int32_t view_pick(void *ctx)
+{
+    DriveReplay *r = ctx;
+    const RaceState *race = race_of(ctx);
+    ReplayPanel *p = &r->panel->panel;
+    RaceViewPick pick = { p->view, p->cursor, p->redraw, r->view_last_key };
+    const RaceViewPickInputs in = { race->racers, race->humans, race->viewed, race->replay, 0, 0 };
+    JoyState j = { 0 };
+    const int32_t hit = race_view_pick(&pick, r->key_flags, &j, &(const JoyOps){ NULL, no_joy }, &in);
+    p->view = pick.view, p->cursor = pick.cursor, p->redraw = pick.redraw, r->view_last_key = pick.last_key;
+    return hit;
+}
+
+/* 00404530(004f801c, 00509e1c[viewed], 4) */
+static void view_follow(void *ctx, int32_t viewed)
+{
+    RaceState *race = race_of(ctx);
+    if (viewed >= 0 && viewed < RACE_CARS) race_chase_follow(race, &race->chase, race->cars[viewed], 4);
+}
+
+static void view_engine(void *ctx) { race_sound_start_engine(race_of(ctx)); }  /* 00444394 */
+
+/* 00471460: the view panel's input, on drive_hud's panel words (drive_panel draws it) */
+static void panel_draw(void *ctx)
+{
+    DriveReplay *r = ctx;
+    if (r->panel == NULL || r->replay_art == NULL || r->key_flags == NULL) return;
+    RaceState *race = race_of(ctx);
+    ReplayPanelWorld w = { race->racers, race->humans, race->viewed, race->dropped };
+    const ReplayPanelInputOps ops = { r, view_mouse, view_pick, view_follow, view_engine, cycle_view, place };
+    replay_panel_input(&r->panel->panel, r->replay_art, &w, &ops);
+    race->viewed = w.viewed, race->dropped = w.done;
+}
+
 /* 0044f55c on the dash's words and the director's */
 static void panel_input(void *ctx)
 {
@@ -232,12 +290,8 @@ static void panel_input(void *ctx)
     if (r->key_flags == NULL || r->dash == NULL) return;
     DashArt *d = r->dash;
     int32_t *w = d->unknown_513888;
-    /* the OS's mouse read as the window thread would have (and 00524790 set once it moves, as 00464088 sets it in
-     * the menus: a race started without them has it clear) */
-    pointer_sync_from_os();
-    pointer_activate_if_moved();
     int px, py;
-    pointer_position(&px, &py);
+    pointer_now(&px, &py);
     ReplayInput in = { .high = 1, .mouse = *pointer_active_word(), .mouse_buttons = r->mouse_buttons,
                        .pointer_x = px, .pointer_y = py, .last_x = r->last_x, .last_y = r->last_y, .pressed = r->dir.unknown_513888, .cursor = w[DASH_CURSOR],
                        .redraw = r->dir.unknown_513898, .kind = r->dir.unknown_513730, .last_key = r->last_key,

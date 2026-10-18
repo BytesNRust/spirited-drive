@@ -8,6 +8,8 @@
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
 #include "game/race/race_view.h"
+#include "game/race/replay_panel.h"
+#include "viewer/drive_panel.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -28,6 +30,10 @@ typedef struct {
     int32_t last_pressed; /* 004c53cc */
     int16_t mouse_buttons;     /* 00524792 as 0044f55c last read it */
     int32_t last_x, last_y;    /* 005137ec, 005137e8: the pointer 0044f55c saw */
+    DrivePanel *panel;         /* the view panel's words 0052b8d4.. (00471460), drawn by drive_panel; NULL none */
+    const ReplayArt *replay_art;  /* its buttons and boxes (0052b6a8.., 0052b804) */
+    ReplayPanelMouse view_mouse;  /* 004718c0's 00524792, 004c5f90, 0052b900 / 0052b8fc */
+    int32_t view_last_key;     /* 004c5f94: 00471a38's key the frame before */
     const uint8_t *file;  /* a .RPL played back (REPLAY_FILE_SIZE bytes, the caller's): 0044d514 reads it; NULL none */
     size_t file_at;       /* 0044d514's reads so far */
     uint32_t seed;        /* 004fb7f4: the race's seed, for the setup 0044d420 writes */
@@ -39,8 +45,8 @@ typedef struct {
 int drive_replay_start(DriveReplay *r, RaceSim *sim, RaceViews *views);
 
 /* A development key standing in for the menus (the in-race menu's replay,
- * 00447564, and the view panel 00471460, are not wired; the controls,
- * 0044f55c, are, through key_flags and dash):
+ * 00447564, is not wired; the controls, 0044f55c, are, through key_flags and
+ * dash, and the view panel 00471460 through panel and replay_art):
  * pressed while racing, the director's replay from the start (request 2,
  * 0044f188 with 2); pressed during a replay, back to the race where it
  * stood (request 7, 0044f090). `down` is the key's state this frame. */
