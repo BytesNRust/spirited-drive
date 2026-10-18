@@ -8,6 +8,8 @@
 #include "game/race/car_body.h"
 #include "game/race/car_load.h"
 #include "game/race/race_sim.h"
+#include "game/race/skid_marks.h"
+#include "game/race/view.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,12 +89,56 @@ static int check_end(RaceSim *s)
     return ok;
 }
 
+
+/* The skid ring wrapping to 0 has 004596a8 draw mark -1 (the original reads
+ * before its table); the port reads its spare row. Under ASan, an overflow. */
+typedef struct {
+    SkidView view;
+    SkidMarks *marks;
+    int32_t drawn;
+} SkidDraw;
+
+static void skid_draw_op(void *ctx, int32_t index)
+{
+    SkidDraw *d = ctx;
+    static const SkidRing ring = { 0, 0xfff, 0x100 };
+    static const int32_t s[2] = { 0, 0 }, t[2] = { 0, 0 };
+    d->drawn = index;
+    skid_draw(&d->view, &ring, d->marks, index, 0, 0, 0, s, t);
+}
+
+static int check_skid_wrap(void)
+{
+    static uint8_t pixels[64 * 48];
+    static const uint8_t remap[256] = { 0 };
+    static View view;
+    view_init(&view, 0, 0, 64, 48, 96, 96);
+    const int32_t cam[3] = { 0, 0, 0 }, m[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
+    const ModelView mv = { &view, cam, m, 0 };
+    const QuadTarget target = { pixels, 64, 0, 0, 63, 47 };
+    static SkidMarks marks;
+    skid_reset(&marks);
+    marks.index = SKID_RECORDS - 1;
+    SkidDraw d = { { &target, remap, &mv, 1, 0 }, &marks, 0 };
+    static Car car;
+    car.skid_rear = 0x400000, car.tyre_flags_rear = 1, car.node = 50;
+    const SkidInputs in = { 0, 0, 0 };
+    const SkidOps ops = { &d, skid_draw_op };
+    const int32_t forward[3] = { 0, 0, 0x100 }, side[3] = { 0x80, 0, 0 }, point[3] = { 0, 0, 0x100000 };
+    skid_record(&ops, &marks, &car, &in, forward, side, point);
+    /* the phantom placed in the spare row (its first corner's screen x, word 27), mark 0 untouched */
+    const int ok = marks.index == 0 && d.drawn == -1 && marks.marks[SKID_RECORDS][27] != 0 && marks.marks[0][27] == 0;
+    printf("skid ring wrap: index %d, drew mark %d%s\n", (int)marks.index, (int)d.drawn, ok ? "" : "  FAIL");
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
         fprintf(stderr, "usage: test_race SIMDATA_DIR [TRACK]\n");
         return 2;
     }
+    if (!check_skid_wrap()) return 1;
     const char *track = argc > 2 ? argv[2] : "TR1";
     char path[512];
     snprintf(path, sizeof path, "%s/MISC/%s.TRI", argv[1], track);

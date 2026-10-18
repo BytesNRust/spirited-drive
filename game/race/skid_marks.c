@@ -124,6 +124,10 @@ void skid_draw(const SkidView *v, const SkidRing *ring, SkidMarks *m, int32_t in
 {
     if (ring->alternate != 0) return;
     const int every = index == SKID_EVERY;
+    /* port: 004596a8 passes mark -1 when its index has just wrapped to 0, and
+     * the original reads the 0xa0 bytes before the table (00517580's PDNs and
+     * after); read here as the spare row past it, never a mark's tyres */
+    if (index == -1) index = BEFORE_FIRST;
     int32_t cur = index, near = row, left = SKID_OWN;
     if (every) {
         if (!row_marked(ring, m, node, row)) return;
