@@ -683,7 +683,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
-    model_view = (ModelView){ &view, cam.position, cam.matrix, 0 };
+    model_view = (ModelView){ &view, cam.position, cam.matrix,
+                              shadow_race != NULL && model_draw_half_side(shadow_race->track, shadow_race->track_variant) };
     car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
     for (int i = 0; i < car_count; i++) {
         cars[i].pose = list[i].pose;

@@ -23,10 +23,14 @@ typedef struct {
     const View *view;
     const int32_t *camera_position;  /* world 16.16 (camera struct 00511fe0 +0x10) */
     const int32_t *camera_matrix;    /* 00511fe4 */
-    /* 004fb7c2 == 0 && 004fb7be == 2: the side test halves x.
-     * TODO(004fb7be): name these two once the race setup is ported. */
-    int half_side_test;
+    int half_side_test;              /* model_draw_half_side: the side test halves x */
 } ModelView;
+
+/* 004fb7c2 (the track, 0 the city) == 0 && 004fb7be (the city stage less 1) == 2: CY3 */
+static inline int model_draw_half_side(int32_t track, int32_t track_variant)
+{
+    return track == 0 && track_variant == 2;
+}
 
 /* heading: 24-bit. Returns 0 when culled, 1 when drawn. */
 int model_draw_object(Object3D *obj, const int32_t position[3], int32_t heading, const ModelView *mv,

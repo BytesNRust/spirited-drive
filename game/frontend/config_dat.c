@@ -128,6 +128,7 @@ static void put_records(ConfigDat *c)
                 put_record(c, track_at(t + 3) + RECORD_TIMES + ch * RECORD_CHOICE + r * RECORD_ROW,
                            TIMES_3_8[t] + (ch * TEN + r) * ROW);
     for (int t = 0; t < SIX; t++) put_record(c, track_at(t + 3), FIRST_ROWS_3_8 + t * ROW);
+    /* already zero: config_dat_defaults_measured starts from a zeroed image (the original from 00524df0's) */
     for (int i = 0; i < 100; i++)
         for (int t = 0; t < RECORD_TRACKS; t++)
             for (int k = 0; k < 3; k++) set32(c, track_at(t) + RECORD_ZEROED + k * RECORD_ZEROED_TABLE + i * 4, 0);

@@ -224,7 +224,8 @@ static void no_skids(void *ctx, Car *car, const int32_t f[3], const int32_t s[3]
 static void mirror_prepare(void *ctx, Car *car, int mirror)
 {
     Frame *f = ctx;
-    const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix, 0 };
+    const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix,
+                           model_draw_half_side(f->w->race->track, f->w->race->track_variant) };
     const CarShadowOps ops = { NULL, no_contact, no_skids };
     int32_t screen[8];
     car_prepare(&ops, car, &mv, mirror, 0, &f->target, NULL, screen);
@@ -235,7 +236,8 @@ static void car_draw_op(void *ctx, Car *car, int mirror)
     Frame *f = ctx;
     (void)mirror;
     if (f->w->draw_car == NULL) return;
-    const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix, 0 };
+    const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix,
+                           model_draw_half_side(f->w->race->track, f->w->race->track_variant) };
     f->w->draw_car(f->w->user, car, &mv, &f->target);
 }
 
