@@ -9,6 +9,7 @@
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/central.h"
+#include "game/frontend/check_options.h"
 #include "game/frontend/cheat_code.h"
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
@@ -25,6 +26,7 @@
 #include "game/frontend/game_list.h"
 #include "game/frontend/key_name.h"
 #include "game/frontend/load_save.h"
+#include "game/frontend/load_save2.h"
 #include "game/frontend/lap_times.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_race.h"
@@ -852,6 +854,56 @@ static void load_save(void *ctx, int32_t mode)
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
+}
+
+/* load_save_menu2 (0042d894) from 00403760 (mode 1, check/'s art) on config.dat's image, as load_save; its tournament's races (the
+ * game state's +0x592..+0x5a0, Lost Vegas's +0x5a2) copied to aligned shorts */
+static void load_save2(void *ctx, int32_t mode)
+{
+    enum { RACES_AT = 0x592, EXTRA_AT = 0x5a2, RACES = 8 };
+    ConfigDat *const config = config_current();
+    opt_in();
+    int16_t races[RACES], extra;
+    memcpy(races, game_state + RACES_AT, sizeof races), memcpy(&extra, game_state + EXTRA_AT, sizeof extra);
+    replay_kind = image_short(0xaf);
+    LoadSave2State st = {
+        resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), pointer_active(), &g.buttons, races,
+        extra, g.lost_vegas, ea_screen_slot(), &g.inverse, &list_check, &list_highlight, &replay_kind, &g.music_silent,
+        g.volumes, { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f), (const char *)config->image + 9,
+        (const char *)config->image + 0x3b };
+    const LoadSaveOps ops = {
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, in_rect,
+        select_picture, blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in,
+        styles, deadline_set, sound, ticks, activate, key, click, game_list, save_box, replay_box,
+        free_handle_inverse, free_bank, music_fade_out, fade_out, music_end, picture_free, sound_free, clear_one,
+        clip, replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
+        deadline_passed, ctx };
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
+    load_save_menu2(mode, &st, &ops);
+    pointer_bind_active(was);
+    memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
+    opt_out();
+    g.unlock_level = (int16_t)config_dat_unlock_level(config);
+}
+static void save_config(void *ctx) { (void)ctx; config_save(); }
+
+/* check_options (00403760) on config.dat's image (the sub-screens' shorts taken from it first): the options after a race, mode
+ * 0 from 0040b648, 1 from 0040c710 */
+int32_t glue_check_options(int32_t mode)
+{
+    ConfigDat *const config = config_current();
+    opt_out();
+    const CheckOptionsOps ops = {
+        move_to, load_art, no_inverse, shape, palette_set, poll, mark, in_rect, select_picture, blit, select_default,
+        hide, picture_shape, flip, show, buttons, fade_in, deadline_set, sound, nothing, ticks, activate, key, click,
+        fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save, load_save2, music_fade_to,
+        off, music, deadline_passed, no_wait, music_feed, save_config, NULL };
+    const int16_t language = (int16_t)resource_german();
+    const CheckOptionsState st = { config->image, &menu_words.link_game, &language, pointer_active_word(), &g.buttons,
+                                   ea_screen_slot(), &g.inverse, &no_quit };
+    const int32_t done = check_options(mode, &st, &ops);
+    opt_out();
+    return done;
 }
 
 static void options(void *ctx)
