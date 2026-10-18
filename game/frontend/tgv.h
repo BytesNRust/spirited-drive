@@ -13,4 +13,9 @@ uint32_t tgv_shape_type(uint32_t bits);
  * 2-bit indices, the top two bits first) into 16 bytes of dst, each its index's colour. */
 void tgv_expand_blocks(const uint8_t *src, uint8_t *dst, int32_t blocks);
 
+/* 0048e120 (eax out, edx bits, ebx count, ecx width): count signed fields of `width` bits packed from bit 0 of `bits`
+ * (field i at bit i * width, read as a little-endian dword from its byte) into out's dwords, the last first. The
+ * shifts as x86's (by the width mod 32). */
+void tgv_unpack_fields(int32_t *out, const uint8_t *bits, int32_t count, int32_t width);
+
 #endif
