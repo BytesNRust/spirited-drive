@@ -53,6 +53,7 @@ typedef struct {
     NeedleLine needle_line;     /* 0052d354..: 0048383b's state, its clip colours.line_* */
     CockpitPoliceState police;  /* 004214e4's 004f9620 / 004f9624 / 004fcdac */
     char dash_path[COCKPIT_PATH], misc_dir[COCKPIT_PATH];  /* the dash bank (004217a8 reloads it); SIMDATA/MISC/ */
+    char root[512];             /* the data root those two lie under */
     char dash_stem[COCKPIT_NAME];
     size_t dash_dir_length;
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */

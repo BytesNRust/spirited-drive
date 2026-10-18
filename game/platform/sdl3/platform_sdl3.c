@@ -40,10 +40,15 @@ static int key_count;
  * several at one ms are held together) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
- * the pointer; ms:CLICK:x:y moves it there and holds the left button 100 ms;
+ * the pointer; ms:CLICK:x:y moves it there and, from the next read on (so the move is taken first), holds the
+ * left button 100 ms;
  * ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
- * typed-text queue, and the arrows, ENTER, ESC and SPACE the key queue (platform_next_key). */
-enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100 };
+ * typed-text queue, and the arrows, ENTER, ESC and SPACE the key queue (platform_next_key).
+ * TNFS_INPUT_SETTLE=N: the events one after another, each ms after the last one is done (a key let go, a click
+ * read, text queued), and a click or a mouse move only once no frame has been presented for N ms (the menus
+ * present only on a change, so a still screen is one waiting for its input, however slow the build runs) or,
+ * on a screen that never stills (a movie, a blinking cursor), after SCRIPT_SETTLE_CAP_MS. */
+enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000 };
 typedef struct {
     uint32_t at_ms;
     int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks */
@@ -52,10 +57,14 @@ typedef struct {
     bool queued;   /* text / editing code already pushed to the text queue */
     bool keyed;    /* pushed to the key queue, as a real press is */
     char text[16]; /* TEXT events */
+    uint32_t delay; /* TNFS_INPUT_SETTLE: ms after the event before it */
+    bool placed;    /* CLICK: the pointer moved there, the press due on the next read */
 } ScriptEvent;
 static ScriptEvent script[SCRIPT_MAX];
 static int script_count;
 static uint32_t script_start_ms;
+static uint32_t settle_ms, last_present_ms, script_last_ms;  /* TNFS_INPUT_SETTLE */
+static int script_next;
 
 static void load_script(void);
 
@@ -309,7 +318,7 @@ static void load_script(void)
     char *save = NULL;
     for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
          item = SDL_strtok_r(NULL, ",", &save)) {
-        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "" };
+        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false };
         char name[16] = "";
         if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
@@ -326,10 +335,43 @@ static void load_script(void)
         }
     }
     script_start_ms = (uint32_t)SDL_GetTicks();
+    const char *settle = SDL_getenv("TNFS_INPUT_SETTLE");
+    settle_ms = settle != NULL ? (uint32_t)SDL_atoi(settle) : 0;
+    if (settle_ms == 0) return;
+    for (int i = 0; i < script_count; i++) script[i].delay = script[i].at_ms, script[i].at_ms = UINT32_MAX;
+}
+
+static bool script_done(const ScriptEvent *e, uint32_t now)
+{
+    if (e->scancode == -1) return true;                       /* a mouse move, consumed */
+    if (e->scancode == -3 || e->scancode == -2) return e->seen || (e->scancode == -2 && e->queued);
+    return now >= e->at_ms + SCRIPT_HOLD_MS && (e->seen || e->keyed || e->queued);
+}
+
+/* TNFS_INPUT_SETTLE: the next event armed (its at_ms now) once the one before is done and, for the pointer's, the
+ * screen has been still for settle_ms */
+static void script_sequence(void)
+{
+    if (settle_ms == 0) return;
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    while (script_next < script_count) {
+        ScriptEvent *e = &script[script_next];
+        if (e->at_ms != UINT32_MAX) {
+            if (!script_done(e, now)) return;
+            script_next++, script_last_ms = now;
+            continue;
+        }
+        const bool pointer = e->scancode == 0 || e->scancode == -3;
+        const uint32_t due = script_last_ms + e->delay;
+        if (now < due || (pointer && now - last_present_ms < settle_ms && now < due + SCRIPT_SETTLE_CAP_MS)) return;
+        e->at_ms = now;
+        return;
+    }
 }
 
 static bool script_key_down(int scancode)
 {
+    script_sequence();
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         ScriptEvent *e = &script[i];
@@ -343,6 +385,7 @@ static bool script_key_down(int scancode)
 
 static void apply_script_text(void)
 {
+    script_sequence();
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         ScriptEvent *e = &script[i];
@@ -356,6 +399,7 @@ static void apply_script_text(void)
 
 static void apply_script_mouse(void)
 {
+    script_sequence();
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         if (script[i].scancode == 0 && now >= script[i].at_ms) {
@@ -364,12 +408,15 @@ static void apply_script_mouse(void)
             mouse_moved = true;
             script[i].scancode = -1;  /* consumed */
         }
-        if (script[i].scancode == -3 && now >= script[i].at_ms && !script[i].queued) {  /* pressed */
-            mouse_x = (float)script[i].x;
-            mouse_y = (float)script[i].y;
+        if (script[i].scancode == -3 && now >= script[i].at_ms && !script[i].queued && !script[i].placed) {
+            mouse_x = (float)script[i].x;  /* moved first: a game reading the button before the move would press */
+            mouse_y = (float)script[i].y;  /* where its pointer was */
             mouse_moved = true;
+            script[i].placed = true;
+        } else if (script[i].scancode == -3 && script[i].placed && !script[i].queued) {  /* pressed */
             mouse_buttons |= PLATFORM_MOUSE_LEFT;
             script[i].queued = true;
+            script[i].at_ms = now;  /* held from the press */
         } else if (script[i].scancode == -3 && script[i].queued && !script[i].seen &&
                    now >= script[i].at_ms + SCRIPT_HOLD_MS) {  /* released */
             mouse_buttons &= ~(unsigned)PLATFORM_MOUSE_LEFT;
@@ -683,6 +730,7 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
         rgb_buffer[i] = lut[pixels[i]];
     }
     capture_frame();
+    last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
     SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);

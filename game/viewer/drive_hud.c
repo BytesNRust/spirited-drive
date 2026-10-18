@@ -27,41 +27,42 @@ enum {
     PARTS_KEY_CONFIG = 0x4d /* 0052ad3e's default, 'M' */
 };
 
-/* A name 00450838 builds in mixed case; the CD's files are upper case. */
-static uint8_t *read_named(const char *path, size_t dir_length)
+enum { ROOTED_PATH = 1024 };
+
+/* A name 00450838 / 0041e3f4 builds in its 80 bytes as the original's, under the data root ("SIMDATA/..."): read
+ * from the root, upper case past the directory when the mixed-case name is missing (the CD's files are). The root
+ * stays out of those 80 bytes, which a long one would cut. */
+static uint8_t *read_sized(const char *root, const char *path, size_t dir_length, size_t *size)
 {
-    size_t size = 0;
-    uint8_t *file = platform_read_file(path, &size);
+    char full[ROOTED_PATH];
+    const int n = snprintf(full, sizeof full, "%s/%s", root, path);
+    if (n < 0 || n >= (int)sizeof full) return NULL;
+    uint8_t *file = platform_read_file(full, size);
     if (file != NULL) return file;
-    char upper[DASH_PATH];
-    snprintf(upper, sizeof upper, "%s", path);
-    for (size_t i = dir_length; upper[i] != '\0'; i++) upper[i] = (char)toupper((unsigned char)upper[i]);
-    return platform_read_file(upper, &size);
+    for (size_t i = strlen(root) + 1 + dir_length; full[i] != '\0'; i++) full[i] = (char)toupper((unsigned char)full[i]);
+    return platform_read_file(full, size);
 }
 
-static uint8_t *read_sized(const char *path, size_t dir_length, size_t *size)
+static uint8_t *read_named(const char *root, const char *path, size_t dir_length)
 {
-    uint8_t *file = platform_read_file(path, size);
-    if (file != NULL) return file;
-    char upper[COCKPIT_PATH];
-    snprintf(upper, sizeof upper, "%s", path);
-    for (size_t i = dir_length; upper[i] != '\0'; i++) upper[i] = (char)toupper((unsigned char)upper[i]);
-    return platform_read_file(upper, size);
+    size_t size = 0;
+    return read_sized(root, path, dir_length, &size);
 }
 
 int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem)
 {
     char dir[COCKPIT_PATH];
-    const int n = snprintf(dir, sizeof dir, "%s/SIMDATA/DASH/", data_root);
+    const int n = snprintf(dir, sizeof dir, "SIMDATA/DASH/");
+    snprintf(h->root, sizeof h->root, "%s", data_root);
     CockpitFiles files;
     if (n < 0 || n >= (int)sizeof dir || cockpit_paths(&files, dir, stem, HIGH_RES) != 0) return 0;
     size_t bank_size = 0, fmm_size = 0;
     snprintf(h->dash_path, sizeof h->dash_path, "%s", files.bank);
     snprintf(h->dash_stem, sizeof h->dash_stem, "%s", stem);
-    snprintf(h->misc_dir, sizeof h->misc_dir, "%s/SIMDATA/MISC/", data_root);
+    snprintf(h->misc_dir, sizeof h->misc_dir, "SIMDATA/MISC/");
     h->dash_dir_length = (size_t)n;
-    h->dash_bank = read_sized(files.bank, (size_t)n, &bank_size);
-    h->dash_fmm = read_sized(files.fmm, (size_t)n, &fmm_size);
+    h->dash_bank = read_sized(h->root, files.bank, (size_t)n, &bank_size);
+    h->dash_fmm = read_sized(h->root, files.fmm, (size_t)n, &fmm_size);
     h->cockpit_ready = h->dash_bank != NULL && h->dash_fmm != NULL && fmm_size >= 0x18 &&
                        cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, race, &h->keys.dash_camera, h->dash_bank,
                                     bank_size, h->dash_fmm, stem, HIGH_RES, 1) == 0;
@@ -80,11 +81,12 @@ int drive_hud_read(DriveHud *h, const char *data_root)
 {
     memset(h, 0, sizeof *h);
     char dir[DASH_PATH];
-    const int n = snprintf(dir, sizeof dir, "%s/SIMDATA/MISC/", data_root);
+    const int n = snprintf(dir, sizeof dir, "SIMDATA/MISC/");
+    snprintf(h->root, sizeof h->root, "%s", data_root);
     DashFiles files;
     if (n < 0 || n >= (int)sizeof dir || dash_load_paths(&files, dir, ENGLISH, HIGH_RES) != 0) return 0;
-    h->bank = read_named(files.bank, (size_t)n);
-    h->mmb = read_named(files.mmb, (size_t)n);
+    h->bank = read_named(h->root, files.bank, (size_t)n);
+    h->mmb = read_named(h->root, files.mmb, (size_t)n);
     if (h->bank == NULL || h->mmb == NULL) {
         fprintf(stderr, "drive_hud: no %s or %s\n", files.bank, files.mmb);
         drive_hud_free(h);
@@ -93,7 +95,7 @@ int drive_hud_read(DriveHud *h, const char *data_root)
     int parts = 1;
     for (int r = 0; r < DASH_PART_ROWS; r++)
         for (int c = 0; c < DASH_PART_COLUMNS; c++)
-            parts = parts && (h->parts[r][c] = read_named(files.parts[r][c], (size_t)n)) != NULL;
+            parts = parts && (h->parts[r][c] = read_named(h->root, files.parts[r][c], (size_t)n)) != NULL;
     if (!parts) {
         fprintf(stderr, "drive_hud: no %s and the other parts, the mask from %s\n", files.parts[0][0], files.mmb);
         free_parts(h);
@@ -349,9 +351,9 @@ static void police_free_bank(void *ctx, uint8_t *bank)
 static uint8_t *police_load(void *ctx, const char *name)
 {
     const DriveHud *h = ((CockpitSurfaces *)ctx)->h;
-    char path[2 * COCKPIT_PATH];
-    const size_t dir = strlen(h->misc_dir);
-    snprintf(path, sizeof path, "%s%s", h->misc_dir, name);
+    char path[ROOTED_PATH];
+    const size_t dir = strlen(h->root) + 1 + strlen(h->misc_dir);
+    snprintf(path, sizeof path, "%s/%s%s", h->root, h->misc_dir, name);
     size_t size = 0;
     uint8_t *file = resource_load(path, &size);
     if (file != NULL) return file;
@@ -405,7 +407,7 @@ static void reload_load(void *ctx)
     CockpitSurfaces *s = ctx;
     DriveHud *h = s->h;
     size_t size = 0;
-    h->dash_bank = read_sized(h->dash_path, h->dash_dir_length, &size);
+    h->dash_bank = read_sized(h->root, h->dash_path, h->dash_dir_length, &size);
     if (h->dash_bank == NULL || cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, s->race, &h->keys.dash_camera,
                                              h->dash_bank, size, h->dash_fmm, h->dash_stem, HIGH_RES, 0) != 0) {
         fprintf(stderr, "drive_hud: the dashboard did not load again\n");
