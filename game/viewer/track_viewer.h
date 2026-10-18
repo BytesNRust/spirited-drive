@@ -17,6 +17,11 @@ enum { TRACK_VIEWER_RACERS = 8 };  /* the most cars a drive races (RACE_PLAYERS)
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
                        const char *screenshot);
 
+/* A replay file (.RPL, 0044d420's) played back as --drive: its setup's race (track, cars, laps, the seed) started
+ * as 004275f8 starts a replay (0052b316 set, 0044f534(4): 0044d514 reads the file at the first tick and the
+ * replay plays from the start); 0 when the file is not a replay. */
+int track_viewer_drive_replay(const char *data_root, const char *path);
+
 /* The front end's race (glue standing in for what 00427ae0 / 004275f8 take
  * from config.dat): the player's gearbox and aids, the laps, the head to
  * head opponent, the music and the volumes; the race runs in the menus'

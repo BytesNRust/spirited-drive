@@ -8,7 +8,7 @@ enum {
     /* the setup, from 004fb7bc */
     AT_VARIANT = 0x2, AT_TRACK = 0x6, AT_NAME = 0xa, AT_TYPE = 0x14, AT_4FB7D4 = 0x18, AT_FLAGS = 0x1c,
     AT_RACERS = 0x20, AT_HUMANS = 0x24, AT_COPS = 0x28, AT_CARS = 0x2c, AT_TRAFFIC = 0x30, AT_4FB7F0 = 0x34,
-    AT_SEED = 0x38, AT_ENTRIES = 0x3e, AT_GRID = 0x294, AT_LETTERS = 0x2b4, AT_MODELS = 0x2d4,
+    AT_SEED = 0x38, AT_ENTRIES = 0x3e, AT_GRID = 0x294, AT_LETTERS = 0x2b4, AT_MODELS = 0x2d8,
     AT_CATCH_UP = 0x304, AT_LAPS = 0x308, AT_FOLLOWED = 0x310, AT_4FBAD0 = 0x314, AT_RECORD_SLOT = 0x318,
     AT_MIRRORED = 0x31c, AT_ARCADE = 0x320,
     /* the seek block, from 005120c4 */

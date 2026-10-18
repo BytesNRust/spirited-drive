@@ -32,7 +32,7 @@ static void synthetic(void)
     race_replay_image_setup(&race, 0x31c3f86a, setup);
     CHECK(memcmp(setup + 0xa, "tr6\0", 4) == 0);
     CHECK(word(setup, 0x14) == 2 && word(setup, 0x20) == 8 && word(setup, 0x38) == 0x31c3f86a);
-    CHECK(word(setup, 0x308) == 2 && word(setup, 0x2d4 + 12) == 203 && word(setup, 0x294) == 7 && word(setup, 0x304) == 4);
+    CHECK(word(setup, 0x308) == 2 && word(setup, 0x2d8 + 12) == 203 && word(setup, 0x294) == 7 && word(setup, 0x304) == 4);
     CHECK(word(setup, 0x3e + 9) == 4 && word(setup, 6) == 5);
     ReplayRace r;
     CHECK(race_replay_image_race(setup, &r));

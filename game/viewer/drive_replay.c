@@ -8,6 +8,7 @@
 #include "game/race/crash_trail.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
+#include "game/race/race_replay_image.h"
 #include "game/race/race_sound.h"
 #include "game/race/dash_controls.h"
 #include "game/race/replay_controls.h"
@@ -16,6 +17,7 @@
 #include "viewer/ported_view.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 enum {
     REQUEST_DIRECTED = 2,   /* 00513738: 0044f188 with 2, the director's cuts */
@@ -135,7 +137,51 @@ static void record(void *ctx)
 }
 
 /* 0044d514: the saved replay is read back only on the menus' requests (4, 5, 8) */
-static void load(void *ctx) { (void)ctx; }
+/* 0044d514 on the .RPL in memory: the C library's calls read it in order (past its end, zeros) */
+static void *file_open(void *ctx, const char *name, const char *mode)
+{
+    DriveReplay *r = ctx;
+    (void)name, (void)mode;
+    r->file_at = 0;
+    return r->file != NULL ? r : NULL;
+}
+
+static void file_read(void *ctx, void *buffer, uint32_t size, uint32_t count, void *file)
+{
+    DriveReplay *r = ctx;
+    const size_t n = (size_t)size * count;
+    if (file == NULL || r->file_at > REPLAY_FILE_SIZE || n > REPLAY_FILE_SIZE - r->file_at) {
+        memset(buffer, 0, n);
+        return;
+    }
+    memcpy(buffer, r->file + r->file_at, n);
+    r->file_at += n;
+}
+
+static void file_write(void *ctx, const void *buffer, uint32_t size, uint32_t count, void *file)
+{
+    (void)ctx, (void)buffer, (void)size, (void)count, (void)file;
+}
+
+static int32_t file_close(void *ctx, void *file) { return (void)ctx, (void)file, 0; }
+
+/* the blocks 0044d514 reads, then put where the port keeps them; the setup's entry words it writes are the
+ * setup's copy only (the race took its entries at the start) */
+static void load(void *ctx)
+{
+    DriveReplay *r = ctx;
+    if (r->file == NULL || r->recording == NULL) return;
+    static uint8_t setup[REPLAY_SETUP_SIZE], cuts[REPLAY_CUTS_SIZE], seek[REPLAY_SEEK_SIZE],
+        records[REPLAY_RECORDS * REPLAY_RECORD_SIZE];
+    RaceState *race = &r->sim->race;
+    const RaceEntry *followed = &race->entries[race_slot(race->player)];
+    int32_t loaded = 0;
+    const RaceReplayLoad in = { "", setup, &race->player, race->unknown_52b30e, (int16_t)followed->music_volume,
+                                (int16_t)followed->sound_volume, cuts, r->recording, seek, records, &loaded };
+    const RaceReplayFileOps ops = { r, file_open, file_read, file_write, file_close };
+    race_replay_load(&in, &ops);
+    race_replay_image_get(race, &r->dir, cuts, seek, records);
+}
 
 static void begin(void *ctx, int32_t how)
 {

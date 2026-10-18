@@ -19,6 +19,7 @@
 #include "game/race/race_models.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_replay.h"
+#include "game/race/race_replay_image.h"
 #include "game/race/race_run.h"
 #include "game/race/race_sound.h"
 #include "game/race/race_sim.h"
@@ -891,6 +892,8 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
  * traffic (slots past the racers) by their drawn models. */
 static TrackViewerMenus menus;
 static int menus_on;
+static const ReplayRace *replay_of;   /* the replay played back, its file replay_file; NULL a race */
+static const uint8_t *replay_file;
 static TrackViewerResults results;
 
 TrackViewerResults track_viewer_drive_results(void) { return results; }
@@ -899,6 +902,23 @@ void track_viewer_drive_menus(const TrackViewerMenus *m)
 {
     menus = *m;
     menus_on = 1;
+}
+
+/* 004275f8 for a replay: 0052b316, 0044f528 and 0044f534(4); the cars' models 00457870 drew against the file's */
+static void replay_begin(void)
+{
+    enum { MODELS_AT = 0x2d8, FROM_START = 4 };
+    RaceState *race = &drive_sim.race;
+    drive_replay.file = replay_file;
+    race->replay = 1;
+    race_replay_end_clear(&drive_replay.dir);
+    race_replay_request(&drive_replay.dir, FROM_START);
+    for (int i = 0; i < RACE_CARS; i++) {
+        const uint8_t *m = replay_file + MODELS_AT + 4 * i;
+        const int32_t model = (int32_t)(m[0] | m[1] << 8 | m[2] << 16 | (uint32_t)m[3] << 24);
+        if (race->models[i] != model)
+            fprintf(stderr, "track_viewer: the replay's slot %d model %d, drawn %d\n", i, model, race->models[i]);
+    }
 }
 
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
@@ -947,7 +967,12 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * gets 00457870's field of eight different cars (004c5628); any other
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
-    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, menus_on && menus.laps > 0 ? menus.laps : 2, 0);
+    if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed */
+        field = replay_of->field;
+        field.load = drive_load;
+    }
+    const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
+    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
     if (menus_on && menus.game_state != NULL)
         memcpy(drive_sim.race.game_state, menus.game_state, sizeof drive_sim.race.game_state);
     results = (TrackViewerResults){ 0 };
@@ -962,6 +987,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.window_size = 0;
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) fprintf(stderr, "track_viewer: no replay recording\n");
+    if (replay_of != NULL) replay_begin();
     /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
     drive_frame = (FrameDraw){ 0 };
     drive_frame.pending_segments = -1;
@@ -1371,6 +1397,23 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     free_drive();
     free_track(&t);
     menus_on = 0;
+    return ok;
+}
+
+int track_viewer_drive_replay(const char *data_root, const char *path)
+{
+    size_t size = 0;
+    uint8_t *file = platform_read_file(path, &size);
+    static ReplayRace race;
+    if (file == NULL || size != REPLAY_FILE_SIZE || !race_replay_image_race(file, &race)) {
+        fprintf(stderr, "track_viewer: %s is not a replay\n", path);
+        platform_free_file(file);
+        return 0;
+    }
+    replay_of = &race, replay_file = file;
+    const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);
+    replay_of = NULL, replay_file = NULL;
+    platform_free_file(file);
     return ok;
 }
 

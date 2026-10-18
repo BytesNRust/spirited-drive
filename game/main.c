@@ -6,7 +6,8 @@
  *   tnfs --track NAME [--node N] [--screenshot OUT.ppm]
  *                                          fly along a track (development)
  *   tnfs --drive NAME [--car N] [--racers N] [--node TICKS --screenshot OUT.ppm]
- *                                          drive a car on a track (development) */
+ *                                          drive a car on a track (development)
+ *   tnfs --replay FILE.RPL                 play a replay back in the drive (development) */
 #include "game/frontend/frontend.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
@@ -28,6 +29,7 @@ typedef struct {
     const char *view;
     const char *track;
     const char *drive;
+    const char *replay;
     int car;
     int racers;
     int race_type;
@@ -37,7 +39,7 @@ typedef struct {
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
-    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0 };
+    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -52,6 +54,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->track = argv[++i];
         } else if (strcmp(argv[i], "--drive") == 0 && has_value) {
             opt->drive = argv[++i];
+        } else if (strcmp(argv[i], "--replay") == 0 && has_value) {
+            opt->replay = argv[++i];
         } else if (strcmp(argv[i], "--racers") == 0 && has_value) {
             opt->racers = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--type") == 0 && has_value) {
@@ -65,8 +69,9 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else {
             fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --drive NAME [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n",
-                    argv[0], argv[0], argv[0]);
+                            "       %s [--data DIR] --drive NAME [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
+                            "       %s [--data DIR] --replay FILE.RPL\n",
+                    argv[0], argv[0], argv[0], argv[0]);
             return 0;
         }
     }
@@ -103,6 +108,7 @@ int main(int argc, char **argv)
     int ok;
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
+    else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
     else if (opt.drive != NULL) ok = track_viewer_drive(opt.data_root, opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
     else if (opt.track != NULL) ok = track_viewer_main(opt.data_root, opt.track, opt.entry, opt.screenshot);
     else ok = run_game(&opt);

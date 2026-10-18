@@ -9,6 +9,7 @@
 #include "game/race/race_sim.h"
 #include "game/race/race_view.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -23,6 +24,8 @@ typedef struct {
     DashArt *dash;        /* the controls' boxes, lit shapes and words 00513888.. (0044f55c); NULL none */
     int32_t last_key;     /* 004c53c4 */
     int32_t last_pressed; /* 004c53cc */
+    const uint8_t *file;  /* a .RPL played back (REPLAY_FILE_SIZE bytes, the caller's): 0044d514 reads it; NULL none */
+    size_t file_at;       /* 0044d514's reads so far */
 } DriveReplay;
 
 /* 0044edd8 on the sim's race, in a local game (004fbb0c 1): the recording
