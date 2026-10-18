@@ -35,6 +35,7 @@
 #include "viewer/drive_audio.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
+#include "viewer/drive_joy.h"
 #include "viewer/drive_keys.h"
 #include "viewer/drive_menu.h"
 #include "viewer/drive_pause.h"
@@ -1004,6 +1005,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
+    drive_joy_install(&drive_sim.race);
     if (menus_on && menus.game_state != NULL)
         memcpy(drive_sim.race.game_state, menus.game_state, sizeof drive_sim.race.game_state);
     results = (TrackViewerResults){ 0 };

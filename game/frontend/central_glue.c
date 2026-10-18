@@ -54,6 +54,7 @@
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
 #include "game/platform/platform.h"
+#include "game/viewer/drive_joy.h"
 #include "game/viewer/track_viewer.h"
 
 #include <stdio.h>
@@ -679,12 +680,12 @@ static int32_t capture(void *ctx, char *name)
 }
 static void controls(void *ctx, int32_t mode)
 {
-    static const int16_t no_joystick_b = 0, quit = 0, net_off = 1;  /* no joysticks, no link game */
-    static const int32_t no_joystick_a = 0, no_calibration = 0;
+    static const int16_t no_joystick_b = 0, quit = 0, net_off = 1;  /* no second joystick, no link game */
+    static const int32_t no_calibration = 0;  /* 0043bc00 dropped: no Calibrate item */
     const int16_t german = (int16_t)resource_german();
     int32_t *const screen = ea_screen_slot();
     controls_out();
-    const ControlsMenuState st = { controls_kept, &german, &no_joystick_a, &no_joystick_b, &no_calibration,
+    const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
                                    pointer_active_word(), &g.buttons, screen, &g.inverse, &net_off, &quit };
     const ControlsMenuOps ops = {
         picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
