@@ -20,6 +20,12 @@ void menu_audio_music_fade_out(void);           /* 004644f0 */
 void menu_audio_music_end(void);                /* 00464568 */
 void menu_audio_music_fade_to(int32_t volume);  /* 00464604 */
 void menu_audio_music_pick(void);               /* 004562e8 */
+/* The track music (the screens' spoken words, frontend/speech/ or gspeech/, 0042a188's 00524238) on drive_audio's
+ * speech queue */
+void menu_audio_track_music(const char *name);  /* 00464788 */
+void menu_audio_track_play(void);               /* 00464850 */
+void menu_audio_track_stop(void);               /* 0046486c */
+void menu_audio_track_free(void);               /* 004648a8 */
 void menu_audio_music_by_idle(void);            /* 0045638c, the idle timer the ticks since the start */
 
 #endif

@@ -7,6 +7,9 @@
 #include "game/race/race_sound.h"
 #include "game/race/race_state.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 /* 0049212c / 00497bb5 and 004275f8's sound words: with a device, the driver
  * open at 0x5622 Hz, the followed slot's entry given the frontend's
  * defaults (00429278: sound volume 0x7f, music 100, mode 0) and +0x29 and
@@ -29,10 +32,19 @@ void drive_audio_load(void *user, const char *name);
 /* race_sound_end's ops: 0048edfc and the file freed */
 const RaceSoundBankOps *drive_audio_bank_ops(void);
 
-/* Runs the driver's 100 Hz service (004a4ac0: volume ramps, countdowns)
+/* Runs the driver's 100 Hz service (004a4ac0: the speech queue, volume ramps, countdowns)
  * for the ticks due, then keeps the stream fed: mixes (00497cb2) while
  * fewer frames are queued than a few frames' worth. */
 void drive_audio_pump(void);
+
+/* EA's speech queue (game/audio/sound_queue.c, 004c7b60) on the driver: 00492438 its two channels and volume,
+ * 004924f8 an EACS file queued (refused, -1, when it is shorter than its header or than the frames it names;
+ * the file stays the caller's while it plays), 004925a8 played, 00492620 stopped. The pump runs 00492330 before
+ * the channel loop while it is set up, as 004a4ac0 does. */
+int32_t drive_audio_speech_setup(int32_t channel_a, int32_t channel_b, uint32_t volume);
+int32_t drive_audio_speech_add(const uint8_t *file, size_t size, uint32_t percent);
+void drive_audio_speech_play(void);
+void drive_audio_speech_stop(void);
 
 /* The race's music (game/race/race_music.c) on the driver's stream and the
  * port's reader (music_reader.h) over frontend/music/: 00464428 the track

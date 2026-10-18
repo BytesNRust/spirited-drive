@@ -174,8 +174,7 @@ static void art_free(void *ctx)
     session_put(&f);
 }
 
-/* TODO(00464788, 0046486c, 00464850, 004648a8): the track screen's own music (EA's player, 00492xxx);
- * TODO(0040a5d8): chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
+/* TODO(0040a5d8): chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
  * 0044633c, 00432e90): the link game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
@@ -273,7 +272,10 @@ static void mark_at(void *ctx, DialogPointer *p)
     pointer_mark();
 }
 static void set_palette(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
-static void no_name(void *ctx, const char *name) { (void)ctx, (void)name; }
+static void track_music(void *ctx, const char *name) { (void)ctx; menu_audio_track_music(name); }
+static void track_play(void *ctx) { (void)ctx; menu_audio_track_play(); }
+static void track_stop(void *ctx) { (void)ctx; menu_audio_track_stop(); }
+static void track_free(void *ctx) { (void)ctx; menu_audio_track_free(); }
 static void free_handle_inverse(void *ctx) { (void)ctx; }
 
 static int32_t time_of_day[10];  /* 004fbae0 */
@@ -307,8 +309,8 @@ static void track_select(void *ctx)
     const TrackSelectOps ops = {
         flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
-        show, mark_at, buttons, no_name, fade_in, nothing, deadline_set, sound, ticks, activate, key, click,
-        nothing, nothing, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags, off, music,
+        show, mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate, key, click,
+        track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags, off, music,
         deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     RaceSettings after = before;
@@ -387,7 +389,7 @@ typedef void ResultsShow(int32_t ask, const ResultsInputs *in, ResultsState *st,
                          const ResultsOps *ops);
 
 /* 0045cea0, 0045de08 or 0045eff4 after a race, on the drive's results and config.dat's image, on 00427ae0's screen
- * picture; the track's own music (00464788..004648a8) not played */
+ * picture */
 static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t mode)
 {
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
@@ -403,8 +405,8 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
     const ResultsOps ops = {
         records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
         select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
-        select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, no_name, nothing,
-        deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, nothing, nothing, fade_out,
+        select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, track_music, track_play,
+        deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, track_stop, track_free, fade_out,
         free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
         results_order, lap_times, &c };
     c.ops = &ops;

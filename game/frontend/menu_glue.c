@@ -240,7 +240,10 @@ static int32_t show_bank(void *ctx, const char *path, int32_t flags)
 static void music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
 static void music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
 static void music_start(void *ctx, const char *name) { (void)ctx; menu_audio_music_start(name); }
-static void no_voice(void *ctx, const char *name) { (void)ctx, (void)name; }  /* TODO(00464788): the voices */
+static void voice_start(void *ctx, const char *name) { (void)ctx; menu_audio_track_music(name); }
+static void voice_play(void *ctx) { (void)ctx; menu_audio_track_play(); }
+static void voice_stop(void *ctx) { (void)ctx; menu_audio_track_stop(); }
+static void voice_free(void *ctx) { (void)ctx; menu_audio_track_free(); }
 static void no_movie(void *ctx, const char *name) { (void)ctx, (void)name; }  /* never offered: 0052b2fc is 0 */
 static void car_flags(void *ctx) { const ShowcaseGlue *in = ctx; in->car_flags(in->ctx); }
 
@@ -252,8 +255,8 @@ static void pages(void *ctx, const char *which)
                               in->buttons, ea_screen_slot() };
     const ShowcasePagesOps ops = {
         move_to, show_bank, music_feed, shape, palette_set, sync, mark, in_rect, select_picture, blit_own,
-        blit_masked, select_default, picture_shape, blit_picture, flip, show, buttons, no_voice, fade_in, nothing,
-        deadline_set, sound, pointer_away, nothing, ticks, activate, key, click, car_flags, nothing, nothing,
+        blit_masked, select_default, picture_shape, blit_picture, flip, show, buttons, voice_start, fade_in, voice_play,
+        deadline_set, sound, pointer_away, nothing, ticks, activate, key, click, car_flags, voice_stop, voice_free,
         fade_out, bank_free, off, music, deadline_passed, ctx };
     showcase_pages(&st, &ops, which);
 }
@@ -265,8 +268,8 @@ static void figures(void *ctx, const char *which)
                                 in->pointer_active, in->buttons, ea_screen_slot() };
     const ShowcaseFiguresOps ops = {
         move_to, show_bank, music_feed, shape, palette_set, sync, mark, in_rect, select_picture, blit_own,
-        blit_masked, select_default, picture_shape, blit_picture, flip, show, buttons, no_voice, fade_in, nothing,
-        deadline_set, sound, pointer_away, nothing, ticks, activate, key, click, car_flags, nothing, nothing,
+        blit_masked, select_default, picture_shape, blit_picture, flip, show, buttons, voice_start, fade_in, voice_play,
+        deadline_set, sound, pointer_away, nothing, ticks, activate, key, click, car_flags, voice_stop, voice_free,
         fade_out, bank_free, off, music, deadline_passed, ctx };
     showcase_figures(&st, &ops, which);
 }

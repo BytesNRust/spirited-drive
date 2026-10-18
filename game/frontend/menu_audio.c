@@ -7,7 +7,9 @@
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/viewer/drive_audio.h"
+#include "platform/platform.h"
 
+#include <stdio.h>
 #include <string.h>
 
 enum { MUSIC_SETTING = 0x73, MUSIC_VOLUME = 0x77, MUSIC_TRACKS = 12 };  /* 00524e63, 00524e67 in config.dat */
@@ -34,6 +36,7 @@ void menu_audio_open(void)
 
 void menu_audio_close(void)
 {
+    menu_audio_track_free();
     drive_audio_close();
     banks = (RaceSoundBanks){ 0 };
     sound.sound_on = 0;
@@ -107,3 +110,54 @@ void menu_audio_music_by_idle(void)
     const RaceMusicOps ops = { NULL, pick_rand, pick_play };
     race_music_by_idle(&ops, config_short(MUSIC_SETTING), (int32_t)timer_ticks());
 }
+
+/* The track music's file, 00483e80's block: one at a time (00524828), handle 1 */
+enum { TRACK_BLOCK = 1 };
+static uint8_t *track_file;
+static size_t track_size;
+
+static void track_wait(void *ctx) { (void)ctx, menu_audio_music_feed(); }  /* 004640d0's place: the menus' feed */
+
+static int32_t track_load(void *ctx, const char *path, int32_t flags)
+{
+    (void)ctx, (void)flags;
+    char full[1024];
+    snprintf(full, sizeof full, "%s/%s", resource_root(), path);
+    size_t size = 0;
+    uint8_t *file = platform_read_file(full, &size);
+    if (file == NULL) return 0;
+    drive_audio_speech_stop();  /* nothing left playing from the file it replaces */
+    platform_free_file(track_file);
+    track_file = file, track_size = size;
+    return TRACK_BLOCK;
+}
+
+static void track_block_free(void *ctx, int32_t block)
+{
+    (void)ctx;
+    if (block != TRACK_BLOCK || track_file == NULL) return;
+    drive_audio_speech_stop();
+    platform_free_file(track_file);
+    track_file = NULL;
+}
+
+static void track_volume(void *ctx, int32_t a, int32_t b, int32_t volume) { (void)ctx, drive_audio_speech_setup(a, b, (uint32_t)volume); }
+static void track_begin(void *ctx, int32_t music, int32_t percent)
+{
+    (void)ctx;
+    if (music == TRACK_BLOCK && track_file != NULL && drive_audio_speech_add(track_file, track_size, (uint32_t)percent) != 0)
+        fprintf(stderr, "menu_audio: the track music is not a sample the driver plays\n");
+}
+static void track_play(void *ctx) { (void)ctx, drive_audio_speech_play(); }
+static void track_stop(void *ctx) { (void)ctx, drive_audio_speech_stop(); }
+
+static const MenuSoundOps TRACK_OPS = { .wait = track_wait, .file_load = track_load, .block_free = track_block_free,
+                                        .track_volume = track_volume, .track_begin = track_begin,
+                                        .track_play = track_play, .track_stop = track_stop };
+
+static const char *speech_dir(void) { return resource_german() ? "frontend/gspeech/" : "frontend/speech/"; }
+
+void menu_audio_track_music(const char *name) { menu_sound_track_music_start(&sound, config_current(), speech_dir(), name, &TRACK_OPS); }
+void menu_audio_track_play(void) { menu_sound_track_music_play(&sound, config_current(), &TRACK_OPS); }
+void menu_audio_track_stop(void) { menu_sound_track_music_stop(&sound, config_current(), &TRACK_OPS); }
+void menu_audio_track_free(void) { menu_sound_track_music_free(&sound, config_current(), &TRACK_OPS); }

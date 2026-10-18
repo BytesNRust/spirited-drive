@@ -3,6 +3,7 @@
 #include "game/audio/music_reader.h"
 #include "game/audio/sound_bank.h"
 #include "game/audio/sound_driver.h"
+#include "game/audio/sound_queue.h"
 #include "game/race/race_music.h"
 #include "platform/platform.h"
 
@@ -29,6 +30,8 @@ static uint8_t *files[RACE_SOUND_BANKS];
 static const char *root;
 static int open_;
 static uint32_t ticked_ms;
+static SoundQueue speech;                                  /* 004c7b60 */
+static SoundSample speech_sample[SOUND_QUEUE_ENTRIES];     /* each queued file's header, by the writer it took */
 
 static int32_t voice_start(void *user, int32_t sound, int32_t pan, uint8_t volume, uint8_t pitch)
 {
@@ -138,7 +141,10 @@ void drive_audio_pump(void)
 {
     if (!open_) return;
     const uint32_t now = platform_ticks_ms();
-    for (int i = 0; i < TICK_CATCH_UP && now - ticked_ms >= TICK_MS; i++, ticked_ms += TICK_MS) sound_driver_tick(&driver);
+    for (int i = 0; i < TICK_CATCH_UP && now - ticked_ms >= TICK_MS; i++, ticked_ms += TICK_MS) {
+        if (speech.ready) sound_queue_tick(&driver, &speech);  /* 004a4ac0: 00492330 first, while 004c7b60 */
+        sound_driver_tick(&driver);
+    }
     if (now - ticked_ms >= TICK_MS) ticked_ms = now;
     static int16_t out[2 * MIX_CHUNK];
     for (int i = 0; i < QUEUE_FRAMES / MIX_CHUNK && platform_audio_queued() < QUEUE_FRAMES; i++) {
@@ -146,6 +152,34 @@ void drive_audio_pump(void)
         platform_audio_push(out, MIX_CHUNK);
     }
 }
+
+enum { EACS_HEADER = 0x20 };
+
+static uint32_t le32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+}
+
+int32_t drive_audio_speech_setup(int32_t channel_a, int32_t channel_b, uint32_t volume)
+{
+    return sound_queue_setup(&driver, &speech, channel_a, channel_b, volume);
+}
+
+int32_t drive_audio_speech_add(const uint8_t *file, size_t size, uint32_t percent)
+{
+    if (file == NULL || size < EACS_HEADER) return -1;
+    const uint8_t *h = file;
+    const uint64_t bytes = (uint64_t)le32(h + 0xc) * h[8] * h[9];
+    if (h[0xa] != 0 || bytes > size - EACS_HEADER) return -1;  /* the frames past the file: a cut or packed file */
+    SoundSample *s = &speech_sample[speech.write];
+    *s = (SoundSample){ le32(h), le32(h + 4), h[8], h[9], h[0xa], (int8_t)h[0xb], le32(h + 0xc), le32(h + 0x10),
+                        le32(h + 0x14), NULL, h[0x1c] };
+    return sound_queue_add(&driver, &speech, s, file, percent);
+}
+
+void drive_audio_speech_play(void) { sound_queue_play(&speech); }
+
+void drive_audio_speech_stop(void) { sound_queue_stop(&driver, &speech); }
 
 /* The music: the race's words, the reader, its ring and the file */
 static RaceMusic music;
@@ -277,5 +311,6 @@ void drive_audio_close(void)
      * freed above, no track open */
     for (int k = 0; k < SOUND_VOICES; k++) driver.voice[k].on = 0;
     driver.stream = (SoundStream){ 0 };
+    speech = (SoundQueue){ 0 };
     music.open = 0, music.started = 0;
 }
