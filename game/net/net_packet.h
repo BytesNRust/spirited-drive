@@ -324,6 +324,11 @@ int32_t net_packet_service(const NetPacketRecvOps *ops, NetPacketConn *c, int32_
  * else 0047a82c(its +0x20, 0). */
 int32_t net_packet_service_handle(const NetPacketRecvOps *ops, NetPacketHandle *h);
 
+/* 0047aaf4 (no arguments, ecx and edx kept; 0049d028's service, set by
+ * 0047ab10): 0049cdc4(0052ce40, 0047a82c, 1), each open connection
+ * serviced with a tick. */
+int32_t net_packet_tick(const NetPacketRecvOps *ops, NetQueue *open);
+
 extern const char NET_DUMP_FORMAT[];  /* 004b2f70 */
 
 /* 0047b5f0 (cdecl (handle, which, out), no direct callers): a debug dump.
