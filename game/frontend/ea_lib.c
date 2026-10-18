@@ -201,18 +201,9 @@ void ea_save(int32_t shape, int32_t x, int32_t y)
 
 static uint8_t *shade;  /* 004826f0's table */
 
-/* the colours a menu may draw with: all but 0xfe and 0xff (the pointer's and the see-through one) */
-static void usable_colours(uint8_t usable[256])
-{
-    memset(usable, 1, 256);
-    usable[254] = usable[255] = 0;
-}
-
 void ea_shade_table(int32_t r, const uint8_t *pal, uint8_t *table)
 {
-    uint8_t usable[256];
-    usable_colours(usable);
-    palette_shade_table(pal, usable, r, table);
+    palette_shade_table(pal, palette_usable(), r, table);  /* 004c5ff8, as the last race start left it */
 }
 
 void ea_shade_set(uint8_t *table)
@@ -237,10 +228,9 @@ void ea_shade_polygon(int32_t count, const int32_t *xy)
 
 int32_t ea_colour(int32_t rgb)
 {
-    uint8_t pal[PALETTE_BYTES], usable[256];
+    uint8_t pal[PALETTE_BYTES];
     video_get_palette(pal);
-    usable_colours(usable);
-    return palette_nearest(pal, usable, rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff);
+    return palette_nearest(pal, palette_usable(), rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff);
 }
 
 void ea_frame(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t colour)

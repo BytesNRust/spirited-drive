@@ -1,5 +1,29 @@
 #include "game/sys/palette.h"
 
+#include <stdbool.h>
+#include <string.h>
+
+enum { POINTER_COLOUR = 0xfe, SEE_THROUGH_COLOUR = 0xff };
+
+static uint8_t usable_now[PALETTE_COLORS];  /* 004c5ff8 */
+static bool usable_written;
+
+const uint8_t *palette_usable(void)
+{
+    if (!usable_written) {
+        memset(usable_now, 1, sizeof usable_now);
+        usable_now[POINTER_COLOUR] = usable_now[SEE_THROUGH_COLOUR] = 0;
+        usable_written = true;
+    }
+    return usable_now;
+}
+
+void palette_usable_set(const uint8_t usable[PALETTE_COLORS])
+{
+    memcpy(usable_now, usable, sizeof usable_now);
+    usable_written = true;
+}
+
 void palette_scale(const uint8_t *src, uint8_t *dst, int first, int count, int step)
 {
     const uint8_t *p = src + first * 3;

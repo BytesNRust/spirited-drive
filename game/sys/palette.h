@@ -11,6 +11,13 @@ enum {
     PALETTE_FADE_STEPS = 17
 };
 
+/* 004c5ff8: the colours the nearest-colour searches may pick, the menus' and
+ * the race's. The image's table (all but 0xfe and 0xff: the pointer's and the
+ * see-through one) until 0041f818 writes the race's at a race start; nothing
+ * puts the image's back, so the menus after a race search the race's. */
+const uint8_t *palette_usable(void);
+void palette_usable_set(const uint8_t usable[PALETTE_COLORS]);
+
 /* 004920bc: dst[0..count*3) = src[first*3..] * step >> 5. */
 void palette_scale(const uint8_t *src, uint8_t *dst, int first, int count, int step);
 
