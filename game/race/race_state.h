@@ -132,6 +132,9 @@ typedef struct {
     void (*forces_enable)(void *user);
     void (*forces_disable)(void *user);
     void (*forces_clear)(void *user);
+    /* 004acd66 (_Buffeting, cdecl level): the controls buffeted (0043d120
+     * gives 0x50); NULL for none. */
+    void (*buffeting)(void *user, int32_t level);
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */

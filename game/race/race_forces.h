@@ -21,4 +21,10 @@ typedef struct RaceForces {
 void race_jolt(RaceForces *f, int32_t clock, int32_t viewed, int32_t player_a, int32_t x, int32_t impulse,
                const RaceSounds *sounds);
 
+/* 0043d120 (watcall eax on; all registers kept): the buffeting. Off (on 0)
+ * while 004fcdd4 (force_off) is set: 0043cbf4 (race_forces_clear). On while
+ * it is not: 0043cbf4, 004fcdd4 = 1 and _Buffeting (sounds.buffeting) 0x50.
+ * The race's buffet op is it with 1, force_release with 0. */
+void race_buffet(RaceState *race, int32_t on);
+
 #endif

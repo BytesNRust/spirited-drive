@@ -1,7 +1,9 @@
 /* The force-feedback stick's effects (race_forces.h). */
 #include "game/race/race_forces.h"
 
-enum { JOLT_GAP = 0x19, FROM_SIDE = 0x2d, FROM_FRONT = 0x13b, BY_IMPULSE = 5 };
+#include "game/race/race_camera.h"
+
+enum { JOLT_GAP = 0x19, FROM_SIDE = 0x2d, FROM_FRONT = 0x13b, BY_IMPULSE = 5, BUFFETING = 0x50 };
 
 /* the impulses each step stays below, and its strength and time */
 static const int32_t BELOW[BY_IMPULSE - 1] = { 0x2000, 0x5000, 0x10000, 0x100000 };
@@ -18,4 +20,15 @@ void race_jolt(RaceForces *f, int32_t clock, int32_t viewed, int32_t player_a, i
     while (step < BY_IMPULSE - 1 && impulse >= BELOW[step]) step++;
     const int32_t from = x > 0 && player_a != viewed ? FROM_SIDE : FROM_FRONT;
     sounds->tone(sounds->user, STRENGTH[step], from, TIME[step]);
+}
+
+/* 0043d120 */
+void race_buffet(RaceState *race, int32_t on)
+{
+    if (race->force_off != 0 && on == 0) race_forces_clear(race);
+    if (race->force_off == 0 && on != 0) {
+        race_forces_clear(race);
+        race->force_off = 1;
+        if (race->sounds.buffeting != NULL) race->sounds.buffeting(race->sounds.user, BUFFETING);
+    }
 }
