@@ -32,4 +32,10 @@ typedef struct {
  * first), both indexes 0, the volume & 0x7f, ready; 0. */
 int32_t sound_queue_setup(const SoundDriver *d, SoundQueue *q, int32_t channel_a, int32_t channel_b, uint32_t volume);
 
+/* 004924f8 (eax the header, edx a percentage of its rate): -1 with the driver closed, the queue not set up or no
+ * header; else its data set to the file's past its 0x20-byte header (+0x18 = +0x20), the header written at the
+ * writer (which wraps at 0x10) with until = rate x percent / 100 (unsigned); 0. file is the bytes the header came
+ * from. */
+int32_t sound_queue_add(const SoundDriver *d, SoundQueue *q, SoundSample *s, const uint8_t *file, uint32_t percent);
+
 #endif
