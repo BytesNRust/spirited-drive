@@ -1171,11 +1171,13 @@ int32_t glue_central(void)
 /* --drive's race (port only, development): config.dat's settings with the track, its variant, the car and the race
  * type asked (-1 keeps config.dat's), run as Control Central's Race runs it: 00427ae0, so the race ends as the
  * original's does (the car slows to a stop, then the results screens) */
-void glue_drive_race(int32_t track, int32_t variant, int32_t car, int32_t race_type)
+void glue_drive_race(int32_t track, int32_t variant, int32_t car, int32_t race_type, int32_t variant_m,
+                     int32_t variant_r)
 {
     load();
     RaceSettings s = settings_of();
     if (track >= 0) s.track = track, s.variant = variant;
+    s.variant_m = variant_m, s.variant_r = variant_r;  /* 004fbad8 / 004fbadc, as the cheats and track select set them */
     if (car >= 0) s.player_car = car;
     if (race_type >= 0) s.race_type = race_type;
     settings_put(&s);

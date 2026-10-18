@@ -8,7 +8,8 @@
  *                                          browse an FSH / QFS (development)
  *   tnfs --track NAME [--node N] [--screenshot OUT.ppm]
  *                                          fly along a track (development)
- *   tnfs --drive NAME [--car N] [--type 0..3]   a race as the menus run it, ending on the results screens
+ *   tnfs --drive NAME [--car N] [--type 0..3]   a race as the menus run it, ending on the results screens; NAME
+ *                                          ending in m or r (TR1m, CY2r) takes the track's "m" or "r" art and layout
  *   tnfs --drive NAME [--car N] [--racers N] --node TICKS --screenshot OUT.ppm   a headless frame
  *   tnfs --replay FILE.RPL                 play a replay back in the drive (development)
  *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development) */
@@ -30,6 +31,7 @@
 #include "viewer/drive_joy.h"
 #include "viewer/track_viewer.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,7 +94,7 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else {
             fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --drive NAME [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
+                            "       %s [--data DIR] --drive NAME[m|r] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --replay FILE.RPL\n"
                             "       %s [--data DIR] --movie FILE.TGV\n",
                     argv[0], argv[0], argv[0], argv[0], argv[0]);
@@ -156,8 +158,9 @@ static int run_drive(const Options *opt)
     joy_start_up(opt->german);
     menu_audio_open();
     config_load();
+    const char suffix = opt->drive[0] != '\0' ? (char)tolower((unsigned char)opt->drive[strlen(opt->drive) - 1]) : 0;
     glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
-                    opt->race_type >= 0 ? opt->race_type : FULL_FIELD);
+                    opt->race_type >= 0 ? opt->race_type : FULL_FIELD, suffix == 'm', suffix == 'r');
     menu_audio_close();
     text_free();
     pointer_free();
