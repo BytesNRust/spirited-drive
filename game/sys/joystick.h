@@ -8,7 +8,7 @@
 
 enum { JOY_AXES = 4, JOY_BUTTONS = 4 };
 
-/* 004fce10..004fcec0, in this order (probes copy it as one block) */
+/* 004fce10..004fcee4, in this order (probes copy it as one block) */
 typedef struct {
     uint8_t unknown_ce10[4];
     int32_t raw;                    /* 004fce14: set, the buttons are taken as read (no 0043da50) */
@@ -16,12 +16,11 @@ typedef struct {
     int16_t unknown_ce1c;
     int16_t button_on[JOY_BUTTONS]; /* 004fce1e: each button's bit kept (sign-extended into the mask) */
     int16_t axis_on[JOY_AXES];      /* 004fce26 */
-    int16_t unknown_ce2e;
+    int16_t forces_on;              /* 004fce2e: the force-feedback stick wanted (0043cb50 tried) */
     uint8_t button_bit[JOY_BUTTONS]; /* 004fce30: the bit each button lands on (& 31) */
     uint8_t axis_slot[JOY_AXES];    /* 004fce34: 1, 2, 4 or 8, the axis word an axis goes to */
     int16_t invert[JOY_BUTTONS];    /* 004fce38: xor'ed into the buttons */
-    int16_t unknown_ce40;
-    uint8_t unknown_ce42[6];
+    int16_t axis_invert[JOY_AXES];  /* 004fce40: each axis turned over within its calibration (0043db50) */
     int32_t raw_axes;               /* 004fce48: set, the axes stay where they were read */
     int32_t dir_key;                /* 004fce4c: 0x4800 / 0x5000 / 0x4b00 / 0x4d00 (up, down, left, right) or 0 */
     int32_t button_key;             /* 004fce50: 0x20 / 0xd or 0 */
@@ -29,10 +28,17 @@ typedef struct {
     int32_t axis[JOY_AXES];         /* 004fce6c: x, y, z, r */
     uint8_t unknown_ce7c[8];
     uint32_t buttons;               /* 004fce84 */
-    uint8_t unknown_ce88[0x14];
+    /* 004fce88..004fcee4: joystick.cfg's 0x5c bytes, the calibration */
+    int32_t x_min, x_mid, x_max;    /* 004fce88 */
+    uint8_t unknown_ce94[8];
     int32_t x_low, x_high;          /* 004fce9c, 004fcea0 */
-    uint8_t unknown_cea4[0x14];
+    int32_t y_min, y_mid, y_max;    /* 004fcea4 */
+    uint8_t unknown_ceb0[8];
     int32_t y_low, y_high;          /* 004fceb8, 004fcebc */
+    int32_t z_min, z_mid, z_max;    /* 004fcec0 */
+    uint8_t unknown_cecc[0xc];
+    int32_t r_min, r_max;           /* 004fced8, 004fcedc (0043db50's) */
+    uint8_t unknown_cee0[4];
 } JoyState;
 
 typedef struct {
