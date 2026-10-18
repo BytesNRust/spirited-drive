@@ -113,6 +113,9 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
  * +0x38). */
 int32_t sound_voice_left(const SoundDriver *d, int32_t slot);
 
+/* 00473cf8 (eax the handle; 00492330's): 0 when 00497a34 fails it, else 00497f4e on its channel. */
+int32_t sound_frames_left(const SoundDriver *d, int32_t handle);
+
 /* 004a4bd8 (eax the header, edx the channel, ebx the pan, cl the volume; 00492330's): not 'EACS' -10; a channel
  * out of 0..15 -1; else its sound stopped when busy, the channel filled for the queue (no sound, number 0xff, pitch
  * 0x40, priority 0x65, its volume 0x7f, +0xd 3, the pan and volume given), the header's channel set, a handle

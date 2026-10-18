@@ -147,6 +147,13 @@ int32_t sound_voice_left(const SoundDriver *d, int32_t slot)
     return (int32_t)(v->kind == 0 ? v->end - v->pos : v->src_end - v->src_pos);
 }
 
+/* 00473cf8 */
+int32_t sound_frames_left(const SoundDriver *d, int32_t handle)
+{
+    if (sound_handle_check(&d->channels, handle) < 0) return 0;
+    return sound_voice_left(d, d->channels.handle[handle]); /* 00497a1c */
+}
+
 enum { QUEUE_ID = 0xff, QUEUE_CENTRE = 0x40, QUEUE_PRIORITY = 0x65, QUEUE_VOLUME = 0x7f, SOUND_KIND_QUEUE = 3 };
 
 /* 004a4bd8 */
