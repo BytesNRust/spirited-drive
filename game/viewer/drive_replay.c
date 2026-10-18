@@ -271,8 +271,12 @@ static void update(void *user)
 {
     DriveReplay *r = user;
     const RaceReplayUpdateOps ops = { r, keys, record, frame, step };
+    if (r->timer != NULL) r->dir.timer = *r->timer;
+    if (r->due != NULL) r->dir.due = *r->due;
     race_replay_update(&r->sim->race, &r->dir, &ops, CAMERA_KEYS_NONE);
     if (r->pace != NULL) *r->pace = r->dir.unknown_4c53a0;
+    if (r->timer != NULL) *r->timer = r->dir.timer;
+    if (r->due != NULL) *r->due = r->dir.due;
 }
 
 static uint8_t *allocate(void *ctx, int32_t size)
