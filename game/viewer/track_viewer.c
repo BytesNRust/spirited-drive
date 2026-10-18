@@ -181,6 +181,7 @@ static int load_track(Track *t, const char *data_root, const char *name, const T
         fprintf(stderr, "track_viewer: %s: tri %s, fam %s\n", name, tri_result_str(tr), chunk_result_str(cr));
         return 0;
     }
+    track_art_load_animated(&t->art, &t->fam, t->tri.data);  /* 0044c36c's "ga%d0" */
     char info_path[512];
     size_t info_size = 0;
     snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);

@@ -24,11 +24,10 @@ static int has_transparency(const FshEntry *e)
     return memchr(e->payload, 0xFF, (size_t)e->width * e->height) != NULL;
 }
 
-/* 0044c318: variants '0'..'7' in the last character; a missing one reuses the
- * previous, except the first. Slots already filled are kept. */
-static void fill_slot(TrackTexture slot[TRACK_TEXTURE_VARIANTS], const Fsh *fsh, const char base[4])
+/* variants '0'..'7' in the last character; a missing one reuses the previous,
+ * except the first */
+static void fill_variants(TrackTexture slot[TRACK_TEXTURE_VARIANTS], const Fsh *fsh, const char base[4])
 {
-    if (slot[0].present) return;
     char name[4];
     memcpy(name, base, 4);
     for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++, name[3]++) {
@@ -42,6 +41,12 @@ static void fill_slot(TrackTexture slot[TRACK_TEXTURE_VARIANTS], const Fsh *fsh,
         }
         slot[v] = t;
     }
+}
+
+/* 0044c318: fill_variants; slots already filled are kept. */
+static void fill_slot(TrackTexture slot[TRACK_TEXTURE_VARIANTS], const Fsh *fsh, const char base[4])
+{
+    if (!slot[0].present) fill_variants(slot, fsh, base);
 }
 
 static int open_shpi(const Chunk *chunk, Fsh *fsh)
@@ -66,8 +71,6 @@ static void load_circuit(TrackArt *art, const Fsh *fsh)
             fill_slot(art->slots[id * 3 + letter], fsh, name);
         }
     }
-    /* TODO(0044c36c): the "ga%d0" bitmaps fill 3 extra rows of slots from the
-     * TRI header field at +0x28 / 3; animated water/lights on circuits. */
 }
 
 static void load_stage(TrackArt *art, const Chunk *terrain)
@@ -134,6 +137,28 @@ int track_art_load(TrackArt *art, const Chunk *root)
         art->has_horizon = fsh_find(&fsh, "horz", &index) == FSH_OK && fsh_entry(&fsh, index, &art->horizon) == FSH_OK;
     }
     load_scenery(art, root);
-    /* TODO(0044c36c): the palette setup of 004471dc / 00446f90 / 00446f58. */
+    /* port: 0044c36c's palette setup (004471dc / 00446f90 / 00446f58 on the '!pal' made 6-bit) is the race's,
+     * drive_palette.c */
     return 1;
+}
+
+void track_art_load_animated(TrackArt *art, const Chunk *root, const uint8_t *tri_header)
+{
+    enum { TRI_ANIMATED_AT = 0x28 };
+    Chunk terrain, first;
+    Fsh fsh;
+    if (chunk_child(root, FAM_CHILD_TERRAIN, &terrain) != CHUNK_OK || terrain.kind != CHUNK_KIND_HEADER
+        || terrain.count != 1 || chunk_child(&terrain, 0, &first) != CHUNK_OK || !open_shpi(&first, &fsh))
+        return;
+    const int16_t field = (int16_t)(uint16_t)(tri_header[TRI_ANIMATED_AT] | tri_header[TRI_ANIMATED_AT + 1] << 8);
+    const int id = field / 3;
+    for (int k = 0; k < 3; k++) {
+        const int slot = id * 3 + k;
+        char name[5];
+        snprintf(name, sizeof name, "ga%d0", k);
+        FshEntry e;
+        /* port guard: the original writes past 0050eec4's 0x90 slots for a field of 0x90 or more */
+        if (slot < 0 || slot >= TRACK_TEXTURE_SLOTS || !find_bitmap(&fsh, name, &e)) continue;
+        fill_variants(art->slots[slot], &fsh, name);
+    }
 }

@@ -107,6 +107,14 @@ static void test_art(const char *dir)
         CHECK(a[3].bitmap.payload == a[0].bitmap.payload);      /* "01A1".."01A3" reuse "01A0" */
         CHECK(a[4].present && a[4].bitmap.payload != a[0].bitmap.payload);  /* "01A4" */
         CHECK_EQ_INT(art->horizon.width, 960);
+        /* TR1.TRI's +0x28 is 63: id 21, so slot 63 takes "ga00" (variants 0..3) and "ga04" (4..7); no "ga10" */
+        const uint8_t header[0x2a] = { [0x28] = 63 };
+        const TrackTexture before = art->slots[64][0];
+        track_art_load_animated(art, &root, header);
+        const TrackTexture *g = art->slots[63];
+        CHECK(g[0].present && g[3].bitmap.payload == g[0].bitmap.payload);
+        CHECK(g[4].present && g[4].bitmap.payload != g[0].bitmap.payload && g[7].bitmap.payload == g[4].bitmap.payload);
+        CHECK(art->slots[64][0].present == before.present && art->slots[64][0].bitmap.payload == before.bitmap.payload);
     } else {
         CHECK(!"TR1_T01.FAM");
     }
