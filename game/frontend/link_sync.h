@@ -33,7 +33,6 @@ void link_add_new_players(void);                                          /* 004
 
 void link_reset(void);                                /* 0044655c */
 void link_release(void);                              /* 00442dec */
-void link_deadline(int32_t ticks);                    /* 00410b7c */
 int32_t link_wait_step(void);                         /* 00410bac */
 void link_close_session(void);                        /* 00442d60 */
 

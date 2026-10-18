@@ -85,4 +85,10 @@ void link_close(void);                             /* 004373c4's 00446220 when t
 void link_send(uint32_t link, const uint8_t *data, int32_t size);
 void link_drop(int16_t slot);
 
+/* 0040a3f0: a chat message into the lines (from a link, or this machine's own when it hosts) */
+void link_chat_in(uint32_t link, const uint8_t *data);
+
+/* 00410b7c: the deadline 00410bac's waits give up at (RACE_NET_NO_DEADLINE: none) */
+void link_deadline(int32_t ticks);
+
 #endif
