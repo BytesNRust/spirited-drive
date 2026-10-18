@@ -127,7 +127,7 @@ static void joy_start_up(int german)
 {
     int16_t controls[JOY_CONTROLS] = { 0 };
     drive_joy_start(controls, (int16_t)german);
-    input_on_keys(NULL, drive_joy_menu);
+    input_on_keys(menu_audio_sound_toggle, drive_joy_menu);
 }
 
 /* --drive without --node / --screenshot: the race as the menus run it (glue_drive_race), so it ends as the

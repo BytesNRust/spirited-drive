@@ -4,6 +4,7 @@
 #include "game/frontend/config.h"
 #include "game/frontend/menu_sound.h"
 #include "game/race/race_sound.h"
+#include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/viewer/drive_audio.h"
@@ -17,6 +18,7 @@ enum { MUSIC_SETTING = 0x73, MUSIC_VOLUME = 0x77, MUSIC_TRACKS = 12 };  /* 00524
 static MenuSound sound;       /* sound_on, the voices */
 static RaceSoundBanks banks;  /* front_mw.bnk */
 static int16_t small;         /* 004c5cca */
+static int16_t kept[3];       /* 0052b322, 0052b326, 0052b328: 00464a68's */
 
 static int16_t config_short(int at)
 {
@@ -131,6 +133,18 @@ void menu_audio_music_by_idle(void)
 
 /* The track music's file, 00483e80's block: one at a time (00524828), handle 1 */
 enum { TRACK_BLOCK = 1 };
+static void toggle_deadline(void *ctx, int32_t ticks) { (void)ctx, timer_set_deadline(ticks); }
+static int32_t toggle_passed(void *ctx) { (void)ctx; return timer_deadline_passed(); }
+static void toggle_service(void *ctx) { (void)ctx, menu_audio_music_service(); }
+static void toggle_poll(void *ctx) { (void)ctx, pointer_sync_from_os(); }
+
+void menu_audio_sound_toggle(void)
+{
+    static const MenuSoundWaitOps WAIT = { toggle_deadline, toggle_passed, toggle_service, toggle_poll, NULL };
+    menu_sound_toggle(&sound, config_current(), kept, pointer_active_word(), &VOICE_OPS, &WAIT);
+    music_words();  /* the music is drive_audio's stream, not a voice: 00473b4c on 0052480c's place */
+}
+
 static uint8_t *track_file;
 static size_t track_size;
 

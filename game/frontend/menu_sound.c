@@ -246,3 +246,36 @@ void menu_sound_detect(MenuSound *m, ConfigDat *c, const MenuSoundOps *ops)
     }
     if ((int16_t)first < 0 || (int16_t)again < 0) m->sound_on = 0, m->sound_alt = 0;
 }
+
+void menu_sound_toggle(MenuSound *m, ConfigDat *c, int16_t kept[3], const int16_t *pointer_active,
+                       const MenuSoundOps *ops, const MenuSoundWaitOps *wait)
+{
+    enum { MUSIC_VOLUME = 0x00524e65, MENU_VOLUME = 0x00524e67, EFFECTS_VOLUME = 0x00524e69, VOICE_4 = 4,
+           VOLUME_MAX = 0x7f, SETTLE_TICKS = 0x21, IDLE_TICKS = 12000 };
+    if (!m->sound_on) return;
+    if (!m->track_silent) {
+        kept[2] = short_at(c, EFFECTS_VOLUME), put_short(c, EFFECTS_VOLUME, 0);
+        kept[1] = short_at(c, MENU_VOLUME), put_short(c, MENU_VOLUME, 0);
+        kept[0] = short_at(c, MUSIC_VOLUME), put_short(c, MUSIC_VOLUME, 0);
+        ops->voice_volume(ops->ctx, m->voice, 0);
+        ops->voice_volume(ops->ctx, m->voice_4a, 0);
+        ops->voice_volume(ops->ctx, VOICE_4, 0);
+        ops->voice_volume(ops->ctx, m->music, 0);
+        m->track_silent = 1;
+    } else {
+        put_short(c, EFFECTS_VOLUME, kept[2]), put_short(c, MENU_VOLUME, kept[1]), put_short(c, MUSIC_VOLUME, kept[0]);
+        const int effects = short_at(c, EFFECTS_VOLUME);
+        ops->voice_volume(ops->ctx, m->voice, kept[2]);
+        ops->voice_volume(ops->ctx, m->voice_4a, effects);
+        const int louder = effects * 3 / 2;
+        ops->voice_volume(ops->ctx, VOICE_4, louder > VOLUME_MAX ? VOLUME_MAX : louder);
+        ops->voice_volume(ops->ctx, m->music, short_at(c, MENU_VOLUME));
+        m->track_silent = 0;
+    }
+    wait->deadline_set(wait->ctx, SETTLE_TICKS);
+    while (wait->deadline_passed(wait->ctx) == 0) {
+        wait->service(wait->ctx);
+        if (*pointer_active != 0) wait->pointer_poll(wait->ctx);
+    }
+    wait->deadline_set(wait->ctx, IDLE_TICKS);
+}

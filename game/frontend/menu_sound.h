@@ -45,6 +45,15 @@ typedef struct MenuSoundOps {
     void *ctx;
 } MenuSoundOps;
 
+/* 00464a68's wait */
+typedef struct MenuSoundWaitOps {
+    void (*deadline_set)(void *ctx, int32_t ticks);  /* 0047334f */
+    int32_t (*deadline_passed)(void *ctx);           /* 0047336d: eax non-zero once passed */
+    void (*service)(void *ctx);                      /* 0046417c, the music */
+    void (*pointer_poll)(void *ctx);                 /* [004c6194], with the pointer active */
+    void *ctx;
+} MenuSoundWaitOps;
+
 typedef struct MenuSound {
     int sound_on;      /* the short 0052b304 */
     int32_t voice_4a;  /* 005247e8: the voice of sound 0x4a */
@@ -133,6 +142,15 @@ void menu_sound_music_service(MenuSound *m, const ConfigDat *c, const FrontendSe
  * 00524e67 (what 00524e65 holds is not known). The race calls it while it
  * loads the police screen (main's cockpit.h movie). */
 void menu_sound_music_service_2(MenuSound *m, const ConfigDat *c, const FrontendSession *f, const MenuSoundOps *ops);
+
+/* 00464a68 (F5): with the sound on, the sound off or back. Off (track_silent 0): kept (the shorts 0052b322,
+ * 0052b326, 0052b328) takes config.dat's 00524e65, 00524e67, 00524e69 and those become 0, 00473b4c gives 0 to the
+ * effects' voice, 0x4a's, voice 4 and the music's, track_silent = 1. Back: the three from kept, 00473b4c gives the
+ * effects' voice and 0x4a's 00524e69, voice 4 its 3 / 2 (0x7f at most), the music's 00524e67, track_silent = 0.
+ * Either way a 0x21-tick deadline is waited out, the music serviced and the pointer polled while it is active
+ * (the short 00524790), then the deadline is 12000. */
+void menu_sound_toggle(MenuSound *m, ConfigDat *c, int16_t kept[3], const int16_t *pointer_active,
+                       const MenuSoundOps *ops, const MenuSoundWaitOps *wait);
 
 /* 004648a8: with the sound on and the short 00524e6b set in config.dat,
  * frees the track music (00475260) when there is one and clears it. */
