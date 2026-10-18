@@ -1,9 +1,12 @@
 /* Full-screen art pages of the front end: EA logo and title. */
 #include "game/frontend/frontend.h"
 
+#include "game/frontend/menu_audio.h"
+
 #include "formats/fsh.h"
 #include "game/sys/input.h"
 #include "game/sys/palette.h"
+#include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
@@ -29,12 +32,16 @@ static int find_art(const Fsh *fsh, FshEntry *palette, FshEntry *background)
         && background->type == FSH_TYPE_BITMAP;
 }
 
-static int wait_for_skip(int ticks)
+/* 00466f68's wait: the music serviced (0046417c) when it plays, a mouse button ([004c6194] into 00524792, the
+ * pointer active) or space / enter / escape skip */
+static int wait_for_skip(int ticks, int music)
 {
     timer_set_deadline(ticks);
     while (!timer_deadline_passed()) {
-        /* TODO(0046417c): service streamed music; TODO: joystick buttons (004c6194). */
-        if (is_skip_key(input_get_key())) return 1;
+        if (music) menu_audio_music_service();
+        int buttons = 0;
+        if (pointer_active()) pointer_sync_from_os(), buttons = pointer_buttons_unseen();
+        if (is_skip_key(input_get_key()) || buttons != 0) return 1;
     }
     return 0;
 }
@@ -63,7 +70,7 @@ int show_screen(const char *name, int mode, int music)
 
     int skipped = 0;
     if (mode == SCREEN_WAIT) {
-        skipped = wait_for_skip(music ? WAIT_TICKS_MUSIC : WAIT_TICKS);
+        skipped = wait_for_skip(music ? WAIT_TICKS_MUSIC : WAIT_TICKS, music);
         video_fade_out(0, PALETTE_COLORS);
     }
     resource_free(data);

@@ -124,6 +124,8 @@ int pointer_active(void)
     return ptr.active;
 }
 
+static void (*wait_service)(void);  /* 0046417c, the music, while the click waits */
+
 static void draw(void)
 {
     video_set_overlay(data != NULL ? &sprite : NULL, ptr.x, ptr.y);
@@ -152,14 +154,19 @@ int pointer_read_buttons(void)
 
 int pointer_buttons_unseen(void) { return buttons_now(); }
 
+void pointer_on_wait(void (*service)(void)) { wait_service = service; }
+
 void pointer_click_feedback(void)
 {
-    /* TODO(004416cc): the original redraws the pointer in its pressed state. */
+    /* 004416cc(1, 1) and (0, 1): a forced redraw on each side of the wait; its first argument is not read, the
+     * pointer looks the same pressed */
+    draw();
     timer_set_deadline(PRESS_TICKS);
     while (!timer_deadline_passed()) {
         input_pump();
-        /* TODO(0046417c): service streamed music. */
+        if (wait_service != NULL) wait_service();  /* 0046417c */
     }
+    draw();
     timer_set_deadline(IDLE_TICKS_AFTER);
 }
 

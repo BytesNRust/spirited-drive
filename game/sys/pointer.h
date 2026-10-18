@@ -29,6 +29,8 @@ int pointer_read_buttons(void);                       /* 004417f8 */
 /* 004417f8 without the pointer drawn: a movie's frames hide it in the original, the port's overlay would stay */
 int pointer_buttons_unseen(void);
 void pointer_click_feedback(void);                    /* 00441814 */
+/* what 00441814 runs while it waits (0046417c, the music); the game sets it */
+void pointer_on_wait(void (*service)(void));
 void pointer_position(int *x, int *y);                /* 004c6110 / 004c6114 */
 void pointer_mark(void);                              /* 00441858: the marks where it is */
 /* The pointer's art as 00441530 takes it for the race's (00509eb0..: "ptr0", "ptr1", "ptr2"): the raw entry of

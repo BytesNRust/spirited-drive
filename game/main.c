@@ -150,6 +150,7 @@ static int run_drive(const Options *opt)
     pointer_load(0);
     text_init();
     pointer_start();
+    pointer_on_wait(menu_audio_music_service);
     joy_start_up(opt->german);
     menu_audio_open();
     config_load();
@@ -180,6 +181,7 @@ static int run_game(const Options *opt)
     pointer_load(0);
     text_init();
     pointer_start();
+    pointer_on_wait(menu_audio_music_service);
     joy_start_up(opt->german);
     frontend_run();
     text_free();
