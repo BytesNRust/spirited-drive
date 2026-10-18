@@ -43,6 +43,9 @@ typedef struct {
     int sound_volume;   /* the short 00524e69 */
     int sound_mode;     /* the short 00524e61 */
     uint8_t *game_state;  /* 0052ad44 (NULL: none): the race starts on its first 0x5b6 bytes and writes its results back */
+    int time_of_day;    /* 004fbae0[track]: 0 morning, 1 midday, 2 evening (004278c0 takes 1 with a variant) */
+    int variant_m;      /* 004fbad8: the track's "m" art */
+    int variant_r;      /* 004fbadc: the track's "r" art */
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
 

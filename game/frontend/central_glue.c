@@ -307,7 +307,8 @@ static void track_stop(void *ctx) { (void)ctx; menu_audio_track_stop(); }
 static void track_free(void *ctx) { (void)ctx; menu_audio_track_free(); }
 static void free_handle_inverse(void *ctx) { (void)ctx; }
 
-static int32_t time_of_day[10];  /* 004fbae0 */
+/* 004fbae0: a dword per track; 00437540 sets the nine to 1 (midday) as the game starts (00481f27) */
+static int32_t time_of_day[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 /* 00465ec8 on config.dat's image, which 004687d0 changes */
 static void image_car_flags(void *ctx)
@@ -454,7 +455,8 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
         name[i] = (char)(argv[1][i] >= 'a' && argv[1][i] <= 'z' ? argv[1][i] - 0x20 : argv[1][i]);
     const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
                                      g.opponent, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), game_state };
+                                     image_short(0x71), game_state,
+                                     g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r };
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
     if (!track_viewer_drive(resource_root(), name, race_head_to_head_model(g.player_car), 1, g.race_type, 0, NULL))
@@ -786,7 +788,7 @@ static void replay(void *ctx, int32_t mode, const char *path)
         return;
     }
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL };
+                                     image_short(0x71), NULL, 0, 0, 0 };  /* the time of day: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
     if (!track_viewer_drive_replay_data(resource_root(), file, size, replay_kind == 2 ? HIGHLIGHTS : FROM_START))

@@ -24,9 +24,11 @@
 #include "game/race/race_sound.h"
 #include "game/race/race_sim.h"
 #include "game/race/track_art.h"
+#include "game/race/track_fam.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_info.h"
 #include "game/race/track_objects.h"
+#include "game/sys/resource.h"
 #include "platform/platform.h"
 #include "viewer/camera.h"
 #include "game/race/race_view.h"
@@ -110,15 +112,15 @@ static void info_tint(void *ctx, int32_t red, int32_t green, int32_t blue, int32
     ((InfoFile *)ctx)->t->tint = scratch.tint;
 }
 
-/* 0043a370 for the track `name` (its stem lower case as the frontend gives it), the time of day 0, 640 x 480. */
-static void load_info(Track *t, const char *name, const char *text, size_t size)
+/* 0043a370 for the track `name` (its stem lower case as the frontend gives it), the time of day (004fa0ec), 640 x 480. */
+static void load_info(Track *t, const char *name, int time_of_day, const char *text, size_t size)
 {
     char stem[16] = { 0 };
     for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof stem; i++) stem[i] = (char)tolower((unsigned char)name[i]);
     InfoFile f = { text, text + size, t };
     t->tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     const TrackInfoOps ops = { &f, info_open, info_gets, info_close, info_tint };
-    const TrackInfoInputs in = { stem, "", 1, 0, 1 };
+    const TrackInfoInputs in = { stem, "", 1, time_of_day, 1 };
     memset(&t->info, 0, sizeof t->info);
     track_info_load(&ops, &in, &t->info);
 }
@@ -136,14 +138,41 @@ static uint8_t *read_any(const char *data_root, const char *dir, const char *nam
     return NULL;
 }
 
-static int load_track(Track *t, const char *data_root, const char *name)
+static int32_t le32_at(const uint8_t *p)
+{
+    return (int32_t)((uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24);
+}
+
+/* 004510e8's FAM for the time of day and the variant (track_fam.h) under data_root, its ".fam" as the CD's capitals
+ * on a second try. Port guard: a FAM the CD does not hold (TR4 has no _T01) falls back to the first of NTRACKFM's. */
+static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
+{
+    char dir[400], dir_midday[400], path[512];
+    snprintf(dir, sizeof dir, "%s/SIMDATA/NTRACKFM", data_root);
+    snprintf(dir_midday, sizeof dir_midday, "%s/SIMDATA/%s", data_root, resource_german() ? "GTRACKFM" : "ETRACKFM");
+    TrackFamInputs in = *look;
+    in.stem = name, in.dir = dir, in.dir_midday = dir_midday;
+    track_fam_name(&in, 1, path, sizeof path);
+    uint8_t *data = platform_read_file(path, size);
+    const size_t n = strlen(path);
+    if (data == NULL && n >= 3) {
+        for (size_t i = n - 3; i < n; i++) path[i] = (char)toupper((unsigned char)path[i]);
+        data = platform_read_file(path, size);
+    }
+    if (data != NULL) return data;
+    static const char *const FAM_SUFFIX[] = { "_T01.FAM", "_M01.FAM", "_R01.FAM", NULL };
+    fprintf(stderr, "track_viewer: no %s, the first FAM there is\n", path);
+    return read_any(data_root, "NTRACKFM", name, FAM_SUFFIX, size);
+}
+
+/* The track `name` with 004510e8's art and 0043a370's sky for `look` (its time of day, variants and track). */
+static int load_track(Track *t, const char *data_root, const char *name, const TrackFamInputs *look)
 {
     static const char *const TRI_SUFFIX[] = { ".TRI", ".tri", NULL };
-    static const char *const FAM_SUFFIX[] = { "_T01.FAM", "_M01.FAM", "_R01.FAM", NULL };
     size_t tri_size = 0, fam_size = 0;
     memset(t, 0, sizeof *t);
     t->tri_file = read_any(data_root, "MISC", name, TRI_SUFFIX, &tri_size);
-    t->fam_file = read_any(data_root, "NTRACKFM", name, FAM_SUFFIX, &fam_size);
+    t->fam_file = read_fam(data_root, name, look, &fam_size);
     if (t->tri_file == NULL || t->fam_file == NULL) return 0;
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
@@ -156,7 +185,7 @@ static int load_track(Track *t, const char *data_root, const char *name)
     snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);
     uint8_t *info_text = platform_read_file(info_path, &info_size);
     if (info_text == NULL) fprintf(stderr, "track_viewer: no %s, the built-in sky settings\n", info_path);
-    load_info(t, name, (const char *)info_text, info_text != NULL ? info_size : 0);
+    load_info(t, name, look->time_of_day, (const char *)info_text, info_text != NULL ? info_size : 0);
     platform_free_file(info_text);
     t->objects = calloc(t->tri.scenery_count + 1u, sizeof *t->objects);
     if (t->objects == NULL) return 0;
@@ -1384,8 +1413,20 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
                        const char *screenshot)
 {
     static Track t;
+    /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
+     * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
+    TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL };
+    if (replay_file != NULL) {
+        const int32_t track = le32_at(replay_file + 6);
+        look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;
+        look.time_of_day = look.variant_m != 0 || look.variant_r != 0 ? 1
+                           : track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
+    } else if (menus_on) {
+        look.variant_m = menus.variant_m, look.variant_r = menus.variant_r;
+        look.time_of_day = menus.variant_m != 0 || menus.variant_r != 0 ? 1 : menus.time_of_day;
+    }
     int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
-             load_track(&t, data_root, name);
+             load_track(&t, data_root, name, &look);
     ok = ok && start_drive(&t, data_root, name, model, racers, race_type);
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
     ok = ok && pixels != NULL;
@@ -1429,7 +1470,8 @@ int track_viewer_drive_replay(const char *data_root, const char *path)
 int track_viewer_main(const char *data_root, const char *name, uint32_t node, const char *screenshot)
 {
     Track t;
-    int ok = load_track(&t, data_root, name);
+    const TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL };
+    int ok = load_track(&t, data_root, name, &look);
     if (ok && getenv("TNFS_CAR") != NULL) load_car(&t, data_root, getenv("TNFS_CAR"));
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;
     ok = ok && pixels != NULL;
