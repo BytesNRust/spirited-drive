@@ -1,0 +1,39 @@
+/* The track's FAM, its art for the time of day and the variant (004510e8,
+ * from 004511fc into an RRSM_Buffer slot). */
+#ifndef TNFS_TRACK_FAM_H
+#define TNFS_TRACK_FAM_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+enum { TRACK_FAM_SIZE = 0x162400, TRACK_FAM_NAME = 100 };
+
+typedef struct {
+    int32_t time_of_day;        /* 004fa0ec: 0..2, 1 midday (004278c0: 1 with a variant, else 004fbae0[track]) */
+    int32_t variant_m;          /* 004fbad8 */
+    int32_t variant_r;          /* 004fbadc */
+    int32_t track;              /* 004fb7c2 (a dword): 3 has no "r" art */
+    const char *stem;           /* 004fd0f4: the track's */
+    const char *dir;            /* 00524508: "simdata/ntrackFm/" */
+    const char *dir_midday;     /* 005244b8: "simdata/etrackFm/" ("gtrackFm" in German) */
+} TrackFamInputs;
+
+typedef struct {
+    void *ctx;
+    int32_t (*open)(void *ctx, const char *name);                           /* 00488404 (cdecl name, &handle, 0, 0) */
+    void (*read)(void *ctx, int32_t file, void *buffer, int32_t size);      /* 004884d8 (cdecl) */
+    void (*close)(void *ctx, int32_t file);                                 /* 004884c8 (cdecl) */
+} TrackFamOps;
+
+/* 004510e8's name: a time of day other than 1 "%s/%s_T%.2d.fam" in dir (the
+ * dawn and dusk art); at midday with variant_m "%s/%s_M%.2d.fam", with
+ * variant_r and a track other than 3 "%s/%s_R%.2d.fam", in dir; else
+ * "%s/%s_%.3d.fam" in dir_midday. Port guard: cut at `size` (the original's
+ * 100 bytes on its stack run on). */
+void track_fam_name(const TrackFamInputs *in, int32_t number, char *out, size_t size);
+
+/* 004510e8 (watcall number, buffer): the name opened, TRACK_FAM_SIZE bytes
+ * read into buffer, closed. */
+void track_fam_load(const TrackFamInputs *in, int32_t number, void *buffer, const TrackFamOps *ops);
+
+#endif
