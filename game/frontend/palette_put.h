@@ -1,6 +1,5 @@
-/* The palette helpers the menus and the race share (00463df0, 00463e08).
- * TODO(main: 00463df0, 00463e08): they belong to the shared graphics layer;
- * kept here until main has them. */
+/* The palette helpers the menus and the race share (00463df0, 00463e08), kept with the menus that use most of
+ * them. */
 #ifndef TNFS_PALETTE_PUT_H
 #define TNFS_PALETTE_PUT_H
 

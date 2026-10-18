@@ -38,8 +38,8 @@ typedef struct {
 
 /* 0043abfc(height_far, radius_far) with 004fccf8 / 004fcd00 / 004fcd1c from
  * the INFO file; horz is the FAM "horz" bitmap (size only). With ring type 0
- * only `enabled` is set, as in the original. TODO(0043abfc): ring[1], [5],
- * [6] and the table at [0x69..0x88] (a copy of uninitialised memory) are not
+ * only `enabled` is set, as in the original. port: ring[1], [5], [6] and the
+ * table at [0x69..0x88] (0043abfc's copy of uninitialised memory) are not
  * kept; the original never reads them. */
 void sky_ring_build(SkyRing *ring, const TrackInfo *info, const FshEntry *horz);
 

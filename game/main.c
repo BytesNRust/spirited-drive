@@ -177,8 +177,9 @@ static int run_game(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     timer_init();
-    /* 004322f8 loads the pointer; TODO(004322f8): CD/memory checks, fonts,
-     * config. The network: the link game over UDP (link_game.c) */
+    /* 004322f8 loads the pointer; port: its CD and memory checks have nothing to check here, the fonts are
+     * text_init's and config.dat is the menus' (0042a010, config_load). The network: the link game over UDP
+     * (link_game.c) */
     link_game_init((uint16_t)opt->net_port, opt->net_hosts);
     pointer_load(0);
     text_init();

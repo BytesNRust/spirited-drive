@@ -9,7 +9,7 @@
  * constant (du, dx), (dv, dx) per pixel through a table of texel offsets
  * (0049f580) that it builds once per triangle.
  *
- * TODO(00484ee8): the original has a no-clip fast path chosen by comparing
+ * port: 00484ee8 has a no-clip fast path chosen by comparing
  * texture coordinates and 16.16 screen x against the pixel clip limits; with
  * uv >= 1 texel and clip_right <= 32768 that test never passes, so it is not
  * ported (the clipped path gives the same pixels when nothing needs clipping). */

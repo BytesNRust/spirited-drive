@@ -20,7 +20,7 @@ void view_init(View *view, int left, int top, int width, int height, int fov_x, 
     view->centre_x = left + (int32_t)half_w;   /* 00475f68 + 00475fab */
     view->centre_y = top + (int32_t)half_h;
     view->focal_x = focal_length(fov_x / 2, half_w);
-    /* TODO(00484294): a zero vertical field of view derives it from the aspect. */
+    /* port: 00484294 derives a zero vertical field of view from the aspect; every caller passes the horizontal one */
     view->focal_y = -focal_length(fov_y / 2, half_h);
     view->near_z = NEAR_Z;
     /* 00475e44 */

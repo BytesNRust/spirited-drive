@@ -252,7 +252,7 @@ void ai_snap_to_road(Car *car, RaceState *race)
     } else {  /* facing the other way: the first and last rows reversed */
         for (int i = 0; i < 9; i++) matrix[i] = (i < 3 || i >= 6) ? -axes[i] : axes[i];
     }
-    if (car->steer != 0) {  /* TODO(0046e6e4): car +0x18 is zero when 0046f110 gets here, so this is never run */
+    if (car->steer != 0) {  /* 0046e6e4's turn: car +0x18 is zero when 0046f110 gets here, so the original never runs it either */
         int32_t turn[9];
         rm_turn_y(turn, car->steer);
         rm_mul(matrix, turn, matrix);
