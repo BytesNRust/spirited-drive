@@ -377,7 +377,7 @@ static int32_t best_times(void *ctx)
     return best_times_screen(&in, &st, ctx, &ops);
 }
 /* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;
- * the shorts 0051ce24 + 0x1d2 x player, the cars' points (TODO(0045aec8): none given yet) */
+ * the shorts 0051ce24 + 0x1d2 x player, the cars' points (0045aec8's) */
 static int32_t race_times[MENU_RACE_TIMES];
 static int32_t finish[GAME_STATE_PLAYERS];
 static TournamentOrderWork order_work;
@@ -488,7 +488,6 @@ static void standings(void *ctx, int32_t segment)
 static void clip(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1) { (void)ctx; ea_clip(x0, y0, x1, y1); }
 static void no_two(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
 static void no_three(void *ctx, int32_t a, int32_t b, int32_t c) { (void)ctx, (void)a, (void)b, (void)c; }
-static int32_t no_answer(void *ctx, int32_t mode) { (void)ctx, (void)mode; return 0; }
 static int32_t next_segment(void *ctx) { (void)ctx; return 1; }  /* TODO(0040b648): the screen between segments */
 /* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
 static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
@@ -506,10 +505,12 @@ static void reset_tournament(void *ctx)
     settings_put(&s);
 }
 static void game_reset(void *ctx) { (void)ctx; glue_game_reset(); }
+static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_points); }
+static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
 
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(0045aec8, 0040c710, 0040b648, 004283c4, 00428610, 0045ae80, 00432e48): the tournament's points, the
- * winner's and the ticket's screens, the tournament's end */
+ * TODO(0040c710, 0040b648, 004283c4, 00428610, 00432e48): the winner's and the ticket's screens, the
+ * tournament's end */
 static void race(void *ctx)
 {
     (void)ctx;
@@ -529,7 +530,7 @@ static void race(void *ctx)
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, nothing, nothing, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
-        nothing, nothing, next_segment, reset_tournament, no_answer, nothing, game_reset, ctx };
+        points, nothing, next_segment, reset_tournament, champion, nothing, game_reset, ctx };
     menu_race(&st, &ops);
     g.warrior = (int16_t)warrior;
     int32_t *const slot = ea_screen_slot();
