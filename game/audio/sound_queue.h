@@ -38,4 +38,7 @@ int32_t sound_queue_setup(const SoundDriver *d, SoundQueue *q, int32_t channel_a
  * from. */
 int32_t sound_queue_add(const SoundDriver *d, SoundQueue *q, SoundSample *s, const uint8_t *file, uint32_t percent);
 
+/* 004925a8: playing (004c7c0c = 1), unchecked. */
+void sound_queue_play(SoundQueue *q);
+
 #endif

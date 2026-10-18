@@ -29,3 +29,9 @@ int32_t sound_queue_add(const SoundDriver *d, SoundQueue *q, SoundSample *s, con
     q->entry[at].until = s->rate * percent / 100;
     return 0;
 }
+
+/* 004925a8 */
+void sound_queue_play(SoundQueue *q)
+{
+    q->playing = 1;
+}
