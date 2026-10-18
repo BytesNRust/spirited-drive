@@ -29,10 +29,12 @@ int16_t link_slot_of(uint32_t link);                  /* 0044659c */
 int32_t link_receive(uint32_t link, const uint8_t *data, int32_t size);  /* 00446058 */
 int32_t link_lost_link(int32_t kind, uint32_t link);                      /* 004460cc */
 int32_t link_join_request(const uint8_t *record);                         /* 00442ec0 */
+void link_add_new_players(void);                                          /* 00442f58 */
 
 void link_reset(void);                                /* 0044655c */
 void link_release(void);                              /* 00442dec */
 void link_deadline(int32_t ticks);                    /* 00410b7c */
 int32_t link_wait_step(void);                         /* 00410bac */
+void link_close_session(void);                        /* 00442d60 */
 
 #endif

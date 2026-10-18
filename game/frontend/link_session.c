@@ -224,6 +224,15 @@ static void leave(void *ctx, uint32_t session)
     net_runtime_end_game(&L->rt, &L->session.s);
 }
 
+/* 00442d60 */
+void link_close_session(void)
+{
+    RaceNetClose c = { menu_words.intro_seen, menu_words.link_game, L->unknown_4bc6ac };
+    static const RaceNetCloseOps ops = { NULL, close_session };
+    race_net_close_session(&ops, &c);
+    menu_words.intro_seen = c.unknown_4fbb0c, menu_words.link_game = c.play, L->unknown_4bc6ac = c.unknown_4bc6ac;
+}
+
 void link_give_up(void)
 {
     RaceNetGiveUp g = { &L->stand_ins[1], L->unknown_4bcb94,

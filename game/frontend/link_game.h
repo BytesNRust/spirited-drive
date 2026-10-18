@@ -43,7 +43,7 @@ typedef struct LinkGame {
     int32_t pings[RACE_NET_PINGS_CLEARED]; /* 004f8108 */
     int32_t unknown_4f8138[RACE_NET_WORDS_4F8138];
     int32_t deadline;                      /* 004f8158 */
-    int16_t unknown_52b2b4[RACE_NET_SET_WORDS];
+    int16_t sets[1 + RACE_NET_SET_WORDS];  /* 0052b2b2, then 0052b2b4's eight (004465e4 reads [-1]) */
     uint8_t infos[LINK_INFOS];             /* 004fb7f8 */
     uint8_t setup[RACE_NET_SETUP];         /* 004fb7bc */
     uint8_t chat[RACE_NET_CHAT_LINES][RACE_NET_CHAT_LINE];  /* 004b7a30 */

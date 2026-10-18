@@ -390,22 +390,55 @@ void glue_title_screen(int32_t state)
     menu_words.link_game = (int16_t)s.link_game, menu_words.link_lost = (int16_t)s.link_lost;
 }
 
+/* 004376ac's words while it runs: hosting or joining from its network ops changes them */
+static GameModeState *mode_state;
+
+static MenuWords words_of(const GameModeState *st)
+{
+    return (MenuWords){ st->lost, st->lost_shown, st->mode_menu, st->redraw, st->intro_seen, st->single,
+                        st->network_raced };
+}
+
+static void words_into(GameModeState *st)
+{
+    st->mode_menu = menu_words.mode_menu, st->intro_seen = menu_words.intro_seen, st->single = menu_words.single;
+    st->network_raced = menu_words.network_raced, st->lost = menu_words.link_game;
+    st->lost_shown = menu_words.link_lost, st->redraw = menu_words.redraw;
+}
+
+static int32_t mode_network_found(void *ctx)
+{
+    menu_words = words_of(mode_state);
+    const int32_t r = network_found(ctx);
+    words_into(mode_state);
+    return r;
+}
+
+static int32_t mode_network_game(void *ctx)
+{
+    menu_words = words_of(mode_state);
+    const int32_t r = network_game(ctx);
+    words_into(mode_state);
+    return r;
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
     const GameModeOps ops = { palette_clear, move_to, sound_load, load_art, music_feed, shape, palette_set, nothing,
                               in_rect, select_picture, blit_own, select_default, nothing, nothing, picture_shape,
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
-                              ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, network_found,
-                              network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL };
+                              ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
+                              mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
+    mode_state = &st;
     const int32_t result = game_mode_menu(resource_german(), &st, &ops);
+    mode_state = NULL;
     pointer_bind_active(was);
-    menu_words = (MenuWords){ st.lost, st.lost_shown, st.mode_menu, st.redraw, st.intro_seen, st.single,
-                              st.network_raced };
+    menu_words = words_of(&st);
     return result;
 }
 
