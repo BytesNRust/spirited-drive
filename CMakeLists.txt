@@ -310,6 +310,7 @@ add_library(tnfs_game STATIC
     game/sys/joystick.c
     game/sys/joy_options.c
     game/sys/joy_start.c
+    game/sys/joy_pad.c
     game/sys/hot_key.c
     game/sys/menu_key.c
     game/sys/palette.c
