@@ -162,6 +162,18 @@ void pointer_position(int *x, int *y)
     *x = ptr.x, *y = ptr.y;
 }
 
+const uint8_t *pointer_shape(int which)
+{
+    enum { ENTRY_HEADER = 16 };
+    const char name[4] = { 'p', 't', 'r', (char)('0' + which) };
+    uint32_t index;
+    FshEntry e;
+    if (data == NULL || which < 0 || which > 2 || fsh_find(&fsh, name, &index) != FSH_OK
+        || fsh_entry(&fsh, index, &e) != FSH_OK)
+        return NULL;
+    return e.payload - ENTRY_HEADER;
+}
+
 void pointer_mark(void)
 {
     ptr.mark_x = (int16_t)ptr.x;

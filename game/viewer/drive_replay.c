@@ -13,6 +13,7 @@
 #include "game/race/dash_controls.h"
 #include "game/race/replay_controls.h"
 #include "game/sys/menu_key.h"
+#include "game/sys/pointer.h"
 #include "game/race/skid_marks.h"
 #include "viewer/ported_view.h"
 #include "platform/platform.h"
@@ -202,12 +203,15 @@ static void to_end(void *ctx)
 /* 00471460: the view panel, drawn by drive_panel */
 static void panel_draw(void *ctx) { (void)ctx; }
 
-/* 0044f55c's calls: --drive has no mouse (the pointer stands still, never in a box) nor joystick */
+/* 0044f55c's calls: the menus' pointer (game/sys/pointer.h), no joystick. 0047723c's box is for drawing, which
+ * the port's panels clip on their own. The buttons are read without 004417f8's drawing (the menus' overlay would
+ * show their screen over the race's frame); 00441990 moves the pointer and not the OS's mouse, as the menus'
+ * 00464038 does */
 static void no_window(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d) { (void)ctx, (void)a, (void)b, (void)c, (void)d; }
-static int16_t no_buttons(void *ctx) { return (void)ctx, 0; }
-static int32_t never_in(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
+static int16_t mouse_buttons(void *ctx) { return (void)ctx, (int16_t)pointer_buttons_unseen(); }
+static int32_t in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
-    return (void)ctx, (void)x0, (void)x1, (void)y0, (void)y1, 0;
+    return (void)ctx, pointer_in_rect(x0, x1, y0, y1);
 }
 static int32_t no_joy(void *ctx, int32_t device, uint32_t *buttons, int32_t axis[JOY_AXES])
 {
@@ -219,7 +223,7 @@ static int32_t controls_key(void *ctx)
     JoyState j = { 0 };
     return menu_key(r->key_flags, &j, 0, 0, &(const JoyOps){ NULL, no_joy });  /* 00465358 */
 }
-static void no_place(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
+static void place(void *ctx, int32_t x, int32_t y) { (void)ctx, pointer_move_to(x, y); }
 
 /* 0044f55c on the dash's words and the director's */
 static void panel_input(void *ctx)
@@ -228,7 +232,14 @@ static void panel_input(void *ctx)
     if (r->key_flags == NULL || r->dash == NULL) return;
     DashArt *d = r->dash;
     int32_t *w = d->unknown_513888;
-    ReplayInput in = { .high = 1, .pressed = r->dir.unknown_513888, .cursor = w[DASH_CURSOR],
+    /* the OS's mouse read as the window thread would have (and 00524790 set once it moves, as 00464088 sets it in
+     * the menus: a race started without them has it clear) */
+    pointer_sync_from_os();
+    pointer_activate_if_moved();
+    int px, py;
+    pointer_position(&px, &py);
+    ReplayInput in = { .high = 1, .mouse = *pointer_active_word(), .mouse_buttons = r->mouse_buttons,
+                       .pointer_x = px, .pointer_y = py, .last_x = r->last_x, .last_y = r->last_y, .pressed = r->dir.unknown_513888, .cursor = w[DASH_CURSOR],
                        .redraw = r->dir.unknown_513898, .kind = r->dir.unknown_513730, .last_key = r->last_key,
                        .escape = r->key_flags[1], .timer = r->dir.timer, .request = r->dir.request, .speed = w[5],
                        .button = r->dir.button, .last_pressed = r->last_pressed, .phase = r->sim->race.phase,
@@ -238,7 +249,8 @@ static void panel_input(void *ctx)
         in.rects[i][0] = b.left, in.rects[i][1] = b.top, in.rects[i][2] = b.right, in.rects[i][3] = b.bottom;
         in.shapes[i] = d->control_lit[i];
     }
-    replay_controls_input(&in, &(const ReplayInputOps){ r, no_window, no_buttons, never_in, controls_key, no_place });
+    replay_controls_input(&in, &(const ReplayInputOps){ r, no_window, mouse_buttons, in_rect, controls_key, place });
+    r->mouse_buttons = in.mouse_buttons, r->last_x = in.last_x, r->last_y = in.last_y;
     r->dir.unknown_513888 = w[DASH_PRESSED] = in.pressed, w[DASH_CURSOR] = in.cursor;
     r->dir.unknown_513898 = w[DASH_REDRAW] = in.redraw;
     r->dir.request = in.request, r->dir.button = in.button, w[5] = in.speed, w[6] = in.unknown_5138a0;

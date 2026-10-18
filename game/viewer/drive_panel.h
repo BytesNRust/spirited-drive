@@ -11,6 +11,7 @@
 #include "game/gfx/quad.h"
 #include "game/race/dash_art.h"
 #include "game/race/hud.h"
+#include "game/race/race_pointer.h"
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_state.h"
 #include "game/race/replay_panel.h"
@@ -20,6 +21,7 @@
 typedef struct {
     ReplayPanel panel;          /* 0052b8d4..0052b8f4 (0052b8f8 is RaceState.view_taken) */
     int32_t dash_drawn_tick;    /* 00513dac */
+    RacePointerKept pointer;    /* 00524794 / 96, 004bc6a0 */
 } DrivePanel;
 
 /* 0044edd8's panel words at the race's start: the cursor and the view 3,
