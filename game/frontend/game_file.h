@@ -54,4 +54,7 @@ void game_file_save_config(const uint8_t *image, const char *dir, const GameFile
  * (the arrows 0x4b00 / 0x4d00, 'A' / 'Z', 0x4800 / 0x5000). */
 int game_file_load_config(uint8_t *image, const char *dir, int keep_controls, const GameFileOps *ops);
 
+/* game_file_load_config's last step: a control at 1..3 (a joystick's) back to 0 and its pair of keys */
+void game_file_controls_to_keys(uint8_t *image);
+
 #endif

@@ -1,7 +1,9 @@
 #include "game/frontend/config.h"
 
 #include "game/frontend/frontend.h"
+#include "game/frontend/game_file.h"
 #include "game/sys/resource.h"
+#include "game/viewer/drive_joy.h"
 #include "platform/platform.h"
 
 #include <stdio.h>
@@ -48,9 +50,8 @@ int config_load(void)
     const int found = parse_file(platform_read_user_file(CONFIG_NAME, &size), size, "saved config.dat") || load_from_cd();
     if (!found) config_dat_defaults(&config, resource_german());
     config_dat_name(&config, frontend_player_name);
-    /* TODO(0042a010): when 004fcdcc is 0 (unknown flag), the words at 0052ad26,
-     * 0052ad28 and 0052ad2a that hold 1..3 are reset to 0 together with the
-     * neighbouring words 0052ad2c..0052ad3a, back to their defaults. */
+    /* 0042a010's end: without the pad (004fcdcc, 0043c744 ran first) the joystick's controls back to keys */
+    if (!drive_joy_state()->present) game_file_controls_to_keys(config.image);
     return found ? 0 : 1;
 }
 
