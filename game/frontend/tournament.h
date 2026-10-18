@@ -39,6 +39,11 @@ void tournament_results_order(const uint8_t game_state[GAME_STATE_SIZE], int32_t
  * are the most of the eight, counted from 0 (so 0 when all are negative). */
 int32_t tournament_leads(const uint8_t game_state[GAME_STATE_SIZE], int32_t player);
 
+/* 0045ae80 (eax the player; ebx, ecx, edx kept): 1 when the player's
+ * tournament points are at least each of the eight's, ties included and
+ * negative points too (unlike 0045b73c, nothing counted from 0). */
+int32_t tournament_champion(const uint8_t game_state[GAME_STATE_SIZE], int32_t player);
+
 /* 00466b90: the computer players' names (004b1858..) with their NUL at the
  * start of the records of players max(from, 1)..7; nothing when from is
  * past 7 or negative (the original's unsigned test). Player 0's never. */
