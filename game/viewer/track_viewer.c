@@ -846,6 +846,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     draw_rands.at = 0;
     ported_view_set_models(t->models, t->model_ok);
     ported_view_set_shadows(race, drive_hud.ready ? drive_hud.shade : NULL);
+    ported_view_set_tick(race->tick);
     if (drive_hud.ready) ported_view_set_tags(drive_hud.car_colours, HUD_MAP_COLOURS, drive_hud.strip_colour);
     if (drive_hud.palette != NULL) ported_view_set_lights(drive_hud_palette_write, &drive_hud, drive_hud.palette->slot_colours);
     static uint32_t last_ms;
