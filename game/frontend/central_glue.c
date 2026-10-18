@@ -9,6 +9,7 @@
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/central.h"
+#include "game/frontend/after_race.h"
 #include "game/frontend/check_options.h"
 #include "game/frontend/cheat_code.h"
 #include "game/frontend/config.h"
@@ -552,7 +553,8 @@ static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_poi
 static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
 
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(0040c710, 0040b648, 00432e48): the after-race menu, the screen between segments, the tournament's end */
+ * TODO(0040b648, 00432e48): the screen between segments, the tournament's end */
+static void after_race(void *ctx);
 static void race(void *ctx)
 {
     (void)ctx;
@@ -572,7 +574,7 @@ static void race(void *ctx)
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
-        points, nothing, next_segment, reset_tournament, champion, nothing, game_reset, ctx };
+        points, after_race, next_segment, reset_tournament, champion, nothing, game_reset, ctx };
     menu_race(&st, &ops);
     g.warrior = (int16_t)warrior;
     int32_t *const slot = ea_screen_slot();
@@ -904,6 +906,34 @@ int32_t glue_check_options(int32_t mode)
     const int32_t done = check_options(mode, &st, &ops);
     opt_out();
     return done;
+}
+
+static void after_options(void *ctx, int32_t mode) { (void)ctx; glue_check_options(mode); }
+
+/* 0040c710 for 00427ae0 on config.dat's image and the menus' game state, no link game.
+ * TODO(0040a5d8, 004104d0, 004109b4): the chat, the link's service and its waiting message */
+static void after_race(void *ctx)
+{
+    enum { REPLAY_FLAG_AT = 0xaf };
+    static int16_t chat_closed;
+    static uint8_t cars[AFTER_RACE_CARS * AFTER_RACE_CAR];  /* 0051ce24's points: the port's replay leaves car_points */
+    uint8_t *const image = config_current()->image;
+    replay_kind = image_short(REPLAY_FLAG_AT);
+    AfterRaceState st = {
+        &menu_words.link_game, &no_quit, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
+        &credits_idle, &chat_closed, &replay_kind, (char *)image + 0x3b, &g.music_silent, g.volumes,
+        { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f), image_short(0x95), image_short(0x6d),
+        game_state, cars };
+    const AfterRaceOps ops = {
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, nothing, in_rect,
+        zero, select_picture, blit, blit_masked, select_default, hide, picture_shape, flip, show, buttons, fade_in,
+        styles, deadline_set, sound, nothing, ticks, activate, key, click, music_fade_out, fade_out, music_end,
+        free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, replay, nothing, set_palette,
+        no_mode_set, no_mode, picture_new, sound_load, music_pick, after_options, standings, circuit_results,
+        segment_results, track_results, nothing, off, credits_tick, deadline_passed, ctx };
+    credits_last = timer_ticks();
+    after_race_menu(&st, &ops);
+    memcpy(image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
 }
 
 static void options(void *ctx)
