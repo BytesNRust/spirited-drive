@@ -27,6 +27,8 @@
 #include "game/frontend/intro_glue.h"
 #include "game/frontend/game_list.h"
 #include "game/frontend/key_name.h"
+#include "game/frontend/link_central.h"
+#include "game/frontend/link_game.h"
 #include "game/frontend/load_save.h"
 #include "game/frontend/load_save2.h"
 #include "game/frontend/lap_times.h"
@@ -190,9 +192,15 @@ static void art_free(void *ctx)
     session_put(&f);
 }
 
-/* TODO(0040a5d8): chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
- * 0044633c, 00432e90): the link game */
+/* TODO(0040a5d8): chat */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
+/* the link game (link_central.h): 00475c14(0) runs its transport */
+static void pump(void *ctx, int32_t v) { (void)ctx, (void)v, link_service(); }
+static void net_service(void *ctx) { (void)ctx, link_sync(); }
+static int32_t chat_waiting(void *ctx) { (void)ctx; return link_any_ready(); }
+static int32_t net_start(void *ctx) { (void)ctx; return link_ready(); }
+static void pre_race(void *ctx) { (void)ctx, link_host_ready(); }
+static void kick(void *ctx, int32_t player) { (void)ctx, link_kick(player); }
 static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
 static void sound_load(void *ctx) { (void)ctx; menu_audio_bank_load(); }
 static void sound_free(void *ctx) { (void)ctx; menu_audio_bank_free(); }
@@ -204,8 +212,6 @@ static void music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
 static void music_fade_to(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
 static void music_pick(void *ctx) { (void)ctx; menu_audio_music_pick(); }
 static void no_mode(void *ctx, int32_t mode) { (void)ctx, (void)mode; }
-static void no_kick(void *ctx, int32_t player) { (void)ctx, (void)player; }
-static int32_t zero(void *ctx) { (void)ctx; return 0; }
 static int32_t no_inverse(void *ctx, const char *name) { (void)ctx, (void)name; return 0; }
 /* 004baf44..: the codes' letters with 0x63 added, NUL after each; 004baf90..: each one's position, in
  * ControlCentral's order (00434d69..00434f93 pass them in pairs); LUNAR's (004baf7f, 004bafac) is not stepped there */
@@ -942,12 +948,12 @@ static AfterRaceState after_race_state(void)
         game_state, cars };
 }
 
-/* TODO(0040a5d8, 004104d0, 004109b4): the chat, the link's service and its waiting message */
+/* TODO(0040a5d8): the chat */
 static AfterRaceOps after_race_ops(void (*options)(void *, int32_t), void *ctx)
 {
     return (AfterRaceOps){
-        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, nothing, in_rect,
-        zero, select_picture, blit, blit_masked, select_default, hide, picture_shape, flip, show, buttons, fade_in,
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, net_service, in_rect,
+        chat_waiting, select_picture, blit, blit_masked, select_default, hide, picture_shape, flip, show, buttons, fade_in,
         styles, deadline_set, sound, nothing, ticks, activate, key, click, music_fade_out, fade_out, music_end,
         free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, replay, nothing, set_palette,
         no_mode_set, no_mode, picture_new, sound_load, music_pick, options, standings, circuit_results,
@@ -1053,25 +1059,29 @@ void glue_settings_to_config(void)
 int32_t glue_central(void)
 {
     static const ControlCentralOps OPS = {
-        no_wait, palette_clear, move_to, music, load_art, picture_new, sound_load, no_inverse, music_feed, mark, shape,
-        palette_set, nothing, in_rect, car_flags, type_changed, ticks, zero, select_picture, blit, blit_masked,
+        pump, palette_clear, move_to, music, load_art, picture_new, sound_load, no_inverse, music_feed, mark, shape,
+        palette_set, net_service, in_rect, car_flags, type_changed, ticks, chat_waiting, select_picture, blit, blit_masked,
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
         show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, cheat_step,
-        key_down, activate, zero, click, no_kick, music_fade_out, fade_out, music_end, music_start, showcase,
+        key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options,
-        nothing, glue_yes_no, glue_drain, glue_banner, nothing, sound_free, picture_free, flush, race, off, NULL };
+        nothing, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off, NULL };
     load();
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,
-        menu_words.mode_menu, g.volumes, menu_words.link_game, 0, &menu_words.redraw, (int16_t)resource_german(), 0,
+        menu_words.mode_menu, g.volumes, menu_words.link_game, link_view_only(), &menu_words.redraw, (int16_t)resource_german(), 0,
         &g.tournament, &menu_words.link_lost, g.races, { 0, 0, 0 }, (uint32_t *)&menu_cheats.keys_506,
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
         &g.explode, &g.music_silent, &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        0, "", pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys };
+        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys };
+    const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
+                                 &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
+    link_central_bind(&link_menu);
     central_up = 1;
     const int32_t result = control_central(&st, &OPS);
     central_up = 0;
+    link_central_bind(NULL);
     video_set_overlay(NULL, 0, 0);
     const RaceSettings s = settings_of();
     config_dat_set_race(config_current(), &s);

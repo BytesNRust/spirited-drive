@@ -333,6 +333,10 @@ add_executable(tnfs
     game/frontend/ea_lib.c
     game/frontend/frontend.c
     game/frontend/menu_glue.c
+    game/frontend/link_game.c
+    game/frontend/link_messages.c
+    game/frontend/link_session.c
+    game/frontend/link_central.c
     game/frontend/central_glue.c
     game/frontend/menu_audio.c
     game/frontend/screens.c

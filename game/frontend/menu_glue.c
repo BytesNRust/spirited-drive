@@ -5,9 +5,12 @@
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_mode.h"
 #include "game/frontend/intro_glue.h"
+#include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
+#include "game/frontend/net_game.h"
+#include "game/frontend/net_host.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/replay_box.h"
 #include "game/frontend/save_box.h"
@@ -17,6 +20,7 @@
 #include "game/frontend/showcase_pages.h"
 #include "game/frontend/text_box.h"
 #include "game/frontend/text_entry.h"
+#include "game/frontend/text_fit.h"
 #include "game/frontend/title.h"
 #include "game/frontend/yes_no_box.h"
 #include "game/sys/input.h"
@@ -298,9 +302,82 @@ void glue_showcase(const ShowcaseGlue *in)
     showcase(&st, &ops);
 }
 
-/* the modem is out of scope (UDP only); the network branch until it is wired: no service, the menu again */
+/* the modem is out of scope (UDP only): the menu again */
 static int32_t back_to_menu(void *ctx) { (void)ctx; return 1; }
-static int32_t no_network(void *ctx) { (void)ctx; return 0; }
+
+/* --- the network screens (00454b78, 00453ef4) on the link game (link_game.c) --- */
+
+/* 00464a30: both pages black */
+static void flush(void *ctx)
+{
+    (void)ctx;
+    for (int i = 0; i < 2; i++) ea_select_default(), video_clear_back(), video_flip();
+}
+static const char *service_first(void *ctx) { (void)ctx; return link_service_first(); }
+static const char *service_next(void *ctx) { (void)ctx; return link_service_next(); }
+static int32_t fit_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
+static void fit_ramp(void *ctx, int shadow) { (void)ctx; text_ramp(shadow); }
+static void fit_draw(void *ctx, const char *text, int32_t x, int32_t y) { (void)ctx; text_draw(text, x, y); }
+static void fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t w)
+{
+    (void)ctx;
+    static const TextFitOps ops = { fit_width, fit_ramp, fit_draw, NULL };
+    text_fit_shadowed(text, x, y, w, &ops);
+}
+static void clip(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1) { (void)ctx; ea_clip(x0, y0, x1, y1); }
+static RaceNetGames *games(void *ctx, int32_t timeout) { (void)ctx; return link_games(timeout); }
+static RaceNetPlayers *players(void *ctx, const uint8_t *address) { (void)ctx; return link_players(address); }
+static void players_draw(void *ctx, const uint8_t *address)
+{
+    (void)ctx;
+    static const NetPlayersDrawOps ops = { players, style, glue_boxed, NULL };
+    net_players_draw((int16_t)resource_german(), address, &ops);
+}
+static int32_t host(void *ctx, const char *name) { (void)ctx; return link_host(name); }
+static int32_t connect(void *ctx, const uint8_t *address) { (void)ctx; return link_connect(address); }
+
+static NetGameState *net_screen;  /* 00454b78's words while it runs (its bank 004c5570 for 00453ef4) */
+
+/* 00453ef4 (net_host.c) */
+static int32_t host_join(void *ctx)
+{
+    (void)ctx;
+    static const NetHostOps ops = {
+        picture_new, select_picture, picture_shape, grab, games, clip, move_to, ticks, in_rect, sound, deadline_set,
+        shape, blit_own, style, width, fit, blit_masked, blit_at, players_draw, select_default, nothing, nothing, flip,
+        show, deadline_passed, buttons, activate, music, key, click, off, picture_free, host, connect, NULL };
+    NetHostState st = { ea_screen(), net_screen->pointer_active, net_screen->buttons, link_game.view, 0, 0,
+                        net_screen->bank, frontend_player_name };
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
+    const int32_t r = net_host_join(&st, &ops);
+    pointer_bind_active(was);
+    net_screen->pointer_active = st.pointer_active, net_screen->buttons = st.buttons, link_game.view = st.view;
+    return r;
+}
+
+static int32_t network_found(void *ctx) { (void)ctx; return link_services_found(); }
+int32_t glue_network_found(void *ctx) { return network_found(ctx); }
+
+/* 00454b78 (net_game.c): 0 to race, 1 the menu again, 2 the time ran out */
+static int32_t network_game(void *ctx)
+{
+    (void)ctx;
+    static const NetGameOps ops = {
+        move_to, flush, palette_clear, load_art, music_feed, shape, palette_set, palette_write, nothing, styles, sync,
+        service_first, service_next, mark, in_rect, style, select_picture, blit_own, fit, palette_write,
+        select_default, nothing, nothing, picture_shape, nothing, flip, show, fade_in, deadline_set, sound, ticks,
+        buttons, activate, key, click, host_join, off, music, deadline_passed, fade_out, bank_free, nothing, NULL };
+    NetGameState st = { ea_screen(), (int16_t)pointer_active(), 0, link_game.view, 0 };
+    NetGameState *const outer = net_screen;
+    net_screen = &st;
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
+    const int32_t r = net_game_menu(&st, &ops);
+    pointer_bind_active(was);
+    net_screen = outer;
+    link_game.view = st.view;
+    return r;
+}
+int32_t glue_network_game(void *ctx) { return network_game(ctx); }
 
 /* 004372e4 (title.c) */
 void glue_title_screen(int32_t state)
@@ -313,22 +390,55 @@ void glue_title_screen(int32_t state)
     menu_words.link_game = (int16_t)s.link_game, menu_words.link_lost = (int16_t)s.link_lost;
 }
 
+/* 004376ac's words while it runs: hosting or joining from its network ops changes them */
+static GameModeState *mode_state;
+
+static MenuWords words_of(const GameModeState *st)
+{
+    return (MenuWords){ st->lost, st->lost_shown, st->mode_menu, st->redraw, st->intro_seen, st->single,
+                        st->network_raced };
+}
+
+static void words_into(GameModeState *st)
+{
+    st->mode_menu = menu_words.mode_menu, st->intro_seen = menu_words.intro_seen, st->single = menu_words.single;
+    st->network_raced = menu_words.network_raced, st->lost = menu_words.link_game;
+    st->lost_shown = menu_words.link_lost, st->redraw = menu_words.redraw;
+}
+
+static int32_t mode_network_found(void *ctx)
+{
+    menu_words = words_of(mode_state);
+    const int32_t r = network_found(ctx);
+    words_into(mode_state);
+    return r;
+}
+
+static int32_t mode_network_game(void *ctx)
+{
+    menu_words = words_of(mode_state);
+    const int32_t r = network_game(ctx);
+    words_into(mode_state);
+    return r;
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
     const GameModeOps ops = { palette_clear, move_to, sound_load, load_art, music_feed, shape, palette_set, nothing,
                               in_rect, select_picture, blit_own, select_default, nothing, nothing, picture_shape,
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
-                              ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, no_network,
-                              back_to_menu, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL };
+                              ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
+                              mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
+    mode_state = &st;
     const int32_t result = game_mode_menu(resource_german(), &st, &ops);
+    mode_state = NULL;
     pointer_bind_active(was);
-    menu_words = (MenuWords){ st.lost, st.lost_shown, st.mode_menu, st.redraw, st.intro_seen, st.single,
-                              st.network_raced };
+    menu_words = words_of(&st);
     return result;
 }
 
