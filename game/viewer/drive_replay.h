@@ -26,6 +26,8 @@ typedef struct {
     DashArt *dash;        /* the controls' boxes, lit shapes and words 00513888.. (0044f55c); NULL none */
     int32_t last_key;     /* 004c53c4 */
     int32_t last_pressed; /* 004c53cc */
+    int16_t mouse_buttons;     /* 00524792 as 0044f55c last read it */
+    int32_t last_x, last_y;    /* 005137ec, 005137e8: the pointer 0044f55c saw */
     const uint8_t *file;  /* a .RPL played back (REPLAY_FILE_SIZE bytes, the caller's): 0044d514 reads it; NULL none */
     size_t file_at;       /* 0044d514's reads so far */
     uint32_t seed;        /* 004fb7f4: the race's seed, for the setup 0044d420 writes */

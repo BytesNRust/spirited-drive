@@ -5,6 +5,8 @@
 #include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/race/dash_controls.h"
+#include "game/race/race_pointer.h"
+#include "game/sys/pointer.h"
 
 enum { HIGH_RES = 1, ENGLISH = 0, START_VIEW = 3, NAME_STRIDE = 0x95 };
 
@@ -35,13 +37,34 @@ static void clip(void *ctx, int32_t left, int32_t right, int32_t top, int32_t bo
     clip_set(&c->t, left, right, top, bottom, c->d->surface_w, c->d->surface_h);  /* 0047383c */
 }
 
-/* 00441938 / 004418a4 / [004c6194] / 00463f80: no mouse */
+/* 00441938: nothing to put back, the frame is drawn whole each time; [004c6194] read without 004417f8's drawing
+ * (the menus' overlay), its answer dropped as 00450d60 drops it */
 static void no_pointer(void *ctx) { (void)ctx; }
-static void no_pointer_show(void *ctx, int32_t pointer) { (void)ctx, (void)pointer; }
-static int32_t no_buttons(void *ctx) { return (void)ctx, 0; }
-static int32_t never_inside(void *ctx, int16_t l, int16_t r, int16_t t, int16_t b)
+static int32_t buttons(void *ctx) { return (void)ctx, pointer_buttons_unseen(); }
+static int32_t inside(void *ctx, int16_t l, int16_t r, int16_t t, int16_t b) { return (void)ctx, pointer_in_rect(l, r, t, b); }
+
+/* 004418a4's calls on the frame: the screen whole (00473680 drops the panel's clip), nothing kept under it (the
+ * frame is drawn again), the pointer drawn with 0xff left out at the pointer as the menus' overlay draws it */
+static void pointer_select(void *ctx, HudSurface s) { (void)s, ((PanelCalls *)ctx)->t = *((PanelCalls *)ctx)->d->screen; }
+static void pointer_grab(void *ctx, const uint8_t *shape, int32_t x, int32_t y) { (void)ctx, (void)shape, (void)x, (void)y; }
+static void pointer_draw(void *ctx, const uint8_t *shape, int32_t x, int32_t y)
 {
-    return (void)ctx, (void)l, (void)r, (void)t, (void)b, 0;
+    if (shape != NULL) blit_shape_at_transparent(&((PanelCalls *)ctx)->t, shape, x, y);
+}
+static void pointer_warp(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
+
+/* 004418a4 with the menus' pointer art and position (00441530 loads the same mouse.fsh) */
+static void race_pointer(void *ctx, int32_t pointer)
+{
+    PanelCalls *c = ctx;
+    uint8_t *const shapes[4] = { NULL, (uint8_t *)pointer_shape(0), (uint8_t *)pointer_shape(1),
+                                 (uint8_t *)pointer_shape(2) };
+    if (pointer < 0 || pointer > 2) return;  /* port guard: the table has three */
+    int x, y;
+    pointer_position(&x, &y);
+    const RacePointerOps ops = { c, pointer_select, pointer_grab, pointer_draw, pointer_draw, pointer_warp };
+    const RacePointerInputs in = { 0, x, y, c->d->race->phase, shapes };
+    race_pointer_show(&ops, &in, &c->p->pointer, pointer);
 }
 /* 00473680(004c2da0) / 004735dc: the frame either way */
 static void select_frame(void *ctx, HudSurface s) { (void)ctx, (void)s; }
@@ -57,7 +80,7 @@ static void dash_buttons(void *ctx)
 {
     PanelCalls *c = ctx;
     const ReplayPanelDrawOps ops = draw_ops(c);
-    dash_controls_buttons(c->d->dash, HIGH_RES, ENGLISH, &ops, never_inside);
+    dash_controls_buttons(c->d->dash, HIGH_RES, ENGLISH, &ops, inside);
 }
 
 static void dash_time(void *ctx, int32_t ticks, int32_t x, int32_t y, int32_t step, int32_t space)
@@ -74,7 +97,7 @@ void drive_panel_dash(DrivePanel *p, const DrivePanelDraw *d)
     if (dir != NULL) w[DASH_PRESSED] = dir->unknown_513888, w[DASH_SPEED] = dir->unknown_513894;
     w[DASH_REDRAW] = 1;  /* the frame is drawn whole each time here: the buttons with it (the original keeps them) */
     const DashControlsFrameInputs in = { HIGH_RES, d->race->tick, dir != NULL ? dir->end_clock : 0, d->played, d->rest };
-    const DashControlsFrameOps ops = { &c, no_pointer, no_buttons, clip, dash_buttons, dash_time, rect, no_pointer_show };
+    const DashControlsFrameOps ops = { &c, no_pointer, buttons, clip, dash_buttons, dash_time, rect, race_pointer };
     dash_controls_frame(w, &p->dash_drawn_tick, &in, &ops);
     if (dir != NULL) dir->unknown_513898 = w[DASH_REDRAW];
 }
@@ -114,7 +137,7 @@ void drive_panel_replay(DrivePanel *p, const DrivePanelDraw *d)
 {
     PanelCalls c = { p, d, *d->screen };
     p->panel.whole = 1;  /* the frame is drawn whole each time here: the panel with it (the original keeps it) */
-    const ReplayPanelFrameOps ops = { &c, no_pointer, no_buttons, select_frame, clip, replay_draw, no_pointer_show };
+    const ReplayPanelFrameOps ops = { &c, no_pointer, buttons, select_frame, clip, replay_draw, race_pointer };
     replay_panel_frame(&p->panel, HIGH_RES, 1, &ops);
     d->race->view_taken = p->panel.whole;
 }

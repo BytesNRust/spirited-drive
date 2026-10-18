@@ -29,6 +29,9 @@ int pointer_buttons_unseen(void);
 void pointer_click_feedback(void);                    /* 00441814 */
 void pointer_position(int *x, int *y);                /* 004c6110 / 004c6114 */
 void pointer_mark(void);                              /* 00441858: the marks where it is */
+/* The pointer's art as 00441530 takes it for the race's (00509eb0..: "ptr0", "ptr1", "ptr2"): the raw entry of
+ * "ptr<which>", NULL when it is not loaded */
+const uint8_t *pointer_shape(int which);
 
 /* The short 00524790 itself, which the screens read while show, activate
  * and off write it: one word, as the original's. */
