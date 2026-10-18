@@ -11,7 +11,8 @@
 void drive_smoke_setup(DriveSmoke *s, const char *data_root, CrashTrail *trail)
 {
     memset(s, 0, sizeof *s);
-    snprintf(s->misc_dir, sizeof s->misc_dir, "%s/SIMDATA/MISC/", data_root);
+    snprintf(s->misc_dir, sizeof s->misc_dir, "SIMDATA/MISC/");
+    snprintf(s->root, sizeof s->root, "%s", data_root);
     s->trail = trail;
 }
 
@@ -20,12 +21,12 @@ static uint8_t *load(void *ctx, const char *path)
 {
     const DriveSmoke *s = ctx;
     size_t size = 0;
-    uint8_t *file = resource_load(path, &size);
+    char full[sizeof s->root + 0x50];  /* the root, then 00456a7c's 80 bytes */
+    snprintf(full, sizeof full, "%s/%s", s->root, path);
+    uint8_t *file = resource_load(full, &size);
     if (file != NULL) return file;
-    char upper[sizeof s->misc_dir + 16];
-    snprintf(upper, sizeof upper, "%s", path);
-    for (size_t i = strlen(s->misc_dir); upper[i] != '\0'; i++) upper[i] = (char)toupper((unsigned char)upper[i]);
-    return resource_load(upper, &size);
+    for (size_t i = strlen(s->root) + 1 + strlen(s->misc_dir); full[i] != '\0'; i++) full[i] = (char)toupper((unsigned char)full[i]);
+    return resource_load(full, &size);
 }
 
 /* 00473140 on the race's screen palette */
@@ -41,7 +42,7 @@ void drive_smoke_palette(void *ctx, RacePalette *p)
     DriveSmoke *s = ctx;
     puff_art_start(&s->art, s->trail, p, s->misc_dir, load, s);
     if (s->art.bank == NULL || s->art.palette == NULL) {
-        fprintf(stderr, "drive_smoke: no %ssmoke.qfs\n", s->misc_dir);
+        fprintf(stderr, "drive_smoke: no %s/%ssmoke.qfs\n", s->root, s->misc_dir);
         return;
     }
     s->ready = 1;

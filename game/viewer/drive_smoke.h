@@ -9,7 +9,8 @@ typedef struct {
     PuffArt art;
     PuffBlend blend;
     uint8_t table[PUFF_BLEND_SIZE];   /* 005146a8's 'lut' */
-    char misc_dir[256];               /* 005246e8 */
+    char misc_dir[256];               /* 005246e8: SIMDATA/MISC/, under root (00456a7c's 80 bytes would cut a long one) */
+    char root[256];                   /* the data root */
     CrashTrail *trail;                /* 005146ac */
     int ready;                        /* every shape and the blend in */
 } DriveSmoke;
