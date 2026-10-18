@@ -5,6 +5,10 @@
 #ifndef TNFS_INPUT_H
 #define TNFS_INPUT_H
 
+#include "game/sys/joystick.h"
+
+#include <stdint.h>
+
 enum {
     KEY_NONE = 0,
     KEY_ENTER = 0x0D,
@@ -29,8 +33,15 @@ enum {
     KEY_CTRL = 0x1D
 };
 
-/* Pumps OS events; exits the process when the window is closed. */
-int input_get_key(void);  /* 00464bd0 */
+/* 00464bd0 (menu_hot_key) on the keys held now: pumps OS events; exits the process when the window is closed. */
+int input_get_key(void);
+
+/* input_get_key's: F5's 00464a68 and the joystick for 0043d4c0 (its block, 004fcdcc, 004bb908, its read); NULL
+ * none (no sound toggle, no joystick). */
+void input_on_keys(void (*mute)(void),
+                   void (*joystick)(JoyState **j, int32_t *present, int32_t *device, const JoyOps **ops));
+/* The short 004f9e8c input_get_key reads F1..F4 by while set (the graphics screen's); NULL none. */
+void input_function_keys(const int16_t *flag);
 
 /* The OS events pumped, the pointer synced, 1 ms given back; a window closed
  * ends the process after input_on_close's hook. */

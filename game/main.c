@@ -18,6 +18,7 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tgv_player.h"
+#include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -126,6 +127,7 @@ static void joy_start_up(int german)
 {
     int16_t controls[JOY_CONTROLS] = { 0 };
     drive_joy_start(controls, (int16_t)german);
+    input_on_keys(NULL, drive_joy_menu);
 }
 
 /* --drive without --node / --screenshot: the race as the menus run it (glue_drive_race), so it ends as the

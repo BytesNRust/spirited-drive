@@ -35,4 +35,9 @@ typedef struct HotKeyOps {
 int32_t hot_key(HotKeyState *s, const uint8_t key_flags[KEY_FLAGS], JoyState *j, int32_t present, int32_t device,
                 const HotKeyOps *ops, const JoyOps *joy_ops);
 
+/* 00464bd0 (the menus' key): hot_key without the screenshot, and F1..F4 (0x3b00..0x3e00, by their key codes) after
+ * the named keys while function_keys (the short 004f9e8c, the graphics screen up) is set. */
+int32_t menu_hot_key(HotKeyState *s, const uint8_t key_flags[KEY_FLAGS], int16_t function_keys, JoyState *j,
+                     int32_t present, int32_t device, const HotKeyOps *ops, const JoyOps *joy_ops);
+
 #endif

@@ -782,7 +782,9 @@ static void graphics(void *ctx, int32_t mode)
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
         nothing, ticks, activate, key, click, off, music, nothing, deadline_passed, fade_out, free_handle_inverse,
         free_bank, ctx };
+    input_function_keys(&showing);
     graphics_menu(&st, mode, &ops);
+    input_function_keys(NULL);
     opt_out();
 }
 

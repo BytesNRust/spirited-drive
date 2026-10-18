@@ -73,6 +73,11 @@ void drive_joy_start(int16_t *controls, int16_t german)
 
 const JoyStart *drive_joy_state(void) { return &start; }
 
+void drive_joy_menu(JoyState **j, int32_t *present, int32_t *device, const JoyOps **ops)
+{
+    *j = &joy, *present = start.present, *device = start.device, *ops = &JOY;
+}
+
 void drive_joy_pad_read(InputPad *pad)
 {
     joy_pad_read(&joy, &start, &JOY);

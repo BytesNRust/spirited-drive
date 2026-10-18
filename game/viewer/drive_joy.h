@@ -17,6 +17,9 @@ void drive_joy_start(int16_t *controls, int16_t german);
 
 const JoyStart *drive_joy_state(void);
 
+/* The menus' joystick (input_on_keys): the block, 004fcdcc, 004bb908 and the read 0043d4c0 polls */
+void drive_joy_menu(JoyState **j, int32_t *present, int32_t *device, const JoyOps **ops);
+
 /* 0043d598 into the race's pad (004fce54, 004fce58, 004fce68) */
 void drive_joy_pad_read(InputPad *pad);
 

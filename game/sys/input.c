@@ -1,5 +1,6 @@
 #include "game/sys/input.h"
 
+#include "game/sys/hot_key.h"
 #include "game/sys/pointer.h"
 #include "game/sys/video.h"
 #include "platform/platform.h"
@@ -7,24 +8,34 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-enum {
-    SC_CTRL = 0x1D,
-    SC_ALT = 0x38,
-    SC_F5 = 0x3F,
-    SC_F10 = 0x44
-};
+enum { KEYS_READ = 0x80 };  /* 004c693c's flags, one a scancode */
 
-/* 00464bd0's list after the Ctrl+F10 and F5 checks: scancode -> result. */
-static const struct {
-    int scancode;
-    int key;
-} PRIORITY[] = {
-    { 0x01, KEY_ESCAPE }, { 0x39, KEY_SPACE }, { 0x1C, KEY_ENTER },
-    { 0x48, KEY_UP }, { 0x50, KEY_DOWN }, { 0x4B, KEY_LEFT }, { 0x4D, KEY_RIGHT },
-    { 0x52, KEY_INSERT }, { 0x53, KEY_DELETE },
-    { 0x3B, KEY_F1 }, { 0x3C, KEY_F2 }, { 0x3D, KEY_F3 }, { 0x3E, KEY_F4 },
-    { 0x2A, KEY_LSHIFT }, { 0x36, KEY_RSHIFT },
-};
+/* 00464bd0's hooks: F5's 00464a68, the short 004f9e8c, the joystick (0043d4c0's) */
+static void (*on_mute)(void);
+static const int16_t *function_keys;
+static void (*joystick)(JoyState **j, int32_t *present, int32_t *device, const JoyOps **ops);
+
+static void mute(void *ctx)
+{
+    (void)ctx;
+    if (on_mute != NULL) on_mute();
+}
+
+static void no_shot(void *ctx, const char *name) { (void)ctx, (void)name; }
+
+static int32_t no_joy_read(void *ctx, int32_t device, uint32_t *buttons, int32_t axis[JOY_AXES])
+{
+    (void)ctx, (void)device, (void)buttons, (void)axis;
+    return 0;
+}
+
+void input_on_keys(void (*mute_hook)(void),
+                   void (*joystick_hook)(JoyState **j, int32_t *present, int32_t *device, const JoyOps **ops))
+{
+    on_mute = mute_hook, joystick = joystick_hook;
+}
+
+void input_function_keys(const int16_t *flag) { function_keys = flag; }
 
 static void (*on_close)(void);
 
@@ -50,22 +61,18 @@ void input_pump(void)
 int input_get_key(void)
 {
     input_pump();
-    if (platform_key_down(SC_F10) && platform_key_down(SC_CTRL)) {
-        return KEY_NONE;  /* TODO(network): Ctrl+F10 drops a net game (0052b314) */
-    }
-    if (platform_key_down(SC_F5)) {
-        return KEY_NONE;  /* TODO(00464a68): F5 handler */
-    }
-    for (size_t i = 0; i < sizeof PRIORITY / sizeof PRIORITY[0]; i++) {
-        if (platform_key_down(PRIORITY[i].scancode)) return PRIORITY[i].key;
-    }
-    /* TODO(00464bd0): the Ctrl/Alt/J tail is read from a partial decompile;
-     * confirm the exact nesting against the disassembly. */
-    if (platform_key_down(SC_CTRL)) return platform_key_down(SC_ALT) ? KEY_ALT : KEY_CTRL;
-    if (platform_key_down(0x15)) return KEY_Y;
-    if (platform_key_down(0x31)) return KEY_N;
-    if (platform_key_down(0x24)) return KEY_J;
-    return KEY_NONE;
+    uint8_t flags[KEY_FLAGS];
+    for (int sc = 0; sc < KEYS_READ; sc++) flags[sc] = platform_key_down(sc) ? 1 : 0;
+    static JoyState none;
+    static const JoyOps NO_JOY = { NULL, no_joy_read };
+    JoyState *j = &none;
+    int32_t present = 0, device = 0;
+    const JoyOps *joy_ops = &NO_JOY;
+    if (joystick != NULL) joystick(&j, &present, &device, &joy_ops);
+    /* Ctrl+F10's drop of a net game (0052b314) is the link's: TODO(network) */
+    HotKeyState s = { 0 };
+    return menu_hot_key(&s, flags, function_keys != NULL ? *function_keys : 0, j, present, device,
+                        &(const HotKeyOps){ NULL, no_shot, mute }, joy_ops);
 }
 
 /* German characters the name field accepts (004626d0), Unicode -> CP437. */
