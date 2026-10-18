@@ -14,6 +14,8 @@ const uint8_t *ea_shape(int32_t bank, const char *tag);       /* 004732dd: NULL 
 int32_t ea_picture_new(int32_t w, int32_t h);                 /* 0047310c: 0 when there is no room */
 void ea_picture_free(int32_t picture);                        /* 004746a0 */
 int32_t ea_picture_shape(int32_t picture);                    /* the picture's +0x2c: its shape */
+/* port: a picture's w x h pixels after its header, its size from the header; NULL when it is none */
+uint8_t *ea_picture_pixels(int32_t picture, int32_t *w, int32_t *h);
 int32_t ea_screen(void);                                      /* 00524834: the screen's 640 x 480 picture */
 int32_t *ea_screen_slot(void);                                /* 00524834 itself, for a screen that frees it */
 void ea_free(int32_t handle);                                 /* 00475260: a bank or a picture */

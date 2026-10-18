@@ -109,6 +109,14 @@ int32_t ea_picture_shape(int32_t picture)
     return picture_of(picture) != NULL ? PICTURE_SHAPE | picture : 0;
 }
 
+uint8_t *ea_picture_pixels(int32_t picture, int32_t *w, int32_t *h)
+{
+    uint8_t *const p = picture_of(picture);
+    if (p == NULL) return NULL;
+    *w = le16(p + 4), *h = le16(p + 6);
+    return p + ENTRY_HEADER;
+}
+
 int32_t ea_screen(void)
 {
     return *ea_screen_slot();

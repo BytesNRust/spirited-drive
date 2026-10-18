@@ -2,7 +2,8 @@
 #include "viewer/drive_menu.h"
 
 #include "viewer/drive_audio.h"
-#include "game/frontend/dialog.h"
+#include "game/frontend/ea_lib.h"
+#include "game/frontend/menu_glue.h"
 #include "game/gfx/blit.h"
 #include "game/platform/platform.h"
 #include "game/race/race_camera.h"
@@ -116,7 +117,7 @@ static void set_palette(void *ctx, uint32_t address, const uint8_t *palette)
 }
 
 static void mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
-static void clip(void *ctx, int32_t l, int32_t t, int32_t r, int32_t b) { (void)ctx, (void)l, (void)t, (void)r, (void)b; }
+static void clip(void *ctx, int32_t l, int32_t t, int32_t r, int32_t b) { (void)ctx, ea_clip(l, t, r, b); }  /* 0047723c */
 static void surface_free(void *ctx, uint32_t s) { (void)ctx, (void)s; }
 static uint32_t surface_new(void *ctx, int32_t w, int32_t h) { return (void)ctx, (void)w, (void)h, MENU_SURFACE; }
 static void select_surface(void *ctx, uint32_t s) { (void)ctx, (void)s; }
@@ -183,7 +184,7 @@ static void blit_at(void *ctx, const uint8_t *shape, int32_t x, int32_t y)
 static int16_t buttons(void *ctx) { return (void)ctx, pointer_sync_from_os(), (int16_t)pointer_read_buttons(); }
 static int32_t ticks(void *ctx) { return (void)ctx, timer_ticks_since_last(); }
 static uint16_t key(void *ctx) { return (void)ctx, (uint16_t)input_get_key(); }
-static int16_t ask(void *ctx, const char *question) { return (void)ctx, (int16_t)dialog_yes_no(question); }
+static int16_t ask(void *ctx, const char *question) { return (void)ctx, (int16_t)glue_yes_no(NULL, question); }  /* 00465f4c */
 static void notice(void *ctx, const char *text, int32_t time) { (void)ctx, (void)text, (void)time; }
 static void net_send(void *ctx, int32_t to) { (void)ctx, (void)to; }
 static int32_t net_wait(void *ctx, int32_t what) { return (void)ctx, (void)what, 1; }
@@ -224,7 +225,11 @@ void drive_menu_run(void *menu)
 {
     DriveMenu *m = menu;
     if (!m->ready || m->race->track < 0) return;  /* no map past track 8: 00447564 draws none, --drive opens none */
-    static uint8_t pixels[VIDEO_WIDTH * VIDEO_HEIGHT];
+    /* 00524834, the screen the Yes / No box (00465f4c) grabs; the menu's own surface when there is no such picture */
+    static uint8_t own[VIDEO_WIDTH * VIDEO_HEIGHT];
+    int32_t sw = 0, sh = 0;
+    uint8_t *pixels = ea_picture_pixels(ea_screen(), &sw, &sh);
+    if (pixels == NULL || sw != VIDEO_WIDTH || sh != VIDEO_HEIGHT) pixels = own;
     RaceMenuWorld w = { 0 };
     world_from_race(m, &w);
     MenuCtx c = { m, &w, pixels, platform_ticks_ms() };

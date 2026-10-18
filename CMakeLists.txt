@@ -329,7 +329,6 @@ endif()
 add_executable(tnfs
     game/main.c
     game/frontend/config.c
-    game/frontend/dialog.c
     game/frontend/ea_lib.c
     game/frontend/frontend.c
     game/frontend/menu_glue.c
@@ -340,7 +339,6 @@ add_executable(tnfs
     game/frontend/central_glue.c
     game/frontend/menu_audio.c
     game/frontend/screens.c
-    game/frontend/text_field.c
     game/sys/input.c
     game/sys/pointer.c
     game/sys/resource.c
