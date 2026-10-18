@@ -687,6 +687,40 @@ typedef struct {
     int32_t unknown_4fbb0c;
 } RaceNetSerial;
 
+/* The network's start (004100ec): its locks, the transport's times and the driver's name */
+enum {
+    RACE_NET_MUTEX_FAILED = 0x4ad71c,                           /* "Error: All mutexes weren't allocated." */
+    RACE_NET_DRIVER_NAME = 0x4ad764, RACE_NET_DRIVER_NAME_G = 0x4ad744,  /* "DOS Compatible IPX Connection" / German */
+    RACE_NET_PLAYER_TIME = 0x44c, RACE_NET_PULSE_TIME = 0x32, RACE_NET_OPEN_TIME = 0xbb8, RACE_NET_POOL_TAG = 0x20
+};
+
+typedef struct {
+    void *ctx;
+    uint32_t (*mutex)(void *ctx);                      /* 00476c68: CreateMutexA's handle, 0 failed */
+    void (*fatal)(void *ctx, uint32_t text);           /* 00477a40 (cdecl) */
+    void (*tcp)(void *ctx);                            /* 0047fab0: the TCP layer's hooks */
+    void (*driver)(void *ctx, uint32_t name);          /* 00481e78 (eax the name): the IPX driver listed */
+    void (*services)(void *ctx);                       /* 00442514 */
+} RaceNetStartupOps;
+
+/* The words 004100ec writes; german read */
+typedef struct {
+    uint32_t lock;                    /* 004f815c */
+    uint32_t chat_lock;               /* 004f824c */
+    uint32_t input_lock;              /* 004f8160 */
+    int32_t unknown_4c62a4, unknown_4c62a8, unknown_4c6300, unknown_4c6304;  /* the transport's: 004c62a4 now, 004c62a8 stamp, 004c6300 open, 004c6304 pool */
+    int32_t unknown_4c636c, unknown_4c637c, unknown_4c6384;
+    int16_t german;                   /* 0052b31c */
+} RaceNetStartup;
+
+/* 004100ec (watcall (), from 00437540): 004f815c, 004f824c then 004f8160
+ * each 00476c68(); any 0 (004f815c and 004f824c read back, the third its
+ * eax): 00477a40("Error: All mutexes weren't allocated."), and on. 004c62a4
+ * = 0x44c, 004c62a8 = 0x32, 004c6300 = 0xbb8, 004c6304 = 0x20, 004c636c,
+ * 004c637c and 004c6384 = 0; 0047fab0(); 00481e78("DOS Compatible IPX
+ * Verbindung" with 0052b31c, else "... Connection"); 00442514. */
+void race_net_startup(const RaceNetStartupOps *ops, RaceNetStartup *s);
+
 /* 0045147c (watcall (), from 00451320): 0044655c, then entry 0's +4..+0x1c
  * 1, 0x19, 5, 10, 00451450, 004460cc, 00446058; +0x28 0052ac92, +0x2c
  * 1 << (0052ac94 & 31), +0x30 0052ac90, +0x34 / +0x38 0, +0x3c 3, +0x40 1,

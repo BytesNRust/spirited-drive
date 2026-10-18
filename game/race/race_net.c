@@ -1094,3 +1094,17 @@ int32_t race_net_ping_all(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
     p->unknown_4fbac8 = ops->latency(ops->ctx, largest);
     return largest;
 }
+
+void race_net_startup(const RaceNetStartupOps *ops, RaceNetStartup *s)
+{
+    s->lock = ops->mutex(ops->ctx);
+    s->chat_lock = ops->mutex(ops->ctx);
+    s->input_lock = ops->mutex(ops->ctx);
+    if (s->lock == 0 || s->chat_lock == 0 || s->input_lock == 0) ops->fatal(ops->ctx, RACE_NET_MUTEX_FAILED);
+    s->unknown_4c62a4 = RACE_NET_PLAYER_TIME, s->unknown_4c62a8 = RACE_NET_PULSE_TIME;
+    s->unknown_4c6300 = RACE_NET_OPEN_TIME, s->unknown_4c6304 = RACE_NET_POOL_TAG;
+    s->unknown_4c636c = 0, s->unknown_4c637c = 0, s->unknown_4c6384 = 0;
+    ops->tcp(ops->ctx);
+    ops->driver(ops->ctx, s->german != 0 ? RACE_NET_DRIVER_NAME_G : RACE_NET_DRIVER_NAME);
+    ops->services(ops->ctx);
+}
