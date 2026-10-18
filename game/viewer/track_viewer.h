@@ -2,6 +2,9 @@
 #ifndef TNFS_TRACK_VIEWER_H
 #define TNFS_TRACK_VIEWER_H
 
+#include "game/race/input_queue.h"
+#include "game/race/race_state.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -69,6 +72,11 @@ typedef struct TrackViewerLink {
     void (*chat)(void);                 /* 0040a5d8 */
     int16_t *stage_flag;                /* 0050a5b6, the link's: the stage the host sent */
     int16_t *lost;                      /* 0052b314, the link's: the game dropped */
+    int16_t *stand_ins;                 /* 004f829e, the link's: the kind word, then each player's stand-in */
+    void (*drop)(int16_t player);       /* 004463ec */
+    /* While the race runs: its queues (004faa7c), records (0051cc54) and 0041019c, for the link's own handlers
+     * (004460cc's lost link, 004463ec, kind 10); all NULL after */
+    void (*racing)(InputQueue *queues, PlayerRecord *records, void (*stand_in)(int16_t player));
 } TrackViewerLink;
 void track_viewer_drive_link(const TrackViewerLink *link);
 

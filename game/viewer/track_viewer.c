@@ -978,6 +978,8 @@ static int load_specs(const char *data_root, int model, CarSpecs *specs)
     return ok;
 }
 
+static void link_stand_in(int16_t player);
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
@@ -1033,9 +1035,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
-    if (drive_link_on) {  /* 004275f8 in a link game: 0052b312 1, this machine's car and side */
+    if (drive_link_on) {  /* 004275f8 in a link game: 0052b312 1, this machine's car followed and viewed, its side */
         RaceState *race = &drive_sim.race;
-        race->playback = 1, race->player = drive_link.slot;
+        race->playback = 1, race->player = race->viewed = drive_link.slot;
         race->unknown_4fbb0c = drive_link.host, race->unknown_4fb7d4 = 1;
     }
     drive_joy_install(&drive_sim.race);
@@ -1043,9 +1045,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         memcpy(drive_sim.race.game_state, menus.game_state, sizeof drive_sim.race.game_state);
     results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
+    drive_input.hud = &drive_hud.hud;
     if (drive_link_on) {
-        drive_input.link = &drive_link;
+        drive_input.link = &drive_link, drive_input.stand_in_block = drive_link.stand_ins;
         for (int i = 0; i < drive_link.humans; i++) drive_input.queues[i].active = 1;
+        drive_link.racing(drive_input.queues, drive_sim.race.players, link_stand_in);
     }
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
@@ -1268,6 +1272,15 @@ static void run_send_none(void *ctx, int32_t to, const int16_t *words, int32_t s
     if (drive_link_on) drive_link.send(to, words, size);
 }
 static int32_t run_linked(void *ctx, int32_t player) { (void)ctx, (void)player; return 1; }
+/* 0041019c for the link's handlers: the player stood in, sent round */
+static void link_stand_in(int16_t player)
+{
+    const RaceState *race = &drive_sim.race;
+    const InputStandInWords w = { (int16_t)race->race_type, race->replay, race->playback, race->player, drive_link.host };
+    const InputSendOps send = { NULL, run_send_none };
+    if (player >= 0 && player < RACE_PLAYERS) input_stand_in(player, drive_input.stand_in_block, drive_sim.race.players, &w, &send);
+}
+
 static void run_stand_in_start(void *ctx)
 {
     const InputStandInStartWords w = { drive_link_on ? drive_link.host : 1, drive_sim.race.playback, drive_sim.race.racers,
@@ -1367,7 +1380,8 @@ static int drive_window(const Track *t, uint8_t *pixels)
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
-    drive_input.store_clock = &r.store_clock, drive_input.late = &r.late, drive_link_run = &w;
+    drive_input.store_clock = &r.store_clock, drive_input.late = &r.late, drive_input.timer = &w.timer;
+    drive_link_run = &w;
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
@@ -1500,8 +1514,9 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     free(pixels);
     free_drive();
     free_track(&t);
+    if (drive_link_on) drive_link.racing(NULL, NULL, NULL);
     menus_on = 0, drive_link_on = 0;
-    drive_input.link = NULL;
+    drive_input.link = NULL, drive_input.stand_in_block = drive_input.own_stand_ins;
     return ok;
 }
 

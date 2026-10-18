@@ -25,6 +25,8 @@ typedef struct {
     int32_t waits;
     int16_t *dropped;
     InputTickWords *tick;
+    uint32_t wait_ms;           /* when the wait for this player's word began */
+    int32_t idle;               /* the idle count last written (004397f4 sets 0 for each player) */
 } DriveCtx;
 
 static void no_range(void *ctx, int32_t l, int32_t t, int32_t r, int32_t b) { (void)ctx, (void)l, (void)t, (void)r, (void)b; }
@@ -68,7 +70,7 @@ static void wait_service(void *ctx)
 
 /* --- a link race --- */
 
-enum { LINK_TIMER = 500, WAIT_MS = 1, TICK_MS = 10 };  /* 004bb8d8 past its hold; a wait's sleep; 100 Hz ticks */
+enum { WAIT_MS = 1, TICK_MS = 10, NOTICE_TICKS = 120 };  /* a wait's sleep; 100 Hz ticks; the slow notice's time */
 
 static void link_send(void *ctx, int32_t to, const int16_t *words, int32_t size)
 {
@@ -84,30 +86,54 @@ static void link_store(void *ctx)
     input_store(c->in->queues, c->in->store_clock, c->race->humans, c->in->stand_in_block + 1, &send);
 }
 
-/* 00475c14 while a slot is not in: the transport serviced, the idle count (004bb8dc) counted in ticks */
+/* 0041e324, 0041e318, 0041e340: the network's notices on the HUD */
+static void notice_slow(void *ctx)
+{
+    const DriveCtx *c = ctx;
+    c->in->hud->waiting = 1, c->in->hud->lights_until = c->race->tick + NOTICE_TICKS;
+}
+
+static void notice_lost(void *ctx) { ((const DriveCtx *)ctx)->in->hud->lost = 1; }
+
+static void notice_off(void *ctx)
+{
+    const DriveCtx *c = ctx;
+    c->in->hud->lost = 0, c->in->hud->lights_until = c->race->tick;
+}
+
+/* 004463ec: the player given up */
+static void link_drop(void *ctx, int16_t player) { ((const DriveCtx *)ctx)->in->link->drop(player); }
+
+/* 00475c14 while a slot is not in: the transport serviced, the idle count (004bb8dc) the time waited in ticks */
 static void link_wait(void *ctx)
 {
     DriveCtx *c = ctx;
+    if (c->waits++ == 0 || c->tick->idle != c->idle) c->wait_ms = platform_ticks_ms();
     c->in->link->service();
     platform_sleep_ms(WAIT_MS);
-    c->tick->idle = ++c->waits * WAIT_MS / TICK_MS;
+    c->tick->idle = c->idle = (int32_t)((platform_ticks_ms() - c->wait_ms) / TICK_MS);
 }
 
 static uint32_t link_tick(DriveInput *in, RaceState *race)
 {
     const struct TrackViewerLink *l = in->link;
     l->service();  /* the original's transport runs on its own thread (0049ceb8): here once a tick */
-    DriveCtx c = { in, race, { 1, 0, l->host, l->slot, 0, 0 }, 0, NULL, NULL };
+    DriveCtx c = { in, race, { 1, 0, l->host, l->slot, 0, 0 }, 0, NULL, NULL, 0, 0 };
     const InputPollOps poll = { &c, read_word, link_send, put_word, link_store };
     InputPollWords pw = { race->replay, 1, l->slot, l->host, *in->late, 0 };
     input_poll(&poll, &pw);
     *in->late = pw.late;
-    InputTickWords tw = { race->humans, 0, LINK_TIMER, in->ticks, 0, 0, 0, 1, 0, 1, l->host, l->slot, 0 };
+    if (*l->lost != 0) race->dropped = *l->lost;  /* 0052b314 is the link's too */
+    InputTickWords tw = { race->humans, 0, *in->timer, in->ticks, in->notice_on, in->notice_until, 0, 1,
+                          (int16_t)race->dropped, 1, l->host, l->slot, 0 };
     c.dropped = &tw.dropped, c.tick = &tw;
-    const InputTickOps tick = { &c, take_word, no_call, link_wait, no_call, no_call, no_call, no_drop };
+    const InputTickOps tick = { &c, take_word, no_call, link_wait, notice_slow, notice_lost, notice_off, link_drop };
     uint32_t inputs[RACE_PLAYERS] = { 0 };
     input_tick(&tick, &tw, in->ticks, in->queues, inputs, in->stand_in_block + 1, race->players, race->launch_ready);
     in->ticks += 2;
+    in->notice_on = tw.notice_on, in->notice_until = tw.notice_until;
+    race->dropped = tw.dropped;
+    if (race->dropped != 0) *l->lost = (int16_t)race->dropped;
     for (int32_t i = 1; i < race->humans && i < RACE_PLAYERS; i++) race->inputs[i] = inputs[i];
     return inputs[0];
 }
@@ -124,6 +150,7 @@ void drive_input_start(DriveInput *in, RaceState *race)
         config[i] = w != NULL ? (int16_t)(uint16_t)(w[0] | w[1] << 8) : DEFAULT_CONFIG[i];
     }
     input_setup(config, (int16_t)resource_german(), 0, race->controls, in->codes, &w4fb788);
+    in->stand_in_block = in->own_stand_ins;
     in->queues[0].active = 1;
 }
 
@@ -136,7 +163,7 @@ void drive_input_read_keys(DriveInput *in)
 uint32_t drive_input_tick(DriveInput *in, RaceState *race)
 {
     if (in->link != NULL) return link_tick(in, race);
-    DriveCtx c = { in, race, { race->playback, 0, 1, 0, 0, 0 }, 0, NULL, NULL };
+    DriveCtx c = { in, race, { race->playback, 0, 1, 0, 0, 0 }, 0, NULL, NULL, 0, 0 };
     const InputPollOps poll = { &c, read_word, no_send, put_word, no_call };
     InputPollWords pw = { race->replay, race->playback, 0, 1, 0, 0 };
     input_poll(&poll, &pw);

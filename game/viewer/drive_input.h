@@ -6,6 +6,7 @@
 
 #include "game/race/input_queue.h"
 #include "game/race/input_setup.h"
+#include "game/race/hud.h"
 #include "game/race/race_state.h"
 
 #include <stdint.h>
@@ -16,11 +17,15 @@ typedef struct {
     InputQueue queues[RACE_PLAYERS];  /* 004faa7c */
     int32_t codes[INPUT_KEY_CODES];   /* 004fb6dc */
     uint8_t keys[256];                /* 004c693c: a flag per key code */
-    int16_t stand_in_block[1 + RACE_PLAYERS];  /* 004f829e: the kind word (0041019c), then 004f82a0's stand-ins */
+    int16_t own_stand_ins[1 + RACE_PLAYERS];   /* 004f829e racing alone */
+    int16_t *stand_in_block;          /* 004f829e: the kind word (0041019c), then 004f82a0's stand-ins; a link race's are the link's */
     int32_t ticks;                    /* the tick's clock (004bb8e0's role): twice the ticks taken */
     const struct TrackViewerLink *link;  /* a link race's (track_viewer.h), NULL racing alone */
     int32_t *store_clock;             /* 004fb7a0, the run's: the host's store steps it */
     int32_t *late;                    /* 004fb790, the run's: a client's polls sent */
+    int32_t *timer;                   /* 004bb8d8, the run's */
+    HudState *hud;                    /* 004f9a8c / 004f9a94 / 004f9a98: the network notices */
+    int32_t notice_on, notice_until;  /* 004fb7a8, 004fb7a4 */
 } DriveInput;
 
 /* 00426ddc on config.dat's control words (its defaults when it was not loaded) for player 0; the player's queue on. */
