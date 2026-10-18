@@ -27,6 +27,7 @@ enum {
 static SoundDriver driver;
 static SoundBank banks[RACE_SOUND_BANKS];
 static uint8_t *files[RACE_SOUND_BANKS];
+static size_t file_sizes[RACE_SOUND_BANKS];
 static const char *root;
 static int open_;
 static int mixing;           /* the driver set up: the device's thread mixes it */
@@ -187,7 +188,7 @@ void drive_audio_load(void *user, const char *name)
         platform_free_file(file);
         return;
     }
-    files[i] = file;
+    files[i] = file, file_sizes[i] = size;
     loaded->registered[i] = (uint32_t)slot;
     loaded->file[i] = (uint32_t)i;
     loaded->count = i + 1;
@@ -199,14 +200,21 @@ static void bank_unregister(void *ctx, uint32_t bank)
     lock(), sound_bank_unregister(&driver, (int32_t)bank), unlock();
 }
 
-/* under the lock: a voice still on the file stops mixing it before it goes */
+/* under the lock: a voice still on the file stops mixing it before it goes. 0048edfc leaves the voices playing (the
+ * original's freed block kept its bytes); here the device's thread would read freed memory (a replay's teardown,
+ * race_sound_end, with a crash sound still running) */
 static void bank_free(void *ctx, uint32_t file)
 {
     (void)ctx;
     if (file >= RACE_SOUND_BANKS) return;
     lock();
+    const uint8_t *from = files[file], *to = from + file_sizes[file];
+    for (uint32_t k = 0; from != NULL && k < SOUND_VOICES; k++) {
+        const MixVoice *v = driver.mixer.voice[k];
+        if (v != NULL && v->on && v->data >= from && v->data < to) sound_voice_stop(&driver.mixer, k);
+    }
     platform_free_file(files[file]);
-    files[file] = NULL;
+    files[file] = NULL, file_sizes[file] = 0;
     unlock();
 }
 
