@@ -77,6 +77,7 @@ add_library(tnfs_game STATIC
     game/frontend/credits.c
     game/frontend/controls_menu.c
     game/frontend/audio_menu.c
+    game/frontend/graphics_menu.c
     game/frontend/load_save2.c
     game/frontend/net_game.c
     game/frontend/net_host.c
