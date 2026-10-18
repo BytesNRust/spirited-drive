@@ -165,6 +165,12 @@ void ea_blit_at(const uint8_t *shape, int32_t x, int32_t y)
     if (entry_of(shape, &e)) video_blit(&e, x, y);
 }
 
+void ea_blit_masked_at(const uint8_t *shape, int32_t x, int32_t y)
+{
+    FshEntry e;
+    if (entry_of(shape, &e)) video_blit_transparent(&e, x, y);
+}
+
 void ea_save(int32_t shape, int32_t x, int32_t y)
 {
     FshEntry e;

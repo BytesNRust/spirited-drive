@@ -15,13 +15,17 @@
 #include "game/frontend/credits.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/key_capture.h"
+#include "game/frontend/file_list.h"
+#include "game/frontend/game_list.h"
 #include "game/frontend/key_name.h"
+#include "game/frontend/load_save.h"
 #include "game/frontend/lap_times.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_race.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
 #include "game/frontend/race_settings.h"
+#include "game/frontend/save_files.h"
 #include "game/frontend/record_check.h"
 #include "game/frontend/results_screen.h"
 #include "game/frontend/standings.h"
@@ -662,7 +666,73 @@ static void graphics(void *ctx, int32_t mode)
     opt_out();
 }
 
-/* TODO(0042c498): load / save */
+/* 0042ae9c's and 0042c498's words: the shorts 004fa9ac (check/'s art) and 004bad00 (a highlight), the names
+ * 004fa1dc, the game state kept 00524838, 004fbad8's bytes kept around a replay */
+static int16_t list_check, list_highlight;
+static uint8_t list_names[(GAME_LIST_NAMES + 1) * FILE_LIST_NAME];
+static uint8_t game_kept[GAME_LIST_STATE];
+static uint8_t replay_race[LOAD_SAVE_RACE];
+
+/* 0042ae9c's calls on the player's directory (save_files.h): no directories to change into */
+static void no_cwd(void *ctx, char *out) { (void)ctx; out[0] = 0; }
+static void no_chdir(void *ctx, const char *path) { (void)ctx, (void)path; }
+static const char *find_first(void *ctx, const char *pattern) { (void)ctx; return save_files_first(pattern); }
+static const char *find_next(void *ctx) { (void)ctx; return save_files_next(); }
+static void masked_at(void *ctx, const uint8_t *s, int32_t x, int32_t y) { (void)ctx; ea_blit_masked_at(s, x, y); }
+static void remove_save(void *ctx, const char *path) { (void)ctx; save_files_remove(path); }
+static void game_load(void *ctx, const char *name) { (void)ctx; game_file_load(name, game_state, &save_files_ops); }
+static void redraw_pointer(void *ctx) { (void)ctx; pointer_show(); }
+
+/* 0042ae9c on config.dat's image and the menus' game state */
+static int32_t game_list(void *ctx, int32_t mode)
+{
+    uint8_t *const image = config_current()->image;
+    GameListState st = { resource_german(), list_check, list_highlight, ea_screen(), "", "", list_names,
+                         &g.pointer_active, &g.buttons, image + 9, (char *)image + 0x3b, game_state, game_kept,
+                         image + CONTROLS_AT, &g.lost_vegas, &g.tournament };
+    const GameListOps ops = {
+        styles, picture_new, picture_shape, select_picture, grab, load_art, music_feed, no_cwd, no_chdir, find_first,
+        find_next, clip, move_to, ticks, in_rect, sound, deadline_set, shape, audio_blit_at, style, fit, masked_at,
+        select_default, nothing, blit_word, blit_at, nothing, flip, show, deadline_passed, nothing, buttons,
+        activate, music, key, click, glue_yes_no, remove_save, glue_banner_wait, game_load, music_fade_to,
+        redraw_pointer, off, blit_masked, picture_free, free_bank, ctx };
+    return game_list_screen(mode, &st, &ops);
+}
+static void save_box(void *ctx, char *name)
+{
+    (void)ctx;
+    glue_save_box(name, config_current()->image, game_state, (int16_t)g.lost_vegas);
+}
+static void replay_box(void *ctx, char *name) { (void)ctx; glue_replay_box(name, config_current()->image); }
+static void clear_one(void *ctx) { (void)ctx; ea_select_default(), video_clear_back(), video_flip(); }
+static void no_replay(void *ctx, int32_t mode, const char *path) { (void)ctx, (void)mode, (void)path; }
+static void no_mode_set(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
+
+/* 0042c498 from Options (mode 0) on config.dat's image, its shorts copied around it to aligned ones; no replay
+ * file is listed yet (TODO(0042a5e8, 004275f8): replays saved and played from here) */
+static void load_save(void *ctx, int32_t mode)
+{
+    ConfigDat *const config = config_current();
+    opt_in();
+    int16_t variant = image_short(0x93), replay_flag = image_short(0xaf);
+    LoadSaveState st = {
+        resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), g.pointer_active, &g.buttons,
+        ea_screen_slot(), &g.inverse, &list_check, &variant, &list_highlight, &replay_flag, replay_race,
+        &g.music_silent, g.volumes, { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f),
+        (const char *)config->image + 9, (const char *)config->image + 0x3b };
+    const LoadSaveOps ops = {
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, in_rect,
+        select_picture, blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in,
+        styles, deadline_set, sound, ticks, activate, key, click, game_list, save_box, replay_box,
+        free_handle_inverse, free_bank, music_fade_out, fade_out, music_end, picture_free, sound_free, clear_one,
+        clip, no_replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
+        deadline_passed, ctx };
+    load_save_menu(mode, &st, &ops);
+    memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_flag, sizeof replay_flag);
+    opt_out();
+    g.unlock_level = (int16_t)config_dat_unlock_level(config);
+}
+
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -672,7 +742,7 @@ static void options(void *ctx)
     const OptionsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
-        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, no_mode,
+        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, nothing,
         deadline_passed, ctx };
     static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */

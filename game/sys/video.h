@@ -49,5 +49,6 @@ void video_blit(const FshEntry *shape, int x, int y);                 /* 004737d
 void video_blit_at_own_position(const FshEntry *shape);               /* 004737ec */
 /* Same with 0xFF transparent (highlight frames and arrows). */
 void video_blit_transparent_at_own_position(const FshEntry *shape);   /* 00473ab4 */
+void video_blit_transparent(const FshEntry *shape, int x, int y);      /* 00473a98 */
 
 #endif

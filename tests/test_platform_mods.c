@@ -145,6 +145,19 @@ int main(void)
     CHECK(!platform_write_user_file("sub/dir", cfg, sizeof cfg));
     CHECK(!platform_write_user_file("..", cfg, sizeof cfg));
 
+    /* saved games: listed by pattern (case ignored, sorted), tested and removed by plain names */
+    CHECK(platform_write_user_file("ZED.SAV", cfg, sizeof cfg));
+    CHECK(platform_write_user_file("amy.sav", cfg, sizeof cfg));
+    CHECK(platform_user_file_exists("ZED.SAV") && !platform_user_file_exists("NONE.SAV"));
+    int count = 0;
+    char **names = platform_list_user_files("*.SAV", &count);
+    CHECK(names != NULL && count == 2 && strcmp(names[0], "amy.sav") == 0 && strcmp(names[1], "ZED.SAV") == 0);
+    platform_free_names(names);
+    CHECK(platform_list_user_files("*.RPL", &count) == NULL && count == 0);
+    CHECK(platform_remove_user_file("ZED.SAV") && !platform_user_file_exists("ZED.SAV"));
+    CHECK(!platform_remove_user_file("../config.dat"));
+    CHECK(platform_remove_user_file("amy.sav"));
+
     /* the data root was not written */
     CHECK(tree_sum(cd) == cd_before);
     CHECK(platform_set_mods(cd, NULL));

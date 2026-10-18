@@ -513,20 +513,25 @@ void platform_free_file(uint8_t *data)
 
 /* The writable directory of the game, from SDL_GetPrefPath; NULL when the
  * platform has none. */
-static const char *user_path(const char *name, char *out, size_t out_size)
+static const char *user_dir(char *out, size_t out_size)
 {
     static char *pref;
-    if (strpbrk(name, "/\\") != NULL || strcmp(name, "..") == 0) return NULL;
     if (mods_dir_path[0] != '\0') {   /* with a mods directory the player's files stay beside the mod */
-        char dir[1200];
-        SDL_snprintf(dir, sizeof dir, "%s/user", mods_dir_path);
-        SDL_CreateDirectory(dir);
-        SDL_snprintf(out, out_size, "%s/%s", dir, name);
+        SDL_snprintf(out, out_size, "%s/user/", mods_dir_path);
+        SDL_CreateDirectory(out);
         return out;
     }
     if (pref == NULL) pref = SDL_GetPrefPath("tnfs", "tnfs");
     if (pref == NULL) return NULL;
-    SDL_snprintf(out, out_size, "%s%s", pref, name);
+    SDL_snprintf(out, out_size, "%s", pref);
+    return out;
+}
+
+static const char *user_path(const char *name, char *out, size_t out_size)
+{
+    char dir[1200];
+    if (strpbrk(name, "/\\") != NULL || strcmp(name, "..") == 0 || user_dir(dir, sizeof dir) == NULL) return NULL;
+    SDL_snprintf(out, out_size, "%s%s", dir, name);
     return out;
 }
 
@@ -552,6 +557,45 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
         return false;
     }
     return true;
+}
+
+bool platform_remove_user_file(const char *name)
+{
+    char path[1024];
+    return user_path(name, path, sizeof path) != NULL && SDL_RemovePath(path);
+}
+
+bool platform_user_file_exists(const char *name)
+{
+    char path[1024];
+    SDL_PathInfo info;
+    return user_path(name, path, sizeof path) != NULL && SDL_GetPathInfo(path, &info)
+           && info.type == SDL_PATHTYPE_FILE;
+}
+
+static int compare_names(const void *a, const void *b)
+{
+    return SDL_strcasecmp(*(char *const *)a, *(char *const *)b);
+}
+
+char **platform_list_user_files(const char *pattern, int *count)
+{
+    char dir[1200];
+    *count = 0;
+    if (user_dir(dir, sizeof dir) == NULL) return NULL;
+    char **names = SDL_GlobDirectory(dir, pattern, SDL_GLOB_CASEINSENSITIVE, count);
+    if (names == NULL || *count == 0) {
+        SDL_free(names);
+        *count = 0;
+        return NULL;
+    }
+    SDL_qsort(names, (size_t)*count, sizeof *names, compare_names);
+    return names;
+}
+
+void platform_free_names(char **names)
+{
+    SDL_free(names);
 }
 
 static void capture_frame(void)

@@ -36,5 +36,8 @@ int32_t glue_yes_no(void *ctx, const char *text);  /* 00465f4c */
 void glue_banner(void *ctx, const char *text);     /* 0046667c */
 void glue_drain(void *ctx);                        /* 004770ac */
 void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y);  /* 00463934 */
+void glue_banner_wait(void *ctx, const char *text, int32_t time);   /* 00467214 */
+void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas);  /* 0042a680 */
+void glue_replay_box(char *name, uint8_t *config);                  /* 0042a9f8 */
 
 #endif

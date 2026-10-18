@@ -82,6 +82,12 @@ void platform_free_file(uint8_t *data);
  * no directories. */
 uint8_t *platform_read_user_file(const char *name, size_t *size);  /* release with platform_free_file */
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size);
+bool platform_remove_user_file(const char *name);
+bool platform_user_file_exists(const char *name);
+/* The user files whose names match pattern ('*' and '?', case ignored), sorted, in a platform-owned list released
+ * with platform_free_names; NULL when none. */
+char **platform_list_user_files(const char *pattern, int *count);
+void platform_free_names(char **names);
 
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);

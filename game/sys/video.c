@@ -168,6 +168,11 @@ void video_blit_transparent_at_own_position(const FshEntry *shape)
     blit(shape, shape->misc[2], shape->misc[3], 1);
 }
 
+void video_blit_transparent(const FshEntry *shape, int x, int y)
+{
+    blit(shape, x, y, 1);
+}
+
 void video_blit_at_own_position(const FshEntry *shape)
 {
     video_blit(shape, shape->misc[2], shape->misc[3]);

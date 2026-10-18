@@ -103,6 +103,7 @@ add_library(tnfs_game STATIC
     game/frontend/lap_times.c
     game/frontend/circuit_results.c
     game/frontend/save_box.c
+    game/frontend/save_files.c
     game/frontend/screen_clear.c
     game/frontend/screen_show.c
     game/frontend/standings.c

@@ -23,6 +23,7 @@ void ea_blit_own(const uint8_t *shape);                       /* 004737ec: at th
 void ea_blit_masked(const uint8_t *shape);                    /* 00473ab4: the same, 0xff left out */
 void ea_restore(int32_t shape, int32_t x, int32_t y);         /* 004737d0: a shape at (x, y) */
 void ea_blit_at(const uint8_t *shape, int32_t x, int32_t y);  /* 004737d0 on a bank's shape */
+void ea_blit_masked_at(const uint8_t *shape, int32_t x, int32_t y);  /* 00473a98: 0xff left out */
 void ea_save(int32_t shape, int32_t x, int32_t y);            /* 00476e28: (x, y) of the drawing copied into it */
 
 /* 0048263c: table[i] = the colour nearest pal[i] scaled by r (16.16; the menus pass r = g = b) */

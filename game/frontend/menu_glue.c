@@ -8,6 +8,9 @@
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
 #include "game/frontend/palette_put.h"
+#include "game/frontend/replay_box.h"
+#include "game/frontend/save_box.h"
+#include "game/frontend/save_files.h"
 #include "game/frontend/text_box.h"
 #include "game/frontend/text_entry.h"
 #include "game/frontend/title.h"
@@ -181,6 +184,37 @@ static int32_t name_box(void *ctx, char *name)
     NameBoxState st = { &menu_cheats.keys_506, &menu_cheats.keys_50a };
     return name_box_show(name, resource_german(), &in, &st, &ops);
 }
+/* 0042a680 / 0042a9f8's calls: ctx the game state; the saves' and replays' directory the player's ("") */
+static int16_t ask(void *ctx, const char *text) { return (int16_t)yes_no(ctx, text); }
+static int32_t exists(void *ctx, const char *path) { (void)ctx; return save_files_exists(path); }
+static void remove_file(void *ctx, const char *path) { (void)ctx; save_files_remove(path); }
+static int32_t save_game(void *ctx, const char *path) { return game_file_save(path, ctx, &save_files_ops); }
+static int32_t no_replay(void *ctx, const char *path) { (void)ctx, (void)path; return 0; }  /* TODO(0042a5e8) */
+static void redraw(void *ctx, int32_t eax, int32_t edx) { (void)ctx, (void)eax, (void)edx; pointer_show(); }
+
+/* 0042a680 (save_box.c) */
+void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas)
+{
+    video_get_palette(banner_palette);
+    const MessageBannerInputs in = { ea_screen(), banner_palette };
+    const SaveBoxOps ops = { &BANNER, text_field, sound, exists, ask, remove_file, save_game, banner_wait, redraw,
+                             game };
+    SaveBoxState st = { config, game, lost_vegas, "" };
+    save_box_show(name, resource_german(), &in, &st, &ops);
+}
+
+/* 0042a9f8 (replay_box.c): no replay file is made yet, so none is saved (0042a5e8 reads gamedata/replay/) */
+void glue_replay_box(char *name, uint8_t *config)
+{
+    video_get_palette(banner_palette);
+    const MessageBannerInputs in = { ea_screen(), banner_palette };
+    const SaveBoxOps ops = { &BANNER, text_field, sound, exists, ask, remove_file, no_replay, banner_wait, redraw,
+                             NULL };
+    replay_box_show(name, resource_german(), &in, config, "", &ops);
+}
+
+void glue_banner_wait(void *ctx, const char *text, int32_t time) { banner_wait(ctx, text, time); }
+
 /* the modem is out of scope (UDP only); the network branch until it is wired: no service, the menu again */
 static int32_t back_to_menu(void *ctx) { (void)ctx; return 1; }
 static int32_t no_network(void *ctx) { (void)ctx; return 0; }
