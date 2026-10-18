@@ -9,4 +9,8 @@
  * 15 0x7e, 16 0x78, 24 0x7f, 32 0x7d; 0 for any other. */
 uint32_t tgv_shape_type(uint32_t bits);
 
+/* 0048e1dc (cdecl src, dst, blocks): each 8-byte block of src (4 colours, then a little-endian word of sixteen
+ * 2-bit indices, the top two bits first) into 16 bytes of dst, each its index's colour. */
+void tgv_expand_blocks(const uint8_t *src, uint8_t *dst, int32_t blocks);
+
 #endif
