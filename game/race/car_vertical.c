@@ -86,6 +86,7 @@ static void touch_down(Car *car, RaceState *race, int32_t gravity)
         race->sounds.sound(race->sounds.user, -1, 4, 1, abs32(car->velocity_y), 1, 0);
 }
 
+/* 00428bd8 */
 void car_vertical(Car *car, RaceState *race, int on_road)
 {
     car_road_contact(car, race, 0);

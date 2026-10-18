@@ -60,6 +60,7 @@ void race_dash_gauges(RaceState *race, int32_t a, int32_t b)
     if (b > 0) race->gauge_ac8 = b * 0xdf3 / 0x2ee0 * 33 / 10;
 }
 
+/* 0041e7fc */
 void race_dash_values(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t d)
 {
     if (a > 0x4b0) a = 0;
