@@ -32,6 +32,16 @@ int32_t tournament_leads(const uint8_t game_state[GAME_STATE_SIZE], int32_t play
     return (int16_t)(mine[0] | mine[1] << 8) == top;
 }
 
+/* 0045ae80 */
+int32_t tournament_champion(const uint8_t game_state[GAME_STATE_SIZE], int32_t player)
+{
+    const uint8_t *const mine = game_state + STANDINGS_AT + 2 * player;
+    const int16_t points = (int16_t)(mine[0] | mine[1] << 8);
+    for (int p = 0; p < GAME_STATE_PLAYERS; p++)
+        if (points < (int16_t)(game_state[STANDINGS_AT + 2 * p] | game_state[STANDINGS_AT + 2 * p + 1] << 8)) return 0;
+    return 1;
+}
+
 /* 00466b90 */
 void tournament_default_names(uint8_t game_state[GAME_STATE_SIZE], int from)
 {
