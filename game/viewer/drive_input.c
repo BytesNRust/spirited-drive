@@ -4,6 +4,7 @@
 #include "platform/platform.h"
 #include "game/race/input_read.h"
 #include "game/race/input_tick.h"
+#include "viewer/drive_joy.h"
 
 #include <string.h>
 
@@ -25,7 +26,7 @@ typedef struct {
 static void no_range(void *ctx, int32_t l, int32_t t, int32_t r, int32_t b) { (void)ctx, (void)l, (void)t, (void)r, (void)b; }
 static int32_t no_buttons(void *ctx) { (void)ctx; return 0; }
 static int32_t pointer_x(void *ctx) { (void)ctx; return 0; }
-static void no_pad(void *ctx, int32_t player, int16_t stand_in) { (void)ctx, (void)player, (void)stand_in; }
+static void pad_read(void *ctx, int32_t player, int16_t stand_in) { (void)player, (void)stand_in; drive_joy_pad_read(ctx); }
 static void no_send(void *ctx, int32_t to, const int16_t *words, int32_t size) { (void)ctx, (void)to, (void)words, (void)size; }
 static void no_call(void *ctx) { (void)ctx; }
 static void no_drop(void *ctx, int16_t player) { (void)ctx, (void)player; }
@@ -33,11 +34,11 @@ static void no_drop(void *ctx, int16_t player) { (void)ctx, (void)player; }
 static uint32_t read_word(void *ctx)
 {
     DriveCtx *c = ctx;
-    const InputReadOps ops = { NULL, no_pad, { NULL, no_range, no_buttons, pointer_x } };
     InputPad pad = { 0, 0, 0 };
+    const InputReadOps ops = { &pad, pad_read, { NULL, no_range, no_buttons, pointer_x } };
     MouseSteerWords mouse = { c->race->replay, c->race->viewed, 0, c->race->unknown_513e6c, 0, 0, 0x20 };
     const InputReadInputs inputs = { c->in->keys, c->in->codes, c->in->stand_in_block + 1, c->race->controls,
-                                     c->race->entries, 0, 0, 0 };
+                                     c->race->entries, 0, 0, drive_joy_state()->present };
     return input_read(&ops, &pad, &mouse, &inputs);
 }
 
@@ -65,6 +66,8 @@ void drive_input_start(DriveInput *in, RaceState *race)
 {
     uint8_t w4fb788;
     memset(in, 0, sizeof *in);
+    /* TODO(00426ddc): config.dat's controls (0052ad26, as 00413cb0 leaves them) rather than its defaults, so a
+     * pad present can steer; until then it gives look back and the handbrake (input_read's buttons) */
     input_setup(DEFAULT_CONFIG, 0, 0, race->controls, in->codes, &w4fb788);
     in->queues[0].active = 1;
 }

@@ -132,6 +132,9 @@ typedef struct {
     void (*forces_enable)(void *user);
     void (*forces_disable)(void *user);
     void (*forces_clear)(void *user);
+    /* 004acd66 (_Buffeting, cdecl level): the controls buffeted (0043d120
+     * gives 0x50); NULL for none. */
+    void (*buffeting)(void *user, int32_t level);
 } RaceSounds;
 
 /* 0050a4cc + 8 * channel: the voice a sound channel plays and its sound. */
@@ -242,7 +245,7 @@ typedef struct {
     int32_t launch_ready[RACE_PLAYERS];  /* 004faa5c: the other players' launches */
     int32_t wheelspin;              /* 004bad40: the drive force broke traction this tick */
     int32_t tyre_force_sum;         /* 00509e0c: the last tyre call's two forces added */
-    int16_t effects;                /* 0052b320: wall scrape tones on */
+    int16_t effects;                /* 0052b320: the force-feedback stick open (0043cb50), its effects on */
     int32_t default_surface;        /* 004b95c0: between the verges */
     /* 004f801c, the follow camera: kind above 1 pans the sounds by position,
      * position (004f802c) and angles[1] (004f8060) are the listener, node

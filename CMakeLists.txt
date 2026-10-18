@@ -200,6 +200,7 @@ add_library(tnfs_game STATIC
     game/race/race_contacts.c
     game/race/race_finish.c
     game/race/race_camera.c
+    game/race/race_forces.c
     game/race/race_results.c
     game/race/race_view.c
     game/race/race_chase.c
@@ -307,6 +308,10 @@ add_library(tnfs_game STATIC
     game/sys/inverse_load.c
     game/sys/key_codes.c
     game/sys/joystick.c
+    game/sys/joy_options.c
+    game/sys/joy_start.c
+    game/sys/joy_pad.c
+    game/sys/joy_calibrate.c
     game/sys/hot_key.c
     game/sys/menu_key.c
     game/sys/palette.c
@@ -342,6 +347,7 @@ add_executable(tnfs
     game/viewer/drive_palette.c
     game/viewer/drive_smoke.c
     game/viewer/drive_input.c
+    game/viewer/drive_joy.c
     game/viewer/drive_keys.c
     game/viewer/drive_replay.c
     game/viewer/drive_panel.c
@@ -357,6 +363,7 @@ add_executable(tnfs
     game/viewer/track_viewer.c
     game/viewer/viewer_main.c
     game/platform/sdl3/platform_sdl3.c
+    game/platform/sdl3/platform_joy_sdl3.c
 )
 target_link_libraries(tnfs PRIVATE tnfs_game)
 if(UNIX AND NOT APPLE)

@@ -110,6 +110,32 @@ void platform_audio_close(void);
 void platform_audio_lock(void);
 void platform_audio_unlock(void);
 
+/* Joysticks, as the exe's WinMM calls (joyGetNumDevs, joyGetDevCaps,
+ * joyGetPosEx) saw them: devices 0..count-1; the caps give the name, the
+ * buttons and the axes there (1 x, 2 y, 4 z, 8 r); a read gives the buttons
+ * (bit k button k) and the axes x, y, z, r in 0..0xffff, the middle 0x8000.
+ * Without a joystick count is 0 and caps / read fail. */
+int platform_joy_count(void);
+bool platform_joy_caps(int device, char *name, size_t name_size, int *buttons, uint32_t *axes);
+bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4]);
+
+/* Force feedback on a joystick (the exe's IFORCE.DLL): haptic effects where
+ * the device has them, else its rumble for the jolts, the buffeting and the
+ * vibrations. open fails with neither, and then the rest do nothing. A jolt:
+ * strength 0..100 from `direction` degrees for `ms`; the buffeting and the
+ * vibrations (axis 0 x, 1 y: a, b strengths, c the rate in Hz) run until
+ * cleared; the vector force (x, y in -100..100) holds until changed or
+ * cleared. */
+bool platform_forces_open(int device);
+void platform_forces_close(void);
+void platform_forces_jolt(int strength, int direction, int ms);
+void platform_forces_buffeting(int level);
+void platform_forces_vibration(int axis, int a, int b, int c);
+void platform_forces_vibration_clear(int axis);
+void platform_forces_vector(int x, int y);
+void platform_forces_enable(bool on);
+void platform_forces_clear(void);
+
 uint32_t platform_ticks_ms(void);
 
 /* Yields to the OS (and to the browser event loop on the web build). */

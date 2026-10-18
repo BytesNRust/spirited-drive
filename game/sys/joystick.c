@@ -8,7 +8,7 @@ enum {
     KEY_UP = 0x4800, KEY_DOWN = 0x5000, KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00
 };
 
-typedef char joy_state_layout[sizeof(JoyState) == 0xb0 ? 1 : -1];
+typedef char joy_state_layout[sizeof(JoyState) == 0xd4 ? 1 : -1];
 
 static uint32_t wide(int16_t s) { return (uint32_t)(int32_t)s; }
 

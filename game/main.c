@@ -22,6 +22,7 @@
 #include "game/race/race_sim.h"
 #include "platform/platform.h"
 #include "viewer/asset_viewer.h"
+#include "viewer/drive_joy.h"
 #include "viewer/track_viewer.h"
 
 #include <stdio.h>
@@ -107,6 +108,14 @@ static int run_movie(const Options *opt)
     return 1;
 }
 
+/* 004322f8's 0043c744: the joystick before config.dat is read (0042a010 writes 0052ad26 over what it leaves
+ * there, so it works on a copy here) */
+static void joy_start_up(int german)
+{
+    int16_t controls[JOY_CONTROLS] = { 0 };
+    drive_joy_start(controls, (int16_t)german);
+}
+
 /* --drive without --node / --screenshot: the race as the menus run it (glue_drive_race), so it ends as the
  * original's does, the car slowing to a stop and then the results screens; the track's name picks the track and
  * its variant, --car the car, --type the race type (2, the full field, when not given) */
@@ -129,6 +138,7 @@ static int run_drive(const Options *opt)
     pointer_load(0);
     text_init();
     pointer_start();
+    joy_start_up(opt->german);
     menu_audio_open();
     config_load();
     glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
@@ -157,6 +167,7 @@ static int run_game(const Options *opt)
     pointer_load(0);
     text_init();
     pointer_start();
+    joy_start_up(opt->german);
     frontend_run();
     text_free();
     pointer_free();
