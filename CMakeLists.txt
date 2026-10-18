@@ -114,6 +114,7 @@ add_library(tnfs_game STATIC
     game/frontend/text_box.c
     game/frontend/text_entry.c
     game/frontend/text_fit.c
+    game/frontend/tgv.c
     game/frontend/title.c
     game/frontend/track_select.c
     game/frontend/tournament.c
@@ -533,6 +534,9 @@ if(NOT EMSCRIPTEN)
     add_executable(probe_needle tools/probe_needle.c)
     target_link_libraries(probe_needle PRIVATE tnfs_game)
     target_compile_options(probe_needle PRIVATE ${TNFS_WARNINGS})
+    add_executable(probe_movie tools/probe_movie.c)
+    target_link_libraries(probe_movie PRIVATE tnfs_game)
+    target_compile_options(probe_movie PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_palette tools/probe_palette.c)
     target_link_libraries(probe_palette PRIVATE tnfs_game)
     target_compile_options(probe_palette PRIVATE ${TNFS_WARNINGS})
