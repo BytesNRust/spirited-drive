@@ -160,6 +160,7 @@ add_library(tnfs_game STATIC
     game/audio/sound_mix.c
     game/audio/sound_channel.c
     game/audio/sound_driver.c
+    game/audio/sound_queue.c
     game/audio/sound_bank.c
     game/audio/sound_adpcm.c
     game/audio/sound_stream.c
