@@ -18,7 +18,7 @@ enum {
     SCREEN_W = 320, SCREEN_H = 200,  /* 004423d4's clip (0047383c 0, 0x140, 0, 0xc8) */
     PER_SECOND = 15,                 /* 00441f18: the 100 Hz clock x 15 / 100 */
     SLACK = 8,                       /* the decoder reads a dword past a frame's codes */
-    EACS_HEADER = 0x20, EACS_SAMPLES = 0xc
+    EACS_HEADER = 0x20, EACS_TYPE = 0xb, EACS_SAMPLES = 0xc, NO_TYPE = 0xff
 };
 
 static uint32_t le32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
@@ -54,6 +54,9 @@ static int walk(const uint8_t *file, size_t size, uint8_t **sound, size_t *sound
     const uint32_t held = frame != 0 ? (uint32_t)((*sound_size - EACS_HEADER) / frame) : 0;
     const uint32_t keep = frames < held ? frames : held;
     for (int i = 0; i < 4; i++) (*sound)[EACS_SAMPLES + i] = (uint8_t)(keep >> (8 * i));
+    /* the movies' type 0 would start the voice on channel 0 (00497784), away from the queue's channel that
+     * menu_audio_movie_sound_stop stops: no type, so it plays where it is stopped */
+    (*sound)[EACS_TYPE] = NO_TYPE;
     return 1;
 }
 
@@ -83,7 +86,7 @@ static void draw(const uint8_t *shape)
 static int stopped(void)
 {
     const int key = input_get_key();
-    return key == KEY_SPACE || key == KEY_ENTER || key == KEY_ESCAPE || pointer_read_buttons() != POINTER_BUTTON_NONE;
+    return key == KEY_SPACE || key == KEY_ENTER || key == KEY_ESCAPE || pointer_buttons_unseen() != POINTER_BUTTON_NONE;
 }
 
 /* Waits for the picture's time; 1 when stopped meanwhile */

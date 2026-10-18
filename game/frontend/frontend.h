@@ -16,7 +16,6 @@ enum {
 /* 00466f68: shows an art QFS ("!pal" + "bgnd"). Returns 1 if a key skipped it. */
 int show_screen(const char *name, int mode, int music);
 
-int intro_sequence(void);      /* 00441abc */
 void frontend_run(void);       /* 004373c4 */
 
 #endif

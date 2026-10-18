@@ -69,16 +69,3 @@ int show_screen(const char *name, int mode, int music)
     resource_free(data);
     return skipped;
 }
-
-int intro_sequence(void)
-{
-    video_clear_back();
-    /* The default video mode (0052b2fc = 2) plays ea.tgv, attract%d.tgv and
-     * title.tgv here. TODO(004423d4): TGV playback; until then the port takes
-     * the original's no-video path: the static EA logo, and on later passes an
-     * attract replay (TODO(004275f8): REPLAY%d.RPL). */
-    show_screen("eatitle.qfs", SCREEN_WAIT, 0);
-    video_clear_back();
-    video_flip();
-    return 1;
-}

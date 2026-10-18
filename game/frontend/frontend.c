@@ -3,6 +3,7 @@
 
 #include "game/frontend/config.h"
 #include "game/frontend/frontend_loop.h"
+#include "game/frontend/intro_glue.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/sys/input.h"
@@ -38,7 +39,7 @@ static void glue_title(void *ctx, int32_t state) { (void)ctx; glue_title_screen(
 static int32_t glue_main_menu(void *ctx) { (void)ctx; return glue_game_mode(); }
 static int32_t glue_control_central(void *ctx) { (void)ctx; return glue_central(); }
 static void glue_config_save(void *ctx) { (void)ctx; config_save(); }
-static void glue_intro(void *ctx) { (void)ctx; intro_sequence(); }
+static void glue_intro(void *ctx) { (void)ctx; glue_intro_show(); }
 
 /* the network branch (0052b31e) is not reachable yet: these stand in until the network screens are wired */
 static int32_t glue_no_network(void *ctx) { (void)ctx; return 0; }

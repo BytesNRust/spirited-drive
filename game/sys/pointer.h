@@ -24,6 +24,8 @@ void pointer_off(void);                               /* 00464060 */
 int pointer_active(void);                             /* 00524790 */
 void pointer_show(void);                              /* 00441798 */
 int pointer_read_buttons(void);                       /* 004417f8 */
+/* 004417f8 without the pointer drawn: a movie's frames hide it in the original, the port's overlay would stay */
+int pointer_buttons_unseen(void);
 void pointer_click_feedback(void);                    /* 00441814 */
 void pointer_position(int *x, int *y);                /* 004c6110 / 004c6114 */
 void pointer_mark(void);                              /* 00441858: the marks where it is */

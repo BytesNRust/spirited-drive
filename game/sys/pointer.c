@@ -131,13 +131,20 @@ void pointer_show(void)
     active_set(1);
 }
 
-int pointer_read_buttons(void)
+static int buttons_now(void)
 {
-    if (ptr.x != ptr.mark_x || ptr.y != ptr.mark_y) draw();
     if (os_buttons & PLATFORM_MOUSE_LEFT) return POINTER_BUTTON_SELECT;
     if (os_buttons & PLATFORM_MOUSE_RIGHT) return POINTER_BUTTON_BACK;
     return POINTER_BUTTON_NONE;
 }
+
+int pointer_read_buttons(void)
+{
+    if (ptr.x != ptr.mark_x || ptr.y != ptr.mark_y) draw();
+    return buttons_now();
+}
+
+int pointer_buttons_unseen(void) { return buttons_now(); }
 
 void pointer_click_feedback(void)
 {

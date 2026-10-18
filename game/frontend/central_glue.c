@@ -21,6 +21,7 @@
 #include "game/frontend/key_capture.h"
 #include "game/frontend/file_list.h"
 #include "game/frontend/frontend.h"
+#include "game/frontend/intro_glue.h"
 #include "game/frontend/game_list.h"
 #include "game/frontend/key_name.h"
 #include "game/frontend/load_save.h"
@@ -68,7 +69,10 @@ static struct {
     int32_t explode, inverse, nitro;
 } g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
-static uint8_t game_state[GAME_STATE_SIZE];       /* 0052b2c0..: the tournament's */
+enum { MOVIES_AT = 0x5b8 };                        /* 0052b2fc: 2, the movies offered (the original's default) */
+static uint8_t game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */
+
+int16_t glue_movies(void) { return (int16_t)(game_state[MOVIES_AT] | game_state[MOVIES_AT + 1] << 8); }
 static uint8_t keys[0x100];                       /* 004c693c: by scancode, refreshed at each key (00464bd0) */
 static uint8_t screen_palette[PALETTE_PUT_BYTES];
 
@@ -519,9 +523,9 @@ static void reset_tournament(void *ctx)
     settings_put(&s);
 }
 static void game_reset(void *ctx) { (void)ctx; glue_game_reset(); }
-/* 00428610 (cop_stop.c): no movies yet (TODO(004419c0)), so 0052b2fc is 0 and the ticket shows */
+/* 00428610 (cop_stop.c): cop1..3.tgv, or the ticket (german) */
 static void screen_file(void *ctx, const char *file, int32_t mode, int32_t one) { (void)ctx; show_screen(file, mode, one); }
-static void no_movie(void *ctx, const char *file) { (void)ctx, (void)file; }
+static void movie(void *ctx, const char *file) { (void)ctx; glue_intro_movie(file); }  /* 004419c0 */
 static int32_t pick(void *ctx)
 {
     static uint32_t rand_state;
@@ -530,17 +534,17 @@ static int32_t pick(void *ctx)
 }
 static void cops(void *ctx)
 {
-    static const int16_t movie_on = 0;
+    const int16_t movie_on = glue_movies();
     const int16_t german = (int16_t)resource_german();
     const CopStopState st = { &movie_on, &german, ea_screen_slot() };
-    cop_stop(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, no_movie, ctx });
+    cop_stop(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, movie, ctx });
 }
-/* 004283c4 (win_movie.c) on the drive's racers and finishers, no movies yet (0052b2fc 0: winner.qfs) */
+/* 004283c4 (win_movie.c) on the drive's racers and finishers */
 static void won(void *ctx)
 {
     const WinMovieState st = { game_state, last_drive.player, last_drive.racers, 0, last_drive.dropped, g.race_type,
                                g.track, g.player_car, g.lost_vegas, ea_screen_slot() };
-    win_movie(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, no_movie, ctx });
+    win_movie(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, movie, ctx });
 }
 static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_points); }
 static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }

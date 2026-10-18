@@ -4,6 +4,7 @@
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_mode.h"
+#include "game/frontend/intro_glue.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
@@ -252,7 +253,7 @@ static void voice_start(void *ctx, const char *name) { (void)ctx; menu_audio_tra
 static void voice_play(void *ctx) { (void)ctx; menu_audio_track_play(); }
 static void voice_stop(void *ctx) { (void)ctx; menu_audio_track_stop(); }
 static void voice_free(void *ctx) { (void)ctx; menu_audio_track_free(); }
-static void no_movie(void *ctx, const char *name) { (void)ctx, (void)name; }  /* never offered: 0052b2fc is 0 */
+static void movie(void *ctx, const char *name) { (void)ctx; glue_intro_movie(name); }  /* 004419c0 */
 static void car_flags(void *ctx) { const ShowcaseGlue *in = ctx; in->car_flags(in->ctx); }
 
 /* 00407290 / 00406008 (showcase_pages.c / showcase_figures.c) */
@@ -282,17 +283,17 @@ static void figures(void *ctx, const char *which)
     showcase_figures(&st, &ops, which);
 }
 
-/* 00408724 (showcase.c); no movies yet (TODO(004423d4)), so the video is not offered */
+/* 00408724 (showcase.c) */
 void glue_showcase(const ShowcaseGlue *in)
 {
-    static const int16_t no_movies = 0;
-    ShowcaseState st = { in->player_car, in->race_type, in->track, &no_movies, show_dir(),
+    const int16_t movies = glue_movies();
+    ShowcaseState st = { in->player_car, in->race_type, in->track, &movies, show_dir(),
                          in->pointer_active, in->buttons, ea_screen_slot() };
     const ShowcaseOps ops = {
         move_to, show_bank, music_feed, clear_both, shape, palette_set, palette_write, nothing, styles, sync, mark,
         in_rect, select_picture, blit_own, blit_masked, palette_write, select_default, picture_shape, blit_picture,
         flip, show, buttons, fade_in, deadline_set, sound, pointer_away, nothing, ticks, activate, key, click,
-        bank_free, fade_out, pages, figures, music_fade_out, music_end, no_movie, music_start, car_flags, off, music,
+        bank_free, fade_out, pages, figures, music_fade_out, music_end, movie, music_start, car_flags, off, music,
         deadline_passed, (void *)in };
     showcase(&st, &ops);
 }
