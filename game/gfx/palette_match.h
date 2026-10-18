@@ -5,8 +5,8 @@
  * The original reads the surface type from 004c78cd and branches on it; this
  * is its 8-bit path (the types whose entry in 004c7c50 is 4 or 8), with the
  * state it reads given as arguments.
- * TODO(00473140): the 15-bit, 16-bit, 24-bit and 32-bit surface paths, which
- *                 repack the channels into the pixel format. */
+ * port: 00473140's 15-bit, 16-bit, 24-bit and 32-bit surface paths, which
+ * repack the channels into the pixel format, are not ported: the game always runs at 640 x 480 x 8 (00477980). */
 #ifndef TNFS_PALETTE_MATCH_H
 #define TNFS_PALETTE_MATCH_H
 

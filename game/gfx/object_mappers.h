@@ -38,9 +38,9 @@
  * clipping and texel selection are the mode 1 code unchanged.
  *
  * Only 8-bit textures (FSH type 0x7B) drawn to an 8-bit surface are ported, as
- * in quad.h. TODO(0049738c): the inset thunks convert a texture whose type
+ * in quad.h. port: the inset thunks (0049738c) convert a texture whose type
  * differs from the surface's (004c78cd) into a temporary copy; here any other
- * type draws nothing. */
+ * type draws nothing, and every drawable shape in the data is 0x7B. */
 #ifndef TNFS_OBJECT_MAPPERS_H
 #define TNFS_OBJECT_MAPPERS_H
 

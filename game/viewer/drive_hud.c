@@ -398,7 +398,7 @@ static void reload_free_saved(void *ctx)
     h->police.screen_bank = NULL, h->police.screen = NULL;
 }
 
-static void reload_none(void *ctx) { (void)ctx; }  /* 00464a30 (no back buffer here); TODO(00473614) */
+static void reload_none(void *ctx) { (void)ctx; }  /* 00464a30 (no back buffer here); port: 00473614 is platform only */
 
 static void reload_load(void *ctx)
 {

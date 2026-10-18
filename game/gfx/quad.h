@@ -14,9 +14,9 @@
  *
  * Only 8-bit textures (FSH type 0x7B, or 0x45 which the game flips to 0x7B
  * around the call) drawn to an 8-bit surface are ported.
- * TODO(004a02d8): 16-bit and 32-bit destination surfaces (004c78cc > 8).
- * TODO(0049738c): textures whose type differs from the surface type (the
- *                 game converts them into a temporary copy first). */
+ * port: 004a02d8's 16-bit and 32-bit destination surfaces (004c78cc > 8) are
+ * not ported: the game always runs at 640 x 480 x 8 (00477980). Nor is 0049738c's conversion of a texture whose type
+ * differs from the surface's into a temporary copy: every drawable shape in the data is 0x7B. */
 #ifndef TNFS_QUAD_H
 #define TNFS_QUAD_H
 

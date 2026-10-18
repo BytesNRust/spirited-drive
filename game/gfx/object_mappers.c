@@ -76,7 +76,7 @@ void obj_draw_full(const QuadTarget *target, const FshEntry *texture, const int3
 void obj_draw_inset(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8],
                     MapMode mode, const uint8_t *shade)
 {
-    if (texture == NULL || texture->type != FSH_TYPE_BITMAP) return;  /* TODO(0049738c) */
+    if (texture == NULL || texture->type != FSH_TYPE_BITMAP) return;  /* port: 0049738c, see object_mappers.h */
     const int32_t right = (int32_t)(int16_t)texture->width - 2;
     const int32_t bottom = (int32_t)(int16_t)texture->height - 2;
     const int32_t uv[8] = { 1, 1, right, 1, right, bottom, 1, bottom };
