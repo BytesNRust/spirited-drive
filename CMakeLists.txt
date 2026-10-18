@@ -336,6 +336,7 @@ add_executable(tnfs
     game/frontend/link_messages.c
     game/frontend/link_session.c
     game/frontend/link_central.c
+    game/frontend/link_race.c
     game/frontend/central_glue.c
     game/frontend/menu_audio.c
     game/frontend/screens.c

@@ -2,6 +2,7 @@
 #include "viewer/drive_pause.h"
 
 #include "viewer/drive_audio.h"
+#include "viewer/track_viewer.h"
 #include "game/platform/platform.h"
 #include "game/race/car_held.h"
 #include "game/race/race_camera.h"
@@ -104,11 +105,20 @@ static void no_send(void *ctx, int32_t to, const int16_t *words, int32_t size)
     (void)ctx, (void)to, (void)words, (void)size;
 }
 
+/* 00445e00 in a link race */
+static void link_send(void *ctx, int32_t to, const int16_t *words, int32_t size)
+{
+    const PauseCtx *c = ctx;
+    c->in->link->send(to, words, size);
+}
+
 static void set(void *ctx, int16_t frame, int32_t which, int16_t arg)
 {
     PauseCtx *c = ctx;
-    const InputSendOps send = { NULL, no_send };
-    const RaceScheduleWords w = { 0, 1, c->race->playback };  /* 004fbb0c taken as 1 in a local game, as drive_input does */
+    const struct TrackViewerLink *l = c->in->link;
+    const InputSendOps send = { c, l != NULL ? link_send : no_send };
+    /* 004fbb0c taken as 1 in a local game, as drive_input does; a link race sends the entry (004fb7d4 1) */
+    const RaceScheduleWords w = { l != NULL, l != NULL ? l->host : 1, c->race->playback };
     race_schedule_set(&send, c->p->sched, &w, frame, which, arg);
 }
 

@@ -195,7 +195,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->traffic_setting = field->traffic < 0 ? 0 : field->traffic;
     race->car_count = race->racers + race->cops + race->traffic_setting;  /* 00439c98 */
     if (race->car_count > RACE_CARS) race->car_count = RACE_CARS;     /* port guard: 9 slots */
-    race->humans = 1;
+    race->humans = field->humans > 1 ? (field->humans < race->racers ? field->humans : race->racers) : 1;
     race->phase = 1;
     race->circuit = tri_is_circuit(tri);
     race->segments = (int32_t)tri->ring_segments;  /* 0050420c (0043e4e0): 0x8000 on a stage */
@@ -222,6 +222,8 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = race->car_count;
     sim->specs[0] = *specs;
+    for (int32_t i = 1; i < race->humans; i++)
+        if (field->specs[i] != NULL) sim->specs[i] = *field->specs[i];
     for (int i = 0; i < RACE_CARS; i++) race->by_node[i] = race->by_progress[i] = i;
     EnterCtx ctx = { sim, field, NULL };
     const RaceEnterOps ops = { &ctx, enter_tables, enter_load_pick, enter_alloc, enter_car, enter_load, enter_body,

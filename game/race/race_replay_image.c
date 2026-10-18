@@ -49,12 +49,14 @@ int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *o
         out->stem[i] = (char)toupper(setup[AT_NAME + i]);
     RaceField *f = &out->field;
     f->racers = get32(setup, AT_RACERS), f->cops = get32(setup, AT_COPS), f->traffic = get32(setup, AT_TRAFFIC);
-    f->seed = (uint32_t)get32(setup, AT_SEED), f->race_type = get32(setup, AT_TYPE);
+    f->seed = (uint32_t)get32(setup, AT_SEED), f->race_type = get32(setup, AT_TYPE), f->humans = get32(setup, AT_HUMANS);
     memcpy(f->entries, setup + AT_ENTRIES, sizeof f->entries);
     out->laps = get32(setup, AT_LAPS), out->followed = get32(setup, AT_FOLLOWED);
     out->track_flags = (uint32_t)get32(setup, AT_FLAGS);
     if (out->stem[0] == 0 || f->racers < 1 || f->racers > RACE_PLAYERS || f->cops < 0 || f->cops > 1) return 0;
     if (f->traffic < 0 || f->racers + f->cops + f->traffic > RACE_CARS + 6) return 0;
+    if (f->humans < 1) f->humans = 1;  /* a setup that wrote none races its one human */
+    if (f->humans > f->racers) return 0;
     if (f->race_type < 0 || f->race_type > 3 || out->laps < 1 || out->followed < 0 || out->followed >= f->racers) return 0;
     for (int i = 0; i < RACE_PLAYERS; i++)
         if (f->entries[i].car < 0 || f->entries[i].car > CAR_LAST) return 0;

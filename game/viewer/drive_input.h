@@ -10,12 +10,17 @@
 
 #include <stdint.h>
 
+struct TrackViewerLink;
+
 typedef struct {
     InputQueue queues[RACE_PLAYERS];  /* 004faa7c */
     int32_t codes[INPUT_KEY_CODES];   /* 004fb6dc */
     uint8_t keys[256];                /* 004c693c: a flag per key code */
     int16_t stand_in_block[1 + RACE_PLAYERS];  /* 004f829e: the kind word (0041019c), then 004f82a0's stand-ins */
     int32_t ticks;                    /* the tick's clock (004bb8e0's role): twice the ticks taken */
+    const struct TrackViewerLink *link;  /* a link race's (track_viewer.h), NULL racing alone */
+    int32_t *store_clock;             /* 004fb7a0, the run's: the host's store steps it */
+    int32_t *late;                    /* 004fb790, the run's: a client's polls sent */
 } DriveInput;
 
 /* 00426ddc on config.dat's control words (its defaults when it was not loaded) for player 0; the player's queue on. */
@@ -25,7 +30,10 @@ void drive_input_start(DriveInput *in, RaceState *race);
 void drive_input_read_keys(DriveInput *in);
 
 /* One tick's word for player 0 from the keys last read, polled into the
- * queue and taken back for the tick. */
+ * queue and taken back for the tick. In a link race (in->link) the word goes
+ * to the host, or on the host into its queue and round to the others with
+ * every human's (00439b24); each human's word is taken, waiting on the
+ * transport for one not in yet, and the others' go to race->inputs. */
 uint32_t drive_input_tick(DriveInput *in, RaceState *race);
 
 #endif

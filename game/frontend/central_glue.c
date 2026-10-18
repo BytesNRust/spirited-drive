@@ -30,6 +30,7 @@
 #include "game/frontend/key_name.h"
 #include "game/frontend/link_central.h"
 #include "game/frontend/link_game.h"
+#include "game/frontend/link_race.h"
 #include "game/frontend/load_save.h"
 #include "game/frontend/load_save2.h"
 #include "game/frontend/lap_times.h"
@@ -488,8 +489,10 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
                                      g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r };
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
+    if (menu_words.link_game != 0) link_race_begin(g.player_car, g.other_car);
     if (!track_viewer_drive(resource_root(), name, race_head_to_head_model(g.player_car), 1, g.race_type, 0, NULL))
         fprintf(stderr, "control_central: the race on %s could not start\n", name);
+    link_race_end();
     menu_audio_open();
     last_drive = track_viewer_drive_results();
     const int16_t raced = last_drive.over ? last_drive.end_request : 0;
@@ -581,7 +584,8 @@ static void raise_unlocks(void *ctx)
     race_warrior = g.warrior;
 }
 
-/* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game */
+/* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state: alone, this machine's player 0; in a link
+ * game, the link game's words */
 static void after_race(void *ctx);
 static void race(void *ctx)
 {
@@ -596,9 +600,12 @@ static void race(void *ctx)
     static const int32_t player = 0, font = 0, host = 0;
     int16_t net_off = 0, link_done = 0;
     race_warrior = g.warrior;
-    const MenuRaceState st = { config->image, game_state, &net_off, race_times, ghost, &no_link, &no_link,
-                               pointer_active_word(), &player, &font, ea_screen_slot(), &race_warrior, &g.unlock_m,
-                               &g.unlock_r, &g.lost_vegas, &host, &link_done };
+    const int linked = menu_words.link_game != 0;
+    const MenuRaceState st = {
+        config->image, game_state, linked ? &link_game.unknown_52b302 : &net_off, race_times, ghost,
+        linked ? &menu_words.link_game : &no_link, linked ? &menu_words.link_lost : &no_link, pointer_active_word(),
+        linked ? &menu_words.single : &player, &font, ea_screen_slot(), &race_warrior, &g.unlock_m, &g.unlock_r,
+        &g.lost_vegas, linked ? &menu_words.intro_seen : &host, linked ? &link_game.flags_a[7] : &link_done };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
