@@ -586,6 +586,12 @@ char **platform_list_user_files(const char *pattern, int *count)
     char dir[1200];
     *count = 0;
     if (user_dir(dir, sizeof dir) == NULL) return NULL;
+    return platform_list_files(dir, pattern, count);
+}
+
+char **platform_list_files(const char *dir, const char *pattern, int *count)
+{
+    *count = 0;
     char **names = SDL_GlobDirectory(dir, pattern, SDL_GLOB_CASEINSENSITIVE, count);
     if (names == NULL || *count == 0) {
         SDL_free(names);

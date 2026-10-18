@@ -87,6 +87,8 @@ bool platform_user_file_exists(const char *name);
 /* The user files whose names match pattern ('*' and '?', case ignored), sorted, in a platform-owned list released
  * with platform_free_names; NULL when none. */
 char **platform_list_user_files(const char *pattern, int *count);
+/* The same for the files of a directory of the data (the CD's own, read only) */
+char **platform_list_files(const char *dir, const char *pattern, int *count);
 void platform_free_names(char **names);
 
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */

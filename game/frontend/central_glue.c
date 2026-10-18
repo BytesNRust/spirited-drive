@@ -717,6 +717,7 @@ static int16_t list_check, list_highlight;
 static uint8_t list_names[(GAME_LIST_NAMES + 1) * FILE_LIST_NAME];
 static uint8_t game_kept[GAME_LIST_STATE];
 static uint8_t replay_race[LOAD_SAVE_RACE];
+static int16_t replay_kind;  /* config.dat's short 00524e9f, aligned while 0042c498 runs */
 
 /* 0042ae9c's calls on the player's directory (save_files.h): no directories to change into */
 static void no_cwd(void *ctx, char *out) { (void)ctx; out[0] = 0; }
@@ -750,19 +751,42 @@ static void save_box(void *ctx, char *name)
 }
 static void replay_box(void *ctx, char *name) { (void)ctx; glue_replay_box(name, config_current()->image); }
 static void clear_one(void *ctx) { (void)ctx; ea_select_default(), video_clear_back(), video_flip(); }
-static void no_replay(void *ctx, int32_t mode, const char *path) { (void)ctx, (void)mode, (void)path; }
+/* 004275f8 for a replay (0042c498's eax 2): config.dat's name 00524e2b, played as kind 00524e9f asks (1 the
+ * replay from the start, 0044f534(4); 2 the highlights, 5), the player's file else the CD's; in the menus' window
+ * with their volumes and no game state to write */
+static void replay(void *ctx, int32_t mode, const char *path)
+{
+    enum { NAME_AT = 0x3b, NAME = 0x14, FROM_START = 4, HIGHLIGHTS = 5 };
+    (void)ctx, (void)mode, (void)path;
+    char name[NAME + 1] = { 0 };
+    memcpy(name, config_current()->image + NAME_AT, NAME);
+    size_t size = 0;
+    uint8_t *file = save_files_read_replay(name, &size);
+    if (file == NULL) {
+        fprintf(stderr, "load_save: no replay %s\n", name);
+        return;
+    }
+    const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
+                                     image_short(0x71), NULL };
+    menu_audio_close();
+    track_viewer_drive_menus(&menus);
+    if (!track_viewer_drive_replay_data(resource_root(), file, size, replay_kind == 2 ? HIGHLIGHTS : FROM_START))
+        fprintf(stderr, "load_save: the replay %s could not play\n", name);
+    menu_audio_open();
+    platform_free_file(file);
+}
 static void no_mode_set(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 
-/* 0042c498 from Options (mode 0) on config.dat's image, its shorts copied around it to aligned ones; no replay
- * file is listed yet (TODO(0042a5e8, 004275f8): replays saved and played from here) */
+/* 0042c498 from Options (mode 0) on config.dat's image, its shorts copied around it to aligned ones */
 static void load_save(void *ctx, int32_t mode)
 {
     ConfigDat *const config = config_current();
     opt_in();
-    int16_t variant = image_short(0x93), replay_flag = image_short(0xaf);
+    int16_t variant = image_short(0x93);
+    replay_kind = image_short(0xaf);
     LoadSaveState st = {
         resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), g.pointer_active, &g.buttons,
-        ea_screen_slot(), &g.inverse, &list_check, &variant, &list_highlight, &replay_flag, replay_race,
+        ea_screen_slot(), &g.inverse, &list_check, &variant, &list_highlight, &replay_kind, replay_race,
         &g.music_silent, g.volumes, { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f),
         (const char *)config->image + 9, (const char *)config->image + 0x3b };
     const LoadSaveOps ops = {
@@ -770,10 +794,10 @@ static void load_save(void *ctx, int32_t mode)
         select_picture, blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in,
         styles, deadline_set, sound, ticks, activate, key, click, game_list, save_box, replay_box,
         free_handle_inverse, free_bank, music_fade_out, fade_out, music_end, picture_free, sound_free, clear_one,
-        clip, no_replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
+        clip, replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
         deadline_passed, ctx };
     load_save_menu(mode, &st, &ops);
-    memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_flag, sizeof replay_flag);
+    memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
 }

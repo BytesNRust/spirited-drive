@@ -2,6 +2,7 @@
 #ifndef TNFS_TRACK_VIEWER_H
 #define TNFS_TRACK_VIEWER_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* name: track file stem such as "TR1" or "CY1". */
@@ -21,6 +22,9 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
  * as 004275f8 starts a replay (0052b316 set, 0044f534(4): 0044d514 reads the file at the first tick and the
  * replay plays from the start); 0 when the file is not a replay. */
 int track_viewer_drive_replay(const char *data_root, const char *path);
+/* The same on a replay's bytes (REPLAY_FILE_SIZE, the caller's) and 004275f8's request for its kind (00524e9f 1:
+ * 4, from the start; 2: 5, the highlights); in the menus' window when track_viewer_drive_menus came first */
+int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, size_t size, int request);
 
 /* The front end's race (glue standing in for what 00427ae0 / 004275f8 take
  * from config.dat): the player's gearbox and aids, the laps, the head to

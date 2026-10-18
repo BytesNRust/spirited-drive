@@ -1,6 +1,7 @@
 #include "game/frontend/save_files.h"
 
 #include "game/platform/platform.h"
+#include "game/sys/resource.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -51,20 +52,62 @@ static void remove_file(void *ctx, const char *path) { (void)ctx; save_files_rem
 const GameFileOps save_files_ops = { file_read, fatal, copy, release, has_room, alloc, block_size, file_write,
                                      block_free, no_defaults, remove_file, NULL };
 
-static char **found;
-static int found_count, found_next;
+static char **found, **found_cd;
+static int found_count, found_cd_count, found_next;
+
+static void cd_replay_dir(char *out, size_t size) { snprintf(out, size, "%s/GAMEDATA/REPLAY", resource_root()); }
 
 const char *save_files_first(const char *pattern)
 {
-    platform_free_names(found);
+    platform_free_names(found), platform_free_names(found_cd);
     found = platform_list_user_files(pattern, &found_count);
+    found_cd = NULL, found_cd_count = 0;
+    if (strstr(pattern, ".RPL") != NULL || strstr(pattern, ".rpl") != NULL) {
+        char dir[1024];
+        cd_replay_dir(dir, sizeof dir);
+        found_cd = platform_list_files(dir, pattern, &found_cd_count);
+    }
     found_next = 0;
     return save_files_next();
 }
 
+static int players_has(const char *name)
+{
+    for (int i = 0; i < found_count; i++) {
+        const char *a = found[i], *b = name;
+        while (*a != 0 && (*a | 0x20) == (*b | 0x20)) a++, b++;
+        if (*a == 0 && *b == 0) return 1;
+    }
+    return 0;
+}
+
 const char *save_files_next(void)
 {
-    return found_next < found_count ? found[found_next++] : NULL;
+    if (found_next < found_count) return found[found_next++];
+    while (found_next < found_count + found_cd_count) {
+        const char *name = found_cd[found_next++ - found_count];
+        if (!players_has(name)) return name;
+    }
+    return NULL;
+}
+
+uint8_t *save_files_read_replay(const char *name, size_t *size)
+{
+    char file[64];
+    snprintf(file, sizeof file, strchr(name, '.') != NULL ? "%s" : "%s.RPL", name);
+    if (strchr(file, '/') != NULL || strchr(file, '\\') != NULL) return NULL;  /* plain names only */
+    uint8_t *data = platform_read_user_file(file, size);
+    if (data != NULL) return data;
+    char dir[1024], path[1200];
+    cd_replay_dir(dir, sizeof dir);
+    int count = 0;
+    char **names = platform_list_files(dir, file, &count);  /* the CD's own spelling of it */
+    if (names != NULL && count > 0) {
+        snprintf(path, sizeof path, "%s/%s", dir, names[0]);
+        data = platform_read_file(path, size);
+    }
+    platform_free_names(names);
+    return data;
 }
 
 int32_t save_files_exists(const char *name) { return platform_user_file_exists(name); }

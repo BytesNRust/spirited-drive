@@ -894,6 +894,7 @@ static TrackViewerMenus menus;
 static int menus_on;
 static const ReplayRace *replay_of;   /* the replay played back, its file replay_file; NULL a race */
 static const uint8_t *replay_file;
+static int replay_request;            /* 0044f534's: 4 or 5 */
 static TrackViewerResults results;
 
 TrackViewerResults track_viewer_drive_results(void) { return results; }
@@ -907,12 +908,12 @@ void track_viewer_drive_menus(const TrackViewerMenus *m)
 /* 004275f8 for a replay: 0052b316, 0044f528 and 0044f534(4); the cars' models 00457870 drew against the file's */
 static void replay_begin(void)
 {
-    enum { MODELS_AT = 0x2d8, FROM_START = 4 };
+    enum { MODELS_AT = 0x2d8 };
     RaceState *race = &drive_sim.race;
     drive_replay.file = replay_file;
     race->replay = 1;
     race_replay_end_clear(&drive_replay.dir);
-    race_replay_request(&drive_replay.dir, FROM_START);
+    race_replay_request(&drive_replay.dir, replay_request);
     for (int i = 0; i < RACE_CARS; i++) {
         const uint8_t *m = replay_file + MODELS_AT + 4 * i;
         const int32_t model = (int32_t)(m[0] | m[1] << 8 | m[2] << 16 | (uint32_t)m[3] << 24);
@@ -1400,19 +1401,26 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     return ok;
 }
 
-int track_viewer_drive_replay(const char *data_root, const char *path)
+int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, size_t size, int request)
 {
-    size_t size = 0;
-    uint8_t *file = platform_read_file(path, &size);
     static ReplayRace race;
     if (file == NULL || size != REPLAY_FILE_SIZE || !race_replay_image_race(file, &race)) {
-        fprintf(stderr, "track_viewer: %s is not a replay\n", path);
-        platform_free_file(file);
+        fprintf(stderr, "track_viewer: not a replay\n");
+        menus_on = 0;
         return 0;
     }
-    replay_of = &race, replay_file = file;
+    replay_of = &race, replay_file = file, replay_request = request;
     const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);
     replay_of = NULL, replay_file = NULL;
+    return ok;
+}
+
+int track_viewer_drive_replay(const char *data_root, const char *path)
+{
+    enum { FROM_START = 4 };
+    size_t size = 0;
+    uint8_t *file = platform_read_file(path, &size);
+    const int ok = track_viewer_drive_replay_data(data_root, file, size, FROM_START);
     platform_free_file(file);
     return ok;
 }
