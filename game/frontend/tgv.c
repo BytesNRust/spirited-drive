@@ -1,5 +1,8 @@
 #include "game/frontend/tgv.h"
 
+#include <stddef.h>
+#include <string.h>
+
 static uint32_t dword_at(const uint8_t *p)
 {
     return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
@@ -66,3 +69,20 @@ void tgv_unpack_codes(int32_t *out, const uint8_t *bits, int32_t count, int32_t 
     for (left += 3; left >= 0; left--, out++, at += w) *out = (int32_t)(rotate_right(dword_at(bits + (at >> 3)), at & 7) & mask);
 }
 
+/* 004a2ad0 */
+void tgv_copy_blocks(const int32_t *codes, const uint8_t *prev, uint8_t *dst, int32_t moves, const int32_t *offsets,
+                     const uint8_t *raw, int32_t pitch, int32_t cols, int32_t rows)
+{
+    uint8_t *at = dst;
+    do {
+        int32_t left = cols;
+        do {
+            const int32_t code = *codes++;
+            const uint8_t *from = code < moves ? prev + (at - dst) + offsets[code] : raw + (ptrdiff_t)(code - moves) * 16;
+            const ptrdiff_t step = code < moves ? pitch : 4;
+            for (int line = 0; line < 4; line++) memcpy(at + line * (ptrdiff_t)pitch, from + line * step, 4);
+            at += 4;
+        } while (--left > 0);
+        at += 3 * (ptrdiff_t)pitch;
+    } while (--rows > 0);
+}

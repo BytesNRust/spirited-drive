@@ -24,4 +24,11 @@ void tgv_unpack_fields(int32_t *out, const uint8_t *bits, int32_t count, int32_t
  * dword; the last count mod 4 one by one. Shifts and rotations by the width mod 32. */
 void tgv_unpack_codes(int32_t *out, const uint8_t *bits, int32_t count, int32_t width);
 
+/* 004a2ad0 (cdecl codes, prev, dst, moves, offsets, raw, pitch, cols, rows): a frame's 4x4 blocks, cols to a row,
+ * rows of them, into dst (pitch bytes a line), each by its code: below `moves` the block of prev at the same place
+ * plus offsets[code], else the 16 bytes raw + (code - moves) * 16. Copied a dword a line, line by line. A row has
+ * at least one block and there is at least one row (cols, rows <= 0 run once). */
+void tgv_copy_blocks(const int32_t *codes, const uint8_t *prev, uint8_t *dst, int32_t moves, const int32_t *offsets,
+                     const uint8_t *raw, int32_t pitch, int32_t cols, int32_t rows);
+
 #endif
