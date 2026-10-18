@@ -35,6 +35,6 @@ void ea_shade_set(uint8_t *table);                            /* 004826f0 */
 void ea_shade_polygon(int32_t count, const int32_t *xy);      /* 004827cf: the polygon's pixels through the table */
 int32_t ea_colour(int32_t rgb);                               /* 00473140: the screen palette's nearest */
 void ea_frame(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t colour);  /* 004827f0 */
-void ea_clip(int32_t x0, int32_t y0, int32_t x1, int32_t y1); /* 0047723c: the shapes and polygons kept inside */
+void ea_clip(int32_t x0, int32_t y0, int32_t x1, int32_t y1); /* 0047723c: the pointer's range (pointer_range) */
 
 #endif

@@ -32,6 +32,9 @@ void pointer_click_feedback(void);                    /* 00441814 */
 /* what 00441814 runs while it waits (0046417c, the music); the game sets it */
 void pointer_on_wait(void (*service)(void));
 void pointer_position(int *x, int *y);                /* 004c6110 / 004c6114 */
+/* 0047723c: the pointer kept to x0 <= x <= x1, y0 <= y <= y1 from now on (004772f8 clamps it at once); the whole
+ * 640x480 until a screen sets one. In a window the OS cursor is not warped, only the game's pointer. */
+void pointer_range(int x0, int y0, int x1, int y1);
 void pointer_mark(void);                              /* 00441858: the marks where it is */
 /* The pointer's art as 00441530 takes it for the race's (00509eb0..: "ptr0", "ptr1", "ptr2"): the raw entry of
  * "ptr<which>", NULL when it is not loaded */

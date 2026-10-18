@@ -4,6 +4,7 @@
 #include "formats/fsh.h"
 #include "game/gfx/flat.h"
 #include "game/sys/palette.h"
+#include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/shape_bank.h"
 #include "game/sys/video.h"
@@ -199,7 +200,6 @@ void ea_save(int32_t shape, int32_t x, int32_t y)
 }
 
 static uint8_t *shade;  /* 004826f0's table */
-static int32_t clip_x0, clip_y0, clip_x1 = VIDEO_WIDTH, clip_y1 = VIDEO_HEIGHT;
 
 /* the colours a menu may draw with: all but 0xfe and 0xff (the pointer's and the see-through one) */
 static void usable_colours(uint8_t usable[256])
@@ -220,13 +220,12 @@ void ea_shade_set(uint8_t *table)
     shade = table;
 }
 
-/* the drawing's target, clipped to 0047723c's box */
+/* the drawing's target, whole */
 static QuadTarget quad_target(void)
 {
     int w, h;
     uint8_t *const p = video_target(&w, &h);
-    return (QuadTarget){ p, w, clip_x0 > 0 ? clip_x0 : 0, clip_y0 > 0 ? clip_y0 : 0, clip_x1 < w ? clip_x1 : w,
-                         clip_y1 < h ? clip_y1 : h };
+    return (QuadTarget){ p, w, 0, 0, w, h };
 }
 
 void ea_shade_polygon(int32_t count, const int32_t *xy)
@@ -250,8 +249,7 @@ void ea_frame(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t colour)
     flat_frame_rect(&t, x0, y0, x1, y1, (uint32_t)colour);
 }
 
-/* TODO(0047723c): the blits (video.c) do not keep to the box yet, only the polygons and frames */
 void ea_clip(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
-    clip_x0 = x0, clip_y0 = y0, clip_x1 = x1, clip_y1 = y1;
+    pointer_range(x0, y0, x1, y1);
 }

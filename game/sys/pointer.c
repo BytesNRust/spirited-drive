@@ -22,6 +22,7 @@ static FshEntry sprite;          /* ptr0 */
 static PointerState ptr = { .x = 320, .y = 240 };
 static unsigned os_buttons;
 static int16_t *bound;           /* pointer_bind_active's copy */
+static int range_x0, range_y0, range_x1 = VIDEO_WIDTH, range_y1 = VIDEO_HEIGHT;  /* 0052cdac, 0052cdb0, 0052cda4, 0052cda0 */
 
 static void active_set(int16_t active)
 {
@@ -65,12 +66,32 @@ void pointer_free(void)
     active_set(0);
 }
 
+/* 004772f8's clamp: the low bound first, the high one winning */
+static int clamp_to(int v, int lo, int hi)
+{
+    const int up = v > lo ? v : lo;
+    return up < hi ? up : hi;
+}
+
+static void clamp(void)
+{
+    ptr.x = clamp_to(ptr.x, range_x0, range_x1);
+    ptr.y = clamp_to(ptr.y, range_y0, range_y1);
+}
+
+void pointer_range(int x0, int y0, int x1, int y1)
+{
+    range_x0 = x0, range_y0 = y0, range_x1 = x1, range_y1 = y1;
+    clamp();
+}
+
 void pointer_sync_from_os(void)
 {
     int os_x, os_y;
     if (platform_mouse(&os_x, &os_y, &os_buttons)) {
         ptr.x = os_x;
         ptr.y = os_y;
+        clamp();
     }
 }
 
@@ -172,7 +193,7 @@ void pointer_click_feedback(void)
 
 void pointer_position(int *x, int *y)
 {
-    *x = ptr.x, *y = ptr.y;
+    *x = clamp_to(ptr.x, range_x0, range_x1), *y = clamp_to(ptr.y, range_y0, range_y1);  /* 00477140's */
 }
 
 const uint8_t *pointer_shape(int which)
