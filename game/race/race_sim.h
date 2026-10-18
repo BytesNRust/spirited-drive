@@ -72,6 +72,8 @@ struct RaceField {
      * RaceState.models) and its PDN returned, or NULL. NULL: no models. */
     const CarPdn *(*load)(void *user, Car *car, RaceState *race);
     void *user;
+    int humans;                         /* 004fb7e0: the cars at the controls, first in the field (0: one) */
+    const CarSpecs *specs[RACE_PLAYERS];  /* each human's specs after slot 0's (a link game's); NULL none */
 };
 
 /* 0042702c's counts for a race type: types 2 and 3 race 8, type 0 one car;

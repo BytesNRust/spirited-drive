@@ -455,6 +455,9 @@ enum {
 
 static RaceSim drive_sim;
 static DriveInput drive_input;
+static TrackViewerLink drive_link;  /* a link race's, taken by the next drive */
+static int drive_link_on;
+static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
 static DriveKeys drive_keys;
 static DriveReplay drive_replay;
 enum { KEY_F9 = 0x43 };
@@ -681,7 +684,7 @@ typedef struct {
 static void df_none(void *ctx) { (void)ctx; }
 static void df_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void df_select(void *ctx, HudSurface s) { (void)ctx, (void)s; }  /* the targets are the ops' own */
-static int32_t df_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
+static int32_t df_net_wait(void *ctx, int32_t kind) { (void)ctx; return drive_link_on ? drive_link.wait(kind) : 1; }
 static void df_chase_tick(void *ctx) { DriveFrame *f = ctx; race_chase_tick(f->race, &f->race->chase); }
 static void df_restream(void *ctx) { race_scenery_restream(((DriveFrame *)ctx)->race); }
 static void df_tiles(void *ctx) { drive_hud_tiles(&drive_hud, ((DriveFrame *)ctx)->race); }
@@ -937,6 +940,12 @@ void track_viewer_drive_menus(const TrackViewerMenus *m)
     menus_on = 1;
 }
 
+void track_viewer_drive_link(const TrackViewerLink *l)
+{
+    drive_link = *l;
+    drive_link_on = l->humans >= 1 && l->humans <= RACE_PLAYERS && l->slot >= 0 && l->slot < l->humans;
+}
+
 /* 004275f8 for a replay: 0052b316, 0044f528 and 0044f534(4); the cars' models 00457870 drew against the file's */
 static void replay_begin(void)
 {
@@ -954,7 +963,8 @@ static void replay_begin(void)
     }
 }
 
-static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
+/* A car model's specs (its PBS) */
+static int load_specs(const char *data_root, int model, CarSpecs *specs)
 {
     char stem[16];
     car_stem(model, stem);
@@ -962,13 +972,20 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     snprintf(path, sizeof path, "%s/SIMDATA/CARSPECS/%s.PBS", data_root, stem);
     size_t size = 0;
     uint8_t *file = platform_read_file(path, &size);
-    CarSpecs specs;
-    const int ok = file != NULL && car_specs_read(&specs, file, size);
+    const int ok = file != NULL && car_specs_read(specs, file, size);
     platform_free_file(file);
-    if (!ok) {
-        fprintf(stderr, "track_viewer: no specs %s\n", path);
-        return 0;
-    }
+    if (!ok) fprintf(stderr, "track_viewer: no specs %s\n", path);
+    return ok;
+}
+
+static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
+{
+    static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
+    if (drive_link_on) model = drive_link.cars[0];  /* slot 0's specs are the host's car's */
+    CarSpecs specs;
+    if (!load_specs(data_root, model, &specs)) return 0;
+    char stem[16];
+    car_stem(model, stem);
     RaceField field;
     memset(&field, 0, sizeof field);
     field.racers = racers;
@@ -999,18 +1016,37 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     /* The frontend's stand-in: a single race with the other entry's car 8
      * gets 00457870's field of eight different cars (004c5628); any other
      * car there would race seven copies of it. */
-    if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
-    if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed */
+    if (field.race_type == SINGLE_RACE && racers > 1 && !drive_link_on) field.entries[1].car = FULL_FIELD;
+    for (int i = 0; drive_link_on && i < drive_link.humans && i < racers; i++) {  /* the machines' cars */
+        field.entries[i].car = drive_link.cars[i];
+        if (i > 0 && !load_specs(data_root, drive_link.cars[i], &human_specs[i])) return 0;
+        field.specs[i] = i > 0 ? &human_specs[i] : NULL;
+    }
+    if (drive_link_on) field.humans = drive_link.humans;
+    if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed and its humans' specs */
         field = replay_of->field;
         field.load = drive_load;
+        for (int i = 1; i < field.humans && i < RACE_PLAYERS; i++) {
+            if (!load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
+            field.specs[i] = &human_specs[i];
+        }
     }
     const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
+    if (drive_link_on) {  /* 004275f8 in a link game: 0052b312 1, this machine's car and side */
+        RaceState *race = &drive_sim.race;
+        race->playback = 1, race->player = drive_link.slot;
+        race->unknown_4fbb0c = drive_link.host, race->unknown_4fb7d4 = 1;
+    }
     drive_joy_install(&drive_sim.race);
     if (menus_on && menus.game_state != NULL)
         memcpy(drive_sim.race.game_state, menus.game_state, sizeof drive_sim.race.game_state);
     results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
+    if (drive_link_on) {
+        drive_input.link = &drive_link;
+        for (int i = 0; i < drive_link.humans; i++) drive_input.queues[i].active = 1;
+    }
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
@@ -1019,8 +1055,13 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.select_view = select_view;
     drive_sim.race.view_user = &drive_views;
     drive_sim.race.window_size = 0;
-    race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
-    if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) fprintf(stderr, "track_viewer: no replay recording\n");
+    race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[drive_link_on ? drive_link.slot : 0], DRIVE_VIEW);
+    if (drive_link_on) {  /* a link game records none (0044edd8 with 0052b312 1): 004fbb0c stays the link's */
+        drive_replay_start(&drive_replay, &drive_sim, &drive_views);
+        drive_sim.race.unknown_4fbb0c = drive_link.host;
+    } else if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) {
+        fprintf(stderr, "track_viewer: no replay recording\n");
+    }
     drive_replay.seed = field.seed;
     if (replay_of != NULL) replay_begin();
     /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
@@ -1138,7 +1179,7 @@ static void run_service(void *ctx)
 }
 
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
-static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx, (void)kind; return 1; }
+static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx; return drive_link_on ? drive_link.wait(kind) : 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
 /* 00474c8c: --drive records nothing yet (TODO: race_replay_record's glue) and reads no 0051c770, so none is made. */
 static uint8_t *run_no_recording(void *ctx, int32_t size) { (void)ctx, (void)size; return NULL; }
@@ -1209,17 +1250,28 @@ static void run_queue_reset(void *ctx, InputQueue *q)
     input_queue_reset(q, &r->late, &r->unknown_4fb78c);
 }
 
+/* A queue's clock as a frame count: the original polls on every second 004bb8d8 (0043b970), its clock (2 a poll)
+ * keeping pace with 004c5590; the drive polls each frame, its clock twice the frames run */
+static int32_t clock_frames(int32_t clock) { return clock / 2; }
+
 static void run_queue_prime(void *ctx, InputQueue *q)
 {
     DriveRun *r = ctx;
     input_queue_prime(q, drive_sim.race.unknown_4fb7d4, r->w->wait_ticks, &r->store_clock, &r->w->replay_due);
+    if (drive_link_on) r->w->replay_due = clock_frames(r->w->replay_due);
 }
-/* 00410250: a local game has no links and sends nothing; 004fbb0c taken as 1 in a local game, as drive_input does */
-static void run_send_none(void *ctx, int32_t to, const int16_t *words, int32_t size) { (void)ctx, (void)to, (void)words, (void)size; }
+/* 00410250: a local game has no links and sends nothing, a link race through the link; 004fbb0c taken as 1 in a
+ * local game, as drive_input does */
+static void run_send_none(void *ctx, int32_t to, const int16_t *words, int32_t size)
+{
+    (void)ctx;
+    if (drive_link_on) drive_link.send(to, words, size);
+}
 static int32_t run_linked(void *ctx, int32_t player) { (void)ctx, (void)player; return 1; }
 static void run_stand_in_start(void *ctx)
 {
-    const InputStandInStartWords w = { 1, drive_sim.race.playback, drive_sim.race.racers, drive_sim.race.humans };
+    const InputStandInStartWords w = { drive_link_on ? drive_link.host : 1, drive_sim.race.playback, drive_sim.race.racers,
+                                       drive_sim.race.humans };
     const InputStandInStartOps ops = { ctx, run_send_none, run_linked };
     input_stand_in_start(drive_input.stand_in_block, drive_sim.race.players, &w, &ops);
 }
@@ -1314,10 +1366,12 @@ static int drive_window(const Track *t, uint8_t *pixels)
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
+    drive_input.store_clock = &r.store_clock, drive_input.late = &r.late, drive_link_run = &w;
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
     race_run(&ops, &drive_sim.race, &w);
+    drive_link_run = NULL;
     results.end_state = drive_sim.race.end_state;  /* also a replay left before its race was over */
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
     drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
@@ -1445,7 +1499,8 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     free(pixels);
     free_drive();
     free_track(&t);
-    menus_on = 0;
+    menus_on = 0, drive_link_on = 0;
+    drive_input.link = NULL;
     return ok;
 }
 
@@ -1494,4 +1549,35 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
     free(pixels);
     free_track(&t);
     return ok;
+}
+
+/* --- a link race's messages (004bcb98[2], [3]) --- */
+
+static void message_lock(void *ctx, uint32_t lock) { (void)ctx, (void)lock; }
+static int16_t message_slot_of(void *ctx, uint32_t from) { (void)ctx; return drive_link.slot_of(from); }
+static void message_send(void *ctx, int32_t to, const int16_t *words, int32_t size)
+{
+    (void)ctx;
+    drive_link.send(to, words, size);
+}
+
+void track_viewer_drive_message(int16_t kind, uint32_t from, const uint8_t *data, int32_t size)
+{
+    enum { INPUTS = 2, SCHEDULE = 3, SCHEDULE_SIZE = 8 };
+    if (!drive_link_on || drive_link_run == NULL) return;  /* none before the race runs, or after */
+    RaceState *race = &drive_sim.race;
+    if (kind == INPUTS && size >= (drive_link.host != 0 ? 4 : 2 + 2 * race->humans)) {  /* a word, or every human's */
+        static int32_t unknown_4fb78c;
+        InputMessageWords m = { 0, { 1, 0, drive_link.host, drive_link.slot, 0, 0 }, *drive_input.late, unknown_4fb78c,
+                                drive_link_run->replay_due * 2 /* the clock again */, (int16_t)race->humans };
+        static const InputMessageOps ops = { NULL, message_lock, message_lock, message_slot_of };
+        input_on_message(&ops, drive_input.queues, &m, from, data);
+        *drive_input.late = m.late, unknown_4fb78c = m.w4fb78c, drive_link_run->replay_due = clock_frames(m.w4c5598);
+    } else if (kind == SCHEDULE && size >= SCHEDULE_SIZE) {
+        uint8_t copy[SCHEDULE_SIZE];  /* 004109e4 writes the frame in place */
+        memcpy(copy, data, sizeof copy);
+        const RaceScheduleInWords w = { 1, drive_link.host, (int16_t)race->tick };
+        const InputSendOps send = { NULL, message_send };
+        race_schedule_on_message(&send, drive_pause.sched, &w, copy);
+    }
 }

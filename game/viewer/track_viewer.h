@@ -49,6 +49,26 @@ typedef struct {
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
 
+/* A link game's race (the front end's glue): the humans race each other's
+ * cars, this machine at its slot, the inputs going round as the original
+ * sends them (00445e00) and coming in through track_viewer_drive_message.
+ * Set before a track_viewer_drive, which takes it once; none races alone. */
+typedef struct TrackViewerLink {
+    int32_t humans;                     /* 004fb7e0 (004f81d2): the machines' cars, first in the field */
+    int32_t slot;                       /* 004fbb08: this machine's car */
+    int32_t host;                       /* 004fbb0c */
+    int cars[TRACK_VIEWER_RACERS];      /* each human's car model (00524e8b this machine's, 00524e8d by slot) */
+    void (*send)(int32_t to, const int16_t *words, int32_t size);  /* 00445e00 */
+    void (*service)(void);              /* 00475c14(0): the transport's */
+    int32_t (*wait)(int32_t stage);     /* 00410c18: nonzero when all came */
+    int16_t (*slot_of)(uint32_t link);  /* 0044659c */
+} TrackViewerLink;
+void track_viewer_drive_link(const TrackViewerLink *link);
+
+/* The race's messages from a link while a link race runs: kind 2 the inputs
+ * (004395cc), kind 3 the schedule (004109e4) */
+void track_viewer_drive_message(int16_t kind, uint32_t link, const uint8_t *data, int32_t size);
+
 /* The last drive's end: over once the race ended (race_sim_over), with
  * 00509d6c and the results screen's words 0051dcbc..0051dccb and
  * 004f82a0 as 0045af80 / 0045b29c left them. */
