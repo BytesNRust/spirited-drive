@@ -441,8 +441,8 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
     const ResultsOps ops = {
         records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
         select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
-        select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, track_music, track_play,
-        deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, track_stop, track_free, fade_out,
+        select_default, hide, nothing, blit_word, nothing, flip, show_dialog, mark_at, buttons, track_music, track_play,
+        deadline_set, sound, ticks, activate_dialog, key, click, off_dialog, music, deadline_passed, track_stop, track_free, fade_out,
         free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
         results_order, lap_times, &c };
     c.ops = &ops;

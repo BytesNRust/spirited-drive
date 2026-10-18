@@ -283,7 +283,7 @@ static void load_script(void)
     char *save = NULL;
     for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
          item = SDL_strtok_r(NULL, ",", &save)) {
-        ScriptEvent e = { 0, 0, 0, 0, false, false, "" };
+        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "" };
         char name[16] = "";
         if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
