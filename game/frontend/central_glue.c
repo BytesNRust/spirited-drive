@@ -73,7 +73,7 @@ static struct {
     int32_t unlock_m, unlock_r, lost_vegas, hidden, vegas_cheat, variant_m, variant_r;
     int16_t net_player, net_player_was, was[6];
     int32_t art[7];
-    int16_t nomercy, warrior, music_silent, net_hover, net_self, net_second, letter_held, buttons;
+    int16_t nomercy, warrior, net_hover, net_self, net_second, letter_held, buttons;
     int32_t explode, inverse, nitro;
 } g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
@@ -241,6 +241,20 @@ static int16_t image_short(int at)
     int16_t v;
     memcpy(&v, config_current()->image + at, sizeof v);
     return v;
+}
+
+/* config.dat's 00524e65 / 67 / 69 as g.volumes for the screens that put back the volumes F5 kept
+ * (menu_audio_kept's +0, +4, +6) when 004c5cbe is set: before and after each, what a screen changed there goes
+ * to config.dat, then g.volumes is read again (F5 itself writes config.dat) */
+enum { VOLUMES_AT = 0x75 };
+#define KEPT_VOLUMES { menu_audio_kept()[0], menu_audio_kept()[2], menu_audio_kept()[3] }
+static int16_t volumes_read[3];
+static void volumes_sync(void)
+{
+    uint8_t *const at = config_current()->image + VOLUMES_AT;
+    if (memcmp(g.volumes, volumes_read, sizeof g.volumes) != 0) memcpy(at, g.volumes, sizeof g.volumes);
+    memcpy(g.volumes, at, sizeof g.volumes);
+    memcpy(volumes_read, g.volumes, sizeof volumes_read);
 }
 
 static void race(void *ctx);  /* 00427ae0, below */
@@ -744,7 +758,7 @@ static void audio_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { 
 static void audio(void *ctx, int32_t mode)
 {
     enum { AUDIO_MODE_AT = 0x71 };  /* 00524e61 */
-    static int16_t track_silent, small_stream, kept[4];
+    static int16_t small_stream;
     static const int16_t no_modes = 1, bit0 = 1, sound_alt = 0, sound_on = 1, net_off = 1;
     static const int32_t voice_4a = 0, voice = 0;
     const int16_t german = (int16_t)resource_german();
@@ -752,7 +766,7 @@ static void audio(void *ctx, int32_t mode)
     audio_track();
     opt_in();
     const AudioMenuState st = {
-        config_current()->image + 9, &track_silent, kept, &no_modes, &bit0, &sound_alt, &menu_words.link_game,
+        config_current()->image + 9, menu_audio_silent(), menu_audio_kept(), &no_modes, &bit0, &sound_alt, &menu_words.link_game,
         &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &g.buttons, ea_screen_slot(),
         &g.inverse, &small_stream, &net_off, &no_quit };
     const AudioMenuOps ops = {
@@ -861,10 +875,11 @@ static void load_save(void *ctx, int32_t mode)
     opt_in();
     int16_t variant = image_short(0x93);
     replay_kind = image_short(0xaf);
+    volumes_sync();
     LoadSaveState st = {
         resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), pointer_active(), &g.buttons,
         ea_screen_slot(), &g.inverse, &list_check, &variant, &list_highlight, &replay_kind, replay_race,
-        &g.music_silent, g.volumes, { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f),
+        menu_audio_silent(), g.volumes, KEPT_VOLUMES, image_short(0x7f),
         (const char *)config->image + 9, (const char *)config->image + 0x3b };
     const LoadSaveOps ops = {
         move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, in_rect,
@@ -875,6 +890,7 @@ static void load_save(void *ctx, int32_t mode)
         deadline_passed, ctx };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
     load_save_menu(mode, &st, &ops);
+    volumes_sync();
     pointer_bind_active(was);
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
@@ -891,10 +907,11 @@ static void load_save2(void *ctx, int32_t mode)
     int16_t races[RACES], extra;
     memcpy(races, game_state + RACES_AT, sizeof races), memcpy(&extra, game_state + EXTRA_AT, sizeof extra);
     replay_kind = image_short(0xaf);
+    volumes_sync();
     LoadSave2State st = {
         resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), pointer_active(), &g.buttons, races,
-        extra, g.lost_vegas, ea_screen_slot(), &g.inverse, &list_check, &list_highlight, &replay_kind, &g.music_silent,
-        g.volumes, { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f), (const char *)config->image + 9,
+        extra, g.lost_vegas, ea_screen_slot(), &g.inverse, &list_check, &list_highlight, &replay_kind, menu_audio_silent(),
+        g.volumes, KEPT_VOLUMES, image_short(0x7f), (const char *)config->image + 9,
         (const char *)config->image + 0x3b };
     const LoadSaveOps ops = {
         move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, in_rect,
@@ -905,6 +922,7 @@ static void load_save2(void *ctx, int32_t mode)
         deadline_passed, ctx };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
     load_save_menu2(mode, &st, &ops);
+    volumes_sync();
     pointer_bind_active(was);
     memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
@@ -943,10 +961,11 @@ static AfterRaceState after_race_state(void)
     static uint8_t cars[AFTER_RACE_CARS * AFTER_RACE_CAR];
     uint8_t *const image = config_current()->image;
     replay_kind = image_short(REPLAY_FLAG_AT);
+    volumes_sync();
     return (AfterRaceState){
         &menu_words.link_game, &no_quit, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
-        &credits_idle, &chat_closed, &replay_kind, (char *)image + 0x3b, &g.music_silent, g.volumes,
-        { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f), image_short(0x95), image_short(0x6d),
+        &credits_idle, &chat_closed, &replay_kind, (char *)image + 0x3b, menu_audio_silent(), g.volumes,
+        KEPT_VOLUMES, image_short(0x7f), image_short(0x95), image_short(0x6d),
         game_state, cars };
 }
 
@@ -1009,6 +1028,7 @@ static void after_race(void *ctx)
     const AfterRaceOps ops = after_race_ops(after_options, ctx);
     credits_last = timer_ticks();
     after_race_menu(&st, &ops);
+    volumes_sync();
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
 }
 
@@ -1025,6 +1045,7 @@ static int32_t next_segment(void *ctx)
     const NextSegmentOps ops = { after_race_ops(after_options, ctx), glue_yes_no, glue_banner, deadline, all_came };
     credits_last = timer_ticks();
     const int32_t go_on = next_segment_menu(&st, &ops);
+    volumes_sync();
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
     return go_on;
 }
@@ -1112,16 +1133,18 @@ int32_t glue_central(void)
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,
         menu_words.mode_menu, g.volumes, menu_words.link_game, link_view_only(), &menu_words.redraw, (int16_t)resource_german(), 0,
-        &g.tournament, &menu_words.link_lost, g.races, { 0, 0, 0 }, (uint32_t *)&menu_cheats.keys_506,
+        &g.tournament, &menu_words.link_lost, g.races, menu_audio_kept(), (uint32_t *)&menu_cheats.keys_506,
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
-        &g.explode, &g.music_silent, &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
+        &g.explode, menu_audio_silent(), &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
         link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys };
     const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
                                  &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
     link_central_bind(&link_menu);
     central_up = 1;
+    volumes_sync();
     const int32_t result = control_central(&st, &OPS);
+    volumes_sync();
     central_up = 0;
     link_central_bind(NULL);
     video_set_overlay(NULL, 0, 0);

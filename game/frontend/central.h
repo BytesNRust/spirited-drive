@@ -108,7 +108,7 @@ typedef struct ControlCentralState {
     int16_t *tournament;       /* 0052b310 */
     int16_t *link_lost;        /* 0052b314 */
     const int16_t *races;      /* 0052b2d6..0052b2e8: the tournament's, by track */
-    int16_t kept[3];           /* 0052b322, 0052b326, 0052b328 */
+    const int16_t *kept;       /* 0052b322..0052b329, read live: +0, +4 and +6 used */
     uint32_t *track_flags;     /* 0052b306 */
     int16_t *unlock_level;     /* 0052ad40 */
     int32_t *unlock_m;         /* 004baf0c */
