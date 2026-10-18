@@ -19,7 +19,7 @@
 enum {
     CAR_LOAD_LEVELS = 2,   /* high (CFM children 0, 1), low (2, 3) */
     CAR_LOAD_PARTS = 4,    /* inside, outside, surface, convex */
-    CAR_LOAD_PATH = 80     /* the original's stack buffers */
+    CAR_LOAD_PATH = 512    /* port: the original's stack buffers are 80 bytes, too short for a data root given as an absolute path */
 };
 
 typedef enum {
