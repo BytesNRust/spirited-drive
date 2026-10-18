@@ -224,9 +224,14 @@ static PlatformKey translate_key(SDL_Keycode key)
 
 bool platform_poll_events(void)
 {
+    static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
     SDL_Event event;
+    if (quit) return false;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) return false;
+        if (event.type == SDL_EVENT_QUIT) {
+            quit = true;
+            return false;
+        }
         if (event.type == SDL_EVENT_MOUSE_MOTION) {
             SDL_ConvertEventToRenderCoordinates(renderer, &event);
             mouse_x = event.motion.x;
