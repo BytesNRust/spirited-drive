@@ -107,6 +107,12 @@ enum { SOUND_NO_CHANNEL = -20, SOUND_NOT_EACS = -10, SOUND_PAN_OWN = -1 };
 int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id, int32_t pan, int32_t volume,
                           int32_t pitch);
 
+/* 004a4bd8 (eax the header, edx the channel, ebx the pan, cl the volume; 00492330's): not 'EACS' -10; a channel
+ * out of 0..15 -1; else its sound stopped when busy, the channel filled for the queue (no sound, number 0xff, pitch
+ * 0x40, priority 0x65, its volume 0x7f, +0xd 3, the pan and volume given), the header's channel set, a handle
+ * (00497784 is not reached without one: -1) and the sample started; the handle. */
+int32_t sound_play_on(SoundDriver *d, SoundSample *s, int32_t channel, uint8_t pan, uint8_t volume);
+
 /* 00473b4c (eax the handle, edx the volume): a handle 00497af8 passes
  * (else -1), a volume 0..0x7f (else -12), a busy channel (else -13): the
  * channel's volume +0x20, its mixed volume (00497750) and the voice's gains

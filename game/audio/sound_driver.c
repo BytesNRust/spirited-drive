@@ -137,6 +137,25 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
     return handle;
 }
 
+enum { QUEUE_ID = 0xff, QUEUE_CENTRE = 0x40, QUEUE_PRIORITY = 0x65, QUEUE_VOLUME = 0x7f, SOUND_KIND_QUEUE = 3 };
+
+/* 004a4bd8 */
+int32_t sound_play_on(SoundDriver *d, SoundSample *s, int32_t channel, uint8_t pan, uint8_t volume)
+{
+    if (s->magic != SOUND_EACS) return SOUND_NOT_EACS;
+    if (channel < 0 || channel >= SOUND_CHANNELS) return -1; /* 00497acc */
+    SoundChannel *c = &d->channels.channel[channel];
+    if (c->busy == 1) sound_stop(d, c->handle); /* 004979e8: the channel's handle */
+    c->sound = NULL, c->id = QUEUE_ID, c->last = -1, c->pitch = QUEUE_CENTRE, c->range = 0, c->pitch_base = 0;
+    c->busy = 1, c->priority = QUEUE_PRIORITY, c->ramp_step = 0, c->sound_volume = QUEUE_VOLUME;
+    c->kind = SOUND_KIND_QUEUE, c->volume = volume, c->pan = pan;
+    s->channel = (uint8_t)channel;
+    const int32_t handle = sound_handle_alloc(&d->channels, channel);
+    if (handle < 0) return -1;
+    sound_sample_start(d, s);
+    return handle;
+}
+
 enum { BAD_VOLUME = -12, NOT_BUSY = -13 };
 
 static void channel_gains(SoundDriver *d, int32_t slot)
