@@ -178,6 +178,7 @@ add_library(tnfs_game STATIC
     game/race/race_replay_seek.c
     game/race/race_replay_cuts.c
     game/race/race_replay_file.c
+    game/race/race_replay_image.c
     game/race/race_view_pick.c
     game/race/replay_panel.c
     game/race/dash_controls.c
@@ -376,7 +377,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service)
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service replay_image)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -400,6 +401,11 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_assets PRIVATE tnfs_game)
         target_compile_options(test_assets PRIVATE ${TNFS_WARNINGS})
         add_test(NAME assets COMMAND test_assets ${TNFS_ASSET_FILES})
+    endif()
+
+    file(GLOB TNFS_REPLAY_FILES "${CMAKE_SOURCE_DIR}/original/GAMEDATA/REPLAY/*.RPL")
+    if(TNFS_REPLAY_FILES)
+        add_test(NAME replay_image_cd COMMAND test_replay_image ${TNFS_REPLAY_FILES})
     endif()
 
     file(GLOB TNFS_CONFIG_DAT "${CMAKE_SOURCE_DIR}/original/GAMEDATA/CONFIG/CONFIG.DAT"
