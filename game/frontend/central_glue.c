@@ -10,6 +10,7 @@
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/central.h"
 #include "game/frontend/after_race.h"
+#include "game/frontend/chat.h"
 #include "game/frontend/check_options.h"
 #include "game/frontend/next_segment.h"
 #include "game/frontend/cheat_code.h"
@@ -192,7 +193,6 @@ static void art_free(void *ctx)
     session_put(&f);
 }
 
-/* TODO(0040a5d8): chat */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 /* the link game (link_central.h): 00475c14(0) runs its transport */
 static void pump(void *ctx, int32_t v) { (void)ctx, (void)v, link_service(); }
@@ -933,7 +933,7 @@ static void after_options(void *ctx, int32_t mode) { (void)ctx; glue_check_optio
 
 enum { REPLAY_FLAG_AT = 0xaf };
 
-/* 0040c710's words on config.dat's image and the menus' game state, no link game; the cars' points (0051ce24) kept
+/* 0040c710's words on config.dat's image and the menus' game state; the cars' points (0051ce24) kept
  * in a buffer of their own: the port's replay leaves car_points */
 static AfterRaceState after_race_state(void)
 {
@@ -948,7 +948,47 @@ static AfterRaceState after_race_state(void)
         game_state, cars };
 }
 
-/* TODO(0040a5d8): the chat */
+/* 0040a5d8's ops: one thread, so the lines' lock is always free; no joystick, no keyboard layouts to switch */
+static int32_t lines_free(void *ctx, uint32_t lock) { (void)ctx, (void)lock; return 1; }
+static void lines_done(void *ctx, uint32_t lock) { (void)ctx, (void)lock; }
+static int32_t no_joystick(void *ctx) { (void)ctx; return 0; }
+static void restore(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
+/* 0047380c: 004737d0 less the shape's own origin, which a picture's shape (all chat shows) has at 0, 0 */
+static void show_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
+static void chat_send(void *ctx, int32_t link, const uint8_t *message, int32_t size)
+{
+    (void)ctx;
+    link_send((uint32_t)link, message, size);
+}
+/* 004735dc draws chat's screen straight onto the shown page (it never flips): here onto the back buffer, which is
+ * shown before the pointer goes over it */
+static void chat_shown(void *ctx) { (void)ctx, video_flip(), pointer_show(); }
+static void chat_in(void *ctx, int32_t link, const uint8_t *message, int32_t size)
+{
+    (void)ctx, (void)size;
+    link_chat_in((uint32_t)link, message);
+}
+
+/* 0040a5d8 on the link game's lines */
+static void chat(void *ctx)
+{
+    static const ChatOps ops = {
+        load_art, shape, palette_set, select_picture, blit, blit_masked, select_default, picture_shape, blit_word, flip,
+        buttons, fade_in, nothing, styles, picture_new, grab, glue_drain, keys_pending, music, nothing, move_to, mark,
+        net_service, in_rect, sound, lines_free, style, restore, shadowed, show_at, pump, lines_done, key_read,
+        no_joystick, width, click, ticks, chat_send, chat_in, select_default, nothing, chat_shown, buttons, picture_free, nothing,
+        fade_out, free_handle_inverse, free_bank, NULL };
+    static const uint32_t lines_lock = 0;
+    static const int32_t no_key = 0;
+    const int16_t german = (int16_t)resource_german();
+    ChatState st = { frontend_player_name, &menu_words.mode_menu, &link_game.chat[0][0], &link_game.chat_line,
+                     &link_game.chat_arrived, &lines_lock, &no_key, &no_key, &german, &menu_words.link_lost,
+                     &link_game.flags_a[RACE_NET_STAGE_FLAG], &link_game.unknown_52b318, &menu_words.redraw,
+                     pointer_active_word(), &g.buttons, ea_screen_slot() };
+    (void)ctx;
+    chat_screen(&st, &ops);
+}
+
 static AfterRaceOps after_race_ops(void (*options)(void *, int32_t), void *ctx)
 {
     return (AfterRaceOps){
@@ -957,7 +997,7 @@ static AfterRaceOps after_race_ops(void (*options)(void *, int32_t), void *ctx)
         styles, deadline_set, sound, nothing, ticks, activate, key, click, music_fade_out, fade_out, music_end,
         free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, replay, nothing, set_palette,
         no_mode_set, no_mode, picture_new, sound_load, music_pick, options, standings, circuit_results,
-        segment_results, track_results, nothing, off, credits_tick, deadline_passed, ctx };
+        segment_results, track_results, chat, off, credits_tick, deadline_passed, ctx };
 }
 
 /* 0040c710 for 00427ae0 */
@@ -970,9 +1010,9 @@ static void after_race(void *ctx)
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
 }
 
-/* TODO(00410b7c, 00410c18): the link's deadline and the wait for the others; no link game here */
-static void no_deadline(void *ctx, int32_t ticks) { (void)ctx, (void)ticks; }
-static int32_t all_came(void *ctx, int32_t stage) { (void)ctx, (void)stage; return 1; }
+/* 00410b7c and 00410c18: the link's deadline and the wait for the others (link_central.h) */
+static void deadline(void *ctx, int32_t ticks) { (void)ctx, link_deadline(ticks); }
+static int32_t all_came(void *ctx, int32_t stage) { (void)ctx; return link_wait((int16_t)stage); }
 
 /* 0040b648 for 00427ae0: the checkpoint menu between segments, 0 to stop the tournament's run */
 static int32_t next_segment(void *ctx)
@@ -980,7 +1020,7 @@ static int32_t next_segment(void *ctx)
     int16_t over = 0;
     NextSegmentState st = { after_race_state(), &over, &menu_words.link_lost, (int16_t)resource_german() };
     st.menu.link_over = &over;
-    const NextSegmentOps ops = { after_race_ops(after_options, ctx), glue_yes_no, glue_banner, no_deadline, all_came };
+    const NextSegmentOps ops = { after_race_ops(after_options, ctx), glue_yes_no, glue_banner, deadline, all_came };
     credits_last = timer_ticks();
     const int32_t go_on = next_segment_menu(&st, &ops);
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
@@ -1065,7 +1105,7 @@ int32_t glue_central(void)
         show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, cheat_step,
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options,
-        nothing, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off, NULL };
+        chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off, NULL };
     load();
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,

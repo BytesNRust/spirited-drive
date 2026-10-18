@@ -41,6 +41,8 @@ int32_t net_udp_link(NetUdp *u, const uint8_t *address, int32_t message, int32_t
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -153,14 +155,37 @@ static int32_t send_to(const NetUdp *u, const uint8_t *address, const uint8_t *d
     return sendto(u->fd, datagram, n, 0, (const struct sockaddr *)&to, sizeof to) == (ssize_t)n;
 }
 
-/* The LAN's broadcast on its own port, then each direct host */
-static int32_t send_everywhere(const NetUdp *u, const uint8_t *datagram, size_t n)
+/* The LAN's broadcast on its own port: to each broadcasting interface's own
+ * address (macOS routes nothing to 255.255.255.255), else to 255.255.255.255 */
+static int32_t send_broadcast(const NetUdp *u, const uint8_t *datagram, size_t n)
 {
+    enum { BROADCASTING = IFF_UP | IFF_BROADCAST };
+    struct ifaddrs *list = NULL;
+    int32_t sent = 0;
+    if (getifaddrs(&list) == 0) {
+        for (const struct ifaddrs *i = list; i != NULL; i = i->ifa_next) {
+            if (i->ifa_addr == NULL || i->ifa_addr->sa_family != AF_INET || i->ifa_broadaddr == NULL ||
+                (i->ifa_flags & BROADCASTING) != BROADCASTING)
+                continue;
+            struct sockaddr_in to;
+            memcpy(&to, i->ifa_broadaddr, sizeof to);
+            to.sin_port = htons(u->port);
+            if (sendto(u->fd, datagram, n, 0, (const struct sockaddr *)&to, sizeof to) == (ssize_t)n) sent = 1;
+        }
+        freeifaddrs(list);
+    }
+    if (sent) return 1;
     uint8_t lan[NET_UDP_ADDRESS];
     struct sockaddr_in in = { .sin_family = AF_INET, .sin_port = htons(u->port) };
     in.sin_addr.s_addr = htonl(INADDR_BROADCAST);
     address_of(&in, lan);
-    int32_t all = send_to(u, lan, datagram, n);
+    return send_to(u, lan, datagram, n);
+}
+
+/* The LAN's broadcast, then each direct host */
+static int32_t send_everywhere(const NetUdp *u, const uint8_t *datagram, size_t n)
+{
+    int32_t all = send_broadcast(u, datagram, n);
     for (int i = 0; i < u->hosts_used; i++) all &= send_to(u, u->hosts[i], datagram, n);
     return all;
 }

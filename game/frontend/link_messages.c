@@ -108,7 +108,7 @@ void link_drop(int16_t slot)
 
 /* --- in: 00446058 and its handlers (004bcb98) --- */
 
-static void on_chat(uint32_t link, const uint8_t *data)
+void link_chat_in(uint32_t link, const uint8_t *data)
 {
     RaceNetChatIn c = { menu_words.mode_menu, 0, &L->chat[0][0], L->chat_line, L->chat_arrived };
     static const RaceNetChatOps ops = { NULL, send, lock, lock };
@@ -171,7 +171,7 @@ static void handle(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, 
         race_net_on_stage(&slots, &in, link, data);
         break;
     }
-    case 6: on_chat(link, data); break;
+    case 6: link_chat_in(link, data); break;
     case 7: on_settings(link, data); break;
     case 8: on_state(data); break;
     case 9: break;  /* 0045156c: the serial / modem link's hello, not sent over the network */
