@@ -5,7 +5,6 @@
 #include "game/gfx/palette_match.h"
 #include "game/gfx/quad.h"
 
-#include <string.h>
 
 /* 00491a82 indexes five tables of three thunks back to back, so a mode past
  * 2 lands in the next table; past the last one the original crashes. */
@@ -36,13 +35,15 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
 }
 
 /* 00473140 on an 8-bit screen without the inverse table: the nearest of
- * the palette's colours, all of them enabled. */
+ * the palette's colours, all of them enabled. Its entries are 0052f178's,
+ * B, G, R (00476460), so a packed colour's first byte is blue. */
 static uint8_t nearest(const uint8_t palette[768], uint32_t rgb)
 {
     uint8_t quad[PALETTE_MATCH_ENTRIES * PALETTE_MATCH_ENTRY_BYTES] = { 0 };
     uint8_t enabled[PALETTE_MATCH_ENTRIES];
     for (int i = 0; i < PALETTE_MATCH_ENTRIES; i++) {
-        memcpy(&quad[i * PALETTE_MATCH_ENTRY_BYTES], &palette[3 * i], 3);
+        uint8_t *const q = &quad[i * PALETTE_MATCH_ENTRY_BYTES];
+        q[0] = palette[3 * i + 2], q[1] = palette[3 * i + 1], q[2] = palette[3 * i];
         enabled[i] = 1;
     }
     return (uint8_t)palette_match_nearest(quad, enabled, rgb);
@@ -66,8 +67,8 @@ static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
 void object_sink_shade(const uint8_t palette[768], uint8_t shade[256])
 {
     for (int i = 0; i < 256; i++) {
-        const uint32_t rgb = (uint32_t)(palette[3 * i] / 2) | (uint32_t)(palette[3 * i + 1] / 2) << 8 |
-                             (uint32_t)(palette[3 * i + 2] / 2) << 16;
+        const uint32_t rgb = (uint32_t)(palette[3 * i + 2] / 2) | (uint32_t)(palette[3 * i + 1] / 2) << 8 |
+                             (uint32_t)(palette[3 * i] / 2) << 16;
         shade[i] = nearest(palette, rgb);
     }
 }

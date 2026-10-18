@@ -485,7 +485,8 @@ static void set_drive_viewport(const RaceState *race)
 }
 
 enum {
-    SINGLE_RACE = 2,        /* RaceField.race_type */
+    HEAD_TO_HEAD = 1,       /* RaceField.race_type */
+    SINGLE_RACE = 2,
     DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in (the frontend's is not read) */
     FULL_FIELD = 8          /* entries[1].car asking 00457870 for the eight-car field */
 };
@@ -888,6 +889,18 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
  * computer racers (a single race, as test_race runs it); racers 1 drives
  * alone. race_type 0..3: the cars 0042702c sets for it, the police and
  * traffic (slots past the racers) by their drawn models. */
+static TrackViewerMenus menus;
+static int menus_on;
+static TrackViewerResults results;
+
+TrackViewerResults track_viewer_drive_results(void) { return results; }
+
+void track_viewer_drive_menus(const TrackViewerMenus *m)
+{
+    menus = *m;
+    menus_on = 1;
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     char stem[16];
@@ -925,11 +938,19 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         field.entries[i].car = m;
         field.entries[i].automatic = 1;
     }
+    if (menus_on) {
+        field.entries[0].automatic = menus.automatic, field.entries[0].anti_lock = menus.anti_lock;
+        field.entries[0].traction = menus.traction;
+        if (field.race_type == HEAD_TO_HEAD && racers > 1) field.entries[1].car = menus.opponent;
+    }
     /* The frontend's stand-in: a single race with the other entry's car 8
      * gets 00457870's field of eight different cars (004c5628); any other
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1) field.entries[1].car = FULL_FIELD;
-    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, 2, 0);
+    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, menus_on && menus.laps > 0 ? menus.laps : 2, 0);
+    if (menus_on && menus.game_state != NULL)
+        memcpy(drive_sim.race.game_state, menus.game_state, sizeof drive_sim.race.game_state);
+    results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
@@ -994,6 +1015,12 @@ static void drive_tick(uint32_t input)
     if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
+    const RaceState *race = &drive_sim.race;
+    results = (TrackViewerResults){ 1, (int16_t)race->end_request, race->results_player_rank, race->results_rival_rank,
+                                    race->results_rival, race->results_rival_name, { 0 } };
+    memcpy(results.dropped, race->unknown_4f82a0, sizeof results.dropped);
+    if (menus_on && menus.game_state != NULL)
+        memcpy(menus.game_state, race->game_state, sizeof race->game_state);
     printf("race over (%d):", drive_sim.race.end_request);
     for (int i = 0; i < drive_sim.count; i++) {
         const int slot = drive_sim.race.results_order[i];
@@ -1104,7 +1131,7 @@ static void run_music_fill(void *ctx) { (void)ctx, drive_audio_music_fill(); }  
 static void run_music_start(void *ctx)
 {
     const DriveRun *r = ctx;
-    drive_audio_music_set(r->w->music_on, DRIVE_MUSIC_VOLUME, r->w->music_started);
+    drive_audio_music_set(r->w->music_on, menus_on ? (int16_t)menus.music_volume : DRIVE_MUSIC_VOLUME, r->w->music_started);
     const RaceMusicOps ops = { ctx, run_music_rand, run_music_play };
     race_music_start(&ops, r->w->music_on);
 }
@@ -1209,14 +1236,18 @@ static const RaceRunOps *drive_run_ops(void);
 static int drive_window(const Track *t, uint8_t *pixels)
 {
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
-    if (!platform_init(&config)) return 0;
-    drive_audio_open(&drive_sim.race, drive_cars.data_root);
-    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, NULL, NULL, NULL, 0 };
+    if (!menus_on && !platform_init(&config)) return 0;
+    if (drive_audio_open(&drive_sim.race, drive_cars.data_root) && menus_on) {  /* 004275f8's words for the followed slot */
+        RaceEntry *followed = &drive_sim.race.entries[race_slot(drive_sim.race.player)];
+        followed->sound_volume = menus.sound_volume, followed->music_volume = menus.music_volume;
+        followed->sound_mode = menus.sound_mode;
+    }
+    drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, NULL, NULL, NULL, 0, 0 };
     if (drive_menu_open(&drive_menu, drive_cars.data_root))
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
-    w.music_on = DRIVE_MUSIC_SETTING;
+    w.music_on = menus_on ? (int16_t)menus.music : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
@@ -1226,7 +1257,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     race_run(&ops, &drive_sim.race, &w);
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
     drive_replay.pace = NULL;
-    while (!r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
+    while (!menus_on && !r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
         render_drive(t, pixels);
@@ -1237,7 +1268,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     drive_pause.menu = NULL;
     if (drive_menu.ready) drive_menu_close(&drive_menu);
     drive_audio_close();
-    platform_shutdown();
+    if (!menus_on) platform_shutdown();
     return 1;
 }
 
@@ -1338,6 +1369,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     free(pixels);
     free_drive();
     free_track(&t);
+    menus_on = 0;
     return ok;
 }
 

@@ -895,6 +895,24 @@ void race_music_pick(const RaceMusicOps *ops, int16_t music, int16_t *small)
     ops->play(ops->ctx, track);
 }
 
+enum { MUSIC_NONE = 5 };  /* 0045638c's track not played */
+
+void race_music_by_idle(const RaceMusicOps *ops, int16_t music, int32_t idle)
+{
+    int32_t track;
+    switch (music) {
+    case 0: track = MUSIC_NONE; break;
+    case MUSIC_ANY: track = idle % MUSIC_TRACKS; break;
+    case MUSIC_FIRST_HALF: case 4: case 5: case 6: case 7: case 8: case 9: track = idle % MUSIC_HALF; break;
+    case MUSIC_SECOND_HALF: case 10: case 11: case 12: case 13: case 14: case MUSIC_LAST:
+        track = idle % MUSIC_HALF + MUSIC_HALF;
+        break;
+    default: return;  /* port guard: edx as it came */
+    }
+    if (track == MUSIC_NONE || track < 0) return;  /* port guard: track < 0 */
+    ops->play(ops->ctx, track);
+}
+
 void race_sound_channels_stop(RaceState *race)
 {
     for (int32_t k = 0; k < RACE_VOICES; k++) race_sound_channel_stop(race, k);

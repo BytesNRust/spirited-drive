@@ -47,7 +47,7 @@ static int32_t voice_stopped(void *user, int32_t voice)
     return sound_handle_stopped(&driver.channels, voice);
 }
 
-int drive_audio_open(RaceState *race, const char *data_root)
+int drive_audio_device_open(const char *data_root)
 {
     root = data_root;
     sound_channels_reset(&driver.channels);  /* 0049212c: 00497b34 first */
@@ -58,6 +58,22 @@ int drive_audio_open(RaceState *race, const char *data_root)
         driver.channels.open = 1;  /* 004c7b54 */
         ticked_ms = platform_ticks_ms();
     }
+    return open_;
+}
+
+int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pitch)
+{
+    return open_ ? sound_play(&driver, sound, pan, volume, pitch) : 0;
+}
+
+void drive_audio_voice_stop(int32_t voice)
+{
+    if (open_) sound_stop(&driver, voice);
+}
+
+int drive_audio_open(RaceState *race, const char *data_root)
+{
+    drive_audio_device_open(data_root);
     RaceEntry *followed = &race->entries[race_slot(race->player)];
     followed->sound_volume = open_ ? SOUND_VOLUME : 0;
     followed->music_volume = open_ ? MUSIC_VOLUME : 0;
@@ -257,4 +273,9 @@ void drive_audio_close(void)
     for (int i = 0; i < RACE_SOUND_BANKS; i++) bank_free(NULL, (uint32_t)i);
     if (open_) platform_audio_close();
     open_ = 0;
+    /* the device can be opened again (the menus' around a race): nothing left playing from the files and the ring
+     * freed above, no track open */
+    for (int k = 0; k < SOUND_VOICES; k++) driver.voice[k].on = 0;
+    driver.stream = (SoundStream){ 0 };
+    music.open = 0, music.started = 0;
 }

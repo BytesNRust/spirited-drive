@@ -78,6 +78,9 @@ add_library(tnfs_game STATIC
     game/frontend/showcase_pages.c
     game/frontend/showcase_figures.c
     game/frontend/credits.c
+    game/frontend/controls_menu.c
+    game/frontend/audio_menu.c
+    game/frontend/graphics_menu.c
     game/frontend/load_save2.c
     game/frontend/net_game.c
     game/frontend/net_host.c
@@ -87,6 +90,7 @@ add_library(tnfs_game STATIC
     game/frontend/central_select.c
     game/frontend/central_keys.c
     game/frontend/key_name.c
+    game/frontend/menu_race.c
     game/frontend/menu_sound.c
     game/frontend/message_banner.c
     game/frontend/name_box.c
@@ -94,7 +98,13 @@ add_library(tnfs_game STATIC
     game/frontend/palette_put.c
     game/frontend/race_settings.c
     game/frontend/random_pick.c
+    game/frontend/record_check.c
     game/frontend/replay_box.c
+    game/frontend/results_screen.c
+    game/frontend/best_totals_screen.c
+    game/frontend/track_results.c
+    game/frontend/lap_times.c
+    game/frontend/circuit_results.c
     game/frontend/save_box.c
     game/frontend/screen_clear.c
     game/frontend/screen_show.c
@@ -304,6 +314,7 @@ add_executable(tnfs
     game/frontend/frontend.c
     game/frontend/menu_glue.c
     game/frontend/central_glue.c
+    game/frontend/menu_audio.c
     game/frontend/screens.c
     game/frontend/text_field.c
     game/sys/input.c
@@ -369,6 +380,11 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
+    add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c)
+    target_include_directories(test_object_sink PRIVATE game)
+    target_link_libraries(test_object_sink PRIVATE tnfs_game)
+    target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME object_sink COMMAND test_object_sink)
 endif()
 
 # Integration tests over the user's own CD data (original/ is gitignored).

@@ -21,11 +21,13 @@ typedef struct {
     void (*music_start)(void *user);  /* 00456244: a race track drawn and played */
     void *music_user;
     int ready;                  /* the frontend's layer is up */
+    int shared;                 /* it was up already (the menus' race): used as it is and left up */
 } DriveMenu;
 
 /* After platform_init: the frontend's video, art paths, pointer and font
- * (as 00437540 sets them up). 0 when the menu cannot run (Esc then does
- * nothing). The map is the race's track and variant (004fb7c2 / 004fb7be). */
+ * (as 00437540 sets them up), or the menus' own when they are up already
+ * (a race from Control Central), which close then leaves. 0 when the menu
+ * cannot run (Esc then does nothing). The map is the race's track and variant (004fb7c2 / 004fb7be). */
 int drive_menu_open(DriveMenu *m, const char *data_root);
 
 /* 00447564 on the race; the race's 0052b314 / 00509d70 written back. */

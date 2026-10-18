@@ -237,6 +237,10 @@ void drive_menu_run(void *menu)
 
 int drive_menu_open(DriveMenu *m, const char *data_root)
 {
+    if (video_back_buffer() != NULL) {
+        m->shared = m->ready = 1;
+        return 1;
+    }
     timer_init();
     if (!video_init()) return 0;
     resource_init(data_root, 0);
@@ -250,6 +254,10 @@ int drive_menu_open(DriveMenu *m, const char *data_root)
 
 void drive_menu_close(DriveMenu *m)
 {
+    if (m->shared) {
+        m->shared = m->ready = 0;
+        return;
+    }
     text_free();
     pointer_free();
     video_shutdown();

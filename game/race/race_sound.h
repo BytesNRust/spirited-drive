@@ -261,4 +261,12 @@ void race_music_start(const RaceMusicOps *ops, int16_t music);
  * played (00464428); 0 and past 15 nothing. */
 void race_music_pick(const RaceMusicOps *ops, int16_t music, int16_t *small);
 
+/* 0045638c (watcall (), the front end's after the intro): the track from
+ * the idle timer 004bb8dc instead of 00443730: setting 1 idle % 12, 2 and
+ * 4..9 idle % 6, 3 and 10..15 idle % 6 + 6; a track 5 (so also setting 0)
+ * is not played, any other is (00464428). Past 15 the original plays edx's
+ * track as it came, the port nothing; a negative idle indexes before
+ * 004c55ac there, the port plays nothing. */
+void race_music_by_idle(const RaceMusicOps *ops, int16_t music, int32_t idle);
+
 #endif

@@ -4,6 +4,7 @@
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_mode.h"
+#include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
 #include "game/frontend/palette_put.h"
@@ -25,9 +26,12 @@ MenuCheats menu_cheats;
 
 static uint8_t screen_palette[PALETTE_PUT_BYTES];  /* 0052ced8: what 00463e08 leaves */
 
-/* TODO(004648dc, 0046492c, 004649c8, 004640d0, 0046417c): the menu sounds and music */
 static void nothing(void *ctx) { (void)ctx; }
-static void no_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
+static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
+static void sound_load(void *ctx) { (void)ctx; menu_audio_bank_load(); }
+static void sound_free(void *ctx) { (void)ctx; menu_audio_bank_free(); }
+static void music_feed(void *ctx) { (void)ctx; menu_audio_music_feed(); }
+static void music(void *ctx) { (void)ctx; menu_audio_music_service(); }
 
 static void deadline_set(void *ctx, int32_t time) { (void)ctx; timer_set_deadline(time); }
 static int32_t deadline_passed(void *ctx) { (void)ctx; return timer_deadline_passed(); }
@@ -102,7 +106,7 @@ static void banner(void *ctx, const char *text)
 static void banner_wait(void *ctx, const char *text, int32_t time)
 {
     (void)ctx;
-    const MessageBannerWaitOps ops = { nothing, picture_new, picture_shape, select_picture, grab, banner,
+    const MessageBannerWaitOps ops = { music, picture_new, picture_shape, select_picture, grab, banner,
                                        deadline_set, blit_at, picture_free, show, deadline_passed, key, buttons,
                                        select_default, blit_picture, flip, NULL };
     int active = pointer_active(), held = 0;
@@ -147,7 +151,7 @@ static int32_t yes_no(void *ctx, const char *text)
     video_get_palette(banner_palette);
     const MessageBannerInputs in = { ea_screen(), banner_palette };
     const YesNoOps ops = { &BANNER, shadowed, boxed, nothing, dialog_poll, show, dialog_buttons, click, move_to,
-                           dialog_mark, key, nothing, no_sound, drain, NULL };
+                           dialog_mark, key, music, sound, drain, NULL };
     int x, y;
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
@@ -173,7 +177,7 @@ static int32_t name_box(void *ctx, char *name)
     (void)ctx;
     video_get_palette(banner_palette);
     const MessageBannerInputs in = { ea_screen(), banner_palette };
-    const NameBoxOps ops = { &BANNER, nothing, text_field, no_sound, NULL };
+    const NameBoxOps ops = { &BANNER, nothing, text_field, sound, NULL };
     NameBoxState st = { &menu_cheats.keys_506, &menu_cheats.keys_50a };
     return name_box_show(name, resource_german(), &in, &st, &ops);
 }
@@ -186,7 +190,7 @@ void glue_title_screen(int32_t state)
 {
     TitleState s = { 0, resource_german(), menu_words.link_game, menu_words.link_lost };
     DialogPointer p = { pointer_active(), 0, 0, 0, 0, 0 };
-    const TitleOps ops = { deadline_set, screen_show, banner_wait, buttons, nothing, deadline_passed, key, fade_out,
+    const TitleOps ops = { deadline_set, screen_show, banner_wait, buttons, music, deadline_passed, key, fade_out,
                            NULL };
     title_screen_show(state, &s, &p, &ops);
     menu_words.link_game = (int16_t)s.link_game, menu_words.link_lost = (int16_t)s.link_lost;
@@ -195,11 +199,11 @@ void glue_title_screen(int32_t state)
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
-    const GameModeOps ops = { palette_clear, move_to, nothing, load_art, nothing, shape, palette_set, nothing, in_rect,
-                              select_picture, blit_own, select_default, nothing, nothing, picture_shape, nothing, flip,
-                              show, buttons, fade_in, nothing, banner_wait, deadline_set, no_sound, key, ticks,
-                              activate, click, name_box, fade_out, pointer_away, back_to_menu, no_network,
-                              back_to_menu, yes_no, drain, off, nothing, deadline_passed, nothing, bank_free, NULL };
+    const GameModeOps ops = { palette_clear, move_to, sound_load, load_art, music_feed, shape, palette_set, nothing,
+                              in_rect, select_picture, blit_own, select_default, nothing, nothing, picture_shape,
+                              nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
+                              ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, no_network,
+                              back_to_menu, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };
@@ -212,3 +216,4 @@ int32_t glue_game_mode(void)
 int32_t glue_yes_no(void *ctx, const char *text) { return yes_no(ctx, text); }
 void glue_banner(void *ctx, const char *text) { banner(ctx, text); }
 void glue_drain(void *ctx) { drain(ctx); }
+void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y) { boxed(ctx, text, x, y); }

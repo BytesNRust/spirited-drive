@@ -21,6 +21,10 @@ enum {
  * stay. */
 void tournament_reset(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s);
 
+/* 0045b73c: 1 when the player's tournament points (the shorts at +0x570)
+ * are the most of the eight, counted from 0 (so 0 when all are negative). */
+int32_t tournament_leads(const uint8_t game_state[GAME_STATE_SIZE], int32_t player);
+
 /* 00466b90: the computer players' names (004b1858..) with their NUL at the
  * start of the records of players max(from, 1)..7; nothing when from is
  * past 7 or negative (the original's unsigned test). Player 0's never. */

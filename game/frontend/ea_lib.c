@@ -159,6 +159,12 @@ void ea_restore(int32_t shape, int32_t x, int32_t y)
     if (entry_of((const uint8_t *)(intptr_t)shape, &e)) video_blit(&e, x, y);
 }
 
+void ea_blit_at(const uint8_t *shape, int32_t x, int32_t y)
+{
+    FshEntry e;
+    if (entry_of(shape, &e)) video_blit(&e, x, y);
+}
+
 void ea_save(int32_t shape, int32_t x, int32_t y)
 {
     FshEntry e;
