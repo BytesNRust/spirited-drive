@@ -174,8 +174,8 @@ static void art_free(void *ctx)
 }
 
 /* TODO(00464788, 0046486c, 00464850, 004648a8): the track screen's own music (EA's player, 00492xxx);
- * TODO(004676d8, 0040a5d8): the best times and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
- * game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
+ * TODO(004676d8, 0040a5d8): the best times and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
+ * 0044633c, 00432e90): the link game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
 static void sound_load(void *ctx) { (void)ctx; menu_audio_bank_load(); }
