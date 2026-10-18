@@ -94,8 +94,27 @@ static void test_shade_table(void)
     CHECK_EQ_INT(table[255], 63);
 }
 
+/* 004c5ff8: the image's table until a race start writes another, which stays */
+static void test_usable(void)
+{
+    const uint8_t *u = palette_usable();
+    CHECK_EQ_INT(u[0], 1);
+    CHECK_EQ_INT(u[0xfd], 1);
+    CHECK_EQ_INT(u[0xfe], 0);
+    CHECK_EQ_INT(u[0xff], 0);
+    uint8_t race[256];
+    memset(race, 1, sizeof race);
+    race[0x47] = race[0xfa] = 0;
+    palette_usable_set(race);
+    race[0x47] = 1;  /* a copy, not the caller's buffer */
+    CHECK_EQ_INT(palette_usable()[0x47], 0);
+    CHECK_EQ_INT(palette_usable()[0xfa], 0);
+    CHECK_EQ_INT(palette_usable()[0xfe], 1);
+}
+
 int main(void)
 {
+    test_usable();
     test_shade_table();
     test_nearest();
     test_text_ramp();

@@ -57,7 +57,7 @@ void track_camera_rear_matrix(int32_t pitch, int32_t yaw, int32_t roll, int32_t 
 /* 0043e4e0's part the build and the draws read: the header's nodes
  * (00505038, a zeroed tail for the segments past a stage's last), the
  * descriptors (00504204) and records (00509788, the -1 after the last),
- * the knocked-over bytes (004b9098, none here), the masks (stages: -1). */
+ * the knocked-over bytes (004b9098: none here, ported_view binds the race's), the masks (stages: -1). */
 static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
 {
     r->tri = tri;

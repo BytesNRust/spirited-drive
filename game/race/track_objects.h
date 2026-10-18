@@ -31,8 +31,9 @@ typedef struct {
     uint32_t heading;         /* models: 24-bit angle, 0x1000000 per turn */
 } TrackObject;
 
-/* Index into the scenery records (< tri->scenery_count). Objects knocked over
- * at run time (state 004b9098) are not handled: TODO(0043eca4). */
+/* Index into the scenery records (< tri->scenery_count), standing: the track
+ * viewer's listing. The race's knocked-over objects (004b9098) lie flat in its
+ * own draw path (0043eca4, track_build.c). */
 TriResult track_object(const Tri *tri, uint32_t index, TrackObject *out);
 
 #endif

@@ -16,15 +16,6 @@ static uint8_t styles[STYLE_COUNT][16];
 static uint8_t shadow[16];   /* 0051fd98 */
 static uint8_t current[16];  /* 0051dd18 */
 
-/* 004c5ff8: colours the nearest-colour search may pick. 254 and 255 are
- * reserved by default (255 is the sprites' transparent index).
- * TODO(0041f818, 004826b4): the race code edits this table. */
-static void usable_colours(uint8_t usable[256])
-{
-    memset(usable, 1, 256);
-    usable[254] = usable[255] = 0;
-}
-
 int text_init(void)
 {
     size_t size;
@@ -51,9 +42,9 @@ static void build_ramp(const uint8_t *pal, const uint8_t *usable, int r, int g, 
 
 void text_build_styles(void)
 {
-    uint8_t pal[PALETTE_BYTES], usable[256];
+    uint8_t pal[PALETTE_BYTES];
     video_get_palette(pal);
-    usable_colours(usable);
+    const uint8_t *usable = palette_usable();  /* 004c5ff8, as the last race start left it */
     build_ramp(pal, usable, 0xFF, 0xFF, 0xFF, styles[TEXT_WHITE]);
     build_ramp(pal, usable, 0xE8, 0xD3, 0xB7, styles[TEXT_CREAM]);
     build_ramp(pal, usable, 0xFF, 0xCE, 0x06, styles[TEXT_YELLOW]);

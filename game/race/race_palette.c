@@ -272,6 +272,7 @@ void race_palette_enable(RacePalette *p, const RaceState *race)
         if (p->slot_colours[i] != 0)
             p->enabled[p->slot_colours[i]] = 0;
     p->inverse = NULL;
+    palette_usable_set(p->enabled);  /* 004c5ff8 is the menus' too: they search it after the race */
 }
 
 int race_palette_inverse(RacePalette *p)

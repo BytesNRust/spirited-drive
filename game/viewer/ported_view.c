@@ -155,10 +155,10 @@ void ported_view_set_car(const ViewModel *high, const ViewModel *low, int ahead)
     car_ahead = ahead;
 }
 
-static const RaceState *shadow_race;
+static RaceState *shadow_race;
 static const uint8_t *shadow_remap;
 
-void ported_view_set_shadows(const RaceState *race, const uint8_t *remap)
+void ported_view_set_shadows(RaceState *race, const uint8_t *remap)
 {
     shadow_race = race, shadow_remap = remap;
 }
@@ -641,9 +641,24 @@ void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInf
 
 static TrackRender render;
 
+/* 0043f540 on the race's scenery: the knocked-over bytes are the race's (004b9098, 0040fc64 sets them), and a knock's
+ * 0043f51c (00504218 = -1) streams the scenery again at once; 0043f48c's 00504218 goes back to the race. */
+static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
+{
+    if (shadow_race != NULL && render.tri == tri) {
+        render.build.knocked = shadow_race->scenery_state;
+        if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
+    }
+    track_render_build(&render, tri, art, camera_node);
+    if (shadow_race != NULL) {
+        render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
+        shadow_race->scenery_stream_node = render.build.first_node;
+    }
+}
+
 const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 {
-    track_render_build(&render, tri, art, camera_node);
+    stream(tri, art, camera_node);
     return &render;
 }
 
@@ -679,7 +694,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, 0, sky_off,
                           horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
     }
-    track_render_build(&render, tri, art, pc->node);
+    stream(tri, art, pc->node);
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
