@@ -39,6 +39,14 @@ void tournament_results_order(const uint8_t game_state[GAME_STATE_SIZE], int32_t
  * are the most of the eight, counted from 0 (so 0 when all are negative). */
 int32_t tournament_leads(const uint8_t game_state[GAME_STATE_SIZE], int32_t player);
 
+/* 0045aec8 (all registers kept): the players sorted by their total time (the
+ * signed dword at +0x65 of each record; a bubble sort, ties keep their
+ * order), then in that order each racer not flagged (the shorts at +0x5a4)
+ * gets 20, 15, 12, 10, 8, 7, 6, 5 (004c582c) added to its tournament points
+ * (+0x570) and given as its car's points (the shorts 0051ce24 + 0x1d2 x
+ * player); a flagged one's car points are 0, its tournament points kept. */
+void tournament_points(uint8_t game_state[GAME_STATE_SIZE], int16_t car_points[GAME_STATE_PLAYERS]);
+
 /* 0045ae80 (eax the player; ebx, ecx, edx kept): 1 when the player's
  * tournament points are at least each of the eight's, ties included and
  * negative points too (unlike 0045b73c, nothing counted from 0). */
