@@ -687,6 +687,12 @@ typedef struct {
     int32_t unknown_4fbb0c;
 } RaceNetSerial;
 
+/* 004109b4 (watcall (), eight calls: Control Central, the menus after a race,
+ * the in-race menu): with 0052b312
+ * set, 1 when any of the twelve ready words (004f826c, the settings' +0x1c)
+ * is set; else 0. */
+int16_t race_net_any_ready(int16_t play, const uint8_t *settings);
+
 /* The network's start (004100ec): its locks, the transport's times and the driver's name */
 enum {
     RACE_NET_MUTEX_FAILED = 0x4ad71c,                           /* "Error: All mutexes weren't allocated." */

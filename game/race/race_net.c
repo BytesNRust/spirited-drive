@@ -1108,3 +1108,11 @@ void race_net_startup(const RaceNetStartupOps *ops, RaceNetStartup *s)
     ops->driver(ops->ctx, s->german != 0 ? RACE_NET_DRIVER_NAME_G : RACE_NET_DRIVER_NAME);
     ops->services(ops->ctx);
 }
+
+int16_t race_net_any_ready(int16_t play, const uint8_t *settings)
+{
+    if (play == 0) return 0;
+    for (int i = 0; i < RACE_NET_SET_READIES; i++)
+        if (state_word(settings, RACE_NET_SET_READY + 2 * i) != 0) return 1;
+    return 0;
+}
