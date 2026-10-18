@@ -1076,7 +1076,7 @@ static void drive_tick(uint32_t input)
     const RaceState *race = &drive_sim.race;
     results = (TrackViewerResults){ 1, (int16_t)race->end_request, race->results_player_rank, race->results_rival_rank,
                                     race->results_rival, race->results_rival_name, { 0 }, race->results_player_place,
-                                    race->results_shown_place, race->racers, race->player };
+                                    race->results_shown_place, race->racers, race->player, race->end_state };
     memcpy(results.dropped, race->unknown_4f82a0, sizeof results.dropped);
     if (menus_on && menus.game_state != NULL)
         memcpy(menus.game_state, race->game_state, sizeof race->game_state);
@@ -1314,6 +1314,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     ops.ctx = &r;
     drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
     race_run(&ops, &drive_sim.race, &w);
+    results.end_state = drive_sim.race.end_state;  /* also a replay left before its race was over */
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
     drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
     while (!menus_on && !r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */

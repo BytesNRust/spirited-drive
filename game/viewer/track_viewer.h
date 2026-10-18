@@ -60,6 +60,7 @@ typedef struct {
     int16_t player_place, shown_place;  /* 0051dcc4, 0051dcbe */
     int32_t racers;       /* 004fb7dc */
     int32_t player;       /* 004fbb08 */
+    int32_t end_state;    /* 00509d70: 0x40 a replay of 00524e9f 3 left by its viewer (004275f8 answers 1) */
 } TrackViewerResults;
 TrackViewerResults track_viewer_drive_results(void);
 

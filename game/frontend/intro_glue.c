@@ -5,12 +5,16 @@
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/intro.h"
+#include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/random_pick.h"
+#include "game/frontend/save_files.h"
 #include "game/frontend/tgv_player.h"
 #include "game/sys/input.h"
 #include "game/sys/resource.h"
 #include "game/sys/video.h"
+#include "game/viewer/track_viewer.h"
+#include "platform/platform.h"
 
 #include <string.h>
 #include <time.h>
@@ -20,9 +24,40 @@ enum { REPLAY_FLAG = 0xaf, REPLAY_NAME = 0x3b };
 static void pointer_hide(void *ctx) { (void)ctx; video_set_overlay(NULL, 0, 0); }
 static void drain(void *ctx) { (void)ctx; while (input_next_char() != 0) {} }
 static void window(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h) { (void)ctx, (void)x, (void)y, (void)w, (void)h; }
-/* TODO(004275f8): the demo replay in its window; until then no REPLAY%d.RPL is found */
-static int32_t file_exists(void *ctx, const char *path) { (void)ctx, (void)path; return 0; }
-static int32_t replay(void *ctx, int32_t mode, const char *path) { (void)ctx, (void)mode, (void)path; return 0; }
+/* "gamedata\\replay\\REPLAYn.RPL": the player's file of that name, else the CD's */
+static uint8_t *replay_read(const char *path, size_t *size)
+{
+    const char *const name = strrchr(path, '\\');
+    return save_files_read_replay(name != NULL ? name + 1 : path, size);
+}
+/* 004886e0 */
+static int32_t file_exists(void *ctx, const char *path)
+{
+    (void)ctx;
+    size_t size = 0;
+    uint8_t *file = replay_read(path, &size);
+    platform_free_file(file);
+    return file != NULL;
+}
+static int16_t image_short(int at) { int16_t v; memcpy(&v, config_current()->image + at, sizeof v); return v; }
+/* 004275f8 for the intro's replay (eax 2, 00524e9f 3: request 8, 005137e4 set) in the menus' window with their
+ * volumes; 1 when its viewer left it (00509d70 0x40). 0047723c's window is the game window's place: kept. */
+static int32_t replay(void *ctx, int32_t mode, const char *path)
+{
+    enum { DEMO = 8, LEFT = 0x40 };
+    (void)ctx, (void)mode;
+    size_t size = 0;
+    uint8_t *file = replay_read(path, &size);
+    if (file == NULL) return 0;
+    const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
+                                     image_short(0x71), NULL, 0, 0, 0 };  /* the time of day: the replay's setup */
+    menu_audio_close();
+    track_viewer_drive_menus(&menus);
+    const int ok = track_viewer_drive_replay_data(resource_root(), file, size, DEMO);
+    menu_audio_open();
+    platform_free_file(file);
+    return ok && track_viewer_drive_results().end_state == LEFT;
+}
 static void video_reset(void *ctx) { (void)ctx; video_wait_vblank(); }
 static void palette_set(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
 /* 00464a30: both pages black (screen_clear_both) */
