@@ -26,6 +26,7 @@ typedef struct {
     int32_t last_pressed; /* 004c53cc */
     const uint8_t *file;  /* a .RPL played back (REPLAY_FILE_SIZE bytes, the caller's): 0044d514 reads it; NULL none */
     size_t file_at;       /* 0044d514's reads so far */
+    uint32_t seed;        /* 004fb7f4: the race's seed, for the setup 0044d420 writes */
 } DriveReplay;
 
 /* 0044edd8 on the sim's race, in a local game (004fbb0c 1): the recording
@@ -41,7 +42,7 @@ int drive_replay_start(DriveReplay *r, RaceSim *sim, RaceViews *views);
  * stood (request 7, 0044f090). `down` is the key's state this frame. */
 void drive_replay_key(DriveReplay *r, int down);
 
-/* 0044eef8 at the race's end: the recording freed (the file 0044d420
+/* 0044eef8 at the race's end: Replay.rpl written to the player's directory (0044d420), then the recording freed (the file 0044d420
  * writes is left to the menus that read it back). */
 void drive_replay_end(DriveReplay *r);
 

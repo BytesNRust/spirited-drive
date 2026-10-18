@@ -15,7 +15,9 @@
 #include "game/sys/menu_key.h"
 #include "game/race/skid_marks.h"
 #include "viewer/ported_view.h"
+#include "platform/platform.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -325,15 +327,66 @@ void drive_replay_key(DriveReplay *r, int down)
     r->dir.request = r->sim->race.phase == PHASE_RACING ? REQUEST_DIRECTED : REQUEST_RACE_ON;
 }
 
-/* 0044eef8's save (0044d420) left out: no menu reads the file back */
-static void save_none(void *ctx) { (void)ctx; }
+/* 0044d420's file: written into memory, then to the player's directory at fclose */
+static uint8_t *out;
+static size_t out_size;
+static char out_name[REPLAY_PATH_SIZE];
+
+static void *out_open(void *ctx, const char *name, const char *mode)
+{
+    (void)ctx, (void)mode;
+    free(out);
+    out = malloc(REPLAY_FILE_SIZE), out_size = 0;
+    snprintf(out_name, sizeof out_name, "%s", name);
+    return out;
+}
+
+static void out_read(void *ctx, void *buffer, uint32_t size, uint32_t count, void *file)
+{
+    (void)ctx, (void)file;
+    memset(buffer, 0, (size_t)size * count);
+}
+
+static void out_write(void *ctx, const void *buffer, uint32_t size, uint32_t count, void *file)
+{
+    (void)ctx;
+    const size_t n = (size_t)size * count;
+    if (file == NULL || out_size > REPLAY_FILE_SIZE || n > REPLAY_FILE_SIZE - out_size) return;
+    memcpy(out + out_size, buffer, n);
+    out_size += n;
+}
+
+static int32_t out_close(void *ctx, void *file)
+{
+    (void)ctx;
+    const int ok = file != NULL && platform_write_user_file(out_name, out, out_size);
+    if (file != NULL && !ok) fprintf(stderr, "drive_replay: %s not written\n", out_name);
+    free(out);
+    out = NULL;
+    return ok ? 0 : -1;
+}
+
+/* 0044d420 on the race and the director, the replays' directory the player's ("") */
+static void save(void *ctx)
+{
+    DriveReplay *r = ctx;
+    static uint8_t setup[REPLAY_SETUP_SIZE], cuts[REPLAY_CUTS_SIZE], seek[REPLAY_SEEK_SIZE],
+        records[REPLAY_RECORDS * REPLAY_RECORD_SIZE];
+    RaceState *race = &r->sim->race;
+    if (r->recording == NULL) return;
+    race_replay_image_setup(race, r->seed, setup);
+    race_replay_image_put(race, &r->dir, cuts, seek, records);
+    const RaceReplaySave in = { race->unknown_4fbb0c, race->playback, "", setup, race->player, cuts, r->recording,
+                                seek, records };
+    race_replay_save(&in, &(const RaceReplayFileOps){ r, out_open, out_read, out_write, out_close });
+}
 static void free_recording(void *ctx, uint8_t *block) { (void)ctx, free(block); }
 
 void drive_replay_end(DriveReplay *r)
 {
     if (r->sim == NULL) return;
     RaceState *race = &r->sim->race;
-    const RaceReplayEndOps ops = { r, save_none, free_recording };
+    const RaceReplayEndOps ops = { r, save, free_recording };
     race_replay_end(&ops, race->unknown_4fbb0c, race->playback, race->end_state, r->recording);
     if (race->unknown_4fbb0c == 0 || race->playback == 1) free(r->recording);  /* 0044eef8 leaves it then */
     r->recording = NULL;

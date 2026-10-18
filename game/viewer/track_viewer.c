@@ -988,6 +988,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.window_size = 0;
     race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], DRIVE_VIEW);
     if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) fprintf(stderr, "track_viewer: no replay recording\n");
+    drive_replay.seed = field.seed;
     if (replay_of != NULL) replay_begin();
     /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
     drive_frame = (FrameDraw){ 0 };

@@ -14,11 +14,14 @@ typedef struct Block {
     uint8_t data[];
 } Block;
 
+/* the original's replay directory (00524418, gamedata/replay/) is the player's, the CD's replays behind it */
 static void file_read(void *ctx, const char *path, void **data, int32_t *flags, int32_t *size)
 {
+    static const char REPLAYS[] = "gamedata/replay/";
     (void)ctx, (void)flags;
     size_t n = 0;
-    *data = platform_read_user_file(path, &n);
+    *data = strncmp(path, REPLAYS, sizeof REPLAYS - 1) == 0 ? save_files_read_replay(path + sizeof REPLAYS - 1, &n)
+                                                            : platform_read_user_file(path, &n);
     *size = *data != NULL ? (int32_t)n : 0;
 }
 static void fatal(void *ctx, const char *message)
