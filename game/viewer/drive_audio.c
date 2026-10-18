@@ -74,6 +74,16 @@ void drive_audio_voice_stop(int32_t voice)
     if (open_) sound_stop(&driver, voice);
 }
 
+void drive_audio_voice_volume(int32_t voice, int32_t volume)
+{
+    if (open_) sound_set_volume(&driver, voice, volume);
+}
+
+int32_t drive_audio_voice_stopped(int32_t voice)
+{
+    return open_ ? sound_handle_stopped(&driver.channels, voice) : 1;
+}
+
 int drive_audio_open(RaceState *race, const char *data_root)
 {
     drive_audio_device_open(data_root);

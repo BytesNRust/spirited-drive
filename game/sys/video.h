@@ -18,6 +18,9 @@ uint8_t *video_back_buffer(void);
  * default). The front end's pictures (0047310c / 00473680) are such blocks. */
 void video_select_target(uint8_t *pixels, int w, int h);
 uint8_t *video_target(int *w, int *h);
+/* 0047383c: the blits kept to left <= x < right, top <= y < bottom (cut to the target), until the next
+ * video_select_target, which opens the box to the whole target again (00473680 loads the picture's own). */
+void video_set_clip(int left, int right, int top, int bottom);
 void video_clear_back(void);                                          /* PTR_004c618c */
 void video_flip(void);                                                /* 004733ec */
 void video_wait_vblank(void);                                         /* 004735bc */

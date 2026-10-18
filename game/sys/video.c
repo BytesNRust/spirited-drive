@@ -11,6 +11,7 @@ enum { TRANSPARENT = 0xFF };
 static uint8_t *back;
 static uint8_t *target;  /* where drawing goes: back, or a picture (00473680) */
 static int target_w = VIDEO_WIDTH, target_h = VIDEO_HEIGHT;
+static int clip_l, clip_r = VIDEO_WIDTH, clip_t, clip_b = VIDEO_HEIGHT;  /* 004c78bc..004c78c8, the blits' box */
 static uint8_t *front;
 static uint8_t *composed;
 static uint8_t palette[PALETTE_BYTES];  /* 0052ced8 / 0052f178 */
@@ -87,6 +88,15 @@ void video_select_target(uint8_t *pixels, int w, int h)
     target = pixels != NULL ? pixels : back;
     target_w = pixels != NULL ? w : VIDEO_WIDTH;
     target_h = pixels != NULL ? h : VIDEO_HEIGHT;
+    clip_l = 0, clip_r = target_w, clip_t = 0, clip_b = target_h;
+}
+
+void video_set_clip(int left, int right, int top, int bottom)
+{
+    clip_l = left < 0 ? 0 : left;
+    clip_t = top < 0 ? 0 : top;
+    clip_r = right > target_w ? target_w : right;
+    clip_b = bottom > target_h ? target_h : bottom;
 }
 
 uint8_t *video_target(int *w, int *h)
@@ -149,11 +159,11 @@ static void blit(const FshEntry *shape, int x, int y, int transparent)
     uint8_t *const to = video_target(&tw, &th);
     for (int row = 0; row < shape->height; row++) {
         const int dy = y + row;
-        if (dy < 0 || dy >= th) continue;
+        if (dy < clip_t || dy >= clip_b || dy >= th) continue;
         for (int col = 0; col < shape->width; col++) {
             const int dx = x + col;
             const uint8_t p = shape->payload[(size_t)row * shape->width + col];
-            if (dx >= 0 && dx < tw && !(transparent && p == 0xFF)) to[dy * tw + dx] = p;
+            if (dx >= clip_l && dx < clip_r && dx < tw && !(transparent && p == 0xFF)) to[dy * tw + dx] = p;
         }
     }
 }
