@@ -534,8 +534,10 @@ static PortedCamera chase_camera(const RaceChase *chase, uint32_t ring_nodes)
                            (int32_t)((uint32_t)chase->node & (ring_nodes - 1u)), chase->angles[2] };
 }
 
-/* TODO(0045a3e8): the race's draw path builds these angles itself (with
- * the suspension of 0042ecd0); 004591d4 takes the tilt about z at 3/4. */
+/* Only without the HUD's shade (drive_hud.ready 0): with it the rows draw
+ * each car through 0045a848's 004591d4 and 0045a3e8 (ported_view's
+ * draw_cars), and this pose is not read. 004591d4 takes the tilt about z
+ * at 3/4. */
 static CarPose car_pose_of(const Car *car)
 {
     return (CarPose){ { car->x, car->y, car->z }, car->draw_pitch + car->tilt_x, car->draw_roll + car->tilt_z * 3 / 4,
