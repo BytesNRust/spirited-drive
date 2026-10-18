@@ -7,8 +7,11 @@
  *                                          fly along a track (development)
  *   tnfs --drive NAME [--car N] [--racers N] [--node TICKS --screenshot OUT.ppm]
  *                                          drive a car on a track (development)
- *   tnfs --replay FILE.RPL                 play a replay back in the drive (development) */
+ *   tnfs --replay FILE.RPL                 play a replay back in the drive (development)
+ *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development) */
 #include "game/frontend/frontend.h"
+#include "game/frontend/menu_audio.h"
+#include "game/frontend/tgv_player.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -30,6 +33,7 @@ typedef struct {
     const char *track;
     const char *drive;
     const char *replay;
+    const char *movie;
     int car;
     int racers;
     int race_type;
@@ -39,7 +43,7 @@ typedef struct {
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
-    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0 };
+    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -56,6 +60,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->drive = argv[++i];
         } else if (strcmp(argv[i], "--replay") == 0 && has_value) {
             opt->replay = argv[++i];
+        } else if (strcmp(argv[i], "--movie") == 0 && has_value) {
+            opt->movie = argv[++i];
         } else if (strcmp(argv[i], "--racers") == 0 && has_value) {
             opt->racers = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--type") == 0 && has_value) {
@@ -70,11 +76,31 @@ static int parse_args(int argc, char **argv, Options *opt)
             fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --drive NAME [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --replay FILE.RPL\n",
-                    argv[0], argv[0], argv[0], argv[0]);
+                            "       %s [--data DIR] --replay FILE.RPL\n"
+                            "       %s [--data DIR] --movie FILE.TGV\n",
+                    argv[0], argv[0], argv[0], argv[0], argv[0]);
             return 0;
         }
     }
+    return 1;
+}
+
+/* --movie: the window, the menus' sound and one movie (development) */
+static int run_movie(const Options *opt)
+{
+    const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
+    if (!platform_init(&config)) return 0;
+    if (!video_init()) {
+        platform_shutdown();
+        return 0;
+    }
+    resource_init(opt->data_root, opt->german);
+    timer_init();
+    menu_audio_open();
+    printf("movie %s: %s\n", opt->movie, tgv_player_play(opt->movie) ? "stopped" : "ran to its end");
+    menu_audio_close();
+    video_shutdown();
+    platform_shutdown();
     return 1;
 }
 
@@ -109,6 +135,7 @@ int main(int argc, char **argv)
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
+    else if (opt.movie != NULL) ok = run_movie(&opt);
     else if (opt.drive != NULL) ok = track_viewer_drive(opt.data_root, opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
     else if (opt.track != NULL) ok = track_viewer_main(opt.data_root, opt.track, opt.entry, opt.screenshot);
     else ok = run_game(&opt);

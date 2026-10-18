@@ -5,6 +5,7 @@
 #ifndef TNFS_MENU_AUDIO_H
 #define TNFS_MENU_AUDIO_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 void menu_audio_open(void);   /* the device; nothing plays without one */
@@ -27,5 +28,8 @@ void menu_audio_track_play(void);               /* 00464850 */
 void menu_audio_track_stop(void);               /* 0046486c */
 void menu_audio_track_free(void);               /* 004648a8 */
 void menu_audio_music_by_idle(void);            /* 0045638c, the idle timer the ticks since the start */
+/* A movie's sound, an EACS sample kept by the caller until it stops (tgv_player.h); 0 when nothing plays */
+int menu_audio_movie_sound(const uint8_t *eacs, size_t size);
+void menu_audio_movie_sound_stop(void);
 
 #endif
