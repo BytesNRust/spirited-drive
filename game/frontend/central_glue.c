@@ -9,6 +9,7 @@
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/central.h"
+#include "game/frontend/cheat_code.h"
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
@@ -37,6 +38,7 @@
 #include "game/frontend/track_select.h"
 #include "game/race/race_models.h"
 #include "game/sys/input.h"
+#include "game/sys/key_codes.h"
 #include "game/sys/pointer.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -62,7 +64,7 @@ static struct {
 } g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
 static uint8_t game_state[GAME_STATE_SIZE];       /* 0052b2c0..: the tournament's */
-static uint8_t keys[0x100];                       /* 004c693c: no key-down table on game/sys yet, none held */
+static uint8_t keys[0x100];                       /* 004c693c: by scancode, refreshed at each key (00464bd0) */
 static uint8_t screen_palette[PALETTE_PUT_BYTES];
 
 static RaceSettings settings_of(void)
@@ -175,7 +177,7 @@ static void art_free(void *ctx)
 }
 
 /* TODO(0040a5d8): chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4,
- * 0044633c, 00432e90): the link game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
+ * 0044633c, 00432e90): the link game */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
 static void sound_load(void *ctx) { (void)ctx; menu_audio_bank_load(); }
@@ -191,9 +193,27 @@ static void no_mode(void *ctx, int32_t mode) { (void)ctx, (void)mode; }
 static void no_kick(void *ctx, int32_t player) { (void)ctx, (void)player; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
 static int32_t no_inverse(void *ctx, const char *name) { (void)ctx, (void)name; return 0; }
-static int32_t no_cheat(void *ctx, int which) { (void)ctx, (void)which; return 0; }
-static int32_t not_down(void *ctx, int32_t scancode) { (void)ctx, (void)scancode; return 0; }
-static int32_t scancode(void *ctx, int32_t c) { (void)ctx; return c & 0xff; }
+/* 004baf44..: the codes' letters with 0x63 added, NUL after each; 004baf90..: each one's position, in
+ * ControlCentral's order (00434d69..00434f93 pass them in pairs); LUNAR's (004baf7f, 004bafac) is not stepped there */
+static const uint8_t CHEAT_LETTERS[] = {
+    0xb6, 0xae, 0xa6, 0xa4, 0xb5, 0xb7, 0x00, 0xa8, 0xa4, 0xb5, 0xa4, 0xaf, 0xaf, 0xbc, 0xa8, 0x00, 0xa8, 0xbb, 0xb3,
+    0xaf, 0xb2, 0xa7, 0xa8, 0x00, 0xa6, 0xa4, 0xb6, 0xac, 0xb1, 0xb2, 0xb9, 0xac, 0xaf, 0xaf, 0xa8, 0x00, 0xa6, 0xb2,
+    0xb1, 0xa6, 0xa8, 0xb3, 0xb7, 0xa6, 0xa4, 0xb5, 0x00, 0xb7, 0xb8, 0xb5, 0xa5, 0xb2, 0x00, 0xb1, 0xac, 0xb7, 0xb5,
+    0xb2, 0x00, 0xaf, 0xb8, 0xb1, 0xa4, 0xb5, 0x00, 0xb5, 0xb2, 0xa6, 0xae, 0xbc, 0xb5, 0xb2, 0xa4, 0xa7, 0x00
+};
+static const uint8_t CHEAT_AT[CENTRAL_CHEATS] = { 0x00, 0x07, 0x10, 0x35, 0x18, 0x24, 0x2f, 0x41 };  /* - 004baf44 */
+static int32_t cheat_pos[CENTRAL_CHEATS];  /* 004baf90, 94, 98, a8, 9c, a0, a4, b0 */
+
+static int32_t cheat_step(void *ctx, int which)
+{
+    (void)ctx;
+    if (which < 0 || which >= CENTRAL_CHEATS) return 0;
+    return cheat_code_step(&cheat_pos[which], CHEAT_LETTERS + CHEAT_AT[which], keys);
+}
+
+/* 00483f8c */
+static int32_t key_down(void *ctx, int32_t scancode) { (void)ctx; return keys[(uint32_t)scancode & 0xff]; }
+static int32_t scancode(void *ctx, int32_t c) { (void)ctx; return key_code((uint16_t)c); }
 
 /* config.dat's short at 00524df0 + at */
 static int16_t image_short(int at)
@@ -233,7 +253,12 @@ static void off(void *ctx) { (void)ctx; pointer_off(); }
 static int32_t ticks(void *ctx) { (void)ctx; return timer_ticks_since_last(); }
 static void deadline_set(void *ctx, int32_t time) { (void)ctx; timer_set_deadline(time); }
 static int32_t deadline_passed(void *ctx) { (void)ctx; return timer_deadline_passed(); }
-static int32_t key(void *ctx) { (void)ctx; return input_get_key(); }
+static int32_t key(void *ctx)
+{
+    (void)ctx;
+    for (int code = 0; code < CHEAT_KEY_FLAGS; code++) keys[code] = platform_key_down(code) ? 1 : 0;
+    return input_get_key();
+}
 
 static int32_t load_art(void *ctx, const char *name) { (void)ctx; return ea_bank_load(name); }
 /* 00476268: central passes the data path ("" here) and control/..., as 00466c34 takes it */
@@ -817,8 +842,8 @@ int32_t glue_central(void)
         no_wait, palette_clear, move_to, music, load_art, picture_new, sound_load, no_inverse, music_feed, mark, shape,
         palette_set, nothing, in_rect, car_flags, type_changed, ticks, zero, select_picture, blit, blit_masked,
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
-        show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, no_cheat,
-        not_down, activate, zero, click, no_kick, music_fade_out, fade_out, music_end, music_start, showcase,
+        show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, cheat_step,
+        key_down, activate, zero, click, no_kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options,
         nothing, glue_yes_no, glue_drain, glue_banner, nothing, sound_free, picture_free, flush, race, off, NULL };
     load();

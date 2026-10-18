@@ -260,13 +260,16 @@ static int script_key(const char *name)
     static const struct { const char *name; int scancode; } KEYS[] = {
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
-        { "Y", 0x15 }, { "N", 0x31 }, { "J", 0x24 }, { "A", 0x1E }, { "Z", 0x2C }, { "C", 0x2E }, { "P", 0x19 },
         { "F1", 0x3B }, { "F2", 0x3C }, { "F3", 0x3D }, { "F4", 0x3E }, { "F5", 0x3F }, { "F6", 0x40 },
         { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 },
     };
+    /* the letters' set-1 scancodes, A..Z */
+    static const uint8_t LETTERS[26] = { 0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
+                                         0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14, 0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C };
     for (size_t i = 0; i < sizeof KEYS / sizeof KEYS[0]; i++) {
         if (SDL_strcmp(name, KEYS[i].name) == 0) return KEYS[i].scancode;
     }
+    if (name[0] >= 'A' && name[0] <= 'Z' && name[1] == '\0') return LETTERS[name[0] - 'A'];
     return -1;
 }
 
