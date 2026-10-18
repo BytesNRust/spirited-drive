@@ -14,10 +14,12 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
 #include "game/frontend/controls_menu.h"
+#include "game/frontend/cop_stop.h"
 #include "game/frontend/credits.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/key_capture.h"
 #include "game/frontend/file_list.h"
+#include "game/frontend/frontend.h"
 #include "game/frontend/game_list.h"
 #include "game/frontend/key_name.h"
 #include "game/frontend/load_save.h"
@@ -27,6 +29,7 @@
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
 #include "game/frontend/race_settings.h"
+#include "game/frontend/random_pick.h"
 #include "game/frontend/save_files.h"
 #include "game/frontend/record_check.h"
 #include "game/frontend/results_screen.h"
@@ -50,6 +53,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* the globals 00432ff4 writes (central.h gives each address) */
 static struct {
@@ -505,12 +509,27 @@ static void reset_tournament(void *ctx)
     settings_put(&s);
 }
 static void game_reset(void *ctx) { (void)ctx; glue_game_reset(); }
+/* 00428610 (cop_stop.c): no movies yet (TODO(004419c0)), so 0052b2fc is 0 and the ticket shows */
+static void screen_file(void *ctx, const char *file, int32_t mode, int32_t one) { (void)ctx; show_screen(file, mode, one); }
+static void no_movie(void *ctx, const char *file) { (void)ctx, (void)file; }
+static int32_t pick(void *ctx)
+{
+    static uint32_t rand_state;
+    (void)ctx;
+    return random_pick_of_three((uint32_t)time(NULL), &rand_state);
+}
+static void cops(void *ctx)
+{
+    static const int16_t movie_on = 0;
+    const int16_t german = (int16_t)resource_german();
+    const CopStopState st = { &movie_on, &german, ea_screen_slot() };
+    cop_stop(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, no_movie, ctx });
+}
 static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_points); }
 static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
 
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(0040c710, 0040b648, 004283c4, 00428610, 00432e48): the winner's and the ticket's screens, the
- * tournament's end */
+ * TODO(0040c710, 0040b648, 004283c4, 00432e48): the winner's screens, the tournament's end */
 static void race(void *ctx)
 {
     (void)ctx;
@@ -529,7 +548,7 @@ static void race(void *ctx)
                                &g.unlock_r, &g.lost_vegas, &host, &link_done };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
-        nothing, music_pick, nothing, nothing, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
+        nothing, music_pick, cops, nothing, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
         points, nothing, next_segment, reset_tournament, champion, nothing, game_reset, ctx };
     menu_race(&st, &ops);
     g.warrior = (int16_t)warrior;

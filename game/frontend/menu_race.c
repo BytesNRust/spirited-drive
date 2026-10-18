@@ -98,7 +98,7 @@ static void keep_record(const MenuRaceState *st, const MenuRaceOps *ops)
         for (int i = 0; i < MENU_RACE_GHOST; i++) p32(run + 4 * i, st->ghost[i]);
     }
     p16(st->image + SEGMENT, 0);
-    ops->records_save(ops->ctx);
+    ops->won(ops->ctx);
 }
 
 /* a finished race's screens; 1 when the race from the menus is over */
@@ -203,7 +203,7 @@ void menu_race(const MenuRaceState *st, const MenuRaceOps *ops)
         keep_times(st);
         memcpy(st->image + SETUP, st->game + SETUP_KEPT, SETUP_SIZE);
         memcpy(st->image + CONTROLS, st->game + CONTROLS_KEPT, CONTROLS_SIZE);
-        if (g16(st->game + RACED) == ENDED_4) ops->unknown_428610(ops->ctx);
+        if (g16(st->game + RACED) == ENDED_4) ops->cop_stop(ops->ctx);
         if (g16(st->game + RACED) == FINISHED) {
             if (track_of(st) > 2 || g16(st->game + RUN) > 2) keep_record(st, ops);
             ops->bank_load(ops->ctx);

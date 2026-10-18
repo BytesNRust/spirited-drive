@@ -21,8 +21,8 @@ typedef struct MenuRaceOps {
     void (*pointer_reset)(void *ctx, int32_t mode);            /* 00441530: eax */
     void (*pointer_draw)(void *ctx);                           /* [004c6190] */
     void (*music_pick)(void *ctx);                             /* 004562e8 */
-    void (*unknown_428610)(void *ctx);                         /* 00428610: after a race ended 4 */
-    void (*records_save)(void *ctx);                           /* 004283c4 */
+    void (*cop_stop)(void *ctx);                               /* 00428610: after a race ended 4, the ticket or the cops' movie */
+    void (*won)(void *ctx);                                    /* 004283c4: the win movie / winner.qfs, the track marked raced */
     void (*bank_load)(void *ctx);                              /* 004648dc */
     int32_t (*picture_new)(void *ctx, int32_t w, int32_t h, int32_t flags);  /* 0047310c (cdecl) */
     void (*circuit_results)(void *ctx, int32_t finished);      /* 0045eff4: eax */
