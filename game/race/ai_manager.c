@@ -345,6 +345,7 @@ void ai_place_police(RaceState *race)
     if (node > race->loop_nodes) ai_release_cops(race, 1);
     if (node <= race->police_node) return;
     Car *cop = race->cars[2];
+    if (cop == NULL) return;  /* port guard: a field without the police car (--drive --racers 2) leaves slot 2 empty */
     if (!(cop->flags_51a & ACTIVE)) {
         for (int32_t at = race->police_node + POLICE_AHEAD; at <= node + POLICE_AHEAD - 1; at++) {
             if (at >= (int32_t)race->tri->node_count) continue;
