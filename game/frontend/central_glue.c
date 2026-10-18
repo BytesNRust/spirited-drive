@@ -4,6 +4,7 @@
 #include "game/frontend/menu_glue.h"
 
 #include "game/frontend/audio_menu.h"
+#include "game/frontend/graphics_menu.h"
 #include "game/frontend/central.h"
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
@@ -577,7 +578,25 @@ static void audio(void *ctx, int32_t mode)
     opt_out();
 }
 
-/* TODO(00423d28, 0042c498): graphics and load / save */
+/* 00423d28 from Options (mode 0, the resolution offered) on config.dat's image; the race's view does not read its
+ * window, detail, distance or horizon yet */
+static void graphics(void *ctx, int32_t mode)
+{
+    static int16_t showing;  /* 004f9e8c */
+    static const int16_t net_off = 1;
+    opt_in();
+    const GraphicsMenuState st = { config_current()->image + 9, &showing, &net_off, &g.pointer_active, &g.buttons,
+                                   ea_screen_slot(), &g.inverse, &no_quit };
+    const GraphicsMenuOps ops = {
+        move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
+        picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
+        nothing, ticks, activate, key, click, off, music, nothing, deadline_passed, fade_out, free_handle_inverse,
+        free_bank, ctx };
+    graphics_menu(&st, mode, &ops);
+    opt_out();
+}
+
+/* TODO(0042c498): load / save */
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -587,7 +606,7 @@ static void options(void *ctx)
     const OptionsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
-        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, no_mode, controls, no_mode,
+        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, no_mode,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, nothing,
         deadline_passed, ctx };
     static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */
