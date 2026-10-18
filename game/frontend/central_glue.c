@@ -11,6 +11,7 @@
 #include "game/frontend/central.h"
 #include "game/frontend/after_race.h"
 #include "game/frontend/check_options.h"
+#include "game/frontend/next_segment.h"
 #include "game/frontend/cheat_code.h"
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
@@ -509,7 +510,7 @@ static void standings(void *ctx, int32_t segment)
 static void clip(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1) { (void)ctx; ea_clip(x0, y0, x1, y1); }
 static void no_two(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
 static void no_three(void *ctx, int32_t a, int32_t b, int32_t c) { (void)ctx, (void)a, (void)b, (void)c; }
-static int32_t next_segment(void *ctx) { (void)ctx; return 1; }  /* TODO(0040b648): the screen between segments */
+static int32_t next_segment(void *ctx);
 /* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
 static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
 {
@@ -553,7 +554,7 @@ static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_poi
 static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
 
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(0040b648, 00432e48): the screen between segments, the tournament's end */
+ * TODO(00432e48): the tournament's end */
 static void after_race(void *ctx);
 static void race(void *ctx)
 {
@@ -910,30 +911,60 @@ int32_t glue_check_options(int32_t mode)
 
 static void after_options(void *ctx, int32_t mode) { (void)ctx; glue_check_options(mode); }
 
-/* 0040c710 for 00427ae0 on config.dat's image and the menus' game state, no link game.
- * TODO(0040a5d8, 004104d0, 004109b4): the chat, the link's service and its waiting message */
-static void after_race(void *ctx)
+enum { REPLAY_FLAG_AT = 0xaf };
+
+/* 0040c710's words on config.dat's image and the menus' game state, no link game; the cars' points (0051ce24) kept
+ * in a buffer of their own: the port's replay leaves car_points */
+static AfterRaceState after_race_state(void)
 {
-    enum { REPLAY_FLAG_AT = 0xaf };
     static int16_t chat_closed;
-    static uint8_t cars[AFTER_RACE_CARS * AFTER_RACE_CAR];  /* 0051ce24's points: the port's replay leaves car_points */
+    static uint8_t cars[AFTER_RACE_CARS * AFTER_RACE_CAR];
     uint8_t *const image = config_current()->image;
     replay_kind = image_short(REPLAY_FLAG_AT);
-    AfterRaceState st = {
+    return (AfterRaceState){
         &menu_words.link_game, &no_quit, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
         &credits_idle, &chat_closed, &replay_kind, (char *)image + 0x3b, &g.music_silent, g.volumes,
         { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f), image_short(0x95), image_short(0x6d),
         game_state, cars };
-    const AfterRaceOps ops = {
+}
+
+/* TODO(0040a5d8, 004104d0, 004109b4): the chat, the link's service and its waiting message */
+static AfterRaceOps after_race_ops(void (*options)(void *, int32_t), void *ctx)
+{
+    return (AfterRaceOps){
         move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, nothing, in_rect,
         zero, select_picture, blit, blit_masked, select_default, hide, picture_shape, flip, show, buttons, fade_in,
         styles, deadline_set, sound, nothing, ticks, activate, key, click, music_fade_out, fade_out, music_end,
         free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, replay, nothing, set_palette,
-        no_mode_set, no_mode, picture_new, sound_load, music_pick, after_options, standings, circuit_results,
+        no_mode_set, no_mode, picture_new, sound_load, music_pick, options, standings, circuit_results,
         segment_results, track_results, nothing, off, credits_tick, deadline_passed, ctx };
+}
+
+/* 0040c710 for 00427ae0 */
+static void after_race(void *ctx)
+{
+    AfterRaceState st = after_race_state();
+    const AfterRaceOps ops = after_race_ops(after_options, ctx);
     credits_last = timer_ticks();
     after_race_menu(&st, &ops);
-    memcpy(image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
+    memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
+}
+
+/* TODO(00410b7c, 00410c18): the link's deadline and the wait for the others; no link game here */
+static void no_deadline(void *ctx, int32_t ticks) { (void)ctx, (void)ticks; }
+static int32_t all_came(void *ctx, int32_t stage) { (void)ctx, (void)stage; return 1; }
+
+/* 0040b648 for 00427ae0: the checkpoint menu between segments, 0 to stop the tournament's run */
+static int32_t next_segment(void *ctx)
+{
+    int16_t over = 0;
+    NextSegmentState st = { after_race_state(), &over, &menu_words.link_lost, (int16_t)resource_german() };
+    st.menu.link_over = &over;
+    const NextSegmentOps ops = { after_race_ops(after_options, ctx), glue_yes_no, glue_banner, no_deadline, all_came };
+    credits_last = timer_ticks();
+    const int32_t go_on = next_segment_menu(&st, &ops);
+    memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
+    return go_on;
 }
 
 static void options(void *ctx)
