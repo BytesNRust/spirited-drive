@@ -1307,14 +1307,14 @@ static int drive_window(const Track *t, uint8_t *pixels)
     w.queues = drive_input.queues;
     w.music_on = menus_on ? (int16_t)menus.music : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
-    drive_replay.pace = &w.unknown_4c53a0;
+    drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
     race_run(&ops, &drive_sim.race, &w);
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
-    drive_replay.pace = NULL;
+    drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
     while (!menus_on && !r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
@@ -1337,12 +1337,12 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
-    drive_replay.pace = &w.unknown_4c53a0;
+    drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
     DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1 };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
-    drive_replay.pace = NULL;
+    drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
     render_drive(t, pixels);
     return write_ppm(screenshot, pixels, t->art.palette);
 }

@@ -19,6 +19,8 @@ typedef struct {
     RaceViews *views;
     int key_down;         /* the development key's state the frame before */
     int32_t *pace;        /* race_run's copy of 004c53a0 (RaceRunWords), kept equal to the director's; NULL none */
+    int32_t *timer;       /* race_run's 004bb8d8 and 004c5594, the director's words too (the controls' Esc waits on */
+    int32_t *due;         /* the timer; a seek keeps and puts them back): read in before 00450020, out after; NULL none */
     HudState *hud;        /* 0041e358's 004f9a28 (hud->unknown_4f9a20[2]); NULL none */
     const uint8_t *key_flags;  /* 004c693c (drive_input's keys) for 0044f55c; NULL: the controls take no keys */
     DashArt *dash;        /* the controls' boxes, lit shapes and words 00513888.. (0044f55c); NULL none */
