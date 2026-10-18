@@ -983,6 +983,11 @@ typedef struct {
  * 00411160(largest), largest. Port guards: 16 dwords cleared, 8 slots. */
 int32_t race_net_ping_all(const RaceNetPingAllOps *ops, RaceNetPingAll *p);
 
+/* 00411160 (watcall (ticks)): the queue's wait (004fbac8) for the slowest
+ * answer, from 00410020's 51 dwords at ticks clamped to 0..50: 2 below 8,
+ * 4 below 22, 6 below 34, else 8. */
+int32_t race_net_latency(int32_t ticks);
+
 enum { RACE_NET_INFO = 0x4b, RACE_NET_INFO_STAGE = 4 };  /* a player's record at 004fb7f8; 0050a5c2's word after it */
 
 /* The words handler 0 writes */

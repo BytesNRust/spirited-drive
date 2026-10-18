@@ -1059,6 +1059,17 @@ static int32_t ping_all_round(const RaceNetPingAllOps *ops, const RaceNetPingAll
     return until;
 }
 
+enum { LATENCY_STEPS = 51 };
+
+int32_t race_net_latency(int32_t ticks)
+{
+    static const int8_t waits[LATENCY_STEPS] = {  /* 00410020 */
+        2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 6, 6, 6, 6,
+        6, 6, 6, 6, 6, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+    };
+    return waits[ticks < 0 ? 0 : ticks >= LATENCY_STEPS ? LATENCY_STEPS - 1 : ticks];
+}
+
 int32_t race_net_ping_all(const RaceNetPingAllOps *ops, RaceNetPingAll *p)
 {
     if (p->unknown_4fbb0c == 0) {
