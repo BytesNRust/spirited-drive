@@ -55,3 +55,22 @@ void sound_queue_stop(SoundDriver *d, SoundQueue *q)
     queue_clear(q);
     q->ready = 0;
 }
+
+enum { QUEUE_PAN = 0x40 };
+
+/* 00492330 */
+void sound_queue_tick(SoundDriver *d, SoundQueue *q)
+{
+    if (!q->playing) return;
+    const int32_t at = q->read;
+    const SoundQueueEntry *e = &q->entry[at];
+    if (sound_frames_left(d, q->handle) > (int32_t)e->until) return;
+    if (at == q->write) {
+        if (sound_handle_stopped(&d->channels, q->handle)) q->playing = 0;
+        return;
+    }
+    if (++q->read == SOUND_QUEUE_ENTRIES) q->read = 0;
+    q->channel = q->channel == q->channel_a ? q->channel_b : q->channel_a;
+    q->last = q->handle;
+    q->handle = sound_play_on(d, e->sample, q->channel, QUEUE_PAN, (uint8_t)q->volume);
+}

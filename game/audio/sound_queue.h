@@ -46,4 +46,11 @@ void sound_queue_play(SoundQueue *q);
  * queue no longer set up. (It checks the driver and the queue twice; nothing between changes them.) */
 void sound_queue_stop(SoundDriver *d, SoundQueue *q);
 
+/* 00492330 (004a4ac0's, while 004c7b60): while playing, once the sound now has no more frames left (00473cf8,
+ * signed) than the entry at the reader asks: with nothing queued past it (reader == writer) playing ends when the
+ * sound has stopped (00473d20); else the reader moves on (wrapping at 0x14), the channel turns to the other, the
+ * sound now becomes the one before and the entry's sample starts on the channel at pan 0x40 and the queue's
+ * volume (004a4bd8; its answer, a handle or below 0, kept). */
+void sound_queue_tick(SoundDriver *d, SoundQueue *q);
+
 #endif
