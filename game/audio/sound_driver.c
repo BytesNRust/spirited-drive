@@ -137,6 +137,16 @@ int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id,
     return handle;
 }
 
+/* 00497f4e */
+int32_t sound_voice_left(const SoundDriver *d, int32_t slot)
+{
+    if (!d->mixer_ready) return -1;
+    const MixVoice *v = &d->voice[slot];
+    if (v->on != 1) return 0;
+    if (v->looped != 0 || v->has_header != 0) return -1;
+    return (int32_t)(v->kind == 0 ? v->end - v->pos : v->src_end - v->src_pos);
+}
+
 enum { QUEUE_ID = 0xff, QUEUE_CENTRE = 0x40, QUEUE_PRIORITY = 0x65, QUEUE_VOLUME = 0x7f, SOUND_KIND_QUEUE = 3 };
 
 /* 004a4bd8 */

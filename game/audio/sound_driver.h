@@ -107,6 +107,12 @@ enum { SOUND_NO_CHANNEL = -20, SOUND_NOT_EACS = -10, SOUND_PAN_OWN = -1 };
 int32_t sound_play_record(SoundDriver *d, const SoundBankSound *rec, int32_t id, int32_t pan, int32_t volume,
                           int32_t pitch);
 
+/* 00497f4e (cdecl the slot, 0..15 unchecked; 00473cf8's): -1 before the voices were first turned off (004f38ac)
+ * or for a looped voice or one with a header (+1, +3); 0 for a voice not on (+0 not 1); else what is left of it:
+ * the last frame less the position (+0x10 - +0x14), or for a compressed one (+2 not 0) the source's (+0x4c -
+ * +0x38). */
+int32_t sound_voice_left(const SoundDriver *d, int32_t slot);
+
 /* 004a4bd8 (eax the header, edx the channel, ebx the pan, cl the volume; 00492330's): not 'EACS' -10; a channel
  * out of 0..15 -1; else its sound stopped when busy, the channel filled for the queue (no sound, number 0xff, pitch
  * 0x40, priority 0x65, its volume 0x7f, +0xd 3, the pan and volume given), the header's channel set, a handle
