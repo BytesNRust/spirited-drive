@@ -35,9 +35,10 @@ void drive_audio_load(void *user, const char *name);
 /* race_sound_end's ops: 0048edfc and the file freed */
 const RaceSoundBankOps *drive_audio_bank_ops(void);
 
-/* Runs the driver's 100 Hz service (004a4ac0: the speech queue, volume ramps, countdowns)
- * for the ticks due, then keeps the stream fed: mixes (00497cb2) while
- * fewer frames are queued than a few frames' worth. */
+/* Nothing now: the device's thread mixes the driver (00497cb2) and runs its 100 Hz service (004a4ac0: the speech
+ * queue, volume ramps, countdowns) on the sample clock, as 0048c290's thread did, so a load on the game's thread
+ * no longer starves the sound. Kept for the places the original yielded to that thread (00475c14). Every call
+ * here into the driver holds platform_audio_lock. */
 void drive_audio_pump(void);
 
 /* EA's speech queue (game/audio/sound_queue.c, 004c7b60) on the driver: 00492438 its two channels and volume,

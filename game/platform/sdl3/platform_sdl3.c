@@ -137,16 +137,37 @@ bool platform_init(const PlatformConfig *config)
 }
 
 static SDL_AudioStream *audio;
+static PlatformAudioFill audio_fill;
+static void *audio_user;
 
-bool platform_audio_open(int rate)
+enum { AUDIO_FRAME = 4, AUDIO_CHUNK = 0x200 };  /* bytes per 16-bit stereo frame; frames per fill */
+
+/* the device's thread, the stream locked: what it asks for, filled a chunk at a time */
+static void SDLCALL audio_get(void *user, SDL_AudioStream *stream, int additional, int total)
+{
+    (void)user, (void)total;
+    static int16_t chunk[2 * AUDIO_CHUNK];
+    for (int left = additional / AUDIO_FRAME; left > 0; left -= AUDIO_CHUNK) {
+        const uint32_t n = left < AUDIO_CHUNK ? (uint32_t)left : AUDIO_CHUNK;
+        audio_fill(audio_user, chunk, n);
+        if (!SDL_PutAudioStreamData(stream, chunk, (int)(n * AUDIO_FRAME))) {
+            fprintf(stderr, "platform: audio: %s\n", SDL_GetError());
+            return;
+        }
+    }
+}
+
+bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
 {
     if (audio != NULL) return true;
+    if (fill == NULL) return false;
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
         fprintf(stderr, "platform: no audio: %s\n", SDL_GetError());
         return false;
     }
+    audio_fill = fill, audio_user = user;
     const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
-    audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+    audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
     if (audio == NULL || !SDL_ResumeAudioStreamDevice(audio)) {
         fprintf(stderr, "platform: no audio device: %s\n", SDL_GetError());
         platform_audio_close();
@@ -162,17 +183,14 @@ void platform_audio_close(void)
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
-uint32_t platform_audio_queued(void)
+void platform_audio_lock(void)
 {
-    if (audio == NULL) return 0;
-    const int bytes = SDL_GetAudioStreamQueued(audio);
-    return bytes > 0 ? (uint32_t)bytes / 4 : 0;
+    if (audio != NULL) SDL_LockAudioStream(audio);
 }
 
-void platform_audio_push(const int16_t *frames, uint32_t count)
+void platform_audio_unlock(void)
 {
-    if (audio != NULL && !SDL_PutAudioStreamData(audio, frames, (int)(count * 4)))
-        fprintf(stderr, "platform: audio: %s\n", SDL_GetError());
+    if (audio != NULL) SDL_UnlockAudioStream(audio);
 }
 
 void platform_shutdown(void)
