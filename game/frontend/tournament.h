@@ -21,6 +21,20 @@ enum {
  * stay. */
 void tournament_reset(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s);
 
+/* 0051dcec..0051dd13: 0045b6c8's work, left as it ends */
+typedef struct TournamentOrderWork {
+    int32_t totals[GAME_STATE_PLAYERS];  /* 0051dcec: the totals copied, each taken set to TOURNAMENT_TAKEN */
+    int32_t last;                        /* 0051dd0c: the last one taken */
+    int32_t last_total;                  /* 0051dd10: its total */
+} TournamentOrderWork;
+enum { TOURNAMENT_TAKEN = 0xfffffff };
+
+/* 0045b6c8: the eight players by their totals (+0x65), smallest first, into finish: each pass takes the first
+ * smallest below the first's (signed, the first's when none is), so a total of TOURNAMENT_TAKEN or more can be
+ * passed over for one already taken. */
+void tournament_results_order(const uint8_t game_state[GAME_STATE_SIZE], int32_t finish[GAME_STATE_PLAYERS],
+                              TournamentOrderWork *work);
+
 /* 0045b73c: 1 when the player's tournament points (the shorts at +0x570)
  * are the most of the eight, counted from 0 (so 0 when all are negative). */
 int32_t tournament_leads(const uint8_t game_state[GAME_STATE_SIZE], int32_t player);

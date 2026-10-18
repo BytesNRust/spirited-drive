@@ -3,7 +3,7 @@
 #include <string.h>
 
 enum {
-    PLAYER_KEPT = 9,
+    PLAYER_KEPT = 9, TOTAL_AT = 0x65,
     /* game state offsets */
     CONTROLS_AT = 0x554, STANDINGS_AT = 0x570, UNKNOWN_580 = 0x580, UNKNOWN_592 = 0x592,
     /* config.dat image offsets (config_dat.h) */
@@ -18,6 +18,26 @@ void tournament_reset(uint8_t game_state[GAME_STATE_SIZE], RaceSettings *s)
         memset(game_state + GAME_STATE_FLAGS + 2 * p, 0, 2);
     }
     s->variant = 0;
+}
+
+/* 0045b6c8 */
+void tournament_results_order(const uint8_t game_state[GAME_STATE_SIZE], int32_t finish[GAME_STATE_PLAYERS],
+                              TournamentOrderWork *work)
+{
+    for (int p = 0; p < GAME_STATE_PLAYERS; p++) {
+        const uint8_t *const t = game_state + GAME_STATE_PLAYER * p + TOTAL_AT;
+        work->totals[p] = (int32_t)((uint32_t)t[0] | (uint32_t)t[1] << 8 | (uint32_t)t[2] << 16 | (uint32_t)t[3] << 24);
+    }
+    int32_t best = 0, best_total = 0;
+    for (int k = 0; k < GAME_STATE_PLAYERS; k++) {
+        best = 0, best_total = work->totals[0];
+        for (int p = 0; p < GAME_STATE_PLAYERS; p++) {
+            if (work->totals[p] < best_total) best_total = work->totals[p], best = p;
+        }
+        finish[k] = best;
+        work->totals[best] = TOURNAMENT_TAKEN;
+    }
+    work->last = best, work->last_total = best_total;
 }
 
 /* 0045b73c */
