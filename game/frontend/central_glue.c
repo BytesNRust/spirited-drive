@@ -3,6 +3,7 @@
  * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
 #include "game/frontend/menu_glue.h"
 
+#include "game/frontend/audio_menu.h"
 #include "game/frontend/central.h"
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
@@ -531,7 +532,52 @@ static void controls(void *ctx, int32_t mode)
     controls_in();
 }
 
-/* TODO(004015dc, 00423d28, 0042c498): audio, graphics and load / save */
+/* 004015dc's pointer x (004c6110), read as it drags a slider: kept by its button and move polls */
+static int16_t audio_pointer_x;
+static void audio_track(void)
+{
+    int x, y;
+    pointer_position(&x, &y);
+    audio_pointer_x = (int16_t)x;
+}
+static int32_t audio_buttons(void *ctx) { (void)ctx; audio_track(); return pointer_read_buttons(); }
+static void audio_activate(void *ctx) { (void)ctx; audio_track(); pointer_activate_if_moved(); }
+static int32_t audio_clock(void *ctx) { (void)ctx; return (int32_t)timer_ticks(); }
+static void audio_volume(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
+static void audio_no_volume(void *ctx, int32_t volume) { (void)ctx, (void)volume; }
+static void audio_no_voice(void *ctx, int32_t voice, int32_t volume) { (void)ctx, (void)voice, (void)volume; }
+static int32_t audio_effects(void *ctx) { (void)ctx; return image_short(0x79); }
+static void audio_blit_at(void *ctx, const uint8_t *s, int32_t x, int32_t y) { (void)ctx; ea_blit_at(s, x, y); }
+static void audio_no_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
+
+/* 004015dc from Options (mode 0) on config.dat's image: no sound card modes, so neither the mode nor 3D sound is
+ * offered; the effects' volume, the speech and the voices' volumes are not heard yet, nor is the song tried
+ * (00456244) or the knobs clipped (0047383c); the test sound 0x4a plays once */
+static void audio(void *ctx, int32_t mode)
+{
+    static int16_t track_silent, small_stream, kept[4];
+    static const int16_t no_modes = 1, no_bit0 = 0, sound_alt = 0, sound_on = 1, net_off = 1;
+    static const int32_t voice_4a = 0, voice = 0;
+    const int16_t german = (int16_t)resource_german();
+    audio_track();
+    opt_in();
+    const AudioMenuState st = {
+        config_current()->image + 9, &track_silent, kept, &no_modes, &no_bit0, &sound_alt, &menu_words.link_game,
+        &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, &g.pointer_active, &g.buttons, ea_screen_slot(),
+        &g.inverse, &small_stream, &net_off, &no_quit };
+    const AudioMenuOps ops = {
+        music_fade_out, music_end, nothing, picture_new, move_to, load_art, no_inverse, music_feed, shape,
+        palette_set, poll, mark, audio_clock, nothing, zero, sound, in_rect, audio_volume, select_picture, blit,
+        blit_at, audio_blit_at, audio_no_clip, picture_shape, select_default, hide, nothing, flip, show,
+        audio_buttons, styles, fade_in, deadline_set, deadline_passed, nothing, music, nothing, blit_masked, ticks,
+        audio_activate, key, key, click, music_end, audio_no_voice, audio_effects, music_fade_to, audio_no_volume,
+        glue_banner, sound_free, nothing, sound_load, off, nothing, fade_out, free_handle_inverse, picture_free,
+        free_bank, music_pick, music_start, ctx };
+    audio_menu(&st, mode, &ops);
+    opt_out();
+}
+
+/* TODO(00423d28, 0042c498): graphics and load / save */
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -541,7 +587,7 @@ static void options(void *ctx)
     const OptionsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
-        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, no_mode, no_mode, controls, no_mode,
+        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, no_mode, controls, no_mode,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, nothing,
         deadline_passed, ctx };
     static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */
