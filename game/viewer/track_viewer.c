@@ -7,6 +7,8 @@
 
 #include "formats/chunk.h"
 #include "formats/tri.h"
+#include "game/gfx/blit.h"
+#include "game/gfx/palette_match.h"
 #include "game/race/car_load.h"
 #include "game/race/car_model.h"
 #include "game/race/car_wheels.h"
@@ -1361,6 +1363,19 @@ static void run_draw(void *ctx)
     if (r->headless_ticks == 0) present_drive(r->t, r->pixels);
 }
 
+/* 0041ec0c (004b95b4 0, a link race's start): the screen filled with 00473140(0xff000000) on the race's palette,
+ * the sync shape (00513970) at its own place, shown */
+static void run_wait_screen(void *ctx)
+{
+    DriveRun *r = ctx;
+    const RacePalette *p = drive_hud.palette;
+    const PaletteMatch m = { p != NULL ? p->inverse : NULL, p != NULL ? p->screen : NULL, p != NULL ? p->enabled : NULL };
+    memset(r->pixels, palette_match_rgb(&m, 0xff000000u), SCREEN_W * SCREEN_H);
+    const QuadTarget screen = { r->pixels, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
+    if (drive_hud.art.sync != NULL) blit_shape_placed(&screen, drive_hud.art.sync);
+    if (r->headless_ticks == 0) present_drive(r->t, r->pixels);
+}
+
 static const RaceRunOps *drive_run_ops(void);
 
 static int drive_window(const Track *t, uint8_t *pixels)
@@ -1433,7 +1448,7 @@ static const RaceRunOps *drive_run_ops(void)
         run_none, run_none_i, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none,
         run_none, run_last_grey, run_none, run_none, run_music_start, run_music_fill, run_none, run_clip, run_queue_reset, run_queue_prime,
         run_none,
-        run_none, run_none, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_forces_off, run_none, run_none,
+        run_none, run_wait_screen, run_laps, run_tick, run_none, run_stand_in_start, run_frame, run_draw, run_forces_off, run_none, run_none,
         run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_none, run_sound_end };
     return &ops;
 }
