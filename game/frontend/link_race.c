@@ -102,18 +102,54 @@ static void ex_wait_setup(void *ctx)
     menu_words.link_lost = w.dropped;
 }
 
-/* 004273d0 with 0042702c's record (the kind word, then the entry with the player's name); the host's setup says
- * it is a link game's (004fb7d4 1) with the link's humans (004fb7e0, 004f81d2) as race_from_menu sets them */
-static const uint8_t *exchange(const RaceEntry *own, uint8_t *names)
+/* 00410d80's words read again after each service and step */
+static void ping_service(void *ctx)
+{
+    RaceNetPingAll *p = ctx;
+    link_service();
+    p->clock = link_clock();
+}
+
+static int32_t ping_step(void *ctx)
+{
+    RaceNetPingAll *p = ctx;
+    L->deadline = p->deadline;
+    const int32_t answered = link_wait_step();
+    p->clock = link_clock(), p->deadline = L->deadline, p->dropped = menu_words.link_lost;
+    return answered;
+}
+
+static int32_t ping_latency(void *ctx, int32_t ticks) { (void)ctx; return race_net_latency(ticks); }
+
+/* 00410d80: the host times every machine's answer, a client answers; 004fbac8 (00411160 of the slowest) into
+ * *wait_ticks when one answered */
+static int32_t ping_all(int32_t *wait_ticks)
+{
+    RaceNetPingAll p = { menu_words.intro_seen, L->state, L->links, L->entries, L->pings, link_clock(), L->deadline,
+                         L->flags_a, menu_words.link_lost, *wait_ticks };
+    const RaceNetPingAllOps ops = { &p, ping_service, ex_send, ping_step, ex_drop, ping_latency };
+    const int32_t slowest = race_net_ping_all(&ops, &p);
+    L->deadline = p.deadline, menu_words.link_lost = p.dropped, *wait_ticks = p.unknown_4fbac8;
+    return slowest;
+}
+
+/* 004275f8's link start: 00410b7c(-1) and 00410c18(2), then 00410d80 when all came (else 00513e58 1: the setup
+ * as a solo race's), then 004273d0 with 0042702c's record (the kind word, then the entry with the player's name);
+ * the host's setup says it is a link game's (004fb7d4 1) with the link's humans (004fb7e0, 004f81d2) as
+ * race_from_menu sets them */
+static const uint8_t *exchange(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks)
 {
     static const RaceNetExchangeOps ops = { NULL, ex_setup_both, ex_host_setup, ex_send_setup, ex_keys, ex_send_info, ex_wait_setup };
+    link_deadline(RACE_NET_NO_DEADLINE);
+    const int32_t once = link_wait(2) == 0;
+    if (!once) ping_all(wait_ticks);  /* its answer (004fa0f0) is read by none of the race's ported code */
     uint8_t record[RACE_NET_INFO] = { 0 };
     RaceEntry entry = *own;
     memcpy(entry.name, own_name, sizeof entry.name);
     memcpy(record + 2, &entry, RACE_NET_INFO - 2);
     names_at = names != NULL ? names : spare_names;
     if (menu_words.intro_seen != 0) put_setup_dword(SETUP_NET_GAME, 1), put_setup_dword(RACE_NET_SETUP_HUMANS, link_humans());
-    RaceNetExchange x = { 0, menu_words.intro_seen, menu_words.link_game, L->setup };
+    RaceNetExchange x = { once, menu_words.intro_seen, menu_words.link_game, L->setup };
     race_net_exchange_setup(&ops, &x, record, record);
     return L->setup + RACE_NET_SETUP_RECORD_A + 2;
 }

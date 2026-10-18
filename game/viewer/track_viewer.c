@@ -985,6 +985,8 @@ static int load_specs(const char *data_root, int model, CarSpecs *specs)
 
 static void link_stand_in(int16_t player);
 
+static int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
+
 /* 004273d0 in a link game: this machine's entry (its car and aids, as a solo race's first) out, every slot's back */
 static const uint8_t *link_entries(int model)
 {
@@ -992,7 +994,7 @@ static const uint8_t *link_entries(int model)
     memset(&own, 0, sizeof own);
     own.car = model, own.automatic = 1;
     if (menus_on) own.automatic = menus.automatic, own.anti_lock = menus.anti_lock, own.traction = menus.traction;
-    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL);
+    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL, &link_wait_ticks);
 }
 
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
@@ -1407,6 +1409,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
+    w.wait_ticks = drive_link_on ? link_wait_ticks : 0;
     w.music_on = menus_on ? (int16_t)menus.music : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
