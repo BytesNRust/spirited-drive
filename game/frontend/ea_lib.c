@@ -31,17 +31,29 @@ static uint8_t *picture_of(int32_t picture)
     return picture > PICTURE_BASE && picture <= PICTURE_BASE + PICTURES ? pictures[picture - PICTURE_BASE - 1] : NULL;
 }
 
-int32_t ea_bank_load(const char *name)
+static int32_t bank_put(uint8_t *data, const char *name)
 {
     for (int i = 0; i < BANKS; i++) {
         if (banks[i] != NULL) continue;
-        size_t size;
-        banks[i] = resource_load_art(name, &size);
+        banks[i] = data;
         if (banks[i] == NULL) fprintf(stderr, "ea_bank_load: cannot read %s\n", name);
         return banks[i] != NULL ? i + 1 : 0;
     }
     fprintf(stderr, "ea_bank_load: no room for %s\n", name);
+    resource_free(data);
     return 0;
+}
+
+int32_t ea_bank_load(const char *name)
+{
+    size_t size;
+    return bank_put(resource_load_art(name, &size), name);
+}
+
+int32_t ea_bank_load_path(const char *path)
+{
+    size_t size;
+    return bank_put(resource_load(path, &size), path);
 }
 
 void ea_bank_free(int32_t bank)

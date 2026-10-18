@@ -174,8 +174,7 @@ static void art_free(void *ctx)
 }
 
 /* TODO(00464788, 0046486c, 00464850, 004648a8): the track screen's own music (EA's player, 00492xxx);
- * TODO(00408724, 004676d8, 00461540, 0040a5d8): the showcase, the best times, the standings (no tournament results
- * yet) and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
+ * TODO(004676d8, 0040a5d8): the best times and chat; TODO(00446284): the race's setup; TODO(004104d0, 004109b4, 0044633c, 00432e90): the link
  * game; TODO(00437258, 00483f8c): the cheats need a key-down table on game/sys */
 static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
 static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
@@ -464,8 +463,8 @@ static void reset_tournament(void *ctx)
 static void game_reset(void *ctx) { (void)ctx; glue_game_reset(); }
 
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(0045eff4, 00461540, 0045de08, 0045aec8, 0040c710, 0040b648, 004283c4, 00428610, 0045ae80, 00432e48): the
- * screens after a race other than 0045cea0, the winner's and the ticket's, the tournament's end */
+ * TODO(0045aec8, 0040c710, 0040b648, 004283c4, 00428610, 0045ae80, 00432e48): the tournament's points, the
+ * winner's and the ticket's screens, the tournament's end */
 static void race(void *ctx)
 {
     (void)ctx;
@@ -785,6 +784,13 @@ void glue_game_reset(void)
     config_dat_set_race(config_current(), &s);
 }
 
+/* 00408724 on Control Central's words */
+static void showcase(void *ctx)
+{
+    const ShowcaseGlue in = { &g.player_car, &g.race_type, &g.track, &g.pointer_active, &g.buttons, car_flags, ctx };
+    glue_showcase(&in);
+}
+
 int32_t glue_central(void)
 {
     static const ControlCentralOps OPS = {
@@ -792,7 +798,7 @@ int32_t glue_central(void)
         palette_set, nothing, in_rect, car_flags, type_changed, ticks, zero, select_picture, blit, blit_masked,
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
         show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, no_cheat,
-        not_down, activate, zero, click, no_kick, music_fade_out, fade_out, music_end, music_start, nothing,
+        not_down, activate, zero, click, no_kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options,
         nothing, glue_yes_no, glue_drain, glue_banner, nothing, sound_free, picture_free, flush, race, off, NULL };
     load();

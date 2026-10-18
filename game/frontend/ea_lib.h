@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 int32_t ea_bank_load(const char *name);                       /* 00466c34: 0 when it cannot be read */
+int32_t ea_bank_load_path(const char *path);  /* 00476268: a path from the working directory */
 void ea_bank_free(int32_t bank);                              /* 00475260 on a bank */
 const uint8_t *ea_shape(int32_t bank, const char *tag);       /* 004732dd: NULL when it has none */
 

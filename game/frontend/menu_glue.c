@@ -11,6 +11,9 @@
 #include "game/frontend/replay_box.h"
 #include "game/frontend/save_box.h"
 #include "game/frontend/save_files.h"
+#include "game/frontend/showcase.h"
+#include "game/frontend/showcase_figures.h"
+#include "game/frontend/showcase_pages.h"
 #include "game/frontend/text_box.h"
 #include "game/frontend/text_entry.h"
 #include "game/frontend/title.h"
@@ -214,6 +217,74 @@ void glue_replay_box(char *name, uint8_t *config)
 }
 
 void glue_banner_wait(void *ctx, const char *text, int32_t time) { banner_wait(ctx, text, time); }
+
+/* 00408724's calls past the boxes': ctx the ShowcaseGlue */
+static void clear_both(void *ctx)
+{
+    (void)ctx;
+    for (int i = 0; i < 2; i++) ea_select_default(), video_clear_back(), video_flip();
+}
+static void sync(void *ctx) { (void)ctx; pointer_sync_from_os(); }
+static void mark(void *ctx) { (void)ctx; pointer_mark(); }
+static void blit_masked(void *ctx, const uint8_t *s) { (void)ctx; ea_blit_masked(s); }
+static void palette_write(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
+/* 00524738: paths.dat's showcase directory, from the data root as the original's (its names fit 0x28 bytes) */
+static const char *show_dir(void) { return resource_german() ? "frontend/gshow/" : "frontend/show/"; }
+static int32_t show_bank(void *ctx, const char *path, int32_t flags)
+{
+    (void)ctx, (void)flags;
+    char full[1024];
+    snprintf(full, sizeof full, "%s/%s", resource_root(), path);
+    return ea_bank_load_path(full);
+}
+static void music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
+static void music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
+static void music_start(void *ctx, const char *name) { (void)ctx; menu_audio_music_start(name); }
+static void no_voice(void *ctx, const char *name) { (void)ctx, (void)name; }  /* TODO(00464788): the voices */
+static void no_movie(void *ctx, const char *name) { (void)ctx, (void)name; }  /* never offered: 0052b2fc is 0 */
+static void car_flags(void *ctx) { const ShowcaseGlue *in = ctx; in->car_flags(in->ctx); }
+
+/* 00407290 / 00406008 (showcase_pages.c / showcase_figures.c) */
+static void pages(void *ctx, const char *which)
+{
+    const ShowcaseGlue *const in = ctx;
+    ShowcasePagesState st = { in->player_car, in->race_type, in->track, show_dir(), in->pointer_active,
+                              in->buttons, ea_screen_slot() };
+    const ShowcasePagesOps ops = {
+        move_to, show_bank, music_feed, shape, palette_set, sync, mark, in_rect, select_picture, blit_own,
+        blit_masked, select_default, picture_shape, blit_picture, flip, show, buttons, no_voice, fade_in, nothing,
+        deadline_set, sound, pointer_away, nothing, ticks, activate, key, click, car_flags, nothing, nothing,
+        fade_out, bank_free, off, music, deadline_passed, ctx };
+    showcase_pages(&st, &ops, which);
+}
+static void figures(void *ctx, const char *which)
+{
+    const ShowcaseGlue *const in = ctx;
+    const int16_t german = (int16_t)resource_german();
+    ShowcaseFiguresState st = { in->player_car, in->race_type, in->track, &german, show_dir(),
+                                in->pointer_active, in->buttons, ea_screen_slot() };
+    const ShowcaseFiguresOps ops = {
+        move_to, show_bank, music_feed, shape, palette_set, sync, mark, in_rect, select_picture, blit_own,
+        blit_masked, select_default, picture_shape, blit_picture, flip, show, buttons, no_voice, fade_in, nothing,
+        deadline_set, sound, pointer_away, nothing, ticks, activate, key, click, car_flags, nothing, nothing,
+        fade_out, bank_free, off, music, deadline_passed, ctx };
+    showcase_figures(&st, &ops, which);
+}
+
+/* 00408724 (showcase.c); no movies yet (TODO(004423d4)), so the video is not offered */
+void glue_showcase(const ShowcaseGlue *in)
+{
+    static const int16_t no_movies = 0;
+    ShowcaseState st = { in->player_car, in->race_type, in->track, &no_movies, show_dir(),
+                         in->pointer_active, in->buttons, ea_screen_slot() };
+    const ShowcaseOps ops = {
+        move_to, show_bank, music_feed, clear_both, shape, palette_set, palette_write, nothing, styles, sync, mark,
+        in_rect, select_picture, blit_own, blit_masked, palette_write, select_default, picture_shape, blit_picture,
+        flip, show, buttons, fade_in, deadline_set, sound, pointer_away, nothing, ticks, activate, key, click,
+        bank_free, fade_out, pages, figures, music_fade_out, music_end, no_movie, music_start, car_flags, off, music,
+        deadline_passed, (void *)in };
+    showcase(&st, &ops);
+}
 
 /* the modem is out of scope (UDP only); the network branch until it is wired: no service, the menu again */
 static int32_t back_to_menu(void *ctx) { (void)ctx; return 1; }

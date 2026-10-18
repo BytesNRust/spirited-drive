@@ -40,4 +40,14 @@ void glue_banner_wait(void *ctx, const char *text, int32_t time);   /* 00467214 
 void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas);  /* 0042a680 */
 void glue_replay_box(char *name, uint8_t *config);                  /* 0042a9f8 */
 
+/* 00408724's words, Control Central's aligned copies of config.dat's shorts, and its 00465ec8 */
+typedef struct ShowcaseGlue {
+    int16_t *player_car;
+    const int16_t *race_type, *track, *pointer_active;
+    int16_t *buttons;
+    void (*car_flags)(void *ctx);
+    void *ctx;
+} ShowcaseGlue;
+void glue_showcase(const ShowcaseGlue *in);
+
 #endif
