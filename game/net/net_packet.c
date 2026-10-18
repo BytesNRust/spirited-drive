@@ -397,6 +397,17 @@ int32_t net_packet_service_handle(const NetPacketRecvOps *ops, NetPacketHandle *
     return net_packet_service(ops, h->conn, 0);
 }
 
+static int32_t tick_visit(void *ctx, NetNode *n, uintptr_t arg)
+{
+    return net_packet_service(ctx, (NetPacketConn *)(void *)n, (int32_t)arg);
+}
+
+int32_t net_packet_tick(const NetPacketRecvOps *ops, NetQueue *open)
+{
+    const NetQueueVisit visit = { (void *)ops, tick_visit };
+    return net_queue_walk(ops->close->packet->mutex, open, &visit, 1);
+}
+
 int32_t net_packet_write(const NetPacketOps *ops, const NetQueueMessage *message, NetPacketHandle *h,
                          const uint8_t *data, uint32_t n)
 {

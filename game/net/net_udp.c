@@ -177,7 +177,7 @@ int32_t net_udp_send(NetUdp *u, const uint8_t *address, int32_t message, const u
 int32_t net_udp_find(NetUdp *u, const char *name)
 {
     uint8_t asked[NAME] = { 0 };
-    strncpy((char *)asked, name, NAME - 1);
+    strncpy((char *)asked, name, NAME);  /* 0x20 bytes, as net_serve compares them (no NUL past a long name) */
     net_udp_send(u, NULL, NET_SERVER_ASK, asked, NAME);
     return 1;
 }

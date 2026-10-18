@@ -156,9 +156,49 @@ static void test_find_game(void)
     net_udp_service_close(&host, hs.handle), net_udp_service_close(&client, cs.handle);
 }
 
+/* the ask carries all 0x20 bytes net_serve compares: a game's name as
+ * net_game_name makes it (43 characters) is found */
+static void test_find_long_name(void)
+{
+    NetUdpService host = { 0 };
+    uint8_t host_self[NET_UDP_ADDRESS], entries[NET_PLAYERS * NET_PLAYER_SIZE] = { 0 }, game[0x30] = { 0 };
+    uint8_t params[0x44] = "Long name", password[16] = { 0 }, guid[16] = "0123456789abcde";
+    params[0x40] = 4;
+    net_game_name(guid, (char *)game);
+    CHECK_EQ_INT((int)strlen((const char *)game), NET_GAME_NAME - 1);
+    NetServer server = { .players = 1, .entries = entries, .game = game, .password = (char *)password,
+                         .params = params };
+    NetSession hs = { .server = &server, .handle = net_udp_service_open(&host), .self = host_self,
+                      .address = host_self };
+    server.session = &hs;
+    if (hs.handle == 0) return;
+    net_udp_self(net_udp_service_get(&host, hs.handle), host_self);
+    char at[32];
+    snprintf(at, sizeof at, "127.0.0.1:%u", (unsigned)net_udp_port(net_udp_service_get(&host, hs.handle)));
+    const char *hosts[] = { at, NULL };
+    NetUdpService client = { .hosts = hosts };
+    uint8_t client_self[NET_UDP_ADDRESS], server_at[NET_UDP_ADDRESS] = { 0 };
+    NetSession cs = { .handle = net_udp_service_open(&client), .self = client_self, .address = server_at };
+    Ops ho, co;
+    ops_for(&ho, &host), ops_for(&co, &client);
+    CHECK_EQ_INT(net_udp_service_find(&client, cs.handle, (const char *)game), 1);
+    CHECK_EQ_INT(wait_query(&host, hs.handle), 1);
+    NetRequest hr = { .session = &hs };
+    net_receive(&ho.receive, &hs, &hr);
+    Found f = { 0 };
+    const NetGamesCallback cb = { &f, found_game };
+    NetRequest cr = { .session = &cs, .games = &cb };
+    for (int i = 0; i < 5 && f.calls == 0; i++)
+        if (wait_query(&client, cs.handle) != 0) net_receive(&co.receive, &cs, &cr);
+    CHECK_EQ_INT(f.calls, 1);
+    CHECK(strcmp(f.name, "Long name") == 0);
+    net_udp_service_close(&host, hs.handle), net_udp_service_close(&client, cs.handle);
+}
+
 int main(void)
 {
     test_handles();
     test_find_game();
+    test_find_long_name();
     return TEST_REPORT();
 }
