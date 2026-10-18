@@ -157,9 +157,10 @@ static void number(void *ctx, uint32_t address, int32_t value)
     if (address == 0x44f534 && c->m->replay != NULL && c->m->replay->recording != NULL) race_replay_request(&c->m->replay->dir, value);
 }
 
+/* 00463f80 on the pointer's place whether it is shown or not: the keys' steps move it onto their item (00464038) */
 static int32_t inside(void *ctx, int16_t l, int16_t r, int16_t t, int16_t b)
 {
-    return (void)ctx, pointer_active() ? pointer_in_rect(l, r, t, b) : 0;
+    return (void)ctx, pointer_in_rect(l, r, t, b);
 }
 
 static int16_t chat(void *ctx) { return (void)ctx, 0; }
@@ -178,7 +179,8 @@ static void blit_at(void *ctx, const uint8_t *shape, int32_t x, int32_t y)
     blit_shape_at_transparent(&t, shape, x - hx, y - hy);
 }
 
-static int16_t buttons(void *ctx) { return (void)ctx, (int16_t)pointer_read_buttons(); }
+/* [004c6194] reads the mouse as it is: the race syncs no pointer, so a click that started it is not taken for one here */
+static int16_t buttons(void *ctx) { return (void)ctx, pointer_sync_from_os(), (int16_t)pointer_read_buttons(); }
 static int32_t ticks(void *ctx) { return (void)ctx, timer_ticks_since_last(); }
 static uint16_t key(void *ctx) { return (void)ctx, (uint16_t)input_get_key(); }
 static int16_t ask(void *ctx, const char *question) { return (void)ctx, (int16_t)dialog_yes_no(question); }
