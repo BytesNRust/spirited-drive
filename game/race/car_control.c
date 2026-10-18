@@ -54,7 +54,7 @@ static int32_t centred(uint32_t bits, int32_t centre)
 
 /* 00401010: the turn from the car's heading to a point six nodes on,
  * moved two units to the side the car is already on. */
-static int32_t road_aim(const Car *car, const RaceState *race)
+int32_t car_road_aim(const Car *car, const RaceState *race)
 {
     const TriNode here = race_node(race, car->node);
     const int32_t a = here.orientation * 4;
@@ -363,7 +363,7 @@ static void autopilot(Car *car, const RaceState *race)
 
 void car_player_control(Car *car, const CarSpecs *specs, RaceState *race)
 {
-    int32_t aim = road_aim(car, race);
+    int32_t aim = car_road_aim(car, race);
     if (abs32(aim) > AIM_MAX) aim = 0;
     const uint32_t input = race->inputs[car->player & (RACE_PLAYERS - 1)];
     const ControlSetup *setup = &race->controls[car->player & (RACE_PLAYERS - 1)];

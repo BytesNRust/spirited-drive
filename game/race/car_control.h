@@ -14,6 +14,10 @@ void car_player_control(Car *car, const CarSpecs *specs, RaceState *race);
  * start of a stage it keeps the car past z 0x120000. */
 int car_race_window(Car *car, RaceState *race);
 
+/* 00401010: the turn from the car's heading to a point six nodes on, moved
+ * two units to the side the car is already on (24-bit angle, signed). */
+int32_t car_road_aim(const Car *car, const RaceState *race);
+
 /* 00440bf4: how far past the finish the car is: on a circuit its node once
  * its lap count is past the race's laps, on a stage its node past the lap's
  * nodes; else 0. */

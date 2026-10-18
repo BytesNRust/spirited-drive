@@ -6,6 +6,7 @@
 #include "game/race/input_read.h"
 #include "game/race/input_tick.h"
 #include "game/sys/resource.h"
+#include "viewer/drive_autopilot.h"
 #include "viewer/drive_joy.h"
 #include "viewer/track_viewer.h"
 
@@ -40,6 +41,8 @@ static void no_drop(void *ctx, int16_t player) { (void)ctx, (void)player; }
 static uint32_t read_word(void *ctx)
 {
     DriveCtx *c = ctx;
+    const Car *own = c->race->cars[c->race->player];
+    if (drive_autopilot_on() && own != NULL) return drive_autopilot_word(own, c->race);  /* port: test harness only */
     InputPad pad = { 0, 0, 0 };
     const InputReadOps ops = { &pad, pad_read, { NULL, no_range, no_buttons, pointer_x } };
     MouseSteerWords mouse = { c->race->replay, c->race->viewed, 0, c->race->unknown_513e6c, 0, 0, 0x20 };
