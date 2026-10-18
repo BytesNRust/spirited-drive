@@ -985,10 +985,21 @@ static int load_specs(const char *data_root, int model, CarSpecs *specs)
 
 static void link_stand_in(int16_t player);
 
+/* 004273d0 in a link game: this machine's entry (its car and aids, as a solo race's first) out, every slot's back */
+static const uint8_t *link_entries(int model)
+{
+    RaceEntry own;
+    memset(&own, 0, sizeof own);
+    own.car = model, own.automatic = 1;
+    if (menus_on) own.automatic = menus.automatic, own.anti_lock = menus.anti_lock, own.traction = menus.traction;
+    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL);
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
-    if (drive_link_on) model = drive_link.cars[0];  /* slot 0's specs are the host's car's */
+    const uint8_t *entries = drive_link_on ? link_entries(model) : NULL;  /* the host's setup's, 004fb7fa */
+    if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
     CarSpecs specs;
     if (!load_specs(data_root, model, &specs)) return 0;
     char stem[16];
@@ -1024,9 +1035,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * gets 00457870's field of eight different cars (004c5628); any other
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1 && !drive_link_on) field.entries[1].car = FULL_FIELD;
-    for (int i = 0; drive_link_on && i < drive_link.humans && i < racers; i++) {  /* the machines' cars */
-        field.entries[i].car = drive_link.cars[i];
-        if (i > 0 && !load_specs(data_root, drive_link.cars[i], &human_specs[i])) return 0;
+    for (int i = 0; entries != NULL && i < drive_link.humans && i < racers; i++) {  /* the machines' entries */
+        memcpy(&field.entries[i], entries + sizeof(RaceEntry) * (size_t)i, sizeof field.entries[i]);
+        if (i > 0 && !load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
         field.specs[i] = i > 0 ? &human_specs[i] : NULL;
     }
     if (drive_link_on) field.humans = drive_link.humans;

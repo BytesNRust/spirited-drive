@@ -60,7 +60,9 @@ typedef struct TrackViewerLink {
     int32_t humans;                     /* 004fb7e0 (004f81d2): the machines' cars, first in the field */
     int32_t slot;                       /* 004fbb08: this machine's car */
     int32_t host;                       /* 004fbb0c */
-    int cars[TRACK_VIEWER_RACERS];      /* each human's car model (00524e8b this machine's, 00524e8d by slot) */
+    /* 004273d0: this machine's entry (its name filled in) to the host, and the host's setup back: each slot's entry
+     * at 004fb7fa + 0x4b x slot (a RaceEntry apart), the humans' names to `names` (0052ad44, NULL: none kept) */
+    const uint8_t *(*exchange)(const RaceEntry *own, uint8_t *names);
     void (*send)(int32_t to, const int16_t *words, int32_t size);  /* 00445e00 */
     void (*service)(void);              /* 00475c14(0): the transport's */
     int32_t (*wait)(int32_t stage);     /* 00410c18: nonzero when all came */
