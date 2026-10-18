@@ -1,6 +1,7 @@
 /* Joysticks and their force feedback on SDL3 (platform.h): the exe's WinMM
- * joystick calls and IFORCE.DLL. The subsystems start on the first call, so
- * a game that never asks starts as it did. */
+ * joystick calls and IFORCE.DLL. The joystick subsystem starts on the first
+ * call; the haptic one (slow to enumerate) only when a stick that has it
+ * opens its forces, so a game without one starts as it did. */
 #include "platform/platform.h"
 
 #include <SDL3/SDL.h>
@@ -21,7 +22,7 @@ enum {
     VIBRATIONS = 2
 };
 
-static bool started, start_failed;
+static bool started, start_failed, haptic_started, haptic_failed;
 static SDL_JoystickID ids[MAX_DEVICES];
 static SDL_Joystick *opened[MAX_DEVICES];
 static int devices;
@@ -37,7 +38,7 @@ static bool start(void)
 {
     if (started) return !start_failed;
     started = true;
-    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC)) {
+    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK)) {
         start_failed = true;
         return false;
     }
@@ -49,6 +50,12 @@ static bool start(void)
         SDL_free(list);
     }
     return true;
+}
+
+static bool start_haptic(void)
+{
+    if (!haptic_started) haptic_started = true, haptic_failed = !SDL_InitSubSystem(SDL_INIT_HAPTIC);
+    return !haptic_failed;
 }
 
 static SDL_Joystick *device_of(int device)
@@ -130,7 +137,7 @@ bool platform_forces_open(int device)
     platform_forces_close();
     SDL_Joystick *j = device_of(device);
     if (j == NULL) return false;
-    if (SDL_IsJoystickHaptic(j)) haptic = SDL_OpenHapticFromJoystick(j);
+    if (start_haptic() && SDL_IsJoystickHaptic(j)) haptic = SDL_OpenHapticFromJoystick(j);
     if (haptic != NULL && (SDL_GetHapticFeatures(haptic) & (SDL_HAPTIC_CONSTANT | SDL_HAPTIC_SINE)) != 0)
         return true;
     if (haptic != NULL) SDL_CloseHaptic(haptic), haptic = NULL;
