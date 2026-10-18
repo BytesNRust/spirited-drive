@@ -16,8 +16,8 @@
  * with all points on one column is drawn as a line, one with all points on one
  * row is not drawn at all.
  *
- * TODO(004a3390): the dispatcher that picks flat_line / flat_polygon by corner
- *                 count for 3D objects (object3d.c carries the call sites).
+ * 004a3390, the dispatcher that picks flat_line / flat_polygon by corner count
+ * for 3D objects, is object_sink.c's flat().
  * port: 004a02d8's and its neighbours' 16-bit and 32-bit destination surfaces
  * are not ported: the game always runs at 640 x 480 x 8 (00477980). */
 #ifndef TNFS_FLAT_H
