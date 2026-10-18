@@ -26,11 +26,17 @@ static const struct {
     { 0x2A, KEY_LSHIFT }, { 0x36, KEY_RSHIFT },
 };
 
-static void pump_events(void)
+static void (*on_close)(void);
+
+void input_on_close(void (*hook)(void)) { on_close = hook; }
+
+void input_pump(void)
 {
     if (!platform_poll_events()) {
         /* The original only quits through its menus; closing the window here
-         * ends the process the way a fatal error (00477a40) would. */
+         * ends the process the way a fatal error (00477a40) would, after
+         * input_on_close's hook. */
+        if (on_close != NULL) on_close();
         video_shutdown();
         platform_shutdown();
         exit(EXIT_SUCCESS);
@@ -43,7 +49,7 @@ static void pump_events(void)
 
 int input_get_key(void)
 {
-    pump_events();
+    input_pump();
     if (platform_key_down(SC_F10) && platform_key_down(SC_CTRL)) {
         return KEY_NONE;  /* TODO(network): Ctrl+F10 drops a net game (0052b314) */
     }
@@ -78,7 +84,7 @@ static int to_cp437(uint32_t cp)
 
 int input_next_char(void)
 {
-    pump_events();
+    input_pump();
     for (uint32_t cp; (cp = platform_next_text()) != 0;) {
         switch (cp) {
         case PLATFORM_TEXT_BACKSPACE:

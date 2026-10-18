@@ -63,7 +63,7 @@ static struct {
     int32_t unlock_m, unlock_r, lost_vegas, hidden, vegas_cheat, variant_m, variant_r;
     int16_t net_player, net_player_was, was[6];
     int32_t art[7];
-    int16_t nomercy, warrior, music_silent, net_hover, net_self, net_second, letter_held, pointer_active, buttons;
+    int16_t nomercy, warrior, music_silent, net_hover, net_self, net_second, letter_held, buttons;
     int32_t explode, inverse, nitro;
 } g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
@@ -300,6 +300,10 @@ static void mark_at(void *ctx, DialogPointer *p)
     p->mark_x = (int16_t)p->x, p->mark_y = (int16_t)p->y;
     pointer_mark();
 }
+/* the screens with a DialogPointer as ctx: its short 00524790 set as 00441798, 00464088 and 00464060 set the one word */
+static void show_dialog(void *ctx) { pointer_show(), ((DialogPointer *)ctx)->active = pointer_active(); }
+static void activate_dialog(void *ctx) { pointer_activate_if_moved(), ((DialogPointer *)ctx)->active = pointer_active(); }
+static void off_dialog(void *ctx) { pointer_off(), ((DialogPointer *)ctx)->active = pointer_active(); }
 static void set_palette(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
 static void track_music(void *ctx, const char *name) { (void)ctx; menu_audio_track_music(name); }
 static void track_play(void *ctx) { (void)ctx; menu_audio_track_play(); }
@@ -339,8 +343,9 @@ static void track_select(void *ctx)
     const TrackSelectOps ops = {
         flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
-        show, mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate, key, click,
-        track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags, off, music,
+        show_dialog, mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate_dialog,
+        key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags,
+        off_dialog, music,
         deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     RaceSettings after = before;
@@ -376,8 +381,9 @@ static int32_t best_times(void *ctx)
     const BestTimesOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, flush, set_palette, nothing, styles, poll_pointer, mark_at,
         in_rect, select_picture, blit, blit_masked, blit_word, style, fit, time_text, speed_text, shadowed,
-        select_default, hide, nothing, nothing, flip, show, buttons, fade_in, deadline_set, sound, ticks, activate,
-        key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off, music,
+        select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
+        activate_dialog, key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
+        music,
         deadline_passed, music_fade_out, music_end, ctx };
     return best_times_screen(&in, &st, ctx, &ops);
 }
@@ -486,8 +492,9 @@ static void standings(void *ctx, int32_t segment)
     const StandingsOps ops = {
         flush, move_to, load_art, no_inverse, music_feed, shape, set_palette, set_palette, nothing, styles,
         poll_pointer, hide, nothing, in_rect, select_picture, select_default, blit, blit_masked, blit_word, style,
-        glue_boxed, time_text, results_order, nothing, nothing, flip, show, mark_at, buttons, fade_in,
-        fade_out_bank, deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, free_bank,
+        glue_boxed, time_text, results_order, nothing, nothing, flip, show_dialog, mark_at, buttons, fade_in,
+        fade_out_bank, deadline_set, sound, ticks, activate_dialog, key, click, off_dialog, music, deadline_passed,
+        free_bank,
         free_handle_inverse, &p };
     standings_screen(segment, &in, &st, &p, &ops);
 }
@@ -546,7 +553,7 @@ static void race(void *ctx)
     int16_t net_off = 0, link_done = 0;
     int32_t warrior = g.warrior;
     const MenuRaceState st = { config->image, game_state, &net_off, race_times, ghost, &no_link, &no_link,
-                               &g.pointer_active, &player, &font, ea_screen_slot(), &warrior, &g.unlock_m,
+                               pointer_active_word(), &player, &font, ea_screen_slot(), &warrior, &g.unlock_m,
                                &g.unlock_r, &g.lost_vegas, &host, &link_done };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
@@ -586,7 +593,7 @@ static void credits(void *ctx, int32_t mode)
     const CreditsOps ops = { load_art, shape, palette_set, music_feed, select_picture, blit, select_default,
                              picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
                              free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx };
-    const CreditsState st = { ea_screen_slot(), &g.pointer_active, &g.buttons, &no_quit, &credits_idle };
+    const CreditsState st = { ea_screen_slot(), pointer_active_word(), &g.buttons, &no_quit, &credits_idle };
     credits_last = timer_ticks();
     credits_show(&st, &ops);
 }
@@ -648,7 +655,10 @@ static int32_t capture(void *ctx, char *name)
     KeyCaptureState st = { pointer_active(), 0, 0, 0, 0 };
     const KeyCaptureOps ops = { keys_pending, music, capture_buttons, nothing, ticks, glue_drain, key_read, nothing,
                                 ctx };
-    return key_capture(name, resource_german(), &st, &ops);
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
+    const int32_t result = key_capture(name, resource_german(), &st, &ops);
+    pointer_bind_active(was);
+    return result;
 }
 static void controls(void *ctx, int32_t mode)
 {
@@ -658,7 +668,7 @@ static void controls(void *ctx, int32_t mode)
     int32_t *const screen = ea_screen_slot();
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &no_joystick_a, &no_joystick_b, &no_calibration,
-                                   &g.pointer_active, &g.buttons, screen, &g.inverse, &net_off, &quit };
+                                   pointer_active_word(), &g.buttons, screen, &g.inverse, &net_off, &quit };
     const ControlsMenuOps ops = {
         picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
         styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
@@ -700,7 +710,7 @@ static void audio(void *ctx, int32_t mode)
     opt_in();
     const AudioMenuState st = {
         config_current()->image + 9, &track_silent, kept, &no_modes, &no_bit0, &sound_alt, &menu_words.link_game,
-        &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, &g.pointer_active, &g.buttons, ea_screen_slot(),
+        &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &g.buttons, ea_screen_slot(),
         &g.inverse, &small_stream, &net_off, &no_quit };
     const AudioMenuOps ops = {
         music_fade_out, music_end, nothing, picture_new, move_to, load_art, no_inverse, music_feed, shape,
@@ -721,7 +731,7 @@ static void graphics(void *ctx, int32_t mode)
     static int16_t showing;  /* 004f9e8c */
     static const int16_t net_off = 1;
     opt_in();
-    const GraphicsMenuState st = { config_current()->image + 9, &showing, &net_off, &g.pointer_active, &g.buttons,
+    const GraphicsMenuState st = { config_current()->image + 9, &showing, &net_off, pointer_active_word(), &g.buttons,
                                    ea_screen_slot(), &g.inverse, &no_quit };
     const GraphicsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
@@ -755,7 +765,7 @@ static int32_t game_list(void *ctx, int32_t mode)
 {
     uint8_t *const image = config_current()->image;
     GameListState st = { resource_german(), list_check, list_highlight, ea_screen(), "", "", list_names,
-                         &g.pointer_active, &g.buttons, image + 9, (char *)image + 0x3b, game_state, game_kept,
+                         pointer_active_word(), &g.buttons, image + 9, (char *)image + 0x3b, game_state, game_kept,
                          image + CONTROLS_AT, &g.lost_vegas, &g.tournament };
     const GameListOps ops = {
         styles, picture_new, picture_shape, select_picture, grab, load_art, music_feed, no_cwd, no_chdir, find_first,
@@ -806,7 +816,7 @@ static void load_save(void *ctx, int32_t mode)
     int16_t variant = image_short(0x93);
     replay_kind = image_short(0xaf);
     LoadSaveState st = {
-        resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), g.pointer_active, &g.buttons,
+        resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), pointer_active(), &g.buttons,
         ea_screen_slot(), &g.inverse, &list_check, &variant, &list_highlight, &replay_kind, replay_race,
         &g.music_silent, g.volumes, { g.volumes[0], g.volumes[1], g.volumes[2] }, image_short(0x7f),
         (const char *)config->image + 9, (const char *)config->image + 0x3b };
@@ -817,7 +827,9 @@ static void load_save(void *ctx, int32_t mode)
         free_handle_inverse, free_bank, music_fade_out, fade_out, music_end, picture_free, sound_free, clear_one,
         clip, replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
         deadline_passed, ctx };
+    int16_t *const was = pointer_bind_active(&st.pointer_active);
     load_save_menu(mode, &st, &ops);
+    pointer_bind_active(was);
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
@@ -839,7 +851,7 @@ static void options(void *ctx)
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
-        &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, &g.pointer_active, &g.buttons, ea_screen_slot(), &g.inverse,
+        &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
         &net_off, &no_quit, &menu_words.redraw };
     options_menu(&st, &ops);
     opt_in();
@@ -859,7 +871,6 @@ static void load(void)
     }
     settings_put(&s);
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
-    g.pointer_active = (int16_t)pointer_active();
 }
 
 /* 00466ae4 before Control Central: the game state for a new tournament (the controls, the names: config.dat's for
@@ -878,8 +889,19 @@ void glue_game_reset(void)
 /* 00408724 on Control Central's words */
 static void showcase(void *ctx)
 {
-    const ShowcaseGlue in = { &g.player_car, &g.race_type, &g.track, &g.pointer_active, &g.buttons, car_flags, ctx };
+    const ShowcaseGlue in = { &g.player_car, &g.race_type, &g.track, pointer_active_word(), &g.buttons, car_flags, ctx };
     glue_showcase(&in);
+}
+
+static int central_up;  /* the race settings live in g while Control Central runs */
+
+/* A window closed in the menus (port: the original quits only through them): the race settings into config.dat's
+ * image as on leaving Control Central, while it runs */
+void glue_settings_to_config(void)
+{
+    if (!central_up) return;
+    const RaceSettings s = settings_of();
+    config_dat_set_race(config_current(), &s);
 }
 
 int32_t glue_central(void)
@@ -900,8 +922,10 @@ int32_t glue_central(void)
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
         &g.explode, &g.music_silent, &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        0, "", &g.pointer_active, &g.buttons, ea_screen_slot(), "", keys };
+        0, "", pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys };
+    central_up = 1;
     const int32_t result = control_central(&st, &OPS);
+    central_up = 0;
     video_set_overlay(NULL, 0, 0);
     const RaceSettings s = settings_of();
     config_dat_set_race(config_current(), &s);

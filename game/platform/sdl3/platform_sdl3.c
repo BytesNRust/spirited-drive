@@ -39,12 +39,13 @@ static int key_count;
  * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, Y, N, J, A, Z, C) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
- * the pointer; ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
+ * the pointer; ms:CLICK:x:y moves it there and holds the left button 100 ms;
+ * ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
  * typed-text queue, and the arrows, ENTER, ESC and SPACE the key queue (platform_next_key). */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100 };
 typedef struct {
     uint32_t at_ms;
-    int scancode;  /* set-1, 0 for mouse moves and text */
+    int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks */
     int x, y;
     bool seen;     /* held until the game has read it at least once */
     bool queued;   /* text / editing code already pushed to the text queue */
@@ -286,6 +287,9 @@ static void load_script(void)
         char name[16] = "";
         if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
+        } else if (SDL_sscanf(item, "%u:CLICK:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
+            e.scancode = -3;
+            script[script_count++] = e;
         } else if (SDL_sscanf(item, "%u:TEXT:%15s", &e.at_ms, e.text) == 2) {
             e.scancode = -2;
             script[script_count++] = e;
@@ -316,7 +320,7 @@ static void apply_script_text(void)
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         ScriptEvent *e = &script[i];
-        if (e->queued || now < e->at_ms) continue;
+        if (e->queued || e->scancode == -3 || now < e->at_ms) continue;
         if (e->scancode == -2) push_utf8(e->text);
         if (e->scancode == 0x1C) push_text(PLATFORM_TEXT_ENTER);
         if (e->scancode == 0x01) push_text(PLATFORM_TEXT_ESCAPE);
@@ -333,6 +337,17 @@ static void apply_script_mouse(void)
             mouse_y = (float)script[i].y;
             mouse_moved = true;
             script[i].scancode = -1;  /* consumed */
+        }
+        if (script[i].scancode == -3 && now >= script[i].at_ms && !script[i].queued) {  /* pressed */
+            mouse_x = (float)script[i].x;
+            mouse_y = (float)script[i].y;
+            mouse_moved = true;
+            mouse_buttons |= PLATFORM_MOUSE_LEFT;
+            script[i].queued = true;
+        } else if (script[i].scancode == -3 && script[i].queued && !script[i].seen &&
+                   now >= script[i].at_ms + SCRIPT_HOLD_MS) {  /* released */
+            mouse_buttons &= ~(unsigned)PLATFORM_MOUSE_LEFT;
+            script[i].seen = true;
         }
     }
 }

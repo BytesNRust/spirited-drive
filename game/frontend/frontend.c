@@ -5,6 +5,7 @@
 #include "game/frontend/frontend_loop.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
+#include "game/sys/input.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,7 +20,20 @@ static void glue_music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
 static void glue_music_by_idle(void *ctx) { (void)ctx; menu_audio_music_by_idle(); }
 static void glue_music_feed(void *ctx) { (void)ctx; menu_audio_music_feed(); }
 
-static int32_t glue_config_load(void *ctx) { (void)ctx; return config_load(); }
+/* A window closed after config.dat was read: it saved as on leaving Control Central (004373c4 saves it only there;
+ * the original has no window to close) */
+static void save_on_close(void)
+{
+    glue_settings_to_config();
+    config_save();
+}
+static int32_t glue_config_load(void *ctx)
+{
+    (void)ctx;
+    const int32_t defaults = config_load();
+    input_on_close(save_on_close);
+    return defaults;
+}
 static void glue_title(void *ctx, int32_t state) { (void)ctx; glue_title_screen(state); }
 static int32_t glue_main_menu(void *ctx) { (void)ctx; return glue_game_mode(); }
 static int32_t glue_control_central(void *ctx) { (void)ctx; return glue_central(); }
