@@ -553,8 +553,21 @@ static void won(void *ctx)
 static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_points); }
 static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
 
-/* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(00432e48): the tournament's end */
+/* the short 004c5cc4 while 00427ae0 runs */
+static int32_t race_warrior;
+
+/* 00432e48 at a tournament won: the unlocks raised to config.dat's level, as 00427ae0 just set it */
+static void raise_unlocks(void *ctx)
+{
+    (void)ctx;
+    Unlocks u = unlocks_of();
+    u.warrior = race_warrior;
+    unlocks_raise(&u, config_dat_unlock_level(config_current()));
+    unlocks_put(&u);
+    race_warrior = g.warrior;
+}
+
+/* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game */
 static void after_race(void *ctx);
 static void race(void *ctx)
 {
@@ -568,16 +581,16 @@ static void race(void *ctx)
     static const int16_t no_link = 0;
     static const int32_t player = 0, font = 0, host = 0;
     int16_t net_off = 0, link_done = 0;
-    int32_t warrior = g.warrior;
+    race_warrior = g.warrior;
     const MenuRaceState st = { config->image, game_state, &net_off, race_times, ghost, &no_link, &no_link,
-                               pointer_active_word(), &player, &font, ea_screen_slot(), &warrior, &g.unlock_m,
+                               pointer_active_word(), &player, &font, ea_screen_slot(), &race_warrior, &g.unlock_m,
                                &g.unlock_r, &g.lost_vegas, &host, &link_done };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
-        points, after_race, next_segment, reset_tournament, champion, nothing, game_reset, ctx };
+        points, after_race, next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx };
     menu_race(&st, &ops);
-    g.warrior = (int16_t)warrior;
+    g.warrior = (int16_t)race_warrior;
     int32_t *const slot = ea_screen_slot();
     if (*slot != 0) ea_picture_free(*slot);  /* Control Central makes its own next */
     *slot = 0;
