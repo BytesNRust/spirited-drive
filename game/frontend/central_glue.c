@@ -15,6 +15,7 @@
 #include "game/frontend/control_central_art.h"
 #include "game/frontend/controls_menu.h"
 #include "game/frontend/cop_stop.h"
+#include "game/frontend/win_movie.h"
 #include "game/frontend/credits.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/key_capture.h"
@@ -534,11 +535,18 @@ static void cops(void *ctx)
     const CopStopState st = { &movie_on, &german, ea_screen_slot() };
     cop_stop(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, no_movie, ctx });
 }
+/* 004283c4 (win_movie.c) on the drive's racers and finishers, no movies yet (0052b2fc 0: winner.qfs) */
+static void won(void *ctx)
+{
+    const WinMovieState st = { game_state, last_drive.player, last_drive.racers, 0, last_drive.dropped, g.race_type,
+                               g.track, g.player_car, g.lost_vegas, ea_screen_slot() };
+    win_movie(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, no_movie, ctx });
+}
 static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_points); }
 static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
 
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state, this machine's player 0, no link game.
- * TODO(0040c710, 0040b648, 004283c4, 00432e48): the winner's screens, the tournament's end */
+ * TODO(0040c710, 0040b648, 00432e48): the after-race menu, the screen between segments, the tournament's end */
 static void race(void *ctx)
 {
     (void)ctx;
@@ -557,7 +565,7 @@ static void race(void *ctx)
                                &g.unlock_r, &g.lost_vegas, &host, &link_done };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
-        nothing, music_pick, cops, nothing, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
+        nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
         points, nothing, next_segment, reset_tournament, champion, nothing, game_reset, ctx };
     menu_race(&st, &ops);
     g.warrior = (int16_t)warrior;

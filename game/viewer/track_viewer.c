@@ -1075,7 +1075,7 @@ static void drive_tick(uint32_t input)
     const RaceState *race = &drive_sim.race;
     results = (TrackViewerResults){ 1, (int16_t)race->end_request, race->results_player_rank, race->results_rival_rank,
                                     race->results_rival, race->results_rival_name, { 0 }, race->results_player_place,
-                                    race->results_shown_place };
+                                    race->results_shown_place, race->racers, race->player };
     memcpy(results.dropped, race->unknown_4f82a0, sizeof results.dropped);
     if (menus_on && menus.game_state != NULL)
         memcpy(menus.game_state, race->game_state, sizeof race->game_state);
