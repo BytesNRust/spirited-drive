@@ -24,6 +24,9 @@ int drive_audio_device_open(const char *data_root);
 int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pitch);
 /* 00473c68 on the driver: the voice stopped */
 void drive_audio_voice_stop(int32_t voice);
+/* 00473b4c on the driver: the voice's volume (0..0x7f); 00473d20: 1 once the voice has stopped (1 without a device) */
+void drive_audio_voice_volume(int32_t voice, int32_t volume);
+int32_t drive_audio_voice_stopped(int32_t voice);
 
 /* 004438c8 for race_sound_load_banks: the bank from simdata/soundbnk/,
  * registered (0048ed30), noted in `banks` (user). */

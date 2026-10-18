@@ -71,6 +71,17 @@ void menu_audio_sound(int32_t s)
     drive_audio_pump();
 }
 
+static void voice_stop(void *ctx, int32_t voice) { (void)ctx, drive_audio_voice_stop(voice); }
+static void voice_volume(void *ctx, int32_t voice, int32_t volume) { (void)ctx, drive_audio_voice_volume(voice, volume); }
+static int32_t voice_stopped(void *ctx, int32_t voice) { (void)ctx; return drive_audio_voice_stopped(voice); }
+static const MenuSoundOps VOICE_OPS = { .voice_stop = voice_stop, .voice_volume = voice_volume,
+                                        .voice_stopped = voice_stopped };
+
+void menu_audio_stop_4a(void) { menu_sound_stop_4a(&sound, &VOICE_OPS); }
+int32_t menu_audio_4a_done(void) { return menu_sound_4a_done(&sound, &VOICE_OPS); }
+void menu_audio_effects_volume(int32_t volume) { menu_sound_effects_volume(&sound, volume, &VOICE_OPS); }
+void menu_audio_voice_volume(int32_t voice, int32_t volume) { drive_audio_voice_volume(voice, volume); }
+
 void menu_audio_music_start(const char *name)
 {
     music_words();
@@ -103,6 +114,13 @@ void menu_audio_music_pick(void)
 {
     const RaceMusicOps ops = { NULL, pick_rand, pick_play };
     race_music_pick(&ops, config_short(MUSIC_SETTING), &small);
+}
+
+/* 00456244 on config.dat's song as it is now (the audio menu's song item) */
+void menu_audio_music_track(void)
+{
+    const RaceMusicOps ops = { NULL, pick_rand, pick_play };
+    race_music_start(&ops, config_short(MUSIC_SETTING));
 }
 
 void menu_audio_music_by_idle(void)

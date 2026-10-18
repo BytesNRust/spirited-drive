@@ -395,6 +395,11 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_object_sink PRIVATE tnfs_game)
     target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
     add_test(NAME object_sink COMMAND test_object_sink)
+    add_executable(test_video_clip tests/test_video_clip.c game/sys/video.c)
+    target_include_directories(test_video_clip PRIVATE game)
+    target_link_libraries(test_video_clip PRIVATE tnfs_game)
+    target_compile_options(test_video_clip PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME video_clip COMMAND test_video_clip)
 endif()
 
 # Integration tests over the user's own CD data (original/ is gitignored).

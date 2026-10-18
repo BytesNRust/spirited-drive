@@ -699,33 +699,40 @@ static int32_t audio_buttons(void *ctx) { (void)ctx; audio_track(); return point
 static void audio_activate(void *ctx) { (void)ctx; audio_track(); pointer_activate_if_moved(); }
 static int32_t audio_clock(void *ctx) { (void)ctx; return (int32_t)timer_ticks(); }
 static void audio_volume(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
-static void audio_no_volume(void *ctx, int32_t volume) { (void)ctx, (void)volume; }
-static void audio_no_voice(void *ctx, int32_t voice, int32_t volume) { (void)ctx, (void)voice, (void)volume; }
+static void audio_track_music(void *ctx) { (void)ctx; menu_audio_music_track(); }
+static void audio_stop_4a(void *ctx) { (void)ctx; menu_audio_stop_4a(); }
+static int32_t audio_4a_done(void *ctx) { (void)ctx; return menu_audio_4a_done(); }
+static void audio_effects_volume(void *ctx, int32_t volume) { (void)ctx; menu_audio_effects_volume(volume); }
+static void audio_voice(void *ctx, int32_t voice, int32_t volume) { (void)ctx; menu_audio_voice_volume(voice, volume); }
 static int32_t audio_effects(void *ctx) { (void)ctx; return image_short(0x79); }
 static void audio_blit_at(void *ctx, const uint8_t *s, int32_t x, int32_t y) { (void)ctx; ea_blit_at(s, x, y); }
-static void audio_no_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
+static void audio_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx; video_set_clip(l, r, t, b); }
 
-/* 004015dc from Options (mode 0) on config.dat's image: no sound card modes, so neither the mode nor 3D sound is
- * offered; the effects' volume, the speech and the voices' volumes are not heard yet, nor is the song tried
- * (00456244) or the knobs clipped (0047383c); the test sound 0x4a plays once */
+/* 004015dc from Options (mode 0) on config.dat's image: the card 0049212c(-1) answers is the port's mixer, 16-bit
+ * stereo with no modes to choose (bit 0 set, bit 1 clear), so neither the mode nor 3D sound is offered and the mode
+ * shown is 0049212c's 3, config.dat's 0 (one saved as 1 or 2 by an older build put back); the speech is not heard
+ * yet */
 static void audio(void *ctx, int32_t mode)
 {
+    enum { AUDIO_MODE_AT = 0x71 };  /* 00524e61 */
     static int16_t track_silent, small_stream, kept[4];
-    static const int16_t no_modes = 1, no_bit0 = 0, sound_alt = 0, sound_on = 1, net_off = 1;
+    static const int16_t no_modes = 1, bit0 = 1, sound_alt = 0, sound_on = 1, net_off = 1;
     static const int32_t voice_4a = 0, voice = 0;
     const int16_t german = (int16_t)resource_german();
+    memset(config_current()->image + AUDIO_MODE_AT, 0, sizeof(int16_t));
     audio_track();
     opt_in();
     const AudioMenuState st = {
-        config_current()->image + 9, &track_silent, kept, &no_modes, &no_bit0, &sound_alt, &menu_words.link_game,
+        config_current()->image + 9, &track_silent, kept, &no_modes, &bit0, &sound_alt, &menu_words.link_game,
         &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &g.buttons, ea_screen_slot(),
         &g.inverse, &small_stream, &net_off, &no_quit };
     const AudioMenuOps ops = {
-        music_fade_out, music_end, nothing, picture_new, move_to, load_art, no_inverse, music_feed, shape,
-        palette_set, poll, mark, audio_clock, nothing, zero, sound, in_rect, audio_volume, select_picture, blit,
-        blit_at, audio_blit_at, audio_no_clip, picture_shape, select_default, hide, nothing, flip, show,
-        audio_buttons, styles, fade_in, deadline_set, deadline_passed, nothing, music, nothing, blit_masked, ticks,
-        audio_activate, key, key, click, music_end, audio_no_voice, audio_effects, music_fade_to, audio_no_volume,
+        music_fade_out, music_end, audio_track_music, picture_new, move_to, load_art, no_inverse, music_feed, shape,
+        palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
+        select_picture, blit, blit_at, audio_blit_at, audio_clip, picture_shape, select_default, hide, nothing, flip,
+        show, audio_buttons, styles, fade_in, deadline_set, deadline_passed, nothing, music, nothing, blit_masked,
+        ticks, audio_activate, key, key, click, music_end, audio_voice, audio_effects, music_fade_to,
+        audio_effects_volume,
         glue_banner, sound_free, nothing, sound_load, off, nothing, fade_out, free_handle_inverse, picture_free,
         free_bank, music_pick, music_start, ctx };
     audio_menu(&st, mode, &ops);
