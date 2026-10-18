@@ -113,6 +113,12 @@ void pointer_off(void)
     active_set(ptr.active);
 }
 
+void pointer_start(void)
+{
+    active_set(1);
+    os_buttons = 0;
+}
+
 int pointer_active(void)
 {
     return ptr.active;

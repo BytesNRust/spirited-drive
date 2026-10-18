@@ -119,6 +119,7 @@ static int run_game(const Options *opt)
      * config; TODO(004100ec): network. */
     pointer_load(0);
     text_init();
+    pointer_start();
     frontend_run();
     text_free();
     pointer_free();
