@@ -86,15 +86,17 @@ static void link_store(void *ctx)
     input_store(c->in->queues, c->in->store_clock, c->race->humans, c->in->stand_in_block + 1, &send);
 }
 
-/* 0041e324, 0041e318, 0041e340: the network's notices on the HUD */
+/* 0041e324: the network's notices on the HUD */
 static void notice_slow(void *ctx)
 {
     const DriveCtx *c = ctx;
     c->in->hud->waiting = 1, c->in->hud->lights_until = c->race->tick + NOTICE_TICKS;
 }
 
+/* 0041e318 */
 static void notice_lost(void *ctx) { ((const DriveCtx *)ctx)->in->hud->lost = 1; }
 
+/* 0041e340 */
 static void notice_off(void *ctx)
 {
     const DriveCtx *c = ctx;
