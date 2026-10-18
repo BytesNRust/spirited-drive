@@ -1,6 +1,9 @@
 /* Entry point.
  *
- *   tnfs [--data DIR] [--mods DIR] [--german]  run the game (00437540); files of the mod in DIR replace the CD's
+ *   tnfs [--data DIR] [--mods DIR] [--german] [--net-port N] [--net-host IP:PORT]...
+ *                                          run the game (00437540); files of the mod in DIR replace the CD's; the
+ *                                          network game binds UDP port N (15000 by default) and also asks each
+ *                                          --net-host (up to 8) for games besides the LAN's broadcast
  *   tnfs --view FILE [--entry N] [--screenshot OUT.ppm]
  *                                          browse an FSH / QFS (development)
  *   tnfs --track NAME [--node N] [--screenshot OUT.ppm]
@@ -11,6 +14,7 @@
  *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development) */
 #include "game/frontend/config.h"
 #include "game/frontend/frontend.h"
+#include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tgv_player.h"
@@ -42,11 +46,15 @@ typedef struct {
     int race_type;
     const char *screenshot;
     uint32_t entry;
+    int net_port;
+    const char *net_hosts[NET_UDP_HOSTS + 1];  /* NULL-terminated */
+    int net_host_count;
 } Options;
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
-    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0 };
+    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
+                      0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -75,8 +83,12 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->entry = (uint32_t)strtoul(argv[++i], NULL, 10);
         } else if (strcmp(argv[i], "--screenshot") == 0 && has_value) {
             opt->screenshot = argv[++i];
+        } else if (strcmp(argv[i], "--net-port") == 0 && has_value && atoi(argv[i + 1]) > 0 && atoi(argv[i + 1]) < 65536) {
+            opt->net_port = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--net-host") == 0 && has_value && opt->net_host_count < NET_UDP_HOSTS) {
+            opt->net_hosts[opt->net_host_count++] = argv[++i];
         } else {
-            fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
+            fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --drive NAME [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --replay FILE.RPL\n"
@@ -153,7 +165,8 @@ static int run_game(const Options *opt)
     resource_init(opt->data_root, opt->german);
     timer_init();
     /* 004322f8 loads the pointer; TODO(004322f8): CD/memory checks, fonts,
-     * config; TODO(004100ec): network. */
+     * config. The network: the link game over UDP (link_game.c) */
+    link_game_init((uint16_t)opt->net_port, opt->net_hosts);
     pointer_load(0);
     text_init();
     pointer_start();

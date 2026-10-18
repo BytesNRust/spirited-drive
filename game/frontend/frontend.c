@@ -4,6 +4,7 @@
 #include "game/frontend/config.h"
 #include "game/frontend/frontend_loop.h"
 #include "game/frontend/intro_glue.h"
+#include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/sys/input.h"
@@ -14,7 +15,6 @@
 char frontend_player_name[42];
 
 /* TODO(00446220): only runs with a link game, which the build has not got yet */
-static void glue_nothing(void *ctx) { (void)ctx; }
 static void glue_reset(void *ctx) { (void)ctx; glue_game_reset(); }
 static void glue_music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
 static void glue_music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
@@ -41,8 +41,8 @@ static int32_t glue_control_central(void *ctx) { (void)ctx; return glue_central(
 static void glue_config_save(void *ctx) { (void)ctx; config_save(); }
 static void glue_intro(void *ctx) { (void)ctx; glue_intro_show(); }
 
-/* the network branch (0052b31e) is not reachable yet: these stand in until the network screens are wired */
-static int32_t glue_no_network(void *ctx) { (void)ctx; return 0; }
+/* 00446220 when a link game ends (link_game.c) */
+static void glue_link_close(void *ctx) { (void)ctx; link_close(); }
 static void glue_fatal(void *ctx, const char *message)
 {
     (void)ctx;
@@ -51,12 +51,11 @@ static void glue_fatal(void *ctx, const char *message)
 }
 static int16_t glue_no_name(void *ctx) { (void)ctx; return 0; }
 static int16_t glue_yes(void *ctx, const char *text) { (void)ctx, (void)text; return 1; }
-static int32_t glue_leave(void *ctx) { (void)ctx; return 1; }
 
 void frontend_run(void)
 {
-    const FrontendLoopOps ops = { glue_config_load, glue_title, glue_no_network, glue_fatal, glue_no_name, glue_yes,
-                                  glue_leave, glue_reset, glue_control_central, glue_config_save, glue_nothing,
+    const FrontendLoopOps ops = { glue_config_load, glue_title, glue_network_found, glue_fatal, glue_no_name, glue_yes,
+                                  glue_network_game, glue_reset, glue_control_central, glue_config_save, glue_link_close,
                                   glue_music_fade_out, glue_music_end, glue_intro, glue_music_by_idle, glue_music_feed,
                                   glue_main_menu, NULL };
     const FrontendLoopState st = { 0, 0, &menu_words.link_game, &menu_words.network_raced };
