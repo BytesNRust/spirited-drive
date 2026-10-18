@@ -45,6 +45,7 @@ typedef struct {
     int16_t end_request;  /* 00509d6c: 1 finished, 0x10 out */
     int16_t place, rival_place, rival, rival_car;  /* 0051dcc2, 0051dcc0, 0051dcc6, 0051dcc8 */
     int16_t dropped[8];   /* 004f82a0 */
+    int16_t player_place, shown_place;  /* 0051dcc4, 0051dcbe */
 } TrackViewerResults;
 TrackViewerResults track_viewer_drive_results(void);
 

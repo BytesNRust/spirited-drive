@@ -4,6 +4,8 @@
 #include "game/frontend/menu_glue.h"
 
 #include "game/frontend/audio_menu.h"
+#include "game/frontend/best_totals_screen.h"
+#include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/central.h"
 #include "game/frontend/config.h"
@@ -14,6 +16,7 @@
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/key_capture.h"
 #include "game/frontend/key_name.h"
+#include "game/frontend/lap_times.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_race.h"
 #include "game/frontend/palette_put.h"
@@ -21,9 +24,11 @@
 #include "game/frontend/race_settings.h"
 #include "game/frontend/record_check.h"
 #include "game/frontend/results_screen.h"
+#include "game/frontend/standings.h"
 #include "game/frontend/stat_text.h"
 #include "game/frontend/text_fit.h"
 #include "game/frontend/tournament.h"
+#include "game/frontend/track_results.h"
 #include "game/frontend/track_select.h"
 #include "game/race/race_models.h"
 #include "game/sys/input.h"
@@ -323,29 +328,66 @@ static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
     stat_average_speed_text(out, resource_german(), time, distance);
 }
 static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_german(), speed); }
-/* 0045bad8 on config.dat's image and the menus' game state, this machine's player 0 */
-static int32_t records(void *ctx) { (void)ctx; return record_check(config_current()->image, game_state, 0); }
+/* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;
+ * the shorts 0051ce24 + 0x1d2 x player, the cars' points (TODO(0045aec8): none given yet) */
+static int32_t race_times[MENU_RACE_TIMES];
+static int32_t finish[GAME_STATE_PLAYERS];
+static TournamentOrderWork order_work;
+static int16_t car_points[GAME_STATE_PLAYERS];
 
-/* 0045cea0 after a segment, on the drive's results and config.dat's image, on 00427ae0's screen picture */
-static void results(const TrackViewerResults *r, int32_t mode)
+/* 0045bad8, 0045be50, 0045c2d0 and 0045b908 on config.dat's image and the menus' game state, this machine's player
+ * 0; 0045b73c, 0045b6c8 on the game state */
+static int32_t records(void *ctx) { (void)ctx; return record_check(config_current()->image, game_state, 0); }
+static int32_t totals(void *ctx) { (void)ctx; return record_check_totals(config_current()->image, game_state, 0, race_times); }
+static int32_t top_record(void *ctx) { (void)ctx; return record_check_top(config_current()->image, game_state, 0); }
+static int32_t lap_record(void *ctx) { (void)ctx; return record_check_lap(config_current()->image, game_state, 0); }
+static int32_t leads(void *ctx) { (void)ctx; return tournament_leads(game_state, 0); }
+static void results_order(void *ctx) { (void)ctx; tournament_results_order(game_state, finish, &order_work); }
+
+/* the results screens' ctx: their pointer first (poll_pointer's), and what 0045c45c / 0046067c are shown with */
+typedef struct ResultsCtx {
+    DialogPointer p;
+    const ResultsInputs *in;
+    ResultsState *st;
+    const ResultsOps *ops;
+} ResultsCtx;
+static void best_totals(void *ctx, int32_t row, int32_t top)
+{
+    ResultsCtx *const c = ctx;
+    best_totals_screen(row, top, c->in, c->st, &c->p, c->ops);
+}
+static int32_t lap_times(void *ctx, int32_t record, int32_t tune)
+{
+    ResultsCtx *const c = ctx;
+    return lap_times_screen(record, tune, c->in, c->st, &c->p, c->ops);
+}
+
+typedef void ResultsShow(int32_t ask, const ResultsInputs *in, ResultsState *st, DialogPointer *p,
+                         const ResultsOps *ops);
+
+/* 0045cea0, 0045de08 or 0045eff4 after a race, on the drive's results and config.dat's image, on 00427ae0's screen
+ * picture; the track's own music (00464788..004648a8) not played */
+static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t mode)
 {
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
     const ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES, g.lost_vegas, g.variant_r, 0, 0, NULL };
+                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;
     pointer_position(&x, &y);
-    DialogPointer p = { pointer_active(), 0, x, y, x, y };
+    ResultsCtx c = { { pointer_active(), 0, x, y, x, y }, &in, &st, NULL };
     const ResultsOps ops = {
         records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
         select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
         select_default, hide, nothing, blit_word, nothing, flip, show, mark_at, buttons, no_name, nothing,
         deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, nothing, nothing, fade_out,
-        free_bank, free_handle_inverse, blit_masked, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &p };
-    results_screen(mode, &in, &st, &p, &ops);
+        free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
+        results_order, lap_times, &c };
+    c.ops = &ops;
+    screen_of(mode, &in, &st, &c.p, &ops);
 }
 
 /* 004275f8 for 00427ae0: the drive on argv[1]'s track (its stem in capitals) in the menus' window, the options from
@@ -370,7 +412,31 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
     const int16_t raced = last_drive.over ? last_drive.end_request : 0;
     memcpy(game_state + 0x5ba, &raced, sizeof raced);
 }
-static void segment_results(void *ctx, int32_t mode) { (void)ctx; results(&last_drive, mode); }
+static void segment_results(void *ctx, int32_t mode) { (void)ctx; results(results_screen, &last_drive, mode); }
+static void track_results(void *ctx, int32_t ask) { (void)ctx; results(track_results_screen, &last_drive, ask); }
+static void circuit_results(void *ctx, int32_t ask) { (void)ctx; results(circuit_results_screen, &last_drive, ask); }
+
+/* 00461540 on the menus' game state and 0045b6c8's finishers */
+static void fade_out_bank(void *ctx, int32_t first, int32_t count, int32_t bank) { (void)bank; fade_out(ctx, first, count); }
+static void standings(void *ctx, int32_t segment)
+{
+    (void)ctx;
+    const int32_t screen = ea_screen();
+    const StandingsInputs in = { game_state, finish, car_points, image_short(0x95), image_short(0x93),
+                                 image_short(0xb1), resource_german(), g.unlock_level, 0, screen,
+                                 ea_picture_shape(screen) };
+    StandingsState st = { g.inverse, screen_palette };
+    int x, y;
+    pointer_position(&x, &y);
+    DialogPointer p = { pointer_active(), 0, x, y, x, y };
+    const StandingsOps ops = {
+        flush, move_to, load_art, no_inverse, music_feed, shape, set_palette, set_palette, nothing, styles,
+        poll_pointer, hide, nothing, in_rect, select_picture, select_default, blit, blit_masked, blit_word, style,
+        glue_boxed, time_text, results_order, nothing, nothing, flip, show, mark_at, buttons, fade_in,
+        fade_out_bank, deadline_set, sound, ticks, activate, key, click, off, music, deadline_passed, free_bank,
+        free_handle_inverse, &p };
+    standings_screen(segment, &in, &st, &p, &ops);
+}
 static void clip(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1) { (void)ctx; ea_clip(x0, y0, x1, y1); }
 static void no_two(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
 static void no_three(void *ctx, int32_t a, int32_t b, int32_t c) { (void)ctx, (void)a, (void)b, (void)c; }
@@ -404,17 +470,17 @@ static void race(void *ctx)
     config_dat_set_race(config, &before);
     ea_select_default();
     *ea_screen_slot() = 0;  /* Control Central freed it */
-    static int32_t times[MENU_RACE_TIMES], ghost[MENU_RACE_GHOST];
+    static int32_t ghost[MENU_RACE_GHOST];
     static const int16_t no_link = 0;
     static const int32_t player = 0, font = 0, host = 0;
     int16_t net_off = 0, link_done = 0;
     int32_t warrior = g.warrior;
-    const MenuRaceState st = { config->image, game_state, &net_off, times, ghost, &no_link, &no_link,
+    const MenuRaceState st = { config->image, game_state, &net_off, race_times, ghost, &no_link, &no_link,
                                &g.pointer_active, &player, &font, ea_screen_slot(), &warrior, &g.unlock_m,
                                &g.unlock_r, &g.lost_vegas, &host, &link_done };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
-        nothing, music_pick, nothing, nothing, sound_load, race_picture, no_mode, segment_results, no_mode, no_mode,
+        nothing, music_pick, nothing, nothing, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
         nothing, nothing, next_segment, reset_tournament, no_answer, nothing, game_reset, ctx };
     menu_race(&st, &ops);
     g.warrior = (int16_t)warrior;
