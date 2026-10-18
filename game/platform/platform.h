@@ -98,14 +98,17 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
  * The original waited on DirectDraw's WaitForVerticalBlank. */
 void platform_wait_vblank(void);
 
-/* Sound out: 16-bit stereo frames at `rate` Hz, queued by the game (the
- * original's mixer filled DirectSound's buffer the same way). Without a
- * device (none, or SDL's dummy driver refusing) open fails, and push and
- * queued do nothing. */
-bool platform_audio_open(int rate);
+/* Sound out: 16-bit stereo frames at `rate` Hz, pulled from `fill` on the
+ * device's own thread as it needs them (the original's mixer ran on its own
+ * thread into DirectSound's buffer, so a load on the game's thread never
+ * starved it). Without a device (none, or SDL's dummy driver refusing) open
+ * fails. The lock keeps `fill` out while the game changes what it reads; it
+ * is recursive, and does nothing without a device. */
+typedef void (*PlatformAudioFill)(void *user, int16_t *frames, uint32_t count);
+bool platform_audio_open(int rate, PlatformAudioFill fill, void *user);
 void platform_audio_close(void);
-uint32_t platform_audio_queued(void);  /* frames not yet played */
-void platform_audio_push(const int16_t *frames, uint32_t count);
+void platform_audio_lock(void);
+void platform_audio_unlock(void);
 
 uint32_t platform_ticks_ms(void);
 
