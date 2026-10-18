@@ -30,4 +30,10 @@ void joy_options_check(JoyState *j);
  * release and remove_file are used. */
 void joy_options_load(JoyState *j, const char *dir, const GameFileOps *files);
 
+/* 0043db50 (eax x, edx y, ebx z, ecx r; all registers kept): each axis whose
+ * 004fce40 flag is set turned over within its calibration: kept to its max
+ * (signed), then min + max - it (x 004fce88 / 90, y a4 / ac, z c0 / c8, r
+ * d8 / dc), the sums wrapping. */
+void joy_turn_over(const JoyState *j, int32_t *x, int32_t *y, int32_t *z, int32_t *r);
+
 #endif

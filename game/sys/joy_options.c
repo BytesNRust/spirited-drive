@@ -69,3 +69,19 @@ void joy_options_load(JoyState *j, const char *dir, const GameFileOps *files)
     }
     for (int k = 0; k < JOY_BUTTONS; k++) j->button_bit[k] = bit_number(j->button_bit[k]);
 }
+
+static void turn_over(int16_t on, int32_t low, int32_t high, int32_t *v)
+{
+    if (on == 0) return;
+    if (*v > high) *v = high;
+    *v = (int32_t)((uint32_t)low + (uint32_t)high - (uint32_t)*v);
+}
+
+/* 0043db50 */
+void joy_turn_over(const JoyState *j, int32_t *x, int32_t *y, int32_t *z, int32_t *r)
+{
+    turn_over(j->axis_invert[0], j->x_min, j->x_max, x);
+    turn_over(j->axis_invert[1], j->y_min, j->y_max, y);
+    turn_over(j->axis_invert[2], j->z_min, j->z_max, z);
+    turn_over(j->axis_invert[3], j->r_min, j->r_max, r);
+}
