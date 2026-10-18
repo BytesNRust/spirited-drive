@@ -590,6 +590,13 @@ void ported_view_set_sky_off(int off)
     sky_off = off;
 }
 
+static int32_t anim_tick;  /* 00513e70 */
+
+void ported_view_set_tick(int32_t tick)
+{
+    anim_tick = tick;
+}
+
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
@@ -687,7 +694,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shade };
     skid_node = pc->node;
-    track_render_draw(&render, &cam, &ctx, 0, 0);
+    track_render_draw(&render, &cam, &ctx, 0, anim_tick);
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,
