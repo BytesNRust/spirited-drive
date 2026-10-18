@@ -62,6 +62,7 @@ add_library(tnfs_game STATIC
     game/frontend/best_times.c
     game/frontend/cheat_code.c
     game/frontend/config_dat.c
+    game/frontend/config_records.c
     game/frontend/control_central_art.c
     game/frontend/disk_room.c
     game/frontend/file_list.c
@@ -562,6 +563,9 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(probe_movie PRIVATE tnfs_game)
     target_compile_options(probe_movie PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_palette tools/probe_palette.c)
+    add_executable(probe_config tools/probe_config.c)
+    target_link_libraries(probe_config PRIVATE tnfs_game)
+    target_compile_options(probe_config PRIVATE ${TNFS_WARNINGS})
     target_link_libraries(probe_palette PRIVATE tnfs_game)
     target_compile_options(probe_palette PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_dash tools/probe_dash.c)

@@ -67,8 +67,11 @@ typedef enum {
     CONFIG_NULL
 } ConfigResult;
 
-/* Defaults of 00429278, except the record tables (TODO(00429278): they are
- * left zero). The language only changes the name and two controls. */
+/* 00429278 with 004670e8's ticks (100 frames of a picture drawn): the race words, the graphics words by the
+ * ticks' bracket, the records' defaults (config_records.c), the controls (two German), the modem's names. The
+ * language only changes the name and two controls. */
+void config_dat_defaults_measured(ConfigDat *c, int german, int16_t ticks);
+/* port: 004670e8 not run; a machine of today draws the 100 frames in well under 300 ticks, the first bracket */
 void config_dat_defaults(ConfigDat *c, int german);
 
 /* 0042a010: accepts exactly CONFIG_DAT_SIZE bytes. */

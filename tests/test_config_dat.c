@@ -21,6 +21,10 @@ static void test_defaults(void)
     CHECK_EQ_INT(s.laps, 4);
     CHECK_EQ_INT(s.difficulty, 1);
     CHECK_EQ_INT(config_dat_unlock_level(&c), 0);
+    /* 00429278's records: track 0's top speed row (00525421) is "Greenbeard", 65000 at +0x1b, car 7 at +0xf */
+    CHECK(strcmp((const char *)c.image + (0x525421 - 0x524df0), "Greenbeard") == 0);
+    CHECK_EQ_INT(c.image[0x525421 - 0x524df0 + 0x1b] | c.image[0x525421 - 0x524df0 + 0x1c] << 8, 65000);
+    CHECK_EQ_INT(c.image[0x525421 - 0x524df0 + 0xf], 7);
     config_dat_defaults(&c, 1);
     config_dat_name(&c, name);
     CHECK(strcmp(name, "Spieler") == 0);
