@@ -5,6 +5,12 @@ static uint32_t dword_at(const uint8_t *p)
     return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
 }
 
+static uint32_t rotate_right(uint32_t v, uint32_t by)
+{
+    by &= 31;
+    return by == 0 ? v : v >> by | v << (32 - by);
+}
+
 /* 004a2b90 */
 uint32_t tgv_shape_type(uint32_t bits)
 {
@@ -40,5 +46,23 @@ void tgv_unpack_fields(int32_t *out, const uint8_t *bits, int32_t count, int32_t
         if (v & sign) v |= high;
         out[i] = (int32_t)v;
     }
+}
+
+/* 004a2a2c */
+void tgv_unpack_codes(int32_t *out, const uint8_t *bits, int32_t count, int32_t width)
+{
+    const uint32_t w = (uint32_t)width, mask = (1u << (w & 31)) - 1;
+    uint32_t at = 0;
+    int64_t left = (int64_t)count - 4;
+    for (; left >= 0; left -= 4, out += 4, at += 4 * w) {
+        uint32_t d = rotate_right(dword_at(bits + (at >> 3)), at & 7);
+        out[0] = (int32_t)(d & mask);
+        out[1] = (int32_t)(rotate_right(d, w) & mask);
+        const uint32_t at2 = at + 2 * w;
+        d = rotate_right(dword_at(bits + (at2 >> 3)), at2 & 7);
+        out[2] = (int32_t)(d & mask);
+        out[3] = (int32_t)(rotate_right(d, w) & mask);
+    }
+    for (left += 3; left >= 0; left--, out++, at += w) *out = (int32_t)(rotate_right(dword_at(bits + (at >> 3)), at & 7) & mask);
 }
 

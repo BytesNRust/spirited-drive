@@ -18,4 +18,10 @@ void tgv_expand_blocks(const uint8_t *src, uint8_t *dst, int32_t blocks);
  * shifts as x86's (by the width mod 32). */
 void tgv_unpack_fields(int32_t *out, const uint8_t *bits, int32_t count, int32_t width);
 
+/* 004a2a2c (cdecl out, bits, count, width): count unsigned fields of `width` bits into out's dwords, in fours: the
+ * dword holding a four's first field is rotated right to it, masked, then rotated right by the width again for
+ * the second (bits past the dword come back from its low end); the third and fourth the same from the third's
+ * dword; the last count mod 4 one by one. Shifts and rotations by the width mod 32. */
+void tgv_unpack_codes(int32_t *out, const uint8_t *bits, int32_t count, int32_t width);
+
 #endif
