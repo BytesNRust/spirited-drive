@@ -19,7 +19,8 @@
 # The script's times are wall-clock ms from each instance's start; the clients
 # start DELAY s (25) after the host. RESULTS_AT (362000, the host's) is when
 # the results screen is answered; raise it for a slower build. The logs stay in
-# OUT_DIR (default: a new temporary directory); CAPTURE_EVERY=N also keeps
+# OUT_DIR (default: a new temporary directory); CLIENT_CONFIG=FILE is the first
+# client's config.dat (its name, car and gearbox); CAPTURE_EVERY=N also keeps
 # every Nth frame there (OUT_DIR/NAME/cap, PPMs: delete them after).
 set -euo pipefail
 
@@ -64,6 +65,9 @@ run() {  # name script secs port [args...]
     local name=$1 script=$2 secs=$3 port=$4
     shift 4
     mkdir -p "$out/$name/mods"
+    if [ "$name" = client ] && [ -n "${CLIENT_CONFIG:-}" ]; then
+        mkdir -p "$out/$name/mods/user" && cp "$CLIENT_CONFIG" "$out/$name/mods/user/config.dat"
+    fi
     [ -n "${CAPTURE_EVERY:-}" ] && mkdir -p "$out/$name/cap"
     set +e
     TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \

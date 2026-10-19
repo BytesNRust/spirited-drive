@@ -2,6 +2,7 @@
 #include "viewer/drive_autopilot.h"
 
 #include "game/race/car_control.h"
+#include "game/race/car_gearbox.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@ enum {
     STEER_AT = 0x30000,   /* an aim past this (24-bit angle) is steered for */
     BRAKE_AT = 0x180000,  /* past this, at speed, braked into */
     BRAKE_SPEED = 0x120000,
-    GEAR_UP = 0x1000, NEUTRAL = -1  /* the gear up key's bit; car->gear in neutral */
+    GEAR_UP = 0x1000, GEAR_DOWN = 0x2000, NEUTRAL = -1  /* the gear keys' bits; car->gear in neutral */
 };
 
 int drive_autopilot_on(void)
@@ -25,11 +26,22 @@ int drive_autopilot_on(void)
     return on;
 }
 
-uint32_t drive_autopilot_word(const Car *car, const RaceState *race)
+/* The gear key to press this tick: up out of neutral, and for a manual the automatic's own shift (004098a0 on a
+ * copy); none the tick after a press, so each is a press and a release */
+static uint32_t gear_word(const Car *car, const CarSpecs *specs)
+{
+    if (car->gear_key != 0) return 0;
+    if (car->gear == NEUTRAL) return GEAR_UP;
+    if (car->transmission != 0 || specs == NULL || car->gear < 0) return 0;
+    Car shifted = *car;
+    car_auto_shift(&shifted, specs);
+    return shifted.gear > car->gear ? GEAR_UP : shifted.gear < car->gear ? GEAR_DOWN : 0;
+}
+
+uint32_t drive_autopilot_word(const Car *car, const RaceState *race, const CarSpecs *specs)
 {
     const int32_t aim = car_road_aim(car, race);
     const uint32_t steer = aim > STEER_AT ? STEER_RIGHT : aim < -STEER_AT ? STEER_LEFT : STEER_CENTRE;
     const int sharp = (aim > BRAKE_AT || aim < -BRAKE_AT) && car->speed > BRAKE_SPEED;
-    const uint32_t gear = car->gear == NEUTRAL && car->gear_key == 0 ? GEAR_UP : 0;  /* a press after a release */
-    return steer | (uint32_t)(sharp ? PEDAL_BRAKE : PEDAL_THROTTLE) << PEDAL_SHIFT | gear;
+    return steer | (uint32_t)(sharp ? PEDAL_BRAKE : PEDAL_THROTTLE) << PEDAL_SHIFT | gear_word(car, specs);
 }

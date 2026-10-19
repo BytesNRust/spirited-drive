@@ -4,6 +4,7 @@
 #ifndef TNFS_DRIVE_INPUT_H
 #define TNFS_DRIVE_INPUT_H
 
+#include "game/race/car_specs.h"
 #include "game/race/input_queue.h"
 #include "game/race/input_setup.h"
 #include "game/race/hud.h"
@@ -26,6 +27,7 @@ typedef struct {
     int32_t *timer;                   /* 004bb8d8, the run's */
     HudState *hud;                    /* 004f9a8c / 004f9a94 / 004f9a98: the network notices */
     int32_t notice_on, notice_until;  /* 004fb7a8, 004fb7a4 */
+    const CarSpecs *own_specs;        /* port: test harness only (drive_autopilot): this machine's car's specs */
 } DriveInput;
 
 /* 00426ddc on config.dat's control words (its defaults when it was not loaded) for player 0; the player's queue on. */

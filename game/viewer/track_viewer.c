@@ -36,7 +36,6 @@
 #include "game/race/race_view.h"
 #include "viewer/drive_audio.h"
 #include "viewer/drive_hud.h"
-#include "viewer/drive_autopilot.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_joy.h"
 #include "viewer/drive_keys.h"
@@ -1043,8 +1042,6 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         field.specs[i] = i > 0 ? &human_specs[i] : NULL;
     }
     if (drive_link_on) field.humans = drive_link.humans;
-    for (int i = 0; drive_autopilot_on() && i < (drive_link_on ? drive_link.humans : 1); i++)
-        field.entries[i].automatic = 1;  /* port: test harness only: the autopilot drives an automatic */
     if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed and its humans' specs */
         field = replay_of->field;
         field.load = drive_load;
@@ -1066,6 +1063,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
     drive_input.hud = &drive_hud.hud;
+    drive_input.own_specs = &drive_sim.specs[drive_sim.race.player];  /* port: test harness only (drive_autopilot) */
     if (drive_link_on) {
         drive_input.link = &drive_link, drive_input.stand_in_block = drive_link.stand_ins;
         for (int i = 0; i < drive_link.humans; i++) drive_input.queues[i].active = 1;
