@@ -39,6 +39,12 @@ typedef struct {
      * replay op); NULL: only its clock (the tick % 0x7080) */
     void (*replay)(void *user);
     void *replay_user;
+    /* A link game's end (00440ef0 with 0052b312 1 and 004fbb0c set) waits 004fbac8 + 2 of the timer 004bb8d8 on the
+     * service 00475c14; NULL service: the wait counts its own calls */
+    void (*service)(void *user);
+    void *service_user;
+    const int32_t *timer;           /* 004bb8d8 */
+    int32_t wait_ticks;             /* 004fbac8 */
 } RaceSim;
 
 /* The track index of a TRI stem ("TR1", "cy2"), 00524e85 / 004fb7c2: CY 0,

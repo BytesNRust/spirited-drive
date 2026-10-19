@@ -346,8 +346,13 @@ static void sim_chase_take(void *ctx, Car *car)
 }
 
 static void sim_engines(void *ctx) { race_sound_start_engine(&((RaceSim *)ctx)->race); }
-static int32_t sim_wait_timer;  /* 004bb8d8: reached only in a network game's playback (0052b312 == 1) */
-static void sim_service(void *ctx) { (void)ctx, sim_wait_timer++; }
+static int32_t sim_wait_timer;  /* 004bb8d8 without the run's: reached only in a network game's playback (0052b312 == 1) */
+static void sim_service(void *ctx)
+{
+    RaceSim *sim = ctx;
+    if (sim->service != NULL) sim->service(sim->service_user);
+    else sim_wait_timer++;
+}
 static void sim_physics(void *ctx, Car *car, int32_t kind)
 {
     RaceSim *sim = ctx;
@@ -394,7 +399,9 @@ static void sim_tick(void *ctx)
     RaceTickOps o = ops;
     o.ctx = ctx;
     RaceState *race = &((RaceSim *)ctx)->race;
-    RaceTickWords w = { race->dropped, 0, 0, 0, 0, &sim_wait_timer, { 0, 0 } };  /* 0052b314: a dropped link game stands */
+    const RaceSim *sim = ctx;
+    const int32_t *timer = sim->service != NULL && sim->timer != NULL ? sim->timer : &sim_wait_timer;
+    RaceTickWords w = { race->dropped, 0, 0, 0, sim->wait_ticks, timer, { 0, 0 } };  /* 0052b314: a dropped link game stands */
     race_tick(&o, race, &w);
 }
 
