@@ -11,10 +11,16 @@
 #             Exit at Game Mode: both exit by themselves before their timeout
 #   quitclick the same with Yes clicked (the mouse)
 # usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]
-# The script's times are wall-clock ms from each instance's start; the client
-# starts DELAY s (25) after the host. RESULTS_AT (362000, the host's) is when
+# Every machine's "race over" standings must also match the host's. CLIENTS
+# (1) machines join: "client" on UDP 15001, then "client2" on 15002 and so on,
+# each STAGGER s (10) after the one before; the host's Start and RESULTS_AT
+# move on by as much (a client gives up waiting for the Start 40 s after its
+# join).
+# The script's times are wall-clock ms from each instance's start; the clients
+# start DELAY s (25) after the host. RESULTS_AT (362000, the host's) is when
 # the results screen is answered; raise it for a slower build. The logs stay in
-# OUT_DIR (default: a new temporary directory).
+# OUT_DIR (default: a new temporary directory); CAPTURE_EVERY=N also keeps
+# every Nth frame there (OUT_DIR/NAME/cap, PPMs: delete them after).
 set -euo pipefail
 
 build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]}
@@ -22,13 +28,16 @@ mode=${2:-finish}
 exe=$(cd "$build" && pwd)/tnfs
 out=${3:-$(mktemp -d -t tnfs_link)}
 delay=${DELAY:-25}
-at=${RESULTS_AT:-362000}
+clients=${CLIENTS:-1}
+stagger=${STAGGER:-10}
+late=$(( (clients - 1) * stagger * 1000 ))  # the last client's start past the first's
+at=$(( ${RESULTS_AT:-362000} + late ))
 cd "$(dirname "$0")/.."
 [ -x "$exe" ] || { echo "no $exe" >&2; exit 2; }
 
 # Game Mode: Network; the service; host or join; the host starts the race (the menus' Start at 40, 450)
 nav="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,14000:DOWN,16000:ENTER"
-host="$nav,20000:ENTER,55000:CLICK:40:450,61000:CLICK:40:450"
+host="$nav,20000:ENTER,$((55000 + late)):CLICK:40:450,$((61000 + late)):CLICK:40:450"
 client="$nav,22000:ENTER"
 
 # The steps after the race, at the host's times (the client's DELAY s earlier)
@@ -52,27 +61,38 @@ run() {  # name script secs port [args...]
     local name=$1 script=$2 secs=$3 port=$4
     shift 4
     mkdir -p "$out/$name/mods"
+    [ -n "${CAPTURE_EVERY:-}" ] && mkdir -p "$out/$name/cap"
     set +e
-    SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
+    TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 "$secs" "$exe" --mods "$out/$name/mods" --net-port "$port" "$@" >"$out/$name/log" 2>&1
     echo $? >"$out/$name/rc"
 }
 
+machines=host
 run host "$host$(steps 0)" "$secs" 15000 &
 sleep "$delay"
-run client "$client$(steps $((delay * 1000)))" $((secs - delay)) 15001 --net-host 127.0.0.1:15000 &
+for i in $(seq 1 "$clients"); do
+    name=client
+    [ "$i" -gt 1 ] && name=client$i
+    machines="$machines $name"
+    start=$(( delay + (i - 1) * stagger ))
+    run "$name" "$client$(steps $((start * 1000)))" $((secs - start)) $((15000 + i)) --net-host 127.0.0.1:15000 &
+    sleep "$stagger"
+done
 wait
 
 fail=0
-for name in host client; do
+for name in $machines; do
     rc=$(cat "$out/$name/rc")
     ends=$(grep -ac "race over" "$out/$name/log" || true)
     case $mode in
     finish)   [ "$ends" -ge 1 ] ;;
     continue) [ "$ends" -ge 2 ] ;;
     quit*)    [ "$ends" -ge 1 ] && [ "$rc" = 0 ] ;;
-    esac && verdict=PASS || { verdict=FAIL; fail=1; }
+    esac && [ "$(grep -a "race over" "$out/$name/log")" = "$(grep -a "race over" "$out/host/log")" ] \
+        && verdict=PASS || { verdict=FAIL; fail=1; }
     echo "$name: $verdict (races ended $ends, rc $rc)"
 done
+grep -a "race over" "$out/host/log" || true
 echo "logs: $out"
 exit $fail
