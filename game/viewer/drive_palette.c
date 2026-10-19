@@ -14,6 +14,7 @@ enum {
 };
 
 static const uint8_t TRACK_PAL[4] = { '!', 'p', 'a', 'l' };
+static const uint8_t MODEL_PAL[4] = { '!', 'P', 'A', 'L' };
 
 /* The buffers are the caller's, read from files: writable. */
 static uint8_t *bank_of(const Chunk *c)
@@ -48,8 +49,9 @@ static void remap_track_banks(RacePalette *p, const Chunk *c, const uint8_t *pal
             race_palette_remap_track_bank(p, bank_of(&child), palette);
 }
 
-/* TODO: which call maps the scenery models' banks (FAM child 3, each with
- * its own '!pal') is not read; here each with its own. */
+/* 004576f0 (from 004585e4): each scenery model's bank (FAM child 3) queued
+ * with its own '!PAL' (004b1160), upper case: the midday FAMs' model banks
+ * have only that one, the others a '!pal' too. */
 static void remap_model_banks(RacePalette *p, const Chunk *models)
 {
     Chunk pair, bank;
@@ -57,7 +59,7 @@ static void remap_model_banks(RacePalette *p, const Chunk *models)
         if (chunk_child(models, i, &pair) != CHUNK_OK || pair.kind != CHUNK_KIND_HEADER) continue;
         for (uint32_t k = 0; k < pair.count; k++) {
             if (chunk_child(&pair, k, &bank) != CHUNK_OK || bank.kind != CHUNK_KIND_BITMAP) continue;
-            const uint8_t *own = palette6(bank_of(&bank), TRACK_PAL);
+            const uint8_t *own = palette6(bank_of(&bank), MODEL_PAL);
             if (own != NULL) race_palette_remap_track_bank(p, bank_of(&bank), own);
         }
     }
