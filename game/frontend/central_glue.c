@@ -103,6 +103,10 @@ static void settings_put(const RaceSettings *s)
     for (int i = 0; i < 8; i++) g.other_car[i] = (int16_t)s->other_car[i];
 }
 
+/* The short 0052ad40 is config.dat's (00524df0 + 0x5f50): the level a cheat raised (central_keys.c) back into the image
+ * before a path that reads it from there, and before the image is saved (0042a504) */
+static void level_to_image(void) { config_dat_set_unlock_level(config_current(), g.unlock_level); }
+
 static Unlocks unlocks_of(void) { return (Unlocks){ g.unlock_m, g.unlock_r, g.lost_vegas, g.hidden, g.warrior }; }
 
 static void unlocks_put(const Unlocks *u)
@@ -612,6 +616,7 @@ static void race(void *ctx)
     ConfigDat *const config = config_current();
     const RaceSettings before = settings_of();
     config_dat_set_race(config, &before);
+    level_to_image();
     ea_select_default();
     *ea_screen_slot() = 0;  /* Control Central freed it */
     static int32_t ghost[MENU_RACE_GHOST];
@@ -891,6 +896,7 @@ static void no_mode_set(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)c
 static void load_save(void *ctx, int32_t mode)
 {
     ConfigDat *const config = config_current();
+    level_to_image();
     opt_in();
     int16_t variant = image_short(0x93);
     replay_kind = image_short(0xaf);
@@ -920,6 +926,7 @@ static void load_save(void *ctx, int32_t mode)
  * game state's +0x592..+0x5a0, Lost Vegas's +0x5a2) copied to aligned shorts */
 static void load_save2(void *ctx, int32_t mode)
 {
+    level_to_image();
     enum { RACES_AT = 0x592, EXTRA_AT = 0x5a2, RACES = 8 };
     ConfigDat *const config = config_current();
     opt_in();
@@ -1136,6 +1143,7 @@ void glue_settings_to_config(void)
     if (!central_up) return;
     const RaceSettings s = settings_of();
     config_dat_set_race(config_current(), &s);
+    level_to_image();
 }
 
 int32_t glue_central(void)
@@ -1169,6 +1177,7 @@ int32_t glue_central(void)
     video_set_overlay(NULL, 0, 0);
     const RaceSettings s = settings_of();
     config_dat_set_race(config_current(), &s);
+    level_to_image();
     return result;
 }
 
