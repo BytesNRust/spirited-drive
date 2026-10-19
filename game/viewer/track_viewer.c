@@ -1135,12 +1135,11 @@ static void free_drive(void)
     drive_smoke_free(&drive_smoke);
 }
 
-/* One step; at the race's end the results (once), printed. */
-static void drive_tick(uint32_t input)
+/* The race's end (once): 004275f8 runs 0045af80 after race_run however it
+ * stopped, a game given up from the pause menu too; the results printed. */
+static void drive_end(void)
 {
-    race_sim_tick(&drive_sim, input);
-    drive_cars.ticked = 1;
-    if (drive_cars.ended || !race_sim_over(&drive_sim)) return;
+    if (drive_cars.ended) return;
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
     const RaceState *race = &drive_sim.race;
@@ -1158,6 +1157,14 @@ static void drive_tick(uint32_t input)
         printf(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
     }
     printf("\n");
+}
+
+/* One step; at the race's end the results. */
+static void drive_tick(uint32_t input)
+{
+    race_sim_tick(&drive_sim, input);
+    drive_cars.ticked = 1;
+    if (race_sim_over(&drive_sim)) drive_end();
 }
 
 /* The window's race: 00455a5c (race_run) on --drive. Its setup and
@@ -1422,6 +1429,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
     ops.ctx = &r;
     drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
     race_run(&ops, &drive_sim.race, &w);
+    drive_end();
     drive_link_run = NULL;
     results.end_state = drive_sim.race.end_state;  /* also a replay left before its race was over */
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
