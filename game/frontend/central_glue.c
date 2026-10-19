@@ -617,7 +617,7 @@ static void cops(void *ctx)
 /* 004283c4 (win_movie.c) on the drive's racers and finishers */
 static void won(void *ctx)
 {
-    const WinMovieState st = { game_state, last_drive.player, last_drive.racers, 0, last_drive.dropped, g.race_type,
+    const WinMovieState st = { game_state, last_drive.player, last_drive.racers, link_view_only(), last_drive.dropped, g.race_type,
                                g.track, g.player_car, g.lost_vegas, ea_screen_slot() };
     win_movie(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, movie, ctx });
 }
