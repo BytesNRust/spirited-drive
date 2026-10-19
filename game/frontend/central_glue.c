@@ -498,7 +498,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
-    ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
+    ResultsInputs in = { game_state, config_current()->image, r->dropped, menu_words.single, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
                                CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
     ResultsState st = { g.inverse, screen_palette, 0 };
