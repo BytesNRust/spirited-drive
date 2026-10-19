@@ -691,7 +691,20 @@ typedef struct {
 static void df_none(void *ctx) { (void)ctx; }
 static void df_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void df_select(void *ctx, HudSurface s) { (void)ctx, (void)s; }  /* the targets are the ops' own */
-static int32_t df_net_wait(void *ctx, int32_t kind) { (void)ctx; return drive_link_on ? drive_link.wait(kind) : 1; }
+static void df_net_send(void *ctx, int32_t to) { (void)ctx; if (drive_link_on) drive_link.deadline(to); }
+
+/* 00410c18 with 004fcdac set: the timer stands still while it waits (0043b970), and a wait that fails drops the
+ * game (0052b314) */
+static int32_t df_net_wait(void *ctx, int32_t kind)
+{
+    (void)ctx;
+    if (!drive_link_on) return 1;
+    const uint32_t start = platform_ticks_ms();
+    const int32_t came = drive_link.wait(kind);
+    drive_pause.paused_ms += platform_ticks_ms() - start;
+    if (came == 0) *drive_link.lost = 1;
+    return came;
+}
 static void df_chase_tick(void *ctx) { DriveFrame *f = ctx; race_chase_tick(f->race, &f->race->chase); }
 static void df_restream(void *ctx) { race_scenery_restream(((DriveFrame *)ctx)->race); }
 static void df_tiles(void *ctx) { drive_hud_tiles(&drive_hud, ((DriveFrame *)ctx)->race); }
@@ -800,7 +813,7 @@ static void df_format_rate(void *ctx, char *text, int32_t whole, int32_t tenth)
 }
 
 static const FrameDrawOps drive_frame_ops = {
-    NULL, df_chase_tick, df_none, df_none_i, df_net_wait, df_restream, df_stream, df_view, df_none, df_select,
+    NULL, df_chase_tick, df_none, df_net_send, df_net_wait, df_restream, df_stream, df_view, df_none, df_select,
     df_view_choose, df_tiles, df_none, df_none, df_none_i, df_ahead, df_mirror_transform, df_mirror_select,
     df_mirror_sky, df_mirror_scene, df_mirror_flip, df_none, df_clip, df_none, df_none_i, df_near, df_map, df_none,
     df_text_colour, df_text, df_hud_clear, df_cockpit, df_line, df_hud, df_show, df_none, df_none, df_time,
