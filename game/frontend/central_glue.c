@@ -463,11 +463,12 @@ static int16_t car_points[GAME_STATE_PLAYERS];
 
 /* 0045bad8, 0045be50, 0045c2d0 and 0045b908 on config.dat's image and the menus' game state, this machine's player
  * 0; 0045b73c, 0045b6c8 on the game state */
-static int32_t records(void *ctx) { (void)ctx; return record_check(config_current()->image, game_state, 0); }
-static int32_t totals(void *ctx) { (void)ctx; return record_check_totals(config_current()->image, game_state, 0, race_times); }
-static int32_t top_record(void *ctx) { (void)ctx; return record_check_top(config_current()->image, game_state, 0); }
-static int32_t lap_record(void *ctx) { (void)ctx; return record_check_lap(config_current()->image, game_state, 0); }
-static int32_t leads(void *ctx) { (void)ctx; return tournament_leads(game_state, 0); }
+/* the records the finishing player takes are this machine's (004fbb08: the slot in a link game, 0 alone) */
+static int32_t records(void *ctx) { (void)ctx; return record_check(config_current()->image, game_state, menu_words.single); }
+static int32_t totals(void *ctx) { (void)ctx; return record_check_totals(config_current()->image, game_state, menu_words.single, race_times); }
+static int32_t top_record(void *ctx) { (void)ctx; return record_check_top(config_current()->image, game_state, menu_words.single); }
+static int32_t lap_record(void *ctx) { (void)ctx; return record_check_lap(config_current()->image, game_state, menu_words.single); }
+static int32_t leads(void *ctx) { (void)ctx; return tournament_leads(game_state, menu_words.single); }
 static void results_order(void *ctx) { (void)ctx; tournament_results_order(game_state, finish, &order_work); }
 
 /* the results screens' ctx: their pointer first (poll_pointer's), and what 0045c45c / 0046067c are shown with */
