@@ -492,6 +492,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
  * config.dat (track_viewer.h's TrackViewerMenus; Options' 0 is on, 1 off, 2 none); its end (0052b2fe = 00509d6c,
  * 0 when not over) and results kept for 0045cea0 */
 static TrackViewerResults last_drive;
+enum { TRACK_TR1 = 3 };  /* 00524e85 / the setup's +6: Rusty Springs, whose "r" variant is its own track, tr5 */
 static void chat(void *ctx);
 static void drive(void *ctx, int32_t argc, char *const *argv)
 {
@@ -499,6 +500,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
     char name[8] = { 0 };
     for (size_t i = 0; i + 1 < sizeof name && argv[1][i] != 0; i++)
         name[i] = (char)(argv[1][i] >= 'a' && argv[1][i] <= 'z' ? argv[1][i] - 0x20 : argv[1][i]);
+    if (g.variant_r != 0 && g.track == TRACK_TR1) memcpy(name, "TR5", 4);  /* 004275f8: 004fbadc on track 3 races "tr5" (004ae1e0) */
     const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
                                      race_head_to_head_model((int16_t)g.opponent), image_short(0x73), image_short(0x75), image_short(0x79),
                                      image_short(0x71), game_state,
