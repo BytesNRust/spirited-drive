@@ -38,6 +38,7 @@ enum {
     ENGINE2_SOUND = 2,            /* 00443820's voices[1] */
     START_PAN = 0x40, START_VOLUME = 0, START_PITCH = 0x40,  /* 00444394's voices */
     ROAD_VOICE = 5,               /* 0050a4f4 */
+    ENGINE_STOP_4 = 4, ENGINE_STOP_3 = 3,  /* 0044435c's other two channels */
     ENGINE_VOICE = 1,             /* 0050a4d4 */
     EXTRA_VOICE = 14,             /* 0050a53c, -1 when unused */
     CURVE_TOP = 0x80
@@ -350,6 +351,15 @@ void race_sound_follow(RaceState *race, const CarSpecs *specs)
         race_sound_position(race, at, &angle, &distance);
     }
     race_sound_engine(race, car, angle, distance, specs);
+}
+
+void race_sound_stop_engine(RaceState *race)
+{
+    race_sound_channel_stop(race, (int16_t)race->engine_sound.channel);
+    race_sound_channel_stop(race, ROAD_VOICE);
+    race_sound_channel_stop(race, ENGINE_STOP_4);
+    race_sound_channel_stop(race, ENGINE_STOP_3);
+    race->unknown_4bc6f0 = 0;
 }
 
 void race_sound_start_engine(RaceState *race)

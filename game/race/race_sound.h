@@ -42,6 +42,11 @@ void race_sound_pulse(RaceState *race);
  * the wall tones on (0052b320) 0043d120 (0). */
 void race_sound_start_engine(RaceState *race);
 
+/* 0044435c (), the followed car's engine sounds stopped (a crash): the
+ * engine's second channel (004bcb70's low 16 bits), the road noise (5) and
+ * channels 4 and 3 stopped (0044432c), in that order; 004bc6f0 = 0. */
+void race_sound_stop_engine(RaceState *race);
+
 /* 00443b64 (watcall (), from 00455a5c): 0052b31e set and 0052b30e 0: the
  * followed slot's entry's sound volume (+0x1d) 0. Then with that volume not
  * 0: music_volume (00464604) with its music volume (+0x21, as a short) and
