@@ -45,6 +45,7 @@ typedef struct {
     void *service_user;
     const int32_t *timer;           /* 004bb8d8 */
     int32_t wait_ticks;             /* 004fbac8 */
+    int globals_loaded;             /* the race's kept globals hold the exe's first values (race_sim_start_field) */
 } RaceSim;
 
 /* The track index of a TRI stem ("TR1", "cy2"), 00524e85 / 004fb7c2: CY 0,

@@ -24,6 +24,7 @@
 #include "game/race/race_tick.h"
 
 #include <ctype.h>
+#include <stddef.h>
 #include <string.h>
 
 enum {
@@ -180,37 +181,68 @@ static void enter_body(void *ctx, Car *car, int32_t slot)
     if (pdn != NULL) car_body_init(car, pdn);
 }
 
-/* What the original keeps from the race before: its race words are globals
- * no race clears, each start setting again only its own. The last results'
- * order (004fa030, 0042748c's grid on a later segment), the opponents'
- * drivers (004fba70, kept past segment 0 by 004702d4), the player records
- * (0051cc54: 0045aab4 clears their bests and keeps a time trial's rival
- * splits at +0x4c), 0051cc50 (0045aab4 clears it on segment 0) and the surfaces
- * (004fa9b0: on AL3 race_surfaces_init leaves the third one's off_road as AL2 set it). */
-typedef struct {
-    PlayerRecord players[RACE_PLAYERS + 1];
-    int16_t results_order_short[9];
-    int32_t driver_letters[RACE_PLAYERS];
-    int32_t unknown_cc50;
-    Surface surfaces[RACE_SURFACES];
-} RaceCarry;
+/* What the original keeps from the race before: its race words are globals no race clears, each start setting again
+ * only its own (00455a5c and 004275f8 with what they call write none of these). Among them the last results' order
+ * (004fa030, 0042748c's grid on a later segment), the opponents' drivers (004fba70, kept past segment 0 by 004702d4),
+ * the player records (0051cc54: 0045aab4 clears their bests and keeps a time trial's rival splits at +0x4c), 0051cc50
+ * (0045aab4 clears it on segment 0), the surfaces (004fa9b0: on AL3 race_surfaces_init leaves the third one's off_road
+ * as AL2 set it), and the words only the race's ticks write. The ones the --drive's glue sets after the start
+ * (replay, playback, effects, records, start_input, unknown_4c5cd4) are left to it. */
+#define KEEP(f) { offsetof(RaceState, f), sizeof(((RaceState *)0)->f) }
+static const struct { size_t at, size; } KEPT[] = {
+    KEEP(players), KEEP(results_order_short), KEEP(driver_letters), KEEP(splits.unknown_cc50), KEEP(surfaces),
+    KEEP(unknown_4c5398), KEEP(clock), KEEP(last_node), KEEP(stop_notice_tick), KEEP(unknown_4c538c),
+    KEEP(crash_sound_level), KEEP(crash_sound_ticks), KEEP(car_impulse), KEEP(trail_seed), KEEP(launch),
+    KEEP(launch_full_until), KEEP(launch_end), KEEP(launch_ready), KEEP(wheelspin), KEEP(tyre_force_sum),
+    KEEP(crash_spin), KEEP(drawn), KEEP(drawn_count), KEEP(car_places), KEEP(wheel_tick), KEEP(wheel_counter),
+    KEEP(wheel_toggle), KEEP(replay_cut_count), KEEP(unknown_4c5370), KEEP(arcade_turn), KEEP(arcade_grip),
+    KEEP(arcade_turn_limit), KEEP(strip_brake_80_tick), KEEP(strip_brake_60_tick), KEEP(strip_best_60),
+    KEEP(strip_best_100), KEEP(strip_best_quarter), KEEP(strip_start_tick), KEEP(strip_start_progress),
+    KEEP(engine_sound), KEEP(sound_pitch), KEEP(camera_tilt), KEEP(default_profile_odds), KEEP(ai.curve_pace),
+    KEEP(ai.bend), KEEP(ai.gap_step), KEEP(ai.unknown_364), KEEP(ai.last_lane_width)
+};
+#undef KEEP
+
+enum {
+    STRIP_UNSET_AT_START = 99999,   /* 004bae84, 004bae88, 004bae8c */
+    NOTICE_TICK_AT_START = -1000,   /* 004b92e4 */
+    REPLAY_TICKS_AT_START = 4,      /* 004c5398 */
+    CAMERA_TILT_AT_START = 0x10000, /* 004b91cc, never written */
+    PROFILE_ODDS_AT_START = 40,     /* 004c5d20, never written */
+    ENGINE_LEVEL_AT_START = 0x7f,   /* 004bcb6c */
+    ENGINE_CHANNEL = 7,             /* 004bcb70, never written: the engine's second voice */
+    HELD_PITCH_AT_START = 0x40,     /* 004bc6f4..004bc700 */
+    HELD_PITCHES = 4
+};
+
+/* The kept words as the exe starts with them (its data, DGROUP; the rest of them start at 0) */
+static void race_globals_load(RaceState *race)
+{
+    race->unknown_4c5398 = REPLAY_TICKS_AT_START;
+    race->stop_notice_tick = NOTICE_TICK_AT_START;
+    race->crash_sound_level = CRASH_SOUND_QUIET;
+    race->wheel_counter = 1, race->wheel_toggle = 1;  /* 004c5810, 004c5814 */
+    race->strip_best_60 = race->strip_best_100 = race->strip_best_quarter = STRIP_UNSET_AT_START;
+    race->engine_sound.unknown_6c = ENGINE_LEVEL_AT_START;
+    race->engine_sound.channel = ENGINE_CHANNEL;
+    race->engine_sound.pitch = HELD_PITCH_AT_START;  /* 004bcb7c */
+    race->engine_sound.rising = 1;                   /* 004bcb88 */
+    for (int i = 0; i < HELD_PITCHES; i++) race->sound_pitch[i] = HELD_PITCH_AT_START;
+    race->camera_tilt = CAMERA_TILT_AT_START;
+    race->default_profile_odds = PROFILE_ODDS_AT_START;
+}
 
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade)
 {
-    RaceCarry carry;
-    memcpy(carry.players, sim->race.players, sizeof carry.players);
-    memcpy(carry.results_order_short, sim->race.results_order_short, sizeof carry.results_order_short);
-    memcpy(carry.driver_letters, sim->race.driver_letters, sizeof carry.driver_letters);
-    carry.unknown_cc50 = sim->race.splits.unknown_cc50;
-    memcpy(carry.surfaces, sim->race.surfaces, sizeof carry.surfaces);
+    static RaceState before;
+    if (!sim->globals_loaded) race_globals_load(&sim->race);
+    memcpy(&before, &sim->race, sizeof before);
     memset(sim, 0, sizeof *sim);
+    sim->globals_loaded = 1;
     RaceState *race = &sim->race;
-    memcpy(race->players, carry.players, sizeof race->players);
-    memcpy(race->results_order_short, carry.results_order_short, sizeof race->results_order_short);
-    memcpy(race->driver_letters, carry.driver_letters, sizeof race->driver_letters);
-    race->splits.unknown_cc50 = carry.unknown_cc50;
-    memcpy(race->surfaces, carry.surfaces, sizeof race->surfaces);
+    for (size_t i = 0; i < sizeof KEPT / sizeof KEPT[0]; i++)
+        memcpy((uint8_t *)race + KEPT[i].at, (const uint8_t *)&before + KEPT[i].at, KEPT[i].size);
     race->tri = tri;
     for (size_t i = 0; stem[i] != '\0' && i + 1 < sizeof race->track_name; i++)
         race->track_name[i] = (char)tolower((unsigned char)stem[i]);
@@ -236,7 +268,6 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->unknown_4bc6f0 = 1;  /* 004bc6f0 as the exe starts; 00444394 in 00455a5c's setup sets it again */
     race->siren_count = 3;     /* 004c5fb4 and 004c5fbc as the exe starts */
     race->siren_pitch = 0x40;
-    race->crash_sound_level = CRASH_SOUND_QUIET;
     race->sounds = (RaceSounds){ race, sim_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, sim_stop_engine, sim_start_engine, no_buffet, sim_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);

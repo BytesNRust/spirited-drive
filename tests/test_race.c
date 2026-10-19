@@ -163,6 +163,27 @@ static int check_camera(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceF
     return ok;
 }
 
+/* A first race starts from the exe's data (camera_tilt 004b91cc, default_profile_odds 004c5d20, the engine's second
+ * voice 004bcb70: never written) and a later one keeps what the race before left in the words no start clears */
+static int check_globals(const Tri *tri, const CarSpecs *specs, RaceField *field)
+{
+    static RaceSim fresh;
+    memset(&fresh, 0, sizeof fresh);
+    field->track_flags = 0;
+    race_sim_start_field(&fresh, tri, "TR1", specs, field, 1, 0);
+    const RaceState *r = &fresh.race;
+    int ok = r->camera_tilt == 0x10000 && r->default_profile_odds == 40 && (int16_t)r->engine_sound.channel == 7 &&
+             r->strip_best_60 == 99999 && r->stop_notice_tick == -1000;
+    printf("first race: tilt %#x, odds %d, engine channel %d, best 0-60 %d, notice %d%s\n", (unsigned)r->camera_tilt,
+           r->default_profile_odds, (int16_t)r->engine_sound.channel, r->strip_best_60, r->stop_notice_tick,
+           ok ? "" : "  FAIL");
+    fresh.race.wheel_counter = 5, fresh.race.launch_end = 1234;
+    race_sim_start_field(&fresh, tri, "TR1", specs, field, 1, 0);
+    const int kept = r->wheel_counter == 5 && r->launch_end == 1234 && r->camera_tilt == 0x10000;
+    printf("next race keeps the race's words: %s\n", kept ? "yes" : "no  FAIL");
+    return ok && kept;
+}
+
 /* AL3 keeps the third surface's off_road from AL2 (004fa9b0 a global race_surfaces_init leaves there): its shoulder
  * is snow, dirt puffs and the off-road sounds */
 static int check_surfaces(RaceSim *s, const char *simdata, const CarSpecs *specs, RaceField *field)
@@ -295,6 +316,7 @@ int main(int argc, char **argv)
     ok &= check_dropped(&sim, &tri, &specs, &field);
     ok &= check_surfaces(&sim, argv[1], &specs, &field);
     ok &= check_camera(&sim, &tri, &specs, &field);
+    ok &= check_globals(&tri, &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }
