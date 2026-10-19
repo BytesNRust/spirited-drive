@@ -29,8 +29,9 @@ exe=$(cd "$build" && pwd)/tnfs
 out=${3:-$(mktemp -d -t tnfs_link)}
 delay=${DELAY:-25}
 clients=${CLIENTS:-1}
+viewers=${VIEWERS:-0}
 stagger=${STAGGER:-10}
-late=$(( (clients - 1) * stagger * 1000 ))  # the last client's start past the first's
+late=$(( (clients + viewers - 1) * stagger * 1000 ))  # the last joiner's start past the first's
 at=$(( ${RESULTS_AT:-362000} + late ))
 cd "$(dirname "$0")/.."
 [ -x "$exe" ] || { echo "no $exe" >&2; exit 2; }
@@ -39,6 +40,8 @@ cd "$(dirname "$0")/.."
 nav="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,14000:DOWN,16000:ENTER"
 host="$nav,20000:ENTER,$((55000 + late)):CLICK:40:450,$((61000 + late)):CLICK:40:450"
 client="$nav,22000:ENTER"
+# a viewer: View only (below Select game) turned on, then Select game and the game
+viewer="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,12000:DOWN,13000:DOWN,14000:ENTER,15000:UP,16000:ENTER,22000:ENTER"
 
 # The steps after the race, at the host's times (the client's DELAY s earlier)
 case $mode in
@@ -71,12 +74,14 @@ run() {  # name script secs port [args...]
 machines=host
 run host "$host$(steps 0)" "$secs" 15000 &
 sleep "$delay"
-for i in $(seq 1 "$clients"); do
-    name=client
-    [ "$i" -gt 1 ] && name=client$i
+for i in $(seq 1 $((clients + viewers))); do
+    kind=client script=$client k=$i
+    [ "$i" -gt "$clients" ] && kind=viewer script=$viewer k=$((i - clients))
+    name=$kind
+    [ "$k" -gt 1 ] && name=$kind$k
     machines="$machines $name"
     start=$(( delay + (i - 1) * stagger ))
-    run "$name" "$client$(steps $((start * 1000)))" $((secs - start)) $((15000 + i)) --net-host 127.0.0.1:15000 &
+    run "$name" "$script$(steps $((start * 1000)))" $((secs - start)) $((15000 + i)) --net-host 127.0.0.1:15000 &
     sleep "$stagger"
 done
 wait
