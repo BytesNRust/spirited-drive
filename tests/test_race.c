@@ -150,6 +150,19 @@ static int check_dropped(RaceSim *s, const Tri *tri, const CarSpecs *specs, Race
     return moved == 0;
 }
 
+/* The race's camera op (00404530 on 004f801c): the replay's cuts and a police car placed before the start move
+ * the view onto the car they name */
+static int check_camera(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceField *field)
+{
+    enum { SLOT = 1, KIND = 5 };
+    field->track_flags = 0;
+    race_sim_start_field(s, tri, "TR1", specs, field, 1, 0);
+    s->race.sounds.camera(s->race.sounds.user, SLOT, KIND);
+    const int ok = s->race.chase.base == s->race.cars[SLOT];
+    printf("camera op follows car %d: %s\n", SLOT, ok ? "yes" : "no  FAIL");
+    return ok;
+}
+
 /* AL3 keeps the third surface's off_road from AL2 (004fa9b0 a global race_surfaces_init leaves there): its shoulder
  * is snow, dirt puffs and the off-road sounds */
 static int check_surfaces(RaceSim *s, const char *simdata, const CarSpecs *specs, RaceField *field)
@@ -281,6 +294,7 @@ int main(int argc, char **argv)
     ok &= check_flags(&sim, &tri, &specs, &field);
     ok &= check_dropped(&sim, &tri, &specs, &field);
     ok &= check_surfaces(&sim, argv[1], &specs, &field);
+    ok &= check_camera(&sim, &tri, &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }

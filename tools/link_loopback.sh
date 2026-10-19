@@ -10,6 +10,7 @@
 #   quit      Done, Quit game and Yes (the Y key) at the Checkpoint, then
 #             Exit at Game Mode: both exit by themselves before their timeout
 #   quitclick the same with Yes clicked (the mouse)
+# BASE_PORT (15000): the host's UDP port, the clients' the ones after it.
 # usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]
 # Every machine's "race over" standings must also match the host's. CLIENTS
 # (1) machines join: "client" on UDP 15001, then "client2" on 15002 and so on,
@@ -77,7 +78,8 @@ run() {  # name script secs port [args...]
 }
 
 machines=host
-run host "$host$(steps 0)" "$secs" 15000 &
+port=${BASE_PORT:-15000}
+run host "$host$(steps 0)" "$secs" "$port" &
 sleep "$delay"
 for i in $(seq 1 $((clients + viewers))); do
     kind=client script=$client k=$i
@@ -88,7 +90,7 @@ for i in $(seq 1 $((clients + viewers))); do
     start=$(( delay + (i - 1) * stagger ))
     after_steps=$(steps $((start * 1000)))
     [ "$kind" = client ] && [ -n "${CLIENT_IDLE:-}" ] && after_steps=""  # the client's user answers none of the screens
-    run "$name" "$script$after_steps" $((secs - start)) $((15000 + i)) --net-host 127.0.0.1:15000 &
+    run "$name" "$script$after_steps" $((secs - start)) $((port + i)) --net-host 127.0.0.1:"$port" &
     sleep "$stagger"
 done
 wait

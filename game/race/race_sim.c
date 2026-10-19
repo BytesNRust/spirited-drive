@@ -85,9 +85,11 @@ static void no_jolt(void *user, int32_t car_a, int32_t car_b, int32_t x, int32_t
     (void)user, (void)car_a, (void)car_b, (void)x, (void)y, (void)z, (void)impulse;
 }
 
-static void no_camera(void *user, int32_t slot, int32_t mode)
+/* 00404530(004f801c, 00509e1c[slot], mode): the replay's cuts and a police car placed before the start take the view */
+static void sim_camera(void *user, int32_t slot, int32_t mode)
 {
-    (void)user, (void)slot, (void)mode;
+    RaceState *race = user;
+    if (slot >= 0 && slot < RACE_CARS) race_chase_follow(race, &race->chase, race->cars[slot], mode);
 }
 
 int race_sim_track_index(const char *stem)
@@ -235,7 +237,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->siren_count = 3;     /* 004c5fb4 and 004c5fbc as the exe starts */
     race->siren_pitch = 0x40;
     race->crash_sound_level = CRASH_SOUND_QUIET;
-    race->sounds = (RaceSounds){ race, sim_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, sim_stop_engine, sim_start_engine, no_buffet, no_camera, no_jolt, NULL,
+    race->sounds = (RaceSounds){ race, sim_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, sim_stop_engine, sim_start_engine, no_buffet, sim_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
     /* 004275f8: 0042748c (the grid places), 00428fe0 with 004fb7f4, then

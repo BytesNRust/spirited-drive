@@ -1001,6 +1001,8 @@ static int load_specs(const char *data_root, int model, CarSpecs *specs)
 }
 
 static void link_stand_in(int16_t player);
+/* 00440afc's 0041019c: a link player still on the start line is stood in */
+static void race_stand_in(void *user, int32_t player) { (void)user, link_stand_in((int16_t)player); }
 
 static int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
 
@@ -1100,6 +1102,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_input.link = &drive_link, drive_input.stand_in_block = drive_link.stand_ins;
         for (int i = 0; i < drive_link.humans; i++) drive_input.queues[i].active = 1;
         drive_link.racing(drive_input.queues, drive_sim.race.players, link_stand_in);
+        drive_sim.race.sounds.start_line = race_stand_in;
     }
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
