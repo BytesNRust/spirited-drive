@@ -1023,14 +1023,13 @@ enum { REPLAY_FLAG_AT = 0xaf };
  * in a buffer of their own: the port's replay leaves car_points */
 static AfterRaceState after_race_state(void)
 {
-    static int16_t chat_closed;
     static uint8_t cars[AFTER_RACE_CARS * AFTER_RACE_CAR];
     uint8_t *const image = config_current()->image;
     replay_kind = image_short(REPLAY_FLAG_AT);
     volumes_sync();
     return (AfterRaceState){
         &menu_words.link_game, stage_word(), pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
-        &credits_idle, &chat_closed, &replay_kind, (char *)image + 0x3b, menu_audio_silent(), g.volumes,
+        &credits_idle, &menu_words.redraw, &replay_kind, (char *)image + 0x3b, menu_audio_silent(), g.volumes,
         KEPT_VOLUMES, image_short(0x7f), image_short(0x95), image_short(0x6d),
         game_state, cars };
 }
