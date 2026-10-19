@@ -180,6 +180,7 @@ static int run_game(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     timer_init();
+    config_dat_startup_volume(config_current());
     /* 004322f8 loads the pointer; port: its CD and memory checks have nothing to check here, the fonts are
      * text_init's and config.dat is the menus' (0042a010, config_load). The network: the link game over UDP
      * (link_game.c) */

@@ -206,15 +206,13 @@ void menu_audio_track_play(void) { menu_sound_track_music_play(&sound, config_cu
 void menu_audio_track_stop(void) { menu_sound_track_music_stop(&sound, config_current(), &TRACK_OPS); }
 void menu_audio_track_free(void) { menu_sound_track_music_free(&sound, config_current(), &TRACK_OPS); }
 
-/* A movie's sound (004423d4's sound channel, glue): the EACS sample on the speech queue's channels 4 and 4 at the
- * track music's volume (00524e69 x 3 / 2, at most 0x7f) */
+/* A movie's sound (004423d4's sound channel, glue): the EACS sample on the speech queue's channels 4 and 4 at
+ * 00441e3c's level, 00464698's (the menus' volume 00524e67 x 12 / 10, at most 0x7f) */
 int menu_audio_movie_sound(const uint8_t *eacs, size_t size)
 {
-    enum { CHANNEL = 4, SOUND_VOLUME = 0x79, VOLUME_MAX = 0x7f };
+    enum { CHANNEL = 4 };
     if (!sound.sound_on) return 0;
-    int32_t volume = config_short(SOUND_VOLUME) * 3 / 2;
-    if (volume > VOLUME_MAX) volume = VOLUME_MAX;
-    drive_audio_speech_setup(CHANNEL, CHANNEL, (uint32_t)volume);
+    drive_audio_speech_setup(CHANNEL, CHANNEL, (uint32_t)config_dat_level_e67(config_current()));
     if (drive_audio_speech_add(eacs, size, 0) != 0) return 0;
     drive_audio_speech_play();
     return 1;

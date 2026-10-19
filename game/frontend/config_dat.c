@@ -251,6 +251,11 @@ void config_dat_set_unlock_level(ConfigDat *c, int level)
     set16(c, OFFSET_UNLOCK, level);
 }
 
+void config_dat_startup_volume(ConfigDat *c)
+{
+    set16(c, 0x00524e67 - BASE, 100);
+}
+
 /* 00432ff4: the level feeds Lost Vegas as it is (any nonzero value), the "m"
  * variants and the Warrior at > 0, the "r" variants at > 1. The hidden track
  * (004baf14) is never set by the code this port covers. */
