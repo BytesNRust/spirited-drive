@@ -346,12 +346,14 @@ static int32_t host_join(void *ctx)
         picture_new, select_picture, picture_shape, grab, games, clip, move_to, ticks, in_rect, sound, deadline_set,
         shape, blit_own, style, width, fit, blit_masked, blit_at, players_draw, select_default, nothing, nothing, flip,
         show, deadline_passed, buttons, activate, music, key, click, off, picture_free, host, connect, NULL };
+    link_game.view = net_screen->view;  /* 0052b316 is the menu's View word, the games listed and joined with it */
     NetHostState st = { ea_screen(), net_screen->pointer_active, net_screen->buttons, link_game.view, 0, 0,
                         net_screen->bank, frontend_player_name };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
     const int32_t r = net_host_join(&st, &ops);
     pointer_bind_active(was);
     net_screen->pointer_active = st.pointer_active, net_screen->buttons = st.buttons, link_game.view = st.view;
+    net_screen->view = st.view;
     return r;
 }
 
