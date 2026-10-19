@@ -115,6 +115,24 @@ static int check_carry(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceFi
     return ok;
 }
 
+/* Control Central's No Mercy (0052b306 bit 2, 0042702c's 004fb7d8): the
+ * race's flags, and 004fbac0 0 (else 1, not 0042702c's first 4) */
+static int check_flags(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceField *field)
+{
+    int ok = 1;
+    for (uint32_t flags = 0; flags <= 4; flags += 4) {
+        field->track_flags = flags;
+        race_sim_start_field(s, tri, "TR1", specs, field, 1, 0);
+        ok &= s->race.track_flags == flags && s->race.catch_up == (flags == 0);
+    }
+    RaceField counts = { 0 };
+    counts.race_type = 1;
+    race_field_counts(&counts, 0, 4, 0);
+    ok &= counts.cops == 0 && counts.traffic == 0;
+    printf("no mercy: catch up %d, cops %d, traffic %d%s\n", s->race.catch_up, counts.cops, counts.traffic, ok ? "" : "  FAIL");
+    return ok;
+}
+
 /* The skid ring wrapping to 0 has 004596a8 draw mark -1 (the original reads
  * before its table); the port reads its spare row. Under ASan, an overflow. */
 typedef struct {
@@ -217,6 +235,7 @@ int main(int argc, char **argv)
     }
     ok &= check_end(&sim);
     ok &= check_carry(&sim, &tri, &specs, &field);
+    ok &= check_flags(&sim, &tri, &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }

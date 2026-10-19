@@ -504,7 +504,8 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
     const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
                                      race_head_to_head_model((int16_t)g.opponent), image_short(0x73), image_short(0x75), image_short(0x79),
                                      image_short(0x71), game_state,
-                                     g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r };
+                                     g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r,
+                                     (uint32_t)menu_cheats.keys_506, g.explode, g.nitro };
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
     if (menu_words.link_game != 0) link_race_begin((const char *)config_current()->image, chat);
@@ -876,7 +877,7 @@ static void replay(void *ctx, int32_t mode, const char *path)
         return;
     }
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL, 0, 0, 0 };  /* the time of day: the replay's setup */
+                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0 };  /* the time of day and the flags: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
     if (!track_viewer_drive_replay_data(resource_root(), file, size, replay_kind == 2 ? HIGHLIGHTS : FROM_START))

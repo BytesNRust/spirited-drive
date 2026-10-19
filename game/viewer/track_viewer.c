@@ -989,13 +989,13 @@ static void link_stand_in(int16_t player);
 static int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
 
 /* 004273d0 in a link game: this machine's entry (its car and aids, as a solo race's first) out, every slot's back */
-static const uint8_t *link_entries(int model, uint32_t *seed)
+static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
 {
     RaceEntry own;
     memset(&own, 0, sizeof own);
     own.car = model, own.automatic = 1;
     if (menus_on) own.automatic = menus.automatic, own.anti_lock = menus.anti_lock, own.traction = menus.traction;
-    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL, &link_wait_ticks, seed);
+    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL, &link_wait_ticks, seed, flags);
 }
 
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
@@ -1003,7 +1003,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
     /* 004fb7f4: 004275f8's time(0), the race's random seed (00428fe0); --drive alone keeps a fixed one */
     uint32_t seed = menus_on ? (uint32_t)time(NULL) : DRIVE_SEED;
-    const uint8_t *entries = drive_link_on ? link_entries(model, &seed) : NULL;  /* the host's setup's, 004fb7fa */
+    uint32_t flags = menus_on ? menus.track_flags : 0;  /* 004fb7d8: 0042702c's copy of 0052b306 */
+    const uint8_t *entries = drive_link_on ? link_entries(model, &seed, &flags) : NULL;  /* the host's setup's, 004fb7fa */
     if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
     CarSpecs specs;
     if (!load_specs(data_root, model, &specs)) return 0;
@@ -1017,10 +1018,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.race_type = racers > 1 ? SINGLE_RACE : 0;
     if (race_type >= 0) {
         field.race_type = race_type;
-        race_field_counts(&field, race_sim_track_index(name), 0, drive_link_on);  /* 0052b312: no police in a link game */
+        race_field_counts(&field, race_sim_track_index(name), flags, drive_link_on);  /* 0052b312: no police in a link game */
         racers = field.racers;
     }
     field.seed = seed;
+    field.track_flags = flags;
     field.load = drive_load;
     drive_cars.data_root = data_root;
     drive_cars.tint.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
@@ -1050,6 +1052,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (drive_link_on) field.humans = drive_link.humans;
     if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed and its humans' specs */
         field = replay_of->field;
+        field.track_flags = replay_of->track_flags;
         field.load = drive_load;
         for (int i = 1; i < field.humans && i < RACE_PLAYERS; i++) {
             if (!load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
@@ -1058,6 +1061,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
+    if (menus_on && replay_of == NULL)  /* the cheats' words, shared with the menus in the original */
+        drive_sim.race.unknown_4c5cd4 = menus.explode, drive_sim.race.start_input = menus.start_boost;
     if (drive_link_on) {  /* 004275f8 in a link game: 0052b312 1, this machine's car followed and viewed, its side */
         RaceState *race = &drive_sim.race;
         race->playback = 1, race->player = race->viewed = drive_link.slot;

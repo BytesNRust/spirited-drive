@@ -36,7 +36,7 @@ enum {
     TICK_AIDS = 0x10,
     REST_TICKS = 0x78,           /* the inputs stay at rest this long */
     CLOCK_WRAP = 0x7080,
-    CATCH_UP = 4,                /* 0042702c */
+    NO_MERCY = 4,                /* track_flags bit 2: 0042702c's 004fbac0 then 0 */
     CRASH_SOUND_QUIET = 0x6666,  /* 004b9094 as loaded, and from 0040d8e8 */
     CAR_HANDLE = 0x10000,        /* the identity the original keeps as the car's address, times the slot + 1 */
     RACER = 0x4,                 /* flags_174 (00440858) */
@@ -211,6 +211,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->track = race_sim_track_index(stem);
     race->track_variant = race_sim_track_variant(stem);
     race->arcade = arcade;
+    race->track_flags = field->track_flags;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->cops = field->cops < 0 ? 0 : field->cops;
@@ -225,7 +226,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->loop_nodes = EARLY_LOOP_NODES;  /* 0043f994, until 0043fbac sets the real one */
     race_chase_init(race);
     race->chase.kind = 1;
-    race->catch_up = CATCH_UP;
+    race->catch_up = !(race->track_flags & NO_MERCY);  /* 0042702c: 004fbac0 = 4, then (004fb7d8 & 4) == 0 */
     race->unknown_4bc6f0 = 1;  /* 004bc6f0 as the exe starts; 00444394 in 00455a5c's setup sets it again */
     race->siren_count = 3;     /* 004c5fb4 and 004c5fbc as the exe starts */
     race->siren_pitch = 0x40;

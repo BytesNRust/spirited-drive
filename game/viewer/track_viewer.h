@@ -49,6 +49,9 @@ typedef struct {
     int time_of_day;    /* 004fbae0[track]: 0 morning, 1 midday, 2 evening (004278c0 takes 1 with a variant) */
     int variant_m;      /* 004fbad8: the track's "m" art */
     int variant_r;      /* 004fbadc: the track's "r" art */
+    uint32_t track_flags;  /* 0052b306, which 0042702c makes 004fb7d8: bit 2 Control Central's No Mercy, bit 3 Turbo */
+    int32_t explode;    /* 004c5cd4: the EXPLODE cheat, read by the race (0046c490) */
+    int32_t start_boost;  /* 004faa50: the NITRO cheat, the player's start keys read (0042f138) */
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
 
@@ -63,8 +66,10 @@ typedef struct TrackViewerLink {
     /* 004275f8's link start: 00410c18(2), 00410d80 (004fbac8, the queue's wait, to *wait_ticks), then 004273d0:
      * this machine's entry (its name filled in) to the host, and the host's setup back: each slot's entry at
      * 004fb7fa + 0x4b x slot (a RaceEntry apart), the humans' names to `names` (0052ad44, NULL: none kept);
-     * *seed is 004fb7f4, written to the setup before (this machine's time) and read back after (the host's) */
-    const uint8_t *(*exchange)(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks, uint32_t *seed);
+     * *seed is 004fb7f4 and *flags 004fb7d8, written to the setup before (this machine's) and read back after
+     * (the host's) */
+    const uint8_t *(*exchange)(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks, uint32_t *seed,
+                               uint32_t *flags);
     void (*send)(int32_t to, const int16_t *words, int32_t size);  /* 00445e00 */
     void (*service)(void);              /* 00475c14(0): the transport's */
     int32_t (*wait)(int32_t stage);     /* 00410c18: nonzero when all came */
