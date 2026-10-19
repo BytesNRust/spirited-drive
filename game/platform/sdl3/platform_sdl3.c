@@ -25,10 +25,11 @@ static int fb_height;
 
 enum { KEY_QUEUE_SIZE = 16, VBLANK_HZ = 60 };
 
-/* TNFS_CAPTURE_DIR=dir [TNFS_CAPTURE_EVERY=n]: write every n-th presented
- * frame as dir/frame_NNNNN.ppm, to check the game's screens headless. */
+/* TNFS_CAPTURE_DIR=dir [TNFS_CAPTURE_EVERY=n] [TNFS_CAPTURE_FROM=m]: write every n-th presented
+ * frame from the m-th on as dir/frame_NNNNN.ppm, to check the game's screens headless. */
 static const char *capture_dir;
 static int capture_every = 30;
+static unsigned capture_from;
 static unsigned presented_frames;
 static uint64_t next_vblank_ns;
 static PlatformKey key_queue[KEY_QUEUE_SIZE];
@@ -137,6 +138,8 @@ bool platform_init(const PlatformConfig *config)
     capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
     const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
     if (every != NULL && SDL_atoi(every) > 0) capture_every = SDL_atoi(every);
+    const char *from = SDL_getenv("TNFS_CAPTURE_FROM");
+    if (from != NULL && SDL_atoi(from) > 0) capture_from = (unsigned)SDL_atoi(from);
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, fb_width, fb_height);
     rgb_buffer = malloc((size_t)fb_width * (size_t)fb_height * sizeof *rgb_buffer);
@@ -703,7 +706,7 @@ void platform_free_names(char **names)
 
 static void capture_frame(void)
 {
-    if (capture_dir == NULL || presented_frames++ % (unsigned)capture_every != 0) return;
+    if (capture_dir == NULL || presented_frames++ % (unsigned)capture_every != 0 || presented_frames <= capture_from) return;
     char path[1024];
     SDL_snprintf(path, sizeof path, "%s/frame_%05u.ppm", capture_dir, presented_frames - 1);
     FILE *f = fopen(path, "wb");
