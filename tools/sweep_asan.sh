@@ -10,6 +10,9 @@
 #           and each sub-screen, Load and Save (save, view, delete; replays and tournaments), the credits, the
 #           showcase's pages for every car, each ending at Game Mode's Exit; each run on its own copy of MODS
 #   movie   --movie on every TGV
+#   long    --drive under TNFS_AUTOPILOT=1 (a test harness only) to the race's end, the full field on the circuits
+#           and a segment of each open road: races long enough to wrap the skid marks' ring (125; TR1, TR2, TR6, TR7
+#           and AL1 wrap it); an open road's results then wait for a key (rc 124 "after its race over")
 #   replay  --replay on each replay of the CD and the scratch config's own to its end, then Esc (which leaves the
 #           last picture; one in the replay opens its menu and the next closes it), every 15 s from 60 s
 # Each run leaves OUT/<name>.log; a line per run goes to OUT/summary: its rc (124: the timeout ran out), its seconds
@@ -60,7 +63,8 @@ run() {
     TNFS_INPUT_SETTLE=${RUN_SETTLE:-0} TNFS_INPUT_SCRIPT=$script timeout -k 5 $limit $bin --data $data \
       ${RUN_MODS:+--mods} ${RUN_MODS:-$mods} "$@" > $out/$name.log 2>&1
     local rc=$? found=$(grep -m1 -E "runtime error|ERROR: AddressSanitizer|SUMMARY: (Address|Undefined)" $out/$name.log)
-    print -r -- "$name rc $rc $(( SECONDS - start ))s ${found:-clean}" >> $out/summary
+    local over=""; (( rc == 124 )) && grep -q "race over" $out/$name.log && over=" (after its race over)"
+    print -r -- "$name rc $rc$over $(( SECONDS - start ))s ${found:-clean}" >> $out/summary
   ) &
 }
 
@@ -116,6 +120,11 @@ for phase in $phases; do
     for first in 0 3 6; do
       next=""; for (( k = 0; k < first; k++ )); do next+=",3000:CLICK:310:450"; done
       menu showcase_$first "3000:CLICK:180:200$next,$pages,3000:CLICK:310:450,$pages,3000:CLICK:310:450,$pages,3000:CLICK:40:450"
+    done ;;
+  long)
+    k=0
+    for t in TR1 TR2 TR4 TR6 TR7 CY1 CL1 AL1; do
+      k=$(( k + 1 )); TNFS_AUTOPILOT=1 run long_$t 1800 "" --drive $t --car ${CARS[k]} --type 2
     done ;;
   movie)
     for f in $data/FRONTEND/MOVIE/*.TGV(N); do run movie_${f:t:r} 200 "" --movie $f; done ;;
