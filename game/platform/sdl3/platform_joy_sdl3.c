@@ -50,6 +50,7 @@ static SDL_Joystick *rumbler;
 static SDL_HapticEffectID jolt_effect = -1, buffeting_effect = -1, vector_effect = -1;
 static SDL_HapticEffectID vibration_effect[VIBRATIONS] = { -1, -1 };
 static Uint16 rumble_low, rumble_high;  /* what the buffeting and the vibrations rumble with while they run */
+static bool rumble_off;                 /* _DisableForces on a rumbler: nothing felt until they are enabled again */
 
 /* the sticks SDL knows of now */
 static void enumerate(void)
@@ -200,7 +201,7 @@ static void stop_effect(SDL_HapticEffectID slot)
 
 static void rumble(Uint16 low, Uint16 high, Uint32 ms)
 {
-    if (rumbler != NULL) SDL_RumbleJoystick(rumbler, low, high, ms);
+    if (rumbler != NULL && !rumble_off) SDL_RumbleJoystick(rumbler, low, high, ms);
 }
 
 bool platform_forces_open(int device)
@@ -225,6 +226,7 @@ void platform_forces_close(void)
     if (haptic != NULL) SDL_CloseHaptic(haptic);
     haptic = NULL;
     rumbler = NULL;
+    rumble_off = false;
     jolt_effect = buffeting_effect = vector_effect = -1;
     vibration_effect[0] = vibration_effect[1] = -1;
 }
@@ -311,6 +313,12 @@ void platform_forces_vector(int x, int y)
 
 void platform_forces_enable(bool on)
 {
+    if (rumbler != NULL) {  /* the rumble stopped while disabled, the buffeting and vibrations felt again after */
+        if (!on) rumble(0, 0, 0);
+        rumble_off = !on;
+        if (on && (rumble_low != 0 || rumble_high != 0)) rumble(rumble_low, rumble_high, BUFFETING_RUMBLE_MS);
+        return;
+    }
     if (haptic == NULL || (SDL_GetHapticFeatures(haptic) & SDL_HAPTIC_PAUSE) == 0) return;
     if (on) SDL_ResumeHaptic(haptic);
     else SDL_PauseHaptic(haptic);
