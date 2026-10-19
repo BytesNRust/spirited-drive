@@ -2,6 +2,7 @@
 #include "viewer/drive_keys.h"
 
 #include "viewer/drive_audio.h"
+#include "viewer/drive_joy.h"
 #include "viewer/track_viewer.h"
 #include "game/race/input_queue.h"
 #include "game/race/race_chase.h"
@@ -14,8 +15,7 @@
 enum {
     FOLLOW_KIND = 4,          /* 004381f8's Alt + Ctrl + n: 00404530(004f801c, car n, 4) */
     HIGH_RESOLUTION = 1,      /* 004fa0c0: 640 x 480 */
-    W513730_UNKNOWN = 0,      /* 00513730: not ported; anything but 5 lets the hold key act */
-    TIMER_8D8_UNKNOWN = 0     /* 004bb8d8: not ported; 0 keeps the reset (Shift + keypad 1) off */
+    W513730_UNKNOWN = 0       /* 00513730: not ported; anything but 5 lets the hold key act */
 };
 
 typedef struct {
@@ -101,9 +101,10 @@ void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *
     KeysCtx c = { k, in, race, views };
     const RaceKeysOps ops = { &c, follow, viewed_changed, follow_own, own_changed, reset, f1, screen, detail, sound_off,
                               sound_on };
-    const RaceKeysInputs inputs = { in->keys, in->codes[INPUT_KEY_HOLD], 0, 0, race->humans, race->phase,
-                                    W513730_UNKNOWN, race->race_type, race->replay, race->playback, TIMER_8D8_UNKNOWN, race->player, 0,
-                                    HIGH_RESOLUTION };
+    const int32_t timer = in->timer != NULL ? *in->timer : 0;
+    const RaceKeysInputs inputs = { in->keys, in->codes[INPUT_KEY_HOLD], drive_joy_state()->present, in->pad_buttons,
+                                    race->humans, race->phase, W513730_UNKNOWN, race->race_type, race->replay,
+                                    race->playback, timer, race->player, 0, HIGH_RESOLUTION };
     k->state.viewed = race->viewed;
     k->state.view_changed = race->view_taken;
     race_keys(&ops, &k->state, &inputs);

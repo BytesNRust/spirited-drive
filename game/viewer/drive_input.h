@@ -25,6 +25,7 @@ typedef struct {
     int32_t *store_clock;             /* 004fb7a0, the run's: the host's store steps it */
     int32_t *late;                    /* 004fb790, the run's: a client's polls sent */
     int32_t *timer;                   /* 004bb8d8, the run's */
+    uint8_t pad_buttons;              /* 004fce68: the pad's buttons as the last read left them */
     HudState *hud;                    /* 004f9a8c / 004f9a94 / 004f9a98: the network notices */
     int32_t notice_on, notice_until;  /* 004fb7a8, 004fb7a4 */
     const CarSpecs *own_specs;        /* port: test harness only (drive_autopilot): this machine's car's specs */
