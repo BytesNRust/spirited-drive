@@ -90,6 +90,31 @@ static int check_end(RaceSim *s)
 }
 
 
+/* The next race on the same sim, a later segment of a championship (type 2,
+ * variant 1): the original keeps the race's globals between races, so the
+ * grid is the last results' order (0042748c reads 004fa030), the opponents
+ * keep their drivers (004fba70) and the player records stay for 0045aab4. */
+static int check_carry(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceField *field)
+{
+    int16_t order[9];
+    int32_t letters[RACE_PLAYERS];
+    memcpy(order, s->race.results_order_short, sizeof order);
+    memcpy(letters, s->race.driver_letters, sizeof letters);
+    const int32_t ghost = s->race.players[0].lap_marks[(0x4c - 4) / 4] = 0x1234;  /* +0x4c, a split kept */
+    field->race_type = 2;
+    race_sim_start_field(s, tri, "CL2", specs, field, 1, 0);
+    int ok = s->race.track_variant == 1;
+    for (int k = 0; k < RACE_PLAYERS; k++) ok &= s->race.grid[order[k]] == k;
+    for (int i = 1; i < RACE_PLAYERS; i++) ok &= s->race.driver_letters[i] == letters[i];
+    ok &= s->race.players[0].lap_marks[(0x4c - 4) / 4] == ghost;
+    printf("next segment: grid");
+    for (int i = 0; i < RACE_PLAYERS; i++) printf(" %d", s->race.grid[i]);
+    printf(", letters");
+    for (int i = 0; i < RACE_PLAYERS; i++) printf(" %d", s->race.driver_letters[i]);
+    printf("%s\n", ok ? "" : "  FAIL");
+    return ok;
+}
+
 /* The skid ring wrapping to 0 has 004596a8 draw mark -1 (the original reads
  * before its table); the port reads its spare row. Under ASan, an overflow. */
 typedef struct {
@@ -191,6 +216,7 @@ int main(int argc, char **argv)
                car->node, moved, (i == 0 ? car->speed : car->ai_speed) / 65536.0, good ? "" : "  FAIL");
     }
     ok &= check_end(&sim);
+    ok &= check_carry(&sim, &tri, &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }

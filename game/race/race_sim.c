@@ -178,11 +178,33 @@ static void enter_body(void *ctx, Car *car, int32_t slot)
     if (pdn != NULL) car_body_init(car, pdn);
 }
 
+/* What the original keeps from the race before: its race words are globals
+ * no race clears, each start setting again only its own. The last results'
+ * order (004fa030, 0042748c's grid on a later segment), the opponents'
+ * drivers (004fba70, kept past segment 0 by 004702d4), the player records
+ * (0051cc54: 0045aab4 clears their bests and keeps a time trial's rival
+ * splits at +0x4c) and 0051cc50 (0045aab4 clears it on segment 0). */
+typedef struct {
+    PlayerRecord players[RACE_PLAYERS + 1];
+    int16_t results_order_short[9];
+    int32_t driver_letters[RACE_PLAYERS];
+    int32_t unknown_cc50;
+} RaceCarry;
+
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade)
 {
+    RaceCarry carry;
+    memcpy(carry.players, sim->race.players, sizeof carry.players);
+    memcpy(carry.results_order_short, sim->race.results_order_short, sizeof carry.results_order_short);
+    memcpy(carry.driver_letters, sim->race.driver_letters, sizeof carry.driver_letters);
+    carry.unknown_cc50 = sim->race.splits.unknown_cc50;
     memset(sim, 0, sizeof *sim);
     RaceState *race = &sim->race;
+    memcpy(race->players, carry.players, sizeof race->players);
+    memcpy(race->results_order_short, carry.results_order_short, sizeof race->results_order_short);
+    memcpy(race->driver_letters, carry.driver_letters, sizeof race->driver_letters);
+    race->splits.unknown_cc50 = carry.unknown_cc50;
     race->tri = tri;
     for (size_t i = 0; stem[i] != '\0' && i + 1 < sizeof race->track_name; i++)
         race->track_name[i] = (char)tolower((unsigned char)stem[i]);
