@@ -90,6 +90,8 @@ void config_dat_set_race(ConfigDat *c, const RaceSettings *s);
 
 int config_dat_unlock_level(const ConfigDat *c);
 void config_dat_set_unlock_level(ConfigDat *c, int level);
+/* 004322f8's 00524e67 = 100: the menus' volume before config.dat is read (the intro's movies at 00464698's level) */
+void config_dat_startup_volume(ConfigDat *c);
 /* Unlocks as derived in 00432ff4 from the unlock level. */
 Unlocks config_dat_unlocks(const ConfigDat *c);
 
