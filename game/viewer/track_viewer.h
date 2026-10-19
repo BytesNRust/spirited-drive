@@ -62,8 +62,9 @@ typedef struct TrackViewerLink {
     int32_t host;                       /* 004fbb0c */
     /* 004275f8's link start: 00410c18(2), 00410d80 (004fbac8, the queue's wait, to *wait_ticks), then 004273d0:
      * this machine's entry (its name filled in) to the host, and the host's setup back: each slot's entry at
-     * 004fb7fa + 0x4b x slot (a RaceEntry apart), the humans' names to `names` (0052ad44, NULL: none kept) */
-    const uint8_t *(*exchange)(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks);
+     * 004fb7fa + 0x4b x slot (a RaceEntry apart), the humans' names to `names` (0052ad44, NULL: none kept);
+     * *seed is 004fb7f4, written to the setup before (this machine's time) and read back after (the host's) */
+    const uint8_t *(*exchange)(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks, uint32_t *seed);
     void (*send)(int32_t to, const int16_t *words, int32_t size);  /* 00445e00 */
     void (*service)(void);              /* 00475c14(0): the transport's */
     int32_t (*wait)(int32_t stage);     /* 00410c18: nonzero when all came */

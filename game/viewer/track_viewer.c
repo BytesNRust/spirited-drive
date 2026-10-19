@@ -53,6 +53,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 enum {
     SCREEN_W = 640,
@@ -525,7 +526,7 @@ static void set_drive_viewport(const RaceState *race)
 enum {
     HEAD_TO_HEAD = 1,       /* RaceField.race_type */
     SINGLE_RACE = 2,
-    DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in (the frontend's is not read) */
+    DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in for --drive without the menus */
     FULL_FIELD = 8          /* entries[1].car asking 00457870 for the eight-car field */
 };
 
@@ -988,19 +989,21 @@ static void link_stand_in(int16_t player);
 static int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
 
 /* 004273d0 in a link game: this machine's entry (its car and aids, as a solo race's first) out, every slot's back */
-static const uint8_t *link_entries(int model)
+static const uint8_t *link_entries(int model, uint32_t *seed)
 {
     RaceEntry own;
     memset(&own, 0, sizeof own);
     own.car = model, own.automatic = 1;
     if (menus_on) own.automatic = menus.automatic, own.anti_lock = menus.anti_lock, own.traction = menus.traction;
-    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL, &link_wait_ticks);
+    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL, &link_wait_ticks, seed);
 }
 
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
-    const uint8_t *entries = drive_link_on ? link_entries(model) : NULL;  /* the host's setup's, 004fb7fa */
+    /* 004fb7f4: 004275f8's time(0), the race's random seed (00428fe0); --drive alone keeps a fixed one */
+    uint32_t seed = menus_on ? (uint32_t)time(NULL) : DRIVE_SEED;
+    const uint8_t *entries = drive_link_on ? link_entries(model, &seed) : NULL;  /* the host's setup's, 004fb7fa */
     if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
     CarSpecs specs;
     if (!load_specs(data_root, model, &specs)) return 0;
@@ -1017,7 +1020,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         race_field_counts(&field, race_sim_track_index(name), 0, drive_link_on);  /* 0052b312: no police in a link game */
         racers = field.racers;
     }
-    field.seed = DRIVE_SEED;
+    field.seed = seed;
     field.load = drive_load;
     drive_cars.data_root = data_root;
     drive_cars.tint.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };

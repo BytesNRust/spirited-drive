@@ -137,8 +137,9 @@ static int32_t ping_all(int32_t *wait_ticks)
  * as a solo race's), then 004273d0 with 0042702c's record (the kind word, then the entry with the player's name);
  * the host's setup says it is a link game's (004fb7d4 1) with the link's humans (004fb7e0, 004f81d2) as
  * race_from_menu sets them */
-static const uint8_t *exchange(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks)
+static const uint8_t *exchange(const RaceEntry *own, uint8_t *names, int32_t *wait_ticks, uint32_t *seed)
 {
+    enum { SETUP_SEED = 0x38 };  /* 004fb7f4: 004275f8's time(), set before 004273d0 sends the setup */
     static const RaceNetExchangeOps ops = { NULL, ex_setup_both, ex_host_setup, ex_send_setup, ex_keys, ex_send_info, ex_wait_setup };
     link_deadline(RACE_NET_NO_DEADLINE);
     const int32_t once = link_wait(2) == 0;
@@ -150,7 +151,9 @@ static const uint8_t *exchange(const RaceEntry *own, uint8_t *names, int32_t *wa
     names_at = names != NULL ? names : spare_names;
     if (menu_words.intro_seen != 0) put_setup_dword(SETUP_NET_GAME, 1), put_setup_dword(RACE_NET_SETUP_HUMANS, link_humans());
     RaceNetExchange x = { once, menu_words.intro_seen, menu_words.link_game, L->setup };
+    put_setup_dword(SETUP_SEED, (int32_t)*seed);
     race_net_exchange_setup(&ops, &x, record, record);
+    *seed = (uint32_t)setup_dword(SETUP_SEED);
     return L->setup + RACE_NET_SETUP_RECORD_A + 2;
 }
 
