@@ -115,7 +115,9 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     const uint8_t *own[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) own[i] = cars[i] != NULL ? cars[i]->own : NULL;
     race_palette_cars(&p, race, own, carpal);
-    if (hud != NULL) drive_hud_setup(hud, &p);  /* 00450838 after 004572e0, as 00455a5c */
+    if (hud != NULL && hud->cockpit_ready && hud->cockpit.palette != NULL)
+        cockpit_queue_palette(&p, hud->cockpit.palette);  /* 0041f988: the dashboard's 0..0x2f, after 004572e0 */
+    if (hud != NULL) drive_hud_setup(hud, &p);  /* 00450838 after 0041f988, as 00455a5c */
     race_palette_apply(&p);
     if (hud != NULL && hud->cockpit_ready)  /* 0041f818 whole: the dash bank onto the palette, 004f9744, ... */
         cockpit_colours(&p, race, &hud->cockpit, &hud->cockpit_world, &hud->hud, &hud->colours);
