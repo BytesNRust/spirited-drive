@@ -238,6 +238,7 @@ static void load_car(Track *t, const char *data_root, const char *name)
 
 static void free_track(Track *t)
 {
+    ported_view_forget_track();
     platform_free_file(t->car_file);
     platform_free_file(t->tri_file);
     platform_free_file(t->fam_file);

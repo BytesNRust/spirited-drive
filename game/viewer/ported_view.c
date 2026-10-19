@@ -656,6 +656,11 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
     }
 }
 
+void ported_view_forget_track(void)
+{
+    render.tri = NULL;
+}
+
 const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 {
     stream(tri, art, camera_node);

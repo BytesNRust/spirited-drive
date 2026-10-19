@@ -83,6 +83,9 @@ void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInf
  * headless ticks too). Returns the renderer whose cache (005041d8) and
  * segment mask (00504210) the mirror reads. */
 const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node);
+/* The track freed: the next stream binds its successor afresh (a stage's next
+ * segment loads into the same Tri, so the pointer alone does not tell). */
+void ported_view_forget_track(void);
 
 /* A car's pose and the road node whose row draws it; node -1 leaves it out. */
 typedef struct {
