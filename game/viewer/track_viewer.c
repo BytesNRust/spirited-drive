@@ -1003,8 +1003,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
     CarSpecs specs;
     if (!load_specs(data_root, model, &specs)) return 0;
+    int own = model;  /* the dash (0041f9a0) is this machine's car's: in a link race its slot's in the setup */
+    if (entries != NULL) memcpy(&own, entries + sizeof(RaceEntry) * (size_t)drive_link.slot + offsetof(RaceEntry, car), sizeof own);
     char stem[16];
-    car_stem(model, stem);
+    car_stem(own, stem);
     RaceField field;
     memset(&field, 0, sizeof field);
     field.racers = racers;
