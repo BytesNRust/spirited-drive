@@ -22,7 +22,7 @@
 #include <string.h>
 
 enum {
-    HIGH_RES = 1, ENGLISH = 0, SHAPE_8_BIT = 0x7b,
+    HIGH_RES = 1, SHAPE_8_BIT = 0x7b,
     LIVE_RACE = 1,      /* 004c5390: 00455a5c sets 1 once the race runs (0044e700 2 / 3 in replays) */
     PARTS_KEY_CONFIG = 0x4d /* 0052ad3e's default, 'M' */
 };
@@ -84,7 +84,7 @@ int drive_hud_read(DriveHud *h, const char *data_root)
     const int n = snprintf(dir, sizeof dir, "SIMDATA/MISC/");
     snprintf(h->root, sizeof h->root, "%s", data_root);
     DashFiles files;
-    if (n < 0 || n >= (int)sizeof dir || dash_load_paths(&files, dir, ENGLISH, HIGH_RES) != 0) return 0;
+    if (n < 0 || n >= (int)sizeof dir || dash_load_paths(&files, dir, (int16_t)resource_german(), HIGH_RES) != 0) return 0;
     h->bank = read_named(h->root, files.bank, (size_t)n);
     h->mmb = read_named(h->root, files.mmb, (size_t)n);
     if (h->bank == NULL || h->mmb == NULL) {
@@ -147,7 +147,7 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     memset(&h->keys, 0, sizeof h->keys);
     h->keys.armed = 1;  /* 004b9460's start */
     h->keys.use_parts = 1;  /* 0044ca3c */
-    h->parts_key = key_code((uint16_t)key_layout(PARTS_KEY_CONFIG, ENGLISH));  /* 00426ddc */
+    h->parts_key = key_code((uint16_t)key_layout(PARTS_KEY_CONFIG, (int16_t)resource_german()));  /* 00426ddc */
     h->parts_pending = 0;
     memset(h->map, 0, sizeof h->map);
     h->map[0] = SHAPE_8_BIT;
@@ -385,7 +385,7 @@ static void draw_police(DriveHud *h, RaceState *race, CockpitSurfaces *s)
 {
     const CockpitPoliceOps ops = { s, police_free_bank, police_load, police_palette_read, police_palette_write,
                                    police_palette_bank, cockpit_select, police_movie };
-    const CockpitPoliceInputs in = { 0, race->stop_notice[0], 0, 0, "",
+    const CockpitPoliceInputs in = { 0, race->stop_notice[0], (int16_t)resource_german(), 0, "",
                                      view_clip_inputs(s->screen.pitch, s->screen.clip_bottom) };
     const int had = h->police.screen_bank != NULL;
     if (cockpit_police(&ops, &h->cockpit, &h->police, &h->hud, &in) != 0 && !had)
@@ -538,7 +538,7 @@ static void frame_gauges(void *ctx)
     NeedleLine *line = &h->needle_line;
     line->left = h->colours.line_left, line->top = h->colours.line_top;
     line->right = h->colours.line_right, line->bottom = h->colours.line_bottom;
-    const CockpitGaugeInputs in = { f->car->rpm, f->redline, f->car->local_velocity_z, f->car->model, HIGH_RES, ENGLISH,
+    const CockpitGaugeInputs in = { f->car->rpm, f->redline, f->car->local_velocity_z, f->car->model, HIGH_RES, (int16_t)resource_german(),
                                     h->colours.fade };
     cockpit_gauges(f->target, line, &h->cockpit, &in);
 }
@@ -642,7 +642,7 @@ static void strip_draw(DriveHud *h, RaceState *race, const Car *car, uint8_t *pi
 {
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
     draw_keys(h, race, &t);
-    hud_draw_top_row(&t, &h->hud, &h->art, race, car, ENGLISH, HIGH_RES, h->strip_colour);
+    hud_draw_top_row(&t, &h->hud, &h->art, race, car, (int16_t)resource_german(), HIGH_RES, h->strip_colour);
     if (pixels == NULL) return;
     const int w = width < DRIVE_HUD_W ? width : DRIVE_HUD_W;
     for (int y = 0; y < DRIVE_HUD_H && y < height; y++)
@@ -711,7 +711,7 @@ static void hud_top_row(void *ctx)
     HudCalls *c = ctx;
     DriveHud *h = c->s->h;
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
-    hud_draw_top_row(&t, &h->hud, &h->art, c->s->race, c->car, ENGLISH, HIGH_RES, h->strip_colour);
+    hud_draw_top_row(&t, &h->hud, &h->art, c->s->race, c->car, (int16_t)resource_german(), HIGH_RES, h->strip_colour);
     uint8_t *pixels = c->s->screen.pixels;
     for (int y = 0; y < DRIVE_HUD_H && y < c->height; y++)
         memcpy(pixels + (size_t)y * (size_t)c->width, h->strip + (size_t)y * DRIVE_HUD_W, DRIVE_HUD_W);

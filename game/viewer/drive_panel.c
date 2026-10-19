@@ -7,8 +7,9 @@
 #include "game/race/dash_controls.h"
 #include "game/race/race_pointer.h"
 #include "game/sys/pointer.h"
+#include "game/sys/resource.h"
 
-enum { HIGH_RES = 1, ENGLISH = 0, START_VIEW = 3, NAME_STRIDE = 0x95 };
+enum { HIGH_RES = 1, START_VIEW = 3, NAME_STRIDE = 0x95 };
 
 typedef struct {
     DrivePanel *p;
@@ -80,7 +81,7 @@ static void dash_buttons(void *ctx)
 {
     PanelCalls *c = ctx;
     const ReplayPanelDrawOps ops = draw_ops(c);
-    dash_controls_buttons(c->d->dash, HIGH_RES, ENGLISH, &ops, inside);
+    dash_controls_buttons(c->d->dash, HIGH_RES, (int16_t)resource_german(), &ops, inside);
 }
 
 static void dash_time(void *ctx, int32_t ticks, int32_t x, int32_t y, int32_t step, int32_t space)
