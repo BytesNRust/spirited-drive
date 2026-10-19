@@ -107,6 +107,9 @@ static void settings_put(const RaceSettings *s)
  * before a path that reads it from there, and before the image is saved (0042a504) */
 static void level_to_image(void) { config_dat_set_unlock_level(config_current(), g.unlock_level); }
 
+/* 0052b2d6..0052b2e8, the tournament's races by track that 00432ff4 sums: the menus' game state's (+0x592) */
+static void races_from_state(void) { memcpy(g.races, game_state + 0x592, sizeof g.races); }
+
 static Unlocks unlocks_of(void) { return (Unlocks){ g.unlock_m, g.unlock_r, g.lost_vegas, g.hidden, g.warrior }; }
 
 static void unlocks_put(const Unlocks *u)
@@ -643,6 +646,7 @@ static void race(void *ctx)
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) settings_put(&after);
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    races_from_state();
 }
 
 /* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */
@@ -921,6 +925,7 @@ static void load_save(void *ctx, int32_t mode)
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    races_from_state();
 }
 
 /* load_save_menu2 (0042d894) from 00403760 (mode 1, check/'s art) on config.dat's image, as load_save; its tournament's races (the
@@ -954,6 +959,7 @@ static void load_save2(void *ctx, int32_t mode)
     memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    races_from_state();
 }
 static void save_config(void *ctx) { (void)ctx; config_save(); }
 
@@ -1113,6 +1119,7 @@ static void load(void)
     }
     settings_put(&s);
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    races_from_state();
 }
 
 /* 00466ae4 before Control Central: the game state for a new tournament (the controls, the names: config.dat's for
@@ -1155,7 +1162,7 @@ int32_t glue_central(void)
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
         show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, cheat_step,
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
-        music_pick, step_race_type, track_forward, track_backward, nothing, no_mode, track_select, art_free, options,
+        music_pick, step_race_type, track_forward, track_backward, nothing, standings, track_select, art_free, options,
         chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off, NULL };
     load();
     ControlCentralState st = {
