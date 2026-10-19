@@ -32,7 +32,7 @@ int32_t glue_central(void);             /* 00432ff4 (central_glue.c): 2 the time
 void glue_game_reset(void);            /* 00466ae4 (central_glue.c) */
 int16_t glue_movies(void);             /* the short 0052b2fc, the game state's +0x5b8 (central_glue.c) */
 int32_t glue_check_options(int32_t mode);  /* 00403760 (central_glue.c): the options after a race, eax 0 or 1 */
-void glue_drive_race(int32_t track, int32_t variant, int32_t car, int32_t race_type, int32_t variant_m,
+void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_type, int32_t variant_m,
                      int32_t variant_r);  /* --drive (central_glue.c) */
 void glue_settings_to_config(void);    /* a window closed: Control Central's race settings into config.dat's image */
 

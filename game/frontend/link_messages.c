@@ -152,7 +152,7 @@ static void handle(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, 
     static const RaceNetSlotOps slots = { NULL, slot_of };
     switch (kind) {
     case 0: {
-        RaceNetInfoIn in = { L->flags_b, L->infos };
+        RaceNetInfoIn in = { L->flags_b, L->setup + RACE_NET_SETUP_RECORD_A };
         race_net_on_info(&slots, &in, link, data);
         break;
     }

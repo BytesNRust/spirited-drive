@@ -350,6 +350,7 @@ add_executable(tnfs
     game/viewer/asset_viewer.c
     game/viewer/drive_palette.c
     game/viewer/drive_smoke.c
+    game/viewer/drive_autopilot.c
     game/viewer/drive_input.c
     game/viewer/drive_joy.c
     game/viewer/drive_keys.c

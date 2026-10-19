@@ -36,6 +36,7 @@
 #include "game/race/race_view.h"
 #include "viewer/drive_audio.h"
 #include "viewer/drive_hud.h"
+#include "viewer/drive_autopilot.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_joy.h"
 #include "viewer/drive_keys.h"
@@ -984,10 +985,23 @@ static int load_specs(const char *data_root, int model, CarSpecs *specs)
 
 static void link_stand_in(int16_t player);
 
+static int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
+
+/* 004273d0 in a link game: this machine's entry (its car and aids, as a solo race's first) out, every slot's back */
+static const uint8_t *link_entries(int model)
+{
+    RaceEntry own;
+    memset(&own, 0, sizeof own);
+    own.car = model, own.automatic = 1;
+    if (menus_on) own.automatic = menus.automatic, own.anti_lock = menus.anti_lock, own.traction = menus.traction;
+    return drive_link.exchange(&own, menus_on ? menus.game_state : NULL, &link_wait_ticks);
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
-    if (drive_link_on) model = drive_link.cars[0];  /* slot 0's specs are the host's car's */
+    const uint8_t *entries = drive_link_on ? link_entries(model) : NULL;  /* the host's setup's, 004fb7fa */
+    if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
     CarSpecs specs;
     if (!load_specs(data_root, model, &specs)) return 0;
     char stem[16];
@@ -1023,12 +1037,14 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * gets 00457870's field of eight different cars (004c5628); any other
      * car there would race seven copies of it. */
     if (field.race_type == SINGLE_RACE && racers > 1 && !drive_link_on) field.entries[1].car = FULL_FIELD;
-    for (int i = 0; drive_link_on && i < drive_link.humans && i < racers; i++) {  /* the machines' cars */
-        field.entries[i].car = drive_link.cars[i];
-        if (i > 0 && !load_specs(data_root, drive_link.cars[i], &human_specs[i])) return 0;
+    for (int i = 0; entries != NULL && i < drive_link.humans && i < racers; i++) {  /* the machines' entries */
+        memcpy(&field.entries[i], entries + sizeof(RaceEntry) * (size_t)i, sizeof field.entries[i]);
+        if (i > 0 && !load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
         field.specs[i] = i > 0 ? &human_specs[i] : NULL;
     }
     if (drive_link_on) field.humans = drive_link.humans;
+    for (int i = 0; drive_autopilot_on() && i < (drive_link_on ? drive_link.humans : 1); i++)
+        field.entries[i].automatic = 1;  /* port: test harness only: the autopilot drives an automatic */
     if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed and its humans' specs */
         field = replay_of->field;
         field.load = drive_load;
@@ -1393,6 +1409,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
+    w.wait_ticks = drive_link_on ? link_wait_ticks : 0;
     w.music_on = menus_on ? (int16_t)menus.music : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
