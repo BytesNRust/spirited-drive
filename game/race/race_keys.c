@@ -1,6 +1,8 @@
 /* The race's key commands (race_keys.h). */
 #include "game/race/race_keys.h"
 
+#include <string.h>
+
 #include "game/gfx/x86_int.h"
 
 #include <stddef.h>
@@ -98,4 +100,12 @@ void race_keys(const RaceKeysOps *ops, RaceKeysState *st, const RaceKeysInputs *
     for (size_t k = 0; k < sizeof CAMERA_KEYS / sizeof CAMERA_KEYS[0]; k++)
         if (in->keys[CAMERA_KEYS[k].key] != 0) bits |= CAMERA_KEYS[k].bit;
     st->camera_keys = bits;
+}
+
+void race_keys_start(RaceKeysState *st, const RaceKeysState *was)
+{
+    const RaceKeysState kept = was != NULL ? *was : (RaceKeysState){ .hold_armed = 1 };
+    memset(st, 0, sizeof *st);
+    st->hold_armed = kept.hold_armed, st->fkey_held = kept.fkey_held, st->w4c2d80 = kept.w4c2d80;
+    st->hidden = kept.hidden, st->f5 = kept.f5;
 }

@@ -7,6 +7,7 @@
 #include "formats/tri.h"
 #include "game/race/car_body.h"
 #include "game/race/car_load.h"
+#include "game/race/race_keys.h"
 #include "game/race/race_sim.h"
 #include "game/race/skid_marks.h"
 #include "game/race/view.h"
@@ -173,15 +174,30 @@ static int check_globals(const Tri *tri, const CarSpecs *specs, RaceField *field
     race_sim_start_field(&fresh, tri, "TR1", specs, field, 1, 0);
     const RaceState *r = &fresh.race;
     int ok = r->camera_tilt == 0x10000 && r->default_profile_odds == 40 && (int16_t)r->engine_sound.channel == 7 &&
-             r->strip_best_60 == 99999 && r->stop_notice_tick == -1000;
+             r->strip_best_60 == 99999 && r->stop_notice_tick == -1000 && r->chase_auto == 1 && r->unknown_4c539c == 2;
     printf("first race: tilt %#x, odds %d, engine channel %d, best 0-60 %d, notice %d%s\n", (unsigned)r->camera_tilt,
            r->default_profile_odds, (int16_t)r->engine_sound.channel, r->strip_best_60, r->stop_notice_tick,
            ok ? "" : "  FAIL");
-    fresh.race.wheel_counter = 5, fresh.race.launch_end = 1234;
+    fresh.race.wheel_counter = 5, fresh.race.launch_end = 1234, fresh.race.chase_auto = 0, fresh.race.sound_silent = 1;
     race_sim_start_field(&fresh, tri, "TR1", specs, field, 1, 0);
-    const int kept = r->wheel_counter == 5 && r->launch_end == 1234 && r->camera_tilt == 0x10000;
+    const int kept = r->wheel_counter == 5 && r->launch_end == 1234 && r->camera_tilt == 0x10000 &&
+                     r->chase_auto == 0 && r->sound_silent == 1;
     printf("next race keeps the race's words: %s\n", kept ? "yes" : "no  FAIL");
     return ok && kept;
+}
+
+/* 004381f8's own words through a race start (race_keys_start): F5's sound off, F6's marks off and the hold key's
+ * arming stay, 1 as the exe starts; the screen words start again */
+static int check_keys_start(void)
+{
+    RaceKeysState st, was;
+    race_keys_start(&st, NULL);
+    int ok = st.hold_armed == 1 && st.f5 == 0 && st.hidden == 0;
+    was = st, was.f5 = 1, was.hidden = 1, was.hold_armed = 0, was.viewed = 3;
+    race_keys_start(&st, &was);
+    ok &= st.f5 == 1 && st.hidden == 1 && st.hold_armed == 0 && st.viewed == 0;
+    printf("keys through a race start: F5 %d, F6 %d, hold %d%s\n", st.f5, st.hidden, st.hold_armed, ok ? "" : "  FAIL");
+    return ok;
 }
 
 /* AL3 keeps the third surface's off_road from AL2 (004fa9b0 a global race_surfaces_init leaves there): its shoulder
@@ -317,6 +333,7 @@ int main(int argc, char **argv)
     ok &= check_surfaces(&sim, argv[1], &specs, &field);
     ok &= check_camera(&sim, &tri, &specs, &field);
     ok &= check_globals(&tri, &specs, &field);
+    ok &= check_keys_start();
     free(tri_file);
     return ok ? 0 : 1;
 }

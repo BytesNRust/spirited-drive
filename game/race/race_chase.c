@@ -160,7 +160,6 @@ void race_chase_init(RaceState *race)
 {
     memcpy(race->chase_kinds, KINDS, sizeof KINDS);
     memcpy(race->cameras, CAMERAS, sizeof CAMERAS);
-    race->chase_auto = 1;  /* 004b7a28 as the exe holds it */
 }
 
 /* 0042ebbc(eax, edx) */

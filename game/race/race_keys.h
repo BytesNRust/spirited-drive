@@ -73,4 +73,9 @@ typedef struct {
  *   0x2000000. */
 void race_keys(const RaceKeysOps *ops, RaceKeysState *st, const RaceKeysInputs *in);
 
+/* A race's start: 004381f8's own words stay as the race before left them (globals no start writes): the hold key's
+ * arming (004bb080, 1 as the exe starts: `was` NULL), the function key held (004bb084), Alt + M (004c2d80), F6's
+ * marks off (004fb78b) and F5's sound off (004bafe0); the rest of st starts at 0. */
+void race_keys_start(RaceKeysState *st, const RaceKeysState *was);
+
 #endif

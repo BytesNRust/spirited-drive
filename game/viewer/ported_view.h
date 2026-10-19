@@ -38,6 +38,8 @@ void ported_view_set_viewport(const PortedViewport *viewport);
 
 /* 004fb786 (F4, 004381f8): the sky off, flat colours in place of the horizon's bitmap or ring. */
 void ported_view_set_sky_off(int off);
+/* 004fb78b (F6, 004381f8): no marks over the other racers (00459064) */
+void ported_view_set_tags_hidden(int hidden);
 /* 00513e70, the race's tick: 0044a4b0's animated boards step on it (tick / +9 % +8); 0 still */
 void ported_view_set_tick(int32_t tick);
 

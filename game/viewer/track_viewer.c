@@ -1436,6 +1436,7 @@ static void run_frame(void *ctx, int32_t frame)
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
     take_detail(&drive_keys.detail_pending);
     ported_view_set_sky_off(drive_keys.state.w4fb786);
+    ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }

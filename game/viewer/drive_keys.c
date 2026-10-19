@@ -92,8 +92,12 @@ static void sound_on(void *ctx) { race_sound_unmute(((KeysCtx *)ctx)->race, musi
 
 void drive_keys_start(DriveKeys *k)
 {
+    const RaceKeysState was = k->state;
+    const int loaded = k->loaded;
     memset(k, 0, sizeof *k);
+    race_keys_start(&k->state, loaded ? &was : NULL);
     k->detail_pending = -1;  /* 004c5360: nothing asked for */
+    k->loaded = 1;
 }
 
 void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *views)

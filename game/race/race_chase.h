@@ -9,7 +9,8 @@
 #include <stdint.h>
 
 /* The kinds' rows and the cameras as the exe starts them (004b6bb0,
- * 004b78a8); the record is left to race_chase_follow. */
+ * 004b78a8); the record is left to race_chase_follow, 004b7a28 (chase_auto)
+ * to race_sim, which keeps it from the race before. */
 void race_chase_init(RaceState *race);
 
 /* 00404530: chase follows `car` (nothing when NULL) from its position and

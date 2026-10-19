@@ -488,12 +488,19 @@ static void render_trail(void *ctx, const int32_t offset[2])
     crash_trail_draw(puff_trail, offset, &v);
 }
 
+static uint8_t tags_hidden;  /* 004fb78b */
+
+void ported_view_set_tags_hidden(int hidden)
+{
+    tags_hidden = (uint8_t)hidden;
+}
+
 /* 00459064 */
 static void render_tag(void *ctx, int32_t x, int32_t y, int32_t slot, int32_t z)
 {
     if (tag_colours == NULL || slot < 0 || slot >= tag_colour_count) return;
     const CarTagOps ops = { (void *)((BodyCtx *)ctx)->target, tag_polygon, tag_line };
-    const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, shadow_race->humans, 0 };
+    const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, shadow_race->humans, tags_hidden };
     car_tag(&ops, &v, x, y, slot, z);
 }
 

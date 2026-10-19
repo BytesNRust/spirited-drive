@@ -12,6 +12,7 @@ typedef struct {
     RaceKeysState state;
     int32_t detail_pending;   /* 004c5360 (0044c1bc), -1 none: the frame takes it (0044cc74's detail step) */
     int32_t w51371c;          /* 0051371c (0044f9ac) */
+    int loaded;               /* the kept words hold the exe's first values (drive_keys_start) */
 } DriveKeys;
 
 void drive_keys_start(DriveKeys *k);

@@ -199,7 +199,8 @@ static const struct { size_t at, size; } KEPT[] = {
     KEEP(arcade_turn_limit), KEEP(strip_brake_80_tick), KEEP(strip_brake_60_tick), KEEP(strip_best_60),
     KEEP(strip_best_100), KEEP(strip_best_quarter), KEEP(strip_start_tick), KEEP(strip_start_progress),
     KEEP(engine_sound), KEEP(sound_pitch), KEEP(camera_tilt), KEEP(default_profile_odds), KEEP(ai.curve_pace),
-    KEEP(ai.bend), KEEP(ai.gap_step), KEEP(ai.unknown_364), KEEP(ai.last_lane_width)
+    KEEP(ai.bend), KEEP(ai.gap_step), KEEP(ai.unknown_364), KEEP(ai.last_lane_width),
+    KEEP(unknown_4c539c), KEEP(chase_auto), KEEP(sound_silent)
 };
 #undef KEEP
 
@@ -207,6 +208,7 @@ enum {
     STRIP_UNSET_AT_START = 99999,   /* 004bae84, 004bae88, 004bae8c */
     NOTICE_TICK_AT_START = -1000,   /* 004b92e4 */
     REPLAY_TICKS_AT_START = 4,      /* 004c5398 */
+    REPLAY_PAUSE_AT_START = 2,      /* 004c539c */
     CAMERA_TILT_AT_START = 0x10000, /* 004b91cc, never written */
     PROFILE_ODDS_AT_START = 40,     /* 004c5d20, never written */
     ENGINE_LEVEL_AT_START = 0x7f,   /* 004bcb6c */
@@ -228,6 +230,8 @@ static void race_globals_load(RaceState *race)
     race->engine_sound.pitch = HELD_PITCH_AT_START;  /* 004bcb7c */
     race->engine_sound.rising = 1;                   /* 004bcb88 */
     for (int i = 0; i < HELD_PITCHES; i++) race->sound_pitch[i] = HELD_PITCH_AT_START;
+    race->unknown_4c539c = REPLAY_PAUSE_AT_START;
+    race->chase_auto = 1;  /* 004b7a28 */
     race->camera_tilt = CAMERA_TILT_AT_START;
     race->default_profile_odds = PROFILE_ODDS_AT_START;
 }
