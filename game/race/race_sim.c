@@ -70,10 +70,10 @@ static void no_start_line(void *user, int32_t player)
     (void)user, (void)player;
 }
 
-static void no_event(void *user)
-{
-    (void)user;
-}
+/* 0044435c / 00444394: the followed car's engine sounds stopped as it crashes and started again once it is back
+ * (the latter lets the controls' buffeting go) */
+static void sim_stop_engine(void *user) { race_sound_stop_engine(user); }
+static void sim_start_engine(void *user) { race_sound_start_engine(user); }
 
 static void no_buffet(void *user, int32_t speed, int32_t kick)
 {
@@ -231,7 +231,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->siren_count = 3;     /* 004c5fb4 and 004c5fbc as the exe starts */
     race->siren_pitch = 0x40;
     race->crash_sound_level = CRASH_SOUND_QUIET;
-    race->sounds = (RaceSounds){ race, sim_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, no_event, no_event, no_buffet, no_camera, no_jolt, NULL,
+    race->sounds = (RaceSounds){ race, sim_sound, no_speech, no_tone, sim_push, sim_crash, no_start_line, sim_stop_engine, sim_start_engine, no_buffet, no_camera, no_jolt, NULL,
                                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
     memcpy(race->entries, field->entries, sizeof race->entries);
     /* 004275f8: 0042748c (the grid places), 00428fe0 with 004fb7f4, then
