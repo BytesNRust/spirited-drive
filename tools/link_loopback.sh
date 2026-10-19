@@ -21,7 +21,8 @@
 # the results screen is answered; raise it for a slower build. The logs stay in
 # OUT_DIR (default: a new temporary directory); CLIENT_CONFIG=FILE is the first
 # client's config.dat (its name, car and gearbox); CAPTURE_EVERY=N also keeps
-# every Nth frame there (OUT_DIR/NAME/cap, PPMs: delete them after).
+# every Nth frame there (OUT_DIR/NAME/cap, PPMs: delete them after); CLIENT_IDLE=1: the clients press nothing after
+# the race (only the host answers the screens); TAIL (300 s): continue mode's time past the results.
 set -euo pipefail
 
 build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]}
@@ -47,7 +48,7 @@ viewer="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,12000:DOWN,
 # The steps after the race, at the host's times (the client's DELAY s earlier)
 case $mode in
 finish)   after=""; secs=$((at / 1000 - 20)) ;;
-continue) after="0:ENTER,20000:ENTER"; secs=$((at / 1000 + 300)) ;;
+continue) after="0:ENTER,20000:ENTER"; secs=$((at / 1000 + ${TAIL:-300})) ;;
 quit | quitclick)
           yes=Y
           [ "$mode" = quitclick ] && yes=CLICK:230:262  # the box's Yes
@@ -85,7 +86,9 @@ for i in $(seq 1 $((clients + viewers))); do
     [ "$k" -gt 1 ] && name=$kind$k
     machines="$machines $name"
     start=$(( delay + (i - 1) * stagger ))
-    run "$name" "$script$(steps $((start * 1000)))" $((secs - start)) $((15000 + i)) --net-host 127.0.0.1:15000 &
+    after_steps=$(steps $((start * 1000)))
+    [ "$kind" = client ] && [ -n "${CLIENT_IDLE:-}" ] && after_steps=""  # the client's user answers none of the screens
+    run "$name" "$script$after_steps" $((secs - start)) $((15000 + i)) --net-host 127.0.0.1:15000 &
     sleep "$stagger"
 done
 wait
