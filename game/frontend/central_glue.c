@@ -110,6 +110,12 @@ static void level_to_image(void) { config_dat_set_unlock_level(config_current(),
 /* 0052b2d6..0052b2e8, the tournament's races by track that 00432ff4 sums: the menus' game state's (+0x592) */
 static void races_from_state(void) { memcpy(g.races, game_state + 0x592, sizeof g.races); }
 
+/* The short 0052b302: set while 00427ae0 runs a stage (menu_race.c), the link game's in a link game; the option
+ * screens read it for their art and, while clear, keep a link game in step (004104d0) */
+static int16_t solo_52b302;
+static int16_t *word_52b302(void) { return menu_words.link_game != 0 ? &link_game.unknown_52b302 : &solo_52b302; }
+static void net_sync(void *ctx) { (void)ctx, link_sync(); }
+
 static Unlocks unlocks_of(void) { return (Unlocks){ g.unlock_m, g.unlock_r, g.lost_vegas, g.hidden, g.warrior }; }
 
 static void unlocks_put(const Unlocks *u)
@@ -626,11 +632,11 @@ static void race(void *ctx)
     static int32_t ghost[MENU_RACE_GHOST];
     static const int16_t no_link = 0;
     static const int32_t player = 0, font = 0, host = 0;
-    int16_t net_off = 0, link_done = 0;
+    int16_t link_done = 0;
     race_warrior = g.warrior;
     const int linked = menu_words.link_game != 0;
     const MenuRaceState st = {
-        config->image, game_state, linked ? &link_game.unknown_52b302 : &net_off, race_times, ghost,
+        config->image, game_state, word_52b302(), race_times, ghost,
         linked ? &menu_words.link_game : &no_link, linked ? &menu_words.link_lost : &no_link, pointer_active_word(),
         linked ? &menu_words.single : &player, &font, ea_screen_slot(), &race_warrior, &g.unlock_m, &g.unlock_r,
         &g.lost_vegas, linked ? &menu_words.intro_seen : &host, linked ? &link_game.flags_a[7] : &link_done };
@@ -742,18 +748,18 @@ static int32_t capture(void *ctx, char *name)
 }
 static void controls(void *ctx, int32_t mode)
 {
-    static const int16_t no_joystick_b = 0, quit = 0, net_off = 1;  /* no second joystick, no link game */
+    static const int16_t no_joystick_b = 0, quit = 0;  /* no second joystick */
     static const int32_t no_calibration = 0;  /* 0043bc00 dropped: no Calibrate item */
     const int16_t german = (int16_t)resource_german();
     int32_t *const screen = ea_screen_slot();
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
-                                   pointer_active_word(), &g.buttons, screen, &g.inverse, &net_off, &quit };
+                                   pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit };
     const ControlsMenuOps ops = {
         picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
         styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
         select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
-        glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, nothing,
+        glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
         picture_free, free_bank, ctx };
     controls_menu(&st, mode, &ops);
     controls_in();
@@ -788,7 +794,7 @@ static void audio(void *ctx, int32_t mode)
 {
     enum { AUDIO_MODE_AT = 0x71 };  /* 00524e61 */
     static int16_t small_stream;
-    static const int16_t no_modes = 1, bit0 = 1, sound_alt = 0, sound_on = 1, net_off = 1;
+    static const int16_t no_modes = 1, bit0 = 1, sound_alt = 0, sound_on = 1;
     static const int32_t voice_4a = 0, voice = 0;
     const int16_t german = (int16_t)resource_german();
     memset(config_current()->image + AUDIO_MODE_AT, 0, sizeof(int16_t));
@@ -797,7 +803,7 @@ static void audio(void *ctx, int32_t mode)
     const AudioMenuState st = {
         config_current()->image + 9, menu_audio_silent(), menu_audio_kept(), &no_modes, &bit0, &sound_alt, &menu_words.link_game,
         &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &g.buttons, ea_screen_slot(),
-        &g.inverse, &small_stream, &net_off, &no_quit };
+        &g.inverse, &small_stream, word_52b302(), &no_quit };
     const AudioMenuOps ops = {
         music_fade_out, music_end, audio_track_music, picture_new, move_to, load_art, no_inverse, music_feed, shape,
         palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
@@ -805,7 +811,7 @@ static void audio(void *ctx, int32_t mode)
         show, audio_buttons, styles, fade_in, deadline_set, deadline_passed, nothing, music, nothing, blit_masked,
         ticks, audio_activate, key, key, click, music_end, audio_voice, audio_effects, music_fade_to,
         audio_effects_volume,
-        glue_banner, sound_free, nothing, sound_load, off, nothing, fade_out, free_handle_inverse, picture_free,
+        glue_banner, sound_free, nothing, sound_load, off, net_sync, fade_out, free_handle_inverse, picture_free,
         free_bank, music_pick, music_start, ctx };
     audio_menu(&st, mode, &ops);
     opt_out();
@@ -816,14 +822,13 @@ static void audio(void *ctx, int32_t mode)
 static void graphics(void *ctx, int32_t mode)
 {
     static int16_t showing;  /* 004f9e8c */
-    static const int16_t net_off = 1;
     opt_in();
-    const GraphicsMenuState st = { config_current()->image + 9, &showing, &net_off, pointer_active_word(), &g.buttons,
+    const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
                                    ea_screen_slot(), &g.inverse, &no_quit };
     const GraphicsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
-        nothing, ticks, activate, key, click, off, music, nothing, deadline_passed, fade_out, free_handle_inverse,
+        nothing, ticks, activate, key, click, off, music, net_sync, deadline_passed, fade_out, free_handle_inverse,
         free_bank, ctx };
     input_function_keys(&showing);
     graphics_menu(&st, mode, &ops);
@@ -1093,14 +1098,13 @@ static void options(void *ctx)
         move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
-        music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, nothing,
+        music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
         deadline_passed, ctx };
-    static const int16_t net_off = 1;  /* 0052b302: no link game to keep in step */
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
         &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
-        &net_off, &no_quit, &menu_words.redraw };
+        word_52b302(), &no_quit, &menu_words.redraw };
     options_menu(&st, &ops);
     opt_in();
     RaceSettings after = before;
