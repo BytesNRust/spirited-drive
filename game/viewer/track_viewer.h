@@ -40,7 +40,7 @@ typedef struct {
     int anti_lock;      /* 00524e89 1 */
     int traction;       /* 00524e7f 1 */
     int laps;           /* 00524ea1, 0 the drive's 2 */
-    int opponent;       /* 00524e81: the head to head rival's car */
+    int opponent;       /* the head to head rival's car model: 00524e81's pick through 00426620 */
     int music;          /* 00524e63: the music setting, 0 none */
     int music_volume;   /* the short 00524e65 */
     int sound_volume;   /* the short 00524e69 */
