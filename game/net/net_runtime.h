@@ -20,15 +20,23 @@
 #include "game/net/net_service.h"
 #include "game/net/net_udp_service.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* A session record and the inline blocks the original keeps inside it
- * (+0x14, +0x28, +0x3c, +0x70, +0x84) */
+ * (+0x14, +0x28, +0x3c, +0x70, +0x84), in its order: the join record
+ * (NET_RECORD bytes from self) carries text_3c at its +0x14 and text_70 at
+ * its +0x48 */
 typedef struct {
     NetSession s;
-    uint8_t self[NET_ADDRESS], address[NET_ADDRESS], guid[NET_GUID];
+    uint8_t address[NET_ADDRESS], self[NET_ADDRESS];
     char text_3c[NET_TEXT_3C], text_70[NET_TEXT_70];
+    uint8_t guid[NET_GUID];
 } NetSessionRecord;
+typedef char net_session_record_check[offsetof(NetSessionRecord, text_3c) - offsetof(NetSessionRecord, self) == 0x14 &&
+                                              offsetof(NetSessionRecord, text_70) - offsetof(NetSessionRecord, self) == 0x48 &&
+                                              offsetof(NetSessionRecord, guid) - offsetof(NetSessionRecord, self) == NET_RECORD
+                                          ? 1 : -1];
 
 /* The game server's record (00474cdc's "netserv") with its inline blocks */
 typedef struct {
