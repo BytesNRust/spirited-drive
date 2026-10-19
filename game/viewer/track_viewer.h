@@ -53,6 +53,7 @@ typedef struct {
     int32_t explode;    /* 004c5cd4: the EXPLODE cheat, read by the race (0046c490) */
     int32_t start_boost;  /* 004faa50: the NITRO cheat, the player's start keys read (0042f138) */
     const char *name;   /* 00524df0: the player's name, 0042702c's first record's (NULL: "Player") */
+    int track;          /* 00524e85: the menus' track, 0..2 the stages (the results keep a circuit's laps past them) */
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
 

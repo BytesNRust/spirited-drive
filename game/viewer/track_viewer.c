@@ -527,6 +527,7 @@ enum {
     HEAD_TO_HEAD = 1,       /* RaceField.race_type */
     SINGLE_RACE = 2,
     DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in for --drive without the menus */
+    REPLAY_KIND = 1,        /* 00524e9f for a replay played back (0042c498's 1..3): any set */
     FULL_FIELD = 8          /* entries[1].car asking 00457870 for the eight-car field */
 };
 
@@ -1064,6 +1065,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
     if (menus_on && replay_of == NULL)  /* the cheats' words, shared with the menus in the original */
         drive_sim.race.unknown_4c5cd4 = menus.explode, drive_sim.race.start_input = menus.start_boost;
+    /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the
+     * results and records are left alone, 0045af80) with 00524ea1 the laps above it */
+    drive_sim.race.frontend_track = menus_on && replay_of == NULL ? menus.track : race_sim_track_index(name);
+    drive_sim.race.frontend_laps_word = (int32_t)((uint32_t)(uint16_t)laps << 16) | (replay_of != NULL ? REPLAY_KIND : 0);
     if (drive_link_on) {  /* 004275f8 in a link game: 0052b312 1, this machine's car followed and viewed, its side */
         RaceState *race = &drive_sim.race;
         race->playback = 1, race->player = race->viewed = drive_link.slot;
