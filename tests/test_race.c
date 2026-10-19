@@ -150,6 +150,32 @@ static int check_dropped(RaceSim *s, const Tri *tri, const CarSpecs *specs, Race
     return moved == 0;
 }
 
+/* AL3 keeps the third surface's off_road from AL2 (004fa9b0 a global race_surfaces_init leaves there): its shoulder
+ * is snow, dirt puffs and the off-road sounds */
+static int check_surfaces(RaceSim *s, const char *simdata, const CarSpecs *specs, RaceField *field)
+{
+    static const char *const STEMS[2] = { "AL2", "AL3" };
+    uint8_t *files[2] = { NULL, NULL };
+    Tri tris[2];
+    int ok = 1;
+    for (int k = 0; k < 2 && ok; k++) {
+        char path[512];
+        size_t size = 0;
+        snprintf(path, sizeof path, "%s/MISC/%s.TRI", simdata, STEMS[k]);
+        files[k] = read_file(path, &size);
+        ok = files[k] != NULL && tri_open(&tris[k], files[k], size) == TRI_OK;
+    }
+    if (ok) {
+        field->track_flags = 0;
+        race_sim_start_field(s, &tris[0], STEMS[0], specs, field, 1, 0);
+        race_sim_start_field(s, &tris[1], STEMS[1], specs, field, 1, 0);
+        ok = s->race.surfaces[2].off_road == 1;
+    }
+    printf("AL3 shoulder off road: %d%s\n", s->race.surfaces[2].off_road, ok ? "" : "  FAIL");
+    free(files[0]), free(files[1]);
+    return ok;
+}
+
 /* The skid ring wrapping to 0 has 004596a8 draw mark -1 (the original reads
  * before its table); the port reads its spare row. Under ASan, an overflow. */
 typedef struct {
@@ -254,6 +280,7 @@ int main(int argc, char **argv)
     ok &= check_carry(&sim, &tri, &specs, &field);
     ok &= check_flags(&sim, &tri, &specs, &field);
     ok &= check_dropped(&sim, &tri, &specs, &field);
+    ok &= check_surfaces(&sim, argv[1], &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }
