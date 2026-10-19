@@ -34,20 +34,34 @@ static SDL_HapticEffectID jolt_effect = -1, buffeting_effect = -1, vector_effect
 static SDL_HapticEffectID vibration_effect[VIBRATIONS] = { -1, -1 };
 static Uint16 rumble_low, rumble_high;  /* what the buffeting and the vibrations rumble with while they run */
 
-static bool start(void)
+/* the sticks SDL knows of now */
+static void enumerate(void)
 {
-    if (started) return !start_failed;
-    started = true;
-    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK)) {
-        start_failed = true;
-        return false;
-    }
     int count = 0;
     SDL_JoystickID *list = SDL_GetJoysticks(&count);
     if (list != NULL) {
         devices = count < MAX_DEVICES ? count : MAX_DEVICES;
         memcpy(ids, list, sizeof ids[0] * (size_t)devices);
         SDL_free(list);
+    }
+}
+
+/* Some sticks (macOS's GameController pads: Xbox, PlayStation, MFi) are announced a moment after the subsystem
+ * starts, through its events: the first look waits up to ENUMERATE_WAITS x ENUMERATE_STEP_MS for one */
+static bool start(void)
+{
+    enum { ENUMERATE_WAITS = 30, ENUMERATE_STEP_MS = 10 };
+    if (started) return !start_failed;
+    started = true;
+    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK)) {
+        start_failed = true;
+        return false;
+    }
+    enumerate();
+    for (int k = 0; devices == 0 && k < ENUMERATE_WAITS; k++) {
+        SDL_Delay(ENUMERATE_STEP_MS);
+        SDL_PumpEvents();
+        enumerate();
     }
     return true;
 }
@@ -65,7 +79,13 @@ static SDL_Joystick *device_of(int device)
     return opened[device];
 }
 
-int platform_joy_count(void) { return start() ? devices : 0; }
+/* a stick plugged in after the start is found on the next count */
+int platform_joy_count(void)
+{
+    if (!start()) return 0;
+    if (devices == 0) SDL_PumpEvents(), enumerate();
+    return devices;
+}
 
 bool platform_joy_caps(int device, char *name, size_t name_size, int *buttons, uint32_t *axes)
 {
