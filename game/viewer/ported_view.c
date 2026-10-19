@@ -659,6 +659,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 void ported_view_forget_track(void)
 {
     render.tri = NULL;
+    ported_view_set_models(NULL, NULL);  /* the next track's models sit at the same address, bound to these textures */
 }
 
 const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
