@@ -23,7 +23,8 @@
 # OUT_DIR (default: a new temporary directory); CLIENT_CONFIG=FILE is the first
 # client's config.dat (its name, car and gearbox); CAPTURE_EVERY=N also keeps
 # every Nth frame there (OUT_DIR/NAME/cap, PPMs: delete them after); CLIENT_IDLE=1: the clients press nothing after
-# the race (only the host answers the screens); TAIL (300 s): continue mode's time past the results.
+# the race (only the host answers the screens); TAIL (300 s): continue mode's time past the results;
+# AFTER="ms:KEY,...": the steps after the race (times from the results screen) instead of the mode's.
 set -euo pipefail
 
 build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]}
@@ -57,6 +58,7 @@ quit | quitclick)
           secs=$((at / 1000 + 70)) ;;
 *) echo "mode: finish, continue, quit or quitclick" >&2; exit 2 ;;
 esac
+[ -n "${AFTER:-}" ] && after=$AFTER  # a script of its own for the steps after the race, at the host's times
 steps() {  # $1: the shift (ms) from the host's times
     local s list=""
     for s in ${after//,/ }; do list="$list,$((at + ${s%%:*} - $1)):${s#*:}"; done
