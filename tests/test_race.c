@@ -133,6 +133,23 @@ static int check_flags(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceFi
     return ok;
 }
 
+/* A link game dropped (0052b314) stands: 00440ef0 returns before moving any car. */
+static int check_dropped(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceField *field)
+{
+    enum { TICKS = 200 };
+    field->track_flags = 0;
+    race_sim_start_field(s, tri, "TR1", specs, field, 1, 0);
+    for (int i = 0; i < TICKS; i++) race_sim_tick(s, THROTTLE);
+    s->race.playback = 1, s->race.dropped = 1;
+    int32_t before[RACE_CARS];
+    for (int i = 0; i < s->race.car_count; i++) before[i] = s->race.cars[i]->progress;
+    for (int i = 0; i < TICKS; i++) race_sim_tick(s, THROTTLE);
+    int moved = 0;
+    for (int i = 0; i < s->race.car_count; i++) moved += s->race.cars[i]->progress != before[i];
+    printf("dropped link game: %d cars moved%s\n", moved, moved == 0 ? "" : "  FAIL");
+    return moved == 0;
+}
+
 /* The skid ring wrapping to 0 has 004596a8 draw mark -1 (the original reads
  * before its table); the port reads its spare row. Under ASan, an overflow. */
 typedef struct {
@@ -236,6 +253,7 @@ int main(int argc, char **argv)
     ok &= check_end(&sim);
     ok &= check_carry(&sim, &tri, &specs, &field);
     ok &= check_flags(&sim, &tri, &specs, &field);
+    ok &= check_dropped(&sim, &tri, &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }

@@ -393,8 +393,9 @@ static void sim_tick(void *ctx)
                                      sim_other_human, sim_others };
     RaceTickOps o = ops;
     o.ctx = ctx;
-    RaceTickWords w = { 0, 0, 0, 0, 0, &sim_wait_timer, { 0, 0 } };
-    race_tick(&o, &((RaceSim *)ctx)->race, &w);
+    RaceState *race = &((RaceSim *)ctx)->race;
+    RaceTickWords w = { race->dropped, 0, 0, 0, 0, &sim_wait_timer, { 0, 0 } };  /* 0052b314: a dropped link game stands */
+    race_tick(&o, race, &w);
 }
 
 /* 0045597c: the music, the deferred calls (the in-race menu and pause), the
