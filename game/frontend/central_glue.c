@@ -79,6 +79,7 @@ static struct {
 } g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
 enum { SEGMENT_AT = 0x93 };                         /* 00524e83: a stage's segment, 0..2 (00427ae0's run) */
+enum { OPTIONS_AT = 0x81 };                        /* 00524e71: the five option words the race takes and gives back */
 enum { MOVIES_AT = 0x5b8 };                        /* 0052b2fc: 2, the movies offered (the original's default) */
 static uint8_t game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */
 
@@ -519,7 +520,8 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
                                      image_short(0x71), game_state,
                                      g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r,
                                      (uint32_t)menu_cheats.keys_506, g.explode, g.nitro,
-                                     (const char *)config_current()->image, g.track };
+                                     (const char *)config_current()->image, g.track,
+                                     config_current()->image + OPTIONS_AT };
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
     if (menu_words.link_game != 0) link_race_begin((const char *)config_current()->image, chat);
@@ -892,7 +894,8 @@ static void replay(void *ctx, int32_t mode, const char *path)
         return;
     }
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, NULL, -1 };  /* the time of day and the flags: the replay's setup */
+                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, NULL, -1,
+                                     config_current()->image + OPTIONS_AT };  /* the time of day and the flags: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
     if (!track_viewer_drive_replay_data(resource_root(), file, size, replay_kind == 2 ? HIGHLIGHTS : FROM_START))

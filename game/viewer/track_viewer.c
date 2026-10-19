@@ -664,8 +664,9 @@ static void drive_frame_setup(RaceState *race)
     RaceDrawSetup st = { 0 };
     st.restart = drive_frame.restart, st.mirror_state = drive_hud.mirror.state, st.use_parts = drive_hud.keys.use_parts;
     st.high = HIGH_SCREEN, st.width = SCREEN_W, st.height = SCREEN_H, st.back_buffer = 0;
-    st.replay_kind = 0, st.chase_kind = race->chase.kind, st.detail = 0, st.pending_segments = drive_frame.pending_segments;
-    st.screen_kind = drive_frame.screen_kind, st.clear_view = drive_frame.clear_view;
+    st.replay_kind = 0, st.chase_kind = race->chase.kind, st.detail = drive_keys.state.detail;
+    st.pending_segments = drive_frame.pending_segments, st.window_size = (uint8_t)race->window_size;
+    st.screen_kind = drive_keys.state.screen_kind, st.clear_view = drive_frame.clear_view;
     race_draw_start(&ops, &st);
     drive_frame.restart = st.restart, drive_frame.unknown_511fc4 = st.unknown_511fc4;
     drive_frame.pending_segments = st.pending_segments, drive_frame.mirror_count = st.mirror_count;
@@ -830,6 +831,7 @@ static void drive_frame_in(FrameDraw *d, RaceState *race)
     d->unknown_513e60 = race->unknown_513e60;
     if (drive_views.changed) d->changed = 1, drive_views.changed = 0;
     d->window_size = race->window_size;
+    d->screen_kind = drive_keys.state.screen_kind;  /* 004fb789, F2's */
     d->mirror_state = drive_hud.mirror.state;
     d->net_start = race->unknown_4fb7d4;
     d->unknown_4f9b7c = drive_hud.keys.dash_camera;
@@ -1118,6 +1120,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (replay_of != NULL) replay_begin();
     /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
     drive_frame = (FrameDraw){ 0 };
+    if (menus_on && menus.options != NULL) track_viewer_options_from_settings(menus.options);
     drive_frame.pending_segments = -1;
     drive_frame.mirror_count = DRAW_SETUP_MIRROR_COUNT;
     drive_cars.ended = 0;
@@ -1164,6 +1167,32 @@ static void free_drive(void)
 
 /* The race's end (once): 004275f8 runs 0045af80 after race_run however it
  * stopped, a game given up from the pause menu too; the results printed. */
+/* 004275f8's option bytes and the words they come from and go back to, a short each from 00524e71 */
+enum { OPT_WINDOW, OPT_IMAGE, OPT_VIEW, OPT_CARS, OPT_HORIZON, OPTS };
+
+void track_viewer_options_from_settings(const uint8_t *options)
+{
+    drive_sim.race.window_size = options[2 * OPT_WINDOW];
+    drive_keys.state.screen_kind = options[2 * OPT_IMAGE];
+    drive_keys.state.detail = options[2 * OPT_VIEW];
+    drive_frame.alternate = options[2 * OPT_CARS];
+    drive_keys.state.w4fb786 = options[2 * OPT_HORIZON];
+}
+
+/* After the race: 004054cc's size, 004fb789, 785, 787 and 786 as shorts */
+static void options_to_settings(uint8_t *options)
+{
+    const uint8_t bytes[OPTS] = { (uint8_t)drive_sim.race.window_size, drive_keys.state.screen_kind,
+                                  drive_keys.state.detail, drive_frame.alternate, drive_keys.state.w4fb786 };
+    for (int k = 0; k < OPTS; k++) options[2 * k] = bytes[k], options[2 * k + 1] = 0;
+}
+
+/* 004c5360 asked for by F3 (004381f8) or the menu's Esc (004557f4): the frame's detail step takes it */
+static void take_detail(int32_t *pending)
+{
+    if (*pending != -1) drive_frame.pending_segments = *pending, *pending = -1;
+}
+
 static void drive_end(void)
 {
     if (drive_cars.ended) return;
@@ -1176,6 +1205,7 @@ static void drive_end(void)
     memcpy(results.dropped, race->unknown_4f82a0, sizeof results.dropped);
     if (menus_on && menus.game_state != NULL)
         memcpy(menus.game_state, race->game_state, sizeof race->game_state);
+    if (menus_on && menus.options != NULL) options_to_settings(menus.options);
     printf("race over (%d):", drive_sim.race.end_request);
     for (int i = 0, place = 0; i < drive_sim.count; i++) {  /* the racers only, not the traffic or police */
         const int slot = drive_sim.race.results_order[i];
@@ -1388,13 +1418,16 @@ static void run_frame(void *ctx, int32_t frame)
     }
     drive_input_read_keys(&drive_input);
     drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
+    drive_pause.detail = drive_keys.state.detail;
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);
+    take_detail(&drive_pause.detail_pending);
     if (drive_pause.paused_ms != 0) {  /* the timer stood still */
         r->base_ms += drive_pause.paused_ms;
         drive_pause.paused_ms = 0;
     }
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
+    take_detail(&drive_keys.detail_pending);
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));

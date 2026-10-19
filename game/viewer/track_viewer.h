@@ -54,8 +54,16 @@ typedef struct {
     int32_t start_boost;  /* 004faa50: the NITRO cheat, the player's start keys read (0042f138) */
     const char *name;   /* 00524df0: the player's name, 0042702c's first record's (NULL: "Player") */
     int track;          /* 00524e85: the menus' track, 0..2 the stages (the results keep a circuit's laps past them) */
+    /* 00524e71..00524e79, config.dat's five option words (NULL: none): 004275f8 copies them into the race's option
+     * bytes before it and back after it */
+    uint8_t *options;
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
+
+/* The race's option bytes from those five words (the race menu's option screens change them while it runs): the
+ * window's size (004fb784), the image (004fb789), the view distance (004fb785), the cars' detail (004fb787) and the
+ * horizon off (004fb786) */
+void track_viewer_options_from_settings(const uint8_t *options);
 
 /* A link game's race (the front end's glue): the humans race each other's
  * cars, this machine at its slot, the inputs going round as the original

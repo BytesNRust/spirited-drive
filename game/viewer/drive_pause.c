@@ -14,7 +14,6 @@
 
 enum {
     KEY_ESC = 1, KEY_PAUSE = 0x19, KEY_LSHIFT = 0x2a, KEY_RSHIFT = 0x36,
-    DETAIL_UNKNOWN = 0,     /* 004fb785: not ported; the menu's draw distance request is all it picks */
     PAUSE_IDLE_MS = 1
 };
 
@@ -24,7 +23,6 @@ typedef struct {
     RaceState *race;
     DriveHud *hud;
     RacePauseInputs pause;
-    int32_t detail_pending;     /* 004c5360: nothing takes it (drive_keys.h) */
 } PauseCtx;
 
 static void none(void *ctx) { (void)ctx; }
@@ -122,22 +120,23 @@ static void set(void *ctx, int16_t frame, int32_t which, int16_t arg)
     race_schedule_set(&send, c->p->sched, &w, frame, which, arg);
 }
 
-static void detail(void *ctx, int32_t segments) { race_detail_request(segments, &((PauseCtx *)ctx)->detail_pending); }
+static void detail(void *ctx, int32_t segments) { race_detail_request(segments, &((PauseCtx *)ctx)->p->detail_pending); }
 
 void drive_pause_start(DrivePause *p)
 {
     memset(p, 0, sizeof *p);
+    p->detail_pending = -1;
 }
 
 void drive_pause_frame(DrivePause *p, const DriveInput *in, RaceState *race, DriveHud *hud, int16_t frame)
 {
-    PauseCtx c = { p, in, race, hud, { 0 }, -1 };
+    PauseCtx c = { p, in, race, hud, { 0 } };
     const RaceScheduleOps sched = { &c, call };
     race_schedule_run(&sched, p->sched, frame);
     const RaceMenuKeysOps keys = { &c, notice_up, set, detail };
     const RaceMenuKeysInputs inputs = { race->tick, race->phase, in->keys[KEY_ESC], in->keys[KEY_PAUSE],
                                         in->keys[KEY_LSHIFT], in->keys[KEY_RSHIFT], race->playback, race->replay,
-                                        DETAIL_UNKNOWN };
+                                        p->detail };
     p->keys.dropped = race->dropped, p->keys.w509d70 = race->end_state;
     race_menu_keys(&keys, &inputs, &p->keys, frame);
     race->dropped = p->keys.dropped, race->end_state = p->keys.w509d70;
