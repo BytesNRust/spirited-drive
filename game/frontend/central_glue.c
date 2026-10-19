@@ -500,7 +500,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
     for (size_t i = 0; i + 1 < sizeof name && argv[1][i] != 0; i++)
         name[i] = (char)(argv[1][i] >= 'a' && argv[1][i] <= 'z' ? argv[1][i] - 0x20 : argv[1][i]);
     const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
-                                     g.opponent, image_short(0x73), image_short(0x75), image_short(0x79),
+                                     race_head_to_head_model((int16_t)g.opponent), image_short(0x73), image_short(0x75), image_short(0x79),
                                      image_short(0x71), game_state,
                                      g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r };
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
