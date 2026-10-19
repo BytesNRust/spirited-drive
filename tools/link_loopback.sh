@@ -7,16 +7,17 @@
 #   finish    both machines reach the race's end ("race over" in both logs)
 #   continue  Done on the results and Continue at the Checkpoint: both race
 #             segment 2 to its end
-#   quit      Done, Quit game and Yes at the Checkpoint, then Exit at Game
-#             Mode: both exit by themselves before their timeout
-# usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit] [OUT_DIR]
+#   quit      Done, Quit game and Yes (the Y key) at the Checkpoint, then
+#             Exit at Game Mode: both exit by themselves before their timeout
+#   quitclick the same with Yes clicked (the mouse)
+# usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]
 # The script's times are wall-clock ms from each instance's start; the client
 # starts DELAY s (25) after the host. RESULTS_AT (362000, the host's) is when
 # the results screen is answered; raise it for a slower build. The logs stay in
 # OUT_DIR (default: a new temporary directory).
 set -euo pipefail
 
-build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit] [OUT_DIR]}
+build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]}
 mode=${2:-finish}
 exe=$(cd "$build" && pwd)/tnfs
 out=${3:-$(mktemp -d -t tnfs_link)}
@@ -34,9 +35,12 @@ client="$nav,22000:ENTER"
 case $mode in
 finish)   after=""; secs=$((at / 1000 - 20)) ;;
 continue) after="0:ENTER,20000:ENTER"; secs=$((at / 1000 + 300)) ;;
-quit)     after="0:ENTER,18000:CLICK:320:403,28000:Y,40000:DOWN,41000:DOWN,42000:DOWN,44000:ENTER,47000:Y"
+quit | quitclick)
+          yes=Y
+          [ "$mode" = quitclick ] && yes=CLICK:230:262  # the box's Yes
+          after="0:ENTER,18000:CLICK:320:403,28000:$yes,40000:DOWN,41000:DOWN,42000:DOWN,44000:ENTER,47000:Y"
           secs=$((at / 1000 + 70)) ;;
-*) echo "mode: finish, continue or quit" >&2; exit 2 ;;
+*) echo "mode: finish, continue, quit or quitclick" >&2; exit 2 ;;
 esac
 steps() {  # $1: the shift (ms) from the host's times
     local s list=""
@@ -66,7 +70,7 @@ for name in host client; do
     case $mode in
     finish)   [ "$ends" -ge 1 ] ;;
     continue) [ "$ends" -ge 2 ] ;;
-    quit)     [ "$ends" -ge 1 ] && [ "$rc" = 0 ] ;;
+    quit*)    [ "$ends" -ge 1 ] && [ "$rc" = 0 ] ;;
     esac && verdict=PASS || { verdict=FAIL; fail=1; }
     echo "$name: $verdict (races ended $ends, rc $rc)"
 done
