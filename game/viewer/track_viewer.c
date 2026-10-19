@@ -1169,6 +1169,7 @@ static void free_drive(void)
  * stopped, a game given up from the pause menu too; the results printed. */
 /* 004275f8's option bytes and the words they come from and go back to, a short each from 00524e71 */
 enum { OPT_WINDOW, OPT_IMAGE, OPT_VIEW, OPT_CARS, OPT_HORIZON, OPTS };
+enum { GAME_KEPT_OPTIONS = 0x520 };  /* 0052b264 less the game state 0052ad44 */
 
 void track_viewer_options_from_settings(const uint8_t *options)
 {
@@ -1179,8 +1180,8 @@ void track_viewer_options_from_settings(const uint8_t *options)
     drive_keys.state.w4fb786 = options[2 * OPT_HORIZON];
 }
 
-/* After the race: 004054cc's size, 004fb789, 785, 787 and 786 as shorts */
-static void options_to_settings(uint8_t *options)
+/* After the race, and when its menu opens: 004054cc's size, 004fb789, 785, 787 and 786 as shorts */
+void track_viewer_options_to_settings(uint8_t *options)
 {
     const uint8_t bytes[OPTS] = { (uint8_t)drive_sim.race.window_size, drive_keys.state.screen_kind,
                                   drive_keys.state.detail, drive_frame.alternate, drive_keys.state.w4fb786 };
@@ -1205,7 +1206,10 @@ static void drive_end(void)
     memcpy(results.dropped, race->unknown_4f82a0, sizeof results.dropped);
     if (menus_on && menus.game_state != NULL)
         memcpy(menus.game_state, race->game_state, sizeof race->game_state);
-    if (menus_on && menus.options != NULL) options_to_settings(menus.options);
+    if (menus_on && menus.options != NULL) track_viewer_options_to_settings(menus.options);
+    /* 004275f8 hands them back at 0052b264.., the kept copy of the settings in the game state (+0x4a8, their +0x78),
+     * which the menus' race puts back over the image (00427ae0) */
+    if (menus_on && menus.game_state != NULL) track_viewer_options_to_settings(menus.game_state + GAME_KEPT_OPTIONS);
     printf("race over (%d):", drive_sim.race.end_request);
     for (int i = 0, place = 0; i < drive_sim.count; i++) {  /* the racers only, not the traffic or police */
         const int slot = drive_sim.race.results_order[i];

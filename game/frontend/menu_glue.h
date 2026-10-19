@@ -34,6 +34,7 @@ int16_t glue_movies(void);             /* the short 0052b2fc, the game state's +
 int32_t glue_check_options(int32_t mode);  /* 00403760 (central_glue.c): the options after a race, eax 0 or 1 */
 void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_type, int32_t variant_m,
                      int32_t variant_r);  /* --drive (central_glue.c) */
+void glue_race_option(uint32_t address);  /* the race menu's 004015dc (audio) or 00423d28 (graphics) on config.dat's image */
 void glue_settings_to_config(void);    /* a window closed: Control Central's race settings into config.dat's image */
 
 /* the boxes as ops (ctx unused) for the other screens' glue */

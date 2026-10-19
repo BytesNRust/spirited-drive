@@ -990,6 +990,14 @@ int32_t glue_check_options(int32_t mode)
     return done;
 }
 
+/* 00447564's option screens from the race's pause menu, on config.dat's image: 004015dc with eax 2 (audio), 00423d28
+ * with eax 1 (graphics, no resolution) */
+void glue_race_option(uint32_t address)
+{
+    if (address == 0x4015dc) audio(NULL, 2);
+    else if (address == 0x423d28) graphics(NULL, 1);
+}
+
 static void after_options(void *ctx, int32_t mode) { (void)ctx; glue_check_options(mode); }
 
 enum { REPLAY_FLAG_AT = 0xaf };

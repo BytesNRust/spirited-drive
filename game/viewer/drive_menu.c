@@ -3,6 +3,8 @@
 
 #include "viewer/drive_audio.h"
 #include "viewer/track_viewer.h"
+#include "game/frontend/config.h"
+#include "game/frontend/config_dat.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/menu_glue.h"
 #include "game/gfx/blit.h"
@@ -23,7 +25,8 @@
 #include <string.h>
 
 /* 004bb8dc is counted by the master timer's callback 0043b9e8 (TIMER_HZ) */
-enum { LEADER_PLACE = 7,  /* 00509e60 = 00509e44[7]: the slots by progress, last first, 8 racers */
+enum { SETTINGS_AT = 9,  /* 00524df9 in config.dat's image (from 00524df0) */
+       LEADER_PLACE = 7,  /* 00509e60 = 00509e44[7]: the slots by progress, last first, 8 racers */
        KEY_ESC_SCANCODE = 1, TICK_HZ = TIMER_HZ, IDLE_MS = 1, RAW_PALETTE = 0x24, MENU_SURFACE = 1 };
 
 typedef struct {
@@ -128,7 +131,12 @@ static void call(void *ctx, uint32_t address)
 }
 
 static void sounds(void *ctx, RaceMenuSounds which) { (void)ctx, (void)which; }
-static int16_t kept(void *ctx) { return (void)ctx, 0; }
+/* 004054cc's window word, the settings' first kept one (00524e71) */
+static int16_t kept(void *ctx)
+{
+    const uint8_t *const at = config_current()->image + SETTINGS_AT + RACE_MENU_KEPT;
+    return (void)ctx, (int16_t)(at[0] | at[1] << 8);
+}
 static void fill(void *ctx, uint32_t address, uint8_t *palette) { (void)ctx, (void)address, memset(palette, 0, RACE_MENU_PALETTE); }
 static void fade(void *ctx, int32_t first, int32_t count) { (void)ctx, (void)first, (void)count; }
 
@@ -174,11 +182,17 @@ static void palette(void *ctx, uint8_t *to, const uint8_t *from, int16_t count)
     for (int i = 0; i < RACE_MENU_PALETTE; i++) to[i] = count == RAW_PALETTE ? from[i] : (uint8_t)(from[i] << 2);
 }
 
-/* 0044f534: the replay's request (00513738); the option screens and the sounds are not here */
+/* 0044f534: the replay's request (00513738); 004015dc and 00423d28: the option screens, which keep their words in the
+ * settings block 00524df9 (config.dat's image from +9), so it goes there and back around them; the sounds are not here */
 static void number(void *ctx, uint32_t address, int32_t value)
 {
     MenuCtx *c = ctx;
     if (address == 0x44f534 && c->m->replay != NULL && c->m->replay->recording != NULL) race_replay_request(&c->m->replay->dir, value);
+    if (address != 0x4015dc && address != 0x423d28) return;
+    uint8_t *const block = config_current()->image + SETTINGS_AT;
+    memcpy(block, c->w->settings, RACE_MENU_SETTINGS);
+    glue_race_option(address);
+    memcpy(c->w->settings, block, RACE_MENU_SETTINGS);
 }
 
 /* 00463f80 on the pointer's place whether it is shown or not: the keys' steps move it onto their item (00464038) */
@@ -244,10 +258,16 @@ static void put16(uint8_t *b, int at, int16_t v) { b[at] = (uint8_t)v, b[at + 1]
 static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
 {
     const RaceState *race = m->race;
+    uint8_t *const image = config_current()->image + SETTINGS_AT;  /* 00524df9 is config.dat's */
+    track_viewer_options_to_settings(image + RACE_MENU_KEPT);  /* the race's option bytes, F2 to F4 included, as they are now */
+    memcpy(w->settings, image, RACE_MENU_SETTINGS);
     put16(w->settings, RACE_MENU_MUSIC, drive_audio_music_setting());
     put16(w->settings, RACE_MENU_TRACK, (int16_t)race->track);
     put16(w->settings, RACE_MENU_VARIANT, (int16_t)race->track_variant);
     memcpy(w->saved, w->settings, RACE_MENU_SETTINGS);
+    w->screen_kind = w->settings[RACE_MENU_KEPT + 2], w->unknown_4fb785 = w->settings[RACE_MENU_KEPT + 4];
+    w->unknown_4fb787 = w->settings[RACE_MENU_KEPT + 6];
+    w->sky_off = w->settings[RACE_MENU_KEPT + 8];
     w->high = 1;
     w->race_type = race->race_type, w->player = race->player;
     for (int k = 0; k < RACE_MENU_CARS; k++) w->car_node[k] = race->cars[k] != NULL ? race->cars[k]->node : 0;
@@ -262,6 +282,26 @@ static void world_from_race(const DriveMenu *m, RaceMenuWorld *w)
     w->unknown_513e50 = m->keys->pending;
     w->leader = (int16_t)race->by_progress[LEADER_PLACE];  /* 00509e60 */
     if (m->words != NULL) w->unknown_4c5cca = m->words->music_started;
+}
+
+/* What the menu's option screens changed outlives it, as the block it works in is the game's (00524df9): the music
+ * and volume words and the graphics' five back into config.dat's image, the volumes into the followed slot, the
+ * option bytes */
+static void world_to_race(const DriveMenu *m, const RaceMenuWorld *w, const uint8_t before[RACE_MENU_SETTINGS])
+{
+    enum { VOLUMES = RACE_MENU_UNKNOWN_E69 + 2 - RACE_MENU_MUSIC, KEPT_BYTES = 10 };
+    uint8_t *const image = config_current()->image + SETTINGS_AT;
+    memcpy(image + RACE_MENU_MUSIC, w->settings + RACE_MENU_MUSIC, VOLUMES);
+    memcpy(image + RACE_MENU_KEPT, w->settings + RACE_MENU_KEPT, KEPT_BYTES);
+    RaceEntry *const followed = &m->race->entries[race_slot(m->race->player)];
+    const int p = w->player;
+    if (p >= 0 && p < RACE_MENU_CARS) {
+        if (memcmp(before + RACE_MENU_UNKNOWN_E69, w->settings + RACE_MENU_UNKNOWN_E69, 2) != 0)
+            followed->sound_volume = w->unknown_4fb817[p];
+        if (memcmp(before + RACE_MENU_MUSIC_VOLUME, w->settings + RACE_MENU_MUSIC_VOLUME, 2) != 0)
+            followed->music_volume = w->unknown_4fb81b[p];
+    }
+    track_viewer_options_from_settings(image + RACE_MENU_KEPT);  /* the window, image, distance, cars and horizon to the race */
 }
 
 void drive_menu_run(void *menu)
@@ -280,7 +320,10 @@ void drive_menu_run(void *menu)
                               select_surface, present, pointer_to, music, load, load_inventory, unload, palette, number,
                               inside, chat, blit_own, blit_at, buttons, ticks, key, ask, notice, net_send, net_wait,
                               take, view_screen };
+    uint8_t before[RACE_MENU_SETTINGS];
+    memcpy(before, w.settings, sizeof before);
     race_menu(&w, &ops);
+    world_to_race(m, &w, before);
     if (m->link != NULL) link_out(&c);
     m->race->dropped = w.dropped, m->race->end_state = w.end_state, m->keys->pending = w.unknown_513e50;
     if (m->words != NULL) m->words->music_started = w.unknown_4c5cca;
