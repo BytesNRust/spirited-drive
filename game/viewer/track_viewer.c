@@ -1150,10 +1150,11 @@ static void drive_tick(uint32_t input)
     if (menus_on && menus.game_state != NULL)
         memcpy(menus.game_state, race->game_state, sizeof race->game_state);
     printf("race over (%d):", drive_sim.race.end_request);
-    for (int i = 0; i < drive_sim.count; i++) {
+    for (int i = 0, place = 0; i < drive_sim.count; i++) {  /* the racers only, not the traffic or police */
         const int slot = drive_sim.race.results_order[i];
-        const Car *c = slot >= 0 && slot < drive_sim.count ? drive_sim.race.cars[slot] : NULL;
-        printf(" %d.%s", i + 1, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
+        if (slot >= drive_sim.race.racers) continue;
+        const Car *c = slot >= 0 ? drive_sim.race.cars[slot] : NULL;
+        printf(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
     }
     printf("\n");
 }
