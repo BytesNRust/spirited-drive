@@ -39,7 +39,7 @@ cd "$(dirname "$0")/.."
 
 # Game Mode: Network; the service; host or join; the host starts the race (the menus' Start at 40, 450)
 nav="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,14000:DOWN,16000:ENTER"
-host="$nav,20000:ENTER,$((55000 + late)):CLICK:40:450,$((61000 + late)):CLICK:40:450"
+host="$nav,20000:ENTER,$((55000 + late)):CLICK:40:450"
 client="$nav,22000:ENTER"
 # a viewer: View only (below Select game) turned on, then Select game and the game
 viewer="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,12000:DOWN,13000:DOWN,14000:ENTER,15000:UP,16000:ENTER,22000:ENTER"
