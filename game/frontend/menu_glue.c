@@ -181,7 +181,7 @@ static int32_t text_field(void *ctx, char *text, int32_t length, int32_t x, int3
 {
     (void)ctx;
     const TextEntryOps ops = { width, picture_new, picture_shape, select_picture, select_default, nothing, grab, flip,
-                               blit_at, blit_picture, blit_at, style, shadowed, key, nothing, drain, pointer_poll,
+                               blit_at, blit_picture, blit_at, style, shadowed, key, music, drain, pointer_poll,
                                nothing, typed, ticks, picture_free, nothing, nothing, NULL };
     TextEntryState st = { ea_screen(), (int16_t)pointer_active(), 0, 0 };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
