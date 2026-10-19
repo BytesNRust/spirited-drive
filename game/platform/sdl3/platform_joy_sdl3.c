@@ -1,7 +1,14 @@
 /* Joysticks and their force feedback on SDL3 (platform.h): the exe's WinMM
  * joystick calls and IFORCE.DLL. The joystick subsystem starts on the first
  * call; the haptic one (slow to enumerate) only when a stick that has it
- * opens its forces, so a game without one starts as it did. */
+ * opens its forces, so a game without one starts as it did.
+ *
+ * A gamepad (SDL's mapping: Xbox, PlayStation, ...) is shown as the stick with
+ * pedals the game was made for: x and y the left stick (the d-pad pushes them
+ * to their ends), z the accelerator on the right trigger and r the brake on
+ * the left, each at its top released (0043d598's pedals: y = r less z), and
+ * the buttons in XInput's WinMM order (A accelerate / gear up, B brake / gear
+ * down, X hold, Y look back). TODO: a mapping screen of the port's own. */
 #include "platform/platform.h"
 
 #include <SDL3/SDL.h>
@@ -19,12 +26,22 @@ enum {
     BUFFETING_RUMBLE_MS = 30000,
     VIBRATION_RUMBLE_MS = 30000,
     MS_PER_SECOND = 1000,
-    VIBRATIONS = 2
+    VIBRATIONS = 2,
+    AXIS_TOP = 0xffff,
+    PAD_BUTTONS = 10
+};
+
+/* WinMM's buttons 1.. for an XInput pad */
+static const SDL_GamepadButton PAD_ORDER[PAD_BUTTONS] = {
+    SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
+    SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_BACK,
+    SDL_GAMEPAD_BUTTON_START, SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK
 };
 
 static bool started, start_failed, haptic_started, haptic_failed;
 static SDL_JoystickID ids[MAX_DEVICES];
 static SDL_Joystick *opened[MAX_DEVICES];
+static SDL_Gamepad *pads[MAX_DEVICES];  /* the gamepads among them */
 static int devices;
 
 /* the force-feedback device: a haptic one, else a joystick that rumbles */
@@ -53,7 +70,7 @@ static bool start(void)
     enum { ENUMERATE_WAITS = 30, ENUMERATE_STEP_MS = 10 };
     if (started) return !start_failed;
     started = true;
-    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK)) {
+    if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {  /* the joystick subsystem with it */
         start_failed = true;
         return false;
     }
@@ -75,8 +92,37 @@ static bool start_haptic(void)
 static SDL_Joystick *device_of(int device)
 {
     if (!start() || device < 0 || device >= devices) return NULL;
-    if (opened[device] == NULL) opened[device] = SDL_OpenJoystick(ids[device]);
+    if (opened[device] != NULL) return opened[device];
+    if (SDL_IsGamepad(ids[device])) pads[device] = SDL_OpenGamepad(ids[device]);
+    opened[device] = pads[device] != NULL ? SDL_GetGamepadJoystick(pads[device]) : SDL_OpenJoystick(ids[device]);
     return opened[device];
+}
+
+static SDL_Gamepad *pad_of(int device) { return device_of(device) != NULL ? pads[device] : NULL; }
+
+/* a trigger (0..0x7fff) as a pedal: its top released, 0 down */
+static int32_t pedal_of(SDL_Gamepad *pad, SDL_GamepadAxis trigger)
+{
+    const int32_t t = SDL_GetGamepadAxis(pad, trigger);
+    return AXIS_TOP - 2 * (t < 0 ? 0 : t);
+}
+
+static int32_t stick_of(SDL_Gamepad *pad, SDL_GamepadAxis axis, SDL_GamepadButton low, SDL_GamepadButton high)
+{
+    if (SDL_GetGamepadButton(pad, low)) return 0;
+    if (SDL_GetGamepadButton(pad, high)) return AXIS_TOP;
+    return AXIS_MIDDLE + SDL_GetGamepadAxis(pad, axis);
+}
+
+static void pad_read(SDL_Gamepad *pad, uint32_t *buttons, int32_t axis[4])
+{
+    *buttons = 0;
+    for (int k = 0; k < PAD_BUTTONS; k++)
+        if (SDL_GetGamepadButton(pad, PAD_ORDER[k])) *buttons |= 1u << k;
+    axis[0] = stick_of(pad, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_BUTTON_DPAD_LEFT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+    axis[1] = stick_of(pad, SDL_GAMEPAD_AXIS_LEFTY, SDL_GAMEPAD_BUTTON_DPAD_UP, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    axis[2] = pedal_of(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+    axis[3] = pedal_of(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
 }
 
 /* a stick plugged in after the start is found on the next count */
@@ -95,9 +141,10 @@ bool platform_joy_caps(int device, char *name, size_t name_size, int *buttons, u
         const char *n = SDL_GetJoystickName(j);
         SDL_strlcpy(name, n != NULL ? n : "", name_size);
     }
-    if (buttons != NULL) *buttons = SDL_GetNumJoystickButtons(j);
+    const bool pad = pads[device] != NULL;
+    if (buttons != NULL) *buttons = pad ? PAD_BUTTONS : SDL_GetNumJoystickButtons(j);
     if (axes != NULL) {
-        const int n = SDL_GetNumJoystickAxes(j);
+        const int n = pad ? AXES : SDL_GetNumJoystickAxes(j);
         *axes = 0;
         for (int k = 0; k < AXES && k < n; k++) *axes |= 1u << k;
     }
@@ -109,6 +156,10 @@ bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4])
     SDL_Joystick *j = device_of(device);
     if (j == NULL) return false;
     SDL_UpdateJoysticks();
+    if (pad_of(device) != NULL) {
+        pad_read(pads[device], buttons, axis);
+        return true;
+    }
     const int n = SDL_GetNumJoystickButtons(j);
     *buttons = 0;
     for (int k = 0; k < n && k < 32; k++)
