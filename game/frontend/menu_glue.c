@@ -1,6 +1,7 @@
 /* The checked menus over game/sys and ea_lib (menu_glue.h) */
 #include "game/frontend/menu_glue.h"
 
+#include "game/frontend/config.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_mode.h"
@@ -189,7 +190,8 @@ static int32_t text_field(void *ctx, char *text, int32_t length, int32_t x, int3
     return result;
 }
 
-/* 004667fc (name_box.c) */
+/* 004667fc (name_box.c) on the name at 00524df0, which is config.dat's: the port keeps it in frontend_player_name too,
+ * so the image takes it at once (00466ae4 copies it to player 0's record, 0042702c to the race's entry) */
 static int32_t name_box(void *ctx, char *name)
 {
     (void)ctx;
@@ -197,7 +199,9 @@ static int32_t name_box(void *ctx, char *name)
     const MessageBannerInputs in = { ea_screen(), banner_palette };
     const NameBoxOps ops = { &BANNER, nothing, text_field, sound, NULL };
     NameBoxState st = { &menu_cheats.keys_506, &menu_cheats.keys_50a };
-    return name_box_show(name, resource_german(), &in, &st, &ops);
+    const int32_t taken = name_box_show(name, resource_german(), &in, &st, &ops);
+    config_dat_set_name(config_current(), name);
+    return taken;
 }
 /* 0042a680 / 0042a9f8's calls: ctx the game state; the saves' and replays' directory the player's ("") */
 static int16_t ask(void *ctx, const char *text) { return (int16_t)yes_no(ctx, text); }

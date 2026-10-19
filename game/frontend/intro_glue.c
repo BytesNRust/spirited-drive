@@ -50,7 +50,7 @@ static int32_t replay(void *ctx, int32_t mode, const char *path)
     uint8_t *file = replay_read(path, &size);
     if (file == NULL) return 0;
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0 };  /* the time of day and the flags: the replay's setup */
+                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, NULL };  /* the time of day and the flags: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
     const int ok = track_viewer_drive_replay_data(resource_root(), file, size, DEMO);

@@ -1030,7 +1030,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     for (int i = 0, next = 0; i < racers; i++) {
         if (i > 0 && next == model) next++;
         const int m = i == 0 ? model : next++;  /* the others: the 8 race models in order */
-        if (i == 0) strcpy(field.entries[i].name, "Player");
+        if (i == 0) snprintf(field.entries[i].name, sizeof field.entries[i].name, "%s",
+                             menus_on && menus.name != NULL ? menus.name : "Player");
         else snprintf(field.entries[i].name, sizeof field.entries[i].name, "%s", car_model_names[m]);
         field.entries[i].car = m;
         field.entries[i].automatic = 1;

@@ -52,6 +52,7 @@ typedef struct {
     uint32_t track_flags;  /* 0052b306, which 0042702c makes 004fb7d8: bit 2 Control Central's No Mercy, bit 3 Turbo */
     int32_t explode;    /* 004c5cd4: the EXPLODE cheat, read by the race (0046c490) */
     int32_t start_boost;  /* 004faa50: the NITRO cheat, the player's start keys read (0042f138) */
+    const char *name;   /* 00524df0: the player's name, 0042702c's first record's (NULL: "Player") */
 } TrackViewerMenus;
 void track_viewer_drive_menus(const TrackViewerMenus *menus);
 
