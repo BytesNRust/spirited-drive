@@ -1013,7 +1013,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.race_type = racers > 1 ? SINGLE_RACE : 0;
     if (race_type >= 0) {
         field.race_type = race_type;
-        race_field_counts(&field, race_sim_track_index(name), 0, 0);
+        race_field_counts(&field, race_sim_track_index(name), 0, drive_link_on);  /* 0052b312: no police in a link game */
         racers = field.racers;
     }
     field.seed = DRIVE_SEED;
