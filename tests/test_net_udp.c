@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* The UDP driver (game/net/net_udp.c) over the loopback: two drivers exchange
- * datagrams, find a game by name, drop queued datagrams. */
+ * datagrams, find a game by name, drop queued datagrams; a link's receive
+ * takes only its peer's data. */
 #include "game/net/net_udp.h"
 #include "game/net/net_server.h"
 
@@ -34,6 +35,7 @@ static void test_exchange(NetUdp *a, NetUdp *b)
     CHECK_EQ_INT(message, 0);
 
     CHECK_EQ_INT(net_udp_send(a, at_b, NET_DATA, (const uint8_t *)"hello", 5), 1);
+    memcpy(from, at_b, sizeof from);  /* its own address: anyone's */
     CHECK_EQ_INT(wait_receive(b, from, &message, data, sizeof data), 5);
     CHECK_EQ_INT(message, NET_DATA);
     CHECK_MEM(data, "hello", 5);
@@ -71,6 +73,36 @@ static void test_link(NetUdp *a, NetUdp *b)
     CHECK_EQ_INT(net_udp_query(b), 0);
 }
 
+/* One socket, two peers: a link's receive (its peer's address) takes that peer's data and anyone's other
+ * messages, oldest first; another peer's data waits for its own link */
+static void test_peers(NetUdp *a, NetUdp *b, NetUdp *c)
+{
+    uint8_t at_a[NET_UDP_ADDRESS], at_b[NET_UDP_ADDRESS], at_c[NET_UDP_ADDRESS], from[NET_UDP_ADDRESS], data[0x20];
+    net_udp_self(a, at_a), net_udp_self(b, at_b), net_udp_self(c, at_c);
+    CHECK_EQ_INT(net_udp_send(a, at_b, NET_DATA, (const uint8_t *)"a", 1), 1);
+    CHECK_EQ_INT(net_udp_send(c, at_b, NET_DATA, (const uint8_t *)"c", 1), 1);
+    CHECK_EQ_INT(net_udp_send(c, at_b, NET_ACK, NULL, 0), 1);
+    const struct timespec pause = { 0, 50000000 };
+    nanosleep(&pause, NULL);
+    int32_t message = 0;
+    memcpy(from, at_c, sizeof from);
+    CHECK_EQ_INT(net_udp_receive(b, from, &message, data, sizeof data), 1);
+    CHECK_EQ_INT(message, NET_DATA);
+    CHECK_MEM(data, "c", 1);
+    CHECK_EQ_INT(net_udp_equal(from, at_c), 1);
+    memcpy(from, at_c, sizeof from);
+    CHECK_EQ_INT(net_udp_receive(b, from, &message, data, sizeof data), 0);
+    CHECK_EQ_INT(message, NET_ACK);
+    memcpy(from, at_c, sizeof from);
+    CHECK_EQ_INT(net_udp_receive(b, from, &message, data, sizeof data), 0);
+    CHECK_EQ_INT(message, 0);
+    memcpy(from, at_a, sizeof from);
+    CHECK_EQ_INT(net_udp_receive(b, from, &message, data, sizeof data), 1);
+    CHECK_EQ_INT(message, NET_DATA);
+    CHECK_MEM(data, "a", 1);
+    CHECK_EQ_INT(net_udp_query(b), 0);
+}
+
 /* find: NET_SERVER_ASK with the name to each direct host */
 static void test_find(NetUdp *a, NetUdp *b)
 {
@@ -90,15 +122,16 @@ static void test_find(NetUdp *a, NetUdp *b)
 int main(void)
 {
     CHECK(net_udp_present() >= NET_UDP_MOST + 4);
-    NetUdp *const a = net_udp_open(0), *const b = net_udp_open(0);
-    CHECK(a != NULL && b != NULL);
-    if (a != NULL && b != NULL) {
+    NetUdp *const a = net_udp_open(0), *const b = net_udp_open(0), *const c = net_udp_open(0);
+    CHECK(a != NULL && b != NULL && c != NULL);
+    if (a != NULL && b != NULL && c != NULL) {
         CHECK(net_udp_port(a) != 0 && net_udp_port(a) != net_udp_port(b));
         test_exchange(a, b);
         test_link(a, b);
+        test_peers(a, b, c);
         test_find(a, b);
     }
-    net_udp_close(a), net_udp_close(b);
+    net_udp_close(a), net_udp_close(b), net_udp_close(c);
     net_udp_close(NULL);
     return TEST_REPORT();
 }

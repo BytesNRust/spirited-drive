@@ -241,16 +241,21 @@ int32_t net_udp_query(NetUdp *u)
     return u->held_used > 0;
 }
 
+/* The oldest held datagram, but for a link's receive (`address` its peer, not this socket's own) one socket serves
+ * every link: another peer's data stays held for that peer's link (its other messages are served by whoever asks) */
 int32_t net_udp_receive(NetUdp *u, uint8_t *address, int32_t *message, uint8_t *data, int32_t size)
 {
     drain(u);
-    if (u->held_used == 0) return *message = 0, 0;
-    const Held *const h = &u->held[0];
+    const int any = net_udp_equal(address, u->self);
+    int i = 0;
+    while (i < u->held_used && !any && u->held[i].message == NET_DATA && !net_udp_equal(u->held[i].from, address)) i++;
+    if (i == u->held_used) return *message = 0, 0;
+    const Held *const h = &u->held[i];
     const int32_t n = size < 0 ? 0 : h->size < size ? h->size : size;
     memcpy(address, h->from, NET_UDP_ADDRESS);
     *message = h->message;
     if (n > 0) memcpy(data, h->data, (size_t)n);
-    memmove(u->held, u->held + 1, sizeof(Held) * (size_t)--u->held_used);
+    memmove(u->held + i, u->held + i + 1, sizeof(Held) * (size_t)(--u->held_used - i));
     return n;
 }
 
