@@ -309,7 +309,21 @@ static void off(void *ctx) { (void)ctx; pointer_off(); }
 
 static int32_t ticks(void *ctx) { (void)ctx; return timer_ticks_since_last(); }
 static void deadline_set(void *ctx, int32_t time) { (void)ctx; timer_set_deadline(time); }
-static int32_t deadline_passed(void *ctx) { (void)ctx; return timer_deadline_passed(); }
+/* The short 0050a5b6 is the link's stage word (0050a5ac[5], race_net_on_stage): a client's becomes 1 when the host
+ * reaches 00410c18(1), and every screen of the menus leaves on it. The original's service thread keeps it current; here
+ * each screen's loop calls its deadline op first, which serves the link and, for the screens that took the word by
+ * value in their inputs, writes it there */
+static const int16_t *stage_word(void) { return &link_game.flags_a[RACE_NET_STAGE_FLAG]; }
+static int *stage_in;  /* the running screen's inputs' copy of it (results_screen.h, standings.h) */
+static int32_t deadline_passed(void *ctx)
+{
+    (void)ctx;
+    if (menu_words.link_game != 0) {
+        link_service();
+        if (stage_in != NULL) *stage_in = *stage_word();
+    }
+    return timer_deadline_passed();
+}
 static int32_t key(void *ctx)
 {
     (void)ctx;
@@ -484,7 +498,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
-    const ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
+    ResultsInputs in = { game_state, config_current()->image, r->dropped, 0, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
                                CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
     ResultsState st = { g.inverse, screen_palette, 0 };
@@ -499,7 +513,9 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
         free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
         results_order, lap_times, &c };
     c.ops = &ops;
+    stage_in = &in.unknown_50a5b6;
     screen_of(mode, &in, &st, &c.p, &ops);
+    stage_in = NULL;
 }
 
 /* 004275f8 for 00427ae0: the drive on argv[1]'s track (its stem in capitals) in the menus' window, the options from
@@ -543,7 +559,7 @@ static void standings(void *ctx, int32_t segment)
 {
     (void)ctx;
     const int32_t screen = ea_screen();
-    const StandingsInputs in = { game_state, finish, car_points, image_short(0x95), image_short(0x93),
+    StandingsInputs in = { game_state, finish, car_points, image_short(0x95), image_short(0x93),
                                  image_short(0xb1), resource_german(), g.unlock_level, 0, screen,
                                  ea_picture_shape(screen) };
     StandingsState st = { g.inverse, screen_palette };
@@ -557,7 +573,9 @@ static void standings(void *ctx, int32_t segment)
         fade_out_bank, deadline_set, sound, ticks, activate_dialog, key, click, off_dialog, music, deadline_passed,
         free_bank,
         free_handle_inverse, &p };
+    stage_in = &in.unknown_50a5b6;
     standings_screen(segment, &in, &st, &p, &ops);
+    stage_in = NULL;
 }
 static void clip(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1) { (void)ctx; ea_clip(x0, y0, x1, y1); }
 static void no_two(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
@@ -672,7 +690,6 @@ static int32_t read_buttons(void *ctx) { (void)ctx; pointer_sync_from_os(); retu
 static void blit_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
 static void poll(void *ctx) { (void)ctx; pointer_sync_from_os(); }
 
-static const int16_t no_quit;  /* 0050a5b6: nothing asks the screens to leave yet */
 
 /* 004166e0 from Options */
 static void credits(void *ctx, int32_t mode)
@@ -681,7 +698,7 @@ static void credits(void *ctx, int32_t mode)
     const CreditsOps ops = { load_art, shape, palette_set, music_feed, select_picture, blit, select_default,
                              picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
                              free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx };
-    const CreditsState st = { ea_screen_slot(), pointer_active_word(), &g.buttons, &no_quit, &credits_idle };
+    const CreditsState st = { ea_screen_slot(), pointer_active_word(), &g.buttons, stage_word(), &credits_idle };
     credits_last = timer_ticks();
     credits_show(&st, &ops);
 }
@@ -805,7 +822,7 @@ static void audio(void *ctx, int32_t mode)
     const AudioMenuState st = {
         config_current()->image + 9, menu_audio_silent(), menu_audio_kept(), &no_modes, &bit0, &sound_alt, &menu_words.link_game,
         &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &g.buttons, ea_screen_slot(),
-        &g.inverse, &small_stream, word_52b302(), &no_quit };
+        &g.inverse, &small_stream, word_52b302(), stage_word() };
     const AudioMenuOps ops = {
         music_fade_out, music_end, audio_track_music, picture_new, move_to, load_art, no_inverse, music_feed, shape,
         palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
@@ -826,7 +843,7 @@ static void graphics(void *ctx, int32_t mode)
     static int16_t showing;  /* 004f9e8c */
     opt_in();
     const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
-                                   ea_screen_slot(), &g.inverse, &no_quit };
+                                   ea_screen_slot(), &g.inverse, stage_word() };
     const GraphicsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
@@ -984,7 +1001,7 @@ int32_t glue_check_options(int32_t mode)
         off, music, deadline_passed, no_wait, music_feed, save_config, NULL };
     const int16_t language = (int16_t)resource_german();
     const CheckOptionsState st = { config->image, &menu_words.link_game, &language, pointer_active_word(), &g.buttons,
-                                   ea_screen_slot(), &g.inverse, &no_quit };
+                                   ea_screen_slot(), &g.inverse, stage_word() };
     const int32_t done = check_options(mode, &st, &ops);
     opt_out();
     return done;
@@ -1012,7 +1029,7 @@ static AfterRaceState after_race_state(void)
     replay_kind = image_short(REPLAY_FLAG_AT);
     volumes_sync();
     return (AfterRaceState){
-        &menu_words.link_game, &no_quit, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
+        &menu_words.link_game, stage_word(), pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
         &credits_idle, &chat_closed, &replay_kind, (char *)image + 0x3b, menu_audio_silent(), g.volumes,
         KEPT_VOLUMES, image_short(0x7f), image_short(0x95), image_short(0x6d),
         game_state, cars };
@@ -1088,9 +1105,9 @@ static int32_t all_came(void *ctx, int32_t stage) { (void)ctx; return link_wait(
 /* 0040b648 for 00427ae0: the checkpoint menu between segments, 0 to stop the tournament's run */
 static int32_t next_segment(void *ctx)
 {
-    int16_t over = 0;
-    NextSegmentState st = { after_race_state(), &over, &menu_words.link_lost, (int16_t)resource_german() };
-    st.menu.link_over = &over;
+    int16_t *const over = &link_game.flags_a[RACE_NET_STAGE_FLAG];  /* 0050a5b6: read, and cleared once the others came */
+    NextSegmentState st = { after_race_state(), over, &menu_words.link_lost, (int16_t)resource_german() };
+    st.menu.link_over = over;
     const NextSegmentOps ops = { after_race_ops(after_options, ctx), glue_yes_no, glue_banner, deadline, all_came };
     credits_last = timer_ticks();
     const int32_t go_on = next_segment_menu(&st, &ops);
@@ -1115,7 +1132,7 @@ static void options(void *ctx)
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
         &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
-        word_52b302(), &no_quit, &menu_words.redraw };
+        word_52b302(), stage_word(), &menu_words.redraw };
     options_menu(&st, &ops);
     opt_in();
     RaceSettings after = before;
