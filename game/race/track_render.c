@@ -1,5 +1,6 @@
 #include "game/race/track_render.h"
 
+#include "game/race/race_detail.h"
 #include "game/race/track_cache.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_near.h"
@@ -80,11 +81,21 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
                        TRACK_MAX_VERTICES, 0, 0, r->entries, r->object_world, TRACK_MAX_OBJECT_VERTICES,
                        { r->descriptors, r->records, (int32_t)count, 0, 0, 0, 0, 0, -1, 0, circuit,
                          circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu },
-                       0, -1 };
+                       0, -1, 0 };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
     r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
                                     circuit ? (int32_t)tri->ring_segments : STAGE_RING,
                                     circuit ? (int32_t)tri->ring_segments - 1 : -1 };
+    if (r->reach != 0) track_render_set_reach(r, r->reach);
+}
+
+void track_render_set_reach(TrackRender *r, int32_t segments)
+{
+    r->reach = segments > TRACK_DRAW_SEGMENTS && segments <= DRAW_SEGMENTS_ULTRA ? segments : 0;
+    r->draw_segments = r->reach != 0 ? r->reach : TRACK_DRAW_SEGMENTS;
+    r->build.reach = r->reach;
+    r->window.ahead = r->draw_segments + (WINDOW_AHEAD - TRACK_DRAW_SEGMENTS);
+    r->window.behind = r->window.ahead + (WINDOW_BEHIND - WINDOW_AHEAD);
 }
 
 /* Port guard: past a stage's last segment the header's table points past

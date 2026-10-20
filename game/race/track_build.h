@@ -40,6 +40,7 @@ typedef struct {
     TrackObjectWalk walk;
     int32_t first_segment;         /* 00504214 */
     int32_t first_node;            /* 00504218 */
+    int32_t reach;                 /* port: the segments built past the exe's 0x1c ("ultra"); 0 the exe's LODs */
 } TrackBuild;
 
 /* 0043eca4 (watcall first, segment, rows, objects): the LOD of the segment

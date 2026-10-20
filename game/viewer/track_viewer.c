@@ -39,6 +39,7 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_interp.h"
+#include "game/race/race_detail.h"
 #include "viewer/layer_compose.h"
 #include "viewer/screen_layout.h"
 #include "viewer/drive_joy.h"
@@ -708,8 +709,14 @@ static const uint8_t *drive_output(const uint8_t *pixels, int *width)
  * 640 wide until drive_wide_size */
 static void drive_wide_setup(void)
 {
+    const PortSettings ps = port_settings_load();
     screen_layouts(SCREEN_W, drive_views.layouts[HIGH_SCREEN]);
-    drive_wide.fov_adjust = port_settings_load().fov_adjust;
+    drive_wide.fov_adjust = ps.fov_adjust;
+    /* port: the "ultra" view distance (TNFS_VIEW_ULTRA=1 / 0 overrides port.cfg for the checks) */
+    const char *ultra_env = getenv("TNFS_VIEW_ULTRA");
+    const int ultra = ultra_env != NULL ? atoi(ultra_env) != 0 : ps.view_ultra;
+    ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
+    race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;
 }

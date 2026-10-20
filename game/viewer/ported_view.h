@@ -35,6 +35,9 @@ typedef struct {
     int32_t fov_y;              /* port: the vertical field when it differs (a wide screen), 0 the same as fov */
 } PortedViewport;
 
+/* port: the segments of track drawn (track_render_set_reach): DRAW_SEGMENTS_ULTRA for port.cfg's view_ultra */
+void ported_view_set_reach(int32_t segments);
+
 /* port: the frame the 3D view draws into (640 x 480 unless a wide screen's race sets its width) */
 void ported_view_set_screen(int width, int height);
 
