@@ -3,6 +3,8 @@
 #ifndef TNFS_CONTROLS_MENU_H
 #define TNFS_CONTROLS_MENU_H
 
+#include "game/sys/control_map.h"
+
 #include <stdint.h>
 
 enum { CONTROLS_PALETTE = 0x300, CONTROLS_SHORTS = 13 };
@@ -56,7 +58,19 @@ typedef struct ControlsMenuOps {
     void (*picture_free)(void *ctx, int32_t picture);                        /* 004746a0 (cdecl) */
     void (*free)(void *ctx, int32_t bank);                                   /* 00475260 (cdecl) */
     void *ctx;
+    /* port: for controls_plus.c, all NULL unless the state has a `plus` */
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* style 0 cream, 1 yellow */
+    int32_t (*plus_text_width)(void *ctx, const char *text);
+    void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                       int32_t framed);  /* the rectangle darkened (rgb: the screen's palette), a red frame if framed */
+    void (*plus_save)(void *ctx, const PortControls *controls);   /* controls.cfg, and the race's pad from now on */
+    int32_t (*pad_raw)(void *ctx, RawPad *out);   /* the first pad or wheel as it is now; 0 when there is none */
 } ControlsMenuOps;
+
+/* port: the bindings the added pages edit */
+typedef struct ControlsPlus {
+    PortControls *port;
+} ControlsPlus;
 
 /* the globals the screen reads, through pointers as the original reads memory */
 typedef struct ControlsMenuState {
@@ -73,6 +87,7 @@ typedef struct ControlsMenuState {
     int32_t *inverse;             /* 004c5ff4: 00466c00's table */
     const int16_t *net_off;       /* the short 0052b302: 004104d0 not called while set */
     const int16_t *quit;          /* the short 0050a5b6: 1 leaves */
+    ControlsPlus *plus;           /* port: NULL is the original screen exactly */
 } ControlsMenuState;
 
 /* 00413cb0 (eax mode: 0 option/cntrlset's art, else check/chconset's; all registers kept but eax): nine items over

@@ -19,6 +19,7 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
 #include "game/frontend/controls_menu.h"
+#include "game/sys/port_controls.h"
 #include "game/frontend/cop_stop.h"
 #include "game/frontend/win_movie.h"
 #include "game/frontend/credits.h"
@@ -767,21 +768,72 @@ static int32_t capture(void *ctx, char *name)
     pointer_bind_active(was);
     return result;
 }
+/* port: the added pages' text, panels and saving (graphics_plus' routines below), and the pad as it is now */
+static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
+static int32_t plus_text_width(void *ctx, const char *text);
+static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
+static void controls_plus_save(void *ctx, const PortControls *controls)
+{
+    (void)ctx;
+    PortControls saved = *controls;
+    saved.custom = 1;
+    if (!port_controls_save(&saved)) fprintf(stderr, "controls: controls.cfg could not be saved\n");
+    platform_controls_set(&saved);
+}
+/* Test aid, not for play: TNFS_FAKE_PAD=<source> (button4, axis5+, axis0, hat0.8) is a gamepad that presses that
+ * source a moment after each time it is asked afresh (a gap of 10 ticks), so that a script can capture a binding
+ * without a pad. */
+static int fake_pad(RawPad *out)
+{
+    enum { FRESH_GAP = 10, IDLE_CALLS = 20 };
+    static ControlSource source;
+    static int parsed, calls;
+    static uint32_t last;
+    const char *spec = getenv("TNFS_FAKE_PAD");
+    if (spec == NULL) return 0;
+    if (!parsed) {
+        char line[64];
+        snprintf(line, sizeof line, "gas=%s\n", spec);
+        source = port_controls_parse(line, strlen(line)).bind[ACT_GAS][0];
+        parsed = 1;
+    }
+    const uint32_t now = timer_ticks();
+    if (now - last > FRESH_GAP) calls = 0;
+    last = now;
+    memset(out, 0, sizeof *out);
+    out->gamepad = 1, out->buttons = 15, out->axes = 6, out->hats = 1;
+    if (++calls <= IDLE_CALLS) return 1;
+    switch (source.kind) {
+    case SRC_BUTTON: if (source.index < out->buttons) out->button[source.index] = 1; break;
+    case SRC_AXIS_NEG: out->axis[source.index] = -32767; break;
+    case SRC_AXIS_POS:
+    case SRC_AXIS_FULL: out->axis[source.index] = 32767; break;
+    case SRC_HAT: out->hat[source.index] = (uint8_t)source.rest; break;
+    default: break;
+    }
+    return 1;
+}
+static int32_t pad_raw(void *ctx, RawPad *out) { (void)ctx; return fake_pad(out) || platform_joy_raw(0, out); }
+/* port: from Options (mode 0) the controls screen also has two pages for controls.cfg's bindings (from the race's
+ * pause menu it is the original's) */
 static void controls(void *ctx, int32_t mode)
 {
     static const int16_t no_joystick_b = 0, quit = 0;  /* no second joystick */
     static const int32_t no_calibration = 0;  /* 0043bc00 dropped: no Calibrate item */
     const int16_t german = (int16_t)resource_german();
     int32_t *const screen = ea_screen_slot();
+    PortControls port = port_controls_load();
+    ControlsPlus plus = { &port };
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
-                                   pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit };
+                                   pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit,
+                                   mode == 0 ? &plus : NULL };
     const ControlsMenuOps ops = {
         picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
         styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
         select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
         glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
-        picture_free, free_bank, ctx };
+        picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw };
     controls_menu(&st, mode, &ops);
     controls_in();
 }

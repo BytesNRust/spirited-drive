@@ -1,4 +1,5 @@
 #include "game/frontend/controls_menu.h"
+#include "game/frontend/controls_plus.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -59,6 +60,8 @@ typedef struct Menu {
     int32_t rest;            /* esp + 0xa30: the ticks summed while a key is held */
     int released;            /* esp + 0xa2c: the buttons seen up */
     int16_t leave;           /* esp + 0xa20 */
+    PortControls kept_port;  /* port: controls.cfg's bindings on entry */
+    int cancelled;           /* port: Cancel or Escape: nothing is saved */
     int16_t kept[CONTROLS_SHORTS];  /* esp + 0x920: the controls on entry */
     char text[FIELDS][TEXT]; /* esp + 0x600: the fields' texts */
     char first[NAME];        /* esp + 0x8f8: a key's name */
@@ -104,6 +107,7 @@ static void field(const Menu *m, int i, const char *text, const ControlsMenuStat
 static int follow(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     const int over = o->pointer_in_rect(o->ctx, 0x186, WIDE, 100, 0x14a) != 0;
+    if (st->plus && controls_plus_nav_hit(o)) return over;   /* port: over the page indicator, no item */
     for (int16_t i = 0; i < ITEMS; i++) {
         if (i == CALIBRATE && *st->calibration == 0) continue;
         if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], BAND_TOP[i], BAND_BOTTOM[i])) continue;
@@ -167,6 +171,7 @@ static void draw(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
     }
     o->text_select(o->ctx, 1);
     draw_lit(m, st, o);
+    if (st->plus) controls_plus_nav(o, 0);   /* port */
     if (m->fade) o->palette_put(o->ctx, 0, ALL, m->black);
     if (!m->changed) {
         show(st, o);
@@ -398,7 +403,21 @@ static void calibrate(Menu *m, int32_t mode, const ControlsMenuState *st, const 
 static void put_back(Menu *m, const ControlsMenuState *st)
 {
     memcpy(st->controls, m->kept, sizeof m->kept);
+    if (st->plus) *st->plus->port = m->kept_port;
+    m->cancelled = 1;
     m->leave = 1;
+}
+
+/* port: the added pages; Done leaves the screen, Cancel puts everything back, back returns to page 1 drawn again */
+static void second_page(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
+{
+    const ControlsPageResult r = controls_plus_run(st, o, m->bank, m->rgb);
+    if (r == CONTROLS_PAGE_CANCEL) put_back(m, st);
+    else if (r == CONTROLS_PAGE_DONE) m->leave = 1;
+    m->redraw = 1;
+    m->released = m->armed = 0;
+    m->rest = 0;
+    if (*st->pointer_active == 0) move_to(m->selected, o);
 }
 
 static void choose(Menu *m, int32_t mode, int over, uint16_t k, const ControlsMenuState *st,
@@ -455,9 +474,10 @@ static void step_down(Menu *m, const ControlsMenuState *st)
 static void step(Menu *m, uint16_t k, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     if (k == ESCAPE) {
-        memcpy(st->controls, m->kept, sizeof m->kept);
+        put_back(m, st);
         o->sound(o->ctx, CHOSEN);
-        m->leave = 1;
+    } else if (st->plus && k == RIGHT && m->selected < DONE) {
+        second_page(m, st, o);
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
         m->previous = (uint16_t)m->selected;
@@ -481,6 +501,7 @@ static void step(Menu *m, uint16_t k, const ControlsMenuState *st, const Control
 static void open_screen(Menu *m, int32_t mode, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     memcpy(m->kept, st->controls, sizeof m->kept);
+    if (st->plus) m->kept_port = *st->plus->port;
     m->names = DEVICE_NAME[*st->german != 0];
     for (int i = 0; i < FIELDS; i++) m->pictures[i] = o->picture_new(o->ctx, PICTURE_W, PICTURE_H, 0);
     m->scratch = o->picture_new(o->ctx, PICTURE_W, PICTURE_H, 0);
@@ -546,7 +567,9 @@ int32_t controls_menu(const ControlsMenuState *st, int32_t mode, const ControlsM
         if (*st->buttons == 0) m.released = 1;
         ops->pointer_activate_if_moved(ops->ctx);
         const uint16_t k = (uint16_t)ops->key(ops->ctx);
-        if (k == SPACE || k == ENTER || (*st->buttons == LEFT_BUTTON && m.released)) {
+        if (st->plus && *st->buttons == LEFT_BUTTON && m.released && controls_plus_nav_hit(ops)) {
+            second_page(&m, st, ops);
+        } else if (k == SPACE || k == ENTER || (*st->buttons == LEFT_BUTTON && m.released)) {
             chosen(&m, mode, over, k, st, ops);
         } else if (k == 0) {
             m.armed = 1;
@@ -562,5 +585,7 @@ int32_t controls_menu(const ControlsMenuState *st, int32_t mode, const ControlsM
         }
     } while (!m.leave);
     close_screen(&m, ops);
+    if (st->plus && !m.cancelled && memcmp(st->plus->port, &m.kept_port, sizeof m.kept_port) != 0)
+        ops->plus_save(ops->ctx, st->plus->port);   /* port */
     return m.leave;
 }
