@@ -693,6 +693,35 @@ static LayerRect radar_housing(const uint8_t *frame, LayerRect r)
     return (LayerRect){ r.left - left, r.top > below ? r.top - below : 0, r.right + right, y1 };
 }
 
+/* port: the widened mirror over its frame's two halves (wide_compose): the frame's middle column drawn across the
+ * gap between them, then the whole picture, enlarged as the frame */
+static void wide_mirror(const uint8_t *frame, const DriveMirror *m, const LayerRect *r, ScreenPoint at,
+                        const CockpitScale *cs)
+{
+    const int mid = drive_hud.mirror_x + (m->width - m->extra) / 2;
+    const int x0 = at.x + (int)((int64_t)(mid - r->left) * cs->scale >> 16);
+    const int gap = (int)((int64_t)m->extra * cs->scale >> 16);
+    const int rows = (int)((int64_t)(r->bottom - r->top) * cs->scale >> 16);
+    for (int y = 0; y < rows; y++) {
+        const int sy = r->top + (int)(((int64_t)y << 16) / cs->scale), dy = at.y + y;
+        const uint8_t p = frame[sy * SCREEN_W + mid];
+        if (p == LAYER_KEY || dy < 0 || dy >= SCREEN_H) continue;
+        for (int x = x0; x < x0 + gap && x < drive_wide.width; x++) if (x >= 0) drive_wide.pixels[(size_t)dy * drive_wide.width + x] = p;
+    }
+    const int px = at.x + (int)((int64_t)(drive_hud.mirror_x - r->left) * cs->scale >> 16);
+    const int py = at.y + (int)((int64_t)(drive_hud.mirror_y - r->top) * cs->scale >> 16);
+    const int out_w = (int)((int64_t)m->width * cs->scale >> 16), out_h = (int)((int64_t)m->height * cs->scale >> 16);
+    for (int y = 0; y < out_h; y++) {
+        const int sy = (int)(((int64_t)y << 16) / cs->scale), dy = py + y;
+        if (sy >= m->height || dy < 0 || dy >= SCREEN_H) continue;
+        for (int x = 0; x < out_w; x++) {
+            const int sx = (int)(((int64_t)x << 16) / cs->scale), dx = px + x;
+            if (sx < m->width && dx >= 0 && dx < drive_wide.width)
+                drive_wide.pixels[(size_t)dy * drive_wide.width + dx] = m->picture[DRIVE_VIEW_HEADER + sy * m->width + sx];
+        }
+    }
+}
+
 static LayerPiece wide_piece(int left, int top, int w, int h, ScreenPoint at, int scaled)
 {
     return (LayerPiece){ { left, top, left + w, top + h }, at.x, at.y, scaled };
@@ -711,17 +740,17 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerRect lights = in_car && drive_hud.cockpit_ready ? radar_box(&drive_hud.cockpit) : (LayerRect){ 0, 0, 0, 0 };
     const LayerRect radar = lights.right > lights.left ? radar_housing(frame, lights) : lights;
     const int mirror_on = in_car && m->picture != NULL && m->state != 0;
-    const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width,
-                                drive_hud.mirror_y + m->height };
+    const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width - m->extra,
+                                drive_hud.mirror_y + m->height };  /* as the frame holds it: a widened one's middle */
     const LayerRect mirror = mirror_on ? grow_piece(frame, picture, MIRROR_FRAME) : picture;
-    const int mirror_w = (int)((int64_t)(mirror.right - mirror.left) * cs.scale >> 16);
+    const int mirror_w = (int)((int64_t)(mirror.right - mirror.left + (mirror_on ? m->extra : 0)) * cs.scale >> 16);
     const int mirror_h = (int)((int64_t)(mirror.bottom - mirror.top) * cs.scale >> 16);
     const ScreenPoint sizes[7] = { { BAR_MIDDLE_640, HUD_BAR_HEIGHT }, { BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT },
                                    { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { radar.right - radar.left, radar.bottom - radar.top },
                                    { GAUGE_SIZE, GAUGE_SIZE } };
     const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
-    LayerPiece pieces[7];
+    LayerPiece pieces[8];
     int n = 0;
     if (!police) {
         pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_start, 0);
@@ -730,7 +759,13 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
         pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
     }
     if (in_car) {
-        if (mirror_on) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1 };
+        if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1 };
+        if (mirror_on && m->extra != 0) {  /* the frame in two, either side of the picture's middle, apart by the extra */
+            const int mid = drive_hud.mirror_x + (m->width - m->extra) / 2;
+            const int apart = (int)((int64_t)(mid - mirror.left + m->extra) * cs.scale >> 16);
+            pieces[n++] = (LayerPiece){ { mirror.left, mirror.top, mid, mirror.bottom }, a.mirror.x, a.mirror.y, 1 };
+            pieces[n++] = (LayerPiece){ { mid, mirror.top, mirror.right, mirror.bottom }, a.mirror.x + apart, a.mirror.y, 1 };
+        }
         if (radar.right > radar.left)
             pieces[n++] = (LayerPiece){ radar, a.radar.x, a.radar.y, 0 };
     } else if (!police) {
@@ -741,6 +776,7 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     if (in_car) wide_art_scaled(&map, &cs, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, cs.crop_top, in_car, pieces, n };
     layer_compose(&c, frame, drive_wide.pixels);
+    if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &cs);
     if (!police) {  /* the strip between the groups */
         wide_strip_gap(frame, a.bar_start.x + BAR_MIDDLE_640, a.bar_middle.x);
         wide_strip_gap(frame, a.bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a.bar_end.x);
@@ -789,6 +825,7 @@ static void drive_wide_setup(void)
 static void drive_wide_size(int width)
 {
     drive_wide.width = width;
+    drive_mirror_widen(&drive_hud.mirror, width > SCREEN_W);
     if (drive_wide.width <= SCREEN_W) return;
     screen_layouts(drive_wide.width, drive_wide.rows);
     uint8_t *p = realloc(drive_wide.pixels, (size_t)drive_wide.width * SCREEN_H);

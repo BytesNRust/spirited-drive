@@ -10,6 +10,7 @@
 #include "game/race/track_geometry.h"
 #include "game/race/track_render.h"
 #include "game/race/track_step.h"
+#include "game/viewer/screen_layout.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -74,13 +75,32 @@ static uint8_t *horz_bank(const TrackArt *art)
     return bank;
 }
 
+static int widened;  /* port: drive_mirror_widen's, kept for the pictures made after it (a cockpit reloaded) */
+
+/* port: the picture remade `extra` columns wider than the cockpit's box */
+static void make_wide(DriveMirror *m, int32_t extra)
+{
+    const int32_t w = m->width - m->extra + extra;
+    uint8_t *p = make_picture(NULL, w, m->height, 0);
+    if (p == NULL) return;  /* the picture as it was */
+    mirror_free(free_picture, NULL, (void **)&m->picture);
+    m->picture = p, m->width = w, m->extra = extra;
+}
+
 int drive_mirror_start(DriveMirror *m, const Cockpit *c)
 {
     memset(m, 0, sizeof *m);
     m->first_segment = -1;
     const int32_t box[4] = { c->dash_points[0].x, c->dash_points[0].y, c->dash_points[1].x, c->dash_points[1].y };
     m->picture = mirror_create(make_picture, NULL, box, &m->width, &m->height);
+    if (m->picture != NULL && widened) make_wide(m, m->width / 2);
     return m->picture != NULL;
+}
+
+void drive_mirror_widen(DriveMirror *m, int on)
+{
+    widened = on;
+    if (m->picture != NULL) make_wide(m, on ? (m->width - m->extra) / 2 : 0);
 }
 
 void drive_mirror_free(DriveMirror *m)
@@ -92,7 +112,21 @@ void drive_mirror_free(DriveMirror *m)
 
 void drive_mirror_place(const DriveMirror *m, const QuadTarget *target, int32_t x, int32_t y)
 {
-    if (m->picture != NULL && m->state != 0) blit_shape_at(target, m->picture, x, y);  /* 0044c060: 004737d0 */
+    if (m->picture == NULL || m->state == 0) return;
+    if (m->extra == 0) {
+        blit_shape_at(target, m->picture, x, y);  /* 0044c060: 004737d0 */
+        return;
+    }
+    const int32_t w = m->width - m->extra, from = m->extra / 2;  /* port: the widened picture's middle */
+    for (int32_t r = 0; r < m->height; r++) {
+        const int32_t dy = y + r;
+        if (dy < target->clip_top || dy >= target->clip_bottom) continue;
+        for (int32_t c = 0; c < w; c++) {
+            const int32_t dx = x + c;
+            if (dx >= target->clip_left && dx < target->clip_right)
+                target->pixels[dy * target->pitch + dx] = m->picture[SHAPE_HEADER + r * m->width + from + c];
+        }
+    }
 }
 
 typedef DriveMirrorFrame Frame;
@@ -132,7 +166,7 @@ static void view_op(void *ctx, int rear)
     Frame *f = ctx;
     if (!rear) return;  /* the front view is the port's own (ported_view.c) */
     static RaceCamera camera;
-    camera.fov = MIRROR_FOV, camera.layout_row = f->layout;
+    camera.fov = f->m->extra != 0 ? f->m->fov : MIRROR_FOV, camera.layout_row = f->layout;
     track_camera_rear_matrix(f->pitch, f->yaw, f->roll, f->m->matrix);
     const RaceCameraPair pair = { &camera, &camera, f->m->matrix, f->m->matrix };
     static const int32_t still[2] = { 0, 0 };  /* 004f8010 / 004f8014 apply ahead only */
@@ -275,6 +309,12 @@ int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFra
                   &race_view_layouts[HIGH_MODE][row->layouts[size]], NULL, 0, race->chase.angles[0], race->chase.angles[1],
                   race->chase.angles[2] };
     f->cache = w->track->cache, f->segment_mask = (int32_t)w->track->build.segment_mask;
+    if (m->extra != 0) {  /* port: the layout as wide as the picture, the field widened at the same focal length */
+        m->wide_layout = *f->layout;
+        m->wide_layout.width += m->extra, m->wide_layout.unknown_20 += m->extra;
+        m->fov = screen_fov_y(MIRROR_FOV, f->layout->width, m->wide_layout.width, 0);  /* any axis: same sum */
+        f->layout = &m->wide_layout;
+    }
     mirror_rows(f);
     /* m->car_rows: 00459d70's mirror part (00459cc4), at 0044ce3f (ported_view_frame_rows) */
     return 1;

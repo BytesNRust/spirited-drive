@@ -77,18 +77,18 @@ int main(void)
     CHECK_EQ_INT(a.bar_middle.x, 262 + 107);
     CHECK_EQ_INT(a.bar_end.x, 854 - 235);
     CHECK_EQ_INT(a.bar_end.y, 0);
-    CHECK_EQ_INT(a.mirror.x, 854 - 96 - 8);
+    CHECK_EQ_INT(a.mirror.x, 854 - 96);
     CHECK_EQ_INT(a.mirror.y, 38);
     CHECK_EQ_INT(a.map.x, 854 - 113 - 6);
     CHECK_EQ_INT(a.map.y, 480 - 140 - 6);
     CHECK_EQ_INT(a.radar.x, 256 - 98 / 2);
-    CHECK_EQ_INT(a.radar.y, HUD_BAR_HEIGHT + 4);
+    CHECK_EQ_INT(a.radar.y, HUD_BAR_HEIGHT);
     CHECK_EQ_INT(a.gauge.x, 10);
     CHECK_EQ_INT(a.gauge.y, 289);
 
     a = screen_hud_anchors(1120, sizes, mirror640);
     CHECK_EQ_INT(a.bar_end.x, 1120 - 235);
-    CHECK_EQ_INT(a.mirror.x, 1120 - 96 - 8);
+    CHECK_EQ_INT(a.mirror.x, 1120 - 96);
 
     CHECK_EQ_INT(screen_format_nearest(1920, 1080), SCREEN_16_9);
     CHECK_EQ_INT(screen_format_nearest(3440, 1440), SCREEN_21_9);

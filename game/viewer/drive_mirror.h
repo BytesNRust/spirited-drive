@@ -32,6 +32,9 @@ typedef struct {
     uint8_t car_rows[MIRROR_CAR_ROWS];      /* 0051c7a1 */
     int32_t matrix[9];          /* the mirror camera's (chase +0xb8) */
     View view;
+    int32_t extra;              /* port: the wide screen's columns added to the picture (drive_mirror_widen); 0 none */
+    int32_t fov;                /* port: the field that keeps the mirror's focal length over the wider picture */
+    ViewLayout wide_layout;     /* port: the mirror camera's layout as wide as the picture */
 } DriveMirror;
 
 typedef struct {
@@ -68,7 +71,12 @@ int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFra
 /* mirror_frame's ops on the pass `f` (the front view is the port's own: view(0) does nothing). */
 MirrorFrameOps drive_mirror_ops(DriveMirrorFrame *f);
 
-/* 0044c060: the picture at x, y on the screen target. */
+/* port: the wide screen's mirror: the picture half again as wide (a wider field at the same focal length) from now
+ * on, `m`'s too when it has one; 0 back to the cockpit's own. The cockpit's frame keeps the original's width: only
+ * the middle of the picture, the original's view, is placed on it (drive_mirror_place). */
+void drive_mirror_widen(DriveMirror *m, int on);
+
+/* 0044c060: the picture at x, y on the screen target (a widened one's middle, as wide as the original's). */
 void drive_mirror_place(const DriveMirror *m, const QuadTarget *target, int32_t x, int32_t y);
 
 /* 0044bdbc. */

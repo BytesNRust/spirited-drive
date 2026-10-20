@@ -10,9 +10,8 @@ enum {
     MIRROR_ROW = 12,
     WIDTH_16_9 = 854,
     WIDTH_21_9 = 1120,
-    MIRROR_MARGIN = 8, MIRROR_TOP = 38,
+    MIRROR_TOP = 38,            /* the mirror against the right edge, as the original's runs off it */
     MAP_MARGIN = 6,
-    RADAR_GAP = 4,
     /* 640 positions of the pieces that do not move with the car */
     MIDDLE_X_640 = 262,         /* the speed's first digit (hud.c TOP_ROW_HIGH), where the middle group begins */
     END_X_640 = 405,
@@ -106,9 +105,9 @@ HudAnchors screen_hud_anchors(int width, const ScreenPoint sizes[7], ScreenPoint
         { 0, 0 },
         { MIDDLE_X_640 + screen_menu_left(width), 0 },
         { width - sizes[END].x, 0 },
-        { width - sizes[MIRROR].x - MIRROR_MARGIN, MIRROR_TOP },
+        { width - sizes[MIRROR].x, MIRROR_TOP },
         { width - sizes[MAP].x - MAP_MARGIN, SCREEN_HEIGHT - sizes[MAP].y - MAP_MARGIN },
-        { sizes[START].x - sizes[RADAR].x / 2, HUD_BAR_HEIGHT + RADAR_GAP },
+        { sizes[START].x - sizes[RADAR].x / 2, HUD_BAR_HEIGHT },
         { GAUGE_X, GAUGE_Y }
     };
 }
