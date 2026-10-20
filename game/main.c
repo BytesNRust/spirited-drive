@@ -21,6 +21,7 @@
 #include "game/frontend/tgv_player.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
@@ -107,7 +108,7 @@ static int parse_args(int argc, char **argv, Options *opt)
 /* --movie: the window, the menus' sound and one movie (development) */
 static int run_movie(const Options *opt)
 {
-    const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
+    const PlatformConfig config = port_platform_config("The Need for Speed SE");
     if (!platform_init(&config)) return 0;
     if (!video_init()) {
         platform_shutdown();
@@ -143,7 +144,7 @@ static int run_drive(const Options *opt)
         fprintf(stderr, "--drive: no track %s\n", opt->drive);
         return 0;
     }
-    const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
+    const PlatformConfig config = port_platform_config("The Need for Speed SE");
     if (!platform_init(&config)) return 0;
     if (!video_init()) {
         platform_shutdown();
@@ -172,7 +173,7 @@ static int run_drive(const Options *opt)
 /* 00437540: the game's main(). */
 static int run_game(const Options *opt)
 {
-    const PlatformConfig config = { VIDEO_WIDTH, VIDEO_HEIGHT, "The Need for Speed SE" };
+    const PlatformConfig config = port_platform_config("The Need for Speed SE");
     if (!platform_init(&config)) return 0;
     if (!video_init()) {
         platform_shutdown();

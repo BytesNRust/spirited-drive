@@ -1745,7 +1745,7 @@ static const RaceRunOps *drive_run_ops(void);
 
 static int drive_window(const Track *t, uint8_t *pixels)
 {
-    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive", 0, 0, 0 };
+    const PlatformConfig config = port_platform_config("TNFS drive");
     if (!menus_on && !platform_init(&config)) return 0;
     int platform_w = SCREEN_W, platform_h = SCREEN_H;
     platform_framebuffer_size(&platform_w, &platform_h);

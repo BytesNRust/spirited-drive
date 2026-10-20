@@ -1,6 +1,8 @@
 #include "game/sys/video.h"
 
+#include "game/sys/backdrop.h"
 #include "game/sys/palette.h"
+#include "game/viewer/screen_layout.h"
 #include "platform/platform.h"
 
 #include <stdlib.h>
@@ -14,22 +16,47 @@ static int target_w = VIDEO_WIDTH, target_h = VIDEO_HEIGHT;
 static int clip_l, clip_r = VIDEO_WIDTH, clip_t, clip_b = VIDEO_HEIGHT;  /* 004c78bc..004c78c8, the blits' box */
 static uint8_t *front;
 static uint8_t *composed;
+static uint8_t *wide;  /* port: the picture centred on its darkened enlarged copy, when the platform is wider than 640 */
+static int wide_w;
+static uint8_t shade[256];
+static int shade_valid;
 static uint8_t palette[PALETTE_BYTES];  /* 0052ced8 / 0052f178 */
 static const FshEntry *overlay;
 static int overlay_x, overlay_y;
 
-static void compose_overlay(void)
+/* The overlay's sprite drawn on `dst` (stride wide) with the 640 picture starting at column `left` */
+static void draw_overlay(uint8_t *dst, int stride, int left)
 {
-    memcpy(composed, front, VIDEO_WIDTH * VIDEO_HEIGHT);
     for (int row = 0; row < overlay->height; row++) {
         const int dy = overlay_y + row;
         if (dy < 0 || dy >= VIDEO_HEIGHT) continue;
         for (int col = 0; col < overlay->width; col++) {
             const int dx = overlay_x + col;
             const uint8_t c = overlay->payload[(size_t)row * overlay->width + col];
-            if (c != TRANSPARENT && dx >= 0 && dx < VIDEO_WIDTH) composed[dy * VIDEO_WIDTH + dx] = c;
+            if (c != TRANSPARENT && dx >= 0 && dx < VIDEO_WIDTH) dst[dy * stride + left + dx] = c;
         }
     }
+}
+
+static void compose_overlay(void)
+{
+    memcpy(composed, front, VIDEO_WIDTH * VIDEO_HEIGHT);
+    draw_overlay(composed, VIDEO_WIDTH, 0);
+}
+
+/* port: the picture on a platform wider than 640: centred over a darkened, enlarged copy of itself */
+static const uint8_t *compose_wide(int width)
+{
+    if (wide_w != width) {
+        free(wide);
+        wide = malloc((size_t)width * VIDEO_HEIGHT);
+        wide_w = wide != NULL ? width : 0;
+        if (wide == NULL) return NULL;
+    }
+    if (!shade_valid) backdrop_shade_table(palette, shade), shade_valid = 1;
+    backdrop_compose(front, wide, width, shade);
+    if (overlay != NULL) draw_overlay(wide, width, screen_menu_left(width));
+    return wide;
 }
 
 static void show(void)
@@ -37,6 +64,13 @@ static void show(void)
     PlatformColor colors[PALETTE_COLORS];
     for (int i = 0; i < PALETTE_COLORS; i++) {
         colors[i] = (PlatformColor){ palette[3 * i], palette[3 * i + 1], palette[3 * i + 2] };
+    }
+    int width = VIDEO_WIDTH, height = VIDEO_HEIGHT;
+    platform_framebuffer_size(&width, &height);
+    const uint8_t *const backdrop = width > VIDEO_WIDTH ? compose_wide(width) : NULL;
+    if (backdrop != NULL) {
+        platform_present(backdrop, colors);
+        return;
     }
     if (overlay != NULL) compose_overlay();
     platform_present(overlay != NULL ? composed : front, colors);
@@ -56,6 +90,7 @@ int video_init(void)
     front = calloc(VIDEO_WIDTH * VIDEO_HEIGHT, 1);
     composed = calloc(VIDEO_WIDTH * VIDEO_HEIGHT, 1);
     memset(palette, 0, sizeof palette);
+    shade_valid = 0;
     overlay = NULL;
     if (back == NULL || front == NULL || composed == NULL) {
         video_shutdown();
@@ -69,7 +104,9 @@ void video_shutdown(void)
     free(back);
     free(front);
     free(composed);
-    back = front = composed = NULL;
+    free(wide);
+    back = front = composed = wide = NULL;
+    wide_w = shade_valid = 0;
     overlay = NULL;
 }
 
@@ -124,6 +161,7 @@ void video_wait_vblank(void)
 void video_set_palette(int first, int count, const uint8_t *rgb)
 {
     memcpy(palette + first * 3, rgb, (size_t)count * 3);
+    shade_valid = 0;
     show();
 }
 
