@@ -5,12 +5,20 @@
 
 #include <stdint.h>
 
+/* port: the "ultra" view distance: the most segments the track's cache window holds (64 records of 0x21c in its
+ * 0x8700 bytes: 56 drawn + 2 ahead + 5 behind + the camera's) */
+enum { DRAW_SEGMENTS_ULTRA = 56 };
+
+/* port: the bounds' top, 0x1c as the exe holds it unless "ultra" (port.cfg's view_ultra) sets a higher one, up to
+ * DRAW_SEGMENTS_ULTRA; out of 0x1c..DRAW_SEGMENTS_ULTRA it goes back to 0x1c */
+void race_detail_set_ceiling(int32_t segments);
+
 /* 0044c1bc (watcall segments): *pending (004c5360) = segments held to
- * 8..0x1c. 0044c118 sets 00504220 from it unless it is -1. */
+ * 8..0x1c (the port's ceiling). 0044c118 sets 00504220 from it unless it is -1. */
 void race_detail_request(int32_t segments, int32_t *pending);
 
 /* 0044c0ec (watcall step, from 0044cc74): *pending (004c5360) = the draw
- * segments (00504220) + step (32-bit), held to 8..0x1c. */
+ * segments (00504220) + step (32-bit), held to 8..0x1c (the port's ceiling). */
 void race_detail_step(int32_t step, int32_t draw_segments, int32_t *pending);
 
 typedef struct {

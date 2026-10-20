@@ -680,6 +680,11 @@ void ported_view_forget_track(void)
     ported_view_set_models(NULL, NULL);  /* the next track's models sit at the same address, bound to these textures */
 }
 
+void ported_view_set_reach(int32_t segments)
+{
+    track_render_set_reach(&render, segments);
+}
+
 const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 {
     stream(tri, art, camera_node);

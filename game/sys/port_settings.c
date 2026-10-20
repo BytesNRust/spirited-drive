@@ -1,6 +1,7 @@
 /* port: the port's own settings file (port.cfg). */
 #include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
+#include "game/viewer/screen_layout.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,4 +102,10 @@ bool port_settings_save(const PortSettings *s)
     char text[256];
     const size_t n = port_settings_format(s, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
+}
+
+PlatformConfig port_platform_config(const char *title)
+{
+    const PortSettings s = port_settings_load();
+    return (PlatformConfig){ screen_width(s.format), SCREEN_HEIGHT, title, s.scale_integer, s.fullscreen, s.refresh_hz };
 }

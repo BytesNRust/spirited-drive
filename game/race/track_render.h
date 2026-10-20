@@ -30,8 +30,9 @@
 enum {
     TRACK_DRAW_SEGMENTS = 0x1C,   /* 00504220, set by 0043e4e0 */
     TRACK_NEAR_SEGMENTS = 4,      /* 0044b510 subdivides at most 4 */
-    TRACK_MAX_VERTICES = 2048,    /* 0050503c holds 0x8700 / 12... ample */
-    TRACK_MAX_OBJECT_VERTICES = 1024,
+    TRACK_MAX_VERTICES = 4096,    /* 0050503c holds 0x8700 / 12; twice the 2048 the exe's 0x1c segments need, for
+                                     the port's "ultra" reach */
+    TRACK_MAX_OBJECT_VERTICES = 2048,
     TRACK_SEGMENT_ENTRIES = TRI_SEGMENT_CAPACITY + 64,   /* 00504228: a stage indexes it by segment */
     TRACK_NODE_SPARE = 4 * 64                           /* nodes read past a stage's last */
 };
@@ -65,6 +66,7 @@ typedef struct {
     TrackSegmentEntry entries[TRACK_SEGMENT_ENTRIES];                     /* 00504228 */
     TrackBuild build;                        /* its segments: entries; the walk: 005041b4..d0, 00504200..08 */
     TrackCacheWindow window;                 /* 005041dc..e8, 0050420c, 00504210 */
+    int32_t reach;                           /* port: the segments drawn when the track is bound; 0 the exe's 0x1c */
     uint32_t side_face;                      /* 00511fac */
     uint8_t quarter;                         /* 0051204c */
     MirrorBounds bounds;                     /* 00511f88 */
@@ -111,6 +113,10 @@ int track_visible_far(const ClipRect *clip, const int32_t s[8], int strip, int m
 void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[3]);
 
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
+
+/* port: the segments drawn (the "ultra" view distance): 0x1c..DRAW_SEGMENTS_ULTRA (race_detail.h), else 0x1c; the
+ * cache window keeps its two segments ahead and five behind. Taken at once, and at every later bind. */
+void track_render_set_reach(TrackRender *r, int32_t segments);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* frame: the animation counter (00513e70). */
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame);

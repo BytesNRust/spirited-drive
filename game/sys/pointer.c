@@ -6,6 +6,7 @@
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
+#include "game/viewer/screen_layout.h"
 #include "platform/platform.h"
 
 #include <stdio.h>
@@ -87,8 +88,17 @@ void pointer_range(int x0, int y0, int x1, int y1)
 
 void pointer_sync_from_os(void)
 {
-    int os_x, os_y;
-    if (platform_mouse(&os_x, &os_y, &os_buttons)) {
+    int os_x, os_y, width = VIDEO_WIDTH, height = VIDEO_HEIGHT;
+    const int moved = platform_mouse(&os_x, &os_y, &os_buttons);
+    platform_framebuffer_size(&width, &height);
+    /* port: on a wide screen the 640 picture is centred; over the darkened sides the pointer does nothing: no
+     * move (no highlight) and no click */
+    if (width > VIDEO_WIDTH) os_x -= screen_menu_left(width);
+    if (os_x < 0 || os_x >= VIDEO_WIDTH) {
+        os_buttons = 0;
+        return;
+    }
+    if (moved) {
         ptr.x = os_x;
         ptr.y = os_y;
         clamp();

@@ -5,6 +5,7 @@
 
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]) { (void)pixels, (void)palette; }
 void platform_wait_vblank(void) {}
+void platform_framebuffer_size(int *width, int *height) { *width = 640, *height = 480; }
 
 enum { W = 16, H = 8 };
 

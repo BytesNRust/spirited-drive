@@ -87,7 +87,7 @@ ViewLayout screen_cockpit_view(int width)
     if (width <= ORIGINAL_WIDTH) return v;
     const CockpitScale cs = screen_cockpit_scale(width);
     const int box = (int)((int64_t)v.unknown_24 * cs.scale >> 16) - cs.crop_top;
-    v.scale = (int32_t)((int64_t)v.scale * cs.scale >> 16);
+    /* the scale stays: the projection's one focal length (view_project) already grows with the width, for y too */
     v.x = 0, v.y = -cs.crop_top - v.top;
     v.width = width;
     v.height = (int)((int64_t)SCREEN_HEIGHT * cs.scale >> 16);

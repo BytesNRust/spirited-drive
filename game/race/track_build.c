@@ -93,10 +93,15 @@ static void next_object(TrackObjectWalk *w, int32_t node)
     }
 }
 
+enum { EXE_SEGMENTS = 0x1c };  /* 00504220's top: 004bba64's last far column is EXE_SEGMENTS - 1 */
+
 static int lod_of(const TrackBuild *b, int32_t first, int32_t segment, int32_t node)
 {
     const uint8_t property = b->nodes[(uint32_t)node * TRACK_BUILD_NODE_SIZE + 7];
-    const int32_t distance = x_sub(segment, first);
+    int32_t distance = x_sub(segment, first);
+    /* port: "ultra" builds past 004bba64's 28 columns: the far ones take its last far LOD (27), the single row at
+     * the end the column the exe gives its own (28) */
+    if (b->reach > EXE_SEGMENTS && distance >= EXE_SEGMENTS) distance = distance >= b->reach ? EXE_SEGMENTS : EXE_SEGMENTS - 1;
     if (property >= TRACK_PROPERTIES || distance < 0 || distance >= TRACK_LOD_DISTANCES) return 0;  /* port guard */
     return TRACK_LOD_BY_DISTANCE[property][distance];
 }

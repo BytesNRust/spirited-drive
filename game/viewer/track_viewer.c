@@ -39,6 +39,7 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_interp.h"
+#include "game/race/race_detail.h"
 #include "viewer/layer_compose.h"
 #include "viewer/screen_layout.h"
 #include "viewer/drive_joy.h"
@@ -586,7 +587,9 @@ enum {
     BAR_MIDDLE_640 = 262, BAR_END_640 = 405,  /* the scoreboard's groups (screen_layout.c) */
     GAUGE_X_640 = 10, GAUGE_Y_640 = 289, GAUGE_SIZE = 156,
     RADAR_FIRST = 2, RADAR_LAST = 7,    /* the radar detector's big light and five small ones (cockpit_draw.c) */
-    RADAR_MARGIN = 4,                   /* its housing round the lights */
+    RADAR_HOUSING = 12,                 /* the most its housing reaches above and below the lights */
+    RADAR_HOUSING_WIDE = 40,            /* and to either side */
+    MIRROR_FRAME = 40,                  /* the most the mirror's frame and stalk reach past its picture */
     SHAPE_W_AT = 4, SHAPE_H_AT = 6
 };
 
@@ -609,27 +612,85 @@ static LayerRect radar_box(const Cockpit *c)
         if (p.x + shape_word(shape, SHAPE_W_AT) > r.right) r.right = p.x + shape_word(shape, SHAPE_W_AT);
         if (p.y + shape_word(shape, SHAPE_H_AT) > r.bottom) r.bottom = p.y + shape_word(shape, SHAPE_H_AT);
     }
-    if (r.right <= r.left) return (LayerRect){ 0, 0, 0, 0 };
-    r.left -= RADAR_MARGIN, r.top -= RADAR_MARGIN, r.right += RADAR_MARGIN, r.bottom += RADAR_MARGIN;
-    if (r.left < 0) r.left = 0;
-    if (r.top < 0) r.top = 0;
-    return r;
+    return r.right > r.left ? r : (LayerRect){ 0, 0, 0, 0 };
 }
 
-/* port: the lines of the strip from x0 to x1 on the wide screen in one colour */
-static void wide_fill(int x0, int x1, uint8_t colour)
+enum { STRIP_BACK_X = 258 };  /* a column of the 640 strip with nothing on it, between its first two groups */
+
+/* port: the strip between the scoreboard's groups, each line as the 640 strip's bare column (black, and the grey
+ * edge on its last two lines) */
+static void wide_strip_gap(const uint8_t *frame, int x0, int x1)
 {
-    for (int y = 0; y < HUD_BAR_HEIGHT && x1 > x0; y++) memset(drive_wide.pixels + (size_t)y * drive_wide.width + x0, colour, (size_t)(x1 - x0));
+    for (int y = 0; y < HUD_BAR_HEIGHT && x1 > x0; y++)
+        memset(drive_wide.pixels + (size_t)y * drive_wide.width + x0, frame[y * SCREEN_W + STRIP_BACK_X], (size_t)(x1 - x0));
 }
 
-/* port: a box of the 640 dash where it lands enlarged on the wide screen, in one colour */
-static void wide_fill_scaled(const LayerRect *r, const CockpitScale *cs, uint8_t colour)
+/* port: the dash's own art (004218d0's 'dash', its windshield LAYER_KEY), what the map's box covers */
+static const uint8_t *dash_art_layer(const Cockpit *c)
+{
+    static uint8_t layer[SCREEN_W * SCREEN_H];
+    static const uint8_t *drawn;
+    if (c->dash != drawn) {
+        memset(layer, LAYER_KEY, sizeof layer);
+        const QuadTarget t = { layer, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
+        if (c->dash != NULL) blit_shape_at_transparent(&t, c->dash, 0, 0);
+        drawn = c->dash;
+    }
+    return layer;
+}
+
+/* port: a box of the 640 dash where it lands enlarged on the wide screen, drawn from `art` (LAYER_KEY left alone) */
+static void wide_art_scaled(const LayerRect *r, const CockpitScale *cs, const uint8_t *art)
 {
     const int x0 = (int)((int64_t)r->left * cs->scale >> 16), x1 = (int)((int64_t)r->right * cs->scale >> 16);
     const int y0 = (int)((int64_t)r->top * cs->scale >> 16) - cs->crop_top;
     const int y1 = (int)((int64_t)r->bottom * cs->scale >> 16) - cs->crop_top;
-    for (int y = y0 < 0 ? 0 : y0; y < y1 && y < SCREEN_H; y++)
-        memset(drive_wide.pixels + (size_t)y * drive_wide.width + x0, colour, (size_t)((x1 > drive_wide.width ? drive_wide.width : x1) - x0));
+    for (int y = y0 < 0 ? 0 : y0; y < y1 && y < SCREEN_H; y++) {
+        const int sy = (int)(((int64_t)(y + cs->crop_top) << 16) / cs->scale);
+        for (int x = x0; x < x1 && x < drive_wide.width; x++) {
+            const int sx = (int)(((int64_t)x << 16) / cs->scale);
+            const uint8_t p = sx < SCREEN_W && sy < SCREEN_H ? art[sy * SCREEN_W + sx] : LAYER_KEY;
+            if (p != LAYER_KEY) drive_wide.pixels[(size_t)y * drive_wide.width + x] = p;
+        }
+    }
+}
+
+static int line_drawn(const uint8_t *frame, int x0, int y0, int x1, int y1)
+{
+    if (x0 < 0 || y0 < 0 || x1 > SCREEN_W || y1 > SCREEN_H) return 0;
+    for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++)
+            if (frame[y * SCREEN_W + x] != LAYER_KEY) return 1;
+    return 0;
+}
+
+/* port: a piece over the windshield with the dash's art round it (the mirror's frame and stalk, the detector's
+ * housing): `r` grown, at most `most` lines a side, while the line past each side still holds something drawn */
+static LayerRect grow_piece(const uint8_t *frame, LayerRect r, int most)
+{
+    int grown[4] = { 0 }, changed = 1;
+    while (changed) {
+        changed = 0;
+        if (grown[0] < most && line_drawn(frame, r.left - 1, r.top, r.left, r.bottom)) r.left--, grown[0]++, changed = 1;
+        if (grown[1] < most && line_drawn(frame, r.left, r.top - 1, r.right, r.top)) r.top--, grown[1]++, changed = 1;
+        if (grown[2] < most && line_drawn(frame, r.right, r.top, r.right + 1, r.bottom)) r.right++, grown[2]++, changed = 1;
+        if (grown[3] < most && line_drawn(frame, r.left, r.bottom, r.right, r.bottom + 1)) r.bottom++, grown[3]++, changed = 1;
+    }
+    return r;
+}
+
+/* port: the radar detector's housing round its lights (the dash draws a light of its own beside them too). It
+ * hangs from the sun visor, whose lower edge slopes down beside it, so only below the lights is the windshield all
+ * round it: it is grown down from the lights to the windshield, then sideways along those lines, and as deep above
+ * the lights as below them */
+static LayerRect radar_housing(const uint8_t *frame, LayerRect r)
+{
+    int left = 0, right = 0, below = 0;
+    while (below < RADAR_HOUSING && line_drawn(frame, r.left, r.bottom + below, r.right, r.bottom + below + 1)) below++;
+    const int y0 = r.bottom, y1 = r.bottom + below;
+    while (left < RADAR_HOUSING_WIDE && line_drawn(frame, r.left - left - 1, y0, r.left - left, y1)) left++;
+    while (right < RADAR_HOUSING_WIDE && line_drawn(frame, r.right + right, y0, r.right + right + 1, y1)) right++;
+    return (LayerRect){ r.left - left, r.top > below ? r.top - below : 0, r.right + right, y1 };
 }
 
 static LayerPiece wide_piece(int left, int top, int w, int h, ScreenPoint at, int scaled)
@@ -647,13 +708,19 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const int in_car = !police && camera != NULL && camera->layout == 0;
     const CockpitScale cs = screen_cockpit_scale(drive_wide.width);
     const DriveMirror *m = &drive_hud.mirror;
-    const LayerRect radar = in_car && drive_hud.cockpit_ready ? radar_box(&drive_hud.cockpit) : (LayerRect){ 0, 0, 0, 0 };
-    const int mirror_w = (int)((int64_t)m->width * cs.scale >> 16), mirror_h = (int)((int64_t)m->height * cs.scale >> 16);
+    const LayerRect lights = in_car && drive_hud.cockpit_ready ? radar_box(&drive_hud.cockpit) : (LayerRect){ 0, 0, 0, 0 };
+    const LayerRect radar = lights.right > lights.left ? radar_housing(frame, lights) : lights;
+    const int mirror_on = in_car && m->picture != NULL && m->state != 0;
+    const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width,
+                                drive_hud.mirror_y + m->height };
+    const LayerRect mirror = mirror_on ? grow_piece(frame, picture, MIRROR_FRAME) : picture;
+    const int mirror_w = (int)((int64_t)(mirror.right - mirror.left) * cs.scale >> 16);
+    const int mirror_h = (int)((int64_t)(mirror.bottom - mirror.top) * cs.scale >> 16);
     const ScreenPoint sizes[7] = { { BAR_MIDDLE_640, HUD_BAR_HEIGHT }, { BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT },
                                    { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { radar.right - radar.left, radar.bottom - radar.top },
                                    { GAUGE_SIZE, GAUGE_SIZE } };
-    const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ drive_hud.mirror_x, drive_hud.mirror_y });
+    const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
     LayerPiece pieces[7];
     int n = 0;
     if (!police) {
@@ -663,8 +730,7 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
         pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
     }
     if (in_car) {
-        if (m->picture != NULL && m->state != 0)
-            pieces[n++] = wide_piece(drive_hud.mirror_x, drive_hud.mirror_y, m->width, m->height, a.mirror, 1);
+        if (mirror_on) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1 };
         if (radar.right > radar.left)
             pieces[n++] = (LayerPiece){ radar, a.radar.x, a.radar.y, 0 };
     } else if (!police) {
@@ -672,13 +738,12 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     }
     if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
-    if (in_car) wide_fill_scaled(&map, &cs, 0);  /* the map's place in the enlarged dash: its box, empty */
+    if (in_car) wide_art_scaled(&map, &cs, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, cs.crop_top, in_car, pieces, n };
     layer_compose(&c, frame, drive_wide.pixels);
     if (!police) {  /* the strip between the groups */
-        const uint8_t strip = (uint8_t)drive_hud.strip_colour;
-        wide_fill(a.bar_start.x + BAR_MIDDLE_640, a.bar_middle.x, strip);
-        wide_fill(a.bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a.bar_end.x, strip);
+        wide_strip_gap(frame, a.bar_start.x + BAR_MIDDLE_640, a.bar_middle.x);
+        wide_strip_gap(frame, a.bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a.bar_end.x);
     }
     drive_wide.ready = 1;
 }
@@ -708,8 +773,14 @@ static const uint8_t *drive_output(const uint8_t *pixels, int *width)
  * 640 wide until drive_wide_size */
 static void drive_wide_setup(void)
 {
+    const PortSettings ps = port_settings_load();
     screen_layouts(SCREEN_W, drive_views.layouts[HIGH_SCREEN]);
-    drive_wide.fov_adjust = port_settings_load().fov_adjust;
+    drive_wide.fov_adjust = ps.fov_adjust;
+    /* port: the "ultra" view distance (TNFS_VIEW_ULTRA=1 / 0 overrides port.cfg for the checks) */
+    const char *ultra_env = getenv("TNFS_VIEW_ULTRA");
+    const int ultra = ultra_env != NULL ? atoi(ultra_env) != 0 : ps.view_ultra;
+    ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
+    race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;
 }
@@ -1745,7 +1816,7 @@ static const RaceRunOps *drive_run_ops(void);
 
 static int drive_window(const Track *t, uint8_t *pixels)
 {
-    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive", 0, 0, 0 };
+    const PlatformConfig config = port_platform_config("TNFS drive");
     if (!menus_on && !platform_init(&config)) return 0;
     int platform_w = SCREEN_W, platform_h = SCREEN_H;
     platform_framebuffer_size(&platform_w, &platform_h);

@@ -321,6 +321,7 @@ add_library(tnfs_game STATIC
     game/sys/pointer_state.c
     game/sys/shape_bank.c
     game/viewer/screen_layout.c
+    game/sys/backdrop.c
 )
 target_include_directories(tnfs_game PUBLIC game .)
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
@@ -406,7 +407,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout graphics_plus)
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -422,6 +423,12 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_layer_compose PRIVATE tnfs_game)
     target_compile_options(test_layer_compose PRIVATE ${TNFS_WARNINGS})
     add_test(NAME layer_compose COMMAND test_layer_compose)
+
+    add_executable(test_race_detail tests/test_race_detail.c)
+    target_include_directories(test_race_detail PRIVATE game .)
+    target_link_libraries(test_race_detail PRIVATE tnfs_game)
+    target_compile_options(test_race_detail PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME race_detail COMMAND test_race_detail)
     add_executable(test_drive_interp tests/test_drive_interp.c game/viewer/drive_interp.c)
     target_include_directories(test_drive_interp PRIVATE game)
     target_link_libraries(test_drive_interp PRIVATE tnfs_game)

@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "game/platform/platform.h"
+
 typedef enum { SCREEN_4_3 = 0, SCREEN_16_9 = 1, SCREEN_21_9 = 2 } ScreenFormat;
 
 typedef struct {
@@ -23,5 +25,7 @@ PortSettings port_settings_parse(const char *text, size_t size);
 size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 PortSettings port_settings_load(void);   /* user file "port.cfg"; the defaults when it does not exist */
 bool port_settings_save(const PortSettings *s);
+/* The platform's config for the saved settings: the format's width by 480 lines, scaling, full screen, refresh. */
+PlatformConfig port_platform_config(const char *title);
 
 #endif
