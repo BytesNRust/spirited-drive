@@ -155,8 +155,8 @@ static int32_t le32_at(const uint8_t *p)
 }
 
 /* 004510e8's FAM for the time of day and the variant (track_fam.h) under data_root, its ".fam" as the CD's capitals
- * on a second try. Port guard: a FAM the CD does not hold (TR4 has no _T01) falls back to the first of NTRACKFM's. */
-static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
+ * on a second try; NULL when the CD holds none. */
+static uint8_t *read_fam_named(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
 {
     char dir[400], dir_midday[400], path[512];
     snprintf(dir, sizeof dir, "%s/SIMDATA/NTRACKFM", data_root);
@@ -170,10 +170,27 @@ static uint8_t *read_fam(const char *data_root, const char *name, const TrackFam
         for (size_t i = n - 3; i < n; i++) path[i] = (char)toupper((unsigned char)path[i]);
         data = platform_read_file(path, size);
     }
+    if (data == NULL) fprintf(stderr, "track_viewer: no %s\n", path);
+    return data;
+}
+
+/* Port guard: a FAM the CD does not hold falls back to the first of NTRACKFM's. */
+static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
+{
+    uint8_t *data = read_fam_named(data_root, name, look, size);
     if (data != NULL) return data;
     static const char *const FAM_SUFFIX[] = { "_T01.FAM", "_M01.FAM", "_R01.FAM", NULL };
-    fprintf(stderr, "track_viewer: no %s, the first FAM there is\n", path);
     return read_any(data_root, "NTRACKFM", name, FAM_SUFFIX, size);
+}
+
+/* port: --drive without the menus has no setup to give 004fa0ec: a track the CD holds no FAM for at time 0 (TR4's:
+ * no _T01) is taken at midday as the game takes it (004fbae0 = 1, ETRACKFM's _001) */
+static int fam_missing(const char *data_root, const char *name, const TrackFamInputs *look)
+{
+    size_t size = 0;
+    uint8_t *data = read_fam_named(data_root, name, look, &size);
+    platform_free_file(data);
+    return data == NULL;
 }
 
 /* The track `name` with 004510e8's art and 0043a370's sky for `look` (its time of day, variants and track). */
@@ -2039,6 +2056,8 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     } else if (menus_on) {
         look.variant_m = menus.variant_m, look.variant_r = menus.variant_r;
         look.time_of_day = menus.variant_m != 0 || menus.variant_r != 0 ? 1 : menus.time_of_day;
+    } else if (fam_missing(data_root, name, &look)) {
+        look.time_of_day = 1;
     }
     int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
              load_track(&t, data_root, name, &look);
