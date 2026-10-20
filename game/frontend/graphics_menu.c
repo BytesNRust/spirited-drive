@@ -1,9 +1,10 @@
 #include "game/frontend/graphics_menu.h"
+#include "game/frontend/graphics_plus.h"
 
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, F1 = 0x3b00, F2 = 0x3c00, F3 = 0x3d00, F4 = 0x3e00, UP = 0x4800,
-       LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
+       LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000, PAGE_DOWN = 0x5100, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { RESOLUTION, WINDOW, IMAGE, VIEW, CARS, HORIZON, DONE, CANCEL, ITEMS, SETTINGS = DONE };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, WIDE = 0x280, ALL = 0x100, LOW = 1 };
 
@@ -41,6 +42,8 @@ typedef struct Menu {
     int32_t rest;              /* esp + 0x488: the ticks summed while a key is held */
     int released;              /* esp + 0x484: the buttons seen up */
     int16_t leave;             /* esp + 0x480 */
+    int cancelled;             /* port: Cancel or Escape put the settings back */
+    PortSettings kept_port;    /* port: the port's settings on entry, put back with them */
     uint8_t kept[GRAPHICS_KEPT];  /* esp + 0x300 */
     uint8_t rgb[GRAPHICS_PALETTE];  /* esp + 0 */
 } Menu;
@@ -72,9 +75,18 @@ static const char *value(int i, int lit, const GraphicsMenuState *st)
     return (lit ? VALUE_LIT : VALUE_DARK)[i][get(st, SETTING[i])];
 }
 
-/* the first band the pointer is in becomes the selection */
-static void follow(Menu *m, int32_t mode, const GraphicsMenuOps *o)
+/* a setting's value art, and over the view's "far" the port's "ultra" when that is set */
+static void put_value(const Menu *m, int i, int lit, const GraphicsMenuState *st, const GraphicsMenuOps *o)
 {
+    blit(m, value(i, lit, st), o);
+    if (i == VIEW && st->plus && st->plus->port->view_ultra && get(st, GRAPHICS_VIEW) == 0)
+        graphics_plus_ultra(st, o, m->rgb, lit);
+}
+
+/* the first band the pointer is in becomes the selection */
+static void follow(Menu *m, int32_t mode, const GraphicsMenuState *st, const GraphicsMenuOps *o)
+{
+    if (st->plus && graphics_plus_nav_hit(o)) return;   /* port: over the page indicator, no item */
     for (int16_t i = 0; i < ITEMS; i++) {
         if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], BAND_TOP[i], BAND_BOTTOM[i])) continue;
         if (i == RESOLUTION && (int16_t)mode != 0) continue;
@@ -89,11 +101,12 @@ static void follow(Menu *m, int32_t mode, const GraphicsMenuOps *o)
 
 static void draw(Menu *m, int32_t mode, const GraphicsMenuState *st, const GraphicsMenuOps *o)
 {
+    const int fade_drawn = m->fade;
     o->select(o->ctx, *st->screen);
     blit(m, "bgnd", o);
     for (int i = 0; i < SETTINGS; i++) {
         if (m->selected == i) blit(m, LIT[i], o);
-        blit(m, value(i, m->selected == i, st), o);
+        put_value(m, i, m->selected == i, st, o);
     }
     if (m->selected == DONE) blit(m, LIT[DONE], o);
     if (m->selected == CANCEL) blit(m, LIT[CANCEL], o);
@@ -101,6 +114,7 @@ static void draw(Menu *m, int32_t mode, const GraphicsMenuState *st, const Graph
         blit(m, "scrm", o);
         blit(m, RESOLUTION_MUTED[get(st, GRAPHICS_RESOLUTION)], o);
     }
+    if (st->plus) graphics_plus_nav(st, o, 0);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *st->screen));
@@ -113,9 +127,12 @@ static void draw(Menu *m, int32_t mode, const GraphicsMenuState *st, const Graph
         o->text_styles(o->ctx);
         o->fade_in(o->ctx, 0, ALL, m->rgb);
         m->fade = 0;
+        /* port: the text's colours are matched to the palette, which is only the screen's once it has faded in; the
+         * picture is drawn once more with them */
+        if (st->plus) o->text_styles(o->ctx);
     }
     o->deadline_set(o->ctx, WAIT);
-    m->redraw = 0;
+    m->redraw = st->plus && !m->fade && fade_drawn;
 }
 
 /* an item drawn lit or dark over the screen as it is: its label, then its setting's value */
@@ -123,7 +140,7 @@ static void draw_item(const Menu *m, uint16_t i, int lit, const GraphicsMenuStat
 {
     if (i > CANCEL) return;
     blit(m, (lit ? LIT : DARK)[i], o);
-    if (i < SETTINGS) blit(m, value(i, lit, st), o);
+    if (i < SETTINGS) put_value(m, i, lit, st, o);
 }
 
 /* the two items again; the previous one is left as it was */
@@ -142,6 +159,12 @@ static void redraw_items(Menu *m, const GraphicsMenuState *st, const GraphicsMen
 /* a setting the next of its values: at 320 the image at most 1 (the resolution) or back to 0 (the image) */
 static void step_setting(int i, const GraphicsMenuState *st)
 {
+    if (i == VIEW && st->plus) {   /* port: far, medium, close, ultra */
+        int16_t view = get(st, GRAPHICS_VIEW);
+        graphics_plus_view_step(&view, &st->plus->port->view_ultra);
+        put(st, GRAPHICS_VIEW, view);
+        return;
+    }
     switch (i) {
     case RESOLUTION:
     case CARS:
@@ -168,7 +191,7 @@ static void choose_setting(Menu *m, int i, const GraphicsMenuState *st, const Gr
         blit(m, value(IMAGE, 0, st), o);
     }
     o->pointer_hide(o->ctx);
-    blit(m, value(i, 1, st), o);
+    put_value(m, i, 1, st, o);
     if (*st->pointer_active == 0) move_to(m->selected, o);
     m->changed = 1;
 }
@@ -176,7 +199,20 @@ static void choose_setting(Menu *m, int i, const GraphicsMenuState *st, const Gr
 static void put_back(Menu *m, const GraphicsMenuState *st)
 {
     memcpy(st->config, m->kept, sizeof m->kept);
+    if (st->plus) *st->plus->port = m->kept_port;
+    m->cancelled = 1;
     m->leave = 1;
+}
+
+/* port: the second page; Done leaves the screen, Cancel puts everything back, back returns to page 1 drawn again */
+static void second_page(Menu *m, const GraphicsMenuState *st, const GraphicsMenuOps *o)
+{
+    const PlusPageResult r = graphics_plus_page(st, o, m->bank, m->rgb);
+    if (r == PLUS_PAGE_CANCEL) put_back(m, st);
+    else if (r == PLUS_PAGE_DONE) m->leave = 1;
+    m->redraw = 1;
+    m->released = m->armed = 0;
+    m->rest = 0;
 }
 
 /* Space, Enter or the left button: the item chosen when the keys are taken */
@@ -201,7 +237,7 @@ static void function_key(Menu *m, int i, const GraphicsMenuState *st, const Grap
 {
     o->sound(o->ctx, CHOSEN);
     step_setting(i, st);
-    blit(m, value(i, 1, st), o);
+    put_value(m, i, 1, st, o);
     m->changed = 1;
     m->released = m->armed = 0;
     m->rest = 0;
@@ -216,6 +252,8 @@ static void step(Menu *m, int32_t mode, uint16_t k, const GraphicsMenuState *st,
     if (k == ESCAPE) {
         put_back(m, st);
         o->sound(o->ctx, CHOSEN);
+    } else if (st->plus && (k == PAGE_DOWN || (k == RIGHT && m->selected < DONE))) {
+        second_page(m, st, o);
     } else if (k == UP) {
         o->pointer_off(o->ctx);
         m->previous = m->selected;
@@ -256,6 +294,7 @@ static void open_screen(Menu *m, int32_t mode, const GraphicsMenuState *st, cons
     o->music_feed(o->ctx);
     const uint8_t *pal = o->shape(o->ctx, m->bank, "!pal");
     o->palette_set(o->ctx, m->rgb, 0, ALL, pal + 0x10, pal[0]);
+    if (st->plus) m->kept_port = *st->plus->port;
     if (*st->pointer_active) o->pointer_poll(o->ctx);
     o->pointer_mark(o->ctx);
 }
@@ -278,7 +317,7 @@ int32_t graphics_menu(const GraphicsMenuState *st, int32_t mode, const GraphicsM
     m.fade = m.redraw = m.armed = m.released = 1;
     open_screen(&m, mode, st, ops);
     do {
-        follow(&m, mode, ops);
+        follow(&m, mode, st, ops);
         if (m.redraw) draw(&m, mode, st, ops);
         if (m.changed) redraw_items(&m, st, ops);
         if (!m.armed) {
@@ -289,7 +328,9 @@ int32_t graphics_menu(const GraphicsMenuState *st, int32_t mode, const GraphicsM
         if (*st->buttons == 0) m.released = 1;
         ops->pointer_activate_if_moved(ops->ctx);
         const uint16_t k = (uint16_t)ops->key(ops->ctx);
-        if (k == SPACE || k == ENTER || (*st->buttons == LEFT_BUTTON && m.released)) {
+        if (st->plus && *st->buttons == LEFT_BUTTON && m.released && graphics_plus_nav_hit(ops)) {
+            second_page(&m, st, ops);
+        } else if (k == SPACE || k == ENTER || (*st->buttons == LEFT_BUTTON && m.released)) {
             chosen(&m, st, ops);
         } else if (m.armed && k >= F1 && k <= F4 && (k & 0xff) == 0) {
             function_key(&m, F_ITEM[(k - F1) >> 8], st, ops);
@@ -307,5 +348,6 @@ int32_t graphics_menu(const GraphicsMenuState *st, int32_t mode, const GraphicsM
         }
     } while (!m.leave);
     close_screen(&m, st, ops);
+    if (st->plus && !m.cancelled) ops->plus_save(ops->ctx, st->plus->port);
     return m.leave;
 }

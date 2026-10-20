@@ -3,6 +3,8 @@
 #ifndef TNFS_GRAPHICS_MENU_H
 #define TNFS_GRAPHICS_MENU_H
 
+#include "game/sys/port_settings.h"
+
 #include <stdint.h>
 
 /* config.dat's image from 00524df9, kept on entry and put back by Cancel and Escape, and its shorts the screen sets */
@@ -51,7 +53,19 @@ typedef struct GraphicsMenuOps {
     void (*free_inverse)(void *ctx);                                         /* 00474558 */
     void (*free)(void *ctx, int32_t bank);                                   /* 00475260 (cdecl) */
     void *ctx;
+    /* port: for graphics_plus.c, all NULL unless the state has a `plus` */
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* style 0 cream, 1 yellow */
+    int32_t (*plus_text_width)(void *ctx, const char *text);
+    void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                       int32_t framed);  /* the rectangle darkened (rgb: the screen's palette), a red frame if framed */
+    void (*plus_save)(void *ctx, const PortSettings *settings);
 } GraphicsMenuOps;
+
+/* port: the settings the port's additions edit, and what they need to know */
+typedef struct GraphicsPlus {
+    PortSettings *port;
+    ScreenFormat fullscreen_format;   /* the desktop's nearest format, taken when full screen is turned on */
+} GraphicsPlus;
 
 /* the globals the screen reads, through pointers as the original reads memory */
 typedef struct GraphicsMenuState {
@@ -63,6 +77,7 @@ typedef struct GraphicsMenuState {
     const int32_t *screen;        /* 00524834: the screen's picture */
     int32_t *inverse;             /* 004c5ff4: 00466c00's table */
     const int16_t *quit;          /* the short 0050a5b6: 1 leaves */
+    GraphicsPlus *plus;           /* port: NULL is the original screen exactly */
 } GraphicsMenuState;
 
 /* 00423d28 (eax mode: not 0 from the race, without the resolution item; all registers kept but eax): option/
