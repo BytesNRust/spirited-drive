@@ -102,7 +102,7 @@ int main(void)
     CHECK_EQ_INT(in854.height, 640);
     CHECK_EQ_INT(in854.unknown_20, 854);
     CHECK_EQ_INT(in854.unknown_24, 346);   /* the windshield's 320 lines enlarged, less the crop */
-    CHECK_EQ_INT(in854.scale, 87449);   /* 854 / 640 in 16.16 */
+    CHECK_EQ_INT(in854.scale, 65536);   /* the row's own: the focal length grows with the width on both axes */
     const ViewLayout in640 = screen_cockpit_view(640);
     CHECK(memcmp(&in640, &race_view_layouts[1][0], sizeof in640) == 0);
     const ViewLayout in1120 = screen_cockpit_view(1120);

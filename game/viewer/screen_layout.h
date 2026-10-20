@@ -28,8 +28,8 @@ typedef struct { int32_t scale; int crop_top; } CockpitScale;
 CockpitScale screen_cockpit_scale(int width);
 
 /* Row 0 (inside the car) on a wide screen: the 640 view enlarged by screen_cockpit_scale with the dash and cropped
- * as it (the projection width x 480 k at -crop_top, the field the same), clipped to the windshield's 320 lines
- * enlarged; the 640 row as it is at 640. */
+ * as it (the projection width x 480 k at -crop_top, the field and the vertical scale the same: the focal length
+ * grows with the width on both axes), clipped to the windshield's 320 lines enlarged; the 640 row as it is at 640. */
 ViewLayout screen_cockpit_view(int width);
 
 typedef struct { int x, y; } ScreenPoint;
