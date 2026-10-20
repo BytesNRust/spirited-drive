@@ -37,6 +37,7 @@
 #include "viewer/drive_audio.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
+#include "viewer/drive_interp.h"
 #include "viewer/drive_joy.h"
 #include "viewer/drive_keys.h"
 #include "viewer/drive_menu.h"
@@ -1226,11 +1227,24 @@ static void drive_end(void)
     printf("\n");
 }
 
+/* port: the poses of the last two steps and when the newer was run, for the frames drawn between steps
+ * (drive_interp.h); only in a window, never in the headless runs */
+static struct {
+    DriveInterpPose prev, cur;
+    uint32_t cur_ms;
+    int on;
+    int refresh_hz;             /* the frames a second drawn between steps; 60 until the port's settings give it */
+    uint32_t next_frame_ms;
+} drive_interp;
+
 /* One step; at the race's end the results. */
 static void drive_tick(uint32_t input)
 {
     race_sim_tick(&drive_sim, input);
     drive_cars.ticked = 1;
+    drive_interp.prev = drive_interp.cur;
+    drive_interp_capture(&drive_interp.cur, &drive_sim);
+    drive_interp.cur_ms = platform_ticks_ms();
     if (race_sim_over(&drive_sim)) drive_end();
 }
 
@@ -1255,6 +1269,7 @@ enum { DRIVE_TIMER_HZ = 30, DRIVE_IDLE_MS = 1 };
 
 static void run_none(void *ctx) { (void)ctx; }
 static void run_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
+static void present_blended(DriveRun *r);
 
 static void run_service(void *ctx)
 {
@@ -1275,7 +1290,11 @@ static void run_service(void *ctx)
     if (r->w->timer != r->timer_written) r->base_ms = now - (uint32_t)((int64_t)r->w->timer * 1000 / DRIVE_TIMER_HZ);
     r->w->timer = (int32_t)((uint64_t)(now - r->base_ms) * DRIVE_TIMER_HZ / 1000u);
     r->timer_written = r->w->timer;
-    if (r->w->timer <= r->w->done) platform_sleep_ms(DRIVE_IDLE_MS);
+    if (r->w->timer > r->w->done) return;
+    /* port: no step due: a frame between steps when one is due on the refresh rate */
+    if (drive_interp.on && drive_interp.cur.valid && r->w->running && (int32_t)(now - drive_interp.next_frame_ms) >= 0)
+        present_blended(r);
+    else platform_sleep_ms(DRIVE_IDLE_MS);
 }
 
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
@@ -1453,11 +1472,38 @@ static void present_drive(const Track *t, uint8_t *pixels)
     platform_present(pixels, palette);
 }
 
+/* port: render_drive with the cars and the eye between the last two steps, by the time since the newer one; the
+ * newer step as it is at a jump, before the race runs (0044cc74's 00513e60) and on its first frame */
+static void render_blended(const Track *t, uint8_t *pixels)
+{
+    if (!drive_interp.on || drive_frame.unknown_513e60 != 0 || drive_frame.restart != 0
+        || drive_interp_snap(&drive_interp.prev, &drive_interp.cur)) {
+        render_drive(t, pixels);
+        return;
+    }
+    const uint32_t elapsed = platform_ticks_ms() - drive_interp.cur_ms;
+    const int32_t alpha = drive_interp_alpha((uint64_t)elapsed * DRIVE_TIMER_HZ, 1000);
+    DriveInterpPose saved;
+    drive_interp_apply(&drive_sim, &drive_interp.prev, &drive_interp.cur, alpha, &saved);
+    render_drive(t, pixels);
+    drive_interp_restore(&drive_sim, &saved);
+}
+
+static void present_blended(DriveRun *r)
+{
+    render_blended(r->t, r->pixels);
+    present_drive(r->t, r->pixels);
+    drive_interp.next_frame_ms = platform_ticks_ms() + 1000u / (uint32_t)drive_interp.refresh_hz;
+}
+
 static void run_draw(void *ctx)
 {
     DriveRun *r = ctx;
-    render_drive(r->t, r->pixels);
-    if (r->headless_ticks == 0) present_drive(r->t, r->pixels);
+    if (r->headless_ticks != 0) {
+        render_drive(r->t, r->pixels);
+        return;
+    }
+    present_blended(r);
 }
 
 /* 0041ec0c (004b95b4 0, a link race's start): the screen filled with 00473140(0xff000000) on the race's palette,
@@ -1495,6 +1541,10 @@ static int drive_window(const Track *t, uint8_t *pixels)
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
+    memset(&drive_interp, 0, sizeof drive_interp);
+    drive_interp.on = 1;
+    const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: until the port's settings (port.cfg) give the rate */
+    drive_interp.refresh_hz = hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : 60;
     drive_input.store_clock = &r.store_clock, drive_input.late = &r.late, drive_input.timer = &w.timer;
     drive_link_run = &w;
     RaceRunOps ops = *drive_run_ops();

@@ -352,6 +352,7 @@ add_executable(tnfs
     game/viewer/drive_smoke.c
     game/viewer/drive_autopilot.c
     game/viewer/drive_input.c
+    game/viewer/drive_interp.c
     game/viewer/drive_joy.c
     game/viewer/drive_keys.c
     game/viewer/drive_replay.c
@@ -412,6 +413,11 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_object_sink PRIVATE tnfs_game)
     target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
     add_test(NAME object_sink COMMAND test_object_sink)
+    add_executable(test_drive_interp tests/test_drive_interp.c game/viewer/drive_interp.c)
+    target_include_directories(test_drive_interp PRIVATE game)
+    target_link_libraries(test_drive_interp PRIVATE tnfs_game)
+    target_compile_options(test_drive_interp PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME drive_interp COMMAND test_drive_interp)
     add_executable(test_video_clip tests/test_video_clip.c game/sys/video.c)
     target_include_directories(test_video_clip PRIVATE game)
     target_link_libraries(test_video_clip PRIVATE tnfs_game)
