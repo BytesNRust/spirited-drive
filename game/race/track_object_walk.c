@@ -31,7 +31,7 @@ static void on_last(TrackObjectWalk *w)
 /* 0044a804 */
 void track_objects_from_last(TrackObjectWalk *w)
 {
-    if (w->count > TRACK_WALK_MAX_OBJECTS) w->count = 0;
+    if (w->count > (w->max_objects > 0 ? w->max_objects : TRACK_WALK_MAX_OBJECTS)) w->count = 0;
     if (w->count <= 0) {
         w->node = -1;
         return;

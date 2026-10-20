@@ -29,9 +29,11 @@ typedef struct {
     int32_t vertex_cursor;    /* 005041bc: the walker's object points */
     int32_t circuit;          /* 00504200: not 0 on a circuit */
     uint32_t node_mask;       /* 00504208: the ring's nodes - 1 */
+    int32_t max_objects;      /* port: the count past which none is drawn; 0 is the original's 0xb4 (the ultra
+                               * distance places more: track_render_set_reach) */
 } TrackObjectWalk;
 
-/* 0044a804 (): a count past 0xb4 becomes 0; with objects, the walker on
+/* 0044a804 (): a count past 0xb4 (or max_objects) becomes 0; with objects, the walker on
  * the run's last record (first + count - 1, less record_count once if past
  * it), its node read, the point cursor at vertex_count; else node -1. */
 void track_objects_from_last(TrackObjectWalk *w);

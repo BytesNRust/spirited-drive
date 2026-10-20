@@ -80,7 +80,7 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
     *b = (TrackBuild){ r->cache, r->nodes, r->knocked, circuit ? tri->ring_segments - 1u : 0xFFFFFFFFu, r->world,
                        TRACK_MAX_VERTICES, 0, 0, r->entries, r->object_world, TRACK_MAX_OBJECT_VERTICES,
                        { r->descriptors, r->records, (int32_t)count, 0, 0, 0, 0, 0, -1, 0, circuit,
-                         circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu },
+                         circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu, 0 },
                        0, -1, 0 };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
     r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
@@ -94,6 +94,8 @@ void track_render_set_reach(TrackRender *r, int32_t segments)
     r->reach = segments > TRACK_DRAW_SEGMENTS && segments <= DRAW_SEGMENTS_ULTRA ? segments : 0;
     r->draw_segments = r->reach != 0 ? r->reach : TRACK_DRAW_SEGMENTS;
     r->build.reach = r->reach;
+    /* port: the objects of the farther segments too (0xb4 is what 0x1c segments place at most) */
+    r->build.walk.max_objects = r->reach != 0 ? TRACK_WALK_MAX_OBJECTS * r->reach / TRACK_DRAW_SEGMENTS : 0;
     r->window.ahead = r->draw_segments + (WINDOW_AHEAD - TRACK_DRAW_SEGMENTS);
     r->window.behind = r->window.ahead + (WINDOW_BEHIND - WINDOW_AHEAD);
 }
