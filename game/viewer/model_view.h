@@ -1,6 +1,6 @@
 /* Viewer drawing of 3D objects (ORIP mesh + its SHPI textures), as the
- * track's FAM objects child holds them (004576f0). Stand-in for the original
- * 3D engine (0048d798, 00458b7c). */
+ * track's FAM objects child holds them (004576f0), for `--track`'s stand-in view only; the race uses the
+ * ported 3D engine (0048d798 object3d.c, 00458b7c model_draw.c). */
 #ifndef TNFS_MODEL_VIEW_H
 #define TNFS_MODEL_VIEW_H
 

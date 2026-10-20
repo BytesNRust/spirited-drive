@@ -361,7 +361,7 @@ typedef struct {
      * the minute (race tick / 0x708) + 1 it was knocked over, 0 standing */
     uint8_t scenery_state[2 * TRI_SCENERY_MAX];
     int32_t unknown_4fbb0c;         /* 004fbb0c: with playback not 1, 004501fc copies each record's first state byte to its second */
-    /* 004c5f98, 004c5f9c: read by 0047217c (a sound; not ported) when the
+    /* 004c5f98, 004c5f9c: read by 0047217c (race_sound_tyres) when the
      * first is not negative; 0044df20 sets both to -1 */
     int32_t unknown_4c5f98, unknown_4c5f9c;
     /* 0052b31e (the German word, re/STATE.md) and 0052b30e (written at

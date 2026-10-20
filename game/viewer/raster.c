@@ -85,60 +85,6 @@ void raster_polygon(const RasterTarget *t, const RasterVertex *in, int count, co
     for (int i = 1; i + 1 < n; i++) triangle(t, &p[0], &p[i], &p[i + 1], texture, transparent, colour);
 }
 
-static void screen_triangle(const RasterTarget *t, const float *x, const float *y, const float *u, const float *v,
-                            const FshEntry *tex, int transparent)
-{
-    const float area = (x[1] - x[0]) * (y[2] - y[0]) - (x[2] - x[0]) * (y[1] - y[0]);
-    if (fabsf(area) < 1e-6f) return;
-    const int x0 = (int)fmaxf(0.0f, floorf(fminf(x[0], fminf(x[1], x[2]))));
-    const int x1 = (int)fminf((float)t->width - 1, ceilf(fmaxf(x[0], fmaxf(x[1], x[2]))));
-    const int y0 = (int)fmaxf(0.0f, floorf(fminf(y[0], fminf(y[1], y[2]))));
-    const int y1 = (int)fminf((float)t->height - 1, ceilf(fmaxf(y[0], fmaxf(y[1], y[2]))));
-    for (int py = y0; py <= y1; py++) {
-        for (int px = x0; px <= x1; px++) {
-            const float cx = px + 0.5f, cy = py + 0.5f;
-            const float w1 = ((x[2] - x[0]) * (cy - y[0]) - (y[2] - y[0]) * (cx - x[0])) / -area;
-            const float w2 = ((x[1] - x[0]) * (cy - y[0]) - (y[1] - y[0]) * (cx - x[0])) / area;
-            const float w0 = 1.0f - w1 - w2;
-            if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-            const uint8_t c = texel(tex, w0 * u[0] + w1 * u[1] + w2 * u[2], w0 * v[0] + w1 * v[1] + w2 * v[2]);
-            if (transparent && c == 0xFF) continue;
-            t->pixels[py * t->width + px] = c;
-        }
-    }
-}
-
-void raster_screen_quad(const RasterTarget *t, const int32_t screen[8], const int32_t uv[8], const FshEntry *texture,
-                        int transparent)
-{
-    for (int i = 0; i < 8; i++)
-        if (screen[i] < -100000 || screen[i] > 100000) return;  /* behind the eye */
-    float x[4], y[4], u[4], v[4];
-    for (int i = 0; i < 4; i++) {
-        x[i] = (float)screen[2 * i], y[i] = (float)screen[2 * i + 1];
-        u[i] = uv[2 * i] / 65536.0f, v[i] = uv[2 * i + 1] / 65536.0f;
-    }
-    const float xa[3] = { x[0], x[1], x[2] }, ya[3] = { y[0], y[1], y[2] }, ua[3] = { u[0], u[1], u[2] },
-                va[3] = { v[0], v[1], v[2] };
-    const float xb[3] = { x[0], x[2], x[3] }, yb[3] = { y[0], y[2], y[3] }, ub[3] = { u[0], u[2], u[3] },
-                vb[3] = { v[0], v[2], v[3] };
-    screen_triangle(t, xa, ya, ua, va, texture, transparent);
-    screen_triangle(t, xb, yb, ub, vb, texture, transparent);
-}
-
-void raster_screen_triangle(const RasterTarget *t, const int32_t screen[6], const int32_t uv[6], const FshEntry *texture,
-                            int transparent)
-{
-    float x[3], y[3], u[3], v[3];
-    for (int i = 0; i < 3; i++) {
-        if (screen[2 * i] < -100000 || screen[2 * i] > 100000 || screen[2 * i + 1] < -100000 || screen[2 * i + 1] > 100000)
-            return;  /* behind the eye */
-        x[i] = (float)screen[2 * i], y[i] = (float)screen[2 * i + 1];
-        u[i] = (float)uv[2 * i], v[i] = (float)uv[2 * i + 1];
-    }
-    screen_triangle(t, x, y, u, v, texture, transparent);
-}
-
 void raster_fill(const RasterTarget *t, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
 {
     int64_t x1 = (int64_t)x + w, y1 = (int64_t)y + h;

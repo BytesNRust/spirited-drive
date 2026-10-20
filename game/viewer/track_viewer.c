@@ -580,8 +580,8 @@ enum {
 };
 
 /* 0044d2c4 / 0044ca3c's calls in --drive: the surfaces, the track, its textures and the palette are the port's
- * own (start_drive), the camera follows the player; 00449be4 is not ported (TODO: 00511fb8 / 00511fbc = 0; the
- * mappers it names are ported_view's own); 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
+ * own (start_drive), the camera follows the player; 00449be4 is the port's own: its 00511fb8 (no reader) and 00511fbc
+ * (drive_frame's, zeroed and never set) stay 0, and the mappers it names are ported_view's; 00449430 has no effect; 004fa0c4 (the second camera's step) is taken as 0. */
 static void ds_none(void *ctx) { (void)ctx; }
 static void ds_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void ds_palette_get(void *ctx, uint8_t rgb[DRAW_SETUP_PALETTE]) { (void)ctx, (void)rgb; }
@@ -1281,7 +1281,8 @@ static void run_service(void *ctx)
 static void run_screen_mode(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 static int32_t run_net_wait(void *ctx, int32_t kind) { (void)ctx; return drive_link_on ? drive_link.wait(kind) : 1; }
 static void run_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx, (void)l, (void)r, (void)t, (void)b; }
-/* 00474c8c: --drive records nothing yet (TODO: race_replay_record's glue) and reads no 0051c770, so none is made. */
+/* 00474c8c: the recording's buffer is drive_replay_start's (drive_replay.c, made before the race runs), so these
+ * calls make none. */
 static uint8_t *run_no_recording(void *ctx, int32_t size) { (void)ctx, (void)size; return NULL; }
 
 /* 0044edd8 on the race's words; the ones without a home in the port (0052b8d4..0052b8f0, 005120c4, 005120c8,
