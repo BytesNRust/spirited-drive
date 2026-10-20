@@ -12,14 +12,14 @@ enum {
     TYPE_24_BIT = 0x24,
     TYPE_POINTS = 0x7c,
     HIGH_FRAMES = 6,
-    TRACKS = 8,
+    TRACKS = 9,
     RECORD_STRIDE = 0xa6b,
     FMM_WORDS_AT = 8,
     SPED_MIDDLE = 12
 };
 
 /* 004b9154 */
-static const int32_t track_words[TRACKS] = { 480, 480, 480, 256, 480, 480, 480, 512 };
+static const int32_t track_words[TRACKS] = { 480, 480, 480, 256, 480, 480, 480, 512, 480 };
 
 /* 004b92e8.. (high, six of each) and 004b9378.. (low, seven): 'w'l, 'w'r, 't'l, 's'l, 't'r, 's'r */
 static const char *const high_names[6][HIGH_FRAMES] = {
