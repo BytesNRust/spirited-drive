@@ -43,6 +43,9 @@ PlatformKey platform_next_key(void);
  * same numbers as their BIOS codes (0x48 Up, 0x52 Insert, 0x53 Delete). */
 bool platform_key_down(int scancode);
 
+/* The SDL scancode platform_key_down reads a set-1 scancode from, 0 when none. */
+int platform_key_sdl(int scancode);
+
 /* Typed text, for name entry: the next Unicode code point typed, one of the
  * editing codes below, or 0 when the queue is empty. */
 enum {
