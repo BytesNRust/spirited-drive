@@ -49,4 +49,8 @@ void control_map_source_name(const ControlSource *s, int gamepad, char *out, siz
 void control_map_binding_text(const PortControls *c, PortAction act, int gamepad, char *out, size_t size);
 const char *control_map_action_name(PortAction act);
 
+/* port: a force the game asks for, in percent (-100..100, or 0..100 for a rumble), scaled to `strength` percent (0..100,
+ * clamped): 100 leaves it, 0 is nothing, 50 halves it; cut toward zero, never past 100 either way. */
+int control_map_force(int percent_game, int strength);
+
 #endif

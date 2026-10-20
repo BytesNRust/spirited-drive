@@ -775,8 +775,7 @@ static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, in
 static void controls_plus_save(void *ctx, const PortControls *controls)
 {
     (void)ctx;
-    PortControls saved = *controls;
-    saved.custom = 1;
+    PortControls saved = *controls;   /* its `custom` as the pages left it: Defaults makes a wheel pass straight through */
     if (!port_controls_save(&saved)) fprintf(stderr, "controls: controls.cfg could not be saved\n");
     platform_controls_set(&saved);
 }

@@ -270,3 +270,10 @@ const char *control_map_action_name(PortAction act)
                                                  "View" };
     return act >= 0 && act < ACT_COUNT ? NAME[act] : "";
 }
+
+int control_map_force(int percent_game, int strength)
+{
+    const int k = strength < 0 ? 0 : strength > 100 ? 100 : strength;
+    const int p = percent_game * k / 100;
+    return p < -100 ? -100 : p > 100 ? 100 : p;
+}

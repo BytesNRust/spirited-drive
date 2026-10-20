@@ -111,8 +111,9 @@ static void apply_number(int *field, const char *value, long min, long max)
     if (parse_number(&at, min, max, &n) && *at == '\0') *field = (int)n;
 }
 
-static void apply(PortControls *c, const char *key, const char *value)
+static void apply(PortControls *c, int *plain, const char *key, const char *value)
 {
+    if (strcmp(key, "custom") == 0 && strcmp(value, "0") == 0) *plain = 1;
     for (int act = 0; act < ACT_COUNT; act++)
         if (strcmp(key, ACTION_KEY[act]) == 0) {
             parse_sources(value, c->bind[act]);
@@ -123,7 +124,8 @@ static void apply(PortControls *c, const char *key, const char *value)
     else if (strcmp(key, "ffb_strength") == 0) apply_number(&c->ffb_strength, value, 0, STRENGTH_MAX);
 }
 
-PortControls port_controls_parse(const char *text, size_t size)
+/* `plain`: the text said "custom=0" */
+static PortControls parse(const char *text, size_t size, int *plain)
 {
     PortControls c = port_controls_defaults();
     size_t pos = 0;
@@ -140,10 +142,16 @@ PortControls port_controls_parse(const char *text, size_t size)
         char *eq = strchr(line, '=');
         if (eq != NULL) {
             *eq = '\0';
-            apply(&c, line, eq + 1);
+            apply(&c, plain, line, eq + 1);
         }
     }
     return c;
+}
+
+PortControls port_controls_parse(const char *text, size_t size)
+{
+    int plain = 0;
+    return parse(text, size, &plain);
 }
 
 static int format_source(const ControlSource *s, char *out, size_t size)
@@ -177,8 +185,8 @@ size_t port_controls_format(const PortControls *c, char *out, size_t size)
         if (n < 0 || (size_t)n >= size - used) return 0;
         used += (size_t)n;
     }
-    const int n = snprintf(out + used, size - used, "deadzone=%d\nsensitivity=%d\nffb_strength=%d\n", c->deadzone,
-                           c->sensitivity, c->ffb_strength);
+    const int n = snprintf(out + used, size - used, "%sdeadzone=%d\nsensitivity=%d\nffb_strength=%d\n",
+                           c->custom ? "" : "custom=0\n", c->deadzone, c->sensitivity, c->ffb_strength);
     if (n < 0 || (size_t)n >= size - used) return 0;
     return used + (size_t)n;
 }
@@ -188,9 +196,10 @@ PortControls port_controls_load(void)
     size_t size = 0;
     uint8_t *data = platform_read_user_file(CONTROLS_CFG_NAME, &size);
     if (data == NULL) return port_controls_defaults();
-    PortControls c = port_controls_parse((const char *)data, size);
+    int plain = 0;
+    PortControls c = parse((const char *)data, size, &plain);
     platform_free_file(data);
-    c.custom = 1;
+    c.custom = !plain;
     return c;
 }
 

@@ -195,15 +195,18 @@ bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4])
     return true;
 }
 
+/* the strength the forces are felt at: controls.cfg's, as platform_controls_set last left it */
 static Sint16 level_of(int percent)
 {
-    const int p = percent < -PERCENT ? -PERCENT : percent > PERCENT ? PERCENT : percent;
+    const int p = control_map_force(percent < -PERCENT ? -PERCENT : percent > PERCENT ? PERCENT : percent,
+                                    bindings()->ffb_strength);
     return (Sint16)(p * LEVEL_MAX / PERCENT);
 }
 
 static Uint16 rumble_of(int percent)
 {
-    const int p = percent < 0 ? 0 : percent > PERCENT ? PERCENT : percent;
+    const int p = control_map_force(percent < 0 ? 0 : percent > PERCENT ? PERCENT : percent,
+                                    bindings()->ffb_strength);
     return (Uint16)(p * RUMBLE_MAX / PERCENT);
 }
 

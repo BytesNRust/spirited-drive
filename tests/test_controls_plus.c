@@ -232,6 +232,22 @@ static void test_enter_replaces_and_insert_adds(void)
     CHECK_EQ_INT(s.port.bind[ACT_STEER_LEFT][1].index, 4);
 }
 
+static void test_an_edit_makes_the_pad_custom(void)
+{
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(DOWN, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
+    CHECK_EQ_INT(r.port.custom, 1);
+    Run d = { .port = port_controls_defaults() };
+    run(&d, KEYS(DOWN, 0, DELETE, 0, ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(d.port.custom, 1);
+    Run t = { .port = port_controls_defaults() };
+    run(&t, KEYS(RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(t.port.custom, 1);
+    Run u = { .port = port_controls_defaults() };
+    run(&u, KEYS(ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(u.port.custom, 0);   /* nothing touched */
+}
+
 static void test_delete_clears(void)
 {
     Run r = { .port = port_controls_defaults() };
@@ -261,7 +277,7 @@ static void test_defaults_restores_the_bindings(void)
     run(&r, KEYS(RIGHT, 0, DOWN, 0, DOWN, 0, DOWN, 0, ENTER, 0, ESCAPE), PADS(idle()));
     CHECK_EQ_INT(r.port.bind[ACT_GAS][0].kind, SRC_AXIS_POS);
     CHECK_EQ_INT(r.port.deadzone, 0);
-    CHECK_EQ_INT(r.port.custom, 1);   /* it was read from a file; still is */
+    CHECK_EQ_INT(r.port.custom, 0);   /* as without a controls.cfg: a wheel passes straight through again */
 }
 
 static void test_how_the_pages_are_left(void)
@@ -302,6 +318,7 @@ int main(void)
     test_a_source_moves_from_the_action_that_had_it();
     test_enter_replaces_and_insert_adds();
     test_delete_clears();
+    test_an_edit_makes_the_pad_custom();
     test_the_tuning_page();
     test_defaults_restores_the_bindings();
     test_how_the_pages_are_left();

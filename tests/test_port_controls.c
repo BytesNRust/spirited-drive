@@ -147,11 +147,33 @@ static void test_load_save(void)
     CHECK_EQ_INT(c.custom, 0);
     c.bind[ACT_HORN][0] = (ControlSource){ SRC_BUTTON, 9, 0, 0 };
     c.deadzone = 7;
+    c.custom = 1;   /* as the screen leaves an edited one */
     CHECK(port_controls_save(&c));
     CHECK(strcmp(stored_name, "controls.cfg") == 0);
     const PortControls back = port_controls_load();
     check_same(&back, &c);
     CHECK_EQ_INT(back.custom, 1);
+}
+
+static const char *stored_text(void)
+{
+    stored[stored_size < sizeof stored ? stored_size : sizeof stored - 1] = '\0';
+    return (const char *)stored;
+}
+
+static void test_a_file_can_say_the_pad_is_not_custom(void)
+{
+    PortControls c = port_controls_defaults();   /* custom 0: Defaults on a wheel */
+    c.deadzone = 0;
+    CHECK(port_controls_save(&c));
+    CHECK(strstr(stored_text(), "custom=0") != NULL);
+    const PortControls back = port_controls_load();
+    check_same(&back, &c);
+    CHECK_EQ_INT(back.custom, 0);                  /* a file read, and still not custom */
+    c.custom = 1;
+    CHECK(port_controls_save(&c));
+    CHECK(strstr(stored_text(), "custom") == NULL);
+    CHECK_EQ_INT(port_controls_load().custom, 1);
 }
 
 int main(void)
@@ -162,5 +184,6 @@ int main(void)
     test_bad_lines_keep_the_default();
     test_empty_value_clears();
     test_load_save();
+    test_a_file_can_say_the_pad_is_not_custom();
     return TEST_REPORT();
 }

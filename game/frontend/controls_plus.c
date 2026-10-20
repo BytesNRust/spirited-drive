@@ -42,6 +42,7 @@ int controls_plus_tune(PortControls *c, int which, int direction)
     if (next > TUNE_MAX[which]) next = TUNE_MAX[which];
     const int moved = next != *v;
     *v = next;
+    if (moved) c->custom = 1;
     return moved;
 }
 
@@ -195,6 +196,7 @@ static void capture(Run *r, int act, int add, const ControlsMenuState *st, const
         else base.bind[act][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
         if (slot == 0) base.bind[act][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
         *c = control_map_assign(&base, (PortAction)act, slot, got);
+        c->custom = 1;
         o->sound(o->ctx, CHOSEN);
     }
     r->redraw = 1;
@@ -204,6 +206,7 @@ static void clear_action(Run *r, int act, const ControlsMenuState *st)
 {
     PortControls *c = st->plus->port;
     c->bind[act][0] = c->bind[act][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    c->custom = 1;
     r->redraw = 1;
 }
 
@@ -227,13 +230,13 @@ static void choose(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o
         else if (r->selected == cancel_row(r)) r->result = CONTROLS_PAGE_CANCEL;
         else if (r->page == ACTION_PAGE) capture(r, r->selected, 0, st, o);
         else if (r->selected == DEFAULTS) {
-            const int custom = st->plus->port->custom;
-            *st->plus->port = port_controls_defaults();
-            st->plus->port->custom = custom;
+            *st->plus->port = port_controls_defaults();   /* custom 0: as without a controls.cfg */
             r->redraw = 1;
         } else {   /* a tuning row: one step up, from the top back to the bottom */
-            if (!controls_plus_tune(st->plus->port, r->selected, 1))
+            if (!controls_plus_tune(st->plus->port, r->selected, 1)) {
                 *tune_field(st->plus->port, r->selected) = TUNE_MIN[r->selected];
+                st->plus->port->custom = 1;
+            }
             r->redraw = 1;
         }
     }

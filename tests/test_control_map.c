@@ -408,8 +408,23 @@ static void test_binding_text_joins_the_sources(void)
     CHECK(strcmp(control_map_action_name(ACT_STEER), "Steering") == 0);
 }
 
+static void test_force_strength_scales_the_games_level(void)
+{
+    CHECK_EQ_INT(control_map_force(80, 100), 80);     /* 100 % leaves the level as it is */
+    CHECK_EQ_INT(control_map_force(100, 100), 100);
+    CHECK_EQ_INT(control_map_force(80, 0), 0);        /* 0 % is nothing */
+    CHECK_EQ_INT(control_map_force(80, 50), 40);
+    CHECK_EQ_INT(control_map_force(-80, 50), -40);    /* a force's direction stays */
+    CHECK_EQ_INT(control_map_force(150, 100), 100);   /* never past 100 */
+    CHECK_EQ_INT(control_map_force(-150, 100), -100);
+    CHECK_EQ_INT(control_map_force(90, 300), 90);     /* a strength past 100 is 100 */
+    CHECK_EQ_INT(control_map_force(90, -5), 0);       /* and one below 0 is 0 */
+    CHECK_EQ_INT(control_map_force(1, 50), 0);        /* cut toward zero */
+}
+
 int main(void)
 {
+    test_force_strength_scales_the_games_level();
     test_source_names();
     test_binding_text_joins_the_sources();
     test_detect_a_wheel_pedal_resting_at_an_end();
