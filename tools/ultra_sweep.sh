@@ -46,7 +46,7 @@ POINTS=(
   'TR1 100 3000 5665 -'
   'TR2 100 28000 60000 1:solo'
   'TR3 100 6800 13010 -'
-  'TR4 100 5200 9812 -'
+  'TR4 100 5200 9812 -'                 # no TR4_T01.FAM in the owner's data: its frames come out black
   'TR6 100 6000 11525 -'
   'TR7 100 3000 9164 5'
 )
