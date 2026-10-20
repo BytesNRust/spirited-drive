@@ -259,8 +259,124 @@ static void test_a_wheel_with_a_file_keeps_the_second_axis(void)
     CHECK_EQ_INT(control_map_apply(&c, &r).axis[1], MIDDLE + 7);
 }
 
+static void test_detect_a_wheel_pedal_resting_at_an_end(void)
+{
+    RawPad rest = wheel(12, 4), now = wheel(12, 4);
+    rest.axis[2] = -32768, now.axis[2] = 32767;                       /* pressed to the floor */
+    ControlSource s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.kind, SRC_AXIS_FULL);
+    CHECK_EQ_INT(s.index, 2);
+    CHECK_EQ_INT(s.rest, -32768);
+    rest.axis[2] = 32767, now.axis[2] = -32768;                       /* one that rests at the top */
+    s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.kind, SRC_AXIS_FULL);
+    CHECK_EQ_INT(s.rest, 32767);
+    rest.axis[2] = -32768, now.axis[2] = -32768 + 20000;              /* not half way yet */
+    CHECK_EQ_INT(control_map_detect(&rest, &now, false).kind, SRC_NONE);
+}
+
+static void test_detect_a_gamepad_trigger_and_steering(void)
+{
+    RawPad rest = pad(), now = pad();
+    now.axis[RIGHT_TRIGGER] = 30000;
+    ControlSource s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.kind, SRC_AXIS_POS);
+    CHECK_EQ_INT(s.index, RIGHT_TRIGGER);
+    now = pad(), now.axis[LEFTX] = -30000;                            /* a stick that rests in the middle */
+    s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.kind, SRC_AXIS_NEG);
+    CHECK_EQ_INT(s.index, LEFTX);
+    s = control_map_detect(&rest, &now, true);                        /* asked for an axis to steer with */
+    CHECK_EQ_INT(s.kind, SRC_AXIS_FULL);
+    CHECK_EQ_INT(s.index, LEFTX);
+}
+
+static void test_detect_ignores_drift_and_needs_a_press(void)
+{
+    RawPad rest = pad(), now = pad();
+    now.axis[LEFTX] = 3000, now.axis[RIGHTY] = -2500;                 /* a worn stick's drift */
+    CHECK_EQ_INT(control_map_detect(&rest, &now, false).kind, SRC_NONE);
+    now = pad(), now.button[NORTH] = 1;
+    ControlSource s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.kind, SRC_BUTTON);
+    CHECK_EQ_INT(s.index, NORTH);
+    CHECK_EQ_INT(control_map_detect(&rest, &now, true).kind, SRC_NONE);   /* a button cannot steer */
+    rest.button[NORTH] = 1;                                           /* held when the capture began */
+    CHECK_EQ_INT(control_map_detect(&rest, &now, false).kind, SRC_NONE);
+}
+
+static void test_detect_a_hat_and_the_most_moved_axis(void)
+{
+    RawPad rest = wheel(12, 4), now = wheel(12, 4);
+    rest.hats = now.hats = 1;
+    now.hat[0] = 8;
+    ControlSource s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.kind, SRC_HAT);
+    CHECK_EQ_INT(s.index, 0);
+    CHECK_EQ_INT(s.rest, 8);
+    CHECK_EQ_INT(control_map_detect(&rest, &now, true).kind, SRC_NONE);
+    rest.hat[0] = 8;                                                  /* held when the capture began */
+    CHECK_EQ_INT(control_map_detect(&rest, &now, false).kind, SRC_NONE);
+    now.hat[0] = 8 | 1;                                               /* up pressed too: that one */
+    s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.rest, 1);
+    now = wheel(12, 4);
+    now.axis[0] = 20000, now.axis[3] = 32000;                         /* two moved: the larger travel */
+    s = control_map_detect(&rest, &now, false);
+    CHECK_EQ_INT(s.index, 3);
+}
+
+static void test_assign_takes_the_source_from_the_other_action(void)
+{
+    PortControls c = port_controls_defaults();
+    const ControlSource a = { SRC_BUTTON, SOUTH, 0, 0 };              /* gear up's today */
+    PortControls d = control_map_assign(&c, ACT_HORN, 0, a);
+    CHECK_EQ_INT(d.bind[ACT_HORN][0].kind, SRC_BUTTON);
+    CHECK_EQ_INT(d.bind[ACT_HORN][0].index, SOUTH);
+    CHECK_EQ_INT(d.bind[ACT_GEAR_UP][0].kind, SRC_NONE);              /* gone from where it was */
+    CHECK_EQ_INT(d.bind[ACT_GEAR_DOWN][0].index, EAST);               /* the others untouched */
+    CHECK_EQ_INT(c.bind[ACT_GEAR_UP][0].kind, SRC_BUTTON);            /* and the input is not changed */
+}
+
+static void test_assign_slots_compact_and_keep_two(void)
+{
+    PortControls c = port_controls_defaults();
+    c.bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_HAT, 0, 8, 0 };  /* the d-pad's button and a hat */
+    PortControls d = control_map_assign(&c, ACT_PAUSE, 0, c.bind[ACT_STEER_LEFT][0]);   /* the button leaves */
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][0].kind, SRC_HAT);            /* the hat moved up to slot 0 */
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][1].kind, SRC_NONE);
+    d = control_map_assign(&d, ACT_STEER_LEFT, 1, (ControlSource){ SRC_BUTTON, 5, 0, 0 });
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][0].kind, SRC_HAT);
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][1].index, 5);
+    d = control_map_assign(&d, ACT_STEER_LEFT, 0, (ControlSource){ SRC_BUTTON, 5, 0, 0 });   /* the same one again */
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][0].index, 5);                 /* in slot 0; the copy in slot 1 is gone */
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][1].kind, SRC_NONE);
+    d = control_map_assign(&d, ACT_GAS, 0, (ControlSource){ SRC_AXIS_POS, 5, 0, 0 });   /* the one it already has */
+    CHECK_EQ_INT(d.bind[ACT_GAS][0].index, 5);
+    CHECK_EQ_INT(d.bind[ACT_GAS][1].kind, SRC_NONE);
+    d = control_map_assign(&d, ACT_PAUSE, 0, (ControlSource){ SRC_NONE, 0, 0, 0 });   /* clearing */
+    CHECK_EQ_INT(d.bind[ACT_PAUSE][0].kind, SRC_NONE);
+}
+
+static void test_assign_hats_differ_by_direction(void)
+{
+    PortControls c = port_controls_defaults();
+    c.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_HAT, 0, 8, 0 };
+    c.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_HAT, 0, 2, 0 };
+    const PortControls d = control_map_assign(&c, ACT_HORN, 0, (ControlSource){ SRC_HAT, 0, 1, 0 });   /* up */
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][0].kind, SRC_HAT);            /* left and right stay */
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].kind, SRC_HAT);
+}
+
 int main(void)
 {
+    test_detect_a_wheel_pedal_resting_at_an_end();
+    test_detect_a_gamepad_trigger_and_steering();
+    test_detect_ignores_drift_and_needs_a_press();
+    test_detect_a_hat_and_the_most_moved_axis();
+    test_assign_takes_the_source_from_the_other_action();
+    test_assign_slots_compact_and_keep_two();
+    test_assign_hats_differ_by_direction();
     test_invert_two_sources_and_thresholds();
     test_a_wheel_with_a_file_keeps_the_second_axis();
     test_defaults_are_the_pad_as_it_was();

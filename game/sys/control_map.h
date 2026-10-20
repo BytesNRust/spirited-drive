@@ -29,4 +29,16 @@ typedef struct { uint32_t buttons; int32_t axis[4]; uint32_t keys; } VirtualPad;
  * a controls.cfg (c->custom 0) passes its buttons and first four axes through as before. */
 VirtualPad control_map_apply(const PortControls *c, const RawPad *raw);
 
+/* Capture a binding by pressing it. rest: the device's photo when the capture began; now: the one now. The first
+ * source that has moved enough, else SRC_NONE: a button newly pressed (not with want_axis), a hat direction newly
+ * held (not with want_axis), or an axis moved more than half its travel from its rest toward the end farther away,
+ * the most moved if several. An axis is SRC_AXIS_FULL when want_axis (steering) or when it rests at an end
+ * (a wheel's pedal), SRC_AXIS_POS / SRC_AXIS_NEG by the way it moved when it rests near its middle (a gamepad's
+ * trigger); its `rest` is the photo's value. */
+ControlSource control_map_detect(const RawPad *rest, const RawPad *now, bool want_axis);
+
+/* `src` as source `slot` (0 or 1) of `act`, taken from whatever other action (or slot) had it; the slots compact to
+ * the first. A source is the same by kind and index (and a hat's direction). */
+PortControls control_map_assign(const PortControls *c, PortAction act, int slot, ControlSource src);
+
 #endif

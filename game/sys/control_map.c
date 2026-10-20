@@ -148,3 +148,63 @@ VirtualPad control_map_apply(const PortControls *c, const RawPad *raw)
         if (action_pressed(c, KEY_ACTION[k], raw)) v.keys |= 1u << KEY_ACTION[k];
     return v;
 }
+
+/* ---- capture by pressing ---- */
+
+/* how far an axis went from its rest toward the farther end, as a fraction of the travel (1 << 15 is all of it) and
+ * which way (+1 up, -1 down); 0 while it has not gone half of it */
+static int axis_pull(int rest, int now, int *direction)
+{
+    const int moved = now - rest;
+    const int up = STICK_MAX - rest, down = rest - STICK_MIN;
+    *direction = moved >= 0 ? 1 : -1;
+    const int travel = moved >= 0 ? up : down;
+    const int away = moved >= 0 ? moved : -moved;
+    if (travel <= 0 || away * 2 <= travel) return 0;
+    return (int)((long long)away * PEDAL_MAX / travel);
+}
+
+ControlSource control_map_detect(const RawPad *rest, const RawPad *now, bool want_axis)
+{
+    const ControlSource none = { SRC_NONE, 0, 0, 0 };
+    if (!want_axis) {
+        for (int k = 0; k < now->buttons && k < RAW_MAX_BUTTONS; k++)
+            if (now->button[k] && !(k < rest->buttons && rest->button[k]))
+                return (ControlSource){ SRC_BUTTON, k, 0, 0 };
+        for (int k = 0; k < now->hats && k < RAW_MAX_HATS; k++) {
+            const int before = k < rest->hats ? rest->hat[k] : 0, fresh = now->hat[k] & ~before & 0xf;
+            for (int bit = 1; fresh != 0 && bit <= 8; bit <<= 1)
+                if (fresh & bit) return (ControlSource){ SRC_HAT, k, bit, 0 };
+        }
+    }
+    int best = 0, best_axis = -1, best_direction = 0;
+    for (int k = 0; k < now->axes && k < RAW_MAX_AXES; k++) {
+        const int before = k < rest->axes ? rest->axis[k] : 0;
+        int direction;
+        const int pull = axis_pull(before, now->axis[k], &direction);
+        if (pull > best) best = pull, best_axis = k, best_direction = direction;
+    }
+    if (best_axis < 0) return none;
+    const int at = best_axis < rest->axes ? rest->axis[best_axis] : 0;
+    ControlSource s = { SRC_AXIS_FULL, best_axis, at, 0 };
+    if (!want_axis && at > -FAR_REST && at < FAR_REST) s.kind = best_direction > 0 ? SRC_AXIS_POS : SRC_AXIS_NEG;
+    return s;
+}
+
+static int same_source(const ControlSource *a, const ControlSource *b)
+{
+    return a->kind == b->kind && a->index == b->index && (a->kind != SRC_HAT || a->rest == b->rest);
+}
+
+PortControls control_map_assign(const PortControls *c, PortAction act, int slot, ControlSource src)
+{
+    PortControls out = *c;
+    if (src.kind != SRC_NONE)
+        for (int a = 0; a < ACT_COUNT; a++)
+            for (int k = 0; k < 2; k++)
+                if (same_source(&out.bind[a][k], &src)) out.bind[a][k] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    out.bind[act][slot != 0 ? 1 : 0] = src;
+    for (int a = 0; a < ACT_COUNT; a++)   /* the slots compact to the first */
+        if (out.bind[a][0].kind == SRC_NONE) out.bind[a][0] = out.bind[a][1], out.bind[a][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    return out;
+}
