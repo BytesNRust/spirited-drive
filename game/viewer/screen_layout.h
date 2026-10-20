@@ -19,13 +19,18 @@ int screen_fov_x(int fov_x_640, int width);
 int screen_fov_y(int fov_y_orig, int height_orig, int height, int fov_adjust);
 
 /* The 17 rows of the high mode (race_view_layouts[1]) for `width`: row 0 (cockpit) is width x 480, row 3 (outside,
- * 640x384 at y 32) is width x 448 at y 32 (no strip, in 640 too); the 640-based rows (1, 2, 4..11) move right by
+ * 640x384 at y 32) is width wide with its clip box 448 lines (no strip, in 640 too; the projection keeps its 384); the 640-based rows (1, 2, 4..11) move right by
  * screen_menu_left(width); the mirror's row 12 and the unused rows stay as they are. */
 void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS]);
 
 /* The cockpit art's scale (k = width / 640, 16.16) and the lines of the scaled 640x480 art cut at the top. */
 typedef struct { int32_t scale; int crop_top; } CockpitScale;
 CockpitScale screen_cockpit_scale(int width);
+
+/* Row 0 (inside the car) on a wide screen: the 640 view enlarged by screen_cockpit_scale with the dash and cropped
+ * as it (the projection width x 480 k at -crop_top, the field the same), clipped to the windshield's 320 lines
+ * enlarged; the 640 row as it is at 640. */
+ViewLayout screen_cockpit_view(int width);
 
 typedef struct { int x, y; } ScreenPoint;
 typedef struct {

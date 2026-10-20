@@ -68,7 +68,9 @@ void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS])
             out[r].left += left;
         }
     }
-    out[OUTSIDE_ROW].height = OUTSIDE_HEIGHT;
+    /* the clip box only: the projection (its centre, its focal length) stays, so the picture above the old strip is
+     * the same and the lines below it show more of the road */
+    out[OUTSIDE_ROW].unknown_24 = OUTSIDE_HEIGHT;
 }
 
 CockpitScale screen_cockpit_scale(int width)
@@ -77,6 +79,21 @@ CockpitScale screen_cockpit_scale(int width)
     s.scale = (int32_t)(((int64_t)width << 16) / ORIGINAL_WIDTH);
     s.crop_top = (int)(((int64_t)SCREEN_HEIGHT * s.scale >> 16) - SCREEN_HEIGHT) / 2;
     return s;
+}
+
+ViewLayout screen_cockpit_view(int width)
+{
+    ViewLayout v = race_view_layouts[HIGH_MODE][0];
+    if (width <= ORIGINAL_WIDTH) return v;
+    const CockpitScale cs = screen_cockpit_scale(width);
+    const int box = (int)((int64_t)v.unknown_24 * cs.scale >> 16) - cs.crop_top;
+    v.scale = (int32_t)((int64_t)v.scale * cs.scale >> 16);
+    v.x = 0, v.y = -cs.crop_top - v.top;
+    v.width = width;
+    v.height = (int)((int64_t)SCREEN_HEIGHT * cs.scale >> 16);
+    v.unknown_20 = width;
+    v.unknown_24 = box < SCREEN_HEIGHT ? box : SCREEN_HEIGHT;
+    return v;
 }
 
 HudAnchors screen_hud_anchors(int width, const ScreenPoint sizes[7], ScreenPoint mirror_original)

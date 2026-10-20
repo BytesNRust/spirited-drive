@@ -504,6 +504,7 @@ static void frame_runs(void *ctx, int32_t runs)
 static void frame_mirror(void *ctx, int32_t x, int32_t y)
 {
     FrameCalls *f = ctx;
+    f->s->h->mirror_x = x, f->s->h->mirror_y = y;
     drive_mirror_place(&f->s->h->mirror, f->target, x, y);  /* 0044c060 */
 }
 

@@ -32,7 +32,11 @@ void ported_view_set_models(const ViewModel *list, const int *ok);
 typedef struct {
     int32_t left, top, width, height, fov, scale;
     int32_t sky_left, sky_top, sky_width, sky_height;
+    int32_t fov_y;              /* port: the vertical field when it differs (a wide screen), 0 the same as fov */
 } PortedViewport;
+
+/* port: the frame the 3D view draws into (640 x 480 unless a wide screen's race sets its width) */
+void ported_view_set_screen(int width, int height);
 
 void ported_view_set_viewport(const PortedViewport *viewport);
 

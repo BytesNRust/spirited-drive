@@ -31,15 +31,16 @@ int main(void)
         same_layout(l, orig, r);
     }
     ViewLayout want3 = orig[3];
-    want3.height = 448;
+    want3.unknown_24 = 448;     /* the box the view is clipped to, or the strip stays; the projection as it was */
     CHECK(memcmp(&l[3], &want3, sizeof want3) == 0);
 
     screen_layouts(854, l);
     CHECK_EQ_INT(l[0].width, 854);
     CHECK_EQ_INT(l[0].height, 480);
     CHECK_EQ_INT(l[3].width, 854);
-    CHECK_EQ_INT(l[3].height, 448);
+    CHECK_EQ_INT(l[3].height, 384);
     CHECK_EQ_INT(l[3].top, 32);
+    CHECK_EQ_INT(l[3].unknown_24, 448);
     CHECK_EQ_INT(l[6].left, 64 + 107);
     CHECK_EQ_INT(l[6].width, 512);
     CHECK_EQ_INT(l[11].left, 218 + 107);
@@ -93,5 +94,19 @@ int main(void)
     CHECK_EQ_INT(screen_format_nearest(3440, 1440), SCREEN_21_9);
     CHECK_EQ_INT(screen_format_nearest(1600, 1200), SCREEN_4_3);
     CHECK_EQ_INT(screen_format_nearest(1280, 1024), SCREEN_4_3);
+    /* inside the car on a wide screen: the 640 view enlarged with the dash, centred as it, the same field */
+    const ViewLayout in854 = screen_cockpit_view(854);
+    CHECK_EQ_INT(in854.left + in854.x, 0);
+    CHECK_EQ_INT(in854.top + in854.y, -80);
+    CHECK_EQ_INT(in854.width, 854);
+    CHECK_EQ_INT(in854.height, 640);
+    CHECK_EQ_INT(in854.unknown_20, 854);
+    CHECK_EQ_INT(in854.unknown_24, 346);   /* the windshield's 320 lines enlarged, less the crop */
+    CHECK_EQ_INT(in854.scale, 87449);   /* 854 / 640 in 16.16 */
+    const ViewLayout in640 = screen_cockpit_view(640);
+    CHECK(memcmp(&in640, &race_view_layouts[1][0], sizeof in640) == 0);
+    const ViewLayout in1120 = screen_cockpit_view(1120);
+    CHECK_EQ_INT(in1120.top + in1120.y, -180);
+    CHECK_EQ_INT(in1120.unknown_24, 380);
     return TEST_REPORT();
 }

@@ -39,6 +39,8 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_interp.h"
+#include "viewer/layer_compose.h"
+#include "viewer/screen_layout.h"
 #include "viewer/drive_joy.h"
 #include "viewer/drive_keys.h"
 #include "viewer/drive_menu.h"
@@ -408,13 +410,18 @@ static void render(const Track *t, uint32_t node, float yaw, int stand_in, uint8
     ported_view_render(&t->tri, &t->art, &t->info, node, (int32_t)(yaw / (2.0f * 3.14159265f) * 0x1000000), pixels);
 }
 
-static int write_ppm(const char *path, const uint8_t *pixels, const uint8_t *rgb)
+static int write_ppm_sized(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb)
 {
     FILE *f = fopen(path, "wb");
     if (f == NULL) return 0;
-    int ok = fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H) > 0;
-    for (int i = 0; ok && i < SCREEN_W * SCREEN_H; i++) ok = fwrite(rgb + 3 * pixels[i], 1, 3, f) == 3;
+    int ok = fprintf(f, "P6\n%d %d\n255\n", w, h) > 0;
+    for (int i = 0; ok && i < w * h; i++) ok = fwrite(rgb + 3 * pixels[i], 1, 3, f) == 3;
     return fclose(f) == 0 && ok;
+}
+
+static int write_ppm(const char *path, const uint8_t *pixels, const uint8_t *rgb)
+{
+    return write_ppm_sized(path, pixels, SCREEN_W, SCREEN_H, rgb);
 }
 
 static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
@@ -505,6 +512,24 @@ static int32_t draw_rand(void *ctx, int32_t n)
 }
 static RaceViews drive_views;
 
+/* port: the wide screen (port.cfg's format; TNFS_SCREEN=4:3 / 16:9 / 21:9 overrides it for the checks). The race
+ * draws its 2D as ever into the 640 x 480 frame, where the 3D view is left LAYER_KEY; the 3D view alone is drawn
+ * at the screen's width into `pixels`, and layer_compose puts the frame over it (layer_compose.h). */
+static struct {
+    int width;                          /* 640: none of this */
+    uint8_t *pixels;                    /* width x 480 */
+    ViewLayout rows[VIEW_LAYOUTS];      /* 004b7080's high rows at the width (screen_layouts) */
+    int fov_adjust;
+    int ready;                          /* the frame composed since the last present */
+} drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0 };
+
+static ScreenFormat drive_screen_format(void)
+{
+    const char *v = getenv("TNFS_SCREEN");
+    if (v != NULL) return strcmp(v, "21:9") == 0 ? SCREEN_21_9 : strcmp(v, "16:9") == 0 ? SCREEN_16_9 : SCREEN_4_3;
+    return port_settings_load().format;
+}
+
 enum { HIGH_SCREEN = 1 };  /* 00512018 for 640 x 480 */
 
 /* 00405210 for the race (race->select_view): the camera takes its view's
@@ -520,9 +545,190 @@ static void set_drive_viewport(const RaceState *race)
     const RaceCamera *camera = race->chase.camera;
     const ViewLayout *l = camera != NULL ? camera->layout_row : NULL;
     if (l == NULL || l->width <= 0 || l->height <= 0) return;
-    const PortedViewport vp = { l->left + l->x, l->top + l->y, l->width, l->height, camera->fov, l->scale,
-                                l->left, l->top, l->unknown_20, l->unknown_24 };
+    /* port: a row taller than the exe's (the outside view without its strip) keeps its vertical focal length */
+    const int32_t row = camera->layout >= 0 && camera->layout < VIEW_LAYOUTS ? camera->layout : 0;
+    const int32_t fov = camera->fov + drive_wide.fov_adjust;
+    const int32_t fov_y = screen_fov_y(camera->fov, race_view_layouts[HIGH_SCREEN][row].height, l->height,
+                                       drive_wide.fov_adjust);
+    const PortedViewport vp = { l->left + l->x, l->top + l->y, l->width, l->height, fov, l->scale,
+                                l->left, l->top, l->unknown_20, l->unknown_24, fov_y };
     ported_view_set_viewport(&vp);
+}
+
+/* port: the same camera at the wide screen's width: inside the car the 640 view enlarged with the dash, the outside
+ * view wider at its focal lengths, the smaller windows centred */
+static PortedViewport wide_viewport(const RaceState *race)
+{
+    const RaceCamera *camera = race->chase.camera;
+    const int32_t row = camera != NULL && camera->layout >= 0 && camera->layout < VIEW_LAYOUTS ? camera->layout : 0;
+    const int32_t base = camera != NULL ? camera->fov : 70;
+    const ViewLayout l = row == 0 ? screen_cockpit_view(drive_wide.width) : drive_wide.rows[row];
+    const ViewLayout *orig = &race_view_layouts[HIGH_SCREEN][row];
+    const int32_t fov = (row == 0 ? base : l.width != orig->width ? screen_fov_x(base, l.width) : base)
+                        + drive_wide.fov_adjust;
+    const int32_t fov_y = row == 0 ? fov : screen_fov_y(base, orig->height, l.height, drive_wide.fov_adjust);
+    return (PortedViewport){ l.left + l.x, l.top + l.y, l.width, l.height, fov, l.scale,
+                             l.left, l.top, l.unknown_20, l.unknown_24, fov_y };
+}
+
+/* port: the 640 view's box (its row's left, top, +0x20, +0x24) LAYER_KEY on the 640 surface the 3D would go to */
+static void wide_key_box(const RaceState *race, uint8_t *surface)
+{
+    const ViewLayout *l = race->chase.camera != NULL ? race->chase.camera->layout_row : NULL;
+    if (l == NULL) return;
+    const int32_t x0 = l->left < 0 ? 0 : l->left, y0 = l->top < 0 ? 0 : l->top;
+    const int32_t x1 = l->left + l->unknown_20 > SCREEN_W ? SCREEN_W : l->left + l->unknown_20;
+    const int32_t y1 = l->top + l->unknown_24 > SCREEN_H ? SCREEN_H : l->top + l->unknown_24;
+    for (int32_t y = y0; y < y1 && x1 > x0; y++) memset(surface + (size_t)y * SCREEN_W + x0, LAYER_KEY, (size_t)(x1 - x0));
+}
+
+enum {
+    BAR_MIDDLE_640 = 262, BAR_END_640 = 405,  /* the scoreboard's groups (screen_layout.c) */
+    GAUGE_X_640 = 10, GAUGE_Y_640 = 289, GAUGE_SIZE = 156,
+    RADAR_FIRST = 2, RADAR_LAST = 7,    /* the radar detector's big light and five small ones (cockpit_draw.c) */
+    RADAR_MARGIN = 4,                   /* its housing round the lights */
+    SHAPE_W_AT = 4, SHAPE_H_AT = 6
+};
+
+static int shape_word(const uint8_t *shape, int at)
+{
+    return (int16_t)(shape[at] | shape[at + 1] << 8);
+}
+
+/* port: the box of the cockpit's radar detector (its lights where 0042270c puts them, and the housing round them);
+ * empty when the dash has none */
+static LayerRect radar_box(const Cockpit *c)
+{
+    LayerRect r = { SCREEN_W, SCREEN_H, 0, 0 };
+    for (int k = RADAR_FIRST; k <= RADAR_LAST; k++) {
+        const uint8_t *shape = k == RADAR_FIRST ? c->big_lit : c->small_lit;
+        if (shape == NULL) continue;
+        const CockpitPoint p = c->dash_points[k];
+        if (p.x < r.left) r.left = p.x;
+        if (p.y < r.top) r.top = p.y;
+        if (p.x + shape_word(shape, SHAPE_W_AT) > r.right) r.right = p.x + shape_word(shape, SHAPE_W_AT);
+        if (p.y + shape_word(shape, SHAPE_H_AT) > r.bottom) r.bottom = p.y + shape_word(shape, SHAPE_H_AT);
+    }
+    if (r.right <= r.left) return (LayerRect){ 0, 0, 0, 0 };
+    r.left -= RADAR_MARGIN, r.top -= RADAR_MARGIN, r.right += RADAR_MARGIN, r.bottom += RADAR_MARGIN;
+    if (r.left < 0) r.left = 0;
+    if (r.top < 0) r.top = 0;
+    return r;
+}
+
+/* port: the lines of the strip from x0 to x1 on the wide screen in one colour */
+static void wide_fill(int x0, int x1, uint8_t colour)
+{
+    for (int y = 0; y < HUD_BAR_HEIGHT && x1 > x0; y++) memset(drive_wide.pixels + (size_t)y * drive_wide.width + x0, colour, (size_t)(x1 - x0));
+}
+
+/* port: a box of the 640 dash where it lands enlarged on the wide screen, in one colour */
+static void wide_fill_scaled(const LayerRect *r, const CockpitScale *cs, uint8_t colour)
+{
+    const int x0 = (int)((int64_t)r->left * cs->scale >> 16), x1 = (int)((int64_t)r->right * cs->scale >> 16);
+    const int y0 = (int)((int64_t)r->top * cs->scale >> 16) - cs->crop_top;
+    const int y1 = (int)((int64_t)r->bottom * cs->scale >> 16) - cs->crop_top;
+    for (int y = y0 < 0 ? 0 : y0; y < y1 && y < SCREEN_H; y++)
+        memset(drive_wide.pixels + (size_t)y * drive_wide.width + x0, colour, (size_t)((x1 > drive_wide.width ? drive_wide.width : x1) - x0));
+}
+
+static LayerPiece wide_piece(int left, int top, int w, int h, ScreenPoint at, int scaled)
+{
+    return (LayerPiece){ { left, top, left + w, top + h }, at.x, at.y, scaled };
+}
+
+/* port: the 640 frame (the race's 2D, LAYER_KEY where the 3D goes) over the wide 3D view: inside the car the dash
+ * enlarged with the mirror and the radar detector at their anchors; outside it centred with the gauge at the left;
+ * the scoreboard's three groups and the map at their anchors in both; the police screen alone centred */
+static void wide_compose(const RaceState *race, const uint8_t *frame)
+{
+    const RaceCamera *camera = race->chase.camera;
+    const int police = drive_hud.police.screen != NULL;
+    const int in_car = !police && camera != NULL && camera->layout == 0;
+    const CockpitScale cs = screen_cockpit_scale(drive_wide.width);
+    const DriveMirror *m = &drive_hud.mirror;
+    const LayerRect radar = in_car && drive_hud.cockpit_ready ? radar_box(&drive_hud.cockpit) : (LayerRect){ 0, 0, 0, 0 };
+    const int mirror_w = (int)((int64_t)m->width * cs.scale >> 16), mirror_h = (int)((int64_t)m->height * cs.scale >> 16);
+    const ScreenPoint sizes[7] = { { BAR_MIDDLE_640, HUD_BAR_HEIGHT }, { BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT },
+                                   { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
+                                   { DRIVE_MAP_W, DRIVE_MAP_H }, { radar.right - radar.left, radar.bottom - radar.top },
+                                   { GAUGE_SIZE, GAUGE_SIZE } };
+    const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ drive_hud.mirror_x, drive_hud.mirror_y });
+    LayerPiece pieces[7];
+    int n = 0;
+    if (!police) {
+        pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_start, 0);
+        pieces[n++] = wide_piece(BAR_MIDDLE_640, 0, BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_middle, 0);
+        pieces[n++] = wide_piece(BAR_END_640, 0, SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT, a.bar_end, 0);
+        pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
+    }
+    if (in_car) {
+        if (m->picture != NULL && m->state != 0)
+            pieces[n++] = wide_piece(drive_hud.mirror_x, drive_hud.mirror_y, m->width, m->height, a.mirror, 1);
+        if (radar.right > radar.left)
+            pieces[n++] = (LayerPiece){ radar, a.radar.x, a.radar.y, 0 };
+    } else if (!police) {
+        pieces[n++] = wide_piece(GAUGE_X_640, GAUGE_Y_640, GAUGE_SIZE, GAUGE_SIZE, a.gauge, 0);
+    }
+    if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
+    const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
+    if (in_car) wide_fill_scaled(&map, &cs, 0);  /* the map's place in the enlarged dash: its box, empty */
+    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, cs.crop_top, in_car, pieces, n };
+    layer_compose(&c, frame, drive_wide.pixels);
+    if (!police) {  /* the strip between the groups */
+        const uint8_t strip = (uint8_t)drive_hud.strip_colour;
+        wide_fill(a.bar_start.x + BAR_MIDDLE_640, a.bar_middle.x, strip);
+        wide_fill(a.bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a.bar_end.x, strip);
+    }
+    drive_wide.ready = 1;
+}
+
+/* port: a 640 screen of its own (the link race's wait) centred on black on the wide screen */
+static void wide_centre(const uint8_t *frame)
+{
+    if (drive_wide.width <= SCREEN_W) return;
+    memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);
+    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, 1 << 16, 0, 0, NULL, 0 };
+    layer_compose(&c, frame, drive_wide.pixels);
+}
+
+int drive_screen_width(void)
+{
+    return drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W;
+}
+
+/* port: what the frame shows: the wide screen's when there is one */
+static const uint8_t *drive_output(const uint8_t *pixels, int *width)
+{
+    *width = drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W;
+    return drive_wide.width > SCREEN_W ? drive_wide.pixels : pixels;
+}
+
+/* port: the race about to start: its 640 x 480 rows without the strip in every format, the field's adjustment, and
+ * 640 wide until drive_wide_size */
+static void drive_wide_setup(void)
+{
+    screen_layouts(SCREEN_W, drive_views.layouts[HIGH_SCREEN]);
+    drive_wide.fov_adjust = port_settings_load().fov_adjust;
+    drive_wide.width = SCREEN_W;
+    drive_wide.ready = 0;
+}
+
+/* port: the race drawn `width` wide (the headless frames at the format's width; the window stays 640 until the
+ * menus' screens, which present through video.c, can be shown on a wide platform) */
+static void drive_wide_size(int width)
+{
+    drive_wide.width = width;
+    if (drive_wide.width <= SCREEN_W) return;
+    screen_layouts(drive_wide.width, drive_wide.rows);
+    uint8_t *p = realloc(drive_wide.pixels, (size_t)drive_wide.width * SCREEN_H);
+    if (p == NULL) {
+        fprintf(stderr, "track_viewer: no wide screen buffer, 640 x 480\n");
+        drive_wide.width = SCREEN_W;
+        return;
+    }
+    drive_wide.pixels = p;
+    memset(p, 0, (size_t)drive_wide.width * SCREEN_H);
 }
 
 enum {
@@ -777,7 +983,19 @@ static void df_near(void *ctx, int32_t segments, int32_t node)
         const Car *c = f->race->cars[i];
         list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)), f->race->cars[i] };
     }
-    ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, drive_hud_view(&drive_hud, f->pixels));
+    uint8_t *view = drive_hud_view(&drive_hud, f->pixels);
+    if (drive_wide.width > SCREEN_W) {  /* port: the 3D at the screen's width, its 640 box left LAYER_KEY */
+        wide_key_box(f->race, view);
+        memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);
+        const PortedViewport vp = wide_viewport(f->race);
+        ported_view_set_screen(drive_wide.width, SCREEN_H);
+        ported_view_set_viewport(&vp);
+        ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, drive_wide.pixels);
+        ported_view_set_screen(SCREEN_W, SCREEN_H);
+        set_drive_viewport(f->race);
+        return;
+    }
+    ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, view);
 }
 
 /* The redline: the player's specs' +0xac, for the cockpit's car and the HUD's alike. */
@@ -889,6 +1107,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     frame_draw(&ops, &drive_frame);
     drive_hud.mirror.state = drive_frame.mirror_state;
     last_ms = f.last_ms;
+    if (drive_wide.width > SCREEN_W) wide_compose(race, pixels);
 }
 
 static void car_stem(int model, char stem[16])
@@ -1114,6 +1333,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
     memcpy(drive_views.rows, race_view_rows, sizeof drive_views.rows);
     drive_views.mode = HIGH_SCREEN;
+    drive_wide_setup();
     drive_sim.race.select_view = select_view;
     drive_sim.race.view_user = &drive_views;
     drive_sim.race.window_size = 0;
@@ -1470,7 +1690,8 @@ static void present_drive(const Track *t, uint8_t *pixels)
     PlatformColor palette[256];
     for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
         palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
-    platform_present(pixels, palette);
+    int width;
+    platform_present(drive_output(pixels, &width), palette);
 }
 
 /* port: render_drive with the cars and the eye between the last two steps, by the time since the newer one; the
@@ -1517,6 +1738,7 @@ static void run_wait_screen(void *ctx)
     memset(r->pixels, palette_match_rgb(&m, 0xff000000u), SCREEN_W * SCREEN_H);
     const QuadTarget screen = { r->pixels, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
     if (drive_hud.art.sync != NULL) blit_shape_placed(&screen, drive_hud.art.sync);
+    wide_centre(r->pixels);
     if (r->headless_ticks == 0) present_drive(r->t, r->pixels);
 }
 
@@ -1524,7 +1746,7 @@ static const RaceRunOps *drive_run_ops(void);
 
 static int drive_window(const Track *t, uint8_t *pixels)
 {
-    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive" };
+    const PlatformConfig config = { drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W, SCREEN_H, "TNFS drive" };
     if (!menus_on && !platform_init(&config)) return 0;
     if (drive_audio_open(&drive_sim.race, drive_cars.data_root) && menus_on) {  /* 004275f8's words for the followed slot */
         RaceEntry *followed = &drive_sim.race.entries[race_slot(drive_sim.race.player)];
@@ -1579,6 +1801,7 @@ static int drive_window(const Track *t, uint8_t *pixels)
  * window or a clock, until the race tick reaches `ticks`. */
 static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
+    drive_wide_size(screen_width(drive_screen_format()));
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
@@ -1589,7 +1812,9 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
     race_run(&ops, &drive_sim.race, &w);
     drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
     render_drive(t, pixels);
-    return write_ppm(screenshot, pixels, t->art.palette);
+    int width;
+    const uint8_t *shown = drive_output(pixels, &width);
+    return write_ppm_sized(screenshot, shown, width, SCREEN_H, t->art.palette);
 }
 
 static const RaceRunOps *drive_run_ops(void)
@@ -1625,6 +1850,7 @@ static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
  * skid marks, does). */
 static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
+    drive_wide_size(screen_width(drive_screen_format()));
     const char *view = getenv("TNFS_VIEW");
     if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
     const char *frames_env = getenv("TNFS_FRAMES");
@@ -1651,7 +1877,9 @@ static int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, con
            drive_sim.race.tick, drive_sim.race.phase, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
            chase->position[0] / 65536.0, chase->position[1] / 65536.0, chase->position[2] / 65536.0);
     render_drive(t, pixels);
-    return write_ppm(screenshot, pixels, t->art.palette);
+    int width;
+    const uint8_t *shown = drive_output(pixels, &width);
+    return write_ppm_sized(screenshot, shown, width, SCREEN_H, t->art.palette);
 }
 
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,

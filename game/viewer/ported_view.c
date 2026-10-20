@@ -610,7 +610,15 @@ void ported_view_set_tick(int32_t tick)
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
-static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT };
+static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0 };
+
+/* port: the frame the 3D view draws into, 640 x 480 but on a wide screen (ported_view_set_screen) */
+static int32_t screen_w = WIDTH, screen_h = HEIGHT;
+
+void ported_view_set_screen(int width, int height)
+{
+    screen_w = width, screen_h = height;
+}
 
 /* 00512040..: the road direction the last frame's transform left (the mirror draws with it). */
 static int32_t last_near_dir[3] = { 0, 0, 0x1999 };
@@ -634,7 +642,7 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     if (!ring.enabled) return;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
-                         viewport.sky_height }, WIDTH, WIDTH, 0, sky_off };
+                         viewport.sky_height }, screen_w, screen_w, 0, sky_off };
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
@@ -684,12 +692,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     static View view;
     static HorizonTables horizon;
     const PortedViewport *vp = &viewport;
-    view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov);
+    view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov_y != 0 ? vp->fov_y : vp->fov);
     horizon_tables(&horizon, vp->width, vp->fov, vp->scale);
-    RasterTarget target = { pixels, WIDTH, HEIGHT, 0, 0 };
+    RasterTarget target = { pixels, screen_w, screen_h, 0, 0 };
     /* the box (00449f50: the layout's left, top, +0x20, +0x24); left + x, top + y only place the projection */
     const int32_t box[4] = { vp->sky_left, vp->sky_top, vp->sky_left + vp->sky_width, vp->sky_top + vp->sky_height };
-    QuadTarget quad = { pixels, WIDTH, box[0], box[1], box[2], box[3] };
+    QuadTarget quad = { pixels, screen_w, box[0], box[1], box[2], box[3] };
     DrawContext ctx = { &view, { box[0], box[1], box[2], box[3] }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0 };
@@ -698,15 +706,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */
-    for (int32_t y = box[1] < 0 ? 0 : box[1]; y < box[3] && y < HEIGHT; y++) {
-        const int32_t x0 = box[0] < 0 ? 0 : box[0], x1 = box[2] > WIDTH ? WIDTH : box[2];
-        if (x1 > x0) memset(pixels + (size_t)y * WIDTH + x0, 0, (size_t)(x1 - x0));
+    for (int32_t y = box[1] < 0 ? 0 : box[1]; y < box[3] && y < screen_h; y++) {
+        const int32_t x0 = box[0] < 0 ? 0 : box[0], x1 = box[2] > screen_w ? screen_w : box[2];
+        if (x1 > x0) memset(pixels + (size_t)y * screen_w + x0, 0, (size_t)(x1 - x0));
     }
     if (art->has_horizon && info->ring != 0) {
         const SkyTargets targets = { &quad, &target };
         draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
     } else if (art->has_horizon) {
-        const HorizonTarget ht = { pixels, WIDTH };
+        const HorizonTarget ht = { pixels, screen_w };
         horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off,
                           horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
     }
