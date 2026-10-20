@@ -431,7 +431,9 @@ typedef struct {
 enum {
     /* 004fb7d8 bit 0x20: falling cars skip the extra half pull (00428bd8) and,
      * except on "tr6", come back from long jumps more slowly */
-    TRACK_FLAG_LOW_GRAVITY = 0x20
+    TRACK_FLAG_LOW_GRAVITY = 0x20,
+    /* 004fb7d8 bit 3, the Turbo cheat: 004275f8 puts the timer on level 3 (0043bb44), the race 9/7 as fast */
+    TRACK_FLAG_TURBO = 8
 };
 
 /* The car whose record holds `handle` at +0x88 (the original's pointer to

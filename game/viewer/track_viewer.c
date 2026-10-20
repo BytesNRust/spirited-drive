@@ -36,6 +36,7 @@
 #include "viewer/camera.h"
 #include "game/race/race_view.h"
 #include "viewer/drive_audio.h"
+#include "viewer/drive_clock.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_interp.h"
@@ -1591,9 +1592,11 @@ typedef struct {
     int32_t headless_ticks;     /* TNFS_RUN with --screenshot: a frame due each pass, no window, this many frames */
     int32_t late, unknown_4fb78c, store_clock;  /* 004fb790, 004fb78c, 004fb7a0: the network's, unread here */
     int32_t timer_written;      /* the timer run_service last wrote (-1 none yet) */
+    DriveClock clock;           /* port: the steps by real time on 004fbabc's level (drive_clock.h) */
 } DriveRun;
 
-enum { DRIVE_TIMER_HZ = 30, DRIVE_IDLE_MS = 1 };
+enum { DRIVE_IDLE_MS = 1 };
+static DriveClock drive_clock = { 3, 3 };  /* port: level 1 until a race starts; the running race's (DriveRun.clock), for the frames between its steps */
 
 static void run_none(void *ctx) { (void)ctx; }
 static void run_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
@@ -1615,8 +1618,8 @@ static void run_service(void *ctx)
     if (r->quit) r->w->running = 0;
     const uint32_t now = platform_ticks_ms();
     /* the timer written elsewhere (the start zeroes it): count on from its value */
-    if (r->w->timer != r->timer_written) r->base_ms = now - (uint32_t)((int64_t)r->w->timer * 1000 / DRIVE_TIMER_HZ);
-    r->w->timer = (int32_t)((uint64_t)(now - r->base_ms) * DRIVE_TIMER_HZ / 1000u);
+    if (r->w->timer != r->timer_written) r->base_ms = now - drive_clock_ms_of(&r->clock, r->w->timer);
+    r->w->timer = drive_clock_steps(&r->clock, now - r->base_ms);
     r->timer_written = r->w->timer;
     if (r->w->timer > r->w->done) return;
     /* port: no step due: a frame between steps when one is due on the refresh rate */
@@ -1811,7 +1814,8 @@ static void render_blended(const Track *t, uint8_t *pixels)
         return;
     }
     const uint32_t elapsed = platform_ticks_ms() - drive_interp.cur_ms;
-    const int32_t alpha = drive_interp_alpha((uint64_t)elapsed * DRIVE_TIMER_HZ, 1000);
+    const int32_t alpha = drive_interp_alpha((uint64_t)elapsed * DRIVE_CLOCK_BASE_HZ * 3,
+                                             1000u * (uint32_t)drive_clock_round_ticks(&drive_clock));
     DriveInterpPose saved;
     drive_interp_apply(&drive_sim, &drive_interp.prev, &drive_interp.cur, alpha, &saved);
     render_drive(t, pixels);
@@ -1873,7 +1877,10 @@ static int drive_window(const Track *t, uint8_t *pixels)
     w.music_on = menus_on ? (int16_t)menus.music : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
-    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
+    DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1, drive_clock_of_level(DRIVE_CLOCK_LEVEL) };
+    /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
+    if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
+    drive_clock = r.clock;
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: port.cfg's rate; the variable overrides it for the checks */
@@ -1916,7 +1923,7 @@ static int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks,
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
-    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1 };
+    DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1, drive_clock_of_level(DRIVE_CLOCK_LEVEL) };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
