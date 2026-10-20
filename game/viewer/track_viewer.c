@@ -37,6 +37,7 @@
 #include "game/race/race_view.h"
 #include "viewer/drive_audio.h"
 #include "viewer/drive_clock.h"
+#include "viewer/drive_slide.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
 #include "viewer/drive_interp.h"
@@ -1250,6 +1251,13 @@ static int load_pdn(const char *path, size_t dir_length, CarPdn *pdn)
 
 /* RaceField.load: 00457d40 for the slot (the CFM its model names, read
  * here), its objects to the view, then its PDN. */
+/* 004571e8's picture on the front end's screen */
+static void drive_slide(void *user, int32_t picture, int32_t car)
+{
+    (void)user;
+    drive_slide_show(car, picture);
+}
+
 static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
 {
     (void)user;
@@ -1374,6 +1382,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.mirrored = menus_on ? menus.variant_m != 0 : 0;  /* 004fbad8 / 004fbadc: the cheats' and track select's */
     int arcade = menus_on ? menus.variant_r != 0 : 0;
     field.load = drive_load;
+    field.slide = menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
     drive_cars.data_root = data_root;
     drive_cars.tint.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     drive_cars.tint.tint_ready = 1;
@@ -1412,6 +1421,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         field.track_flags = replay_of->track_flags;
         arcade = replay_of->arcade;
         field.load = drive_load;
+        field.slide = menus_on ? drive_slide : NULL;
         for (int i = 1; i < field.humans && i < RACE_PLAYERS; i++) {
             if (!load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
             field.specs[i] = &human_specs[i];

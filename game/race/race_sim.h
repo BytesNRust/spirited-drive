@@ -83,6 +83,9 @@ struct RaceField {
     const CarSpecs *specs[RACE_PLAYERS];  /* each human's specs after slot 0's (a link game's); NULL none */
     uint32_t track_flags;               /* 004fb7d8: 0052b306 as 0042702c copies it (bit 2 No Mercy, bit 3 Turbo) */
     int mirrored;                       /* 004fbad8: the "m" tracks (SKCART), read in place by the race */
+    /* 004571e8's showing, after each of its picks: picture 0..6 of the followed player's car (`user` the load's);
+     * NULL shows none */
+    void (*slide)(void *user, int32_t picture, int32_t car);
 };
 
 /* 0042702c's counts for a race type: types 2 and 3 race 8, type 0 one car;

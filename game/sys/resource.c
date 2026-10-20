@@ -27,6 +27,7 @@ void resource_init(const char *data_root, int german)
         [PATH_MUSIC] = { "frontend/music/", "frontend/music/" },
         [PATH_REPLAY] = { "gamedata/replay/", "gamedata/replay/" },
         [PATH_CONFIG] = { "gamedata/config/", "gamedata/config/" },
+        [PATH_SLIDES] = { "simdata/slides/", "simdata/gslides/" },
     };
     is_german = german;
     snprintf(root, sizeof root, "%s", data_root);

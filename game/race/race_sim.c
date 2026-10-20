@@ -149,7 +149,19 @@ typedef struct {
 } EnterCtx;
 
 static void enter_tables(void *ctx) { (void)ctx; }  /* 0043f994: race_sim_start_field set its words before */
-static void enter_load_pick(void *ctx, int32_t first) { race_loading_pick(&((EnterCtx *)ctx)->sim->race, first); }
+/* 004571e8: the pick, then the picture of the followed player's car */
+static void loading_slide(RaceState *race, const RaceField *field, int clear)
+{
+    const int32_t picture = race_loading_pick(race, clear);
+    if (picture >= 0 && field->slide != NULL)
+        field->slide(field->user, picture, race->entries[race->player & (RACE_PLAYERS - 1)].car);
+}
+
+static void enter_load_pick(void *ctx, int32_t first)
+{
+    EnterCtx *e = ctx;
+    loading_slide(&e->sim->race, e->field, first);
+}
 static void enter_sort(void *ctx) { race_sort_cars(&((EnterCtx *)ctx)->sim->race); }
 
 static Car *enter_alloc(void *ctx, int32_t size)
@@ -281,9 +293,8 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race_grid(race, (int16_t)race->race_type, (int16_t)race->track_variant);
     race_random_seed(race, field->seed);
     race_models(race);
-    /* 00455a5c: 004571e8(1), the loading picture (its draws from race_rand).
-     * TODO: whether the loads between it and 00440858 draw too is unread. */
-    race_loading_pick(race, 1);
+    /* 00455a5c: 004571e8(1), the loading picture (its draws from race_rand) */
+    loading_slide(race, field, 1);
     race->controls[0] = (ControlSetup){ 0, 0, 0 };
     sim->count = race->car_count;
     sim->specs[0] = *specs;

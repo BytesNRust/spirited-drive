@@ -16,6 +16,7 @@ typedef enum {
     PATH_MUSIC,    /* 005242d8 */
     PATH_REPLAY,   /* 00524418 */
     PATH_CONFIG,   /* 00524198 */
+    PATH_SLIDES,   /* 00524558: the loading pictures (004571e8) */
     PATH_COUNT
 } GamePath;
 
