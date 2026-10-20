@@ -426,7 +426,7 @@ static int write_ppm(const char *path, const uint8_t *pixels, const uint8_t *rgb
 
 static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
 {
-    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS track viewer" };
+    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS track viewer", 0, 0, 0 };
     if (!platform_init(&config)) return 0;
     PlatformColor palette[256];
     for (int i = 0; i < 256; i++)
@@ -714,8 +714,7 @@ static void drive_wide_setup(void)
     drive_wide.ready = 0;
 }
 
-/* port: the race drawn `width` wide (the headless frames at the format's width; the window stays 640 until the
- * menus' screens, which present through video.c, can be shown on a wide platform) */
+/* port: the race drawn `width` wide (the headless frames at the format's width, the window at its platform's) */
 static void drive_wide_size(int width)
 {
     drive_wide.width = width;
@@ -1746,8 +1745,11 @@ static const RaceRunOps *drive_run_ops(void);
 
 static int drive_window(const Track *t, uint8_t *pixels)
 {
-    const PlatformConfig config = { drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W, SCREEN_H, "TNFS drive" };
+    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS drive", 0, 0, 0 };
     if (!menus_on && !platform_init(&config)) return 0;
+    int platform_w = SCREEN_W, platform_h = SCREEN_H;
+    platform_framebuffer_size(&platform_w, &platform_h);
+    drive_wide_size(platform_w);  /* port: the race as wide as the platform the menus (or this window) opened */
     if (drive_audio_open(&drive_sim.race, drive_cars.data_root) && menus_on) {  /* 004275f8's words for the followed slot */
         RaceEntry *followed = &drive_sim.race.entries[race_slot(drive_sim.race.player)];
         followed->sound_volume = menus.sound_volume, followed->music_volume = menus.music_volume;
