@@ -146,6 +146,9 @@ bool platform_joy_raw(int device, RawPad *out);
 void platform_virtual_key(int action, int scancode);
 bool platform_joy_virtual_down(int scancode);
 void platform_joy_virtual_set(int device, uint32_t keys);   /* what platform_joy_read leaves: control_map's `keys` */
+/* what platform_poll_events calls to read the open pads' keys again, so a binding let go is seen while nothing else
+ * reads the pad (the pause's wait for its key) */
+void platform_joy_virtual_refresher(void (*refresh)(void));
 
 /* Force feedback on a joystick (the exe's IFORCE.DLL): haptic effects where
  * the device has them, else its rumble for the jolts, the buffeting and the

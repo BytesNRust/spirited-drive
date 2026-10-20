@@ -294,11 +294,15 @@ static PlatformKey translate_key(SDL_Keycode key)
     }
 }
 
+static void (*joy_refresh)(void);  /* port: reads the open pads' keys again (platform_joy_virtual_refresher) */
+
 bool platform_poll_events(void)
 {
     static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
     SDL_Event event;
     if (quit) return false;
+    /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
+    if (joy_refresh != NULL) joy_refresh();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
@@ -590,6 +594,7 @@ int platform_key_sdl(int scancode) { return (int)from_set1(scancode); }
 enum { VIRTUAL_DEVICES = 16 };
 static uint32_t virtual_keys[VIRTUAL_DEVICES];
 static int virtual_scancode[ACT_COUNT] = { [ACT_PAUSE] = 0x19, [ACT_VIEW] = 0x3b };
+void platform_joy_virtual_refresher(void (*refresh)(void)) { joy_refresh = refresh; }
 
 void platform_virtual_key(int action, int scancode)
 {

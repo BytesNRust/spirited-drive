@@ -85,12 +85,15 @@ static bool start_haptic(void)
     return !haptic_failed;
 }
 
+static void virtual_refresh(void);
+
 static SDL_Joystick *device_of(int device)
 {
     if (!start() || device < 0 || device >= devices) return NULL;
     if (opened[device] != NULL) return opened[device];
     if (SDL_IsGamepad(ids[device])) pads[device] = SDL_OpenGamepad(ids[device]);
     opened[device] = pads[device] != NULL ? SDL_GetGamepadJoystick(pads[device]) : SDL_OpenJoystick(ids[device]);
+    if (opened[device] != NULL) platform_joy_virtual_refresher(virtual_refresh);
     return opened[device];
 }
 
@@ -169,6 +172,16 @@ bool platform_joy_caps(int device, char *name, size_t name_size, int *buttons, u
         for (int k = 0; k < AXES && k < n; k++) *axes |= 1u << k;
     }
     return true;
+}
+
+/* the keys of every pad open so far, as they are now */
+static void virtual_refresh(void)
+{
+    for (int d = 0; d < devices; d++) {
+        RawPad raw;
+        if (opened[d] == NULL || !platform_joy_raw(d, &raw)) continue;
+        platform_joy_virtual_set(d, control_map_apply(bindings(), &raw).keys);
+    }
 }
 
 bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4])
