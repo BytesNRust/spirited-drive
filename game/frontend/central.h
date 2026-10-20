@@ -140,6 +140,8 @@ typedef struct ControlCentralState {
     int32_t *screen;           /* 00524834 */
     const char *paths;         /* 00524328: the data path */
     const uint8_t *keys;       /* 004c693c: by scancode */
+    const int16_t *warrior_rival;  /* port: the extra (extras.cfg): the head to head opponent's arrows reach the
+                                    * Warrior (11) between 7 and 0; NULL or 0 the original's 0..7 */
 } ControlCentralState;
 
 /* 00432ff4: Control Central. The pointer, the arrows, Enter / space / the left button pick and change the

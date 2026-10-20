@@ -844,7 +844,8 @@ enum {
     SINGLE_RACE = 2,
     DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in for --drive without the menus */
     REPLAY_KIND = 1,        /* 00524e9f for a replay played back (0042c498's 1..3): any set */
-    FULL_FIELD = 8          /* entries[1].car asking 00457870 for the eight-car field */
+    FULL_FIELD = 8,         /* entries[1].car asking 00457870 for the eight-car field */
+    WARRIOR_CAR = 11        /* the secret car (CONCEPTCAR), "Traffc" */
 };
 
 /* The eye where 004046b0 last placed it, angles as 004496ac reads them. */
@@ -1390,6 +1391,12 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         field.entries[0].traction = menus.traction;
         if (field.race_type == HEAD_TO_HEAD && racers > 1) field.entries[1].car = menus.opponent;
     }
+    /* port, for the checks: TNFS_OPPONENT=<car 0..7, 11> the head to head opponent without the menus */
+    const char *opponent = getenv("TNFS_OPPONENT");
+    if (!menus_on && opponent != NULL && field.race_type == HEAD_TO_HEAD && racers > 1) {
+        const int car = atoi(opponent);
+        if ((car >= 0 && car <= 7) || car == WARRIOR_CAR) field.entries[1].car = car;
+    }
     /* The frontend's stand-in: a single race with the other entry's car 8
      * gets 00457870's field of eight different cars (004c5628); any other
      * car there would race seven copies of it. */
@@ -1552,6 +1559,14 @@ static void drive_end(void)
         if (slot >= drive_sim.race.racers) continue;
         const Car *c = slot >= 0 ? drive_sim.race.cars[slot] : NULL;
         printf(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
+    }
+    printf("\n");
+    /* port, for the checks: each racer's model and finish (the tick - 300, 0 still racing; 00440c30) */
+    printf("finish:");
+    for (int slot = 0; slot < drive_sim.race.racers && slot < RACE_PLAYERS; slot++) {
+        const Car *c = drive_sim.race.cars[slot];
+        printf(" %d=%s:%d", slot, c != NULL && c->model >= 0 && c->model < CAR_MODELS ? car_model_names[c->model] : "?",
+               drive_sim.race.players[slot].finish);
     }
     printf("\n");
 }

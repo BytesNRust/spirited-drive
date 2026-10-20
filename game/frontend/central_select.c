@@ -1,10 +1,14 @@
 /* Control Central (00432ff4): Enter, space or the left button on an item (00435120..004360bc). */
 #include "game/frontend/central_run.h"
 
+#include <stddef.h>
+
 static int in(CentralRun *r, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
     return r->ops->in_rect(r->ops->ctx, x0, x1, y0, y1) != 0;
 }
+
+static int warrior_rival(const ControlCentralState *st) { return st->warrior_rival != NULL && *st->warrior_rival != 0; }
 
 /* the opponent (in a link game the player picked, or a single race's car) one on */
 void central_opponent_up(CentralRun *r, int mouse)
@@ -23,7 +27,7 @@ void central_opponent_up(CentralRun *r, int mouse)
     } else if (*st->opponent == 11) {
         *st->opponent = 0;
     } else if (++*st->opponent > 7) {
-        *st->opponent = 0;
+        *st->opponent = warrior_rival(st) ? 11 : 0;  /* port: the extra */
     }
     r->redraw = 1;
 }
@@ -44,7 +48,7 @@ void central_opponent_down(CentralRun *r, int mouse)
         if (--*st->net_car < 0) *st->net_car = 8;
     } else {
         *st->opponent = *st->opponent == 11 ? 7 : (int16_t)(*st->opponent - 1);
-        if (*st->opponent < 0) *st->opponent = 7;
+        if (*st->opponent < 0) *st->opponent = warrior_rival(st) ? 11 : 7;  /* port: the extra */
     }
     r->redraw = 1;
 }

@@ -1297,7 +1297,7 @@ int32_t glue_central(void)
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
         &g.explode, menu_audio_silent(), &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys };
+        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, NULL };
     const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
                                  &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
     link_central_bind(&link_menu);
