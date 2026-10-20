@@ -1041,6 +1041,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     field.seed = seed;
     field.track_flags = flags;
+    field.mirrored = menus_on ? menus.variant_m != 0 : 0;  /* 004fbad8 / 004fbadc: the cheats' and track select's */
+    int arcade = menus_on ? menus.variant_r != 0 : 0;
     field.load = drive_load;
     drive_cars.data_root = data_root;
     drive_cars.tint.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
@@ -1072,6 +1074,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed and its humans' specs */
         field = replay_of->field;
         field.track_flags = replay_of->track_flags;
+        arcade = replay_of->arcade;
         field.load = drive_load;
         for (int i = 1; i < field.humans && i < RACE_PLAYERS; i++) {
             if (!load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
@@ -1079,7 +1082,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         }
     }
     const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
-    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, 0);
+    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
     if (menus_on && replay_of == NULL)  /* the cheats' words, shared with the menus in the original */
         drive_sim.race.unknown_4c5cd4 = menus.explode, drive_sim.race.start_input = menus.start_boost;
     /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the

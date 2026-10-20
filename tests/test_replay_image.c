@@ -29,6 +29,7 @@ static void synthetic(void)
     race.race_type = 2, race.racers = 8, race.humans = 1, race.car_count = 8, race.laps_setting = 2, race.player = 0;
     race.track = 5, race.models[3] = 203, race.grid[0] = 7, race.catch_up = 4;
     race.entries[0].car = 4, strcpy(race.entries[0].name, "Mom?");
+    race.mirrored = 1, race.arcade = 1;
     race_replay_image_setup(&race, 0x31c3f86a, setup);
     CHECK(memcmp(setup + 0xa, "tr6\0", 4) == 0);
     CHECK(word(setup, 0x14) == 2 && word(setup, 0x20) == 8 && word(setup, 0x38) == 0x31c3f86a);
@@ -38,6 +39,7 @@ static void synthetic(void)
     CHECK(race_replay_image_race(setup, &r));
     CHECK(strcmp(r.stem, "TR6") == 0 && r.field.racers == 8 && r.field.race_type == 2 && r.laps == 2);
     CHECK(r.field.seed == 0x31c3f86a && r.field.entries[0].car == 4 && strcmp(r.field.entries[0].name, "Mom?") == 0);
+    CHECK(r.field.mirrored == 1 && r.arcade == 1);                                     /* 0x31c, 0x320 */
 
     uint8_t bad[REPLAY_SETUP_SIZE];
     memcpy(bad, setup, sizeof bad), bad[0xa] = 0;                                      /* no stem */

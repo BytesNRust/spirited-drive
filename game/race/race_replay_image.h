@@ -27,6 +27,7 @@ typedef struct {
     int laps;                          /* 004fbac4 */
     int followed;                      /* 004fbacc: the car the camera follows */
     uint32_t track_flags;              /* 004fb7d8 */
+    int arcade;                        /* 004fbadc (the field holds 004fbad8) */
 } ReplayRace;
 
 /* The setup's race; 0 when the setup does not hold one (no stem, counts out of range, a slot's car not a car) */

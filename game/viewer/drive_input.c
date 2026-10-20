@@ -45,9 +45,9 @@ static uint32_t read_word(void *ctx)
     if (drive_autopilot_on() && own != NULL) return drive_autopilot_word(own, c->race, c->in->own_specs);  /* port: test harness only */
     InputPad pad = { 0, 0, 0 };
     const InputReadOps ops = { &pad, pad_read, { NULL, no_range, no_buttons, pointer_x } };
-    MouseSteerWords mouse = { c->race->replay, c->race->viewed, 0, c->race->unknown_513e6c, 0, 0, 0x20 };
+    MouseSteerWords mouse = { c->race->replay, c->race->viewed, 0, c->race->unknown_513e6c, c->race->mirrored, 0, 0x20 };
     const InputReadInputs inputs = { c->in->keys, c->in->codes, c->in->stand_in_block + 1, c->race->controls,
-                                     c->race->entries, 0, 0, drive_joy_state()->present };
+                                     c->race->entries, 0, c->race->mirrored, drive_joy_state()->present };
     const uint32_t word = input_read(&ops, &pad, &mouse, &inputs);
     c->in->pad_buttons = pad.buttons;
     return word;

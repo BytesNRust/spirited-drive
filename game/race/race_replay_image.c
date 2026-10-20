@@ -53,6 +53,7 @@ int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *o
     memcpy(f->entries, setup + AT_ENTRIES, sizeof f->entries);
     out->laps = get32(setup, AT_LAPS), out->followed = get32(setup, AT_FOLLOWED);
     out->track_flags = (uint32_t)get32(setup, AT_FLAGS);
+    f->mirrored = get32(setup, AT_MIRRORED) != 0, out->arcade = get32(setup, AT_ARCADE) != 0;
     if (out->stem[0] == 0 || f->racers < 1 || f->racers > RACE_PLAYERS || f->cops < 0 || f->cops > 1) return 0;
     if (f->traffic < 0 || f->racers + f->cops + f->traffic > RACE_CARS + 6) return 0;
     if (f->humans < 1) f->humans = 1;  /* a setup that wrote none races its one human */

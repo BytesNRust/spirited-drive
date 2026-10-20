@@ -592,6 +592,9 @@ static void sky_polygon(void *user, uint8_t colour, const int32_t points[8])
 
 static int sky_off;  /* 004fb786 */
 
+/* 004fbad8, the race's: the "m" tracks drawn turned over (004496ac, 00449f0c, 0043ae64, 0043b298) */
+static int view_mirrored(void) { return shadow_race != NULL && shadow_race->mirrored != 0; }
+
 void ported_view_set_sky_off(int off)
 {
     sky_off = off;
@@ -629,7 +632,7 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     static SkyRing ring;
     sky_ring_build(&ring, info, &art->horizon);
     if (!ring.enabled) return;
-    SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, 0, SKY_WORLD_SHIFT, 0, { 0 },
+    SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
                          viewport.sky_height }, WIDTH, WIDTH, 0, sky_off };
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
@@ -691,7 +694,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                         { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0 };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
-    track_camera_matrix(pc->pitch, pc->yaw, pc->roll, 0, vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
+    track_camera_matrix(pc->pitch, pc->yaw, pc->roll, view_mirrored(), vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */
@@ -704,7 +707,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, WIDTH };
-        horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, 0, sky_off,
+        horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off,
                           horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
     }
     stream(tri, art, pc->node);
@@ -723,7 +726,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade };
     skid_node = pc->node;
-    track_render_draw(&render, &cam, &ctx, 0, anim_tick);
+    track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,

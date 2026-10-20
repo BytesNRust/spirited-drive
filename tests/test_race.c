@@ -268,6 +268,24 @@ static int check_skid_wrap(void)
     return ok;
 }
 
+/* The cheats' tracks reach the race: SKCART's "m" (004fbad8, read in place by the view and the controls) from the
+ * field, EARALLYE's rally (004fbadc) from the start's word, every surface then loose (race_surfaces_init) */
+static int check_variants(const Tri *tri, const CarSpecs *specs, RaceField *field)
+{
+    static RaceSim s;
+    memset(&s, 0, sizeof s);
+    field->mirrored = 1;
+    race_sim_start_field(&s, tri, "TR1", specs, field, 1, 1);
+    int ok = s.race.mirrored == 1 && s.race.arcade == 1;
+    race_surfaces_init(&s.race);
+    for (int i = 0; i < RACE_SURFACES; i++) ok &= s.race.surfaces[i].off_road == 1;
+    field->mirrored = 0;
+    race_sim_start_field(&s, tri, "TR1", specs, field, 1, 0);
+    ok &= s.race.mirrored == 0 && s.race.arcade == 0;
+    printf("the cheats' tracks: mirrored and rally reach the race%s\n", ok ? "" : "  FAIL");
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -334,6 +352,7 @@ int main(int argc, char **argv)
     ok &= check_camera(&sim, &tri, &specs, &field);
     ok &= check_globals(&tri, &specs, &field);
     ok &= check_keys_start();
+    ok &= check_variants(&tri, &specs, &field);
     free(tri_file);
     return ok ? 0 : 1;
 }
