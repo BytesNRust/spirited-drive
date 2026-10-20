@@ -19,6 +19,8 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
 #include "game/frontend/controls_menu.h"
+#include "game/frontend/extras_apply.h"
+#include "game/sys/port_extras.h"
 #include "game/sys/port_controls.h"
 #include "game/frontend/cop_stop.h"
 #include "game/frontend/win_movie.h"
@@ -142,6 +144,47 @@ static void session_put(const FrontendSession *f)
     for (int i = 0; i < 6; i++) g.was[i] = (int16_t)f->unknown_4bafb4[i];
 }
 
+/* port: the extras the player left on, over the flags the original owns (central.h names each address) */
+static void extras_flags(ExtrasFlags *f)
+{
+    f->unlock_m = &g.unlock_m;
+    f->unlock_r = &g.unlock_r;
+    f->variant_m = &g.variant_m;
+    f->variant_r = &g.variant_r;
+    f->explode = &g.explode;
+    f->nitro = &g.nitro;
+    f->vegas_cheat = &g.vegas_cheat;
+    f->lost_vegas = &g.lost_vegas;
+    f->warrior = &g.warrior;
+    f->track_flags = (uint32_t *)&menu_cheats.keys_506;
+}
+
+/* port: called after every place the original clears the flags, so a switch stays on across races and the
+ * tournament. With extras.cfg absent this reads the defaults and changes nothing. */
+static void extras_apply(void)
+{
+    ExtrasFlags f;
+    extras_flags(&f);
+    const PortExtras e = port_extras_load();
+    extras_reapply(&e, &f);
+    /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
+    g.unlock_m = *f.unlock_m, g.unlock_r = *f.unlock_r, g.variant_m = *f.variant_m, g.variant_r = *f.variant_r;
+    g.explode = *f.explode, g.nitro = *f.nitro, g.vegas_cheat = *f.vegas_cheat, g.lost_vegas = *f.lost_vegas;
+    g.warrior = *f.warrior;
+    menu_cheats.keys_506 = (int32_t)*f.track_flags;
+}
+
+/* port: after a code has been typed, the flags say what is on; the switches are brought in line and the file is
+ * written only when that changed something, so a plain visit to Control Central does not touch extras.cfg. */
+static void extras_reflect(void)
+{
+    ExtrasFlags f;
+    extras_flags(&f);
+    const PortExtras before = port_extras_load();
+    const PortExtras after = extras_from_flags(&before, &f);
+    if (memcmp(&before, &after, sizeof before) != 0) port_extras_save(&after);
+}
+
 /* 00465ec8, 00432974, 00432c40, 00432d48 and 00432720 on the shorts */
 static void car_flags(void *ctx)
 {
@@ -149,6 +192,7 @@ static void car_flags(void *ctx)
     RaceSettings s = settings_of();
     race_settings_car_flags(&s);
     settings_put(&s);
+    extras_apply();   /* port: after 00465ec8 / 00432974 */
 }
 
 static void type_changed(void *ctx)
@@ -159,6 +203,7 @@ static void type_changed(void *ctx)
     FrontendSession f = session_of();
     race_settings_type_changed(&s, &u, &f);
     settings_put(&s), unlocks_put(&u), session_put(&f);
+    extras_apply();   /* port: the type change clears the variants */
 }
 
 static void track_forward(void *ctx)
@@ -598,6 +643,7 @@ static void reset_tournament(void *ctx)
     RaceSettings s = settings_of();
     tournament_reset(game_state, &s);
     settings_put(&s);
+    extras_apply();   /* port: the tournament's start clears the variants; the switch comes back */
 }
 static void game_reset(void *ctx) { (void)ctx; glue_game_reset(); }
 /* 00428610 (cop_stop.c): cop1..3.tgv, or the ticket (german) */
@@ -1307,6 +1353,8 @@ int32_t glue_central(void)
     volumes_sync();
     central_up = 0, central_state = NULL;
     link_central_bind(NULL);
+    extras_reflect();   /* port: a code typed in Control Central is saved */
+    extras_apply();   /* port: 00432ff4's start clears the cheats; the switches come back for the race */
     video_set_overlay(NULL, 0, 0);
     const RaceSettings s = settings_of();
     config_dat_set_race(config_current(), &s);
