@@ -22,7 +22,10 @@ typedef struct {
 } PlatformConfig;
 
 bool platform_init(const PlatformConfig *config);
-/* The framebuffer platform_init made (width x height of its config). */
+/* The open window's framebuffer, scaling, fullscreen and refresh taken from `config` (its title is not), the
+ * window's height kept and its width following the new proportion; false (and all as it was) when it cannot. */
+bool platform_reconfigure(const PlatformConfig *config);
+/* The framebuffer platform_init (or platform_reconfigure) made (width x height of its config). */
 void platform_framebuffer_size(int *width, int *height);
 /* The desktop's size of the display the window is on; false when it cannot be told. */
 bool platform_desktop_size(int *width, int *height);

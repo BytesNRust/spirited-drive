@@ -158,6 +158,36 @@ bool platform_init(const PlatformConfig *config)
     return true;
 }
 
+bool platform_reconfigure(const PlatformConfig *config)
+{
+    if (window == NULL || renderer == NULL || config->width <= 0 || config->height <= 0) return false;
+    SDL_Texture *t = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, config->width,
+                                       config->height);
+    uint32_t *rgb = malloc((size_t)config->width * (size_t)config->height * sizeof *rgb);
+    if (t == NULL || rgb == NULL) {
+        fprintf(stderr, "platform: framebuffer reallocation failed: %s\n", SDL_GetError());
+        if (t != NULL) SDL_DestroyTexture(t);
+        free(rgb);
+        return false;
+    }
+    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
+    SDL_DestroyTexture(texture);
+    free(rgb_buffer);
+    texture = t, rgb_buffer = rgb;
+    fb_width = config->width, fb_height = config->height;
+    refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
+    next_vblank_ns = 0;
+    SDL_SetWindowFullscreen(window, config->fullscreen != 0);
+    if (config->fullscreen == 0) {
+        int w = 0, h = 0;
+        if (SDL_GetWindowSize(window, &w, &h) && h > 0) SDL_SetWindowSize(window, h * fb_width / fb_height, h);
+    }
+    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
+                                     config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
+                                                                : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    return true;
+}
+
 void platform_framebuffer_size(int *width, int *height)
 {
     *width = fb_width;

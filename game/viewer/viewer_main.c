@@ -23,7 +23,7 @@ static void to_platform_palette(const uint8_t *rgb, PlatformColor palette[256])
 
 static int run_window(const AssetViewer *viewer, uint8_t *pixels, uint32_t entry)
 {
-    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS asset viewer" };
+    const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS asset viewer", 0, 0, 0 };
     if (!platform_init(&config)) return 0;
     PlatformColor palette[256];
     to_platform_palette(viewer->palette, palette);

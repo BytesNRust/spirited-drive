@@ -873,6 +873,7 @@ static void graphics(void *ctx, int32_t mode)
 {
     static int16_t showing;  /* 004f9e8c */
     PortSettings port = port_settings_load();
+    const PortSettings was = port;
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
     GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3 };
@@ -888,6 +889,13 @@ static void graphics(void *ctx, int32_t mode)
     graphics_menu(&st, mode, &ops);
     input_function_keys(NULL);
     opt_out();
+    /* port: the screen's settings changed (Done): the window takes them now, not at the next start */
+    const PortSettings now = port_settings_load();
+    if (mode == 0 && (was.format != now.format || was.scale_integer != now.scale_integer
+                      || was.fullscreen != now.fullscreen || was.refresh_hz != now.refresh_hz)) {
+        const PlatformConfig config = port_platform_config(NULL);
+        if (!platform_reconfigure(&config)) fprintf(stderr, "graphics: the window keeps its old settings\n");
+    }
 }
 
 /* 0042ae9c's and 0042c498's words: the shorts 004fa9ac (check/'s art) and 004bad00 (a highlight), the names
