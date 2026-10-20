@@ -354,6 +354,7 @@ add_executable(tnfs
     game/viewer/drive_autopilot.c
     game/viewer/drive_input.c
     game/viewer/drive_interp.c
+    game/viewer/layer_compose.c
     game/viewer/drive_joy.c
     game/viewer/drive_keys.c
     game/viewer/drive_replay.c
@@ -414,6 +415,11 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_object_sink PRIVATE tnfs_game)
     target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
     add_test(NAME object_sink COMMAND test_object_sink)
+    add_executable(test_layer_compose tests/test_layer_compose.c game/viewer/layer_compose.c)
+    target_include_directories(test_layer_compose PRIVATE game)
+    target_link_libraries(test_layer_compose PRIVATE tnfs_game)
+    target_compile_options(test_layer_compose PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME layer_compose COMMAND test_layer_compose)
     add_executable(test_drive_interp tests/test_drive_interp.c game/viewer/drive_interp.c)
     target_include_directories(test_drive_interp PRIVATE game)
     target_link_libraries(test_drive_interp PRIVATE tnfs_game)
