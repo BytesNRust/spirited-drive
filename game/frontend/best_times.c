@@ -1,5 +1,7 @@
 #include "game/frontend/best_times.h"
 
+#include "game/frontend/records_route.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -8,7 +10,7 @@ enum {
     OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, REST = 0x19, KEY_SPACE = 0x20,
     KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = 0x4800, KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00, KEY_DOWN = 0x5000,
     ALL = 0x100, TEXT = 0x50, NAME_X = 8, NAME_WIDTH = 0x10e, TIME_X = 0x118, CAR_X = 0x1e0, SHIFT_X = 0x24e,
-    ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c
+    ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c, MARK_X = 0xe0, LABEL_X = 0x118, LABEL_Y = 0x28
 };
 
 /* the tracks' files (004673f8) and the cars (0046741c) */
@@ -34,6 +36,7 @@ typedef struct Screen {
     int done;          /* esp + 0x6cc */
     int redraw;        /* esp + 0x6c8 */
     int refresh;       /* esp + 0x6d0: the art drawn whole, the palette faded in */
+    int repaint;       /* port: the records drawn again over the art, no fade */
     int changed;       /* esp + 0x6d4 */
     int armed;         /* esp + 0x6e0: the keys taken */
     int released;      /* esp + 0x6d8: the buttons seen up */
@@ -99,10 +102,19 @@ static void shift(const BestTimesInputs *in, int32_t gearbox, int32_t y, const B
     else if (gearbox == 1) ops->text_shadowed(ops->ctx, in->german ? "  d" : "h.h.", SHIFT_X, y);
 }
 
+/* port: the letters of the cheats a row was set with, drawn after the car */
+static void draw_marks(const BestTimesState *st, int track, int slot, int32_t y, const BestTimesOps *ops)
+{
+    char text[8];
+    if (slot < 0 || !st->plus->cheats || !st->plus->marks[track]) return;
+    records_mark_text(st->plus->marks[track][slot], text);
+    if (text[0] != '\0') ops->text_shadowed(ops->ctx, text, MARK_X, y);
+}
+
 static void draw_records(const BestTimesInputs *in, const BestTimesState *st, const BestTimesOps *ops)
 {
     const int track = track_of(st);
-    const uint8_t *top = in->records + track * BEST_TIMES_TRACK;
+    const uint8_t *top = (st->plus ? st->plus->records[st->plus->cheats] : in->records) + track * BEST_TIMES_TRACK;
     char text[TEXT];
     ops->text_select(ops->ctx, 1);
     for (int16_t i = 0; i < BEST_TIMES_ROWS; i++) {
@@ -114,20 +126,23 @@ static void draw_records(const BestTimesInputs *in, const BestTimesState *st, co
         ops->text_shadowed(ops->ctx, text, TIME_X, y);
         ops->text_shadowed(ops->ctx, CAR[d32(row + BEST_TIMES_CAR)], CAR_X, y);
         shift(in, d32(row + BEST_TIMES_SHIFT), y, ops);
+        if (st->plus) draw_marks(st, track, records_slot_totals(track, g16(st->config, TRACK_SELECT_LAPS_CHOICE), i), y, ops);
     }
     ops->text_select(ops->ctx, 1);
+    if (st->plus) ops->text_shadowed(ops->ctx, st->plus->cheats ? "Records (cheats)" : "Records", LABEL_X, LABEL_Y);
     if (!d32(top + BEST_TIMES_TOP_SET)) return;
     ops->text_fit(ops->ctx, (const char *)top + BEST_TIMES_TOP, NAME_X, TOP_Y, NAME_WIDTH);
     ops->speed_text(ops->ctx, text, d32(top + BEST_TIMES_TOP_SPEED));
     ops->text_shadowed(ops->ctx, text, TIME_X, TOP_Y);
     ops->text_shadowed(ops->ctx, CAR[d32(top + BEST_TIMES_TOP_CAR)], CAR_X, TOP_Y);
     shift(in, d32(top + BEST_TIMES_TOP_SHIFT), TOP_Y, ops);
+    if (st->plus) draw_marks(st, track, SLOT_TOP, TOP_Y, ops);
 }
 
 static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops)
 {
     ops->select(ops->ctx, in->screen);
-    if (s->refresh) {
+    if (s->refresh || s->repaint) {
         ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, "bgnd"));
         draw_records(in, st, ops);
     }
@@ -154,6 +169,7 @@ static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, Dialo
     }
     ops->deadline_set(ops->ctx, WAIT);
     s->redraw = 0;
+    s->repaint = 0;
 }
 
 /* a change of item: the old one dimmed, the new one lit (no flip until the redraw) */
@@ -230,8 +246,16 @@ static void act(Screen *s, const BestTimesInputs *in, BestTimesState *st, const 
     }
 }
 
+/* port: the other table shown */
+static void toggle(Screen *s, BestTimesState *st, const BestTimesOps *ops)
+{
+    st->plus->cheats ^= 1;
+    s->redraw = s->repaint = 1;
+    ops->sound(ops->ctx, SOUND_MOVE);
+}
+
 /* a key other than the acting ones: Escape goes back, the arrows step */
-static void step(Screen *s, uint16_t key, const BestTimesOps *ops)
+static void step(Screen *s, uint16_t key, BestTimesState *st, const BestTimesOps *ops)
 {
     if (key == KEY_ESCAPE) {
         ops->sound(ops->ctx, SOUND_SELECT);
@@ -242,6 +266,8 @@ static void step(Screen *s, uint16_t key, const BestTimesOps *ops)
         s->item = (key == KEY_LEFT ? LEFT : RIGHT)[s->item];
         s->changed = 1;
         move_to(s->item, ops);
+    } else if (st->plus && (key == KEY_UP || key == KEY_DOWN)) {
+        toggle(s, st, ops);   /* port */
     } else if ((key == KEY_UP || key == KEY_DOWN) && s->item == NOTHING) {
         ops->pointer_off(ops->ctx);
         s->item = DONE;
@@ -281,6 +307,7 @@ int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogP
         if (p->buttons == 0) s.released = 1;
         ops->pointer_activate_if_moved(ops->ctx);
         const uint16_t key = (uint16_t)ops->key(ops->ctx);
+        if (st->plus && ops->plus_toggle && ops->plus_toggle(ops->ctx)) toggle(&s, st, ops);   /* port: Tab */
         if (key == KEY_SPACE || key == KEY_ENTER || (p->buttons == 1 && s.released)) {
             ops->pointer_click(ops->ctx);
             if (s.armed) {
@@ -292,13 +319,16 @@ int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogP
             s.armed = 0;
             s.rest = 0;
         } else if (key != 0 && s.armed) {
-            step(&s, key, ops);
+            step(&s, key, st, ops);
         } else if (key == 0) {
             s.armed = 1;
         }
         const int refresh = s.refresh;
         ops->music(ops->ctx);
-        if (!refresh && (ops->deadline_passed(ops->ctx) || (p->buttons == 2 && s.released))) {
+        if (st->plus && p->buttons == 2 && s.released) {   /* port: the right button turns the table */
+            toggle(&s, st, ops);
+            s.released = 0;
+        } else if (!refresh && (ops->deadline_passed(ops->ctx) || (p->buttons == 2 && s.released))) {
             ops->sound(ops->ctx, SOUND_SELECT);
             s.done = 1;
         }

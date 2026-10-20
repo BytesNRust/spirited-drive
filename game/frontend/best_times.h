@@ -54,6 +54,8 @@ typedef struct BestTimesOps {
     void (*music_fade_out)(void *ctx);                         /* 004644f0 */
     void (*music_end)(void *ctx);                              /* 00464568 */
     void *ctx;
+    /* port: NULL unless the state has a `plus` */
+    int32_t (*plus_toggle)(void *ctx);   /* 1 once a Tab (or the like) went down: the other table */
 } BestTimesOps;
 
 enum {
@@ -84,10 +86,20 @@ typedef struct BestTimesInputs {
     const uint8_t *records;    /* 00524f8f, BEST_TIMES_RECORDS bytes */
 } BestTimesInputs;
 
+/* port: the two tables a track's records can be shown as (records_route.h): the one without cheats and the one with, each
+ * laid out as the records at 00524f8f are (BEST_TIMES_RECORDS bytes, nine tracks 0xa6b apart), and the marks of the one
+ * with cheats (a byte per slot of records_route.h, a table per track) */
+typedef struct BestTimesPlus {
+    const uint8_t *records[2];
+    const uint8_t *marks[9];
+    int cheats;   /* the table shown now: 0 or 1 */
+} BestTimesPlus;
+
 typedef struct BestTimesState {
     uint8_t *config;           /* 00524df9, TRACK_SELECT_CONFIG bytes (track_select.h's offsets) */
     int32_t inverse;           /* 004c5ff4 */
     uint8_t *screen_palette;   /* 00520dd8 (palette_put) */
+    BestTimesPlus *plus;       /* port: NULL is the original screen exactly */
 } BestTimesState;
 
 /* 004676d8: tracksel/<track>bst.qfs and .inv: the ten best times of the
@@ -96,7 +108,8 @@ typedef struct BestTimesState {
  * or after (a tournament takes its car; the laps from the choice; the art
  * loaded again under the data path) or back; Enter, space or the left
  * button (once armed) act; Escape, the timer and the right button go back.
- * Returns 1 for Done (the track screen ends too), else 0. */
+ * Returns 1 for Done (the track screen ends too), else 0.
+ * port: with a `plus`, Tab, Up, Down (and the right button, which no longer goes back) show the other table. */
 int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops);
 
 #endif

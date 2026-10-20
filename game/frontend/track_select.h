@@ -80,12 +80,26 @@ typedef struct TrackSelectInputs {
     int32_t screen_shape;  /* [00524834] + 0x2c */
 } TrackSelectInputs;
 
+/* port: a track's variants as entries of their own, right after it: Prev and Next step through the track, its mirror
+ * (when `unlock_m`) and its rally (when `unlock_r`), setting the flags the race reads. Not in a tournament, and not
+ * on Lost Vegas. */
+typedef struct TrackSelectPlus {
+    int unlock_m, unlock_r;           /* 004fbad8's and 004fbadc's variants offered (central's unlocks) */
+    int32_t *variant_m, *variant_r;   /* 004fbad8, 004fbadc: the flags, as the cheats set them */
+} TrackSelectPlus;
+
 typedef struct TrackSelectState {
     uint8_t *config;          /* 00524df9, TRACK_SELECT_CONFIG bytes */
     int32_t *time_of_day;     /* 004fbae0: a dword per track, 0 morning, 1 midday, 2 evening */
     int32_t inverse;          /* 004c5ff4 */
     uint8_t *screen_palette;  /* 00520dd8 (palette_put) */
+    TrackSelectPlus *plus;    /* port: NULL is the original screen exactly */
 } TrackSelectState;
+
+/* port: the entry `direction` (1 next, -1 previous) from a track and variant (0 normal, 1 mirror, 2 rally), with the
+ * original's wrap (to Lost Vegas when it is on): the track, then its variants in that order where offered. */
+void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
+                        int *to_track, int *to_variant);
 
 /* 004687d0: the track screen (tracksel/<track>sel.qfs and .inv): the
  * track's art, its time of day (not on Lost Vegas or with a variant), its
