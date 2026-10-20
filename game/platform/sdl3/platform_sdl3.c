@@ -24,6 +24,7 @@ static int fb_width;
 static int fb_height;
 
 enum { KEY_QUEUE_SIZE = 16, VBLANK_HZ = 60 };
+static int refresh_hz = VBLANK_HZ;
 
 /* TNFS_CAPTURE_DIR=dir [TNFS_CAPTURE_EVERY=n] [TNFS_CAPTURE_FROM=m]: write every n-th presented
  * frame from the m-th on as dir/frame_NNNNN.ppm, to check the game's screens headless. */
@@ -126,13 +127,18 @@ bool platform_init(const PlatformConfig *config)
     }
     fb_width = config->width;
     fb_height = config->height;
+    refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
+    next_vblank_ns = 0;
 
-    if (!SDL_CreateWindowAndRenderer(config->title, fb_width, fb_height, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+    const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | (config->fullscreen != 0 ? SDL_WINDOW_FULLSCREEN : 0);
+    if (!SDL_CreateWindowAndRenderer(config->title, fb_width, fb_height, flags, &window, &renderer)) {
         fprintf(stderr, "platform: window creation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
-    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
+                                     config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
+                                                                : SDL_LOGICAL_PRESENTATION_LETTERBOX);
     load_script();
     SDL_StartTextInput(window);
     capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
@@ -150,6 +156,17 @@ bool platform_init(const PlatformConfig *config)
     }
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
     return true;
+}
+
+void platform_framebuffer_size(int *width, int *height)
+{
+    *width = fb_width;
+    *height = fb_height;
+}
+
+uint64_t platform_refresh_period_ns(void)
+{
+    return SDL_NS_PER_SECOND / (uint64_t)refresh_hz;
 }
 
 static SDL_AudioStream *audio;
@@ -761,7 +778,7 @@ static void capture_frame(void)
 
 void platform_wait_vblank(void)
 {
-    const uint64_t period = SDL_NS_PER_SECOND / VBLANK_HZ;
+    const uint64_t period = platform_refresh_period_ns();
     const uint64_t now = SDL_GetTicksNS();
     if (next_vblank_ns == 0 || now > next_vblank_ns + period) next_vblank_ns = now;  /* resync after stalls */
     next_vblank_ns += period;
