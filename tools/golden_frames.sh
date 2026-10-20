@@ -4,8 +4,8 @@
 #
 # The frame of each run: TNFS_VIEW=v --drive TRACK --entry 400 --screenshot (track_viewer's headless frame
 # path: 400 steps at full throttle and then one picture), headless with the SDL dummy drivers and timeout -k,
-# in a temp dir of its own that is deleted at the end (also when a frame is missing). rc != 0 if any of the
-# 15 frames is missing; the lines written so far stay.
+# in a temp dir of its own that is deleted at the end (also when a frame is missing). rc != 0 and nothing
+# written to OUT.md5 if any of the 15 frames is missing.
 #
 # The captures are deterministic, so the same build gives the same 15 hashes every time.
 #
