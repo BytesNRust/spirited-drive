@@ -18,6 +18,7 @@
 
 enum {
     HORIZON_MAX_WIDTH = 640,
+    HORIZON_WIDE_WIDTH = 1120,  /* port: the widest screen's (21:9) columns after the exe's 641 */
     HORIZON_ROWS = 0x1E0       /* 004fbb10..004fbcf0 */
 };
 
@@ -25,7 +26,7 @@ typedef struct {
     int32_t width;                          /* 004fcd6c */
     int32_t scale;                          /* 004fcd70, screen rows per bitmap row, 16.16 */
     uint8_t row_map[HORIZON_ROWS];          /* 004fbb10 */
-    int32_t columns[HORIZON_MAX_WIDTH + 1]; /* 004fbcf0, bitmap column per screen column */
+    int32_t columns[HORIZON_WIDE_WIDTH + 1]; /* 004fbcf0, bitmap column per screen column (641 in the exe) */
 } HorizonTables;
 
 /* 00405154 -> 0043a028: for a viewport `width` pixels wide with a
