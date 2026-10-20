@@ -160,6 +160,10 @@ static void extras_flags(ExtrasFlags *f)
     f->track_flags = (uint32_t *)&menu_cheats.keys_506;
 }
 
+/* port: the Warrior-as-rival switch is a separate flag (no equivalent in the original's globals), read by the
+ * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with extras.cfg by extras_apply. */
+static int16_t warrior_rival_flag;
+
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
  * tournament. With extras.cfg absent this reads the defaults and changes nothing. */
 static void extras_apply(void)
@@ -173,6 +177,7 @@ static void extras_apply(void)
     g.explode = *f.explode, g.nitro = *f.nitro, g.vegas_cheat = *f.vegas_cheat, g.lost_vegas = *f.lost_vegas;
     g.warrior = *f.warrior;
     menu_cheats.keys_506 = (int32_t)*f.track_flags;
+    warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
 }
 
 /* port: after a code has been typed, the flags say what is on; the switches are brought in line and the file is
@@ -589,7 +594,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
                                      race_head_to_head_model((int16_t)g.opponent), image_short(0x73), image_short(0x75), image_short(0x79),
                                      image_short(0x71), game_state,
                                      g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r,
-                                     (uint32_t)menu_cheats.keys_506, g.explode, g.nitro,
+                                     (uint32_t)menu_cheats.keys_506, g.explode, g.nitro, 0,
                                      (const char *)config_current()->image, g.track,
                                      config_current()->image + OPTIONS_AT };
     records_glue_begin(g.race_type, game_state + 0x592, g.variant_m, g.variant_r, g.explode, g.nitro,
@@ -1059,7 +1064,7 @@ static void replay(void *ctx, int32_t mode, const char *path)
         return;
     }
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, NULL, -1,
+                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, 0, NULL, -1,
                                      config_current()->image + OPTIONS_AT };  /* the time of day and the flags: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
@@ -1351,7 +1356,7 @@ int32_t glue_central(void)
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
         &g.explode, menu_audio_silent(), &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, NULL };
+        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag };
     const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
                                  &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
     link_central_bind(&link_menu);

@@ -1446,8 +1446,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     const int laps = replay_of != NULL ? replay_of->laps : menus_on && menus.laps > 0 ? menus.laps : 2;
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
-    if (menus_on && replay_of == NULL)  /* the cheats' words, shared with the menus in the original */
-        drive_sim.race.unknown_4c5cd4 = menus.explode, drive_sim.race.start_input = menus.start_boost;
+    if (menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
+        drive_sim.race.unknown_4c5cd4 = menus.explode;
+        drive_sim.race.start_input = menus.start_boost;
+        drive_sim.race.port_replay_cameras = menus.replay_cameras;
+    }
     /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the
      * results and records are left alone, 0045af80) with 00524ea1 the laps above it */
     drive_sim.race.frontend_track = menus_on && replay_of == NULL ? menus.track : race_sim_track_index(name);
