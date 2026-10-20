@@ -30,6 +30,7 @@
 #include "game/race/track_geometry.h"
 #include "game/race/track_info.h"
 #include "game/race/track_objects.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/resource.h"
 #include "platform/platform.h"
 #include "viewer/camera.h"
@@ -1543,8 +1544,8 @@ static int drive_window(const Track *t, uint8_t *pixels)
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1 };
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;
-    const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: until the port's settings (port.cfg) give the rate */
-    drive_interp.refresh_hz = hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : 60;
+    const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: port.cfg's rate; the variable overrides it for the checks */
+    drive_interp.refresh_hz = hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : port_settings_load().refresh_hz;
     drive_input.store_clock = &r.store_clock, drive_input.late = &r.late, drive_input.timer = &w.timer;
     drive_link_run = &w;
     RaceRunOps ops = *drive_run_ops();
