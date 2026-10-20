@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "game/sys/control_map.h"
+
 typedef struct {
     uint8_t r, g, b;
 } PlatformColor;
@@ -133,6 +135,17 @@ void platform_audio_unlock(void);
 int platform_joy_count(void);
 bool platform_joy_caps(int device, char *name, size_t name_size, int *buttons, uint32_t *axes);
 bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4]);
+
+/* port: the bindings platform_joy_read reads a pad or wheel through (control_map.h), from user/controls.cfg until
+ * one is set; and the keys they press. */
+void platform_controls_set(const PortControls *controls);
+/* The device as it is now, whole: every button, axis and hat (what a binding is captured from). */
+bool platform_joy_raw(int device, RawPad *out);
+/* The scancode the virtual key of action ACT_HORN, ACT_PAUSE or ACT_VIEW presses (P and F1 until set; the horn's is
+ * config.dat's, set when a race starts); platform_key_down answers true for it while a binding of the action is held. */
+void platform_virtual_key(int action, int scancode);
+bool platform_joy_virtual_down(int scancode);
+void platform_joy_virtual_set(int device, uint32_t keys);   /* what platform_joy_read leaves: control_map's `keys` */
 
 /* Force feedback on a joystick (the exe's IFORCE.DLL): haptic effects where
  * the device has them, else its rumble for the jolts, the buffeting and the

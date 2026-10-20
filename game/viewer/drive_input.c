@@ -157,6 +157,7 @@ void drive_input_start(DriveInput *in, RaceState *race)
         config[i] = w != NULL ? (int16_t)(uint16_t)(w[0] | w[1] << 8) : DEFAULT_CONFIG[i];
     }
     input_setup(config, (int16_t)resource_german(), 0, race->controls, in->codes, &w4fb788);
+    platform_virtual_key(ACT_HORN, in->codes[INPUT_KEY_HORN]);   /* port: a pad's horn button presses the horn's key */
     in->stand_in_block = in->own_stand_ins;
     in->queues[0].active = 1;
 }

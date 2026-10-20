@@ -8,8 +8,12 @@
  * to their ends), z the accelerator on the right trigger and r the brake on
  * the left, each at its top released (0043d598's pedals: y = r less z), and
  * the buttons in XInput's WinMM order (A accelerate / gear up, B brake / gear
- * down, X hold, Y handbrake). TODO: a mapping screen of the port's own. */
+ * down, X hold, Y handbrake): the default of the port's own bindings (game/sys/port_controls.h, user/controls.cfg),
+ * through which the pad and the wheels are read (game/sys/control_map.h). */
 #include "platform/platform.h"
+
+#include "game/sys/control_map.h"
+#include "game/sys/port_controls.h"
 
 #include <SDL3/SDL.h>
 #include <string.h>
@@ -17,7 +21,6 @@
 enum {
     MAX_DEVICES = 16,
     AXES = 4,
-    AXIS_MIDDLE = 0x8000,
     PERCENT = 100,
     LEVEL_MAX = 0x7fff,
     RUMBLE_MAX = 0xffff,
@@ -27,15 +30,7 @@ enum {
     VIBRATION_RUMBLE_MS = 30000,
     MS_PER_SECOND = 1000,
     VIBRATIONS = 2,
-    AXIS_TOP = 0xffff,
     PAD_BUTTONS = 10
-};
-
-/* WinMM's buttons 1.. for an XInput pad */
-static const SDL_GamepadButton PAD_ORDER[PAD_BUTTONS] = {
-    SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
-    SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_BACK,
-    SDL_GAMEPAD_BUTTON_START, SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK
 };
 
 static bool started, start_failed, haptic_started, haptic_failed;
@@ -101,29 +96,53 @@ static SDL_Joystick *device_of(int device)
 
 static SDL_Gamepad *pad_of(int device) { return device_of(device) != NULL ? pads[device] : NULL; }
 
-/* a trigger (0..0x7fff) as a pedal: its top released, 0 down */
-static int32_t pedal_of(SDL_Gamepad *pad, SDL_GamepadAxis trigger)
+/* the pad's buttons and axes, all of them, in SDL_Gamepad's numbers */
+static void raw_of_gamepad(SDL_Gamepad *pad, RawPad *out)
 {
-    const int32_t t = SDL_GetGamepadAxis(pad, trigger);
-    return AXIS_TOP - 2 * (t < 0 ? 0 : t);
+    SDL_zerop(out);
+    out->gamepad = 1;
+    out->buttons = SDL_GAMEPAD_BUTTON_COUNT < RAW_MAX_BUTTONS ? SDL_GAMEPAD_BUTTON_COUNT : RAW_MAX_BUTTONS;
+    out->axes = SDL_GAMEPAD_AXIS_COUNT < RAW_MAX_AXES ? SDL_GAMEPAD_AXIS_COUNT : RAW_MAX_AXES;
+    for (int k = 0; k < out->buttons; k++) out->button[k] = SDL_GetGamepadButton(pad, (SDL_GamepadButton)k) ? 1 : 0;
+    for (int k = 0; k < out->axes; k++) out->axis[k] = SDL_GetGamepadAxis(pad, (SDL_GamepadAxis)k);
 }
 
-static int32_t stick_of(SDL_Gamepad *pad, SDL_GamepadAxis axis, SDL_GamepadButton low, SDL_GamepadButton high)
+/* a stick or wheel's, up to the arrays' sizes */
+static void raw_of_joystick(SDL_Joystick *j, RawPad *out)
 {
-    if (SDL_GetGamepadButton(pad, low)) return 0;
-    if (SDL_GetGamepadButton(pad, high)) return AXIS_TOP;
-    return AXIS_MIDDLE + SDL_GetGamepadAxis(pad, axis);
+    SDL_zerop(out);
+    const int buttons = SDL_GetNumJoystickButtons(j), axes = SDL_GetNumJoystickAxes(j), hats = SDL_GetNumJoystickHats(j);
+    out->buttons = buttons < RAW_MAX_BUTTONS ? buttons : RAW_MAX_BUTTONS;
+    out->axes = axes < RAW_MAX_AXES ? axes : RAW_MAX_AXES;
+    out->hats = hats < RAW_MAX_HATS ? hats : RAW_MAX_HATS;
+    for (int k = 0; k < out->buttons; k++) out->button[k] = SDL_GetJoystickButton(j, k) ? 1 : 0;
+    for (int k = 0; k < out->axes; k++) out->axis[k] = SDL_GetJoystickAxis(j, k);
+    for (int k = 0; k < out->hats; k++) out->hat[k] = SDL_GetJoystickHat(j, k);
 }
 
-static void pad_read(SDL_Gamepad *pad, uint32_t *buttons, int32_t axis[4])
+/* the bindings: controls.cfg, read at the first need */
+static PortControls controls;
+static bool controls_known;
+static const PortControls *bindings(void)
 {
-    *buttons = 0;
-    for (int k = 0; k < PAD_BUTTONS; k++)
-        if (SDL_GetGamepadButton(pad, PAD_ORDER[k])) *buttons |= 1u << k;
-    axis[0] = stick_of(pad, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_BUTTON_DPAD_LEFT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
-    axis[1] = stick_of(pad, SDL_GAMEPAD_AXIS_LEFTY, SDL_GAMEPAD_BUTTON_DPAD_UP, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
-    axis[2] = pedal_of(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
-    axis[3] = pedal_of(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+    if (!controls_known) controls = port_controls_load(), controls_known = true;
+    return &controls;
+}
+
+void platform_controls_set(const PortControls *c)
+{
+    controls = *c;
+    controls_known = true;
+}
+
+bool platform_joy_raw(int device, RawPad *out)
+{
+    SDL_Joystick *j = device_of(device);
+    if (j == NULL) return false;
+    SDL_UpdateJoysticks();
+    if (pad_of(device) != NULL) raw_of_gamepad(pads[device], out);
+    else raw_of_joystick(j, out);
+    return true;
 }
 
 /* a stick plugged in after the start is found on the next count */
@@ -154,19 +173,12 @@ bool platform_joy_caps(int device, char *name, size_t name_size, int *buttons, u
 
 bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4])
 {
-    SDL_Joystick *j = device_of(device);
-    if (j == NULL) return false;
-    SDL_UpdateJoysticks();
-    if (pad_of(device) != NULL) {
-        pad_read(pads[device], buttons, axis);
-        return true;
-    }
-    const int n = SDL_GetNumJoystickButtons(j);
-    *buttons = 0;
-    for (int k = 0; k < n && k < 32; k++)
-        if (SDL_GetJoystickButton(j, k)) *buttons |= 1u << k;
-    const int axes = SDL_GetNumJoystickAxes(j);
-    for (int k = 0; k < AXES; k++) axis[k] = AXIS_MIDDLE + (k < axes ? SDL_GetJoystickAxis(j, k) : 0);
+    RawPad raw;
+    if (!platform_joy_raw(device, &raw)) return false;
+    const VirtualPad v = control_map_apply(bindings(), &raw);
+    *buttons = v.buttons;
+    for (int k = 0; k < 4; k++) axis[k] = v.axis[k];
+    platform_joy_virtual_set(device, v.keys);
     return true;
 }
 

@@ -585,9 +585,37 @@ static SDL_Scancode from_set1(int scancode)
 
 int platform_key_sdl(int scancode) { return (int)from_set1(scancode); }
 
+/* port: the keys a pad's or wheel's bindings press (platform.h): what each device holds down as of its last read, and
+ * the scancode each action's key is */
+enum { VIRTUAL_DEVICES = 16 };
+static uint32_t virtual_keys[VIRTUAL_DEVICES];
+static int virtual_scancode[ACT_COUNT] = { [ACT_PAUSE] = 0x19, [ACT_VIEW] = 0x3b };
+
+void platform_virtual_key(int action, int scancode)
+{
+    if (action >= 0 && action < ACT_COUNT) virtual_scancode[action] = scancode;
+}
+
+void platform_joy_virtual_set(int device, uint32_t keys)
+{
+    if (device >= 0 && device < VIRTUAL_DEVICES) virtual_keys[device] = keys;
+}
+
+bool platform_joy_virtual_down(int scancode)
+{
+    if (scancode == 0) return false;
+    for (int action = 0; action < ACT_COUNT; action++) {
+        if (virtual_scancode[action] != scancode) continue;
+        for (int d = 0; d < VIRTUAL_DEVICES; d++)
+            if ((virtual_keys[d] >> action & 1u) != 0) return true;
+    }
+    return false;
+}
+
 bool platform_key_down(int scancode)
 {
     if (script_count > 0 && script_key_down(scancode)) return true;
+    if (platform_joy_virtual_down(scancode)) return true;   /* port: a pad's binding of that key */
     const SDL_Scancode sc = from_set1(scancode);
     if (sc == SDL_SCANCODE_UNKNOWN) return false;
     const bool *state = SDL_GetKeyboardState(NULL);
