@@ -16,9 +16,16 @@ typedef struct {
     int width;
     int height;
     const char *title;
+    int scale_integer;          /* 0 fill the window (letterboxed); 1 whole multiples only, with bands */
+    int fullscreen;             /* 1: the desktop's full screen */
+    int refresh_hz;             /* platform_wait_vblank's rate; 0 = 60 */
 } PlatformConfig;
 
 bool platform_init(const PlatformConfig *config);
+/* The framebuffer platform_init made (width x height of its config). */
+void platform_framebuffer_size(int *width, int *height);
+/* One refresh of platform_wait_vblank, in nanoseconds (1e9 / refresh_hz). */
+uint64_t platform_refresh_period_ns(void);
 void platform_shutdown(void);
 
 typedef enum {
@@ -97,7 +104,7 @@ void platform_free_names(char **names);
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
 
-/* Blocks until the next display refresh (paced at 60 Hz on every target).
+/* Blocks until the next display refresh (paced at config->refresh_hz, 60 by default, on every target).
  * The original waited on DirectDraw's WaitForVerticalBlank. */
 void platform_wait_vblank(void);
 
