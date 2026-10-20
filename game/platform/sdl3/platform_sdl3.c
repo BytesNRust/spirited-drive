@@ -164,6 +164,16 @@ void platform_framebuffer_size(int *width, int *height)
     *height = fb_height;
 }
 
+bool platform_desktop_size(int *width, int *height)
+{
+    const SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode *mode = display != 0 ? SDL_GetDesktopDisplayMode(display) : NULL;
+    if (mode == NULL || mode->w <= 0 || mode->h <= 0) return false;
+    *width = mode->w;
+    *height = mode->h;
+    return true;
+}
+
 uint64_t platform_refresh_period_ns(void)
 {
     return SDL_NS_PER_SECOND / (uint64_t)refresh_hz;

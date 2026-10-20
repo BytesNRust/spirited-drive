@@ -8,6 +8,7 @@
 #include "game/frontend/best_totals_screen.h"
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
+#include "game/viewer/screen_layout.h"
 #include "game/frontend/central.h"
 #include "game/frontend/after_race.h"
 #include "game/frontend/chat.h"
@@ -837,19 +838,52 @@ static void audio(void *ctx, int32_t mode)
     opt_out();
 }
 
+/* port: the text and the dark panels of graphics_plus.c, through the game's own routines (0046376c's styles, the
+ * name box's shade table and frame) */
+static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
+{
+    (void)ctx;
+    text_select((TextStyle)style_id);
+    text_draw_shadowed(text, x, y);
+}
+static int32_t plus_text_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
+static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
+{
+    enum { DARK = 0x1000, RED = 0xff0000, CORNERS = 4 };
+    static uint8_t shade_table[256];  /* ea_shade_set keeps the pointer */
+    (void)ctx;
+    ea_shade_table(DARK, rgb, shade_table);
+    ea_shade_set(shade_table);
+    const int32_t corners[2 * CORNERS] = { x0, y0, x1, y0, x1, y1, x0, y1 };
+    ea_shade_polygon(CORNERS, corners);
+    if (!framed) return;
+    ea_frame(x0 + 2, y0 + 2, x1 - 2, y1 - 2, ea_colour(RED));
+    ea_frame(x0 + 3, y0 + 3, x1 - 3, y1 - 3, ea_colour(RED));
+}
+static void plus_save(void *ctx, const PortSettings *settings)
+{
+    (void)ctx;
+    if (!port_settings_save(settings)) fprintf(stderr, "graphics: port.cfg could not be saved\n");
+}
+
 /* 00423d28 from Options (mode 0, the resolution offered) on config.dat's image; the race's view does not read its
- * window, detail, distance or horizon yet */
+ * window, detail, distance or horizon yet. port: from Options it also has the second page and "ultra" on port.cfg's
+ * settings (from the race's pause menu it is the original's) */
 static void graphics(void *ctx, int32_t mode)
 {
     static int16_t showing;  /* 004f9e8c */
+    PortSettings port = port_settings_load();
+    int desktop_w = 0, desktop_h = 0;
+    const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
+    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3 };
     opt_in();
     const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
-                                   ea_screen_slot(), &g.inverse, stage_word() };
+                                   ea_screen_slot(), &g.inverse, stage_word(), mode == 0 ? &plus : NULL };
     const GraphicsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
         nothing, ticks, activate, key, click, off, music, net_sync, deadline_passed, fade_out, free_handle_inverse,
-        free_bank, ctx };
+        free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save };
     input_function_keys(&showing);
     graphics_menu(&st, mode, &ops);
     input_function_keys(NULL);

@@ -24,6 +24,8 @@ typedef struct {
 bool platform_init(const PlatformConfig *config);
 /* The framebuffer platform_init made (width x height of its config). */
 void platform_framebuffer_size(int *width, int *height);
+/* The desktop's size of the display the window is on; false when it cannot be told. */
+bool platform_desktop_size(int *width, int *height);
 /* One refresh of platform_wait_vblank, in nanoseconds (1e9 / refresh_hz). */
 uint64_t platform_refresh_period_ns(void);
 void platform_shutdown(void);
