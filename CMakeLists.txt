@@ -319,6 +319,7 @@ add_library(tnfs_game STATIC
     game/sys/menu_key.c
     game/sys/palette.c
     game/sys/port_settings.c
+    game/sys/port_extras.c
     game/sys/port_controls.c
     game/sys/control_map.c
     game/sys/pointer_state.c
@@ -412,7 +413,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus controls_plus port_controls control_map)
+    foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus controls_plus port_controls control_map port_extras)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
