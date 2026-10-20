@@ -220,11 +220,13 @@ enum {
 };
 
 /* 0040594c's choice of the next kind */
-static int32_t cycle_pick(RaceState *race, const RaceChase *chase)
+int32_t race_chase_pick(RaceState *race, const RaceChase *chase)
 {
     const int32_t *cycle = race->chase_kinds[chase->kind].cycle;
     if (race->phase == RACING) {
-        if (race->replay == 0 && race->viewed == race->player && race->unknown_513e6c == 0) return cycle[CYCLE_OWN];
+        if (race->replay == 0 && race->viewed == race->player && race->unknown_513e6c == 0 &&
+            race->port_replay_cameras == 0)  /* port: the extra takes the replay's cycle */
+            return cycle[CYCLE_OWN];
         return cycle[CYCLE_RACING];
     }
     if (chase->kind != KIND_POLICE && race->cops != 0 && race_chase_ahead_of_slot2(race, AHEAD_POLICE, AHEAD_UPTO) &&
@@ -253,7 +255,7 @@ void race_chase_cycle(RaceState *race, RaceChase *chase)
      * for ever in the original; the exe's own table does not */
     for (int turns = 0; turns <= CHASE_KINDS; turns++) {
         if (chase->kind < 0 || chase->kind >= CHASE_KINDS) return;  /* port guard: the original indexes unchecked */
-        chase->next_kind = cycle_pick(race, chase);
+        chase->next_kind = race_chase_pick(race, chase);
         const int32_t kind = chase->next_kind;
         Car *car;
         if (kind == KIND_OTHER) {

@@ -33,6 +33,10 @@ void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind
  * (00404530). Taking 5 sets chase_auto; last 00405b00 on next_kind. */
 void race_chase_cycle(RaceState *race, RaceChase *chase);
 
+/* 0040594c's choice of the next kind alone (above, before the cars ahead are looked at); with the port's
+ * port_replay_cameras the player's live car takes CYCLE_RACING, as in a replay. */
+int32_t race_chase_pick(RaceState *race, const RaceChase *chase);
+
 /* 00405b00: chase takes view kind `kind`. Kinds 0..3, 10 and 11 become 13
  * when the car does not face the road (00405de8); during a replay (0052b316
  * or 00513e6c) 0 and 10 become 1 and 11. The row sets the camera, the
