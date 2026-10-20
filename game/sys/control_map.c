@@ -1,6 +1,7 @@
 /* port: the pad's or wheel's raw buttons and axes through the bindings (control_map.h). */
 #include "game/sys/control_map.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 enum {
@@ -207,4 +208,65 @@ PortControls control_map_assign(const PortControls *c, PortAction act, int slot,
     for (int a = 0; a < ACT_COUNT; a++)   /* the slots compact to the first */
         if (out.bind[a][0].kind == SRC_NONE) out.bind[a][0] = out.bind[a][1], out.bind[a][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
     return out;
+}
+
+/* SDL_GamepadButton's and SDL_GamepadAxis' own names */
+static const char *const PAD_BUTTON[15] = { "A", "B", "X", "Y", "Back", "Guide", "Start", "L3", "R3", "LB", "RB",
+                                            "Up", "Down", "Left", "Right" };
+static const char *const PAD_AXIS[6] = { "Left X", "Left Y", "Right X", "Right Y", "LT", "RT" };
+static const char *const HAT_DIRECTION[4] = { "Up", "Right", "Down", "Left" };   /* masks 1, 2, 4, 8 */
+
+void control_map_source_name(const ControlSource *s, int gamepad, char *out, size_t size)
+{
+    char t[40];
+    const char *sign = s->kind == SRC_AXIS_POS ? "+" : s->kind == SRC_AXIS_NEG ? "-" : "";
+    const char *inv = s->kind != SRC_NONE && s->kind != SRC_BUTTON && s->kind != SRC_HAT && s->invert ? " inv" : "";
+    switch (s->kind) {
+    case SRC_BUTTON:
+        if (gamepad && s->index >= 0 && s->index < 15) snprintf(t, sizeof t, "%s", PAD_BUTTON[s->index]);
+        else snprintf(t, sizeof t, "Button %d", s->index);
+        break;
+    case SRC_AXIS_POS:
+    case SRC_AXIS_NEG:
+    case SRC_AXIS_FULL:
+        if (gamepad && s->index >= 0 && s->index < 6) {
+            /* a trigger runs one way only: no sign */
+            if (s->index >= 4) sign = "";
+            snprintf(t, sizeof t, "%s%s%s", PAD_AXIS[s->index], sign, inv);
+        } else {
+            snprintf(t, sizeof t, "Axis %d%s%s", s->index, sign, inv);
+        }
+        break;
+    case SRC_HAT: {
+        int d = 0;
+        while (d < 4 && s->rest != (1 << d)) d++;
+        if (d < 4) snprintf(t, sizeof t, "Hat %d %s", s->index, HAT_DIRECTION[d]);
+        else snprintf(t, sizeof t, "Hat %d", s->index);
+        break;
+    }
+    default:
+        snprintf(t, sizeof t, "-");
+        break;
+    }
+    snprintf(out, size, "%s", t);
+}
+
+void control_map_binding_text(const PortControls *c, PortAction act, int gamepad, char *out, size_t size)
+{
+    char a[40], b[40];
+    control_map_source_name(&c->bind[act][0], gamepad, a, sizeof a);
+    if (c->bind[act][1].kind == SRC_NONE) {
+        snprintf(out, size, "%s", a);
+        return;
+    }
+    control_map_source_name(&c->bind[act][1], gamepad, b, sizeof b);
+    snprintf(out, size, "%s, %s", a, b);
+}
+
+const char *control_map_action_name(PortAction act)
+{
+    static const char *const NAME[ACT_COUNT] = { "Steering", "Steer left", "Steer right", "Accelerate", "Brake",
+                                                 "Gear up", "Gear down", "Camera", "Handbrake", "Horn", "Pause",
+                                                 "View" };
+    return act >= 0 && act < ACT_COUNT ? NAME[act] : "";
 }

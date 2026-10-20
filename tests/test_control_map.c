@@ -368,8 +368,50 @@ static void test_assign_hats_differ_by_direction(void)
     CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].kind, SRC_HAT);
 }
 
+static void test_source_names(void)
+{
+    char t[40];
+    control_map_source_name(&(ControlSource){ SRC_BUTTON, 0, 0, 0 }, 1, t, sizeof t);
+    CHECK(strcmp(t, "A") == 0);
+    control_map_source_name(&(ControlSource){ SRC_BUTTON, 5, 0, 0 }, 0, t, sizeof t);
+    CHECK(strcmp(t, "Button 5") == 0);                                  /* a wheel's own number */
+    control_map_source_name(&(ControlSource){ SRC_AXIS_POS, 5, 0, 0 }, 1, t, sizeof t);
+    CHECK(strcmp(t, "RT") == 0);
+    control_map_source_name(&(ControlSource){ SRC_AXIS_FULL, 0, 0, 0 }, 1, t, sizeof t);
+    CHECK(strcmp(t, "Left X") == 0);
+    control_map_source_name(&(ControlSource){ SRC_AXIS_NEG, 2, 0, 0 }, 0, t, sizeof t);
+    CHECK(strcmp(t, "Axis 2-") == 0);
+    control_map_source_name(&(ControlSource){ SRC_AXIS_FULL, 1, 0, 1 }, 0, t, sizeof t);
+    CHECK(strcmp(t, "Axis 1 inv") == 0);
+    control_map_source_name(&(ControlSource){ SRC_HAT, 0, 8, 0 }, 0, t, sizeof t);
+    CHECK(strcmp(t, "Hat 0 Left") == 0);
+    control_map_source_name(&(ControlSource){ SRC_NONE, 0, 0, 0 }, 0, t, sizeof t);
+    CHECK(strcmp(t, "-") == 0);
+    control_map_source_name(&(ControlSource){ SRC_BUTTON, 40, 0, 0 }, 1, t, sizeof t);
+    CHECK(strcmp(t, "Button 40") == 0);                                 /* past the gamepad's names */
+    control_map_source_name(&(ControlSource){ SRC_BUTTON, 5, 0, 0 }, 0, t, 4);
+    CHECK(strcmp(t, "But") == 0);                                       /* cut, not overrun */
+}
+
+static void test_binding_text_joins_the_sources(void)
+{
+    char t[64];
+    PortControls c = port_controls_defaults();
+    control_map_binding_text(&c, ACT_STEER_LEFT, 1, t, sizeof t);
+    CHECK(strcmp(t, "Left") == 0);
+    c.bind[ACT_GAS][1] = (ControlSource){ SRC_BUTTON, 7, 0, 0 };
+    control_map_binding_text(&c, ACT_GAS, 1, t, sizeof t);
+    CHECK(strcmp(t, "RT, L3") == 0);
+    control_map_binding_text(&c, ACT_HORN, 1, t, sizeof t);
+    CHECK(strcmp(t, "-") == 0);                                         /* nothing bound */
+    CHECK(strcmp(control_map_action_name(ACT_HANDBRAKE), "Handbrake") == 0);
+    CHECK(strcmp(control_map_action_name(ACT_STEER), "Steering") == 0);
+}
+
 int main(void)
 {
+    test_source_names();
+    test_binding_text_joins_the_sources();
     test_detect_a_wheel_pedal_resting_at_an_end();
     test_detect_a_gamepad_trigger_and_steering();
     test_detect_ignores_drift_and_needs_a_press();

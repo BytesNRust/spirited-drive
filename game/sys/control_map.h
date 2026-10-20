@@ -6,6 +6,7 @@
 #include "game/sys/port_controls.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 enum { RAW_MAX_BUTTONS = 32, RAW_MAX_AXES = 8, RAW_MAX_HATS = 2 };
@@ -40,5 +41,12 @@ ControlSource control_map_detect(const RawPad *rest, const RawPad *now, bool wan
 /* `src` as source `slot` (0 or 1) of `act`, taken from whatever other action (or slot) had it; the slots compact to
  * the first. A source is the same by kind and index (and a hat's direction). */
 PortControls control_map_assign(const PortControls *c, PortAction act, int slot, ControlSource src);
+
+/* port: the words the controls screen shows. A source's name: SDL_Gamepad's own ("A", "RT", "Left X") when `gamepad`,
+ * else "Button 5", "Axis 2-", "Hat 0 Left"; " inv" after an inverted axis; "-" for none. Cut to `size`. */
+void control_map_source_name(const ControlSource *s, int gamepad, char *out, size_t size);
+/* an action's sources, both, separated by ", " ("-" for none) */
+void control_map_binding_text(const PortControls *c, PortAction act, int gamepad, char *out, size_t size);
+const char *control_map_action_name(PortAction act);
 
 #endif
