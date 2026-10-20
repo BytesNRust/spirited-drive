@@ -16,7 +16,7 @@ typedef struct {
 } PortExtras;
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */
-enum { EXTRAS_MARK_NITRO = 1, EXTRAS_MARK_EXPLODE = 2, EXTRAS_MARK_TURBO = 4 };
+#include "game/sys/extras_marks.h"  /* EXTRAS_MARK_NITRO 1, _EXPLODE 2, _TURBO 4 */
 
 PortExtras port_extras_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */

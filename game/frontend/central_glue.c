@@ -46,6 +46,7 @@
 #include "game/frontend/random_pick.h"
 #include "game/frontend/save_files.h"
 #include "game/frontend/record_check.h"
+#include "game/frontend/records_glue.h"
 #include "game/frontend/results_screen.h"
 #include "game/frontend/standings.h"
 #include "game/frontend/stat_text.h"
@@ -450,7 +451,8 @@ static void track_select(void *ctx)
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_german(), g.variant_m, g.variant_r, g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
-    TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette };
+    TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r };   /* port: variants as entries */
+    TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette, &plus };
     int x, y;
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
@@ -463,7 +465,10 @@ static void track_select(void *ctx)
         deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     RaceSettings after = before;
-    if (config_dat_get_race(config, &after)) settings_put(&after);
+    if (config_dat_get_race(config, &after)) {
+        after.variant_m = g.variant_m, after.variant_r = g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
+        settings_put(&after);
+    }
 }
 
 /* 0045cea0's text: 00463d34 as text_fit.c cuts it, 00466d5c / 00466e5c / 00466c9c as stat_text.c writes them */
@@ -491,14 +496,15 @@ static int32_t best_times(void *ctx)
     const int32_t screen = ea_screen();
     const BestTimesInputs in = { "", resource_german(), g.lost_vegas, screen, ea_picture_shape(screen),
                                  image + (0x524f8f - 0x524df0) };
-    BestTimesState st = { image + (0x524df9 - 0x524df0), g.inverse, screen_palette };
+    BestTimesState st = { image + (0x524df9 - 0x524df0), g.inverse, screen_palette,
+                          records_glue_best_plus(image, g.variant_m, g.variant_r) };   /* port: the tables with cheats */
     const BestTimesOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, flush, set_palette, nothing, styles, poll_pointer, mark_at,
         in_rect, select_picture, blit, blit_masked, blit_word, style, fit, time_text, speed_text, shadowed,
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
         activate_dialog, key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
         music,
-        deadline_passed, music_fade_out, music_end, ctx };
+        deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle };
     return best_times_screen(&in, &st, ctx, &ops);
 }
 /* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;
@@ -511,10 +517,10 @@ static int16_t car_points[GAME_STATE_PLAYERS];
 /* 0045bad8, 0045be50, 0045c2d0 and 0045b908 on config.dat's image and the menus' game state, this machine's player
  * 0; 0045b73c, 0045b6c8 on the game state */
 /* the records the finishing player takes are this machine's (004fbb08: the slot in a link game, 0 alone) */
-static int32_t records(void *ctx) { (void)ctx; return record_check(config_current()->image, game_state, menu_words.single); }
-static int32_t totals(void *ctx) { (void)ctx; return record_check_totals(config_current()->image, game_state, menu_words.single, race_times); }
-static int32_t top_record(void *ctx) { (void)ctx; return record_check_top(config_current()->image, game_state, menu_words.single); }
-static int32_t lap_record(void *ctx) { (void)ctx; return record_check_lap(config_current()->image, game_state, menu_words.single); }
+static int32_t records(void *ctx) { (void)ctx; return records_glue_route(ROUTE_SEGMENT, config_current()->image, game_state, menu_words.single, NULL); }
+static int32_t totals(void *ctx) { (void)ctx; return records_glue_route(ROUTE_TOTALS, config_current()->image, game_state, menu_words.single, race_times); }
+static int32_t top_record(void *ctx) { (void)ctx; return records_glue_route(ROUTE_TOP, config_current()->image, game_state, menu_words.single, NULL); }
+static int32_t lap_record(void *ctx) { (void)ctx; return records_glue_route(ROUTE_LAP, config_current()->image, game_state, menu_words.single, NULL); }
 static int32_t leads(void *ctx) { (void)ctx; return tournament_leads(game_state, menu_words.single); }
 static void results_order(void *ctx) { (void)ctx; tournament_results_order(game_state, finish, &order_work); }
 
@@ -586,6 +592,8 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
                                      (uint32_t)menu_cheats.keys_506, g.explode, g.nitro,
                                      (const char *)config_current()->image, g.track,
                                      config_current()->image + OPTIONS_AT };
+    records_glue_begin(g.race_type, game_state + 0x592, g.variant_m, g.variant_r, g.explode, g.nitro,
+                       (menu_cheats.keys_506 & 8) != 0);   /* port: which table its records go to */
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
     if (menu_words.link_game != 0) link_race_begin((const char *)config_current()->image, chat);

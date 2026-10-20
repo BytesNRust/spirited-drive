@@ -7,7 +7,8 @@ enum {
     TRACKS = 9, ITEMS = 10, DONE = 0, PREV = 1, NEXT = 2, BEST = 3, SEGMENT_1 = 4, LAPS = 7, NOTHING = 8,
     TIME_OF_DAY = 9, LOST_VEGAS = 8, TOURNAMENT = 3, OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47,
     SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = 0x4800,
-    KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00, KEY_DOWN = 0x5000, PATH = 0x100, TEXT = 0x28
+    KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00, KEY_DOWN = 0x5000, PATH = 0x100, TEXT = 0x28, VARIANT_X = 0xc8,
+    VARIANT_Y = 0x13c
 };
 
 /* the tracks' files (0046751c) and music (00467540) */
@@ -92,9 +93,47 @@ static int32_t load_track(const TrackSelectInputs *in, TrackSelectState *st, uin
     return bank;
 }
 
-static int no_time_of_day(const TrackSelectInputs *in, int track)
+/* port: the variants on offer, and the one the flags name (0 normal, 1 mirror, 2 rally) */
+static int offered(const TrackSelectState *st, int track)
 {
+    return st->plus && track != LOST_VEGAS && g16(st->config, TRACK_SELECT_RACE_TYPE) != TOURNAMENT;
+}
+
+static int variant_of(const TrackSelectState *st)
+{
+    return !st->plus ? 0 : *st->plus->variant_r ? 2 : *st->plus->variant_m ? 1 : 0;
+}
+
+static int no_time_of_day(const TrackSelectInputs *in, const TrackSelectState *st, int track)
+{
+    if (st->plus) return track == LOST_VEGAS || *st->plus->variant_m || *st->plus->variant_r;
     return track == LOST_VEGAS || in->variant_m || in->variant_r;
+}
+
+static int has_variant(const TrackSelectPlus *plus, int track, int variant)
+{
+    return variant == 0 || (track != LOST_VEGAS && (variant == 1 ? plus->unlock_m : plus->unlock_r));
+}
+
+void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
+                        int *to_track, int *to_variant)
+{
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL };
+    const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
+    for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
+        if (has_variant(&plus, track, v)) {
+            *to_track = track, *to_variant = v;
+            return;
+        }
+    const int to = direction > 0 ? (track + 1) % (last + 1) : track == 0 ? last : track - 1;
+    *to_track = to;
+    *to_variant = 0;
+    if (direction < 0)
+        for (int v = 2; v > 0; v--)
+            if (has_variant(&plus, to, v)) {
+                *to_variant = v;
+                break;
+            }
 }
 
 static void masked(int32_t bank, const char *tag, const TrackSelectOps *ops)
@@ -124,6 +163,8 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
         ops->text_shadowed(ops->ctx, lengths[4 * track + segment], 0xc8, 0x153);
         ops->text_shadowed(ops->ctx, lengths[4 * track], 0xaf, 0x16a);
     }
+    if (st->plus && variant_of(st) != 0)   /* port: the variant's name, with the game's text routine */
+        ops->text_shadowed(ops->ctx, variant_of(st) == 1 ? "Mirror" : "Rally", VARIANT_X, VARIANT_Y);
     if (track < 3) {
         snprintf(text, sizeof text, "bsg%d", segment);
         plain(bank, text, ops);
@@ -138,7 +179,7 @@ static void draw_screen(const TrackSelectInputs *in, const TrackSelectState *st,
     const int track = track_of(st);
     ops->select(ops->ctx, in->screen);
     plain(bank, "bgnd", ops);
-    if (!no_time_of_day(in, track)) masked(bank, TIME_DIM[st->time_of_day[track]], ops);
+    if (!no_time_of_day(in, st, track)) masked(bank, TIME_DIM[st->time_of_day[track]], ops);
     draw_texts(in, st, bank, item, segment, ops);
     if (item < 8) {
         masked(bank, LIT[item], ops);
@@ -196,7 +237,7 @@ static int pointed(const TrackSelectInputs *in, const TrackSelectState *st, cons
             return SEGMENT_1 + k;
     }
     if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x15e, 0x183) && track > 2) return LAPS;
-    if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x184, 0x1a0) && !no_time_of_day(in, track)) return TIME_OF_DAY;
+    if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x184, 0x1a0) && !no_time_of_day(in, st, track)) return TIME_OF_DAY;
     return NOTHING;
 }
 
@@ -227,6 +268,19 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
 {
     const int track = track_of(st);
     if (item == DONE) return 1;
+    if ((item == PREV || item == NEXT) && offered(st, track)) {   /* port: the track's variants are entries too */
+        int to, variant;
+        track_select_entry(track, variant_of(st), item == PREV ? -1 : 1, in->lost_vegas, st->plus->unlock_m,
+                           st->plus->unlock_r, &to, &variant);
+        *st->plus->variant_m = variant == 1, *st->plus->variant_r = variant == 2;
+        if (to == track) {   /* the same track: its art stays, the screen is drawn again */
+            *redraw = 1;
+            return 0;
+        }
+        *bank = change_track(in, st, *bank, to, pal, ops);
+        *redraw = 1;
+        return -1;
+    }
     if (item == PREV || item == NEXT) {
         int to;
         if (item == PREV) {
@@ -280,10 +334,10 @@ static int arrow(const TrackSelectInputs *in, const TrackSelectState *st, int ke
     if (key == KEY_RIGHT) return RIGHT[low][item];
     if (key == KEY_UP) {
         to = UP[low][item];
-        if (to == TIME_OF_DAY && no_time_of_day(in, track)) to = low ? SEGMENT_1 : LAPS;
+        if (to == TIME_OF_DAY && no_time_of_day(in, st, track)) to = low ? SEGMENT_1 : LAPS;
     } else {
         to = DOWN[low][item];
-        if (to == TIME_OF_DAY && no_time_of_day(in, track)) to = DONE;
+        if (to == TIME_OF_DAY && no_time_of_day(in, st, track)) to = DONE;
     }
     return to;
 }
@@ -293,6 +347,7 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
 {
     uint8_t saved[TRACK_SELECT_CONFIG], pal[PALETTE_PUT_BYTES], black[PALETTE_PUT_BYTES];
     memcpy(saved, st->config, sizeof saved);
+    const int32_t saved_m = st->plus ? *st->plus->variant_m : 0, saved_r = st->plus ? *st->plus->variant_r : 0;
     int quit = 0, refresh = 1, redraw = 1, changed = 0, was = 0, item = DONE, keys_armed = 1, buttons_armed = 1;
     int segment = 1;
     int16_t best = 0;
@@ -358,6 +413,7 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
         } else if (key != 0 && keys_armed) {
             if (key == KEY_ESCAPE) {
                 memcpy(st->config, saved, sizeof saved);
+                if (st->plus) *st->plus->variant_m = saved_m, *st->plus->variant_r = saved_r;   /* port */
                 ops->sound(ops->ctx, SOUND_SELECT);
                 quit = 1;
             } else if (key == KEY_LEFT || key == KEY_RIGHT || key == KEY_UP || key == KEY_DOWN) {
