@@ -8,7 +8,7 @@
  * to their ends), z the accelerator on the right trigger and r the brake on
  * the left, each at its top released (0043d598's pedals: y = r less z), and
  * the buttons in XInput's WinMM order (A accelerate / gear up, B brake / gear
- * down, X hold, Y look back). TODO: a mapping screen of the port's own. */
+ * down, X hold, Y handbrake). TODO: a mapping screen of the port's own. */
 #include "platform/platform.h"
 
 #include <SDL3/SDL.h>

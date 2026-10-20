@@ -179,7 +179,7 @@ int32_t race_sound_held_pitch(RaceState *race, int32_t channel, int32_t sound, i
 void race_sound_play(RaceState *race, int32_t channel, int32_t b, int32_t c, int32_t speed, int32_t distance, int32_t angle);
 
 /* 004442ec (watcall distance, angle; from 0047217c while the viewed car's
- * +0x4ba is set, a horn?): sound 3 on channel 14 at pitch 0x40, as loud as
+ * +0x4ba, the horn, is set): sound 3 on channel 14 at pitch 0x40, as loud as
  * 00471fec makes `distance`, panned by `angle` (00443c48) unless distance
  * is below 2 (0x40). */
 void race_sound_signal(RaceState *race, int32_t distance, int32_t angle);
@@ -231,7 +231,7 @@ int32_t race_sound_doppler(Car *car, const RaceChase *chase);
 
 /* 00472348 (watcall (), from 00440ef0 with two humans or more): the first
  * human (a 16-bit count up to 004fb7e0) other than the viewed one whose car
- * looks back (+0x4ba) and has no finish (its record +0x1c4) holds the car
+ * sounds its horn (+0x4ba) and has no finish (its record +0x1c4) holds the car
  * sound: slot it, 999 ticks, kind 1; none, the ticks 0. 004fbb04 is written
  * back as read. */
 void race_sound_other_human(RaceState *race);

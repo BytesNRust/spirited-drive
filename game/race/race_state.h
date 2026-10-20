@@ -281,7 +281,7 @@ typedef struct {
     int32_t specs_loaded;           /* 004bc698: the specs are in memory already, as tuned */
     /* 004fb704: each player's controls this tick: steering in bits 0..5
      * (0x20 centre), the pedal in 6..11 (0x1e at rest, down brakes), then
-     * gear up 0x1000, gear down 0x2000, look back 0x4000, handbrake 0x8000 */
+     * gear up 0x1000, gear down 0x2000, horn 0x4000, handbrake 0x8000 */
     uint32_t inputs[RACE_PLAYERS];
     ControlSetup controls[RACE_PLAYERS];  /* 004fb724 */
     /* the computer cars */
@@ -312,7 +312,7 @@ typedef struct {
     int32_t unknown_4fb7f0;         /* 004fb7f0 */
     int32_t default_profile_odds;   /* 004c5d20 */
     int32_t unknown_4c5cd8, unknown_4c5cdc;
-    int32_t unknown_4c5cd4;         /* 004c5cd4: with one human, the manager may spin out a car near it while it looks back (0046c490); set and cleared by 00432ff4 */
+    int32_t unknown_4c5cd4;         /* 004c5cd4: with one human, the manager may spin out a car near it while it sounds the horn (0046c490); set and cleared by 00432ff4 */
     int32_t unknown_509d60, unknown_509d68;  /* zeroed by 0043fbac */
     int32_t unknown_509d78;         /* 00509d78: divided (16.16) by 004c5ce0[004fb7f0 x 8] at the start (0043fbac) */
     int32_t unknown_509d7c;         /* 00509d7c: zeroed by 0043fbac */

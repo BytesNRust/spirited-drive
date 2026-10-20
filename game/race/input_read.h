@@ -1,7 +1,7 @@
 /* The followed player's controls read from the keys, the pad or the mouse
  * (0043915c, from the poll 004394dc) as an input word (race_state.h's
  * inputs: steering bits 0..5, pedal 6..11, gear up / down 0x1000 / 0x2000,
- * look back 0x4000, handbrake 0x8000). */
+ * horn 0x4000, handbrake 0x8000). */
 #ifndef TNFS_INPUT_READ_H
 #define TNFS_INPUT_READ_H
 
@@ -12,13 +12,13 @@
 
 enum {
     INPUT_KEY_LEFT, INPUT_KEY_RIGHT, INPUT_KEY_ACCELERATE, INPUT_KEY_BRAKE,
-    INPUT_KEY_GEAR_UP, INPUT_KEY_GEAR_DOWN, INPUT_KEY_LOOK_BACK, INPUT_KEY_HANDBRAKE,
+    INPUT_KEY_GEAR_UP, INPUT_KEY_GEAR_DOWN, INPUT_KEY_HANDBRAKE, INPUT_KEY_HORN,
     INPUT_KEYS
 };
 
 typedef struct {
     int32_t x, y;           /* 004fce54 -0x20..0x1f, 004fce58 */
-    uint8_t buttons;        /* 004fce68: bit 0 accelerate / gear up, 1 brake / gear down, 3 look back */
+    uint8_t buttons;        /* 004fce68: bit 0 accelerate / gear up, 1 brake / gear down, 3 handbrake */
 } InputPad;
 
 typedef struct {
@@ -50,8 +50,8 @@ typedef struct {
  * - gears 0: by keys up 1, else down 2; the pad's buttons (3) bit 0 1,
  *   else bit 1 2; else the mouse buttons 1 or 2. Keys 0x30, 0x13 and 0x11
  *   held with the slot's entry automatic: 3.
- * - look back (gears | 8): its key, or a pad present with button bit 3.
- * - handbrake (| 4): its key, or a pad present with neither the pedals nor
+ * - handbrake (gears | 8, the word's 0x8000): its key (config word 9), or a pad present with button bit 3.
+ * - horn (| 4, 0x4000): its key (word 11), or a pad present with neither the pedals nor
  *   the gears on its buttons (3) and button bit 0.
  * The mouse (004380e8) runs once at most: the pedals and gears use its
  * buttons from the steering's call. The word: gears << 12 | steer | pedal

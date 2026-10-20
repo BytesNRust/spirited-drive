@@ -250,7 +250,7 @@ static void drive_car(Car *car, RaceState *race, const uint32_t covered[RACE_CAR
     if (race->humans == 1 && race->unknown_4c5cd4 != 0) {
         int32_t gap = car->progress - race->cars[0]->progress;
         if (gap < 0) gap = -gap;
-        if (race->cars[0]->look_back == 1 && gap < SPIN_GAP) ai_spin_out(car, race, SPIN_KICK, SPIN_KICK, SPIN_KICK);
+        if (race->cars[0]->horn == 1 && gap < SPIN_GAP) ai_spin_out(car, race, SPIN_KICK, SPIN_KICK, SPIN_KICK);
     }
     ai_weigh_lanes(car, first, second, wish);
     if ((car->flags_175 & ONCOMING) && ahead[1] != NULL && BEHIND_FAST < ahead[1]->ai_speed) wish[2] -= BEHIND_PULL;

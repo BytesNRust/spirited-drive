@@ -7,7 +7,7 @@ enum {
     INPUT_PEDAL_REST = 0x1e,
     KEY_GEAR_UP = 1,              /* input >> 12 */
     KEY_GEAR_DOWN = 2,
-    KEY_LOOK_BACK = 4,
+    KEY_HORN = 4,
     KEY_HANDBRAKE = 8,
     GEAR_DOWN = 1,                /* the gear key codes of 00438c84 */
     GEAR_UP = 2,
@@ -191,13 +191,13 @@ static void gear_keys(Car *car, const CarSpecs *specs, const RaceState *race, in
     }
 }
 
-/* The gear, look back and handbrake keys; returns the pedal's position. */
+/* The gear, horn and handbrake keys; returns the pedal's position. */
 static int32_t pedal_keys(Car *car, const CarSpecs *specs, const RaceState *race, uint32_t input)
 {
     const uint32_t keys = input >> 12;
     gear_keys(car, specs, race, keys & KEY_GEAR_DOWN ? GEAR_DOWN : keys & KEY_GEAR_UP ? GEAR_UP : 0);
     car->handbrake = (keys & KEY_HANDBRAKE) != 0;
-    car->look_back = (keys & KEY_LOOK_BACK) != 0;
+    car->horn = (keys & KEY_HORN) != 0;
     return centred(input >> 6, INPUT_PEDAL_REST);
 }
 

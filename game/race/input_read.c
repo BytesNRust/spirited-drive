@@ -7,9 +7,9 @@ static const uint32_t STAND_IN_WORD = 0xffff87a0u;
 
 enum {
     CENTRE = 0x20, FULL = 0x3c, AT_REST = 0x1e, PRESSED = 5,
-    PAD = 1, PAD_BUTTONS = 3, PAD_LOOK_BACK = 8,
+    PAD = 1, PAD_BUTTONS = 3, PAD_HANDBRAKE = 8,
     KEY_CHEAT_A = 0x30, KEY_CHEAT_B = 0x13, KEY_CHEAT_C = 0x11,
-    GEAR_UP = 1, GEAR_DOWN = 2, LOOK_BACK = 8, HANDBRAKE = 4
+    GEAR_UP = 1, GEAR_DOWN = 2, HANDBRAKE = 8, HORN = 4   /* the word's >> 12: 0x8000 and 0x4000 (00438f00) */
 };
 
 static int key(const InputReadInputs *in, int which)
@@ -94,9 +94,9 @@ uint32_t input_read(const InputReadOps *ops, InputPad *pad, MouseSteerWords *mou
     if (in->keys[KEY_CHEAT_A] != 0 && in->keys[KEY_CHEAT_B] != 0 && in->keys[KEY_CHEAT_C] != 0 &&
         in->entries[in->player].automatic != 0)
         g |= GEAR_UP | GEAR_DOWN;
-    if (key(in, INPUT_KEY_LOOK_BACK) || (in->pad_present != 0 && (pad->buttons & PAD_LOOK_BACK) != 0)) g |= LOOK_BACK;
-    if (key(in, INPUT_KEY_HANDBRAKE) ||
+    if (key(in, INPUT_KEY_HANDBRAKE) || (in->pad_present != 0 && (pad->buttons & PAD_HANDBRAKE) != 0)) g |= HANDBRAKE;
+    if (key(in, INPUT_KEY_HORN) ||
         (in->pad_present != 0 && setup->pedals != PAD_BUTTONS && setup->gears != PAD_BUTTONS && (pad->buttons & 1) != 0))
-        g |= HANDBRAKE;
+        g |= HORN;
     return g << 12 | (uint32_t)steer | (uint32_t)p << 6;
 }

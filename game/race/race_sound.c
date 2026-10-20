@@ -384,7 +384,7 @@ void race_sound_other_human(RaceState *race)
     for (int16_t i = 0; i < race->humans; i = (int16_t)(i + 1)) {
         if (i == viewed) continue;
         const Car *car = race->cars[race_slot(i)];  /* port guard */
-        if (car == NULL || car->look_back == 0) continue;
+        if (car == NULL || car->horn == 0) continue;
         if (race->players[(uint16_t)i <= RACE_PLAYERS ? i : 0].finish != 0) continue;  /* port guard */
         race->car_sound_slot = i;
         race->car_sound_ticks = OTHER_HUMAN_TICKS;
@@ -600,7 +600,7 @@ void race_sound_tyres(RaceState *race)
     } else {
         race->car_sound_ticks = 0;
     }
-    if (car->look_back == 0 || race->viewed < 0 || race->viewed >= race->humans) {
+    if (car->horn == 0 || race->viewed < 0 || race->viewed >= race->humans) {
         race_sound_signal_off(race);
         return;
     }
