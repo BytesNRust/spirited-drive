@@ -716,6 +716,7 @@ static void after_race(void *ctx);
 static void race(void *ctx)
 {
     (void)ctx;
+    extras_apply();   /* port: a tournament's start (central_select.c) clears rally, explode, warrior and turbo */
     ConfigDat *const config = config_current();
     const RaceSettings before = settings_of();
     config_dat_set_race(config, &before);
