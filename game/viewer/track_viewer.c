@@ -36,6 +36,7 @@
 #include "viewer/camera.h"
 #include "game/race/race_view.h"
 #include "viewer/drive_audio.h"
+#include "viewer/draw_rands.h"
 #include "viewer/drive_clock.h"
 #include "viewer/drive_slide.h"
 #include "viewer/drive_hud.h"
@@ -514,21 +515,17 @@ static DriveCars drive_cars;
 static DriveHud drive_hud;
 static DriveSmoke drive_smoke;
 
-/* race_rand taken while drawing (the tyre smoke), counted once a tick: the window draws two frames a tick, the first
- * after a tick draws and logs, the others replay the log. */
-enum { DRAW_RANDS = 256 };
-static struct {
-    int32_t value[DRAW_RANDS];
-    int count, at;
-} draw_rands;
+static DrawRands draw_rands;
+
+static int32_t race_rand_of(void *user, int32_t n)
+{
+    return race_rand_below(user, n);
+}
 
 static int32_t draw_rand(void *ctx, int32_t n)
 {
     (void)ctx;
-    if (draw_rands.at < draw_rands.count) return draw_rands.value[draw_rands.at++];
-    const int32_t r = race_rand_below(&drive_sim.race, n);
-    if (draw_rands.count < DRAW_RANDS) draw_rands.value[draw_rands.count++] = r, draw_rands.at = draw_rands.count;
-    return r;
+    return draw_rands_take(&draw_rands, n, race_rand_of, &drive_sim.race);
 }
 static RaceViews drive_views;
 
@@ -1216,8 +1213,7 @@ static void render_drive(const Track *t, uint8_t *pixels)
     ported_view_set_wheels(drive_wheel_frames, drive_steer, NULL);
     const int ticked = drive_cars.ticked;
     drive_cars.ticked = 0;
-    if (ticked) draw_rands.count = 0;
-    draw_rands.at = 0;
+    draw_rands_frame(&draw_rands, ticked);
     ported_view_set_models(t->models, t->model_ok);
     ported_view_set_shadows(race, drive_hud.ready ? drive_hud.shade : NULL);
     ported_view_set_tick(race->tick);

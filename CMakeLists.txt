@@ -366,6 +366,7 @@ add_executable(tnfs
     game/viewer/drive_input.c
     game/viewer/drive_interp.c
     game/viewer/drive_clock.c
+    game/viewer/draw_rands.c
     game/viewer/drive_slide.c
     game/viewer/layer_compose.c
     game/viewer/drive_joy.c
@@ -459,6 +460,11 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_drive_clock PRIVATE tnfs_game)
     target_compile_options(test_drive_clock PRIVATE ${TNFS_WARNINGS})
     add_test(NAME drive_clock COMMAND test_drive_clock)
+    add_executable(test_draw_rands tests/test_draw_rands.c game/viewer/draw_rands.c)
+    target_include_directories(test_draw_rands PRIVATE game .)
+    target_link_libraries(test_draw_rands PRIVATE tnfs_game)
+    target_compile_options(test_draw_rands PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME draw_rands COMMAND test_draw_rands)
     add_executable(test_drive_interp tests/test_drive_interp.c game/viewer/drive_interp.c)
     target_include_directories(test_drive_interp PRIVATE game)
     target_link_libraries(test_drive_interp PRIVATE tnfs_game)
