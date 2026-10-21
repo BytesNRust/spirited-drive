@@ -391,6 +391,12 @@ add_executable(tnfs
     game/viewer/object_sink.c
     game/viewer/ported_view.c
     game/viewer/raster.c
+    game/viewer/track_load.c
+    game/viewer/track_fly.c
+    game/viewer/drive_wide.c
+    game/viewer/drive_draw.c
+    game/viewer/drive_bumper_draw.c
+    game/viewer/drive_run.c
     game/viewer/track_viewer.c
     game/viewer/viewer_main.c
     game/platform/sdl3/platform_sdl3.c
