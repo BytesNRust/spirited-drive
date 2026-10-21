@@ -220,8 +220,30 @@ static void test_from_flags_keeps_the_untouched_switches(void)
     CHECK_EQ_INT(r.mirror, 0);
 }
 
+/* the options screen's ABS_LIT order: 0 On, 1 Off, 2 N/A */
+static void test_no_assists_turns_the_aids_off_and_leaves_not_offered(void)
+{
+    int16_t abs = 0, traction = 1;
+    extras_no_assists(&abs, &traction);
+    CHECK_EQ_INT(abs, 1);        /* on -> off */
+    CHECK_EQ_INT(traction, 1);   /* off stays off */
+    abs = 2, traction = 2;
+    extras_no_assists(&abs, &traction);
+    CHECK_EQ_INT(abs, 2);        /* a car without them stays N/A */
+    CHECK_EQ_INT(traction, 2);
+    abs = 2, traction = 0;
+    extras_no_assists(&abs, &traction);
+    CHECK_EQ_INT(abs, 2);
+    CHECK_EQ_INT(traction, 1);
+    abs = 1, traction = 1;
+    extras_no_assists(&abs, &traction);   /* idempotent */
+    CHECK_EQ_INT(abs, 1);
+    CHECK_EQ_INT(traction, 1);
+}
+
 int main(void)
 {
+    test_no_assists_turns_the_aids_off_and_leaves_not_offered();
     test_mirror_comes_back_alone();
     test_rally_comes_back_alone();
     test_both_on_takes_mirror();
