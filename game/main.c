@@ -95,7 +95,7 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else {
             fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --drive NAME[m|r] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
+                            "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --replay FILE.RPL\n"
                             "       %s [--data DIR] --movie FILE.TGV\n",
                     argv[0], argv[0], argv[0], argv[0], argv[0]);
@@ -135,7 +135,22 @@ static void joy_start_up(int german)
 
 /* --drive without --node / --screenshot: the race as the menus run it (glue_drive_race), so it ends as the
  * original's does, the car slowing to a stop and then the results screens; the track's name picks the track and
- * its variant, --car the car, --type the race type (2, the full field, when not given) */
+ * its variant, --car the car, --type the race type (2, the full field, when not given).
+ *
+ * port: the name's trailing "m"/"r" letters may be one or both ("TR1mr"), so the Mirror and Rally can be raced
+ * together on one run — the state only the port reaches, since the original's screen and cheats never have both on.
+ * Only the tail counts: "TR1"'s own R is part of the track's name, not a request for the rally. */
+static void drive_variants(const char *name, int *variant_m, int *variant_r)
+{
+    size_t n = strlen(name);
+    while (n > 0) {
+        const char c = (char)tolower((unsigned char)name[n - 1]);
+        if (c == 'm') *variant_m = 1, n--;
+        else if (c == 'r') *variant_r = 1, n--;
+        else break;
+    }
+}
+
 static int run_drive(const Options *opt)
 {
     enum { FULL_FIELD = 2 };
@@ -159,9 +174,10 @@ static int run_drive(const Options *opt)
     joy_start_up(opt->german);
     menu_audio_open();
     config_load();
-    const char suffix = opt->drive[0] != '\0' ? (char)tolower((unsigned char)opt->drive[strlen(opt->drive) - 1]) : 0;
+    int variant_m = 0, variant_r = 0;
+    drive_variants(opt->drive, &variant_m, &variant_r);
     glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
-                    opt->race_type >= 0 ? opt->race_type : FULL_FIELD, suffix == 'm', suffix == 'r');
+                    opt->race_type >= 0 ? opt->race_type : FULL_FIELD, variant_m, variant_r);
     menu_audio_close();
     text_free();
     pointer_free();

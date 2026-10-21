@@ -167,6 +167,11 @@ static uint8_t *read_fam_named(const char *data_root, const char *name, const Tr
     TrackFamInputs in = *look;
     in.stem = name, in.dir = dir, in.dir_midday = dir_midday;
     track_fam_name(&in, 1, path, sizeof path);
+    /* port: TNFS_TRACE_FAM names the FAM 004510e8 chose (its "m"/"r" and the TR1->TR5 remap decide it), so a
+     * both-variants race can be told apart from a mirror-only one without reading the art */
+    if (getenv("TNFS_TRACE_FAM") != NULL)
+        fprintf(stderr, "track_viewer: fam %s (m=%d r=%d both=%d)\n", path, in.variant_m, in.variant_r,
+                in.port_both_variants);
     uint8_t *data = platform_read_file(path, size);
     const size_t n = strlen(path);
     if (data == NULL && n >= 3) {
@@ -2040,7 +2045,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     static Track t;
     /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
      * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
-    TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL };
+    TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL, 0 };
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
         look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;
@@ -2048,6 +2053,11 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
                            : track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
     } else if (menus_on) {
         look.variant_m = menus.variant_m, look.variant_r = menus.variant_r;
+        /* port: the menus' own pair is the combined state when both are on — the race reads the rally's FAM, the
+         * mirror keeping the geometry (variant_rule.h's rule). Asking extras.cfg instead would miss a race the
+         * frontend reached with both on but no extras.cfg on disk, which is every --drive NAME mr run.
+         * A replay, which carries its own pair, leaves the exe's answer below. */
+        look.port_both_variants = menus.variant_m != 0 && menus.variant_r != 0;
         look.time_of_day = menus.variant_m != 0 || menus.variant_r != 0 ? 1 : menus.time_of_day;
     } else if (fam_missing(data_root, name, &look)) {
         look.time_of_day = 1;
@@ -2099,7 +2109,7 @@ int track_viewer_drive_replay(const char *data_root, const char *path)
 int track_viewer_main(const char *data_root, const char *name, uint32_t node, const char *screenshot)
 {
     Track t;
-    const TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL };
+    const TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL, 0 };
     int ok = load_track(&t, data_root, name, &look);
     if (ok && getenv("TNFS_CAR") != NULL) load_car(&t, data_root, getenv("TNFS_CAR"));
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;

@@ -11,6 +11,7 @@
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
 #include "game/frontend/extras_menu.h"
+#include "game/frontend/variant_rule.h"
 #include "game/sys/port_extras.h"
 #include "game/frontend/net_game.h"
 #include "game/frontend/net_host.h"
@@ -505,6 +506,7 @@ int32_t glue_extras_screen(int16_t unlock)
         glue_plus_text_width, /* plus_text_width */
         extras_panel_glue,  /* plus_panel */
         extras_save_glue,   /* extras_save */
+        variant_rule_combine(),  /* port_combine_variants: Mirror and Rally both on stay on */
         NULL,               /* ctx */
     };
     mode_extras_screen = ea_screen();

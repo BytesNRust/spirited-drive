@@ -4,8 +4,13 @@
 
 void track_fam_name(const TrackFamInputs *in, int32_t number, char *out, size_t size)
 {
+    /* port: with both variants on, the rally's "r" is the art the race runs on (the geometry is the mirror's,
+     * read from 004fbad8); the exe never reaches its "r" branch, so it stays behind the flag. */
+    const int rally_first = in->port_both_variants != 0 && in->variant_m != 0 && in->variant_r != 0;
     if (in->time_of_day != 1)
         snprintf(out, size, "%s/%s_T%.2d.fam", in->dir, in->stem, (int)number);
+    else if (in->variant_r != 0 && in->track != 3 && (rally_first || in->variant_m == 0))
+        snprintf(out, size, "%s/%s_R%.2d.fam", in->dir, in->stem, (int)number);
     else if (in->variant_m != 0)
         snprintf(out, size, "%s/%s_M%.2d.fam", in->dir, in->stem, (int)number);
     else if (in->variant_r != 0 && in->track != 3)

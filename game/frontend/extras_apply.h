@@ -27,9 +27,17 @@ typedef struct {
  * 00432974 and 00465ec8. Mirror and rally exclude each other as in cheat_codes, and only the active one runs. */
 void extras_reapply(const PortExtras *e, const ExtrasFlags *f);
 
+/* port: as extras_reapply, but with both switches on the two variants stay on (each unlocked), so the race can
+ * run the mirror's geometry on the rally's track. A single switch is the same answer as the exe's. */
+void extras_reapply_port(const PortExtras *e, const ExtrasFlags *f);
+
 /* After a cheat code has been typed into the flags: what the screen should now show. The switches the flags do
  * not own (the cameras, the Warrior as a rival, the movies, the aids, the start screen) are kept as they were. */
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f);
+
+/* port: as extras_from_flags, but a state with both variants set shows both switches, where the exe's read
+ * gives the first branch and so shows the mirror alone. */
+PortExtras extras_from_flags_port(const PortExtras *e, const ExtrasFlags *f);
 
 /* After 00465ec8 with "no driving aids" on: ABS and traction control Off (1, the options screen's order On 0, Off 1,
  * N/A 2) in the cars that have them; a car without them (2) and the gearbox stay as they are. */

@@ -16,6 +16,10 @@ typedef struct {
     const char *stem;           /* 004fd0f4: the track's */
     const char *dir;            /* 00524508: "simdata/ntrackFm/" */
     const char *dir_midday;     /* 005244b8: "simdata/etrackFm/" ("gtrackFm" in German) */
+    /* port: 1 takes the rally's art when variant_m and variant_r are both set (the mirror's geometry with the
+     * rally's look), where 004510e8 gives the mirror's "m" the first look and the rally's "r" is never reached.
+     * 0 is the exe. A variant on its own is the same either way. */
+    int port_both_variants;
 } TrackFamInputs;
 
 typedef struct {
@@ -28,8 +32,9 @@ typedef struct {
 /* 004510e8's name: a time of day other than 1 "%s/%s_T%.2d.fam" in dir (the
  * dawn and dusk art); at midday with variant_m "%s/%s_M%.2d.fam", with
  * variant_r and a track other than 3 "%s/%s_R%.2d.fam", in dir; else
- * "%s/%s_%.3d.fam" in dir_midday. Port guard: cut at `size` (the original's
- * 100 bytes on its stack run on). */
+ * "%s/%s_%.3d.fam" in dir_midday. port_both_variants 1 reaches the rally's
+ * "r" first when both variants are set. Port guard: cut at `size` (the
+ * original's 100 bytes on its stack run on). */
 void track_fam_name(const TrackFamInputs *in, int32_t number, char *out, size_t size);
 
 /* 004510e8 (watcall number, buffer): the name opened, TRACK_FAM_SIZE bytes

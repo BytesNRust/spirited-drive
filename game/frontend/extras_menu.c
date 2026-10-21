@@ -2,7 +2,8 @@
  * Up / Down step through a page's rows (Done and Cancel last); Enter, Space, Left or Right change a switch (Unlock
  * and Start step through their values); Left / Right swap Done and Cancel, Right on Cancel turns to page 2 and Left
  * on page 2's Done back to page 1, as does a click on the page indicator or PageDown. Mirror and Rally exclude each
- * other. Done saves; Cancel and Escape put the input back. */
+ * other, unless ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the
+ * input back. */
 #include "game/frontend/extras_menu.h"
 
 #include <stdio.h>
@@ -131,8 +132,12 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
     int *const flag = flag_of(e, p->page, p->selected);
     if (flag != NULL) {
         *flag = !*flag;
-        if (*flag && flag == &e->mirror) e->rally = 0;
-        if (*flag && flag == &e->rally) e->mirror = 0;
+        /* port: with the two allowed together, turning one on leaves the other as it is; the exe's screen clears
+         * it, so the pair stays behind the flag. */
+        if (o->port_combine_variants == 0) {
+            if (*flag && flag == &e->mirror) e->rally = 0;
+            if (*flag && flag == &e->rally) e->mirror = 0;
+        }
     } else if (p->page == 0) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
     } else {

@@ -3,6 +3,18 @@
 #include "game/frontend/central_run.h"
 #include "test.h"
 
+#include "game/platform/platform.h"
+
+/* central_draw.c reaches variant_rule.c, whose rule reads the Mirror and Rally switches through
+ * port_extras_load, which reads user/extras.cfg through the platform; the test has no file */
+uint8_t *platform_read_user_file(const char *name, size_t *size) { (void)name, (void)size; return NULL; }
+bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
+{
+    (void)name, (void)data, (void)size;
+    return false;
+}
+void platform_free_file(uint8_t *data) { (void)data; }
+
 static int16_t race_type = 1, opponent, net_self, rival;
 
 static int16_t up(int16_t from)

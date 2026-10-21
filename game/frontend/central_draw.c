@@ -1,6 +1,8 @@
 /* Control Central (00432ff4): the screen drawn again (00433cd5..00434b54) and an item's change (00434b69..). */
 #include "game/frontend/central_run.h"
 
+#include "game/frontend/variant_rule.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -83,7 +85,8 @@ static void track_art(CentralRun *r)
     char path[0x50];
     if (st->was[WAS_TRACK] != *st->track || (int16_t)st->was[WAS_M] != *st->variant_m ||
         (int16_t)st->was[WAS_R] != *st->variant_r) {
-        const int base = *st->variant_m != 0 ? 10 : *st->variant_r != 0 ? 19 : 0;
+        /* the records and the picture follow the rally when both variants are on (variant_rule.h) */
+        const int base = central_track_art_base(*st->variant_m, *st->variant_r, *st->variant_m != 0 && *st->variant_r != 0);
         if (st->art[ART_TRACK] != 0) r->ops->free(r->ops->ctx, st->art[ART_TRACK]);
         /* "r"'s past the tenth track is the colours' first, 9, read as a name: the original faults there */
         const int at = base + *st->track;

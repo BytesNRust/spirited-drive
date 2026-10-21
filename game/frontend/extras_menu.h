@@ -54,6 +54,9 @@ typedef struct ExtrasMenuOps {
     void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
     /* port: persist the on-screen state — extras.cfg from `e` and the unlock level. The caller decides the files. */
     void (*extras_save)(void *ctx, const PortExtras *e, int16_t unlock);
+    /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),
+     * where the exe's screen switches one off as the other is turned on. 0 is the exe. */
+    int port_combine_variants;
     void *ctx;
 } ExtrasMenuOps;
 

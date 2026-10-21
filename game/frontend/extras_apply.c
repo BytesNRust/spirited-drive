@@ -1,19 +1,9 @@
 /* port: the extras put back where the original clears them. */
 #include "game/frontend/extras_apply.h"
 
-void extras_reapply(const PortExtras *e, const ExtrasFlags *f)
+/* the extras neither rule touches: the same tail for both reapply entry points */
+static void extras_apply_rest(const PortExtras *e, const ExtrasFlags *f)
 {
-    /* Mirror and rally exclude each other, as in central_keys.c's cheat_codes: switching one on clears the
-     * other, and only the one the switch names runs. */
-    if (e->mirror) {
-        *f->unlock_m = 1;
-        *f->variant_m = 1;
-        *f->variant_r = 0;
-    } else if (e->rally) {
-        *f->unlock_r = 1;
-        *f->variant_r = 1;
-        *f->variant_m = 0;
-    }
     if (e->warrior)
         *f->warrior = 1;
     if (e->vegas) {
@@ -28,6 +18,54 @@ void extras_reapply(const PortExtras *e, const ExtrasFlags *f)
         *f->track_flags |= 8;   /* 0052b306's bit 3, as central_keys.c's CENTRAL_TURBO writes it */
 }
 
+/* the switches that only mirror the flags, the tail of both read-back rules */
+static PortExtras extras_rest_from_flags(PortExtras r, const ExtrasFlags *f)
+{
+    r.warrior = *f->warrior != 0;
+    r.vegas = *f->vegas_cheat != 0;
+    r.explode = *f->explode != 0;
+    r.nitro = *f->nitro != 0;
+    r.turbo = (*f->track_flags & 8) != 0;
+    return r;
+}
+
+void extras_reapply(const PortExtras *e, const ExtrasFlags *f)
+{
+    /* Mirror and rally exclude each other, as in central_keys.c's cheat_codes: switching one on clears the
+     * other, and only the one the switch names runs. */
+    if (e->mirror) {
+        *f->unlock_m = 1;
+        *f->variant_m = 1;
+        *f->variant_r = 0;
+    } else if (e->rally) {
+        *f->unlock_r = 1;
+        *f->variant_r = 1;
+        *f->variant_m = 0;
+    }
+    extras_apply_rest(e, f);
+}
+
+void extras_reapply_port(const PortExtras *e, const ExtrasFlags *f)
+{
+    /* port: with both switches on neither clears the other, so 004fbad8 and 004fbadc both stay set for the race
+     * to read (the mirror's geometry, the rally's art). One switch alone is the exe's branch. */
+    if (e->mirror && e->rally) {
+        *f->unlock_m = 1;
+        *f->unlock_r = 1;
+        *f->variant_m = 1;
+        *f->variant_r = 1;
+    } else if (e->mirror) {
+        *f->unlock_m = 1;
+        *f->variant_m = 1;
+        *f->variant_r = 0;
+    } else if (e->rally) {
+        *f->unlock_r = 1;
+        *f->variant_r = 1;
+        *f->variant_m = 0;
+    }
+    extras_apply_rest(e, f);
+}
+
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f)
 {
     PortExtras r = *e;
@@ -37,12 +75,21 @@ PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f)
         r.mirror = 1, r.rally = 0;
     else if (*f->variant_r != 0)
         r.rally = 1, r.mirror = 0;
-    r.warrior = *f->warrior != 0;
-    r.vegas = *f->vegas_cheat != 0;
-    r.explode = *f->explode != 0;
-    r.nitro = *f->nitro != 0;
-    r.turbo = (*f->track_flags & 8) != 0;
-    return r;
+    return extras_rest_from_flags(r, f);
+}
+
+PortExtras extras_from_flags_port(const PortExtras *e, const ExtrasFlags *f)
+{
+    PortExtras r = *e;
+    /* port: with both variants on, both switches show — the pair is a state the race can now run in, and
+     * showing one of them alone would put the screen's answer out of step with the flags. */
+    if (*f->variant_m != 0 && *f->variant_r != 0)
+        r.mirror = 1, r.rally = 1;
+    else if (*f->variant_m != 0)
+        r.mirror = 1, r.rally = 0;
+    else if (*f->variant_r != 0)
+        r.rally = 1, r.mirror = 0;
+    return extras_rest_from_flags(r, f);
 }
 
 void extras_no_assists(int16_t *abs, int16_t *traction)
