@@ -29,13 +29,25 @@ ScreenPoint drive_bumper_mirror_at(int width, int mirror_w);
 /* The picture (w x h) at `at` with a one-pixel frame round it, cut to the screen. */
 void drive_bumper_blit(uint8_t *screen, int screen_w, int screen_h, const uint8_t *picture, int w, int h, ScreenPoint at);
 
-/* The radar detector's lights as the dash draws them (cockpit_lights, 004212d4): the dash art's four shapes, a NULL
- * one draws nothing. */
+/* The radar detector: the lights as the dash draws them (cockpit_lights, 004212d4), the dash art's four shapes (a
+ * NULL one draws nothing), in a grey case. The case is the same for every car: a raised edge (`light` on the top and
+ * left, `dark` on the bottom and right) round a `face`, and in it a sunken black well (the edges the other way
+ * round) holding the lights. The three greys are palette indices, the race palette's nearest to grey. */
 typedef struct {
     const uint8_t *big_lit, *big_dark, *small_lit, *small_dark;   /* 'bglt', 'bgdk', 'smlt', 'smdk' */
+    uint8_t light, face, dark;
 } DriveBumperRadarArt;
-enum { DRIVE_BUMPER_RADAR_SMALL = 5, DRIVE_BUMPER_RADAR_PAD = 2, DRIVE_BUMPER_RADAR_GAP = 3 };
-/* The detector's size (x, y): the big light then the five small ones in a row, a pad round them; 0 x 0 without art. */
+enum {
+    DRIVE_BUMPER_RADAR_SMALL = 5, DRIVE_BUMPER_RADAR_GAP = 3,
+    DRIVE_BUMPER_RADAR_BEVEL = 1,       /* the case's edge and the well's */
+    DRIVE_BUMPER_RADAR_FACE = 3,        /* the face between the two */
+    DRIVE_BUMPER_RADAR_WELL = 2,        /* black round the lights, inside the well's edge */
+    /* the lights' inset from the case's edge */
+    DRIVE_BUMPER_RADAR_PAD = 2 * DRIVE_BUMPER_RADAR_BEVEL + DRIVE_BUMPER_RADAR_FACE + DRIVE_BUMPER_RADAR_WELL
+};
+/* The grey for each of the case's three tones, as RGB 0..255 a channel (what the palette's nearest is taken to). */
+enum { DRIVE_BUMPER_RADAR_LIGHT_GREY = 190, DRIVE_BUMPER_RADAR_FACE_GREY = 120, DRIVE_BUMPER_RADAR_DARK_GREY = 55 };
+/* The detector's size (x, y): the case round the big light and the five small ones in a row; 0 x 0 without art. */
 ScreenPoint drive_bumper_radar_size(const DriveBumperRadarArt *art);
 /* Where it goes on a `width` screen: the same margin under the scoreboard's left end as the mirror has at the right. */
 ScreenPoint drive_bumper_radar_at(int width);
