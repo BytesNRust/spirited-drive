@@ -371,6 +371,7 @@ static void test_fences(void)
             if (f.camera) {
                 CHECK(f.cam[2] == camera[0] && f.cam[3] == camera[1]);   /* a, b: the points' own rows */
                 CHECK(f.cam[0][1] > 0 && f.cam[1][1] > 0);               /* the tops, raised by the fence's height */
+                CHECK(f.cam[0][0] == 200 && f.cam[1][0] == -200);        /* b's top first, then a's */
             }
         }
     }
