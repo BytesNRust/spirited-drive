@@ -80,7 +80,7 @@ static void put_value(const Menu *m, int i, int lit, const GraphicsMenuState *st
 {
     blit(m, value(i, lit, st), o);
     if (i == VIEW && st->plus && st->plus->port->view_ultra && get(st, GRAPHICS_VIEW) == 0)
-        graphics_plus_ultra(st, o, m->rgb, lit);
+        graphics_plus_ultra(st, o, m->rgb, lit, m->bank);
 }
 
 /* the first band the pointer is in becomes the selection */

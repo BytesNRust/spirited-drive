@@ -19,8 +19,10 @@ void graphics_plus_value(const PortSettings *s, int setting, char out[16]);
 /* the view distance's four values in a cycle: far (0), medium (1), close (2), ultra (far's art with `ultra` set) */
 void graphics_plus_view_step(int16_t *view, int *ultra);
 
-/* "Ultra" in place of the view value's art (drawn after it; lit as the selected item is) */
-void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit);
+/* "Ultra" in place of the view value's art (drawn after it; lit as the selected item is). `bank` is the screen's
+ * art bank, used to blit the exe's all-three view row art (vanl / vand) instead of a flat shaded panel. */
+void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit,
+                         int32_t bank);
 /* the page indicator of page 1 (0) or 2 (1) */
 void graphics_plus_nav(const GraphicsMenuState *st, const GraphicsMenuOps *o, int page);
 int graphics_plus_nav_hit(const GraphicsMenuOps *o);

@@ -90,11 +90,14 @@ static void text_right(const GraphicsMenuOps *o, int lit, const char *text, int 
     o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
 }
 
-void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit)
+void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit,
+                         int32_t bank)
 {
     (void)st;
-    /* the view value's art is 96 x 28 at (408, 261): darkened over so "Far" under it does not show */
-    o->plus_panel(o->ctx, rgb, 408, 261, 503, 288, 0);
+    /* polish: the box behind "Ultra" is the exe's all-three view row art (vanl / vand), the same vocabulary the
+     * original uses for the rows above it. Keeps the screen's own art on the screen instead of a flat shaded panel. */
+    (void)rgb;
+    o->blit_own(o->ctx, o->shape(o->ctx, bank, lit ? "vanl" : "vand"));
     text_right(o, lit, "Ultra", VALUE_RIGHT, 262);
 }
 

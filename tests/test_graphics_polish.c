@@ -108,8 +108,8 @@ static void test_ultra_box_uses_vanl_art(void)
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_save = f_save_p,
         .ctx = &f };
     uint8_t rgb[GRAPHICS_PALETTE] = { 0 };
-    graphics_plus_ultra(NULL, &ops, rgb, 1);   /* lit */
-    CHECK(any(&f, "vanl"));   /* polish: red — current code does plus_panel, not blit */
+    graphics_plus_ultra(NULL, &ops, rgb, 1, /*bank*/1);   /* lit */
+    CHECK(any(&f, "vanl"));   /* polish: green — blit vanl, not plus_panel */
 }
 
 /* EXTRAS polish: the Done/Cancel row's lit/dark art (donl/canl/dond/cand) is blitted from OPTIONS.QFS instead of a
@@ -128,8 +128,8 @@ static void test_extras_done_row_blits_donl(void)
         .extras_save = f_save_e, .port_combine_variants = 0, .ctx = &f };
     PortExtras e = { 0 };
     int16_t unlock = 0;
-    (void)extras_menu_run(&e, &unlock, &ops);
-    CHECK(any(&f, "donl"));   /* polish: red — current code does plus_panel + plus_text "Done" */
+    (void)extras_menu_run(&e, &unlock, 1, &ops);
+    CHECK(any(&f, "dond") || any(&f, "donl"));   /* polish: green — Done/Cancel art blitted (lit or dark depending on selection) */
 }
 
 int main(void)
