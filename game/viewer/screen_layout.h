@@ -61,6 +61,12 @@ typedef struct {
  * anchor is the piece's original position. */
 HudAnchors screen_hud_anchors(int width, const ScreenPoint sizes[7], ScreenPoint mirror_640);
 
+/* The start lights (640: five 120 wide at a 130 step, the strip's whole width): each keeps its width and the five
+ * spread over the whole of a wider screen, the first at its left edge and the last at its right. The column of
+ * light `i` (0..LIGHT_COUNT - 1); 130 * i at 640. */
+enum { LIGHT_COUNT = 5, LIGHT_WIDTH = 120 };
+int screen_light_x(int width, int i);
+
 /* The format nearest to a desktop's proportions. */
 ScreenFormat screen_format_nearest(int desktop_w, int desktop_h);
 

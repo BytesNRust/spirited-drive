@@ -69,6 +69,19 @@ int main(void)
     CHECK_EQ_INT(screen_cockpit_scale(1120).crop_top, 180);
     CHECK_EQ_INT(screen_cockpit_scale(1120).scale, 114688);
 
+    /* the start lights: 130 apart at 640 as the original draws them; wider, the first at the left edge, the last at the
+     * right, each whole, none overlapping the next */
+    for (int i = 0; i < LIGHT_COUNT; i++) CHECK_EQ_INT(screen_light_x(640, i), 130 * i);
+    const int widths[2] = { 854, 1120 };
+    for (int k = 0; k < 2; k++) {
+        const int w = widths[k];
+        CHECK_EQ_INT(screen_light_x(w, 0), 0);
+        CHECK_EQ_INT(screen_light_x(w, LIGHT_COUNT - 1) + LIGHT_WIDTH, w);
+        for (int i = 0; i + 1 < LIGHT_COUNT; i++)
+            CHECK(screen_light_x(w, i + 1) - screen_light_x(w, i) >= LIGHT_WIDTH + 10);
+    }
+    CHECK_EQ_INT(screen_light_x(1120, 2), 500);
+
     /* sizes in HudAnchors order: bar start, middle, end, mirror, map, radar, gauge */
     const ScreenPoint sizes[7] = { { 256, 32 }, { 143, 32 }, { 235, 32 }, { 96, 42 }, { 113, 140 }, { 98, 24 },
                                    { 156, 156 } };

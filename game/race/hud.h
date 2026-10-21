@@ -150,6 +150,10 @@ void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const
 void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *dash, int16_t beeps[HUD_BEEPS],
                            int32_t tick, int32_t high_res, uint32_t strip_colour);
 
+/* port: the start lights were drawn on `tick` (lights_until = tick + 10 is what the draw left; hud_reset's 0x7d000
+ * and the ten ticks after the last draw are not). */
+int hud_start_lights_drawn(const HudState *hud, int32_t tick);
+
 /* 00420370: with hud->redraw set and past tick 0x167, the top row's fixed
  * shapes at their places and the record to beat: 'stat'; layout 1 'rtet',
  * the circuit record (race->records + 0xea + track x 0xa6b, + record_slot

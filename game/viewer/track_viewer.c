@@ -619,6 +619,7 @@ static void wide_key_box(const RaceState *race, uint8_t *surface)
 }
 
 enum {
+    LIGHT_STEP_640 = 130,               /* the start lights' step (hud.c LIGHT_STEP_HIGH) */
     BAR_MIDDLE_640 = 262, BAR_END_640 = 405,  /* the scoreboard's groups (screen_layout.c) */
     GAUGE_X_640 = 10, GAUGE_Y_640 = 289, GAUGE_SIZE = 156,
     MIRROR_FRAME = 40                   /* the most the mirror's frame and stalk reach past its picture */
@@ -754,9 +755,15 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 },   /* the radar detector stays on the dash */
                                    { GAUGE_SIZE, GAUGE_SIZE } };
     const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
-    LayerPiece pieces[8];
+    LayerPiece pieces[12];
     int n = 0;
-    if (!police) {
+    const int lights = !police && hud_start_lights_drawn(&drive_hud.hud, race->tick);
+    if (lights) {  /* the start lights whole, each at its width spread across the screen, not cut with the groups */
+        for (int i = 0; i < LIGHT_COUNT; i++)
+            pieces[n++] = wide_piece(i * LIGHT_STEP_640, 0, LIGHT_WIDTH, HUD_BAR_HEIGHT,
+                                     (ScreenPoint){ screen_light_x(drive_wide.width, i), 0 }, 0);
+        pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
+    } else if (!police) {
         pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_start, 0);
         pieces[n++] = wide_piece(BAR_MIDDLE_640, 0, BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_middle, 0);
         pieces[n++] = wide_piece(BAR_END_640, 0, SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT, a.bar_end, 0);
@@ -788,7 +795,10 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, in_car, pieces, n };
     layer_compose(&c, frame, drive_wide.pixels);
     if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &cs);
-    if (!police) {  /* the strip between the groups */
+    if (lights) {  /* the strip between the lights */
+        for (int i = 0; i + 1 < LIGHT_COUNT; i++)
+            wide_strip_gap(frame, screen_light_x(drive_wide.width, i) + LIGHT_WIDTH, screen_light_x(drive_wide.width, i + 1));
+    } else if (!police) {  /* the strip between the groups */
         wide_strip_gap(frame, a.bar_start.x + BAR_MIDDLE_640, a.bar_middle.x);
         wide_strip_gap(frame, a.bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a.bar_end.x);
     }
