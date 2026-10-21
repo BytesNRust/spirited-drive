@@ -64,8 +64,7 @@ typedef struct ExtrasMenuOps {
 } ExtrasMenuOps;
 
 /* The two pages, run sequentially over the screen's live picture. 1 on Done (extras_save was called),
- * 0 on Cancel/Escape (the input PortExtras and unlock level are unchanged). `bank` is the Options' option/options.qfs
- * bank id, used for the Done/Cancel art (donl/canl/dond/cand) so the bottom row matches the exe's Options look. */
-int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMenuOps *o);
+ * 0 on Cancel/Escape (the input PortExtras and unlock level are unchanged). */
+int extras_menu_run(PortExtras *e, int16_t *unlock, const ExtrasMenuOps *o);
 
 #endif

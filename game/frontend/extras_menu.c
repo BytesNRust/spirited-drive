@@ -71,10 +71,11 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
 
 static int16_t row_top(int row) { return (int16_t)(ROW_TOP + row * ROW_STEP); }
 
-static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const ExtrasMenuOps *o)
+static void draw_page(Page *p, PortExtras *e, int16_t unlock, const ExtrasMenuOps *o)
 {
     o->select(o->ctx, 0);   /* the caller's picture behind */
     o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
+    o->plus_panel(o->ctx, NULL, PANEL_X0, BUTTONS_Y0, PANEL_X1, BUTTONS_Y1, 0);   /* the caller's own buttons under ours */
     for (int row = 0; row < SWITCHES[p->page]; row++) {
         char v[16];
         const int lit = p->selected == row;
@@ -82,12 +83,9 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
         o->plus_text(o->ctx, lit, label(p->page, row), LABEL_X, row_top(row));
         o->plus_text(o->ctx, lit, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), row_top(row));
     }
-    /* the bottom row's Done and Cancel: the exe's Options look — both are always drawn (lit when selected, dark
-     * otherwise), the same way Options' rows paint their labels. The art replaces the flat panel + "Done"/"Cancel"
-     * text. Names are capitalised as OPTIONS.QFS ships them — shape_bank_find uses memcmp, so the lowercase
-     * spellings return NULL. */
-    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == done_of(p->page) ? "Donl" : "Dond"));
-    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "Canl" : "Cand"));
+    o->plus_text(o->ctx, p->selected == done_of(p->page), "Done", DONE_X, BUTTON_Y);
+    o->plus_text(o->ctx, p->selected == cancel_of(p->page), "Cancel", CANCEL_RIGHT - o->plus_text_width(o->ctx, "Cancel"),
+                 BUTTON_Y);
     static const char *const NAV[PAGES] = { "1/3 >", "< 2/3 >", "< 3/3" };
     const char *const nav = NAV[p->page];
     o->plus_text(o->ctx, 0, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);
@@ -201,7 +199,7 @@ static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const Extr
     }
 }
 
-int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMenuOps *o)
+int extras_menu_run(PortExtras *e, int16_t *unlock, const ExtrasMenuOps *o)
 {
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
@@ -210,7 +208,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
     pointer_to(&p, o);
     while (p.result < 0) {
         follow(&p, o);
-        if (p.redraw) draw_page(&p, e, *unlock, bank, o);
+        if (p.redraw) draw_page(&p, e, *unlock, o);
         if (!p.armed) {
             p.rest += o->ticks(o->ctx);
             if ((int16_t)p.rest > REST) p.armed = 1;

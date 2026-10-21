@@ -278,7 +278,7 @@ static void run_menu(PortExtras *e, const int *keys, int count, int combine, Men
         .key = mf_key, .pointer_click = mf_void, .pointer_off = mf_void, .music = mf_void,
         .plus_text = mf_text, .plus_text_width = mf_text_width, .plus_panel = mf_panel,
         .extras_save = mf_save, .ctx = f, .port_combine_variants = combine };
-    extras_menu_run(e, &unlock, 1, &ops);
+    extras_menu_run(e, &unlock, &ops);
 }
 
 /* the script both menu tests share: DOWN to Rally, SPACE on, UP to Mirror, SPACE on, ROW_DOWN DOWNs to Done, ENTER */

@@ -3,11 +3,7 @@
  * cancels, the idle deadline and the right button leave. */
 #include "game/frontend/graphics_plus.h"
 
-#include "core/formats/fsh.h"
-
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, PAGE_UP = 0x4900, LEFT = 0x4b00, RIGHT = 0x4d00,
        DOWN = 0x5000, PAGE_DOWN = 0x5100, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
@@ -94,51 +90,11 @@ static void text_right(const GraphicsMenuOps *o, int lit, const char *text, int 
     o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
 }
 
-/* Ultra sits where the original puts Far's art (96x28 at (408, 261)). GRAPHICS.QFS has no "ultra" art; vanl / vand are
- * the LABEL column (195x25 at (5, 262)). Build a runtime FSH on the stack holding the bgnd sub-region 408..503,
- * 261..288 (the same 96x28 cell farl/fard occupy) — then blit_own at it. The contents are the live bgnd, so the
- * burnt-in screen art lives behind Ultra without an extra tile. */
-enum { ULTRA_X = 408, ULTRA_Y = 261, ULTRA_W = 96, ULTRA_H = 28 };
-static void put_u16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
-static void put_i16(uint8_t *p, int16_t v) { put_u16(p, (uint16_t)v); }
-
-/* FSH wire layout at the shape pointer: type(1) + block_size(3 LE24) + width(2 LE) + height(2 LE) + misc[4](4x2 LE). */
-static int bgnd_dims(const uint8_t *bgnd, uint16_t *w, uint16_t *h)
-{
-    if (bgnd == NULL) return 0;
-    *w = (uint16_t)(bgnd[4] | ((uint16_t)bgnd[5] << 8));
-    *h = (uint16_t)(bgnd[6] | ((uint16_t)bgnd[7] << 8));
-    return 1;
-}
-
-void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit,
-                         int32_t bank)
+void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit)
 {
     (void)st;
-    (void)rgb;
-    const uint8_t *const bgnd = o->shape(o->ctx, bank, "bgnd");
-    /* GRAPHICS.QFS's bgnd is 640x480 indexed pixels. The runtime FSH copies a 96x28 cell from it; the cell only
-     * lies inside bgnd when its width and height reach at least 408 + 96 = 504 wide, 261 + 28 = 289 tall. */
-    uint16_t bw = 0, bh = 0;
-    if (!bgnd_dims(bgnd, &bw, &bh) || bw < ULTRA_X + ULTRA_W || bh < ULTRA_Y + ULTRA_H) {
-        text_right(o, lit, "Ultra", VALUE_RIGHT, 262);
-        return;
-    }
-    uint8_t cell[16 + ULTRA_W * ULTRA_H];
-    memset(cell, 0, sizeof cell);
-    cell[0] = FSH_TYPE_BITMAP;
-    const uint32_t block = ULTRA_W * ULTRA_H;
-    cell[1] = (uint8_t)(block); cell[2] = (uint8_t)(block >> 8); cell[3] = (uint8_t)(block >> 16);
-    put_u16(cell + 4, ULTRA_W);
-    put_u16(cell + 6, ULTRA_H);
-    put_i16(cell + 8, 0);
-    put_i16(cell + 10, 0);
-    put_i16(cell + 12, ULTRA_X);
-    put_i16(cell + 14, ULTRA_Y);
-    const uint8_t *const src = bgnd + 16;
-    for (int row = 0; row < ULTRA_H; row++)
-        memcpy(cell + 16 + row * ULTRA_W, src + (ULTRA_Y + row) * (int)bw + ULTRA_X, ULTRA_W);
-    o->blit_own(o->ctx, cell);
+    /* the view value's art is 96 x 28 at (408, 261): darkened over so "Far" under it does not show */
+    o->plus_panel(o->ctx, rgb, 408, 261, 503, 288, 0);
     text_right(o, lit, "Ultra", VALUE_RIGHT, 262);
 }
 
