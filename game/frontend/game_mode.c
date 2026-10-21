@@ -56,11 +56,22 @@ static void follow(Menu *m, const GameModeOps *o)
     }
 }
 
+/* port: with the extras op, "EXTRAS" written over the Modem item's art, lit while it is the selection */
+static void extras_label(const Menu *m, const GameModeOps *o)
+{
+    enum { TEXT_HALF_HEIGHT = 8 };
+    if (o->extras == NULL || o->plus_text == NULL || o->plus_text_width == NULL) return;
+    const char *const text = "EXTRAS";
+    o->plus_text(o->ctx, m->selected == MODEM, text, CENTRE_X[MODEM] - o->plus_text_width(o->ctx, text) / 2,
+                 CENTRE_Y[MODEM] - TEXT_HALF_HEIGHT);
+}
+
 static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
 {
     o->select(o->ctx, st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, m->bank, "bgnd"));
     if ((uint16_t)m->selected < OPTIONS) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, LIT[m->selected]));
+    extras_label(m, o);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->lock(o->ctx);
@@ -92,6 +103,7 @@ static void redraw_options(Menu *m, GameModeState *st, const GameModeOps *o)
     if (m->previous != m->selected) o->sound(o->ctx, MOVED);
     if ((uint16_t)m->previous < OPTIONS) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, DARK[m->previous]));
     if ((uint16_t)m->selected < OPTIONS) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, LIT[m->selected]));
+    if (m->previous == MODEM || m->selected == MODEM) extras_label(m, o);
     m->changed = 0;
 }
 
@@ -133,6 +145,14 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         m->done = 1;
         break;
     case MODEM:
+        if (o->extras != NULL) {   /* port: the EXTRAS screen over this one, then this menu again */
+            o->extras(o->ctx);
+            palette_load(m, o);
+            m->redraw = 1;
+            m->fade = 1;
+            move_to(m, o);
+            break;
+        }
         if (!(int16_t)o->name_box(o->ctx, st->name)) break;
         o->fade_out(o->ctx, 0, ALL);
         o->free_inverse(o->ctx);

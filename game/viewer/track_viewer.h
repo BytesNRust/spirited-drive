@@ -52,6 +52,7 @@ typedef struct {
     uint32_t track_flags;  /* 0052b306, which 0042702c makes 004fb7d8: bit 2 Control Central's No Mercy, bit 3 Turbo */
     int32_t explode;    /* 004c5cd4: the EXPLODE cheat, read by the race (0046c490) */
     int32_t start_boost;  /* 004faa50: the NITRO cheat, the player's start keys read (0042f138) */
+    int32_t replay_cameras;  /* port: the extra (extras.cfg); 0 the original's chase cycle */
     const char *name;   /* 00524df0: the player's name, 0042702c's first record's (NULL: "Player") */
     int track;          /* 00524e85: the menus' track, 0..2 the stages (the results keep a circuit's laps past them) */
     /* 00524e71..00524e79, config.dat's five option words (NULL: none): 004275f8 copies them into the race's option

@@ -165,6 +165,10 @@ static void extras_flags(ExtrasFlags *f)
     f->track_flags = (uint32_t *)&menu_cheats.keys_506;
 }
 
+/* port: the Warrior-as-rival switch is a separate flag (no equivalent in the original's globals), read by the
+ * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with extras.cfg by extras_apply. */
+static int16_t warrior_rival_flag;
+
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
  * tournament. With extras.cfg absent this reads the defaults and changes nothing. */
 static void extras_apply(void)
@@ -179,6 +183,7 @@ static void extras_apply(void)
     g.warrior = *f.warrior;
     menu_cheats.keys_506 = (int32_t)*f.track_flags;
     if (e.no_assists) extras_no_assists(&g.car_flag_a, &g.car_flag_b);   /* after 00465ec8 */
+    warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
 }
 
 /* port: after a code has been typed, the flags say what is on; the switches are brought in line and the file is
@@ -600,7 +605,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
                                      race_head_to_head_model((int16_t)g.opponent), image_short(0x73), image_short(0x75), image_short(0x79),
                                      image_short(0x71), game_state,
                                      g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r,
-                                     (uint32_t)menu_cheats.keys_506, g.explode, g.nitro,
+                                     (uint32_t)menu_cheats.keys_506, g.explode, g.nitro, port_extras_load().replay_cameras,
                                      (const char *)config_current()->image, g.track,
                                      config_current()->image + OPTIONS_AT };
     records_glue_begin(g.race_type, game_state + 0x592, g.variant_m, g.variant_r, g.explode, g.nitro,
@@ -976,6 +981,17 @@ static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, in
     ea_frame(x0 + 2, y0 + 2, x1 - 2, y1 - 2, ea_colour(RED));
     ea_frame(x0 + 3, y0 + 3, x1 - 3, y1 - 3, ea_colour(RED));
 }
+
+/* port: the text and panel the additions draw with, for the EXTRAS screen's glue in menu_glue.c */
+void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
+{
+    plus_text(ctx, style_id, text, x, y);
+}
+int32_t glue_plus_text_width(void *ctx, const char *text) { return plus_text_width(ctx, text); }
+void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
+{
+    plus_panel(ctx, rgb, x0, y0, x1, y1, framed);
+}
 static void plus_save(void *ctx, const PortSettings *settings)
 {
     (void)ctx;
@@ -1070,7 +1086,7 @@ static void replay(void *ctx, int32_t mode, const char *path)
         return;
     }
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, NULL, -1,
+                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, 0, NULL, -1,
                                      config_current()->image + OPTIONS_AT };  /* the time of day and the flags: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
@@ -1274,6 +1290,17 @@ static int32_t next_segment(void *ctx)
     return go_on;
 }
 
+/* port: the Extras row opens the EXTRAS screen over this screen's picture; Done writes extras.cfg and the unlock
+ * level back into config.dat, and extras_apply re-reads it for Control Central (the cheats, mirror, ghosts). */
+static void options_extras(void *ctx)
+{
+    (void)ctx;
+    ConfigDat *const config = config_current();
+    glue_extras_screen((int16_t)config_dat_unlock_level(config));
+    g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    extras_apply();
+}
+
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -1285,7 +1312,7 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx };
+        deadline_passed, ctx, options_extras, plus_text, plus_text_width, plus_panel };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
@@ -1362,7 +1389,7 @@ int32_t glue_central(void)
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
         &g.explode, menu_audio_silent(), &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, NULL };
+        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag };
     const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
                                  &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
     link_central_bind(&link_menu);

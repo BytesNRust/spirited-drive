@@ -1,21 +1,30 @@
 #include "game/frontend/options_menu.h"
 
+#include <stddef.h>
+
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
-enum { TRANSMISSION, ABS, TRACTION, AUDIO, GRAPHICS, CONTROLS, LOAD_SAVE, CREDITS, DONE, CANCEL, ITEMS };
+enum { TRANSMISSION, ABS, TRACTION, AUDIO, GRAPHICS, CONTROLS, LOAD_SAVE, CREDITS, EXTRAS, DONE, CANCEL, ITEMS };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, WIDE = 0x280, TALL = 0x1e0, ALL = 0x100 };
 enum { NOT_OFFERED = 2, TOURNAMENT = 3, CIRCUIT = 2, TIME_TRIAL = 0, TRACKS = 9 };
 
 /* 00444ad0 / 00444ae4: where the pointer goes per item */
-static const int16_t POINTER_X[ITEMS] = { 240, 240, 240, 240, 240, 240, 240, 240, 40, 565 };
-static const int16_t POINTER_Y[ITEMS] = { 118, 151, 185, 220, 253, 287, 324, 363, 450, 450 };
-/* the bands 00463f80 is asked about, in turn: the eight rows across the screen, then Done and Cancel side by side */
-static const int16_t BAND_LEFT[ITEMS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x143 };
-static const int16_t BAND_RIGHT[ITEMS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x141, WIDE };
-static const int16_t BAND_TOP[ITEMS] = { 0, 0x86, 0xa8, 0xcc, 0xed, 0x10f, 0x133, 0x156, 0x185, 0x185 };
-static const int16_t BAND_BOTTOM[ITEMS] = { 0x85, 0xa7, 0xcb, 0xec, 0x10e, 0x132, 0x155, 0x184, TALL, 0x1df };
-static const char *const LIT[ITEMS] = { "Tral", "Absl", "Trcl", "Audl", "Gral", "Conl", "Loal", "Crel", "Donl", "Canl" };
-static const char *const DARK[ITEMS] = { "Trad", "Absd", "Trcd", "Audd", "Grad", "Cond", "Load", "Cred", "Dond", "Cand" };
+static const int16_t POINTER_X[ITEMS] = { 240, 240, 240, 240, 240, 240, 240, 240, 240, 40, 565 };
+static const int16_t POINTER_Y[ITEMS] = { 118, 151, 185, 220, 253, 287, 324, 363, 410, 450, 450 };
+/* the bands 00463f80 is asked about, in turn: the eight rows across the screen, then Done and Cancel side by side.
+ * port: with the extras op, Extras takes the top of the Done / Cancel band (0x185..0x1b1), free space in
+ * option/options.qfs; the row is text over the picture. Without it Done and Cancel keep their band from 0x185. */
+static const int16_t BAND_LEFT[ITEMS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x143 };
+static const int16_t BAND_RIGHT[ITEMS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x141, WIDE };
+static const int16_t BAND_TOP[ITEMS] = { 0, 0x86, 0xa8, 0xcc, 0xed, 0x10f, 0x133, 0x156, 0x185, 0x1b2, 0x1b2 };
+enum { DONE_BAND_TOP = 0x185 };   /* Done's and Cancel's top without the Extras row */
+static const int16_t BAND_BOTTOM[ITEMS] = { 0x85, 0xa7, 0xcb, 0xec, 0x10e, 0x132, 0x155, 0x184, 0x1b1, TALL, 0x1df };
+static const char *const LIT[ITEMS] = { "Tral", "Absl", "Trcl", "Audl", "Gral", "Conl", "Loal", "Crel", NULL, "Donl", "Canl" };
+static const char *const DARK[ITEMS] = { "Trad", "Absd", "Trcd", "Audd", "Grad", "Cond", "Load", "Cred", NULL, "Dond", "Cand" };
+/* port: the Extras row's label and where it is written (the art slot is the empty top of Done's band) */
+static const char EXTRAS_LABEL[] = "Extras";
+static const int16_t EXTRAS_X = 8;
+static const int16_t EXTRAS_Y = 0x18c;
 /* 00444af8..00444b34, copied to the stack: the settings' values, lit and dark */
 static const char *const GEAR_LIT[2] = { "Autl", "Manl" };
 static const char *const GEAR_DARK[2] = { "Autd", "Mand" };
@@ -50,7 +59,19 @@ static void move_to(int16_t item, const OptionsMenuOps *o)
 
 static void blit(const Menu *m, const char *tag, const OptionsMenuOps *o)
 {
+    if (tag == NULL) return;   /* port: the Extras row is text, not art */
     o->blit_own(o->ctx, o->shape(o->ctx, m->bank, tag));
+}
+
+/* port: the Extras row, written with the game's text over the free top of Done's band; lit when it is the
+ * selection, dark otherwise. Done and Cancel cover the band below it, so the text is left when the row changes. */
+static void extras_row(const Menu *m, const OptionsMenuState *st, int32_t style, const OptionsMenuOps *o)
+{
+    if (o->extras == NULL) return;
+    if (style != 0 && m->selected != EXTRAS) return;
+    if (style == 0 && m->selected == EXTRAS) return;   /* already lit, nothing to put back */
+    o->select(o->ctx, *st->screen);
+    o->plus_text(o->ctx, style, EXTRAS_LABEL, EXTRAS_X, EXTRAS_Y);
 }
 
 static void palette(Menu *m, const OptionsMenuOps *o)
@@ -63,7 +84,9 @@ static void palette(Menu *m, const OptionsMenuOps *o)
 static void follow(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 {
     for (int16_t i = 0; i < ITEMS; i++) {
-        if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], BAND_TOP[i], BAND_BOTTOM[i])) continue;
+        if (i == EXTRAS && o->extras == NULL) continue;
+        const int16_t top = i > EXTRAS && o->extras == NULL ? DONE_BAND_TOP : BAND_TOP[i];
+        if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], top, BAND_BOTTOM[i])) continue;
         if (m->selected != i && (i != LOAD_SAVE || *st->lost == 0)) {
             m->previous = m->selected;
             m->selected = i;
@@ -94,6 +117,7 @@ static void draw(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
     draw_setting(m, TRACTION, TRACTION_LIT, TRACTION_DARK, *st->traction, o);
     for (int16_t i = AUDIO; i < ITEMS; i++)
         if (m->selected == i) blit(m, LIT[i], o);
+    extras_row(m, st, m->selected == EXTRAS ? 1 : 0, o);
     if (*st->lost) blit(m, "Loam", o);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
@@ -123,13 +147,17 @@ static void redraw_items(Menu *m, const OptionsMenuState *st, const OptionsMenuO
     o->sound(o->ctx, MOVED);
     o->pointer_hide(o->ctx);
     o->lock(o->ctx);
-    if ((uint16_t)m->previous < ITEMS) {
+    if (m->previous == EXTRAS) {
+        extras_row(m, st, 0, o);
+    } else if ((uint16_t)m->previous < ITEMS) {
         blit(m, DARK[m->previous], o);
         if (m->previous == TRANSMISSION) blit(m, GEAR_DARK[*st->transmission], o);
         else if (m->previous == ABS) blit(m, ABS_DARK[*st->abs], o);
         else if (m->previous == TRACTION) blit(m, TRACTION_DARK[*st->traction], o);
     }
-    if ((uint16_t)m->selected < ITEMS) {
+    if (m->selected == EXTRAS) {
+        extras_row(m, st, 1, o);
+    } else if ((uint16_t)m->selected < ITEMS) {
         blit(m, LIT[m->selected], o);
         if (m->selected == TRANSMISSION) blit(m, GEAR_LIT[*st->transmission], o);
         else if (m->selected == ABS) blit(m, ABS_LIT[*st->abs], o);
@@ -241,6 +269,11 @@ static void choose(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
         o->music_pick(o->ctx);
         back(m, st, o);
         break;
+    case EXTRAS:
+        /* port: the EXTRAS screen opens over the live Options picture; back leaves it with Options as it was */
+        o->extras(o->ctx);
+        back(m, st, o);
+        break;
     case DONE:
         settle(m, st, o);
         m->done = 1;
@@ -254,16 +287,17 @@ static void choose(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 }
 
 /* Up: back one, Cancel to Credits, over Load / save while the connection is lost, Transmission to Done */
-static void step_up(Menu *m, const OptionsMenuState *st)
+static void step_up(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 {
     if (m->selected == CANCEL) m->selected--;
     m->selected--;
     if (m->selected < 0) m->selected = DONE;
+    if (m->selected == EXTRAS && o->extras == NULL) m->selected--;
     if (*st->lost && m->selected == LOAD_SAVE) m->selected--;
 }
 
 /* Down: Done and Cancel to Transmission, else on one */
-static void step_down(Menu *m, const OptionsMenuState *st)
+static void step_down(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 {
     if (m->selected == DONE || m->selected == CANCEL) {
         m->selected = TRANSMISSION;
@@ -271,6 +305,7 @@ static void step_down(Menu *m, const OptionsMenuState *st)
     }
     m->selected = (int16_t)((m->selected + 1) % ITEMS);
     if (*st->lost && m->selected == LOAD_SAVE) m->selected = (int16_t)((m->selected + 1) % ITEMS);
+    if (m->selected == EXTRAS && o->extras == NULL) m->selected = DONE;
 }
 
 /* a key other than the choosing ones: Escape puts back and leaves, the arrows step */
@@ -282,8 +317,8 @@ static void step(Menu *m, const OptionsMenuState *st, uint16_t k, const OptionsM
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
         m->previous = m->selected;
-        if (k == UP) step_up(m, st);
-        else step_down(m, st);
+        if (k == UP) step_up(m, st, o);
+        else step_down(m, st, o);
         move_to(m->selected, o);
         m->changed = 1;
     } else if ((k == LEFT || k == RIGHT) && (m->selected == DONE || m->selected == CANCEL)) {

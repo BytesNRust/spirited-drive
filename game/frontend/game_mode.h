@@ -51,6 +51,11 @@ typedef struct GameModeOps {
     void (*sound_free)(void *ctx);                                           /* 004649c8 */
     void (*free)(void *ctx, int32_t bank);                                   /* 00475260 (cdecl) */
     void *ctx;
+    /* port, after ctx so the original's initializers leave them NULL: the Modem item opens the EXTRAS screen
+     * (without the name box) and is labelled "EXTRAS" over its art. NULL: the original's Modem. */
+    void (*extras)(void *ctx);
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
+    int32_t (*plus_text_width)(void *ctx, const char *text);
 } GameModeOps;
 
 typedef struct GameModeState {

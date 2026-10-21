@@ -54,6 +54,13 @@ typedef struct OptionsMenuOps {
     void (*net_sync)(void *ctx);                                             /* 004104d0 (race_net_sync) */
     int32_t (*deadline_passed)(void *ctx);                                   /* 0047336d */
     void *ctx;
+    /* port, after ctx so the original's initializers leave them NULL: the Extras row's screen (extras_menu_run),
+     * opening over the live Options picture with Options carrying on behind it. NULL: no Extras row, as the original. */
+    void (*extras)(void *ctx);
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* the game's text, lit or dark */
+    int32_t (*plus_text_width)(void *ctx, const char *text);
+    void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                       int32_t framed);
 } OptionsMenuOps;
 
 /* config.dat's shorts and the globals the screen reads; read through the pointers as the original reads memory,
