@@ -76,11 +76,19 @@ void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t
     }
 }
 
-/* the fog's level at camera depth z */
-static int fog_level(float z)
+/* the 4x4 ordered dither's thresholds, (BAYER + 0.5) / 16 by (y & 3, x & 3) */
+static const float BAYER[4][4] = {
+    { 0.5f / 16, 8.5f / 16, 2.5f / 16, 10.5f / 16 },
+    { 12.5f / 16, 4.5f / 16, 14.5f / 16, 6.5f / 16 },
+    { 3.5f / 16, 11.5f / 16, 1.5f / 16, 9.5f / 16 },
+    { 15.5f / 16, 7.5f / 16, 13.5f / 16, 5.5f / 16 },
+};
+
+/* the fog's level at camera depth z for pixel x, y: between two levels a dither of both, so no bands */
+static int fog_level(float z, int x, int y)
 {
     const float t = (z - style.fog_start) / (style.fog_end - style.fog_start);
-    const int l = (int)(t * (MODERN_FOG_LEVELS - 1) + 0.5f);
+    const int l = (int)floorf(t * (MODERN_FOG_LEVELS - 1) + BAYER[y & 3][x & 3]);
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 
@@ -140,7 +148,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
             return;
         }
         for (int x = xs; x <= xe; x++)
-            row[x] = style.fog[fog_level(1.0f / (iz + at[0].dx * (float)(x - xs)))][fill->colour];
+            row[x] = style.fog[fog_level(1.0f / (iz + at[0].dx * (float)(x - xs)), x, y)][fill->colour];
         return;
     }
     for (int x = xs; x <= xe; x++) {
@@ -156,7 +164,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
             }
         }
         uint8_t c = texel(fill->texture, u, v);
-        if (style.fog != NULL && c < MAP_SHADE_TEXEL) c = style.fog[fog_level(r)][c];
+        if (style.fog != NULL && c < MAP_SHADE_TEXEL) c = style.fog[fog_level(r, x, y)][c];
         paint_texel(&fill->paint, &row[x], c);
     }
 }

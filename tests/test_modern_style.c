@@ -145,11 +145,47 @@ static void test_fog_depths(void)
     modern_road_set_style(NULL);
 }
 
+/* the levels in the 4x4 block at the screen's centre, counted */
+static void block_levels(const View *view, int counts[MODERN_FOG_LEVELS])
+{
+    memset(counts, 0, MODERN_FOG_LEVELS * sizeof *counts);
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++) {
+            const int l = screen[((view->centre_y & ~3) + y) * W + (view->centre_x & ~3) + x] - 100;
+            if (l >= 0 && l < MODERN_FOG_LEVELS) counts[l]++;
+        }
+}
+
+/* between two levels the fog is an ordered 4x4 dither of both (no bands); on a level, that level alone */
+static void test_fog_dither(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    memset(texels, 10, sizeof texels);
+    static uint8_t fog[MODERN_FOG_LEVELS][256];
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(100 + l);
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1000, 2000 };
+    modern_road_set_style(&style);
+    int counts[MODERN_FOG_LEVELS];
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 1500, 400, MAP_OPAQUE);   /* level 7.5 */
+    block_levels(&view, counts);
+    CHECK(counts[7] >= 7 && counts[7] <= 9);
+    CHECK_EQ_INT(counts[7] + counts[8], 16);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 1000 + 1000 * 7 / 15, 400, MAP_OPAQUE);   /* level 7 */
+    block_levels(&view, counts);
+    CHECK_EQ_INT(counts[7], 16);
+    modern_road_set_style(NULL);
+}
+
 int main(void)
 {
     test_filter_magnified();
     test_filter_minified();
     test_fog_tables();
     test_fog_depths();
+    test_fog_dither();
     return TEST_REPORT();
 }

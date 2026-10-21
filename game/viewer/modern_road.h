@@ -27,7 +27,8 @@ typedef struct {
                                      * pixel (a dithered stand-in for bilinear filtering in 256 colours); 0 nearest */
     const uint8_t (*fog)[256];      /* MODERN_FOG_LEVELS tables (modern_fog_tables), level 0 each colour itself; NULL
                                      * no fog */
-    float fog_start, fog_end;       /* camera depths where the fog begins and is whole */
+    float fog_start, fog_end;       /* camera depths where the fog begins and is whole (between levels a 4x4 ordered
+                                     * dither of both) */
 } ModernStyle;
 /* The style for the draws that follow (copied; the fog tables are kept by pointer); NULL none, as Modern 3D was. */
 void modern_road_set_style(const ModernStyle *style);
