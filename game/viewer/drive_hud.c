@@ -6,6 +6,7 @@
 #include "game/gfx/flat.h"
 #include "game/sys/key_codes.h"
 #include "game/sys/resource.h"
+#include "game/sys/shape_bank.h"
 #include "game/race/dash_controls.h"
 #include "game/race/dash_load.h"
 #include "game/race/hud_keys.h"
@@ -239,6 +240,27 @@ static void mask_runs(void *ctx, const uint8_t *runs)
     blit_runs(m->target, DRIVE_VIEW_W, m->h->view, runs);
 }
 
+/* port: the outside view without its strip draws below the exe's row, where the mask's runs (the exe's rows) never
+ * reach, so those lines would keep the frame the view was last presented whole. They are copied from the view as
+ * the runs do above, and the tach (which the runs go round) put back over them; the needle and the map come after. */
+static void view_below_runs(DriveHud *h, const RaceCamera *camera, const QuadTarget *screen, const QuadTarget *view)
+{
+    enum { HIGH_SCREEN = 1 };
+    if (camera == NULL || camera->layout_row == NULL || camera->layout < 0 || camera->layout >= VIEW_LAYOUTS) return;
+    const ViewLayout *l = camera->layout_row, *exe = &race_view_layouts[HIGH_SCREEN][camera->layout];
+    const int top = exe->top + exe->y + exe->unknown_24, bottom = l->top + l->y + l->unknown_24;   /* the clip boxes */
+    const int left = l->left + l->x, right = left + l->width;
+    if (bottom <= top || left < 0 || right > screen->pitch || bottom > screen->clip_bottom) return;
+    for (int y = top; y < bottom; y++)
+        memcpy(screen->pixels + (size_t)y * screen->pitch + left, view->pixels + (size_t)y * view->pitch + left,
+               (size_t)(right - left));
+    const uint8_t *tach = shape_bank_find(h->art.bank, (const uint8_t *)"tach");
+    if (tach == NULL) return;
+    QuadTarget below = *screen;
+    below.clip_top = top;
+    blit_shape_placed_transparent(&below, tach);
+}
+
 static void draw_mask(DriveHud *h, const RaceState *race, uint8_t *pixels, int width, int height, int32_t changed)
 {
     MaskSurfaces m = { h, { pixels, width, 0, 0, width, height },
@@ -250,6 +272,7 @@ static void draw_mask(DriveHud *h, const RaceState *race, uint8_t *pixels, int w
     const HudMaskInputs in = { camera != NULL ? camera->view : 0, 0, 0, use_parts, 0, width, height, h->strip_colour };
     uint8_t clear_view = 0;
     hud_mask_draw(&ops, &h->art, &h->hud, &clear_view, &in, changed);
+    if (changed == 0) view_below_runs(h, camera, &m.screen, &m.view);
 }
 
 /* 00420710's calls: the labels into the strip, the chase's kind taken
