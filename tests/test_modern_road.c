@@ -128,7 +128,7 @@ static void test_track_draw_hands_the_cell(void)
     for (int i = 0; i < 4; i++) track_project_near(&(DrawContext){ .view = &view }, c[i], 10, &s[2 * i]);
     Sink sink = { 0 };
     DrawContext ctx = { &view, { 0, 0, W, H }, 0, { 0, 0, 0x1999 },
-                        { &sink, on_uv, NULL, NULL, NULL, NULL, NULL, on_camera }, 10, 0 };
+                        { &sink, on_uv, NULL, NULL, NULL, NULL, NULL, on_camera, NULL }, 10, 0 };
     track_draw_subdivided(&ctx, &t, 1, 0, 0, 0, cam, s, 10);
     CHECK_EQ_INT(sink.camera_calls, 1);
     CHECK_EQ_INT(sink.uv_calls, 0);

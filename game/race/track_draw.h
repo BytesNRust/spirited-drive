@@ -35,6 +35,10 @@ typedef struct {
      * (00425718's subdivision, the near-plane push, the affine mapper) */
     void (*draw_camera)(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4]);
+    /* port: the same for the scenery boards the exe drops for a point nearer than 0x86 (0044a4b0), whatever Modern
+     * 3D's setting; NULL the exe's (no board) */
+    void (*port_near_camera)(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
+                             const int32_t *const cam[4]);
 } QuadSink;
 
 typedef struct {

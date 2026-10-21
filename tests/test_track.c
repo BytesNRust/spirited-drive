@@ -258,7 +258,7 @@ static void test_object3d(const char *dir)
     view_init(&view, 0, 0, 640, 480, 96, 96);
     const int32_t cam[3] = { 0, 0, 0 }, pos[3] = { 0, 0, 50 * 65536 };
     const int32_t m[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
-    const ModelView mv = { &view, cam, m, 0 };
+    const ModelView mv = { &view, cam, m, 0, 0 };
     Drawn d = { 0 };
     const Object3DSink sink = { &d, on_textured, on_flat, NULL, NULL };
     CHECK_EQ_INT(model_draw_object(&obj, pos, 0, &mv, &sink), 1);

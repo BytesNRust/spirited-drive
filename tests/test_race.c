@@ -250,7 +250,7 @@ static int check_skid_wrap(void)
     static View view;
     view_init(&view, 0, 0, 64, 48, 96, 96);
     const int32_t cam[3] = { 0, 0, 0 }, m[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
-    const ModelView mv = { &view, cam, m, 0 };
+    const ModelView mv = { &view, cam, m, 0, 0 };
     const QuadTarget target = { pixels, 64, 0, 0, 63, 47 };
     static SkidMarks marks;
     skid_reset(&marks);

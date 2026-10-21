@@ -723,7 +723,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     DrawContext ctx = { &view, { box[0], box[1], box[2], box[3] }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids,
-                          modern ? draw_camera : NULL }, 0,
+                          modern ? draw_camera : NULL, draw_camera }, 0,
                         vp->near_scale };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, view_mirrored(), vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
@@ -747,7 +747,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
     model_view = (ModelView){ &view, cam.position, cam.matrix,
-                              shadow_race != NULL && model_draw_half_side(shadow_race->track, shadow_race->track_variant) };
+                              shadow_race != NULL && model_draw_half_side(shadow_race->track, shadow_race->track_variant), 1 };
     car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
     for (int i = 0; i < car_count; i++) {
         cars[i].pose = list[i].pose;

@@ -63,9 +63,16 @@ static void camera_corners(const TrackObjectDraw *d, int32_t first, const int or
     for (int i = 0; i < 4; i++) out[i] = d->object_camera[first + order[i]];
 }
 
-/* one board: the exe's mapper through its screen corners, or Modern 3D's through their camera-space ones */
-static void board(TrackObjectDraw *d, int alternate, int32_t texture, int32_t first, const int order[4])
+/* one board: the exe's mapper through its screen corners, or Modern 3D's through their camera-space ones; a `near`
+ * one (port) through the near call */
+static void board(TrackObjectDraw *d, int alternate, int near, int32_t texture, int32_t first, const int order[4])
 {
+    if (near) {
+        const int32_t *cam[4];
+        camera_corners(d, first, order, cam);
+        d->ops.port_near_camera(d->ops.user, texture, cam);
+        return;
+    }
     int32_t screen[8];
     corners(d, first, order, screen);
     if (!track_quad_on_screen(screen)) return;
@@ -80,7 +87,8 @@ static void board(TrackObjectDraw *d, int alternate, int32_t texture, int32_t fi
     }
 }
 
-static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint8_t *desc, int32_t band, int32_t at)
+static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint8_t *desc, int32_t band, int32_t at,
+                           int near)
 {
     int32_t texture = desc[2] + level_of(record[8] != 0 ? LEVEL_MARKED : LEVEL, band);
     if ((desc[0] & ANIMATED) != 0) {
@@ -88,22 +96,25 @@ static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint
         texture += d->tick / desc[9] % desc[8] * 4;
     }
     static const int ORDER[4] = { 0, 1, 2, 3 };
-    board(d, 0, texture, at, ORDER);
+    board(d, 0, near, texture, at, ORDER);
 }
 
-static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band, int32_t at)
+static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band, int32_t at, int near)
 {
-    if (!deep(d, at + 4, 2)) return;
+    if (!deep(d, at + 4, 2)) {
+        if (d->ops.port_near_camera == NULL) return;
+        near = 1;
+    }
     /* With flag 1 the original builds the front on its stack and reads the
      * side's points 4 and 5 past that copy; no track has it (all 66 two-sided
      * descriptors have flags 0), the port takes them from the screen. */
     static const int FRONT[2][4] = { { 0, 1, 2, 3 }, { 1, 2, 3, 0 } };
     static const int SIDE[2][4] = { { 1, 4, 5, 2 }, { 4, 5, 2, 1 } };
     const int level = level_of(LEVEL, band);
-    board(d, 1, desc[2] + level, at, FRONT[desc[0] & FRONT_FROM_1]);
+    board(d, 1, near, desc[2] + level, at, FRONT[desc[0] & FRONT_FROM_1]);
     const uint32_t before = d->side_face;
     d->side_face = 1;
-    board(d, 1, desc[3] + level, at, SIDE[(desc[0] & SIDE_FROM_4) != 0]);
+    board(d, 1, near, desc[3] + level, at, SIDE[(desc[0] & SIDE_FROM_4) != 0]);
     d->side_face |= before;
 }
 
@@ -141,9 +152,10 @@ void track_object_draw(TrackObjectDraw *d, int32_t band, int visible)
         }
     } else {
         const int32_t at = w->vertex_cursor = x_sub(w->vertex_cursor, desc[1]);
-        if (visible && deep(d, at, 4)) {
-            if (desc[1] == BILLBOARD) draw_billboard(d, record, desc, band, at);
-            else if (desc[1] == TWO_SIDED) draw_two_sided(d, desc, band, at);
+        const int near = !deep(d, at, 4);
+        if (visible && (!near || (d->ops.port_near_camera != NULL && at >= 0 && at + desc[1] <= d->object_capacity))) {
+            if (desc[1] == BILLBOARD) draw_billboard(d, record, desc, band, at, near);
+            else if (desc[1] == TWO_SIDED) draw_two_sided(d, desc, band, at, near);
         }
     }
     previous_object(w, node);

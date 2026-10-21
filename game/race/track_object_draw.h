@@ -25,6 +25,9 @@ typedef struct {
     /* port: Modern 3D's, in place of full and full_alt when set (NULL the exe's): the board's corners in camera
      * space, the points' rows of object_camera, in the order the screen corners would go */
     void (*full_camera)(void *user, int32_t texture, const int32_t *const cam[4]);
+    /* port: a board with a point nearer than 0x86 (the exe drops it whole) through its camera-space corners, clipped
+     * at the near plane: a wide field shows its far end at the screen's side; NULL the exe's */
+    void (*port_near_camera)(void *user, int32_t texture, const int32_t *const cam[4]);
 } TrackObjectDrawOps;
 
 typedef struct {

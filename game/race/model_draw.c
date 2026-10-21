@@ -19,11 +19,12 @@ static uint32_t magnitude(int32_t v)
 }
 
 /* 00458c04: whole-object cull; z is in front, x within the view cone or
- * within MODEL_SIDE_MARGIN of the axis. */
-static int visible(const int32_t cam[3], int half_side_test)
+ * within MODEL_SIDE_MARGIN of the axis (port: the cone skipped with all_sides). */
+static int visible(const int32_t cam[3], int half_side_test, int all_sides)
 {
     const int32_t z = cam[2];
     if (z < MODEL_MIN_Z || z > MODEL_MAX_Z) return 0;
+    if (all_sides) return 1;
     const int32_t side = half_side_test ? cam[0] / 2 : cam[0];
     return !((int64_t)magnitude(side) > z && magnitude(cam[0]) > MODEL_SIDE_MARGIN);
 }
@@ -50,7 +51,7 @@ int model_draw_object(Object3D *obj, const int32_t position[3], int32_t heading,
     for (int i = 0; i < 3; i++)
         rel[i] = (int32_t)((uint32_t)position[i] - (uint32_t)mv->camera_position[i]) >> 12;
     mat3_apply(rel, mv->camera_matrix, cam);
-    if (!visible(cam, mv->half_side_test)) return 0;
+    if (!visible(cam, mv->half_side_test, mv->port_all_sides)) return 0;
     if (cam[2] < MODEL_NEAR_FLAG_Z) {
         obj->flags |= OBJECT3D_FLAG_NEAR;
     } else {

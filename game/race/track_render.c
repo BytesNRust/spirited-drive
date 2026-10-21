@@ -356,12 +356,20 @@ static void full_alt(void *ctx, const FshEntry *t, const int32_t screen[8])
     g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
 }
 
-/* port: Modern 3D's far road, the whole texture as 004f9e9c maps it */
+/* the whole texture's uv as 004f9e9c maps it */
+static void whole_uv(const FshEntry *t, int32_t uv[8])
+{
+    const int32_t right = ((int16_t)t->width << 16) - 1, bottom = ((int16_t)t->height << 16) - 1;
+    const int32_t whole[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+    memcpy(uv, whole, sizeof whole);
+}
+
+/* port: Modern 3D's far road, the whole texture */
 static void full_camera(void *ctx, const FshEntry *t, const int32_t *const cam[4])
 {
     const Glue *g = ctx;
-    const int32_t right = ((int16_t)t->width << 16) - 1, bottom = ((int16_t)t->height << 16) - 1;
-    const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+    int32_t uv[8];
+    whole_uv(t, uv);
     g->ctx->sink.draw_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
 }
 
@@ -411,6 +419,17 @@ static void object_full_camera(void *user, int32_t texture, const int32_t *const
     if (t != NULL) full_camera(user, t, cam);
 }
 
+/* port: a scenery board too near for the exe, the whole texture from camera-space corners */
+static void object_near_camera(void *user, int32_t texture, const int32_t *const cam[4])
+{
+    const Glue *g = user;
+    const FshEntry *t = scenery_texture(g->r->art, texture);
+    if (t == NULL) return;
+    int32_t uv[8];
+    whole_uv(t, uv);
+    g->ctx->sink.port_near_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
+}
+
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame)
 {
     if (r->tri == NULL || r->vertex_count == 0) return;
@@ -421,7 +440,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
                                 (const int32_t (*)[3])r->object_camera, (const int32_t (*)[2])r->object_screen,
                                 TRACK_MAX_OBJECT_VERTICES, frame, r->side_face,
                                 { (void *)&g, object_model, object_full, object_full_alt,
-                                  ctx->sink.draw_camera != NULL ? object_full_camera : NULL } };
+                                  ctx->sink.draw_camera != NULL ? object_full_camera : NULL,
+                                  ctx->sink.port_near_camera != NULL ? object_near_camera : NULL } };
     const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt,
                                       ctx->sink.draw_camera != NULL ? full_camera : NULL };
     const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars,

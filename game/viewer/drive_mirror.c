@@ -244,7 +244,7 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
         if (cam[i] >= f->m->vertices + 3 * f->m->count) return;
     const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
-                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL, NULL }, 0, 0 };
+                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, 0, 0 };
     mirror_draw_subdivided(&dc, t, u_level, 0, u_cell, 0, cam, screen, near);
 }
 
@@ -261,7 +261,7 @@ static void mirror_prepare(void *ctx, Car *car, int mirror)
 {
     Frame *f = ctx;
     const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix,
-                           model_draw_half_side(f->w->race->track, f->w->race->track_variant) };
+                           model_draw_half_side(f->w->race->track, f->w->race->track_variant), 0 };
     const CarShadowOps ops = { NULL, no_contact, no_skids };
     int32_t screen[8];
     car_prepare(&ops, car, &mv, mirror, 0, &f->target, NULL, screen);
@@ -273,7 +273,7 @@ static void car_draw_op(void *ctx, Car *car, int mirror)
     (void)mirror;
     if (f->w->draw_car == NULL) return;
     const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix,
-                           model_draw_half_side(f->w->race->track, f->w->race->track_variant) };
+                           model_draw_half_side(f->w->race->track, f->w->race->track_variant), 0 };
     f->w->draw_car(f->w->user, car, &mv, &f->target);
 }
 

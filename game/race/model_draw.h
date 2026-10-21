@@ -24,6 +24,8 @@ typedef struct {
     const int32_t *camera_position;  /* world 16.16 (camera struct 00511fe0 +0x10) */
     const int32_t *camera_matrix;    /* 00511fe4 */
     int half_side_test;              /* model_draw_half_side: the side test halves x */
+    int port_all_sides;              /* port: 1 skips the side test (a field wider than its 90 degree cone shows the
+                                      * models past it), 0 the exe's */
 } ModelView;
 
 /* 004fb7c2 (the track, 0 the city) == 0 && 004fb7be (the city stage less 1) == 2: CY3 */
