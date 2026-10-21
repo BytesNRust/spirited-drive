@@ -34,7 +34,8 @@ void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind
 void race_chase_cycle(RaceState *race, RaceChase *chase);
 
 /* 0040594c's choice of the next kind alone (above, before the cars ahead are looked at); with the port's
- * port_replay_cameras the player's live car takes CYCLE_RACING, as in a replay. */
+ * port_replay_cameras the player's live car takes CYCLE_RACING, as in a replay, but from 11 goes on to 10 and from 10
+ * to CYCLE_OWN (the dash), which a replay never shows: 0 1 2 3 4 5 11 10 0. */
 int32_t race_chase_pick(RaceState *race, const RaceChase *chase);
 
 /* 00405b00: chase takes view kind `kind`. Kinds 0..3, 10 and 11 become 13

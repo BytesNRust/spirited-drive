@@ -21,11 +21,15 @@ int main(void)
     int32_t k = 0;
     for (int i = 0; i < 4; i++) CHECK_EQ_INT(k = next_of(k), own[i]);
     CHECK_EQ_INT(next_of(10), 0);
-    /* with the extra, the replay's: 0 1 2 3 4 5 11 1 */
+    /* with the extra, the replay's and then the own car's two near ones back to the dash: 0 1 2 3 4 5 11 10 0 */
     race.port_replay_cameras = 1;
-    const int32_t replay[] = { 1, 2, 3, 4, 5, 11, 1 };
+    const int32_t replay[] = { 1, 2, 3, 4, 5, 11, 10, 0 };
     k = 0;
-    for (int i = 0; i < 7; i++) CHECK_EQ_INT(k = next_of(k), replay[i]);
+    for (int i = 0; i < 8; i++) CHECK_EQ_INT(k = next_of(k), replay[i]);
+    /* another car shown with the extra: the replay's as it is */
+    race.viewed = race.player + 1;
+    CHECK_EQ_INT(next_of(11), 1);
+    race.viewed = race.player;
     /* the same as a replay gives without the extra */
     race.port_replay_cameras = 0;
     race.replay = 1;

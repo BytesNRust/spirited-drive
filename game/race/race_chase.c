@@ -224,9 +224,12 @@ int32_t race_chase_pick(RaceState *race, const RaceChase *chase)
 {
     const int32_t *cycle = race->chase_kinds[chase->kind].cycle;
     if (race->phase == RACING) {
-        if (race->replay == 0 && race->viewed == race->player && race->unknown_513e6c == 0 &&
-            race->port_replay_cameras == 0)  /* port: the extra takes the replay's cycle */
-            return cycle[CYCLE_OWN];
+        if (race->replay == 0 && race->viewed == race->player && race->unknown_513e6c == 0) {
+            if (race->port_replay_cameras == 0) return cycle[CYCLE_OWN];
+            /* port: the extra takes the replay's cycle, and from its last (11) the own car's 10 and the dash */
+            if (chase->kind == KIND_NEAR_B) return KIND_NEAR_A;
+            if (chase->kind == KIND_NEAR_A) return cycle[CYCLE_OWN];
+        }
         return cycle[CYCLE_RACING];
     }
     if (chase->kind != KIND_POLICE && race->cops != 0 && race_chase_ahead_of_slot2(race, AHEAD_POLICE, AHEAD_UPTO) &&
