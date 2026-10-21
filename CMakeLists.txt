@@ -456,6 +456,12 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_link_libraries(test_drive_bumper PRIVATE tnfs_game)
     target_compile_options(test_drive_bumper PRIVATE ${TNFS_WARNINGS})
     add_test(NAME drive_bumper COMMAND test_drive_bumper)
+
+    add_executable(test_car_render_sides tests/test_car_render_sides.c)
+    target_include_directories(test_car_render_sides PRIVATE game)
+    target_link_libraries(test_car_render_sides PRIVATE tnfs_game)
+    target_compile_options(test_car_render_sides PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME car_render_sides COMMAND test_car_render_sides)
     add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c)
     target_include_directories(test_modern_objects PRIVATE game)
     target_link_libraries(test_modern_objects PRIVATE tnfs_game)

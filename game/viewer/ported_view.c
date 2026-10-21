@@ -26,6 +26,7 @@
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -529,13 +530,25 @@ static void render_tag(void *ctx, int32_t x, int32_t y, int32_t slot, int32_t z)
 /* 0051c774 */
 static int32_t car_world[9];
 
+/* port: how far the car's model reaches from its centre (car_render.h's port_reach) */
+static int32_t car_reach(const Object3D *o)
+{
+    int64_t most = 0;
+    for (uint32_t v = 0; v < o->vertex_count; v++) {
+        const int64_t x = o->model[v][0], y = o->model[v][1], z = o->model[v][2];
+        if (x * x + y * y + z * z > most) most = x * x + y * y + z * z;
+    }
+    return (int32_t)sqrt((double)most) + 1;
+}
+
 static void render_slot(ViewCar *vc, Car *car, int pass, const ModelView *mv, const Object3DSink *sink,
                         const QuadTarget *target)
 {
     BodyCtx b = { vc, car, sink, mv, target, { 0, 0, 0 }, 0 };
     const RaceState *race = shadow_race;
     const CarRenderOps ops = { &b, render_body, render_near, render_vertex, render_point, render_trail, render_tag };
-    const CarRenderInputs in = { mv->camera_matrix, race->player, race->replay, race->race_type, race->racers, SKID_HIGH_RES };
+    const CarRenderInputs in = { mv->camera_matrix, race->player, race->replay, race->race_type, race->racers, SKID_HIGH_RES,
+                                 mv->port_all_sides ? car_reach(vc->model.body) : 0 };
     car_render(&ops, &in, car, pass, car_world);
 }
 

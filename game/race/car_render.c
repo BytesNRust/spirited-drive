@@ -80,8 +80,12 @@ static void draw_tag(const CarRenderOps *ops, const CarRenderInputs *in, Car *ca
 void car_render(const CarRenderOps *ops, const CarRenderInputs *in, Car *car, int32_t mirror, int32_t world[9])
 {
     const int32_t z = car->camera_position[2], x = car->camera_position[0];
-    if (z < MIN_Z || z > MAX_Z) return;
-    if ((int32_t)((uint32_t)z * 2u) < (x > 0 ? x : (int32_t)(0u - (uint32_t)x))) return;
+    if (in->port_reach > 0 && car->index != in->followed) {   /* the followed car: the bumper view sits inside it */
+        if (z < -in->port_reach || z > MAX_Z) return;
+    } else {
+        if (z < MIN_Z || z > MAX_Z) return;
+        if ((int32_t)((uint32_t)z * 2u) < (x > 0 ? x : (int32_t)(0u - (uint32_t)x))) return;
+    }
     if (mirror != 0 && z > MIRROR_MAX_Z) return;
     car->far = far_model(car, mirror, z);
     int32_t body[9];
@@ -98,5 +102,6 @@ void car_render(const CarRenderOps *ops, const CarRenderInputs *in, Car *car, in
     }
     if (in->race_type < 1) return;
     if (in->racers - 1 < car->index) return;
+    if (z < MIN_Z) return;   /* port_reach: the centre behind the eye, no mark */
     draw_tag(ops, in, car);
 }

@@ -26,6 +26,10 @@ typedef struct {
     int32_t race_type;              /* 004fb7d0 */
     int32_t racers;                 /* 004fb7dc */
     int32_t high;                   /* 004fa0c0 */
+    int32_t port_reach;             /* port: 0 the exe's culls; else how far the car's model reaches from its centre
+                                     * (its units): drawn while any of it can be in front of the eye, whatever its side
+                                     * (a field wider than the exe's cone), its mark only with its centre in front; the
+                                     * followed car always as the exe (the bumper view's eye is inside it) */
 } CarRenderInputs;
 
 /* 004591d4 (watcall (car, mirror)): z = +0x399; nothing unless 0x20 <= z
