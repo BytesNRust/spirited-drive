@@ -44,3 +44,9 @@ PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f)
     r.turbo = (*f->track_flags & 8) != 0;
     return r;
 }
+void extras_no_assists(int16_t *abs, int16_t *traction)
+{
+    enum { OFF = 1, NOT_OFFERED = 2 };
+    if (*abs < NOT_OFFERED) *abs = OFF;
+    if (*traction < NOT_OFFERED) *traction = OFF;
+}

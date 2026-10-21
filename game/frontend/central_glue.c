@@ -173,6 +173,7 @@ static void extras_apply(void)
     g.explode = *f.explode, g.nitro = *f.nitro, g.vegas_cheat = *f.vegas_cheat, g.lost_vegas = *f.lost_vegas;
     g.warrior = *f.warrior;
     menu_cheats.keys_506 = (int32_t)*f.track_flags;
+    if (e.no_assists) extras_no_assists(&g.car_flag_a, &g.car_flag_b);   /* after 00465ec8 */
 }
 
 /* port: after a code has been typed, the flags say what is on; the switches are brought in line and the file is
@@ -437,6 +438,11 @@ static void image_car_flags(void *ctx)
     RaceSettings s = settings_of();
     if (!config_dat_get_race(config, &s)) return;
     race_settings_car_flags(&s);
+    if (port_extras_load().no_assists) {   /* port: no driving aids */
+        int16_t abs = (int16_t)s.car_flag_a, traction = (int16_t)s.car_flag_b;
+        extras_no_assists(&abs, &traction);
+        s.car_flag_a = abs, s.car_flag_b = traction;
+    }
     config_dat_set_race(config, &s);
 }
 

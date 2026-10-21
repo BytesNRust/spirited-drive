@@ -31,4 +31,8 @@ void extras_reapply(const PortExtras *e, const ExtrasFlags *f);
  * not own (the cameras, the Warrior as a rival, the movies, the aids, the start screen) are kept as they were. */
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f);
 
+/* After 00465ec8 with "no driving aids" on: ABS and traction control Off (1, the options screen's order On 0, Off 1,
+ * N/A 2) in the cars that have them; a car without them (2) and the gearbox stay as they are. */
+void extras_no_assists(int16_t *abs, int16_t *traction);
+
 #endif
