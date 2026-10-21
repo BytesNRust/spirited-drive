@@ -6,6 +6,7 @@
 #include "game/gfx/quad_pixel.h"
 
 #include <math.h>
+#include <string.h>
 
 enum { MAX_VERTS = 8 };
 
@@ -55,6 +56,55 @@ static uint8_t texel(const FshEntry *t, float u, float v)
     return t->payload[(size_t)y * t->width + x];
 }
 
+/* a barycentric weight along a row: w(px) = step * px + at; `lo`..`hi` narrowed to the pixel centres where it is
+ * not below -SPAN_SLACK (the slack keeps shared edges covered by both triangles: no cracks); 0 when none are */
+static const float SPAN_SLACK = 1e-5f;
+
+static int narrow(float step, float at, float *lo, float *hi)
+{
+    const float bound = (-SPAN_SLACK - at);
+    if (step > 0) *lo = fmaxf(*lo, bound / step);
+    else if (step < 0) *hi = fminf(*hi, bound / step);
+    else if (at < -SPAN_SLACK) return 0;
+    return *lo <= *hi;
+}
+
+/* the attribute planes: a value at a pixel centre is base + px * dx + py * dy */
+typedef struct {
+    float base, dx, dy;
+} Plane;
+
+static Plane plane(const float c[3][2], float a0, float a1, float a2)
+{
+    /* attribute = a2 + w0 (a0 - a2) + w1 (a1 - a2), with w = c[i][0] px + c[i][1] py + c[i][2] */
+    const float d0 = a0 - a2, d1 = a1 - a2;
+    return (Plane){ 0, c[0][0] * d0 + c[1][0] * d1, c[0][1] * d0 + c[1][1] * d1 };
+}
+
+/* one row's span: the pixels whose centres all three weights cover, its attributes stepped along it with one divide
+ * per pixel for the perspective */
+static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3], const Plane at[3], const Fill *fill)
+{
+    const float py = y + 0.5f;
+    float lo = x0 + 0.5f, hi = x1 + 0.5f;
+    for (int i = 0; i < 3; i++)
+        if (!narrow(w[i][0], w[i][1] * py + w[i][2], &lo, &hi)) return;
+    const int xs = (int)ceilf(lo - 0.5f), xe = (int)floorf(hi - 0.5f);
+    if (xs > xe) return;
+    uint8_t *row = q->pixels + (size_t)y * q->pitch;
+    if (fill->texture == NULL) {
+        memset(row + xs, fill->colour, (size_t)(xe - xs + 1));
+        return;
+    }
+    const float px = xs + 0.5f;
+    const float iz = at[0].base + at[0].dx * px + at[0].dy * py, uz = at[1].base + at[1].dx * px + at[1].dy * py,
+                vz = at[2].base + at[2].dx * px + at[2].dy * py;
+    for (int x = xs; x <= xe; x++) {
+        const float k = (float)(x - xs), r = 1.0f / (iz + at[0].dx * k);
+        paint_texel(&fill->paint, &row[x], texel(fill->texture, (uz + at[1].dx * k) * r, (vz + at[2].dx * k) * r));
+    }
+}
+
 static void triangle(const QuadTarget *q, const Screen *p0, const Screen *p1, const Screen *p2, const Fill *fill)
 {
     const float area = edge(p0, p1, p2->sx, p2->sy);
@@ -63,22 +113,22 @@ static void triangle(const QuadTarget *q, const Screen *p0, const Screen *p1, co
     const float lo_y = fminf(p0->sy, fminf(p1->sy, p2->sy)), hi_y = fmaxf(p0->sy, fmaxf(p1->sy, p2->sy));
     const int x0 = (int)fmaxf((float)q->clip_left, floorf(lo_x)), x1 = (int)fminf((float)q->clip_right - 1, ceilf(hi_x));
     const int y0 = (int)fmaxf((float)q->clip_top, floorf(lo_y)), y1 = (int)fminf((float)q->clip_bottom - 1, ceilf(hi_y));
-    for (int y = y0; y <= y1; y++) {
-        uint8_t *row = q->pixels + (size_t)y * q->pitch;
-        for (int x = x0; x <= x1; x++) {
-            const float px = x + 0.5f, py = y + 0.5f;
-            const float w0 = edge(p1, p2, px, py) / area, w1 = edge(p2, p0, px, py) / area, w2 = 1.0f - w0 - w1;
-            if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-            const float iz = w0 * p0->iz + w1 * p1->iz + w2 * p2->iz;
-            if (fill->texture == NULL) {
-                row[x] = fill->colour;
-                continue;
-            }
-            const uint8_t c = texel(fill->texture, (w0 * p0->uz + w1 * p1->uz + w2 * p2->uz) / iz,
-                                    (w0 * p0->vz + w1 * p1->vz + w2 * p2->vz) / iz);
-            paint_texel(&fill->paint, &row[x], c);
-        }
-    }
+    /* w0 = edge(p1, p2) / area, w1 = edge(p2, p0) / area as planes in px, py; w2 = 1 - w0 - w1 */
+    const float inv = 1.0f / area;
+    float w[3][3] = {
+        { -(p2->sy - p1->sy) * inv, (p2->sx - p1->sx) * inv, 0 },
+        { -(p0->sy - p2->sy) * inv, (p0->sx - p2->sx) * inv, 0 },
+        { 0, 0, 0 }
+    };
+    w[0][2] = -(w[0][0] * p1->sx + w[0][1] * p1->sy);
+    w[1][2] = -(w[1][0] * p2->sx + w[1][1] * p2->sy);
+    for (int k = 0; k < 3; k++) w[2][k] = (k == 2 ? 1.0f : 0.0f) - w[0][k] - w[1][k];
+    const float c[3][2] = { { w[0][0], w[0][1] }, { w[1][0], w[1][1] }, { 0, 0 } };
+    Plane at[3] = { plane(c, p0->iz, p1->iz, p2->iz), plane(c, p0->uz, p1->uz, p2->uz),
+                    plane(c, p0->vz, p1->vz, p2->vz) };
+    const float a2[3] = { p2->iz, p2->uz, p2->vz }, a0[3] = { p0->iz, p0->uz, p0->vz }, a1[3] = { p1->iz, p1->uz, p1->vz };
+    for (int k = 0; k < 3; k++) at[k].base = a2[k] + w[0][2] * (a0[k] - a2[k]) + w[1][2] * (a1[k] - a2[k]);
+    for (int y = y0; y <= y1; y++) span(q, y, x0, x1, w, at, fill);
 }
 
 static void draw_clipped(const QuadTarget *q, const View *view, const int32_t uv[8], const int32_t *const cam[4],
