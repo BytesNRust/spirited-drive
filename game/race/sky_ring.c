@@ -2,6 +2,8 @@
 
 #include "game/sys/fixed_math.h"
 
+#include <math.h>
+
 enum {
     RING_STEP = 0x1000,        /* 1/16 turn in 16-bit angles */
     RING_WINDOW_BIAS = 0x320000,
@@ -10,7 +12,10 @@ enum {
     FILL_PAD = 4,              /* 0043b0c8: left fills are 4 pixels wider, edges 4 higher */
     FILL_SLOPE_PAD = 3,
     CULL_LIMIT = 0x500,
-    FINAL_FLAG_BIT = 3         /* cells 8..15 use the mirrored set (004fcd74) */
+    FINAL_FLAG_BIT = 3,        /* cells 8..15 use the mirrored set (004fcd74) */
+    PORT_EXTRA = 2,            /* port_wide: slices added on each side */
+    PORT_EDGE_PAD = 16,        /* port_wide: a clipped slice ends this far past the view's edge */
+    PORT_PROBE_Z = 0x1000      /* port_wide: the depth the focal length is measured at */
 };
 
 void sky_ring_build(SkyRing *ring, const TrackInfo *info, const FshEntry *horz)
@@ -141,21 +146,64 @@ static void draw_quad(const SkySink *sink, const FshEntry *texture, const int32_
     sink->triangle(sink->user, texture, uv2, s + 4);
 }
 
+/* port_wide: a slice's end that projects behind the eye or past the cull limit */
+static int port_off(int ok, const int32_t s[2])
+{
+    return !ok || s[0] <= -CULL_LIMIT || s[0] >= CULL_LIMIT;
+}
+
+/* port_wide: the point of camera-space segment a -> b (a in front) whose x projects to `edge`, as the fraction t of
+ * the way from a; 0 when the segment does not get there */
+static double port_edge_t(const View *view, const int32_t a[3], const int32_t b[3], int32_t edge)
+{
+    const int32_t centre[3] = { 0, 0, PORT_PROBE_Z }, side[3] = { PORT_PROBE_Z, 0, PORT_PROBE_Z };
+    int32_t c[2], s[2];
+    view_project(view, centre, c);
+    view_project(view, side, s);
+    const double focal = s[0] - c[0], d = edge - c[0];
+    const double den = focal * ((double)b[0] - a[0]) - d * ((double)b[2] - a[2]);
+    if (den == 0.0) return 0.0;
+    const double t = (d * a[2] - focal * a[0]) / den;
+    return t > 0.0 && t <= 1.0 ? t : 0.0;
+}
+
+/* port_wide: a slice with one end off cut where it leaves the view (the nearer edge it crosses), that end's u moved
+ * along the cell with it; 0 when nothing of it is left */
+static int port_clip(const SkyFrame *f, const int32_t cam[2][3], int32_t screen[2][2], int off, int32_t uv[8])
+{
+    const int on = 1 - off;
+    const double tl = port_edge_t(f->view, cam[on], cam[off], f->clip_left - PORT_EDGE_PAD);
+    const double tr = port_edge_t(f->view, cam[on], cam[off], f->clip_right + PORT_EDGE_PAD);
+    const double t = tl == 0.0 ? tr : tr == 0.0 ? tl : tl < tr ? tl : tr;
+    if (t == 0.0) return 0;
+    int32_t p[3];
+    for (int c = 0; c < 3; c++) p[c] = (int32_t)lround(cam[on][c] + t * ((double)cam[off][c] - cam[on][c]));
+    if (!view_project(f->view, p, screen[off])) return 0;
+    /* corners 0 and 3 sit at the slice's first end, 1 and 2 at its second */
+    const int32_t u_on = on == 0 ? uv[0] : uv[2], u_off = on == 0 ? uv[2] : uv[0];
+    const int32_t u = (int32_t)lround(u_on + t * ((double)u_off - u_on));
+    if (off == 0) uv[0] = uv[6] = u;
+    else uv[2] = uv[4] = u;
+    return 1;
+}
+
 void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f, const FshEntry *horz,
                    const SkySink *sink)
 {
     if (f->reference_width == 0) return;
-    const int32_t start = window_start(f->yaw);
-    const int slices = ring->slices < SKY_RING_SLICES ? ring->slices : SKY_RING_SLICES;
+    const int extra = f->port_wide != 0 && ring->slices > 0 ? PORT_EXTRA : 0;
+    const int32_t start = (window_start(f->yaw) - extra + 16) % 16;
+    const int slices = (ring->slices < SKY_RING_SLICES ? ring->slices : SKY_RING_SLICES) + 2 * extra;
     /* 0048cf08, 0048cf60, 0048cdd0: ring points around the camera, in camera
      * space, projected. */
-    int32_t screen[SKY_RING_SLICES + 1][2];
+    int32_t screen[SKY_RING_SLICES + 2 * PORT_EXTRA + 1][2], cam[SKY_RING_SLICES + 2 * PORT_EXTRA + 1][3];
+    int ok[SKY_RING_SLICES + 2 * PORT_EXTRA + 1];
     for (int i = 0; i <= slices; i++) {
-        int32_t p[3], cam[3];
+        int32_t p[3];
         for (int c = 0; c < 3; c++)
             p[c] = add(ring->points[start + i][c] >> (f->world_shift & 31), f->position[c] >> (f->world_shift & 31));
-        mat3_apply(p, f->matrix, cam);
-        view_project(f->view, cam, screen[i]);
+        mat3_apply(p, f->matrix, cam[i]);
+        ok[i] = view_project(f->view, cam[i], screen[i]);
     }
     const int32_t scale = (int32_t)((uint32_t)f->viewport.scale * (uint32_t)f->viewport.width) / f->reference_width;
     const int32_t offset = fx_mul_round(info->ring_y_offset, scale);
@@ -171,11 +219,21 @@ void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f
     const uint8_t bottom = horz->payload[(size_t)horz->width * horz->height - 1];
     if (!f->sky_off) sky_fills(&f->viewport, roll, f->horizon, below, above, top, bottom, sink);
     for (int k = 0; k < slices; k++) {
-        const int32_t *a = screen[k], *b = screen[k + 1];
+        const int32_t cell = start + k;
+        const int set = info->sky_flag != 0 && ((cell >> FINAL_FLAG_BIT) & 1);
+        int32_t uv[8], ends[2][2] = { { screen[k][0], screen[k][1] }, { screen[k + 1][0], screen[k + 1][1] } };
+        for (int i = 0; i < 8; i++) uv[i] = ring->uv[set][cell & 7][i];
+        if (extra != 0) {
+            const int off0 = port_off(ok[k], screen[k]), off1 = port_off(ok[k + 1], screen[k + 1]);
+            if (off0 && off1) continue;
+            const int32_t ends_cam[2][3] = { { cam[k][0], cam[k][1], cam[k][2] },
+                                             { cam[k + 1][0], cam[k + 1][1], cam[k + 1][2] } };
+            if ((off0 || off1) && !port_clip(f, ends_cam, ends, off0 ? 0 : 1, uv)) continue;
+        }
+        const int32_t *a = ends[0], *b = ends[1];
         const int32_t q[8] = { add(a[0], dx_up), add(a[1], dy_up), add(b[0], dx_up), add(b[1], dy_up),
                                sub(b[0], dx_down), sub(b[1], dy_down), sub(a[0], dx_down), sub(a[1], dy_down) };
         if (!slice_visible(q, f->mirrored, f->clip_right, f->clip_left)) continue;
-        const int32_t cell = start + k;
         if (f->sky_off) {
             const int32_t floor = add(f->viewport.y, f->viewport.h);
             const int32_t up[8] = { a[0], f->viewport.y, b[0], f->viewport.y, b[0], b[1], a[0], a[1] };
@@ -184,7 +242,6 @@ void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f
             sink->polygon(sink->user, bottom, down);
             continue;
         }
-        const int set = info->sky_flag != 0 && ((cell >> FINAL_FLAG_BIT) & 1);
-        draw_quad(sink, horz, ring->uv[set][cell & 7], q, f->screen_shift);
+        draw_quad(sink, horz, uv, q, f->screen_shift);
     }
 }

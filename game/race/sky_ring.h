@@ -66,6 +66,8 @@ typedef struct {
     int32_t clip_right;         /* 00512024 (640) */
     int32_t clip_left;          /* 0051202c (0) */
     int sky_off;                /* 004fb786 (F4, 004381f8) */
+    int port_wide;              /* port: slices past the exe's seven, clipped at the view's edges, for a field wider
+                                 * than they reach; 0 the exe's */
 } SkyFrame;
 
 typedef struct {

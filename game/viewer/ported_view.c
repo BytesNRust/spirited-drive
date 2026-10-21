@@ -642,7 +642,7 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     if (!ring.enabled) return;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
-                         viewport.sky_height }, screen_w, screen_w, 0, sky_off };
+                         viewport.sky_height }, screen_w, screen_w, 0, sky_off, 1 };   /* port: wide fields */
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
