@@ -150,8 +150,9 @@ void hud_draw_lap(const QuadTarget *t, HudState *hud, const DashArt *dash, const
 void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *dash, int16_t beeps[HUD_BEEPS],
                            int32_t tick, int32_t high_res, uint32_t strip_colour);
 
-/* port: the start lights were drawn on `tick` (lights_until = tick + 10 is what the draw left; hud_reset's 0x7d000
- * and the ten ticks after the last draw are not). */
+/* port: the start lights are on the strip at `tick`: from their first draw (lights_until = tick + 10) until
+ * hud_keys draws the labels over them, lights_until below the tick, ten ticks after the last draw. The speed and
+ * time are drawn over them from tick 0x169, the lights stay until then. hud_reset's 0x7d000 is not. */
 int hud_start_lights_drawn(const HudState *hud, int32_t tick);
 
 /* 00420370: with hud->redraw set and past tick 0x167, the top row's fixed
