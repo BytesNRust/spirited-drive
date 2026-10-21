@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L  /* strtok_r, which the web build's C11 headers keep behind it */
 #include "formats/track_gen.h"
 
 #include "formats/tri.h"
