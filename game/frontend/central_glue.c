@@ -746,6 +746,7 @@ static void race(void *ctx)
     if (config_dat_get_race(config, &after)) settings_put(&after);
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
     races_from_state();
+    extras_apply();   /* port: get_race zeroes the variants; the next race from the same Control Central keeps them */
 }
 
 /* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */
