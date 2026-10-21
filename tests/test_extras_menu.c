@@ -203,16 +203,33 @@ static void test_page_two_switches_saved(void)
     CHECK_EQ_INT((int)r.fake.saved.start, START_CENTRAL);
 }
 
-/* page 2's last switch, Modern 3D, on and saved: Up from Replay Cameras is Done, Up again Modern 3D */
+/* page 2's Modern 3D on and saved: Up from Replay Cameras is Done, then Fog, Texture Filter, Modern 3D */
 static void test_modern_3d_saved(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, UP, UP, RIGHT, DOWN, ENTER };
+    const int keys[] = { UP, RIGHT, RIGHT, UP, UP, UP, UP, RIGHT, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 8);
+    run(&r, keys, 12);
     CHECK(shown(&r.fake, "Modern 3D"));
     CHECK_EQ_INT(r.fake.saves, 1);
     CHECK_EQ_INT(r.fake.saved.modern_3d, 1);
+    CHECK_EQ_INT(r.fake.saved.texture_filter, 0);
+    CHECK_EQ_INT(r.fake.saved.fog, 0);
+}
+
+/* page 2's last two switches, Texture Filter and Fog, on and saved; both start Off */
+static void test_filter_and_fog_saved(void)
+{
+    Rig r;
+    const int keys[] = { UP, RIGHT, RIGHT, UP, UP, RIGHT, UP, RIGHT, DOWN, DOWN, ENTER };
+    setup(&r);
+    run(&r, keys, 11);
+    CHECK(shown(&r.fake, "Texture Filter"));
+    CHECK(shown(&r.fake, "Fog"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.texture_filter, 1);
+    CHECK_EQ_INT(r.fake.saved.fog, 1);
+    CHECK_EQ_INT(r.fake.saved.modern_3d, 0);
 }
 
 static void test_left_on_page_two_done_goes_back(void)
@@ -289,6 +306,7 @@ int main(void)
     test_rally_excludes_mirror();
     test_page_two_switches_saved();
     test_modern_3d_saved();
+    test_filter_and_fog_saved();
     test_left_on_page_two_done_goes_back();
     test_up_from_cancel_and_unlock_left();
     test_nav_click_turns_the_page();

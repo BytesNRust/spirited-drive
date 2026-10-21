@@ -13,6 +13,7 @@ typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
     int modern_3d;    /* 0/1: the 3D clipped, unsnapped and perspective-correct, not the PS1-era mapper's warp */
+    int texture_filter, fog;    /* 0/1, over Modern 3D (modern_road.h's ModernStyle); nothing without it */
     StartScreen start;                                          /* START_GAME_MODE */
 } PortExtras;
 

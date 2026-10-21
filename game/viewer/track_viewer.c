@@ -816,6 +816,13 @@ static const uint8_t *drive_output(const uint8_t *pixels, int *width)
     return drive_wide.width > SCREEN_W ? drive_wide.pixels : pixels;
 }
 
+/* port: an environment switch for the checks (1 / 0), else `otherwise` */
+static int env_switch(const char *name, int otherwise)
+{
+    const char *v = getenv(name);
+    return v != NULL ? atoi(v) != 0 : otherwise;
+}
+
 /* port: the race about to start: its 640 x 480 rows without the strip in every format, the field's adjustment, and
  * 640 wide until drive_wide_size */
 static void drive_wide_setup(void)
@@ -827,9 +834,11 @@ static void drive_wide_setup(void)
     const char *ultra_env = getenv("TNFS_VIEW_ULTRA");
     const int ultra = ultra_env != NULL ? atoi(ultra_env) != 0 : ps.view_ultra;
     ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
-    /* port: EXTRAS' Modern 3D (TNFS_MODERN_3D=1 / 0 overrides extras.cfg for the checks) */
-    const char *modern_env = getenv("TNFS_MODERN_3D");
-    ported_view_set_modern(modern_env != NULL ? atoi(modern_env) != 0 : port_extras_load().modern_3d);
+    /* port: EXTRAS' Modern 3D, Texture Filter and Fog (TNFS_MODERN_3D, TNFS_TEXTURE_FILTER, TNFS_FOG = 1 / 0
+     * override extras.cfg for the checks) */
+    const PortExtras extras = port_extras_load();
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", extras.modern_3d));
+    ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", extras.texture_filter), env_switch("TNFS_FOG", extras.fog));
     race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;

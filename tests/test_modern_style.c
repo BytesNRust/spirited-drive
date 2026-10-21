@@ -1,0 +1,155 @@
+/* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_road.h's ModernStyle): the filter an ordered 2x2
+ * sub-texel offset where a texel spans more than a pixel, the fog a table per depth level towards one colour; with
+ * no style the picture as Modern 3D draws it. */
+#include "viewer/modern_road.h"
+#include "test.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+enum { W = 640, H = 480, TEX = 16, UNTOUCHED = 3 };
+
+static uint8_t screen[W * H];
+static uint8_t texels[TEX * TEX];
+
+static FshEntry texture(void)
+{
+    return (FshEntry){ { 0 }, FSH_TYPE_BITMAP, 0, TEX, TEX, { 0 }, texels, sizeof texels };
+}
+
+/* texels: columns below TEX / 2 colour 10, the rest colour 20 */
+static void halves(void)
+{
+    for (int v = 0; v < TEX; v++)
+        for (int u = 0; u < TEX; u++) texels[v * TEX + u] = (uint8_t)(u < TEX / 2 ? 10 : 20);
+}
+
+/* a wall facing the eye at depth z, x -w..w, y -w..w, the whole texture over it */
+static void wall(const View *view, int32_t z, int32_t w, MapMode mode)
+{
+    static int32_t c[4][3];
+    const int32_t corners[4][3] = { { -w, w, z }, { w, w, z }, { w, -w, z }, { -w, -w, z } };
+    memcpy(c, corners, sizeof c);
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    const int32_t uv[8] = { 0, 0, TEX << 16, 0, TEX << 16, TEX << 16, 0, TEX << 16 };
+    const FshEntry t = texture();
+    const QuadTarget q = { screen, W, 0, 0, W, H };
+    modern_polygon(&q, view, &t, uv, cam, 4, mode, NULL);
+}
+
+/* the columns of the middle row where the two colours meet: 1 without the filter, a few dithered with it */
+static int mixed_columns(const View *view)
+{
+    int changes = 0;
+    const uint8_t *row = screen + (size_t)view->centre_y * W;
+    for (int x = 1; x < W; x++) changes += row[x] != row[x - 1] && row[x] != UNTOUCHED && row[x - 1] != UNTOUCHED;
+    return changes;
+}
+
+static void test_filter_magnified(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    halves();
+    modern_road_set_style(NULL);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 100, 40, MAP_OPAQUE);   /* 16 texels over ~256 pixels: 16 pixels a texel */
+    CHECK_EQ_INT(mixed_columns(&view), 1);
+    const ModernStyle filter = { 1, NULL, 0, 0 };
+    modern_road_set_style(&filter);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 100, 40, MAP_OPAQUE);
+    const int mixed = mixed_columns(&view);
+    CHECK(mixed > 1 && mixed <= 8);   /* the meeting dithered over under a texel, not the whole wall */
+    /* only the two colours: an offset texel, never a new one */
+    int other = 0;
+    for (int i = 0; i < W * H; i++) other += screen[i] != UNTOUCHED && screen[i] != 10 && screen[i] != 20;
+    CHECK_EQ_INT(other, 0);
+    modern_road_set_style(NULL);
+}
+
+/* a wall far enough that a texel is under a pixel: the filter leaves it as it was */
+static void test_filter_minified(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    for (int i = 0; i < TEX * TEX; i++) texels[i] = (uint8_t)(i * 7);
+    static uint8_t plain[W * H];
+    modern_road_set_style(NULL);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 4000, 40, MAP_OPAQUE);   /* 16 texels over ~6 pixels */
+    memcpy(plain, screen, sizeof plain);
+    const ModernStyle filter = { 1, NULL, 0, 0 };
+    modern_road_set_style(&filter);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 4000, 40, MAP_OPAQUE);
+    CHECK(memcmp(plain, screen, sizeof plain) == 0);
+    modern_road_set_style(NULL);
+}
+
+/* the tables: level 0 each colour itself, the last the colour nearest the fog's; 0xfe and 0xff never come out */
+static void test_fog_tables(void)
+{
+    uint8_t palette[768];
+    for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)(i / 4);
+    /* the markers the fog's colour exactly (the greys 1 away), yet barred */
+    palette[3 * 0xfe] = 41, palette[3 * 0xfe + 1] = palette[3 * 0xfe + 2] = 40;
+    palette[3 * 0xff] = 41, palette[3 * 0xff + 1] = palette[3 * 0xff + 2] = 40;
+    static uint8_t fog[MODERN_FOG_LEVELS][256];
+    const uint8_t rgb[3] = { 41, 40, 40 };
+    modern_fog_tables(palette, rgb, fog);
+    for (int c = 0; c < 256; c++) CHECK_EQ_INT(fog[0][c], c);
+    CHECK_EQ_INT(fog[MODERN_FOG_LEVELS - 1][0] / 4, 40);   /* grey 40: colours 160..163 */
+    CHECK_EQ_INT(fog[MODERN_FOG_LEVELS - 1][255] / 4, 40);
+    int barred = 0;
+    for (int l = 1; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 256; c++) barred += fog[l][c] >= 0xfe;
+    CHECK_EQ_INT(barred, 0);
+    /* half way, black goes half way to the fog */
+    const int mid = fog[MODERN_FOG_LEVELS / 2][0] / 4;
+    CHECK(mid >= 18 && mid <= 23);
+}
+
+/* a wall before the fog's start untouched; past its end the fog's colour; textured and flat alike */
+static void test_fog_depths(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    memset(texels, 10, sizeof texels);
+    static uint8_t fog[MODERN_FOG_LEVELS][256];
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1000, 2000 };
+    modern_road_set_style(&style);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 500, 40, MAP_OPAQUE);
+    CHECK_EQ_INT(screen[view.centre_y * W + view.centre_x], 10);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 3000, 400, MAP_OPAQUE);
+    CHECK_EQ_INT(screen[view.centre_y * W + view.centre_x], 100 + MODERN_FOG_LEVELS - 1);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 1500, 400, MAP_OPAQUE);   /* half way: a middle level */
+    const int got = screen[view.centre_y * W + view.centre_x] - 100;
+    CHECK(got >= MODERN_FOG_LEVELS / 2 - 2 && got <= MODERN_FOG_LEVELS / 2 + 1);
+    static int32_t c[4][3] = { { -400, 400, 3000 }, { 400, 400, 3000 }, { 400, -400, 3000 }, { -400, -400, 3000 } };
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    const QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    modern_flat(&q, &view, 10, cam, 4);
+    CHECK_EQ_INT(screen[view.centre_y * W + view.centre_x], 100 + MODERN_FOG_LEVELS - 1);
+    /* a shadow texel (MAP_SHADE 0xfe) shades what is under it, unfogged; a transparent one leaves it */
+    memset(texels, 0xff, sizeof texels);
+    memset(screen, UNTOUCHED, sizeof screen);
+    wall(&view, 3000, 400, MAP_TRANSPARENT);
+    CHECK_EQ_INT(screen[view.centre_y * W + view.centre_x], UNTOUCHED);
+    modern_road_set_style(NULL);
+}
+
+int main(void)
+{
+    test_filter_magnified();
+    test_filter_minified();
+    test_fog_tables();
+    test_fog_depths();
+    return TEST_REPORT();
+}

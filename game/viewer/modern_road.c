@@ -48,6 +48,45 @@ static float edge(const Screen *a, const Screen *b, float x, float y)
     return (b->sx - a->sx) * (y - a->sy) - (b->sy - a->sy) * (x - a->sx);
 }
 
+static ModernStyle style;   /* none: filter 0, fog NULL */
+
+void modern_road_set_style(const ModernStyle *s)
+{
+    style = s != NULL ? *s : (ModernStyle){ 0, NULL, 0, 0 };
+}
+
+void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
+    for (int c = 0; c < 256; c++) out[0][c] = (uint8_t)c;
+    for (int l = 1; l < MODERN_FOG_LEVELS; l++) {
+        const float t = (float)l / (MODERN_FOG_LEVELS - 1);
+        for (int c = 0; c < 256; c++) {
+            float want[3];
+            for (int k = 0; k < 3; k++) want[k] = palette[3 * c + k] + (rgb[k] - palette[3 * c + k]) * t;
+            int best = 0;
+            float best_d = 1e30f;
+            for (int i = 0; i < CHOICES; i++) {
+                const float dr = palette[3 * i] - want[0], dg = palette[3 * i + 1] - want[1], db = palette[3 * i + 2] - want[2];
+                const float d = dr * dr + dg * dg + db * db;
+                if (d < best_d) best = i, best_d = d;
+            }
+            out[l][c] = (uint8_t)best;
+        }
+    }
+}
+
+/* the fog's level at camera depth z */
+static int fog_level(float z)
+{
+    const float t = (z - style.fog_start) / (style.fog_end - style.fog_start);
+    const int l = (int)(t * (MODERN_FOG_LEVELS - 1) + 0.5f);
+    return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
+}
+
+/* the filter's offsets in texels, by (x & 1) | (y & 1) << 1: the 2x2 ordered pattern, centred on 0 */
+static const float FILTER[4][2] = { { -0.125f, -0.375f }, { 0.125f, 0.375f }, { 0.375f, 0.125f }, { -0.375f, -0.125f } };
+
 static uint8_t texel(const FshEntry *t, float u, float v)
 {
     int x = (int)floorf(u), y = (int)floorf(v);
@@ -92,16 +131,33 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const int xs = (int)ceilf(lo - 0.5f), xe = (int)floorf(hi - 0.5f);
     if (xs > xe) return;
     uint8_t *row = q->pixels + (size_t)y * q->pitch;
-    if (fill->texture == NULL) {
-        memset(row + xs, fill->colour, (size_t)(xe - xs + 1));
-        return;
-    }
     const float px = xs + 0.5f;
     const float iz = at[0].base + at[0].dx * px + at[0].dy * py, uz = at[1].base + at[1].dx * px + at[1].dy * py,
                 vz = at[2].base + at[2].dx * px + at[2].dy * py;
+    if (fill->texture == NULL) {
+        if (style.fog == NULL) {
+            memset(row + xs, fill->colour, (size_t)(xe - xs + 1));
+            return;
+        }
+        for (int x = xs; x <= xe; x++)
+            row[x] = style.fog[fog_level(1.0f / (iz + at[0].dx * (float)(x - xs)))][fill->colour];
+        return;
+    }
     for (int x = xs; x <= xe; x++) {
         const float k = (float)(x - xs), r = 1.0f / (iz + at[0].dx * k);
-        paint_texel(&fill->paint, &row[x], texel(fill->texture, (uz + at[1].dx * k) * r, (vz + at[2].dx * k) * r));
+        float u = (uz + at[1].dx * k) * r, v = (vz + at[2].dx * k) * r;
+        if (style.filter) {
+            /* a texel's span across and down the screen at this pixel: the filter only where it is over a pixel */
+            const float du_x = (at[1].dx - u * at[0].dx) * r, dv_x = (at[2].dx - v * at[0].dx) * r;
+            const float du_y = (at[1].dy - u * at[0].dy) * r, dv_y = (at[2].dy - v * at[0].dy) * r;
+            if (fabsf(du_x) < 1 && fabsf(dv_x) < 1 && fabsf(du_y) < 1 && fabsf(dv_y) < 1) {
+                const float *o = FILTER[(x & 1) | (y & 1) << 1];
+                u += o[0], v += o[1];
+            }
+        }
+        uint8_t c = texel(fill->texture, u, v);
+        if (style.fog != NULL && c < MAP_SHADE_TEXEL) c = style.fog[fog_level(r)][c];
+        paint_texel(&fill->paint, &row[x], c);
     }
 }
 

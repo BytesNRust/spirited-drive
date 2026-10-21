@@ -13,14 +13,15 @@ static const char *const START_NAMES[] = { "game_mode", "network", "central" };
 /* The switches, in the order they are written. */
 static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas", "explode", "nitro",
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
-                                            "modern_3d" };
+                                            "modern_3d", "texture_filter", "fog" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
 static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
 {
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
-                        e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d };
+                        e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d,
+                        e->texture_filter, e->fog };
     memcpy(rows, all, sizeof all);
 }
 
@@ -28,14 +29,14 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 {
     int *const all[] = { &e->mirror, &e->rally,  &e->warrior, &e->vegas,  &e->explode, &e->nitro,
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
-                         &e->modern_3d };
+                         &e->modern_3d, &e->texture_filter, &e->fog };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE };
     return d;
 }
 

@@ -382,6 +382,7 @@ add_executable(tnfs
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
+    game/viewer/modern_look.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
     game/viewer/ported_view.c
@@ -439,6 +440,16 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_link_libraries(test_modern_road PRIVATE tnfs_game)
     target_compile_options(test_modern_road PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_road COMMAND test_modern_road)
+    add_executable(test_modern_style tests/test_modern_style.c game/viewer/modern_road.c)
+    target_include_directories(test_modern_style PRIVATE game)
+    target_link_libraries(test_modern_style PRIVATE tnfs_game)
+    target_compile_options(test_modern_style PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME modern_style COMMAND test_modern_style)
+    add_executable(test_modern_look tests/test_modern_look.c game/viewer/modern_look.c game/viewer/modern_road.c)
+    target_include_directories(test_modern_look PRIVATE game)
+    target_link_libraries(test_modern_look PRIVATE tnfs_game)
+    target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME modern_look COMMAND test_modern_look)
     add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c)
     target_include_directories(test_modern_objects PRIVATE game)
     target_link_libraries(test_modern_objects PRIVATE tnfs_game)

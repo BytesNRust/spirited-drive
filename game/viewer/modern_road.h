@@ -20,4 +20,19 @@ void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *textu
 /* port: a flat polygon (3 or 4 corners) of one palette colour, clipped the same way */
 void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const int32_t *const cam[4], int corners);
 
+/* port: EXTRAS' Texture Filter and Fog on the polygons above. */
+enum { MODERN_FOG_LEVELS = 16 };
+typedef struct {
+    int filter;                     /* 1: where a texel spans more than a pixel, an ordered 2x2 sub-texel offset per
+                                     * pixel (a dithered stand-in for bilinear filtering in 256 colours); 0 nearest */
+    const uint8_t (*fog)[256];      /* MODERN_FOG_LEVELS tables (modern_fog_tables), level 0 each colour itself; NULL
+                                     * no fog */
+    float fog_start, fog_end;       /* camera depths where the fog begins and is whole */
+} ModernStyle;
+/* The style for the draws that follow (copied; the fog tables are kept by pointer); NULL none, as Modern 3D was. */
+void modern_road_set_style(const ModernStyle *style);
+/* The fog's tables for a palette (768 bytes, as the art's): level l the colour nearest each colour moved l /
+ * (MODERN_FOG_LEVELS - 1) of the way to rgb (the palette's scale); 0xfe and 0xff, the mappers' markers, never chosen. */
+void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[MODERN_FOG_LEVELS][256]);
+
 #endif

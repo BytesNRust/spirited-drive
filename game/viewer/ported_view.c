@@ -21,6 +21,7 @@
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
+#include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
@@ -54,6 +55,11 @@ static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], co
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
 
 void ported_view_set_modern(int on) { modern = on != 0; }
+
+static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
+static ModernLook look;
+
+void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
 
 /* port: the view the 3D objects' pixels clip and project by when Modern 3D is on, else NULL (the exe's mappers) */
 static const View *modern_view(const View *view) { return modern ? view : NULL; }
@@ -743,6 +749,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                           horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
     }
     stream(tri, art, pc->node);
+    modern_road_set_style(modern ? modern_look_style(&look, art, look_filter, look_fog, render.draw_segments) : NULL);
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
