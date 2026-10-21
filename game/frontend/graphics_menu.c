@@ -4,7 +4,7 @@
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, F1 = 0x3b00, F2 = 0x3c00, F3 = 0x3d00, F4 = 0x3e00, UP = 0x4800,
-       LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000, PAGE_DOWN = 0x5100, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
+       LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000, PAGE_UP = 0x4900, PAGE_DOWN = 0x5100, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { RESOLUTION, WINDOW, IMAGE, VIEW, CARS, HORIZON, DONE, CANCEL, ITEMS, SETTINGS = DONE };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, WIDE = 0x280, ALL = 0x100, LOW = 1 };
 
@@ -252,7 +252,7 @@ static void step(Menu *m, int32_t mode, uint16_t k, const GraphicsMenuState *st,
     if (k == ESCAPE) {
         put_back(m, st);
         o->sound(o->ctx, CHOSEN);
-    } else if (st->plus && (k == PAGE_DOWN || (k == RIGHT && m->selected < DONE))) {
+    } else if (st->plus && (k == PAGE_UP || k == PAGE_DOWN || (k == RIGHT && m->selected < DONE))) {
         second_page(m, st, o);
     } else if (k == UP) {
         o->pointer_off(o->ctx);

@@ -322,6 +322,14 @@ static void test_the_key_that_turned_the_page_does_not_step(void)
     CHECK(!shown(&r.fake, "21:9"));   /* one step, not two */
 }
 
+static void test_page_up_from_page_one_goes_to_page_two(void)
+{
+    Rig r;
+    const int keys[] = { 0x4900 /* page up */, SPACE, ENTER };
+    run(&r, keys, 3, 1);
+    CHECK(shown(&r.fake, "< 2/2"));
+}
+
 static void test_second_page_cancel_puts_back(void)
 {
     Rig r;
@@ -404,6 +412,7 @@ int main(void)
     test_second_page_edits_and_done_saves();
     test_right_arrow_turns_to_page_two();
     test_the_key_that_turned_the_page_does_not_step();
+    test_page_up_from_page_one_goes_to_page_two();
     test_second_page_cancel_puts_back();
     test_back_to_page_one_and_cancel_button();
     test_cancel_button_on_page_two_puts_back();

@@ -1025,7 +1025,9 @@ static void graphics(void *ctx, int32_t mode)
         nothing, ticks, activate, key, click, off, music, net_sync, deadline_passed, fade_out, free_handle_inverse,
         free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save };
     input_function_keys(&showing);
+    input_page_keys(mode == 0);
     graphics_menu(&st, mode, &ops);
+    input_page_keys(0);
     input_function_keys(NULL);
     opt_out();
     /* port: the screen's settings changed (Done): the window takes them now, not at the next start */
