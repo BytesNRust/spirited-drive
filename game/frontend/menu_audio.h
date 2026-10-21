@@ -23,6 +23,7 @@ void menu_audio_music_feed(void);               /* 004640d0 */
 void menu_audio_music_service(void);            /* 0046417c */
 void menu_audio_music_fade_out(void);           /* 004644f0 */
 void menu_audio_music_end(void);                /* 00464568 */
+void menu_audio_music_cut(void);                /* 00464534 */
 void menu_audio_music_fade_to(int32_t volume);  /* 00464604 */
 void menu_audio_music_pick(void);               /* 004562e8 */
 void menu_audio_music_track(void);              /* 00456244 */

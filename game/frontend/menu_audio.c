@@ -98,6 +98,7 @@ void menu_audio_music_feed(void) { drive_audio_music_pump(), drive_audio_pump();
 void menu_audio_music_service(void) { drive_audio_music_pump(), drive_audio_pump(); }
 void menu_audio_music_fade_out(void) { drive_audio_music_fade(); }
 void menu_audio_music_end(void) { drive_audio_music_stop(); }
+void menu_audio_music_cut(void) { drive_audio_music_cut(); }
 void menu_audio_music_fade_to(int32_t volume) { drive_audio_music_volume((int16_t)volume); }
 
 /* 004c55ac */

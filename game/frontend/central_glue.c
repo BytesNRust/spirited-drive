@@ -291,6 +291,7 @@ static void music_feed(void *ctx) { (void)ctx; menu_audio_music_feed(); }
 static void music_start(void *ctx, const char *name) { (void)ctx; menu_audio_music_start(name); }
 static void music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
 static void music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
+static void music_cut(void *ctx) { (void)ctx; menu_audio_music_cut(); }
 static void music_fade_to(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
 static void music_pick(void *ctx) { (void)ctx; menu_audio_music_pick(); }
 static void no_mode(void *ctx, int32_t mode) { (void)ctx, (void)mode; }
@@ -953,7 +954,7 @@ static void audio(void *ctx, int32_t mode)
         palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
         select_picture, blit, blit_at, audio_blit_at, audio_clip, picture_shape, select_default, hide, nothing, flip,
         show, audio_buttons, styles, fade_in, deadline_set, deadline_passed, nothing, music, nothing, blit_masked,
-        ticks, audio_activate, key, key, click, music_end, audio_voice, audio_effects, music_fade_to,
+        ticks, audio_activate, key, key, click, music_cut, audio_voice, audio_effects, music_fade_to,
         audio_effects_volume,
         glue_banner, sound_free, nothing, sound_load, off, net_sync, fade_out, free_handle_inverse, picture_free,
         free_bank, music_pick, music_start, ctx };
