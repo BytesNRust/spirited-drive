@@ -99,6 +99,16 @@ int drive_mirror_start(DriveMirror *m, const Cockpit *c)
     return m->picture != NULL;
 }
 
+int drive_mirror_start_own(DriveMirror *m)
+{
+    memset(m, 0, sizeof *m);
+    m->first_segment = -1;
+    const ViewLayout *l = &race_view_layouts[HIGH_MODE][race_view_rows[HIGH_MODE][MIRROR_VIEW].layouts[0]];
+    const int32_t box[4] = { 0, 0, l->width - 1, l->height - 1 };
+    m->picture = mirror_create(make_picture, NULL, box, &m->width, &m->height);
+    return m->picture != NULL;
+}
+
 void drive_mirror_widen(DriveMirror *m, int on)
 {
     widened = on;

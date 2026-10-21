@@ -19,6 +19,9 @@ enum { ROW_MIRROR = 0, ROW_RALLY, ROW_WARRIOR, ROW_VEGAS, ROW_EXPLODE, ROW_NITRO
 enum { ROW_REPLAY = 0, ROW_RIVAL, ROW_MOVIES, ROW_START, ROW_NO_ASSISTS, ROW_MODERN, ROW_FILTER, ROW_FOG, ROW_DONE_P2,
        ROW_CANCEL_P2, ROWS_PAGE_2 };
 
+/* the page-3 rows: Bumper Mirror, Bumper Radar, Done, Cancel */
+enum { ROW_BUMPER_MIRROR = 0, ROW_BUMPER_RADAR, ROW_DONE_P3, ROW_CANCEL_P3, ROWS_PAGE_3 };
+
 /* the page indicator's bounds, mirroring graphics_plus's PLUS_NAV_* so the nav-hit answer is identical */
 enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV_Y1 = 476 };
 

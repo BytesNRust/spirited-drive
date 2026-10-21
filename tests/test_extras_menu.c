@@ -26,7 +26,7 @@ typedef struct Fake {
     int saves;
     PortExtras saved;
     int16_t saved_unlock;
-    char drawn[96][32];
+    char drawn[512][32];
     int drawn_count;
     int pointer_in_nav;
 } Fake;
@@ -70,7 +70,7 @@ static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_
 {
     Fake *f = ctx;
     (void)style, (void)x, (void)y;
-    if (f->drawn_count < 96) snprintf(f->drawn[f->drawn_count++], sizeof f->drawn[0], "%s", text);
+    if (f->drawn_count < 512) snprintf(f->drawn[f->drawn_count++], sizeof f->drawn[0], "%s", text);
 }
 static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * 10; }
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
@@ -163,7 +163,7 @@ static void test_right_turns_to_page_two(void)
     const int keys[] = { UP, RIGHT, RIGHT, ESCAPE };
     setup(&r);
     run(&r, keys, 4);
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/3 >"));
     CHECK(shown(&r.fake, "Replay Cameras"));
 }
 
@@ -269,7 +269,50 @@ static void test_nav_click_turns_the_page(void)
     setup(&r);
     r.fake.pointer_in_nav = 1;
     run(&r, keys, 2);
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/3 >"));
+}
+
+/* Right on page 2's Cancel turns to page 3; Bumper Mirror and Bumper Radar on and saved, both starting Off; Left on
+ * page 3's Done goes back to page 2's Cancel */
+static void test_page_three_bumper_switches(void)
+{
+    Rig r;
+    int keys[24];
+    int n = 0;
+    keys[n++] = UP, keys[n++] = RIGHT, keys[n++] = RIGHT;   /* page 2, Replay Cameras */
+    keys[n++] = UP, keys[n++] = RIGHT, keys[n++] = RIGHT;   /* Done, Cancel, page 3 */
+    keys[n++] = RIGHT;                                      /* Bumper Mirror on */
+    keys[n++] = DOWN, keys[n++] = RIGHT;                    /* Bumper Radar on */
+    keys[n++] = DOWN, keys[n++] = ENTER;                    /* Done */
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "< 3/3"));
+    CHECK(shown(&r.fake, "Bumper Mirror"));
+    CHECK(shown(&r.fake, "Bumper Radar"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.bumper_mirror, 1);
+    CHECK_EQ_INT(r.fake.saved.bumper_radar, 1);
+    CHECK_EQ_INT(r.fake.saved.replay_cameras, 0);
+}
+
+static void test_page_three_back_and_page_down_cycles(void)
+{
+    Rig r;
+    int keys[16];
+    int n = 0;
+    keys[n++] = PAGE_DOWN, keys[n++] = PAGE_DOWN;   /* page 3, on Bumper Mirror */
+    keys[n++] = UP;                                 /* Done */
+    keys[n++] = LEFT;                               /* page 2, on Cancel */
+    keys[n++] = UP;                                 /* Fog, the last switch */
+    keys[n++] = RIGHT;                              /* Fog on */
+    keys[n++] = PAGE_DOWN, keys[n++] = PAGE_DOWN;   /* page 3, then round to page 1 */
+    keys[n++] = UP, keys[n++] = ENTER;              /* Done: saved */
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "1/3 >"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.fog, 1);
+    CHECK_EQ_INT(r.fake.saved.bumper_mirror, 0);
 }
 
 /* Escape on page 2 puts the input back */
@@ -310,6 +353,8 @@ int main(void)
     test_left_on_page_two_done_goes_back();
     test_up_from_cancel_and_unlock_left();
     test_nav_click_turns_the_page();
+    test_page_three_bumper_switches();
+    test_page_three_back_and_page_down_cycles();
     test_escape_on_page_two_restores();
     test_done_writes_extras_cfg();
     return TEST_REPORT();

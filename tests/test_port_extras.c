@@ -53,19 +53,21 @@ static void check_same(PortExtras a, PortExtras b)
     CHECK_EQ_INT(a.modern_3d, b.modern_3d);
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
+    CHECK_EQ_INT(a.bumper_mirror, b.bumper_mirror);
+    CHECK_EQ_INT(a.bumper_radar, b.bumper_radar);
     CHECK_EQ_INT(a.start, b.start);
 }
 
 static void test_defaults(void)
 {
     const PortExtras d = port_extras_defaults();
-    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE });
+    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE });
     CHECK_EQ_INT(d.start, START_GAME_MODE);
 }
 
 static void test_round_trip(void)
 {
-    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
+    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
     char text[256];
     const size_t n = port_extras_format(&e, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -75,10 +77,12 @@ static void test_round_trip(void)
 
 static void test_parse_keys(void)
 {
-    const char *text = "mirror=1\nturbo=1\nmodern_3d=1\ntexture_filter=1\nfog=1\nstart=network\n";
+    const char *text = "mirror=1\nturbo=1\nmodern_3d=1\ntexture_filter=1\nfog=1\nbumper_radar=1\nstart=network\n";
     const PortExtras e = port_extras_parse(text, strlen(text));
     CHECK_EQ_INT(e.texture_filter, 1);
     CHECK_EQ_INT(e.fog, 1);
+    CHECK_EQ_INT(e.bumper_radar, 1);
+    CHECK_EQ_INT(e.bumper_mirror, 0);
     CHECK_EQ_INT(e.mirror, 1);
     CHECK_EQ_INT(e.turbo, 1);
     CHECK_EQ_INT(e.modern_3d, 1);
@@ -111,7 +115,7 @@ static void test_cheat_marks(void)
 static void test_load_save(void)
 {
     check_same(port_extras_load(), port_extras_defaults());   /* no file yet */
-    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, START_NETWORK };
+    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, START_NETWORK };
     CHECK(port_extras_save(&e));
     CHECK(strcmp(stored_name, "extras.cfg") == 0);
     check_same(port_extras_load(), e);

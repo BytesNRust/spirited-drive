@@ -32,5 +32,20 @@ int main(void)
     drive_mirror_widen(&dash, 0);
     drive_mirror_free(&roof);
     drive_mirror_free(&dash);
+
+    /* the bumper view's own mirror: the mirror camera's layout's size whatever the car, never widened nor on a dash */
+    static DriveMirror own;
+    drive_mirror_widen(&roof, 1);   /* the screen wide */
+    CHECK(drive_mirror_start_own(&own));
+    const ViewLayout *l = &race_view_layouts[1][race_view_rows[1][4].layouts[0]];
+    CHECK_EQ_INT(own.width, l->width);
+    CHECK_EQ_INT(own.height, l->height);
+    CHECK(own.width > 0 && own.height > 0);
+    CHECK_EQ_INT(own.extra, 0);
+    CHECK_EQ_INT(own.on_dash, 0);
+    CHECK_EQ_INT(own.first_segment, -1);
+    drive_mirror_widen(&roof, 0);
+    drive_mirror_free(&own);
+    CHECK(own.picture == NULL);
     return TEST_REPORT();
 }

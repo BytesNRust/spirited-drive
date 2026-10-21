@@ -1,7 +1,7 @@
 /* port: see extras_menu.h. Two pages of switches drawn with the game's text over the live screen's picture.
  * Up / Down step through a page's rows (Done and Cancel last); Enter, Space, Left or Right change a switch (Unlock
- * and Start step through their values); Left / Right swap Done and Cancel, Right on Cancel turns to page 2 and Left
- * on page 2's Done back to page 1, as does a click on the page indicator or PageDown. Mirror and Rally exclude each
+ * and Start step through their values); Left / Right swap Done and Cancel, Right on Cancel turns to the next page and
+ * Left on Done back to the one before; a click on the page indicator or PageDown turns to the next, round to the first. Mirror and Rally exclude each
  * other, unless ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the
  * input back. */
 #include "game/frontend/extras_menu.h"
@@ -17,7 +17,8 @@ enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_
        BUTTONS_Y1 = 476 };
 
 /* the switches of each page, Done and Cancel after them */
-static const int SWITCHES[2] = { ROW_DONE, ROW_DONE_P2 };
+enum { PAGES = 3 };
+static const int SWITCHES[PAGES] = { ROW_DONE, ROW_DONE_P2, ROW_DONE_P3 };
 
 typedef struct Page {
     int page;
@@ -38,7 +39,8 @@ static const char *label(int page, int row)
                                               "Unlock Level" };
     static const char *const P2[ROW_DONE_P2] = { "Replay Cameras", "Warrior as Rival", "No Movies", "Start Screen",
                                                  "No Assists", "Modern 3D", "Texture Filter", "Fog" };
-    return page == 0 ? P1[row] : P2[row];
+    static const char *const P3[ROW_DONE_P3] = { "Bumper Mirror", "Bumper Radar" };
+    return page == 0 ? P1[row] : page == 1 ? P2[row] : P3[row];
 }
 
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
@@ -49,9 +51,13 @@ static int *flag_of(PortExtras *e, int page, int row)
                                     NULL };
         return p1[row];
     }
-    int *const p2[ROW_DONE_P2] = { &e->replay_cameras, &e->warrior_rival, &e->no_movies, NULL, &e->no_assists,
-                                   &e->modern_3d, &e->texture_filter, &e->fog };
-    return p2[row];
+    if (page == 1) {
+        int *const p2[ROW_DONE_P2] = { &e->replay_cameras, &e->warrior_rival, &e->no_movies, NULL, &e->no_assists,
+                                       &e->modern_3d, &e->texture_filter, &e->fog };
+        return p2[row];
+    }
+    int *const p3[ROW_DONE_P3] = { &e->bumper_mirror, &e->bumper_radar };
+    return p3[row];
 }
 
 static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16])
@@ -80,7 +86,8 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, const ExtrasMenuOp
     o->plus_text(o->ctx, p->selected == done_of(p->page), "Done", DONE_X, BUTTON_Y);
     o->plus_text(o->ctx, p->selected == cancel_of(p->page), "Cancel", CANCEL_RIGHT - o->plus_text_width(o->ctx, "Cancel"),
                  BUTTON_Y);
-    const char *const nav = p->page == 0 ? "1/2 >" : "< 2/2";
+    static const char *const NAV[PAGES] = { "1/3 >", "< 2/3 >", "< 3/3" };
+    const char *const nav = NAV[p->page];
     o->plus_text(o->ctx, 0, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);
     o->select_default(o->ctx);
     o->flip(o->ctx);
@@ -151,7 +158,7 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
 {
     o->pointer_click(o->ctx);
     if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) {
-        turn(p, 1 - p->page, 0, o);
+        turn(p, (p->page + 1) % PAGES, 0, o);
     } else if (p->selected == done_of(p->page)) {
         o->sound(o->ctx, CHOSEN);
         o->extras_save(o->ctx, e, *unlock);
@@ -171,7 +178,7 @@ static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const Extr
         o->sound(o->ctx, CHOSEN);
         p->result = 0;
     } else if (k == PAGE_DOWN) {
-        turn(p, 1 - p->page, 0, o);
+        turn(p, (p->page + 1) % PAGES, 0, o);
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
         int to;
@@ -179,10 +186,10 @@ static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const Extr
         else to = p->selected == cancel ? done - 1 : (p->selected + rows - 2) % (rows - 1);
         select_row(p, to, o);
         pointer_to(p, o);
-    } else if (k == RIGHT && p->selected == cancel && p->page == 0) {
-        turn(p, 1, 0, o);
-    } else if (k == LEFT && p->selected == done && p->page == 1) {
-        turn(p, 0, cancel_of(0), o);
+    } else if (k == RIGHT && p->selected == cancel && p->page + 1 < PAGES) {
+        turn(p, p->page + 1, 0, o);
+    } else if (k == LEFT && p->selected == done && p->page > 0) {
+        turn(p, p->page - 1, cancel_of(p->page - 1), o);
     } else if ((k == LEFT || k == RIGHT) && p->selected >= done) {
         o->pointer_off(o->ctx);
         select_row(p, p->selected == done ? cancel : done, o);

@@ -77,11 +77,17 @@ MirrorFrameOps drive_mirror_ops(DriveMirrorFrame *f);
  * on, `m`'s too when it has one; 0 back to the cockpit's own. The cockpit's frame keeps the original's width: only
  * the middle of the picture, the original's view, is placed on it (drive_mirror_place). */
 void drive_mirror_widen(DriveMirror *m, int on);
+/* port: a mirror of its own, not a cockpit's (the bumper view's, drive_bumper.h): the picture as large as the mirror
+ * camera's layout, whatever the car, never widened; 0 when it could not be made. */
+int drive_mirror_start_own(DriveMirror *m);
 
 /* 0044c060: the picture at x, y on the screen target (a widened one's middle, as wide as the original's). */
 void drive_mirror_place(const DriveMirror *m, const QuadTarget *target, int32_t x, int32_t y);
 
 /* 0044bdbc. */
 void drive_mirror_free(DriveMirror *m);
+
+/* the picture's shape header: its pixels follow it */
+enum { DRIVE_MIRROR_SHAPE_HEADER = 0x10 };
 
 #endif

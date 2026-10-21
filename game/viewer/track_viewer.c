@@ -43,6 +43,7 @@
 #include "viewer/drive_slide.h"
 #include "viewer/drive_hud.h"
 #include "viewer/drive_input.h"
+#include "viewer/drive_bumper.h"
 #include "viewer/drive_interp.h"
 #include "game/race/race_detail.h"
 #include "viewer/layer_compose.h"
@@ -501,7 +502,7 @@ static int drive_link_on;
 static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
 static DriveKeys drive_keys;
 static DriveReplay drive_replay;
-enum { KEY_F9 = 0x43 };
+enum { KEY_F7 = 0x41, KEY_F8 = 0x42, KEY_F9 = 0x43 };
 static DrivePause drive_pause;
 static DriveMenu drive_menu;
 
@@ -520,6 +521,8 @@ typedef struct {
 
 static DriveCars drive_cars;
 static DriveHud drive_hud;
+static DriveBumper drive_bumper;  /* port: EXTRAS' Bumper Mirror / Radar, F7 / F8 in a race */
+static DriveMirror bumper_mirror;  /* port: the bumper view's mirror, the same for every car (drive_mirror_start_own) */
 static DriveSmoke drive_smoke;
 
 static DrawRands draw_rands;
@@ -849,6 +852,10 @@ static void drive_wide_setup(void)
     const PortExtras extras = port_extras_load();
     ported_view_set_modern(env_switch("TNFS_MODERN_3D", extras.modern_3d));
     ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", extras.texture_filter), env_switch("TNFS_FOG", extras.fog));
+    drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
+                       env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
+    drive_mirror_free(&bumper_mirror);  /* the last track's horizon with it */
+    drive_mirror_start_own(&bumper_mirror);
     race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;
@@ -1225,6 +1232,31 @@ static void drive_steer(void *ctx, Car *car)
     if (has_wheels(car)) car_steer_wheels(car, &drive_sim.race, morph_wheels, NULL);
 }
 
+/* port: EXTRAS' Bumper Mirror: its own mirror's pass as 0044ce4b runs the cockpit's (mirror_frame), on the world
+ * this frame streamed, with the cockpit mirror's colours and car rows; 0 without a picture */
+static int bumper_mirror_render(DriveFrame *f)
+{
+    bumper_mirror.enclosed_colour = drive_hud.mirror.enclosed_colour;
+    bumper_mirror.property8_colour = drive_hud.mirror.property8_colour;
+    memcpy(bumper_mirror.car_rows, drive_hud.mirror.car_rows, sizeof bumper_mirror.car_rows);
+    /* its rows made again whenever its first segment moves: the bumper camera never asks (chase +0x3c), and the
+     * cockpit mirror's pass clears the flag first */
+    int32_t rows_again = 1;
+    DriveMirrorWorld world = f->mirror;
+    world.rows_again = &rows_again;
+    DriveMirrorFrame pass;
+    if (!drive_mirror_begin(&bumper_mirror, &world, &pass)) return 0;
+    const MirrorFrameOps o = drive_mirror_ops(&pass);
+    o.view(o.ctx, 1);
+    o.transform(o.ctx);
+    o.select(o.ctx);
+    o.sky(o.ctx);
+    o.scene(o.ctx, drive_frame.mirror_count);
+    o.flip(o.ctx);
+    o.view(o.ctx, 0);
+    return 1;
+}
+
 static void render_drive(const Track *t, uint8_t *pixels)
 {
     RaceState *race = &drive_sim.race;
@@ -1249,7 +1281,14 @@ static void render_drive(const Track *t, uint8_t *pixels)
     frame_draw(&ops, &drive_frame);
     drive_hud.mirror.state = drive_frame.mirror_state;
     last_ms = f.last_ms;
-    if (drive_wide.width > SCREEN_W) wide_compose(race, pixels);
+    const int bumper = drive_bumper.mirror && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL
+                       && bumper_mirror_render(&f);
+    const int wide = drive_wide.width > SCREEN_W;
+    if (wide) wide_compose(race, pixels);
+    if (bumper)
+        drive_bumper_blit(wide ? drive_wide.pixels : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H,
+                          bumper_mirror.picture + DRIVE_MIRROR_SHAPE_HEADER, bumper_mirror.width, bumper_mirror.height,
+                          drive_bumper_mirror_at(wide ? drive_wide.width : SCREEN_W, bumper_mirror.width));
 }
 
 static void car_stem(int model, char stem[16])
@@ -1853,6 +1892,7 @@ static void run_frame(void *ctx, int32_t frame)
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
+    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F7] != 0, drive_input.keys[KEY_F8] != 0);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
