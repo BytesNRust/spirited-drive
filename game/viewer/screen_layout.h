@@ -35,8 +35,7 @@ typedef struct { int32_t scale; int crop_top; } CockpitScale;
 CockpitScale screen_cockpit_scale(int width);
 
 /* Inside the car on a wide screen the 640 dash keeps its size: its middle DASH_MIDDLE columns either side of the
- * centre as they are, the rest stretched to the screen's edges more and more towards them (the owner's choice over
- * an even stretch), the whole DASH_DROP lines lower with the roof's first
+ * centre as they are, the rest stretched to the screen's edges, the whole DASH_DROP lines lower with the roof's first
  * line stretched over the lines above (the owner's choice: the field of the bumper's view, less road covered). */
 enum { DASH_MIDDLE = 192, DASH_DROP = 25 };
 /* The dash's column (0..639) that column x of a `width` screen shows; x itself at 640. */
