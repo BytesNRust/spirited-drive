@@ -383,6 +383,7 @@ add_executable(tnfs
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
     game/viewer/modern_look.c
+    game/viewer/horizon_smooth.c
     game/viewer/drive_bumper.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
@@ -451,6 +452,11 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_link_libraries(test_modern_look PRIVATE tnfs_game)
     target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_look COMMAND test_modern_look)
+    add_executable(test_horizon_smooth tests/test_horizon_smooth.c game/viewer/horizon_smooth.c)
+    target_include_directories(test_horizon_smooth PRIVATE game)
+    target_link_libraries(test_horizon_smooth PRIVATE tnfs_game)
+    target_compile_options(test_horizon_smooth PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME horizon_smooth COMMAND test_horizon_smooth)
     add_executable(test_drive_bumper tests/test_drive_bumper.c game/viewer/drive_bumper.c game/gfx/blit.c)
     target_include_directories(test_drive_bumper PRIVATE game)
     target_link_libraries(test_drive_bumper PRIVATE tnfs_game)

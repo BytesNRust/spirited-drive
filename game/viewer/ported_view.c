@@ -21,6 +21,7 @@
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
+#include "viewer/horizon_smooth.h"
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
@@ -758,8 +759,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, screen_w };
-        horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off,
-                          horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix));
+        const int32_t line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
+        if (modern && look_filter) {  /* port: EXTRAS' Texture Filter blends the magnified sky */
+            static HorizonSmooth smooth;
+            horizon_smooth_palette(&smooth, art->palette);
+            horizon_draw_flat_smooth(&smooth, &horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off,
+                                     line);
+        } else {
+            horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off, line);
+        }
     }
     stream(tri, art, pc->node);
     modern_road_set_style(modern ? modern_look_style(&look, art, look_filter, look_fog, render.draw_segments) : NULL);
