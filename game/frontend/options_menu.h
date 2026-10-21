@@ -53,6 +53,13 @@ typedef struct OptionsMenuOps {
     void (*music)(void *ctx);                                                /* 0046417c */
     void (*net_sync)(void *ctx);                                             /* 004104d0 (race_net_sync) */
     int32_t (*deadline_passed)(void *ctx);                                   /* 0047336d */
+    /* port: the Extras row's screen (extras_menu_run). Not in the original: it opens over the live Options picture
+     * and Options carries on behind it. */
+    void (*extras)(void *ctx);
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* the game's text, lit or dark */
+    int32_t (*plus_text_width)(void *ctx, const char *text);
+    void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                       int32_t framed);
     void *ctx;
 } OptionsMenuOps;
 

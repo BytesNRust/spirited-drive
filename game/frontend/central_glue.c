@@ -1268,6 +1268,17 @@ static int32_t next_segment(void *ctx)
     return go_on;
 }
 
+/* port: the Extras row opens the EXTRAS screen over this screen's picture; Done writes extras.cfg and the unlock
+ * level back into config.dat, and extras_apply re-reads it for Control Central (the cheats, mirror, ghosts). */
+static void options_extras(void *ctx)
+{
+    (void)ctx;
+    ConfigDat *const config = config_current();
+    glue_extras_screen((int16_t)config_dat_unlock_level(config));
+    g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    extras_apply();
+}
+
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -1279,7 +1290,7 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx };
+        deadline_passed, options_extras, plus_text, plus_text_width, plus_panel, ctx };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],

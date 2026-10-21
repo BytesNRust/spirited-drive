@@ -45,6 +45,9 @@ void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y);  /* 00463934
 void glue_banner_wait(void *ctx, const char *text, int32_t time);   /* 00467214 */
 int32_t glue_network_found(void *ctx);  /* 00442514 not NULL: a network service */
 int32_t glue_network_game(void *ctx);   /* 00454b78: 0 to race, 1 back, 2 the time ran out */
+/* port: the EXTRAS screen (Plan 3 Task 3) over the calling menu's live picture; `unlock` is the level to show and
+ * Done writes. 1 on Done, 0 on Cancel / Escape. */
+int32_t glue_extras_screen(int16_t unlock);
 void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas);  /* 0042a680 */
 void glue_replay_box(char *name, uint8_t *config);                  /* 0042a9f8 */
 

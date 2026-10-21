@@ -10,6 +10,8 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
+#include "game/frontend/extras_menu.h"
+#include "game/sys/port_extras.h"
 #include "game/frontend/net_game.h"
 #include "game/frontend/net_host.h"
 #include "game/frontend/palette_put.h"
@@ -428,13 +430,102 @@ static int32_t mode_network_game(void *ctx)
     return r;
 }
 
+/* port: the EXTRAS dispatcher the Game Mode's MODEM slot calls when the original modem flow is gone. It opens the
+ * EXTRAS screen over the live Game Mode picture and saves extras.cfg and the unlock level on Done. */
+
+/* the Game Mode screen's current picture (set before the menu is entered) */
+static int32_t mode_extras_screen;
+static int16_t mode_extras_unlock;
+
+static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
+{
+    (void)ctx;
+    port_extras_save(e);
+    mode_extras_unlock = unlock;
+}
+
+/* draw_page calls o->select(0) and o->blit_own(bgnd) to start each frame. We route `select(0)` through select_default
+ * (the EA back-buffer) but first copy the live screen to it, so the EXTRAS overlay paints over the Game Mode
+ * picture instead of a black field. blit_own is a no-op: the Game Mode bg is already in place. plus_panel is a no-op:
+ * the live picture carries enough contrast for the text. flip after each frame shows it. */
+static void extras_select_glue(void *ctx, int32_t picture)
+{
+    (void)ctx, (void)picture;
+    ea_select_default();
+    if (mode_extras_screen != 0) ea_restore(mode_extras_screen, 0, 0);
+}
+static void extras_blit_own_glue(void *ctx, const uint8_t *shape) { (void)ctx, (void)shape; }
+static void extras_panel_glue(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
+{
+    (void)ctx, (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
+}
+static void extras_text_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
+{
+    (void)ctx;
+    text_ramp(style != 0);
+    text_draw_shadowed(text, x, y);
+}
+static int32_t extras_text_width_glue(void *ctx, const char *text) { (void)ctx; return text_width(text); }
+static int32_t extras_deadline_passed_glue(void *ctx) { (void)ctx; return 0; }
+
+/* port: the EXTRAS screen over whichever menu's live picture called it (Game Mode's Modem slot, Options' Extras
+ * row). `unlock` is the caller's level: the one config.dat holds. Returns 1 on Done, 0 on Cancel / Escape. */
+int32_t glue_extras_screen(int16_t unlock)
+{
+    PortExtras e = port_extras_load();
+    /* the ops table: most slots are statics from this file's glue; the EXTRAS-specific ones (text/panel/save and
+     * the select that restores the caller's picture to the back buffer) live next to this function */
+    const ExtrasMenuOps ops = {
+        move_to,            /* pointer_move_to */
+        load_art,           /* load_art */
+        shape,              /* shape */
+        palette_set,        /* palette_set */
+        in_rect,            /* pointer_in_rect */
+        extras_select_glue, /* select */
+        extras_blit_own_glue, /* blit_own */
+        picture_shape,      /* picture_shape */
+        select_default,     /* select_default */
+        nothing,            /* pointer_hide */
+        flip,               /* flip */
+        show,               /* pointer_show */
+        buttons,            /* pointer_buttons */
+        styles,             /* text_styles */
+        fade_in,            /* fade_in */
+        deadline_set,       /* deadline_set */
+        extras_deadline_passed_glue, /* deadline_passed */
+        sound,              /* sound */
+        ticks,              /* ticks */
+        activate,           /* pointer_activate_if_moved */
+        key,                /* key */
+        click,              /* pointer_click */
+        nothing,            /* pointer_off */
+        off,                /* music */
+        extras_text_glue,   /* plus_text */
+        extras_text_width_glue, /* plus_text_width */
+        extras_panel_glue,  /* plus_panel */
+        extras_save_glue,   /* extras_save */
+        NULL,               /* ctx */
+    };
+    mode_extras_screen = ea_screen();
+    return extras_menu_run(&e, &unlock, &ops);
+}
+
+/* Game Mode's Modem slot: no name box, and the result is always "back to the menu" */
+static int32_t mode_extras_dispatcher(void *ctx)
+{
+    (void)ctx;
+    glue_extras_screen(mode_extras_unlock);
+    return 0;
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
+    mode_extras_unlock = (int16_t)config_dat_unlock_level(config_current());
     const GameModeOps ops = { palette_clear, move_to, sound_load, load_art, music_feed, shape, palette_set, nothing,
                               in_rect, select_picture, blit_own, select_default, nothing, nothing, picture_shape,
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
-                              ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
+                              ticks, activate, click, name_box, fade_out, pointer_away, mode_extras_dispatcher, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,

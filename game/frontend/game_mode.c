@@ -133,10 +133,14 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         m->done = 1;
         break;
     case MODEM:
-        if (!(int16_t)o->name_box(o->ctx, st->name)) break;
-        o->fade_out(o->ctx, 0, ALL);
-        o->free_inverse(o->ctx);
-        came_back(m, st, (int16_t)o->modem(o->ctx), o);
+        /* port: the original's modem slot is rerouted to the EXTRAS screen (extras_menu_run in the o->modem ops),
+         * so the player can flip Mirror / Rally / Nitro / Turbo / Unlock level and the warp flags without the
+         * name box. The result is always "back to this menu": the original modem had its own flow, here we only
+         * change extras.cfg and the unlock level and return. */
+        o->modem(o->ctx);
+        m->redraw = 1;
+        m->fade = 1;
+        move_to(m, o);
         break;
     case NETWORK:
         if (!o->network_found(o->ctx)) {
