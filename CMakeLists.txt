@@ -451,7 +451,7 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_link_libraries(test_modern_look PRIVATE tnfs_game)
     target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_look COMMAND test_modern_look)
-    add_executable(test_drive_bumper tests/test_drive_bumper.c game/viewer/drive_bumper.c)
+    add_executable(test_drive_bumper tests/test_drive_bumper.c game/viewer/drive_bumper.c game/gfx/blit.c)
     target_include_directories(test_drive_bumper PRIVATE game)
     target_link_libraries(test_drive_bumper PRIVATE tnfs_game)
     target_compile_options(test_drive_bumper PRIVATE ${TNFS_WARNINGS})
