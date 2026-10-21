@@ -99,13 +99,16 @@ int drive_mirror_start(DriveMirror *m, const Cockpit *c)
     return m->picture != NULL;
 }
 
-int drive_mirror_start_own(DriveMirror *m)
+int drive_mirror_start_own(DriveMirror *m, int32_t percent)
 {
     memset(m, 0, sizeof *m);
     m->first_segment = -1;
-    const ViewLayout *l = &race_view_layouts[HIGH_MODE][race_view_rows[HIGH_MODE][MIRROR_VIEW].layouts[0]];
-    const int32_t box[4] = { 0, 0, l->width - 1, l->height - 1 };
+    ViewLayout l = race_view_layouts[HIGH_MODE][race_view_rows[HIGH_MODE][MIRROR_VIEW].layouts[0]];
+    l.y = l.y * percent / 100, l.width = l.width * percent / 100, l.height = l.height * percent / 100;
+    l.unknown_20 = l.unknown_20 * percent / 100, l.unknown_24 = l.unknown_24 * percent / 100;
+    const int32_t box[4] = { 0, 0, l.width - 1, l.height - 1 };
     m->picture = mirror_create(make_picture, NULL, box, &m->width, &m->height);
+    m->wide_layout = l, m->own = 1;
     return m->picture != NULL;
 }
 
@@ -327,6 +330,7 @@ int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFra
         m->fov = screen_fov_y(MIRROR_FOV, f->layout->width, m->wide_layout.width, 0);  /* any axis: same sum */
         f->layout = &m->wide_layout;
     }
+    if (m->own) f->layout = &m->wide_layout;  /* port: the own mirror's, scaled */
     mirror_rows(f);
     /* m->car_rows: 00459d70's mirror part (00459cc4), at 0044ce3f (ported_view_frame_rows) */
     return 1;

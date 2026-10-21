@@ -93,6 +93,12 @@ CockpitScale screen_cockpit_scale(int width)
     return s;
 }
 
+int32_t screen_mirror_scale(int width)
+{
+    if (width <= ORIGINAL_WIDTH) return 1 << 16;
+    return (int32_t)((int64_t)screen_cockpit_scale(width).scale * SCREEN_MIRROR_PERCENT / 100);
+}
+
 int screen_dash_x(int width, int x)
 {
     if (width <= ORIGINAL_WIDTH) return x;

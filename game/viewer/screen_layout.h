@@ -33,6 +33,10 @@ void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS]);
 /* The cockpit art's scale (k = width / 640, 16.16) and the lines of the scaled 640x480 art cut at the top. */
 typedef struct { int32_t scale; int crop_top; } CockpitScale;
 CockpitScale screen_cockpit_scale(int width);
+/* The mirror inside the car on the wide frame: the art's scale less some (the owner's choice: the enlarged mirror took
+ * too much of the windshield); 640 its own size. */
+enum { SCREEN_MIRROR_PERCENT = 85 };
+int32_t screen_mirror_scale(int width);
 
 /* Inside the car on a wide screen the 640 dash keeps its size: its middle DASH_MIDDLE columns either side of the
  * centre as they are, the rest stretched to the screen's edges, the whole DASH_DROP lines lower with the roof's first

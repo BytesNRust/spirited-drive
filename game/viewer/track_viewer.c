@@ -752,8 +752,9 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width - m->extra,
                                 drive_hud.mirror_y + m->height };  /* as the frame holds it: a widened one's middle */
     const LayerRect mirror = mirror_on ? grow_piece(frame, picture, MIRROR_FRAME) : picture;
-    const int mirror_w = (int)((int64_t)(mirror.right - mirror.left + (mirror_on ? m->extra : 0)) * cs.scale >> 16);
-    const int mirror_h = (int)((int64_t)(mirror.bottom - mirror.top) * cs.scale >> 16);
+    const int32_t mirror_scale = screen_mirror_scale(drive_wide.width);
+    const int mirror_w = (int)((int64_t)(mirror.right - mirror.left + (mirror_on ? m->extra : 0)) * mirror_scale >> 16);
+    const int mirror_h = (int)((int64_t)(mirror.bottom - mirror.top) * mirror_scale >> 16);
     const ScreenPoint sizes[7] = { { BAR_MIDDLE_640, HUD_BAR_HEIGHT }, { BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT },
                                    { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 },   /* the radar detector stays on the dash */
@@ -777,7 +778,7 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
         if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1 };
         if (mirror_on && m->extra != 0) {  /* the frame in two, either side of the picture's middle, apart by the extra */
             const int mid = drive_hud.mirror_x + (m->width - m->extra) / 2;
-            const int apart = (int)((int64_t)(mid - mirror.left + m->extra) * cs.scale >> 16);
+            const int apart = (int)((int64_t)(mid - mirror.left + m->extra) * mirror_scale >> 16);
             pieces[n++] = (LayerPiece){ { mirror.left, mirror.top, mid, mirror.bottom }, a.mirror.x, a.mirror.y, 1 };
             pieces[n++] = (LayerPiece){ { mid, mirror.top, mirror.right, mirror.bottom }, a.mirror.x + apart, a.mirror.y, 1 };
         }
@@ -796,9 +797,10 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
     if (in_car) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
-    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, in_car, pieces, n };
+    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
     layer_compose(&c, frame, drive_wide.pixels);
-    if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &cs);
+    const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
+    if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &mirror_cs);
     if (lights) {  /* the strip between the lights */
         for (int i = 0; i + 1 < LIGHT_COUNT; i++)
             wide_strip_gap(frame, screen_light_x(drive_wide.width, i) + LIGHT_WIDTH, screen_light_x(drive_wide.width, i + 1));
@@ -856,7 +858,7 @@ static void drive_wide_setup(void)
     drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
                        env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
     drive_mirror_free(&bumper_mirror);  /* the last track's horizon with it */
-    drive_mirror_start_own(&bumper_mirror);
+    drive_mirror_start_own(&bumper_mirror, DRIVE_BUMPER_MIRROR_PERCENT);
     race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;

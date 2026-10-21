@@ -68,6 +68,10 @@ int main(void)
     CHECK_EQ_INT(screen_cockpit_scale(854).crop_top, 80);
     CHECK_EQ_INT(screen_cockpit_scale(1120).crop_top, 180);
     CHECK_EQ_INT(screen_cockpit_scale(1120).scale, 114688);
+    /* the mirror inside the car: the original's at 640, SCREEN_MIRROR_PERCENT of the art's scale when wider */
+    CHECK_EQ_INT(screen_mirror_scale(640), 65536);
+    CHECK_EQ_INT(screen_mirror_scale(1120), 114688 * SCREEN_MIRROR_PERCENT / 100);
+    CHECK(SCREEN_MIRROR_PERCENT >= 80 && SCREEN_MIRROR_PERCENT <= 90);
 
     /* the start lights: 130 apart at 640 as the original draws them; wider, the first at the left edge, the last at the
      * right, each whole, none overlapping the next */

@@ -10,6 +10,7 @@
 enum {
     DRIVE_BUMPER_KIND = 1,     /* the chase kind of the bumper view */
     DRIVE_BUMPER_MARGIN = 6,   /* between the scoreboard or the screen's edge and the frame */
+    DRIVE_BUMPER_MIRROR_PERCENT = 150,   /* the mirror's picture against the mirror camera's own size (the owner's choice) */
     DRIVE_BUMPER_FRAME = 0     /* the frame's colour (black in the race's palettes) */
 };
 

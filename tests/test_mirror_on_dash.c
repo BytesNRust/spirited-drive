@@ -33,11 +33,21 @@ int main(void)
     drive_mirror_free(&roof);
     drive_mirror_free(&dash);
 
-    /* the bumper view's own mirror: the mirror camera's layout's size whatever the car, never widened nor on a dash */
+    /* the bumper view's own mirror: the mirror camera's layout's size by a percentage whatever the car, never widened
+     * nor on a dash; its layout as large, the same field (the focal length scaled with it) */
     static DriveMirror own;
     drive_mirror_widen(&roof, 1);   /* the screen wide */
-    CHECK(drive_mirror_start_own(&own));
+    CHECK(drive_mirror_start_own(&own, 150));
     const ViewLayout *l = &race_view_layouts[1][race_view_rows[1][4].layouts[0]];
+    CHECK_EQ_INT(own.width, l->width * 3 / 2);
+    CHECK_EQ_INT(own.height, l->height * 3 / 2);
+    CHECK_EQ_INT(own.own, 1);
+    CHECK_EQ_INT(own.wide_layout.width, own.width);
+    CHECK_EQ_INT(own.wide_layout.height, own.height);
+    CHECK_EQ_INT(own.wide_layout.unknown_20, own.width);
+    CHECK_EQ_INT(own.wide_layout.y, l->y * 3 / 2);   /* the horizon as far down the picture */
+    drive_mirror_free(&own);
+    CHECK(drive_mirror_start_own(&own, 100));
     CHECK_EQ_INT(own.width, l->width);
     CHECK_EQ_INT(own.height, l->height);
     CHECK(own.width > 0 && own.height > 0);
