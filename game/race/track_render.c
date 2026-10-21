@@ -422,7 +422,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
                                 TRACK_MAX_OBJECT_VERTICES, frame, r->side_face,
                                 { (void *)&g, object_model, object_full, object_full_alt,
                                   ctx->sink.draw_camera != NULL ? object_full_camera : NULL } };
-    const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt };
+    const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt,
+                                      ctx->sink.draw_camera != NULL ? full_camera : NULL };
     const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars,
                                   ctx->sink.draw_camera != NULL ? full_camera : NULL };
     const TrackNearOps near_ops = { (void *)&g, skids, no_alternate };

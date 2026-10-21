@@ -23,9 +23,11 @@ void track_fence_draw(const TrackFenceOps *ops, const TrackFenceInputs *in, cons
     if (outcode_shared(&in->clip, screen, 4) != 0) return;
     const FshEntry *t = ops->texture(ops->ctx, x_add(x_add(uv->variant, variant), x_shl(texture, 3)));
     if (t == NULL) return;
+    const int32_t *const corners[4] = { cam_tb, cam_ta, in->camera[a], in->camera[b] };
     if (uv->variant == 0) {
-        const int32_t *const corners[4] = { cam_tb, cam_ta, in->camera[a], in->camera[b] };
         ops->subdivide(ops->ctx, t, uv->u_level, uv->u_cell, corners, screen, in->near);
+    } else if (ops->full_camera != NULL) {
+        ops->full_camera(ops->ctx, t, corners);
     } else {
         ops->full_alt(ops->ctx, t, screen);
     }

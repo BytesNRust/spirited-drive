@@ -2,6 +2,7 @@
  * their sink as camera-space corners, clipped at the near plane and perspective-correct (modern_road.h), with the
  * exe's path untouched when the sink has no camera calls. */
 #include "game/gfx/object3d.h"
+#include "game/race/track_fence.h"
 #include "game/race/track_object_draw.h"
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
@@ -320,6 +321,61 @@ static void test_scenery_boards(void)
     CHECK(b.cam[0] == cam6[1] && b.cam[1] == cam6[4] && b.cam[2] == cam6[5] && b.cam[3] == cam6[2]);   /* the side: 1, 4, 5, 2 */
 }
 
+/* --- the fences --- */
+
+typedef struct {
+    int alt, camera, subdivide;
+    const int32_t *cam[4];
+} Fence;
+
+static FshEntry fence_entry;
+static const FshEntry *f_texture(void *c, int32_t flat) { (void)c, (void)flat; return &fence_entry; }
+static void f_point(void *c, const int32_t world[3], int32_t camera[3], int32_t screen[2])
+{
+    (void)c;
+    memcpy(camera, world, 3 * sizeof *camera);
+    screen[0] = 320 + world[0] / 4, screen[1] = 240 - world[1] / 4;
+}
+static void f_subdivide(void *c, const FshEntry *t, int32_t l, int32_t u, const int32_t *const cam[4], const int32_t s[8],
+                        int32_t n)
+{
+    (void)t, (void)l, (void)u, (void)cam, (void)s, (void)n;
+    ((Fence *)c)->subdivide++;
+}
+static void f_alt(void *c, const FshEntry *t, const int32_t s[8]) { (void)t, (void)s, ((Fence *)c)->alt++; }
+static void f_camera(void *c, const FshEntry *t, const int32_t *const cam[4])
+{
+    (void)t;
+    Fence *f = c;
+    f->camera++;
+    for (int i = 0; i < 4; i++) f->cam[i] = cam[i];
+}
+
+static void test_fences(void)
+{
+    fence_entry = texture_of();
+    static const int32_t world[2][3] = { { -200, 0, 400 }, { 200, 0, 400 } };
+    static const int32_t camera[2][3] = { { -200, -50, 400 }, { 200, -50, 400 } };
+    static const int32_t screen[2][2] = { { 270, 252 }, { 370, 252 } };
+    const TrackFenceInputs in = { world, camera, screen, 30, { 0, 0, 640, 480 } };
+    const uint8_t pair[2] = { 0, 1 };
+    for (int variant = 0; variant < 2; variant++) {
+        for (int modern = 0; modern < 2; modern++) {
+            Fence f = { 0 };
+            const TrackFenceOps ops = { &f, f_texture, f_point, f_subdivide, f_alt, modern ? f_camera : NULL };
+            const TrackUv uv = { 0, 0, variant };
+            track_fence_draw(&ops, &in, pair, 0, &uv, 0, 0, 1);
+            CHECK_EQ_INT(f.subdivide, variant == 0);          /* the subdivided cell goes through track_draw as before */
+            CHECK_EQ_INT(f.camera, variant != 0 && modern);
+            CHECK_EQ_INT(f.alt, variant != 0 && !modern);
+            if (f.camera) {
+                CHECK(f.cam[2] == camera[0] && f.cam[3] == camera[1]);   /* a, b: the points' own rows */
+                CHECK(f.cam[0][1] > 0 && f.cam[1][1] > 0);               /* the tops, raised by the fence's height */
+            }
+        }
+    }
+}
+
 int main(void)
 {
     test_sink_perspective_correct();
@@ -329,5 +385,6 @@ int main(void)
     test_engine_near();
     test_engine_facing();
     test_scenery_boards();
+    test_fences();
     return TEST_REPORT();
 }

@@ -20,6 +20,9 @@ typedef struct {
     void (*subdivide)(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
                       const int32_t screen[8], int32_t near);
     void (*full_alt)(void *ctx, const FshEntry *t, const int32_t screen[8]);  /* [004f9e90] */
+    /* port: Modern 3D's, in place of full_alt when set (NULL the exe's): the quad's camera-space corners, in the
+     * screen corners' order (b top, a top, a, b) */
+    void (*full_camera)(void *ctx, const FshEntry *t, const int32_t *const cam[4]);
 } TrackFenceOps;
 
 typedef struct {
