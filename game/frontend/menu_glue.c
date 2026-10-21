@@ -10,6 +10,7 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
+#include "game/sys/port_extras.h"
 #include "game/frontend/net_game.h"
 #include "game/frontend/net_host.h"
 #include "game/frontend/palette_put.h"
@@ -446,6 +447,50 @@ int32_t glue_game_mode(void)
     pointer_bind_active(was);
     menu_words = words_of(&st);
     return result;
+}
+
+/* port: the name box over Game Mode's picture (004376ac's draw, the first option lit), as the player sees it when
+ * choosing there; the screen is faded out again after it, whatever came back */
+static int32_t name_asked_over_game_mode(void)
+{
+    uint8_t rgb[PALETTE_PUT_BYTES];
+    palette_clear(NULL, rgb);
+    const int32_t bank = load_art(NULL, "control/gamemode.qfs");
+    const uint8_t *pal = shape(NULL, bank, "!pal");
+    palette_set(NULL, rgb, 0, 0x100, pal + 0x10, (int16_t)pal[0]);
+    select_picture(NULL, ea_screen());
+    blit_own(NULL, shape(NULL, bank, "bgnd"));
+    blit_own(NULL, shape(NULL, bank, "sinl"));
+    select_default(NULL);
+    blit_own(NULL, (const uint8_t *)(intptr_t)picture_shape(NULL, ea_screen()));
+    flip(NULL);
+    fade_in(NULL, 0, 0x100, rgb);
+    const int32_t taken = name_box(NULL, frontend_player_name);
+    fade_out(NULL, 0, 0x100);
+    bank_free(NULL, bank);
+    return taken;
+}
+
+/* port: extras.cfg's `start`: the screen the front end opens on instead of Game Mode, what choosing it there does
+ * (004376ac's choose) without showing Game Mode first. Network and Control Central ask the name only when
+ * config.dat holds none (00524df0). Returns the front end's state (0 to race) or -1 when Game Mode is to be shown
+ * (the default, or the choice was taken back: no network service, the name box cancelled, the network screen's Back). */
+int32_t glue_start_screen(int start)
+{
+    enum { SINGLE_RACE = 0 };
+    if (start != START_NETWORK && start != START_CENTRAL) return -1;
+    if (start == START_NETWORK && !network_found(NULL)) return -1;
+    if (frontend_player_name[0] == '\0' && !name_asked_over_game_mode()) return -1;
+    menu_words.mode_menu = 1;
+    menu_words.intro_seen = 1;
+    if (start == START_CENTRAL) {
+        menu_words.single = 0;
+        menu_words.network_raced = 0;
+        return SINGLE_RACE;
+    }
+    if (network_game(NULL) == 1) return -1;
+    menu_words.network_raced = 1;
+    return SINGLE_RACE;
 }
 
 int32_t glue_yes_no(void *ctx, const char *text) { return yes_no(ctx, text); }

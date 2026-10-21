@@ -8,6 +8,7 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/sys/input.h"
+#include "game/sys/port_extras.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +37,18 @@ static int32_t glue_config_load(void *ctx)
     return defaults;
 }
 static void glue_title(void *ctx, int32_t state) { (void)ctx; glue_title_screen(state); }
-static int32_t glue_main_menu(void *ctx) { (void)ctx; return glue_game_mode(); }
+/* port: the first time, extras.cfg's start screen instead of Game Mode (menu_glue.c) */
+static int32_t glue_main_menu(void *ctx)
+{
+    static int started;
+    (void)ctx;
+    if (!started) {
+        started = 1;
+        const int32_t state = glue_start_screen(port_extras_load().start);
+        if (state >= 0) return state;
+    }
+    return glue_game_mode();
+}
 static int32_t glue_control_central(void *ctx) { (void)ctx; return glue_central(); }
 static void glue_config_save(void *ctx) { (void)ctx; config_save(); }
 static void glue_intro(void *ctx) { (void)ctx; glue_intro_show(); }

@@ -88,7 +88,12 @@ enum { OPTIONS_AT = 0x81 };                        /* 00524e71: the five option 
 enum { MOVIES_AT = 0x5b8 };                        /* 0052b2fc: 2, the movies offered (the original's default) */
 static uint8_t game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */
 
-int16_t glue_movies(void) { return (int16_t)(game_state[MOVIES_AT] | game_state[MOVIES_AT + 1] << 8); }
+/* port: extras.cfg's no_movies offers none: the intro shows eatitle.qfs, the showcase's video page and the arrest's movie are off */
+int16_t glue_movies(void)
+{
+    if (port_extras_load().no_movies) return 0;
+    return (int16_t)(game_state[MOVIES_AT] | game_state[MOVIES_AT + 1] << 8);
+}
 static uint8_t keys[0x100];                       /* 004c693c: by scancode, refreshed at each key (00464bd0) */
 static uint8_t screen_palette[PALETTE_PUT_BYTES];
 

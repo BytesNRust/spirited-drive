@@ -30,6 +30,7 @@ void glue_title_screen(int32_t state);  /* 004372e4 */
 int32_t glue_game_mode(void);           /* 004376ac: 0 race, 1 leave, 2 the intro again */
 int32_t glue_central(void);             /* 00432ff4 (central_glue.c): 2 the timer, else 0 */
 void glue_game_reset(void);            /* 00466ae4 (central_glue.c) */
+int32_t glue_start_screen(int start);   /* port: extras.cfg's start screen: 0 to race, -1 Game Mode as usual (menu_glue.c) */
 int16_t glue_movies(void);             /* the short 0052b2fc, the game state's +0x5b8 (central_glue.c) */
 int32_t glue_check_options(int32_t mode);  /* 00403760 (central_glue.c): the options after a race, eax 0 or 1 */
 void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_type, int32_t variant_m,
