@@ -6,6 +6,7 @@
 #include "game/race/track_render.h"
 #include "game/gfx/sprite_scaled.h"
 #include "game/race/view.h"
+#include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
 #include "game/race/car_shadow.h"
@@ -698,7 +699,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     static HorizonTables horizon;
     const PortedViewport *vp = &viewport;
     view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov_y != 0 ? vp->fov_y : vp->fov);
-    horizon_tables(&horizon, vp->width, vp->fov, vp->scale);
+    /* port: the exe's rows scale grows with the width (0043a028); past 640 it keeps the 640's zoom */
+    horizon_tables(&horizon, vp->width, vp->fov, screen_horizon_scale(vp->scale, vp->width));
     RasterTarget target = { pixels, screen_w, screen_h, 0, 0 };
     /* the box (00449f50: the layout's left, top, +0x20, +0x24); left + x, top + y only place the projection */
     const int32_t box[4] = { vp->sky_left, vp->sky_top, vp->sky_left + vp->sky_width, vp->sky_top + vp->sky_height };

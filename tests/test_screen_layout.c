@@ -1,5 +1,6 @@
 /* The wide screen's pure calculations (port glue, no original counterpart). */
 #include "game/viewer/screen_layout.h"
+#include "game/race/horizon.h"
 #include "test.h"
 
 #include <string.h>
@@ -26,6 +27,17 @@ int main(void)
     CHECK_EQ_INT(screen_near_scale(70, 70), 65536);
     CHECK_EQ_INT(screen_near_scale(70, 90), 45889);   /* tan 35 / tan 45 */
     CHECK_EQ_INT(screen_near_scale(90, 70), 65536);
+    /* the flat horizon's rows keep the 640's zoom whatever the width past it, the exe's formula below it */
+    CHECK_EQ_INT(screen_horizon_scale(0x10000, 640), 0x10000);
+    CHECK_EQ_INT(screen_horizon_scale(0x10000, 320), 0x10000);
+    CHECK_EQ_INT(screen_horizon_scale(0x8000, 1120), 18725);       /* x 640 / 1120 */
+    CHECK_EQ_INT(screen_horizon_scale(0x10000, 854), 49114);
+    CHECK_EQ_INT(screen_horizon_scale(0x10000, 1120), 37449);
+    for (int w = 640; w <= 1120; w += 160) {  /* what horizon_tables makes of it: 2 screen rows per bitmap row, as at 640 */
+        static HorizonTables t;
+        horizon_tables(&t, w, 96, screen_horizon_scale(0x10000, w));
+        CHECK(t.scale >= 0x1fff0 && t.scale <= 0x20010);
+    }
 
     const ViewLayout *orig = race_view_layouts[1];
     ViewLayout l[VIEW_LAYOUTS];

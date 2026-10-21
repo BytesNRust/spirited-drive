@@ -60,6 +60,13 @@ int32_t screen_near_scale(int fov_y_exe, int fov_y)
     return (int32_t)lround(tan(fov_y_exe * PI / 360.0) / tan(fov_y * PI / 360.0) * 65536.0);
 }
 
+int32_t screen_horizon_scale(int32_t scale, int width)
+{
+    if (width <= ORIGINAL_WIDTH) return scale;
+    const int64_t num = (int64_t)scale * ORIGINAL_WIDTH, den = width;
+    return (int32_t)((num + den / 2) / den);
+}
+
 void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS])
 {
     const int left = screen_menu_left(width);
