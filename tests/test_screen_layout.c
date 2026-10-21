@@ -112,7 +112,8 @@ int main(void)
     CHECK_EQ_INT(screen_format_nearest(1280, 1024), SCREEN_4_3);
     /* inside the car on a wide screen: the projection the screen's width (the field widened to keep the 640's focal
      * length), DASH_DROP lower with the dash; the clip box the whole width down to the windshield's bottom moved */
-    const ViewLayout in854 = screen_cockpit_view(854);
+    const ViewLayout *exe0 = &race_view_layouts[1][0];
+    const ViewLayout in854 = screen_cockpit_view(854, exe0);
     CHECK_EQ_INT(in854.left + in854.x, 0);
     CHECK_EQ_INT(in854.top + in854.y, DASH_DROP);
     CHECK_EQ_INT(in854.width, 854);
@@ -121,11 +122,20 @@ int main(void)
     CHECK_EQ_INT(in854.unknown_20, 854);
     CHECK_EQ_INT(in854.unknown_24, race_view_layouts[1][0].unknown_24 + DASH_DROP);
     CHECK_EQ_INT(in854.scale, 65536);
-    const ViewLayout in640 = screen_cockpit_view(640);
-    CHECK(memcmp(&in640, &race_view_layouts[1][0], sizeof in640) == 0);
-    const ViewLayout in1120 = screen_cockpit_view(1120);
+    const ViewLayout in640 = screen_cockpit_view(640, exe0);
+    CHECK(memcmp(&in640, exe0, sizeof in640) == 0);
+    const ViewLayout in1120 = screen_cockpit_view(1120, exe0);
     CHECK_EQ_INT(in1120.width, 1120);
     CHECK_EQ_INT(in1120.unknown_20, 1120);
+    /* the row as the race left it for the car (00405630: a long bonnet's view moved up, its windshield's bottom set):
+     * those kept, DASH_DROP lower */
+    ViewLayout viper = *exe0;
+    viper.y = -48, viper.unknown_24 = 300;
+    const ViewLayout wide_viper = screen_cockpit_view(1120, &viper);
+    CHECK_EQ_INT(wide_viper.top + wide_viper.y, -48 + DASH_DROP);
+    CHECK_EQ_INT(wide_viper.unknown_24, 300 + DASH_DROP);
+    const ViewLayout narrow_viper = screen_cockpit_view(640, &viper);
+    CHECK(memcmp(&narrow_viper, &viper, sizeof viper) == 0);
 
     /* the dash's columns: its middle 2 x DASH_MIDDLE at its own size round the screen's centre, the rest stretched to
      * the edges; at 640 as it is */

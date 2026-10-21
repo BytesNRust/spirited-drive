@@ -587,7 +587,9 @@ static PortedViewport wide_viewport(const RaceState *race)
     const RaceCamera *camera = race->chase.camera;
     const int32_t row = camera != NULL && camera->layout >= 0 && camera->layout < VIEW_LAYOUTS ? camera->layout : 0;
     const int32_t base = camera != NULL ? camera->fov : 70;
-    const ViewLayout l = row == 0 ? screen_cockpit_view(drive_wide.width) : drive_wide.rows[row];
+    const ViewLayout *live = camera != NULL && camera->layout_row != NULL ? camera->layout_row
+                                                                          : &race_view_layouts[HIGH_SCREEN][0];
+    const ViewLayout l = row == 0 ? screen_cockpit_view(drive_wide.width, live) : drive_wide.rows[row];
     const ViewLayout *orig = &race_view_layouts[HIGH_SCREEN][row];
     /* every row keeps the 640's focal lengths at its width (inside the car too: the dash keeps its size) */
     const int32_t fov = (l.width != orig->width ? screen_fov_x(base, l.width) : base) + drive_wide.fov_adjust;

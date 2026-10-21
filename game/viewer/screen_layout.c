@@ -113,9 +113,9 @@ int screen_dash_y(int y)
     return y < DASH_DROP + HUD_BAR_HEIGHT ? HUD_BAR_HEIGHT : y - DASH_DROP;
 }
 
-ViewLayout screen_cockpit_view(int width)
+ViewLayout screen_cockpit_view(int width, const ViewLayout *row)
 {
-    ViewLayout v = race_view_layouts[HIGH_MODE][0];
+    ViewLayout v = *row;
     if (width <= ORIGINAL_WIDTH) return v;
     const int box = v.unknown_24 + DASH_DROP;
     v.width = width;   /* the centre in the middle; the field widened to keep the focal length (screen_fov_x) */

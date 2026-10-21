@@ -47,8 +47,9 @@ int screen_dash_y(int y);
 
 /* Row 0 (inside the car) on a wide screen: the projection the screen's width (its field widened by screen_fov_x to
  * keep the 640's focal length) and DASH_DROP lower, as the dash's middle, clipped to the whole width down to the
- * windshield's bottom moved as much; the 640 row as it is at 640. */
-ViewLayout screen_cockpit_view(int width);
+ * windshield's bottom moved as much; the 640 row as it is at 640. `row` is the race's live row 0 (00405630 moves it
+ * for the car's eye and bonnet at the start), not the exe's table. */
+ViewLayout screen_cockpit_view(int width, const ViewLayout *row);
 
 typedef struct { int x, y; } ScreenPoint;
 typedef struct {
