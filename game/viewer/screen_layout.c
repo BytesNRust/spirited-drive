@@ -98,7 +98,12 @@ int screen_dash_x(int width, int x)
     if (width <= ORIGINAL_WIDTH) return x;
     const double half = ORIGINAL_WIDTH / 2.0, from_centre = x + 0.5 - width / 2.0;
     const double a = fabs(from_centre), edge = width / 2.0;
-    const double in_dash = a <= DASH_MIDDLE ? a : DASH_MIDDLE + (a - DASH_MIDDLE) * (half - DASH_MIDDLE) / (edge - DASH_MIDDLE);
+    /* past the middle the dash's step per column falls from 1 as (1 - t)^2 towards `least`, t the way to the edge,
+     * `least` set so the edge lands on the dash's: the stretch grows gradually, never a kink */
+    const double span = edge - DASH_MIDDLE, t = (a - DASH_MIDDLE) / span, mean = (half - DASH_MIDDLE) / span;
+    const double least = fmax(0.0, (3.0 * mean - 1.0) / 2.0);
+    const double in_dash = a <= DASH_MIDDLE ? a
+        : DASH_MIDDLE + span * (least * t + (1.0 - least) * (1.0 - pow(1.0 - t, 3.0)) / 3.0);
     const int sx = (int)floor(half + (from_centre < 0 ? -in_dash : in_dash));
     return sx < 0 ? 0 : sx >= ORIGINAL_WIDTH ? ORIGINAL_WIDTH - 1 : sx;
 }

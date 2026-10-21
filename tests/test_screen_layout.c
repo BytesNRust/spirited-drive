@@ -146,6 +146,15 @@ int main(void)
             last = sx;
         }
         CHECK(ordered);
+        /* the sides stretched progressively (the owner's choice): unscaled just past the middle, the stretch growing
+         * to the edges, on both sides alike */
+        const int m = w / 2 + DASH_MIDDLE;
+        CHECK(screen_dash_x(w, m + 20) - screen_dash_x(w, m) >= 18);
+        const int near = screen_dash_x(w, m + 40) - screen_dash_x(w, m);
+        const int mid = screen_dash_x(w, m + (w - m) / 2 + 20) - screen_dash_x(w, m + (w - m) / 2 - 20);
+        const int far = screen_dash_x(w, w - 1) - screen_dash_x(w, w - 41);
+        CHECK(near > mid && mid > far);
+        CHECK_EQ_INT(screen_dash_x(w, w - 1 - (m + 30)), 639 - screen_dash_x(w, m + 30));
     }
     /* its lines: DASH_DROP lower, the roof's first line (under the scoreboard) stretched over the ones above */
     CHECK_EQ_INT(screen_dash_y(0), HUD_BAR_HEIGHT);
