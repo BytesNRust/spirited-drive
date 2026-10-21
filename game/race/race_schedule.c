@@ -98,7 +98,10 @@ void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeys
     }
     ops->music_on(ops->ctx);
     st->pending = 0;
-    st->last = in->tick;
+    /* port: the pause-return must clear `last` (the menu-gap block) so the next ESC works immediately,
+     * mirroring the start-of-race reset at the top of race_menu_keys; otherwise the in-race menu key
+     * is silently ignored for MENU_GAP (0xb4) ticks after the resume. */
+    st->last = 0;
     ops->setup_43cbe0(ops->ctx);
     *loading = 0;
 }
