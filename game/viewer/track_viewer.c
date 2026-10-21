@@ -1289,6 +1289,12 @@ static void render_drive(const Track *t, uint8_t *pixels)
         drive_bumper_blit(wide ? drive_wide.pixels : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H,
                           bumper_mirror.picture + DRIVE_MIRROR_SHAPE_HEADER, bumper_mirror.width, bumper_mirror.height,
                           drive_bumper_mirror_at(wide ? drive_wide.width : SCREEN_W, bumper_mirror.width));
+    if (drive_bumper.radar && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL && drive_hud.cockpit_ready) {
+        const Cockpit *c = &drive_hud.cockpit;
+        const DriveBumperRadarArt art = { c->big_lit, c->big_dark, c->small_lit, c->small_dark };
+        drive_bumper_radar(wide ? drive_wide.pixels : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H, &art,
+                           race->unknown_4b92d4, drive_sim.police_lights, drive_bumper_radar_at(wide ? drive_wide.width : SCREEN_W));
+    }
 }
 
 static void car_stem(int model, char stem[16])

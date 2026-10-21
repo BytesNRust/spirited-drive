@@ -67,8 +67,89 @@ static void test_blit(void)
     CHECK_EQ_INT(screen[(H - 2) * W + W - 3], 10);
 }
 
+/* an 8-bit FSH shape (type 0x7b) w x h of one colour */
+static void make_shape(uint8_t *shape, int w, int h, uint8_t colour)
+{
+    memset(shape, 0, 0x10);
+    shape[0] = 0x7b, shape[4] = (uint8_t)w, shape[6] = (uint8_t)h;
+    memset(shape + 0x10, colour, (size_t)w * h);
+}
+
+enum { BIG_LIT = 21, BIG_DARK = 22, SMALL_LIT = 23, SMALL_DARK = 24, BIG_W = 8, BIG_H = 6, SMALL_W = 4, SMALL_H = 4,
+       SW = 80, SH = 40, BACK = 9 };
+
+/* the colour of the big light and of each small one as the detector at `at` shows them */
+static void read_radar(const uint8_t *screen, ScreenPoint at, int *big, int small[DRIVE_BUMPER_RADAR_SMALL])
+{
+    const int row = at.y + DRIVE_BUMPER_RADAR_PAD + 2;   /* a line every shape covers */
+    int x = at.x + DRIVE_BUMPER_RADAR_PAD;
+    *big = screen[row * SW + x];
+    x += BIG_W;
+    for (int i = 0; i < DRIVE_BUMPER_RADAR_SMALL; i++) {
+        x += DRIVE_BUMPER_RADAR_GAP;
+        small[i] = screen[row * SW + x];
+        x += SMALL_W;
+    }
+}
+
+static void test_radar(void)
+{
+    uint8_t big_lit[0x10 + BIG_W * BIG_H], big_dark[0x10 + BIG_W * BIG_H];
+    uint8_t small_lit[0x10 + SMALL_W * SMALL_H], small_dark[0x10 + SMALL_W * SMALL_H];
+    make_shape(big_lit, BIG_W, BIG_H, BIG_LIT), make_shape(big_dark, BIG_W, BIG_H, BIG_DARK);
+    make_shape(small_lit, SMALL_W, SMALL_H, SMALL_LIT), make_shape(small_dark, SMALL_W, SMALL_H, SMALL_DARK);
+    const DriveBumperRadarArt art = { big_lit, big_dark, small_lit, small_dark };
+    static uint8_t screen[SW * SH];
+    const ScreenPoint at = { 6, 5 };
+    int big, small[DRIVE_BUMPER_RADAR_SMALL];
+
+    const ScreenPoint size = drive_bumper_radar_size(&art);
+    CHECK_EQ_INT(size.x, BIG_W + 5 * (DRIVE_BUMPER_RADAR_GAP + SMALL_W) + 2 * DRIVE_BUMPER_RADAR_PAD);
+    CHECK_EQ_INT(size.y, BIG_H + 2 * DRIVE_BUMPER_RADAR_PAD);
+    const DriveBumperRadarArt none = { 0 };
+    CHECK_EQ_INT(drive_bumper_radar_size(&none).x, 0);
+    CHECK_EQ_INT(drive_bumper_radar_at(1120).x, DRIVE_BUMPER_MARGIN);   /* the left end, under the scoreboard */
+    CHECK_EQ_INT(drive_bumper_radar_at(640).y, HUD_BAR_HEIGHT + DRIVE_BUMPER_MARGIN);
+
+    /* nothing near: every light dark, the big one too whatever the police lights */
+    memset(screen, BACK, sizeof screen);
+    drive_bumper_radar(screen, SW, SH, &art, 0, 1, at);
+    read_radar(screen, at, &big, small);
+    CHECK_EQ_INT(big, BIG_DARK);
+    for (int i = 0; i < 5; i++) CHECK_EQ_INT(small[i], SMALL_DARK);
+    CHECK_EQ_INT(screen[(at.y + size.y - 1) * SW + at.x], DRIVE_BUMPER_FRAME);   /* the pad round them */
+    CHECK_EQ_INT(screen[(at.y + size.y) * SW + at.x], BACK);                     /* and nothing past it */
+    CHECK_EQ_INT(screen[at.y * SW + at.x + size.x], BACK);
+
+    /* three lit from the first, the big light on with the toggle, off without */
+    drive_bumper_radar(screen, SW, SH, &art, 3, 1, at);
+    read_radar(screen, at, &big, small);
+    CHECK_EQ_INT(big, BIG_LIT);
+    for (int i = 0; i < 5; i++) CHECK_EQ_INT(small[i], i < 3 ? SMALL_LIT : SMALL_DARK);
+    drive_bumper_radar(screen, SW, SH, &art, 3, 0, at);
+    read_radar(screen, at, &big, small);
+    CHECK_EQ_INT(big, BIG_DARK);
+
+    /* more than five: all five; a count below 0 lights none (cockpit_lights' loops) */
+    drive_bumper_radar(screen, SW, SH, &art, 9, 1, at);
+    read_radar(screen, at, &big, small);
+    for (int i = 0; i < 5; i++) CHECK_EQ_INT(small[i], SMALL_LIT);
+    drive_bumper_radar(screen, SW, SH, &art, -2, 1, at);
+    read_radar(screen, at, &big, small);
+    for (int i = 0; i < 5; i++) CHECK_EQ_INT(small[i], SMALL_DARK);
+
+    /* without its art nothing is drawn; off the screen's edge it is cut */
+    memset(screen, BACK, sizeof screen);
+    drive_bumper_radar(screen, SW, SH, &none, 3, 1, at);
+    for (int i = 0; i < SW * SH; i++) CHECK_EQ_INT(screen[i], BACK);
+    drive_bumper_radar(screen, SW, SH, &art, 3, 1, (ScreenPoint){ SW - 5, SH - 3 });
+    CHECK_EQ_INT(screen[(SH - 3) * SW + SW - 5], DRIVE_BUMPER_FRAME);   /* its corner */
+    CHECK_EQ_INT(screen[(SH - 1) * SW + SW - 1], BIG_LIT);              /* the big light's last pixel that fits */
+}
+
 int main(void)
 {
+    test_radar();
     test_keys_turn_over_on_a_press();
     test_only_the_bumper_view();
     test_mirror_place();
