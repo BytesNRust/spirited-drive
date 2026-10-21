@@ -56,6 +56,26 @@ int main(void)
     drive_interp_restore(&sim, &saved);
     CHECK(memcmp(&sim, &before, sizeof sim) == 0);
 
+    /* the eye's node: between the steps the older one's, so the track drawn from it starts at or behind the blended
+     * eye (the newer node's segment may begin past it: the road under the eye left out for a frame); the newer at the
+     * newer step; put back after */
+    sim.race.chase.node = 40;
+    drive_interp_capture(&a, &sim);
+    sim.race.chase.node = 41;
+    drive_interp_capture(&b, &sim);
+    drive_interp_apply(&sim, &a, &b, 0x8000, &saved);
+    CHECK_EQ_INT(sim.race.chase.node, 40);
+    drive_interp_restore(&sim, &saved);
+    CHECK_EQ_INT(sim.race.chase.node, 41);
+    drive_interp_apply(&sim, &a, &b, 0x10000, &saved);
+    CHECK_EQ_INT(sim.race.chase.node, 41);
+    drive_interp_restore(&sim, &saved);
+    sim.race.chase.node = 0;
+    place(0x100000, 0xfff000, 0x100000, 5, 10);
+    drive_interp_capture(&a, &sim);
+    place(0x180000, 0x001000, 0x180000, 5, 12);
+    drive_interp_capture(&b, &sim);
+
     /* a normal step is not a jump */
     CHECK_EQ_INT(drive_interp_snap(&a, &b), 0);
     /* the jumps: a car moved too far, the eye moved too far, another camera kind, ticks not consecutive, no pose */

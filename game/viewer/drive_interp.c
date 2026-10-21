@@ -51,6 +51,7 @@ void drive_interp_capture(DriveInterpPose *p, const RaceSim *sim)
     }
     memcpy(p->eye, race->chase.position, sizeof p->eye);
     memcpy(p->eye_ang, race->chase.angles, sizeof p->eye_ang);
+    p->eye_node = race->chase.node;
     p->chase_kind = race->chase.kind;
     p->tick = race->tick;
     p->valid = 1;
@@ -92,6 +93,7 @@ void drive_interp_apply(RaceSim *sim, const DriveInterpPose *a, const DriveInter
         race->chase.position[k] = blend(a->eye[k], b->eye[k], alpha);
         race->chase.angles[k] = blend_angle(a->eye_ang[k], b->eye_ang[k], alpha);
     }
+    race->chase.node = alpha < DRIVE_INTERP_ONE ? a->eye_node : b->eye_node;
 }
 
 void drive_interp_restore(RaceSim *sim, const DriveInterpPose *saved)
@@ -101,6 +103,7 @@ void drive_interp_restore(RaceSim *sim, const DriveInterpPose *saved)
         if (race->cars[i] != NULL && saved->present[i]) car_put(race->cars[i], saved, i);
     memcpy(race->chase.position, saved->eye, sizeof saved->eye);
     memcpy(race->chase.angles, saved->eye_ang, sizeof saved->eye_ang);
+    race->chase.node = saved->eye_node;
 }
 
 int32_t drive_interp_alpha(uint64_t elapsed, uint64_t step)

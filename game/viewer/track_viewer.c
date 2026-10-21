@@ -990,6 +990,8 @@ static void ds_screen(void *ctx, int32_t step, int32_t size)
 static void ds_follow(void *ctx, int32_t kind)
 {
     RaceState *race = ctx;
+    const char *view = getenv("TNFS_VIEW");  /* port: the camera for the checks in place of the race's first */
+    if (view != NULL) kind = atoi(view) % CHASE_KINDS;
     race_chase_follow(race, &race->chase, race->cars[race_slot(race->player)], kind);
 }
 
