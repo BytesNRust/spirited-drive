@@ -120,7 +120,7 @@ static void run(Rig *r, const int *keys, int count)
         .key = f_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .extras_save = f_save, .ctx = &r->fake };
-    (void)extras_menu_run(&r->e, &r->unlock, &ops);
+    (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
 /* Plan 3 Task 3 Step 1 — Edit Mirror (then Done) turns it on and turns Rally off when Rally was on */

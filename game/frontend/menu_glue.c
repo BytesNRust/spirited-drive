@@ -454,7 +454,7 @@ static void extras_select_glue(void *ctx, int32_t picture)
     ea_select_default();
     ea_blit_own((const uint8_t *)(intptr_t)ea_picture_shape(mode_extras_screen));
 }
-static void extras_blit_own_glue(void *ctx, const uint8_t *shape) { (void)ctx, (void)shape; }
+static void extras_blit_own_glue(void *ctx, const uint8_t *shape) { (void)ctx; ea_blit_own(shape); }
 /* the panel shaded with the palette on screen (the caller's; extras_menu has none of its own) */
 static void extras_panel_glue(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
@@ -475,6 +475,10 @@ static int32_t extras_deadline_passed_glue(void *ctx) { (void)ctx; return 0; }
 int32_t glue_extras_screen(int16_t unlock)
 {
     PortExtras e = port_extras_load();
+    /* the Done/Cancel art (donl/canl/dond/cand) lives in the Options bank; load it before draw_page blits and free it
+     * afterwards. The Options menu loaded its bank before calling here too, but a separate load keeps each side
+     * independent. */
+    const int32_t options_bank = load_art(NULL, "option/options.qfs");
     /* the ops table: most slots are statics from this file's glue; the EXTRAS-specific ones (text/panel/save and
      * the select that restores the caller's picture to the back buffer) live next to this function */
     const ExtrasMenuOps ops = {
@@ -510,7 +514,9 @@ int32_t glue_extras_screen(int16_t unlock)
         NULL,               /* ctx */
     };
     mode_extras_screen = ea_screen();
-    return extras_menu_run(&e, &unlock, &ops);
+    const int32_t result = extras_menu_run(&e, &unlock, options_bank, &ops);
+    ea_bank_free(options_bank);
+    return result;
 }
 
 /* Game Mode's Modem item with the extras op: no name box, back to the menu */
