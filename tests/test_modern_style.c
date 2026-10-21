@@ -180,8 +180,39 @@ static void test_fog_dither(void)
     modern_road_set_style(NULL);
 }
 
+/* a banked floor (y = x / 2 - 1) out to its vanishing line, a diagonal through the screen's centre, fogged: pixel
+ * centres just past its far edge (the edge's growth) have 1 / z at or under 0: as far as can be, fogged whole, not
+ * near and clear; the floor's near part (z under the fog's start) its own colour */
+static void test_fog_grazing_floor(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    static uint8_t fog[MODERN_FOG_LEVELS][256];
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);   /* level 0 each colour itself */
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1, 2 };   /* past depth 2 all fog */
+    modern_road_set_style(&style);
+    static int32_t c[4][3] = { { -4000000, -2000001, 8000000 }, { 4000000, 1999999, 8000000 }, { 40, 19, 10 },
+                               { -40, -21, 10 } };
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    const QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    modern_flat(&q, &view, 10, cam, 4);
+    int drawn = 0, odd = 0;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) {   /* within 5 rows of the vanishing line (sy = cy - (sx - cx) / 2): depth 64 on */
+            const float off = (y + 0.5f) - (view.centre_y - (x + 0.5f - view.centre_x) / 2);
+            const uint8_t p = screen[y * W + x];
+            if (p != UNTOUCHED && off > -5 && off < 5) drawn++, odd += p != 100 + MODERN_FOG_LEVELS - 1;
+        }
+    CHECK(drawn > 100);
+    CHECK_EQ_INT(odd, 0);
+    modern_road_set_style(NULL);
+}
+
 int main(void)
 {
+    test_fog_grazing_floor();
     test_filter_magnified();
     test_filter_minified();
     test_fog_tables();

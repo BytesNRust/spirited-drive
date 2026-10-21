@@ -51,6 +51,8 @@ typedef struct {
     void *user;
     /* 004591d4's mirror pass for a car with the mirror's view into the picture */
     void (*draw_car)(void *user, Car *car, const ModelView *mv, const QuadTarget *target);
+    int port_modern;            /* port: EXTRAS' Modern 3D: the road's cells whole to modern_road_cell (clipped at the near
+                                 * plane, no cracks), the cars kept to the side as the front view's; 0 the exe's */
 } DriveMirrorWorld;
 
 /* One frame's mirror pass: the picture, the mirror camera's layout and angles, the renderer's cache. */

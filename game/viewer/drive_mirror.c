@@ -10,6 +10,7 @@
 #include "game/race/track_geometry.h"
 #include "game/race/track_render.h"
 #include "game/race/track_step.h"
+#include "game/viewer/modern_road.h"
 #include "game/viewer/screen_layout.h"
 
 #include <stdlib.h>
@@ -245,6 +246,13 @@ static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], co
     quad_draw(user, texture, uv, screen, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);  /* 004f9e94 */
 }
 
+/* port: Modern 3D's cell (ported_view.c's draw_camera) */
+static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
+                        const int32_t *const cam[4])
+{
+    modern_road_cell(user, view, texture, uv, cam, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
+}
+
 static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
                             const int32_t screen[8], int32_t near)
 {
@@ -257,7 +265,8 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
         if (cam[i] >= f->m->vertices + 3 * f->m->count) return;
     const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
-                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, 0, 0 };
+                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL,
+                               f->w->port_modern ? draw_camera : NULL, NULL }, 0, 0 };
     mirror_draw_subdivided(&dc, t, u_level, 0, u_cell, 0, cam, screen, near);
 }
 
@@ -286,7 +295,7 @@ static void car_draw_op(void *ctx, Car *car, int mirror)
     (void)mirror;
     if (f->w->draw_car == NULL) return;
     const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix,
-                           model_draw_half_side(f->w->race->track, f->w->race->track_variant), 0 };
+                           model_draw_half_side(f->w->race->track, f->w->race->track_variant), f->w->port_modern };
     f->w->draw_car(f->w->user, car, &mv, &f->target);
 }
 

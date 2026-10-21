@@ -222,6 +222,14 @@ static void quarter(const DrawContext *ctx, const FshEntry *t, int u_level, int 
 void mirror_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int u_level, int depth, int u_cell,
                             int v_cell, const int32_t *const cam[4], const int32_t screen[8], int32_t near)
 {
+    if (ctx->sink.draw_camera != NULL) {  /* port: the whole cell, clipped and perspective-correct (as 00425718's) */
+        const int32_t w = (int16_t)texture->width >> (u_level & 31), h = (int16_t)texture->height >> (depth & 31);
+        const int32_t u0 = ((1 << u_level) - 1 - u_cell) * w << 16, v0 = h * ((1 << depth) - 1 - v_cell) << 16;
+        const int32_t u1 = u0 + ((w - 1) << 16), v1 = v0 + ((h - 1) << 16);
+        const int32_t uv[8] = { u0, v0, u1, v0, u1, v1, u0, v1 };
+        ctx->sink.draw_camera(ctx->sink.user, ctx->view, texture, uv, cam);
+        return;
+    }
     if (near > cam[2][2] && near > cam[1][2]) return;
     const int32_t limit = TRACK_SUBDIVIDE_Z[depth] >> ctx->world_shift;
     if (limit <= cam[3][2] || depth >= TRACK_SUBDIVIDE_MAX) {

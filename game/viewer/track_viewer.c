@@ -1086,7 +1086,7 @@ static void df_stream(void *ctx)
     RaceState *race = f->race;
     f->mirror = (DriveMirrorWorld){ &t->tri, &t->art, race, ported_view_stream(&t->tri, &t->art, f->cam.node),
                                     &race->chase.flags, { 0, 0, 0 }, race->cars[race_slot(race->player)], (void *)t,
-                                    mirror_car };
+                                    mirror_car, ported_view_modern() };
     ported_view_near_dir(f->mirror.near_dir);  /* as the front view last left them */
     f->mirror_on = drive_mirror_begin(&drive_hud.mirror, &f->mirror, &f->mirror_pass);
     if (f->mirror_on) f->mirror_ops = drive_mirror_ops(&f->mirror_pass);

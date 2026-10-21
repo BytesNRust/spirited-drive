@@ -57,6 +57,7 @@ static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], co
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
 
 void ported_view_set_modern(int on) { modern = on != 0; }
+int ported_view_modern(void) { return modern; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 static ModernLook look;

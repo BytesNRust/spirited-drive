@@ -1,5 +1,6 @@
 /* port: EXTRAS' Modern 3D, the near road from its camera-space corners (modern_road.h), and the track drawer handing
  * it the cell instead of 00425718's subdivision (track_draw.h's draw_camera). */
+#include "game/race/mirror_scene.h"
 #include "game/race/track_draw.h"
 #include "viewer/modern_road.h"
 #include "test.h"
@@ -145,11 +146,78 @@ static void test_track_draw_hands_the_cell(void)
     CHECK(sink.uv_calls > 1);
 }
 
+/* the mirror's 00425ed4 the same: a cell whose far corners (1, 2) are behind its near plane, which the exe drops,
+ * goes to draw_camera whole (to be clipped there); without it the exe's drop */
+static void test_mirror_draw_hands_the_cell(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    const FshEntry t = texture();
+    static int32_t c[4][3] = { { -200, -10, 400 }, { -200, -10, 5 }, { 200, -10, 5 }, { 200, -10, 400 } };
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    int32_t s[8] = { 0 };   /* the screen points: neither path reads them for this cell */
+    Sink sink = { 0 };
+    DrawContext ctx = { &view, { 0, 0, W, H }, 0, { 0, 0, 0x1999 },
+                        { &sink, on_uv, NULL, NULL, NULL, NULL, NULL, on_camera, NULL }, 10, 0 };
+    mirror_draw_subdivided(&ctx, &t, 0, 0, 0, 0, cam, s, 10);
+    CHECK_EQ_INT(sink.camera_calls, 1);
+    CHECK_EQ_INT(sink.uv_calls, 0);
+    CHECK(sink.cam0 == c[0]);
+    CHECK_EQ_INT(sink.uv[0], 0);
+    CHECK_EQ_INT(sink.uv[2], (TEX - 1) << 16);
+    CHECK_EQ_INT(sink.uv[5], (TEX - 1) << 16);
+    ctx.sink.draw_camera = NULL;
+    sink = (Sink){ 0 };
+    mirror_draw_subdivided(&ctx, &t, 0, 0, 0, 0, cam, s, 10);
+    CHECK_EQ_INT(sink.camera_calls + sink.uv_calls, 0);   /* the exe: dropped */
+}
+
+/* a flat polygon from screen points (tenths of a pixel), at depth 3200 where a tenth of camera x is a tenth of a pixel */
+static void flat_at(const View *view, const QuadTarget *q, uint8_t colour, const int32_t tenths[4][2])
+{
+    static int32_t c[4][3];
+    for (int i = 0; i < 4; i++)
+        c[i][0] = tenths[i][0] - 10 * view->centre_x, c[i][1] = 10 * view->centre_y - tenths[i][1], c[i][2] = 3200;
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    modern_flat(q, view, colour, cam, 4);
+}
+
+/* a T junction: one polygon's edge straight from (300, 100) to (300, 300), its neighbours' bent through (300.6, 200)
+ * (a road strip of a coarser level beside a finer one). The sliver between them, under a pixel wide, is covered:
+ * every polygon reaches EDGE_GROW of a pixel past its outer edges; a lone square still covers its own pixels only */
+static void test_t_junction_covered(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    CHECK_EQ_INT(view.focal_x, 320);
+    const QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    const int32_t left[4][2] = { { 2800, 1000 }, { 3000, 1000 }, { 3000, 3000 }, { 2800, 3000 } };
+    const int32_t upper[4][2] = { { 3000, 1000 }, { 3200, 1000 }, { 3200, 2000 }, { 3006, 2000 } };
+    const int32_t lower[4][2] = { { 3006, 2000 }, { 3200, 2000 }, { 3200, 3000 }, { 3000, 3000 } };
+    flat_at(&view, &q, 1, left);
+    flat_at(&view, &q, 2, upper);
+    flat_at(&view, &q, 2, lower);
+    int holes = 0;
+    for (int y = 102; y < 298; y++)
+        for (int x = 282; x < 318; x++) holes += screen[y * W + x] == UNTOUCHED;
+    CHECK_EQ_INT(holes, 0);
+    /* a square on pixel edges, 100..200 across and down: its 100 x 100 pixels, none round it */
+    memset(screen, UNTOUCHED, sizeof screen);
+    const int32_t square[4][2] = { { 1000, 1000 }, { 2000, 1000 }, { 2000, 2000 }, { 1000, 2000 } };
+    flat_at(&view, &q, 1, square);
+    int drawn = 0;
+    for (int i = 0; i < W * H; i++) drawn += screen[i] != UNTOUCHED;
+    CHECK_EQ_INT(drawn, 100 * 100);
+}
+
 int main(void)
 {
+    test_t_junction_covered();
     test_perspective_correct();
     test_near_clip_and_box();
     test_transparent();
     test_track_draw_hands_the_cell();
+    test_mirror_draw_hands_the_cell();
     return TEST_REPORT();
 }

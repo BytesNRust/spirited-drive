@@ -178,7 +178,8 @@ void mirror_place(void (*place)(void *ctx, int32_t x, int32_t y), void *ctx, int
  * 1; a leaf (004255ec, no clip test) once corner 3 is at the depth's limit
  * (004b95a0 >> 004c52bc) or the depth at 004b9590; else four children around
  * the edge midpoints (01, 23, their middle, 12; 03 only after the first two,
- * and not when near is past both 23 and 01), each a quarter of the cell. */
+ * and not when near is past both 23 and 01), each a quarter of the cell. Port: with the sink's draw_camera the whole
+ * cell goes to it instead (as track_draw_subdivided's). */
 void mirror_draw_subdivided(const DrawContext *ctx, const FshEntry *texture, int u_level, int depth, int u_cell,
                             int v_cell, const int32_t *const cam[4], const int32_t screen[8], int32_t near);
 
