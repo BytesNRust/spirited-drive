@@ -76,7 +76,7 @@ static void make_shape(uint8_t *shape, int w, int h, uint8_t colour)
 }
 
 enum { BIG_LIT = 21, BIG_DARK = 22, SMALL_LIT = 23, SMALL_DARK = 24, BIG_W = 8, BIG_H = 6, SMALL_W = 4, SMALL_H = 4,
-       SW = 80, SH = 40, BACK = 9 };
+       SW = 80, SH = 40, BACK = 9, LIGHT = 31, FACE = 32, DARK = 33 };
 
 /* the colour of the big light and of each small one as the detector at `at` shows them */
 static void read_radar(const uint8_t *screen, ScreenPoint at, int *big, int small[DRIVE_BUMPER_RADAR_SMALL])
@@ -98,7 +98,7 @@ static void test_radar(void)
     uint8_t small_lit[0x10 + SMALL_W * SMALL_H], small_dark[0x10 + SMALL_W * SMALL_H];
     make_shape(big_lit, BIG_W, BIG_H, BIG_LIT), make_shape(big_dark, BIG_W, BIG_H, BIG_DARK);
     make_shape(small_lit, SMALL_W, SMALL_H, SMALL_LIT), make_shape(small_dark, SMALL_W, SMALL_H, SMALL_DARK);
-    const DriveBumperRadarArt art = { big_lit, big_dark, small_lit, small_dark };
+    const DriveBumperRadarArt art = { big_lit, big_dark, small_lit, small_dark, LIGHT, FACE, DARK };
     static uint8_t screen[SW * SH];
     const ScreenPoint at = { 6, 5 };
     int big, small[DRIVE_BUMPER_RADAR_SMALL];
@@ -106,6 +106,7 @@ static void test_radar(void)
     const ScreenPoint size = drive_bumper_radar_size(&art);
     CHECK_EQ_INT(size.x, BIG_W + 5 * (DRIVE_BUMPER_RADAR_GAP + SMALL_W) + 2 * DRIVE_BUMPER_RADAR_PAD);
     CHECK_EQ_INT(size.y, BIG_H + 2 * DRIVE_BUMPER_RADAR_PAD);
+    CHECK_EQ_INT(DRIVE_BUMPER_RADAR_PAD, 7);
     const DriveBumperRadarArt none = { 0 };
     CHECK_EQ_INT(drive_bumper_radar_size(&none).x, 0);
     CHECK_EQ_INT(drive_bumper_radar_at(1120).x, DRIVE_BUMPER_MARGIN);   /* the left end, under the scoreboard */
@@ -117,7 +118,21 @@ static void test_radar(void)
     read_radar(screen, at, &big, small);
     CHECK_EQ_INT(big, BIG_DARK);
     for (int i = 0; i < 5; i++) CHECK_EQ_INT(small[i], SMALL_DARK);
-    CHECK_EQ_INT(screen[(at.y + size.y - 1) * SW + at.x], DRIVE_BUMPER_FRAME);   /* the pad round them */
+    /* the case: a light edge on its top and left, a dark one on its bottom and right, the face between */
+    CHECK_EQ_INT(screen[at.y * SW + at.x + 10], LIGHT);
+    CHECK_EQ_INT(screen[(at.y + 10) * SW + at.x], LIGHT);
+    CHECK_EQ_INT(screen[(at.y + size.y - 1) * SW + at.x + 10], DARK);
+    CHECK_EQ_INT(screen[(at.y + 10) * SW + at.x + size.x - 1], DARK);
+    CHECK_EQ_INT(screen[(at.y + 1) * SW + at.x + 10], FACE);
+    CHECK_EQ_INT(screen[(at.y + 10) * SW + at.x + 1], FACE);
+    CHECK_EQ_INT(screen[(at.y + size.y - 2) * SW + at.x + 10], FACE);
+    /* the sunken well inside it, the other way round, black round the lights */
+    const int w = DRIVE_BUMPER_RADAR_BEVEL + DRIVE_BUMPER_RADAR_FACE;
+    CHECK_EQ_INT(screen[(at.y + w) * SW + at.x + 10], DARK);
+    CHECK_EQ_INT(screen[(at.y + 10) * SW + at.x + w], DARK);
+    CHECK_EQ_INT(screen[(at.y + size.y - 1 - w) * SW + at.x + 10], LIGHT);
+    CHECK_EQ_INT(screen[(at.y + 10) * SW + at.x + size.x - 1 - w], LIGHT);
+    CHECK_EQ_INT(screen[(at.y + w + 1) * SW + at.x + 10], DRIVE_BUMPER_FRAME);
     CHECK_EQ_INT(screen[(at.y + size.y) * SW + at.x], BACK);                     /* and nothing past it */
     CHECK_EQ_INT(screen[at.y * SW + at.x + size.x], BACK);
 
@@ -143,8 +158,8 @@ static void test_radar(void)
     drive_bumper_radar(screen, SW, SH, &none, 3, 1, at);
     for (int i = 0; i < SW * SH; i++) CHECK_EQ_INT(screen[i], BACK);
     drive_bumper_radar(screen, SW, SH, &art, 3, 1, (ScreenPoint){ SW - 5, SH - 3 });
-    CHECK_EQ_INT(screen[(SH - 3) * SW + SW - 5], DRIVE_BUMPER_FRAME);   /* its corner */
-    CHECK_EQ_INT(screen[(SH - 1) * SW + SW - 1], BIG_LIT);              /* the big light's last pixel that fits */
+    CHECK_EQ_INT(screen[(SH - 3) * SW + SW - 5], LIGHT);   /* its corner */
+    CHECK_EQ_INT(screen[(SH - 1) * SW + SW - 1], FACE);    /* its face as far as the screen goes */
 }
 
 int main(void)

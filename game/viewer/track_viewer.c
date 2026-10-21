@@ -9,6 +9,7 @@
 #include "formats/tri.h"
 #include "game/gfx/blit.h"
 #include "game/gfx/palette_match.h"
+#include "game/sys/palette.h"
 #include "game/race/car_load.h"
 #include "game/race/car_model.h"
 #include "game/race/car_wheels.h"
@@ -1291,7 +1292,16 @@ static void render_drive(const Track *t, uint8_t *pixels)
                           drive_bumper_mirror_at(wide ? drive_wide.width : SCREEN_W, bumper_mirror.width));
     if (drive_bumper.radar && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL && drive_hud.cockpit_ready) {
         const Cockpit *c = &drive_hud.cockpit;
-        const DriveBumperRadarArt art = { c->big_lit, c->big_dark, c->small_lit, c->small_dark };
+        DriveBumperRadarArt art = { c->big_lit, c->big_dark, c->small_lit, c->small_dark, 0, 0, 0 };
+        if (drive_hud.rgb != NULL) {  /* the case's greys: the race palette's nearest */
+            const uint8_t *usable = palette_usable();
+            art.light = (uint8_t)palette_nearest(drive_hud.rgb, usable, DRIVE_BUMPER_RADAR_LIGHT_GREY,
+                                                 DRIVE_BUMPER_RADAR_LIGHT_GREY, DRIVE_BUMPER_RADAR_LIGHT_GREY);
+            art.face = (uint8_t)palette_nearest(drive_hud.rgb, usable, DRIVE_BUMPER_RADAR_FACE_GREY,
+                                                DRIVE_BUMPER_RADAR_FACE_GREY, DRIVE_BUMPER_RADAR_FACE_GREY);
+            art.dark = (uint8_t)palette_nearest(drive_hud.rgb, usable, DRIVE_BUMPER_RADAR_DARK_GREY,
+                                                DRIVE_BUMPER_RADAR_DARK_GREY, DRIVE_BUMPER_RADAR_DARK_GREY);
+        }
         drive_bumper_radar(wide ? drive_wide.pixels : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H, &art,
                            race->unknown_4b92d4, drive_sim.police_lights, drive_bumper_radar_at(wide ? drive_wide.width : SCREEN_W));
     }
