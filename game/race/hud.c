@@ -283,7 +283,8 @@ void hud_draw_start_lights(const QuadTarget *t, HudState *hud, const DashArt *da
 
 int hud_start_lights_drawn(const HudState *hud, int32_t tick)
 {
-    return hud->lights_until == tick + LIGHTS_HOLD;
+    const int32_t ahead = hud->lights_until - tick;
+    return hud->waiting == 0 && ahead >= 0 && ahead <= LIGHTS_HOLD;
 }
 
 void hud_clear_request(HudState *hud)
