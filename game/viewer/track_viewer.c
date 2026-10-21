@@ -18,6 +18,7 @@
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_draw_setup.h"
+#include "game/sys/backdrop.h"
 #include "game/race/race_models.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_replay.h"
@@ -736,7 +737,7 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const int in_car = !police && camera != NULL && camera->layout == 0;
     const CockpitScale cs = screen_cockpit_scale(drive_wide.width);
     const DriveMirror *m = &drive_hud.mirror;
-    const int mirror_on = in_car && m->picture != NULL && m->state != 0;
+    const int mirror_on = in_car && m->picture != NULL && m->state != 0 && !m->on_dash;  /* on the dash: with it */
     const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width - m->extra,
                                 drive_hud.mirror_y + m->height };  /* as the frame holds it: a widened one's middle */
     const LayerRect mirror = mirror_on ? grow_piece(frame, picture, MIRROR_FRAME) : picture;
@@ -765,6 +766,15 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
         }
     } else if (!police) {
         pieces[n++] = wide_piece(GAUGE_X_640, GAUGE_Y_640, GAUGE_SIZE, GAUGE_SIZE, a.gauge, 0);
+    }
+    if (police && drive_hud.rgb != NULL) {  /* 004214e4's screen over its darkened, enlarged copy, as the menus */
+        static uint8_t screen[SCREEN_W * SCREEN_H];
+        uint8_t shade[256];
+        for (size_t i = 0; i < sizeof screen; i++) screen[i] = frame[i] == LAYER_KEY ? 0 : frame[i];  /* none on black */
+        backdrop_shade_table(drive_hud.rgb, shade);
+        backdrop_compose(screen, drive_wide.pixels, drive_wide.width, shade);
+        drive_wide.ready = 1;
+        return;
     }
     if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };

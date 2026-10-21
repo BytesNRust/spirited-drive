@@ -75,6 +75,7 @@ static uint8_t *horz_bank(const TrackArt *art)
     return bank;
 }
 
+enum { ON_DASH_Y = 240 };  /* port: a mirror box from here down is on the dash, not at the windshield's top */
 static int widened;  /* port: drive_mirror_widen's, kept for the pictures made after it (a cockpit reloaded) */
 
 /* port: the picture remade `extra` columns wider than the cockpit's box */
@@ -93,14 +94,15 @@ int drive_mirror_start(DriveMirror *m, const Cockpit *c)
     m->first_segment = -1;
     const int32_t box[4] = { c->dash_points[0].x, c->dash_points[0].y, c->dash_points[1].x, c->dash_points[1].y };
     m->picture = mirror_create(make_picture, NULL, box, &m->width, &m->height);
-    if (m->picture != NULL && widened) make_wide(m, m->width / 2);
+    m->on_dash = box[1] >= ON_DASH_Y;
+    if (m->picture != NULL && widened && !m->on_dash) make_wide(m, m->width / 2);
     return m->picture != NULL;
 }
 
 void drive_mirror_widen(DriveMirror *m, int on)
 {
     widened = on;
-    if (m->picture != NULL) make_wide(m, on ? (m->width - m->extra) / 2 : 0);
+    if (m->picture != NULL) make_wide(m, on && !m->on_dash ? (m->width - m->extra) / 2 : 0);
 }
 
 void drive_mirror_free(DriveMirror *m)

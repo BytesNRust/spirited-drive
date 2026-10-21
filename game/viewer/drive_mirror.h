@@ -35,6 +35,8 @@ typedef struct {
     int32_t extra;              /* port: the wide screen's columns added to the picture (drive_mirror_widen); 0 none */
     int32_t fov;                /* port: the field that keeps the mirror's focal length over the wider picture */
     ViewLayout wide_layout;     /* port: the mirror camera's layout as wide as the picture */
+    int on_dash;                /* port: the cockpit's box in the screen's lower half (the Warrior's, by the wheel):
+                                 * not widened, it stays on the dash on a wide screen */
 } DriveMirror;
 
 typedef struct {
