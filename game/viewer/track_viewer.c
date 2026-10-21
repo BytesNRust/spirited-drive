@@ -565,10 +565,11 @@ static void set_drive_viewport(const RaceState *race)
     /* port: a row taller than the exe's (the outside view without its strip) keeps its vertical focal length */
     const int32_t row = camera->layout >= 0 && camera->layout < VIEW_LAYOUTS ? camera->layout : 0;
     const int32_t fov = camera->fov + drive_wide.fov_adjust;
-    const int32_t fov_y = screen_fov_y(camera->fov, race_view_layouts[HIGH_SCREEN][row].height, l->height,
-                                       drive_wide.fov_adjust);
+    const int32_t exe_height = race_view_layouts[HIGH_SCREEN][row].height;
+    const int32_t fov_y = screen_fov_y(camera->fov, exe_height, l->height, drive_wide.fov_adjust);
+    const int32_t near_scale = screen_near_scale(screen_fov_y(camera->fov, exe_height, l->height, 0), fov_y);
     const PortedViewport vp = { l->left + l->x, l->top + l->y, l->width, l->height, fov, l->scale,
-                                l->left, l->top, l->unknown_20, l->unknown_24, fov_y };
+                                l->left, l->top, l->unknown_20, l->unknown_24, fov_y, near_scale };
     ported_view_set_viewport(&vp);
 }
 
@@ -584,8 +585,9 @@ static PortedViewport wide_viewport(const RaceState *race)
     const int32_t fov = (row == 0 ? base : l.width != orig->width ? screen_fov_x(base, l.width) : base)
                         + drive_wide.fov_adjust;
     const int32_t fov_y = row == 0 ? fov : screen_fov_y(base, orig->height, l.height, drive_wide.fov_adjust);
+    const int32_t fov_y_exe = row == 0 ? fov - drive_wide.fov_adjust : screen_fov_y(base, orig->height, l.height, 0);
     return (PortedViewport){ l.left + l.x, l.top + l.y, l.width, l.height, fov, l.scale,
-                             l.left, l.top, l.unknown_20, l.unknown_24, fov_y };
+                             l.left, l.top, l.unknown_20, l.unknown_24, fov_y, screen_near_scale(fov_y_exe, fov_y) };
 }
 
 /* port: the 640 view's box (its row's left, top, +0x20, +0x24) LAYER_KEY on the 640 surface the 3D would go to */

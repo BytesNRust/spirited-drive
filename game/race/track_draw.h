@@ -40,6 +40,8 @@ typedef struct {
     int32_t near_dir[3];      /* 00512040 / 00512044 / 00512048 (004497d8) */
     QuadSink sink;
     int32_t near;             /* *(00511fe8) +4: 004c52c0 >> shift, as 0044aa94 leaves it */
+    int32_t port_near_scale;  /* port: 16.16 on 004c52c0 for a field wider than the exe's (the road to the view's
+                               * bottom); 0 the exe's */
 } DrawContext;
 
 /* 00487b0e: the outcodes (1 left, 2 right, 4 above, 8 below) shared by all

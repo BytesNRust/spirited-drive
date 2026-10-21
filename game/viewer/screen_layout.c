@@ -54,6 +54,12 @@ int screen_fov_y(int fov_y_orig, int height_orig, int height, int fov_adjust)
     return field(focal, height) + fov_adjust;
 }
 
+int32_t screen_near_scale(int fov_y_exe, int fov_y)
+{
+    if (fov_y <= fov_y_exe) return 65536;
+    return (int32_t)lround(tan(fov_y_exe * PI / 360.0) / tan(fov_y * PI / 360.0) * 65536.0);
+}
+
 void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS])
 {
     const int left = screen_menu_left(width);

@@ -41,6 +41,9 @@ fi
 
 tmp=$(mktemp -d -t golden_frames) || exit 1
 trap 'rm -rf $tmp' EXIT INT TERM   # zsh: $tmp is read when the trap fires, so the dir is always the one above
+# the player's own port.cfg (format, field of view, distance) stays out: an empty mods dir holds the user files, so
+# the frames take the defaults
+mkdir -p $tmp/mods || exit 1
 missing=0
 lines=()
 
@@ -49,7 +52,7 @@ for track in $TRACKS; do
     ppm=$tmp/${track}_v${view}.ppm
     log=$tmp/${track}_v${view}.log
     SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VIEW=$view timeout -k 5 $secs \
-      $bin --drive $track --entry $ticks --screenshot $ppm >$log 2>&1
+      $bin --mods $tmp/mods --drive $track --entry $ticks --screenshot $ppm >$log 2>&1
     if [[ ! -s $ppm ]]; then
       print -u2 -- "golden_frames.sh: no ${track}_v${view}.ppm (see below)"
       cat $log >&2

@@ -610,7 +610,7 @@ void ported_view_set_tick(int32_t tick)
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
-static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0 };
+static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0, 0 };
 
 /* port: the frame the 3D view draws into, 640 x 480 but on a wide screen (ported_view_set_screen) */
 static int32_t screen_w = WIDTH, screen_h = HEIGHT;
@@ -705,7 +705,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     QuadTarget quad = { pixels, screen_w, box[0], box[1], box[2], box[3] };
     DrawContext ctx = { &view, { box[0], box[1], box[2], box[3] }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
-                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0 };
+                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0,
+                        vp->near_scale };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, view_mirrored(), vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's

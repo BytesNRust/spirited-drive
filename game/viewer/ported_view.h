@@ -33,6 +33,7 @@ typedef struct {
     int32_t left, top, width, height, fov, scale;
     int32_t sky_left, sky_top, sky_width, sky_height;
     int32_t fov_y;              /* port: the vertical field when it differs (a wide screen), 0 the same as fov */
+    int32_t near_scale;         /* port: the road's near plane, 16.16 (screen_near_scale); 0 the exe's */
 } PortedViewport;
 
 /* port: the segments of track drawn (track_render_set_reach): DRAW_SEGMENTS_ULTRA for port.cfg's view_ultra */

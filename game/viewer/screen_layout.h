@@ -17,6 +17,9 @@ int screen_menu_left(int width);                        /* (width - 640) / 2 */
 int screen_fov_x(int fov_x_640, int width);
 /* The same vertically for a viewport that goes from height_orig to height lines, plus fov_adjust degrees. */
 int screen_fov_y(int fov_y_orig, int height_orig, int height, int fov_adjust);
+/* The near plane's factor (16.16) for a vertical field widened from fov_y_exe to fov_y: the focal lengths' ratio, so
+ * the road reaches the view's bottom as it did; 1 (65536) when the field is not wider. */
+int32_t screen_near_scale(int fov_y_exe, int fov_y);
 
 /* The 17 rows of the high mode (race_view_layouts[1]) for `width`: row 0 (cockpit) is width x 480, row 3 (outside,
  * 640x384 at y 32) is width wide with its clip box 448 lines (no strip, in 640 too; the projection keeps its 384); the 640-based rows (1, 2, 4..11) move right by

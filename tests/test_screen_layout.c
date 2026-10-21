@@ -22,6 +22,10 @@ int main(void)
     CHECK_EQ_INT(screen_fov_x(70, 854), 86);
     CHECK_EQ_INT(screen_fov_y(70, 384, 448, 0), 78);  /* 78.49: the plan's 79 contradicts its own rounding */
     CHECK_EQ_INT(screen_fov_y(70, 480, 480, 5), 75);
+    /* the near plane brought in by the focal lengths' ratio for a wider field, never pushed out */
+    CHECK_EQ_INT(screen_near_scale(70, 70), 65536);
+    CHECK_EQ_INT(screen_near_scale(70, 90), 45889);   /* tan 35 / tan 45 */
+    CHECK_EQ_INT(screen_near_scale(90, 70), 65536);
 
     const ViewLayout *orig = race_view_layouts[1];
     ViewLayout l[VIEW_LAYOUTS];

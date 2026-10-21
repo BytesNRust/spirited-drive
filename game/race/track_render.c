@@ -185,6 +185,13 @@ void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[
     if (z < MIN_DIR_Z) dir[2] = MIN_DIR_Z;
 }
 
+int32_t track_render_near(const DrawContext *ctx)
+{
+    const int32_t plane = ctx->port_near_scale != 0 ? (int32_t)((int64_t)NEAR_PLANE * ctx->port_near_scale >> 16)
+                                                    : NEAR_PLANE;
+    return plane >> ctx->world_shift;
+}
+
 /* 0044aa94 */
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx)
 {
@@ -204,7 +211,7 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
     /* The clamps and the near plane push work on a copy (0048ec60 into
      * 00510764), which is what is projected; the draws read r->camera. */
     memcpy(r->clamped, r->camera, (size_t)r->vertex_count * sizeof r->camera[0]);
-    const int32_t near = NEAR_PLANE >> shift;
+    const int32_t near = track_render_near(ctx);
     ctx->near = near;  /* the camera record's +4 */
     const int near_count = r->vertex_count - (r->draw_segments - 3) * ROW_POINTS;
     for (int i = 0; i < r->vertex_count; i++) {

@@ -118,6 +118,8 @@ void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int
  * cache window keeps its two segments ahead and five behind. Taken at once, and at every later bind. */
 void track_render_set_reach(TrackRender *r, int32_t segments);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
+/* 0044aa94's near plane, 004c52c0 >> the shift; with the port's port_near_scale (16.16) brought in by it first */
+int32_t track_render_near(const DrawContext *ctx);
 /* frame: the animation counter (00513e70). */
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame);
 
