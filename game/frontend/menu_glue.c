@@ -454,7 +454,7 @@ static void extras_select_glue(void *ctx, int32_t picture)
     ea_select_default();
     ea_blit_own((const uint8_t *)(intptr_t)ea_picture_shape(mode_extras_screen));
 }
-static void extras_blit_own_glue(void *ctx, const uint8_t *shape) { (void)ctx, (void)shape; }
+static void extras_blit_own_glue(void *ctx, const uint8_t *shape) { (void)ctx; ea_blit_own(shape); }
 /* the panel shaded with the palette on screen (the caller's; extras_menu has none of its own) */
 static void extras_panel_glue(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {

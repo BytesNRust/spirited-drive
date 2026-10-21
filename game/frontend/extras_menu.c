@@ -84,9 +84,10 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     }
     /* the bottom row's Done and Cancel: the exe's Options look — both are always drawn (lit when selected, dark
      * otherwise), the same way Options' rows paint their labels. The art replaces the flat panel + "Done"/"Cancel"
-     * text. */
-    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == done_of(p->page) ? "donl" : "dond"));
-    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "canl" : "cand"));
+     * text. Names are capitalised as OPTIONS.QFS ships them — shape_bank_find uses memcmp, so the lowercase
+     * spellings return NULL. */
+    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == done_of(p->page) ? "Donl" : "Dond"));
+    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "Canl" : "Cand"));
     static const char *const NAV[PAGES] = { "1/3 >", "< 2/3 >", "< 3/3" };
     const char *const nav = NAV[p->page];
     o->plus_text(o->ctx, 0, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);

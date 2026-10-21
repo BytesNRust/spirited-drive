@@ -36,6 +36,10 @@ typedef struct {
     int panel_calls;
     int last_panel_framed;
     int blit_calls;
+    /* the first byte of every blit_own shape; records value at f_blit time so the test pin survives callers that
+     * pass a stack-local FSH. */
+    uint8_t blit_shape_first[BLIT_LOG];
+    int blit_shape_first_set[BLIT_LOG];
     const uint8_t *blit_shapes[BLIT_LOG];
 } Fake;
 
@@ -50,15 +54,22 @@ static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag)
 {
     Fake *f = ctx;
     if (f->count < ART_LOG) f->tags[f->count++] = tag;
-    /* different non-NULL per tag so blit_own's payload audit can tell which the caller asked for. */
-    static uint8_t tag_data[8][16];
+    /* GRAPHICS.QFS's "bgnd" is 640x480 — the runtime FSH for the Ultra box copies a 96x28 cell from it. The rig
+     * hands back a real-sized buffer so the memcpy lands on valid memory. The slot is hashed from the tag so the
+     * blit-payload audit can tell shapes apart. */
+    static uint8_t small[8][16];
+    static uint8_t big_bgnd[16 + 640 * 480];
     unsigned slot = 0;
-    for (int i = 0; i < 4 && tag[i] != '\0' && i < 4; i++) slot = (slot << 8) | (unsigned char)tag[i];
+    for (int i = 0; i < 4 && tag[i] != '\0'; i++) slot = (slot << 8) | (unsigned char)tag[i];
+    if (slot == (unsigned)('b' << 24 | 'g' << 16 | 'n' << 8 | 'd')) {
+        big_bgnd[0] = 1;   /* non-zero so audit treats it as a real shape */
+        (void)bank;
+        return big_bgnd;
+    }
     slot %= 8;
-    /* mark each shape with a non-zero payload so audit can spot the no-op glue (passing NULL only) */
-    tag_data[slot][0] = (uint8_t)(slot + 1);
+    small[slot][0] = (uint8_t)(slot + 1);
     (void)bank;
-    return tag_data[slot];
+    return small[slot];
 }
 static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
 static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
@@ -72,7 +83,13 @@ static int32_t f_picture(void *ctx, int32_t picture) { (void)ctx; return picture
 static void f_blit(void *ctx, const uint8_t *shape)
 {
     Fake *f = ctx;
-    if (shape != NULL && f->blit_calls < BLIT_LOG) f->blit_shapes[f->blit_calls] = shape;
+    if (shape != NULL && f->blit_calls < BLIT_LOG) {
+        f->blit_shapes[f->blit_calls] = shape;
+        /* the production ea_blit_own reads the FSH header synchronously inside the call. Mirror that: snapshot
+         * the first byte at f_blit time. */
+        f->blit_shape_first[f->blit_calls] = shape[0];
+        f->blit_shape_first_set[f->blit_calls] = 1;
+    }
     f->blit_calls++;
 }
 static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
@@ -112,8 +129,10 @@ static int none(const Fake *f, const char *tag)
 }
 static int all_have_payload(const Fake *f)
 {
+    /* at least the first byte of every recorded shape was non-zero at f_blit time — proves the rig actually
+     * received a non-empty pointer, not the no-op glue dropping it. */
     for (int i = 0; i < f->blit_calls && i < BLIT_LOG; i++)
-        if (f->blit_shapes[i] != NULL && f->blit_shapes[i][0] == 0) return 0;   /* the rig sets byte 0 */
+        if (f->blit_shape_first_set[i] && f->blit_shape_first[i] == 0) return 0;
     return 1;
 }
 
