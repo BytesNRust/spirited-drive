@@ -32,7 +32,10 @@ static void test_fog_colour(void)
     make_art();
     uint8_t rgb[3];
     modern_look_fog_colour(&art, rgb);
-    CHECK(rgb[0] >= 109 && rgb[0] <= 111 && rgb[1] == rgb[0] && rgb[2] == rgb[0]);   /* the foot's greys, not the blue */
+    /* the foot's greys (110.7 on average, not the blue) lifted MODERN_LOOK_LIFT_PERCENT of the way to white: a haze is
+     * lighter than what it stands in front of */
+    const int want = (int)(110.7 + (255 - 110.7) * MODERN_LOOK_LIFT_PERCENT / 100.0);
+    CHECK(rgb[0] >= want - 1 && rgb[0] <= want + 1 && rgb[1] == rgb[0] && rgb[2] == rgb[0]);
     art.has_horizon = 0;
     modern_look_fog_colour(&art, rgb);
     CHECK_EQ_INT(rgb[0], MODERN_LOOK_NO_HORIZON);

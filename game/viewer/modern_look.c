@@ -21,7 +21,14 @@ void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3])
                 count++;
             }
     }
-    for (int k = 0; k < 3; k++) rgb[k] = (uint8_t)(count != 0 ? (sum[k] + count / 2) / count : MODERN_LOOK_NO_HORIZON);
+    for (int k = 0; k < 3; k++) {
+        if (count == 0) {
+            rgb[k] = MODERN_LOOK_NO_HORIZON;
+            continue;
+        }
+        const uint32_t foot = (sum[k] + count / 2) / count;
+        rgb[k] = (uint8_t)(foot + ((255 - foot) * MODERN_LOOK_LIFT_PERCENT + 50) / 100);
+    }
 }
 
 const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int filter, int fog, int32_t segments)

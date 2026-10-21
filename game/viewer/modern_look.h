@@ -9,7 +9,8 @@
 
 enum {
     MODERN_LOOK_FOOT_ROWS = 2,       /* the horizon's last rows, where it meets the land: the fog's colour */
-    MODERN_LOOK_NO_HORIZON = 128     /* the grey without a horizon */
+    MODERN_LOOK_NO_HORIZON = 128,    /* the grey without a horizon */
+    MODERN_LOOK_LIFT_PERCENT = 40    /* the foot's colour this far to white: a haze is lighter than the land behind */
 };
 
 typedef struct {
@@ -20,7 +21,8 @@ typedef struct {
     uint8_t tables[MODERN_FOG_LEVELS][256];
 } ModernLook;
 
-/* The average colour of the horizon's foot (its see-through 0xff left out), in the palette's scale. */
+/* The average colour of the horizon's foot (its see-through 0xff left out) lifted MODERN_LOOK_LIFT_PERCENT of the
+ * way to white, in the palette's scale; MODERN_LOOK_NO_HORIZON grey without one. */
 void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3]);
 
 /* The style for the switches over `art` with `segments` of track drawn: NULL with both off. The fog reaches its
