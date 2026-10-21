@@ -379,6 +379,7 @@ add_executable(tnfs
     game/viewer/drive_pause.c
     game/viewer/drive_menu.c
     game/viewer/drive_hud.c
+    game/viewer/drive_hud_mask.c
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
