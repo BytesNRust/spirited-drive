@@ -71,5 +71,27 @@ int main(void)
     layer_compose(&id, layer, same);
     CHECK_EQ_INT(same[420 * LW + 320], 7);
     CHECK_EQ_INT(same[10 * LW + 10], 3);
+
+    /* the map's see-through back grabbed at its wide anchor: what the in-car frame shows there, the windshield
+     * (LAYER_KEY) left as it was */
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < LW; x++) layer[y * LW + x] = (uint8_t)(10 + (x * 7 + y * 13) % 120);
+    box(560, 300, 600, 330, LAYER_KEY);
+    memset(wide, 3, sizeof wide);
+    const LayerCompose dash = { LW, H, W, SCALE_854, 1, NULL, 0 };
+    layer_compose(&dash, layer, wide);
+    enum { BW = 113, BH = 140, BX = 854 - 113 - 6 + 2 - 40, BY = 480 - 140 - 6 + 2 - 60 };
+    static uint8_t back[BW * BH];
+    memset(back, 200, sizeof back);
+    layer_dash_grab(layer, W, BX, BY, back, BW, BH);
+    int same_as_frame = 1, holes = 0;
+    for (int y = 0; y < BH; y++)
+        for (int x = 0; x < BW; x++) {
+            const uint8_t shown = wide[(BY + y) * W + BX + x], got = back[y * BW + x];
+            if (shown == 3) holes += got == 200;
+            else same_as_frame &= got == shown;
+        }
+    CHECK(same_as_frame);
+    CHECK(holes > 0);
     return TEST_REPORT();
 }

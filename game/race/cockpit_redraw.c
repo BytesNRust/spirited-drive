@@ -30,6 +30,7 @@ void cockpit_redraw(const CockpitRedrawOps *ops, HudState *hud, const Cockpit *c
     blit_shape_at_transparent(t, c->dash, 0, 0);
     w->back_saved = 1;
     blit_grab(t, in->back_shape, high ? GRAB_X_HIGH : GRAB_X_LOW, high ? GRAB_Y_HIGH : GRAB_Y_LOW);
+    if (ops->port_grab != NULL) ops->port_grab(ops->ctx, in->back_shape);
     const QuadTarget *back = ops->select(ops->ctx, HUD_SURFACE_BACK);
     const int32_t bw = high ? BOX_W_HIGH : BOX_W_LOW, bh = high ? BOX_H_HIGH : BOX_H_LOW;
     const int32_t box[8] = { 0, 0, bw, 0, bw, bh, 0, bh };

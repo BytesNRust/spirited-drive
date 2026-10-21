@@ -44,6 +44,18 @@ static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide)
     }
 }
 
+void layer_dash_grab(const uint8_t *art, int width, int x, int y, uint8_t *out, int w, int h)
+{
+    for (int j = 0; j < h; j++) {
+        const int sy = screen_dash_y(y + j);
+        if (sy < 0 || sy >= SCREEN_HEIGHT) continue;
+        for (int i = 0; i < w; i++) {
+            const uint8_t p = art[sy * ORIGINAL_WIDTH + screen_dash_x(width, x + i)];
+            if (p != LAYER_KEY) out[j * w + i] = p;
+        }
+    }
+}
+
 static void piece(const LayerCompose *c, const LayerPiece *p, const uint8_t *layer, uint8_t *wide)
 {
     const int w = p->from.right - p->from.left, h = p->from.bottom - p->from.top;

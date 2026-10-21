@@ -31,4 +31,8 @@ typedef struct {
 
 void layer_compose(const LayerCompose *c, const uint8_t *layer, uint8_t *wide);
 
+/* port: `out` (w x h) as the in-car wide frame `width` wide shows the dash's art (640 x 480) from (x, y): each pixel
+ * from the art's pixel screen_dash_x / _y give, the art's LAYER_KEY (the windshield) leaving `out` as it was */
+void layer_dash_grab(const uint8_t *art, int width, int x, int y, uint8_t *out, int w, int h);
+
 #endif

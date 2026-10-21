@@ -100,6 +100,8 @@ typedef struct {
     void *ctx;
     QuadTarget *(*select)(void *ctx, HudSurface s);  /* 00473680 / 004735dc: the draw surface, its clip its own */
     void (*labels)(void *ctx);                       /* 00420370 */
+    void (*port_grab)(void *ctx, uint8_t *back_shape);  /* port: NULL keeps the exe's grab; else redoes it before the
+                                                         * shading (the wide screen's map lies over other dash) */
 } CockpitRedrawOps;
 
 typedef struct {

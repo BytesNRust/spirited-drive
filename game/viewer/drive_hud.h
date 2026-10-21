@@ -69,6 +69,7 @@ typedef struct {
     uint8_t car_colours[HUD_MAP_COLOURS]; /* 0050b7d4.. (00446bac) */
     DriveMirror mirror;         /* 004c2d94 and the mirror's state: made with the cockpit (0044bd64) */
     int32_t mirror_x, mirror_y; /* port: where 0044c060 last put the mirror (the wide screen moves it) */
+    void (*port_grab)(uint8_t *back);  /* port: NULL, or redoes 00421160's grab under the map (the wide screen's) */
 } DriveHud;
 
 /* Reads data_root/SIMDATA/MISC/maskhi.fsh and MASKHI.mmb (an upper-case

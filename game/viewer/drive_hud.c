@@ -338,9 +338,14 @@ static void cockpit_labels(void *ctx)
                     HIGH_RES, c->h->strip_colour);
 }
 
+static void cockpit_grab(void *ctx, uint8_t *back_shape)
+{
+    ((CockpitSurfaces *)ctx)->h->port_grab(back_shape);
+}
+
 static void cockpit_redraw_now(DriveHud *h, CockpitSurfaces *s)
 {
-    const CockpitRedrawOps ops = { s, cockpit_select, cockpit_labels };
+    const CockpitRedrawOps ops = { s, cockpit_select, cockpit_labels, h->port_grab != NULL ? cockpit_grab : NULL };
     const CockpitRedrawInputs in = { 0, view_clip_inputs(s->screen.pitch, s->screen.clip_bottom), h->back, h->shade };
     cockpit_redraw(&ops, &h->hud, &h->cockpit, &h->cockpit_world, &in);
 }

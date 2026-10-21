@@ -615,7 +615,8 @@ enum {
     MIRROR_FRAME = 40                   /* the most the mirror's frame and stalk reach past its picture */
 };
 
-enum { STRIP_BACK_X = 258 };  /* a column of the 640 strip with nothing on it, between its first two groups */
+enum { STRIP_BACK_X = 258 };
+enum { GRAB_X = 0x208, GRAB_Y = 0x132 };  /* where 00421160 grabs the map's back at 640 */  /* a column of the 640 strip with nothing on it, between its first two groups */
 
 /* port: the strip between the scoreboard's groups, each line as the 640 strip's bare column (black, and the grey
  * edge on its last two lines) */
@@ -653,6 +654,16 @@ static void wide_art_placed(const LayerRect *r, const uint8_t *art)
             if (p != LAYER_KEY) drive_wide.pixels[(size_t)y * drive_wide.width + x] = p;
         }
     }
+}
+
+/* port: 00421160's grab for the map's see-through back from the dash under the map's anchor, not the 640's */
+static void wide_map_grab(uint8_t *back)
+{
+    if (drive_wide.width <= SCREEN_W) return;
+    const ScreenPoint sizes[7] = { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 }, { 0, 0 } };
+    const ScreenPoint at = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ 0, 0 }).map;
+    layer_dash_grab(dash_art_layer(&drive_hud.cockpit), drive_wide.width, at.x + GRAB_X - DRIVE_MAP_X,
+                    at.y + GRAB_Y - DRIVE_MAP_Y, back + DRIVE_VIEW_HEADER, DRIVE_BACK_W, DRIVE_BACK_H);
 }
 
 static int line_drawn(const uint8_t *frame, int x0, int y0, int x1, int y1)
@@ -1465,6 +1476,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     CarLoad *cars[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) cars[i] = drive_cars.loaded[i] ? &drive_cars.load[i] : NULL;
     if (!drive_hud_read(&drive_hud, data_root)) fprintf(stderr, "track_viewer: no HUD\n");
+    drive_hud.port_grab = wide_map_grab;
     drive_hud.director = drive_replay.recording != NULL ? &drive_replay.dir : NULL;  /* the dash controls' words */
     drive_replay.hud = &drive_hud.hud;
     drive_replay.key_flags = drive_input.keys;  /* 0044f55c reads 004c693c */
