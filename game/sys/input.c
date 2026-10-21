@@ -1,6 +1,7 @@
 #include "game/sys/input.h"
 
 #include "game/sys/hot_key.h"
+#include "game/sys/page_keys.h"
 #include "game/sys/pointer.h"
 #include "game/sys/video.h"
 #include "platform/platform.h"
@@ -38,6 +39,9 @@ void input_on_keys(void (*mute_hook)(void),
 void input_function_keys(const int16_t *flag) { function_keys = flag; }
 
 static int16_t *link_game, *link_lost;
+static int page_keys_on;
+
+void input_page_keys(int on) { page_keys_on = on; }
 
 void input_link_words(int16_t *game, int16_t *lost) { link_game = game, link_lost = lost; }
 
@@ -78,6 +82,7 @@ int input_get_key(void)
     const int32_t key = menu_hot_key(&s, flags, function_keys != NULL ? *function_keys : 0, j, present, device,
                                      &(const HotKeyOps){ NULL, no_shot, mute }, joy_ops);
     if (link_lost != NULL) *link_lost = s.dropped;
+    if (key == 0 && page_keys_on) return page_key(flags);
     return key;
 }
 
