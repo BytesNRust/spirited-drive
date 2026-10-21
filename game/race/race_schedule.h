@@ -122,6 +122,8 @@ typedef struct {
     int32_t w4fb7d4;            /* 004fb7d4 */
     int16_t w524e9f;            /* 00524e9f */
     int32_t tick;               /* 00513e70 */
+    int32_t port_resume_keys;   /* port: 1 clears `last` on the way out, so ESC works at once; 0 the exe's (the tick:
+                                 * ESC dead for MENU_GAP ticks after the pause) */
 } RacePauseInputs;
 
 /* 00455600 (004b90dc[1], from 00410b04): 004fcdac = 1; 0041eba4, 004437c8,

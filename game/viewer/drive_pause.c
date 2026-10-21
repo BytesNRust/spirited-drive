@@ -76,7 +76,8 @@ static void serve_music(void *ctx)
  * no force hooks here); 004fb7d4 is 0 (no network). */
 static void pause(PauseCtx *c)
 {
-    c->pause = (RacePauseInputs){ c->in->keys[KEY_PAUSE], drive_audio_music_setting(), c->race->chase.kind, 0, 0, c->race->tick };
+    c->pause = (RacePauseInputs){ c->in->keys[KEY_PAUSE], drive_audio_music_setting(), c->race->chase.kind, 0, 0, c->race->tick,
+                                    1 };
     const RacePauseOps ops = { c, none, voices_off, forces_off, serve_music, serve, hud_clear, take, none, none_i, none_wait, music_back,
                                forces_on };
     const uint32_t start = platform_ticks_ms();

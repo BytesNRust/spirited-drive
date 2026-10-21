@@ -126,13 +126,13 @@ static void menu_gap_still_blocks_without_pause(void)
  * To walk race_pause's three pause-loops we drive `in->pause` through a deterministic sequence: each call
  * to the service callback flips pause according to the script. The mirror is non-const because race_pause
  * re-reads `in->pause` between service calls. */
-static void pause_return_allows_immediate_esc(void)
+static void pause_return(int port, RaceMenuKeysState *out)
 {
     const int32_t earlier_last = 5000;
     RaceMenuKeysState st = { .last = earlier_last, .pending = 0 };
 
     RacePauseInputs in_storage = { .pause = 1, .movie = 0, .follow_kind = 0x1234, .w4fb7d4 = 0,
-                                   .w524e9f = 0, .tick = 5050 };
+                                   .w524e9f = 0, .tick = 5050, .port_resume_keys = port };
     PauseTrack pt;
     memset(&pt, 0, sizeof pt);
     pt.pinned_in = &in_storage;
@@ -163,8 +163,16 @@ static void pause_return_allows_immediate_esc(void)
     CHECK_EQ_INT(pt.music_on_calls, 1);
     CHECK_EQ_INT(pt.setup_43cbe0_calls, 1);
     CHECK_EQ_INT(st.pending, 0);
-    /* The bug: race_pause wrote st->last = in->tick (5050), preserving the menu-gap block.
-     * The fix resets st->last = 0 so the next ESC opens the menu. */
+    *out = st;
+}
+
+/* the exe writes last = the tick on the way out (ESC dead for MENU_GAP after); the port's flag clears it */
+static void pause_return_allows_immediate_esc(void)
+{
+    RaceMenuKeysState st;
+    pause_return(0, &st);
+    CHECK_EQ_INT(st.last, 5050);
+    pause_return(1, &st);
     CHECK_EQ_INT(st.last, 0);
 
     /* Follow-up: ESC at tick 5100 (inside MENU_GAP=180 of 5050). With the fix, last=0 lets it through. */
