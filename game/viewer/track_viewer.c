@@ -19,6 +19,7 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_draw_setup.h"
 #include "game/sys/backdrop.h"
+#include "game/sys/port_extras.h"
 #include "game/race/race_models.h"
 #include "game/race/race_palette.h"
 #include "game/race/race_replay.h"
@@ -821,6 +822,9 @@ static void drive_wide_setup(void)
     const char *ultra_env = getenv("TNFS_VIEW_ULTRA");
     const int ultra = ultra_env != NULL ? atoi(ultra_env) != 0 : ps.view_ultra;
     ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
+    /* port: EXTRAS' Modern 3D (TNFS_MODERN_3D=1 / 0 overrides extras.cfg for the checks) */
+    const char *modern_env = getenv("TNFS_MODERN_3D");
+    ported_view_set_modern(modern_env != NULL ? atoi(modern_env) != 0 : port_extras_load().modern_3d);
     race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;

@@ -21,6 +21,7 @@
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
+#include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
 
@@ -48,6 +49,17 @@ static int transparent(const FshEntry *texture)
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
     quad_draw(user, texture, uv, screen, transparent(texture));
+}
+
+static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
+
+void ported_view_set_modern(int on) { modern = on != 0; }
+
+/* port: the near road clipped, unsnapped and perspective-correct (Modern 3D) */
+static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
+                        const int32_t *const cam[4])
+{
+    modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
@@ -707,7 +719,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     QuadTarget quad = { pixels, screen_w, box[0], box[1], box[2], box[3] };
     DrawContext ctx = { &view, { box[0], box[1], box[2], box[3] }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
-                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids }, 0,
+                        { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids,
+                          modern ? draw_camera : NULL }, 0,
                         vp->near_scale };
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, view_mirrored(), vp->scale, cam.matrix);  /* the layout's +4 (00449670) */

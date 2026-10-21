@@ -75,7 +75,13 @@ void track_far_draw(const TrackFarOps *ops, const TrackFarInputs *in, int32_t se
             if (track_visible_far(&in->fence.clip, quad, p->strip, in->mirrored) &&
                 in->fence.camera[first + p->corner[3]][2] > 0) {
                 const FshEntry *t = ops->texture(ops->ctx, record[2 + p->strip] * VARIANTS + uv->variant + level);
-                if (t != NULL) ops->full(ops->ctx, t, quad);
+                if (t != NULL && ops->full_camera != NULL) {
+                    const int32_t *const cam[4] = { in->fence.camera[first + p->corner[0]], in->fence.camera[first + p->corner[1]],
+                                                    in->fence.camera[first + p->corner[2]], in->fence.camera[first + p->corner[3]] };
+                    ops->full_camera(ops->ctx, t, cam);
+                } else if (t != NULL) {
+                    ops->full(ops->ctx, t, quad);
+                }
             }
             if (p->rows_done == 0) continue;
             draw_fences(in, lod, record, uv, first, at, level);

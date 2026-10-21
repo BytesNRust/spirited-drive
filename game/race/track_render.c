@@ -356,6 +356,15 @@ static void full_alt(void *ctx, const FshEntry *t, const int32_t screen[8])
     g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
 }
 
+/* port: Modern 3D's far road, the whole texture as 004f9e9c maps it */
+static void full_camera(void *ctx, const FshEntry *t, const int32_t *const cam[4])
+{
+    const Glue *g = ctx;
+    const int32_t right = ((int16_t)t->width << 16) - 1, bottom = ((int16_t)t->height << 16) - 1;
+    const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+    g->ctx->sink.draw_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
+}
+
 static void cars(void *ctx, int32_t node)
 {
     const Glue *g = ctx;
@@ -405,7 +414,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
                                 TRACK_MAX_OBJECT_VERTICES, frame, r->side_face,
                                 { (void *)&g, object_model, object_full, object_full_alt } };
     const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt };
-    const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars };
+    const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars,
+                                  ctx->sink.draw_camera != NULL ? full_camera : NULL };
     const TrackNearOps near_ops = { (void *)&g, skids, no_alternate };
     const TrackFarInputs far = { r->entries, r->build.segment_mask, r->cache, r->vertex_count, mirrored, 0,
                                  { (const int32_t (*)[3])r->world, (const int32_t (*)[3])r->camera,

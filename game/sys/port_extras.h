@@ -12,6 +12,7 @@ typedef enum { START_GAME_MODE = 0, START_NETWORK = 1, START_CENTRAL = 2 } Start
 typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
+    int modern_3d;    /* 0/1: the 3D clipped, unsnapped and perspective-correct, not the PS1-era mapper's warp */
     StartScreen start;                                          /* START_GAME_MODE */
 } PortExtras;
 

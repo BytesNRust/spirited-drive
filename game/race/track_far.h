@@ -19,6 +19,8 @@ typedef struct {
     const FshEntry *(*texture)(void *ctx, int32_t flat);                /* 0050eec4[flat], NULL for none */
     void (*full)(void *ctx, const FshEntry *t, const int32_t screen[8]);  /* [004f9e9c] */
     void (*cars)(void *ctx, int32_t node);                               /* 0045a848 */
+    /* port: Modern 3D's: the polygon from its camera-space corners in place of `full`; NULL the exe's */
+    void (*full_camera)(void *ctx, const FshEntry *t, const int32_t *const cam[4]);
 } TrackFarOps;
 
 typedef struct {

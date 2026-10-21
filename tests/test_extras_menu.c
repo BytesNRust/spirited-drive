@@ -203,6 +203,18 @@ static void test_page_two_switches_saved(void)
     CHECK_EQ_INT((int)r.fake.saved.start, START_CENTRAL);
 }
 
+/* page 2's last switch, Modern 3D, on and saved: Up from Replay Cameras is Done, Up again Modern 3D */
+static void test_modern_3d_saved(void)
+{
+    Rig r;
+    const int keys[] = { UP, RIGHT, RIGHT, UP, UP, RIGHT, DOWN, ENTER };
+    setup(&r);
+    run(&r, keys, 8);
+    CHECK(shown(&r.fake, "Modern 3D"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.modern_3d, 1);
+}
+
 static void test_left_on_page_two_done_goes_back(void)
 {
     Rig r;
@@ -276,6 +288,7 @@ int main(void)
     test_right_turns_to_page_two();
     test_rally_excludes_mirror();
     test_page_two_switches_saved();
+    test_modern_3d_saved();
     test_left_on_page_two_done_goes_back();
     test_up_from_cancel_and_unlock_left();
     test_nav_click_turns_the_page();

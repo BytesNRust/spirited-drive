@@ -380,6 +380,7 @@ add_executable(tnfs
     game/viewer/drive_hud.c
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
+    game/viewer/modern_road.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
     game/viewer/ported_view.c
@@ -432,6 +433,11 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mirror_on_dash COMMAND test_mirror_on_dash)
+    add_executable(test_modern_road tests/test_modern_road.c game/viewer/modern_road.c)
+    target_include_directories(test_modern_road PRIVATE game)
+    target_link_libraries(test_modern_road PRIVATE tnfs_game)
+    target_compile_options(test_modern_road PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME modern_road COMMAND test_modern_road)
     add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c)
     target_include_directories(test_object_sink PRIVATE game)
     target_link_libraries(test_object_sink PRIVATE tnfs_game)

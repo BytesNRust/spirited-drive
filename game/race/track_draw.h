@@ -31,6 +31,10 @@ typedef struct {
      * of s -> t (the row's last polygon's corners 0 and 3), in the near pass
      * before its cars; may be NULL */
     void (*draw_skids)(void *user, int32_t row, const int32_t s[2], const int32_t t[2]);
+    /* port (spike): a near road cell from its camera-space corners, uv 16.16 as draw_uv's; NULL the exe's path
+     * (00425718's subdivision, the near-plane push, the affine mapper) */
+    void (*draw_camera)(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
+                        const int32_t *const cam[4]);
 } QuadSink;
 
 typedef struct {
