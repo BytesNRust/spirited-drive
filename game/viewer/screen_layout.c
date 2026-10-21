@@ -103,6 +103,11 @@ int screen_dash_x(int width, int x)
     return sx < 0 ? 0 : sx >= ORIGINAL_WIDTH ? ORIGINAL_WIDTH - 1 : sx;
 }
 
+int screen_light_x(int width, int i)
+{
+    return i * (width - LIGHT_WIDTH) / (LIGHT_COUNT - 1);
+}
+
 int screen_dash_y(int y)
 {
     return y < DASH_DROP + HUD_BAR_HEIGHT ? HUD_BAR_HEIGHT : y - DASH_DROP;
