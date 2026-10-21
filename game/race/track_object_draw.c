@@ -57,6 +57,29 @@ static void corners(const TrackObjectDraw *d, int32_t first, const int order[4],
     }
 }
 
+/* port: the same four points' camera-space rows, for ops.full_camera */
+static void camera_corners(const TrackObjectDraw *d, int32_t first, const int order[4], const int32_t *out[4])
+{
+    for (int i = 0; i < 4; i++) out[i] = d->object_camera[first + order[i]];
+}
+
+/* one board: the exe's mapper through its screen corners, or Modern 3D's through their camera-space ones */
+static void board(TrackObjectDraw *d, int alternate, int32_t texture, int32_t first, const int order[4])
+{
+    int32_t screen[8];
+    corners(d, first, order, screen);
+    if (!track_quad_on_screen(screen)) return;
+    if (d->ops.full_camera != NULL) {
+        const int32_t *cam[4];
+        camera_corners(d, first, order, cam);
+        d->ops.full_camera(d->ops.user, texture, cam);
+    } else if (alternate) {
+        d->ops.full_alt(d->ops.user, texture, screen);
+    } else {
+        d->ops.full(d->ops.user, texture, screen);
+    }
+}
+
 static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint8_t *desc, int32_t band, int32_t at)
 {
     int32_t texture = desc[2] + level_of(record[8] != 0 ? LEVEL_MARKED : LEVEL, band);
@@ -65,9 +88,7 @@ static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint
         texture += d->tick / desc[9] % desc[8] * 4;
     }
     static const int ORDER[4] = { 0, 1, 2, 3 };
-    int32_t screen[8];
-    corners(d, at, ORDER, screen);
-    if (track_quad_on_screen(screen)) d->ops.full(d->ops.user, texture, screen);
+    board(d, 0, texture, at, ORDER);
 }
 
 static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band, int32_t at)
@@ -79,13 +100,10 @@ static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band
     static const int FRONT[2][4] = { { 0, 1, 2, 3 }, { 1, 2, 3, 0 } };
     static const int SIDE[2][4] = { { 1, 4, 5, 2 }, { 4, 5, 2, 1 } };
     const int level = level_of(LEVEL, band);
-    int32_t screen[8];
-    corners(d, at, FRONT[desc[0] & FRONT_FROM_1], screen);
-    if (track_quad_on_screen(screen)) d->ops.full_alt(d->ops.user, desc[2] + level, screen);
-    corners(d, at, SIDE[(desc[0] & SIDE_FROM_4) != 0], screen);
+    board(d, 1, desc[2] + level, at, FRONT[desc[0] & FRONT_FROM_1]);
     const uint32_t before = d->side_face;
     d->side_face = 1;
-    if (track_quad_on_screen(screen)) d->ops.full_alt(d->ops.user, desc[3] + level, screen);
+    board(d, 1, desc[3] + level, at, SIDE[(desc[0] & SIDE_FROM_4) != 0]);
     d->side_face |= before;
 }
 

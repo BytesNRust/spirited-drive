@@ -5,6 +5,7 @@
 
 #include "game/gfx/object3d.h"
 #include "game/gfx/quad.h"
+#include "game/race/view.h"
 
 #include <stdint.h>
 
@@ -12,6 +13,7 @@ typedef struct {
     const QuadTarget *target;
     const uint8_t *palette;  /* 768 bytes, 8-bit RGB */
     const uint8_t *shade;    /* 256 bytes: 004c6604, or object_sink_shade */
+    const View *view;        /* port: Modern 3D's, the polygons clipped and perspective-correct (modern_road.h); NULL the exe's */
 } ObjectSink;
 
 Object3DSink object_sink(ObjectSink *s);

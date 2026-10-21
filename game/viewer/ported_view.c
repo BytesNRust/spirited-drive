@@ -55,6 +55,9 @@ static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
 
 void ported_view_set_modern(int on) { modern = on != 0; }
 
+/* port: the view the 3D objects' pixels clip and project by when Modern 3D is on, else NULL (the exe's mappers) */
+static const View *modern_view(const View *view) { return modern ? view : NULL; }
+
 /* port: the near road clipped, unsnapped and perspective-correct (Modern 3D) */
 static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
@@ -545,7 +548,7 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     static uint8_t shade[256];
     static const uint8_t *shaded;
     if (shadow_remap == NULL && shaded != palette) object_sink_shade(palette, shade), shaded = palette;
-    ObjectSink pixels = { target, palette, shadow_remap != NULL ? shadow_remap : shade };
+    ObjectSink pixels = { target, palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(mv->view) };
     const Object3DSink sink = object_sink(&pixels);
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
@@ -753,7 +756,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     static uint8_t shade[256];
     if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
-    object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade };
+    object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(&view) };
     skid_node = pc->node;
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
 }

@@ -64,5 +64,5 @@ int main(void)
     CHECK_EQ_INT(idle.services, 0);
     CHECK_EQ_INT(idle.closed, 1);
 
-    TEST_REPORT();
+    return TEST_REPORT();
 }

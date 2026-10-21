@@ -4,7 +4,9 @@
 #include "game/gfx/object_mappers.h"
 #include "game/gfx/palette_match.h"
 #include "game/gfx/quad.h"
+#include "viewer/modern_road.h"
 
+#include <string.h>
 
 /* 00491a82 indexes five tables of three thunks back to back, so a mode past
  * 2 lands in the next table; past the last one the original crashes. */
@@ -62,6 +64,52 @@ static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
     }
 }
 
+/* port: the uv a mapper shape reads, 16.16 for each corner, whatever the shape takes them in (the triangle, quad
+ * and split-quad ones come from the mesh in whole texels, the whole-texture one from the texture's size, the inset
+ * one from its size less a texel each side) */
+static int camera_uv(ObjShape shape, const FshEntry *t, const Object3DCorners *c, int32_t uv[8])
+{
+    const int32_t w = (int16_t)t->width, h = (int16_t)t->height;
+    switch (shape) {
+    case OBJ_TRIANGLE:
+    case OBJ_QUAD:
+    case OBJ_QUAD_TRIS:
+        for (int i = 0; i < 8; i++) uv[i] = (int32_t)((uint32_t)c->uv[i] << 16);
+        return 1;
+    case OBJ_FULL: {
+        const int32_t r = (w << 16) - 1, b = (h << 16) - 1;
+        const int32_t full[8] = { 0, 0, r, 0, r, b, 0, b };
+        memcpy(uv, full, sizeof full);
+        return 1;
+    }
+    case OBJ_INSET: {
+        const int32_t r = (w - 1) << 16, b = (h - 1) << 16, o = 1 << 16;
+        const int32_t inset[8] = { o, o, r - o, o, r - o, b - o, o, b - o };
+        memcpy(uv, inset, sizeof inset);
+        return 1;
+    }
+    }
+    return 0;
+}
+
+static void textured_camera(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
+{
+    const ObjectSink *s = user;
+    const int slot = (int)table * 3 + mode;
+    if (slot >= 15 || texture->type != FSH_TYPE_BITMAP) return;
+    int32_t uv[8];
+    if (!camera_uv((ObjShape)(slot / 3), texture, c, uv)) return;
+    const int32_t *const cam[4] = { &c->camera[0], &c->camera[3], &c->camera[6], &c->camera[9] };
+    modern_polygon(s->target, s->view, texture, uv, cam, c->corners, (MapMode)(slot % 3), s->shade);
+}
+
+static void flat_camera(void *user, uint32_t rgb, const Object3DCorners *c)
+{
+    const ObjectSink *s = user;
+    const int32_t *const cam[4] = { &c->camera[0], &c->camera[3], &c->camera[6], &c->camera[9] };
+    modern_flat(s->target, s->view, nearest(s->palette, rgb), cam, c->corners);
+}
+
 /* port: a stand-in for 004c6604 where no race built it (the track viewer); a
  * race gives hud_colours' table (ported_view_set_shadows). Here each colour's
  * nearest match at half brightness. */
@@ -76,5 +124,6 @@ void object_sink_shade(const uint8_t palette[768], uint8_t shade[256])
 
 Object3DSink object_sink(ObjectSink *s)
 {
-    return (Object3DSink){ s, textured, flat };
+    if (s->view != NULL) return (Object3DSink){ s, textured, flat, textured_camera, flat_camera };
+    return (Object3DSink){ .user = s, .textured = textured, .flat = flat };
 }

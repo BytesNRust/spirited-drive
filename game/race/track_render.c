@@ -403,6 +403,14 @@ static void object_full_alt(void *user, int32_t texture, const int32_t screen[8]
     if (t != NULL) g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
 }
 
+/* port: Modern 3D's scenery board, the whole texture as 004f9e9c maps it, from camera-space corners */
+static void object_full_camera(void *user, int32_t texture, const int32_t *const cam[4])
+{
+    const Glue *g = user;
+    const FshEntry *t = scenery_texture(g->r->art, texture);
+    if (t != NULL) full_camera(user, t, cam);
+}
+
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame)
 {
     if (r->tri == NULL || r->vertex_count == 0) return;
@@ -412,7 +420,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
     TrackObjectDraw objects = { walk, r->nodes, (const int32_t (*)[3])r->object_world,
                                 (const int32_t (*)[3])r->object_camera, (const int32_t (*)[2])r->object_screen,
                                 TRACK_MAX_OBJECT_VERTICES, frame, r->side_face,
-                                { (void *)&g, object_model, object_full, object_full_alt } };
+                                { (void *)&g, object_model, object_full, object_full_alt,
+                                  ctx->sink.draw_camera != NULL ? object_full_camera : NULL } };
     const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt };
     const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars,
                                   ctx->sink.draw_camera != NULL ? full_camera : NULL };

@@ -72,6 +72,7 @@ typedef struct {
 typedef struct {
     int32_t screen[8];    /* corners, (x, y) per corner */
     int32_t uv[8];        /* the mesh's uvs for those corners, as stored */
+    int32_t camera[12];   /* port: the corners in camera space (x, y, z each), for the sink's camera calls */
     int corners;
 } Object3DCorners;
 
@@ -82,6 +83,12 @@ typedef struct {
     /* 004a3390: 2 corners a line (00484254), 3 or 4 a flat polygon (0048434e).
      * port: the sink finds the slot's colour (00473140) at each draw; 00490cc0 keeps it in the slot. */
     void (*flat)(void *user, uint32_t rgb, const Object3DCorners *c);
+    /* port (Modern 3D): both NULL the exe's. With textured_camera set a textured polygon goes to it in place of
+     * `textured`, and with flat_camera a flat one of 3 or 4 corners in place of `flat`, from their camera-space
+     * corners (c->camera): the polygons are not dropped for touching the near plane (the sink clips them) and are
+     * culled by their facing in camera space instead of by the winding of their snapped screen corners. */
+    void (*textured_camera)(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c);
+    void (*flat_camera)(void *user, uint32_t rgb, const Object3DCorners *c);
 } Object3DSink;
 
 /* A run of polygon indexes drawn as one sorted group: the whole object

@@ -283,6 +283,17 @@ static int32_t winding(const Object3D *obj, const Object3DPolygon *p)
     return (int32_t)(y2 * x0 - x2 * y0);
 }
 
+/* port: the sign 004a335b's winding has for corners all in front of the eye, from the camera-space corners, where
+ * it also holds for corners behind it: the corner points' triple product (A x B) . C. */
+static int32_t winding_camera(const Object3D *obj, const Object3DPolygon *p)
+{
+    const int32_t *a = obj->camera[p->vertex[0]], *b = obj->camera[p->vertex[1]], *c = obj->camera[p->vertex[2]];
+    const double det = (double)a[0] * ((double)b[1] * c[2] - (double)b[2] * c[1]) -
+                       (double)a[1] * ((double)b[0] * c[2] - (double)b[2] * c[0]) +
+                       (double)a[2] * ((double)b[0] * c[1] - (double)b[1] * c[0]);
+    return det > 0 ? 1 : det < 0 ? -1 : 0;
+}
+
 static Object3DTable table_for(uint32_t flags, int corners, int alt)
 {
     if (corners == 3) return OBJECT3D_TABLE_TRIANGLE;
@@ -298,6 +309,7 @@ static void gather(const Object3D *obj, const Object3DPolygon *p, int corners, O
     for (int i = 0; i < corners && i < 4; i++) {
         c->screen[2 * i] = obj->screen[p->vertex[i]][0];
         c->screen[2 * i + 1] = obj->screen[p->vertex[i]][1];
+        for (int k = 0; k < 3; k++) c->camera[3 * i + k] = obj->camera[p->vertex[i]][k];
         MeshUv uv;
         if (p->uv[i] != UINT32_MAX && mesh_uv(obj->mesh, p->uv[i], &uv) == MESH_OK) {
             c->uv[2 * i] = uv.u;
@@ -314,20 +326,26 @@ static void draw_polygon(const Object3D *obj, uint32_t index, int32_t near_z, co
     const uint32_t flags = p->flags;
     const int corners = (int)(flags & POLY_CORNERS);
     if (corners < 1 || corners > 4) return;
-    if ((obj->flags & OBJECT3D_FLAG_NEAR) && touches_near(obj, p, corners, near_z)) return;
+    const uint32_t slot = (flags >> 16) & 0xFF;
+    const Object3DTexture *t = slot < obj->texture_count ? &obj->textures[slot] : NULL;
+    const int textured = (flags & POLY_TEXTURED) && t != NULL && t->texture != NULL;
+    const int camera = corners >= 3 && (textured ? sink->textured_camera != NULL : sink->flat_camera != NULL);
+    if (!camera && (obj->flags & OBJECT3D_FLAG_NEAR) && touches_near(obj, p, corners, near_z)) return;
     if (!(flags & (POLY_TWO_SIDED | POLY_NO_CULL))) {
         /* A line still takes its winding from a third slot of its run. */
         if (corners < 3 && (p->vertex[1] >= obj->vertex_count || p->vertex[2] >= obj->vertex_count)) return;
-        if (((flags & POLY_REVERSED) == 0) != (winding(obj, p) > 0)) return;
+        const int32_t facing = camera ? winding_camera(obj, p) : winding(obj, p);
+        if (((flags & POLY_REVERSED) == 0) != (facing > 0)) return;
     }
-    const uint32_t slot = (flags >> 16) & 0xFF;
-    const Object3DTexture *t = slot < obj->texture_count ? &obj->textures[slot] : NULL;
     Object3DCorners c;
     gather(obj, p, corners, &c);
-    if ((flags & POLY_TEXTURED) && t != NULL && t->texture != NULL) {
+    if (textured) {
         const int mode = (int)((flags >> 3) & 0xF);
-        sink->textured(sink->user, table_for(flags, corners, (obj->flags & OBJECT3D_FLAG_ALT_MAPPERS) != 0), mode,
-                       t->texture, &c);
+        const Object3DTable table = table_for(flags, corners, (obj->flags & OBJECT3D_FLAG_ALT_MAPPERS) != 0);
+        if (camera) sink->textured_camera(sink->user, table, mode, t->texture, &c);
+        else sink->textured(sink->user, table, mode, t->texture, &c);
+    } else if (camera) {
+        sink->flat_camera(sink->user, t != NULL ? t->rgb : 0, &c);
     } else if (corners >= 2) {
         sink->flat(sink->user, t != NULL ? t->rgb : 0, &c);
     }

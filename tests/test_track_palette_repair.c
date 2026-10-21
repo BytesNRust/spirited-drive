@@ -45,5 +45,5 @@ int main(void)
     CHECK_EQ_INT(track_palette_repair(pal), 0);
     CHECK(memcmp(pal, was, sizeof pal) == 0);
 
-    TEST_REPORT();
+    return TEST_REPORT();
 }

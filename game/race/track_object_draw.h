@@ -22,6 +22,9 @@ typedef struct {
     void (*full)(void *user, int32_t texture, const int32_t screen[8]);
     /* [004f9e90]: the same for the faces of two-sided boards */
     void (*full_alt)(void *user, int32_t texture, const int32_t screen[8]);
+    /* port: Modern 3D's, in place of full and full_alt when set (NULL the exe's): the board's corners in camera
+     * space, the points' rows of object_camera, in the order the screen corners would go */
+    void (*full_camera)(void *user, int32_t texture, const int32_t *const cam[4]);
 } TrackObjectDrawOps;
 
 typedef struct {

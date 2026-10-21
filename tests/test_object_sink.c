@@ -17,9 +17,9 @@ static uint8_t flat_colour(uint32_t rgb)
     memset(pixels, 0x7f, sizeof pixels);
     const QuadTarget target = { pixels, W, 0, 0, W, H };
     uint8_t shade[256] = { 0 };
-    ObjectSink s = { &target, palette, shade };
+    ObjectSink s = { &target, palette, shade, NULL };
     const Object3DSink sink = object_sink(&s);
-    const Object3DCorners c = { { 2, 2, 12, 2, 12, 12, 2, 12 }, { 0 }, 4 };
+    const Object3DCorners c = { { 2, 2, 12, 2, 12, 12, 2, 12 }, { 0 }, { 0 }, 4 };
     sink.flat(sink.user, rgb, &c);
     return pixels[6 * W + 6];
 }
