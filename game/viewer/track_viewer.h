@@ -1,4 +1,4 @@
-/* Development track viewer (see track_viewer.c). */
+/* Development track viewer (see track_viewer.c, track_fly.c and track_load.c). */
 #ifndef TNFS_TRACK_VIEWER_H
 #define TNFS_TRACK_VIEWER_H
 
