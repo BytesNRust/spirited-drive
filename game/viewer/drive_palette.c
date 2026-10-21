@@ -1,6 +1,7 @@
 #include "viewer/drive_palette.h"
 
 #include "game/race/race_palette.h"
+#include "game/race/track_palette_repair.h"
 #include "game/sys/shape_bank.h"
 
 #include <string.h>
@@ -105,6 +106,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
         return 0;
     const uint8_t *track = palette6(bank_of(&first), TRACK_PAL);
     if (track == NULL) return 0;
+    track_palette_repair((uint8_t *)(uintptr_t)track);  /* port: CL1's rally FAM has a stray green at colour 2 */
     memset(&p, 0, sizeof p);
     /* 004c79b4 starts as the identity in the exe: the entries a car bank's
      * remap leaves alone (0xff, which the transparent mappers skip, and
