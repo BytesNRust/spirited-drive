@@ -1,5 +1,6 @@
 /* port: the 2D layer over the wide 3D view (layer_compose.h). */
 #include "game/viewer/layer_compose.h"
+#include "game/viewer/screen_layout.h"
 
 static int in_rect(const LayerRect *r, int x, int y)
 {
@@ -18,7 +19,7 @@ static void put(const LayerCompose *c, uint8_t *wide, int x, int y, uint8_t p)
     if (p != LAYER_KEY && x >= 0 && x < c->width && y >= 0 && y < c->layer_h) wide[(int64_t)y * c->width + x] = p;
 }
 
-/* the rest of the layer: inside the car enlarged and cropped (each wide pixel from the layer pixel it falls on),
+/* the rest of the layer: inside the car the dash (each wide pixel from the layer pixel screen_dash_x / _y give),
  * outside it centred */
 static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide)
 {
@@ -29,11 +30,15 @@ static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide)
                 if (!in_piece(c, x, y)) put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
         return;
     }
+    enum { MOST_WIDTH = 4096 };
+    static int column[MOST_WIDTH];
+    const int width = c->width < MOST_WIDTH ? c->width : MOST_WIDTH;
+    for (int x = 0; x < width; x++) column[x] = screen_dash_x(c->width, x);
     for (int y = 0; y < c->layer_h; y++) {
-        const int sy = (int)(((int64_t)(y + c->crop_top) << 16) / c->scale);
+        const int sy = c->width > c->layer_w ? screen_dash_y(y) : y;
         if (sy < 0 || sy >= c->layer_h) continue;
-        for (int x = 0; x < c->width; x++) {
-            const int sx = (int)(((int64_t)x << 16) / c->scale);
+        for (int x = 0; x < width; x++) {
+            const int sx = column[x];
             if (sx < c->layer_w && !in_piece(c, sx, sy)) put(c, wide, x, y, layer[sy * c->layer_w + sx]);
         }
     }

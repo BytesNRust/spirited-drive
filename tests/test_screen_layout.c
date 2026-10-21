@@ -98,19 +98,47 @@ int main(void)
     CHECK_EQ_INT(screen_format_nearest(3440, 1440), SCREEN_21_9);
     CHECK_EQ_INT(screen_format_nearest(1600, 1200), SCREEN_4_3);
     CHECK_EQ_INT(screen_format_nearest(1280, 1024), SCREEN_4_3);
-    /* inside the car on a wide screen: the 640 view enlarged with the dash, centred as it, the same field */
+    /* inside the car on a wide screen: the projection the screen's width (the field widened to keep the 640's focal
+     * length), DASH_DROP lower with the dash; the clip box the whole width down to the windshield's bottom moved */
     const ViewLayout in854 = screen_cockpit_view(854);
     CHECK_EQ_INT(in854.left + in854.x, 0);
-    CHECK_EQ_INT(in854.top + in854.y, -80);
+    CHECK_EQ_INT(in854.top + in854.y, DASH_DROP);
     CHECK_EQ_INT(in854.width, 854);
-    CHECK_EQ_INT(in854.height, 640);
+    CHECK_EQ_INT(in854.height, 480);
+    CHECK_EQ_INT(in854.left, 0);
     CHECK_EQ_INT(in854.unknown_20, 854);
-    CHECK_EQ_INT(in854.unknown_24, 346);   /* the windshield's 320 lines enlarged, less the crop */
-    CHECK_EQ_INT(in854.scale, 65536);   /* the row's own: the focal length grows with the width on both axes */
+    CHECK_EQ_INT(in854.unknown_24, race_view_layouts[1][0].unknown_24 + DASH_DROP);
+    CHECK_EQ_INT(in854.scale, 65536);
     const ViewLayout in640 = screen_cockpit_view(640);
     CHECK(memcmp(&in640, &race_view_layouts[1][0], sizeof in640) == 0);
     const ViewLayout in1120 = screen_cockpit_view(1120);
-    CHECK_EQ_INT(in1120.top + in1120.y, -180);
-    CHECK_EQ_INT(in1120.unknown_24, 380);
+    CHECK_EQ_INT(in1120.width, 1120);
+    CHECK_EQ_INT(in1120.unknown_20, 1120);
+
+    /* the dash's columns: its middle 2 x DASH_MIDDLE at its own size round the screen's centre, the rest stretched to
+     * the edges; at 640 as it is */
+    CHECK_EQ_INT(screen_dash_x(640, 0), 0);
+    CHECK_EQ_INT(screen_dash_x(640, 639), 639);
+    CHECK_EQ_INT(screen_dash_x(640, 321), 321);
+    for (int k = 0; k < 2; k++) {
+        const int w = k == 0 ? 854 : 1120;
+        CHECK_EQ_INT(screen_dash_x(w, 0), 0);
+        CHECK_EQ_INT(screen_dash_x(w, w - 1), 639);
+        CHECK_EQ_INT(screen_dash_x(w, w / 2), 320);
+        CHECK_EQ_INT(screen_dash_x(w, w / 2 + DASH_MIDDLE - 1), 320 + DASH_MIDDLE - 1);
+        CHECK_EQ_INT(screen_dash_x(w, w / 2 - DASH_MIDDLE), 320 - DASH_MIDDLE);
+        int ordered = 1, last = -1;
+        for (int x = 0; x < w; x++) {
+            const int sx = screen_dash_x(w, x);
+            if (sx < last || sx < 0 || sx > 639) ordered = 0;
+            last = sx;
+        }
+        CHECK(ordered);
+    }
+    /* its lines: DASH_DROP lower, the roof's first line (under the scoreboard) stretched over the ones above */
+    CHECK_EQ_INT(screen_dash_y(0), HUD_BAR_HEIGHT);
+    CHECK_EQ_INT(screen_dash_y(HUD_BAR_HEIGHT + DASH_DROP), HUD_BAR_HEIGHT);
+    CHECK_EQ_INT(screen_dash_y(HUD_BAR_HEIGHT + DASH_DROP + 1), HUD_BAR_HEIGHT + 1);
+    CHECK_EQ_INT(screen_dash_y(479), 479 - DASH_DROP);
     return TEST_REPORT();
 }

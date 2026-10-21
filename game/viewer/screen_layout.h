@@ -30,9 +30,19 @@ void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS]);
 typedef struct { int32_t scale; int crop_top; } CockpitScale;
 CockpitScale screen_cockpit_scale(int width);
 
-/* Row 0 (inside the car) on a wide screen: the 640 view enlarged by screen_cockpit_scale with the dash and cropped
- * as it (the projection width x 480 k at -crop_top, the field and the vertical scale the same: the focal length
- * grows with the width on both axes), clipped to the windshield's 320 lines enlarged; the 640 row as it is at 640. */
+/* Inside the car on a wide screen the 640 dash keeps its size: its middle DASH_MIDDLE columns either side of the
+ * centre as they are, the rest stretched to the screen's edges, the whole DASH_DROP lines lower with the roof's first
+ * line stretched over the lines above (the owner's choice: the field of the bumper's view, less road covered). */
+enum { DASH_MIDDLE = 192, DASH_DROP = 25 };
+/* The dash's column (0..639) that column x of a `width` screen shows; x itself at 640. */
+int screen_dash_x(int width, int x);
+/* The dash's line that line y shows on a wide screen: the roof's first line under the scoreboard (HUD_BAR_HEIGHT)
+ * for the lines down to DASH_DROP past it. */
+int screen_dash_y(int y);
+
+/* Row 0 (inside the car) on a wide screen: the projection the screen's width (its field widened by screen_fov_x to
+ * keep the 640's focal length) and DASH_DROP lower, as the dash's middle, clipped to the whole width down to the
+ * windshield's bottom moved as much; the 640 row as it is at 640. */
 ViewLayout screen_cockpit_view(int width);
 
 typedef struct { int x, y; } ScreenPoint;

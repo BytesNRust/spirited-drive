@@ -1,5 +1,6 @@
 /* The race's 2D layer (640 x 480, LAYER_KEY where nothing was drawn) put over the wide 3D view (layer_compose.h). */
 #include "viewer/layer_compose.h"
+#include "viewer/screen_layout.h"
 #include "test.h"
 
 #include <string.h>
@@ -21,14 +22,20 @@ int main(void)
     box(520, 306, 633, 446, 9);         /* a piece (the map) */
     memset(wide, 3, sizeof wide);       /* the 3D view */
     const LayerPiece pieces[1] = { { { 520, 306, 633, 446 }, 854 - 113 - 6, 480 - 140 - 6, 0 } };
-    const LayerCompose c = { LW, H, W, SCALE_854, 80, 1, pieces, 1 };
+    box(100, HUD_BAR_HEIGHT, 101, HUD_BAR_HEIGHT + 1, 4);   /* the roof's first line, under the scoreboard */
+    const LayerCompose c = { LW, H, W, SCALE_854, 1, pieces, 1 };
     layer_compose(&c, layer, wide);
     /* the 3D stays where the layer drew nothing */
-    CHECK_EQ_INT(wide[10 * W + 10], 3);
-    /* the dash enlarged by 854 / 640 and cropped 80 lines at the top: layer (320, 410) -> wide (427, 467) */
-    const int wx = 320 * 854 / 640, wy = (int)(((int64_t)410 * SCALE_854 >> 16) - 80);
-    CHECK_EQ_INT(wy, 467);
-    CHECK_EQ_INT(wide[wy * W + wx], 7);
+    CHECK_EQ_INT(wide[100 * W + 10], 3);
+    /* the dash at its own size in the middle (screen_dash_x / _y): layer (320, 410) -> wide (427, 410 + DASH_DROP) */
+    CHECK_EQ_INT(wide[(410 + DASH_DROP) * W + 427], 7);
+    CHECK_EQ_INT(wide[(400 + DASH_DROP - 1) * W + 427], 3);
+    /* the roof's first line over the lines above the drop, where its column lands stretched */
+    int roof_x = 0;
+    while (screen_dash_x(W, roof_x) < 100) roof_x++;
+    CHECK_EQ_INT(wide[0 * W + roof_x], 4);
+    CHECK_EQ_INT(wide[(HUD_BAR_HEIGHT + DASH_DROP) * W + roof_x], 4);
+    CHECK_EQ_INT(wide[(HUD_BAR_HEIGHT + DASH_DROP + 1) * W + roof_x], 3);
     /* the piece unscaled at its anchor, its old place in the enlarged dash not drawn */
     CHECK_EQ_INT(wide[(480 - 140 - 6) * W + (854 - 113 - 6)], 9);
     CHECK_EQ_INT(wide[(480 - 6 - 1) * W + (854 - 6 - 1)], 9);
@@ -36,7 +43,7 @@ int main(void)
 
     /* outside the car: no scaling, what is not a piece lands centred */
     memset(wide, 3, sizeof wide);
-    const LayerCompose out = { LW, H, W, 1 << 16, 0, 0, pieces, 1 };
+    const LayerCompose out = { LW, H, W, 1 << 16, 0, pieces, 1 };
     layer_compose(&out, layer, wide);
     CHECK_EQ_INT(wide[420 * W + 320 + (W - LW) / 2], 7);
     CHECK_EQ_INT(wide[420 * W + 320], 3);
@@ -47,7 +54,7 @@ int main(void)
     box(543, 53, 633, 104, 5);
     memset(wide, 3, sizeof wide);
     const LayerPiece mirror[1] = { { { 543, 53, 633, 104 }, 700, 38, 1 } };
-    const LayerCompose m = { LW, H, W, SCALE_854, 80, 1, mirror, 1 };
+    const LayerCompose m = { LW, H, W, SCALE_854, 1, mirror, 1 };
     layer_compose(&m, layer, wide);
     CHECK_EQ_INT(wide[38 * W + 700], 5);
     const int mw = (633 - 543) * 854 / 640;
@@ -60,7 +67,7 @@ int main(void)
     memset(layer, LAYER_KEY, sizeof layer);
     box(300, 400, 340, 440, 7);
     const LayerPiece here[1] = { { { 520, 306, 633, 446 }, 520, 306, 0 } };
-    const LayerCompose id = { LW, H, LW, 1 << 16, 0, 1, here, 1 };
+    const LayerCompose id = { LW, H, LW, 1 << 16, 1, here, 1 };
     layer_compose(&id, layer, same);
     CHECK_EQ_INT(same[420 * LW + 320], 7);
     CHECK_EQ_INT(same[10 * LW + 10], 3);

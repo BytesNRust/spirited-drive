@@ -589,10 +589,10 @@ static PortedViewport wide_viewport(const RaceState *race)
     const int32_t base = camera != NULL ? camera->fov : 70;
     const ViewLayout l = row == 0 ? screen_cockpit_view(drive_wide.width) : drive_wide.rows[row];
     const ViewLayout *orig = &race_view_layouts[HIGH_SCREEN][row];
-    const int32_t fov = (row == 0 ? base : l.width != orig->width ? screen_fov_x(base, l.width) : base)
-                        + drive_wide.fov_adjust;
-    const int32_t fov_y = row == 0 ? fov : screen_fov_y(base, orig->height, l.height, drive_wide.fov_adjust);
-    const int32_t fov_y_exe = row == 0 ? fov - drive_wide.fov_adjust : screen_fov_y(base, orig->height, l.height, 0);
+    /* every row keeps the 640's focal lengths at its width (inside the car too: the dash keeps its size) */
+    const int32_t fov = (l.width != orig->width ? screen_fov_x(base, l.width) : base) + drive_wide.fov_adjust;
+    const int32_t fov_y = screen_fov_y(base, orig->height, l.height, drive_wide.fov_adjust);
+    const int32_t fov_y_exe = screen_fov_y(base, orig->height, l.height, 0);
     return (PortedViewport){ l.left + l.x, l.top + l.y, l.width, l.height, fov, l.scale,
                              l.left, l.top, l.unknown_20, l.unknown_24, fov_y,
                              near_scale(fov - drive_wide.fov_adjust, fov, fov_y_exe, fov_y) };
@@ -612,34 +612,8 @@ static void wide_key_box(const RaceState *race, uint8_t *surface)
 enum {
     BAR_MIDDLE_640 = 262, BAR_END_640 = 405,  /* the scoreboard's groups (screen_layout.c) */
     GAUGE_X_640 = 10, GAUGE_Y_640 = 289, GAUGE_SIZE = 156,
-    RADAR_FIRST = 2, RADAR_LAST = 7,    /* the radar detector's big light and five small ones (cockpit_draw.c) */
-    RADAR_HOUSING = 12,                 /* the most its housing reaches above and below the lights */
-    RADAR_HOUSING_WIDE = 40,            /* and to either side */
-    MIRROR_FRAME = 40,                  /* the most the mirror's frame and stalk reach past its picture */
-    SHAPE_W_AT = 4, SHAPE_H_AT = 6
+    MIRROR_FRAME = 40                   /* the most the mirror's frame and stalk reach past its picture */
 };
-
-static int shape_word(const uint8_t *shape, int at)
-{
-    return (int16_t)(shape[at] | shape[at + 1] << 8);
-}
-
-/* port: the box of the cockpit's radar detector (its lights where 0042270c puts them, and the housing round them);
- * empty when the dash has none */
-static LayerRect radar_box(const Cockpit *c)
-{
-    LayerRect r = { SCREEN_W, SCREEN_H, 0, 0 };
-    for (int k = RADAR_FIRST; k <= RADAR_LAST; k++) {
-        const uint8_t *shape = k == RADAR_FIRST ? c->big_lit : c->small_lit;
-        if (shape == NULL) continue;
-        const CockpitPoint p = c->dash_points[k];
-        if (p.x < r.left) r.left = p.x;
-        if (p.y < r.top) r.top = p.y;
-        if (p.x + shape_word(shape, SHAPE_W_AT) > r.right) r.right = p.x + shape_word(shape, SHAPE_W_AT);
-        if (p.y + shape_word(shape, SHAPE_H_AT) > r.bottom) r.bottom = p.y + shape_word(shape, SHAPE_H_AT);
-    }
-    return r.right > r.left ? r : (LayerRect){ 0, 0, 0, 0 };
-}
 
 enum { STRIP_BACK_X = 258 };  /* a column of the 640 strip with nothing on it, between its first two groups */
 
@@ -665,17 +639,17 @@ static const uint8_t *dash_art_layer(const Cockpit *c)
     return layer;
 }
 
-/* port: a box of the 640 dash where it lands enlarged on the wide screen, drawn from `art` (LAYER_KEY left alone) */
-static void wide_art_scaled(const LayerRect *r, const CockpitScale *cs, const uint8_t *art)
+/* port: a box of the 640 dash where it lands on the wide screen (screen_dash_x / _y), drawn from `art` (LAYER_KEY
+ * left alone) */
+static void wide_art_placed(const LayerRect *r, const uint8_t *art)
 {
-    const int x0 = (int)((int64_t)r->left * cs->scale >> 16), x1 = (int)((int64_t)r->right * cs->scale >> 16);
-    const int y0 = (int)((int64_t)r->top * cs->scale >> 16) - cs->crop_top;
-    const int y1 = (int)((int64_t)r->bottom * cs->scale >> 16) - cs->crop_top;
-    for (int y = y0 < 0 ? 0 : y0; y < y1 && y < SCREEN_H; y++) {
-        const int sy = (int)(((int64_t)(y + cs->crop_top) << 16) / cs->scale);
-        for (int x = x0; x < x1 && x < drive_wide.width; x++) {
-            const int sx = (int)(((int64_t)x << 16) / cs->scale);
-            const uint8_t p = sx < SCREEN_W && sy < SCREEN_H ? art[sy * SCREEN_W + sx] : LAYER_KEY;
+    for (int y = 0; y < SCREEN_H; y++) {
+        const int sy = screen_dash_y(y);
+        if (sy < r->top || sy >= r->bottom) continue;
+        for (int x = 0; x < drive_wide.width; x++) {
+            const int sx = screen_dash_x(drive_wide.width, x);
+            if (sx < r->left || sx >= r->right) continue;
+            const uint8_t p = art[sy * SCREEN_W + sx];
             if (p != LAYER_KEY) drive_wide.pixels[(size_t)y * drive_wide.width + x] = p;
         }
     }
@@ -703,20 +677,6 @@ static LayerRect grow_piece(const uint8_t *frame, LayerRect r, int most)
         if (grown[3] < most && line_drawn(frame, r.left, r.bottom, r.right, r.bottom + 1)) r.bottom++, grown[3]++, changed = 1;
     }
     return r;
-}
-
-/* port: the radar detector's housing round its lights (the dash draws a light of its own beside them too). It
- * hangs from the sun visor, whose lower edge slopes down beside it, so only below the lights is the windshield all
- * round it: it is grown down from the lights to the windshield, then sideways along those lines, and as deep above
- * the lights as below them */
-static LayerRect radar_housing(const uint8_t *frame, LayerRect r)
-{
-    int left = 0, right = 0, below = 0;
-    while (below < RADAR_HOUSING && line_drawn(frame, r.left, r.bottom + below, r.right, r.bottom + below + 1)) below++;
-    const int y0 = r.bottom, y1 = r.bottom + below;
-    while (left < RADAR_HOUSING_WIDE && line_drawn(frame, r.left - left - 1, y0, r.left - left, y1)) left++;
-    while (right < RADAR_HOUSING_WIDE && line_drawn(frame, r.right + right, y0, r.right + right + 1, y1)) right++;
-    return (LayerRect){ r.left - left, r.top > below ? r.top - below : 0, r.right + right, y1 };
 }
 
 /* port: the widened mirror over its frame's two halves (wide_compose): the frame's middle column drawn across the
@@ -754,7 +714,7 @@ static LayerPiece wide_piece(int left, int top, int w, int h, ScreenPoint at, in
 }
 
 /* port: the 640 frame (the race's 2D, LAYER_KEY where the 3D goes) over the wide 3D view: inside the car the dash
- * enlarged with the mirror and the radar detector at their anchors; outside it centred with the gauge at the left;
+ * at its size with its sides stretched (screen_dash_x / _y), the radar detector on it, the mirror at its anchor; outside it centred with the gauge at the left;
  * the scoreboard's three groups and the map at their anchors in both; the police screen alone centred */
 static void wide_compose(const RaceState *race, const uint8_t *frame)
 {
@@ -763,8 +723,6 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const int in_car = !police && camera != NULL && camera->layout == 0;
     const CockpitScale cs = screen_cockpit_scale(drive_wide.width);
     const DriveMirror *m = &drive_hud.mirror;
-    const LayerRect lights = in_car && drive_hud.cockpit_ready ? radar_box(&drive_hud.cockpit) : (LayerRect){ 0, 0, 0, 0 };
-    const LayerRect radar = lights.right > lights.left ? radar_housing(frame, lights) : lights;
     const int mirror_on = in_car && m->picture != NULL && m->state != 0;
     const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width - m->extra,
                                 drive_hud.mirror_y + m->height };  /* as the frame holds it: a widened one's middle */
@@ -773,7 +731,7 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
     const int mirror_h = (int)((int64_t)(mirror.bottom - mirror.top) * cs.scale >> 16);
     const ScreenPoint sizes[7] = { { BAR_MIDDLE_640, HUD_BAR_HEIGHT }, { BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT },
                                    { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
-                                   { DRIVE_MAP_W, DRIVE_MAP_H }, { radar.right - radar.left, radar.bottom - radar.top },
+                                   { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 },   /* the radar detector stays on the dash */
                                    { GAUGE_SIZE, GAUGE_SIZE } };
     const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
     LayerPiece pieces[8];
@@ -792,15 +750,13 @@ static void wide_compose(const RaceState *race, const uint8_t *frame)
             pieces[n++] = (LayerPiece){ { mirror.left, mirror.top, mid, mirror.bottom }, a.mirror.x, a.mirror.y, 1 };
             pieces[n++] = (LayerPiece){ { mid, mirror.top, mirror.right, mirror.bottom }, a.mirror.x + apart, a.mirror.y, 1 };
         }
-        if (radar.right > radar.left)
-            pieces[n++] = (LayerPiece){ radar, a.radar.x, a.radar.y, 0 };
     } else if (!police) {
         pieces[n++] = wide_piece(GAUGE_X_640, GAUGE_Y_640, GAUGE_SIZE, GAUGE_SIZE, a.gauge, 0);
     }
     if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
-    if (in_car) wide_art_scaled(&map, &cs, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
-    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, cs.crop_top, in_car, pieces, n };
+    if (in_car) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
+    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, cs.scale, in_car, pieces, n };
     layer_compose(&c, frame, drive_wide.pixels);
     if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &cs);
     if (!police) {  /* the strip between the groups */
@@ -815,7 +771,7 @@ static void wide_centre(const uint8_t *frame)
 {
     if (drive_wide.width <= SCREEN_W) return;
     memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);
-    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, 1 << 16, 0, 0, NULL, 0 };
+    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, 1 << 16, 0, NULL, 0 };
     layer_compose(&c, frame, drive_wide.pixels);
 }
 

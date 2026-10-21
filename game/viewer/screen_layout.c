@@ -86,16 +86,28 @@ CockpitScale screen_cockpit_scale(int width)
     return s;
 }
 
+int screen_dash_x(int width, int x)
+{
+    if (width <= ORIGINAL_WIDTH) return x;
+    const double half = ORIGINAL_WIDTH / 2.0, from_centre = x + 0.5 - width / 2.0;
+    const double a = fabs(from_centre), edge = width / 2.0;
+    const double in_dash = a <= DASH_MIDDLE ? a : DASH_MIDDLE + (a - DASH_MIDDLE) * (half - DASH_MIDDLE) / (edge - DASH_MIDDLE);
+    const int sx = (int)floor(half + (from_centre < 0 ? -in_dash : in_dash));
+    return sx < 0 ? 0 : sx >= ORIGINAL_WIDTH ? ORIGINAL_WIDTH - 1 : sx;
+}
+
+int screen_dash_y(int y)
+{
+    return y < DASH_DROP + HUD_BAR_HEIGHT ? HUD_BAR_HEIGHT : y - DASH_DROP;
+}
+
 ViewLayout screen_cockpit_view(int width)
 {
     ViewLayout v = race_view_layouts[HIGH_MODE][0];
     if (width <= ORIGINAL_WIDTH) return v;
-    const CockpitScale cs = screen_cockpit_scale(width);
-    const int box = (int)((int64_t)v.unknown_24 * cs.scale >> 16) - cs.crop_top;
-    /* the scale stays: the projection's one focal length (view_project) already grows with the width, for y too */
-    v.x = 0, v.y = -cs.crop_top - v.top;
-    v.width = width;
-    v.height = (int)((int64_t)SCREEN_HEIGHT * cs.scale >> 16);
+    const int box = v.unknown_24 + DASH_DROP;
+    v.width = width;   /* the centre in the middle; the field widened to keep the focal length (screen_fov_x) */
+    v.y += DASH_DROP;
     v.unknown_20 = width;
     v.unknown_24 = box < SCREEN_HEIGHT ? box : SCREEN_HEIGHT;
     return v;
