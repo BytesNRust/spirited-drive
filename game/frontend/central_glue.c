@@ -168,7 +168,7 @@ static void extras_flags(ExtrasFlags *f)
 
 /* port: the Warrior-as-rival switch is a separate flag (no equivalent in the original's globals), read by the
  * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with extras.cfg by extras_apply. */
-static int16_t warrior_rival_flag;
+static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
 
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
  * tournament. With extras.cfg absent this reads the defaults and changes nothing. */
@@ -185,6 +185,7 @@ static void extras_apply(void)
     menu_cheats.keys_506 = (int32_t)*f.track_flags;
     if (e.no_assists) extras_no_assists(&g.car_flag_a, &g.car_flag_b);   /* after 00465ec8 */
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
+    warrior_keep_flag = (int16_t)(e.warrior != 0);
 }
 
 /* port: after a code has been typed, the flags say what is on; the switches are brought in line and the file is
@@ -1401,10 +1402,11 @@ int32_t glue_central(void)
         &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
         g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
         &g.explode, menu_audio_silent(), &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag };
+        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag };
     const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
                                  &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
     link_central_bind(&link_menu);
+    extras_apply();   /* port: the switches are on from the first key, not after the first car change */
     central_up = 1, central_state = &st;
     volumes_sync();
     const int32_t result = control_central(&st, &OPS);

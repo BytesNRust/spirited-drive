@@ -142,6 +142,9 @@ typedef struct ControlCentralState {
     const uint8_t *keys;       /* 004c693c: by scancode */
     const int16_t *warrior_rival;  /* port: the extra (extras.cfg): the head to head opponent's arrows reach the
                                     * Warrior (11) between 7 and 0; NULL or 0 the original's 0..7 */
+    const int16_t *warrior_keep;   /* port: the extra (extras.cfg) "Enable Warrior Player Car": a Warrior picked for the
+                                    * player stays picked when the screen starts again (central_car_start); NULL or 0
+                                    * the original's, which sends it to car 0 */
 } ControlCentralState;
 
 /* 00432ff4: Control Central. The pointer, the arrows, Enter / space / the left button pick and change the

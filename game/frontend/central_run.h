@@ -55,6 +55,7 @@ int central_select(CentralRun *r);                 /* 00435120..004360bc; 1 to r
 void central_keys(CentralRun *r, int16_t key);     /* 004360df..0043700e */
 void central_opponent_up(CentralRun *r, int mouse);
 void central_opponent_down(CentralRun *r, int mouse);
+void central_car_start(ControlCentralState *st);   /* 00432ff4's player car at the start: 11 goes to 0 */
 void central_car_up(CentralRun *r);
 void central_car_down(CentralRun *r);
 

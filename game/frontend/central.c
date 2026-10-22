@@ -64,7 +64,7 @@ static void start(CentralRun *r)
     if (*st->unlock_level >= 1) *st->warrior = 1, *st->unlock_m = 1;
     if (*st->unlock_level >= 2) *st->unlock_r = 1;
     if (*st->lost_vegas == 0 && *st->track == 8) *st->track = 0;
-    if (*st->player_car == 11) *st->player_car = 0;
+    central_car_start(st);
     o->wait(o->ctx, 0);
     o->music(o->ctx);
     st->art[ART_CENTRAL] = o->load_art(o->ctx, "control/central.qfs");
