@@ -58,6 +58,7 @@ typedef struct Fake {
     char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
     int event_count;
     int bgnd_ok;             /* what plus_bgnd gives: 0 as if config_bgnd_load had failed */
+    int dark;                /* what the display says about itself on entry: 1 black, as Options leaves it */
     int put_backs;           /* times the settings were put back (Cancel / Escape only) */
     int aliased_palettes;    /* times palette_set was handed its own destination as the source */
     int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
@@ -288,6 +289,12 @@ static void f_save(void *ctx, const PortSettings *settings)
     (void)settings;
     ((Fake *)ctx)->saves++;
 }
+/* whether the display is already dark, as Options leaves it after fading the display out before opening this screen.
+ * The fake's `dark` says so; 0 is a display with a menu on it. */
+static int32_t f_display_dark(void *ctx)
+{
+    return ((Fake *)ctx)->dark;
+}
 
 /* named slots, so the four port slots at the end cannot be confused with the original's thirty-six */
 static GraphicsMenuOps OPS = {
@@ -305,6 +312,7 @@ static GraphicsMenuOps OPS = {
      * put-back */
     .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape, .plus_title = f_title, .plus_put_back = f_put_back,
     .plus_text_smooth = f_text_smooth,
+    .plus_display_dark = f_display_dark,
 };
 
 typedef struct Rig {
@@ -336,6 +344,8 @@ static void rig_init(Rig *r)
     r->f.idle_key = ESCAPE;  /* the walk's keys spent: Escape ends the screen, as the other walks end */
     r->f.right_button = r->f.deadline_passed = 0;
     r->f.bgnd_ok = 1;        /* the CD screens compose into a clean background */
+    r->f.dark = 0;           /* port: a display with something on it, so the fade on the way in has work to do. The
+                              * walk from Options is the other case and says so itself (see below). */
     r->f.quit = &r->quit;    /* the screen reads the flag the fake raises */
     r->st.plus = &r->plus;
     r->plus.port = &r->port;
@@ -849,29 +859,53 @@ static void test_no_clean_background_runs_over_the_originals(void)
  * black display, and only then this screen's palette faded in -- the run opens O F I, the order extras_menu.c's page
  * takes (fc15abb). Fading in before the flip ramped Options' own art up out of black in this screen's palette for all
  * seventeen steps, and the capture showed it: frames 402-417 climbing while Options' TRANSMISSION/ABS rows were the
- * picture, then 418 a hard cut to this page. */
+ * picture, then 418 a hard cut to this page.
+ *
+ * This is a display with a menu on it -- nothing has faded it out -- so the fade is the one that has to happen. */
 static void test_no_flash_on_the_way_in(void)
 {
     Rig r;
     rig_init(&r);
+    r.f.dark = 0;   /* a menu is showing: there is a picture to fade out before the page goes up */
     script[0] = ESCAPE;
     run_script(&r, 1);
 
     /* the page is drawn into the backbuffer before the display is touched, so the flip has something to put up */
     CHECK_EQ_INT(r.f.pixels_drawn_before_fade_in, 1);
     CHECK(r.f.event_count >= 3);
-    CHECK_EQ_INT(r.f.events[0], 'O');   /* Options' picture going out, in its own palette */
+    CHECK_EQ_INT(r.f.events[0], 'O');   /* the menu's picture going out, in its own palette */
     CHECK_EQ_INT(r.f.events[1], 'F');   /* the page onto the black display */
     CHECK_EQ_INT(r.f.events[2], 'I');   /* and the page's own palette up over it */
 }
 
+/* port: the walk from Options, where Options has already faded the display out (check_options.c's choose) before it
+ * opened this screen. A fade scales the palette and the last step of a fade out is 0, so that display is entirely
+ * black -- fading it out again scales zeros for seventeen vblanks, and the player waits through them. One fade on
+ * the way out, and the page still goes up on a black display. */
+static void test_an_already_black_display_is_not_faded_again(void)
+{
+    Rig r;
+    rig_init(&r);
+    r.f.dark = 1;   /* Options faded the display out before opening this screen */
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    CHECK_EQ_INT(r.f.fade_outs, 1);          /* only the screen's own, as it closes */
+    CHECK_EQ_INT(r.f.fade_ins, 1);           /* the page's palette still goes up */
+    /* the page is still put up on a black display before the palette ramps over it, or it would flash */
+    CHECK(r.f.event_count >= 2);
+    CHECK_EQ_INT(r.f.events[0], 'F');
+    CHECK_EQ_INT(r.f.events[1], 'I');
+}
+
 /* 15: port: and none on the way out either. 00423d28's close_screen fades the whole display out, and the screen
- * leaves with nothing on it; this one left the previous screen showing in this screen's palette. Two fades leave,
- * not one: the opener's picture going out as the screen opens, and this screen's as it closes. */
+ * leaves with nothing on it; this one left the previous screen showing in this screen's palette. Two fades leave on
+ * a lit display: the opener's picture going out as the screen opens, and this screen's as it closes. */
 static void test_the_display_is_faded_out_on_the_way_out(void)
 {
     Rig r;
     rig_init(&r);
+    r.f.dark = 0;
     script[0] = ESCAPE;
     run_script(&r, 1);
 
@@ -905,6 +939,7 @@ int main(void)
     test_the_three_exits_that_are_not_a_decision_save();
     test_no_clean_background_runs_over_the_originals();
     test_no_flash_on_the_way_in();
+    test_an_already_black_display_is_not_faded_again();
     test_the_display_is_faded_out_on_the_way_out();
     return TEST_REPORT();
 }

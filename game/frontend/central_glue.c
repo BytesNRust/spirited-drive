@@ -1120,6 +1120,14 @@ static const uint8_t *title_mask(const char *text, int *w)
     return ok[id] ? masks[id] : NULL;
 }
 
+/* port: whether the display is already dark, so the Graphics screen skips the fade of a display Options has already
+ * faded out. video_display_is_dark answers from the palette on the display, so it is right whoever faded it. */
+static int32_t display_dark(void *ctx)
+{
+    (void)ctx;
+    return video_display_is_dark();
+}
+
 /* the screen's title as the original screens draw theirs ("Game Mode", "Control Central"): red, at their items' size */
 void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
 {
@@ -1202,7 +1210,10 @@ static void graphics(void *ctx, int32_t mode)
         /* port: from Options the letters go through the draw that restores the clean background under them. The
          * race's pause menu keeps the original's burnt-in screen, which has no such background, so it gets NULL
          * and graphics_own.c falls back to plus_text. */
-        mode == 0 ? own_plus_text : NULL };
+        mode == 0 ? own_plus_text : NULL,
+        /* port: whether the display is already dark, so the screen skips a fade of a display Options has already
+         * faded out rather than scaling zeros for seventeen vblanks */
+        display_dark };
     input_function_keys(&showing);
     input_page_keys(mode == 0);
     /* port: from Options this is graphics_own.c, the port's own screen: the nine settings the owner named, over the

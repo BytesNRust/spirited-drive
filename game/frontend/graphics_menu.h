@@ -71,6 +71,11 @@ typedef struct GraphicsMenuOps {
      * letters before they are written, then the letters themselves at 1/1. A screen that repaints its whole page
      * needs this -- the words go through it instead of plus_text. NULL falls back to plus_text. */
     void (*plus_text_smooth)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
+    /* port: whether the display is already dark, so a screen that has to fade its caller's picture out before its
+     * own page goes up can skip a fade of a display that is already black. NULL means the caller cannot say, and the
+     * screen fades -- the safe answer, since a skipped fade that was needed shows the caller's picture in this
+     * screen's palette. */
+    int32_t (*plus_display_dark)(void *ctx);
 } GraphicsMenuOps;
 
 /* port: the settings the port's additions edit, and what they need to know */

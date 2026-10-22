@@ -23,6 +23,19 @@ static int shade_valid;
 static uint8_t palette[PALETTE_BYTES];  /* 0052ced8 / 0052f178 */
 static const FshEntry *overlay;
 static int overlay_x, overlay_y;
+/* port: whether the palette on the display is entirely black, so a screen that fades the display out before putting
+ * its own picture up has nothing to fade. Set by a fade_out over the whole palette (its last step is 0, so every
+ * colour lands on zero) and cleared by anything that puts light back on the display. */
+static int display_dark;
+
+/* whether any colour in [first, first+count) is lit. A fade scales with >> 5, so a colour below 32 lands on zero
+ * whatever the step -- the display counts as dark only when every one of them does. */
+static int range_lit(int first, int count)
+{
+    for (int i = first; i < first + count; i++)
+        if (palette[3 * i] || palette[3 * i + 1] || palette[3 * i + 2]) return 1;
+    return 0;
+}
 
 /* The overlay's sprite drawn on `dst` (stride wide) with the 640 picture starting at column `left` */
 static void draw_overlay(uint8_t *dst, int stride, int left)
@@ -91,6 +104,7 @@ int video_init(void)
     composed = calloc(VIDEO_WIDTH * VIDEO_HEIGHT, 1);
     memset(palette, 0, sizeof palette);
     shade_valid = 0;
+    display_dark = 1;   /* port: a fresh display has never been lit */
     overlay = NULL;
     if (back == NULL || front == NULL || composed == NULL) {
         video_shutdown();
@@ -162,7 +176,13 @@ void video_set_palette(int first, int count, const uint8_t *rgb)
 {
     memcpy(palette + first * 3, rgb, (size_t)count * 3);
     shade_valid = 0;
+    display_dark = !range_lit(0, PALETTE_COLORS);
     show();
+}
+
+int video_display_is_dark(void)
+{
+    return display_dark;
 }
 
 void video_get_palette(uint8_t rgb[768])
@@ -189,6 +209,9 @@ void video_fade_out(int first, int count)
         video_wait_vblank();
         video_set_palette(first, count, scaled);
     }
+    /* port: a fade out over the whole palette leaves it entirely black (the last step is 0), which is what lets a
+     * screen skip a second fade of the same display. A fade over part of it says nothing about the rest. */
+    if (first == 0 && count >= PALETTE_COLORS) display_dark = 1;
 }
 
 static void blit(const FshEntry *shape, int x, int y, int transparent)
