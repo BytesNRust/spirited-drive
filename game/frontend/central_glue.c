@@ -1359,6 +1359,8 @@ void glue_game_reset(void)
     settings_put(&s);
     session_put(&f);
     config_dat_set_race(config_current(), &s);
+    /* the original's settings are config.dat's own words, so tournament_reset's variant = 0 clears 00524e83 */
+    config_dat_new_session(config_current());
 }
 
 /* 00408724 on Control Central's words */

@@ -241,6 +241,11 @@ void config_dat_set_race(ConfigDat *c, const RaceSettings *s)
     set16(c, ADDR_CAR_FLAG_B - BASE, s->car_flag_b);
 }
 
+void config_dat_new_session(ConfigDat *c)
+{
+    set16(c, 0x00524e83 - BASE, 0);
+}
+
 int config_dat_unlock_level(const ConfigDat *c)
 {
     return (int16_t)get16(c, OFFSET_UNLOCK);

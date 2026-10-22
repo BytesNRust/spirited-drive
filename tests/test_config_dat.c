@@ -61,6 +61,19 @@ static void test_round_trip(void)
     CHECK(u.variant_m && u.variant_r && u.lost_vegas && u.warrior);
 }
 
+/* 00466ae4 clears the segment (00524e83) for a new session: a stage saved mid-way (the window closed on segment
+ * 1's results) must not start the next race on segment 2 */
+static void test_new_session_clears_the_segment(void)
+{
+    ConfigDat c;
+    config_dat_defaults(&c, 0);
+    c.image[0x93] = 1;
+    c.image[0x95] = 1;
+    config_dat_new_session(&c);
+    CHECK_EQ_INT(c.image[0x93] | c.image[0x94] << 8, 0);
+    CHECK_EQ_INT(c.image[0x95], 1);
+}
+
 static void test_bounds(void)
 {
     ConfigDat c;
@@ -126,6 +139,7 @@ int main(int argc, char **argv)
     test_defaults();
     test_round_trip();
     test_bounds();
+    test_new_session_clears_the_segment();
     if (argc > 1) test_real_file(argv[1]);
     return TEST_REPORT();
 }

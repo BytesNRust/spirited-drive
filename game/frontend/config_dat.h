@@ -87,6 +87,8 @@ void config_dat_set_name(ConfigDat *c, const char *name);
  * of range, so a damaged file cannot reach the selection code. */
 int config_dat_get_race(const ConfigDat *c, RaceSettings *s);
 void config_dat_set_race(ConfigDat *c, const RaceSettings *s);
+/* 00466ae4's 00524e83 = 0: a new session starts a stage on its first segment */
+void config_dat_new_session(ConfigDat *c);
 
 int config_dat_unlock_level(const ConfigDat *c);
 void config_dat_set_unlock_level(ConfigDat *c, int level);
