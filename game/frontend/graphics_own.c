@@ -169,11 +169,12 @@ static void background(Screen *s, const GraphicsMenuOps *o)
 }
 
 /* port: what the screen runs over when there is no clean background to compose it from (config_bgnd_load failed, so
- * the glue has no shape and can put no palette on the display). Options fades the display out before it opens this
- * screen, so with nothing of its own on it there would be nothing to read at all -- a black screen with letters over
- * it. The original's own Graphics screen (option/graphics.qfs, or check/graphics.fsh while check/graphics.fsh's
- * art is up) is the one the exe would have shown, and its palette is read here the way 00423d28's open_screen reads
- * it, so the words go over its picture in its colours rather than over black. Asked for only when the clean
+ * the glue has no shape and can put no palette on the display). The fade_in in draw() ramps the palette over whatever
+ * is ON the display, and that is only this screen's own picture if the page went up first -- so with nothing of its
+ * own there the words would be read over the previous screen's pixels in this screen's colours. The original's own
+ * Graphics screen (option/graphics.qfs, or check/graphics.fsh while check/graphics.fsh's art is up) is the one the
+ * exe would have shown, and its palette is read here the way 00423d28's open_screen reads it, so the words go over
+ * its picture in its colours rather than over whatever the caller left behind. Asked for only when the clean
  * background is not there: with one, its palette is the one that shows, and the original's is never used. */
 static void burnt_in(Screen *s, const GraphicsMenuOps *o)
 {
@@ -300,13 +301,15 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
      * this page). So the caller's picture goes out in its own palette, the page is put up on the black display, and
      * only then does this screen's palette ramp over it -- the order extras_menu.c's page takes.
      *
-     * Options' fade_out before it opened this screen (check_options.c's choose) is not enough on its own: a fade
-     * scales the palette only, and the front buffer still holds Options' pixels, so its palette brings that picture
-     * back. The fade here costs seventeen vblanks over a display that is already black. */
+     * A caller that has already faded the display out leaves nothing there to fade, and the seventeen vblanks of it
+     * are black on black: the walk from Options (check_options.c's choose) is the one that does. So the fade is
+     * asked about rather than assumed -- plus_display_dark is the video layer's own answer for its palette, right
+     * whoever faded it, and a caller that cannot say (NULL) gets the fade, which is the safe direction: a fade
+     * skipped over a lit display shows the caller's picture in this screen's palette. */
     if (!s->palette_on) {
         /* the palette that matches the picture on the screen: the clean background's own, or -- when there is no
          * clean background -- the original's, which is the one the words are read in */
-        o->fade_out(o->ctx, 0, 0x100);
+        if (o->plus_display_dark == NULL || !o->plus_display_dark(o->ctx)) o->fade_out(o->ctx, 0, 0x100);
         o->flip(o->ctx);
         o->fade_in(o->ctx, 0, 0x100, s->have_burnt_in ? s->burnt_in_pal : s->palette);
         if (s->have_burnt_in) o->text_styles(o->ctx);
