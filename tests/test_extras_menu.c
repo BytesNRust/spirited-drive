@@ -34,7 +34,14 @@ typedef struct Fake {
     int32_t y_of[512];       /* and where, so a column can be checked */
     int smooth_draws;        /* words drawn through the background-restoring (smooth) op */
     int fade_ins;            /* times the screen's own palette was put on the display */
+    int fade_outs;           /* times the display was faded out on the way out */
+    int blits;               /* times a picture was drawn into the backbuffer */
+    int flips;               /* times the page was presented, so the fade's place in the run is known */
+    int pixels_drawn_before_fade_in;  /* the page was drawn before the palette went on the display */
     int style_rebuilds;      /* times the styles were rebuilt for the screen's palette */
+    int styles_faded;        /* the rebuilds that came after the palette had already gone on */
+    char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
+    int event_count;
     int pointer_in_nav;
     int bgnd_asks;   /* how many times the screen asked for the clean background */
     int panel_after_bgnd;   /* the background was put on the screen */
@@ -51,7 +58,14 @@ static int32_t f_key(void *ctx)
     Fake *f = ctx;
     return f->key_next < f->key_count ? f->keys[f->key_next++] : ESCAPE;
 }
-static void f_styles(void *ctx) { ((Fake *)ctx)->style_rebuilds++; }
+static void f_styles(void *ctx)
+{
+    Fake *f = ctx;
+    f->style_rebuilds++;
+    /* the styles are a ramp matched to the palette on the display, so a rebuild that comes before the screen's own
+     * palette has gone on rebuilds them from the caller's -- which is a different menu's menu */
+    if (f->fade_ins > 0) f->styles_faded++;
+}
 static int32_t f_ticks(void *ctx) { (void)ctx; return 100; }
 static int32_t f_zero(void *ctx) { (void)ctx; return 0; }
 static void f_void(void *ctx) { (void)ctx; }
@@ -98,12 +112,34 @@ static int32_t f_bgnd_shape(void *ctx, const uint8_t *pixels, const uint8_t *pal
     f->panel_after_bgnd = 1;   /* the background is down; whatever is drawn next lands on it */
     return 1;
 }
-static void f_blit(void *ctx, const uint8_t *shape) { (void)ctx, (void)shape; }
+static void f_blit(void *ctx, const uint8_t *shape)
+{
+    (void)shape;
+    ((Fake *)ctx)->blits++;
+}
 static int32_t f_picture(void *ctx, int32_t picture) { (void)ctx; return picture; }
+/* the present: from here the frame is on the display, which is what says whether the palette was already on it */
+static void f_flip(void *ctx)
+{
+    Fake *f = ctx;
+    f->flips++;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'F';
+}
 static void f_fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb)
 {
     (void)first, (void)count, (void)rgb;
-    ((Fake *)ctx)->fade_ins++;
+    Fake *f = ctx;
+    f->fade_ins++;
+    /* where it fell in the run: the page must already be drawn when the palette goes on */
+    if (f->blits > 0) f->pixels_drawn_before_fade_in = 1;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'I';
+}
+static void f_fade_out(void *ctx, int32_t first, int32_t count)
+{
+    (void)first, (void)count;
+    Fake *f = ctx;
+    f->fade_outs++;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'O';
 }
 static int32_t f_buttons(void *ctx) { (void)ctx; return 0; }
 static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
@@ -205,8 +241,9 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
     const ExtrasMenuOps ops = {
         .pointer_move_to = f_move, .load_art = f_art, .shape = f_shape, .palette_set = f_palette,
         .pointer_in_rect = f_in_rect, .select = f_select, .blit_own = f_blit, .picture_shape = f_picture,
-        .select_default = f_void, .pointer_hide = f_void, .flip = f_void, .pointer_show = f_void,
+        .select_default = f_void, .pointer_hide = f_void, .flip = f_flip, .pointer_show = f_void,
         .pointer_buttons = f_buttons, .text_styles = f_styles, .fade_in = f_fade_in, .deadline_set = f_one,
+        .fade_out = f_fade_out,
         .deadline_passed = f_zero, .sound = f_one, .ticks = f_ticks, .pointer_activate_if_moved = f_void,
         .key = f_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
@@ -356,6 +393,66 @@ static void test_no_background_still_runs(void)
     run(&r, keys, 1);
     CHECK_EQ_INT(r.fake.panel_after_bgnd, 0);
     CHECK_EQ_INT(r.fake.panel_before_bgnd, 0);
+}
+
+/* port: no flash on the way in. fade_in ramps whatever the display shows, so the opener's picture goes out first in its
+ * own palette, the page is presented on the black display, and only then is this screen's palette faded in: the run
+ * opens O F I. The page is whole before the flip. (Fading in before the flip ramped Game Mode's art up again first,
+ * then cut to this page -- the capture showed it.) */
+static void test_no_flash_on_the_way_in(void)
+{
+    Rig r;
+    const int keys[] = { DOWN, ESCAPE };
+    setup(&r);
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.pixels_drawn_before_fade_in, 1);
+    CHECK(r.fake.event_count >= 3);
+    CHECK_EQ_INT(r.fake.events[0], 'O');
+    CHECK_EQ_INT(r.fake.events[1], 'F');
+    CHECK_EQ_INT(r.fake.events[2], 'I');
+}
+
+/* port: and none on the way out either. Every screen that opens one of these fades the whole display out as it leaves,
+ * the way 00423d28's close_screen does, so the menu the screen was opened from comes back up in its own palette
+ * instead of reading this screen's. */
+static void test_the_display_is_faded_out_on_the_way_out(void)
+{
+    Rig r;
+    const int keys[] = { DOWN, ESCAPE };
+    setup(&r);
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.fade_outs, 2);   /* the opener's picture going out, then this screen's */
+    /* and after the last thing drawn, not before it: a fade_out earlier would blank the screen while it was up */
+    CHECK(r.fake.event_count >= 2);
+    CHECK_EQ_INT(r.fake.events[r.fake.event_count - 1], 'O');
+}
+
+/* port: the letters are drawn in a ramp matched to the palette on the display, so the styles can only be rebuilt once
+ * this screen's own palette has gone on. The old order asked for them as the screen opened -- before the fade -- which
+ * built them from the caller's palette: Options' rows came out in the exe's colours over the clean background, and on
+ * the way out the rebuild took that same palette with it. */
+static void test_the_styles_are_rebuilt_after_the_palette_is_on(void)
+{
+    Rig r;
+    const int keys[] = { DOWN, ESCAPE };
+    setup(&r);
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.style_rebuilds, 2);      /* the screen's palette going up, and the caller's coming back */
+    CHECK_EQ_INT(r.fake.styles_faded, 2);        /* both of them after the screen's palette was on the display */
+}
+
+/* port: no clean background to put a palette on (config_bgnd_load fails), so the screen stays over the caller's live
+ * picture -- and then it must not fade the display out at all, or the caller comes back to a black screen. The
+ * Graphics screen had exactly this defect: it had no palette of its own to fall back to and faded anyway. */
+static void test_no_background_leaves_the_display_alone(void)
+{
+    Rig r;
+    const int keys[] = { DOWN, ESCAPE };
+    setup(&r);
+    r.fake.bgnd_ok = 0;
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.fade_ins, 0);
+    CHECK_EQ_INT(r.fake.fade_outs, 0);
 }
 
 /* page 1's nine switches, Replay cameras the last of them: walk the whole page down and they are all of them */
@@ -738,6 +835,10 @@ int main(void)
     test_the_headers_go_through_the_header_op();
     test_a_panel_only_without_the_clean_background();
     test_the_palette_reaches_the_display();
+    test_no_flash_on_the_way_in();
+    test_the_display_is_faded_out_on_the_way_out();
+    test_no_background_leaves_the_display_alone();
+    test_the_styles_are_rebuilt_after_the_palette_is_on();
     test_the_styles_are_built_for_the_screens_palette();
     test_text_is_drawn_over_the_background();
     test_rows_are_drawn_without_a_smooth_op();

@@ -45,7 +45,19 @@ typedef struct Fake {
     int pointer_x, pointer_y; /* where the screen last put the pointer */
     int panel_calls;
     int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
+    int burnt_in_reads;       /* times the original's own screen was asked for its palette */
+    int blits;               /* times the page's picture was drawn into the backbuffer */
+    int palette_sets;        /* times a palette was put on the screen (the picture's, then the clean background's) */
+    int flip_before_bgnd;    /* the screen was presented before the clean background was put on it */
+    int flip_before_fade_in; /* the screen was presented before any palette was faded in */
     int fade_ins;            /* times the screen's own palette was put on the display */
+    int fade_outs;           /* times the display was faded out on the way out */
+    int flips;               /* times the screen was presented, so the fade's place in the run is known */
+    int pixels_drawn_before_fade_in;  /* the page's picture was drawn before the palette went on the display */
+    int faded_in_before_first_flip;   /* the palette was put on the display before the picture was drawn */
+    char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
+    int event_count;
+    int bgnd_ok;             /* what plus_bgnd gives: 0 as if config_bgnd_load had failed */
     int put_backs;           /* times the settings were put back (Cancel / Escape only) */
     int aliased_palettes;    /* times palette_set was handed its own destination as the source */
     int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
@@ -53,6 +65,12 @@ typedef struct Fake {
     int smooth_draws;         /* times the text went through the background-restoring (smooth) op */
     int lit_done, lit_cancel; /* times the lit DONE / CANCEL art was asked for */
     int frees;                /* banks freed */
+    int idle_key;             /* what the screen reads once the walk's keys are spent (ESCAPE, as the other walks end) */
+    int right_button;         /* the right button reads down once the walk is spent */
+    int right_buttons_read;   /* times the buttons have been read since the walk was spent */
+    int deadline_passed;      /* the idle deadline reads passed once the walk is spent */
+    int16_t *quit;            /* the quit flag the screen reads, so a test can raise it when the walk is spent */
+    int quit_when_spent;      /* raise that flag once the walk is spent, not before */
     int32_t palette_modes[32];
     int palette_mode_count;
     PortSettings kept;       /* the settings as they were on entry */
@@ -61,7 +79,13 @@ typedef struct Fake {
 static int32_t f_key(void *ctx)
 {
     Fake *f = ctx;
-    return f->key_next < f->key_count ? f->keys[f->key_next++] : ESCAPE;
+    if (f->key_next < f->key_count) return f->keys[f->key_next++];
+    /* the walk's keys are spent. A quit that was armed is raised here and not before, so the walk runs to its end
+     * and the flag is what stops the screen -- the same way the deadline and the button arrive. */
+    if (f->quit_when_spent && f->quit != NULL) *f->quit = 1;
+    /* Escape ends the screen, as it does for every other walk here. A test that wants a different end sets idle_key,
+     * and with it 0 so the screen idles instead and a trigger decides. */
+    return f->idle_key;
 }
 static void f_void(void *ctx) { (void)ctx; }
 /* the pointer: the screen moves it, and the row it lands in is what pointer_in_rect then works out */
@@ -76,24 +100,40 @@ static void f_move(void *ctx, int32_t x, int32_t y)
     if (y >= 430 && y < 475) f->pointer_row = x < 320 ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
 }
 static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
+/* the original's own Graphics screen: its shapes, and the palette 00423d28's open_screen reads as "!pal" -- sixteen
+ * bytes of header the way a shape's start, then the colour map. NULL is a bank that has none, which is how the fake
+ * says the CD is not there. The lit DONE / CANCEL art is counted as it is asked for. */
+static uint8_t art_shape[GRAPHICS_PALETTE];
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag)
 {
     Fake *f = ctx;
     (void)bank;
     if (strcmp(tag, "Donl") == 0) f->lit_done++;
     if (strcmp(tag, "Canl") == 0) f->lit_cancel++;
+    if (strcmp(tag, "!pal") == 0) {
+        f->burnt_in_reads++;
+        art_shape[0] = 0;
+        memset(art_shape + 0x10, 0x20, sizeof art_shape - 0x10);
+        return art_shape;
+    }
     return NULL;
 }
+/* Two kinds of palette go onto this screen and they want different modes. The clean background's is already
+ * display-ready -- config_bgnd.c read it through fsh_palette_rgb, which shifted the CD's 6-bit values left by one
+ * once -- so it must go on RAW or palette_put shifts it a second time, which is what turned the page neon. The
+ * original's own bank carries its palette as the exe wrote it, so it is read with the mode its header says. The
+ * fake cannot tell them apart by pointer (the screen keeps its own copy in a buffer the fake never sees), so it is
+ * told which kind of screen it is looking at. */
+static int palette_is_clean;
 static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
     Fake *f = ctx;
     (void)first, (void)count;
+    f->palette_sets++;
     /* palette_put writes destination and then copies the result over the screen's copy, so a call whose source
      * IS its destination rewrites the bytes it is reading from: every redraw shifts them a little further. */
     if (src == rgb) f->aliased_palettes++;
-    /* the clean background's palette is already display-ready (fsh_palette_rgb shifted the CD's 6-bit values
-     * once); anything but the raw mode shifts it a second time, which is what turned the page neon. */
-    if (mode != FSH_TYPE_PALETTE_8BIT) f->non_raw_modes++;
+    if (palette_is_clean && mode != FSH_TYPE_PALETTE_8BIT) f->non_raw_modes++;
     if (f->palette_mode_count < 32) f->palette_modes[f->palette_mode_count++] = mode;
 }
 /* The pointer's band: is the pointer where the screen last put it inside this one? That is the whole question, and
@@ -104,14 +144,36 @@ static int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t 
     return x0 <= f->pointer_x && f->pointer_x < x1 && y0 <= f->pointer_y && f->pointer_y < y1;
 }
 static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
-static void f_blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
+static void f_blit(void *ctx, const uint8_t *s) { (void)s; ((Fake *)ctx)->blits++; }
 static int32_t f_picture_shape(void *ctx, int32_t p) { (void)ctx, (void)p; return 0; }
 static void f_select_default(void *ctx) { (void)ctx; }
-static void f_fade(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
+/* the present: the frame is on the display from here, which is what says whether the palette had already been
+ * put there when the previous screen's picture was still up */
+static void f_flip(void *ctx)
+{
+    Fake *f = ctx;
+    f->flips++;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'F';
+}
+static void f_fade(void *ctx, int32_t a, int32_t b)
+{
+    (void)a, (void)b;
+    Fake *f = ctx;
+    f->fade_outs++;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'O';
+}
 static void f_fade_rgb(void *ctx, int32_t a, int32_t b, const uint8_t *rgb)
 {
     (void)a, (void)b, (void)rgb;
-    ((Fake *)ctx)->fade_ins++;
+    Fake *f = ctx;
+    f->fade_ins++;
+    /* where it fell in the run: the page must already be drawn when the palette goes on, and the flip that presents
+     * them must not have happened yet -- otherwise the frames in between show the previous screen's picture in this
+     * screen's palette, and that screen comes out pale for a moment */
+    if (f->blits == 0) f->faded_in_before_first_flip = 1;
+    if (f->blits > 0) f->pixels_drawn_before_fade_in = 1;
+    if (f->flips > 0) f->flip_before_fade_in = 1;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'I';
 }
 static void f_deadline(void *ctx, int32_t t) { (void)ctx, (void)t; }
 static int32_t f_ticks(void *ctx)
@@ -119,10 +181,27 @@ static int32_t f_ticks(void *ctx)
     const int each = ((const Fake *)ctx)->ticks_each;
     return each != 0 ? each : 100;
 }
-static int32_t f_buttons(void *ctx) { (void)ctx; return 0; }
+/* The right button, as a real one arrives: down for the frames after the walk is spent, and held no longer. A press
+ * that never comes back up would never let the screen leave, because the menu treats the right button as leaving on a
+ * *release* -- the same way the left button chooses -- so it reads buttons==0 once first, which is the release. */
+static int32_t f_buttons(void *ctx)
+{
+    Fake *f = ctx;
+    if (f->key_next < f->key_count) return 0;
+    if (!f->right_button) return 0;
+    if (f->right_buttons_read == 0) {   /* up: the release that arms the leaving */
+        f->right_buttons_read = 1;
+        return 0;
+    }
+    return RIGHT_BUTTON;
+}
 static void f_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
 static void f_free(void *ctx, int32_t bank) { (void)bank; ((Fake *)ctx)->frees++; }
-static int32_t f_deadline_passed(void *ctx) { (void)ctx; return 0; }
+static int32_t f_deadline_passed(void *ctx)
+{
+    Fake *f = ctx;
+    return f->deadline_passed && f->key_next >= f->key_count ? 1 : 0;   /* the walk is spent */
+}
 
 /* The row each of the screen's own words belongs to, so the fake can read the selection off the draw: the selected row
  * is drawn lit, and the screen lights exactly one. (Only the nine settings -- Done and Cancel are the background's
@@ -178,7 +257,7 @@ static int32_t f_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
 {
     (void)pixels, (void)palette;
     current->bgnd_calls++;
-    return 1;
+    return current->bgnd_ok;
 }
 /* the title: drawn at the top left, over the clean background */
 static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
@@ -186,12 +265,17 @@ static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
     (void)text, (void)x, (void)y;
     ((Fake *)ctx)->title_draws++;
 }
-/* the clean background put on the screen with its palette */
+/* the clean background put on the screen with its palette. A screen whose background it was cannot compose has no
+ * shape to put up: the fake says so the way the glue does when own_shape is NULL, so the run shows what is really
+ * on the display. */
 static int32_t f_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
 {
     (void)pixels, (void)palette;
-    ((Fake *)ctx)->bgnd_shapes++;
-    return 1;
+    Fake *f = ctx;
+    f->bgnd_shapes++;
+    if (f->flips == 0) f->flip_before_bgnd = 1;   /* the clean background went down after a present: the old
+                                                    * picture was shown first */
+    return f->bgnd_ok;
 }
 /* Cancel / Escape: what puts the settings back */
 static void f_put_back(void *ctx, PortSettings *settings)
@@ -210,7 +294,7 @@ static GraphicsMenuOps OPS = {
     .pointer_move_to = f_move, .load_art = f_art, .load_inverse = f_art, .music_feed = f_void, .shape = f_shape,
     .palette_set = f_palette, .pointer_poll = f_void, .pointer_mark = f_void, .pointer_in_rect = f_in_rect,
     .select = f_select, .blit_own = f_blit, .picture_shape = f_picture_shape, .select_default = f_select_default,
-    .pointer_hide = f_void, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_buttons,
+    .pointer_hide = f_void, .unlock = f_void, .flip = f_flip, .pointer_show = f_void, .pointer_buttons = f_buttons,
     .text_styles = f_void, .fade_in = f_fade_rgb, .deadline_set = f_deadline, .sound = f_sound, .lock = f_void,
     .ticks = f_ticks, .pointer_activate_if_moved = f_void, .key = f_key, .pointer_click = f_void,
     .pointer_off = f_void, .music = f_void, .net_sync = f_void, .deadline_passed = f_deadline_passed,
@@ -249,6 +333,10 @@ static void rig_init(Rig *r)
     r->st.screen = &r->screen;
     r->st.inverse = &r->inverse;
     r->st.quit = &r->quit;
+    r->f.idle_key = ESCAPE;  /* the walk's keys spent: Escape ends the screen, as the other walks end */
+    r->f.right_button = r->f.deadline_passed = 0;
+    r->f.bgnd_ok = 1;        /* the CD screens compose into a clean background */
+    r->f.quit = &r->quit;    /* the screen reads the flag the fake raises */
     r->st.plus = &r->plus;
     r->plus.port = &r->port;
     r->plus.fullscreen_format = SCREEN_21_9;
@@ -291,13 +379,43 @@ static int script_walk(int row, int key, int times, int end)
     return n;
 }
 
+/* the walk down to a row and one RIGHT on it, then nothing: no Done, no Cancel, no Escape. What ends the screen is
+ * whatever the test armed -- the idle deadline, the right button or the quit flag -- so the setting is changed and the
+ * exit is not a decision. `count` receives the number of keys. */
+static void change_a_setting_then_settle(int row, int key, int *count)
+{
+    int n = 0;
+    for (int i = 0; i < row; i++) script[n++] = DOWN;
+    script[n++] = key;
+    script[n++] = 0;      /* the step's own iteration leaves it unarmed, so the screen idles and settles */
+    *count = n;
+}
+
 /* Runs the screen once with the script, and returns what it returned (1 for Done, 0 for Cancel). */
 static int32_t run_script(Rig *r, int count)
 {
     r->f.keys = script;
     r->f.key_count = count;
     r->f.key_next = 0;
+    palette_is_clean = r->f.bgnd_ok;   /* what the raw-mode rule applies to: the clean background's own palette */
     return graphics_own(&r->st, &OPS);
+}
+
+/* the same, but with nothing to press once the walk is spent: the screen idles, so only a trigger -- the deadline,
+ * the right button, the quit flag -- can end it. That is the case 00423d28 treats as leaving without deciding. */
+static int32_t run_script_idling(Rig *r, int count)
+{
+    r->f.idle_key = 0;
+    return run_script(r, count);
+}
+
+/* the same, with the quit flag armed to go up once the walk is spent: the screen reads it through st.quit, so the flag
+ * is raised at the moment the walk ends rather than before it -- otherwise the flag would stop the screen on its very
+ * first iteration and the setting would never have been changed. */
+static int32_t run_script_quitting(Rig *r, int count)
+{
+    r->f.quit_when_spent = 1;
+    return run_script_idling(r, count);
 }
 
 /* 1: the nine labels, in the owner's order, and nothing called "Modern 3D" */
@@ -381,7 +499,8 @@ static void test_done_and_cancel_are_not_drawn_twice(void)
 }
 
 /* port: DONE and CANCEL light up when chosen, as Options' own art (Donl / Canl) over the background's words, and
- * stay dark otherwise; the bank that art comes from is freed as the screen closes */
+ * stay dark otherwise. Both banks are freed as the screen closes: Options' own, for that art, and the original's
+ * burnt-in Graphics screen. */
 static void test_done_and_cancel_light_up(void)
 {
     Rig r;
@@ -390,7 +509,7 @@ static void test_done_and_cancel_light_up(void)
     run_script(&r, 1);
     CHECK_EQ_INT(r.f.lit_done, 0);
     CHECK_EQ_INT(r.f.lit_cancel, 0);
-    CHECK_EQ_INT(r.f.frees, 1);
+    CHECK_EQ_INT(r.f.frees, 2);
     Rig done;
     rig_init(&done);
     run_script(&done, script_walk(GRAPHICS_OWN_VIEW, RIGHT, 1, GRAPHICS_OWN_DONE));
@@ -661,6 +780,108 @@ static void test_fullscreen_takes_desktop_format(void)
     CHECK_EQ_INT(s.format, SCREEN_21_9);
 }
 
+/* 12: port: 00423d28 leaves through one door, and only Cancel says no. Its loop ends on Done, on Cancel, and on the
+ * idle deadline, the right button or the quit flag -- and everything but Cancel falls through to the same plus_save
+ * (graphics_menu.c: put_back is the only thing that sets cancelled). So the three exits that are not the player's
+ * decision still save what they changed on the way past, and the screen reports that it left. Each walk changes a
+ * setting and then settles, with no Done, no Cancel and no Escape: the trigger, not a key, is what ends it. */
+
+/* one trigger's run: change Scaling, then let `f` end the screen the way that trigger does */
+static void test_the_three_exits_that_are_not_a_decision_save(void)
+{
+    enum { SCALING = GRAPHICS_OWN_SCALING };
+    int n;
+
+    /* the idle deadline passing */
+    Rig idle;
+    rig_init(&idle);
+    change_a_setting_then_settle(SCALING, RIGHT, &n);
+    idle.f.deadline_passed = 1;
+    CHECK_EQ_INT(run_script_idling(&idle, n), 1);   /* it left, and left as Done leaves */
+    CHECK_EQ_INT(idle.f.saves, 1);
+    CHECK_EQ_INT(idle.f.put_backs, 0);
+    CHECK_EQ_INT(idle.port.scale_integer, 1);   /* the change is still in the settings that were saved */
+
+    /* the right button: a mouse button only reaches the screen while the pointer is active, so the rig turns it on */
+    Rig right;
+    rig_init(&right);
+    change_a_setting_then_settle(SCALING, RIGHT, &n);
+    right.f.right_button = 1;
+    right.pointer_active = 1;
+    CHECK_EQ_INT(run_script_idling(&right, n), 1);
+    CHECK_EQ_INT(right.f.saves, 1);
+    CHECK_EQ_INT(right.f.put_backs, 0);
+    CHECK_EQ_INT(right.port.scale_integer, 1);
+
+    /* the quit flag */
+    Rig quit;
+    rig_init(&quit);
+    change_a_setting_then_settle(SCALING, RIGHT, &n);
+    CHECK_EQ_INT(run_script_quitting(&quit, n), 1);
+    CHECK_EQ_INT(quit.f.saves, 1);
+    CHECK_EQ_INT(quit.f.put_backs, 0);
+    CHECK_EQ_INT(quit.port.scale_integer, 1);
+}
+
+/* 13: port: the screen must never be a black rectangle with letters on it. Options fades the display out before it
+ * opens this screen, and only a palette of its own puts anything back on it -- so when the clean background cannot be
+ * composed (config_bgnd_load fails, so the glue has no shape and this screen never fades a palette in), the words
+ * would be drawn over a black screen. It then runs over the caller's own burnt-in Graphics screen, the picture 00423d28
+ * put up, with that screen's palette -- so there is something to read. */
+static void test_no_clean_background_runs_over_the_originals(void)
+{
+    Rig r;
+    rig_init(&r);
+    r.f.bgnd_ok = 0;   /* the CD screens could not be composed */
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    CHECK_EQ_INT(r.f.bgnd_calls, 1);        /* it did ask, once, before drawing anything */
+    CHECK_EQ_INT(r.f.burnt_in_reads, 1);    /* and it asked for the original's screen, once */
+    CHECK_EQ_INT(r.f.fade_ins, 1);          /* so the original's own palette went on the display */
+    CHECK_EQ_INT(r.f.pixels_drawn_before_fade_in, 1);   /* and only after the screen was drawn */
+    CHECK(r.f.palette_sets > 0);           /* the palette came off the original's own bank */
+    CHECK_EQ_INT(r.f.non_raw_modes, 0);     /* and with the mode that bank's header says, as the exe reads it */
+}
+
+/* 14: port: no flash on the way in. fade_in ramps whatever is ON the display, not the backbuffer: video_set_palette
+ * presents on every step. So the order has to be the caller's picture out in its own palette, the page put up on the
+ * black display, and only then this screen's palette faded in -- the run opens O F I, the order extras_menu.c's page
+ * takes (fc15abb). Fading in before the flip ramped Options' own art up out of black in this screen's palette for all
+ * seventeen steps, and the capture showed it: frames 402-417 climbing while Options' TRANSMISSION/ABS rows were the
+ * picture, then 418 a hard cut to this page. */
+static void test_no_flash_on_the_way_in(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    /* the page is drawn into the backbuffer before the display is touched, so the flip has something to put up */
+    CHECK_EQ_INT(r.f.pixels_drawn_before_fade_in, 1);
+    CHECK(r.f.event_count >= 3);
+    CHECK_EQ_INT(r.f.events[0], 'O');   /* Options' picture going out, in its own palette */
+    CHECK_EQ_INT(r.f.events[1], 'F');   /* the page onto the black display */
+    CHECK_EQ_INT(r.f.events[2], 'I');   /* and the page's own palette up over it */
+}
+
+/* 15: port: and none on the way out either. 00423d28's close_screen fades the whole display out, and the screen
+ * leaves with nothing on it; this one left the previous screen showing in this screen's palette. Two fades leave,
+ * not one: the opener's picture going out as the screen opens, and this screen's as it closes. */
+static void test_the_display_is_faded_out_on_the_way_out(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    CHECK_EQ_INT(r.f.fade_outs, 2);
+    /* and the last of them after the last thing drawn, not before it: a fade_out earlier would blank the screen while
+     * it was up */
+    CHECK(r.f.event_count >= 2);
+    CHECK_EQ_INT(r.f.events[r.f.event_count - 1], 'O');
+}
+
 int main(void)
 {
     test_rows_in_order();
@@ -681,5 +902,9 @@ int main(void)
     test_value_texts();
     test_step_writes_only_its_row();
     test_fullscreen_takes_desktop_format();
+    test_the_three_exits_that_are_not_a_decision_save();
+    test_no_clean_background_runs_over_the_originals();
+    test_no_flash_on_the_way_in();
+    test_the_display_is_faded_out_on_the_way_out();
     return TEST_REPORT();
 }

@@ -60,6 +60,10 @@ typedef struct ExtrasMenuOps {
      * palette) and once as it closes, so whatever is drawn next is drawn the way its caller means. */
     void (*text_styles)(void *ctx);
     void (*fade_in)(void *ctx, int32_t first, int32_t count, const uint8_t *rgb);
+    /* port: the display faded out as the screen closes, the way 00423d28's close_screen does, so the menu that opened
+     * it comes back up in its own palette instead of reading this screen's. May be NULL for a screen whose caller
+     * fades out before opening it. */
+    void (*fade_out)(void *ctx, int32_t first, int32_t count);
     void (*deadline_set)(void *ctx, int32_t time);
     int32_t (*deadline_passed)(void *ctx);
     void (*sound)(void *ctx, int32_t sound);

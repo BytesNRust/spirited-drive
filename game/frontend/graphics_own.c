@@ -140,9 +140,14 @@ typedef struct Screen {
     uint8_t pixels[GRAPHICS_OWN_W * GRAPHICS_OWN_H];
     uint8_t palette[768];
     int bgnd_ready;   /* the background asked for once; composing it takes about half a second */
+    int bgnd_failed;  /* the composition failed, so the original's own screen and palette are what is shown */
+    int32_t bank;   /* option/options.qfs, for DONE and CANCEL's lit and dark art */
+    int32_t burnt_in;            /* the original's burnt-in Graphics screen: the picture, and the palette it goes with.
+                                   * Kept as 00423d28 keeps it, to be freed at the end */
+    int have_burnt_in;            /* its palette was read, so draw() can fade that one in */
+    uint8_t burnt_in_pal[GRAPHICS_PALETTE];
     int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
     uint8_t screen_pal[768];   /* the palette_set destination, kept apart from the one it reads */
-    int32_t bank;   /* option/options.qfs, for DONE and CANCEL's lit and dark art */
 } Screen;
 
 /* The clean configuration background, composed at run time from the CD and kept: config_bgnd_load reads the ten
@@ -150,10 +155,46 @@ typedef struct Screen {
  * that only wants the loop) the background is left as the caller had it. */
 static void background(Screen *s, const GraphicsMenuOps *o)
 {
-    if (s->bgnd_ready || o->plus_bgnd == NULL) return;
+    if (s->bgnd_ready || o->plus_bgnd == NULL) {
+        /* no op to compose one: this screen runs over the caller's picture, so it needs the original's palette too */
+        s->bgnd_ready = 1;
+        s->bgnd_failed = 1;
+        return;
+    }
     s->bgnd_ready = 1;
-    if (!o->plus_bgnd(s->pixels, s->palette))
-        fprintf(stderr, "graphics: no clean configuration background, the burnt-in one stays\n");
+    if (!o->plus_bgnd(s->pixels, s->palette)) {
+        s->bgnd_failed = 1;
+        fprintf(stderr, "graphics: no clean configuration background, the original's screen stays\n");
+    }
+}
+
+/* port: what the screen runs over when there is no clean background to compose it from (config_bgnd_load failed, so
+ * the glue has no shape and can put no palette on the display). Options fades the display out before it opens this
+ * screen, so with nothing of its own on it there would be nothing to read at all -- a black screen with letters over
+ * it. The original's own Graphics screen (option/graphics.qfs, or check/graphics.fsh while check/graphics.fsh's
+ * art is up) is the one the exe would have shown, and its palette is read here the way 00423d28's open_screen reads
+ * it, so the words go over its picture in its colours rather than over black. Asked for only when the clean
+ * background is not there: with one, its palette is the one that shows, and the original's is never used. */
+static void burnt_in(Screen *s, const GraphicsMenuOps *o)
+{
+    if (!s->bgnd_failed) return;   /* the clean background is there: its palette is the one that shows */
+    const uint8_t *const pal = o->shape(o->ctx, s->bank, "!pal");
+    if (pal == NULL) {
+        fprintf(stderr, "graphics: the original's screen has no palette either\n");
+        return;
+    }
+    /* its own copy, because palette_set reads and writes the same buffer. This only fills the screen's own palette:
+     * the one on the display is put there by the fade_in in draw(), which is what reads this copy. */
+    o->palette_set(o->ctx, s->burnt_in_pal, 0, 0x100, pal + 0x10, pal[0]);
+    s->have_burnt_in = 1;
+}
+
+/* port: whether the clean background has anything to put on the display at all. The composition is asked for once,
+ * and the first draw is where its shape answers -- so this is the question the fade in draw() asks, rather than a
+ * flag set before the screen knows. */
+static int has_clean_bgnd(const Screen *s, const GraphicsMenuOps *o)
+{
+    return o->plus_bgnd_shape != NULL && o->plus_bgnd_shape(o->ctx, s->pixels, s->palette) != 0;
 }
 
 /* port: every word on this screen is drawn over the clean background, which the whole page is repainted with on
@@ -222,7 +263,8 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
 {
     *s->st->showing = 1;
     o->select(o->ctx, *s->st->screen);
-    if (o->plus_bgnd_shape != NULL && o->plus_bgnd_shape(o->ctx, s->pixels, s->palette)) {
+    const int clean = has_clean_bgnd(s, o);
+    if (clean) {
         /* port: the screen's palette onto the screen's own, RAW. config_bgnd.c read this palette through
          * fsh_palette_rgb, which shifts the CD's 6-bit VGA values left by one on the way, so it is already
          * display-ready: any other mode shifts it a second time. The destination is the picture's own palette and
@@ -230,13 +272,6 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
          * rewrite the bytes it is reading, a little further every redraw. */
         memcpy(s->screen_pal, s->palette, sizeof s->screen_pal);
         o->palette_set(o->ctx, s->screen_pal, 0, 0x100, s->palette, FSH_TYPE_PALETTE_8BIT);
-        /* port: the palette on the display, once. Options fades the screen out before it opens this one, so without
-         * this the page is drawn on black: palette_set only fills the screen's own palette and the one kept for
-         * restore, and fade_in is what puts one on the display. */
-        if (!s->palette_on) {
-            o->fade_in(o->ctx, 0, 0x100, s->palette);
-            s->palette_on = 1;
-        }
     }
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) row_text(s, row, o);
     if (o->plus_title != NULL)
@@ -258,7 +293,27 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
     o->unlock(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *s->st->screen));
     o->unlock(o->ctx);
-    o->flip(o->ctx);
+    /* port: the palette on the display, once, and in this order. fade_in ramps whatever is ON the display --
+     * video_set_palette presents on every step -- not the backbuffer, so it cannot run before the flip: it would put
+     * the caller's last picture back up in this screen's palette for all seventeen steps, and the menu that opened
+     * this one would come up pale (the capture showed Options' own art climbing out of black, then a hard cut to
+     * this page). So the caller's picture goes out in its own palette, the page is put up on the black display, and
+     * only then does this screen's palette ramp over it -- the order extras_menu.c's page takes.
+     *
+     * Options' fade_out before it opened this screen (check_options.c's choose) is not enough on its own: a fade
+     * scales the palette only, and the front buffer still holds Options' pixels, so its palette brings that picture
+     * back. The fade here costs seventeen vblanks over a display that is already black. */
+    if (!s->palette_on) {
+        /* the palette that matches the picture on the screen: the clean background's own, or -- when there is no
+         * clean background -- the original's, which is the one the words are read in */
+        o->fade_out(o->ctx, 0, 0x100);
+        o->flip(o->ctx);
+        o->fade_in(o->ctx, 0, 0x100, s->have_burnt_in ? s->burnt_in_pal : s->palette);
+        if (s->have_burnt_in) o->text_styles(o->ctx);
+        s->palette_on = 1;
+    } else {
+        o->flip(o->ctx);
+    }
     o->pointer_show(o->ctx);
     o->deadline_set(o->ctx, WAIT);
     s->redraw = 0;
@@ -331,7 +386,13 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
     s.st = st, s.redraw = 1, s.result = -1;
     s.bank = ops->load_art(ops->ctx, "option/options.qfs");
     *st->showing = 1;
+    /* the original's own screen, as 00423d28's open_screen has it up: the picture the words go over, and -- when
+     * there is no clean background -- the palette they are read in */
+    s.burnt_in = ops->load_art(ops->ctx, *st->net_off ? "check/graphics.fsh" : "option/graphics.qfs");
+    *st->inverse = ops->load_inverse(ops->ctx, *st->net_off ? "check/graphics.inv" : "option/graphics.inv");
+    ops->music_feed(ops->ctx);
     background(&s, ops);
+    burnt_in(&s, ops);
     move_to(s.selected, ops);
     do {
         follow(&s, ops);
@@ -352,17 +413,25 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
             step(&s, k, ops);
         ops->music(ops->ctx);
         if (*st->net_off == 0) ops->net_sync(ops->ctx);
-        /* the deadline, the right button and the quit flag all leave without saving, the way Cancel does */
+        /* port: the deadline, the right button and the quit flag each leave the way the original's own screen does
+         * (00423d28), where only put_back sets cancelled -- so all three fall through to the same plus_save as Done.
+         * Landing on 0 here would be Cancel, and the settings the player changed on the way past would be lost. */
         if (s.result < 0 && (ops->deadline_passed(ops->ctx) || (*st->buttons == RIGHT_BUTTON && s.released) ||
                              *st->quit == 1)) {
             ops->sound(ops->ctx, CHOSEN);
-            s.result = 0;
+            s.result = 1;
         }
     } while (s.result < 0);
     *st->showing = 0;
+    /* port: the whole display faded out as the screen leaves, the way 00423d28's close_screen does. Without it the
+     * screen left the previous one showing in this one's palette, and the caller had a menu it could not read. */
+    ops->fade_out(ops->ctx, 0, 0x100);
+    ops->music_feed(ops->ctx);
+    ops->free_inverse(ops->ctx);
+    if (s.burnt_in != 0) ops->free(ops->ctx, s.burnt_in);
     if (s.bank != 0) ops->free(ops->ctx, s.bank);
-    /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends; the deadline, the right button and the
-     * quit flag all land on Cancel, which saves nothing. */
+    /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends, and so do the deadline, the right button
+     * and the quit flag, which reach the same place through result 1. */
     if (s.result != 0) {
         if (ops->plus_save != NULL) ops->plus_save(ops->ctx, st->plus->port);
         return 1;

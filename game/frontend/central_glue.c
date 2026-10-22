@@ -1184,6 +1184,11 @@ static void graphics(void *ctx, int32_t mode)
         port_settings_was = port;
         memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
     }
+    /* port: the palette that brought this screen up, kept: it fades the whole display out as it closes (00423d28's
+     * close_screen), so the styles rebuilt after it must be built from this copy rather than from what is left on the
+     * display -- which is that palette faded down to black, and a ramp built from black is not the caller's menu. */
+    uint8_t caller_palette[PALETTE_PUT_BYTES];
+    memcpy(caller_palette, screen_palette, sizeof caller_palette);
     const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
                                    ea_screen_slot(), &g.inverse, stage_word(), mode == 0 ? &plus : NULL };
     const GraphicsMenuOps ops = {
@@ -1206,9 +1211,9 @@ static void graphics(void *ctx, int32_t mode)
         graphics_own(&st, &ops);
     else
         graphics_menu(&st, mode, &ops);
-    /* the screen put its own palette on; the one that brought it up goes back, so whatever is on screen afterwards is
-     * drawn the way its own caller means */
-    text_build_styles();   /* the caller's palette, so whatever is drawn next matches it */
+    /* the screen put its own palette on and faded the display out as it left; the one that brought it up goes
+     * back, so whatever is on screen afterwards is drawn the way its own caller means */
+    text_build_styles_from(caller_palette);
     input_page_keys(0);
     input_function_keys(NULL);
     opt_out();
