@@ -67,8 +67,11 @@ void text_build_styles_from(const uint8_t pal[768])
     build_ramp(pal, usable, 0x00, 0x00, 0x00, shadow);
 }
 
+static TextStyle current_style = TEXT_CREAM;   /* port: which style `current` holds, for text_draw_smooth */
+
 void text_select(TextStyle style)
 {
+    current_style = style < STYLE_COUNT ? style : TEXT_CREAM;
     memcpy(current, styles[style < STYLE_COUNT ? style : TEXT_CREAM], sizeof current);
 }
 
@@ -211,7 +214,10 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
     text_soft_shadow(mask, soft, mw, mh);
     const int offset = 2 * num / den + TEXT_SOFT_SHADOW_PUSH;
     put_mask(soft, mw, mh, x - PAD + offset, y - PAD + offset, shadow[15], 0);
-    put_mask(mask, mw, mh, x - PAD, y - PAD, current[15], 1);
+    int fg = current[15];
+    if (current_style == TEXT_CREAM)   /* the drawn items' cream reads lighter than the font's */
+        fg = palette_nearest(styles_pal, palette_usable(), TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B);
+    put_mask(mask, mw, mh, x - PAD, y - PAD, fg, 1);
     free(mask);
 }
 
