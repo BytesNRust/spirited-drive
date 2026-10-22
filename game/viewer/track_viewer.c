@@ -337,6 +337,14 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         memcpy(drive_sim.race.game_state, drive_menus.game_state, sizeof drive_sim.race.game_state);
     drive_results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
+    /* 004275f8: the player's controls (00426ddc's, drive_input_start's above) go into its entry (0042702c's, at
+     * local_39, which 004273d0 copies into the setup the replay keeps); then each human's come back out of the
+     * entries, a replay's from its file (the CD's demos were driven on a pad). A link race's entries are the
+     * machines' exchange, left as they were. */
+    if (!drive_link_on) {
+        if (replay_of == NULL) drive_sim.race.entries[0].controls = drive_sim.race.controls[0];
+        race_controls_from_entries(&drive_sim.race);
+    }
     drive_input.hud = &drive_hud.hud;
     drive_input.own_specs = &drive_sim.specs[drive_sim.race.player];  /* port: test harness only (drive_autopilot) */
     if (drive_link_on) {
@@ -537,9 +545,12 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
 int track_viewer_drive_replay(const char *data_root, const char *path)
 {
     enum { FROM_START = 4 };
+    /* port, for the checks: TNFS_REPLAY_REQUEST=5 / 8 plays it as the menus' director (8 the intro's) does */
+    const char *asked = getenv("TNFS_REPLAY_REQUEST");
+    const int request = asked != NULL && (atoi(asked) == 5 || atoi(asked) == 8) ? atoi(asked) : FROM_START;
     size_t size = 0;
     uint8_t *file = platform_read_file(path, &size);
-    const int ok = track_viewer_drive_replay_data(data_root, file, size, FROM_START);
+    const int ok = track_viewer_drive_replay_data(data_root, file, size, request);
     platform_free_file(file);
     return ok;
 }

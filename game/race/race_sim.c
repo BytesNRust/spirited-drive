@@ -248,6 +248,11 @@ static void race_globals_load(RaceState *race)
     race->default_profile_odds = PROFILE_ODDS_AT_START;
 }
 
+void race_controls_from_entries(RaceState *race)
+{
+    for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++) race->controls[i] = race->entries[i].controls;
+}
+
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade)
 {

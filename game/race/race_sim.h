@@ -99,6 +99,10 @@ void race_field_counts(RaceField *field, int track, uint32_t track_flags, int fl
 void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const CarSpecs *specs,
                           const RaceField *field, int laps, int arcade);
 
+/* 004275f8 after the setup is in place (a replay's read from its file by 0044d3b0): each human's controls (004fb724
+ * + 12 i) from its entry (004fb82b + 0x4b i), so a replay steers as the pad or keys it was recorded with. */
+void race_controls_from_entries(RaceState *race);
+
 /* One fixed step with the human's input word (see RaceState.inputs). */
 void race_sim_tick(RaceSim *sim, uint32_t input);
 
