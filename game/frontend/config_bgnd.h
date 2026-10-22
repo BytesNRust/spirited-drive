@@ -33,4 +33,10 @@ typedef uint8_t *(*ConfigBgndRead)(const char *name, size_t *size);
 int config_bgnd_load(ConfigBgndRead read, int palette_screen, int done_cancel,
                      uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768]);
 
+/* The w x h piece of `pixels` at (x, y) as a game shape placed there (an FSH bitmap entry: 16-byte header, then the
+ * pixels), for ea_blit_own. `out` holds CONFIG_BGND_SHAPE_HEADER + w * h bytes. Returns the bytes written, 0 when the
+ * piece is not inside the picture. */
+enum { CONFIG_BGND_SHAPE_HEADER = 16 };
+size_t config_bgnd_shape(const uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], int x, int y, int w, int h, uint8_t *out);
+
 #endif

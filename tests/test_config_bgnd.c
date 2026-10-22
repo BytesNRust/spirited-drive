@@ -94,6 +94,25 @@ static void test_done_and_cancel_kept_or_left_out(void)
     CHECK_EQ_INT(at(580, 450), BLUE);
 }
 
+/* a piece cut as a shape placed where it was */
+static void test_a_piece_is_a_shape_at_its_place(void)
+{
+    static uint8_t px[CONFIG_BGND_W * CONFIG_BGND_H];
+    px[207 * CONFIG_BGND_W + 189] = 5, px[208 * CONFIG_BGND_W + 190] = 6;
+    uint8_t shape[CONFIG_BGND_SHAPE_HEADER + 2 * 2];
+    CHECK_EQ_INT(config_bgnd_shape(px, 189, 207, 2, 2, shape), sizeof shape);
+    CHECK_EQ_INT(shape[0], 0x7b);
+    CHECK_EQ_INT(shape[1] | shape[2] << 8 | shape[3] << 16, sizeof shape);
+    CHECK_EQ_INT(shape[4] | shape[5] << 8, 2);
+    CHECK_EQ_INT(shape[6] | shape[7] << 8, 2);
+    CHECK_EQ_INT(shape[12] | shape[13] << 8, 189);
+    CHECK_EQ_INT(shape[14] | shape[15] << 8, 207);
+    const uint8_t piece[4] = { 5, 0, 0, 6 };
+    CHECK_MEM(shape + CONFIG_BGND_SHAPE_HEADER, piece, 4);
+    CHECK_EQ_INT(config_bgnd_shape(px, 639, 0, 2, 1, shape), 0);
+    CHECK_EQ_INT(config_bgnd_shape(px, -1, 0, 1, 1, shape), 0);
+}
+
 /* the CD's art file, upper-cased as ISO 9660 has it */
 static uint8_t *read_cd(const char *name, size_t *size)
 {
@@ -139,6 +158,7 @@ int main(void)
     test_the_title_is_covered_by_the_texture_beside_it();
     test_the_colours_are_the_nearest_of_the_palette();
     test_done_and_cancel_kept_or_left_out();
+    test_a_piece_is_a_shape_at_its_place();
     test_the_cd_gives_the_same_pixels();
     CHECK(!config_bgnd_load(read_cd, CONFIG_BGND_SCREENS, 1, pixels, palette));
     for (int s = 0; s < CONFIG_BGND_SCREENS; s++) free(screens[s]);

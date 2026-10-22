@@ -17,6 +17,7 @@ typedef struct Fake {
     int moved_y[16];      /* the pointer's y moved to after each key, by the key's index */
     char drawn[128][32];
     int drawn_count;
+    int text_x, text_y;   /* where the last text went */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -66,7 +67,8 @@ static int32_t f_ticks(void *ctx) { (void)ctx; return 100; }
 static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     Fake *f = ctx;
-    (void)style, (void)x, (void)y;
+    (void)style;
+    f->text_x = x, f->text_y = y;
     if (f->drawn_count < 128) snprintf(f->drawn[f->drawn_count++], sizeof f->drawn[0], "%s", text);
 }
 static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * 8; }
@@ -150,7 +152,31 @@ static void test_extras_row_is_drawn_as_text(void)
     const int keys[] = { ESCAPE };
     setup(&r);
     run(&r, keys, 1);
-    CHECK(shown(&r.fake, "Extras"));
+    CHECK(shown(&r.fake, "Customize game"));
+}
+
+/* the row lines up with the art rows: their left edge (6) and their step (35 under Credits, measured on a capture) */
+static void test_the_row_lines_up_with_the_others(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    run(&r, keys, 1);
+    CHECK_EQ_INT(r.fake.text_x, 6);
+    CHECK_EQ_INT(r.fake.text_y, 380);
+}
+
+/* with the row the pointer just under Credits' art is on it, and Credits keeps its art */
+static void test_the_band_follows_the_row(void)
+{
+    Rig r;
+    const int keys[] = { ENTER, ESCAPE };
+    setup(&r);
+    r.fake.pointer_pinned = 1;
+    r.fake.pointer_y = 382;
+    r.fake.pointer_x = 60;
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.extras_opens, 1);
 }
 
 /* Down from Credits lands on Extras, and one more on Done */
@@ -232,6 +258,8 @@ int main(void)
     test_without_the_op_no_extras_row();
     test_without_the_op_done_band_from_0x185();
     test_extras_row_is_drawn_as_text();
+    test_the_row_lines_up_with_the_others();
+    test_the_band_follows_the_row();
     test_extras_is_the_last_element_before_done();
     test_enter_on_extras_opens_the_screen();
     test_the_pointer_reaches_the_extras_row();

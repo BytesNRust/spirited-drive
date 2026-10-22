@@ -2,6 +2,8 @@
 #include "game/frontend/menu_glue.h"
 
 #include "game/frontend/config.h"
+#include "game/frontend/config_bgnd.h"
+#include "game/frontend/config_bgnd.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_mode.h"
@@ -34,6 +36,7 @@
 #include "game/sys/video.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 MenuWords menu_words;
 MenuCheats menu_cheats;
@@ -461,10 +464,16 @@ static void extras_panel_glue(void *ctx, const uint8_t *rgb, int32_t x0, int32_t
     if (rgb == NULL) video_get_palette(shown), rgb = shown;
     glue_plus_panel(ctx, rgb, x0, y0, x1, y1, framed);
 }
+/* Game Mode's palette as the clean cover read it (mode_cover): the label is first drawn before the fade puts it on
+ * screen, when the screen's palette is still black */
+static uint8_t mode_palette[768];
+static int mode_palette_known;
+
 /* the Game Mode label: the styles built for this screen's palette first */
 static void extras_text_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
-    text_build_styles();
+    if (mode_palette_known) text_build_styles_from(mode_palette);
+    else text_build_styles();
     glue_plus_text(ctx, style, text, x, y);
 }
 static int32_t extras_deadline_passed_glue(void *ctx) { (void)ctx; return 0; }
@@ -525,6 +534,28 @@ static void mode_extras(void *ctx)
     glue_extras_screen(mode_extras_unlock);
 }
 
+/* port: the Modem item's words covered with the configuration screens' clean background in Game Mode's palette,
+ * built once (it takes a while) and kept */
+static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    static uint8_t *cover;
+    static int tried;
+    (void)ctx;
+    if (!tried) {
+        tried = 1;
+        uint8_t *pixels = malloc(CONFIG_BGND_W * CONFIG_BGND_H);
+        cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
+        mode_palette_known = pixels != NULL && config_bgnd_load(resource_load_art, CONFIG_BGND_GAME_MODE, 0, pixels,
+                                                                mode_palette);
+        if (cover == NULL || !mode_palette_known || config_bgnd_shape(pixels, x, y, w, h, cover) == 0) {
+            fprintf(stderr, "game mode: no clean background, the Modem words stay under the label\n");
+            free(cover), cover = NULL;
+        }
+        free(pixels);
+    }
+    if (cover != NULL) ea_blit_own(cover);
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
@@ -534,7 +565,7 @@ int32_t glue_game_mode(void)
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
-                              mode_extras, extras_text_glue, glue_plus_text_width };
+                              mode_extras, extras_text_glue, glue_plus_text_width, mode_cover };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

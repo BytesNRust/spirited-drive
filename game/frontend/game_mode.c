@@ -56,12 +56,14 @@ static void follow(Menu *m, const GameModeOps *o)
     }
 }
 
-/* port: with the extras op, "EXTRAS" written over the Modem item's art, lit while it is the selection */
+/* port: with the extras op, the Modem item's words covered with the clean background and "Customize game" written
+ * there, lit while it is the selection. The cover is the item's art (modd / modl: 253 x 32 at (189, 207)). */
 static void extras_label(const Menu *m, const GameModeOps *o)
 {
-    enum { TEXT_HALF_HEIGHT = 8 };
+    enum { TEXT_HALF_HEIGHT = 8, MODEM_X = 189, MODEM_Y = 207, MODEM_W = 253, MODEM_H = 32 };
     if (o->extras == NULL || o->plus_text == NULL || o->plus_text_width == NULL) return;
-    const char *const text = "EXTRAS";
+    if (o->extras_cover != NULL) o->extras_cover(o->ctx, MODEM_X, MODEM_Y, MODEM_W, MODEM_H);
+    const char *const text = "Customize game";
     o->plus_text(o->ctx, m->selected == MODEM, text, CENTRE_X[MODEM] - o->plus_text_width(o->ctx, text) / 2,
                  CENTRE_Y[MODEM] - TEXT_HALF_HEIGHT);
 }

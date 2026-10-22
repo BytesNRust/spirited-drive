@@ -10,21 +10,24 @@ enum { NOT_OFFERED = 2, TOURNAMENT = 3, CIRCUIT = 2, TIME_TRIAL = 0, TRACKS = 9 
 
 /* 00444ad0 / 00444ae4: where the pointer goes per item */
 static const int16_t POINTER_X[ITEMS] = { 240, 240, 240, 240, 240, 240, 240, 240, 240, 40, 565 };
-static const int16_t POINTER_Y[ITEMS] = { 118, 151, 185, 220, 253, 287, 324, 363, 410, 450, 450 };
+static const int16_t POINTER_Y[ITEMS] = { 118, 151, 185, 220, 253, 287, 324, 363, 396, 450, 450 };
 /* the bands 00463f80 is asked about, in turn: the eight rows across the screen, then Done and Cancel side by side.
- * port: with the extras op, Extras takes the top of the Done / Cancel band (0x185..0x1b1), free space in
- * option/options.qfs; the row is text over the picture. Without it Done and Cancel keep their band from 0x185. */
+ * port: with the extras op, Customize game takes the bottom of Credits' band under its art and the top of the
+ * Done / Cancel band (0x17d..0x1b1), free space in option/options.qfs; the row is text over the picture. Without it
+ * Credits ends at 0x184 and Done and Cancel keep their band from 0x185. */
 static const int16_t BAND_LEFT[ITEMS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x143 };
 static const int16_t BAND_RIGHT[ITEMS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x141, WIDE };
-static const int16_t BAND_TOP[ITEMS] = { 0, 0x86, 0xa8, 0xcc, 0xed, 0x10f, 0x133, 0x156, 0x185, 0x1b2, 0x1b2 };
-enum { DONE_BAND_TOP = 0x185 };   /* Done's and Cancel's top without the Extras row */
-static const int16_t BAND_BOTTOM[ITEMS] = { 0x85, 0xa7, 0xcb, 0xec, 0x10e, 0x132, 0x155, 0x184, 0x1b1, TALL, 0x1df };
+static const int16_t BAND_TOP[ITEMS] = { 0, 0x86, 0xa8, 0xcc, 0xed, 0x10f, 0x133, 0x156, 0x17d, 0x1b2, 0x1b2 };
+enum { DONE_BAND_TOP = 0x185 };     /* Done's and Cancel's top without the Customize row */
+enum { CREDITS_BAND_BOTTOM = 0x184 };   /* Credits' bottom without the Customize row */
+static const int16_t BAND_BOTTOM[ITEMS] = { 0x85, 0xa7, 0xcb, 0xec, 0x10e, 0x132, 0x155, 0x17c, 0x1b1, TALL, 0x1df };
 static const char *const LIT[ITEMS] = { "Tral", "Absl", "Trcl", "Audl", "Gral", "Conl", "Loal", "Crel", NULL, "Donl", "Canl" };
 static const char *const DARK[ITEMS] = { "Trad", "Absd", "Trcd", "Audd", "Grad", "Cond", "Load", "Cred", NULL, "Dond", "Cand" };
-/* port: the Extras row's label and where it is written (the art slot is the empty top of Done's band) */
-static const char EXTRAS_LABEL[] = "Extras";
-static const int16_t EXTRAS_X = 8;
-static const int16_t EXTRAS_Y = 0x18c;
+/* port: the Customize row's label and where it is written: the art rows' left edge, one row step under Credits as
+ * the eye reads it */
+static const char EXTRAS_LABEL[] = "Customize game";
+static const int16_t EXTRAS_X = 6;
+static const int16_t EXTRAS_Y = 380;
 /* 00444af8..00444b34, copied to the stack: the settings' values, lit and dark */
 static const char *const GEAR_LIT[2] = { "Autl", "Manl" };
 static const char *const GEAR_DARK[2] = { "Autd", "Mand" };
@@ -63,7 +66,7 @@ static void blit(const Menu *m, const char *tag, const OptionsMenuOps *o)
     o->blit_own(o->ctx, o->shape(o->ctx, m->bank, tag));
 }
 
-/* port: the Extras row, written with the game's text over the free top of Done's band; lit when it is the
+/* port: the Customize row, written with the game's text under Credits; lit when it is the
  * selection, dark otherwise. Done and Cancel cover the band below it, so the text is left when the row changes. */
 static void extras_row(const Menu *m, const OptionsMenuState *st, int32_t style, const OptionsMenuOps *o)
 {
@@ -86,7 +89,8 @@ static void follow(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
     for (int16_t i = 0; i < ITEMS; i++) {
         if (i == EXTRAS && o->extras == NULL) continue;
         const int16_t top = i > EXTRAS && o->extras == NULL ? DONE_BAND_TOP : BAND_TOP[i];
-        if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], top, BAND_BOTTOM[i])) continue;
+        const int16_t bottom = i == CREDITS && o->extras == NULL ? CREDITS_BAND_BOTTOM : BAND_BOTTOM[i];
+        if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], top, bottom)) continue;
         if (m->selected != i && (i != LOAD_SAVE || *st->lost == 0)) {
             m->previous = m->selected;
             m->selected = i;

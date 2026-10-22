@@ -44,6 +44,11 @@ void text_build_styles(void)
 {
     uint8_t pal[PALETTE_BYTES];
     video_get_palette(pal);
+    text_build_styles_from(pal);
+}
+
+void text_build_styles_from(const uint8_t pal[768])
+{
     const uint8_t *usable = palette_usable();  /* 004c5ff8, as the last race start left it */
     build_ramp(pal, usable, 0xFF, 0xFF, 0xFF, styles[TEXT_WHITE]);
     build_ramp(pal, usable, 0xE8, 0xD3, 0xB7, styles[TEXT_CREAM]);

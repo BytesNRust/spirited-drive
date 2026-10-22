@@ -4,6 +4,8 @@
 #ifndef TNFS_TEXT_H
 #define TNFS_TEXT_H
 
+#include <stdint.h>
+
 typedef enum {
     TEXT_CREAM = 0,   /* #E8D3B7, the default (00522118) */
     TEXT_YELLOW = 1,  /* #FFCE06 (00523158) */
@@ -15,6 +17,7 @@ int text_init(void);                                    /* 004322f8: load + 0048
 void text_free(void);
 
 void text_build_styles(void);                           /* 0046376c, from the current palette */
+void text_build_styles_from(const uint8_t pal[768]);    /* port: the same from a palette not yet on screen */
 void text_select(TextStyle style);                      /* 004638c0 */
 int text_width(const char *text);                       /* 004770f4 */
 int text_line_height(void);

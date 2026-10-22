@@ -140,3 +140,17 @@ int config_bgnd_load(ConfigBgndRead read, int palette_screen, int done_cancel, u
     for (int s = 0; s < CONFIG_BGND_SCREENS; s++) free(rgb[s]);
     return ok;
 }
+
+size_t config_bgnd_shape(const uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], int x, int y, int w, int h, uint8_t *out)
+{
+    if (x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > CONFIG_BGND_W || y + h > CONFIG_BGND_H) return 0;
+    const size_t size = CONFIG_BGND_SHAPE_HEADER + (size_t)w * h;
+    const int16_t fields[6] = { (int16_t)w, (int16_t)h, 0, 0, (int16_t)x, (int16_t)y };
+    memset(out, 0, CONFIG_BGND_SHAPE_HEADER);
+    out[0] = FSH_TYPE_BITMAP;
+    out[1] = (uint8_t)size, out[2] = (uint8_t)(size >> 8), out[3] = (uint8_t)(size >> 16);
+    for (int i = 0; i < 6; i++) out[4 + 2 * i] = (uint8_t)fields[i], out[5 + 2 * i] = (uint8_t)((uint16_t)fields[i] >> 8);
+    for (int row = 0; row < h; row++)
+        memcpy(out + CONFIG_BGND_SHAPE_HEADER + (size_t)row * w, pixels + (size_t)(y + row) * CONFIG_BGND_W + x, (size_t)w);
+    return size;
+}
