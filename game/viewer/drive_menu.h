@@ -25,6 +25,7 @@ typedef struct {
     int ready;                  /* the frontend's layer is up */
     int shared;                 /* it was up already (the menus' race): used as it is and left up */
     const struct TrackViewerLink *link;  /* a link race's (track_viewer.h), NULL racing alone */
+    int port_resume_keys;       /* port: 1 ESC opens the menu again at once after it closes; 0 the exe's 0xb4 ticks */
 } DriveMenu;
 
 /* After platform_init: the frontend's video, art paths, pointer and font

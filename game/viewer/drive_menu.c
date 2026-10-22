@@ -117,7 +117,7 @@ static void call(void *ctx, uint32_t address)
     case 0x43cbcc: race_forces_disable(race); break;
     case 0x43cbe0: race_forces_enable(race); break;
     case 0x43cbf4: race_forces_clear(race); break;
-    case 0x4557e8: c->m->keys->last = race->tick; break;  /* 00513e54 = 00513e70 */
+    case 0x4557e8: race_menu_keys_resumed(c->m->keys, race->tick, c->m->port_resume_keys); break;
     case 0x464534: drive_audio_music_cut(); break;
     case 0x4644f0: drive_audio_music_fade(); break;
     case 0x464568: drive_audio_music_stop(); break;

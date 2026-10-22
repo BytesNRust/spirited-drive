@@ -188,10 +188,31 @@ static void pause_return_allows_immediate_esc(void)
     CHECK_EQ_INT(st.last, 5100);
 }
 
+/* The ESC menu's way out (004557e8 after race_menu): the exe stores the tick, so ESC is dead for MENU_GAP ticks;
+ * the port clears it and the next ESC opens the menu again at once. */
+static void menu_return(int port)
+{
+    RaceMenuKeysState st = { .last = 5000, .pending = 0 };
+    race_menu_keys_resumed(&st, 5000, port);
+    MenuTrack mt = { 0 };
+    RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+    RaceMenuKeysInputs in = { .tick = 5010, .phase = PHASE_RACING, .esc = 1, .pause = 0, .lshift = 0, .rshift = 0,
+                              .playback = 0, .replay = 0, .detail = 0 };
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, port ? 1 : 0);
+}
+
+static void menu_return_allows_immediate_esc(void)
+{
+    menu_return(1);
+    menu_return(0);
+}
+
 int main(void)
 {
     start_of_race_resets_last();
     menu_gap_still_blocks_without_pause();
     pause_return_allows_immediate_esc();
+    menu_return_allows_immediate_esc();
     return TEST_REPORT();
 }

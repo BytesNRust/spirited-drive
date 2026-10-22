@@ -338,7 +338,7 @@ int drive_window(const Track *t, uint8_t *pixels)
         followed->sound_mode = drive_menus.sound_mode;
     }
     drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, NULL, NULL, NULL, 0, 0,
-                              drive_link_on ? &drive_link : NULL };
+                              drive_link_on ? &drive_link : NULL, 1 };
     if (drive_menu_open(&drive_menu, drive_cars.data_root))
         drive_pause.menu = drive_menu_run, drive_pause.menu_user = &drive_menu;
     RaceRunWords w = { 0 };

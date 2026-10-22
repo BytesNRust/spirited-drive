@@ -65,6 +65,11 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
     st->pending = 1;
 }
 
+void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_resume_keys)
+{
+    st->last = port_resume_keys ? 0 : tick;
+}
+
 enum { PAUSE_NET_TO = -1, PAUSE_NET_WAIT = 5 };
 
 static void pause_serve(const RacePauseOps *ops, const RacePauseInputs *in)

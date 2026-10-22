@@ -97,6 +97,9 @@ typedef struct {
  * pending, no stop notice (0041e38c) and tick >= last + 0x78: last = tick,
  * the pause at frame + 1 (00410a70(frame + 1, 1, 1)), pending = 1. */
 void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, RaceMenuKeysState *st, int16_t frame);
+/* 004557e8 (the in-race menu's way out): last = tick, so ESC is dead for 0xb4 ticks. port_resume_keys 1 clears it
+ * instead, as the pause does, and ESC opens the menu again at once. */
+void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_resume_keys);
 
 typedef struct {
     void *ctx;
