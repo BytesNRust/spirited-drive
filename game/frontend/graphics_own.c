@@ -141,13 +141,13 @@ typedef struct Screen {
     uint8_t palette[768];
     int bgnd_ready;   /* the background asked for once; composing it takes about half a second */
     int bgnd_failed;  /* the composition failed, so the original's own screen and palette are what is shown */
-    int32_t bank;     /* the original's burnt-in Graphics screen: the picture, and the palette that goes with it */
-    uint8_t *burnt_in;            /* where that picture came from: kept as 00423d28 keeps it, to be freed at the end */
+    int32_t bank;   /* option/options.qfs, for DONE and CANCEL's lit and dark art */
+    int32_t burnt_in;            /* the original's burnt-in Graphics screen: the picture, and the palette it goes with.
+                                   * Kept as 00423d28 keeps it, to be freed at the end */
     int have_burnt_in;            /* its palette was read, so draw() can fade that one in */
     uint8_t burnt_in_pal[GRAPHICS_PALETTE];
     int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
     uint8_t screen_pal[768];   /* the palette_set destination, kept apart from the one it reads */
-    int32_t bank;   /* option/options.qfs, for DONE and CANCEL's lit and dark art */
 } Screen;
 
 /* The clean configuration background, composed at run time from the CD and kept: config_bgnd_load reads the ten
@@ -380,7 +380,7 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
     *st->showing = 1;
     /* the original's own screen, as 00423d28's open_screen has it up: the picture the words go over, and -- when
      * there is no clean background -- the palette they are read in */
-    s.burnt_in = (uint8_t *)(intptr_t)ops->load_art(ops->ctx, *st->net_off ? "check/graphics.fsh" : "option/graphics.qfs");
+    s.burnt_in = ops->load_art(ops->ctx, *st->net_off ? "check/graphics.fsh" : "option/graphics.qfs");
     *st->inverse = ops->load_inverse(ops->ctx, *st->net_off ? "check/graphics.inv" : "option/graphics.inv");
     ops->music_feed(ops->ctx);
     background(&s, ops);

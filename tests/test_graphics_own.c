@@ -499,7 +499,8 @@ static void test_done_and_cancel_are_not_drawn_twice(void)
 }
 
 /* port: DONE and CANCEL light up when chosen, as Options' own art (Donl / Canl) over the background's words, and
- * stay dark otherwise; the bank that art comes from is freed as the screen closes */
+ * stay dark otherwise. Both banks are freed as the screen closes: Options' own, for that art, and the original's
+ * burnt-in Graphics screen. */
 static void test_done_and_cancel_light_up(void)
 {
     Rig r;
@@ -508,7 +509,7 @@ static void test_done_and_cancel_light_up(void)
     run_script(&r, 1);
     CHECK_EQ_INT(r.f.lit_done, 0);
     CHECK_EQ_INT(r.f.lit_cancel, 0);
-    CHECK_EQ_INT(r.f.frees, 1);
+    CHECK_EQ_INT(r.f.frees, 2);
     Rig done;
     rig_init(&done);
     run_script(&done, script_walk(GRAPHICS_OWN_VIEW, RIGHT, 1, GRAPHICS_OWN_DONE));
