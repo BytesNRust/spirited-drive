@@ -67,6 +67,10 @@ typedef struct GraphicsMenuOps {
     void (*plus_title)(void *ctx);
     /* port: what Cancel and Escape do on that screen -- put the settings back as they were on entry. */
     void (*plus_put_back)(void *ctx, PortSettings *settings);
+    /* port: the smooth text, the same draw Options' rows use (options_plus_text): the background put back under the
+     * letters before they are written, then the letters themselves at 1/1. A screen that repaints its whole page
+     * needs this -- the words go through it instead of plus_text. NULL falls back to plus_text. */
+    void (*plus_text_smooth)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
 } GraphicsMenuOps;
 
 /* port: the settings the port's additions edit, and what they need to know */

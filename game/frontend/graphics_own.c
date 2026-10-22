@@ -155,9 +155,22 @@ static void background(Screen *s, const GraphicsMenuOps *o)
         fprintf(stderr, "graphics: no clean configuration background, the burnt-in one stays\n");
 }
 
+/* port: every word on this screen is drawn over the clean background, which the whole page is repainted with on
+ * each redraw. So the letters go through the draw that puts the background back under them first -- the one
+ * Options' rows already use -- rather than straight onto the picture, where a row moved past would leave its old
+ * edges behind. A screen with no clean background (the race's pause menu, which keeps the burnt-in picture) leaves
+ * the slot empty and this is plus_text. */
+static void own_text(const GraphicsMenuOps *o, int32_t style, const char *text, int32_t x, int32_t y)
+{
+    if (o->plus_text_smooth != NULL)
+        o->plus_text_smooth(o->ctx, style, text, x, y);
+    else
+        o->plus_text(o->ctx, style, text, x, y);
+}
+
 static void text_right(const GraphicsMenuOps *o, int lit, const char *text, int right, int y)
 {
-    o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
+    own_text(o, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
 }
 
 static void move_to(int row, const GraphicsMenuOps *o)
@@ -197,7 +210,7 @@ static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
         graphics_own_view_value(view_of(s->st), s->st->plus->port->view_ultra, value);
     else
         graphics_own_value(s->st->plus->port, row, value);
-    o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, LABEL[row], GRAPHICS_OWN_LABEL_X, row_y(row));
+    own_text(o, lit ? STYLE_YELLOW : STYLE_CREAM, LABEL[row], GRAPHICS_OWN_LABEL_X, row_y(row));
     text_right(o, lit, value, GRAPHICS_OWN_VALUE_RIGHT, row_y(row));
 }
 
@@ -228,7 +241,7 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
     if (o->plus_title != NULL)
         o->plus_title(o->ctx);
     else
-        o->plus_text(o->ctx, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
+        own_text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
     /* port: no letters for DONE and CANCEL. The clean background carries both words in its own corners and the
      * screen used to draw a second copy over them, offset a few pixels -- the capture showed "CANCEL - CANCEL".
      * The rows are still there, still lit and still chosen: only the words are the background's. */

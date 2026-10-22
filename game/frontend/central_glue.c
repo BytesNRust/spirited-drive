@@ -1083,6 +1083,28 @@ int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[CONFIG_BGND_W * CONF
     return own_bgnd_shape(ctx, pixels, palette);
 }
 
+/* the smooth text for the Graphics screen: the letters with the background put back under them first, taken from the
+ * composed copy in own_pixels -- the same picture the page is blitted with, not Options' bank. This is
+ * options_plus_text's draw over the Graphics screen's own background instead of the Options one. */
+static void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
+{
+    enum { MARGIN = 2, SHADOW_ROOM = 6 };
+    (void)ctx;
+    if (own_shape != NULL) {
+        const int left = x - MARGIN, top = y - MARGIN;
+        const int w = text_width(text) + MARGIN + SHADOW_ROOM, h = text_line_height() + MARGIN + SHADOW_ROOM;
+        uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
+        if (cover != NULL && config_bgnd_shape(own_pixels, left, top, w, h, cover) != 0)
+            ea_blit_own(cover);
+        free(cover);
+    }
+    /* the styles from the background that is showing: they are a ramp matched to it, and the last ones were built
+     * for another screen's palette */
+    text_build_styles_from(own_palette);
+    text_select((TextStyle)style_id);
+    text_draw_smooth(text, x, y, 1, 1);
+}
+
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance
  * is one of the screen's shorts there, not in port.cfg, so the kept image is what puts it back. Both are kept for as
  * long as the screen may be up, which is what the file scope is for. */
@@ -1121,7 +1143,11 @@ static void graphics(void *ctx, int32_t mode)
         free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save,
         /* port: the screen's own background, its shape with the palette that goes with it, and its title. None from the
          * race's pause menu, which stays the original's screen. */
-        own_bgnd, own_bgnd_shape, NULL, own_put_back };
+        own_bgnd, own_bgnd_shape, NULL, own_put_back,
+        /* port: from Options the letters go through the draw that restores the clean background under them. The
+         * race's pause menu keeps the original's burnt-in screen, which has no such background, so it gets NULL
+         * and graphics_own.c falls back to plus_text. */
+        mode == 0 ? own_plus_text : NULL };
     input_function_keys(&showing);
     input_page_keys(mode == 0);
     /* port: from Options this is graphics_own.c, the port's own screen: the nine settings the owner named, over the
