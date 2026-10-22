@@ -72,6 +72,16 @@ void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_re
     st->port_esc_up_wait = port_resume_keys != 0;
 }
 
+void race_menu_keys_phase(RaceMenuKeysState *st, int32_t racing, int32_t tick, int32_t port_resume_keys)
+{
+    if (st->port_was_racing && !racing) st->port_left = 1;
+    if (racing && st->port_left) {
+        st->port_left = 0;
+        if (port_resume_keys) race_menu_keys_resumed(st, tick, 1);
+    }
+    st->port_was_racing = racing != 0;
+}
+
 enum { PAUSE_NET_TO = -1, PAUSE_NET_WAIT = 5 };
 
 static void pause_serve(const RacePauseOps *ops, const RacePauseInputs *in)

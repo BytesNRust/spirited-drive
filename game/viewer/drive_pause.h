@@ -18,6 +18,7 @@ typedef struct {
     void (*menu)(void *user);  /* 004b90dc[0], the in-race menu (00447564); NULL none */
     void *menu_user;
     uint8_t detail;          /* 004fb785, the race's: set before each frame */
+    int port_resume_keys;    /* port: back from a replay the ESC that closed it is not the menu's (race_menu_keys_phase) */
     int32_t detail_pending;  /* 004c5360: the draw distance the menu's Esc asks for, -1 none (the frame takes it) */
 } DrivePause;
 

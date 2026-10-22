@@ -87,6 +87,7 @@ typedef struct {
     int16_t dropped;            /* 0052b314: written 1 */
     int32_t w509d70;            /* 00509d70: written 2 */
     int16_t port_esc_up_wait;   /* port: back from the menu or the pause, ESC counts only once it has been up */
+    int16_t port_was_racing, port_left;  /* port: the race's phase last frame, and that it has been left since */
 } RaceMenuKeysState;
 
 /* 004557f4 (watcall (frame), from 0045597c each frame): tick < 0x3c: pending
@@ -102,6 +103,10 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
  * instead, as the pause does, and ESC opens the menu again as soon as it is pressed anew (the press that left the
  * menu, still down, does not count). */
 void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_resume_keys);
+
+/* Each frame before race_menu_keys, on whether the race is in phase 1. port: back in it from a replay (F9's, ended by
+ * Done or by the ESC the replay reads), the ESC still down is not the menu's; 0 the exe's (the same ESC opens it) */
+void race_menu_keys_phase(RaceMenuKeysState *st, int32_t racing, int32_t tick, int32_t port_resume_keys);
 
 typedef struct {
     void *ctx;

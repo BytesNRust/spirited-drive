@@ -14,7 +14,7 @@
 
 enum {
     KEY_ESC = 1, KEY_PAUSE = 0x19, KEY_LSHIFT = 0x2a, KEY_RSHIFT = 0x36,
-    PAUSE_IDLE_MS = 1
+    PAUSE_IDLE_MS = 1, PHASE_RACING = 1  /* 004c5390 */
 };
 
 typedef struct {
@@ -127,6 +127,7 @@ void drive_pause_start(DrivePause *p)
 {
     memset(p, 0, sizeof *p);
     p->detail_pending = -1;
+    p->port_resume_keys = 1;
 }
 
 void drive_pause_frame(DrivePause *p, const DriveInput *in, RaceState *race, DriveHud *hud, int16_t frame)
@@ -138,6 +139,7 @@ void drive_pause_frame(DrivePause *p, const DriveInput *in, RaceState *race, Dri
     const RaceMenuKeysInputs inputs = { race->tick, race->phase, in->keys[KEY_ESC], in->keys[KEY_PAUSE],
                                         in->keys[KEY_LSHIFT], in->keys[KEY_RSHIFT], race->playback, race->replay,
                                         p->detail };
+    race_menu_keys_phase(&p->keys, race->phase == PHASE_RACING, race->tick, p->port_resume_keys);
     p->keys.dropped = race->dropped, p->keys.w509d70 = race->end_state;
     race_menu_keys(&keys, &inputs, &p->keys, frame);
     race->dropped = p->keys.dropped, race->end_state = p->keys.w509d70;
