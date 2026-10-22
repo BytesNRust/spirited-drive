@@ -464,6 +464,17 @@ static void extras_panel_glue(void *ctx, const uint8_t *rgb, int32_t x0, int32_t
     if (rgb == NULL) video_get_palette(shown), rgb = shown;
     glue_plus_panel(ctx, rgb, x0, y0, x1, y1, framed);
 }
+/* port: the same clean background the Graphics screen uses, out of the one copy central_glue.c composed */
+static int32_t extras_bgnd_glue(void *ctx, uint8_t pixels[EXTRAS_BGND_W * EXTRAS_BGND_H], uint8_t palette[768])
+{
+    (void)ctx;
+    return glue_own_bgnd(pixels, palette);
+}
+static int32_t extras_bgnd_shape_glue(void *ctx, const uint8_t pixels[EXTRAS_BGND_W * EXTRAS_BGND_H],
+                                      const uint8_t palette[768])
+{
+    return glue_own_bgnd_shape(ctx, pixels, palette);
+}
 /* Game Mode's palette as the clean cover read it (mode_cover): the label is first drawn before the fade puts it on
  * screen, when the screen's palette is still black */
 static uint8_t mode_palette[768];
@@ -527,6 +538,8 @@ int32_t glue_extras_screen(int16_t unlock)
         glue_plus_text,     /* plus_text */
         glue_plus_text_width, /* plus_text_width */
         extras_panel_glue,  /* plus_panel */
+        extras_bgnd_glue,   /* plus_bgnd */
+        extras_bgnd_shape_glue, /* plus_bgnd_shape */
         extras_save_glue,   /* extras_save */
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
         NULL,               /* ctx */

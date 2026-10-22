@@ -53,6 +53,10 @@ int32_t glue_extras_screen(int16_t unlock);
 void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 int32_t glue_plus_text_width(void *ctx, const char *text);
 void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
+/* port (central_glue.c): the configuration screens' clean background, one composed copy shared by the Graphics and
+ * EXTRAS screens. The second composes it into the caller's buffers, the first puts it on with its palette. */
+int32_t glue_own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768]);
+int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768]);
 void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas);  /* 0042a680 */
 void glue_replay_box(char *name, uint8_t *config);                  /* 0042a9f8 */
 

@@ -29,6 +29,10 @@ typedef struct Fake {
     char drawn[512][32];
     int drawn_count;
     int pointer_in_nav;
+    int bgnd_asks;   /* how many times the screen asked for the clean background */
+    int panel_after_bgnd;   /* the background was put on the screen */
+    int panel_before_bgnd;  /* the dark panel was drawn before it, over the caller's picture */
+    int bgnd_ok;          /* what config_bgnd_load gives: 0 as if the CD had none */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -59,6 +63,22 @@ static int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t 
     return f->pointer_in_nav && x0 == EXTRAS_NAV_X0 && x1 == EXTRAS_NAV_X1 && y0 == EXTRAS_NAV_Y0 && y1 == EXTRAS_NAV_Y1;
 }
 static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
+/* the clean background, asked for once as the screen opens (config_bgnd_load takes about half a second) */
+static int32_t f_bgnd(void *ctx, uint8_t *pixels, uint8_t *palette)
+{
+    Fake *f = ctx;
+    f->bgnd_asks++;
+    memset(pixels, 0x2a, EXTRAS_BGND_W * EXTRAS_BGND_H);
+    memset(palette, 0x10, 768);
+    return f->bgnd_ok;
+}
+static int32_t f_bgnd_shape(void *ctx, const uint8_t *pixels, const uint8_t *palette)
+{
+    Fake *f = ctx;
+    (void)pixels, (void)palette;
+    f->panel_after_bgnd = 1;   /* the background is down; whatever is drawn next lands on it */
+    return 1;
+}
 static void f_blit(void *ctx, const uint8_t *shape) { (void)ctx, (void)shape; }
 static int32_t f_picture(void *ctx, int32_t picture) { (void)ctx; return picture; }
 static void f_fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb)
@@ -75,7 +95,9 @@ static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_
 static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * 10; }
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
-    (void)ctx, (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
+    Fake *f = ctx;
+    (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
+    if (f->bgnd_asks == 0) f->panel_before_bgnd++;
 }
 static void f_save(void *ctx, const PortExtras *e, int16_t unlock)
 {
@@ -105,6 +127,7 @@ static void setup(Rig *r)
     memset(r, 0, sizeof *r);
     r->e = port_extras_defaults();
     r->unlock = 0;
+    r->fake.bgnd_ok = 1;   /* the CD has the configuration screens */
 }
 
 static void run(Rig *r, const int *keys, int count)
@@ -119,6 +142,7 @@ static void run(Rig *r, const int *keys, int count)
         .deadline_passed = f_zero, .sound = f_one, .ticks = f_ticks, .pointer_activate_if_moved = f_void,
         .key = f_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
+        .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .extras_save = f_save, .ctx = &r->fake };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
@@ -224,6 +248,31 @@ static void test_the_graphics_settings_are_gone(void)
 }
 
 /* page 2's five switches, No Assists the last of them: walk the whole page down and the labels are all of them */
+/* port: the screen opens over the configuration screens' clean background, not over the caller's picture: asked
+ * for once, put on before the dark panel shades over it. */
+static void test_clean_background_is_under_the_panel(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    run(&r, keys, 1);
+    CHECK_EQ_INT(r.fake.bgnd_asks, 1);
+    CHECK_EQ_INT(r.fake.panel_after_bgnd, 1);
+    CHECK_EQ_INT(r.fake.panel_before_bgnd, 0);
+}
+
+/* with no background to be had (config_bgnd_load failed) the screen still runs, over the caller's picture */
+static void test_no_background_still_runs(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    r.fake.bgnd_ok = 0;
+    run(&r, keys, 1);
+    CHECK_EQ_INT(r.fake.panel_after_bgnd, 0);
+    CHECK_EQ_INT(r.fake.panel_before_bgnd, 0);
+}
+
 static void test_page_two_has_only_five_rows(void)
 {
     Rig r;
@@ -360,6 +409,8 @@ int main(void)
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
     test_page_two_has_only_five_rows();
+    test_clean_background_is_under_the_panel();
+    test_no_background_still_runs();
     test_left_on_page_two_done_goes_back();
     test_up_from_cancel_and_unlock_left();
     test_nav_click_turns_the_page();

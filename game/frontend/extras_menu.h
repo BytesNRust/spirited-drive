@@ -10,6 +10,9 @@
 
 #include <stdint.h>
 
+/* the clean background's size, as config_bgnd.h's CONFIG_BGND_W and _H */
+enum { EXTRAS_BGND_W = 640, EXTRAS_BGND_H = 480 };
+
 /* the page-1 rows, in order: Mirror, Rally, Warrior, Lost Vegas, Explode, Nitro, Turbo, Unlock Level, Done, Cancel */
 enum { ROW_MIRROR = 0, ROW_RALLY, ROW_WARRIOR, ROW_VEGAS, ROW_EXPLODE, ROW_NITRO, ROW_TURBO, ROW_UNLOCK, ROW_DONE,
        ROW_CANCEL_P1, ROWS_PAGE_1 };
@@ -55,6 +58,13 @@ typedef struct ExtrasMenuOps {
     void (*plus_text)(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
     int32_t (*plus_text_width)(void *ctx, const char *text);
     void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
+    /* port: the configuration screens' clean background, so the screen is not drawn over the caller's picture.
+     * `plus_bgnd` composes it into the screen's own buffers, asked for once as it opens (config_bgnd_load takes
+     * about half a second), and says 0 when there is none; `plus_bgnd_shape` then puts it on with its palette.
+     * Both may be NULL, which leaves the caller's picture behind the panel. */
+    int32_t (*plus_bgnd)(void *ctx, uint8_t pixels[EXTRAS_BGND_W * EXTRAS_BGND_H], uint8_t palette[768]);
+    int32_t (*plus_bgnd_shape)(void *ctx, const uint8_t pixels[EXTRAS_BGND_W * EXTRAS_BGND_H],
+                               const uint8_t palette[768]);
     /* port: persist the on-screen state — extras.cfg from `e` and the unlock level. The caller decides the files. */
     void (*extras_save)(void *ctx, const PortExtras *e, int16_t unlock);
     /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),

@@ -1019,19 +1019,21 @@ static void plus_save(void *ctx, const PortSettings *settings)
  * its art is the Game Mode picture, and blitting the Options background over that with Game Mode's palette is what
  * left DONE/CANCEL in rubbish colours. `own_palette` is the palette to hand back on the way out. */
 static uint8_t *own_shape;
+static uint8_t own_pixels[CONFIG_BGND_W * CONFIG_BGND_H];
 static uint8_t own_palette[768];
 static int own_tried, own_ok;
 
-static int32_t own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
+/* compose once, into the caller's buffers, and keep a copy: the EXTRAS screen asks for the same background
+ * (menu_glue.c), and reading the ten CD screens twice would cost another half second for nothing */
+static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
 {
     if (!own_tried) {
         own_tried = 1;
-        own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 1, pixels, palette);
+        own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 1, own_pixels, own_palette);
         if (own_ok) {
             own_shape = malloc(CONFIG_BGND_SHAPE_HEADER + CONFIG_BGND_W * CONFIG_BGND_H);
             own_ok = own_shape != NULL
-                     && config_bgnd_shape(pixels, 0, 0, CONFIG_BGND_W, CONFIG_BGND_H, own_shape) != 0;
-            memcpy(own_palette, palette, sizeof own_palette);
+                     && config_bgnd_shape(own_pixels, 0, 0, CONFIG_BGND_W, CONFIG_BGND_H, own_shape) != 0;
         }
         if (!own_ok) {
             fprintf(stderr, "graphics: no clean configuration background, the burnt-in one stays\n");
@@ -1039,11 +1041,14 @@ static int32_t own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
             own_shape = NULL;
         }
     }
-    if (own_ok) return 1;
-    /* kept: the caller keeps whatever it had, so say so rather than handing over an empty picture */
-    memset(pixels, 0, CONFIG_BGND_W * CONFIG_BGND_H);
+    memcpy(pixels, own_pixels, sizeof own_pixels);
     memcpy(palette, own_palette, sizeof own_palette);
-    return 0;
+}
+
+static int32_t own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
+{
+    own_compose(pixels, palette);
+    return own_ok;
 }
 
 /* the shape, already a game shape, put on the screen; the palette goes with it, then the text styles are built from
@@ -1057,6 +1062,20 @@ static int32_t own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const 
     ea_blit_own(own_shape);
     (void)palette;
     return 1;
+}
+
+/* the same background for the EXTRAS screen (menu_glue.c): one composed copy, shared by both screens rather than
+ * read off the CD twice */
+int32_t glue_own_bgnd(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
+{
+    own_compose(pixels, palette);
+    return own_ok;
+}
+
+int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H],
+                            const uint8_t palette[768])
+{
+    return own_bgnd_shape(ctx, pixels, palette);
 }
 
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance

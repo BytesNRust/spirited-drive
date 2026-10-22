@@ -70,9 +70,32 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
 
 static int16_t row_top(int row) { return (int16_t)(ROW_TOP + row * ROW_STEP); }
 
-static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const ExtrasMenuOps *o)
+/* port: the configuration screens' clean background (config_bgnd.c), composed once as the screen opens and kept
+ * for as long as it may be up -- 300 KB, so it is not on the frame. Without it the screen runs over the caller's
+ * picture, as it did before. */
+typedef struct Bgnd {
+    int ready;
+    uint8_t pixels[EXTRAS_BGND_W * EXTRAS_BGND_H];
+    uint8_t palette[768];
+} Bgnd;
+static Bgnd bgnd;
+
+static void background(Bgnd *b, const ExtrasMenuOps *o)
+{
+    if (o->plus_bgnd == NULL || o->plus_bgnd_shape == NULL) return;
+    if (!o->plus_bgnd(o->ctx, b->pixels, b->palette)) {
+        fprintf(stderr, "extras: no clean configuration background, the caller's picture stays\n");
+        return;
+    }
+    b->ready = 1;
+}
+
+static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const Bgnd *b, const ExtrasMenuOps *o)
 {
     o->select(o->ctx, 0);   /* the caller's picture behind */
+    /* the clean background first, then the dark panel over it: the panel is a shade of what is on screen, so
+     * shading before the background is down would darken the caller's picture instead */
+    if (b->ready && o->plus_bgnd_shape != NULL) o->plus_bgnd_shape(o->ctx, b->pixels, b->palette);
     o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
     for (int row = 0; row < SWITCHES[p->page]; row++) {
         char v[16];
@@ -205,11 +228,13 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
     Page p = { 0, ROW_MIRROR, 1, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
+    bgnd.ready = 0;
+    background(&bgnd, o);
     o->text_styles(o->ctx);
     pointer_to(&p, o);
     while (p.result < 0) {
         follow(&p, o);
-        if (p.redraw) draw_page(&p, e, *unlock, bank, o);
+        if (p.redraw) draw_page(&p, e, *unlock, bank, &bgnd, o);
         if (!p.armed) {
             p.rest += o->ticks(o->ctx);
             if ((int16_t)p.rest > REST) p.armed = 1;
