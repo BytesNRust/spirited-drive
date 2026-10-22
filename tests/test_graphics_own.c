@@ -44,6 +44,7 @@ typedef struct Fake {
     int pointer_x, pointer_y; /* where the screen last put the pointer */
     int panel_calls;
     int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
+    int fade_ins;            /* times the screen's own palette was put on the display */
     int put_backs;           /* times the settings were put back (Cancel / Escape only) */
     PortSettings kept;       /* the settings as they were on entry */
 } Fake;
@@ -79,7 +80,11 @@ static void f_blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
 static int32_t f_picture_shape(void *ctx, int32_t p) { (void)ctx, (void)p; return 0; }
 static void f_select_default(void *ctx) { (void)ctx; }
 static void f_fade(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
-static void f_fade_rgb(void *ctx, int32_t a, int32_t b, const uint8_t *rgb) { (void)ctx, (void)a, (void)b, (void)rgb; }
+static void f_fade_rgb(void *ctx, int32_t a, int32_t b, const uint8_t *rgb)
+{
+    (void)a, (void)b, (void)rgb;
+    ((Fake *)ctx)->fade_ins++;
+}
 static void f_deadline(void *ctx, int32_t t) { (void)ctx, (void)t; }
 static int32_t f_ticks(void *ctx)
 {
@@ -284,7 +289,18 @@ static void test_title_top_left(void)
     CHECK_EQ_INT(r.f.bgnd_calls, 1);   /* composed once and cached, not per redraw */
 }
 
-/* 3: View Distance offers four values, "Ultra" among them: the fourth is the port's, and it turns view_ultra on */
+/* 3: the screen's own palette reaches the display. Options fades the screen out before it opens this one, and only
+ * fade_in puts a palette on the display, so without it the whole page is drawn on black. */
+static void test_palette_reaches_the_display(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    CHECK(r.f.fade_ins > 0);
+}
+
+/* 4: View Distance offers four values, "Ultra" among them: the fourth is the port's, and it turns view_ultra on */
 static void test_view_distance_has_ultra(void)
 {
     PortSettings s = port_settings_defaults();
@@ -512,6 +528,7 @@ int main(void)
 {
     test_rows_in_order();
     test_title_top_left();
+    test_palette_reaches_the_display();
     test_view_distance_has_ultra();
     test_view_distance_cycles();
     test_values_write_settings();
