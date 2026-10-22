@@ -19,11 +19,17 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 }
 void platform_free_file(uint8_t *data) { (void)data; }
 
-enum { ENTER = 0xd, ESCAPE = 0x1b, LEFT = 0x4b00, RIGHT = 0x4d00, TAB = 0x0f };
+enum { ENTER = 0xd, ESCAPE = 0x1b, LEFT = 0x4b00, RIGHT = 0x4d00, UP = 0x4800, DOWN = 0x5000, TAB = 0x0f };
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1 };
 enum { DRAWN_MAX = 256, TEXT_MAX = 40 };
-/* the footer's cheats item: its pointer, the label's centre (best_times.c), and the rect the pointer finds it in */
-enum { CHEATS_POINTER_X = 165, CHEATS_POINTER_Y = 455, CHEATS_RECT_X0 = 130, CHEATS_RECT_X1 = 200 };
+/* the footer's cheats item: its pointer, the label's centre and text top (best_times.c), and the rect the pointer finds
+ * it in. Done's words end at 76 and the left arrow starts at 221; Done's capitals are rows 449..460, so the label's
+ * capitals (which sit 6 rows below its top) must be at the same baseline. */
+enum { CHEATS_POINTER_X = 148, CHEATS_POINTER_Y = 455, CHEATS_RECT_X0 = 130, CHEATS_RECT_X1 = 200 };
+enum { CHEATS_TEXT_TOP = 443, DONE_RIGHT = 76, ARROW_LEFT = 221, MIN_GAP = 12 };
+/* the words' widths as the game's font sets them (measured on the capture, 2026-10-23): the gaps left are 33 and 34
+ * for "Cheats" and 14 and 15 for "No cheats" */
+enum { CHEATS_WIDTH = 78, NO_CHEATS_WIDTH = 116 };
 
 typedef struct Fake {
     const int *keys;
@@ -33,7 +39,7 @@ typedef struct Fake {
     int tab_pending;
     char labels[DRAWN_MAX][TEXT_MAX];
     int32_t label_style[DRAWN_MAX];
-    int32_t label_x[DRAWN_MAX];
+    int32_t label_x[DRAWN_MAX], label_y[DRAWN_MAX];
     int label_count;
     char shadowed[DRAWN_MAX][TEXT_MAX];
     int shadowed_count;
@@ -128,17 +134,27 @@ static int32_t f_plus_toggle(void *ctx)
 }
 static void f_plus_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
-    (void)ctx, (void)y;
+    (void)ctx;
     if (fk.label_count >= DRAWN_MAX) return;
     snprintf(fk.labels[fk.label_count], TEXT_MAX, "%s", text);
     fk.label_style[fk.label_count] = style;
-    fk.label_x[fk.label_count] = x;
+    fk.label_x[fk.label_count] = x, fk.label_y[fk.label_count] = y;
     fk.label_count++;
 }
 static int32_t f_plus_text_width(void *ctx, const char *text)
 {
     (void)ctx;
+    if (strcmp(text, "Cheats") == 0) return CHEATS_WIDTH;
+    if (strcmp(text, "No cheats") == 0) return NO_CHEATS_WIDTH;
     return (int32_t)strlen(text) * 8;
+}
+
+/* the label's gaps: clear of Done's words on the left and of the left arrow on the right, by at least MIN_GAP */
+static void check_gaps(int i, int32_t width)
+{
+    CHECK(fk.label_x[i] - DONE_RIGHT >= MIN_GAP);
+    CHECK(ARROW_LEFT - (fk.label_x[i] + width) >= MIN_GAP);
+    CHECK_EQ_INT(fk.label_y[i], CHEATS_TEXT_TOP);
 }
 
 static const BestTimesOps OPS = {
@@ -246,7 +262,7 @@ static void test_label_says_cheats_when_plain(void)
     CHECK(i >= 0);
     if (i >= 0) {
         CHECK_EQ_INT(fk.label_style[i], STYLE_CREAM);
-        CHECK(fk.label_x[i] > 76 && fk.label_x[i] + 48 < 221);   /* in the free gap between Done and the left arrow */
+        check_gaps(i, CHEATS_WIDTH);
     }
 }
 
@@ -257,7 +273,9 @@ static void test_label_says_no_cheats_when_cheats(void)
     BestTimesPlus plus;
     reset(keys, 1, -1);
     CHECK_EQ_INT(run(&plus, 1), 0);
-    CHECK(label_index("No cheats") >= 0);
+    const int i = label_index("No cheats");
+    CHECK(i >= 0);
+    if (i >= 0) check_gaps(i, NO_CHEATS_WIDTH);
     CHECK(label_index("Cheats") < 0);
     int named = 0;
     for (int i = 0; i < fk.shadowed_count; i++) named |= strcmp(fk.shadowed[i], "Records (cheats)") == 0;
@@ -300,6 +318,41 @@ static void test_pointer_lights_cheats_item(void)
     CHECK(CHEATS_RECT_X0 < CHEATS_POINTER_X && CHEATS_POINTER_X < CHEATS_RECT_X1);
 }
 
+/* Left from the left arrow steps onto the cheats item (lit), and Enter toggles it */
+static void test_left_from_arrow_reaches_cheats(void)
+{
+    static const int keys[] = { LEFT, LEFT, LEFT, ENTER, ESCAPE };   /* back, next, the left arrow, cheats */
+    BestTimesPlus plus;
+    reset(keys, 5, -1);
+    CHECK_EQ_INT(run(&plus, 0), 0);
+    CHECK_EQ_INT(plus.cheats, 1);
+}
+
+/* Up and Down on the cheats item toggle the table too (the item is lit when they are pressed) */
+static void test_up_and_down_toggle_on_cheats(void)
+{
+    static const int keys[] = { RIGHT, RIGHT, UP, DOWN, ESCAPE };
+    BestTimesPlus plus;
+    reset(keys, 5, -1);
+    CHECK_EQ_INT(run(&plus, 0), 0);
+    CHECK_EQ_INT(plus.cheats, 0);   /* up, then down: back where it was */
+    static const int once[] = { RIGHT, RIGHT, DOWN, ESCAPE };
+    reset(once, 4, -1);
+    CHECK_EQ_INT(run(&plus, 0), 0);
+    CHECK_EQ_INT(plus.cheats, 1);
+}
+
+/* the lit label is the last one drawn in yellow once the item is selected */
+static void test_lit_label_is_yellow(void)
+{
+    static const int keys[] = { RIGHT, RIGHT, ESCAPE };
+    BestTimesPlus plus;
+    reset(keys, 3, -1);
+    CHECK_EQ_INT(run(&plus, 0), 0);
+    CHECK(fk.label_count > 0);
+    if (fk.label_count > 0) CHECK_EQ_INT(fk.label_style[fk.label_count - 1], STYLE_YELLOW);
+}
+
 int main(void)
 {
     test_no_plus_is_original();
@@ -308,5 +361,8 @@ int main(void)
     test_tab_toggles_label();
     test_arrows_reach_cheats_and_enter_toggles();
     test_pointer_lights_cheats_item();
+    test_left_from_arrow_reaches_cheats();
+    test_up_and_down_toggle_on_cheats();
+    test_lit_label_is_yellow();
     return TEST_REPORT();
 }
