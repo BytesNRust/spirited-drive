@@ -53,6 +53,12 @@ typedef struct Fake {
     int smooth_draws;         /* times the text went through the background-restoring (smooth) op */
     int lit_done, lit_cancel; /* times the lit DONE / CANCEL art was asked for */
     int frees;                /* banks freed */
+    int idle_key;             /* what the screen reads once the walk's keys are spent (ESCAPE, as the other walks end) */
+    int right_button;         /* the right button reads down once the walk is spent */
+    int right_buttons_read;   /* times the buttons have been read since the walk was spent */
+    int deadline_passed;      /* the idle deadline reads passed once the walk is spent */
+    int16_t *quit;            /* the quit flag the screen reads, so a test can raise it when the walk is spent */
+    int quit_when_spent;      /* raise that flag once the walk is spent, not before */
     int32_t palette_modes[32];
     int palette_mode_count;
     PortSettings kept;       /* the settings as they were on entry */
@@ -61,7 +67,13 @@ typedef struct Fake {
 static int32_t f_key(void *ctx)
 {
     Fake *f = ctx;
-    return f->key_next < f->key_count ? f->keys[f->key_next++] : ESCAPE;
+    if (f->key_next < f->key_count) return f->keys[f->key_next++];
+    /* the walk's keys are spent. A quit that was armed is raised here and not before, so the walk runs to its end
+     * and the flag is what stops the screen -- the same way the deadline and the button arrive. */
+    if (f->quit_when_spent && f->quit != NULL) *f->quit = 1;
+    /* Escape ends the screen, as it does for every other walk here. A test that wants a different end sets idle_key,
+     * and with it 0 so the screen idles instead and a trigger decides. */
+    return f->idle_key;
 }
 static void f_void(void *ctx) { (void)ctx; }
 /* the pointer: the screen moves it, and the row it lands in is what pointer_in_rect then works out */
@@ -119,10 +131,27 @@ static int32_t f_ticks(void *ctx)
     const int each = ((const Fake *)ctx)->ticks_each;
     return each != 0 ? each : 100;
 }
-static int32_t f_buttons(void *ctx) { (void)ctx; return 0; }
+/* The right button, as a real one arrives: down for the frames after the walk is spent, and held no longer. A press
+ * that never comes back up would never let the screen leave, because the menu treats the right button as leaving on a
+ * *release* -- the same way the left button chooses -- so it reads buttons==0 once first, which is the release. */
+static int32_t f_buttons(void *ctx)
+{
+    Fake *f = ctx;
+    if (f->key_next < f->key_count) return 0;
+    if (!f->right_button) return 0;
+    if (f->right_buttons_read == 0) {   /* up: the release that arms the leaving */
+        f->right_buttons_read = 1;
+        return 0;
+    }
+    return RIGHT_BUTTON;
+}
 static void f_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
 static void f_free(void *ctx, int32_t bank) { (void)bank; ((Fake *)ctx)->frees++; }
-static int32_t f_deadline_passed(void *ctx) { (void)ctx; return 0; }
+static int32_t f_deadline_passed(void *ctx)
+{
+    Fake *f = ctx;
+    return f->deadline_passed && f->key_next >= f->key_count ? 1 : 0;   /* the walk is spent */
+}
 
 /* The row each of the screen's own words belongs to, so the fake can read the selection off the draw: the selected row
  * is drawn lit, and the screen lights exactly one. (Only the nine settings -- Done and Cancel are the background's
@@ -249,6 +278,9 @@ static void rig_init(Rig *r)
     r->st.screen = &r->screen;
     r->st.inverse = &r->inverse;
     r->st.quit = &r->quit;
+    r->f.idle_key = ESCAPE;  /* the walk's keys spent: Escape ends the screen, as the other walks end */
+    r->f.right_button = r->f.deadline_passed = 0;
+    r->f.quit = &r->quit;    /* the screen reads the flag the fake raises */
     r->st.plus = &r->plus;
     r->plus.port = &r->port;
     r->plus.fullscreen_format = SCREEN_21_9;
@@ -291,6 +323,18 @@ static int script_walk(int row, int key, int times, int end)
     return n;
 }
 
+/* the walk down to a row and one RIGHT on it, then nothing: no Done, no Cancel, no Escape. What ends the screen is
+ * whatever the test armed -- the idle deadline, the right button or the quit flag -- so the setting is changed and the
+ * exit is not a decision. `count` receives the number of keys. */
+static void change_a_setting_then_settle(int row, int key, int *count)
+{
+    int n = 0;
+    for (int i = 0; i < row; i++) script[n++] = DOWN;
+    script[n++] = key;
+    script[n++] = 0;      /* the step's own iteration leaves it unarmed, so the screen idles and settles */
+    *count = n;
+}
+
 /* Runs the screen once with the script, and returns what it returned (1 for Done, 0 for Cancel). */
 static int32_t run_script(Rig *r, int count)
 {
@@ -298,6 +342,23 @@ static int32_t run_script(Rig *r, int count)
     r->f.key_count = count;
     r->f.key_next = 0;
     return graphics_own(&r->st, &OPS);
+}
+
+/* the same, but with nothing to press once the walk is spent: the screen idles, so only a trigger -- the deadline,
+ * the right button, the quit flag -- can end it. That is the case 00423d28 treats as leaving without deciding. */
+static int32_t run_script_idling(Rig *r, int count)
+{
+    r->f.idle_key = 0;
+    return run_script(r, count);
+}
+
+/* the same, with the quit flag armed to go up once the walk is spent: the screen reads it through st.quit, so the flag
+ * is raised at the moment the walk ends rather than before it -- otherwise the flag would stop the screen on its very
+ * first iteration and the setting would never have been changed. */
+static int32_t run_script_quitting(Rig *r, int count)
+{
+    r->f.quit_when_spent = 1;
+    return run_script_idling(r, count);
 }
 
 /* 1: the nine labels, in the owner's order, and nothing called "Modern 3D" */
@@ -661,6 +722,49 @@ static void test_fullscreen_takes_desktop_format(void)
     CHECK_EQ_INT(s.format, SCREEN_21_9);
 }
 
+/* 12: port: 00423d28 leaves through one door, and only Cancel says no. Its loop ends on Done, on Cancel, and on the
+ * idle deadline, the right button or the quit flag -- and everything but Cancel falls through to the same plus_save
+ * (graphics_menu.c: put_back is the only thing that sets cancelled). So the three exits that are not the player's
+ * decision still save what they changed on the way past, and the screen reports that it left. Each walk changes a
+ * setting and then settles, with no Done, no Cancel and no Escape: the trigger, not a key, is what ends it. */
+
+/* one trigger's run: change Scaling, then let `f` end the screen the way that trigger does */
+static void test_the_three_exits_that_are_not_a_decision_save(void)
+{
+    enum { SCALING = GRAPHICS_OWN_SCALING };
+    int n;
+
+    /* the idle deadline passing */
+    Rig idle;
+    rig_init(&idle);
+    change_a_setting_then_settle(SCALING, RIGHT, &n);
+    idle.f.deadline_passed = 1;
+    CHECK_EQ_INT(run_script_idling(&idle, n), 1);   /* it left, and left as Done leaves */
+    CHECK_EQ_INT(idle.f.saves, 1);
+    CHECK_EQ_INT(idle.f.put_backs, 0);
+    CHECK_EQ_INT(idle.port.scale_integer, 1);   /* the change is still in the settings that were saved */
+
+    /* the right button: a mouse button only reaches the screen while the pointer is active, so the rig turns it on */
+    Rig right;
+    rig_init(&right);
+    change_a_setting_then_settle(SCALING, RIGHT, &n);
+    right.f.right_button = 1;
+    right.pointer_active = 1;
+    CHECK_EQ_INT(run_script_idling(&right, n), 1);
+    CHECK_EQ_INT(right.f.saves, 1);
+    CHECK_EQ_INT(right.f.put_backs, 0);
+    CHECK_EQ_INT(right.port.scale_integer, 1);
+
+    /* the quit flag */
+    Rig quit;
+    rig_init(&quit);
+    change_a_setting_then_settle(SCALING, RIGHT, &n);
+    CHECK_EQ_INT(run_script_quitting(&quit, n), 1);
+    CHECK_EQ_INT(quit.f.saves, 1);
+    CHECK_EQ_INT(quit.f.put_backs, 0);
+    CHECK_EQ_INT(quit.port.scale_integer, 1);
+}
+
 int main(void)
 {
     test_rows_in_order();
@@ -681,5 +785,6 @@ int main(void)
     test_value_texts();
     test_step_writes_only_its_row();
     test_fullscreen_takes_desktop_format();
+    test_the_three_exits_that_are_not_a_decision_save();
     return TEST_REPORT();
 }
