@@ -293,19 +293,27 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
     o->unlock(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *s->st->screen));
     o->unlock(o->ctx);
-    /* port: the palette on the display, once. Options faded the display out before it opened this screen, so
-     * without a palette of its own the page is drawn on black; but it goes on only after the whole page is drawn
-     * into the backbuffer and before the flip, so the first frame the player sees has this screen's picture and its
-     * palette together. Fading it in any earlier painted this screen's palette over whatever the previous screen was
-     * still showing, so that screen came out pale for the frames in between (from Game Mode, its art did). */
+    /* port: the palette on the display, once, and in this order. fade_in ramps whatever is ON the display --
+     * video_set_palette presents on every step -- not the backbuffer, so it cannot run before the flip: it would put
+     * the caller's last picture back up in this screen's palette for all seventeen steps, and the menu that opened
+     * this one would come up pale (the capture showed Options' own art climbing out of black, then a hard cut to
+     * this page). So the caller's picture goes out in its own palette, the page is put up on the black display, and
+     * only then does this screen's palette ramp over it -- the order extras_menu.c's page takes.
+     *
+     * Options' fade_out before it opened this screen (check_options.c's choose) is not enough on its own: a fade
+     * scales the palette only, and the front buffer still holds Options' pixels, so its palette brings that picture
+     * back. The fade here costs seventeen vblanks over a display that is already black. */
     if (!s->palette_on) {
         /* the palette that matches the picture on the screen: the clean background's own, or -- when there is no
          * clean background -- the original's, which is the one the words are read in */
+        o->fade_out(o->ctx, 0, 0x100);
+        o->flip(o->ctx);
         o->fade_in(o->ctx, 0, 0x100, s->have_burnt_in ? s->burnt_in_pal : s->palette);
         if (s->have_burnt_in) o->text_styles(o->ctx);
         s->palette_on = 1;
+    } else {
+        o->flip(o->ctx);
     }
-    o->flip(o->ctx);
     o->pointer_show(o->ctx);
     o->deadline_set(o->ctx, WAIT);
     s->redraw = 0;
