@@ -106,6 +106,23 @@ static uint8_t pair_blend(const HorizonSmooth *s, const Pair *p, int32_t wv, int
     return horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
 }
 
+static int32_t clamp_texel(int32_t c, int32_t n)
+{
+    return c < 0 ? 0 : c >= n ? n - 1 : c;
+}
+
+uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int32_t u, int32_t v, int x, int y)
+{
+    const int32_t w = bitmap->width, h = bitmap->height;
+    const int32_t c = u >> 16, r = v >> 16;   /* floor: arithmetic shift */
+    const Column col = { clamp_texel(c, w), clamp_texel(c + 1, w), (int32_t)((uint32_t)u & 0xffff) >> 8 };
+    const uint8_t *row0 = bitmap->payload + (size_t)clamp_texel(r, h) * w;
+    const uint8_t *row1 = bitmap->payload + (size_t)clamp_texel(r + 1, h) * w;
+    Pair p;
+    pair_make(s, &col, row0, row1, &p);
+    return p.only >= 0 ? (uint8_t)p.only : pair_blend(s, &p, (int32_t)((uint32_t)v & 0xffff) >> 8, x, y);
+}
+
 /* 0043a18c's band blended: the same rows ((height - 1) x scale from y, the bitmap's from first_row), clipped */
 static void smooth_band(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
 {

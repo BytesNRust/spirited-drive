@@ -25,6 +25,11 @@ void horizon_smooth_palette(HorizonSmooth *s, const uint8_t palette[768]);
 /* The table's colour for r, g, b. */
 uint8_t horizon_smooth_nearest(const HorizonSmooth *s, int r, int g, int b);
 
+/* port: one pixel of `bitmap` (8-bit, width x height texels) blended at (u, v), 16.16 texel positions with texel k's
+ * centre at k (the four texels about it, clamped at the bitmap's edges), dithered for screen x, y; the texel itself
+ * where the four are one (the 3D sky ring's, sky_smooth.h). */
+uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int32_t u, int32_t v, int x, int y);
+
 /* horizon_draw_flat with the band blended. */
 void horizon_draw_flat_smooth(const HorizonSmooth *s, const HorizonTables *t, const HorizonTarget *target,
                               const ClipRect *clip, const FshEntry *horz, int32_t yaw, int mirrored, int sky_off,
