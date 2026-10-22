@@ -1,63 +1,80 @@
-/* port: see extras_menu.h. Two pages of switches drawn with the game's text over the live screen's picture.
- * Up / Down step through a page's rows (Done and Cancel last); Enter, Space, Left or Right change a switch (Unlock
- * and Start step through their values); Left / Right swap Done and Cancel, Right on Cancel turns to the next page and
- * Left on Done back to the one before; a click on the page indicator or PageDown turns to the next, round to the first. Mirror and Rally exclude each
- * other, unless ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the
- * input back. */
+/* port: see extras_menu.h. Two pages of switches drawn with the game's text over the clean configuration background,
+ * grouped under the four headers the owner named. Up / Down walk a page's rows and its Done (Done rounds back to the
+ * first row); Enter, Space, Left or Right change a switch (Unlock and Start step through their values); Left / Right
+ * swap Done and Cancel, Right on Cancel turns to the next page and Left on Done back to the one before; a click on the
+ * page indicator or PageDown turns to the next, round to the first. Mirror and Rally exclude each other, unless
+ * ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the input back. */
 #include "game/frontend/extras_menu.h"
 
 #include <stdio.h>
 
+/* the screen's own name, in the words the player clicked to open it */
+static const char *const TITLE = "CUSTOMIZE GAME";
+
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        PAGE_DOWN = 0x5100 };
 enum { MOVED = 0x47, CHOSEN = 0x48, REST = 0x19, WIDE = 0x280, LEFT_BUTTON = 1 };
-enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 404 };
-enum { LABEL_X = 16, VALUE_RIGHT = 600, ROW_TOP = 106, ROW_STEP = 36, ROW_TALL = 30 };
+/* port: the styles, as text.h's TextStyle: 0 cream, 1 yellow, 2 red. A header names its group and is never a row, so
+ * it is always red; a row is yellow while the selection is on it and cream otherwise. */
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2 };
+enum { LABEL_X = 16, VALUE_RIGHT = 600 };
+/* port: the one layout both pages share, which is what makes their headers sit in the same place. A page is a list of
+ * lines -- one line per header, one per row -- and every line moves by the same pitch, so a header lands where a row
+ * would have gone and both pages' headers line up whatever each page's rows are. The second header's line and
+ * everything under it carry GROUP_GAP as well, which is the owner's "shorter than a row" on screen: a header takes
+ * less height than a row, and the room it leaves reads as a gap rather than as another row.
+ *
+ * The pitch is 28 because page 1 is the fuller of the two -- eleven lines, nine rows and two headers -- and has to
+ * fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
+ * CORNERS, top 430). Eleven lines at the exe's 36 pitch would not: the last row would land on the buttons.
+ *
+ * The panel runs that band, 96..422, so it never reaches the words it did not draw. */
+enum { ROW_TOP = 100, ROW_PITCH = 28, ROW_TALL = 26, GROUP_GAP = 14 };
+enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 422 };
+/* port: the screen's own title, where the burnt-in one was: right of the logo, on the band config_bgnd.c leaves the
+ * title in (its BANDS[0], 110,58,640,95), so the letters land where the original's were. */
+enum { TITLE_X = 120, TITLE_Y = 62 };
 enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_X0 = 0x143, BUTTONS_Y0 = 432,
        BUTTONS_Y1 = 476 };
 
-/* the switches of each page, Done and Cancel after them */
-enum { PAGES = 3 };
-static const int SWITCHES[PAGES] = { ROW_DONE, ROW_DONE_P2, ROW_DONE_P3 };
+static const char *const NAV[EXTRAS_PAGES] = { "1/2 >", "< 2/2" };
 
-typedef struct Page {
-    int page;
-    int16_t selected;
-    int redraw, armed;
-    int released;   /* the buttons seen up since the last click */
-    int32_t rest;
-    int result;   /* 1 Done, 0 Cancel / Escape, -1 still running */
-} Page;
+/* the two headers of each page, in the owner's words */
+static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Game modes", "Driving & cameras" },
+                                                                 { "Unlocks", "Startup" } };
 
-static int rows_of(int page) { return SWITCHES[page] + 2; }
-static int done_of(int page) { return SWITCHES[page]; }
-static int cancel_of(int page) { return SWITCHES[page] + 1; }
+/* where each page's second group begins, as a row of that page: extras_menu.h's order already has each page's first
+ * group first, so the second is where the page's last group's first row is */
+static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_ASSISTS - ROW_MIRROR, ROW_START - ROW_FIRST_P2 };
 
-static const char *label(int page, int row)
-{
-    static const char *const P1[ROW_DONE] = { "Mirror", "Rally", "Warrior", "Lost Vegas", "Explode", "Nitro", "Turbo",
-                                              "Unlock Level" };
-    static const char *const P2[ROW_DONE_P2] = { "Replay Cameras", "Warrior as Rival", "No Movies", "Start Screen",
-                                                 "No Assists", "Modern 3D", "Texture Filter", "Fog" };
-    static const char *const P3[ROW_DONE_P3] = { "Bumper Mirror", "Bumper Radar", "Time with Variants" };
-    return page == 0 ? P1[row] : page == 1 ? P2[row] : P3[row];
-}
+/* the first switch of each page, in extras_menu.h's flat list */
+static int first_of(int page) { return page == 0 ? ROW_MIRROR : ROW_FIRST_P2; }
+/* how many switches a page shows, which is where its Done sits: Cancel is the one past it */
+static int rows_of(int page) { return page == 0 ? ROWS_P1 : ROWS_P2; }
+static int done_of(int page) { return rows_of(page); }
+static int cancel_of(int page) { return rows_of(page) + 1; }
+/* Unlock Level is the one switch on page 2 with three values rather than two */
+static int unlock_row(void) { return ROW_UNLOCK - ROW_FIRST_P2; }
 
-/* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
+/* port: the switches' words, in extras_menu.h's order, which is the owner's order: page 1 is the first ROWS_P1 of
+ * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
+static const char *const LABEL[EXTRAS_ROWS] = {
+    "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
+    "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
+    "Enable Warrior Player Car", "Enable Warrior Rival Car", "Enable Lost Vegas Track", "Unlock Level",
+    "Time with variants", "Start Screen", "Disable intro video"
+};
+
+/* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
 static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
-        int *const p1[ROW_DONE] = { &e->mirror, &e->rally, &e->warrior, &e->vegas, &e->explode, &e->nitro, &e->turbo,
-                                    NULL };
+        int *const p1[ROWS_P1] = { &e->mirror, &e->rally, &e->explode, &e->nitro, &e->turbo,
+                                  &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras };
         return p1[row];
     }
-    if (page == 1) {
-        int *const p2[ROW_DONE_P2] = { &e->replay_cameras, &e->warrior_rival, &e->no_movies, NULL, &e->no_assists,
-                                       &e->modern_3d, &e->texture_filter, &e->fog };
-        return p2[row];
-    }
-    int *const p3[ROW_DONE_P3] = { &e->bumper_mirror, &e->bumper_radar, &e->variant_time };
-    return p3[row];
+    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, NULL, &e->variant_time, NULL, &e->no_movies };
+    return p2[row];
 }
 
 static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16])
@@ -65,36 +82,30 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     const int *const flag = flag_of(e, page, row);
     if (flag != NULL) snprintf(out, 16, "%s", *flag ? "On" : "Off");
-    else if (page == 0) snprintf(out, 16, "%d", unlock);
+    else if (page == 1 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
-static int16_t row_top(int row) { return (int16_t)(ROW_TOP + row * ROW_STEP); }
-
-static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const ExtrasMenuOps *o)
+/* port: where a line of a page goes. Line 0 is the first group's header, and every line from the second header's own
+ * line down carries the extra GROUP_GAP. */
+static int line_y(int page, int line)
 {
-    o->select(o->ctx, 0);   /* the caller's picture behind */
-    o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
-    for (int row = 0; row < SWITCHES[p->page]; row++) {
-        char v[16];
-        const int lit = p->selected == row;
-        value(e, unlock, p->page, row, v);
-        o->plus_text(o->ctx, lit, label(p->page, row), LABEL_X, row_top(row));
-        o->plus_text(o->ctx, lit, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), row_top(row));
-    }
-    /* the bottom row's Done and Cancel: the exe's Options look — both are always drawn (lit when selected, dark
-     * otherwise), the same way Options' rows paint their labels. The art replaces the flat panel + "Done"/"Cancel"
-     * text. Names are capitalised as OPTIONS.QFS ships them — shape_bank_find uses memcmp, so the lowercase
-     * spellings return NULL. */
-    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == done_of(p->page) ? "Donl" : "Dond"));
-    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "Canl" : "Cand"));
-    static const char *const NAV[PAGES] = { "1/3 >", "< 2/3 >", "< 3/3" };
-    const char *const nav = NAV[p->page];
-    o->plus_text(o->ctx, 0, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);
-    o->select_default(o->ctx);
-    o->flip(o->ctx);
-    p->redraw = 0;
+    return ROW_TOP + line * ROW_PITCH + (line > SECOND_GROUP[page] ? GROUP_GAP : 0);
 }
+
+/* the header of a group sits on the line before its first row; the first group keeps line 0 for its header */
+static int header_line(int page, int group) { return group == 0 ? 0 : SECOND_GROUP[page] + 1; }
+static int line_of(int page, int row) { return row < SECOND_GROUP[page] ? row + 1 : row + 2; }
+
+typedef struct Page {
+    int page;
+    int16_t selected;
+    int redraw, armed;
+    int released;     /* the buttons seen up since the last click */
+    int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
+    int32_t rest;
+    int result;   /* 1 Done, 0 Cancel / Escape, -1 still running */
+} Page;
 
 static void select_row(Page *p, int row, const ExtrasMenuOps *o)
 {
@@ -110,7 +121,7 @@ static void pointer_to(const Page *p, const ExtrasMenuOps *o)
     enum { HALF_ROW = ROW_TALL / 2, BUTTON_MID = (BUTTONS_Y0 + BUTTONS_Y1) / 2 };
     if (p->selected == done_of(p->page)) o->pointer_move_to(o->ctx, DONE_X + 20, BUTTON_MID);
     else if (p->selected == cancel_of(p->page)) o->pointer_move_to(o->ctx, CANCEL_RIGHT - 30, BUTTON_MID);
-    else o->pointer_move_to(o->ctx, LABEL_X + 40, row_top(p->selected) + HALF_ROW);
+    else o->pointer_move_to(o->ctx, LABEL_X + 40, line_y(p->page, line_of(p->page, p->selected)) + HALF_ROW);
 }
 
 static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
@@ -126,11 +137,13 @@ static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
 static void follow(Page *p, const ExtrasMenuOps *o)
 {
     if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) return;
-    for (int row = 0; row < SWITCHES[p->page]; row++)
-        if (o->pointer_in_rect(o->ctx, 0, WIDE, row_top(row), row_top(row) + ROW_TALL)) {
+    for (int row = 0; row < rows_of(p->page); row++) {
+        const int top = line_y(p->page, line_of(p->page, row));
+        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + ROW_TALL)) {
             select_row(p, row, o);
             return;
         }
+    }
     if (o->pointer_in_rect(o->ctx, 0, DONE_X1, BUTTONS_Y0, BUTTONS_Y1)) select_row(p, done_of(p->page), o);
     else if (o->pointer_in_rect(o->ctx, CANCEL_X0, WIDE, BUTTONS_Y0, BUTTONS_Y1)) select_row(p, cancel_of(p->page), o);
 }
@@ -147,7 +160,7 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
             if (*flag && flag == &e->mirror) e->rally = 0;
             if (*flag && flag == &e->rally) e->mirror = 0;
         }
-    } else if (p->page == 0) {
+    } else if (p->page == 1 && p->selected == unlock_row()) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
     } else {
         e->start = (StartScreen)((e->start + step + 3) % 3);
@@ -156,11 +169,12 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
     o->sound(o->ctx, CHOSEN);
 }
 
+/* Space, Enter or the left button */
 static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps *o)
 {
     o->pointer_click(o->ctx);
     if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) {
-        turn(p, (p->page + 1) % PAGES, 0, o);
+        turn(p, (p->page + 1) % EXTRAS_PAGES, 0, o);
     } else if (p->selected == done_of(p->page)) {
         o->sound(o->ctx, CHOSEN);
         o->extras_save(o->ctx, e, *unlock);
@@ -173,22 +187,25 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
     }
 }
 
+/* a key other than the choosing ones */
 static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const ExtrasMenuOps *o)
 {
-    const int rows = rows_of(p->page), done = done_of(p->page), cancel = cancel_of(p->page);
+    const int done = done_of(p->page), cancel = cancel_of(p->page);
     if (k == ESCAPE) {
         o->sound(o->ctx, CHOSEN);
         p->result = 0;
     } else if (k == PAGE_DOWN) {
-        turn(p, (p->page + 1) % PAGES, 0, o);
+        turn(p, (p->page + 1) % EXTRAS_PAGES, 0, o);
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
-        int to;
-        if (k == DOWN) to = p->selected >= done ? 0 : p->selected + 1;
-        else to = p->selected == cancel ? done - 1 : (p->selected + rows - 2) % (rows - 1);
+        /* the walk is the exe's: Down runs the page's switches and stops at Done, then round to the first switch, and
+         * Up climbs back the same way, from Cancel to the last switch. Left / Right are what move between the two
+         * buttons and across the pages. */
+        const int to = k == DOWN ? (p->selected >= done ? 0 : p->selected + 1)
+                                 : (p->selected == cancel ? done - 1 : (p->selected + done) % (done + 1));
         select_row(p, to, o);
         pointer_to(p, o);
-    } else if (k == RIGHT && p->selected == cancel && p->page + 1 < PAGES) {
+    } else if (k == RIGHT && p->selected == cancel && p->page + 1 < EXTRAS_PAGES) {
         turn(p, p->page + 1, 0, o);
     } else if (k == LEFT && p->selected == done && p->page > 0) {
         turn(p, p->page - 1, cancel_of(p->page - 1), o);
@@ -201,16 +218,97 @@ static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const Extr
     }
 }
 
+/* port: the configuration screens' clean background (config_bgnd.c), composed once as the screen opens and kept for
+ * as long as it may be up -- 300 KB, so it is not on the frame. Without it the screen runs over the caller's picture,
+ * as it did before. */
+typedef struct Bgnd {
+    int ready;
+    uint8_t pixels[EXTRAS_BGND_W * EXTRAS_BGND_H];
+    uint8_t palette[768];
+} Bgnd;
+
+static void background(Bgnd *b, const ExtrasMenuOps *o)
+{
+    if (o->plus_bgnd == NULL || o->plus_bgnd_shape == NULL) return;
+    if (!o->plus_bgnd(o->ctx, b->pixels, b->palette)) {
+        fprintf(stderr, "customize: no clean configuration background, the caller's picture stays\n");
+        return;
+    }
+    b->ready = 1;
+}
+
+/* port: every word on the page goes through the draw that puts the background back under it, the one Options' rows
+ * and the Graphics screen already use. The screen repaints its whole page on each redraw -- it blits the clean
+ * background whole and then writes over it -- so a word drawn straight onto the picture leaves its old edges behind
+ * when the pointer moves a row past it. A screen wired without that op falls back to the plain draw. */
+static void text(const ExtrasMenuOps *o, int32_t style, const char *word, int32_t x, int32_t y)
+{
+    if (o->plus_text_smooth != NULL)
+        o->plus_text_smooth(o->ctx, style, word, x, y);
+    else
+        o->plus_text(o->ctx, style, word, x, y);
+}
+
+static void text_right(const ExtrasMenuOps *o, int lit, const char *word, int right, int y)
+{
+    text(o, lit ? STYLE_YELLOW : STYLE_CREAM, word, right - o->plus_text_width(o->ctx, word), y);
+}
+
+/* the clean background is a picture of the screen, so it is blitted whole, then the dark panel over it: the panel is
+ * a shade of what is on screen, so shading first would darken the caller's picture instead. */
+static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const Bgnd *b, const ExtrasMenuOps *o)
+{
+    o->select(o->ctx, 0);   /* the caller's picture behind */
+    if (b->ready) {
+        o->plus_bgnd_shape(o->ctx, b->pixels, b->palette);
+        /* port: the palette that goes with the background, once. Options fades the screen out before it opens this
+         * one, and palette_set only fills the screen's own palette, so without fade_in the page is drawn on black. */
+        if (!p->palette_on) {
+            o->fade_in(o->ctx, 0, 0x100, b->palette);
+            p->palette_on = 1;
+        }
+    }
+    o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
+    /* the page's two headers, each red: they name the group under them and are never the selection */
+    for (int group = 0; group < EXTRAS_GROUPS; group++)
+        text(o, STYLE_RED, HEADERS[p->page][group], LABEL_X, line_y(p->page, header_line(p->page, group)));
+    for (int row = 0; row < rows_of(p->page); row++) {
+        char v[16];
+        const int lit = p->selected == row;
+        value(e, unlock, p->page, row, v);
+        const int y = line_y(p->page, line_of(p->page, row));
+        text(o, lit ? STYLE_YELLOW : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
+        text_right(o, lit, v, VALUE_RIGHT, y);
+    }
+    /* the bottom row's Done and Cancel: the exe's Options look, both always drawn (lit when selected, dark
+     * otherwise) the way Options' rows paint their labels. The art replaces the flat panel and the words. Names are
+     * capitalised as OPTIONS.QFS ships them -- shape_bank_find uses memcmp, so the lowercase spellings miss. */
+    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == done_of(p->page) ? "Donl" : "Dond"));
+    o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "Canl" : "Cand"));
+    const char *const nav = NAV[p->page];
+    text(o, STYLE_CREAM, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);
+    text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
+    o->select_default(o->ctx);
+    o->flip(o->ctx);
+    p->redraw = 0;
+}
+
 int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMenuOps *o)
 {
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
-    Page p = { 0, ROW_MIRROR, 1, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
-    o->text_styles(o->ctx);
+    Page p = { 0, ROW_MIRROR, 1, 0, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
+    Bgnd bgnd;
+    bgnd.ready = 0;
+    background(&bgnd, o);
+    /* port: the styles for the screen's own palette, which is the one the background just put on, so the letters are
+     * drawn with a ramp matched to what is showing. The caller's are rebuilt as this leaves, so whatever its menu
+     * draws next is drawn the way that menu means. */
+    if (bgnd.ready) o->text_styles(o->ctx);
     pointer_to(&p, o);
     while (p.result < 0) {
         follow(&p, o);
-        if (p.redraw) draw_page(&p, e, *unlock, bank, o);
+        if (p.redraw) draw_page(&p, e, *unlock, bank, &bgnd, o);
         if (!p.armed) {
             p.rest += o->ticks(o->ctx);
             if ((int16_t)p.rest > REST) p.armed = 1;
@@ -227,5 +325,6 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
         o->music(o->ctx);
     }
     if (p.result != 1) *e = input, *unlock = input_unlock;
+    if (bgnd.ready) o->text_styles(o->ctx);
     return p.result;
 }

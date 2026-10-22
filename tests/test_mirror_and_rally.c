@@ -305,12 +305,13 @@ static void run_menu(PortExtras *e, const int *keys, int count, int combine, Men
     extras_menu_run(e, &unlock, 1, &ops);
 }
 
-/* the script both menu tests share: DOWN to Rally, SPACE on, UP to Mirror, SPACE on, ROW_DOWN DOWNs to Done, ENTER */
+/* the script both menu tests share: DOWN to Rally, SPACE on, UP to Mirror, SPACE on, ROWS_P1 DOWNs to Done,
+ * ENTER */
 static int mirror_and_rally_keys(int *keys)
 {
     int n = 0;
     keys[n++] = DOWN, keys[n++] = SPACE, keys[n++] = UP, keys[n++] = SPACE;
-    for (int i = 0; i < ROW_DONE; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
     keys[n++] = ENTER;
     return n;
 }
@@ -344,11 +345,11 @@ static void menu_alone_is_unchanged_under_the_port(void)
 {
     PortExtras e = port_extras_defaults();
     MenuFake f;
-    /* Mirror on, 8 DOWNs to Done, ENTER — rally untouched */
+    /* Mirror on, down the page to Done, ENTER — rally untouched */
     int keys[16];
     int n = 0;
     keys[n++] = SPACE;
-    for (int i = 0; i < ROW_DONE; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
     keys[n++] = ENTER;
     run_menu(&e, keys, n, 1, &f);
     CHECK_EQ_INT(f.saves, 1);

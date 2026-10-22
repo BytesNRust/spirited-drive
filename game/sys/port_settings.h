@@ -16,6 +16,12 @@ typedef struct {
     int fullscreen;          /* 0 */
     int fov_adjust;          /* degrees added to the vertical field, -10..+20; 0 */
     int view_ultra;          /* 1: the "ultra" view distance; 0 */
+    /* the three that moved in from EXTRAS when the graphics settings were given their own screen. Still read from
+     * extras.cfg when port.cfg has no key for them (see port_settings_load), so a file written before the move keeps
+     * working; a key in port.cfg always wins, so saving here is never undone by a stale extras.cfg. */
+    int perspective;         /* 0/1: "Perspective Correction", the ex-EXTRAS Modern 3D */
+    int texture_filter;      /* 0/1 */
+    int fog;                 /* 0/1 */
 } PortSettings;
 
 PortSettings port_settings_defaults(void);

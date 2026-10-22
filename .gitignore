@@ -25,3 +25,9 @@ result
 result-*
 compile_commands.json
 .code-review-graph/
+# the capture harness lands its frames in the repo root when given a bare name (tools/sweep_asan.sh
+# writes to a dir of its own; TNFS_CAPTURE_DIR does not). Several hundred MB of PPM per run.
+/gfx*/
+/extras*/
+/menu*/
+/capture*/
