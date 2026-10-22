@@ -2,6 +2,8 @@
  * a car parked ahead. */
 #include "viewer/track_load.h"
 
+#include "race/fam_mirror.h"
+
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
 
@@ -120,6 +122,15 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     t->tri_file = track_viewer_read_any(data_root, "MISC", name, TRI_SUFFIX, &tri_size);
     t->fam_file = read_fam(data_root, name, look, &fam_size);
     if (t->tri_file == NULL || t->fam_file == NULL) return 0;
+    if (look->port_both_variants && look->variant_m && look->variant_r) {
+        /* port: the rally's art on the mirror's geometry; the signs the mirror's own art holds flipped are flipped */
+        TrackFamInputs mirror = *look;
+        mirror.variant_r = 0, mirror.port_both_variants = 0;
+        size_t mirror_size = 0;
+        uint8_t *const m = read_fam_named(data_root, name, &mirror, &mirror_size);
+        if (m != NULL) fam_mirror_signs(t->fam_file, fam_size, m, mirror_size);
+        platform_free_file(m);
+    }
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
     if (tr != TRI_OK || cr != CHUNK_OK || !track_art_load(&t->art, &t->fam)) {
