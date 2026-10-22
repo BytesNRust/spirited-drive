@@ -298,10 +298,16 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
      * so without this the page is drawn on black. Fading it in any earlier paints the menu that opened this screen in
      * this screen's palette for the frames between the two, and the Game Mode art comes out pale for a moment. */
     if (!p->palette_on && b->ready) {
+        /* the caller's picture out in its own palette, the page put up on the black display, then faded in: fade_in
+         * ramps whatever is showing, so before the flip it would ramp the caller's picture up again first */
+        if (o->fade_out != NULL) o->fade_out(o->ctx, 0, 0x100);
+        o->flip(o->ctx);
         o->fade_in(o->ctx, 0, 0x100, b->palette);
         /* the styles are a ramp matched to the palette on the display, so they can only be built now that it is on */
         o->text_styles(o->ctx);
         p->palette_on = 1;
+        p->redraw = 0;
+        return;
     }
     o->flip(o->ctx);
     p->redraw = 0;

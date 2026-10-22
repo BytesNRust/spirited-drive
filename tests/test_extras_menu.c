@@ -38,7 +38,6 @@ typedef struct Fake {
     int blits;               /* times a picture was drawn into the backbuffer */
     int flips;               /* times the page was presented, so the fade's place in the run is known */
     int pixels_drawn_before_fade_in;  /* the page was drawn before the palette went on the display */
-    int flip_before_fade_in;          /* the page was presented before the palette went on the display */
     int style_rebuilds;      /* times the styles were rebuilt for the screen's palette */
     int styles_faded;        /* the rebuilds that came after the palette had already gone on */
     char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
@@ -131,11 +130,8 @@ static void f_fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rg
     (void)first, (void)count, (void)rgb;
     Fake *f = ctx;
     f->fade_ins++;
-    /* where it fell in the run: the page must already be drawn when the palette goes on, and the flip that presents the
-     * two must not have happened yet -- otherwise the frames in between show the previous screen's picture in this
-     * screen's palette, and that screen comes out pale for a moment */
+    /* where it fell in the run: the page must already be drawn when the palette goes on */
     if (f->blits > 0) f->pixels_drawn_before_fade_in = 1;
-    if (f->flips > 0) f->flip_before_fade_in = 1;
     f->events[f->event_count < 16 ? f->event_count++ : 15] = 'I';
 }
 static void f_fade_out(void *ctx, int32_t first, int32_t count)
@@ -399,10 +395,10 @@ static void test_no_background_still_runs(void)
     CHECK_EQ_INT(r.fake.panel_before_bgnd, 0);
 }
 
-/* port: no flash on the way in, the same one the Graphics screen had. The whole page is drawn into the backbuffer
- * before the palette is faded in, so the first flip presents this screen's picture and its palette together and the
- * screen that opened it never shows in the new palette for a moment. The old order faded in first and only then began
- * drawing. */
+/* port: no flash on the way in. fade_in ramps whatever the display shows, so the opener's picture goes out first in its
+ * own palette, the page is presented on the black display, and only then is this screen's palette faded in: the run
+ * opens O F I. The page is whole before the flip. (Fading in before the flip ramped Game Mode's art up again first,
+ * then cut to this page -- the capture showed it.) */
 static void test_no_flash_on_the_way_in(void)
 {
     Rig r;
@@ -410,8 +406,10 @@ static void test_no_flash_on_the_way_in(void)
     setup(&r);
     run(&r, keys, 2);
     CHECK_EQ_INT(r.fake.pixels_drawn_before_fade_in, 1);
-    CHECK(r.fake.flips > 0);
-    CHECK_EQ_INT(r.fake.flip_before_fade_in, 0);
+    CHECK(r.fake.event_count >= 3);
+    CHECK_EQ_INT(r.fake.events[0], 'O');
+    CHECK_EQ_INT(r.fake.events[1], 'F');
+    CHECK_EQ_INT(r.fake.events[2], 'I');
 }
 
 /* port: and none on the way out either. Every screen that opens one of these fades the whole display out as it leaves,
@@ -423,7 +421,7 @@ static void test_the_display_is_faded_out_on_the_way_out(void)
     const int keys[] = { DOWN, ESCAPE };
     setup(&r);
     run(&r, keys, 2);
-    CHECK_EQ_INT(r.fake.fade_outs, 1);
+    CHECK_EQ_INT(r.fake.fade_outs, 2);   /* the opener's picture going out, then this screen's */
     /* and after the last thing drawn, not before it: a fade_out earlier would blank the screen while it was up */
     CHECK(r.fake.event_count >= 2);
     CHECK_EQ_INT(r.fake.events[r.fake.event_count - 1], 'O');
