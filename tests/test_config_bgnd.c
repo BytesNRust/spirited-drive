@@ -33,9 +33,14 @@ static int at(int x, int y)
     return pixels[y * CONFIG_BGND_W + x];
 }
 
+static void compose_with(int done_cancel)
+{
+    config_bgnd_compose((const uint8_t *const *)screens, palette, done_cancel, pixels);
+}
+
 static void compose(void)
 {
-    config_bgnd_compose((const uint8_t *const *)screens, palette, pixels);
+    compose_with(1);
 }
 
 static void test_the_text_few_screens_carry_is_dropped(void)
@@ -75,6 +80,20 @@ static void test_the_colours_are_the_nearest_of_the_palette(void)
     CHECK_EQ_INT(at(600, 450), BLACK);
 }
 
+/* DONE and CANCEL most screens carry, or Game Mode's plain corners */
+static void test_done_and_cancel_kept_or_left_out(void)
+{
+    put_all(30, 450, GREEN);
+    put_all(580, 450, GREEN);
+    put(GAMEMODE, 30, 450, BLUE);
+    put(GAMEMODE, 580, 450, BLUE);
+    compose_with(1);
+    CHECK_EQ_INT(at(30, 450), GREEN);
+    compose_with(0);
+    CHECK_EQ_INT(at(30, 450), BLUE);
+    CHECK_EQ_INT(at(580, 450), BLUE);
+}
+
 /* the CD's art file, upper-cased as ISO 9660 has it */
 static uint8_t *read_cd(const char *name, size_t *size)
 {
@@ -98,7 +117,7 @@ static uint8_t *read_cd(const char *name, size_t *size)
 static void test_the_cd_gives_the_same_pixels(void)
 {
     uint8_t pal[768];
-    if (!config_bgnd_load(read_cd, pixels, pal)) {
+    if (!config_bgnd_load(read_cd, CONFIG_BGND_OPTIONS, 1, pixels, pal)) {
         fprintf(stderr, "test_config_bgnd: no CD data, skipping the CD check\n");
         return;
     }
@@ -119,7 +138,9 @@ int main(void)
     test_the_bands_most_screens_carry_text_in_come_from_a_clean_screen();
     test_the_title_is_covered_by_the_texture_beside_it();
     test_the_colours_are_the_nearest_of_the_palette();
+    test_done_and_cancel_kept_or_left_out();
     test_the_cd_gives_the_same_pixels();
+    CHECK(!config_bgnd_load(read_cd, CONFIG_BGND_SCREENS, 1, pixels, palette));
     for (int s = 0; s < CONFIG_BGND_SCREENS; s++) free(screens[s]);
     return TEST_REPORT();
 }

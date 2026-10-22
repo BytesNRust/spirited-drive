@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { AUDIO = 1, GAMEMODE = 8, SIZE = CONFIG_BGND_W * CONFIG_BGND_H };
+enum { AUDIO = 1, GAMEMODE = CONFIG_BGND_GAME_MODE, SIZE = CONFIG_BGND_W * CONFIG_BGND_H };
 
 static const char *const SCREEN_NAMES[CONFIG_BGND_SCREENS] = {
     "option/options.qfs", "option/audio.qfs",    "option/graphics.qfs", "option/cntrlset.qfs",
@@ -18,6 +18,12 @@ static const char *const SCREEN_NAMES[CONFIG_BGND_SCREENS] = {
 static const int BANDS[][5] = {
     { 110, 58, 640, 95, AUDIO },     /* the titles' row right of the logo */
     { 0, 100, 290, 135, GAMEMODE },  /* the first label row */
+};
+
+/* DONE and CANCEL, from Game Mode which has neither */
+static const int CORNERS[][5] = {
+    { 0, 430, 140, 475, GAMEMODE },
+    { 500, 430, 640, 475, GAMEMODE },
 };
 
 /* the title's remnant no screen is free of, covered by the texture PATCH_SHIFT to its right with feathered edges */
@@ -73,7 +79,15 @@ static uint8_t nearest(const uint8_t palette[768], const uint8_t *c)
     return (uint8_t)best;
 }
 
-void config_bgnd_compose(const uint8_t *const rgb[CONFIG_BGND_SCREENS], const uint8_t palette[768],
+static void take(uint8_t *clean, const uint8_t *const rgb[CONFIG_BGND_SCREENS], const int band[5])
+{
+    for (int y = band[1]; y < band[3]; y++) {
+        const size_t at = 3 * ((size_t)y * CONFIG_BGND_W + band[0]);
+        memcpy(clean + at, rgb[band[4]] + at, 3 * (size_t)(band[2] - band[0]));
+    }
+}
+
+void config_bgnd_compose(const uint8_t *const rgb[CONFIG_BGND_SCREENS], const uint8_t palette[768], int done_cancel,
                          uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H])
 {
     uint8_t *clean = malloc(3 * SIZE);
@@ -82,11 +96,8 @@ void config_bgnd_compose(const uint8_t *const rgb[CONFIG_BGND_SCREENS], const ui
         return;
     }
     for (size_t i = 0; i < SIZE; i++) memcpy(clean + 3 * i, medoid(rgb, 3 * i), 3);
-    for (size_t b = 0; b < sizeof BANDS / sizeof BANDS[0]; b++)
-        for (int y = BANDS[b][1]; y < BANDS[b][3]; y++) {
-            const size_t at = 3 * ((size_t)y * CONFIG_BGND_W + BANDS[b][0]);
-            memcpy(clean + at, rgb[BANDS[b][4]] + at, 3 * (size_t)(BANDS[b][2] - BANDS[b][0]));
-        }
+    for (size_t b = 0; b < sizeof BANDS / sizeof BANDS[0]; b++) take(clean, rgb, BANDS[b]);
+    for (size_t b = 0; !done_cancel && b < sizeof CORNERS / sizeof CORNERS[0]; b++) take(clean, rgb, CORNERS[b]);
     cover_title(clean);
     /* the colours repeat a lot: remember the last match */
     uint8_t last[3] = { 0 };
@@ -118,14 +129,14 @@ static int screen_rgb(ConfigBgndRead read, const char *name, uint8_t *rgb, uint8
     return ok;
 }
 
-int config_bgnd_load(ConfigBgndRead read, uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
+int config_bgnd_load(ConfigBgndRead read, int palette_screen, int done_cancel, uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
 {
     uint8_t *rgb[CONFIG_BGND_SCREENS] = { NULL };
     uint8_t own[768];
-    int ok = 1;
+    int ok = palette_screen >= 0 && palette_screen < CONFIG_BGND_SCREENS;
     for (int s = 0; s < CONFIG_BGND_SCREENS && ok; s++)
-        ok = (rgb[s] = malloc(3 * SIZE)) != NULL && screen_rgb(read, SCREEN_NAMES[s], rgb[s], s == 0 ? palette : own);
-    if (ok) config_bgnd_compose((const uint8_t *const *)rgb, palette, pixels);
+        ok = (rgb[s] = malloc(3 * SIZE)) != NULL && screen_rgb(read, SCREEN_NAMES[s], rgb[s], s == palette_screen ? palette : own);
+    if (ok) config_bgnd_compose((const uint8_t *const *)rgb, palette, done_cancel, pixels);
     for (int s = 0; s < CONFIG_BGND_SCREENS; s++) free(rgb[s]);
     return ok;
 }
