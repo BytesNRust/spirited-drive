@@ -45,13 +45,16 @@ typedef struct Fake {
     int pointer_x, pointer_y; /* where the screen last put the pointer */
     int panel_calls;
     int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
+    int burnt_in_reads;       /* times the original's own screen was asked for its palette */
+    int blits;               /* times the page's picture was drawn into the backbuffer */
     int palette_sets;        /* times a palette was put on the screen (the picture's, then the clean background's) */
     int flip_before_bgnd;    /* the screen was presented before the clean background was put on it */
     int flip_before_fade_in; /* the screen was presented before any palette was faded in */
     int fade_ins;            /* times the screen's own palette was put on the display */
     int fade_outs;           /* times the display was faded out on the way out */
     int flips;               /* times the screen was presented, so the fade's place in the run is known */
-    int faded_in_before_first_flip;   /* the palette was put on the display before anything was drawn */
+    int pixels_drawn_before_fade_in;  /* the page's picture was drawn before the palette went on the display */
+    int faded_in_before_first_flip;   /* the palette was put on the display before the picture was drawn */
     char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
     int event_count;
     int bgnd_ok;             /* what plus_bgnd gives: 0 as if config_bgnd_load had failed */
@@ -97,14 +100,31 @@ static void f_move(void *ctx, int32_t x, int32_t y)
     if (y >= 430 && y < 475) f->pointer_row = x < 320 ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
 }
 static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
+/* the original's own Graphics screen: its shapes, and the palette 00423d28's open_screen reads as "!pal" -- sixteen
+ * bytes of header the way a shape's start, then the colour map. NULL is a bank that has none, which is how the fake
+ * says the CD is not there. The lit DONE / CANCEL art is counted as it is asked for. */
+static uint8_t art_shape[GRAPHICS_PALETTE];
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag)
 {
     Fake *f = ctx;
     (void)bank;
     if (strcmp(tag, "Donl") == 0) f->lit_done++;
     if (strcmp(tag, "Canl") == 0) f->lit_cancel++;
+    if (strcmp(tag, "!pal") == 0) {
+        f->burnt_in_reads++;
+        art_shape[0] = 0;
+        memset(art_shape + 0x10, 0x20, sizeof art_shape - 0x10);
+        return art_shape;
+    }
     return NULL;
 }
+/* Two kinds of palette go onto this screen and they want different modes. The clean background's is already
+ * display-ready -- config_bgnd.c read it through fsh_palette_rgb, which shifted the CD's 6-bit values left by one
+ * once -- so it must go on RAW or palette_put shifts it a second time, which is what turned the page neon. The
+ * original's own bank carries its palette as the exe wrote it, so it is read with the mode its header says. The
+ * fake cannot tell them apart by pointer (the screen keeps its own copy in a buffer the fake never sees), so it is
+ * told which kind of screen it is looking at. */
+static int palette_is_clean;
 static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
     Fake *f = ctx;
@@ -113,9 +133,7 @@ static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, con
     /* palette_put writes destination and then copies the result over the screen's copy, so a call whose source
      * IS its destination rewrites the bytes it is reading from: every redraw shifts them a little further. */
     if (src == rgb) f->aliased_palettes++;
-    /* the clean background's palette is already display-ready (fsh_palette_rgb shifted the CD's 6-bit values
-     * once); anything but the raw mode shifts it a second time, which is what turned the page neon. */
-    if (mode != FSH_TYPE_PALETTE_8BIT) f->non_raw_modes++;
+    if (palette_is_clean && mode != FSH_TYPE_PALETTE_8BIT) f->non_raw_modes++;
     if (f->palette_mode_count < 32) f->palette_modes[f->palette_mode_count++] = mode;
 }
 /* The pointer's band: is the pointer where the screen last put it inside this one? That is the whole question, and
@@ -126,7 +144,7 @@ static int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t 
     return x0 <= f->pointer_x && f->pointer_x < x1 && y0 <= f->pointer_y && f->pointer_y < y1;
 }
 static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
-static void f_blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
+static void f_blit(void *ctx, const uint8_t *s) { (void)s; ((Fake *)ctx)->blits++; }
 static int32_t f_picture_shape(void *ctx, int32_t p) { (void)ctx, (void)p; return 0; }
 static void f_select_default(void *ctx) { (void)ctx; }
 /* the present: the frame is on the display from here, which is what says whether the palette had already been
@@ -149,9 +167,11 @@ static void f_fade_rgb(void *ctx, int32_t a, int32_t b, const uint8_t *rgb)
     (void)a, (void)b, (void)rgb;
     Fake *f = ctx;
     f->fade_ins++;
-    /* when it happened, which is the whole of the flash: a fade_in before the first flip paints the palette over
-     * whatever the previous screen is still showing, so that screen comes out pale for a moment */
-    if (f->flips == 0) f->faded_in_before_first_flip = 1;
+    /* where it fell in the run: the page must already be drawn when the palette goes on, and the flip that presents
+     * them must not have happened yet -- otherwise the frames in between show the previous screen's picture in this
+     * screen's palette, and that screen comes out pale for a moment */
+    if (f->blits == 0) f->faded_in_before_first_flip = 1;
+    if (f->blits > 0) f->pixels_drawn_before_fade_in = 1;
     if (f->flips > 0) f->flip_before_fade_in = 1;
     f->events[f->event_count < 16 ? f->event_count++ : 15] = 'I';
 }
@@ -377,6 +397,7 @@ static int32_t run_script(Rig *r, int count)
     r->f.keys = script;
     r->f.key_count = count;
     r->f.key_next = 0;
+    palette_is_clean = r->f.bgnd_ok;   /* what the raw-mode rule applies to: the clean background's own palette */
     return graphics_own(&r->st, &OPS);
 }
 
@@ -815,16 +836,17 @@ static void test_no_clean_background_runs_over_the_originals(void)
     run_script(&r, 1);
 
     CHECK_EQ_INT(r.f.bgnd_calls, 1);        /* it did ask, once, before drawing anything */
-    CHECK_EQ_INT(r.f.bgnd_shapes, 0);       /* and there was no shape to put up */
+    CHECK_EQ_INT(r.f.burnt_in_reads, 1);    /* and it asked for the original's screen, once */
     CHECK_EQ_INT(r.f.fade_ins, 1);          /* so the original's own palette went on the display */
-    CHECK_EQ_INT(r.f.faded_in_before_first_flip, 0);   /* and only after the screen was drawn */
+    CHECK_EQ_INT(r.f.pixels_drawn_before_fade_in, 1);   /* and only after the screen was drawn */
     CHECK(r.f.palette_sets > 0);           /* the palette came off the original's own bank */
-    CHECK_EQ_INT(r.f.flip_before_bgnd, 0); /* with the original's picture behind, as the exe has it */
+    CHECK_EQ_INT(r.f.non_raw_modes, 0);     /* and with the mode that bank's header says, as the exe reads it */
 }
 
-/* 14: port: no flash on the way in. The fade_in runs before the first flip, so for the frames in between the palette
- * on the display is this screen's while the picture still on it is the previous screen's -- from Game Mode the art
- * comes up pale. The page is drawn first and faded in after, so the first frame the player sees is already right. */
+/* 14: port: no flash on the way in. The whole page is drawn into the backbuffer before the palette is faded in, so
+ * the first flip presents this screen's picture and its palette together and the previous screen's art never shows in
+ * the new palette. The old order faded the palette in and only then began drawing, so the frames in between showed
+ * the previous screen (Game Mode's art) in this screen's palette, and it came up pale. */
 static void test_no_flash_on_the_way_in(void)
 {
     Rig r;
@@ -832,9 +854,10 @@ static void test_no_flash_on_the_way_in(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
 
-    CHECK_EQ_INT(r.f.faded_in_before_first_flip, 0);
-    CHECK(r.f.flips > 0);
     /* the page is drawn before the palette goes on: the first frame comes up with this screen's picture in place */
+    CHECK_EQ_INT(r.f.pixels_drawn_before_fade_in, 1);
+    CHECK(r.f.flips > 0);
+    /* and the fade is between the drawing and the flip, so the presented frame has both */
     CHECK_EQ_INT(r.f.flip_before_fade_in, 0);
 }
 
