@@ -39,6 +39,9 @@ int dash_load_paths(DashFiles *files, const char *dir, int16_t german, int32_t h
  * Returns 0, DASH_LOAD_NO_PALETTE, DASH_ART_MISSING or DASH_LOAD_NO_MMB. */
 int dash_load_setup(DashArt *art, ReplayArt *replay_art, RacePalette *pal, uint8_t *bank, uint8_t *mmb,
                     int32_t high, int16_t replay);
+/* port: a second mask bank (DashArt.units_bank) queued to be mapped onto the race palette with its own '!pal', as
+ * dash_load_setup queues the language's, so its shapes come out in the screen's colours. 0, or DASH_LOAD_NO_PALETTE. */
+int dash_load_units(RacePalette *pal, uint8_t *bank);
 
 typedef struct {
     void *ctx;

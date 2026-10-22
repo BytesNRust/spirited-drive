@@ -114,6 +114,7 @@ void drive_hud_setup(DriveHud *h, RacePalette *p)
     if (h->bank == NULL) return;
     h->ready = dash_load_setup(&h->art, &h->replay, p, h->bank, h->mmb, HIGH_RES, 0) == 0;
     h->art.units_bank = h->units_bank;
+    if (h->units_bank != NULL) dash_load_units(p, h->units_bank);   /* port: mapped with the language's bank */
     memcpy(h->art.parts, h->parts, sizeof h->parts);
     if (!h->ready) fprintf(stderr, "drive_hud: the mask bank lacks a shape the HUD needs\n");
 }

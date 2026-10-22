@@ -46,6 +46,17 @@ static int32_t word(const uint8_t *b)
     return (int32_t)((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24);
 }
 
+int dash_load_units(RacePalette *pal, uint8_t *bank)
+{
+    uint8_t *const shape = shape_bank_find(bank, (const uint8_t *)"!pal");
+    if (shape == NULL) return DASH_LOAD_NO_PALETTE;
+    uint8_t *const colours = shape + SHAPE_DATA;
+    if (shape[0] == PALETTE_TYPE_8_BIT)
+        for (int i = 0; i < PALETTE_BYTES; i++) colours[i] = (uint8_t)(colours[i] >> 2);
+    race_palette_queue_bank(pal, bank, colours, DASH_BANK_FIRST, DASH_BANK_COUNT);
+    return 0;
+}
+
 int dash_load_setup(DashArt *art, ReplayArt *replay_art, RacePalette *pal, uint8_t *bank, uint8_t *mmb,
                     int32_t high, int16_t replay)
 {

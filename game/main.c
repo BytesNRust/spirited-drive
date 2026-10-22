@@ -227,7 +227,12 @@ int main(int argc, char **argv)
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
     else if (opt.movie != NULL) ok = run_movie(&opt);
     else if (opt.drive != NULL && opt.screenshot == NULL && opt.entry == 0) ok = run_drive(&opt);
-    else if (opt.drive != NULL) ok = track_viewer_drive(opt.data_root, opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
+    else if (opt.drive != NULL) {
+        /* port: the headless frame takes the language and the speed's units as the race does (run_drive's setup) */
+        resource_init(opt.data_root, opt.german);
+        resource_set_units(port_extras_load().units);
+        ok = track_viewer_drive(opt.data_root, opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
+    }
     else if (opt.track != NULL) ok = track_viewer_main(opt.data_root, opt.track, opt.entry, opt.screenshot);
     else ok = run_game(&opt);
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
