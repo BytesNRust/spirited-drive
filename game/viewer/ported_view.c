@@ -26,6 +26,7 @@
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
+#include "viewer/sky_smooth.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -61,6 +62,7 @@ int ported_view_modern(void) { return modern; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 static ModernLook look;
+static HorizonSmooth smooth;       /* port: the Texture Filter's table for the sky's palette (horizon_smooth.h) */
 
 void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
 
@@ -607,13 +609,15 @@ static void draw_cars(void *user, int32_t node)
 typedef struct {
     const QuadTarget *quad;
     const RasterTarget *raster;
+    const HorizonSmooth *smooth;   /* port: EXTRAS' Texture Filter on the ring's slices (sky_smooth.h), NULL off */
 } SkyTargets;
 
 /* 004f9e98 = 00425520 -> 004252ec */
 static void sky_triangle(void *user, const FshEntry *texture, const int32_t uv[6], const int32_t screen[6])
 {
     const SkyTargets *t = user;
-    tri_draw(t->quad, texture, uv, screen, transparent(texture));
+    if (t->smooth != NULL && !transparent(texture)) sky_smooth_triangle(t->smooth, t->quad, texture, uv, screen);
+    else tri_draw(t->quad, texture, uv, screen, transparent(texture));
 }
 
 static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
@@ -757,15 +761,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t x0 = box[0] < 0 ? 0 : box[0], x1 = box[2] > screen_w ? screen_w : box[2];
         if (x1 > x0) memset(pixels + (size_t)y * screen_w + x0, 0, (size_t)(x1 - x0));
     }
-    if (art->has_horizon && info->ring != 0) {
-        const SkyTargets targets = { &quad, &target };
+    const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
+    if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
+    if (art->has_horizon && info->ring != 0) {  /* the circuits' 3D ring */
+        const SkyTargets targets = { &quad, &target, sky_filter ? &smooth : NULL };
         draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
     } else if (art->has_horizon) {
         const HorizonTarget ht = { pixels, screen_w };
         const int32_t line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
-        if (modern && look_filter) {  /* port: EXTRAS' Texture Filter blends the magnified sky */
-            static HorizonSmooth smooth;
-            horizon_smooth_palette(&smooth, art->palette);
+        if (sky_filter) {  /* the magnified flat sky blended */
             horizon_draw_flat_smooth(&smooth, &horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off,
                                      line);
         } else {

@@ -2,10 +2,15 @@
  * against the original runs in tools/oracle_3d.py; these cover the layout
  * on hand-computed values. */
 #include "game/race/sky_ring.h"
+#include "game/gfx/flat.h"
+#include "game/gfx/quad.h"
+#include "game/race/horizon.h"
+#include "game/race/track_render.h"
 #include "test.h"
 
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
 
 enum { HORZ_W = 640, HORZ_H = 120 };
 
@@ -194,10 +199,90 @@ static void test_wide(void)
     }
 }
 
+/* port_wide's pixels as ported_view draws them: the fills, then the slices through the exe's triangle mapper, on a
+ * surface cleared to HOLE */
+enum { HOLE = 0xfd, WIDE_W = 1120, WIDE_H = 480 };
+static uint8_t surface[WIDE_W * WIDE_H];
+
+typedef struct {
+    QuadTarget target;
+} Paint;
+
+static void paint_triangle(void *user, const FshEntry *texture, const int32_t uv[6], const int32_t screen[6])
+{
+    tri_draw(&((Paint *)user)->target, texture, uv, screen, 0);
+}
+
+static void paint_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
+{
+    const QuadTarget *t = &((Paint *)user)->target;
+    for (int32_t r = y < t->clip_top ? t->clip_top : y; r < y + h && r < t->clip_bottom; r++)
+        for (int32_t c = x < t->clip_left ? t->clip_left : x; c < x + w && c < t->clip_right; c++)
+            t->pixels[(size_t)r * t->pitch + c] = colour;
+}
+
+static void paint_polygon(void *user, uint8_t colour, const int32_t points[8])
+{
+    flat_polygon(&((Paint *)user)->target, colour, 4, points);
+}
+
+/* the pixels of the view the sky leaves at HOLE */
+static long sky_holes(const SkyRing *ring, const TrackInfo *info, const FshEntry *h, const View *view, int32_t width,
+                      int32_t pitch, int32_t yaw, int32_t roll)
+{
+    int32_t matrix[9];
+    track_camera_matrix(pitch, yaw, roll, 0, 0x10000, matrix);
+    memset(surface, HOLE, sizeof surface);
+    SkyFrame frame = { view, matrix, { 0 }, yaw, roll, 0, 8, 0, { 0 },
+                       { 0x10000, width, 0, 0, width, WIDE_H }, width, width, 0, 0, 1 };
+    horizon_point(view, 11, yaw, matrix, frame.horizon);
+    Paint paint = { { surface, width, 0, 0, width, WIDE_H } };
+    const SkySink sink = { &paint, paint_triangle, paint_fill, paint_polygon };
+    sky_ring_draw(ring, info, &frame, h, &sink);
+    long holes = 0;
+    for (int32_t y = 0; y < WIDE_H; y++)
+        for (int32_t x = 0; x < width; x++) holes += surface[(size_t)y * width + x] == HOLE;
+    return holes;
+}
+
+/* port: with the camera rolled the slices' corners move sideways off their ends on the ring; port_wide must still
+ * cover the view (a slice clipped at the edge, one whose end lies just inside the cull limit, or one with only its
+ * lower corners in view left a black strip or a whole black slice at the side; pitched far as well, the band's ends
+ * left the exe's stepped fills) */
+static void test_wide_rolled(void)
+{
+    static uint8_t texels[256 * 64];
+    for (size_t i = 0; i < sizeof texels; i++) texels[i] = (uint8_t)(1 + i % 200);
+    const FshEntry h = { { 0 }, FSH_TYPE_BITMAP, 0, 256, 64, { 0 }, texels, sizeof texels };
+    TrackInfo info = { 0 };
+    info.height_far = 48 << 16, info.radius_far = 96 << 16, info.ring = 1, info.ring_y_offset = -45,
+    info.ring_height = 108;
+    static SkyRing ring;
+    static View view;
+    sky_ring_build(&ring, &info, &h);
+    static const int32_t WIDTHS[2][3] = { { 640, 96, 72 }, { 1120, 146, 96 } };
+    /* rolls of 8.4, 14 and 18 degrees each way; pitches of 0, 1.4 and 22.5 degrees each way (a jump) */
+    static const int32_t ROLLS[] = { 0x60000, 0xa0000, 0xd0000, -0x60000, -0xa0000, -0xd0000 };
+    static const int32_t PITCHES[] = { 0, 0x10000, -0x10000, 0x100000, -0x100000 };
+    long worst = 0;
+    for (int w = 0; w < 2; w++) {
+        view_init(&view, 0, 0, WIDTHS[w][0], WIDE_H, WIDTHS[w][1], WIDTHS[w][2]);
+        for (int p = 0; p < 5; p++)
+            for (int r = 0; r < (int)(sizeof ROLLS / sizeof ROLLS[0]); r++)
+                for (int32_t yaw = 0; yaw < 0x1000000; yaw += 0x1000000 / 61) {
+                    const long holes = sky_holes(&ring, &info, &h, &view, WIDTHS[w][0], PITCHES[p] & 0xffffff, yaw,
+                                                 ROLLS[r] & 0xffffff);
+                    worst = holes > worst ? holes : worst;
+                }
+    }
+    CHECK_EQ_INT((int)worst, 0);
+}
+
 int main(void)
 {
     test_build();
     test_draw();
     test_wide();
+    test_wide_rolled();
     return TEST_REPORT();
 }
