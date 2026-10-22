@@ -66,5 +66,11 @@ int main(void)
     test_the_variants_follow_their_track();
     test_lost_vegas_has_none();
     test_time_of_day_with_variants();
+    /* the race's time (a replay's or the menus'): the one asked without a variant, midday with one unless offered */
+    CHECK_EQ_INT(track_fam_time_of(1, 0, 0, 0, 2), 2);
+    CHECK_EQ_INT(track_fam_time_of(1, 1, 0, 0, 2), 1);
+    CHECK_EQ_INT(track_fam_time_of(1, 1, 1, 1, 2), 2);
+    CHECK_EQ_INT(track_fam_time_of(3, 0, 1, 1, 2), 1);
+    CHECK_EQ_INT(track_fam_time_of(8, 0, 0, 1, 2), 2);
     return TEST_REPORT();
 }

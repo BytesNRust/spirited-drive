@@ -10,7 +10,7 @@ enum {
     AT_RACERS = 0x20, AT_HUMANS = 0x24, AT_COPS = 0x28, AT_CARS = 0x2c, AT_TRAFFIC = 0x30, AT_4FB7F0 = 0x34,
     AT_SEED = 0x38, AT_ENTRIES = 0x3e, AT_GRID = 0x294, AT_LETTERS = 0x2b4, AT_MODELS = 0x2d8,
     AT_CATCH_UP = 0x304, AT_LAPS = 0x308, AT_FOLLOWED = 0x310, AT_4FBAD0 = 0x314, AT_RECORD_SLOT = 0x318,
-    AT_MIRRORED = 0x31c, AT_ARCADE = 0x320,
+    AT_MIRRORED = 0x31c, AT_ARCADE = 0x320, AT_TIME_OF_DAY = 0x324, TRACKS = 9,
     /* the seek block, from 005120c4 */
     AT_END_CLOCK = 0x4, AT_COUNTDOWN = 0x10, AT_MARKS = 0x14, AT_SAVED_TIMER = 0xcbc, AT_SAVED_INPUT = 0xcc0,
     AT_SAVED_DUE = 0xcc4,
@@ -83,6 +83,9 @@ void race_replay_image_setup(const RaceState *race, uint32_t seed, uint8_t setup
     put32(setup, AT_FOLLOWED, race->player), put32(setup, AT_4FBAD0, race->unknown_4fbad0);
     put32(setup, AT_RECORD_SLOT, race->record_slot), put32(setup, AT_MIRRORED, race->mirrored);
     put32(setup, AT_ARCADE, race->arcade);
+    /* 004fbae0, the menus' time of day a track: the exe keeps all nine; the port has the raced track's, the rest
+     * midday as the CD's replays hold them */
+    for (int i = 0; i < TRACKS; i++) put32(setup, AT_TIME_OF_DAY + 4 * i, i == race->track ? race->port_time_of_day : 1);
 }
 
 void race_replay_image_put(const RaceState *race, const RaceReplayDirector *dir, uint8_t cuts[REPLAY_CUTS_SIZE],

@@ -29,8 +29,9 @@ static void synthetic(void)
     race.race_type = 2, race.racers = 8, race.humans = 1, race.car_count = 8, race.laps_setting = 2, race.player = 0;
     race.track = 5, race.models[3] = 203, race.grid[0] = 7, race.catch_up = 4;
     race.entries[0].car = 4, strcpy(race.entries[0].name, "Mom?");
-    race.mirrored = 1, race.arcade = 1;
+    race.mirrored = 1, race.arcade = 1, race.port_time_of_day = 2;
     race_replay_image_setup(&race, 0x31c3f86a, setup);
+    CHECK(word(setup, 0x324 + 4 * 5) == 2 && word(setup, 0x324) == 1 && word(setup, 0x324 + 4 * 8) == 1);  /* 004fbae0 */
     CHECK(memcmp(setup + 0xa, "tr6\0", 4) == 0);
     CHECK(word(setup, 0x14) == 2 && word(setup, 0x20) == 8 && word(setup, 0x38) == 0x31c3f86a);
     CHECK(word(setup, 0x308) == 2 && word(setup, 0x2d8 + 12) == 203 && word(setup, 0x294) == 7 && word(setup, 0x304) == 4);

@@ -20,6 +20,9 @@
 #include <string.h>
 #include <time.h>
 
+/* port: the menus' (or the replay's) time of day for the track raced, 004fbae0[track], kept in a replay */
+static int32_t drive_time_of_day = 1;
+
 /* Drive mode (`tnfs --drive NAME [--car N]`): the ported race loop with
  * the follow camera (race_chase) on the player's car. Keys as the game's
  * defaults: arrows steer and work the pedals, A and Z change gear (an
@@ -319,6 +322,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_sim.race.start_input = drive_menus.start_boost;
         drive_sim.race.port_replay_cameras = drive_menus.replay_cameras;
     }
+    drive_sim.race.port_time_of_day = drive_time_of_day;  /* the replay's setup keeps it */
     /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the
      * results and records are left alone, 0045af80) with 00524ea1 the laps above it */
     drive_sim.race.frontend_track = drive_menus_on && replay_of == NULL ? drive_menus.track : race_sim_track_index(name);
@@ -467,6 +471,7 @@ void drive_end(void)
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
                        const char *screenshot)
 {
+    drive_time_of_day = 1;
     static Track t;
     /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
      * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
@@ -474,20 +479,24 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
         look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;
-        look.time_of_day = look.variant_m != 0 || look.variant_r != 0 ? 1
-                           : track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
+        /* port: the replay's art as its race had it: both variants together, and the time of day with a variant
+         * (extras.cfg's variant_time), each where the exe takes the mirror's art and midday */
+        look.port_both_variants = look.variant_m != 0 && look.variant_r != 0;
+        const int32_t time = track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
+        drive_time_of_day = time;
+        look.time_of_day = track_fam_time_of(track, look.variant_m, look.variant_r, port_extras_load().variant_time,
+                                             time);
     } else if (drive_menus_on) {
         look.variant_m = drive_menus.variant_m, look.variant_r = drive_menus.variant_r;
         /* port: the menus' own pair is the combined state when both are on — the race reads the rally's FAM, the
          * mirror keeping the geometry (variant_rule.h's rule). Asking extras.cfg instead would miss a race the
          * frontend reached with both on but no extras.cfg on disk, which is every --drive NAME mr run.
-         * A replay, which carries its own pair, leaves the exe's answer below. */
+         * A replay takes the same rule on its own pair (above). */
         look.port_both_variants = drive_menus.variant_m != 0 && drive_menus.variant_r != 0;
         /* port: extras.cfg's variant_time keeps the time of day with a variant (fam_mirror.h makes its art) */
-        const int timed = track_fam_time_offered(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
-                                                 port_extras_load().variant_time);
-        look.time_of_day = (drive_menus.variant_m == 0 && drive_menus.variant_r == 0) || timed ? drive_menus.time_of_day
-                                                                                             : 1;
+        look.time_of_day = track_fam_time_of(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
+                                             port_extras_load().variant_time, drive_menus.time_of_day);
+        drive_time_of_day = drive_menus.time_of_day;
     } else if (track_viewer_fam_missing(data_root, name, &look)) {
         look.time_of_day = 1;
     }

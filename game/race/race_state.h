@@ -426,6 +426,7 @@ typedef struct {
     int32_t sound_pitch[RACE_VOICES];  /* 004bc6f4: the pitch a channel keeps while it plays the same sound (00443e70) */
     RaceSounds sounds;
     int32_t port_replay_cameras;    /* port: the extra (extras.cfg): the own live car's view key goes the replay's way */
+    int32_t port_time_of_day;       /* port: 004fbae0[track], the menus' time of day (0..2) a replay's setup keeps */
 } RaceState;
 
 enum {

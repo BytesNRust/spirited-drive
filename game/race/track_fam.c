@@ -35,3 +35,9 @@ int track_fam_time_offered(int track, int variant_m, int variant_r, int variant_
     if (!variant_m && !variant_r) return 1;
     return variant_time && !(track == RUSTY_SPRINGS && variant_r);
 }
+
+int track_fam_time_of(int track, int variant_m, int variant_r, int variant_time, int time)
+{
+    if (!variant_m && !variant_r) return time;
+    return track_fam_time_offered(track, variant_m, variant_r, variant_time) ? time : 1;
+}

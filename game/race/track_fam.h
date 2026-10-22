@@ -45,5 +45,8 @@ void track_fam_load(const TrackFamInputs *in, int32_t number, void *buffer, cons
  * when `variant_time` (extras.cfg's; the original takes midday) and the art exists (Rusty Springs' rally, TR5, has
  * no evening FAM). */
 int track_fam_time_offered(int track, int variant_m, int variant_r, int variant_time);
+/* 004278c0's 004fa0ec: `time` (the track's, 0..2) without a variant, 1 (midday) with one; port: `time` with one too
+ * when track_fam_time_offered says so. */
+int track_fam_time_of(int track, int variant_m, int variant_r, int variant_time, int time);
 
 #endif
