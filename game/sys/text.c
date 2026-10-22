@@ -15,6 +15,7 @@ enum { STYLE_COUNT = 4 };
 static uint8_t *font_data;   /* 00524824 */
 static Ffn font;
 static uint8_t styles[STYLE_COUNT][16];
+static int styles_fg[STYLE_COUNT];   /* port: each style's own colour, which its ramp's level 15 only nears */
 static uint8_t shadow[16];   /* 0051fd98 */
 static uint8_t current[16];  /* 0051dd18 */
 /* port: the palette the styles were built from, and the ramps from each colour under the text towards a text colour
@@ -41,10 +42,11 @@ void text_free(void)
     font_data = NULL;
 }
 
-static void build_ramp(const uint8_t *pal, const uint8_t *usable, int r, int g, int b, uint8_t ramp[16])
+static int build_ramp(const uint8_t *pal, const uint8_t *usable, int r, int g, int b, uint8_t ramp[16])
 {
     const int fg = palette_nearest(pal, usable, r, g, b);  /* 00473140 */
     palette_text_ramp(pal, usable, fg, 0, ramp);            /* 0048f370(colour, 0) */
+    return fg;
 }
 
 void text_build_styles(void)
@@ -59,10 +61,10 @@ void text_build_styles_from(const uint8_t pal[768])
     const uint8_t *usable = palette_usable();  /* 004c5ff8, as the last race start left it */
     memcpy(styles_pal, pal, sizeof styles_pal);
     memset(blend_known, 0, sizeof blend_known);
-    build_ramp(pal, usable, 0xFF, 0xFF, 0xFF, styles[TEXT_WHITE]);
-    build_ramp(pal, usable, 0xE8, 0xD3, 0xB7, styles[TEXT_CREAM]);
-    build_ramp(pal, usable, 0xFF, 0xCE, 0x06, styles[TEXT_YELLOW]);
-    build_ramp(pal, usable, 0xFF, 0x06, 0x06, styles[TEXT_RED]);
+    styles_fg[TEXT_WHITE] = build_ramp(pal, usable, 0xFF, 0xFF, 0xFF, styles[TEXT_WHITE]);
+    styles_fg[TEXT_CREAM] = build_ramp(pal, usable, 0xE8, 0xD3, 0xB7, styles[TEXT_CREAM]);
+    styles_fg[TEXT_YELLOW] = build_ramp(pal, usable, 0xFF, 0xCE, 0x06, styles[TEXT_YELLOW]);
+    styles_fg[TEXT_RED] = build_ramp(pal, usable, 0xFF, 0x06, 0x06, styles[TEXT_RED]);
     build_ramp(pal, usable, 0xFF, 0xCE, 0x06, current);
     build_ramp(pal, usable, 0x00, 0x00, 0x00, shadow);
 }
@@ -180,44 +182,56 @@ static void mask_text(const char *text, int x, int y, int num, int den, uint8_t 
     }
 }
 
-/* the mask's levels onto the target at (x, y), each mixed from the pixel below towards `fg` */
-static void put_mask(const uint8_t *mask, int mw, int mh, int x, int y, int fg, int lift)
-{
-    int tw, th;
-    uint8_t *const to = video_target(&tw, &th);
-    for (int my = 0; my < mh; my++) {
-        if (y + my < 0 || y + my >= th) continue;
-        for (int mx = 0; mx < mw; mx++) {
-            const int level = lift ? text_soft_lift(mask[my * mw + mx]) : mask[my * mw + mx];
-            if (level == 0 || x + mx < 0 || x + mx >= tw) continue;
-            uint8_t *const at = &to[(y + my) * tw + x + mx];
-            *at = blended(fg, *at, level);
-        }
-    }
-}
-
 int text_width_scaled(const char *text, int num, int den)
 {
     return text_width(text) * num / den;
 }
 
-/* port: a blurred shadow, then the letters with their levels lifted, both mixed with what is under them */
+static int nearest(int r, int g, int b)
+{
+    return palette_nearest(styles_pal, palette_usable(), r, g, b);
+}
+
+/* the colour `index` times n/16 */
+static int darkened(int index, int n)
+{
+    const uint8_t *const c = styles_pal + 3 * index;
+    return nearest(c[0] * n / 16, c[1] * n / 16, c[2] * n / 16);
+}
+
+/* port: the menu art's item letters (text_soft.h) num/den times the font's size, over what is under them */
 void text_draw_smooth(const char *text, int x, int y, int num, int den)
 {
-    enum { PAD = 2 };
+    enum { PAD = 1 + TEXT_SOFT_SHADOW_DEPTH };
     if (font_data == NULL) return;
     const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = font.line_height * num / den + 2 * PAD;
-    uint8_t *const mask = calloc((size_t)mw * mh, 2);
+    uint8_t *const mask = calloc((size_t)mw * mh, 1);
     if (mask == NULL) return;
-    uint8_t *const soft = mask + (size_t)mw * mh;
     mask_text(text, PAD, PAD, num, den, mask, mw, mh);
-    text_soft_shadow(mask, soft, mw, mh);
-    const int offset = 2 * num / den + TEXT_SOFT_SHADOW_PUSH;
-    put_mask(soft, mw, mh, x - PAD + offset, y - PAD + offset, shadow[15], 0);
-    int fg = current[15];
-    if (current_style == TEXT_CREAM)   /* the drawn items' cream reads lighter than the font's */
-        fg = palette_nearest(styles_pal, palette_usable(), TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B);
-    put_mask(mask, mw, mh, x - PAD, y - PAD, fg, 1);
+    const int cream = current_style == TEXT_CREAM;
+    const int fill = cream ? nearest(TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B) : styles_fg[current_style];
+    const int grain = cream ? nearest(TEXT_SOFT_GRAIN_R, TEXT_SOFT_GRAIN_G, TEXT_SOFT_GRAIN_B) : darkened(fill, 15);
+    const int edge = darkened(fill, TEXT_SOFT_EDGE_SIXTEENTHS);
+    const int rim = nearest(TEXT_SOFT_RIM_R, TEXT_SOFT_RIM_G, TEXT_SOFT_RIM_B), black = shadow[15];
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
+    const int left = x - PAD, top = y - PAD;
+    for (int my = 0; my < mh; my++) {
+        const int ty = top + my;
+        if (ty < 0 || ty >= th) continue;
+        for (int mx = 0; mx < mw; mx++) {
+            const int tx = left + mx;
+            if (tx < 0 || tx >= tw) continue;
+            uint8_t *const at = &to[ty * tw + tx];
+            switch (text_soft_part(mask, mw, mh, mx, my)) {
+            case TEXT_SOFT_FILL: *at = (uint8_t)(text_soft_grain(tx, ty) ? grain : fill); break;
+            case TEXT_SOFT_EDGE: *at = (uint8_t)edge; break;
+            case TEXT_SOFT_RIM: if (!cream) *at = (uint8_t)rim; break;   /* the cream items have none */
+            case TEXT_SOFT_SHADOW: *at = blended(black, *at, TEXT_SOFT_SHADOW_LEVEL); break;
+            case TEXT_SOFT_NONE: break;
+            }
+        }
+    }
     free(mask);
 }
 

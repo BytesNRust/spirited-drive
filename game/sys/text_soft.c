@@ -1,26 +1,23 @@
-/* port: the soft look of the port's large text (text_soft.h). */
+/* port: the look of the port's large text (text_soft.h). */
 #include "game/sys/text_soft.h"
 
-enum { MAX_LEVEL = 15, KERNEL_SUM = 36 };
-
-static const int KERNEL[3] = { 1, 4, 1 };
-
-void text_soft_shadow(const uint8_t *in, uint8_t *out, int w, int h)
+static int letter(const uint8_t *mask, int w, int h, int x, int y)
 {
-    for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++) {
-            int sum = 0;
-            for (int dy = -1; dy <= 1; dy++)
-                for (int dx = -1; dx <= 1; dx++)
-                    if (x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h)
-                        sum += in[(y + dy) * w + x + dx] * KERNEL[dx + 1] * KERNEL[dy + 1];
-            out[y * w + x] = (uint8_t)((sum * TEXT_SOFT_SHADOW_PERCENT + KERNEL_SUM * 100 / 2) / (KERNEL_SUM * 100));
-        }
+    return x >= 0 && x < w && y >= 0 && y < h && mask[y * w + x] >= TEXT_SOFT_SOLID_FROM;
 }
 
-int text_soft_lift(int level)
+TextSoftPart text_soft_part(const uint8_t *mask, int w, int h, int x, int y)
 {
-    const int sharp = (level - TEXT_SOFT_EDGE_FROM) * MAX_LEVEL / TEXT_SOFT_EDGE_SPAN;
-    return sharp < 0 ? 0 : sharp > MAX_LEVEL ? MAX_LEVEL : sharp;
+    if (letter(mask, w, h, x, y))
+        return letter(mask, w, h, x + 1, y + 1) ? TEXT_SOFT_FILL : TEXT_SOFT_EDGE;
+    if (letter(mask, w, h, x + 1, y + 1)) return TEXT_SOFT_RIM;
+    for (int d = 1; d <= TEXT_SOFT_SHADOW_DEPTH; d++)
+        if (letter(mask, w, h, x - d, y - d)) return TEXT_SOFT_SHADOW;
+    return TEXT_SOFT_NONE;
 }
 
+int text_soft_grain(int x, int y)
+{
+    const unsigned hash = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
+    return ((hash >> 7) & 3) == 0;
+}

@@ -1,38 +1,54 @@
-/* The port's soft text (text_soft.h): the shadow blurred and lighter, the letters' strokes lifted to full colour. */
+/* The port's large text (text_soft.h): hard letters, a dark edge down-right, a rim up-left, a hard shadow. */
 #include "game/sys/text_soft.h"
 #include "test.h"
 
-static void test_the_shadow_spreads_and_softens(void)
+/* a 3x3 letter at (2..4, 2..4) of an 8x8 mask */
+static void square(uint8_t m[64], int level)
 {
-    uint8_t in[5 * 5] = { 0 }, out[5 * 5];
-    in[2 * 5 + 2] = 15;
-    text_soft_shadow(in, out, 5, 5);
-    /* one solid pixel spread by the 1-4-1 kernel: the centre keeps 16/36, a side 4/36, a corner 1/36 */
-    CHECK_EQ_INT(out[2 * 5 + 2], 7);
-    CHECK_EQ_INT(out[2 * 5 + 1], 2);
-    CHECK_EQ_INT(out[1 * 5 + 1], 0);
-    CHECK_EQ_INT(out[0], 0);
-    uint8_t full[3 * 3], soft[3 * 3];
-    for (int i = 0; i < 9; i++) full[i] = 15;
-    text_soft_shadow(full, soft, 3, 3);
-    CHECK_EQ_INT(soft[4], 15);   /* inside a solid area: all of it */
-    CHECK_EQ_INT(soft[0], 10);   /* a corner sees 25 of the kernel's 36: 10.4 */
+    for (int i = 0; i < 64; i++) m[i] = 0;
+    for (int y = 2; y < 5; y++)
+        for (int x = 2; x < 5; x++) m[y * 8 + x] = (uint8_t)level;
 }
 
-/* the letters' levels through a contrast curve: the faint edge the enlarged glyph gains drops out (no thicker
- * strokes), the rest goes solid fast (a sharp edge) */
-static void test_the_letters_are_sharpened(void)
+static void test_the_parts_of_a_letter(void)
 {
-    CHECK_EQ_INT(text_soft_lift(0), 0);
-    CHECK_EQ_INT(text_soft_lift(4), 0);
-    CHECK_EQ_INT(text_soft_lift(8), 7);
-    CHECK_EQ_INT(text_soft_lift(12), 15);
-    CHECK_EQ_INT(text_soft_lift(15), 15);
+    uint8_t m[64];
+    square(m, 15);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 2, 2), TEXT_SOFT_FILL);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 4, 3), TEXT_SOFT_EDGE);    /* right side */
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 3, 4), TEXT_SOFT_EDGE);    /* bottom */
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 1, 1), TEXT_SOFT_RIM);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 1, 3), TEXT_SOFT_RIM);     /* left side */
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 5, 5), TEXT_SOFT_SHADOW);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 6, 6), TEXT_SOFT_SHADOW);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 7, 7), TEXT_SOFT_NONE);   /* past the shadow's 2 px */
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 0, 0), TEXT_SOFT_NONE);
+}
+
+/* hard letters: a faint level is outside, from TEXT_SOFT_SOLID_FROM on inside */
+static void test_the_letters_are_hard(void)
+{
+    uint8_t m[64];
+    square(m, TEXT_SOFT_SOLID_FROM - 1);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 3, 3), TEXT_SOFT_NONE);
+    square(m, TEXT_SOFT_SOLID_FROM);
+    CHECK_EQ_INT(text_soft_part(m, 8, 8, 3, 3), TEXT_SOFT_FILL);
+}
+
+/* the grain: about a quarter of the pixels, the same each time */
+static void test_the_grain(void)
+{
+    int count = 0;
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) count += text_soft_grain(x, y);
+    CHECK(count > 64 * 64 / 6 && count < 64 * 64 / 3);
+    CHECK_EQ_INT(text_soft_grain(17, 5), text_soft_grain(17, 5));
 }
 
 int main(void)
 {
-    test_the_shadow_spreads_and_softens();
-    test_the_letters_are_sharpened();
+    test_the_parts_of_a_letter();
+    test_the_letters_are_hard();
+    test_the_grain();
     return TEST_REPORT();
 }
