@@ -68,6 +68,72 @@ static void cover_title(uint8_t *rgb)
         }
 }
 
+/* port: where every screen had a label the medoid can keep a pixel or a dash of the letters, light on the darker
+ * texture. In the labels' column (they all start at the left edge; the "&" art to the right has thin light lines a
+ * second pass would wear down), between the title row and DONE/CANCEL, a light pixel (luma SPECK_LIGHT and up)
+ * brighter than the median of its 3x3 neighbours by more than SPECK_RISE is a speck: the art there never stands out
+ * so much (at most 51 on the CD, the remnants 57 and up), so the texture is left as it is; the floor keeps dark
+ * colours out, the dimmest remnant is 107. A speck takes the median colour of the pixels around it (5x5) that are not
+ * specks, so a dash is not filled from itself; a second pass takes what the first left of one. On the CD 14 pixels
+ * change, all of them remnants. */
+enum {
+    SPECK_X0 = 2, SPECK_X1 = 96, SPECK_Y0 = 95, SPECK_Y1 = 430,
+    SPECK_LIGHT = 100, SPECK_RISE = 56, SPECK_PASSES = 2, SPECK_FILL = 2
+};
+
+static int luma(const uint8_t *c)
+{
+    return (299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000;
+}
+
+/* adds c to n[0..k) kept in luma order (after its equals); returns the new count */
+static int sorted_add(const uint8_t *n[], int k, const uint8_t *c)
+{
+    int i = k;
+    for (; i > 0 && luma(n[i - 1]) > luma(c); i--) n[i] = n[i - 1];
+    n[i] = c;
+    return k + 1;
+}
+
+static int is_speck(const uint8_t *rgb, int x, int y)
+{
+    const uint8_t *n[8];
+    int k = 0;
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+            if (dx != 0 || dy != 0) k = sorted_add(n, k, rgb + 3 * ((y + dy) * CONFIG_BGND_W + x + dx));
+    const int l = luma(rgb + 3 * (y * CONFIG_BGND_W + x));
+    return l >= SPECK_LIGHT && l - luma(n[3]) > SPECK_RISE;
+}
+
+/* the lower median of the pixels around (x, y) that are not specks; NULL when all are */
+static const uint8_t *fill(const uint8_t *rgb, const uint8_t *speck, int x, int y)
+{
+    const uint8_t *n[(2 * SPECK_FILL + 1) * (2 * SPECK_FILL + 1)];
+    int k = 0;
+    for (int dy = -SPECK_FILL; dy <= SPECK_FILL; dy++)
+        for (int dx = -SPECK_FILL; dx <= SPECK_FILL; dx++) {
+            const size_t at = (size_t)(y + dy) * CONFIG_BGND_W + x + dx;
+            if (!speck[at]) k = sorted_add(n, k, rgb + 3 * at);
+        }
+    return k > 0 ? n[(k - 1) / 2] : NULL;
+}
+
+static void despeckle(uint8_t *rgb, uint8_t *speck)
+{
+    for (int pass = 0; pass < SPECK_PASSES; pass++) {
+        memset(speck, 0, SIZE);
+        for (int y = SPECK_Y0; y < SPECK_Y1; y++)
+            for (int x = SPECK_X0; x < SPECK_X1; x++) speck[y * CONFIG_BGND_W + x] = (uint8_t)is_speck(rgb, x, y);
+        /* the fills read only pixels that are not specks, which no fill changes: the order does not matter */
+        for (int y = SPECK_Y0; y < SPECK_Y1; y++)
+            for (int x = SPECK_X0; x < SPECK_X1; x++) {
+                const uint8_t *m = speck[y * CONFIG_BGND_W + x] ? fill(rgb, speck, x, y) : NULL;
+                if (m != NULL) memcpy(rgb + 3 * (y * CONFIG_BGND_W + x), m, 3);
+            }
+    }
+}
+
 static uint8_t nearest(const uint8_t palette[768], const uint8_t *c)
 {
     int best = 0, best_d = -1;
@@ -90,8 +156,9 @@ static void take(uint8_t *clean, const uint8_t *const rgb[CONFIG_BGND_SCREENS], 
 void config_bgnd_compose(const uint8_t *const rgb[CONFIG_BGND_SCREENS], const uint8_t palette[768], int done_cancel,
                          uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H])
 {
-    uint8_t *clean = malloc(3 * SIZE);
-    if (clean == NULL) {
+    uint8_t *clean = malloc(3 * SIZE), *speck = malloc(SIZE);
+    if (clean == NULL || speck == NULL) {
+        free(clean), free(speck);
         memset(pixels, 0, SIZE);
         return;
     }
@@ -99,6 +166,8 @@ void config_bgnd_compose(const uint8_t *const rgb[CONFIG_BGND_SCREENS], const ui
     for (size_t b = 0; b < sizeof BANDS / sizeof BANDS[0]; b++) take(clean, rgb, BANDS[b]);
     for (size_t b = 0; !done_cancel && b < sizeof CORNERS / sizeof CORNERS[0]; b++) take(clean, rgb, CORNERS[b]);
     cover_title(clean);
+    despeckle(clean, speck);
+    free(speck);
     /* the colours repeat a lot: remember the last match */
     uint8_t last[3] = { 0 };
     uint8_t last_index = nearest(palette, last);

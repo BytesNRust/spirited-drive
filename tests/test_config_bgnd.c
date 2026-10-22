@@ -8,12 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* fnv-1a 64 of the pixels the CD gave when the recipe was made */
-#define CONFIG_BGND_FNV 0xdb6fac214f738167ULL
+/* fnv-1a 64 of the pixels the CD gave when the recipe was made; since the light specks left of the labels go
+ * (14 pixels: the dash at 11..18 x 280..281, 11 x 319..320, 31 x 320, 79 x 160), no longer 0xdb6fac214f738167 */
+#define CONFIG_BGND_FNV 0x181910a92ad88bb0ULL
 
-enum { BLACK, RED, GREEN, BLUE, AUDIO = 1, GAMEMODE = 8 };
+enum { BLACK, RED, GREEN, BLUE, WHITE, AUDIO = 1, GAMEMODE = 8 };
 
-static const uint8_t colours[4][3] = { { 0, 0, 0 }, { 200, 0, 0 }, { 0, 200, 0 }, { 0, 0, 200 } };
+static const uint8_t colours[5][3] = { { 0, 0, 0 }, { 200, 0, 0 }, { 0, 200, 0 }, { 0, 0, 200 }, { 220, 220, 220 } };
 static uint8_t *screens[CONFIG_BGND_SCREENS];
 static uint8_t palette[768];
 static uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H];
@@ -94,6 +95,29 @@ static void test_done_and_cancel_kept_or_left_out(void)
     CHECK_EQ_INT(at(580, 450), BLUE);
 }
 
+/* in the labels' column a light pixel every screen kept (the medoid's remnant of their labels) goes, on a flat patch
+ * or a texture; a line two pixels thick and an edge stay, so do the texture and the art right of the column */
+static void test_light_specks_go_lines_and_edges_stay(void)
+{
+    put_all(40, 200, WHITE);
+    for (int y = 230; y < 240; y++)
+        for (int x = 30; x < 40; x++) put_all(x, y, (x + y) % 2 ? BLUE : BLACK);
+    put_all(34, 234, WHITE);
+    for (int x = 30; x < 36; x++) put_all(x, 260, WHITE), put_all(x, 261, WHITE);
+    for (int y = 280; y < 290; y++)
+        for (int x = 60; x < 70; x++) put_all(x, y, WHITE);
+    put_all(300, 200, WHITE);
+    compose();
+    CHECK_EQ_INT(at(40, 200), BLACK);
+    CHECK_EQ_INT(at(34, 234), BLACK);
+    CHECK_EQ_INT(at(35, 234), BLUE);
+    CHECK_EQ_INT(at(32, 260), WHITE);
+    CHECK_EQ_INT(at(33, 261), WHITE);
+    CHECK_EQ_INT(at(65, 280), WHITE);
+    CHECK_EQ_INT(at(60, 285), WHITE);
+    CHECK_EQ_INT(at(300, 200), WHITE);
+}
+
 /* a piece cut as a shape placed where it was */
 static void test_a_piece_is_a_shape_at_its_place(void)
 {
@@ -148,7 +172,7 @@ static void test_the_cd_gives_the_same_pixels(void)
 
 int main(void)
 {
-    for (int i = 0; i < 4; i++) memcpy(palette + 3 * i, colours[i], 3);
+    for (int i = 0; i < 5; i++) memcpy(palette + 3 * i, colours[i], 3);
     for (int s = 0; s < CONFIG_BGND_SCREENS; s++) {
         screens[s] = calloc(3, CONFIG_BGND_W * CONFIG_BGND_H);
         if (screens[s] == NULL) return 1;
@@ -158,6 +182,7 @@ int main(void)
     test_the_title_is_covered_by_the_texture_beside_it();
     test_the_colours_are_the_nearest_of_the_palette();
     test_done_and_cancel_kept_or_left_out();
+    test_light_specks_go_lines_and_edges_stay();
     test_a_piece_is_a_shape_at_its_place();
     test_the_cd_gives_the_same_pixels();
     CHECK(!config_bgnd_load(read_cd, CONFIG_BGND_SCREENS, 1, pixels, palette));
