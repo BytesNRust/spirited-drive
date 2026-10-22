@@ -1,5 +1,6 @@
 /* 0047383c's box on the blits (video_set_clip), opened again by 00473680 (video_select_target). */
 #include "game/platform/platform.h"
+#include "game/sys/palette.h"
 #include "game/sys/video.h"
 #include "test.h"
 
@@ -67,12 +68,68 @@ static void test_select_opens_the_box(void)
     CHECK_EQ_INT(pic[6 * W + 13], 7);
 }
 
+/* port: whether the display is already dark, so a screen that has to fade its caller's picture out before putting
+ * its own page up can skip the fade when the display is already black. A fade scales the palette, and
+ * palette_fade_out_step(PALETTE_FADE_STEPS - 1) is 0, so a fade_out over the whole palette leaves it entirely zero
+ * and the seventeen vblanks after it change nothing. Fading again is dead time the player sits through.
+ *
+ * The answer is the video layer's own, not a caller's flag: anything that puts light on the display clears it. */
+static void lit_palette(void)
+{
+    uint8_t rgb[PALETTE_BYTES];
+    for (int i = 0; i < PALETTE_COLORS; i++)
+        rgb[3 * i] = rgb[3 * i + 1] = rgb[3 * i + 2] = (uint8_t)(40 + i);
+    video_set_palette(0, PALETTE_COLORS, rgb);
+}
+
+static void test_a_full_fade_out_leaves_the_display_dark(void)
+{
+    lit_palette();
+    CHECK_EQ_INT(video_display_is_dark(), 0);   /* something is showing */
+
+    video_fade_out(0, PALETTE_COLORS);
+    CHECK_EQ_INT(video_display_is_dark(), 1);
+
+    /* and it stays dark across frames that only present what is already there */
+    video_flip();
+    CHECK_EQ_INT(video_display_is_dark(), 1);
+}
+
+/* anything that puts light on the display makes it lit again, or the next screen would skip a fade it needs */
+static void test_light_on_the_display_clears_it(void)
+{
+    video_fade_out(0, PALETTE_COLORS);
+    CHECK_EQ_INT(video_display_is_dark(), 1);
+
+    lit_palette();                               /* what palette_set does */
+    CHECK_EQ_INT(video_display_is_dark(), 0);
+
+    video_fade_out(0, PALETTE_COLORS);
+    uint8_t target[PALETTE_BYTES];
+    memset(target, 0xff, sizeof target);
+    video_fade_in(0, PALETTE_COLORS, target);    /* what a screen's own fade_in does */
+    CHECK_EQ_INT(video_display_is_dark(), 0);
+}
+
+/* a fade that leaves part of the palette lit is not a dark display: only the whole range counts */
+static void test_a_partial_fade_out_is_not_dark(void)
+{
+    lit_palette();
+    video_fade_out(0, PALETTE_COLORS / 2);       /* half the entries only */
+    CHECK_EQ_INT(video_display_is_dark(), 0);
+    video_fade_out(0, PALETTE_COLORS);            /* and the other half after */
+    CHECK_EQ_INT(video_display_is_dark(), 1);
+}
+
 int main(void)
 {
     if (!video_init()) return 1;
     test_clip_keeps_blits_inside();
     test_clip_cut_to_target();
     test_select_opens_the_box();
+    test_a_full_fade_out_leaves_the_display_dark();
+    test_light_on_the_display_clears_it();
+    test_a_partial_fade_out_is_not_dark();
     video_select_target(NULL, 0, 0);
     video_shutdown();
     return TEST_REPORT();

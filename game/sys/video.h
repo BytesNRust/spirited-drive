@@ -30,6 +30,12 @@ void video_get_palette(uint8_t rgb[768]);                             /* 0047664
 void video_fade_in(int first, int count, const uint8_t *target);      /* 00463e7c */
 void video_fade_out(int first, int count);                            /* 00463ef0 */
 
+/* port: whether the display is already dark -- every colour on it is black, so a screen that fades its caller's
+ * picture out before putting its own page up has nothing left to fade and can skip those seventeen vblanks. It is
+ * the video layer's own answer, not a caller's flag: a fade_out over the whole palette leaves it entirely zero
+ * (palette_fade_out_step's last step is 0), and anything that puts light on the display clears it again. */
+int video_display_is_dark(void);
+
 /* Sprite composited over the displayed frame with 0xFF transparent: the
  * mouse pointer, which the original drew straight onto the front surface
  * with save-under (004416cc). NULL hides it. Re-presents the screen. */
