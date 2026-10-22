@@ -365,7 +365,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     w.wait_ticks = drive_link_on ? link_wait_ticks : 0;
     w.music_on = drive_menus_on ? (int16_t)drive_menus.music : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
-    drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
+    drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due, drive_replay.done = &w.done;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1, drive_clock_of_level(DRIVE_CLOCK_LEVEL) };
     /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
     if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
@@ -387,7 +387,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     drive_link_run = NULL;
     drive_results.end_state = drive_sim.race.end_state;  /* also a replay left before its race was over */
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
-    drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
+    drive_replay.pace = drive_replay.timer = drive_replay.due = drive_replay.done = NULL;
     while (!drive_menus_on && !r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
@@ -411,12 +411,12 @@ int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const 
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
-    drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due;
+    drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due, drive_replay.done = &w.done;
     DriveRun r = { t, pixels, &w, 0, 0, (int32_t)ticks, 0, 0, 0, -1, drive_clock_of_level(DRIVE_CLOCK_LEVEL) };
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
-    drive_replay.pace = drive_replay.timer = drive_replay.due = NULL;
+    drive_replay.pace = drive_replay.timer = drive_replay.due = drive_replay.done = NULL;
     render_drive(t, pixels);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
