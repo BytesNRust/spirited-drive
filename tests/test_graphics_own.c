@@ -45,7 +45,16 @@ typedef struct Fake {
     int pointer_x, pointer_y; /* where the screen last put the pointer */
     int panel_calls;
     int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
+    int palette_sets;        /* times a palette was put on the screen (the picture's, then the clean background's) */
+    int flip_before_bgnd;    /* the screen was presented before the clean background was put on it */
+    int flip_before_fade_in; /* the screen was presented before any palette was faded in */
     int fade_ins;            /* times the screen's own palette was put on the display */
+    int fade_outs;           /* times the display was faded out on the way out */
+    int flips;               /* times the screen was presented, so the fade's place in the run is known */
+    int faded_in_before_first_flip;   /* the palette was put on the display before anything was drawn */
+    char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
+    int event_count;
+    int bgnd_ok;             /* what plus_bgnd gives: 0 as if config_bgnd_load had failed */
     int put_backs;           /* times the settings were put back (Cancel / Escape only) */
     int aliased_palettes;    /* times palette_set was handed its own destination as the source */
     int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
@@ -100,6 +109,7 @@ static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, con
 {
     Fake *f = ctx;
     (void)first, (void)count;
+    f->palette_sets++;
     /* palette_put writes destination and then copies the result over the screen's copy, so a call whose source
      * IS its destination rewrites the bytes it is reading from: every redraw shifts them a little further. */
     if (src == rgb) f->aliased_palettes++;
@@ -119,11 +129,31 @@ static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
 static void f_blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
 static int32_t f_picture_shape(void *ctx, int32_t p) { (void)ctx, (void)p; return 0; }
 static void f_select_default(void *ctx) { (void)ctx; }
-static void f_fade(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
+/* the present: the frame is on the display from here, which is what says whether the palette had already been
+ * put there when the previous screen's picture was still up */
+static void f_flip(void *ctx)
+{
+    Fake *f = ctx;
+    f->flips++;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'F';
+}
+static void f_fade(void *ctx, int32_t a, int32_t b)
+{
+    (void)a, (void)b;
+    Fake *f = ctx;
+    f->fade_outs++;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'O';
+}
 static void f_fade_rgb(void *ctx, int32_t a, int32_t b, const uint8_t *rgb)
 {
     (void)a, (void)b, (void)rgb;
-    ((Fake *)ctx)->fade_ins++;
+    Fake *f = ctx;
+    f->fade_ins++;
+    /* when it happened, which is the whole of the flash: a fade_in before the first flip paints the palette over
+     * whatever the previous screen is still showing, so that screen comes out pale for a moment */
+    if (f->flips == 0) f->faded_in_before_first_flip = 1;
+    if (f->flips > 0) f->flip_before_fade_in = 1;
+    f->events[f->event_count < 16 ? f->event_count++ : 15] = 'I';
 }
 static void f_deadline(void *ctx, int32_t t) { (void)ctx, (void)t; }
 static int32_t f_ticks(void *ctx)
@@ -207,7 +237,7 @@ static int32_t f_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
 {
     (void)pixels, (void)palette;
     current->bgnd_calls++;
-    return 1;
+    return current->bgnd_ok;
 }
 /* the title: drawn at the top left, over the clean background */
 static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
@@ -215,12 +245,17 @@ static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
     (void)text, (void)x, (void)y;
     ((Fake *)ctx)->title_draws++;
 }
-/* the clean background put on the screen with its palette */
+/* the clean background put on the screen with its palette. A screen whose background it was cannot compose has no
+ * shape to put up: the fake says so the way the glue does when own_shape is NULL, so the run shows what is really
+ * on the display. */
 static int32_t f_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
 {
     (void)pixels, (void)palette;
-    ((Fake *)ctx)->bgnd_shapes++;
-    return 1;
+    Fake *f = ctx;
+    f->bgnd_shapes++;
+    if (f->flips == 0) f->flip_before_bgnd = 1;   /* the clean background went down after a present: the old
+                                                    * picture was shown first */
+    return f->bgnd_ok;
 }
 /* Cancel / Escape: what puts the settings back */
 static void f_put_back(void *ctx, PortSettings *settings)
@@ -239,7 +274,7 @@ static GraphicsMenuOps OPS = {
     .pointer_move_to = f_move, .load_art = f_art, .load_inverse = f_art, .music_feed = f_void, .shape = f_shape,
     .palette_set = f_palette, .pointer_poll = f_void, .pointer_mark = f_void, .pointer_in_rect = f_in_rect,
     .select = f_select, .blit_own = f_blit, .picture_shape = f_picture_shape, .select_default = f_select_default,
-    .pointer_hide = f_void, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_buttons,
+    .pointer_hide = f_void, .unlock = f_void, .flip = f_flip, .pointer_show = f_void, .pointer_buttons = f_buttons,
     .text_styles = f_void, .fade_in = f_fade_rgb, .deadline_set = f_deadline, .sound = f_sound, .lock = f_void,
     .ticks = f_ticks, .pointer_activate_if_moved = f_void, .key = f_key, .pointer_click = f_void,
     .pointer_off = f_void, .music = f_void, .net_sync = f_void, .deadline_passed = f_deadline_passed,
@@ -280,6 +315,7 @@ static void rig_init(Rig *r)
     r->st.quit = &r->quit;
     r->f.idle_key = ESCAPE;  /* the walk's keys spent: Escape ends the screen, as the other walks end */
     r->f.right_button = r->f.deadline_passed = 0;
+    r->f.bgnd_ok = 1;        /* the CD screens compose into a clean background */
     r->f.quit = &r->quit;    /* the screen reads the flag the fake raises */
     r->st.plus = &r->plus;
     r->plus.port = &r->port;
@@ -765,6 +801,58 @@ static void test_the_three_exits_that_are_not_a_decision_save(void)
     CHECK_EQ_INT(quit.port.scale_integer, 1);
 }
 
+/* 13: port: the screen must never be a black rectangle with letters on it. Options fades the display out before it
+ * opens this screen, and only a palette of its own puts anything back on it -- so when the clean background cannot be
+ * composed (config_bgnd_load fails, so the glue has no shape and this screen never fades a palette in), the words
+ * would be drawn over a black screen. It then runs over the caller's own burnt-in Graphics screen, the picture 00423d28
+ * put up, with that screen's palette -- so there is something to read. */
+static void test_no_clean_background_runs_over_the_originals(void)
+{
+    Rig r;
+    rig_init(&r);
+    r.f.bgnd_ok = 0;   /* the CD screens could not be composed */
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    CHECK_EQ_INT(r.f.bgnd_calls, 1);        /* it did ask, once, before drawing anything */
+    CHECK_EQ_INT(r.f.bgnd_shapes, 0);       /* and there was no shape to put up */
+    CHECK_EQ_INT(r.f.fade_ins, 1);          /* so the original's own palette went on the display */
+    CHECK_EQ_INT(r.f.faded_in_before_first_flip, 0);   /* and only after the screen was drawn */
+    CHECK(r.f.palette_sets > 0);           /* the palette came off the original's own bank */
+    CHECK_EQ_INT(r.f.flip_before_bgnd, 0); /* with the original's picture behind, as the exe has it */
+}
+
+/* 14: port: no flash on the way in. The fade_in runs before the first flip, so for the frames in between the palette
+ * on the display is this screen's while the picture still on it is the previous screen's -- from Game Mode the art
+ * comes up pale. The page is drawn first and faded in after, so the first frame the player sees is already right. */
+static void test_no_flash_on_the_way_in(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    CHECK_EQ_INT(r.f.faded_in_before_first_flip, 0);
+    CHECK(r.f.flips > 0);
+    /* the page is drawn before the palette goes on: the first frame comes up with this screen's picture in place */
+    CHECK_EQ_INT(r.f.flip_before_fade_in, 0);
+}
+
+/* 15: port: and none on the way out either. 00423d28's close_screen fades the whole display out, and the screen
+ * leaves with nothing on it; this one left the previous screen showing in this screen's palette. */
+static void test_the_display_is_faded_out_on_the_way_out(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+
+    CHECK_EQ_INT(r.f.fade_outs, 1);
+    /* and after the last thing drawn, not before it: a fade_out earlier would blank the screen while it was up */
+    CHECK(r.f.event_count >= 2);
+    CHECK_EQ_INT(r.f.events[r.f.event_count - 1], 'O');
+}
+
 int main(void)
 {
     test_rows_in_order();
@@ -786,5 +874,8 @@ int main(void)
     test_step_writes_only_its_row();
     test_fullscreen_takes_desktop_format();
     test_the_three_exits_that_are_not_a_decision_save();
+    test_no_clean_background_runs_over_the_originals();
+    test_no_flash_on_the_way_in();
+    test_the_display_is_faded_out_on_the_way_out();
     return TEST_REPORT();
 }
