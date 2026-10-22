@@ -3,13 +3,13 @@
 #include <stdio.h>
 
 /* 00466c9c */
-void stat_speed_text(char out[STAT_TEXT], int german, int32_t speed)
+void stat_speed_text(char out[STAT_TEXT], int kmh, int32_t speed)
 {
     enum { SLOWEST = 0x9fff6 };
     const int32_t tenths = (int32_t)(((uint32_t)speed & 0xffff) * 10 >> 16);
     const int32_t whole = speed >> 16;
     if (speed <= SLOWEST) snprintf(out, STAT_TEXT, "N/A");
-    else if (german) snprintf(out, STAT_TEXT, "%d.%d%c", whole * 360 / 100 + 1, tenths, STAT_KMH);
+    else if (kmh) snprintf(out, STAT_TEXT, "%d.%d%c", whole * 360 / 100 + 1, tenths, STAT_KMH);
     else snprintf(out, STAT_TEXT, "%d.%dmph", whole * 224 / 100 + 1, tenths);
 }
 
@@ -22,22 +22,22 @@ void stat_speed_number_text(char out[STAT_TEXT], int32_t speed)
 }
 
 /* 0045b7e8 / 0045b878: the distance scaled to metres */
-static void distance_text(char out[STAT_TEXT], int german, int32_t distance, uint32_t scale)
+static void distance_text(char out[STAT_TEXT], int kmh, int32_t distance, uint32_t scale)
 {
     enum { SHORTEST = 100, NONE = 999, DIVISOR = 12000 };
     const int32_t metres = (int32_t)((uint32_t)distance * scale) / DIVISOR;
     if (distance < SHORTEST || distance == NONE) snprintf(out, STAT_TEXT, "N/A");
-    else if (german) snprintf(out, STAT_TEXT, "%d M", metres);
+    else if (kmh) snprintf(out, STAT_TEXT, "%d M", metres);
     else snprintf(out, STAT_TEXT, "%d Ft", metres * 33 / 10);
 }
 
 /* 0045b7e8 */
-void stat_distance_text(char out[STAT_TEXT], int german, int32_t distance) { distance_text(out, german, distance, 3000); }
+void stat_distance_text(char out[STAT_TEXT], int kmh, int32_t distance) { distance_text(out, kmh, distance, 3000); }
 
 /* 0045b878 */
-void stat_distance_long_text(char out[STAT_TEXT], int german, int32_t distance)
+void stat_distance_long_text(char out[STAT_TEXT], int kmh, int32_t distance)
 {
-    distance_text(out, german, distance, 3857);
+    distance_text(out, kmh, distance, 3857);
 }
 
 /* 00466d5c */
@@ -55,14 +55,14 @@ void stat_time_text(char out[STAT_TEXT], int32_t ticks)
 }
 
 /* 00466e5c */
-void stat_average_speed_text(char out[STAT_TEXT], int german, int32_t ticks, int32_t distance)
+void stat_average_speed_text(char out[STAT_TEXT], int kmh, int32_t ticks, int32_t distance)
 {
     enum { NO_TIME = 999999, NO_TIME_2 = 99999, TENTHS_MPH = 1344, TENTHS_KMH = 2160 };
     if (ticks <= 0 || distance <= 0 || ticks == NO_TIME_2 || ticks == NO_TIME) {
         snprintf(out, STAT_TEXT, "N/A");
         return;
     }
-    const int32_t tenths = (int32_t)((uint32_t)distance * (german ? TENTHS_KMH : TENTHS_MPH)) / ticks;
-    if (german) snprintf(out, STAT_TEXT, "%d.%d%c", tenths / 10, tenths % 10, STAT_KMH);
+    const int32_t tenths = (int32_t)((uint32_t)distance * (kmh ? TENTHS_KMH : TENTHS_MPH)) / ticks;
+    if (kmh) snprintf(out, STAT_TEXT, "%d.%d%c", tenths / 10, tenths % 10, STAT_KMH);
     else snprintf(out, STAT_TEXT, "%d.%dmph", tenths / 10, tenths % 10);
 }

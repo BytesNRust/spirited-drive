@@ -52,7 +52,9 @@ static uint8_t *read_named(const char *root, const char *path, size_t dir_length
 int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem)
 {
     char dir[COCKPIT_PATH];
-    const int n = snprintf(dir, sizeof dir, "SIMDATA/DASH/");
+    /* port: the exe's German cockpits are SIMDATA/GDASH/ (0042a188, 0041f9a0): its speedo reads km/h, and in the frame
+     * it differs from DASH's mph dial only in those numbers. So the dial follows the units, as the needle does. */
+    const int n = snprintf(dir, sizeof dir, "%s", resource_kmh() ? "SIMDATA/GDASH/" : "SIMDATA/DASH/");
     snprintf(h->root, sizeof h->root, "%s", data_root);
     CockpitFiles files;
     if (n < 0 || n >= (int)sizeof dir || cockpit_paths(&files, dir, stem, HIGH_RES) != 0) return 0;
@@ -100,6 +102,10 @@ int drive_hud_read(DriveHud *h, const char *data_root)
         fprintf(stderr, "drive_hud: no %s and the other parts, the mask from %s\n", files.parts[0][0], files.mmb);
         free_parts(h);
     }
+    /* port: the distance unit's word comes from the bank of the units' language when that is not the language's */
+    DashFiles units;
+    if (resource_kmh() != resource_german() && dash_load_paths(&units, dir, (int16_t)resource_kmh(), HIGH_RES) == 0)
+        h->units_bank = read_named(h->root, units.bank, (size_t)n);
     return 1;
 }
 
@@ -107,6 +113,8 @@ void drive_hud_setup(DriveHud *h, RacePalette *p)
 {
     if (h->bank == NULL) return;
     h->ready = dash_load_setup(&h->art, &h->replay, p, h->bank, h->mmb, HIGH_RES, 0) == 0;
+    h->art.units_bank = h->units_bank;
+    if (h->units_bank != NULL) dash_load_units(p, h->units_bank);   /* port: mapped with the language's bank */
     memcpy(h->art.parts, h->parts, sizeof h->parts);
     if (!h->ready) fprintf(stderr, "drive_hud: the mask bank lacks a shape the HUD needs\n");
 }
@@ -476,7 +484,7 @@ static void frame_gauges(void *ctx)
     NeedleLine *line = &h->needle_line;
     line->left = h->colours.line_left, line->top = h->colours.line_top;
     line->right = h->colours.line_right, line->bottom = h->colours.line_bottom;
-    const CockpitGaugeInputs in = { f->car->rpm, f->redline, f->car->local_velocity_z, f->car->model, HIGH_RES, (int16_t)resource_german(),
+    const CockpitGaugeInputs in = { f->car->rpm, f->redline, f->car->local_velocity_z, f->car->model, HIGH_RES, (int16_t)resource_kmh(),
                                     h->colours.fade };
     cockpit_gauges(f->target, line, &h->cockpit, &in);
 }
@@ -580,7 +588,7 @@ static void strip_draw(DriveHud *h, RaceState *race, const Car *car, uint8_t *pi
 {
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
     draw_keys(h, race, &t);
-    hud_draw_top_row(&t, &h->hud, &h->art, race, car, (int16_t)resource_german(), HIGH_RES, h->strip_colour);
+    hud_draw_top_row(&t, &h->hud, &h->art, race, car, (int16_t)resource_kmh(), HIGH_RES, h->strip_colour);
     if (pixels == NULL) return;
     const int w = width < DRIVE_HUD_W ? width : DRIVE_HUD_W;
     for (int y = 0; y < DRIVE_HUD_H && y < height; y++)
@@ -649,7 +657,7 @@ static void hud_top_row(void *ctx)
     HudCalls *c = ctx;
     DriveHud *h = c->s->h;
     const QuadTarget t = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
-    hud_draw_top_row(&t, &h->hud, &h->art, c->s->race, c->car, (int16_t)resource_german(), HIGH_RES, h->strip_colour);
+    hud_draw_top_row(&t, &h->hud, &h->art, c->s->race, c->car, (int16_t)resource_kmh(), HIGH_RES, h->strip_colour);
     uint8_t *pixels = c->s->screen.pixels;
     for (int y = 0; y < DRIVE_HUD_H && y < c->height; y++)
         memcpy(pixels + (size_t)y * (size_t)c->width, h->strip + (size_t)y * DRIVE_HUD_W, DRIVE_HUD_W);
@@ -754,13 +762,14 @@ void drive_hud_free(DriveHud *h)
 {
     platform_free_file(h->bank);
     platform_free_file(h->mmb);
+    platform_free_file(h->units_bank);
     platform_free_file(h->dash_bank);
     platform_free_file(h->dash_fmm);
     free_parts(h);
     resource_free(h->police.screen_bank);
     h->police.screen_bank = NULL, h->police.screen = NULL;
     drive_mirror_free(&h->mirror);
-    h->bank = h->mmb = h->dash_bank = h->dash_fmm = NULL;
+    h->bank = h->mmb = h->units_bank = h->dash_bank = h->dash_fmm = NULL;
     h->cockpit_ready = 0;
     h->ready = 0;
 }

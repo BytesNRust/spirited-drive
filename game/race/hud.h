@@ -128,11 +128,11 @@ void hud_draw_gap(const QuadTarget *t, HudState *hud, const DashArt *dash, int32
                   int32_t step, int32_t space);
 
 /* 0041f044 (a race without laps): the distance left, (loop_nodes - node)
- * x 0x30 / 1600 (miles) or / 1000 (km, German) + 1 tenths, 0 at or past
+ * x 0x30 / 1600 (miles) or / 1000 (km) + 1 tenths, 0 at or past
  * the end, as tens at x and ones at x + 2 step + space ... (see hud.c);
  * the 'mile' shape first while the tens were never shown. */
 void hud_draw_distance(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
-                       int16_t german, int32_t x, int32_t y, int32_t step, int32_t space);
+                       int16_t kmh, int32_t x, int32_t y, int32_t step, int32_t space);
 
 /* 0041f1cc (a circuit): the car's lap (at most race->laps_setting) in one
  * digit after a blank or two at x, and race->laps at laps_x, laps_y; the
@@ -202,16 +202,16 @@ void hud_draw_place(const QuadTarget *t, HudState *hud, const DashArt *dash, Rac
  * showing), the distance or the lap (mode 0), the splits (mode 2); then
  * 'lost' when hud->lost. See hud.c for the places. */
 void hud_draw_top_row(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, const Car *car,
-                      int16_t german, int32_t high_res, uint32_t strip_colour);
+                      int16_t kmh, int32_t high_res, uint32_t strip_colour);
 
 /* 0041ee8c: the followed car's speed in three red digits (dash->red) at
  * x + i * step, y, leading zeros blank (dash->red[HUD_BLANK]) but the last:
  * |forward speed| (+0x68 while race->viewed < race->humans, else the
- * computer speed +0x15c) x 2.24 (mph) or x 3.6 (km/h, German), rounded,
+ * computer speed +0x15c) x 2.24 (mph) or x 3.6 (km/h), rounded,
  * whole units. The original reads before the table for the most negative
  * speed; the port draws nothing then. */
 void hud_draw_speed(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
-                    int16_t german, int32_t x, int32_t y, int32_t step);
+                    int16_t kmh, int32_t x, int32_t y, int32_t step);
 
 /* 0041efb4: the gear in a yellow shape at x, y, drawn only when it differs
  * from hud->gear_shown: the car's gear (+0x3ed) while race->viewed <

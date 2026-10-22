@@ -45,7 +45,7 @@ static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Game modes"
 
 /* where each page's second group begins, as a row of that page: extras_menu.h's order already has each page's first
  * group first, so the second is where the page's last group's first row is */
-static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_ASSISTS - ROW_MIRROR, ROW_START - ROW_FIRST_P2 };
+static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_ASSISTS - ROW_MIRROR, ROW_UNITS - ROW_FIRST_P2 };
 
 /* the first switch of each page, in extras_menu.h's flat list */
 static int first_of(int page) { return page == 0 ? ROW_MIRROR : ROW_FIRST_P2; }
@@ -55,6 +55,12 @@ static int done_of(int page) { return rows_of(page); }
 static int cancel_of(int page) { return rows_of(page) + 1; }
 /* Unlock Level is the one switch on page 2 with three values rather than two */
 static int unlock_row(void) { return ROW_UNLOCK - ROW_FIRST_P2; }
+/* Speed units is the other, with its own values: mph and km/h, its words the language's until it is chosen */
+static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
+static int shows_kmh(const PortExtras *e, int language_kmh)
+{
+    return e->units == UNITS_KMH || (e->units == UNITS_LANGUAGE && language_kmh);
+}
 
 /* port: the switches' words, in extras_menu.h's order, which is the owner's order: page 1 is the first ROWS_P1 of
  * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
@@ -62,7 +68,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
     "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Unlock Level",
-    "Time with variants", "Start Screen", "Intro video"
+    "Time with variants", "Speed units", "Start Screen", "Intro video"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
@@ -73,11 +79,12 @@ static int *flag_of(PortExtras *e, int page, int row)
                                   &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras };
         return p1[row];
     }
-    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, NULL, &e->variant_time, NULL, &e->no_movies };
+    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, NULL, &e->variant_time, NULL, NULL,
+                               &e->no_movies };
     return p2[row];
 }
 
-static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16])
+static void value(PortExtras *e, int16_t unlock, int page, int row, int language_kmh, char out[16])
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     const int *const flag = flag_of(e, page, row);
@@ -86,6 +93,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
     if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
     else if (page == 1 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
+    else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -165,6 +173,8 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
         }
     } else if (p->page == 1 && p->selected == unlock_row()) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
+    } else if (p->page == 1 && p->selected == units_row()) {
+        e->units = shows_kmh(e, o->language_kmh) ? UNITS_MPH : UNITS_KMH;
     } else {
         e->start = (StartScreen)((e->start + step + 3) % 3);
     }
@@ -278,7 +288,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     for (int row = 0; row < rows_of(p->page); row++) {
         char v[16];
         const int lit = p->selected == row;
-        value(e, unlock, p->page, row, v);
+        value(e, unlock, p->page, row, o->language_kmh, v);
         const int y = line_y(p->page, line_of(p->page, row));
         text(o, lit ? STYLE_YELLOW : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
         text_right(o, lit, v, VALUE_RIGHT, y);

@@ -23,7 +23,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                                Replay cameras in race mode
  *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track,
  *                                Unlock Level, Time with variants
- *            Startup            Start Screen, Intro video
+ *            Startup            Speed units, Start Screen, Intro video
  *
  * The rows below are that list in order, so a group is a range of them. The list is the switches only: Done and
  * Cancel are the clean background's own words, and the title and the page indicator are the screen's, so none of
@@ -36,7 +36,7 @@ enum {
     ROW_MIRROR = 0, ROW_RALLY, ROW_EXPLODE, ROW_NITRO, ROW_TURBO,
     ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY,
     ROW_FIRST_P2, ROW_RIVAL, ROW_VEGAS, ROW_UNLOCK, ROW_VARIANT_TIME,
-    ROW_START, ROW_MOVIES,
+    ROW_UNITS, ROW_START, ROW_MOVIES,
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */
@@ -102,6 +102,9 @@ typedef struct ExtrasMenuOps {
     /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),
      * where the exe's screen switches one off as the other is turned on. 0 is the exe. */
     int port_combine_variants;
+    /* port: 1 when the language's units are km/h (German). Speed units reads km/h then until it is chosen, as the
+     * game shows them; the choice is saved as the player's, whatever the language. */
+    int language_kmh;
     void *ctx;
 } ExtrasMenuOps;
 

@@ -269,7 +269,7 @@ void cockpit_gate(const CockpitSelectOps *ops, HudState *hud, const Cockpit *c, 
 typedef struct {
     int32_t rpm, redline, speed;
     int32_t model;
-    int32_t high, german;
+    int32_t high, kmh;     /* kmh: the speedo in km/h (resource_kmh), its needle step 20 rather than 10 */
     const uint8_t *fade;
 } CockpitGaugeInputs;
 

@@ -445,6 +445,7 @@ static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
 {
     (void)ctx;
     port_extras_save(e);
+    resource_set_units(e->units);   /* the speeds and distances on the screens and in the race, as saved */
     config_dat_set_unlock_level(config_current(), unlock);
     mode_extras_unlock = unlock;
 }
@@ -593,6 +594,7 @@ int32_t glue_extras_screen(int16_t unlock)
         own_header_text,    /* plus_header */
         extras_save_glue,   /* extras_save */
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
+        (int)resource_german(),  /* language_kmh: the Speed units row reads the language's units until it is chosen */
         NULL,               /* ctx */
     };
     mode_extras_screen = ea_screen();

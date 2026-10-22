@@ -77,6 +77,8 @@ typedef struct {
     uint8_t *speed[DASH_SPEEDS];            /* 00513d2c 'fuld' '1/2d' '1/4d' */
     uint8_t *speed_lit[DASH_SPEEDS];        /* 00513d4c 'full' '1/2l' '1/4l' */
     uint8_t *grey[DASH_DIGITS];             /* 00513d6c 'gry0'.. 'gryb' */
+    uint8_t *units_bank;                    /* port: the mask bank of the units' language, NULL when it is the bank's own:
+                                             * the distance unit's word ('mile', 'Km') comes from it */
 } DashArt;
 
 /* 004502b0: finds the dash's shapes in art->bank, the tach's middle and

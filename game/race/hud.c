@@ -83,11 +83,11 @@ void hud_draw_seconds(const QuadTarget *t, uint8_t *const *yellow, int32_t ticks
 }
 
 void hud_draw_speed(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
-                    int16_t german, int32_t x, int32_t y, int32_t step)
+                    int16_t kmh, int32_t x, int32_t y, int32_t step)
 {
     int32_t speed = race->viewed < race->humans ? car->local_velocity_z : car->ai_speed;
     if (speed < 1) speed = (int32_t)(0u - (uint32_t)speed);
-    const int32_t units = fx_mul_round(speed, german != 0 ? KMH : MPH) >> 16;
+    const int32_t units = fx_mul_round(speed, kmh != 0 ? KMH : MPH) >> 16;
     if (units < 0) return;
     int32_t digit[HUD_SPEED_DIGITS];
     int32_t value = units;
@@ -187,6 +187,15 @@ static void draw_named(const QuadTarget *t, const DashArt *dash, const char name
     if (shape != NULL) blit_shape_placed(t, shape);
 }
 
+/* port: the distance unit's word, from the bank of the units' language when that is not the language's (km/h with
+ * English words: the German bank's 'Km'; mph with German words: the English bank's 'mile') */
+static void draw_unit(const QuadTarget *t, const DashArt *dash)
+{
+    uint8_t *const bank = dash->units_bank != NULL ? dash->units_bank : dash->bank;
+    const uint8_t *shape = shape_bank_find(bank, (const uint8_t *)"mile");
+    if (shape != NULL) blit_shape_placed(t, shape);
+}
+
 static void draw_yellow(const QuadTarget *t, const DashArt *dash, int32_t index, int32_t x, int32_t y)
 {
     if (index >= 0 && index < DASH_YELLOW)  /* port guard: the original reads the next globals */
@@ -194,19 +203,19 @@ static void draw_yellow(const QuadTarget *t, const DashArt *dash, int32_t index,
 }
 
 void hud_draw_distance(const QuadTarget *t, HudState *hud, const DashArt *dash, const Car *car, const RaceState *race,
-                       int16_t german, int32_t x, int32_t y, int32_t step, int32_t space)
+                       int16_t kmh, int32_t x, int32_t y, int32_t step, int32_t space)
 {
-    if (hud->distance_tens_shown == HUD_GAP_UNSET) draw_named(t, dash, "mile");
-    const int32_t nodes = german != 0 ? KM_NODES : MILE_NODES;
+    if (hud->distance_tens_shown == HUD_GAP_UNSET) draw_unit(t, dash);
+    const int32_t nodes = kmh != 0 ? KM_NODES : MILE_NODES;
     const int32_t left = car->node < race->loop_nodes
         ? (int32_t)((uint32_t)(race->loop_nodes - car->node) * DISTANCE_SCALE) / nodes + 1 : 0;
     const int32_t tens = left / 10, ones = left % 10;
     const int32_t next = step + x;
     if (tens == hud->distance_tens_shown) {
-        if (german != 0) x = next;
+        if (kmh != 0) x = next;
     } else {
         hud->distance_tens_shown = tens;
-        if (german == 0) {
+        if (kmh == 0) {
             draw_yellow(t, dash, tens, x, y);
         } else if (tens < 10) {
             draw_yellow(t, dash, YELLOW_BLANK, x, y);
@@ -379,8 +388,10 @@ void hud_draw_labels(const QuadTarget *t, HudState *hud, const DashArt *dash, co
         blit_shape_placed(t, label_sign(dash, gap));
     } else if (hud->mode == 0) {
         draw_named(t, dash, "segt");
-        if (gap_ticks < 1) {
-            draw_named(t, dash, race->circuit != 0 ? "lap#" : "mile");
+        if (gap_ticks < 1 && race->circuit != 0) {
+            draw_named(t, dash, "lap#");
+        } else if (gap_ticks < 1) {
+            draw_unit(t, dash);
         } else {
             draw_named(t, dash, "splt");
             blit_shape_placed(t, label_sign(dash, gap));
@@ -536,7 +547,7 @@ static const TopRowPlaces TOP_ROW_HIGH = {
 };
 
 void hud_draw_top_row(const QuadTarget *t, HudState *hud, const DashArt *dash, RaceState *race, const Car *car,
-                      int16_t german, int32_t high_res, uint32_t strip_colour)
+                      int16_t kmh, int32_t high_res, uint32_t strip_colour)
 {
     if (hud->waiting != 0) {
         blit_shape_placed(t, dash->wait);
@@ -552,7 +563,7 @@ void hud_draw_top_row(const QuadTarget *t, HudState *hud, const DashArt *dash, R
     } else {
         const TopRowPlaces *p = high_res != 0 ? &TOP_ROW_HIGH : &TOP_ROW_LOW;
         if (hud->mode < 2) {
-            hud_draw_speed(t, hud, dash, car, race, german, p->speed[0], p->speed[1], p->speed[2]);
+            hud_draw_speed(t, hud, dash, car, race, kmh, p->speed[0], p->speed[1], p->speed[2]);
             hud_draw_gear(t, hud, dash, car, race, p->gear[0], p->gear[1]);
             hud_draw_place(t, hud, dash, race, gap, p->place[0], p->place[1], p->place[2]);
         }
@@ -561,7 +572,7 @@ void hud_draw_top_row(const QuadTarget *t, HudState *hud, const DashArt *dash, R
                                p->time[1], p->time[2], p->time[3]);
             if (hud->mode == 0 && gap_ticks < 1) {
                 if (race->circuit == 0)
-                    hud_draw_distance(t, hud, dash, car, race, german, p->distance[0], p->distance[1], p->distance[2],
+                    hud_draw_distance(t, hud, dash, car, race, kmh, p->distance[0], p->distance[1], p->distance[2],
                                       p->distance[3]);
                 else
                     hud_draw_lap(t, hud, dash, car, race, p->lap[0], p->lap[1], p->lap[2], p->lap[3], p->lap[4]);

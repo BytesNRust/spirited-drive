@@ -57,6 +57,7 @@ static void check_same(PortExtras a, PortExtras b)
     CHECK_EQ_INT(a.bumper_radar, b.bumper_radar);
     CHECK_EQ_INT(a.variant_time, b.variant_time);
     CHECK_EQ_INT(a.start, b.start);
+    CHECK_EQ_INT(a.units, b.units);
 }
 
 static void test_defaults(void)
@@ -64,6 +65,34 @@ static void test_defaults(void)
     const PortExtras d = port_extras_defaults();
     check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE });
     CHECK_EQ_INT(d.start, START_GAME_MODE);
+}
+
+static void test_units_default_to_the_language(void)
+{
+    CHECK_EQ_INT(port_extras_defaults().units, UNITS_LANGUAGE);
+    CHECK_EQ_INT(port_extras_parse("", 0).units, UNITS_LANGUAGE);
+}
+
+static void test_units_parse(void)
+{
+    const char *kmh = "units=kmh\n", *mph = "units=mph\n", *lang = "units=language\n", *bad = "units=knots\n";
+    CHECK_EQ_INT(port_extras_parse(kmh, strlen(kmh)).units, UNITS_KMH);
+    CHECK_EQ_INT(port_extras_parse(mph, strlen(mph)).units, UNITS_MPH);
+    CHECK_EQ_INT(port_extras_parse(lang, strlen(lang)).units, UNITS_LANGUAGE);
+    CHECK_EQ_INT(port_extras_parse(bad, strlen(bad)).units, UNITS_LANGUAGE);   /* an unknown name keeps the default */
+}
+
+static void test_units_round_trip(void)
+{
+    const SpeedUnits all[] = { UNITS_LANGUAGE, UNITS_MPH, UNITS_KMH };
+    for (int i = 0; i < 3; i++) {
+        PortExtras e = port_extras_defaults();
+        e.units = all[i];
+        char text[512];
+        const size_t n = port_extras_format(&e, text, sizeof text);
+        CHECK(n > 0);
+        CHECK_EQ_INT(port_extras_parse(text, n).units, all[i]);
+    }
 }
 
 static void test_round_trip(void)
@@ -127,6 +156,9 @@ static void test_load_save(void)
 int main(void)
 {
     test_defaults();
+    test_units_default_to_the_language();
+    test_units_parse();
+    test_units_round_trip();
     test_round_trip();
     test_parse_keys();
     test_bad_input_keeps_defaults();
