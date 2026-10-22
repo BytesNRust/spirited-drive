@@ -29,12 +29,13 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 }
 void platform_free_file(uint8_t *data) { (void)data; }
 
-enum { ART_LOG = 64, BLIT_LOG = 16 };
+enum { ART_LOG = 64, BLIT_LOG = 16, PANEL_LOG = 8 };
 typedef struct {
     const char *tags[ART_LOG];
     int count;
     int panel_calls;
     int last_panel_framed;
+    int32_t panel_x0[PANEL_LOG], panel_y0[PANEL_LOG], panel_x1[PANEL_LOG], panel_y1[PANEL_LOG];
     int blit_calls;
     /* the first byte of every blit_own shape; records value at f_blit time so the test pin survives callers that
      * pass a stack-local FSH. */
@@ -97,8 +98,12 @@ static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_
 static int32_t f_text_width(void *ctx, const char *text) { (void)ctx, (void)text; return 0; }
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
-    (void)ctx, (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1;
+    (void)ctx, (void)rgb;
     Fake *f = ctx;
+    if (f->panel_calls < PANEL_LOG) {
+        const int i = f->panel_calls;
+        f->panel_x0[i] = x0; f->panel_y0[i] = y0; f->panel_x1[i] = x1; f->panel_y1[i] = y1;
+    }
     f->panel_calls++;
     f->last_panel_framed = framed;
 }
@@ -160,6 +165,33 @@ static void test_ultra_box_avoids_vanl_vand(void)
     CHECK(none(&f, "vand"));
 }
 
+/* Graphics polish 1b/3: the Ultra cell must be opaque, not a slice of the burnt-in `bgnd`. bgnd is captured screen
+ * art and (408,261..503,288) already contains Far's glyphs there. Sampling that slice and blitting it under Ultra
+ * anti-aliases to "ULFTRA" — the F peeks out between the L and the T. The fix paints an opaque plus_panel over the
+ * cell area first so any prior Farl/Fard glyphs are written over before Ultra text goes on. */
+static void test_ultra_box_paints_opaque_panel(void)
+{
+    Fake f; memset(&f, 0, sizeof f);
+    const GraphicsMenuOps ops = {
+        .pointer_move_to = f_move, .load_art = f_art, .load_inverse = f_art, .music_feed = f_void, .shape = f_shape,
+        .palette_set = f_palette, .pointer_poll = f_void, .pointer_mark = f_void, .pointer_in_rect = f_in_rect,
+        .select = f_select, .blit_own = f_blit, .picture_shape = f_picture, .select_default = f_void,
+        .pointer_hide = f_void, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_zero,
+        .text_styles = f_void, .fade_in = f_fade_in, .deadline_set = f_void_v, .sound = f_void_v, .lock = f_void,
+        .ticks = f_zero, .pointer_activate_if_moved = f_void, .key = f_zero, .pointer_click = f_void,
+        .pointer_off = f_void, .music = f_void, .net_sync = f_void, .deadline_passed = f_zero,
+        .fade_out = f_fade_out, .free_inverse = f_void, .free = f_free,
+        .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_save = f_save_p,
+        .ctx = &f };
+    uint8_t rgb[GRAPHICS_PALETTE] = { 0 };
+    graphics_plus_ultra(NULL, &ops, rgb, /*lit*/ 1, /*bank*/ 1);
+    /* at least one panel call, covering the 96x28 cell at (408,261) — the same place farl/fard sit. */
+    int covered = 0;
+    for (int i = 0; i < f.panel_calls; i++)
+        if (f.panel_x0[i] <= 408 && f.panel_y0[i] <= 261 && f.panel_x1[i] >= 503 && f.panel_y1[i] >= 288) covered = 1;
+    CHECK(covered);
+}
+
 /* EXTRAS polish 2/3: the Done/Cancel row's lit/dark art (Donl/Dond/Canl/Cand) is blitted from OPTIONS.QFS instead of
  * a flat panel + text. Memcmp shape lookup, so the names are CAPITALISED. We pin one frame of extras_menu_run, the rig
  * drawing once and Esc leaving. */
@@ -215,6 +247,7 @@ static void test_extras_blit_own_forwards(void)
 int main(void)
 {
     test_ultra_box_avoids_vanl_vand();
+    test_ultra_box_paints_opaque_panel();
     test_extras_done_row_blits_capitalised();
     test_extras_blit_own_forwards();
     return TEST_REPORT();
