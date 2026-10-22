@@ -174,8 +174,7 @@ int title_art_compose(TitleArtId id, const TitleArtScreen screens[TITLE_ART_SOUR
     return 1;
 }
 
-/* a screen's "bgnd" (pointing into `data`) and its palette into `palette` */
-static int screen_of(uint8_t *data, size_t size, uint8_t palette[768], TitleArtScreen *s)
+int title_art_screen(uint8_t *data, size_t size, uint8_t palette[768], TitleArtScreen *s)
 {
     static const char BGND[4] = { 'b', 'g', 'n', 'd' }, PAL[4] = { '!', 'p', 'a', 'l' };
     Fsh f;
@@ -202,7 +201,7 @@ int title_art_load(ConfigBgndRead read, TitleArtId id, uint8_t *mask, int *w)
         if (s < 0 || data[s] != NULL) continue;
         size_t size = 0;
         data[s] = read(SOURCES[s].name, &size);
-        ok = screen_of(data[s], size, palettes[s], &screens[s]);
+        ok = title_art_screen(data[s], size, palettes[s], &screens[s]);
     }
     if (ok) ok = title_art_compose(id, screens, mask, w);
     for (int s = 0; s < TITLE_ART_SOURCES; s++) free(data[s]);

@@ -55,6 +55,10 @@ typedef struct {
 void title_art_mask_from_screen(const uint8_t *pixels, int pw, const uint8_t palette[768], const uint8_t face[3],
                                 int x0, int y0, int x1, int y1, uint8_t *mask);
 
+/* a screen's "bgnd" (pointing into `data`, `size` bytes of a CD file) and its palette into `palette` and `s`. 1 on
+ * success. */
+int title_art_screen(uint8_t *data, size_t size, uint8_t palette[768], TitleArtScreen *s);
+
 /* Title `id` set from its letters on the screens (only its own sources are read; the others may be NULL) into
  * `mask` (room for TITLE_ART_MAX_W x TITLE_ART_H), w x TITLE_ART_H with its width in *w; its (0, 0) stands at
  * TITLE_ART_LEFT, TITLE_ART_ROW0 on the screen. 1 on success, 0 when a source it needs is missing. */
