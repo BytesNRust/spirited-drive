@@ -16,6 +16,7 @@
 
 #include "game/platform/platform.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 /* port_settings.c reaches the platform's user files; the test has none */
@@ -31,16 +32,20 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIG
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 
 typedef struct Fake {
-    const int *keys;
+    int *keys;
     int key_count, key_next;
     int saves, ticks_each;
     int bgnd_calls;          /* how many times the clean background was composed (must be 1: it is cached) */
     int title_draws;         /* the title drawn at the top left */
-    char texts[96][28];     /* every plus_text call, in order */
+    char texts[96][28];      /* every plus_text call, in order */
     int text_count;
     int32_t text_x[96], text_y[96];
     int pointer_row;         /* the row the pointer is in (-1: nowhere) */
+    int pointer_x, pointer_y; /* where the screen last put the pointer */
     int panel_calls;
+    int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
+    int put_backs;           /* times the settings were put back (Cancel / Escape only) */
+    PortSettings kept;       /* the settings as they were on entry */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -49,20 +54,27 @@ static int32_t f_key(void *ctx)
     return f->key_next < f->key_count ? f->keys[f->key_next++] : ESCAPE;
 }
 static void f_void(void *ctx) { (void)ctx; }
-static int32_t f_zero(void *ctx) { (void)ctx; return 0; }
-static void f_move(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
+/* the pointer: the screen moves it, and the row it lands in is what pointer_in_rect then works out */
+static void f_move(void *ctx, int32_t x, int32_t y)
+{
+    Fake *f = ctx;
+    f->pointer_x = x;
+    f->pointer_y = y;
+}
 static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag) { (void)ctx, (void)bank, (void)tag; return NULL; }
 static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
     (void)ctx, (void)rgb, (void)first, (void)count, (void)src, (void)mode;
 }
+/* The pointer's band: is the pointer where the screen last put it inside this one? That is the whole question, and
+ * the pointer's position is all it takes to answer it. */
 static int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
-    (void)ctx, (void)x0, (void)x1, (void)y0, (void)y1;
-    return 0;
+    const Fake *f = ctx;
+    return x0 <= f->pointer_x && f->pointer_x < x1 && y0 <= f->pointer_y && f->pointer_y < y1;
 }
-static void f_select(void *ctx, int32_t p) { (void)ctx, (void)p; }
+static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
 static void f_blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
 static int32_t f_picture_shape(void *ctx, int32_t p) { (void)ctx, (void)p; return 0; }
 static void f_select_default(void *ctx) { (void)ctx; }
@@ -75,12 +87,31 @@ static int32_t f_ticks(void *ctx)
     return each != 0 ? each : 100;
 }
 static int32_t f_buttons(void *ctx) { (void)ctx; return 0; }
+static void f_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
+static void f_free(void *ctx, int32_t bank) { (void)ctx, (void)bank; }
 static int32_t f_deadline_passed(void *ctx) { (void)ctx; return 0; }
+
+/* The row each of the screen's own words belongs to, so the fake can read the selection off the draw: the selected row
+ * is drawn lit, and the screen lights exactly one. */
+static int row_of(const char *text)
+{
+    static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
+                                                             "View Distance", "Fog", "Field of view", "Screen format",
+                                                             "Refresh rate", "Full screen" };
+    for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++)
+        if (strcmp(text, LABEL[row]) == 0) return row;
+    if (strcmp(text, "DONE") == 0) return GRAPHICS_OWN_DONE;
+    if (strcmp(text, "CANCEL") == 0) return GRAPHICS_OWN_CANCEL;
+    return -1;
+}
 
 static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     Fake *f = ctx;
-    (void)style;
+    if (style == 1) {
+        const int row = row_of(text);
+        if (row >= 0) f->pointer_row = row;
+    }
     if (f->text_count < 96) {
         snprintf(f->texts[f->text_count], sizeof f->texts[0], "%s", text);
         f->text_x[f->text_count] = x;
@@ -98,23 +129,52 @@ static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32
     (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
     ((Fake *)ctx)->panel_calls++;
 }
-/* the clean background: counts each call so the test can pin that it is composed once, not per redraw */
-static void f_bgnd(void *ctx) { ((Fake *)ctx)->bgnd_calls++; }
-/* the title: the first thing drawn at the top left */
+/* The background is composed into the screen's own buffers, so this op takes no ctx; the fake it is counting on is
+ * the one the current rig points at. Counting pins that it is asked for once, not on every redraw. */
+static Fake *current;
+static int32_t f_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
+{
+    (void)pixels, (void)palette;
+    current->bgnd_calls++;
+    return 1;
+}
+/* the title: drawn at the top left, over the clean background */
 static void f_title(void *ctx) { ((Fake *)ctx)->title_draws++; }
+/* the clean background put on the screen with its palette */
+static int32_t f_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
+{
+    (void)pixels, (void)palette;
+    ((Fake *)ctx)->bgnd_shapes++;
+    return 1;
+}
+/* Cancel / Escape: what puts the settings back */
+static void f_put_back(void *ctx, PortSettings *settings)
+{
+    ((Fake *)ctx)->put_backs++;
+    *settings = ((Fake *)ctx)->kept;
+}
 static void f_save(void *ctx, const PortSettings *settings)
 {
     (void)settings;
     ((Fake *)ctx)->saves++;
 }
 
-static const GraphicsMenuOps OPS = {
-    f_move, f_art, f_art, f_void, f_shape, f_palette, f_void, f_void, f_in_rect, f_select, f_blit, f_picture_shape,
-    f_select_default, f_void, f_void, f_void, f_void, f_buttons, f_void, f_fade_rgb, f_deadline, f_zero, f_void, f_key,
-    f_void, f_void, f_void, f_void, f_zero, f_fade, f_void, f_void, NULL, NULL,
-    /* port */ f_text, f_text_width, f_panel, f_save,
-    /* port: the clean background, composed once and cached */
-    f_bgnd, f_title, NULL };
+/* named slots, so the four port slots at the end cannot be confused with the original's thirty-six */
+static GraphicsMenuOps OPS = {
+    .pointer_move_to = f_move, .load_art = f_art, .load_inverse = f_art, .music_feed = f_void, .shape = f_shape,
+    .palette_set = f_palette, .pointer_poll = f_void, .pointer_mark = f_void, .pointer_in_rect = f_in_rect,
+    .select = f_select, .blit_own = f_blit, .picture_shape = f_picture_shape, .select_default = f_select_default,
+    .pointer_hide = f_void, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_buttons,
+    .text_styles = f_void, .fade_in = f_fade_rgb, .deadline_set = f_deadline, .sound = f_sound, .lock = f_void,
+    .ticks = f_ticks, .pointer_activate_if_moved = f_void, .key = f_key, .pointer_click = f_void,
+    .pointer_off = f_void, .music = f_void, .net_sync = f_void, .deadline_passed = f_deadline_passed,
+    .fade_out = f_fade, .free_inverse = f_void, .free = f_free,
+    /* port: the rows' text, the values' width, the panel, and Done's save */
+    .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_save = f_save,
+    /* port: the clean background composed once (cached) and put on the screen, then the title, then Cancel's
+     * put-back */
+    .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape, .plus_title = f_title, .plus_put_back = f_put_back,
+};
 
 typedef struct Rig {
     Fake f;
@@ -127,14 +187,13 @@ typedef struct Rig {
     GraphicsPlus plus;
 } Rig;
 
-static void rig_init(Rig *r, const int *keys, int key_count)
+static void rig_init(Rig *r)
 {
     memset(r, 0, sizeof *r);
-    r->f.keys = keys;
-    r->f.key_count = key_count;
+    r->f.pointer_row = -1;
     r->port = port_settings_defaults();
+    r->f.kept = r->port;
     r->net_off = 1;   /* the Options art, not check/graphics.fsh */
-    r->plus = &r->st.plus->port ? &r->plus : &r->plus;
     r->st.config = r->config;
     r->st.showing = &r->showing;
     r->st.net_off = &r->net_off;
@@ -145,7 +204,9 @@ static void rig_init(Rig *r, const int *keys, int key_count)
     r->st.quit = &r->quit;
     r->st.plus = &r->plus;
     r->plus.port = &r->port;
-    r->plus.fullscreen_format = SCREEN_16_9;
+    r->plus.fullscreen_format = SCREEN_21_9;
+    OPS.ctx = &r->f;
+    current = &r->f;   /* the ops are one table shared by the tests; each rig points it at its own fake */
 }
 
 /* whether `text` was drawn at all */
@@ -155,122 +216,235 @@ static int drew(const Fake *f, const char *text)
         if (strcmp(f->texts[i], text) == 0) return 1;
     return 0;
 }
-static int count(const Fake *f, const char *text)
+
+/* The key script the screen reads: one key per iteration, and it arms on the first iteration's own ticks, so the
+ * whole walk belongs in a single session -- re-entering the screen starts again on the first row. */
+enum { SCRIPT_MAX = 64 };
+static int script[SCRIPT_MAX];
+
+/* Down to `row` from the first, then `key` on it `times` times (each step needs an idle iteration between it and the
+ * next, or the menu reads both in one go), then how the screen ends. `end` is DONE, which keeps the settings, or
+ * ESCAPE, which puts them back as they were on entry -- so a test that reads a setting afterwards has to leave by
+ * Done. Returns how many keys that is. */
+static int script_walk(int row, int key, int times, int end)
 {
     int n = 0;
-    for (int i = 0; i < f->text_count && i < 96; i++)
-        if (strcmp(f->texts[i], text) == 0) n++;
+    for (int i = 0; i < row; i++) script[n++] = DOWN;
+    for (int i = 0; i < times; i++) {
+        script[n++] = key;
+        if (i + 1 < times) script[n++] = 0;
+    }
+    if (end == GRAPHICS_OWN_DONE) {
+        for (int i = row; i < GRAPHICS_OWN_DONE; i++) script[n++] = DOWN;
+        script[n++] = 0;      /* the walk's last key left it unarmed; the choice needs an idle iteration first */
+        script[n++] = SPACE;
+        script[n++] = 0;
+    }
+    script[n++] = ESCAPE;
     return n;
+}
+
+/* Runs the screen once with the script, and returns what it returned (1 for Done, 0 for Cancel). */
+static int32_t run_script(Rig *r, int count)
+{
+    r->f.keys = script;
+    r->f.key_count = count;
+    r->f.key_next = 0;
+    return graphics_own(&r->st, &OPS);
 }
 
 /* 1: the nine labels, in the owner's order, and nothing called "Modern 3D" */
 static void test_rows_in_order(void)
 {
     Rig r;
-    static const int keys[] = { ESCAPE };
-    rig_init(&r, keys, 1);
-    graphics_own(&r.st, &OPS);
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
 
     static const char *const want[] = { "Perspective Correction", "Texture Filter", "Scaling", "View Distance",
                                         "Fog", "Field of view", "Screen format", "Refresh rate", "Full screen" };
-    ASSERT_EQ(GRAPHICS_OWN_SETTINGS, 9);
+    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 9);
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) {
-        ASSERT_TRUE(drew(&r.f, want[row]));
+        CHECK(drew(&r.f, want[row]));
         /* each label drawn at the same left edge: the labels are a column */
         for (int i = 0; i < r.f.text_count && i < 96; i++)
-            if (strcmp(r.f.texts[i], want[row]) == 0) ASSERT_EQ(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
+            if (strcmp(r.f.texts[i], want[row]) == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     }
-    ASSERT_FALSE(drew(&r.f, "Modern 3D"));
+    CHECK(!drew(&r.f, "Modern 3D"));
 }
 
 /* 2: the title at the top left, drawn once per draw */
 static void test_title_top_left(void)
 {
     Rig r;
-    static const int keys[] = { ESCAPE };
-    rig_init(&r, keys, 1);
-    graphics_own(&r.st, &OPS);
-    ASSERT_TRUE(r.f.title_draws > 0);
-    ASSERT_EQ(r.f.bgnd_calls, 1);   /* composed once and cached, not per redraw */
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    CHECK(r.f.title_draws > 0);
+    CHECK_EQ_INT(r.f.bgnd_calls, 1);   /* composed once and cached, not per redraw */
 }
 
-/* 3: View Distance offers four values, "Ultra" among them */
+/* 3: View Distance offers four values, "Ultra" among them: the fourth is the port's, and it turns view_ultra on */
 static void test_view_distance_has_ultra(void)
 {
-    Rig r;
-    static const int keys[] = { ESCAPE };
-    rig_init(&r, keys, 1);
-    graphics_own(&r.st, &OPS);
-    ASSERT_TRUE(drew(&r.f, "Far"));
-    ASSERT_TRUE(drew(&r.f, "Ultra"));
-    ASSERT_EQ(r.port.view_ultra, 0);
+    PortSettings s = port_settings_defaults();
+    int16_t view = 0;
+    char out[16];
+    graphics_own_view_value(view, s.view_ultra, out);
+    CHECK(strcmp(out, "Far") == 0);
+    /* three steps from far: medium, close, ultra */
+    for (int i = 0; i < 3; i++) graphics_own_view_step(&view, &s.view_ultra);
+    CHECK_EQ_INT(s.view_ultra, 1);
+    graphics_own_view_value(view, s.view_ultra, out);
+    CHECK(strcmp(out, "Ultra") == 0);
+    /* and on to far again, which turns it off */
+    graphics_own_view_step(&view, &s.view_ultra);
+    CHECK_EQ_INT(s.view_ultra, 0);
+    graphics_own_view_value(view, s.view_ultra, out);
+    CHECK(strcmp(out, "Far") == 0);
 }
 
-/* 4: stepping the view distance cycles far, medium, close, ultra and back */
+/* 4: the View Distance row is the fourth, and stepping it on the screen walks view_ultra */
 static void test_view_distance_cycles(void)
 {
     Rig r;
-    static const int keys[] = { DOWN, DOWN, DOWN, DOWN, ENTER, ESCAPE };
-    rig_init(&r, keys, 6);
-    graphics_own(&r.st, &OPS);
-    ASSERT_EQ(r.port.view_ultra, 0);
+    rig_init(&r);
+    /* down to row 3 and three steps to the right */
+    run_script(&r, script_walk(GRAPHICS_OWN_VIEW, RIGHT, 3, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(r.port.view_ultra, 1);
+    CHECK_EQ_INT(r.f.saves, 1);   /* Done kept it, so the four steps are what set it */
 }
 
-/* 5: Scaling writes scale_integer, Field of view writes fov_adjust, Screen format writes format */
+/* 5: the rows write the settings the owner named, each one from its own row */
 static void test_values_write_settings(void)
 {
-    Rig r;
-    static const int keys[] = { ESCAPE };
-    rig_init(&r, keys, 1);
-    graphics_own(&r.st, &OPS);
-    ASSERT_TRUE(drew(&r.f, "Fill"));   /* scale_integer 0 */
-    ASSERT_TRUE(drew(&r.f, "4:3"));     /* format 0 */
+    /* Scaling (row 2) toggles scale_integer */
+    Rig scaling;
+    rig_init(&scaling);
+    run_script(&scaling, script_walk(GRAPHICS_OWN_SCALING, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(scaling.port.scale_integer, 1);
+
+    /* Full screen (row 8) takes the desktop's format */
+    Rig full;
+    rig_init(&full);
+    run_script(&full, script_walk(GRAPHICS_OWN_FULLSCREEN, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(full.port.fullscreen, 1);
+    CHECK_EQ_INT(full.port.format, SCREEN_21_9);
+
+    /* Refresh rate (row 7) steps 60 -> 120 */
+    Rig refresh;
+    rig_init(&refresh);
+    run_script(&refresh, script_walk(GRAPHICS_OWN_REFRESH, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(refresh.port.refresh_hz, 120);
+
+    /* Field of view (row 5) steps from the default 0 up to +5 */
+    Rig fov;
+    rig_init(&fov);
+    run_script(&fov, script_walk(GRAPHICS_OWN_FOV, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(fov.port.fov_adjust, 5);
+
+    /* Perspective correction (row 0), texture filter (row 1) and fog (row 4) turn on */
+    Rig perspective;
+    rig_init(&perspective);
+    run_script(&perspective, script_walk(GRAPHICS_OWN_PERSPECTIVE, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(perspective.port.perspective, 1);
+
+    Rig filter;
+    rig_init(&filter);
+    run_script(&filter, script_walk(GRAPHICS_OWN_FILTER, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(filter.port.texture_filter, 1);
+
+    Rig fog;
+    rig_init(&fog);
+    run_script(&fog, script_walk(GRAPHICS_OWN_FOG, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(fog.port.fog, 1);
+
+    /* Screen format (row 6) steps through its three */
+    Rig format;
+    rig_init(&format);
+    run_script(&format, script_walk(GRAPHICS_OWN_FORMAT, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(format.port.format, SCREEN_16_9);
 }
 
 /* 6: Done saves, Cancel puts back, Escape puts back */
 static void test_done_saves_cancel_restores(void)
 {
-    Rig r;
-    static const int done_keys[] = { DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, SPACE, ESCAPE };
-    rig_init(&r, done_keys, 12);
-    const PortSettings before = r.port;
-    graphics_own(&r.st, &OPS);
-    ASSERT_EQ(r.f.saves, 1);
-    ASSERT_EQ(r.port.scale_integer, before.scale_integer ^ 1);
+    /* Scaling, changed, then Done: to row 2, right, down to Done, choose */
+    Rig d;
+    rig_init(&d);
+    int n = script_walk(GRAPHICS_OWN_SCALING, RIGHT, 1, GRAPHICS_OWN_DONE);
+    CHECK_EQ_INT(run_script(&d, n), 1);   /* Done */
+    CHECK_EQ_INT(d.f.saves, 1);
+    CHECK_EQ_INT(d.f.put_backs, 0);       /* Done keeps the settings, it does not put them back */
+    CHECK_EQ_INT(d.port.scale_integer, 1);
 
+    /* the same change, then Cancel: nothing saved, and the settings as they were on entry */
     Rig c;
-    static const int cancel_keys[] = { DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, LEFT, SPACE,
-                                       ESCAPE };
-    rig_init(&c, cancel_keys, 13);
-    const PortSettings was = c.port;
-    graphics_own(&c.st, &OPS);
-    ASSERT_EQ(c.f.saves, 0);
-    ASSERT_EQ(c.port.scale_integer, was.scale_integer);
+    rig_init(&c);
+    n = script_walk(GRAPHICS_OWN_SCALING, RIGHT, 1, ESCAPE);
+    n--;
+    for (int i = 0; i < GRAPHICS_OWN_CANCEL - GRAPHICS_OWN_SCALING; i++) script[n++] = DOWN;
+    script[n++] = 0;
+    script[n++] = SPACE;
+    script[n++] = 0;
+    script[n++] = ESCAPE;
+    CHECK_EQ_INT(run_script(&c, n), 0);   /* Cancel */
+    CHECK_EQ_INT(c.f.saves, 0);
+    CHECK_EQ_INT(c.f.put_backs, 1);
+    CHECK_EQ_INT(c.port.scale_integer, 0);   /* and the settings are as they were on entry */
+
+    /* and Escape, straight away, without touching anything */
+    Rig e;
+    rig_init(&e);
+    script[0] = ESCAPE;
+    CHECK_EQ_INT(run_script(&e, 1), 0);
+    CHECK_EQ_INT(e.f.saves, 0);
+    CHECK_EQ_INT(e.f.put_backs, 1);
 }
 
-/* 7: the rows the owner named are all reachable by walking down from the first */
+/* 7: every row the owner named is reachable, and the walk wraps at both ends */
 static void test_down_walks_every_row(void)
 {
-    Rig r;
-    static const int keys[] = { DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ESCAPE };
-    rig_init(&r, keys, 9);
-    graphics_own(&r.st, &OPS);
-    ASSERT_TRUE(r.f.text_count > 0);
+    /* down from the first reaches each row in turn */
+    for (int row = 1; row < GRAPHICS_OWN_ROWS; row++) {
+        Rig r;
+        rig_init(&r);
+        const int count = script_walk(row, 0, 0, ESCAPE);   /* no key on the row, only the Escape that ends */
+        script[count - 1] = ESCAPE;
+        run_script(&r, count - 1);                 /* the walk, without the key that would end it */
+        CHECK_EQ_INT(r.f.pointer_row, row);
+    }
+    /* down from the last wraps to the first */
+    Rig wrap;
+    rig_init(&wrap);
+    int n = 0;
+    for (int i = 0; i < GRAPHICS_OWN_ROWS; i++) script[n++] = DOWN;
+    script[n++] = ESCAPE;
+    run_script(&wrap, n);
+    CHECK_EQ_INT(wrap.f.pointer_row, 0);
+
+    /* and up from the first wraps to the last */
+    Rig up;
+    rig_init(&up);
+    script[0] = UP;
+    script[1] = ESCAPE;
+    run_script(&up, 2);
+    CHECK_EQ_INT(up.f.pointer_row, GRAPHICS_OWN_CANCEL);
 }
 
-/* 8: FOV steps within its range and wraps */
+/* 8: FOV's value text */
 static void test_fov_value(void)
 {
     PortSettings s = port_settings_defaults();
     char out[16];
     graphics_own_value(&s, GRAPHICS_OWN_FOV, out);
-    ASSERT_STREQ(out, "0");
+    CHECK(strcmp(out, "0") == 0);
     s.fov_adjust = 20;
     graphics_own_value(&s, GRAPHICS_OWN_FOV, out);
-    ASSERT_STREQ(out, "+20");
+    CHECK(strcmp(out, "+20") == 0);
     s.fov_adjust = -10;
     graphics_own_value(&s, GRAPHICS_OWN_FOV, out);
-    ASSERT_STREQ(out, "-10");
+    CHECK(strcmp(out, "-10") == 0);
 }
 
 /* 9: every row's value text, pinned one by one */
@@ -279,31 +453,35 @@ static void test_value_texts(void)
     PortSettings s = port_settings_defaults();
     char out[16];
     graphics_own_value(&s, GRAPHICS_OWN_PERSPECTIVE, out);
-    ASSERT_STREQ(out, "Off");
+    CHECK(strcmp(out, "Off") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_FILTER, out);
-    ASSERT_STREQ(out, "Off");
+    CHECK(strcmp(out, "Off") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_SCALING, out);
-    ASSERT_STREQ(out, "Fill");
-    graphics_own_value(&s, GRAPHICS_OWN_VIEW, out);
-    ASSERT_STREQ(out, "Far");
+    CHECK(strcmp(out, "Fill") == 0);
+    graphics_own_view_value(0, s.view_ultra, out);
+    CHECK(strcmp(out, "Far") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_FOG, out);
-    ASSERT_STREQ(out, "Off");
+    CHECK(strcmp(out, "Off") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_FORMAT, out);
-    ASSERT_STREQ(out, "4:3");
+    CHECK(strcmp(out, "4:3") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_REFRESH, out);
-    ASSERT_STREQ(out, "60 Hz");
+    CHECK(strcmp(out, "60 Hz") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_FULLSCREEN, out);
-    ASSERT_STREQ(out, "Off");
+    CHECK(strcmp(out, "Off") == 0);
 
     s.view_ultra = 1;
-    graphics_own_value(&s, GRAPHICS_OWN_VIEW, out);
-    ASSERT_STREQ(out, "Ultra");
+    graphics_own_view_value(0, s.view_ultra, out);
+    CHECK(strcmp(out, "Ultra") == 0);
+    graphics_own_view_value(1, 0, out);
+    CHECK(strcmp(out, "Medium") == 0);
+    graphics_own_view_value(2, 0, out);
+    CHECK(strcmp(out, "Close") == 0);
     s.scale_integer = 1;
     graphics_own_value(&s, GRAPHICS_OWN_SCALING, out);
-    ASSERT_STREQ(out, "Whole");
+    CHECK(strcmp(out, "Whole") == 0);
     s.format = SCREEN_21_9;
     graphics_own_value(&s, GRAPHICS_OWN_FORMAT, out);
-    ASSERT_STREQ(out, "21:9");
+    CHECK(strcmp(out, "21:9") == 0);
 }
 
 /* 10: a row steps its own setting only */
@@ -312,12 +490,12 @@ static void test_step_writes_only_its_row(void)
     PortSettings s = port_settings_defaults();
     const PortSettings before = s;
     graphics_own_step(&s, GRAPHICS_OWN_SCALING, 1, SCREEN_16_9);
-    ASSERT_EQ(s.scale_integer, before.scale_integer ^ 1);
-    ASSERT_EQ(s.format, before.format);
-    ASSERT_EQ(s.refresh_hz, before.refresh_hz);
-    ASSERT_EQ(s.fullscreen, before.fullscreen);
-    ASSERT_EQ(s.fov_adjust, before.fov_adjust);
-    ASSERT_EQ(s.view_ultra, before.view_ultra);
+    CHECK_EQ_INT(s.scale_integer, before.scale_integer ^ 1);
+    CHECK_EQ_INT(s.format, before.format);
+    CHECK_EQ_INT(s.refresh_hz, before.refresh_hz);
+    CHECK_EQ_INT(s.fullscreen, before.fullscreen);
+    CHECK_EQ_INT(s.fov_adjust, before.fov_adjust);
+    CHECK_EQ_INT(s.view_ultra, before.view_ultra);
 }
 
 /* 11: turning full screen on takes the desktop's format */
@@ -326,8 +504,8 @@ static void test_fullscreen_takes_desktop_format(void)
     PortSettings s = port_settings_defaults();
     s.format = SCREEN_4_3;
     graphics_own_step(&s, GRAPHICS_OWN_FULLSCREEN, 1, SCREEN_21_9);
-    ASSERT_EQ(s.fullscreen, 1);
-    ASSERT_EQ(s.format, SCREEN_21_9);
+    CHECK_EQ_INT(s.fullscreen, 1);
+    CHECK_EQ_INT(s.format, SCREEN_21_9);
 }
 
 int main(void)
@@ -343,5 +521,5 @@ int main(void)
     test_value_texts();
     test_step_writes_only_its_row();
     test_fullscreen_takes_desktop_format();
-    return 0;
+    return TEST_REPORT();
 }
