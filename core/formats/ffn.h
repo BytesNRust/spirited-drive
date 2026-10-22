@@ -46,6 +46,9 @@ int ffn_glyph_level(const Ffn *font, const FfnGlyph *glyph, int x, int y);
  * glyph), and a length at that size rounded up */
 int ffn_glyph_level_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den);
 int ffn_scaled(int length, int num, int den);
+/* how much of the scaled pixel (x, y), 0..15, lies where the bilinear levels reach `threshold`: 4x4 samples, so
+ * the scaled glyph's outline is the smooth contour of its levels, anti-aliased by area */
+int ffn_glyph_coverage_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den, int threshold);
 
 /* 004770f4: sum of advances; a space uses the 0x20 glyph's advance. */
 int ffn_text_width(const Ffn *font, const char *text);

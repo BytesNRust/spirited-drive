@@ -6,14 +6,26 @@ static int letter(const uint8_t *mask, int w, int h, int x, int y)
     return x >= 0 && x < w && y >= 0 && y < h && mask[y * w + x] >= TEXT_SOFT_SOLID_FROM;
 }
 
-TextSoftPart text_soft_part(const uint8_t *mask, int w, int h, int x, int y)
+TextSoftPart text_soft_back(const uint8_t *mask, int w, int h, int x, int y)
 {
-    if (letter(mask, w, h, x, y))
-        return letter(mask, w, h, x + 1, y + 1) ? TEXT_SOFT_FILL : TEXT_SOFT_EDGE;
-    if (letter(mask, w, h, x + 1, y + 1)) return TEXT_SOFT_RIM;
+    if (!letter(mask, w, h, x, y) && letter(mask, w, h, x + 1, y + 1)) return TEXT_SOFT_RIM;
     for (int d = 1; d <= TEXT_SOFT_SHADOW_DEPTH; d++)
         if (letter(mask, w, h, x - d, y - d)) return TEXT_SOFT_SHADOW;
     return TEXT_SOFT_NONE;
+}
+
+int text_soft_edge(const uint8_t *mask, int w, int h, int x, int y)
+{
+    return !letter(mask, w, h, x + 1, y + 1);
+}
+
+int text_soft_shadow(const uint8_t *mask, int w, int h, int x, int y)
+{
+    int coverage = 0;
+    for (int d = 1; d <= TEXT_SOFT_SHADOW_DEPTH; d++)
+        if (x - d >= 0 && y - d >= 0 && x - d < w && y - d < h && mask[(y - d) * w + x - d] > coverage)
+            coverage = mask[(y - d) * w + x - d];
+    return (coverage * TEXT_SOFT_SHADOW_LEVEL + 7) / 15;
 }
 
 int text_soft_grain(int x, int y)

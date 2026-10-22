@@ -107,12 +107,52 @@ static int source_at(int scaled, int num, int den, int size)
     return s < 0 ? 0 : s > (size - 1) * 256 ? (size - 1) * 256 : s;
 }
 
-int ffn_glyph_level_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den)
+/* the glyph's levels bilinear at the source position (sx, sy), in 1/256ths, within the glyph */
+static int level_at(const Ffn *font, const FfnGlyph *glyph, int sx, int sy)
 {
-    const int sx = source_at(x, num, den, glyph->width), sy = source_at(y, num, den, glyph->height);
     const int x0 = sx >> 8, y0 = sy >> 8, fx = sx & 0xff, fy = sy & 0xff;
     const int x1 = x0 + 1 < glyph->width ? x0 + 1 : x0, y1 = y0 + 1 < glyph->height ? y0 + 1 : y0;
     const int top = ffn_glyph_level(font, glyph, x0, y0) * (256 - fx) + ffn_glyph_level(font, glyph, x1, y0) * fx;
     const int bottom = ffn_glyph_level(font, glyph, x0, y1) * (256 - fx) + ffn_glyph_level(font, glyph, x1, y1) * fx;
     return (top * (256 - fy) + bottom * fy + (1 << 15)) >> 16;
+}
+
+int ffn_glyph_level_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den)
+{
+    return level_at(font, glyph, source_at(x, num, den, glyph->width), source_at(y, num, den, glyph->height));
+}
+
+/* the source position of a scaled pixel's centre in 1/256ths, unclamped: past the glyph's edge pixels there is
+ * nothing, so its outline closes there instead of running on flat */
+static int source_open(int scaled, int num, int den)
+{
+    return ((2 * scaled + 1) * den * 256 / num - 256) / 2;
+}
+
+static int level_or_none(const Ffn *font, const FfnGlyph *glyph, int x, int y)
+{
+    return x >= 0 && x < glyph->width && y >= 0 && y < glyph->height ? ffn_glyph_level(font, glyph, x, y) : 0;
+}
+
+/* the levels bilinear at (sx, sy) in 1/256ths, nothing outside the glyph */
+static int level_open(const Ffn *font, const FfnGlyph *glyph, int sx, int sy)
+{
+    enum { BIAS = 4 };   /* whole pixels added so the shifts floor a position left of or above the glyph */
+    const int x0 = ((sx + BIAS * 256) >> 8) - BIAS, y0 = ((sy + BIAS * 256) >> 8) - BIAS;
+    const int fx = sx - x0 * 256, fy = sy - y0 * 256;
+    const int top = level_or_none(font, glyph, x0, y0) * (256 - fx) + level_or_none(font, glyph, x0 + 1, y0) * fx;
+    const int bottom = level_or_none(font, glyph, x0, y0 + 1) * (256 - fx) + level_or_none(font, glyph, x0 + 1, y0 + 1) * fx;
+    return (top * (256 - fy) + bottom * fy + (1 << 15)) >> 16;
+}
+
+int ffn_glyph_coverage_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den, int threshold)
+{
+    enum { SUB = 4 };
+    int inside = 0;
+    for (int j = 0; j < SUB; j++) {
+        const int sy = source_open(SUB * y + j, SUB * num, den);
+        for (int i = 0; i < SUB; i++)
+            inside += level_open(font, glyph, source_open(SUB * x + i, SUB * num, den), sy) >= threshold;
+    }
+    return (inside * 15 + SUB * SUB / 2) / (SUB * SUB);
 }

@@ -75,6 +75,9 @@ static void test_scaled_levels(void)
     CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 0, 0, 2, 1), 0xF);
     CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 1, 0, 2, 1), 13);   /* 3/4 of F and 1/4 of 8 */
     CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 5, 3, 2, 1), 3);    /* the last pixel, clamped */
+    CHECK_EQ_INT(ffn_glyph_coverage_scaled(&font, &g, 0, 0, 2, 1, 8), 9);    /* nothing past the corner: partly covered */
+    CHECK_EQ_INT(ffn_glyph_coverage_scaled(&font, &g, 0, 0, 2, 1, 16), 0);   /* no level reaches 16 */
+    CHECK_EQ_INT(ffn_glyph_coverage_scaled(&font, &g, 5, 3, 2, 1, 0), 15);
     CHECK_EQ_INT(ffn_scaled(3, 2, 1), 6);
     CHECK_EQ_INT(ffn_scaled(3, 33, 20), 5);   /* rounded up: the glyph's last column is kept */
     free(data);

@@ -152,7 +152,7 @@ static uint8_t blended(int fg, int under, int level)
     return blend_ramps[fg][under][level];
 }
 
-/* port: the glyphs' levels num/den times the font's size into `mask` (mw x mh), the pen starting at (x, y) of it */
+/* port: the glyphs' coverage num/den times the font's size into `mask` (mw x mh), the pen starting at (x, y) of it */
 static void mask_glyph(const FfnGlyph *g, int pen_x, int pen_y, int num, int den, uint8_t *mask, int mw, int mh)
 {
     const int w = ffn_scaled(g->width, num, den), h = ffn_scaled(g->height, num, den);
@@ -160,7 +160,7 @@ static void mask_glyph(const FfnGlyph *g, int pen_x, int pen_y, int num, int den
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
             if (top + y < 0 || top + y >= mh || left + x < 0 || left + x >= mw) continue;
-            const int level = ffn_glyph_level_scaled(&font, g, x, y, num, den);
+            const int level = ffn_glyph_coverage_scaled(&font, g, x, y, num, den, TEXT_SOFT_SOLID_FROM);
             uint8_t *const at = &mask[(top + y) * mw + left + x];
             if (level > *at) *at = (uint8_t)level;
         }
@@ -223,13 +223,14 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
             const int tx = left + mx;
             if (tx < 0 || tx >= tw) continue;
             uint8_t *const at = &to[ty * tw + tx];
-            switch (text_soft_part(mask, mw, mh, mx, my)) {
-            case TEXT_SOFT_FILL: *at = (uint8_t)(text_soft_grain(tx, ty) ? grain : fill); break;
-            case TEXT_SOFT_EDGE: *at = (uint8_t)edge; break;
-            case TEXT_SOFT_RIM: if (!cream) *at = (uint8_t)rim; break;   /* the cream items have none */
-            case TEXT_SOFT_SHADOW: *at = blended(black, *at, TEXT_SOFT_SHADOW_LEVEL); break;
-            case TEXT_SOFT_NONE: break;
-            }
+            const TextSoftPart back = text_soft_back(mask, mw, mh, mx, my);
+            if (back == TEXT_SOFT_RIM && !cream) *at = (uint8_t)rim;   /* the cream items have none */
+            const int dark = text_soft_shadow(mask, mw, mh, mx, my);
+            if (back != TEXT_SOFT_RIM && dark > 0) *at = blended(black, *at, dark);
+            const int coverage = mask[my * mw + mx];
+            if (coverage == 0) continue;
+            const int colour = text_soft_edge(mask, mw, mh, mx, my) ? edge : text_soft_grain(tx, ty) ? grain : fill;
+            *at = coverage >= 15 ? (uint8_t)colour : blended(colour, *at, coverage);   /* the outline anti-aliased */
         }
     }
     free(mask);
