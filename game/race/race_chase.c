@@ -226,8 +226,9 @@ int32_t race_chase_pick(RaceState *race, const RaceChase *chase)
     if (race->phase == RACING) {
         if (race->replay == 0 && race->viewed == race->player && race->unknown_513e6c == 0) {
             if (race->port_replay_cameras == 0) return cycle[CYCLE_OWN];
-            /* port: the extra takes the replay's cycle, and from its last (11) the own car's 10 and the dash */
-            if (chase->kind == KIND_NEAR_B) return KIND_NEAR_A;
+            /* port: the extra takes the replay's cycle, but from 5 (whose next, 11, is a fly-in that hands over to 1)
+             * the own car's 10, the fly-in that ends in the dash; a press during 11's glide goes there too */
+            if (chase->kind == KIND_ATTACHED || chase->kind == KIND_NEAR_B) return KIND_NEAR_A;
             if (chase->kind == KIND_NEAR_A) return cycle[CYCLE_OWN];
         }
         return cycle[CYCLE_RACING];
