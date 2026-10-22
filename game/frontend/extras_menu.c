@@ -62,7 +62,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
     "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Unlock Level",
-    "Time with variants", "Start Screen", "Disable intro video"
+    "Time with variants", "Start Screen", "Intro video"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
@@ -81,7 +81,10 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     const int *const flag = flag_of(e, page, row);
-    if (flag != NULL) snprintf(out, 16, "%s", *flag ? "On" : "Off");
+    /* port: the movies switch reads the other way round, "Intro video" On while extras.cfg's no_movies is 0, so the
+     * file keeps its meaning */
+    const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
+    if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
     else if (page == 1 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }

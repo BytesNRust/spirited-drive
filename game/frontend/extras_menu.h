@@ -23,12 +23,12 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                                Replay cameras in race mode
  *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track,
  *                                Unlock Level, Time with variants
- *            Startup            Start Screen, Disable intro video
+ *            Startup            Start Screen, Intro video
  *
  * The rows below are that list in order, so a group is a range of them. The list is the switches only: Done and
  * Cancel are the clean background's own words, and the title and the page indicator are the screen's, so none of
  * those is a row to walk. Explode, Nitro and Turbo are Game modes (they change how a race runs) and No Movies is
- * Startup's "Disable intro video". Modern 3D, Texture Filter and Fog are not here at all: they are on the port's
+ * Startup's "Intro video" (On while no_movies is 0). Modern 3D, Texture Filter and Fog are not here at all: they are on the port's
  * own Graphics screen (graphics_own.c) and edited in port.cfg from there. */
 enum { EXTRAS_PAGES = 2, EXTRAS_GROUPS = 2 };
 enum { GROUP_MODES = 0, GROUP_CAMERAS, GROUP_UNLOCKS, GROUP_START };   /* the two groups of each page, in order */

@@ -311,18 +311,18 @@ static void test_page_two_switches_saved(void)
 static void test_the_graphics_settings_are_gone(void)
 {
     Rig r;
-    /* page 2 on Disable intro video, the last switch, and turn it on; Down to Done */
+    /* page 2 on Intro video, the last switch, and turn it on; Down to Done */
     int keys[28];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* page 1 Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;  /* round to page 2 */
-    for (int i = 0; i < ROWS_P2 - 1; i++) keys[n++] = DOWN;   /* Disable intro video */
-    keys[n++] = RIGHT;                                     /* on */
+    for (int i = 0; i < ROWS_P2 - 1; i++) keys[n++] = DOWN;   /* Intro video */
+    keys[n++] = RIGHT;                                     /* off: no movies */
     keys[n++] = DOWN, keys[n++] = ENTER;                   /* Done, save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
-    CHECK(shown(&r.fake, "Disable intro video"));
+    CHECK(shown(&r.fake, "Intro video"));
     CHECK(!shown(&r.fake, "Modern 3D"));
     CHECK(!shown(&r.fake, "Texture Filter"));
     CHECK(!shown(&r.fake, "Fog"));
@@ -377,7 +377,7 @@ static void test_page_one_has_nine_rows(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* page 2's seven switches, Disable intro video the last of them: walk the whole page down and they are all of them */
+/* page 2's seven switches, Intro video the last of them: walk the whole page down and they are all of them */
 static void test_page_two_has_seven_rows(void)
 {
     Rig r;
@@ -390,7 +390,7 @@ static void test_page_two_has_seven_rows(void)
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
     CHECK(shown(&r.fake, "Start Screen"));
-    CHECK(shown(&r.fake, "Disable intro video"));
+    CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
@@ -482,7 +482,7 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     turn[n++] = ESCAPE;
     run(&two, turn, n);
     CHECK(y_in(&two.fake, "Unlocks") >= TITLE_BOTTOM);
-    CHECK(y_in(&two.fake, "Disable intro video") + LINE < BUTTONS_TOP);
+    CHECK(y_in(&two.fake, "Intro video") + LINE < BUTTONS_TOP);
 }
 
 /* port: the screen names itself, in the words the player just clicked in Game Mode and Options. It sits on the band's
@@ -505,6 +505,26 @@ static void test_the_title_goes_through_the_title_op(void)
     run(&r, keys, 1);
     CHECK(r.fake.titles > 0);
     CHECK_EQ_INT(style_in(&r.fake, "Customize Game"), 2);
+}
+
+/* port: "Intro video" reads On by default (no_movies 0) and Off once the movies are switched off */
+static void test_intro_video_reads_the_other_way(void)
+{
+    Rig r;
+    int keys[28];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;
+    for (int i = 0; i < ROWS_P2 - 1; i++) keys[n++] = DOWN;   /* Intro video */
+    keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    const int32_t y = y_in(&r.fake, "Intro video");
+    int on = 0, off = 0;
+    for (int i = 0; i < r.fake.drawn_count; i++)
+        if (r.fake.y_of[i] == y) on += strcmp(r.fake.drawn[i], "On") == 0, off += strcmp(r.fake.drawn[i], "Off") == 0;
+    CHECK(on > 0);
+    CHECK_EQ_INT(off, 0);
 }
 
 /* port: the groups' headers in the credits' look, underlined across the rows, labels to values */
@@ -600,7 +620,7 @@ static void test_left_on_page_two_done_goes_back(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* Up from Cancel is the last switch (Disable intro video) */
+/* Up from Cancel is the last switch (Intro video) */
 static void test_up_from_cancel_reaches_the_last_switch(void)
 {
     Rig r;
@@ -611,7 +631,7 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2 */
     for (int i = 0; i < ROWS_P2; i++) keys[n++] = DOWN;    /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* the last switch, Disable intro video */
+    keys[n++] = UP;                                        /* the last switch, Intro video */
     keys[n++] = RIGHT;                                     /* on */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
@@ -714,6 +734,7 @@ int main(void)
     test_the_page_fits_between_the_title_and_the_buttons();
     test_the_screen_is_titled_customize_game();
     test_the_title_goes_through_the_title_op();
+    test_intro_video_reads_the_other_way();
     test_the_headers_go_through_the_header_op();
     test_a_panel_only_without_the_clean_background();
     test_the_palette_reaches_the_display();
