@@ -15,9 +15,9 @@ enum { ROW_MIRROR = 0, ROW_RALLY, ROW_WARRIOR, ROW_VEGAS, ROW_EXPLODE, ROW_NITRO
        ROW_CANCEL_P1, ROWS_PAGE_1 };
 
 /* the page-2 rows: Replay Cameras, Warrior as Rival, No Movies, Start Screen (Game Mode / Network / Control Central),
- * No Assists, Modern 3D, Texture Filter, Fog, Done, Cancel */
-enum { ROW_REPLAY = 0, ROW_RIVAL, ROW_MOVIES, ROW_START, ROW_NO_ASSISTS, ROW_MODERN, ROW_FILTER, ROW_FOG, ROW_DONE_P2,
-       ROW_CANCEL_P2, ROWS_PAGE_2 };
+ * No Assists, Done, Cancel. Modern 3D, Texture Filter and Fog are not here: they are on the port's own Graphics
+ * screen (graphics_own.c) and edited in port.cfg from there. */
+enum { ROW_REPLAY = 0, ROW_RIVAL, ROW_MOVIES, ROW_START, ROW_NO_ASSISTS, ROW_DONE_P2, ROW_CANCEL_P2, ROWS_PAGE_2 };
 
 /* the page-3 rows: Bumper Mirror, Bumper Radar, Done, Cancel */
 enum { ROW_BUMPER_MIRROR = 0, ROW_BUMPER_RADAR, ROW_VARIANT_TIME, ROW_DONE_P3, ROW_CANCEL_P3, ROWS_PAGE_3 };

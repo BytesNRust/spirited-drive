@@ -38,7 +38,7 @@ static const char *label(int page, int row)
     static const char *const P1[ROW_DONE] = { "Mirror", "Rally", "Warrior", "Lost Vegas", "Explode", "Nitro", "Turbo",
                                               "Unlock Level" };
     static const char *const P2[ROW_DONE_P2] = { "Replay Cameras", "Warrior as Rival", "No Movies", "Start Screen",
-                                                 "No Assists", "Modern 3D", "Texture Filter", "Fog" };
+                                                 "No Assists" };
     static const char *const P3[ROW_DONE_P3] = { "Bumper Mirror", "Bumper Radar", "Time with Variants" };
     return page == 0 ? P1[row] : page == 1 ? P2[row] : P3[row];
 }
@@ -52,8 +52,7 @@ static int *flag_of(PortExtras *e, int page, int row)
         return p1[row];
     }
     if (page == 1) {
-        int *const p2[ROW_DONE_P2] = { &e->replay_cameras, &e->warrior_rival, &e->no_movies, NULL, &e->no_assists,
-                                       &e->modern_3d, &e->texture_filter, &e->fog };
+        int *const p2[ROW_DONE_P2] = { &e->replay_cameras, &e->warrior_rival, &e->no_movies, NULL, &e->no_assists };
         return p2[row];
     }
     int *const p3[ROW_DONE_P3] = { &e->bumper_mirror, &e->bumper_radar, &e->variant_time };

@@ -203,33 +203,40 @@ static void test_page_two_switches_saved(void)
     CHECK_EQ_INT((int)r.fake.saved.start, START_CENTRAL);
 }
 
-/* page 2's Modern 3D on and saved: Up from Replay Cameras is Done, then Fog, Texture Filter, Modern 3D */
-static void test_modern_3d_saved(void)
+/* The three settings that moved to the port's own Graphics screen are not here any more: page 2's last switch
+ * is No Assists, and Up from Done lands on it. */
+static void test_the_graphics_settings_are_gone(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, UP, UP, UP, UP, RIGHT, DOWN, DOWN, DOWN, ENTER };
+    /* page 2 on Replay Cameras; Down four to No Assists, the last switch, and turn it on; Down wraps to Done */
+    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, RIGHT, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 12);
-    CHECK(shown(&r.fake, "Modern 3D"));
-    CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.modern_3d, 1);
+    run(&r, keys, 10);
+    CHECK(shown(&r.fake, "No Assists"));
+    CHECK(!shown(&r.fake, "Modern 3D"));
+    CHECK(!shown(&r.fake, "Texture Filter"));
+    CHECK(!shown(&r.fake, "Fog"));
+    CHECK_EQ_INT(r.fake.saved.no_assists, 1);
+    /* nothing on this page may write them any more */
+    CHECK_EQ_INT(r.fake.saved.modern_3d, 0);
     CHECK_EQ_INT(r.fake.saved.texture_filter, 0);
     CHECK_EQ_INT(r.fake.saved.fog, 0);
 }
 
-/* page 2's last two switches, Texture Filter and Fog, on and saved; both start Off */
-static void test_filter_and_fog_saved(void)
+/* page 2's five switches, No Assists the last of them: walk the whole page down and the labels are all of them */
+static void test_page_two_has_only_five_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, UP, UP, RIGHT, UP, RIGHT, DOWN, DOWN, ENTER };
+    /* page 2 on Replay Cameras; four DOWNs land on No Assists, the last switch; the fifth wraps round to Done */
+    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 11);
-    CHECK(shown(&r.fake, "Texture Filter"));
-    CHECK(shown(&r.fake, "Fog"));
+    run(&r, keys, 9);
+    CHECK(shown(&r.fake, "Replay Cameras"));
+    CHECK(shown(&r.fake, "Warrior as Rival"));
+    CHECK(shown(&r.fake, "No Movies"));
+    CHECK(shown(&r.fake, "Start Screen"));
+    CHECK(shown(&r.fake, "No Assists"));
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.texture_filter, 1);
-    CHECK_EQ_INT(r.fake.saved.fog, 1);
-    CHECK_EQ_INT(r.fake.saved.modern_3d, 0);
 }
 
 static void test_left_on_page_two_done_goes_back(void)
@@ -306,15 +313,15 @@ static void test_page_three_back_and_page_down_cycles(void)
     keys[n++] = PAGE_DOWN, keys[n++] = PAGE_DOWN;   /* page 3, on Bumper Mirror */
     keys[n++] = UP;                                 /* Done */
     keys[n++] = LEFT;                               /* page 2, on Cancel */
-    keys[n++] = UP;                                 /* Fog, the last switch */
-    keys[n++] = RIGHT;                              /* Fog on */
+    keys[n++] = UP;                                 /* No Assists, the last switch */
+    keys[n++] = RIGHT;                              /* No Assists on */
     keys[n++] = PAGE_DOWN, keys[n++] = PAGE_DOWN;   /* page 3, then round to page 1 */
     keys[n++] = UP, keys[n++] = ENTER;              /* Done: saved */
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "1/3 >"));
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.fog, 1);
+    CHECK_EQ_INT(r.fake.saved.no_assists, 1);
     CHECK_EQ_INT(r.fake.saved.bumper_mirror, 0);
 }
 
@@ -351,8 +358,8 @@ int main(void)
     test_right_turns_to_page_two();
     test_rally_excludes_mirror();
     test_page_two_switches_saved();
-    test_modern_3d_saved();
-    test_filter_and_fog_saved();
+    test_the_graphics_settings_are_gone();
+    test_page_two_has_only_five_rows();
     test_left_on_page_two_done_goes_back();
     test_up_from_cancel_and_unlock_left();
     test_nav_click_turns_the_page();
