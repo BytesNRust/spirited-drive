@@ -51,6 +51,7 @@ typedef struct Fake {
     int titles;           /* titles drawn through the title op */
     int headers;          /* headers drawn through the header op */
     int32_t header_width; /* the last one's underline */
+    int german;           /* the language, as the menu's ops report it: 1 is German, whose units are km/h */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -249,7 +250,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .ctx = &r->fake };
+        .extras_save = f_save, .language_kmh = r->fake.german, .ctx = &r->fake };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
@@ -260,7 +261,7 @@ static void test_mirror_toggle_excludes_rally(void)
 {
     Rig r;
     /* ENTER on Mirror flips it on, then ROWS_P1 DOWNs to Done, then ENTER for Done */
-    int keys[11];
+    int keys[48];
     int n = 0;
     keys[n++] = ENTER;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* ROWS_P1 downs reach Done (row ROWS_P1) */
@@ -293,7 +294,7 @@ static void test_escape_restores_input(void)
 static void test_right_turns_to_page_two(void)
 {
     Rig r;
-    int keys[20];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;  /* Cancel, then round to page 2 */
@@ -309,7 +310,7 @@ static void test_right_turns_to_page_two(void)
 static void test_rally_excludes_mirror(void)
 {
     Rig r;
-    int keys[5];
+    int keys[48];
     int n = 0;
     keys[n++] = DOWN;    /* Rally */
     keys[n++] = SPACE;
@@ -327,7 +328,7 @@ static void test_rally_excludes_mirror(void)
 static void test_page_two_switches_saved(void)
 {
     Rig r;
-    int keys[31];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* Done to Cancel, Cancel to page 2, then the toggles */
@@ -349,7 +350,7 @@ static void test_the_graphics_settings_are_gone(void)
 {
     Rig r;
     /* page 2 on Intro video, the last switch, and turn it on; Down to Done */
-    int keys[28];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* page 1 Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;  /* round to page 2 */
@@ -474,21 +475,94 @@ static void test_page_one_has_nine_rows(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* page 2's seven switches, Intro video the last of them: walk the whole page down and they are all of them */
-static void test_page_two_has_seven_rows(void)
+/* page 2's eight switches, Intro video the last of them: walk the whole page down and they are all of them */
+static void test_page_two_has_eight_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 11);
+    run(&r, keys, 12);
     CHECK(shown(&r.fake, "Warrior Player Car"));
     CHECK(shown(&r.fake, "Warrior Rival Car"));
     CHECK(shown(&r.fake, "Lost Vegas Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
+    CHECK(shown(&r.fake, "Speed units"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* the keys that walk from page 1's first row to page 2's Speed units row */
+static int keys_to_speed_units(int *keys)
+{
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;          /* page 1's Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;     /* Cancel, then round to page 2 */
+    for (int i = 0; i < ROW_UNITS - ROW_FIRST_P2; i++) keys[n++] = DOWN;   /* down to Speed units */
+    return n;
+}
+
+/* port: the units row sits in Startup, above Start Screen, and reads "mph" while the language is English */
+static void test_speed_units_row_reads_mph_in_english(void)
+{
+    Rig r;
+    int keys[48] = { 0 };
+    const int n = keys_to_speed_units(keys);
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Speed units"));
+    CHECK(shown(&r.fake, "mph"));
+    CHECK(!shown(&r.fake, "km/h"));
+    CHECK_EQ_INT(style_in(&r.fake, "Speed units"), STYLE_YELLOW);   /* the selection is on it */
+    CHECK(y_in(&r.fake, "Speed units") < y_in(&r.fake, "Start Screen"));
+}
+
+/* under German the row reads "km/h", the units the language already gives, until it is chosen */
+static void test_speed_units_follow_the_language_until_chosen(void)
+{
+    Rig r;
+    int keys[48] = { 0 };
+    const int n = keys_to_speed_units(keys);
+    setup(&r);
+    r.fake.german = 1;
+    run(&r, keys, n + 1);   /* then Escape: the last frame the screen drew is the page as it stands */
+    CHECK(shown(&r.fake, "km/h"));
+    CHECK(!shown(&r.fake, "mph"));
+}
+
+/* Enter turns the German km/h to mph, and Done saves the choice, the language staying German */
+static void test_speed_units_choice_overrides_german(void)
+{
+    Rig r;
+    int keys[48] = { 0 };
+    int n = keys_to_speed_units(keys);
+    keys[n++] = ENTER;
+    for (int i = 0; i < ROWS_P2 - (ROW_UNITS - ROW_FIRST_P2); i++) keys[n++] = DOWN;   /* down to Done */
+    keys[n++] = ENTER;
+    setup(&r);
+    r.fake.german = 1;
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "mph"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.units, UNITS_MPH);
+}
+
+/* Enter on the units row, from the default, turns the English units to km/h, and Done saves that */
+static void test_speed_units_toggle_saves_kmh(void)
+{
+    Rig r;
+    int keys[48] = { 0 };
+    int n = keys_to_speed_units(keys);
+    keys[n++] = ENTER;
+    for (int i = 0; i < ROWS_P2 - (ROW_UNITS - ROW_FIRST_P2); i++) keys[n++] = DOWN;   /* down to Done */
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "km/h"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.units, UNITS_KMH);
+    CHECK_EQ_INT(r.fake.saved.start, START_GAME_MODE);   /* the rest of the screen is as it was */
 }
 
 /* port: the owner's four groups, as the two headers over them. Both headers on both pages, in the owner's names, and
@@ -504,7 +578,7 @@ static void test_the_groups_have_headers(void)
 
     Rig two;
     setup(&two);
-    int turn[32];
+    int turn[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) turn[n++] = DOWN;
     for (int i = 0; i < ROWS_P1 + 1; i++) turn[n++] = RIGHT;
@@ -543,7 +617,7 @@ static void test_both_pages_share_one_layout(void)
 
     Rig two;
     setup(&two);
-    int turn[32];
+    int turn[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) turn[n++] = DOWN;    /* Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) turn[n++] = RIGHT;   /* Cancel, then round to page 2 */
@@ -572,7 +646,7 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
 
     Rig two;
     setup(&two);
-    int turn[32];
+    int turn[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) turn[n++] = DOWN;    /* Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) turn[n++] = RIGHT;   /* Cancel, then round to page 2 */
@@ -608,7 +682,7 @@ static void test_the_title_goes_through_the_title_op(void)
 static void test_intro_video_reads_the_other_way(void)
 {
     Rig r;
-    int keys[28];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;
@@ -702,7 +776,7 @@ static void test_rows_are_drawn_without_a_smooth_op(void)
 static void test_left_on_page_two_done_goes_back(void)
 {
     Rig r;
-    int keys[30];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     keys[n++] = RIGHT;                                     /* page 1's Cancel */
@@ -721,7 +795,7 @@ static void test_left_on_page_two_done_goes_back(void)
 static void test_up_from_cancel_reaches_the_last_switch(void)
 {
     Rig r;
-    int keys[32];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     keys[n++] = RIGHT;                                     /* page 1's Cancel */
@@ -743,7 +817,7 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
 static void test_right_from_done_reaches_cancel(void)
 {
     Rig r;
-    int keys[11];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* Done */
     keys[n++] = RIGHT;                                     /* Cancel */
@@ -769,7 +843,7 @@ static void test_nav_click_turns_the_page(void)
 static void test_unlock_steps_through_three_values(void)
 {
     Rig r;
-    int keys[29];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2 */
@@ -788,7 +862,7 @@ static void test_unlock_steps_through_three_values(void)
 static void test_escape_on_page_two_restores(void)
 {
     Rig r;
-    int keys[21];
+    int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;
@@ -805,7 +879,7 @@ static void test_done_writes_extras_cfg(void)
 {
     Rig r;
     /* Mirror (row 0) is the initial selection, so ROWS_P1 DOWNs land on Done. */
-    int keys[16] = {0};
+    int keys[48] = {0};
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
     keys[n++] = ENTER;
@@ -824,7 +898,11 @@ int main(void)
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
     test_page_one_has_nine_rows();
-    test_page_two_has_seven_rows();
+    test_page_two_has_eight_rows();
+    test_speed_units_row_reads_mph_in_english();
+    test_speed_units_follow_the_language_until_chosen();
+    test_speed_units_choice_overrides_german();
+    test_speed_units_toggle_saves_kmh();
     test_the_groups_have_headers();
     test_headers_are_red_and_never_lit();
     test_both_pages_share_one_layout();

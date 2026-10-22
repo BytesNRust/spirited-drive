@@ -21,6 +21,7 @@
 #include "game/frontend/tgv_player.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_extras.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -166,6 +167,7 @@ static int run_drive(const Options *opt)
         return 0;
     }
     resource_init(opt->data_root, opt->german);
+    resource_set_units(port_extras_load().units);   /* port: the speed's units from extras.cfg, the language's by default */
     timer_init();
     pointer_load(0);
     text_init();

@@ -9,6 +9,7 @@
 #define PORT_EXTRAS_NAME "extras.cfg"
 
 static const char *const START_NAMES[] = { "game_mode", "network", "central" };
+static const char *const UNIT_NAMES[] = { "language", "mph", "kmh" };
 
 /* The switches, in the order they are written. */
 static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas", "explode", "nitro",
@@ -38,7 +39,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE, UNITS_LANGUAGE };
     return d;
 }
 
@@ -56,6 +57,12 @@ static void apply(PortExtras *e, const char *key, const char *value)
         for (int i = 0; i < 3; i++)
             if (strcmp(value, START_NAMES[i]) == 0)
                 e->start = (StartScreen)i;
+        return;
+    }
+    if (strcmp(key, "units") == 0) {
+        for (int i = 0; i < 3; i++)
+            if (strcmp(value, UNIT_NAMES[i]) == 0)
+                e->units = (SpeedUnits)i;
         return;
     }
     for (int i = 0; i < SWITCH_COUNT; i++)
@@ -99,7 +106,7 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
 {
     int rows[SWITCH_COUNT];
     switch_read(e, rows);
-    int n = snprintf(out, size, "start=%s\n", START_NAMES[e->start]);
+    int n = snprintf(out, size, "start=%s\nunits=%s\n", START_NAMES[e->start], UNIT_NAMES[e->units]);
     if (n < 0 || (size_t)n >= size)
         return 0;
     for (int i = 0; i < SWITCH_COUNT; i++) {
@@ -124,9 +131,15 @@ PortExtras port_extras_load(void)
 
 bool port_extras_save(const PortExtras *e)
 {
-    char text[256];
+    char text[512];
     const size_t n = port_extras_format(e, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+}
+
+int speed_units_kmh(SpeedUnits units, int german)
+{
+    if (units == UNITS_LANGUAGE) return german != 0;
+    return units == UNITS_KMH;
 }
 
 uint32_t port_extras_cheat_marks(const PortExtras *e)

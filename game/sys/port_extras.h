@@ -9,6 +9,10 @@
 
 typedef enum { START_GAME_MODE = 0, START_NETWORK = 1, START_CENTRAL = 2 } StartScreen;
 
+/* The speed's units, and the distances (miles or km) and the cockpit's dial with them. UNITS_LANGUAGE is the exe's:
+ * km/h under German, mph otherwise; the other two are the player's choice, whatever the language. */
+typedef enum { UNITS_LANGUAGE = 0, UNITS_MPH = 1, UNITS_KMH = 2 } SpeedUnits;
+
 typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
@@ -18,6 +22,7 @@ typedef struct {
                                         * the scoreboard (F1 / F2 turn them over in a race) */
     int variant_time; /* 0/1: the time of day offered with Mirror or Rally (fam_mirror.h), which the original hides */
     StartScreen start;                                          /* START_GAME_MODE */
+    SpeedUnits units;                                           /* UNITS_LANGUAGE */
 } PortExtras;
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */
@@ -32,5 +37,8 @@ PortExtras port_extras_load(void);   /* user file "extras.cfg"; the defaults whe
 bool port_extras_save(const PortExtras *e);
 /* The cheats that make a race's time an advantage one: NITRO 1, EXPLODE 2, TURBO 4. */
 uint32_t port_extras_cheat_marks(const PortExtras *e);
+/* 1 when the speeds, distances and the cockpit's dial are in km/h: the player's choice, or with UNITS_LANGUAGE the
+ * language's (german 1 is km/h, as 0052b31c gives it). */
+int speed_units_kmh(SpeedUnits units, int german);
 
 #endif
