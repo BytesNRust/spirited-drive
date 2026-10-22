@@ -844,10 +844,12 @@ static void test_no_clean_background_runs_over_the_originals(void)
     CHECK_EQ_INT(r.f.non_raw_modes, 0);     /* and with the mode that bank's header says, as the exe reads it */
 }
 
-/* 14: port: no flash on the way in. The whole page is drawn into the backbuffer before the palette is faded in, so
- * the first flip presents this screen's picture and its palette together and the previous screen's art never shows in
- * the new palette. The old order faded the palette in and only then began drawing, so the frames in between showed
- * the previous screen (Game Mode's art) in this screen's palette, and it came up pale. */
+/* 14: port: no flash on the way in. fade_in ramps whatever is ON the display, not the backbuffer: video_set_palette
+ * presents on every step. So the order has to be the caller's picture out in its own palette, the page put up on the
+ * black display, and only then this screen's palette faded in -- the run opens O F I, the order extras_menu.c's page
+ * takes (fc15abb). Fading in before the flip ramped Options' own art up out of black in this screen's palette for all
+ * seventeen steps, and the capture showed it: frames 402-417 climbing while Options' TRANSMISSION/ABS rows were the
+ * picture, then 418 a hard cut to this page. */
 static void test_no_flash_on_the_way_in(void)
 {
     Rig r;
@@ -855,15 +857,17 @@ static void test_no_flash_on_the_way_in(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
 
-    /* the page is drawn before the palette goes on: the first frame comes up with this screen's picture in place */
+    /* the page is drawn into the backbuffer before the display is touched, so the flip has something to put up */
     CHECK_EQ_INT(r.f.pixels_drawn_before_fade_in, 1);
-    CHECK(r.f.flips > 0);
-    /* and the fade is between the drawing and the flip, so the presented frame has both */
-    CHECK_EQ_INT(r.f.flip_before_fade_in, 0);
+    CHECK(r.f.event_count >= 3);
+    CHECK_EQ_INT(r.f.events[0], 'O');   /* Options' picture going out, in its own palette */
+    CHECK_EQ_INT(r.f.events[1], 'F');   /* the page onto the black display */
+    CHECK_EQ_INT(r.f.events[2], 'I');   /* and the page's own palette up over it */
 }
 
 /* 15: port: and none on the way out either. 00423d28's close_screen fades the whole display out, and the screen
- * leaves with nothing on it; this one left the previous screen showing in this screen's palette. */
+ * leaves with nothing on it; this one left the previous screen showing in this screen's palette. Two fades leave,
+ * not one: the opener's picture going out as the screen opens, and this screen's as it closes. */
 static void test_the_display_is_faded_out_on_the_way_out(void)
 {
     Rig r;
@@ -871,8 +875,9 @@ static void test_the_display_is_faded_out_on_the_way_out(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
 
-    CHECK_EQ_INT(r.f.fade_outs, 1);
-    /* and after the last thing drawn, not before it: a fade_out earlier would blank the screen while it was up */
+    CHECK_EQ_INT(r.f.fade_outs, 2);
+    /* and the last of them after the last thing drawn, not before it: a fade_out earlier would blank the screen while
+     * it was up */
     CHECK(r.f.event_count >= 2);
     CHECK_EQ_INT(r.f.events[r.f.event_count - 1], 'O');
 }
