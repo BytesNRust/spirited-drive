@@ -420,7 +420,7 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
     ops->fade_out(ops->ctx, 0, 0x100);
     ops->music_feed(ops->ctx);
     ops->free_inverse(ops->ctx);
-    if (s.burnt_in != NULL) ops->free(ops->ctx, s.burnt_in);
+    if (s.burnt_in != 0) ops->free(ops->ctx, s.burnt_in);
     if (s.bank != 0) ops->free(ops->ctx, s.bank);
     /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends, and so do the deadline, the right button
      * and the quit flag, which reach the same place through result 1. */
