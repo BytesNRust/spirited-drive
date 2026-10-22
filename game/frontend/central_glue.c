@@ -1086,7 +1086,7 @@ int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[CONFIG_BGND_W * CONF
 /* the smooth text for the Graphics screen: the letters with the background put back under them first, taken from the
  * composed copy in own_pixels -- the same picture the page is blitted with, not Options' bank. This is
  * options_plus_text's draw over the Graphics screen's own background instead of the Options one. */
-static void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
+void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
 {
     enum { MARGIN = 2, SHADOW_ROOM = 6 };
     (void)ctx;

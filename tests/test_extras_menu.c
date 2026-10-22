@@ -69,7 +69,15 @@ static int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t 
     Fake *f = ctx;
     return f->pointer_in_nav && x0 == EXTRAS_NAV_X0 && x1 == EXTRAS_NAV_X1 && y0 == EXTRAS_NAV_Y0 && y1 == EXTRAS_NAV_Y1;
 }
-static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
+/* The screen starts a redraw by putting the caller's picture up, so that is where the log of words begins again:
+ * the rig keeps the last frame the screen drew, which is the page as it stands, not every page it passed through. */
+static void f_select(void *ctx, int32_t picture)
+{
+    Fake *f = ctx;
+    (void)picture;
+    f->drawn_count = 0;
+    f->smooth_draws = 0;
+}
 /* the clean background, asked for once as the screen opens (config_bgnd_load takes about half a second) */
 static int32_t f_bgnd(void *ctx, uint8_t *pixels, uint8_t *palette)
 {
@@ -195,12 +203,13 @@ static void run(Rig *r, const int *keys, int count) { run_with(r, keys, count, f
 static void test_mirror_toggle_excludes_rally(void)
 {
     Rig r;
-    /* ENTER on Mirror flips it on, then 8 DOWNs to Done, then ENTER for Done */
-    int keys[16];
+    /* ENTER on Mirror flips it on, then ROWS_P1 DOWNs to Done, then ENTER for Done */
+    int keys[11];
     int n = 0;
     keys[n++] = ENTER;
-    for (int i = 0; i < ROWS_PAGE_1 - 2; i++) keys[n++] = DOWN;  /* 8 downs reach Done (row 8) */
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* ROWS_P1 downs reach Done (row ROWS_P1) */
     keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     r.e.rally = 1;
     run(&r, keys, n);
@@ -224,14 +233,19 @@ static void test_escape_restores_input(void)
     CHECK_EQ_INT(r.e.turbo, 1);
 }
 
-/* Right on the last row (Cancel) turns to page 2: Up from the first switch is Done, Right Cancel, Right page 2 */
+/* Right on the last row (Cancel) turns to page 2: Down from the first switch round to Done, Right Cancel, Right page 2 */
 static void test_right_turns_to_page_two(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, ESCAPE };
+    int keys[20];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;  /* Cancel, then round to page 2 */
+    keys[n++] = ESCAPE;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
-    run(&r, keys, 4);
-    CHECK(shown(&r.fake, "1/2 >"));
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "< 2/2"));
     CHECK(shown(&r.fake, "Enable Warrior Player Car"));
 }
 
@@ -239,11 +253,12 @@ static void test_right_turns_to_page_two(void)
 static void test_rally_excludes_mirror(void)
 {
     Rig r;
-    int keys[8];
+    int keys[5];
     int n = 0;
     keys[n++] = DOWN;    /* Rally */
     keys[n++] = SPACE;
     keys[n++] = UP, keys[n++] = UP, keys[n++] = ENTER;   /* Mirror, Done */
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     r.e.mirror = 1;
     run(&r, keys, n);
@@ -252,18 +267,20 @@ static void test_rally_excludes_mirror(void)
     CHECK_EQ_INT(r.fake.saved.mirror, 0);
 }
 
-/* page 2: Warrior Player Car and Start changed, Done saves them; Left on page 2's Done goes back to page 1 */
+/* page 2: Warrior Player Car and Start changed, Done saves them; the walk back up is Cancel then the last switches */
 static void test_page_two_switches_saved(void)
 {
     Rig r;
-    int keys[16];
+    int keys[31];
     int n = 0;
-    keys[n++] = UP, keys[n++] = RIGHT, keys[n++] = RIGHT;   /* page 2, Enable Warrior Player Car */
-    keys[n++] = RIGHT;                                     /* on */
-    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = DOWN;
-    keys[n++] = LEFT;                                      /* Start Screen: Control Central back to Game Mode */
-    keys[n++] = UP, keys[n++] = UP, keys[n++] = UP, keys[n++] = UP, keys[n++] = UP;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* Done to Cancel, Cancel to page 2, then the toggles */
+    keys[n++] = RIGHT;                                     /* Enable Warrior Player Car on, the ninth toggle */
+    for (int i = 0; i < ROWS_P2 - 2; i++) keys[n++] = DOWN;   /* down to Start Screen, the first row of Startup */
+    for (int i = 0; i < 3; i++) keys[n++] = LEFT;         /* Start's three values: Network, Control Central, Game Mode */
+    for (int i = 0; i < 2; i++) keys[n++] = DOWN;         /* up the Startup group, then Done */
     keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
@@ -275,10 +292,17 @@ static void test_page_two_switches_saved(void)
 static void test_the_graphics_settings_are_gone(void)
 {
     Rig r;
-    /* page 1 on Mirror track mode; Down eight to Disable intro video, the last switch, and turn it on; Down to Done */
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, RIGHT, DOWN, ENTER };
+    /* page 2 on Disable intro video, the last switch, and turn it on; Down to Done */
+    int keys[28];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;   /* page 1 Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;  /* round to page 2 */
+    for (int i = 0; i < ROWS_P2 - 1; i++) keys[n++] = DOWN;   /* Disable intro video */
+    keys[n++] = RIGHT;                                     /* on */
+    keys[n++] = DOWN, keys[n++] = ENTER;                   /* Done, save */
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
-    run(&r, keys, 14);
+    run(&r, keys, n);
     CHECK(shown(&r.fake, "Disable intro video"));
     CHECK(!shown(&r.fake, "Modern 3D"));
     CHECK(!shown(&r.fake, "Texture Filter"));
@@ -290,7 +314,6 @@ static void test_the_graphics_settings_are_gone(void)
     CHECK_EQ_INT(r.fake.saved.fog, 0);
 }
 
-/* page 2's five switches, No Assists the last of them: walk the whole page down and the labels are all of them */
 /* port: the screen opens over the configuration screens' clean background, not over the caller's picture: asked
  * for once, put on before the dark panel shades over it. */
 static void test_clean_background_is_under_the_panel(void)
@@ -316,13 +339,13 @@ static void test_no_background_still_runs(void)
     CHECK_EQ_INT(r.fake.panel_before_bgnd, 0);
 }
 
-/* page 1's nine switches, Disable intro video the last of them: walk the whole page down and they are all of them */
+/* page 1's nine switches, Replay cameras the last of them: walk the whole page down and they are all of them */
 static void test_page_one_has_nine_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    const int keys[] = { DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 14);
+    run(&r, keys, 10);
     CHECK(shown(&r.fake, "Mirror track mode"));
     CHECK(shown(&r.fake, "Rally track mode"));
     CHECK(shown(&r.fake, "Explode mode"));
@@ -339,9 +362,9 @@ static void test_page_one_has_nine_rows(void)
 static void test_page_two_has_seven_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 12);
+    run(&r, keys, 11);
     CHECK(shown(&r.fake, "Enable Warrior Player Car"));
     CHECK(shown(&r.fake, "Enable Warrior Rival Car"));
     CHECK(shown(&r.fake, "Enable Lost Vegas Track"));
@@ -365,11 +388,16 @@ static void test_the_groups_have_headers(void)
 
     Rig two;
     setup(&two);
-    const int turn[] = { UP, RIGHT, RIGHT, ESCAPE };
-    run(&two, turn, 4);
+    int turn[32];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) turn[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1 + 1; i++) turn[n++] = RIGHT;
+    turn[n++] = ESCAPE;
+    run(&two, turn, n);
     CHECK(shown(&two.fake, "Unlocks"));
     CHECK(shown(&two.fake, "Startup"));
-    /* page 1's headers are not page 2's: the two pages name different groups */
+    /* page 1's headers are not page 2's: the two pages name different groups, and each redraw paints the whole page,
+     * so what is left on screen after turning is page 2 alone */
     CHECK(!shown(&two.fake, "Game modes"));
     CHECK(!shown(&two.fake, "Driving & cameras"));
 }
@@ -399,8 +427,12 @@ static void test_both_pages_share_one_layout(void)
 
     Rig two;
     setup(&two);
-    const int turn[] = { UP, RIGHT, RIGHT, ESCAPE };
-    run(&two, turn, 4);
+    int turn[32];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) turn[n++] = DOWN;    /* Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) turn[n++] = RIGHT;   /* Cancel, then round to page 2 */
+    turn[n++] = ESCAPE;
+    run(&two, turn, n);
 
     CHECK_EQ_INT(y_in(&two.fake, "Unlocks"), y_in(&one.fake, "Game modes"));
     CHECK_EQ_INT(y_in(&two.fake, "Startup"), y_in(&one.fake, "Driving & cameras"));
@@ -424,8 +456,12 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
 
     Rig two;
     setup(&two);
-    const int turn[] = { UP, RIGHT, RIGHT, ESCAPE };
-    run(&two, turn, 4);
+    int turn[32];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) turn[n++] = DOWN;    /* Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) turn[n++] = RIGHT;   /* Cancel, then round to page 2 */
+    turn[n++] = ESCAPE;
+    run(&two, turn, n);
     CHECK(y_in(&two.fake, "Unlocks") >= TITLE_BOTTOM);
     CHECK(y_in(&two.fake, "Disable intro video") + LINE < BUTTONS_TOP);
 }
@@ -477,33 +513,61 @@ static void test_rows_are_drawn_without_a_smooth_op(void)
     CHECK(shown(&r.fake, "Mirror track mode"));
 }
 
+/* port: the buttons walk across the pages the way they did with three: Right on Cancel turns to the next page, Left
+ * on page 2's Done goes back to page 1's Cancel, and Left again lands on page 1's Done, which saves. */
 static void test_left_on_page_two_done_goes_back(void)
 {
     Rig r;
-    int keys[16];
+    int keys[30];
     int n = 0;
-    keys[n++] = UP, keys[n++] = RIGHT, keys[n++] = RIGHT;   /* page 2 */
-    keys[n++] = UP;                                        /* Done */
-    keys[n++] = LEFT;                                      /* page 1, on Cancel */
-    keys[n++] = LEFT;                                      /* Done */
-    keys[n++] = UP;                                        /* Unlock Level */
-    keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* 0 to 2 */
-    keys[n++] = DOWN, keys[n++] = ENTER;                   /* Done */
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
+    keys[n++] = RIGHT;                                     /* page 1's Cancel */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2, Enable Warrior Player Car */
+    for (int i = 0; i < ROWS_P2; i++) keys[n++] = DOWN;   /* page 2's Done */
+    keys[n++] = LEFT;                                      /* page 1's Cancel */
+    keys[n++] = LEFT;                                      /* page 1's Done */
+    keys[n++] = ENTER;                                     /* save */
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved_unlock, 2);
 }
 
 /* Up from Cancel is the last switch (Disable intro video) */
 static void test_up_from_cancel_reaches_the_last_switch(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, UP, RIGHT, DOWN, ENTER };
+    int keys[32];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
+    keys[n++] = RIGHT;                                     /* page 1's Cancel */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2 */
+    for (int i = 0; i < ROWS_P2; i++) keys[n++] = DOWN;    /* page 2's Done */
+    keys[n++] = RIGHT;                                     /* page 2's Cancel */
+    keys[n++] = UP;                                        /* the last switch, Disable intro video */
+    keys[n++] = RIGHT;                                     /* on */
+    keys[n++] = DOWN;                                      /* Done */
+    keys[n++] = ENTER;                                     /* save */
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
-    run(&r, keys, 6);
+    run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
     CHECK_EQ_INT(r.fake.saved.no_movies, 1);
+}
+
+/* the Done/Cancel walk: Right from Done is Cancel, as it was before the regrouping, and Cancel saves nothing */
+static void test_right_from_done_reaches_cancel(void)
+{
+    Rig r;
+    int keys[11];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* Done */
+    keys[n++] = RIGHT;                                     /* Cancel */
+    keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saves, 0);
 }
 
 /* Enter with the pointer on the page indicator turns the page */
@@ -514,19 +578,22 @@ static void test_nav_click_turns_the_page(void)
     setup(&r);
     r.fake.pointer_in_nav = 1;
     run(&r, keys, 2);
-    CHECK(shown(&r.fake, "1/2 >"));
+    CHECK(shown(&r.fake, "< 2/2"));
 }
 
 /* port: page 2's Unlock Level still steps through its three values, under Unlocks now rather than its own group */
 static void test_unlock_steps_through_three_values(void)
 {
     Rig r;
-    int keys[16];
+    int keys[29];
     int n = 0;
-    keys[n++] = UP, keys[n++] = RIGHT, keys[n++] = RIGHT;   /* page 2 */
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2 */
     keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = DOWN;   /* Unlock Level */
     keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* 0 to 2 */
-    keys[n++] = DOWN, keys[n++] = ENTER;                   /* Done */
+    for (int i = 0; i < ROWS_P2 - 3; i++) keys[n++] = DOWN;   /* Done */
+    keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
@@ -537,9 +604,14 @@ static void test_unlock_steps_through_three_values(void)
 static void test_escape_on_page_two_restores(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, SPACE, ESCAPE };
+    int keys[21];
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;
+    keys[n++] = SPACE, keys[n++] = ESCAPE;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
-    run(&r, keys, 5);
+    run(&r, keys, n);
     CHECK_EQ_INT(r.e.warrior, 0);
     CHECK_EQ_INT(r.fake.saves, 0);
 }
@@ -548,10 +620,10 @@ static void test_escape_on_page_two_restores(void)
 static void test_done_writes_extras_cfg(void)
 {
     Rig r;
-    /* Mirror (row 0) is the initial selection. ROWS_PAGE_1-2 = 8 DOWNs land on ROW_DONE (row 8). */
+    /* Mirror (row 0) is the initial selection, so ROWS_P1 DOWNs land on Done. */
     int keys[16] = {0};
     int n = 0;
-    for (int i = 0; i < ROWS_PAGE_1 - 2; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
     keys[n++] = ENTER;
     setup(&r);
     run(&r, keys, n);
@@ -582,6 +654,7 @@ int main(void)
     test_left_on_page_two_done_goes_back();
     test_unlock_steps_through_three_values();
     test_up_from_cancel_reaches_the_last_switch();
+    test_right_from_done_reaches_cancel();
     test_nav_click_turns_the_page();
     test_escape_on_page_two_restores();
     test_done_writes_extras_cfg();

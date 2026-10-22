@@ -57,6 +57,10 @@ void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int3
  * EXTRAS screens. The second composes it into the caller's buffers, the first puts it on with its palette. */
 int32_t glue_own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768]);
 int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768]);
+/* port (central_glue.c): the same draw as glue_plus_text, over the clean background the caller just composes -- the
+ * Graphics screen's, and now the EXTRAS screen's. It puts that background back under the letters before writing them,
+ * so a word the pointer moved past does not keep its old edges. */
+void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas);  /* 0042a680 */
 void glue_replay_box(char *name, uint8_t *config);                  /* 0042a9f8 */
 
