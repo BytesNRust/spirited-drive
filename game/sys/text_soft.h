@@ -10,6 +10,9 @@ enum {
     TEXT_SOFT_SOLID_FROM = 8,     /* the scaled glyph's level its outline runs at, and the coverage of a letter pixel */
     TEXT_SOFT_SHADOW_DEPTH = 2,   /* the art's shadow: the letters pushed 1 and 2 px down-right */
     TEXT_SOFT_SHADOW_LEVEL = 12,  /* of 15 from what is under it towards black */
+    /* the big titles' shadow (Game Mode's, measured against its background): 1 px down-right about 87% darker, at
+     * 2 px about 40% */
+    TEXT_SOFT_TITLE_HARD_LEVEL = 13, TEXT_SOFT_TITLE_SOFT_LEVEL = 6,
     /* the drawn items' cream and its grain (Network, Exit in Game Mode) */
     TEXT_SOFT_CREAM_R = 238, TEXT_SOFT_CREAM_G = 214, TEXT_SOFT_CREAM_B = 182,
     TEXT_SOFT_GRAIN_R = 222, TEXT_SOFT_GRAIN_G = 206, TEXT_SOFT_GRAIN_B = 190,
@@ -38,6 +41,9 @@ int text_soft_edge(const uint8_t *mask, int w, int h, int x, int y);
 /* how dark the shadow is at (x, y), 0..TEXT_SOFT_SHADOW_LEVEL: the letters' coverage pushed down-right, so its
  * outline is anti-aliased like theirs */
 int text_soft_shadow(const uint8_t *mask, int w, int h, int x, int y);
+/* the same for the big titles (text_draw_mask), as the original screens shadow theirs: nearly black 1 px
+ * down-right (TEXT_SOFT_TITLE_HARD_LEVEL of 15), softer at 2 px (TEXT_SOFT_TITLE_SOFT_LEVEL) */
+int text_soft_title_shadow(const uint8_t *mask, int w, int h, int x, int y);
 /* 1 where the fill takes its grain tone instead, about one pixel in four, fixed by the screen position so a
  * redrawn label stays the same */
 int text_soft_grain(int x, int y);

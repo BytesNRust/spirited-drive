@@ -28,6 +28,18 @@ int text_soft_shadow(const uint8_t *mask, int w, int h, int x, int y)
     return (coverage * TEXT_SOFT_SHADOW_LEVEL + 7) / 15;
 }
 
+int text_soft_title_shadow(const uint8_t *mask, int w, int h, int x, int y)
+{
+    static const int LEVEL[TEXT_SOFT_SHADOW_DEPTH + 1] = { 0, TEXT_SOFT_TITLE_HARD_LEVEL, TEXT_SOFT_TITLE_SOFT_LEVEL };
+    int dark = 0;
+    for (int d = 1; d <= TEXT_SOFT_SHADOW_DEPTH; d++)
+        if (x - d >= 0 && y - d >= 0 && x - d < w && y - d < h) {
+            const int level = (mask[(y - d) * w + x - d] * LEVEL[d] + 7) / 15;
+            if (level > dark) dark = level;
+        }
+    return dark;
+}
+
 int text_soft_grain(int x, int y)
 {
     const unsigned hash = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;

@@ -10,6 +10,7 @@
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/graphics_own.h"
 #include "game/frontend/config_bgnd.h"
+#include "game/frontend/title_art.h"
 #include "game/viewer/screen_layout.h"
 #include "game/frontend/central.h"
 #include "game/frontend/after_race.h"
@@ -1102,6 +1103,23 @@ void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int
     own_panel_text(ctx, style_id, text, x, y);
 }
 
+/* port: the titles in the original titles' letters (title_art.h), cut from the CD the first time each is drawn and
+ * kept; a title the CD cannot give is drawn in the font */
+static const uint8_t *title_mask(const char *text, int *w)
+{
+    static uint8_t masks[TITLE_ART_COUNT][TITLE_ART_MAX_W * TITLE_ART_H];
+    static int widths[TITLE_ART_COUNT], tried[TITLE_ART_COUNT], ok[TITLE_ART_COUNT];
+    const TitleArtId id = title_art_for(text);
+    if (id == TITLE_ART_COUNT) return NULL;
+    if (!tried[id]) {
+        tried[id] = 1;
+        ok[id] = title_art_load(resource_load_art, id, masks[id], &widths[id]);
+        if (!ok[id]) fprintf(stderr, "title: \"%s\" not on the CD, drawn in the font\n", text);
+    }
+    *w = widths[id];
+    return ok[id] ? masks[id] : NULL;
+}
+
 /* the screen's title as the original screens draw theirs ("Game Mode", "Control Central"): red, at their items' size */
 void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
 {
@@ -1109,7 +1127,12 @@ void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
     (void)ctx;
     text_build_styles_from(own_palette);
     text_select(TEXT_RED);
-    text_draw_smooth(text, x, y, TITLE_NUM, TITLE_DEN);
+    int w = 0;
+    const uint8_t *const art = title_mask(text, &w);
+    if (art != NULL)   /* where the originals stand theirs, taken from where the font's would stand */
+        text_draw_mask(art, w, TITLE_ART_H, x - TITLE_ART_FONT_X + TITLE_ART_LEFT, y - TITLE_ART_FONT_Y + TITLE_ART_ROW0);
+    else
+        text_draw_smooth(text, x, y, TITLE_NUM, TITLE_DEN);
 }
 
 /* a group's header as the credits draw theirs ("EA Seattle"), at their size: about 2/3 of the game's text */

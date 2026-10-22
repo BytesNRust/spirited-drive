@@ -46,6 +46,23 @@ static void test_the_shadow_follows_the_coverage(void)
     CHECK_EQ_INT(text_soft_shadow(m, 8, 8, 6, 6), (5 * TEXT_SOFT_SHADOW_LEVEL + 7) / 15);
 }
 
+/* the big titles' shadow: nearly black 1 px down-right, softer at 2, as anti-aliased as the letters */
+static void test_the_titles_shadow(void)
+{
+    uint8_t m[64];
+    square(m, 15);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 5, 5), TEXT_SOFT_TITLE_HARD_LEVEL);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 5, 3), TEXT_SOFT_TITLE_HARD_LEVEL);   /* right of the letter */
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 3, 5), TEXT_SOFT_TITLE_HARD_LEVEL);   /* under it */
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 6, 6), TEXT_SOFT_TITLE_SOFT_LEVEL);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 7, 7), 0);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 1, 1), 0);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 3, 3), TEXT_SOFT_TITLE_HARD_LEVEL);   /* inside: the letter is drawn over it */
+    square(m, 6);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 5, 5), (6 * TEXT_SOFT_TITLE_HARD_LEVEL + 7) / 15);
+    CHECK_EQ_INT(text_soft_title_shadow(m, 8, 8, 6, 6), (6 * TEXT_SOFT_TITLE_SOFT_LEVEL + 7) / 15);
+}
+
 /* the credits' header: its shadow 1 px down-right, and the underline measured from the letters' last row */
 static void test_the_header(void)
 {
@@ -74,6 +91,7 @@ int main(void)
     test_the_parts_of_a_letter();
     test_half_covered_is_letter();
     test_the_shadow_follows_the_coverage();
+    test_the_titles_shadow();
     test_the_header();
     test_the_grain();
     return TEST_REPORT();
