@@ -14,10 +14,11 @@ enum {
     ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c, MARK_X = 0xe0, LABEL_X = 0x118, LABEL_Y = 0x28
 };
 
-/* port: the cheats item's label, centred in the gap between Done's words (to 0x4c) and the left arrow (0xdd): its
- * pointer, and the hit rect it is found in (between Done's rect and the left arrow's, 0x82..0xc8) */
+/* port: the cheats item's label, centred in the gap between Done's words (to 0x4c) and the left arrow (0xdd), its
+ * capitals on Done's baseline (rows 449..460: the text top is 6 rows above its capitals): its pointer, and the hit
+ * rect it is found in (between Done's rect and the left arrow's, 0x82..0xc8) */
 enum {
-    CHEATS_X = 0xa5, CHEATS_Y = 0x1c0, CHEATS_POINTER_X = 0xa5, CHEATS_RECT_X0 = 0x82, CHEATS_RECT_X1 = 0xc8
+    CHEATS_X = 0x94, CHEATS_Y = 0x1bb, CHEATS_POINTER_X = 0x94, CHEATS_RECT_X0 = 0x82, CHEATS_RECT_X1 = 0xc8
 };
 
 /* the tracks' files (004673f8) and the cars (0046741c) */
