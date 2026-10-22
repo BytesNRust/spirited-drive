@@ -200,15 +200,11 @@ static int darkened(int index, int n)
     return nearest(c[0] * n / 16, c[1] * n / 16, c[2] * n / 16);
 }
 
-/* port: the menu art's item letters (text_soft.h) num/den times the font's size, over what is under them */
-void text_draw_smooth(const char *text, int x, int y, int num, int den)
+/* port: the coverage mask mw x mh (text_soft.h) drawn with its (0, 0) at (left, top) in the current style, over what
+ * is under it; `shadow_of` says how dark the shadow is at a mask pixel */
+static void draw_soft(const uint8_t *mask, int mw, int mh, int left, int top,
+                      int (*shadow_of)(const uint8_t *mask, int w, int h, int x, int y))
 {
-    enum { PAD = 1 + TEXT_SOFT_SHADOW_DEPTH };
-    if (font_data == NULL) return;
-    const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = font.line_height * num / den + 2 * PAD;
-    uint8_t *const mask = calloc((size_t)mw * mh, 1);
-    if (mask == NULL) return;
-    mask_text(text, PAD, PAD, num, den, mask, mw, mh);
     const int cream = current_style == TEXT_CREAM, yellow = current_style == TEXT_YELLOW;
     const int fill = cream ? nearest(TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B) : styles_fg[current_style];
     const int grain = cream    ? nearest(TEXT_SOFT_GRAIN_R, TEXT_SOFT_GRAIN_G, TEXT_SOFT_GRAIN_B)
@@ -219,7 +215,6 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
     const int rim = nearest(TEXT_SOFT_RIM_R, TEXT_SOFT_RIM_G, TEXT_SOFT_RIM_B), black = shadow[15];
     int tw, th;
     uint8_t *const to = video_target(&tw, &th);
-    const int left = x - PAD, top = y - PAD;
     for (int my = 0; my < mh; my++) {
         const int ty = top + my;
         if (ty < 0 || ty >= th) continue;
@@ -229,7 +224,7 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
             uint8_t *const at = &to[ty * tw + tx];
             const TextSoftPart back = text_soft_back(mask, mw, mh, mx, my);
             if (back == TEXT_SOFT_RIM && lit_rim) *at = (uint8_t)rim;
-            const int dark = text_soft_shadow(mask, mw, mh, mx, my);
+            const int dark = shadow_of(mask, mw, mh, mx, my);
             if (back != TEXT_SOFT_RIM && dark > 0) *at = blended(black, *at, dark);
             const int coverage = mask[my * mw + mx];
             if (coverage == 0) continue;
@@ -237,7 +232,24 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
             *at = coverage >= 15 ? (uint8_t)colour : blended(colour, *at, coverage);   /* the outline anti-aliased */
         }
     }
+}
+
+/* port: the menu art's item letters (text_soft.h) num/den times the font's size, over what is under them */
+void text_draw_smooth(const char *text, int x, int y, int num, int den)
+{
+    enum { PAD = 1 + TEXT_SOFT_SHADOW_DEPTH };
+    if (font_data == NULL) return;
+    const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = font.line_height * num / den + 2 * PAD;
+    uint8_t *const mask = calloc((size_t)mw * mh, 1);
+    if (mask == NULL) return;
+    mask_text(text, PAD, PAD, num, den, mask, mw, mh);
+    draw_soft(mask, mw, mh, x - PAD, y - PAD, text_soft_shadow);
     free(mask);
+}
+
+void text_draw_mask(const uint8_t *mask, int w, int h, int x, int y)
+{
+    draw_soft(mask, w, h, x, y, text_soft_title_shadow);
 }
 
 void text_draw_header(const char *text, int x, int y, int num, int den, int underline)
