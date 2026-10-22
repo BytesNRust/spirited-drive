@@ -8,8 +8,8 @@
 
 #include <stdio.h>
 
-/* The console's own header, the one the exe shows over this screen */
-static const char *const TITLE = "CONSOLE";
+/* the screen's own name, in the words the player clicked to open it */
+static const char *const TITLE = "CUSTOMIZE GAME";
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        PAGE_DOWN = 0x5100 };
