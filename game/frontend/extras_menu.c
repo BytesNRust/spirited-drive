@@ -265,12 +265,6 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     o->select(o->ctx, 0);   /* the caller's picture behind */
     if (b->ready) {
         o->plus_bgnd_shape(o->ctx, b->pixels, b->palette);
-        /* port: the palette that goes with the background, once. Options fades the screen out before it opens this
-         * one, and palette_set only fills the screen's own palette, so without fade_in the page is drawn on black. */
-        if (!p->palette_on) {
-            o->fade_in(o->ctx, 0, 0x100, b->palette);
-            p->palette_on = 1;
-        }
     } else {
         o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
     }
@@ -299,6 +293,16 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     if (o->plus_title != NULL) o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
     else text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
     o->select_default(o->ctx);
+    /* port: the palette that goes with the page, once, and only once the whole page is drawn -- palette_set fills the
+     * screen's own palette and never the display, and Options does not fade the display out before it opens this one,
+     * so without this the page is drawn on black. Fading it in any earlier paints the menu that opened this screen in
+     * this screen's palette for the frames between the two, and the Game Mode art comes out pale for a moment. */
+    if (!p->palette_on && b->ready) {
+        o->fade_in(o->ctx, 0, 0x100, b->palette);
+        /* the styles are a ramp matched to the palette on the display, so they can only be built now that it is on */
+        o->text_styles(o->ctx);
+        p->palette_on = 1;
+    }
     o->flip(o->ctx);
     p->redraw = 0;
 }
@@ -311,10 +315,12 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
     static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);
-    /* port: the styles for the screen's own palette, which is the one the background just put on, so the letters are
-     * drawn with a ramp matched to what is showing. The caller's are rebuilt as this leaves, so whatever its menu
-     * draws next is drawn the way that menu means. */
-    if (bgnd.ready) o->text_styles(o->ctx);
+    /* port: the styles are a ramp matched to the palette on the display, so they are not asked for here: the screen's
+     * own palette has not gone on yet (draw_page does both, once the page is drawn). What is asked for is the way out
+     * -- the display is faded out, and the caller's palette with it, so whatever its menu draws next is drawn with a
+     * ramp built from that menu's own palette. Options fades this screen's picture out behind it when its palette goes
+     * up again; Game Mode does not fade at all, so without this its next frame is drawn in the palette this screen
+     * just put there. */
     pointer_to(&p, o);
     while (p.result < 0) {
         follow(&p, o);
@@ -335,6 +341,13 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
         o->music(o->ctx);
     }
     if (p.result != 1) *e = input, *unlock = input_unlock;
-    if (bgnd.ready) o->text_styles(o->ctx);
+    /* port: the display faded out as this leaves, the way 00423d28's close_screen does, after the last thing drawn --
+     * a fade_out earlier would black the screen out while it was still up. Only with a clean background: without one
+     * the screen never put a palette of its own on the display, so there is nothing here but the caller's picture to
+     * fade, and fading it out would hand the caller back a black screen. */
+    if (bgnd.ready) {
+        if (o->fade_out != NULL) o->fade_out(o->ctx, 0, 0x100);
+        o->text_styles(o->ctx);
+    }
     return p.result;
 }

@@ -480,9 +480,9 @@ static int32_t extras_bgnd_shape_glue(void *ctx, const uint8_t pixels[EXTRAS_BGN
  * blits the clean background and shades the panel over it before every write, so nothing is put back under the
  * letters: the clean background there would cover the panel with a light box behind each word.
  *
- * The screen asks for its styles (its text_styles slot) on entry and on exit, so its letters and the caller's next both
- * come from the palette the screen put on. `own_palette` is that palette: central_glue.c keeps it beside the composed
- * background this screen blits, and both screens read it, so one build serves them both. */
+ * The screen asks for its styles (its text_styles slot) once the fade has put its own palette on, so its letters come
+ * from the palette that goes with the background it blits; and once as it closes, after the fade out, so the caller's
+ * next is drawn with a ramp built from the caller's own palette. */
 static void extras_text_smooth_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     own_panel_text(ctx, style, text, x, y);
@@ -545,6 +545,7 @@ int32_t glue_extras_screen(int16_t unlock)
         buttons,            /* pointer_buttons */
         extras_text_styles_glue, /* text_styles */
         fade_in,            /* fade_in */
+        fade_out,           /* fade_out: the display faded as this screen closes (00423d28's close_screen) */
         deadline_set,       /* deadline_set */
         extras_deadline_passed_glue, /* deadline_passed */
         sound,              /* sound */
