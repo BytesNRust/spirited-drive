@@ -3,9 +3,11 @@
 #include "formats/ffn.h"
 #include "game/sys/palette.h"
 #include "game/sys/resource.h"
+#include "game/sys/text_soft.h"
 #include "game/sys/video.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum { STYLE_COUNT = 4 };
@@ -145,28 +147,22 @@ static uint8_t blended(int fg, int under, int level)
     return blend_ramps[fg][under][level];
 }
 
-/* port: draw_glyph and draw_with num/den times the font's size, each level mixed with the pixel below instead of
- * the ramp's fixed dark edge (the ramp's last step is the text's colour) */
-static void draw_glyph_scaled(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ramp[16], int num, int den)
+/* port: the glyphs' levels num/den times the font's size into `mask` (mw x mh), the pen starting at (x, y) of it */
+static void mask_glyph(const FfnGlyph *g, int pen_x, int pen_y, int num, int den, uint8_t *mask, int mw, int mh)
 {
-    int tw, th;
-    uint8_t *const to = video_target(&tw, &th);
     const int w = ffn_scaled(g->width, num, den), h = ffn_scaled(g->height, num, den);
     const int left = pen_x + g->x_offset * num / den, top = pen_y + g->y_offset * num / den;
-    for (int y = 0; y < h; y++) {
-        if (top + y < 0 || top + y >= th) continue;
+    for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
+            if (top + y < 0 || top + y >= mh || left + x < 0 || left + x >= mw) continue;
             const int level = ffn_glyph_level_scaled(&font, g, x, y, num, den);
-            if (level == 0 || left + x < 0 || left + x >= tw) continue;
-            uint8_t *const at = &to[(top + y) * tw + left + x];
-            *at = blended(ramp[15], *at, level);
+            uint8_t *const at = &mask[(top + y) * mw + left + x];
+            if (level > *at) *at = (uint8_t)level;
         }
-    }
 }
 
-static void draw_scaled_with(const char *text, int x, int y, const uint8_t ramp[16], int num, int den)
+static void mask_text(const char *text, int x, int y, int num, int den, uint8_t *mask, int mw, int mh)
 {
-    if (font_data == NULL) return;
     FfnGlyph space = { 0 };
     ffn_glyph(&font, ' ', &space);
     int pen = x * den;   /* in 1/den pixels, so the advances do not drift */
@@ -175,8 +171,24 @@ static void draw_scaled_with(const char *text, int x, int y, const uint8_t ramp[
         if (*c < 0x21) {
             pen += space.advance * num;
         } else if (ffn_glyph(&font, *c, &g)) {
-            draw_glyph_scaled(&g, pen / den, y, ramp, num, den);
+            mask_glyph(&g, pen / den, y, num, den, mask, mw, mh);
             pen += g.advance * num;
+        }
+    }
+}
+
+/* the mask's levels onto the target at (x, y), each mixed from the pixel below towards `fg` */
+static void put_mask(const uint8_t *mask, int mw, int mh, int x, int y, int fg, int lift)
+{
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
+    for (int my = 0; my < mh; my++) {
+        if (y + my < 0 || y + my >= th) continue;
+        for (int mx = 0; mx < mw; mx++) {
+            const int level = lift ? text_soft_lift(mask[my * mw + mx]) : mask[my * mw + mx];
+            if (level == 0 || x + mx < 0 || x + mx >= tw) continue;
+            uint8_t *const at = &to[(y + my) * tw + x + mx];
+            *at = blended(fg, *at, level);
         }
     }
 }
@@ -186,11 +198,21 @@ int text_width_scaled(const char *text, int num, int den)
     return text_width(text) * num / den;
 }
 
+/* port: a blurred shadow, then the letters with their levels lifted, both mixed with what is under them */
 void text_draw_smooth(const char *text, int x, int y, int num, int den)
 {
-    const int offset = 2 * num / den;
-    draw_scaled_with(text, x + offset, y + offset, shadow, num, den);
-    draw_scaled_with(text, x, y, current, num, den);
+    enum { PAD = 2 };
+    if (font_data == NULL) return;
+    const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = font.line_height * num / den + 2 * PAD;
+    uint8_t *const mask = calloc((size_t)mw * mh, 2);
+    if (mask == NULL) return;
+    uint8_t *const soft = mask + (size_t)mw * mh;
+    mask_text(text, PAD, PAD, num, den, mask, mw, mh);
+    text_soft_shadow(mask, soft, mw, mh);
+    const int offset = 2 * num / den + TEXT_SOFT_SHADOW_PUSH;
+    put_mask(soft, mw, mh, x - PAD + offset, y - PAD + offset, shadow[15], 0);
+    put_mask(mask, mw, mh, x - PAD, y - PAD, current[15], 1);
+    free(mask);
 }
 
 void text_draw_centered(const char *text, int cx, int y)
