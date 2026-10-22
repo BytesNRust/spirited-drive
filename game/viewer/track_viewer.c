@@ -337,6 +337,14 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         memcpy(drive_sim.race.game_state, drive_menus.game_state, sizeof drive_sim.race.game_state);
     drive_results = (TrackViewerResults){ 0 };
     drive_input_start(&drive_input, &drive_sim.race);
+    /* 004275f8: the player's controls (00426ddc's, drive_input_start's above) go into its entry (0042702c's, at
+     * local_39, which 004273d0 copies into the setup the replay keeps); then each human's come back out of the
+     * entries, a replay's from its file (the CD's demos were driven on a pad). A link race's entries are the
+     * machines' exchange, left as they were. */
+    if (!drive_link_on) {
+        if (replay_of == NULL) drive_sim.race.entries[0].controls = drive_sim.race.controls[0];
+        race_controls_from_entries(&drive_sim.race);
+    }
     drive_input.hud = &drive_hud.hud;
     drive_input.own_specs = &drive_sim.specs[drive_sim.race.player];  /* port: test harness only (drive_autopilot) */
     if (drive_link_on) {

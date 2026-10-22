@@ -3,8 +3,10 @@
  * replays as arguments, each one's setup reads as a race and its blocks come back byte for byte where the port has
  * a word for them. */
 #include "game/race/race_replay_image.h"
+#include "game/race/race_sim.h"
 #include "test.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,6 +65,40 @@ static void synthetic(void)
     CHECK(memcmp(records, records2, sizeof records - 8) == 0 && memcmp(records + sizeof records - 2, records2 + sizeof records - 2, 2) == 0);
 }
 
+/* 004275f8: the player's controls (004fb724, 00426ddc's from config.dat) ride in its entry at +0x31 (0042702c's
+ * local_39, which 004273d0 copies into the setup), so the replay's setup keeps them; after the setup is in place
+ * (a replay's read by 0044d3b0) every human's controls come back out of the entries. A CD demo recorded on a pad
+ * (1, 3, 0) is steered as a pad's, not as keys. */
+static void controls(void)
+{
+    CHECK(offsetof(RaceEntry, controls) == 0x31 && sizeof(ControlSetup) == 12);
+    memset(&race, 0, sizeof race);
+    strcpy(race.track_name, "cl1");
+    race.racers = 2, race.humans = 1, race.laps_setting = 8;
+    race.entries[0].car = 9, race.entries[1].car = 4;
+    race.entries[0].controls = (ControlSetup){ 1, 3, 0 };
+    race_replay_image_setup(&race, 1, setup);
+    CHECK(word(setup, 0x3e + 0x31) == 1 && word(setup, 0x3e + 0x35) == 3 && word(setup, 0x3e + 0x39) == 0);
+    ReplayRace r;
+    CHECK(race_replay_image_race(setup, &r));
+    CHECK(r.field.entries[0].controls.analog_steering == 1 && r.field.entries[0].controls.pedals == 3);
+
+    memset(&race, 0, sizeof race);
+    race.humans = 1;
+    race.controls[0] = (ControlSetup){ 0, 0, 0 };                 /* the keys, as this machine's config.dat has them */
+    race.controls[1] = (ControlSetup){ 7, 7, 7 };
+    memcpy(race.entries, r.field.entries, sizeof race.entries);
+    race.entries[1].controls = (ControlSetup){ 0x7b0800, 0, 0x28000 };  /* the CD's second entry: no human there */
+    race_controls_from_entries(&race);
+    CHECK(race.controls[0].analog_steering == 1 && race.controls[0].pedals == 3 && race.controls[0].gears == 0);
+    CHECK(race.controls[1].analog_steering == 7);                 /* only the humans' */
+
+    race.humans = 2;
+    race.entries[1].controls = (ControlSetup){ 0, 1, 3 };
+    race_controls_from_entries(&race);
+    CHECK(race.controls[1].analog_steering == 0 && race.controls[1].pedals == 1 && race.controls[1].gears == 3);
+}
+
 /* A CD replay: its race read, its blocks back as they came (the seek block's three unnamed words and the records'
  * six unnamed bytes aside) */
 static void cd_replay(const char *path)
@@ -76,6 +112,7 @@ static void cd_replay(const char *path)
     ReplayRace r;
     CHECK(race_replay_image_race(file, &r));
     CHECK(r.stem[0] != 0 && r.field.racers >= 1 && r.laps >= 1);
+    CHECK(r.field.entries[0].controls.analog_steering == 1 && r.field.entries[0].controls.pedals == 3);  /* a pad's */
     const uint8_t *c = file + REPLAY_SETUP_SIZE, *s = c + REPLAY_CUTS_SIZE + REPLAY_RECORDING_BYTES,
                   *rec = s + REPLAY_SEEK_SIZE;
     memset(&race, 0, sizeof race), memset(&dir, 0, sizeof dir);
@@ -89,6 +126,7 @@ static void cd_replay(const char *path)
 int main(int argc, char **argv)
 {
     synthetic();
+    controls();
     for (int i = 1; i < argc; i++) cd_replay(argv[i]);
     return TEST_REPORT();
 }

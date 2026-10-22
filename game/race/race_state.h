@@ -11,6 +11,7 @@
 #include "game/race/crash_trail.h"
 #include "game/race/race_splits.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 enum {
@@ -56,6 +57,13 @@ typedef struct {
 #pragma pack(pop)
 typedef char player_record_size_check[sizeof(PlayerRecord) == 0x1d2 ? 1 : -1];
 
+/* 004fb724 + 12 * player: how a player drives. */
+typedef struct {
+    int32_t analog_steering;  /* 0: keys (00438954), else a wheel or stick (00438aac); 0043915c: 1 the pad, 2.. the mouse */
+    int32_t pedals;           /* 1: analog (00438ff0), else keys (00438f00); 0043915c: 3 the pad's buttons, 2 the mouse */
+    int32_t gears;            /* 0043915c: 0 keys, 3 the pad's buttons, else the mouse's */
+} ControlSetup;
+
 /* 004fb7fa + 0x4b * slot: who drives the car in a slot and how. */
 #pragma pack(push, 1)
 typedef struct {
@@ -69,10 +77,14 @@ typedef struct {
     int32_t music_volume; /* +0x21 (004fb81b): 00464604's (the music's) volume, read for the followed slot */
     int32_t sound_mode;   /* +0x25 (004fb81f): 2 plays the followed car's engine unpanned (004444b8) */
     int32_t sound_on;     /* +0x29 (004fb823): non-zero, the race loads its sound banks for the followed slot (00443924) */
-    uint8_t unknown_2d[0x1e];
+    uint8_t unknown_2d[4];
+    ControlSetup controls;  /* +0x31 (004fb82b): the player's 004fb724 (004275f8 puts it here from 00426ddc's, so the
+                             * replay's setup keeps it, and takes every human's back out after the setup is read) */
+    uint8_t unknown_3d[0xe];
 } RaceEntry;
 #pragma pack(pop)
 typedef char race_entry_size_check[sizeof(RaceEntry) == 0x4b ? 1 : -1];
+typedef char race_entry_controls_check[offsetof(RaceEntry, controls) == 0x31 ? 1 : -1];
 
 typedef struct {
     void *user;
@@ -177,13 +189,6 @@ typedef struct {
 } DriverProfile;
 #pragma pack(pop)
 typedef char driver_profile_size_check[sizeof(DriverProfile) == 0x8d ? 1 : -1];
-
-/* 004fb724 + 12 * player: how a player drives. */
-typedef struct {
-    int32_t analog_steering;  /* 0: keys (00438954), else a wheel or stick (00438aac); 0043915c: 1 the pad, 2.. the mouse */
-    int32_t pedals;           /* 1: analog (00438ff0), else keys (00438f00); 0043915c: 3 the pad's buttons, 2 the mouse */
-    int32_t gears;            /* 0043915c: 0 keys, 3 the pad's buttons, else the mouse's */
-} ControlSetup;
 
 typedef struct {
     const Tri *tri;                 /* 00505038 nodes, 00504208 mask (ring_nodes - 1) */
