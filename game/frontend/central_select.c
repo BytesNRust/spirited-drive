@@ -53,6 +53,13 @@ void central_opponent_down(CentralRun *r, int mouse)
     r->redraw = 1;
 }
 
+/* the screen's start sends the Warrior (11) back to car 0; port: not when the extra keeps it and it is on offer */
+void central_car_start(ControlCentralState *st)
+{
+    const int keep = st->warrior_keep != NULL && *st->warrior_keep != 0 && *st->warrior != 0;
+    if (*st->player_car == 11 && !keep) *st->player_car = 0;
+}
+
 /* the player's car one on: a tournament's class by track (0..2, 3..5, 6..7), else 0..7 and the Warrior */
 void central_car_up(CentralRun *r)
 {
