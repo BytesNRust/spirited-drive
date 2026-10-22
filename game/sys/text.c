@@ -15,6 +15,11 @@ static Ffn font;
 static uint8_t styles[STYLE_COUNT][16];
 static uint8_t shadow[16];   /* 0051fd98 */
 static uint8_t current[16];  /* 0051dd18 */
+/* port: the palette the styles were built from, and the ramps from each colour under the text towards a text colour
+ * (palette_text_ramp with the pixel below as level 0), built as met */
+static uint8_t styles_pal[PALETTE_BYTES];
+static uint8_t blend_ramps[256][256][16];
+static uint8_t blend_known[256][256];
 
 int text_init(void)
 {
@@ -50,6 +55,8 @@ void text_build_styles(void)
 void text_build_styles_from(const uint8_t pal[768])
 {
     const uint8_t *usable = palette_usable();  /* 004c5ff8, as the last race start left it */
+    memcpy(styles_pal, pal, sizeof styles_pal);
+    memset(blend_known, 0, sizeof blend_known);
     build_ramp(pal, usable, 0xFF, 0xFF, 0xFF, styles[TEXT_WHITE]);
     build_ramp(pal, usable, 0xE8, 0xD3, 0xB7, styles[TEXT_CREAM]);
     build_ramp(pal, usable, 0xFF, 0xCE, 0x06, styles[TEXT_YELLOW]);
@@ -128,7 +135,18 @@ void text_draw_shadowed(const char *text, int x, int y)
     draw_with(text, x, y, current);
 }
 
-/* port: draw_glyph and draw_with num/den times the font's size */
+/* port: the level-th step from the pixel `under` towards colour `fg`, in the styles' palette */
+static uint8_t blended(int fg, int under, int level)
+{
+    if (!blend_known[fg][under]) {
+        palette_text_ramp(styles_pal, palette_usable(), fg, under, blend_ramps[fg][under]);
+        blend_known[fg][under] = 1;
+    }
+    return blend_ramps[fg][under][level];
+}
+
+/* port: draw_glyph and draw_with num/den times the font's size, each level mixed with the pixel below instead of
+ * the ramp's fixed dark edge (the ramp's last step is the text's colour) */
 static void draw_glyph_scaled(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ramp[16], int num, int den)
 {
     int tw, th;
@@ -139,7 +157,9 @@ static void draw_glyph_scaled(const FfnGlyph *g, int pen_x, int pen_y, const uin
         if (top + y < 0 || top + y >= th) continue;
         for (int x = 0; x < w; x++) {
             const int level = ffn_glyph_level_scaled(&font, g, x, y, num, den);
-            if (level != 0 && left + x >= 0 && left + x < tw) to[(top + y) * tw + left + x] = ramp[level];
+            if (level == 0 || left + x < 0 || left + x >= tw) continue;
+            uint8_t *const at = &to[(top + y) * tw + left + x];
+            *at = blended(ramp[15], *at, level);
         }
     }
 }
@@ -166,7 +186,7 @@ int text_width_scaled(const char *text, int num, int den)
     return text_width(text) * num / den;
 }
 
-void text_draw_shadowed_scaled(const char *text, int x, int y, int num, int den)
+void text_draw_smooth(const char *text, int x, int y, int num, int den)
 {
     const int offset = 2 * num / den;
     draw_scaled_with(text, x + offset, y + offset, shadow, num, den);

@@ -479,7 +479,7 @@ static void extras_text_glue(void *ctx, int32_t style, const char *text, int32_t
     if (mode_palette_known) text_build_styles_from(mode_palette);
     else text_build_styles();
     text_select((TextStyle)style);
-    text_draw_shadowed_scaled(text, x, y, MODE_TEXT_NUM, MODE_TEXT_DEN);
+    text_draw_smooth(text, x, y, MODE_TEXT_NUM, MODE_TEXT_DEN);
 }
 static int32_t extras_text_width_glue(void *ctx, const char *text)
 {
