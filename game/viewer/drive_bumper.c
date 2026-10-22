@@ -8,11 +8,11 @@ void drive_bumper_start(DriveBumper *b, int mirror, int radar)
     *b = (DriveBumper){ mirror != 0, radar != 0, 0, 0 };
 }
 
-void drive_bumper_keys(DriveBumper *b, int f7, int f8)
+void drive_bumper_keys(DriveBumper *b, int mirror_key, int radar_key)
 {
-    if (f7 && !b->f7_down) b->mirror = !b->mirror;
-    if (f8 && !b->f8_down) b->radar = !b->radar;
-    b->f7_down = f7 != 0, b->f8_down = f8 != 0;
+    if (mirror_key && !b->mirror_down) b->mirror = !b->mirror;
+    if (radar_key && !b->radar_down) b->radar = !b->radar;
+    b->mirror_down = mirror_key != 0, b->radar_down = radar_key != 0;
 }
 
 int drive_bumper_view(int32_t chase_kind)

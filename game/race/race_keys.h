@@ -19,6 +19,9 @@ typedef struct {
     void (*f5_off)(void *ctx);                /* 0044379c */
 } RaceKeysOps;
 
+/* port: the pad's View button as a key (platform_virtual_key's scancode for ACT_VIEW while port_bumper_keys is on) */
+enum { RACE_KEYS_PAD_VIEW = 0x59 };
+
 typedef struct {
     const uint8_t *keys;      /* 004c693c: a flag per key code */
     int32_t hold_key;         /* 004fb6fc: the ninth key code */
@@ -34,6 +37,8 @@ typedef struct {
     int32_t player;           /* 004fbb08 */
     int16_t w4c5ccc;          /* 004c5ccc */
     int32_t high;             /* 004fa0c0 */
+    int32_t port_bumper_keys; /* port: 1 leaves F1, F2 and F4 to the bumper mirror and radar (F4 to none) and has the
+                               * pad's View (RACE_KEYS_PAD_VIEW) change the view; 0 is the exe's */
 } RaceKeysInputs;
 
 typedef struct {

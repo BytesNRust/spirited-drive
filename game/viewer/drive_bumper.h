@@ -1,5 +1,6 @@
-/* port: the bumper view's extras: EXTRAS' Bumper Mirror and Bumper Radar (port_extras.h), F7 / F8 turning them over
- * in a race, the mirror's picture under the scoreboard's right end. The original shows neither outside the car. */
+/* port: the bumper view's extras: EXTRAS' Bumper Mirror and Bumper Radar (port_extras.h), F1 / F2 turning them over
+ * in a race (the exe's F1, F2 and F4 off: race_keys.h port_bumper_keys; F7 and F8 are the HUD's), the mirror's picture
+ * under the scoreboard's right end. The original shows neither outside the car. */
 #ifndef TNFS_DRIVE_BUMPER_H
 #define TNFS_DRIVE_BUMPER_H
 
@@ -16,13 +17,13 @@ enum {
 
 typedef struct {
     int mirror, radar;
-    int f7_down, f8_down;
+    int mirror_down, radar_down;   /* F1 / F2 were down the frame before */
 } DriveBumper;
 
 /* A race's start: the switches as EXTRAS has them. */
 void drive_bumper_start(DriveBumper *b, int mirror, int radar);
-/* This frame's keys: a press (up to down) turns its switch over. */
-void drive_bumper_keys(DriveBumper *b, int f7, int f8);
+/* This frame's F1 (the mirror) and F2 (the radar): a press (up to down) turns its switch over. */
+void drive_bumper_keys(DriveBumper *b, int mirror_key, int radar_key);
 int drive_bumper_view(int32_t chase_kind);
 /* Where a mirror picture `mirror_w` wide goes on a `width` screen: its right side DRIVE_BUMPER_MARGIN in from the edge,
  * its top as far under the scoreboard. */

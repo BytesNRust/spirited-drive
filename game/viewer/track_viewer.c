@@ -52,7 +52,7 @@ DriveMenu drive_menu;
 
 DriveCars drive_cars;
 DriveHud drive_hud;
-DriveBumper drive_bumper;  /* port: EXTRAS' Bumper Mirror / Radar, F7 / F8 in a race */
+DriveBumper drive_bumper;  /* port: EXTRAS' Bumper Mirror / Radar, F1 / F2 in a race */
 DriveMirror bumper_mirror;  /* port: the bumper view's mirror, the same for every car (drive_mirror_start_own) */
 static DriveSmoke drive_smoke;
 

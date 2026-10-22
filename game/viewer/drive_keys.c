@@ -108,7 +108,7 @@ void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *
     const int32_t timer = in->timer != NULL ? *in->timer : 0;
     const RaceKeysInputs inputs = { in->keys, in->codes[INPUT_KEY_HOLD], drive_joy_state()->present, in->pad_buttons,
                                     race->humans, race->phase, W513730_UNKNOWN, race->race_type, race->replay,
-                                    race->playback, timer, race->player, 0, HIGH_RESOLUTION };
+                                    race->playback, timer, race->player, 0, HIGH_RESOLUTION, 1 };
     k->state.viewed = race->viewed;
     k->state.view_changed = race->view_taken;
     race_keys(&ops, &k->state, &inputs);
