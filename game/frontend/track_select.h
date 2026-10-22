@@ -72,7 +72,7 @@ enum {
 
 typedef struct TrackSelectInputs {
     const char *paths;   /* 00524328: the data path the qfs names start with */
-    int german;          /* the short 0052b31c */
+    int kmh;             /* port: the track lengths in km (resource_kmh); the words stay with the language */
     int32_t variant_m;   /* 004fbad8 */
     int32_t variant_r;   /* 004fbadc */
     int32_t lost_vegas;  /* 004baf18 */

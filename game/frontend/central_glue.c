@@ -473,7 +473,7 @@ static void track_select(void *ctx)
     const RaceSettings before = settings_of();
     config_dat_set_race(config, &before);
     const int32_t screen = ea_screen();
-    const TrackSelectInputs in = { "", resource_german(), g.variant_m, g.variant_r, g.lost_vegas, screen,
+    const TrackSelectInputs in = { "", resource_kmh(), g.variant_m, g.variant_r, g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
     TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r,
                              port_extras_load().variant_time };   /* port: variants as entries */
@@ -510,9 +510,9 @@ static void time_text(void *ctx, char *out, int32_t time) { (void)ctx; stat_time
 static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
 {
     (void)ctx;
-    stat_average_speed_text(out, resource_german(), time, distance);
+    stat_average_speed_text(out, resource_kmh(), time, distance);
 }
-static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_german(), speed); }
+static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_kmh(), speed); }
 
 /* 004676d8 from the track screen on config.dat's image and its records; ctx is the track screen's pointer */
 static int32_t best_times(void *ctx)
@@ -578,7 +578,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
     ResultsInputs in = { game_state, config_current()->image, r->dropped, menu_words.single, r->place, r->rival_place,
-                               r->rival, r->rival_car, resource_german(), 0, screen, ea_picture_shape(screen),
+                               r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
                                CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;

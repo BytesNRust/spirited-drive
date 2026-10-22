@@ -79,7 +79,8 @@ typedef struct ResultsInputs {
     int rival_place;            /* the short 0051dcc0 */
     int rival;                  /* the short 0051dcc6: the rival player */
     int rival_car;              /* the short 0051dcc8: its car's short name */
-    int german;                 /* the short 0052b31c */
+    int german;                 /* the short 0052b31c: the words */
+    int kmh;                    /* port: the distances' units (resource_kmh), which the language does not change */
     int unknown_50a5b6;         /* the short 0050a5b6: 1 ends the screen */
     int32_t screen;             /* 00524834 */
     int32_t screen_shape;       /* [00524834] + 0x2c */

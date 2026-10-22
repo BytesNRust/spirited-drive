@@ -57,7 +57,7 @@ static void draw_rust(const ResultsInputs *in, const ResultsOps *ops)
         ops->text_at(ops->ctx, text, 0x131, 0x172);
         ops->time_text(ops->ctx, text, g32(me + RUST_A));
         ops->text_at(ops->ctx, text, 0x131, 0x186);
-        stat_distance_text(text, in->german, g32(me + RUST_DISTANCE));
+        stat_distance_text(text, in->kmh, g32(me + RUST_DISTANCE));
         ops->text_at(ops->ctx, text, 0x131, 0x19a);
         return;
     }
@@ -71,9 +71,9 @@ static void draw_rust(const ResultsInputs *in, const ResultsOps *ops)
     stat_speed_number_text(speed, g32(me + RUST_SPEED));
     snprintf(text, sizeof text, "%s / %s", time, speed);
     ops->text_at(ops->ctx, text, 0x1f0, 0x171);
-    stat_distance_text(text, in->german, g32(me + RUST_DISTANCE));
+    stat_distance_text(text, in->kmh, g32(me + RUST_DISTANCE));
     ops->text_at(ops->ctx, text, 0x1ef, 0x186);
-    stat_distance_long_text(text, in->german, g32(me + RUST_DISTANCE_LONG));
+    stat_distance_long_text(text, in->kmh, g32(me + RUST_DISTANCE_LONG));
     ops->text_at(ops->ctx, text, 0x1ef, 0x19a);
 }
 

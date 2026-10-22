@@ -156,12 +156,12 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
     char text[TEXT];
     ops->text_select(ops->ctx, 0);
     if (track > 2) {
-        ops->text_shadowed(ops->ctx, (in->german ? KM : MILES)[track - 3], 0xc8, 0x153);
+        ops->text_shadowed(ops->ctx, (in->kmh ? KM : MILES)[track - 3], 0xc8, 0x153);
         if (item == LAPS) ops->text_select(ops->ctx, 1);
         snprintf(text, sizeof text, "%d", g16(st->config, TRACK_SELECT_LAPS));
         ops->text_shadowed(ops->ctx, text, 0xdc, 0x16b);
     } else {
-        const char *const *lengths = in->german ? KM_SEGMENTED : MILES_SEGMENTED;
+        const char *const *lengths = in->kmh ? KM_SEGMENTED : MILES_SEGMENTED;
         ops->text_shadowed(ops->ctx, lengths[4 * track + segment], 0xc8, 0x153);
         ops->text_shadowed(ops->ctx, lengths[4 * track], 0xaf, 0x16a);
     }

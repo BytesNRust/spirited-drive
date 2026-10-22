@@ -30,6 +30,7 @@ enum {
 typedef struct {
     uint8_t strip[DRIVE_HUD_W * DRIVE_HUD_H];  /* what the HUD drew: it redraws only what changed */
     uint8_t *bank, *mmb;        /* the files, the caller's to free with drive_hud_free */
+    uint8_t *units_bank;        /* port: the bank of the units' language when it is not the language's, else NULL */
     uint8_t *parts[DASH_PART_ROWS][DASH_PART_COLUMNS];  /* the .b%d%d files (00483e60), all or none */
     DashArt art;
     ReplayArt replay;

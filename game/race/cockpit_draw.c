@@ -178,12 +178,12 @@ void cockpit_gauges(const QuadTarget *t, NeedleLine *line, const Cockpit *c, con
                  wrap_shl16(wrap_add(a.y, sar(wrap_mul(part, wrap_sub(b.y, a.y)), 10))));
 
     const int32_t speed_abs = in->speed > 0 ? in->speed : (int32_t)(0u - (uint32_t)in->speed);
-    const int32_t speed = sar(fx_mul_round(speed_abs, in->german != 0 ? KMH : MPH), 16);
+    const int32_t speed = sar(fx_mul_round(speed_abs, in->kmh != 0 ? KMH : MPH), 16);
     if (c->digits_on != 0) {
         gauge_digits(t, c, in, speed);
         return;
     }
-    const int32_t per = in->german != 0 ? 20 : 10;
+    const int32_t per = in->kmh != 0 ? 20 : 10;
     int32_t q = 0, r = 0;
     if (speed > 0) q = speed / per, r = speed - q * per;
     const CockpitPoint s = gauge_point(c, SPED_BASE + q), e = gauge_point(c, SPED_BASE + q + 1);
