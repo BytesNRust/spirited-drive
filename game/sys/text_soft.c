@@ -20,7 +20,7 @@ void text_soft_shadow(const uint8_t *in, uint8_t *out, int w, int h)
 
 int text_soft_lift(int level)
 {
-    const int lifted = level * TEXT_SOFT_LIFT_NUM / TEXT_SOFT_LIFT_DEN;
-    return lifted > MAX_LEVEL ? MAX_LEVEL : lifted;
+    const int sharp = (level - TEXT_SOFT_EDGE_FROM) * MAX_LEVEL / TEXT_SOFT_EDGE_SPAN;
+    return sharp < 0 ? 0 : sharp > MAX_LEVEL ? MAX_LEVEL : sharp;
 }
 
