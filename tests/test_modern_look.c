@@ -41,6 +41,35 @@ static void test_fog_colour(void)
     CHECK_EQ_INT(rgb[0], MODERN_LOOK_NO_HORIZON);
 }
 
+/* the foot all one colour */
+static void foot_of(uint8_t r, uint8_t g, uint8_t b)
+{
+    make_art();
+    art.palette[3 * 2] = art.palette[3 * 3] = r, art.palette[3 * 2 + 1] = art.palette[3 * 3 + 1] = g;
+    art.palette[3 * 2 + 2] = art.palette[3 * 3 + 2] = b;
+}
+
+/* a night horizon (Lost Vegas' black foot) keeps a dark fog: no lift to white */
+static void test_night_fog_stays_dark(void)
+{
+    uint8_t rgb[3];
+    foot_of(0, 0, 0);
+    modern_look_fog_colour(&art, rgb);
+    CHECK(rgb[0] < 16 && rgb[1] < 16 && rgb[2] < 16);
+}
+
+/* a strong blue (Alpine's foot, 16 44 148) loses MODERN_LOOK_GREY_PERCENT of its colour to its own grey: still
+ * blue, but less than the lift alone left it */
+static void test_colour_is_softened_not_lost(void)
+{
+    uint8_t rgb[3];
+    foot_of(16, 44, 148);
+    modern_look_fog_colour(&art, rgb);
+    const int lifted_spread = (148 + (255 - 148) * MODERN_LOOK_LIFT_PERCENT / 100) - (16 + (255 - 16) * MODERN_LOOK_LIFT_PERCENT / 100);
+    CHECK(rgb[2] > rgb[0] + 20);                       /* blue still */
+    CHECK(rgb[2] - rgb[0] < lifted_spread * 3 / 4);    /* greyer than the lift alone */
+}
+
 static void test_style(void)
 {
     make_art();
@@ -69,6 +98,8 @@ static void test_style(void)
 int main(void)
 {
     test_fog_colour();
+    test_night_fog_stays_dark();
+    test_colour_is_softened_not_lost();
     test_style();
     return TEST_REPORT();
 }

@@ -7,6 +7,12 @@
  * before it, so the last strip melts into the horizon instead of ending; from a tenth of the way, a haze over the middle distance */
 static const float FOG_END_PER_SEGMENT = 780.0f, FOG_START_SHARE = 0.1f;
 
+/* a colour's grey (Rec. 601 luma) */
+static int grey_of(const int c[3])
+{
+    return (299 * c[0] + 587 * c[1] + 114 * c[2] + 500) / 1000;
+}
+
 void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3])
 {
     const FshEntry *h = &art->horizon;
@@ -21,14 +27,19 @@ void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3])
                 count++;
             }
     }
-    for (int k = 0; k < 3; k++) {
-        if (count == 0) {
-            rgb[k] = MODERN_LOOK_NO_HORIZON;
-            continue;
-        }
-        const uint32_t foot = (sum[k] + count / 2) / count;
-        rgb[k] = (uint8_t)(foot + ((255 - foot) * MODERN_LOOK_LIFT_PERCENT + 50) / 100);
+    if (count == 0) {
+        rgb[0] = rgb[1] = rgb[2] = MODERN_LOOK_NO_HORIZON;
+        return;
     }
+    int c[3];
+    for (int k = 0; k < 3; k++) c[k] = (int)((sum[k] + count / 2) / count);
+    if (grey_of(c) < MODERN_LOOK_NIGHT) {
+        for (int k = 0; k < 3; k++) rgb[k] = (uint8_t)c[k];
+        return;
+    }
+    for (int k = 0; k < 3; k++) c[k] += ((255 - c[k]) * MODERN_LOOK_LIFT_PERCENT + 50) / 100;
+    const int grey = grey_of(c);
+    for (int k = 0; k < 3; k++) rgb[k] = (uint8_t)(c[k] + ((grey - c[k]) * MODERN_LOOK_GREY_PERCENT) / 100);
 }
 
 const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int filter, int fog, int32_t segments)
