@@ -94,3 +94,25 @@ int ffn_text_width(const Ffn *font, const char *text)
     }
     return width;
 }
+
+int ffn_scaled(int length, int num, int den)
+{
+    return (length * num + den - 1) / den;
+}
+
+/* the source position of a scaled pixel's centre in 1/256ths, clamped to [0, size - 1] */
+static int source_at(int scaled, int num, int den, int size)
+{
+    int s = ((2 * scaled + 1) * den * 256 / num - 256) / 2;
+    return s < 0 ? 0 : s > (size - 1) * 256 ? (size - 1) * 256 : s;
+}
+
+int ffn_glyph_level_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den)
+{
+    const int sx = source_at(x, num, den, glyph->width), sy = source_at(y, num, den, glyph->height);
+    const int x0 = sx >> 8, y0 = sy >> 8, fx = sx & 0xff, fy = sy & 0xff;
+    const int x1 = x0 + 1 < glyph->width ? x0 + 1 : x0, y1 = y0 + 1 < glyph->height ? y0 + 1 : y0;
+    const int top = ffn_glyph_level(font, glyph, x0, y0) * (256 - fx) + ffn_glyph_level(font, glyph, x1, y0) * fx;
+    const int bottom = ffn_glyph_level(font, glyph, x0, y1) * (256 - fx) + ffn_glyph_level(font, glyph, x1, y1) * fx;
+    return (top * (256 - fy) + bottom * fy + (1 << 15)) >> 16;
+}

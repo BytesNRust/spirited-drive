@@ -60,7 +60,7 @@ static void follow(Menu *m, const GameModeOps *o)
  * there, lit while it is the selection. The cover is the item's art (modd / modl: 253 x 32 at (189, 207)). */
 static void extras_label(const Menu *m, const GameModeOps *o)
 {
-    enum { TEXT_HALF_HEIGHT = 8, MODEM_X = 189, MODEM_Y = 207, MODEM_W = 253, MODEM_H = 32 };
+    enum { TEXT_HALF_HEIGHT = 21, MODEM_X = 189, MODEM_Y = 207, MODEM_W = 253, MODEM_H = 32 };
     if (o->extras == NULL || o->plus_text == NULL || o->plus_text_width == NULL) return;
     if (o->extras_cover != NULL) o->extras_cover(o->ctx, MODEM_X, MODEM_Y, MODEM_W, MODEM_H);
     const char *const text = "Customize game";

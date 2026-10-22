@@ -25,5 +25,8 @@ void text_ramp(int use_shadow);                         /* 0048ec60: text_draw's
 void text_draw(const char *text, int x, int y);         /* 0048c264 */
 void text_draw_shadowed(const char *text, int x, int y); /* 00463cd8: black shadow at +2,+2 */
 void text_draw_centered(const char *text, int cx, int y); /* 00463c60: same, centred on cx */
+/* port: text_width and text_draw_shadowed num/den times the font's size (one line) */
+int text_width_scaled(const char *text, int num, int den);
+void text_draw_shadowed_scaled(const char *text, int x, int y, int num, int den);
 
 #endif

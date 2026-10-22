@@ -128,6 +128,51 @@ void text_draw_shadowed(const char *text, int x, int y)
     draw_with(text, x, y, current);
 }
 
+/* port: draw_glyph and draw_with num/den times the font's size */
+static void draw_glyph_scaled(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ramp[16], int num, int den)
+{
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
+    const int w = ffn_scaled(g->width, num, den), h = ffn_scaled(g->height, num, den);
+    const int left = pen_x + g->x_offset * num / den, top = pen_y + g->y_offset * num / den;
+    for (int y = 0; y < h; y++) {
+        if (top + y < 0 || top + y >= th) continue;
+        for (int x = 0; x < w; x++) {
+            const int level = ffn_glyph_level_scaled(&font, g, x, y, num, den);
+            if (level != 0 && left + x >= 0 && left + x < tw) to[(top + y) * tw + left + x] = ramp[level];
+        }
+    }
+}
+
+static void draw_scaled_with(const char *text, int x, int y, const uint8_t ramp[16], int num, int den)
+{
+    if (font_data == NULL) return;
+    FfnGlyph space = { 0 };
+    ffn_glyph(&font, ' ', &space);
+    int pen = x * den;   /* in 1/den pixels, so the advances do not drift */
+    for (const unsigned char *c = (const unsigned char *)text; *c; c++) {
+        FfnGlyph g;
+        if (*c < 0x21) {
+            pen += space.advance * num;
+        } else if (ffn_glyph(&font, *c, &g)) {
+            draw_glyph_scaled(&g, pen / den, y, ramp, num, den);
+            pen += g.advance * num;
+        }
+    }
+}
+
+int text_width_scaled(const char *text, int num, int den)
+{
+    return text_width(text) * num / den;
+}
+
+void text_draw_shadowed_scaled(const char *text, int x, int y, int num, int den)
+{
+    const int offset = 2 * num / den;
+    draw_scaled_with(text, x + offset, y + offset, shadow, num, den);
+    draw_scaled_with(text, x, y, current, num, den);
+}
+
 void text_draw_centered(const char *text, int cx, int y)
 {
     text_draw_shadowed(text, cx - (short)text_width(text) / 2, y);

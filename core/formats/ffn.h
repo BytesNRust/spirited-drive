@@ -42,6 +42,11 @@ FfnResult ffn_open(Ffn *font, const uint8_t *data, size_t size);
 int ffn_glyph(const Ffn *font, unsigned code, FfnGlyph *out);
 int ffn_glyph_level(const Ffn *font, const FfnGlyph *glyph, int x, int y);
 
+/* port: the level at (x, y) of the glyph drawn num/den times its size (bilinear between atlas pixels, clamped to the
+ * glyph), and a length at that size rounded up */
+int ffn_glyph_level_scaled(const Ffn *font, const FfnGlyph *glyph, int x, int y, int num, int den);
+int ffn_scaled(int length, int num, int den);
+
 /* 004770f4: sum of advances; a space uses the 0x20 glyph's advance. */
 int ffn_text_width(const Ffn *font, const char *text);
 

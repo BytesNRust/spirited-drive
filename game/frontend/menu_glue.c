@@ -469,12 +469,22 @@ static void extras_panel_glue(void *ctx, const uint8_t *rgb, int32_t x0, int32_t
 static uint8_t mode_palette[768];
 static int mode_palette_known;
 
-/* the Game Mode label: the styles built for this screen's palette first */
+/* Game Mode's items are art drawn larger than the game's text: "Single player" is 263 wide there, 158 in graver18 */
+enum { MODE_TEXT_NUM = 33, MODE_TEXT_DEN = 20 };
+
+/* the Game Mode label: the styles built for this screen's palette first, at the items' size */
 static void extras_text_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
+    (void)ctx;
     if (mode_palette_known) text_build_styles_from(mode_palette);
     else text_build_styles();
-    glue_plus_text(ctx, style, text, x, y);
+    text_select((TextStyle)style);
+    text_draw_shadowed_scaled(text, x, y, MODE_TEXT_NUM, MODE_TEXT_DEN);
+}
+static int32_t extras_text_width_glue(void *ctx, const char *text)
+{
+    (void)ctx;
+    return text_width_scaled(text, MODE_TEXT_NUM, MODE_TEXT_DEN);
 }
 static int32_t extras_deadline_passed_glue(void *ctx) { (void)ctx; return 0; }
 
@@ -565,7 +575,7 @@ int32_t glue_game_mode(void)
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
-                              mode_extras, extras_text_glue, glue_plus_text_width, mode_cover };
+                              mode_extras, extras_text_glue, extras_text_width_glue, mode_cover };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

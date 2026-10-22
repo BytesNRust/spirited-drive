@@ -60,6 +60,26 @@ static void test_open_and_glyphs(void)
     free(data);
 }
 
+/* port: a glyph drawn larger, its levels blended between the atlas pixels (clamped to the glyph) */
+static void test_scaled_levels(void)
+{
+    size_t size;
+    uint8_t *data = build_font(&size);
+    if (data == NULL) return;
+    Ffn font;
+    FfnGlyph g;
+    CHECK_EQ_INT(ffn_open(&font, data, size), FFN_OK);
+    CHECK(ffn_glyph(&font, 'A', &g));
+    for (int y = 0; y < 2; y++)
+        for (int x = 0; x < 3; x++) CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, x, y, 1, 1), ffn_glyph_level(&font, &g, x, y));
+    CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 0, 0, 2, 1), 0xF);
+    CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 1, 0, 2, 1), 13);   /* 3/4 of F and 1/4 of 8 */
+    CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 5, 3, 2, 1), 3);    /* the last pixel, clamped */
+    CHECK_EQ_INT(ffn_scaled(3, 2, 1), 6);
+    CHECK_EQ_INT(ffn_scaled(3, 33, 20), 5);   /* rounded up: the glyph's last column is kept */
+    free(data);
+}
+
 static void test_text_width(void)
 {
     size_t size;
@@ -97,6 +117,7 @@ static void test_corrupt(void)
 
 int main(void)
 {
+    test_scaled_levels();
     test_open_and_glyphs();
     test_text_width();
     test_corrupt();
