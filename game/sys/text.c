@@ -252,6 +252,11 @@ void text_draw_mask(const uint8_t *mask, int w, int h, int x, int y)
     draw_soft(mask, w, h, x, y, text_soft_title_shadow);
 }
 
+void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y)
+{
+    draw_soft(mask, w, h, x, y, text_soft_shadow);
+}
+
 void text_draw_header(const char *text, int x, int y, int num, int den, int underline)
 {
     enum { PAD = 2, CAPACITY = 64, UNDERLINE_ROWS = 2 };

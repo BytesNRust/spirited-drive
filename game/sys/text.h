@@ -33,6 +33,9 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den);
  * draws its letters in the current style but with the original titles' shadow (text_soft_title_shadow), the mask's
  * (0, 0) at (x, y) */
 void text_draw_mask(const uint8_t *mask, int w, int h, int x, int y);
+/* port: an item's own letters (item_art.h), a w x h coverage mask drawn as text_draw_smooth draws the items: in the
+ * current style, with the item shadow (text_soft_shadow), the mask's (0, 0) at (x, y) */
+void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y);
 /* port: a section header as the credits draw theirs (text_soft.h), in capitals num/den times the font's size, with
  * its underline `underline` pixels long from x (the text's width when 0) */
 void text_draw_header(const char *text, int x, int y, int num, int den, int underline);

@@ -8,6 +8,7 @@
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_mode.h"
 #include "game/frontend/intro_glue.h"
+#include "game/frontend/item_art.h"
 #include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
@@ -503,17 +504,44 @@ static void extras_text_styles_glue(void *ctx)
     else text_build_styles();
 }
 
-/* The Game Mode label, at the items' size, and its width at that size */
+/* port: a label the items' own letters give (item_art.h: "Customize game"), cut from the CD the first time and kept;
+ * a label the CD cannot give is drawn in the font */
+static const uint8_t *item_mask(const char *text, int *w)
+{
+    static uint8_t masks[ITEM_ART_COUNT][ITEM_ART_MAX_W * ITEM_ART_H];
+    static int widths[ITEM_ART_COUNT], tried[ITEM_ART_COUNT], ok[ITEM_ART_COUNT];
+    const ItemArtId id = item_art_for(text);
+    if (id == ITEM_ART_COUNT) return NULL;
+    if (!tried[id]) {
+        tried[id] = 1;
+        ok[id] = item_art_load(resource_load_art, id, masks[id], &widths[id]);
+        if (!ok[id]) fprintf(stderr, "item: \"%s\" not on the CD, drawn in the font\n", text);
+    }
+    *w = widths[id];
+    return ok[id] ? masks[id] : NULL;
+}
+
+/* port: the Modem item's capitals in Game Mode: its shape stands at (189, 207) and its cap row is the shape's row 1 */
+enum { MODEM_CAP_TOP = 208 };
+
+/* The Game Mode label, at the items' size, and its width at that size. "Customize game" is the items' own letters
+ * (item_art.h), its mask standing where the Modem item's capitals do; the width is the mask's, so the label stays
+ * centred where the caller puts it. */
 static void extras_text_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     (void)ctx;
     extras_text_styles_glue(ctx);
     text_select((TextStyle)style);
-    text_draw_smooth(text, x, y, MODE_TEXT_NUM, MODE_TEXT_DEN);
+    int w = 0;
+    const uint8_t *const art = item_mask(text, &w);
+    if (art != NULL) text_draw_item_mask(art, w, ITEM_ART_H, x, MODEM_CAP_TOP - ITEM_ART_PAD);
+    else text_draw_smooth(text, x, y, MODE_TEXT_NUM, MODE_TEXT_DEN);
 }
 static int32_t extras_text_width_glue(void *ctx, const char *text)
 {
     (void)ctx;
+    int w = 0;
+    if (item_mask(text, &w) != NULL) return w;
     return text_width_scaled(text, MODE_TEXT_NUM, MODE_TEXT_DEN);
 }
 static int32_t extras_deadline_passed_glue(void *ctx) { (void)ctx; return 0; }
