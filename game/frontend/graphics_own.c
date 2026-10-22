@@ -142,6 +142,7 @@ typedef struct Screen {
     int bgnd_ready;   /* the background asked for once; composing it takes about half a second */
     int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
     uint8_t screen_pal[768];   /* the palette_set destination, kept apart from the one it reads */
+    int32_t bank;   /* option/options.qfs, for DONE and CANCEL's lit and dark art */
 } Screen;
 
 /* The clean configuration background, composed at run time from the CD and kept: config_bgnd_load reads the ten
@@ -244,7 +245,14 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
         own_text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
     /* port: no letters for DONE and CANCEL. The clean background carries both words in its own corners and the
      * screen used to draw a second copy over them, offset a few pixels -- the capture showed "CANCEL - CANCEL".
-     * The rows are still there, still lit and still chosen: only the words are the background's. */
+     * Lit or dark they are Options' own art over those corners, as the EXTRAS screen draws them (OPTIONS.QFS's
+     * capitalised names: shape_bank_find compares with memcmp). */
+    if (s->bank != 0) {
+        const uint8_t *const done = o->shape(o->ctx, s->bank, s->selected == GRAPHICS_OWN_DONE ? "Donl" : "Dond");
+        const uint8_t *const cancel = o->shape(o->ctx, s->bank, s->selected == GRAPHICS_OWN_CANCEL ? "Canl" : "Cand");
+        if (done != NULL) o->blit_own(o->ctx, done);
+        if (cancel != NULL) o->blit_own(o->ctx, cancel);
+    }
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->unlock(o->ctx);
@@ -321,6 +329,7 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
     static Screen s;   /* its background is 300 KB: not on the stack, the web build's is 64 KB */
     memset(&s, 0, sizeof s);
     s.st = st, s.redraw = 1, s.result = -1;
+    s.bank = ops->load_art(ops->ctx, "option/options.qfs");
     *st->showing = 1;
     background(&s, ops);
     move_to(s.selected, ops);
@@ -351,6 +360,7 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
         }
     } while (s.result < 0);
     *st->showing = 0;
+    if (s.bank != 0) ops->free(ops->ctx, s.bank);
     /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends; the deadline, the right button and the
      * quit flag all land on Cancel, which saves nothing. */
     if (s.result != 0) {

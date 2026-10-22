@@ -21,7 +21,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *   page 1  Game modes         Mirror track mode, Rally track mode, Explode mode, Nitro mode, Turbo mode
  *            Driving & cameras  No driving assists, Bumper view mirror, Bumper view police radar,
  *                                Replay cameras in race mode
- *   page 2  Unlocks            Enable Warrior Player Car, Enable Warrior Rival Car, Enable Lost Vegas Track,
+ *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track,
  *                                Unlock Level, Time with variants
  *            Startup            Start Screen, Disable intro video
  *

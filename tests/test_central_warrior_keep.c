@@ -1,5 +1,5 @@
 /* The player's car as Control Central starts (central_select.c central_car_start): the original sends the Warrior
- * (11) back to car 0; the port's "Enable Warrior Player Car" extra keeps it while the Warrior is on offer. */
+ * (11) back to car 0; the port's "Warrior Player Car" extra keeps it while the Warrior is on offer. */
 #include "game/frontend/central_run.h"
 #include "test.h"
 

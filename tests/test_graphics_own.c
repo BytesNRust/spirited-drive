@@ -51,6 +51,8 @@ typedef struct Fake {
     int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
     int done_draws, cancel_draws;   /* times DONE / CANCEL were drawn over the background's own words */
     int smooth_draws;         /* times the text went through the background-restoring (smooth) op */
+    int lit_done, lit_cancel; /* times the lit DONE / CANCEL art was asked for */
+    int frees;                /* banks freed */
     int32_t palette_modes[32];
     int palette_mode_count;
     PortSettings kept;       /* the settings as they were on entry */
@@ -74,7 +76,14 @@ static void f_move(void *ctx, int32_t x, int32_t y)
     if (y >= 430 && y < 475) f->pointer_row = x < 320 ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
 }
 static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
-static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag) { (void)ctx, (void)bank, (void)tag; return NULL; }
+static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag)
+{
+    Fake *f = ctx;
+    (void)bank;
+    if (strcmp(tag, "Donl") == 0) f->lit_done++;
+    if (strcmp(tag, "Canl") == 0) f->lit_cancel++;
+    return NULL;
+}
 static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
     Fake *f = ctx;
@@ -112,7 +121,7 @@ static int32_t f_ticks(void *ctx)
 }
 static int32_t f_buttons(void *ctx) { (void)ctx; return 0; }
 static void f_sound(void *ctx, int32_t sound) { (void)ctx, (void)sound; }
-static void f_free(void *ctx, int32_t bank) { (void)ctx, (void)bank; }
+static void f_free(void *ctx, int32_t bank) { (void)bank; ((Fake *)ctx)->frees++; }
 static int32_t f_deadline_passed(void *ctx) { (void)ctx; return 0; }
 
 /* The row each of the screen's own words belongs to, so the fake can read the selection off the draw: the selected row
@@ -369,6 +378,31 @@ static void test_done_and_cancel_are_not_drawn_twice(void)
     run_script(&r, 1);
     CHECK_EQ_INT(r.f.done_draws, 0);
     CHECK_EQ_INT(r.f.cancel_draws, 0);
+}
+
+/* port: DONE and CANCEL light up when chosen, as Options' own art (Donl / Canl) over the background's words, and
+ * stay dark otherwise; the bank that art comes from is freed as the screen closes */
+static void test_done_and_cancel_light_up(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    CHECK_EQ_INT(r.f.lit_done, 0);
+    CHECK_EQ_INT(r.f.lit_cancel, 0);
+    CHECK_EQ_INT(r.f.frees, 1);
+    Rig done;
+    rig_init(&done);
+    run_script(&done, script_walk(GRAPHICS_OWN_VIEW, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK(done.f.lit_done > 0);
+    CHECK_EQ_INT(done.f.lit_cancel, 0);
+    Rig cancel;
+    rig_init(&cancel);
+    int n = 0;
+    for (int i = 0; i < GRAPHICS_OWN_CANCEL; i++) script[n++] = DOWN;
+    script[n++] = ESCAPE;
+    run_script(&cancel, n);
+    CHECK(cancel.f.lit_cancel > 0);
 }
 
 /* 7: the text goes through the background-restoring op. Every redraw repaints the whole page -- the screen blits
@@ -630,6 +664,7 @@ static void test_fullscreen_takes_desktop_format(void)
 int main(void)
 {
     test_rows_in_order();
+    test_done_and_cancel_light_up();
     test_title_top_left();
     test_palette_reaches_the_display();
     test_palette_is_not_rewritten_in_place();

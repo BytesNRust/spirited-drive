@@ -61,7 +61,7 @@ static int unlock_row(void) { return ROW_UNLOCK - ROW_FIRST_P2; }
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
-    "Enable Warrior Player Car", "Enable Warrior Rival Car", "Enable Lost Vegas Track", "Unlock Level",
+    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Unlock Level",
     "Time with variants", "Start Screen", "Disable intro video"
 };
 

@@ -265,7 +265,7 @@ static void test_right_turns_to_page_two(void)
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "< 2/2"));
-    CHECK(shown(&r.fake, "Enable Warrior Player Car"));
+    CHECK(shown(&r.fake, "Warrior Player Car"));
 }
 
 /* Rally on with Mirror on turns Mirror off */
@@ -294,7 +294,7 @@ static void test_page_two_switches_saved(void)
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* Done to Cancel, Cancel to page 2, then the toggles */
-    keys[n++] = RIGHT;                                     /* Enable Warrior Player Car on, the ninth toggle */
+    keys[n++] = RIGHT;                                     /* Warrior Player Car on, the ninth toggle */
     for (int i = 0; i < ROWS_P2 - 2; i++) keys[n++] = DOWN;   /* down to Start Screen, the first row of Startup */
     for (int i = 0; i < 3; i++) keys[n++] = LEFT;         /* Start's three values: Network, Control Central, Game Mode */
     for (int i = 0; i < 2; i++) keys[n++] = DOWN;         /* up the Startup group, then Done */
@@ -384,9 +384,9 @@ static void test_page_two_has_seven_rows(void)
     const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
     run(&r, keys, 11);
-    CHECK(shown(&r.fake, "Enable Warrior Player Car"));
-    CHECK(shown(&r.fake, "Enable Warrior Rival Car"));
-    CHECK(shown(&r.fake, "Enable Lost Vegas Track"));
+    CHECK(shown(&r.fake, "Warrior Player Car"));
+    CHECK(shown(&r.fake, "Warrior Rival Car"));
+    CHECK(shown(&r.fake, "Lost Vegas Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
     CHECK(shown(&r.fake, "Start Screen"));
@@ -589,7 +589,7 @@ static void test_left_on_page_two_done_goes_back(void)
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     keys[n++] = RIGHT;                                     /* page 1's Cancel */
-    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2, Enable Warrior Player Car */
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2, Warrior Player Car */
     for (int i = 0; i < ROWS_P2; i++) keys[n++] = DOWN;   /* page 2's Done */
     keys[n++] = LEFT;                                      /* page 1's Cancel */
     keys[n++] = LEFT;                                      /* page 1's Done */
