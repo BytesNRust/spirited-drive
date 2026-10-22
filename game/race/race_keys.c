@@ -11,7 +11,7 @@ enum {
     KEY_TAB = 0x0f, KEY_ENTER = 0x1c, KEY_CTRL = 0x1d, KEY_LSHIFT = 0x2a, KEY_M = 0x32, KEY_RSHIFT = 0x36,
     KEY_ALT = 0x38, KEY_SPACE = 0x39, KEY_F1 = 0x3b, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6,
     KEY_PAD_8 = 0x48, KEY_PAD_9, KEY_PAD_4 = 0x4b, KEY_PAD_6 = 0x4d, KEY_PAD_1 = 0x4f, KEY_PAD_2, KEY_PAD_3,
-    KEY_PAD_0, KEY_1 = 0x02, CARS = 8, FREE_CARS = 2,
+    KEY_PAD_0, KEY_PAD_VIEW = RACE_KEYS_PAD_VIEW, KEY_1 = 0x02, CARS = 8, FREE_CARS = 2,
     PAD_HOLD = 4, HOLD_PHASE = 1, HOLD_BLOCK = 5, RESET_WAIT = 100, RESET_WAIT_PLAYBACK = 400, SCREEN_CLEAR = 3
 };
 
@@ -53,13 +53,14 @@ static void watch(const RaceKeysOps *ops, RaceKeysState *st, const RaceKeysInput
 static void function_key(const RaceKeysOps *ops, RaceKeysState *st, const RaceKeysInputs *in)
 {
     const int first = st->fkey_held == 0;
-    if (in->keys[KEY_F1] != 0) {
+    const int port = in->port_bumper_keys != 0;
+    if (in->keys[port ? KEY_PAD_VIEW : KEY_F1] != 0) {
         if (first) {
             ops->f1(ops->ctx);
             if (st->screen_kind == SCREEN_CLEAR) st->clear_view = 1;
             st->view_changed = 1;
         }
-    } else if (in->keys[KEY_F2] != 0) {
+    } else if (!port && in->keys[KEY_F2] != 0) {
         if (first) {
             st->screen_kind = (uint8_t)((uint8_t)(st->screen_kind + 1) % 4);
             if (in->high == 0 && st->screen_kind > 1) st->screen_kind = 0;
@@ -71,7 +72,7 @@ static void function_key(const RaceKeysOps *ops, RaceKeysState *st, const RaceKe
             st->detail = (uint8_t)((uint8_t)(st->detail + 1) % 3);
             ops->detail(ops->ctx, DETAIL[st->detail]);
         }
-    } else if (in->keys[KEY_F4] != 0) {
+    } else if (!port && in->keys[KEY_F4] != 0) {
         if (first) st->w4fb786 = (uint8_t)(1 - st->w4fb786);
     } else if (in->keys[KEY_F5] != 0) {
         if (first) {

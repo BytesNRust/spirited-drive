@@ -15,7 +15,7 @@ typedef struct {
     int modern_3d;    /* 0/1: the 3D clipped, unsnapped and perspective-correct, not the PS1-era mapper's warp */
     int texture_filter, fog;    /* 0/1, over Modern 3D (modern_road.h's ModernStyle); nothing without it */
     int bumper_mirror, bumper_radar;   /* 0/1: the rear-view mirror and the radar detector in the bumper view, under
-                                        * the scoreboard (F7 / F8 turn them over in a race) */
+                                        * the scoreboard (F1 / F2 turn them over in a race) */
     int variant_time; /* 0/1: the time of day offered with Mirror or Rally (fam_mirror.h), which the original hides */
     StartScreen start;                                          /* START_GAME_MODE */
 } PortExtras;

@@ -17,7 +17,7 @@
 
 static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
 
-enum { KEY_F7 = 0x41, KEY_F8 = 0x42, KEY_F9 = 0x43 };
+enum { KEY_F1 = 0x3b, KEY_F2 = 0x3c, KEY_F9 = 0x43 };
 
 /* 004c5360 asked for by F3 (004381f8) or the menu's Esc (004557f4): the frame's detail step takes it */
 static void take_detail(int32_t *pending)
@@ -261,7 +261,7 @@ static void run_frame(void *ctx, int32_t frame)
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
-    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F7] != 0, drive_input.keys[KEY_F8] != 0);
+    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0, drive_input.keys[KEY_F2] != 0);
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 

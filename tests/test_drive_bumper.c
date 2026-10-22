@@ -1,4 +1,4 @@
-/* port: the bumper view's extras (drive_bumper.h): EXTRAS' Bumper Mirror and Bumper Radar as a race's start, F7 / F8
+/* port: the bumper view's extras (drive_bumper.h): EXTRAS' Bumper Mirror and Bumper Radar as a race's start, F1 / F2
  * turning them over on a press, the mirror's picture under the scoreboard's right end with a frame. */
 #include "viewer/drive_bumper.h"
 #include "test.h"
@@ -11,14 +11,14 @@ static void test_keys_turn_over_on_a_press(void)
     drive_bumper_start(&b, 1, 0);
     CHECK_EQ_INT(b.mirror, 1);
     CHECK_EQ_INT(b.radar, 0);
-    drive_bumper_keys(&b, 1, 0);   /* F7 down: the mirror off */
+    drive_bumper_keys(&b, 1, 0);   /* F1 down: the mirror off */
     CHECK_EQ_INT(b.mirror, 0);
     drive_bumper_keys(&b, 1, 0);   /* held: nothing more */
     CHECK_EQ_INT(b.mirror, 0);
-    drive_bumper_keys(&b, 0, 1);   /* F7 up, F8 down: the radar on */
+    drive_bumper_keys(&b, 0, 1);   /* F1 up, F2 down: the radar on */
     CHECK_EQ_INT(b.mirror, 0);
     CHECK_EQ_INT(b.radar, 1);
-    drive_bumper_keys(&b, 1, 1);   /* F7 again (F8 held) */
+    drive_bumper_keys(&b, 1, 1);   /* F1 again (F2 held) */
     CHECK_EQ_INT(b.mirror, 1);
     CHECK_EQ_INT(b.radar, 1);
     drive_bumper_start(&b, 0, 0);  /* the next race starts from EXTRAS again */
