@@ -1,8 +1,10 @@
 /* port: the port's own settings file (port.cfg). */
 #include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
+#include "game/sys/port_extras.h"
 #include "game/viewer/screen_layout.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,7 +17,7 @@ static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0 };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0 };
     return d;
 }
 
@@ -50,8 +52,30 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "view_ultra") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->view_ultra = (int)n;
+    } else if (strcmp(key, "perspective") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->perspective = (int)n;
+    } else if (strcmp(key, "texture_filter") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->texture_filter = (int)n;
+    } else if (strcmp(key, "fog") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->fog = (int)n;
     }
 }
+
+/* which of the three that moved in from EXTRAS port.cfg actually names; the rest fall back to extras.cfg. The
+ * extras.cfg key is the one EXTRAS used to write, so a file from before the move still carries it. */
+typedef struct Moved {
+    const char *key;   /* the key in port.cfg */
+    size_t offset;         /* the field in PortSettings */
+    size_t extras_offset;  /* the same setting's field in PortExtras */
+} Moved;
+
+static const Moved MOVED[3] = { { "perspective", offsetof(PortSettings, perspective), offsetof(PortExtras, modern_3d) },
+                                 { "texture_filter", offsetof(PortSettings, texture_filter),
+                                   offsetof(PortExtras, texture_filter) },
+                                 { "fog", offsetof(PortSettings, fog), offsetof(PortExtras, fog) } };
 
 PortSettings port_settings_parse(const char *text, size_t size)
 {
@@ -80,19 +104,52 @@ PortSettings port_settings_parse(const char *text, size_t size)
 
 size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
-    const int n = snprintf(out, size, "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n",
+    const int n = snprintf(out, size,
+                           "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
-                           s->fullscreen, s->fov_adjust, s->view_ultra);
+                           s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
+}
+
+/* whether `text` has a line starting with `key=`; port.cfg wins over extras.cfg, so a save from the Graphics screen
+ * is never undone by an extras.cfg left from before the settings moved. */
+static bool names(const char *text, size_t size, const char *key)
+{
+    const size_t len = strlen(key);
+    for (size_t pos = 0; pos < size; pos++) {
+        const size_t start = pos;
+        while (pos < size && text[pos] != '\n')
+            pos++;
+        const size_t line = pos - start;
+        if (line > len && strncmp(text + start, key, len) == 0 && text[start + len] == '=')
+            return true;
+    }
+    return false;
+}
+
+/* The three that moved in from EXTRAS: the ones `text` (port.cfg) does not name come from extras.cfg, read-only. With no
+ * port.cfg at all (`text` NULL) none of them is named, so all three come from there. */
+static void take_from_extras(PortSettings *s, const char *text, size_t size)
+{
+    const PortExtras extras = port_extras_load();
+    for (int i = 0; i < 3; i++)
+        if (!text || !names(text, size, MOVED[i].key))
+            *(int *)((char *)s + MOVED[i].offset) =
+                *(const int *)((const char *)&extras + MOVED[i].extras_offset);
 }
 
 PortSettings port_settings_load(void)
 {
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
-    if (!data)
-        return port_settings_defaults();
-    const PortSettings s = port_settings_parse((const char *)data, size);
+    if (!data) {
+        PortSettings s = port_settings_defaults();
+        take_from_extras(&s, NULL, 0);
+        return s;
+    }
+    PortSettings s = port_settings_parse((const char *)data, size);
+    take_from_extras(&s, (const char *)data, size);
     platform_free_file(data);
     return s;
 }
