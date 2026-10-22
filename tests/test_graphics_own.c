@@ -49,6 +49,7 @@ typedef struct Fake {
     int put_backs;           /* times the settings were put back (Cancel / Escape only) */
     int aliased_palettes;    /* times palette_set was handed its own destination as the source */
     int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
+    int done_draws, cancel_draws;   /* times DONE / CANCEL were drawn over the background's own words */
     int32_t palette_modes[32];
     int palette_mode_count;
     PortSettings kept;       /* the settings as they were on entry */
@@ -130,6 +131,8 @@ static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_
         const int row = row_of(text);
         if (row >= 0) f->pointer_row = row;
     }
+    if (strcmp(text, "DONE") == 0) f->done_draws++;
+    if (strcmp(text, "CANCEL") == 0) f->cancel_draws++;
     if (f->text_count < 96) {
         snprintf(f->texts[f->text_count], sizeof f->texts[0], "%s", text);
         f->text_x[f->text_count] = x;
@@ -336,6 +339,19 @@ static void test_palette_is_put_raw(void)
     run_script(&r, 1);
     CHECK(r.f.palette_mode_count > 0);
     CHECK(r.f.non_raw_modes == 0);
+}
+
+/* 6: DONE and CANCEL are not drawn over the background's own. The clean configuration background carries those two
+ * words in its corners, so the screen drawing its own lands a second, slightly offset copy beside the first -- the
+ * headless capture showed "CANCEL - CANCEL". The rows stay selectable; only the letters are the background's. */
+static void test_done_and_cancel_are_not_drawn_twice(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    CHECK_EQ_INT(r.f.done_draws, 0);
+    CHECK_EQ_INT(r.f.cancel_draws, 0);
 }
 
 /* 4: View Distance offers four values, "Ultra" among them: the fourth is the port's, and it turns view_ultra on */
@@ -569,6 +585,7 @@ int main(void)
     test_palette_reaches_the_display();
     test_palette_is_not_rewritten_in_place();
     test_palette_is_put_raw();
+    test_done_and_cancel_are_not_drawn_twice();
     test_view_distance_has_ultra();
     test_view_distance_cycles();
     test_values_write_settings();
