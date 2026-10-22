@@ -144,7 +144,7 @@ static void reapply_both_keeps_the_two_when_the_port_says_so(void)
     CHECK_EQ_INT(fl_variant_r, 1);
 }
 
-/* Alone each keeps its own unlocks and clears the other variant: nothing about the rule changes. */
+/* Alone each sets its own unlock and variant and leaves the other's unlock alone. */
 static void reapply_alone_is_unchanged_by_the_port(void)
 {
     ExtrasFlags f;
@@ -167,6 +167,30 @@ static void reapply_alone_is_unchanged_by_the_port(void)
     CHECK_EQ_INT(fl_variant_r, 1);
     CHECK_EQ_INT(fl_variant_m, 0);
     CHECK_EQ_INT(fl_unlock_m, 0);
+}
+
+/* The port: one switch forces its variant on and leaves the other as the track screen chose it, so Mirror on and
+ * the rally's entry picked races both (the exe's rule cleared the rally and raced the mirror alone). */
+static void reapply_alone_keeps_the_picked_variant(void)
+{
+    ExtrasFlags f;
+    clear_all();
+    flags(&f);
+    fl_variant_r = 1;
+    PortExtras m = port_extras_defaults();
+    m.mirror = 1;
+    extras_reapply_port(&m, &f);
+    CHECK_EQ_INT(fl_variant_m, 1);
+    CHECK_EQ_INT(fl_variant_r, 1);
+
+    clear_all();
+    flags(&f);
+    fl_variant_m = 1;
+    PortExtras r = port_extras_defaults();
+    r.rally = 1;
+    extras_reapply_port(&r, &f);
+    CHECK_EQ_INT(fl_variant_r, 1);
+    CHECK_EQ_INT(fl_variant_m, 1);
 }
 
 /* Nothing on: the reapply leaves the flags as it found them. */
@@ -368,6 +392,7 @@ int main(void)
     reapply_both_is_the_exe();
     reapply_both_keeps_the_two_when_the_port_says_so();
     reapply_alone_is_unchanged_by_the_port();
+    reapply_alone_keeps_the_picked_variant();
     reapply_none_touches_nothing();
     from_flags_both_shows_both_under_the_port();
     /* ----- extras_menu.c ----- */

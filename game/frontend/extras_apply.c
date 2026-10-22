@@ -47,21 +47,16 @@ void extras_reapply(const PortExtras *e, const ExtrasFlags *f)
 
 void extras_reapply_port(const PortExtras *e, const ExtrasFlags *f)
 {
-    /* port: with both switches on neither clears the other, so 004fbad8 and 004fbadc both stay set for the race
-     * to read (the mirror's geometry, the rally's art). One switch alone is the exe's branch. */
-    if (e->mirror && e->rally) {
-        *f->unlock_m = 1;
-        *f->unlock_r = 1;
-        *f->variant_m = 1;
-        *f->variant_r = 1;
-    } else if (e->mirror) {
+    /* port: a switch forces its variant on and never clears the other, so 004fbad8 and 004fbadc can both stay set
+     * for the race to read (the mirror's geometry, the rally's art): both switches on, or one on and the other's
+     * entry picked on the track screen. */
+    if (e->mirror) {
         *f->unlock_m = 1;
         *f->variant_m = 1;
-        *f->variant_r = 0;
-    } else if (e->rally) {
+    }
+    if (e->rally) {
         *f->unlock_r = 1;
         *f->variant_r = 1;
-        *f->variant_m = 0;
     }
     extras_apply_rest(e, f);
 }
