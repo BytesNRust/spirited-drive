@@ -1,4 +1,5 @@
 #include "game/frontend/track_select.h"
+#include "game/race/track_fam.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -106,7 +107,8 @@ static int variant_of(const TrackSelectState *st)
 
 static int no_time_of_day(const TrackSelectInputs *in, const TrackSelectState *st, int track)
 {
-    if (st->plus) return track == LOST_VEGAS || *st->plus->variant_m || *st->plus->variant_r;
+    if (st->plus)
+        return !track_fam_time_offered(track, *st->plus->variant_m, *st->plus->variant_r, st->plus->variant_time);
     return track == LOST_VEGAS || in->variant_m || in->variant_r;
 }
 
@@ -118,7 +120,7 @@ static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0 };
     const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {

@@ -469,7 +469,8 @@ static void track_select(void *ctx)
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_german(), g.variant_m, g.variant_r, g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
-    TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r };   /* port: variants as entries */
+    TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r,
+                             port_extras_load().variant_time };   /* port: variants as entries */
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette, &plus };
     int x, y;
     pointer_position(&x, &y);
@@ -1431,6 +1432,8 @@ void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_t
     RaceSettings s = settings_of();
     if (track >= 0) s.track = track, s.variant = segment;  /* g.variant: the same short */
     s.variant_m = variant_m, s.variant_r = variant_r;  /* 004fbad8 / 004fbadc, as the cheats and track select set them */
+    const char *const time = getenv("TNFS_DRIVE_TIME");  /* port: the track screen's time of day, 0..2 */
+    if (time != NULL && track >= 0 && track < 9) time_of_day[track] = atoi(time);
     if (car >= 0) s.player_car = car;
     if (race_type >= 0) s.race_type = race_type;
     settings_put(&s);

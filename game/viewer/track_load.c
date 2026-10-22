@@ -94,6 +94,15 @@ static uint8_t *read_fam_named(const char *data_root, const char *name, const Tr
     return data;
 }
 
+/* port: the midday FAM of `look`'s track with the variants given, for the art the CD does not hold (fam_mirror.h) */
+static uint8_t *read_fam_variant(const char *data_root, const char *name, const TrackFamInputs *look, int variant_m,
+                                 int variant_r, size_t *size)
+{
+    TrackFamInputs in = *look;
+    in.time_of_day = 1, in.variant_m = variant_m, in.variant_r = variant_r, in.port_both_variants = 0;
+    return read_fam_named(data_root, name, &in, size);
+}
+
 /* Port guard: a FAM the CD does not hold falls back to the first of NTRACKFM's. */
 static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
 {
@@ -122,14 +131,30 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     t->tri_file = track_viewer_read_any(data_root, "MISC", name, TRI_SUFFIX, &tri_size);
     t->fam_file = read_fam(data_root, name, look, &fam_size);
     if (t->tri_file == NULL || t->fam_file == NULL) return 0;
-    if (look->port_both_variants && look->variant_m && look->variant_r) {
+    if (look->time_of_day == 1 && look->port_both_variants && look->variant_m && look->variant_r) {
         /* port: the rally's art on the mirror's geometry; the signs the mirror's own art holds flipped are flipped */
-        TrackFamInputs mirror = *look;
-        mirror.variant_r = 0, mirror.port_both_variants = 0;
         size_t mirror_size = 0;
-        uint8_t *const m = read_fam_named(data_root, name, &mirror, &mirror_size);
-        if (m != NULL) fam_mirror_signs(t->fam_file, fam_size, m, mirror_size);
+        uint8_t *const m = read_fam_variant(data_root, name, look, 1, 0, &mirror_size);
+        if (m != NULL) fam_mirror_signs(t->fam_file, fam_size, t->fam_file, fam_size, m, mirror_size);
         platform_free_file(m);
+    } else if (look->time_of_day != 1 && (look->variant_m || look->variant_r)) {
+        /* port: a variant at another time of day (extras.cfg's variant_time), on the _T01 art: the rally's own
+         * bitmaps darkened into it, then the mirror's signs flipped */
+        size_t day_size = 0, other_size = 0;
+        uint8_t *const day = read_fam_variant(data_root, name, look, 0, 0, &day_size);
+        uint8_t *const rally = day != NULL && look->variant_r ? read_fam_variant(data_root, name, look, 0, 1, &other_size)
+                                                              : NULL;
+        const int put = rally != NULL ? fam_time_rally(t->fam_file, fam_size, day, day_size, rally, other_size) : 0;
+        platform_free_file(rally);
+        uint8_t *const mirror = day != NULL && look->variant_m ? read_fam_variant(data_root, name, look, 1, 0, &other_size)
+                                                               : NULL;
+        const int flipped = mirror != NULL ? fam_mirror_signs(t->fam_file, fam_size, day, day_size, mirror, other_size)
+                                           : 0;
+        if (getenv("TNFS_TRACE_FAM") != NULL)
+            fprintf(stderr, "track_viewer: time %d art: %d rally bitmaps put, %d signs flipped\n", look->time_of_day, put,
+                    flipped);
+        platform_free_file(mirror);
+        platform_free_file(day);
     }
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);

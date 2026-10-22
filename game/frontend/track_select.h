@@ -86,6 +86,7 @@ typedef struct TrackSelectInputs {
 typedef struct TrackSelectPlus {
     int unlock_m, unlock_r;           /* 004fbad8's and 004fbadc's variants offered (central's unlocks) */
     int32_t *variant_m, *variant_r;   /* 004fbad8, 004fbadc: the flags, as the cheats set them */
+    int variant_time;                 /* extras.cfg's: the time of day offered with a variant too */
 } TrackSelectPlus;
 
 typedef struct TrackSelectState {

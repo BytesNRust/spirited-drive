@@ -39,7 +39,7 @@ static const char *label(int page, int row)
                                               "Unlock Level" };
     static const char *const P2[ROW_DONE_P2] = { "Replay Cameras", "Warrior as Rival", "No Movies", "Start Screen",
                                                  "No Assists", "Modern 3D", "Texture Filter", "Fog" };
-    static const char *const P3[ROW_DONE_P3] = { "Bumper Mirror", "Bumper Radar" };
+    static const char *const P3[ROW_DONE_P3] = { "Bumper Mirror", "Bumper Radar", "Time with Variants" };
     return page == 0 ? P1[row] : page == 1 ? P2[row] : P3[row];
 }
 
@@ -56,7 +56,7 @@ static int *flag_of(PortExtras *e, int page, int row)
                                        &e->modern_3d, &e->texture_filter, &e->fog };
         return p2[row];
     }
-    int *const p3[ROW_DONE_P3] = { &e->bumper_mirror, &e->bumper_radar };
+    int *const p3[ROW_DONE_P3] = { &e->bumper_mirror, &e->bumper_radar, &e->variant_time };
     return p3[row];
 }
 

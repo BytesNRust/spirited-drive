@@ -483,7 +483,11 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
          * frontend reached with both on but no extras.cfg on disk, which is every --drive NAME mr run.
          * A replay, which carries its own pair, leaves the exe's answer below. */
         look.port_both_variants = drive_menus.variant_m != 0 && drive_menus.variant_r != 0;
-        look.time_of_day = drive_menus.variant_m != 0 || drive_menus.variant_r != 0 ? 1 : drive_menus.time_of_day;
+        /* port: extras.cfg's variant_time keeps the time of day with a variant (fam_mirror.h makes its art) */
+        const int timed = track_fam_time_offered(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
+                                                 port_extras_load().variant_time);
+        look.time_of_day = (drive_menus.variant_m == 0 && drive_menus.variant_r == 0) || timed ? drive_menus.time_of_day
+                                                                                             : 1;
     } else if (track_viewer_fam_missing(data_root, name, &look)) {
         look.time_of_day = 1;
     }

@@ -27,3 +27,11 @@ void track_fam_load(const TrackFamInputs *in, int32_t number, void *buffer, cons
     ops->read(ops->ctx, file, buffer, TRACK_FAM_SIZE);
     ops->close(ops->ctx, file);
 }
+
+int track_fam_time_offered(int track, int variant_m, int variant_r, int variant_time)
+{
+    enum { RUSTY_SPRINGS = 3, LOST_VEGAS = 8 };
+    if (track == LOST_VEGAS) return 0;
+    if (!variant_m && !variant_r) return 1;
+    return variant_time && !(track == RUSTY_SPRINGS && variant_r);
+}

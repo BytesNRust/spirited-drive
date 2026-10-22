@@ -41,4 +41,9 @@ void track_fam_name(const TrackFamInputs *in, int32_t number, char *out, size_t 
  * read into buffer, closed. */
 void track_fam_load(const TrackFamInputs *in, int32_t number, void *buffer, const TrackFamOps *ops);
 
+/* port: 1 when `track` (0..8, the menus') takes its time of day: never Lost Vegas (8), and with a variant on only
+ * when `variant_time` (extras.cfg's; the original takes midday) and the art exists (Rusty Springs' rally, TR5, has
+ * no evening FAM). */
+int track_fam_time_offered(int track, int variant_m, int variant_r, int variant_time);
+
 #endif

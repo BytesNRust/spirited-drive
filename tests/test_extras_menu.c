@@ -283,13 +283,16 @@ static void test_page_three_bumper_switches(void)
     keys[n++] = UP, keys[n++] = RIGHT, keys[n++] = RIGHT;   /* Done, Cancel, page 3 */
     keys[n++] = RIGHT;                                      /* Bumper Mirror on */
     keys[n++] = DOWN, keys[n++] = RIGHT;                    /* Bumper Radar on */
+    keys[n++] = DOWN, keys[n++] = RIGHT;                    /* Time with Variants on */
     keys[n++] = DOWN, keys[n++] = ENTER;                    /* Done */
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "< 3/3"));
     CHECK(shown(&r.fake, "Bumper Mirror"));
     CHECK(shown(&r.fake, "Bumper Radar"));
+    CHECK(shown(&r.fake, "Time with Variants"));
     CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.variant_time, 1);
     CHECK_EQ_INT(r.fake.saved.bumper_mirror, 1);
     CHECK_EQ_INT(r.fake.saved.bumper_radar, 1);
     CHECK_EQ_INT(r.fake.saved.replay_cameras, 0);

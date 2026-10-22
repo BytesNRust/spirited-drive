@@ -20,7 +20,7 @@ enum { ROW_REPLAY = 0, ROW_RIVAL, ROW_MOVIES, ROW_START, ROW_NO_ASSISTS, ROW_MOD
        ROW_CANCEL_P2, ROWS_PAGE_2 };
 
 /* the page-3 rows: Bumper Mirror, Bumper Radar, Done, Cancel */
-enum { ROW_BUMPER_MIRROR = 0, ROW_BUMPER_RADAR, ROW_DONE_P3, ROW_CANCEL_P3, ROWS_PAGE_3 };
+enum { ROW_BUMPER_MIRROR = 0, ROW_BUMPER_RADAR, ROW_VARIANT_TIME, ROW_DONE_P3, ROW_CANCEL_P3, ROWS_PAGE_3 };
 
 /* the page indicator's bounds, mirroring graphics_plus's PLUS_NAV_* so the nav-hit answer is identical */
 enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV_Y1 = 476 };

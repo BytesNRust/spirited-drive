@@ -55,19 +55,20 @@ static void check_same(PortExtras a, PortExtras b)
     CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.bumper_mirror, b.bumper_mirror);
     CHECK_EQ_INT(a.bumper_radar, b.bumper_radar);
+    CHECK_EQ_INT(a.variant_time, b.variant_time);
     CHECK_EQ_INT(a.start, b.start);
 }
 
 static void test_defaults(void)
 {
     const PortExtras d = port_extras_defaults();
-    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE });
+    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE });
     CHECK_EQ_INT(d.start, START_GAME_MODE);
 }
 
 static void test_round_trip(void)
 {
-    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
+    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
     char text[256];
     const size_t n = port_extras_format(&e, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -83,6 +84,8 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(e.fog, 1);
     CHECK_EQ_INT(e.bumper_radar, 1);
     CHECK_EQ_INT(e.bumper_mirror, 0);
+    CHECK_EQ_INT(e.variant_time, 0);
+    CHECK_EQ_INT(port_extras_parse("variant_time=1\n", 15).variant_time, 1);
     CHECK_EQ_INT(e.mirror, 1);
     CHECK_EQ_INT(e.turbo, 1);
     CHECK_EQ_INT(e.modern_3d, 1);
@@ -115,7 +118,7 @@ static void test_cheat_marks(void)
 static void test_load_save(void)
 {
     check_same(port_extras_load(), port_extras_defaults());   /* no file yet */
-    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, START_NETWORK };
+    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, START_NETWORK };
     CHECK(port_extras_save(&e));
     CHECK(strcmp(stored_name, "extras.cfg") == 0);
     check_same(port_extras_load(), e);
