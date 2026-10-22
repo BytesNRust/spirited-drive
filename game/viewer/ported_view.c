@@ -93,6 +93,7 @@ static Object3D objects[PORTED_VIEW_MODELS];
 static int object_ok[PORTED_VIEW_MODELS];
 static ModelView model_view;
 static ObjectSink object_pixels;
+static int models_mirrored;
 
 static void draw_model(void *user, int model, const int32_t position[3], uint32_t heading)
 {
@@ -102,15 +103,16 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
     model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
 }
 
-void ported_view_set_models(const ViewModel *list, const int *ok)
+void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored)
 {
-    if (list == models) return;
+    if (list == models && mirrored == models_mirrored) return;
     for (int i = 0; i < PORTED_VIEW_MODELS; i++) {
         if (object_ok[i]) object3d_free(&objects[i]);
         object_ok[i] = list != NULL && ok[i] && object3d_create(&objects[i], &list[i].mesh);
         if (object_ok[i] && list[i].has_textures) object3d_bind(&objects[i], &list[i].textures);
+        if (object_ok[i] && mirrored) object3d_mirror(&objects[i]);   /* 004576f0 on 004fbad8 */
     }
-    models = list;
+    models = list, models_mirrored = mirrored;
 }
 
 /* The cars on the road, each drawn with its row (0045a848). Slot 0 is
@@ -714,7 +716,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 void ported_view_forget_track(void)
 {
     render.tri = NULL;
-    ported_view_set_models(NULL, NULL);  /* the next track's models sit at the same address, bound to these textures */
+    ported_view_set_models(NULL, NULL, 0);  /* the next track's models sit at the same address, bound to these textures */
 }
 
 void ported_view_set_reach(int32_t segments)

@@ -14,8 +14,7 @@ enum {
     COP_FLAG = 8,
     PART_LIMIT = 8, PART_MISSING = 999,
     TYRE_REFS = 4, TYRE_FRAME_BOUND = 3,
-    LIGHTS = 4, LIGHT_POINTS = 2,
-    MIRROR_BIT = 0x200
+    LIGHTS = 4, LIGHT_POINTS = 2
 };
 
 /* 004c56a0, 004c5660 (= 004c54d0 + 4 x 100 = 004c5340 + 4 x 200), 004c5690. */
@@ -127,12 +126,6 @@ static CarLoadResult make_object(CarLoad *m, const PaletteMatch *match, int leve
     return CAR_LOAD_OK;
 }
 
-/* 004fbad8: bit 0x200 of the first +8 (order_count) polygons flipped. */
-static void mirror(Object3D *obj)
-{
-    for (uint32_t i = 0; i < obj->order_count; i++) obj->polygons[i].flags ^= MIRROR_BIT;
-}
-
 /* 004911f2 / 0049126b: inside and surface must be below 8; outside and
  * convex become 999 with a count of 0 otherwise (their lists stay as they were).
  * A list found stays in `m`; its ref field in the car is the caller's. */
@@ -217,7 +210,7 @@ CarLoadResult car_load_setup(Car *car, RaceState *race, RacePalette *pal, const 
     for (int level = 0; level < CAR_LOAD_LEVELS && r == CAR_LOAD_OK; level++) r = make_object(m, match, level);
     if (r != CAR_LOAD_OK) return r;
     if (race->mirrored)
-        for (int level = 0; level < CAR_LOAD_LEVELS; level++) mirror(&m->object[level]);
+        for (int level = 0; level < CAR_LOAD_LEVELS; level++) object3d_mirror(&m->object[level]);  /* 004fbad8 */
     r = parts(car, m);
     if (r != CAR_LOAD_OK) return r;
     const uint32_t points = m->mesh[0].unknown_14 < m->object[0].vertex_count ? m->mesh[0].unknown_14

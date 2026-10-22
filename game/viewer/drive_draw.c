@@ -377,7 +377,7 @@ void render_drive(const Track *t, uint8_t *pixels)
     const int ticked = drive_cars.ticked;
     drive_cars.ticked = 0;
     draw_rands_frame(&draw_rands, ticked);
-    ported_view_set_models(t->models, t->model_ok);
+    ported_view_set_models(t->models, t->model_ok, race->mirrored);
     ported_view_set_shadows(race, drive_hud.ready ? drive_hud.shade : NULL);
     ported_view_set_tick(race->tick);
     if (drive_hud.ready) ported_view_set_tags(drive_hud.car_colours, HUD_MAP_COLOURS, drive_hud.strip_colour);

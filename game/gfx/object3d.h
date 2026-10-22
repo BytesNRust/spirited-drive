@@ -120,6 +120,9 @@ typedef struct {
 /* Returns 0 on a malformed mesh or allocation failure (object left empty). */
 int object3d_create(Object3D *obj, const Mesh *mesh);
 void object3d_free(Object3D *obj);
+/* 004fbad8 set (a mirrored track): POLY_REVERSED flipped on the first order_count polygons, as 00457d40 does for
+ * the cars and 004576f0 for the scenery models, so their faces keep facing the mirrored camera. */
+void object3d_mirror(Object3D *obj);
 /* Returns how many texture slots were bound. */
 int object3d_bind(Object3D *obj, const Fsh *fsh);
 

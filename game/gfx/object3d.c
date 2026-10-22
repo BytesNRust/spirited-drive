@@ -167,6 +167,11 @@ int object3d_create(Object3D *obj, const Mesh *mesh)
     return 1;
 }
 
+void object3d_mirror(Object3D *obj)
+{
+    for (uint32_t i = 0; i < obj->order_count && i < obj->polygon_count; i++) obj->polygons[i].flags ^= POLY_REVERSED;
+}
+
 void object3d_free(Object3D *obj)
 {
     free(obj->model);
