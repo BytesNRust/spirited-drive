@@ -86,6 +86,7 @@ typedef struct {
     int32_t last;               /* 00513e54: the tick it was scheduled at */
     int16_t dropped;            /* 0052b314: written 1 */
     int32_t w509d70;            /* 00509d70: written 2 */
+    int16_t port_esc_up_wait;   /* port: back from the menu or the pause, ESC counts only once it has been up */
 } RaceMenuKeysState;
 
 /* 004557f4 (watcall (frame), from 0045597c each frame): tick < 0x3c: pending
@@ -98,7 +99,8 @@ typedef struct {
  * the pause at frame + 1 (00410a70(frame + 1, 1, 1)), pending = 1. */
 void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, RaceMenuKeysState *st, int16_t frame);
 /* 004557e8 (the in-race menu's way out): last = tick, so ESC is dead for 0xb4 ticks. port_resume_keys 1 clears it
- * instead, as the pause does, and ESC opens the menu again at once. */
+ * instead, as the pause does, and ESC opens the menu again as soon as it is pressed anew (the press that left the
+ * menu, still down, does not count). */
 void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_resume_keys);
 
 typedef struct {

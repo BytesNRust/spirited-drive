@@ -175,9 +175,12 @@ static void pause_return_allows_immediate_esc(void)
     pause_return(1, &st);
     CHECK_EQ_INT(st.last, 0);
 
-    /* Follow-up: ESC at tick 5100 (inside MENU_GAP=180 of 5050). With the fix, last=0 lets it through. */
+    /* Follow-up: ESC at tick 5100 (inside MENU_GAP=180 of 5050), once the key that left the pause is up. With the
+     * fix, last=0 lets it through. */
     MenuTrack mt = { 0 };
     RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+    const RaceMenuKeysInputs up = { .tick = 5090, .phase = PHASE_RACING };
+    race_menu_keys(&mops, &up, &st, (int16_t)up.tick);
     RaceMenuKeysInputs kin = { .tick = 5100, .phase = PHASE_RACING, .esc = 1, .pause = 0, .lshift = 0, .rshift = 0,
                                .playback = 0, .replay = 0, .detail = 0 };
     race_menu_keys(&mops, &kin, &st, (int16_t)kin.tick);
@@ -196,8 +199,15 @@ static void menu_return(int port)
     race_menu_keys_resumed(&st, 5000, port);
     MenuTrack mt = { 0 };
     RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+    /* the ESC that left the menu still down on the race's first frames: never the menu again (port) */
     RaceMenuKeysInputs in = { .tick = 5010, .phase = PHASE_RACING, .esc = 1, .pause = 0, .lshift = 0, .rshift = 0,
                               .playback = 0, .replay = 0, .detail = 0 };
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 0);
+    /* up, then down again: a new press opens it at once with the port's flag, not within MENU_GAP without */
+    in.esc = 0, in.tick = 5020;
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    in.esc = 1, in.tick = 5030;
     race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
     CHECK_EQ_INT(mt.set_calls, port ? 1 : 0);
 }

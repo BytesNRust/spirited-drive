@@ -44,7 +44,8 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
 {
     if (in->tick < KEYS_RESET_BEFORE) st->pending = 0, st->last = 0;
     const int16_t next = (int16_t)(frame + 1);
-    if (in->esc != 0 && in->phase == PHASE_RACING && in->tick > KEYS_AFTER && st->pending == 0) {
+    if (in->esc == 0) st->port_esc_up_wait = 0;
+    if (in->esc != 0 && st->port_esc_up_wait == 0 && in->phase == PHASE_RACING && in->tick > KEYS_AFTER && st->pending == 0) {
         if (in->playback != 0 && (in->lshift != 0 || in->rshift != 0)) {
             st->dropped = 1;
             st->w509d70 = DROPPED_MARK;
@@ -68,6 +69,7 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
 void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_resume_keys)
 {
     st->last = port_resume_keys ? 0 : tick;
+    st->port_esc_up_wait = port_resume_keys != 0;
 }
 
 enum { PAUSE_NET_TO = -1, PAUSE_NET_WAIT = 5 };
@@ -104,6 +106,7 @@ void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeys
     ops->music_on(ops->ctx);
     st->pending = 0;
     st->last = in->port_resume_keys ? 0 : in->tick;
+    st->port_esc_up_wait = in->port_resume_keys != 0;
     ops->setup_43cbe0(ops->ctx);
     *loading = 0;
 }
