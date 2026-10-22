@@ -466,6 +466,8 @@ static void image_car_flags(void *ctx)
 
 /* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
 static int32_t best_times(void *ctx);
+static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);   /* port: the cheats item */
+static int32_t plus_text_width(void *ctx, const char *text);
 static void track_select(void *ctx)
 {
     (void)ctx;
@@ -529,7 +531,7 @@ static int32_t best_times(void *ctx)
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
         activate_dialog, key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
         music,
-        deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle };
+        deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle, plus_text, plus_text_width };   /* port: the cheats item */
     return best_times_screen(&in, &st, ctx, &ops);
 }
 /* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;

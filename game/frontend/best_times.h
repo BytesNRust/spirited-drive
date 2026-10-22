@@ -56,6 +56,8 @@ typedef struct BestTimesOps {
     void *ctx;
     /* port: NULL unless the state has a `plus` */
     int32_t (*plus_toggle)(void *ctx);   /* 1 once a Tab (or the like) went down: the other table */
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* the cheats item: 1 lit, 0 idle */
+    int32_t (*plus_text_width)(void *ctx, const char *text);
 } BestTimesOps;
 
 enum {
@@ -109,7 +111,8 @@ typedef struct BestTimesState {
  * loaded again under the data path) or back; Enter, space or the left
  * button (once armed) act; Escape, the timer and the right button go back.
  * Returns 1 for Done (the track screen ends too), else 0.
- * port: with a `plus`, Tab, Up, Down (and the right button, which no longer goes back) show the other table. */
+ * port: with a `plus`, Tab, Up, Down (and the right button, which no longer goes back) show the other table, and a
+ * footer item between Done and the left arrow (Right from Done, Left from the arrow, the pointer, Enter) does the same. */
 int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops);
 
 #endif
