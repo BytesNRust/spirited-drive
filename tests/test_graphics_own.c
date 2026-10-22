@@ -50,6 +50,7 @@ typedef struct Fake {
     int aliased_palettes;    /* times palette_set was handed its own destination as the source */
     int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
     int done_draws, cancel_draws;   /* times DONE / CANCEL were drawn over the background's own words */
+    int smooth_draws;         /* times the text went through the background-restoring (smooth) op */
     int32_t palette_modes[32];
     int palette_mode_count;
     PortSettings kept;       /* the settings as they were on entry */
@@ -148,6 +149,14 @@ static int32_t f_text_width(void *ctx, const char *text)
     (void)ctx;
     return (int32_t)strlen(text) * 8;
 }
+/* the smooth text: the op that puts the background back under the letters before drawing them, which is what the
+ * whole page needs, since every redraw repaints all of it */
+static void f_text_smooth(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
+{
+    Fake *f = ctx;
+    f->smooth_draws++;
+    f_text(ctx, style, text, x, y);
+}
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
@@ -198,6 +207,7 @@ static GraphicsMenuOps OPS = {
     /* port: the clean background composed once (cached) and put on the screen, then the title, then Cancel's
      * put-back */
     .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape, .plus_title = f_title, .plus_put_back = f_put_back,
+    .plus_text_smooth = f_text_smooth,
 };
 
 typedef struct Rig {
@@ -355,6 +365,38 @@ static void test_done_and_cancel_are_not_drawn_twice(void)
     run_script(&r, 1);
     CHECK_EQ_INT(r.f.done_draws, 0);
     CHECK_EQ_INT(r.f.cancel_draws, 0);
+}
+
+/* 7: the text goes through the background-restoring op. Every redraw repaints the whole page -- the screen blits
+ * the clean background whole and then writes the letters over it -- so the letters have to land through the draw
+ * that puts the background back underneath first, the way Options' own rows do. Without it the letters are written
+ * straight onto whatever was on the picture and a move leaves the old row's edges behind. */
+static void test_text_is_drawn_over_the_background(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    /* every word on the page, both times over: the screen must not fall back to the plain draw for any of them */
+    CHECK(r.f.smooth_draws > 0);
+    CHECK_EQ_INT(r.f.smooth_draws, r.f.text_count);
+}
+
+/* 8: the smooth draw is used only where there is a background to restore. The original screen (the race's pause
+ * menu) has the burnt-in picture rather than the clean one, so the glue leaves this slot empty and the rows must
+ * still be drawn. */
+static void test_rows_are_drawn_without_a_smooth_op(void)
+{
+    Rig r;
+    rig_init(&r);
+    OPS.plus_text_smooth = NULL;
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    OPS.plus_text_smooth = f_text_smooth;
+    CHECK_EQ_INT(r.f.smooth_draws, 0);
+    CHECK(drew(&r.f, "Perspective Correction"));
+    CHECK(drew(&r.f, "Full screen"));
+    CHECK(r.f.title_draws > 0);
 }
 
 /* 4: View Distance offers four values, "Ultra" among them: the fourth is the port's, and it turns view_ultra on */
@@ -589,6 +631,8 @@ int main(void)
     test_palette_is_not_rewritten_in_place();
     test_palette_is_put_raw();
     test_done_and_cancel_are_not_drawn_twice();
+    test_text_is_drawn_over_the_background();
+    test_rows_are_drawn_without_a_smooth_op();
     test_view_distance_has_ultra();
     test_view_distance_cycles();
     test_values_write_settings();
