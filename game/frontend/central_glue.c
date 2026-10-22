@@ -8,6 +8,8 @@
 #include "game/frontend/best_totals_screen.h"
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/graphics_menu.h"
+#include "game/frontend/graphics_own.h"
+#include "game/frontend/config_bgnd.h"
 #include "game/viewer/screen_layout.h"
 #include "game/frontend/central.h"
 #include "game/frontend/after_race.h"
@@ -1009,6 +1011,67 @@ static void plus_save(void *ctx, const PortSettings *settings)
     if (!port_settings_save(settings)) fprintf(stderr, "graphics: port.cfg could not be saved\n");
 }
 
+/* port: the Graphics screen's own background (graphics_own.c). config_bgnd_load reads the ten configuration screens
+ * off the CD and composes them, which takes about half a second, so it is done once per process and kept -- it does
+ * not depend on anything but the CD.
+ *
+ * The screen always puts this palette on, in OPTIONS' palette, whatever screen brought it up: entered from Game Mode
+ * its art is the Game Mode picture, and blitting the Options background over that with Game Mode's palette is what
+ * left DONE/CANCEL in rubbish colours. `own_palette` is the palette to hand back on the way out. */
+static uint8_t *own_shape;
+static uint8_t own_palette[768];
+static int own_tried, own_ok;
+
+static int32_t own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
+{
+    if (!own_tried) {
+        own_tried = 1;
+        own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 1, pixels, palette);
+        if (own_ok) {
+            own_shape = malloc(CONFIG_BGND_SHAPE_HEADER + CONFIG_BGND_W * CONFIG_BGND_H);
+            own_ok = own_shape != NULL
+                     && config_bgnd_shape(pixels, 0, 0, CONFIG_BGND_W, CONFIG_BGND_H, own_shape) != 0;
+            memcpy(own_palette, palette, sizeof own_palette);
+        }
+        if (!own_ok) {
+            fprintf(stderr, "graphics: no clean configuration background, the burnt-in one stays\n");
+            free(own_shape);
+            own_shape = NULL;
+        }
+    }
+    if (own_ok) return 1;
+    /* kept: the caller keeps whatever it had, so say so rather than handing over an empty picture */
+    memset(pixels, 0, CONFIG_BGND_W * CONFIG_BGND_H);
+    memcpy(palette, own_palette, sizeof own_palette);
+    return 0;
+}
+
+/* the shape, already a game shape, put on the screen; the palette goes with it, then the text styles are built from
+ * that palette -- they are a ramp matched to what is showing, and they were last built for another screen's */
+static int32_t own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
+{
+    (void)ctx, (void)pixels;
+    if (own_shape == NULL) return 0;
+    palette_set(ctx, own_palette, 0, 0x100, own_palette, 0);
+    text_build_styles_from(own_palette);
+    ea_blit_own(own_shape);
+    (void)palette;
+    return 1;
+}
+
+/* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance
+ * is one of the screen's shorts there, not in port.cfg, so the kept image is what puts it back. Both are kept for as
+ * long as the screen may be up, which is what the file scope is for. */
+static PortSettings port_settings_was;
+static uint8_t config_current_kept_image[GRAPHICS_KEPT];
+
+static void own_put_back(void *ctx, PortSettings *settings)
+{
+    (void)ctx;
+    *settings = port_settings_was;
+    memcpy(config_current()->image + 9, config_current_kept_image, GRAPHICS_KEPT);
+}
+
 /* 00423d28 from Options (mode 0, the resolution offered) on config.dat's image; the race's view does not read its
  * window, detail, distance or horizon yet. port: from Options it also has the second page and "ultra" on port.cfg's
  * settings (from the race's pause menu it is the original's) */
@@ -1017,6 +1080,10 @@ static void graphics(void *ctx, int32_t mode)
     static int16_t showing;  /* 004f9e8c */
     PortSettings port = port_settings_load();
     const PortSettings was = port;
+    if (mode == 0) {
+        port_settings_was = port;
+        memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
+    }
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
     GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3 };
@@ -1027,10 +1094,21 @@ static void graphics(void *ctx, int32_t mode)
         move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
         nothing, ticks, activate, key, click, off, music, net_sync, deadline_passed, fade_out, free_handle_inverse,
-        free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save };
+        free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save,
+        /* port: the screen's own background, its shape with the palette that goes with it, and its title. None from the
+         * race's pause menu, which stays the original's screen. */
+        own_bgnd, own_bgnd_shape, NULL, own_put_back };
     input_function_keys(&showing);
     input_page_keys(mode == 0);
-    graphics_menu(&st, mode, &ops);
+    /* port: from Options this is graphics_own.c, the port's own screen: the nine settings the owner named, over the
+     * clean background. The original (00423d28) is what the race's pause menu shows, and it is left as it is. */
+    if (mode == 0)
+        graphics_own(&st, &ops);
+    else
+        graphics_menu(&st, mode, &ops);
+    /* the screen put its own palette on; the one that brought it up goes back, so whatever is on screen afterwards is
+     * drawn the way its own caller means */
+    text_build_styles();   /* the caller's palette, so whatever is drawn next matches it */
     input_page_keys(0);
     input_function_keys(NULL);
     opt_out();
