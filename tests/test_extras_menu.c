@@ -466,6 +466,17 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     CHECK(y_in(&two.fake, "Disable intro video") + LINE < BUTTONS_TOP);
 }
 
+/* port: the screen names itself, in the words the player just clicked in Game Mode and Options. It sits on the band's
+ * the clean background leaves the burnt-in title in, so it reads as that title. */
+static void test_the_screen_is_titled_customize_game(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    run(&r, keys, 1);
+    CHECK(shown(&r.fake, "CUSTOMIZE GAME"));
+}
+
 /* port: the screen's own palette reaches the display. Options fades out before opening it and only fade_in puts one
  * back, so without it the whole page draws on black. Once, not per redraw: it is the same palette every time. */
 static void test_the_palette_reaches_the_display(void)
@@ -645,6 +656,7 @@ int main(void)
     test_headers_are_red_and_never_lit();
     test_both_pages_share_one_layout();
     test_the_page_fits_between_the_title_and_the_buttons();
+    test_the_screen_is_titled_customize_game();
     test_the_palette_reaches_the_display();
     test_the_styles_are_built_for_the_screens_palette();
     test_text_is_drawn_over_the_background();
