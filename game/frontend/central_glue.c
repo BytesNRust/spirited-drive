@@ -972,13 +972,14 @@ static void audio(void *ctx, int32_t mode)
     opt_out();
 }
 
-/* port: the text and the dark panels of graphics_plus.c, through the game's own routines (0046376c's styles, the
- * name box's shade table and frame) */
+/* port: the text and the dark panels of graphics_plus.c, controls_plus.c and extras_menu.c, through the game's own
+ * routines (0046376c's styles, the name box's shade table and frame); the text in the menu art's look
+ * (text_draw_smooth), safe as each of those screens repaints its background and panel before writing */
 static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
 {
     (void)ctx;
     text_select((TextStyle)style_id);
-    text_draw_shadowed(text, x, y);
+    text_draw_smooth(text, x, y, 1, 1);
 }
 static int32_t plus_text_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
 static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
@@ -1098,6 +1099,22 @@ void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int
             ea_blit_own(cover);
         free(cover);
     }
+    own_panel_text(ctx, style_id, text, x, y);
+}
+
+/* the screen's title as the original screens draw theirs ("Game Mode", "Control Central"): red, at their items' size */
+void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    enum { TITLE_NUM = 33, TITLE_DEN = 20 };   /* menu_glue.c's MODE_TEXT_NUM / DEN */
+    (void)ctx;
+    text_build_styles_from(own_palette);
+    text_select(TEXT_RED);
+    text_draw_smooth(text, x, y, TITLE_NUM, TITLE_DEN);
+}
+
+void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
+{
+    (void)ctx;
     /* the styles from the background that is showing: they are a ramp matched to it, and the last ones were built
      * for another screen's palette */
     text_build_styles_from(own_palette);
@@ -1126,14 +1143,15 @@ static void graphics(void *ctx, int32_t mode)
     static int16_t showing;  /* 004f9e8c */
     PortSettings port = port_settings_load();
     const PortSettings was = port;
-    if (mode == 0) {
-        port_settings_was = port;
-        memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
-    }
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
     GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3 };
     opt_in();
+    /* after opt_in: it writes Options' unsaved edits into the image, which Cancel must keep */
+    if (mode == 0) {
+        port_settings_was = port;
+        memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
+    }
     const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
                                    ea_screen_slot(), &g.inverse, stage_word(), mode == 0 ? &plus : NULL };
     const GraphicsMenuOps ops = {
@@ -1143,7 +1161,7 @@ static void graphics(void *ctx, int32_t mode)
         free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save,
         /* port: the screen's own background, its shape with the palette that goes with it, and its title. None from the
          * race's pause menu, which stays the original's screen. */
-        own_bgnd, own_bgnd_shape, NULL, own_put_back,
+        own_bgnd, own_bgnd_shape, mode == 0 ? own_title_text : NULL, own_put_back,
         /* port: from Options the letters go through the draw that restores the clean background under them. The
          * race's pause menu keeps the original's burnt-in screen, which has no such background, so it gets NULL
          * and graphics_own.c falls back to plus_text. */

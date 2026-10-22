@@ -64,7 +64,7 @@ typedef struct GraphicsMenuOps {
      * plus_bgnd_shape, and the title drawn by plus_title. All three NULL unless that screen is being wired up. */
     int32_t (*plus_bgnd)(uint8_t pixels[640 * 480], uint8_t palette[768]);
     int32_t (*plus_bgnd_shape)(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768]);
-    void (*plus_title)(void *ctx);
+    void (*plus_title)(void *ctx, const char *text, int32_t x, int32_t y);
     /* port: what Cancel and Escape do on that screen -- put the settings back as they were on entry. */
     void (*plus_put_back)(void *ctx, PortSettings *settings);
     /* port: the smooth text, the same draw Options' rows use (options_plus_text): the background put back under the

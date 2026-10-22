@@ -40,6 +40,8 @@ typedef struct Fake {
     int panel_after_bgnd;   /* the background was put on the screen */
     int panel_before_bgnd;  /* the dark panel was drawn before it, over the caller's picture */
     int bgnd_ok;          /* what config_bgnd_load gives: 0 as if the CD had none */
+    int panels;           /* dark panels drawn */
+    int titles;           /* titles drawn through the title op */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -126,6 +128,13 @@ static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32
     Fake *f = ctx;
     (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
     if (f->bgnd_asks == 0) f->panel_before_bgnd++;
+    f->panels++;
+}
+/* the title op: recorded with the words, in red */
+static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    ((Fake *)ctx)->titles++;
+    f_text(ctx, 2, text, x, y);
 }
 static void f_save(void *ctx, const PortExtras *e, int16_t unlock)
 {
@@ -192,7 +201,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .key = f_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
-        .plus_text_smooth = smooth,
+        .plus_text_smooth = smooth, .plus_title = f_title,
         .extras_save = f_save, .ctx = &r->fake };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
@@ -474,7 +483,34 @@ static void test_the_screen_is_titled_customize_game(void)
     const int keys[] = { ESCAPE };
     setup(&r);
     run(&r, keys, 1);
-    CHECK(shown(&r.fake, "CUSTOMIZE GAME"));
+    CHECK(shown(&r.fake, "Customize Game"));
+}
+
+/* port: the title in the original screens' look, through its own op (red, at their size), not as a row */
+static void test_the_title_goes_through_the_title_op(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    run(&r, keys, 1);
+    CHECK(r.fake.titles > 0);
+    CHECK_EQ_INT(style_in(&r.fake, "Customize Game"), 2);
+}
+
+/* port: the words go straight onto the clean background, no dark panel; only over the caller's picture (no
+ * background to compose) does the panel keep them readable */
+static void test_a_panel_only_without_the_clean_background(void)
+{
+    Rig r;
+    const int keys[] = { DOWN, ESCAPE };
+    setup(&r);
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.panels, 0);
+    Rig bare;
+    setup(&bare);
+    bare.fake.bgnd_ok = 0;
+    run(&bare, keys, 2);
+    CHECK(bare.fake.panels > 0);
 }
 
 /* port: the screen's own palette reaches the display. Options fades out before opening it and only fade_in puts one
@@ -499,9 +535,8 @@ static void test_the_styles_are_built_for_the_screens_palette(void)
     CHECK_EQ_INT(r.fake.style_rebuilds, 2);   /* the screen's palette going up, the caller's coming back */
 }
 
-/* port: the words go through the draw that puts the background back under them. Every redraw repaints the whole page --
- * the screen blits the clean background whole and then writes over it -- so the letters must land through that draw, or
- * a row the pointer moves past leaves its old edges behind. The nav and the title included: same page, same reason. */
+/* port: the words go through the screen's smooth draw (the menu art's letters), the nav included; only the title has
+ * its own op. Every redraw repaints the whole page first, so nothing has to be put back under them. */
 static void test_text_is_drawn_over_the_background(void)
 {
     Rig r;
@@ -509,7 +544,7 @@ static void test_text_is_drawn_over_the_background(void)
     setup(&r);
     run(&r, keys, 1);
     CHECK(r.fake.smooth_draws > 0);
-    CHECK_EQ_INT(r.fake.smooth_draws, r.fake.drawn_count);
+    CHECK_EQ_INT(r.fake.smooth_draws + r.fake.titles, r.fake.drawn_count);
 }
 
 /* port: without a smooth op to call the screen still draws every word, the way the original's rows do. */
@@ -657,6 +692,8 @@ int main(void)
     test_both_pages_share_one_layout();
     test_the_page_fits_between_the_title_and_the_buttons();
     test_the_screen_is_titled_customize_game();
+    test_the_title_goes_through_the_title_op();
+    test_a_panel_only_without_the_clean_background();
     test_the_palette_reaches_the_display();
     test_the_styles_are_built_for_the_screens_palette();
     test_text_is_drawn_over_the_background();

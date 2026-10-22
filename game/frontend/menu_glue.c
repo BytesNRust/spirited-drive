@@ -476,17 +476,16 @@ static int32_t extras_bgnd_shape_glue(void *ctx, const uint8_t pixels[EXTRAS_BGN
     return glue_own_bgnd_shape(ctx, pixels, palette);
 }
 
-/* port: the EXTRAS screen's letters, at the game's own text size (1/1) rather than Game Mode's art size. It repaints
- * its whole page on every redraw, so a word drawn straight onto the picture keeps its old edges when the pointer moves
- * a row past it; this is the same repair the Graphics screen uses -- the background put back under the letters -- out
- * of the composed copy the screen blits with, which is the only picture that is on screen.
+/* port: the EXTRAS screen's letters, at the game's own text size (1/1) rather than Game Mode's art size. Its draw_page
+ * blits the clean background and shades the panel over it before every write, so nothing is put back under the
+ * letters: the clean background there would cover the panel with a light box behind each word.
  *
  * The screen asks for its styles (its text_styles slot) on entry and on exit, so its letters and the caller's next both
  * come from the palette the screen put on. `own_palette` is that palette: central_glue.c keeps it beside the composed
  * background this screen blits, and both screens read it, so one build serves them both. */
 static void extras_text_smooth_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
-    own_plus_text(ctx, style, text, x, y);
+    own_panel_text(ctx, style, text, x, y);
 }
 /* Game Mode's palette as the clean cover read it (mode_cover): the label is first drawn before the fade puts it on
  * screen, when the screen's palette is still black */
@@ -504,9 +503,7 @@ static void extras_text_styles_glue(void *ctx)
     else text_build_styles();
 }
 
-/* The Game Mode label, at the items' size -- and the EXTRAS screen's page indicator and title, which sit on the same
- * bottom band and have to read at it. Its letters go through extras_text_smooth_glue at the game's own text size
- * instead; only the width differs, because a value drawn at 1/1 is measured at 1/1. */
+/* The Game Mode label, at the items' size, and its width at that size */
 static void extras_text_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     (void)ctx;
@@ -557,12 +554,13 @@ int32_t glue_extras_screen(int16_t unlock)
         click,              /* pointer_click */
         off,                /* pointer_off */
         music,              /* music */
-        extras_text_glue,   /* plus_text: Game Mode's art-sized letters, for the one label over its own art */
-        extras_text_width_glue, /* plus_text_width: the same size, or the value would not line up with what is drawn */
+        own_panel_text,     /* plus_text: at 1/1, as plus_text_smooth */
+        glue_plus_text_width, /* plus_text_width: 1/1, the size the words are drawn at, so the values line up */
         extras_panel_glue,  /* plus_panel */
         extras_bgnd_glue,   /* plus_bgnd */
         extras_bgnd_shape_glue, /* plus_bgnd_shape */
         extras_text_smooth_glue, /* plus_text_smooth */
+        own_title_text,     /* plus_title */
         extras_save_glue,   /* extras_save */
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
         NULL,               /* ctx */

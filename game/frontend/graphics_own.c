@@ -14,15 +14,15 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIG
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19 };
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1 };
 enum { FOV_MIN = -10, FOV_MAX = 20, FOV_STEP = 5 };
-/* the title, where the burnt-in one was: right of the logo, on the row config_bgnd.c takes the title band from
- * (its BANDS[0], 110,58,640,95), so the letters land where the original's were. */
-enum { TITLE_X = 120, TITLE_Y = 62 };
+/* the title where the originals' are: under the logo at the left, its letters' tops on Game Mode's (y 65) --
+ * config_bgnd.c patches the burnt-in one out of (0,60)-(124,94) */
+enum { TITLE_X = 8, TITLE_Y = 56 };
 /* the rows' text needs no panel: the background behind them is the clean one, with nothing burnt into it */
 
 static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
                                                           "View Distance", "Fog", "Field of view", "Screen format",
                                                           "Refresh rate", "Full screen" };
-static const char *const TITLE = "GRAPHICS";
+static const char *const TITLE = "Graphics";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
 
@@ -239,7 +239,7 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
     }
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) row_text(s, row, o);
     if (o->plus_title != NULL)
-        o->plus_title(o->ctx);
+        o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
     else
         own_text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
     /* port: no letters for DONE and CANCEL. The clean background carries both words in its own corners and the
@@ -318,8 +318,9 @@ static void step(Screen *s, uint16_t k, const GraphicsMenuOps *o)
 int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
 {
     /* not armed: the key that opened the screen may still be down */
-    Screen s = { .st = st, .selected = 0, .redraw = 1, .armed = 0, .released = 0, .result = -1, .rest = 0,
-                 .bgnd_ready = 0 };
+    static Screen s;   /* its background is 300 KB: not on the stack, the web build's is 64 KB */
+    memset(&s, 0, sizeof s);
+    s.st = st, s.redraw = 1, s.result = -1;
     *st->showing = 1;
     background(&s, ops);
     move_to(s.selected, ops);

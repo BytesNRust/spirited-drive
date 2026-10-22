@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 /* the screen's own name, in the words the player clicked to open it */
-static const char *const TITLE = "CUSTOMIZE GAME";
+static const char *const TITLE = "Customize Game";   /* title case, as "Game Mode": the font makes the rest small capitals */
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        PAGE_DOWN = 0x5100 };
@@ -28,12 +28,12 @@ enum { LABEL_X = 16, VALUE_RIGHT = 600 };
  * fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
  * CORNERS, top 430). Eleven lines at the exe's 36 pitch would not: the last row would land on the buttons.
  *
- * The panel runs that band, 96..422, so it never reaches the words it did not draw. */
+ * The fallback panel runs that band, 96..422, so it never reaches the words it did not draw. */
 enum { ROW_TOP = 100, ROW_PITCH = 28, ROW_TALL = 26, GROUP_GAP = 14 };
 enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 422 };
-/* port: the screen's own title, where the burnt-in one was: right of the logo, on the band config_bgnd.c leaves the
- * title in (its BANDS[0], 110,58,640,95), so the letters land where the original's were. */
-enum { TITLE_X = 120, TITLE_Y = 62 };
+/* port: the screen's own title where the originals' are: under the logo at the left, its letters' tops on Game
+ * Mode's (y 65) -- config_bgnd.c patches the burnt-in one out of (0,60)-(124,94) */
+enum { TITLE_X = 8, TITLE_Y = 56 };
 enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_X0 = 0x143, BUTTONS_Y0 = 432,
        BUTTONS_Y1 = 476 };
 
@@ -254,8 +254,9 @@ static void text_right(const ExtrasMenuOps *o, int lit, const char *word, int ri
     text(o, lit ? STYLE_YELLOW : STYLE_CREAM, word, right - o->plus_text_width(o->ctx, word), y);
 }
 
-/* the clean background is a picture of the screen, so it is blitted whole, then the dark panel over it: the panel is
- * a shade of what is on screen, so shading first would darken the caller's picture instead. */
+/* the clean background is a picture of the screen, so it is blitted whole and the words go straight onto it, as on
+ * the Graphics screen. Without it (no CD screens to compose it from) the caller's picture is behind, and a dark panel
+ * keeps the words readable over it. */
 static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const Bgnd *b, const ExtrasMenuOps *o)
 {
     o->select(o->ctx, 0);   /* the caller's picture behind */
@@ -267,8 +268,9 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
             o->fade_in(o->ctx, 0, 0x100, b->palette);
             p->palette_on = 1;
         }
+    } else {
+        o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
     }
-    o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
     /* the page's two headers, each red: they name the group under them and are never the selection */
     for (int group = 0; group < EXTRAS_GROUPS; group++)
         text(o, STYLE_RED, HEADERS[p->page][group], LABEL_X, line_y(p->page, header_line(p->page, group)));
@@ -287,7 +289,8 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "Canl" : "Cand"));
     const char *const nav = NAV[p->page];
     text(o, STYLE_CREAM, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);
-    text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
+    if (o->plus_title != NULL) o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
+    else text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
     o->select_default(o->ctx);
     o->flip(o->ctx);
     p->redraw = 0;
@@ -298,7 +301,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
     Page p = { 0, ROW_MIRROR, 1, 0, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
-    Bgnd bgnd;
+    static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);
     /* port: the styles for the screen's own palette, which is the one the background just put on, so the letters are

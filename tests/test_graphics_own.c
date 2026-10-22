@@ -172,7 +172,11 @@ static int32_t f_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
     return 1;
 }
 /* the title: drawn at the top left, over the clean background */
-static void f_title(void *ctx) { ((Fake *)ctx)->title_draws++; }
+static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    (void)text, (void)x, (void)y;
+    ((Fake *)ctx)->title_draws++;
+}
 /* the clean background put on the screen with its palette */
 static int32_t f_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
 {
