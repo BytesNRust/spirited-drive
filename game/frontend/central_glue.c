@@ -16,6 +16,8 @@
 #include "game/frontend/next_segment.h"
 #include "game/frontend/cheat_code.h"
 #include "game/frontend/config.h"
+#include "game/frontend/config_bgnd.h"
+#include "formats/fsh.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/control_central_art.h"
 #include "game/frontend/controls_menu.h"
@@ -1312,6 +1314,31 @@ static void options_extras(void *ctx)
     extras_apply();
 }
 
+/* port: the Options rows' text (Customize game) soft like the art: the screen's own picture put back under it
+ * first, since the row is redrawn over itself when the selection moves */
+static void options_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
+{
+    enum { MARGIN = 2, SHADOW_ROOM = 6 };
+    static int32_t bank;
+    (void)ctx;
+    if (bank == 0) bank = ea_bank_load("option/options.qfs");
+    const uint8_t *const bgnd = bank != 0 ? ea_shape(bank, "bgnd") : NULL;
+    const int left = x - MARGIN, top = y - MARGIN;
+    const int w = text_width(text) + MARGIN + SHADOW_ROOM, h = text_line_height() + MARGIN + SHADOW_ROOM;
+    uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
+    if (bgnd != NULL && cover != NULL && config_bgnd_shape(bgnd + CONFIG_BGND_SHAPE_HEADER, left, top, w, h, cover) != 0)
+        ea_blit_own(cover);
+    free(cover);
+    /* the styles from the bank's palette: the first draw comes before the fade puts it on screen */
+    const uint8_t *const pal = bank != 0 ? ea_shape(bank, "!pal") : NULL;
+    uint8_t rgb[768];
+    const FshEntry e = { .type = pal != NULL ? pal[0] : FSH_TYPE_BITMAP, .payload = pal != NULL ? pal + 16 : NULL,
+                         .payload_size = sizeof rgb };
+    if (pal != NULL && fsh_palette_rgb(&e, rgb) == FSH_OK) text_build_styles_from(rgb);
+    text_select((TextStyle)style_id);
+    text_draw_smooth(text, x, y, 1, 1);
+}
+
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -1323,7 +1350,7 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx, options_extras, plus_text, plus_text_width, plus_panel };
+        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
