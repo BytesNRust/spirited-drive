@@ -23,7 +23,6 @@ static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correctio
                                                           "View Distance", "Fog", "Field of view", "Screen format",
                                                           "Refresh rate", "Full screen" };
 static const char *const TITLE = "GRAPHICS";
-static const char *const BUTTON[2] = { "DONE", "CANCEL" };
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
 
@@ -230,12 +229,9 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
         o->plus_title(o->ctx);
     else
         o->plus_text(o->ctx, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
-    for (int row = GRAPHICS_OWN_SETTINGS; row < GRAPHICS_OWN_ROWS; row++) {
-        const int done = row == GRAPHICS_OWN_DONE;
-        text_right(o, s->selected == row, BUTTON[row - GRAPHICS_OWN_SETTINGS],
-                   done ? GRAPHICS_OWN_LABEL_X + o->plus_text_width(o->ctx, BUTTON[0]) : GRAPHICS_OWN_VALUE_RIGHT,
-                   TEXT_Y[row]);
-    }
+    /* port: no letters for DONE and CANCEL. The clean background carries both words in its own corners and the
+     * screen used to draw a second copy over them, offset a few pixels -- the capture showed "CANCEL - CANCEL".
+     * The rows are still there, still lit and still chosen: only the words are the background's. */
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->unlock(o->ctx);

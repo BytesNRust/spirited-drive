@@ -67,6 +67,10 @@ static void f_move(void *ctx, int32_t x, int32_t y)
     Fake *f = ctx;
     f->pointer_x = x;
     f->pointer_y = y;
+    /* Done and Cancel are two words the clean background paints in its bottom corners (config_bgnd.c's CORNERS:
+     * 430..475, the left one Done and the right one Cancel). The screen does not draw over them, so the pointer is
+     * the only thing that says which of the two the selection has landed on. */
+    if (y >= 430 && y < 475) f->pointer_row = x < 320 ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
 }
 static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag) { (void)ctx, (void)bank, (void)tag; return NULL; }
@@ -111,7 +115,8 @@ static void f_free(void *ctx, int32_t bank) { (void)ctx, (void)bank; }
 static int32_t f_deadline_passed(void *ctx) { (void)ctx; return 0; }
 
 /* The row each of the screen's own words belongs to, so the fake can read the selection off the draw: the selected row
- * is drawn lit, and the screen lights exactly one. */
+ * is drawn lit, and the screen lights exactly one. (Only the nine settings -- Done and Cancel are the background's
+ * words, which f_move reads off the pointer instead.) */
 static int row_of(const char *text)
 {
     static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
@@ -119,8 +124,6 @@ static int row_of(const char *text)
                                                              "Refresh rate", "Full screen" };
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++)
         if (strcmp(text, LABEL[row]) == 0) return row;
-    if (strcmp(text, "DONE") == 0) return GRAPHICS_OWN_DONE;
-    if (strcmp(text, "CANCEL") == 0) return GRAPHICS_OWN_CANCEL;
     return -1;
 }
 
