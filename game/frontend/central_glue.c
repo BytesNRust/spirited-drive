@@ -1029,7 +1029,7 @@ static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t p
 {
     if (!own_tried) {
         own_tried = 1;
-        own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 0, own_pixels, own_palette);
+        own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 1, own_pixels, own_palette);
         if (own_ok) {
             own_shape = malloc(CONFIG_BGND_SHAPE_HEADER + CONFIG_BGND_W * CONFIG_BGND_H);
             own_ok = own_shape != NULL
