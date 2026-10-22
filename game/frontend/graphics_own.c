@@ -352,17 +352,19 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
             step(&s, k, ops);
         ops->music(ops->ctx);
         if (*st->net_off == 0) ops->net_sync(ops->ctx);
-        /* the deadline, the right button and the quit flag all leave without saving, the way Cancel does */
+        /* port: the deadline, the right button and the quit flag each leave the way the original's own screen does
+         * (00423d28), where only put_back sets cancelled -- so all three fall through to the same plus_save as Done.
+         * Landing on 0 here would be Cancel, and the settings the player changed on the way past would be lost. */
         if (s.result < 0 && (ops->deadline_passed(ops->ctx) || (*st->buttons == RIGHT_BUTTON && s.released) ||
                              *st->quit == 1)) {
             ops->sound(ops->ctx, CHOSEN);
-            s.result = 0;
+            s.result = 1;
         }
     } while (s.result < 0);
     *st->showing = 0;
     if (s.bank != 0) ops->free(ops->ctx, s.bank);
-    /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends; the deadline, the right button and the
-     * quit flag all land on Cancel, which saves nothing. */
+    /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends, and so do the deadline, the right button
+     * and the quit flag, which reach the same place through result 1. */
     if (s.result != 0) {
         if (ops->plus_save != NULL) ops->plus_save(ops->ctx, st->plus->port);
         return 1;
