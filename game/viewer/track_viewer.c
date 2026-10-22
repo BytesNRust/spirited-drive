@@ -537,9 +537,12 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
 int track_viewer_drive_replay(const char *data_root, const char *path)
 {
     enum { FROM_START = 4 };
+    /* port, for the checks: TNFS_REPLAY_REQUEST=5 / 8 plays it as the menus' director (8 the intro's) does */
+    const char *asked = getenv("TNFS_REPLAY_REQUEST");
+    const int request = asked != NULL && (atoi(asked) == 5 || atoi(asked) == 8) ? atoi(asked) : FROM_START;
     size_t size = 0;
     uint8_t *file = platform_read_file(path, &size);
-    const int ok = track_viewer_drive_replay_data(data_root, file, size, FROM_START);
+    const int ok = track_viewer_drive_replay_data(data_root, file, size, request);
     platform_free_file(file);
     return ok;
 }

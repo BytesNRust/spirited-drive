@@ -36,9 +36,28 @@ static struct {
 } drive_interp;
 
 /* One step; at the race's end the results. */
+/* port, for the checks: TNFS_TRACE_PLAYER=N prints slot 0's car every N race ticks (a tick once in a row; a
+ * replay's jumps and seeks print a tick again when they come back to it), so a race and its replay can be compared */
+static void trace_player(void)
+{
+    static int every = -1;
+    static int32_t last = -1;
+    if (every < 0) {
+        const char *v = getenv("TNFS_TRACE_PLAYER");
+        every = v != NULL && atoi(v) > 0 ? atoi(v) : 0;
+    }
+    const RaceState *race = &drive_sim.race;
+    const Car *car = race->cars[0];
+    if (every == 0 || car == NULL || race->tick % every != 0 || race->tick == last) return;
+    last = race->tick;
+    printf("trace %d %d: node %d x %d y %d z %d yaw %d speed %d\n", race->replay, race->tick, car->node, car->x, car->y,
+           car->z, car->yaw, car->speed);
+}
+
 static void drive_tick(uint32_t input)
 {
     race_sim_tick(&drive_sim, input);
+    trace_player();
     drive_cars.ticked = 1;
     drive_interp.prev = drive_interp.cur;
     drive_interp_capture(&drive_interp.cur, &drive_sim);
