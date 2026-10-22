@@ -81,11 +81,12 @@ static void drive_wide_setup(void)
     const char *ultra_env = getenv("TNFS_VIEW_ULTRA");
     const int ultra = ultra_env != NULL ? atoi(ultra_env) != 0 : ps.view_ultra;
     ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
-    /* port: EXTRAS' Modern 3D, Texture Filter and Fog (TNFS_MODERN_3D, TNFS_TEXTURE_FILTER, TNFS_FOG = 1 / 0
-     * override extras.cfg for the checks) */
+    /* port: Perspective Correction, Texture Filter and Fog live on the Graphics screen now and are read from port.cfg
+     * (port_settings_load still falls back to extras.cfg for a file written before they moved). The TNFS_MODERN_3D,
+     * TNFS_TEXTURE_FILTER and TNFS_FOG env vars override them for the checks. */
     const PortExtras extras = port_extras_load();
-    ported_view_set_modern(env_switch("TNFS_MODERN_3D", extras.modern_3d));
-    ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", extras.texture_filter), env_switch("TNFS_FOG", extras.fog));
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective));
+    ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
     drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
                        env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
     drive_mirror_free(&bumper_mirror);  /* the last track's horizon with it */
