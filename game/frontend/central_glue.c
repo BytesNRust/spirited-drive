@@ -1057,7 +1057,12 @@ static int32_t own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const 
 {
     (void)ctx, (void)pixels;
     if (own_shape == NULL) return 0;
-    palette_set(ctx, own_palette, 0, 0x100, own_palette, 0);
+    /* RAW, into the screen's own copy rather than back into own_palette: config_bgnd.c read this palette through
+     * fsh_palette_rgb, which shifts the CD's 6-bit values left by one on the way, so it is already display-ready
+     * and any other mode shifts it twice; and palette_put reads and writes the same buffer, so aliasing the two
+     * would rewrite the bytes it is reading, a little further every redraw. */
+    memcpy(screen_palette, own_palette, sizeof screen_palette);
+    palette_set(ctx, screen_palette, 0, 0x100, own_palette, 0x24 /* FSH_TYPE_PALETTE_8BIT */);
     text_build_styles_from(own_palette);
     ea_blit_own(own_shape);
     (void)palette;

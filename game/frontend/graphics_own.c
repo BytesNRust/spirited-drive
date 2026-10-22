@@ -4,6 +4,8 @@
  * time), the title, and the nine rows, which are all text over it. */
 #include "game/frontend/graphics_own.h"
 
+#include "core/formats/fsh.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -139,6 +141,8 @@ typedef struct Screen {
     uint8_t pixels[GRAPHICS_OWN_W * GRAPHICS_OWN_H];
     uint8_t palette[768];
     int bgnd_ready;   /* the background asked for once; composing it takes about half a second */
+    int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
+    uint8_t screen_pal[768];   /* the palette_set destination, kept apart from the one it reads */
 } Screen;
 
 /* The clean configuration background, composed at run time from the CD and kept: config_bgnd_load reads the ten
@@ -205,8 +209,22 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
 {
     *s->st->showing = 1;
     o->select(o->ctx, *s->st->screen);
-    if (o->plus_bgnd_shape != NULL && o->plus_bgnd_shape(o->ctx, s->pixels, s->palette))
-        o->palette_set(o->ctx, s->palette, 0, 0x100, s->palette, 0);
+    if (o->plus_bgnd_shape != NULL && o->plus_bgnd_shape(o->ctx, s->pixels, s->palette)) {
+        /* port: the screen's palette onto the screen's own, RAW. config_bgnd.c read this palette through
+         * fsh_palette_rgb, which shifts the CD's 6-bit VGA values left by one on the way, so it is already
+         * display-ready: any other mode shifts it a second time. The destination is the picture's own palette and
+         * the source is a separate copy -- palette_put reads and writes the same buffer, so handing it one would
+         * rewrite the bytes it is reading, a little further every redraw. */
+        memcpy(s->screen_pal, s->palette, sizeof s->screen_pal);
+        o->palette_set(o->ctx, s->screen_pal, 0, 0x100, s->palette, FSH_TYPE_PALETTE_8BIT);
+        /* port: the palette on the display, once. Options fades the screen out before it opens this one, so without
+         * this the page is drawn on black: palette_set only fills the screen's own palette and the one kept for
+         * restore, and fade_in is what puts one on the display. */
+        if (!s->palette_on) {
+            o->fade_in(o->ctx, 0, 0x100, s->palette);
+            s->palette_on = 1;
+        }
+    }
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) row_text(s, row, o);
     if (o->plus_title != NULL)
         o->plus_title(o->ctx);
