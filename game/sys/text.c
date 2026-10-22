@@ -6,6 +6,7 @@
 #include "game/sys/text_soft.h"
 #include "game/sys/video.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -208,10 +209,13 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
     uint8_t *const mask = calloc((size_t)mw * mh, 1);
     if (mask == NULL) return;
     mask_text(text, PAD, PAD, num, den, mask, mw, mh);
-    const int cream = current_style == TEXT_CREAM;
+    const int cream = current_style == TEXT_CREAM, yellow = current_style == TEXT_YELLOW;
     const int fill = cream ? nearest(TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B) : styles_fg[current_style];
-    const int grain = cream ? nearest(TEXT_SOFT_GRAIN_R, TEXT_SOFT_GRAIN_G, TEXT_SOFT_GRAIN_B) : darkened(fill, 15);
-    const int edge = darkened(fill, TEXT_SOFT_EDGE_SIXTEENTHS);
+    const int grain = cream    ? nearest(TEXT_SOFT_GRAIN_R, TEXT_SOFT_GRAIN_G, TEXT_SOFT_GRAIN_B)
+                      : yellow ? nearest(TEXT_SOFT_YELLOW_GRAIN_R, TEXT_SOFT_YELLOW_GRAIN_G, TEXT_SOFT_YELLOW_GRAIN_B)
+                               : darkened(fill, 15);
+    const int edge = darkened(fill, yellow ? TEXT_SOFT_YELLOW_EDGE_SIXTEENTHS : TEXT_SOFT_EDGE_SIXTEENTHS);
+    const int lit_rim = current_style == TEXT_RED;   /* only the red titles have the light rim */
     const int rim = nearest(TEXT_SOFT_RIM_R, TEXT_SOFT_RIM_G, TEXT_SOFT_RIM_B), black = shadow[15];
     int tw, th;
     uint8_t *const to = video_target(&tw, &th);
@@ -224,7 +228,7 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
             if (tx < 0 || tx >= tw) continue;
             uint8_t *const at = &to[ty * tw + tx];
             const TextSoftPart back = text_soft_back(mask, mw, mh, mx, my);
-            if (back == TEXT_SOFT_RIM && !cream) *at = (uint8_t)rim;   /* the cream items have none */
+            if (back == TEXT_SOFT_RIM && lit_rim) *at = (uint8_t)rim;
             const int dark = text_soft_shadow(mask, mw, mh, mx, my);
             if (back != TEXT_SOFT_RIM && dark > 0) *at = blended(black, *at, dark);
             const int coverage = mask[my * mw + mx];
@@ -234,6 +238,44 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
         }
     }
     free(mask);
+}
+
+void text_draw_header(const char *text, int x, int y, int num, int den, int underline)
+{
+    enum { PAD = 2, CAPACITY = 64, UNDERLINE_ROWS = 2 };
+    if (font_data == NULL) return;
+    char caps[CAPACITY];
+    size_t n = 0;
+    for (; text[n] != '\0' && n + 1 < CAPACITY; n++) caps[n] = (char)toupper((unsigned char)text[n]);
+    caps[n] = '\0';
+    const int mw = text_width_scaled(caps, num, den) + 2 * PAD, mh = font.line_height * num / den + 2 * PAD;
+    uint8_t *const mask = calloc((size_t)mw * mh, 1);
+    if (mask == NULL) return;
+    mask_text(caps, PAD, PAD, num, den, mask, mw, mh);
+    const int tan = nearest(TEXT_SOFT_HEADER_R, TEXT_SOFT_HEADER_G, TEXT_SOFT_HEADER_B), black = shadow[15];
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
+    const int left = x - PAD, top = y - PAD;
+    for (int my = 0; my < mh; my++)
+        for (int mx = 0; mx < mw; mx++) {
+            const int tx = left + mx, ty = top + my;
+            if (tx < 0 || tx >= tw || ty < 0 || ty >= th) continue;
+            uint8_t *const at = &to[ty * tw + tx];
+            const int dark = text_soft_header_shadow(mask, mw, mh, mx, my);
+            if (dark > 0) *at = dark >= 15 ? (uint8_t)black : blended(black, *at, dark);
+            const int coverage = mask[my * mw + mx];
+            if (coverage > 0) *at = coverage >= 15 ? (uint8_t)tan : blended(tan, *at, coverage);
+        }
+    const int last = text_soft_last_row(mask, mw, mh);
+    const int length = underline > 0 ? underline : mw - 2 * PAD;
+    free(mask);
+    if (last < 0) return;
+    const int line = top + last + TEXT_SOFT_HEADER_UNDERLINE_GAP;
+    for (int row = 0; row < UNDERLINE_ROWS; row++) {
+        if (line + row < 0 || line + row >= th) continue;
+        for (int tx = x; tx < x + length; tx++)
+            if (tx >= 0 && tx < tw) to[(line + row) * tw + tx] = (uint8_t)(row == 0 ? tan : black);
+    }
 }
 
 void text_draw_centered(const char *text, int cx, int y)

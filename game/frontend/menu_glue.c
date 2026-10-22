@@ -561,6 +561,7 @@ int32_t glue_extras_screen(int16_t unlock)
         extras_bgnd_shape_glue, /* plus_bgnd_shape */
         extras_text_smooth_glue, /* plus_text_smooth */
         own_title_text,     /* plus_title */
+        own_header_text,    /* plus_header */
         extras_save_glue,   /* extras_save */
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
         NULL,               /* ctx */

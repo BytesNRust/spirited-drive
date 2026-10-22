@@ -42,6 +42,8 @@ typedef struct Fake {
     int bgnd_ok;          /* what config_bgnd_load gives: 0 as if the CD had none */
     int panels;           /* dark panels drawn */
     int titles;           /* titles drawn through the title op */
+    int headers;          /* headers drawn through the header op */
+    int32_t header_width; /* the last one's underline */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -130,6 +132,14 @@ static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32
     if (f->bgnd_asks == 0) f->panel_before_bgnd++;
     f->panels++;
 }
+/* the header op: recorded with the words, as the red they replace */
+static void f_header(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
+{
+    Fake *f = ctx;
+    f->headers++;
+    f->header_width = width;
+    f_text(ctx, 2, text, x, y);
+}
 /* the title op: recorded with the words, in red */
 static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
 {
@@ -201,7 +211,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .key = f_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
-        .plus_text_smooth = smooth, .plus_title = f_title,
+        .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
         .extras_save = f_save, .ctx = &r->fake };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
@@ -497,6 +507,17 @@ static void test_the_title_goes_through_the_title_op(void)
     CHECK_EQ_INT(style_in(&r.fake, "Customize Game"), 2);
 }
 
+/* port: the groups' headers in the credits' look, underlined across the rows, labels to values */
+static void test_the_headers_go_through_the_header_op(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    run(&r, keys, 1);
+    CHECK_EQ_INT(r.fake.headers, 2);
+    CHECK_EQ_INT(r.fake.header_width, 600 - 16);
+}
+
 /* port: the words go straight onto the clean background, no dark panel; only over the caller's picture (no
  * background to compose) does the panel keep them readable */
 static void test_a_panel_only_without_the_clean_background(void)
@@ -544,7 +565,7 @@ static void test_text_is_drawn_over_the_background(void)
     setup(&r);
     run(&r, keys, 1);
     CHECK(r.fake.smooth_draws > 0);
-    CHECK_EQ_INT(r.fake.smooth_draws + r.fake.titles, r.fake.drawn_count);
+    CHECK_EQ_INT(r.fake.smooth_draws + r.fake.titles + r.fake.headers, r.fake.drawn_count);
 }
 
 /* port: without a smooth op to call the screen still draws every word, the way the original's rows do. */
@@ -693,6 +714,7 @@ int main(void)
     test_the_page_fits_between_the_title_and_the_buttons();
     test_the_screen_is_titled_customize_game();
     test_the_title_goes_through_the_title_op();
+    test_the_headers_go_through_the_header_op();
     test_a_panel_only_without_the_clean_background();
     test_the_palette_reaches_the_display();
     test_the_styles_are_built_for_the_screens_palette();

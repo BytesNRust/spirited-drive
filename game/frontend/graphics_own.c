@@ -22,7 +22,7 @@ enum { TITLE_X = 8, TITLE_Y = 56 };
 static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
                                                           "View Distance", "Fog", "Field of view", "Screen format",
                                                           "Refresh rate", "Full screen" };
-static const char *const TITLE = "Graphics";   /* title case, as "Game Mode": the font makes the rest small capitals */
+static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
 
@@ -40,9 +40,9 @@ static const int16_t BAND_TOP[GRAPHICS_OWN_ROWS] = { 0x0, 0x8c, 0xaf, 0xd2, 0xf5
                                                      0x1a4, 0x1a4 };
 static const int16_t BAND_BOTTOM[GRAPHICS_OWN_ROWS] = { 0x8c, 0xaf, 0xd2, 0xf5, 0x118, 0x13b, 0x15e, 0x181, 0x1a4,
                                                         0x1e0, 0x1df };
-/* the labels' y, as graphics_menu.c's TEXT_Y is: the first row where the exe's own put it, the rest ten below their
- * band's top, and ten below every label the pointer, the exe's own 106 / 159 / 210 ... being 116 / 169 / 220 */
-static const int16_t TEXT_Y[GRAPHICS_OWN_ROWS] = { 106, 150, 185, 220, 255, 290, 325, 360, 395, 438, 438 };
+/* the labels' y, as graphics_menu.c's TEXT_Y is: each ten below its band's top, and ten below every label the
+ * pointer. The first sits 35 above the second like every other pair (the exe's own 106 left it 44 above) */
+static const int16_t TEXT_Y[GRAPHICS_OWN_ROWS] = { 115, 150, 185, 220, 255, 290, 325, 360, 395, 438, 438 };
 
 static int wrap(int value, int direction, int count)
 {

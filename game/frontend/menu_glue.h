@@ -66,6 +66,8 @@ void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int
 void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 /* the Graphics and EXTRAS screens' title, red and at the original screens' title size */
 void own_title_text(void *ctx, const char *text, int32_t x, int32_t y);
+/* the EXTRAS screen's group headers, as the credits draw their sections' */
+void own_header_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
 void glue_save_box(char *name, uint8_t *config, uint8_t *game, int16_t lost_vegas);  /* 0042a680 */
 void glue_replay_box(char *name, uint8_t *config);                  /* 0042a9f8 */
 

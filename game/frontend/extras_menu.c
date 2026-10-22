@@ -271,9 +271,13 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     } else {
         o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
     }
-    /* the page's two headers, each red: they name the group under them and are never the selection */
-    for (int group = 0; group < EXTRAS_GROUPS; group++)
-        text(o, STYLE_RED, HEADERS[p->page][group], LABEL_X, line_y(p->page, header_line(p->page, group)));
+    /* the page's two headers: they name the group under them and are never the selection. Underlined across the
+     * rows, as the credits head and close off their sections */
+    for (int group = 0; group < EXTRAS_GROUPS; group++) {
+        const int y = line_y(p->page, header_line(p->page, group));
+        if (o->plus_header != NULL) o->plus_header(o->ctx, HEADERS[p->page][group], LABEL_X, y, VALUE_RIGHT - LABEL_X);
+        else text(o, STYLE_RED, HEADERS[p->page][group], LABEL_X, y);
+    }
     for (int row = 0; row < rows_of(p->page); row++) {
         char v[16];
         const int lit = p->selected == row;

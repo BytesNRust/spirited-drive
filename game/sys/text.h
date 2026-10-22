@@ -29,5 +29,8 @@ void text_draw_centered(const char *text, int cx, int y); /* 00463c60: same, cen
  * under them in the palette text_build_styles* last used */
 int text_width_scaled(const char *text, int num, int den);
 void text_draw_smooth(const char *text, int x, int y, int num, int den);
+/* port: a section header as the credits draw theirs (text_soft.h), in capitals num/den times the font's size, with
+ * its underline `underline` pixels long from x (the text's width when 0) */
+void text_draw_header(const char *text, int x, int y, int num, int den, int underline);
 
 #endif

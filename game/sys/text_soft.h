@@ -13,9 +13,16 @@ enum {
     /* the drawn items' cream and its grain (Network, Exit in Game Mode) */
     TEXT_SOFT_CREAM_R = 238, TEXT_SOFT_CREAM_G = 214, TEXT_SOFT_CREAM_B = 182,
     TEXT_SOFT_GRAIN_R = 222, TEXT_SOFT_GRAIN_G = 206, TEXT_SOFT_GRAIN_B = 190,
-    /* the light rim of the highlighted and title letters */
+    /* the light rim of the red title letters ("Game Mode"); the items, cream or lit yellow, have none */
     TEXT_SOFT_RIM_R = 230, TEXT_SOFT_RIM_G = 222, TEXT_SOFT_RIM_B = 214,
-    TEXT_SOFT_EDGE_SIXTEENTHS = 14   /* the edge facing down-right: the letter's colour times 14/16 */
+    /* the lit items' yellow grain (ffce10 in "Network", "Load and save") */
+    TEXT_SOFT_YELLOW_GRAIN_R = 255, TEXT_SOFT_YELLOW_GRAIN_G = 206, TEXT_SOFT_YELLOW_GRAIN_B = 16,
+    TEXT_SOFT_EDGE_SIXTEENTHS = 14,  /* the edge facing down-right: the letter's colour times 14/16 */
+    TEXT_SOFT_YELLOW_EDGE_SIXTEENTHS = 15,  /* the lit yellow's lighter, eec628 */
+    /* the credits' section headers ("EA Seattle"): tan capitals with a hard black shadow 1 px down-right, underlined
+     * by a tan line over a black one, the tan 3 px under the letters' last row */
+    TEXT_SOFT_HEADER_R = 165, TEXT_SOFT_HEADER_G = 133, TEXT_SOFT_HEADER_B = 97,
+    TEXT_SOFT_HEADER_UNDERLINE_GAP = 3
 };
 
 typedef enum {
@@ -34,5 +41,9 @@ int text_soft_shadow(const uint8_t *mask, int w, int h, int x, int y);
 /* 1 where the fill takes its grain tone instead, about one pixel in four, fixed by the screen position so a
  * redrawn label stays the same */
 int text_soft_grain(int x, int y);
+/* the header's shadow at (x, y): the letters' coverage 1 px up-left of it */
+int text_soft_header_shadow(const uint8_t *mask, int w, int h, int x, int y);
+/* the last mask row holding any letter pixel, -1 if none: where the header's underline is measured from */
+int text_soft_last_row(const uint8_t *mask, int w, int h);
 
 #endif

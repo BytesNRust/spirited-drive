@@ -46,6 +46,19 @@ static void test_the_shadow_follows_the_coverage(void)
     CHECK_EQ_INT(text_soft_shadow(m, 8, 8, 6, 6), (5 * TEXT_SOFT_SHADOW_LEVEL + 7) / 15);
 }
 
+/* the credits' header: its shadow 1 px down-right, and the underline measured from the letters' last row */
+static void test_the_header(void)
+{
+    uint8_t m[64];
+    square(m, 15);
+    CHECK_EQ_INT(text_soft_header_shadow(m, 8, 8, 5, 5), 15);
+    CHECK_EQ_INT(text_soft_header_shadow(m, 8, 8, 6, 6), 0);
+    CHECK_EQ_INT(text_soft_header_shadow(m, 8, 8, 0, 0), 0);
+    CHECK_EQ_INT(text_soft_last_row(m, 8, 8), 4);
+    square(m, 0);
+    CHECK_EQ_INT(text_soft_last_row(m, 8, 8), -1);
+}
+
 /* the grain: about a quarter of the pixels, the same each time */
 static void test_the_grain(void)
 {
@@ -61,6 +74,7 @@ int main(void)
     test_the_parts_of_a_letter();
     test_half_covered_is_letter();
     test_the_shadow_follows_the_coverage();
+    test_the_header();
     test_the_grain();
     return TEST_REPORT();
 }

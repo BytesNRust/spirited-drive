@@ -90,6 +90,9 @@ typedef struct ExtrasMenuOps {
     /* port: the screen's title in the original screens' look (their red, at their items' size); NULL draws it as a
      * row */
     void (*plus_title)(void *ctx, const char *text, int32_t x, int32_t y);
+    /* port: a group's header as the credits draw theirs (tan capitals, underlined `width` pixels long); NULL draws it
+     * as a red row */
+    void (*plus_header)(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
     /* port: persist the on-screen state — extras.cfg from `e` and the unlock level. The caller decides the files. */
     void (*extras_save)(void *ctx, const PortExtras *e, int16_t unlock);
     /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),

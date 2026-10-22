@@ -1112,6 +1112,15 @@ void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
     text_draw_smooth(text, x, y, TITLE_NUM, TITLE_DEN);
 }
 
+/* a group's header as the credits draw theirs ("EA Seattle"), at their size: about 2/3 of the game's text */
+void own_header_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
+{
+    enum { HEADER_NUM = 2, HEADER_DEN = 3 };
+    (void)ctx;
+    text_build_styles_from(own_palette);
+    text_draw_header(text, x, y, HEADER_NUM, HEADER_DEN, width);
+}
+
 void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
 {
     (void)ctx;

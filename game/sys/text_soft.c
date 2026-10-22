@@ -33,3 +33,16 @@ int text_soft_grain(int x, int y)
     const unsigned hash = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
     return ((hash >> 7) & 3) == 0;
 }
+
+int text_soft_header_shadow(const uint8_t *mask, int w, int h, int x, int y)
+{
+    return x >= 1 && y >= 1 && x - 1 < w && y - 1 < h ? mask[(y - 1) * w + x - 1] : 0;
+}
+
+int text_soft_last_row(const uint8_t *mask, int w, int h)
+{
+    for (int y = h - 1; y >= 0; y--)
+        for (int x = 0; x < w; x++)
+            if (letter(mask, w, h, x, y)) return y;
+    return -1;
+}
