@@ -14,6 +14,7 @@
 #include "game/sys/port_settings.h"
 #include "test.h"
 
+#include "core/formats/fsh.h"
 #include "game/platform/platform.h"
 
 #include <stdlib.h>
@@ -46,6 +47,10 @@ typedef struct Fake {
     int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
     int fade_ins;            /* times the screen's own palette was put on the display */
     int put_backs;           /* times the settings were put back (Cancel / Escape only) */
+    int aliased_palettes;    /* times palette_set was handed its own destination as the source */
+    int non_raw_modes;       /* times palette_set was told to shift an already-shifted palette */
+    int32_t palette_modes[32];
+    int palette_mode_count;
     PortSettings kept;       /* the settings as they were on entry */
 } Fake;
 
@@ -66,7 +71,15 @@ static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; retur
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag) { (void)ctx, (void)bank, (void)tag; return NULL; }
 static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
-    (void)ctx, (void)rgb, (void)first, (void)count, (void)src, (void)mode;
+    Fake *f = ctx;
+    (void)first, (void)count;
+    /* palette_put writes destination and then copies the result over the screen's copy, so a call whose source
+     * IS its destination rewrites the bytes it is reading from: every redraw shifts them a little further. */
+    if (src == rgb) f->aliased_palettes++;
+    /* the clean background's palette is already display-ready (fsh_palette_rgb shifted the CD's 6-bit values
+     * once); anything but the raw mode shifts it a second time, which is what turned the page neon. */
+    if (mode != FSH_TYPE_PALETTE_8BIT) f->non_raw_modes++;
+    if (f->palette_mode_count < 32) f->palette_modes[f->palette_mode_count++] = mode;
 }
 /* The pointer's band: is the pointer where the screen last put it inside this one? That is the whole question, and
  * the pointer's position is all it takes to answer it. */
@@ -300,6 +313,31 @@ static void test_palette_reaches_the_display(void)
     CHECK(r.f.fade_ins > 0);
 }
 
+/* 4: palette_set is never handed its own destination as the source. palette_put reads src and writes the same
+ * buffer, so a call that aliases shifts every colour byte left by two ONCE PER REDRAW; after a few redraws the
+ * bytes have overflowed and the page is neon. This is what the capture showed. */
+static void test_palette_is_not_rewritten_in_place(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    CHECK(r.f.aliased_palettes == 0);
+}
+
+/* 5: the palette goes on raw. The clean background's palette is already display-ready -- config_bgnd.c reads it
+ * through fsh_palette_rgb, which shifts the CD's 6-bit VGA values left by one once. Passing any other mode makes
+ * palette_put shift them a second time, which is the other half of the neon. */
+static void test_palette_is_put_raw(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    CHECK(r.f.palette_mode_count > 0);
+    CHECK(r.f.non_raw_modes == 0);
+}
+
 /* 4: View Distance offers four values, "Ultra" among them: the fourth is the port's, and it turns view_ultra on */
 static void test_view_distance_has_ultra(void)
 {
@@ -529,6 +567,8 @@ int main(void)
     test_rows_in_order();
     test_title_top_left();
     test_palette_reaches_the_display();
+    test_palette_is_not_rewritten_in_place();
+    test_palette_is_put_raw();
     test_view_distance_has_ultra();
     test_view_distance_cycles();
     test_values_write_settings();
