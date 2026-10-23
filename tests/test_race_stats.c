@@ -127,7 +127,7 @@ static void test_text_says_the_figures(void)
     v.fog = 0;
     v.segments = 28;
     race_stats_format(&v, &t);
-    CHECK(strcmp(t.line[0], "FPS 59.8  frame 16.7 ms, max 18 ms") == 0);
+    CHECK(strcmp(t.line[0], "FPS 59.8  frame 16.7 ms  max 18 ms") == 0);
     CHECK(strcmp(t.line[1], "Refresh 60 Hz  interp on") == 0);
     CHECK(strcmp(t.line[2], "Render 640x480  4:3") == 0);
     CHECK(strcmp(t.line[3], "Modern 3D on  filter on  fog off") == 0);

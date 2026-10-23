@@ -66,7 +66,8 @@ void race_stats_format(const RaceStatsView *v, RaceStatsText *out)
 {
     const RaceStatsFigures *f = &v->figures;
     if (f->ready)
-        snprintf(out->line[0], RACE_STATS_LINE_LEN, "FPS %.1f  frame %.1f ms, max %u ms", f->fps, f->frame_avg_ms,
+        /* no comma: MAIN18.FFN draws it as another glyph */
+        snprintf(out->line[0], RACE_STATS_LINE_LEN, "FPS %.1f  frame %.1f ms  max %u ms", f->fps, f->frame_avg_ms,
                  (unsigned)f->frame_max_ms);
     else
         snprintf(out->line[0], RACE_STATS_LINE_LEN, "FPS --  frame -- ms");
