@@ -23,8 +23,11 @@ void graphics_plus_view_step(int16_t *view, int *ultra);
  * art bank, used to blit the exe's all-three view row art (vanl / vand) instead of a flat shaded panel. */
 void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, const uint8_t *rgb, int lit,
                          int32_t bank);
-/* the page indicator of page 1 (0) or 2 (1) */
-void graphics_plus_nav(const GraphicsMenuState *st, const GraphicsMenuOps *o, int page);
+/* the page indicator of page 1 (0) or 2 (1): its count and the triangle of the other page, yellow when `lit` (1 left,
+ * 2 right, as graphics_plus_nav_lit answers) is that one */
+void graphics_plus_nav(const GraphicsMenuState *st, const GraphicsMenuOps *o, int page, int lit);
+/* the triangle the pointer is on: 0 neither, 1 the left, 2 the right */
+int graphics_plus_nav_lit(const GraphicsMenuOps *o, int page);
 int graphics_plus_nav_hit(const GraphicsMenuOps *o);
 
 typedef enum { PLUS_PAGE_DONE, PLUS_PAGE_CANCEL, PLUS_PAGE_BACK } PlusPageResult;

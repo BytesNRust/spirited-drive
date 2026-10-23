@@ -76,6 +76,10 @@ typedef struct GraphicsMenuOps {
      * screen fades -- the safe answer, since a skipped fade that was needed shows the caller's picture in this
      * screen's palette. */
     int32_t (*plus_display_dark)(void *ctx);
+    /* port: the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and one drawn in
+     * a style's colours (lit yellow, else cream). Both NULL keeps the indicator's text. */
+    int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
+    void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 } GraphicsMenuOps;
 
 /* port: the settings the port's additions edit, and what they need to know */

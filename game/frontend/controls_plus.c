@@ -4,6 +4,8 @@
  * cancels, the idle deadline and the right button leave. */
 #include "game/frontend/controls_plus.h"
 
+#include "game/frontend/page_arrows.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -52,11 +54,23 @@ void controls_plus_tune_text(const PortControls *c, int which, char out[16])
     if (which >= 0 && which < TUNE_COUNT) snprintf(out, 16, "%d%%", tune_value(c, which));
 }
 
-void controls_plus_nav(const ControlsMenuOps *o, int page)
+static PageNavOps nav_ops(const ControlsMenuOps *o)
 {
-    char text[16];
-    snprintf(text, sizeof text, "%s%d/%d%s", page > 0 ? "< " : "", page + 1, PAGES, page < PAGES - 1 ? " >" : "");
-    o->plus_text(o->ctx, STYLE_CREAM, text, NAV_CENTRE - o->plus_text_width(o->ctx, text) / 2, NAV_Y);
+    const PageNavOps n = { o->ctx, o->plus_text, o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size,
+                           o->plus_arrow };
+    return n;
+}
+
+void controls_plus_nav(const ControlsMenuOps *o, int page, int lit)
+{
+    const PageNavOps nav = nav_ops(o);
+    page_nav_draw(&nav, page, PAGES, lit);
+}
+
+int controls_plus_nav_lit(const ControlsMenuOps *o, int page)
+{
+    const PageNavOps nav = nav_ops(o);
+    return page_nav_lit(&nav, page, PAGES);
 }
 
 int controls_plus_nav_hit(const ControlsMenuOps *o)
@@ -75,6 +89,7 @@ typedef struct Run {
     int result;              /* a ControlsPageResult once it is left, -1 until then */
     int32_t bank;
     const uint8_t *rgb;
+    int nav_lit;             /* the page indicator's triangle the pointer is on, 0 none */
 } Run;
 
 static int rows(const Run *r) { return r->page == ACTION_PAGE ? ACT_COUNT : TUNE_COUNT + 1; }   /* before Done */
@@ -103,6 +118,8 @@ static void select_row(Run *r, int row, const ControlsMenuOps *o)
 /* the first band the pointer is in becomes the selection; over the page indicator it is none */
 static void follow(Run *r, const ControlsMenuOps *o)
 {
+    const int lit = controls_plus_nav_lit(o, r->page);
+    if (lit != r->nav_lit) r->nav_lit = lit, r->redraw = 1;
     if (controls_plus_nav_hit(o)) return;
     if (o->pointer_in_rect(o->ctx, 0x145, WIDE, 0x195, 0x1e0)) {
         select_row(r, cancel_row(r), o);
@@ -156,7 +173,7 @@ static void draw(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o)
     }
     if (r->selected == done_row(r)) o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "donl"));
     if (r->selected == cancel_row(r)) o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "canl"));
-    controls_plus_nav(o, r->page);
+    controls_plus_nav(o, r->page, r->nav_lit);
     o->select_default(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *st->screen));
     o->flip(o->ctx);
@@ -294,7 +311,7 @@ ControlsPageResult controls_plus_run(const ControlsMenuState *st, const Controls
 {
     RawPad pad;
     /* not armed: the key that turned the page may still be down */
-    Run r = { ACTION_PAGE, 0, 1, 0, *st->buttons == 0, 0, -1, 0, 1, -1, bank, rgb };
+    Run r = { ACTION_PAGE, 0, 1, 0, *st->buttons == 0, 0, -1, 0, 1, -1, bank, rgb, 0 };
     if (o->pad_raw(o->ctx, &pad)) r.gamepad = pad.gamepad;
     move_to(&r, r.selected, o);
     do {

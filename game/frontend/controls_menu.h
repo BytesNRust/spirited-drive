@@ -65,6 +65,10 @@ typedef struct ControlsMenuOps {
                        int32_t framed);  /* the rectangle darkened (rgb: the screen's palette), a red frame if framed */
     void (*plus_save)(void *ctx, const PortControls *controls);   /* controls.cfg, and the race's pad from now on */
     int32_t (*pad_raw)(void *ctx, RawPad *out);   /* the first pad or wheel as it is now; 0 when there is none */
+    /* the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and one drawn in a
+     * style's colours (lit yellow, else cream). Both NULL keeps the indicator's text. */
+    int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
+    void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 } ControlsMenuOps;
 
 /* port: the bindings the added pages edit */

@@ -10,6 +10,7 @@
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/graphics_own.h"
 #include "game/frontend/config_bgnd.h"
+#include "game/frontend/page_arrows.h"
 #include "game/frontend/title_art.h"
 #include "game/viewer/screen_layout.h"
 #include "game/frontend/central.h"
@@ -867,6 +868,8 @@ static int32_t capture(void *ctx, char *name)
 /* port: the added pages' text, panels and saving (graphics_plus' routines below), and the pad as it is now */
 static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 static int32_t plus_text_width(void *ctx, const char *text);
+static int32_t plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h);
+static void plus_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
 static void controls_plus_save(void *ctx, const PortControls *controls)
 {
@@ -928,7 +931,8 @@ static void controls(void *ctx, int32_t mode)
         styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
         select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
         glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
-        picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw };
+        picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw,
+        plus_arrow_size, plus_arrow };
     controls_menu(&st, mode, &ops);
     controls_in();
 }
@@ -995,6 +999,27 @@ static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, 
     text_draw_smooth(text, x, y, 1, 1);
 }
 static int32_t plus_text_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
+
+/* port: the page indicator's triangles (page_arrows.h), cut from the CD the first time and kept; none when the CD
+ * cannot give them, and the indicator is its text */
+static int32_t plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h)
+{
+    (void)ctx;
+    const PageArrowMasks *const m = page_arrows_shared(resource_load_art);
+    if (m == NULL) return 0;
+    *w = m->w[right ? PAGE_ARROW_RIGHT : PAGE_ARROW_LEFT], *h = m->h[right ? PAGE_ARROW_RIGHT : PAGE_ARROW_LEFT];
+    return 1;
+}
+static void plus_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
+{
+    (void)ctx;
+    const PageArrowMasks *const m = page_arrows_shared(resource_load_art);
+    const int a = right ? PAGE_ARROW_RIGHT : PAGE_ARROW_LEFT;
+    if (m == NULL) return;
+    text_select(lit ? TEXT_YELLOW : TEXT_CREAM);
+    text_draw_item_mask(m->mask[a], m->w[a], m->h[a], x, y);
+}
+int32_t glue_plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h) { return plus_arrow_size(ctx, right, w, h); }
 static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     enum { DARK = 0x1000, RED = 0xff0000, CORNERS = 4 };
@@ -1174,6 +1199,13 @@ void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, in
     text_draw_smooth(text, x, y, 1, 1);
 }
 
+/* the triangle as own_panel_text draws a word: in the styles of the background that is showing */
+void own_panel_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
+{
+    text_build_styles_from(own_palette);
+    plus_arrow(ctx, right, lit, x, y);
+}
+
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance
  * is one of the screen's shorts there, not in port.cfg, so the kept image is what puts it back. Both are kept for as
  * long as the screen may be up, which is what the file scope is for. */
@@ -1225,7 +1257,7 @@ static void graphics(void *ctx, int32_t mode)
         mode == 0 ? own_plus_text : NULL,
         /* port: whether the display is already dark, so the screen skips a fade of a display Options has already
          * faded out rather than scaling zeros for seventeen vblanks */
-        display_dark };
+        display_dark, plus_arrow_size, plus_arrow };
     input_function_keys(&showing);
     input_page_keys(mode == 0);
     /* port: from Options this is graphics_own.c, the port's own screen: the nine settings the owner named, over the

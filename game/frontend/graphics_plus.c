@@ -3,6 +3,8 @@
  * cancels, the idle deadline and the right button leave. */
 #include "game/frontend/graphics_plus.h"
 
+#include "game/frontend/page_arrows.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,11 +110,26 @@ void graphics_plus_ultra(const GraphicsMenuState *st, const GraphicsMenuOps *o, 
     text_right(o, lit, "Ultra", VALUE_RIGHT, 262);
 }
 
-void graphics_plus_nav(const GraphicsMenuState *st, const GraphicsMenuOps *o, int page)
+enum { PLUS_PAGES = 2 };
+
+static PageNavOps nav_ops(const GraphicsMenuOps *o)
+{
+    const PageNavOps n = { o->ctx, o->plus_text, o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size,
+                           o->plus_arrow };
+    return n;
+}
+
+void graphics_plus_nav(const GraphicsMenuState *st, const GraphicsMenuOps *o, int page, int lit)
 {
     (void)st;
-    const char *text = page == 0 ? "1/2 >" : "< 2/2";
-    o->plus_text(o->ctx, STYLE_CREAM, text, NAV_CENTRE - o->plus_text_width(o->ctx, text) / 2, NAV_Y);
+    const PageNavOps nav = nav_ops(o);
+    page_nav_draw(&nav, page, PLUS_PAGES, lit);
+}
+
+int graphics_plus_nav_lit(const GraphicsMenuOps *o, int page)
+{
+    const PageNavOps nav = nav_ops(o);
+    return page_nav_lit(&nav, page, PLUS_PAGES);
 }
 
 int graphics_plus_nav_hit(const GraphicsMenuOps *o)
@@ -125,6 +142,7 @@ typedef struct Page {
     int redraw, armed, released;
     int32_t rest;
     int result;   /* a PlusPageResult once it is left, -1 until then */
+    int nav_lit;  /* the page indicator's triangle the pointer is on, 0 none */
 } Page;
 
 static void move_to(int row, const GraphicsMenuOps *o)
@@ -143,6 +161,8 @@ static void select_row(Page *p, int row, const GraphicsMenuOps *o)
 /* the first band the pointer is in becomes the selection; over the page indicator it is none */
 static void follow(Page *p, const GraphicsMenuOps *o)
 {
+    const int lit = graphics_plus_nav_lit(o, 1);
+    if (lit != p->nav_lit) p->nav_lit = lit, p->redraw = 1;
     if (graphics_plus_nav_hit(o)) return;
     for (int row = 0; row < ROWS; row++)
         if (o->pointer_in_rect(o->ctx, BAND_LEFT[row], BAND_RIGHT[row], BAND_TOP[row], BAND_BOTTOM[row])) {
@@ -165,7 +185,7 @@ static void draw(Page *p, const GraphicsMenuState *st, const GraphicsMenuOps *o,
     }
     if (p->selected == ROW_DONE) o->blit_own(o->ctx, o->shape(o->ctx, bank, "donl"));
     if (p->selected == ROW_CANCEL) o->blit_own(o->ctx, o->shape(o->ctx, bank, "canl"));
-    graphics_plus_nav(st, o, 1);
+    graphics_plus_nav(st, o, 1, p->nav_lit);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *st->screen));

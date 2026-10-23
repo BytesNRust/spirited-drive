@@ -43,6 +43,7 @@ typedef struct Menu {
     int released;              /* esp + 0x484: the buttons seen up */
     int16_t leave;             /* esp + 0x480 */
     int cancelled;             /* port: Cancel or Escape put the settings back */
+    int nav_lit;               /* port: the page indicator's triangle the pointer is on (graphics_plus.h), 0 none */
     PortSettings kept_port;    /* port: the port's settings on entry, put back with them */
     uint8_t kept[GRAPHICS_KEPT];  /* esp + 0x300 */
     uint8_t rgb[GRAPHICS_PALETTE];  /* esp + 0 */
@@ -86,6 +87,10 @@ static void put_value(const Menu *m, int i, int lit, const GraphicsMenuState *st
 /* the first band the pointer is in becomes the selection */
 static void follow(Menu *m, int32_t mode, const GraphicsMenuState *st, const GraphicsMenuOps *o)
 {
+    if (st->plus) {   /* port: the indicator's triangle the pointer is on lights */
+        const int lit = graphics_plus_nav_lit(o, 0);
+        if (lit != m->nav_lit) m->nav_lit = lit, m->redraw = 1;
+    }
     if (st->plus && graphics_plus_nav_hit(o)) return;   /* port: over the page indicator, no item */
     for (int16_t i = 0; i < ITEMS; i++) {
         if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], BAND_TOP[i], BAND_BOTTOM[i])) continue;
@@ -114,7 +119,7 @@ static void draw(Menu *m, int32_t mode, const GraphicsMenuState *st, const Graph
         blit(m, "scrm", o);
         blit(m, RESOLUTION_MUTED[get(st, GRAPHICS_RESOLUTION)], o);
     }
-    if (st->plus) graphics_plus_nav(st, o, 0);
+    if (st->plus) graphics_plus_nav(st, o, 0, m->nav_lit);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *st->screen));

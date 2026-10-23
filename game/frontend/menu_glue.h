@@ -64,6 +64,10 @@ void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int
 /* the same letters with nothing put back under them, for a screen that repaints its background and panel before every
  * write (EXTRAS): there the clean background is not what is under the words, its dark panel is */
 void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
+/* port (central_glue.c): the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and
+ * one drawn, in the styles of the clean background that is showing */
+int32_t glue_plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h);
+void own_panel_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 /* the Graphics and EXTRAS screens' title, red and at the original screens' title size */
 void own_title_text(void *ctx, const char *text, int32_t x, int32_t y);
 /* the EXTRAS screen's group headers, as the credits draw their sections' */
