@@ -24,7 +24,10 @@ enum {
 /* the tracks' files (004673f8) and the cars (0046741c) */
 static const char *const TRACK_FILE[TRACKS] = { "citybst", "coastbst", "alpbst", "rustbst", "autbst", "brunbst",
                                                "vertbst", "tropbst", "lostbst" };
-static const char *const CAR[8] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER", "512TR", "DIABLO" };
+static const char *const CAR[12] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER", "512TR", "DIABLO", "PACK", "CLOCK",
+                                      "CLASS", "WARRIOR" };   /* the car names of 0..11 (the results' names) */
+/* a record's car: the names of 0..11, blank for anything else */
+static const char *car_name(int32_t car) { return car >= 0 && car < (int32_t)(sizeof CAR / sizeof CAR[0]) ? CAR[car] : ""; }
 /* the items lit and not */
 static const char *const LIT[4] = { "donl", "larl", "rarl", "desl" };
 static const char *const DIM[4] = { "dond", "lard", "rard", "desd" };
@@ -137,7 +140,7 @@ static void draw_records(const BestTimesInputs *in, const BestTimesState *st, co
         ops->text_fit(ops->ctx, (const char *)row, NAME_X, y, NAME_WIDTH);
         ops->time_text(ops->ctx, text, d32(row + BEST_TIMES_TIME));
         ops->text_shadowed(ops->ctx, text, TIME_X, y);
-        ops->text_shadowed(ops->ctx, CAR[d32(row + BEST_TIMES_CAR)], CAR_X, y);
+        ops->text_shadowed(ops->ctx, car_name(d32(row + BEST_TIMES_CAR)), CAR_X, y);
         shift(in, d32(row + BEST_TIMES_SHIFT), y, ops);
         if (st->plus) draw_marks(st, track, records_slot_totals(track, g16(st->config, TRACK_SELECT_LAPS_CHOICE), i), y, ops);
     }
@@ -147,7 +150,7 @@ static void draw_records(const BestTimesInputs *in, const BestTimesState *st, co
     ops->text_fit(ops->ctx, (const char *)top + BEST_TIMES_TOP, NAME_X, TOP_Y, NAME_WIDTH);
     ops->speed_text(ops->ctx, text, d32(top + BEST_TIMES_TOP_SPEED));
     ops->text_shadowed(ops->ctx, text, TIME_X, TOP_Y);
-    ops->text_shadowed(ops->ctx, CAR[d32(top + BEST_TIMES_TOP_CAR)], CAR_X, TOP_Y);
+    ops->text_shadowed(ops->ctx, car_name(d32(top + BEST_TIMES_TOP_CAR)), CAR_X, TOP_Y);
     shift(in, d32(top + BEST_TIMES_TOP_SHIFT), TOP_Y, ops);
     if (st->plus) draw_marks(st, track, SLOT_TOP, TOP_Y, ops);
 }

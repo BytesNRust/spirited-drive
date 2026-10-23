@@ -353,8 +353,50 @@ static void test_lit_label_is_yellow(void)
     if (fk.label_count > 0) CHECK_EQ_INT(fk.label_style[fk.label_count - 1], STYLE_YELLOW);
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
+/* the screen as run(), with the cheats table given: its track 0 holds the one row, set by the Warrior (car 11) */
+static int32_t run_with_cheats_view(BestTimesPlus *plus, const uint8_t *cheat_view)
+{
+    static uint8_t config[TRACK_SELECT_CONFIG];
+    static uint8_t screen_palette[0x300];
+    static uint8_t records[BEST_TIMES_RECORDS];
+    const BestTimesInputs in = { "", 0, 0, 0, 0, records };
+    BestTimesState st = { config, 0, screen_palette, plus };
+    DialogPointer p = { 0 };
+    p.active = fk.active;
+    memset(config, 0, sizeof config);
+    plus->cheats = 1;
+    plus->records[0] = records, plus->records[1] = cheat_view;
+    for (int t = 0; t < 9; t++) plus->marks[t] = NULL;
+    return best_times_screen(&in, &st, &p, &OPS);
+}
+
+static int was_drawn(const char *text)
+{
+    for (int i = 0; i < fk.shadowed_count; i++)
+        if (strcmp(fk.shadowed[i], text) == 0) return 1;
+    return 0;
+}
+
+/* the cars are named as the records hold them: the Warrior (11) on the cheats table, not past the eight names */
+static void test_the_warrior_is_named_on_the_cheats_table(void)
+{
+    static const int keys[] = { ESCAPE };
+    static uint8_t view[BEST_TIMES_RECORDS];
+    BestTimesPlus plus;
+    memset(view, 0, sizeof view);
+    memcpy(view, "ME", 3);
+    view[0xf] = 11;   /* the row's car, a dword */
+    reset(keys, 1, -1);
+    run_with_cheats_view(&plus, view);
+    CHECK(was_drawn("WARRIOR"));
+}
+
 int main(void)
 {
+    test_the_warrior_is_named_on_the_cheats_table();
     test_no_plus_is_original();
     test_label_says_cheats_when_plain();
     test_label_says_no_cheats_when_cheats();

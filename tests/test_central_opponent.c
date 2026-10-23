@@ -39,6 +39,9 @@ static int16_t down(int16_t from)
     return opponent;
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     rival = 0;

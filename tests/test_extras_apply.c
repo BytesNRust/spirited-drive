@@ -241,6 +241,9 @@ static void test_no_assists_turns_the_aids_off_and_leaves_not_offered(void)
     CHECK_EQ_INT(traction, 1);
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_no_assists_turns_the_aids_off_and_leaves_not_offered();

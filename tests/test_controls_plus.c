@@ -307,6 +307,9 @@ static void test_a_wheel_shows_its_own_numbers(void)
     CHECK(shown(&r.fake, "Axis 5+"));
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_tuning_stays_in_range();

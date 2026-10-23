@@ -20,6 +20,10 @@ int32_t records_glue_route(RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const 
 /* The records screen's tables for the variant the flags name: the table without cheats (config.dat's `image` records
  * for a normal one) and the one with, with the marks, the one without shown first. `image` is config.dat's image. */
 BestTimesPlus *records_glue_best_plus(const uint8_t *image, int variant_m, int variant_r);
+/* The image a results screen shows: a copy of `image` whose track block is the table the current race was checked on
+ * (its cheats or variant table, port_records.h; config.dat's own for a normal race without cheats), so that a row the
+ * race set (or highlighted) is the row shown. */
+void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image);
 /* 1 once Tab went down since it was last asked (BestTimesOps.plus_toggle) */
 int32_t records_glue_toggle(void *ctx);
 

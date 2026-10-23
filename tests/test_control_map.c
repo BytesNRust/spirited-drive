@@ -422,6 +422,9 @@ static void test_force_strength_scales_the_games_level(void)
     CHECK_EQ_INT(control_map_force(1, 50), 0);        /* cut toward zero */
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_force_strength_scales_the_games_level();

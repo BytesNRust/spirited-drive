@@ -4,7 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { TRACK = 0x95, SEGMENT = 0x93, DIFFICULTY = 0xb3, FIRST_BLOCK = 0xb5, CIRCUIT_FROM = 3, ROWS = 10 };
+enum {
+    TRACK = 0x95, CAR = 0x9b, SEGMENT = 0x93, DIFFICULTY = 0xb3, FIRST_BLOCK = 0xb5, CIRCUIT_FROM = 3, ROWS = 10,
+    WARRIOR = 11
+};
 
 static int16_t g16(const uint8_t *at) { return (int16_t)(uint16_t)(at[0] | at[1] << 8); }
 
@@ -12,6 +15,12 @@ int records_slot_totals(int track, int choice, int row)
 {
     if (row < 0 || row >= ROWS || choice < 0 || choice > 2) return -1;
     return SLOT_TOTALS + (track >= CIRCUIT_FROM ? SLOT_CHOICE * choice : 0) + row;
+}
+
+RaceKind records_kind_with_car(RaceKind kind, int car)
+{
+    if (car == WARRIOR) kind.marks |= EXTRAS_MARK_WARRIOR;
+    return kind;
 }
 
 RaceKind records_race_kind(int variant_m, int variant_r, int explode, int nitro, int turbo)
@@ -55,6 +64,7 @@ static void mark(RaceKind kind, RouteOp op, int track, int segment_word, int cho
 int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAGE],
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
+    kind = records_kind_with_car(kind, g16(image + CAR));
     if (kind.variant == RECORDS_NORMAL && kind.marks == 0) return original(op, image, game, player, times);
     static uint8_t scratch[RECORD_CHECK_IMAGE];
     const int track = g16(image + TRACK);
@@ -63,6 +73,9 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     if (block == NULL || marks == NULL) return nothing(op);
     memcpy(scratch, image, sizeof scratch);
     memcpy(scratch + FIRST_BLOCK + RECORDS_BLOCK * track, block, RECORDS_BLOCK);
+    /* record_check's early return is the original's no-records car: the Warrior's times are the port's, so the check
+     * runs as a car the original records (the image's car word is read by nothing else in the check) */
+    if (g16(scratch + CAR) == WARRIOR) scratch[CAR] = 0, scratch[CAR + 1] = 0;
     const int32_t answer = original(op, scratch, game, player, times);
     if (answer == nothing(op)) return answer;
     memcpy(block, scratch + FIRST_BLOCK + RECORDS_BLOCK * track, RECORDS_BLOCK);
@@ -78,5 +91,6 @@ void records_mark_text(int marks, char out[4])
     if (marks & EXTRAS_MARK_NITRO) out[n++] = 'N';
     if (marks & EXTRAS_MARK_EXPLODE) out[n++] = 'E';
     if (marks & EXTRAS_MARK_TURBO) out[n++] = 'T';
+    if (marks & EXTRAS_MARK_WARRIOR) out[n++] = 'W';
     out[n] = '\0';
 }

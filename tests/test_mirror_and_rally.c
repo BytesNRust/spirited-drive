@@ -381,6 +381,9 @@ static void rally_on_tr1_runs_tr5(void)
     CHECK(strcmp(rally_track_stem(tr1, 1, 1, 1), "TR5") == 0);    /* the port: rally's own track */
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     /* ----- track_fam.c ----- */

@@ -244,6 +244,9 @@ static void test_extras_blit_own_forwards(void)
     CHECK(all_have_payload(&f));                    /* not the no-op glue: the shape pointer actually reached f_blit */
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_ultra_box_avoids_vanl_vand();

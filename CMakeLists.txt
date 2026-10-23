@@ -340,6 +340,7 @@ add_library(tnfs_game STATIC
     game/viewer/screen_layout.c
     game/sys/backdrop.c
     game/frontend/variant_rule.c
+    game/sys/resource.c
 )
 target_include_directories(tnfs_game PUBLIC game .)
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
@@ -365,7 +366,6 @@ add_executable(tnfs
     game/frontend/screens.c
     game/sys/input.c
     game/sys/pointer.c
-    game/sys/resource.c
     game/sys/text.c
     game/sys/timer.c
     game/sys/video.c
@@ -450,6 +450,7 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_title_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_item_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c)
     target_include_directories(test_mirror_on_dash PRIVATE game)

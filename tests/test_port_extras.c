@@ -153,6 +153,9 @@ static void test_load_save(void)
     check_same(port_extras_load(), e);
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_defaults();

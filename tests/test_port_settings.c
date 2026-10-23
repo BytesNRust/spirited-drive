@@ -186,6 +186,9 @@ static void test_moved_settings_fall_back_to_extras(void)
     clear_files();
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     clear_files();

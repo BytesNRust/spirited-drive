@@ -22,13 +22,16 @@ int records_slot_totals(int track, int choice, int row);   /* the slot of a tota
 
 /* The race's kind from the flags the original keeps (rally before mirror when both are set). */
 RaceKind records_race_kind(int variant_m, int variant_r, int explode, int nitro, int turbo);
+/* The kind a race is checked on once its player's car is known: the Warrior (car 11) is on the cheats table with its
+ * mark, as the original records nothing for it. */
+RaceKind records_kind_with_car(RaceKind kind, int car);
 
 /* 0045bad8 (ROUTE_SEGMENT), 0045b908 (ROUTE_LAP), 0045c2d0 (ROUTE_TOP) or 0045be50 (ROUTE_TOTALS, with `times`) for
  * a race of this kind: the record_check.h routine's answer. A table of the port's that changed is saved. */
 int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAGE],
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES]);
 
-/* the letters of a row's marks, "N" nitro, "E" explode, "T" turbo ("" for none) */
-void records_mark_text(int marks, char out[4]);
+/* the letters of a row's marks, "N" nitro, "E" explode, "T" turbo, "W" Warrior ("" for none) */
+void records_mark_text(int marks, char out[5]);
 
 #endif

@@ -916,6 +916,9 @@ static void test_the_display_is_faded_out_on_the_way_out(void)
     CHECK_EQ_INT(r.f.events[r.f.event_count - 1], 'O');
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_rows_in_order();
