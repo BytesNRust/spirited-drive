@@ -56,9 +56,10 @@ int main(void)
     drive_interp_restore(&sim, &saved);
     CHECK(memcmp(&sim, &before, sizeof sim) == 0);
 
-    /* the eye's node: between the steps the older one's, so the track drawn from it starts at or behind the blended
-     * eye (the newer node's segment may begin past it: the road under the eye left out for a frame); the newer at the
-     * newer step; put back after */
+    /* the eye's node: the older step's for the whole interval, the newer's never: the track drawn from it starts at or
+     * behind the blended eye (the newer node's segment may begin past it), and the car rows of a frame are flagged
+     * against the node of the step's first frame, so a frame at alpha ONE (the newer pose) must keep that node too;
+     * put back after */
     sim.race.chase.node = 40;
     drive_interp_capture(&a, &sim);
     sim.race.chase.node = 41;
@@ -68,8 +69,16 @@ int main(void)
     drive_interp_restore(&sim, &saved);
     CHECK_EQ_INT(sim.race.chase.node, 41);
     drive_interp_apply(&sim, &a, &b, 0x10000, &saved);
-    CHECK_EQ_INT(sim.race.chase.node, 41);
+    CHECK_EQ_INT(sim.race.chase.node, 40);
     drive_interp_restore(&sim, &saved);
+    /* Turbo's 3-tick gap (33 ms) outlasts its round's average step (1000 x 7 / 270 = 25.9 ms): the alpha of a frame
+     * 30 ms after the step is already ONE, with the newer pose and the older node */
+    const int32_t turbo_alpha = drive_interp_alpha(30u * 90u * 3u, 1000u * 7u);
+    CHECK_EQ_INT(turbo_alpha, DRIVE_INTERP_ONE);
+    drive_interp_apply(&sim, &a, &b, turbo_alpha, &saved);
+    CHECK_EQ_INT(sim.race.chase.node, 40);
+    drive_interp_restore(&sim, &saved);
+    CHECK_EQ_INT(sim.race.chase.node, 41);
     sim.race.chase.node = 0;
     place(0x100000, 0xfff000, 0x100000, 5, 10);
     drive_interp_capture(&a, &sim);
