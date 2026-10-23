@@ -18,7 +18,7 @@
 static const int16_t DEFAULT_CONFIG[INPUT_CONFIG_WORDS] = { 0, 0, 0, 0x4b00, 0x4d00, 0x4800, 0x5000,
                                                             0x41, 0x5a, 0x20, 0x43, 0x48, 0x4d };
 
-enum { WAIT_LIMIT = 4000, KEY_CODES = 0x5a };  /* set-1 codes up to F12, then the pad View's RACE_KEYS_PAD_VIEW */  /* a stand-in for 004397f4's idle count: the queue is filled before each take */
+enum { WAIT_LIMIT = 4000, KEY_CODES = 0x5b };  /* set-1 codes up to F12, then the pad's View and Nitro (RACE_KEYS_PAD_*) */  /* a stand-in for 004397f4's idle count: the queue is filled before each take */
 
 typedef struct {
     DriveInput *in;
@@ -160,6 +160,7 @@ void drive_input_start(DriveInput *in, RaceState *race)
     input_setup(config, (int16_t)resource_german(), 0, race->controls, in->codes, &w4fb788);
     platform_virtual_key(ACT_HORN, in->codes[INPUT_KEY_HORN]);   /* port: a pad's horn button presses the horn's key */
     platform_virtual_key(ACT_VIEW, RACE_KEYS_PAD_VIEW);          /* and its View button not F1, the mirror's now */
+    platform_virtual_key(ACT_NITRO, RACE_KEYS_PAD_NITRO);        /* port: and its Nitro button, the NITRO start's key */
     in->stand_in_block = in->own_stand_ins;
     in->queues[0].active = 1;
 }

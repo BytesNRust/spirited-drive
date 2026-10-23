@@ -244,6 +244,8 @@ typedef struct {
     int32_t start_clock;            /* 004bb8e0 */
     int32_t start_input;            /* 004faa50: the player's start keys are read */
     uint8_t start_keys[4];          /* 004c696d, 004c6966, 004c6972, 004c696c */
+    int32_t port_nitro_start;       /* port: 1 the launch takes N alone or the pad's nitro key (start_keys.h), 0 the exe's
+                                     * N and a shift or B */
     int32_t launch;                 /* 004badd4: a launch is under way */
     int32_t launch_full_until;      /* 004badcc */
     int32_t launch_end;             /* 004badd0 */

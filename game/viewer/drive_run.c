@@ -7,6 +7,7 @@
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
+#include "game/race/start_keys.h"
 #include "viewer/drive_audio.h"
 #include "viewer/drive_clock.h"
 #include "viewer/drive_interp.h"
@@ -266,6 +267,10 @@ static void run_frame(void *ctx, int32_t frame)
         return;
     }
     drive_input_read_keys(&drive_input);
+    start_keys_fill(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
+                    drive_sim.race.port_nitro_start);  /* the exe's keyboard handler's flags, read each step */
+    start_clock_fill(&drive_sim.race.start_clock, drive_input.ticks, drive_sim.race.start_input,
+                     drive_sim.race.playback);  /* 004bb8e0, the timer, is the input's clock */
     drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
     drive_pause.detail = drive_keys.state.detail;
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);
