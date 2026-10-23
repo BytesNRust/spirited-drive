@@ -5,6 +5,8 @@
 #include "race/fam_mirror.h"
 #include "race/lunar_springs.h"
 
+#include "sys/resource.h"
+
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
 
