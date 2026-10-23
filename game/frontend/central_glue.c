@@ -581,17 +581,32 @@ static int32_t lap_times(void *ctx, int32_t record, int32_t tune)
 typedef void ResultsShow(int32_t ask, const ResultsInputs *in, ResultsState *st, DialogPointer *p,
                          const ResultsOps *ops);
 
+/* port: the cheat letters of a results row start after the longest car name (drawn at 0x1d6), with a gap */
+static int32_t cheat_marks_x(const char *const *names)
+{
+    enum { CAR_X = 0x1d6, MARK_GAP = 6 };
+    int32_t longest = 0;
+    for (int i = 0; i < RESULTS_CARS; i++) {
+        const int32_t w = text_width(names[i]);
+        if (w > longest) longest = w;
+    }
+    return CAR_X + longest + MARK_GAP;
+}
+
 /* 0045cea0, 0045de08 or 0045eff4 after a race, on the drive's results and config.dat's image, on 00427ae0's screen
  * picture */
 static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t mode)
 {
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
+    static ResultsMarks shown_marks;
     const int32_t screen = ea_screen();
     records_glue_shown(shown_image, config_current()->image);
+    const ResultsMarks *const marks = records_glue_shown_marks(shown_image, &shown_marks);
+    if (marks != NULL) shown_marks.x = cheat_marks_x(CAR_NAMES);
     ResultsInputs in = { game_state, shown_image, r->dropped, menu_words.single, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
+                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish, marks };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;
     pointer_position(&x, &y);

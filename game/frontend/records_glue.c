@@ -7,7 +7,7 @@
 #include <string.h>
 
 enum { TRACKS = 9, SCANCODE_TAB = 0x0f, FIRST_RECORD = 0xea, SCREEN_RECORDS = 0x19f, TRACK_WORD = 0x95, CAR_WORD = 0x9b,
-       BLOCK_AT = 0xb5 };
+       DIFFICULTY_WORD = 0xb3, BLOCK_AT = 0xb5 };
 
 static RaceKind current;
 static int in_tournament, loaded;
@@ -54,6 +54,18 @@ void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image)
     if (kind.variant == RECORDS_NORMAL && kind.marks == 0) return;
     const uint8_t *block = port_records_block(track, kind.variant, kind.marks != 0);
     if (block != NULL) memcpy(out + BLOCK_AT + RECORDS_BLOCK * track, block, RECORDS_BLOCK);
+}
+
+const ResultsMarks *records_glue_shown_marks(const uint8_t *image, ResultsMarks *out)
+{
+    const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
+    const int car = (int16_t)(image[CAR_WORD] | image[CAR_WORD + 1] << 8);
+    const RaceKind kind = records_kind_with_car(records_glue_kind(ROUTE_SEGMENT), car);
+    if (kind.marks == 0) return NULL;
+    out->slots = port_records_marks(track, kind.variant);
+    if (out->slots == NULL) return NULL;
+    out->choice = (int16_t)(image[DIFFICULTY_WORD] | image[DIFFICULTY_WORD + 1] << 8);
+    return out;
 }
 
 /* a table's records as the screen reads them: the tracks' blocks from their first record, 0xa6b apart */

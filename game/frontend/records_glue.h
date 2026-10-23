@@ -5,6 +5,7 @@
 
 #include "game/frontend/best_times.h"
 #include "game/frontend/records_route.h"
+#include "game/frontend/results_screen.h"
 
 enum { RECORDS_TOURNAMENT = 3 };   /* 00524e5d's race type */
 
@@ -24,6 +25,9 @@ BestTimesPlus *records_glue_best_plus(const uint8_t *image, int variant_m, int v
  * (its cheats or variant table, port_records.h; config.dat's own for a normal race without cheats), so that a row the
  * race set (or highlighted) is the row shown. */
 void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image);
+/* The marks of the table records_glue_shown copies, into `out`: NULL for the table without cheats (a normal race
+ * without cheats, a mirror or rally without), else the track's slot marks and the laps choice of its totals. */
+const ResultsMarks *records_glue_shown_marks(const uint8_t *image, ResultsMarks *out);
 /* 1 once Tab went down since it was last asked (BestTimesOps.plus_toggle) */
 int32_t records_glue_toggle(void *ctx);
 

@@ -1,5 +1,7 @@
 #include "game/frontend/best_totals_screen.h"
 
+#include "game/frontend/records_route.h"
+
 enum {
     TEXT = 0x5c, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd,
     KEY_ESCAPE = 0x1b, ROWS = 10, ROW_Y = 0x82, ROW_STEP = 0x15, TOP_Y = 0x177, NAME_X = 7, NAME_WIDTH = 0x11d,
@@ -56,6 +58,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
         ops->time_text(ops->ctx, text, g32(best + BEST_TOTAL));
         ops->text_at(ops->ctx, text, TIME_X, y);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(best + BEST_CAR)], CAR_X, y);
+        results_mark_total(in, i, y, ops);
         draw_mark(in, g32(best + BEST_MARK), y, ops);
         if (i == row) ops->text_select(ops->ctx, 1);
     }
@@ -64,6 +67,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
     ops->speed_text(ops->ctx, text, g32(records + TOP_SPEED));
     ops->text_at(ops->ctx, text, TIME_X, TOP_Y);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(records + TOP_CAR)], CAR_X, TOP_Y);
+    results_mark_slot(in, SLOT_TOP, TOP_Y, ops);
     draw_mark(in, g32(records + TOP_MARK), TOP_Y, ops);
 }
 

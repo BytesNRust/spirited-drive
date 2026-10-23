@@ -1,5 +1,7 @@
 #include "game/frontend/track_results.h"
 
+#include "game/frontend/records_route.h"
+
 #include <stdio.h>
 
 enum {
@@ -89,9 +91,10 @@ static void draw_heads(const ResultsInputs *in, const ResultsOps *ops)
     ops->text_fit(ops->ctx, (const char *)player_at(in, in->player) + NAME, LEFT, 0x5a, 0x96);
     ops->text_at(ops->ctx, in->car_names[g16(in->image + CAR)], LEFT, 0x6e);
     if (type == 0) {
-        snprintf(text, sizeof text, in->german ? "Bestzeit" : "Best Time");
+        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", in->marks ? " (cheats)" : "");
         ops->text_at(ops->ctx, text, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(track_at(in) + BEST_CAR)], RIGHT, 0x6e);
+        results_mark_total(in, 0, 0x6e, ops);
     } else if (type == 2 || type == 3) {
         ops->text_at(ops->ctx, (const char *)player_at(in, in->rival) + NAME, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[in->rival_car], RIGHT, 0x6e);
@@ -143,6 +146,7 @@ static void draw_records(const ResultsInputs *in, int16_t row, int16_t top, cons
     ops->time_text(ops->ctx, text, g32(rec + BEST_TOTAL));
     ops->text_at(ops->ctx, text, LEFT, 0x11d);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + BEST_CAR)], RIGHT, 0x11d);
+    results_mark_total(in, 0, 0x11d, ops);
     if (best_mark == 0 || best_mark == 1)
         ops->text_at(ops->ctx, in->german ? (best_mark ? "  d" : "  z") : (best_mark ? "h.h." : "t.t."), 0x23f, 0x11d);
     ops->text_select(ops->ctx, top == 1 ? 3 : 1);
@@ -150,6 +154,7 @@ static void draw_records(const ResultsInputs *in, int16_t row, int16_t top, cons
     ops->speed_text(ops->ctx, text, g32(rec + TOP_SPEED));
     ops->text_at(ops->ctx, text, LEFT, 0x177);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + TOP_CAR)], RIGHT, 0x177);
+    results_mark_slot(in, SLOT_TOP, 0x177, ops);
     /* the original's English mark is "t.t." for both */
     if (top_mark == 0 || top_mark == 1) ops->text_at(ops->ctx, in->german ? (top_mark ? "  d" : "  z") : "t.t.", 0x23f, 0x177);
 }
