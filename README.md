@@ -60,6 +60,48 @@ SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software TNFS_CAPTURE_DIR=/tmp/frames \
   ./build/native/tnfs
 ```
 
+## Playing: what the port adds
+
+With everything off and the 4:3 format the game plays as the original. The additions:
+
+- **Graphics** (Options → Graphics, two pages):
+  - format 4:3, 16:9 or 21:9, with the same 640x480-style pixels, just wider;
+  - scaling: fill, or whole multiples only;
+  - full screen and refresh 60 / 120 / 144 Hz (the race still steps at the original rate; the frames between steps are
+    interpolated);
+  - field of view;
+  - view distance Close / Medium / Far / Ultra;
+  - perspective-correct 3D, texture filter and fog (all off by default).
+  The pause menu's Graphics opens the same screen; the rows that need a new race say "(next race)".
+- **Controls** (Options → Controls setup): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
+  gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
+  zone, sensitivity and force feedback.
+- **Customize Game** (Game Mode, or Options):
+  - Cheats: Explode, Nitro, Turbo, Warrior player car;
+  - In-race options: speed units, no driving assists, bumper-view mirror and radar, replay cameras in races, rival car
+    markers, 3D render stats;
+  - Unlocks & mods: Warrior as a rival, mirror and rally tracks, Lost Vegas, Lunar Springs (the cut moon track, run as
+    Rusty Springs' rally), unlock level, time of day with variants;
+  - Miscellaneous: start screen (Game Mode, Network or Control Central), intro videos.
+  The typed cheat codes still work. With a cheat on, Control Central shows CHEATS ENABLED.
+- **Records**: mirror and rally have their own tables. A race with Explode, Nitro, Turbo or the Warrior goes to a
+  separate "cheats" table, each time marked N / E / T / W (Best Times' "Cheats" footer item shows it).
+- **Keys in a race**: F1 / F2 the bumper view's mirror and radar, F3 view distance, F5 sound, F6 rival car markers,
+  F7 / F8 HUD, F9 replay, F12 the 3D render stats overlay. With the Nitro cheat, hold N (or the pad's Nitro button)
+  at the start for the launch.
+
+### Files
+
+The game's own `config.dat` is kept as the original writes it. The port adds its own files beside it, in the user
+directory (SDL's pref path, `~/Library/Application Support/tnfs/tnfs/` on macOS; with `--mods DIR`, `DIR/user/`):
+
+| File | Contents |
+|------|----------|
+| `port.cfg` | Graphics (format, scaling, refresh, FOV, view distance, 3D options) |
+| `controls.cfg` | the bindings and axis settings |
+| `extras.cfg` | the Customize Game switches |
+| `records.dat` | the records the original has no place for: variants and the cheats table |
+
 ## Network game
 
 Two or more machines race over UDP (the native build only; the web and Windows
