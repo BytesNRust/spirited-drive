@@ -62,6 +62,7 @@ typedef struct Menu {
     int16_t leave;           /* esp + 0xa20 */
     PortControls kept_port;  /* port: controls.cfg's bindings on entry */
     int cancelled;           /* port: Cancel or Escape: nothing is saved */
+    int nav_lit;             /* port: the page indicator's triangle the pointer is on (controls_plus.h), 0 none */
     int16_t kept[CONTROLS_SHORTS];  /* esp + 0x920: the controls on entry */
     char text[FIELDS][TEXT]; /* esp + 0x600: the fields' texts */
     char first[NAME];        /* esp + 0x8f8: a key's name */
@@ -107,6 +108,10 @@ static void field(const Menu *m, int i, const char *text, const ControlsMenuStat
 static int follow(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     const int over = o->pointer_in_rect(o->ctx, 0x186, WIDE, 100, 0x14a) != 0;
+    if (st->plus) {   /* port: the indicator's triangle the pointer is on lights */
+        const int lit = controls_plus_nav_lit(o, 0);
+        if (lit != m->nav_lit) m->nav_lit = lit, m->redraw = 1;
+    }
     if (st->plus && controls_plus_nav_hit(o)) return over;   /* port: over the page indicator, no item */
     for (int16_t i = 0; i < ITEMS; i++) {
         if (i == CALIBRATE && *st->calibration == 0) continue;
@@ -171,7 +176,7 @@ static void draw(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
     }
     o->text_select(o->ctx, 1);
     draw_lit(m, st, o);
-    if (st->plus) controls_plus_nav(o, 0);   /* port */
+    if (st->plus) controls_plus_nav(o, 0, m->nav_lit);   /* port */
     if (m->fade) o->palette_put(o->ctx, 0, ALL, m->black);
     if (!m->changed) {
         show(st, o);

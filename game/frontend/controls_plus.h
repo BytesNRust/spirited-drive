@@ -17,8 +17,11 @@ enum { CONTROLS_NAV_X0 = 270, CONTROLS_NAV_X1 = 370, CONTROLS_NAV_Y0 = 432, CONT
 int controls_plus_tune(PortControls *c, int which, int direction);
 void controls_plus_tune_text(const PortControls *c, int which, char out[16]);
 
-/* the page indicator of page 1 (0), 2 (1) or 3 (2) */
-void controls_plus_nav(const ControlsMenuOps *o, int page);
+/* the page indicator of page 1 (0), 2 (1) or 3 (2): its count and a triangle to each side with a page to go to, the
+ * `lit` one (1 left, 2 right, 0 none: controls_plus_nav_lit's) yellow */
+void controls_plus_nav(const ControlsMenuOps *o, int page, int lit);
+/* the triangle the pointer is on */
+int controls_plus_nav_lit(const ControlsMenuOps *o, int page);
 /* 1 when the pointer is on the indicator, 0 off it */
 int controls_plus_nav_hit(const ControlsMenuOps *o);
 

@@ -109,6 +109,10 @@ typedef struct ExtrasMenuOps {
      * game shows them; the choice is saved as the player's, whatever the language. */
     int language_kmh;
     void *ctx;
+    /* port: the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and one drawn in
+     * a style's colours (lit yellow, else cream). Both NULL keeps the text "1/2 >". */
+    int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
+    void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 } ExtrasMenuOps;
 
 /* The two pages, run sequentially over the screen's live picture. 1 on Done (extras_save was called),

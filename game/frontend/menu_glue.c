@@ -596,6 +596,8 @@ int32_t glue_extras_screen(int16_t unlock)
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
         (int)resource_german(),  /* language_kmh: the Speed units row reads the language's units until it is chosen */
         NULL,               /* ctx */
+        glue_plus_arrow_size, /* plus_arrow_size: the page indicator's triangles */
+        own_panel_arrow,    /* plus_arrow */
     };
     mode_extras_screen = ea_screen();
     const int32_t result = extras_menu_run(&e, &unlock, options_bank, &ops);

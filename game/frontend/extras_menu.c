@@ -5,6 +5,7 @@
  * page indicator or PageDown turns to the next, round to the first. Mirror and Rally exclude each other, unless
  * ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the input back. */
 #include "game/frontend/extras_menu.h"
+#include "game/frontend/page_arrows.h"
 
 #include <stdio.h>
 
@@ -37,7 +38,6 @@ enum { TITLE_X = 8, TITLE_Y = 56 };
 enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_X0 = 0x143, BUTTONS_Y0 = 432,
        BUTTONS_Y1 = 476 };
 
-static const char *const NAV[EXTRAS_PAGES] = { "1/2 >", "< 2/2" };
 
 /* the two headers of each page, in the owner's words */
 static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Game modes", "Driving & cameras" },
@@ -118,6 +118,7 @@ typedef struct Page {
     int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
     int32_t rest;
     int result;   /* 1 Done, 0 Cancel / Escape, -1 still running */
+    int nav_lit;  /* port: the page indicator's triangle the pointer is on (page_arrows.h), 0 none */
 } Page;
 
 static void select_row(Page *p, int row, const ExtrasMenuOps *o)
@@ -146,9 +147,21 @@ static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
     pointer_to(p, o);
 }
 
-/* the first band the pointer is in becomes the selection; the page indicator selects nothing */
+/* port: the page indicator on this screen's text and triangles */
+static PageNavOps nav_ops(const ExtrasMenuOps *o)
+{
+    const PageNavOps n = { o->ctx, o->plus_text_smooth != NULL ? o->plus_text_smooth : o->plus_text,
+                           o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow };
+    return n;
+}
+
+/* the first band the pointer is in becomes the selection; the page indicator selects nothing, but lights the
+ * triangle the pointer is on */
 static void follow(Page *p, const ExtrasMenuOps *o)
 {
+    const PageNavOps nav = nav_ops(o);
+    const int lit = page_nav_lit(&nav, p->page, EXTRAS_PAGES);
+    if (lit != p->nav_lit) p->nav_lit = lit, p->redraw = 1;
     if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) return;
     for (int row = 0; row < rows_of(p->page); row++) {
         const int top = line_y(p->page, line_of(p->page, row));
@@ -300,8 +313,8 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
      * capitalised as OPTIONS.QFS ships them -- shape_bank_find uses memcmp, so the lowercase spellings miss. */
     o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == done_of(p->page) ? "Donl" : "Dond"));
     o->blit_own(o->ctx, o->shape(o->ctx, bank, p->selected == cancel_of(p->page) ? "Canl" : "Cand"));
-    const char *const nav = NAV[p->page];
-    text(o, STYLE_CREAM, nav, (EXTRAS_NAV_X0 + EXTRAS_NAV_X1) / 2 - o->plus_text_width(o->ctx, nav) / 2, BUTTON_Y);
+    const PageNavOps nav = nav_ops(o);
+    page_nav_draw(&nav, p->page, EXTRAS_PAGES, p->nav_lit);
     if (o->plus_title != NULL) o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
     else text(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
     o->select_default(o->ctx);

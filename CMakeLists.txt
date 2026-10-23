@@ -92,6 +92,7 @@ add_library(tnfs_game STATIC
     game/frontend/config_bgnd.c
     game/frontend/title_art.c
     game/frontend/item_art.c
+    game/frontend/page_arrows.c
     game/frontend/controls_plus.c
     game/frontend/records_route.c
     game/frontend/records_glue.c
@@ -445,7 +446,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own title_art item_art speed_units best_times start_keys race_forces results_marks lunar_springs)
+foreach(name palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own title_art item_art page_arrows speed_units best_times start_keys race_forces results_marks lunar_springs)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -455,6 +456,7 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_title_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_item_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_page_arrows PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c)
