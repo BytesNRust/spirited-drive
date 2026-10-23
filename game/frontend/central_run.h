@@ -19,6 +19,7 @@ typedef struct CentralRun {
     int16_t item;            /* esp+504 */
     int32_t sub;             /* esp+4f4: 1 the left arrow, 2 the right one */
     int32_t redraw;          /* esp+508 */
+    int32_t banner_shown;    /* port: CHEATS ENABLED drawn on the frame (central_banner.h) */
     int32_t first;           /* esp+50c */
     int32_t panel;           /* esp+4fc: the players' panel drawn again */
     int32_t keys_armed;      /* esp+514 */

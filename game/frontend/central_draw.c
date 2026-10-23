@@ -1,4 +1,5 @@
 /* Control Central (00432ff4): the screen drawn again (00433cd5..00434b54) and an item's change (00434b69..). */
+#include "game/frontend/central_banner.h"
 #include "game/frontend/central_run.h"
 
 #include "game/frontend/variant_rule.h"
@@ -227,6 +228,7 @@ void central_draw(CentralRun *r)
     opponent_art(r);
     race_art(r);
     highlight(r);
+    central_banner(r);   /* port: after the frame is blanked above, so a banner that goes leaves nothing */
     o->music(o->ctx);
     o->select_default(o->ctx);
     o->blit_word(o->ctx, o->picture_shape(o->ctx, *st->screen));

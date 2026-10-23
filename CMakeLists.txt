@@ -99,6 +99,7 @@ add_library(tnfs_game STATIC
     game/frontend/net_game.c
     game/frontend/net_host.c
     game/frontend/central.c
+    game/frontend/central_banner.c
     game/frontend/central_follow.c
     game/frontend/central_draw.c
     game/frontend/central_select.c
@@ -525,6 +526,11 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_link_libraries(test_central_warrior_keep PRIVATE tnfs_game)
     target_compile_options(test_central_warrior_keep PRIVATE ${TNFS_WARNINGS})
     add_test(NAME central_warrior_keep COMMAND test_central_warrior_keep)
+    add_executable(test_central_banner tests/test_central_banner.c)
+    target_include_directories(test_central_banner PRIVATE game .)
+    target_link_libraries(test_central_banner PRIVATE tnfs_game)
+    target_compile_options(test_central_banner PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME central_banner COMMAND test_central_banner)
     add_executable(test_chase_cycle tests/test_chase_cycle.c)
     target_include_directories(test_chase_cycle PRIVATE game .)
     target_link_libraries(test_chase_cycle PRIVATE tnfs_game)

@@ -85,6 +85,8 @@ typedef struct ControlCentralOps {
     void (*flush)(void *ctx);                                  /* 00464a30 */
     void (*race)(void *ctx);                                   /* 00427ae0 (the race) */
     void (*pointer_off)(void *ctx);                            /* 00464060 */
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* port: the banner's words,
+                                                                * text_draw_smooth at 1/1 (central_glue.c plus_text) */
     void *ctx;
 } ControlCentralOps;
 
