@@ -7,6 +7,7 @@
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
+#include "game/race/start_keys.h"
 #include "viewer/drive_audio.h"
 #include "viewer/drive_clock.h"
 #include "viewer/drive_interp.h"
@@ -56,6 +57,7 @@ static void trace_player(void)
 
 static void drive_tick(uint32_t input)
 {
+    start_clock_fill(&drive_sim.race.start_clock, drive_input.ticks);  /* 004bb8e0, the timer: every race, cheat or not */
     race_sim_tick(&drive_sim, input);
     trace_player();
     drive_cars.ticked = 1;
@@ -266,6 +268,8 @@ static void run_frame(void *ctx, int32_t frame)
         return;
     }
     drive_input_read_keys(&drive_input);
+    start_keys_fill(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
+                    drive_sim.race.port_nitro_start);  /* the exe's keyboard handler's flags, read each step */
     drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
     drive_pause.detail = drive_keys.state.detail;
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);

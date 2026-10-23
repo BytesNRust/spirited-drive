@@ -15,7 +15,7 @@ enum { PAGES = 3, ACTION_PAGE = 1, TUNE_PAGE = 2, HINT_Y = 408 };
 /* the darkened panel the pages' text sits on, over the original rows */
 enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 404 };
 /* the rows: the actions' on page 2, the tuning rows' and "Defaults" on page 3 */
-enum { ACTION_Y = 104, ACTION_H = 24, TUNE_Y = 128, TUNE_H = 52, DEFAULTS = TUNE_COUNT };
+enum { ACTION_Y = 104, ACTION_H = 22, TUNE_Y = 128, TUNE_H = 52, DEFAULTS = TUNE_COUNT };  /* 13 actions to y 390 */
 /* Done and Cancel as the original's (00413aa0, 00463f80's calls) */
 enum { DONE_X = 50, CANCEL_X = 565, ITEMS_Y = 450 };
 
