@@ -81,6 +81,30 @@ static void test_the_reference_decides_the_flip(void)
     CHECK_MEM(timed + ROOT + 48, dark_flipped, 6);
 }
 
+/* Lunar Springs mirrored: the moon has no mirror art; its sign is flipped by name, the rest kept */
+static void test_the_named_sign_is_flipped_and_the_rest_kept(void)
+{
+    uint8_t moon[FILE_SIZE];
+    const uint8_t sign[6] = { 1, 2, 3, 4, 5, 6 }, flipped[6] = { 3, 2, 1, 6, 5, 4 }, other[2] = { 7, 8 };
+    static const char NAMES[][4] = { { '0', '0', '0', '0' } };
+    build(moon, sign, other);
+    CHECK_EQ_INT(fam_flip_named(moon, sizeof moon, 0, NAMES, 1), 1);
+    CHECK_MEM(moon + ROOT + 48, flipped, 6);
+    CHECK_MEM(moon + ROOT + 70, other, 2);
+}
+
+/* another root child (the terrain's names are the scenery's too) changes nothing */
+static void test_the_named_sign_under_another_bank_stays(void)
+{
+    uint8_t moon[FILE_SIZE], before[FILE_SIZE];
+    const uint8_t sign[6] = { 1, 2, 3, 4, 5, 6 }, other[2] = { 7, 8 };
+    static const char NAMES[][4] = { { '0', '0', '0', '0' } };
+    build(moon, sign, other);
+    memcpy(before, moon, sizeof before);
+    CHECK_EQ_INT(fam_flip_named(moon, sizeof moon, 1, NAMES, 1), 0);
+    CHECK_MEM(moon, before, sizeof before);
+}
+
 /* root wwww [terrain wwww [SHPI "!pal" + "0000" 2x1]] */
 enum { T_SHPI = 12 + 12, T_PAL = 16 + 2 * 8, T_BMP = T_PAL + 16 + 768, T_SIZE = T_SHPI + T_BMP + 16 + 2 };
 
@@ -123,6 +147,8 @@ int main(void)
     test_the_same_art_changes_nothing();
     test_a_damaged_mirror_changes_nothing();
     test_the_reference_decides_the_flip();
+    test_the_named_sign_is_flipped_and_the_rest_kept();
+    test_the_named_sign_under_another_bank_stays();
     test_the_rally_bitmap_takes_the_evening_colours();
     return TEST_REPORT();
 }

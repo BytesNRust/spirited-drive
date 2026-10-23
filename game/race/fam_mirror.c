@@ -14,6 +14,7 @@ typedef struct {
     uint8_t *target;
     const uint8_t *reference, *other;
     int width, height, root_child;
+    const char *name;   /* the bitmap's 4 characters */
 } Shared;
 
 typedef void (*SharedFn)(void *ctx, const Shared *s);
@@ -52,7 +53,8 @@ static void bank(uint8_t *target, const Chunk *t, const Chunk *r, const Chunk *o
         if (fsh_entry(&tf, i, &te) != FSH_OK || te.type != FSH_TYPE_BITMAP) continue;
         if (!bitmap_named(&rf, te.name, &re) || !bitmap_named(&of, te.name, &oe)) continue;
         if (re.width != te.width || re.height != te.height || oe.width != te.width || oe.height != te.height) continue;
-        const Shared s = { target + (te.payload - target), re.payload, oe.payload, te.width, te.height, root_child };
+        const Shared s = { target + (te.payload - target), re.payload, oe.payload, te.width, te.height, root_child,
+                           te.name };
         fn(ctx, &s);
     }
 }
@@ -98,6 +100,32 @@ int fam_mirror_signs(uint8_t *target, size_t target_size, const uint8_t *referen
     int flipped = 0;
     each_shared(target, target_size, reference, reference_size, mirror, mirror_size, sign, &flipped);
     return flipped;
+}
+
+/* the bitmaps to flip by name, under one root child */
+typedef struct {
+    uint8_t *fam;
+    const char (*names)[4];
+    int count, root_child, flipped;
+} Named;
+
+static void flip_named(void *ctx, const Shared *s)
+{
+    Named *const g = ctx;
+    if (s->root_child != g->root_child) return;
+    for (int i = 0; i < g->count; i++)
+        if (memcmp(s->name, g->names[i], 4) == 0) {
+            flip(s->target, s->width, s->height);
+            g->flipped++;
+            return;
+        }
+}
+
+int fam_flip_named(uint8_t *fam, size_t size, int root_child, const char (*names)[4], int count)
+{
+    Named g = { fam, names, count, root_child, 0 };
+    each_shared(fam, size, fam, size, fam, size, flip_named, &g);
+    return g.flipped;
 }
 
 /* a FAM's track palette (terrain bank 0's "!pal"), 8 bits a channel */

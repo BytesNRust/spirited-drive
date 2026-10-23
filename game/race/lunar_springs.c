@@ -8,6 +8,7 @@
  * (German) to a picture's name, and "../gart/" from either reaches it. */
 static const char MOON_FAM[] = "SIMDATA/NTRACKFM/TR8_R01.FAM";
 static const char MOON_PICTURE[] = "../gart/control/moon.qfs";
+const char LUNAR_SIGNS[LUNAR_SIGN_COUNT][4] = { { '0', '5', '0', '0' } };
 
 /* writes "<root>/<rest>" to out; 0 when it does not fit, so the caller keeps its own name */
 static int join(char *out, size_t size, const char *root, const char *rest)

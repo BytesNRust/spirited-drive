@@ -14,6 +14,11 @@
 int fam_mirror_signs(uint8_t *target, size_t target_size, const uint8_t *reference, size_t reference_size,
                      const uint8_t *mirror, size_t mirror_size);
 
+/* Flips in place the bitmaps named in `names` (`count` of them, 4 characters each) under the FAM's root child
+ * `root_child` (1 the scenery): the text a track with no mirror art carries (Lunar Springs' moon). Returns how many
+ * were flipped; a FAM that cannot open is left as it is. */
+int fam_flip_named(uint8_t *fam, size_t size, int root_child, const char (*names)[4], int count);
+
 /* Puts the rally's own terrain and scenery bitmaps (those that differ from the `day` art's) into `timed` (the _T01
  * art), their colours taken through the change from day to that time: per channel, fitted on the pixels the day and
  * timed art share, then the nearest of the timed palette (0xff, transparent, stays). Returns how many were put. */

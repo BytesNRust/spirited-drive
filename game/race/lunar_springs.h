@@ -15,6 +15,11 @@ enum { LUNAR_TRACK_RUSTY = 3, LUNAR_ART_SPRINGSR = 22 };
  * then "<data_root>/SIMDATA/NTRACKFM/TR8_R01.FAM", written to `out` (size bytes). 0 leaves `out` alone. */
 int lunar_springs_fam(const char *data_root, int track, int variant_r, int lunar, char *out, size_t size);
 
+/* The moon's scenery bitmaps that carry text (the EA SPACE sign): the CD has no mirror art for the moon, so a mirrored
+ * Lunar Springs flips them to read (fam_flip_named, the FAM's root child LUNAR_SIGNS_BANK). Names only, no pixels. */
+enum { LUNAR_SIGNS_BANK = 1, LUNAR_SIGN_COUNT = 1 };
+extern const char LUNAR_SIGNS[LUNAR_SIGN_COUNT][4];
+
 /* 1 when Control Central's track art entry `art` is Rusty's rally picture and `lunar` is on: the moon's picture is
  * written to `out` as a name for the art loader (relative to frontend/art/ or frontend/gart/, "../gart/control/
  * moon.qfs"). 0 leaves `out` alone. */

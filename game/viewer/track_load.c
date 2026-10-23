@@ -108,14 +108,18 @@ static uint8_t *read_fam_variant(const char *data_root, const char *name, const 
 }
 
 /* Port guard: a FAM the CD does not hold falls back to the first of NTRACKFM's. */
-static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
+static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size, int *moon_read)
 {
+    *moon_read = 0;
     /* port: Lunar Springs (lunar_springs.h): the rally on Rusty Springs reads the moon's textures, the TRI staying Rusty's;
      * a CD without them falls back to the rally's own FAM */
     char moon[512];
     if (lunar_springs_fam(data_root, look->track, look->variant_r, look->port_lunar, moon, sizeof moon)) {
         uint8_t *moon_data = platform_read_file(moon, size);
-        if (moon_data != NULL) return moon_data;
+        if (moon_data != NULL) {
+            *moon_read = 1;
+            return moon_data;
+        }
         port_log("track_viewer: no %s, the rally's own FAM\n", moon);
     }
     uint8_t *data = read_fam_named(data_root, name, look, size);
@@ -141,9 +145,14 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     size_t tri_size = 0, fam_size = 0;
     memset(t, 0, sizeof *t);
     t->tri_file = track_viewer_read_any(data_root, "MISC", name, TRI_SUFFIX, &tri_size);
-    t->fam_file = read_fam(data_root, name, look, &fam_size);
+    int moon = 0;
+    t->fam_file = read_fam(data_root, name, look, &fam_size, &moon);
     if (t->tri_file == NULL || t->fam_file == NULL) return 0;
-    if (look->time_of_day == 1 && look->port_both_variants && look->variant_m && look->variant_r) {
+    if (moon && look->variant_m) {
+        /* port: Lunar Springs mirrored: the CD holds no mirror art for the moon, so its sign is flipped by name */
+        const int flipped = fam_flip_named(t->fam_file, fam_size, LUNAR_SIGNS_BANK, LUNAR_SIGNS, LUNAR_SIGN_COUNT);
+        if (getenv("TNFS_TRACE_FAM") != NULL) port_log("track_viewer: moon mirrored, %d signs flipped\n", flipped);
+    } else if (look->time_of_day == 1 && look->port_both_variants && look->variant_m && look->variant_r) {
         /* port: the rally's art on the mirror's geometry; the signs the mirror's own art holds flipped are flipped */
         size_t mirror_size = 0;
         uint8_t *const m = read_fam_variant(data_root, name, look, 1, 0, &mirror_size);
