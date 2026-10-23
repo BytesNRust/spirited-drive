@@ -74,16 +74,18 @@ static void test_no_remap_when_off_or_not_rusty_rally(void)
 static void test_control_central_shows_the_moon_for_rusty_rally_when_on(void)
 {
     char out[256] = "";
-    CHECK_EQ_INT(lunar_springs_picture(LUNAR_ART_SPRINGSR, 1, "/data", out, sizeof out), 1);
-    CHECK(strcmp(out, "/data/frontend/gart/control/moon.qfs") == 0);
+    CHECK_EQ_INT(lunar_springs_picture(LUNAR_ART_SPRINGSR, 1, out, sizeof out), 1);
+    /* a name for the art loader, which prefixes the art directory (frontend/art/ or frontend/gart/): "../gart/"
+     * reaches the German one from either, where MOON.QFS lives */
+    CHECK(strcmp(out, "../gart/control/moon.qfs") == 0);
 }
 
 static void test_control_central_keeps_its_picture_when_off_or_elsewhere(void)
 {
     char out[256] = "untouched";
-    CHECK_EQ_INT(lunar_springs_picture(LUNAR_ART_SPRINGSR, 0, "/data", out, sizeof out), 0);
-    CHECK_EQ_INT(lunar_springs_picture(19, 1, "/data", out, sizeof out), 0);   /* cityr, the rally's first */
-    CHECK_EQ_INT(lunar_springs_picture(3, 1, "/data", out, sizeof out), 0);    /* springs, the plain art */
+    CHECK_EQ_INT(lunar_springs_picture(LUNAR_ART_SPRINGSR, 0, out, sizeof out), 0);
+    CHECK_EQ_INT(lunar_springs_picture(19, 1, out, sizeof out), 0);   /* cityr, the rally's first */
+    CHECK_EQ_INT(lunar_springs_picture(3, 1, out, sizeof out), 0);    /* springs, the plain art */
     CHECK(strcmp(out, "untouched") == 0);
 }
 
