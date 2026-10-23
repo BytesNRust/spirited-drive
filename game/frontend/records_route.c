@@ -17,6 +17,8 @@ int records_slot_totals(int track, int choice, int row)
     return SLOT_TOTALS + (track >= CIRCUIT_FROM ? SLOT_CHOICE * choice : 0) + row;
 }
 
+int records_has_cheats(RaceKind kind) { return kind.marks != 0; }
+
 RaceKind records_kind_with_car(RaceKind kind, int car)
 {
     if (car == WARRIOR) kind.marks |= EXTRAS_MARK_WARRIOR;
@@ -65,10 +67,10 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
     kind = records_kind_with_car(kind, g16(image + CAR));
-    if (kind.variant == RECORDS_NORMAL && kind.marks == 0) return original(op, image, game, player, times);
+    if (kind.variant == RECORDS_NORMAL && !records_has_cheats(kind)) return original(op, image, game, player, times);
     static uint8_t scratch[RECORD_CHECK_IMAGE];
     const int track = g16(image + TRACK);
-    uint8_t *const block = port_records_block(track, kind.variant, kind.marks != 0);
+    uint8_t *const block = port_records_block(track, kind.variant, records_has_cheats(kind));
     uint8_t *const marks = port_records_marks(track, kind.variant);
     if (block == NULL || marks == NULL) return nothing(op);
     memcpy(scratch, image, sizeof scratch);
@@ -79,7 +81,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     const int32_t answer = original(op, scratch, game, player, times);
     if (answer == nothing(op)) return answer;
     memcpy(block, scratch + FIRST_BLOCK + RECORDS_BLOCK * track, RECORDS_BLOCK);
-    if (kind.marks != 0)
+    if (records_has_cheats(kind))
         mark(kind, op, track, g16(image + SEGMENT), g16(image + DIFFICULTY), answer, marks);
     if (!port_records_save()) fprintf(stderr, "records: records.dat could not be saved\n");
     return answer;
