@@ -168,7 +168,7 @@ static void test_from_flags_after_a_typed_code(void)
     clear_all();
     flags(&f);
     variant_m = 1;                              /* SKCART just typed */
-    const PortExtras e = extras_from_flags(&(PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE }, &f);
+    const PortExtras e = extras_from_flags(&(PortExtras){ .start = START_GAME_MODE }, &f);
     CHECK_EQ_INT(e.mirror, 1);
     CHECK_EQ_INT(e.rally, 0);
 }
@@ -180,7 +180,7 @@ static void test_from_flags_rally_wins_over_mirror(void)
     flags(&f);
     unlock_r = 1;
     variant_r = 1;
-    const PortExtras e = extras_from_flags(&(PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE }, &f);
+    const PortExtras e = extras_from_flags(&(PortExtras){ .start = START_GAME_MODE }, &f);
     CHECK_EQ_INT(e.rally, 1);
     CHECK_EQ_INT(e.mirror, 0);
 }
@@ -195,7 +195,7 @@ static void test_from_flags_reads_the_rest(void)
     track_flags = 8;
     warrior = 1;
     vegas_cheat = 1;
-    const PortExtras e = extras_from_flags(&(PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE }, &f);
+    const PortExtras e = extras_from_flags(&(PortExtras){ .start = START_GAME_MODE }, &f);
     CHECK_EQ_INT(e.explode, 1);
     CHECK_EQ_INT(e.nitro, 1);
     CHECK_EQ_INT(e.turbo, 1);

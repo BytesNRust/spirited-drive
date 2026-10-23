@@ -212,7 +212,8 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
 int track_viewer_main(const char *data_root, const char *name, uint32_t node, const char *screenshot)
 {
     Track t;
-    const TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL, 0 };
+    const TrackFamInputs look = { .time_of_day = 0, .variant_m = 0, .variant_r = 0, .track = race_sim_track_index(name),
+                                  .stem = NULL, .dir = NULL, .dir_midday = NULL, .port_both_variants = 0 };
     int ok = track_viewer_load(&t, data_root, name, &look);
     if (ok && getenv("TNFS_CAR") != NULL) track_viewer_load_car(&t, data_root, getenv("TNFS_CAR"));
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;

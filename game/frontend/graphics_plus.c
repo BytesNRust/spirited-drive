@@ -247,7 +247,9 @@ static void step(Page *p, uint16_t k, const GraphicsMenuState *st, const Graphic
 PlusPageResult graphics_plus_page(const GraphicsMenuState *st, const GraphicsMenuOps *o, int32_t bank,
                                   const uint8_t *rgb)
 {
-    Page p = { 0, 1, 0, *st->buttons == 0, 0, -1, 0 };   /* not armed: the key that turned the page may still be down */
+    Page p = { .selected = 0, .redraw = 1, .armed = 0, .released = *st->buttons == 0, .rest = 0, .result = -1,
+               .nav_lit = 0 };
+    /* not armed: the key that turned the page may still be down */
     move_to(p.selected, o);
     do {
         follow(&p, o);

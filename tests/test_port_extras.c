@@ -65,7 +65,9 @@ static void check_same(PortExtras a, PortExtras b)
 static void test_defaults(void)
 {
     const PortExtras d = port_extras_defaults();
-    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE });
+    /* port: designated, so the fields added later (units, lunar_springs) keep their place in the struct and the
+     * values here stay the ones the defaults have: every switch 0 but car_markers 1, the exe's. */
+    check_same(d, (PortExtras){ .car_markers = 1, .start = START_GAME_MODE });
     CHECK_EQ_INT(d.start, START_GAME_MODE);
     CHECK_EQ_INT(d.stats_overlay, 0);   /* the stats overlay starts off */
     CHECK_EQ_INT(d.car_markers, 1);     /* the car markers start On: the exe's */
@@ -130,7 +132,10 @@ static void test_units_round_trip(void)
 
 static void test_round_trip(void)
 {
-    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
+    const PortExtras e = { .mirror = 1, .rally = 1, .warrior = 1, .vegas = 1, .explode = 1, .nitro = 1, .turbo = 1,
+                            .replay_cameras = 1, .warrior_rival = 1, .no_movies = 1, .no_assists = 1, .modern_3d = 1,
+                            .texture_filter = 1, .fog = 1, .bumper_mirror = 1, .bumper_radar = 1, .variant_time = 1,
+                            .stats_overlay = 1, .car_markers = 1, .start = START_CENTRAL };
     char text[512];
     const size_t n = port_extras_format(&e, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -180,7 +185,8 @@ static void test_cheat_marks(void)
 static void test_load_save(void)
 {
     check_same(port_extras_load(), port_extras_defaults());   /* no file yet */
-    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, START_NETWORK };
+    const PortExtras e = { .mirror = 1, .explode = 1, .nitro = 1, .turbo = 1, .replay_cameras = 1, .no_assists = 1,
+                            .modern_3d = 1, .fog = 1, .bumper_mirror = 1, .stats_overlay = 1, .start = START_NETWORK };
     CHECK(port_extras_save(&e));
     CHECK(strcmp(stored_name, "extras.cfg") == 0);
     check_same(port_extras_load(), e);
