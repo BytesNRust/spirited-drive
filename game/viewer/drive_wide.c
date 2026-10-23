@@ -5,6 +5,7 @@
 #include "game/gfx/blit.h"
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -293,7 +294,7 @@ void drive_wide_size(int width)
     screen_layouts(drive_wide.width, drive_wide.rows);
     uint8_t *p = realloc(drive_wide.pixels, (size_t)drive_wide.width * SCREEN_H);
     if (p == NULL) {
-        fprintf(stderr, "track_viewer: no wide screen buffer, 640 x 480\n");
+        port_log("track_viewer: no wide screen buffer, 640 x 480\n");
         drive_wide.width = SCREEN_W;
         return;
     }

@@ -31,6 +31,7 @@
 #include "game/frontend/yes_no_box.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
@@ -516,7 +517,7 @@ static const uint8_t *item_mask(const char *text, int *w)
     if (!tried[id]) {
         tried[id] = 1;
         ok[id] = item_art_load(resource_load_art, id, masks[id], &widths[id]);
-        if (!ok[id]) fprintf(stderr, "item: \"%s\" not on the CD, drawn in the font\n", text);
+        if (!ok[id]) port_log("item: \"%s\" not on the CD, drawn in the font\n", text);
     }
     *w = widths[id];
     return ok[id] ? masks[id] : NULL;
@@ -626,7 +627,7 @@ static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
         mode_palette_known = pixels != NULL && config_bgnd_load(resource_load_art, CONFIG_BGND_GAME_MODE, 0, pixels,
                                                                 mode_palette);
         if (cover == NULL || !mode_palette_known || config_bgnd_shape(pixels, x, y, w, h, cover) == 0) {
-            fprintf(stderr, "game mode: no clean background, the Modem words stay under the label\n");
+            port_log("game mode: no clean background, the Modem words stay under the label\n");
             free(cover), cover = NULL;
         }
         free(pixels);

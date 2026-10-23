@@ -51,7 +51,7 @@ for track in $TRACKS; do
   for view in $VIEWS; do
     ppm=$tmp/${track}_v${view}.ppm
     log=$tmp/${track}_v${view}.log
-    SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VIEW=$view timeout -k 5 $secs \
+    SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_VIEW=$view timeout -k 5 $secs \
       $bin --mods $tmp/mods --drive $track --entry $ticks --screenshot $ppm >$log 2>&1
     if [[ ! -s $ppm ]]; then
       print -u2 -- "golden_frames.sh: no ${track}_v${view}.ppm (see below)"

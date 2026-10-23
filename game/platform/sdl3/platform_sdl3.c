@@ -2,6 +2,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/sys/port_log.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -122,7 +123,7 @@ static bool mouse_moved;
 bool platform_init(const PlatformConfig *config)
 {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
-        fprintf(stderr, "platform: SDL_Init failed: %s\n", SDL_GetError());
+        port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
     }
     fb_width = config->width;
@@ -132,7 +133,7 @@ bool platform_init(const PlatformConfig *config)
 
     const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | (config->fullscreen != 0 ? SDL_WINDOW_FULLSCREEN : 0);
     if (!SDL_CreateWindowAndRenderer(config->title, fb_width, fb_height, flags, &window, &renderer)) {
-        fprintf(stderr, "platform: window creation failed: %s\n", SDL_GetError());
+        port_fatal("platform: window creation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
@@ -150,7 +151,7 @@ bool platform_init(const PlatformConfig *config)
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, fb_width, fb_height);
     rgb_buffer = malloc((size_t)fb_width * (size_t)fb_height * sizeof *rgb_buffer);
     if (texture == NULL || rgb_buffer == NULL) {
-        fprintf(stderr, "platform: framebuffer allocation failed: %s\n", SDL_GetError());
+        port_fatal("platform: framebuffer allocation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
@@ -165,7 +166,7 @@ bool platform_reconfigure(const PlatformConfig *config)
                                        config->height);
     uint32_t *rgb = malloc((size_t)config->width * (size_t)config->height * sizeof *rgb);
     if (t == NULL || rgb == NULL) {
-        fprintf(stderr, "platform: framebuffer reallocation failed: %s\n", SDL_GetError());
+        port_log("platform: framebuffer reallocation failed: %s\n", SDL_GetError());
         if (t != NULL) SDL_DestroyTexture(t);
         free(rgb);
         return false;
@@ -224,7 +225,7 @@ static void SDLCALL audio_get(void *user, SDL_AudioStream *stream, int additiona
         const uint32_t n = left < AUDIO_CHUNK ? (uint32_t)left : AUDIO_CHUNK;
         audio_fill(audio_user, chunk, n);
         if (!SDL_PutAudioStreamData(stream, chunk, (int)(n * AUDIO_FRAME))) {
-            fprintf(stderr, "platform: audio: %s\n", SDL_GetError());
+            port_log("platform: audio: %s\n", SDL_GetError());
             return;
         }
     }
@@ -235,14 +236,14 @@ bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
     if (audio != NULL) return true;
     if (fill == NULL) return false;
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
-        fprintf(stderr, "platform: no audio: %s\n", SDL_GetError());
+        port_log("platform: no audio: %s\n", SDL_GetError());
         return false;
     }
     audio_fill = fill, audio_user = user;
     const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
     audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
     if (audio == NULL || !SDL_ResumeAudioStreamDevice(audio)) {
-        fprintf(stderr, "platform: no audio device: %s\n", SDL_GetError());
+        port_log("platform: no audio device: %s\n", SDL_GetError());
         platform_audio_close();
         return false;
     }
@@ -400,7 +401,7 @@ static void load_script(void)
         } else if (SDL_sscanf(item, "%u:%15s", &e.at_ms, name) == 2 && (e.scancode = script_key(name)) > 0) {
             script[script_count++] = e;
         } else {
-            fprintf(stderr, "platform: bad TNFS_INPUT_SCRIPT item '%s'\n", item);
+            port_log("platform: bad TNFS_INPUT_SCRIPT item '%s'\n", item);
         }
     }
     script_start_ms = (uint32_t)SDL_GetTicks();
@@ -657,14 +658,14 @@ bool platform_set_mods(const char *data_root, const char *mods_dir)
     SDL_PathInfo info;
     if (!SDL_GetPathInfo(mods_dir, &info) || info.type != SDL_PATHTYPE_DIRECTORY) {
         SDL_snprintf(mods_error, sizeof mods_error, "mods directory %s does not exist", mods_dir);
-        fprintf(stderr, "platform: %s\n", mods_error);
+        port_fatal("platform: %s\n", mods_error);
         return false;
     }
     SDL_snprintf(mods_data_root, sizeof mods_data_root, "%s", data_root);
     SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);
 #ifdef TNFS_HAVE_REALPATH
     char real[PATH_MAX];
-    if (realpath(mods_dir, real) == NULL) { fprintf(stderr, "platform: cannot resolve %s\n", mods_dir); mods_dir_path[0] = '\0'; return false; }
+    if (realpath(mods_dir, real) == NULL) { port_fatal("platform: cannot resolve %s\n", mods_dir); mods_dir_path[0] = '\0'; return false; }
     SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", real);
 #else
     SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", mods_dir);
@@ -694,7 +695,7 @@ static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
         char real[PATH_MAX];
         if (realpath(candidate, real) == NULL || !modpath_inside(mods_real_path, real)) {
             SDL_snprintf(mods_error, sizeof mods_error, "mod file %s leaves the mods directory (symbolic link)", names[k]);
-            fprintf(stderr, "platform: %s\n", mods_error);
+            port_log("platform: %s\n", mods_error);
             *refused = true;
             return NULL;
         }
@@ -702,7 +703,7 @@ static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
         uint8_t *data = SDL_LoadFile(candidate, size);
         if (data == NULL) {
             SDL_snprintf(mods_error, sizeof mods_error, "mod file %s cannot be read: %s", names[k], SDL_GetError());
-            fprintf(stderr, "platform: %s\n", mods_error);
+            port_log("platform: %s\n", mods_error);
             *refused = true;
             return NULL;
         }
@@ -713,7 +714,7 @@ static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
             char text[700];
             report_text(&report, VALIDATE_COMPATIBLE, text, sizeof text);
             SDL_snprintf(mods_error, sizeof mods_error, "mod file %s is not valid for the original game: %s", names[k], text);
-            fprintf(stderr, "platform: %s\n", mods_error);
+            port_log("platform: %s\n", mods_error);
             SDL_free(data);
             report_free(&report);
             *refused = true;
@@ -733,7 +734,7 @@ uint8_t *platform_read_file(const char *path, size_t *size)
         if (mod != NULL || refused) return mod;
     }
     uint8_t *data = SDL_LoadFile(path, size);
-    if (data == NULL) fprintf(stderr, "platform: cannot read %s: %s\n", path, SDL_GetError());
+    if (data == NULL) port_log("platform: cannot read %s: %s\n", path, SDL_GetError());
     return data;
 }
 
@@ -780,11 +781,11 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
     /* Write beside the target and rename, so a crash cannot truncate a good file. */
     SDL_snprintf(temp, sizeof temp, "%s.tmp", path);
     if (!SDL_SaveFile(temp, data, size)) {
-        fprintf(stderr, "platform: cannot write %s: %s\n", temp, SDL_GetError());
+        port_log("platform: cannot write %s: %s\n", temp, SDL_GetError());
         return false;
     }
     if (!SDL_RenamePath(temp, path)) {
-        fprintf(stderr, "platform: cannot rename %s: %s\n", temp, SDL_GetError());
+        port_log("platform: cannot rename %s: %s\n", temp, SDL_GetError());
         return false;
     }
     return true;

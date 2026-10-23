@@ -74,7 +74,7 @@ run() {  # name script secs port [args...]
     fi
     [ -n "${CAPTURE_EVERY:-}" ] && mkdir -p "$out/$name/cap"
     set +e
-    TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
+    TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 "$secs" "$exe" --mods "$out/$name/mods" --net-port "$port" "$@" >"$out/$name/log" 2>&1
     echo $? >"$out/$name/rc"
 }

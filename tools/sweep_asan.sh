@@ -60,7 +60,7 @@ run() {
   wait_slot
   (
     local start=$SECONDS
-    TNFS_INPUT_SETTLE=${RUN_SETTLE:-0} TNFS_INPUT_SCRIPT=$script timeout -k 5 $limit $bin --data $data \
+    TNFS_VERBOSE=1 TNFS_INPUT_SETTLE=${RUN_SETTLE:-0} TNFS_INPUT_SCRIPT=$script timeout -k 5 $limit $bin --data $data \
       ${RUN_MODS:+--mods} ${RUN_MODS:-$mods} "$@" > $out/$name.log 2>&1
     local rc=$? found=$(grep -m1 -E "runtime error|ERROR: AddressSanitizer|SUMMARY: (Address|Undefined)" $out/$name.log)
     local over=""; (( rc == 124 )) && grep -q "race over" $out/$name.log && over=" (after its race over)"

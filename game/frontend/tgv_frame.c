@@ -2,6 +2,7 @@
 
 #include "core/formats/qfs.h"
 #include "game/frontend/tgv.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,7 +78,7 @@ int tgv_key_frame(TgvState *s, const uint8_t *frame, size_t size)
     } else {
         const QfsResult r = qfs_decompress(data, left, s->shape + TGV_SHAPE_HEADER, bytes);
         if (r != QFS_OK) {
-            fprintf(stderr, "tgvdecode: the key frame's picture does not unpack (%s)\n", qfs_result_str(r));
+            port_log("tgvdecode: the key frame's picture does not unpack (%s)\n", qfs_result_str(r));
             return 0;
         }
     }
@@ -155,6 +156,6 @@ uint8_t *tgv_decode(TgvState *s, const uint8_t *frame, size_t size)
     const uint32_t tag = size >= 4 ? u32_at(frame + AT_TAG) : 0;
     if (tag == TAG_KEY || tag == TAG_KEY_SWAPPED) tgv_key_frame(s, frame, size);
     else if (tag == TAG_FRAME || tag == TAG_FRAME_SWAPPED) tgv_frame(s, frame, size);
-    else fprintf(stderr, "tgvdecode: Invalid chunk type\n");
+    else port_log("tgvdecode: Invalid chunk type\n");
     return s->shape;
 }

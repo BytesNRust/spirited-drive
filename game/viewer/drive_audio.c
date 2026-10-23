@@ -1,3 +1,4 @@
+#include "game/sys/port_log.h"
 #include "game/viewer/drive_audio.h"
 
 #include "game/audio/music_reader.h"
@@ -184,7 +185,7 @@ void drive_audio_load(void *user, const char *name)
     const int32_t slot = file != NULL ? sound_bank_register(&driver, &banks[i], file, size) : SOUND_BANK_NONE;
     unlock();
     if (slot < 0) {  /* the original stops the game here (004c6f88) */
-        fprintf(stderr, "drive_audio: bank %s not loaded (%d)\n", name, slot);
+        port_log("drive_audio: bank %s not loaded (%d)\n", name, slot);
         platform_free_file(file);
         return;
     }
@@ -336,7 +337,7 @@ static void music_request(void *ctx, uint32_t id)
     size_t size = 0;
     music_file = music_ring != NULL ? platform_read_file(music_path, &size) : NULL;
     if (music_file == NULL) {
-        fprintf(stderr, "drive_audio: music %s not loaded\n", music_path);
+        port_log("drive_audio: music %s not loaded\n", music_path);
         music.sound_on = 0;
         return;
     }

@@ -14,6 +14,7 @@
 #include "viewer/drive_slide.h"
 #include "viewer/drive_joy.h"
 #include "viewer/drive_smoke.h"
+#include "game/sys/port_log.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -136,7 +137,7 @@ static int load_pdn(const char *path, size_t dir_length, CarPdn *pdn)
     uint8_t *file = read_named(path, dir_length, &size);
     const int ok = file != NULL && car_pdn_read(pdn, file, size);
     platform_free_file(file);
-    if (!ok) fprintf(stderr, "track_viewer: no body %s\n", path);
+    if (!ok) port_log("track_viewer: no body %s\n", path);
     return ok;
 }
 
@@ -163,7 +164,7 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
     drive_cars.loaded[slot] = r == CAR_LOAD_OK;
     if (!drive_cars.loaded[slot]) {
-        fprintf(stderr, "track_viewer: car %s not loaded (%d)\n", path, (int)r);
+        port_log("track_viewer: car %s not loaded (%d)\n", path, (int)r);
         return NULL;
     }
     car->body_object = (uint32_t)slot;  /* bind_wheels' token for the slot's object */
@@ -210,7 +211,7 @@ static void replay_begin(void)
         const uint8_t *m = replay_file + MODELS_AT + 4 * i;
         const int32_t model = (int32_t)(m[0] | m[1] << 8 | m[2] << 16 | (uint32_t)m[3] << 24);
         if (race->models[i] != model)
-            fprintf(stderr, "track_viewer: the replay's slot %d model %d, drawn %d\n", i, model, race->models[i]);
+            port_log("track_viewer: the replay's slot %d model %d, drawn %d\n", i, model, race->models[i]);
     }
 }
 
@@ -225,7 +226,7 @@ static int load_specs(const char *data_root, int model, CarSpecs *specs)
     uint8_t *file = platform_read_file(path, &size);
     const int ok = file != NULL && car_specs_read(specs, file, size);
     platform_free_file(file);
-    if (!ok) fprintf(stderr, "track_viewer: no specs %s\n", path);
+    if (!ok) port_log("track_viewer: no specs %s\n", path);
     return ok;
 }
 
@@ -370,7 +371,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_replay_start(&drive_replay, &drive_sim, &drive_views);
         drive_sim.race.unknown_4fbb0c = drive_link.host;
     } else if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) {
-        fprintf(stderr, "track_viewer: no replay recording\n");
+        port_log("track_viewer: no replay recording\n");
     }
     drive_replay.seed = field.seed;
     if (replay_of != NULL) replay_begin();
@@ -385,7 +386,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_cars.carpal = track_viewer_read_any(data_root, "CARFAMS", "CARPAL", CARPAL, &carpal_size);
     CarLoad *cars[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) cars[i] = drive_cars.loaded[i] ? &drive_cars.load[i] : NULL;
-    if (!drive_hud_read(&drive_hud, data_root)) fprintf(stderr, "track_viewer: no HUD\n");
+    if (!drive_hud_read(&drive_hud, data_root)) port_log("track_viewer: no HUD\n");
     drive_hud.port_grab = drive_wide_map_grab;
     drive_hud.director = drive_replay.recording != NULL ? &drive_replay.dir : NULL;  /* the dash controls' words */
     drive_replay.hud = &drive_hud.hud;
@@ -398,7 +399,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_smoke_setup(&drive_smoke, data_root, &drive_sim.race.trail);
     const DrivePaletteLate late = { &drive_smoke, drive_smoke_palette, drive_smoke_blend };
     if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, &t->tint, t->art.palette))
-        fprintf(stderr, "track_viewer: the race palette was not built; the track's own is used\n");
+        port_log("track_viewer: the race palette was not built; the track's own is used\n");
     if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, drive_draw_rand, NULL, &drive_sim.race.trail);
     return 1;
 }
@@ -478,22 +479,22 @@ void drive_end(void)
     /* 004275f8 hands them back at 0052b264.., the kept copy of the settings in the game state (+0x4a8, their +0x78),
      * which the menus' race puts back over the image (00427ae0) */
     if (drive_menus_on && drive_menus.game_state != NULL) track_viewer_options_to_settings(drive_menus.game_state + GAME_KEPT_OPTIONS);
-    printf("race over (%d):", drive_sim.race.end_request);
+    port_out("race over (%d):", drive_sim.race.end_request);
     for (int i = 0, place = 0; i < drive_sim.count; i++) {  /* the racers only, not the traffic or police */
         const int slot = drive_sim.race.results_order[i];
         if (slot >= drive_sim.race.racers) continue;
         const Car *c = slot >= 0 ? drive_sim.race.cars[slot] : NULL;
-        printf(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
+        port_out(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
     }
-    printf("\n");
+    port_out("\n");
     /* port, for the checks: each racer's model and finish (the tick - 300, 0 still racing; 00440c30) */
-    printf("finish:");
+    port_out("finish:");
     for (int slot = 0; slot < drive_sim.race.racers && slot < RACE_PLAYERS; slot++) {
         const Car *c = drive_sim.race.cars[slot];
-        printf(" %d=%s:%d", slot, c != NULL && c->model >= 0 && c->model < CAR_MODELS ? car_model_names[c->model] : "?",
+        port_out(" %d=%s:%d", slot, c != NULL && c->model >= 0 && c->model < CAR_MODELS ? car_model_names[c->model] : "?",
                drive_sim.race.players[slot].finish);
     }
-    printf("\n");
+    port_out("\n");
 }
 
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
@@ -553,7 +554,7 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
 {
     static ReplayRace race;
     if (file == NULL || size != REPLAY_FILE_SIZE || !race_replay_image_race(file, &race)) {
-        fprintf(stderr, "track_viewer: not a replay\n");
+        port_log("track_viewer: not a replay\n");
         drive_menus_on = 0;
         return 0;
     }

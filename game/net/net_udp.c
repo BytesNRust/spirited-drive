@@ -5,6 +5,7 @@
 
 #include "game/net/net_queue.h"
 #include "game/net/net_server.h"
+#include "game/sys/port_log.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -116,7 +117,7 @@ NetUdp *net_udp_open(uint16_t port)
         fcntl(u->fd, F_SETFL, fcntl(u->fd, F_GETFL, 0) | O_NONBLOCK) != 0 ||
         bind(u->fd, (const struct sockaddr *)&in, sizeof in) != 0 ||
         getsockname(u->fd, (struct sockaddr *)&in, &n) != 0) {
-        fprintf(stderr, "net_udp_open: port %u: %s\n", (unsigned)port, strerror(errno));
+        port_log("net_udp_open: port %u: %s\n", (unsigned)port, strerror(errno));
         if (u->fd >= 0) close(u->fd);
         free(u);
         return NULL;

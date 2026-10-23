@@ -2,6 +2,7 @@
 #include "game/frontend/records_glue.h"
 
 #include "game/platform/platform.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -28,7 +29,7 @@ void records_glue_begin(int race_type, const uint8_t *races, int variant_m, int 
     for (int i = 0; i < 2 * TRACKS; i++) first &= races[i] == 0;
     if (first) {
         port_records_set_tournament(current.marks);
-        if (!port_records_save()) fprintf(stderr, "records: records.dat could not be saved\n");
+        if (!port_records_save()) port_log("records: records.dat could not be saved\n");
     }
 }
 

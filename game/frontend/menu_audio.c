@@ -5,6 +5,7 @@
 #include "game/frontend/menu_sound.h"
 #include "game/race/race_sound.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/viewer/drive_audio.h"
@@ -184,7 +185,7 @@ static void track_begin(void *ctx, int32_t music, int32_t percent)
 {
     (void)ctx;
     if (music == TRACK_BLOCK && track_file != NULL && drive_audio_speech_add(track_file, track_size, (uint32_t)percent) != 0)
-        fprintf(stderr, "menu_audio: the track music is not a sample the driver plays\n");
+        port_log("menu_audio: the track music is not a sample the driver plays\n");
 }
 static void track_play(void *ctx) { (void)ctx, drive_audio_speech_play(); }
 static void track_stop(void *ctx) { (void)ctx, drive_audio_speech_stop(); }

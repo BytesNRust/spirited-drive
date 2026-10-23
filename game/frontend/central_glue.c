@@ -12,6 +12,7 @@
 #include "game/frontend/config_bgnd.h"
 #include "game/frontend/page_arrows.h"
 #include "game/frontend/title_art.h"
+#include "game/sys/port_log.h"
 #include "game/viewer/screen_layout.h"
 #include "game/frontend/central.h"
 #include "game/frontend/after_race.h"
@@ -642,7 +643,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
     track_viewer_drive_menus(&menus);
     if (menu_words.link_game != 0) link_race_begin((const char *)config_current()->image, chat);
     if (!track_viewer_drive(resource_root(), name, race_head_to_head_model(g.player_car), 1, g.race_type, 0, NULL))
-        fprintf(stderr, "control_central: the race on %s could not start\n", name);
+        port_log("control_central: the race on %s could not start\n", name);
     link_race_end();
     menu_audio_open();
     last_drive = track_viewer_drive_results();
@@ -878,7 +879,7 @@ static void controls_plus_save(void *ctx, const PortControls *controls)
 {
     (void)ctx;
     PortControls saved = *controls;   /* its `custom` as the pages left it: Defaults makes a wheel pass straight through */
-    if (!port_controls_save(&saved)) fprintf(stderr, "controls: controls.cfg could not be saved\n");
+    if (!port_controls_save(&saved)) port_log("controls: controls.cfg could not be saved\n");
     platform_controls_set(&saved);
 }
 /* Test aid, not for play: TNFS_FAKE_PAD=<source> (button4, axis5+, axis0, hat0.8) is a gamepad that presses that
@@ -1050,7 +1051,7 @@ void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int3
 static void plus_save(void *ctx, const PortSettings *settings)
 {
     (void)ctx;
-    if (!port_settings_save(settings)) fprintf(stderr, "graphics: port.cfg could not be saved\n");
+    if (!port_settings_save(settings)) port_log("graphics: port.cfg could not be saved\n");
 }
 
 /* port: the Graphics screen's own background (graphics_own.c). config_bgnd_load reads the ten configuration screens
@@ -1078,7 +1079,7 @@ static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t p
                      && config_bgnd_shape(own_pixels, 0, 0, CONFIG_BGND_W, CONFIG_BGND_H, own_shape) != 0;
         }
         if (!own_ok) {
-            fprintf(stderr, "graphics: no clean configuration background, the burnt-in one stays\n");
+            port_log("graphics: no clean configuration background, the burnt-in one stays\n");
             free(own_shape);
             own_shape = NULL;
         }
@@ -1154,7 +1155,7 @@ static const uint8_t *title_mask(const char *text, int *w)
     if (!tried[id]) {
         tried[id] = 1;
         ok[id] = title_art_load(resource_load_art, id, masks[id], &widths[id]);
-        if (!ok[id]) fprintf(stderr, "title: \"%s\" not on the CD, drawn in the font\n", text);
+        if (!ok[id]) port_log("title: \"%s\" not on the CD, drawn in the font\n", text);
     }
     *w = widths[id];
     return ok[id] ? masks[id] : NULL;
@@ -1274,7 +1275,7 @@ static void graphics(void *ctx, int32_t mode)
     if (mode == 0 && (was.format != now.format || was.scale_integer != now.scale_integer
                       || was.fullscreen != now.fullscreen || was.refresh_hz != now.refresh_hz)) {
         const PlatformConfig config = port_platform_config(NULL);
-        if (!platform_reconfigure(&config)) fprintf(stderr, "graphics: the window keeps its old settings\n");
+        if (!platform_reconfigure(&config)) port_log("graphics: the window keeps its old settings\n");
     }
 }
 
@@ -1330,7 +1331,7 @@ static void replay(void *ctx, int32_t mode, const char *path)
     size_t size = 0;
     uint8_t *file = save_files_read_replay(name, &size);
     if (file == NULL) {
-        fprintf(stderr, "load_save: no replay %s\n", name);
+        port_log("load_save: no replay %s\n", name);
         return;
     }
     const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
@@ -1339,7 +1340,7 @@ static void replay(void *ctx, int32_t mode, const char *path)
     menu_audio_close();
     track_viewer_drive_menus(&menus);
     if (!track_viewer_drive_replay_data(resource_root(), file, size, replay_kind == 2 ? HIGHLIGHTS : FROM_START))
-        fprintf(stderr, "load_save: the replay %s could not play\n", name);
+        port_log("load_save: the replay %s could not play\n", name);
     menu_audio_open();
     platform_free_file(file);
 }

@@ -15,6 +15,7 @@
 #include "game/race/race_view_pick.h"
 #include "game/sys/menu_key.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/video.h"
 #include "game/race/skid_marks.h"
 #include "viewer/ported_view.h"
@@ -439,7 +440,7 @@ static int32_t out_close(void *ctx, void *file)
 {
     (void)ctx;
     const int ok = file != NULL && platform_write_user_file(out_name, out, out_size);
-    if (file != NULL && !ok) fprintf(stderr, "drive_replay: %s not written\n", out_name);
+    if (file != NULL && !ok) port_log("drive_replay: %s not written\n", out_name);
     free(out);
     out = NULL;
     return ok ? 0 : -1;

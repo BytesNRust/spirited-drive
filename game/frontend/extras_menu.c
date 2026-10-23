@@ -6,6 +6,7 @@
  * ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the input back. */
 #include "game/frontend/extras_menu.h"
 #include "game/frontend/page_arrows.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 
@@ -262,7 +263,7 @@ static void background(Bgnd *b, const ExtrasMenuOps *o)
 {
     if (o->plus_bgnd == NULL || o->plus_bgnd_shape == NULL) return;
     if (!o->plus_bgnd(o->ctx, b->pixels, b->palette)) {
-        fprintf(stderr, "customize: no clean configuration background, the caller's picture stays\n");
+        port_log("customize: no clean configuration background, the caller's picture stays\n");
         return;
     }
     b->ready = 1;
@@ -345,7 +346,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
 {
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
-    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
+    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0 };   /* not released: the click that opened it may still be down */
     static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);

@@ -1,6 +1,6 @@
 /* Entry point.
  *
- *   tnfs [--data DIR] [--mods DIR] [--german] [--net-port N] [--net-host IP:PORT]...
+ *   tnfs [--data DIR] [--mods DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]...
  *                                          run the game (00437540); files of the mod in DIR replace the CD's; the
  *                                          network game binds UDP port N (15000 by default) and also asks each
  *                                          --net-host (up to 8) for games besides the LAN's broadcast
@@ -22,6 +22,7 @@
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -69,6 +70,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->mods = argv[++i];
         } else if (strcmp(argv[i], "--german") == 0) {
             opt->german = 1;
+        } else if (strcmp(argv[i], "--verbose") == 0) {
+            port_log_set_verbose(1);
         } else if (strcmp(argv[i], "--view") == 0 && has_value) {
             opt->view = argv[++i];
         } else if (strcmp(argv[i], "--track") == 0 && has_value) {
@@ -94,7 +97,7 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else if (strcmp(argv[i], "--net-host") == 0 && has_value && opt->net_host_count < NET_UDP_HOSTS) {
             opt->net_hosts[opt->net_host_count++] = argv[++i];
         } else {
-            fprintf(stderr, "usage: %s [--data DIR] [--mods DIR] [--german] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
+            port_fatal("usage: %s [--data DIR] [--mods DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --replay FILE.RPL\n"
@@ -157,7 +160,7 @@ static int run_drive(const Options *opt)
     enum { FULL_FIELD = 2 };
     const int track = race_sim_track_index(opt->drive);
     if (track < 0) {
-        fprintf(stderr, "--drive: no track %s\n", opt->drive);
+        port_fatal("--drive: no track %s\n", opt->drive);
         return 0;
     }
     const PlatformConfig config = port_platform_config("The Need for Speed SE");

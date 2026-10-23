@@ -5,6 +5,7 @@
 #include "game/gfx/flat.h"
 #include "game/sys/palette.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/shape_bank.h"
 #include "game/sys/video.h"
@@ -37,10 +38,10 @@ static int32_t bank_put(uint8_t *data, const char *name)
     for (int i = 0; i < BANKS; i++) {
         if (banks[i] != NULL) continue;
         banks[i] = data;
-        if (banks[i] == NULL) fprintf(stderr, "ea_bank_load: cannot read %s\n", name);
+        if (banks[i] == NULL) port_log("ea_bank_load: cannot read %s\n", name);
         return banks[i] != NULL ? i + 1 : 0;
     }
-    fprintf(stderr, "ea_bank_load: no room for %s\n", name);
+    port_log("ea_bank_load: no room for %s\n", name);
     resource_free(data);
     return 0;
 }
@@ -69,7 +70,7 @@ const uint8_t *ea_shape(int32_t bank, const char *tag)
 {
     uint8_t *const b = bank_of(bank);
     const uint8_t *const s = b != NULL ? shape_bank_find(b, (const uint8_t *)tag) : NULL;
-    if (s == NULL) fprintf(stderr, "ea_shape: no %.4s\n", tag);
+    if (s == NULL) port_log("ea_shape: no %.4s\n", tag);
     return s;
 }
 
@@ -85,7 +86,7 @@ int32_t ea_picture_new(int32_t w, int32_t h)
         pictures[i] = p;
         return PICTURE_BASE + i + 1;
     }
-    fprintf(stderr, "ea_picture_new: no room\n");
+    port_log("ea_picture_new: no room\n");
     return 0;
 }
 

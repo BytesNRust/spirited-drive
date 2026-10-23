@@ -7,6 +7,7 @@
 #include "game/sys/input.h"
 #include "game/sys/palette.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
@@ -59,7 +60,7 @@ int show_screen(const char *name, int mode, int music)
     uint8_t rgb[PALETTE_BYTES];
     if (data == NULL || fsh_open(&fsh, data, size) != FSH_OK || !find_art(&fsh, &pal_entry, &background)
         || fsh_palette_rgb(&pal_entry, rgb) != FSH_OK) {
-        fprintf(stderr, "show_screen: cannot show %s\n", name);  /* the original aborts (00477a40) */
+        port_log("show_screen: cannot show %s\n", name);  /* the original aborts (00477a40) */
         resource_free(data);
         return 0;
     }

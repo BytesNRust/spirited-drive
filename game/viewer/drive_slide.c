@@ -1,4 +1,5 @@
 /* The loading pictures (drive_slide.h) */
+#include "game/sys/port_log.h"
 #include "game/viewer/drive_slide.h"
 
 #include "game/sys/resource.h"
@@ -49,7 +50,7 @@ void drive_slide_show(int32_t car, int32_t picture)
     FshEntry shape;
     const uint8_t *rgb;
     if (data == NULL || !drive_slide_parts(data, size, &shape, &rgb)) {
-        fprintf(stderr, "drive_slide: cannot show %s\n", name);
+        port_log("drive_slide: cannot show %s\n", name);
         resource_free(data);
         return;
     }
