@@ -21,7 +21,7 @@
 static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
 static RaceStats race_stats;          /* port: F12's overlay, its figures and its switch (race_stats.h) */
 
-enum { KEY_F1 = 0x3b, KEY_F2 = 0x3c, KEY_F9 = 0x43 };
+enum { KEY_F1 = 0x3b, KEY_F2 = 0x3c, KEY_F3 = 0x3d, KEY_F9 = 0x43 };
 
 /* 004c5360 asked for by F3 (004381f8) or the menu's Esc (004557f4): the frame's detail step takes it */
 static void take_detail(int32_t *pending)
@@ -259,6 +259,21 @@ static int32_t env_frame(const char *name)
     return v != NULL ? (int32_t)strtol(v, NULL, 10) : -1;
 }
 
+/* Headless, F3 down on the frames TNFS_F3_AT lists (comma-separated), for the captures of the view distances */
+static int f3_env_press(int32_t frame)
+{
+    const char *v = getenv("TNFS_F3_AT");
+    if (v == NULL) return 0;
+    for (;;) {
+        char *end = NULL;
+        const long at = strtol(v, &end, 10);
+        if (end == v) return 0;
+        if (at == frame) return 1;
+        if (*end != ',') return 0;
+        v = end + 1;
+    }
+}
+
 /* Headless, F9 down on the frames TNFS_REPLAY_AT and TNFS_REPLAY_BACK name,
  * once each (race_run's frame count stands while a replay seeks) */
 static int env_press(int32_t frame)
@@ -486,8 +501,15 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
     const char *frames_env = getenv("TNFS_FRAMES");
     const uint32_t frames = frames_env == NULL ? 0 : (uint32_t)atoi(frames_env);
+    const int f3_keys = getenv("TNFS_F3_AT") != NULL;  /* the captures' F3 presses: the race's keys, as the window run reads them */
     for (uint32_t i = 0; i < ticks; i++) {
         drive_replay_key(&drive_replay, env_press((int32_t)i));
+        if (f3_keys) {
+            drive_input.keys[KEY_F3] = f3_env_press((int32_t)i) ? 1 : 0;
+            drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
+            drive_input.keys[KEY_F3] = 0;
+            take_detail(&drive_keys.detail_pending);
+        }
         drive_tick(screenshot_input(i, ticks));
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
@@ -508,6 +530,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
            drive_sim.race.tick, drive_sim.race.phase, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
            chase->position[0] / 65536.0, chase->position[1] / 65536.0, chase->position[2] / 65536.0);
     render_drive(t, pixels);
+    printf("segments %d\n", (int)ported_view_draw_segments());  /* the F12 overlay's "View n segments" (drive_run.c) */
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
     return track_viewer_write_ppm(screenshot, shown, width, SCREEN_H, t->art.palette);

@@ -22,6 +22,7 @@ typedef struct {
     int perspective;         /* 0/1: "Perspective Correction", the ex-EXTRAS Modern 3D */
     int texture_filter;      /* 0/1 */
     int fog;                 /* 0/1 */
+    int f3_ultra;            /* 1: F3 rotates Far, Medium, Close and Ultra (port_f3_ultra); 0 the exe's three; 1 */
 } PortSettings;
 
 PortSettings port_settings_defaults(void);

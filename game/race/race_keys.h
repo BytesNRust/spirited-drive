@@ -41,6 +41,7 @@ typedef struct {
     int32_t high;             /* 004fa0c0 */
     int32_t port_bumper_keys; /* port: 1 leaves F1, F2 and F4 to the bumper mirror and radar (F4 to none) and has the
                                * pad's View (RACE_KEYS_PAD_VIEW) change the view; 0 is the exe's */
+    int32_t port_f3_ultra;    /* port: 1 F3 rotates Far, Medium, Close and Ultra (56); 0 is the exe's three */
 } RaceKeysInputs;
 
 typedef struct {
@@ -56,6 +57,7 @@ typedef struct {
     uint8_t hidden;           /* 004fb78b */
     int32_t f5;               /* 004bafe0 */
     uint32_t camera_keys;     /* 004fb7b4 */
+    int ultra;                /* port: the Ultra step of F3's rotation is on (the detail byte is then 0) */
 } RaceKeysState;
 
 /* 004381f8 (no arguments).

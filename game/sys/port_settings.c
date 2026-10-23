@@ -17,7 +17,7 @@ static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0 };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1 };
     return d;
 }
 
@@ -52,6 +52,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "view_ultra") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->view_ultra = (int)n;
+    } else if (strcmp(key, "f3_ultra") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->f3_ultra = (int)n;
     } else if (strcmp(key, "perspective") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->perspective = (int)n;
@@ -106,9 +109,9 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
-                           s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog);
+                           s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 

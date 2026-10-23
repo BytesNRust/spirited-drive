@@ -91,6 +91,20 @@ static void music_ramped(void *user, int16_t volume) { (void)user, drive_audio_m
 static void sound_off(void *ctx) { race_sound_mute(((KeysCtx *)ctx)->race, music_now, NULL); }
 static void sound_on(void *ctx) { race_sound_unmute(((KeysCtx *)ctx)->race, music_ramped, NULL); }
 
+static int port_f3_ultra;   /* port_f3_ultra */
+static int port_view_ultra; /* the menu's Ultra: port.cfg's view_ultra, or TNFS_VIEW_ULTRA */
+
+void drive_keys_port(int f3_ultra, int view_ultra)
+{
+    port_f3_ultra = f3_ultra != 0;
+    port_view_ultra = view_ultra != 0;
+}
+
+void drive_keys_race_begins(DriveKeys *k)
+{
+    k->state.ultra = port_view_ultra != 0 && k->state.detail == 0;
+}
+
 void drive_keys_start(DriveKeys *k)
 {
     const RaceKeysState was = k->state;
@@ -111,7 +125,7 @@ void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *
     const int32_t timer = in->timer != NULL ? *in->timer : 0;
     const RaceKeysInputs inputs = { in->keys, in->codes[INPUT_KEY_HOLD], drive_joy_state()->present, in->pad_buttons,
                                     race->humans, race->phase, W513730_UNKNOWN, race->race_type, race->replay,
-                                    race->playback, timer, race->player, 0, HIGH_RESOLUTION, 1 };
+                                    race->playback, timer, race->player, 0, HIGH_RESOLUTION, 1, port_f3_ultra };
     k->state.viewed = race->viewed;
     k->state.view_changed = race->view_taken;
     const uint8_t hidden_before = k->state.hidden;

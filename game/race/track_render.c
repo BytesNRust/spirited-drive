@@ -89,10 +89,20 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
     if (r->reach != 0) track_render_set_reach(r, r->reach);
 }
 
+/* port: the nearest distance the detail asks for (race_detail.c's NEAREST) */
+enum { REACH_NEAREST = 8 };
+
 void track_render_set_reach(TrackRender *r, int32_t segments)
 {
-    r->reach = segments > TRACK_DRAW_SEGMENTS && segments <= DRAW_SEGMENTS_ULTRA ? segments : 0;
-    r->draw_segments = r->reach != 0 ? r->reach : TRACK_DRAW_SEGMENTS;
+    /* 28 is the exe's own count (no reach); 8..56 otherwise, as the detail asks for them */
+    const int32_t reach = segments >= REACH_NEAREST && segments <= DRAW_SEGMENTS_ULTRA && segments != TRACK_DRAW_SEGMENTS
+                              ? segments : 0;
+    const int draw = reach != 0 ? reach : TRACK_DRAW_SEGMENTS;
+    if (reach == r->reach && draw == r->draw_segments) return;
+    /* the track built for the old count is built again at the next frame */
+    if (draw != r->draw_segments) r->build.first_node = -1;
+    r->reach = reach;
+    r->draw_segments = draw;
     r->build.reach = r->reach;
     /* port: the objects of the farther segments too (0xb4 is what 0x1c segments place at most) */
     r->build.walk.max_objects = r->reach != 0 ? TRACK_WALK_MAX_OBJECTS * r->reach / TRACK_DRAW_SEGMENTS : 0;

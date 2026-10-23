@@ -71,6 +71,9 @@ static int env_switch(const char *name, int otherwise)
     return v != NULL ? atoi(v) != 0 : otherwise;
 }
 
+/* port: the menu's Ultra, TNFS_VIEW_ULTRA overriding port.cfg's view_ultra for the checks */
+static int view_ultra_on(const PortSettings *ps) { return env_switch("TNFS_VIEW_ULTRA", ps->view_ultra); }
+
 /* port: the race about to start: its 640 x 480 rows without the strip in every format, the field's adjustment, and
  * 640 wide until drive_wide_size */
 static void drive_wide_setup(void)
@@ -78,9 +81,10 @@ static void drive_wide_setup(void)
     const PortSettings ps = port_settings_load();
     screen_layouts(SCREEN_W, drive_views.layouts[HIGH_SCREEN]);
     drive_wide.fov_adjust = ps.fov_adjust;
-    /* port: the "ultra" view distance (TNFS_VIEW_ULTRA=1 / 0 overrides port.cfg for the checks) */
-    const char *ultra_env = getenv("TNFS_VIEW_ULTRA");
-    const int ultra = ultra_env != NULL ? atoi(ultra_env) != 0 : ps.view_ultra;
+    /* port: the "ultra" view distance (TNFS_VIEW_ULTRA=1 / 0 overrides port.cfg for the checks) and F3's rotation */
+    const int ultra = view_ultra_on(&ps);
+    const int f3 = env_switch("TNFS_F3_ULTRA", ps.f3_ultra);
+    drive_keys_port(f3, ultra);
     ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     /* port: Perspective Correction, Texture Filter and Fog live on the Graphics screen now and are read from port.cfg
      * (port_settings_load still falls back to extras.cfg for a file written before they moved). The TNFS_MODERN_3D,
@@ -92,7 +96,7 @@ static void drive_wide_setup(void)
                        env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
     drive_mirror_free(&bumper_mirror);  /* the last track's horizon with it */
     drive_mirror_start_own(&bumper_mirror, DRIVE_BUMPER_MIRROR_PERCENT);
-    race_detail_set_ceiling(ultra ? DRAW_SEGMENTS_ULTRA : 0);
+    race_detail_set_ceiling(ultra || f3 ? DRAW_SEGMENTS_ULTRA : 0);
     drive_wide.width = SCREEN_W;
     drive_wide.ready = 0;
 }
@@ -458,7 +462,9 @@ void track_viewer_graphics_close(const uint8_t *options)
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* as the race's start reads it */
     drive_run_refresh_set(hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : ps.refresh_hz);
     drive_keys.state.detail = options[2 * OPT_VIEW];
-    const int32_t segments = race_draw_detail_segments(drive_keys.state.detail);
+    /* the menu's Ultra is its View at Far with port.cfg's view_ultra on: the race takes it at once */
+    drive_keys.state.ultra = view_ultra_on(&ps) && drive_keys.state.detail == 0;
+    const int32_t segments = drive_keys.state.ultra ? DRAW_SEGMENTS_ULTRA : race_draw_detail_segments(drive_keys.state.detail);
     if (segments != -1) race_detail_request(segments, &drive_keys.detail_pending);
 }
 

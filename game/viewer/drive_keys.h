@@ -17,6 +17,12 @@ typedef struct {
 
 void drive_keys_start(DriveKeys *k);
 
+/* port: the F3 rotation's Ultra step (race_keys.h port_f3_ultra), and the menu's Ultra (port.cfg view_ultra or
+ * TNFS_VIEW_ULTRA) that the race starts on at View Far. Set before the race (track_viewer.c drive_wide_setup). */
+void drive_keys_port(int f3_ultra, int view_ultra);
+/* the race's start, once its distance is read from the options: Ultra when the menu has it and the View is Far */
+void drive_keys_race_begins(DriveKeys *k);
+
 /* 004381f8 on in->keys, with race and the views the follow camera uses. */
 void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *views);
 

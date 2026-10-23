@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "game/gfx/x86_int.h"
+#include "game/race/race_detail.h"
 
 #include <stddef.h>
 
@@ -16,6 +17,28 @@ enum {
 };
 
 static const uint8_t DETAIL[3] = { 0x1c, 0xe, 9 };
+
+/* F3: the exe's detail + 1 mod 3 (0x1c, 0xe, 9). port_f3_ultra: Far -> Medium -> Close -> Ultra -> Far, the Ultra
+ * step asking DRAW_SEGMENTS_ULTRA with the detail byte at 0 */
+static void f3_step(const RaceKeysOps *ops, RaceKeysState *st, int port)
+{
+    if (!port) {
+        st->ultra = 0;
+        st->detail = (uint8_t)((uint8_t)(st->detail + 1) % 3);
+        ops->detail(ops->ctx, DETAIL[st->detail]);
+        return;
+    }
+    if (st->ultra) {
+        st->ultra = 0;
+        st->detail = 0;
+    } else if (st->detail == 2) {
+        st->ultra = 1;
+        st->detail = 0;
+    } else {
+        st->detail = (uint8_t)(st->detail + 1);
+    }
+    ops->detail(ops->ctx, st->ultra ? DRAW_SEGMENTS_ULTRA : DETAIL[st->detail]);
+}
 
 static const struct {
     uint8_t key;
@@ -68,10 +91,7 @@ static void function_key(const RaceKeysOps *ops, RaceKeysState *st, const RaceKe
             if (st->screen_kind == SCREEN_CLEAR) st->clear_view = 1;
         }
     } else if (in->keys[KEY_F3] != 0) {
-        if (first) {
-            st->detail = (uint8_t)((uint8_t)(st->detail + 1) % 3);
-            ops->detail(ops->ctx, DETAIL[st->detail]);
-        }
+        if (first) f3_step(ops, st, in->port_f3_ultra != 0);
     } else if (!port && in->keys[KEY_F4] != 0) {
         if (first) st->w4fb786 = (uint8_t)(1 - st->w4fb786);
     } else if (in->keys[KEY_F5] != 0) {

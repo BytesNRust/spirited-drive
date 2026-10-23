@@ -38,6 +38,8 @@ void graphics_own_race_view_step(int16_t *view, int *ultra);
 /* whether the pause menu's Graphics may change `setting` (a GRAPHICS_OWN_ row) now: 0 for the rows the next race
  * reads (scaling, the format, full screen) and for Ultra, which is view 0 with the flag. */
 int graphics_own_live_in_race(int setting, int16_t view, int ultra);
+int graphics_own_view_live(int f3_ultra, int16_t view, int ultra);
+void graphics_own_race_view_step_for(int f3_ultra, int16_t *view, int *ultra);
 
 /* The screen, run over the same ops as graphics_menu.c (00423d28) and behaving like it: the arrows move, Space / Enter
  * / the left button choose, Done saves through `plus_save`, Escape and Cancel put the settings back with

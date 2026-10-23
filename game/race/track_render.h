@@ -114,8 +114,9 @@ void track_near_direction(const int32_t (*camera)[3], int32_t next, int32_t dir[
 
 void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int32_t camera_node);
 
-/* port: the segments drawn (the "ultra" view distance): 0x1c..DRAW_SEGMENTS_ULTRA (race_detail.h), else 0x1c; the
- * cache window keeps its two segments ahead and five behind. Taken at once, and at every later bind. */
+/* port: the segments drawn: 8..DRAW_SEGMENTS_ULTRA (race_detail.h) as the frame asks for them, the exe's 0x1c for 0x1c
+ * or any other value; the cache window keeps its two segments ahead and five behind. Taken at once, and at every later
+ * bind. */
 void track_render_set_reach(TrackRender *r, int32_t segments);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* 0044aa94's near plane, 004c52c0 >> the shift; with the port's port_near_scale (16.16) brought in by it first */
