@@ -459,7 +459,7 @@ void track_viewer_graphics_close(const uint8_t *options)
     drive_run_refresh_set(hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : ps.refresh_hz);
     drive_keys.state.detail = options[2 * OPT_VIEW];
     const int32_t segments = race_draw_detail_segments(drive_keys.state.detail);
-    if (segments != -1) race_detail_request(segments, &drive_pause.detail_pending);
+    if (segments != -1) race_detail_request(segments, &drive_keys.detail_pending);
 }
 
 void drive_end(void)
