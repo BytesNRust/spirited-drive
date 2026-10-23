@@ -4,7 +4,6 @@
 
 #include <stdio.h>
 
-enum { TITLE_CHEATS_X = 232 };   /* past the titles' ends ("Best segment time" 221, "Top segment speed" 225) */
 enum {
     RECORD = 0x95, NAME = 0, TIME = 0x59, DISTANCE = 0x5d, SPEED = 0x61, TOTAL = 0x65, FLAGS = 0x5a4,
     RACED = 0x5ba, TEXT = 0x5c, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20,
@@ -179,11 +178,6 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int segment, int be
     draw_heads(in, segment, ops);
     draw_times(in, segment, ops);
     draw_records(in, segment, beaten, ops);
-    /* port: the art's two record titles, marked when the table shown is the one with cheats */
-    if (results_cheats(in)) {
-        ops->text_at(ops->ctx, " (cheats)", TITLE_CHEATS_X, 0x11b);
-        ops->text_at(ops->ctx, " (cheats)", TITLE_CHEATS_X, 0x162);
-    }
 }
 
 /* 0045cea0 */

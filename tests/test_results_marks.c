@@ -23,7 +23,7 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 void platform_free_file(uint8_t *data) { (void)data; }
 
 enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0xd7, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
-enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* the segment screen's art titles end at 221 and 225 */
+enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* where a suffix on the segment screen's art titles would go */
 enum { Y_BEST_ROW = 0x11d, Y_TRACK_TOP = 0x177, Y_HEAD = 0x5a, BEST_LEFT = 0x1d6, ROW_Y = 0x82, ROW_STEP = 0x15 };
 
 typedef struct Drawn {
@@ -237,8 +237,8 @@ static void test_segment_cheats_title_and_marks(void)
     run_segment(&marks);
     CHECK(any_text("Best Time (c)"));
     CHECK(found("Best Time (c)", BEST_LEFT, Y_HEAD));
-    CHECK(found(" (cheats)", TITLE_X, TITLE_BEST_Y));
-    CHECK(found(" (cheats)", TITLE_X, TITLE_TOP_Y));
+    CHECK(!found(" (cheats)", TITLE_X, TITLE_BEST_Y));   /* the header and the rows mark the table, not the art titles */
+    CHECK(!found(" (cheats)", TITLE_X, TITLE_TOP_Y));
     CHECK(found("N", X_MARKS, Y_SEGMENT));
     CHECK(found("TW", X_MARKS, Y_TOP));
 }
