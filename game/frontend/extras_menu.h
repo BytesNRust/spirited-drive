@@ -23,7 +23,8 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                                Replay cameras in race mode
  *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track,
  *                                Unlock Level, Time with variants
- *            Startup            Speed units, Start Screen, Intro video
+ *            Startup            Race stats (F12), Car markers (F6), Speed units, Start Screen, Intro video
+ *                                (the first two are the race's switches: extras.cfg's stats_overlay and car_markers)
  *
  * The rows below are that list in order, so a group is a range of them. The list is the switches only: Done and
  * Cancel are the clean background's own words, and the title and the page indicator are the screen's, so none of
@@ -36,6 +37,7 @@ enum {
     ROW_MIRROR = 0, ROW_RALLY, ROW_EXPLODE, ROW_NITRO, ROW_TURBO,
     ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY,
     ROW_FIRST_P2, ROW_RIVAL, ROW_VEGAS, ROW_UNLOCK, ROW_VARIANT_TIME,
+    ROW_STATS, ROW_MARKERS,                        /* port: Startup's, the race's F12 and F6 switches */
     ROW_UNITS, ROW_START, ROW_MOVIES,
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };

@@ -15,7 +15,7 @@ static const char *const UNIT_NAMES[] = { "language", "mph", "kmh" };
 static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas", "explode", "nitro",
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
                                             "modern_3d", "texture_filter", "fog", "bumper_mirror",
-                                            "bumper_radar", "variant_time" };
+                                            "bumper_radar", "variant_time", "stats_overlay", "car_markers" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
@@ -23,7 +23,8 @@ static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
 {
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
                         e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d,
-                        e->texture_filter, e->fog, e->bumper_mirror, e->bumper_radar, e->variant_time };
+                        e->texture_filter, e->fog, e->bumper_mirror, e->bumper_radar, e->variant_time,
+                        e->stats_overlay, e->car_markers };
     memcpy(rows, all, sizeof all);
 }
 
@@ -32,14 +33,14 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
     int *const all[] = { &e->mirror, &e->rally,  &e->warrior, &e->vegas,  &e->explode, &e->nitro,
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
                          &e->modern_3d, &e->texture_filter, &e->fog, &e->bumper_mirror, &e->bumper_radar,
-                         &e->variant_time };
+                         &e->variant_time, &e->stats_overlay, &e->car_markers };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE, UNITS_LANGUAGE };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE };
     return d;
 }
 
@@ -134,6 +135,22 @@ bool port_extras_save(const PortExtras *e)
     char text[512];
     const size_t n = port_extras_format(e, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+}
+
+int port_extras_race_on(RaceSwitch which)
+{
+    const PortExtras e = port_extras_load();
+    return which == RACE_SWITCH_STATS ? e.stats_overlay : e.car_markers;
+}
+
+bool port_extras_set_race_switch(RaceSwitch which, int on)
+{
+    PortExtras e = port_extras_load();
+    if (which == RACE_SWITCH_STATS)
+        e.stats_overlay = on != 0;
+    else
+        e.car_markers = on != 0;
+    return port_extras_save(&e);
 }
 
 int speed_units_kmh(SpeedUnits units, int german)
