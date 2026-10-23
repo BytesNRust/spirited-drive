@@ -17,6 +17,10 @@ void config_save(void);
 /* The loaded config; Control Central reads and updates it. */
 ConfigDat *config_current(void);
 
+/* port: 1 when the player's own saved config.dat was read by config_load (its name is the last one saved), 0 when the
+ * name is the CD's or the defaults' (no name has been saved yet). */
+int config_name_saved(void);
+
 /* The same once config_load ran, else NULL (the viewer's paths that start
  * no game). */
 const ConfigDat *config_loaded(void);

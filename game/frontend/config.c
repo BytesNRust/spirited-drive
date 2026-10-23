@@ -15,10 +15,16 @@ static const char CONFIG_NAME[] = "config.dat";
 
 static ConfigDat config;
 static int loaded;
+static int name_saved;   /* port: the player's own config.dat was read, so its name is the last one saved */
 
 ConfigDat *config_current(void)
 {
     return &config;
+}
+
+int config_name_saved(void)
+{
+    return name_saved;
 }
 
 const ConfigDat *config_loaded(void)
@@ -53,7 +59,9 @@ static int load_from_cd(void)
 int config_load(void)
 {
     size_t size = 0;
-    const int found = parse_file(platform_read_user_file(CONFIG_NAME, &size), size, "saved config.dat") || load_from_cd();
+    const int saved = parse_file(platform_read_user_file(CONFIG_NAME, &size), size, "saved config.dat");
+    const int found = saved || load_from_cd();
+    name_saved = saved;
     if (!found) config_dat_defaults(&config, resource_german());
     config_dat_name(&config, frontend_player_name);
     /* 0042a010's end: without the pad (004fcdcc, 0043c744 ran first) the joystick's controls back to keys */
