@@ -20,11 +20,11 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *
  *   page 1  Game modes         Mirror track mode, Rally track mode, Explode mode, Nitro mode, Turbo mode
  *            Driving & cameras  No driving assists, Bumper view mirror, Bumper view police radar,
- *                                Replay cameras in race mode, Car markers (F6)
+ *                                Replay cameras in race mode, Rival car markers (F6)
  *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track, Lunar Springs Track,
  *                                Unlock Level, Time with variants
- *            Startup            Race stats (F12), Speed units, Start Screen, Intro video
- *                                (Car markers and Race stats are the race's switches: extras.cfg's car_markers and
+ *            Startup            3D render stats (F12), Speed units, Start Screen, Intro video
+ *                                (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and
  *                                stats_overlay; ten rows a page is what the 26 pitch fits)
  *
  * The rows below are that list in order, so a group is a range of them. The list is the switches only: Done and

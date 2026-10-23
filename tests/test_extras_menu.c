@@ -472,7 +472,7 @@ static void test_page_one_has_ten_rows(void)
     CHECK(shown(&r.fake, "Bumper view mirror"));
     CHECK(shown(&r.fake, "Bumper view police radar"));
     CHECK(shown(&r.fake, "Replay cameras in race mode"));
-    CHECK(shown(&r.fake, "Car markers (F6)"));
+    CHECK(shown(&r.fake, "Rival car markers"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
@@ -493,7 +493,7 @@ static void test_page_two_has_ten_rows(void)
     CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
-    CHECK(shown(&r.fake, "Race stats (F12)"));
+    CHECK(shown(&r.fake, "3D render stats"));
     CHECK(shown(&r.fake, "Speed units"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));

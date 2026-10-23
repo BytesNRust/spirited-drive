@@ -67,9 +67,9 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
-    "Car markers (F6)",
+    "Rival car markers",
     "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Lunar Springs Track", "Unlock Level",
-    "Time with variants", "Race stats (F12)", "Speed units", "Start Screen", "Intro video"
+    "Time with variants", "3D render stats", "Speed units", "Start Screen", "Intro video"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
