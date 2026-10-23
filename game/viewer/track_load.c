@@ -3,6 +3,7 @@
 #include "viewer/track_load.h"
 
 #include "race/fam_mirror.h"
+#include "race/lunar_springs.h"
 
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
@@ -106,6 +107,14 @@ static uint8_t *read_fam_variant(const char *data_root, const char *name, const 
 /* Port guard: a FAM the CD does not hold falls back to the first of NTRACKFM's. */
 static uint8_t *read_fam(const char *data_root, const char *name, const TrackFamInputs *look, size_t *size)
 {
+    /* port: Lunar Springs (lunar_springs.h): the rally on Rusty Springs reads the moon's textures, the TRI staying Rusty's;
+     * a CD without them falls back to the rally's own FAM */
+    char moon[512];
+    if (lunar_springs_fam(data_root, look->track, look->variant_r, look->port_lunar, moon, sizeof moon)) {
+        uint8_t *moon_data = platform_read_file(moon, size);
+        if (moon_data != NULL) return moon_data;
+        fprintf(stderr, "track_viewer: no %s, the rally's own FAM\n", moon);
+    }
     uint8_t *data = read_fam_named(data_root, name, look, size);
     if (data != NULL) return data;
     static const char *const FAM_SUFFIX[] = { "_T01.FAM", "_M01.FAM", "_R01.FAM", NULL };

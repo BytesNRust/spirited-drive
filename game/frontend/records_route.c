@@ -87,7 +87,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     return answer;
 }
 
-void records_mark_text(int marks, char out[4])
+void records_mark_text(int marks, char out[5])
 {
     int n = 0;
     if (marks & EXTRAS_MARK_NITRO) out[n++] = 'N';

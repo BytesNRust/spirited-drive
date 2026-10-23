@@ -67,8 +67,9 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
-    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Unlock Level",
-    "Time with variants", "Race stats (F12)", "Car markers (F6)", "Speed units", "Start Screen", "Intro video"
+    "Car markers (F6)",
+    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Lunar Springs Track", "Unlock Level",
+    "Time with variants", "Race stats (F12)", "Speed units", "Start Screen", "Intro video"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
@@ -76,11 +77,12 @@ static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->mirror, &e->rally, &e->explode, &e->nitro, &e->turbo,
-                                  &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras };
+                                  &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras,
+                                  &e->car_markers };
         return p1[row];
     }
-    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, NULL, &e->variant_time,
-                               &e->stats_overlay, &e->car_markers, NULL, NULL, &e->no_movies };
+    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, &e->lunar_springs, NULL, &e->variant_time,
+                               &e->stats_overlay, NULL, NULL, &e->no_movies };
     return p2[row];
 }
 

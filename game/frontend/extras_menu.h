@@ -20,11 +20,12 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *
  *   page 1  Game modes         Mirror track mode, Rally track mode, Explode mode, Nitro mode, Turbo mode
  *            Driving & cameras  No driving assists, Bumper view mirror, Bumper view police radar,
- *                                Replay cameras in race mode
- *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track,
+ *                                Replay cameras in race mode, Car markers (F6)
+ *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track, Lunar Springs Track,
  *                                Unlock Level, Time with variants
- *            Startup            Race stats (F12), Car markers (F6), Speed units, Start Screen, Intro video
- *                                (the first two are the race's switches: extras.cfg's stats_overlay and car_markers)
+ *            Startup            Race stats (F12), Speed units, Start Screen, Intro video
+ *                                (Car markers and Race stats are the race's switches: extras.cfg's car_markers and
+ *                                stats_overlay; ten rows a page is what the 26 pitch fits)
  *
  * The rows below are that list in order, so a group is a range of them. The list is the switches only: Done and
  * Cancel are the clean background's own words, and the title and the page indicator are the screen's, so none of
@@ -35,9 +36,9 @@ enum { EXTRAS_PAGES = 2, EXTRAS_GROUPS = 2 };
 enum { GROUP_MODES = 0, GROUP_CAMERAS, GROUP_UNLOCKS, GROUP_START };   /* the two groups of each page, in order */
 enum {
     ROW_MIRROR = 0, ROW_RALLY, ROW_EXPLODE, ROW_NITRO, ROW_TURBO,
-    ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY,
-    ROW_FIRST_P2, ROW_RIVAL, ROW_VEGAS, ROW_UNLOCK, ROW_VARIANT_TIME,
-    ROW_STATS, ROW_MARKERS,                        /* port: Startup's, the race's F12 and F6 switches */
+    ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* port: the race's F6 switch */
+    ROW_FIRST_P2, ROW_RIVAL, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,
+    ROW_STATS,                                     /* port: Startup's, the race's F12 switch */
     ROW_UNITS, ROW_START, ROW_MOVIES,
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
