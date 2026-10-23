@@ -308,10 +308,11 @@ static void present_drive(const Track *t, uint8_t *pixels)
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
     /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
-    race_stats_sample(&race_stats, platform_ticks_ms(), drive_steps);
-    const RaceStatsView view = { race_stats.meter.figures,
-                                 drive_sim.race.track_flags & TRACK_FLAG_TURBO ? DRIVE_CLOCK_TURBO_LEVEL : DRIVE_CLOCK_LEVEL,
-                                 drive_interp.refresh_hz, drive_interp.on, width, SCREEN_H };
+    race_stats_sample(&race_stats, platform_ticks_ms());
+    const RaceStatsView view = { .figures = race_stats.meter.figures, .refresh_hz = drive_interp.refresh_hz,
+                                 .interp = drive_interp.on, .width = width, .height = SCREEN_H,
+                                 .segments = ported_view_draw_segments(), .modern = ported_view_modern(),
+                                 .filter = ported_view_filter_on(), .fog = ported_view_fog_on() };
     shown = race_stats_compose(&race_stats, shown, width, SCREEN_H, t->art.palette, &view);
     platform_present(shown, palette);
 }

@@ -1,7 +1,8 @@
-/* port: the race's stats overlay, F12 in a race (extras.cfg's stats_overlay, Off by default): frames a second, the frame
- * time, the sim's steps a second and clock level, the refresh and the render's size, in the top-left corner under the
- * HUD's top row. Presentation only: it is drawn into a copy of the frame just before the frame is presented, so the
- * race, its replays and the screenshots never see it. */
+/* port: the race's stats overlay, F12 in a race (extras.cfg's stats_overlay, Off by default): the "3D render stats", the
+ * rendering figures only: frames a second, the frame time, the refresh, the interp, the render's size and format, the
+ * view distance's segments, and Modern 3D with its Texture Filter and Fog. In the top-left corner under the HUD's top
+ * row, in the CD's small face (text_small_*). Presentation only: it is drawn into a copy of the frame just before the
+ * frame is presented, so the race, its replays and the screenshots never see it. */
 #ifndef TNFS_RACE_STATS_H
 #define TNFS_RACE_STATS_H
 
@@ -11,7 +12,7 @@
 enum {
     RACE_STATS_KEY = 0x58,           /* F12, set-1 code */
     RACE_STATS_WINDOW_MS = 500,      /* the figures are averaged over this much real time */
-    RACE_STATS_LINES = 4,
+    RACE_STATS_LINES = 5,
     RACE_STATS_LINE_LEN = 64
 };
 
@@ -21,7 +22,6 @@ typedef struct {
     double fps;                 /* frames presented a real second */
     double frame_avg_ms;        /* the mean gap between presented frames */
     uint32_t frame_max_ms;      /* the longest gap */
-    double steps_per_s;         /* the race's steps (race ticks) a real second */
 } RaceStatsFigures;
 
 typedef struct {
@@ -30,7 +30,6 @@ typedef struct {
     uint32_t last_ms;           /* the last frame presented */
     int frames;                 /* the gaps taken in the window */
     uint32_t sum_ms, max_ms;    /* their sum and longest */
-    int32_t window_tick;        /* the race's tick at the window's first frame */
     RaceStatsFigures figures;
 } RaceStatsMeter;
 
@@ -41,16 +40,18 @@ typedef struct {
     uint8_t palette[768];       /* the palette the text styles were last built from */
     int palette_known;
     uint8_t dark;               /* the palette's nearest black, the backing's */
-    int text_ready;             /* the font is loaded */
+    int text_ready;             /* the small face is loaded */
 } RaceStats;
 
-/* What the overlay says about the frame, from the figures and the race's settings at the frame. */
+/* What the overlay says about the frame, from the figures and the render's settings at the frame. */
 typedef struct {
     RaceStatsFigures figures;
-    int clock_level;            /* drive_clock's level: 1 normal, 3 Turbo */
     int refresh_hz;             /* the frames a second drawn between steps */
     int interp;                 /* the poses are blended between steps */
     int width, height;          /* the frame drawn */
+    int segments;               /* the view distance: the segments of track drawn */
+    int modern;                 /* Modern 3D on */
+    int filter, fog;            /* Texture Filter and Fog as drawn: both 0 without Modern 3D */
 } RaceStatsView;
 
 typedef struct {
@@ -63,9 +64,9 @@ void race_stats_start(RaceStats *s, int on);
 int race_stats_key(RaceStats *s, int down);
 /* race_stats_key, and on a toggle the new value is written to extras.cfg; 1 when it toggled */
 int race_stats_key_save(RaceStats *s, int down);
-/* One presented frame at `now_ms`, the race's tick then; every frame counts, shown or not */
-void race_stats_sample(RaceStats *s, uint32_t now_ms, int32_t tick);
-void race_stats_meter_frame(RaceStatsMeter *m, uint32_t now_ms, int32_t tick);
+/* One presented frame at `now_ms`; every frame counts, shown or not */
+void race_stats_sample(RaceStats *s, uint32_t now_ms);
+void race_stats_meter_frame(RaceStatsMeter *m, uint32_t now_ms);
 /* The lines the overlay shows for the view */
 void race_stats_format(const RaceStatsView *v, RaceStatsText *out);
 /* The frame with the overlay drawn on a copy of it when on; `frame` itself when off (or when there is no room or no
