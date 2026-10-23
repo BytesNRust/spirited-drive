@@ -305,13 +305,29 @@ static void run_menu(PortExtras *e, const int *keys, int count, int combine, Men
     extras_menu_run(e, &unlock, 1, &ops);
 }
 
-/* the script both menu tests share: DOWN to Rally, SPACE on, UP to Mirror, SPACE on, ROWS_P1 DOWNs to Done,
+/* DOWN `count` times, appended to keys from n on; returns the new count */
+static int downs(int *keys, int n, int count)
+{
+    for (int i = 0; i < count; i++) keys[n++] = DOWN;
+    return n;
+}
+
+/* the keys from page 1's first row to page 2's `row`: DOWN to page 1's Done, RIGHT to Cancel, RIGHT round to page 2's
+ * first row, then DOWN to `row`. Returns how many keys were written. */
+static int keys_to_page_two(int *keys, int row)
+{
+    int n = downs(keys, 0, ROWS_P1);
+    keys[n++] = RIGHT, keys[n++] = RIGHT;
+    return downs(keys, n, row - ROW_FIRST_P2);
+}
+
+/* the script both menu tests share: on page 2, Rally on, SPACE, UP to Mirror, SPACE on, then down the page to Done,
  * ENTER */
 static int mirror_and_rally_keys(int *keys)
 {
-    int n = 0;
-    keys[n++] = DOWN, keys[n++] = SPACE, keys[n++] = UP, keys[n++] = SPACE;
-    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
+    int n = keys_to_page_two(keys, ROW_RALLY);
+    keys[n++] = SPACE, keys[n++] = UP, keys[n++] = SPACE;
+    n = downs(keys, n, ROWS_P2 - (ROW_MIRROR - ROW_FIRST_P2));   /* from Mirror down to Done */
     keys[n++] = ENTER;
     return n;
 }
@@ -321,7 +337,7 @@ static void menu_both_stay_on_under_the_port(void)
 {
     PortExtras e = port_extras_defaults();
     MenuFake f;
-    int keys[16];
+    int keys[48];
     run_menu(&e, keys, mirror_and_rally_keys(keys), 1, &f);
     CHECK_EQ_INT(f.saves, 1);
     CHECK_EQ_INT(f.saved.mirror, 1);
@@ -333,7 +349,7 @@ static void menu_still_excludes_as_the_exe(void)
 {
     PortExtras e = port_extras_defaults();
     MenuFake f;
-    int keys[16];
+    int keys[48];
     run_menu(&e, keys, mirror_and_rally_keys(keys), 0, &f);
     CHECK_EQ_INT(f.saves, 1);
     CHECK_EQ_INT(f.saved.mirror, 1);
@@ -345,11 +361,11 @@ static void menu_alone_is_unchanged_under_the_port(void)
 {
     PortExtras e = port_extras_defaults();
     MenuFake f;
-    /* Mirror on, down the page to Done, ENTER — rally untouched */
-    int keys[16];
-    int n = 0;
+    /* Mirror on (page 2), down the page to Done, ENTER — rally untouched */
+    int keys[48];
+    int n = keys_to_page_two(keys, ROW_MIRROR);
     keys[n++] = SPACE;
-    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
+    n = downs(keys, n, ROWS_P2 - (ROW_MIRROR - ROW_FIRST_P2));   /* from Mirror down to Done */
     keys[n++] = ENTER;
     run_menu(&e, keys, n, 1, &f);
     CHECK_EQ_INT(f.saves, 1);

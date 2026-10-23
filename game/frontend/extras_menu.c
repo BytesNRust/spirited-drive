@@ -25,12 +25,14 @@ enum { LABEL_X = 16, VALUE_RIGHT = 600 };
  * everything under it carry GROUP_GAP as well, which is the owner's "shorter than a row" on screen: a header takes
  * less height than a row, and the room it leaves reads as a gap rather than as another row.
  *
- * The pitch is 26 because page 2 is the fuller of the two now -- twelve lines, ten rows and two headers -- and has to
- * fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
- * CORNERS, top 430). Twelve lines at the exe's 36 pitch would not: the last row would land on the buttons.
+ * The pitch is 24 because page 1 is the fuller of the two now -- thirteen lines, eleven rows and two headers -- and has
+ * to fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
+ * CORNERS, top 430). At 26 its last line would sit at 426 and end at 446, on the buttons; at 24 it sits at 402 and ends
+ * at 422. ROW_TALL, the selection and hit height, is no taller than the pitch, so a selected row's band never reaches
+ * the next row.
  *
  * The fallback panel runs that band, 96..422, so it never reaches the words it did not draw. */
-enum { ROW_TOP = 100, ROW_PITCH = 26, ROW_TALL = 24, GROUP_GAP = 14 };
+enum { ROW_TOP = 100, ROW_PITCH = 24, ROW_TALL = 24, GROUP_GAP = 14 };
 enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 422 };
 /* port: the screen's own title where the originals' are: under the logo at the left, its letters' tops on Game
  * Mode's (y 65) -- config_bgnd.c patches the burnt-in one out of (0,60)-(124,94) */
@@ -40,23 +42,24 @@ enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_
 
 
 /* the two headers of each page, in the owner's words */
-static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Game modes", "Driving & cameras" },
-                                                                 { "Unlocks", "Startup" } };
+static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Cheats", "In-race options" },
+                                                                 { "Unlocks & mods", "Miscellaneous" } };
 
 /* where each page's second group begins, as a row of that page: extras_menu.h's order already has each page's first
- * group first, so the second is where the page's last group's first row is */
-static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_ASSISTS - ROW_MIRROR, ROW_STATS - ROW_FIRST_P2 };
+ * group first, so the second is the first row under its header (Speed units on page 1, Start Screen on page 2) */
+static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_UNITS - ROW_EXPLODE, ROW_START - ROW_FIRST_P2 };
 
 /* the first switch of each page, in extras_menu.h's flat list */
-static int first_of(int page) { return page == 0 ? ROW_MIRROR : ROW_FIRST_P2; }
+static int first_of(int page) { return page == 0 ? ROW_EXPLODE : ROW_FIRST_P2; }
 /* how many switches a page shows, which is where its Done sits: Cancel is the one past it */
 static int rows_of(int page) { return page == 0 ? ROWS_P1 : ROWS_P2; }
 static int done_of(int page) { return rows_of(page); }
 static int cancel_of(int page) { return rows_of(page) + 1; }
 /* Unlock Level is the one switch on page 2 with three values rather than two */
 static int unlock_row(void) { return ROW_UNLOCK - ROW_FIRST_P2; }
-/* Speed units is the other, with its own values: mph and km/h, its words the language's until it is chosen */
-static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
+/* Speed units is the other, with its own values: mph and km/h, its words the language's until it is chosen. It sits
+ * on page 1, the fifth row. */
+static int units_row(void) { return ROW_UNITS - ROW_EXPLODE; }
 static int shows_kmh(const PortExtras *e, int language_kmh)
 {
     return e->units == UNITS_KMH || (e->units == UNITS_LANGUAGE && language_kmh);
@@ -65,24 +68,24 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
 /* port: the switches' words, in extras_menu.h's order, which is the owner's order: page 1 is the first ROWS_P1 of
  * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
 static const char *const LABEL[EXTRAS_ROWS] = {
-    "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
-    "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
-    "Rival car markers",
-    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Lunar Springs Track", "Unlock Level",
-    "Time with variants", "3D render stats", "Speed units", "Start Screen", "Intro video"
+    "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car",
+    "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
+    "Replay cameras in race mode", "Rival car markers", "3D render stats",
+    "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track",
+    "Unlock Level", "Time with variants", "Start Screen", "Intro video"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
 static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
-        int *const p1[ROWS_P1] = { &e->mirror, &e->rally, &e->explode, &e->nitro, &e->turbo,
+        int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior, NULL /* Speed units */,
                                   &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras,
-                                  &e->car_markers };
+                                  &e->car_markers, &e->stats_overlay };
         return p1[row];
     }
-    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, &e->lunar_springs, NULL, &e->variant_time,
-                               &e->stats_overlay, NULL, NULL, &e->no_movies };
+    int *const p2[ROWS_P2] = { &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs,
+                               NULL /* Unlock Level */, &e->variant_time, NULL /* Start Screen */, &e->no_movies };
     return p2[row];
 }
 
@@ -94,8 +97,8 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
      * file keeps its meaning */
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
     if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
+    else if (page == 0 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
     else if (page == 1 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
-    else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -188,7 +191,7 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
         }
     } else if (p->page == 1 && p->selected == unlock_row()) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
-    } else if (p->page == 1 && p->selected == units_row()) {
+    } else if (p->page == 0 && p->selected == units_row()) {
         e->units = shows_kmh(e, o->language_kmh) ? UNITS_MPH : UNITS_KMH;
     } else {
         e->start = (StartScreen)((e->start + step + 3) % 3);
@@ -342,7 +345,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
 {
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
-    Page p = { 0, ROW_MIRROR, 1, 0, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
+    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1 };   /* not released: the click that opened it may still be down */
     static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);
