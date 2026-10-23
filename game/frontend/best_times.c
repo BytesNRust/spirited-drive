@@ -6,11 +6,19 @@
 #include <string.h>
 
 enum {
-    TRACKS = 9, ITEMS = 5, DONE = 0, PREV = 1, NEXT = 2, BACK = 3, NOTHING = 4, LOST_VEGAS = 8, TOURNAMENT = 3,
+    TRACKS = 9, ITEMS = 6, DONE = 0, PREV = 1, NEXT = 2, BACK = 3, NOTHING = 4, CHEATS = 5 /* port: the gap after Done */,
+    LOST_VEGAS = 8, TOURNAMENT = 3,
     OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, REST = 0x19, KEY_SPACE = 0x20,
     KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = 0x4800, KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00, KEY_DOWN = 0x5000,
     ALL = 0x100, TEXT = 0x50, NAME_X = 8, NAME_WIDTH = 0x10e, TIME_X = 0x118, CAR_X = 0x1e0, SHIFT_X = 0x24e,
     ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c, MARK_X = 0xe0, LABEL_X = 0x118, LABEL_Y = 0x28
+};
+
+/* port: the cheats item's label, centred in the gap between Done's words (to 0x4c) and the left arrow (0xdd), its
+ * capitals on Done's baseline (rows 449..460: the text top is 6 rows above its capitals): its pointer, and the hit
+ * rect it is found in (between Done's rect and the left arrow's, 0x82..0xc8) */
+enum {
+    CHEATS_X = 0x94, CHEATS_Y = 0x1bb, CHEATS_POINTER_X = 0x94, CHEATS_RECT_X0 = 0x82, CHEATS_RECT_X1 = 0xc8
 };
 
 /* the tracks' files (004673f8) and the cars (0046741c) */
@@ -23,8 +31,11 @@ static const char *const DIM[4] = { "dond", "lard", "rard", "desd" };
 /* the arrows' moves (004673d0, 004673da) and where the pointer goes per item (004673e4, 004673ee) */
 static const int16_t LEFT[ITEMS] = { 3, 0, 1, 2, 0 };
 static const int16_t RIGHT[ITEMS] = { 1, 2, 3, 0, 0 };
-static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 320 };
-static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 240 };
+static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 320, CHEATS_POINTER_X };
+static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 240, 455 };
+/* port: with a plus the cheats item between Done and the left arrow, the ring runs Done, cheats, left arrow */
+static const int16_t LEFT_PLUS[ITEMS] = { 3, CHEATS, 1, 2, 0, DONE };
+static const int16_t RIGHT_PLUS[ITEMS] = { CHEATS, 2, 3, 0, 0, PREV };
 /* 004baef8: a tournament's car per track */
 static const int16_t TOURNAMENT_CAR[TRACKS] = { 0, 3, 6, 0, 3, 3, 6, 6, 7 };
 
@@ -82,10 +93,12 @@ static void move_to(int item, const BestTimesOps *ops)
 }
 
 /* the item under the pointer becomes the one lit */
-static void follow(Screen *s, const BestTimesOps *ops)
+static void follow(Screen *s, const BestTimesState *st, const BestTimesOps *ops)
 {
     int16_t now = NOTHING;
     if (ops->pointer_in_rect(ops->ctx, 0, 0x82, 0x1b3, 0x1e0)) now = DONE;
+    else if (st->plus && ops->pointer_in_rect(ops->ctx, CHEATS_RECT_X0, CHEATS_RECT_X1, 0x1b3, 0x1e0))
+        now = CHEATS;   /* port */
     else if (ops->pointer_in_rect(ops->ctx, 0xc8, 0xfa, 0x1b3, 0x1e0)) now = PREV;
     else if (ops->pointer_in_rect(ops->ctx, 0x172, 0x1a4, 0x1b3, 0x1e0)) now = NEXT;
     else if (ops->pointer_in_rect(ops->ctx, 0x1e0, 0x280, 0x1b3, 0x1df)) now = BACK;
@@ -139,6 +152,13 @@ static void draw_records(const BestTimesInputs *in, const BestTimesState *st, co
     if (st->plus) draw_marks(st, track, SLOT_TOP, TOP_Y, ops);
 }
 
+/* port: the cheats item's words, cream when idle and yellow when lit; "No cheats" while the cheats table is up */
+static void cheats_label(const Screen *s, const BestTimesState *st, const BestTimesOps *ops)
+{
+    const char *const text = st->plus->cheats ? "No cheats" : "Cheats";
+    ops->plus_text(ops->ctx, s->item == CHEATS, text, CHEATS_X - ops->plus_text_width(ops->ctx, text) / 2, CHEATS_Y);
+}
+
 static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops)
 {
     ops->select(ops->ctx, in->screen);
@@ -147,6 +167,7 @@ static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, Dialo
         draw_records(in, st, ops);
     }
     if ((uint16_t)s->item < 4) ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, LIT[s->item]));
+    if (st->plus) cheats_label(s, st, ops);   /* port */
     if (s->refresh) {
         uint8_t black[PALETTE_PUT_BYTES];
         palette_put_clear(black);
@@ -184,6 +205,7 @@ static void draw_change(Screen *s, const BestTimesInputs *in, const BestTimesOps
     else if (s->was == BACK) ops->blit_masked(ops->ctx, ops->shape(ops->ctx, s->bank, DIM[BACK]));
     if ((uint16_t)s->item < BACK) ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, LIT[s->item]));
     else if (s->item == BACK) ops->blit_masked(ops->ctx, ops->shape(ops->ctx, s->bank, LIT[BACK]));
+    if (s->was == CHEATS || s->item == CHEATS) s->repaint = 1;   /* port: its words are drawn again over the art */
     s->changed = 0;
 }
 
@@ -222,6 +244,21 @@ static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *s
     s->refresh = 1;
 }
 
+/* port: the other table shown */
+static void toggle(Screen *s, BestTimesState *st, const BestTimesOps *ops)
+{
+    st->plus->cheats ^= 1;
+    s->redraw = s->repaint = 1;
+    ops->sound(ops->ctx, SOUND_MOVE);
+}
+
+/* port: the item the arrows move to; with a plus the cheats item is in the ring */
+static int16_t neighbour(const BestTimesState *st, uint16_t key, int16_t item)
+{
+    if (st->plus) return (key == KEY_LEFT ? LEFT_PLUS : RIGHT_PLUS)[item];
+    return (key == KEY_LEFT ? LEFT : RIGHT)[item];
+}
+
 static void act(Screen *s, const BestTimesInputs *in, BestTimesState *st, const BestTimesOps *ops)
 {
     const int track = track_of(st);
@@ -229,6 +266,9 @@ static void act(Screen *s, const BestTimesInputs *in, BestTimesState *st, const 
     case DONE:
         s->result = 1;
         s->done = 1;
+        break;
+    case CHEATS:   /* port */
+        toggle(s, st, ops);
         break;
     case PREV: {
         int16_t to = (int16_t)(track - 1);
@@ -246,14 +286,6 @@ static void act(Screen *s, const BestTimesInputs *in, BestTimesState *st, const 
     }
 }
 
-/* port: the other table shown */
-static void toggle(Screen *s, BestTimesState *st, const BestTimesOps *ops)
-{
-    st->plus->cheats ^= 1;
-    s->redraw = s->repaint = 1;
-    ops->sound(ops->ctx, SOUND_MOVE);
-}
-
 /* a key other than the acting ones: Escape goes back, the arrows step */
 static void step(Screen *s, uint16_t key, BestTimesState *st, const BestTimesOps *ops)
 {
@@ -263,7 +295,7 @@ static void step(Screen *s, uint16_t key, BestTimesState *st, const BestTimesOps
     } else if (key == KEY_LEFT || key == KEY_RIGHT) {
         ops->pointer_off(ops->ctx);
         s->was = s->item;
-        s->item = (key == KEY_LEFT ? LEFT : RIGHT)[s->item];
+        s->item = neighbour(st, key, s->item);
         s->changed = 1;
         move_to(s->item, ops);
     } else if (st->plus && (key == KEY_UP || key == KEY_DOWN)) {
@@ -296,7 +328,7 @@ int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogP
     if (p->active) ops->pointer_poll(ops->ctx);
     ops->pointer_mark(ops->ctx, p);
     while (!s.done) {
-        follow(&s, ops);
+        follow(&s, st, ops);
         if (s.redraw) draw(&s, in, st, p, ops);
         if (s.changed) draw_change(&s, in, ops);
         if (!s.armed) {
