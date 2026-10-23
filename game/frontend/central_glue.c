@@ -1234,7 +1234,7 @@ static void graphics(void *ctx, int32_t mode)
     const PortSettings was = port;
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
-    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3, race };
+    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3, race, port.f3_ultra };
     opt_in();
     /* after opt_in: it writes Options' unsaved edits into the image, which Cancel must keep */
     port_settings_was = port;

@@ -86,6 +86,19 @@ void graphics_own_race_view_step(int16_t *view, int *ultra)
     if (next == 0) *ultra = 0;
 }
 
+/* port: the View row in the race's pause menu: live with the port's F3 rotation (Ultra included), else the exe's lock */
+int graphics_own_view_live(int f3_ultra, int16_t view, int ultra)
+{
+    return f3_ultra != 0 ? 1 : graphics_own_live_in_race(GRAPHICS_OWN_VIEW, view, ultra);
+}
+
+/* port: the race's View step: the Options cycle (Ultra included) with the port's F3 rotation, else the exe's three */
+void graphics_own_race_view_step_for(int f3_ultra, int16_t *view, int *ultra)
+{
+    if (f3_ultra != 0) graphics_own_view_step(view, ultra);
+    else graphics_own_race_view_step(view, ultra);
+}
+
 int graphics_own_live_in_race(int setting, int16_t view, int ultra)
 {
     switch (setting) {
@@ -244,6 +257,7 @@ static int editable(const Screen *s, int row)
 {
     const GraphicsPlus *const plus = s->st->plus;
     if (plus == NULL || !plus->race) return 1;
+    if (row == GRAPHICS_OWN_VIEW) return graphics_own_view_live(plus->f3_ultra, view_of(s->st), plus->port->view_ultra);
     return graphics_own_live_in_race(row, view_of(s->st), plus->port->view_ultra);
 }
 
@@ -367,7 +381,7 @@ static void step_row(Screen *s, const GraphicsMenuOps *o, int row, int direction
         int16_t view;
         memcpy(&view, s->st->config + GRAPHICS_VIEW, sizeof view);
         if (s->st->plus->race)
-            graphics_own_race_view_step(&view, &port->view_ultra);
+            graphics_own_race_view_step_for(s->st->plus->f3_ultra, &view, &port->view_ultra);
         else
             graphics_own_view_step(&view, &port->view_ultra);
         view_to(s->st, view);

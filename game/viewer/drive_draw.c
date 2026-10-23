@@ -160,9 +160,11 @@ void drive_frame_setup(RaceState *race)
     st.restart = drive_frame.restart, st.mirror_state = drive_hud.mirror.state, st.use_parts = drive_hud.keys.use_parts;
     st.high = HIGH_SCREEN, st.width = SCREEN_W, st.height = SCREEN_H, st.back_buffer = 0;
     st.replay_kind = 0, st.chase_kind = race->chase.kind, st.detail = drive_keys.state.detail;
+    drive_keys_race_begins(&drive_keys);
     st.pending_segments = drive_frame.pending_segments, st.window_size = (uint8_t)race->window_size;
     st.screen_kind = drive_keys.state.screen_kind, st.clear_view = drive_frame.clear_view;
     race_draw_start(&ops, &st);
+    if (drive_keys.state.ultra != 0) st.pending_segments = DRAW_SEGMENTS_ULTRA;  /* port: the race starts on Ultra */
     drive_frame.restart = st.restart, drive_frame.unknown_511fc4 = st.unknown_511fc4;
     drive_frame.pending_segments = st.pending_segments, drive_frame.mirror_count = st.mirror_count;
     drive_frame.clear_view = st.clear_view;
@@ -262,8 +264,9 @@ static void df_mirror_scene(void *ctx, int32_t count)
 /* 0044b510 with 004496ac, 0044aa94, 0044a804 and 0043af80 before it: the port's front view, cars and all. */
 static void df_near(void *ctx, int32_t segments, int32_t node)
 {
-    (void)segments, (void)node;  /* the port's renderer keeps its own distance */
+    (void)node;
     DriveFrame *f = ctx;
+    if (segments != 0) ported_view_set_reach(segments);  /* the distance the frame took (0044cd29); 0 before the race set it */
     const Track *t = f->t;
     PortedCar list[RACE_CARS];
     for (int i = 0; i < drive_sim.count; i++) {
