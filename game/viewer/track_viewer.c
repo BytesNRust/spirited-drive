@@ -503,7 +503,8 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     static Track t;
     /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
      * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
-    TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL, 0 };
+    TrackFamInputs look = { .time_of_day = 0, .variant_m = 0, .variant_r = 0, .track = race_sim_track_index(name),
+                            .stem = NULL, .dir = NULL, .dir_midday = NULL, .port_both_variants = 0 };
     look.port_lunar = port_extras_load().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
