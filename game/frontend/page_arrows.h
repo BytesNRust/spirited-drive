@@ -39,8 +39,9 @@ const PageArrowMasks *page_arrows_shared(ConfigBgndRead read);
  * CONTROLS_NAV_* */
 enum {
     PAGE_NAV_X0 = 270, PAGE_NAV_X1 = 370, PAGE_NAV_Y0 = 432, PAGE_NAV_Y1 = 476,
-    PAGE_NAV_CENTRE = 320, PAGE_NAV_TEXT_Y = 444,
-    PAGE_NAV_ARROW_Y = 442   /* the masks' top row: the 26 rows of the triangle stand on the text's middle */
+    PAGE_NAV_CENTRE = 320,
+    PAGE_NAV_TEXT_Y = 440,   /* the count's last row (456) on the background's DONE and CANCEL */
+    PAGE_NAV_ARROW_Y = 439   /* the masks' top row: the 26 rows of the triangle stand on the text's middle */
 };
 
 /* the two triangles' left columns: the left one's at the box's left edge, the right one's flush with its right */

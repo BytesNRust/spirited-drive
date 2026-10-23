@@ -114,6 +114,7 @@ static void test_the_first_page_has_the_right_triangle_only(void)
     CHECK_EQ_INT(f.arrow_x[0], PAGE_NAV_X1 - 2 - 26);   /* flush with the box's right edge */
     CHECK_EQ_INT(f.arrow_y[0], PAGE_NAV_ARROW_Y);
     CHECK_EQ_INT(f.text_y[0], PAGE_NAV_TEXT_Y);
+    CHECK_EQ_INT(PAGE_NAV_TEXT_Y, 440);   /* the count's last row on DONE's and CANCEL's (456) */
 }
 
 static void test_a_middle_page_has_both_the_last_the_left_only(void)
