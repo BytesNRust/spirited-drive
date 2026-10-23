@@ -10,7 +10,8 @@ typedef enum {
     TEXT_CREAM = 0,   /* #E8D3B7, the default (00522118) */
     TEXT_YELLOW = 1,  /* #FFCE06 (00523158) */
     TEXT_RED = 2,     /* #FF0606 (0051ed58) */
-    TEXT_WHITE = 3    /* #FFFFFF (005210d8) */
+    TEXT_WHITE = 3,   /* #FFFFFF (005210d8) */
+    TEXT_DIM = 4      /* port: #8C8273, a cream held back for the rows a screen does not let the player change */
 } TextStyle;
 
 int text_init(void);                                    /* 004322f8: load + 00487e10 */

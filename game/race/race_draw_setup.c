@@ -10,6 +10,14 @@ enum {
     SCREEN_INTERLACED = 3
 };
 
+int32_t race_draw_detail_segments(int detail)
+{
+    if (detail == 0) return SEGMENTS_DETAIL_0;
+    if (detail == 1) return SEGMENTS_DETAIL_1;
+    if (detail == 2) return SEGMENTS_DETAIL_2;
+    return -1;
+}
+
 /* 0044ca7c..0044cad5: the low resolution's palette written back around the screen mode. */
 static void low_screen(const RaceDrawSetupOps *ops, const RaceDrawSetup *s)
 {
@@ -63,9 +71,8 @@ void race_draw_setup(const RaceDrawSetupOps *ops, RaceDrawSetup *s)
     ops->setup_449be4(ops->ctx);
     ops->setup_449430(ops->ctx);
     s->unknown_4c2d88 = 1;
-    if (s->detail == 0) s->pending_segments = SEGMENTS_DETAIL_0;
-    else if (s->detail == 1) s->pending_segments = SEGMENTS_DETAIL_1;
-    else if (s->detail == 2) s->pending_segments = SEGMENTS_DETAIL_2;
+    const int32_t segments = race_draw_detail_segments(s->detail);
+    if (segments != -1) s->pending_segments = segments;
     if (s->screen_kind == SCREEN_INTERLACED) s->clear_view = 1;
     ops->screen(ops->ctx, s->window_size, s->screen_kind);
 }

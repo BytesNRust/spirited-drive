@@ -193,6 +193,8 @@ static void number(void *ctx, uint32_t address, int32_t value)
     memcpy(block, c->w->settings, RACE_MENU_SETTINGS);
     glue_race_option(address);
     memcpy(c->w->settings, block, RACE_MENU_SETTINGS);
+    /* port: the Graphics screen closed; its settings the race takes now, so the view distance shows on this frame */
+    if (address == 0x423d28) track_viewer_graphics_close(block + RACE_MENU_KEPT);
 }
 
 /* 00463f80 on the pointer's place whether it is shown or not: the keys' steps move it onto their item (00464038) */

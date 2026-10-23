@@ -7,6 +7,7 @@
 #include "viewer/drive_session.h"
 #include "game/race/car_load.h"
 #include "game/race/race_chase.h"
+#include "game/race/race_detail.h"
 #include "game/race/race_draw_setup.h"
 #include "game/sys/port_extras.h"
 #include "game/race/race_replay_image.h"
@@ -442,6 +443,23 @@ void track_viewer_options_to_settings(uint8_t *options)
     const uint8_t bytes[OPTS] = { (uint8_t)drive_sim.race.window_size, drive_keys.state.screen_kind,
                                   drive_keys.state.detail, drive_frame.alternate, drive_keys.state.w4fb786 };
     for (int k = 0; k < OPTS; k++) options[2 * k] = bytes[k], options[2 * k + 1] = 0;
+}
+
+/* port: the Graphics screen's settings the race takes when the pause menu's Graphics closes (drive_menu.c). Perspective
+ * correction, texture filter and fog, the field, and the refresh rate are read here, and the view distance's segments
+ * are asked for through the pause's pending detail, which the same frame takes (drive_run.c). Scaling, the format,
+ * full screen and Ultra wait for the next race. `options` are the race's option bytes, as the menu writes them. */
+void track_viewer_graphics_close(const uint8_t *options)
+{
+    const PortSettings ps = port_settings_load();
+    drive_wide.fov_adjust = ps.fov_adjust;
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective));
+    ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
+    const char *hz = getenv("TNFS_REFRESH_HZ");  /* as the race's start reads it */
+    drive_run_refresh_set(hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : ps.refresh_hz);
+    drive_keys.state.detail = options[2 * OPT_VIEW];
+    const int32_t segments = race_draw_detail_segments(drive_keys.state.detail);
+    if (segments != -1) race_detail_request(segments, &drive_pause.detail_pending);
 }
 
 void drive_end(void)
