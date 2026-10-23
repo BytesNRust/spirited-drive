@@ -1,4 +1,5 @@
 /* Control Central (00432ff4): its frame, its start and its loop's end. */
+#include "game/frontend/central_banner.h"
 #include "game/frontend/central_run.h"
 
 #include <string.h>
@@ -168,6 +169,7 @@ static int turn(CentralRun *r)
     *st->net_second = 0;
     central_follow(r);
     central_after_follow(r);
+    if (central_banner_stale(r)) r->redraw = 1;   /* port: the banner follows a cheat typed or the Warrior picked */
     if ((int16_t)r->redraw != 0) central_draw(r);
     const int32_t changed = r->changed;
     o->music(o->ctx);
