@@ -5,6 +5,7 @@
 #include "game/frontend/palette_put.h"
 #include "game/frontend/yes_no_box.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* The calls 0045cea0 makes. Shapes are 004732dd's; a palette argument is
@@ -70,6 +71,18 @@ typedef struct ResultsOps {
 
 enum { RESULTS_GAME = 0x5bc, RESULTS_IMAGE = 0x5f34, RESULTS_CARS = 12 };
 
+/* port: the cheats a records table's rows were set with (port_records.h's marks of the track in the table shown) and
+ * the laps choice its circuit totals take (records_slot_totals), with the x the letters start at: after the longest
+ * car name (the car is drawn at 0x1d6). Shown after a row's car and before its gearbox mark. */
+typedef struct ResultsMarks {
+    const uint8_t *slots;   /* RECORDS_MARK_SLOTS bytes, EXTRAS_MARK_* a slot */
+    int choice;
+} ResultsMarks;
+
+/* port: the letters start here, in the gap after the record's name (names on the cheats table fit 200, to 207) and
+ * before the time (305); "Best Time (c)" is the header's short mark (the full words run past the edge) */
+enum { RESULTS_MARK_X = 0xd7 };
+
 typedef struct ResultsInputs {
     const uint8_t *game;        /* 0052ad44: the game state, RESULTS_GAME bytes (tournament.h) */
     const uint8_t *image;       /* 00524df0: config.dat's image, RESULTS_IMAGE bytes (the race setup, the records) */
@@ -90,13 +103,22 @@ typedef struct ResultsInputs {
     int circuit_place;          /* the short 0051dcc4: 0045eff4's player's place, from 0 */
     int circuit_rival_place;    /* the short 0051dcbe: 0045eff4's rival's */
     const int32_t *finish;      /* 0051dccc: 8 dwords, the players by total (results_order fills it) */
+    const ResultsMarks *marks;  /* port: the table with cheats the records shown are from; NULL: the table without */
 } ResultsInputs;
+
+/* port: the table shown is the one with cheats (its marks are there; marks NULL or without slots is the table without) */
+static inline int results_cheats(const ResultsInputs *in) { return in->marks != NULL && in->marks->slots != NULL; }
 
 typedef struct ResultsState {
     int32_t inverse;            /* 004c5ff4 */
     uint8_t *screen_palette;    /* 00520dd8 (palette_put) */
     int16_t record_music;       /* the short 0051dd14: a record's tune playing */
 } ResultsState;
+
+/* port: a record row's cheat letters at y (the table with cheats only; nothing for a slot out of the track's), and the
+ * row of the track's totals (row 0: the best time) with its laps choice */
+void results_mark_slot(const ResultsInputs *in, int slot, int32_t y, const ResultsOps *ops);
+void results_mark_total(const ResultsInputs *in, int row, int32_t y, const ResultsOps *ops);
 
 /* 0045cea0 (ax: ask 0045bad8 for the records beaten): stats/standseg.qfs
  * for the segment (00524e83, the last but one when 0) on the track: the

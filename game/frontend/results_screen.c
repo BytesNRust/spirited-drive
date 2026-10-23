@@ -1,5 +1,7 @@
 #include "game/frontend/results_screen.h"
 
+#include "game/frontend/records_route.h"
+
 #include <stdio.h>
 
 enum {
@@ -35,6 +37,21 @@ static const uint8_t *player_at(const ResultsInputs *in, int32_t who) { return i
 static const uint8_t *track_at(const ResultsInputs *in) { return in->image + TRACK_RECORDS * g16(in->image + TRACK); }
 
 static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" : "DNF"; }
+
+/* port: a row's cheat letters at the marks' x, when the table shown is the one with cheats */
+void results_mark_slot(const ResultsInputs *in, int slot, int32_t y, const ResultsOps *ops)
+{
+    char letters[5];
+    if (!results_cheats(in) || slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
+    records_mark_text(in->marks->slots[slot], letters);
+    if (letters[0] != '\0') ops->text_at(ops->ctx, letters, RESULTS_MARK_X, y);
+}
+
+void results_mark_total(const ResultsInputs *in, int row, int32_t y, const ResultsOps *ops)
+{
+    if (!results_cheats(in)) return;
+    results_mark_slot(in, records_slot_totals(g16(in->image + TRACK), in->marks->choice, row), y, ops);
+}
 
 static void place_text(int place, int32_t x, const ResultsOps *ops)
 {
@@ -77,7 +94,7 @@ static void draw_heads(const ResultsInputs *in, int segment, const ResultsOps *o
     ops->text_fit(ops->ctx, (const char *)player_at(in, in->player) + NAME, LEFT, 0x5a, 0x96);
     ops->text_at(ops->ctx, in->car_names[g16(in->image + CAR)], LEFT, 0x6e);
     if (type == 0) {
-        snprintf(text, sizeof text, in->german ? "Bestzeit" : "Best Time");
+        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", results_cheats(in) ? " (c)" : "");
         ops->text_at(ops->ctx, text, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(track_at(in) + BEST_CAR)], RIGHT, 0x6e);
     } else {
@@ -139,12 +156,14 @@ static void draw_records(const ResultsInputs *in, int segment, int beaten, const
     ops->time_text(ops->ctx, text, g32(rec + REC_TIME));
     ops->text_at(ops->ctx, text, LEFT, 0x136);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + REC_CAR)], RIGHT, 0x136);
+    results_mark_slot(in, SLOT_SEGMENT + segment, 0x136, ops);
     draw_gearbox(in, g32(rec + REC_GEARBOX), 0x136, "h.h.", ops);
     ops->text_select(ops->ctx, beaten == 2 || beaten == 3 ? 3 : 1);
     ops->text_fit(ops->ctx, (const char *)rec + LAP_NAME, 7, 0x17c, 200);
     ops->speed_text(ops->ctx, text, g32(rec + LAP_SPEED));
     ops->text_at(ops->ctx, text, LEFT, 0x17c);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + LAP_CAR)], RIGHT, 0x17c);
+    results_mark_slot(in, SLOT_TOP, 0x17c, ops);
     draw_gearbox(in, g32(rec + LAP_GEARBOX), 0x17c, "h.h", ops);
 }
 
