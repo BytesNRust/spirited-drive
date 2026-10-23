@@ -476,15 +476,16 @@ static void test_page_one_has_nine_rows(void)
 }
 
 /* page 2's eight switches, Intro video the last of them: walk the whole page down and they are all of them */
-static void test_page_two_has_eight_rows(void)
+static void test_page_two_has_nine_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 12);
+    run(&r, keys, 13);
     CHECK(shown(&r.fake, "Warrior Player Car"));
     CHECK(shown(&r.fake, "Warrior Rival Car"));
     CHECK(shown(&r.fake, "Lost Vegas Track"));
+    CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
     CHECK(shown(&r.fake, "Speed units"));
@@ -625,7 +626,10 @@ static void test_both_pages_share_one_layout(void)
     run(&two, turn, n);
 
     CHECK_EQ_INT(y_in(&two.fake, "Unlocks"), y_in(&one.fake, "Game modes"));
-    CHECK_EQ_INT(y_in(&two.fake, "Startup"), y_in(&one.fake, "Driving & cameras"));
+    /* port: page 2's Unlocks has six rows with Lunar Springs Track, so Startup's header sits one row below page 1's
+     * Driving & cameras header (310 against 282) */
+    CHECK_EQ_INT(y_in(&two.fake, "Startup"), 310);
+    CHECK_EQ_INT(y_in(&one.fake, "Driving & cameras"), 282);
     /* the gap: the second group starts further down than the first group's last row, by more than a row's pitch */
     CHECK(y_in(&one.fake, "Driving & cameras") - y_in(&one.fake, "Turbo mode")
           > y_in(&one.fake, "Explode mode") - y_in(&one.fake, "Rally track mode"));
@@ -847,9 +851,9 @@ static void test_unlock_steps_through_three_values(void)
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2 */
-    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = DOWN;   /* Unlock Level */
+    for (int i = 0; i < 4; i++) keys[n++] = DOWN;          /* Unlock Level, below Lunar Springs Track */
     keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* 0 to 2 */
-    for (int i = 0; i < ROWS_P2 - 3; i++) keys[n++] = DOWN;   /* Done */
+    for (int i = 0; i < ROWS_P2 - 4; i++) keys[n++] = DOWN;   /* Done */
     keys[n++] = ENTER;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -872,6 +876,26 @@ static void test_escape_on_page_two_restores(void)
     run(&r, keys, n);
     CHECK_EQ_INT(r.e.warrior, 0);
     CHECK_EQ_INT(r.fake.saves, 0);
+}
+
+/* Lunar Springs Track is the Unlocks row under Lost Vegas: Enter turns it on and Done keeps it */
+static void test_lunar_row_is_saved_on_done(void)
+{
+    Rig r;
+    /* page 1's Done, round to page 2's first row, down three to Lunar Springs, Enter, then down to Done */
+    int keys[48] = {0};
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;
+    for (int i = 0; i < 3; i++) keys[n++] = DOWN;
+    keys[n++] = ENTER;
+    for (int i = 0; i < ROWS_P2 - 3; i++) keys[n++] = DOWN;
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.e.lunar_springs, 1);
+    CHECK_EQ_INT(r.e.vegas, 0);
+    CHECK_EQ_INT(r.fake.saves, 1);
 }
 
 /* Done writes the on-disk file (saves++ in the rig) */
@@ -901,7 +925,8 @@ int main(void)
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
     test_page_one_has_nine_rows();
-    test_page_two_has_eight_rows();
+    test_page_two_has_nine_rows();
+    test_lunar_row_is_saved_on_done();
     test_speed_units_row_reads_mph_in_english();
     test_speed_units_follow_the_language_until_chosen();
     test_speed_units_choice_overrides_german();

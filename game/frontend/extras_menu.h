@@ -21,7 +21,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *   page 1  Game modes         Mirror track mode, Rally track mode, Explode mode, Nitro mode, Turbo mode
  *            Driving & cameras  No driving assists, Bumper view mirror, Bumper view police radar,
  *                                Replay cameras in race mode
- *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track,
+ *   page 2  Unlocks            Warrior Player Car, Warrior Rival Car, Lost Vegas Track, Lunar Springs Track,
  *                                Unlock Level, Time with variants
  *            Startup            Speed units, Start Screen, Intro video
  *
@@ -35,7 +35,7 @@ enum { GROUP_MODES = 0, GROUP_CAMERAS, GROUP_UNLOCKS, GROUP_START };   /* the tw
 enum {
     ROW_MIRROR = 0, ROW_RALLY, ROW_EXPLODE, ROW_NITRO, ROW_TURBO,
     ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY,
-    ROW_FIRST_P2, ROW_RIVAL, ROW_VEGAS, ROW_UNLOCK, ROW_VARIANT_TIME,
+    ROW_FIRST_P2, ROW_RIVAL, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,
     ROW_UNITS, ROW_START, ROW_MOVIES,
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };

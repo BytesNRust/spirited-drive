@@ -23,6 +23,8 @@ typedef struct {
     int variant_time; /* 0/1: the time of day offered with Mirror or Rally (fam_mirror.h), which the original hides */
     StartScreen start;                                          /* START_GAME_MODE */
     SpeedUnits units;                                           /* UNITS_LANGUAGE */
+    int lunar_springs;  /* 0/1: the rally on Rusty Springs runs the cut moon track's textures and picture (lunar_springs.h).
+                         * Last, so the positional initialisers above keep their meaning. */
 } PortExtras;
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */

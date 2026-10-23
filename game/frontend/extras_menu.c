@@ -67,7 +67,7 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
-    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Unlock Level",
+    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Lunar Springs Track", "Unlock Level",
     "Time with variants", "Speed units", "Start Screen", "Intro video"
 };
 
@@ -79,8 +79,8 @@ static int *flag_of(PortExtras *e, int page, int row)
                                   &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras };
         return p1[row];
     }
-    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, NULL, &e->variant_time, NULL, NULL,
-                               &e->no_movies };
+    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, &e->lunar_springs, NULL, &e->variant_time,
+                               NULL, NULL, &e->no_movies };
     return p2[row];
 }
 
