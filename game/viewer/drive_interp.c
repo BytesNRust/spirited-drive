@@ -93,7 +93,10 @@ void drive_interp_apply(RaceSim *sim, const DriveInterpPose *a, const DriveInter
         race->chase.position[k] = blend(a->eye[k], b->eye[k], alpha);
         race->chase.angles[k] = blend_angle(a->eye_ang[k], b->eye_ang[k], alpha);
     }
-    race->chase.node = alpha < DRIVE_INTERP_ONE ? a->eye_node : b->eye_node;
+    /* the older node at every alpha: the car rows of the step's first frame are flagged against it (ported_view's
+     * ahead rows), and a frame that switched to the newer node would look them up one row off. Turbo's 3-tick gap
+     * saturates alpha about 7 ms before its step, so such a frame comes. */
+    race->chase.node = a->eye_node;
 }
 
 void drive_interp_restore(RaceSim *sim, const DriveInterpPose *saved)
