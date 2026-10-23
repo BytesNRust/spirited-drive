@@ -15,13 +15,15 @@ static const struct {
     [TITLE_ART_CENTRAL_QFS] = { "control/central.qfs", { 238, 0, 0 } },
     [TITLE_ART_TRMTSTND_QFS] = { "stats/trmtstnd.qfs", { 222, 0, 0 } },
     [TITLE_ART_GRAPHICS_QFS] = { "option/graphics.qfs", { 0, 172, 8 } },
+    [TITLE_ART_CNTRLSET_QFS] = { "option/cntrlset.qfs", { 0, 8, 164 } },
 };
 
 enum {
     SMALL_TOP = 70,   /* the small capitals' top row; the capitals' is TITLE_ART_TOP */
     CUT_PAD = 1,      /* the letters cut 1 px wider all round for their anti-aliased edge; no neighbour is nearer
                        * than 3 px on the CD, so no pad takes in another letter's edge */
-    PIECES = 12,
+    PIECES = 16,
+    CONTROLS_SMALL_TOP = 69,   /* the controls title's small capitals, which stand a little higher than Customize's */
     WORD = -1,        /* a piece that is a word break */
     SMALL_Z = -2      /* the small z, made from the small e of the piece after it in the table */
 };
@@ -49,9 +51,28 @@ static const Piece TITLES[TITLE_ART_COUNT][PIECES] = {
     },
     [TITLE_ART_GRAPHICS_DETAIL] = { { TITLE_ART_GRAPHICS_QFS, 9, 301, TITLE_ART_TOP } },
     [TITLE_ART_GAME_MODE] = { { TITLE_ART_GAMEMODE_QFS, 9, 206, TITLE_ART_TOP } },
+    /* "Controls Setup" is the controls screen's own burnt-in title (cntrlset.qfs), its letters measured where they stand
+     * there: the capitals C and S, the small letters between, the word break after "Controls" */
+    [TITLE_ART_CONTROLS_SETUP] = {
+        { TITLE_ART_CNTRLSET_QFS, 8, 28, TITLE_ART_TOP },           /* C */
+        { TITLE_ART_CNTRLSET_QFS, 33, 49, CONTROLS_SMALL_TOP },     /* o */
+        { TITLE_ART_CNTRLSET_QFS, 55, 71, CONTROLS_SMALL_TOP },     /* n */
+        { TITLE_ART_CNTRLSET_QFS, 76, 90, CONTROLS_SMALL_TOP },     /* t */
+        { TITLE_ART_CNTRLSET_QFS, 95, 110, CONTROLS_SMALL_TOP },    /* r */
+        { TITLE_ART_CNTRLSET_QFS, 115, 132, CONTROLS_SMALL_TOP },   /* o */
+        { TITLE_ART_CNTRLSET_QFS, 137, 152, CONTROLS_SMALL_TOP },   /* l */
+        { TITLE_ART_CNTRLSET_QFS, 155, 170, CONTROLS_SMALL_TOP },   /* s */
+        { WORD, 0, 0, 0 },
+        { TITLE_ART_CNTRLSET_QFS, 194, 213, TITLE_ART_TOP },        /* S */
+        { TITLE_ART_CNTRLSET_QFS, 219, 233, CONTROLS_SMALL_TOP },   /* e */
+        { TITLE_ART_CNTRLSET_QFS, 236, 251, CONTROLS_SMALL_TOP },   /* t */
+        { TITLE_ART_CNTRLSET_QFS, 256, 272, CONTROLS_SMALL_TOP },   /* u */
+        { TITLE_ART_CNTRLSET_QFS, 278, 292, CONTROLS_SMALL_TOP },   /* p */
+    },
 };
 
-static const char *const TEXTS[TITLE_ART_COUNT] = { "Customize Game", "Graphics Detail", "Game Mode" };
+static const char *const TEXTS[TITLE_ART_COUNT] = { "Customize Game", "Graphics Detail", "Game Mode",
+                                                    "Controls Setup" };
 
 /* the pieces in use: a title's row ends at its first empty one */
 static int piece_count(const Piece *pieces)

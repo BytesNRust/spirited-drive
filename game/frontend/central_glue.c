@@ -915,6 +915,13 @@ static int fake_pad(RawPad *out)
     return 1;
 }
 static int32_t pad_raw(void *ctx, RawPad *out) { (void)ctx; return fake_pad(out) || platform_joy_raw(0, out); }
+/* port: the configuration screens' clean background for the controls' pages 2 and 3, the same one the Graphics and
+ * CUSTOMIZE screens use (glue_own_bgnd's copy, shared) */
+static int32_t controls_bgnd(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H], uint8_t palette[768])
+{
+    (void)ctx;
+    return glue_own_bgnd(pixels, palette);
+}
 /* port: from Options (mode 0) the controls screen also has two pages for controls.cfg's bindings (from the race's
  * pause menu it is the original's) */
 static void controls(void *ctx, int32_t mode)
@@ -935,7 +942,9 @@ static void controls(void *ctx, int32_t mode)
         select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
         glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
         picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw,
-        plus_arrow_size, plus_arrow };
+        plus_arrow_size, plus_arrow,
+        /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
+        controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text };
     controls_menu(&st, mode, &ops);
     controls_in();
 }

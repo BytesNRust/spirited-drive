@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 enum { CONTROLS_PALETTE = 0x300, CONTROLS_SHORTS = 13 };
+/* the clean configuration background's size, as config_bgnd.h's CONFIG_BGND_W and _H */
+enum { CONTROLS_BGND_W = 640, CONTROLS_BGND_H = 480 };
 
 typedef struct ControlsMenuOps {
     int32_t (*picture_new)(void *ctx, int32_t w, int32_t h, int32_t flags);  /* 0047310c (cdecl) */
@@ -69,6 +71,17 @@ typedef struct ControlsMenuOps {
      * style's colours (lit yellow, else cream). Both NULL keeps the indicator's text. */
     int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
     void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
+    /* port: the pages 2 and 3 over the clean configuration background (config_bgnd.c), as the Graphics and CUSTOMIZE
+     * screens draw theirs. `plus_bgnd` composes it once as the pages open and says 0 when there is none, then
+     * `plus_bgnd_shape` puts it on with its palette each time a page is drawn. The words go through `plus_text_smooth`
+     * (the background put back under them), the title and the group headers through their own ops. NULL keeps the
+     * exe's picture. */
+    int32_t (*plus_bgnd)(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H], uint8_t palette[768]);
+    int32_t (*plus_bgnd_shape)(void *ctx, const uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H],
+                               const uint8_t palette[768]);
+    void (*plus_text_smooth)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
+    void (*plus_title)(void *ctx, const char *text, int32_t x, int32_t y);
+    void (*plus_header)(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
 } ControlsMenuOps;
 
 /* port: the bindings the added pages edit */

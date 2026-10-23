@@ -14,6 +14,7 @@ typedef enum {
     TITLE_ART_CUSTOMIZE_GAME,
     TITLE_ART_GRAPHICS_DETAIL,
     TITLE_ART_GAME_MODE,   /* Game Mode's own title, uncut: the yardstick the look is compared against */
+    TITLE_ART_CONTROLS_SETUP,   /* the controls screen's title, cut from its own burnt-in one */
     TITLE_ART_COUNT
 } TitleArtId;
 
@@ -22,6 +23,7 @@ typedef enum {
     TITLE_ART_CENTRAL_QFS,    /* control/central.qfs */
     TITLE_ART_TRMTSTND_QFS,   /* stats/trmtstnd.qfs */
     TITLE_ART_GRAPHICS_QFS,   /* option/graphics.qfs */
+    TITLE_ART_CNTRLSET_QFS,   /* option/cntrlset.qfs */
     TITLE_ART_SOURCES
 } TitleArtSource;
 
