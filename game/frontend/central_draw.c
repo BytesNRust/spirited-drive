@@ -1,7 +1,11 @@
 /* Control Central (00432ff4): the screen drawn again (00433cd5..00434b54) and an item's change (00434b69..). */
+#include "game/frontend/central_banner.h"
 #include "game/frontend/central_run.h"
 
 #include "game/frontend/variant_rule.h"
+#include "game/race/lunar_springs.h"
+#include "game/sys/port_extras.h"
+#include "game/sys/resource.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -92,7 +96,11 @@ static void track_art(CentralRun *r)
         const int at = base + *st->track;
         sprintf(path, "%scontrol/%s", st->paths, at < 28 ? TRACK_NAMES[at] : "");
         strcat(path, ".qfs");
-        st->art[ART_TRACK] = r->ops->load_bank(r->ops->ctx, path, 0);
+        /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
+         * art directory whatever the language */
+        char moon[512];
+        const int lunar = lunar_springs_picture(at, port_extras_load().lunar_springs, resource_root(), moon, sizeof moon);
+        st->art[ART_TRACK] = r->ops->load_bank(r->ops->ctx, lunar ? moon : path, 0);
         st->was[WAS_TRACK] = *st->track;
         st->was[WAS_R] = (int16_t)*st->variant_r;
         st->was[WAS_M] = (int16_t)*st->variant_m;
@@ -227,6 +235,7 @@ void central_draw(CentralRun *r)
     opponent_art(r);
     race_art(r);
     highlight(r);
+    central_banner(r);   /* port: after the frame is blanked above, so a banner that goes leaves nothing */
     o->music(o->ctx);
     o->select_default(o->ctx);
     o->blit_word(o->ctx, o->picture_shape(o->ctx, *st->screen));

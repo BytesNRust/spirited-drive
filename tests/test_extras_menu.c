@@ -331,8 +331,8 @@ static void test_page_two_switches_saved(void)
     int keys[48];
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
-    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* Done to Cancel, Cancel to page 2, then the toggles */
-    keys[n++] = RIGHT;                                     /* Warrior Player Car on, the ninth toggle */
+    keys[n++] = RIGHT; keys[n++] = RIGHT;                  /* Done to Cancel, Cancel to page 2's Warrior Player Car */
+    keys[n++] = RIGHT;                                     /* Warrior Player Car on */
     for (int i = 0; i < ROWS_P2 - 2; i++) keys[n++] = DOWN;   /* down to Start Screen, the first row of Startup */
     for (int i = 0; i < 3; i++) keys[n++] = LEFT;         /* Start's three values: Network, Control Central, Game Mode */
     for (int i = 0; i < 2; i++) keys[n++] = DOWN;         /* up the Startup group, then Done */
@@ -457,12 +457,12 @@ static void test_no_background_leaves_the_display_alone(void)
 }
 
 /* page 1's nine switches, Replay cameras the last of them: walk the whole page down and they are all of them */
-static void test_page_one_has_nine_rows(void)
+static void test_page_one_has_ten_rows(void)
 {
     Rig r;
-    const int keys[] = { DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    const int keys[] = { DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
     setup(&r);
-    run(&r, keys, 10);
+    run(&r, keys, 11);
     CHECK(shown(&r.fake, "Mirror track mode"));
     CHECK(shown(&r.fake, "Rally track mode"));
     CHECK(shown(&r.fake, "Explode mode"));
@@ -472,25 +472,53 @@ static void test_page_one_has_nine_rows(void)
     CHECK(shown(&r.fake, "Bumper view mirror"));
     CHECK(shown(&r.fake, "Bumper view police radar"));
     CHECK(shown(&r.fake, "Replay cameras in race mode"));
+    CHECK(shown(&r.fake, "Car markers (F6)"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* page 2's eight switches, Intro video the last of them: walk the whole page down and they are all of them */
-static void test_page_two_has_eight_rows(void)
+/* page 2's ten switches, Intro video the last of them: walk the whole page down and they are all of them */
+static void test_page_two_has_ten_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    int keys[32] = { 0 };
+    int n = 0;
+    keys[n++] = UP; keys[n++] = RIGHT; keys[n++] = RIGHT;   /* to page 2's first row */
+    for (int i = 0; i < ROWS_P2; i++) keys[n++] = DOWN;       /* down to Done (the row past the ten) */
+    keys[n++] = ENTER;
     setup(&r);
-    run(&r, keys, 12);
+    run(&r, keys, n);
     CHECK(shown(&r.fake, "Warrior Player Car"));
     CHECK(shown(&r.fake, "Warrior Rival Car"));
     CHECK(shown(&r.fake, "Lost Vegas Track"));
+    CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
+    CHECK(shown(&r.fake, "Race stats (F12)"));
     CHECK(shown(&r.fake, "Speed units"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* port: the two race switches read On / Off from extras.cfg's values (the markers On by default, the overlay Off), and
+ * Done saves a flip of the markers row, the rest of the page as it was */
+static void test_race_switch_rows_save_with_done(void)
+{
+    Rig r;
+    /* page 1's Car markers is its last row (ROW_MARKERS): Mirror is the first selection, so ROW_MARKERS DOWNs land on it */
+    int keys[24] = { 0 };
+    int n = 0;
+    for (int i = 0; i < ROW_MARKERS; i++) keys[n++] = DOWN;
+    keys[n++] = ENTER;                                  /* Car markers: On -> Off */
+    keys[n++] = DOWN;                                   /* Done */
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Off"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.car_markers, 0);
+    CHECK_EQ_INT(r.fake.saved.stats_overlay, 0);
+    CHECK_EQ_INT(r.fake.saved.start, START_GAME_MODE);
 }
 
 /* the keys that walk from page 1's first row to page 2's Speed units row */
@@ -625,7 +653,10 @@ static void test_both_pages_share_one_layout(void)
     run(&two, turn, n);
 
     CHECK_EQ_INT(y_in(&two.fake, "Unlocks"), y_in(&one.fake, "Game modes"));
-    CHECK_EQ_INT(y_in(&two.fake, "Startup"), y_in(&one.fake, "Driving & cameras"));
+    /* port: page 2's Unlocks has six rows with Lunar Springs Track against Game modes' five, so Startup's header sits
+     * one row below page 1's Driving & cameras header (296 against 270) */
+    CHECK_EQ_INT(y_in(&two.fake, "Startup"), 296);
+    CHECK_EQ_INT(y_in(&one.fake, "Driving & cameras"), 270);
     /* the gap: the second group starts further down than the first group's last row, by more than a row's pitch */
     CHECK(y_in(&one.fake, "Driving & cameras") - y_in(&one.fake, "Turbo mode")
           > y_in(&one.fake, "Explode mode") - y_in(&one.fake, "Rally track mode"));
@@ -847,9 +878,9 @@ static void test_unlock_steps_through_three_values(void)
     int n = 0;
     for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;    /* page 1's Done */
     for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;   /* round to page 2 */
-    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = DOWN;   /* Unlock Level */
+    for (int i = 0; i < 4; i++) keys[n++] = DOWN;          /* Unlock Level, below Lunar Springs Track */
     keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* 0 to 2 */
-    for (int i = 0; i < ROWS_P2 - 3; i++) keys[n++] = DOWN;   /* Done */
+    for (int i = 0; i < ROWS_P2 - 4; i++) keys[n++] = DOWN;   /* Done */
     keys[n++] = ENTER;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -872,6 +903,26 @@ static void test_escape_on_page_two_restores(void)
     run(&r, keys, n);
     CHECK_EQ_INT(r.e.warrior, 0);
     CHECK_EQ_INT(r.fake.saves, 0);
+}
+
+/* Lunar Springs Track is the Unlocks row under Lost Vegas: Enter turns it on and Done keeps it */
+static void test_lunar_row_is_saved_on_done(void)
+{
+    Rig r;
+    /* page 1's Done, round to page 2's first row, down three to Lunar Springs, Enter, then down to Done */
+    int keys[48] = {0};
+    int n = 0;
+    for (int i = 0; i < ROWS_P1; i++) keys[n++] = DOWN;
+    for (int i = 0; i < ROWS_P1 + 1; i++) keys[n++] = RIGHT;
+    for (int i = 0; i < 3; i++) keys[n++] = DOWN;
+    keys[n++] = ENTER;
+    for (int i = 0; i < ROWS_P2 - 3; i++) keys[n++] = DOWN;
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.e.lunar_springs, 1);
+    CHECK_EQ_INT(r.e.vegas, 0);
+    CHECK_EQ_INT(r.fake.saves, 1);
 }
 
 /* Done writes the on-disk file (saves++ in the rig) */
@@ -900,8 +951,10 @@ int main(void)
     test_rally_excludes_mirror();
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
-    test_page_one_has_nine_rows();
-    test_page_two_has_eight_rows();
+    test_page_one_has_ten_rows();
+    test_page_two_has_ten_rows();
+    test_race_switch_rows_save_with_done();
+    test_lunar_row_is_saved_on_done();
     test_speed_units_row_reads_mph_in_english();
     test_speed_units_follow_the_language_until_chosen();
     test_speed_units_choice_overrides_german();

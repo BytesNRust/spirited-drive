@@ -548,10 +548,12 @@ static int16_t car_points[GAME_STATE_PLAYERS];
 /* the records a results screen shows: its image is config.dat's with the race's table in its track block, refreshed after
  * each check so that the row a check set is the row shown (records_glue_shown) */
 static uint8_t shown_image[RECORD_CHECK_IMAGE];
+static ResultsMarks shown_marks;   /* port: the cheats of the same table, refreshed with it */
 static int32_t records_checked(RouteOp op, int32_t *times)
 {
     const int32_t answer = records_glue_route(op, config_current()->image, game_state, menu_words.single, times);
-    records_glue_shown(shown_image, config_current()->image);
+    records_glue_shown_as(op, shown_image, config_current()->image);
+    records_glue_marks_as(op, config_current()->image, &shown_marks);
     return answer;
 }
 static int32_t records(void *ctx) { (void)ctx; return records_checked(ROUTE_SEGMENT, NULL); }
@@ -590,9 +592,10 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
     records_glue_shown(shown_image, config_current()->image);
+    records_glue_marks_as(ROUTE_SEGMENT, config_current()->image, &shown_marks);
     ResultsInputs in = { game_state, shown_image, r->dropped, menu_words.single, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
+                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish, &shown_marks };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;
     pointer_position(&x, &y);
@@ -1658,7 +1661,8 @@ int32_t glue_central(void)
         show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, cheat_step,
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, standings, track_select, art_free, options,
-        chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off, NULL };
+        chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off,
+        plus_text, NULL };
     load();
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,

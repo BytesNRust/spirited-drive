@@ -1,5 +1,7 @@
 #include "game/frontend/circuit_results.h"
 
+#include "game/frontend/records_route.h"
+
 #include <stdio.h>
 
 enum {
@@ -110,7 +112,7 @@ static void draw_heads(const ResultsInputs *in, const ResultsOps *ops)
     ops->text_fit(ops->ctx, (const char *)player_at(in, in->player) + NAME, LEFT, 0x5a, 0x96);
     ops->text_at(ops->ctx, in->car_names[g16(in->image + CAR)], LEFT, 0x6e);
     if (type == 0) {
-        snprintf(text, sizeof text, in->german ? "Bestzeit" : "Best Time");
+        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", results_cheats(in) ? " (c)" : "");
         ops->text_at(ops->ctx, text, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(best_at(in) + BEST_CAR)], RIGHT, 0x6e);
     } else if (type == 2 || type == 3) {
@@ -172,12 +174,14 @@ static void draw_records(const ResultsInputs *in, int16_t row, int16_t top, cons
     ops->time_text(ops->ctx, text, g32(best + BEST_TOTAL));
     ops->text_at(ops->ctx, text, LEFT, 0x11d);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(best + BEST_CAR)], RIGHT, 0x11d);
+    results_mark_total(in, 0, 0x11d, ops);
     if (best_mark == 0 || best_mark == 1) ops->text_at(ops->ctx, mark_text(in, best_mark), 0x23f, 0x11d);
     ops->text_select(ops->ctx, top == 1 ? 3 : 1);
     ops->text_fit(ops->ctx, (const char *)rec + TOP_NAME, 7, 0x177, 200);
     ops->speed_text(ops->ctx, text, g32(rec + TOP_SPEED));
     ops->text_at(ops->ctx, text, LEFT, 0x177);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + TOP_CAR)], RIGHT, 0x177);
+    results_mark_slot(in, SLOT_TOP, 0x177, ops);
     if (top_mark == 0 || top_mark == 1) ops->text_at(ops->ctx, mark_text(in, top_mark), 0x23f, 0x177);
 }
 

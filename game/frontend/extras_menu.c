@@ -25,12 +25,12 @@ enum { LABEL_X = 16, VALUE_RIGHT = 600 };
  * everything under it carry GROUP_GAP as well, which is the owner's "shorter than a row" on screen: a header takes
  * less height than a row, and the room it leaves reads as a gap rather than as another row.
  *
- * The pitch is 28 because page 1 is the fuller of the two -- eleven lines, nine rows and two headers -- and has to
+ * The pitch is 26 because page 2 is the fuller of the two now -- twelve lines, ten rows and two headers -- and has to
  * fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
- * CORNERS, top 430). Eleven lines at the exe's 36 pitch would not: the last row would land on the buttons.
+ * CORNERS, top 430). Twelve lines at the exe's 36 pitch would not: the last row would land on the buttons.
  *
  * The fallback panel runs that band, 96..422, so it never reaches the words it did not draw. */
-enum { ROW_TOP = 100, ROW_PITCH = 28, ROW_TALL = 26, GROUP_GAP = 14 };
+enum { ROW_TOP = 100, ROW_PITCH = 26, ROW_TALL = 24, GROUP_GAP = 14 };
 enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 422 };
 /* port: the screen's own title where the originals' are: under the logo at the left, its letters' tops on Game
  * Mode's (y 65) -- config_bgnd.c patches the burnt-in one out of (0,60)-(124,94) */
@@ -45,7 +45,7 @@ static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Game modes"
 
 /* where each page's second group begins, as a row of that page: extras_menu.h's order already has each page's first
  * group first, so the second is where the page's last group's first row is */
-static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_ASSISTS - ROW_MIRROR, ROW_UNITS - ROW_FIRST_P2 };
+static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_ASSISTS - ROW_MIRROR, ROW_STATS - ROW_FIRST_P2 };
 
 /* the first switch of each page, in extras_menu.h's flat list */
 static int first_of(int page) { return page == 0 ? ROW_MIRROR : ROW_FIRST_P2; }
@@ -67,8 +67,9 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Mirror track mode", "Rally track mode", "Explode mode", "Nitro mode", "Turbo mode",
     "No driving assists", "Bumper view mirror", "Bumper view police radar", "Replay cameras in race mode",
-    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Unlock Level",
-    "Time with variants", "Speed units", "Start Screen", "Intro video"
+    "Car markers (F6)",
+    "Warrior Player Car", "Warrior Rival Car", "Lost Vegas Track", "Lunar Springs Track", "Unlock Level",
+    "Time with variants", "Race stats (F12)", "Speed units", "Start Screen", "Intro video"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
@@ -76,11 +77,12 @@ static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->mirror, &e->rally, &e->explode, &e->nitro, &e->turbo,
-                                  &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras };
+                                  &e->no_assists, &e->bumper_mirror, &e->bumper_radar, &e->replay_cameras,
+                                  &e->car_markers };
         return p1[row];
     }
-    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, NULL, &e->variant_time, NULL, NULL,
-                               &e->no_movies };
+    int *const p2[ROWS_P2] = { &e->warrior, &e->warrior_rival, &e->vegas, &e->lunar_springs, NULL, &e->variant_time,
+                               &e->stats_overlay, NULL, NULL, &e->no_movies };
     return p2[row];
 }
 

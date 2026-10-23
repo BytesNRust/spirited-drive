@@ -22,8 +22,9 @@ typedef struct {
     int32_t use_matrix[RACE_CARS];
     int present[RACE_CARS];
     int32_t eye[3], eye_ang[3];     /* the chase record's position and angles */
-    int32_t eye_node;               /* its node: between two steps the older one's, so the track drawn from it starts
-                                     * at or behind the blended eye (the newer's segment may begin past it) */
+    int32_t eye_node;               /* its node: the older step's at every alpha, so the track drawn from it starts at or
+                                     * behind the blended eye (the newer's segment may begin past it), and the car rows
+                                     * flagged on the step's first frame still match the frames after it */
     int32_t chase_kind, tick;
     int valid;
 } DriveInterpPose;

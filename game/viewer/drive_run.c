@@ -7,15 +7,19 @@
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
+#include "game/race/start_keys.h"
 #include "viewer/drive_audio.h"
 #include "viewer/drive_clock.h"
 #include "viewer/drive_interp.h"
+#include "viewer/race_stats.h"
+#include "game/sys/port_extras.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
+static RaceStats race_stats;          /* port: F12's overlay, its figures and its switch (race_stats.h) */
 
 enum { KEY_F1 = 0x3b, KEY_F2 = 0x3c, KEY_F9 = 0x43 };
 
@@ -54,9 +58,13 @@ static void trace_player(void)
            car->z, car->yaw, car->speed);
 }
 
+static int32_t drive_steps;  /* port: the sim steps run so far (drive_tick's calls), for the stats overlay's steps a second */
+
 static void drive_tick(uint32_t input)
 {
+    start_clock_fill(&drive_sim.race.start_clock, drive_input.ticks);  /* 004bb8e0, the timer: every race, cheat or not */
     race_sim_tick(&drive_sim, input);
+    drive_steps++;
     trace_player();
     drive_cars.ticked = 1;
     drive_interp.prev = drive_interp.cur;
@@ -266,6 +274,8 @@ static void run_frame(void *ctx, int32_t frame)
         return;
     }
     drive_input_read_keys(&drive_input);
+    start_keys_fill(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
+                    drive_sim.race.port_nitro_start);  /* the exe's keyboard handler's flags, read each step */
     drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
     drive_pause.detail = drive_keys.state.detail;
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);
@@ -276,6 +286,7 @@ static void run_frame(void *ctx, int32_t frame)
     }
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
+    race_stats_key_save(&race_stats, drive_input.keys[RACE_STATS_KEY] != 0);  /* port: F12, written to extras.cfg on a toggle */
     take_detail(&drive_keys.detail_pending);
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     ported_view_set_tags_hidden(drive_keys.state.hidden);
@@ -290,7 +301,14 @@ static void present_drive(const Track *t, uint8_t *pixels)
     for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
         palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
     int width;
-    platform_present(drive_output(pixels, &width), palette);
+    const uint8_t *shown = drive_output(pixels, &width);
+    /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
+    race_stats_sample(&race_stats, platform_ticks_ms(), drive_steps);
+    const RaceStatsView view = { race_stats.meter.figures,
+                                 drive_sim.race.track_flags & TRACK_FLAG_TURBO ? DRIVE_CLOCK_TURBO_LEVEL : DRIVE_CLOCK_LEVEL,
+                                 drive_interp.refresh_hz, drive_interp.on, width, SCREEN_H };
+    shown = race_stats_compose(&race_stats, shown, width, SCREEN_H, t->art.palette, &view);
+    platform_present(shown, palette);
 }
 
 /* port: render_drive with the cars and the eye between the last two steps, by the time since the newer one; the
@@ -370,6 +388,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
     if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
     drive_clock = r.clock;
+    race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as extras.cfg has it */
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: port.cfg's rate; the variable overrides it for the checks */

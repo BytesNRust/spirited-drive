@@ -323,6 +323,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_sim.race.start_input = drive_menus.start_boost;
         drive_sim.race.port_replay_cameras = drive_menus.replay_cameras;
     }
+    drive_sim.race.port_nitro_start = 1;  /* port: the NITRO start takes N alone or the pad's key (start_keys.h) */
     drive_sim.race.port_time_of_day = drive_time_of_day;  /* the replay's setup keeps it */
     /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the
      * results and records are left alone, 0045af80) with 00524ea1 the laps above it */
@@ -485,6 +486,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
      * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
     TrackFamInputs look = { 0, 0, 0, race_sim_track_index(name), NULL, NULL, NULL, 0 };
+    look.port_lunar = port_extras_load().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
         look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;

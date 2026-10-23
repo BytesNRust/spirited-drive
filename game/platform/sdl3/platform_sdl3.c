@@ -38,7 +38,7 @@ static int key_head;
 static int key_count;
 
 /* TNFS_INPUT_SCRIPT="ms:KEY,ms:MOUSE:x:y,...": scripted input for headless
- * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, a letter, a digit, F1..F9, CTRL, ALT, SHIFT, KP1;
+ * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, a letter, a digit, F1..F12, CTRL, ALT, SHIFT, KP1;
  * several at one ms are held together) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
@@ -362,7 +362,8 @@ static int script_key(const char *name)
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
         { "F1", 0x3B }, { "F2", 0x3C }, { "F3", 0x3D }, { "F4", 0x3E }, { "F5", 0x3F }, { "F6", 0x40 },
-        { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 }, { "CTRL", 0x1D }, { "ALT", 0x38 }, { "SHIFT", 0x2A },
+        { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 }, { "F10", 0x44 }, { "F11", 0x57 }, { "F12", 0x58 },
+        { "CTRL", 0x1D }, { "ALT", 0x38 }, { "SHIFT", 0x2A },
         { "KP1", 0x4F },
     };
     /* the letters' set-1 scancodes, A..Z */

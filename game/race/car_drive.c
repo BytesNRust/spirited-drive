@@ -40,12 +40,14 @@ static int32_t abs32(int32_t v)
 
 /* The player's revved start: holding the throttle keys before the lights
  * gives full throttle for 200 ticks of the start clock. Returns 1 while the
- * engine is held at full throttle. */
+ * engine is held at full throttle. port_nitro_start: N alone opens it (the
+ * start_keys.h rule), not only N with a shift or B. */
 static int launch(Car *car, const CarSpecs *specs, RaceState *race)
 {
     if (race->player == car->player && race->playback == 0 && race->start_input != 0) {
         const uint8_t *k = race->start_keys;
-        if (k[0] != 0 && (k[1] != 0 || k[2] != 0 || k[3] != 0) && race->launch == 0) {
+        const int combo = k[1] != 0 || k[2] != 0 || k[3] != 0;
+        if (k[0] != 0 && (combo || race->port_nitro_start != 0) && race->launch == 0) {
             race->launch = 1;
             race->launch_full_until = race->start_clock + LAUNCH_FULL_TICKS;
             car->rpm = specs->unknown_0ac + LAUNCH_RPM;

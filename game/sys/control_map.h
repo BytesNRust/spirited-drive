@@ -23,7 +23,7 @@ typedef struct {
 
 /* buttons: bit 0 gear up, 1 gear down, 2 camera, 3 handbrake, the rest as the original's pad had them; axis[0] the
  * steering, [1] the menus' vertical, [2] and [3] the pedals, each 0..0xffff (the steering 0x8000 at centre, a pedal
- * 0xffff released); keys: bit (1 << action) of ACT_HORN, ACT_PAUSE and ACT_VIEW while their sources are down. */
+ * 0xffff released); keys: bit (1 << action) of ACT_HORN, ACT_PAUSE, ACT_VIEW and ACT_NITRO while their sources are down. */
 typedef struct { uint32_t buttons; int32_t axis[4]; uint32_t keys; } VirtualPad;
 
 /* Sources the device does not have (a number past its buttons or axes) are ignored. A wheel (not a gamepad) without

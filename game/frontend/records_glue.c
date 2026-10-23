@@ -7,7 +7,7 @@
 #include <string.h>
 
 enum { TRACKS = 9, SCANCODE_TAB = 0x0f, FIRST_RECORD = 0xea, SCREEN_RECORDS = 0x19f, TRACK_WORD = 0x95, CAR_WORD = 0x9b,
-       BLOCK_AT = 0xb5 };
+       DIFFICULTY_WORD = 0xb3, BLOCK_AT = 0xb5 };
 
 static RaceKind current;
 static int in_tournament, loaded;
@@ -46,14 +46,34 @@ int32_t records_glue_route(RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const 
     return records_route(records_glue_kind(op), op, image, game, player, times);
 }
 
-void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image)
+/* the kind a table shown after `op` is read from: a totals check takes its tournament's cheats (records_glue_kind) */
+static RaceKind shown_kind(RouteOp op, const uint8_t *image)
+{
+    const int car = (int16_t)(image[CAR_WORD] | image[CAR_WORD + 1] << 8);
+    return records_kind_with_car(records_glue_kind(op), car);
+}
+
+void records_glue_shown_as(RouteOp op, uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image)
 {
     const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
-    const RaceKind kind = records_kind_with_car(records_glue_kind(ROUTE_SEGMENT), (int16_t)(image[CAR_WORD] | image[CAR_WORD + 1] << 8));
+    const RaceKind kind = shown_kind(op, image);
     memcpy(out, image, RECORD_CHECK_IMAGE);
     if (kind.variant == RECORDS_NORMAL && kind.marks == 0) return;
     const uint8_t *block = port_records_block(track, kind.variant, kind.marks != 0);
     if (block != NULL) memcpy(out + BLOCK_AT + RECORDS_BLOCK * track, block, RECORDS_BLOCK);
+}
+
+void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image)
+{
+    records_glue_shown_as(ROUTE_SEGMENT, out, image);
+}
+
+void records_glue_marks_as(RouteOp op, const uint8_t *image, ResultsMarks *out)
+{
+    const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
+    const RaceKind kind = shown_kind(op, image);
+    out->slots = kind.marks == 0 ? NULL : port_records_marks(track, kind.variant);
+    out->choice = (int16_t)(image[DIFFICULTY_WORD] | image[DIFFICULTY_WORD + 1] << 8);
 }
 
 /* a table's records as the screen reads them: the tracks' blocks from their first record, 0xa6b apart */

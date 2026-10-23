@@ -20,6 +20,9 @@ typedef struct {
      * rally's look), where 004510e8 gives the mirror's "m" the first look and the rally's "r" is never reached.
      * 0 is the exe. A variant on its own is the same either way. */
     int port_both_variants;
+    /* port: 1 with extras.cfg's lunar_springs: the rally on Rusty Springs reads the moon's FAM (lunar_springs.h). Last,
+     * so the initialisers above keep their meaning. 0 is the exe. */
+    int port_lunar;
 } TrackFamInputs;
 
 typedef struct {

@@ -10,7 +10,7 @@
 
 /* One in-memory user file stands in for the platform's storage. */
 static char stored_name[32];
-static uint8_t stored[256];
+static uint8_t stored[512];   /* as port_extras_save's text (512) */
 static size_t stored_size;
 static int stored_present;
 
@@ -56,6 +56,8 @@ static void check_same(PortExtras a, PortExtras b)
     CHECK_EQ_INT(a.bumper_mirror, b.bumper_mirror);
     CHECK_EQ_INT(a.bumper_radar, b.bumper_radar);
     CHECK_EQ_INT(a.variant_time, b.variant_time);
+    CHECK_EQ_INT(a.stats_overlay, b.stats_overlay);
+    CHECK_EQ_INT(a.car_markers, b.car_markers);
     CHECK_EQ_INT(a.start, b.start);
     CHECK_EQ_INT(a.units, b.units);
 }
@@ -63,8 +65,39 @@ static void check_same(PortExtras a, PortExtras b)
 static void test_defaults(void)
 {
     const PortExtras d = port_extras_defaults();
-    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, START_GAME_MODE });
+    check_same(d, (PortExtras){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE });
     CHECK_EQ_INT(d.start, START_GAME_MODE);
+    CHECK_EQ_INT(d.stats_overlay, 0);   /* the stats overlay starts off */
+    CHECK_EQ_INT(d.car_markers, 1);     /* the car markers start On: the exe's */
+}
+
+/* the two race switches are read and written by their keys; a value other than 0 or 1 keeps the default */
+static void test_race_switch_keys_parse(void)
+{
+    const char *text = "stats_overlay=1\ncar_markers=0\n";
+    const PortExtras e = port_extras_parse(text, strlen(text));
+    CHECK_EQ_INT(e.stats_overlay, 1);
+    CHECK_EQ_INT(e.car_markers, 0);
+    const char *bad = "car_markers=2\n";
+    CHECK_EQ_INT(port_extras_parse(bad, strlen(bad)).car_markers, 1);
+}
+
+/* F12 and F6 keep the switches in extras.cfg: the other switches are kept, the default stands until a race sets it */
+static void test_race_switches_are_saved(void)
+{
+    stored_present = 0;
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_STATS), 0);
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_MARKERS), 1);
+    PortExtras e = port_extras_defaults();
+    e.nitro = 1;
+    CHECK(port_extras_save(&e));
+    CHECK(port_extras_set_race_switch(RACE_SWITCH_STATS, 1));
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_STATS), 1);
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_MARKERS), 1);
+    CHECK(port_extras_set_race_switch(RACE_SWITCH_MARKERS, 0));
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_MARKERS), 0);
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_STATS), 1);
+    CHECK_EQ_INT(port_extras_load().nitro, 1);   /* the rest of the file is as it was */
 }
 
 static void test_units_default_to_the_language(void)
@@ -97,8 +130,8 @@ static void test_units_round_trip(void)
 
 static void test_round_trip(void)
 {
-    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
-    char text[256];
+    const PortExtras e = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, START_CENTRAL };
+    char text[512];
     const size_t n = port_extras_format(&e, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
     check_same(port_extras_parse(text, n), e);
@@ -147,7 +180,7 @@ static void test_cheat_marks(void)
 static void test_load_save(void)
 {
     check_same(port_extras_load(), port_extras_defaults());   /* no file yet */
-    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, START_NETWORK };
+    const PortExtras e = { 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, START_NETWORK };
     CHECK(port_extras_save(&e));
     CHECK(strcmp(stored_name, "extras.cfg") == 0);
     check_same(port_extras_load(), e);
@@ -167,5 +200,7 @@ int main(void)
     test_bad_input_keeps_defaults();
     test_cheat_marks();
     test_load_save();
+    test_race_switch_keys_parse();
+    test_race_switches_are_saved();
     return TEST_REPORT();
 }
