@@ -176,6 +176,9 @@ static void test_a_file_can_say_the_pad_is_not_custom(void)
     CHECK_EQ_INT(port_controls_load().custom, 1);
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_defaults_are_todays_pad();

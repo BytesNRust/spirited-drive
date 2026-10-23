@@ -36,6 +36,9 @@ static void test_the_default_is_the_exe(void)
     CHECK_EQ_INT(port_extras_defaults().units, UNITS_LANGUAGE);
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_language_gives_the_units();

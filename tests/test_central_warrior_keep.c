@@ -22,6 +22,9 @@ static int16_t start(int16_t car, int16_t warrior, const int16_t *keep)
     return car;
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     const int16_t on = 1, off = 0;

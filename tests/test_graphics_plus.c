@@ -399,6 +399,9 @@ static void test_nav_click_turns_the_page(void)
     CHECK(shown(&r.fake, "Field of view"));
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_value_steps();

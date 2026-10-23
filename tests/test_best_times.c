@@ -353,6 +353,9 @@ static void test_lit_label_is_yellow(void)
     if (fk.label_count > 0) CHECK_EQ_INT(fk.label_style[fk.label_count - 1], STYLE_YELLOW);
 }
 
+/* The CD's files are not read by this test (the tables start as the built-in defaults). */
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+
 int main(void)
 {
     test_no_plus_is_original();
