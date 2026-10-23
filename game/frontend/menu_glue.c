@@ -680,15 +680,17 @@ static int32_t name_asked_over_game_mode(void)
 }
 
 /* port: extras.cfg's `start`: the screen the front end opens on instead of Game Mode, what choosing it there does
- * (004376ac's choose) without showing Game Mode first. Network and Control Central ask the name only when
- * config.dat holds none (00524df0). Returns the front end's state (0 to race) or -1 when Game Mode is to be shown
- * (the default, or the choice was taken back: no network service, the name box cancelled, the network screen's Back). */
+ * (004376ac's choose) without showing Game Mode first. Network and Control Central ask the name only when the
+ * player's config.dat holds one (00524df0), else the name box comes first. Returns the front end's state (0 to race)
+ * or -1 when Game Mode is to be shown (the default, or the choice was taken back: no network service, the name box
+ * cancelled, the network screen's Back). */
 int32_t glue_start_screen(int start)
 {
     enum { SINGLE_RACE = 0 };
     if (start != START_NETWORK && start != START_CENTRAL) return -1;
     if (start == START_NETWORK && !network_found(NULL)) return -1;
-    if (frontend_player_name[0] == '\0' && !name_asked_over_game_mode()) return -1;
+    /* the CD's and the defaults' name is "Player", not one the player saved: with no saved config.dat, the box comes */
+    if ((!config_name_saved() || frontend_player_name[0] == '\0') && !name_asked_over_game_mode()) return -1;
     menu_words.mode_menu = 1;
     menu_words.intro_seen = 1;
     if (start == START_CENTRAL) {
