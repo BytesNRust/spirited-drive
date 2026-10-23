@@ -225,6 +225,17 @@ int text_width_scaled(const char *text, int num, int den)
     return text_width(text) * num / den;
 }
 
+/* port: the rows the text's glyphs reach, the line's height at least: '%' stands below the line (y 5..20 of 18) */
+static int text_rows(const char *text)
+{
+    int rows = font.line_height;
+    for (const unsigned char *c = (const unsigned char *)text; *c; c++) {
+        FfnGlyph g;
+        if (*c >= 0x21 && ffn_glyph(&font, *c, &g) && g.y_offset + g.height > rows) rows = g.y_offset + g.height;
+    }
+    return rows;
+}
+
 static int nearest(int r, int g, int b)
 {
     return palette_nearest(styles_pal, palette_usable(), r, g, b);
@@ -276,7 +287,7 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
 {
     enum { PAD = 1 + TEXT_SOFT_SHADOW_DEPTH };
     if (font_data == NULL) return;
-    const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = font.line_height * num / den + 2 * PAD;
+    const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = text_rows(text) * num / den + 2 * PAD;
     uint8_t *const mask = calloc((size_t)mw * mh, 1);
     if (mask == NULL) return;
     mask_text(text, PAD, PAD, num, den, mask, mw, mh);

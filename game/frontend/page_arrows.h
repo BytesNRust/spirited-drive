@@ -21,7 +21,9 @@ typedef enum { PAGE_ARROW_LEFT, PAGE_ARROW_RIGHT, PAGE_ARROWS } PageArrow;
 
 typedef struct {
     uint8_t mask[PAGE_ARROWS][PAGE_ARROW_MASK * PAGE_ARROW_MASK];   /* w x h each, packed */
-    int w[PAGE_ARROWS], h[PAGE_ARROWS];                              /* the masks' sizes, the padding in */
+    int w[PAGE_ARROWS], h[PAGE_ARROWS];                              /* the masks' sizes, the padding in: the rows
+                                                                      * are the fill's only, as the shapes leave
+                                                                      * different empty rows above it */
 } PageArrowMasks;
 
 /* A dim and a lit shape of one triangle (w x h palette indices into `palette`) as a coverage mask, the padding
@@ -41,7 +43,7 @@ enum {
     PAGE_NAV_X0 = 270, PAGE_NAV_X1 = 370, PAGE_NAV_Y0 = 432, PAGE_NAV_Y1 = 476,
     PAGE_NAV_CENTRE = 320,
     PAGE_NAV_TEXT_Y = 440,   /* the count's last row (456) on the background's DONE and CANCEL */
-    PAGE_NAV_ARROW_Y = 439   /* the masks' top row: the 26 rows of the triangle stand on the text's middle */
+    PAGE_NAV_ARROW_MID = 452   /* the count's middle row (447..456): each triangle's mask is centred on it */
 };
 
 /* the two triangles' left columns: the left one's at the box's left edge, the right one's flush with its right */

@@ -25,6 +25,25 @@ int page_arrows_mask(const uint8_t *dim, const uint8_t *lit, int w, int h, const
     return 1;
 }
 
+/* The mask's rows cut to the fill's and the padding round them, moved to the top; the new height. The shapes carry
+ * different empty rows above their fill (the left one two more), so two masks centred alike sit level only once cut. */
+static int trim_rows(uint8_t *mask, int w, int h)
+{
+    int first = -1, last = -1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            if (mask[y * w + x] != 0) {
+                if (first < 0) first = y;
+                last = y;
+            }
+    if (first < 0) return h;
+    const int rows = last - first + 1 + 2 * PAGE_ARROW_PAD;
+    memmove(mask + PAGE_ARROW_PAD * w, mask + first * w, (size_t)(last - first + 1) * w);
+    memset(mask, 0, (size_t)PAGE_ARROW_PAD * w);
+    memset(mask + (rows - PAGE_ARROW_PAD) * w, 0, (size_t)PAGE_ARROW_PAD * w);
+    return rows;
+}
+
 /* a bitmap shape of the file (its pixels in `*out`) */
 static int bitmap(Fsh *f, const char *tag, FshEntry *out)
 {
@@ -46,7 +65,10 @@ int page_arrows_load(ConfigBgndRead read, PageArrowMasks *m)
         ok = bitmap(&f, DIM[a], &dim) && bitmap(&f, LIT[a], &lit) && dim.width == lit.width &&
              dim.height == lit.height &&
              page_arrows_mask(dim.payload, lit.payload, dim.width, dim.height, palette, m->mask[a]);
-        if (ok) m->w[a] = dim.width + 2 * PAGE_ARROW_PAD, m->h[a] = dim.height + 2 * PAGE_ARROW_PAD;
+        if (ok) {
+            m->w[a] = dim.width + 2 * PAGE_ARROW_PAD;
+            m->h[a] = trim_rows(m->mask[a], m->w[a], dim.height + 2 * PAGE_ARROW_PAD);
+        }
     }
     free(data);
     return ok;
@@ -88,6 +110,6 @@ void page_nav_draw(const PageNavOps *o, int page, int pages, int lit)
     }
     snprintf(text, sizeof text, "%d/%d", page + 1, pages);
     o->text(o->ctx, CREAM, text, PAGE_NAV_CENTRE - o->text_width(o->ctx, text) / 2, PAGE_NAV_TEXT_Y);
-    if (left) o->arrow(o->ctx, 0, lit == 1, page_nav_arrow_x(PAGE_ARROW_LEFT, lw), PAGE_NAV_ARROW_Y);
-    if (right) o->arrow(o->ctx, 1, lit == 2, page_nav_arrow_x(PAGE_ARROW_RIGHT, rw), PAGE_NAV_ARROW_Y);
+    if (left) o->arrow(o->ctx, 0, lit == 1, page_nav_arrow_x(PAGE_ARROW_LEFT, lw), PAGE_NAV_ARROW_MID - lh / 2);
+    if (right) o->arrow(o->ctx, 1, lit == 2, page_nav_arrow_x(PAGE_ARROW_RIGHT, rw), PAGE_NAV_ARROW_MID - rh / 2);
 }

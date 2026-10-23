@@ -112,7 +112,7 @@ static void test_the_first_page_has_the_right_triangle_only(void)
     CHECK(strcmp(f.text[0], "1/3") == 0);   /* the count, no chevron in it */
     CHECK_EQ_INT(f.text_style[0], CREAM);
     CHECK_EQ_INT(f.arrow_x[0], PAGE_NAV_X1 - 2 - 26);   /* flush with the box's right edge */
-    CHECK_EQ_INT(f.arrow_y[0], PAGE_NAV_ARROW_Y);
+    CHECK_EQ_INT(f.arrow_y[0], PAGE_NAV_ARROW_MID - 32 / 2);   /* the mask's middle on the count's */
     CHECK_EQ_INT(f.text_y[0], PAGE_NAV_TEXT_Y);
     CHECK_EQ_INT(PAGE_NAV_TEXT_Y, 440);   /* the count's last row on DONE's and CANCEL's (456) */
 }
@@ -209,7 +209,8 @@ static uint8_t *read_cd(const char *name, size_t *size)
     return out;
 }
 
-/* with the CD at hand: the two triangles as the track select draws them, solid fills of 23 x 26 and 20 x 25 */
+/* with the CD at hand: the two triangles as the track select draws them, solid fills of 23 x 26 and 20 x 25 in their
+ * shapes, each fill 17 rows tall; the masks keep the fill's rows and the padding only, so both stand at the same height */
 static void test_the_cd_gives_the_triangles(void)
 {
     static PageArrowMasks m;
@@ -218,9 +219,9 @@ static void test_the_cd_gives_the_triangles(void)
         return;
     }
     CHECK_EQ_INT(m.w[PAGE_ARROW_LEFT], 23 + 2 * PAGE_ARROW_PAD);
-    CHECK_EQ_INT(m.h[PAGE_ARROW_LEFT], 26 + 2 * PAGE_ARROW_PAD);
+    CHECK_EQ_INT(m.h[PAGE_ARROW_LEFT], 17 + 2 * PAGE_ARROW_PAD);
     CHECK_EQ_INT(m.w[PAGE_ARROW_RIGHT], 20 + 2 * PAGE_ARROW_PAD);
-    CHECK_EQ_INT(m.h[PAGE_ARROW_RIGHT], 25 + 2 * PAGE_ARROW_PAD);
+    CHECK_EQ_INT(m.h[PAGE_ARROW_RIGHT], 17 + 2 * PAGE_ARROW_PAD);
     for (int a = 0; a < PAGE_ARROWS; a++) {
         int solid = 0, edge = 0;
         const int w = m.w[a], h = m.h[a];
@@ -233,6 +234,11 @@ static void test_the_cd_gives_the_triangles(void)
         CHECK(solid > 80);        /* a triangle's fill, not an empty box */
         CHECK(solid < w * h / 2);
         CHECK_EQ_INT(edge, 0);    /* the padding stays empty: the outline is drawn by the text's own look */
+        int first = -1;
+        for (int y = 0; y < h && first < 0; y++)
+            for (int x = 0; x < w; x++)
+                if (m.mask[a][y * w + x] != 0) first = y;
+        CHECK_EQ_INT(first, PAGE_ARROW_PAD);   /* the fill starts right under the padding */
     }
 }
 
