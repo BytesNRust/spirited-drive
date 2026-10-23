@@ -75,6 +75,9 @@ typedef struct {
  * screen(window size, screen kind). */
 void race_draw_setup(const RaceDrawSetupOps *ops, RaceDrawSetup *s);
 
+/* port: the draw distance a detail (0, 1, 2) asks for, as the race's start does; -1 for any other detail */
+int32_t race_draw_detail_segments(int detail);
+
 /* 0044d2c4 (watcall (), from 00455a5c): 00511fc4 = 1, 00511fc0 = 0,
  * 0044ca3c; returns 1. */
 int32_t race_draw_start(const RaceDrawSetupOps *ops, RaceDrawSetup *s);

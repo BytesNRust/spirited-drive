@@ -39,6 +39,11 @@ static struct {
     uint32_t next_frame_ms;
 } drive_interp;
 
+void drive_run_refresh_set(int32_t hz)
+{
+    drive_interp.refresh_hz = hz;
+}
+
 /* One step; at the race's end the results. */
 /* port, for the checks: TNFS_TRACE_PLAYER=N prints slot 0's car every N race ticks (a tick once in a row; a
  * replay's jumps and seeks print a tick again when they come back to it), so a race and its replay can be compared */

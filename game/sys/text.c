@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { STYLE_COUNT = 4 };
+enum { STYLE_COUNT = 5 };
 
 static uint8_t *font_data;   /* 00524824 */
 static Ffn font;
@@ -66,6 +66,7 @@ void text_build_styles_from(const uint8_t pal[768])
     styles_fg[TEXT_CREAM] = build_ramp(pal, usable, 0xE8, 0xD3, 0xB7, styles[TEXT_CREAM]);
     styles_fg[TEXT_YELLOW] = build_ramp(pal, usable, 0xFF, 0xCE, 0x06, styles[TEXT_YELLOW]);
     styles_fg[TEXT_RED] = build_ramp(pal, usable, 0xFF, 0x06, 0x06, styles[TEXT_RED]);
+    styles_fg[TEXT_DIM] = build_ramp(pal, usable, 0x8C, 0x82, 0x73, styles[TEXT_DIM]);
     build_ramp(pal, usable, 0xFF, 0xCE, 0x06, current);
     build_ramp(pal, usable, 0x00, 0x00, 0x00, shadow);
 }

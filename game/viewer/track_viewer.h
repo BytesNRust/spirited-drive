@@ -65,6 +65,8 @@ void track_viewer_drive_menus(const TrackViewerMenus *menus);
  * window's size (004fb784), the image (004fb789), the view distance (004fb785), the cars' detail (004fb787) and the
  * horizon off (004fb786) */
 void track_viewer_options_from_settings(const uint8_t *options);
+/* port: the pause menu's Graphics settings the race takes on close (track_viewer.c) */
+void track_viewer_graphics_close(const uint8_t *options);
 /* and the other way: the race's bytes as those five words */
 void track_viewer_options_to_settings(uint8_t *options);
 

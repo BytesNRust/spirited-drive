@@ -92,5 +92,7 @@ int drive_window(const Track *t, uint8_t *pixels);
 int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot);
 int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot);
 void drive_link_stand_in(int16_t player);
+/* port: the frames' refresh rate, set again when the pause menu's Graphics screen closes (track_viewer.c) */
+void drive_run_refresh_set(int32_t hz);
 
 #endif

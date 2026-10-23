@@ -86,6 +86,7 @@ typedef struct GraphicsMenuOps {
 typedef struct GraphicsPlus {
     PortSettings *port;
     ScreenFormat fullscreen_format;   /* the desktop's nearest format, taken when full screen is turned on */
+    int race;                         /* the race's pause menu: the rows the next race reads are dimmed and not edited */
 } GraphicsPlus;
 
 /* the globals the screen reads, through pointers as the original reads memory */

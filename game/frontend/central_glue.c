@@ -1222,53 +1222,47 @@ static void own_put_back(void *ctx, PortSettings *settings)
     memcpy(config_current()->image + 9, config_current_kept_image, GRAPHICS_KEPT);
 }
 
-/* 00423d28 from Options (mode 0, the resolution offered) on config.dat's image; the race's view does not read its
- * window, detail, distance or horizon yet. port: from Options it also has the second page and "ultra" on port.cfg's
- * settings (from the race's pause menu it is the original's) */
+/* port: the Graphics screen (graphics_own.c) from Options (mode 0, with the second page) and from the race's pause menu
+ * (mode 1, GraphicsPlus.race: the rows the next race reads are dimmed there). Both edit port.cfg; the view distance is
+ * config.dat's own short, which the race's menu takes back through its image. The race applies what it can when the
+ * menu closes (drive_menu.c, track_viewer_graphics_apply). */
 static void graphics(void *ctx, int32_t mode)
 {
     static int16_t showing;  /* 004f9e8c */
+    const int race = mode != 0;
     PortSettings port = port_settings_load();
     const PortSettings was = port;
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
-    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3 };
+    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3, race };
     opt_in();
     /* after opt_in: it writes Options' unsaved edits into the image, which Cancel must keep */
-    if (mode == 0) {
-        port_settings_was = port;
-        memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
-    }
+    port_settings_was = port;
+    memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
     /* port: the palette that brought this screen up, kept: it fades the whole display out as it closes (00423d28's
      * close_screen), so the styles rebuilt after it must be built from this copy rather than from what is left on the
      * display -- which is that palette faded down to black, and a ramp built from black is not the caller's menu. */
     uint8_t caller_palette[PALETTE_PUT_BYTES];
     memcpy(caller_palette, screen_palette, sizeof caller_palette);
     const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
-                                   ea_screen_slot(), &g.inverse, stage_word(), mode == 0 ? &plus : NULL };
+                                   ea_screen_slot(), &g.inverse, stage_word(), &plus };
     const GraphicsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
         nothing, ticks, activate, key, click, off, music, net_sync, deadline_passed, fade_out, free_handle_inverse,
         free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save,
-        /* port: the screen's own background, its shape with the palette that goes with it, and its title. None from the
-         * race's pause menu, which stays the original's screen. */
-        own_bgnd, own_bgnd_shape, mode == 0 ? own_title_text : NULL, own_put_back,
-        /* port: from Options the letters go through the draw that restores the clean background under them. The
-         * race's pause menu keeps the original's burnt-in screen, which has no such background, so it gets NULL
-         * and graphics_own.c falls back to plus_text. */
-        mode == 0 ? own_plus_text : NULL,
+        /* port: the screen's own background, its shape with the palette that goes with it, and its title. The race's
+         * pause menu gets the same ones as Options. */
+        own_bgnd, own_bgnd_shape, own_title_text, own_put_back,
+        /* port: the letters go through the draw that restores the clean background under them */
+        own_plus_text,
         /* port: whether the display is already dark, so the screen skips a fade of a display Options has already
          * faded out rather than scaling zeros for seventeen vblanks */
         display_dark, plus_arrow_size, plus_arrow };
     input_function_keys(&showing);
-    input_page_keys(mode == 0);
-    /* port: from Options this is graphics_own.c, the port's own screen: the nine settings the owner named, over the
-     * clean background. The original (00423d28) is what the race's pause menu shows, and it is left as it is. */
-    if (mode == 0)
-        graphics_own(&st, &ops);
-    else
-        graphics_menu(&st, mode, &ops);
+    input_page_keys(!race);
+    /* port: graphics_own.c, the port's own screen, from Options and from the race's pause menu alike */
+    graphics_own(&st, &ops);
     /* the screen put its own palette on and faded the display out as it left; the one that brought it up goes
      * back, so whatever is on screen afterwards is drawn the way its own caller means */
     text_build_styles_from(caller_palette);

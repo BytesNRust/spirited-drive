@@ -1,6 +1,8 @@
 /* port: the Graphics screen, the port's own: nine settings in the order the owner named them, over the configuration
  * screens' clean background with no burnt-in text, the game's own letters and its Done/Cancel. Not in the original:
- * the original's graphics_menu.c (00423d28) is kept as it is, and is what the race's pause menu still shows.
+ * the original's graphics_menu.c (00423d28) is kept as it is, and no longer on any path of the game -- both Options
+ * and the race's pause menu open this screen. In the race (GraphicsPlus.race) the rows the next race reads are shown
+ * dimmed and cannot be changed (graphics_own_live_in_race).
  *
  * The rows edit port.cfg, all of them. The three that used to live in EXTRAS (perspective correction, texture filter,
  * fog) are on this screen now and port.cfg has them; extras.cfg is only read for the ones port.cfg does not name. */
@@ -30,6 +32,12 @@ void graphics_own_value(const PortSettings *s, int setting, char out[16]);
 /* the view distance's four values: the exe's three names for its own, and "Ultra" for the port's fourth */
 void graphics_own_view_step(int16_t *view, int *ultra);
 void graphics_own_view_value(int16_t view, int ultra, char out[16]);
+/* the race's pause menu: Far, Medium, Close and back to Far. Landing on Far drops the Ultra flag, so the row never
+ * stops on a value the race cannot leave */
+void graphics_own_race_view_step(int16_t *view, int *ultra);
+/* whether the pause menu's Graphics may change `setting` (a GRAPHICS_OWN_ row) now: 0 for the rows the next race
+ * reads (scaling, the format, full screen) and for Ultra, which is view 0 with the flag. */
+int graphics_own_live_in_race(int setting, int16_t view, int ultra);
 
 /* The screen, run over the same ops as graphics_menu.c (00423d28) and behaving like it: the arrows move, Space / Enter
  * / the left button choose, Done saves through `plus_save`, Escape and Cancel put the settings back with

@@ -12,7 +12,7 @@
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19 };
-enum { STYLE_CREAM = 0, STYLE_YELLOW = 1 };
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_DIM = 4 /* TEXT_DIM (text.h) */ };
 enum { FOV_MIN = -10, FOV_MAX = 20, FOV_STEP = 5 };
 /* the title where the originals' are: under the logo at the left, its letters' tops on Game Mode's (y 65) --
  * config_bgnd.c patches the burnt-in one out of (0,60)-(124,94) */
@@ -75,6 +75,29 @@ void graphics_own_view_value(int16_t view, int ultra, char out[16])
     static const char *const NAMES[3] = { "Far", "Medium", "Close" };
     const char *const name = ultra && view == 0 ? "Ultra" : NAMES[view >= 0 && view < 3 ? view : 0];
     snprintf(out, 16, "%s", name);
+}
+
+void graphics_own_race_view_step(int16_t *view, int *ultra)
+{
+    enum { NEAR = 3 };
+    const int now = *view >= 0 && *view < NEAR ? *view : 0;
+    const int next = (now + 1) % NEAR;
+    *view = (int16_t)next;
+    if (next == 0) *ultra = 0;
+}
+
+int graphics_own_live_in_race(int setting, int16_t view, int ultra)
+{
+    switch (setting) {
+    case GRAPHICS_OWN_SCALING:
+    case GRAPHICS_OWN_FORMAT:
+    case GRAPHICS_OWN_FULLSCREEN:
+        return 0;
+    case GRAPHICS_OWN_VIEW:
+        return !(ultra && view == 0);
+    default:
+        return 1;
+    }
 }
 
 void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat fullscreen_format)
@@ -201,8 +224,7 @@ static int has_clean_bgnd(const Screen *s, const GraphicsMenuOps *o)
 /* port: every word on this screen is drawn over the clean background, which the whole page is repainted with on
  * each redraw. So the letters go through the draw that puts the background back under them first -- the one
  * Options' rows already use -- rather than straight onto the picture, where a row moved past would leave its old
- * edges behind. A screen with no clean background (the race's pause menu, which keeps the burnt-in picture) leaves
- * the slot empty and this is plus_text. */
+ * edges behind. A screen with no restoring op (the glue passes none) leaves the slot empty and this is plus_text. */
 static void own_text(const GraphicsMenuOps *o, int32_t style, const char *text, int32_t x, int32_t y)
 {
     if (o->plus_text_smooth != NULL)
@@ -211,9 +233,18 @@ static void own_text(const GraphicsMenuOps *o, int32_t style, const char *text, 
         o->plus_text(o->ctx, style, text, x, y);
 }
 
-static void text_right(const GraphicsMenuOps *o, int lit, const char *text, int right, int y)
+static void text_right(const GraphicsMenuOps *o, int32_t style, const char *text, int right, int y)
 {
-    own_text(o, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
+    own_text(o, style, text, right - o->plus_text_width(o->ctx, text), y);
+}
+
+/* whether the row can be changed here: every row is, from Options; in the race's pause menu the next race's rows are
+ * not (their values are shown, dimmed, with a note) */
+static int editable(const Screen *s, int row)
+{
+    const GraphicsPlus *const plus = s->st->plus;
+    if (plus == NULL || !plus->race) return 1;
+    return graphics_own_live_in_race(row, view_of(s->st), plus->port->view_ultra);
 }
 
 static void move_to(int row, const GraphicsMenuOps *o)
@@ -247,14 +278,19 @@ static int row_y(int row)
 /* one row's text: the label at the column's left edge, its value at the right, the selection lit */
 static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
 {
-    char value[16];
-    const int lit = s->selected == row;
+    char value[16], shown[32];
+    const int lit = s->selected == row, live = editable(s, row);
+    const int32_t style = lit ? STYLE_YELLOW : live ? STYLE_CREAM : STYLE_DIM;
     if (row == GRAPHICS_OWN_VIEW)
         graphics_own_view_value(view_of(s->st), s->st->plus->port->view_ultra, value);
     else
         graphics_own_value(s->st->plus->port, row, value);
-    own_text(o, lit ? STYLE_YELLOW : STYLE_CREAM, LABEL[row], GRAPHICS_OWN_LABEL_X, row_y(row));
-    text_right(o, lit, value, GRAPHICS_OWN_VALUE_RIGHT, row_y(row));
+    if (live)
+        snprintf(shown, sizeof shown, "%s", value);
+    else
+        snprintf(shown, sizeof shown, "%s (next race)", value);
+    own_text(o, style, LABEL[row], GRAPHICS_OWN_LABEL_X, row_y(row));
+    text_right(o, style, shown, GRAPHICS_OWN_VALUE_RIGHT, row_y(row));
 }
 
 /* the clean background is a picture of the screen, so it is blitted whole, then its palette put on before the
@@ -326,10 +362,14 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
 static void step_row(Screen *s, const GraphicsMenuOps *o, int row, int direction)
 {
     PortSettings *const port = s->st->plus->port;
+    if (!editable(s, row)) return;
     if (row == GRAPHICS_OWN_VIEW) {
         int16_t view;
         memcpy(&view, s->st->config + GRAPHICS_VIEW, sizeof view);
-        graphics_own_view_step(&view, &port->view_ultra);
+        if (s->st->plus->race)
+            graphics_own_race_view_step(&view, &port->view_ultra);
+        else
+            graphics_own_view_step(&view, &port->view_ultra);
         view_to(s->st, view);
     } else {
         graphics_own_step(port, row, direction, s->st->plus->fullscreen_format);
