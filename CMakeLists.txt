@@ -378,6 +378,8 @@ add_executable(tnfs
     game/viewer/drive_input.c
     game/viewer/drive_interp.c
     game/viewer/drive_clock.c
+    game/viewer/race_stats.c
+    game/viewer/race_stats_draw.c
     game/viewer/draw_rands.c
     game/viewer/drive_slide.c
     game/viewer/layer_compose.c
@@ -546,6 +548,11 @@ foreach(name palette race_settings config_dat sky_ring quad object_mappers flat 
     target_link_libraries(test_drive_slide PRIVATE tnfs_game)
     target_compile_options(test_drive_slide PRIVATE ${TNFS_WARNINGS})
     add_test(NAME drive_slide COMMAND test_drive_slide)
+    add_executable(test_race_stats tests/test_race_stats.c game/viewer/race_stats.c)
+    target_include_directories(test_race_stats PRIVATE game .)
+    target_link_libraries(test_race_stats PRIVATE tnfs_game)
+    target_compile_options(test_race_stats PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME race_stats COMMAND test_race_stats)
     add_executable(test_drive_clock tests/test_drive_clock.c game/viewer/drive_clock.c)
     target_include_directories(test_drive_clock PRIVATE game .)
     target_link_libraries(test_drive_clock PRIVATE tnfs_game)

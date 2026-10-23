@@ -475,22 +475,50 @@ static void test_page_one_has_nine_rows(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* page 2's eight switches, Intro video the last of them: walk the whole page down and they are all of them */
-static void test_page_two_has_eight_rows(void)
+/* page 2's ten switches, Intro video the last of them: walk the whole page down and they are all of them */
+static void test_page_two_has_ten_rows(void)
 {
     Rig r;
-    const int keys[] = { UP, RIGHT, RIGHT, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, DOWN, ENTER };
+    int keys[32] = { 0 };
+    int n = 0;
+    keys[n++] = UP; keys[n++] = RIGHT; keys[n++] = RIGHT;   /* to page 2's first row */
+    for (int i = 0; i < ROWS_P2; i++) keys[n++] = DOWN;       /* down to Done (the row past the ten) */
+    keys[n++] = ENTER;
     setup(&r);
-    run(&r, keys, 12);
+    run(&r, keys, n);
     CHECK(shown(&r.fake, "Warrior Player Car"));
     CHECK(shown(&r.fake, "Warrior Rival Car"));
     CHECK(shown(&r.fake, "Lost Vegas Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
+    CHECK(shown(&r.fake, "Race stats (F12)"));
+    CHECK(shown(&r.fake, "Car markers (F6)"));
     CHECK(shown(&r.fake, "Speed units"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* port: the two race switches read On / Off from extras.cfg's values (the markers On by default, the overlay Off), and
+ * Done saves a flip of the markers row, the rest of the page as it was */
+static void test_race_switch_rows_save_with_done(void)
+{
+    Rig r;
+    /* page 2's Car markers is row 6 (Stats overlay is 5): UP, RIGHT, RIGHT lands on Warrior, 6 DOWNs on Car markers */
+    int keys[24] = { 0 };
+    int n = 0;
+    keys[n++] = UP; keys[n++] = RIGHT; keys[n++] = RIGHT;
+    for (int i = 0; i < 6; i++) keys[n++] = DOWN;
+    keys[n++] = ENTER;                                  /* Car markers: On -> Off */
+    for (int i = 0; i < 4; i++) keys[n++] = DOWN;       /* down to Done (page 2's Done is row 10) */
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Off"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.car_markers, 0);
+    CHECK_EQ_INT(r.fake.saved.stats_overlay, 0);
+    CHECK_EQ_INT(r.fake.saved.start, START_GAME_MODE);
 }
 
 /* the keys that walk from page 1's first row to page 2's Speed units row */
@@ -901,7 +929,8 @@ int main(void)
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
     test_page_one_has_nine_rows();
-    test_page_two_has_eight_rows();
+    test_page_two_has_ten_rows();
+    test_race_switch_rows_save_with_done();
     test_speed_units_row_reads_mph_in_english();
     test_speed_units_follow_the_language_until_chosen();
     test_speed_units_choice_overrides_german();

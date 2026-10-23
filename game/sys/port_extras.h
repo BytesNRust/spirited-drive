@@ -21,6 +21,8 @@ typedef struct {
     int bumper_mirror, bumper_radar;   /* 0/1: the rear-view mirror and the radar detector in the bumper view, under
                                         * the scoreboard (F1 / F2 turn them over in a race) */
     int variant_time; /* 0/1: the time of day offered with Mirror or Rally (fam_mirror.h), which the original hides */
+    int stats_overlay;  /* 0/1: the race's stats overlay (F12 turns it in a race); off */
+    int car_markers;    /* 0/1: the coloured triangles over the rival cars (F6 turns them in a race); On, the exe's */
     StartScreen start;                                          /* START_GAME_MODE */
     SpeedUnits units;                                           /* UNITS_LANGUAGE */
 } PortExtras;
@@ -37,6 +39,11 @@ PortExtras port_extras_load(void);   /* user file "extras.cfg"; the defaults whe
 bool port_extras_save(const PortExtras *e);
 /* The cheats that make a race's time an advantage one: NITRO 1, EXPLODE 2, TURBO 4. */
 uint32_t port_extras_cheat_marks(const PortExtras *e);
+/* port: the two switches a race turns with a key (F12 the stats overlay, F6 the car markers). A race starts with the
+ * saved value, and a key in the race writes the new one back to extras.cfg. */
+typedef enum { RACE_SWITCH_STATS = 0, RACE_SWITCH_MARKERS = 1 } RaceSwitch;
+int port_extras_race_on(RaceSwitch which);                      /* 0/1 as extras.cfg has it */
+bool port_extras_set_race_switch(RaceSwitch which, int on);     /* the file as it is, that switch set */
 /* 1 when the speeds, distances and the cockpit's dial are in km/h: the player's choice, or with UNITS_LANGUAGE the
  * language's (german 1 is km/h, as 0052b31c gives it). */
 int speed_units_kmh(SpeedUnits units, int german);

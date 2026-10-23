@@ -9,6 +9,7 @@
 #include "game/race/race_detail.h"
 #include "game/race/race_loop.h"
 #include "game/race/race_sound.h"
+#include "game/sys/port_extras.h"
 
 #include <string.h>
 
@@ -96,6 +97,8 @@ void drive_keys_start(DriveKeys *k)
     const int loaded = k->loaded;
     memset(k, 0, sizeof *k);
     race_keys_start(&k->state, loaded ? &was : NULL);
+    /* port: the car markers as extras.cfg has them (On is the exe's, hidden 0), not as the last race left them */
+    k->state.hidden = (uint8_t)!port_extras_race_on(RACE_SWITCH_MARKERS);
     k->detail_pending = -1;  /* 004c5360: nothing asked for */
     k->loaded = 1;
 }
@@ -111,7 +114,10 @@ void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *
                                     race->playback, timer, race->player, 0, HIGH_RESOLUTION, 1 };
     k->state.viewed = race->viewed;
     k->state.view_changed = race->view_taken;
+    const uint8_t hidden_before = k->state.hidden;
     race_keys(&ops, &k->state, &inputs);
+    /* port: F6 flipped the car markers: the new value goes to extras.cfg, so the next race starts with it */
+    if (k->state.hidden != hidden_before) port_extras_set_race_switch(RACE_SWITCH_MARKERS, !k->state.hidden);
     race->viewed = k->state.viewed;
     race->view_taken = k->state.view_changed;
 }
