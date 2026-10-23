@@ -266,6 +266,15 @@ void platform_audio_unlock(void)
     if (audio != NULL) SDL_UnlockAudioStream(audio);
 }
 
+void platform_set_window_icon(const uint8_t *rgba, int w, int h)
+{
+    if (window == NULL || rgba == NULL || w <= 0 || h <= 0) return;
+    SDL_Surface *const icon = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, (void *)(uintptr_t)rgba, w * 4);
+    if (icon == NULL) return;
+    SDL_SetWindowIcon(window, icon);
+    SDL_DestroySurface(icon);
+}
+
 void platform_shutdown(void)
 {
     if (audio != NULL) platform_audio_close();

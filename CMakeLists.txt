@@ -19,6 +19,7 @@ add_library(tnfs_core STATIC
     core/formats/chunk.c
     core/formats/doc.c
     core/formats/ffn.c
+    core/formats/ico.c
     core/formats/fileset.c
     core/formats/fixed_record.c
     core/formats/fsh.c
@@ -336,6 +337,7 @@ add_library(tnfs_game STATIC
     game/sys/text_soft.c
     game/sys/port_settings.c
     game/sys/port_extras.c
+    game/sys/port_icon.c
     game/sys/port_controls.c
     game/sys/port_records.c
     game/sys/control_map.c
@@ -440,7 +442,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen)
+    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

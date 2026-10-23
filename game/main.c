@@ -23,6 +23,7 @@
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/port_icon.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
@@ -116,6 +117,7 @@ static int run_movie(const Options *opt)
         return 0;
     }
     resource_init(opt->data_root, opt->german);
+    port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
     timer_init();
     menu_audio_open();
     printf("movie %s: %s\n", opt->movie, tgv_player_play(opt->movie) ? "stopped" : "ran to its end");
@@ -167,6 +169,7 @@ static int run_drive(const Options *opt)
         return 0;
     }
     resource_init(opt->data_root, opt->german);
+    port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
     resource_set_units(port_extras_load().units);   /* port: the speed's units from extras.cfg, the language's by default */
     timer_init();
     pointer_load(0);
@@ -198,6 +201,7 @@ static int run_game(const Options *opt)
         return 0;
     }
     resource_init(opt->data_root, opt->german);
+    port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
     timer_init();
     config_dat_startup_volume(config_current());
     /* 004322f8 loads the pointer; port: its CD and memory checks have nothing to check here, the fonts are
