@@ -1,5 +1,6 @@
 /* The controls screen's port pages (controls_plus.c): capturing a binding, clearing, adding, the tuning rows, Defaults,
- * and how the pages are left. Driven through fake ops with a key script and a pad script. */
+ * how the pages are left, and how they are drawn (the clean configuration background, the title and the headers, no
+ * panel). Driven through fake ops with a key script and a pad script. */
 #include "game/frontend/controls_plus.h"
 #include "test.h"
 
@@ -18,6 +19,11 @@ void platform_free_file(uint8_t *data) { (void)data; }
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000, INSERT = 0x5200,
        DELETE = 0x5300 };
+/* the band a row's words may stand in (controls_plus.c's ROW_TOP .. the Done band) */
+enum { BAND_TOP = 96, BAND_BOTTOM = 430 };
+enum { PLAIN = 0, SMOOTH = 1, HEADER = 2, TITLE = 3 };
+
+typedef struct Text { char text[40]; int kind; int32_t y; } Text;
 
 typedef struct Fake {
     const int *keys;
@@ -26,8 +32,12 @@ typedef struct Fake {
     int pad_count, pad_next;
     int deadline_calls;      /* deadline_passed answers 1 from this many calls on (never when 0) */
     int deadline_next;
-    char drawn[256][40];
+    Text drawn[256];
     int drawn_count;
+    int panels;              /* plus_panel calls: none on the pages (no panel, no red frame) */
+    int composed;            /* plus_bgnd calls: the clean background is composed */
+    int put;                 /* plus_bgnd_shape calls: the clean background is put on the screen */
+    int legacy_bgnd;         /* shape() calls for the controls' own "bgnd" art: none when the clean one is there */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -47,7 +57,9 @@ static int32_t f_in_rect(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d)
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag)
 {
     static uint8_t shape[16];
-    (void)ctx, (void)bank, (void)tag;
+    Fake *f = ctx;
+    (void)bank;
+    if (strcmp(tag, "bgnd") == 0) f->legacy_bgnd++;
     return shape;
 }
 static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
@@ -59,17 +71,58 @@ static int32_t f_deadline(void *ctx)
     Fake *f = ctx;
     return f->deadline_calls != 0 && ++f->deadline_next >= f->deadline_calls;
 }
+static void f_record(Fake *f, int kind, const char *text, int32_t y)
+{
+    if (f->drawn_count >= 256) return;
+    Text *t = &f->drawn[f->drawn_count++];
+    snprintf(t->text, sizeof t->text, "%s", text);
+    t->kind = kind, t->y = y;
+}
 static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
-    Fake *f = ctx;
-    (void)style, (void)x, (void)y;
-    if (f->drawn_count < 256) snprintf(f->drawn[f->drawn_count++], sizeof f->drawn[0], "%s", text);
+    (void)style, (void)x;
+    f_record(ctx, PLAIN, text, y);
+}
+static void f_smooth(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
+{
+    (void)style, (void)x;
+    f_record(ctx, SMOOTH, text, y);
+}
+static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    (void)x;
+    f_record(ctx, TITLE, text, y);
+}
+static void f_header(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
+{
+    (void)x, (void)width;
+    f_record(ctx, HEADER, text, y);
 }
 static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * 10; }
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
-    (void)ctx, (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
+    Fake *f = ctx;
+    (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
+    f->panels++;
 }
+static int32_t f_bgnd(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H], uint8_t palette[768])
+{
+    Fake *f = ctx;
+    (void)pixels, (void)palette;
+    f->composed++;
+    return 1;
+}
+static int32_t f_bgnd_shape(void *ctx, const uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H],
+                            const uint8_t palette[768])
+{
+    Fake *f = ctx;
+    (void)pixels, (void)palette;
+    f->put++;
+    return 1;
+}
+static void f_fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx, (void)first, (void)count, (void)rgb; }
+static void f_fade_out(void *ctx, int32_t first, int32_t count) { (void)ctx, (void)first, (void)count; }
+static int32_t f_load(void *ctx, const char *name) { (void)ctx, (void)name; return 7; }
 static int32_t f_pad(void *ctx, RawPad *out)
 {
     Fake *f = ctx;
@@ -82,7 +135,15 @@ static void f_save(void *ctx, const PortControls *c) { (void)ctx, (void)c; }
 static int shown(const Fake *f, const char *text)
 {
     for (int i = 0; i < f->drawn_count; i++)
-        if (strcmp(f->drawn[i], text) == 0) return 1;
+        if (strcmp(f->drawn[i].text, text) == 0) return 1;
+    return 0;
+}
+
+/* a word drawn in the given way (PLAIN, SMOOTH, HEADER, TITLE) */
+static int shown_as(const Fake *f, const char *text, int kind)
+{
+    for (int i = 0; i < f->drawn_count; i++)
+        if (f->drawn[i].kind == kind && strcmp(f->drawn[i].text, text) == 0) return 1;
     return 0;
 }
 
@@ -93,8 +154,11 @@ static ControlsMenuOps make_ops(Fake *f)
         .shape = f_shape, .picture_shape = f_picture, .select_default = f_void, .flip = f_void,
         .pointer_show = f_void, .deadline_set = f_one, .sound = f_one, .ticks = f_ticks, .pointer_buttons = f_zero,
         .pointer_activate_if_moved = f_void, .key = f_key, .pointer_click = f_void, .deadline_passed = f_deadline,
-        .music = f_void, .pointer_off = f_void, .net_sync = f_void, .ctx = f, .plus_text = f_text,
-        .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_save = f_save, .pad_raw = f_pad };
+        .music = f_void, .pointer_off = f_void, .net_sync = f_void, .fade_in = f_fade_in, .fade_out = f_fade_out,
+        .text_styles = f_void, .load_art = f_load, .free = f_one, .ctx = f, .plus_text = f_text,
+        .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_save = f_save, .pad_raw = f_pad,
+        .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape, .plus_text_smooth = f_smooth, .plus_title = f_title,
+        .plus_header = f_header };
     return o;
 }
 
@@ -132,8 +196,7 @@ static void run(Run *r, const int *keys, int key_count, const RawPad *pads, int 
     r->fake.keys = keys, r->fake.key_count = key_count;
     r->fake.pads = pads, r->fake.pad_count = pad_count;
     const ControlsMenuOps o = make_ops(&r->fake);
-    uint8_t rgb[16] = { 0 };
-    r->result = controls_plus_run(&st, &o, 1, rgb);
+    r->result = controls_plus_run(&st, &o, 1);
 }
 
 #define KEYS(...) (const int[]){ __VA_ARGS__ }, (int)(sizeof((const int[]){ __VA_ARGS__ }) / sizeof(int))
@@ -256,6 +319,61 @@ static void test_delete_clears(void)
     CHECK_EQ_INT(r.port.bind[ACT_STEER][0].kind, SRC_AXIS_FULL);   /* the others stay */
 }
 
+/* the pages are drawn over the clean configuration background, with the title and the group headers as the other
+ * configuration screens draw theirs: no black panel and no red frame, and no key hint under the rows */
+static void test_no_panel_and_no_key_hint(void)
+{
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(r.fake.panels, 0);
+    CHECK(!shown(&r.fake, "Enter: set   Insert: add   Delete: clear"));
+    Run t = { .port = port_controls_defaults() };
+    run(&t, KEYS(RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(t.fake.panels, 0);
+}
+
+static void test_the_clean_background_and_the_title(void)
+{
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(r.fake.composed, 1);
+    CHECK(r.fake.put >= 1);
+    CHECK_EQ_INT(r.fake.legacy_bgnd, 0);   /* the controls' own picture is not what shows */
+    CHECK(shown_as(&r.fake, "Controls Setup", TITLE));
+}
+
+static void test_headers_and_labels_use_the_port_ops(void)
+{
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    CHECK(shown_as(&r.fake, "Driving", HEADER));
+    CHECK(shown_as(&r.fake, "Other", HEADER));
+    CHECK(shown_as(&r.fake, "Steering", SMOOTH));
+    CHECK(shown_as(&r.fake, "Nitro", SMOOTH));
+    CHECK(!shown_as(&r.fake, "Steering", PLAIN));   /* the labels go over the background, not onto the picture */
+    Run t = { .port = port_controls_defaults() };
+    run(&t, KEYS(RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown_as(&t.fake, "Tuning", HEADER));
+    CHECK(shown_as(&t.fake, "Defaults", SMOOTH));
+    CHECK(shown_as(&t.fake, "Dead zone", SMOOTH));
+}
+
+/* every row, header and title sits between the band the configuration screens leave to their words: 96 to 430 */
+static void test_the_rows_stay_in_their_band(void)
+{
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    Run t = { .port = port_controls_defaults() };
+    run(&t, KEYS(RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
+    const Run *runs[2] = { &r, &t };
+    for (int k = 0; k < 2; k++)
+        for (int i = 0; i < runs[k]->fake.drawn_count; i++) {
+            const Text *w = &runs[k]->fake.drawn[i];
+            if (w->kind == TITLE || strchr(w->text, '/') != NULL) continue;   /* the title and the page indicator */
+            CHECK(w->y >= BAND_TOP && w->y <= BAND_BOTTOM);
+        }
+}
+
 static void test_the_tuning_page(void)
 {
     Run r = { .port = port_controls_defaults() };
@@ -326,5 +444,9 @@ int main(void)
     test_defaults_restores_the_bindings();
     test_how_the_pages_are_left();
     test_a_wheel_shows_its_own_numbers();
+    test_no_panel_and_no_key_hint();
+    test_the_clean_background_and_the_title();
+    test_headers_and_labels_use_the_port_ops();
+    test_the_rows_stay_in_their_band();
     return TEST_REPORT();
 }

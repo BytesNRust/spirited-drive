@@ -6,18 +6,25 @@
 
 #include "game/frontend/page_arrows.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        INSERT = 0x5200, DELETE = 0x5300, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, CAPTURE_WAIT = 500, REST = 0x19, WIDE = 0x280 };
-enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, LABEL_X = 16, VALUE_RIGHT = 623, NAV_CENTRE = 320, NAV_Y = 444, STEP = 5 };
-enum { PAGES = 3, ACTION_PAGE = 1, TUNE_PAGE = 2, HINT_Y = 408 };
-/* the darkened panel the pages' text sits on, over the original rows */
-enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 404 };
-/* the rows: the actions' on page 2, the tuning rows' and "Defaults" on page 3 */
-enum { ACTION_Y = 104, ACTION_H = 22, TUNE_Y = 128, TUNE_H = 52, DEFAULTS = TUNE_COUNT };  /* 13 actions to y 390 */
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, LABEL_X = 16, VALUE_RIGHT = 600, NAV_CENTRE = 320, STEP = 5 };
+enum { PAGES = 3, ACTION_PAGE = 1, TUNE_PAGE = 2 };
+/* the title where the configuration screens' are (extras_menu.c's and graphics_own.c's TITLE_X, TITLE_Y) */
+enum { TITLE_X = 8, TITLE_Y = 56 };
+static const char *const TITLE = "Controls Setup";   /* title case: the title art's letters are the CD's own */
+/* the rows: a line per row and per group header, 21 apart, a group after the first 8 lower; the second group's header
+ * and rows end at y 402, so the page stays between the title's band and the buttons' (96..430) */
+enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = TUNE_COUNT };
+/* each page's two groups: the rows in each, and their headers ("" none: the second group of page 3 is Defaults alone).
+ * Indexed by page - ACTION_PAGE. */
+static const int GROUP_ROWS[PAGES - 1][2] = { { 9, 4 }, { 3, 1 } };
+static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Tuning", NULL } };
 /* Done and Cancel as the original's (00413aa0, 00463f80's calls) */
 enum { DONE_X = 50, CANCEL_X = 565, ITEMS_Y = 450 };
 
@@ -54,22 +61,25 @@ void controls_plus_tune_text(const PortControls *c, int which, char out[16])
     if (which >= 0 && which < TUNE_COUNT) snprintf(out, 16, "%d%%", tune_value(c, which));
 }
 
-static PageNavOps nav_ops(const ControlsMenuOps *o)
+/* the page indicator's words: over the clean background on pages 2 and 3 (put back under them), plain on page 1, which is
+ * the exe's own picture */
+static PageNavOps nav_ops(const ControlsMenuOps *o, int page)
 {
-    const PageNavOps n = { o->ctx, o->plus_text, o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size,
-                           o->plus_arrow };
+    const int smooth = page > 0 && o->plus_text_smooth != NULL;
+    const PageNavOps n = { o->ctx, smooth ? o->plus_text_smooth : o->plus_text, o->plus_text_width,
+                           o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow };
     return n;
 }
 
 void controls_plus_nav(const ControlsMenuOps *o, int page, int lit)
 {
-    const PageNavOps nav = nav_ops(o);
+    const PageNavOps nav = nav_ops(o, page);
     page_nav_draw(&nav, page, PAGES, lit);
 }
 
 int controls_plus_nav_lit(const ControlsMenuOps *o, int page)
 {
-    const PageNavOps nav = nav_ops(o);
+    const PageNavOps nav = nav_ops(o, page);
     return page_nav_lit(&nav, page, PAGES);
 }
 
@@ -77,6 +87,14 @@ int controls_plus_nav_hit(const ControlsMenuOps *o)
 {
     return o->pointer_in_rect(o->ctx, CONTROLS_NAV_X0, CONTROLS_NAV_X1, CONTROLS_NAV_Y0, CONTROLS_NAV_Y1);
 }
+
+/* the clean configuration background, composed once as the pages open (plus_bgnd); `ready` 0 when there is none, and
+ * the exe's own picture is what shows */
+typedef struct Bgnd {
+    int ready;
+    uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H];
+    uint8_t palette[768];
+} Bgnd;
 
 typedef struct Run {
     int page;                /* ACTION_PAGE or TUNE_PAGE */
@@ -87,8 +105,10 @@ typedef struct Run {
     int have_pad;            /* a pad or wheel is plugged in (while a source is asked for) */
     int gamepad;             /* the device's numbers are SDL_Gamepad's (or none is plugged in) */
     int result;              /* a ControlsPageResult once it is left, -1 until then */
-    int32_t bank;
-    const uint8_t *rgb;
+    int32_t bank;            /* the controls' own art: the picture when there is no clean background */
+    int32_t options;         /* option/options.qfs: DONE and CANCEL's lit and dark art */
+    const Bgnd *bgnd;
+    int palette_on;          /* the clean background's palette put on the display, once: the pages share it */
     int nav_lit;             /* the page indicator's triangle the pointer is on, 0 none */
 } Run;
 
@@ -96,15 +116,32 @@ static int rows(const Run *r) { return r->page == ACTION_PAGE ? ACT_COUNT : TUNE
 static int done_row(const Run *r) { return rows(r); }
 static int cancel_row(const Run *r) { return rows(r) + 1; }
 
-static int row_top(const Run *r, int row)
+/* the group a row is in, of the page's two */
+static int group_of(int page, int row) { return row < GROUP_ROWS[page][0] ? 0 : 1; }
+
+/* the line a group's header takes (or its first row, when it has none): the lines before it are the earlier groups' */
+static int group_line(int page, int group)
 {
-    return r->page == ACTION_PAGE ? ACTION_Y + row * ACTION_H : TUNE_Y + row * TUNE_H;
+    return group == 0 ? 0 : (GROUP_HEADER[page][0] != NULL) + GROUP_ROWS[page][0];
 }
+
+/* a group after the first is GROUP_GAP lower than the lines above it */
+static int line_y(int line, int group) { return ROW_TOP + line * ROW_PITCH + (group > 0 ? GROUP_GAP : 0); }
+
+static int row_y(const Run *r, int row)
+{
+    const int page = r->page - ACTION_PAGE, group = group_of(page, row);
+    const int first = group == 0 ? 0 : GROUP_ROWS[page][0];
+    const int line = group_line(page, group) + (GROUP_HEADER[page][group] != NULL) + (row - first);
+    return line_y(line, group);
+}
+
+static int header_y(int page, int group) { return line_y(group_line(page, group), group); }
 
 static void move_to(const Run *r, int row, const ControlsMenuOps *o)
 {
     if (row >= done_row(r)) o->pointer_move_to(o->ctx, row == done_row(r) ? DONE_X : CANCEL_X, ITEMS_Y);
-    else o->pointer_move_to(o->ctx, 200, row_top(r, row) + ACTION_H / 2);
+    else o->pointer_move_to(o->ctx, 200, row_y(r, row) + ROW_TALL / 2);
 }
 
 static void select_row(Run *r, int row, const ControlsMenuOps *o)
@@ -129,54 +166,90 @@ static void follow(Run *r, const ControlsMenuOps *o)
         select_row(r, done_row(r), o);
         return;
     }
-    const int h = r->page == ACTION_PAGE ? ACTION_H : TUNE_H;
     for (int row = 0; row < rows(r); row++) {
-        const int top = row_top(r, row) - 2;
-        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + h)) {
+        const int top = row_y(r, row) - 2;
+        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + ROW_PITCH)) {
             select_row(r, row, o);
             return;
         }
     }
 }
 
+/* the words go through the draw that puts the clean background back under them (own_plus_text), since the page is
+ * drawn over it; with no smooth op the plain one */
+static void words(const ControlsMenuOps *o, int32_t style, const char *text, int32_t x, int32_t y)
+{
+    if (o->plus_text_smooth != NULL) o->plus_text_smooth(o->ctx, style, text, x, y);
+    else o->plus_text(o->ctx, style, text, x, y);
+}
+
 static void text_right(const ControlsMenuOps *o, int lit, const char *text, int right, int y)
 {
-    o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
+    words(o, lit ? STYLE_YELLOW : STYLE_CREAM, text, right - o->plus_text_width(o->ctx, text), y);
+}
+
+/* a group's header: as the other configuration screens draw theirs, red (plus_header), or a red row without the op */
+static void header(const ControlsMenuOps *o, const char *text, int page, int group)
+{
+    const int y = header_y(page, group);
+    if (o->plus_header != NULL) o->plus_header(o->ctx, text, LABEL_X, y, VALUE_RIGHT - LABEL_X);
+    else words(o, STYLE_RED, text, LABEL_X, y);
+}
+
+static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o, int row)
+{
+    char value[64];
+    const int lit = r->selected == row, y = row_y(r, row);
+    if (r->page == ACTION_PAGE) {
+        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name((PortAction)row), LABEL_X, y);
+        if (r->capturing == row)
+            snprintf(value, sizeof value, "%s", r->have_pad ? "Press a button or move an axis..."
+                                                            : "No controller found");
+        else control_map_binding_text(st->plus->port, (PortAction)row, r->gamepad, value, sizeof value);
+        text_right(o, lit, value, VALUE_RIGHT, y);
+    } else if (row < TUNE_COUNT) {
+        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, TUNE_LABEL[row], LABEL_X, y);
+        controls_plus_tune_text(st->plus->port, row, value);
+        text_right(o, lit, value, VALUE_RIGHT, y);
+    } else {
+        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, "Defaults", LABEL_X, y);
+    }
 }
 
 static void draw(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
-    char value[64];
+    const int clean = r->bgnd->ready;
     o->select(o->ctx, *st->screen);
-    o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "bgnd"));
-    o->plus_panel(o->ctx, r->rgb, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
-    for (int row = 0; row < rows(r); row++) {
-        const int lit = r->selected == row, y = row_top(r, row);
-        if (r->page == ACTION_PAGE) {
-            o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name((PortAction)row), LABEL_X, y);
-            if (r->capturing == row)
-                snprintf(value, sizeof value, "%s", r->have_pad ? "Press a button or move an axis..."
-                                                                : "No controller found");
-            else control_map_binding_text(st->plus->port, (PortAction)row, r->gamepad, value, sizeof value);
-            text_right(o, lit, value, VALUE_RIGHT, y);
-        } else if (row < TUNE_COUNT) {
-            o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, TUNE_LABEL[row], LABEL_X, y);
-            controls_plus_tune_text(st->plus->port, row, value);
-            text_right(o, lit, value, VALUE_RIGHT, y);
-        } else {
-            o->plus_text(o->ctx, lit ? STYLE_YELLOW : STYLE_CREAM, "Defaults", LABEL_X, y);
-        }
+    if (clean) o->plus_bgnd_shape(o->ctx, r->bgnd->pixels, r->bgnd->palette);
+    else o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "bgnd"));
+    const int page = r->page - ACTION_PAGE;
+    for (int group = 0; group < 2; group++)
+        if (GROUP_HEADER[page][group] != NULL) header(o, GROUP_HEADER[page][group], page, group);
+    for (int row = 0; row < rows(r); row++) draw_row(r, st, o, row);
+    if (o->plus_title != NULL) o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
+    else words(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
+    /* DONE and CANCEL are the background's own words; their lit and dark art is Options' (OPTIONS.QFS's capitalised
+     * names: shape_bank_find compares with memcmp) */
+    if (r->options != 0) {
+        const uint8_t *const done = o->shape(o->ctx, r->options, r->selected == done_row(r) ? "Donl" : "Dond");
+        const uint8_t *const cancel = o->shape(o->ctx, r->options, r->selected == cancel_row(r) ? "Canl" : "Cand");
+        if (done != NULL) o->blit_own(o->ctx, done);
+        if (cancel != NULL) o->blit_own(o->ctx, cancel);
     }
-    if (r->page == ACTION_PAGE) {
-        const char *hint = "Enter: set   Insert: add   Delete: clear";
-        o->plus_text(o->ctx, STYLE_CREAM, hint, NAV_CENTRE - o->plus_text_width(o->ctx, hint) / 2, HINT_Y);
-    }
-    if (r->selected == done_row(r)) o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "donl"));
-    if (r->selected == cancel_row(r)) o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "canl"));
     controls_plus_nav(o, r->page, r->nav_lit);
     o->select_default(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *st->screen));
-    o->flip(o->ctx);
+    /* the clean background's palette goes on the display once: fade the page the caller had out, put this one up on the
+     * black display, and fade it in. The pages after share it, so they only flip. */
+    if (clean && !r->palette_on) {
+        o->fade_out(o->ctx, 0, 0x100);
+        o->flip(o->ctx);
+        o->fade_in(o->ctx, 0, 0x100, r->bgnd->palette);
+        o->text_styles(o->ctx);
+        r->palette_on = 1;
+    } else {
+        o->flip(o->ctx);
+    }
     o->pointer_show(o->ctx);
     o->deadline_set(o->ctx, WAIT);
     r->redraw = 0;
@@ -306,12 +379,16 @@ static void nav_click(Run *r, const ControlsMenuOps *o)
     else turn(r, r->page - 1, o);
 }
 
-ControlsPageResult controls_plus_run(const ControlsMenuState *st, const ControlsMenuOps *o, int32_t bank,
-                                     const uint8_t *rgb)
+ControlsPageResult controls_plus_run(const ControlsMenuState *st, const ControlsMenuOps *o, int32_t bank)
 {
+    static Bgnd bgnd;   /* 300 KB: not on the stack */
     RawPad pad;
+    bgnd.ready = o->plus_bgnd != NULL && o->plus_bgnd_shape != NULL &&
+                 o->plus_bgnd(o->ctx, bgnd.pixels, bgnd.palette) != 0;
+    const int32_t options = o->load_art(o->ctx, "option/options.qfs");
     /* not armed: the key that turned the page may still be down */
-    Run r = { ACTION_PAGE, 0, 1, 0, *st->buttons == 0, 0, -1, 0, 1, -1, bank, rgb, 0 };
+    Run r = { .page = ACTION_PAGE, .redraw = 1, .released = *st->buttons == 0, .capturing = -1, .gamepad = 1,
+              .result = -1, .bank = bank, .options = options, .bgnd = &bgnd, .nav_lit = 0 };
     if (o->pad_raw(o->ctx, &pad)) r.gamepad = pad.gamepad;
     move_to(&r, r.selected, o);
     do {
@@ -343,5 +420,6 @@ ControlsPageResult controls_plus_run(const ControlsMenuState *st, const Controls
             r.result = CONTROLS_PAGE_DONE;
         }
     } while (r.result < 0);
+    if (options != 0) o->free(o->ctx, options);
     return (ControlsPageResult)r.result;
 }

@@ -12,6 +12,9 @@ enum { W = TITLE_ART_SCREEN_W, H = TITLE_ART_SCREEN_H };
 /* fnv-1a 64 of the two titles' masks the CD gave when the table was made */
 #define CUSTOMIZE_GAME_FNV 0xdafba61af5ab30d0ULL
 #define GRAPHICS_DETAIL_FNV 0x9f13941b31291516ULL
+/* "Controls Setup" cut from option/cntrlset.qfs: its packed width and the mask's hash when the table was made */
+#define CONTROLS_SETUP_W (3 + 286 + 3)
+#define CONTROLS_SETUP_FNV 0x406d4df5344cd64eULL
 
 static const uint8_t RED[3] = { 238, 0, 0 }, GREEN[3] = { 0, 172, 8 };
 
@@ -234,6 +237,7 @@ static void test_the_titles_by_their_text(void)
     CHECK_EQ_INT(title_art_for("Customize Game"), TITLE_ART_CUSTOMIZE_GAME);
     CHECK_EQ_INT(title_art_for("Graphics Detail"), TITLE_ART_GRAPHICS_DETAIL);
     CHECK_EQ_INT(title_art_for("Game Mode"), TITLE_ART_GAME_MODE);
+    CHECK_EQ_INT(title_art_for("Controls Setup"), TITLE_ART_CONTROLS_SETUP);
     CHECK_EQ_INT(title_art_for("Audio"), TITLE_ART_COUNT);
     CHECK_EQ_INT(title_art_for(NULL), TITLE_ART_COUNT);
 }
@@ -270,6 +274,7 @@ static void test_the_cd_gives_the_same_titles(void)
     static const struct { TitleArtId id; int w; uint64_t fnv; } titles[] = {
         { TITLE_ART_CUSTOMIZE_GAME, 3 + 282 + 3, CUSTOMIZE_GAME_FNV },
         { TITLE_ART_GRAPHICS_DETAIL, 3 + 293 + 3, GRAPHICS_DETAIL_FNV },
+        { TITLE_ART_CONTROLS_SETUP, CONTROLS_SETUP_W, CONTROLS_SETUP_FNV },
     };
     uint8_t *mask = calloc(TITLE_ART_MAX_W * TITLE_ART_H, 1);
     CHECK(mask != NULL);

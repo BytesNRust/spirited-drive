@@ -26,10 +26,9 @@ int controls_plus_nav_lit(const ControlsMenuOps *o, int page);
 int controls_plus_nav_hit(const ControlsMenuOps *o);
 
 typedef enum { CONTROLS_PAGE_DONE, CONTROLS_PAGE_CANCEL, CONTROLS_PAGE_BACK } ControlsPageResult;
-/* The pages 2 and 3, run to their end over the screen's `bank` and `rgb` palette: Done or the idle deadline leave
+/* The pages 2 and 3, run to their end over the screen's `bank` (its controls art): Done or the idle deadline leave
  * with the controls as they are, Cancel and Escape say so (the caller puts them back), Left on page 2 or a click on the
  * indicator's left half go back to page 1. */
-ControlsPageResult controls_plus_run(const ControlsMenuState *st, const ControlsMenuOps *o, int32_t bank,
-                                     const uint8_t *rgb);
+ControlsPageResult controls_plus_run(const ControlsMenuState *st, const ControlsMenuOps *o, int32_t bank);
 
 #endif

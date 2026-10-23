@@ -416,9 +416,11 @@ static void put_back(Menu *m, const ControlsMenuState *st)
 /* port: the added pages; Done leaves the screen, Cancel puts everything back, back returns to page 1 drawn again */
 static void second_page(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
-    const ControlsPageResult r = controls_plus_run(st, o, m->bank, m->rgb);
+    const ControlsPageResult r = controls_plus_run(st, o, m->bank);
     if (r == CONTROLS_PAGE_CANCEL) put_back(m, st);
     else if (r == CONTROLS_PAGE_DONE) m->leave = 1;
+    /* back to page 1: its palette fades in again, since the pages put the clean background's on the display */
+    if (r == CONTROLS_PAGE_BACK) m->fade = 1;
     m->redraw = 1;
     m->released = m->armed = 0;
     m->rest = 0;
