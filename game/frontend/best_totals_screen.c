@@ -5,7 +5,8 @@
 enum {
     TEXT = 0x5c, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd,
     KEY_ESCAPE = 0x1b, ROWS = 10, ROW_Y = 0x82, ROW_STEP = 0x15, TOP_Y = 0x177, NAME_X = 7, NAME_WIDTH = 0x11d,
-    TIME_X = 0x131, CAR_X = 0x1d6, MARK_X = 0x23f
+    TIME_X = 0x131, CAR_X = 0x1d6, MARK_X = 0x23f,
+    CHEATS_NAME_WIDTH = 200   /* port: the names' width with the cheat letters after them (results_screen.c) */
 };
 
 /* config.dat's image (from 00524df0): the race setup's shorts, then each
@@ -54,7 +55,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
         const uint8_t *best = table + BEST_ROW * i;
         const int32_t y = ROW_STEP * i + ROW_Y;
         if (i == row) ops->text_select(ops->ctx, 3);
-        ops->text_fit(ops->ctx, (const char *)best + BEST_NAME, NAME_X, y, NAME_WIDTH);
+        ops->text_fit(ops->ctx, (const char *)best + BEST_NAME, NAME_X, y, results_cheats(in) ? CHEATS_NAME_WIDTH : NAME_WIDTH);
         ops->time_text(ops->ctx, text, g32(best + BEST_TOTAL));
         ops->text_at(ops->ctx, text, TIME_X, y);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(best + BEST_CAR)], CAR_X, y);
@@ -63,7 +64,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
         if (i == row) ops->text_select(ops->ctx, 1);
     }
     ops->text_select(ops->ctx, top_beaten ? 3 : 1);
-    ops->text_fit(ops->ctx, (const char *)records + TOP_NAME, NAME_X, TOP_Y, NAME_WIDTH);
+    ops->text_fit(ops->ctx, (const char *)records + TOP_NAME, NAME_X, TOP_Y, results_cheats(in) ? CHEATS_NAME_WIDTH : NAME_WIDTH);
     ops->speed_text(ops->ctx, text, g32(records + TOP_SPEED));
     ops->text_at(ops->ctx, text, TIME_X, TOP_Y);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(records + TOP_CAR)], CAR_X, TOP_Y);

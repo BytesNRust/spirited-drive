@@ -22,7 +22,8 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 }
 void platform_free_file(uint8_t *data) { (void)data; }
 
-enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0x250, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
+enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0xd7, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
+enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* the segment screen's art titles end at 221 and 225 */
 enum { Y_BEST_ROW = 0x11d, Y_TRACK_TOP = 0x177, Y_HEAD = 0x5a, BEST_LEFT = 0x1d6, ROW_Y = 0x82, ROW_STEP = 0x15 };
 
 typedef struct Drawn {
@@ -221,33 +222,34 @@ static void test_segment_normal_table_is_unchanged(void)
     run_segment(NULL);
     CHECK(any_text("Best Time"));
     CHECK(!any_with_suffix("(cheats)"));
+    CHECK(!found(" (cheats)", TITLE_X, TITLE_BEST_Y));
     CHECK(!found("N", X_MARKS, Y_SEGMENT));
-    CHECK(!found("E", X_MARKS, Y_BEST));
 }
 
 static void test_segment_cheats_title_and_marks(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, X_MARKS };
+    ResultsMarks marks = { slots, 0 };
     memset(slots, 0, sizeof slots);
     slots[SLOT_SEGMENT + 0] = EXTRAS_MARK_NITRO;
     slots[SLOT_TOP] = EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR;
     slots[records_slot_totals(0, 0, 0)] = EXTRAS_MARK_EXPLODE;
     run_segment(&marks);
-    CHECK(any_text("Best Time (cheats)"));
-    CHECK(found("Best Time (cheats)", BEST_LEFT, Y_HEAD));
+    CHECK(any_text("Best Time (c)"));
+    CHECK(found("Best Time (c)", BEST_LEFT, Y_HEAD));
+    CHECK(found(" (cheats)", TITLE_X, TITLE_BEST_Y));
+    CHECK(found(" (cheats)", TITLE_X, TITLE_TOP_Y));
     CHECK(found("N", X_MARKS, Y_SEGMENT));
     CHECK(found("TW", X_MARKS, Y_TOP));
-    CHECK(found("E", X_MARKS, Y_BEST));
 }
 
 static void test_segment_no_mark_when_slot_is_clear(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, X_MARKS };
+    ResultsMarks marks = { slots, 0 };
     memset(slots, 0, sizeof slots);
     run_segment(&marks);
-    CHECK(any_text("Best Time (cheats)"));
+    CHECK(any_text("Best Time (c)"));
     CHECK(!found("N", X_MARKS, Y_SEGMENT));
     CHECK(!found("TW", X_MARKS, Y_TOP));
 }
@@ -256,7 +258,7 @@ static void test_best_totals_marks_each_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, X_MARKS };
+    ResultsMarks marks = { slots, 0 };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -293,7 +295,7 @@ static void test_track_results_header_and_best_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, X_MARKS };
+    ResultsMarks marks = { slots, 0 };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -304,7 +306,7 @@ static void test_track_results_header_and_best_row(void)
     memset(&p, 0, sizeof p);
     reset();
     track_results_screen(0, &in, &st, &p, &ops);
-    CHECK(any_text("Best Time (cheats)"));
+    CHECK(any_text("Best Time (c)"));
     CHECK(found("W", X_MARKS, Y_BEST_ROW));
 }
 
@@ -327,7 +329,7 @@ static void test_circuit_results_header_and_best_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 1, X_MARKS };
+    ResultsMarks marks = { slots, 1 };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -339,7 +341,7 @@ static void test_circuit_results_header_and_best_row(void)
     memset(&p, 0, sizeof p);
     reset();
     circuit_results_screen(0, &in, &st, &p, &ops);
-    CHECK(any_text("Best Time (cheats)"));
+    CHECK(any_text("Best Time (c)"));
     CHECK(found("NE", X_MARKS, Y_BEST_ROW));
 }
 

@@ -91,10 +91,9 @@ static void draw_heads(const ResultsInputs *in, const ResultsOps *ops)
     ops->text_fit(ops->ctx, (const char *)player_at(in, in->player) + NAME, LEFT, 0x5a, 0x96);
     ops->text_at(ops->ctx, in->car_names[g16(in->image + CAR)], LEFT, 0x6e);
     if (type == 0) {
-        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", in->marks ? " (cheats)" : "");
+        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", results_cheats(in) ? " (c)" : "");
         ops->text_at(ops->ctx, text, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(track_at(in) + BEST_CAR)], RIGHT, 0x6e);
-        results_mark_total(in, 0, 0x6e, ops);
     } else if (type == 2 || type == 3) {
         ops->text_at(ops->ctx, (const char *)player_at(in, in->rival) + NAME, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[in->rival_car], RIGHT, 0x6e);

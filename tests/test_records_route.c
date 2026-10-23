@@ -247,6 +247,23 @@ static void test_the_results_show_the_table_the_race_was_checked_on(void)
     CHECK_EQ_INT(g32(shown + 0xd0), 7112);
 }
 
+/* A tournament begun with cheats and taken up without: its totals screen shows the table with the cheats it began with,
+ * the segment screens the race's own (without) */
+static void test_tournament_totals_show_the_tournaments_table(void)
+{
+    static uint8_t shown[RECORD_CHECK_IMAGE], image[RECORD_CHECK_IMAGE];
+    static const uint8_t first[18];
+    uint8_t later[18] = { 1 };
+    fresh();
+    memset(image, 0, sizeof image);
+    records_glue_begin(3, first, 0, 0, 0, 1, 0);   /* the tournament's first race: NITRO, begun on */
+    records_glue_begin(3, later, 0, 0, 0, 0, 0);   /* a later race without cheats */
+    records_glue_shown_as(ROUTE_TOTALS, shown, image);
+    CHECK(memcmp(shown + 0xb5, port_records_block(0, RECORDS_NORMAL, 1), RECORDS_BLOCK) == 0);
+    records_glue_shown_as(ROUTE_SEGMENT, shown, image);
+    CHECK(memcmp(shown, image, RECORD_CHECK_IMAGE) == 0);
+}
+
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
@@ -262,5 +279,6 @@ int main(void)
     test_the_warrior_mark_is_a_letter();
     test_a_track_with_no_table_is_not_taken();
     test_the_kind_comes_from_the_flags();
+    test_tournament_totals_show_the_tournaments_table();
     return TEST_REPORT();
 }

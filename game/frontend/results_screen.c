@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+enum { TITLE_CHEATS_X = 232 };   /* past the titles' ends ("Best segment time" 221, "Top segment speed" 225) */
 enum {
     RECORD = 0x95, NAME = 0, TIME = 0x59, DISTANCE = 0x5d, SPEED = 0x61, TOTAL = 0x65, FLAGS = 0x5a4,
     RACED = 0x5ba, TEXT = 0x5c, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20,
@@ -42,14 +43,14 @@ static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" 
 void results_mark_slot(const ResultsInputs *in, int slot, int32_t y, const ResultsOps *ops)
 {
     char letters[5];
-    if (in->marks == NULL || slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
+    if (!results_cheats(in) || slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
     records_mark_text(in->marks->slots[slot], letters);
-    if (letters[0] != '\0') ops->text_at(ops->ctx, letters, in->marks->x, y);
+    if (letters[0] != '\0') ops->text_at(ops->ctx, letters, RESULTS_MARK_X, y);
 }
 
 void results_mark_total(const ResultsInputs *in, int row, int32_t y, const ResultsOps *ops)
 {
-    if (in->marks == NULL) return;
+    if (!results_cheats(in)) return;
     results_mark_slot(in, records_slot_totals(g16(in->image + TRACK), in->marks->choice, row), y, ops);
 }
 
@@ -94,10 +95,9 @@ static void draw_heads(const ResultsInputs *in, int segment, const ResultsOps *o
     ops->text_fit(ops->ctx, (const char *)player_at(in, in->player) + NAME, LEFT, 0x5a, 0x96);
     ops->text_at(ops->ctx, in->car_names[g16(in->image + CAR)], LEFT, 0x6e);
     if (type == 0) {
-        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", in->marks ? " (cheats)" : "");
+        snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", results_cheats(in) ? " (c)" : "");
         ops->text_at(ops->ctx, text, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(track_at(in) + BEST_CAR)], RIGHT, 0x6e);
-        results_mark_total(in, 0, 0x6e, ops);
     } else {
         ops->text_at(ops->ctx, (const char *)player_at(in, in->rival) + NAME, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[type == 2 || type == 3 ? in->rival_car : g16(in->image + OPPONENT)],
@@ -179,6 +179,11 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int segment, int be
     draw_heads(in, segment, ops);
     draw_times(in, segment, ops);
     draw_records(in, segment, beaten, ops);
+    /* port: the art's two record titles, marked when the table shown is the one with cheats */
+    if (results_cheats(in)) {
+        ops->text_at(ops->ctx, " (cheats)", TITLE_CHEATS_X, 0x11b);
+        ops->text_at(ops->ctx, " (cheats)", TITLE_CHEATS_X, 0x162);
+    }
 }
 
 /* 0045cea0 */

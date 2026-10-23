@@ -547,10 +547,12 @@ static int16_t car_points[GAME_STATE_PLAYERS];
 /* the records a results screen shows: its image is config.dat's with the race's table in its track block, refreshed after
  * each check so that the row a check set is the row shown (records_glue_shown) */
 static uint8_t shown_image[RECORD_CHECK_IMAGE];
+static ResultsMarks shown_marks;   /* port: the cheats of the same table, refreshed with it */
 static int32_t records_checked(RouteOp op, int32_t *times)
 {
     const int32_t answer = records_glue_route(op, config_current()->image, game_state, menu_words.single, times);
-    records_glue_shown(shown_image, config_current()->image);
+    records_glue_shown_as(op, shown_image, config_current()->image);
+    records_glue_marks_as(op, config_current()->image, &shown_marks);
     return answer;
 }
 static int32_t records(void *ctx) { (void)ctx; return records_checked(ROUTE_SEGMENT, NULL); }
@@ -581,32 +583,18 @@ static int32_t lap_times(void *ctx, int32_t record, int32_t tune)
 typedef void ResultsShow(int32_t ask, const ResultsInputs *in, ResultsState *st, DialogPointer *p,
                          const ResultsOps *ops);
 
-/* port: the cheat letters of a results row start after the longest car name (drawn at 0x1d6), with a gap */
-static int32_t cheat_marks_x(const char *const *names)
-{
-    enum { CAR_X = 0x1d6, MARK_GAP = 6 };
-    int32_t longest = 0;
-    for (int i = 0; i < RESULTS_CARS; i++) {
-        const int32_t w = text_width(names[i]);
-        if (w > longest) longest = w;
-    }
-    return CAR_X + longest + MARK_GAP;
-}
-
 /* 0045cea0, 0045de08 or 0045eff4 after a race, on the drive's results and config.dat's image, on 00427ae0's screen
  * picture */
 static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t mode)
 {
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
-    static ResultsMarks shown_marks;
     const int32_t screen = ea_screen();
     records_glue_shown(shown_image, config_current()->image);
-    const ResultsMarks *const marks = records_glue_shown_marks(shown_image, &shown_marks);
-    if (marks != NULL) shown_marks.x = cheat_marks_x(CAR_NAMES);
+    records_glue_marks_as(ROUTE_SEGMENT, config_current()->image, &shown_marks);
     ResultsInputs in = { game_state, shown_image, r->dropped, menu_words.single, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish, marks };
+                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish, &shown_marks };
     ResultsState st = { g.inverse, screen_palette, 0 };
     int x, y;
     pointer_position(&x, &y);
