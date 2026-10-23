@@ -80,16 +80,14 @@ static void test_without_the_cheat_or_in_playback_nothing_is_written(void)
     CHECK_EQ_INT(out[3], 9);
 }
 
-/* The start clock (004bb8e0) is the input's clock while the cheat runs in a race, and is left alone otherwise. */
-static void test_start_clock_follows_the_input_clock_under_the_cheat(void)
+/* The start clock (004bb8e0) is the timer's: it follows the input clock in every race, cheat or not, and in a replay. */
+static void test_start_clock_follows_the_input_clock_in_every_race(void)
 {
     int32_t clock = 7;
-    start_clock_fill(&clock, 240, CHEAT, RACING);
+    start_clock_fill(&clock, 240);
     CHECK_EQ_INT(clock, 240);
-    start_clock_fill(&clock, 260, NO_CHEAT, RACING);
-    CHECK_EQ_INT(clock, 240);
-    start_clock_fill(&clock, 280, CHEAT, PLAYING);
-    CHECK_EQ_INT(clock, 240);
+    start_clock_fill(&clock, 260);
+    CHECK_EQ_INT(clock, 260);
 }
 
 /* A car held in gear with the race's start: the launch opens when the keys are down before the lights. */
@@ -176,7 +174,7 @@ int main(void)
     test_port_rule_takes_the_pad_key_and_the_exe_rule_does_not();
     test_nothing_held_fills_zeros();
     test_without_the_cheat_or_in_playback_nothing_is_written();
-    test_start_clock_follows_the_input_clock_under_the_cheat();
+    test_start_clock_follows_the_input_clock_in_every_race();
     test_launch_opens_on_n_alone_with_the_port_rule();
     test_launch_needs_a_shift_or_b_with_the_exe_rule();
     test_launch_from_the_pad_key_with_the_port_rule();

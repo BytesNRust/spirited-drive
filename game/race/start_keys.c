@@ -12,7 +12,7 @@ void start_keys_fill(uint8_t out[4], const uint8_t *keys, int32_t start_input, i
     out[3] = keys[START_KEY_B] != 0;
 }
 
-void start_clock_fill(int32_t *clock, int32_t ticks, int32_t start_input, int16_t playback)
+void start_clock_fill(int32_t *clock, int32_t ticks)
 {
-    if (start_input != 0 && playback == 0) *clock = ticks;
+    *clock = ticks;
 }
