@@ -544,10 +544,19 @@ static int16_t car_points[GAME_STATE_PLAYERS];
 /* 0045bad8, 0045be50, 0045c2d0 and 0045b908 on config.dat's image and the menus' game state, this machine's player
  * 0; 0045b73c, 0045b6c8 on the game state */
 /* the records the finishing player takes are this machine's (004fbb08: the slot in a link game, 0 alone) */
-static int32_t records(void *ctx) { (void)ctx; return records_glue_route(ROUTE_SEGMENT, config_current()->image, game_state, menu_words.single, NULL); }
-static int32_t totals(void *ctx) { (void)ctx; return records_glue_route(ROUTE_TOTALS, config_current()->image, game_state, menu_words.single, race_times); }
-static int32_t top_record(void *ctx) { (void)ctx; return records_glue_route(ROUTE_TOP, config_current()->image, game_state, menu_words.single, NULL); }
-static int32_t lap_record(void *ctx) { (void)ctx; return records_glue_route(ROUTE_LAP, config_current()->image, game_state, menu_words.single, NULL); }
+/* the records a results screen shows: its image is config.dat's with the race's table in its track block, refreshed after
+ * each check so that the row a check set is the row shown (records_glue_shown) */
+static uint8_t shown_image[RECORD_CHECK_IMAGE];
+static int32_t records_checked(RouteOp op, int32_t *times)
+{
+    const int32_t answer = records_glue_route(op, config_current()->image, game_state, menu_words.single, times);
+    records_glue_shown(shown_image, config_current()->image);
+    return answer;
+}
+static int32_t records(void *ctx) { (void)ctx; return records_checked(ROUTE_SEGMENT, NULL); }
+static int32_t totals(void *ctx) { (void)ctx; return records_checked(ROUTE_TOTALS, race_times); }
+static int32_t top_record(void *ctx) { (void)ctx; return records_checked(ROUTE_TOP, NULL); }
+static int32_t lap_record(void *ctx) { (void)ctx; return records_checked(ROUTE_LAP, NULL); }
 static int32_t leads(void *ctx) { (void)ctx; return tournament_leads(game_state, menu_words.single); }
 static void results_order(void *ctx) { (void)ctx; tournament_results_order(game_state, finish, &order_work); }
 
@@ -579,7 +588,8 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
-    ResultsInputs in = { game_state, config_current()->image, r->dropped, menu_words.single, r->place, r->rival_place,
+    records_glue_shown(shown_image, config_current()->image);
+    ResultsInputs in = { game_state, shown_image, r->dropped, menu_words.single, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
                                CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish };
     ResultsState st = { g.inverse, screen_palette, 0 };
