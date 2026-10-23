@@ -78,6 +78,7 @@ static void test_defaults_are_todays_pad(void)
     check_source(d.bind[ACT_HORN][0], SRC_NONE, 0);
     check_source(d.bind[ACT_PAUSE][0], SRC_NONE, 0);
     check_source(d.bind[ACT_VIEW][0], SRC_NONE, 0);
+    check_source(d.bind[ACT_NITRO][0], SRC_BUTTON, 10);               /* RB: the face buttons are taken */
     check_source(d.bind[ACT_GAS][1], SRC_NONE, 0);
     CHECK_EQ_INT(d.deadzone, 0);
     CHECK_EQ_INT(d.sensitivity, 100);
@@ -176,6 +177,17 @@ static void test_a_file_can_say_the_pad_is_not_custom(void)
     CHECK_EQ_INT(port_controls_load().custom, 1);
 }
 
+static void test_nitro_is_a_binding_in_the_file(void)
+{
+    const char *text = "custom=1\nnitro=button9,axis5+\n";
+    const PortControls c = port_controls_parse(text, strlen(text));
+    check_source(c.bind[ACT_NITRO][0], SRC_BUTTON, 9);
+    check_source(c.bind[ACT_NITRO][1], SRC_AXIS_POS, 5);
+    char out[1024];
+    CHECK(port_controls_format(&c, out, sizeof out) > 0);
+    CHECK(strstr(out, "nitro=button9,axis5+\n") != NULL);
+}
+
 int main(void)
 {
     test_defaults_are_todays_pad();
@@ -185,5 +197,6 @@ int main(void)
     test_empty_value_clears();
     test_load_save();
     test_a_file_can_say_the_pad_is_not_custom();
+    test_nitro_is_a_binding_in_the_file();
     return TEST_REPORT();
 }

@@ -146,6 +146,7 @@ static void test_sources_the_device_lacks_are_ignored(void)
     c.bind[ACT_GAS][0] = (ControlSource){ SRC_AXIS_POS, 7, 0, 0 };
     c.bind[ACT_STEER][0] = (ControlSource){ SRC_AXIS_FULL, 6, 0, 0 };
     c.bind[ACT_PAUSE][0] = (ControlSource){ SRC_HAT, 1, 1, 0 };
+    c.bind[ACT_NITRO][0] = (ControlSource){ SRC_BUTTON, 14, 0, 0 };
     RawPad r = wheel(11, 4);                 /* a smaller device than the file names */
     memset(r.button, 1, sizeof r.button);    /* the arrays past its counts hold anything */
     memset(r.axis, 0x7f, sizeof r.axis);
@@ -195,6 +196,17 @@ static void test_virtual_keys(void)
     CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_PAUSE | 1u << ACT_HORN);
     r.axis[3] = 30000;                       /* an axis past half its travel is a press */
     CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_PAUSE | 1u << ACT_HORN | 1u << ACT_VIEW);
+}
+
+/* Nitro is a virtual key of the pad's right shoulder by default: the four face buttons are taken. */
+static void test_nitro_is_a_virtual_key(void)
+{
+    const PortControls c = port_controls_defaults();
+    RawPad r = pad();
+    CHECK_EQ_INT(control_map_apply(&c, &r).keys & (1u << ACT_NITRO), 0);
+    r.button[RIGHT_SHOULDER] = 1;
+    CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_NITRO);
+    CHECK(strcmp(control_map_action_name(ACT_NITRO), "Nitro") == 0);
 }
 
 static void test_a_wheel_without_a_file_passes_through(void)
@@ -442,6 +454,7 @@ int main(void)
     test_sources_the_device_lacks_are_ignored();
     test_dead_zone_and_sensitivity_stay_in_range();
     test_virtual_keys();
+    test_nitro_is_a_virtual_key();
     test_a_wheel_without_a_file_passes_through();
     test_a_wheel_with_a_file_keeps_its_other_buttons();
     return TEST_REPORT();

@@ -17,7 +17,7 @@ enum {
 static const int EXTRA_PAD_ORDER[EXTRA_PAD_BUTTONS] = {
     PAD_LEFT_SHOULDER, PAD_RIGHT_SHOULDER, PAD_BACK, PAD_START, PAD_LEFT_STICK, PAD_RIGHT_STICK };
 static const PortAction BUTTON_ACTION[BUTTON_BITS] = { ACT_GEAR_UP, ACT_GEAR_DOWN, ACT_CAMERA, ACT_HANDBRAKE };
-static const PortAction KEY_ACTION[3] = { ACT_HORN, ACT_PAUSE, ACT_VIEW };
+static const PortAction KEY_ACTION[] = { ACT_HORN, ACT_PAUSE, ACT_VIEW, ACT_NITRO };
 
 static int clamp(int v, int lo, int hi)
 {
@@ -145,7 +145,7 @@ VirtualPad control_map_apply(const PortControls *c, const RawPad *raw)
     v.axis[0] = steering(c, raw);
     v.axis[2] = pedal_of(c, ACT_GAS, raw);
     v.axis[3] = pedal_of(c, ACT_BRAKE, raw);
-    for (int k = 0; k < 3; k++)
+    for (size_t k = 0; k < sizeof KEY_ACTION / sizeof KEY_ACTION[0]; k++)
         if (action_pressed(c, KEY_ACTION[k], raw)) v.keys |= 1u << KEY_ACTION[k];
     return v;
 }
@@ -267,7 +267,7 @@ const char *control_map_action_name(PortAction act)
 {
     static const char *const NAME[ACT_COUNT] = { "Steering", "Steer left", "Steer right", "Accelerate", "Brake",
                                                  "Gear up", "Gear down", "Camera", "Handbrake", "Horn", "Pause",
-                                                 "View" };
+                                                 "View", "Nitro" };
     return act >= 0 && act < ACT_COUNT ? NAME[act] : "";
 }
 

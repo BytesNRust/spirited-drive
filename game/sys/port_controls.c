@@ -14,13 +14,14 @@ enum {
     DEADZONE_MAX = 50, SENSITIVITY_MIN = 50, SENSITIVITY_MAX = 200, STRENGTH_MAX = 100,
     LINE_SIZE = 160, SOURCE_SIZE = 40,
     /* SDL_Gamepad's numbers (SDL_GamepadButton / SDL_GamepadAxis) */
-    PAD_SOUTH = 0, PAD_EAST = 1, PAD_WEST = 2, PAD_NORTH = 3, PAD_DPAD_LEFT = 13, PAD_DPAD_RIGHT = 14,
+    PAD_SOUTH = 0, PAD_EAST = 1, PAD_WEST = 2, PAD_NORTH = 3, PAD_RIGHT_SHOULDER = 10, PAD_DPAD_LEFT = 13,
+    PAD_DPAD_RIGHT = 14,
     PAD_AXIS_LEFTX = 0, PAD_AXIS_LEFT_TRIGGER = 4, PAD_AXIS_RIGHT_TRIGGER = 5
 };
 
 static const char *const ACTION_KEY[ACT_COUNT] = {
     "steer", "steer_left", "steer_right", "gas", "brake", "gear_up", "gear_down", "camera", "handbrake", "horn",
-    "pause", "view" };
+    "pause", "view", "nitro" };
 
 PortControls port_controls_defaults(void)
 {
@@ -34,6 +35,7 @@ PortControls port_controls_defaults(void)
     c.bind[ACT_GEAR_DOWN][0] = (ControlSource){ SRC_BUTTON, PAD_EAST, 0, 0 };
     c.bind[ACT_CAMERA][0] = (ControlSource){ SRC_BUTTON, PAD_WEST, 0, 0 };
     c.bind[ACT_HANDBRAKE][0] = (ControlSource){ SRC_BUTTON, PAD_NORTH, 0, 0 };
+    c.bind[ACT_NITRO][0] = (ControlSource){ SRC_BUTTON, PAD_RIGHT_SHOULDER, 0, 0 };   /* the face buttons are taken */
     return c;
 }
 
