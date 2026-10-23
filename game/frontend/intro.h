@@ -6,7 +6,9 @@
 
 #include <stdint.h>
 
-enum { INTRO_PATH = 0x50, INTRO_REPLAY_NAME = 0x10 };
+/* INTRO_PATH: port: 512 bytes, where the exe's 0x50 cut a movie folder anywhere on disk short and the movie was
+ * skipped as missing */
+enum { INTRO_PATH = 512, INTRO_REPLAY_NAME = 0x10 };
 
 typedef struct IntroOps {
     void (*pointer_hide)(void *ctx);                                   /* [004c618c] */
