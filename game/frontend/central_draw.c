@@ -98,8 +98,8 @@ static void track_art(CentralRun *r)
         strcat(path, ".qfs");
         /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
          * art directory whatever the language */
-        char moon[512];
-        const int lunar = lunar_springs_picture(at, port_extras_load().lunar_springs, resource_root(), moon, sizeof moon);
+        char moon[64];
+        const int lunar = lunar_springs_picture(at, port_extras_load().lunar_springs, moon, sizeof moon);
         st->art[ART_TRACK] = r->ops->load_bank(r->ops->ctx, lunar ? moon : path, 0);
         st->was[WAS_TRACK] = *st->track;
         st->was[WAS_R] = (int16_t)*st->variant_r;

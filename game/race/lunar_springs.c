@@ -3,9 +3,11 @@
 
 #include <stdio.h>
 
-/* the moon's rally FAM (the CD's name, in NTRACKFM as the rally art of a track with no "r" art) and its picture */
+/* the moon's rally FAM (the CD's name, in NTRACKFM as the rally art of a track with no "r" art) and its picture.
+ * MOON.QFS sits in the German art directory only; the art loader prefixes frontend/art/ (English) or frontend/gart/
+ * (German) to a picture's name, and "../gart/" from either reaches it. */
 static const char MOON_FAM[] = "SIMDATA/NTRACKFM/TR8_R01.FAM";
-static const char MOON_PICTURE[] = "frontend/gart/control/moon.qfs";
+static const char MOON_PICTURE[] = "../gart/control/moon.qfs";
 
 /* writes "<root>/<rest>" to out; 0 when it does not fit, so the caller keeps its own name */
 static int join(char *out, size_t size, const char *root, const char *rest)
@@ -19,8 +21,8 @@ int lunar_springs_fam(const char *data_root, int track, int variant_r, int lunar
     return join(out, size, data_root, MOON_FAM);
 }
 
-int lunar_springs_picture(int art, int lunar, const char *data_root, char *out, size_t size)
+int lunar_springs_picture(int art, int lunar, char *out, size_t size)
 {
     if (!lunar || art != LUNAR_ART_SPRINGSR) return 0;
-    return join(out, size, data_root, MOON_PICTURE);
+    return snprintf(out, size, "%s", MOON_PICTURE) < (int)size;
 }
