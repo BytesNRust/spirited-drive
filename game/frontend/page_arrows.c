@@ -4,6 +4,7 @@
 #include "formats/fsh.h"
 #include "game/frontend/item_art.h"
 #include "game/frontend/title_art.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,7 +82,7 @@ const PageArrowMasks *page_arrows_shared(ConfigBgndRead read)
     if (!tried) {
         tried = 1;
         ok = page_arrows_load(read, &masks);
-        if (!ok) fprintf(stderr, "page arrows: not on the CD, drawn as text\n");
+        if (!ok) port_log("page arrows: not on the CD, drawn as text\n");
     }
     return ok ? &masks : NULL;
 }

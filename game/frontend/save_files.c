@@ -1,6 +1,7 @@
 #include "game/frontend/save_files.h"
 
 #include "game/platform/platform.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 
 #include <stddef.h>
@@ -27,7 +28,7 @@ static void file_read(void *ctx, const char *path, void **data, int32_t *flags, 
 static void fatal(void *ctx, const char *message)
 {
     (void)ctx;
-    fprintf(stderr, "%s\n", message);
+    port_fatal("%s\n", message);
     exit(1);
 }
 static void copy(void *ctx, const void *from, void *to, int32_t n) { (void)ctx; memcpy(to, from, (size_t)n); }
@@ -117,5 +118,5 @@ int32_t save_files_exists(const char *name) { return platform_user_file_exists(n
 
 void save_files_remove(const char *name)
 {
-    if (!platform_remove_user_file(name)) fprintf(stderr, "save_files: cannot remove %s\n", name);
+    if (!platform_remove_user_file(name)) port_log("save_files: cannot remove %s\n", name);
 }

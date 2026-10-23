@@ -1,3 +1,4 @@
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 
 #include "formats/qfs.h"
@@ -90,7 +91,7 @@ uint8_t *resource_load(const char *path, size_t *size)
         *size = raw_size;
     }
     platform_free_file(raw);
-    if (out == NULL) fprintf(stderr, "resource: %s: %s\n", path, r != QFS_OK ? qfs_result_str(r) : "out of memory");
+    if (out == NULL) port_log("resource: %s: %s\n", path, r != QFS_OK ? qfs_result_str(r) : "out of memory");
     return out;
 }
 

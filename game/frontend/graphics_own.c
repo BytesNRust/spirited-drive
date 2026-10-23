@@ -5,6 +5,7 @@
 #include "game/frontend/graphics_own.h"
 
 #include "core/formats/fsh.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -200,7 +201,7 @@ static void background(Screen *s, const GraphicsMenuOps *o)
     s->bgnd_ready = 1;
     if (!o->plus_bgnd(s->pixels, s->palette)) {
         s->bgnd_failed = 1;
-        fprintf(stderr, "graphics: no clean configuration background, the original's screen stays\n");
+        port_log("graphics: no clean configuration background, the original's screen stays\n");
     }
 }
 
@@ -217,7 +218,7 @@ static void burnt_in(Screen *s, const GraphicsMenuOps *o)
     if (!s->bgnd_failed) return;   /* the clean background is there: its palette is the one that shows */
     const uint8_t *const pal = o->shape(o->ctx, s->bank, "!pal");
     if (pal == NULL) {
-        fprintf(stderr, "graphics: the original's screen has no palette either\n");
+        port_log("graphics: the original's screen has no palette either\n");
         return;
     }
     /* its own copy, because palette_set reads and writes the same buffer. This only fills the screen's own palette:

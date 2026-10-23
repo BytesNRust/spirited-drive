@@ -3,6 +3,7 @@
 #include "game/frontend/link_sync.h"
 
 #include "game/frontend/menu_glue.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 
@@ -182,7 +183,7 @@ static void handle(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, 
 static void bug(void *ctx, uint32_t text, int32_t kind, uint32_t link)
 {
     (void)ctx, (void)text;
-    fprintf(stderr, "tnfs net: BUG: Unknow Packet Index Received <%d> pc<%x>\n", (int)kind, (unsigned)link);
+    port_log("tnfs net: BUG: Unknow Packet Index Received <%d> pc<%x>\n", (int)kind, (unsigned)link);
 }
 
 int32_t link_receive(uint32_t link, const uint8_t *data, int32_t size)
@@ -255,7 +256,7 @@ static void add_service(void *ctx)
 static void abort_message(void *ctx, uint32_t message)
 {
     (void)ctx;
-    fprintf(stderr, "tnfs net: %s\n", message == RACE_NET_PLAYER_OVERFLOW ? "Player Overflow" : "Viewer Overflow");
+    port_log("tnfs net: %s\n", message == RACE_NET_PLAYER_OVERFLOW ? "Player Overflow" : "Viewer Overflow");
 }
 
 static int32_t add_join(void *ctx, const RaceNetLink *entry)

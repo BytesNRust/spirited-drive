@@ -3,6 +3,7 @@
 #include "formats/fsh.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer_state.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
@@ -52,7 +53,7 @@ int pointer_load(int variant)
     uint32_t index;
     if (data == NULL || fsh_open(&fsh, data, size) != FSH_OK || fsh_find(&fsh, "ptr0", &index) != FSH_OK
         || fsh_entry(&fsh, index, &sprite) != FSH_OK) {
-        fprintf(stderr, "pointer: cannot load %s\n", variant ? "gmouse.fsh" : "mouse.fsh");
+        port_log("pointer: cannot load %s\n", variant ? "gmouse.fsh" : "mouse.fsh");
         pointer_free();
         return 0;
     }

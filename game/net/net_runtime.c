@@ -1,6 +1,7 @@
 /* The network transport as the game runs it (net_runtime.h). */
 #define _POSIX_C_SOURCE 200809L
 #include "game/net/net_runtime.h"
+#include "game/sys/port_log.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -24,7 +25,7 @@ static int32_t on_main_thread(void *ctx, uint32_t thread) { return (void)ctx, (v
 static void say(NetRuntime *rt, const char *text)
 {
     if (rt->message != NULL) rt->message(rt->ctx, text);
-    else fprintf(stderr, "net: %s\n", text);
+    else port_log("net: %s\n", text);
 }
 
 static void fatal_name(void *ctx, const char *format, const char *name)

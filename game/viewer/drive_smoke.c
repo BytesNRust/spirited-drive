@@ -2,6 +2,7 @@
 #include "viewer/drive_smoke.h"
 
 #include "game/gfx/palette_match.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 
 #include <ctype.h>
@@ -42,7 +43,7 @@ void drive_smoke_palette(void *ctx, RacePalette *p)
     DriveSmoke *s = ctx;
     puff_art_start(&s->art, s->trail, p, s->misc_dir, load, s);
     if (s->art.bank == NULL || s->art.palette == NULL) {
-        fprintf(stderr, "drive_smoke: no %s/%ssmoke.qfs\n", s->root, s->misc_dir);
+        port_log("drive_smoke: no %s/%ssmoke.qfs\n", s->root, s->misc_dir);
         return;
     }
     s->ready = 1;

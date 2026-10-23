@@ -1,5 +1,6 @@
 /* port: see records_route.h. */
 #include "game/frontend/records_route.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -83,7 +84,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     memcpy(block, scratch + FIRST_BLOCK + RECORDS_BLOCK * track, RECORDS_BLOCK);
     if (records_has_cheats(kind))
         mark(kind, op, track, g16(image + SEGMENT), g16(image + DIFFICULTY), answer, marks);
-    if (!port_records_save()) fprintf(stderr, "records: records.dat could not be saved\n");
+    if (!port_records_save()) port_log("records: records.dat could not be saved\n");
     return answer;
 }
 

@@ -6,6 +6,7 @@
 #include "game/frontend/link_sync.h"
 #include "game/frontend/menu_glue.h"
 #include "game/sys/input.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 
@@ -62,7 +63,7 @@ static void runtime_yield(void *ctx)
 static void runtime_message(void *ctx, const char *text)
 {
     (void)ctx;
-    fprintf(stderr, "tnfs net: %s\n", text);
+    port_log("tnfs net: %s\n", text);
 }
 
 /* --- the entries and their links (an entry's exe address, 0050a5dc + 0x54 i) --- */

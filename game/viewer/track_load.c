@@ -9,6 +9,7 @@
 
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
+#include "game/sys/port_log.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -68,7 +69,7 @@ uint8_t *track_viewer_read_any(const char *data_root, const char *dir, const cha
         uint8_t *data = platform_read_file(path, size);
         if (data != NULL) return data;
     }
-    fprintf(stderr, "track_viewer: no %s file for %s in %s\n", dir, name, data_root);
+    port_log("track_viewer: no %s file for %s in %s\n", dir, name, data_root);
     return NULL;
 }
 
@@ -85,7 +86,7 @@ static uint8_t *read_fam_named(const char *data_root, const char *name, const Tr
     /* port: TNFS_TRACE_FAM names the FAM 004510e8 chose (its "m"/"r" and the TR1->TR5 remap decide it), so a
      * both-variants race can be told apart from a mirror-only one without reading the art */
     if (getenv("TNFS_TRACE_FAM") != NULL)
-        fprintf(stderr, "track_viewer: fam %s (m=%d r=%d both=%d)\n", path, in.variant_m, in.variant_r,
+        port_log("track_viewer: fam %s (m=%d r=%d both=%d)\n", path, in.variant_m, in.variant_r,
                 in.port_both_variants);
     uint8_t *data = platform_read_file(path, size);
     const size_t n = strlen(path);
@@ -93,7 +94,7 @@ static uint8_t *read_fam_named(const char *data_root, const char *name, const Tr
         for (size_t i = n - 3; i < n; i++) path[i] = (char)toupper((unsigned char)path[i]);
         data = platform_read_file(path, size);
     }
-    if (data == NULL) fprintf(stderr, "track_viewer: no %s\n", path);
+    if (data == NULL) port_log("track_viewer: no %s\n", path);
     return data;
 }
 
@@ -115,7 +116,7 @@ static uint8_t *read_fam(const char *data_root, const char *name, const TrackFam
     if (lunar_springs_fam(data_root, look->track, look->variant_r, look->port_lunar, moon, sizeof moon)) {
         uint8_t *moon_data = platform_read_file(moon, size);
         if (moon_data != NULL) return moon_data;
-        fprintf(stderr, "track_viewer: no %s, the rally's own FAM\n", moon);
+        port_log("track_viewer: no %s, the rally's own FAM\n", moon);
     }
     uint8_t *data = read_fam_named(data_root, name, look, size);
     if (data != NULL) return data;
@@ -162,7 +163,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         const int flipped = mirror != NULL ? fam_mirror_signs(t->fam_file, fam_size, day, day_size, mirror, other_size)
                                            : 0;
         if (getenv("TNFS_TRACE_FAM") != NULL)
-            fprintf(stderr, "track_viewer: time %d art: %d rally bitmaps put, %d signs flipped\n", look->time_of_day, put,
+            port_log("track_viewer: time %d art: %d rally bitmaps put, %d signs flipped\n", look->time_of_day, put,
                     flipped);
         platform_free_file(mirror);
         platform_free_file(day);
@@ -170,7 +171,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
     if (tr != TRI_OK || cr != CHUNK_OK || !track_art_load(&t->art, &t->fam)) {
-        fprintf(stderr, "track_viewer: %s: tri %s, fam %s\n", name, tri_result_str(tr), chunk_result_str(cr));
+        port_log("track_viewer: %s: tri %s, fam %s\n", name, tri_result_str(tr), chunk_result_str(cr));
         return 0;
     }
     track_art_load_animated(&t->art, &t->fam, t->tri.data);  /* 0044c36c's "ga%d0" */
@@ -178,7 +179,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     size_t info_size = 0;
     snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);
     uint8_t *info_text = platform_read_file(info_path, &info_size);
-    if (info_text == NULL) fprintf(stderr, "track_viewer: no %s, the built-in sky settings\n", info_path);
+    if (info_text == NULL) port_log("track_viewer: no %s, the built-in sky settings\n", info_path);
     load_info(t, name, look->time_of_day, (const char *)info_text, info_text != NULL ? info_size : 0);
     platform_free_file(info_text);
     t->objects = calloc(t->tri.scenery_count + 1u, sizeof *t->objects);
@@ -213,7 +214,7 @@ static int load_cfm(const char *data_root, const char *name, uint8_t **file, Chu
     const int ok = *file != NULL && chunk_open(cfm, *file, size) == CHUNK_OK &&
                    load_car_half(&models[0], cfm, CFM_CHILD_MESH_HIGH, CFM_CHILD_BITMAPS_HIGH) &&
                    load_car_half(&models[1], cfm, CFM_CHILD_MESH_LOW, CFM_CHILD_BITMAPS_LOW);
-    if (!ok) fprintf(stderr, "track_viewer: no car %s\n", name);
+    if (!ok) port_log("track_viewer: no car %s\n", name);
     if (!ok) memset(cfm, 0, sizeof *cfm);
     return ok;
 }

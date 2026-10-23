@@ -6,6 +6,7 @@
 #include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/sys/key_codes.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/race/dash_controls.h"
 #include "game/race/dash_load.h"
@@ -68,8 +69,8 @@ int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const
     h->cockpit_ready = h->dash_bank != NULL && h->dash_fmm != NULL && fmm_size >= 0x18 &&
                        cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, race, &h->keys.dash_camera, h->dash_bank,
                                     bank_size, h->dash_fmm, stem, HIGH_RES, 1) == 0;
-    if (!h->cockpit_ready) fprintf(stderr, "drive_hud: no dashboard from %s\n", files.bank);
-    else if (!drive_mirror_start(&h->mirror, &h->cockpit)) fprintf(stderr, "drive_hud: no mirror picture\n");  /* 0044bd64 */
+    if (!h->cockpit_ready) port_log("drive_hud: no dashboard from %s\n", files.bank);
+    else if (!drive_mirror_start(&h->mirror, &h->cockpit)) port_log("drive_hud: no mirror picture\n");  /* 0044bd64 */
     return h->cockpit_ready;
 }
 
@@ -90,7 +91,7 @@ int drive_hud_read(DriveHud *h, const char *data_root)
     h->bank = read_named(h->root, files.bank, (size_t)n);
     h->mmb = read_named(h->root, files.mmb, (size_t)n);
     if (h->bank == NULL || h->mmb == NULL) {
-        fprintf(stderr, "drive_hud: no %s or %s\n", files.bank, files.mmb);
+        port_log("drive_hud: no %s or %s\n", files.bank, files.mmb);
         drive_hud_free(h);
         return 0;
     }
@@ -99,7 +100,7 @@ int drive_hud_read(DriveHud *h, const char *data_root)
         for (int c = 0; c < DASH_PART_COLUMNS; c++)
             parts = parts && (h->parts[r][c] = read_named(h->root, files.parts[r][c], (size_t)n)) != NULL;
     if (!parts) {
-        fprintf(stderr, "drive_hud: no %s and the other parts, the mask from %s\n", files.parts[0][0], files.mmb);
+        port_log("drive_hud: no %s and the other parts, the mask from %s\n", files.parts[0][0], files.mmb);
         free_parts(h);
     }
     /* port: the distance unit's word comes from the bank of the units' language when that is not the language's */
@@ -116,7 +117,7 @@ void drive_hud_setup(DriveHud *h, RacePalette *p)
     h->art.units_bank = h->units_bank;
     if (h->units_bank != NULL) dash_load_units(p, h->units_bank);   /* port: mapped with the language's bank */
     memcpy(h->art.parts, h->parts, sizeof h->parts);
-    if (!h->ready) fprintf(stderr, "drive_hud: the mask bank lacks a shape the HUD needs\n");
+    if (!h->ready) port_log("drive_hud: the mask bank lacks a shape the HUD needs\n");
 }
 
 
@@ -334,7 +335,7 @@ static void draw_police(DriveHud *h, RaceState *race, CockpitSurfaces *s)
                                      drive_hud_view_clip_inputs(s->screen.pitch, s->screen.clip_bottom) };
     const int had = h->police.screen_bank != NULL;
     if (cockpit_police(&ops, &h->cockpit, &h->police, &h->hud, &in) != 0 && !had)
-        fprintf(stderr, "drive_hud: no police screen\n");
+        port_log("drive_hud: no police screen\n");
 }
 
 /* 004217a8's calls. */
@@ -355,7 +356,7 @@ static void reload_load(void *ctx)
     h->dash_bank = read_sized(h->root, h->dash_path, h->dash_dir_length, &size);
     if (h->dash_bank == NULL || cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, s->race, &h->keys.dash_camera,
                                              h->dash_bank, size, h->dash_fmm, h->dash_stem, HIGH_RES, 0) != 0) {
-        fprintf(stderr, "drive_hud: the dashboard did not load again\n");
+        port_log("drive_hud: the dashboard did not load again\n");
         h->cockpit_ready = 0;
     }
 }

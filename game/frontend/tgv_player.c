@@ -4,6 +4,7 @@
 #include "game/frontend/tgv_frame.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/video.h"
 #include "game/viewer/drive_audio.h"
@@ -123,7 +124,7 @@ int tgv_player_play(const char *path)
     size_t size = 0;
     uint8_t *data = resource_load(path, &size);  /* any case, QFS unpacked */
     if (data == NULL) {
-        fprintf(stderr, "tgv_player: no movie %s\n", path);
+        port_log("tgv_player: no movie %s\n", path);
         return 0;
     }
     uint8_t *file = malloc(size + SLACK);
@@ -138,7 +139,7 @@ int tgv_player_play(const char *path)
             skipped = play(file, size, s);
             if (sound != NULL) menu_audio_movie_sound_stop();
         } else {
-            fprintf(stderr, "tgv_player: %s has a chunk past its end\n", path);
+            port_log("tgv_player: %s has a chunk past its end\n", path);
         }
     }
     free(sound), tgv_close(s), free(file), resource_free(data);

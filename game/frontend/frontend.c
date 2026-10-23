@@ -9,6 +9,7 @@
 #include "game/frontend/menu_glue.h"
 #include "game/sys/input.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +59,7 @@ static void glue_link_close(void *ctx) { (void)ctx; link_close(); }
 static void glue_fatal(void *ctx, const char *message)
 {
     (void)ctx;
-    fprintf(stderr, "%s\n", message);
+    port_fatal("%s\n", message);
     exit(1);
 }
 static int16_t glue_no_name(void *ctx) { (void)ctx; return 0; }

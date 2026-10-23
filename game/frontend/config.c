@@ -2,6 +2,7 @@
 
 #include "game/frontend/frontend.h"
 #include "game/frontend/game_file.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/viewer/drive_joy.h"
 #include "platform/platform.h"
@@ -31,7 +32,7 @@ static int parse_file(uint8_t *data, size_t size, const char *origin)
     if (data == NULL) return 0;
     const ConfigResult r = config_dat_parse(&config, data, size);
     platform_free_file(data);
-    if (r != CONFIG_OK) fprintf(stderr, "config: ignoring %s (%zu bytes, expected %d)\n", origin, size, CONFIG_DAT_SIZE);
+    if (r != CONFIG_OK) port_log("config: ignoring %s (%zu bytes, expected %d)\n", origin, size, CONFIG_DAT_SIZE);
     return r == CONFIG_OK;
 }
 
@@ -69,5 +70,5 @@ void config_save(void)
     config_dat_set_name(&config, frontend_player_name);
     const size_t n = config_dat_serialise(&config, out, sizeof out);
     /* port: 0046733c's check that the disk has room is not made; a failed write is reported below */
-    if (n == 0 || !platform_write_user_file(CONFIG_NAME, out, n)) fprintf(stderr, "config: cannot save config.dat\n");
+    if (n == 0 || !platform_write_user_file(CONFIG_NAME, out, n)) port_log("config: cannot save config.dat\n");
 }

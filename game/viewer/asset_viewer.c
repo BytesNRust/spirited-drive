@@ -1,6 +1,7 @@
 #include "viewer/asset_viewer.h"
 
 #include "formats/qfs.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +21,7 @@ static uint8_t *decode_container(const uint8_t *file, size_t size, size_t *out_s
         free(out);
         out = NULL;
     }
-    if (out == NULL) fprintf(stderr, "viewer: %s\n", qfs_result_str(r));
+    if (out == NULL) port_log("viewer: %s\n", qfs_result_str(r));
     return out;
 }
 
@@ -47,7 +48,7 @@ int asset_viewer_load(AssetViewer *viewer, const uint8_t *file, size_t size)
 
     FshResult r = fsh_open(&viewer->fsh, viewer->container, container_size);
     if (r != FSH_OK) {
-        fprintf(stderr, "viewer: %s\n", fsh_result_str(r));
+        port_log("viewer: %s\n", fsh_result_str(r));
         asset_viewer_free(viewer);
         return 0;
     }

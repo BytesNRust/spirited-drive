@@ -1,3 +1,4 @@
+#include "game/sys/port_log.h"
 #include "game/sys/text.h"
 
 #include "formats/ffn.h"
@@ -32,7 +33,7 @@ int text_init(void)
     size_t size;
     font_data = resource_load_art("fonts/graver18.ffn", &size);
     if (font_data == NULL || ffn_open(&font, font_data, size) != FFN_OK) {
-        fprintf(stderr, "text: cannot load fonts/graver18.ffn\n");
+        port_fatal("text: cannot load fonts/graver18.ffn\n");
         text_free();
         return 0;
     }
@@ -45,7 +46,7 @@ int text_small_init(void)
     if (small_data != NULL) return 1;
     small_data = resource_load_art("main18.ffn", &size);
     if (small_data == NULL || ffn_open(&small, small_data, size) != FFN_OK) {
-        fprintf(stderr, "text: cannot load main18.ffn\n");
+        port_fatal("text: cannot load main18.ffn\n");
         resource_free(small_data);
         small_data = NULL;
         return 0;
