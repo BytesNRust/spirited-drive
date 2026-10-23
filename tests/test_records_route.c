@@ -138,16 +138,50 @@ static void test_totals_marks_follow_their_rows(void)
     CHECK_EQ_INT(marks[records_slot_totals(TR1, 0, 0)], 0);   /* the other laps choice has its own */
 }
 
-static void test_the_warrior_saves_nothing(void)
+/* The Warrior (car 11) records nothing in the original (record_check's early return). The port keeps its times on the
+ * cheats table, with the W mark, and config.dat's normal table stays as it is. */
+static void test_the_warrior_goes_to_the_cheats_table_with_its_mark(void)
 {
     fresh();
     Race r;
     race(&r, WARRIOR, 0, 1, 99999, 1);
-    RaceKind kind = { RECORDS_MIRROR, 0 };
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
-    CHECK_EQ_INT(saves, 0);
+    static uint8_t before[RECORD_CHECK_IMAGE];
+    memcpy(before, r.image, sizeof before);
+    RaceKind kind = { RECORDS_NORMAL, 0 };
+    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    CHECK(memcmp(r.image, before, sizeof before) == 0);
+    CHECK(memcmp(port_records_block(TR1, RECORDS_NORMAL, 1), "ME", 3) == 0);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[0], EXTRAS_MARK_WARRIOR);
+    CHECK_EQ_INT(saves, 1);
     int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    CHECK_EQ_INT(records_route(kind, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    fresh();
+    race(&r, WARRIOR, 0, 1, 99999, 1);
+    CHECK(records_route(kind, ROUTE_TOTALS, r.image, r.game, 0, times) != RECORD_CHECK_NONE);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_TOTALS], EXTRAS_MARK_WARRIOR);
+}
+
+/* A Warrior rival with the player's own car changes nothing: the normal race's table is config.dat's and no mark */
+static void test_a_warrior_rival_changes_nothing(void)
+{
+    fresh();
+    Race r;
+    race(&r, 6, 0, 1, 99999, 1);
+    p16(r.image + 0x91, WARRIOR);   /* the opponent */
+    RaceKind kind = { RECORDS_NORMAL, 0 };
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[0], 0);
+    records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[0], 0);
+    CHECK(memcmp(port_records_block(TR1, RECORDS_NORMAL, 1), "ME", 3) != 0);
+}
+
+/* the letters of a row's marks: N, E, T, then W for the Warrior */
+static void test_the_warrior_mark_is_a_letter(void)
+{
+    char text[8];
+    records_mark_text(EXTRAS_MARK_WARRIOR, text);
+    CHECK(strcmp(text, "W") == 0);
+    records_mark_text(EXTRAS_MARK_NITRO | EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR, text);
+    CHECK(strcmp(text, "NTW") == 0);
 }
 
 static void test_a_track_with_no_table_is_not_taken(void)
@@ -223,7 +257,9 @@ int main(void)
     test_a_mirror_race_leaves_the_images_table();
     test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark();
     test_totals_marks_follow_their_rows();
-    test_the_warrior_saves_nothing();
+    test_the_warrior_goes_to_the_cheats_table_with_its_mark();
+    test_a_warrior_rival_changes_nothing();
+    test_the_warrior_mark_is_a_letter();
     test_a_track_with_no_table_is_not_taken();
     test_the_kind_comes_from_the_flags();
     return TEST_REPORT();

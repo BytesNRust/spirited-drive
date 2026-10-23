@@ -6,7 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { TRACKS = 9, SCANCODE_TAB = 0x0f, FIRST_RECORD = 0xea, SCREEN_RECORDS = 0x19f, TRACK_WORD = 0x95, BLOCK_AT = 0xb5 };
+enum { TRACKS = 9, SCANCODE_TAB = 0x0f, FIRST_RECORD = 0xea, SCREEN_RECORDS = 0x19f, TRACK_WORD = 0x95, CAR_WORD = 0x9b,
+       BLOCK_AT = 0xb5 };
 
 static RaceKind current;
 static int in_tournament, loaded;
@@ -47,8 +48,8 @@ int32_t records_glue_route(RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const 
 
 void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image)
 {
-    const RaceKind kind = records_glue_kind(ROUTE_SEGMENT);
     const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
+    const RaceKind kind = records_kind_with_car(records_glue_kind(ROUTE_SEGMENT), (int16_t)(image[CAR_WORD] | image[CAR_WORD + 1] << 8));
     memcpy(out, image, RECORD_CHECK_IMAGE);
     if (kind.variant == RECORDS_NORMAL && kind.marks == 0) return;
     const uint8_t *block = port_records_block(track, kind.variant, kind.marks != 0);
