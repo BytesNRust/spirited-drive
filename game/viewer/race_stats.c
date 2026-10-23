@@ -2,7 +2,6 @@
  * drawing is race_stats_draw.c's. */
 #include "viewer/race_stats.h"
 
-#include "viewer/drive_clock.h"
 #include "game/sys/port_extras.h"
 
 #include <stdio.h>
@@ -28,11 +27,10 @@ int race_stats_key_save(RaceStats *s, int down)
     return 1;
 }
 
-void race_stats_meter_frame(RaceStatsMeter *m, uint32_t now_ms, int32_t tick)
+void race_stats_meter_frame(RaceStatsMeter *m, uint32_t now_ms)
 {
     if (!m->primed) {
-        *m = (RaceStatsMeter){ .primed = 1, .window_ms = now_ms, .last_ms = now_ms, .window_tick = tick,
-                               .figures = m->figures };
+        *m = (RaceStatsMeter){ .primed = 1, .window_ms = now_ms, .last_ms = now_ms, .figures = m->figures };
         return;
     }
     const uint32_t gap = now_ms >= m->last_ms ? now_ms - m->last_ms : 0;
@@ -47,14 +45,12 @@ void race_stats_meter_frame(RaceStatsMeter *m, uint32_t now_ms, int32_t tick)
     m->figures.fps = m->frames * 1000.0 / seconds_ms;
     m->figures.frame_avg_ms = m->frames > 0 ? (double)m->sum_ms / m->frames : 0.0;
     m->figures.frame_max_ms = m->max_ms;
-    m->figures.steps_per_s = tick >= m->window_tick ? (tick - m->window_tick) * 1000.0 / seconds_ms : 0.0;
-    *m = (RaceStatsMeter){ .primed = 1, .window_ms = now_ms, .last_ms = now_ms, .window_tick = tick,
-                           .figures = m->figures };
+    *m = (RaceStatsMeter){ .primed = 1, .window_ms = now_ms, .last_ms = now_ms, .figures = m->figures };
 }
 
-void race_stats_sample(RaceStats *s, uint32_t now_ms, int32_t tick)
+void race_stats_sample(RaceStats *s, uint32_t now_ms)
 {
-    race_stats_meter_frame(&s->meter, now_ms, tick);
+    race_stats_meter_frame(&s->meter, now_ms);
 }
 
 /* the render's ratio from its size: 4:3 below 1.6, 16:9 below 2.0, else 21:9 (the widths port.cfg's formats make) */
@@ -74,9 +70,10 @@ void race_stats_format(const RaceStatsView *v, RaceStatsText *out)
                  (unsigned)f->frame_max_ms);
     else
         snprintf(out->line[0], RACE_STATS_LINE_LEN, "FPS --  frame -- ms");
-    snprintf(out->line[1], RACE_STATS_LINE_LEN, "Steps %.1f/s  clock %d%s", f->steps_per_s, v->clock_level,
-             v->clock_level == DRIVE_CLOCK_TURBO_LEVEL ? " Turbo" : "");
-    snprintf(out->line[2], RACE_STATS_LINE_LEN, "Refresh %d Hz  interp %s", v->refresh_hz, v->interp ? "on" : "off");
-    snprintf(out->line[3], RACE_STATS_LINE_LEN, "Render %dx%d  %s", v->width, v->height,
+    snprintf(out->line[1], RACE_STATS_LINE_LEN, "Refresh %d Hz  interp %s", v->refresh_hz, v->interp ? "on" : "off");
+    snprintf(out->line[2], RACE_STATS_LINE_LEN, "Render %dx%d  %s", v->width, v->height,
              ratio_name(v->width, v->height));
+    snprintf(out->line[3], RACE_STATS_LINE_LEN, "Modern 3D %s  filter %s  fog %s", v->modern ? "on" : "off",
+             v->filter ? "on" : "off", v->fog ? "on" : "off");
+    snprintf(out->line[4], RACE_STATS_LINE_LEN, "View %d segments", v->segments);
 }

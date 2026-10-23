@@ -85,12 +85,11 @@ static void test_meter_averages_the_window(void)
 {
     RaceStatsMeter m;
     memset(&m, 0, sizeof m);
-    for (uint32_t t = 1000; t <= 1500; t += 20) race_stats_meter_frame(&m, t, (int32_t)((t - 1000) / 20));
+    for (uint32_t t = 1000; t <= 1500; t += 20) race_stats_meter_frame(&m, t);
     CHECK(m.figures.ready);
     CHECK(m.figures.fps > 49.9 && m.figures.fps < 50.1);
     CHECK(m.figures.frame_avg_ms > 19.9 && m.figures.frame_avg_ms < 20.1);
     CHECK_EQ_INT(m.figures.frame_max_ms, 20);
-    CHECK(m.figures.steps_per_s > 49.9 && m.figures.steps_per_s < 50.1);
 }
 
 /* Nothing is shown before a window has run; a spike sets the max of the window it falls in */
@@ -98,17 +97,18 @@ static void test_meter_waits_for_a_window_and_keeps_the_spike(void)
 {
     RaceStatsMeter m;
     memset(&m, 0, sizeof m);
-    for (uint32_t t = 1000; t <= 1400; t += 20) race_stats_meter_frame(&m, t, 0);
+    for (uint32_t t = 1000; t <= 1400; t += 20) race_stats_meter_frame(&m, t);
     CHECK(!m.figures.ready);
-    race_stats_meter_frame(&m, 1420, 0);
-    race_stats_meter_frame(&m, 1460, 0);   /* a 40 ms frame */
-    race_stats_meter_frame(&m, 1480, 0);
-    race_stats_meter_frame(&m, 1520, 0);   /* window ends at 1520: 500 ms after 1020 */
+    race_stats_meter_frame(&m, 1420);
+    race_stats_meter_frame(&m, 1460);   /* a 40 ms frame */
+    race_stats_meter_frame(&m, 1480);
+    race_stats_meter_frame(&m, 1520);   /* window ends at 1520: 500 ms after 1020 */
     CHECK(m.figures.ready);
     CHECK_EQ_INT(m.figures.frame_max_ms, 40);
 }
 
-/* The words: the figures as the overlay writes them, the clock's Turbo, the ratio of the render */
+/* The words: the rendering figures as the overlay writes them, the ratio of the render, the switches as drawn; no
+ * simulation figures (the steps, the clock) */
 static void test_text_says_the_figures(void)
 {
     RaceStatsView v;
@@ -118,27 +118,34 @@ static void test_text_says_the_figures(void)
     v.figures.fps = 59.8;
     v.figures.frame_avg_ms = 16.7;
     v.figures.frame_max_ms = 18;
-    v.figures.steps_per_s = 30.0;
-    v.clock_level = 1;
     v.refresh_hz = 60;
     v.interp = 1;
     v.width = 640;
     v.height = 480;
+    v.modern = 1;
+    v.filter = 1;
+    v.fog = 0;
+    v.segments = 28;
     race_stats_format(&v, &t);
     CHECK(strcmp(t.line[0], "FPS 59.8  frame 16.7 ms, max 18 ms") == 0);
-    CHECK(strcmp(t.line[1], "Steps 30.0/s  clock 1") == 0);
-    CHECK(strcmp(t.line[2], "Refresh 60 Hz  interp on") == 0);
-    CHECK(strcmp(t.line[3], "Render 640x480  4:3") == 0);
+    CHECK(strcmp(t.line[1], "Refresh 60 Hz  interp on") == 0);
+    CHECK(strcmp(t.line[2], "Render 640x480  4:3") == 0);
+    CHECK(strcmp(t.line[3], "Modern 3D on  filter on  fog off") == 0);
+    CHECK(strcmp(t.line[4], "View 28 segments") == 0);
 
     v.figures.ready = 0;
-    v.clock_level = 3;
     v.interp = 0;
     v.width = 1120;
+    v.modern = 0;
+    v.filter = 0;
+    v.fog = 0;
+    v.segments = 56;
     race_stats_format(&v, &t);
     CHECK(strcmp(t.line[0], "FPS --  frame -- ms") == 0);
-    CHECK(strcmp(t.line[1], "Steps 30.0/s  clock 3 Turbo") == 0);
-    CHECK(strcmp(t.line[2], "Refresh 60 Hz  interp off") == 0);
-    CHECK(strcmp(t.line[3], "Render 1120x480  21:9") == 0);
+    CHECK(strcmp(t.line[1], "Refresh 60 Hz  interp off") == 0);
+    CHECK(strcmp(t.line[2], "Render 1120x480  21:9") == 0);
+    CHECK(strcmp(t.line[3], "Modern 3D off  filter off  fog off") == 0);
+    CHECK(strcmp(t.line[4], "View 56 segments") == 0);
 }
 
 int main(void)

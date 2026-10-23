@@ -15,6 +15,8 @@ enum { STYLE_COUNT = 5 };
 
 static uint8_t *font_data;   /* 00524824 */
 static Ffn font;
+static uint8_t *small_data;  /* port: the CD's small face (FRONTEND/ART/MAIN18.FFN), loaded for the stats overlay alone */
+static Ffn small;
 static uint8_t styles[STYLE_COUNT][16];
 static int styles_fg[STYLE_COUNT];   /* port: each style's own colour, which its ramp's level 15 only nears */
 static uint8_t shadow[16];   /* 0051fd98 */
@@ -37,10 +39,28 @@ int text_init(void)
     return 1;
 }
 
+int text_small_init(void)
+{
+    size_t size;
+    if (small_data != NULL) return 1;
+    small_data = resource_load_art("main18.ffn", &size);
+    if (small_data == NULL || ffn_open(&small, small_data, size) != FFN_OK) {
+        fprintf(stderr, "text: cannot load main18.ffn\n");
+        resource_free(small_data);
+        small_data = NULL;
+        return 0;
+    }
+    return 1;
+}
+
 void text_free(void)
 {
     resource_free(font_data);
     font_data = NULL;
+    font.data = NULL;
+    resource_free(small_data);
+    small_data = NULL;
+    small.data = NULL;
 }
 
 static int build_ramp(const uint8_t *pal, const uint8_t *usable, int r, int g, int b, uint8_t ramp[16])
@@ -89,7 +109,7 @@ int text_line_height(void)
     return font_data != NULL ? font.line_height : 0;
 }
 
-static void draw_glyph(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ramp[16])
+static void draw_glyph(const Ffn *f, const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ramp[16])
 {
     int tw, th;
     uint8_t *const to = video_target(&tw, &th);
@@ -98,7 +118,7 @@ static void draw_glyph(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ra
         if (dy < 0 || dy >= th) continue;
         for (int x = 0; x < g->width; x++) {
             const int dx = pen_x + g->x_offset + x;
-            const int level = ffn_glyph_level(&font, g, x, y);
+            const int level = ffn_glyph_level(f, g, x, y);
             if (level != 0 && dx >= 0 && dx < tw) to[dy * tw + dx] = ramp[level];
         }
     }
@@ -106,21 +126,21 @@ static void draw_glyph(const FfnGlyph *g, int pen_x, int pen_y, const uint8_t ra
 
 /* 0048c0a8: glyphs >= 0x21 advance by their own width, other codes by the
  * space's, '\n' moves down a line and back to x = 0, NUL ends. */
-static void draw_with(const char *text, int x, int y, const uint8_t ramp[16])
+static void draw_with(const Ffn *f, const char *text, int x, int y, const uint8_t ramp[16])
 {
-    if (font_data == NULL) return;
+    if (f->data == NULL) return;
     FfnGlyph space = { 0 };
-    ffn_glyph(&font, ' ', &space);
+    ffn_glyph(f, ' ', &space);
     int pen_x = x, pen_y = y;
     for (const unsigned char *c = (const unsigned char *)text; *c; c++) {
         FfnGlyph g;
         if (*c == '\n') {
             pen_x = 0;
-            pen_y += font.line_height;
+            pen_y += f->line_height;
         } else if (*c < 0x21) {
             pen_x += space.advance;
-        } else if (ffn_glyph(&font, *c, &g)) {
-            draw_glyph(&g, pen_x, pen_y, ramp);
+        } else if (ffn_glyph(f, *c, &g)) {
+            draw_glyph(f, &g, pen_x, pen_y, ramp);
             pen_x += g.advance;
         }
     }
@@ -135,13 +155,29 @@ void text_ramp(int use_shadow)
 
 void text_draw(const char *text, int x, int y)
 {
-    draw_with(text, x, y, drawn_ramp);
+    draw_with(&font, text, x, y, drawn_ramp);
 }
 
 void text_draw_shadowed(const char *text, int x, int y)
 {
-    draw_with(text, x + 2, y + 2, shadow);
-    draw_with(text, x, y, current);
+    draw_with(&font, text, x + 2, y + 2, shadow);
+    draw_with(&font, text, x, y, current);
+}
+
+/* port: the small face's words, in the style and ramp text_select and text_ramp give text_draw */
+int text_small_width(const char *text)
+{
+    return small_data != NULL ? ffn_text_width(&small, text) : 0;
+}
+
+int text_small_line_height(void)
+{
+    return small_data != NULL ? small.line_height : 0;
+}
+
+void text_small_draw(const char *text, int x, int y)
+{
+    draw_with(&small, text, x, y, drawn_ramp);
 }
 
 /* port: the level-th step from the pixel `under` towards colour `fg`, in the styles' palette */

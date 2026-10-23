@@ -40,5 +40,12 @@ void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y);
 /* port: a section header as the credits draw theirs (text_soft.h), in capitals num/den times the font's size, with
  * its underline `underline` pixels long from x (the text's width when 0) */
 void text_draw_header(const char *text, int x, int y, int num, int den, int underline);
+/* port: the CD's small face, FRONTEND/ART/MAIN18.FFN (13 px capitals, 20 px lines; graver18 is 15 and 24), loaded on its
+ * own by text_small_init and drawn with the style and ramp text_select and text_ramp set, as text_draw is. The
+ * glyphs are the CD's own; nothing is scaled. */
+int text_small_init(void);
+int text_small_width(const char *text);
+int text_small_line_height(void);
+void text_small_draw(const char *text, int x, int y);
 
 #endif

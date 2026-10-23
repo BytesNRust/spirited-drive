@@ -47,16 +47,16 @@ const uint8_t *race_stats_compose(RaceStats *s, const uint8_t *frame, int width,
                                   const uint8_t palette[768], const RaceStatsView *v)
 {
     if (!s->on || width <= 0 || width > MAX_WIDTH || height <= 0 || height > MAX_HEIGHT) return frame;
-    if (!s->text_ready) s->text_ready = text_init();
+    if (!s->text_ready) s->text_ready = text_small_init();
     if (!s->text_ready) return frame;
     match_palette(s, palette);
     memcpy(scratch, frame, (size_t)width * (size_t)height);
     RaceStatsText t;
     race_stats_format(v, &t);
-    const int line_h = text_line_height();
+    const int line_h = text_small_line_height();
     int widest = 0;
     for (int i = 0; i < RACE_STATS_LINES; i++) {
-        const int w = text_width(t.line[i]);
+        const int w = text_small_width(t.line[i]);
         if (w > widest) widest = w;
     }
     backing(scratch, width, height, MARGIN_X, MARGIN_Y, widest + 2 * PAD, RACE_STATS_LINES * line_h + 2 * PAD, s->dark);
@@ -64,7 +64,7 @@ const uint8_t *race_stats_compose(RaceStats *s, const uint8_t *frame, int width,
     text_select(TEXT_CREAM);
     text_ramp(0);
     for (int i = 0; i < RACE_STATS_LINES; i++)
-        text_draw(t.line[i], MARGIN_X + PAD, MARGIN_Y + PAD + i * line_h);
+        text_small_draw(t.line[i], MARGIN_X + PAD, MARGIN_Y + PAD + i * line_h);
     video_select_target(NULL, 0, 0);
     return scratch;
 }

@@ -65,6 +65,8 @@ static ModernLook look;
 static HorizonSmooth smooth;       /* port: the Texture Filter's table for the sky's palette (horizon_smooth.h) */
 
 void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
+int ported_view_filter_on(void) { return modern && look_filter; }
+int ported_view_fog_on(void) { return modern && look_fog; }
 
 /* port: the view the 3D objects' pixels clip and project by when Modern 3D is on, else NULL (the exe's mappers) */
 static const View *modern_view(const View *view) { return modern ? view : NULL; }
@@ -727,6 +729,8 @@ void ported_view_set_reach(int32_t segments)
 {
     track_render_set_reach(&render, segments);
 }
+
+int32_t ported_view_draw_segments(void) { return render.draw_segments; }
 
 const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 {

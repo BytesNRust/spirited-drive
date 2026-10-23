@@ -38,6 +38,7 @@ typedef struct {
 
 /* port: the segments of track drawn (track_render_set_reach): DRAW_SEGMENTS_ULTRA for port.cfg's view_ultra */
 void ported_view_set_reach(int32_t segments);
+int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (track_render's draw_segments) */
 
 /* port: EXTRAS' Modern 3D: the near road clipped against the near plane, projected without pixel snapping and
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
@@ -45,6 +46,9 @@ void ported_view_set_modern(int on);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */
 void ported_view_set_look(int filter, int fog);
+/* the Texture Filter and Fog as the frames draw them: 0 without Modern 3D, whatever the switches say */
+int ported_view_filter_on(void);
+int ported_view_fog_on(void);
 
 /* port: the frame the 3D view draws into (640 x 480 unless a wide screen's race sets its width) */
 void ported_view_set_screen(int width, int height);
