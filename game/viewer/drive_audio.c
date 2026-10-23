@@ -208,7 +208,7 @@ static void bank_free(void *ctx, uint32_t file)
     (void)ctx;
     if (file >= RACE_SOUND_BANKS) return;
     lock();
-    const uint8_t *from = files[file], *to = from + file_sizes[file];
+    const uint8_t *from = files[file], *to = from != NULL ? from + file_sizes[file] : NULL;
     for (uint32_t k = 0; from != NULL && k < SOUND_VOICES; k++) {
         const MixVoice *v = driver.mixer.voice[k];
         if (v != NULL && v->on && v->data >= from && v->data < to) sound_voice_stop(&driver.mixer, k);
