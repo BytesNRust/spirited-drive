@@ -111,11 +111,13 @@ static const uint8_t *dash_art_layer(const Cockpit *c)
  * left alone) */
 static void wide_art_placed(const LayerRect *r, const uint8_t *art)
 {
+    const int *column = screen_dash_columns(drive_wide.width);
+    const int width = drive_wide.width < SCREEN_DASH_MOST_WIDTH ? drive_wide.width : SCREEN_DASH_MOST_WIDTH;
     for (int y = 0; y < SCREEN_H; y++) {
         const int sy = screen_dash_y(y);
         if (sy < r->top || sy >= r->bottom) continue;
-        for (int x = 0; x < drive_wide.width; x++) {
-            const int sx = screen_dash_x(drive_wide.width, x);
+        for (int x = 0; x < width; x++) {
+            const int sx = column[x];
             if (sx < r->left || sx >= r->right) continue;
             const uint8_t p = art[sy * SCREEN_W + sx];
             if (p != LAYER_KEY) drive_wide.pixels[(size_t)y * drive_wide.width + x] = p;

@@ -2,46 +2,56 @@
 #include "game/viewer/layer_compose.h"
 #include "game/viewer/screen_layout.h"
 
-static int in_rect(const LayerRect *r, int x, int y)
-{
-    return x >= r->left && x < r->right && y >= r->top && y < r->bottom;
-}
-
-static int in_piece(const LayerCompose *c, int x, int y)
-{
-    for (int i = 0; i < c->piece_count; i++)
-        if (in_rect(&c->pieces[i].from, x, y)) return 1;
-    return 0;
-}
-
 static void put(const LayerCompose *c, uint8_t *wide, int x, int y, uint8_t p)
 {
     if (p != LAYER_KEY && x >= 0 && x < c->width && y >= 0 && y < c->layer_h) wide[(int64_t)y * c->width + x] = p;
+}
+
+/* the pieces' pixels of the layer, marked for the rest's loop (the pieces' rects set, used, then cleared again) */
+enum { MASK_W = 640, MASK_H = 480 };
+static uint8_t piece_mask[MASK_W * MASK_H];
+
+static void mark_pieces(const LayerCompose *c, uint8_t on)
+{
+    for (int i = 0; i < c->piece_count; i++) {
+        const LayerRect *r = &c->pieces[i].from;
+        for (int y = r->top < 0 ? 0 : r->top; y < r->bottom && y < c->layer_h; y++)
+            for (int x = r->left < 0 ? 0 : r->left; x < r->right && x < c->layer_w; x++) piece_mask[y * c->layer_w + x] = on;
+    }
 }
 
 /* the rest of the layer: inside the car the dash (each wide pixel from the layer pixel screen_dash_x / _y give),
  * outside it centred */
 static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide)
 {
+    if (c->layer_w > MASK_W || c->layer_h > MASK_H) return;
+    mark_pieces(c, 1);
     if (!c->in_car) {
         const int dx = (c->width - c->layer_w) / 2;
         for (int y = 0; y < c->layer_h; y++)
             for (int x = 0; x < c->layer_w; x++)
-                if (!in_piece(c, x, y)) put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
+                if (!piece_mask[y * c->layer_w + x]) put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
+        mark_pieces(c, 0);
         return;
     }
-    enum { MOST_WIDTH = 4096 };
-    static int column[MOST_WIDTH];
-    const int width = c->width < MOST_WIDTH ? c->width : MOST_WIDTH;
-    for (int x = 0; x < width; x++) column[x] = screen_dash_x(c->width, x);
+    const int width = c->width < SCREEN_DASH_MOST_WIDTH ? c->width : SCREEN_DASH_MOST_WIDTH;
+    const int *column = screen_dash_columns(c->width);
     for (int y = 0; y < c->layer_h; y++) {
         const int sy = c->width > c->layer_w ? screen_dash_y(y) : y;
         if (sy < 0 || sy >= c->layer_h) continue;
+        const uint8_t *row = layer + sy * c->layer_w, *masked = piece_mask + sy * c->layer_w;
+        uint8_t *out = wide + (int64_t)y * c->width;
         for (int x = 0; x < width; x++) {
             const int sx = column[x];
-            if (sx < c->layer_w && !in_piece(c, sx, sy)) put(c, wide, x, y, layer[sy * c->layer_w + sx]);
+            if (sx < c->layer_w && !masked[sx] && row[sx] != LAYER_KEY) out[x] = row[sx];
         }
     }
+    mark_pieces(c, 0);
+}
+
+static int dash_column(int width, int x)
+{
+    return x >= 0 && x < width && x < SCREEN_DASH_MOST_WIDTH ? screen_dash_columns(width)[x] : screen_dash_x(width, x);
 }
 
 void layer_dash_grab(const uint8_t *art, int width, int x, int y, uint8_t *out, int w, int h)
@@ -50,7 +60,7 @@ void layer_dash_grab(const uint8_t *art, int width, int x, int y, uint8_t *out, 
         const int sy = screen_dash_y(y + j);
         if (sy < 0 || sy >= SCREEN_HEIGHT) continue;
         for (int i = 0; i < w; i++) {
-            const uint8_t p = art[sy * ORIGINAL_WIDTH + screen_dash_x(width, x + i)];
+            const uint8_t p = art[sy * ORIGINAL_WIDTH + dash_column(width, x + i)];
             if (p != LAYER_KEY) out[j * w + i] = p;
         }
     }
