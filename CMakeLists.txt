@@ -346,6 +346,7 @@ add_library(tnfs_game STATIC
     game/sys/pointer_state.c
     game/sys/shape_bank.c
     game/viewer/screen_layout.c
+    game/viewer/dash_box.c
     game/sys/backdrop.c
     game/frontend/variant_rule.c
     game/sys/resource.c
@@ -450,7 +451,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

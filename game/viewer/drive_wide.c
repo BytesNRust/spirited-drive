@@ -5,6 +5,7 @@
 #include "game/gfx/blit.h"
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
+#include "viewer/dash_box.h"
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
@@ -229,7 +230,7 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     /* 004f9b3c: off, the 640's map box holds the dash, and for a moment the gear gate (0041f5bc's state not 0). The box
      * is a piece at its size and anchor with the map, or with the gate; with neither it is the continuous dash. */
     const int map_on = drive_hud.keys.use_parts != 0;
-    const int box_on = map_on || (in_car && drive_hud.gate_state != 0);
+    const int box_on = dash_box_shown((DashBox)drive_hud.dash_box, drive_hud.keys.use_parts, drive_hud.gate_state, in_car);
     if (lights) {  /* the start lights whole, each at its width spread across the screen, not cut with the groups */
         for (int i = 0; i < LIGHT_COUNT; i++)
             pieces[n++] = wide_piece(i * LIGHT_STEP_640, 0, LIGHT_WIDTH, HUD_BAR_HEIGHT,

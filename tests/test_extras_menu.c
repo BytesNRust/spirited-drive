@@ -368,11 +368,11 @@ static void test_page_two_switches_saved(void)
 static void test_the_graphics_settings_are_gone(void)
 {
     Rig r;
-    /* page 2 on Intro video, the last switch, and turn it on; Down to Done */
+    /* page 2 on Intro video and turn it on; Down to Done */
     int keys[48];
     int n = keys_to_page_two(keys, ROW_MOVIES);
     keys[n++] = RIGHT;                                     /* off: no movies */
-    keys[n++] = DOWN, keys[n++] = ENTER;                   /* Done, save */
+    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = ENTER;   /* past Dash box to Done, save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
@@ -505,7 +505,7 @@ static void test_page_two_has_nine_rows(void)
     int n = keys_to_page_two(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the nine) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 9);
+    CHECK_EQ_INT(ROWS_P2, 10);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Warrior Rival Car"));
@@ -861,9 +861,9 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     int n = keys_to_page_two(keys, ROW_FIRST_P2);          /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* the last switch, Intro video */
+    keys[n++] = UP, keys[n++] = UP;                        /* Intro video, past Dash box */
     keys[n++] = RIGHT;                                     /* on */
-    keys[n++] = DOWN;                                      /* Done */
+    keys[n++] = DOWN, keys[n++] = DOWN;                    /* Done */
     keys[n++] = ENTER;                                     /* save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);

@@ -13,6 +13,12 @@ typedef enum { START_GAME_MODE = 0, START_NETWORK = 1, START_CENTRAL = 2 } Start
  * km/h under German, mph otherwise; the other two are the player's choice, whatever the language. */
 typedef enum { UNITS_LANGUAGE = 0, UNITS_MPH = 1, UNITS_KMH = 2 } SpeedUnits;
 
+/* The dash's box under the right vent, where the exe puts the map (M hides it) and, with the map hidden, the gear
+ * lever for a gear change. DASH_BOX_MAP is the exe's; DASH_BOX_LEVER keeps the lever in the box all the time and shows
+ * the gear (no map); DASH_BOX_HIDDEN is the dash unbroken, the box only while changing gear. M shows the map from
+ * either and goes back to the chosen mode. */
+typedef enum { DASH_BOX_MAP = 0, DASH_BOX_LEVER = 1, DASH_BOX_HIDDEN = 2 } DashBox;
+
 typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
@@ -27,6 +33,7 @@ typedef struct {
     SpeedUnits units;                                           /* UNITS_LANGUAGE */
     int lunar_springs;  /* 0/1: the rally on Rusty Springs runs the cut moon track's textures and picture (lunar_springs.h).
                          * Last, so the positional initialisers above keep their meaning. */
+    DashBox dash_box;   /* DASH_BOX_MAP */
 } PortExtras;
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */
@@ -44,6 +51,8 @@ uint32_t port_extras_cheat_marks(const PortExtras *e);
 /* port: the two switches a race turns with a key (F12 the stats overlay, F6 the car markers). A race starts with the
  * saved value, and a key in the race writes the new one back to extras.cfg. */
 typedef enum { RACE_SWITCH_STATS = 0, RACE_SWITCH_MARKERS = 1 } RaceSwitch;
+/* port: the dash box's mode a race starts with, as extras.cfg has it */
+DashBox port_extras_dash_box(void);
 int port_extras_race_on(RaceSwitch which);                      /* 0/1 as extras.cfg has it */
 bool port_extras_set_race_switch(RaceSwitch which, int on);     /* the file as it is, that switch set */
 /* 1 when the speeds, distances and the cockpit's dial are in km/h: the player's choice, or with UNITS_LANGUAGE the

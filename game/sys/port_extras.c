@@ -10,6 +10,7 @@
 
 static const char *const START_NAMES[] = { "game_mode", "network", "central" };
 static const char *const UNIT_NAMES[] = { "language", "mph", "kmh" };
+static const char *const DASH_BOX_NAMES[] = { "map", "lever", "hidden" };
 
 /* The switches, in the order they are written. */
 static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas", "explode", "nitro",
@@ -61,6 +62,12 @@ static void apply(PortExtras *e, const char *key, const char *value)
                 e->start = (StartScreen)i;
         return;
     }
+    if (strcmp(key, "dash_box") == 0) {
+        for (int i = 0; i < 3; i++)
+            if (strcmp(value, DASH_BOX_NAMES[i]) == 0)
+                e->dash_box = (DashBox)i;
+        return;
+    }
     if (strcmp(key, "units") == 0) {
         for (int i = 0; i < 3; i++)
             if (strcmp(value, UNIT_NAMES[i]) == 0)
@@ -108,7 +115,8 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
 {
     int rows[SWITCH_COUNT];
     switch_read(e, rows);
-    int n = snprintf(out, size, "start=%s\nunits=%s\n", START_NAMES[e->start], UNIT_NAMES[e->units]);
+    int n = snprintf(out, size, "start=%s\nunits=%s\ndash_box=%s\n", START_NAMES[e->start],
+                       UNIT_NAMES[e->units], DASH_BOX_NAMES[e->dash_box]);
     if (n < 0 || (size_t)n >= size)
         return 0;
     for (int i = 0; i < SWITCH_COUNT; i++) {
@@ -136,6 +144,11 @@ bool port_extras_save(const PortExtras *e)
     char text[512];
     const size_t n = port_extras_format(e, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+}
+
+DashBox port_extras_dash_box(void)
+{
+    return port_extras_load().dash_box;
 }
 
 int port_extras_race_on(RaceSwitch which)

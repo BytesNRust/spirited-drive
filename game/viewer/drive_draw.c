@@ -5,6 +5,7 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_draw_setup.h"
 #include "viewer/draw_rands.h"
+#include "viewer/dash_box.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -169,6 +170,10 @@ void drive_frame_setup(RaceState *race)
     drive_frame.pending_segments = st.pending_segments, drive_frame.mirror_count = st.mirror_count;
     drive_frame.clear_view = st.clear_view;
     drive_hud.mirror.state = st.mirror_state, drive_hud.keys.use_parts = st.use_parts;
+    if (drive_hud.dash_box != DASH_BOX_MAP) {  /* port: 0044d2c4's start (race_draw_setup) put the map on; the mode has it off */
+        drive_hud.keys.use_parts = dash_box_start_parts((DashBox)drive_hud.dash_box);
+        drive_hud.parts_pending = 1;
+    }
 }
 
 /* render_drive's frame: what 0044cc74's calls need from --drive. */
