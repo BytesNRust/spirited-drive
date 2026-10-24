@@ -130,7 +130,7 @@ static void test_text_says_the_figures(void)
     CHECK(strcmp(t.line[0], "FPS 59.8  frame 16.7 ms  max 18 ms") == 0);
     CHECK(strcmp(t.line[1], "Refresh 60 Hz  interp on") == 0);
     CHECK(strcmp(t.line[2], "Render 640x480  4:3") == 0);
-    CHECK(strcmp(t.line[3], "Modern 3D on  filter on  fog off") == 0);
+    CHECK(strcmp(t.line[3], "Perspective correction on  filter on  fog off") == 0);
     CHECK(strcmp(t.line[4], "View 28 segments") == 0);
 
     v.figures.ready = 0;
@@ -144,7 +144,7 @@ static void test_text_says_the_figures(void)
     CHECK(strcmp(t.line[0], "FPS --  frame -- ms") == 0);
     CHECK(strcmp(t.line[1], "Refresh 60 Hz  interp off") == 0);
     CHECK(strcmp(t.line[2], "Render 1120x480  21:9") == 0);
-    CHECK(strcmp(t.line[3], "Modern 3D off  filter off  fog off") == 0);
+    CHECK(strcmp(t.line[3], "Perspective correction off  filter off  fog off") == 0);
     CHECK(strcmp(t.line[4], "View 56 segments") == 0);
 }
 

@@ -385,6 +385,26 @@ static void test_the_tuning_page(void)
     CHECK(shown(&r.fake, "Force feedback"));
 }
 
+/* graver18's '%' reaches y 5..21 of its line and the smooth draw keeps a shadow and the background's cover below that
+ * (own_plus_text: 2 above, 6 of room below), so a row that starts less than that under the one above clears the
+ * tail of its '%' */
+static void test_the_tuning_rows_clear_the_percent_sign(void)
+{
+    enum { PERCENT_ROW = 28 };
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
+    int last = -1, seen = 0;
+    for (int i = 0; i < r.fake.drawn_count; i++) {
+        const Text *w = &r.fake.drawn[i];
+        const size_t n = strlen(w->text);
+        if (n == 0 || w->text[n - 1] != '%') continue;
+        if (last >= 0) CHECK(w->y - last >= PERCENT_ROW);
+        last = w->y;
+        seen++;
+    }
+    CHECK_EQ_INT(seen, 3);
+}
+
 static void test_defaults_restores_the_bindings(void)
 {
     Run r = { .port = port_controls_defaults() };
@@ -441,6 +461,7 @@ int main(void)
     test_delete_clears();
     test_an_edit_makes_the_pad_custom();
     test_the_tuning_page();
+    test_the_tuning_rows_clear_the_percent_sign();
     test_defaults_restores_the_bindings();
     test_how_the_pages_are_left();
     test_a_wheel_shows_its_own_numbers();
