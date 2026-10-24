@@ -60,11 +60,12 @@ static void piece(const LayerCompose *c, const LayerPiece *p, const uint8_t *lay
 {
     const int w = p->from.right - p->from.left, h = p->from.bottom - p->from.top;
     const int32_t scale = p->scaled ? c->scale : 1 << 16;
-    const int out_w = (int)((int64_t)w * scale >> 16), out_h = (int)((int64_t)h * scale >> 16);
+    const int out_w = p->out_w > 0 ? p->out_w : (int)((int64_t)w * scale >> 16), out_h = (int)((int64_t)h * scale >> 16);
     for (int y = 0; y < out_h; y++) {
         const int sy = p->from.top + (int)(((int64_t)y << 16) / scale);
         for (int x = 0; x < out_w; x++) {
-            const int sx = p->from.left + (int)(((int64_t)x << 16) / scale);
+            int sx = p->from.left + (int)(((int64_t)x << 16) / scale);
+            if (sx >= p->from.right) sx = p->from.right - 1;   /* a set out_w a column past the scaled one */
             if (sx < c->layer_w && sy < c->layer_h) put(c, wide, p->x + x, p->y + y, layer[sy * c->layer_w + sx]);
         }
     }
