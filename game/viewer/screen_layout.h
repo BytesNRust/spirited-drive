@@ -44,6 +44,10 @@ int32_t screen_mirror_scale(int width);
 enum { DASH_MIDDLE = 192, DASH_DROP = 25 };
 /* The dash's column (0..639) that column x of a `width` screen shows; x itself at 640. */
 int screen_dash_x(int width, int x);
+/* screen_dash_x for every column of a `width` screen (at most SCREEN_DASH_MOST_WIDTH), made once per width: the
+ * per-pixel loops read it instead of the doubles */
+enum { SCREEN_DASH_MOST_WIDTH = 4096 };
+const int *screen_dash_columns(int width);
 /* The dash's line that line y shows on a wide screen: the roof's first line under the scoreboard (HUD_BAR_HEIGHT)
  * for the lines down to DASH_DROP past it. */
 int screen_dash_y(int y);

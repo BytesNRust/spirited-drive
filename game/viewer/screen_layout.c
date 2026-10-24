@@ -109,6 +109,17 @@ int screen_dash_x(int width, int x)
     return sx < 0 ? 0 : sx >= ORIGINAL_WIDTH ? ORIGINAL_WIDTH - 1 : sx;
 }
 
+const int *screen_dash_columns(int width)
+{
+    static int columns[SCREEN_DASH_MOST_WIDTH], made = -1;
+    if (width > SCREEN_DASH_MOST_WIDTH) width = SCREEN_DASH_MOST_WIDTH;
+    if (width != made) {
+        for (int x = 0; x < width; x++) columns[x] = screen_dash_x(width, x);
+        made = width;
+    }
+    return columns;
+}
+
 int screen_light_x(int width, int i)
 {
     return i * (width - LIGHT_WIDTH) / (LIGHT_COUNT - 1);
