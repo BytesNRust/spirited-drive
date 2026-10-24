@@ -8,6 +8,7 @@ enum {
     LAUNCH_FULL_TICKS = 200,
     LAUNCH_TICKS = 400,
     LAUNCH_EARLIEST = 100,
+    LAUNCH_SLOT_END = 2,  /* race->clock bit: the second of a replay slot's two steps */
     MAX_DRIVE = 0x70000,
     SPIN_SLIP = 0x30000,
     SPIN_THROTTLE = 0xfa,
@@ -44,10 +45,12 @@ static int32_t abs32(int32_t v)
  * start_keys.h rule), not only N with a shift or B. */
 static int launch(Car *car, const CarSpecs *specs, RaceState *race)
 {
-    if (race->player == car->player && race->playback == 0 && race->start_input != 0) {
+    if (race->player == car->player && (race->playback == 0 || race->port_replay_launch != 0) && race->start_input != 0) {
         const uint8_t *k = race->start_keys;
         const int combo = k[1] != 0 || k[2] != 0 || k[3] != 0;
-        if (k[0] != 0 && (combo || race->port_nitro_start != 0) && race->launch == 0) {
+        /* port_replay_launch: a replay slot holds the last of its two steps' words, so the start is taken on that step only */
+        const int slot_end = race->port_replay_launch == 0 || (race->clock & LAUNCH_SLOT_END) != 0;
+        if (k[0] != 0 && slot_end && (combo || race->port_nitro_start != 0) && race->launch == 0) {
             race->launch = 1;
             race->launch_full_until = race->start_clock + LAUNCH_FULL_TICKS;
             car->rpm = specs->unknown_0ac + LAUNCH_RPM;

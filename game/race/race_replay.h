@@ -31,6 +31,13 @@ void race_replay_record(const RaceReplayWords *w, const uint32_t *inputs, uint8_
  * 0x1c20 + clock / 4] | recording[that + 0x3840] << 8. */
 void race_replay_play(const RaceReplayWords *w, uint32_t *inputs, const uint8_t *recording, size_t size);
 
+/* port (port_replay_launch): the NITRO start's N, which the control word has no bit for, rides in the recording as both
+ * gear bits at once (0x3000: the exe's own launch signal, which input_tick takes out of the live word). The recorded
+ * word of `word` with that signal when `launching` (N held) and no gear key is in it; and, played back, the word with the signal taken out and
+ * 1 returned when it was there. */
+uint32_t race_replay_launch_word(uint32_t word, int launching);
+int race_replay_launch_split(uint32_t *word);
+
 enum { REPLAY_CAR_SNAPSHOT = 0x168 };
 
 /* 0044dc40 (eax car, edx snapshot): with 004fbb0c set and playback not 1,

@@ -76,8 +76,14 @@ static void seek(void *ctx, int32_t clock, int32_t mark)
 static void play(void *ctx)
 {
     DriveReplay *r = ctx;
-    const RaceReplayWords w = words(&r->sim->race);
-    race_replay_play(&w, r->sim->race.inputs, r->recording, REPLAY_RECORDING_SIZE);
+    RaceState *race = &r->sim->race;
+    const RaceReplayWords w = words(race);
+    race_replay_play(&w, race->inputs, r->recording, REPLAY_RECORDING_SIZE);
+    if (race->port_replay_launch == 0 || race->start_input == 0) return;   /* the setup's stamp: an older replay's words are its own */
+    for (int32_t i = 0; i < w.humans && i < RACE_PLAYERS; i++) {   /* port: the NITRO start's N, out of the word */
+        const int launching = race_replay_launch_split(&race->inputs[i]);
+        if (i == race->player) race->start_keys[0] = (uint8_t)launching;
+    }
 }
 
 static void camera(void *ctx, int32_t word) { race_replay_camera(race_of(ctx), word); }
@@ -124,8 +130,13 @@ static void input_tick(void *ctx, int32_t clock) { (void)ctx, (void)clock; }
 static void record_inputs(void *ctx)
 {
     DriveReplay *r = ctx;
-    const RaceReplayWords w = words(&r->sim->race);
-    race_replay_record(&w, r->sim->race.inputs, r->recording, REPLAY_RECORDING_SIZE);
+    const RaceState *race = &r->sim->race;
+    const RaceReplayWords w = words(race);
+    uint32_t inputs[RACE_PLAYERS];
+    memcpy(inputs, race->inputs, sizeof inputs);
+    if (race->port_replay_launch != 0 && race->start_input != 0 && race->player >= 0 && race->player < RACE_PLAYERS)
+        inputs[race->player] = race_replay_launch_word(inputs[race->player], race->start_keys[0] != 0);   /* port: N */
+    race_replay_record(&w, inputs, r->recording, REPLAY_RECORDING_SIZE);
 }
 
 static void save_car(void *ctx, int32_t slot, int32_t index)
