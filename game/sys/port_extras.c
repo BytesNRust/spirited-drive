@@ -42,7 +42,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP };
     return d;
 }
 
