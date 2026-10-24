@@ -55,6 +55,12 @@ typedef struct {
  * 4) past it; the row it is behind the camera, under 11, is set. */
 void mirror_car_rows(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node, uint8_t rows[MIRROR_CAR_ROWS]);
 
+/* port: the rows of mirror_car_rows for a camera at `camera_node`, from the draw_node2 each car has now: nothing is
+ * moved on, so it may run on every frame. A frame between two ticks (drive_interp) has the camera on another node than
+ * the tick's, and the tick's rows, by nodes behind that camera, are one off for it: a car in the mirror went missing
+ * for a frame. */
+void mirror_car_rows_at(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node, uint8_t rows[MIRROR_CAR_ROWS]);
+
 /* 0045a8fc: the cars on `node` in the mirror (the mirror pass of 0045a848).
  * Nothing unless the node is 0..10 behind the camera (around the ring of
  * 0050420c x 4 nodes) with that row's flag set; then each listed car whose
@@ -90,6 +96,7 @@ typedef struct {
     const uint8_t *segments;    /* 00504228: 6 bytes a segment, +1 the mirror's LOD */
     const uint8_t *cache;       /* 005041d8: the segment records (0x21c each, +2 the 10 texture bytes) */
     const int32_t *vertices;    /* 00509330, as described above */
+    int32_t port_eye_ahead;     /* port: 1, the segments from the node one further (track_step.h); 0, the exe's */
 } MirrorSceneInputs;
 
 /* 0044baa4 (watcall count, 00504224): the mirror's box (00449f50), then

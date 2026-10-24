@@ -5,6 +5,11 @@
 
 enum { MIRROR_BEHIND = 4, MIRROR_ROWS = 5, NODE_ROUND = 3 };
 
+int32_t track_mirror_first(int32_t node, int32_t segment_mask, int port_eye_ahead)
+{
+    return (x_add(node, NODE_ROUND + (port_eye_ahead != 0)) / 4 - MIRROR_BEHIND) & segment_mask;
+}
+
 void track_stream_step(const TrackStepOps *ops, const TrackStepInputs *in)
 {
     const int32_t segment = in->node / 4;
@@ -12,7 +17,7 @@ void track_stream_step(const TrackStepOps *ops, const TrackStepInputs *in)
     if (*in->unknown_4c53a4 != 0) *in->unknown_4c53a4 = 0;
     if (in->stream_node / 4 != segment || in->stream_node < 0) ops->build(ops->ctx, in->node, segment, in->draw_segments);
     if (*in->rows_again == 0) return;
-    int32_t first = (x_add(in->node, NODE_ROUND) / 4 - MIRROR_BEHIND) & in->segment_mask;
+    int32_t first = track_mirror_first(in->node, in->segment_mask, in->port_eye_ahead);
     if (first != *in->mirror_segment) {
         *in->mirror_segment = first;
         *in->mirror_count = 0;
