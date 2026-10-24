@@ -51,6 +51,12 @@ typedef struct {
 void quad_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
                const int32_t screen[8], int transparent);
 
+/* quad_draw storing only the rows [top, bottom): the quad's edges and its retrace are decided on the whole clip, so what
+ * lands in those rows is what quad_draw paints there (a narrowed clip is not: a twisted quad retraces on a row it
+ * would no longer visit). For the render bands. */
+void quad_draw_rows(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8],
+                    int transparent, int32_t top, int32_t bottom);
+
 /* The same as quad_draw, with any MapMode: 00487180, 00486950 or 004aa600.
  * shade is read only for MAP_SHADE and must then point at 256 bytes. */
 void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
@@ -61,6 +67,10 @@ void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int
  * 004879b0 (transparent), reached through 00425460. */
 void quad_draw_full(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8],
                     int transparent);
+
+/* quad_draw_full with quad_draw_rows' window. */
+void quad_draw_full_rows(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8], int transparent,
+                         int32_t top, int32_t bottom);
 
 /* The whole texture inset by one texel and drawn as two triangles, with the
  * triangle mapper rather than the quad mapper: 00486720 (opaque) and
