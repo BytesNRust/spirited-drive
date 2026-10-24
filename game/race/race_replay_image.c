@@ -67,6 +67,11 @@ int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *o
     return 1;
 }
 
+void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay)
+{
+    race->unknown_4c5cd4 = replay->explode;
+}
+
 void race_replay_image_setup(const RaceState *race, uint32_t seed, uint8_t setup[REPLAY_SETUP_SIZE])
 {
     memset(setup, 0, REPLAY_SETUP_SIZE);

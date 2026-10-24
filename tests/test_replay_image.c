@@ -43,6 +43,15 @@ static void synthetic(void)
     CHECK(strcmp(r.stem, "TR6") == 0 && r.field.racers == 8 && r.field.race_type == 2 && r.laps == 2);
     CHECK(r.field.seed == 0x31c3f86a && r.field.entries[0].car == 4 && strcmp(r.field.entries[0].name, "Mom?") == 0);
     CHECK(r.field.mirrored == 1 && r.arcade == 1);                                     /* 0x31c, 0x320 */
+    race.track_flags = 8, race.entries[3].car = 11;                                    /* TURBO, the Warrior as a rival */
+    race_replay_image_setup(&race, 0x31c3f86a, setup);
+    CHECK(race_replay_image_race(setup, &r) && (r.track_flags & 8) != 0 && r.field.entries[3].car == 11);
+    race.entries[0].car = 11;                                                          /* and as the player's car */
+    race_replay_image_setup(&race, 0x31c3f86a, setup);
+    CHECK(race_replay_image_race(setup, &r) && r.field.entries[0].car == 11);
+    race.track_flags = 0, race.entries[3].car = 0, race.entries[0].car = 4;
+    race_replay_image_setup(&race, 0x31c3f86a, setup);
+    CHECK(race_replay_image_race(setup, &r));
     CHECK(!r.explode && setup[0x3c] == 0 && setup[0x3d] == 0);                         /* no cheat: the exe's bytes */
     race.unknown_4c5cd4 = 1;                                                           /* EXPLODE: the replay keeps it */
     race_replay_image_setup(&race, 0x31c3f86a, setup);

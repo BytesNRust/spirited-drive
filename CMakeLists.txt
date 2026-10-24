@@ -718,6 +718,10 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_race PRIVATE tnfs_game)
         target_compile_options(test_race PRIVATE ${TNFS_WARNINGS})
         add_test(NAME race COMMAND test_race "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_executable(test_replay_cheats_sim tests/test_replay_cheats_sim.c)
+        target_link_libraries(test_replay_cheats_sim PRIVATE tnfs_game)
+        target_compile_options(test_replay_cheats_sim PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME replay_cheats_sim COMMAND test_replay_cheats_sim "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
     file(GLOB_RECURSE TNFS_MODEL_FILES

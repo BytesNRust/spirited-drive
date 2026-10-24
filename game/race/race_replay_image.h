@@ -35,6 +35,10 @@ typedef struct {
 /* The setup's race; 0 when the setup does not hold one (no stem, counts out of range, a slot's car not a car) */
 int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *out);
 
+/* A race started from a replay's setup, after race_sim_start_field: the cheat words the setup's recording was made with
+ * that the exe's setup does not hold (the EXPLODE cheat), put back so the cars play as they did. */
+void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay);
+
 /* The setup of `race` (started from the seed `seed`) as 004fb7bc holds it */
 void race_replay_image_setup(const RaceState *race, uint32_t seed, uint8_t setup[REPLAY_SETUP_SIZE]);
 
