@@ -930,8 +930,8 @@ static int32_t plus_key_name(void *ctx, int32_t scancode, char *out, size_t size
     (void)ctx;
     return platform_key_name(scancode, out, size);
 }
-/* port: from Options (mode 0) the controls screen also has two pages for controls.cfg's bindings (from the race's
- * pause menu it is the original's) */
+/* port: the controls screen, from Options (mode 0) and from the options after a race (mode 1), is the port's three pages
+ * (controls.cfg's keys, the pad's bindings and its tuning), the exe's page left out */
 static void controls(void *ctx, int32_t mode)
 {
     static const int16_t no_joystick_b = 0, quit = 0;  /* no second joystick */
@@ -943,7 +943,7 @@ static void controls(void *ctx, int32_t mode)
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
                                    pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit,
-                                   mode == 0 ? &plus : NULL };
+                                   &plus };
     const ControlsMenuOps ops = {
         picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
         styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,

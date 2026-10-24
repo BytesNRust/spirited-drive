@@ -17,7 +17,7 @@ enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, CAPTURE_WAIT = 500, REST = 0x
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, LABEL_X = 16, VALUE_RIGHT = 600, STEP = 5 };
 enum { PAGES = 4, KEYBOARD_PAGE = 1, ACTION_PAGE = 2, TUNE_PAGE = 3 };
 /* the device each page is for, under the title */
-enum { SUBTITLE_RIGHT = 600, SUBTITLE_Y = 61 };   /* on the title's line, to its right: the rows' right edge; 61 puts the capitals' centre (y 73.5) at the title's (74) */
+enum { SUBTITLE_RIGHT = 600, SUBTITLE_Y = 64 };   /* on the title's line, to its right: the rows' right edge; 64 puts the small capitals' body (y 72..81) at the title's (69..83) */
 static const char *const SUBTITLE[PAGES - 1] = { "Keyboard", "Game controller", "Game controller" };
 /* the title where the configuration screens' are (extras_menu.c's and graphics_own.c's TITLE_X, TITLE_Y) */
 enum { TITLE_X = 8, TITLE_Y = 56 };
