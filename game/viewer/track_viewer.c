@@ -330,6 +330,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_sim.race.port_replay_cameras = drive_menus.replay_cameras;
     }
     drive_sim.race.port_nitro_start = 1;  /* port: the NITRO start takes N alone or the pad's key (start_keys.h) */
+    drive_sim.race.port_stop_replaced = 1;  /* port: a horn's looping voice is cut when a tyre or crash sound takes its channel */
     drive_sim.race.port_time_of_day = drive_time_of_day;  /* the replay's setup keeps it */
     /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the
      * results and records are left alone, 0045af80) with 00524ea1 the laps above it */
