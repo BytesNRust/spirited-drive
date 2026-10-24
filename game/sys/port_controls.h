@@ -67,9 +67,12 @@ const char *port_controls_key_name(PortKey key);   /* the screen's word for it: 
 void port_controls_key_defaults(const int16_t *config, int german, int out[PKEY_COUNT]);
 /* the key now: the player's with keys_custom, else `defaults` */
 int port_controls_key(const PortControls *c, const int defaults[PKEY_COUNT], PortKey key);
-/* `scancode` (0: none) to `key`; the player's keys start from `defaults` the first time. Another key that had it is
- * left with none: its PortKey is returned, -1 when there was none. */
+/* `scancode` (0: none) to `key`; the player's keys start from `defaults` the first time. A row that had that key is
+ * given the key `key` had (a swap, so no control is left without one unless that one had none): its PortKey is
+ * returned, -1 when there was none. */
 int port_controls_set_key(PortControls *c, const int defaults[PKEY_COUNT], PortKey key, int scancode);
+/* the config.dat short (the exe's Controls page, words 3..12) a driving key is, -1 for a word that is not one */
+int port_controls_key_of_word(int word);
 /* the keyboard's keys back to config.dat's */
 void port_controls_reset_keys(PortControls *c);
 /* keys the game keeps for itself, not offered to a driving key: Escape, the function keys, P (pause), the pad's

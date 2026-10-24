@@ -252,10 +252,18 @@ int port_controls_set_key(PortControls *c, const int defaults[PKEY_COUNT], PortK
         c->keys_custom = 1;
     }
     int taken = -1;
+    const int old = c->key[key];
     for (int k = 0; scancode != 0 && k < PKEY_COUNT; k++)
-        if (k != (int)key && c->key[k] == scancode) c->key[k] = 0, taken = k;
+        if (k != (int)key && c->key[k] == scancode) c->key[k] = old, taken = k;   /* swapped: no control is left bare */
     c->key[key] = scancode;
     return taken;
+}
+
+int port_controls_key_of_word(int word)
+{
+    for (int k = 0; k < PKEY_COUNT; k++)
+        if (KEY_WORD_AT[k] == word) return k;
+    return -1;
 }
 
 void port_controls_reset_keys(PortControls *c)

@@ -42,6 +42,11 @@ ControlSource control_map_detect(const RawPad *rest, const RawPad *now, bool wan
  * the first. A source is the same by kind and index (and a hat's direction). */
 PortControls control_map_assign(const PortControls *c, PortAction act, int slot, ControlSource src);
 
+/* control_map_assign, but a source taken from another action is replaced there by `old`, the source the action gave up
+ * (a swap, so neither is left bare): not when `old` is none, or is one that action cannot use (a button for the steering
+ * axis) or already has. */
+PortControls control_map_swap(const PortControls *c, PortAction act, int slot, ControlSource src, ControlSource old);
+
 /* port: the words the controls screen shows. A source's name: SDL_Gamepad's own ("A", "RT", "Left X") when `gamepad`,
  * else "Button 5", "Axis 2-", "Hat 0 Left"; " inv" after an inverted axis; "-" for none. Cut to `size`. */
 void control_map_source_name(const ControlSource *s, int gamepad, char *out, size_t size);

@@ -214,10 +214,11 @@ static void test_keyboard_keys(void)
     CHECK_EQ_INT(c.keys_custom, 1);
     CHECK_EQ_INT(port_controls_key(&c, defaults, PKEY_RIGHT), 0x4d);
     CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_BRAKE, 0x4d), PKEY_RIGHT);
+    CHECK_EQ_INT(c.key[PKEY_RIGHT], 0x50);   /* swapped: Right gets the key Brake had */
+    CHECK_EQ_INT(c.key[PKEY_BRAKE], 0x4d);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_RIGHT, 0), -1);   /* none, on purpose: no one else is touched */
     CHECK_EQ_INT(c.key[PKEY_RIGHT], 0);
     CHECK_EQ_INT(c.key[PKEY_BRAKE], 0x4d);
-    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_BRAKE, 0), -1);   /* none: no one loses a key */
-    CHECK_EQ_INT(c.key[PKEY_BRAKE], 0);
     /* the file: all nine once any is the player's, none as "" */
     n = port_controls_format(&c, text, sizeof text);
     CHECK(n > 0 && strstr(text, "key_left=16\n") && strstr(text, "key_right=\n") && strstr(text, "key_camera=46\n"));

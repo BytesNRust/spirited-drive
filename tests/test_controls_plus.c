@@ -306,7 +306,8 @@ static void test_a_source_moves_from_the_action_that_had_it(void)
         PADS(idle(), idle(), with_axis(5, 32000)));
     CHECK_EQ_INT(r.port.bind[ACT_BRAKE][0].kind, SRC_AXIS_POS);
     CHECK_EQ_INT(r.port.bind[ACT_BRAKE][0].index, 5);
-    CHECK_EQ_INT(r.port.bind[ACT_GAS][0].kind, SRC_NONE);
+    CHECK_EQ_INT(r.port.bind[ACT_GAS][0].kind, SRC_AXIS_POS);   /* swapped: gas gets the left trigger Brake gave up */
+    CHECK_EQ_INT(r.port.bind[ACT_GAS][0].index, 4);
 }
 
 static void test_enter_replaces_and_insert_adds(void)
@@ -508,12 +509,12 @@ static void test_a_key_is_assigned_to_a_row(void)
     CHECK_EQ_INT(r.port.custom, 0);                   /* the pad's bindings are another matter */
 }
 
-static void test_a_key_another_row_had_is_taken_from_it(void)
+static void test_a_key_another_row_had_is_swapped_with_it(void)
 {
     Run r = { .port = port_controls_defaults() };
     run(&r, KEYS(ENTER, HOLD(SC_RIGHT), 0, 0, RELEASE, ESCAPE), PADS(idle()));
     CHECK_EQ_INT(r.port.key[PKEY_LEFT], SC_RIGHT);
-    CHECK_EQ_INT(r.port.key[PKEY_RIGHT], 0);          /* cleared, not shared */
+    CHECK_EQ_INT(r.port.key[PKEY_RIGHT], SC_LEFT);    /* swapped: the row that had it gets Steer left's old key, no control is bare */
 }
 
 static void test_escape_in_a_key_capture_assigns_nothing(void)
@@ -640,7 +641,7 @@ int main(void)
     test_the_rows_stay_in_their_band();
     test_the_keyboard_page_shows_the_exe_keys_and_says_so();
     test_a_key_is_assigned_to_a_row();
-    test_a_key_another_row_had_is_taken_from_it();
+    test_a_key_another_row_had_is_swapped_with_it();
     test_escape_in_a_key_capture_assigns_nothing();
     test_a_key_held_when_the_capture_began_is_not_a_press();
     test_the_games_own_keys_are_refused();

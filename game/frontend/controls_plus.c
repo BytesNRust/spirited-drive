@@ -212,12 +212,12 @@ static void header(const ControlsMenuOps *o, const char *text, int page, int gro
     else words(o, STYLE_RED, text, LABEL_X, y);
 }
 
-/* a key's words on the keyboard page: "-" for none, else the platform's name for the key */
+/* a key's words on the keyboard page: "NOT SET" (drawn red) for none, else the platform's name for the key */
 static void key_text(const Run *r, const ControlsMenuState *st, const ControlsMenuOps *o, PortKey key, char *out,
                      size_t size)
 {
     const int code = port_controls_key(st->plus->port, r->key_defaults, key);
-    snprintf(out, size, "%s", "-");
+    snprintf(out, size, "%s", "NOT SET");
     if (code != 0 && o->plus_key_name != NULL) o->plus_key_name(o->ctx, code, out, size);
 }
 
@@ -233,7 +233,9 @@ static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps 
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, port_controls_key_name((PortKey)row), LABEL_X, y);
         if (r->capturing == row) snprintf(value, sizeof value, "%s", r->notice != NULL ? r->notice : "Press a key...");
         else key_text(r, st, o, (PortKey)row, value, sizeof value);
-        text_right(o, lit, value, VALUE_RIGHT, y);
+        if (r->capturing != row && port_controls_key(st->plus->port, r->key_defaults, (PortKey)row) == 0)
+            words(o, STYLE_RED, value, VALUE_RIGHT - o->plus_text_width(o->ctx, value), y);   /* a control with no key */
+        else text_right(o, lit, value, VALUE_RIGHT, y);
     } else if (r->page == ACTION_PAGE) {
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name((PortAction)row), LABEL_X, y);
         if (r->capturing == row)
@@ -320,10 +322,11 @@ static void capture(Run *r, int act, int add, const ControlsMenuState *st, const
         PortControls *c = st->plus->port;
         PortControls base = *c;
         int slot = 0;
+        ControlSource gave_up = { SRC_NONE, 0, 0, 0 };   /* what the row had: the action that had `got` is given it */
         if (add && c->bind[act][0].kind != SRC_NONE) slot = 1;
         else base.bind[act][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
-        if (slot == 0) base.bind[act][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
-        *c = control_map_assign(&base, (PortAction)act, slot, got);
+        if (slot == 0) gave_up = c->bind[act][0], base.bind[act][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+        *c = control_map_swap(&base, (PortAction)act, slot, got, gave_up);
         c->custom = 1;
         o->sound(o->ctx, CHOSEN);
     }

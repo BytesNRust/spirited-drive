@@ -338,6 +338,29 @@ static void test_detect_a_hat_and_the_most_moved_axis(void)
     CHECK_EQ_INT(s.index, 3);
 }
 
+static void test_swap_gives_the_taker_what_the_action_gave_up(void)
+{
+    PortControls c = port_controls_defaults();
+    const ControlSource south = c.bind[ACT_GEAR_UP][0], east = c.bind[ACT_GEAR_DOWN][0];
+    /* gear down takes A (gear up's) and gives up B: gear up gets B, so neither is left bare */
+    PortControls base = c;
+    base.bind[ACT_GEAR_DOWN][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    PortControls d = control_map_swap(&base, ACT_GEAR_DOWN, 0, south, east);
+    CHECK_EQ_INT(d.bind[ACT_GEAR_DOWN][0].index, SOUTH);
+    CHECK_EQ_INT(d.bind[ACT_GEAR_UP][0].kind, SRC_BUTTON);
+    CHECK_EQ_INT(d.bind[ACT_GEAR_UP][0].index, EAST);
+    /* nothing given up: the one that had it loses it, as assign does */
+    d = control_map_swap(&base, ACT_GEAR_DOWN, 0, south, (ControlSource){ SRC_NONE, 0, 0, 0 });
+    CHECK_EQ_INT(d.bind[ACT_GEAR_UP][0].kind, SRC_NONE);
+    /* a button is no use to the steering axis: Steering takes gear up's button and gear up is left bare */
+    PortControls s = c;
+    s.bind[ACT_STEER][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    d = control_map_swap(&s, ACT_STEER, 0, south, c.bind[ACT_STEER][0]);   /* gives up its axis: gear up may take it */
+    CHECK_EQ_INT(d.bind[ACT_GEAR_UP][0].kind, SRC_AXIS_FULL);
+    d = control_map_swap(&c, ACT_GEAR_DOWN, 0, c.bind[ACT_STEER][0], south);   /* the axis taken from Steering */
+    CHECK_EQ_INT(d.bind[ACT_STEER][0].kind, SRC_NONE);                         /* a button does not steer */
+}
+
 static void test_assign_takes_the_source_from_the_other_action(void)
 {
     PortControls c = port_controls_defaults();
@@ -449,6 +472,7 @@ int main(void)
     test_assign_takes_the_source_from_the_other_action();
     test_assign_slots_compact_and_keep_two();
     test_assign_hats_differ_by_direction();
+    test_swap_gives_the_taker_what_the_action_gave_up();
     test_invert_two_sources_and_thresholds();
     test_a_wheel_with_a_file_keeps_the_second_axis();
     test_defaults_are_the_pad_as_it_was();
