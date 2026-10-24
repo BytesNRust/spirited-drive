@@ -226,17 +226,20 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     LayerPiece pieces[12];
     int n = 0;
     const int lights = !police && hud_start_lights_drawn(&drive_hud.hud, race->tick);
-    const int map_on = drive_hud.keys.use_parts != 0;  /* 004f9b3c: off, the 640's box holds the dash (and the gate) */
+    /* 004f9b3c: off, the 640's map box holds the dash, and for a moment the gear gate (0041f5bc's state not 0). The box
+     * is a piece at its size and anchor with the map, or with the gate; with neither it is the continuous dash. */
+    const int map_on = drive_hud.keys.use_parts != 0;
+    const int box_on = map_on || (in_car && drive_hud.gate_state != 0);
     if (lights) {  /* the start lights whole, each at its width spread across the screen, not cut with the groups */
         for (int i = 0; i < LIGHT_COUNT; i++)
             pieces[n++] = wide_piece(i * LIGHT_STEP_640, 0, LIGHT_WIDTH, HUD_BAR_HEIGHT,
                                      (ScreenPoint){ screen_light_x(drive_wide.width, i), 0 }, 0);
-        if (map_on) pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
+        if (box_on) pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
     } else if (!police) {
         pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_start, 0);
         pieces[n++] = wide_piece(BAR_MIDDLE_640, 0, BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_middle, 0);
         pieces[n++] = wide_piece(BAR_END_640, 0, SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT, a.bar_end, 0);
-        if (map_on) pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
+        if (box_on) pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
     }
     if (in_car) {
         if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1, 0 };
@@ -261,7 +264,7 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     }
     if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
-    if (in_car && map_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
+    if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
     layer_compose(&c, frame, drive_wide.pixels);
     const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
