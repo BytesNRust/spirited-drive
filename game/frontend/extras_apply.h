@@ -31,6 +31,22 @@ void extras_reapply(const PortExtras *e, const ExtrasFlags *f);
  * run the mirror's geometry on the rally's track. A single switch is the same answer as the exe's. */
 void extras_reapply_port(const PortExtras *e, const ExtrasFlags *f);
 
+/* port: what the flags are for, kept across the visits: the switches and the unlock level say what is on, and a flag
+ * that is on with neither saying so was typed (a cheat code): it stays on for the session, but is never a switch, so it
+ * is not saved and turning the switch off does not take it away. `on_*` is what the last extras_settle expected from
+ * the level and the switches (a flag that was expected and no longer is has been switched off); `typed_*` the cheats
+ * typed. */
+typedef struct {
+    int32_t on_m, on_r, on_vegas, on_warrior, on_explode, on_nitro, on_turbo;
+    int32_t typed_m, typed_r, typed_vegas, typed_warrior, typed_explode, typed_nitro, typed_turbo;
+} ExtrasSession;
+
+/* port: puts the flags in line with `level` (config.dat's unlock level, the live short), the switches and the cheats
+ * typed in the session: on for each of those that asks, off for a switch that was on and now is not, and left alone
+ * otherwise. The unlock of Mirror or Rally switched off takes its variant off too. The variants are otherwise the
+ * player's own choice and are not touched, and neither are the other flags. Idempotent. */
+void extras_settle(const PortExtras *e, int level, const ExtrasFlags *f, ExtrasSession *s);
+
 /* After a cheat code has been typed into the flags: what the screen should now show. The switches the flags do
  * not own (the cameras, the Warrior as a rival, the movies, the aids, the start screen) are kept as they were. */
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f);
