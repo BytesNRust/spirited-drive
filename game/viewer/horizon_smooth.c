@@ -88,6 +88,7 @@ static void pair_make(const HorizonSmooth *s, const Column *c, const uint8_t *ro
 {
     const uint8_t t00 = row0[c->c0], t10 = row0[c->c1], t01 = row1[c->c0], t11 = row1[c->c1];
     p->only = t00 == t10 && t00 == t01 && t00 == t11 ? t00 : -1;
+    if (p->only >= 0) return;   /* one texel: no blend to make, its index is the pixel */
     for (int k = 0; k < 3; k++) {
         p->top[k] = (ONE - c->w) * s->palette[3 * t00 + k] + c->w * s->palette[3 * t10 + k];
         p->bottom[k] = (ONE - c->w) * s->palette[3 * t01 + k] + c->w * s->palette[3 * t11 + k];
