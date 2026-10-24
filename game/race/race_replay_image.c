@@ -5,10 +5,11 @@
 
 enum {
     CAR_LAST = 11,  /* the Warrior */
+    CHEATS_MARK = 0xa500, CHEATS_EXPLODE = 1,  /* the two padding bytes after the seed: 0 in the CD's replays */
     /* the setup, from 004fb7bc */
     AT_VARIANT = 0x2, AT_TRACK = 0x6, AT_NAME = 0xa, AT_TYPE = 0x14, AT_4FB7D4 = 0x18, AT_FLAGS = 0x1c,
     AT_RACERS = 0x20, AT_HUMANS = 0x24, AT_COPS = 0x28, AT_CARS = 0x2c, AT_TRAFFIC = 0x30, AT_4FB7F0 = 0x34,
-    AT_SEED = 0x38, AT_ENTRIES = 0x3e, AT_GRID = 0x294, AT_LETTERS = 0x2b4, AT_MODELS = 0x2d8,
+    AT_SEED = 0x38, AT_PORT_CHEATS = 0x3c, AT_ENTRIES = 0x3e, AT_GRID = 0x294, AT_LETTERS = 0x2b4, AT_MODELS = 0x2d8,
     AT_CATCH_UP = 0x304, AT_LAPS = 0x308, AT_FOLLOWED = 0x310, AT_4FBAD0 = 0x314, AT_RECORD_SLOT = 0x318,
     AT_MIRRORED = 0x31c, AT_ARCADE = 0x320, AT_TIME_OF_DAY = 0x324, TRACKS = 9,
     /* the seek block, from 005120c4 */
@@ -53,6 +54,8 @@ int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *o
     memcpy(f->entries, setup + AT_ENTRIES, sizeof f->entries);
     out->laps = get32(setup, AT_LAPS), out->followed = get32(setup, AT_FOLLOWED);
     out->track_flags = (uint32_t)get32(setup, AT_FLAGS);
+    const unsigned cheats = (unsigned)(setup[AT_PORT_CHEATS] | setup[AT_PORT_CHEATS + 1] << 8);
+    out->explode = (cheats & 0xff00) == CHEATS_MARK && (cheats & CHEATS_EXPLODE) != 0;
     f->mirrored = get32(setup, AT_MIRRORED) != 0, out->arcade = get32(setup, AT_ARCADE) != 0;
     if (out->stem[0] == 0 || f->racers < 1 || f->racers > RACE_PLAYERS || f->cops < 0 || f->cops > 1) return 0;
     if (f->traffic < 0 || f->racers + f->cops + f->traffic > RACE_CARS + 6) return 0;
@@ -62,6 +65,11 @@ int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *o
     for (int i = 0; i < RACE_PLAYERS; i++)
         if (f->entries[i].car < 0 || f->entries[i].car > CAR_LAST) return 0;
     return 1;
+}
+
+void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay)
+{
+    race->unknown_4c5cd4 = replay->explode;
 }
 
 void race_replay_image_setup(const RaceState *race, uint32_t seed, uint8_t setup[REPLAY_SETUP_SIZE])
@@ -75,6 +83,9 @@ void race_replay_image_setup(const RaceState *race, uint32_t seed, uint8_t setup
     put32(setup, AT_HUMANS, race->humans), put32(setup, AT_COPS, race->cops), put32(setup, AT_CARS, race->car_count);
     put32(setup, AT_TRAFFIC, race->traffic_setting), put32(setup, AT_4FB7F0, race->unknown_4fb7f0);
     put32(setup, AT_SEED, (int32_t)seed);
+    if (race->unknown_4c5cd4 != 0) {   /* port: the EXPLODE cheat's word is not in the exe's setup; a replay plays without it */
+        setup[AT_PORT_CHEATS] = CHEATS_EXPLODE, setup[AT_PORT_CHEATS + 1] = CHEATS_MARK >> 8;
+    }
     memcpy(setup + AT_ENTRIES, race->entries, sizeof race->entries);
     put_words(setup, AT_GRID, race->grid, RACE_PLAYERS);  /* over the last entry's last 2 bytes, as in memory */
     put_words(setup, AT_LETTERS, race->driver_letters, RACE_PLAYERS);
