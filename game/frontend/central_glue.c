@@ -939,7 +939,7 @@ static void controls(void *ctx, int32_t mode)
     const int16_t german = (int16_t)resource_german();
     int32_t *const screen = ea_screen_slot();
     PortControls port = port_controls_load();
-    ControlsPlus plus = { &port };
+    ControlsPlus plus = { &port, 1 };   /* port: the three pages, the exe's left out (input_read.c reads the keys and the pad together) */
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
                                    pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit,

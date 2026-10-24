@@ -93,6 +93,9 @@ typedef struct ControlsMenuOps {
 /* port: the bindings the added pages edit */
 typedef struct ControlsPlus {
     PortControls *port;
+    int32_t port_three_pages;   /* port: 1 the screen is the three pages (Keyboard, Game controller, tuning) and opens on the
+                                 * first, the exe's page left out (its device choice is port_pad_and_keys' to do: input_read.c);
+                                 * 0 the exe's page first, four pages */
 } ControlsPlus;
 
 /* the globals the screen reads, through pointers as the original reads memory */
