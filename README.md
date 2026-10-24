@@ -76,13 +76,13 @@ With everything off and the 4:3 format the game plays as the original. The addit
 - **Controls** (Options → Controls setup): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
   zone, sensitivity and force feedback.
-- **Customize Game** (Game Mode, or Options):
-  - Cheats: Explode, Nitro, Turbo, Warrior player car;
-  - In-race options: speed units, no driving assists, bumper-view mirror and radar, replay cameras in races, rival car
-    markers, 3D render stats;
-  - Unlocks & mods: Warrior as a rival, mirror and rally tracks, Lost Vegas, Lunar Springs (the cut moon track, run as
-    Rusty Springs' rally), unlock level, time of day with variants;
-  - Miscellaneous: start screen (Game Mode, Network or Control Central), intro videos.
+- **Customize Game** (Game Mode, or Options), two pages:
+  - Page 1 — Cheats: Explode, Nitro, Turbo, Warrior player car; Unlocks & mods: Warrior as a rival, mirror and rally
+    tracks, Lost Vegas, Lunar Springs (the cut moon track, run as Rusty Springs' rally), unlock level, time of day with
+    variants;
+  - Page 2 — In-race options: speed units, no driving assists, bumper-view mirror and radar, replay cameras in races,
+    rival car markers, 3D render stats, dash box (the map, the gear lever or neither); Miscellaneous: start screen
+    (Game Mode, Network or Control Central), intro videos.
   The typed cheat codes still work. With a cheat on, Control Central shows CHEATS ENABLED.
 - **Records**: mirror and rally have their own tables. A race with Explode, Nitro, Turbo or the Warrior goes to a
   separate "cheats" table, each time marked N / E / T / W (Best Times' "Cheats" footer item shows it).
