@@ -9,6 +9,7 @@
 static const char MOON_FAM[] = "SIMDATA/NTRACKFM/TR8_R01.FAM";
 static const char MOON_PICTURE[] = "../gart/control/moon.qfs";
 const char LUNAR_SIGNS[LUNAR_SIGN_COUNT][4] = { { '0', '5', '0', '0' } };
+const char LUNAR_FAR_ROAD[4] = { '0', '1', 'A', '4' }, LUNAR_NEAR_ROAD[4] = { '0', '1', 'A', '0' };
 
 /* writes "<root>/<rest>" to out; 0 when it does not fit, so the caller keeps its own name */
 static int join(char *out, size_t size, const char *root, const char *rest)

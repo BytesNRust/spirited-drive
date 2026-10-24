@@ -20,6 +20,12 @@ int lunar_springs_fam(const char *data_root, int track, int variant_r, int lunar
 enum { LUNAR_SIGNS_BANK = 1, LUNAR_SIGN_COUNT = 1 };
 extern const char LUNAR_SIGNS[LUNAR_SIGN_COUNT][4];
 
+/* The moon's road seen from far ("01A4", the variant the race draws at a distance) is a crater, while its near road
+ * ("01A0") is the plain ground under the start's gantry; Rusty's own far road is its near one's ground. The far road
+ * takes the near one's ground (fam_fill_named, the near one's top quarter, the gantry, left out). Names only. */
+enum { LUNAR_ROAD_BANK = 0, LUNAR_ROAD_GANTRY_QUARTERS = 1 };
+extern const char LUNAR_FAR_ROAD[4], LUNAR_NEAR_ROAD[4];
+
 /* 1 when Control Central's track art entry `art` is Rusty's rally picture and `lunar` is on: the moon's picture is
  * written to `out` as a name for the art loader (relative to frontend/art/ or frontend/gart/, "../gart/control/
  * moon.qfs"). 0 leaves `out` alone. */

@@ -141,6 +141,68 @@ static void test_the_rally_bitmap_takes_the_evening_colours(void)
     CHECK_EQ_INT(timed[T_SHPI + T_BMP + 17], 0xff);
 }
 
+/* root wwww [terrain wwww [SHPI "!pal", "A000" 2x1 and, with `lacking` 0, "A001" 1x1]]: a stage's two distances */
+enum { S_PAL = 16 + 3 * 8, S_A0 = S_PAL + 16 + 768, S_A1 = S_A0 + 16 + 2, S_SIZE = T_SHPI + S_A1 + 16 + 1 };
+
+static void build_stage(uint8_t buf[S_SIZE], const uint8_t pal[768], const uint8_t a0[2], uint8_t a1, int lacking)
+{
+    memset(buf, 0, S_SIZE);
+    memcpy(buf, "wwww", 4), put_u32(buf + 4, 1), put_u32(buf + 8, 12);
+    memcpy(buf + 12, "wwww", 4), put_u32(buf + 16, 1), put_u32(buf + 20, 12);
+    uint8_t *s = buf + T_SHPI;
+    memcpy(s, "SHPI", 4), put_u32(s + 4, S_SIZE - T_SHPI), put_u32(s + 8, lacking ? 2 : 3), memcpy(s + 12, "LN32", 4);
+    memcpy(s + 16, "!pal", 4), put_u32(s + 20, S_PAL);
+    memcpy(s + 24, "A000", 4), put_u32(s + 28, S_A0);
+    memcpy(s + 32, lacking ? "????" : "A001", 4), put_u32(s + 36, S_A1);
+    s[S_PAL] = 0x24;
+    memcpy(s + S_PAL + 16, pal, 768);
+    s[S_A0] = 0x7b, s[S_A0 + 4] = 2, s[S_A0 + 6] = 1;
+    memcpy(s + S_A0 + 16, a0, 2);
+    s[S_A1] = 0x7b, s[S_A1 + 4] = 1, s[S_A1 + 6] = 1;
+    s[S_A1 + 16] = a1;
+}
+
+/* rally art: the far road ("A001" standing for variant 4 here: build_stage names it, so the test renames it) takes
+ * the near one, scaled; the near one stays */
+static void test_the_rally_far_road_is_its_near_one(void)
+{
+    static uint8_t pal[768];
+    uint8_t rally[S_SIZE];
+    const uint8_t dirt[2] = { 40, 50 };
+    build_stage(rally, pal, dirt, 99, 0);
+    memcpy(rally + T_SHPI + 32, "A004", 4);
+    CHECK_EQ_INT(fam_rally_far(rally, sizeof rally), 1);
+    CHECK_EQ_INT(rally[T_SHPI + S_A1 + 16], 40);
+    CHECK_MEM(rally + T_SHPI + S_A0 + 16, dirt, 2);
+}
+
+/* a far road with no near one is kept */
+static void test_a_far_road_alone_is_kept(void)
+{
+    static uint8_t pal[768];
+    uint8_t rally[S_SIZE];
+    const uint8_t dirt[2] = { 40, 50 };
+    build_stage(rally, pal, dirt, 99, 0);
+    memcpy(rally + T_SHPI + 24, "B000", 4), memcpy(rally + T_SHPI + 32, "A004", 4);
+    CHECK_EQ_INT(fam_rally_far(rally, sizeof rally), 0);
+    CHECK_EQ_INT(rally[T_SHPI + S_A1 + 16], 99);
+}
+
+/* Lunar Springs: the far road takes the near road's ground, its top left out */
+static void test_the_named_bitmap_is_filled_from_another(void)
+{
+    uint8_t moon[FILE_SIZE];
+    const uint8_t near[6] = { 1, 2, 3, 4, 5, 6 }, far[2] = { 7, 8 };
+    static const char FAR[4] = { '0', '0', '0', '1' }, NEAR[4] = { '0', '0', '0', '0' };
+    build(moon, near, far);
+    CHECK_EQ_INT(fam_fill_named(moon, sizeof moon, 0, FAR, NEAR, 2), 1);
+    CHECK_EQ_INT(moon[ROOT + 70], 4);
+    CHECK_EQ_INT(moon[ROOT + 71], 5);
+    CHECK_MEM(moon + ROOT + 48, near, 6);
+    static const char NONE[4] = { '0', '0', '0', '9' };
+    CHECK_EQ_INT(fam_fill_named(moon, sizeof moon, 0, NONE, NEAR, 0), 0);
+}
+
 int main(void)
 {
     test_the_flipped_sign_is_flipped_and_the_rest_kept();
@@ -150,5 +212,8 @@ int main(void)
     test_the_named_sign_is_flipped_and_the_rest_kept();
     test_the_named_sign_under_another_bank_stays();
     test_the_rally_bitmap_takes_the_evening_colours();
+    test_the_rally_far_road_is_its_near_one();
+    test_a_far_road_alone_is_kept();
+    test_the_named_bitmap_is_filled_from_another();
     return TEST_REPORT();
 }

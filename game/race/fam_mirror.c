@@ -194,6 +194,64 @@ static void copy_rally(void *ctx, const Shared *s)
     c->copied++;
 }
 
+/* `src` (sw x sh, its rows from `top` down) into `dst` (dw x dh), nearest sampled, each pixel through `map` */
+static void scale_into(uint8_t *dst, int dw, int dh, const uint8_t *src, int sw, int sh, int top, const uint8_t *map)
+{
+    for (int y = 0; y < dh; y++) {
+        const uint8_t *row = src + (size_t)(top + y * (sh - top) / dh) * sw;
+        for (int x = 0; x < dw; x++) dst[y * dw + x] = map[row[x * sw / dw]];
+    }
+}
+
+typedef void (*BankFn)(void *ctx, uint8_t *target, const Fsh *t, const Fsh *r, const Fsh *o, int root_child);
+
+/* walk's shape, a bank at a time (the three FSHs a place holds) */
+static void walk_banks(uint8_t *target, const Chunk *t, const Chunk *r, const Chunk *o, int depth, int root_child,
+                       BankFn fn, void *ctx)
+{
+    if (t->kind != r->kind || t->kind != o->kind || depth > CHUNK_MAX_DEPTH) return;
+    if (t->kind == CHUNK_KIND_BITMAP) {
+        Fsh tf, rf, of;
+        if (chunk_bitmaps(t, &tf) == FSH_OK && chunk_bitmaps(r, &rf) == FSH_OK && chunk_bitmaps(o, &of) == FSH_OK)
+            fn(ctx, target, &tf, &rf, &of, root_child);
+        return;
+    }
+    if (t->kind != CHUNK_KIND_HEADER) return;
+    for (uint32_t i = 0; i < t->count && i < r->count && i < o->count; i++) {
+        Chunk tc, rc, oc;
+        if (chunk_child(t, i, &tc) == CHUNK_OK && chunk_child(r, i, &rc) == CHUNK_OK && chunk_child(o, i, &oc) == CHUNK_OK)
+            walk_banks(target, &tc, &rc, &oc, depth + 1, depth == 0 ? (int)i : root_child, fn, ctx);
+    }
+}
+
+/* each far variant ("A004", "01A4") its near one ("A000", "01A0"), scaled to its size */
+static void far_from_near(void *ctx, uint8_t *target, const Fsh *t, const Fsh *r, const Fsh *o, int root_child)
+{
+    (void)r, (void)o;
+    if (root_child != TERRAIN) return;
+    static uint8_t identity[256];
+    for (int i = 0; i < 256; i++) identity[i] = (uint8_t)i;
+    for (uint32_t i = 0; i < t->count; i++) {
+        FshEntry fe, ne;
+        if (fsh_entry(t, i, &fe) != FSH_OK || fe.type != FSH_TYPE_BITMAP || fe.name[3] != '4' ||
+            (size_t)fe.width * fe.height > fe.payload_size)
+            continue;
+        char near[4];
+        memcpy(near, fe.name, 4), near[3] = '0';
+        if (!bitmap_named(t, near, &ne) || (size_t)ne.width * ne.height > ne.payload_size) continue;
+        scale_into(target + (fe.payload - target), fe.width, fe.height, ne.payload, ne.width, ne.height, 0, identity);
+        ++*(int *)ctx;
+    }
+}
+
+int fam_rally_far(uint8_t *fam, size_t size)
+{
+    Chunk root;
+    int filled = 0;
+    if (chunk_open(&root, fam, size) == CHUNK_OK) walk_banks(fam, &root, &root, &root, 0, -1, far_from_near, &filled);
+    return filled;
+}
+
 int fam_time_rally(uint8_t *timed, size_t timed_size, const uint8_t *day, size_t day_size, const uint8_t *rally,
                    size_t rally_size)
 {
@@ -222,4 +280,31 @@ int fam_time_rally(uint8_t *timed, size_t timed_size, const uint8_t *day, size_t
     Copy copy = { map, 0 };
     each_shared(timed, timed_size, day, day_size, rally, rally_size, copy_rally, &copy);
     return copy.copied;
+}
+
+/* the bitmap `name` under root child `root_child`, writable within `fam` */
+typedef struct {
+    int root_child;
+    const char *name;
+    uint8_t *at;
+    int width, height;
+} Find;
+
+static void find_named(void *ctx, const Shared *s)
+{
+    Find *f = ctx;
+    if (s->root_child == f->root_child && memcmp(s->name, f->name, 4) == 0 && f->at == NULL)
+        f->at = s->target, f->width = s->width, f->height = s->height;
+}
+
+int fam_fill_named(uint8_t *fam, size_t size, int root_child, const char dst[4], const char src[4], int top_quarters)
+{
+    Find d = { root_child, dst, NULL, 0, 0 }, s = { root_child, src, NULL, 0, 0 };
+    each_shared(fam, size, fam, size, fam, size, find_named, &d);
+    each_shared(fam, size, fam, size, fam, size, find_named, &s);
+    if (d.at == NULL || s.at == NULL || top_quarters < 0 || top_quarters > 3) return 0;
+    uint8_t identity[256];
+    for (int i = 0; i < 256; i++) identity[i] = (uint8_t)i;
+    scale_into(d.at, d.width, d.height, s.at, s.width, s.height, s.height * top_quarters / 4, identity);
+    return 1;
 }

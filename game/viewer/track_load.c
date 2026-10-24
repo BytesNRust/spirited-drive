@@ -177,6 +177,14 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         platform_free_file(mirror);
         platform_free_file(day);
     }
+    if (look->variant_r && (look->track != LUNAR_TRACK_RUSTY || moon)) {
+        /* port: the rally art's far road its near one (fam_mirror.h); the moon's without the start's gantry */
+        const int far = fam_rally_far(t->fam_file, fam_size);
+        if (moon)
+            fam_fill_named(t->fam_file, fam_size, LUNAR_ROAD_BANK, LUNAR_FAR_ROAD, LUNAR_NEAR_ROAD,
+                           LUNAR_ROAD_GANTRY_QUARTERS);
+        if (getenv("TNFS_TRACE_FAM") != NULL) port_log("track_viewer: rally art, %d far roads from the near\n", far);
+    }
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
     if (tr != TRI_OK || cr != CHUNK_OK || !track_art_load(&t->art, &t->fam)) {
