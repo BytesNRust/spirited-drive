@@ -163,7 +163,7 @@ static void draw_records(const ResultsInputs *in, int segment, int beaten, const
     ops->speed_text(ops->ctx, text, g32(rec + LAP_SPEED));
     ops->text_at(ops->ctx, text, LEFT, 0x17c);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + LAP_CAR)], RIGHT, 0x17c);
-    results_mark_slot(in, SLOT_TOP, 0x17c, ops);
+    results_mark_slot(in, SLOT_SPEED_SEGMENT + segment, 0x17c, ops);
     draw_gearbox(in, g32(rec + LAP_GEARBOX), 0x17c, "h.h", ops);
 }
 
@@ -174,6 +174,7 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int segment, int be
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     if (track < 3) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[track]));
     ops->text_select(ops->ctx, 1);
+    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
     draw_place(in, segment, ops);
     draw_heads(in, segment, ops);
     draw_times(in, segment, ops);

@@ -48,11 +48,14 @@ static int32_t original(RouteOp op, uint8_t *image, const uint8_t *game, int32_t
 /* the answer when there was nothing to take */
 static int32_t nothing(RouteOp op) { return op == ROUTE_TOTALS ? RECORD_CHECK_NONE : 0; }
 
-/* marks follow the rows: a totals row taken at `row` pushes the ones below it down, the tenth gone */
+/* marks follow the rows: a totals row taken at `row` pushes the ones below it down, the tenth gone. A segment check
+ * marks the time (1) and the top speed (2) rows it took, as its answer says. */
 static void mark(RaceKind kind, RouteOp op, int track, int segment_word, int choice, int32_t answer, uint8_t *marks)
 {
     if (op == ROUTE_SEGMENT) {
-        marks[SLOT_SEGMENT + (segment_word ? segment_word - 1 : 2)] = (uint8_t)kind.marks;
+        const int segment = segment_word ? segment_word - 1 : 2;
+        if (answer & 1) marks[SLOT_SEGMENT + segment] = (uint8_t)kind.marks;
+        if (answer & 2) marks[SLOT_SPEED_SEGMENT + segment] = (uint8_t)kind.marks;
     } else if (op == ROUTE_LAP) {
         marks[SLOT_SEGMENT] = (uint8_t)kind.marks;
     } else if (op == ROUTE_TOP) {

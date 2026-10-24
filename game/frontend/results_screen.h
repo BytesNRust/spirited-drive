@@ -108,6 +108,10 @@ typedef struct ResultsInputs {
 
 /* port: the table shown is the one with cheats (its marks are there; marks NULL or without slots is the table without) */
 static inline int results_cheats(const ResultsInputs *in) { return in->marks != NULL && in->marks->slots != NULL; }
+/* port: the header band's "(CHEATS)" on every post-race screen of a race with cheats, right of the Road & Track logo (its
+ * art ends near x 270); the same place on the segment, totals, circuit, track, lap and best-totals screens */
+#define CHEATS_BANNER "(CHEATS)"
+enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };
 
 typedef struct ResultsState {
     int32_t inverse;            /* 004c5ff4 */

@@ -662,7 +662,7 @@ static void standings(void *ctx, int32_t segment)
     const int32_t screen = ea_screen();
     StandingsInputs in = { game_state, finish, car_points, image_short(0x95), image_short(0x93),
                                  image_short(0xb1), resource_german(), g.unlock_level, 0, screen,
-                                 ea_picture_shape(screen) };
+                                 ea_picture_shape(screen), records_glue_cheats(ROUTE_SEGMENT, config_current()->image) };
     StandingsState st = { g.inverse, screen_palette };
     int x, y;
     pointer_position(&x, &y);
