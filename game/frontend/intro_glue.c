@@ -11,6 +11,7 @@
 #include "game/frontend/save_files.h"
 #include "game/frontend/tgv_player.h"
 #include "game/sys/input.h"
+#include "game/sys/port_extras.h"
 #include "game/sys/resource.h"
 #include "game/sys/video.h"
 #include "game/viewer/track_viewer.h"
@@ -88,7 +89,7 @@ static IntroState state(int16_t *flag, char *movie_path)
     char *const name = (char *)config_current()->image + REPLAY_NAME;
     memcpy(flag, config_current()->image + REPLAY_FLAG, sizeof *flag);
     return (IntroState){ glue_movies(), &replay_seen, &replay_index, &attract_seen, &attract, flag, name,
-                         resource_dir(PATH_MOVIE), movie_path };
+                         resource_dir(PATH_MOVIE), movie_path, port_extras_load().no_movies };
 }
 
 void glue_intro_show(void)
