@@ -71,6 +71,11 @@ enum {
     PLATFORM_TEXT_DELETE = 0x7F
 };
 uint32_t platform_next_text(void);
+/* Whether the window takes typed text (on from platform_init, for the name boxes). A race turns it off: with it on, macOS
+ * sends each letter key through its input client, and a letter held down (the horn) opens the accent chooser, which
+ * swallows the key events of the keys held with it. */
+void platform_text_input(bool on);
+bool platform_text_input_active(void);
 
 enum {
     PLATFORM_MOUSE_LEFT = 1,

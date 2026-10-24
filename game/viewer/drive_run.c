@@ -421,7 +421,9 @@ int drive_window(const Track *t, uint8_t *pixels)
     drive_menu.words = &w, drive_menu.music_start = run_music_start, drive_menu.music_user = &r;
     if (drive_link_on) drive_sim.service = run_service, drive_sim.service_user = &r, drive_sim.timer = &w.timer;
     drive_sim.wait_ticks = w.wait_ticks;
+    platform_text_input(false);   /* port: no accent chooser over the held horn key (platform.h) */
     race_run(&ops, &drive_sim.race, &w);
+    platform_text_input(true);
     drive_sim.service = NULL, drive_sim.service_user = NULL, drive_sim.timer = NULL;
     drive_end();
     drive_link_run = NULL;
