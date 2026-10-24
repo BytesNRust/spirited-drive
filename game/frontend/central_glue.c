@@ -923,6 +923,13 @@ static int32_t controls_bgnd(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROL
     (void)ctx;
     return glue_own_bgnd(pixels, palette);
 }
+static void own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y);
+static int32_t plus_key_down(void *ctx, int32_t scancode) { (void)ctx; return platform_key_down(scancode); }
+static int32_t plus_key_name(void *ctx, int32_t scancode, char *out, size_t size)
+{
+    (void)ctx;
+    return platform_key_name(scancode, out, size);
+}
 /* port: from Options (mode 0) the controls screen also has two pages for controls.cfg's bindings (from the race's
  * pause menu it is the original's) */
 static void controls(void *ctx, int32_t mode)
@@ -945,7 +952,9 @@ static void controls(void *ctx, int32_t mode)
         picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw,
         plus_arrow_size, plus_arrow,
         /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
-        controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text };
+        controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text,
+        /* port: the keyboard page's capture and key names, and the pages' subtitle */
+        plus_key_down, plus_key_name, own_subtitle_text };
     controls_menu(&st, mode, &ops);
     controls_in();
 }
@@ -1191,6 +1200,15 @@ void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
         text_draw_mask(art, w, TITLE_ART_H, x - TITLE_ART_FONT_X + TITLE_ART_LEFT, y - TITLE_ART_FONT_Y + TITLE_ART_ROW0);
     else
         text_draw_smooth(text, x, y, TITLE_NUM, TITLE_DEN);
+}
+
+/* the device a controls page is for, under its title: in the title's red, at the items' size */
+static void own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    (void)ctx;
+    text_build_styles_from(own_palette);
+    text_select(TEXT_RED);
+    text_draw_smooth(text, x, y, 1, 1);
 }
 
 /* a group's header as the credits draw theirs ("EA Seattle"), at their size: about 2/3 of the game's text */

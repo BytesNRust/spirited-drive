@@ -637,6 +637,19 @@ static SDL_Scancode from_set1(int scancode)
 
 int platform_key_sdl(int scancode) { return (int)from_set1(scancode); }
 
+bool platform_key_name(int scancode, char *out, size_t size)
+{
+    if (size == 0) return false;
+    out[0] = '\0';
+    const SDL_Scancode sc = from_set1(scancode);
+    const char *name = sc != SDL_SCANCODE_UNKNOWN ? SDL_GetScancodeName(sc) : NULL;
+    if (name == NULL || name[0] == '\0') return false;
+    size_t n = 0;
+    for (; name[n] != '\0' && n + 1 < size; n++) out[n] = (char)SDL_toupper((unsigned char)name[n]);
+    out[n] = '\0';
+    return true;
+}
+
 /* port: the keys a pad's or wheel's bindings press (platform.h): what each device holds down as of its last read, and
  * the scancode each action's key is */
 enum { VIRTUAL_DEVICES = 16 };

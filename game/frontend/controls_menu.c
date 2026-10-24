@@ -1,5 +1,6 @@
 #include "game/frontend/controls_menu.h"
 #include "game/frontend/controls_plus.h"
+#include "game/sys/key_codes.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -126,13 +127,27 @@ static int follow(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o
     return over;
 }
 
+/* port: the name of the key the controls short `at` holds. With the player's own keys (controls.cfg, the keyboard page)
+ * the race uses those, so those are shown: display only, this screen's own flow edits the shorts as it did. */
+static void key_label(int at, char *out, const ControlsMenuState *st, const ControlsMenuOps *o)
+{
+    const int key = st->plus != NULL ? port_controls_key_of_word(at) : -1;
+    if (key >= 0 && st->plus->port->keys_custom) {
+        const int code = st->plus->port->key[key];
+        snprintf(out, NAME, "%s", "NONE");
+        if (code != 0 && o->plus_key_name != NULL) o->plus_key_name(o->ctx, code, out, NAME);
+        return;
+    }
+    o->key_name(o->ctx, st->controls[at], out);
+}
+
 /* a device item's text: the keyboard's two keys, or the device's name */
 static void device_text(Menu *m, int i, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     const int16_t *c = st->controls;
     if (c[i] == KEYBOARD) {
-        o->key_name(o->ctx, c[PAIR[i][0]], m->first);
-        o->key_name(o->ctx, c[PAIR[i][1]], m->second);
+        key_label(PAIR[i][0], m->first, st, o);
+        key_label(PAIR[i][1], m->second, st, o);
         snprintf(m->text[i], TEXT, "%s/%s", m->first, m->second);
     } else {
         snprintf(m->text[i], TEXT, "%s", m->names[c[i]]);
@@ -170,7 +185,7 @@ static void draw(Menu *m, const ControlsMenuState *st, const ControlsMenuOps *o)
         o->text_shadowed(o->ctx, m->text[i], FIELD_X, FIELD_Y[i]);
     }
     for (int i = CAMERA; i <= HORN; i++) {
-        o->key_name(o->ctx, c[KEY[i - CAMERA]], m->first);
+        key_label(KEY[i - CAMERA], m->first, st, o);
         snprintf(m->text[i], TEXT, "%s", m->first);
         o->text_shadowed(o->ctx, m->text[i], FIELD_X, FIELD_Y[i]);
     }
@@ -237,13 +252,18 @@ static int clashed(const Menu *m, const ControlsMenuState *st, const ControlsMen
 static void ask(int at, char *name, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     const int32_t k = o->key_capture(o->ctx, name);
-    if ((int16_t)k != 0) st->controls[at] = (int16_t)k;
+    if ((int16_t)k == 0) return;
+    st->controls[at] = (int16_t)k;
+    const int key = st->plus != NULL ? port_controls_key_of_word(at) : -1;
+    if (key >= 0 && st->plus->port->keys_custom) {   /* port: the player's own keys follow what this screen was asked */
+        static const int none[PKEY_COUNT];
+        port_controls_set_key(st->plus->port, none, (PortKey)key, key_code((uint16_t)key_layout(k, *st->german)));
+    }
 }
 
 /* the keyboard's two keys for a device item, asked for until they clash no more */
 static void ask_pair(Menu *m, int i, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
-    int16_t *c = st->controls;
     const int16_t y = FIELD_Y[i];
     o->text_select(o->ctx, 1);
     blit(m, DEVICE_LIT[i][KEYBOARD], o);
@@ -254,13 +274,13 @@ static void ask_pair(Menu *m, int i, const ControlsMenuState *st, const Controls
         o->text_boxed(o->ctx, "_", FIELD_X, y);
         ask(PAIR[i][0], m->first, st, o);
         o->select(o->ctx, *st->screen);
-        o->key_name(o->ctx, c[PAIR[i][0]], m->first);
+        key_label(PAIR[i][0], m->first, st, o);
         blit(m, PROMPT[i][1], o);
         snprintf(m->text[i], TEXT, "%s/_", m->first);
         o->text_boxed(o->ctx, m->text[i], FIELD_X, y);
         ask(PAIR[i][1], m->second, st, o);
         o->select(o->ctx, *st->screen);
-        o->key_name(o->ctx, c[PAIR[i][1]], m->second);
+        key_label(PAIR[i][1], m->second, st, o);
         snprintf(m->text[i], TEXT, "%s/%s", m->first, m->second);
         o->text_boxed(o->ctx, m->text[i], FIELD_X, y);
         again = clashed(m, st, o);
@@ -278,7 +298,7 @@ static void ask_key(Menu *m, int i, const ControlsMenuState *st, const ControlsM
         blit(m, KEY_PROMPT, o);
         o->text_boxed(o->ctx, "_", FIELD_X, FIELD_Y[i]);
         ask(at, m->first, st, o);
-        o->key_name(o->ctx, st->controls[at], m->first);
+        key_label(at, m->first, st, o);
         snprintf(m->text[i], TEXT, "%s", m->first);  /* sprintf(text, name): no key's name but '%''s holds a '%' */
         o->text_boxed(o->ctx, m->text[i], FIELD_X, FIELD_Y[i]);
         again = clashed(m, st, o);

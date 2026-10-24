@@ -82,6 +82,12 @@ typedef struct ControlsMenuOps {
     void (*plus_text_smooth)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
     void (*plus_title)(void *ctx, const char *text, int32_t x, int32_t y);
     void (*plus_header)(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
+    /* port: the keyboard page. `plus_key_down`: a key is held, by set-1 scancode (platform_key_down's); `plus_key_name`:
+     * its words ("A", "LEFT SHIFT"), false when it has none; `plus_subtitle`: the line under the title that says which
+     * device the page is for (NULL: drawn as the plain text) */
+    int32_t (*plus_key_down)(void *ctx, int32_t scancode);
+    int32_t (*plus_key_name)(void *ctx, int32_t scancode, char *out, size_t size);
+    void (*plus_subtitle)(void *ctx, const char *text, int32_t x, int32_t y);
 } ControlsMenuOps;
 
 /* port: the bindings the added pages edit */

@@ -1,5 +1,6 @@
-/* port: the controls screen's additions; see controls_plus.h. Page 2 lists the actions with their sources, page 3 the
- * dead zone, the sensitivity, the force feedback and "Defaults". Each page is a loop over the same ops as
+/* port: the controls screen's additions; see controls_plus.h. Page 2 lists the keyboard's driving keys, page 3 the
+ * game controller's actions with their sources, page 4 its dead zone, sensitivity, force feedback and "Defaults"; the
+ * pages 2..4 say under the title which device they set. Each page is a loop over the same ops as
  * controls_menu.c (00413cb0) and behaves like it: the arrows move, Space / Enter / the left button choose, Escape
  * cancels, the idle deadline and the right button leave. */
 #include "game/frontend/controls_plus.h"
@@ -14,7 +15,10 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIG
        INSERT = 0x5200, DELETE = 0x5300, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, CAPTURE_WAIT = 500, REST = 0x19, WIDE = 0x280 };
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, LABEL_X = 16, VALUE_RIGHT = 600, NAV_CENTRE = 320, STEP = 5 };
-enum { PAGES = 3, ACTION_PAGE = 1, TUNE_PAGE = 2 };
+enum { PAGES = 4, KEYBOARD_PAGE = 1, ACTION_PAGE = 2, TUNE_PAGE = 3 };
+/* the device each page is for, under the title */
+enum { SUBTITLE_RIGHT = 600, SUBTITLE_Y = 60 };   /* on the title's line, to its right: the rows' right edge */
+static const char *const SUBTITLE[PAGES - 1] = { "Keyboard", "Game controller", "Game controller" };
 /* the title where the configuration screens' are (extras_menu.c's and graphics_own.c's TITLE_X, TITLE_Y) */
 enum { TITLE_X = 8, TITLE_Y = 56 };
 static const char *const TITLE = "Controls Setup";   /* title case: the title art's letters are the CD's own */
@@ -26,9 +30,10 @@ enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = T
  * would cut off at 21 apart. The page has only five lines, so it has the room. */
 enum { TUNE_PITCH = 28 };
 /* each page's two groups: the rows in each, and their headers ("" none: the second group of page 3 is Defaults alone).
- * Indexed by page - ACTION_PAGE. */
-static const int GROUP_ROWS[PAGES - 1][2] = { { 9, 4 }, { 3, 1 } };
-static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Tuning", NULL } };
+ * Indexed by page - KEYBOARD_PAGE. */
+static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 4 }, { 9, 4 }, { 3, 1 } };
+static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Driving", "Other" },
+                                                          { "Tuning", NULL } };
 /* Done and Cancel as the original's (00413aa0, 00463f80's calls) */
 enum { DONE_X = 50, CANCEL_X = 565, ITEMS_Y = 450 };
 
@@ -101,7 +106,7 @@ typedef struct Bgnd {
 } Bgnd;
 
 typedef struct Run {
-    int page;                /* ACTION_PAGE or TUNE_PAGE */
+    int page;                /* KEYBOARD_PAGE, ACTION_PAGE or TUNE_PAGE */
     int selected;
     int redraw, armed, released;
     int32_t rest;
@@ -114,9 +119,15 @@ typedef struct Run {
     const Bgnd *bgnd;
     int palette_on;          /* the clean background's palette put on the display, once: the pages share it */
     int nav_lit;             /* the page indicator's triangle the pointer is on, 0 none */
+    int key_defaults[PKEY_COUNT];   /* config.dat's keys (the exe's page 1), what the keyboard has until it is the player's */
+    const char *notice;      /* a key refused in the capture, shown in the row */
 } Run;
 
-static int rows(const Run *r) { return r->page == ACTION_PAGE ? ACT_COUNT : TUNE_COUNT + 1; }   /* before Done */
+/* the rows before Done: the keyboard's keys and Defaults, the actions, the tuning rows and Defaults */
+static int rows(const Run *r)
+{
+    return r->page == KEYBOARD_PAGE ? PKEY_COUNT + 1 : r->page == ACTION_PAGE ? ACT_COUNT : TUNE_COUNT + 1;
+}
 static int done_row(const Run *r) { return rows(r); }
 static int cancel_row(const Run *r) { return rows(r) + 1; }
 
@@ -130,12 +141,12 @@ static int group_line(int page, int group)
 }
 
 /* a group after the first is GROUP_GAP lower than the lines above it */
-static int pitch_of(int page) { return page == TUNE_PAGE - ACTION_PAGE ? TUNE_PITCH : ROW_PITCH; }
+static int pitch_of(int page) { return page == TUNE_PAGE - KEYBOARD_PAGE ? TUNE_PITCH : ROW_PITCH; }
 static int line_y(int page, int line, int group) { return ROW_TOP + line * pitch_of(page) + (group > 0 ? GROUP_GAP : 0); }
 
 static int row_y(const Run *r, int row)
 {
-    const int page = r->page - ACTION_PAGE, group = group_of(page, row);
+    const int page = r->page - KEYBOARD_PAGE, group = group_of(page, row);
     const int first = group == 0 ? 0 : GROUP_ROWS[page][0];
     const int line = group_line(page, group) + (GROUP_HEADER[page][group] != NULL) + (row - first);
     return line_y(page, line, group);
@@ -173,7 +184,7 @@ static void follow(Run *r, const ControlsMenuOps *o)
     }
     for (int row = 0; row < rows(r); row++) {
         const int top = row_y(r, row) - 2;
-        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + pitch_of(r->page - ACTION_PAGE))) {
+        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + pitch_of(r->page - KEYBOARD_PAGE))) {
             select_row(r, row, o);
             return;
         }
@@ -201,11 +212,31 @@ static void header(const ControlsMenuOps *o, const char *text, int page, int gro
     else words(o, STYLE_RED, text, LABEL_X, y);
 }
 
+/* a key's words on the keyboard page: "NOT SET" (drawn red) for none, else the platform's name for the key */
+static void key_text(const Run *r, const ControlsMenuState *st, const ControlsMenuOps *o, PortKey key, char *out,
+                     size_t size)
+{
+    const int code = port_controls_key(st->plus->port, r->key_defaults, key);
+    snprintf(out, size, "%s", "NOT SET");
+    if (code != 0 && o->plus_key_name != NULL) o->plus_key_name(o->ctx, code, out, size);
+}
+
 static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o, int row)
 {
     char value[64];
     const int lit = r->selected == row, y = row_y(r, row);
-    if (r->page == ACTION_PAGE) {
+    if (r->page == KEYBOARD_PAGE) {
+        if (row == PKEY_COUNT) {
+            words(o, lit ? STYLE_YELLOW : STYLE_CREAM, "Defaults", LABEL_X, y);
+            return;
+        }
+        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, port_controls_key_name((PortKey)row), LABEL_X, y);
+        if (r->capturing == row) snprintf(value, sizeof value, "%s", r->notice != NULL ? r->notice : "Press a key...");
+        else key_text(r, st, o, (PortKey)row, value, sizeof value);
+        if (r->capturing != row && port_controls_key(st->plus->port, r->key_defaults, (PortKey)row) == 0)
+            words(o, STYLE_RED, value, VALUE_RIGHT - o->plus_text_width(o->ctx, value), y);   /* a control with no key */
+        else text_right(o, lit, value, VALUE_RIGHT, y);
+    } else if (r->page == ACTION_PAGE) {
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name((PortAction)row), LABEL_X, y);
         if (r->capturing == row)
             snprintf(value, sizeof value, "%s", r->have_pad ? "Press a button or move an axis..."
@@ -227,12 +258,16 @@ static void draw(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o)
     o->select(o->ctx, *st->screen);
     if (clean) o->plus_bgnd_shape(o->ctx, r->bgnd->pixels, r->bgnd->palette);
     else o->blit_own(o->ctx, o->shape(o->ctx, r->bank, "bgnd"));
-    const int page = r->page - ACTION_PAGE;
+    const int page = r->page - KEYBOARD_PAGE;
     for (int group = 0; group < 2; group++)
         if (GROUP_HEADER[page][group] != NULL) header(o, GROUP_HEADER[page][group], page, group);
     for (int row = 0; row < rows(r); row++) draw_row(r, st, o, row);
     if (o->plus_title != NULL) o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
     else words(o, STYLE_CREAM, TITLE, TITLE_X, TITLE_Y);
+    const char *const device = SUBTITLE[r->page - KEYBOARD_PAGE];
+    const int device_x = SUBTITLE_RIGHT - o->plus_text_width(o->ctx, device);
+    if (o->plus_subtitle != NULL) o->plus_subtitle(o->ctx, device, device_x, SUBTITLE_Y);
+    else words(o, STYLE_YELLOW, device, device_x, SUBTITLE_Y);
     /* DONE and CANCEL are the background's own words; their lit and dark art is Options' (OPTIONS.QFS's capitalised
      * names: shape_bank_find compares with memcmp) */
     if (r->options != 0) {
@@ -287,11 +322,45 @@ static void capture(Run *r, int act, int add, const ControlsMenuState *st, const
         PortControls *c = st->plus->port;
         PortControls base = *c;
         int slot = 0;
+        ControlSource gave_up = { SRC_NONE, 0, 0, 0 };   /* what the row had: the action that had `got` is given it */
         if (add && c->bind[act][0].kind != SRC_NONE) slot = 1;
         else base.bind[act][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
-        if (slot == 0) base.bind[act][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
-        *c = control_map_assign(&base, (PortAction)act, slot, got);
+        if (slot == 0) gave_up = c->bind[act][0], base.bind[act][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+        *c = control_map_swap(&base, (PortAction)act, slot, got, gave_up);
         c->custom = 1;
+        o->sound(o->ctx, CHOSEN);
+    }
+    r->redraw = 1;
+}
+
+/* a key row asked for a key: any key that is not the game's own (port_controls_key_reserved: refused, the row says so)
+ * pressed after the capture began, Escape or CAPTURE_WAIT ticks of nothing leave the row as it was. A key another row
+ * had is taken from it. */
+static void capture_key(Run *r, PortKey key, const ControlsMenuState *st, const ControlsMenuOps *o)
+{
+    enum { FIRST_KEY = 1, LAST_KEY = 0x58 };
+    uint8_t rest[LAST_KEY + 1] = { 0 };
+    for (int code = FIRST_KEY; code <= LAST_KEY; code++) rest[code] = o->plus_key_down(o->ctx, code) != 0;
+    int got = 0;
+    r->capturing = (int)key;
+    r->notice = NULL;
+    draw(r, st, o);
+    o->deadline_set(o->ctx, CAPTURE_WAIT);
+    while (got == 0 && !o->deadline_passed(o->ctx)) {
+        o->music(o->ctx);
+        if ((uint16_t)o->key(o->ctx) == ESCAPE) break;
+        for (int code = FIRST_KEY; code <= LAST_KEY && got == 0; code++) {
+            const int down = o->plus_key_down(o->ctx, code) != 0;
+            if (down && !rest[code] && !port_controls_key_reserved(code)) got = code;
+            else if (down && !rest[code] && r->notice == NULL) r->notice = "Key not available", draw(r, st, o);
+            rest[code] = down;
+        }
+    }
+    drain(o);
+    r->capturing = -1;
+    r->notice = NULL;
+    if (got != 0) {
+        port_controls_set_key(st->plus->port, r->key_defaults, key, got);
         o->sound(o->ctx, CHOSEN);
     }
     r->redraw = 1;
@@ -323,9 +392,16 @@ static void choose(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o
         o->sound(o->ctx, CHOSEN);
         if (r->selected == done_row(r)) r->result = CONTROLS_PAGE_DONE;
         else if (r->selected == cancel_row(r)) r->result = CONTROLS_PAGE_CANCEL;
+        else if (r->page == KEYBOARD_PAGE && r->selected == PKEY_COUNT) {
+            port_controls_reset_keys(st->plus->port);   /* config.dat's keys again */
+            r->redraw = 1;
+        } else if (r->page == KEYBOARD_PAGE) capture_key(r, (PortKey)r->selected, st, o);
         else if (r->page == ACTION_PAGE) capture(r, r->selected, 0, st, o);
         else if (r->selected == DEFAULTS) {
-            *st->plus->port = port_controls_defaults();   /* custom 0: as without a controls.cfg */
+            PortControls defaults = port_controls_defaults();   /* custom 0: as without a controls.cfg */
+            memcpy(defaults.key, st->plus->port->key, sizeof defaults.key);   /* the keyboard's are its own page's */
+            defaults.keys_custom = st->plus->port->keys_custom;
+            *st->plus->port = defaults;
             r->redraw = 1;
         } else {   /* a tuning row: one step up, from the top back to the bottom */
             if (!controls_plus_tune(st->plus->port, r->selected, 1)) {
@@ -362,10 +438,13 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
         o->sound(o->ctx, CHOSEN);
         r->redraw = 1;
     } else if (k == LEFT) {
-        if (r->page == ACTION_PAGE) r->result = CONTROLS_PAGE_BACK;
+        if (r->page == KEYBOARD_PAGE) r->result = CONTROLS_PAGE_BACK;
         else turn(r, r->page - 1, o);
     } else if (k == RIGHT) {
         turn(r, r->page + 1, o);
+    } else if (r->page == KEYBOARD_PAGE && r->selected < PKEY_COUNT && k == DELETE) {
+        port_controls_set_key(st->plus->port, r->key_defaults, (PortKey)r->selected, 0);   /* none */
+        r->redraw = 1;
     } else if (r->page == ACTION_PAGE && r->selected < ACT_COUNT && (k == DELETE || k == INSERT)) {
         if (k == DELETE) clear_action(r, r->selected, st);
         else capture(r, r->selected, 1, st, o);
@@ -380,7 +459,7 @@ static void nav_click(Run *r, const ControlsMenuOps *o)
 {
     const int back = o->pointer_in_rect(o->ctx, CONTROLS_NAV_X0, NAV_CENTRE, CONTROLS_NAV_Y0, CONTROLS_NAV_Y1);
     if (!back) turn(r, r->page + 1, o);
-    else if (r->page == ACTION_PAGE) r->result = CONTROLS_PAGE_BACK;
+    else if (r->page == KEYBOARD_PAGE) r->result = CONTROLS_PAGE_BACK;
     else turn(r, r->page - 1, o);
 }
 
@@ -392,9 +471,10 @@ ControlsPageResult controls_plus_run(const ControlsMenuState *st, const Controls
                  o->plus_bgnd(o->ctx, bgnd.pixels, bgnd.palette) != 0;
     const int32_t options = o->load_art(o->ctx, "option/options.qfs");
     /* not armed: the key that turned the page may still be down */
-    Run r = { .page = ACTION_PAGE, .redraw = 1, .released = *st->buttons == 0, .capturing = -1, .gamepad = 1,
+    Run r = { .page = KEYBOARD_PAGE, .redraw = 1, .released = *st->buttons == 0, .capturing = -1, .gamepad = 1,
               .result = -1, .bank = bank, .options = options, .bgnd = &bgnd, .nav_lit = 0 };
     if (o->pad_raw(o->ctx, &pad)) r.gamepad = pad.gamepad;
+    if (st->controls != NULL && st->german != NULL) port_controls_key_defaults(st->controls, *st->german, r.key_defaults);
     move_to(&r, r.selected, o);
     do {
         follow(&r, o);

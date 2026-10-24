@@ -741,6 +741,10 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_replay_nitro_sim PRIVATE tnfs_game)
         target_compile_options(test_replay_nitro_sim PRIVATE ${TNFS_WARNINGS})
         add_test(NAME replay_nitro_sim COMMAND test_replay_nitro_sim "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_executable(test_keyboard_race_sim tests/test_keyboard_race_sim.c)
+        target_link_libraries(test_keyboard_race_sim PRIVATE tnfs_game)
+        target_compile_options(test_keyboard_race_sim PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME keyboard_race_sim COMMAND test_keyboard_race_sim "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
     file(GLOB_RECURSE TNFS_MODEL_FILES

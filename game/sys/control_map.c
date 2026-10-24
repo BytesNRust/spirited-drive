@@ -210,6 +210,28 @@ PortControls control_map_assign(const PortControls *c, PortAction act, int slot,
     return out;
 }
 
+static int is_axis(const ControlSource *s)
+{
+    return s->kind == SRC_AXIS_POS || s->kind == SRC_AXIS_NEG || s->kind == SRC_AXIS_FULL;
+}
+
+PortControls control_map_swap(const PortControls *c, PortAction act, int slot, ControlSource src, ControlSource old)
+{
+    PortControls out = control_map_assign(c, act, slot, src);
+    if (src.kind == SRC_NONE || old.kind == SRC_NONE) return out;
+    for (int a = 0; a < ACT_COUNT; a++) {
+        if ((PortAction)a == act) continue;
+        int had = 0, has = 0;
+        for (int k = 0; k < 2; k++) {
+            if (same_source(&c->bind[a][k], &src)) had = 1;
+            if (same_source(&c->bind[a][k], &old)) has = 1;
+        }
+        if (!had || has || (a == ACT_STEER && !is_axis(&old))) continue;
+        out = control_map_assign(&out, (PortAction)a, out.bind[a][0].kind == SRC_NONE ? 0 : 1, old);
+    }
+    return out;
+}
+
 /* SDL_GamepadButton's and SDL_GamepadAxis' own names */
 static const char *const PAD_BUTTON[15] = { "A", "B", "X", "Y", "Back", "Guide", "Start", "L3", "R3", "LB", "RB",
                                             "Up", "Down", "Left", "Right" };

@@ -11,6 +11,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum {
     ACT_STEER,                          /* an axis: the virtual stick's x */
@@ -24,6 +25,13 @@ typedef enum {
     ACT_COUNT
 } PortAction;
 
+/* The keyboard's driving keys, in the order of the race's key codes (input_setup.h: codes[0..7], and the hold key, the
+ * camera's, last). A key is a set-1 scancode (platform_key_down's). */
+typedef enum {
+    PKEY_LEFT, PKEY_RIGHT, PKEY_GAS, PKEY_BRAKE, PKEY_GEAR_UP, PKEY_GEAR_DOWN, PKEY_HANDBRAKE, PKEY_HORN, PKEY_CAMERA,
+    PKEY_COUNT
+} PortKey;
+
 typedef enum { SRC_NONE, SRC_BUTTON, SRC_AXIS_POS, SRC_AXIS_NEG, SRC_AXIS_FULL, SRC_HAT } SourceKind;
 
 /* index: the button, axis or hat; rest: an axis's value when untouched (-32768..32767), a hat's direction mask (SDL's
@@ -36,6 +44,9 @@ typedef struct {
     int sensitivity;                     /* 50..200 %; 100 */
     int ffb_strength;                    /* 0..100 %; 100 */
     int custom;                          /* set by port_controls_load when a controls.cfg was read */
+    int keys_custom;                     /* the keyboard's keys below are the player's: 0 leaves config.dat's (the exe's own
+                                          * Controls page, port_controls_key_defaults) to the race */
+    int key[PKEY_COUNT];                 /* per PortKey, with keys_custom: the scancode, 0 for none */
 } PortControls;
 
 /* Today's fixed pad mapping (platform_joy_sdl3.c's pad_read), in SDL_Gamepad's button and axis numbers. The dead zone
@@ -47,6 +58,30 @@ PortControls port_controls_defaults(void);
  * Unknown keys and values out of range or malformed are ignored (the default stays); an empty value clears. */
 PortControls port_controls_parse(const char *text, size_t size);
 size_t port_controls_format(const PortControls *c, char *out, size_t size);   /* 0 when it does not fit */
+/* The keyboard's keys: "key_left", "key_right", "key_gas", "key_brake", "key_gear_up", "key_gear_down",
+ * "key_handbrake", "key_horn", "key_camera" a line each with a scancode (decimal, or 0x..; empty or 0 for none); the
+ * file has them all once any is the player's (keys_custom), and none otherwise. */
+const char *port_controls_key_name(PortKey key);   /* the screen's word for it: "Steer left" */
+/* config.dat's keys (the exe's Controls page, the 13 shorts 0052ad26..: words 3..12) as scancodes, what the race uses
+ * while keys_custom is 0; `german` the language short */
+void port_controls_key_defaults(const int16_t *config, int german, int out[PKEY_COUNT]);
+/* the key now: the player's with keys_custom, else `defaults` */
+int port_controls_key(const PortControls *c, const int defaults[PKEY_COUNT], PortKey key);
+/* `scancode` (0: none) to `key`; the player's keys start from `defaults` the first time. A row that had that key is
+ * given the key `key` had (a swap, so no control is left without one unless that one had none): its PortKey is
+ * returned, -1 when there was none. */
+int port_controls_set_key(PortControls *c, const int defaults[PKEY_COUNT], PortKey key, int scancode);
+/* the config.dat short (the exe's Controls page, words 3..12) a driving key is, -1 for a word that is not one */
+int port_controls_key_of_word(int word);
+/* the keyboard's keys back to config.dat's */
+void port_controls_reset_keys(PortControls *c);
+/* keys the game keeps for itself, not offered to a driving key: Escape, the function keys, P (pause), the pad's
+ * virtual keys */
+bool port_controls_key_reserved(int scancode);
+/* the race's key codes (codes[0..PKEY_COUNT-1], input_setup.h's order) with the player's keys over them; nothing
+ * written while keys_custom is 0 */
+void port_controls_apply_keys(const PortControls *c, int32_t codes[PKEY_COUNT]);
+
 PortControls port_controls_load(void);   /* user file "controls.cfg"; the defaults (custom 0) when it does not exist */
 bool port_controls_save(const PortControls *c);
 
