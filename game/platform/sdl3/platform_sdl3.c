@@ -132,6 +132,21 @@ static float mouse_x, mouse_y;
 static unsigned mouse_buttons;
 static bool mouse_moved;
 
+static bool window_focused;  /* the window has the keyboard focus: the system cursor is hidden over it then */
+
+/* The menus draw their own pointer and a race has none, so the system cursor is hidden over the window, in fullscreen
+ * and windowed alike; it is shown again when the window loses the focus and when the game ends. */
+static void cursor_apply(void)
+{
+    if (window_focused) SDL_HideCursor();
+    else SDL_ShowCursor();
+}
+
+bool platform_cursor_hidden(void)
+{
+    return window != NULL && !SDL_CursorVisible();
+}
+
 bool platform_init(const PlatformConfig *config)
 {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
@@ -153,6 +168,8 @@ bool platform_init(const PlatformConfig *config)
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
     load_script();
+    window_focused = true;
+    cursor_apply();
     SDL_StartTextInput(window);
     capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
     const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
@@ -191,6 +208,7 @@ bool platform_reconfigure(const PlatformConfig *config)
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
     next_vblank_ns = 0;
     SDL_SetWindowFullscreen(window, config->fullscreen != 0);
+    cursor_apply();   /* the mode change may have brought the system's back */
     if (config->fullscreen == 0) {
         int w = 0, h = 0;
         if (SDL_GetWindowSize(window, &w, &h) && h > 0) SDL_SetWindowSize(window, h * fb_width / fb_height, h);
@@ -290,6 +308,8 @@ void platform_set_window_icon(const uint8_t *rgba, int w, int h)
 
 void platform_shutdown(void)
 {
+    if (window != NULL) SDL_ShowCursor();
+    window_focused = false;
     if (audio != NULL) platform_audio_close();
     free(rgb_buffer);
     rgb_buffer = NULL;
@@ -329,6 +349,11 @@ bool platform_poll_events(void)
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
             return false;
+        }
+        if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
+            cursor_apply();
+            continue;
         }
         if (event.type == SDL_EVENT_MOUSE_MOTION) {
             SDL_ConvertEventToRenderCoordinates(renderer, &event);
