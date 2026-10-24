@@ -1,6 +1,6 @@
 #include "viewer/ported_view.h"
 #include "game/sys/bands.h"
-#include "viewer/render_list.h"
+#include "game/gfx/raster_record.h"
 
 #include "game/gfx/quad.h"
 #include "game/race/horizon.h"
@@ -51,22 +51,10 @@ static int transparent(const FshEntry *texture)
     return texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE;
 }
 
-/* port (render bands P2): while the road is recorded (render_cars with threads), the road's draws go to this list and the
- * draws that are not recorded yet (the scenery models, the cars, the skid marks) replay it first, so every pixel is
- * written in the order the draws were made. NULL: draw at once. */
-static RenderList road_list;
-static RenderList *road;
-
-static void road_flush(void)
-{
-    if (road != NULL) render_list_flush(road);
-}
-
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
-    if (road != NULL) render_list_add_quad(road, texture, uv, screen, transparent(texture));
-    else quad_draw(user, texture, uv, screen, transparent(texture));
+    quad_draw(user, texture, uv, screen, transparent(texture));
 }
 
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
@@ -89,22 +77,19 @@ static const View *modern_view(const View *view) { return modern ? view : NULL; 
 static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
 {
-    if (road != NULL) render_list_add_road_cell(road, view, texture, uv, cam, transparent(texture));
-    else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
+    modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    if (road != NULL) render_list_add_full_tri(road, texture, screen, transparent(texture));
-    else quad_draw_full_tri(user, texture, screen, transparent(texture));
+    quad_draw_full_tri(user, texture, screen, transparent(texture));
 }
 
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
 static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    if (road != NULL) render_list_add_full(road, texture, screen, transparent(texture));
-    else quad_draw_full(user, texture, screen, transparent(texture));
+    quad_draw_full(user, texture, screen, transparent(texture));
 }
 
 /* Scenery models through the ported 3D engine (00458c04), one object per
@@ -120,7 +105,6 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
 {
     (void)user;
     if (model < 0 || model >= PORTED_VIEW_MODELS || !object_ok[model]) return;
-    road_flush();
     const Object3DSink sink = object_sink(&object_pixels);
     model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
 }
@@ -262,7 +246,6 @@ static void draw_skids(void *user, int32_t row, const int32_t s[2], const int32_
 {
     (void)user;
     if (shadow_race == NULL || shadow_remap == NULL) return;
-    road_flush();
     const SkidView v = skid_view();
     const SkidRing ring = skid_ring();
     skid_draw(&v, &ring, &skid_marks, -999, skid_node, row, 0, s, t);
@@ -621,7 +604,6 @@ static void row_unseen(void *ctx, Car *car)
 static void draw_cars(void *user, int32_t node)
 {
     (void)user;
-    road_flush();
     if (shadow_race != NULL && shadow_remap != NULL) {
         const RaceState *race = shadow_race;
         const RowCarsOps ops = { NULL, row_prepare, row_draw, row_unseen };
@@ -869,10 +851,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(&view) };
     skid_node = pc->node;
-    if (bands_threads() != 0) render_list_begin(&road_list, &quad), road = &road_list;
+    /* port (render bands P2, P3): with threads the track's draws (road, scenery, cars, shadows, skid marks, smoke) are
+     * recorded by the rasterizers, which find the recorder in the target, and replayed by bands at the end, in order */
+    static struct RasterRecorder recorder;
+    if (bands_threads() != 0) {
+        raster_record_set_runner(bands_rows);
+        raster_record_begin(&recorder, pixels);
+    }
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
-    road_flush();
-    road = NULL;
+    if (raster_active == &recorder) raster_record_end(&recorder);
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,

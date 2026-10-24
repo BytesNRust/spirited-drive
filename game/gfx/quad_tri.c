@@ -14,11 +14,13 @@
  * uv >= 1 texel and clip_right <= 32768 that test never passes, so it is not
  * ported (the clipped path gives the same pixels when nothing needs clipping). */
 #include "game/gfx/quad.h"
+#include "game/gfx/raster_record.h"
 
 #include "game/gfx/quad_pixel.h"
 #include "game/gfx/x86_int.h"
 
 #include <stddef.h>
+#include <string.h>
 
 enum {
     TABLE_SIZE = 0x600,        /* offsets built per triangle: widest span 0x5FF pixels + 1 */
@@ -258,11 +260,45 @@ static int tri_inputs_valid(const QuadTarget *t, const FshEntry *e, const Paint 
 /* 00486400 (MAP_OPAQUE), 004858f0 (MAP_TRANSPARENT) and 004aa510 (MAP_SHADE): the
  * latter is 004a9b08, a copy of the transparent mapper 00484ee8 whose row
  * blitter 0048ca53 also handles colour 0xFE. */
+/* port (render bands): a recorded triangle drawn into a band's rows (its rows are independent: a narrowed clip does) */
+static void replay_tri(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    if (!raster_narrow(whole, top, bottom, &band)) return;
+    const Paint paint = { (MapMode)c->mode, c->table };
+    Mapper m = { .target = &band, .texture = c->texture, .paint = paint, .width = (int16_t)c->texture->width };
+    draw_triangle_pixels(&m, c->v, c->v + 6);
+}
+
+static void replay_full_tri(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    if (!raster_narrow(whole, top, bottom, &band)) return;
+    const Paint paint = { (MapMode)c->mode, NULL };
+    Mapper m = { .target = &band, .texture = c->texture, .paint = paint, .width = (int16_t)c->texture->width };
+    const int32_t right = (int32_t)(int16_t)c->texture->width - 2;
+    const int32_t bottom_uv = (int32_t)(int16_t)c->texture->height - 2;
+    const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom_uv };
+    draw_triangle_pixels(&m, uv_a, c->v);
+    const int32_t uv_b[6] = { right, bottom_uv, 1, bottom_uv, 1, 1 };
+    const int32_t scr_b[6] = { c->v[4], c->v[5], c->v[6], c->v[7], c->v[0], c->v[1] };
+    draw_triangle_pixels(&m, uv_b, scr_b);
+}
+
 void tri_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[6],
                    const int32_t screen[6], MapMode mode, const uint8_t *shade)
 {
     const Paint paint = { mode, shade };
     if (!tri_inputs_valid(target, texture, &paint) || uv == NULL || screen == NULL) return;
+    struct RasterRecorder *rec = raster_recorder_for(target);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, target, replay_tri);
+        c->texture = texture, c->table = shade, c->mode = mode;
+        memcpy(c->v, uv, 6 * sizeof *uv);
+        memcpy(c->v + 6, screen, 6 * sizeof *screen);
+        raster_cmd_rows(c, c->v + 6, 3);
+        return;
+    }
     Mapper m = { .target = target, .texture = texture, .paint = paint,
                  .width = (int16_t)texture->width };
     draw_triangle_pixels(&m, uv, screen);
@@ -280,6 +316,14 @@ void quad_draw_full_tri(const QuadTarget *target, const FshEntry *texture, const
 {
     const Paint paint = { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL };
     if (!tri_inputs_valid(target, texture, &paint) || screen == NULL) return;
+    struct RasterRecorder *rec = raster_recorder_for(target);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, target, replay_full_tri);
+        c->texture = texture, c->mode = paint.mode;
+        memcpy(c->v, screen, 8 * sizeof *screen);
+        raster_cmd_rows(c, c->v, 4);
+        return;
+    }
     Mapper m = { .target = target, .texture = texture, .paint = paint,
                  .width = (int16_t)texture->width };
     const int32_t right = (int32_t)(int16_t)texture->width - 2;

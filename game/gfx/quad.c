@@ -8,6 +8,7 @@
  * keeps its tables on the stack uninitialised, here they start at zero, which
  * only matters for self-intersecting quads that leave rows unwritten. */
 #include "game/gfx/quad.h"
+#include "game/gfx/raster_record.h"
 
 #include "game/gfx/quad_pixel.h"
 #include "game/gfx/x86_int.h"
@@ -315,6 +316,13 @@ static void draw_quad(const QuadTarget *t, const FshEntry *texture, const int32_
     }
 }
 
+/* port (render bands): a band's replay of a recorded quad, by the store window (see draw_quad) */
+static void replay_quad(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    const Paint paint = { (MapMode)c->mode, c->table };
+    draw_quad(whole, c->texture, c->v, c->v + 8, &paint, top, bottom);
+}
+
 /* 00487180 (MAP_OPAQUE), 00486950 (MAP_TRANSPARENT), 004aa600 (MAP_SHADE): the
  * three are one function but for the span routine they call. */
 void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
@@ -324,6 +332,15 @@ void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int
     if (!target_valid(target) || !texture_valid(texture) || uv == NULL || screen == NULL ||
         !paint_valid(&paint))
         return;
+    struct RasterRecorder *rec = raster_recorder_for(target);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, target, replay_quad);
+        c->texture = texture, c->table = shade, c->mode = mode;
+        memcpy(c->v, uv, 8 * sizeof *uv);
+        memcpy(c->v + 8, screen, 8 * sizeof *screen);
+        raster_cmd_rows(c, c->v + 8, 4);
+        return;
+    }
     draw_quad(target, texture, uv, screen, &paint, INT32_MIN, INT32_MAX);
 }
 
@@ -331,14 +348,6 @@ void quad_draw(const QuadTarget *target, const FshEntry *texture, const int32_t 
                const int32_t screen[8], int transparent)
 {
     quad_draw_mode(target, texture, uv, screen, transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL);
-}
-
-void quad_draw_rows(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8],
-                    int transparent, int32_t top, int32_t bottom)
-{
-    const Paint paint = { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL };
-    if (!target_valid(target) || !texture_valid(texture) || uv == NULL || screen == NULL || !paint_valid(&paint)) return;
-    draw_quad(target, texture, uv, screen, &paint, top, bottom);
 }
 
 /* 00487a10 and 004879b0. */
@@ -350,14 +359,4 @@ void quad_draw_full(const QuadTarget *target, const FshEntry *texture, const int
     const int32_t bottom = x_sub(x_shl((int16_t)texture->height, 16), 1);
     const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
     quad_draw(target, texture, uv, screen, transparent);
-}
-
-void quad_draw_full_rows(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8], int transparent,
-                         int32_t top, int32_t bottom)
-{
-    if (!texture_valid(texture)) return;
-    const int32_t right = x_sub(x_shl((int16_t)texture->width, 16), 1);
-    const int32_t bottom_uv = x_sub(x_shl((int16_t)texture->height, 16), 1);
-    const int32_t uv[8] = { 0, 0, right, 0, right, bottom_uv, 0, bottom_uv };
-    quad_draw_rows(target, texture, uv, screen, transparent, top, bottom);
 }

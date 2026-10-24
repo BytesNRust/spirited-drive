@@ -13,6 +13,7 @@
  * stack uninitialised, which only shows for outlines that leave a row
  * unwritten (concave or crossing input). */
 #include "game/gfx/flat.h"
+#include "game/gfx/raster_record.h"
 
 #include "game/gfx/flat_internal.h"
 #include "game/gfx/x86_int.h"
@@ -46,6 +47,7 @@ static const Rows ALL_ROWS = { INT32_MIN, INT32_MAX };
 /* 0049f3a0: one pixel, dropped outside the clip rectangle. */
 void flat_plot(const QuadTarget *t, int32_t x, int32_t y, uint32_t colour)
 {
+    raster_record_sync(t);   /* port: not recorded; what was is drawn first */
     if (x < t->clip_left || x >= t->clip_right || y < t->clip_top || y >= t->clip_bottom) return;
     t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x] = (uint8_t)colour;
 }
@@ -53,6 +55,7 @@ void flat_plot(const QuadTarget *t, int32_t x, int32_t y, uint32_t colour)
 /* 0048f5f0: one pixel read, 0 outside the clip rectangle. */
 uint32_t flat_peek(const QuadTarget *t, int32_t x, int32_t y)
 {
+    raster_record_sync(t);
     if (x < t->clip_left || x >= t->clip_right || y < t->clip_top || y >= t->clip_bottom) return 0;
     return t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x];
 }
@@ -87,8 +90,23 @@ static void fill_rect_rows(const QuadTarget *t, int32_t x, int32_t y, int32_t w,
     for (int32_t i = 0; i < h; i++, row += t->pitch) memset(row, (int)(colour & 0xFF), (size_t)w);
 }
 
+/* port (render bands): a recorded draw replayed over a band's rows, the whole clip deciding the edges */
+static void replay_fill_rect(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    const Rows rows = { top, bottom };
+    fill_rect_rows(whole, c->a, c->b, c->c, c->d, (uint32_t)c->colour, &rows);
+}
+
 void flat_fill_rect(const QuadTarget *t, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t colour)
 {
+    struct RasterRecorder *rec = raster_recorder_for(t);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, t, replay_fill_rect);
+        c->a = x, c->b = y, c->c = w, c->d = h, c->colour = (int32_t)colour;
+        const int32_t ends[4] = { x, y, x, x_add(y, (int16_t)h) };
+        raster_cmd_rows(c, ends, 2);
+        return;
+    }
     fill_rect_rows(t, x, y, w, h, colour, &ALL_ROWS);
 }
 
@@ -195,6 +213,7 @@ static void draw_edge_rows(const QuadTarget *t, const Edge *e, const Rows *rows)
 
 void flat_draw_edge(const QuadTarget *t, const Edge *e)
 {
+    raster_record_sync(t);
     draw_edge_rows(t, e, &ALL_ROWS);
 }
 
@@ -210,8 +229,21 @@ static void line_rows(const QuadTarget *target, int32_t x0, int32_t y0, int32_t 
     draw_edge_rows(target, &e, rows);
 }
 
+static void replay_line(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    const Rows rows = { top, bottom };
+    line_rows(whole, c->v[0], c->v[1], c->v[2], c->v[3], (uint32_t)c->colour, &rows);
+}
+
 void flat_line(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t colour)
 {
+    struct RasterRecorder *rec = raster_recorder_for(target);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, target, replay_line);
+        c->v[0] = x0, c->v[1] = y0, c->v[2] = x1, c->v[3] = y1, c->colour = (int32_t)colour;
+        raster_cmd_rows(c, c->v, 2);
+        return;
+    }
     line_rows(target, x0, y0, x1, y1, colour, &ALL_ROWS);
 }
 
@@ -291,21 +323,50 @@ static void polygon(const QuadTarget *target, uint32_t colour, const uint8_t *re
     else fill_rows(target, left, right, first, nrows + 1, colour, rows);
 }
 
+/* port (render bands): a recorded polygon replayed over a band's rows; more points than a command holds are drawn at
+ * once, after what has been recorded */
+static void replay_polygon(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    const Rows rows = { top, bottom };
+    polygon(whole, (uint32_t)c->colour, c->table, c->count, c->v, (int)c->mode, &rows);
+}
+
+static int record_polygon(const QuadTarget *target, uint32_t colour, const uint8_t *remap, int count, const int32_t *pts,
+                          int merge)
+{
+    struct RasterRecorder *rec = raster_recorder_for(target);
+    if (rec == NULL) return 0;
+    if (pts == NULL || count < 1) return 1;   /* polygon() draws nothing for these */
+    if (2 * count > RASTER_CMD_INTS) {
+        raster_record_sync(target);
+        return 0;
+    }
+    RasterCmd *c = raster_record_add(rec, target, replay_polygon);
+    c->colour = (int32_t)colour, c->table = remap, c->count = count, c->mode = merge;
+    memcpy(c->v, pts, 2 * (size_t)count * sizeof *pts);
+    raster_cmd_rows(c, c->v, count);
+    return 1;
+}
+
 void flat_polygon(const QuadTarget *target, uint32_t colour, int count, const int32_t *points)
 {
+    if (record_polygon(target, colour, NULL, count, points, 0)) return;
     polygon(target, colour, NULL, count, points, 0, &ALL_ROWS);
 }
 
 void flat_polygon_merge(const QuadTarget *target, uint32_t colour, int count,
                         const int32_t *points)
 {
+    if (record_polygon(target, colour, NULL, count, points, 1)) return;
     polygon(target, colour, NULL, count, points, 1, &ALL_ROWS);
 }
 
 void flat_polygon_shade(const QuadTarget *target, const uint8_t *remap, int count, const int32_t *points,
                         int merge)
 {
-    if (remap != NULL) polygon(target, 0, remap, count, points, merge != 0, &ALL_ROWS);
+    if (remap == NULL) return;
+    if (record_polygon(target, 0, remap, count, points, merge != 0)) return;
+    polygon(target, 0, remap, count, points, merge != 0, &ALL_ROWS);
 }
 
 void flat_polygon_rows(const QuadTarget *target, uint32_t colour, int count, const int32_t *points, int32_t top,
