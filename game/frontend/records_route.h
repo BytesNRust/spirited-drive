@@ -15,9 +15,10 @@ typedef struct {
 
 typedef enum { ROUTE_SEGMENT, ROUTE_LAP, ROUTE_TOP, ROUTE_TOTALS } RouteOp;
 
-/* The rows of a track's block a mark is kept for: a stage's three segments, the circuit's top speed, then the ten
- * best totals of each laps choice (a circuit's three, the first three tracks' one). */
-enum { SLOT_SEGMENT = 0, SLOT_TOP = 3, SLOT_TOTALS = 4, SLOT_CHOICE = 10 };
+/* The rows of a track's block a mark is kept for: a stage's three segments (the times), the circuit's top speed, then
+ * the ten best totals of each laps choice (a circuit's three, the first three tracks' one), then each segment's top
+ * speed (the segment screen's speed row, SLOT_SPEED_SEGMENT + segment: apart from the circuit's SLOT_TOP). */
+enum { SLOT_SEGMENT = 0, SLOT_TOP = 3, SLOT_TOTALS = 4, SLOT_CHOICE = 10, SLOT_SPEED_SEGMENT = 34 };
 int records_slot_totals(int track, int choice, int row);   /* the slot of a totals row; -1 out of range */
 
 /* The race's kind from the flags the original keeps (rally before mirror when both are set). */

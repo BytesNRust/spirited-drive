@@ -23,6 +23,7 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 void platform_free_file(uint8_t *data) { (void)data; }
 
 enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0xd7, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
+enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };   /* the header band, right of the logo */
 enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* where a suffix on the segment screen's art titles would go */
 enum { Y_BEST_ROW = 0x11d, Y_TRACK_TOP = 0x177, Y_HEAD = 0x5a, BEST_LEFT = 0x1d6, ROW_Y = 0x82, ROW_STEP = 0x15 };
 
@@ -224,6 +225,33 @@ static void test_segment_normal_table_is_unchanged(void)
     CHECK(!any_with_suffix("(cheats)"));
     CHECK(!found(" (cheats)", TITLE_X, TITLE_BEST_Y));
     CHECK(!found("N", X_MARKS, Y_SEGMENT));
+    CHECK(!any_text("(CHEATS)"));
+}
+
+/* the "(CHEATS)" mark sits in the header band, right of the Road & Track logo, on every segment screen of a race with
+ * cheats (the table's marks or not) */
+static void test_segment_cheats_banner_on_any_cheats_race(void)
+{
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    ResultsMarks marks = { slots, 0 };
+    memset(slots, 0, sizeof slots);
+    run_segment(&marks);
+    CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
+}
+
+/* the segment's top speed row is the segment's own record (SLOT_SPEED_SEGMENT), not the circuit's top (SLOT_TOP) */
+static void test_segment_speed_row_marks_come_from_its_own_slot(void)
+{
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    ResultsMarks marks = { slots, 0 };
+    memset(slots, 0, sizeof slots);
+    slots[SLOT_TOP] = EXTRAS_MARK_TURBO;
+    run_segment(&marks);
+    CHECK(!found("T", X_MARKS, Y_TOP));
+    memset(slots, 0, sizeof slots);
+    slots[SLOT_SPEED_SEGMENT + 0] = EXTRAS_MARK_TURBO;
+    run_segment(&marks);
+    CHECK(found("T", X_MARKS, Y_TOP));
 }
 
 static void test_segment_cheats_title_and_marks(void)
@@ -232,7 +260,7 @@ static void test_segment_cheats_title_and_marks(void)
     ResultsMarks marks = { slots, 0 };
     memset(slots, 0, sizeof slots);
     slots[SLOT_SEGMENT + 0] = EXTRAS_MARK_NITRO;
-    slots[SLOT_TOP] = EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR;
+    slots[SLOT_SPEED_SEGMENT + 0] = EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR;
     slots[records_slot_totals(0, 0, 0)] = EXTRAS_MARK_EXPLODE;
     run_segment(&marks);
     CHECK(any_text("Best Time (c)"));
@@ -241,6 +269,7 @@ static void test_segment_cheats_title_and_marks(void)
     CHECK(!found(" (cheats)", TITLE_X, TITLE_TOP_Y));
     CHECK(found("N", X_MARKS, Y_SEGMENT));
     CHECK(found("TW", X_MARKS, Y_TOP));
+    CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
 }
 
 static void test_segment_no_mark_when_slot_is_clear(void)
@@ -350,6 +379,8 @@ int main(void)
     test_segment_normal_table_is_unchanged();
     test_segment_cheats_title_and_marks();
     test_segment_no_mark_when_slot_is_clear();
+    test_segment_cheats_banner_on_any_cheats_race();
+    test_segment_speed_row_marks_come_from_its_own_slot();
     test_best_totals_marks_each_row();
     test_best_totals_normal_table_has_no_marks();
     test_track_results_header_and_best_row();

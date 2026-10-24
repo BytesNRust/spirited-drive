@@ -119,6 +119,28 @@ static void test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark(void)
     CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], EXTRAS_MARK_NITRO);
 }
 
+/* A segment check marks the rows it takes and no others: a cheats race that beats only the segment's top speed sets the
+ * speed row's slot, and the time row keeps the mark of the record it still holds */
+static void test_a_segment_check_marks_only_the_rows_it_takes(void)
+{
+    fresh();
+    Race r;
+    race(&r, 0, 0, 1, 99999, 1);
+    p16(r.image + 0x93, 1);           /* segment 1 */
+    p32(r.game + 0x59, 0x7fffffff);   /* the time: no record */
+    p32(r.game + 0x61, 0x7fffffff);   /* the top speed: beats the segment's */
+    RaceKind kind = { RECORDS_NORMAL, EXTRAS_MARK_NITRO };
+    CHECK_EQ_INT(records_route(kind, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 2);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], 0);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SPEED_SEGMENT + 0], EXTRAS_MARK_NITRO);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_TOP], 0);
+    p32(r.game + 0x59, 1);            /* a time that beats the segment's, and a top speed that does not */
+    p32(r.game + 0x61, 0);
+    CHECK_EQ_INT(records_route(kind, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 1);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], EXTRAS_MARK_NITRO);
+    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SPEED_SEGMENT + 0], EXTRAS_MARK_NITRO);
+}
+
 static void test_totals_marks_follow_their_rows(void)
 {
     fresh();
@@ -273,6 +295,7 @@ int main(void)
     test_a_normal_race_without_cheats_takes_the_images_table();
     test_a_mirror_race_leaves_the_images_table();
     test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark();
+    test_a_segment_check_marks_only_the_rows_it_takes();
     test_totals_marks_follow_their_rows();
     test_the_warrior_goes_to_the_cheats_table_with_its_mark();
     test_a_warrior_rival_changes_nothing();
