@@ -151,6 +151,9 @@ void race_sound_channel(RaceState *race, int32_t channel, int32_t sound, int32_t
         if (v->sound <= FRESH_TO && !voice_stopped(race, v->voice))
             return;
     }
+    if (race->port_stop_replaced != 0 && v->voice >= 0 && v->sound >= 0 && (v->sound < FRESH_FROM || v->sound > FRESH_TO) &&
+        v->sound != FRESH_TOO && race->sounds.voice_stop != NULL)
+        race->sounds.voice_stop(race->sounds.user, v->voice);   /* port: the record is all that cuts a looping voice */
     int32_t voice = voice_start(race, sound, pan, loud, pitch);
     if (voice >= 0) {
         v->voice = voice;
