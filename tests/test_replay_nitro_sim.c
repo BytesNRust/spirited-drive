@@ -74,7 +74,7 @@ static void run(Trace *out, int replaying, int launch_port, int timer)
             race->start_keys[0] = (uint8_t)(race->tick >= N_FROM && race->tick < N_TO);
             const RaceReplayWords rw = { 1, 0, 1, race->clock };
             uint32_t in[RACE_PLAYERS] = { race_replay_launch_word(word, race->start_keys[0] != 0) };
-            race_replay_record(&rw, in, recording, RECORDING);
+            if ((race->tick & 2) == 0) race_replay_record(&rw, in, recording, RECORDING);   /* the drive records on a slot's first step */
         }
         race_sim_tick(&sim, word);
         for (int i = 0; i < RACE_PLAYERS; i++)
