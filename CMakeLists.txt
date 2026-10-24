@@ -374,6 +374,7 @@ add_executable(tnfs
     game/frontend/menu_audio.c
     game/frontend/screens.c
     game/sys/input.c
+    game/sys/bands.c
     game/sys/pointer.c
     game/sys/text.c
     game/sys/timer.c
@@ -660,6 +661,14 @@ if(NOT EMSCRIPTEN)
         add_test(NAME mods_overlay COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mods_overlay.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
     endif()
+    # port: the job pool and the row splitter of the render bands
+    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_bands PRIVATE tnfs_game SDL3::SDL3)
+    if(NOT MSVC)
+        target_link_libraries(test_bands PRIVATE m)
+    endif()
+    target_compile_options(test_bands PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME bands COMMAND test_bands)
     add_executable(test_platform_mods tests/test_platform_mods.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

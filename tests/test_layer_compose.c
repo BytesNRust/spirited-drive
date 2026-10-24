@@ -14,6 +14,36 @@ static void box(int x0, int y0, int x1, int y1, uint8_t c)
     for (int y = y0; y < y1; y++) memset(layer + y * LW + x0, c, (size_t)(x1 - x0));
 }
 
+/* port (render bands): layer_compose_rows over unequal bands, in any order, is the whole compose, byte for byte */
+static void test_bands_make_the_whole(void)
+{
+    enum { WIDE_MAX = 1120, PIECES = 3 };
+    static uint8_t rnd_layer[LW * H], background[WIDE_MAX * H], whole[WIDE_MAX * H], banded[WIDE_MAX * H];
+    uint32_t seed = 12345;
+    for (int i = 0; i < LW * H; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        rnd_layer[i] = (seed >> 24) % 5 == 0 ? LAYER_KEY : (uint8_t)(seed >> 16);
+    }
+    for (int i = 0; i < WIDE_MAX * H; i++) seed = seed * 1664525u + 1013904223u, background[i] = (uint8_t)(seed >> 8);
+    const LayerPiece pieces[PIECES] = { { { 520, 306, 633, 446 }, 700, 330, 0, 0 },
+                                        { { 200, 20, 440, 60 }, 150, 10, 1, 0 },
+                                        { { 10, 400, 90, 470 }, 30, 390, 0, 90 } };
+    static const int widths[3] = { 640, 854, 1120 };
+    for (int w = 0; w < 3; w++)
+        for (int in_car = 0; in_car < 2; in_car++) {
+            const int32_t scale = (int32_t)(((int64_t)widths[w] << 16) / LW);
+            const LayerCompose c = { LW, H, widths[w], scale, in_car, pieces, PIECES };
+            memcpy(whole, background, sizeof whole);
+            layer_compose(&c, rnd_layer, whole);
+            memcpy(banded, background, sizeof banded);
+            static const int cuts[] = { 0, 7, 8, 150, 151, 333, 480 };
+            for (int b = (int)(sizeof cuts / sizeof cuts[0]) - 2; b >= 0; b--)   /* last band first */
+                layer_compose_rows(&c, rnd_layer, banded, cuts[b], cuts[b + 1]);
+            CHECK_MEM(whole, banded, sizeof whole);
+            CHECK(memcmp(whole, background, sizeof whole) != 0);   /* it drew something */
+        }
+}
+
 int main(void)
 {
     /* a dash pixel, a piece, and nothing drawn elsewhere */
@@ -102,5 +132,6 @@ int main(void)
         }
     CHECK(same_as_frame);
     CHECK(holes > 0);
+    test_bands_make_the_whole();
     return TEST_REPORT();
 }

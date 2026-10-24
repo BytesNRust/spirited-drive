@@ -1,4 +1,5 @@
 #include "viewer/ported_view.h"
+#include "game/sys/bands.h"
 
 #include "game/gfx/quad.h"
 #include "game/race/horizon.h"
@@ -609,9 +610,11 @@ static void draw_cars(void *user, int32_t node)
 }
 
 typedef struct {
-    const QuadTarget *quad;
+    const QuadTarget *quad;        /* the box (a band's rows of it when banded) */
     const RasterTarget *raster;
     const HorizonSmooth *smooth;   /* port: EXTRAS' Texture Filter on the ring's slices (sky_smooth.h), NULL off */
+    const QuadTarget *full;        /* port (render bands): the whole box, for the draws whose edges a narrowed clip would move */
+    int banded, top, bottom;       /* and, when banded, the rows this band stores */
 } SkyTargets;
 
 /* 004f9e98 = 00425520 -> 004252ec */
@@ -625,6 +628,11 @@ static void sky_triangle(void *user, const FshEntry *texture, const int32_t uv[6
 static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
 {
     const SkyTargets *t = user;
+    if (t->banded) {   /* a rectangle's rows: the band's part of it */
+        const int64_t y0 = y < t->top ? t->top : y, y1 = (int64_t)y + h > t->bottom ? t->bottom : (int64_t)y + h;
+        if (y1 <= y0) return;
+        y = (int32_t)y0, h = (int32_t)(y1 - y0);
+    }
     raster_fill(t->raster, x, y, w, h, colour);
 }
 
@@ -632,7 +640,8 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
 static void sky_polygon(void *user, uint8_t colour, const int32_t points[8])
 {
     const SkyTargets *t = user;
-    flat_polygon(t->quad, colour, 4, points);
+    if (t->banded) flat_polygon_rows(t->full, colour, 4, points, t->top, t->bottom);
+    else flat_polygon(t->quad, colour, 4, points);
 }
 
 static int sky_off;  /* 004fb786 */
@@ -679,19 +688,67 @@ void ported_view_set_viewport(const PortedViewport *v)
     viewport = *v;
 }
 
+static SkyRing sky_ring;   /* built once a frame by the caller, read by every band */
+
 static void draw_sky_ring(const SkyTargets *targets, const View *view, const TrackArt *art, const TrackInfo *info,
                           const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
-    static SkyRing ring;
-    sky_ring_build(&ring, info, &art->horizon);
-    if (!ring.enabled) return;
+    const SkyRing *ring = &sky_ring;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
                          viewport.sky_height }, screen_w, screen_w, 0, sky_off, 1 };   /* port: wide fields */
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
-    sky_ring_draw(&ring, info, &frame, &art->horizon, &sink);
+    sky_ring_draw(ring, info, &frame, &art->horizon, &sink);
+}
+
+/* port (render bands): the view's clear and the sky, one band's rows of them (everything they read is built before) */
+typedef struct {
+    uint8_t *pixels;
+    const QuadTarget *quad;
+    const RasterTarget *target;
+    const View *view;
+    const HorizonTables *horizon;
+    const ClipRect *clip;
+    const TrackArt *art;
+    const TrackInfo *info;
+    const TrackCamera *cam;
+    const PortedCamera *pc;
+    const HorizonSmooth *smooth;
+    int32_t box_left, box_right, line;
+    int ring, flat, banded;
+} SkyStage;
+
+static void sky_stage_band(void *user, int top, int bottom)
+{
+    const SkyStage *st = user;
+    for (int32_t y = top; y < bottom; y++) {   /* 0044cc74 clears nothing; the view only, for the frames without one */
+        const int32_t x0 = st->box_left < 0 ? 0 : st->box_left, x1 = st->box_right > screen_w ? screen_w : st->box_right;
+        if (x1 > x0) memset(st->pixels + (size_t)y * screen_w + x0, 0, (size_t)(x1 - x0));
+    }
+    QuadTarget quad = *st->quad;   /* the box's rows this band owns */
+    ClipRect clip = *st->clip;
+    if (st->banded) {
+        if (top > quad.clip_top) quad.clip_top = top, clip.y0 = top;
+        if (bottom < quad.clip_bottom) quad.clip_bottom = bottom, clip.y1 = bottom;
+        if (quad.clip_top >= quad.clip_bottom) return;
+    }
+    if (st->ring) {  /* the circuits' 3D ring */
+        const SkyTargets targets = { &quad, st->target, st->smooth, st->quad, st->banded, top, bottom };
+        draw_sky_ring(&targets, st->view, st->art, st->info, st->cam, st->pc->yaw, st->pc->roll);
+    } else if (st->flat) {
+        const HorizonTarget ht = { st->pixels, screen_w };
+        if (st->smooth != NULL) {  /* the magnified flat sky blended */
+            horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, &st->art->horizon, st->pc->yaw, view_mirrored(),
+                                     sky_off, st->line);
+        } else if (st->banded) {  /* the box is the whole clip's, only the stores are the band's */
+            horizon_draw_flat_rows(st->horizon, &ht, st->clip, &st->art->horizon, st->pc->yaw, view_mirrored(), sky_off,
+                                   st->line, top, bottom);
+        } else {
+            horizon_draw_flat(st->horizon, &ht, &clip, &st->art->horizon, st->pc->yaw, view_mirrored(), sky_off, st->line);
+        }
+    }
 }
 
 void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
@@ -761,25 +818,14 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */
-    for (int32_t y = box[1] < 0 ? 0 : box[1]; y < box[3] && y < screen_h; y++) {
-        const int32_t x0 = box[0] < 0 ? 0 : box[0], x1 = box[2] > screen_w ? screen_w : box[2];
-        if (x1 > x0) memset(pixels + (size_t)y * screen_w + x0, 0, (size_t)(x1 - x0));
-    }
     const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
     if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
-    if (art->has_horizon && info->ring != 0) {  /* the circuits' 3D ring */
-        const SkyTargets targets = { &quad, &target, sky_filter ? &smooth : NULL };
-        draw_sky_ring(&targets, &view, art, info, &cam, pc->yaw, pc->roll);
-    } else if (art->has_horizon) {
-        const HorizonTarget ht = { pixels, screen_w };
-        const int32_t line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
-        if (sky_filter) {  /* the magnified flat sky blended */
-            horizon_draw_flat_smooth(&smooth, &horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off,
-                                     line);
-        } else {
-            horizon_draw_flat(&horizon, &ht, &ctx.clip, &art->horizon, pc->yaw, view_mirrored(), sky_off, line);
-        }
-    }
+    const int ring = art->has_horizon && info->ring != 0;
+    if (ring) sky_ring_build(&sky_ring, info, &art->horizon);
+    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, info, &cam, pc, sky_filter ? &smooth : NULL,
+                       box[0], box[2], 0, ring && sky_ring.enabled, art->has_horizon && !ring, bands_threads() != 0 };
+    if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
+    bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     stream(tri, art, pc->node);
     modern_road_set_style(modern ? modern_look_style(&look, art, look_filter, look_fog, render.draw_segments) : NULL);
     track_render_transform(&render, &cam, &ctx);

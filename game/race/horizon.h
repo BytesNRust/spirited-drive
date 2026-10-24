@@ -86,5 +86,10 @@ void horizon_band(const HorizonTables *t, const HorizonTarget *target, int32_t c
 /* 0043ae64 + 0043a18c: the flat horizon in the clip rectangle (the box). */
 void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
                        const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line);
+/* horizon_draw_flat storing only rows [top, bottom): the same picture inside them, whatever the clip (for bands). */
+void horizon_draw_flat_rows(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
+                            const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line, int32_t top,
+                            int32_t bottom);
+
 
 #endif

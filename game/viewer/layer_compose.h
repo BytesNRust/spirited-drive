@@ -32,6 +32,11 @@ typedef struct {
 
 void layer_compose(const LayerCompose *c, const uint8_t *layer, uint8_t *wide);
 
+/* port (render bands): the wide frame's rows [top, bottom) of layer_compose, nothing else written: each row is the
+ * same as layer_compose gives it, so bands of rows on several threads (any order) make the whole. Thread safe for
+ * disjoint rows (the pieces' mask is per thread). */
+void layer_compose_rows(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int top, int bottom);
+
 /* port: `out` (w x h) as the in-car wide frame `width` wide shows the dash's art (640 x 480) from (x, y): each pixel
  * from the art's pixel screen_dash_x / _y give, the art's LAYER_KEY (the windshield) leaving `out` as it was */
 void layer_dash_grab(const uint8_t *art, int width, int x, int y, uint8_t *out, int w, int h);

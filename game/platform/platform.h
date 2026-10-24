@@ -188,4 +188,12 @@ uint32_t platform_ticks_ms(void);
 /* Yields to the OS (and to the browser event loop on the web build). */
 void platform_sleep_ms(uint32_t ms);
 
+/* Worker threads for jobs that touch disjoint memory (the render bands). platform_cpu_count is the logical cores (1
+ * where there are no threads: the web build). platform_parallel_for runs job(ctx, i) for i = 0 .. count - 1, each
+ * once, on up to `threads` threads including the caller, and returns when all have finished (the caller sees their
+ * writes). The order the indexes are claimed in is not defined. With one thread, one job, or no thread support it is
+ * the plain loop on the caller. The job must not call back into the platform. */
+int platform_cpu_count(void);
+void platform_parallel_for(int count, void (*job)(void *ctx, int index), void *ctx, int threads);
+
 #endif

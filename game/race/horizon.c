@@ -141,12 +141,23 @@ static void flat_band(void *user, const FshEntry *horz, int32_t x_offset, int32_
     horizon_band(d->t, d->target, d->clip->y0, d->clip->y1, horz, x_offset, first_row, x, y);
 }
 
-void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
-                       const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line)
+void horizon_draw_flat_rows(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
+                            const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line, int32_t top,
+                            int32_t bottom)
 {
     if (t->width == 0 || line == INT32_MIN) return;
-    const FlatDraw d = { t, target, clip };
+    /* the box (and so where the bands and fills fall) is the whole clip's; only the stores are the window's */
+    ClipRect window = *clip;
+    if (window.y0 < top) window.y0 = top;
+    if (window.y1 > bottom) window.y1 = bottom;
+    const FlatDraw d = { t, target, &window };
     const HorizonFlatSink sink = { (void *)&d, flat_fill, flat_band };
     const HorizonBox box = { clip->x0, clip->y0, clip->x1 - clip->x0, clip->y1 - clip->y0 };
     horizon_flat(horz, yaw, mirrored, sky_off, t->scale, &box, line, &sink);
+}
+
+void horizon_draw_flat(const HorizonTables *t, const HorizonTarget *target, const ClipRect *clip,
+                       const FshEntry *horz, int32_t yaw, int mirrored, int sky_off, int32_t line)
+{
+    horizon_draw_flat_rows(t, target, clip, horz, yaw, mirrored, sky_off, line, INT32_MIN, INT32_MAX);
 }

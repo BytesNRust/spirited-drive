@@ -1,6 +1,7 @@
 /* port: the flat horizon blended (horizon_smooth.h). */
 #include "viewer/horizon_smooth.h"
 
+#include "game/sys/bands.h"
 #include <math.h>
 #include <string.h>
 
@@ -131,9 +132,9 @@ static void smooth_band(void *user, const FshEntry *horz, int32_t x_offset, int3
     const HorizonTables *t = d->t;
     const int32_t w = horz->width, h = horz->height;
     if (t->scale <= 0 || w <= 0 || h <= 0) return;
-    static float at[HORIZON_WIDE_WIDTH + 1];
-    static Column cols[HORIZON_WIDE_WIDTH + 1];
-    static Pair pairs[HORIZON_WIDE_WIDTH + 1];
+    static BANDS_THREAD_LOCAL float at[HORIZON_WIDE_WIDTH + 1];   /* port (render bands): per thread */
+    static BANDS_THREAD_LOCAL Column cols[HORIZON_WIDE_WIDTH + 1];
+    static BANDS_THREAD_LOCAL Pair pairs[HORIZON_WIDE_WIDTH + 1];
     column_positions(t, at);
     for (int i = 0; i < t->width; i++) {   /* texel centres at k + 0.5 */
         const float fu = (float)x_offset + at[i] - 0.5f;
