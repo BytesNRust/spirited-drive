@@ -285,6 +285,21 @@ static int env_press(int32_t frame)
     return 0;
 }
 
+/* Test harness: TNFS_REPLAY_BUTTONS="frame:which,..." presses a replay control on each frame named (drive_replay_press) */
+static void env_buttons(int32_t frame)
+{
+    const char *v = getenv("TNFS_REPLAY_BUTTONS");
+    while (v != NULL && *v != 0) {
+        char *end = NULL;
+        const long at = strtol(v, &end, 10);
+        if (end == v || *end != ':') return;
+        const long which = strtol(end + 1, &end, 10);
+        if (at == frame) drive_replay_press(&drive_replay, (int)which);
+        if (*end != ',') return;
+        v = end + 1;
+    }
+}
+
 static void run_frame(void *ctx, int32_t frame)
 {
     DriveRun *r = ctx;  /* race_sim_tick runs 0045597c with the race's own tick */
@@ -293,6 +308,7 @@ static void run_frame(void *ctx, int32_t frame)
         drive_tick(screenshot_input((uint32_t)frame, (uint32_t)r->headless_ticks));
         return;
     }
+    env_buttons(frame);
     drive_input_read_keys(&drive_input);
     start_keys_fill(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
                     drive_sim.race.port_nitro_start);  /* the exe's keyboard handler's flags, read each step */

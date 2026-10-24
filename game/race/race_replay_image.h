@@ -28,6 +28,7 @@ typedef struct {
     int followed;                      /* 004fbacc: the car the camera follows */
     uint32_t track_flags;              /* 004fb7d8 */
     int arcade;                        /* 004fbadc (the field holds 004fbad8) */
+    int nitro;                         /* port: 004faa50, the NITRO cheat, stamped beside it: the start the recording holds launches */
     int explode;                       /* port: 004c5cd4, the race's EXPLODE cheat, stamped in the setup's two bytes at
                                         * +0x3c (0 in the CD's replays and the exe's own); the horn then spins out cars */
 } ReplayRace;

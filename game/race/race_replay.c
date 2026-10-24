@@ -22,6 +22,21 @@ void race_replay_record(const RaceReplayWords *w, const uint32_t *inputs, uint8_
     }
 }
 
+enum { LAUNCH_GEARS = 0x3000 };
+
+uint32_t race_replay_launch_word(uint32_t word, int launching)
+{
+    /* a gear key held in the same word keeps its bit: the signal would swallow it (both bits are the signal) */
+    return launching && (word & LAUNCH_GEARS) == 0 ? word | LAUNCH_GEARS : word;
+}
+
+int race_replay_launch_split(uint32_t *word)
+{
+    if ((*word & LAUNCH_GEARS) != LAUNCH_GEARS) return 0;
+    *word &= ~(uint32_t)LAUNCH_GEARS;
+    return 1;
+}
+
 static uint8_t get(const uint8_t *recording, size_t size, int64_t at)
 {
     return at >= 0 && (uint64_t)at < size ? recording[at] : 0;  /* port guard: the original reads unchecked */
