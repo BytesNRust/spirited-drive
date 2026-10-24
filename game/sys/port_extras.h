@@ -34,6 +34,8 @@ typedef struct {
     int lunar_springs;  /* 0/1: the rally on Rusty Springs runs the cut moon track's textures and picture (lunar_springs.h).
                          * Last, so the positional initialisers above keep their meaning. */
     DashBox dash_box;   /* DASH_BOX_MAP */
+    int psx_liveries;   /* 0/1: the rivals wear the PS1 game's second livery of their car, at random (car_livery.h),
+                         * from the port.cfg psx_dir's files; off, the exe's colours. Last, as dash_box. */
 } PortExtras;
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */

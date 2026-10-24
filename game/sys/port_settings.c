@@ -17,7 +17,7 @@ static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1 };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, "" };
     return d;
 }
 
@@ -64,6 +64,8 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "fog") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->fog = (int)n;
+    } else if (strcmp(key, "psx_dir") == 0) {
+        snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
     }
 }
 
@@ -85,7 +87,7 @@ PortSettings port_settings_parse(const char *text, size_t size)
     PortSettings s = port_settings_defaults();
     size_t pos = 0;
     while (pos < size) {
-        char line[64];
+        char line[PSX_DIR_MAX + 32];   /* port: wide enough for a psx_dir line, the other keys are short */
         size_t len = 0;
         while (pos < size && text[pos] != '\n') {
             if (len < sizeof line - 1)
@@ -109,9 +111,10 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\npsx_dir=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
-                           s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra);
+                           s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog,
+                           s->f3_ultra, s->psx_dir);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -159,7 +162,7 @@ PortSettings port_settings_load(void)
 
 bool port_settings_save(const PortSettings *s)
 {
-    char text[256];
+    char text[512];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest */
     const size_t n = port_settings_format(s, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
 }

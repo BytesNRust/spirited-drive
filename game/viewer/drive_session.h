@@ -7,6 +7,7 @@
 #include "viewer/track_load.h"
 #include "viewer/track_viewer.h"
 #include "game/race/frame_draw.h"
+#include "game/sys/port_settings.h"
 #include "viewer/drive_bumper.h"
 #include "viewer/drive_keys.h"
 #include "viewer/drive_menu.h"
@@ -26,6 +27,8 @@ typedef struct {
     const char *data_root;
     int ended;
     int ticked;                 /* a tick since the last frame drawn */
+    int livery[RACE_CARS];      /* port: 1 when the slot wears the PS1 alternate livery (car_livery_pick), 0 the exe's */
+    char psx_dir[PSX_DIR_MAX];  /* port: port.cfg's psx_dir for this race, "" none */
 } DriveCars;
 
 /* port: the wide screen (port.cfg's format; TNFS_SCREEN=4:3 / 16:9 / 21:9 overrides it for the checks). The race

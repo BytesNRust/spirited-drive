@@ -9,6 +9,8 @@
 
 typedef enum { SCREEN_4_3 = 0, SCREEN_16_9 = 1, SCREEN_21_9 = 2 } ScreenFormat;
 
+enum { PSX_DIR_MAX = 256 };   /* port: the longest psx_dir kept; a longer one is cut */
+
 typedef struct {
     ScreenFormat format;     /* SCREEN_4_3 */
     int refresh_hz;          /* 60, 120 or 144; 60 */
@@ -23,6 +25,9 @@ typedef struct {
     int texture_filter;      /* 0/1 */
     int fog;                 /* 0/1 */
     int f3_ultra;            /* 1: F3 rotates Far, Medium, Close and Ultra (port_f3_ultra); 0 the exe's three; 1 */
+    /* the folder of the PS1 CD's extracted car files (Z<CAR>.VSM / .WSM) for extras.cfg's psx_liveries; "" none, and
+     * the liveries stay off. Read at each race start. */
+    char psx_dir[PSX_DIR_MAX];
 } PortSettings;
 
 PortSettings port_settings_defaults(void);
