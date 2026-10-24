@@ -10,6 +10,7 @@
 #   tracks   TR1 CY1 AL1            (TRACKS=... overrides)
 #   views    0 (in the car) 1 (chase) 2 5 9      (VIEWS=...)
 #   formats  4:3 16:9 21:9          (FORMATS=...; TNFS_SCREEN)
+#   ticks    400 (TICKS=...: the race tick the picture is taken at)
 #   looks    exe, modern (port.cfg perspective=1 texture_filter=1 fog=1)   (LOOKS=...)
 # 90 frames each way with the defaults; set the lists shorter for a quick check.
 #
@@ -29,7 +30,7 @@ TRACKS=(${=TRACKS:-TR1 CY1 AL1})
 VIEWS=(${=VIEWS:-0 1 2 5 9})
 FORMATS=(${=FORMATS:-4:3 16:9 21:9})
 LOOKS=(${=LOOKS:-exe modern})
-ticks=400
+ticks=${TICKS:-400}
 secs=60
 
 if [[ ! -x $bin ]]; then print -u2 -- "frame_compare.sh: no tnfs in $build"; exit 1; fi

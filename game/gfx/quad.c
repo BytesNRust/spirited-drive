@@ -277,8 +277,10 @@ static int choose_direction(const int32_t screen[8], int top)
     return s_next < s_prev ? -1 : 1;
 }
 
+/* port (render bands): only the rows [win_top, win_bottom) are stored; the edge tables and the retrace decision are
+ * the whole clip's, so a band's picture is the unbanded one on its rows. */
 static void draw_quad(const QuadTarget *t, const FshEntry *texture, const int32_t uv[8],
-                      const int32_t screen[8], const Paint *paint)
+                      const int32_t screen[8], const Paint *paint, int32_t win_top, int32_t win_bottom)
 {
     Edges edges;
     memset(&edges, 0, sizeof edges);
@@ -308,7 +310,7 @@ static void draw_quad(const QuadTarget *t, const FshEntry *texture, const int32_
             rows++;
             continue;
         }
-        if (span_visible(t, &edges, y)) draw_row(t, &tex, &edges, y, width, paint);
+        if (y >= win_top && y < win_bottom && span_visible(t, &edges, y)) draw_row(t, &tex, &edges, y, width, paint);
         y++;
     }
 }
@@ -322,13 +324,21 @@ void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int
     if (!target_valid(target) || !texture_valid(texture) || uv == NULL || screen == NULL ||
         !paint_valid(&paint))
         return;
-    draw_quad(target, texture, uv, screen, &paint);
+    draw_quad(target, texture, uv, screen, &paint, INT32_MIN, INT32_MAX);
 }
 
 void quad_draw(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
                const int32_t screen[8], int transparent)
 {
     quad_draw_mode(target, texture, uv, screen, transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL);
+}
+
+void quad_draw_rows(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8],
+                    int transparent, int32_t top, int32_t bottom)
+{
+    const Paint paint = { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL };
+    if (!target_valid(target) || !texture_valid(texture) || uv == NULL || screen == NULL || !paint_valid(&paint)) return;
+    draw_quad(target, texture, uv, screen, &paint, top, bottom);
 }
 
 /* 00487a10 and 004879b0. */
@@ -340,4 +350,14 @@ void quad_draw_full(const QuadTarget *target, const FshEntry *texture, const int
     const int32_t bottom = x_sub(x_shl((int16_t)texture->height, 16), 1);
     const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
     quad_draw(target, texture, uv, screen, transparent);
+}
+
+void quad_draw_full_rows(const QuadTarget *target, const FshEntry *texture, const int32_t screen[8], int transparent,
+                         int32_t top, int32_t bottom)
+{
+    if (!texture_valid(texture)) return;
+    const int32_t right = x_sub(x_shl((int16_t)texture->width, 16), 1);
+    const int32_t bottom_uv = x_sub(x_shl((int16_t)texture->height, 16), 1);
+    const int32_t uv[8] = { 0, 0, right, 0, right, bottom_uv, 0, bottom_uv };
+    quad_draw_rows(target, texture, uv, screen, transparent, top, bottom);
 }

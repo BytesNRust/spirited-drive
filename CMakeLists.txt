@@ -402,6 +402,7 @@ add_executable(tnfs
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
+    game/viewer/render_list.c
     game/viewer/modern_look.c
     game/viewer/horizon_smooth.c
     game/viewer/sky_smooth.c
@@ -662,6 +663,16 @@ if(NOT EMSCRIPTEN)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
     endif()
     # port: the job pool and the row splitter of the render bands
+    # port: the road's draws recorded and replayed by bands
+    add_executable(test_render_list tests/test_render_list.c game/viewer/render_list.c game/viewer/modern_road.c game/sys/bands.c
+                   game/platform/sdl3/platform_sdl3.c)
+    target_include_directories(test_render_list PRIVATE game)
+    target_link_libraries(test_render_list PRIVATE tnfs_game SDL3::SDL3)
+    if(NOT MSVC)
+        target_link_libraries(test_render_list PRIVATE m)
+    endif()
+    target_compile_options(test_render_list PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME render_list COMMAND test_render_list)
     add_executable(test_bands tests/test_bands.c game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_bands PRIVATE tnfs_game SDL3::SDL3)
     if(NOT MSVC)
