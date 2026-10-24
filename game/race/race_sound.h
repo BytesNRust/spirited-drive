@@ -274,4 +274,10 @@ void race_music_pick(const RaceMusicOps *ops, int16_t music, int16_t *small);
  * 004c55ac there, the port plays nothing. */
 void race_music_by_idle(const RaceMusicOps *ops, int16_t music, int32_t idle);
 
+/* port (port_menu_song): the menus' pick and the front end's after the intro. With port_menu_song a chosen song
+ * (4..15) plays itself, as the race's 00456244 plays it, where the exe takes a random one of its half; the shuffles
+ * (1..3), none (0) and port_menu_song 0 are race_music_pick / race_music_by_idle. */
+void race_music_menu_pick(const RaceMusicOps *ops, int16_t music, int16_t *small, int32_t port_menu_song);
+void race_music_menu_by_idle(const RaceMusicOps *ops, int16_t music, int32_t idle, int32_t port_menu_song);
+
 #endif

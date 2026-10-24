@@ -926,6 +926,27 @@ void race_music_by_idle(const RaceMusicOps *ops, int16_t music, int32_t idle)
     ops->play(ops->ctx, track);
 }
 
+static int chosen_song(int16_t music, int32_t port_menu_song)
+{
+    return port_menu_song != 0 && music >= MUSIC_FIXED && music <= MUSIC_LAST;
+}
+
+void race_music_menu_pick(const RaceMusicOps *ops, int16_t music, int16_t *small, int32_t port_menu_song)
+{
+    if (!chosen_song(music, port_menu_song)) {
+        race_music_pick(ops, music, small);
+        return;
+    }
+    *small = 0;
+    race_music_start(ops, music);
+}
+
+void race_music_menu_by_idle(const RaceMusicOps *ops, int16_t music, int32_t idle, int32_t port_menu_song)
+{
+    if (chosen_song(music, port_menu_song)) race_music_start(ops, music);   /* also rock6, which 0045638c's track 5 skips */
+    else race_music_by_idle(ops, music, idle);
+}
+
 void race_sound_channels_stop(RaceState *race)
 {
     for (int32_t k = 0; k < RACE_VOICES; k++) race_sound_channel_stop(race, k);

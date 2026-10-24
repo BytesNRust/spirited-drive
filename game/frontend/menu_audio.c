@@ -88,6 +88,7 @@ void menu_audio_voice_volume(int32_t voice, int32_t volume) { drive_audio_voice_
 
 void menu_audio_music_start(const char *name)
 {
+    port_log("menu_audio: music %s\n", name);
     music_words();
     drive_audio_music_play(name);
 }
@@ -114,11 +115,14 @@ static void pick_play(void *ctx, int32_t track)
     if (track >= 0 && track < MUSIC_TRACKS) menu_audio_music_start(NAMES[track]);
 }
 
+/* port: the chosen song plays in the menus, not a random one of its half (race_music_menu_pick); 0 the exe's */
+enum { PORT_MENU_SONG = 1 };
+
 /* 00443730 here the clock's ticks, not the C library's rand: the menus have no race seed to keep */
 void menu_audio_music_pick(void)
 {
     const RaceMusicOps ops = { NULL, pick_rand, pick_play };
-    race_music_pick(&ops, config_short(MUSIC_SETTING), &small);
+    race_music_menu_pick(&ops, config_short(MUSIC_SETTING), &small, PORT_MENU_SONG);
 }
 
 /* 00456244 on config.dat's song as it is now (the audio menu's song item) */
@@ -131,7 +135,7 @@ void menu_audio_music_track(void)
 void menu_audio_music_by_idle(void)
 {
     const RaceMusicOps ops = { NULL, pick_rand, pick_play };
-    race_music_by_idle(&ops, config_short(MUSIC_SETTING), (int32_t)timer_ticks());
+    race_music_menu_by_idle(&ops, config_short(MUSIC_SETTING), (int32_t)timer_ticks(), PORT_MENU_SONG);
 }
 
 /* The track music's file, 00483e80's block: one at a time (00524828), handle 1 */
