@@ -202,6 +202,41 @@ static LayerPiece wide_piece(int left, int top, int w, int h, ScreenPoint at, in
     return (LayerPiece){ { left, top, left + w, top + h }, at.x, at.y, scaled, 0 };
 }
 
+/* port: the gear gate art's real rectangle in the 640: the gate shape is the dash round the lever picture, so its box
+ * is the rows and columns where it differs from the dash art under it. Kept for as long as the shape is the same. */
+static LayerRect gate_rect(const uint8_t *g, const uint8_t *art)
+{
+    static const uint8_t *seen;
+    static LayerRect rect;
+    if (g == seen) return rect;
+    seen = g;
+    const int gw = g[4] | g[5] << 8, gh = g[6] | g[7] << 8, gx = (int16_t)(g[0xc] | g[0xd] << 8),
+              gy = (int16_t)(g[0xe] | g[0xf] << 8);
+    rect = (LayerRect){ DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
+    if (gw <= 0 || gh <= 0 || gx < 0 || gy < 0 || gx + gw > SCREEN_W || gy + gh > SCREEN_H) return rect;
+    LayerRect box = { gx + gw, gy + gh, gx, gy };
+    for (int y = 0; y < gh; y++)
+        for (int x = 0; x < gw; x++) {
+            if (g[0x10 + y * gw + x] == art[(gy + y) * SCREEN_W + gx + x]) continue;
+            if (gx + x < box.left) box.left = gx + x;
+            if (gx + x + 1 > box.right) box.right = gx + x + 1;
+            if (gy + y < box.top) box.top = gy + y;
+            if (gy + y + 1 > box.bottom) box.bottom = gy + y + 1;
+        }
+    if (box.left < box.right && box.top < box.bottom) rect = box;
+    return rect;
+}
+
+/* port: the box as a piece at its anchor: the map's whole rectangle with the map; with the gear gate only the lever
+ * picture's own (the rest of the map's rectangle stays the stretched dash) */
+static LayerPiece wide_box_piece(int map_on, ScreenPoint map_at)
+{
+    LayerRect r = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
+    if (!map_on && drive_hud.cockpit.gate != NULL) r = gate_rect(drive_hud.cockpit.gate, dash_art_layer(&drive_hud.cockpit));
+    return wide_piece(r.left, r.top, r.right - r.left, r.bottom - r.top,
+                      (ScreenPoint){ map_at.x + r.left - DRIVE_MAP_X, map_at.y + r.top - DRIVE_MAP_Y }, 0);
+}
+
 /* port: the 640 frame (the race's 2D, LAYER_KEY where the 3D goes) over the wide 3D view: inside the car the dash
  * at its size with its sides stretched (screen_dash_x / _y), the radar detector on it, the mirror at its anchor; outside it centred with the gauge at the left;
  * the scoreboard's three groups and the map at their anchors in both; the police screen alone centred */
@@ -235,12 +270,12 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
         for (int i = 0; i < LIGHT_COUNT; i++)
             pieces[n++] = wide_piece(i * LIGHT_STEP_640, 0, LIGHT_WIDTH, HUD_BAR_HEIGHT,
                                      (ScreenPoint){ screen_light_x(drive_wide.width, i), 0 }, 0);
-        if (box_on) pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
+        if (box_on) pieces[n++] = wide_box_piece(map_on, a.map);
     } else if (!police) {
         pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_start, 0);
         pieces[n++] = wide_piece(BAR_MIDDLE_640, 0, BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_middle, 0);
         pieces[n++] = wide_piece(BAR_END_640, 0, SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT, a.bar_end, 0);
-        if (box_on) pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
+        if (box_on) pieces[n++] = wide_box_piece(map_on, a.map);
     }
     if (in_car) {
         if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1, 0 };
