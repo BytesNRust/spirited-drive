@@ -58,6 +58,8 @@ static int done_of(int page) { return rows_of(page); }
 static int cancel_of(int page) { return rows_of(page) + 1; }
 /* Unlock Level is the one switch on page 2 with three values rather than two */
 static int unlock_row(void) { return ROW_UNLOCK - ROW_FIRST_P2; }
+/* Dash box is the other with three values on page 2: Map, Gear lever, None */
+static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
 /* Speed units is the other, with its own values: mph and km/h, its words the language's until it is chosen. It sits
  * on page 1, the fifth row. */
 static int units_row(void) { return ROW_UNITS - ROW_EXPLODE; }
@@ -73,7 +75,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats",
     "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track",
-    "Unlock Level", "Time with variants", "Start Screen", "Intro video"
+    "Unlock Level", "Time with variants", "Start Screen", "Intro video", "Dash box"
 };
 
 /* a switch's field, NULL for the two rows with more than two values (Unlock, Start) */
@@ -86,13 +88,14 @@ static int *flag_of(PortExtras *e, int page, int row)
         return p1[row];
     }
     int *const p2[ROWS_P2] = { &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs,
-                               NULL /* Unlock Level */, &e->variant_time, NULL /* Start Screen */, &e->no_movies };
+                               NULL /* Unlock Level */, &e->variant_time, NULL /* Start Screen */, &e->no_movies, NULL /* Dash box */ };
     return p2[row];
 }
 
 static void value(PortExtras *e, int16_t unlock, int page, int row, int language_kmh, char out[16])
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
+    static const char *const DASH_BOX[3] = { "Map", "Gear lever", "Hidden" };
     const int *const flag = flag_of(e, page, row);
     /* port: the movies switch reads the other way round, "Intro video" On while extras.cfg's no_movies is 0, so the
      * file keeps its meaning */
@@ -100,6 +103,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
     if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
     else if (page == 0 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
     else if (page == 1 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
+    else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -192,6 +196,8 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
         }
     } else if (p->page == 1 && p->selected == unlock_row()) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
+    } else if (p->page == 1 && p->selected == dash_box_row()) {
+        e->dash_box = (DashBox)((e->dash_box + step + 3) % 3);
     } else if (p->page == 0 && p->selected == units_row()) {
         e->units = shows_kmh(e, o->language_kmh) ? UNITS_MPH : UNITS_KMH;
     } else {

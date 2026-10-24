@@ -23,7 +23,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12)
  *   page 2  Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
  *                               Lunar Springs Track, Unlock Level, Time with variants
- *            Miscellaneous      Start Screen, Intro video
+ *            Miscellaneous      Start Screen, Intro video, Dash box (Map / Gear lever / Hidden)
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
  * is eleven rows and two headers, thirteen lines, which is what the 24 pitch fits.)
@@ -42,6 +42,7 @@ enum {
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
     ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
+    ROW_DASH_BOX,                                  /* port: Miscellaneous' last, the dash's map box (port_extras.h) */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */

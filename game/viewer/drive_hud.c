@@ -1,11 +1,13 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_hud_mask.h"
+#include "viewer/dash_box.h"
 
 #include "game/platform/platform.h"
 #include "game/gfx/blit.h"
 #include "game/gfx/clip.h"
 #include "game/gfx/flat.h"
 #include "game/sys/key_codes.h"
+#include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/race/dash_controls.h"
@@ -158,6 +160,11 @@ void drive_hud_start(DriveHud *h, RacePalette *p)
     h->keys.use_parts = 1;  /* 0044ca3c */
     h->parts_key = key_code((uint16_t)key_layout(PARTS_KEY_CONFIG, (int16_t)resource_german()));  /* 00426ddc */
     h->parts_pending = 0;
+    /* port: the dash box's mode. The exe's is the map from the start (M hides it); with Gear lever or Hidden the race
+     * starts as M had hidden it, and M brings the map back. */
+    h->dash_box = port_extras_dash_box();
+    h->keys.use_parts = dash_box_start_parts((DashBox)h->dash_box);
+    h->parts_pending = h->keys.use_parts == 0;
     memset(h->map, 0, sizeof h->map);
     h->map[0] = SHAPE_8_BIT;
     h->map[4] = DRIVE_MAP_W, h->map[6] = DRIVE_MAP_H;
@@ -496,7 +503,8 @@ static void frame_gate(void *ctx)
     DriveHud *h = f->s->h;
     if (!frame_shapes(f)) return;
     const CockpitSelectOps ops = { f->s, cockpit_select };
-    const CockpitGateInputs in = { 0, h->keys.use_parts, drive_hud_view_clip_inputs(f->screen.pitch, f->screen.clip_bottom), 0 };
+    const CockpitGateInputs in = { 0, h->keys.use_parts, drive_hud_view_clip_inputs(f->screen.pitch, f->screen.clip_bottom),
+                                    dash_box_gate_always((DashBox)h->dash_box) };
     cockpit_gate(&ops, &h->hud, &h->cockpit, f->car, &in, &h->gate_state);
 }
 
