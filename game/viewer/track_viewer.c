@@ -6,6 +6,7 @@
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
 #include "game/race/car_load.h"
+#include "game/race/single_rival.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
 #include "game/race/race_draw_setup.h"
@@ -107,7 +108,6 @@ enum {
     SINGLE_RACE = 2,
     DRIVE_SEED = 0x2b67,    /* 004fb7f4's stand-in for --drive without the menus */
     REPLAY_KIND = 1,        /* 00524e9f for a replay played back (0042c498's 1..3): any set */
-    FULL_FIELD = 8,         /* entries[1].car asking 00457870 for the eight-car field */
     WARRIOR_CAR = 11        /* the secret car (CONCEPTCAR), "Traffc" */
 };
 
@@ -301,10 +301,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         const int car = atoi(opponent);
         if ((car >= 0 && car <= 7) || car == WARRIOR_CAR) field.entries[1].car = car;
     }
-    /* The frontend's stand-in: a single race with the other entry's car 8
-     * gets 00457870's field of eight different cars (004c5628); any other
-     * car there would race seven copies of it. */
-    if (field.race_type == SINGLE_RACE && racers > 1 && !drive_link_on) field.entries[1].car = FULL_FIELD;
+    /* A single race with the other entry's car 8 gets 00457870's field of eight different cars (004c5628); any other
+     * car there races seven copies of it. The menus' pick (0042702c's second record) is that entry; --drive without
+     * them stands in with the whole field. */
+    if (field.race_type == SINGLE_RACE && racers > 1 && !drive_link_on)
+        field.entries[1].car = single_rival_car(drive_menus_on, drive_menus.opponent);
     for (int i = 0; entries != NULL && i < drive_link.humans && i < racers; i++) {  /* the machines' entries */
         memcpy(&field.entries[i], entries + sizeof(RaceEntry) * (size_t)i, sizeof field.entries[i]);
         if (i > 0 && !load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
