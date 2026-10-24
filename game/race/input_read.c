@@ -81,12 +81,58 @@ static uint32_t gears(const InputReadOps *ops, const InputPad *pad, MouseSteerWo
     return g;
 }
 
+/* port_pad_and_keys: the stick's x when it is off its centre, else the keys (a pad with no stick off centre, or none,
+ * has x 0) */
+static int32_t both_steering(InputPad *pad, const InputReadInputs *in)
+{
+    if (pad->x == 0) {
+        const ControlSetup keyboard = { 0 };
+        return steering(NULL, pad, NULL, in, &keyboard, NULL);
+    }
+    const ControlSetup stick = { .analog_steering = PAD };
+    return steering(NULL, pad, NULL, in, &stick, NULL);
+}
+
+/* the key's pedal and the pad's, each as its distance from the rest: the further wins, the brake at a tie */
+static int32_t both_pedal(const InputPad *pad, const InputReadInputs *in)
+{
+    int32_t key_at = 0;
+    if (key(in, INPUT_KEY_ACCELERATE)) key_at = PRESSED - AT_REST;
+    if (key(in, INPUT_KEY_BRAKE)) key_at = FULL - AT_REST;
+    const int32_t pad_at = pad->y;
+    const int32_t pad_far = pad_at < 0 ? -pad_at : pad_at, key_far = key_at < 0 ? -key_at : key_at;
+    const int32_t at = pad_far > key_far || (pad_far == key_far && pad_at > 0) ? pad_at : key_at;
+    return x_add(at, AT_REST);
+}
+
+static uint32_t both_gears(const InputPad *pad, const InputReadInputs *in)
+{
+    if (key(in, INPUT_KEY_GEAR_UP)) return GEAR_UP;
+    if (key(in, INPUT_KEY_GEAR_DOWN)) return GEAR_DOWN;
+    if (pad->buttons & 1) return GEAR_UP;
+    return (pad->buttons & 2) != 0 ? GEAR_DOWN : 0;
+}
+
+/* the word of port_pad_and_keys: as input_read's, from both devices */
+static uint32_t read_both(InputPad *pad, const InputReadInputs *in)
+{
+    const int32_t steer = both_steering(pad, in), p = both_pedal(pad, in);
+    uint32_t g = both_gears(pad, in);
+    if (in->keys[KEY_CHEAT_A] != 0 && in->keys[KEY_CHEAT_B] != 0 && in->keys[KEY_CHEAT_C] != 0 &&
+        in->entries[in->player].automatic != 0)
+        g |= GEAR_UP | GEAR_DOWN;
+    if (key(in, INPUT_KEY_HANDBRAKE) || (in->pad_present != 0 && (pad->buttons & PAD_HANDBRAKE) != 0)) g |= HANDBRAKE;
+    if (key(in, INPUT_KEY_HORN)) g |= HORN;
+    return g << 12 | (uint32_t)steer | (uint32_t)p << 6;
+}
+
 uint32_t input_read(const InputReadOps *ops, InputPad *pad, MouseSteerWords *mouse, const InputReadInputs *in)
 {
     const int16_t stand_in = in->stand_in[in->player];
     if (stand_in == 1) return STAND_IN_WORD;
     ops->pad_read(ops->ctx, in->player, stand_in);
     const ControlSetup *setup = &in->controls[in->player];
+    if (in->port_pad_and_keys != 0) return read_both(pad, in);
     int polled = 0;
     const int32_t steer = steering(ops, pad, mouse, in, setup, &polled);
     const int32_t p = pedal(ops, pad, mouse, in, setup, &polled);

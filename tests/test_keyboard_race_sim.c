@@ -81,7 +81,7 @@ static void run(Trace *out, const int32_t *codes, int steer_key)
         InputPad pad = { 0 };
         MouseSteerWords mouse = { 0 };
         const InputReadOps ops = { .pad_read = no_pad_read };
-        const InputReadInputs in = { keys, codes, stand_in, controls, entries, 0, 0, 0 };
+        const InputReadInputs in = { keys, codes, stand_in, controls, entries, 0, 0, 0, 0 };
         race_sim_tick(&sim, input_read(&ops, &pad, &mouse, &in));
         for (int i = 0; i < RACE_PLAYERS; i++)
             out->x[t][i] = sim.race.cars[i]->x, out->z[t][i] = sim.race.cars[i]->z;
