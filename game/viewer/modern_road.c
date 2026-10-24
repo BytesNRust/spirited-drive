@@ -7,6 +7,9 @@
 
 #include <math.h>
 #include <string.h>
+#if defined(__SSE2__) && !defined(__FMA__)
+#include <emmintrin.h>
+#endif
 
 enum { MAX_VERTS = 8 };
 
@@ -172,20 +175,59 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
             row[x] = style.fog[fog_level(1.0f / fmaxf(iz + at[0].dx * (float)(x - xs), IZ_MIN), x, y)][fill->colour];
         return;
     }
-    for (int x = xs; x <= xe; x++) {
-        const float k = (float)(x - xs), r = 1.0f / fmaxf(iz + at[0].dx * k, IZ_MIN);
-        float u = (uz + at[1].dx * k) * r, v = (vz + at[2].dx * k) * r;
-        if (style.filter) {
+    /* the loop's inputs in locals: the stores to the row may alias the globals and the planes, which would reload them
+     * for every pixel */
+    const float izdx = at[0].dx, izdy = at[0].dy, udx = at[1].dx, udy = at[1].dy, vdx = at[2].dx, vdy = at[2].dy;
+    const int filter = style.filter;
+    const uint8_t (*fog)[256] = style.fog;
+    int x = xs;
+#if defined(__SSE2__) && !defined(__FMA__)
+    /* four pixels at a time through the perspective: the same IEEE operations in the same order, so the same floats
+     * (no fused multiply-add on this target), then each lane's texel as below */
+    const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)), one = _mm_set1_ps(1.0f);
+    for (; x + 3 <= xe; x += 4) {
+        const __m128 k = _mm_add_ps(_mm_set1_ps((float)(x - xs)), _mm_setr_ps(0, 1, 2, 3));
+        const __m128 rv = _mm_div_ps(one, _mm_max_ps(_mm_add_ps(_mm_set1_ps(iz), _mm_mul_ps(_mm_set1_ps(izdx), k)),
+                                                     _mm_set1_ps(IZ_MIN)));
+        __m128 uv = _mm_mul_ps(_mm_add_ps(_mm_set1_ps(uz), _mm_mul_ps(_mm_set1_ps(udx), k)), rv);
+        __m128 vv = _mm_mul_ps(_mm_add_ps(_mm_set1_ps(vz), _mm_mul_ps(_mm_set1_ps(vdx), k)), rv);
+        if (filter) {
+            const __m128 izx = _mm_set1_ps(izdx), izy = _mm_set1_ps(izdy);
+            const __m128 du_x = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(udx), _mm_mul_ps(uv, izx)), rv);
+            const __m128 dv_x = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(vdx), _mm_mul_ps(vv, izx)), rv);
+            const __m128 du_y = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(udy), _mm_mul_ps(uv, izy)), rv);
+            const __m128 dv_y = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(vdy), _mm_mul_ps(vv, izy)), rv);
+            const __m128 over = _mm_and_ps(
+                _mm_and_ps(_mm_cmplt_ps(_mm_and_ps(du_x, abs_mask), one), _mm_cmplt_ps(_mm_and_ps(dv_x, abs_mask), one)),
+                _mm_and_ps(_mm_cmplt_ps(_mm_and_ps(du_y, abs_mask), one), _mm_cmplt_ps(_mm_and_ps(dv_y, abs_mask), one)));
+            const float *e = FILTER[(x & 1) | (y & 1) << 1], *o = FILTER[(~x & 1) | (y & 1) << 1];
+            const __m128 ou = _mm_setr_ps(e[0], o[0], e[0], o[0]), ov = _mm_setr_ps(e[1], o[1], e[1], o[1]);
+            uv = _mm_or_ps(_mm_and_ps(over, _mm_add_ps(uv, ou)), _mm_andnot_ps(over, uv));
+            vv = _mm_or_ps(_mm_and_ps(over, _mm_add_ps(vv, ov)), _mm_andnot_ps(over, vv));
+        }
+        float us[4], vs[4], rs[4];
+        _mm_storeu_ps(us, uv), _mm_storeu_ps(vs, vv), _mm_storeu_ps(rs, rv);
+        for (int j = 0; j < 4; j++) {
+            uint8_t c = texel(fill, us[j], vs[j]);
+            if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(rs[j], x + j, y)][c];
+            paint_texel(&fill->paint, &row[x + j], c);
+        }
+    }
+#endif
+    for (; x <= xe; x++) {
+        const float k = (float)(x - xs), r = 1.0f / fmaxf(iz + izdx * k, IZ_MIN);
+        float u = (uz + udx * k) * r, v = (vz + vdx * k) * r;
+        if (filter) {
             /* a texel's span across and down the screen at this pixel: the filter only where it is over a pixel */
-            const float du_x = (at[1].dx - u * at[0].dx) * r, dv_x = (at[2].dx - v * at[0].dx) * r;
-            const float du_y = (at[1].dy - u * at[0].dy) * r, dv_y = (at[2].dy - v * at[0].dy) * r;
+            const float du_x = (udx - u * izdx) * r, dv_x = (vdx - v * izdx) * r;
+            const float du_y = (udy - u * izdy) * r, dv_y = (vdy - v * izdy) * r;
             if (fabsf(du_x) < 1 && fabsf(dv_x) < 1 && fabsf(du_y) < 1 && fabsf(dv_y) < 1) {
                 const float *o = FILTER[(x & 1) | (y & 1) << 1];
                 u += o[0], v += o[1];
             }
         }
         uint8_t c = texel(fill, u, v);
-        if (style.fog != NULL && c < MAP_SHADE_TEXEL) c = style.fog[fog_level(r, x, y)][c];
+        if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(r, x, y)][c];
         paint_texel(&fill->paint, &row[x], c);
     }
 }
