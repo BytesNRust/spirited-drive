@@ -312,22 +312,23 @@ static int downs(int *keys, int n, int count)
     return n;
 }
 
-/* the keys from page 1's first row to page 2's `row`: DOWN to page 1's Done, RIGHT to Cancel, RIGHT round to page 2's
- * first row, then DOWN to `row`. Returns how many keys were written. */
-static int keys_to_page_two(int *keys, int row)
+/* the keys from the screen's first row to `row`: on page 1, DOWN to it; on page 2, DOWN to page 1's Done, RIGHT to
+ * Cancel, RIGHT round to page 2's first row, then DOWN to `row`. Returns how many keys were written. */
+static int keys_to_row(int *keys, int row)
 {
+    if (row < ROW_FIRST_P2) return downs(keys, 0, row);
     int n = downs(keys, 0, ROWS_P1);
     keys[n++] = RIGHT, keys[n++] = RIGHT;
     return downs(keys, n, row - ROW_FIRST_P2);
 }
 
-/* the script both menu tests share: on page 2, Rally on, SPACE, UP to Mirror, SPACE on, then down the page to Done,
+/* the script both menu tests share: on page 1, Rally on, SPACE, UP to Mirror, SPACE on, then down the page to Done,
  * ENTER */
 static int mirror_and_rally_keys(int *keys)
 {
-    int n = keys_to_page_two(keys, ROW_RALLY);
+    int n = keys_to_row(keys, ROW_RALLY);
     keys[n++] = SPACE, keys[n++] = UP, keys[n++] = SPACE;
-    n = downs(keys, n, ROWS_P2 - (ROW_MIRROR - ROW_FIRST_P2));   /* from Mirror down to Done */
+    n = downs(keys, n, ROWS_P1 - ROW_MIRROR);   /* from Mirror down to Done */
     keys[n++] = ENTER;
     return n;
 }
@@ -361,11 +362,11 @@ static void menu_alone_is_unchanged_under_the_port(void)
 {
     PortExtras e = port_extras_defaults();
     MenuFake f;
-    /* Mirror on (page 2), down the page to Done, ENTER — rally untouched */
+    /* Mirror on (page 1), down the page to Done, ENTER — rally untouched */
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_MIRROR);
+    int n = keys_to_row(keys, ROW_MIRROR);
     keys[n++] = SPACE;
-    n = downs(keys, n, ROWS_P2 - (ROW_MIRROR - ROW_FIRST_P2));   /* from Mirror down to Done */
+    n = downs(keys, n, ROWS_P1 - ROW_MIRROR);   /* from Mirror down to Done */
     keys[n++] = ENTER;
     run_menu(&e, keys, n, 1, &f);
     CHECK_EQ_INT(f.saves, 1);

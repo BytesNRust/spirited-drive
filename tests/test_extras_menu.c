@@ -266,26 +266,34 @@ static int downs(int *keys, int n, int count)
     return n;
 }
 
-/* the DOWNs from page 2's row `row` to its Done, which is the row past the page's last switch */
-static int page_two_downs_to_done(int row) { return ROWS_P2 - (row - ROW_FIRST_P2); }
+/* the flat list of rows splits into the two pages at ROW_FIRST_P2: a row before it is page 1's, the rest page 2's */
+static int page_of(int row) { return row < ROW_FIRST_P2 ? 0 : 1; }
+/* a row's index on its own page */
+static int index_of(int row) { return page_of(row) == 0 ? row : row - ROW_FIRST_P2; }
+/* how many rows its page shows */
+static int rows_on(int row) { return page_of(row) == 0 ? ROWS_P1 : ROWS_P2; }
 
-/* the keys from page 1's first row to page 2's `row`: DOWN to page 1's Done, RIGHT to Cancel, RIGHT round to page 2's
- * first row, then DOWN to `row`. Returns how many keys were written. */
-static int keys_to_page_two(int *keys, int row)
+/* the DOWNs from a row to its page's Done, which is the row past the page's last switch */
+static int downs_to_done(int row) { return rows_on(row) - index_of(row); }
+
+/* the keys from the screen's first row to `row`: on page 1, DOWN to it; on page 2, DOWN to page 1's Done, RIGHT to
+ * Cancel, RIGHT round to page 2's first row, then DOWN to it. Returns how many keys were written. */
+static int keys_to_row(int *keys, int row)
 {
+    if (page_of(row) == 0) return downs(keys, 0, row);
     int n = downs(keys, 0, ROWS_P1);
     keys[n++] = RIGHT, keys[n++] = RIGHT;
     return downs(keys, n, row - ROW_FIRST_P2);
 }
 
-/* Edit Mirror (on page 2, then Done) turns it on and turns Rally off when Rally was on */
+/* Edit Mirror (on page 1, then Done) turns it on and turns Rally off when Rally was on */
 static void test_mirror_toggle_excludes_rally(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_MIRROR);
+    int n = keys_to_row(keys, ROW_MIRROR);
     keys[n++] = ENTER;                                             /* Mirror on */
-    n = downs(keys, n, page_two_downs_to_done(ROW_MIRROR));
+    n = downs(keys, n, downs_to_done(ROW_MIRROR));
     keys[n++] = ENTER;                                             /* Done */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -316,23 +324,23 @@ static void test_right_turns_to_page_two(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_FIRST_P2);
+    int n = keys_to_row(keys, ROW_FIRST_P2);
     keys[n++] = ESCAPE;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "< 2/2"));
-    CHECK(shown(&r.fake, "Warrior Rival Car"));
+    CHECK(shown(&r.fake, "Speed units"));
 }
 
-/* Rally on with Mirror on turns Mirror off (both on page 2) */
+/* Rally on with Mirror on turns Mirror off (both on page 1) */
 static void test_rally_excludes_mirror(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_RALLY);
+    int n = keys_to_row(keys, ROW_RALLY);
     keys[n++] = SPACE;                                             /* Rally on */
-    n = downs(keys, n, page_two_downs_to_done(ROW_RALLY));
+    n = downs(keys, n, downs_to_done(ROW_RALLY));
     keys[n++] = ENTER;                                             /* Done */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -348,13 +356,13 @@ static void test_page_two_switches_saved(void)
 {
     Rig r;
     int keys[48];
-    int n = downs(keys, 0, ROW_WARRIOR);                   /* Warrior Player Car */
+    int n = keys_to_row(keys, ROW_WARRIOR);                 /* Warrior Player Car */
     keys[n++] = ENTER;                                     /* on */
-    n = downs(keys, n, ROWS_P1 - ROW_WARRIOR);             /* page 1's Done */
+    n = downs(keys, n, downs_to_done(ROW_WARRIOR));         /* page 1's Done */
     keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* Done to Cancel, Cancel to page 2's first row */
     n = downs(keys, n, ROW_START - ROW_FIRST_P2);          /* down to Start Screen */
     for (int i = 0; i < 3; i++) keys[n++] = LEFT;          /* Start's three values, round back to Game Mode */
-    n = downs(keys, n, page_two_downs_to_done(ROW_START)); /* down to Done */
+    n = downs(keys, n, downs_to_done(ROW_START));          /* down to Done */
     keys[n++] = ENTER;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -370,9 +378,9 @@ static void test_the_graphics_settings_are_gone(void)
     Rig r;
     /* page 2 on Intro video and turn it on; Down to Done */
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_MOVIES);
+    int n = keys_to_row(keys, ROW_MOVIES);
     keys[n++] = RIGHT;                                     /* off: no movies */
-    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = ENTER;   /* past Dash box to Done, save */
+    keys[n++] = DOWN, keys[n++] = ENTER;                  /* down to Done, save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
@@ -472,8 +480,8 @@ static void test_no_background_leaves_the_display_alone(void)
     CHECK_EQ_INT(r.fake.fade_outs, 0);
 }
 
-/* CHEATS and IN-RACE OPTIONS on page 1: eleven switches, Rival car markers and 3D render stats the last two. Walk the
- * whole page down and they are all of them */
+/* CHEATS and UNLOCKS & MODS on page 1: eleven switches, Time with variants the last one. Walk the whole page down
+ * and they are all of them */
 static void test_page_one_has_eleven_rows(void)
 {
     Rig r;
@@ -487,27 +495,6 @@ static void test_page_one_has_eleven_rows(void)
     CHECK(shown(&r.fake, "Nitro mode"));
     CHECK(shown(&r.fake, "Turbo mode"));
     CHECK(shown(&r.fake, "Warrior Player Car"));
-    CHECK(shown(&r.fake, "Speed units"));
-    CHECK(shown(&r.fake, "No driving assists"));
-    CHECK(shown(&r.fake, "Bumper view mirror"));
-    CHECK(shown(&r.fake, "Bumper view police radar"));
-    CHECK(shown(&r.fake, "Replay cameras in race mode"));
-    CHECK(shown(&r.fake, "Rival car markers"));
-    CHECK(shown(&r.fake, "3D render stats"));
-    CHECK_EQ_INT(r.fake.saves, 1);
-}
-
-/* UNLOCKS & MODS and MISCELLANEOUS on page 2: nine switches, Intro video the last of them. Walk the whole page down */
-static void test_page_two_has_nine_rows(void)
-{
-    Rig r;
-    int keys[48];
-    int n = keys_to_page_two(keys, ROW_FIRST_P2);
-    n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the nine) */
-    keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 10);
-    setup(&r);
-    run(&r, keys, n);
     CHECK(shown(&r.fake, "Warrior Rival Car"));
     CHECK(shown(&r.fake, "Mirror track mode"));
     CHECK(shown(&r.fake, "Rally track mode"));
@@ -515,6 +502,28 @@ static void test_page_two_has_nine_rows(void)
     CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
+    CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: ten switches, Intro video the last of them. Walk the whole page down */
+static void test_page_two_has_ten_rows(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_FIRST_P2);
+    n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the ten) */
+    keys[n++] = ENTER;
+    CHECK_EQ_INT(ROWS_P2, 10);
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Speed units"));
+    CHECK(shown(&r.fake, "No driving assists"));
+    CHECK(shown(&r.fake, "Bumper view mirror"));
+    CHECK(shown(&r.fake, "Bumper view police radar"));
+    CHECK(shown(&r.fake, "Replay cameras in race mode"));
+    CHECK(shown(&r.fake, "Rival car markers"));
+    CHECK(shown(&r.fake, "3D render stats"));
+    CHECK(shown(&r.fake, "Dash box"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
@@ -526,9 +535,9 @@ static void test_race_switch_rows_save_with_done(void)
 {
     Rig r;
     int keys[48] = { 0 };
-    int n = downs(keys, 0, ROW_MARKERS);                   /* Rival car markers, the ninth row of page 1 */
+    int n = keys_to_row(keys, ROW_MARKERS);                /* Rival car markers, page 2 */
     keys[n++] = ENTER;                                     /* Car markers: On -> Off */
-    n = downs(keys, n, ROWS_P1 - ROW_MARKERS);             /* past 3D render stats, down to Done */
+    n = downs(keys, n, downs_to_done(ROW_MARKERS));        /* past 3D render stats and Dash box, down to Done */
     keys[n++] = ENTER;
     setup(&r);
     run(&r, keys, n);
@@ -539,10 +548,10 @@ static void test_race_switch_rows_save_with_done(void)
     CHECK_EQ_INT(r.fake.saved.start, START_GAME_MODE);
 }
 
-/* the keys that walk from page 1's first row to its Speed units row (the fifth row, under IN-RACE OPTIONS) */
+/* the keys that walk from the screen's first row to its Speed units row (page 2's first row) */
 static int keys_to_speed_units(int *keys)
 {
-    return downs(keys, 0, ROW_UNITS);
+    return keys_to_row(keys, ROW_UNITS);
 }
 
 /* port: the units row sits in IN-RACE OPTIONS, above the switches under it, and reads "mph" while the language is
@@ -581,7 +590,7 @@ static void test_speed_units_choice_overrides_german(void)
     int keys[48] = { 0 };
     int n = keys_to_speed_units(keys);
     keys[n++] = ENTER;
-    n = downs(keys, n, ROWS_P1 - ROW_UNITS);               /* down to Done */
+    n = downs(keys, n, downs_to_done(ROW_UNITS));          /* down to Done */
     keys[n++] = ENTER;
     setup(&r);
     r.fake.german = 1;
@@ -598,7 +607,7 @@ static void test_speed_units_toggle_saves_kmh(void)
     int keys[48] = { 0 };
     int n = keys_to_speed_units(keys);
     keys[n++] = ENTER;
-    n = downs(keys, n, ROWS_P1 - ROW_UNITS);               /* down to Done */
+    n = downs(keys, n, downs_to_done(ROW_UNITS));          /* down to Done */
     keys[n++] = ENTER;
     setup(&r);
     run(&r, keys, n);
@@ -616,20 +625,20 @@ static void test_the_groups_have_headers(void)
     setup(&r);
     run(&r, keys, 1);
     CHECK(shown(&r.fake, "Cheats"));
-    CHECK(shown(&r.fake, "In-race options"));
+    CHECK(shown(&r.fake, "Unlocks & mods"));
 
     Rig two;
     setup(&two);
     int turn[48];
-    int n = keys_to_page_two(turn, ROW_FIRST_P2);
+    int n = keys_to_row(turn, ROW_FIRST_P2);
     turn[n++] = ESCAPE;
     run(&two, turn, n);
-    CHECK(shown(&two.fake, "Unlocks & mods"));
+    CHECK(shown(&two.fake, "In-race options"));
     CHECK(shown(&two.fake, "Miscellaneous"));
     /* page 1's headers are not page 2's: the two pages name different groups, and each redraw paints the whole page,
      * so what is left on screen after turning is page 2 alone */
     CHECK(!shown(&two.fake, "Cheats"));
-    CHECK(!shown(&two.fake, "In-race options"));
+    CHECK(!shown(&two.fake, "Unlocks & mods"));
 }
 
 /* the headers are the title's red, the rows cream or yellow as they are lit: the headers name a group, they are not a
@@ -641,7 +650,7 @@ static void test_headers_are_red_and_never_lit(void)
     setup(&r);
     run(&r, keys, 1);
     CHECK_EQ_INT(style_in(&r.fake, "Cheats"), STYLE_RED);
-    CHECK_EQ_INT(style_in(&r.fake, "In-race options"), STYLE_RED);
+    CHECK_EQ_INT(style_in(&r.fake, "Unlocks & mods"), STYLE_RED);
     CHECK_EQ_INT(style_in(&r.fake, "Explode mode"), STYLE_YELLOW);   /* the first row is selected */
     CHECK_EQ_INT(style_in(&r.fake, "Nitro mode"), STYLE_CREAM);
 }
@@ -656,19 +665,21 @@ static void test_the_rows_sit_under_their_groups(void)
     run(&one, here, 1);
     CHECK(y_in(&one.fake, "Cheats") < y_in(&one.fake, "Explode mode"));
     CHECK(y_in(&one.fake, "Explode mode") < y_in(&one.fake, "Warrior Player Car"));
-    CHECK(y_in(&one.fake, "Warrior Player Car") < y_in(&one.fake, "In-race options"));
-    CHECK(y_in(&one.fake, "In-race options") < y_in(&one.fake, "Speed units"));
-    CHECK(y_in(&one.fake, "Speed units") < y_in(&one.fake, "Rival car markers"));
-    CHECK(y_in(&one.fake, "Rival car markers") < y_in(&one.fake, "3D render stats"));
+    CHECK(y_in(&one.fake, "Warrior Player Car") < y_in(&one.fake, "Unlocks & mods"));
+    CHECK(y_in(&one.fake, "Unlocks & mods") < y_in(&one.fake, "Warrior Rival Car"));
+    CHECK(y_in(&one.fake, "Warrior Rival Car") < y_in(&one.fake, "Unlock Level"));
+    CHECK(y_in(&one.fake, "Unlock Level") < y_in(&one.fake, "Time with variants"));
 
     Rig two;
     setup(&two);
     int turn[48];
-    int n = keys_to_page_two(turn, ROW_FIRST_P2);
+    int n = keys_to_row(turn, ROW_FIRST_P2);
     turn[n++] = ESCAPE;
     run(&two, turn, n);
-    CHECK(y_in(&two.fake, "Unlocks & mods") < y_in(&two.fake, "Warrior Rival Car"));
-    CHECK(y_in(&two.fake, "Unlock Level") < y_in(&two.fake, "Miscellaneous"));
+    CHECK(y_in(&two.fake, "In-race options") < y_in(&two.fake, "Speed units"));
+    CHECK(y_in(&two.fake, "Speed units") < y_in(&two.fake, "3D render stats"));
+    CHECK(y_in(&two.fake, "3D render stats") < y_in(&two.fake, "Dash box"));
+    CHECK(y_in(&two.fake, "Dash box") < y_in(&two.fake, "Miscellaneous"));
     CHECK(y_in(&two.fake, "Miscellaneous") < y_in(&two.fake, "Start Screen"));
     CHECK(y_in(&two.fake, "Start Screen") < y_in(&two.fake, "Intro video"));
 }
@@ -685,20 +696,20 @@ static void test_both_pages_share_one_layout(void)
     Rig two;
     setup(&two);
     int turn[48];
-    int n = keys_to_page_two(turn, ROW_FIRST_P2);
+    int n = keys_to_row(turn, ROW_FIRST_P2);
     turn[n++] = ESCAPE;
     run(&two, turn, n);
 
-    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 8 on page 2 (the lines
+    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 9 on page 2 (the lines
      * are PITCH apart, with the gap of 14 added from the second header down) */
-    CHECK_EQ_INT(y_in(&two.fake, "Unlocks & mods"), y_in(&one.fake, "Cheats"));
-    CHECK_EQ_INT(y_in(&one.fake, "In-race options"), 100 + 5 * PITCH + 14);
-    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 8 * PITCH + 14);
+    CHECK_EQ_INT(y_in(&two.fake, "In-race options"), y_in(&one.fake, "Cheats"));
+    CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods"), 100 + 5 * PITCH + 14);
+    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 9 * PITCH + 14);
     /* the pitch: one row a line below the last */
     CHECK_EQ_INT(y_in(&one.fake, "Nitro mode") - y_in(&one.fake, "Explode mode"), PITCH);
-    CHECK_EQ_INT(y_in(&two.fake, "Rally track mode") - y_in(&two.fake, "Mirror track mode"), PITCH);
+    CHECK_EQ_INT(y_in(&two.fake, "No driving assists") - y_in(&two.fake, "Speed units"), PITCH);
     /* the gap: the second header starts further down than the first group's last row, by more than a row's pitch */
-    CHECK_EQ_INT(y_in(&one.fake, "In-race options") - y_in(&one.fake, "Warrior Player Car"), PITCH + 14);
+    CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods") - y_in(&one.fake, "Warrior Player Car"), PITCH + 14);
 }
 
 /* The page must fit between the title and the DONE/CANCEL band without covering either: the last row's text has to end
@@ -712,15 +723,15 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     run(&one, here, 1);
     /* the page's first and last words, as the text's own top and its bottom */
     CHECK(y_in(&one.fake, "Cheats") >= TITLE_BOTTOM);
-    CHECK(y_in(&one.fake, "3D render stats") + LINE < BUTTONS_TOP);
+    CHECK(y_in(&one.fake, "Time with variants") + LINE < BUTTONS_TOP);
 
     Rig two;
     setup(&two);
     int turn[48];
-    int n = keys_to_page_two(turn, ROW_FIRST_P2);
+    int n = keys_to_row(turn, ROW_FIRST_P2);
     turn[n++] = ESCAPE;
     run(&two, turn, n);
-    CHECK(y_in(&two.fake, "Unlocks & mods") >= TITLE_BOTTOM);
+    CHECK(y_in(&two.fake, "In-race options") >= TITLE_BOTTOM);
     CHECK(y_in(&two.fake, "Intro video") + LINE < BUTTONS_TOP);
 }
 
@@ -751,7 +762,7 @@ static void test_intro_video_reads_the_other_way(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_MOVIES);
+    int n = keys_to_row(keys, ROW_MOVIES);
     keys[n++] = ESCAPE;
     setup(&r);
     run(&r, keys, n);
@@ -842,7 +853,7 @@ static void test_left_on_page_two_done_goes_back(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_FIRST_P2);          /* page 2, its first row */
+    int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = LEFT;                                      /* page 1's Cancel */
     keys[n++] = LEFT;                                      /* page 1's Done */
@@ -858,12 +869,12 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_FIRST_P2);          /* page 2, its first row */
+    int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP, keys[n++] = UP;                        /* Intro video, past Dash box */
-    keys[n++] = RIGHT;                                     /* on */
-    keys[n++] = DOWN, keys[n++] = DOWN;                    /* Done */
+    keys[n++] = UP;                                        /* Intro video, page 2's last switch */
+    keys[n++] = RIGHT;                                     /* off */
+    keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -897,14 +908,14 @@ static void test_nav_click_turns_the_page(void)
     CHECK(shown(&r.fake, "< 2/2"));
 }
 
-/* port: page 2's Unlock Level still steps through its three values, under Unlocks now rather than its own group */
+/* port: page 1's Unlock Level still steps through its three values, under Unlocks & mods */
 static void test_unlock_steps_through_three_values(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_UNLOCK);            /* Unlock Level, below Lunar Springs Track */
+    int n = keys_to_row(keys, ROW_UNLOCK);                 /* Unlock Level, below Lunar Springs Track */
     keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* 0 to 2 */
-    n = downs(keys, n, page_two_downs_to_done(ROW_UNLOCK));   /* Done */
+    n = downs(keys, n, downs_to_done(ROW_UNLOCK));         /* Done */
     keys[n++] = ENTER;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -913,12 +924,12 @@ static void test_unlock_steps_through_three_values(void)
     CHECK_EQ_INT(r.fake.saved_unlock, 2);
 }
 
-/* Escape on page 2 puts the input back */
-static void test_escape_on_page_two_restores(void)
+/* Escape on page 1 puts the input back */
+static void test_escape_on_page_one_restores(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_page_two(keys, ROW_RIVAL);
+    int n = keys_to_row(keys, ROW_RIVAL);
     keys[n++] = SPACE, keys[n++] = ESCAPE;                 /* Warrior Rival Car on, then quit */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
@@ -932,9 +943,9 @@ static void test_lunar_row_is_saved_on_done(void)
 {
     Rig r;
     int keys[48] = {0};
-    int n = keys_to_page_two(keys, ROW_LUNAR);             /* down to Lunar Springs Track */
+    int n = keys_to_row(keys, ROW_LUNAR);                  /* down to Lunar Springs Track */
     keys[n++] = ENTER;
-    n = downs(keys, n, page_two_downs_to_done(ROW_LUNAR));
+    n = downs(keys, n, downs_to_done(ROW_LUNAR));
     keys[n++] = ENTER;
     setup(&r);
     run(&r, keys, n);
@@ -969,7 +980,7 @@ int main(void)
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
     test_page_one_has_eleven_rows();
-    test_page_two_has_nine_rows();
+    test_page_two_has_ten_rows();
     test_race_switch_rows_save_with_done();
     test_lunar_row_is_saved_on_done();
     test_speed_units_row_reads_mph_in_english();
@@ -1001,7 +1012,7 @@ int main(void)
     test_up_from_cancel_reaches_the_last_switch();
     test_right_from_done_reaches_cancel();
     test_nav_click_turns_the_page();
-    test_escape_on_page_two_restores();
+    test_escape_on_page_one_restores();
     test_done_writes_extras_cfg();
     return TEST_REPORT();
 }

@@ -19,11 +19,12 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
 /* port: the two pages, and the four groups the owner named, verbatim:
  *
  *   page 1  Cheats             Explode mode, Nitro mode, Turbo mode, Warrior Player Car
- *            In-race options    Speed units, No driving assists, Bumper view mirror, Bumper view police radar,
- *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12)
- *   page 2  Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
+ *            Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
  *                               Lunar Springs Track, Unlock Level, Time with variants
- *            Miscellaneous      Start Screen, Intro video, Dash box (Map / Gear lever / Hidden)
+ *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Bumper view police radar,
+ *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
+ *                               Dash box (Map / Gear lever / Hidden)
+ *            Miscellaneous      Start Screen, Intro video
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
  * is eleven rows and two headers, thirteen lines, which is what the 24 pitch fits.)
@@ -35,18 +36,18 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  * Modern 3D, Texture Filter and Fog are not here at all: they are on the port's own Graphics screen (graphics_own.c)
  * and edited in port.cfg from there. */
 enum { EXTRAS_PAGES = 2, EXTRAS_GROUPS = 2 };
-enum { GROUP_CHEATS = 0, GROUP_IN_RACE, GROUP_UNLOCKS, GROUP_MISC };   /* the two groups of each page, in order */
+enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the groups, in the pages' order */
 enum {
     ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
+    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
-    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
+    ROW_DASH_BOX,                                  /* port: In-race options' last, the dash's map box (port_extras.h) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
-    ROW_DASH_BOX,                                  /* port: Miscellaneous' last, the dash's map box (port_extras.h) */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */
-enum { ROW_FIRST_P2 = ROW_RIVAL, ROWS_P1 = ROW_FIRST_P2, ROWS_P2 = EXTRAS_ROWS - ROW_FIRST_P2 };
+enum { ROW_FIRST_P2 = ROW_UNITS, ROWS_P1 = ROW_FIRST_P2, ROWS_P2 = EXTRAS_ROWS - ROW_FIRST_P2 };
 
 typedef struct ExtrasMenuOps {
     void (*pointer_move_to)(void *ctx, int32_t x, int32_t y);
