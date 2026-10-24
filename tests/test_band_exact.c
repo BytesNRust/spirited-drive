@@ -88,30 +88,40 @@ static const View *the_view(void)
     return &view;
 }
 
-typedef void (*Draw)(const QuadTarget *q, const Case *c);
+/* top, bottom: the rows a windowed draw may store to (the others ignore them: their clip is the band) */
+typedef void (*Draw)(const QuadTarget *q, const Case *c, int top, int bottom);
 
-static void d_quad(const QuadTarget *q, const Case *c)
+static void d_quad(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
     const FshEntry t = bitmap();
     quad_draw_mode(q, &t, c->uv, c->s, (MapMode)c->mode, shade);
 }
-static void d_tri(const QuadTarget *q, const Case *c)
+static void d_tri(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
     const FshEntry t = bitmap();
     tri_draw_mode(q, &t, c->uv, c->s, (MapMode)c->mode, shade);
 }
-static void d_sprite_blend(const QuadTarget *q, const Case *c)
+static void d_sprite_blend(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
     sprite_scaled_blend(q, blend_rows, shape, c->w, c->h, c->x, c->y);
 }
-static void d_sprite(const QuadTarget *q, const Case *c) { sprite_scaled(q, shape, c->w, c->h, c->x, c->y); }
-static void d_sky(const QuadTarget *q, const Case *c)
+static void d_sprite(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
+    sprite_scaled(q, shape, c->w, c->h, c->x, c->y);
+}
+static void d_sky(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    (void)top, (void)bottom;
     const FshEntry t = bitmap();
     sky_smooth_triangle(&smooth, q, &t, c->uv, c->s);
 }
-static void d_modern(const QuadTarget *q, const Case *c)
+static void d_modern(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
     const FshEntry t = bitmap();
     const int32_t *const cam[4] = { c->cam[0], c->cam[1], c->cam[2], c->cam[3] };
     static uint8_t fog[MODERN_FOG_LEVELS][256];
@@ -121,21 +131,59 @@ static void d_modern(const QuadTarget *q, const Case *c)
     modern_road_set_style(c->filter || c->fog ? &style : NULL);
     modern_polygon(q, the_view(), &t, c->uv, cam, c->count, (MapMode)c->mode, shade);
 }
-static void d_modern_flat(const QuadTarget *q, const Case *c)
+static void d_modern_flat(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
     const int32_t *const cam[4] = { c->cam[0], c->cam[1], c->cam[2], c->cam[3] };
     modern_road_set_style(NULL);
     modern_flat(q, the_view(), (uint8_t)c->colour, cam, c->count);
 }
-static void d_flat(const QuadTarget *q, const Case *c) { flat_polygon(q, c->colour, c->count, c->s); }
-static void d_flat_shade(const QuadTarget *q, const Case *c) { flat_polygon_shade(q, shade, c->count, c->s, 0); }
-static void d_fill(const QuadTarget *q, const Case *c) { flat_fill_rect(q, c->x, c->y, c->w, c->h, c->colour); }
-static void d_line(const QuadTarget *q, const Case *c)
+static void d_flat(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    (void)top, (void)bottom;
+    flat_polygon(q, c->colour, c->count, c->s);
+}
+static void d_flat_shade(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    (void)top, (void)bottom;
+    flat_polygon_shade(q, shade, c->count, c->s, 0);
+}
+static void d_fill(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    (void)top, (void)bottom;
+    flat_fill_rect(q, c->x, c->y, c->w, c->h, c->colour);
+}
+/* the windowed draws: the whole clip decides the edges, only the band's rows are stored */
+static void w_flat(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    flat_polygon_rows(q, c->colour, c->count, c->s, top, bottom);
+}
+static void w_flat_shade(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    flat_polygon_shade_rows(q, shade, c->count, c->s, 0, top, bottom);
+}
+static void w_line(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    flat_line_rows(q, c->s[0], c->s[1], c->s[2], c->s[3], c->colour, top, bottom);
+}
+static void d_line(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    (void)top, (void)bottom;
     flat_line(q, c->s[0], c->s[1], c->s[2], c->s[3], c->colour);
 }
-static void d_horizon(const QuadTarget *q, const Case *c)
+static void d_horizon_plain(const QuadTarget *q, const Case *c, int top, int bottom)
 {
+    static HorizonTables tables;
+    static int made;
+    if (!made) horizon_tables(&tables, W, 90, 0x10000), made = 1;
+    const FshEntry t = bitmap();
+    const HorizonTarget target = { q->pixels, q->pitch };
+    const ClipRect clip = { q->clip_left, q->clip_top, q->clip_right, q->clip_bottom };
+    horizon_draw_flat_rows(&tables, &target, &clip, &t, c->x, c->mode, c->y, c->w, top, bottom);
+}
+static void d_horizon(const QuadTarget *q, const Case *c, int top, int bottom)
+{
+    (void)top, (void)bottom;
     static HorizonTables tables;
     static int made;
     if (!made) horizon_tables(&tables, W, 90, 0x10000), made = 1;
@@ -196,25 +244,30 @@ static void random_case(int kind, Case *c)
 typedef struct Kind {
     const char *name;
     Draw draw;
-    int exact;   /* asserted; the others are counted */
+    int exact;      /* asserted; the others are counted */
     int cases;
+    int windowed;   /* banded with the store window (the whole clip, the band's rows), not a narrowed clip */
 } Kind;
 
 static const Kind KINDS[] = {
-    { "quad_draw_mode", d_quad, 1, CASES },
-    { "tri_draw_mode", d_tri, 1, CASES },
-    { "sprite_scaled_blend", d_sprite_blend, 1, CASES },
-    { "sprite_scaled", d_sprite, 1, CASES },
-    { "modern_polygon", d_modern, 1, CASES },
-    { "modern_flat", d_modern_flat, 1, CASES },
-    { "flat_polygon", d_flat, 0, CASES },
-    { "flat_polygon_shade", d_flat_shade, 0, CASES },
-    { "flat_line", d_line, 0, CASES },
-    { "flat_fill_rect", d_fill, 1, CASES },
-    { "horizon_draw_flat_smooth", d_horizon, 1, 60 },
-    { "sky_smooth_triangle", d_sky, 1, CASES },
+    { "quad_draw_mode", d_quad, 1, CASES, 0 },
+    { "tri_draw_mode", d_tri, 1, CASES, 0 },
+    { "sprite_scaled_blend", d_sprite_blend, 1, CASES, 0 },
+    { "sprite_scaled", d_sprite, 1, CASES, 0 },
+    { "modern_polygon", d_modern, 1, CASES, 0 },
+    { "modern_flat", d_modern_flat, 1, CASES, 0 },
+    { "flat_polygon (narrowed clip)", d_flat, 0, CASES, 0 },
+    { "flat_polygon_shade (narrowed)", d_flat_shade, 0, CASES, 0 },
+    { "flat_line (narrowed clip)", d_line, 0, CASES, 0 },
+    { "flat_polygon_rows (window)", w_flat, 1, CASES, 1 },
+    { "flat_polygon_shade_rows", w_flat_shade, 1, CASES, 1 },
+    { "flat_line_rows (window)", w_line, 1, CASES, 1 },
+    { "flat_fill_rect", d_fill, 1, CASES, 0 },
+    { "horizon_draw_flat_smooth", d_horizon, 1, 60, 0 },
+    { "horizon_draw_flat_rows (window)", d_horizon_plain, 1, 60, 1 },
+    { "sky_smooth_triangle", d_sky, 1, CASES, 0 },
 };
-static const int KIND_OF[sizeof KINDS / sizeof KINDS[0]] = { 0, 1, 2, 2, 4, 5, 6, 7, 9, 10, 8, 3 };
+static const int KIND_OF[sizeof KINDS / sizeof KINDS[0]] = { 0, 1, 2, 2, 4, 5, 6, 7, 9, 6, 7, 9, 10, 8, 8, 3 };
 /* (random_case's `kind` per row of KINDS) */
 
 static int bands_of(int count, int cuts[MAX_BANDS + 1])
@@ -237,15 +290,17 @@ static int run_kind(const Kind *k, int random_kind, int *painted)
         fresh_background();
         memcpy(whole, background, sizeof whole);
         const QuadTarget full = { whole, W, BOX_L, BOX_T, BOX_R, BOX_B };
-        k->draw(&full, &c);
+        k->draw(&full, &c, BOX_T, BOX_B);
         memcpy(banded, background, sizeof banded);
+        const QuadTarget full_clip = { banded, W, BOX_L, BOX_T, BOX_R, BOX_B };
         int cuts[MAX_BANDS + 1];
         const int count = 2 + (int)(rnd() % (MAX_BANDS - 1));
         bands_of(count, cuts);
         for (int b = 0; b < count; b++) {
             if (cuts[b] >= cuts[b + 1]) continue;
             const QuadTarget band = { banded, W, BOX_L, cuts[b], BOX_R, cuts[b + 1] };
-            k->draw(&band, &c);
+            if (k->windowed) k->draw(&full_clip, &c, cuts[b], cuts[b + 1]);
+            else k->draw(&band, &c, 0, 0);
         }
         if (memcmp(whole, background, sizeof whole) != 0) (*painted)++;   /* the draw did something */
         if (memcmp(whole, banded, sizeof whole) != 0) diffs++;

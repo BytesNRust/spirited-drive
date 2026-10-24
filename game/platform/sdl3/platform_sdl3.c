@@ -306,8 +306,15 @@ void platform_set_window_icon(const uint8_t *rgba, int w, int h)
     SDL_DestroySurface(icon);
 }
 
+#ifndef __EMSCRIPTEN__
+static void pool_stop(void);
+#endif
+
 void platform_shutdown(void)
 {
+#ifndef __EMSCRIPTEN__
+    pool_stop();
+#endif
     if (window != NULL) SDL_ShowCursor();
     window_focused = false;
     if (audio != NULL) platform_audio_close();
@@ -950,4 +957,99 @@ void platform_sleep_ms(uint32_t ms)
 #else
     SDL_Delay(ms);
 #endif
+}
+
+/* The job pool (platform.h). Workers are made the first time a batch asks for them and wait on `wake`; a batch is
+ * published, `needed` workers woken, and the caller claims indexes with them. Every woken worker checks in on `parked`
+ * once it can claim no more, and the caller waits for all of them before it returns, so no worker is ever inside a
+ * batch while the next one is set up. */
+#ifndef __EMSCRIPTEN__
+enum { POOL_MAX = 15 };
+static struct {
+    SDL_Thread *thread[POOL_MAX];
+    int workers;
+    SDL_Semaphore *wake, *parked;
+    void (*job)(void *ctx, int index);
+    void *ctx;
+    int count;
+    SDL_AtomicInt next, quit;
+} pool;
+
+static void pool_run(void)
+{
+    for (;;) {
+        const int i = SDL_AddAtomicInt(&pool.next, 1);
+        if (i >= pool.count) return;
+        pool.job(pool.ctx, i);
+    }
+}
+
+static int pool_worker(void *unused)
+{
+    (void)unused;
+    for (;;) {
+        SDL_WaitSemaphore(pool.wake);
+        if (SDL_GetAtomicInt(&pool.quit) != 0) return 0;
+        pool_run();
+        SDL_SignalSemaphore(pool.parked);
+    }
+}
+
+static int pool_grow(int workers)
+{
+    if (workers > POOL_MAX) workers = POOL_MAX;
+    if (pool.wake == NULL) {
+        pool.wake = SDL_CreateSemaphore(0);
+        pool.parked = SDL_CreateSemaphore(0);
+        if (pool.wake == NULL || pool.parked == NULL) return 0;
+    }
+    while (pool.workers < workers) {
+        pool.thread[pool.workers] = SDL_CreateThread(pool_worker, "tnfs-job", NULL);
+        if (pool.thread[pool.workers] == NULL) break;
+        pool.workers++;
+    }
+    return pool.workers;
+}
+
+static void pool_stop(void)
+{
+    if (pool.workers == 0) return;
+    SDL_SetAtomicInt(&pool.quit, 1);
+    for (int i = 0; i < pool.workers; i++) SDL_SignalSemaphore(pool.wake);
+    for (int i = 0; i < pool.workers; i++) SDL_WaitThread(pool.thread[i], NULL);
+    pool.workers = 0;
+    SDL_SetAtomicInt(&pool.quit, 0);
+}
+#endif
+
+int platform_cpu_count(void)
+{
+#ifdef __EMSCRIPTEN__
+    return 1;
+#else
+    const int n = SDL_GetNumLogicalCPUCores();
+    return n < 1 ? 1 : n;
+#endif
+}
+
+void platform_parallel_for(int count, void (*job)(void *ctx, int index), void *ctx, int threads)
+{
+#ifndef __EMSCRIPTEN__
+    if (threads > 1 && count > 1) {
+        const int wanted = (threads < count ? threads : count) - 1;
+        const int workers = pool_grow(wanted);
+        const int used = workers < wanted ? workers : wanted;
+        if (used > 0) {
+            pool.job = job, pool.ctx = ctx, pool.count = count;
+            SDL_SetAtomicInt(&pool.next, 0);
+            for (int i = 0; i < used; i++) SDL_SignalSemaphore(pool.wake);
+            pool_run();
+            for (int i = 0; i < used; i++) SDL_WaitSemaphore(pool.parked);
+            return;
+        }
+    }
+#else
+    (void)threads;
+#endif
+    for (int i = 0; i < count; i++) job(ctx, i);
 }

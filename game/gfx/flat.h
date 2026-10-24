@@ -69,4 +69,14 @@ void flat_frame_rect(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x
 void flat_line(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
                uint32_t colour);
 
+/* port (render bands): the same draws with the target's whole clip deciding every edge and span, and only the stores in
+ * rows [top, bottom) kept: the rows a band owns (a clip narrowed to the band would change the arithmetic of the
+ * edges, flat.c). Over a band's rows they paint what the plain draws paint there. */
+void flat_polygon_rows(const QuadTarget *target, uint32_t colour, int count, const int32_t *points, int32_t top,
+                       int32_t bottom);
+void flat_polygon_shade_rows(const QuadTarget *target, const uint8_t *remap, int count, const int32_t *points,
+                             int merge, int32_t top, int32_t bottom);
+void flat_line_rows(const QuadTarget *target, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t colour,
+                    int32_t top, int32_t bottom);
+
 #endif

@@ -6,6 +6,7 @@
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
 #include "viewer/dash_box.h"
+#include "game/sys/bands.h"
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
@@ -240,6 +241,24 @@ static LayerPiece wide_box_piece(int map_on, ScreenPoint map_at)
 /* port: the 640 frame (the race's 2D, LAYER_KEY where the 3D goes) over the wide 3D view: inside the car the dash
  * at its size with its sides stretched (screen_dash_x / _y), the radar detector on it, the mirror at its anchor; outside it centred with the gauge at the left;
  * the scoreboard's three groups and the map at their anchors in both; the police screen alone centred */
+/* port (render bands): the compose's rows on bands (a band's rows are what the whole gives there) */
+typedef struct {
+    const LayerCompose *c;
+    const uint8_t *frame;
+} ComposeJob;
+
+static void compose_band(void *user, int top, int bottom)
+{
+    const ComposeJob *job = user;
+    layer_compose_rows(job->c, job->frame, drive_wide.pixels, top, bottom);
+}
+
+static void compose_banded(const LayerCompose *c, const uint8_t *frame)
+{
+    const ComposeJob job = { c, frame };
+    bands_rows(0, c->layer_h, compose_band, (void *)&job);
+}
+
 void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 {
     const RaceCamera *camera = race->chase.camera;
@@ -302,7 +321,7 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
     if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
-    layer_compose(&c, frame, drive_wide.pixels);
+    compose_banded(&c, frame);
     const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
     if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &mirror_cs);
     if (lights) {  /* the strip between the lights */
