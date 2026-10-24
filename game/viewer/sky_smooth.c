@@ -57,11 +57,8 @@ static void draw_row(const Draw *d, int32_t y, double left, double right)
     if (last > t->clip_right - 1) last = t->clip_right - 1;
     if (!(first <= last)) return;   /* also an edge far off the target, before its x is taken as an int */
     uint8_t *row = t->pixels + (size_t)y * (size_t)t->pitch;
-    for (int32_t x = (int32_t)first; x <= (int32_t)last; x++) {
-        const double u = d->g.base[0] + d->g.dx[0] * x + d->g.dy[0] * y;
-        const double v = d->g.base[1] + d->g.dx[1] * x + d->g.dy[1] * y;
-        row[x] = horizon_smooth_texel(d->s, d->texture, (int32_t)floor(u), (int32_t)floor(v), x, y);
-    }
+    const double u[3] = { d->g.base[0], d->g.dx[0], d->g.dy[0] }, v[3] = { d->g.base[1], d->g.dx[1], d->g.dy[1] };
+    horizon_smooth_span(d->s, d->texture, row, (int32_t)first, (int32_t)last, y, u, v);
 }
 
 static int target_valid(const QuadTarget *t, const FshEntry *e)

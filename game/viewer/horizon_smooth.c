@@ -4,6 +4,9 @@
 #include "game/sys/bands.h"
 #include <math.h>
 #include <string.h>
+#ifdef __SSE4_1__
+#include <smmintrin.h>
+#endif
 
 enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
 
@@ -113,16 +116,63 @@ static int32_t clamp_texel(int32_t c, int32_t n)
     return c < 0 ? 0 : c >= n ? n - 1 : c;
 }
 
-uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int32_t u, int32_t v, int x, int y)
+#ifdef __SSE4_1__
+/* palette entry t's red, green and blue as the lanes of a register (the fourth lane is the next byte, not read) */
+static inline __m128i palette_rgb(const HorizonSmooth *s, uint8_t t)
+{
+    int32_t four;
+    memcpy(&four, s->palette + 3 * t, sizeof four);   /* the last entry's fourth byte is the next member's */
+    return _mm_cvtepu8_epi32(_mm_cvtsi32_si128(four));
+}
+#endif
+
+/* inlined into the span: a call per pixel kept the blend's Pair in memory */
+static inline __attribute__((always_inline)) uint8_t texel_at(const HorizonSmooth *s, const FshEntry *bitmap, int32_t u,
+                                                              int32_t v, int x, int y)
 {
     const int32_t w = bitmap->width, h = bitmap->height;
     const int32_t c = u >> 16, r = v >> 16;   /* floor: arithmetic shift */
     const Column col = { clamp_texel(c, w), clamp_texel(c + 1, w), (int32_t)((uint32_t)u & 0xffff) >> 8 };
     const uint8_t *row0 = bitmap->payload + (size_t)clamp_texel(r, h) * w;
     const uint8_t *row1 = bitmap->payload + (size_t)clamp_texel(r + 1, h) * w;
+#ifdef __SSE4_1__
+    /* pair_make and pair_blend with the three channels in the lanes of one register: the same integer sums, products
+     * and shifts */
+    const uint8_t t00 = row0[col.c0], t10 = row0[col.c1], t01 = row1[col.c0], t11 = row1[col.c1];
+    if (t00 == t10 && t00 == t01 && t00 == t11) return t00;
+    const int32_t wv = (int32_t)((uint32_t)v & 0xffff) >> 8;
+    const __m128i p00 = palette_rgb(s, t00), p10 = palette_rgb(s, t10), p01 = palette_rgb(s, t01),
+                  p11 = palette_rgb(s, t11);
+    const __m128i top = _mm_add_epi32(_mm_mullo_epi32(_mm_set1_epi32(ONE - col.w), p00),
+                                      _mm_mullo_epi32(_mm_set1_epi32(col.w), p10));
+    const __m128i bottom = _mm_add_epi32(_mm_mullo_epi32(_mm_set1_epi32(ONE - col.w), p01),
+                                         _mm_mullo_epi32(_mm_set1_epi32(col.w), p11));
+    const int32_t dither = (BAYER[y & 3][x & 3] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
+    __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_mullo_epi32(_mm_set1_epi32(ONE - wv), top),
+                                            _mm_mullo_epi32(_mm_set1_epi32(wv), bottom)),
+                              _mm_set1_epi32(dither));
+    m = _mm_min_epi32(_mm_max_epi32(_mm_srai_epi32(m, 16), _mm_setzero_si128()), _mm_set1_epi32(255));
+    int32_t rgb[4];
+    _mm_storeu_si128((__m128i *)rgb, m);
+    return horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
+#else
     Pair p;
     pair_make(s, &col, row0, row1, &p);
     return p.only >= 0 ? (uint8_t)p.only : pair_blend(s, &p, (int32_t)((uint32_t)v & 0xffff) >> 8, x, y);
+#endif
+}
+
+uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int32_t u, int32_t v, int x, int y)
+{
+    return texel_at(s, bitmap, u, v, x, y);
+}
+
+void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y,
+                         const double u[3], const double v[3])
+{
+    for (int32_t x = x0; x <= x1; x++)
+        row[x] = texel_at(s, bitmap, (int32_t)floor(u[0] + u[1] * x + u[2] * y), (int32_t)floor(v[0] + v[1] * x + v[2] * y),
+                          x, y);
 }
 
 /* 0043a18c's band blended: the same rows ((height - 1) x scale from y, the bitmap's from first_row), clipped */

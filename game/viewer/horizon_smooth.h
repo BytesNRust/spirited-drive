@@ -30,6 +30,11 @@ uint8_t horizon_smooth_nearest(const HorizonSmooth *s, int r, int g, int b);
  * where the four are one (the 3D sky ring's, sky_smooth.h). */
 uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int32_t u, int32_t v, int x, int y);
 
+/* port: the pixels x0..x1 of `row` (screen row y) as horizon_smooth_texel gives them, the texel position of pixel x
+ * floor(base + dx * x + dy * y) for u = { base, dx, dy } and v likewise. */
+void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y,
+                         const double u[3], const double v[3]);
+
 /* horizon_draw_flat with the band blended. */
 void horizon_draw_flat_smooth(const HorizonSmooth *s, const HorizonTables *t, const HorizonTarget *target,
                               const ClipRect *clip, const FshEntry *horz, int32_t yaw, int mirrored, int sky_off,
