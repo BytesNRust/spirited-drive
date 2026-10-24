@@ -106,6 +106,18 @@ static void push_editing_key(SDL_Keycode key)
 
 static void apply_script_text(void);
 
+void platform_text_input(bool on)
+{
+    if (window == NULL) return;
+    if (on) SDL_StartTextInput(window);
+    else SDL_StopTextInput(window);
+}
+
+bool platform_text_input_active(void)
+{
+    return window != NULL && SDL_TextInputActive(window);
+}
+
 uint32_t platform_next_text(void)
 {
     if (script_count > 0) apply_script_text();
