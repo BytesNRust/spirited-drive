@@ -218,11 +218,37 @@ static void menu_return_allows_immediate_esc(void)
     menu_return(0);
 }
 
+/* The P that left the pause is still down in the frame's keys when the race goes on: the exe's last = the tick keeps
+ * it from pausing again for PAUSE_GAP; the port's cleared last waits for P to be up first, then pauses at once. */
+static void pause_return_needs_p_up(void)
+{
+    RaceMenuKeysState st;
+    pause_return(1, &st);
+    MenuTrack mt = { 0 };
+    RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+    RaceMenuKeysInputs in = { .tick = 5051, .phase = PHASE_RACING, .pause = 1 };
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 0);
+    in.pause = 0, in.tick = 5060;
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    in.pause = 1, in.tick = 5070;
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 1);
+    CHECK_EQ_INT(mt.set_which, RACE_SCHEDULE_PAUSE);
+
+    pause_return(0, &st);
+    mt = (MenuTrack){ 0 };
+    in.pause = 1, in.tick = 5051;
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 0);
+}
+
 int main(void)
 {
     start_of_race_resets_last();
     menu_gap_still_blocks_without_pause();
     pause_return_allows_immediate_esc();
     menu_return_allows_immediate_esc();
+    pause_return_needs_p_up();
     return TEST_REPORT();
 }

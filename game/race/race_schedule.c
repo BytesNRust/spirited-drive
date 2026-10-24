@@ -59,7 +59,9 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
         if (in->detail < 3) ops->detail(ops->ctx, DETAIL_SEGMENTS[in->detail]);
         return;
     }
-    if (in->playback != 0 || in->pause == 0 || in->tick <= KEYS_AFTER || st->pending != 0) return;
+    if (in->pause == 0) st->port_pause_up_wait = 0;
+    if (in->playback != 0 || in->pause == 0 || st->port_pause_up_wait != 0 || in->tick <= KEYS_AFTER || st->pending != 0)
+        return;
     if (ops->notice_up(ops->ctx) != 0 || x_add(st->last, PAUSE_GAP) > in->tick) return;
     st->last = in->tick;
     ops->set(ops->ctx, next, RACE_SCHEDULE_PAUSE, 1);
@@ -117,6 +119,7 @@ void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeys
     st->pending = 0;
     st->last = in->port_resume_keys ? 0 : in->tick;
     st->port_esc_up_wait = in->port_resume_keys != 0;
+    st->port_pause_up_wait = in->port_resume_keys != 0;
     ops->setup_43cbe0(ops->ctx);
     *loading = 0;
 }

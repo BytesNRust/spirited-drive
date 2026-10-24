@@ -87,6 +87,8 @@ typedef struct {
     int16_t dropped;            /* 0052b314: written 1 */
     int32_t w509d70;            /* 00509d70: written 2 */
     int16_t port_esc_up_wait;   /* port: back from the menu or the pause, ESC counts only once it has been up */
+    int16_t port_pause_up_wait; /* port: back from the pause, P counts only once it has been up (the frame's keys
+                                 * still hold the P that left it, and the cleared `last` no longer covers it) */
     int16_t port_was_racing, port_left;  /* port: the race's phase last frame, and that it has been left since */
 } RaceMenuKeysState;
 
