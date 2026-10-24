@@ -69,6 +69,7 @@ typedef struct StandingsInputs {
     int unknown_50a5b6;         /* the short 0050a5b6: 1 ends the screen */
     int32_t screen;             /* 00524834 */
     int32_t screen_shape;       /* [00524834] + 0x2c */
+    int cheats;                 /* port: 1 when the race ran with cheats: the header band's "(CHEATS)" (records_glue_cheats) */
 } StandingsInputs;
 
 typedef struct StandingsState {

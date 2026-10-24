@@ -165,6 +165,7 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int16_t row, int16_
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     if (track < 3) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[track]));
     ops->text_select(ops->ctx, 1);
+    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
     draw_place(in, ops);
     draw_heads(in, ops);
     draw_totals(in, ops);

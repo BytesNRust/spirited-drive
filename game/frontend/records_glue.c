@@ -69,6 +69,11 @@ void records_glue_shown(uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image)
     records_glue_shown_as(ROUTE_SEGMENT, out, image);
 }
 
+int records_glue_cheats(RouteOp op, const uint8_t *image)
+{
+    return records_has_cheats(shown_kind(op, image));
+}
+
 void records_glue_marks_as(RouteOp op, const uint8_t *image, ResultsMarks *out)
 {
     const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);

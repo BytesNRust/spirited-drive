@@ -167,9 +167,6 @@ static void draw_records(const ResultsInputs *in, int segment, int beaten, const
     draw_gearbox(in, g32(rec + LAP_GEARBOX), 0x17c, "h.h", ops);
 }
 
-/* port: the header band's "(CHEATS)", right of the Road & Track logo (its art ends near x 270), on a race with cheats */
-enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };
-
 static void draw_page(const ResultsInputs *in, int32_t bank, int segment, int beaten, const ResultsOps *ops)
 {
     static const char *const TRACK_TAG[3] = { "city", "coas", "alpi" };
@@ -177,7 +174,7 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int segment, int be
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     if (track < 3) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[track]));
     ops->text_select(ops->ctx, 1);
-    if (results_cheats(in)) ops->text_at(ops->ctx, "(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
     draw_place(in, segment, ops);
     draw_heads(in, segment, ops);
     draw_times(in, segment, ops);

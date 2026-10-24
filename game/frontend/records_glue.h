@@ -30,6 +30,9 @@ void records_glue_shown_as(RouteOp op, uint8_t out[RECORD_CHECK_IMAGE], const ui
 /* The marks of that table into `out`: slots NULL for the table without cheats (a normal race without cheats, a mirror
  * or rally without), else the track's slot marks; and the laps choice of its totals. */
 void records_glue_marks_as(RouteOp op, const uint8_t *image, ResultsMarks *out);
+/* 1 when the race a table of `op` is shown for ran with cheats (the kind records_glue_marks_as marks its rows with): the
+ * predicate the results screens' "(CHEATS)" and the standings' share */
+int records_glue_cheats(RouteOp op, const uint8_t *image);
 /* 1 once Tab went down since it was last asked (BestTimesOps.plus_toggle) */
 int32_t records_glue_toggle(void *ctx);
 

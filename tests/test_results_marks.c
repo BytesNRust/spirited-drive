@@ -4,6 +4,7 @@
 #include "game/frontend/circuit_results.h"
 #include "game/frontend/results_screen.h"
 #include "game/frontend/track_results.h"
+#include "game/frontend/lap_times.h"
 #include "game/frontend/records_route.h"
 #include "test.h"
 
@@ -23,7 +24,6 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 void platform_free_file(uint8_t *data) { (void)data; }
 
 enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0xd7, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
-enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };   /* the header band, right of the logo */
 enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* where a suffix on the segment screen's art titles would go */
 enum { Y_BEST_ROW = 0x11d, Y_TRACK_TOP = 0x177, Y_HEAD = 0x5a, BEST_LEFT = 0x1d6, ROW_Y = 0x82, ROW_STEP = 0x15 };
 
@@ -337,6 +337,7 @@ static void test_track_results_header_and_best_row(void)
     track_results_screen(0, &in, &st, &p, &ops);
     CHECK(any_text("Best Time (c)"));
     CHECK(found("W", X_MARKS, Y_BEST_ROW));
+    CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
 }
 
 static void test_track_results_normal_table_has_no_marks(void)
@@ -352,6 +353,7 @@ static void test_track_results_normal_table_has_no_marks(void)
     track_results_screen(0, &in, &st, &p, &ops);
     CHECK(any_text("Best Time"));
     CHECK(!any_with_suffix("(cheats)"));
+    CHECK(!any_text("(CHEATS)"));
 }
 
 static void test_circuit_results_header_and_best_row(void)
@@ -372,6 +374,65 @@ static void test_circuit_results_header_and_best_row(void)
     circuit_results_screen(0, &in, &st, &p, &ops);
     CHECK(any_text("Best Time (c)"));
     CHECK(found("NE", X_MARKS, Y_BEST_ROW));
+    CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
+}
+
+static void test_circuit_results_normal_table_has_no_banner(void)
+{
+    static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
+    ResultsInputs in;
+    ResultsState st = { 0, screen_palette, 0 };
+    DialogPointer p;
+    ResultsOps ops = fake_ops();
+    setup_inputs(&in, game, image, NULL);
+    image[TRACK_WORD] = 3;
+    memset(&p, 0, sizeof p);
+    reset();
+    circuit_results_screen(0, &in, &st, &p, &ops);
+    CHECK(!any_text("(CHEATS)"));
+}
+
+static void test_best_totals_banner_on_cheats_race(void)
+{
+    static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    ResultsMarks marks = { slots, 0 };
+    ResultsInputs in;
+    ResultsState st = { 0, screen_palette, 0 };
+    DialogPointer p;
+    ResultsOps ops = fake_ops();
+    memset(slots, 0, sizeof slots);
+    setup_inputs(&in, game, image, &marks);
+    memset(&p, 0, sizeof p);
+    reset();
+    best_totals_screen(0, 0, &in, &st, &p, &ops);
+    CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
+    setup_inputs(&in, game, image, NULL);
+    reset();
+    best_totals_screen(0, 0, &in, &st, &p, &ops);
+    CHECK(!any_text("(CHEATS)"));
+}
+
+/* the lap times page of a race with cheats has the banner too; the page of a normal race has none */
+static void test_lap_times_banner_follows_cheats(void)
+{
+    static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    ResultsMarks marks = { slots, 0 };
+    ResultsInputs in;
+    ResultsState st = { 0, screen_palette, 0 };
+    DialogPointer p;
+    ResultsOps ops = fake_ops();
+    memset(slots, 0, sizeof slots);
+    setup_inputs(&in, game, image, &marks);
+    memset(&p, 0, sizeof p);
+    reset();
+    lap_times_screen(0, 0, &in, &st, &p, &ops);
+    CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
+    setup_inputs(&in, game, image, NULL);
+    reset();
+    lap_times_screen(0, 0, &in, &st, &p, &ops);
+    CHECK(!any_text("(CHEATS)"));
 }
 
 int main(void)
@@ -386,5 +447,8 @@ int main(void)
     test_track_results_header_and_best_row();
     test_track_results_normal_table_has_no_marks();
     test_circuit_results_header_and_best_row();
+    test_circuit_results_normal_table_has_no_banner();
+    test_best_totals_banner_on_cheats_race();
+    test_lap_times_banner_follows_cheats();
     return TEST_REPORT();
 }
