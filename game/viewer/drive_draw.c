@@ -253,6 +253,7 @@ static void df_ahead(void *ctx, int32_t node)
 {
     (void)node;
     if (((DriveFrame *)ctx)->ticked) ported_view_frame_rows(drive_hud.mirror.car_rows);
+    else ported_view_mirror_rows_again(drive_hud.mirror.car_rows);  /* port: by this frame's camera node, not the tick's */
 }
 
 static void df_mirror_transform(void *ctx) { DriveFrame *f = ctx; if (f->mirror_on) f->mirror_ops.transform(f->mirror_ops.ctx); }

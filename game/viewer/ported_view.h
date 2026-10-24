@@ -148,6 +148,7 @@ void ported_view_set_puffs(const PuffArt *art, const PuffBlend *blend, int32_t (
 SkidMarks *ported_view_skids(void);
 
 void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS]);
+void ported_view_mirror_rows_again(uint8_t behind[MIRROR_CAR_ROWS]);   /* port: mirror_car_rows_at for this frame */
 
 /* The track from `cam` with `count` cars, list[i] drawn with slot i's model. */
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *cam,

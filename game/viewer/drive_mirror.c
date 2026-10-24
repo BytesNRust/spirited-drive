@@ -171,10 +171,15 @@ static void mirror_rows(Frame *f)
 {
     const RaceState *race = f->w->race;
     int32_t w4c53a4 = 0;
-    const TrackStepInputs in = { race->chase.node, f->w->rows_again, race->chase.node, &f->m->first_segment, &w4c53a4,
-                                 &f->m->count, race->circuit, f->segment_mask, 0 };
+    /* port: the rows checked every frame (they are made again only when their first segment moves), as the bumper
+     * mirror's: a frame between two steps (drive_interp) shows the older node and took the flag the newer one set,
+     * which left the rows a segment behind the scene until the next node and the nearest road out of the mirror */
+    int32_t again = 1;
+    const TrackStepInputs in = { race->chase.node, &again, race->chase.node, &f->m->first_segment, &w4c53a4,
+                                 &f->m->count, race->circuit, f->segment_mask, 0, 1 };
     const TrackStepOps ops = { f, step_none, build_none, mirror_row_op };
     track_stream_step(&ops, &in);
+    *f->w->rows_again = 0;  /* the chase's flag cleared as 0043f540 does */
 }
 
 static void view_op(void *ctx, int rear)
@@ -316,7 +321,7 @@ static void scene_op(void *ctx, int32_t count)
     const Tri *tri = f->w->tri;
     const MirrorSceneInputs in = { 0, f->layout, f->m->near, f->w->race->chase.node, f->segment_mask,
                                    f->w->race->circuit, (int32_t)(tri->ring_nodes - 1u), segment_bytes, f->cache,
-                                   f->m->vertices };
+                                   f->m->vertices, 1 };
     const MirrorSceneOps ops = { f, scene_texture, scene_subdivide, scene_cars };
     mirror_scene(&ops, &in, count);
 }

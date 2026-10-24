@@ -2,6 +2,7 @@
 #include "game/race/mirror_scene.h"
 
 #include "game/gfx/x86_int.h"
+#include "game/race/track_step.h"
 #include "game/race/track_tables.h"
 #include "game/sys/fixed_math.h"
 
@@ -37,6 +38,20 @@ void mirror_car_rows(Car *const *cars, int32_t count, int32_t segments, int32_t 
         car->draw_node2 = node;
         const int32_t behind = node <= camera_node ? x_sub(camera_node, node) : x_add(x_sub(ring, node), camera_node);
         if (behind >= MIRROR_CAR_ROWS || behind < 0) continue;  /* port guard: < 0 writes before 0051c7a1 */
+        rows[behind] = 1;
+    }
+}
+
+void mirror_car_rows_at(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node, uint8_t rows[MIRROR_CAR_ROWS])
+{
+    memset(rows, 0, MIRROR_CAR_ROWS);
+    const int32_t ring = x_shl(segments, 2);
+    for (int32_t i = 0; i < count; i++) {
+        const Car *car = cars[i];
+        if (car->physics == PHYSICS_SKIPPED) continue;
+        const int32_t node = car->draw_node2;
+        const int32_t behind = node <= camera_node ? x_sub(camera_node, node) : x_add(x_sub(ring, node), camera_node);
+        if (behind >= MIRROR_CAR_ROWS || behind < 0) continue;
         rows[behind] = 1;
     }
 }
@@ -89,7 +104,7 @@ void mirror_scene(const MirrorSceneOps *ops, const MirrorSceneInputs *in, int32_
     if (in->skip != 0) return;
     MirrorBounds box;
     mirror_bounds(in->layout, &box);
-    int32_t segment = (x_add(in->camera_node, 3) / 4 - SEGMENTS_BEHIND) & in->segment_mask;
+    int32_t segment = track_mirror_first(in->camera_node, in->segment_mask, in->port_eye_ahead);
     if (in->circuit == 0 && segment < 0) segment = 0;
     int32_t node = x_shl(segment, 2);
     if (count > MIRROR_SEGMENTS) count = MIRROR_SEGMENTS;  /* port guard: 004c2e94 and 00509330 hold 5 */

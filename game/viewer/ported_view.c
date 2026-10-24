@@ -262,6 +262,13 @@ void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS])
                    behind);
 }
 
+/* port: the mirror's rows again for the camera's node of this frame, the cars not moved on (mirror_car_rows_at) */
+void ported_view_mirror_rows_again(uint8_t behind[MIRROR_CAR_ROWS])
+{
+    if (shadow_race == NULL) return;
+    mirror_car_rows_at(shadow_race->cars, shadow_race->car_count, shadow_race->segments, shadow_race->chase.node, behind);
+}
+
 static const Car *followed_car(void)
 {
     return shadow_race->cars[race_slot(shadow_race->player)];
