@@ -77,6 +77,10 @@ uint32_t platform_next_text(void);
 void platform_text_input(bool on);
 bool platform_text_input_active(void);
 
+/* The system's mouse cursor is hidden over the window (the menus draw their own pointer): while the window has the focus,
+ * in fullscreen and windowed alike; shown again on losing the focus and at platform_shutdown. */
+bool platform_cursor_hidden(void);
+
 enum {
     PLATFORM_MOUSE_LEFT = 1,
     PLATFORM_MOUSE_RIGHT = 2
