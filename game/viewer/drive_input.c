@@ -6,6 +6,7 @@
 #include "game/race/input_read.h"
 #include "game/race/input_tick.h"
 #include "game/race/race_keys.h"
+#include "game/sys/port_controls.h"
 #include "game/sys/resource.h"
 #include "viewer/drive_autopilot.h"
 #include "viewer/drive_joy.h"
@@ -158,6 +159,8 @@ void drive_input_start(DriveInput *in, RaceState *race)
         config[i] = w != NULL ? (int16_t)(uint16_t)(w[0] | w[1] << 8) : DEFAULT_CONFIG[i];
     }
     input_setup(config, (int16_t)resource_german(), 0, race->controls, in->codes, &w4fb788);
+    const PortControls port = port_controls_load();
+    port_controls_apply_keys(&port, in->codes);   /* port: the player's keyboard keys (controls.cfg) over config.dat's */
     platform_virtual_key(ACT_HORN, in->codes[INPUT_KEY_HORN]);   /* port: a pad's horn button presses the horn's key */
     platform_virtual_key(ACT_VIEW, RACE_KEYS_PAD_VIEW);          /* and its View button not F1, the mirror's now */
     platform_virtual_key(ACT_NITRO, RACE_KEYS_PAD_NITRO);        /* port: and its Nitro button, the NITRO start's key */

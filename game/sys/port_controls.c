@@ -1,6 +1,7 @@
 /* port: the port's control bindings (controls.cfg). */
 #include "game/sys/port_controls.h"
 #include "game/platform/platform.h"
+#include "game/sys/key_codes.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -12,7 +13,7 @@
 enum {
     MAX_BUTTON = 63, MAX_AXIS = 15, MAX_HAT = 7, MAX_HAT_MASK = 15,
     DEADZONE_MAX = 50, SENSITIVITY_MIN = 50, SENSITIVITY_MAX = 200, STRENGTH_MAX = 100,
-    LINE_SIZE = 160, SOURCE_SIZE = 40,
+    LINE_SIZE = 160, SOURCE_SIZE = 40, MAX_SCANCODE = 0x7f,
     /* SDL_Gamepad's numbers (SDL_GamepadButton / SDL_GamepadAxis) */
     PAD_SOUTH = 0, PAD_EAST = 1, PAD_WEST = 2, PAD_NORTH = 3, PAD_RIGHT_SHOULDER = 10, PAD_DPAD_LEFT = 13,
     PAD_DPAD_RIGHT = 14,
@@ -22,6 +23,17 @@ enum {
 static const char *const ACTION_KEY[ACT_COUNT] = {
     "steer", "steer_left", "steer_right", "gas", "brake", "gear_up", "gear_down", "camera", "handbrake", "horn",
     "pause", "view", "nitro" };
+
+static const char *const KEY_KEY[PKEY_COUNT] = {
+    "key_left", "key_right", "key_gas", "key_brake", "key_gear_up", "key_gear_down", "key_handbrake", "key_horn",
+    "key_camera" };
+static const char *const KEY_WORD[PKEY_COUNT] = {
+    "Steer left", "Steer right", "Accelerate", "Brake", "Gear up", "Gear down", "Handbrake", "Horn", "Camera" };
+/* the config.dat short of each (input_setup.c: words 3..12 go to the codes in this order, the hold key's before the
+ * handbrake's) */
+static const int KEY_WORD_AT[PKEY_COUNT] = { 3, 4, 5, 6, 7, 8, 9, 11, 10 };
+
+const char *port_controls_key_name(PortKey key) { return key >= 0 && key < PKEY_COUNT ? KEY_WORD[key] : ""; }
 
 PortControls port_controls_defaults(void)
 {
@@ -106,6 +118,20 @@ static int parse_sources(const char *value, ControlSource out[2])
     return 1;
 }
 
+/* a scancode: decimal or 0x.. hex, 0 or empty for none; 0 when it is not one (the key stays as it was) */
+static int parse_scancode(const char *value, int *out)
+{
+    if (*value == '\0') {
+        *out = 0;
+        return 1;
+    }
+    char *end;
+    const long v = strtol(value, &end, 0);
+    if (end == value || *end != '\0' || v < 0 || v > MAX_SCANCODE) return 0;
+    *out = (int)v;
+    return 1;
+}
+
 static void apply_number(int *field, const char *value, long min, long max)
 {
     long n;
@@ -119,6 +145,12 @@ static void apply(PortControls *c, int *plain, const char *key, const char *valu
     for (int act = 0; act < ACT_COUNT; act++)
         if (strcmp(key, ACTION_KEY[act]) == 0) {
             parse_sources(value, c->bind[act]);
+            return;
+        }
+    for (int k = 0; k < PKEY_COUNT; k++)
+        if (strcmp(key, KEY_KEY[k]) == 0) {
+            int code;
+            if (parse_scancode(value, &code)) c->key[k] = code, c->keys_custom = 1;
             return;
         }
     if (strcmp(key, "deadzone") == 0) apply_number(&c->deadzone, value, 0, DEADZONE_MAX);
@@ -187,10 +219,62 @@ size_t port_controls_format(const PortControls *c, char *out, size_t size)
         if (n < 0 || (size_t)n >= size - used) return 0;
         used += (size_t)n;
     }
+    for (int k = 0; c->keys_custom && k < PKEY_COUNT; k++) {
+        char code[8] = "";
+        if (c->key[k] != 0) snprintf(code, sizeof code, "%d", c->key[k]);
+        const int m = snprintf(out + used, size - used, "%s=%s\n", KEY_KEY[k], code);
+        if (m < 0 || (size_t)m >= size - used) return 0;
+        used += (size_t)m;
+    }
     const int n = snprintf(out + used, size - used, "%sdeadzone=%d\nsensitivity=%d\nffb_strength=%d\n",
                            c->custom ? "" : "custom=0\n", c->deadzone, c->sensitivity, c->ffb_strength);
     if (n < 0 || (size_t)n >= size - used) return 0;
     return used + (size_t)n;
+}
+
+void port_controls_key_defaults(const int16_t *config, int german, int out[PKEY_COUNT])
+{
+    for (int k = 0; k < PKEY_COUNT; k++)
+        out[k] = key_code((uint16_t)key_layout(config[KEY_WORD_AT[k]], german));
+}
+
+int port_controls_key(const PortControls *c, const int defaults[PKEY_COUNT], PortKey key)
+{
+    if (key < 0 || key >= PKEY_COUNT) return 0;
+    return c->keys_custom ? c->key[key] : defaults[key];
+}
+
+int port_controls_set_key(PortControls *c, const int defaults[PKEY_COUNT], PortKey key, int scancode)
+{
+    if (key < 0 || key >= PKEY_COUNT) return -1;
+    if (!c->keys_custom) {
+        memcpy(c->key, defaults, sizeof c->key);
+        c->keys_custom = 1;
+    }
+    int taken = -1;
+    for (int k = 0; scancode != 0 && k < PKEY_COUNT; k++)
+        if (k != (int)key && c->key[k] == scancode) c->key[k] = 0, taken = k;
+    c->key[key] = scancode;
+    return taken;
+}
+
+void port_controls_reset_keys(PortControls *c)
+{
+    memset(c->key, 0, sizeof c->key);
+    c->keys_custom = 0;
+}
+
+bool port_controls_key_reserved(int scancode)
+{
+    enum { ESCAPE = 0x01, F1 = 0x3b, F10 = 0x44, F11 = 0x57, F12 = 0x58, P = 0x19, VIRTUAL_FROM = 0x59 };
+    return scancode <= 0 || scancode == ESCAPE || (scancode >= F1 && scancode <= F10) || scancode == F11 ||
+           scancode == F12 || scancode == P || scancode >= VIRTUAL_FROM;
+}
+
+void port_controls_apply_keys(const PortControls *c, int32_t codes[PKEY_COUNT])
+{
+    if (!c->keys_custom) return;
+    for (int k = 0; k < PKEY_COUNT; k++) codes[k] = c->key[k];
 }
 
 PortControls port_controls_load(void)
@@ -207,7 +291,7 @@ PortControls port_controls_load(void)
 
 bool port_controls_save(const PortControls *c)
 {
-    char text[1024];
+    char text[2048];
     const size_t n = port_controls_format(c, text, sizeof text);
     return n > 0 && platform_write_user_file(CONTROLS_CFG_NAME, (const uint8_t *)text, n);
 }

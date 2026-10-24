@@ -191,6 +191,60 @@ static void test_nitro_is_a_binding_in_the_file(void)
     CHECK(strstr(out, "nitro=button9,axis5+\n") != NULL);
 }
 
+static void test_keyboard_keys(void)
+{
+    PortControls c = port_controls_defaults();
+    CHECK_EQ_INT(c.keys_custom, 0);
+    char text[2048];
+    size_t n = port_controls_format(&c, text, sizeof text);
+    CHECK(n > 0 && strstr(text, "key_") == NULL);   /* config.dat's keys: the file says nothing of them */
+    /* config.dat's words 3..12 as scancodes: Left, Right, Up, Down, A, Z, Space, C, H */
+    const int16_t config[13] = { 0, 0, 0, 0x4b00, 0x4d00, 0x4800, 0x5000, 'A', 'Z', ' ', 'C', 'H', 'V' };
+    int defaults[PKEY_COUNT];
+    port_controls_key_defaults(config, 0, defaults);
+    CHECK_EQ_INT(defaults[PKEY_LEFT], 0x4b);
+    CHECK_EQ_INT(defaults[PKEY_GAS], 0x48);
+    CHECK_EQ_INT(defaults[PKEY_GEAR_UP], 0x1e);
+    CHECK_EQ_INT(defaults[PKEY_HANDBRAKE], 0x39);
+    CHECK_EQ_INT(defaults[PKEY_HORN], 0x23);
+    CHECK_EQ_INT(defaults[PKEY_CAMERA], 0x2e);
+    CHECK_EQ_INT(port_controls_key(&c, defaults, PKEY_HORN), 0x23);
+    /* assigning: the first time takes config.dat's, another row's key is taken from it */
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_LEFT, 0x10), -1);
+    CHECK_EQ_INT(c.keys_custom, 1);
+    CHECK_EQ_INT(port_controls_key(&c, defaults, PKEY_RIGHT), 0x4d);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_BRAKE, 0x4d), PKEY_RIGHT);
+    CHECK_EQ_INT(c.key[PKEY_RIGHT], 0);
+    CHECK_EQ_INT(c.key[PKEY_BRAKE], 0x4d);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_BRAKE, 0), -1);   /* none: no one loses a key */
+    CHECK_EQ_INT(c.key[PKEY_BRAKE], 0);
+    /* the file: all nine once any is the player's, none as "" */
+    n = port_controls_format(&c, text, sizeof text);
+    CHECK(n > 0 && strstr(text, "key_left=16\n") && strstr(text, "key_right=\n") && strstr(text, "key_camera=46\n"));
+    const PortControls back = port_controls_parse(text, n);
+    CHECK_EQ_INT(back.keys_custom, 1);
+    for (int k = 0; k < PKEY_COUNT; k++) CHECK_EQ_INT(back.key[k], c.key[k]);
+    /* a bad value leaves the key as it was; hex is read */
+    const char *const hand = "key_horn=0x23\nkey_left=banana\nkey_gas=9999\n";
+    const PortControls hand_c = port_controls_parse(hand, strlen(hand));
+    CHECK_EQ_INT(hand_c.key[PKEY_HORN], 0x23);
+    CHECK_EQ_INT(hand_c.key[PKEY_LEFT], 0);
+    CHECK_EQ_INT(hand_c.key[PKEY_GAS], 0);
+    /* what the race gets */
+    int32_t codes[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    port_controls_apply_keys(&back, codes);
+    CHECK_EQ_INT(codes[PKEY_LEFT], 0x10);
+    CHECK_EQ_INT(codes[PKEY_CAMERA], 0x2e);
+    CHECK_EQ_INT(codes[9], 10);   /* the parts key is not offered */
+    PortControls plain = port_controls_defaults();
+    int32_t kept[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    port_controls_apply_keys(&plain, kept);
+    CHECK_EQ_INT(kept[PKEY_LEFT], 1);   /* not the player's: config.dat's stay */
+    port_controls_reset_keys(&c);
+    CHECK_EQ_INT(c.keys_custom, 0);
+    CHECK_EQ_INT(c.key[PKEY_LEFT], 0);
+}
+
 int main(void)
 {
     test_defaults_are_todays_pad();
@@ -201,5 +255,6 @@ int main(void)
     test_load_save();
     test_a_file_can_say_the_pad_is_not_custom();
     test_nitro_is_a_binding_in_the_file();
+    test_keyboard_keys();
     return TEST_REPORT();
 }
