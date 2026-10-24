@@ -74,7 +74,7 @@ void race_stats_format(const RaceStatsView *v, RaceStatsText *out)
     snprintf(out->line[1], RACE_STATS_LINE_LEN, "Refresh %d Hz  interp %s", v->refresh_hz, v->interp ? "on" : "off");
     snprintf(out->line[2], RACE_STATS_LINE_LEN, "Render %dx%d  %s", v->width, v->height,
              ratio_name(v->width, v->height));
-    snprintf(out->line[3], RACE_STATS_LINE_LEN, "Modern 3D %s  filter %s  fog %s", v->modern ? "on" : "off",
+    snprintf(out->line[3], RACE_STATS_LINE_LEN, "Perspective correction %s  filter %s  fog %s", v->modern ? "on" : "off",
              v->filter ? "on" : "off", v->fog ? "on" : "off");
     snprintf(out->line[4], RACE_STATS_LINE_LEN, "View %d segments", v->segments);
 }

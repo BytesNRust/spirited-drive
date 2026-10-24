@@ -21,6 +21,10 @@ static const char *const TITLE = "Controls Setup";   /* title case: the title ar
 /* the rows: a line per row and per group header, 21 apart, a group after the first 8 lower; the second group's header
  * and rows end at y 402, so the page stays between the title's band and the buttons' (96..430) */
 enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = TUNE_COUNT };
+/* the tuning page's rows are as far apart as its '%' needs: graver18's reaches y 5..21 of its line, and the smooth draw
+ * keeps its shadow and the background's cover (own_plus_text, 6 of room) below that, which the next row's cover
+ * would cut off at 21 apart. The page has only five lines, so it has the room. */
+enum { TUNE_PITCH = 28 };
 /* each page's two groups: the rows in each, and their headers ("" none: the second group of page 3 is Defaults alone).
  * Indexed by page - ACTION_PAGE. */
 static const int GROUP_ROWS[PAGES - 1][2] = { { 9, 4 }, { 3, 1 } };
@@ -126,17 +130,18 @@ static int group_line(int page, int group)
 }
 
 /* a group after the first is GROUP_GAP lower than the lines above it */
-static int line_y(int line, int group) { return ROW_TOP + line * ROW_PITCH + (group > 0 ? GROUP_GAP : 0); }
+static int pitch_of(int page) { return page == TUNE_PAGE - ACTION_PAGE ? TUNE_PITCH : ROW_PITCH; }
+static int line_y(int page, int line, int group) { return ROW_TOP + line * pitch_of(page) + (group > 0 ? GROUP_GAP : 0); }
 
 static int row_y(const Run *r, int row)
 {
     const int page = r->page - ACTION_PAGE, group = group_of(page, row);
     const int first = group == 0 ? 0 : GROUP_ROWS[page][0];
     const int line = group_line(page, group) + (GROUP_HEADER[page][group] != NULL) + (row - first);
-    return line_y(line, group);
+    return line_y(page, line, group);
 }
 
-static int header_y(int page, int group) { return line_y(group_line(page, group), group); }
+static int header_y(int page, int group) { return line_y(page, group_line(page, group), group); }
 
 static void move_to(const Run *r, int row, const ControlsMenuOps *o)
 {
@@ -168,7 +173,7 @@ static void follow(Run *r, const ControlsMenuOps *o)
     }
     for (int row = 0; row < rows(r); row++) {
         const int top = row_y(r, row) - 2;
-        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + ROW_PITCH)) {
+        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + pitch_of(r->page - ACTION_PAGE))) {
             select_row(r, row, o);
             return;
         }
