@@ -38,7 +38,7 @@ int intro_show(IntroState *s, const IntroOps *ops)
     ops->pointer_hide(ops->ctx);
     palette_put_clear(pal);
     ops->drain(ops->ctx);
-    if (s->intro_movies) {
+    if (s->intro_movies && !s->intro_skip) {
         int16_t stopped = next_replay(s, ops);
         ops->video_reset(ops->ctx);
         black(pal, ops);

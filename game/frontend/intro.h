@@ -36,14 +36,16 @@ typedef struct IntroState {
     char *replay_name;      /* config.dat's 00524e2b: "REPLAY%d.RPL" */
     const char *movie_dir;  /* 005243c8: paths.dat's slot 7 */
     char *movie_path;       /* 00509ecc */
+    int intro_skip;         /* port: extras.cfg's no_movies skips the intro movies only (the title screen shows instead);
+                             * the game's own movies (intro_movie) still play while intro_movies is set */
 } IntroState;
 
 /* 00441abc: the screen black; with 0052b2fc the replay (after the first
  * time: REPLAY1..3.RPL in turn, when it exists, in a 0xc0 x 0x120 window at
  * 0x20, 0xc8), black at 320 x 200, then ea.tgv, attract1..3.tgv (the first
  * picked at random, then in turn) and title.tgv, each only while the ones
- * before ran to their end; else eatitle.qfs and, when it was not skipped,
- * the replay. Then black at 640 x 480. Returns 1. */
+ * before ran to their end; else (or with intro_skip) eatitle.qfs and, when it
+ * was not skipped, the replay. Then black at 640 x 480. Returns 1. */
 int intro_show(IntroState *s, const IntroOps *ops);
 
 /* 004419c0 (eax the movie's file name; the showcase's and 004283c4's): with
