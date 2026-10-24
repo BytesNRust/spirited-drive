@@ -153,9 +153,9 @@ static void random_screen(Case *c, int points, int wild)
         if (wild) c->s[2 * i] = span(-60, W + 60), c->s[2 * i + 1] = span(-60, H + 60);
         else {
             static const int sx[4] = { -1, 1, 1, -1 }, sy[4] = { -1, -1, 1, 1 };
-            c->s[2 * i] = cx + sx[i] * span(1, r), c->s[2 * i + 1] = cy + sy[i] * span(1, r);
+            c->s[2 * i] = cx + sx[i % 4] * span(1, r), c->s[2 * i + 1] = cy + sy[i % 4] * span(1, r);   /* a 5th point by the first corner */
         }
-        c->uv[2 * i] = span(-4 << 16, (TW + 4) << 16), c->uv[2 * i + 1] = span(-4 << 16, (TH + 4) << 16);
+        c->uv[2 * i] = span(-(4 << 16), (TW + 4) << 16), c->uv[2 * i + 1] = span(-(4 << 16), (TH + 4) << 16);
     }
 }
 
