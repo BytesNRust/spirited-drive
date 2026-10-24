@@ -14,10 +14,10 @@
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        INSERT = 0x5200, DELETE = 0x5300, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, CAPTURE_WAIT = 500, REST = 0x19, WIDE = 0x280 };
-enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, LABEL_X = 16, VALUE_RIGHT = 600, NAV_CENTRE = 320, STEP = 5 };
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, LABEL_X = 16, VALUE_RIGHT = 600, STEP = 5 };
 enum { PAGES = 4, KEYBOARD_PAGE = 1, ACTION_PAGE = 2, TUNE_PAGE = 3 };
 /* the device each page is for, under the title */
-enum { SUBTITLE_RIGHT = 600, SUBTITLE_Y = 60 };   /* on the title's line, to its right: the rows' right edge */
+enum { SUBTITLE_RIGHT = 600, SUBTITLE_Y = 64 };   /* on the title's line, to its right: the rows' right edge; 64 puts the small capitals' body (y 72..81) at the title's (69..83) */
 static const char *const SUBTITLE[PAGES - 1] = { "Keyboard", "Game controller", "Game controller" };
 /* the title where the configuration screens' are (extras_menu.c's and graphics_own.c's TITLE_X, TITLE_Y) */
 enum { TITLE_X = 8, TITLE_Y = 56 };
@@ -72,9 +72,9 @@ void controls_plus_tune_text(const PortControls *c, int which, char out[16])
 
 /* the page indicator's words: over the clean background on pages 2 and 3 (put back under them), plain on page 1, which is
  * the exe's own picture */
-static PageNavOps nav_ops(const ControlsMenuOps *o, int page)
+static PageNavOps nav_ops(const ControlsMenuOps *o, int clean)
 {
-    const int smooth = page > 0 && o->plus_text_smooth != NULL;
+    const int smooth = clean && o->plus_text_smooth != NULL;
     const PageNavOps n = { o->ctx, smooth ? o->plus_text_smooth : o->plus_text, o->plus_text_width,
                            o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow };
     return n;
@@ -82,13 +82,13 @@ static PageNavOps nav_ops(const ControlsMenuOps *o, int page)
 
 void controls_plus_nav(const ControlsMenuOps *o, int page, int lit)
 {
-    const PageNavOps nav = nav_ops(o, page);
+    const PageNavOps nav = nav_ops(o, page > 0);
     page_nav_draw(&nav, page, PAGES, lit);
 }
 
 int controls_plus_nav_lit(const ControlsMenuOps *o, int page)
 {
-    const PageNavOps nav = nav_ops(o, page);
+    const PageNavOps nav = nav_ops(o, page > 0);
     return page_nav_lit(&nav, page, PAGES);
 }
 
@@ -121,7 +121,24 @@ typedef struct Run {
     int nav_lit;             /* the page indicator's triangle the pointer is on, 0 none */
     int key_defaults[PKEY_COUNT];   /* config.dat's keys (the exe's page 1), what the keyboard has until it is the player's */
     const char *notice;      /* a key refused in the capture, shown in the row */
+    int three;               /* the exe's page is not part of the screen: three pages, the Keyboard's the first */
 } Run;
+
+/* the indicator's page (0-based) and count: the exe's page is the first of four, unless it is left out */
+static int nav_page(const Run *r) { return r->page - KEYBOARD_PAGE + (r->three ? 0 : 1); }
+static int nav_pages(const Run *r) { return r->three ? PAGES - 1 : PAGES; }
+
+static void run_nav(const Run *r, const ControlsMenuOps *o, int lit)
+{
+    const PageNavOps nav = nav_ops(o, 1);
+    page_nav_draw(&nav, nav_page(r), nav_pages(r), lit);
+}
+
+static int run_nav_lit(const Run *r, const ControlsMenuOps *o)
+{
+    const PageNavOps nav = nav_ops(o, 1);
+    return page_nav_lit(&nav, nav_page(r), nav_pages(r));
+}
 
 /* the rows before Done: the keyboard's keys and Defaults, the actions, the tuning rows and Defaults */
 static int rows(const Run *r)
@@ -171,7 +188,7 @@ static void select_row(Run *r, int row, const ControlsMenuOps *o)
 /* the first band the pointer is in becomes the selection; over the page indicator it is none */
 static void follow(Run *r, const ControlsMenuOps *o)
 {
-    const int lit = controls_plus_nav_lit(o, r->page);
+    const int lit = run_nav_lit(r, o);
     if (lit != r->nav_lit) r->nav_lit = lit, r->redraw = 1;
     if (controls_plus_nav_hit(o)) return;
     if (o->pointer_in_rect(o->ctx, 0x145, WIDE, 0x195, 0x1e0)) {
@@ -276,7 +293,7 @@ static void draw(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o)
         if (done != NULL) o->blit_own(o->ctx, done);
         if (cancel != NULL) o->blit_own(o->ctx, cancel);
     }
-    controls_plus_nav(o, r->page, r->nav_lit);
+    run_nav(r, o, r->nav_lit);
     o->select_default(o->ctx);
     o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *st->screen));
     /* the clean background's palette goes on the display once: fade the page the caller had out, put this one up on the
@@ -438,8 +455,8 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
         o->sound(o->ctx, CHOSEN);
         r->redraw = 1;
     } else if (k == LEFT) {
-        if (r->page == KEYBOARD_PAGE) r->result = CONTROLS_PAGE_BACK;
-        else turn(r, r->page - 1, o);
+        if (r->page != KEYBOARD_PAGE) turn(r, r->page - 1, o);
+        else if (!r->three) r->result = CONTROLS_PAGE_BACK;
     } else if (k == RIGHT) {
         turn(r, r->page + 1, o);
     } else if (r->page == KEYBOARD_PAGE && r->selected < PKEY_COUNT && k == DELETE) {
@@ -454,11 +471,12 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
     r->rest = 0;
 }
 
-/* the indicator clicked: its left half back, its right half on */
+/* the indicator clicked: the triangle the pointer is on (the whole box is the button of a page with one) */
 static void nav_click(Run *r, const ControlsMenuOps *o)
 {
-    const int back = o->pointer_in_rect(o->ctx, CONTROLS_NAV_X0, NAV_CENTRE, CONTROLS_NAV_Y0, CONTROLS_NAV_Y1);
-    if (!back) turn(r, r->page + 1, o);
+    const int lit = run_nav_lit(r, o);
+    if (lit == 2) turn(r, r->page + 1, o);
+    else if (lit != 1) return;
     else if (r->page == KEYBOARD_PAGE) r->result = CONTROLS_PAGE_BACK;
     else turn(r, r->page - 1, o);
 }
@@ -472,7 +490,8 @@ ControlsPageResult controls_plus_run(const ControlsMenuState *st, const Controls
     const int32_t options = o->load_art(o->ctx, "option/options.qfs");
     /* not armed: the key that turned the page may still be down */
     Run r = { .page = KEYBOARD_PAGE, .redraw = 1, .released = *st->buttons == 0, .capturing = -1, .gamepad = 1,
-              .result = -1, .bank = bank, .options = options, .bgnd = &bgnd, .nav_lit = 0 };
+              .result = -1, .bank = bank, .options = options, .bgnd = &bgnd, .nav_lit = 0,
+              .three = st->plus->port_three_pages != 0 };
     if (o->pad_raw(o->ctx, &pad)) r.gamepad = pad.gamepad;
     if (st->controls != NULL && st->german != NULL) port_controls_key_defaults(st->controls, *st->german, r.key_defaults);
     move_to(&r, r.selected, o);

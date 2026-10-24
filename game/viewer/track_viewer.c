@@ -332,6 +332,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (replay_of != NULL) race_replay_apply_cheats(&drive_sim.race, replay_of);  /* port: the recording's cheat, or the horn's spin-outs are missing */
     drive_sim.race.port_replay_launch = 1;  /* port: and the NITRO start is recorded in the replay and played back */
     drive_sim.race.port_nitro_start = 1;  /* port: the NITRO start takes N alone or the pad's key (start_keys.h) */
+    drive_sim.race.port_pad_and_keys = 1;  /* port: the keys and the pad are both live (input_read.c), not one device per action */
     drive_sim.race.port_stop_replaced = 1;  /* port: a horn's looping voice is cut when a tyre or crash sound takes its channel */
     drive_sim.race.port_time_of_day = drive_time_of_day;  /* the replay's setup keeps it */
     /* config.dat's words the race reads in place: 00524e85 the track, 00524e9f the replay's kind (0 a race; set, the

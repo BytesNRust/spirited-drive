@@ -207,14 +207,14 @@ static RawPad with_axis(int a, int v)
     return p;
 }
 
-typedef struct Run { ControlsPageResult result; PortControls port; Fake fake; } Run;
+typedef struct Run { ControlsPageResult result; PortControls port; Fake fake; int three; } Run;
 
 static void run(Run *r, const int *keys, int key_count, const RawPad *pads, int pad_count)
 {
     int16_t buttons = 0;
     const int16_t pointer_active = 0, net_off = 1, quit = 0;
     const int32_t screen = 1;
-    ControlsPlus plus = { &r->port };
+    ControlsPlus plus = { &r->port, r->three };
     int16_t controls[13] = { 0, 0, 0, /* config.dat's keys: Left, Right, Up, Down, A, Z, Space (handbrake), C (camera), H */
                              0x4b00, 0x4d00, 0x4800, 0x5000, 'A', 'Z', ' ', 'C', 'H' };
     const int16_t german = 0;
@@ -414,6 +414,37 @@ static void test_the_tuning_page(void)
     CHECK(shown(&r.fake, "Force feedback"));
 }
 
+/* port_three_pages 1: the exe's page is left out, the screen is three pages and opens on the Keyboard's; 0: four,
+ * the exe's first (the page this module's run begins at is then its second) */
+static void test_three_pages_open_on_the_keyboard(void)
+{
+    Run r = { .port = port_controls_defaults(), .three = 1 };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    CHECK(shown(&r.fake, "1/3 >"));                       /* no page before the first: no left triangle */
+    CHECK_EQ_INT(shown_as(&r.fake, "Keyboard", SUBTITLE), 1);
+    CHECK(shown(&r.fake, "Steer left"));
+    CHECK_EQ_INT(r.result, CONTROLS_PAGE_CANCEL);
+    Run t = { .port = port_controls_defaults(), .three = 1 };
+    run(&t, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown(&t.fake, "< 2/3 >"));
+    CHECK_EQ_INT(shown_as(&t.fake, "Game controller", SUBTITLE), 1);
+    Run u = { .port = port_controls_defaults(), .three = 1 };
+    run(&u, KEYS(RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown(&u.fake, "< 3/3"));
+    CHECK(!shown(&u.fake, "< 4/4"));
+}
+
+static void test_three_pages_have_nothing_before_the_keyboard(void)
+{
+    Run r = { .port = port_controls_defaults(), .three = 1 };
+    run(&r, KEYS(LEFT, 0, ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(r.result, CONTROLS_PAGE_CANCEL);          /* Left on the first page is nothing, not back to the exe's */
+    Run exe = { .port = port_controls_defaults(), .three = 0 };
+    run(&exe, KEYS(LEFT, 0, ESCAPE), PADS(idle()));
+    CHECK_EQ_INT(exe.result, CONTROLS_PAGE_BACK);          /* flag 0: back to the exe's page, as before */
+    CHECK(shown(&exe.fake, "< 2/4 >"));
+}
+
 /* graver18's '%' reaches y 5..21 of its line and the smooth draw keeps a shadow and the background's cover below that
  * (own_plus_text: 2 above, 6 of room below), so a row that starts less than that under the one above clears the
  * tail of its '%' */
@@ -592,7 +623,7 @@ static uint32_t steering_with(const int32_t *codes, int sc)
     MouseSteerWords mouse = { 0 };
     const InputReadOps ops = { .pad_read = no_pad_read };
     keys[sc] = 1;
-    const InputReadInputs in = { keys, codes, stand_in, controls, entries, 0, 0, 0 };
+    const InputReadInputs in = { keys, codes, stand_in, controls, entries, 0, 0, 0, 0 };
     return input_read(&ops, &pad, &mouse, &in) & 0x3f;
 }
 
@@ -631,6 +662,8 @@ int main(void)
     test_delete_clears();
     test_an_edit_makes_the_pad_custom();
     test_the_tuning_page();
+    test_three_pages_open_on_the_keyboard();
+    test_three_pages_have_nothing_before_the_keyboard();
     test_the_tuning_rows_clear_the_percent_sign();
     test_defaults_restores_the_bindings();
     test_how_the_pages_are_left();

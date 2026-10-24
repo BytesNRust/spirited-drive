@@ -525,6 +525,12 @@ static void step(Menu *m, uint16_t k, const ControlsMenuState *st, const Control
     o->ticks(o->ctx);
 }
 
+/* port: the screen without the exe's page */
+static int three_pages(const ControlsMenuState *st)
+{
+    return st->plus != NULL && st->plus->port_three_pages != 0;
+}
+
 static void open_screen(Menu *m, int32_t mode, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
     memcpy(m->kept, st->controls, sizeof m->kept);
@@ -539,8 +545,10 @@ static void open_screen(Menu *m, int32_t mode, const ControlsMenuState *st, cons
     *st->inverse = o->load_inverse(o->ctx, (int16_t)mode ? "check/chconset.inv" : "option/cntrlset.inv");
     o->music_feed(o->ctx);
     palette(m, o);
-    o->fade_in(o->ctx, 0, ALL, m->rgb);
-    o->text_styles(o->ctx);
+    if (!three_pages(st)) {   /* port: with the exe's page left out nothing of it is shown, the pages fade their own in */
+        o->fade_in(o->ctx, 0, ALL, m->rgb);
+        o->text_styles(o->ctx);
+    }
     if (*st->pointer_active) o->pointer_poll(o->ctx);
     o->pointer_mark(o->ctx);
 }
@@ -582,7 +590,11 @@ int32_t controls_menu(const ControlsMenuState *st, int32_t mode, const ControlsM
     Menu m = zero;
     m.fade = m.redraw = m.armed = m.released = 1;
     open_screen(&m, mode, st, ops);
-    do {
+    if (three_pages(st)) {   /* port: straight to the Keyboard page; its Done, Cancel and Escape end the screen */
+        m.leave = 1;
+        second_page(&m, st, ops);
+    }
+    while (!m.leave) {
         const int over = follow(&m, st, ops);
         if (m.redraw) draw(&m, st, ops);
         if (m.changed) redraw_items(&m, st, ops);
@@ -610,7 +622,7 @@ int32_t controls_menu(const ControlsMenuState *st, int32_t mode, const ControlsM
             ops->sound(ops->ctx, CHOSEN);
             m.leave = 1;
         }
-    } while (!m.leave);
+    }
     close_screen(&m, ops);
     if (st->plus && !m.cancelled && memcmp(st->plus->port, &m.kept_port, sizeof m.kept_port) != 0)
         ops->plus_save(ops->ctx, st->plus->port);   /* port */

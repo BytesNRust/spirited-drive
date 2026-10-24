@@ -441,6 +441,9 @@ typedef struct {
                                      * launches, the launch goes by start_clock */
     int32_t port_stop_replaced;     /* port: 1 a channel's looping voice (a horn 0x3f..0x41, a skid 0x2a) is cut when another sound takes
                                      * the channel over, 0 the exe's: the voice is left looping, its record lost (race_sound.c) */
+    int32_t port_pad_and_keys;      /* port: 1 the followed player's keys and pad are both live (input_read.c), the device words
+                                     * of config.dat (0052ad26..) not looked at; 0 the exe's: those words choose one device
+                                     * per action */
 } RaceState;
 
 enum {

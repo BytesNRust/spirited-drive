@@ -37,9 +37,17 @@ typedef struct {
     int32_t player;                   /* 004fbb08 */
     int32_t mirrored;                 /* 004fbad8 */
     int32_t pad_present;              /* 004fcdcc */
+    int32_t port_pad_and_keys;        /* port: RaceState's; 0 the exe's */
 } InputReadInputs;
 
-/* 0043915c (no arguments), returns the word. The stand-in short of the
+/* port_pad_and_keys 1 (the exe's words above are then for 0): the keys and the pad are read together, whatever the
+ * device words say (the mouse is not offered by the port).
+ * - steering: the pad's x when it is off its centre (the dead zone is the pad's: joy_pad.c), else the keys;
+ * - pedal: the key's or the pad's, whichever is further from the rest (the brake over the accelerator at equal);
+ * - gears: the keys', else the pad's buttons 0 and 1; the handbrake and the cheat as the exe; the horn its key
+ *   alone (the pad's horn button presses that key: platform_virtual_key). With no pad the pad's words are 0, so
+ *   it reads as the keyboard does with the device words 0.
+ * 0043915c (no arguments), returns the word. The stand-in short of the
  * followed player 1: 0xffff87a0. Else 0043d598, then:
  * - steering by keys: left alone 0 (0x3c mirrored), right alone 0x3c (0
  *   mirrored), else 0x20; the pad: x + 0x20, mirrored 0x20 - x after x
