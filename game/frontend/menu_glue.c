@@ -448,6 +448,7 @@ static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
     port_extras_save(e);
     resource_set_units(e->units);   /* the speeds and distances on the screens and in the race, as saved */
     config_dat_set_unlock_level(config_current(), unlock);
+    config_save();   /* port: Done stores the level now, not whenever the menus next save config.dat */
     mode_extras_unlock = unlock;
 }
 

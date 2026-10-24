@@ -175,6 +175,7 @@ static void extras_flags(ExtrasFlags *f)
 
 /* port: the Warrior-as-rival switch is a separate flag (no equivalent in the original's globals), read by the
  * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with extras.cfg by extras_apply. */
+static ExtrasSession extras_session;
 static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
 
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
@@ -184,7 +185,10 @@ static void extras_apply(void)
     ExtrasFlags f;
     extras_flags(&f);
     const PortExtras e = port_extras_load();
-    extras_reapply_port(&e, &f);   /* port: keeps Mirror and Rally both on, where the exe's rule clears one */
+    /* port: the level, the switches and the cheats typed in the session decide what is on: a switch turned off in
+     * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to extras.cfg (the
+     * switch is the player's default, not a veto on the cheat); Mirror and Rally both on stay both on */
+    extras_settle(&e, g.unlock_level, &f, &extras_session);
     /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
     g.unlock_m = *f.unlock_m, g.unlock_r = *f.unlock_r, g.variant_m = *f.variant_m, g.variant_r = *f.variant_r;
     g.explode = *f.explode, g.nitro = *f.nitro, g.vegas_cheat = *f.vegas_cheat, g.lost_vegas = *f.lost_vegas;
@@ -193,17 +197,6 @@ static void extras_apply(void)
     if (e.no_assists) extras_no_assists(&g.car_flag_a, &g.car_flag_b);   /* after 00465ec8 */
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
     warrior_keep_flag = (int16_t)(e.warrior != 0);
-}
-
-/* port: after a code has been typed, the flags say what is on; the switches are brought in line and the file is
- * written only when that changed something, so a plain visit to Control Central does not touch extras.cfg. */
-static void extras_reflect(void)
-{
-    ExtrasFlags f;
-    extras_flags(&f);
-    const PortExtras before = port_extras_load();
-    const PortExtras after = extras_from_flags_port(&before, &f);   /* port: a state with both shows both switches */
-    if (memcmp(&before, &after, sizeof before) != 0) port_extras_save(&after);
 }
 
 /* 00465ec8, 00432974, 00432c40, 00432d48 and 00432720 on the shorts */
@@ -1704,7 +1697,6 @@ int32_t glue_central(void)
     volumes_sync();
     central_up = 0, central_state = NULL;
     link_central_bind(NULL);
-    extras_reflect();   /* port: a code typed in Control Central is saved */
     extras_apply();   /* port: 00432ff4's start clears the cheats; the switches come back for the race */
     video_set_overlay(NULL, 0, 0);
     const RaceSettings s = settings_of();

@@ -61,6 +61,40 @@ void extras_reapply_port(const PortExtras *e, const ExtrasFlags *f)
     extras_apply_rest(e, f);
 }
 
+/* one flag: it is on when expected (level or switch) or typed; a flag that is on though nobody expects it, and was
+ * not expected the time before either, was typed */
+static int settle_one(int cur, int expected, int *was_expected, int *typed)
+{
+    if (cur && !expected && !*was_expected) *typed = 1;
+    *was_expected = expected;
+    return expected || *typed;
+}
+
+void extras_settle(const PortExtras *e, int level, const ExtrasFlags *f, ExtrasSession *s)
+{
+    const int m = settle_one(*f->unlock_m != 0, level > 0 || e->mirror, &s->on_m, &s->typed_m);
+    const int r = settle_one(*f->unlock_r != 0, level > 1 || e->rally, &s->on_r, &s->typed_r);
+    /* Lost Vegas: the cheat flag is the switch's (the level sets the other half alone) */
+    const int v = settle_one(*f->vegas_cheat != 0, e->vegas != 0, &s->on_vegas, &s->typed_vegas);
+    const int w = settle_one(*f->warrior != 0, level > 0 || e->warrior, &s->on_warrior, &s->typed_warrior);
+    const int x = settle_one(*f->explode != 0, e->explode != 0, &s->on_explode, &s->typed_explode);
+    const int n = settle_one(*f->nitro != 0, e->nitro != 0, &s->on_nitro, &s->typed_nitro);
+    const int t = settle_one((*f->track_flags & 8) != 0, e->turbo != 0, &s->on_turbo, &s->typed_turbo);
+    if (*f->unlock_m != 0 && !m) *f->unlock_m = 0, *f->variant_m = 0;
+    if (*f->unlock_r != 0 && !r) *f->unlock_r = 0, *f->variant_r = 0;
+    *f->vegas_cheat = v;
+    if (v && *f->lost_vegas == 0) *f->lost_vegas = 1;
+    if (!v && level == 0) *f->lost_vegas = 0;
+    *f->warrior = (int16_t)w;
+    *f->explode = x;
+    *f->nitro = n;
+    if (t) *f->track_flags |= 8;
+    else *f->track_flags &= ~8u;
+    extras_reapply_port(e, f);   /* the switches that are on, as they always came back */
+    if (m) *f->unlock_m = 1;
+    if (r) *f->unlock_r = 1;
+}
+
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f)
 {
     PortExtras r = *e;

@@ -241,6 +241,129 @@ static void test_no_assists_turns_the_aids_off_and_leaves_not_offered(void)
     CHECK_EQ_INT(traction, 1);
 }
 
+/* A switch that was on and is turned off takes its flag away, the variant with it; the others stay. */
+static void test_switch_off_takes_the_flag_away(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    PortExtras e = port_extras_defaults();
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    e.mirror = 1;
+    e.explode = 1;
+    e.vegas = 1;
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m, 1);
+    CHECK_EQ_INT(variant_m, 1);
+    CHECK_EQ_INT(explode, 1);
+    CHECK_EQ_INT(vegas_cheat, 1);
+    CHECK_EQ_INT(lost_vegas, 1);
+    e.mirror = 0;
+    e.explode = 0;
+    e.vegas = 0;
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m, 0);
+    CHECK_EQ_INT(variant_m, 0);
+    CHECK_EQ_INT(explode, 0);
+    CHECK_EQ_INT(vegas_cheat, 0);
+    CHECK_EQ_INT(lost_vegas, 0);
+}
+
+/* A cheat typed with its switch off lasts the session and is neither a switch nor undone by the settle. */
+static void test_typed_cheat_survives_and_is_not_a_switch(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    const PortExtras e = port_extras_defaults();
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    extras_settle(&e, 0, &f, &s);
+    nitro = 1;
+    unlock_r = 1;
+    track_flags |= 8;
+    extras_settle(&e, 0, &f, &s);
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(nitro, 1);
+    CHECK_EQ_INT(unlock_r, 1);
+    CHECK_EQ_INT((int)(track_flags & 8), 8);
+    CHECK_EQ_INT(e.nitro, 0);
+    CHECK_EQ_INT(e.rally, 0);
+    CHECK_EQ_INT(e.turbo, 0);
+}
+
+/* The unlock level asks for the mirror, the Warrior and the lost Vegas whatever the switches say. */
+static void test_level_keeps_its_flags(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    const PortExtras e = port_extras_defaults();
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    lost_vegas = 1;
+    extras_settle(&e, 2, &f, &s);
+    CHECK_EQ_INT(unlock_m, 1);
+    CHECK_EQ_INT(unlock_r, 1);
+    CHECK_EQ_INT(warrior, 1);
+    CHECK_EQ_INT(lost_vegas, 1);
+    extras_settle(&e, 2, &f, &s);
+    CHECK_EQ_INT(unlock_m, 1);
+    CHECK_EQ_INT(unlock_r, 1);
+    CHECK_EQ_INT(warrior, 1);
+}
+
+/* Level 0 with everything off: a settle after the exe's own resets leaves nothing on. */
+static void test_everything_off_settles_to_nothing(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    const PortExtras e = port_extras_defaults();
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m + unlock_r + variant_m + variant_r + explode + nitro + vegas_cheat + lost_vegas + warrior, 0);
+    CHECK_EQ_INT((int)track_flags, 0);
+}
+
+/* The reported cycle: everything on, switched off in CUSTOMIZE and saved, the game closed and opened again. The
+ * session's flags follow the switches, a code typed afterwards works for the session only, and what the file says
+ * after the restart is what was saved. */
+static void test_switches_off_save_and_restart_cycle(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    PortExtras e = port_extras_defaults();
+    char text[1024];
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    e.mirror = e.warrior = e.vegas = e.explode = e.turbo = 1;
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m, 1);
+    CHECK_EQ_INT(warrior, 1);
+    CHECK_EQ_INT(lost_vegas, 1);
+    /* CUSTOMIZE: all off, Done saves the file */
+    e.mirror = e.warrior = e.vegas = e.explode = e.turbo = 0;
+    CHECK(port_extras_format(&e, text, sizeof text) > 0);
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m + variant_m + warrior + lost_vegas + vegas_cheat + explode, 0);
+    CHECK_EQ_INT((int)track_flags, 0);
+    /* a code typed in the session: on for the session, the file is not touched */
+    nitro = 1;
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(nitro, 1);
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).nitro, 0);
+    /* the restart: the file says off, the flags start clear and stay clear */
+    e = port_extras_parse(text, strlen(text));
+    clear_all();
+    memset(&s, 0, sizeof s);
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m + warrior + lost_vegas + explode + nitro + (int)track_flags, 0);
+}
+
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
@@ -257,5 +380,10 @@ int main(void)
     test_from_flags_rally_wins_over_mirror();
     test_from_flags_reads_the_rest();
     test_from_flags_keeps_the_untouched_switches();
+    test_switch_off_takes_the_flag_away();
+    test_typed_cheat_survives_and_is_not_a_switch();
+    test_level_keeps_its_flags();
+    test_everything_off_settles_to_nothing();
+    test_switches_off_save_and_restart_cycle();
     return TEST_REPORT();
 }
