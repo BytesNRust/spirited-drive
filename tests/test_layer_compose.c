@@ -21,7 +21,7 @@ int main(void)
     box(300, 400, 340, 440, 7);         /* the dash */
     box(520, 306, 633, 446, 9);         /* a piece (the map) */
     memset(wide, 3, sizeof wide);       /* the 3D view */
-    const LayerPiece pieces[1] = { { { 520, 306, 633, 446 }, 854 - 113 - 6, 480 - 140 - 6, 0 } };
+    const LayerPiece pieces[1] = { { { 520, 306, 633, 446 }, 854 - 113 - 6, 480 - 140 - 6, 0, 0 } };
     box(100, HUD_BAR_HEIGHT, 101, HUD_BAR_HEIGHT + 1, 4);   /* the roof's first line, under the scoreboard */
     const LayerCompose c = { LW, H, W, SCALE_854, 1, pieces, 1 };
     layer_compose(&c, layer, wide);
@@ -53,7 +53,7 @@ int main(void)
     memset(layer, LAYER_KEY, sizeof layer);
     box(543, 53, 633, 104, 5);
     memset(wide, 3, sizeof wide);
-    const LayerPiece mirror[1] = { { { 543, 53, 633, 104 }, 700, 38, 1 } };
+    const LayerPiece mirror[1] = { { { 543, 53, 633, 104 }, 700, 38, 1, 0 } };
     const LayerCompose m = { LW, H, W, SCALE_854, 1, mirror, 1 };
     layer_compose(&m, layer, wide);
     CHECK_EQ_INT(wide[38 * W + 700], 5);
@@ -61,12 +61,21 @@ int main(void)
     CHECK_EQ_INT(wide[38 * W + 700 + mw - 1], 5);
     CHECK_EQ_INT(wide[38 * W + 700 + mw + 1], 3);
 
+    /* a scaled piece told its width (the mirror's right half, to the mirror's end): one column past its own scaled
+     * width, that column its last pixel's, not the view behind */
+    memset(wide, 3, sizeof wide);
+    const LayerPiece to_end[1] = { { { 543, 53, 633, 104 }, 700, 38, 1, mw + 1 } };
+    const LayerCompose e = { LW, H, W, SCALE_854, 1, to_end, 1 };
+    layer_compose(&e, layer, wide);
+    CHECK_EQ_INT(wide[38 * W + 700 + mw], 5);
+    CHECK_EQ_INT(wide[38 * W + 700 + mw + 1], 3);
+
     /* at 640 with scale 1 and the pieces where they are, the layer over the view as it is */
     static uint8_t same[LW * H];
     memset(same, 3, sizeof same);
     memset(layer, LAYER_KEY, sizeof layer);
     box(300, 400, 340, 440, 7);
-    const LayerPiece here[1] = { { { 520, 306, 633, 446 }, 520, 306, 0 } };
+    const LayerPiece here[1] = { { { 520, 306, 633, 446 }, 520, 306, 0, 0 } };
     const LayerCompose id = { LW, H, LW, 1 << 16, 1, here, 1 };
     layer_compose(&id, layer, same);
     CHECK_EQ_INT(same[420 * LW + 320], 7);

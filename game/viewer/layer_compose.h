@@ -18,6 +18,7 @@ typedef struct {
     LayerRect from;
     int x, y;                       /* its top left on the wide frame */
     int scaled;                     /* drawn enlarged by the compose's scale (the mirror) */
+    int out_w;                      /* the width drawn, 0 `from`'s scaled: a piece whose end must meet another's */
 } LayerPiece;
 
 typedef struct {

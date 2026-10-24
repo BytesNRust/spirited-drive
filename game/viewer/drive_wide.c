@@ -172,15 +172,23 @@ static void wide_mirror(const uint8_t *frame, const DriveMirror *m, const LayerR
         if (p == LAYER_KEY || dy < 0 || dy >= SCREEN_H) continue;
         for (int x = x0; x < x0 + gap && x < drive_wide.width; x++) if (x >= 0) drive_wide.pixels[(size_t)dy * drive_wide.width + x] = p;
     }
-    const int px = at.x + (int)((int64_t)(drive_hud.mirror_x - r->left) * cs->scale >> 16);
-    const int py = at.y + (int)((int64_t)(drive_hud.mirror_y - r->top) * cs->scale >> 16);
-    const int out_w = (int)((int64_t)m->width * cs->scale >> 16), out_h = (int)((int64_t)m->height * cs->scale >> 16);
+    /* the picture's ends from the piece's origin, as the frame's pieces are placed: each scaled on its own, the last
+     * column fell short of the frame's edge and the world showed through it */
+    const int left = (int)((int64_t)(drive_hud.mirror_x - r->left) * cs->scale >> 16);
+    const int top = (int)((int64_t)(drive_hud.mirror_y - r->top) * cs->scale >> 16);
+    const int px = at.x + left, py = at.y + top;
+    const int out_w = (int)((int64_t)(drive_hud.mirror_x - r->left + m->width) * cs->scale >> 16) - left;
+    const int out_h = (int)((int64_t)(drive_hud.mirror_y - r->top + m->height) * cs->scale >> 16) - top;
     for (int y = 0; y < out_h; y++) {
-        const int sy = (int)(((int64_t)y << 16) / cs->scale), dy = py + y;
-        if (sy >= m->height || dy < 0 || dy >= SCREEN_H) continue;
+        int sy = (int)(((int64_t)y << 16) / cs->scale);
+        const int dy = py + y;
+        if (sy >= m->height) sy = m->height - 1;
+        if (dy < 0 || dy >= SCREEN_H) continue;
         for (int x = 0; x < out_w; x++) {
-            const int sx = (int)(((int64_t)x << 16) / cs->scale), dx = px + x;
-            if (sx < m->width && dx >= 0 && dx < drive_wide.width)
+            int sx = (int)(((int64_t)x << 16) / cs->scale);
+            const int dx = px + x;
+            if (sx >= m->width) sx = m->width - 1;
+            if (dx >= 0 && dx < drive_wide.width)
                 drive_wide.pixels[(size_t)dy * drive_wide.width + dx] = m->picture[DRIVE_VIEW_HEADER + sy * m->width + sx];
         }
     }
@@ -188,7 +196,7 @@ static void wide_mirror(const uint8_t *frame, const DriveMirror *m, const LayerR
 
 static LayerPiece wide_piece(int left, int top, int w, int h, ScreenPoint at, int scaled)
 {
-    return (LayerPiece){ { left, top, left + w, top + h }, at.x, at.y, scaled };
+    return (LayerPiece){ { left, top, left + w, top + h }, at.x, at.y, scaled, 0 };
 }
 
 /* port: the 640 frame (the race's 2D, LAYER_KEY where the 3D goes) over the wide 3D view: inside the car the dash
@@ -228,12 +236,13 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
         pieces[n++] = wide_piece(DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H, a.map, 0);
     }
     if (in_car) {
-        if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1 };
+        if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1, 0 };
         if (mirror_on && m->extra != 0) {  /* the frame in two, either side of the picture's middle, apart by the extra */
             const int mid = drive_hud.mirror_x + (m->width - m->extra) / 2;
             const int apart = (int)((int64_t)(mid - mirror.left + m->extra) * mirror_scale >> 16);
-            pieces[n++] = (LayerPiece){ { mirror.left, mirror.top, mid, mirror.bottom }, a.mirror.x, a.mirror.y, 1 };
-            pieces[n++] = (LayerPiece){ { mid, mirror.top, mirror.right, mirror.bottom }, a.mirror.x + apart, a.mirror.y, 1 };
+            pieces[n++] = (LayerPiece){ { mirror.left, mirror.top, mid, mirror.bottom }, a.mirror.x, a.mirror.y, 1, 0 };
+            pieces[n++] = (LayerPiece){ { mid, mirror.top, mirror.right, mirror.bottom }, a.mirror.x + apart, a.mirror.y, 1,
+                                        mirror_w - apart };   /* to the mirror's end, as anchored */
         }
     } else if (!police) {
         pieces[n++] = wide_piece(GAUGE_X_640, GAUGE_Y_640, GAUGE_SIZE, GAUGE_SIZE, a.gauge, 0);
