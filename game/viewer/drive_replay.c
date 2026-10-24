@@ -418,6 +418,13 @@ void drive_replay_key(DriveReplay *r, int down)
     r->dir.request = r->sim->race.phase == PHASE_RACING ? REQUEST_DIRECTED : REQUEST_RACE_ON;
 }
 
+void drive_replay_press(DriveReplay *r, int which)
+{
+    if (r->recording == NULL) return;
+    if (which >= REPLAY_TO_START && which <= REPLAY_FORWARD) scrub(r, which, 0);
+    else button(r, which, 0);
+}
+
 /* 0044d420's file: written into memory, then to the player's directory at fclose */
 static uint8_t *out;
 static size_t out_size;

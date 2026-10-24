@@ -54,6 +54,10 @@ int drive_replay_start(DriveReplay *r, RaceSim *sim, RaceViews *views);
  * stood (request 7, 0044f090). `down` is the key's state this frame. */
 void drive_replay_key(DriveReplay *r, int down);
 
+/* A replay control pressed once (test harness: TNFS_REPLAY_BUTTONS): 1..4 the scrub buttons (to the start, to the end,
+ * back, forward), 5..9 the transport's (pause, play, slow, slower, slowest) */
+void drive_replay_press(DriveReplay *r, int which);
+
 /* 0044eef8 at the race's end: Replay.rpl written to the player's directory (0044d420), then the recording freed (the file 0044d420
  * writes is left to the menus that read it back). */
 void drive_replay_end(DriveReplay *r);

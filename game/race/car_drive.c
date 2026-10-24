@@ -46,23 +46,26 @@ static int32_t abs32(int32_t v)
 static int launch(Car *car, const CarSpecs *specs, RaceState *race)
 {
     if (race->player == car->player && (race->playback == 0 || race->port_replay_launch != 0) && race->start_input != 0) {
+        /* port_replay_launch: the sim's own tick, which a slow replay or a rewind re-simulation counts the same, not the timer */
+        const int32_t now = race->port_replay_launch != 0 ? race->tick : race->start_clock;
+        if (race->port_replay_launch != 0 && race->launch != 0 && now + LAUNCH_TICKS < race->launch_end) race->launch = 0;   /* a rewind: the start is again to come */
         const uint8_t *k = race->start_keys;
         const int combo = k[1] != 0 || k[2] != 0 || k[3] != 0;
         /* port_replay_launch: a replay slot holds the last of its two steps' words, so the start is taken on that step only */
         const int slot_end = race->port_replay_launch == 0 || (race->clock & LAUNCH_SLOT_END) != 0;
         if (k[0] != 0 && slot_end && (combo || race->port_nitro_start != 0) && race->launch == 0) {
             race->launch = 1;
-            race->launch_full_until = race->start_clock + LAUNCH_FULL_TICKS;
+            race->launch_full_until = now + LAUNCH_FULL_TICKS;
             car->rpm = specs->unknown_0ac + LAUNCH_RPM;
-            race->launch_end = race->start_clock + LAUNCH_TICKS;
+            race->launch_end = now + LAUNCH_TICKS;
         }
         if (race->launch == 0) return 0;
-        if (race->start_clock < LAUNCH_EARLIEST) race->launch = 0;
-        if (race->start_clock <= race->launch_full_until) {
+        if (now < LAUNCH_EARLIEST) race->launch = 0;
+        if (now <= race->launch_full_until) {
             car->throttle = FULL_THROTTLE;
             return 1;
         }
-        if (race->start_clock > race->launch_end) race->launch = 0;
+        if (now > race->launch_end) race->launch = 0;
         return 0;
     }
     if (car->player < race->humans && car->player >= 0 && car->player < RACE_PLAYERS &&
