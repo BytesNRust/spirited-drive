@@ -108,17 +108,44 @@ static int band_level(int near_style, int32_t band)
     return near_style ? (b < TRACK_VARIANT_ROWS ? TRACK_VARIANT_NEAR[b] : 0) : (b / 4 < TRACK_VARIANT_ROWS ? TRACK_VARIANT_FAR[b / 4] : 0);
 }
 
-/* the mirror's polygons: a near cell reaches across its box, which the exe's unsigned outcodes (outcode_shared) take for
- * outside on the right when its corners are left of it, so the sides are tested signed, then the facing alone */
-static int mirror_visible(const Pass *p, const int32_t s[8], int strip)
+/* The mirror's rails: the rail texture's edge fringe (palette 187, magenta, next to the keyed texels) is a pixel wide in the
+ * exe's pass and a block in the mirror's near panels; a copy of the texture with the fringe keyed out, one per texture */
+enum { FRINGE = 187, KEY = 255, MIRROR_TEXTURES = 16, MIRROR_TEXTURE_BYTES = 16384 };
+
+static struct { const FshEntry *source; FshEntry copy; uint8_t data[MIRROR_TEXTURE_BYTES]; } mirror_textures[MIRROR_TEXTURES];
+
+static const FshEntry *mirror_rail_texture(const FshEntry *t)
 {
-    const ClipRect *c = &p->ctx.clip;
+    const size_t bytes = (size_t)t->width * t->height;
+    if (t->type != TRACK_TEXTURE_TRANSPARENT_TYPE || bytes > MIRROR_TEXTURE_BYTES || bytes > t->payload_size) return t;
+    int free_slot = -1;
+    for (int i = 0; i < MIRROR_TEXTURES; i++) {
+        if (mirror_textures[i].source == t) return &mirror_textures[i].copy;
+        if (mirror_textures[i].source == NULL && free_slot < 0) free_slot = i;
+    }
+    if (free_slot < 0) return t;
+    for (size_t i = 0; i < bytes; i++) mirror_textures[free_slot].data[i] = t->payload[i] == FRINGE ? KEY : t->payload[i];
+    mirror_textures[free_slot].source = t;
+    mirror_textures[free_slot].copy = *t;
+    mirror_textures[free_slot].copy.payload = mirror_textures[free_slot].data;
+    return &mirror_textures[free_slot].copy;
+}
+
+static int outside_signed(const ClipRect *c, const int32_t s[8])
+{
     int left = 1, right = 1, above = 1, below = 1;
     for (int i = 0; i < 4; i++) {
         left &= s[2 * i] < c->x0, right &= s[2 * i] > c->x1;
         above &= s[2 * i + 1] < c->y0, below &= s[2 * i + 1] > c->y1;
     }
-    if (left || right || above || below) return 0;
+    return left || right || above || below;
+}
+
+/* the mirror's polygons: a near cell reaches across its box, which the exe's unsigned outcodes (outcode_shared) take for
+ * outside on the right when its corners are left of it, so the sides are tested signed, then the facing alone */
+static int mirror_visible(const Pass *p, const int32_t s[8], int strip)
+{
+    if (outside_signed(&p->ctx.clip, s)) return 0;
     const MirrorBounds open = { INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN };
     return track_visible_near(&open, s, strip, p->arm->mirrored);
 }
@@ -157,6 +184,45 @@ static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
     else p->ctx.sink.draw_full(p->ctx.sink.user, t, quad);
 }
 
+/* the part of an edge from z0 to z1 in front of the plane as 16.16 fractions of it; 0 when none is */
+static int edge_in_front(int32_t z0, int32_t z1, int32_t near, int32_t out[2])
+{
+    out[0] = 0, out[1] = 0x10000;
+    if (z0 >= near && z1 >= near) return 1;
+    if (z0 < near && z1 < near) return 0;
+    const int64_t span = (int64_t)z1 - z0;
+    const int32_t cut = (int32_t)(((int64_t)near - z0) * 0x10000 / span);
+    if (z0 < near) out[0] = cut;
+    else out[1] = cut;
+    return 1;
+}
+
+static void lerp3(const int32_t a[3], const int32_t b[3], int32_t f, int32_t out[3])
+{
+    for (int i = 0; i < 3; i++) out[i] = (int32_t)(a[i] + ((int64_t)b[i] - a[i]) * f / 0x10000);
+}
+
+/* a whole-texture rail panel across the near plane (the classic sink): both edges cut at the plane, the texture's u cut
+ * with them, so the panel's end is the part of the rail that is in front and not the whole texture squeezed into it */
+static void draw_rail_cut(const Pass *p, const FshEntry *t, const int32_t *const c[4])
+{
+    int32_t top[2], bottom[2];
+    if (!edge_in_front(c[0][2], c[1][2], p->ctx.near, top) || !edge_in_front(c[3][2], c[2][2], p->ctx.near, bottom)) return;
+    int32_t n[4][3], screen[8];
+    lerp3(c[0], c[1], top[0], n[0]), lerp3(c[0], c[1], top[1], n[1]);
+    lerp3(c[3], c[2], bottom[1], n[2]), lerp3(c[3], c[2], bottom[0], n[3]);
+    for (int i = 0; i < 4; i++) {
+        if (n[i][2] < p->ctx.near) n[i][2] = p->ctx.near;
+        view_project(p->ctx.view, n[i], &screen[2 * i]);
+    }
+    if (outside_signed(&p->ctx.clip, screen)) return;
+    const int32_t right = x_sub(x_shl((int16_t)t->width, 16), 1), bottom_v = x_sub(x_shl((int16_t)t->height, 16), 1);
+    const int32_t u[4] = { (int32_t)((int64_t)right * top[0] >> 16), (int32_t)((int64_t)right * top[1] >> 16),
+                           (int32_t)((int64_t)right * bottom[1] >> 16), (int32_t)((int64_t)right * bottom[0] >> 16) };
+    const int32_t uvs[8] = { u[0], 0, u[1], 0, u[2], bottom_v, u[3], bottom_v };
+    p->ctx.sink.draw_uv(p->ctx.sink.user, t, uvs, screen);
+}
+
 /* one rail panel (0044a2b4's quad: b's top, a's top, a, b) from the points' unpushed camera-space coordinates: clipped to
  * the near plane like the road's quads, its corners slid along the edges, so a rail that passes the lens runs off the
  * screen's edge instead of being dropped or pushed out of shape; one wholly behind the lens is not drawn */
@@ -175,6 +241,11 @@ static void draw_rail(Pass *p, const int32_t pair[2], int32_t base, const TrackU
     int32_t lowest = corners[0][2];
     for (int c = 1; c < 4; c++)
         if (corners[c][2] < lowest) lowest = corners[c][2];
+    if (lowest < p->ctx.near && p->ctx.sink.draw_camera == NULL && uv->variant != 0) {
+        const FshEntry *whole = p->fence_ops.texture(p->fence_ops.ctx, x_add(x_add(uv->variant, level), x_shl(texture, 3)));
+        if (whole != NULL) draw_rail_cut(p, p->arm->low_lod ? mirror_rail_texture(whole) : whole, corners);
+        return;
+    }
     if (lowest < p->ctx.near) {
         if (p->ctx.sink.draw_camera != NULL) {   /* the sink clips the cell itself; wholly behind the lens: nothing */
             int32_t highest = corners[0][2];
@@ -191,9 +262,10 @@ static void draw_rail(Pass *p, const int32_t pair[2], int32_t base, const TrackU
         track_render_push_near(pushed, p->ctx.near, p->ctx.near_dir);
         view_project(p->ctx.view, pushed, &screen[2 * c]);
     }
-    if (outcode_shared(&p->ctx.clip, screen, 4) != 0) return;
+    if (outside_signed(&p->ctx.clip, screen)) return;
     const FshEntry *t = p->fence_ops.texture(p->fence_ops.ctx, x_add(x_add(uv->variant, level), x_shl(texture, 3)));
     if (t == NULL) return;
+    if (p->arm->low_lod) t = mirror_rail_texture(t);
     if (uv->variant == 0) p->fence_ops.subdivide(p->fence_ops.ctx, t, uv->u_level, uv->u_cell, corners, screen, p->ctx.near);
     else if (p->fence_ops.full_camera != NULL) p->fence_ops.full_camera(p->fence_ops.ctx, t, corners);
     else p->fence_ops.full_alt(p->fence_ops.ctx, t, screen);
