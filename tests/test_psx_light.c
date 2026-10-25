@@ -70,15 +70,39 @@ static void test_tunnel_wall_floor(void)
     CHECK_EQ_INT(psx_light_at(&light, 0, 3), PSX_LIGHT_WALL);
     CHECK_EQ_INT(psx_light_at(&light, 0, 5), PSX_LIGHT_WALL);
     CHECK_EQ_INT(psx_light_at(&light, 0, 8), PSX_LIGHT_WALL);
-    CHECK_EQ_INT(psx_light_at(&light, 0, 0), 255);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 0), PSX_LIGHT_TUNNEL_ROAD);   /* the road of a tunnel row is dimmed (test_tunnel_road) */
     CHECK_EQ_INT(psx_light_at(&light, 1, 3), 0);
     CHECK_EQ_INT(psx_light_at(&light, 1, 9), 0);
     CHECK_EQ_INT(psx_light_at(&light, 2, 3), PSX_LIGHT_WALL);
     CHECK_EQ_INT(psx_light_at(&light, 2, 4), 200);
 }
 
+/* inside a tunnel (a lit wall foot with 0s beyond it, on either side) the road's own points are dimmed to PSX_LIGHT_TUNNEL_ROAD: the PS1
+ * shows the road dark there although the file says 255; a darker byte stays, the open road and a bridge's rows are untouched */
+static void test_tunnel_road(void)
+{
+    static uint8_t rows[5 * PSX_LIGHT_POINTS] = {
+        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,        /* tunnel, both sides */
+        255, 255, 255, 0, 228, 228, 255, 255, 0, 218, 218, /* only a degenerate 0 at point 3 (CY2's open road): open */
+        255, 255, 10, 0, 0, 0, 255, 0, 0, 0, 0,          /* under a bridge: foot dark */
+        100, 100, 126, 0, 0, 0, 100, 128, 0, 0, 0,       /* a tunnel with a road darker than the dim already */
+        0,
+    };
+    const PsxLight light = { rows, 5 };
+    CHECK_EQ_INT(psx_light_at(&light, 0, 0), PSX_LIGHT_TUNNEL_ROAD);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 6), PSX_LIGHT_TUNNEL_ROAD);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 1), PSX_LIGHT_TUNNEL_ROAD);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 2), 255);                       /* the wall's foot is its own */
+    CHECK_EQ_INT(psx_light_at(&light, 1, 0), 255);
+    CHECK_EQ_INT(psx_light_at(&light, 1, 1), 255);
+    CHECK_EQ_INT(psx_light_at(&light, 2, 1), 255);
+    CHECK_EQ_INT(psx_light_at(&light, 3, 0), 100);
+    CHECK_EQ_INT(psx_light_at(&light, 3, 1), 100);
+}
+
 int main(void)
 {
+    test_tunnel_road();
     test_tunnel_wall_floor();
     test_parse_and_lookup();
     test_rejected_files();

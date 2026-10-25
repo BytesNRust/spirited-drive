@@ -50,4 +50,8 @@ void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t
  * itself. 0xfe and 0xff stay themselves. */
 void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
+/* The same with `cast` (per channel, 1 none) on the darkened levels 1 and up: level 0, the full light, is not cast (a tunnel's lit
+ * parts stay as they are while its dim road and walls turn olive). A neutral cast is modern_light_tables. */
+void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256]);
+
 #endif

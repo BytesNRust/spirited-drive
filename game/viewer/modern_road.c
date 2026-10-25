@@ -95,6 +95,12 @@ void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t
 
 void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
+    static const float neutral[3] = { 1, 1, 1 };
+    modern_light_tables_cast(palette, tint, neutral, out);
+}
+
+void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
     for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
         const float f = 1.0f - (float)l / (MODERN_FOG_LEVELS - 1);
@@ -104,7 +110,7 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
                 continue;
             }
             float want[3];
-            for (int k = 0; k < 3; k++) want[k] = fminf(palette[3 * c + k] * tint[k] * f, 255.0f);
+            for (int k = 0; k < 3; k++) want[k] = fminf(palette[3 * c + k] * tint[k] * f * (l > 0 ? cast[k] : 1.0f), 255.0f);
             int best = 0;
             float best_d = 1e30f;
             for (int i = 0; i < CHOICES; i++) {

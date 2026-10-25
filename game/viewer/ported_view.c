@@ -89,6 +89,9 @@ static PsxLamp lamp_spec[LAMPS_MAX];
 static int lamp_count;
 static const FshEntry *lamp_bitmap[LAMPS_MAX][LAMP_VARIANTS];
 static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
+/* the tunnel's dim road and walls on the PS1 are olive / amber, never the texture's own grey: green and blue lost on every darkened level
+ * (fitted to the clip's road, (38,34,16) for a grey texture) */
+static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
 static double lamp_v = 0.9;   /* where the first lamp hangs along its segment (the texture's v, 0..1), from its rectangle; for the cars' switched light */
 
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
@@ -1196,10 +1199,11 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         /* the tables again only when the palette or the tint moved (a fade changes the palette) */
         static uint8_t made_for[768];
         static float made_tint[3];
-        static int made;
-        if (!made || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
-            modern_light_tables(art->palette, lit_tint, lit_tables);
-            memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1;
+        static int made, made_cast;
+        const int cast = lamp_count > 0;   /* a tunnel track: its darkened levels take the olive cast */
+        if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
+            modern_light_tables_cast(art->palette, lit_tint, cast ? TUNNEL_CAST : NO_CAST, lit_tables);
+            memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
         }
         for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
             for (int v = 0; v < LAMP_VARIANTS; v++) {

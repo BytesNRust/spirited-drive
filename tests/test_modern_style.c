@@ -110,6 +110,29 @@ static void test_fog_tables(void)
     CHECK(mid >= 18 && mid <= 23);
 }
 
+/* the light's tables with a cast on the darkened levels: level 0 is untouched (each colour itself), the others lose green and blue to
+ * the cast, a grey going olive; with a neutral cast they are the plain tables */
+static void test_light_cast(void)
+{
+    uint8_t palette[768];
+    for (int i = 0; i < 256; i++) {
+        palette[3 * i] = (uint8_t)((i >> 5) * 36), palette[3 * i + 1] = (uint8_t)(((i >> 2) & 7) * 36), palette[3 * i + 2] = (uint8_t)((i & 3) * 85);
+    }
+    static uint8_t plain[MODERN_FOG_LEVELS][256], cast[MODERN_FOG_LEVELS][256], neutral[MODERN_FOG_LEVELS][256];
+    const float one[3] = { 1, 1, 1 }, olive[3] = { 1.0f, 0.5f, 0.0f }, none[3] = { 1, 1, 1 };
+    modern_light_tables(palette, one, plain);
+    modern_light_tables_cast(palette, one, olive, cast);
+    modern_light_tables_cast(palette, one, none, neutral);
+    CHECK(memcmp(plain, neutral, sizeof plain) == 0);
+    for (int c = 0; c < 256; c++) CHECK_EQ_INT(cast[0][c], c);
+    const int grey = (4 << 5) | (4 << 2) | 1;   /* r 144, g 144, b 85 */
+    const int a = plain[4][grey], b = cast[4][grey];
+    CHECK(palette[3 * b + 1] < palette[3 * a + 1]);   /* less green than the plain table's */
+    CHECK(palette[3 * b + 2] <= palette[3 * a + 2]);
+    CHECK(palette[3 * b] >= palette[3 * b + 1]);      /* olive: red leads */
+    CHECK_EQ_INT(cast[4][255], 255);
+}
+
 /* a wall before the fog's start untouched; past its end the fog's colour; textured and flat alike */
 static void test_fog_depths(void)
 {
@@ -293,6 +316,7 @@ int main(void)
     test_filter_magnified();
     test_filter_minified();
     test_fog_tables();
+    test_light_cast();
     test_fog_depths();
     test_fog_dither();
     test_fog_same_depth_same_level();
