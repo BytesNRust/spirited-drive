@@ -11,4 +11,8 @@
  * (segment_count * 4; a stage's ring_nodes is 0x20000, a mask), which the file's must match. The previous race's light is freed. */
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes);
 
+/* The race palette as it is shown: the world's entries (psx_lgs.h's PSX_TINT_*) multiplied by the ambient colour of the light
+ * loaded (the palette itself with none), so a texture keeps its variation under the tint. The HUD's entries stay. */
+void drive_light_palette(const uint8_t palette[768], uint8_t out[768]);
+
 #endif

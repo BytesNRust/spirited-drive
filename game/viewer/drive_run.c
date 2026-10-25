@@ -3,6 +3,7 @@
 #include "game/sys/port_log.h"
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
+#include "viewer/drive_light.h"
 #include "game/gfx/blit.h"
 #include "game/race/car_draw_setup.h"
 #include "game/race/race_camera.h"
@@ -335,8 +336,10 @@ static void run_frame(void *ctx, int32_t frame)
 static void present_drive(const Track *t, uint8_t *pixels)
 {
     PlatformColor palette[256];
+    uint8_t shown_palette[768];
+    drive_light_palette(t->art.palette, shown_palette);   /* port: the PS1 light's time of day */
     for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
-        palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
+        palette[i] = (PlatformColor){ shown_palette[3 * i], shown_palette[3 * i + 1], shown_palette[3 * i + 2] };
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
     /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
@@ -493,7 +496,9 @@ int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const 
     render_drive(t, pixels);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), t->art.palette);
+    uint8_t shown_palette[768];
+    drive_light_palette(t->art.palette, shown_palette);   /* port: the PS1 light's time of day */
+    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), shown_palette);
 }
 
 static const RaceRunOps *drive_run_ops(void)
@@ -566,7 +571,9 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     printf("segments %d\n", (int)ported_view_draw_segments());  /* the F12 overlay's "View n segments" (drive_run.c) */
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), t->art.palette);
+    uint8_t shown_palette[768];
+    drive_light_palette(t->art.palette, shown_palette);   /* port: the PS1 light's time of day */
+    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), shown_palette);
 }
 
 /* --- a link race's messages (004bcb98[2], [3]) --- */

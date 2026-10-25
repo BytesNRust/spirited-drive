@@ -48,6 +48,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 {
     ported_view_set_light(NULL, NULL);
     psx_light_free(&light);
+    tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_C ? time : PSX_TIME_DAY];
     char path[LIGHT_PATH];
@@ -67,6 +68,11 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     }
     light = parsed;
     load_tint(psx_dir, track, letter);
-    ported_view_set_light(&light, tint);
+    ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
+}
+
+void drive_light_palette(const uint8_t palette[768], uint8_t out[768])
+{
+    psx_tint_palette(palette, tint, out);
 }

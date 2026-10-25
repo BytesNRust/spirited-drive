@@ -1,5 +1,7 @@
 #include "game/race/psx_lgs.h"
 
+#include <string.h>
+
 enum { NUMBERS = 14, NEUTRAL = 128, CHANNEL_MAX = 255 };
 
 /* The first `count` integers of the text outside comments, stopping at the first letter outside a comment (the trailer);
@@ -39,4 +41,14 @@ int psx_lgs_parse(const uint8_t *file, size_t size, PsxLgs *out)
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3])
 {
     for (int k = 0; k < 3; k++) tint[k] = (float)(lgs->start[k] + lgs->end[k]) / (2.0f * NEUTRAL);
+}
+
+void psx_tint_palette(const uint8_t palette[768], const float tint[3], uint8_t out[768])
+{
+    memcpy(out, palette, 768);
+    for (int i = PSX_TINT_FIRST; i < PSX_TINT_END; i++)
+        for (int k = 0; k < 3; k++) {
+            const float v = (float)palette[3 * i + k] * tint[k] + 0.5f;
+            out[3 * i + k] = (uint8_t)(v > 255.0f ? 255 : v);
+        }
 }
