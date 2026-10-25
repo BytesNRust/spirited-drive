@@ -908,6 +908,18 @@ static void test_nav_click_turns_the_page(void)
     CHECK(shown(&r.fake, "< 2/2"));
 }
 
+/* port: PageDown turns the page, as the screen's own words promise (a click on the page indicator or PageDown turns
+ * to the next). The key was never read on this screen before: input_get_key returns the page codes only while the
+ * page keys are on (input_page_keys), and nothing turned them on here. */
+static void test_page_down_turns_the_page(void)
+{
+    Rig r;
+    const int keys[] = { PAGE_DOWN, ESCAPE };
+    setup(&r);
+    run(&r, keys, 2);
+    CHECK(shown(&r.fake, "< 2/2"));
+}
+
 /* port: page 1's Unlock Level still steps through its three values, under Unlocks & mods */
 static void test_unlock_steps_through_three_values(void)
 {
@@ -1012,6 +1024,7 @@ int main(void)
     test_up_from_cancel_reaches_the_last_switch();
     test_right_from_done_reaches_cancel();
     test_nav_click_turns_the_page();
+    test_page_down_turns_the_page();
     test_escape_on_page_one_restores();
     test_done_writes_extras_cfg();
     return TEST_REPORT();

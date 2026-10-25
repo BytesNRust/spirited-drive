@@ -62,6 +62,10 @@ bool platform_key_down(int scancode);
 /* The SDL scancode platform_key_down reads a set-1 scancode from, 0 when none. */
 int platform_key_sdl(int scancode);
 
+/* The set-1 scancode TNFS_INPUT_SCRIPT's name is ("UP", "PGDN", "A", "1"), or -1 for a name the table does not have.
+ * The names are the exe's own key names (key_capture.c): PGUP, PGDN, HOME and END among them. */
+int platform_script_key(const char *name);
+
 /* The words for a key, by set-1 scancode, in capitals ("A", "LEFT SHIFT", "SPACE"); false (out left empty) for a code
  * with no key. */
 bool platform_key_name(int scancode, char *out, size_t size);

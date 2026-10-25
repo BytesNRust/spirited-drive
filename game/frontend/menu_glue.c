@@ -602,7 +602,12 @@ int32_t glue_extras_screen(int16_t unlock)
         own_panel_arrow,    /* plus_arrow */
     };
     mode_extras_screen = ea_screen();
+    /* port: the page keys, so PageDown turns the page as the screen's own words promise (extras_menu.c's header).
+     * They were read for the Graphics screen alone (central_glue.c's graphics()); without this the PageDown branch
+     * there is dead code, and a scripted walk cannot turn the page. */
+    input_page_keys(1);
     const int32_t result = extras_menu_run(&e, &unlock, options_bank, &ops);
+    input_page_keys(0);
     ea_bank_free(options_bank);
     return result;
 }
