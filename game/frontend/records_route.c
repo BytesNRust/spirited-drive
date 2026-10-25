@@ -1,5 +1,6 @@
 /* port: see records_route.h. */
 #include "game/frontend/records_route.h"
+#include "game/sys/free_laps.h"
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
@@ -71,6 +72,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
     kind = records_kind_with_car(kind, g16(image + CAR));
+    if (free_laps_count() != 0) return nothing(op);   /* port (free laps): a record is for a lap count the exe offers, none is taken */
     if (kind.variant == RECORDS_NORMAL && !records_has_cheats(kind)) return original(op, image, game, player, times);
     static uint8_t scratch[RECORD_CHECK_IMAGE];
     const int track = g16(image + TRACK);

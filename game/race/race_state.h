@@ -444,6 +444,9 @@ typedef struct {
     int32_t port_pad_and_keys;      /* port: 1 the followed player's keys and pad are both live (input_read.c), the device words
                                      * of config.dat (0052ad26..) not looked at; 0 the exe's: those words choose one device
                                      * per action */
+    int32_t port_free_laps;         /* port: 1 the race's laps are not the exe's (free_laps.h): the places the lap count outgrows
+                                     * guard themselves (the splits' 85, the game state's 20 lap times, the finish estimate's
+                                     * int32, the AI zones' int16 progress); 0 the exe's, byte for byte */
 } RaceState;
 
 enum {

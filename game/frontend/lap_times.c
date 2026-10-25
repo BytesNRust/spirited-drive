@@ -1,6 +1,7 @@
 #include "game/frontend/lap_times.h"
 
 #include "game/frontend/stat_text.h"
+#include "game/sys/free_laps.h"
 
 #include <stdio.h>
 
@@ -97,7 +98,9 @@ static void draw_lap(const ResultsInputs *in, int i, int row, const int32_t x[3]
 
 static void draw_laps(const ResultsInputs *in, const ResultsOps *ops)
 {
-    const int laps = g16(in->image + LAPS), best = best_lap(in);
+    /* port (free laps): a free race's laps, the game state keeping the first FREE_LAPS_SLOTS (two columns of ten fit) */
+    const int shown = free_laps_or(g16(in->image + LAPS));
+    const int laps = free_laps_count() != 0 && shown > FREE_LAPS_SLOTS ? FREE_LAPS_SLOTS : shown, best = best_lap(in);
     if (laps <= ONE_COLUMN) {
         for (int i = 0; i < laps; i++) draw_lap(in, i, i, LEFT, best, ops);
         return;

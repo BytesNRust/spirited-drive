@@ -42,6 +42,9 @@ void race_schedule_set(const InputSendOps *send, RaceScheduled sched[RACE_SCHEDU
  * then the pause, when frame (a short) is not 0 and the entry's frame is not
  * 0 and at most frame (signed): its call, then its frame = 0. The 1 left in
  * eax is not read by 0045597c. */
+/* port (free laps): 1 compares the frames as a difference (a race past 9:06), 0 the exe's signed 16-bit compare */
+extern int race_schedule_port_wrap;
+
 void race_schedule_run(const RaceScheduleOps *ops, RaceScheduled sched[RACE_SCHEDULE_SLOTS], int16_t frame);
 
 /* 00410b5c (watcall (), from 004275f8 before a race): the menu's and the

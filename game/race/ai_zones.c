@@ -80,7 +80,9 @@ void ai_zone_spans(RaceState *race)
     for (int32_t k = 0; k < ZONES; k++) {
         int16_t *const z = zone_words(race, k);
         const Car *const car = slot_car(race, z[Z_SLOT]);
-        const int32_t at = car != NULL ? car->progress : 0;  /* port guard */
+        int32_t at = car != NULL ? car->progress : 0;  /* port guard */
+        /* port (free laps): the progress past 32767 turns negative in the int16 below and clamps to node 0; the lap's own node keeps the span */
+        if (race->port_free_laps && race->loop_nodes > 0) at = (at % race->loop_nodes + race->loop_nodes) % race->loop_nodes;
         z[Z_AT] = (int16_t)at;
         z[Z_SEEN_END] = (int16_t)(at + SEEN_AHEAD);
         z[Z_SEEN_START] = (int16_t)(at - SEEN_BEHIND);

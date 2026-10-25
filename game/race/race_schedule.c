@@ -2,10 +2,14 @@
 
 #include "game/gfx/x86_int.h"
 
+int race_schedule_port_wrap;
+
 void race_schedule_run(const RaceScheduleOps *ops, RaceScheduled sched[RACE_SCHEDULE_SLOTS], int16_t frame)
 {
     for (int i = 0; i < RACE_SCHEDULE_RUN; i++) {
-        if (frame == 0 || sched[i].frame == 0 || frame < sched[i].frame) continue;
+        /* port (free laps): a race past 9:06 is past the 16-bit frame; the difference, not the values, says whether the time came */
+        const int behind = race_schedule_port_wrap ? (int16_t)(frame - sched[i].frame) < 0 : frame < sched[i].frame;
+        if (frame == 0 || sched[i].frame == 0 || behind) continue;
         ops->call(ops->ctx, i);
         sched[i].frame = 0;
     }
