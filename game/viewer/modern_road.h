@@ -42,4 +42,9 @@ void modern_road_set_style(const ModernStyle *style);
  * (MODERN_FOG_LEVELS - 1) of the way to rgb (the palette's scale); 0xfe and 0xff, the mappers' markers, never chosen. */
 void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
+/* port (PS1 light): MODERN_FOG_LEVELS tables of the palette's colours seen by light: level l the colour nearest each colour
+ * times tint (per channel, 1 neutral) times (1 - l / (MODERN_FOG_LEVELS - 1)); with a neutral tint level 0 is each colour
+ * itself. 0xfe and 0xff stay themselves. */
+void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_t out[MODERN_FOG_LEVELS][256]);
+
 #endif

@@ -93,6 +93,30 @@ void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t
     }
 }
 
+void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
+        const float f = 1.0f - (float)l / (MODERN_FOG_LEVELS - 1);
+        for (int c = 0; c < 256; c++) {
+            if (c >= CHOICES || (l == 0 && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
+                out[l][c] = (uint8_t)c;
+                continue;
+            }
+            float want[3];
+            for (int k = 0; k < 3; k++) want[k] = fminf(palette[3 * c + k] * tint[k] * f, 255.0f);
+            int best = 0;
+            float best_d = 1e30f;
+            for (int i = 0; i < CHOICES; i++) {
+                const float dr = palette[3 * i] - want[0], dg = palette[3 * i + 1] - want[1], db = palette[3 * i + 2] - want[2];
+                const float d = dr * dr + dg * dg + db * db;
+                if (d < best_d) best = i, best_d = d;
+            }
+            out[l][c] = (uint8_t)best;
+        }
+    }
+}
+
 /* the 4x4 ordered dither's thresholds, (BAYER + 0.5) / 16 by (y & 3, x & 3) */
 static const float BAYER[4][4] = {
     { 0.5f / 16, 8.5f / 16, 2.5f / 16, 10.5f / 16 },
