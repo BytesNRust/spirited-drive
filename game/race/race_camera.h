@@ -9,6 +9,10 @@
  * its pitch and roll are both within 0x240000 (a 24-bit turn). */
 int car_faces_road(const Car *car, const RaceState *race);
 
+/* port: car_faces_road, or with port_follow_camera only its pitch and roll test: whatever way the car points, the camera
+ * follows it (race_follow.h). */
+int camera_faces_road(const Car *car, const RaceState *race);
+
 /* 0045573c: each tick, the view the followed `car` (cars[viewed]) calls
  * for. camera_hold counts down. Unless chase sits in its chosen kind
  * (next_kind) above 3 and not 10: a car not facing the road (00405de8)

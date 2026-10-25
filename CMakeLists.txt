@@ -222,6 +222,8 @@ add_library(tnfs_game STATIC
     game/race/race_results.c
     game/race/race_view.c
     game/race/race_chase.c
+    game/race/follow_yaw.c
+    game/race/race_follow.c
     game/race/race_splits.c
     game/race/race_split_tables.c
     game/race/ai_model.c
@@ -413,6 +415,7 @@ add_executable(tnfs
     game/viewer/model_view.c
     game/viewer/object_sink.c
     game/viewer/ported_view.c
+    game/viewer/follow_arm.c
     game/viewer/ported_viewport.c
     game/viewer/raster.c
     game/viewer/track_load.c
@@ -470,7 +473,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_definitions(test_page_arrows PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
-    add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c
+    add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/follow_arm.c game/viewer/modern_road.c
                    game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c)
     target_include_directories(test_mirror_on_dash PRIVATE game)
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
@@ -570,6 +573,16 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_config_name PRIVATE tnfs_game)
     target_compile_options(test_config_name PRIVATE ${TNFS_WARNINGS})
     add_test(NAME config_name COMMAND test_config_name)
+    add_executable(test_follow_camera tests/test_follow_camera.c)
+    target_include_directories(test_follow_camera PRIVATE game .)
+    target_link_libraries(test_follow_camera PRIVATE tnfs_game)
+    target_compile_options(test_follow_camera PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME follow_camera COMMAND test_follow_camera)
+    add_executable(test_follow_yaw tests/test_follow_yaw.c)
+    target_include_directories(test_follow_yaw PRIVATE game .)
+    target_link_libraries(test_follow_yaw PRIVATE tnfs_game)
+    target_compile_options(test_follow_yaw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME follow_yaw COMMAND test_follow_yaw)
     add_executable(test_chase_cycle tests/test_chase_cycle.c)
     target_include_directories(test_chase_cycle PRIVATE game .)
     target_link_libraries(test_chase_cycle PRIVATE tnfs_game)

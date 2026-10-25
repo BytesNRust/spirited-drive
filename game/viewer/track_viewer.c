@@ -336,6 +336,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
     if (free_race) port_log("free laps: %d laps (the exe's would be %d), no record is kept\n", laps, exe_laps);
+    drive_sim.race.port_follow_camera = port_extras_load().follow_camera;   /* port: extras.cfg's Follow camera (CUSTOMIZE, Unlocks & mods) */
     if (drive_menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
         drive_sim.race.unknown_4c5cd4 = drive_menus.explode;
         drive_sim.race.start_input = drive_menus.start_boost;

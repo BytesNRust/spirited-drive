@@ -23,6 +23,7 @@
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
+#include "game/viewer/follow_arm.h"
 #include "viewer/horizon_smooth.h"
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
@@ -805,6 +806,31 @@ const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32
     return &render;
 }
 
+/* port (port_follow_camera): which way the camera looks along the track decides which arms of it are drawn. The exe's
+ * track pass draws the segments ahead of the camera's node (its near plane pushes along the road direction, which runs
+ * away from a camera that faces down the track); the arm behind is follow_arm.h's. Between the two limits both are drawn. */
+enum { FOLLOW_AHEAD_BELOW = 0x4a0000, FOLLOW_BEHIND_ABOVE = 0x360000 };   /* 24-bit angles: 104 and 76 degrees off the road */
+
+static int32_t follow_off_road(const PortedCamera *pc)
+{
+    int32_t off = (int32_t)(((uint32_t)pc->yaw - (uint32_t)race_node(shadow_race, pc->node).orientation * 0x400u) & 0xffffff);
+    if (off > 0x800000) off = 0x1000000 - off;
+    return off;
+}
+
+/* port: the followed car on a row behind the camera's node, which the track pass does not draw cars on */
+static void draw_followed_car(const PortedCamera *pc, int ahead_drawn)
+{
+    const RaceState *race = shadow_race;
+    Car *car = (Car *)followed_car();
+    if (car == NULL || race->chase.kind == 0 || car->physics == 6) return;
+    const int32_t ring = (int32_t)((uint32_t)race->segments << 2);
+    const int32_t d = car->draw_node >= pc->node ? car->draw_node - pc->node : car->draw_node + ring - pc->node;
+    if (ahead_drawn && d >= 0 && d < ROW_CARS_AHEAD && ahead_rows[d] != 0) return;   /* the pass drew it */
+    row_prepare(NULL, car, 0);
+    row_draw(NULL, car, 0);
+}
+
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
                              const PortedCar *list, int count, uint8_t *pixels)
 {
@@ -861,7 +887,18 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         raster_record_set_runner(bands_rows);
         raster_record_begin(&recorder, pixels);
     }
-    track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    int ahead = 1;
+    if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
+        const int32_t off = follow_off_road(pc);
+        ahead = off < FOLLOW_AHEAD_BELOW;
+        follow_arm_window(&render, FOLLOW_ARM_SEGMENTS);
+        if (off > FOLLOW_BEHIND_ABOVE) {
+            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri) };
+            follow_arm_draw(&arm, FOLLOW_ARM_SEGMENTS, FOLLOW_ARM_BEHIND);
+        }
+    }
+    if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
 }
 
