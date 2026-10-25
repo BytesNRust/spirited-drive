@@ -19,6 +19,13 @@ int records_slot_totals(int track, int choice, int row)
     return SLOT_TOTALS + (track >= CIRCUIT_FROM ? SLOT_CHOICE * choice : 0) + row;
 }
 
+int records_choice(const uint8_t image[RECORD_CHECK_IMAGE])
+{
+    const int menu = g16(image + DIFFICULTY);
+    const int free = free_laps_count() != 0 ? free_laps_choice(g16(image + TRACK), free_laps_count()) : -1;
+    return free >= 0 ? free : menu;
+}
+
 int records_has_cheats(RaceKind kind) { return kind.marks != 0; }
 
 RaceKind records_kind_with_car(RaceKind kind, int car)
@@ -72,15 +79,29 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
     kind = records_kind_with_car(kind, g16(image + CAR));
-    if (free_laps_count() != 0) return nothing(op);   /* port (free laps): a record is for a lap count the exe offers, none is taken */
-    if (kind.variant == RECORDS_NORMAL && !records_has_cheats(kind)) return original(op, image, game, player, times);
     static uint8_t scratch[RECORD_CHECK_IMAGE];
     const int track = g16(image + TRACK);
+    const int free_race = free_laps_count() != 0;
+    const int choice = records_choice(image);
+    /* port (free laps): the best lap and the top speed count; a total only for a lap count the track has (its choice's
+     * table, through the scratch copy); no segment record */
+    if (free_race && (op == ROUTE_SEGMENT || (op == ROUTE_TOTALS && free_laps_choice(track, free_laps_count()) < 0)))
+        return nothing(op);
+    if (kind.variant == RECORDS_NORMAL && !records_has_cheats(kind)) {
+        if (!free_race) return original(op, image, game, player, times);
+        memcpy(scratch, image, sizeof scratch);
+        scratch[DIFFICULTY] = (uint8_t)choice, scratch[DIFFICULTY + 1] = 0;
+        const int32_t answer = original(op, scratch, game, player, times);
+        if (answer != nothing(op))
+            memcpy(image + FIRST_BLOCK + RECORDS_BLOCK * track, scratch + FIRST_BLOCK + RECORDS_BLOCK * track, RECORDS_BLOCK);
+        return answer;
+    }
     uint8_t *const block = port_records_block(track, kind.variant, records_has_cheats(kind));
     uint8_t *const marks = port_records_marks(track, kind.variant);
     if (block == NULL || marks == NULL) return nothing(op);
     memcpy(scratch, image, sizeof scratch);
     memcpy(scratch + FIRST_BLOCK + RECORDS_BLOCK * track, block, RECORDS_BLOCK);
+    if (free_race) scratch[DIFFICULTY] = (uint8_t)choice, scratch[DIFFICULTY + 1] = 0;
     /* record_check's early return is the original's no-records car: the Warrior's times are the port's, so the check
      * runs as a car the original records (the image's car word is read by nothing else in the check) */
     if (g16(scratch + CAR) == WARRIOR) scratch[CAR] = 0, scratch[CAR + 1] = 0;
@@ -88,7 +109,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     if (answer == nothing(op)) return answer;
     memcpy(block, scratch + FIRST_BLOCK + RECORDS_BLOCK * track, RECORDS_BLOCK);
     if (records_has_cheats(kind))
-        mark(kind, op, track, g16(image + SEGMENT), g16(image + DIFFICULTY), answer, marks);
+        mark(kind, op, track, g16(image + SEGMENT), choice, answer, marks);
     if (!port_records_save()) port_log("records: records.dat could not be saved\n");
     return answer;
 }

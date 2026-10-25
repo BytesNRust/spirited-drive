@@ -47,4 +47,10 @@ void horizon_draw_flat_smooth(const HorizonSmooth *s, const HorizonTables *t, co
                               const ClipRect *clip, const FshEntry *horz, int32_t yaw, int mirrored, int sky_off,
                               int32_t line);
 
+/* port: the band cache's frames (horizon_draw_flat_smooth keeps each render band's pixels and copies them when the same
+ * draw comes again): free it, and count the copies made (tests; the cache is the same pixels either way). */
+void horizon_smooth_cache_reset(void);
+void horizon_smooth_cache_enable(int on);   /* 1 (the default) keeps and copies, 0 draws every time and leaves the cache as it was */
+unsigned long horizon_smooth_cache_hits(void);
+
 #endif

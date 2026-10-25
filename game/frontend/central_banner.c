@@ -20,9 +20,13 @@ int central_cheats_on(const ControlCentralState *st)
 void central_banner(CentralRun *r)
 {
     const ControlCentralOps *o = r->ops;
+    if (!o->port_banner) return;   /* the exe: nothing there */
     r->banner_shown = central_cheats_on(r->st);
     if (r->banner_shown == 0) return;
     o->plus_text(o->ctx, TEXT_RED, BANNER_TEXT, BANNER_X, BANNER_Y);
 }
 
-int central_banner_stale(const CentralRun *r) { return central_cheats_on(r->st) != (r->banner_shown != 0); }
+int central_banner_stale(const CentralRun *r)
+{
+    return r->ops->port_banner && central_cheats_on(r->st) != (r->banner_shown != 0);
+}

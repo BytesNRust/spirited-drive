@@ -219,7 +219,7 @@ static int32_t y_in(const Fake *f, const char *text)
 enum { LINE = 20 };
 
 /* the pitch the rows are set at (extras_menu.c's ROW_PITCH): the spacing between two rows of a group */
-enum { PITCH = 24 };
+enum { PITCH = 22 };
 
 typedef struct Rig {
     Fake fake;
@@ -480,15 +480,15 @@ static void test_no_background_leaves_the_display_alone(void)
     CHECK_EQ_INT(r.fake.fade_outs, 0);
 }
 
-/* CHEATS and UNLOCKS & MODS on page 1: eleven switches, Time with variants the last one. Walk the whole page down
+/* CHEATS and UNLOCKS & MODS on page 1: twelve switches, Follow camera the last one. Walk the whole page down
  * and they are all of them */
-static void test_page_one_has_eleven_rows(void)
+static void test_page_one_has_twelve_rows(void)
 {
     Rig r;
     int keys[48];
-    int n = downs(keys, 0, ROWS_P1);                       /* down to Done, past the eleven */
+    int n = downs(keys, 0, ROWS_P1);                       /* down to Done, past the twelve */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P1, 11);
+    CHECK_EQ_INT(ROWS_P1, 12);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Explode mode"));
@@ -502,6 +502,7 @@ static void test_page_one_has_eleven_rows(void)
     CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
+    CHECK(shown(&r.fake, "Follow camera"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
@@ -741,7 +742,8 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     run(&one, here, 1);
     /* the page's first and last words, as the text's own top and its bottom */
     CHECK(y_in(&one.fake, "Cheats") >= TITLE_BOTTOM);
-    CHECK(y_in(&one.fake, "Time with variants") + LINE < BUTTONS_TOP);
+    CHECK(y_in(&one.fake, "Follow camera") + LINE < BUTTONS_TOP);
+    CHECK(y_in(&one.fake, "Time with variants") < y_in(&one.fake, "Follow camera"));   /* the group's last row */
 
     Rig two;
     setup(&two);
@@ -927,8 +929,10 @@ static void test_nav_click_turns_the_page(void)
 }
 
 /* port: PageDown turns the page, as the screen's own words promise (a click on the page indicator or PageDown turns
- * to the next). The key was never read on this screen before: input_get_key returns the page codes only while the
- * page keys are on (input_page_keys), and nothing turned them on here. */
+ * to the next). The screen answers the BIOS code 0x5100, which is what the port's page key is reported as; where
+ * that code comes from -- a scripted PGDN read by input_get_key while the page keys are on -- is
+ * test_input_page_keys's, and the screen's own caller turning the page keys on is menu_glue.c's. This rig hands
+ * the screen the code itself, so it covers the screen's half of it. */
 static void test_page_down_turns_the_page(void)
 {
     Rig r;
@@ -984,6 +988,46 @@ static void test_lunar_row_is_saved_on_done(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
+/* port: Follow camera, the last row of Unlocks & mods: off to start with, Enter turns it on and Done saves it (the
+ * file the race reads it from), another Enter turns it off again */
+static void test_follow_camera_row_toggles_and_saves(void)
+{
+    Rig r;
+    int keys[48] = {0};
+    int n = keys_to_row(keys, ROW_FOLLOW_CAMERA);
+    keys[n++] = ENTER;
+    n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
+    keys[n++] = ENTER;
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, ROW_FIRST_P2 - 1);   /* the last row on page 1, under Unlocks & mods */
+    setup(&r);
+    CHECK_EQ_INT(r.e.follow_camera, 0);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.e.follow_camera, 1);
+    CHECK_EQ_INT(r.fake.saved.follow_camera, 1);
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK(shown(&r.fake, "On"));
+
+    Rig again;
+    setup(&again);
+    again.e.follow_camera = 1;
+    run(&again, keys, n);
+    CHECK_EQ_INT(again.e.follow_camera, 0);
+    CHECK_EQ_INT(again.fake.saved.follow_camera, 0);
+}
+
+/* Escape puts Follow camera back like the other rows */
+static void test_follow_camera_row_escape_restores(void)
+{
+    Rig r;
+    int keys[48] = {0};
+    int n = keys_to_row(keys, ROW_FOLLOW_CAMERA);
+    keys[n++] = SPACE, keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.e.follow_camera, 0);
+    CHECK_EQ_INT(r.fake.saves, 0);
+}
+
 /* Done writes the on-disk file (saves++ in the rig) */
 static void test_done_writes_extras_cfg(void)
 {
@@ -1009,11 +1053,13 @@ int main(void)
     test_rally_excludes_mirror();
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
-    test_page_one_has_eleven_rows();
+    test_page_one_has_twelve_rows();
     test_page_two_has_ten_rows();
     test_psx_livery_row_is_saved_on_done();
     test_race_switch_rows_save_with_done();
     test_lunar_row_is_saved_on_done();
+    test_follow_camera_row_toggles_and_saves();
+    test_follow_camera_row_escape_restores();
     test_speed_units_row_reads_mph_in_english();
     test_speed_units_follow_the_language_until_chosen();
     test_speed_units_choice_overrides_german();

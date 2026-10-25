@@ -15,7 +15,7 @@ enum {
  * track's records (TRACK_RECORDS bytes a track, a circuit's best totals
  * BEST_TABLE bytes a difficulty) */
 enum {
-    RACE_TYPE = 0x6d, TRACK_MUSIC = 0x7b, OPPONENT = 0x91, TRACK = 0x95, CAR = 0x9b, LAPS = 0xb1, DIFFICULTY = 0xb3,
+    RACE_TYPE = 0x6d, TRACK_MUSIC = 0x7b, OPPONENT = 0x91, TRACK = 0x95, CAR = 0x9b, LAPS = 0xb1,
     TRACK_RECORDS = 0xa6b, BEST_TABLE = 0x186, BEST_NAME = 0x19f, BEST_CAR = 0x1ae, BEST_TOTAL = 0x1ba,
     BEST_TOP = 0x1be, BEST_MARK = 0x1c2, TOP_NAME = 0x631, TOP_CAR = 0x640, TOP_SPEED = 0x650, TOP_MARK = 0x654
 };
@@ -52,7 +52,7 @@ static const uint8_t *player_at(const ResultsInputs *in, int32_t who) { return i
 static const uint8_t *track_at(const ResultsInputs *in) { return in->image + TRACK_RECORDS * g16(in->image + TRACK); }
 static const uint8_t *best_at(const ResultsInputs *in)
 {
-    return track_at(in) + BEST_TABLE * g16(in->image + DIFFICULTY);
+    return track_at(in) + BEST_TABLE * records_choice(in->image);   /* port: a free race shows its lap count's table */
 }
 
 static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" : "DNF"; }

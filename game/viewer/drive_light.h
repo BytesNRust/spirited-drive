@@ -25,6 +25,9 @@ void drive_light_world_done(const uint8_t *frame, size_t count);
 enum { PSX_CLASS_DASH = 1, PSX_CLASS_HUD = 2 };
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
 int drive_light_active(void);
+/* 1 when the race was loaded with the light on and a time other than the day (dawn, dusk): its 3D is tinted, which needs the wide path.
+ * Kept at the race's start (drive_light_load), not read from port.cfg each frame. */
+int drive_light_time_tinted(void);
 /* The ambient tint of the light loaded, per channel (1 neutral). */
 void drive_light_tint(float out[3]);   /* the tint is not neutral */
 /* The node of the car the dash is of, which sets its ambient (the LGS context there, over the world's tint); -1, none. */

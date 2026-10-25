@@ -19,7 +19,7 @@ DriveWide drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0, 1, NULL };
 
 /* port: the PS1 light's time of day tints the 3D alone, which needs the 3D in a buffer of its own under the 2D layer (the wide
  * path's), whatever the screen's width */
-static int tinted_time(void) { return port_psx_light() && port_psx_time() != PSX_TIME_DAY; }
+static int tinted_time(void) { return drive_light_time_tinted(); }   /* kept at the race's start: no port.cfg read a frame */
 
 int drive_wide_active(void) { return drive_wide.width > SCREEN_W || drive_wide.scale > 1 || tinted_time(); }
 
@@ -388,8 +388,9 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 },   /* the radar detector stays on the dash */
                                    { GAUGE_SIZE, GAUGE_SIZE } };
     HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
-    /* the box where the exe's 640 frame has it (the anchor is the dash's grab, 2 px on): the same frame whatever the wide path is on for */
-    if (drive_wide.width <= SCREEN_W) a.map = (ScreenPoint){ DRIVE_MAP_X, DRIVE_MAP_Y };
+    /* the box where the exe's 640 frame has it (the anchor is the dash's grab, 2 px on) when the wide path is on only for the dawn / dusk tint:
+     * that frame is the day's; the other reasons keep the wide path's own place */
+    if (drive_wide.width <= SCREEN_W && drive_light_time_tinted()) a.map = (ScreenPoint){ DRIVE_MAP_X, DRIVE_MAP_Y };
     drive_light_world_rect(drive_wide.width * drive_wide.scale, 0, 0, 0, 0);
     LayerPiece pieces[12];
     int n = 0;

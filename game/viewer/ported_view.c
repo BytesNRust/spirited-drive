@@ -25,6 +25,8 @@
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
+#include "game/viewer/follow_arm.h"
+#include "game/viewer/follow_behind.h"
 #include "viewer/horizon_smooth.h"
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
@@ -225,6 +227,8 @@ static void weather_style(const TrackArt *art, const WeatherTables *wt)
 
 /* the rear-view mirror draws before the front view of the frame: its road gets the weather's style (not last frame's);
  * 0 (nothing set) in WEATHER_CLEAR or without Modern 3D */
+int ported_view_mirror_weather_on(void) { return weather != WEATHER_CLEAR && modern; }
+
 int ported_view_mirror_weather(const TrackArt *art)
 {
     if (weather == WEATHER_CLEAR || !modern) return 0;
@@ -1110,6 +1114,7 @@ void ported_view_forget_track(void)
 {
     render.tri = NULL;
     ported_view_set_models(NULL, NULL, 0);  /* the next track's models sit at the same address, bound to these textures */
+    horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
 }
 
 void ported_view_set_reach(int32_t segments)
@@ -1123,6 +1128,32 @@ const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32
 {
     stream(tri, art, camera_node);
     return &render;
+}
+
+/* port (port_follow_camera): which way the camera looks along the track decides who draws it. The exe's track pass draws
+ * the segments ahead of the camera's node (its near plane pushes along the road direction, which runs away from a
+ * camera that faces down the track); a camera that looks more across the road is drawn by follow_behind.h's, which
+ * draws both sides of the node, the segments' rails, scenery and cars as the exe's pass does. */
+enum { FOLLOW_EXE_BELOW = 0x120000 };   /* a 24-bit angle: 25.3 degrees off the road, past which the bottom of the view looks at ground behind the camera's node, which the exe's pass leaves bare */
+
+static int32_t follow_off_road(const PortedCamera *pc)
+{
+    int32_t off = (int32_t)(((uint32_t)pc->yaw - (uint32_t)race_node(shadow_race, pc->node).orientation * 0x400u) & 0xffffff);
+    if (off > 0x800000) off = 0x1000000 - off;
+    return off;
+}
+
+/* port: the followed car on a row behind the camera's node, which the track pass does not draw cars on */
+static void draw_followed_car(const PortedCamera *pc, int ahead_drawn)
+{
+    const RaceState *race = shadow_race;
+    Car *car = (Car *)followed_car();
+    if (car == NULL || race->chase.kind == 0 || car->physics == 6) return;
+    const int32_t ring = (int32_t)((uint32_t)race->segments << 2);
+    const int32_t d = car->draw_node >= pc->node ? car->draw_node - pc->node : car->draw_node + ring - pc->node;
+    if (ahead_drawn && d >= 0 && d < ROW_CARS_AHEAD && ahead_rows[d] != 0) return;   /* the pass drew it */
+    row_prepare(NULL, car, 0);
+    row_draw(NULL, car, 0);
 }
 
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
@@ -1224,9 +1255,19 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
-    track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    int ahead = 1;   /* the exe's pass draws the track */
+    if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
+        follow_arm_window(&render, FOLLOW_ARM_SEGMENTS);
+        ahead = follow_off_road(pc) <= FOLLOW_EXE_BELOW;
+        if (!ahead) {
+            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri), anim_tick, view_mirrored(), 0 };
+            follow_behind_draw(&arm, FOLLOW_ARM_SEGMENTS, render.draw_segments - 2);
+        }
+    }
+    if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
     track_light_hook = NULL;
     lit_active = 0;
+    if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
     if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);

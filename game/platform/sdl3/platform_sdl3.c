@@ -39,7 +39,8 @@ static int key_head;
 static int key_count;
 
 /* TNFS_INPUT_SCRIPT="ms:KEY,ms:MOUSE:x:y,...": scripted input for headless
- * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, a letter, a digit, F1..F12, CTRL, ALT, SHIFT, KP1;
+ * runs. KEY (UP, DOWN, LEFT, RIGHT, ENTER, ESC, SPACE, a letter, a digit, F1..F12, CTRL, ALT, SHIFT, KP1,
+ * PGUP, PGDN, HOME, END;
  * several at one ms are held together) is held for 100 ms
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves

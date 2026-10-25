@@ -22,6 +22,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
 static RaceStats race_stats;          /* port: F12's overlay, its figures and its switch (race_stats.h) */
@@ -568,11 +569,18 @@ static const RaceRunOps *drive_run_ops(void)
     return &ops;
 }
 
+enum { SPIN_TICKS = 150, SPIN_BRAKE_TICKS = 30 };   /* TNFS_SCRIPT=spin: the last 150 ticks, the handbrake the first 30 */
+
 /* The screenshots' input on step i of `ticks`: full throttle, a tap of
  * 0x1000 while the race tick is 320..327, and over the last 20 steps the
  * lock TNFS_STEER=left / right asks for. */
 static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
 {
+    const char *script = getenv("TNFS_SCRIPT");
+    if (script != NULL && strcmp(script, "spin") == 0 && i + SPIN_TICKS >= ticks) {   /* full lock left, the handbrake for a second */
+        const uint32_t into = i + SPIN_TICKS - ticks;
+        return (into < SPIN_BRAKE_TICKS ? 0x8000u : 0u) | 0u;
+    }
     const char *steer_env = getenv("TNFS_STEER");
     const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
     const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;
@@ -585,6 +593,48 @@ static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
  * TNFS_NOTICE=1off / 2off: and down again for the last 5; TNFS_FRAMES=N:
  * whole frames over the last N ticks, so what builds up while drawing, the
  * skid marks, does). */
+/* TNFS_SHOTS=prefix:every: a picture (prefix_tick.ppm) every `every` ticks of the last frames, with the car's and the camera's yaw
+ * (the follow camera's tests) */
+static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t ticks)
+{
+    const char *spec = getenv("TNFS_SHOTS");
+    const char *colon = spec != NULL ? strrchr(spec, ':') : NULL;
+    if (colon == NULL || atoi(colon + 1) <= 0 || i % (uint32_t)atoi(colon + 1) != 0) return;
+    const Car *car = drive_sim.race.cars[0];
+    int32_t off = (int32_t)(((uint32_t)drive_sim.race.chase.angles[1] -
+                             (uint32_t)race_node(&drive_sim.race, drive_sim.race.chase.node).orientation * 0x400u) & 0xffffff);
+    if (off > 0x800000) off -= 0x1000000;
+    printf("shot %u: car yaw %d, camera yaw %d (a turn is 16777216), camera %.0f degrees off the road, speed %.1f\n", i,
+           car->yaw & 0xffffff, drive_sim.race.chase.angles[1] & 0xffffff, off * 360.0 / 16777216.0, car->speed / 65536.0);
+    char name[512];
+    snprintf(name, sizeof name, "%.*s_%05u.ppm", (int)(colon - spec), spec, i);
+    int width;
+    const uint8_t *shown = drive_output(pixels, &width);
+    track_viewer_write_ppm(name, shown, width, drive_output_height(), t->art.palette);
+    (void)ticks;
+}
+
+/* TNFS_FRAME_TIMES=1: the whole frames' render times (the follow camera's cost) */
+enum { FRAME_TIMES = 4096 };
+static double frame_us[FRAME_TIMES];
+static int frame_count;
+
+static int compare_us(const void *a, const void *b)
+{
+    const double x = *(const double *)a, y = *(const double *)b;
+    return (x > y) - (x < y);
+}
+
+static void frame_times_print(void)
+{
+    if (getenv("TNFS_FRAME_TIMES") == NULL || frame_count == 0) return;
+    double sum = 0;
+    for (int i = 0; i < frame_count; i++) sum += frame_us[i];
+    qsort(frame_us, (size_t)frame_count, sizeof frame_us[0], compare_us);
+    printf("frames %d: mean %.0f us, p50 %.0f us, p95 %.0f us, max %.0f us\n", frame_count, sum / frame_count,
+           frame_us[frame_count / 2], frame_us[(int)(frame_count * 0.95)], frame_us[frame_count - 1]);
+}
+
 int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
     drive_wide_size(screen_width(drive_screen_format()));
@@ -609,12 +659,18 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             continue;
         }
         if (i + frames >= ticks) {
+            struct timespec t0, t1;
+            clock_gettime(CLOCK_MONOTONIC, &t0);
             render_drive(t, pixels);
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            if (frame_count < FRAME_TIMES) frame_us[frame_count++] = (t1.tv_sec - t0.tv_sec) * 1000000.0 + (t1.tv_nsec - t0.tv_nsec) / 1000.0;
+            spin_shot(t, pixels, i, ticks);
             continue;
         }
         drive_hud_strip(&drive_hud, &drive_sim.race);  /* the HUD keeps drawing every frame */
         ported_view_stream(&t->tri, &t->art, chase_camera(&drive_sim.race.chase, t->tri.ring_nodes).node);  /* and 0043f540 */
     }
+    frame_times_print();
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;
     printf("tick %d (phase %d): node %d, speed %.1f m/s, gear %d; view kind %d, eye node %d (%.1f, %.1f, %.1f)\n",

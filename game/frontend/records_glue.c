@@ -8,7 +8,7 @@
 #include <string.h>
 
 enum { TRACKS = 9, SCANCODE_TAB = 0x0f, FIRST_RECORD = 0xea, SCREEN_RECORDS = 0x19f, TRACK_WORD = 0x95, CAR_WORD = 0x9b,
-       DIFFICULTY_WORD = 0xb3, BLOCK_AT = 0xb5 };
+       BLOCK_AT = 0xb5 };
 
 static RaceKind current;
 static int in_tournament, loaded;
@@ -79,7 +79,7 @@ void records_glue_marks_as(RouteOp op, const uint8_t *image, ResultsMarks *out)
     const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
     const RaceKind kind = shown_kind(op, image);
     out->slots = kind.marks == 0 ? NULL : port_records_marks(track, kind.variant);
-    out->choice = (int16_t)(image[DIFFICULTY_WORD] | image[DIFFICULTY_WORD + 1] << 8);
+    out->choice = records_choice(image);
 }
 
 /* a table's records as the screen reads them: the tracks' blocks from their first record, 0xa6b apart */

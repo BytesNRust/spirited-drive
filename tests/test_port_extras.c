@@ -56,6 +56,7 @@ static void check_same(PortExtras a, PortExtras b)
     CHECK_EQ_INT(a.bumper_mirror, b.bumper_mirror);
     CHECK_EQ_INT(a.bumper_radar, b.bumper_radar);
     CHECK_EQ_INT(a.variant_time, b.variant_time);
+    CHECK_EQ_INT(a.follow_camera, b.follow_camera);
     CHECK_EQ_INT(a.stats_overlay, b.stats_overlay);
     CHECK_EQ_INT(a.car_markers, b.car_markers);
     CHECK_EQ_INT(a.start, b.start);
@@ -70,7 +71,25 @@ static void test_defaults(void)
     check_same(d, (PortExtras){ .car_markers = 1, .start = START_GAME_MODE });
     CHECK_EQ_INT(d.start, START_GAME_MODE);
     CHECK_EQ_INT(d.stats_overlay, 0);   /* the stats overlay starts off */
+    CHECK_EQ_INT(d.follow_camera, 0);   /* the exe's cameras to start with */
+    CHECK_EQ_INT(port_extras_parse("follow_camera=1\n", 16).follow_camera, 1);
     CHECK_EQ_INT(d.car_markers, 1);     /* the car markers start On: the exe's */
+    CHECK_EQ_INT(d.movies_wide, 1);     /* the movies fill a wide screen */
+}
+
+/* movies_wide is a switch of its own: parsed, written and read back */
+static void test_movies_wide(void)
+{
+    const char *text = "movies_wide=0\n";
+    PortExtras e = port_extras_parse(text, strlen(text));
+    CHECK_EQ_INT(e.movies_wide, 0);
+    char out[512];
+    CHECK(port_extras_format(&e, out, sizeof out) > 0);
+    CHECK(strstr(out, "movies_wide=0\n") != NULL);
+    e = port_extras_parse(out, strlen(out));
+    CHECK_EQ_INT(e.movies_wide, 0);
+    text = "movies_wide=2\n";   /* not a switch value: the default stays */
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).movies_wide, 1);
 }
 
 /* the two race switches are read and written by their keys; a value other than 0 or 1 keeps the default */
@@ -135,7 +154,7 @@ static void test_round_trip(void)
     const PortExtras e = { .mirror = 1, .rally = 1, .warrior = 1, .vegas = 1, .explode = 1, .nitro = 1, .turbo = 1,
                             .replay_cameras = 1, .warrior_rival = 1, .no_movies = 1, .no_assists = 1, .modern_3d = 1,
                             .texture_filter = 1, .fog = 1, .bumper_mirror = 1, .bumper_radar = 1, .variant_time = 1,
-                            .stats_overlay = 1, .car_markers = 1, .start = START_CENTRAL };
+                            .stats_overlay = 1, .car_markers = 1, .follow_camera = 1, .start = START_CENTRAL };
     char text[512];
     const size_t n = port_extras_format(&e, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -198,6 +217,7 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 int main(void)
 {
     test_defaults();
+    test_movies_wide();
     test_units_default_to_the_language();
     test_units_parse();
     test_units_round_trip();

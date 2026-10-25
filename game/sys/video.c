@@ -92,6 +92,15 @@ static const uint8_t *enlarged(const uint8_t *picture, int width, int s)
     return big;
 }
 
+static const uint8_t *wide_picture;   /* port: shown in place of the frame while set (video.h) */
+static int wide_picture_w;
+
+void video_set_wide_picture(const uint8_t *picture, int width)
+{
+    wide_picture = picture;
+    wide_picture_w = picture != NULL ? width : 0;
+}
+
 static void show(void)
 {
     PlatformColor colors[PALETTE_COLORS];
@@ -103,8 +112,11 @@ static void show(void)
     const int s = height >= VIDEO_HEIGHT ? height / VIDEO_HEIGHT : 1;
     width /= s;
     const uint8_t *shown;
-    const uint8_t *const backdrop = width > VIDEO_WIDTH ? compose_wide(width) : NULL;
-    if (backdrop != NULL) {
+    const int own = wide_picture != NULL && wide_picture_w == width;   /* port: a movie's own wide picture */
+    const uint8_t *const backdrop = !own && width > VIDEO_WIDTH ? compose_wide(width) : NULL;
+    if (own) {
+        shown = wide_picture;
+    } else if (backdrop != NULL) {
         shown = backdrop;
     } else {
         if (overlay != NULL) compose_overlay();
@@ -146,6 +158,7 @@ void video_shutdown(void)
     free(wide);
     back = front = composed = wide = NULL;
     wide_w = shade_valid = 0;
+    wide_picture = NULL, wide_picture_w = 0;
     overlay = NULL;
 }
 

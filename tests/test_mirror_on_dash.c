@@ -8,6 +8,7 @@
 
 /* the weather's hooks (ported_view.c, not built here): clear */
 int ported_view_mirror_weather(const TrackArt *art) { (void)art; return 0; }
+int ported_view_mirror_weather_on(void) { return 0; }
 void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9])
 {
     (void)art, (void)target, (void)view, (void)matrix;

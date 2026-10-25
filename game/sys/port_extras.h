@@ -36,6 +36,10 @@ typedef struct {
     int lunar_springs;  /* 0/1: the rally on Rusty Springs runs the cut moon track's textures and picture (lunar_springs.h).
                          * Last, so the positional initialisers above keep their meaning. */
     DashBox dash_box;   /* DASH_BOX_MAP */
+    int movies_wide;    /* 0/1: on a wide screen a movie fills its width (the picture scaled up, its top and bottom cropped, tgv_wide.h);
+                         * 0 the exe's look, the 4:3 frame in the middle. On. Last, as above. */
+    int follow_camera;  /* 0/1: every camera follows the car's heading, the road behind drawn (race_follow.h); 0 the exe's.
+                         * Off. Last, as above. */
     int psx_liveries;   /* 0/1: the car colours (the CUSTOMIZE switch; the key keeps its old name): every car offers its catalogue paints
                          * (car_paint.h) and, with the port.cfg psx_dir's files, the PS1 game's second livery (car_livery.h); the
                          * player's pick is car_paint, the rivals' are drawn from the race's seed; off, the exe's colours. Last, as dash_box. */

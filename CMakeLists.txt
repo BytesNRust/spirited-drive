@@ -137,6 +137,7 @@ add_library(tnfs_game STATIC
     game/frontend/tgv.c
     game/frontend/tgv_frame.c
     game/frontend/tgv_player.c
+    game/frontend/tgv_wide.c
     game/frontend/title.c
     game/frontend/track_select.c
     game/frontend/tournament.c
@@ -223,6 +224,8 @@ add_library(tnfs_game STATIC
     game/race/race_results.c
     game/race/race_view.c
     game/race/race_chase.c
+    game/race/follow_yaw.c
+    game/race/race_follow.c
     game/race/race_splits.c
     game/race/race_split_tables.c
     game/race/ai_model.c
@@ -393,6 +396,7 @@ add_executable(tnfs
     game/frontend/screens.c
     game/sys/input.c
     game/sys/bands.c
+    game/sys/band_index.c
     game/sys/pointer.c
     game/sys/text.c
     game/sys/timer.c
@@ -430,6 +434,8 @@ add_executable(tnfs
     game/viewer/object_sink.c
     game/viewer/soft_shadow.c
     game/viewer/ported_view.c
+    game/viewer/follow_arm.c
+    game/viewer/follow_behind.c
     game/viewer/ported_viewport.c
     game/viewer/raster.c
     game/viewer/track_load.c
@@ -495,8 +501,8 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_definitions(test_page_arrows PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
-    add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c
-                   game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
+    add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/follow_arm.c game/viewer/follow_behind.c game/viewer/modern_road.c
+                   game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c)
     target_include_directories(test_mirror_on_dash PRIVATE game)
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
@@ -513,7 +519,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_options(test_modern_road PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_road COMMAND test_modern_road)
     # port: the render bands' exactness (a clipped draw equals the unclipped one inside the clip): the viewer's rasterizers built in
-    add_executable(test_band_exact tests/test_band_exact.c game/viewer/modern_road.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c)
+    add_executable(test_band_exact tests/test_band_exact.c game/viewer/modern_road.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_band_exact PRIVATE game)
     target_link_libraries(test_band_exact PRIVATE tnfs_game)
     target_compile_options(test_band_exact PRIVATE ${TNFS_WARNINGS})
@@ -528,12 +534,12 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_modern_look PRIVATE tnfs_game)
     target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_look COMMAND test_modern_look)
-    add_executable(test_horizon_smooth tests/test_horizon_smooth.c game/viewer/horizon_smooth.c)
+    add_executable(test_horizon_smooth tests/test_horizon_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_horizon_smooth PRIVATE game)
     target_link_libraries(test_horizon_smooth PRIVATE tnfs_game)
     target_compile_options(test_horizon_smooth PRIVATE ${TNFS_WARNINGS})
     add_test(NAME horizon_smooth COMMAND test_horizon_smooth)
-    add_executable(test_sky_smooth tests/test_sky_smooth.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c)
+    add_executable(test_sky_smooth tests/test_sky_smooth.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_sky_smooth PRIVATE game)
     target_link_libraries(test_sky_smooth PRIVATE tnfs_game)
     target_compile_options(test_sky_smooth PRIVATE ${TNFS_WARNINGS})
@@ -595,6 +601,21 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_config_name PRIVATE tnfs_game)
     target_compile_options(test_config_name PRIVATE ${TNFS_WARNINGS})
     add_test(NAME config_name COMMAND test_config_name)
+    add_executable(test_follow_behind tests/test_follow_behind.c game/viewer/follow_behind.c game/viewer/follow_arm.c)
+    target_include_directories(test_follow_behind PRIVATE game .)
+    target_link_libraries(test_follow_behind PRIVATE tnfs_game)
+    target_compile_options(test_follow_behind PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME follow_behind COMMAND test_follow_behind)
+    add_executable(test_follow_camera tests/test_follow_camera.c)
+    target_include_directories(test_follow_camera PRIVATE game .)
+    target_link_libraries(test_follow_camera PRIVATE tnfs_game)
+    target_compile_options(test_follow_camera PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME follow_camera COMMAND test_follow_camera)
+    add_executable(test_follow_yaw tests/test_follow_yaw.c)
+    target_include_directories(test_follow_yaw PRIVATE game .)
+    target_link_libraries(test_follow_yaw PRIVATE tnfs_game)
+    target_compile_options(test_follow_yaw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME follow_yaw COMMAND test_follow_yaw)
     add_executable(test_chase_cycle tests/test_chase_cycle.c)
     target_include_directories(test_chase_cycle PRIVATE game .)
     target_link_libraries(test_chase_cycle PRIVATE tnfs_game)
@@ -705,7 +726,7 @@ if(NOT EMSCRIPTEN)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
-    add_executable(test_raster_record tests/test_raster_record.c game/viewer/modern_road.c game/sys/bands.c
+    add_executable(test_raster_record tests/test_raster_record.c game/viewer/modern_road.c game/sys/bands.c game/sys/band_index.c
                    game/platform/sdl3/platform_sdl3.c)
     target_include_directories(test_raster_record PRIVATE game)
     target_link_libraries(test_raster_record PRIVATE tnfs_game SDL3::SDL3)
@@ -714,13 +735,25 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_raster_record PRIVATE ${TNFS_WARNINGS})
     add_test(NAME raster_record COMMAND test_raster_record)
-    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
+    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_bands PRIVATE tnfs_game SDL3::SDL3)
     if(NOT MSVC)
         target_link_libraries(test_bands PRIVATE m)
     endif()
     target_compile_options(test_bands PRIVATE ${TNFS_WARNINGS})
     add_test(NAME bands COMMAND test_bands)
+    add_executable(test_tgv_wide tests/test_tgv_wide.c game/frontend/tgv_wide.c)
+    target_include_directories(test_tgv_wide PRIVATE game)
+    target_link_libraries(test_tgv_wide PRIVATE tnfs_game)
+    target_compile_options(test_tgv_wide PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME tgv_wide COMMAND test_tgv_wide)
+    add_executable(test_video_wide tests/test_video_wide.c game/sys/video.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_video_wide PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_video_wide PRIVATE m)
+    endif()
+    target_compile_options(test_video_wide PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME video_wide COMMAND test_video_wide)
     add_executable(test_platform_mods tests/test_platform_mods.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
@@ -743,6 +776,16 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_script_keys PRIVATE ${TNFS_WARNINGS})
     add_test(NAME script_keys COMMAND test_script_keys)
+    # port: the page keys on the keyboard path: a scripted PGDN is the PageDown (0x5100) input_get_key reports,
+    # and only while the page keys are on. The input layer is in the executable, not in tnfs_game, so its source
+    # is built into the test.
+    add_executable(test_input_page_keys tests/test_input_page_keys.c game/sys/input.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_input_page_keys PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_input_page_keys PRIVATE m)
+    endif()
+    target_compile_options(test_input_page_keys PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME input_page_keys COMMAND test_input_page_keys)
     add_executable(test_platform_text_input tests/test_platform_text_input.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_text_input PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
