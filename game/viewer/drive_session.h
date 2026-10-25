@@ -78,6 +78,11 @@ void drive_wide_finish(void);
 int drive_output_height(void);
 /* the platform could not give the larger framebuffer: the scale stays 1 from now on */
 void drive_wide_scale_off(void);
+/* port (render scale): the mirror drawn at the scale: its zoom (drive_mirror_zoom), 0 at scale 1 or when it stays on the dash */
+int32_t drive_wide_mirror_zoom(const DriveMirror *m);
+int32_t drive_wide_bumper_zoom(void);
+/* the larger picture `m` made put over the screen at x, y (w x h of the 2D layer's pixels) by drive_wide_finish */
+void drive_wide_hires_place(const DriveMirror *m, int x, int y, int w, int h);
 void drive_wide_size(int width);
 const uint8_t *drive_output(const uint8_t *pixels, int *width);
 void drive_wide_set_viewport(const RaceState *race);

@@ -34,10 +34,54 @@ static void finish_band(void *user, int top, int bottom)
     }
 }
 
+/* the mirrors drawn at the scale this frame (drive_wide_hires_place) */
+typedef struct {
+    const uint8_t *shape;
+    int sw, sh, x, y, w, h;
+} HiresPlace;
+static HiresPlace places[2];
+static int place_count;
+
+void drive_wide_hires_place(const DriveMirror *m, int x, int y, int w, int h)
+{
+    if (m->big == NULL || m->zoom <= 0 || w <= 0 || h <= 0 || place_count >= 2) return;
+    places[place_count++] = (HiresPlace){ m->big, m->big_w, m->big_h, x, y, w, h };
+}
+
+int32_t drive_wide_mirror_zoom(const DriveMirror *m)
+{
+    return drive_wide.scale > 1 && !m->on_dash ? (int32_t)((int64_t)screen_mirror_scale(drive_wide.width) * drive_wide.scale) : 0;
+}
+
+int32_t drive_wide_bumper_zoom(void) { return drive_wide.scale > 1 ? drive_wide.scale << 16 : 0; }
+
+static void put_places(void)
+{
+    const int s = drive_wide.scale, out_w = drive_wide.width * s, out_h = SCREEN_H * s;
+    for (int i = 0; i < place_count; i++) {
+        const HiresPlace *p = &places[i];
+        const int w = p->w * s, h = p->h * s;
+        for (int y = 0; y < h; y++) {
+            const int dy = p->y * s + y;
+            if (dy < 0 || dy >= out_h) continue;
+            const uint8_t *from = p->shape + DRIVE_MIRROR_SHAPE_HEADER + (size_t)((int64_t)y * p->sh / h) * p->sw;
+            for (int x = 0; x < w; x++) {
+                const int dx = p->x * s + x;
+                if (dx >= 0 && dx < out_w) drive_wide.pixels[(size_t)dy * out_w + dx] = from[(int64_t)x * p->sw / w];
+            }
+        }
+    }
+    place_count = 0;
+}
+
 void drive_wide_finish(void)
 {
-    if (drive_wide.scale <= 1 || drive_wide.layer == NULL || drive_wide.pixels == NULL) return;
+    if (drive_wide.scale <= 1 || drive_wide.layer == NULL || drive_wide.pixels == NULL) {
+        place_count = 0;
+        return;
+    }
     bands_rows(0, SCREEN_H, finish_band, NULL);
+    put_places();
 }
 
 ScreenFormat drive_screen_format(void)
@@ -287,6 +331,7 @@ static void compose_banded(const LayerCompose *c, const uint8_t *frame)
 void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 {
     const RaceCamera *camera = race->chase.camera;
+    place_count = 0;
     const int police = drive_hud.police.screen != NULL;
     const int in_car = !police && camera != NULL && camera->layout == 0;
     const CockpitScale cs = screen_cockpit_scale(drive_wide.width);
@@ -349,6 +394,13 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
     compose_banded(&c, frame);
     const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
+    if (mirror_on) {  /* the picture's place in the layer, as wide_mirror puts it */
+        const int left = (int)((int64_t)(drive_hud.mirror_x - mirror.left) * mirror_scale >> 16);
+        const int top = (int)((int64_t)(drive_hud.mirror_y - mirror.top) * mirror_scale >> 16);
+        const int out_w = (int)((int64_t)(drive_hud.mirror_x - mirror.left + m->width) * mirror_scale >> 16) - left;
+        const int out_h = (int)((int64_t)(drive_hud.mirror_y - mirror.top + m->height) * mirror_scale >> 16) - top;
+        drive_wide_hires_place(m, a.mirror.x + left, a.mirror.y + top, out_w, out_h);
+    }
     if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &mirror_cs);
     if (lights) {  /* the strip between the lights */
         for (int i = 0; i + 1 < LIGHT_COUNT; i++)
