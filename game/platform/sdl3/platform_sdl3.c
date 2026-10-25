@@ -977,6 +977,10 @@ static int present_threads;
 
 void platform_set_present_threads(int threads) { present_threads = threads; }
 
+static int present_lock = 1;
+
+void platform_set_present_lock(int on) { present_lock = on; }
+
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
 {
     last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
@@ -985,7 +989,7 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
     /* the frame goes straight into the texture's memory, no second copy; a capture needs rgb_buffer, the web build keeps
      * the upload, and a failed lock falls back to it */
 #ifndef __EMSCRIPTEN__
-    if (capture_dir == NULL && SDL_LockTexture(texture, NULL, &locked, &pitch)) {
+    if (capture_dir == NULL && present_lock && SDL_LockTexture(texture, NULL, &locked, &pitch)) {
         platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, fb_width, fb_height, present_threads);
         SDL_UnlockTexture(texture);
     } else

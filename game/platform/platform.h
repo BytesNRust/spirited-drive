@@ -209,6 +209,10 @@ void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette
 /* The same into rows `pitch` bytes apart (a locked texture's), pitch a multiple of 4 and at least width * 4. */
 void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor palette[256], void *out, int pitch, int width,
                                     int height, int threads);
+
+/* 1 (the default) presents through the texture's locked memory, 0 through the platform's own buffer and an upload (what a
+ * capture, the web build and a failed lock use); for the tests, to compare the two. */
+void platform_set_present_lock(int on);
 void platform_set_present_threads(int threads);
 
 #endif
