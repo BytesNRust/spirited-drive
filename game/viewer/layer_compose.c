@@ -3,6 +3,9 @@
 #include "game/viewer/screen_layout.h"
 #include "game/sys/bands.h"
 
+#include <stdint.h>
+#include <string.h>
+
 static void put(const LayerCompose *c, uint8_t *wide, int x, int y, uint8_t p)
 {
     if (p != LAYER_KEY && x >= 0 && x < c->width && y >= 0 && y < c->layer_h) wide[(int64_t)y * c->width + x] = p;
@@ -95,4 +98,39 @@ void layer_compose_rows(const LayerCompose *c, const uint8_t *layer, uint8_t *wi
 void layer_compose(const LayerCompose *c, const uint8_t *layer, uint8_t *wide)
 {
     layer_compose_rows(c, layer, wide, 0, c->layer_h);
+}
+
+/* n source pixels as `s`-pixel runs: the same bytes as s memsets of s bytes each, without a call per pixel */
+static void expand_row(uint8_t *dst, const uint8_t *src, int n, int s)
+{
+    if (s == 2) {
+        for (int i = 0; i < n; i++) {
+            const uint16_t v = (uint16_t)(src[i] * 0x0101);
+            memcpy(dst + 2 * i, &v, 2);
+        }
+    } else if (s == 3) {
+        for (int i = 0; i < n; i++) dst[3 * i] = dst[3 * i + 1] = dst[3 * i + 2] = src[i];
+    } else {
+        for (int i = 0; i < n; i++) memset(dst + (size_t)i * s, src[i], (size_t)s);
+    }
+}
+
+/* each run of drawn pixels is expanded once into its block's first row and copied down into the others; the 3D's
+ * (LAYER_KEY) stretches, the most of a frame, are skipped eight pixels at a time */
+void layer_upscale_rows(const uint8_t *layer, int width, int scale, uint8_t *pixels, int top, int bottom)
+{
+    const size_t out_w = (size_t)width * scale;
+    for (int y = top; y < bottom; y++) {
+        const uint8_t *src = layer + (size_t)y * width;
+        for (int x = 0; x < width;) {
+            for (uint64_t eight; x + 8 <= width && (memcpy(&eight, src + x, 8), eight == UINT64_MAX);) x += 8;
+            while (x < width && src[x] == LAYER_KEY) x++;
+            const int first = x;
+            while (x < width && src[x] != LAYER_KEY) x++;
+            if (x == first) continue;
+            uint8_t *block = pixels + (size_t)y * scale * out_w + (size_t)first * scale;
+            expand_row(block, src + first, x - first, scale);
+            for (int j = 1; j < scale; j++) memcpy(block + (size_t)j * out_w, block, (size_t)(x - first) * scale);
+        }
+    }
 }
