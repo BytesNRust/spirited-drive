@@ -189,19 +189,48 @@ static void test_select(void)
     shaded[RED] = 10;                                   /* under a sixteenth of the shade's weight: a stray */
     CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
     CHECK_EQ_INT(colour, SHADE);
-    /* two tones of one hue: the lighter, above the weight floor, is the paint in the light (the real Viper read maroon) */
-    enum { MAROON = 0x000c /* (96,0,0) */ };
+    /* one hue in three tones: the paint's middle tone, not the shade and not the highlight (the real Ferrari showed a
+     * dusty pink: the specular highlight). The weighted median by luminance of the hue's colours. */
+    enum { MAROON = 0x000c /* (96,0,0) */, MID = 0x1497 /* (184,32,40) */, HIGHLIGHT = 0x35b8 /* (192,104,104) */,
+           BLUE = 0x64a3 /* (24,40,200) */ };
     static uint32_t tones[PSX_COLOURS];
-    const CarLiveryPair hues[2] = { { MAROON, MAROON }, { RED, RED } };
-    tones[MAROON] = 1000, tones[RED] = 100;
-    CHECK_EQ_INT(car_livery_main(hues, 2, tones, &colour), 1);
-    CHECK_EQ_INT(colour, RED);
-    tones[RED] = 30;                                     /* under the floor: the heavy tone stays */
-    CHECK_EQ_INT(car_livery_main(hues, 2, tones, &colour), 1);
+    const CarLiveryPair hues[4] = { { MAROON, MAROON }, { MID, MID }, { HIGHLIGHT, HIGHLIGHT }, { BLUE, BLUE } };
+    tones[MAROON] = 400, tones[MID] = 300, tones[HIGHLIGHT] = 150;
+    CHECK_EQ_INT(car_livery_main(hues, 4, tones, &colour), 1);
+    CHECK_EQ_INT(colour, MID);
+    tones[MAROON] = 1000, tones[MID] = 100, tones[HIGHLIGHT] = 50;   /* the shade carries the weight: the shade */
+    CHECK_EQ_INT(car_livery_main(hues, 4, tones, &colour), 1);
+    CHECK_EQ_INT(colour, MAROON);
+    tones[MAROON] = 400, tones[MID] = 300, tones[HIGHLIGHT] = 150, tones[BLUE] = 380;   /* another hue is not averaged in */
+    CHECK_EQ_INT(car_livery_main(hues, 4, tones, &colour), 1);
+    CHECK_EQ_INT(colour, MID);
+    tones[BLUE] = 0, tones[MID] = 20;                    /* under the floor: out */
+    CHECK_EQ_INT(car_livery_main(hues, 4, tones, &colour), 1);
     CHECK_EQ_INT(colour, MAROON);
     shaded[RED] = 0, shaded[GREY_B] = 400;              /* only greys: the heaviest, as before */
     CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
     CHECK_EQ_INT(colour, SHADE);
+}
+
+/* the body set of a car from its textures: the entries four fifths or more in the body textures, not near black */
+static void test_body_set(void)
+{
+    uint32_t total[256] = { 0 }, body[256] = { 0 };
+    uint8_t palette[768] = { 0 }, out[256];
+    for (int i = 0; i < 256; i++) palette[i * 3] = palette[i * 3 + 1] = palette[i * 3 + 2] = (uint8_t)(255 - i);   /* a grey ramp, 8 bits */
+    total[1] = 100, body[1] = 100;      /* light, all body: in */
+    total[2] = 100, body[2] = 80;       /* exactly four fifths: in */
+    total[3] = 100, body[3] = 79;       /* under: out (a window's grey shared with the paint) */
+    total[4] = 100, body[4] = 0;        /* a tyre's: out */
+    total[60] = 100, body[60] = 100;    /* mid grey (195): in, whatever the lightness */
+    total[250] = 100, body[250] = 100;  /* (5,5,5): nearly black, out */
+    total[7] = 0;                       /* unused: out */
+    const int n = car_livery_body_set(total, body, palette, 0x24, out);
+    CHECK_EQ_INT(n, 3);
+    CHECK_EQ_INT(out[0], 1);
+    CHECK_EQ_INT(out[1], 2);
+    CHECK_EQ_INT(out[2], 60);
+    CHECK_EQ_INT(car_livery_body_set(total, total, palette, 0x31, out), 0);   /* a palette of another type: none */
 }
 
 int main(void)
@@ -211,5 +240,6 @@ int main(void)
     test_pick();
     test_cfg();
     test_select();
+    test_body_set();
     return TEST_REPORT();
 }

@@ -44,6 +44,15 @@ int car_livery_pick(uint32_t seed, int slot, int car, int player_car, int player
  * counts most. Writes it (BGR555) to `colour` and returns 1; 0 when no pair maps a colour the alternate uses. */
 int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alternate, uint16_t *colour);
 
+/* The palette entries of a car that are paint, from its textures: `total` counts each entry's pixels in all the textures,
+ * `body` in the body ones (topv, frnt, rsid, bott, wing). An entry is paint when at least four fifths of its pixels are in
+ * the body textures and it is not near black (the glass, the wells and the shadows are black and dark grey, and share
+ * entries with the shading). Writes the entries' indices to `out` and returns how many; 0 for a palette `type` that
+ * is not 0x24 or 0x22. For a car whose body is a ramp of one colour (the NSX's greys), whose paint no list of colours
+ * from the other livery can find. */
+int car_livery_body_set(const uint32_t total[256], const uint32_t body[256], const uint8_t *palette, int type,
+                        uint8_t out[256]);
+
 /* The same for the normal livery: the mapped colour (pairs' `from`) that `normal` counts most. */
 int car_livery_main_from(const CarLiveryPair *pairs, int count, const uint32_t *normal, uint16_t *colour);
 

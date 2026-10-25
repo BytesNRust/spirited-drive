@@ -6,7 +6,8 @@ enum {
     PALETTE_ENTRIES = 256, PALETTE_8BIT = 0x24, PALETTE_6BIT = 0x22,
     CHANNEL_BITS = 5, CHANNEL_MASK = 31, CHANNEL_SHIFT_8 = 3,
     LUMA_R = 30, LUMA_G = 59, LUMA_B = 11,  /* .3 r + .59 g + .11 b, in hundredths */
-    SATURATED_SPREAD = 32, SATURATED_SHARE = 16
+    SATURATED_SPREAD = 32, SATURATED_SHARE = 16, HUE_WINDOW = 40,
+    BODY_SHARE_NUM = 4, BODY_SHARE_DEN = 5, BODY_FLOOR_LUMA = 4400   /* 44 of 255, in the hundredths of luma() */
 };
 /* the hash's multipliers: past int, so not enumerators */
 static const uint32_t SALT_SLOT = 0x85ebca6bu, SALT_SEED = 0x9e3779b1u, SALT_FINAL = 0xc2b2ae35u;
@@ -156,14 +157,35 @@ static int saturated(uint16_t c)
     return ((hi - lo) << CHANNEL_SHIFT_8) >= SATURATED_SPREAD;
 }
 
-/* The colour the swatch shows: the heaviest of the pairs' colours (`from` or `to`) in `counts`; but the textures' dark
- * shading and interior outweigh the paint, which is what people see. So among the saturated colours that weigh at least
- * 1/SATURATED_SHARE of the heaviest the lightest wins (the paint in the light, not in shadow). 0 when none is used. */
+/* The hue of a colour in degrees (0..359), from its 5-bit channels; any for a grey. */
+static int hue_of(uint16_t c)
+{
+    const int r = c & CHANNEL_MASK, g = (c >> CHANNEL_BITS) & CHANNEL_MASK, b = (c >> (2 * CHANNEL_BITS)) & CHANNEL_MASK;
+    const int hi = r > g ? (r > b ? r : b) : (g > b ? g : b), lo = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    if (hi == lo) return 0;
+    int h;
+    if (hi == r) h = 60 * (g - b) / (hi - lo);
+    else if (hi == g) h = 120 + 60 * (b - r) / (hi - lo);
+    else h = 240 + 60 * (r - g) / (hi - lo);
+    return h < 0 ? h + 360 : h;
+}
+
+static int hue_apart(uint16_t a, uint16_t b)
+{
+    const int d = abs(hue_of(a) - hue_of(b));
+    return d > 180 ? 360 - d : d;
+}
+
+/* The colour the swatch shows. The textures' dark shading and interior outweigh the paint, and their highlights wash
+ * it out, so the heaviest colour is not what people see. The swatch is the middle tone of the paint: among the pairs'
+ * colours (`from` or `to`) in `counts` that are saturated and weigh at least 1/SATURATED_SHARE of the heaviest, those
+ * within HUE_WINDOW degrees of the heaviest of them are put in luminance order and the weighted median is taken. With
+ * no such colour (a grey car) it is the heaviest. 0 when none is used. */
 static int main_colour(const CarLiveryPair *pairs, int count, const uint32_t *counts, int to, uint16_t *colour)
 {
-    uint32_t most = 0, lightest = 0;
-    uint16_t heaviest = 0, paint = 0;
-    int have_paint = 0;
+    static Weighted tones[CAR_LIVERY_PAIRS];
+    uint32_t most = 0, anchor_weight = 0;
+    uint16_t heaviest = 0, anchor = 0;
     for (int i = 0; i < count; i++) {
         const uint16_t c = to ? pairs[i].to : pairs[i].from;
         if (counts[c] > most) most = counts[c], heaviest = c;
@@ -171,11 +193,26 @@ static int main_colour(const CarLiveryPair *pairs, int count, const uint32_t *co
     if (most == 0) return 0;
     for (int i = 0; i < count; i++) {
         const uint16_t c = to ? pairs[i].to : pairs[i].from;
-        if (counts[c] == 0 || counts[c] * SATURATED_SHARE < most || !saturated(c)) continue;
-        if (!have_paint || luma(c) > lightest) have_paint = 1, lightest = luma(c), paint = c;
+        if (counts[c] > anchor_weight && counts[c] * SATURATED_SHARE >= most && saturated(c)) anchor_weight = counts[c], anchor = c;
     }
-    *colour = have_paint ? paint : heaviest;
-    return 1;
+    if (anchor_weight == 0) return *colour = heaviest, 1;
+    size_t n = 0;
+    uint64_t total = 0;
+    for (int i = 0; i < count; i++) {
+        const uint16_t c = to ? pairs[i].to : pairs[i].from;
+        int seen = 0;
+        for (size_t k = 0; k < n; k++) seen |= tones[k].colour == c;
+        if (seen || counts[c] * SATURATED_SHARE < most || !saturated(c) || hue_apart(c, anchor) > HUE_WINDOW) continue;
+        tones[n].colour = c, tones[n].weight = counts[c];
+        total += counts[c], n++;
+    }
+    qsort(tones, n, sizeof *tones, by_luma);
+    uint64_t below = 0;
+    for (size_t k = 0; k < n; k++) {
+        below += tones[k].weight;
+        if (below * 2 >= total) return *colour = tones[k].colour, 1;
+    }
+    return *colour = anchor, 1;
 }
 
 int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alternate, uint16_t *colour)
@@ -186,4 +223,21 @@ int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alter
 int car_livery_main_from(const CarLiveryPair *pairs, int count, const uint32_t *normal, uint16_t *colour)
 {
     return main_colour(pairs, count, normal, 0, colour);
+}
+
+int car_livery_body_set(const uint32_t total[256], const uint32_t body[256], const uint8_t *palette, int type,
+                        uint8_t out[256])
+{
+    if (type != PALETTE_8BIT && type != PALETTE_6BIT) return 0;
+    int n = 0;
+    for (int i = 0; i < PALETTE_ENTRIES; i++) {
+        if (total[i] == 0 || (uint64_t)body[i] * BODY_SHARE_DEN < (uint64_t)total[i] * BODY_SHARE_NUM) continue;
+        const uint8_t *entry = palette + 3 * i;
+        const uint32_t r = type == PALETTE_6BIT ? (uint32_t)entry[0] << 2 : entry[0];
+        const uint32_t g = type == PALETTE_6BIT ? (uint32_t)entry[1] << 2 : entry[1];
+        const uint32_t b = type == PALETTE_6BIT ? (uint32_t)entry[2] << 2 : entry[2];
+        if (LUMA_R * r + LUMA_G * g + LUMA_B * b < BODY_FLOOR_LUMA) continue;
+        out[n++] = (uint8_t)i;
+    }
+    return n;
 }

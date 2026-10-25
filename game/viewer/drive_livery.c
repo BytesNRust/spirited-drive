@@ -21,15 +21,14 @@ static const uint8_t PAL_NAME[4] = { '!', 'P', 'A', 'L' }, OWN_NAME[4] = { '!', 
 /* The PC palette entries (indices into the car's '!PAL') that are body colour the PS1 textures do not show as body:
  * the colours both liveries paint, which the count alone leaves unmapped. Found from the PC car's textures: the entries
  * at least four fifths of whose pixels are in the body textures (topv, frnt, rsid, bott, wing), not already mapped, and
- * for TSUPRA red (r > g + 24, r > b + 24), for ANSX white and light (all channels >= 120, spread <= 16). Palette
- * indices only: no colour is copied from the CD. */
+ * for TSUPRA red (r > g + 24, r > b + 24). Palette indices only: no colour is copied from the CD. The ANSX's body is
+ * a ramp of greys that the glass and trim share, so its set is read from the CFM's textures each time
+ * (car_livery_body_set) and not listed. */
 static const uint8_t TSUPRA_BODY[] = {
     20, 34, 35, 37, 38, 40, 42, 43, 68, 69, 70, 72, 79, 84, 90, 94, 100, 101, 102, 109, 110, 111, 115, 117, 123, 124,
     129, 130, 133, 134, 135, 136, 138, 139, 150, 153, 154, 155, 156, 157, 159, 160, 164, 165, 169, 171, 172, 173, 176,
     177, 190, 191, 252
 };
-static const uint8_t ANSX_BODY[] = { 1, 8, 9, 10, 11, 12, 13, 14, 15, 16, 184, 190, 206, 210, 221, 223 };
-
 /* The table for a car's stem (upper case), and its length; 0 entries for a car without one. */
 static const uint8_t *forced_table(const char *upper, int *count)
 {
@@ -37,10 +36,6 @@ static const uint8_t *forced_table(const char *upper, int *count)
     if (strcmp(upper, "TSUPRA") == 0) {
         *count = (int)sizeof TSUPRA_BODY;
         return TSUPRA_BODY;
-    }
-    if (strcmp(upper, "ANSX") == 0) {
-        *count = (int)sizeof ANSX_BODY;
-        return ANSX_BODY;
     }
     return NULL;
 }
@@ -81,13 +76,48 @@ static int cfm_palette(uint8_t *cfm, size_t size, int *type, uint8_t **palette)
     return 1;
 }
 
-/* The forced colours of the car: the table's palette entries, read from the CFM's own palette. */
+/* The counts of each palette index in the CFM's high detail textures: all of them, and the body ones (topv, frnt, rsid,
+ * bott, wing). 0 when the CFM does not parse. */
+static int texture_counts(uint8_t *cfm, size_t size, uint32_t total[256], uint32_t body[256])
+{
+    static const char *const BODY_TEXTURES[] = { "topv", "frnt", "rsid", "bott", "wing" };
+    Chunk file, shpi;
+    Fsh bank;
+    if (chunk_open(&file, cfm, size) != CHUNK_OK) return 0;
+    if (chunk_child(&file, 1, &shpi) != CHUNK_OK || shpi.kind != CHUNK_KIND_BITMAP) return 0;
+    if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK) return 0;
+    for (uint32_t i = 0; i < bank.count; i++) {
+        FshEntry e;
+        if (fsh_entry(&bank, i, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP) continue;
+        int is_body = 0;
+        for (size_t k = 0; k < sizeof BODY_TEXTURES / sizeof *BODY_TEXTURES; k++)
+            is_body |= memcmp(e.name, BODY_TEXTURES[k], 4) == 0;
+        size_t pixels = (size_t)e.width * e.height;
+        if (pixels > e.payload_size) pixels = e.payload_size;
+        for (size_t p = 0; p < pixels; p++) {
+            total[e.payload[p]]++;
+            body[e.payload[p]] += (uint32_t)is_body;
+        }
+    }
+    return 1;
+}
+
+/* The forced colours of the car: the table's palette entries, or the textures' paint entries for the ANSX, read from the
+ * CFM's own palette. */
 static int forced_colours(uint8_t *cfm, size_t size, const char *upper, uint16_t out[256])
 {
     int count = 0, type = 0;
     uint8_t *palette = NULL;
     const uint8_t *table = forced_table(upper, &count);
-    if (count == 0 || !cfm_palette(cfm, size, &type, &palette)) return 0;
+    if (!cfm_palette(cfm, size, &type, &palette)) return 0;
+    uint8_t entries[256];
+    if (table == NULL && strcmp(upper, "ANSX") == 0) {
+        uint32_t total[256] = { 0 }, body[256] = { 0 };
+        if (!texture_counts(cfm, size, total, body)) return 0;
+        count = car_livery_body_set(total, body, palette, type, entries);
+        table = entries;
+    }
+    if (table == NULL) return 0;
     for (int k = 0; k < count; k++) out[k] = car_livery_colour(palette + 3 * table[k], type);
     return count;
 }
