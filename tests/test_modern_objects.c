@@ -357,7 +357,7 @@ static void test_fences(void)
     static const int32_t world[2][3] = { { -200, 0, 400 }, { 200, 0, 400 } };
     static const int32_t camera[2][3] = { { -200, -50, 400 }, { 200, -50, 400 } };
     static const int32_t screen[2][2] = { { 270, 252 }, { 370, 252 } };
-    const TrackFenceInputs in = { world, camera, screen, 30, { 0, 0, 640, 480 }, NULL, NULL };
+    const TrackFenceInputs in = { world, camera, screen, 30, { 0, 0, 640, 480 }, NULL, NULL, NULL };
     const uint8_t pair[2] = { 0, 1 };
     for (int variant = 0; variant < 2; variant++) {
         for (int modern = 0; modern < 2; modern++) {
