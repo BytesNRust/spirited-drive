@@ -27,18 +27,32 @@ void psx_light_free(PsxLight *light)
     light->nodes = 0;
 }
 
+static int row_is_tunnel(const uint8_t *row)
+{
+    return (row[2] >= PSX_LIGHT_WALL_FOOT && row[4] == 0 && row[5] == 0) || (row[7] >= PSX_LIGHT_WALL_FOOT && row[9] == 0 && row[10] == 0);
+}
+
+int psx_light_tunnel(const PsxLight *light, uint32_t node)
+{
+    if (light == NULL || light->data == NULL || light->nodes < 2) return 0;
+    node %= light->nodes;
+    if (node == light->nodes - 1) node--;
+    return row_is_tunnel(light->data + (size_t)node * PSX_LIGHT_POINTS);
+}
+
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
 {
     if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= PSX_LIGHT_POINTS) return PSX_LIGHT_FULL;
     node %= light->nodes;
     if (node == light->nodes - 1) node--;
     const uint8_t *row = light->data + (size_t)node * PSX_LIGHT_POINTS;
+    const int tunnel = row_is_tunnel(row);
     /* a 0 beyond a lit wall foot (point 2 right, 7 left) is no data, not black: the PS1 shows a tunnel's walls and pillars at about half light */
     const int foot = point >= 3 && point <= 5 ? row[2] : point >= 8 ? row[7] : 0;
     if (row[point] == 0 && foot >= PSX_LIGHT_WALL_FOOT) return PSX_LIGHT_WALL;
     /* the road inside a tunnel (a lit foot with 0s from point 4 on, either side) is dark on the PS1 although its bytes say 255 */
-    const int tunnel = (row[2] >= PSX_LIGHT_WALL_FOOT && row[4] == 0 && row[5] == 0) || (row[7] >= PSX_LIGHT_WALL_FOOT && row[9] == 0 && row[10] == 0);
     if (tunnel && (point == 0 || point == 1 || point == 6) && row[point] > PSX_LIGHT_TUNNEL_ROAD) return PSX_LIGHT_TUNNEL_ROAD;
+    if (tunnel && (point == 2 || point == 7) && row[point] > PSX_LIGHT_WALL) return PSX_LIGHT_WALL;   /* the shoulder's far edge: half light too */
     return row[point];
 }
 

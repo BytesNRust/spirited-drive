@@ -23,6 +23,10 @@ int psx_light_parse(const uint8_t *file, size_t size, uint32_t expected_nodes, P
 
 void psx_light_free(PsxLight *light);
 
+/* 1 when node `node`'s row is a tunnel's: a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
+ * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
+int psx_light_tunnel(const PsxLight *light, uint32_t node);
+
 /* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last
  * node is not light (random bytes) and takes the one before it; PSX_LIGHT_FULL without data or for a point out of range. */
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point);

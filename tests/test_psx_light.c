@@ -92,7 +92,13 @@ static void test_tunnel_road(void)
     CHECK_EQ_INT(psx_light_at(&light, 0, 0), PSX_LIGHT_TUNNEL_ROAD);
     CHECK_EQ_INT(psx_light_at(&light, 0, 6), PSX_LIGHT_TUNNEL_ROAD);
     CHECK_EQ_INT(psx_light_at(&light, 0, 1), PSX_LIGHT_TUNNEL_ROAD);
-    CHECK_EQ_INT(psx_light_at(&light, 0, 2), 255);                       /* the wall's foot is its own */
+    CHECK_EQ_INT(psx_light_at(&light, 0, 2), PSX_LIGHT_WALL);            /* the wall's foot (the shoulder's far edge) is capped at half light... */
+    CHECK_EQ_INT(psx_light_at(&light, 0, 7), PSX_LIGHT_WALL);            /* ...on both sides (150 -> 128) */
+    CHECK_EQ_INT(psx_light_at(&light, 3, 2), 126);                       /* a foot under the cap stays */
+    CHECK_EQ_INT(psx_light_at(&light, 1, 2), 255);                       /* and an open road's foot is its own */
+    CHECK(psx_light_tunnel(&light, 0) && psx_light_tunnel(&light, 3));   /* the rows that are a tunnel's */
+    CHECK(!psx_light_tunnel(&light, 1) && !psx_light_tunnel(&light, 2));
+    CHECK(!psx_light_tunnel(NULL, 0));
     CHECK_EQ_INT(psx_light_at(&light, 1, 0), 255);
     CHECK_EQ_INT(psx_light_at(&light, 1, 1), 255);
     CHECK_EQ_INT(psx_light_at(&light, 2, 1), 255);

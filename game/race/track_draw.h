@@ -56,6 +56,8 @@ typedef struct {
  * polygon the draw callbacks that follow paint (255 full, 0 black), and with NULL when that polygon is done. The sink
  * (ported_view.c) sets it; NULL, the default, no light. */
 extern void (*track_light_hook)(const uint8_t corners[4]);
+/* 1 while the polygon the hook was last given has all its corners in a tunnel's rows (the light's cast is for those only); 0 otherwise */
+extern int track_light_tunnel;
 
 /* 00487b0e: the outcodes (1 left, 2 right, 4 above, 8 below) shared by all
  * points; 0 when the polygon may be visible. */

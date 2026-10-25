@@ -63,6 +63,7 @@ static int transparent(const FshEntry *texture)
  * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
  * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
+static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
 static int lit_active;           /* a polygon or object of the light's is being drawn (between the hook's two calls) */
 static int lit_tinted;           /* the ambient colour is not neutral: even full light goes through the tables */
@@ -112,7 +113,7 @@ static int lamp_of(const FshEntry *texture)
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
-    return lamp >= 0 ? lamp_tables[lamp] : lit_tables;
+    return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
 }
 
 static const uint8_t *lit_table_for(const FshEntry *texture)
@@ -120,7 +121,7 @@ static const uint8_t *lit_table_for(const FshEntry *texture)
     return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables_for(texture)[lit_level] : NULL;
 }
 
-static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables[lit_level] : NULL; }
+static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? (track_light_tunnel ? tunnel_tables : lit_tables)[lit_level] : NULL; }
 
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
@@ -1202,7 +1203,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         static int made, made_cast;
         const int cast = lamp_count > 0;   /* a tunnel track: its darkened levels take the olive cast */
         if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
-            modern_light_tables_cast(art->palette, lit_tint, cast ? TUNNEL_CAST : NO_CAST, lit_tables);
+            modern_light_tables(art->palette, lit_tint, lit_tables);
+            modern_light_tables_cast(art->palette, lit_tint, cast ? TUNNEL_CAST : NO_CAST, tunnel_tables);
             memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
         }
         for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
@@ -1216,7 +1218,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             if (i == 0 && t != NULL && t->height > 0) lamp_v = (lamp_spec[0].rect[1] + lamp_spec[0].rect[3] + 1) / 2.0 / t->height;
             uint8_t exempt[256];
             psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
-            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, lamp_tables[i]);
+            psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
         }
         track_light_hook = light_hook;
     }

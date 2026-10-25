@@ -32,7 +32,8 @@ typedef struct {
     int32_t near;                /* *(00511fe8) +4 */
     ClipRect clip;               /* 004c78bc */
     const uint8_t *light;        /* port (PS1 light): the intensity of each point, parallel to `world`; NULL none */
-    uint8_t *light_now;          /* port: 5 bytes: the corners of the polygon about to be drawn, then 1 (the draw reads them) */
+    uint8_t *light_now;          /* port: 6 bytes: the corners of the polygon about to be drawn, then 1 (the draw reads them), then 1 if all are in a tunnel */
+    const uint8_t *tunnel;       /* port: 1 for each point of the vertices in a tunnel's row, parallel to `light`; NULL none */
 } TrackFenceInputs;
 
 /* port (PS1 light): the corners of the polygon about to be drawn (`corner`: its four vertices' offsets from `first`) in
@@ -42,6 +43,7 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
     if (in->light == NULL || in->light_now == NULL) return;
     for (int k = 0; k < 4; k++) in->light_now[k] = in->light[first + corner[k]];
     in->light_now[4] = 1;
+    in->light_now[5] = in->tunnel != NULL && in->tunnel[first + corner[0]] && in->tunnel[first + corner[1]] && in->tunnel[first + corner[2]] && in->tunnel[first + corner[3]];
 }
 
 /* the same for a fence standing on the points a and b of `first`'s row (its top has their light) */
@@ -51,6 +53,7 @@ static inline void track_light_set_points(const TrackFenceInputs *in, int32_t a,
     in->light_now[0] = in->light_now[3] = in->light[b];
     in->light_now[1] = in->light_now[2] = in->light[a];
     in->light_now[4] = 1;
+    in->light_now[5] = 0;
 }
 
 static inline void track_light_clear(const TrackFenceInputs *in)

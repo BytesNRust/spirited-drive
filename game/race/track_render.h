@@ -74,7 +74,8 @@ typedef struct {
      * with (NULL none) and the four corners' of the terrain polygon being drawn (+ 1 when it is) */
     uint8_t light_vertex[TRACK_MAX_VERTICES];
     const PsxLight *psx;
-    uint8_t light_now[5];
+    uint8_t light_now[6];   /* the four corners, 1 when the polygon is lit, 1 when its corners are all in a tunnel's rows */
+    uint8_t tunnel_vertex[TRACK_MAX_VERTICES];   /* 1 for the points of `world` in a tunnel's row */
 } TrackRender;
 
 /* 004496ac: camera matrix from pitch (+0x40), yaw (+0x44) and roll (+0x48),

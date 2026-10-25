@@ -81,7 +81,7 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
                        TRACK_MAX_VERTICES, 0, 0, r->entries, r->object_world, TRACK_MAX_OBJECT_VERTICES,
                        { r->descriptors, r->records, (int32_t)count, 0, 0, 0, 0, 0, -1, 0, circuit,
                          circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu, 0 },
-                       0, -1, 0, r->psx != NULL ? r->light_vertex : NULL, r->psx };
+                       0, -1, 0, r->psx != NULL ? r->light_vertex : NULL, r->psx, r->psx != NULL ? r->tunnel_vertex : NULL };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
     r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
                                     circuit ? (int32_t)tri->ring_segments : STAGE_RING,
@@ -95,6 +95,7 @@ void track_render_set_light(TrackRender *r, const PsxLight *light)
     r->psx = light;
     r->build.light = light;
     r->build.light_out = light != NULL ? r->light_vertex : NULL;
+    r->build.tunnel_out = light != NULL ? r->tunnel_vertex : NULL;
     r->build.first_node = -1;   /* the track built again with (or without) the light */
 }
 
@@ -360,12 +361,12 @@ static void point_screen(void *ctx, const int32_t world[3], int32_t camera[3], i
  * length of the draw */
 static void light_on(const Glue *g)
 {
-    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_hook(g->r->light_now);
+    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_tunnel = g->r->light_now[5], track_light_hook(g->r->light_now);
 }
 
 static void light_off(const Glue *g)
 {
-    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_hook(NULL);
+    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_tunnel = 0, track_light_hook(NULL);
 }
 
 static void subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
@@ -513,7 +514,7 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
     const TrackFarInputs far = { r->entries, r->build.segment_mask, r->cache, r->vertex_count, mirrored, 0,
                                  { (const int32_t (*)[3])r->world, (const int32_t (*)[3])r->camera,
                                    (const int32_t (*)[2])r->screen, ctx->near, ctx->clip,
-                                   r->psx != NULL ? r->light_vertex : NULL, r->light_now },
+                                   r->psx != NULL ? r->light_vertex : NULL, r->light_now, r->psx != NULL ? r->tunnel_vertex : NULL },
                                  &fence_ops, &objects, &r->quarter };
     /* 00449f50 reads the camera's layout; the clip holds its edges */
     const ViewLayout layout = { 0, 0, 0, 0, 0, 0, ctx->clip.x0, ctx->clip.y0, x_sub(ctx->clip.x1, ctx->clip.x0),
