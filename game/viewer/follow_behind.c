@@ -155,6 +155,21 @@ static void lerp3(const int32_t a[3], const int32_t b[3], int32_t f, int32_t out
     for (int i = 0; i < 3; i++) out[i] = (int32_t)(a[i] + ((int64_t)b[i] - a[i]) * f / 0x10000);
 }
 
+/* A point on the edge a-b, the same whichever end the walk starts from: two neighbours cut by the plane share an edge and walk it
+ * from opposite ends, and next to the plane a unit of rounding is tens of pixels, so each reads the edge from its lesser end. */
+static int edge_ends_swapped(const int32_t a[3], const int32_t b[3])
+{
+    for (int i = 2; i >= 0; i--)
+        if (a[i] != b[i]) return a[i] > b[i];
+    return 0;
+}
+
+static void lerp3_edge(const int32_t a[3], const int32_t b[3], int32_t f, int32_t out[3])
+{
+    if (edge_ends_swapped(a, b)) lerp3(b, a, 0x10000 - f, out);
+    else lerp3(a, b, f, out);
+}
+
 /* The mirror's polygon across the lens (the classic sink): cut at the near plane as a polygon, the way a neighbour cut by the
  * same plane is, so the two meet on one edge (sliding each quad's corners left a gap between them: the wedge of bare ground),
  * its texture's uv cut with it, drawn as the one to three quads the cut leaves. */
@@ -177,10 +192,11 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
             tex[n][0] = corner_uv[i][0], tex[n][1] = corner_uv[i][1], n++;
         }
         if (in_i != in_j) {
-            const int32_t f = (int32_t)(((int64_t)plane - cam[i][2]) * 0x10000 / ((int64_t)cam[j][2] - cam[i][2]));
-            lerp3(cam[i], cam[j], f, pos[n]);
+            const int lo = edge_ends_swapped(cam[i], cam[j]) ? j : i, hi = lo == i ? j : i;
+            const int32_t f = (int32_t)(((int64_t)plane - cam[lo][2]) * 0x10000 / ((int64_t)cam[hi][2] - cam[lo][2]));
+            lerp3(cam[lo], cam[hi], f, pos[n]);
             pos[n][2] = plane;
-            for (int k = 0; k < 2; k++) tex[n][k] = (int32_t)(corner_uv[i][k] + ((int64_t)corner_uv[j][k] - corner_uv[i][k]) * f / 0x10000);
+            for (int k = 0; k < 2; k++) tex[n][k] = (int32_t)(corner_uv[lo][k] + ((int64_t)corner_uv[hi][k] - corner_uv[lo][k]) * f / 0x10000);
             n++;
         }
     }
@@ -193,8 +209,8 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
             for (int gx = 0; gx <= CUT_GRID; gx++) {
                 const int32_t fx = gx * 0x10000 / CUT_GRID, fy = gy * 0x10000 / CUT_GRID;
                 int32_t top[3], bottom[3], point[3], top_uv[2], bottom_uv[2];
-                lerp3(pos[idx[0]], pos[idx[1]], fx, top), lerp3(pos[idx[3]], pos[idx[2]], fx, bottom);
-                lerp3(top, bottom, fy, point);
+                lerp3_edge(pos[idx[0]], pos[idx[1]], fx, top), lerp3_edge(pos[idx[3]], pos[idx[2]], fx, bottom);
+                lerp3_edge(top, bottom, fy, point);
                 if (point[2] < plane) point[2] = plane;
                 for (int k = 0; k < 2; k++) {
                     top_uv[k] = (int32_t)(tex[idx[0]][k] + ((int64_t)tex[idx[1]][k] - tex[idx[0]][k]) * fx / 0x10000);
