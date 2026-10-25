@@ -139,6 +139,27 @@ static uint8_t texel(const Fill *fill, float u, float v)
     return t->payload[(size_t)y * t->width + x];
 }
 
+#if defined(__SSE2__) && !defined(__FMA__)
+/* texel's addressing for the texels of four pixels at once: the same clamps, floors and bounds, a lane each (fmaxf and
+ * fminf as _mm_max_ps / _mm_min_ps with the polygon's limit second: a NaN u comes out as the limit, as fmaxf gives) */
+static inline void texel_offsets(const Fill *fill, __m128 u, __m128 v, size_t at[4])
+{
+    const FshEntry *t = fill->texture;
+    u = _mm_min_ps(_mm_max_ps(u, _mm_set1_ps(fill->u_lo)), _mm_set1_ps(fill->u_hi));
+    v = _mm_min_ps(_mm_max_ps(v, _mm_set1_ps(fill->v_lo)), _mm_set1_ps(fill->v_hi));
+    /* floor(u) is the truncation wherever u >= 0, and a u below 0 is a texel below 0 either way: clamped to 0 */
+    __m128i x = _mm_cvttps_epi32(u), y = _mm_cvttps_epi32(v);
+    const __m128i w = _mm_set1_epi32(t->width), h = _mm_set1_epi32(t->height), one = _mm_set1_epi32(1);
+    const __m128i xneg = _mm_cmplt_epi32(x, _mm_setzero_si128()), xhi = _mm_cmpgt_epi32(x, _mm_sub_epi32(w, one));
+    const __m128i yneg = _mm_cmplt_epi32(y, _mm_setzero_si128()), yhi = _mm_cmpgt_epi32(y, _mm_sub_epi32(h, one));
+    x = _mm_andnot_si128(xneg, _mm_or_si128(_mm_and_si128(xhi, _mm_sub_epi32(w, one)), _mm_andnot_si128(xhi, x)));
+    y = _mm_andnot_si128(yneg, _mm_or_si128(_mm_and_si128(yhi, _mm_sub_epi32(h, one)), _mm_andnot_si128(yhi, y)));
+    int32_t xs[4], ys[4];
+    _mm_storeu_si128((__m128i *)xs, x), _mm_storeu_si128((__m128i *)ys, y);
+    for (int j = 0; j < 4; j++) at[j] = (size_t)ys[j] * t->width + xs[j];
+}
+#endif
+
 /* a barycentric weight along a row: w(px) = step * px + at; `lo`..`hi` narrowed to the pixel centres where it is
  * not below -SPAN_SLACK (the slack keeps shared edges covered by both triangles: no cracks); 0 when none are */
 static const float SPAN_SLACK = 1e-5f;
@@ -237,13 +258,13 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
             uv = _mm_or_ps(_mm_and_ps(over, _mm_add_ps(uv, ou)), _mm_andnot_ps(over, uv));
             vv = _mm_or_ps(_mm_and_ps(over, _mm_add_ps(vv, ov)), _mm_andnot_ps(over, vv));
         }
-        float us[4], vs[4];
+        size_t at4[4];
         int32_t lv[4] = { 0 };
-        _mm_storeu_ps(us, uv), _mm_storeu_ps(vs, vv);
+        texel_offsets(fill, uv, vv, at4);
         if (fog != NULL)
             _mm_storeu_si128((__m128i *)lv, fog_levels(rv, x, y, style.fog_start, style.fog_end - style.fog_start));
         for (int j = 0; j < 4; j++) {
-            uint8_t c = texel(fill, us[j], vs[j]);
+            uint8_t c = fill->texture->payload[at4[j]];
             if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[lv[j]][c];
             paint_texel(&fill->paint, &row[x + j], c);
         }
