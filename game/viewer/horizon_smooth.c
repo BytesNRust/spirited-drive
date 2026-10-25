@@ -82,6 +82,7 @@ static int32_t wrap(int32_t c, int32_t w)
     return c < 0 ? c + w : c;
 }
 
+#ifndef __SSE4_1__   /* with SSE4.1 the blend runs in registers: blend_lanes and the planes below */
 /* a screen column over a pair of bitmap rows: the two rows blended across (RGB times ONE), or the one texel all four
  * are (-1 none) */
 typedef struct {
@@ -100,9 +101,10 @@ static void pair_make(const HorizonSmooth *s, const Column *c, const uint8_t *ro
     }
     p->top[3] = p->bottom[3] = 0;
 }
+#endif
 
 #ifdef __SSE4_1__
-/* pair_blend on the pair's top and bottom as the lanes of registers: the same integer sums, products and shifts */
+/* the blend of a pair's top and bottom as the lanes of registers: the same integer sums, products and shifts */
 static inline uint8_t blend_lanes(const HorizonSmooth *s, __m128i top, __m128i bottom, int32_t wv, int x, int y)
 {
     const int32_t dither = (BAYER[y & 3][x & 3] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
@@ -116,12 +118,10 @@ static inline uint8_t blend_lanes(const HorizonSmooth *s, __m128i top, __m128i b
 }
 #endif
 
+#ifndef __SSE4_1__
 /* the pair blended down by wv of ONE, dithered for screen x, y, the palette's nearest */
 static uint8_t pair_blend(const HorizonSmooth *s, const Pair *p, int32_t wv, int x, int y)
 {
-#ifdef __SSE4_1__
-    return blend_lanes(s, _mm_loadu_si128((const __m128i *)p->top), _mm_loadu_si128((const __m128i *)p->bottom), wv, x, y);
-#else
     const int32_t d = (BAYER[y & 3][x & 3] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
     int rgb[3];
     for (int k = 0; k < 3; k++) {
@@ -129,8 +129,8 @@ static uint8_t pair_blend(const HorizonSmooth *s, const Pair *p, int32_t wv, int
         rgb[k] = m < 0 ? 0 : m > 255 ? 255 : m;
     }
     return horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
-#endif
 }
+#endif
 
 static int32_t clamp_texel(int32_t c, int32_t n)
 {
@@ -189,6 +189,64 @@ void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t
                           x, y);
 }
 
+#ifdef __SSE4_1__
+/* port: the band's columns as planes (one array a channel) so four pixels blend at once: pair_make's sums in
+ * 32-bit lanes of a plane each, pair_blend's mix, shift and clamp on four pixels, the dither a lane each, then the
+ * nearest colour's table index; the pixels are looked up one by one */
+typedef struct {
+    int32_t top[3][HORIZON_WIDE_WIDTH + 4], bottom[3][HORIZON_WIDE_WIDTH + 4];
+    int16_t only[HORIZON_WIDE_WIDTH + 4];
+} Planes;
+
+static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *row0, const uint8_t *row1, Planes *p, int i)
+{
+    const uint8_t t00 = row0[c->c0], t10 = row0[c->c1], t01 = row1[c->c0], t11 = row1[c->c1];
+    p->only[i] = t00 == t10 && t00 == t01 && t00 == t11 ? t00 : -1;
+    if (p->only[i] >= 0) return;
+    for (int k = 0; k < 3; k++) {
+        p->top[k][i] = (ONE - c->w) * s->palette[3 * t00 + k] + c->w * s->palette[3 * t10 + k];
+        p->bottom[k][i] = (ONE - c->w) * s->palette[3 * t01 + k] + c->w * s->palette[3 * t11 + k];
+    }
+}
+
+static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x0, int x1, int x, int sy, uint8_t *dst)
+{
+    int32_t dither[4];   /* by x & 3: pair_blend's dither term for this row */
+    for (int k = 0; k < 4; k++) dither[k] = (BAYER[sy & 3][k] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
+    const __m128i keep = _mm_set1_epi32(ONE - wv), mix = _mm_set1_epi32(wv), zero = _mm_setzero_si128(),
+                  top = _mm_set1_epi32(255);
+    int i = x0;
+    for (; i + 3 < x1; i += 4) {
+        const int a = (x + i) & 3;
+        const __m128i d = _mm_setr_epi32(dither[a], dither[(a + 1) & 3], dither[(a + 2) & 3], dither[(a + 3) & 3]);
+        __m128i q[3];
+        for (int k = 0; k < 3; k++) {
+            __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_mullo_epi32(keep, _mm_loadu_si128((const __m128i *)&p->top[k][i])),
+                                                    _mm_mullo_epi32(mix, _mm_loadu_si128((const __m128i *)&p->bottom[k][i]))),
+                                      d);
+            q[k] = _mm_min_epi32(_mm_max_epi32(_mm_srai_epi32(m, 16), zero), top);
+        }
+        int32_t cell[4];   /* horizon_smooth_nearest's index: r >> 3 << 10 | g >> 3 << 5 | b >> 3 */
+        _mm_storeu_si128((__m128i *)cell, _mm_or_si128(_mm_or_si128(_mm_slli_epi32(_mm_srli_epi32(q[0], 3), 10),
+                                                                     _mm_slli_epi32(_mm_srli_epi32(q[1], 3), 5)),
+                                                       _mm_srli_epi32(q[2], 3)));
+        for (int j = 0; j < 4; j++) dst[i + j] = p->only[i + j] >= 0 ? (uint8_t)p->only[i + j] : s->nearest[cell[j]];
+    }
+    for (; i < x1; i++) {
+        if (p->only[i] >= 0) {
+            dst[i] = (uint8_t)p->only[i];
+            continue;
+        }
+        int rgb[3];
+        for (int k = 0; k < 3; k++) {
+            const int32_t m = ((ONE - wv) * p->top[k][i] + wv * p->bottom[k][i] + dither[(x + i) & 3]) >> 16;
+            rgb[k] = m < 0 ? 0 : m > 255 ? 255 : m;
+        }
+        dst[i] = horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
+    }
+}
+#endif
+
 /* 0043a18c's band blended: the same rows ((height - 1) x scale from y, the bitmap's from first_row), clipped */
 static void blend_band(const Draw *d, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
 {
@@ -197,7 +255,11 @@ static void blend_band(const Draw *d, const FshEntry *horz, int32_t x_offset, in
     if (t->scale <= 0 || w <= 0 || h <= 0) return;
     static BANDS_THREAD_LOCAL float at[HORIZON_WIDE_WIDTH + 1];   /* port (render bands): per thread */
     static BANDS_THREAD_LOCAL Column cols[HORIZON_WIDE_WIDTH + 1];
+#ifdef __SSE4_1__
+    static BANDS_THREAD_LOCAL Planes planes;
+#else
     static BANDS_THREAD_LOCAL Pair pairs[HORIZON_WIDE_WIDTH + 1];
+#endif
     column_positions(t, at);
     for (int i = 0; i < t->width; i++) {   /* texel centres at k + 0.5 */
         const float fu = (float)x_offset + at[i] - 0.5f;
@@ -217,12 +279,20 @@ static void blend_band(const Draw *d, const FshEntry *horz, int32_t x_offset, in
         if (r != made) {
             const uint8_t *row0 = horz->payload + (size_t)(r < 0 ? 0 : r >= h ? h - 1 : r) * w;
             const uint8_t *row1 = horz->payload + (size_t)(r + 1 < 0 ? 0 : r + 1 >= h ? h - 1 : r + 1) * w;
+#ifdef __SSE4_1__
+            for (int i = x0; i < x1; i++) planes_make(d->s, &cols[i], row0, row1, &planes, i);
+#else
             for (int i = x0; i < x1; i++) pair_make(d->s, &cols[i], row0, row1, &pairs[i]);
+#endif
             made = r;
         }
         uint8_t *dst = d->target->pixels + (size_t)sy * d->target->pitch + x;
+#ifdef __SSE4_1__
+        blend_row(d->s, &planes, wv, x0, x1, x, sy, dst);
+#else
         for (int i = x0; i < x1; i++)
             dst[i] = pairs[i].only >= 0 ? (uint8_t)pairs[i].only : pair_blend(d->s, &pairs[i], wv, x + i, sy);
+#endif
     }
 }
 
