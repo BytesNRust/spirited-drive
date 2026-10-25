@@ -938,18 +938,22 @@ typedef struct {
     const uint32_t *lut;
     uint32_t *out;
     int width, height, count;
+    size_t stride;   /* out's row, in pixels (the texture's pitch may be wider than width) */
 } LutJob;
 
 static void lut_band(void *ctx, int index)
 {
     const LutJob *j = ctx;
     const int from = (int)((int64_t)j->height * index / j->count), to = (int)((int64_t)j->height * (index + 1) / j->count);
-    const size_t first = (size_t)from * (size_t)j->width, last = (size_t)to * (size_t)j->width;
-    for (size_t i = first; i < last; i++) j->out[i] = j->lut[j->pixels[i]];
+    for (int y = from; y < to; y++) {
+        const uint8_t *in = j->pixels + (size_t)y * (size_t)j->width;
+        uint32_t *row = j->out + (size_t)y * j->stride;
+        for (int x = 0; x < j->width; x++) row[x] = j->lut[in[x]];
+    }
 }
 
-void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
-                              int threads)
+void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor palette[256], void *out, int pitch, int width,
+                                    int height, int threads)
 {
     uint32_t lut[256];
     for (int i = 0; i < 256; i++) {
@@ -959,20 +963,42 @@ void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette
     int count = threads > 1 ? threads * 2 : 1;
     if (count > height / MIN_ROWS) count = height / MIN_ROWS;
     if (count < 1) count = 1;
-    const LutJob job = { pixels, lut, out, width, height, count };
+    const LutJob job = { pixels, lut, out, width, height, count, (size_t)pitch / sizeof(uint32_t) };
     platform_parallel_for(count, lut_band, (void *)&job, threads);
+}
+
+void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
+                              int threads)
+{
+    platform_palette_to_xrgb_pitch(pixels, palette, out, width * (int)sizeof *out, width, height, threads);
 }
 
 static int present_threads;
 
 void platform_set_present_threads(int threads) { present_threads = threads; }
 
+static int present_lock = 1;
+
+void platform_set_present_lock(int on) { present_lock = on; }
+
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
 {
-    platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
-    capture_frame();
     last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
-    SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
+    void *locked = NULL;
+    int pitch = 0;
+    /* the frame goes straight into the texture's memory, no second copy; a capture needs rgb_buffer, the web build keeps
+     * the upload, and a failed lock falls back to it */
+#ifndef __EMSCRIPTEN__
+    if (capture_dir == NULL && present_lock && SDL_LockTexture(texture, NULL, &locked, &pitch)) {
+        platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, fb_width, fb_height, present_threads);
+        SDL_UnlockTexture(texture);
+    } else
+#endif
+    {
+        platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
+        capture_frame();
+        SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
+    }
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
