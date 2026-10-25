@@ -251,6 +251,16 @@ void track_viewer_free(Track *t)
     free(t->objects);
 }
 
+int track_viewer_write_ppm_split(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb, const uint8_t *world_rgb,
+                                 const uint8_t *world)
+{
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) return 0;
+    int ok = fprintf(f, "P6\n%d %d\n255\n", w, h) > 0;
+    for (int i = 0; ok && i < w * h; i++) ok = fwrite((world[i] ? world_rgb : rgb) + 3 * pixels[i], 1, 3, f) == 3;
+    return fclose(f) == 0 && ok;
+}
+
 int track_viewer_write_ppm(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb)
 {
     FILE *f = fopen(path, "wb");

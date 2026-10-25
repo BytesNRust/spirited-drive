@@ -41,24 +41,21 @@ static void test_neutral_and_rejected(void)
     CHECK(!psx_lgs_parse((const uint8_t *)BIG, sizeof BIG - 1, &lgs));              /* a channel past 255 */
 }
 
-/* the world's palette entries (the followed car 0x30 up to the horizon 0xf9) are multiplied by the tint, each keeping its own
- * colour; the dash (below 0x30) and the markers and lights (0xfa..) are not touched */
+/* every palette entry is multiplied by the tint, each keeping its own colour (the 3D's pixels only are shown through it) */
 static void test_palette_tint(void)
 {
     uint8_t palette[768], tinted[768];
-    for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)(i / 2 + 60);   /* 256 greys, 128 steps */
+    for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)(i / 2 + 60);   /* 128 steps */
     const float tint[3] = { 0.85f, 0.74f, 0.41f };
     psx_tint_palette(palette, tint, tinted);
-    for (int i = 0; i < PSX_TINT_FIRST; i++) CHECK(memcmp(palette + 3 * i, tinted + 3 * i, 3) == 0);
-    for (int i = PSX_TINT_END; i < 256; i++) CHECK(memcmp(palette + 3 * i, tinted + 3 * i, 3) == 0);
     int distinct = 0, last = -1;
-    for (int i = PSX_TINT_FIRST; i < PSX_TINT_END; i++) {
+    for (int i = 0; i < 256; i++) {
         CHECK_EQ_INT(tinted[3 * i + 1], (int)(palette[3 * i + 1] * 0.74f + 0.5f));
         CHECK(tinted[3 * i + 2] < tinted[3 * i] && tinted[3 * i + 1] <= tinted[3 * i]);   /* warm */
         if (tinted[3 * i] != last) distinct++;
         last = tinted[3 * i];
     }
-    CHECK(distinct > 60);   /* the texture's variation survives: a span over many indices keeps many colours */
+    CHECK(distinct > 100);   /* the texture's variation survives: a span over many indices keeps many colours */
     const float neutral[3] = { 1, 1, 1 };
     psx_tint_palette(palette, neutral, tinted);
     CHECK(memcmp(palette, tinted, sizeof palette) == 0);
@@ -67,9 +64,36 @@ static void test_palette_tint(void)
     for (int i = 0; i < 768; i++) CHECK(tinted[i] >= palette[i]);   /* clamped, never wrapped */
 }
 
+/* a 3D pixel and a HUD pixel of the same index: the 3D one is the world's (it changes with the tint), the HUD's is not */
+static void test_world_mask(void)
+{
+    enum { N = 6 };
+    const uint8_t world[N] = { 100, 100, 7, 30, 100, 100 };   /* the 3D when it was done */
+    uint8_t shown[N];
+    memcpy(shown, world, N);
+    shown[1] = 100 ^ 1;   /* the HUD wrote over pixel 1 ... */
+    shown[3] = 100;       /* ... and over 3, with the same index the 3D's other pixels have */
+    uint8_t mask[N];
+    psx_world_mask(shown, world, N, mask);
+    CHECK_EQ_INT(mask[0], 1);
+    CHECK_EQ_INT(mask[1], 0);
+    CHECK_EQ_INT(mask[2], 1);
+    CHECK_EQ_INT(mask[3], 0);   /* index 100 as a HUD pixel stays; as pixels 0, 4, 5 it is tinted */
+    CHECK_EQ_INT(mask[4], 1);
+    uint8_t palette[768] = { 0 }, tinted[768];
+    palette[3 * 100] = 200, palette[3 * 100 + 1] = 160, palette[3 * 100 + 2] = 100;
+    const float tint[3] = { 0.5f, 0.5f, 0.5f };
+    psx_tint_palette(palette, tint, tinted);
+    const uint8_t *colour[N];
+    for (int i = 0; i < N; i++) colour[i] = (mask[i] ? tinted : palette) + 3 * shown[i];
+    CHECK_EQ_INT(colour[0][0], 100);   /* the world's index 100 darker and warmer */
+    CHECK_EQ_INT(colour[3][0], 200);   /* the HUD's index 100 as it was */
+}
+
 int main(void)
 {
     test_palette_tint();
+    test_world_mask();
     test_ambient_and_tint();
     test_neutral_and_rejected();
     return TEST_REPORT();

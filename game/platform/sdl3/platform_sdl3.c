@@ -926,6 +926,8 @@ void platform_wait_vblank(void)
     if (next_vblank_ns > now) platform_sleep_ms((uint32_t)((next_vblank_ns - now) / SDL_NS_PER_MS));
 }
 
+static void present_rgb(void);
+
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
 {
     uint32_t lut[256];
@@ -936,6 +938,24 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
     for (size_t i = 0; i < count; i++) {
         rgb_buffer[i] = lut[pixels[i]];
     }
+    present_rgb();
+}
+
+void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                            const uint8_t *world)
+{
+    uint32_t lut[2][256];
+    for (int i = 0; i < 256; i++) {
+        lut[0][i] = ((uint32_t)palette[i].r << 16) | ((uint32_t)palette[i].g << 8) | palette[i].b;
+        lut[1][i] = ((uint32_t)world_palette[i].r << 16) | ((uint32_t)world_palette[i].g << 8) | world_palette[i].b;
+    }
+    const size_t count = (size_t)fb_width * (size_t)fb_height;
+    for (size_t i = 0; i < count; i++) rgb_buffer[i] = lut[world[i] != 0][pixels[i]];
+    present_rgb();
+}
+
+static void present_rgb(void)
+{
     capture_frame();
     last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
     SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);

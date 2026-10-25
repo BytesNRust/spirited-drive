@@ -16,7 +16,11 @@
 
 DriveWide drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0, 1, NULL };
 
-int drive_wide_active(void) { return drive_wide.width > SCREEN_W || drive_wide.scale > 1; }
+/* port: the PS1 light's time of day tints the 3D alone, which needs the 3D in a buffer of its own under the 2D layer (the wide
+ * path's), whatever the screen's width */
+static int tinted_time(void) { return port_psx_light() && port_psx_time() != PSX_TIME_DAY; }
+
+int drive_wide_active(void) { return drive_wide.width > SCREEN_W || drive_wide.scale > 1 || tinted_time(); }
 
 uint8_t *drive_wide_canvas(void) { return drive_wide.scale > 1 ? drive_wide.layer : drive_wide.pixels; }
 

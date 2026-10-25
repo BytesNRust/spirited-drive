@@ -126,6 +126,11 @@ void platform_free_names(char **names);
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
 
+/* The same, a pixel with `world[i]` set through `world_palette` instead of `palette` (the PS1 light's time of day tints the 3D's
+ * pixels and not the 2D layer's, which index the same entries). */
+void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                            const uint8_t *world);
+
 /* Blocks until the next display refresh (paced at config->refresh_hz, 60 by default, on every target).
  * The original waited on DirectDraw's WaitForVerticalBlank. */
 void platform_wait_vblank(void);

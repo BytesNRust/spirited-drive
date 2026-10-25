@@ -45,10 +45,14 @@ void psx_lgs_tint(const PsxLgs *lgs, float tint[3])
 
 void psx_tint_palette(const uint8_t palette[768], const float tint[3], uint8_t out[768])
 {
-    memcpy(out, palette, 768);
-    for (int i = PSX_TINT_FIRST; i < PSX_TINT_END; i++)
+    for (int i = 0; i < 256; i++)
         for (int k = 0; k < 3; k++) {
             const float v = (float)palette[3 * i + k] * tint[k] + 0.5f;
             out[3 * i + k] = (uint8_t)(v > 255.0f ? 255 : v);
         }
+}
+
+void psx_world_mask(const uint8_t *shown, const uint8_t *world, size_t count, uint8_t *mask)
+{
+    for (size_t i = 0; i < count; i++) mask[i] = shown[i] == world[i];
 }

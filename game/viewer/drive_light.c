@@ -8,6 +8,8 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 enum { LIGHT_PATH = 320, LIGHT_TRACK = 16 };
 
@@ -75,4 +77,31 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768])
 {
     psx_tint_palette(palette, tint, out);
+}
+
+/* the 3D as it was when it was done, and the mask of a shown frame against it */
+static uint8_t *world_frame, *world_mask;
+static size_t world_size;
+
+void drive_light_world_done(const uint8_t *frame, size_t count)
+{
+    if (tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f) return;
+    if (world_size != count) {
+        uint8_t *f = realloc(world_frame, count), *m = realloc(world_mask, count);
+        if (f != NULL) world_frame = f;
+        if (m != NULL) world_mask = m;
+        if (f == NULL || m == NULL) {
+            world_size = 0;
+            return;
+        }
+        world_size = count;
+    }
+    memcpy(world_frame, frame, count);
+}
+
+const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
+{
+    if ((tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f) || world_size != count || world_frame == NULL) return NULL;
+    psx_world_mask(shown, world_frame, count, world_mask);
+    return world_mask;
 }
