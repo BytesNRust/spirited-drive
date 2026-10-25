@@ -162,17 +162,17 @@ static void test_select(void)
     CarLiveryPair pairs[2] = { { ORIGIN_A, BODY_B }, { BODY_C, BODY_D } };
     uint16_t colour = 0;
     CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 0);
-    alternate[BODY_B] = 5, alternate[BODY_D] = 9;
+    alternate[BODY_B] = 5, alternate[BODY_D] = 90;   /* B is under the weight floor: the heaviest, D */
     CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 1);
     CHECK_EQ_INT(colour, BODY_D);
-    alternate[BODY_B] = 9;
+    alternate[BODY_B] = 90;
     CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 1);
     CHECK_EQ_INT(colour, BODY_B);
 
     /* the normal livery's main colour: the mapped colour the normal livery uses most */
     static uint32_t normal[PSX_COLOURS];
     CHECK_EQ_INT(car_livery_main_from(pairs, 2, normal, &colour), 0);
-    normal[ORIGIN_A] = 3, normal[BODY_C] = 8;
+    normal[ORIGIN_A] = 3, normal[BODY_C] = 80;
     CHECK_EQ_INT(car_livery_main_from(pairs, 2, normal, &colour), 1);
     CHECK_EQ_INT(colour, BODY_C);
 
@@ -189,6 +189,16 @@ static void test_select(void)
     shaded[RED] = 10;                                   /* under a sixteenth of the shade's weight: a stray */
     CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
     CHECK_EQ_INT(colour, SHADE);
+    /* two tones of one hue: the lighter, above the weight floor, is the paint in the light (the real Viper read maroon) */
+    enum { MAROON = 0x000c /* (96,0,0) */ };
+    static uint32_t tones[PSX_COLOURS];
+    const CarLiveryPair hues[2] = { { MAROON, MAROON }, { RED, RED } };
+    tones[MAROON] = 1000, tones[RED] = 100;
+    CHECK_EQ_INT(car_livery_main(hues, 2, tones, &colour), 1);
+    CHECK_EQ_INT(colour, RED);
+    tones[RED] = 30;                                     /* under the floor: the heavy tone stays */
+    CHECK_EQ_INT(car_livery_main(hues, 2, tones, &colour), 1);
+    CHECK_EQ_INT(colour, MAROON);
     shaded[RED] = 0, shaded[GREY_B] = 400;              /* only greys: the heaviest, as before */
     CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
     CHECK_EQ_INT(colour, SHADE);

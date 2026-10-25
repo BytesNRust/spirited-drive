@@ -40,6 +40,10 @@ void pointer_mark(void);                              /* 00441858: the marks whe
  * "ptr<which>", NULL when it is not loaded */
 const uint8_t *pointer_shape(int which);
 
+/* port: sets used[i] to 1 for each palette index the pointer's sprite draws with (the overlay is not in the picture, so
+ * a colour only it uses looks free there); leaves the rest as it was. Nothing when no pointer is loaded. */
+void pointer_colours_used(uint8_t used[256]);
+
 /* The short 00524790 itself, which the screens read while show, activate
  * and off write it: one word, as the original's. */
 int16_t *pointer_active_word(void);

@@ -26,11 +26,23 @@ int car_variant_current(const CarVariant *list, int count, int model)
     return 0;
 }
 
-int car_variant_cycle(const CarVariant *list, int count, int model, int step)
+int car_variant_can_step(const CarVariant *list, int count, int model, int step)
+{
+    const int choices = car_variant_choices(list, count, model);
+    const int current = car_variant_current(list, count, model);
+    return choices > 0 && (step > 0 ? current + 1 < choices : current > 0);
+}
+
+int car_variant_step(const CarVariant *list, int count, int model, int step, int wrap)
 {
     const int choices = car_variant_choices(list, count, model);
     if (choices == 0) return 0;
-    const int next = (car_variant_current(list, count, model) + step + choices) % choices;
+    const int current = car_variant_current(list, count, model);
+    int next = current + step;
+    if (next < 0 || next >= choices) {
+        if (!wrap) return current;
+        next = (next + choices) % choices;
+    }
     for (int i = 0; i < count; i++)
         if (list[i].offered(model)) list[i].apply(model, offered_at(list, count, model, next) == i);
     return next;

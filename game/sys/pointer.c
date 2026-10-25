@@ -211,6 +211,14 @@ void pointer_position(int *x, int *y)
     *x = clamp_to(ptr.x, range_x0, range_x1), *y = clamp_to(ptr.y, range_y0, range_y1);  /* 00477140's */
 }
 
+void pointer_colours_used(uint8_t used[256])
+{
+    if (data == NULL) return;
+    size_t n = (size_t)sprite.width * sprite.height;
+    if (n > sprite.payload_size) n = sprite.payload_size;
+    for (size_t i = 0; i < n; i++) used[sprite.payload[i]] = 1;
+}
+
 const uint8_t *pointer_shape(int which)
 {
     enum { ENTRY_HEADER = 16 };

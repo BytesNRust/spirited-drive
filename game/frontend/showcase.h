@@ -56,16 +56,25 @@ typedef struct ShowcaseOps {
 
 /* port: the car variant box over the General photo (race/car_variant.h). The screen takes it as an item of its own: it
  * is lit when selected, Enter, the click and Left/Right step its choice. NULL leaves the screen as the game's. */
-/* the box's place: under the heading (its words end at y 88), its bottom edge on the General photo's top (y 164) */
-enum { VARIANT_LEFT = 136, VARIANT_RIGHT = 290, VARIANT_TOP = 100, VARIANT_BOTTOM = 163 };
+/* the box's place: under the heading (its words end at y 88), its bottom edge on the General photo's top (y 164) and
+ * its centre on that photo's left edge (x 134); a click in the first VARIANT_ZONE columns of a side is that side's arrow */
+enum { VARIANT_LEFT = 57, VARIANT_RIGHT = 211, VARIANT_TOP = 100, VARIANT_BOTTOM = 163, VARIANT_ZONE = 24 };
 
 typedef struct ShowcasePlus {
     int (*offered)(void *ctx, int car);                      /* 1 when the car has choices: the box is there */
-    void (*step)(void *ctx, int car, int step);              /* the next (1) or previous (-1) choice */
-    void (*free_colours)(void *ctx);                         /* the screen drawn with every item's art: notes the palette
-                                                              * colours it leaves unused, which the box paints with */
-    void (*draw)(void *ctx, int car, int lit, uint8_t *palette);  /* paints the box with the current choice, lit or dark;
-                                                              * it may set the colours it took in `palette` (8 bits) */
+    void (*step)(void *ctx, int car, int step, int wrap);    /* the next (1) or previous (-1) choice; past an end it wraps
+                                                              * or stays as `wrap` says */
+    int (*can_step)(void *ctx, int car, int step);           /* 1 when that step (no wrap) changes the choice */
+    void (*free_colours)(void *ctx, const uint8_t *palette); /* the screen drawn with every item's art, and its palette (8
+                                                              * bits a channel): picks the few palette colours the art uses
+                                                              * least, which the box paints with (each colour keeps its slot
+                                                              * until the next call) */
+    void (*settle)(void *ctx);                               /* the screen drawn, before the box: the art's pixels in those
+                                                              * colours are put in the nearest others, so the slots are the
+                                                              * box's alone */
+    int (*draw)(void *ctx, int car, int lit, uint8_t *palette);   /* paints the box with the current choice, lit or dark; sets
+                                                              * the colours it newly took in `palette` (8 bits) and returns
+                                                              * 1 then, else 0 */
     void *ctx;
 } ShowcasePlus;
 

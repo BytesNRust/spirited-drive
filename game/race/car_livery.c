@@ -156,21 +156,25 @@ static int saturated(uint16_t c)
     return ((hi - lo) << CHANNEL_SHIFT_8) >= SATURATED_SPREAD;
 }
 
-/* The colour the swatch shows: the heaviest of the pairs' colours (`from` or `to`) in `counts`, but a saturated one
- * wins over a grey one when it weighs at least 1/SATURATED_SHARE of that heaviest: the textures' dark shading and
- * interior outweigh the paint, which is the colour people see. 0 when none is used. */
+/* The colour the swatch shows: the heaviest of the pairs' colours (`from` or `to`) in `counts`; but the textures' dark
+ * shading and interior outweigh the paint, which is what people see. So among the saturated colours that weigh at least
+ * 1/SATURATED_SHARE of the heaviest the lightest wins (the paint in the light, not in shadow). 0 when none is used. */
 static int main_colour(const CarLiveryPair *pairs, int count, const uint32_t *counts, int to, uint16_t *colour)
 {
-    uint32_t most = 0, most_saturated = 0;
+    uint32_t most = 0, lightest = 0;
     uint16_t heaviest = 0, paint = 0;
+    int have_paint = 0;
     for (int i = 0; i < count; i++) {
         const uint16_t c = to ? pairs[i].to : pairs[i].from;
-        const uint32_t n = counts[c];
-        if (n > most) most = n, heaviest = c;
-        if (n > most_saturated && saturated(c)) most_saturated = n, paint = c;
+        if (counts[c] > most) most = counts[c], heaviest = c;
     }
     if (most == 0) return 0;
-    *colour = most_saturated != 0 && most_saturated * SATURATED_SHARE >= most ? paint : heaviest;
+    for (int i = 0; i < count; i++) {
+        const uint16_t c = to ? pairs[i].to : pairs[i].from;
+        if (counts[c] == 0 || counts[c] * SATURATED_SHARE < most || !saturated(c)) continue;
+        if (!have_paint || luma(c) > lightest) have_paint = 1, lightest = luma(c), paint = c;
+    }
+    *colour = have_paint ? paint : heaviest;
     return 1;
 }
 

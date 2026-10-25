@@ -31,8 +31,12 @@ int car_variant_choices(const CarVariant *list, int count, int model);
 /* the choice now: 0 the car as it is, k the k-th offered variant. When more than one is chosen the first wins. */
 int car_variant_current(const CarVariant *list, int count, int model);
 
-/* the next (`step` 1) or previous (`step` -1) choice, wrapping, kept through the variants' apply hooks; returns it */
-int car_variant_cycle(const CarVariant *list, int count, int model, int step);
+/* `step` 1 or -1 moves the choice that way, kept through the variants' apply hooks, and returns it. Past either end it
+ * wraps when `wrap` is set and stays where it is when not (Left and Right stop at the ends, Enter wraps). */
+int car_variant_step(const CarVariant *list, int count, int model, int step, int wrap);
+
+/* 1 when a step that way (no wrap) changes the choice: the box's paging triangle for that side is shown */
+int car_variant_can_step(const CarVariant *list, int count, int model, int step);
 
 /* draws the current choice's preview; returns 0 when the car has no variants (nothing drawn) */
 int car_variant_draw(const CarVariant *list, int count, int model, const CarVariantCanvas *canvas);

@@ -15,8 +15,8 @@ static const int16_t UP_OF[VARIANT + 1] = { 3, 3, 3, 5, 2, 1, 4, 4, 7, VARIANT }
 static const int16_t DOWN_OF[VARIANT + 1] = { 5, 4, 4, 1, 6, 3, 2, 2, 7, GENERAL };
 static const int16_t LEFT_OF[VARIANT + 1] = { 1, 2, 0, 2, 0, 6, 7, 5, 7, VARIANT };
 static const int16_t RIGHT_OF[VARIANT + 1] = { 4, 0, 1, 0, 1, 7, 5, 6, 7, PERFORMANCE };
-static const int16_t POINTER_X[VARIANT + 1] = { 533, 376, 217, 419, 208, 382, 230, 35, 320, 213 };
-static const int16_t POINTER_Y[VARIANT + 1] = { 306, 265, 222, 137, 369, 450, 450, 445, 240, 122 };
+static const int16_t POINTER_X[VARIANT + 1] = { 533, 376, 217, 419, 208, 382, 230, 35, 320, 134 };
+static const int16_t POINTER_Y[VARIANT + 1] = { 306, 265, 222, 137, 369, 450, 450, 445, 240, 131 };
 /* 00405fb8: the cars' file names, by 00524e8b */
 static const char *const CARS[SHOWCASE_CARS] = { "rx7", "nsx", "supra", "911", "vette", "viper", "512tr", "diablo" };
 /* the boxes 00463f80 is asked about, in turn, and the item each picks */
@@ -93,8 +93,8 @@ static void item_art(Show *s, int16_t item, const char *const *tags, const Showc
 {
     if (item == VARIANT) {
         if (!has_box(st)) return;
-        st->plus->draw(st->plus->ctx, *st->player_car, tags == LIT, s->rgb);
-        if (!s->fade) o->palette_write(o->ctx, 0, ALL, s->rgb);   /* the colours the box took, on screen now */
+        const int taken = st->plus->draw(st->plus->ctx, *st->player_car, tags == LIT, s->rgb);
+        if (taken && !s->fade) o->palette_write(o->ctx, 0, ALL, s->rgb);   /* a new colour: its slot is unused on screen */
         return;
     }
     if (item < 0 || item > DONE) return;
@@ -108,13 +108,14 @@ static void draw(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
     o->select(o->ctx, *st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
-    if (has_box(st)) {   /* port: every item's art once, to see which palette colours none uses, then the bank's again */
+    if (s->fade && has_box(st)) {   /* port: every item's art once, to see which palette colours none uses, then the bank's again */
         for (int16_t item = 0; item <= DONE; item++) item_art(s, item, LIT, st, o);
-        st->plus->free_colours(st->plus->ctx);
+        st->plus->free_colours(st->plus->ctx, s->rgb);
         o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
     }
-    if (s->selected != VARIANT) item_art(s, VARIANT, DARK, st, o);
-    item_art(s, s->selected, LIT, st, o);
+    if (s->selected != VARIANT) item_art(s, s->selected, LIT, st, o);
+    if (has_box(st)) st->plus->settle(st->plus->ctx);
+    item_art(s, VARIANT, s->selected == VARIANT ? LIT : DARK, st, o);
     if (s->fade) o->palette_show(o->ctx, 0, ALL, s->black);
     o->select_default(o->ctx);
     o->blit_word(o->ctx, o->picture_shape(o->ctx, *st->screen));
@@ -141,8 +142,8 @@ static void mark_change(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
     o->sound(o->ctx, MOVED);
     o->pointer_hide(o->ctx);
     o->lock(o->ctx);
-    item_art(s, s->previous, DARK, st, o);
-    item_art(s, s->selected, LIT, st, o);
+    if (s->previous != VARIANT) item_art(s, s->previous, DARK, st, o);   /* the box is the redraw's: it sets a palette */
+    if (s->selected != VARIANT) item_art(s, s->selected, LIT, st, o);
     s->changed = 0;
 }
 
@@ -184,13 +185,28 @@ static void page(Show *s, const ShowcaseState *st, const ShowcaseOps *o,
 }
 
 /* port: the box's choice stepped, and the screen drawn again with it */
-static void step_variant(Show *s, const ShowcaseState *st, int step)
+static void step_variant(Show *s, const ShowcaseState *st, int step, int wrap)
 {
-    st->plus->step(st->plus->ctx, *st->player_car, step);
+    st->plus->step(st->plus->ctx, *st->player_car, step, wrap);
     s->redraw = 1;
 }
 
-static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
+/* Enter, Space or a click on the swatch step forward and wrap; a click on a side's arrow steps that way and stops at the end */
+static void take_variant(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_click)
+{
+    const int car = *st->player_car;
+    if (by_click && o->pointer_in_rect(o->ctx, VARIANT_LEFT, VARIANT_LEFT + VARIANT_ZONE, VARIANT_TOP, VARIANT_BOTTOM) &&
+        st->plus->can_step(st->plus->ctx, car, -1)) {
+        step_variant(s, st, -1, 0);
+    } else if (by_click && o->pointer_in_rect(o->ctx, VARIANT_RIGHT - VARIANT_ZONE, VARIANT_RIGHT, VARIANT_TOP, VARIANT_BOTTOM) &&
+               st->plus->can_step(st->plus->ctx, car, 1)) {
+        step_variant(s, st, 1, 0);
+    } else {
+        step_variant(s, st, 1, 1);
+    }
+}
+
+static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_click)
 {
     switch (s->selected) {
     case HISTORY: page(s, st, o, o->pages, "his"); break;
@@ -223,7 +239,7 @@ static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
         s->fade = 1;
         break;
     case DONE: s->quit = 1; break;
-    case VARIANT: step_variant(s, st, 1); break;
+    case VARIANT: take_variant(s, st, o, by_click); break;
     default: break;
     }
 }
@@ -249,7 +265,7 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
         o->pointer_click(o->ctx);
         if (armed) {
             o->sound(o->ctx, CHOSEN);
-            take(s, st, o);
+            take(s, st, o, key != SPACE && key != ENTER);
         }
         o->ticks(o->ctx);
         s->released = 0;
@@ -264,7 +280,7 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
         case RIGHT:
             if (s->selected == VARIANT) {   /* port: Left and Right step the box's choice */
                 o->sound(o->ctx, CHOSEN);
-                step_variant(s, st, key == RIGHT ? 1 : -1);
+                step_variant(s, st, key == RIGHT ? 1 : -1, 0);
             } else {
                 arrow(s, (key == LEFT ? LEFT_OF : RIGHT_OF)[s->selected], o);
             }
