@@ -22,6 +22,12 @@ void weather_rain_colour(uint8_t out[3]);                                      /
  * the horizon is where a ray is level, whatever the pitch or roll. */
 int weather_sky_level(int32_t x, int32_t y, int32_t cx, int32_t cy, float focal, const float up[3], int low, int high);
 
+/* The fog's curve: 0 the line from WEATHER_FOG_START to WEATHER_FOG_END (the fog is whole from there on: a plateau, the cars past
+ * it flat), 1 an exponential that takes the same level at 2500 (about 8 of 15) and goes on toward WEATHER_FOG_EXP_CAP of the way
+ * without reaching the whole, so the far cars keep a trace of shading. TNFS_FOG_CURVE=exp (default: the line). */
+int weather_fog_curve(void);
+enum { WEATHER_FOG_EXP_SCALE = 2380, WEATHER_FOG_EXP_CAP_PERCENT = 93 };
+
 enum {
     WEATHER_SKY_FADE_TAN = 20,     /* a hundredth of the ray's rise (over its run) where the sky is whole its own: 0.20 */
     WEATHER_SKY_LEVEL = 11,        /* of MODERN_FOG_LEVELS - 1 = 15: how far the sky goes to its colour */

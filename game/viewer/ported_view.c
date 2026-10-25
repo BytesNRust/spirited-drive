@@ -138,8 +138,11 @@ static ModernLook look;
 static void weather_style(const TrackArt *art, const WeatherTables *wt)
 {
     const int fog = weather == WEATHER_FOG;
-    modern_road_set_style(modern_look_fixed_fog(&look, art, look_filter, wt->fog, fog ? WEATHER_FOG_START : WEATHER_RAIN_FOG_START,
-                                                fog ? WEATHER_FOG_END : WEATHER_RAIN_FOG_END));
+    ModernStyle style = *modern_look_fixed_fog(&look, art, look_filter, wt->fog, fog ? WEATHER_FOG_START : WEATHER_RAIN_FOG_START,
+                                               fog ? WEATHER_FOG_END : WEATHER_RAIN_FOG_END);
+    if (fog && weather_fog_curve())   /* the exponential variant (weather.h) */
+        style.fog_exp = WEATHER_FOG_EXP_SCALE, style.fog_cap = WEATHER_FOG_EXP_CAP_PERCENT / 100.0f;
+    modern_road_set_style(&style);
 }
 
 /* the rear-view mirror draws before the front view of the frame: its road gets the weather's style (not last frame's);

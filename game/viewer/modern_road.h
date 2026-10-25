@@ -29,6 +29,9 @@ typedef struct {
                                      * no fog */
     float fog_start, fog_end;       /* camera depths where the fog begins and is whole (between levels a 4x4 ordered
                                      * dither of both) */
+    float fog_exp, fog_cap;         /* fog_exp > 0: past fog_start the fog is fog_cap of the way (0..1) times 1 - e^-(z -
+                                     * start) / fog_exp, which only approaches fog_cap, instead of the straight line to
+                                     * fog_end that is whole there (0 each: the line) */
 } ModernStyle;
 /* The style for the draws that follow (copied; the fog tables are kept by pointer); NULL none, as Modern 3D was. */
 void modern_road_set_style(const ModernStyle *style);

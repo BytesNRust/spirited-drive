@@ -55,7 +55,7 @@ static void test_filter_magnified(void)
     memset(screen, UNTOUCHED, sizeof screen);
     wall(&view, 100, 40, MAP_OPAQUE);   /* 16 texels over ~256 pixels: 16 pixels a texel */
     CHECK_EQ_INT(mixed_columns(&view), 1);
-    const ModernStyle filter = { 1, NULL, 0, 0 };
+    const ModernStyle filter = { 1, NULL, 0, 0, 0, 0 };
     modern_road_set_style(&filter);
     memset(screen, UNTOUCHED, sizeof screen);
     wall(&view, 100, 40, MAP_OPAQUE);
@@ -79,7 +79,7 @@ static void test_filter_minified(void)
     memset(screen, UNTOUCHED, sizeof screen);
     wall(&view, 4000, 40, MAP_OPAQUE);   /* 16 texels over ~6 pixels */
     memcpy(plain, screen, sizeof plain);
-    const ModernStyle filter = { 1, NULL, 0, 0 };
+    const ModernStyle filter = { 1, NULL, 0, 0, 0, 0 };
     modern_road_set_style(&filter);
     memset(screen, UNTOUCHED, sizeof screen);
     wall(&view, 4000, 40, MAP_OPAQUE);
@@ -119,7 +119,7 @@ static void test_fog_depths(void)
     static uint8_t fog[MODERN_FOG_LEVELS][256];
     for (int l = 0; l < MODERN_FOG_LEVELS; l++)
         for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);
-    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1000, 2000 };
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1000, 2000, 0, 0 };
     modern_road_set_style(&style);
     memset(screen, UNTOUCHED, sizeof screen);
     wall(&view, 500, 40, MAP_OPAQUE);
@@ -165,7 +165,7 @@ static void test_fog_dither(void)
     static uint8_t fog[MODERN_FOG_LEVELS][256];
     for (int l = 0; l < MODERN_FOG_LEVELS; l++)
         for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(100 + l);
-    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1000, 2000 };
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1000, 2000, 0, 0 };
     modern_road_set_style(&style);
     int counts[MODERN_FOG_LEVELS];
     memset(screen, UNTOUCHED, sizeof screen);
@@ -190,7 +190,7 @@ static void test_fog_grazing_floor(void)
     static uint8_t fog[MODERN_FOG_LEVELS][256];
     for (int l = 0; l < MODERN_FOG_LEVELS; l++)
         for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);   /* level 0 each colour itself */
-    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1, 2 };   /* past depth 2 all fog */
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 1, 2, 0, 0 };   /* past depth 2 all fog */
     modern_road_set_style(&style);
     static int32_t c[4][3] = { { -4000000, -2000001, 8000000 }, { 4000000, 1999999, 8000000 }, { 40, 19, 10 },
                                { -40, -21, 10 } };
@@ -220,7 +220,7 @@ static void test_fog_same_depth_same_level(void)
     static uint8_t fog[MODERN_FOG_LEVELS][256];
     for (int l = 0; l < MODERN_FOG_LEVELS; l++)
         for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);
-    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 250, 4200 };
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 250, 4200, 0, 0 };
     modern_road_set_style(&style);
     static uint8_t road[W * H], car[W * H], flat[W * H];
     static int32_t c[4][3];
@@ -245,8 +245,50 @@ static void test_fog_same_depth_same_level(void)
     modern_road_set_style(NULL);
 }
 
+/* the exponential curve: at 2500 the level of the linear curve (about 8 of 15), a trace of shading left at 7000, and never the
+ * whole fog (14 of 15 at most) however far */
+static void test_fog_exponential(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    memset(texels, 10, sizeof texels);
+    static uint8_t fog[MODERN_FOG_LEVELS][256];
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);
+    const ModernStyle linear = { 0, (const uint8_t (*)[256])fog, 250, 4200, 0, 0 };
+    const ModernStyle expo = { 0, (const uint8_t (*)[256])fog, 250, 4200, 2380, 0.93f };
+    const int32_t depths[] = { 400, 1000, 2500, 4200, 7000, 12000, 21840 };
+    int near_mean[2] = { 0, 0 }, far_level[2] = { 0, 0 };
+    for (int s = 0; s < 2; s++) {
+        modern_road_set_style(s == 0 ? &linear : &expo);
+        for (size_t i = 0; i < sizeof depths / sizeof *depths; i++) {
+            int sum = 0, cells = 0;
+            memset(screen, UNTOUCHED, sizeof screen);
+            wall(&view, depths[i], depths[i] / 3, MAP_OPAQUE);   /* a big wall: many pixels, the dither averaged */
+            for (int y = view.centre_y - 20; y < view.centre_y + 20; y++)
+                for (int x = view.centre_x - 20; x < view.centre_x + 20; x++) {
+                    const int v = screen[y * W + x];
+                    if (v == UNTOUCHED) continue;
+                    const int level = v == 10 ? 0 : v - 100;
+                    sum += level, cells++;
+                    if (s == 1) CHECK(level <= 14);                         /* never the whole fog */
+                }
+            CHECK(cells > 0);
+            const int mean16 = cells ? sum * 16 / cells : 0;                // 16 x the mean level
+            if (depths[i] == 2500) near_mean[s] = mean16;
+            if (depths[i] == 7000) far_level[s] = mean16;
+            if (depths[i] == 21840 && s == 1) CHECK(mean16 > 13 * 16);
+        }
+    }
+    CHECK(abs(near_mean[1] - near_mean[0]) < 2 * 16);   /* the same at 2500, within a level or two */
+    CHECK(far_level[0] > 14 * 16);                      /* the plateau: whole at 7000 */
+    CHECK(far_level[1] > 11 * 16 && far_level[1] < 14 * 16);   /* the exponential: not yet whole */
+    modern_road_set_style(NULL);
+}
+
 int main(void)
 {
+    test_fog_exponential();
     test_fog_grazing_floor();
     test_filter_magnified();
     test_filter_minified();

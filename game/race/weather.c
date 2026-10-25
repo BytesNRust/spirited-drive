@@ -1,5 +1,6 @@
 #include "game/race/weather.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum {
@@ -46,6 +47,12 @@ void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3])
     static const uint8_t RAIN_SKY[3] = { 62, 68, 78 };
     if (weather == WEATHER_RAIN) memcpy(out, RAIN_SKY, 3);
     else memcpy(out, fog, 3);
+}
+
+int weather_fog_curve(void)
+{
+    const char *v = getenv("TNFS_FOG_CURVE");
+    return v != NULL && strcmp(v, "exp") == 0;
 }
 
 int weather_sky_level(int32_t x, int32_t y, int32_t cx, int32_t cy, float focal, const float up[3], int low, int high)
