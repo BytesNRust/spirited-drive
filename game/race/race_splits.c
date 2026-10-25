@@ -26,8 +26,10 @@ static void set_word(RaceSplits *s, int64_t at, int32_t v)
 /* The tick into `ticks`[*counter] once `progress` is past checkpoint
  * [*counter], then the counter on (read again: the tick may have landed on
  * it). */
-static void pass(RaceSplits *s, int32_t progress, size_t ticks, size_t counter, int32_t tick)
+static void pass(RaceSplits *s, int32_t progress, size_t ticks, size_t counter, int32_t tick, int32_t free_laps)
 {
+    /* port (free laps): past the 85 splits the original's counter indexes the words after the block's arrays; a free race stops there */
+    if (free_laps && word_at(s, (int64_t)counter) >= RACE_SPLITS) return;
     const int64_t at = (int32_t)((uint32_t)word_at(s, (int64_t)counter) << 2);  /* shl 2, as the original */
     if (progress <= word_at(s, offsetof(RaceSplits, checkpoints) + at)) return;
     set_word(s, (int64_t)ticks + at, tick);
@@ -37,9 +39,9 @@ static void pass(RaceSplits *s, int32_t progress, size_t ticks, size_t counter, 
 void race_splits_pass(RaceState *race, int32_t progress, int32_t rival_progress)
 {
     RaceSplits *s = &race->splits;
-    pass(s, progress, offsetof(RaceSplits, passed_ticks), offsetof(RaceSplits, passed), race->tick);
+    pass(s, progress, offsetof(RaceSplits, passed_ticks), offsetof(RaceSplits, passed), race->tick, race->port_free_laps);
     if (race->race_type != 0)
-        pass(s, rival_progress, offsetof(RaceSplits, rival_ticks), offsetof(RaceSplits, rival_passed), race->tick);
+        pass(s, rival_progress, offsetof(RaceSplits, rival_ticks), offsetof(RaceSplits, rival_passed), race->tick, race->port_free_laps);
 }
 
 void race_splits_gap(RaceState *race)
@@ -121,7 +123,8 @@ static void rival_from_circuit_record(RaceState *race, RaceSplits *s)
     const int64_t row = (int64_t)race->track * 3 * CHECKPOINT_ROW;
     const int32_t first_lap = table_word(RACE_SPLIT_FACTORS + row + 2 * CHECKPOINT_ROW);
     const int64_t record = (int64_t)race->record_slot * CIRCUIT_RECORD + (int64_t)race->track * TRACK_RECORDS;
-    for (int32_t n = 0; n < race->laps * SPLITS_A_LAP; n++) {
+    const int32_t rival_splits = race->port_free_laps && race->laps * SPLITS_A_LAP > RACE_SPLITS ? RACE_SPLITS : race->laps * SPLITS_A_LAP;
+    for (int32_t n = 0; n < rival_splits; n++) {
         int32_t t;
         if (n < SPLITS_A_LAP) {
             t = fx_mul_round(table_word(RACE_SPLIT_FACTORS + row + 4 * n), first_lap);
@@ -134,8 +137,9 @@ static void rival_from_circuit_record(RaceState *race, RaceSplits *s)
         }
         set_word(s, offsetof(RaceSplits, rival_ticks) + 4 * (int64_t)n, t + TICK_OFFSET);
     }
-    set_word(s, offsetof(RaceSplits, rival_ticks) + 4 * (int64_t)race->laps * SPLITS_A_LAP,
-             saved_word(race, CIRCUIT_RECORDS + record) + TICK_OFFSET);
+    if (rival_splits == race->laps * SPLITS_A_LAP)   /* port (free laps): the final word is past the array when the laps are many */
+        set_word(s, offsetof(RaceSplits, rival_ticks) + 4 * (int64_t)race->laps * SPLITS_A_LAP,
+                 saved_word(race, CIRCUIT_RECORDS + record) + TICK_OFFSET);
 }
 
 /* A stage's rival: its best time spread by the track's factors. */

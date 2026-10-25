@@ -1,6 +1,7 @@
 #include "game/frontend/circuit_results.h"
 
 #include "game/frontend/records_route.h"
+#include "game/sys/free_laps.h"
 
 #include <stdio.h>
 
@@ -107,7 +108,7 @@ static void draw_heads(const ResultsInputs *in, const ResultsOps *ops)
 {
     char text[TEXT];
     const int type = g16(in->image + RACE_TYPE);
-    snprintf(text, sizeof text, in->german ? "%d Rundenrennen" : "%d Lap race", g16(in->image + LAPS));
+    snprintf(text, sizeof text, in->german ? "%d Rundenrennen" : "%d Lap race", free_laps_or(g16(in->image + LAPS)));
     ops->text_at(ops->ctx, text, 8, 0x5f);
     ops->text_fit(ops->ctx, (const char *)player_at(in, in->player) + NAME, LEFT, 0x5a, 0x96);
     ops->text_at(ops->ctx, in->car_names[g16(in->image + CAR)], LEFT, 0x6e);

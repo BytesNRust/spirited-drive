@@ -119,7 +119,7 @@ void race_results_record(RaceState *race)
     if ((int16_t)race->frontend_track > LAST_STAGE_TRACK) {
         for (int64_t c = 0; c < GAME_LAP_SLOTS; c++) set_game_word(race, g + GAME_LAP_TIMES + 4 * c, 0);
         if (race->end_request != RACE_QUIT)
-            for (int64_t c = 0; c < (race->frontend_laps_word >> 16); c++) {
+            for (int64_t c = 0; c < (race->frontend_laps_word >> 16) && (!race->port_free_laps || c < GAME_LAP_SLOTS); c++) {   /* port (free laps): the game state keeps 20 */
                 int32_t t = player_word(race, r + 0xc + 4 * c);
                 if (c > 0) {
                     t -= player_word(race, r + 8 + 4 * c);
@@ -183,7 +183,10 @@ void race_results_end(RaceState *race)
         set_player_word(race, (i + 1) * record + 4, race->cars[i]->model);
     }
     if (race->finish_humans < race->finish_cars) {
-        const int32_t run = race->loop_nodes * race->laps * race->tick - FINISH_OFFSET;
+        /* port (free laps): the product outgrows int32 in a long race (many laps); the exe's wraps */
+        const int64_t run64 = (int64_t)race->loop_nodes * race->laps * race->tick - FINISH_OFFSET;
+        const int32_t run = race->port_free_laps ? (int32_t)(run64 > INT32_MAX ? INT32_MAX : run64)
+                                                  : race->loop_nodes * race->laps * race->tick - FINISH_OFFSET;
         for (int32_t i = race->finish_humans; i < race->finish_cars && i < RACE_PLAYERS; i++) {
             const Car *car = race->cars[i];
             if (player_word(race, i * record + 0x1c4) == 0) {
