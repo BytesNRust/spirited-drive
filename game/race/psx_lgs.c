@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-enum { NUMBERS = 14, NEUTRAL = 128, CHANNEL_MAX = 255 };
+enum { NUMBERS = 14, CONTEXT_NUMBERS = 9, ALL_NUMBERS = NUMBERS + 1 + CONTEXT_NUMBERS * PSX_LGS_CONTEXTS, NEUTRAL = 128, CHANNEL_MAX = 255 };
 
 /* The first `count` integers of the text outside comments, stopping at the first letter outside a comment (the trailer);
  * the number read. */
@@ -29,13 +29,46 @@ static int numbers(const uint8_t *p, size_t size, int *out, int count)
 
 int psx_lgs_parse(const uint8_t *file, size_t size, PsxLgs *out)
 {
-    int v[NUMBERS];
-    if (file == NULL || out == NULL || numbers(file, size, v, NUMBERS) != NUMBERS) return 0;
+    int v[ALL_NUMBERS];
+    if (file == NULL || out == NULL) return 0;
+    const int got = numbers(file, size, v, ALL_NUMBERS);
+    if (got < NUMBERS) return 0;
     for (int i = 8; i < NUMBERS; i++)
         if (v[i] > CHANNEL_MAX) return 0;
     for (int i = 0; i < 8; i++) out->depth[i] = v[i];
     for (int k = 0; k < 3; k++) out->start[k] = v[8 + k], out->end[k] = v[11 + k];
+    out->context_count = 0;
+    const int declared = got > NUMBERS ? v[NUMBERS] : 0;
+    for (int c = 0; c < declared && c < PSX_LGS_CONTEXTS; c++) {
+        const int *n = v + NUMBERS + 1 + CONTEXT_NUMBERS * c;
+        if (NUMBERS + 1 + CONTEXT_NUMBERS * (c + 1) > got) break;
+        PsxLgsContext *x = &out->contexts[out->context_count++];
+        x->seg_ini = n[0], x->seg_fin = n[1], x->mode = n[2];
+        for (int k = 0; k < 3; k++) x->c1[k] = n[3 + k] > CHANNEL_MAX ? CHANNEL_MAX : n[3 + k], x->c2[k] = n[6 + k] > CHANNEL_MAX ? CHANNEL_MAX : n[6 + k];
+    }
     return 1;
+}
+
+static float mix(float a, float b, float t) { return a + (b - a) * t; }
+
+void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float out[3])
+{
+    const float along = segment_count > 0 ? (float)segment / (float)segment_count : 0.0f;
+    const float f = along < 0.0f ? 0.0f : along > 1.0f ? 1.0f : along;
+    float base[3];
+    for (int k = 0; k < 3; k++) base[k] = mix((float)lgs->start[k], (float)lgs->end[k], f);
+    float colour[3] = { base[0], base[1], base[2] };
+    for (int c = 0; c < lgs->context_count; c++) {
+        const PsxLgsContext *x = &lgs->contexts[c];
+        const int outside = segment < x->seg_ini ? x->seg_ini - segment : segment > x->seg_fin ? segment - x->seg_fin : 0;
+        if (outside > PSX_LGS_BLEND) continue;
+        const int span = x->seg_fin - x->seg_ini;
+        const float t = x->mode == PSX_LGS_RAMP && span > 0 ? (float)(segment < x->seg_ini ? 0 : segment > x->seg_fin ? span : segment - x->seg_ini) / (float)span : 0.0f;
+        const float weight = 1.0f - (float)outside / (float)(PSX_LGS_BLEND + 1);
+        for (int k = 0; k < 3; k++) colour[k] = mix(base[k], mix((float)x->c1[k], (float)(x->mode == PSX_LGS_RAMP ? x->c2[k] : x->c1[k]), t), weight);
+        break;
+    }
+    for (int k = 0; k < 3; k++) out[k] = colour[k] / (float)NEUTRAL;
 }
 
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3])

@@ -41,6 +41,41 @@ static void test_neutral_and_rejected(void)
     CHECK(!psx_lgs_parse((const uint8_t *)BIG, sizeof BIG - 1, &lgs));              /* a channel past 255 */
 }
 
+/* the contexts: one fixed (64), one ramp (96); outside them the default start -> end across the track, blended in and out */
+static void test_ambient_contexts(void)
+{
+    static const char T[] =
+        "/* d */\r0,95 10,99 75,37 100,28\r/* s */\r100,100,100\r/* e */\r140,140,140,\r/* n */\r2\r"
+        "10,12  64  60,80,100  0,0,0\r30,40  96  100,100,100  200,200,200\rCRCF";
+    PsxLgs lgs;
+    float a[3];
+    CHECK(psx_lgs_parse((const uint8_t *)T, sizeof T - 1, &lgs));
+    CHECK_EQ_INT(lgs.context_count, 2);
+    CHECK_EQ_INT(lgs.contexts[0].mode, 64);
+    CHECK_EQ_INT(lgs.contexts[1].c2[2], 200);
+    psx_lgs_ambient(&lgs, 11, 100, a);                      /* inside the fixed one */
+    CHECK(fabsf(a[0] - 60.0f / 128) < 1e-5f && fabsf(a[2] - 100.0f / 128) < 1e-5f);
+    psx_lgs_ambient(&lgs, 30, 100, a);                      /* the ramp's start */
+    CHECK(fabsf(a[1] - 100.0f / 128) < 1e-5f);
+    psx_lgs_ambient(&lgs, 35, 100, a);                      /* halfway: 150 */
+    CHECK(fabsf(a[0] - 150.0f / 128) < 1e-5f);
+    psx_lgs_ambient(&lgs, 40, 100, a);                      /* its end */
+    CHECK(fabsf(a[0] - 200.0f / 128) < 1e-5f);
+    psx_lgs_ambient(&lgs, 60, 100, a);                      /* default, 60% along: 100 + 0.6 * 40 = 124 */
+    CHECK(fabsf(a[0] - 124.0f / 128) < 1e-5f);
+    psx_lgs_ambient(&lgs, 9, 101, a);                       /* one segment before the fixed one: blended in, half way */
+    const float def9 = (100.0f + 40.0f * 9 / 100) / 128, in9 = 60.0f / 128;
+    CHECK(a[0] > in9 && a[0] < def9);
+    psx_lgs_ambient(&lgs, 13, 101, a);                      /* and out again after it */
+    CHECK(a[0] > 60.0f / 128 && a[0] < 113.0f / 128);
+    psx_lgs_ambient(&lgs, 20, 0, a);                        /* no segment count: the start colour */
+    CHECK(fabsf(a[0] - 100.0f / 128) < 1e-5f);
+    PsxLgs none = lgs;
+    none.context_count = 0;
+    psx_lgs_ambient(&none, 11, 100, a);
+    CHECK(fabsf(a[0] - (100.0f + 4.4f) / 128) < 1e-4f);
+}
+
 /* every palette entry is multiplied by the tint, each keeping its own colour (the 3D's pixels only are shown through it) */
 static void test_palette_tint(void)
 {
@@ -115,5 +150,6 @@ int main(void)
     test_world_mask();
     test_ambient_and_tint();
     test_neutral_and_rejected();
+    test_ambient_contexts();
     return TEST_REPORT();
 }
