@@ -35,7 +35,7 @@ static Rows rows;
 /* port, the classic sink: a corner nearer than `plane` is slid along its quad's edge to the plane, towards a corner in front
  * (an adjacent one, else the opposite; two adjacent ones are averaged), so a quad across the camera still projects as a
  * quad (its texture is squeezed into what is left of it). Returns 0 when no corner is in front. */
-static int clip_quad(const int32_t *const in[4], int32_t plane, int32_t out[4][3])
+int follow_arm_clip_quad(const int32_t *const in[4], int32_t plane, int32_t out[4][3])
 {
     int front = 0;
     for (int c = 0; c < 4; c++) front += in[c][2] >= plane;
@@ -150,7 +150,7 @@ void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead)
                 if (ctx->sink.draw_camera != NULL) {   /* port: the sink clips a cell to the near plane itself */
                     if (far_z <= 0) continue;
                 } else {
-                    if (!clip_quad(corners, plane, clipped)) continue;
+                    if (!follow_arm_clip_quad(corners, plane, clipped)) continue;
                     for (int c = 0; c < 4; c++) {
                         view_project(ctx->view, clipped[c], &clipped_screen[2 * c]);
                         corners[c] = clipped[c];

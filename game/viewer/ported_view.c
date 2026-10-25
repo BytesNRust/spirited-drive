@@ -24,6 +24,7 @@
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
 #include "game/viewer/follow_arm.h"
+#include "game/viewer/follow_behind.h"
 #include "viewer/horizon_smooth.h"
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
@@ -806,10 +807,11 @@ const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32
     return &render;
 }
 
-/* port (port_follow_camera): which way the camera looks along the track decides which arms of it are drawn. The exe's
- * track pass draws the segments ahead of the camera's node (its near plane pushes along the road direction, which runs
- * away from a camera that faces down the track); the arm behind is follow_arm.h's. Between the two limits both are drawn. */
-enum { FOLLOW_AHEAD_BELOW = 0x4a0000, FOLLOW_BEHIND_ABOVE = 0x360000 };   /* 24-bit angles: 104 and 76 degrees off the road */
+/* port (port_follow_camera): which way the camera looks along the track decides who draws it. The exe's track pass draws
+ * the segments ahead of the camera's node (its near plane pushes along the road direction, which runs away from a
+ * camera that faces down the track); a camera that looks more across the road is drawn by follow_behind.h's, which
+ * draws both sides of the node, the segments' rails, scenery and cars as the exe's pass does. */
+enum { FOLLOW_EXE_BELOW = 0x240000 };   /* a 24-bit angle: 50.6 degrees off the road, where the camera's view reaches back past the node */
 
 static int32_t follow_off_road(const PortedCamera *pc)
 {
@@ -887,14 +889,13 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         raster_record_set_runner(bands_rows);
         raster_record_begin(&recorder, pixels);
     }
-    int ahead = 1;
+    int ahead = 1;   /* the exe's pass draws the track */
     if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
-        const int32_t off = follow_off_road(pc);
-        ahead = off < FOLLOW_AHEAD_BELOW;
         follow_arm_window(&render, FOLLOW_ARM_SEGMENTS);
-        if (off > FOLLOW_BEHIND_ABOVE) {
-            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri) };
-            follow_arm_draw(&arm, FOLLOW_ARM_SEGMENTS, FOLLOW_ARM_BEHIND);
+        ahead = follow_off_road(pc) <= FOLLOW_EXE_BELOW;
+        if (!ahead) {
+            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri), anim_tick, view_mirrored() };
+            follow_behind_draw(&arm, FOLLOW_ARM_SEGMENTS, render.draw_segments - 2);
         }
     }
     if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);

@@ -370,7 +370,7 @@ static void follow_scene(Frame *f)
     memcpy(cam.matrix, f->m->matrix, sizeof cam.matrix);
     int32_t off = (int32_t)(((uint32_t)f->yaw - (uint32_t)race_node(race, race->chase.node).orientation * 0x400u) & 0xffffff);
     if (off > 0x800000) off = 0x1000000 - off;
-    const FollowArm arm = { f->w->track, &cam, &dc, tri_is_circuit(f->w->tri) };
+    const FollowArm arm = { f->w->track, &cam, &dc, tri_is_circuit(f->w->tri), 0, 0 };
     if (off > FOLLOW_MIRROR_AHEAD_ABOVE) follow_arm_draw(&arm, FOLLOW_MIRROR_SEGMENTS, FOLLOW_ARM_AHEAD);
     if (off < FOLLOW_MIRROR_BEHIND_BELOW) follow_arm_draw(&arm, FOLLOW_MIRROR_SEGMENTS, FOLLOW_ARM_BEHIND);
 }

@@ -18,6 +18,8 @@ typedef struct {
     const TrackCamera *camera;   /* position, matrix and node */
     const DrawContext *ctx;      /* the view, clip and sink of the main view's draws */
     int circuit;
+    int32_t frame;               /* the scenery's animation counter (00513e70), for the road behind (follow_behind.h) */
+    int mirrored;                /* a mirrored track (004fbad8) */
 } FollowArm;
 
 enum { FOLLOW_ARM_BEHIND, FOLLOW_ARM_AHEAD };
@@ -26,6 +28,11 @@ enum { FOLLOW_ARM_BEHIND, FOLLOW_ARM_AHEAD };
  * as the track's are). `segments` at most FOLLOW_ARM_SEGMENTS. The behind arm is the segments before the camera's, the ahead
  * one, for the mirror of a car that points back along the track, the camera's and those after it, the farthest first. */
 void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead);
+
+/* port, the classic sink: a quad's corners nearer than `plane` slid along its edges to it, toward a corner in front (an
+ * adjacent one, else the opposite; two adjacent ones are averaged), so a quad across the camera still projects as a quad.
+ * 0 when no corner is in front. */
+int follow_arm_clip_quad(const int32_t *const in[4], int32_t plane, int32_t out[4][3]);
 
 /* The cache window's reach behind, for an arm of `segments`: the segments loaded again after the camera jumps. */
 void follow_arm_window(TrackRender *r, int32_t segments);

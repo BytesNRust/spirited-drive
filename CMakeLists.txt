@@ -416,6 +416,7 @@ add_executable(tnfs
     game/viewer/object_sink.c
     game/viewer/ported_view.c
     game/viewer/follow_arm.c
+    game/viewer/follow_behind.c
     game/viewer/ported_viewport.c
     game/viewer/raster.c
     game/viewer/track_load.c
@@ -573,6 +574,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_config_name PRIVATE tnfs_game)
     target_compile_options(test_config_name PRIVATE ${TNFS_WARNINGS})
     add_test(NAME config_name COMMAND test_config_name)
+    add_executable(test_follow_behind tests/test_follow_behind.c game/viewer/follow_behind.c game/viewer/follow_arm.c)
+    target_include_directories(test_follow_behind PRIVATE game .)
+    target_link_libraries(test_follow_behind PRIVATE tnfs_game)
+    target_compile_options(test_follow_behind PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME follow_behind COMMAND test_follow_behind)
     add_executable(test_follow_camera tests/test_follow_camera.c)
     target_include_directories(test_follow_camera PRIVATE game .)
     target_link_libraries(test_follow_camera PRIVATE tnfs_game)
