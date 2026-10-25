@@ -84,7 +84,7 @@ static int32_t wrap(int32_t c, int32_t w)
 /* a screen column over a pair of bitmap rows: the two rows blended across (RGB times ONE), or the one texel all four
  * are (-1 none) */
 typedef struct {
-    int32_t top[3], bottom[3];
+    int32_t top[4], bottom[4];   /* the fourth lane 0: the blend runs the three channels in a register's lanes */
     int16_t only;
 } Pair;
 
@@ -97,11 +97,30 @@ static void pair_make(const HorizonSmooth *s, const Column *c, const uint8_t *ro
         p->top[k] = (ONE - c->w) * s->palette[3 * t00 + k] + c->w * s->palette[3 * t10 + k];
         p->bottom[k] = (ONE - c->w) * s->palette[3 * t01 + k] + c->w * s->palette[3 * t11 + k];
     }
+    p->top[3] = p->bottom[3] = 0;
 }
+
+#ifdef __SSE4_1__
+/* pair_blend on the pair's top and bottom as the lanes of registers: the same integer sums, products and shifts */
+static inline uint8_t blend_lanes(const HorizonSmooth *s, __m128i top, __m128i bottom, int32_t wv, int x, int y)
+{
+    const int32_t dither = (BAYER[y & 3][x & 3] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
+    __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_mullo_epi32(_mm_set1_epi32(ONE - wv), top),
+                                            _mm_mullo_epi32(_mm_set1_epi32(wv), bottom)),
+                              _mm_set1_epi32(dither));
+    m = _mm_min_epi32(_mm_max_epi32(_mm_srai_epi32(m, 16), _mm_setzero_si128()), _mm_set1_epi32(255));
+    int32_t rgb[4];
+    _mm_storeu_si128((__m128i *)rgb, m);
+    return horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
+}
+#endif
 
 /* the pair blended down by wv of ONE, dithered for screen x, y, the palette's nearest */
 static uint8_t pair_blend(const HorizonSmooth *s, const Pair *p, int32_t wv, int x, int y)
 {
+#ifdef __SSE4_1__
+    return blend_lanes(s, _mm_loadu_si128((const __m128i *)p->top), _mm_loadu_si128((const __m128i *)p->bottom), wv, x, y);
+#else
     const int32_t d = (BAYER[y & 3][x & 3] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
     int rgb[3];
     for (int k = 0; k < 3; k++) {
@@ -109,6 +128,7 @@ static uint8_t pair_blend(const HorizonSmooth *s, const Pair *p, int32_t wv, int
         rgb[k] = m < 0 ? 0 : m > 255 ? 255 : m;
     }
     return horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
+#endif
 }
 
 static int32_t clamp_texel(int32_t c, int32_t n)
@@ -147,14 +167,7 @@ static inline __attribute__((always_inline)) uint8_t texel_at(const HorizonSmoot
                                       _mm_mullo_epi32(_mm_set1_epi32(col.w), p10));
     const __m128i bottom = _mm_add_epi32(_mm_mullo_epi32(_mm_set1_epi32(ONE - col.w), p01),
                                          _mm_mullo_epi32(_mm_set1_epi32(col.w), p11));
-    const int32_t dither = (BAYER[y & 3][x & 3] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
-    __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_mullo_epi32(_mm_set1_epi32(ONE - wv), top),
-                                            _mm_mullo_epi32(_mm_set1_epi32(wv), bottom)),
-                              _mm_set1_epi32(dither));
-    m = _mm_min_epi32(_mm_max_epi32(_mm_srai_epi32(m, 16), _mm_setzero_si128()), _mm_set1_epi32(255));
-    int32_t rgb[4];
-    _mm_storeu_si128((__m128i *)rgb, m);
-    return horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
+    return blend_lanes(s, top, bottom, wv, x, y);
 #else
     Pair p;
     pair_make(s, &col, row0, row1, &p);
