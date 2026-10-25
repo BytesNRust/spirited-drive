@@ -20,6 +20,8 @@ typedef struct {
     Paint paint;
     uint8_t colour;
     float u_lo, u_hi, v_lo, v_hi;   /* the polygon's own uv: a pixel past its edge (EDGE_GROW) reads no texel beyond */
+    const uint8_t (*lit)[256];      /* port (PS1 light): MODERN_FOG_LEVELS tables a pixel's darkness picks from; NULL none */
+    float dark[4];                  /* the darkness (0 light .. MODERN_FOG_LEVELS - 1) at each corner, in cam's order */
 } Fill;
 
 static void uv_box(Fill *fill, const int32_t uv[8], int corners)
@@ -33,17 +35,17 @@ static void uv_box(Fill *fill, const int32_t uv[8], int corners)
 }
 
 typedef struct {
-    float x, y, z, u, v;
+    float x, y, z, u, v, l;
 } Vert;
 
 typedef struct {
-    float sx, sy, iz, uz, vz;
+    float sx, sy, iz, uz, vz, lz;
 } Screen;
 
 static Vert lerp(Vert a, Vert b, float t)
 {
     return (Vert){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.u + (b.u - a.u) * t,
-                   a.v + (b.v - a.v) * t };
+                   a.v + (b.v - a.v) * t, a.l + (b.l - a.l) * t };
 }
 
 static int clip_near(const Vert *in, int count, float near_z, Vert *out)
@@ -104,6 +106,13 @@ static int fog_level(float z, int x, int y)
 {
     const float t = fminf(fmaxf((z - style.fog_start) / (style.fog_end - style.fog_start), -1), 2);
     const int l = (int)floorf(t * (MODERN_FOG_LEVELS - 1) + BAYER[y & 3][x & 3]);
+    return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
+}
+
+/* port (PS1 light): the level of a pixel whose interpolated darkness is d, a dither between two levels as the fog's */
+static int dark_level(float d, int x, int y)
+{
+    const int l = (int)floorf(d + BAYER[y & 3][x & 3]);
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 
@@ -173,7 +182,7 @@ static Plane plane(const float c[3][2], float a0, float a1, float a2)
 
 /* one row's span: the pixels whose centres all three weights cover, its attributes stepped along it with one divide
  * per pixel for the perspective */
-static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3], const float slack[3], const Plane at[3],
+static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3], const float slack[3], const Plane at[4],
                  const Fill *fill)
 {
     const float py = y + 0.5f;
@@ -212,6 +221,8 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const float izdx = at[0].dx, izdy = at[0].dy, udx = at[1].dx, udy = at[1].dy, vdx = at[2].dx, vdy = at[2].dy;
     const int filter = style.filter;
     const uint8_t (*fog)[256] = style.fog;
+    const uint8_t (*lit)[256] = fill->lit;
+    const float lz = at[3].base + at[3].dx * px + at[3].dy * py, lzdx = at[3].dx;
     int x = xs;
 #if defined(__SSE2__) && !defined(__FMA__)
     /* four pixels at a time through the perspective: the same IEEE operations in the same order, so the same floats
@@ -239,12 +250,14 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         }
         float us[4], vs[4];
         int32_t lv[4] = { 0 };
-        _mm_storeu_ps(us, uv), _mm_storeu_ps(vs, vv);
+        float rs[4];
+        _mm_storeu_ps(us, uv), _mm_storeu_ps(vs, vv), _mm_storeu_ps(rs, rv);
         if (fog != NULL)
             _mm_storeu_si128((__m128i *)lv, fog_levels(rv, x, y, style.fog_start, style.fog_end - style.fog_start));
         for (int j = 0; j < 4; j++) {
             uint8_t c = texel(fill, us[j], vs[j]);
             if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[lv[j]][c];
+            if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dark_level((lz + lzdx * (float)(x + j - xs)) * rs[j], x + j, y)][c];
             paint_texel(&fill->paint, &row[x + j], c);
         }
     }
@@ -263,6 +276,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         }
         uint8_t c = texel(fill, u, v);
         if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(r, x, y)][c];
+        if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dark_level((lz + lzdx * k) * r, x, y)][c];
         paint_texel(&fill->paint, &row[x], c);
     }
 }
@@ -288,10 +302,11 @@ static void triangle(const QuadTarget *q, const Screen *p0, const Screen *p1, co
     w[1][2] = -(w[1][0] * p2->sx + w[1][1] * p2->sy);
     for (int k = 0; k < 3; k++) w[2][k] = (k == 2 ? 1.0f : 0.0f) - w[0][k] - w[1][k];
     const float c[3][2] = { { w[0][0], w[0][1] }, { w[1][0], w[1][1] }, { 0, 0 } };
-    Plane at[3] = { plane(c, p0->iz, p1->iz, p2->iz), plane(c, p0->uz, p1->uz, p2->uz),
-                    plane(c, p0->vz, p1->vz, p2->vz) };
-    const float a2[3] = { p2->iz, p2->uz, p2->vz }, a0[3] = { p0->iz, p0->uz, p0->vz }, a1[3] = { p1->iz, p1->uz, p1->vz };
-    for (int k = 0; k < 3; k++) at[k].base = a2[k] + w[0][2] * (a0[k] - a2[k]) + w[1][2] * (a1[k] - a2[k]);
+    Plane at[4] = { plane(c, p0->iz, p1->iz, p2->iz), plane(c, p0->uz, p1->uz, p2->uz),
+                    plane(c, p0->vz, p1->vz, p2->vz), plane(c, p0->lz, p1->lz, p2->lz) };
+    const float a2[4] = { p2->iz, p2->uz, p2->vz, p2->lz }, a0[4] = { p0->iz, p0->uz, p0->vz, p0->lz },
+                a1[4] = { p1->iz, p1->uz, p1->vz, p1->lz };
+    for (int k = 0; k < 4; k++) at[k].base = a2[k] + w[0][2] * (a0[k] - a2[k]) + w[1][2] * (a1[k] - a2[k]);
     /* a shade texel darkens what is under it: drawn twice where two polygons meet, a dark seam; those keep their edges */
     const int grow = fill->texture == NULL || fill->paint.mode != MAP_SHADE;
     float slack[3];
@@ -306,7 +321,7 @@ static void draw_clipped(const QuadTarget *q, const View *view, const int32_t uv
     Vert in[4], out[MAX_VERTS];
     for (int i = 0; i < corners; i++)
         in[i] = (Vert){ (float)cam[i][0], (float)cam[i][1], (float)cam[i][2], uv[2 * i] / 65536.0f,
-                        uv[2 * i + 1] / 65536.0f };
+                        uv[2 * i + 1] / 65536.0f, fill->lit != NULL ? fill->dark[i] : 0 };
     const int n = clip_near(in, corners, (float)view->near_z, out);
     if (n < 3) return;
     Screen s[MAX_VERTS];
@@ -314,7 +329,7 @@ static void draw_clipped(const QuadTarget *q, const View *view, const int32_t uv
     for (int i = 0; i < n; i++) {
         const float iz = 1.0f / out[i].z;
         s[i] = (Screen){ view->centre_x + out[i].x * focal * iz, view->centre_y - out[i].y * focal * iz, iz,
-                         out[i].u * iz, out[i].v * iz };
+                         out[i].u * iz, out[i].v * iz, out[i].l * iz };
     }
     /* the fan's triangle i: its edge i..i+1 the polygon's, 0..i only for the first, i+1..0 only for the last */
     for (int i = 1; i + 1 < n; i++)
@@ -371,7 +386,37 @@ void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *tex
         keep(c, view, uv, cam, 4);
         return;
     }
-    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0 };
+    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 } };
+    uv_box(&fill, uv, 4);
+    draw_clipped(q, view, uv, cam, 4, &fill);
+}
+
+/* port (PS1 light): a road cell whose corners carry a darkness, drawn through `tables` a pixel at a time (replay_lit keeps
+ * the four floats in the last four words of the command) */
+static void replay_lit(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    const int32_t *cam[4];
+    float dark[4];
+    cam_of(c, cam);
+    memcpy(dark, c->v + 20, sizeof dark);
+    if (raster_narrow(whole, top, bottom, &band))
+        modern_road_cell_lit(&band, c->table, c->texture, c->v, cam, (int)c->mode, (const uint8_t (*)[256])c->shape, dark);
+}
+
+void modern_road_cell_lit(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
+                          const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4])
+{
+    struct RasterRecorder *rec = raster_recorder_for(q);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, q, replay_lit);
+        c->texture = texture, c->mode = transparent, c->shape = (const uint8_t *)tables;
+        keep(c, view, uv, cam, 4);
+        memcpy(c->v + 20, dark, 4 * sizeof *dark);
+        return;
+    }
+    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, tables,
+                  { dark[0], dark[1], dark[2], dark[3] } };
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
@@ -380,7 +425,7 @@ void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *textu
                     const int32_t *const cam[4], int corners, MapMode mode, const uint8_t *shade)
 {
     if (texture == NULL || (corners != 3 && corners != 4)) return;
-    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0 };
+    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 } };
     if (!paint_valid(&fill.paint)) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
@@ -404,6 +449,6 @@ void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const in
         keep(c, view, uv, cam, corners);
         return;
     }
-    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0 };
+    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 } };
     draw_clipped(q, view, uv, cam, corners, &fill);
 }

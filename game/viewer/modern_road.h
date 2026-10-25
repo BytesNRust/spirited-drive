@@ -12,6 +12,12 @@
 void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                       const int32_t *const cam[4], int transparent);
 
+/* port (PS1 light): the same cell with a darkness at each corner (0 light .. MODERN_FOG_LEVELS - 1, in cam's order), a
+ * pixel's, interpolated perspective-correct, picking between two of `tables` (MODERN_FOG_LEVELS of them, level 0 the
+ * colours themselves, kept by pointer) by a 4x4 ordered dither, after the fog */
+void modern_road_cell_lit(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
+                          const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4]);
+
 /* port: the 3D object engine's textured polygon (3 or 4 corners) the same way: uv 16.16 per corner, the mapper's
  * mode (a MAP_SHADE texel 0xfe takes shade[] of the pixel under it, `shade` 256 bytes then) */
 void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],

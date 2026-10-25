@@ -56,13 +56,16 @@ static int transparent(const FshEntry *texture)
  * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 static int lit_level;
+static uint8_t lit_corner[4];   /* the polygon's corners' intensities, for the Modern 3D road's per-pixel gradient */
 
 static void light_hook(const uint8_t corners[4])
 {
     if (corners == NULL) {
         lit_level = 0;
+        memset(lit_corner, 255, sizeof lit_corner);
         return;
     }
+    memcpy(lit_corner, corners, sizeof lit_corner);
     const int mean = (corners[0] + corners[1] + corners[2] + corners[3] + 2) / 4;
     lit_level = ((255 - mean) * (MODERN_FOG_LEVELS - 1) + 127) / 255;
 }
@@ -97,9 +100,19 @@ static const View *modern_view(const View *view) { return modern ? view : NULL; 
 static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
 {
-    const uint8_t *lit = lit_table();
-    if (lit != NULL) modern_polygon(user, view, texture, uv, cam, 4, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
-    else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
+    if (lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255) {
+        /* the intensities at the polygon's corners (texture (0,0), (w,0), (w,h), (0,h)) across the cell by its uv, a
+         * darkness a pixel takes between two of the tables */
+        float dark[4];
+        const float w = (float)(int16_t)texture->width * 65536.0f, h = (float)(int16_t)texture->height * 65536.0f;
+        for (int i = 0; i < 4; i++) {
+            const float a = fminf(fmaxf(uv[2 * i] / w, 0), 1), b = fminf(fmaxf(uv[2 * i + 1] / h, 0), 1);
+            const float top = lit_corner[0] + (lit_corner[1] - lit_corner[0]) * a;
+            const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
+            dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        }
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables, dark);
+    } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
@@ -909,6 +922,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         track_light_hook = light_hook;
     }
     lit_level = 0;
+    memset(lit_corner, 255, sizeof lit_corner);
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
     track_light_hook = NULL;
     if (raster_active == &recorder) raster_record_end(&recorder);
