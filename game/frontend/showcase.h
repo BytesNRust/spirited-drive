@@ -54,6 +54,21 @@ typedef struct ShowcaseOps {
     void *ctx;
 } ShowcaseOps;
 
+/* port: the car variant box over the General photo (race/car_variant.h). The screen takes it as an item of its own: it
+ * is lit when selected, Enter, the click and Left/Right step its choice. NULL leaves the screen as the game's. */
+/* the box's place: under the heading (its words end at y 88), its bottom edge on the General photo's top (y 164) */
+enum { VARIANT_LEFT = 136, VARIANT_RIGHT = 290, VARIANT_TOP = 100, VARIANT_BOTTOM = 163 };
+
+typedef struct ShowcasePlus {
+    int (*offered)(void *ctx, int car);                      /* 1 when the car has choices: the box is there */
+    void (*step)(void *ctx, int car, int step);              /* the next (1) or previous (-1) choice */
+    void (*free_colours)(void *ctx);                         /* the screen drawn with every item's art: notes the palette
+                                                              * colours it leaves unused, which the box paints with */
+    void (*draw)(void *ctx, int car, int lit, uint8_t *palette);  /* paints the box with the current choice, lit or dark;
+                                                              * it may set the colours it took in `palette` (8 bits) */
+    void *ctx;
+} ShowcasePlus;
+
 /* config.dat's shorts and the globals the screen reads, through pointers as the original reads memory */
 typedef struct ShowcaseState {
     int16_t *player_car;            /* 00524e8b: 0..7, stepped by Next / Previous */
@@ -64,6 +79,7 @@ typedef struct ShowcaseState {
     const int16_t *pointer_active;  /* the short 00524790 */
     int16_t *buttons;               /* the short 00524792 */
     const int32_t *screen;          /* 00524834: the screen's picture */
+    const ShowcasePlus *plus;       /* port: the variant box, or NULL */
 } ShowcaseState;
 
 /* 00408724 (all registers kept): the car's <car_dir><car>.qfs (rx7, nsx,

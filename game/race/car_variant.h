@@ -31,8 +31,8 @@ int car_variant_choices(const CarVariant *list, int count, int model);
 /* the choice now: 0 the car as it is, k the k-th offered variant. When more than one is chosen the first wins. */
 int car_variant_current(const CarVariant *list, int count, int model);
 
-/* the next choice (the last wraps to the first), kept through the variants' apply hooks; returns it */
-int car_variant_cycle(const CarVariant *list, int count, int model);
+/* the next (`step` 1) or previous (`step` -1) choice, wrapping, kept through the variants' apply hooks; returns it */
+int car_variant_cycle(const CarVariant *list, int count, int model, int step);
 
 /* draws the current choice's preview; returns 0 when the car has no variants (nothing drawn) */
 int car_variant_draw(const CarVariant *list, int count, int model, const CarVariantCanvas *canvas);

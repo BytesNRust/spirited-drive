@@ -34,12 +34,6 @@ typedef struct CentralRun {
     int16_t race_was;        /* esp+4e0 */
     int16_t players_was;     /* esp+4d0 */
     int32_t answer;          /* esp+500 */
-    int32_t livery_on;       /* port: the car select's Color line is on (extras psx_liveries), central_livery.h */
-    int32_t livery_held;     /* port: M or the pad's X held the turn before */
-    int32_t livery_car;      /* port: 1 + the car the line is for, 0 until it is read */
-    int32_t livery_ps1;      /* port: that car has a PS1 livery to take (its swatch is set) */
-    int32_t livery_pick;     /* port: the player's choice for that car, 1 the PS1 livery */
-    uint16_t livery_colour;  /* port: the PS1 livery's main colour, BGR555 */
     const uint8_t *pal;      /* esp+4c0: central.qfs's !pal */
     uint8_t palette[0x300];  /* esp+0 */
 } CentralRun;

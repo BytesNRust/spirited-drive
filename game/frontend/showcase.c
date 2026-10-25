@@ -6,16 +6,17 @@
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
-enum { HISTORY, VIDEO, GENERAL, PERFORMANCE, ENGINE, NEXT, PREVIOUS, DONE, NONE, ITEMS = NONE };
+enum { HISTORY, VIDEO, GENERAL, PERFORMANCE, ENGINE, NEXT, PREVIOUS, DONE, NONE, ITEMS = NONE,
+       VARIANT = NONE + 1 };   /* port: the variant box, an item with no art of the bank's */
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, ALL = 0x100, BOXES = 8, TOURNAMENT = 3 };
 
 /* 00405f4c..00405fb7, copied to the stack: the arrows' next item and the pointer's place, by item (NONE too) */
-static const int16_t UP_OF[NONE + 1] = { 3, 3, 3, 5, 2, 1, 4, 4, 7 };
-static const int16_t DOWN_OF[NONE + 1] = { 5, 4, 4, 1, 6, 3, 2, 2, 7 };
-static const int16_t LEFT_OF[NONE + 1] = { 1, 2, 0, 2, 0, 6, 7, 5, 7 };
-static const int16_t RIGHT_OF[NONE + 1] = { 4, 0, 1, 0, 1, 7, 5, 6, 7 };
-static const int16_t POINTER_X[NONE + 1] = { 533, 376, 217, 419, 208, 382, 230, 35, 320 };
-static const int16_t POINTER_Y[NONE + 1] = { 306, 265, 222, 137, 369, 450, 450, 445, 240 };
+static const int16_t UP_OF[VARIANT + 1] = { 3, 3, 3, 5, 2, 1, 4, 4, 7, VARIANT };
+static const int16_t DOWN_OF[VARIANT + 1] = { 5, 4, 4, 1, 6, 3, 2, 2, 7, GENERAL };
+static const int16_t LEFT_OF[VARIANT + 1] = { 1, 2, 0, 2, 0, 6, 7, 5, 7, VARIANT };
+static const int16_t RIGHT_OF[VARIANT + 1] = { 4, 0, 1, 0, 1, 7, 5, 6, 7, PERFORMANCE };
+static const int16_t POINTER_X[VARIANT + 1] = { 533, 376, 217, 419, 208, 382, 230, 35, 320, 213 };
+static const int16_t POINTER_Y[VARIANT + 1] = { 306, 265, 222, 137, 369, 450, 450, 445, 240, 122 };
 /* 00405fb8: the cars' file names, by 00524e8b */
 static const char *const CARS[SHOWCASE_CARS] = { "rx7", "nsx", "supra", "911", "vette", "viper", "512tr", "diablo" };
 /* the boxes 00463f80 is asked about, in turn, and the item each picks */
@@ -62,11 +63,18 @@ static void palette(Show *s, const ShowcaseOps *o)
     o->palette_set(o->ctx, s->rgb, 0, ALL, pal + 0x10, pal[0]);
 }
 
+/* port: the variant box is there when the screen has one and the car has choices */
+static int has_box(const ShowcaseState *st)
+{
+    return st->plus != NULL && st->plus->offered(st->plus->ctx, *st->player_car) != 0;
+}
+
 /* the first box the pointer is in becomes the selection, else none */
-static void follow(Show *s, const ShowcaseOps *o)
+static void follow(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
     int16_t item = NONE;
-    for (int i = 0; i < BOXES; i++) {
+    if (has_box(st) && o->pointer_in_rect(o->ctx, VARIANT_LEFT, VARIANT_RIGHT, VARIANT_TOP, VARIANT_BOTTOM)) item = VARIANT;
+    for (int i = 0; item == NONE && i < BOXES; i++) {
         if (o->pointer_in_rect(o->ctx, BOX_LEFT[i], BOX_RIGHT[i], BOX_TOP[i], BOX_BOTTOM[i])) {
             item = BOX_ITEM[i];
             break;
@@ -80,9 +88,15 @@ static void follow(Show *s, const ShowcaseOps *o)
 }
 
 /* an item's art: the first five masked, the rest at their own place; the video's lit only when offered */
-static void item_art(const Show *s, int16_t item, const char *const *tags, const ShowcaseState *st,
+static void item_art(Show *s, int16_t item, const char *const *tags, const ShowcaseState *st,
                      const ShowcaseOps *o)
 {
+    if (item == VARIANT) {
+        if (!has_box(st)) return;
+        st->plus->draw(st->plus->ctx, *st->player_car, tags == LIT, s->rgb);
+        if (!s->fade) o->palette_write(o->ctx, 0, ALL, s->rgb);   /* the colours the box took, on screen now */
+        return;
+    }
     if (item < 0 || item > DONE) return;
     if (tags == LIT && item == VIDEO && *st->intro_movies == 0) return;
     const uint8_t *shape = o->shape(o->ctx, s->bank, tags[item]);
@@ -94,6 +108,12 @@ static void draw(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
     o->select(o->ctx, *st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
+    if (has_box(st)) {   /* port: every item's art once, to see which palette colours none uses, then the bank's again */
+        for (int16_t item = 0; item <= DONE; item++) item_art(s, item, LIT, st, o);
+        st->plus->free_colours(st->plus->ctx);
+        o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
+    }
+    if (s->selected != VARIANT) item_art(s, VARIANT, DARK, st, o);
     item_art(s, s->selected, LIT, st, o);
     if (s->fade) o->palette_show(o->ctx, 0, ALL, s->black);
     o->select_default(o->ctx);
@@ -163,6 +183,13 @@ static void page(Show *s, const ShowcaseState *st, const ShowcaseOps *o,
     s->fade = 1;
 }
 
+/* port: the box's choice stepped, and the screen drawn again with it */
+static void step_variant(Show *s, const ShowcaseState *st, int step)
+{
+    st->plus->step(st->plus->ctx, *st->player_car, step);
+    s->redraw = 1;
+}
+
 static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
     switch (s->selected) {
@@ -196,16 +223,17 @@ static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
         s->fade = 1;
         break;
     case DONE: s->quit = 1; break;
+    case VARIANT: step_variant(s, st, 1); break;
     default: break;
     }
 }
 
 /* the arrows: the pointer off, the item the table names, the pointer onto it */
-static void arrow(Show *s, const int16_t *next, const ShowcaseOps *o)
+static void arrow(Show *s, int16_t to, const ShowcaseOps *o)
 {
     o->pointer_off(o->ctx);
     s->previous = s->selected;
-    s->selected = next[s->selected];
+    s->selected = to;
     s->changed = 1;
     move_to(s->selected, o);
 }
@@ -230,10 +258,17 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
     } else if (key != 0 && s->armed) {
         switch (key) {
         case ESCAPE: o->sound(o->ctx, CHOSEN), s->quit = 1; break;
-        case UP: arrow(s, UP_OF, o); break;
-        case LEFT: arrow(s, LEFT_OF, o); break;
-        case RIGHT: arrow(s, RIGHT_OF, o); break;
-        case DOWN: arrow(s, DOWN_OF, o); break;
+        case UP: arrow(s, s->selected == GENERAL && has_box(st) ? VARIANT : UP_OF[s->selected], o); break;
+        case DOWN: arrow(s, DOWN_OF[s->selected], o); break;
+        case LEFT:
+        case RIGHT:
+            if (s->selected == VARIANT) {   /* port: Left and Right step the box's choice */
+                o->sound(o->ctx, CHOSEN);
+                step_variant(s, st, key == RIGHT ? 1 : -1);
+            } else {
+                arrow(s, (key == LEFT ? LEFT_OF : RIGHT_OF)[s->selected], o);
+            }
+            break;
         default: break;
         }
         o->ticks(o->ctx);
@@ -259,7 +294,7 @@ int32_t showcase(ShowcaseState *st, const ShowcaseOps *o)
     if (*st->pointer_active) o->pointer_poll(o->ctx);
     o->pointer_mark(o->ctx);
     while (!s.quit) {
-        follow(&s, o);
+        follow(&s, st, o);
         if (s.redraw) draw(&s, st, o);
         if (s.changed) mark_change(&s, st, o);
         if (!s.armed) {

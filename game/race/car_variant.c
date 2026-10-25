@@ -26,11 +26,11 @@ int car_variant_current(const CarVariant *list, int count, int model)
     return 0;
 }
 
-int car_variant_cycle(const CarVariant *list, int count, int model)
+int car_variant_cycle(const CarVariant *list, int count, int model, int step)
 {
     const int choices = car_variant_choices(list, count, model);
     if (choices == 0) return 0;
-    const int next = (car_variant_current(list, count, model) + 1) % choices;
+    const int next = (car_variant_current(list, count, model) + step + choices) % choices;
     for (int i = 0; i < count; i++)
         if (list[i].offered(model)) list[i].apply(model, offered_at(list, count, model, next) == i);
     return next;

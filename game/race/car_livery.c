@@ -168,10 +168,3 @@ int car_livery_main_from(const CarLiveryPair *pairs, int count, const uint32_t *
     }
     return found;
 }
-
-int car_livery_pressed(int held, int *was)
-{
-    const int down = held != 0 && *was == 0;
-    *was = held != 0;
-    return down;
-}

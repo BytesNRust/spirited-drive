@@ -24,6 +24,8 @@
 #include "game/frontend/showcase.h"
 #include "game/frontend/showcase_figures.h"
 #include "game/frontend/showcase_pages.h"
+#include "game/frontend/showcase_variants.h"
+#include "game/race/race_models.h"
 #include "game/frontend/text_box.h"
 #include "game/frontend/text_entry.h"
 #include "game/frontend/text_fit.h"
@@ -298,12 +300,96 @@ static void figures(void *ctx, const char *which)
     showcase_figures(&st, &ops, which);
 }
 
+/* port: the variant box (showcase.h ShowcasePlus) over the car's race model. The screen's palette is the art's 256
+ * colours and has none of a livery's, so the box paints with the colours no item's art uses (found once the screen's
+ * art was all drawn): each colour a preview asks for takes one of them and is written into the screen's palette. A
+ * colour past the free ones falls back to the nearest the palette has. */
+enum { SHADOW = 4, BORDER = 2, LIT_COLOUR = 0xe8b800, DARK_COLOUR = 0x141414, SHADOW_COLOUR = 0x181c10, FREE_SLOTS = 8,
+       PALETTE_COLOURS = 0x100, TRANSPARENT = 0xff };
+
+static struct {
+    uint8_t free[FREE_SLOTS];   /* palette indices no art uses */
+    int free_count;
+    int32_t taken_rgb[FREE_SLOTS];
+    int taken;                  /* of those, the ones this draw gave colours to */
+    uint8_t *palette;           /* the screen's palette (8 bits a channel) while the box draws */
+} box;
+
+static int variant_model(int car) { return race_head_to_head_model((int16_t)car); }
+
+/* the palette indices the screen's pixels do not use (never the mask's 0xff) */
+static void variant_free_colours(void *ctx)
+{
+    (void)ctx;
+    int32_t w = 0, h = 0;
+    const uint8_t *pixels = ea_picture_pixels(ea_screen(), &w, &h);
+    uint8_t used[PALETTE_COLOURS] = { 0 };
+    for (int32_t i = 0; pixels != NULL && i < w * h; i++) used[pixels[i]] = 1;
+    box.free_count = 0;
+    if (pixels == NULL) return;
+    for (int i = PALETTE_COLOURS - 1; i >= 0 && box.free_count < FREE_SLOTS; i--)
+        if (!used[i] && i != TRANSPARENT) box.free[box.free_count++] = (uint8_t)i;
+}
+
+/* the index to paint `rgb` with: a free colour set to it, else the palette's nearest */
+static int32_t variant_colour(int32_t rgb)
+{
+    for (int i = 0; i < box.taken; i++)
+        if (box.taken_rgb[i] == rgb) return box.free[i];
+    if (box.taken >= box.free_count || box.palette == NULL) return ea_colour(rgb);
+    const int slot = box.free[box.taken];
+    box.taken_rgb[box.taken++] = rgb;
+    box.palette[slot * 3] = (uint8_t)(rgb >> 16), box.palette[slot * 3 + 1] = (uint8_t)(rgb >> 8);
+    box.palette[slot * 3 + 2] = (uint8_t)rgb;
+    return slot;
+}
+
+static void fill_rows(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t rgb)
+{
+    const int32_t colour = variant_colour(rgb);
+    for (int32_t y = y0; y <= y1; y++) ea_frame(x0, y, x1, y, colour);
+}
+
+static void variant_fill(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t rgb)
+{
+    (void)ctx;
+    fill_rows(x0, y0, x1, y1, rgb);
+}
+
+static int variant_offered(void *ctx, int car)
+{
+    (void)ctx;
+    return car_variant_choices(showcase_variants, showcase_variant_count, variant_model(car)) != 0;
+}
+
+static void variant_step(void *ctx, int car, int step)
+{
+    (void)ctx;
+    car_variant_cycle(showcase_variants, showcase_variant_count, variant_model(car), step);
+}
+
+/* the photos' look: a dark border and a drop shadow (none below: the box stands on the General photo), the border gold
+ * when the box is the selection */
+static void variant_draw(void *ctx, int car, int lit, uint8_t *palette)
+{
+    (void)ctx;
+    box.palette = palette, box.taken = 0;
+    fill_rows(VARIANT_RIGHT + 1, VARIANT_TOP + SHADOW, VARIANT_RIGHT + SHADOW, VARIANT_BOTTOM, SHADOW_COLOUR);
+    fill_rows(VARIANT_LEFT, VARIANT_TOP, VARIANT_RIGHT, VARIANT_BOTTOM, lit ? LIT_COLOUR : DARK_COLOUR);
+    const CarVariantCanvas canvas = { NULL, variant_fill, VARIANT_LEFT + BORDER, VARIANT_TOP + BORDER,
+                                      VARIANT_RIGHT - BORDER, VARIANT_BOTTOM - BORDER };
+    car_variant_draw(showcase_variants, showcase_variant_count, variant_model(car), &canvas);
+    box.palette = NULL;
+}
+
 /* 00408724 (showcase.c) */
 void glue_showcase(const ShowcaseGlue *in)
 {
+    static const ShowcasePlus plus = { variant_offered, variant_step, variant_free_colours, variant_draw, NULL };
+    showcase_variants_reset();
     const int16_t movies = glue_movies();
     ShowcaseState st = { in->player_car, in->race_type, in->track, &movies, show_dir(),
-                         in->pointer_active, in->buttons, ea_screen_slot() };
+                         in->pointer_active, in->buttons, ea_screen_slot(), &plus };
     const ShowcaseOps ops = {
         move_to, show_bank, music_feed, clear_both, shape, palette_set, palette_write, nothing, styles, sync, mark,
         in_rect, select_picture, blit_own, blit_masked, palette_write, select_default, picture_shape, blit_picture,

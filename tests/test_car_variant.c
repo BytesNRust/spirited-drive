@@ -33,20 +33,25 @@ static void test_choices(void)
 static void test_cycle(void)
 {
     CHECK_EQ_INT(car_variant_current(LIST, 2, 1), 0);
-    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1), 1);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1, 1), 1);
     CHECK(chosen_a[1] == 1 && chosen_b[1] == 0);
     CHECK_EQ_INT(car_variant_current(LIST, 2, 1), 1);
-    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1), 2);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1, 1), 2);
     CHECK(chosen_a[1] == 0 && chosen_b[1] == 1);
-    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1), 0);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1, 1), 0);
     CHECK(chosen_a[1] == 0 && chosen_b[1] == 0);
+    /* backwards: from the car as it is to the last choice, and back */
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1, -1), 2);
+    CHECK(chosen_a[1] == 0 && chosen_b[1] == 1);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1, -1), 1);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 1, -1), 0);
     /* a car with only the second variant: its one choice is the second's */
     offered_b[2] = 1;
-    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 2), 1);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 2, 1), 1);
     CHECK(chosen_b[2] == 1 && chosen_a[2] == 0);
-    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 2), 0);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 2, 1), 0);
     /* no variant offered: nothing to cycle */
-    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 3), 0);
+    CHECK_EQ_INT(car_variant_cycle(LIST, 2, 3, 1), 0);
     CHECK(chosen_a[3] == 0 && chosen_b[3] == 0);
 }
 
@@ -56,10 +61,10 @@ static void test_draw(void)
     CHECK_EQ_INT(car_variant_draw(LIST, 2, 3, &canvas), 0);
     CHECK_EQ_INT(car_variant_draw(LIST, 2, 1, &canvas), 1);      /* as it is: the first variant's preview, off */
     CHECK(drawn_a == 1 && last_on == 0);
-    car_variant_cycle(LIST, 2, 1);
+    car_variant_cycle(LIST, 2, 1, 1);
     car_variant_draw(LIST, 2, 1, &canvas);
     CHECK(drawn_a == 2 && last_on == 1);
-    car_variant_cycle(LIST, 2, 1);
+    car_variant_cycle(LIST, 2, 1, 1);
     car_variant_draw(LIST, 2, 1, &canvas);
     CHECK(drawn_b == 1 && last_on == 1);
 }

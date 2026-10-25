@@ -175,14 +175,6 @@ static void test_select(void)
     normal[ORIGIN_A] = 3, normal[BODY_C] = 8;
     CHECK_EQ_INT(car_livery_main_from(pairs, 2, normal, &colour), 1);
     CHECK_EQ_INT(colour, BODY_C);
-
-    /* the key: one press is one edge, a held key is not again */
-    int was = 0;
-    CHECK_EQ_INT(car_livery_pressed(0, &was), 0);
-    CHECK_EQ_INT(car_livery_pressed(1, &was), 1);
-    CHECK_EQ_INT(car_livery_pressed(1, &was), 0);
-    CHECK_EQ_INT(car_livery_pressed(0, &was), 0);
-    CHECK_EQ_INT(car_livery_pressed(1, &was), 1);
 }
 
 int main(void)

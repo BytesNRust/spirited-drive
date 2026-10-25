@@ -1,6 +1,5 @@
 /* Control Central (00432ff4): its frame, its start and its loop's end. */
 #include "game/frontend/central_banner.h"
-#include "game/frontend/central_livery.h"
 #include "game/frontend/central_run.h"
 
 #include <string.h>
@@ -171,7 +170,6 @@ static int turn(CentralRun *r)
     central_follow(r);
     central_after_follow(r);
     if (central_banner_stale(r)) r->redraw = 1;   /* port: the banner follows a cheat typed or the Warrior picked */
-    central_livery_turn(r);                       /* port: the Color line's car and M or the pad's X */
     if ((int16_t)r->redraw != 0) central_draw(r);
     const int32_t changed = r->changed;
     o->music(o->ctx);
@@ -207,7 +205,6 @@ int32_t control_central(ControlCentralState *st, const ControlCentralOps *ops)
     memset(&r, 0, sizeof r);
     r.st = st, r.ops = ops;
     r.first = 1, r.redraw = 1, r.panel = 1, r.item = 1, r.keys_armed = 1, r.buttons_armed = 1;
-    central_livery_init(&r);   /* port: extras psx_liveries, read once */
     start(&r);
     while ((int16_t)r.done == 0)
         if (turn(&r)) return r.result;

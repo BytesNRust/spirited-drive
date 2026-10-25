@@ -83,6 +83,7 @@ add_library(tnfs_game STATIC
     game/frontend/check_options.c
     game/frontend/chat.c
     game/frontend/showcase.c
+    game/frontend/showcase_variants.c
     game/frontend/showcase_pages.c
     game/frontend/showcase_figures.c
     game/frontend/credits.c
@@ -104,7 +105,6 @@ add_library(tnfs_game STATIC
     game/frontend/net_host.c
     game/frontend/central.c
     game/frontend/central_banner.c
-    game/frontend/central_livery.c
     game/frontend/central_follow.c
     game/frontend/central_draw.c
     game/frontend/central_select.c
