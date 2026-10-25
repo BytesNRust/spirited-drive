@@ -4,6 +4,7 @@
 #include "formats/fsh.h"
 #include "formats/psx_bigf.h"
 #include "game/race/car_livery.h"
+#include "game/race/car_repaint.h"
 #include "game/platform/platform.h"
 #include "game/sys/port_log.h"
 #include "game/sys/shape_bank.h"
@@ -122,27 +123,79 @@ static int forced_colours(uint8_t *cfm, size_t size, const char *upper, uint16_t
     return count;
 }
 
-/* One shape of a bank, remapped: its palette is the 768 bytes after the shape's header. */
-static void remap_shape(uint8_t *bank, const uint8_t name[4], const CarLiveryPair *pairs, int count)
+/* The textures of a car's bank: the body's are the ones the repaint changes (car_repaint.h). */
+static int texture_class(const char name[4])
 {
-    uint8_t *shape = shape_bank_find(bank, name);
-    if (shape != NULL) car_livery_remap(shape + SHAPE_DATA, shape[0], pairs, count);
+    /* (the 512 TR has no topv: its top is J000 and J001) */
+    static const char *const MAIN[] = { "topv", "rsid", "bott", "wing", "J000", "J001" }, *const END[] = { "frnt", "rear" };
+    for (size_t k = 0; k < sizeof MAIN / sizeof *MAIN; k++)
+        if (memcmp(name, MAIN[k], 4) == 0) return REPAINT_MAIN;
+    for (size_t k = 0; k < sizeof END / sizeof *END; k++)
+        if (memcmp(name, END[k], 4) == 0) return REPAINT_END;
+    return REPAINT_NONE;
 }
 
-/* The CFM's palettes (the high and low detail banks' '!PAL' and the '!xxx' colours) remapped in place. */
-static void apply(uint8_t *cfm, size_t size, const CarLiveryPair *pairs, int count)
+enum { MAX_TEXTURES = 32 };
+
+/* The lightness (8 bits) under which a neutral colour is glass or shadow, not paint: a grey body (the NSX's ramp) needs it high, the
+ * Diablo's black one low, a coloured body only for its greys. By the car's stem (upper case). */
+static int glass_floor(const char *upper)
+{
+    if (strcmp(upper, "ANSX") == 0) return 72;
+    if (strcmp(upper, "LDIABL") == 0) return 20;
+    return 40;
+}
+
+typedef int (*RepaintFn)(const RepaintBank *bank, void *ctx);
+
+/* Runs `fn` on each of the CFM's two banks (high and low detail) with its textures and palettes, as the loader will read them. */
+static int repaint_cfm(uint8_t *cfm, size_t size, RepaintFn fn, void *ctx)
 {
     Chunk file;
-    if (chunk_open(&file, cfm, size) != CHUNK_OK) return;
+    int changed = 0;
+    if (chunk_open(&file, cfm, size) != CHUNK_OK) return 0;
     for (uint32_t level = 0; level < LEVELS; level++) {
         Chunk shpi;
         Fsh bank;
         if (chunk_child(&file, 2 * level + 1, &shpi) != CHUNK_OK || shpi.kind != CHUNK_KIND_BITMAP) continue;
         if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK) continue;
         uint8_t *data = (uint8_t *)(uintptr_t)bank.data;
-        remap_shape(data, PAL_NAME, pairs, count);
-        remap_shape(data, OWN_NAME, pairs, count);
+        uint8_t *pal = shape_bank_find(data, PAL_NAME), *own = shape_bank_find(data, OWN_NAME);
+        if (pal == NULL) continue;
+        RepaintTexture textures[MAX_TEXTURES];
+        int count = 0;
+        for (uint32_t i = 0; i < bank.count && count < MAX_TEXTURES; i++) {
+            FshEntry e;
+            if (fsh_entry(&bank, i, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP || e.name[0] == '!') continue;
+            size_t pixels = (size_t)e.width * e.height;
+            if (pixels > e.payload_size) pixels = e.payload_size;
+            textures[count++] = (RepaintTexture){ (uint8_t *)(uintptr_t)e.payload, pixels, texture_class(e.name) };
+        }
+        const RepaintBank rb = { textures, count, { pal + SHAPE_DATA, own != NULL ? own + SHAPE_DATA : NULL }, 2, pal[0],
+                                 own != NULL ? own[0] : 0 };
+        const int n = fn(&rb, ctx);
+        if (n > 0) changed += n;
     }
+    return changed;
+}
+
+typedef struct {
+    const CarLiveryPair *pairs;
+    int count;
+    const uint8_t *rgb;
+    int floor;
+} RepaintJob;
+
+static int run_pairs(const RepaintBank *bank, void *ctx)
+{
+    const RepaintJob *j = ctx;
+    return car_repaint_pairs(bank, j->pairs, j->count, j->floor);
+}
+
+static int run_paint(const RepaintBank *bank, void *ctx)
+{
+    const RepaintJob *j = ctx;
+    return car_repaint_paint(bank, j->rgb, j->floor);
 }
 
 int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[2])
@@ -190,6 +243,17 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
         port_log("psx_liveries: no alternate livery for %s in %s\n", stem, psx_dir);
         return 0;
     }
-    apply(cfm, size, pairs, count);
+    const RepaintJob job = { pairs, count, NULL, glass_floor(upper) };
+    repaint_cfm(cfm, size, run_pairs, (void *)&job);
     return count;
+}
+
+int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3])
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
+    return repaint_cfm(cfm, size, run_paint, (void *)&job);
 }

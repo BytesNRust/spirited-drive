@@ -75,7 +75,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track",
     "Unlock Level", "Time with variants",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
-    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "PS1 liveries",
+    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "Car colours",
     "Start Screen", "Intro video"
 };
 

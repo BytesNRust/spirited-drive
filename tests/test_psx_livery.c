@@ -135,27 +135,34 @@ static void test_cfg(void)
 /* the per-car mask in extras.cfg and the swatch's colour */
 static void test_select(void)
 {
-    CHECK_EQ_INT(psx_livery_car_on(0, 3), 0);
-    CHECK_EQ_INT(psx_livery_car_on(psx_livery_mask_set(0, 3, 1), 3), 1);
-    CHECK_EQ_INT(psx_livery_car_on(psx_livery_mask_set(0, 3, 1), 4), 0);
-    CHECK_EQ_INT(psx_livery_mask_set(psx_livery_mask_set(0, 3, 1), 3, 0), 0);
-    CHECK_EQ_INT(psx_livery_car_on(psx_livery_mask_set(0, 11, 1), 11), 1);
-    CHECK_EQ_INT(psx_livery_mask_set(0, 12, 1), 0);
-    CHECK_EQ_INT(psx_livery_car_on(0, -1), 0);
-
     PortExtras d = port_extras_defaults();
-    CHECK_EQ_INT(d.psx_livery_cars, 0);
-    const char *mask = "psx_livery_cars=2056\n";
-    CHECK_EQ_INT(port_extras_parse(mask, strlen(mask)).psx_livery_cars, 2056);
+    for (int c = 0; c < CAR_PAINT_SLOTS; c++) CHECK_EQ_INT(d.car_paint[c], PAINT_OWN);
+    const char *keyed = "car_paint=0a3\n";
+    PortExtras p = port_extras_parse(keyed, strlen(keyed));
+    CHECK_EQ_INT(p.car_paint[0], 0);
+    CHECK_EQ_INT(p.car_paint[1], 10);
+    CHECK_EQ_INT(p.car_paint[2], 3);
+    CHECK_EQ_INT(p.car_paint[3], 0);
+    const char *bad = "car_paint=1z2\n";   /* a character that is no digit ends the read */
+    p = port_extras_parse(bad, strlen(bad));
+    CHECK_EQ_INT(p.car_paint[0], 1);
+    CHECK_EQ_INT(p.car_paint[2], 0);
+    const char *old = "psx_livery_cars=2056\n";   /* bits 3 and 11 */
+    p = port_extras_parse(old, strlen(old));
+    CHECK_EQ_INT(p.car_paint[3], PAINT_PS1);
+    CHECK_EQ_INT(p.car_paint[11], PAINT_PS1);
+    CHECK_EQ_INT(p.car_paint[4], PAINT_OWN);
+    const char *both = "psx_livery_cars=2056\ncar_paint=000000000000\n";   /* the new key rules: the choices were changed back */
+    CHECK_EQ_INT(port_extras_parse(both, strlen(both)).car_paint[3], PAINT_OWN);
     const char *big = "psx_livery_cars=4096\n";
-    CHECK_EQ_INT(port_extras_parse(big, strlen(big)).psx_livery_cars, 0);
-    const char *neg = "psx_livery_cars=-1\n";
-    CHECK_EQ_INT(port_extras_parse(neg, strlen(neg)).psx_livery_cars, 0);
-    d.psx_livery_cars = 2056;
+    CHECK_EQ_INT(port_extras_parse(big, strlen(big)).car_paint[0], PAINT_OWN);
+    d.car_paint[2] = 4, d.car_paint[11] = PAINT_PS1, d.psx_livery_cars = 2056;
     char text[512];
     CHECK(port_extras_format(&d, text, sizeof text) > 0);
-    CHECK(strstr(text, "psx_livery_cars=2056\n") != NULL);
-    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).psx_livery_cars, 2056);
+    CHECK(strstr(text, "car_paint=004000000001\n") != NULL);
+    CHECK(strstr(text, "psx_livery_cars") == NULL);   /* the old key is no longer written */
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[2], 4);
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[11], PAINT_PS1);
 
     /* the swatch: the mapped colour the alternate uses most; none when it uses none of them */
     static uint32_t alternate[PSX_COLOURS];

@@ -43,7 +43,7 @@ enum {
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
     ROW_DASH_BOX,                                  /* port: In-race options' the dash's map box (port_extras.h) */
-    ROW_PSX_LIVERY,                                /* port: In-race options' last, the rivals' PS1 liveries (port_extras.h) */
+    ROW_PSX_LIVERY,                                /* port: In-race options' last, the car colours: the PS1 liveries and the catalogue paints (port_extras.h) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };

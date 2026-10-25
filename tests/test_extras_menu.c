@@ -505,7 +505,7 @@ static void test_page_one_has_eleven_rows(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* port: PS1 liveries is the last row of In-race options (page 2): Enter turns it on, and Done saves it, the rest as it was */
+/* port: Car colours is the last row of In-race options (page 2): Enter turns it on, and Done saves it, the rest as it was */
 static void test_psx_livery_row_is_saved_on_done(void)
 {
     Rig r;
@@ -541,7 +541,7 @@ static void test_page_two_has_ten_rows(void)
     CHECK(shown(&r.fake, "Rival car markers"));
     CHECK(shown(&r.fake, "3D render stats"));
     CHECK(shown(&r.fake, "Dash box"));
-    CHECK(shown(&r.fake, "PS1 liveries"));
+    CHECK(shown(&r.fake, "Car colours"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);

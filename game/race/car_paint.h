@@ -1,0 +1,51 @@
+/* port: the catalogue paints of the eight drivable cars (extras.cfg car_paint, the car showcase's Color box). Each car has
+ * its own PC colour (the choice 0, the exe's) and up to CAR_PAINT_MAX more, colours its real car came in around the game's
+ * years (re/notes/car-paint-catalog.md; hex values are estimates from the colours' names). A paint is applied by recolouring
+ * the body's entries of the car's palette: its hue and saturation come from the paint, its lightness from the paint scaled by
+ * each entry's shading against the body's main tone, so the textures keep their light and shade. Nothing is EA data: the
+ * table is the port's own. */
+#ifndef TNFS_CAR_PAINT_H
+#define TNFS_CAR_PAINT_H
+
+#include <stdint.h>
+
+enum { CAR_PAINT_MODELS = 8, CAR_PAINT_MAX = 4, CAR_PAINT_ENTRIES = 256 };   /* the race models 0..7 (race_models.h's car_model_names) */
+
+typedef struct {
+    const char *name;
+    uint8_t rgb[3];
+} CarPaint;
+
+/* How many catalogue paints the race model has (0 for a model without a table), and the k-th, from 0; NULL past the end. */
+int car_paint_count(int model);
+const CarPaint *car_paint(int model, int k);
+
+/* The model's own colour as the PC has it (its main body tone), for the box's swatch when no PS1 files are read. */
+const uint8_t *car_paint_default(int model);
+
+/* The recolour of a body's colours towards a paint, made once from the body's colours (`rgb`, 8 bits a channel, `n` of them,
+ * `weight[i]` the pixels of colour i) and then applied colour by colour: the hue and saturation of the paint, the lightness of
+ * the paint scaled by each colour's lightness against the body's main tone (the weighted median, which maps to the paint itself),
+ * softened, and kept within what the paint's brightness leaves room for, so white keeps its shadows and black its highlights. */
+typedef struct {
+    float main, room, lift;
+    uint8_t rgb[3];
+} CarPaintPlan;
+void car_paint_plan(CarPaintPlan *plan, const uint8_t (*rgb)[3], const uint32_t *weight, int n, const uint8_t target[3]);
+void car_paint_shade(const CarPaintPlan *plan, const uint8_t in[3], uint8_t out[3]);
+
+/* Recolours `n` body entries (`entries`: palette indices) of a CFM palette in place towards the paint `rgb`. `type` is the
+ * palette's shape type (0x24: 8 bits a channel, 0x22: 6); another type, a NULL palette or no entries leave it alone.
+ * `weight[i]` is how many pixels of the textures use entry i: the body's main tone is the weighted median of the entries'
+ * lightness, which maps to the paint itself; the rest are scaled by their lightness against it (softened, and kept within
+ * what the paint's brightness leaves room for, so white keeps shadows and black keeps highlights). */
+void car_paint_recolour(uint8_t *palette, int type, const uint8_t *entries, int n, const uint32_t weight[256],
+                        const uint8_t rgb[3]);
+
+/* The paint a rival takes (the same ids as the player's: 0 the car's own, 1 the PS1 livery when `ps1` says its files are there,
+ * 2 + k the k-th of `catalogue` paints): a hash of the race's seed and the rival's slot, so the same race replays with the same
+ * colours and the game's own random stream is not drawn from. A rival in the player's car (`car` == `player_car`) never takes the
+ * player's paint (`player_paint`) when another is to be had. */
+int car_paint_pick(uint32_t seed, int slot, int car, int player_car, int player_paint, int catalogue, int ps1);
+
+#endif

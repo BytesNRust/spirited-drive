@@ -27,7 +27,10 @@ typedef struct {
     const char *data_root;
     int ended;
     int ticked;                 /* a tick since the last frame drawn */
-    int livery[RACE_CARS];      /* port: 1 when the slot wears the PS1 alternate livery (car_livery_pick), 0 the exe's */
+    int livery[RACE_CARS];      /* port: 1 when the slot wears the PS1 alternate livery, 0 the exe's */
+    int model[RACE_CARS];       /* port: the slot's race model (car_model_names), for its catalogue paint */
+    uint8_t paint[RACE_CARS][3]; /* port: the slot's catalogue paint (car_paint.h), valid where paint_on */
+    int paint_on[RACE_CARS];
     char psx_dir[PSX_DIR_MAX];  /* port: port.cfg's psx_dir for this race, "" none */
 } DriveCars;
 

@@ -44,7 +44,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 0, 0 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 0, 0, { 0 } };
     return d;
 }
 
@@ -70,9 +70,18 @@ static void apply(PortExtras *e, const char *key, const char *value)
                 e->dash_box = (DashBox)i;
         return;
     }
-    if (strcmp(key, "psx_livery_cars") == 0) {
+    if (strcmp(key, "psx_livery_cars") == 0) {   /* the old mask: read, never written */
         if (parse_int(value, &n) && n >= 0 && n <= PSX_LIVERY_CARS_MASK)
             e->psx_livery_cars = (int)n;
+        return;
+    }
+    if (strcmp(key, "car_paint") == 0) {
+        for (int c = 0; c < CAR_PAINT_SLOTS && value[c] != '\0'; c++) {
+            const char d = value[c];
+            const int v = d >= '0' && d <= '9' ? d - '0' : d >= 'a' && d <= 'f' ? d - 'a' + 10 : -1;
+            if (v < 0) break;
+            e->car_paint[c] = (uint8_t)v;
+        }
         return;
     }
     if (strcmp(key, "units") == 0) {
@@ -96,6 +105,7 @@ static void apply(PortExtras *e, const char *key, const char *value)
 PortExtras port_extras_parse(const char *text, size_t size)
 {
     PortExtras e = port_extras_defaults();
+    int has_paint = 0;
     size_t pos = 0;
     while (pos < size) {
         char line[64];
@@ -113,8 +123,12 @@ PortExtras port_extras_parse(const char *text, size_t size)
         if (eq) {
             *eq = '\0';
             apply(&e, line, eq + 1);
+            has_paint |= strcmp(line, "car_paint") == 0;
         }
     }
+    if (!has_paint)   /* an old file: its PS1 choices are the paint 1 */
+        for (int c = 0; c < CAR_PAINT_SLOTS; c++)
+            if ((e.psx_livery_cars >> c) & 1) e.car_paint[c] = PAINT_PS1;
     return e;
 }
 
@@ -132,7 +146,10 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
             return 0;
         n += w;
     }
-    const int w = snprintf(out + n, size - (size_t)n, "psx_livery_cars=%d\n", e->psx_livery_cars);
+    char paint[CAR_PAINT_SLOTS + 1];
+    for (int c = 0; c < CAR_PAINT_SLOTS; c++) paint[c] = "0123456789abcdef"[e->car_paint[c] & 15];
+    paint[CAR_PAINT_SLOTS] = '\0';
+    const int w = snprintf(out + n, size - (size_t)n, "car_paint=%s\n", paint);
     if (w < 0 || (size_t)w >= size - (size_t)n)
         return 0;
     return (size_t)(n + w);
@@ -188,25 +205,16 @@ uint32_t port_extras_cheat_marks(const PortExtras *e)
     return (e->nitro ? EXTRAS_MARK_NITRO : 0) | (e->explode ? EXTRAS_MARK_EXPLODE : 0) | (e->turbo ? EXTRAS_MARK_TURBO : 0);
 }
 
-int psx_livery_car_on(int mask, int car)
+int port_extras_car_paint(int car)
 {
-    return car >= 0 && car <= 11 ? (mask >> car) & 1 : 0;
+    return car >= 0 && car < CAR_PAINT_SLOTS ? port_extras_load().car_paint[car] : PAINT_OWN;
 }
 
-int psx_livery_mask_set(int mask, int car, int on)
+bool port_extras_set_car_paint(int car, int paint)
 {
-    if (car < 0 || car > 11) return mask;
-    return on ? (mask | (1 << car)) & PSX_LIVERY_CARS_MASK : mask & ~(1 << car);
-}
-
-int port_extras_psx_livery_car(int car)
-{
-    return psx_livery_car_on(port_extras_load().psx_livery_cars, car);
-}
-
-bool port_extras_set_psx_livery_car(int car, int on)
-{
+    if (car < 0 || car >= CAR_PAINT_SLOTS || paint < 0 || paint > 15) return false;
     PortExtras e = port_extras_load();
-    e.psx_livery_cars = psx_livery_mask_set(e.psx_livery_cars, car, on);
+    e.car_paint[car] = (uint8_t)paint;
+    e.psx_livery_cars = 0;   /* the old mask is folded into car_paint at load and not written back */
     return port_extras_save(&e);
 }

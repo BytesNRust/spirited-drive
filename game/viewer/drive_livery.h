@@ -19,4 +19,8 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
  * file is missing or the livery maps no colour. */
 int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[2]);
 
+/* A catalogue paint (car_paint.h) for the car: its body textures' colours recoloured towards `rgb`, texel by texel in the body
+ * textures only (car_repaint.h), in the CFM the caller owns, before the loader reads it. Returns the body texels changed. */
+int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
+
 #endif

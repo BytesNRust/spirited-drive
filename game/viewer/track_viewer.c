@@ -15,6 +15,7 @@
 #include "game/race/race_schedule.h"
 #include "game/sys/port_settings.h"
 #include "game/race/car_livery.h"
+#include "game/race/car_paint.h"
 #include "viewer/drive_livery.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
@@ -177,6 +178,11 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
         const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size);
         if (count > 0) port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
+    if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot]) {  /* port: a catalogue paint, in the body textures only */
+        const int n = drive_livery_paint(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, drive_cars.paint[slot]);
+        port_log("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
+                 drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
+    }
     const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
     drive_cars.loaded[slot] = r == CAR_LOAD_OK;
@@ -262,27 +268,42 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
     return drive_link.exchange(&own, drive_menus_on ? drive_menus.game_state : NULL, &link_wait_ticks, seed, flags);
 }
 
-/* port: the PS1 liveries for this race (extras.cfg psx_liveries, port.cfg psx_dir): the player's car wears the livery
- * the car showcase's Color box picked (psx_livery_cars); every rival but the player draws its own choice from the race's
- * seed, so a replay of the seed shows the same rivals' colours. Off, or with no psx_dir, nobody wears one. */
+/* port: the car colours for this race (extras.cfg psx_liveries, the CUSTOMIZE switch, and car_paint, the car showcase's Color box):
+ * the player's car wears the paint the box picked, whether the PS1 livery (needs port.cfg's psx_dir files) or a catalogue paint
+ * (car_paint.h); every rival draws its own from the race's seed, so a replay of the seed shows the same colours, and is never the
+ * player's when it drives the same car. Off, nobody is repainted. */
+static int rival_paint_choice(const RaceField *field, int slot, int player_car, int player_paint, const char *psx_dir)
+{
+    const int car = field->entries[slot].car;
+    uint16_t swatch[2];
+    const int ps1 = psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(psx_dir, car_model_names[car], swatch);
+    return car_paint_pick(field->seed, slot, car, player_car, player_paint, car_paint_count(car), ps1);
+}
+
 static void rival_liveries(const RaceField *field, int player)
 {
     const PortExtras extras = port_extras_load();
     const PortSettings settings = port_settings_load();
     memset(drive_cars.livery, 0, sizeof drive_cars.livery);
+    memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
-    port_log("psx_liveries: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
-    if (!extras.psx_liveries || settings.psx_dir[0] == '\0') return;
-    /* the player's own car wears the livery the car showcase's Color box picked (extras psx_livery_cars) */
+    port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
+    if (!extras.psx_liveries) return;
     const int player_car = field->entries[player].car;
-    const int player_livery = psx_livery_car_on(extras.psx_livery_cars, player_car);
-    if (player < RACE_CARS) drive_cars.livery[player] = player_livery;
+    int player_paint = player_car >= 0 && player_car < CAR_PAINT_SLOTS ? extras.car_paint[player_car] : PAINT_OWN;
+    if ((player_paint == PAINT_PS1 && settings.psx_dir[0] == '\0') || player_paint >= PAINT_CATALOGUE + car_paint_count(player_car))
+        player_paint = PAINT_OWN;   /* a choice the files or the table no longer have */
     for (int i = 0; i < field->racers && i < RACE_CARS; i++) {
-        if (i == player) continue;
-        drive_cars.livery[i] = car_livery_pick(field->seed, i, field->entries[i].car, player_car, player_livery);
-        port_log("psx_liveries: rival %d (car %d) takes livery %d\n", i, field->entries[i].car, drive_cars.livery[i]);
+        const int car = field->entries[i].car;
+        const int paint = i == player ? player_paint : rival_paint_choice(field, i, player_car, player_paint, settings.psx_dir);
+        drive_cars.model[i] = car;
+        drive_cars.livery[i] = paint == PAINT_PS1;
+        if (paint >= PAINT_CATALOGUE && car_paint(car, paint - PAINT_CATALOGUE) != NULL) {
+            memcpy(drive_cars.paint[i], car_paint(car, paint - PAINT_CATALOGUE)->rgb, 3);
+            drive_cars.paint_on[i] = 1;
+        }
+        port_log("car colours: slot %d (car %d) takes paint %d%s\n", i, car, paint, i == player ? " (the player's)" : "");
     }
-    port_log("psx_liveries: player (car %d) takes livery %d\n", player_car, player_livery);
 }
 
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)

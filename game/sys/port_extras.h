@@ -19,6 +19,8 @@ typedef enum { UNITS_LANGUAGE = 0, UNITS_MPH = 1, UNITS_KMH = 2 } SpeedUnits;
  * either and goes back to the chosen mode. */
 typedef enum { DASH_BOX_MAP = 0, DASH_BOX_LEVER = 1, DASH_BOX_HIDDEN = 2 } DashBox;
 
+enum { CAR_PAINT_SLOTS = 12, PAINT_OWN = 0, PAINT_PS1 = 1, PAINT_CATALOGUE = 2 };   /* cars 0..11 (11 the Warrior) */
+
 typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
@@ -34,19 +36,20 @@ typedef struct {
     int lunar_springs;  /* 0/1: the rally on Rusty Springs runs the cut moon track's textures and picture (lunar_springs.h).
                          * Last, so the positional initialisers above keep their meaning. */
     DashBox dash_box;   /* DASH_BOX_MAP */
-    int psx_liveries;   /* 0/1: the rivals wear the PS1 game's second livery of their car, at random (car_livery.h),
-                         * from the port.cfg psx_dir's files; off, the exe's colours. Last, as dash_box. */
-    int psx_livery_cars;    /* bit c: the player in car c wears the PS1 livery, the car showcase's Color box; 0 the
-                             * normal. Written as psx_livery_cars=<mask>. Last, after psx_liveries. */
+    int psx_liveries;   /* 0/1: the car colours (the CUSTOMIZE switch; the key keeps its old name): every car offers its catalogue paints
+                         * (car_paint.h) and, with the port.cfg psx_dir's files, the PS1 game's second livery (car_livery.h); the
+                         * player's pick is car_paint, the rivals' are drawn from the race's seed; off, the exe's colours. Last, as dash_box. */
+    int psx_livery_cars;    /* the old per-car mask (bit c: car c on its PS1 livery), read only: an old extras.cfg's choices become
+                             * car_paint's 1; never written. Last, after psx_liveries. */
+    uint8_t car_paint[CAR_PAINT_SLOTS];   /* the player's paint per car (the car showcase's Color box): PAINT_OWN 0 the car's own colour,
+                                           * PAINT_PS1 1 the PS1 livery, PAINT_CATALOGUE + k the k-th catalogue paint
+                                           * (car_paint.h). Written as car_paint=<one hex digit a car>. */
 } PortExtras;
 
-/* the mask's bit for `car` (0..11): 1 when the player's car is on its PS1 livery */
-int psx_livery_car_on(int mask, int car);
-/* the mask with `car`'s bit set to `on` (0/1) */
-int psx_livery_mask_set(int mask, int car, int on);
-/* the player's choice for `car` as extras.cfg has it, and its write back: 0/1 and false when the file does not take it */
-int port_extras_psx_livery_car(int car);
-bool port_extras_set_psx_livery_car(int car, int on);
+/* the player's paint choice for `car` as extras.cfg has it (PAINT_OWN for a car without a slot), and its write back: false
+ * when the file does not take it */
+int port_extras_car_paint(int car);
+bool port_extras_set_car_paint(int car, int paint);
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */
 #include "game/sys/extras_marks.h"  /* EXTRAS_MARK_NITRO 1, _EXPLODE 2, _TURBO 4 */
