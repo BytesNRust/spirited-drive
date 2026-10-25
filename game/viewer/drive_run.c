@@ -5,6 +5,8 @@
 #include "viewer/drive_session.h"
 #include "viewer/drive_light.h"
 #include "game/gfx/blit.h"
+#include "game/sys/fixed_math.h"
+#include "game/race/ai_lanes.h"
 #include "game/race/car_draw_setup.h"
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
@@ -249,7 +251,24 @@ static void run_engines_start(void *ctx) { (void)ctx, race_sound_start_engine(&d
 static void run_forces_on(void *ctx) { (void)ctx, race_forces_enable(&drive_sim.race); }
 static void run_forces_clear(void *ctx) { (void)ctx, race_forces_clear(&drive_sim.race); }
 static void run_forces_off(void *ctx) { (void)ctx, race_forces_disable(&drive_sim.race); }
-static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
+/* port (dev, env only): TNFS_START_NODE=N starts the player car on the road at node N (the road's centre, heading along it, standing), to
+ * capture a place the grid is far from: a tunnel, a bridge. Unset, the race starts as it always does. */
+static void start_at_node(RaceState *race)
+{
+    const char *at = getenv("TNFS_START_NODE");
+    Car *car = race->cars[0];
+    if (at == NULL || car == NULL || race->tri == NULL || race->tri->ring_nodes == 0) return;
+    const int32_t node = (int32_t)(strtoul(at, NULL, 10) % race->tri->ring_nodes);
+    car->node = node;
+    car->progress = node;
+    car->ai_target_lateral = 0;
+    car->steer = 0;
+    ai_snap_to_road(car, race);
+    car->yaw = (int32_t)((uint32_t)fx_atan2(car->matrix[6], car->matrix[8]) << 8);   /* as car_prepare takes the heading from the matrix */
+    port_log("TNFS_START_NODE: the player car at node %d\n", node);
+}
+
+static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; start_at_node(&drive_sim.race); }  /* race_sim_start_field's laps; the dev start */
 static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
 static uint32_t screenshot_input(uint32_t i, uint32_t ticks);
