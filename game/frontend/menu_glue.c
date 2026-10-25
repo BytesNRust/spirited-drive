@@ -307,7 +307,7 @@ static void figures(void *ctx, const char *which)
  * slot in use would show on the picture still on screen). A colour past the slots falls back to the palette's nearest.
  * The box's own frame and arrows use the palette's nearest. */
 enum { SHADOW = 4, BORDER = 2, LIT_COLOUR = 0xe8b800, DARK_COLOUR = 0x141414, SHADOW_COLOUR = 0x181c10, SLOTS = 4,
-       TRIANGLE_HALF = 8, TRIANGLE_COLOUR = 0xbfac98, TRIANGLE_INSET = 6, LABEL_INSET = 5,
+       TRIANGLE_HALF = 8, TRIANGLE_COLOUR = 0xbfac98, TRIANGLE_OUTLINE = 0x141414, TRIANGLE_INSET = 6, LABEL_INSET = 5,
        PALETTE_COLOURS = 0x100, TRANSPARENT = 0xff };
 
 static struct {
@@ -429,6 +429,12 @@ static int variant_can_step(void *ctx, int car, int step)
 /* a paging triangle as the screen's "Next car" ones: 9 wide and 17 tall, its point to the side it pages to */
 static void variant_triangle(int32_t x, int32_t y, int left)
 {
+    /* a dark outline one pixel round it first, so the beige shows on the light swatches too */
+    for (int32_t dy = -TRIANGLE_HALF - 1; dy <= TRIANGLE_HALF + 1; dy++) {
+        const int32_t cut = dy < 0 ? -dy : dy;
+        if (left) fill_chrome(x - 1 + cut, y + dy, x + TRIANGLE_HALF + 1, y + dy, TRIANGLE_OUTLINE);
+        else fill_chrome(x - TRIANGLE_HALF - 1, y + dy, x + 1 - cut, y + dy, TRIANGLE_OUTLINE);
+    }
     for (int32_t dy = -TRIANGLE_HALF; dy <= TRIANGLE_HALF; dy++) {
         const int32_t cut = dy < 0 ? -dy : dy;
         if (left) fill_chrome(x + cut, y + dy, x + TRIANGLE_HALF, y + dy, TRIANGLE_COLOUR);
