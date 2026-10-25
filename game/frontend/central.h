@@ -88,6 +88,9 @@ typedef struct ControlCentralOps {
     void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* port: the banner's words,
                                                                 * text_draw_smooth at 1/1 (central_glue.c plus_text) */
     void *ctx;
+    /* port: 1 shows the CHEATS ENABLED banner (central_banner.h) and redraws the frame when it goes stale; 0 is the exe,
+     * which has neither. After ctx, so an initializer that stops at ctx leaves it 0 (the oracle's probe). */
+    int port_banner;
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

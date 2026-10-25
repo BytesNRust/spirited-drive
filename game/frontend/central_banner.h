@@ -9,7 +9,8 @@
 /* 1 when the flags Control Central holds (explode, nitro, Turbo in track_flags, the Warrior as the player's car) put
  * the race's records on the cheats table */
 int central_cheats_on(const ControlCentralState *st);
-/* the words, drawn over the frame as central_draw has it (which blanks the frame first, so a banner that goes leaves
+/* both do nothing unless the ops' port_banner is 1 (the exe has no banner; the oracle runs it 0).
+ * the words, drawn over the frame as central_draw has it (which blanks the frame first, so a banner that goes leaves
  * nothing); sets r->banner_shown */
 void central_banner(CentralRun *r);
 /* 1 when the banner on the frame is not what the flags say now: the frame is drawn again */

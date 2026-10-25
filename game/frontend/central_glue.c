@@ -1677,7 +1677,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, standings, track_select, art_free, options,
         chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off,
-        plus_text, NULL };
+        plus_text, NULL, 1 };
     load();
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,
