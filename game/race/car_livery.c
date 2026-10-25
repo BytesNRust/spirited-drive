@@ -146,3 +146,21 @@ int car_livery_pick(uint32_t seed, int slot, int car, int player_car, int player
     if (car == player_car) return player_livery ? 0 : 1;
     return (int)(mix(seed, slot) >> 31);
 }
+
+int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alternate, uint16_t *colour)
+{
+    int found = 0;
+    uint32_t most = 0;
+    for (int i = 0; i < count; i++) {
+        const uint32_t n = alternate[pairs[i].to];
+        if (n > most) most = n, *colour = pairs[i].to, found = 1;
+    }
+    return found;
+}
+
+int car_livery_pressed(int held, int *was)
+{
+    const int down = held != 0 && *was == 0;
+    *was = held != 0;
+    return down;
+}

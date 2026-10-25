@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define PORT_EXTRAS_NAME "extras.cfg"
+#define PSX_LIVERY_CARS_MASK 0xfff   /* cars 0..11 (11 the Warrior) */
 
 static const char *const START_NAMES[] = { "game_mode", "network", "central" };
 static const char *const UNIT_NAMES[] = { "language", "mph", "kmh" };
@@ -43,7 +44,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 0 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 0, 0 };
     return d;
 }
 
@@ -67,6 +68,11 @@ static void apply(PortExtras *e, const char *key, const char *value)
         for (int i = 0; i < 3; i++)
             if (strcmp(value, DASH_BOX_NAMES[i]) == 0)
                 e->dash_box = (DashBox)i;
+        return;
+    }
+    if (strcmp(key, "psx_livery_cars") == 0) {
+        if (parse_int(value, &n) && n >= 0 && n <= PSX_LIVERY_CARS_MASK)
+            e->psx_livery_cars = (int)n;
         return;
     }
     if (strcmp(key, "units") == 0) {
@@ -126,7 +132,10 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
             return 0;
         n += w;
     }
-    return (size_t)n;
+    const int w = snprintf(out + n, size - (size_t)n, "psx_livery_cars=%d\n", e->psx_livery_cars);
+    if (w < 0 || (size_t)w >= size - (size_t)n)
+        return 0;
+    return (size_t)(n + w);
 }
 
 PortExtras port_extras_load(void)
@@ -177,4 +186,27 @@ int speed_units_kmh(SpeedUnits units, int german)
 uint32_t port_extras_cheat_marks(const PortExtras *e)
 {
     return (e->nitro ? EXTRAS_MARK_NITRO : 0) | (e->explode ? EXTRAS_MARK_EXPLODE : 0) | (e->turbo ? EXTRAS_MARK_TURBO : 0);
+}
+
+int psx_livery_car_on(int mask, int car)
+{
+    return car >= 0 && car <= 11 ? (mask >> car) & 1 : 0;
+}
+
+int psx_livery_mask_set(int mask, int car, int on)
+{
+    if (car < 0 || car > 11) return mask;
+    return on ? (mask | (1 << car)) & PSX_LIVERY_CARS_MASK : mask & ~(1 << car);
+}
+
+int port_extras_psx_livery_car(int car)
+{
+    return psx_livery_car_on(port_extras_load().psx_livery_cars, car);
+}
+
+bool port_extras_set_psx_livery_car(int car, int on)
+{
+    PortExtras e = port_extras_load();
+    e.psx_livery_cars = psx_livery_mask_set(e.psx_livery_cars, car, on);
+    return port_extras_save(&e);
 }

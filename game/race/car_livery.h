@@ -40,4 +40,11 @@ void car_livery_remap(uint8_t *palette, int type, const CarLiveryPair *pairs, in
  * same colours, and the game's own random stream is not drawn from. */
 int car_livery_pick(uint32_t seed, int slot, int car, int player_car, int player_livery);
 
+/* The alternate livery's main colour for the car select's swatch: the mapped colour (pairs' `to`) that `alternate`
+ * counts most. Writes it (BGR555) to `colour` and returns 1; 0 when no pair maps a colour the alternate uses. */
+int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alternate, uint16_t *colour);
+
+/* 1 on the turn a key or pad button goes down: held now, not held the turn before (`was`, updated). */
+int car_livery_pressed(int held, int *was);
+
 #endif

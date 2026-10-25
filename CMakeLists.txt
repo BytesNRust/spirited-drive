@@ -104,6 +104,7 @@ add_library(tnfs_game STATIC
     game/frontend/net_host.c
     game/frontend/central.c
     game/frontend/central_banner.c
+    game/frontend/central_livery.c
     game/frontend/central_follow.c
     game/frontend/central_draw.c
     game/frontend/central_select.c

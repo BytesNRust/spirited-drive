@@ -115,6 +115,27 @@ static void apply(uint8_t *cfm, size_t size, const CarLiveryPair *pairs, int cou
     }
 }
 
+int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t *colour)
+{
+    char upper[LIVERY_STEM], lower[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) {
+        upper[i] = (char)toupper((unsigned char)stem[i]);
+        lower[i] = (char)tolower((unsigned char)stem[i]);
+    }
+    upper[i] = lower[i] = '\0';
+    uint32_t *normal = colours_of(psx_dir, upper, lower, "VSM"), *alternate = colours_of(psx_dir, upper, lower, "WSM");
+    CarLiveryPair pairs[CAR_LIVERY_PAIRS];
+    int found = 0;
+    if (normal != NULL && alternate != NULL) {
+        const int count = car_livery_map(normal, alternate, NULL, 0, pairs);
+        found = count > 0 && car_livery_main(pairs, count, alternate, colour);
+    }
+    free(normal);
+    free(alternate);
+    return found;
+}
+
 int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size)
 {
     char upper[LIVERY_STEM], lower[LIVERY_STEM];

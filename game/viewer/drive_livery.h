@@ -14,4 +14,8 @@
  * mapped; 0 when a file is missing or there is nothing to map, and then the CFM is left as it was. */
 int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size);
 
+/* The car select's swatch: the alternate livery's main body colour (BGR555) from psx_dir's Z<STEM>.VSM and .WSM, as
+ * drive_livery_car maps them. Returns 1 with `colour` set; 0 when a file is missing or the livery maps no colour. */
+int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t *colour);
+
 #endif

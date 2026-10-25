@@ -132,11 +132,58 @@ static void test_cfg(void)
     CHECK(strstr(out, "psx_dir=/Volumes/PS1 CD/car files\n") != NULL);
 }
 
+/* the car select's Color line: the per-car mask in extras.cfg, the swatch's colour, and the key's press edge */
+static void test_select(void)
+{
+    CHECK_EQ_INT(psx_livery_car_on(0, 3), 0);
+    CHECK_EQ_INT(psx_livery_car_on(psx_livery_mask_set(0, 3, 1), 3), 1);
+    CHECK_EQ_INT(psx_livery_car_on(psx_livery_mask_set(0, 3, 1), 4), 0);
+    CHECK_EQ_INT(psx_livery_mask_set(psx_livery_mask_set(0, 3, 1), 3, 0), 0);
+    CHECK_EQ_INT(psx_livery_car_on(psx_livery_mask_set(0, 11, 1), 11), 1);
+    CHECK_EQ_INT(psx_livery_mask_set(0, 12, 1), 0);
+    CHECK_EQ_INT(psx_livery_car_on(0, -1), 0);
+
+    PortExtras d = port_extras_defaults();
+    CHECK_EQ_INT(d.psx_livery_cars, 0);
+    const char *mask = "psx_livery_cars=2056\n";
+    CHECK_EQ_INT(port_extras_parse(mask, strlen(mask)).psx_livery_cars, 2056);
+    const char *big = "psx_livery_cars=4096\n";
+    CHECK_EQ_INT(port_extras_parse(big, strlen(big)).psx_livery_cars, 0);
+    const char *neg = "psx_livery_cars=-1\n";
+    CHECK_EQ_INT(port_extras_parse(neg, strlen(neg)).psx_livery_cars, 0);
+    d.psx_livery_cars = 2056;
+    char text[512];
+    CHECK(port_extras_format(&d, text, sizeof text) > 0);
+    CHECK(strstr(text, "psx_livery_cars=2056\n") != NULL);
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).psx_livery_cars, 2056);
+
+    /* the swatch: the mapped colour the alternate uses most; none when it uses none of them */
+    static uint32_t alternate[PSX_COLOURS];
+    CarLiveryPair pairs[2] = { { ORIGIN_A, BODY_B }, { BODY_C, BODY_D } };
+    uint16_t colour = 0;
+    CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 0);
+    alternate[BODY_B] = 5, alternate[BODY_D] = 9;
+    CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 1);
+    CHECK_EQ_INT(colour, BODY_D);
+    alternate[BODY_B] = 9;
+    CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 1);
+    CHECK_EQ_INT(colour, BODY_B);
+
+    /* the key: one press is one edge, a held key is not again */
+    int was = 0;
+    CHECK_EQ_INT(car_livery_pressed(0, &was), 0);
+    CHECK_EQ_INT(car_livery_pressed(1, &was), 1);
+    CHECK_EQ_INT(car_livery_pressed(1, &was), 0);
+    CHECK_EQ_INT(car_livery_pressed(0, &was), 0);
+    CHECK_EQ_INT(car_livery_pressed(1, &was), 1);
+}
+
 int main(void)
 {
     test_map();
     test_remap();
     test_pick();
     test_cfg();
+    test_select();
     return TEST_REPORT();
 }
