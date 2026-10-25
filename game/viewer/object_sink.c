@@ -10,28 +10,40 @@
 
 /* 00491a82 indexes five tables of three thunks back to back, so a mode past
  * 2 lands in the next table; past the last one the original crashes. */
+/* port (the PS1 look's light): while set, the textures and flat colours of the objects drawn go through this 256-byte
+ * table, the shadow's shade mode (2) excepted */
+static const uint8_t *light_table;
+
+void object_sink_set_light(const uint8_t *table) { light_table = table; }
+
+static uint8_t lit_colour(uint8_t colour) { return light_table != NULL ? light_table[colour] : colour; }
+static MapMode lit_mode(MapMode m) { return light_table == NULL || m == MAP_SHADE ? m : m == MAP_TRANSPARENT ? MAP_REMAP_TRANSPARENT : MAP_REMAP; }
+static const uint8_t *lit_shade(MapMode m, const uint8_t *shade) { return light_table == NULL || m == MAP_SHADE ? shade : light_table; }
+
 static void textured(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
     const int slot = (int)table * 3 + mode;
     if (slot >= 15) return;
     const ObjShape shape = (ObjShape)(slot / 3);
-    const MapMode m = (MapMode)(slot % 3);
+    const MapMode base = (MapMode)(slot % 3);
+    const MapMode m = lit_mode(base);
+    const uint8_t *shade = lit_shade(base, s->shade);
     switch (shape) {
     case OBJ_TRIANGLE:
-        obj_draw_triangle(s->target, texture, c->uv, c->screen, m, s->shade);
+        obj_draw_triangle(s->target, texture, c->uv, c->screen, m, shade);
         break;
     case OBJ_QUAD:
-        obj_draw_quad(s->target, texture, c->uv, c->screen, m, s->shade);
+        obj_draw_quad(s->target, texture, c->uv, c->screen, m, shade);
         break;
     case OBJ_QUAD_TRIS:
-        obj_draw_quad_tris(s->target, texture, c->uv, c->screen, m, s->shade);
+        obj_draw_quad_tris(s->target, texture, c->uv, c->screen, m, shade);
         break;
     case OBJ_FULL:
-        obj_draw_full(s->target, texture, c->screen, m, s->shade);
+        obj_draw_full(s->target, texture, c->screen, m, shade);
         break;
     case OBJ_INSET:
-        obj_draw_inset(s->target, texture, c->screen, m, s->shade);
+        obj_draw_inset(s->target, texture, c->screen, m, shade);
         break;
     }
 }
@@ -56,7 +68,7 @@ static uint8_t nearest(const uint8_t palette[768], uint32_t rgb)
 static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
-    const uint8_t colour = nearest(s->palette, rgb);
+    const uint8_t colour = lit_colour(nearest(s->palette, rgb));
     if (c->corners == 2) {
         flat_line(s->target, c->screen[0], c->screen[1], c->screen[2], c->screen[3], colour);
     } else if (c->corners == 3 || c->corners == 4) {
@@ -100,14 +112,15 @@ static void textured_camera(void *user, Object3DTable table, int mode, const Fsh
     int32_t uv[8];
     if (!camera_uv((ObjShape)(slot / 3), texture, c, uv)) return;
     const int32_t *const cam[4] = { &c->camera[0], &c->camera[3], &c->camera[6], &c->camera[9] };
-    modern_polygon(s->target, s->view, texture, uv, cam, c->corners, (MapMode)(slot % 3), s->shade);
+    const MapMode base = (MapMode)(slot % 3);
+    modern_polygon(s->target, s->view, texture, uv, cam, c->corners, lit_mode(base), lit_shade(base, s->shade));
 }
 
 static void flat_camera(void *user, uint32_t rgb, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
     const int32_t *const cam[4] = { &c->camera[0], &c->camera[3], &c->camera[6], &c->camera[9] };
-    modern_flat(s->target, s->view, nearest(s->palette, rgb), cam, c->corners);
+    modern_flat(s->target, s->view, lit_colour(nearest(s->palette, rgb)), cam, c->corners);
 }
 
 /* port: a stand-in for 004c6604 where no race built it (the track viewer); a

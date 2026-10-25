@@ -33,9 +33,12 @@ static void test_parse_and_lookup(void)
     CHECK_EQ_INT(psx_light_at(&light, 1, -1), PSX_LIGHT_FULL);
     CHECK_EQ_INT(psx_light_at(&light, 1, PSX_LIGHT_POINTS), PSX_LIGHT_FULL);
     CHECK_EQ_INT(psx_light_at(NULL, 1, 1), PSX_LIGHT_FULL);
+    CHECK_EQ_INT(psx_light_node(&light, 2), 38);   /* the terrain points' mean (32 + 2..5, 7..10), the road's left out */
+    CHECK_EQ_INT(psx_light_node(NULL, 2), PSX_LIGHT_FULL);
     psx_light_free(&light);
     CHECK(light.data == NULL);
     CHECK_EQ_INT(psx_light_at(&light, 1, 1), PSX_LIGHT_FULL);
+    CHECK_EQ_INT(psx_light_node(&light, 1), PSX_LIGHT_FULL);
 }
 
 static void test_rejected_files(void)

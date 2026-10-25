@@ -6,8 +6,8 @@
 
 #include <stdint.h>
 
-/* Loads the light of `track` ("TR1") into the renderer (ported_view_set_light), or clears it; `ring_nodes` is the TRI's
- * node count, which the file's must match. The previous race's light is freed. */
+/* Loads the light of `track` ("TR1") into the renderer (ported_view_set_light), or clears it; `ring_nodes` is the TRI's node_count
+ * (segment_count * 4; a stage's ring_nodes is 0x20000, a mask), which the file's must match. The previous race's light is freed. */
 void drive_light_load(int enabled, const char *psx_dir, const char *track, uint32_t ring_nodes);
 
 #endif

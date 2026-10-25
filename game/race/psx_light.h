@@ -26,4 +26,8 @@ void psx_light_free(PsxLight *light);
  * node is not light (random bytes) and takes the one before it; PSX_LIGHT_FULL without data or for a point out of range. */
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point);
 
+/* The light of what stands at a node (a scenery object): the mean of its terrain points' intensities, the road's left out;
+ * PSX_LIGHT_FULL without data. */
+uint8_t psx_light_node(const PsxLight *light, uint32_t node);
+
 #endif

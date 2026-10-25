@@ -34,3 +34,12 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
     if (node == light->nodes - 1) node--;
     return light->data[(size_t)node * PSX_LIGHT_POINTS + (size_t)point];
 }
+
+uint8_t psx_light_node(const PsxLight *light, uint32_t node)
+{
+    static const int TERRAIN[] = { 2, 3, 4, 5, 7, 8, 9, 10 };
+    if (light == NULL || light->data == NULL) return PSX_LIGHT_FULL;
+    unsigned sum = 0;
+    for (size_t i = 0; i < sizeof TERRAIN / sizeof *TERRAIN; i++) sum += psx_light_at(light, node, TERRAIN[i]);
+    return (uint8_t)((sum + sizeof TERRAIN / sizeof *TERRAIN / 2) / (sizeof TERRAIN / sizeof *TERRAIN));
+}

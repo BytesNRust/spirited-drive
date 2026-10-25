@@ -146,7 +146,9 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
     (void)user;
     if (model < 0 || model >= PORTED_VIEW_MODELS || !object_ok[model]) return;
     const Object3DSink sink = object_sink(&object_pixels);
+    object_sink_set_light(lit_table());
     model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
+    object_sink_set_light(NULL);
 }
 
 void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored)

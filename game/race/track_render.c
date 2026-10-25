@@ -430,24 +430,44 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
     (void)ctx, (void)segments, (void)node, (void)near;
 }
 
+/* port (PS1 light): the object being drawn stands at the walker's node and takes its terrain's light */
+static void object_light_on(const Glue *g)
+{
+    if (track_light_hook == NULL || g->r->psx == NULL) return;
+    const uint8_t v = psx_light_node(g->r->psx, (uint32_t)g->r->build.walk.node);
+    const uint8_t corners[4] = { v, v, v, v };
+    track_light_hook(corners);
+}
+
+static void object_light_off(const Glue *g)
+{
+    if (track_light_hook != NULL && g->r->psx != NULL) track_light_hook(NULL);
+}
+
 static void object_model(void *user, int32_t model, const int32_t position[3], int32_t angle)
 {
     const Glue *g = user;
+    object_light_on(g);
     if (g->ctx->sink.draw_model != NULL) g->ctx->sink.draw_model(g->ctx->sink.user, model, position, (uint32_t)angle);
+    object_light_off(g);
 }
 
 static void object_full(void *user, int32_t texture, const int32_t screen[8])
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
+    object_light_on(g);
     if (t != NULL) g->ctx->sink.draw_full(g->ctx->sink.user, t, screen);
+    object_light_off(g);
 }
 
 static void object_full_alt(void *user, int32_t texture, const int32_t screen[8])
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
+    object_light_on(g);
     if (t != NULL) g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
+    object_light_off(g);
 }
 
 /* port: Modern 3D's scenery board, the whole texture as 004f9e9c maps it, from camera-space corners */
@@ -455,7 +475,9 @@ static void object_full_camera(void *user, int32_t texture, const int32_t *const
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
+    object_light_on(g);
     if (t != NULL) full_camera(user, t, cam);
+    object_light_off(g);
 }
 
 /* port: a scenery board too near for the exe, the whole texture from camera-space corners */
@@ -466,7 +488,9 @@ static void object_near_camera(void *user, int32_t texture, const int32_t *const
     if (t == NULL) return;
     int32_t uv[8];
     whole_uv(t, uv);
+    object_light_on(g);
     g->ctx->sink.port_near_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
+    object_light_off(g);
 }
 
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame)

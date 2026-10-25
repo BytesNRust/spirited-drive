@@ -9,6 +9,8 @@
 #include "viewer/screen_layout.h"
 #include "viewer/drive_replay.h"
 #include "viewer/ported_view.h"
+#include "viewer/drive_light.h"
+#include "game/sys/port_settings.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -221,6 +223,7 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
     if (ok) {
         printf("%s: %u segments, %s\n", name, t.tri.segment_count, tri_is_circuit(&t.tri) ? "circuit" : "stage");
         node %= t.tri.node_count;
+        drive_light_load(port_psx_light(), port_settings_load().psx_dir, name, t.tri.node_count);   /* port: the PS1 light */
         if (screenshot != NULL) {
             render(&t, node, 0, getenv("TNFS_STAND_IN") != NULL, pixels);
             ok = write_ppm(screenshot, pixels, t.art.palette);
@@ -229,6 +232,7 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
         }
     }
     free(pixels);
+    drive_light_load(0, NULL, name, 0);
     track_viewer_free(&t);
     return ok;
 }

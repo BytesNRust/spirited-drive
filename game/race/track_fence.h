@@ -44,6 +44,15 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
     in->light_now[4] = 1;
 }
 
+/* the same for a fence standing on the points a and b of `first`'s row (its top has their light) */
+static inline void track_light_set_points(const TrackFenceInputs *in, int32_t a, int32_t b)
+{
+    if (in->light == NULL || in->light_now == NULL) return;
+    in->light_now[0] = in->light_now[3] = in->light[b];
+    in->light_now[1] = in->light_now[2] = in->light[a];
+    in->light_now[4] = 1;
+}
+
 static inline void track_light_clear(const TrackFenceInputs *in)
 {
     if (in->light_now != NULL) in->light_now[4] = 0;
