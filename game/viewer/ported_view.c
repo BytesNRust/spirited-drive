@@ -811,7 +811,7 @@ const TrackRender *ported_view_stream(const Tri *tri, const TrackArt *art, int32
  * the segments ahead of the camera's node (its near plane pushes along the road direction, which runs away from a
  * camera that faces down the track); a camera that looks more across the road is drawn by follow_behind.h's, which
  * draws both sides of the node, the segments' rails, scenery and cars as the exe's pass does. */
-enum { FOLLOW_EXE_BELOW = 0x240000 };   /* a 24-bit angle: 50.6 degrees off the road, where the camera's view reaches back past the node */
+enum { FOLLOW_EXE_BELOW = 0x120000 };   /* a 24-bit angle: 25.3 degrees off the road, past which the bottom of the view looks at ground behind the camera's node, which the exe's pass leaves bare */
 
 static int32_t follow_off_road(const PortedCamera *pc)
 {
