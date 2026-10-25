@@ -51,7 +51,12 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
 /* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
 void ported_view_set_light(const PsxLight *light, const float tint[3]);
+/* port (weather.h): the race's weather, WEATHER_CLEAR (the default) draws as it always did; fog needs Modern 3D on */
+void ported_view_set_weather(int weather);
 void ported_view_set_modern(int on);
+/* port (weather): the mirror's road style for the weather (0: clear weather, nothing set) and its sky, drawn by then */
+int ported_view_mirror_weather(const TrackArt *art);
+void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9]);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */
 void ported_view_set_look(int filter, int fog);

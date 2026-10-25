@@ -35,6 +35,7 @@ typedef struct {
     char psx_dir[PSX_DIR_MAX];
     int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
     int psx_time;            /* with psx_light: the PS1's time of day, PSX_TIME_DAY (B), PSX_TIME_A or PSX_TIME_C: `psx_time=day|a|c` */
+    int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain`, re/notes/weather-design.md; clear */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -44,6 +45,8 @@ int port_render_scale(void);
 int port_psx_light(void);
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=day|a|c when set, else port.cfg's psx_time. */
 int port_psx_time(void);
+/* The weather of the race: TNFS_WEATHER=clear|fog|rain when set, else port.cfg's weather (a WEATHER_* of weather.h). */
+int port_weather(void);
 
 PortSettings port_settings_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */

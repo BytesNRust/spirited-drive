@@ -127,7 +127,7 @@ static void d_modern(const QuadTarget *q, const Case *c, int top, int bottom)
     static uint8_t fog[MODERN_FOG_LEVELS][256];
     static int fogged;
     if (!fogged) modern_fog_tables(palette, (const uint8_t[3]){ 200, 100, 50 }, fog), fogged = 1;
-    const ModernStyle style = { c->filter, c->fog ? (const uint8_t(*)[256])fog : NULL, 40.0f, 400.0f };
+    const ModernStyle style = { c->filter, c->fog ? (const uint8_t(*)[256])fog : NULL, 40.0f, 400.0f, 0, 0 };
     modern_road_set_style(c->filter || c->fog ? &style : NULL);
     modern_polygon(q, the_view(), &t, c->uv, cam, c->count, (MapMode)c->mode, shade);
 }

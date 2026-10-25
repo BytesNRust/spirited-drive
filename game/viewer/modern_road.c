@@ -69,7 +69,7 @@ static ModernStyle style;   /* none: filter 0, fog NULL */
 
 void modern_road_set_style(const ModernStyle *s)
 {
-    style = s != NULL ? *s : (ModernStyle){ 0, NULL, 0, 0 };
+    style = s != NULL ? *s : (ModernStyle){ 0, NULL, 0, 0, 0, 0 };
 }
 
 void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[MODERN_FOG_LEVELS][256])
@@ -125,9 +125,19 @@ static const float BAYER[4][4] = {
     { 15.5f / 16, 7.5f / 16, 13.5f / 16, 5.5f / 16 },
 };
 
+/* the depth the line from fog_start to fog_end would reach the exponential curve's fraction at: the curve in the line's terms,
+ * so the rest of the fog is one code (z itself when the style has no curve or before the fog starts) */
+static inline float fog_depth(float z)
+{
+    if (style.fog_exp <= 0 || z <= style.fog_start) return z;
+    const float t = style.fog_cap * (1.0f - expf(-(z - style.fog_start) / style.fog_exp));
+    return style.fog_start + t * (style.fog_end - style.fog_start);
+}
+
 /* the fog's level at camera depth z for pixel x, y: between two levels a dither of both, so no bands */
 static int fog_level(float z, int x, int y)
 {
+    z = fog_depth(z);
     const float t = fminf(fmaxf((z - style.fog_start) / (style.fog_end - style.fog_start), -1), 2);
     const int l = (int)floorf(t * (MODERN_FOG_LEVELS - 1) + BAYER[y & 3][x & 3]);
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
@@ -142,7 +152,7 @@ static int dark_level(float d, int x, int y)
 
 #if defined(__SSE2__) && !defined(__FMA__)
 /* fog_level for the depths z of four pixels x .. x + 3 of row y: the same operations, a lane each */
-static inline __m128i fog_levels(__m128 z, int x, int y, const float fog_start, const float fog_span)
+static inline __m128i fog_levels_line(__m128 z, int x, int y, const float fog_start, const float fog_span)
 {
     const __m128 t = _mm_min_ps(_mm_max_ps(_mm_div_ps(_mm_sub_ps(z, _mm_set1_ps(fog_start)), _mm_set1_ps(fog_span)),
                                            _mm_set1_ps(-1)),
@@ -156,6 +166,17 @@ static inline __m128i fog_levels(__m128 z, int x, int y, const float fog_start, 
     l = _mm_andnot_si128(_mm_cmplt_epi32(l, _mm_setzero_si128()), l);
     const __m128i over = _mm_cmpgt_epi32(l, top);
     return _mm_or_si128(_mm_and_si128(over, top), _mm_andnot_si128(over, l));
+}
+
+static inline __m128i fog_levels(__m128 z, int x, int y, const float fog_start, const float fog_span)
+{
+    if (style.fog_exp > 0) {   /* the curve a lane at a time, then the line's levels */
+        float d[4];
+        _mm_storeu_ps(d, z);
+        for (int j = 0; j < 4; j++) d[j] = fog_depth(d[j]);
+        z = _mm_loadu_ps(d);
+    }
+    return fog_levels_line(z, x, y, fog_start, fog_span);
 }
 #endif
 
