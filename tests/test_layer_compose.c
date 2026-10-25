@@ -44,8 +44,45 @@ static void test_bands_make_the_whole(void)
         }
 }
 
+
+/* port (render scale): the upscale of the layer is every drawn pixel as a scale x scale block, LAYER_KEY leaving the 3D
+ * as it was; against the per-pixel definition, for layers of runs of both, odd widths, every scale */
+static uint32_t rnd_state = 12345;
+static uint32_t rnd(void)
+{
+    rnd_state = rnd_state * 1664525u + 1013904223u;
+    return rnd_state >> 8;
+}
+
+static void test_upscale(void)
+{
+    enum { UW = 203, UH = 60 };
+    static uint8_t src[UW * UH], got[UW * UH * 16], want[UW * UH * 16];
+    for (int s = 1; s <= 4; s++) {
+        for (int y = 0; y < UH; y++) {
+            const int mode = (int)(rnd() % 5);   /* all key, all drawn, runs of both, scattered */
+            for (int x = 0; x < UW;) {
+                const int run = mode == 4 ? 1 : 1 + (int)(rnd() % 40);
+                const int key = mode == 0 || (mode != 1 && (rnd() & 1));
+                for (int i = 0; i < run && x < UW; i++, x++) src[y * UW + x] = key ? LAYER_KEY : (uint8_t)(rnd() % 255);
+            }
+        }
+        const size_t n = (size_t)UW * UH * s * s;
+        for (size_t i = 0; i < n; i++) got[i] = want[i] = (uint8_t)rnd();
+        for (int y = 0; y < UH; y++)
+            for (int x = 0; x < UW; x++)
+                if (src[y * UW + x] != LAYER_KEY)
+                    for (int j = 0; j < s; j++)
+                        memset(want + ((size_t)(y * s + j) * UW + x) * s, src[y * UW + x], (size_t)s);
+        layer_upscale_rows(src, UW, s, got, 0, 25);   /* in two bands */
+        layer_upscale_rows(src, UW, s, got, 25, UH);
+        CHECK(memcmp(got, want, n) == 0);
+    }
+}
+
 int main(void)
 {
+    test_upscale();
     /* a dash pixel, a piece, and nothing drawn elsewhere */
     memset(layer, LAYER_KEY, sizeof layer);
     box(300, 400, 340, 440, 7);         /* the dash */

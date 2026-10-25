@@ -24,14 +24,7 @@ uint8_t *drive_wide_canvas(void) { return drive_wide.scale > 1 ? drive_wide.laye
 static void finish_band(void *user, int top, int bottom)
 {
     (void)user;
-    const int s = drive_wide.scale, w = drive_wide.width, out_w = w * s;
-    for (int y = top; y < bottom; y++) {
-        const uint8_t *src = drive_wide.layer + (size_t)y * w;
-        for (int x = 0; x < w; x++) {
-            if (src[x] == LAYER_KEY) continue;
-            for (int j = 0; j < s; j++) memset(drive_wide.pixels + (size_t)(y * s + j) * out_w + x * s, src[x], (size_t)s);
-        }
-    }
+    layer_upscale_rows(drive_wide.layer, drive_wide.width, drive_wide.scale, drive_wide.pixels, top, bottom);
 }
 
 /* the mirrors drawn at the scale this frame (drive_wide_hires_place) */
