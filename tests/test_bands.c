@@ -130,6 +130,59 @@ static void test_palette_to_xrgb_pitch(void)
     free(px), free(got);
 }
 
+/* The render threads come from two places: the Graphics screen's own setting (port.cfg's render_bands) and the
+ * TNFS_BANDS environment variable. The environment variable wins when it is set, and the setting is used otherwise.
+ * "auto" is the logical cores, at most eight. */
+static void test_the_environment_wins_over_the_setting(void)
+{
+    const int cores = platform_cpu_count();
+    const int auto_threads = cores > 8 ? 8 : cores;
+
+    unsetenv("TNFS_BANDS");
+    CHECK_EQ_INT(bands_resolve(0), 0);   /* off */
+    CHECK_EQ_INT(bands_resolve(2), 2);
+    CHECK_EQ_INT(bands_resolve(4), 4);
+    CHECK_EQ_INT(bands_resolve(-1), auto_threads);   /* the setting's "auto" */
+
+    setenv("TNFS_BANDS", "4", 1);
+    CHECK_EQ_INT(bands_resolve(0), 4);   /* the environment wins over the setting, either way */
+    CHECK_EQ_INT(bands_resolve(2), 4);
+    CHECK_EQ_INT(bands_resolve(-1), 4);
+
+    setenv("TNFS_BANDS", "auto", 1);
+    CHECK_EQ_INT(bands_resolve(0), auto_threads);
+    CHECK_EQ_INT(bands_resolve(4), auto_threads);
+
+    setenv("TNFS_BANDS", "0", 1);
+    CHECK_EQ_INT(bands_resolve(4), 0);   /* the environment can turn the threads off too */
+
+    setenv("TNFS_BANDS", "9", 1);
+    CHECK_EQ_INT(bands_resolve(0), 8);   /* at most eight */
+
+    setenv("TNFS_BANDS", "-1", 1);
+    CHECK_EQ_INT(bands_resolve(0), 0);
+
+    setenv("TNFS_BANDS", "", 1);
+    CHECK_EQ_INT(bands_resolve(4), 4);   /* an empty value is not a setting: the file's own is used */
+
+    unsetenv("TNFS_BANDS");
+}
+
+/* applying the setting takes it as the threads the bands use */
+static void test_applying_the_setting(void)
+{
+    unsetenv("TNFS_BANDS");
+    bands_apply(4);
+    CHECK_EQ_INT(bands_threads(), 4);
+    bands_apply(0);
+    CHECK_EQ_INT(bands_threads(), 0);
+    setenv("TNFS_BANDS", "2", 1);
+    bands_apply(4);
+    CHECK_EQ_INT(bands_threads(), 2);   /* the environment wins */
+    unsetenv("TNFS_BANDS");
+    bands_set_threads(-1);
+}
+
 int main(void)
 {
     CHECK(platform_cpu_count() >= 1);
@@ -139,6 +192,8 @@ int main(void)
     test_empty_range();
     test_palette_to_xrgb();
     test_palette_to_xrgb_pitch();
+    test_the_environment_wins_over_the_setting();
+    test_applying_the_setting();
     platform_shutdown();
     return TEST_REPORT();
 }

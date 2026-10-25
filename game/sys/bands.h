@@ -18,6 +18,12 @@ int bands_threads(void);
 /* Tests and the settings: set it by hand (< 0 back to the environment's). */
 void bands_set_threads(int threads);
 
+/* The threads a setting asks for: the TNFS_BANDS environment variable wins over the file's own value when it is
+ * set, and -1 ("auto") is as many as the logical cores. */
+int bands_resolve(int configured);
+/* Takes it as the threads the stages use. */
+void bands_apply(int configured);
+
 /* Calls fn(ctx, top, bottom) over [top, bottom) split into bands on bands_threads() threads, or once over the whole
  * range when that is 0. Bands cover the range exactly, in no defined order; fn must write only its rows. */
 void bands_rows(int top, int bottom, void (*fn)(void *ctx, int top, int bottom), void *ctx);

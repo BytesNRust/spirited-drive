@@ -64,14 +64,15 @@ SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software TNFS_CAPTURE_DIR=/tmp/frames \
 
 With everything off and the 4:3 format the game plays as the original. The additions:
 
-- **Graphics** (Options → Graphics, two pages):
+- **Graphics** (Options → Graphics, one page):
   - format 4:3, 16:9 or 21:9, with the same 640x480-style pixels, just wider;
   - scaling: fill, or whole multiples only;
   - full screen and refresh 60 / 120 / 144 Hz (the race still steps at the original rate; the frames between steps are
     interpolated);
   - field of view;
   - view distance Close / Medium / Far / Ultra;
-  - perspective-correct 3D, texture filter and fog (all off by default).
+  - perspective-correct 3D, texture filter and fog (all off by default);
+  - render threads: off (the original's one thread), Auto (as many as the machine's logical cores), 2 or 4.
   The pause menu's Graphics opens the same screen; the rows that need a new race say "(next race)".
 - **Controls** (Options → Controls setup): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
@@ -97,7 +98,7 @@ directory (SDL's pref path, `~/Library/Application Support/tnfs/tnfs/` on macOS;
 
 | File | Contents |
 |------|----------|
-| `port.cfg` | Graphics (format, scaling, refresh, FOV, view distance, 3D options) |
+| `port.cfg` | Graphics (format, scaling, refresh, FOV, view distance, 3D options, render threads) |
 | `controls.cfg` | the bindings and axis settings |
 | `extras.cfg` | the Customize Game switches |
 | `records.dat` | the records the original has no place for: variants and the cheats table |

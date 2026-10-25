@@ -1,4 +1,4 @@
-/* port: the Graphics screen, the port's own: nine settings in the order the owner named them, over the configuration
+/* port: the Graphics screen, the port's own: ten settings in the order the owner named them, over the configuration
  * screens' clean background with no burnt-in text, the game's own letters and its Done/Cancel. Not in the original:
  * the original's graphics_menu.c (00423d28) is kept as it is, and no longer on any path of the game -- both Options
  * and the race's pause menu open this screen. In the race (GraphicsPlus.race) the rows the next race reads are shown
@@ -11,11 +11,11 @@
 
 #include "game/frontend/graphics_menu.h"
 
-/* the nine settings, in the owner's order, then the two buttons. DONE restarts from SETTINGS, as graphics_plus.h's
+/* the ten settings, in the owner's order, then the two buttons. DONE restarts from SETTINGS, as graphics_plus.h's
  * ROW_DONE does: without it the two buttons would start one row after the settings' count. */
 enum { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
-       GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SETTINGS,
-       GRAPHICS_OWN_DONE = GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_CANCEL, GRAPHICS_OWN_ROWS };
+       GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_BANDS,
+       GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_DONE = GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_CANCEL, GRAPHICS_OWN_ROWS };
 
 /* the clean background's size, as config_bgnd.h's CONFIG_BGND_W and _H */
 enum { GRAPHICS_OWN_W = 640, GRAPHICS_OWN_H = 480 };
@@ -36,7 +36,7 @@ void graphics_own_view_value(int16_t view, int ultra, char out[16]);
  * stops on a value the race cannot leave */
 void graphics_own_race_view_step(int16_t *view, int *ultra);
 /* whether the pause menu's Graphics may change `setting` (a GRAPHICS_OWN_ row) now: 0 for the rows the next race
- * reads (scaling, the format, full screen) and for Ultra, which is view 0 with the flag. */
+ * reads (scaling, the format, full screen, the render threads) and for Ultra, which is view 0 with the flag. */
 int graphics_own_live_in_race(int setting, int16_t view, int ultra);
 int graphics_own_view_live(int f3_ultra, int16_t view, int ultra);
 void graphics_own_race_view_step_for(int f3_ultra, int16_t *view, int *ultra);
