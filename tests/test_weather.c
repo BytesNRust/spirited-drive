@@ -49,10 +49,25 @@ static void test_rain_bounds_and_scale(void)
     CHECK(weather_rain_count(1, 1) >= 1 && weather_rain_count(100000, 100000) <= 2000);
 }
 
+static void test_sky_meets_the_fog_at_the_horizon(void)
+{
+    const float up[3] = { 0, 1, 0 };   /* level camera: the horizon is the row of the centre */
+    for (int x = 0; x < 8; x++) {
+        CHECK_EQ_INT(weather_sky_level(x, 240, 320, 240, 400.0f, up, 11, 15), 15);   /* at the horizon the sky is the fog */
+        CHECK_EQ_INT(weather_sky_level(x, 400, 320, 240, 400.0f, up, 11, 15), 15);   /* below it too */
+        CHECK_EQ_INT(weather_sky_level(x, 20, 320, 240, 400.0f, up, 11, 15), 11);    /* high up, its own level */
+        CHECK_EQ_INT(weather_sky_level(x, 20, 320, 240, 400.0f, up, 8, 8), 8);       /* no gradient: the same everywhere */
+    }
+    int mid = 0;   /* between: a mean of the dither's levels, in between */
+    for (int x = 0; x < 16; x++) mid += weather_sky_level(x, 200, 320, 240, 400.0f, up, 11, 15);
+    CHECK(mid > 11 * 16 && mid < 15 * 16);
+}
+
 int main(void)
 {
     test_names();
     test_rain_is_a_function_of_drop_and_tick();
     test_rain_bounds_and_scale();
+    test_sky_meets_the_fog_at_the_horizon();
     return TEST_REPORT();
 }

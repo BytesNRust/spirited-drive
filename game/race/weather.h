@@ -16,7 +16,14 @@ void weather_fog_colour(int weather, const uint8_t base[3], uint8_t out[3]);   /
 void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3]);    /* the sky's, at WEATHER_SKY_LEVEL */
 void weather_rain_colour(uint8_t out[3]);                                      /* a streak's, at WEATHER_STREAK_LEVEL */
 
+/* The fog table a sky pixel (x, y) goes through: the sky's own `low` high above the horizon, `high` at it and below, a
+ * dither of the two between, so that what the fog has made whole (land and cars past the fog's end) meets the sky without
+ * an edge. `up` is the world's up in camera space (x right, y up, z ahead), the view's centre cx, cy and focal in pixels;
+ * the horizon is where a ray is level, whatever the pitch or roll. */
+int weather_sky_level(int32_t x, int32_t y, int32_t cx, int32_t cy, float focal, const float up[3], int low, int high);
+
 enum {
+    WEATHER_SKY_FADE_TAN = 20,     /* a hundredth of the ray's rise (over its run) where the sky is whole its own: 0.20 */
     WEATHER_SKY_LEVEL = 11,        /* of MODERN_FOG_LEVELS - 1 = 15: how far the sky goes to its colour */
     WEATHER_RAIN_SKY_LEVEL = 8,
     WEATHER_STREAK_LEVEL = 7,

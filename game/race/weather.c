@@ -48,6 +48,18 @@ void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3])
     else memcpy(out, fog, 3);
 }
 
+int weather_sky_level(int32_t x, int32_t y, int32_t cx, int32_t cy, float focal, const float up[3], int low, int high)
+{
+    static const float BAYER[4][4] = { { 0.0f / 16, 8.0f / 16, 2.0f / 16, 10.0f / 16 }, { 12.0f / 16, 4.0f / 16, 14.0f / 16, 6.0f / 16 },
+                                       { 3.0f / 16, 11.0f / 16, 1.0f / 16, 9.0f / 16 }, { 15.0f / 16, 7.0f / 16, 13.0f / 16, 5.0f / 16 } };
+    if (high <= low) return low;
+    const float rise = ((float)(x - cx) * up[0] + (float)(cy - y) * up[1] + focal * up[2]) / focal;   /* the ray's rise over its run */
+    const float t = rise <= 0 ? 0.0f : rise >= WEATHER_SKY_FADE_TAN / 100.0f ? 1.0f : rise * 100.0f / WEATHER_SKY_FADE_TAN;
+    const float level = (float)high - (float)(high - low) * t;
+    const int l = (int)(level + BAYER[y & 3][x & 3]);
+    return l < low ? low : l > high ? high : l;
+}
+
 void weather_rain_colour(uint8_t out[3])
 {
     out[0] = 214, out[1] = 220, out[2] = 232;

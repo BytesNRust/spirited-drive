@@ -13,6 +13,15 @@ void weather_sky_rows(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
     }
 }
 
+void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, int32_t top, int32_t bottom,
+                      const uint8_t tables[][256], int low, int high, int32_t cx, int32_t cy, float focal, const float up[3])
+{
+    for (int32_t y = top; y < bottom; y++) {
+        uint8_t *row = pixels + (size_t)y * (size_t)pitch;
+        for (int32_t x = left; x < right; x++) row[x] = tables[weather_sky_level(x, y, cx, cy, focal, up, low, high)][row[x]];
+    }
+}
+
 void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, const uint8_t table[256])
 {
     const int32_t w = box[2] - box[0], h = box[3] - box[1];

@@ -8,6 +8,10 @@
 void weather_sky_rows(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, int32_t top, int32_t bottom,
                       const uint8_t table[256]);
 
+/* The same through the table of each pixel's level (weather_sky_level), `tables` the fog's levels: the sky meets the fog at the horizon. */
+void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, int32_t top, int32_t bottom,
+                      const uint8_t tables[][256], int low, int high, int32_t cx, int32_t cy, float focal, const float up[3]);
+
 /* The rain's streaks at `tick` over the box [left, top, right, bottom) of a buffer: each pixel a streak covers goes through
  * `table`; their width is `scale` pixels. The same call draws the same picture. */
 void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, const uint8_t table[256]);
