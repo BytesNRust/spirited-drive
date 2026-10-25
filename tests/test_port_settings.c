@@ -87,6 +87,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.psx_light, b.psx_light);
+    CHECK_EQ_INT(a.psx_shadow, b.psx_shadow);
     CHECK_EQ_INT(a.psx_time, b.psx_time);
     CHECK_EQ_INT(a.render_scale, b.render_scale);
     CHECK_EQ_INT(a.laps, b.laps);
@@ -110,7 +111,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -137,6 +138,11 @@ static void test_parse_keys(void)
     const char *scaled = "render_scale=2\n";
     CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
     CHECK_EQ_INT(s.psx_light, 0);
+    CHECK_EQ_INT(s.psx_shadow, 0);
+    const char *shadow = "psx_shadow=1\n";
+    CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).psx_shadow, 1);
+    const char *bad_shadow = "psx_shadow=7\n";
+    CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
     const char *lit = "psx_light=1\n";
     CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
     const char *bad = "psx_light=2\n";

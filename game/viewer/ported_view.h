@@ -53,6 +53,9 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
 /* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
 void ported_view_set_light(const PsxLight *light, const float tint[3]);
 
+/* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
+void ported_view_set_soft_shadow(int on);
+
 /* port: the PS1 look's ambient light on the cars (psx_lgs.h): each car is drawn through a colour table of its segment's ambient
  * colour over the world's `tint`, so a context's colour (a tunnel's, a bridge's) shows on the cars and the world's mean does not
  * double. NULL, none (the cars take the world's tint as before). `lgs` is copied. Needs ported_view_set_light's light. */

@@ -29,6 +29,7 @@
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
+#include "viewer/soft_shadow.h"
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
 #include "viewer/psx_sky_draw.h"
@@ -562,12 +563,34 @@ static void trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y)
 static int32_t last_near_dir[3];
 static int32_t last_near;
 
+/* port (psx_shadow): the soft shadow's flag and its half-way remap, made from the palette and the exe's shade table when either changes */
+static int soft_shadow_on;
+
+void ported_view_set_soft_shadow(int on) { soft_shadow_on = on != 0; }
+
+static const uint8_t *soft_half(void)
+{
+    static uint8_t half[256], made_from[256], made_for[768];
+    static int valid;
+    if (!valid || memcmp(made_from, shadow_remap, sizeof made_from) != 0 || memcmp(made_for, object_pixels.palette, sizeof made_for) != 0) {
+        soft_shadow_half(object_pixels.palette, shadow_remap, half);
+        memcpy(made_from, shadow_remap, sizeof made_from), memcpy(made_for, object_pixels.palette, sizeof made_for);
+        valid = 1;
+    }
+    return half;
+}
+
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
 {
     (void)ctx;
     const CarShadowOps ops = { NULL, shadow_contact, shadow_followed };
     int32_t screen[8];
+    if (soft_shadow_on && shadow_remap != NULL && object_pixels.palette != NULL) {   /* port: the quad's corners, the shade not drawn (remap NULL) */
+        if (car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, NULL, screen))
+            soft_shadow_draw(object_pixels.target, shadow_remap, soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
+        return;
+    }
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
 }
 

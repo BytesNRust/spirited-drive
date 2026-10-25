@@ -33,7 +33,7 @@ static int psx_time_named(const char *name)
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, PSX_TIME_DAY, WEATHER_CLEAR };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, PSX_TIME_DAY, WEATHER_CLEAR };
     return d;
 }
 
@@ -92,6 +92,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "psx_light") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->psx_light = (int)n;
+    } else if (strcmp(key, "psx_shadow") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->psx_shadow = (int)n;
     } else if (strcmp(key, "psx_time") == 0) {
         const int t = psx_time_named(value);
         if (t >= 0) s->psx_time = t;
@@ -142,10 +145,10 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_time=%s\nweather=%s\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
-                           s->render_scale, s->laps, s->psx_dir, s->psx_light, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather));
+                           s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -223,6 +226,13 @@ int port_psx_time(void)
     const char *v = getenv("TNFS_PSX_TIME");
     const int t = v != NULL ? psx_time_named(v) : -1;
     return t >= 0 ? t : port_settings_load().psx_time;
+}
+
+int port_psx_shadow(void)
+{
+    const char *v = getenv("TNFS_PSX_SHADOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_shadow;
 }
 
 int port_psx_light(void)

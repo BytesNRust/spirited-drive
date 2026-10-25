@@ -427,6 +427,7 @@ add_executable(tnfs
     game/viewer/drive_bumper.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
+    game/viewer/soft_shadow.c
     game/viewer/ported_view.c
     game/viewer/ported_viewport.c
     game/viewer/raster.c
@@ -603,6 +604,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_race_detail PRIVATE tnfs_game)
     target_compile_options(test_race_detail PRIVATE ${TNFS_WARNINGS})
     add_test(NAME race_detail COMMAND test_race_detail)
+    add_executable(test_soft_shadow tests/test_soft_shadow.c game/viewer/soft_shadow.c)
+    target_include_directories(test_soft_shadow PRIVATE game .)
+    target_link_libraries(test_soft_shadow PRIVATE tnfs_game)
+    target_compile_options(test_soft_shadow PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME soft_shadow COMMAND test_soft_shadow)
     add_executable(test_drive_slide tests/test_drive_slide.c game/viewer/drive_slide.c)
     target_include_directories(test_drive_slide PRIVATE game . core)
     target_link_libraries(test_drive_slide PRIVATE tnfs_game)

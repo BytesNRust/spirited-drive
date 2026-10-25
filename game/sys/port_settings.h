@@ -34,6 +34,7 @@ typedef struct {
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
     int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
+    int psx_shadow;          /* 1: the PS1 look's soft shadow under each car, weaker in the dark (soft_shadow.h); 0 the exe's quad */
     int psx_time;            /* with psx_light: the PS1's time of day, PSX_TIME_DAWN (files A), PSX_TIME_DAY (B) or PSX_TIME_DUSK (C):
                              * `psx_time=dawn|day|dusk` (a, b, c also read) */
     int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain`, re/notes/weather-design.md; clear */
@@ -44,6 +45,8 @@ int port_render_scale(void);
 
 /* 1 when the race draws with the PS1's light: TNFS_PSX_LIGHT=0/1 when set, else port.cfg's psx_light. */
 int port_psx_light(void);
+/* 1 when the cars have the PS1 look's soft shadow: TNFS_PSX_SHADOW=0/1 when set, else port.cfg's psx_shadow. */
+int port_psx_shadow(void);
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
 /* The weather of the race: TNFS_WEATHER=clear|fog|rain when set, else port.cfg's weather (a WEATHER_* of weather.h). */

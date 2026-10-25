@@ -91,6 +91,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
+    ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
     ported_view_set_light(NULL, NULL);
     ported_view_set_psx_ambient(NULL, 0, NULL);
     ported_view_set_psx_sky(NULL);
