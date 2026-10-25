@@ -18,7 +18,7 @@ enum {
     WORLD_CAPACITY = TRACK_MAX_VERTICES, OBJECT_CAPACITY = TRACK_MAX_OBJECT_VERTICES, RUN_CAPACITY = 1024,
     ROWS = 4, VARIANTS = 8, MIN_DIR_Z = 0x1999,
     FENCE_RIGHT = 0x80, FENCE_LEFT = 0x40, FENCE_LOW = 0x20, FENCE_TEXTURE = 0x20,
-    NODE_POSITION = 8
+    NODE_POSITION = 8, MIRROR_LOD_DISTANCE = 4
 };
 
 typedef struct {
@@ -52,7 +52,7 @@ static void node_position(const TrackRender *r, int32_t node, int32_t out[3])
 
 /* the build of the segments behind: the vertices, and the scenery records on their rows placed as object points, the
  * run of records in node order with where each one's points end */
-static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_t camera_segment)
+static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_t camera_segment, int low_lod)
 {
     TrackBuild *b = &B.build;
     memset(b, 0, sizeof *b);
@@ -62,7 +62,12 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     b->walk = r->build.walk;
     track_objects_start(&b->walk, (int32_t)(b->segment_mask & (uint32_t)first));
     for (int32_t s = first; s <= last; s++)
-        track_build_segment(b, s < camera_segment ? 2 * s - camera_segment : camera_segment, s, ROWS, 1);   /* the level by the distance from the camera, as the exe's from its first */
+    {
+        /* the level by the distance from the camera, as the exe's from its first; the mirror's no finer than the far level */
+        int32_t distance = s < camera_segment ? camera_segment - s : s - camera_segment;
+        if (low_lod && distance < MIRROR_LOD_DISTANCE) distance = MIRROR_LOD_DISTANCE;
+        track_build_segment(b, s - distance, s, ROWS, 1);
+    }
     const TrackObjectWalk *w = &b->walk;
     B.run_count = 0;
     int32_t end = 0;
@@ -271,7 +276,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     if (!a->circuit && first < 0) first = 0;
     const int32_t last = camera_segment + ahead;
     if (last < first || last + 2 >= TRACK_SEGMENT_ENTRIES) return;
-    if (!build_range(r, first, last, camera_segment)) return;
+    if (!build_range(r, first, last, camera_segment, a->low_lod)) return;
 
     Pass *p = &(Pass){ .arm = a, .ctx = *a->ctx, .camera_node = cam->node, .node_mask = (int32_t)r->build.walk.node_mask,
                        .mask = mask, .run_hi = B.run_count - 1 };
@@ -294,7 +299,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     }
     p->glue = (TrackGlue){ r, cam, &p->ctx };
     track_render_fence_ops(&p->glue, &p->fence_ops);
-        TrackObjectDrawOps object_ops;
+    TrackObjectDrawOps object_ops;
     track_render_object_ops(&p->glue, &object_ops);
     p->objects = (TrackObjectDraw){ &B.build.walk, r->nodes, (const int32_t (*)[3])B.object_world,
                                     (const int32_t (*)[3])B.object_camera, (const int32_t (*)[2])B.object_screen,

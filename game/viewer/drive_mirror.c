@@ -13,6 +13,7 @@
 #include "game/race/track_step.h"
 #include "game/sys/bands.h"
 #include "game/viewer/follow_arm.h"
+#include "game/viewer/follow_behind.h"
 #include "game/viewer/modern_road.h"
 #include "game/viewer/screen_layout.h"
 
@@ -356,23 +357,46 @@ static void scene_cars(void *ctx, int32_t node)
     mirror_cars(&ops, &in, node);
 }
 
+/* port (port_follow_camera): the mirror's full-quad draws (the rails' and the scenery boards') and its cars on a row, for
+ * the pass behind the camera (follow_behind.h) */
+static Frame *follow_frame;
+
+static void follow_full(void *user, const FshEntry *texture, const int32_t screen[8])
+{
+    quad_draw_full_tri(user, texture, screen, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
+}
+
+static void follow_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
+{
+    quad_draw_full(user, texture, screen, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
+}
+
+static void follow_cars(void *user, int32_t node)
+{
+    (void)user;
+    scene_cars(follow_frame, node);
+}
+
 /* port (port_follow_camera): the mirror looks back from the car's heading, whichever way the car points along the track: the
  * segments behind the camera's node when the car faces down the track, those ahead of it when it faces back along it (both
- * across the track), by follow_arm.c's rows rather than the exe's five. */
+ * across the track), by the pass behind the camera at the far level of detail, with the rails, scenery and cars on its rows */
 static void follow_scene(Frame *f)
 {
     const RaceState *race = f->w->race;
     const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
-                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL, f->w->port_modern ? draw_camera : NULL, NULL },
+                             { &f->target, draw_uv, follow_full, follow_full_alt, NULL, follow_cars, NULL,
+                               f->w->port_modern ? draw_camera : NULL, NULL },
                              0, 0 };
     TrackCamera cam = { { race->chase.position[0], race->chase.position[1], race->chase.position[2] }, { 0 }, race->chase.node };
     memcpy(cam.matrix, f->m->matrix, sizeof cam.matrix);
     int32_t off = (int32_t)(((uint32_t)f->yaw - (uint32_t)race_node(race, race->chase.node).orientation * 0x400u) & 0xffffff);
     if (off > 0x800000) off = 0x1000000 - off;
-    const FollowArm arm = { f->w->track, &cam, &dc, tri_is_circuit(f->w->tri), 0, 0 };
-    if (off > FOLLOW_MIRROR_AHEAD_ABOVE) follow_arm_draw(&arm, FOLLOW_MIRROR_SEGMENTS, FOLLOW_ARM_AHEAD);
-    if (off < FOLLOW_MIRROR_BEHIND_BELOW) follow_arm_draw(&arm, FOLLOW_MIRROR_SEGMENTS, FOLLOW_ARM_BEHIND);
+    const FollowArm arm = { f->w->track, &cam, &dc, tri_is_circuit(f->w->tri), 0, 0, 1 };
+    follow_frame = f;
+    follow_behind_draw(&arm, off < FOLLOW_MIRROR_BEHIND_BELOW ? FOLLOW_MIRROR_SEGMENTS : 0,
+                       off > FOLLOW_MIRROR_AHEAD_ABOVE ? FOLLOW_MIRROR_SEGMENTS : 0);
+    follow_frame = NULL;
 }
 
 static void scene_op(void *ctx, int32_t count)

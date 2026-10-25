@@ -894,7 +894,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         follow_arm_window(&render, FOLLOW_ARM_SEGMENTS);
         ahead = follow_off_road(pc) <= FOLLOW_EXE_BELOW;
         if (!ahead) {
-            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri), anim_tick, view_mirrored() };
+            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri), anim_tick, view_mirrored(), 0 };
             follow_behind_draw(&arm, FOLLOW_ARM_SEGMENTS, render.draw_segments - 2);
         }
     }
