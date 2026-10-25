@@ -92,6 +92,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
+    ported_view_set_psx_lamps(NULL, 0);
     ported_view_set_light(NULL, NULL);
     ported_view_set_psx_ambient(NULL, 0, NULL);
     ported_view_set_psx_sky(NULL);
@@ -120,6 +121,9 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     load_tint(psx_dir, track, letter);
     ambient_nodes = ring_nodes;
     if (ambient_ok) ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
+    const PsxLamp *lamps = NULL;
+    const int lamp_count = psx_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
+    ported_view_set_psx_lamps(lamps, lamp_count);
     ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
 }

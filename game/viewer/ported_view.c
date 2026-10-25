@@ -82,12 +82,46 @@ static void light_hook(const uint8_t corners[4])
     lit_level = ((255 - mean) * (MODERN_FOG_LEVELS - 1) + 127) / 255;
 }
 
+/* port (the tunnel lamps, psx_lamps.h): the lamp textures of the frame, by their bitmaps, and the darkening tables that let their fitting's
+ * colours through; remade with `lit_tables` */
+enum { LAMPS_MAX = 4, LAMP_VARIANTS = 8 };
+static PsxLamp lamp_spec[LAMPS_MAX];
+static int lamp_count;
+static const FshEntry *lamp_bitmap[LAMPS_MAX][LAMP_VARIANTS];
+static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
+
+void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
+{
+    lamp_count = lamps != NULL && count > 0 ? (count < LAMPS_MAX ? count : LAMPS_MAX) : 0;
+    for (int i = 0; i < lamp_count; i++) lamp_spec[i] = lamps[i];
+}
+
+/* the lamp `texture` is, or -1 */
+static int lamp_of(const FshEntry *texture)
+{
+    for (int i = 0; i < lamp_count; i++)
+        for (int v = 0; v < LAMP_VARIANTS; v++)
+            if (lamp_bitmap[i][v] == texture) return i;
+    return -1;
+}
+
+static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
+{
+    const int lamp = lamp_of(texture);
+    return lamp >= 0 ? lamp_tables[lamp] : lit_tables;
+}
+
+static const uint8_t *lit_table_for(const FshEntry *texture)
+{
+    return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables_for(texture)[lit_level] : NULL;
+}
+
 static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables[lit_level] : NULL; }
 
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
-    const uint8_t *lit = lit_table();
+    const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
     else quad_draw(user, texture, uv, screen, transparent(texture));
 }
@@ -227,14 +261,14 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
             const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
             dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
         }
-        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables, dark);
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    const uint8_t *lit = lit_table();
+    const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
         const MapMode mode = transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP;
         const int32_t right = (int32_t)(int16_t)texture->width - 2, bottom = (int32_t)(int16_t)texture->height - 2;
@@ -248,7 +282,7 @@ static void draw_full(void *user, const FshEntry *texture, const int32_t screen[
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
 static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    const uint8_t *lit = lit_table();
+    const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) {
         const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
         const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
@@ -1138,6 +1172,18 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         if (!made || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
             memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1;
+        }
+        for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
+            for (int v = 0; v < LAMP_VARIANTS; v++) {
+                const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
+                                            ? &art->slots[lamp_spec[i].slot][v] : NULL;
+                lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
+            }
+        for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
+            const FshEntry *t = lamp_bitmap[i][0];
+            uint8_t exempt[256];
+            psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
+            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, lamp_tables[i]);
         }
         track_light_hook = light_hook;
     }

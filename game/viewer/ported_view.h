@@ -15,6 +15,7 @@
 #include "game/race/track_info.h"
 #include "game/race/track_render.h"
 #include "game/race/psx_lgs.h"
+#include "game/race/psx_lamps.h"
 #include "game/race/psx_light.h"
 
 #include "viewer/model_view.h"
@@ -52,6 +53,10 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
 /* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
 void ported_view_set_light(const PsxLight *light, const float tint[3]);
+
+/* port (the PS1 look's light): the track's tunnel lamps (psx_lamps.h), `count` of them (copied; NULL or 0 none): the colours of each
+ * lamp's fitting in its texture are not darkened by the light. Needs ported_view_set_light's light. */
+void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
 
 /* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
 void ported_view_set_soft_shadow(int on);
