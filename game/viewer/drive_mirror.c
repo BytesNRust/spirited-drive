@@ -387,7 +387,7 @@ static void follow_scene(Frame *f)
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
                              { &f->target, draw_uv, follow_full, follow_full_alt, NULL, follow_cars, NULL,
                                f->w->port_modern ? draw_camera : NULL, NULL },
-                             0, 0 };
+                             f->m->near, 0 };
     TrackCamera cam = { { race->chase.position[0], race->chase.position[1], race->chase.position[2] }, { 0 }, race->chase.node };
     memcpy(cam.matrix, f->m->matrix, sizeof cam.matrix);
     int32_t off = (int32_t)(((uint32_t)f->yaw - (uint32_t)race_node(race, race->chase.node).orientation * 0x400u) & 0xffffff);
