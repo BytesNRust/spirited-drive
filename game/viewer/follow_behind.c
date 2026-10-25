@@ -19,7 +19,7 @@ enum {
     WORLD_CAPACITY = TRACK_MAX_VERTICES, OBJECT_CAPACITY = TRACK_MAX_OBJECT_VERTICES, RUN_CAPACITY = 1024,
     ROWS = 4, VARIANTS = 8, MIN_DIR_Z = 0x1999,
     FENCE_RIGHT = 0x80, FENCE_LEFT = 0x40, FENCE_LOW = 0x20, FENCE_TEXTURE = 0x20,
-    NODE_POSITION = 8, MIRROR_LOD_DISTANCE = 4, MIRROR_LEVEL = 1, CARS_LAG = 5
+    NODE_POSITION = 8, MIRROR_LOD_DISTANCE = 4, MIRROR_LEVEL = 1, CUT_GRID = 4, CUT_DIVISOR = 2, CARS_LAG = 5
 };
 
 typedef struct {
@@ -165,36 +165,52 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
     const int32_t v0 = x_shl(x_mul(h, x_sub(x_sub(x_shl(1, 0), 1), 0)), 16);
     const int32_t u1 = x_add(u0, x_shl(w - 1, 16)), v1 = x_add(v0, x_shl(h - 1, 16));
     if (!(u0 < u1 && v0 < v1)) return;
+    const int32_t plane = p->ctx.near / CUT_DIVISOR > 0 ? p->ctx.near / CUT_DIVISOR : 1;   /* nearer than the near plane: the ground under the lens reaches the screen's bottom */
     const int32_t corner_uv[4][2] = { { u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 } };
     int32_t pos[8][3], tex[8][2];
     int n = 0;
     for (int i = 0; i < 4; i++) {
         const int j = (i + 1) & 3;
-        const int in_i = cam[i][2] >= p->ctx.near, in_j = cam[j][2] >= p->ctx.near;
+        const int in_i = cam[i][2] >= plane, in_j = cam[j][2] >= plane;
         if (in_i) {
             for (int k = 0; k < 3; k++) pos[n][k] = cam[i][k];
             tex[n][0] = corner_uv[i][0], tex[n][1] = corner_uv[i][1], n++;
         }
         if (in_i != in_j) {
-            const int32_t f = (int32_t)(((int64_t)p->ctx.near - cam[i][2]) * 0x10000 / ((int64_t)cam[j][2] - cam[i][2]));
+            const int32_t f = (int32_t)(((int64_t)plane - cam[i][2]) * 0x10000 / ((int64_t)cam[j][2] - cam[i][2]));
             lerp3(cam[i], cam[j], f, pos[n]);
-            pos[n][2] = p->ctx.near;
+            pos[n][2] = plane;
             for (int k = 0; k < 2; k++) tex[n][k] = (int32_t)(corner_uv[i][k] + ((int64_t)corner_uv[j][k] - corner_uv[i][k]) * f / 0x10000);
             n++;
         }
     }
     if (n < 3) return;
-    int32_t screen[8][2];
-    for (int i = 0; i < n; i++) view_project(p->ctx.view, pos[i], screen[i]);
     for (int first = 1; first + 1 < n; first += 2) {   /* a fan of quads from vertex 0; a last triangle repeats its corner */
         const int idx[4] = { 0, first, first + 1, first + 2 < n ? first + 2 : first + 1 };
-        int32_t q[8], quv[8];
-        for (int c = 0; c < 4; c++) {
-            q[2 * c] = screen[idx[c]][0], q[2 * c + 1] = screen[idx[c]][1];
-            quv[2 * c] = tex[idx[c]][0], quv[2 * c + 1] = tex[idx[c]][1];
-        }
-        if (outside_signed(&p->ctx.clip, q)) continue;
-        p->ctx.sink.draw_uv(p->ctx.sink.user, t, quv, q);
+        int32_t grid[CUT_GRID + 1][CUT_GRID + 1][2];
+        int32_t grid_uv[CUT_GRID + 1][CUT_GRID + 1][2];
+        for (int gy = 0; gy <= CUT_GRID; gy++)
+            for (int gx = 0; gx <= CUT_GRID; gx++) {
+                const int32_t fx = gx * 0x10000 / CUT_GRID, fy = gy * 0x10000 / CUT_GRID;
+                int32_t top[3], bottom[3], point[3], top_uv[2], bottom_uv[2];
+                lerp3(pos[idx[0]], pos[idx[1]], fx, top), lerp3(pos[idx[3]], pos[idx[2]], fx, bottom);
+                lerp3(top, bottom, fy, point);
+                if (point[2] < plane) point[2] = plane;
+                for (int k = 0; k < 2; k++) {
+                    top_uv[k] = (int32_t)(tex[idx[0]][k] + ((int64_t)tex[idx[1]][k] - tex[idx[0]][k]) * fx / 0x10000);
+                    bottom_uv[k] = (int32_t)(tex[idx[3]][k] + ((int64_t)tex[idx[2]][k] - tex[idx[3]][k]) * fx / 0x10000);
+                    grid_uv[gy][gx][k] = (int32_t)(top_uv[k] + ((int64_t)bottom_uv[k] - top_uv[k]) * fy / 0x10000);
+                }
+                view_project(p->ctx.view, point, grid[gy][gx]);
+            }
+        for (int gy = 0; gy < CUT_GRID; gy++)
+            for (int gx = 0; gx < CUT_GRID; gx++) {
+                const int32_t q[8] = { grid[gy][gx][0], grid[gy][gx][1], grid[gy][gx + 1][0], grid[gy][gx + 1][1],
+                                       grid[gy + 1][gx + 1][0], grid[gy + 1][gx + 1][1], grid[gy + 1][gx][0], grid[gy + 1][gx][1] };
+                const int32_t quv[8] = { grid_uv[gy][gx][0], grid_uv[gy][gx][1], grid_uv[gy][gx + 1][0], grid_uv[gy][gx + 1][1],
+                                         grid_uv[gy + 1][gx + 1][0], grid_uv[gy + 1][gx + 1][1], grid_uv[gy + 1][gx][0], grid_uv[gy + 1][gx][1] };
+                if (!outside_signed(&p->ctx.clip, q)) p->ctx.sink.draw_uv(p->ctx.sink.user, t, quv, q);
+            }
     }
     (void)strip;
 }
@@ -216,7 +232,7 @@ static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
     for (int c = 1; c < 4; c++)
         if (cam[c][2] < lowest_z) lowest_z = cam[c][2];
     const int cut = lowest_z < p->ctx.near && p->ctx.sink.draw_camera == NULL;
-    if (cut && p->arm->low_lod) {   /* the mirror: the polygon cut at the plane */
+    if (cut && near_style) {   /* the polygon cut at the plane */
         const FshEntry *whole = p->fence_ops.texture(p->fence_ops.ctx, record[2 + poly->strip] * VARIANTS + uv->variant + level);
         if (whole != NULL) draw_cut_cell(p, whole, uv, cam, poly->strip);
         return;
