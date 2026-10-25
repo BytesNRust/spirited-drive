@@ -967,15 +967,33 @@ static int present_threads;
 
 void platform_set_present_threads(int threads) { present_threads = threads; }
 
-void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
+static void present_rgb(void)
 {
-    platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
     capture_frame();
     last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
     SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
+}
+
+void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
+{
+    platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
+    present_rgb();
+}
+
+void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                            const PlatformColor half_palette[256], const uint8_t *mask)
+{
+    uint32_t lut[3][256];
+    const PlatformColor *const by_mask[3] = { palette, world_palette, half_palette };
+    for (int m = 0; m < 3; m++)
+        for (int i = 0; i < 256; i++)
+            lut[m][i] = ((uint32_t)by_mask[m][i].r << 16) | ((uint32_t)by_mask[m][i].g << 8) | by_mask[m][i].b;
+    const size_t count = (size_t)fb_width * (size_t)fb_height;
+    for (size_t i = 0; i < count; i++) rgb_buffer[i] = lut[mask[i] > 2 ? 0 : mask[i]][pixels[i]];
+    present_rgb();
 }
 
 uint32_t platform_ticks_ms(void)

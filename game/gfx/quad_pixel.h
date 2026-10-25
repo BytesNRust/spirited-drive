@@ -24,13 +24,17 @@ static inline void paint_texel(const Paint *p, uint8_t *dst, uint8_t texel)
         if (texel < MAP_SHADE_TEXEL) *dst = texel;
         else if (texel == MAP_SHADE_TEXEL) *dst = p->shade[*dst];
         break;
+    case MAP_REMAP: *dst = p->shade[texel]; break;
+    case MAP_REMAP_TRANSPARENT:
+        if (texel != MAP_SKIP_TEXEL) *dst = p->shade[texel];
+        break;
     }
 }
 
 static inline int paint_valid(const Paint *p)
 {
     return (p->mode == MAP_OPAQUE || p->mode == MAP_TRANSPARENT) ||
-           (p->mode == MAP_SHADE && p->shade != NULL);
+           ((p->mode == MAP_SHADE || p->mode == MAP_REMAP || p->mode == MAP_REMAP_TRANSPARENT) && p->shade != NULL);
 }
 
 #endif

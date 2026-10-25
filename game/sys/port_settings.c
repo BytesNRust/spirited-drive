@@ -14,10 +14,25 @@
 #define FOV_MAX 20
 
 static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
+static const char *const PSX_TIME_NAMES[] = { "day", "a", "c" };   /* by PSX_TIME_* */
+
+/* the PSX_TIME_* a name stands for ("day" or "b", "a", "c", any case), or -1 */
+static int psx_time_named(const char *name)
+{
+    char lower[8];
+    size_t i = 0;
+    for (; name[i] != '\0' && i < sizeof lower - 1; i++) lower[i] = (char)(name[i] >= 'A' && name[i] <= 'Z' ? name[i] + 32 : name[i]);
+    lower[i] = '\0';
+    if (name[i] != '\0') return -1;
+    if (strcmp(lower, "day") == 0 || strcmp(lower, "b") == 0) return PSX_TIME_DAY;
+    if (strcmp(lower, "a") == 0) return PSX_TIME_A;
+    if (strcmp(lower, "c") == 0) return PSX_TIME_C;
+    return -1;
+}
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0 };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, PSX_TIME_DAY };
     return d;
 }
 
@@ -70,6 +85,14 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "fog") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->fog = (int)n;
+    } else if (strcmp(key, "psx_light") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->psx_light = (int)n;
+    } else if (strcmp(key, "psx_time") == 0) {
+        const int t = psx_time_named(value);
+        if (t >= 0) s->psx_time = t;
+    } else if (strcmp(key, "psx_dir") == 0) {
+        snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
     }
 }
 
@@ -91,7 +114,7 @@ PortSettings port_settings_parse(const char *text, size_t size)
     PortSettings s = port_settings_defaults();
     size_t pos = 0;
     while (pos < size) {
-        char line[64];
+        char line[PSX_DIR_MAX + 32];   /* port: wide enough for a psx_dir line, the other keys are short */
         size_t len = 0;
         while (pos < size && text[pos] != '\n') {
             if (len < sizeof line - 1)
@@ -115,10 +138,10 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_time=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
-                           s->render_scale, s->laps);
+                           s->render_scale, s->laps, s->psx_dir, s->psx_light, PSX_TIME_NAMES[s->psx_time]);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -166,7 +189,7 @@ PortSettings port_settings_load(void)
 
 bool port_settings_save(const PortSettings *s)
 {
-    char text[256];
+    char text[512];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest */
     const size_t n = port_settings_format(s, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
 }
@@ -182,4 +205,18 @@ int port_render_scale(void)
     const char *v = getenv("TNFS_RENDER_SCALE");
     if (v != NULL && v[0] >= '1' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().render_scale;
+}
+
+int port_psx_time(void)
+{
+    const char *v = getenv("TNFS_PSX_TIME");
+    const int t = v != NULL ? psx_time_named(v) : -1;
+    return t >= 0 ? t : port_settings_load().psx_time;
+}
+
+int port_psx_light(void)
+{
+    const char *v = getenv("TNFS_PSX_LIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_light;
 }

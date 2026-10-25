@@ -85,6 +85,8 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.perspective, b.perspective);
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
+    CHECK_EQ_INT(a.psx_light, b.psx_light);
+    CHECK_EQ_INT(a.psx_time, b.psx_time);
     CHECK_EQ_INT(a.render_scale, b.render_scale);
     CHECK_EQ_INT(a.laps, b.laps);
 }
@@ -106,7 +108,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_time = PSX_TIME_C };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -128,6 +130,17 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(negative, strlen(negative)).laps, 0);
     const char *scaled = "render_scale=2\n";
     CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
+    CHECK_EQ_INT(s.psx_light, 0);
+    const char *lit = "psx_light=1\n";
+    CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
+    const char *bad = "psx_light=2\n";
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).psx_light, 0);
+    CHECK_EQ_INT(s.psx_time, PSX_TIME_DAY);
+    const char *at = "psx_time=A\n", *ct = "psx_time=c\n", *bt = "psx_time=day\n", *no = "psx_time=noon\n";
+    CHECK_EQ_INT(port_settings_parse(at, strlen(at)).psx_time, PSX_TIME_A);
+    CHECK_EQ_INT(port_settings_parse(ct, strlen(ct)).psx_time, PSX_TIME_C);
+    CHECK_EQ_INT(port_settings_parse(bt, strlen(bt)).psx_time, PSX_TIME_DAY);
+    CHECK_EQ_INT(port_settings_parse(no, strlen(no)).psx_time, PSX_TIME_DAY);
 }
 
 static void test_bad_input_keeps_defaults(void)

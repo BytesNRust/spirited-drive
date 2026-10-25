@@ -203,7 +203,7 @@ static void test_rejected_input(void)
     const int32_t negative[4] = { 0, 1, -1, 3 };
     obj_draw_full(&t, &tex, screen, MAP_SHADE, NULL);                      /* no shadow table */
     obj_draw_inset(&t, &other, screen, MAP_OPAQUE, NULL);                   /* other texture type */
-    obj_draw_quad(&t, &tex, uv_tex, screen, (MapMode)3, shade);             /* no such mode */
+    obj_draw_quad(&t, &tex, uv_tex, screen, (MapMode)5, shade);             /* no such mode (0..4 are the mappers') */
     CHECK_EQ_INT(obj_draw_polygon(&t, &tex, 4 | FLAGS_QUAD, 0, uv_tex, 4, identity, screen, 4, bad_index, shade), 0);
     CHECK_EQ_INT(obj_draw_polygon(&t, &tex, 4 | FLAGS_QUAD, 0, uv_tex, 4, identity, screen, 4, negative, shade), 0);
     CHECK_EQ_INT(obj_draw_polygon(&t, &tex, 4 | FLAGS_QUAD, 0, uv_tex, 4, bad_index, screen, 4, identity, shade), 0);

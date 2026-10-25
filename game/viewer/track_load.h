@@ -56,5 +56,8 @@ uint8_t *track_viewer_read_any(const char *data_root, const char *dir, const cha
 
 /* A PPM of `pixels` (w x h) through the palette `rgb`. */
 int track_viewer_write_ppm(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb);
+/* The same where the pixels `world` marks go through `world_rgb` (768 bytes) and the others through `rgb`. */
+int track_viewer_write_ppm_split(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb, const uint8_t *world_rgb,
+                                 const uint8_t *half_rgb, const uint8_t *mask);
 
 #endif

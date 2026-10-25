@@ -9,6 +9,8 @@
 #include "viewer/screen_layout.h"
 #include "viewer/drive_replay.h"
 #include "viewer/ported_view.h"
+#include "viewer/drive_light.h"
+#include "game/sys/port_settings.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -188,8 +190,10 @@ static int run_window(const Track *t, uint8_t *pixels, uint32_t node)
     const PlatformConfig config = { SCREEN_W, SCREEN_H, "TNFS track viewer", 0, 0, 0 };
     if (!platform_init(&config)) return 0;
     PlatformColor palette[256];
+    uint8_t shown_palette[768];
+    drive_light_palette(t->art.palette, shown_palette);   /* port: the PS1 light's time of day */
     for (int i = 0; i < 256; i++)
-        palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
+        palette[i] = (PlatformColor){ shown_palette[3 * i], shown_palette[3 * i + 1], shown_palette[3 * i + 2] };
     float yaw = 0;
     int stand_in = 0;
     for (int running = 1; running && platform_poll_events();) {
@@ -221,14 +225,18 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
     if (ok) {
         printf("%s: %u segments, %s\n", name, t.tri.segment_count, tri_is_circuit(&t.tri) ? "circuit" : "stage");
         node %= t.tri.node_count;
+        drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t.tri.node_count);   /* port: the PS1 light */
         if (screenshot != NULL) {
             render(&t, node, 0, getenv("TNFS_STAND_IN") != NULL, pixels);
-            ok = write_ppm(screenshot, pixels, t.art.palette);
+            uint8_t shown_palette[768];
+            drive_light_palette(t.art.palette, shown_palette);   /* port: the PS1 light's time of day */
+            ok = write_ppm(screenshot, pixels, shown_palette);
         } else {
             ok = run_window(&t, pixels, node);
         }
     }
     free(pixels);
+    drive_light_load(0, 0, NULL, name, 0);
     track_viewer_free(&t);
     return ok;
 }

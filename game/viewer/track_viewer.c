@@ -13,6 +13,10 @@
 #include "game/sys/port_extras.h"
 #include "game/sys/free_laps.h"
 #include "game/race/race_schedule.h"
+#include "game/sys/port_settings.h"
+#include "game/race/car_livery.h"
+#include "viewer/drive_livery.h"
+#include "viewer/drive_light.h"
 #include "game/race/race_replay_image.h"
 #include "viewer/drive_slide.h"
 #include "viewer/drive_joy.h"
@@ -166,6 +170,10 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     if (!car_load_path(car, race, dir, path, stem)) return NULL;
     size_t size = 0;
     drive_cars.file[slot] = read_named(path, strlen(dir), &size);
+    if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
+        const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size);
+        if (count > 0) port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
+    }
     const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
     drive_cars.loaded[slot] = r == CAR_LOAD_OK;
@@ -251,6 +259,29 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
     return drive_link.exchange(&own, drive_menus_on ? drive_menus.game_state : NULL, &link_wait_ticks, seed, flags);
 }
 
+/* port: the PS1 liveries for this race (extras.cfg psx_liveries, port.cfg psx_dir): the player's car wears the livery
+ * its car select's Color line picked (psx_livery_cars); every rival but the player draws its own choice from the race's
+ * seed, so a replay of the seed shows the same rivals' colours. Off, or with no psx_dir, nobody wears one. */
+static void rival_liveries(const RaceField *field, int player)
+{
+    const PortExtras extras = port_extras_load();
+    const PortSettings settings = port_settings_load();
+    memset(drive_cars.livery, 0, sizeof drive_cars.livery);
+    snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
+    port_log("psx_liveries: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
+    if (!extras.psx_liveries || settings.psx_dir[0] == '\0') return;
+    /* the player's own car wears the livery its car select's Color line picked (extras psx_livery_cars) */
+    const int player_car = field->entries[player].car;
+    const int player_livery = psx_livery_car_on(extras.psx_livery_cars, player_car);
+    if (player < RACE_CARS) drive_cars.livery[player] = player_livery;
+    for (int i = 0; i < field->racers && i < RACE_CARS; i++) {
+        if (i == player) continue;
+        drive_cars.livery[i] = car_livery_pick(field->seed, i, field->entries[i].car, player_car, player_livery);
+        port_log("psx_liveries: rival %d (car %d) takes livery %d\n", i, field->entries[i].car, drive_cars.livery[i]);
+    }
+    port_log("psx_liveries: player (car %d) takes livery %d\n", player_car, player_livery);
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
@@ -331,7 +362,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const int wanted = replay_of == NULL && !drive_link_on ? port_laps() : 0;
     const int laps = wanted > 0 ? wanted : exe_laps;
     const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
+    rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
+    drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
     drive_sim.race.port_free_laps = free_race;
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);

@@ -51,10 +51,37 @@ static int transparent(const FshEntry *texture)
     return texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE;
 }
 
+/* port (the PS1 look's light): the terrain polygon being drawn carries one darkness level, the mean of its corners'
+ * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
+ * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
+static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
+static int lit_level;
+static int lit_active;           /* a polygon or object of the light's is being drawn (between the hook's two calls) */
+static int lit_tinted;           /* the ambient colour is not neutral: even full light goes through the tables */
+static float lit_tint[3] = { 1, 1, 1 };
+static uint8_t lit_corner[4];   /* the polygon's corners' intensities, for the Modern 3D road's per-pixel gradient */
+
+static void light_hook(const uint8_t corners[4])
+{
+    lit_active = corners != NULL;
+    if (corners == NULL) {
+        lit_level = 0;
+        memset(lit_corner, 255, sizeof lit_corner);
+        return;
+    }
+    memcpy(lit_corner, corners, sizeof lit_corner);
+    const int mean = (corners[0] + corners[1] + corners[2] + corners[3] + 2) / 4;
+    lit_level = ((255 - mean) * (MODERN_FOG_LEVELS - 1) + 127) / 255;
+}
+
+static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables[lit_level] : NULL; }
+
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
-    quad_draw(user, texture, uv, screen, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    else quad_draw(user, texture, uv, screen, transparent(texture));
 }
 
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
@@ -77,19 +104,54 @@ static const View *modern_view(const View *view) { return modern ? view : NULL; 
 static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
 {
-    modern_road_cell(user, view, texture, uv, cam, transparent(texture));
+    if (lit_active && (lit_tinted || lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255)) {
+        /* the intensities at the polygon's corners (texture (0,0), (w,0), (w,h), (0,h)) across the cell by its uv, a
+         * darkness a pixel takes between two of the tables */
+        float dark[4];
+        const float w = (float)(int16_t)texture->width * 65536.0f, h = (float)(int16_t)texture->height * 65536.0f;
+        for (int i = 0; i < 4; i++) {
+            const float a = fminf(fmaxf(uv[2 * i] / w, 0), 1), b = fminf(fmaxf(uv[2 * i + 1] / h, 0), 1);
+            const float top = lit_corner[0] + (lit_corner[1] - lit_corner[0]) * a;
+            const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
+            dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        }
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables, dark);
+    } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    quad_draw_full_tri(user, texture, screen, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
+        const MapMode mode = transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP;
+        const int32_t right = (int32_t)(int16_t)texture->width - 2, bottom = (int32_t)(int16_t)texture->height - 2;
+        const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom }, uv_b[6] = { right, bottom, 1, bottom, 1, 1 };
+        const int32_t scr_b[6] = { screen[4], screen[5], screen[6], screen[7], screen[0], screen[1] };
+        tri_draw_mode(user, texture, uv_a, screen, mode, lit);
+        tri_draw_mode(user, texture, uv_b, scr_b, mode, lit);
+    } else quad_draw_full_tri(user, texture, screen, transparent(texture));
 }
 
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
 static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    quad_draw_full(user, texture, screen, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) {
+        const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
+        const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+        quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    } else quad_draw_full(user, texture, screen, transparent(texture));
+}
+
+/* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
+static const PsxLight *psx_light;
+
+void ported_view_set_light(const PsxLight *light, const float tint[3])
+{
+    psx_light = light;
+    for (int k = 0; k < 3; k++) lit_tint[k] = light != NULL && tint != NULL ? tint[k] : 1.0f;
+    lit_tinted = lit_tint[0] != 1.0f || lit_tint[1] != 1.0f || lit_tint[2] != 1.0f;
 }
 
 /* Scenery models through the ported 3D engine (00458c04), one object per
@@ -106,7 +168,9 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
     (void)user;
     if (model < 0 || model >= PORTED_VIEW_MODELS || !object_ok[model]) return;
     const Object3DSink sink = object_sink(&object_pixels);
+    object_sink_set_light(lit_table());
     model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
+    object_sink_set_light(NULL);
 }
 
 void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored)
@@ -778,6 +842,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         render.build.knocked = shadow_race->scenery_state;
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
+    track_render_set_light(&render, psx_light);  /* before the build: it fills the light with the vertices */
     track_render_build(&render, tri, art, camera_node);
     if (shadow_race != NULL) {
         render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
@@ -860,7 +925,22 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         raster_record_set_runner(bands_rows);
         raster_record_begin(&recorder, pixels);
     }
+    if (psx_light != NULL) {
+        /* the tables again only when the palette or the tint moved (a fade changes the palette) */
+        static uint8_t made_for[768];
+        static float made_tint[3];
+        static int made;
+        if (!made || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
+            modern_light_tables(art->palette, lit_tint, lit_tables);
+            memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1;
+        }
+        track_light_hook = light_hook;
+    }
+    lit_level = 0;
+    memset(lit_corner, 255, sizeof lit_corner);
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    track_light_hook = NULL;
+    lit_active = 0;
     if (raster_active == &recorder) raster_record_end(&recorder);
 }
 

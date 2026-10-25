@@ -12,6 +12,12 @@
 void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                       const int32_t *const cam[4], int transparent);
 
+/* port (PS1 light): the same cell with a darkness at each corner (0 light .. MODERN_FOG_LEVELS - 1, in cam's order), a
+ * pixel's, interpolated perspective-correct, picking between two of `tables` (MODERN_FOG_LEVELS of them, level 0 the
+ * colours themselves, kept by pointer) by a 4x4 ordered dither, after the fog */
+void modern_road_cell_lit(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
+                          const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4]);
+
 /* port: the 3D object engine's textured polygon (3 or 4 corners) the same way: uv 16.16 per corner, the mapper's
  * mode (a MAP_SHADE texel 0xfe takes shade[] of the pixel under it, `shade` 256 bytes then) */
 void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
@@ -35,5 +41,10 @@ void modern_road_set_style(const ModernStyle *style);
 /* The fog's tables for a palette (768 bytes, as the art's): level l the colour nearest each colour moved l /
  * (MODERN_FOG_LEVELS - 1) of the way to rgb (the palette's scale); 0xfe and 0xff, the mappers' markers, never chosen. */
 void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[MODERN_FOG_LEVELS][256]);
+
+/* port (PS1 light): MODERN_FOG_LEVELS tables of the palette's colours seen by light: level l the colour nearest each colour
+ * times tint (per channel, 1 neutral) times (1 - l / (MODERN_FOG_LEVELS - 1)); with a neutral tint level 0 is each colour
+ * itself. 0xfe and 0xff stay themselves. */
+void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
 #endif

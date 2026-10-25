@@ -81,12 +81,21 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
                        TRACK_MAX_VERTICES, 0, 0, r->entries, r->object_world, TRACK_MAX_OBJECT_VERTICES,
                        { r->descriptors, r->records, (int32_t)count, 0, 0, 0, 0, 0, -1, 0, circuit,
                          circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu, 0 },
-                       0, -1, 0 };
+                       0, -1, 0, r->psx != NULL ? r->light_vertex : NULL, r->psx };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
     r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
                                     circuit ? (int32_t)tri->ring_segments : STAGE_RING,
                                     circuit ? (int32_t)tri->ring_segments - 1 : -1 };
     if (r->reach != 0) track_render_set_reach(r, r->reach);
+}
+
+void track_render_set_light(TrackRender *r, const PsxLight *light)
+{
+    if (light == r->psx) return;
+    r->psx = light;
+    r->build.light = light;
+    r->build.light_out = light != NULL ? r->light_vertex : NULL;
+    r->build.first_node = -1;   /* the track built again with (or without) the light */
 }
 
 /* port: the nearest distance the detail asks for (race_detail.c's NEAREST) */
@@ -347,23 +356,41 @@ static void point_screen(void *ctx, const int32_t world[3], int32_t camera[3], i
     track_point_screen(g->cam, g->ctx, world, camera, screen);
 }
 
+/* port (PS1 light): the polygon the road's draws paint is a lit one while light_now says so; the sink hears of it for the
+ * length of the draw */
+static void light_on(const Glue *g)
+{
+    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_hook(g->r->light_now);
+}
+
+static void light_off(const Glue *g)
+{
+    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_hook(NULL);
+}
+
 static void subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
                       const int32_t screen[8], int32_t near)
 {
     const Glue *g = ctx;
+    light_on(g);
     track_draw_subdivided(g->ctx, t, u_level, 0, u_cell, 0, cam, screen, near);
+    light_off(g);
 }
 
 static void full(void *ctx, const FshEntry *t, const int32_t screen[8])
 {
     const Glue *g = ctx;
+    light_on(g);
     g->ctx->sink.draw_full(g->ctx->sink.user, t, screen);
+    light_off(g);
 }
 
 static void full_alt(void *ctx, const FshEntry *t, const int32_t screen[8])
 {
     const Glue *g = ctx;
+    light_on(g);
     g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
+    light_off(g);
 }
 
 /* the whole texture's uv as 004f9e9c maps it */
@@ -380,7 +407,9 @@ static void full_camera(void *ctx, const FshEntry *t, const int32_t *const cam[4
     const Glue *g = ctx;
     int32_t uv[8];
     whole_uv(t, uv);
+    light_on(g);
     g->ctx->sink.draw_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
+    light_off(g);
 }
 
 static void cars(void *ctx, int32_t node)
@@ -401,24 +430,44 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
     (void)ctx, (void)segments, (void)node, (void)near;
 }
 
+/* port (PS1 light): the object being drawn stands at the walker's node and takes its terrain's light */
+static void object_light_on(const Glue *g)
+{
+    if (track_light_hook == NULL || g->r->psx == NULL) return;
+    const uint8_t v = psx_light_node(g->r->psx, (uint32_t)g->r->build.walk.node);
+    const uint8_t corners[4] = { v, v, v, v };
+    track_light_hook(corners);
+}
+
+static void object_light_off(const Glue *g)
+{
+    if (track_light_hook != NULL && g->r->psx != NULL) track_light_hook(NULL);
+}
+
 static void object_model(void *user, int32_t model, const int32_t position[3], int32_t angle)
 {
     const Glue *g = user;
+    object_light_on(g);
     if (g->ctx->sink.draw_model != NULL) g->ctx->sink.draw_model(g->ctx->sink.user, model, position, (uint32_t)angle);
+    object_light_off(g);
 }
 
 static void object_full(void *user, int32_t texture, const int32_t screen[8])
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
+    object_light_on(g);
     if (t != NULL) g->ctx->sink.draw_full(g->ctx->sink.user, t, screen);
+    object_light_off(g);
 }
 
 static void object_full_alt(void *user, int32_t texture, const int32_t screen[8])
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
+    object_light_on(g);
     if (t != NULL) g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
+    object_light_off(g);
 }
 
 /* port: Modern 3D's scenery board, the whole texture as 004f9e9c maps it, from camera-space corners */
@@ -426,7 +475,9 @@ static void object_full_camera(void *user, int32_t texture, const int32_t *const
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
+    object_light_on(g);
     if (t != NULL) full_camera(user, t, cam);
+    object_light_off(g);
 }
 
 /* port: a scenery board too near for the exe, the whole texture from camera-space corners */
@@ -437,7 +488,9 @@ static void object_near_camera(void *user, int32_t texture, const int32_t *const
     if (t == NULL) return;
     int32_t uv[8];
     whole_uv(t, uv);
+    object_light_on(g);
     g->ctx->sink.port_near_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
+    object_light_off(g);
 }
 
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame)
@@ -459,7 +512,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
     const TrackNearOps near_ops = { (void *)&g, skids, no_alternate };
     const TrackFarInputs far = { r->entries, r->build.segment_mask, r->cache, r->vertex_count, mirrored, 0,
                                  { (const int32_t (*)[3])r->world, (const int32_t (*)[3])r->camera,
-                                   (const int32_t (*)[2])r->screen, ctx->near, ctx->clip },
+                                   (const int32_t (*)[2])r->screen, ctx->near, ctx->clip,
+                                   r->psx != NULL ? r->light_vertex : NULL, r->light_now },
                                  &fence_ops, &objects, &r->quarter };
     /* 00449f50 reads the camera's layout; the clip holds its edges */
     const ViewLayout layout = { 0, 0, 0, 0, 0, 0, ctx->clip.x0, ctx->clip.y0, x_sub(ctx->clip.x1, ctx->clip.x0),
