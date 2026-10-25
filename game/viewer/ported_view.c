@@ -29,6 +29,8 @@
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
+#include "viewer/weather_draw.h"
+#include "game/race/weather.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -60,6 +62,50 @@ static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], co
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
 
 void ported_view_set_modern(int on) { modern = on != 0; }
+
+/* port (weather, re/notes/weather-design.md): WEATHER_CLEAR runs none of it. The tables are made again when the palette or the
+ * weather changes. */
+static int weather;
+typedef struct {
+    uint8_t palette[768];
+    int weather, made;
+    uint8_t fog[3];      /* the fog's colour */
+    uint8_t sky[256];    /* the sky's palette moved toward its colour */
+    uint8_t rain[256];   /* a streak's lightening */
+} WeatherTables;
+
+void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
+
+static const WeatherTables *weather_tables(const TrackArt *art)
+{
+    static WeatherTables wt;
+    if (wt.made && wt.weather == weather && memcmp(wt.palette, art->palette, sizeof wt.palette) == 0) return &wt;
+    static uint8_t scratch[MODERN_FOG_LEVELS][256];
+    uint8_t base[3], sky[3], rain[3];
+    modern_look_fog_colour(art, base);
+    weather_fog_colour(weather, base, wt.fog);
+    weather_sky_colour(weather, wt.fog, sky);
+    modern_fog_tables(art->palette, sky, scratch);
+    memcpy(wt.sky, scratch[weather == WEATHER_RAIN ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL], sizeof wt.sky);
+    weather_rain_colour(rain);
+    modern_fog_tables(art->palette, rain, scratch);
+    memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
+    memcpy(wt.palette, art->palette, sizeof wt.palette);
+    wt.weather = weather, wt.made = 1;
+    return &wt;
+}
+
+typedef struct {
+    uint8_t *pixels;
+    int32_t pitch, left, right;   /* the columns clipped to the buffer */
+    const uint8_t *table;
+} WeatherSky;
+
+static void weather_sky_band(void *user, int top, int bottom)
+{
+    const WeatherSky *s = user;
+    weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->table);
+}
 int ported_view_modern(void) { return modern; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
@@ -836,8 +882,18 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                        box[0], box[2], 0, ring && sky_ring.enabled, art->has_horizon && !ring, bands_threads() != 0 };
     if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
+    const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
+    if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
+        const WeatherSky sky = { pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt->sky };
+        bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, weather_sky_band, (void *)&sky);
+    }
     stream(tri, art, pc->node);
-    modern_road_set_style(modern ? modern_look_style(&look, art, look_filter, look_fog, render.draw_segments) : NULL);
+    if (!modern) modern_road_set_style(NULL);
+    else if (wt != NULL && weather == WEATHER_FOG)
+        modern_road_set_style(modern_look_fixed_fog(&look, art, look_filter, wt->fog, WEATHER_FOG_START, WEATHER_FOG_END));
+    else if (wt != NULL)
+        modern_road_set_style(modern_look_fixed_fog(&look, art, look_filter, wt->fog, WEATHER_RAIN_FOG_START, WEATHER_RAIN_FOG_END));
+    else modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
@@ -862,6 +918,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
     if (raster_active == &recorder) raster_record_end(&recorder);
+    if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
+        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,

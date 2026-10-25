@@ -3,6 +3,7 @@
 #include "test.h"
 
 #include "game/platform/platform.h"
+#include "game/race/weather.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +87,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.render_scale, b.render_scale);
+    CHECK_EQ_INT(a.weather, b.weather);
 }
 
 static void test_defaults(void)
@@ -105,7 +107,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .weather = WEATHER_RAIN };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -120,6 +122,10 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.fov_adjust, 0);   /* untouched keys keep the default */
     CHECK_EQ_INT(s.render_scale, 1);
+    CHECK_EQ_INT(s.weather, WEATHER_CLEAR);
+    const char *foggy = "weather=Fog\n", *stormy = "weather=storm\n";
+    CHECK_EQ_INT(port_settings_parse(foggy, strlen(foggy)).weather, WEATHER_FOG);
+    CHECK_EQ_INT(port_settings_parse(stormy, strlen(stormy)).weather, WEATHER_CLEAR);
     const char *scaled = "render_scale=2\n";
     CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
 }

@@ -33,4 +33,9 @@ void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3]);
  * fog's colour changes. */
 const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int filter, int fog, int32_t segments);
 
+/* port (weather): the style with a fog of the caller's colour and range (camera depths, whole at `end`), whatever the track's
+ * is, and the Texture Filter as asked; the tables are remade when the palette or the colour changes. */
+const ModernStyle *modern_look_fixed_fog(ModernLook *look, const TrackArt *art, int filter, const uint8_t rgb[3], float start,
+                                         float end);
+
 #endif

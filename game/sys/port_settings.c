@@ -1,6 +1,7 @@
 /* port: the port's own settings file (port.cfg). */
 #include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
+#include "game/race/weather.h"
 #include "game/sys/port_extras.h"
 #include "game/viewer/screen_layout.h"
 
@@ -17,7 +18,7 @@ static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1 };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, WEATHER_CLEAR };
     return d;
 }
 
@@ -58,6 +59,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "render_scale") == 0) {
         if (parse_int(value, &n) && n >= 1 && n <= 3)
             s->render_scale = (int)n;
+    } else if (strcmp(key, "weather") == 0) {
+        const int w = weather_named(value);
+        if (w >= 0) s->weather = w;
     } else if (strcmp(key, "perspective") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->perspective = (int)n;
@@ -112,10 +116,10 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nweather=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
-                           s->render_scale);
+                           s->render_scale, weather_name(s->weather));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -172,6 +176,13 @@ PlatformConfig port_platform_config(const char *title)
 {
     const PortSettings s = port_settings_load();
     return (PlatformConfig){ screen_width(s.format), SCREEN_HEIGHT, title, s.scale_integer, s.fullscreen, s.refresh_hz };
+}
+
+int port_weather(void)
+{
+    const char *v = getenv("TNFS_WEATHER");
+    const int w = v != NULL ? weather_named(v) : -1;
+    return w >= 0 ? w : port_settings_load().weather;
 }
 
 int port_render_scale(void)

@@ -11,6 +11,7 @@
 #include "game/race/race_detail.h"
 #include "game/race/race_draw_setup.h"
 #include "game/sys/port_extras.h"
+#include "game/race/weather.h"
 #include "game/race/race_replay_image.h"
 #include "viewer/drive_slide.h"
 #include "viewer/drive_joy.h"
@@ -92,7 +93,9 @@ static void drive_wide_setup(void)
      * (port_settings_load still falls back to extras.cfg for a file written before they moved). The TNFS_MODERN_3D,
      * TNFS_TEXTURE_FILTER and TNFS_FOG env vars override them for the checks. */
     const PortExtras extras = port_extras_load();
-    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective));
+    const int weather = port_weather();   /* port: weather=fog needs the per-pixel fog of Modern 3D, so it turns Modern 3D on */
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective) || weather == WEATHER_FOG);
+    ported_view_set_weather(weather);
     ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
     drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
                        env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
@@ -463,7 +466,9 @@ void track_viewer_graphics_close(const uint8_t *options)
 {
     const PortSettings ps = port_settings_load();
     drive_wide.fov_adjust = ps.fov_adjust;
-    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective));
+    const int weather = port_weather();   /* port: weather=fog needs the per-pixel fog of Modern 3D, so it turns Modern 3D on */
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective) || weather == WEATHER_FOG);
+    ported_view_set_weather(weather);
     ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* as the race's start reads it */
     drive_run_refresh_set(hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : ps.refresh_hz);
