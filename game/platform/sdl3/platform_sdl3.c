@@ -412,6 +412,10 @@ PlatformKey platform_next_key(void)
 
 static int script_key(const char *name)
 {
+    /* port: the page keys, so a page walk can be scripted by keyboard: PGUP and PGDN are the set-1 scancodes the
+     * BIOS codes 0x4900 and 0x5100 are read from (page_keys.c), and HOME and END the ones the exe's own key names
+     * use (key_capture.c). END is the code KP1 already had: the port's set-1 codes carry no extended prefix, so the
+     * keypad's 1 and End are one code here. */
     static const struct { const char *name; int scancode; } KEYS[] = {
         { "UP", 0x48 }, { "DOWN", 0x50 }, { "LEFT", 0x4B }, { "RIGHT", 0x4D },
         { "ENTER", 0x1C }, { "ESC", 0x01 }, { "SPACE", 0x39 },
@@ -419,6 +423,7 @@ static int script_key(const char *name)
         { "F7", 0x41 }, { "F8", 0x42 }, { "F9", 0x43 }, { "F10", 0x44 }, { "F11", 0x57 }, { "F12", 0x58 },
         { "CTRL", 0x1D }, { "ALT", 0x38 }, { "SHIFT", 0x2A },
         { "KP1", 0x4F },
+        { "PGUP", 0x49 }, { "PGDN", 0x51 }, { "HOME", 0x47 }, { "END", 0x4F },
     };
     /* the letters' set-1 scancodes, A..Z */
     static const uint8_t LETTERS[26] = { 0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
@@ -643,6 +648,8 @@ static SDL_Scancode from_set1(int scancode)
 }
 
 int platform_key_sdl(int scancode) { return (int)from_set1(scancode); }
+
+int platform_script_key(const char *name) { return script_key(name); }
 
 bool platform_key_name(int scancode, char *out, size_t size)
 {
