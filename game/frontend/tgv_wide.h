@@ -21,9 +21,24 @@ enum { TGV_WIDE_MAX_CROP_PERCENT = 10 };
  * `height`); 0 when it is fitted to the height with dimmed sides */
 int tgv_wide_fills(int w, int h, int width, int height);
 
-/* `out` as tgv_wide_scale when the picture fills the width; else the picture scaled to `height` (w * height / h wide,
- * centred, nearest at pixel centres), the rest of each row the picture enlarged to cover the width (cut equally at the
- * top and bottom) with each colour replaced by shade[colour] (backdrop_shade_table). */
-void tgv_wide_compose(const uint8_t *pixels, int w, int h, uint8_t *out, int width, int height, const uint8_t shade[256]);
+/* `out` as tgv_wide_scale when the picture fills the width; else the picture, less its outermost `trim_left` and
+ * `trim_right` columns (tgv_edges_trim), scaled to `height` ((w - trims) * height / h wide, centred, nearest at pixel
+ * centres), the rest of each row the same trimmed picture enlarged to cover the width (cut equally at the top and
+ * bottom) with each colour replaced by shade[colour] (backdrop_shade_table). */
+void tgv_wide_compose(const uint8_t *pixels, int w, int h, uint8_t *out, int width, int height, const uint8_t shade[256],
+                      int trim_left, int trim_right);
+
+/* The movies' pictures have a dark column or two at the right edge (the encoder's), which shows once the picture ends
+ * against the sides. Per movie, from its frames: the outermost columns (up to TGV_WIDE_MAX_TRIM a side) that are dark
+ * in most of the frames that are not fades. A column is dark when its brightest pixel's luma (30 / 59 / 11 percent
+ * of the palette's red, green, blue) is at most TGV_EDGE_DARK_LUMA; a frame is a fade when the middle of the picture
+ * is no brighter than TGV_EDGE_LIT_LUMA. */
+enum { TGV_WIDE_MAX_TRIM = 4, TGV_EDGE_DARK_LUMA = 24, TGV_EDGE_LIT_LUMA = 40 };
+typedef struct { int lit; int dark_left[TGV_WIDE_MAX_TRIM]; int dark_right[TGV_WIDE_MAX_TRIM]; } TgvEdges;   /* zero to start */
+
+/* one frame: `pixels` w x h, rgb its palette (3 bytes a colour) */
+void tgv_edges_add(TgvEdges *edges, const uint8_t *pixels, int w, int h, const uint8_t rgb[768]);
+/* the columns to drop on each side: from the outside in, while the column was dark in more than half the lit frames */
+void tgv_edges_trim(const TgvEdges *edges, int *left, int *right);
 
 #endif

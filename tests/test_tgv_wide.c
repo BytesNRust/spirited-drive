@@ -72,7 +72,7 @@ static void test_fitted(void)
     static uint8_t src[320 * 192], out[1120 * 480], ref[1120 * 480], shade[256];
     for (int i = 0; i < 320 * 192; i++) src[i] = (uint8_t)(1 + i % 250);
     for (int c = 0; c < 256; c++) shade[c] = (uint8_t)(c / 2);
-    tgv_wide_compose(src, 320, 192, out, 1120, 480, shade);
+    tgv_wide_compose(src, 320, 192, out, 1120, 480, shade, 0, 0);
     CHECK(out[0 * 1120 + 560] == src[0 * 320 + 160]);                         /* the picture's top row is the screen's */
     CHECK(out[479 * 1120 + 560] == src[191 * 320 + 160]);
     const int left = (1120 - 800) / 2;
@@ -85,12 +85,65 @@ static void test_fitted(void)
     for (int y = 0; y < 480; y++) for (int x = 0; x < left; x++) CHECK(out[y * 1120 + x] <= 125);
     /* filling: the same as tgv_wide_scale */
     tgv_wide_scale(src, 320, 192, ref, 854, 480);
-    tgv_wide_compose(src, 320, 192, out, 854, 480, shade);
+    tgv_wide_compose(src, 320, 192, out, 854, 480, shade, 2, 2);   /* filling ignores the trim */
     CHECK(memcmp(out, ref, 854 * 480) == 0);
+}
+
+/* the edges: a movie with two dark columns on the right and one at the left in most frames, fades and a bright frame */
+static void test_edges(void)
+{
+    uint8_t rgb[768] = { 0 };
+    rgb[3 * 1 + 0] = rgb[3 * 1 + 1] = rgb[3 * 1 + 2] = 200;   /* colour 1: bright; 0 and 2: black */
+    rgb[3 * 3 + 0] = rgb[3 * 3 + 1] = rgb[3 * 3 + 2] = 30;    /* colour 3: luma 30, above the dark limit */
+    enum { W = 40, H = 8 };
+    static uint8_t pic[W * H];
+    TgvEdges e = { 0 };
+    for (int f = 0; f < 10; f++) {
+        for (int i = 0; i < W * H; i++) pic[i] = 1;
+        for (int y = 0; y < H; y++) pic[y * W] = 0, pic[y * W + W - 1] = 0, pic[y * W + W - 2] = 0;
+        if (f == 9) pic[3 * W + W - 3] = 3;   /* a frame whose third right column is lit: not enough of them */
+        if (f < 3) pic[2 * W + W - 2] = 1;    /* three frames where the second right column is bright: still dark in 7 of 10 */
+        tgv_edges_add(&e, pic, W, H, rgb);
+    }
+    memset(pic, 0, sizeof pic);               /* a fade: the middle is dark, so the frame is not counted */
+    tgv_edges_add(&e, pic, W, H, rgb);
+    CHECK(e.lit == 10);
+    int l = -1, r = -1;
+    tgv_edges_trim(&e, &l, &r);
+    CHECK(l == 1 && r == 2);
+    memset(pic, 1, sizeof pic);
+    TgvEdges bright = { 0 };
+    for (int f = 0; f < 4; f++) tgv_edges_add(&bright, pic, W, H, rgb);
+    tgv_edges_trim(&bright, &l, &r);
+    CHECK(l == 0 && r == 0);                  /* bright edges are kept */
+    TgvEdges none = { 0 };
+    tgv_edges_trim(&none, &l, &r);
+    CHECK(l == 0 && r == 0);
+}
+
+/* trimmed: the columns dropped are not in the frame or on the sides, the rest is scaled to the screen's height */
+static void test_trim(void)
+{
+    static uint8_t src[320 * 192], out[1120 * 480], shade[256];
+    for (int i = 0; i < 320 * 192; i++) src[i] = (uint8_t)(1 + i % 250);
+    for (int c = 0; c < 256; c++) shade[c] = (uint8_t)(c / 2);
+    tgv_wide_compose(src, 320, 192, out, 1120, 480, shade, 0, 2);
+    const int fitted = 318 * 480 / 192;        /* 795 */
+    const int left = (1120 - fitted) / 2;
+    CHECK(out[240 * 1120 + left] == src[96 * 320]);
+    CHECK(out[240 * 1120 + left + fitted - 1] == src[96 * 320 + 317 * 1]);   /* the last kept column is 317, not 319 */
+    const int rows = 192 * 1120 / 318;         /* the enlarged copy's height: 676 */
+    CHECK(out[240 * 1120 + 1119] == shade[src[(size_t)((2 * ((rows - 480) / 2 + 240) + 1) * 192 / (2 * rows)) * 320 + 317]]);
+    tgv_wide_compose(src, 320, 192, out, 1120, 480, shade, 3, 3);
+    CHECK(out[240 * 1120 + (1120 - 314 * 480 / 192) / 2] == src[96 * 320 + 3]);
+    tgv_wide_compose(src, 320, 192, out, 1120, 480, shade, 200, 200);   /* nothing left: no trim */
+    CHECK(out[240 * 1120 + 160] == src[96 * 320]);
 }
 
 int main(void)
 {
+    test_edges();
+    test_trim();
     test_mode();
     test_fitted();
     test_exact_double();

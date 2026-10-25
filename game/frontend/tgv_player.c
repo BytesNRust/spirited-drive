@@ -114,6 +114,20 @@ static int wide_width(void)
     return width / scale > VIDEO_WIDTH ? width / scale : 0;
 }
 
+/* port: the dark columns at a movie's edges (tgv_wide.h), from a pass over all its pictures with a state of its own */
+static void scan_edges(const uint8_t *file, size_t size, int *left, int *right)
+{
+    TgvEdges edges = { 0 };
+    TgvState *scan = tgv_open();
+    for (size_t at = 0; scan != NULL && at + CHUNK_HEADER <= size; at += le32(file + at + 4)) {
+        if (!tag_is(file + at, "kVGT") && !tag_is(file + at, "TGVk") && !tag_is(file + at, "fVGT") && !tag_is(file + at, "TGVf")) continue;
+        const uint8_t *shape = tgv_decode(scan, file + at, le32(file + at + 4));
+        if (shape != NULL) tgv_edges_add(&edges, shape + TGV_SHAPE_HEADER, shape[4] | shape[5] << 8, shape[6] | shape[7] << 8, scan->palette);
+    }
+    tgv_close(scan);
+    tgv_edges_trim(&edges, left, right);
+}
+
 static int play(const uint8_t *file, size_t size, TgvState *s)
 {
     const uint32_t start = platform_ticks_ms();
@@ -121,6 +135,8 @@ static int play(const uint8_t *file, size_t size, TgvState *s)
     const int wide = wide_width();
     uint8_t *picture = wide != 0 ? malloc((size_t)wide * VIDEO_HEIGHT) : NULL;
     uint8_t shade[256] = { 0 };
+    int trim_left = 0, trim_right = 0;
+    if (picture != NULL) scan_edges(file, size, &trim_left, &trim_right);
     for (size_t at = 0; at + CHUNK_HEADER <= size; at += le32(file + at + 4)) {
         const int key = tag_is(file + at, "kVGT") || tag_is(file + at, "TGVk");
         if (!key && !tag_is(file + at, "fVGT") && !tag_is(file + at, "TGVf")) continue;
@@ -135,7 +151,7 @@ static int play(const uint8_t *file, size_t size, TgvState *s)
         draw(shape);   /* the frame as before: what the screen is left with after the movie */
         if (picture != NULL) {
             if (key) backdrop_shade_table(s->palette, shade);
-            tgv_wide_compose(shape + TGV_SHAPE_HEADER, shape[4] | shape[5] << 8, shape[6] | shape[7] << 8, picture, wide, VIDEO_HEIGHT, shade);
+            tgv_wide_compose(shape + TGV_SHAPE_HEADER, shape[4] | shape[5] << 8, shape[6] | shape[7] << 8, picture, wide, VIDEO_HEIGHT, shade, trim_left, trim_right);
             video_set_wide_picture(picture, wide);
         }
         video_flip();
