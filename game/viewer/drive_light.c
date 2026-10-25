@@ -106,6 +106,8 @@ static uint8_t *class_layer;
 static size_t class_size;
 static int class_width, class_scale = 1;
 
+void drive_light_tint(float out[3]) { memcpy(out, tint, sizeof tint); }
+
 int drive_light_active(void) { return tint[0] != 1.0f || tint[1] != 1.0f || tint[2] != 1.0f; }
 
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale)

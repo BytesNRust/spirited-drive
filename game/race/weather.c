@@ -49,10 +49,19 @@ void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3])
     else memcpy(out, fog, 3);
 }
 
+void weather_fog_for_tint(const uint8_t fog[3], const float tint[3], uint8_t out[3])
+{
+    for (int k = 0; k < 3; k++) {
+        const float t = tint[k] < 0.05f ? 0.05f : tint[k];
+        const float v = (float)fog[k] * (1.0f + t) / (2.0f * t) + 0.5f;
+        out[k] = (uint8_t)(v > 255.0f ? 255 : v);
+    }
+}
+
 int weather_fog_curve(void)
 {
     const char *v = getenv("TNFS_FOG_CURVE");
-    return v != NULL && strcmp(v, "exp") == 0;
+    return v == NULL || strcmp(v, "line") != 0;
 }
 
 int weather_sky_level(int32_t x, int32_t y, int32_t cx, int32_t cy, float focal, const float up[3], int low, int high)

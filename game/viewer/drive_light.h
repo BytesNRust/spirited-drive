@@ -24,7 +24,9 @@ void drive_light_world_done(const uint8_t *frame, size_t count);
  * LAYER_KEY (the 3D shows: whole). `width` x `height` the layer's size, `scale` the output's over it. Over what the diff finds. */
 enum { PSX_CLASS_DASH = 1, PSX_CLASS_HUD = 2 };
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
-int drive_light_active(void);   /* the tint is not neutral */
+int drive_light_active(void);
+/* The ambient tint of the light loaded, per channel (1 neutral). */
+void drive_light_tint(float out[3]);   /* the tint is not neutral */
 /* The palette with every entry half way from `palette` to drive_light_palette's. */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768]);
 /* The rear-view mirror's picture, in the output frame `width` pixels wide: the 2D layer carries it but it shows the 3D, so it is

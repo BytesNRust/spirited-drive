@@ -2,6 +2,7 @@
 #include "game/race/weather.h"
 #include "test.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static void test_names(void)
@@ -63,8 +64,45 @@ static void test_sky_meets_the_fog_at_the_horizon(void)
     CHECK(mid > 11 * 16 && mid < 15 * 16);
 }
 
+/* the fog for a tinted palette: after the tint it is the day colour with half the tint; neutral changes nothing; clamped */
+static void test_fog_curve_default(void)
+{
+    unsetenv("TNFS_FOG_CURVE");
+    CHECK_EQ_INT(weather_fog_curve(), 1);   /* the exponential is the default */
+    setenv("TNFS_FOG_CURVE", "line", 1);
+    CHECK_EQ_INT(weather_fog_curve(), 0);
+    setenv("TNFS_FOG_CURVE", "exp", 1);
+    CHECK_EQ_INT(weather_fog_curve(), 1);
+    unsetenv("TNFS_FOG_CURVE");
+}
+
+static void test_fog_for_tint(void)
+{
+    const uint8_t fog[3] = { 100, 120, 140 };
+    uint8_t out[3];
+    const float neutral[3] = { 1, 1, 1 };
+    weather_fog_for_tint(fog, neutral, out);
+    CHECK(out[0] == 100 && out[1] == 120 && out[2] == 140);
+    const float tint[3] = { 0.8f, 0.6f, 0.5f };
+    weather_fog_for_tint(fog, tint, out);
+    for (int k = 0; k < 3; k++) {
+        const float shown = (float)out[k] * tint[k], half = (float)fog[k] * (1.0f + tint[k]) / 2.0f;   /* after the palette's tint */
+        CHECK(shown > half - 1.5f && shown < half + 1.5f);
+    }
+    const uint8_t bright[3] = { 250, 250, 250 };
+    const float dark[3] = { 0.1f, 0.1f, 0.1f };
+    weather_fog_for_tint(bright, dark, out);
+    CHECK(out[0] == 255 && out[1] == 255 && out[2] == 255);
+    weather_fog_for_tint(fog, tint, out);   /* in place too */
+    uint8_t again[3] = { 100, 120, 140 };
+    weather_fog_for_tint(again, tint, again);
+    CHECK(memcmp(out, again, 3) == 0);
+}
+
 int main(void)
 {
+    test_fog_curve_default();
+    test_fog_for_tint();
     test_names();
     test_rain_is_a_function_of_drop_and_tick();
     test_rain_bounds_and_scale();

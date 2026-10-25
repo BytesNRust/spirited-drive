@@ -31,6 +31,7 @@
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
 #include "viewer/weather_draw.h"
+#include "viewer/drive_light.h"
 #include "game/race/weather.h"
 
 #include <math.h>
@@ -101,6 +102,7 @@ typedef struct {
     uint8_t sky[256];    /* the sky's palette moved toward its colour */
     uint8_t levels[MODERN_FOG_LEVELS][256];   /* all its levels: the fog's sky gets the fog's whole at the horizon */
     int sky_low, sky_high;
+    float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
 } WeatherTables;
 
@@ -109,11 +111,16 @@ void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER
 static const WeatherTables *weather_tables(const TrackArt *art)
 {
     static WeatherTables wt;
-    if (wt.made && wt.weather == weather && memcmp(wt.palette, art->palette, sizeof wt.palette) == 0) return &wt;
+    float tint[3];
+    drive_light_tint(tint);
+    if (wt.made && wt.weather == weather && memcmp(wt.tint, tint, sizeof tint) == 0 &&
+        memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
+        return &wt;
     static uint8_t scratch[MODERN_FOG_LEVELS][256];
     uint8_t base[3], sky[3], rain[3];
     modern_look_fog_colour(art, base);
     weather_fog_colour(weather, base, wt.fog);
+    weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
     weather_sky_colour(weather, wt.fog, sky);
     modern_fog_tables(art->palette, sky, scratch);
     wt.sky_low = weather == WEATHER_RAIN ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
@@ -124,6 +131,7 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
+    memcpy(wt.tint, tint, sizeof tint);
     wt.weather = weather, wt.made = 1;
     return &wt;
 }
