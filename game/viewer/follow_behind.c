@@ -11,6 +11,7 @@
 #include "game/race/view.h"
 #include "game/sys/fixed_math.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum {
@@ -22,8 +23,7 @@ enum {
 
 typedef struct {
     TrackBuild build;
-    int32_t world[WORLD_CAPACITY][3], camera[WORLD_CAPACITY][3], pushed[WORLD_CAPACITY][3], rail[WORLD_CAPACITY][3],
-        screen[WORLD_CAPACITY][2];
+    int32_t world[WORLD_CAPACITY][3], camera[WORLD_CAPACITY][3], pushed[WORLD_CAPACITY][3], screen[WORLD_CAPACITY][2];
     int32_t object_world[OBJECT_CAPACITY][3], object_camera[OBJECT_CAPACITY][3], object_screen[OBJECT_CAPACITY][2];
     TrackSegmentEntry entries[TRACK_SEGMENT_ENTRIES];
     int32_t run_cursor[RUN_CAPACITY], run_node[RUN_CAPACITY], run_end[RUN_CAPACITY];
@@ -42,13 +42,6 @@ void follow_behind_direction(const int32_t lo[3], const int32_t hi[3], const int
     const int32_t t[3] = { x_sub(lo[0], hi[0]) >> shift, x_sub(lo[1], hi[1]) >> shift, x_sub(lo[2], hi[2]) >> shift };
     mat3_apply(t, matrix, dir);
     if (dir[2] < MIN_DIR_Z) dir[2] = MIN_DIR_Z;
-}
-
-void follow_behind_near_points(const int32_t camera[3], int32_t near, const int32_t dir[3], int32_t pushed[3], int32_t rail[3])
-{
-    memcpy(pushed, camera, 3 * sizeof pushed[0]);
-    track_render_push_near(pushed, near, dir);
-    memcpy(rail, camera[2] > 0 ? pushed : camera, 3 * sizeof rail[0]);
 }
 
 static void node_position(const TrackRender *r, int32_t node, int32_t out[3])
@@ -95,7 +88,6 @@ typedef struct {
     DrawContext ctx;   /* the main view's, with the road direction reversed */
     TrackGlue glue;
     TrackFenceOps fence_ops;
-    TrackFenceInputs fence;
     TrackObjectDraw objects;
     MirrorBounds bounds;
     int32_t camera_node, node_mask, mask, run_lo, run_hi;
@@ -136,6 +128,48 @@ static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
     else p->ctx.sink.draw_full(p->ctx.sink.user, t, quad);
 }
 
+/* one rail panel (0044a2b4's quad: b's top, a's top, a, b) from the points' unpushed camera-space coordinates: clipped to
+ * the near plane like the road's quads, its corners slid along the edges, so a rail that passes the lens runs off the
+ * screen's edge instead of being dropped or pushed out of shape; one wholly behind the lens is not drawn */
+static void draw_rail(Pass *p, const int32_t pair[2], int32_t base, const TrackUv *uv, int level, int32_t texture, int tall)
+{
+    const int32_t height = tall ? 0x20000 : 0xE666;
+    const int32_t a = base + pair[0], b = base + pair[1];
+    int32_t tcam[2][3];
+    const int32_t ends[2] = { b, a };
+    for (int k = 0; k < 2; k++) {
+        const int32_t up[3] = { B.world[ends[k]][0], x_add(B.world[ends[k]][1], height), B.world[ends[k]][2] };
+        to_camera(p->arm->camera, p->ctx.world_shift & 31, up, tcam[k]);
+    }
+    const int32_t *corners[4] = { tcam[0], tcam[1], B.camera[a], B.camera[b] };
+    int32_t clipped[4][3], screen[8];
+    int32_t lowest = corners[0][2];
+    for (int c = 1; c < 4; c++)
+        if (corners[c][2] < lowest) lowest = corners[c][2];
+    if (lowest < p->ctx.near) {
+        if (p->ctx.sink.draw_camera != NULL) {   /* the sink clips the cell itself; wholly behind the lens: nothing */
+            int32_t highest = corners[0][2];
+            for (int c = 1; c < 4; c++)
+                if (corners[c][2] > highest) highest = corners[c][2];
+            if (highest <= 0) return;
+        } else {
+            if (!follow_arm_clip_quad(corners, p->ctx.near, clipped)) return;
+            for (int c = 0; c < 4; c++) corners[c] = clipped[c];
+        }
+    }
+    for (int c = 0; c < 4; c++) {
+        int32_t pushed[3] = { corners[c][0], corners[c][1], corners[c][2] };
+        track_render_push_near(pushed, p->ctx.near, p->ctx.near_dir);
+        view_project(p->ctx.view, pushed, &screen[2 * c]);
+    }
+    if (outcode_shared(&p->ctx.clip, screen, 4) != 0) return;
+    const FshEntry *t = p->fence_ops.texture(p->fence_ops.ctx, x_add(x_add(uv->variant, level), x_shl(texture, 3)));
+    if (t == NULL) return;
+    if (uv->variant == 0) p->fence_ops.subdivide(p->fence_ops.ctx, t, uv->u_level, uv->u_cell, corners, screen, p->ctx.near);
+    else if (p->fence_ops.full_camera != NULL) p->fence_ops.full_camera(p->fence_ops.ctx, t, corners);
+    else p->fence_ops.full_alt(p->fence_ops.ctx, t, screen);
+}
+
 static void draw_fences(Pass *p, const TrackLod *lod, const uint8_t *record, const TrackUv *uv, int32_t base, int32_t at,
                         int level)
 {
@@ -143,8 +177,8 @@ static void draw_fences(Pass *p, const TrackLod *lod, const uint8_t *record, con
     const int32_t texture = (fence & 0x1f) + FENCE_TEXTURE;
     const int tall = (fence & FENCE_LOW) == 0;
     const int pair = (at & 3) * 2;
-    if (fence & FENCE_RIGHT) track_fence_draw(&p->fence_ops, &p->fence, &lod->fence[8 + pair], base, uv, level, texture, tall);
-    if (fence & FENCE_LEFT) track_fence_draw(&p->fence_ops, &p->fence, &lod->fence[pair], base, uv, level, texture, tall);
+    if (fence & FENCE_RIGHT) draw_rail(p, (const int32_t[2]){ lod->fence[8 + pair], lod->fence[8 + pair + 1] }, base, uv, level, texture, tall);
+    if (fence & FENCE_LEFT) draw_rail(p, (const int32_t[2]){ lod->fence[pair], lod->fence[pair + 1] }, base, uv, level, texture, tall);
 }
 
 /* the scenery on a row's node, the walker put on each record in turn: up the run behind the camera, down it ahead */
@@ -250,9 +284,8 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     const int32_t points = B.build.vertex_count;
     for (int32_t i = 0; i < points; i++) {
         to_camera(cam, shift, B.world[i], B.camera[i]);
-        /* what the rails see: a point in front of the lens at the plane, one behind it still where it is (a rail is dropped
-         * when its near end is in front of the plane, so not one that passes the lens) */
-        follow_behind_near_points(B.camera[i], near, p->ctx.near_dir, B.pushed[i], B.rail[i]);
+        memcpy(B.pushed[i], B.camera[i], sizeof B.pushed[i]);
+        track_render_push_near(B.pushed[i], near, p->ctx.near_dir);
         view_project(p->ctx.view, B.pushed[i], B.screen[i]);
     }
     for (int32_t i = 0; i < B.build.walk.vertex_total && i < OBJECT_CAPACITY; i++) {
@@ -261,9 +294,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     }
     p->glue = (TrackGlue){ r, cam, &p->ctx };
     track_render_fence_ops(&p->glue, &p->fence_ops);
-    p->fence = (TrackFenceInputs){ (const int32_t (*)[3])B.world, (const int32_t (*)[3])B.rail,
-                                   (const int32_t (*)[2])B.screen, near, p->ctx.clip };
-    TrackObjectDrawOps object_ops;
+        TrackObjectDrawOps object_ops;
     track_render_object_ops(&p->glue, &object_ops);
     p->objects = (TrackObjectDraw){ &B.build.walk, r->nodes, (const int32_t (*)[3])B.object_world,
                                     (const int32_t (*)[3])B.object_camera, (const int32_t (*)[2])B.object_screen,

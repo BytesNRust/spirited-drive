@@ -23,9 +23,4 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead);
  * nearer the track's start: (lo - hi) >> shift through the matrix, its z at least 0x1999 as 004497d8 has it. */
 void follow_behind_direction(const int32_t lo[3], const int32_t hi[3], const int32_t matrix[9], int shift, int32_t dir[3]);
 
-/* A road point in camera space as the road behind projects it (`pushed`: x and y clamped, in front of `near` onto the plane
- * along `dir`) and as its rails take it (`rail`: that, unless the point is behind the lens, where it stays: the rail
- * whose near end is in front of the plane is dropped, so one that reaches the camera needs the pushed end). */
-void follow_behind_near_points(const int32_t camera[3], int32_t near, const int32_t dir[3], int32_t pushed[3], int32_t rail[3]);
-
 #endif
