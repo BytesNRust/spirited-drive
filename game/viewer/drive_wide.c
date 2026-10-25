@@ -8,12 +8,37 @@
 #include "viewer/dash_box.h"
 #include "game/sys/bands.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_settings.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-DriveWide drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0 };
+DriveWide drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0, 1, NULL };
+
+int drive_wide_active(void) { return drive_wide.width > SCREEN_W || drive_wide.scale > 1; }
+
+uint8_t *drive_wide_canvas(void) { return drive_wide.scale > 1 ? drive_wide.layer : drive_wide.pixels; }
+
+/* the layer's rows [top, bottom) as blocks over the 3D */
+static void finish_band(void *user, int top, int bottom)
+{
+    (void)user;
+    const int s = drive_wide.scale, w = drive_wide.width, out_w = w * s;
+    for (int y = top; y < bottom; y++) {
+        const uint8_t *src = drive_wide.layer + (size_t)y * w;
+        for (int x = 0; x < w; x++) {
+            if (src[x] == LAYER_KEY) continue;
+            for (int j = 0; j < s; j++) memset(drive_wide.pixels + (size_t)(y * s + j) * out_w + x * s, src[x], (size_t)s);
+        }
+    }
+}
+
+void drive_wide_finish(void)
+{
+    if (drive_wide.scale <= 1 || drive_wide.layer == NULL || drive_wide.pixels == NULL) return;
+    bands_rows(0, SCREEN_H, finish_band, NULL);
+}
 
 ScreenFormat drive_screen_format(void)
 {
@@ -42,7 +67,7 @@ void drive_wide_set_viewport(const RaceState *race)
     const int32_t fov_y = screen_fov_y(camera->fov, exe_height, l->height, drive_wide.fov_adjust);
     const int32_t near = near_scale(camera->fov, fov, screen_fov_y(camera->fov, exe_height, l->height, 0), fov_y);
     const PortedViewport vp = { l->left + l->x, l->top + l->y, l->width, l->height, fov, l->scale,
-                                l->left, l->top, l->unknown_20, l->unknown_24, fov_y, near };
+                                l->left, l->top, l->unknown_20, l->unknown_24, fov_y, near, 1 };
     ported_view_set_viewport(&vp);
 }
 
@@ -63,7 +88,7 @@ PortedViewport drive_wide_viewport(const RaceState *race)
     const int32_t fov_y_exe = screen_fov_y(base, orig->height, l.height, 0);
     return (PortedViewport){ l.left + l.x, l.top + l.y, l.width, l.height, fov, l.scale,
                              l.left, l.top, l.unknown_20, l.unknown_24, fov_y,
-                             near_scale(fov - drive_wide.fov_adjust, fov, fov_y_exe, fov_y) };
+                             near_scale(fov - drive_wide.fov_adjust, fov, fov_y_exe, fov_y), 1 };
 }
 
 /* port: the 640 view's box (its row's left, top, +0x20, +0x24) LAYER_KEY on the 640 surface the 3D would go to */
@@ -92,7 +117,7 @@ enum { GRAB_X = 0x208, GRAB_Y = 0x132 };  /* where 00421160 grabs the map's back
 static void wide_strip_gap(const uint8_t *frame, int x0, int x1)
 {
     for (int y = 0; y < HUD_BAR_HEIGHT && x1 > x0; y++)
-        memset(drive_wide.pixels + (size_t)y * drive_wide.width + x0, frame[y * SCREEN_W + STRIP_BACK_X], (size_t)(x1 - x0));
+        memset(drive_wide_canvas() + (size_t)y * drive_wide.width + x0, frame[y * SCREEN_W + STRIP_BACK_X], (size_t)(x1 - x0));
 }
 
 /* port: the dash's own art (004218d0's 'dash', its windshield LAYER_KEY), what the map's box covers */
@@ -122,7 +147,7 @@ static void wide_art_placed(const LayerRect *r, const uint8_t *art)
             const int sx = column[x];
             if (sx < r->left || sx >= r->right) continue;
             const uint8_t p = art[sy * SCREEN_W + sx];
-            if (p != LAYER_KEY) drive_wide.pixels[(size_t)y * drive_wide.width + x] = p;
+            if (p != LAYER_KEY) drive_wide_canvas()[(size_t)y * drive_wide.width + x] = p;
         }
     }
 }
@@ -174,7 +199,7 @@ static void wide_mirror(const uint8_t *frame, const DriveMirror *m, const LayerR
         const int sy = r->top + (int)(((int64_t)y << 16) / cs->scale), dy = at.y + y;
         const uint8_t p = frame[sy * SCREEN_W + mid];
         if (p == LAYER_KEY || dy < 0 || dy >= SCREEN_H) continue;
-        for (int x = x0; x < x0 + gap && x < drive_wide.width; x++) if (x >= 0) drive_wide.pixels[(size_t)dy * drive_wide.width + x] = p;
+        for (int x = x0; x < x0 + gap && x < drive_wide.width; x++) if (x >= 0) drive_wide_canvas()[(size_t)dy * drive_wide.width + x] = p;
     }
     /* the picture's ends from the piece's origin, as the frame's pieces are placed: each scaled on its own, the last
      * column fell short of the frame's edge and the world showed through it */
@@ -193,7 +218,7 @@ static void wide_mirror(const uint8_t *frame, const DriveMirror *m, const LayerR
             const int dx = px + x;
             if (sx >= m->width) sx = m->width - 1;
             if (dx >= 0 && dx < drive_wide.width)
-                drive_wide.pixels[(size_t)dy * drive_wide.width + dx] = m->picture[DRIVE_VIEW_HEADER + sy * m->width + sx];
+                drive_wide_canvas()[(size_t)dy * drive_wide.width + dx] = m->picture[DRIVE_VIEW_HEADER + sy * m->width + sx];
         }
     }
 }
@@ -250,7 +275,7 @@ typedef struct {
 static void compose_band(void *user, int top, int bottom)
 {
     const ComposeJob *job = user;
-    layer_compose_rows(job->c, job->frame, drive_wide.pixels, top, bottom);
+    layer_compose_rows(job->c, job->frame, drive_wide_canvas(), top, bottom);
 }
 
 static void compose_banded(const LayerCompose *c, const uint8_t *frame)
@@ -313,11 +338,12 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
         uint8_t shade[256];
         for (size_t i = 0; i < sizeof screen; i++) screen[i] = frame[i] == LAYER_KEY ? 0 : frame[i];  /* none on black */
         backdrop_shade_table(drive_hud.rgb, shade);
-        backdrop_compose(screen, drive_wide.pixels, drive_wide.width, shade);
+        backdrop_compose(screen, drive_wide_canvas(), drive_wide.width, shade);
         drive_wide.ready = 1;
         return;
     }
-    if (police) memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
+    if (police) memset(drive_wide_canvas(), 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
+    else if (drive_wide.scale > 1) memset(drive_wide.layer, LAYER_KEY, (size_t)drive_wide.width * SCREEN_H);  /* the 3D shows through */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
     if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
@@ -337,10 +363,11 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 /* port: a 640 screen of its own (the link race's wait) centred on black on the wide screen */
 void drive_wide_centre(const uint8_t *frame)
 {
-    if (drive_wide.width <= SCREEN_W) return;
-    memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);
+    if (!drive_wide_active()) return;
+    memset(drive_wide_canvas(), 0, (size_t)drive_wide.width * SCREEN_H);
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, 1 << 16, 0, NULL, 0 };
-    layer_compose(&c, frame, drive_wide.pixels);
+    layer_compose(&c, frame, drive_wide_canvas());
+    drive_wide_finish();
 }
 
 int drive_screen_width(void)
@@ -348,26 +375,43 @@ int drive_screen_width(void)
     return drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W;
 }
 
-/* port: what the frame shows: the wide screen's when there is one */
+/* port: what the frame shows: the wide screen's when there is one (width * scale x 480 * scale) */
 const uint8_t *drive_output(const uint8_t *pixels, int *width)
 {
-    *width = drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W;
-    return drive_wide.width > SCREEN_W ? drive_wide.pixels : pixels;
+    *width = drive_wide_active() ? drive_wide.width * drive_wide.scale : SCREEN_W;
+    return drive_wide_active() ? drive_wide.pixels : pixels;
 }
 
-/* port: the race drawn `width` wide (the headless frames at the format's width, the window at its platform's) */
+int drive_output_height(void)
+{
+    return drive_wide_active() ? SCREEN_H * drive_wide.scale : SCREEN_H;
+}
+
+/* port: the race drawn `width` wide (the headless frames at the format's width, the window at its platform's), and at
+ * port.cfg's render scale (TNFS_RENDER_SCALE) times that each way */
+static int scale_off;
+void drive_wide_scale_off(void) { scale_off = 1; }
+
 void drive_wide_size(int width)
 {
     drive_wide.width = width;
+    drive_wide.scale = scale_off ? 1 : port_render_scale();
     drive_mirror_widen(&drive_hud.mirror, width > SCREEN_W);
-    if (drive_wide.width <= SCREEN_W) return;
-    screen_layouts(drive_wide.width, drive_wide.rows);
-    uint8_t *p = realloc(drive_wide.pixels, (size_t)drive_wide.width * SCREEN_H);
-    if (p == NULL) {
+    free(drive_wide.layer);
+    drive_wide.layer = NULL;
+    if (!drive_wide_active()) return;
+    screen_layouts(drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W, drive_wide.rows);
+    const size_t out = (size_t)drive_wide.width * drive_wide.scale * SCREEN_H * drive_wide.scale;
+    uint8_t *p = realloc(drive_wide.pixels, out);
+    uint8_t *layer = drive_wide.scale > 1 ? malloc((size_t)drive_wide.width * SCREEN_H) : NULL;
+    if (p == NULL || (drive_wide.scale > 1 && layer == NULL)) {
         port_log("track_viewer: no wide screen buffer, 640 x 480\n");
-        drive_wide.width = SCREEN_W;
+        drive_wide.pixels = p != NULL ? p : drive_wide.pixels;
+        free(layer);
+        drive_wide.width = SCREEN_W, drive_wide.scale = 1;
         return;
     }
     drive_wide.pixels = p;
-    memset(p, 0, (size_t)drive_wide.width * SCREEN_H);
+    drive_wide.layer = layer;
+    memset(p, 0, out);
 }

@@ -92,6 +92,10 @@ void pointer_sync_from_os(void)
     int os_x, os_y, width = VIDEO_WIDTH, height = VIDEO_HEIGHT;
     const int moved = platform_mouse(&os_x, &os_y, &os_buttons);
     platform_framebuffer_size(&width, &height);
+    if (height >= 2 * VIDEO_HEIGHT) {   /* port (render scale): the framebuffer is height / 480 times the menus' */
+        const int s = height / VIDEO_HEIGHT;
+        os_x /= s, os_y /= s, width /= s;
+    }
     /* port: on a wide screen the 640 picture is centred; over the darkened sides the pointer does nothing: no
      * move (no highlight) and no click */
     if (width > VIDEO_WIDTH) os_x -= screen_menu_left(width);

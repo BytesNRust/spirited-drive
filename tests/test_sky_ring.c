@@ -89,7 +89,7 @@ static void test_draw(void)
     view_init(&view, 0, 0, 640, 480, 96, 96);
     const int32_t matrix[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
     SkyFrame frame = { &view, matrix, { 0 }, 0x320000, 0, 0, 8, 0, { 320, 240 },
-                       { 0x10000, 640, 0, 0, 640, 480 }, 640, 640, 0, 0, 0 };
+                       { 0x10000, 640, 0, 0, 640, 480 }, 640, 640, 0, 0, 0, 1 };
     Count count = { 0 };
     const SkySink sink = { &count, on_triangle, on_fill, NULL };
     sky_ring_draw(&ring, &info, &frame, &h, &sink);
@@ -184,7 +184,7 @@ static void test_wide(void)
             const int32_t c = (int32_t)lround(cos(a) * 65536.0), s = (int32_t)lround(sin(a) * 65536.0);
             const int32_t matrix[9] = { c, 0, s, 0, 0x10000, 0, -s, 0, c };
             SkyFrame frame = { &view, matrix, { 0 }, yaw, 0, 0, 8, 0, { 560, 240 },
-                               { 0x10000, 1120, 0, 0, 1120, 480 }, 640, 1120, 0, 0, 0 };
+                               { 0x10000, 1120, 0, 0, 1120, 480 }, 640, 1120, 0, 0, 0, 1 };
             Spans exe = { { 0 }, { 0 }, 0, 0, -1 }, port = { { 0 }, { 0 }, 0, 0, -1 };
             const SkySink exe_sink = { &exe, span_triangle, span_fill, NULL };
             const SkySink port_sink = { &port, span_triangle, span_fill, NULL };
@@ -234,7 +234,7 @@ static long sky_holes(const SkyRing *ring, const TrackInfo *info, const FshEntry
     track_camera_matrix(pitch, yaw, roll, 0, 0x10000, matrix);
     memset(surface, HOLE, sizeof surface);
     SkyFrame frame = { view, matrix, { 0 }, yaw, roll, 0, 8, 0, { 0 },
-                       { 0x10000, width, 0, 0, width, WIDE_H }, width, width, 0, 0, 1 };
+                       { 0x10000, width, 0, 0, width, WIDE_H }, width, width, 0, 0, 1, 1 };
     horizon_point(view, 11, yaw, matrix, frame.horizon);
     Paint paint = { { surface, width, 0, 0, width, WIDE_H } };
     const SkySink sink = { &paint, paint_triangle, paint_fill, paint_polygon };

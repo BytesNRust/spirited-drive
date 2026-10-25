@@ -410,6 +410,7 @@ add_executable(tnfs
     game/viewer/model_view.c
     game/viewer/object_sink.c
     game/viewer/ported_view.c
+    game/viewer/ported_viewport.c
     game/viewer/raster.c
     game/viewer/track_load.c
     game/viewer/track_fly.c
@@ -472,6 +473,12 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mirror_on_dash COMMAND test_mirror_on_dash)
+    # port (render scale): the scaled viewport, built into the test with its source
+    add_executable(test_render_scale tests/test_render_scale.c game/viewer/ported_viewport.c)
+    target_include_directories(test_render_scale PRIVATE game)
+    target_link_libraries(test_render_scale PRIVATE tnfs_game)
+    target_compile_options(test_render_scale PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME render_scale COMMAND test_render_scale)
     add_executable(test_modern_road tests/test_modern_road.c game/viewer/modern_road.c)
     target_include_directories(test_modern_road PRIVATE game)
     target_link_libraries(test_modern_road PRIVATE tnfs_game)

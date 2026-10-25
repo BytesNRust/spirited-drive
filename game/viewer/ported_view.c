@@ -672,7 +672,7 @@ void ported_view_set_tick(int32_t tick)
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
-static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0, 0 };
+static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0, 0, 1 };
 
 /* port: the frame the 3D view draws into, 640 x 480 but on a wide screen (ported_view_set_screen) */
 static int32_t screen_w = WIDTH, screen_h = HEIGHT;
@@ -702,9 +702,10 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
                           const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
     const SkyRing *ring = &sky_ring;
+    const int32_t rs = viewport.render_scale > 0 ? viewport.render_scale : 1;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
-                         viewport.sky_height }, screen_w, screen_w, 0, sky_off, 1 };   /* port: wide fields */
+                         viewport.sky_height }, screen_w / rs, screen_w, 0, sky_off, 1, rs };   /* port: wide fields, render scale */
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
@@ -811,7 +812,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     const PortedViewport *vp = &viewport;
     view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov_y != 0 ? vp->fov_y : vp->fov);
     /* port: the exe's rows scale grows with the width (0043a028); past 640 it keeps the 640's zoom */
-    horizon_tables(&horizon, vp->width, vp->fov, screen_horizon_scale(vp->scale, vp->width));
+    const int32_t rs = vp->render_scale > 0 ? vp->render_scale : 1;   /* port (render scale): the zoom of the unscaled width */
+    horizon_tables(&horizon, vp->width, vp->fov, screen_horizon_scale(vp->scale, vp->width / rs));
     RasterTarget target = { pixels, screen_w, screen_h, 0, 0 };
     /* the box (00449f50: the layout's left, top, +0x20, +0x24); left + x, top + y only place the projection */
     const int32_t box[4] = { vp->sky_left, vp->sky_top, vp->sky_left + vp->sky_width, vp->sky_top + vp->sky_height };

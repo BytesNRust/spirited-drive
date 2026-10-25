@@ -72,6 +72,26 @@ static const uint8_t *compose_wide(int width)
     return wide;
 }
 
+/* port (render scale): the race's framebuffer is `s` times as large each way; a menu picture goes to it enlarged by nearest */
+static const uint8_t *enlarged(const uint8_t *picture, int width, int s)
+{
+    static uint8_t *big;
+    static size_t big_size;
+    const size_t size = (size_t)width * s * VIDEO_HEIGHT * s;
+    if (big_size < size) {
+        free(big);
+        big = malloc(size);
+        big_size = big != NULL ? size : 0;
+        if (big == NULL) return NULL;
+    }
+    for (int y = 0; y < VIDEO_HEIGHT * s; y++) {
+        const uint8_t *from = picture + (size_t)(y / s) * width;
+        uint8_t *to = big + (size_t)y * width * s;
+        for (int x = 0; x < width * s; x++) to[x] = from[x / s];
+    }
+    return big;
+}
+
 static void show(void)
 {
     PlatformColor colors[PALETTE_COLORS];
@@ -80,13 +100,18 @@ static void show(void)
     }
     int width = VIDEO_WIDTH, height = VIDEO_HEIGHT;
     platform_framebuffer_size(&width, &height);
+    const int s = height >= VIDEO_HEIGHT ? height / VIDEO_HEIGHT : 1;
+    width /= s;
+    const uint8_t *shown;
     const uint8_t *const backdrop = width > VIDEO_WIDTH ? compose_wide(width) : NULL;
     if (backdrop != NULL) {
-        platform_present(backdrop, colors);
-        return;
+        shown = backdrop;
+    } else {
+        if (overlay != NULL) compose_overlay();
+        shown = overlay != NULL ? composed : front;
     }
-    if (overlay != NULL) compose_overlay();
-    platform_present(overlay != NULL ? composed : front, colors);
+    if (s > 1 && (shown = enlarged(shown, width, s)) == NULL) return;
+    platform_present(shown, colors);
 }
 
 void video_set_overlay(const FshEntry *shape, int x, int y)

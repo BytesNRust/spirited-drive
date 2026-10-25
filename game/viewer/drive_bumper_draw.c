@@ -33,9 +33,9 @@ int drive_bumper_mirror_render(const DriveMirrorWorld *mirror, int32_t mirror_co
  * `pixels` or the wide screen's */
 void drive_bumper_draw(const RaceState *race, uint8_t *pixels, int mirror)
 {
-    const int wide = drive_wide.width > SCREEN_W;
+    const int wide = drive_wide_active();
     if (mirror)
-        drive_bumper_blit(wide ? drive_wide.pixels : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H,
+        drive_bumper_blit(wide ? drive_wide_canvas() : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H,
                           bumper_mirror.picture + DRIVE_MIRROR_SHAPE_HEADER, bumper_mirror.width, bumper_mirror.height,
                           drive_bumper_mirror_at(wide ? drive_wide.width : SCREEN_W, bumper_mirror.width));
     if (drive_bumper.radar && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL && drive_hud.cockpit_ready) {
@@ -50,7 +50,7 @@ void drive_bumper_draw(const RaceState *race, uint8_t *pixels, int mirror)
             art.dark = (uint8_t)palette_nearest(drive_hud.rgb, usable, DRIVE_BUMPER_RADAR_DARK_GREY,
                                                 DRIVE_BUMPER_RADAR_DARK_GREY, DRIVE_BUMPER_RADAR_DARK_GREY);
         }
-        drive_bumper_radar(wide ? drive_wide.pixels : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H, &art,
+        drive_bumper_radar(wide ? drive_wide_canvas() : pixels, wide ? drive_wide.width : SCREEN_W, SCREEN_H, &art,
                            race->unknown_4b92d4, drive_sim.police_lights, drive_bumper_radar_at(wide ? drive_wide.width : SCREEN_W));
     }
 }

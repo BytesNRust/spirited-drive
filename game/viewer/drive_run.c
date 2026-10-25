@@ -1,5 +1,6 @@
 /* --drive's loop: race_run's calls on the sim (00455a5c), the window, TNFS_RUN's headless run, the screenshots and a link
  * race's messages. */
+#include "game/sys/port_log.h"
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
 #include "game/gfx/blit.h"
@@ -341,10 +342,10 @@ static void present_drive(const Track *t, uint8_t *pixels)
     /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
     race_stats_sample(&race_stats, platform_ticks_ms());
     const RaceStatsView view = { .figures = race_stats.meter.figures, .refresh_hz = drive_interp.refresh_hz,
-                                 .interp = drive_interp.on, .width = width, .height = SCREEN_H,
+                                 .interp = drive_interp.on, .width = width, .height = drive_output_height(),
                                  .segments = ported_view_draw_segments(), .modern = ported_view_modern(),
                                  .filter = ported_view_filter_on(), .fog = ported_view_fog_on() };
-    shown = race_stats_compose(&race_stats, shown, width, SCREEN_H, t->art.palette, &view);
+    shown = race_stats_compose(&race_stats, shown, width, drive_output_height(), t->art.palette, &view);
     platform_present(shown, palette);
 }
 
@@ -406,6 +407,16 @@ int drive_window(const Track *t, uint8_t *pixels)
     int platform_w = SCREEN_W, platform_h = SCREEN_H;
     platform_framebuffer_size(&platform_w, &platform_h);
     drive_wide_size(platform_w);  /* port: the race as wide as the platform the menus (or this window) opened */
+    const int scaled = drive_wide.scale > 1;   /* port (render scale): the framebuffer that many times larger for the race */
+    if (scaled) {
+        const PlatformConfig big = { platform_w * drive_wide.scale, SCREEN_H * drive_wide.scale, config.title, config.scale_integer,
+                                     config.fullscreen, config.refresh_hz };
+        if (!platform_reconfigure(&big)) {
+            port_log("drive: no render scale, the framebuffer keeps its size\n");
+            drive_wide_scale_off();
+            drive_wide_size(platform_w);
+        }
+    }
     if (drive_audio_open(&drive_sim.race, drive_cars.data_root) && drive_menus_on) {  /* 004275f8's words for the followed slot */
         RaceEntry *followed = &drive_sim.race.entries[race_slot(drive_sim.race.player)];
         followed->sound_volume = drive_menus.sound_volume, followed->music_volume = drive_menus.music_volume;
@@ -457,6 +468,10 @@ int drive_window(const Track *t, uint8_t *pixels)
     drive_pause.menu = NULL;
     if (drive_menu.ready) drive_menu_close(&drive_menu);
     drive_audio_close();
+    if (drive_wide.scale > 1 && drive_menus_on) {   /* the menus go on at their size */
+        const PlatformConfig menus = port_platform_config(NULL);
+        if (!platform_reconfigure(&menus)) port_log("drive: the framebuffer keeps the race's size\n");
+    }
     if (!drive_menus_on) platform_shutdown();
     return 1;
 }
@@ -478,7 +493,7 @@ int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const 
     render_drive(t, pixels);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    return track_viewer_write_ppm(screenshot, shown, width, SCREEN_H, t->art.palette);
+    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), t->art.palette);
 }
 
 static const RaceRunOps *drive_run_ops(void)
@@ -551,7 +566,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     printf("segments %d\n", (int)ported_view_draw_segments());  /* the F12 overlay's "View n segments" (drive_run.c) */
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    return track_viewer_write_ppm(screenshot, shown, width, SCREEN_H, t->art.palette);
+    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), t->art.palette);
 }
 
 /* --- a link race's messages (004bcb98[2], [3]) --- */

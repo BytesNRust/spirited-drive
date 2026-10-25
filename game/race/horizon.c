@@ -6,7 +6,7 @@
 
 void horizon_tables(HorizonTables *t, int width, int fov, int32_t viewport_scale)
 {
-    /* port guard: wider ones write past the columns (2 x (width / 2) is the last); the port's go to 1120 */
+    /* port guard: wider ones write past the columns (2 x (width / 2) is the last); the port's go to HORIZON_WIDE_WIDTH */
     if (width > HORIZON_WIDE_WIDTH + 1) width = HORIZON_WIDE_WIDTH + 1;
     const int half_fov = fov / 2;
     /* 00405154: the bitmap spans 0x500 pixels per turn. */
