@@ -14,6 +14,7 @@
 #include "game/sys/port_settings.h"
 #include "game/race/car_livery.h"
 #include "viewer/drive_livery.h"
+#include "viewer/drive_light.h"
 #include "game/race/race_replay_image.h"
 #include "viewer/drive_slide.h"
 #include "viewer/drive_joy.h"
@@ -356,6 +357,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const int laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
     rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
+    drive_light_load(port_psx_light(), port_settings_load().psx_dir, name, t->tri.ring_nodes);
     if (drive_menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
         drive_sim.race.unknown_4c5cd4 = drive_menus.explode;
         drive_sim.race.start_input = drive_menus.start_boost;

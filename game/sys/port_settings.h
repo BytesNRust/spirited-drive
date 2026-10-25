@@ -28,7 +28,11 @@ typedef struct {
     /* the folder of the PS1 CD's extracted car files (Z<CAR>.VSM / .WSM) for extras.cfg's psx_liveries; "" none, and
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
+    int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
 } PortSettings;
+
+/* 1 when the race draws with the PS1's light: TNFS_PSX_LIGHT=0/1 when set, else port.cfg's psx_light. */
+int port_psx_light(void);
 
 PortSettings port_settings_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */

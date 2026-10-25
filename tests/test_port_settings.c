@@ -85,6 +85,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.perspective, b.perspective);
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
+    CHECK_EQ_INT(a.psx_light, b.psx_light);
 }
 
 static void test_defaults(void)
@@ -104,7 +105,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .psx_light = 1 };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -118,6 +119,11 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.format, SCREEN_21_9);
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.fov_adjust, 0);   /* untouched keys keep the default */
+    CHECK_EQ_INT(s.psx_light, 0);
+    const char *lit = "psx_light=1\n";
+    CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
+    const char *bad = "psx_light=2\n";
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).psx_light, 0);
 }
 
 static void test_bad_input_keeps_defaults(void)

@@ -31,7 +31,23 @@ typedef struct {
     const int32_t (*screen)[2];  /* 00508084 */
     int32_t near;                /* *(00511fe8) +4 */
     ClipRect clip;               /* 004c78bc */
+    const uint8_t *light;        /* port (PS1 light): the intensity of each point, parallel to `world`; NULL none */
+    uint8_t *light_now;          /* port: 5 bytes: the corners of the polygon about to be drawn, then 1 (the draw reads them) */
 } TrackFenceInputs;
+
+/* port (PS1 light): the corners of the polygon about to be drawn (`corner`: its four vertices' offsets from `first`) in
+ * light_now for the glue to hand to the sink, and cleared after it. Nothing without light. */
+static inline void track_light_set(const TrackFenceInputs *in, int32_t first, const uint8_t corner[4])
+{
+    if (in->light == NULL || in->light_now == NULL) return;
+    for (int k = 0; k < 4; k++) in->light_now[k] = in->light[first + corner[k]];
+    in->light_now[4] = 1;
+}
+
+static inline void track_light_clear(const TrackFenceInputs *in)
+{
+    if (in->light_now != NULL) in->light_now[4] = 0;
+}
 
 /* 0044a2b4 (watcall pair, -, base, uv; variant, texture, tall; ret 0xc):
  * points a = base + pair[0], b = base + pair[1]; nothing when b is nearer

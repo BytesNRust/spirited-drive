@@ -14,6 +14,7 @@
 #include "game/race/mirror_scene.h"
 #include "game/race/track_info.h"
 #include "game/race/track_render.h"
+#include "game/race/psx_light.h"
 
 #include "viewer/model_view.h"
 
@@ -42,6 +43,7 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
 
 /* port: EXTRAS' Modern 3D: the near road clipped against the near plane, projected without pixel snapping and
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
+void ported_view_set_light(const PsxLight *light);  /* port: the PS1 look's light (psx_light.h); NULL, none */
 void ported_view_set_modern(int on);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */

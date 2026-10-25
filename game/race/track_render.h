@@ -70,6 +70,11 @@ typedef struct {
     uint32_t side_face;                      /* 00511fac */
     uint8_t quarter;                         /* 0051204c */
     MirrorBounds bounds;                     /* 00511f88 */
+    /* port (the PS1 look's light, psx_light.h): the intensity of each point of `world`, the light the track is built
+     * with (NULL none) and the four corners' of the terrain polygon being drawn (+ 1 when it is) */
+    uint8_t light_vertex[TRACK_MAX_VERTICES];
+    const PsxLight *psx;
+    uint8_t light_now[5];
 } TrackRender;
 
 /* 004496ac: camera matrix from pitch (+0x40), yaw (+0x44) and roll (+0x48),
@@ -118,6 +123,9 @@ void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int
  * or any other value; the cache window keeps its two segments ahead and five behind. Taken at once, and at every later
  * bind. */
 void track_render_set_reach(TrackRender *r, int32_t segments);
+
+/* port: the PS1's baked light on the terrain's polygons (NULL none): the track is built again with it at the next frame */
+void track_render_set_light(TrackRender *r, const PsxLight *light);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);
 /* 0044aa94's near plane, 004c52c0 >> the shift; with the port's port_near_scale (16.16) brought in by it first */
 int32_t track_render_near(const DrawContext *ctx);

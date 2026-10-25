@@ -62,10 +62,32 @@ static void road_flush(void)
     if (road != NULL) render_list_flush(road);
 }
 
+/* port (the PS1 look's light): the terrain polygon being drawn carries one darkness level, the mean of its corners'
+ * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn at once through the
+ * mappers' remap mode with that level's table, after the recorded road is flushed so the order of the pixels holds */
+static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
+static int lit_level;
+
+static void light_hook(const uint8_t corners[4])
+{
+    if (corners == NULL) {
+        lit_level = 0;
+        return;
+    }
+    const int mean = (corners[0] + corners[1] + corners[2] + corners[3] + 2) / 4;
+    lit_level = ((255 - mean) * (MODERN_FOG_LEVELS - 1) + 127) / 255;
+}
+
+static const uint8_t *lit_table(void) { return lit_level > 0 ? lit_tables[lit_level] : NULL; }
+
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
-    if (road != NULL) render_list_add_quad(road, texture, uv, screen, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) {
+        road_flush();
+        quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    } else if (road != NULL) render_list_add_quad(road, texture, uv, screen, transparent(texture));
     else quad_draw(user, texture, uv, screen, transparent(texture));
 }
 
@@ -89,23 +111,47 @@ static const View *modern_view(const View *view) { return modern ? view : NULL; 
 static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
 {
-    if (road != NULL) render_list_add_road_cell(road, view, texture, uv, cam, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) {
+        road_flush();
+        modern_polygon(user, view, texture, uv, cam, 4, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    } else if (road != NULL) render_list_add_road_cell(road, view, texture, uv, cam, transparent(texture));
     else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    if (road != NULL) render_list_add_full_tri(road, texture, screen, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
+        road_flush();
+        const MapMode mode = transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP;
+        const int32_t right = (int32_t)(int16_t)texture->width - 2, bottom = (int32_t)(int16_t)texture->height - 2;
+        const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom }, uv_b[6] = { right, bottom, 1, bottom, 1, 1 };
+        const int32_t scr_b[6] = { screen[4], screen[5], screen[6], screen[7], screen[0], screen[1] };
+        tri_draw_mode(user, texture, uv_a, screen, mode, lit);
+        tri_draw_mode(user, texture, uv_b, scr_b, mode, lit);
+    } else if (road != NULL) render_list_add_full_tri(road, texture, screen, transparent(texture));
     else quad_draw_full_tri(user, texture, screen, transparent(texture));
 }
 
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
 static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    if (road != NULL) render_list_add_full(road, texture, screen, transparent(texture));
+    const uint8_t *lit = lit_table();
+    if (lit != NULL) {
+        road_flush();
+        const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
+        const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+        quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    } else if (road != NULL) render_list_add_full(road, texture, screen, transparent(texture));
     else quad_draw_full(user, texture, screen, transparent(texture));
 }
+
+/* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
+static const PsxLight *psx_light;
+
+void ported_view_set_light(const PsxLight *light) { psx_light = light; }
 
 /* Scenery models through the ported 3D engine (00458c04), one object per
  * model as the race keeps them. */
@@ -795,6 +841,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         render.build.knocked = shadow_race->scenery_state;
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
+    track_render_set_light(&render, psx_light);  /* before the build: it fills the light with the vertices */
     track_render_build(&render, tri, art, camera_node);
     if (shadow_race != NULL) {
         render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
@@ -870,7 +917,14 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(&view) };
     skid_node = pc->node;
     if (bands_threads() != 0) render_list_begin(&road_list, &quad), road = &road_list;
+    if (psx_light != NULL) {
+        static const uint8_t black[3] = { 0, 0, 0 };
+        modern_fog_tables(art->palette, black, lit_tables);
+        track_light_hook = light_hook;
+    }
+    lit_level = 0;
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    track_light_hook = NULL;
     road_flush();
     road = NULL;
 }

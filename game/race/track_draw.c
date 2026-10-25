@@ -5,6 +5,8 @@
 
 #include <string.h>
 
+void (*track_light_hook)(const uint8_t corners[4]) = NULL;
+
 unsigned outcode_shared(const ClipRect *clip, const int32_t *screen, int count)
 {
     unsigned shared = 0xF;

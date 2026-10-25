@@ -17,7 +17,7 @@ static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, "" };
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, "", 0 };
     return d;
 }
 
@@ -64,6 +64,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "fog") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->fog = (int)n;
+    } else if (strcmp(key, "psx_light") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->psx_light = (int)n;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
     }
@@ -111,10 +114,10 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\npsx_dir=%s\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\npsx_dir=%s\npsx_light=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog,
-                           s->f3_ultra, s->psx_dir);
+                           s->f3_ultra, s->psx_dir, s->psx_light);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -171,4 +174,11 @@ PlatformConfig port_platform_config(const char *title)
 {
     const PortSettings s = port_settings_load();
     return (PlatformConfig){ screen_width(s.format), SCREEN_HEIGHT, title, s.scale_integer, s.fullscreen, s.refresh_hz };
+}
+
+int port_psx_light(void)
+{
+    const char *v = getenv("TNFS_PSX_LIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_light;
 }
