@@ -18,6 +18,10 @@
 
 enum { REPAINT_NONE = 0, REPAINT_MAIN = 1, REPAINT_END = 2, REPAINT_KEEPS = 4 };
 
+/* the draft's classes of a texel (car_repaint_draft): painted, left as it is without a shine (plate, trim, badge, vents), left as it is
+ * with one (glass, lamps) */
+enum { REPAINT_DRAFT_PAINT = 0, REPAINT_DRAFT_MATTE = 1, REPAINT_DRAFT_SHINE = 2 };
+
 typedef struct {
     uint8_t *pixels;     /* the texture's texels, palette indices */
     size_t count;
@@ -44,8 +48,9 @@ typedef struct {
 int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor);
 
 /* The texels the rules above would leave as they are, for the drafts of the hand-made masks: `keep`[t] is `count` bytes for the bank's
- * texture t, set to 1 where the texel is not repainted (a texture that is not a body texture is all 1) and 0 where it is. Nothing in
- * the bank changes. Returns the number of texels marked paint; -1 for a palette type that is not 0x24 or 0x22. */
+ * texture t, set to REPAINT_DRAFT_PAINT where the texel is repainted, and where it is not to REPAINT_DRAFT_SHINE for a lamp slot and its ring, a
+ * dithered glass texel, a glass colour (a neutral under `floor`) and a very saturated colour (a lamp), else to REPAINT_DRAFT_MATTE (a texture
+ * that is not a body texture is all matte). Nothing in the bank changes. Returns the number of texels marked paint; -1 for a palette type that is not 0x24 or 0x22. */
 int car_repaint_draft(const RepaintBank *bank, int floor, uint8_t *const keep[]);
 
 /* The PS1 livery's map: a colour (5 bits a channel) in `pairs` becomes the pair's `to`; a paint colour no pair names takes the

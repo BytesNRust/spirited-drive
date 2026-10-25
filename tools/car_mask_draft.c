@@ -1,10 +1,11 @@
 /* The drafts of the hand-made car masks: for each of the eight cars' body textures (high detail bank), what today's repaint rules leave
- * as it is, as the mask's PNG (car_mask.h: white keep, black paint) and the texture itself in the car's own colours as an RGBA PNG.
+ * as it is, as the mask's PNG (car_mask.h: black paint, grey 128 shine, white matte) and the texture itself in the car's own colours as an RGBA PNG.
  * usage: car_mask_draft <data dir with SIMDATA/CARFAMS> <output dir>
  * writes <output>/<CAR>/<tex>.keep.png and <tex>.rgb.png. The RGB files hold the game's pixels: keep them out of the repository. */
 #include "formats/png.h"
 #include "game/race/car_mask.h"
 #include "game/race/car_paint.h"
+#include "game/race/car_repaint.h"
 #include "game/race/car_load.h"
 #include "game/viewer/drive_livery.h"
 
@@ -47,19 +48,22 @@ static void draft(void *user, int level, const char name[4], int width, int heig
         memcpy(rgba + 4 * i, rgb + 3 * pixels[i], 3);
         rgba[4 * i + 3] = 255;
     }
-    uint8_t *png = NULL, *mask = NULL;
+    uint8_t *classes = malloc(count), *png = NULL, *mask = NULL;
+    for (size_t i = 0; classes != NULL && i < count; i++)
+        classes[i] = keep[i] == REPAINT_DRAFT_PAINT ? CAR_MASK_PAINT : keep[i] == REPAINT_DRAFT_SHINE ? CAR_MASK_SHINE : CAR_MASK_MATTE;
     size_t len = 0, mask_len = 0;
     char path[700];
     if (png_write_rgba(rgba, (uint32_t)width, (uint32_t)height, &png, &len) == PNG_OK) {
         snprintf(path, sizeof path, "%s/%.4s.rgb.png", o->dir, name);
         o->written += write_file(path, png, len);
     }
-    if (car_mask_write(keep, width, height, &mask, &mask_len)) {
+    if (classes != NULL && car_mask_write(classes, width, height, &mask, &mask_len)) {
         snprintf(path, sizeof path, "%s/%.4s.keep.png", o->dir, name);
         o->written += write_file(path, mask, mask_len);
     }
     png_free(png);
     png_free(mask);
+    free(classes);
     free(rgba);
 }
 

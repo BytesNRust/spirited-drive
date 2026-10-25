@@ -228,6 +228,18 @@ static int dithered(const RepaintTexture *tex, size_t i, const uint8_t *family, 
     return others >= DITHER_NEIGHBOURS;
 }
 
+/* a colour a body shows that is not paint but shines in the draft of a mask: the glass (a neutral darker than the floor) and a lamp (a very
+ * saturated colour); the rest of what the rules leave (the plate, the trim, the badge, the vents) is matte */
+enum { LAMP_SPREAD = 90 };
+
+static int shines(const RepaintBank *bank, int entry, int floor)
+{
+    uint8_t c[3];
+    colour_of(bank, entry, c);
+    const int spread = spread_of(c);
+    return (spread <= NEUTRAL_SPREAD && luma_of(c) < (float)floor) || spread >= LAMP_SPREAD;
+}
+
 /* Recolours the family (fn) and rewrites the body's texels to the colours. With `draft` set (one array of `count` bytes a texture) nothing is
  * changed: the texels it would not touch are set to 1, the others to 0, and the number of the others is returned. */
 static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, const Survey *s, uint8_t *const *draft)
@@ -293,15 +305,21 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
     }
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
-        if (draft != NULL) memset(draft[t], 1, tex->count);
+        if (draft != NULL) memset(draft[t], REPAINT_DRAFT_MATTE, tex->count);
         if (tex->body == REPAINT_NONE) continue;
         for (size_t i = 0; i < tex->count; i++) {
-            if (tex->mask != NULL ? tex->mask[i] != 0 : (kept(tex, i) || (guard[t] != NULL && guard[t][i]))) continue;
-            const int to = remap[tex->pixels[i]];
             if (draft != NULL) {
-                if (to >= 0) draft[t][i] = 0, changed++;
+                const int to = remap[tex->pixels[i]];
+                if (tex->mask != NULL ? tex->mask[i] == 0 : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
+                    draft[t][i] = REPAINT_DRAFT_PAINT, changed++;
+                } else if (tex->mask == NULL && !kept(tex, i)) {
+                    draft[t][i] = (uint8_t)((guard[t] != NULL && guard[t][i]) || shines(bank, tex->pixels[i], floor) ? REPAINT_DRAFT_SHINE
+                                                                                                                  : REPAINT_DRAFT_MATTE);
+                }
                 continue;
             }
+            if (tex->mask != NULL ? tex->mask[i] != 0 : (kept(tex, i) || (guard[t] != NULL && guard[t][i]))) continue;
+            const int to = remap[tex->pixels[i]];
             if (to >= 0 && to != tex->pixels[i]) tex->pixels[i] = (uint8_t)to, changed++;
             else if (to == tex->pixels[i]) changed++;
         }
@@ -472,7 +490,7 @@ int car_repaint_draft(const RepaintBank *bank, int floor, uint8_t *const keep[])
     if (s->any) {
         paint = repaint(bank, floor, NULL, NULL, s, keep);
     } else {
-        for (int t = 0; t < bank->texture_count; t++) memset(keep[t], 1, bank->textures[t].count);
+        for (int t = 0; t < bank->texture_count; t++) memset(keep[t], REPAINT_DRAFT_MATTE, bank->textures[t].count);
     }
     free(s);
     return paint;

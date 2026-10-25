@@ -305,13 +305,16 @@ static void test_mask_pairs(void)
     CHECK_MEM(f.pal + 3 * f.body[2], f.pal_before + 3 * TRIM, 3);
 }
 
-/* the draft of a mask: the texels the rules would not paint are 1 and nothing in the bank changes */
+/* the draft of a mask: the texels the rules would not paint are 1 (matte) or 2 (shine) and nothing in the bank changes */
 static void test_draft(void)
 {
     Fixture f;
     make(&f, 0x24);
     f.tex[0].width = SIDE;
     f.tex[0].keep[0][0] = 0, f.tex[0].keep[0][1] = 0, f.tex[0].keep[0][2] = 2, f.tex[0].keep[0][3] = 1;   /* texels 0, 1 */
+    f.body[27] = 0xfe;   /* a lamp slot: it and the ring round it shine; the TRIM texel 26 beside it would have been paint */
+    f.body[44] = 0xfe;
+    set(f.pal, 0xfe, 200, 40, 40), set(f.pal_before, 0xfe, 200, 40, 40);   /* a lamp's red: very saturated too */
     uint8_t body_before[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS];
     memcpy(body_before, f.body, sizeof body_before);
     uint8_t *const keeps[3] = { keep0, keep1, keep2 };
@@ -319,11 +322,15 @@ static void test_draft(void)
     CHECK(paint > 0);
     CHECK_MEM(f.body, body_before, TEXELS);
     CHECK_MEM(f.pal, f.pal_before, sizeof f.pal);
-    CHECK_EQ_INT(keep0[0], 1);   /* in the kept rectangle */
-    CHECK_EQ_INT(keep0[1], 1);
-    CHECK_EQ_INT(keep0[2], 0);   /* TRIM: paint */
-    CHECK_EQ_INT(keep0[3], 1);   /* the glass */
-    CHECK_EQ_INT(keep1[0], 1);   /* not a body texture: all kept */
+    CHECK_EQ_INT(keep0[0], REPAINT_DRAFT_MATTE);   /* in the kept rectangle: a plate */
+    CHECK_EQ_INT(keep0[1], REPAINT_DRAFT_MATTE);
+    CHECK_EQ_INT(keep0[2], REPAINT_DRAFT_PAINT);   /* TRIM: paint */
+    CHECK_EQ_INT(keep0[3], REPAINT_DRAFT_SHINE);   /* the glass: a neutral under the floor */
+    CHECK_EQ_INT(keep0[27], REPAINT_DRAFT_SHINE);
+    CHECK_EQ_INT(keep0[26], REPAINT_DRAFT_SHINE);
+    CHECK_EQ_INT(keep0[28], REPAINT_DRAFT_SHINE);
+    CHECK_EQ_INT(keep0[44], REPAINT_DRAFT_SHINE);
+    CHECK_EQ_INT(keep1[0], REPAINT_DRAFT_MATTE);   /* not a body texture: all kept */
 }
 
 int main(void)

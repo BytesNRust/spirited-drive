@@ -24,8 +24,8 @@ int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[
 int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
 
 /* The draft of a car's masks (car_mask.h) from the rules that repaint it today, for the hand-made ones to start from: for each body
- * texture of each bank, `fn(user, level, name, width, height, pixels, keep, rgb)` with `keep` (width x height, 1 where the rules leave the
- * texel as it is, 0 where they paint it), the texture's palette indices and the car's own colours (`rgb`, 256 x 3, 8 bits). The CFM is not
+ * texture of each bank, `fn(user, level, name, width, height, pixels, keep, rgb)` with `keep` (width x height of REPAINT_DRAFT_*: paint, or the rules leave the
+ * texel as it is, matte or with a shine), the texture's palette indices and the car's own colours (`rgb`, 256 x 3, 8 bits). The CFM is not
  * changed. Returns the number of texels marked paint in all. */
 typedef void (*LiveryDraftFn)(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep,
                               const uint8_t rgb[768]);
