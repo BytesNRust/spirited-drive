@@ -10,7 +10,7 @@ static const float SHADE_POWER = 0.7f;
 /* a body whose main tone is darker than this (near-black: a ratio to it blows small steps up) is mapped by rank over its ramp
  * to a gentle span of the paint's own tone, 1 at the middle */
 static const float DARK_BODY = 56.0f;
-static const float RANK_SPAN = 0.5f;   /* the gain is 1 at the main tone's rank and spans this much across the ramp */
+static const float RANK_SPAN = 0.32f;   /* the gain is 1 at the main tone's rank and spans this much across the ramp */
 /* a dark paint's highlights are lifted by up to this many levels at the shading's top, so black still shows its curves */
 static const float DARK_LIFT = 24.0f;
 

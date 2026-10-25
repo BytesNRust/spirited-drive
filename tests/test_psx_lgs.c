@@ -76,6 +76,25 @@ static void test_ambient_contexts(void)
     CHECK(fabsf(a[0] - (100.0f + 4.4f) / 128) < 1e-4f);
 }
 
+/* the ambient over the world's tint, to 1/step: exactly 1 where the ambient is the world's */
+static void test_ratio(void)
+{
+    static const char T[] = "/* d */\r0,95 10,99 75,37 100,28\r/* s */\r100,100,100\r/* e */\r100,100,100,\r/* n */\r1\r"
+                            "10,12  64  50,100,200  0,0,0\rCRCF";
+    PsxLgs lgs;
+    float r[3], tint[3] = { 100.0f / 128, 100.0f / 128, 100.0f / 128 };
+    CHECK(psx_lgs_parse((const uint8_t *)T, sizeof T - 1, &lgs));
+    psx_lgs_ratio(&lgs, 50, 100, tint, 16, r);
+    CHECK(r[0] == 1.0f && r[1] == 1.0f && r[2] == 1.0f);
+    psx_lgs_ratio(&lgs, 11, 100, tint, 16, r);          /* inside the context: 50/100, 100/100, 200/100, to 1/16 */
+    CHECK(r[0] == 0.5f && r[1] == 1.0f && r[2] == 2.0f);
+    psx_lgs_ratio(&lgs, 11, 100, tint, 4, r);
+    CHECK(r[0] == 0.5f && r[2] == 2.0f);
+    tint[0] = 0.0f;                                     /* a tint of nothing does not divide by it */
+    psx_lgs_ratio(&lgs, 11, 100, tint, 16, r);
+    CHECK(r[0] > 0.0f && r[0] <= 2.0f);
+}
+
 /* a car's table: each palette index to the entry nearest its colour times the ratio; shadow and see-through indices stay */
 static void test_lit_table(void)
 {
@@ -170,5 +189,6 @@ int main(void)
     test_neutral_and_rejected();
     test_ambient_contexts();
     test_lit_table();
+    test_ratio();
     return TEST_REPORT();
 }

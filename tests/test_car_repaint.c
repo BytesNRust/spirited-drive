@@ -89,7 +89,7 @@ static void test_pairs(void)
     CHECK(car_repaint_pairs(&f.bank, pairs, 2, 44) > 0);
     CHECK_MEM(f.pal + 3 * SHARED, f.pal_before + 3 * SHARED, 3);   /* the wheels' grey is not touched */
     CHECK(colour(&f, f.pal, f.body[0], 0) > colour(&f, f.pal, f.body[0], 1) + 100);   /* red */
-    CHECK(colour(&f, f.pal, f.body[2], 0) > colour(&f, f.pal, f.body[2], 1) + 40);    /* the unpaired grey red too */
+    CHECK(colour(&f, f.pal, f.body[2], 0) > colour(&f, f.pal, f.body[2], 1) + 40);    /* the unpaired grey red too (90 is near 120) */
     CHECK_EQ_INT(f.body[3], GLASS);
 }
 
@@ -112,15 +112,32 @@ static void test_keep(void)
     Fixture f;
     make(&f, 0x24);
     f.tex[0].width = SIDE;
-    f.tex[0].keep[0] = 0, f.tex[0].keep[1] = 0, f.tex[0].keep[2] = 2, f.tex[0].keep[3] = 2;   /* texels 0, 1, 8, 9 */
+    f.tex[0].keep[0][0] = 0, f.tex[0].keep[0][1] = 0, f.tex[0].keep[0][2] = 2, f.tex[0].keep[0][3] = 2;   /* texels 0, 1, 8, 9 */
+    f.tex[0].keep[1][0] = 5, f.tex[0].keep[1][1] = 6, f.tex[0].keep[1][2] = 2, f.tex[0].keep[1][3] = 1;   /* and 53, 54 */
     uint8_t body_before[TEXELS];
     memcpy(body_before, f.body, sizeof body_before);
     const uint8_t blue[3] = { 30, 70, 200 };
     CHECK(car_repaint_paint(&f.bank, blue, 44) > 0);
+    CHECK(f.body[53] == body_before[53] && f.body[54] == body_before[54]);   /* a second rectangle */
     CHECK(f.body[0] == body_before[0] && f.body[1] == body_before[1] && f.body[8] == body_before[8] && f.body[9] == body_before[9]);
     CHECK_MEM(f.pal + 3 * ONLY, f.pal_before + 3 * ONLY, 3);   /* the plate still shows ONLY: its colour stays */
     CHECK(f.body[17] != ONLY && colour(&f, f.pal, f.body[17], 2) > colour(&f, f.pal, f.body[17], 0) + 40);   /* the rest is blue */
     CHECK(colour(&f, f.pal, f.body[2], 2) > colour(&f, f.pal, f.body[2], 0) + 40);
+}
+
+/* a colour far darker than the darkest pair (a louvre slat) is left, not mapped to a violet streak */
+static void test_pairs_dark(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    set(f.pal, TRIM, 40, 40, 44);   /* TRIM: 40, the lowest pair is 120 */
+    memcpy(f.xxx, f.pal, sizeof f.xxx);
+    const uint16_t grey120 = (uint16_t)(15 | 15 << 5 | 15 << 10);
+    const CarLiveryPair pairs[1] = { { grey120, (uint16_t)(14 | 1 << 5 | 1 << 10) } };
+    car_repaint_pairs(&f.bank, pairs, 1, 20);
+    CHECK_EQ_INT(f.body[2], TRIM);
+    CHECK_MEM(f.pal + 3 * TRIM, f.pal_before + 3 * TRIM, 0);
+    CHECK_EQ_INT(colour(&f, f.pal, TRIM, 0), 40);
 }
 
 static void test_odd_banks(void)
@@ -190,6 +207,7 @@ int main(void)
     test_pairs();
     test_pairs_between();
     test_keep();
+    test_pairs_dark();
     test_odd_banks();
     test_lamps();
     return TEST_REPORT();

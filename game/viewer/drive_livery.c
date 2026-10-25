@@ -136,9 +136,13 @@ static int texture_class(const char name[4])
 }
 
 /* the number plates, in the high-detail texture's own texels (x, y, w, h; the texture's width tells it from the low-detail one's): left as they were by the repaint, as the plate's grey would take the paint */
-static const struct { const char *stem, name[5]; int width, rect[4]; } PLATES[] = {
-    { "ANSX", "rsid", 257, { 0, 87, 13, 13 } }, { "ANSX", "frnt", 65, { 19, 17, 11, 6 } },
-    { "LDIABL", "rear", 37, { 20, 0, 10, 11 } }, { "LDIABL", "rsid", 284, { 196, 80, 88, 48 } }, { "LDIABL", "frnt", 24, { 12, 5, 6, 4 } },
+static const struct { const char *stem, name[5]; int width, rects[REPAINT_KEEPS][4]; } PLATES[] = {
+    { "ANSX", "rsid", 257, { { 0, 87, 13, 13 } } }, { "ANSX", "frnt", 65, { { 19, 17, 11, 6 } } },
+    /* the Diablo VT: the plate, the narrow strip between the inner lamps (reverse and fog lenses, the lettering) and the two vents under
+     * the lamps; the rest of the rear is body colour */
+    { "LDIABL", "rear", 37, { { 20, 0, 10, 11 } } },
+    { "LDIABL", "rsid", 284, { { 246, 83, 21, 16 }, { 220, 83, 64, 10 }, { 196, 100, 44, 9 }, { 268, 100, 16, 9 } } },
+    { "LDIABL", "frnt", 24, { { 12, 5, 6, 4 } } },
 };
 
 static void keep_plate(RepaintTexture *tex, const char *upper, const char name[4], int width)
@@ -146,7 +150,7 @@ static void keep_plate(RepaintTexture *tex, const char *upper, const char name[4
     for (size_t k = 0; k < sizeof PLATES / sizeof *PLATES; k++)
         if (strcmp(PLATES[k].stem, upper) == 0 && memcmp(PLATES[k].name, name, 4) == 0 && PLATES[k].width == width) {
             tex->width = width;
-            memcpy(tex->keep, PLATES[k].rect, sizeof tex->keep);
+            memcpy(tex->keep, PLATES[k].rects, sizeof tex->keep);
         }
 }
 

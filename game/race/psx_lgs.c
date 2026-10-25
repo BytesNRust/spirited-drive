@@ -76,6 +76,18 @@ void psx_lgs_tint(const PsxLgs *lgs, float tint[3])
     for (int k = 0; k < 3; k++) tint[k] = (float)(lgs->start[k] + lgs->end[k]) / (2.0f * NEUTRAL);
 }
 
+void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const float tint[3], int step, float out[3])
+{
+    float a[3];
+    psx_lgs_ambient(lgs, segment, segment_count, a);
+    const int max = 2 * step;
+    for (int k = 0; k < 3; k++) {
+        const float world = tint[k] > 0.01f ? tint[k] : 0.01f;
+        int q = (int)(a[k] / world * (float)step + 0.5f);
+        out[k] = (float)(q > max ? max : q) / (float)step;
+    }
+}
+
 void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out[256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */

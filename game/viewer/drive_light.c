@@ -21,6 +21,9 @@ static PsxLight light;
 static float tint[3] = { 1, 1, 1 };
 static PsxLgs ambient;
 static int ambient_ok;   /* ambient holds the LGS read */
+static uint32_t ambient_nodes;
+static int32_t dash_node = -1;   /* the node of the car the dash is of; -1 none */
+enum { DASH_STEP = 32 };
 static PsxSkyDraw sky_draw;
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
@@ -38,6 +41,7 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
 {
     tint[0] = tint[1] = tint[2] = 1.0f;
     ambient_ok = 0;
+    dash_node = -1;
     char path[LIGHT_PATH];
     file_path(path, sizeof path, psx_dir, track, letter, "LGS");
     size_t size = 0;
@@ -113,6 +117,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     }
     light = parsed;
     load_tint(psx_dir, track, letter);
+    ambient_nodes = ring_nodes;
     if (ambient_ok) ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
     ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
@@ -173,11 +178,21 @@ void drive_light_world_class(const uint8_t *layer, int width, int height, int sc
     class_width = width, class_scale = scale < 1 ? 1 : scale;
 }
 
+void drive_light_dash_node(int32_t node) { dash_node = node; }
+
+/* the dash's art: half the world's tint, as the dawn / dusk base, times the ambient at the car's segment over the world's tint */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768])
 {
     uint8_t full[768];
     psx_tint_palette(palette, tint, full);
     for (int i = 0; i < 768; i++) out[i] = (uint8_t)((palette[i] + full[i] + 1) / 2);
+    if (!ambient_ok || dash_node < 0 || ambient_nodes < 4) return;
+    float ratio[3];
+    psx_lgs_ratio(&ambient, (int)(((uint32_t)dash_node & (ambient_nodes - 1u)) >> 2), (int)(ambient_nodes >> 2), tint, DASH_STEP, ratio);
+    if (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f) return;
+    uint8_t base[768];
+    memcpy(base, out, sizeof base);
+    psx_tint_palette(base, ratio, out);
 }
 
 void drive_light_world_rect(int width, int x, int y, int w, int h)

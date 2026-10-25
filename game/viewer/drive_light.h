@@ -27,7 +27,9 @@ void drive_light_world_class(const uint8_t *layer, int width, int height, int sc
 int drive_light_active(void);
 /* The ambient tint of the light loaded, per channel (1 neutral). */
 void drive_light_tint(float out[3]);   /* the tint is not neutral */
-/* The palette with every entry half way from `palette` to drive_light_palette's. */
+/* The node of the car the dash is of, which sets its ambient (the LGS context there, over the world's tint); -1, none. */
+void drive_light_dash_node(int32_t node);
+/* The palette with every entry half way from `palette` to drive_light_palette's, times the dash's ambient ratio (drive_light_dash_node). */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768]);
 /* The rear-view mirror's picture, in the output frame `width` pixels wide: the 2D layer carries it but it shows the 3D, so it is
  * the world's (tinted); w <= 0 clears it. Set again each frame by the compose. */

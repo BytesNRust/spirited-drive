@@ -267,7 +267,7 @@ void ported_view_set_light(const PsxLight *light, const float tint[3])
 
 /* port (the PS1 light on the cars): the ambient colour by segment (a node is 4 to a segment) over the world's tint is the ratio each car's
  * colours are scaled by, as a table by the nearest palette entry; the ratio is kept to 1/16 and the tables cached by it */
-enum { AMBIENT_TABLES = 8, AMBIENT_STEP = 16, AMBIENT_MAX = 32 };
+enum { AMBIENT_TABLES = 8, AMBIENT_STEP = 16 };
 static PsxLgs ambient;
 static int ambient_on;
 static uint32_t ambient_nodes;
@@ -278,7 +278,7 @@ void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const f
     ambient_on = lgs != NULL && tint != NULL && ring_nodes >= 4;
     if (!ambient_on) return;
     ambient = *lgs, ambient_nodes = ring_nodes;
-    for (int k = 0; k < 3; k++) ambient_tint[k] = tint[k] > 0.01f ? tint[k] : 0.01f;
+    for (int k = 0; k < 3; k++) ambient_tint[k] = tint[k];
 }
 
 /* the table for a car at `node`, NULL when its ambient is the world's */
@@ -288,14 +288,12 @@ static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
     static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
     static uint8_t made_for[768];
     static int next, valid;
-    float a[3];
+    float ratio[3];
     const uint32_t n = (uint32_t)node & (ambient_nodes - 1u);
-    psx_lgs_ambient(&ambient, (int)(n >> 2), (int)(ambient_nodes >> 2), a);
+    psx_lgs_ratio(&ambient, (int)(n >> 2), (int)(ambient_nodes >> 2), ambient_tint, AMBIENT_STEP, ratio);
     int key[3], neutral = 1;
     for (int k = 0; k < 3; k++) {
-        const float ratio = a[k] / ambient_tint[k];
-        key[k] = (int)(ratio * AMBIENT_STEP + 0.5f);
-        key[k] = key[k] > AMBIENT_MAX ? AMBIENT_MAX : key[k];
+        key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;
     }
     if (neutral) return NULL;
@@ -305,7 +303,6 @@ static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
     }
     for (int i = 0; i < AMBIENT_TABLES; i++)
         if (cache[i].used && memcmp(cache[i].key, key, sizeof key) == 0) return cache[i].table;
-    const float ratio[3] = { (float)key[0] / AMBIENT_STEP, (float)key[1] / AMBIENT_STEP, (float)key[2] / AMBIENT_STEP };
     const int slot = next;
     next = (next + 1) % AMBIENT_TABLES;
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;

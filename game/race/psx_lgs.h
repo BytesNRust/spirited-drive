@@ -36,6 +36,10 @@ void psx_lgs_tint(const PsxLgs *lgs, float tint[3]);
  * track; PSX_LGS_BLEND segments outside a context its colour fades in and out into the default one. */
 void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float out[3]);
 
+/* The ambient at `segment` over the world's `tint`, per channel, rounded to 1/`step` and at most 2 (a tint under 0.01 counts as 0.01): what the
+ * cars' and the dash's colours are scaled by. Exactly 1 where the ambient is what the world already has. */
+void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const float tint[3], int step, float out[3]);
+
 /* A car's colour table under an ambient colour that differs from the world's: index c maps to the palette entry nearest the colour
  * of c times `ratio` (per channel, ambient / the world's tint); the shadow and see-through indices (0xfe, 0xff) stay. Ratios of 1 give the
  * identity. */

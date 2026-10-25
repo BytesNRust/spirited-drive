@@ -333,6 +333,13 @@ static void run_frame(void *ctx, int32_t frame)
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
+/* port: the PS1 light's ambient at the car the dash is of (drive_light.h) */
+static void light_dash_node(void)
+{
+    const Car *car = drive_sim.race.cars[race_slot(drive_sim.race.player)];
+    drive_light_dash_node(car != NULL ? car->node : -1);
+}
+
 /* port: the PS1 light's time of day tints the 3D's pixels only (drive_light.h), the picture as the window shows it */
 static int write_drive_ppm(const char *path, const uint8_t *shown, int width, const uint8_t *palette)
 {
@@ -340,6 +347,7 @@ static int write_drive_ppm(const char *path, const uint8_t *shown, int width, co
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
     if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
     uint8_t world[768], half[768];
+    light_dash_node();
     drive_light_palette(palette, world);
     drive_light_palette_half(palette, half);
     return track_viewer_write_ppm_split(path, shown, width, height, palette, world, half, mask);
@@ -349,6 +357,7 @@ static void present_drive(const Track *t, uint8_t *pixels)
 {
     PlatformColor palette[256], world[256], half[256];
     uint8_t world_palette[768], half_palette[768];
+    light_dash_node();
     drive_light_palette(t->art.palette, world_palette);   /* port: the PS1 light's time of day, for the 3D's pixels */
     drive_light_palette_half(t->art.palette, half_palette);   /* and half of it for the dash's art */
     for (int i = 0; i < 256; i++) {  /* the police screen writes the palette (00476460) */

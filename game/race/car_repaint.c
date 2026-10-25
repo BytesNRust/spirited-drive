@@ -73,12 +73,16 @@ typedef struct {
     int any;
 } Survey;
 
-/* 1 when texel `i` of `tex` is in the rectangle left as it was (the plate) */
+/* 1 when texel `i` of `tex` is in one of the rectangles left as they were (the plate, the black trim) */
 static int kept(const RepaintTexture *tex, size_t i)
 {
-    if (tex->keep[2] <= 0 || tex->keep[3] <= 0 || tex->width <= 0) return 0;
+    if (tex->width <= 0) return 0;
     const int x = (int)(i % (size_t)tex->width), y = (int)(i / (size_t)tex->width);
-    return x >= tex->keep[0] && x < tex->keep[0] + tex->keep[2] && y >= tex->keep[1] && y < tex->keep[1] + tex->keep[3];
+    for (int k = 0; k < REPAINT_KEEPS; k++) {
+        const int *r = tex->keep[k];
+        if (r[2] > 0 && r[3] > 0 && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) return 1;
+    }
+    return 0;
 }
 
 static void survey(const RepaintBank *bank, int floor, Survey *s)
@@ -274,6 +278,9 @@ int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor)
 
 /* ----- the PS1 livery ----- */
 
+/* a colour darker than this fraction of the lowest pair's lightness is not mapped */
+static const float BELOW_LOWEST = 0.75f;
+
 typedef struct {
     const CarLiveryPair *pairs;
     int count;
@@ -290,7 +297,7 @@ static void colour8(uint16_t c, uint8_t out[3])
 }
 
 /* a texel with a pair of its own takes its colour; one between two pairs takes the colour between theirs, by lightness (the
- * nearer pair's whole colour would stripe a ramp); one beyond the ends takes the end pair's, darker as it is, if below */
+ * nearer pair's whole colour would stripe a ramp); one beyond the ends takes the end pair's (darker as it is when below, and left when well below) */
 static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3])
 {
     const PairsCtx *p = ctx;
@@ -320,6 +327,7 @@ static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3
     } else if (lo >= 0) {
         memcpy(out, a, 3);
     } else {
+        if (y < BELOW_LOWEST * hi_y) return 0;   /* darker than any body tone: a slat or a shadow, left */
         const float f = y / hi_y;
         for (int i = 0; i < 3; i++) out[i] = (uint8_t)((float)b[i] * f + 0.5f);
     }

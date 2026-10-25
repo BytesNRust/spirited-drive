@@ -16,7 +16,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { REPAINT_NONE = 0, REPAINT_MAIN = 1, REPAINT_END = 2 };
+enum { REPAINT_NONE = 0, REPAINT_MAIN = 1, REPAINT_END = 2, REPAINT_KEEPS = 4 };
 
 typedef struct {
     uint8_t *pixels;     /* the texture's texels, palette indices */
@@ -24,7 +24,7 @@ typedef struct {
     int body;            /* REPAINT_MAIN for topv, rsid, bott, wing; REPAINT_END for frnt and rear (the lamps, the plate and the badge are
                           * there too); 0 for any other */
     int width;           /* the texture's width in texels, for `keep` */
-    int keep[4];         /* x, y, w, h: a rectangle of texels left as they were (the plate); w 0: none */
+    int keep[REPAINT_KEEPS][4];   /* x, y, w, h: rectangles of texels left as they were (the plate, the black trim); w 0: unused */
 } RepaintTexture;
 
 typedef struct {
