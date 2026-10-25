@@ -3,6 +3,7 @@
 
 #include "game/sys/bands.h"
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef __SSE4_1__
 #include <smmintrin.h>
@@ -189,9 +190,8 @@ void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t
 }
 
 /* 0043a18c's band blended: the same rows ((height - 1) x scale from y, the bitmap's from first_row), clipped */
-static void smooth_band(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
+static void blend_band(const Draw *d, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
 {
-    const Draw *d = user;
     const HorizonTables *t = d->t;
     const int32_t w = horz->width, h = horz->height;
     if (t->scale <= 0 || w <= 0 || h <= 0) return;
@@ -224,6 +224,113 @@ static void smooth_band(void *user, const FshEntry *horz, int32_t x_offset, int3
         for (int i = x0; i < x1; i++)
             dst[i] = pairs[i].only >= 0 ? (uint8_t)pairs[i].only : pair_blend(d->s, &pairs[i], wv, x + i, sy);
     }
+}
+
+/* port: the band's pixels kept from the last frame. A car on a straight keeps the camera's yaw, and the band is a function of
+ * the bitmap, the palette, the columns and where it falls, so the same draw again is a copy. Everything the draw reads is
+ * in the key and compared whole (the bitmap, palette and columns by content, not address), so a hit is the pixels a
+ * redraw would make. One slot to a render band (bands_index): a band is run by one thread at a time. */
+typedef struct {
+    int valid, ready;
+    int32_t x_offset, first_row, x, y, scale, width, bw, bh;
+    ClipRect clip;
+    uint8_t palette[768];
+    int32_t *columns;
+    uint8_t *bitmap;
+    size_t columns_cap, bitmap_cap, out_cap;
+    uint8_t *out;   /* the band's rows y0 .. y1 by x0 .. x1, tight */
+    int32_t out_x0, out_x1, out_y0, out_y1;
+    unsigned long hits;
+} BandCache;
+
+static BandCache band_cache[BANDS_MAX];
+static int cache_on = 1;
+
+void horizon_smooth_cache_enable(int on) { cache_on = on; }
+
+static int grow(void **p, size_t *cap, size_t need)
+{
+    if (need > *cap) {
+        void *n = realloc(*p, need);
+        if (n == NULL) return 0;
+        *p = n, *cap = need;
+    }
+    return 1;
+}
+
+void horizon_smooth_cache_reset(void)
+{
+    for (int i = 0; i < BANDS_MAX; i++) {
+        free(band_cache[i].columns), free(band_cache[i].bitmap), free(band_cache[i].out);
+        band_cache[i] = (BandCache){ 0 };
+    }
+}
+
+unsigned long horizon_smooth_cache_hits(void)
+{
+    unsigned long n = 0;
+    for (int i = 0; i < BANDS_MAX; i++) n += band_cache[i].hits;
+    return n;
+}
+
+static int same_clip(const ClipRect *a, const ClipRect *b)
+{
+    return a->x0 == b->x0 && a->x1 == b->x1 && a->y0 == b->y0 && a->y1 == b->y1;
+}
+
+static int cache_matches(const BandCache *c, const Draw *d, const FshEntry *horz, int32_t x_offset, int32_t first_row,
+                         int32_t x, int32_t y)
+{
+    const HorizonTables *t = d->t;
+    const size_t bitmap = (size_t)horz->width * (size_t)horz->height;
+    return c->valid && c->ready == d->s->ready && c->x_offset == x_offset && c->first_row == first_row && c->x == x &&
+           c->y == y && c->scale == t->scale && c->width == t->width && c->bw == horz->width && c->bh == horz->height &&
+           same_clip(&c->clip, d->clip) && memcmp(c->palette, d->s->palette, sizeof c->palette) == 0 &&
+           memcmp(c->columns, t->columns, (size_t)t->width * sizeof *t->columns) == 0 &&
+           memcmp(c->bitmap, horz->payload, bitmap) == 0;
+}
+
+static void smooth_band(void *user, const FshEntry *horz, int32_t x_offset, int32_t first_row, int32_t x, int32_t y)
+{
+    const Draw *d = user;
+    const HorizonTables *t = d->t;
+    const int32_t w = horz->width, h = horz->height;
+    if (t->scale <= 0 || w <= 0 || h <= 0 || t->width < 0 || t->width > HORIZON_WIDE_WIDTH) return;
+    const int slot = bands_index();
+    BandCache *c = &band_cache[slot >= 0 && slot < BANDS_MAX ? slot : 0];
+    if (!cache_on) {
+        blend_band(d, horz, x_offset, first_row, x, y);
+        return;
+    }
+    if (cache_matches(c, d, horz, x_offset, first_row, x, y) && c->out != NULL) {
+        const size_t span = (size_t)(c->out_x1 - c->out_x0);
+        for (int32_t sy = c->out_y0; sy < c->out_y1; sy++)
+            memcpy(d->target->pixels + (size_t)sy * d->target->pitch + c->out_x0, c->out + (size_t)(sy - c->out_y0) * span,
+                   span);
+        c->hits++;
+        return;
+    }
+    blend_band(d, horz, x_offset, first_row, x, y);
+    /* keep it: the rows and columns the draw wrote */
+    const int32_t rows = (int32_t)(((int64_t)t->scale * (h - 1) + 0x8000) >> 16);
+    const int32_t y0 = y > d->clip->y0 ? y : d->clip->y0, y1 = y + rows < d->clip->y1 ? y + rows : d->clip->y1;
+    const int32_t x0 = x + (d->clip->x0 > x ? d->clip->x0 - x : 0);
+    const int32_t x1 = x + (d->clip->x1 - x < t->width ? d->clip->x1 - x : t->width);
+    c->valid = 0;
+    if (y1 <= y0 || x1 <= x0) return;
+    const size_t span = (size_t)(x1 - x0), bitmap = (size_t)w * (size_t)h;
+    if (!grow((void **)&c->columns, &c->columns_cap, (size_t)t->width * sizeof *t->columns) ||
+        !grow((void **)&c->bitmap, &c->bitmap_cap, bitmap) || !grow((void **)&c->out, &c->out_cap, span * (size_t)(y1 - y0)))
+        return;
+    for (int32_t sy = y0; sy < y1; sy++)
+        memcpy(c->out + (size_t)(sy - y0) * span, d->target->pixels + (size_t)sy * d->target->pitch + x0, span);
+    memcpy(c->columns, t->columns, (size_t)t->width * sizeof *t->columns);
+    memcpy(c->bitmap, horz->payload, bitmap);
+    memcpy(c->palette, d->s->palette, sizeof c->palette);
+    c->ready = d->s->ready, c->x_offset = x_offset, c->first_row = first_row, c->x = x, c->y = y, c->scale = t->scale;
+    c->width = t->width, c->bw = w, c->bh = h, c->clip = *d->clip;
+    c->out_x0 = x0, c->out_x1 = x1, c->out_y0 = y0, c->out_y1 = y1;
+    c->valid = 1;
 }
 
 void horizon_draw_flat_smooth(const HorizonSmooth *s, const HorizonTables *t, const HorizonTarget *target,

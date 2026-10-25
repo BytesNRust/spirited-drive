@@ -789,6 +789,7 @@ void ported_view_forget_track(void)
 {
     render.tri = NULL;
     ported_view_set_models(NULL, NULL, 0);  /* the next track's models sit at the same address, bound to these textures */
+    horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
 }
 
 void ported_view_set_reach(int32_t segments)

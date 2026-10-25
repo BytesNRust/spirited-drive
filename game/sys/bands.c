@@ -45,6 +45,7 @@ typedef struct {
 static void run_band(void *user, int index)
 {
     const Split *s = user;
+    bands_set_index(index);
     const int rows = s->bottom - s->top;
     const int from = s->top + (int)((int64_t)rows * index / s->count);
     const int to = s->top + (int)((int64_t)rows * (index + 1) / s->count);
@@ -56,6 +57,7 @@ void bands_rows(int top, int bottom, void (*fn)(void *ctx, int top, int bottom),
     const int n = bands_threads();
     if (bottom <= top) return;
     if (n == 0) {
+        bands_set_index(0);
         fn(ctx, top, bottom);
         return;
     }

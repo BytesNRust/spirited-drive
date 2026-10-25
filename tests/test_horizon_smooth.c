@@ -2,6 +2,7 @@
  * centres as it is magnified, each blend the palette's nearest colour; a texel's own colour kept where all four
  * neighbours are it, a 4x4 ordered dither on the blends. Without it the exe's band (horizon.c). */
 #include "viewer/horizon_smooth.h"
+#include "game/sys/bands.h"
 #include "test.h"
 
 #include <stdlib.h>
@@ -109,11 +110,66 @@ static void test_wrap_same_row(void)
         for (int x = 4; x < W; x++) CHECK(screen[y * W + x] == screen[y * W + x - 4]);
 }
 
+/* the band cache: any sequence of draws, the inputs changed one at a time (in place too: the same bitmap address with other
+ * texels), comes out as the draws without the cache, on any of the bands' slots; and a repeated draw is a copy */
+static uint32_t lcg_state = 12345;
+static uint32_t lcg(void) { return lcg_state = lcg_state * 1664525u + 1013904223u; }
+
+static void test_cache_exact(void)
+{
+    static uint8_t reference[W * H], palette_b[768];
+    static HorizonSmooth s;
+    static HorizonTables t;
+    horizon_smooth_cache_reset();
+    make_palette();
+    memcpy(palette_b, palette, sizeof palette_b);
+    for (int i = 0; i < 34; i++) palette_b[3 * i + 2] = (uint8_t)(palette_b[3 * i + 2] + 40);
+    for (int i = 0; i < BW * BH; i++) texels[i] = (uint8_t)(lcg() >> 20 & 1 ? 2 + (lcg() >> 24) % 32 : 1);
+    horizon_smooth_palette(&s, palette);
+    int width = W, fov = 90;
+    int32_t scale = 0x20000;
+    horizon_tables(&t, width, fov, scale);
+    ClipRect clip = { 0, 0, W, H };
+    int32_t yaw = 0, line = 205;
+    int mirrored = 0, sky_off = 0, band = 0, use_b = 0;
+    const unsigned long before = horizon_smooth_cache_hits();
+    for (int iter = 0; iter < 600; iter++) {
+        switch (lcg() >> 16 & 31) {   /* most iterations repeat; one input moves on the others */
+        case 0: texels[lcg() % (BW * BH)] = (uint8_t)(lcg() >> 24); break;
+        case 1: use_b ^= 1, horizon_smooth_palette(&s, use_b ? palette_b : palette); break;
+        case 2: width = W + (int)(lcg() >> 24) % 3 * 80, horizon_tables(&t, width, fov, scale); break;
+        case 3: fov = 60 + (int)(lcg() >> 24) % 3 * 15, scale = 0x18000 + (int32_t)(lcg() >> 24) % 3 * 0x8000, horizon_tables(&t, width, fov, scale); break;
+        case 4: clip.x0 = (int)(lcg() >> 24) % 40, clip.x1 = W - (int)(lcg() >> 24) % 40; break;
+        case 5: clip.y0 = 190 + (int)(lcg() >> 24) % 30, clip.y1 = 215 + (int)(lcg() >> 24) % 40; break;
+        case 6: yaw = (int32_t)(lcg() >> 8) << 4; break;
+        case 7: line = 195 + (int32_t)(lcg() >> 24) % 20; break;
+        case 8: mirrored ^= 1; break;
+        case 9: sky_off ^= 1; break;
+        case 10: case 11: band = (int)(lcg() >> 24) % 4; break;
+        default: break;
+        }
+        bands_set_index(band);
+        const HorizonTarget target = { screen, W };
+        memset(screen, 0xee, sizeof screen);
+        horizon_draw_flat_smooth(&s, &t, &target, &clip, bitmap(), yaw, mirrored, sky_off, line);
+        horizon_smooth_cache_enable(0);
+        const HorizonTarget again = { reference, W };
+        memset(reference, 0xee, sizeof reference);
+        horizon_draw_flat_smooth(&s, &t, &again, &clip, bitmap(), yaw, mirrored, sky_off, line);
+        horizon_smooth_cache_enable(1);
+        CHECK(memcmp(screen, reference, sizeof screen) == 0);
+    }
+    CHECK(horizon_smooth_cache_hits() - before > 150);   /* the repeats were copies, not redraws */
+    bands_set_index(0);
+    horizon_smooth_cache_reset();
+}
+
 int main(void)
 {
     test_nearest();
     test_rows_blend();
     test_uniform_kept();
     test_wrap_same_row();
+    test_cache_exact();
     return TEST_REPORT();
 }
