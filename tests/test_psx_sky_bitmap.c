@@ -60,6 +60,25 @@ static void test_layout(void)
     psx_sky_free(&sky);
 }
 
+/* the two halves meet at the ring's seam: no step across it, however different their ends are */
+static void test_seam(void)
+{
+    PsxSky sky;
+    PsxSkyInf inf;
+    made_up(&sky, &inf);
+    PsxSkyBitmap b;
+    CHECK(psx_sky_bitmap_build(&sky, &inf, &b));
+    const int seam = b.width / 2;   /* the bitmap starts half a panorama on: the seam is in the middle */
+    for (int y = PSX_SKY_GRADIENT_ROWS; y < b.height; y++) {
+        int a[3], c[3];
+        colour(&b, seam - 1, y, a);
+        colour(&b, seam, y, c);
+        CHECK(abs(a[0] - c[0]) <= 40 && abs(a[2] - c[2]) <= 40);
+    }
+    psx_sky_bitmap_free(&b);
+    psx_sky_free(&sky);
+}
+
 static void test_many_colours(void)
 {
     PsxSky sky;
@@ -88,6 +107,7 @@ static void test_rejects(void)
 int main(void)
 {
     test_layout();
+    test_seam();
     test_many_colours();
     test_rejects();
     return TEST_REPORT();

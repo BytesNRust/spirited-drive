@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { BINS = 1 << 15, COLOURS = 256 };
+enum { BINS = 1 << 15, COLOURS = 256, SEAM_COLUMNS = 24 };
 
 /* the magnified image: the gradient rows, then the panorama's rows each PSX_SKY_ZOOM times, blended */
 static void fill_image(const PsxSky *sky, const PsxSkyInf *inf, int width, int height, uint8_t *rgb)
@@ -32,6 +32,26 @@ static void fill_image(const PsxSky *sky, const PsxSkyInf *inf, int width, int h
                 const float bottom = (1 - fx) * sky->rgb[3 * ((size_t)y1 * sky->width + c0) + k] + fx * sky->rgb[3 * ((size_t)y1 * sky->width + c1) + k];
                 rgb[3 * ((size_t)y * width + x) + k] = (uint8_t)lroundf((1 - fy) * top + fy * bottom);
             }
+        }
+    }
+}
+
+/* the ring's seam: the panorama's last column is not its first's neighbour (ZTR1A's sun is cut by it), so the columns SEAM_COLUMNS
+ * either side of it are replaced by a ramp, row by row, from the colour just before them to the one just after: 2 * SEAM_COLUMNS
+ * columns that fade from one side to the other */
+static void blend_seam(uint8_t *rgb, int width, int height)
+{
+    const int k = SEAM_COLUMNS < width / 4 ? SEAM_COLUMNS : width / 4;
+    if (k < 1) return;
+    for (int y = 0; y < height; y++) {
+        uint8_t *row = rgb + 3 * (size_t)y * width;
+        uint8_t from[3], to[3];
+        memcpy(from, row + 3 * (width - k - 1), 3);
+        memcpy(to, row + 3 * k, 3);
+        for (int j = 0; j < 2 * k; j++) {
+            const float t = ((float)j + 0.5f) / (float)(2 * k);
+            uint8_t *px = row + 3 * ((width - k + j) % width);
+            for (int c = 0; c < 3; c++) px[c] = (uint8_t)lroundf((1 - t) * from[c] + t * to[c]);
         }
     }
 }
@@ -120,8 +140,13 @@ int psx_sky_bitmap_build(const PsxSky *sky, const PsxSkyInf *inf, PsxSkyBitmap *
     uint32_t *counts = calloc(BINS, sizeof *counts);
     uint8_t *remap = malloc(BINS);
     int ok = rgb != NULL && pixels != NULL && counts != NULL && remap != NULL;
+    uint8_t *seamless = ok ? malloc((size_t)sky->width * sky->height * 3) : NULL;
+    ok = ok && seamless != NULL;
     if (ok) {
-        fill_image(sky, inf, width, height, rgb);
+        memcpy(seamless, sky->rgb, (size_t)sky->width * sky->height * 3);
+        blend_seam(seamless, sky->width, sky->height);
+        const PsxSky blended = { sky->width, sky->height, seamless };
+        fill_image(&blended, inf, width, height, rgb);
         for (size_t i = 0; i < count; i++) counts[(rgb[3 * i] >> 3) << 10 | (rgb[3 * i + 1] >> 3) << 5 | rgb[3 * i + 2] >> 3]++;
         ok = cut(counts, out->palette, remap);
     }
@@ -131,7 +156,7 @@ int psx_sky_bitmap_build(const PsxSky *sky, const PsxSkyInf *inf, PsxSkyBitmap *
         out->width = width, out->height = height, out->horizon_row = PSX_SKY_GRADIENT_ROWS + PSX_SKY_ZOOM * (sky->height * PSX_SKY_HORIZON_NUM / PSX_SKY_HORIZON_DEN), out->pixels = pixels;
         pixels = NULL;
     }
-    free(rgb), free(pixels), free(counts), free(remap);
+    free(rgb), free(pixels), free(counts), free(remap), free(seamless);
     return ok;
 }
 
