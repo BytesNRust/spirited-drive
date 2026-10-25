@@ -17,7 +17,7 @@
 #include <string.h>
 
 enum {
-    ROWS = 768,            /* entries in each per-scanline table (0x300) */
+    ROWS = QUAD_MAX_ROWS,  /* entries in each per-scanline table (the exe: 768, 0x300) */
     TEXEL_BITS = 8,        /* bits per texel and per surface pixel */
     FSH_TYPE_BITMAP_TRANSPARENT = 0x45
 };

@@ -254,7 +254,7 @@ static int tri_inputs_valid(const QuadTarget *t, const FshEntry *e, const Paint 
     return paint_valid(paint) && t != NULL && t->pixels != NULL && t->pitch > 0 && e != NULL && e->payload != NULL &&
            (e->type == FSH_TYPE_BITMAP || e->type == FSH_TYPE_BITMAP_TRANSPARENT) &&
            t->clip_left >= 0 && t->clip_left < t->clip_right && t->clip_right <= MAX_CLIP_RIGHT &&
-           t->clip_top >= 0 && t->clip_top < t->clip_bottom && t->clip_bottom <= 768;
+           t->clip_top >= 0 && t->clip_top < t->clip_bottom && t->clip_bottom <= QUAD_MAX_ROWS;
 }
 
 /* 00486400 (MAP_OPAQUE), 004858f0 (MAP_TRANSPARENT) and 004aa510 (MAP_SHADE): the
