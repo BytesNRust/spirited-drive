@@ -433,6 +433,7 @@ typedef struct {
     int32_t sound_pitch[RACE_VOICES];  /* 004bc6f4: the pitch a channel keeps while it plays the same sound (00443e70) */
     RaceSounds sounds;
     int32_t port_replay_cameras;    /* port: the extra (extras.cfg): the own live car's view key goes the replay's way */
+    int32_t port_follow_camera;     /* port: the experimental extra: every camera follows the car's heading (race_follow.h); 0 the exe's */
     int32_t port_time_of_day;       /* port: 004fbae0[track], the menus' time of day (0..2) a replay's setup keeps */
     int32_t port_replay_launch;     /* port: 1 the NITRO start is recorded in the replay (the player's N held, as the two gear bits at once,
                                      * race_replay_launch_word) and played back (drive_replay.c), the launch runs in a replay (car_drive.c

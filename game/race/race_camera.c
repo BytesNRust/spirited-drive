@@ -37,6 +37,12 @@ int car_faces_road(const Car *car, const RaceState *race)
     return magnitude(car->roll) <= TILT_OFF && magnitude(car->pitch) <= TILT_OFF;
 }
 
+int camera_faces_road(const Car *car, const RaceState *race)
+{
+    if (race->port_follow_camera == 0) return car_faces_road(car, race);
+    return magnitude(car->roll) <= TILT_OFF && magnitude(car->pitch) <= TILT_OFF;
+}
+
 void race_send_force(const Car *car, RaceState *race)
 {
     if (race->force_off != 0) return;
@@ -57,7 +63,7 @@ void race_camera_pick(RaceState *race, const Car *car)
     if (chase->kind == chase->next_kind && chase->kind > KIND_NEAR && chase->kind != KIND_DRIVER) return;
     if (car == NULL) return;  /* the original faults: cars[viewed] is never empty */
     int32_t kind;
-    if (!car_faces_road(car, race)) {
+    if (!camera_faces_road(car, race)) {
         race->camera_hold = CAMERA_HOLD;
         if (chase->kind > KIND_NEAR && chase->kind != KIND_DRIVER && chase->kind != KIND_DRIVER_2) return;
         kind = KIND_OFF_ROAD;

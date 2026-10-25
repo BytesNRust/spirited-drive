@@ -36,6 +36,8 @@ typedef struct {
     DashBox dash_box;   /* DASH_BOX_MAP */
     int movies_wide;    /* 0/1: on a wide screen a movie fills its width (the picture scaled up, its top and bottom cropped, tgv_wide.h);
                          * 0 the exe's look, the 4:3 frame in the middle. On. Last, as above. */
+    int follow_camera;  /* 0/1: every camera follows the car's heading, the road behind drawn (race_follow.h); 0 the exe's.
+                         * Off. Last, as above. */
 } PortExtras;
 
 /* A record filed under these marks is not the normal one; the marks are what a race is tagged with. */

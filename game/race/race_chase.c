@@ -4,6 +4,7 @@
 #include "game/race/car_draw.h"
 #include "game/race/car_progress.h"
 #include "game/race/race_camera.h"
+#include "game/race/race_follow.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/rigid_math.h"
 
@@ -171,7 +172,7 @@ static int32_t angle_of(int32_t eax, int32_t edx)
 /* port guard: no car does not face the road */
 static int faces_road(const RaceState *race, const Car *car)
 {
-    return car != NULL && car_faces_road(car, race);
+    return car != NULL && camera_faces_road(car, race);
 }
 
 static int32_t node_heading(const RaceState *race, int32_t node)
@@ -457,7 +458,11 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
                  mul(sub(ahead.position.x, behind.position.x) >> 8, rest)) / BLEND_FULL;
     dir[2] = add(mul(sub(ahead.position.z, behind.position.z) >> 8, rest),
                  mul(blend, sub(ahead2.position.z, behind2.position.z) >> 8)) / BLEND_FULL;
-    const int32_t road_yaw = angle_of(dir[2], dir[0]);
+    int32_t road_yaw = angle_of(dir[2], dir[0]);
+    if (race->port_follow_camera) {   /* port: the camera's heading is the car's, not the road's */
+        road_yaw = race_follow_yaw(chase, car);
+        race_follow_direction(road_yaw, dir);
+    }
     dir[1] = 0;
     rm_unit_rounded(dir);
     const int32_t point[3] = { add(car->x, mul(dir[0] >> 8, row->scale) >> 8),
@@ -485,7 +490,7 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
             }
         }
     }
-    const int32_t yaw = row->mode == 3 || row->mode == 4 ? chase->yaw : road_yaw;
+    const int32_t yaw = (row->mode == 3 || row->mode == 4) && !race->port_follow_camera ? chase->yaw : road_yaw;
     if (row->mode == 3) race_chase_unturn(chase->target, chase->offset, a->pitch, a->roll, yaw);
     else if (chase->kind == KIND_NO_ROAD) race_chase_unturn(chase->target, chase->offset, pitch, 0, yaw);
     else race_chase_unturn(chase->target, chase->offset, 0, 0, yaw);
@@ -501,7 +506,8 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
     chase->flags |= point_find_node(chase->eye, race, &chase->node);
     inside_barriers(race, chase);
     int32_t turn_yaw = aim_yaw;
-    if (row->mode == 3 || row->mode == 4 || chase->kind == KIND_REPLAY || chase->kind == KIND_NO_ROAD) {
+    if (!race->port_follow_camera &&
+        (row->mode == 3 || row->mode == 4 || chase->kind == KIND_REPLAY || chase->kind == KIND_NO_ROAD)) {
         turn_yaw = chase->yaw;
         if (row->mode == 3) pitch = mul(a->pitch, 5) / 4;
     }

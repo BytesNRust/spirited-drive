@@ -12,6 +12,7 @@
 #include "game/race/track_render.h"
 #include "game/race/track_step.h"
 #include "game/sys/bands.h"
+#include "game/viewer/follow_arm.h"
 #include "game/viewer/modern_road.h"
 #include "game/viewer/screen_layout.h"
 
@@ -26,7 +27,8 @@ enum {
     MIRROR_VIEW = 4,            /* 004b78e8's view row */
     MIRROR_FOV = 70,            /* 004b78e8 +0 */
     RING_SEGMENTS_MAX = 0x8000,
-    BANK_HEADER = 0x10, BANK_ENTRY = 8
+    BANK_HEADER = 0x10, BANK_ENTRY = 8,
+    FOLLOW_MIRROR_SEGMENTS = 6, FOLLOW_MIRROR_AHEAD_ABOVE = 0x360000, FOLLOW_MIRROR_BEHIND_BELOW = 0x4a0000   /* 76 and 104 degrees */
 };
 
 /* 00504228: 6 bytes a segment, the mirror's LOD at +1 (0043f3a8). */
@@ -354,9 +356,32 @@ static void scene_cars(void *ctx, int32_t node)
     mirror_cars(&ops, &in, node);
 }
 
+/* port (port_follow_camera): the mirror looks back from the car's heading, whichever way the car points along the track: the
+ * segments behind the camera's node when the car faces down the track, those ahead of it when it faces back along it (both
+ * across the track), by follow_arm.c's rows rather than the exe's five. */
+static void follow_scene(Frame *f)
+{
+    const RaceState *race = f->w->race;
+    const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
+                             WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
+                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL, f->w->port_modern ? draw_camera : NULL, NULL },
+                             0, 0 };
+    TrackCamera cam = { { race->chase.position[0], race->chase.position[1], race->chase.position[2] }, { 0 }, race->chase.node };
+    memcpy(cam.matrix, f->m->matrix, sizeof cam.matrix);
+    int32_t off = (int32_t)(((uint32_t)f->yaw - (uint32_t)race_node(race, race->chase.node).orientation * 0x400u) & 0xffffff);
+    if (off > 0x800000) off = 0x1000000 - off;
+    const FollowArm arm = { f->w->track, &cam, &dc, tri_is_circuit(f->w->tri) };
+    if (off > FOLLOW_MIRROR_AHEAD_ABOVE) follow_arm_draw(&arm, FOLLOW_MIRROR_SEGMENTS, FOLLOW_ARM_AHEAD);
+    if (off < FOLLOW_MIRROR_BEHIND_BELOW) follow_arm_draw(&arm, FOLLOW_MIRROR_SEGMENTS, FOLLOW_ARM_BEHIND);
+}
+
 static void scene_op(void *ctx, int32_t count)
 {
     Frame *f = ctx;
+    if (f->w->race->port_follow_camera) {
+        follow_scene(f);
+        return;
+    }
     const Tri *tri = f->w->tri;
     const MirrorSceneInputs in = { 0, f->layout, f->m->near, f->w->race->chase.node, f->segment_mask,
                                    f->w->race->circuit, (int32_t)(tri->ring_nodes - 1u), segment_bytes, f->cache,
@@ -386,6 +411,7 @@ int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFra
     *f = (Frame){ m, w, { m->picture + SHAPE_HEADER, m->width, 0, 0, m->width, m->height },
                   &race_view_layouts[HIGH_MODE][row->layouts[size]], NULL, 0, race->chase.angles[0], race->chase.angles[1],
                   race->chase.angles[2] };
+    if (race->port_follow_camera && w->followed != NULL) f->yaw = w->followed->yaw & 0xfffc00;   /* port: behind the car, not the camera */
     f->cache = w->track->cache, f->segment_mask = (int32_t)w->track->build.segment_mask;
     if (m->extra != 0) {  /* port: the layout as wide as the picture, the field widened at the same focal length */
         m->wide_layout = *f->layout;

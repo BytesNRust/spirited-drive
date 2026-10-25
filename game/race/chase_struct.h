@@ -72,6 +72,8 @@ typedef struct {
     RaceCamera *camera;         /* +0x88: a 004b78a8 record */
     RaceCamera *camera2;        /* +0x8c: 004b78e8 */
     Car *car;                   /* +0x90: the car followed */
+    const Car *port_follow_car; /* port (port_follow_camera): the car the yaw spring below was started for */
+    int32_t port_follow_yaw, port_follow_velocity;   /* its state (follow_yaw.h) */
 } RaceChase;
 
 #endif
