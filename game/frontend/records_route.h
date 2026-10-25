@@ -21,6 +21,10 @@ typedef enum { ROUTE_SEGMENT, ROUTE_LAP, ROUTE_TOP, ROUTE_TOTALS } RouteOp;
 enum { SLOT_SEGMENT = 0, SLOT_TOP = 3, SLOT_TOTALS = 4, SLOT_CHOICE = 10, SLOT_SPEED_SEGMENT = 34 };
 int records_slot_totals(int track, int choice, int row);   /* the slot of a totals row; -1 out of range */
 
+/* The laps choice whose tables of totals the race's records and results use: the image's own (the menu's difficulty), or
+ * in a free race (free_laps.h) the choice its lap count is in the track's table, when it is one of the track's. */
+int records_choice(const uint8_t image[RECORD_CHECK_IMAGE]);
+
 /* The race's kind from the flags the original keeps (rally before mirror when both are set). */
 RaceKind records_race_kind(int variant_m, int variant_r, int explode, int nitro, int turbo);
 /* The kind a race is checked on once its player's car is known: the Warrior (car 11) is on the cheats table with its
