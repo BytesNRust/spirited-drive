@@ -7,6 +7,10 @@ enum { PALETTE_8BIT = 0x24, PALETTE_6BIT = 0x22 };
 
 /* how much of the shading survives: an entry's lightness against the body's main tone, to this power */
 static const float SHADE_POWER = 0.7f;
+/* a body whose main tone is darker than this (near-black: a ratio to it blows small steps up) is mapped by rank over its ramp
+ * to a gentle span of the paint's own tone, 1 at the middle */
+static const float DARK_BODY = 56.0f;
+static const float RANK_SPAN = 0.5f;   /* the gain is 1 at the main tone's rank and spans this much across the ramp */
 /* a dark paint's highlights are lifted by up to this many levels at the shading's top, so black still shows its curves */
 static const float DARK_LIFT = 24.0f;
 
@@ -22,7 +26,8 @@ static const CarPaints TABLE[CAR_PAINT_MODELS] = {
     { "TSupra", 3, { 164, 24, 24 },
       { { "Super White II", { 244, 244, 242 } }, { "Platinum Silver Metallic", { 169, 173, 178 } },
         { "Baltic Blue Metallic", { 60, 107, 142 } } } },
-    { "LDiabl", 1, { 32, 32, 32 }, { { "Rosso Diablo", { 179, 18, 30 } } } },
+    { "LDiabl", 2, { 32, 32, 32 },
+      { { "Rosso Diablo", { 179, 18, 30 } }, { "30th Anniversary Lavender", { 152, 120, 200 } } } },
     { "P911", 4, { 16, 56, 72 },
       { { "Grand Prix White", { 241, 241, 238 } }, { "Black", { 14, 14, 16 } }, { "Guards Red", { 179, 18, 30 } },
         { "Speed Yellow", { 242, 197, 0 } } } },
@@ -87,8 +92,25 @@ static float main_tone(const float *y, const uint32_t *weight, int n)
     return y[order[n - 1]];
 }
 
+/* the rank (0..1) of lightness `y` over the ramp, interpolated between its entries */
+static float rank_of(const CarPaintPlan *plan, float y)
+{
+    if (plan->ramp == 0) return 0.5f;
+    if (y <= plan->ramp_y[0]) return plan->ramp_t[0];
+    for (int i = 1; i < plan->ramp; i++)
+        if (y <= plan->ramp_y[i]) {
+            const float dy = plan->ramp_y[i] - plan->ramp_y[i - 1];
+            return dy > 0 ? plan->ramp_t[i - 1] + (plan->ramp_t[i] - plan->ramp_t[i - 1]) * (y - plan->ramp_y[i - 1]) / dy : plan->ramp_t[i];
+        }
+    return plan->ramp_t[plan->ramp - 1];
+}
+
 static float shade_of(const CarPaintPlan *plan, float y)
 {
+    if (plan->ranked) {
+        const float g = 1.0f + RANK_SPAN * (rank_of(plan, y) - plan->ramp_main);
+        return g > 1.0f ? 1.0f + (g - 1.0f) * (plan->room < 1.0f ? plan->room : 1.0f) : g;
+    }
     float f = powf(y / plan->main, SHADE_POWER);
     f = f < 0.1f ? 0.1f : f > 4.0f ? 4.0f : f;
     return f > 1.0f ? 1.0f + (f - 1.0f) * (plan->room < 1.0f ? plan->room : 1.0f) : f;
@@ -100,9 +122,30 @@ void car_paint_plan(CarPaintPlan *plan, const uint8_t (*rgb)[3], const uint32_t 
     if (n > CAR_PAINT_ENTRIES) n = CAR_PAINT_ENTRIES;
     for (int i = 0; i < n; i++) y[i] = luma_of(rgb[i]);
     plan->main = n > 0 ? main_tone(y, weight, n) : 1.0f;
+    plan->ranked = plan->main < DARK_BODY;
+    plan->ramp = 0;
+    if (plan->ranked) {
+        int order[CAR_PAINT_ENTRIES];
+        uint64_t total = 0;
+        for (int i = 0; i < n; i++) {
+            int k = i;
+            while (k > 0 && y[order[k - 1]] > y[i]) order[k] = order[k - 1], k--;
+            order[k] = i;
+            total += weight[i];
+        }
+        uint64_t before = 0;
+        for (int k = 0; k < n; k++) {
+            const uint32_t w = weight[order[k]];
+            plan->ramp_y[k] = y[order[k]];
+            plan->ramp_t[k] = total > 0 ? ((float)before + (float)w / 2.0f) / (float)total : (float)(2 * k + 1) / (float)(2 * n);
+            before += w;
+        }
+        plan->ramp = n;
+        plan->ramp_main = rank_of(plan, plan->main);
+    }
     float fmax = 1.0f;
     for (int i = 0; i < n; i++) {
-        float f = powf(y[i] / plan->main, SHADE_POWER);
+        float f = plan->ranked ? 1.0f + RANK_SPAN * (rank_of(plan, y[i]) - plan->ramp_main) : powf(y[i] / plan->main, SHADE_POWER);
         f = f < 0.1f ? 0.1f : f > 4.0f ? 4.0f : f;
         fmax = f > fmax ? f : fmax;
     }
@@ -118,7 +161,9 @@ void car_paint_shade(const CarPaintPlan *plan, const uint8_t in[3], uint8_t out[
 {
     const float y = luma_of(in);
     const float g = shade_of(plan, y);
-    const float up = y > plan->main ? (powf(y / plan->main, SHADE_POWER) - 1.0f) * plan->lift : 0.0f;
+    const float t = plan->ranked ? rank_of(plan, y) : 0.0f;
+    const float up = plan->ranked ? (t > 0.5f ? (2.0f * t - 1.0f) * 1.2f * plan->lift : 0.0f)
+                                  : y > plan->main ? (powf(y / plan->main, SHADE_POWER) - 1.0f) * plan->lift : 0.0f;
     for (int c = 0; c < 3; c++) {
         float v = (float)plan->rgb[c] * g + up;
         v = v < 0 ? 0 : v > 255 ? 255 : v;

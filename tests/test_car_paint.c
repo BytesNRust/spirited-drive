@@ -69,6 +69,26 @@ static void test_recolour(int type)
     CHECK(abs(channel(palette, type, 11, 2) - blue[2]) <= 4);
 }
 
+/* a near-black body (a grey ramp of 24..64, the Diablo's) in red: the lightness steps stay in order and gentle, not blown into flat
+ * bright patches over dark ones */
+static void test_dark_body(void)
+{
+    uint8_t palette[768] = { 0 };
+    uint8_t body[6];
+    uint32_t weight[256] = { 0 };
+    for (int i = 0; i < 6; i++) {
+        body[i] = (uint8_t)(10 + i);
+        const int v = 24 + 8 * i;
+        palette[3 * (10 + i)] = palette[3 * (10 + i) + 1] = palette[3 * (10 + i) + 2] = (uint8_t)v;
+        weight[10 + i] = 1000;
+    }
+    const uint8_t red[3] = { 179, 18, 30 };
+    car_paint_recolour(palette, 0x24, body, 6, weight, red);
+    for (int i = 1; i < 6; i++) CHECK(luma(palette, 0x24, 10 + i) > luma(palette, 0x24, 9 + i));
+    CHECK(luma(palette, 0x24, 15) * 10 <= luma(palette, 0x24, 10) * 16);   /* brightest within 1.6x the darkest */
+    CHECK(luma(palette, 0x24, 15) * 10 >= luma(palette, 0x24, 10) * 12);   /* and still shaded */
+}
+
 static void test_extremes(void)
 {
     uint8_t palette[768];
@@ -116,5 +136,6 @@ int main(void)
     test_recolour(0x24);
     test_recolour(0x22);
     test_extremes();
+    test_dark_body();
     return TEST_REPORT();
 }

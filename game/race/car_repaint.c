@@ -73,13 +73,21 @@ typedef struct {
     int any;
 } Survey;
 
+/* 1 when texel `i` of `tex` is in the rectangle left as it was (the plate) */
+static int kept(const RepaintTexture *tex, size_t i)
+{
+    if (tex->keep[2] <= 0 || tex->keep[3] <= 0 || tex->width <= 0) return 0;
+    const int x = (int)(i % (size_t)tex->width), y = (int)(i / (size_t)tex->width);
+    return x >= tex->keep[0] && x < tex->keep[0] + tex->keep[2] && y >= tex->keep[1] && y < tex->keep[1] + tex->keep[3];
+}
+
 static void survey(const RepaintBank *bank, int floor, Survey *s)
 {
     memset(s, 0, sizeof *s);
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
         uint32_t *into = tex->body == REPAINT_MAIN ? s->main : tex->body == REPAINT_END ? s->end : s->other;
-        for (size_t i = 0; i < tex->count; i++) into[tex->pixels[i]]++;
+        for (size_t i = 0; i < tex->count; i++) (kept(tex, i) ? s->other : into)[tex->pixels[i]]++;
     }
     /* the entries the main textures show heavily and that are paint, not glass or shadow: coloured, or a grey lighter than the floor */
     uint8_t cand[ENTRIES] = { 0 };
@@ -217,6 +225,7 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
         const RepaintTexture *tex = &bank->textures[t];
         if (tex->body == REPAINT_NONE) continue;
         for (size_t i = 0; i < tex->count; i++) {
+            if (kept(tex, i)) continue;
             const int to = remap[tex->pixels[i]];
             if (to >= 0 && to != tex->pixels[i]) tex->pixels[i] = (uint8_t)to, changed++;
             else if (to == tex->pixels[i]) changed++;
@@ -280,13 +289,16 @@ static void colour8(uint16_t c, uint8_t out[3])
     out[0] = (uint8_t)((c & 31) << 3), out[1] = (uint8_t)(((c >> 5) & 31) << 3), out[2] = (uint8_t)(((c >> 10) & 31) << 3);
 }
 
+/* a texel with a pair of its own takes its colour; one between two pairs takes the colour between theirs, by lightness (the
+ * nearer pair's whole colour would stripe a ramp); one beyond the ends takes the end pair's, darker as it is, if below */
 static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3])
 {
     const PairsCtx *p = ctx;
     (void)entry;
     const uint16_t c = colour5(in);
-    int nearest = -1;
-    float best = 1e9f;
+    const float y = luma_of(in);
+    int lo = -1, hi = -1;
+    float lo_y = 0, hi_y = 0;
     for (int k = 0; k < p->count; k++) {
         if (p->pairs[k].from == c) {
             colour8(p->pairs[k].to, out);
@@ -294,11 +306,23 @@ static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3
         }
         uint8_t from[3];
         colour8(p->pairs[k].from, from);
-        const float d = fabsf(luma_of(from) - luma_of(in));
-        if (d < best) best = d, nearest = k;
+        const float fy = luma_of(from);
+        if (fy <= y && (lo < 0 || fy > lo_y)) lo = k, lo_y = fy;
+        if (fy > y && (hi < 0 || fy < hi_y)) hi = k, hi_y = fy;
     }
-    if (nearest < 0) return 0;
-    colour8(p->pairs[nearest].to, out);
+    if (lo < 0 && hi < 0) return 0;
+    uint8_t a[3], b[3];
+    if (lo >= 0) colour8(p->pairs[lo].to, a);
+    if (hi >= 0) colour8(p->pairs[hi].to, b);
+    if (lo >= 0 && hi >= 0) {
+        const float f = (y - lo_y) / (hi_y - lo_y);
+        for (int i = 0; i < 3; i++) out[i] = (uint8_t)((float)a[i] + ((float)b[i] - (float)a[i]) * f + 0.5f);
+    } else if (lo >= 0) {
+        memcpy(out, a, 3);
+    } else {
+        const float f = y / hi_y;
+        for (int i = 0; i < 3; i++) out[i] = (uint8_t)((float)b[i] * f + 0.5f);
+    }
     return 1;
 }
 

@@ -23,6 +23,8 @@ typedef struct {
     size_t count;
     int body;            /* REPAINT_MAIN for topv, rsid, bott, wing; REPAINT_END for frnt and rear (the lamps, the plate and the badge are
                           * there too); 0 for any other */
+    int width;           /* the texture's width in texels, for `keep` */
+    int keep[4];         /* x, y, w, h: a rectangle of texels left as they were (the plate); w 0: none */
 } RepaintTexture;
 
 typedef struct {

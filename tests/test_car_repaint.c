@@ -37,9 +37,9 @@ static void make(Fixture *f, int type)
     set(f->pal, TYRE_ONLY, 30 >> s, 30 >> s, 30 >> s);
     memcpy(f->xxx, f->pal, sizeof f->xxx);
     memcpy(f->pal_before, f->pal, sizeof f->pal);
-    f->tex[0] = (RepaintTexture){ f->body, TEXELS, REPAINT_MAIN };
-    f->tex[1] = (RepaintTexture){ f->tyre, TEXELS, REPAINT_NONE };
-    f->tex[2] = (RepaintTexture){ f->decal, TEXELS, REPAINT_NONE };
+    f->tex[0] = (RepaintTexture){ f->body, TEXELS, REPAINT_MAIN, 0, { 0 } };
+    f->tex[1] = (RepaintTexture){ f->tyre, TEXELS, REPAINT_NONE, 0, { 0 } };
+    f->tex[2] = (RepaintTexture){ f->decal, TEXELS, REPAINT_NONE, 0, { 0 } };
     f->bank = (RepaintBank){ f->tex, 3, { f->pal, f->xxx }, 2, type, type };
 }
 
@@ -93,13 +93,43 @@ static void test_pairs(void)
     CHECK_EQ_INT(f.body[3], GLASS);
 }
 
+/* a texel between two pairs takes the colour between theirs, by lightness, not the nearer pair's: no streaks across a dark body */
+static void test_pairs_between(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    const uint16_t grey64 = (uint16_t)(8 | 8 << 5 | 8 << 10), grey120 = (uint16_t)(15 | 15 << 5 | 15 << 10);
+    const CarLiveryPair pairs[2] = { { grey64, (uint16_t)(7 | 1 << 5 | 1 << 10) }, { grey120, (uint16_t)(14 | 1 << 5 | 1 << 10) } };
+    CHECK(car_repaint_pairs(&f.bank, pairs, 2, 44) > 0);
+    const int r = colour(&f, f.pal, f.body[2], 0);   /* the trim grey (88): 0.43 of the way from 56 to 112 */
+    CHECK(r > 70 && r < 92);
+    CHECK(colour(&f, f.pal, f.body[1], 0) == 112);   /* the 120 grey is its pair's exactly */
+}
+
+/* a texture's kept rectangle (the plate) is left as it was, and an entry it shows is not recoloured where it is */
+static void test_keep(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    f.tex[0].keep[0] = 0, f.tex[0].keep[1] = 0, f.tex[0].keep[2] = 2, f.tex[0].keep[3] = 2;   /* texels 0, 1, 8, 9 */
+    uint8_t body_before[TEXELS];
+    memcpy(body_before, f.body, sizeof body_before);
+    const uint8_t blue[3] = { 30, 70, 200 };
+    CHECK(car_repaint_paint(&f.bank, blue, 44) > 0);
+    CHECK(f.body[0] == body_before[0] && f.body[1] == body_before[1] && f.body[8] == body_before[8] && f.body[9] == body_before[9]);
+    CHECK_MEM(f.pal + 3 * ONLY, f.pal_before + 3 * ONLY, 3);   /* the plate still shows ONLY: its colour stays */
+    CHECK(f.body[17] != ONLY && colour(&f, f.pal, f.body[17], 2) > colour(&f, f.pal, f.body[17], 0) + 40);   /* the rest is blue */
+    CHECK(colour(&f, f.pal, f.body[2], 2) > colour(&f, f.pal, f.body[2], 0) + 40);
+}
+
 static void test_odd_banks(void)
 {
     Fixture f;
     make(&f, 0x24);
     static uint8_t full[256];
     for (int i = 0; i < 256; i++) full[i] = (uint8_t)i;
-    f.tex[2] = (RepaintTexture){ full, 256, REPAINT_NONE };   /* every entry used: no spare */
+    f.tex[2] = (RepaintTexture){ full, 256, REPAINT_NONE, 0, { 0 } };   /* every entry used: no spare */
     const uint8_t red[3] = { 200, 20, 20 };
     CHECK(car_repaint_paint(&f.bank, red, 44) >= 0);          /* nothing breaks */
     f.bank.type = 0x99;
@@ -122,7 +152,7 @@ static void test_lamps(void)
     }
     uint8_t rear_before[TEXELS], pal_before[768];
     memcpy(rear_before, rear, sizeof rear), memcpy(pal_before, pal, sizeof pal);
-    RepaintTexture tex[2] = { { main_tex, TEXELS, REPAINT_MAIN }, { rear, TEXELS, REPAINT_END } };
+    RepaintTexture tex[2] = { { main_tex, TEXELS, REPAINT_MAIN, 0, { 0 } }, { rear, TEXELS, REPAINT_END, 0, { 0 } } };
     const RepaintBank bank = { tex, 2, { pal, xxx }, 2, 0x24, 0x24 };
     const uint8_t blue[3] = { 30, 70, 200 };
     CHECK(car_repaint_paint(&bank, blue, 44) > 0);
@@ -144,7 +174,7 @@ static void test_lamps(void)
         rear2[i] = (uint8_t)(i % 3 == 0 ? LAMP_RED : i % 3 == 1 ? LAMP_AMBER : 51);
     }
     memcpy(rear_before, rear2, sizeof rear2);
-    RepaintTexture tex2[2] = { { main2, TEXELS, REPAINT_MAIN }, { rear2, TEXELS, REPAINT_END } };
+    RepaintTexture tex2[2] = { { main2, TEXELS, REPAINT_MAIN, 0, { 0 } }, { rear2, TEXELS, REPAINT_END, 0, { 0 } } };
     const RepaintBank red = { tex2, 2, { pal2, xxx2 }, 2, 0x24, 0x24 };
     const uint8_t white[3] = { 240, 240, 236 };
     CHECK(car_repaint_paint(&red, white, 44) > 0);
@@ -158,6 +188,8 @@ int main(void)
     test_paint(0x24);
     test_paint(0x22);
     test_pairs();
+    test_pairs_between();
+    test_keep();
     test_odd_banks();
     test_lamps();
     return TEST_REPORT();

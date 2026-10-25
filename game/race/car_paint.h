@@ -30,6 +30,10 @@ const uint8_t *car_paint_default(int model);
 typedef struct {
     float main, room, lift;
     uint8_t rgb[3];
+    int ranked;                          /* a near-black body: by the lightness's rank in the body's ramp, not its ratio to the main tone */
+    float ramp_main;                     /* the main tone's rank: the gain is 1 there */
+    int ramp;                            /* the ramp's entries, darkest first: lightness `ramp_y`, rank (0..1) `ramp_t` */
+    float ramp_y[CAR_PAINT_ENTRIES], ramp_t[CAR_PAINT_ENTRIES];
 } CarPaintPlan;
 void car_paint_plan(CarPaintPlan *plan, const uint8_t (*rgb)[3], const uint32_t *weight, int n, const uint8_t target[3]);
 void car_paint_shade(const CarPaintPlan *plan, const uint8_t in[3], uint8_t out[3]);
