@@ -23,7 +23,11 @@ typedef struct {
     int texture_filter;      /* 0/1 */
     int fog;                 /* 0/1 */
     int f3_ultra;            /* 1: F3 rotates Far, Medium, Close and Ultra (port_f3_ultra); 0 the exe's three; 1 */
+    int render_scale;        /* 1, 2 or 3: the 3D world drawn at that many times the frame's size (render-scale-design.md); 1 */
 } PortSettings;
+
+/* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
+int port_render_scale(void);
 
 PortSettings port_settings_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */

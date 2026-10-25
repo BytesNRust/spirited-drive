@@ -68,6 +68,8 @@ typedef struct {
     int sky_off;                /* 004fb786 (F4, 004381f8) */
     int port_wide;              /* port: slices past the exe's seven, clipped at the view's edges, for a field wider
                                  * than they reach; 0 the exe's */
+    int pixel_scale;            /* port (render scale): the frame is this many times the exe's 640 (1, 2, 3): the pixel
+                                 * limits (the cull limit, the pads) grow with it */
 } SkyFrame;
 
 typedef struct {

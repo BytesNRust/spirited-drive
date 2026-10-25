@@ -38,6 +38,13 @@ typedef struct {
     int on_dash;                /* port: the cockpit's box in the screen's lower half (the Warrior's, by the wheel):
                                  * not widened, it stays on the dash on a wide screen */
     int own;                    /* port: drive_mirror_start_own's: drawn with wide_layout, the camera's scaled */
+    /* port (render scale): the picture drawn `zoom` (16.16) times its size each way into `big`, a picture of its own
+     * (drive_mirror_zoom): the same field with more pixels. `picture` then holds that sampled down, for the 2D layer's
+     * copy of it; the render scale's finish puts `big` over the screen where the mirror is shown. */
+    int32_t zoom;               /* 0: the picture as ever */
+    uint8_t *big;               /* a shape like `picture`, big_w x big_h */
+    int32_t big_w, big_h;
+    ViewLayout big_layout;      /* the camera's layout scaled to it */
 } DriveMirror;
 
 typedef struct {
@@ -87,6 +94,10 @@ int drive_mirror_start_own(DriveMirror *m, int32_t percent);
 
 /* 0044c060: the picture at x, y on the screen target (a widened one's middle, as wide as the original's). */
 void drive_mirror_place(const DriveMirror *m, const QuadTarget *target, int32_t x, int32_t y);
+
+/* port (render scale): the mirror's next passes drawn `zoom` (16.16, 0 off) times the picture's size; the larger picture
+ * is made at the next drive_mirror_begin. */
+void drive_mirror_zoom(DriveMirror *m, int32_t zoom);
 
 /* 0044bdbc. */
 void drive_mirror_free(DriveMirror *m);
