@@ -132,7 +132,7 @@ static void test_cfg(void)
     CHECK(strstr(out, "psx_dir=/Volumes/PS1 CD/car files\n") != NULL);
 }
 
-/* the car select's Color line: the per-car mask in extras.cfg, the swatch's colour, and the key's press edge */
+/* the per-car mask in extras.cfg and the swatch's colour */
 static void test_select(void)
 {
     CHECK_EQ_INT(psx_livery_car_on(0, 3), 0);

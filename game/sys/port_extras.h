@@ -36,8 +36,8 @@ typedef struct {
     DashBox dash_box;   /* DASH_BOX_MAP */
     int psx_liveries;   /* 0/1: the rivals wear the PS1 game's second livery of their car, at random (car_livery.h),
                          * from the port.cfg psx_dir's files; off, the exe's colours. Last, as dash_box. */
-    int psx_livery_cars;    /* bit c: the player in car c wears the PS1 livery, the car select's Color line (M or the
-                             * pad's X); 0 the normal. Written as psx_livery_cars=<mask>. Last, after psx_liveries. */
+    int psx_livery_cars;    /* bit c: the player in car c wears the PS1 livery, the car showcase's Color box; 0 the
+                             * normal. Written as psx_livery_cars=<mask>. Last, after psx_liveries. */
 } PortExtras;
 
 /* the mask's bit for `car` (0..11): 1 when the player's car is on its PS1 livery */

@@ -263,7 +263,7 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
 }
 
 /* port: the PS1 liveries for this race (extras.cfg psx_liveries, port.cfg psx_dir): the player's car wears the livery
- * its car select's Color line picked (psx_livery_cars); every rival but the player draws its own choice from the race's
+ * the car showcase's Color box picked (psx_livery_cars); every rival but the player draws its own choice from the race's
  * seed, so a replay of the seed shows the same rivals' colours. Off, or with no psx_dir, nobody wears one. */
 static void rival_liveries(const RaceField *field, int player)
 {
@@ -273,7 +273,7 @@ static void rival_liveries(const RaceField *field, int player)
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
     port_log("psx_liveries: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
     if (!extras.psx_liveries || settings.psx_dir[0] == '\0') return;
-    /* the player's own car wears the livery its car select's Color line picked (extras psx_livery_cars) */
+    /* the player's own car wears the livery the car showcase's Color box picked (extras psx_livery_cars) */
     const int player_car = field->entries[player].car;
     const int player_livery = psx_livery_car_on(extras.psx_livery_cars, player_car);
     if (player < RACE_CARS) drive_cars.livery[player] = player_livery;
