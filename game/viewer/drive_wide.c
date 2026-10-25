@@ -333,6 +333,35 @@ static void compose_banded(const LayerCompose *c, const uint8_t *frame)
     bands_rows(0, c->layer_h, compose_band, (void *)&job);
 }
 
+/* port (the PS1 light's time of day, drive_light.h): which of the 2D layer's pixels are the dash's art (the dash, the wheel, the
+ * pillars, the mirror's housing: half the tint) and which the HUD's (the top bar, the map, the gauge, the two dials with their needles
+ * and the lights: none). The layer's own frame is classed pixel by pixel, then composed the way the frame is, so each output pixel has
+ * its class whatever the piece or the stretch that put it there. */
+static int in_rect(int x, int y, int left, int top, int w, int h) { return x >= left && x < left + w && y >= top && y < top + h; }
+
+static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car)
+{
+    static uint8_t classes[SCREEN_W * SCREEN_H], *shadow;
+    static size_t shadow_size;
+    const size_t out = (size_t)drive_wide.width * SCREEN_H;
+    if (shadow_size != out) {
+        uint8_t *p = realloc(shadow, out);
+        if (p == NULL) return;
+        shadow = p, shadow_size = out;
+    }
+    const Cockpit *k = &drive_hud.cockpit;
+    for (int y = 0; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++) {
+            const uint8_t v = frame[y * SCREEN_W + x];
+            int hud = !in_car || y < HUD_BAR_HEIGHT || in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H);
+            hud = hud || in_rect(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_rect(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+            classes[y * SCREEN_W + x] = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
+        }
+    memset(shadow, LAYER_KEY, out);
+    layer_compose(c, classes, shadow);
+    drive_light_world_class(shadow, drive_wide.width, SCREEN_H, drive_wide.scale);
+}
+
 void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 {
     const RaceCamera *camera = race->chase.camera;
@@ -401,6 +430,7 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
     compose_banded(&c, frame);
+    if (drive_light_active()) compose_classes(&c, frame, in_car);
     const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
     if (mirror_on) {  /* the picture's place in the layer, as wide_mirror puts it */
         const int left = (int)((int64_t)(drive_hud.mirror_x - mirror.left) * mirror_scale >> 16);

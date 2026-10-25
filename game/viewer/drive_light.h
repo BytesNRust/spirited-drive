@@ -19,11 +19,19 @@ void drive_light_palette(const uint8_t palette[768], uint8_t out[768]);
 
 /* A race's frame: `frame` (count pixels) is the 3D when it is done and the 2D layer (HUD, dash, menus over it) not yet drawn. */
 void drive_light_world_done(const uint8_t *frame, size_t count);
+/* The 2D layer's own marks (640 x 480 wide, as the compose makes them): per layer pixel PSX_CLASS_DASH (the dash's art, the wheel, the
+ * pillars, the mirror's housing: half the tint), PSX_CLASS_HUD (the top bar, the map, the gauges' dials and needles: none) or
+ * LAYER_KEY (the 3D shows: whole). `width` x `height` the layer's size, `scale` the output's over it. Over what the diff finds. */
+enum { PSX_CLASS_DASH = 1, PSX_CLASS_HUD = 2 };
+void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
+int drive_light_active(void);   /* the tint is not neutral */
+/* The palette with every entry half way from `palette` to drive_light_palette's. */
+void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768]);
 /* The rear-view mirror's picture, in the output frame `width` pixels wide: the 2D layer carries it but it shows the 3D, so it is
  * the world's (tinted); w <= 0 clears it. Set again each frame by the compose. */
 void drive_light_world_rect(int width, int x, int y, int w, int h);
-/* The pixels of `shown` (the frame now, count of them) that are the 3D's, 1 each (the 2D layer changed the others): the mask to
- * give platform_present_split with drive_light_palette's; NULL when the tint is neutral or no 3D was kept for this size. */
+/* The pixels of `shown` (the frame now, count of them): 1 the 3D's (the full tint), 2 the dash's art (half), 0 the 2D's (none): the mask to
+ * give platform_present_split with drive_light_palette's and _half's; NULL when the tint is neutral or no 3D was kept for this size. */
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count);
 
 #endif

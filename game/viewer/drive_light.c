@@ -101,6 +101,39 @@ void drive_light_world_done(const uint8_t *frame, size_t count)
 
 static int rect[4], rect_set, rect_width;
 
+/* the 2D layer's classes (drive_light.h) per layer pixel, and the output's size against it */
+static uint8_t *class_layer;
+static size_t class_size;
+static int class_width, class_scale = 1;
+
+int drive_light_active(void) { return tint[0] != 1.0f || tint[1] != 1.0f || tint[2] != 1.0f; }
+
+void drive_light_world_class(const uint8_t *layer, int width, int height, int scale)
+{
+    const size_t count = (size_t)width * (size_t)height;
+    if (!drive_light_active() || layer == NULL) {
+        class_width = 0;
+        return;
+    }
+    if (class_size != count) {
+        uint8_t *p = realloc(class_layer, count);
+        if (p == NULL) {
+            class_width = 0;
+            return;
+        }
+        class_layer = p, class_size = count;
+    }
+    memcpy(class_layer, layer, count);
+    class_width = width, class_scale = scale < 1 ? 1 : scale;
+}
+
+void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768])
+{
+    uint8_t full[768];
+    psx_tint_palette(palette, tint, full);
+    for (int i = 0; i < 768; i++) out[i] = (uint8_t)((palette[i] + full[i] + 1) / 2);
+}
+
 void drive_light_world_rect(int width, int x, int y, int w, int h)
 {
     rect[0] = x, rect[1] = y, rect[2] = w, rect[3] = h, rect_width = width, rect_set = w > 0 && h > 0;
@@ -110,6 +143,18 @@ const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
 {
     if ((tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f) || world_size != count || world_frame == NULL) return NULL;
     psx_world_mask(shown, world_frame, count, world_mask);
+    if (class_width > 0 && rect_width == class_width * class_scale && count % (size_t)rect_width == 0) {
+        /* the 2D layer's own marks over the diff's: the dash's art half, the HUD and the gauges not at all */
+        const size_t rows = count / (size_t)rect_width;
+        for (size_t y = 0; y < rows; y++) {
+            const uint8_t *row = class_layer + (y / (size_t)class_scale) * (size_t)class_width;
+            for (size_t x = 0; x < (size_t)rect_width; x++) {
+                const uint8_t c = row[x / (size_t)class_scale];
+                if (c == PSX_CLASS_DASH) world_mask[y * (size_t)rect_width + x] = 2;
+                else if (c == PSX_CLASS_HUD) world_mask[y * (size_t)rect_width + x] = 0;
+            }
+        }
+    }
     if (rect_set && rect_width > 0 && count % (size_t)rect_width == 0)
         psx_mask_rect(world_mask, rect_width, (int)(count / (size_t)rect_width), rect[0], rect[1], rect[2], rect[3]);
     return world_mask;

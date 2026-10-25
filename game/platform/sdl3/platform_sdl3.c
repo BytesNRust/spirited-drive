@@ -942,15 +942,15 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
 }
 
 void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
-                            const uint8_t *world)
+                            const PlatformColor half_palette[256], const uint8_t *mask)
 {
-    uint32_t lut[2][256];
-    for (int i = 0; i < 256; i++) {
-        lut[0][i] = ((uint32_t)palette[i].r << 16) | ((uint32_t)palette[i].g << 8) | palette[i].b;
-        lut[1][i] = ((uint32_t)world_palette[i].r << 16) | ((uint32_t)world_palette[i].g << 8) | world_palette[i].b;
-    }
+    uint32_t lut[3][256];
+    const PlatformColor *const by_mask[3] = { palette, world_palette, half_palette };
+    for (int m = 0; m < 3; m++)
+        for (int i = 0; i < 256; i++)
+            lut[m][i] = ((uint32_t)by_mask[m][i].r << 16) | ((uint32_t)by_mask[m][i].g << 8) | by_mask[m][i].b;
     const size_t count = (size_t)fb_width * (size_t)fb_height;
-    for (size_t i = 0; i < count; i++) rgb_buffer[i] = lut[world[i] != 0][pixels[i]];
+    for (size_t i = 0; i < count; i++) rgb_buffer[i] = lut[mask[i] > 2 ? 0 : mask[i]][pixels[i]];
     present_rgb();
 }
 

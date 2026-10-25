@@ -339,19 +339,22 @@ static int write_drive_ppm(const char *path, const uint8_t *shown, int width, co
     const int height = drive_output_height();
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
     if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
-    uint8_t world[768];
+    uint8_t world[768], half[768];
     drive_light_palette(palette, world);
-    return track_viewer_write_ppm_split(path, shown, width, height, palette, world, mask);
+    drive_light_palette_half(palette, half);
+    return track_viewer_write_ppm_split(path, shown, width, height, palette, world, half, mask);
 }
 
 static void present_drive(const Track *t, uint8_t *pixels)
 {
-    PlatformColor palette[256], world[256];
-    uint8_t world_palette[768];
+    PlatformColor palette[256], world[256], half[256];
+    uint8_t world_palette[768], half_palette[768];
     drive_light_palette(t->art.palette, world_palette);   /* port: the PS1 light's time of day, for the 3D's pixels */
+    drive_light_palette_half(t->art.palette, half_palette);   /* and half of it for the dash's art */
     for (int i = 0; i < 256; i++) {  /* the police screen writes the palette (00476460) */
         palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
         world[i] = (PlatformColor){ world_palette[3 * i], world_palette[3 * i + 1], world_palette[3 * i + 2] };
+        half[i] = (PlatformColor){ half_palette[3 * i], half_palette[3 * i + 1], half_palette[3 * i + 2] };
     }
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
@@ -363,7 +366,7 @@ static void present_drive(const Track *t, uint8_t *pixels)
                                  .filter = ported_view_filter_on(), .fog = ported_view_fog_on() };
     shown = race_stats_compose(&race_stats, shown, width, drive_output_height(), t->art.palette, &view);
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)drive_output_height());   /* the overlay is 2D */
-    if (mask != NULL) platform_present_split(shown, palette, world, mask);
+    if (mask != NULL) platform_present_split(shown, palette, world, half, mask);
     else platform_present(shown, palette);
 }
 
