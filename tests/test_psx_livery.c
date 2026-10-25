@@ -175,6 +175,23 @@ static void test_select(void)
     normal[ORIGIN_A] = 3, normal[BODY_C] = 8;
     CHECK_EQ_INT(car_livery_main_from(pairs, 2, normal, &colour), 1);
     CHECK_EQ_INT(colour, BODY_C);
+
+    /* the paint, not the shading: a heavy dark shade beside a lighter saturated tone shows the saturated one (the real
+     * Ferrari's normal was (24,16,16) with the red under it); a tone too rare to be the body does not count */
+    enum { SHADE = 0x0843, RED = 0x001f /* (248,0,0) */, GREY_B = 0x6318 /* (192,192,192) */, TINY = 0x03e0 };
+    static uint32_t shaded[PSX_COLOURS];
+    const CarLiveryPair paint[3] = { { SHADE, SHADE }, { RED, RED }, { GREY_B, GREY_B } };
+    shaded[SHADE] = 1000, shaded[RED] = 100;
+    CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
+    CHECK_EQ_INT(colour, RED);
+    CHECK_EQ_INT(car_livery_main_from(paint, 3, shaded, &colour), 1);
+    CHECK_EQ_INT(colour, RED);
+    shaded[RED] = 10;                                   /* under a sixteenth of the shade's weight: a stray */
+    CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
+    CHECK_EQ_INT(colour, SHADE);
+    shaded[RED] = 0, shaded[GREY_B] = 400;              /* only greys: the heaviest, as before */
+    CHECK_EQ_INT(car_livery_main(paint, 3, shaded, &colour), 1);
+    CHECK_EQ_INT(colour, SHADE);
 }
 
 int main(void)

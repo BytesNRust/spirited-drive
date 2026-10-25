@@ -5,7 +5,8 @@
 enum {
     PALETTE_ENTRIES = 256, PALETTE_8BIT = 0x24, PALETTE_6BIT = 0x22,
     CHANNEL_BITS = 5, CHANNEL_MASK = 31, CHANNEL_SHIFT_8 = 3,
-    LUMA_R = 30, LUMA_G = 59, LUMA_B = 11   /* .3 r + .59 g + .11 b, in hundredths */
+    LUMA_R = 30, LUMA_G = 59, LUMA_B = 11,  /* .3 r + .59 g + .11 b, in hundredths */
+    SATURATED_SPREAD = 32, SATURATED_SHARE = 16
 };
 /* the hash's multipliers: past int, so not enumerators */
 static const uint32_t SALT_SLOT = 0x85ebca6bu, SALT_SEED = 0x9e3779b1u, SALT_FINAL = 0xc2b2ae35u;
@@ -147,24 +148,38 @@ int car_livery_pick(uint32_t seed, int slot, int car, int player_car, int player
     return (int)(mix(seed, slot) >> 31);
 }
 
+/* A colour that reads as paint and not as shading: its 8-bit channels spread by SATURATED_SPREAD or more. */
+static int saturated(uint16_t c)
+{
+    const int r = c & CHANNEL_MASK, g = (c >> CHANNEL_BITS) & CHANNEL_MASK, b = (c >> (2 * CHANNEL_BITS)) & CHANNEL_MASK;
+    const int hi = r > g ? (r > b ? r : b) : (g > b ? g : b), lo = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    return ((hi - lo) << CHANNEL_SHIFT_8) >= SATURATED_SPREAD;
+}
+
+/* The colour the swatch shows: the heaviest of the pairs' colours (`from` or `to`) in `counts`, but a saturated one
+ * wins over a grey one when it weighs at least 1/SATURATED_SHARE of that heaviest: the textures' dark shading and
+ * interior outweigh the paint, which is the colour people see. 0 when none is used. */
+static int main_colour(const CarLiveryPair *pairs, int count, const uint32_t *counts, int to, uint16_t *colour)
+{
+    uint32_t most = 0, most_saturated = 0;
+    uint16_t heaviest = 0, paint = 0;
+    for (int i = 0; i < count; i++) {
+        const uint16_t c = to ? pairs[i].to : pairs[i].from;
+        const uint32_t n = counts[c];
+        if (n > most) most = n, heaviest = c;
+        if (n > most_saturated && saturated(c)) most_saturated = n, paint = c;
+    }
+    if (most == 0) return 0;
+    *colour = most_saturated != 0 && most_saturated * SATURATED_SHARE >= most ? paint : heaviest;
+    return 1;
+}
+
 int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alternate, uint16_t *colour)
 {
-    int found = 0;
-    uint32_t most = 0;
-    for (int i = 0; i < count; i++) {
-        const uint32_t n = alternate[pairs[i].to];
-        if (n > most) most = n, *colour = pairs[i].to, found = 1;
-    }
-    return found;
+    return main_colour(pairs, count, alternate, 1, colour);
 }
 
 int car_livery_main_from(const CarLiveryPair *pairs, int count, const uint32_t *normal, uint16_t *colour)
 {
-    int found = 0;
-    uint32_t most = 0;
-    for (int i = 0; i < count; i++) {
-        const uint32_t n = normal[pairs[i].from];
-        if (n > most) most = n, *colour = pairs[i].from, found = 1;
-    }
-    return found;
+    return main_colour(pairs, count, normal, 0, colour);
 }
