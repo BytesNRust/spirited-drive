@@ -198,7 +198,7 @@ static int spare_for(const RepaintBank *bank, Spares *sp, const uint8_t want[3],
 
 /* a texel of a coloured body with at least 2 of the 4 texels beside it not paint (glass dithered with the body's own colour, as the ZR-1's hatch is) is left as it
  * was: painting its paint half only would speckle the glass */
-enum { DITHER_NEIGHBOURS = 2 };   /* of the 4 beside it */
+enum { LAMP_SLOT = 0xfe, LAMP_REACH = 1, DITHER_NEIGHBOURS = 2 };   /* of the 4 beside it */
 
 static int dithered(const RepaintTexture *tex, size_t i, const uint8_t *family, int chromatic)
 {
@@ -234,11 +234,22 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
     }
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
-        if (tex->body == REPAINT_NONE || tex->width <= 0 || !s->body_chromatic) continue;
+        if (tex->body == REPAINT_NONE || tex->width <= 0) continue;
         guard[t] = calloc(tex->count, 1);
         if (guard[t] == NULL) continue;
-        for (size_t i = 0; i < tex->count; i++)
-            if (family[tex->pixels[i]] && !kept(tex, i) && dithered(tex, i, family, s->body_chromatic)) guard[t][i] = 1, shared[tex->pixels[i]] = 1;
+        const int w = tex->width, h = (int)(tex->count / (size_t)w);
+        for (size_t i = 0; i < tex->count; i++) {
+            if (tex->pixels[i] == LAMP_SLOT) {   /* a lamp's light slot: the lens and rim round it stay */
+                const int x = (int)(i % (size_t)w), y = (int)(i / (size_t)w);
+                for (int ny = y - LAMP_REACH; ny <= y + LAMP_REACH; ny++)
+                    for (int nx = x - LAMP_REACH; nx <= x + LAMP_REACH; nx++)
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h) guard[t][(size_t)ny * (size_t)w + (size_t)nx] = 1;
+            }
+        }
+        for (size_t i = 0; i < tex->count; i++) {
+            if (!guard[t][i] && family[tex->pixels[i]] && !kept(tex, i) && dithered(tex, i, family, s->body_chromatic)) guard[t][i] = 1;
+            if (guard[t][i] && family[tex->pixels[i]]) shared[tex->pixels[i]] = 1;
+        }
     }
     for (int e = 0; e < ENTRIES; e++) {
         if (s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;

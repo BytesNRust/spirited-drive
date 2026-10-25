@@ -181,6 +181,29 @@ static void test_pairs_soft(void)
     CHECK(bright >= 90 && bright <= 98);
 }
 
+/* a lamp's light slot (entry 0xfe, which the game fills with the lamp's colour) and the lens and rim texels a few texels round it stay */
+static void test_lamp_reach(void)
+{
+    enum { W = 24, H = 8 };
+    uint8_t pal[768] = { 0 }, xxx[768], body[W * H];
+    set(pal, 20, 120, 120, 124), set(pal, 21, 90, 90, 94);
+    memcpy(xxx, pal, sizeof xxx);
+    for (int i = 0; i < W * H; i++) body[i] = (uint8_t)(i % 2 ? 20 : 21);
+    body[4 * W + 12] = 0xfe;
+    uint8_t before[W * H];
+    memcpy(before, body, sizeof body);
+    RepaintTexture tex[1] = { { body, W * H, REPAINT_MAIN, W, { { 0 } } } };
+    const RepaintBank bank = { tex, 1, { pal, xxx }, 2, 0x24, 0x24 };
+    const uint8_t blue[3] = { 30, 70, 200 };
+    CHECK(car_repaint_paint(&bank, blue, 44) > 0);
+    CHECK_EQ_INT(body[4 * W + 12], 0xfe);
+    for (int y = 3; y <= 5; y++)
+        for (int x = 11; x <= 13; x++) CHECK(pal[3 * body[y * W + x] + 2] < 130);   /* the texel and the ring round it, as they were */
+    CHECK(pal[3 * body[4 * W + 15] + 2] > 150);   /* three texels out: painted */
+    CHECK(pal[3 * body[4 * W + 20] + 2] > 150);   /* far from it: painted */
+    CHECK(pal[3 * body[4 * W + 2] + 2] > 150);
+}
+
 static void test_odd_banks(void)
 {
     Fixture f;
@@ -251,6 +274,7 @@ int main(void)
     test_pairs_dark();
     test_dither();
     test_pairs_soft();
+    test_lamp_reach();
     test_odd_banks();
     test_lamps();
     return TEST_REPORT();
