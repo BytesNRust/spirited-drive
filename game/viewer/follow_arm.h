@@ -20,6 +20,7 @@ typedef struct {
     int circuit;
     int32_t frame;               /* the scenery's animation counter (00513e70), for the road behind (follow_behind.h) */
     int mirrored;                /* a mirrored track (004fbad8) */
+    int low_lod;                 /* the rear mirror's: no segment at a finer level than the far one (follow_behind.h) */
 } FollowArm;
 
 enum { FOLLOW_ARM_BEHIND, FOLLOW_ARM_AHEAD };

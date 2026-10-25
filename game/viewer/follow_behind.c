@@ -11,6 +11,7 @@
 #include "game/race/view.h"
 #include "game/sys/fixed_math.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -18,7 +19,7 @@ enum {
     WORLD_CAPACITY = TRACK_MAX_VERTICES, OBJECT_CAPACITY = TRACK_MAX_OBJECT_VERTICES, RUN_CAPACITY = 1024,
     ROWS = 4, VARIANTS = 8, MIN_DIR_Z = 0x1999,
     FENCE_RIGHT = 0x80, FENCE_LEFT = 0x40, FENCE_LOW = 0x20, FENCE_TEXTURE = 0x20,
-    NODE_POSITION = 8
+    NODE_POSITION = 8, MIRROR_LOD_DISTANCE = 4, MIRROR_LEVEL = 1, CARS_LAG = 5
 };
 
 typedef struct {
@@ -52,7 +53,7 @@ static void node_position(const TrackRender *r, int32_t node, int32_t out[3])
 
 /* the build of the segments behind: the vertices, and the scenery records on their rows placed as object points, the
  * run of records in node order with where each one's points end */
-static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_t camera_segment)
+static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_t camera_segment, int low_lod)
 {
     TrackBuild *b = &B.build;
     memset(b, 0, sizeof *b);
@@ -62,7 +63,12 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     b->walk = r->build.walk;
     track_objects_start(&b->walk, (int32_t)(b->segment_mask & (uint32_t)first));
     for (int32_t s = first; s <= last; s++)
-        track_build_segment(b, s < camera_segment ? 2 * s - camera_segment : camera_segment, s, ROWS, 1);   /* the level by the distance from the camera, as the exe's from its first */
+    {
+        /* the level by the distance from the camera, as the exe's from its first; the mirror's no finer than the far level */
+        int32_t distance = s < camera_segment ? camera_segment - s : s - camera_segment;
+        if (low_lod && distance < MIRROR_LOD_DISTANCE) distance = MIRROR_LOD_DISTANCE;
+        track_build_segment(b, s - distance, s, ROWS, 1);
+    }
     const TrackObjectWalk *w = &b->walk;
     B.run_count = 0;
     int32_t end = 0;
@@ -91,7 +97,58 @@ typedef struct {
     TrackObjectDraw objects;
     MirrorBounds bounds;
     int32_t camera_node, node_mask, mask, run_lo, run_hi;
+    int backward;   /* the lower nodes lie away from the camera */
+    int32_t last_node;   /* the last row drawn nearer by node, whose cars are still to come (-1: none) */
 } Pass;
+
+/* the texture's level by the row's band */
+static int band_level(int near_style, int32_t band)
+{
+    const int32_t b = band < 0 ? 0 : band;
+    return near_style ? (b < TRACK_VARIANT_ROWS ? TRACK_VARIANT_NEAR[b] : 0) : (b / 4 < TRACK_VARIANT_ROWS ? TRACK_VARIANT_FAR[b / 4] : 0);
+}
+
+/* The mirror's rails: the rail texture's edge fringe (palette 187, magenta, next to the keyed texels) is a pixel wide in the
+ * exe's pass and a block in the mirror's near panels; a copy of the texture with the fringe keyed out, one per texture */
+enum { FRINGE = 187, KEY = 255, MIRROR_TEXTURES = 16, MIRROR_TEXTURE_BYTES = 16384 };
+
+static struct { const FshEntry *source; FshEntry copy; uint8_t data[MIRROR_TEXTURE_BYTES]; } mirror_textures[MIRROR_TEXTURES];
+
+static const FshEntry *mirror_rail_texture(const FshEntry *t)
+{
+    const size_t bytes = (size_t)t->width * t->height;
+    if (t->type != TRACK_TEXTURE_TRANSPARENT_TYPE || bytes > MIRROR_TEXTURE_BYTES || bytes > t->payload_size) return t;
+    int free_slot = -1;
+    for (int i = 0; i < MIRROR_TEXTURES; i++) {
+        if (mirror_textures[i].source == t) return &mirror_textures[i].copy;
+        if (mirror_textures[i].source == NULL && free_slot < 0) free_slot = i;
+    }
+    if (free_slot < 0) return t;
+    for (size_t i = 0; i < bytes; i++) mirror_textures[free_slot].data[i] = t->payload[i] == FRINGE ? KEY : t->payload[i];
+    mirror_textures[free_slot].source = t;
+    mirror_textures[free_slot].copy = *t;
+    mirror_textures[free_slot].copy.payload = mirror_textures[free_slot].data;
+    return &mirror_textures[free_slot].copy;
+}
+
+static int outside_signed(const ClipRect *c, const int32_t s[8])
+{
+    int left = 1, right = 1, above = 1, below = 1;
+    for (int i = 0; i < 4; i++) {
+        left &= s[2 * i] < c->x0, right &= s[2 * i] > c->x1;
+        above &= s[2 * i + 1] < c->y0, below &= s[2 * i + 1] > c->y1;
+    }
+    return left || right || above || below;
+}
+
+/* the mirror's polygons: a near cell reaches across its box, which the exe's unsigned outcodes (outcode_shared) take for
+ * outside on the right when its corners are left of it, so the sides are tested signed, then the facing alone */
+static int mirror_visible(const Pass *p, const int32_t s[8], int strip)
+{
+    if (outside_signed(&p->ctx.clip, s)) return 0;
+    const MirrorBounds open = { INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN };
+    return track_visible_near(&open, s, strip, p->arm->mirrored);
+}
 
 static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *record, const TrackPolygon *poly, int near_style,
                          int32_t band)
@@ -104,9 +161,7 @@ static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
         quad[2 * c] = B.screen[v][0], quad[2 * c + 1] = B.screen[v][1];
         cam[c] = B.camera[v];
     }
-    const int32_t b = band < 0 ? 0 : band;
-    const int level = near_style ? (b < TRACK_VARIANT_ROWS ? TRACK_VARIANT_NEAR[b] : 0)
-                                 : (b / 4 < TRACK_VARIANT_ROWS ? TRACK_VARIANT_FAR[b / 4] : 0);
+    const int level = p->arm->low_lod ? MIRROR_LEVEL : band_level(near_style, band);   /* the mirror's roads at the one level it draws them at (004c2e94) */
     int32_t clipped[4][3];
     int32_t lowest_z = cam[0][2];
     for (int c = 1; c < 4; c++)
@@ -118,14 +173,54 @@ static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
             cam[c] = clipped[c];
         }
     }
-    if (near_style ? !track_visible_near(&p->bounds, quad, poly->strip, p->arm->mirrored)
-                   : !(track_visible_far(&p->ctx.clip, quad, poly->strip, p->arm->mirrored) && cam[3][2] > 0))
+    if (p->arm->low_lod ? !mirror_visible(p, quad, poly->strip)
+        : near_style ? !track_visible_near(&p->bounds, quad, poly->strip, p->arm->mirrored)
+                     : !(track_visible_far(&p->ctx.clip, quad, poly->strip, p->arm->mirrored) && cam[3][2] > 0))
         return;
     const FshEntry *t = p->fence_ops.texture(p->fence_ops.ctx, record[2 + poly->strip] * VARIANTS + uv->variant + level);
     if (t == NULL) return;
     if (near_style) track_draw_subdivided(&p->ctx, t, uv->u_level, 0, uv->u_cell, 0, cam, quad, p->ctx.near);
     else if (p->fence_ops.full_camera != NULL) p->fence_ops.full_camera(p->fence_ops.ctx, t, cam);
     else p->ctx.sink.draw_full(p->ctx.sink.user, t, quad);
+}
+
+/* the part of an edge from z0 to z1 in front of the plane as 16.16 fractions of it; 0 when none is */
+static int edge_in_front(int32_t z0, int32_t z1, int32_t near, int32_t out[2])
+{
+    out[0] = 0, out[1] = 0x10000;
+    if (z0 >= near && z1 >= near) return 1;
+    if (z0 < near && z1 < near) return 0;
+    const int64_t span = (int64_t)z1 - z0;
+    const int32_t cut = (int32_t)(((int64_t)near - z0) * 0x10000 / span);
+    if (z0 < near) out[0] = cut;
+    else out[1] = cut;
+    return 1;
+}
+
+static void lerp3(const int32_t a[3], const int32_t b[3], int32_t f, int32_t out[3])
+{
+    for (int i = 0; i < 3; i++) out[i] = (int32_t)(a[i] + ((int64_t)b[i] - a[i]) * f / 0x10000);
+}
+
+/* a whole-texture rail panel across the near plane (the classic sink): both edges cut at the plane, the texture's u cut
+ * with them, so the panel's end is the part of the rail that is in front and not the whole texture squeezed into it */
+static void draw_rail_cut(const Pass *p, const FshEntry *t, const int32_t *const c[4])
+{
+    int32_t top[2], bottom[2];
+    if (!edge_in_front(c[0][2], c[1][2], p->ctx.near, top) || !edge_in_front(c[3][2], c[2][2], p->ctx.near, bottom)) return;
+    int32_t n[4][3], screen[8];
+    lerp3(c[0], c[1], top[0], n[0]), lerp3(c[0], c[1], top[1], n[1]);
+    lerp3(c[3], c[2], bottom[1], n[2]), lerp3(c[3], c[2], bottom[0], n[3]);
+    for (int i = 0; i < 4; i++) {
+        if (n[i][2] < p->ctx.near) n[i][2] = p->ctx.near;
+        view_project(p->ctx.view, n[i], &screen[2 * i]);
+    }
+    if (outside_signed(&p->ctx.clip, screen)) return;
+    const int32_t right = x_sub(x_shl((int16_t)t->width, 16), 1), bottom_v = x_sub(x_shl((int16_t)t->height, 16), 1);
+    const int32_t u[4] = { (int32_t)((int64_t)right * top[0] >> 16), (int32_t)((int64_t)right * top[1] >> 16),
+                           (int32_t)((int64_t)right * bottom[1] >> 16), (int32_t)((int64_t)right * bottom[0] >> 16) };
+    const int32_t uvs[8] = { u[0], 0, u[1], 0, u[2], bottom_v, u[3], bottom_v };
+    p->ctx.sink.draw_uv(p->ctx.sink.user, t, uvs, screen);
 }
 
 /* one rail panel (0044a2b4's quad: b's top, a's top, a, b) from the points' unpushed camera-space coordinates: clipped to
@@ -146,6 +241,11 @@ static void draw_rail(Pass *p, const int32_t pair[2], int32_t base, const TrackU
     int32_t lowest = corners[0][2];
     for (int c = 1; c < 4; c++)
         if (corners[c][2] < lowest) lowest = corners[c][2];
+    if (lowest < p->ctx.near && p->ctx.sink.draw_camera == NULL && uv->variant != 0) {
+        const FshEntry *whole = p->fence_ops.texture(p->fence_ops.ctx, x_add(x_add(uv->variant, level), x_shl(texture, 3)));
+        if (whole != NULL) draw_rail_cut(p, p->arm->low_lod ? mirror_rail_texture(whole) : whole, corners);
+        return;
+    }
     if (lowest < p->ctx.near) {
         if (p->ctx.sink.draw_camera != NULL) {   /* the sink clips the cell itself; wholly behind the lens: nothing */
             int32_t highest = corners[0][2];
@@ -162,9 +262,10 @@ static void draw_rail(Pass *p, const int32_t pair[2], int32_t base, const TrackU
         track_render_push_near(pushed, p->ctx.near, p->ctx.near_dir);
         view_project(p->ctx.view, pushed, &screen[2 * c]);
     }
-    if (outcode_shared(&p->ctx.clip, screen, 4) != 0) return;
+    if (outside_signed(&p->ctx.clip, screen)) return;
     const FshEntry *t = p->fence_ops.texture(p->fence_ops.ctx, x_add(x_add(uv->variant, level), x_shl(texture, 3)));
     if (t == NULL) return;
+    if (p->arm->low_lod) t = mirror_rail_texture(t);
     if (uv->variant == 0) p->fence_ops.subdivide(p->fence_ops.ctx, t, uv->u_level, uv->u_cell, corners, screen, p->ctx.near);
     else if (p->fence_ops.full_camera != NULL) p->fence_ops.full_camera(p->fence_ops.ctx, t, corners);
     else p->fence_ops.full_alt(p->fence_ops.ctx, t, screen);
@@ -218,9 +319,7 @@ static void draw_block(Pass *p, const TrackLod *lod, const TrackSegmentEntry *e,
     for (int32_t i = to; i >= from; i--) draw_polygon(p, e, record, &TRACK_POLYGONS[lod->first_polygon + i], near_style, band);
     if (rows == 0) return;
     const TrackUv *uv = &TRACK_UVS[marker->uv];
-    const int32_t b = band < 0 ? 0 : band;
-    const int level = near_style ? (b < TRACK_VARIANT_ROWS ? TRACK_VARIANT_NEAR[b] : 0)
-                                 : (b / 4 < TRACK_VARIANT_ROWS ? TRACK_VARIANT_FAR[b / 4] : 0);
+    const int level = band_level(near_style, band);
     draw_fences(p, lod, record, uv, e->first, highest, level);
     int32_t quad[8];
     for (int c = 0; c < 4; c++) {
@@ -231,7 +330,13 @@ static void draw_block(Pass *p, const TrackLod *lod, const TrackSegmentEntry *e,
         const int32_t node = (int32_t)((uint32_t)(ascending ? lowest + q : highest - q) & nm);
         draw_objects(p, node, band, ascending);
         if (near_style && p->ctx.sink.draw_skids != NULL) p->ctx.sink.draw_skids(p->ctx.sink.user, node, &quad[0], &quad[6]);
-        if (p->ctx.sink.draw_cars != NULL) p->ctx.sink.draw_cars(p->ctx.sink.user, (int32_t)((uint32_t)(node + 1) & nm));
+        if (p->ctx.sink.draw_cars == NULL) continue;
+        if (ascending) {   /* nearer rows follow: a row's cars after the next rows' polygons, as the exe mirror's (0045a8fc) */
+            p->ctx.sink.draw_cars(p->ctx.sink.user, (int32_t)((uint32_t)(node + 1 - CARS_LAG) & nm));
+            p->last_node = node;
+        } else {
+            p->ctx.sink.draw_cars(p->ctx.sink.user, (int32_t)((uint32_t)(node + 1) & nm));
+        }
     }
 }
 
@@ -270,22 +375,27 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     int32_t first = camera_segment - behind;
     if (!a->circuit && first < 0) first = 0;
     const int32_t last = camera_segment + ahead;
-    if (last < first || last + 2 >= TRACK_SEGMENT_ENTRIES) return;
-    if (!build_range(r, first, last, camera_segment)) return;
+    if (last < first || last + 3 >= TRACK_SEGMENT_ENTRIES) return;
+    if (!build_range(r, first, last + 1, camera_segment, a->low_lod)) return;   /* the segment past the last: its first row closes the last's polygons */
 
     Pass *p = &(Pass){ .arm = a, .ctx = *a->ctx, .camera_node = cam->node, .node_mask = (int32_t)r->build.walk.node_mask,
-                       .mask = mask, .run_hi = B.run_count - 1 };
+                       .mask = mask, .run_hi = B.run_count - 1, .last_node = -1 };
     const int shift = p->ctx.world_shift & 31;
     int32_t lo[3], hi[3];
     node_position(r, (camera_segment - 1) * 4, lo);
     node_position(r, camera_segment * 4, hi);
     follow_behind_direction(lo, hi, cam->matrix, shift, p->ctx.near_dir);
-    const int32_t near = p->ctx.near;
+    {
+        const int32_t toward_lower[3] = { x_sub(lo[0], hi[0]) >> shift, x_sub(lo[1], hi[1]) >> shift, x_sub(lo[2], hi[2]) >> shift };
+        int32_t raw[3];
+        mat3_apply(toward_lower, cam->matrix, raw);
+        p->backward = raw[2] > 0;
+    }
     const int32_t points = B.build.vertex_count;
     for (int32_t i = 0; i < points; i++) {
         to_camera(cam, shift, B.world[i], B.camera[i]);
         memcpy(B.pushed[i], B.camera[i], sizeof B.pushed[i]);
-        track_render_push_near(B.pushed[i], near, p->ctx.near_dir);
+        track_render_push_near(B.pushed[i], p->ctx.near, p->ctx.near_dir);
         view_project(p->ctx.view, B.pushed[i], B.screen[i]);
     }
     for (int32_t i = 0; i < B.build.walk.vertex_total && i < OBJECT_CAPACITY; i++) {
@@ -294,7 +404,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     }
     p->glue = (TrackGlue){ r, cam, &p->ctx };
     track_render_fence_ops(&p->glue, &p->fence_ops);
-        TrackObjectDrawOps object_ops;
+    TrackObjectDrawOps object_ops;
     track_render_object_ops(&p->glue, &object_ops);
     p->objects = (TrackObjectDraw){ &B.build.walk, r->nodes, (const int32_t (*)[3])B.object_world,
                                     (const int32_t (*)[3])B.object_camera, (const int32_t (*)[2])B.object_screen,
@@ -307,11 +417,15 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     while (lo_s < camera_segment || hi_s >= camera_segment) {
         const int take_lo = lo_s < camera_segment && (hi_s < camera_segment || camera_segment - lo_s > hi_s - camera_segment);
         if (take_lo) {
-            draw_segment(p, lo_s, 1, camera_segment - lo_s < TRACK_NEAR_SEGMENTS);
+            draw_segment(p, lo_s, 1, a->low_lod || camera_segment - lo_s < TRACK_NEAR_SEGMENTS);
             lo_s++;
         } else {
-            draw_segment(p, hi_s, 0, hi_s - camera_segment < TRACK_NEAR_SEGMENTS);
+            /* the camera's own segment, seen from a camera that looks back along the road: its lowest node is the farthest */
+            draw_segment(p, hi_s, hi_s == camera_segment && p->backward, a->low_lod || hi_s - camera_segment < TRACK_NEAR_SEGMENTS);
             hi_s--;
         }
     }
+    if (p->last_node >= 0 && p->ctx.sink.draw_cars != NULL)   /* the rows the lag left: the nearest cars */
+        for (int32_t k = 1; k < CARS_LAG; k++)
+            p->ctx.sink.draw_cars(p->ctx.sink.user, (int32_t)((uint32_t)(p->last_node + 1 - CARS_LAG + k) & (uint32_t)p->node_mask));
 }
