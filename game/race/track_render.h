@@ -23,6 +23,8 @@
 #include "game/race/track_build.h"
 #include "game/race/track_cache.h"
 #include "game/race/track_draw.h"
+#include "game/race/track_fence.h"
+#include "game/race/track_object_draw.h"
 #include "game/race/track_objects.h"
 
 #include <stdint.h>
@@ -123,5 +125,18 @@ void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext 
 int32_t track_render_near(const DrawContext *ctx);
 /* frame: the animation counter (00513e70). */
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame);
+
+/* port (the follow camera's road behind, follow_behind.h): the track's draws as the sink gets them, for a caller with its
+ * own vertex lists. The glue is what the ops' ctx points at, so it outlives the draws. */
+typedef struct {
+    const TrackRender *r;
+    const TrackCamera *cam;
+    const DrawContext *ctx;
+} TrackGlue;
+void track_render_fence_ops(const TrackGlue *g, TrackFenceOps *out);
+void track_render_object_ops(const TrackGlue *g, TrackObjectDrawOps *out);
+/* the road point as 0044aa94 projects it: x and y clamped, then in front of `near` pushed onto it along `dir` (z of at
+ * least 0x1999 for the push to be a distance) */
+void track_render_push_near(int32_t v[3], int32_t near, const int32_t dir[3]);
 
 #endif

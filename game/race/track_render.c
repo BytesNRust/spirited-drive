@@ -321,11 +321,7 @@ void track_point_screen(const TrackCamera *cam, const DrawContext *ctx, const in
 
 /* ---- drawing (0044a804, 0044b510 and its callees), port glue to the sink ---- */
 
-typedef struct {
-    const TrackRender *r;
-    const TrackCamera *cam;
-    const DrawContext *ctx;
-} Glue;
+typedef TrackGlue Glue;
 
 static const FshEntry *road_texture(void *ctx, int32_t flat)
 {
@@ -438,6 +434,26 @@ static void object_near_camera(void *user, int32_t texture, const int32_t *const
     int32_t uv[8];
     whole_uv(t, uv);
     g->ctx->sink.port_near_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
+}
+
+void track_render_fence_ops(const TrackGlue *g, TrackFenceOps *out)
+{
+    *out = (TrackFenceOps){ (void *)g, road_texture, point_screen, subdivide, full_alt,
+                            g->ctx->sink.draw_camera != NULL ? full_camera : NULL };
+}
+
+void track_render_object_ops(const TrackGlue *g, TrackObjectDrawOps *out)
+{
+    *out = (TrackObjectDrawOps){ (void *)g, object_model, object_full, object_full_alt,
+                                 g->ctx->sink.draw_camera != NULL ? object_full_camera : NULL,
+                                 g->ctx->sink.port_near_camera != NULL ? object_near_camera : NULL };
+}
+
+void track_render_push_near(int32_t v[3], int32_t near, const int32_t dir[3])
+{
+    v[0] = clamp_symmetric(v[0], v[2] < near * 2 ? CLAMP_X / 4 : CLAMP_X);
+    v[1] = clamp_symmetric(v[1], CLAMP_Y);
+    push_to(v, near, dir);
 }
 
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame)
