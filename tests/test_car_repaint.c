@@ -140,6 +140,47 @@ static void test_pairs_dark(void)
     CHECK_EQ_INT(colour(&f, f.pal, TRIM, 0), 40);
 }
 
+/* glass dithered with the paint's own colour (the Corvette's hatch) stays: a texel with half its neighbours not paint is left */
+static void test_dither(void)
+{
+    enum { W = 16, H = 8 };
+    uint8_t pal[768] = { 0 }, xxx[768], body[W * H];
+    set(pal, 20, 16, 70, 72), set(pal, 21, 16, 16, 16);
+    memcpy(xxx, pal, sizeof xxx);
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) body[y * W + x] = (uint8_t)(x < 8 ? 20 : ((x + y) & 1) ? 20 : 21);   /* solid, then a checkerboard */
+    uint8_t before[W * H];
+    memcpy(before, body, sizeof body);
+    RepaintTexture tex[1] = { { body, W * H, REPAINT_MAIN, W, { { 0 } } } };
+    const RepaintBank bank = { tex, 1, { pal, xxx }, 2, 0x24, 0x24 };
+    const uint8_t blue[3] = { 30, 70, 200 };
+    CHECK(car_repaint_paint(&bank, blue, 44) > 0);
+    CHECK(body[3 * W + 3] != 20);                       /* the solid interior is painted */
+    for (int y = 1; y < H - 1; y++)
+        for (int x = 9; x < W - 1; x++) CHECK_EQ_INT(body[y * W + x], before[y * W + x]);   /* the checkerboard interior is as it was */
+    CHECK_EQ_INT(pal[3 * 20 + 1], 70);                  /* and the entry it shows keeps its colour */
+}
+
+/* a near-black body's pairs are pulled towards the colour the main tone maps to, as the catalogue paints are: a PS1 body's bright
+ * violet on a grey cover's highlights would streak */
+static void test_pairs_soft(void)
+{
+    enum { N = 5, SIDE_W = 10 };
+    static const uint8_t GREY[N] = { 24, 32, 40, 56, 72 };
+    uint8_t pal[768] = { 0 }, xxx[768], body[N * 100];
+    for (int i = 0; i < N; i++) set(pal, 10 + i, GREY[i], GREY[i], GREY[i]);
+    memcpy(xxx, pal, sizeof xxx);
+    for (int i = 0; i < N * 100; i++) body[i] = (uint8_t)(10 + i / 100);
+    RepaintTexture tex[1] = { { body, N * 100, REPAINT_MAIN, 0, { { 0 } } } };
+    const RepaintBank bank = { tex, 1, { pal, xxx }, 2, 0x24, 0x24 };
+    const uint16_t g40 = (uint16_t)(5 | 5 << 5 | 5 << 10), g72 = (uint16_t)(9 | 9 << 5 | 9 << 10);
+    const CarLiveryPair pairs[2] = { { g40, (uint16_t)(7 | 1 << 5 | 10 << 10) }, { g72, (uint16_t)(15 | 7 << 5 | 20 << 10) } };
+    CHECK(car_repaint_pairs(&bank, pairs, 2, 20) > 0);
+    CHECK_EQ_INT(pal[3 * 12], 56);                          /* the main tone (40) maps to its pair's colour */
+    const int bright = pal[3 * 14];                         /* the 72 grey: 56 + (120 - 56) * 0.6 */
+    CHECK(bright >= 90 && bright <= 98);
+}
+
 static void test_odd_banks(void)
 {
     Fixture f;
@@ -208,6 +249,8 @@ int main(void)
     test_pairs_between();
     test_keep();
     test_pairs_dark();
+    test_dither();
+    test_pairs_soft();
     test_odd_banks();
     test_lamps();
     return TEST_REPORT();

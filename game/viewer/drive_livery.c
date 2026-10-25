@@ -189,6 +189,7 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *upper, RepaintFn f
             size_t pixels = (size_t)e.width * e.height;
             if (pixels > e.payload_size) pixels = e.payload_size;
             RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, texture_class(e.name), 0, { 0 } };
+            tex.width = (int)e.width;
             keep_plate(&tex, upper, e.name, (int)e.width);
             textures[count++] = tex;
         }

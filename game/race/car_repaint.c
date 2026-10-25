@@ -196,14 +196,49 @@ static int spare_for(const RepaintBank *bank, Spares *sp, const uint8_t want[3],
     return best;
 }
 
+/* a texel of a coloured body with at least 2 of the 4 texels beside it not paint (glass dithered with the body's own colour, as the ZR-1's hatch is) is left as it
+ * was: painting its paint half only would speckle the glass */
+enum { DITHER_NEIGHBOURS = 2 };   /* of the 4 beside it */
+
+static int dithered(const RepaintTexture *tex, size_t i, const uint8_t *family, int chromatic)
+{
+    if (tex->width <= 0 || !chromatic) return 0;   /* a grey body's ramp has edges of its own everywhere */
+    const int w = tex->width, x = (int)(i % (size_t)w), y = (int)(i / (size_t)w), h = (int)(tex->count / (size_t)w);
+    static const int STEP[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
+    int others = 0;
+    for (int k = 0; k < 4; k++) {
+        const int nx = x + STEP[k][0], ny = y + STEP[k][1];
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+        others += !family[tex->pixels[(size_t)ny * (size_t)w + (size_t)nx]];
+    }
+    return others >= DITHER_NEIGHBOURS;
+}
+
 static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, const Survey *s)
 {
     int remap[ENTRIES], changed = 0;
     Spares *sp = calloc(1, sizeof *sp);
     if (sp == NULL) return 0;
+    uint8_t family[ENTRIES], shared[ENTRIES];   /* the paint entries; the ones a dithered texel shows (not recoloured in place) */
     for (int e = 0; e < ENTRIES; e++) {
         remap[e] = -1;
         sp->used[e] = (uint8_t)(s->main[e] + s->end[e] + s->other[e] != 0 || e >= FIRST_RESERVED);
+        family[e] = (uint8_t)(s->main[e] + s->end[e] != 0 && in_family(bank, s, e, floor));
+        shared[e] = 0;
+    }
+    /* which texels are dithered, before any texel is rewritten (a rewritten neighbour is not paint any more) */
+    uint8_t **guard = calloc((size_t)bank->texture_count + 1, sizeof *guard);
+    if (guard == NULL) {
+        free(sp);
+        return 0;
+    }
+    for (int t = 0; t < bank->texture_count; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->body == REPAINT_NONE || tex->width <= 0 || !s->body_chromatic) continue;
+        guard[t] = calloc(tex->count, 1);
+        if (guard[t] == NULL) continue;
+        for (size_t i = 0; i < tex->count; i++)
+            if (family[tex->pixels[i]] && !kept(tex, i) && dithered(tex, i, family, s->body_chromatic)) guard[t][i] = 1, shared[tex->pixels[i]] = 1;
     }
     for (int e = 0; e < ENTRIES; e++) {
         if (s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;
@@ -217,7 +252,7 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
             second_colour_of(bank, e, own);
             if (!fn(ctx, e, own, second)) memcpy(second, own, 3);
         }
-        if (s->other[e] == 0) {   /* only the body textures show it: recoloured where it is */
+        if (s->other[e] == 0 && !shared[e]) {   /* only the body textures show it: recoloured where it is */
             set_colour(bank, e, out);
             if (second_valid(bank)) set_second(bank, e, second);
             remap[e] = e;
@@ -229,12 +264,14 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
         const RepaintTexture *tex = &bank->textures[t];
         if (tex->body == REPAINT_NONE) continue;
         for (size_t i = 0; i < tex->count; i++) {
-            if (kept(tex, i)) continue;
+            if (kept(tex, i) || (guard[t] != NULL && guard[t][i])) continue;
             const int to = remap[tex->pixels[i]];
             if (to >= 0 && to != tex->pixels[i]) tex->pixels[i] = (uint8_t)to, changed++;
             else if (to == tex->pixels[i]) changed++;
         }
     }
+    for (int t = 0; t < bank->texture_count; t++) free(guard[t]);
+    free(guard);
     free(sp);
     return changed;
 }
@@ -284,6 +321,8 @@ static const float BELOW_LOWEST = 0.75f;
 typedef struct {
     const CarLiveryPair *pairs;
     int count;
+    float soft;           /* 1: the pairs as they are; below: pulled towards `anchor` by this share of the distance kept */
+    uint8_t anchor[3];    /* the colour the body's main tone maps to */
 } PairsCtx;
 
 static uint16_t colour5(const uint8_t c[3])
@@ -298,10 +337,8 @@ static void colour8(uint16_t c, uint8_t out[3])
 
 /* a texel with a pair of its own takes its colour; one between two pairs takes the colour between theirs, by lightness (the
  * nearer pair's whole colour would stripe a ramp); one beyond the ends takes the end pair's (darker as it is when below, and left when well below) */
-static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3])
+static int pairs_map(const PairsCtx *p, const uint8_t in[3], uint8_t out[3])
 {
-    const PairsCtx *p = ctx;
-    (void)entry;
     const uint16_t c = colour5(in);
     const float y = luma_of(in);
     int lo = -1, hi = -1;
@@ -334,6 +371,43 @@ static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3
     return 1;
 }
 
+static int pairs_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3])
+{
+    const PairsCtx *p = ctx;
+    (void)entry;
+    if (!pairs_map(p, in, out)) return 0;
+    if (p->soft < 1.0f)
+        for (int i = 0; i < 3; i++) {
+            const float v = (float)p->anchor[i] + ((float)out[i] - (float)p->anchor[i]) * p->soft + 0.5f;
+            out[i] = (uint8_t)(v < 0.0f ? 0.0f : v > 255.0f ? 255.0f : v);
+        }
+    return 1;
+}
+
+/* a near-black body (the paints' rank case) keeps only part of the contrast between its tones' colours */
+static const float DARK_SOFT = 0.6f;
+
+static void soften(const RepaintBank *bank, const Survey *s, int floor, PairsCtx *ctx)
+{
+    uint8_t colours[ENTRIES][3];
+    uint32_t weight[ENTRIES];
+    int n = 0;
+    for (int e = 0; e < ENTRIES; e++)
+        if (s->main[e] + s->end[e] != 0 && in_family(bank, s, e, floor)) {
+            colour_of(bank, e, colours[n]);
+            weight[n++] = s->main[e] + s->end[e];
+        }
+    if (n == 0) return;
+    const uint8_t none[3] = { 0, 0, 0 };
+    CarPaintPlan plan;
+    car_paint_plan(&plan, (const uint8_t (*)[3])colours, weight, n, none);
+    if (!plan.ranked) return;
+    int nearest = 0;
+    for (int i = 1; i < n; i++)
+        if (fabsf(luma_of(colours[i]) - plan.main) < fabsf(luma_of(colours[nearest]) - plan.main)) nearest = i;
+    if (pairs_map(ctx, colours[nearest], ctx->anchor)) ctx->soft = DARK_SOFT;
+}
+
 int car_repaint_pairs(const RepaintBank *bank, const CarLiveryPair *pairs, int count, int floor)
 {
     if (bank == NULL || (bank->type != PALETTE_8BIT && bank->type != PALETTE_6BIT) || bank->palette[0] == NULL) return -1;
@@ -342,7 +416,8 @@ int car_repaint_pairs(const RepaintBank *bank, const CarLiveryPair *pairs, int c
     survey(bank, floor, s);
     int changed = 0;
     if (s->any && count > 0) {
-        PairsCtx ctx = { pairs, count };
+        PairsCtx ctx = { pairs, count, 1.0f, { 0, 0, 0 } };
+        soften(bank, s, floor, &ctx);
         changed = repaint(bank, floor, pairs_colour, &ctx, s);
     }
     free(s);

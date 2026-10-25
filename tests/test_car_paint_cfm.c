@@ -124,7 +124,7 @@ static void check_car(const char *root, int model, const uint8_t paint[3])
             }
         for (int e = 0; e < 256; e++)
             if (unused[e]) CHECK_MEM(before.palette + 3 * e, after.palette + 3 * e, 3);   /* and the colours they show */
-        uint32_t lamps = 0, lamps_kept = 0, grey_mid = 0, grey_painted = 0;
+        uint32_t lamps = 0, lamps_kept = 0, grey_mid = 0, grey_painted = 0, reds = 0, reds_kept = 0;
         for (int t = 0; t < before.count; t++) {
             if (before.body[t] == 0) continue;
             for (size_t i = 0; i < before.size[t]; i++) {
@@ -133,10 +133,12 @@ static void check_car(const char *root, int model, const uint8_t paint[3])
                 rgb(&after, after.pixels[t][i], b);
                 const int same = a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
                 if (spread(a) >= 180 && before.body[t] == 2) lamps++, lamps_kept += same;   /* a bright saturated lamp colour */
+                if (model == 3 && a[0] > a[1] + 24 && a[0] > a[2] + 24) reds++, reds_kept += same;   /* the ZR-1's red lamps, on a teal body */
                 if (before.body[t] == 1 && spread(a) <= 24 && 30 * a[0] + 59 * a[1] + 11 * a[2] > 6400) grey_mid++, grey_painted += !same;
             }
         }
         if (lamps > 0 && model != 0 && model != 4) CHECK_EQ_INT(lamps_kept, lamps);   /* (the red cars' body is as saturated as a lamp) */
+        if (model == 3) CHECK_EQ_INT(reds_kept, reds);
         if (model == 6 || model == 1) CHECK(grey_mid == 0 || grey_painted * 100 >= grey_mid * 90);   /* a grey body is all paint */
         if (level == 0) fprintf(stderr, "  %s %d,%d,%d: lamps %u kept %u, grey body texels %u painted %u\n", car_model_names[model],
                                 paint[0], paint[1], paint[2], lamps, lamps_kept, grey_mid, grey_painted);
