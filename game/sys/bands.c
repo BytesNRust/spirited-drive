@@ -23,13 +23,17 @@ static int from_environment(void)
 
 int bands_threads(void)
 {
-    if (threads < 0) threads = from_environment();
+    if (threads < 0) {
+        threads = from_environment();
+        platform_set_present_threads(threads);
+    }
     return threads;
 }
 
 void bands_set_threads(int n)
 {
     threads = n < 0 ? -1 : n > MAX_THREADS ? MAX_THREADS : n;
+    platform_set_present_threads(threads < 0 ? 0 : threads);
 }
 
 typedef struct {

@@ -926,16 +926,43 @@ void platform_wait_vblank(void)
     if (next_vblank_ns > now) platform_sleep_ms((uint32_t)((next_vblank_ns - now) / SDL_NS_PER_MS));
 }
 
-void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
+typedef struct {
+    const uint8_t *pixels;
+    const uint32_t *lut;
+    uint32_t *out;
+    int width, height, count;
+} LutJob;
+
+static void lut_band(void *ctx, int index)
+{
+    const LutJob *j = ctx;
+    const int from = (int)((int64_t)j->height * index / j->count), to = (int)((int64_t)j->height * (index + 1) / j->count);
+    const size_t first = (size_t)from * (size_t)j->width, last = (size_t)to * (size_t)j->width;
+    for (size_t i = first; i < last; i++) j->out[i] = j->lut[j->pixels[i]];
+}
+
+void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
+                              int threads)
 {
     uint32_t lut[256];
     for (int i = 0; i < 256; i++) {
         lut[i] = ((uint32_t)palette[i].r << 16) | ((uint32_t)palette[i].g << 8) | palette[i].b;
     }
-    const size_t count = (size_t)fb_width * (size_t)fb_height;
-    for (size_t i = 0; i < count; i++) {
-        rgb_buffer[i] = lut[pixels[i]];
-    }
+    enum { MIN_ROWS = 32 };   /* a band of fewer rows costs more to hand out than to convert */
+    int count = threads > 1 ? threads * 2 : 1;
+    if (count > height / MIN_ROWS) count = height / MIN_ROWS;
+    if (count < 1) count = 1;
+    const LutJob job = { pixels, lut, out, width, height, count };
+    platform_parallel_for(count, lut_band, (void *)&job, threads);
+}
+
+static int present_threads;
+
+void platform_set_present_threads(int threads) { present_threads = threads; }
+
+void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
+{
+    platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
     capture_frame();
     last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
     SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
