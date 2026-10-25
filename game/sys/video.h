@@ -22,6 +22,10 @@ uint8_t *video_target(int *w, int *h);
  * video_select_target, which opens the box to the whole target again (00473680 loads the picture's own). */
 void video_set_clip(int left, int right, int top, int bottom);
 void video_clear_back(void);                                          /* PTR_004c618c */
+/* port: a picture `width` x 480 (the width the platform's frame has before the render scale, wider than 640) shown in
+ * place of the menu frame and its backdrop, at every flip and palette change, until NULL; a frame of another width shows
+ * as usual. The picture is the caller's and must stay while set. The front end's own frames are untouched. */
+void video_set_wide_picture(const uint8_t *picture, int width);
 void video_flip(void);                                                /* 004733ec */
 void video_wait_vblank(void);                                         /* 004735bc */
 

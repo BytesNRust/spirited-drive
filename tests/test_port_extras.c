@@ -71,6 +71,22 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.start, START_GAME_MODE);
     CHECK_EQ_INT(d.stats_overlay, 0);   /* the stats overlay starts off */
     CHECK_EQ_INT(d.car_markers, 1);     /* the car markers start On: the exe's */
+    CHECK_EQ_INT(d.movies_wide, 1);     /* the movies fill a wide screen */
+}
+
+/* movies_wide is a switch of its own: parsed, written and read back */
+static void test_movies_wide(void)
+{
+    const char *text = "movies_wide=0\n";
+    PortExtras e = port_extras_parse(text, strlen(text));
+    CHECK_EQ_INT(e.movies_wide, 0);
+    char out[512];
+    CHECK(port_extras_format(&e, out, sizeof out) > 0);
+    CHECK(strstr(out, "movies_wide=0\n") != NULL);
+    e = port_extras_parse(out, strlen(out));
+    CHECK_EQ_INT(e.movies_wide, 0);
+    text = "movies_wide=2\n";   /* not a switch value: the default stays */
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).movies_wide, 1);
 }
 
 /* the two race switches are read and written by their keys; a value other than 0 or 1 keeps the default */
@@ -198,6 +214,7 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 int main(void)
 {
     test_defaults();
+    test_movies_wide();
     test_units_default_to_the_language();
     test_units_parse();
     test_units_round_trip();

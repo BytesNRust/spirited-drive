@@ -2,8 +2,10 @@
 
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/tgv_frame.h"
+#include "game/frontend/tgv_wide.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/video.h"
@@ -100,21 +102,44 @@ static int wait_until(uint32_t at)
     return 0;
 }
 
+/* port (extras.cfg movies_wide): the width of a wide screen's frame, before the render scale, when the movies fill it;
+ * 0 when they keep the exe's look (the 4:3 frame), as always at 4:3 */
+static int wide_width(void)
+{
+    if (!port_extras_load().movies_wide) return 0;
+    int width = VIDEO_WIDTH, height = VIDEO_HEIGHT;
+    platform_framebuffer_size(&width, &height);
+    const int scale = height >= VIDEO_HEIGHT ? height / VIDEO_HEIGHT : 1;
+    return width / scale > VIDEO_WIDTH ? width / scale : 0;
+}
+
 static int play(const uint8_t *file, size_t size, TgvState *s)
 {
     const uint32_t start = platform_ticks_ms();
     uint32_t pictures = 0;
+    const int wide = wide_width();
+    uint8_t *picture = wide != 0 ? malloc((size_t)wide * VIDEO_HEIGHT) : NULL;
     for (size_t at = 0; at + CHUNK_HEADER <= size; at += le32(file + at + 4)) {
         const int key = tag_is(file + at, "kVGT") || tag_is(file + at, "TGVk");
         if (!key && !tag_is(file + at, "fVGT") && !tag_is(file + at, "TGVf")) continue;
         const uint8_t *shape = tgv_decode(s, file + at, le32(file + at + 4));
-        if (wait_until(start + pictures * 1000u / PER_SECOND)) return 1;
+        if (wait_until(start + pictures * 1000u / PER_SECOND)) {
+            video_set_wide_picture(NULL, 0);
+            free(picture);
+            return 1;
+        }
         pictures++;
         if (shape == NULL) continue;
-        draw(shape);
+        draw(shape);   /* the frame as before: what the screen is left with after the movie */
+        if (picture != NULL) {
+            tgv_wide_scale(shape + TGV_SHAPE_HEADER, shape[4] | shape[5] << 8, shape[6] | shape[7] << 8, picture, wide, VIDEO_HEIGHT);
+            video_set_wide_picture(picture, wide);
+        }
         video_flip();
         if (key) video_set_palette(0, 256, s->palette);  /* 004424ac: after the flip, the key frame's colours */
     }
+    video_set_wide_picture(NULL, 0);
+    free(picture);
     return 0;
 }
 

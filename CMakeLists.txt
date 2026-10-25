@@ -135,6 +135,7 @@ add_library(tnfs_game STATIC
     game/frontend/tgv.c
     game/frontend/tgv_frame.c
     game/frontend/tgv_player.c
+    game/frontend/tgv_wide.c
     game/frontend/title.c
     game/frontend/track_select.c
     game/frontend/tournament.c
@@ -690,6 +691,18 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_bands PRIVATE ${TNFS_WARNINGS})
     add_test(NAME bands COMMAND test_bands)
+    add_executable(test_tgv_wide tests/test_tgv_wide.c game/frontend/tgv_wide.c)
+    target_include_directories(test_tgv_wide PRIVATE game)
+    target_link_libraries(test_tgv_wide PRIVATE tnfs_game)
+    target_compile_options(test_tgv_wide PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME tgv_wide COMMAND test_tgv_wide)
+    add_executable(test_video_wide tests/test_video_wide.c game/sys/video.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_video_wide PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_video_wide PRIVATE m)
+    endif()
+    target_compile_options(test_video_wide PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME video_wide COMMAND test_video_wide)
     add_executable(test_platform_mods tests/test_platform_mods.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
