@@ -210,6 +210,19 @@ void platform_parallel_for(int count, void (*job)(void *ctx, int index), void *c
  * with the threads platform_set_present_threads gave (the render bands' count, set by bands.c). */
 void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
                               int threads);
+
+/* The same into rows `pitch` bytes apart (a locked texture's), pitch a multiple of 4 and at least width * 4. */
+/* The same through three palettes by `mask` (a byte a pixel: 1 `world_palette`, 2 `half_palette`, 0 or other `palette`): what
+ * platform_present_split shows. */
+void platform_palette_to_xrgb_split_pitch(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                                          const PlatformColor half_palette[256], const uint8_t *mask, void *out, int pitch, int width,
+                                          int height, int threads);
+void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor palette[256], void *out, int pitch, int width,
+                                    int height, int threads);
+
+/* 1 (the default) presents through the texture's locked memory, 0 through the platform's own buffer and an upload (what a
+ * capture, the web build and a failed lock use); for the tests, to compare the two. */
+void platform_set_present_lock(int on);
 void platform_set_present_threads(int threads);
 
 #endif
