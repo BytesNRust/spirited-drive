@@ -32,7 +32,11 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
     if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= PSX_LIGHT_POINTS) return PSX_LIGHT_FULL;
     node %= light->nodes;
     if (node == light->nodes - 1) node--;
-    return light->data[(size_t)node * PSX_LIGHT_POINTS + (size_t)point];
+    const uint8_t *row = light->data + (size_t)node * PSX_LIGHT_POINTS;
+    /* a 0 beyond a lit wall foot (point 2 right, 7 left) is no data, not black: the PS1 shows a tunnel's walls and pillars at about half light */
+    const int foot = point >= 3 && point <= 5 ? row[2] : point >= 8 ? row[7] : 0;
+    if (row[point] == 0 && foot >= PSX_LIGHT_WALL_FOOT) return PSX_LIGHT_WALL;
+    return row[point];
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node)

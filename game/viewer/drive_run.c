@@ -19,6 +19,7 @@
 #include "game/sys/port_extras.h"
 
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -258,13 +259,21 @@ static void start_at_node(RaceState *race)
     const char *at = getenv("TNFS_START_NODE");
     Car *car = race->cars[0];
     if (at == NULL || car == NULL || race->tri == NULL || race->tri->ring_nodes == 0) return;
-    const int32_t node = (int32_t)(strtoul(at, NULL, 10) % race->tri->ring_nodes);
+    const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
+    const int32_t node = (int32_t)((uint32_t)where % race->tri->ring_nodes);
     car->node = node;
     car->progress = node;
     car->ai_target_lateral = 0;
     car->steer = 0;
     ai_snap_to_road(car, race);
     car->yaw = (int32_t)((uint32_t)fx_atan2(car->matrix[6], car->matrix[8]) << 8);   /* as car_prepare takes the heading from the matrix */
+    TriNode a, b;
+    const double fraction = where - floor(where);
+    if (fraction > 0 && tri_node(race->tri, (uint32_t)node, &a) == TRI_OK && tri_node(race->tri, ((uint32_t)node + 1) % race->tri->ring_nodes, &b) == TRI_OK) {
+        car->x += (int32_t)(fraction * ((double)b.position.x - a.position.x));
+        car->y += (int32_t)(fraction * ((double)b.position.y - a.position.y));
+        car->z += (int32_t)(fraction * ((double)b.position.z - a.position.z));
+    }
     port_log("TNFS_START_NODE: the player car at node %d\n", node);
 }
 

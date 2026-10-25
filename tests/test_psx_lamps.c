@@ -81,8 +81,25 @@ static void test_exempt(void)
     CHECK_EQ_INT(exempt[50], 0);
 }
 
+/* a car is under a lamp for PSX_LAMP_DUTY of each 4-node segment, centred on the lamp's place in it (v, 0..1 along the segment), and
+ * nowhere else; the steps are hard, there is no ramp */
+static void test_lit(void)
+{
+    const double v = 0.9;
+    int lit = 0;
+    for (int i = 0; i < 400; i++) lit += psx_lamp_lit(1100.0 + i * 0.01, v);   /* one segment in 0.01 nodes (4 nodes) */
+    CHECK(lit >= 215 && lit <= 225);                                              /* 55% of 400 */
+    CHECK(psx_lamp_lit(1100.0 + 4 * 0.9, v));                                     /* on the lamp */
+    CHECK(psx_lamp_lit(1100.0 + 4 * 0.9 + 4 * 0.2, v));                           /* inside the duty */
+    CHECK(!psx_lamp_lit(1100.0 + 4 * 0.9 - 4 * 0.4, v));                          /* between lamps */
+    CHECK(psx_lamp_lit(1104.0 + 0.1, v));                                         /* the lit part wraps into the next segment (0.9 + 0.275 > 1) */
+    CHECK(psx_lamp_lit(-0.1, v) == psx_lamp_lit(4 * 100 - 0.1, v));               /* a ring node before 0 */
+    CHECK_EQ_INT(psx_lamp_lit(1100.0, v), psx_lamp_lit(1100.0 + 4 * 25, v));      /* the same in every segment */
+}
+
 int main(void)
 {
+    test_lit();
     test_lookup();
     test_table_sane();
     test_tables();

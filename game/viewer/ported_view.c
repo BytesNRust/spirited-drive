@@ -89,6 +89,7 @@ static PsxLamp lamp_spec[LAMPS_MAX];
 static int lamp_count;
 static const FshEntry *lamp_bitmap[LAMPS_MAX][LAMP_VARIANTS];
 static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
+static double lamp_v = 0.9;   /* where the first lamp hangs along its segment (the texture's v, 0..1), from its rectangle; for the cars' switched light */
 
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
 {
@@ -316,8 +317,31 @@ void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const f
     for (int k = 0; k < 3; k++) ambient_tint[k] = tint[k];
 }
 
+static RaceState *shadow_race;
+
+/* where the car is along the road, in nodes: its node and the fraction of the way to the next (the car's offset from the node projected
+ * on the road's direction, kept near the node); the node itself without a car or a race */
+static double car_node_position(const Car *car, int32_t node)
+{
+    TriNode a, b;
+    if (car == NULL || shadow_race == NULL || shadow_race->tri == NULL) return node;
+    const uint32_t mask = shadow_race->tri->ring_nodes - 1;
+    if (tri_node(shadow_race->tri, (uint32_t)node & mask, &a) != TRI_OK || tri_node(shadow_race->tri, ((uint32_t)node + 1) & mask, &b) != TRI_OK) return node;
+    const double d[3] = { (double)b.position.x - a.position.x, (double)b.position.y - a.position.y, (double)b.position.z - a.position.z };
+    const double r[3] = { (double)car->x - a.position.x, (double)car->y - a.position.y, (double)car->z - a.position.z };
+    const double length2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+    if (length2 <= 0) return node;
+    const double along = (r[0] * d[0] + r[1] * d[1] + r[2] * d[2]) / length2;
+    return node + (along < -0.5 ? -0.5 : along > 1.5 ? 1.5 : along);
+}
+
+/* port (the tunnels' lamps): under a lamp the PS1 car takes a warmer, a little brighter light than between them, in hard steps; the
+ * ratios measured on the PS1 clip against the daylight (red ~0.43 / 0.52, green the same, blue a little less lit), in 1/16 */
+static const float TUNNEL_UNLIT[3] = { 7.0f / 16, 7.0f / 16, 7.0f / 16 };
+static const float TUNNEL_LIT[3] = { 9.0f / 16, 7.0f / 16, 6.0f / 16 };
+
 /* the table for a car at `node`, NULL when its ambient is the world's */
-static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
+static const uint8_t *car_light(const Car *car, int32_t node, const uint8_t palette[768])
 {
     if (!ambient_on || psx_light == NULL || palette == NULL) return NULL;
     static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
@@ -326,6 +350,10 @@ static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
     float ratio[3];
     const uint32_t n = (uint32_t)node & (ambient_nodes - 1u);
     psx_lgs_ratio(&ambient, (int)(n >> 2), (int)(ambient_nodes >> 2), ambient_tint, AMBIENT_STEP, ratio);
+    if (lamp_count > 0 && psx_lgs_switched(&ambient, (int)(n >> 2))) {
+        const int lit = psx_lamp_lit(car_node_position(car, (int32_t)n), lamp_v);
+        for (int k = 0; k < 3; k++) ratio[k] = lit ? TUNNEL_LIT[k] : TUNNEL_UNLIT[k];
+    }
     int key[3], neutral = 1;
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
@@ -853,7 +881,7 @@ static void row_draw(void *ctx, Car *car, int pass)
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
-            object_sink_set_light(car_light(car->node, object_pixels.palette));
+            object_sink_set_light(car_light(car, car->node, object_pixels.palette));
             render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
             object_sink_set_light(NULL);
         }
@@ -869,7 +897,7 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     const Object3DSink sink = object_sink(&pixels);
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
-    object_sink_set_light(car_light(car->node, palette));
+    object_sink_set_light(car_light(car, car->node, palette));
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
     object_sink_set_light(NULL);
     return 1;
@@ -898,7 +926,7 @@ static void draw_cars(void *user, int32_t node)
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].node == node) {
-            object_sink_set_light(car_light(node, object_pixels.palette));
+            object_sink_set_light(car_light(NULL, node, object_pixels.palette));
             car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
             object_sink_set_light(NULL);
         }
@@ -1181,6 +1209,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             }
         for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
             const FshEntry *t = lamp_bitmap[i][0];
+            if (i == 0 && t != NULL && t->height > 0) lamp_v = (lamp_spec[0].rect[1] + lamp_spec[0].rect[3] + 1) / 2.0 / t->height;
             uint8_t exempt[256];
             psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
             psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, lamp_tables[i]);

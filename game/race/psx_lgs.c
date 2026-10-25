@@ -71,6 +71,16 @@ void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float ou
     for (int k = 0; k < 3; k++) out[k] = colour[k] / (float)NEUTRAL;
 }
 
+int psx_lgs_switched(const PsxLgs *lgs, int segment)
+{
+    if (lgs == NULL) return 0;
+    for (int c = 0; c < lgs->context_count; c++) {
+        const PsxLgsContext *x = &lgs->contexts[c];
+        if (x->mode == PSX_LGS_RAMP && segment >= x->seg_ini && segment <= x->seg_fin) return 1;
+    }
+    return 0;
+}
+
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3])
 {
     for (int k = 0; k < 3; k++) tint[k] = (float)(lgs->start[k] + lgs->end[k]) / (2.0f * NEUTRAL);

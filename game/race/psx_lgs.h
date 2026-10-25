@@ -36,6 +36,10 @@ void psx_lgs_tint(const PsxLgs *lgs, float tint[3]);
  * track; PSX_LGS_BLEND segments outside a context its colour fades in and out into the default one. */
 void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float out[3]);
 
+/* 1 when `segment` is inside a PSX_LGS_RAMP context (kUseAC + kSwitchAC, 96): the tunnels, where the ceiling lamps switch the cars' light;
+ * the edges are exact, no blend. 0 for NULL. */
+int psx_lgs_switched(const PsxLgs *lgs, int segment);
+
 /* The ambient at `segment` over the world's `tint`, per channel, rounded to 1/`step` and at most 2 (a tint under 0.01 counts as 0.01): what the
  * cars' and the dash's colours are scaled by. Exactly 1 where the ambient is what the world already has. */
 void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const float tint[3], int step, float out[3]);

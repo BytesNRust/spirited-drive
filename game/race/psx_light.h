@@ -1,7 +1,8 @@
 /* port: the PS1 look's baked light (re/notes/psx-lgt-format.md, branch docs/psx-lgt). The PS1 CD has, for each track and time
  * of day (A, B, C), a Z<TRACK><A|B|C>.LGT: u32 node count, u32 scale, 11 bytes of intensity a node (0 black, 255 full)
  * in the order of the node's terrain row (TriRow: middle, right[0..4], left[0..4]), then a 12-byte CRCF trailer. The road's
- * points never darken; the terrain under a bridge and the walls of a tunnel do. The bytes are the user's own files, read
+ * points never darken; the terrain under a bridge does. In a tunnel a 0 beyond a lit wall foot (point 2 / 7 at PSX_LIGHT_WALL_FOOT or more) is
+ * no data, not black: psx_light_at gives it PSX_LIGHT_WALL, about half light, as the PS1's tunnel walls, pillars and ceiling look. The bytes are the user's own files, read
  * at the race's start; nothing of them is in the repo, and the tests use made-up rows. */
 #ifndef TNFS_PSX_LIGHT_H
 #define TNFS_PSX_LIGHT_H
@@ -9,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255 };
+enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LIGHT_WALL_FOOT = 64 };
 
 typedef struct {
     uint8_t *data;      /* nodes * PSX_LIGHT_POINTS bytes (owned), NULL when none is loaded */

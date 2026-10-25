@@ -56,8 +56,30 @@ static void test_rejected_files(void)
     CHECK(psx_light_parse(file, 8 + NODES * PSX_LIGHT_POINTS, NODES + 1, &light) == 0);   /* and the rows do not reach */
 }
 
+/* a tunnel row (a lit wall foot, the points beyond it 0) is read as the wall's half light, a bridge's dark terrain stays dark */
+static void test_tunnel_wall_floor(void)
+{
+    static uint8_t rows[4 * PSX_LIGHT_POINTS] = {
+        255, 255, 126, 0, 0, 0, 255, 150, 0, 0, 0,   /* tunnel */
+        255, 255, 10, 0, 0, 0, 255, 0, 0, 0, 0,      /* under a bridge: nothing lit */
+        255, 255, 255, 0, 200, 0, 255, 255, 0, 0, 0, /* lit wall foot, one point 0 beyond */
+        0,                                           /* the file's last node, not light */
+    };
+    const PsxLight light = { rows, 4 };
+    CHECK_EQ_INT(psx_light_at(&light, 0, 2), 126);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 3), PSX_LIGHT_WALL);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 5), PSX_LIGHT_WALL);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 8), PSX_LIGHT_WALL);
+    CHECK_EQ_INT(psx_light_at(&light, 0, 0), 255);
+    CHECK_EQ_INT(psx_light_at(&light, 1, 3), 0);
+    CHECK_EQ_INT(psx_light_at(&light, 1, 9), 0);
+    CHECK_EQ_INT(psx_light_at(&light, 2, 3), PSX_LIGHT_WALL);
+    CHECK_EQ_INT(psx_light_at(&light, 2, 4), 200);
+}
+
 int main(void)
 {
+    test_tunnel_wall_floor();
     test_parse_and_lookup();
     test_rejected_files();
     return TEST_REPORT();

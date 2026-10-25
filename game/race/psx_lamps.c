@@ -1,6 +1,7 @@
 #include "game/race/psx_lamps.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <string.h>
 
 /* CY1: the ceiling's white oval (x 33-41, y 68-76 of byte 38's 80 x 80); CY2: the amber fitting (byte 37); CY3: the ceiling lamp (byte 20)
@@ -31,6 +32,14 @@ int psx_lamps_for(const char *track, const PsxLamp **out)
             return TRACKS[i].count;
         }
     return 0;
+}
+
+int psx_lamp_lit(double node_position, double v)
+{
+    const double along = node_position / PSX_LAMP_NODES;
+    double d = fabs(along - floor(along) - v);
+    if (d > 0.5) d = 1.0 - d;
+    return d <= PSX_LAMP_DUTY / 2;
 }
 
 void psx_lamp_exempt(const PsxLamp *lamp, const uint8_t *pixels, int w, int h, uint8_t exempt[256])

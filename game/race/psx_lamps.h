@@ -20,6 +20,13 @@ typedef struct {
 /* The lamps of the track (CY1, CY2, CY3, TR4, in any case; the others have none): how many, and `*out` (when not NULL) the table. */
 int psx_lamps_for(const char *track, const PsxLamp **out);
 
+/* A tunnel's lamps hang one to a segment (4 nodes: 7 m, the texture once along it) and the PS1 car's light switches under each: lit while
+ * its position `node_position` (a node and the fraction past it, a ring's node 0 included) is within PSX_LAMP_DUTY of a segment of the
+ * lamp's place `v` (0..1 along the segment), else not; hard steps, no ramp (measured on the PS1: ~55% lit, ~6-7 Hz at 200 km/h). */
+enum { PSX_LAMP_NODES = 4 };
+#define PSX_LAMP_DUTY 0.55
+int psx_lamp_lit(double node_position, double v);
+
 /* The palette entries of a lamp that stay bright: its listed colours, and the colours its texture (w x h palette indices) shows inside its
  * rectangle and nowhere outside it (the glow's greys, which the dark wall of the same texture does not use). `exempt`: 256 flags. */
 void psx_lamp_exempt(const PsxLamp *lamp, const uint8_t *pixels, int w, int h, uint8_t exempt[256]);

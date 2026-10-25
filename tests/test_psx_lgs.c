@@ -42,6 +42,20 @@ static void test_neutral_and_rejected(void)
 }
 
 /* the contexts: one fixed (64), one ramp (96); outside them the default start -> end across the track, blended in and out */
+/* a mode-96 context (kUseAC + kSwitchAC) covers its segments exactly: the tunnels' lamps switch the cars' light there */
+static void test_switched(void)
+{
+    static const char T[] =
+        "/* d */\r0,95 10,99 75,37 100,28\r/* s */\r100,100,100\r/* e */\r140,140,140,\r/* n */\r2\r"
+        "10,12  64  60,80,100  0,0,0\r30,40  96  100,100,100  200,200,200\rCRCF";
+    PsxLgs lgs;
+    CHECK(psx_lgs_parse((const uint8_t *)T, sizeof T - 1, &lgs));
+    CHECK(psx_lgs_switched(&lgs, 30) && psx_lgs_switched(&lgs, 35) && psx_lgs_switched(&lgs, 40));
+    CHECK(!psx_lgs_switched(&lgs, 29) && !psx_lgs_switched(&lgs, 41));   /* no blend: the lamps start at the tunnel's mouth */
+    CHECK(!psx_lgs_switched(&lgs, 11));                                  /* a fixed context is not switched */
+    CHECK(!psx_lgs_switched(NULL, 35));
+}
+
 static void test_ambient_contexts(void)
 {
     static const char T[] =
@@ -182,6 +196,7 @@ static void test_mask_rect(void)
 
 int main(void)
 {
+    test_switched();
     test_mask_rect();
     test_palette_tint();
     test_world_mask();
