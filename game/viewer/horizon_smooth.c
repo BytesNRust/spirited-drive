@@ -194,7 +194,7 @@ void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t
  * 32-bit lanes of a plane each, pair_blend's mix, shift and clamp on four pixels, the dither a lane each, then the
  * nearest colour's table index; the pixels are looked up one by one */
 typedef struct {
-    int32_t top[3][HORIZON_WIDE_WIDTH + 4], bottom[3][HORIZON_WIDE_WIDTH + 4];
+    int32_t base[3][HORIZON_WIDE_WIDTH + 4], gap[3][HORIZON_WIDE_WIDTH + 4];   /* the bottom blend x ONE, and top - bottom */
     int16_t only[HORIZON_WIDE_WIDTH + 4];
 } Planes;
 
@@ -203,9 +203,11 @@ static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *
     const uint8_t t00 = row0[c->c0], t10 = row0[c->c1], t01 = row1[c->c0], t11 = row1[c->c1];
     p->only[i] = t00 == t10 && t00 == t01 && t00 == t11 ? t00 : -1;
     if (p->only[i] >= 0) return;
-    for (int k = 0; k < 3; k++) {
-        p->top[k][i] = (ONE - c->w) * s->palette[3 * t00 + k] + c->w * s->palette[3 * t10 + k];
-        p->bottom[k][i] = (ONE - c->w) * s->palette[3 * t01 + k] + c->w * s->palette[3 * t11 + k];
+    for (int k = 0; k < 3; k++) {   /* the pair's top and bottom, as Pair makes them: (ONE - w) a + w b = ONE a + w (b - a) */
+        const int32_t top = ONE * s->palette[3 * t00 + k] + c->w * (s->palette[3 * t10 + k] - s->palette[3 * t00 + k]);
+        const int32_t bottom = ONE * s->palette[3 * t01 + k] + c->w * (s->palette[3 * t11 + k] - s->palette[3 * t01 + k]);
+        p->base[k][i] = ONE * bottom;
+        p->gap[k][i] = top - bottom;
     }
 }
 
@@ -213,7 +215,7 @@ static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x
 {
     int32_t dither[4];   /* by x & 3: pair_blend's dither term for this row */
     for (int k = 0; k < 4; k++) dither[k] = (BAYER[sy & 3][k] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
-    const __m128i keep = _mm_set1_epi32(ONE - wv), mix = _mm_set1_epi32(wv), zero = _mm_setzero_si128(),
+    const __m128i keep = _mm_set1_epi32(ONE - wv), zero = _mm_setzero_si128(),
                   top = _mm_set1_epi32(255);
     int i = x0;
     for (; i + 3 < x1; i += 4) {
@@ -221,8 +223,9 @@ static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x
         const __m128i d = _mm_setr_epi32(dither[a], dither[(a + 1) & 3], dither[(a + 2) & 3], dither[(a + 3) & 3]);
         __m128i q[3];
         for (int k = 0; k < 3; k++) {
-            __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_mullo_epi32(keep, _mm_loadu_si128((const __m128i *)&p->top[k][i])),
-                                                    _mm_mullo_epi32(mix, _mm_loadu_si128((const __m128i *)&p->bottom[k][i]))),
+            /* keep top + wv bottom = ONE bottom + keep (top - bottom) */
+            __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_loadu_si128((const __m128i *)&p->base[k][i]),
+                                                    _mm_mullo_epi32(keep, _mm_loadu_si128((const __m128i *)&p->gap[k][i]))),
                                       d);
             q[k] = _mm_min_epi32(_mm_max_epi32(_mm_srai_epi32(m, 16), zero), top);
         }
@@ -230,6 +233,12 @@ static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x
         _mm_storeu_si128((__m128i *)cell, _mm_or_si128(_mm_or_si128(_mm_slli_epi32(_mm_srli_epi32(q[0], 3), 10),
                                                                      _mm_slli_epi32(_mm_srli_epi32(q[1], 3), 5)),
                                                        _mm_srli_epi32(q[2], 3)));
+        int64_t flat;   /* the four `only`s, -1 each when the pixel is a blend: the usual case, no test a pixel */
+        memcpy(&flat, &p->only[i], sizeof flat);
+        if (flat == -1) {
+            dst[i] = s->nearest[cell[0]], dst[i + 1] = s->nearest[cell[1]], dst[i + 2] = s->nearest[cell[2]], dst[i + 3] = s->nearest[cell[3]];
+            continue;
+        }
         for (int j = 0; j < 4; j++) dst[i + j] = p->only[i + j] >= 0 ? (uint8_t)p->only[i + j] : s->nearest[cell[j]];
     }
     for (; i < x1; i++) {
@@ -239,7 +248,7 @@ static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x
         }
         int rgb[3];
         for (int k = 0; k < 3; k++) {
-            const int32_t m = ((ONE - wv) * p->top[k][i] + wv * p->bottom[k][i] + dither[(x + i) & 3]) >> 16;
+            const int32_t m = (p->base[k][i] + (ONE - wv) * p->gap[k][i] + dither[(x + i) & 3]) >> 16;
             rgb[k] = m < 0 ? 0 : m > 255 ? 255 : m;
         }
         dst[i] = horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
