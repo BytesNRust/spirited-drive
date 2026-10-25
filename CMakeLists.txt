@@ -377,6 +377,7 @@ add_executable(tnfs
     game/frontend/screens.c
     game/sys/input.c
     game/sys/bands.c
+    game/sys/band_index.c
     game/sys/pointer.c
     game/sys/text.c
     game/sys/timer.c
@@ -469,7 +470,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c
-                   game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
+                   game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c)
     target_include_directories(test_mirror_on_dash PRIVATE game)
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
@@ -486,7 +487,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_options(test_modern_road PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_road COMMAND test_modern_road)
     # port: the render bands' exactness (a clipped draw equals the unclipped one inside the clip): the viewer's rasterizers built in
-    add_executable(test_band_exact tests/test_band_exact.c game/viewer/modern_road.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c)
+    add_executable(test_band_exact tests/test_band_exact.c game/viewer/modern_road.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_band_exact PRIVATE game)
     target_link_libraries(test_band_exact PRIVATE tnfs_game)
     target_compile_options(test_band_exact PRIVATE ${TNFS_WARNINGS})
@@ -501,12 +502,12 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_modern_look PRIVATE tnfs_game)
     target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_look COMMAND test_modern_look)
-    add_executable(test_horizon_smooth tests/test_horizon_smooth.c game/viewer/horizon_smooth.c)
+    add_executable(test_horizon_smooth tests/test_horizon_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_horizon_smooth PRIVATE game)
     target_link_libraries(test_horizon_smooth PRIVATE tnfs_game)
     target_compile_options(test_horizon_smooth PRIVATE ${TNFS_WARNINGS})
     add_test(NAME horizon_smooth COMMAND test_horizon_smooth)
-    add_executable(test_sky_smooth tests/test_sky_smooth.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c)
+    add_executable(test_sky_smooth tests/test_sky_smooth.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_sky_smooth PRIVATE game)
     target_link_libraries(test_sky_smooth PRIVATE tnfs_game)
     target_compile_options(test_sky_smooth PRIVATE ${TNFS_WARNINGS})
@@ -673,7 +674,7 @@ if(NOT EMSCRIPTEN)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
-    add_executable(test_raster_record tests/test_raster_record.c game/viewer/modern_road.c game/sys/bands.c
+    add_executable(test_raster_record tests/test_raster_record.c game/viewer/modern_road.c game/sys/bands.c game/sys/band_index.c
                    game/platform/sdl3/platform_sdl3.c)
     target_include_directories(test_raster_record PRIVATE game)
     target_link_libraries(test_raster_record PRIVATE tnfs_game SDL3::SDL3)
@@ -682,7 +683,7 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_raster_record PRIVATE ${TNFS_WARNINGS})
     add_test(NAME raster_record COMMAND test_raster_record)
-    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
+    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_bands PRIVATE tnfs_game SDL3::SDL3)
     if(NOT MSVC)
         target_link_libraries(test_bands PRIVATE m)

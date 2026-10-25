@@ -22,4 +22,10 @@ void bands_set_threads(int threads);
  * range when that is 0. Bands cover the range exactly, in no defined order; fn must write only its rows. */
 void bands_rows(int top, int bottom, void (*fn)(void *ctx, int top, int bottom), void *ctx);
 
+/* The band the calling thread is running in bands_rows: 0 .. BANDS_MAX - 1, distinct for the bands of one call (0 for the
+ * whole-range call and outside any). A stage that keeps something per band (a frame's cache) indexes by it. */
+enum { BANDS_MAX = 32 };
+int bands_index(void);
+void bands_set_index(int index);   /* bands_rows's: the band the calling thread is about to run */
+
 #endif
