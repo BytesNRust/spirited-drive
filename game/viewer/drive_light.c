@@ -19,6 +19,8 @@ static const char LETTERS[] = { 'B', 'A', 'C' };   /* by PSX_TIME_*: day, dawn, 
 
 static PsxLight light;
 static float tint[3] = { 1, 1, 1 };
+static PsxLgs ambient;
+static int ambient_ok;   /* ambient holds the LGS read */
 static PsxSkyDraw sky_draw;
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
@@ -35,6 +37,7 @@ static void file_path(char *out, size_t size, const char *psx_dir, const char *t
 static void load_tint(const char *psx_dir, const char *track, char letter)
 {
     tint[0] = tint[1] = tint[2] = 1.0f;
+    ambient_ok = 0;
     char path[LIGHT_PATH];
     file_path(path, sizeof path, psx_dir, track, letter, "LGS");
     size_t size = 0;
@@ -43,8 +46,7 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
         port_log("psx_light: no %s, the ambient stays neutral\n", path);
         return;
     }
-    PsxLgs lgs;
-    if (psx_lgs_parse(file, size, &lgs)) psx_lgs_tint(&lgs, tint);
+    if (psx_lgs_parse(file, size, &ambient)) ambient_ok = 1, psx_lgs_tint(&ambient, tint);
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);
     platform_free_file(file);
 }
@@ -86,6 +88,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     ported_view_set_light(NULL, NULL);
+    ported_view_set_psx_ambient(NULL, 0, NULL);
     ported_view_set_psx_sky(NULL);
     psx_sky_draw_free(&sky_draw);
     psx_light_free(&light);
@@ -110,6 +113,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     }
     light = parsed;
     load_tint(psx_dir, track, letter);
+    if (ambient_ok) ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
     ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
 }

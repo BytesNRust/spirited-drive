@@ -36,6 +36,11 @@ void psx_lgs_tint(const PsxLgs *lgs, float tint[3]);
  * track; PSX_LGS_BLEND segments outside a context its colour fades in and out into the default one. */
 void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float out[3]);
 
+/* A car's colour table under an ambient colour that differs from the world's: index c maps to the palette entry nearest the colour
+ * of c times `ratio` (per channel, ambient / the world's tint); the shadow and see-through indices (0xfe, 0xff) stay. Ratios of 1 give the
+ * identity. */
+void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out[256]);
+
 /* `out` (768 bytes, 8 bits a channel) is `palette` with every entry multiplied by `tint` (per channel, clamped to 255,
  * rounded). A tint of the palette keeps each index its own colour, so a texture's variation survives, where moving each
  * polygon's colours to the nearest palette entry gathers them into the few dark ones the palette has. It is used for the 3D's

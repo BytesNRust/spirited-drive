@@ -14,6 +14,7 @@
 #include "game/race/mirror_scene.h"
 #include "game/race/track_info.h"
 #include "game/race/track_render.h"
+#include "game/race/psx_lgs.h"
 #include "game/race/psx_light.h"
 
 #include "viewer/model_view.h"
@@ -51,6 +52,11 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
 /* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
 void ported_view_set_light(const PsxLight *light, const float tint[3]);
+
+/* port: the PS1 look's ambient light on the cars (psx_lgs.h): each car is drawn through a colour table of its segment's ambient
+ * colour over the world's `tint`, so a context's colour (a tunnel's, a bridge's) shows on the cars and the world's mean does not
+ * double. NULL, none (the cars take the world's tint as before). `lgs` is copied. Needs ported_view_set_light's light. */
+void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3]);
 
 struct PsxSkyDraw;
 /* port: the PS1 sky (psx_sky_draw.h) drawn in place of the track's sky and ring, NULL for the track's own. Not owned. */

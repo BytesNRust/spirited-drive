@@ -76,6 +76,24 @@ static void test_ambient_contexts(void)
     CHECK(fabsf(a[0] - (100.0f + 4.4f) / 128) < 1e-4f);
 }
 
+/* a car's table: each palette index to the entry nearest its colour times the ratio; shadow and see-through indices stay */
+static void test_lit_table(void)
+{
+    uint8_t palette[768], table[256];
+    for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)i;
+    const float same[3] = { 1, 1, 1 }, half[3] = { 0.5f, 0.5f, 0.5f }, warm[3] = { 1.0f, 0.8f, 0.4f };
+    psx_lit_table(palette, same, table);
+    for (int i = 0; i < 256; i++) CHECK_EQ_INT(table[i], i);
+    psx_lit_table(palette, half, table);
+    CHECK_EQ_INT(table[100], 50);
+    CHECK_EQ_INT(table[200], 100);
+    CHECK_EQ_INT(table[0xfe], 0xfe);
+    CHECK_EQ_INT(table[0xff], 0xff);
+    for (int i = 0; i < 256; i++) palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)(i / 2);   /* a red-ish ramp, then */
+    psx_lit_table(palette, warm, table);
+    CHECK(table[100] <= 100);                                  /* never brighter than it was at a ratio of 1 or less */
+}
+
 /* every palette entry is multiplied by the tint, each keeping its own colour (the 3D's pixels only are shown through it) */
 static void test_palette_tint(void)
 {
@@ -151,5 +169,6 @@ int main(void)
     test_ambient_and_tint();
     test_neutral_and_rejected();
     test_ambient_contexts();
+    test_lit_table();
     return TEST_REPORT();
 }

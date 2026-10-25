@@ -15,6 +15,7 @@
 #include "game/race/car_shadow.h"
 #include "game/race/car_tag.h"
 #include "game/race/car_lights.h"
+#include "game/race/psx_lgs.h"
 #include "game/race/car_body_draw.h"
 #include "game/race/car_render.h"
 #include "game/gfx/x86_int.h"
@@ -262,6 +263,54 @@ void ported_view_set_light(const PsxLight *light, const float tint[3])
     psx_light = light;
     for (int k = 0; k < 3; k++) lit_tint[k] = light != NULL && tint != NULL ? tint[k] : 1.0f;
     lit_tinted = lit_tint[0] != 1.0f || lit_tint[1] != 1.0f || lit_tint[2] != 1.0f;
+}
+
+/* port (the PS1 light on the cars): the ambient colour by segment (a node is 4 to a segment) over the world's tint is the ratio each car's
+ * colours are scaled by, as a table by the nearest palette entry; the ratio is kept to 1/16 and the tables cached by it */
+enum { AMBIENT_TABLES = 8, AMBIENT_STEP = 16, AMBIENT_MAX = 32 };
+static PsxLgs ambient;
+static int ambient_on;
+static uint32_t ambient_nodes;
+static float ambient_tint[3] = { 1, 1, 1 };
+
+void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3])
+{
+    ambient_on = lgs != NULL && tint != NULL && ring_nodes >= 4;
+    if (!ambient_on) return;
+    ambient = *lgs, ambient_nodes = ring_nodes;
+    for (int k = 0; k < 3; k++) ambient_tint[k] = tint[k] > 0.01f ? tint[k] : 0.01f;
+}
+
+/* the table for a car at `node`, NULL when its ambient is the world's */
+static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
+{
+    if (!ambient_on || psx_light == NULL || palette == NULL) return NULL;
+    static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
+    static uint8_t made_for[768];
+    static int next, valid;
+    float a[3];
+    const uint32_t n = (uint32_t)node & (ambient_nodes - 1u);
+    psx_lgs_ambient(&ambient, (int)(n >> 2), (int)(ambient_nodes >> 2), a);
+    int key[3], neutral = 1;
+    for (int k = 0; k < 3; k++) {
+        const float ratio = a[k] / ambient_tint[k];
+        key[k] = (int)(ratio * AMBIENT_STEP + 0.5f);
+        key[k] = key[k] > AMBIENT_MAX ? AMBIENT_MAX : key[k];
+        neutral = neutral && key[k] == AMBIENT_STEP;
+    }
+    if (neutral) return NULL;
+    if (!valid || memcmp(made_for, palette, sizeof made_for) != 0) {   /* a fade changed the palette */
+        memset(cache, 0, sizeof cache);
+        memcpy(made_for, palette, sizeof made_for), valid = 1, next = 0;
+    }
+    for (int i = 0; i < AMBIENT_TABLES; i++)
+        if (cache[i].used && memcmp(cache[i].key, key, sizeof key) == 0) return cache[i].table;
+    const float ratio[3] = { (float)key[0] / AMBIENT_STEP, (float)key[1] / AMBIENT_STEP, (float)key[2] / AMBIENT_STEP };
+    const int slot = next;
+    next = (next + 1) % AMBIENT_TABLES;
+    memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
+    psx_lit_table(palette, ratio, cache[slot].table);
+    return cache[slot].table;
 }
 
 /* Scenery models through the ported 3D engine (00458c04), one object per
@@ -749,7 +798,11 @@ static void row_draw(void *ctx, Car *car, int pass)
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].car == car) render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
+        if (cars[i].ok && cars[i].car == car) {
+            object_sink_set_light(car_light(car->node, object_pixels.palette));
+            render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
+            object_sink_set_light(NULL);
+        }
 }
 
 int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const QuadTarget *target, const uint8_t palette[768])
@@ -762,7 +815,9 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     const Object3DSink sink = object_sink(&pixels);
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
+    object_sink_set_light(car_light(car->node, palette));
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
+    object_sink_set_light(NULL);
     return 1;
 }
 
@@ -788,7 +843,11 @@ static void draw_cars(void *user, int32_t node)
     }
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].node == node) car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
+        if (cars[i].ok && cars[i].node == node) {
+            object_sink_set_light(car_light(node, object_pixels.palette));
+            car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
+            object_sink_set_light(NULL);
+        }
 }
 
 typedef struct {
