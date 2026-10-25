@@ -909,8 +909,10 @@ static void test_nav_click_turns_the_page(void)
 }
 
 /* port: PageDown turns the page, as the screen's own words promise (a click on the page indicator or PageDown turns
- * to the next). The key was never read on this screen before: input_get_key returns the page codes only while the
- * page keys are on (input_page_keys), and nothing turned them on here. */
+ * to the next). The screen answers the BIOS code 0x5100, which is what the port's page key is reported as; where
+ * that code comes from -- a scripted PGDN read by input_get_key while the page keys are on -- is
+ * test_input_page_keys's, and the screen's own caller turning the page keys on is menu_glue.c's. This rig hands
+ * the screen the code itself, so it covers the screen's half of it. */
 static void test_page_down_turns_the_page(void)
 {
     Rig r;

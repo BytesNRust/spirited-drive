@@ -711,6 +711,16 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_script_keys PRIVATE ${TNFS_WARNINGS})
     add_test(NAME script_keys COMMAND test_script_keys)
+    # port: the page keys on the keyboard path: a scripted PGDN is the PageDown (0x5100) input_get_key reports,
+    # and only while the page keys are on. The input layer is in the executable, not in tnfs_game, so its source
+    # is built into the test.
+    add_executable(test_input_page_keys tests/test_input_page_keys.c game/sys/input.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_input_page_keys PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_input_page_keys PRIVATE m)
+    endif()
+    target_compile_options(test_input_page_keys PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME input_page_keys COMMAND test_input_page_keys)
     add_executable(test_platform_text_input tests/test_platform_text_input.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_text_input PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
