@@ -115,7 +115,7 @@ static void apply(uint8_t *cfm, size_t size, const CarLiveryPair *pairs, int cou
     }
 }
 
-int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t *colour)
+int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[2])
 {
     char upper[LIVERY_STEM], lower[LIVERY_STEM];
     size_t i = 0;
@@ -129,7 +129,8 @@ int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t *colour)
     int found = 0;
     if (normal != NULL && alternate != NULL) {
         const int count = car_livery_map(normal, alternate, NULL, 0, pairs);
-        found = count > 0 && car_livery_main(pairs, count, alternate, colour);
+        found = count > 0 && car_livery_main(pairs, count, alternate, &colours[1]) &&
+                car_livery_main_from(pairs, count, normal, &colours[0]);
     }
     free(normal);
     free(alternate);

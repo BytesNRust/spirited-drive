@@ -44,6 +44,9 @@ int car_livery_pick(uint32_t seed, int slot, int car, int player_car, int player
  * counts most. Writes it (BGR555) to `colour` and returns 1; 0 when no pair maps a colour the alternate uses. */
 int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alternate, uint16_t *colour);
 
+/* The same for the normal livery: the mapped colour (pairs' `from`) that `normal` counts most. */
+int car_livery_main_from(const CarLiveryPair *pairs, int count, const uint32_t *normal, uint16_t *colour);
+
 /* 1 on the turn a key or pad button goes down: held now, not held the turn before (`was`, updated). */
 int car_livery_pressed(int held, int *was);
 

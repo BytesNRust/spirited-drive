@@ -48,7 +48,9 @@ static void read_car(CentralRun *r, int car)
     r->livery_pick = 0;
     r->redraw = 1;
     if (car < 0 || car >= PS1_CARS || model < 0 || model >= CAR_MODELS || settings.psx_dir[0] == '\0') return;
-    r->livery_ps1 = drive_livery_swatch(settings.psx_dir, car_model_names[model], &r->livery_colour);
+    uint16_t colours[2] = { 0, 0 };
+    r->livery_ps1 = drive_livery_swatch(settings.psx_dir, car_model_names[model], colours);
+    r->livery_colour = colours[1];
     r->livery_pick = r->livery_ps1 != 0 && port_extras_psx_livery_car(model) != 0;
 }
 

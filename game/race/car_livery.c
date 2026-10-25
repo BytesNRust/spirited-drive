@@ -158,6 +158,17 @@ int car_livery_main(const CarLiveryPair *pairs, int count, const uint32_t *alter
     return found;
 }
 
+int car_livery_main_from(const CarLiveryPair *pairs, int count, const uint32_t *normal, uint16_t *colour)
+{
+    int found = 0;
+    uint32_t most = 0;
+    for (int i = 0; i < count; i++) {
+        const uint32_t n = normal[pairs[i].from];
+        if (n > most) most = n, *colour = pairs[i].from, found = 1;
+    }
+    return found;
+}
+
 int car_livery_pressed(int held, int *was)
 {
     const int down = held != 0 && *was == 0;

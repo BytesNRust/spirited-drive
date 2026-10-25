@@ -169,6 +169,13 @@ static void test_select(void)
     CHECK_EQ_INT(car_livery_main(pairs, 2, alternate, &colour), 1);
     CHECK_EQ_INT(colour, BODY_B);
 
+    /* the normal livery's main colour: the mapped colour the normal livery uses most */
+    static uint32_t normal[PSX_COLOURS];
+    CHECK_EQ_INT(car_livery_main_from(pairs, 2, normal, &colour), 0);
+    normal[ORIGIN_A] = 3, normal[BODY_C] = 8;
+    CHECK_EQ_INT(car_livery_main_from(pairs, 2, normal, &colour), 1);
+    CHECK_EQ_INT(colour, BODY_C);
+
     /* the key: one press is one edge, a held key is not again */
     int was = 0;
     CHECK_EQ_INT(car_livery_pressed(0, &was), 0);
