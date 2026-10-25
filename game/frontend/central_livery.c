@@ -1,7 +1,6 @@
 /* port: the car select's Color line (central_livery.h). */
 #include "game/frontend/central_livery.h"
 
-#include "game/frontend/ea_lib.h"
 #include "game/race/car_livery.h"
 #include "game/race/car_load.h"
 #include "game/race/race_models.h"
@@ -28,7 +27,7 @@ static int32_t rgb_of(uint16_t bgr)
 static void swatch(CentralRun *r, int32_t x, int32_t y)
 {
     const ControlCentralOps *o = r->ops;
-    const int32_t colour = ea_colour(rgb_of(r->livery_colour));
+    const int32_t colour = o->palette_colour(o->ctx, rgb_of(r->livery_colour));
     for (int32_t i = 0; i < SWATCH_H / 2; i++)
         o->frame_rect(o->ctx, x + i, y + i, x + SWATCH_W - 1 - i, y + SWATCH_H - 1 - i, colour);
 }

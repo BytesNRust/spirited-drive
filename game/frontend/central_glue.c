@@ -318,6 +318,12 @@ static int32_t cheat_step(void *ctx, int which)
 
 /* 00483f8c */
 static int32_t key_down(void *ctx, int32_t scancode) { (void)ctx; return keys[(uint32_t)scancode & 0xff]; }
+/* port: the screen palette's index nearest an RGB (ea_lib.c), for the car select's Color line's swatch */
+static int32_t palette_colour(void *ctx, int32_t rgb)
+{
+    (void)ctx;
+    return ea_colour(rgb);
+}
 /* port: the pad's virtual buttons this frame (control_map.h), for the car select's Color line */
 static int32_t pad_buttons(void *ctx)
 {
@@ -1685,7 +1691,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, standings, track_select, art_free, options,
         chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off,
-        plus_text, NULL, pad_buttons };
+        plus_text, NULL, pad_buttons, palette_colour };
     load();
     ControlCentralState st = {
         &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,
