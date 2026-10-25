@@ -205,6 +205,10 @@ void platform_parallel_for(int count, void (*job)(void *ctx, int index), void *c
  * with the threads platform_set_present_threads gave (the render bands' count, set by bands.c). */
 void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
                               int threads);
+
+/* The same into rows `pitch` bytes apart (a locked texture's), pitch a multiple of 4 and at least width * 4. */
+void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor palette[256], void *out, int pitch, int width,
+                                    int height, int threads);
 void platform_set_present_threads(int threads);
 
 #endif

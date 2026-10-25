@@ -107,6 +107,29 @@ static void test_palette_to_xrgb(void)
     }
 }
 
+/* a locked texture's rows may be wider than the frame: the pixels go to each row's start, the padding is left alone */
+static void test_palette_to_xrgb_pitch(void)
+{
+    PlatformColor palette[256];
+    for (int i = 0; i < 256; i++) palette[i] = (PlatformColor){ (uint8_t)(i * 5), (uint8_t)(i * 11 + 3), (uint8_t)(200 - i) };
+    const int w = 203, h = 97, pad = 5, stride = w + pad;
+    uint8_t *px = malloc((size_t)w * h);
+    uint32_t *got = malloc((size_t)stride * h * 4);
+    for (int i = 0; i < w * h; i++) px[i] = (uint8_t)((i * 2654435761u) >> 23);
+    for (int threads = 0; threads <= 4; threads++) {
+        memset(got, 0xa5, (size_t)stride * h * 4);
+        platform_palette_to_xrgb_pitch(px, palette, got, stride * 4, w, h, threads);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                const PlatformColor c = palette[px[y * w + x]];
+                CHECK(got[(size_t)y * stride + x] == ((uint32_t)c.r << 16 | (uint32_t)c.g << 8 | c.b));
+            }
+            for (int x = w; x < stride; x++) CHECK(got[(size_t)y * stride + x] == 0xa5a5a5a5u);
+        }
+    }
+    free(px), free(got);
+}
+
 int main(void)
 {
     CHECK(platform_cpu_count() >= 1);
@@ -115,6 +138,7 @@ int main(void)
     test_bands_cover_the_rows();
     test_empty_range();
     test_palette_to_xrgb();
+    test_palette_to_xrgb_pitch();
     platform_shutdown();
     return TEST_REPORT();
 }
