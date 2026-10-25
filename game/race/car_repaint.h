@@ -25,6 +25,9 @@ typedef struct {
                           * there too); 0 for any other */
     int width;           /* the texture's width in texels, for `keep` */
     int keep[REPAINT_KEEPS][4];   /* x, y, w, h: rectangles of texels left as they were (the plate, the black trim); w 0: unused */
+    const uint8_t *mask;  /* NULL, or `count` bytes made by hand (car_mask.h): non-zero is a texel left as it is, 0 is one painted. It replaces the
+                           * family test, `keep` and the lamp ring for this texture: every texel it marks as paint is recoloured, the dark ones
+                           * and the lamp slots too. Ignored for a texture that is not a body texture. */
 } RepaintTexture;
 
 typedef struct {
@@ -39,6 +42,11 @@ typedef struct {
 /* The body's colours towards the paint `rgb` (car_paint.h's recolour). Returns the number of body texels changed; -1 for a
  * palette type that is not 0x24 or 0x22 (the bank is left as it is). */
 int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor);
+
+/* The texels the rules above would leave as they are, for the drafts of the hand-made masks: `keep`[t] is `count` bytes for the bank's
+ * texture t, set to 1 where the texel is not repainted (a texture that is not a body texture is all 1) and 0 where it is. Nothing in
+ * the bank changes. Returns the number of texels marked paint; -1 for a palette type that is not 0x24 or 0x22. */
+int car_repaint_draft(const RepaintBank *bank, int floor, uint8_t *const keep[]);
 
 /* The PS1 livery's map: a colour (5 bits a channel) in `pairs` becomes the pair's `to`; a paint colour no pair names takes the
  * `to` of the pair whose `from` is nearest in lightness. Returns as above. */

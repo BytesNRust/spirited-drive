@@ -4,6 +4,7 @@
 #include "formats/fsh.h"
 #include "formats/psx_bigf.h"
 #include "game/race/car_livery.h"
+#include "game/race/car_mask.h"
 #include "game/race/car_repaint.h"
 #include "game/platform/platform.h"
 #include "game/sys/port_log.h"
@@ -167,10 +168,17 @@ static int glass_floor(const char *upper)
     return 40;
 }
 
-typedef int (*RepaintFn)(const RepaintBank *bank, void *ctx);
+/* what the callback needs to know of the bank beside the texture list: its detail level and the textures' names, in the list's order */
+typedef struct {
+    int level;
+    char name[MAX_TEXTURES][4];
+} BankMeta;
 
-/* Runs `fn` on each of the CFM's two banks (high and low detail) with its textures and palettes, as the loader will read them. */
-static int repaint_cfm(uint8_t *cfm, size_t size, const char *upper, RepaintFn fn, void *ctx)
+typedef int (*RepaintFn)(const RepaintBank *bank, const BankMeta *meta, void *ctx);
+
+/* Runs `fn` on each of the CFM's two banks (high and low detail) with its textures and palettes, as the loader will read them. A body
+ * texture that has a hand-made mask (car_mask.h, by the car's `stem` and the texture's name) is given it. */
+static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *upper, RepaintFn fn, void *ctx)
 {
     Chunk file;
     int changed = 0;
@@ -184,21 +192,25 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *upper, RepaintFn f
         uint8_t *pal = shape_bank_find(data, PAL_NAME), *own = shape_bank_find(data, OWN_NAME);
         if (pal == NULL) continue;
         RepaintTexture textures[MAX_TEXTURES];
+        BankMeta meta = { (int)level, { { 0 } } };
         int count = 0;
         for (uint32_t i = 0; i < bank.count && count < MAX_TEXTURES; i++) {
             FshEntry e;
             if (fsh_entry(&bank, i, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP || e.name[0] == '!') continue;
             size_t pixels = (size_t)e.width * e.height;
             if (pixels > e.payload_size) pixels = e.payload_size;
-            RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, texture_class(e.name), 0, { 0 } };
+            RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, texture_class(e.name), 0, { 0 }, NULL };
             tex.width = (int)e.width;
             keep_plate(&tex, upper, e.name, (int)e.width);
+            if (tex.body != REPAINT_NONE) tex.mask = car_mask_load(stem, e.name, (int)e.width, (int)e.height);
+            memcpy(meta.name[count], e.name, 4);
             textures[count++] = tex;
         }
         const RepaintBank rb = { textures, count, { pal + SHAPE_DATA, own != NULL ? own + SHAPE_DATA : NULL }, 2, pal[0],
                                  own != NULL ? own[0] : 0 };
-        const int n = fn(&rb, ctx);
+        const int n = fn(&rb, &meta, ctx);
         if (n > 0) changed += n;
+        for (int k = 0; k < count; k++) free((void *)(uintptr_t)textures[k].mask);
     }
     return changed;
 }
@@ -210,14 +222,16 @@ typedef struct {
     int floor;
 } RepaintJob;
 
-static int run_pairs(const RepaintBank *bank, void *ctx)
+static int run_pairs(const RepaintBank *bank, const BankMeta *meta, void *ctx)
 {
+    (void)meta;
     const RepaintJob *j = ctx;
     return car_repaint_pairs(bank, j->pairs, j->count, j->floor);
 }
 
-static int run_paint(const RepaintBank *bank, void *ctx)
+static int run_paint(const RepaintBank *bank, const BankMeta *meta, void *ctx)
 {
+    (void)meta;
     const RepaintJob *j = ctx;
     return car_repaint_paint(bank, j->rgb, j->floor);
 }
@@ -268,7 +282,7 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
         return 0;
     }
     const RepaintJob job = { pairs, count, NULL, glass_floor(upper) };
-    repaint_cfm(cfm, size, upper, run_pairs, (void *)&job);
+    repaint_cfm(cfm, size, stem, upper, run_pairs, (void *)&job);
     return count;
 }
 
@@ -279,5 +293,51 @@ int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_
     for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
     upper[i] = '\0';
     const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
-    return repaint_cfm(cfm, size, upper, run_paint, (void *)&job);
+    return repaint_cfm(cfm, size, stem, upper, run_paint, (void *)&job);
+}
+
+/* ----- the drafts of the masks ----- */
+
+typedef struct {
+    LiveryDraftFn fn;
+    void *user;
+    int floor;
+} DraftJob;
+
+static int run_draft(const RepaintBank *bank, const BankMeta *meta, void *ctx)
+{
+    const DraftJob *j = ctx;
+    uint8_t *keeps[MAX_TEXTURES] = { NULL };
+    int ok = 1;
+    for (int t = 0; t < bank->texture_count; t++) {
+        keeps[t] = malloc(bank->textures[t].count > 0 ? bank->textures[t].count : 1);
+        ok = ok && keeps[t] != NULL;
+    }
+    int paint = -1;
+    if (ok) paint = car_repaint_draft(bank, j->floor, keeps);
+    if (paint >= 0) {
+        const int second = bank->palettes > 1 && bank->palette[1] != NULL && (bank->type2 == 0x24 || bank->type2 == 0x22);
+        const uint8_t *pal = second ? bank->palette[1] : bank->palette[0];
+        const int shift = (second ? bank->type2 : bank->type) == 0x22 ? 2 : 0;
+        uint8_t rgb[768];
+        for (int i = 0; i < 768; i++) rgb[i] = (uint8_t)(pal[i] << shift);
+        for (int t = 0; t < bank->texture_count; t++) {
+            const RepaintTexture *tex = &bank->textures[t];
+            if (tex->body == REPAINT_NONE || tex->width <= 0) continue;
+            j->fn(j->user, meta->level, meta->name[t], tex->width, (int)(tex->count / (size_t)tex->width), tex->pixels, keeps[t], rgb);
+        }
+    }
+    for (int t = 0; t < bank->texture_count; t++) free(keeps[t]);
+    return paint > 0 ? paint : 0;
+}
+
+int drive_livery_draft(const char *stem, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user)
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    /* the Corvette's dark teal body lies under its runtime floor (a lower one repaints eight lamp texels): the draft starts its fascia as paint */
+    const DraftJob job = { fn, user, strcmp(upper, "CZR1") == 0 ? 20 : glass_floor(upper) };
+    return repaint_cfm(cfm, size, stem, upper, run_draft, (void *)&job);
 }

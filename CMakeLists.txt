@@ -245,6 +245,7 @@ add_library(tnfs_game STATIC
     game/race/car_variant.c
     game/race/car_paint.c
     game/race/car_repaint.c
+    game/race/car_mask.c
     game/race/psx_light.c
     game/race/psx_lgs.c
     game/race/psx_sky.c
@@ -367,6 +368,7 @@ add_library(tnfs_game STATIC
     game/sys/resource.c
 )
 target_include_directories(tnfs_game PUBLIC game .)
+target_compile_definitions(tnfs_game PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # car_mask.c: the source tree's data/car_masks
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
 target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
@@ -454,6 +456,13 @@ else()
     target_link_libraries(tnfs PRIVATE SDL3::SDL3)
 endif()
 
+# The drafts of the hand-made car masks (tools/car_mask_draft.c): reads the CD's CARFAMS, writes PNGs.
+if(NOT EMSCRIPTEN)
+    add_executable(car_mask_draft tools/car_mask_draft.c game/viewer/drive_livery.c)
+    target_link_libraries(car_mask_draft PRIVATE tnfs_game)
+    target_compile_options(car_mask_draft PRIVATE ${TNFS_WARNINGS})
+endif()
+
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c)
@@ -470,7 +479,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_paint_cfm showcase_variants psx_light remap_mode psx_lgs psx_sky psx_sky_bitmap weather)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_paint_cfm showcase_variants psx_light remap_mode psx_lgs psx_sky psx_sky_bitmap weather)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

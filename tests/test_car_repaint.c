@@ -37,9 +37,9 @@ static void make(Fixture *f, int type)
     set(f->pal, TYRE_ONLY, 30 >> s, 30 >> s, 30 >> s);
     memcpy(f->xxx, f->pal, sizeof f->xxx);
     memcpy(f->pal_before, f->pal, sizeof f->pal);
-    f->tex[0] = (RepaintTexture){ f->body, TEXELS, REPAINT_MAIN, 0, { 0 } };
-    f->tex[1] = (RepaintTexture){ f->tyre, TEXELS, REPAINT_NONE, 0, { 0 } };
-    f->tex[2] = (RepaintTexture){ f->decal, TEXELS, REPAINT_NONE, 0, { 0 } };
+    f->tex[0] = (RepaintTexture){ f->body, TEXELS, REPAINT_MAIN, 0, { 0 }, NULL };
+    f->tex[1] = (RepaintTexture){ f->tyre, TEXELS, REPAINT_NONE, 0, { 0 }, NULL };
+    f->tex[2] = (RepaintTexture){ f->decal, TEXELS, REPAINT_NONE, 0, { 0 }, NULL };
     f->bank = (RepaintBank){ f->tex, 3, { f->pal, f->xxx }, 2, type, type };
 }
 
@@ -151,7 +151,7 @@ static void test_dither(void)
         for (int x = 0; x < W; x++) body[y * W + x] = (uint8_t)(x < 8 ? 20 : ((x + y) & 1) ? 20 : 21);   /* solid, then a checkerboard */
     uint8_t before[W * H];
     memcpy(before, body, sizeof body);
-    RepaintTexture tex[1] = { { body, W * H, REPAINT_MAIN, W, { { 0 } } } };
+    RepaintTexture tex[1] = { { body, W * H, REPAINT_MAIN, W, { { 0 } }, NULL } };
     const RepaintBank bank = { tex, 1, { pal, xxx }, 2, 0x24, 0x24 };
     const uint8_t blue[3] = { 30, 70, 200 };
     CHECK(car_repaint_paint(&bank, blue, 44) > 0);
@@ -171,7 +171,7 @@ static void test_pairs_soft(void)
     for (int i = 0; i < N; i++) set(pal, 10 + i, GREY[i], GREY[i], GREY[i]);
     memcpy(xxx, pal, sizeof xxx);
     for (int i = 0; i < N * 100; i++) body[i] = (uint8_t)(10 + i / 100);
-    RepaintTexture tex[1] = { { body, N * 100, REPAINT_MAIN, 0, { { 0 } } } };
+    RepaintTexture tex[1] = { { body, N * 100, REPAINT_MAIN, 0, { { 0 } }, NULL } };
     const RepaintBank bank = { tex, 1, { pal, xxx }, 2, 0x24, 0x24 };
     const uint16_t g40 = (uint16_t)(5 | 5 << 5 | 5 << 10), g72 = (uint16_t)(9 | 9 << 5 | 9 << 10);
     const CarLiveryPair pairs[2] = { { g40, (uint16_t)(7 | 1 << 5 | 10 << 10) }, { g72, (uint16_t)(15 | 7 << 5 | 20 << 10) } };
@@ -192,7 +192,7 @@ static void test_lamp_reach(void)
     body[4 * W + 12] = 0xfe;
     uint8_t before[W * H];
     memcpy(before, body, sizeof body);
-    RepaintTexture tex[1] = { { body, W * H, REPAINT_MAIN, W, { { 0 } } } };
+    RepaintTexture tex[1] = { { body, W * H, REPAINT_MAIN, W, { { 0 } }, NULL } };
     const RepaintBank bank = { tex, 1, { pal, xxx }, 2, 0x24, 0x24 };
     const uint8_t blue[3] = { 30, 70, 200 };
     CHECK(car_repaint_paint(&bank, blue, 44) > 0);
@@ -210,7 +210,7 @@ static void test_odd_banks(void)
     make(&f, 0x24);
     static uint8_t full[256];
     for (int i = 0; i < 256; i++) full[i] = (uint8_t)i;
-    f.tex[2] = (RepaintTexture){ full, 256, REPAINT_NONE, 0, { 0 } };   /* every entry used: no spare */
+    f.tex[2] = (RepaintTexture){ full, 256, REPAINT_NONE, 0, { 0 }, NULL };   /* every entry used: no spare */
     const uint8_t red[3] = { 200, 20, 20 };
     CHECK(car_repaint_paint(&f.bank, red, 44) >= 0);          /* nothing breaks */
     f.bank.type = 0x99;
@@ -233,7 +233,7 @@ static void test_lamps(void)
     }
     uint8_t rear_before[TEXELS], pal_before[768];
     memcpy(rear_before, rear, sizeof rear), memcpy(pal_before, pal, sizeof pal);
-    RepaintTexture tex[2] = { { main_tex, TEXELS, REPAINT_MAIN, 0, { 0 } }, { rear, TEXELS, REPAINT_END, 0, { 0 } } };
+    RepaintTexture tex[2] = { { main_tex, TEXELS, REPAINT_MAIN, 0, { 0 }, NULL }, { rear, TEXELS, REPAINT_END, 0, { 0 }, NULL } };
     const RepaintBank bank = { tex, 2, { pal, xxx }, 2, 0x24, 0x24 };
     const uint8_t blue[3] = { 30, 70, 200 };
     CHECK(car_repaint_paint(&bank, blue, 44) > 0);
@@ -255,13 +255,75 @@ static void test_lamps(void)
         rear2[i] = (uint8_t)(i % 3 == 0 ? LAMP_RED : i % 3 == 1 ? LAMP_AMBER : 51);
     }
     memcpy(rear_before, rear2, sizeof rear2);
-    RepaintTexture tex2[2] = { { main2, TEXELS, REPAINT_MAIN, 0, { 0 } }, { rear2, TEXELS, REPAINT_END, 0, { 0 } } };
+    RepaintTexture tex2[2] = { { main2, TEXELS, REPAINT_MAIN, 0, { 0 }, NULL }, { rear2, TEXELS, REPAINT_END, 0, { 0 }, NULL } };
     const RepaintBank red = { tex2, 2, { pal2, xxx2 }, 2, 0x24, 0x24 };
     const uint8_t white[3] = { 240, 240, 236 };
     CHECK(car_repaint_paint(&red, white, 44) > 0);
     for (int i = 0; i < TEXELS; i++)
         if (rear_before[i] == LAMP_RED || rear_before[i] == LAMP_AMBER) CHECK_EQ_INT(rear2[i], rear_before[i]);
     CHECK(pal2[3 * rear2[2] + 1] > 100);   /* the body's red in the rear panel became white */
+}
+
+/* a texture with a mask (1 keep, 0 paint) is repainted by the mask alone: a kept texel is as it was (its entry too), and every other
+ * texel is painted, the glass under the cutoff and a lamp's slot included */
+static void test_mask(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    f.body[21] = 0xfe;   /* a lamp slot: the rules would guard it; the mask says paint */
+    set(f.pal, 0xfe, 100, 100, 104), set(f.xxx, 0xfe, 100, 100, 104), set(f.pal_before, 0xfe, 100, 100, 104);
+    uint8_t mask[TEXELS], body_before[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 5 == 0);
+    f.tex[0].mask = mask;
+    memcpy(body_before, f.body, sizeof body_before);
+    const uint8_t blue[3] = { 30, 70, 200 };
+    CHECK(car_repaint_paint(&f.bank, blue, 44) > 0);
+    for (int i = 0; i < TEXELS; i++) {
+        if (mask[i]) {
+            CHECK_EQ_INT(f.body[i], body_before[i]);
+            CHECK_MEM(f.pal + 3 * f.body[i], f.pal_before + 3 * f.body[i], 3);
+        } else {
+            CHECK(colour(&f, f.pal, f.body[i], 2) > colour(&f, f.pal, f.body[i], 0) + 40);
+        }
+    }
+}
+
+/* the PS1 pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
+static void test_mask_pairs(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    uint8_t mask[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 4 == 2);   /* the TRIM texels stay */
+    f.tex[0].mask = mask;
+    const uint16_t grey196 = (uint16_t)(24 | 24 << 5 | 24 << 10), grey120 = (uint16_t)(15 | 15 << 5 | 15 << 10);
+    const CarLiveryPair pairs[2] = { { grey196, (uint16_t)(28 | 3 << 5 | 3 << 10) }, { grey120, (uint16_t)(14 | 1 << 5 | 1 << 10) } };
+    CHECK(car_repaint_pairs(&f.bank, pairs, 2, 44) > 0);
+    CHECK(colour(&f, f.pal, f.body[3], 0) > colour(&f, f.pal, f.body[3], 1) + 4);   /* the glass entry, 16 grey: reddish now */
+    CHECK_MEM(f.pal + 3 * f.body[2], f.pal_before + 3 * TRIM, 3);
+}
+
+/* the draft of a mask: the texels the rules would not paint are 1 and nothing in the bank changes */
+static void test_draft(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    f.tex[0].keep[0][0] = 0, f.tex[0].keep[0][1] = 0, f.tex[0].keep[0][2] = 2, f.tex[0].keep[0][3] = 1;   /* texels 0, 1 */
+    uint8_t body_before[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS];
+    memcpy(body_before, f.body, sizeof body_before);
+    uint8_t *const keeps[3] = { keep0, keep1, keep2 };
+    const int paint = car_repaint_draft(&f.bank, 44, keeps);
+    CHECK(paint > 0);
+    CHECK_MEM(f.body, body_before, TEXELS);
+    CHECK_MEM(f.pal, f.pal_before, sizeof f.pal);
+    CHECK_EQ_INT(keep0[0], 1);   /* in the kept rectangle */
+    CHECK_EQ_INT(keep0[1], 1);
+    CHECK_EQ_INT(keep0[2], 0);   /* TRIM: paint */
+    CHECK_EQ_INT(keep0[3], 1);   /* the glass */
+    CHECK_EQ_INT(keep1[0], 1);   /* not a body texture: all kept */
 }
 
 int main(void)
@@ -277,5 +339,8 @@ int main(void)
     test_lamp_reach();
     test_odd_banks();
     test_lamps();
+    test_mask();
+    test_mask_pairs();
+    test_draft();
     return TEST_REPORT();
 }
