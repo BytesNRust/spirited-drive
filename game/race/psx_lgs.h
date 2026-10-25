@@ -31,4 +31,8 @@ void psx_tint_palette(const uint8_t palette[768], const float tint[3], uint8_t o
  * drawn, `shown` the frame now; a pixel the 2D layer changed is not the world's (mask 0), the others are (1). */
 void psx_world_mask(const uint8_t *shown, const uint8_t *world, size_t count, uint8_t *mask);
 
+/* The rectangle (x, y, w, h) of a mask `width` x `height` set to 1, clipped to it: the rear-view mirror's picture, which the 2D layer
+ * carries but shows the 3D. */
+void psx_mask_rect(uint8_t *mask, int width, int height, int x, int y, int w, int h);
+
 #endif

@@ -99,9 +99,18 @@ void drive_light_world_done(const uint8_t *frame, size_t count)
     memcpy(world_frame, frame, count);
 }
 
+static int rect[4], rect_set, rect_width;
+
+void drive_light_world_rect(int width, int x, int y, int w, int h)
+{
+    rect[0] = x, rect[1] = y, rect[2] = w, rect[3] = h, rect_width = width, rect_set = w > 0 && h > 0;
+}
+
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
 {
     if ((tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f) || world_size != count || world_frame == NULL) return NULL;
     psx_world_mask(shown, world_frame, count, world_mask);
+    if (rect_set && rect_width > 0 && count % (size_t)rect_width == 0)
+        psx_mask_rect(world_mask, rect_width, (int)(count / (size_t)rect_width), rect[0], rect[1], rect[2], rect[3]);
     return world_mask;
 }

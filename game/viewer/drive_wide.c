@@ -5,6 +5,7 @@
 #include "game/gfx/blit.h"
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
+#include "viewer/drive_light.h"
 #include "viewer/dash_box.h"
 #include "game/sys/bands.h"
 #include "game/sys/port_log.h"
@@ -351,7 +352,10 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
                                    { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 },   /* the radar detector stays on the dash */
                                    { GAUGE_SIZE, GAUGE_SIZE } };
-    const HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
+    HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
+    /* the box where the exe's 640 frame has it (the anchor is the dash's grab, 2 px on): the same frame whatever the wide path is on for */
+    if (drive_wide.width <= SCREEN_W) a.map = (ScreenPoint){ DRIVE_MAP_X, DRIVE_MAP_Y };
+    drive_light_world_rect(drive_wide.width * drive_wide.scale, 0, 0, 0, 0);
     LayerPiece pieces[12];
     int n = 0;
     const int lights = !police && hud_start_lights_drawn(&drive_hud.hud, race->tick);
@@ -404,6 +408,8 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
         const int out_w = (int)((int64_t)(drive_hud.mirror_x - mirror.left + m->width) * mirror_scale >> 16) - left;
         const int out_h = (int)((int64_t)(drive_hud.mirror_y - mirror.top + m->height) * mirror_scale >> 16) - top;
         drive_wide_hires_place(m, a.mirror.x + left, a.mirror.y + top, out_w, out_h);
+        const int s = drive_wide.scale;   /* the picture shows the 3D: the PS1 light's tint reaches it */
+        drive_light_world_rect(drive_wide.width * s, (a.mirror.x + left) * s, (a.mirror.y + top) * s, out_w * s, out_h * s);
     }
     if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &mirror_cs);
     if (lights) {  /* the strip between the lights */

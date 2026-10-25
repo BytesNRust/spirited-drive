@@ -19,6 +19,9 @@ void drive_light_palette(const uint8_t palette[768], uint8_t out[768]);
 
 /* A race's frame: `frame` (count pixels) is the 3D when it is done and the 2D layer (HUD, dash, menus over it) not yet drawn. */
 void drive_light_world_done(const uint8_t *frame, size_t count);
+/* The rear-view mirror's picture, in the output frame `width` pixels wide: the 2D layer carries it but it shows the 3D, so it is
+ * the world's (tinted); w <= 0 clears it. Set again each frame by the compose. */
+void drive_light_world_rect(int width, int x, int y, int w, int h);
 /* The pixels of `shown` (the frame now, count of them) that are the 3D's, 1 each (the 2D layer changed the others): the mask to
  * give platform_present_split with drive_light_palette's; NULL when the tint is neutral or no 3D was kept for this size. */
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count);

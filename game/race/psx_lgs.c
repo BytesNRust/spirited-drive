@@ -56,3 +56,10 @@ void psx_world_mask(const uint8_t *shown, const uint8_t *world, size_t count, ui
 {
     for (size_t i = 0; i < count; i++) mask[i] = shown[i] == world[i];
 }
+
+void psx_mask_rect(uint8_t *mask, int width, int height, int x, int y, int w, int h)
+{
+    const int left = x < 0 ? 0 : x, top = y < 0 ? 0 : y, right = x + w > width ? width : x + w, bottom = y + h > height ? height : y + h;
+    for (int row = top; row < bottom; row++)
+        if (right > left) memset(mask + (size_t)row * (size_t)width + left, 1, (size_t)(right - left));
+}

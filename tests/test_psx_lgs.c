@@ -90,8 +90,27 @@ static void test_world_mask(void)
     CHECK_EQ_INT(colour[3][0], 200);   /* the HUD's index 100 as it was */
 }
 
+/* the mirror's picture rectangle is the world's, clipped to the mask; nothing outside it changes */
+static void test_mask_rect(void)
+{
+    uint8_t mask[8 * 6] = { 0 };
+    psx_mask_rect(mask, 8, 6, 2, 1, 3, 2);
+    for (int y = 0; y < 6; y++)
+        for (int x = 0; x < 8; x++) CHECK_EQ_INT(mask[y * 8 + x], x >= 2 && x < 5 && y >= 1 && y < 3);
+    psx_mask_rect(mask, 8, 6, 6, 4, 10, 10);   /* past the corner: clipped */
+    CHECK_EQ_INT(mask[5 * 8 + 7], 1);
+    CHECK_EQ_INT(mask[3 * 8 + 7], 0);
+    psx_mask_rect(mask, 8, 6, -5, -5, 6, 6);   /* the top left corner only */
+    CHECK_EQ_INT(mask[0], 1);
+    CHECK_EQ_INT(mask[1 * 8 + 1], 0);
+    uint8_t untouched[8 * 6] = { 0 };
+    psx_mask_rect(untouched, 8, 6, 3, 3, 0, 4);   /* empty */
+    for (int i = 0; i < 48; i++) CHECK_EQ_INT(untouched[i], 0);
+}
+
 int main(void)
 {
+    test_mask_rect();
     test_palette_tint();
     test_world_mask();
     test_ambient_and_tint();
