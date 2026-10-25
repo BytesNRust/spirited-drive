@@ -337,6 +337,8 @@ static void compose_banded(const LayerCompose *c, const uint8_t *frame)
  * pillars, the mirror's housing: half the tint) and which the HUD's (the top bar, the map, the gauge, the two dials with their needles
  * and the lights: none). The layer's own frame is classed pixel by pixel, then composed the way the frame is, so each output pixel has
  * its class whatever the piece or the stretch that put it there. */
+enum { LIGHTS_PAD_LEFT = 2, LIGHTS_PAD_RIGHT = 14, LIGHTS_PAD_TOP = 3, LIGHTS_PAD_BOTTOM = 11 };   /* round the detector's lights */
+
 static int in_rect(int x, int y, int left, int top, int w, int h) { return x >= left && x < left + w && y >= top && y < top + h; }
 
 static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car)
@@ -350,10 +352,21 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
         shadow = p, shadow_size = out;
     }
     const Cockpit *k = &drive_hud.cockpit;
+    const uint8_t *art = dash_art_layer(k);
+    /* the radar detector's lights (cockpit_lights: the big one at dash point 2, the five small at 3..7): they are lights, untinted; what in
+     * their box the lights drew over the dash's art (the case round them is the art's: half) */
+    int lights_left = k->dash_points[2].x, lights_right = lights_left, lights_top = k->dash_points[2].y;
+    for (int i = 3; i < 8; i++) {
+        if (k->dash_points[i].x < lights_left) lights_left = k->dash_points[i].x;
+        if (k->dash_points[i].x > lights_right) lights_right = k->dash_points[i].x;
+    }
+    lights_left -= LIGHTS_PAD_LEFT, lights_top -= LIGHTS_PAD_TOP;
+    const int lights_w = lights_right - lights_left + LIGHTS_PAD_RIGHT, lights_h = LIGHTS_PAD_TOP + LIGHTS_PAD_BOTTOM;
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++) {
             const uint8_t v = frame[y * SCREEN_W + x];
             int hud = !in_car || y < HUD_BAR_HEIGHT || in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H);
+            hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
             hud = hud || in_rect(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_rect(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
             classes[y * SCREEN_W + x] = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
         }
