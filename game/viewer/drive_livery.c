@@ -143,6 +143,8 @@ static const struct { const char *stem, name[5]; int width, rects[REPAINT_KEEPS]
     { "LDIABL", "rear", 37, { { 20, 0, 10, 11 } } },
     { "LDIABL", "rsid", 284, { { 246, 83, 21, 16 }, { 220, 83, 64, 10 }, { 196, 100, 44, 9 }, { 268, 100, 16, 9 } } },
     { "LDIABL", "frnt", 24, { { 12, 5, 6, 4 } } },
+    /* the Corvette's hatch glass (the top of the rear texture): dark teal the neighbour rule cannot tell from dark paint */
+    { "CZR1", "rsid", 334, { { 0, 0, 334, 35 } } },
 };
 
 static void keep_plate(RepaintTexture *tex, const char *upper, const char name[4], int width)
