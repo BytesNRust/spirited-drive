@@ -3,6 +3,7 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/tgv_frame.h"
 #include "game/frontend/tgv_wide.h"
+#include "game/sys/backdrop.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
@@ -119,6 +120,7 @@ static int play(const uint8_t *file, size_t size, TgvState *s)
     uint32_t pictures = 0;
     const int wide = wide_width();
     uint8_t *picture = wide != 0 ? malloc((size_t)wide * VIDEO_HEIGHT) : NULL;
+    uint8_t shade[256] = { 0 };
     for (size_t at = 0; at + CHUNK_HEADER <= size; at += le32(file + at + 4)) {
         const int key = tag_is(file + at, "kVGT") || tag_is(file + at, "TGVk");
         if (!key && !tag_is(file + at, "fVGT") && !tag_is(file + at, "TGVf")) continue;
@@ -132,7 +134,8 @@ static int play(const uint8_t *file, size_t size, TgvState *s)
         if (shape == NULL) continue;
         draw(shape);   /* the frame as before: what the screen is left with after the movie */
         if (picture != NULL) {
-            tgv_wide_scale(shape + TGV_SHAPE_HEADER, shape[4] | shape[5] << 8, shape[6] | shape[7] << 8, picture, wide, VIDEO_HEIGHT);
+            if (key) backdrop_shade_table(s->palette, shade);
+            tgv_wide_compose(shape + TGV_SHAPE_HEADER, shape[4] | shape[5] << 8, shape[6] | shape[7] << 8, picture, wide, VIDEO_HEIGHT, shade);
             video_set_wide_picture(picture, wide);
         }
         video_flip();

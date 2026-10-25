@@ -54,8 +54,45 @@ static void test_in_range(void)
     CHECK(out[240 * 854 + 853] == src[(size_t)(((2 * (240 + (512 - 480) / 2) + 1) * 192) / (2 * 512)) * 320 + 319]);
 }
 
+/* the mode by the crop at the screen's width: 4:3 (no crop), 16:9 (32 of 480 rows, 6.7 %) fill; 21:9 (192 of 480, 40 %) fits */
+static void test_mode(void)
+{
+    CHECK(tgv_wide_fills(320, 192, 640, 480));
+    CHECK(tgv_wide_fills(320, 192, 854, 480));
+    CHECK(!tgv_wide_fills(320, 192, 1280, 480));        /* 768 rows: 288 cut, 60 % */
+    CHECK(!tgv_wide_fills(320, 192, 1120, 480));
+    CHECK(!tgv_wide_fills(320, 192, 1008, 480));        /* 604 rows: 124 cut, 25.8 % */
+    CHECK(tgv_wide_fills(320, 192, 880, 480));          /* 528 rows: 48 cut, exactly 10 % */
+}
+
+/* fitted: nothing cropped (the first and last picture rows are on the screen's), the middle is the picture at the
+ * screen's height, the sides the enlarged frame through `shade`; filling is tgv_wide_scale unchanged */
+static void test_fitted(void)
+{
+    static uint8_t src[320 * 192], out[1120 * 480], ref[1120 * 480], shade[256];
+    for (int i = 0; i < 320 * 192; i++) src[i] = (uint8_t)(1 + i % 250);
+    for (int c = 0; c < 256; c++) shade[c] = (uint8_t)(c / 2);
+    tgv_wide_compose(src, 320, 192, out, 1120, 480, shade);
+    CHECK(out[0 * 1120 + 560] == src[0 * 320 + 160]);                         /* the picture's top row is the screen's */
+    CHECK(out[479 * 1120 + 560] == src[191 * 320 + 160]);
+    const int left = (1120 - 800) / 2;
+    CHECK(out[240 * 1120 + left] == src[96 * 320 + 0]);                        /* the picture's left edge, 800 wide */
+    CHECK(out[240 * 1120 + left + 799] == src[96 * 320 + 319]);
+    CHECK(out[240 * 1120] == shade[src[(size_t)((2 * ((672 - 480) / 2 + 240) + 1) * 192 / (2 * 672)) * 320]]);   /* a side: dimmed, enlarged */
+    CHECK(out[240 * 1120 + 1119] == shade[src[(size_t)((2 * ((672 - 480) / 2 + 240) + 1) * 192 / (2 * 672)) * 320 + 319]]);
+    CHECK(out[10 * 1120] == shade[src[(size_t)((2 * ((672 - 480) / 2 + 10) + 1) * 192 / (2 * 672)) * 320]]);
+    /* the sides really are dimmed: no side pixel is a picture colour above the shade's range */
+    for (int y = 0; y < 480; y++) for (int x = 0; x < left; x++) CHECK(out[y * 1120 + x] <= 125);
+    /* filling: the same as tgv_wide_scale */
+    tgv_wide_scale(src, 320, 192, ref, 854, 480);
+    tgv_wide_compose(src, 320, 192, out, 854, 480, shade);
+    CHECK(memcmp(out, ref, 854 * 480) == 0);
+}
+
 int main(void)
 {
+    test_mode();
+    test_fitted();
     test_exact_double();
     test_crop_middle();
     test_bars();
