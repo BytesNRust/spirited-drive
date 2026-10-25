@@ -3,6 +3,7 @@
 
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
+#include "game/gfx/raster_record.h"
 #include "game/gfx/shape_flip.h"
 #include "game/race/car_shadow.h"
 #include "game/race/mirror_sky.h"
@@ -10,6 +11,7 @@
 #include "game/race/track_geometry.h"
 #include "game/race/track_render.h"
 #include "game/race/track_step.h"
+#include "game/sys/bands.h"
 #include "game/viewer/modern_road.h"
 #include "game/viewer/screen_layout.h"
 
@@ -119,8 +121,36 @@ void drive_mirror_widen(DriveMirror *m, int on)
     if (m->picture != NULL) make_wide(m, on && !m->on_dash ? (m->width - m->extra) / 2 : 0);
 }
 
+void drive_mirror_zoom(DriveMirror *m, int32_t zoom)
+{
+    m->zoom = zoom > 0 ? zoom : 0;
+}
+
+/* port (render scale): `big` made (or remade) for the zoom; 0 when it cannot be, the picture then drawn as ever */
+static int make_big(DriveMirror *m)
+{
+    const int32_t w = (int32_t)(((int64_t)m->width * m->zoom + 0x8000) >> 16), h = (int32_t)(((int64_t)m->height * m->zoom + 0x8000) >> 16);
+    if (m->big != NULL && m->big_w == w && m->big_h == h) return 1;
+    free(m->big);
+    m->big = make_picture(NULL, w, h, 0);
+    m->big_w = m->big != NULL ? w : 0, m->big_h = m->big != NULL ? h : 0;
+    return m->big != NULL;
+}
+
+/* the picture's rows and columns taken from `big` (nearest): what the 2D layer's copy of the mirror holds */
+static void sample_down(const DriveMirror *m)
+{
+    for (int32_t y = 0; y < m->height; y++) {
+        const uint8_t *from = m->big + SHAPE_HEADER + (size_t)((int64_t)y * m->big_h / m->height) * m->big_w;
+        uint8_t *to = m->picture + SHAPE_HEADER + (size_t)y * m->width;
+        for (int32_t x = 0; x < m->width; x++) to[x] = from[(int64_t)x * m->big_w / m->width];
+    }
+}
+
 void drive_mirror_free(DriveMirror *m)
 {
+    free(m->big);
+    m->big = NULL, m->big_w = m->big_h = 0;
     mirror_free(free_picture, NULL, (void **)&m->picture);
     free(m->horz);
     m->horz = NULL;
@@ -204,7 +234,16 @@ static void transform_op(void *ctx)
     mirror_transform(&in, &f->m->near, f->m->vertices);
 }
 
-static void select_op(void *ctx) { (void)ctx; }  /* the picture is Frame.target throughout */
+/* port (render bands P4): from here to the flip the mirror's draws are recorded and replayed by bands, once; the
+ * picture is its own buffer, so the main view's recorder is not active (stage 3 runs before stage 6) */
+static struct RasterRecorder mirror_recorder;
+
+static void select_op(void *ctx)  /* the picture is Frame.target throughout */
+{
+    if (bands_threads() == 0 || raster_active != NULL) return;
+    raster_record_set_runner(bands_rows);
+    raster_record_begin(&mirror_recorder, ((Frame *)ctx)->target.pixels);
+}
 
 static void sky_fill(void *ctx, uint32_t colour)
 {
@@ -233,7 +272,7 @@ static void sky_op(void *ctx)
     const ViewRow *row = &race_view_rows[HIGH_MODE][MIRROR_VIEW];
     const MirrorSkyInputs in = { race->chase.node, f->pitch, f->yaw, HIGH_MODE, row->unknown_14[3], f->layout->y,
                                  f->m->enclosed_colour, f->m->property8_colour,
-                                 (int16_t)race->frontend_track, 0, f->m->width, f->m->height, f->m->horz };
+                                 (int16_t)race->frontend_track, 0, f->target.clip_right, f->target.clip_bottom, f->m->horz };
     const MirrorSkyOps ops = { f, node_property, sky_fill, sky_rect, sky_quad };
     mirror_sky(&ops, &in);
 }
@@ -326,7 +365,17 @@ static void scene_op(void *ctx, int32_t count)
     mirror_scene(&ops, &in, count);
 }
 
-static void flip_op(void *ctx) { shape_flip(((Frame *)ctx)->m->picture); }
+static void flip_op(void *ctx)
+{
+    Frame *f = ctx;
+    if (raster_active == &mirror_recorder) raster_record_end(&mirror_recorder);
+    if (f->target.pixels == f->m->picture + SHAPE_HEADER) {
+        shape_flip(f->m->picture);
+        return;
+    }
+    shape_flip(f->m->big);   /* port (render scale): the larger picture, then the 2D layer's copy from it */
+    sample_down(f->m);
+}
 
 int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFrame *f)
 {
@@ -345,6 +394,17 @@ int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFra
         f->layout = &m->wide_layout;
     }
     if (m->own) f->layout = &m->wide_layout;  /* port: the own mirror's, scaled */
+    if (m->zoom > 0 && make_big(m)) {  /* port (render scale): the same camera over more pixels */
+        ViewLayout *l = &m->big_layout;
+        *l = *f->layout;
+        const int64_t gx = m->big_w, gy = m->big_h, dx = m->width, dy = m->height;
+        l->left = (int32_t)(l->left * gx / dx), l->x = (int32_t)(l->x * gx / dx), l->width = (int32_t)(l->width * gx / dx);
+        l->unknown_20 = (int32_t)(l->unknown_20 * gx / dx);
+        l->top = (int32_t)(l->top * gy / dy), l->y = (int32_t)(l->y * gy / dy), l->height = (int32_t)(l->height * gy / dy);
+        l->unknown_24 = (int32_t)(l->unknown_24 * gy / dy);
+        f->layout = l;
+        f->target = (QuadTarget){ m->big + SHAPE_HEADER, m->big_w, 0, 0, m->big_w, m->big_h };
+    }
     mirror_rows(f);
     /* m->car_rows: 00459d70's mirror part (00459cc4), at 0044ce3f (ported_view_frame_rows) */
     return 1;

@@ -73,7 +73,7 @@ static void fresh_background(void)
 /* a draw of one primitive, parameters fixed by the case, onto a target */
 typedef struct Case {
     int kind;
-    int32_t s[8], uv[8], cam[4][3];
+    int32_t s[10], uv[10], cam[4][3];   /* up to 5 points (the flat polygons of cases 6 and 7) */
     int count, mode, transparent;
     uint32_t colour;
     int32_t w, h, x, y;

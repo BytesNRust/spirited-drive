@@ -1,6 +1,7 @@
 /* A shape drawn scaled and blended (004900a8, 0048cae9). */
 #include "game/gfx/sprite_scaled.h"
 
+#include "game/gfx/raster_record.h"
 #include "game/gfx/x86_int.h"
 
 #include <stddef.h>
@@ -17,6 +18,17 @@ static int32_t magnitude(int32_t v)
     return v > 0 ? v : x_sub(0, v);
 }
 
+static int draw_scaled(const QuadTarget *t, const uint8_t *const *blend, const uint8_t *shape, int32_t w, int32_t h, int32_t x,
+                       int32_t y);
+
+/* port (render bands): a recorded sprite drawn into a band's rows (its rows are independent: a narrowed clip does) */
+static void replay_sprite(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    if (raster_narrow(whole, top, bottom, &band))
+        (void)draw_scaled(&band, c->table, c->shape, c->a, c->b, c->c, c->d);
+}
+
 /* 004900a8 / 00490638 with blend NULL: colour 0xff skipped. */
 static int draw_scaled(const QuadTarget *t, const uint8_t *const *blend, const uint8_t *shape, int32_t w, int32_t h, int32_t x,
                        int32_t y)
@@ -24,6 +36,15 @@ static int draw_scaled(const QuadTarget *t, const uint8_t *const *blend, const u
     const int32_t width = (int16_t)(shape[4] | shape[5] << 8), height = (int16_t)(shape[6] | shape[7] << 8);
     if (w == 0 || h == 0) return 0;
     if (shape[0] != SHAPE_8_BIT) return -1;
+    struct RasterRecorder *rec = raster_recorder_for(t);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, t, replay_sprite);
+        c->shape = shape, c->table = blend;
+        c->a = w, c->b = h, c->c = x, c->d = y;
+        const int32_t ends[4] = { x, y, x, x_add(y, magnitude(h)) };
+        raster_cmd_rows(c, ends, 2);
+        return 0;
+    }
     if (x >= t->clip_right || y >= t->clip_bottom) return 0;
     if (x_add(magnitude(w), x) <= t->clip_left || x_add(magnitude(h), y) <= t->clip_top) return 0;
     const int32_t du = x_div(x_shl(width, 16), w), dv = x_div(x_shl(height, 16), h);

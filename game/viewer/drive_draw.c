@@ -229,6 +229,7 @@ static void df_stream(void *ctx)
                                     &race->chase.flags, { 0, 0, 0 }, race->cars[race_slot(race->player)], (void *)t,
                                     mirror_car, ported_view_modern() };
     ported_view_near_dir(f->mirror.near_dir);  /* as the front view last left them */
+    drive_mirror_zoom(&drive_hud.mirror, drive_wide_mirror_zoom(&drive_hud.mirror));
     f->mirror_on = drive_mirror_begin(&drive_hud.mirror, &f->mirror, &f->mirror_pass);
     if (f->mirror_on) f->mirror_ops = drive_mirror_ops(&f->mirror_pass);
 }
@@ -280,11 +281,13 @@ static void df_near(void *ctx, int32_t segments, int32_t node)
         list[i] = (PortedCar){ car_pose_of(c), (int32_t)((uint32_t)c->draw_node & (t->tri.ring_nodes - 1u)), f->race->cars[i] };
     }
     uint8_t *view = drive_hud_view(&drive_hud, f->pixels);
-    if (drive_wide.width > SCREEN_W) {  /* port: the 3D at the screen's width, its 640 box left LAYER_KEY */
+    if (drive_wide_active()) {  /* port: the 3D at the screen's width (and render scale), its 640 box left LAYER_KEY */
+        const int s = drive_wide.scale;
         drive_wide_key_box(f->race, view);
-        memset(drive_wide.pixels, 0, (size_t)drive_wide.width * SCREEN_H);
-        const PortedViewport vp = drive_wide_viewport(f->race);
-        ported_view_set_screen(drive_wide.width, SCREEN_H);
+        memset(drive_wide.pixels, 0, (size_t)drive_wide.width * s * SCREEN_H * s);
+        const PortedViewport unscaled = drive_wide_viewport(f->race);
+        const PortedViewport vp = ported_view_scaled(&unscaled, s);
+        ported_view_set_screen(drive_wide.width * s, SCREEN_H * s);
         ported_view_set_viewport(&vp);
         ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, drive_wide.pixels);
         ported_view_set_screen(SCREEN_W, SCREEN_H);
@@ -404,6 +407,7 @@ void render_drive(const Track *t, uint8_t *pixels)
     last_ms = f.last_ms;
     const int bumper = drive_bumper.mirror && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL
                        && drive_bumper_mirror_render(&f.mirror, drive_frame.mirror_count);
-    if (drive_wide.width > SCREEN_W) drive_wide_compose(race, pixels);
+    if (drive_wide_active()) drive_wide_compose(race, pixels);
     drive_bumper_draw(race, pixels, bumper);
+    drive_wide_finish();   /* port (render scale): the 2D layer over the enlarged 3D, bumper pieces and all */
 }

@@ -35,7 +35,13 @@ typedef struct {
     int32_t sky_left, sky_top, sky_width, sky_height;
     int32_t fov_y;              /* port: the vertical field when it differs (a wide screen), 0 the same as fov */
     int32_t near_scale;         /* port: the road's near plane, 16.16 (screen_near_scale); 0 the exe's */
+    int32_t render_scale;       /* port (render scale): the positions and sizes above are already this many times the frame's; 1 */
 } PortedViewport;
+
+/* port (render scale, re/notes/render-scale-design.md): `v` for a frame `s` times as wide and tall. The box, the
+ * projection's place and its size grow by s; the fields of view stay, so the focal lengths (view_init takes them from the
+ * size) grow by s and the picture is the same with s times the pixels. */
+PortedViewport ported_view_scaled(const PortedViewport *v, int s);
 
 /* port: the segments of track drawn (track_render_set_reach): DRAW_SEGMENTS_ULTRA for port.cfg's view_ultra */
 void ported_view_set_reach(int32_t segments);

@@ -86,6 +86,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.psx_light, b.psx_light);
+    CHECK_EQ_INT(a.render_scale, b.render_scale);
 }
 
 static void test_defaults(void)
@@ -105,7 +106,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .psx_light = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .psx_light = 1 };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -119,6 +120,9 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.format, SCREEN_21_9);
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.fov_adjust, 0);   /* untouched keys keep the default */
+    CHECK_EQ_INT(s.render_scale, 1);
+    const char *scaled = "render_scale=2\n";
+    CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
     CHECK_EQ_INT(s.psx_light, 0);
     const char *lit = "psx_light=1\n";
     CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
@@ -128,7 +132,7 @@ static void test_parse_keys(void)
 
 static void test_bad_input_keeps_defaults(void)
 {
-    const char *text = "refresh_hz=75\nfov_adjust=99\nformat=5:4\nno equals sign\nunknown=3\n";
+    const char *text = "refresh_hz=75\nrender_scale=4\nfov_adjust=99\nformat=5:4\nno equals sign\nunknown=3\n";
     check_same(port_settings_parse(text, strlen(text)), port_settings_defaults());
     check_same(port_settings_parse("", 0), port_settings_defaults());
 }
@@ -137,7 +141,7 @@ static void test_load_save(void)
 {
     check_same(port_settings_load(), port_settings_defaults());   /* no file yet */
     const PortSettings s = { .format = SCREEN_16_9, .refresh_hz = 120, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = 15, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1 };
+                             .fov_adjust = 15, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 2 };
     CHECK(port_settings_save(&s));
     check_same(port_settings_load(), s);
 }

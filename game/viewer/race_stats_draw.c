@@ -9,8 +9,8 @@
 enum {
     MARGIN_X = 4, MARGIN_Y = 26,     /* the corner under the HUD's top row (checked in the captures) */
     PAD = 4,                         /* the backing's edge round the text */
-    MAX_WIDTH = 1600,                /* the widest frame the overlay draws on (21:9 at 480 is about 1493) */
-    MAX_HEIGHT = 480
+    MAX_WIDTH = 3360,                /* the widest frame the overlay draws on (21:9 at 1440 rows, 3x the 480) */
+    MAX_HEIGHT = 1440
 };
 
 /* the copy the overlay is drawn on: the module's own, so the race's buffers stay as they were */

@@ -36,10 +36,12 @@ typedef struct {
  * at the screen's width into `pixels`, and layer_compose puts the frame over it (layer_compose.h). */
 typedef struct {
     int width;                          /* 640: none of this */
-    uint8_t *pixels;                    /* width x 480 */
+    uint8_t *pixels;                    /* width x 480 (x scale each way) */
     ViewLayout rows[VIEW_LAYOUTS];      /* 004b7080's high rows at the width (screen_layouts) */
     int fov_adjust;
     int ready;                          /* the frame composed since the last present */
+    int scale;                          /* port (render scale): 1, 2 or 3; `pixels` is width * scale x 480 * scale */
+    uint8_t *layer;                     /* with scale > 1: the 2D over the 3D, width x 480, LAYER_KEY where the 3D shows */
 } DriveWide;
 
 enum { HIGH_SCREEN = 1 };  /* 00512018 for 640 x 480 */
@@ -70,6 +72,20 @@ void drive_end(void);
 
 /* drive_wide.c */
 ScreenFormat drive_screen_format(void);
+/* port (render scale): the wide path runs when the screen is wider than 640 or the 3D is drawn at more than 1x */
+int drive_wide_active(void);
+/* where the 2D layer is composed: `pixels` at scale 1, else `layer` (width x 480) */
+uint8_t *drive_wide_canvas(void);
+/* with scale > 1, the layer's pixels put over the 3D as scale x scale blocks (nearest); the end of a frame */
+void drive_wide_finish(void);
+int drive_output_height(void);
+/* the platform could not give the larger framebuffer: the scale stays 1 from now on */
+void drive_wide_scale_off(void);
+/* port (render scale): the mirror drawn at the scale: its zoom (drive_mirror_zoom), 0 at scale 1 or when it stays on the dash */
+int32_t drive_wide_mirror_zoom(const DriveMirror *m);
+int32_t drive_wide_bumper_zoom(void);
+/* the larger picture `m` made put over the screen at x, y (w x h of the 2D layer's pixels) by drive_wide_finish */
+void drive_wide_hires_place(const DriveMirror *m, int x, int y, int w, int h);
 void drive_wide_size(int width);
 const uint8_t *drive_output(const uint8_t *pixels, int *width);
 void drive_wide_set_viewport(const RaceState *race);

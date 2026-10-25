@@ -168,11 +168,13 @@ static PortReach port_reach(const SkyFrame *f, int32_t dx_up, int32_t dx_down)
 {
     const int32_t down = sub(0, dx_down);
     const int32_t lo = dx_up < down ? dx_up : down, hi = dx_up < down ? down : dx_up;
-    const int32_t pad_left = hi > PORT_EDGE_PAD ? hi : PORT_EDGE_PAD;
-    const int32_t pad_right = -lo > PORT_EDGE_PAD ? -lo : PORT_EDGE_PAD;
+    const int32_t pad = PORT_EDGE_PAD * f->pixel_scale;
+    const int32_t pad_left = hi > pad ? hi : pad;
+    const int32_t pad_right = -lo > pad ? -lo : pad;
     const int32_t right = f->clip_right + pad_right + hi + 1, left = pad_left - f->clip_left - lo + 1;
     const int32_t needed = right > left ? right : left;
-    return (PortReach){ lo, hi, pad_left, pad_right, needed > CULL_LIMIT ? needed : CULL_LIMIT };
+    const int32_t limit = CULL_LIMIT * f->pixel_scale;
+    return (PortReach){ lo, hi, pad_left, pad_right, needed > limit ? needed : limit };
 }
 
 /* port_wide: a slice's end that projects behind the eye or so far out that a corner of the slice there would pass
@@ -293,6 +295,7 @@ void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f
         mat3_apply(p, f->matrix, cam[i]);
         ok[i] = view_project(f->view, cam[i], screen[i]);
     }
+    /* port (render scale): the ring's heights are in pixels of the frame, so they grow with it */
     const int32_t scale = (int32_t)((uint32_t)f->viewport.scale * (uint32_t)f->viewport.width) / f->reference_width;
     const int32_t offset = fx_mul_round(info->ring_y_offset, scale);
     const int32_t height = fx_mul_round(info->ring_height, scale);
@@ -307,7 +310,7 @@ void sky_ring_draw(const SkyRing *ring, const TrackInfo *info, const SkyFrame *f
     const uint8_t bottom = horz->payload[(size_t)horz->width * horz->height - 1];
     /* the exe's own slices: its cull limit, no pads */
     const PortReach reach = extra != 0 ? port_reach(f, dx_up, dx_down)
-                                       : (PortReach){ 0, 0, PORT_EDGE_PAD, PORT_EDGE_PAD, CULL_LIMIT };
+                                       : (PortReach){ 0, 0, PORT_EDGE_PAD, PORT_EDGE_PAD, CULL_LIMIT * f->pixel_scale };
     const Slices all = { ring, info, f, &reach, start, extra, { dx_up, dy_up, dx_down, dy_down }, screen, cam, ok };
     if (extra != 0 && !f->sky_off && sink->polygon != NULL) port_backing(&all, slices, top, bottom, sink);
     if (!f->sky_off) sky_fills(&f->viewport, roll, f->horizon, below, above, top, bottom, sink);

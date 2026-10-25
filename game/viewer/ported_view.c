@@ -1,6 +1,6 @@
 #include "viewer/ported_view.h"
 #include "game/sys/bands.h"
-#include "viewer/render_list.h"
+#include "game/gfx/raster_record.h"
 
 #include "game/gfx/quad.h"
 #include "game/race/horizon.h"
@@ -51,20 +51,9 @@ static int transparent(const FshEntry *texture)
     return texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE;
 }
 
-/* port (render bands P2): while the road is recorded (render_cars with threads), the road's draws go to this list and the
- * draws that are not recorded yet (the scenery models, the cars, the skid marks) replay it first, so every pixel is
- * written in the order the draws were made. NULL: draw at once. */
-static RenderList road_list;
-static RenderList *road;
-
-static void road_flush(void)
-{
-    if (road != NULL) render_list_flush(road);
-}
-
 /* port (the PS1 look's light): the terrain polygon being drawn carries one darkness level, the mean of its corners'
- * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn at once through the
- * mappers' remap mode with that level's table, after the recorded road is flushed so the order of the pixels holds */
+ * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
+ * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 static int lit_level;
 
@@ -84,10 +73,7 @@ static const uint8_t *lit_table(void) { return lit_level > 0 ? lit_tables[lit_le
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
     const uint8_t *lit = lit_table();
-    if (lit != NULL) {
-        road_flush();
-        quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
-    } else if (road != NULL) render_list_add_quad(road, texture, uv, screen, transparent(texture));
+    if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
     else quad_draw(user, texture, uv, screen, transparent(texture));
 }
 
@@ -112,10 +98,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
                         const int32_t *const cam[4])
 {
     const uint8_t *lit = lit_table();
-    if (lit != NULL) {
-        road_flush();
-        modern_polygon(user, view, texture, uv, cam, 4, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
-    } else if (road != NULL) render_list_add_road_cell(road, view, texture, uv, cam, transparent(texture));
+    if (lit != NULL) modern_polygon(user, view, texture, uv, cam, 4, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
     else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
@@ -124,15 +107,13 @@ static void draw_full(void *user, const FshEntry *texture, const int32_t screen[
 {
     const uint8_t *lit = lit_table();
     if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
-        road_flush();
         const MapMode mode = transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP;
         const int32_t right = (int32_t)(int16_t)texture->width - 2, bottom = (int32_t)(int16_t)texture->height - 2;
         const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom }, uv_b[6] = { right, bottom, 1, bottom, 1, 1 };
         const int32_t scr_b[6] = { screen[4], screen[5], screen[6], screen[7], screen[0], screen[1] };
         tri_draw_mode(user, texture, uv_a, screen, mode, lit);
         tri_draw_mode(user, texture, uv_b, scr_b, mode, lit);
-    } else if (road != NULL) render_list_add_full_tri(road, texture, screen, transparent(texture));
-    else quad_draw_full_tri(user, texture, screen, transparent(texture));
+    } else quad_draw_full_tri(user, texture, screen, transparent(texture));
 }
 
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
@@ -140,12 +121,10 @@ static void draw_full_alt(void *user, const FshEntry *texture, const int32_t scr
 {
     const uint8_t *lit = lit_table();
     if (lit != NULL) {
-        road_flush();
         const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
         const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
         quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
-    } else if (road != NULL) render_list_add_full(road, texture, screen, transparent(texture));
-    else quad_draw_full(user, texture, screen, transparent(texture));
+    } else quad_draw_full(user, texture, screen, transparent(texture));
 }
 
 /* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
@@ -166,7 +145,6 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
 {
     (void)user;
     if (model < 0 || model >= PORTED_VIEW_MODELS || !object_ok[model]) return;
-    road_flush();
     const Object3DSink sink = object_sink(&object_pixels);
     model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
 }
@@ -308,7 +286,6 @@ static void draw_skids(void *user, int32_t row, const int32_t s[2], const int32_
 {
     (void)user;
     if (shadow_race == NULL || shadow_remap == NULL) return;
-    road_flush();
     const SkidView v = skid_view();
     const SkidRing ring = skid_ring();
     skid_draw(&v, &ring, &skid_marks, -999, skid_node, row, 0, s, t);
@@ -667,7 +644,6 @@ static void row_unseen(void *ctx, Car *car)
 static void draw_cars(void *user, int32_t node)
 {
     (void)user;
-    road_flush();
     if (shadow_race != NULL && shadow_remap != NULL) {
         const RaceState *race = shadow_race;
         const RowCarsOps ops = { NULL, row_prepare, row_draw, row_unseen };
@@ -736,7 +712,7 @@ void ported_view_set_tick(int32_t tick)
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
-static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0, 0 };
+static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0, 0, 1 };
 
 /* port: the frame the 3D view draws into, 640 x 480 but on a wide screen (ported_view_set_screen) */
 static int32_t screen_w = WIDTH, screen_h = HEIGHT;
@@ -766,9 +742,10 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
                           const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
     const SkyRing *ring = &sky_ring;
+    const int32_t rs = viewport.render_scale > 0 ? viewport.render_scale : 1;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
                        { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
-                         viewport.sky_height }, screen_w, screen_w, 0, sky_off, 1 };   /* port: wide fields */
+                         viewport.sky_height }, screen_w / rs, screen_w, 0, sky_off, 1, rs };   /* port: wide fields, render scale */
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
@@ -876,7 +853,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     const PortedViewport *vp = &viewport;
     view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov_y != 0 ? vp->fov_y : vp->fov);
     /* port: the exe's rows scale grows with the width (0043a028); past 640 it keeps the 640's zoom */
-    horizon_tables(&horizon, vp->width, vp->fov, screen_horizon_scale(vp->scale, vp->width));
+    const int32_t rs = vp->render_scale > 0 ? vp->render_scale : 1;   /* port (render scale): the zoom of the unscaled width */
+    horizon_tables(&horizon, vp->width, vp->fov, screen_horizon_scale(vp->scale, vp->width / rs));
     RasterTarget target = { pixels, screen_w, screen_h, 0, 0 };
     /* the box (00449f50: the layout's left, top, +0x20, +0x24); left + x, top + y only place the projection */
     const int32_t box[4] = { vp->sky_left, vp->sky_top, vp->sky_left + vp->sky_width, vp->sky_top + vp->sky_height };
@@ -916,7 +894,13 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
     object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(&view) };
     skid_node = pc->node;
-    if (bands_threads() != 0) render_list_begin(&road_list, &quad), road = &road_list;
+    /* port (render bands P2, P3): with threads the track's draws (road, scenery, cars, shadows, skid marks, smoke) are
+     * recorded by the rasterizers, which find the recorder in the target, and replayed by bands at the end, in order */
+    static struct RasterRecorder recorder;
+    if (bands_threads() != 0) {
+        raster_record_set_runner(bands_rows);
+        raster_record_begin(&recorder, pixels);
+    }
     if (psx_light != NULL) {
         static const uint8_t black[3] = { 0, 0, 0 };
         modern_fog_tables(art->palette, black, lit_tables);
@@ -925,8 +909,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     lit_level = 0;
     track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
     track_light_hook = NULL;
-    road_flush();
-    road = NULL;
+    if (raster_active == &recorder) raster_record_end(&recorder);
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,

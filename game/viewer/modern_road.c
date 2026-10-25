@@ -4,6 +4,7 @@
 #include "viewer/modern_road.h"
 
 #include "game/gfx/quad_pixel.h"
+#include "game/gfx/raster_record.h"
 
 #include <math.h>
 #include <string.h>
@@ -106,6 +107,25 @@ static int fog_level(float z, int x, int y)
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 
+#if defined(__SSE2__) && !defined(__FMA__)
+/* fog_level for the depths z of four pixels x .. x + 3 of row y: the same operations, a lane each */
+static inline __m128i fog_levels(__m128 z, int x, int y, const float fog_start, const float fog_span)
+{
+    const __m128 t = _mm_min_ps(_mm_max_ps(_mm_div_ps(_mm_sub_ps(z, _mm_set1_ps(fog_start)), _mm_set1_ps(fog_span)),
+                                           _mm_set1_ps(-1)),
+                                _mm_set1_ps(2));
+    const float *b = BAYER[y & 3];
+    const __m128 f = _mm_add_ps(_mm_mul_ps(t, _mm_set1_ps(MODERN_FOG_LEVELS - 1)),
+                                _mm_setr_ps(b[x & 3], b[(x + 1) & 3], b[(x + 2) & 3], b[(x + 3) & 3]));
+    __m128i l = _mm_cvttps_epi32(f);   /* floor: the truncation, one less where f was below it */
+    l = _mm_add_epi32(l, _mm_castps_si128(_mm_cmplt_ps(f, _mm_cvtepi32_ps(l))));
+    const __m128i top = _mm_set1_epi32(MODERN_FOG_LEVELS - 1);
+    l = _mm_andnot_si128(_mm_cmplt_epi32(l, _mm_setzero_si128()), l);
+    const __m128i over = _mm_cmpgt_epi32(l, top);
+    return _mm_or_si128(_mm_and_si128(over, top), _mm_andnot_si128(over, l));
+}
+#endif
+
 /* the filter's offsets in texels, by (x & 1) | (y & 1) << 1: the 2x2 ordered pattern, centred on 0 */
 static const float FILTER[4][2] = { { -0.125f, -0.375f }, { 0.125f, 0.375f }, { 0.375f, 0.125f }, { -0.375f, -0.125f } };
 
@@ -171,7 +191,19 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
             memset(row + xs, fill->colour, (size_t)(xe - xs + 1));
             return;
         }
-        for (int x = xs; x <= xe; x++)
+        int x = xs;
+#if defined(__SSE2__) && !defined(__FMA__)
+        for (; x + 3 <= xe; x += 4) {   /* four pixels at a time, as below */
+            const __m128 k = _mm_add_ps(_mm_set1_ps((float)(x - xs)), _mm_setr_ps(0, 1, 2, 3));
+            const __m128 z = _mm_div_ps(_mm_set1_ps(1.0f),
+                                        _mm_max_ps(_mm_add_ps(_mm_set1_ps(iz), _mm_mul_ps(_mm_set1_ps(at[0].dx), k)),
+                                                   _mm_set1_ps(IZ_MIN)));
+            int32_t l[4];
+            _mm_storeu_si128((__m128i *)l, fog_levels(z, x, y, style.fog_start, style.fog_end - style.fog_start));
+            for (int j = 0; j < 4; j++) row[x + j] = style.fog[l[j]][fill->colour];
+        }
+#endif
+        for (; x <= xe; x++)
             row[x] = style.fog[fog_level(1.0f / fmaxf(iz + at[0].dx * (float)(x - xs), IZ_MIN), x, y)][fill->colour];
         return;
     }
@@ -205,11 +237,14 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
             uv = _mm_or_ps(_mm_and_ps(over, _mm_add_ps(uv, ou)), _mm_andnot_ps(over, uv));
             vv = _mm_or_ps(_mm_and_ps(over, _mm_add_ps(vv, ov)), _mm_andnot_ps(over, vv));
         }
-        float us[4], vs[4], rs[4];
-        _mm_storeu_ps(us, uv), _mm_storeu_ps(vs, vv), _mm_storeu_ps(rs, rv);
+        float us[4], vs[4];
+        int32_t lv[4] = { 0 };
+        _mm_storeu_ps(us, uv), _mm_storeu_ps(vs, vv);
+        if (fog != NULL)
+            _mm_storeu_si128((__m128i *)lv, fog_levels(rv, x, y, style.fog_start, style.fog_end - style.fog_start));
         for (int j = 0; j < 4; j++) {
             uint8_t c = texel(fill, us[j], vs[j]);
-            if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(rs[j], x + j, y)][c];
+            if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[lv[j]][c];
             paint_texel(&fill->paint, &row[x + j], c);
         }
     }
@@ -286,9 +321,56 @@ static void draw_clipped(const QuadTarget *q, const View *view, const int32_t uv
         triangle(q, &s[0], &s[i], &s[i + 1], fill, 1u | (i + 2 == n ? 2u : 0) | (i == 1 ? 4u : 0));
 }
 
+/* port (render bands): the three polygon draws recorded as their arguments and replayed over a band's rows (each row
+ * is computed from absolute coordinates, so a narrowed clip is exact); the view is kept by pointer, the style is the
+ * frame's */
+static void keep(RasterCmd *c, const View *view, const int32_t uv[8], const int32_t *const cam[4], int corners)
+{
+    c->table = view, c->count = corners;
+    memcpy(c->v, uv, 8 * sizeof *uv);
+    for (int i = 0; i < corners; i++) memcpy(c->v + 8 + 3 * i, cam[i], 3 * sizeof *cam[i]);
+}
+
+static void cam_of(const RasterCmd *c, const int32_t *cam[4])
+{
+    for (int i = 0; i < 4; i++) cam[i] = c->v + 8 + 3 * i;
+}
+
+static void replay_cell(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    const int32_t *cam[4];
+    cam_of(c, cam);
+    if (raster_narrow(whole, top, bottom, &band)) modern_road_cell(&band, c->table, c->texture, c->v, cam, (int)c->mode);
+}
+
+static void replay_polygon(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    const int32_t *cam[4];
+    cam_of(c, cam);
+    if (raster_narrow(whole, top, bottom, &band))
+        modern_polygon(&band, c->table, c->texture, c->v, cam, c->count, (MapMode)c->mode, c->shape);
+}
+
+static void replay_flat(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
+{
+    QuadTarget band;
+    const int32_t *cam[4];
+    cam_of(c, cam);
+    if (raster_narrow(whole, top, bottom, &band)) modern_flat(&band, c->table, (uint8_t)c->colour, cam, c->count);
+}
+
 void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                       const int32_t *const cam[4], int transparent)
 {
+    struct RasterRecorder *rec = raster_recorder_for(q);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, q, replay_cell);
+        c->texture = texture, c->mode = transparent;
+        keep(c, view, uv, cam, 4);
+        return;
+    }
     Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0 };
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
@@ -300,6 +382,13 @@ void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *textu
     if (texture == NULL || (corners != 3 && corners != 4)) return;
     Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0 };
     if (!paint_valid(&fill.paint)) return;
+    struct RasterRecorder *rec = raster_recorder_for(q);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, q, replay_polygon);
+        c->texture = texture, c->mode = mode, c->shape = shade;
+        keep(c, view, uv, cam, corners);
+        return;
+    }
     uv_box(&fill, uv, corners);
     draw_clipped(q, view, uv, cam, corners, &fill);
 }
@@ -308,6 +397,13 @@ void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const in
 {
     if (corners != 3 && corners != 4) return;
     const int32_t uv[8] = { 0 };
+    struct RasterRecorder *rec = raster_recorder_for(q);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, q, replay_flat);
+        c->colour = colour;
+        keep(c, view, uv, cam, corners);
+        return;
+    }
     const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0 };
     draw_clipped(q, view, uv, cam, corners, &fill);
 }

@@ -25,11 +25,15 @@ typedef struct {
     int texture_filter;      /* 0/1 */
     int fog;                 /* 0/1 */
     int f3_ultra;            /* 1: F3 rotates Far, Medium, Close and Ultra (port_f3_ultra); 0 the exe's three; 1 */
+    int render_scale;        /* 1, 2 or 3: the 3D world drawn at that many times the frame's size (render-scale-design.md); 1 */
     /* the folder of the PS1 CD's extracted car files (Z<CAR>.VSM / .WSM) for extras.cfg's psx_liveries; "" none, and
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
     int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
 } PortSettings;
+
+/* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
+int port_render_scale(void);
 
 /* 1 when the race draws with the PS1's light: TNFS_PSX_LIGHT=0/1 when set, else port.cfg's psx_light. */
 int port_psx_light(void);

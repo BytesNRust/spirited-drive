@@ -18,7 +18,7 @@
 
 enum {
     HORIZON_MAX_WIDTH = 640,
-    HORIZON_WIDE_WIDTH = 1120,  /* port: the widest screen's (21:9) columns after the exe's 641 */
+    HORIZON_WIDE_WIDTH = 3360,  /* port: the widest frame's columns after the exe's 641: 21:9 (1120) at the render scale 3 */
     HORIZON_ROWS = 0x1E0       /* 004fbb10..004fbcf0 */
 };
 

@@ -156,6 +156,7 @@ add_library(tnfs_game STATIC
     game/gfx/inverse_map.c
     game/gfx/palette_match.c
     game/gfx/quad.c
+    game/gfx/raster_record.c
     game/gfx/quad_tri.c
     game/gfx/needle.c
     game/race/car_draw.c
@@ -408,7 +409,6 @@ add_executable(tnfs
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
-    game/viewer/render_list.c
     game/viewer/modern_look.c
     game/viewer/horizon_smooth.c
     game/viewer/sky_smooth.c
@@ -416,6 +416,7 @@ add_executable(tnfs
     game/viewer/model_view.c
     game/viewer/object_sink.c
     game/viewer/ported_view.c
+    game/viewer/ported_viewport.c
     game/viewer/raster.c
     game/viewer/track_load.c
     game/viewer/track_fly.c
@@ -459,7 +460,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows psx_livery psx_light remap_mode)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows psx_livery psx_light remap_mode tall_target)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -472,11 +473,18 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_definitions(test_page_arrows PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
-    add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c)
+    add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/modern_road.c
+                   game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
     target_include_directories(test_mirror_on_dash PRIVATE game)
-    target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game)
+    target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mirror_on_dash COMMAND test_mirror_on_dash)
+    # port (render scale): the scaled viewport, built into the test with its source
+    add_executable(test_render_scale tests/test_render_scale.c game/viewer/ported_viewport.c)
+    target_include_directories(test_render_scale PRIVATE game)
+    target_link_libraries(test_render_scale PRIVATE tnfs_game)
+    target_compile_options(test_render_scale PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME render_scale COMMAND test_render_scale)
     add_executable(test_modern_road tests/test_modern_road.c game/viewer/modern_road.c)
     target_include_directories(test_modern_road PRIVATE game)
     target_link_libraries(test_modern_road PRIVATE tnfs_game)
@@ -669,16 +677,16 @@ if(NOT EMSCRIPTEN)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
     endif()
     # port: the job pool and the row splitter of the render bands
-    # port: the road's draws recorded and replayed by bands
-    add_executable(test_render_list tests/test_render_list.c game/viewer/render_list.c game/viewer/modern_road.c game/sys/bands.c
+    # port: the primitives' recording and its replay by bands
+    add_executable(test_raster_record tests/test_raster_record.c game/viewer/modern_road.c game/sys/bands.c
                    game/platform/sdl3/platform_sdl3.c)
-    target_include_directories(test_render_list PRIVATE game)
-    target_link_libraries(test_render_list PRIVATE tnfs_game SDL3::SDL3)
+    target_include_directories(test_raster_record PRIVATE game)
+    target_link_libraries(test_raster_record PRIVATE tnfs_game SDL3::SDL3)
     if(NOT MSVC)
-        target_link_libraries(test_render_list PRIVATE m)
+        target_link_libraries(test_raster_record PRIVATE m)
     endif()
-    target_compile_options(test_render_list PRIVATE ${TNFS_WARNINGS})
-    add_test(NAME render_list COMMAND test_render_list)
+    target_compile_options(test_raster_record PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME raster_record COMMAND test_raster_record)
     add_executable(test_bands tests/test_bands.c game/sys/bands.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_bands PRIVATE tnfs_game SDL3::SDL3)
     if(NOT MSVC)
