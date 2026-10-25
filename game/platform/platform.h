@@ -196,4 +196,11 @@ void platform_sleep_ms(uint32_t ms);
 int platform_cpu_count(void);
 void platform_parallel_for(int count, void (*job)(void *ctx, int index), void *ctx, int threads);
 
+/* port (render bands): the 8-bit frame through the palette into out (width x height XRGB, red in bits 16..23), the rows
+ * split over up to `threads` threads (<= 1: the plain loop); the same words with any number. platform_present does it
+ * with the threads platform_set_present_threads gave (the render bands' count, set by bands.c). */
+void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
+                              int threads);
+void platform_set_present_threads(int threads);
+
 #endif

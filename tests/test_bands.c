@@ -84,6 +84,29 @@ static void test_empty_range(void)
     bands_set_threads(-1);
 }
 
+/* the present's palette lookup: any number of threads gives the serial loop's words */
+static void test_palette_to_xrgb(void)
+{
+    PlatformColor palette[256];
+    for (int i = 0; i < 256; i++) palette[i] = (PlatformColor){ (uint8_t)(i * 7), (uint8_t)(i * 13 + 5), (uint8_t)(255 - i) };
+    const int sizes[][2] = { { 640, 480 }, { 203, 17 }, { 3360, 1440 }, { 1, 1 }, { 1120, 480 } };
+    for (int k = 0; k < 5; k++) {
+        const int w = sizes[k][0], h = sizes[k][1];
+        const size_t n = (size_t)w * h;
+        uint8_t *px = malloc(n);
+        uint32_t *want = malloc(n * 4), *got = malloc(n * 4);
+        for (size_t i = 0; i < n; i++) px[i] = (uint8_t)((i * 2654435761u) >> 23);
+        for (size_t i = 0; i < n; i++)
+            want[i] = (uint32_t)palette[px[i]].r << 16 | (uint32_t)palette[px[i]].g << 8 | palette[px[i]].b;
+        for (int threads = 0; threads <= 8; threads++) {
+            memset(got, 0xa5, n * 4);
+            platform_palette_to_xrgb(px, palette, got, w, h, threads);
+            CHECK(memcmp(got, want, n * 4) == 0);
+        }
+        free(px), free(want), free(got);
+    }
+}
+
 int main(void)
 {
     CHECK(platform_cpu_count() >= 1);
@@ -91,6 +114,7 @@ int main(void)
     test_many_batches_back_to_back();
     test_bands_cover_the_rows();
     test_empty_range();
+    test_palette_to_xrgb();
     platform_shutdown();
     return TEST_REPORT();
 }
