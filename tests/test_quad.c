@@ -204,7 +204,7 @@ static void test_rejected_input(void)
     const int32_t screen[8] = { 10, 10, 17, 10, 17, 17, 10, 17 };
     const QuadTarget good = target(s, FULL_CLIP);
     const QuadTarget empty = target(s, 5, 5, 5, 9);
-    const QuadTarget tall = target(s, 0, 0, W, 769);
+    const QuadTarget tall = target(s, 0, 0, W, QUAD_MAX_ROWS + 1);
     quad_draw(&empty, &tex, uv, screen, 0);
     quad_draw(&tall, &tex, uv, screen, 0);
     quad_draw(&good, &palette, uv, screen, 0);

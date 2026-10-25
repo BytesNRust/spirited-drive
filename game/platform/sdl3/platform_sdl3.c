@@ -964,7 +964,7 @@ void platform_sleep_ms(uint32_t ms)
  * once it can claim no more, and the caller waits for all of them before it returns, so no worker is ever inside a
  * batch while the next one is set up. */
 #ifndef __EMSCRIPTEN__
-enum { POOL_MAX = 15 };
+enum { POOL_MAX = 15, POOL_STACK_BYTES = 1 << 20 };
 static struct {
     SDL_Thread *thread[POOL_MAX];
     int workers;
@@ -1004,7 +1004,13 @@ static int pool_grow(int workers)
         if (pool.wake == NULL || pool.parked == NULL) return 0;
     }
     while (pool.workers < workers) {
-        pool.thread[pool.workers] = SDL_CreateThread(pool_worker, "tnfs-job", NULL);
+        /* port: a stack of its own size: the rasterizers keep their edge tables on it (quad.c's about 34 KB at 1440 rows) */
+        const SDL_PropertiesID props = SDL_CreateProperties();
+        SDL_SetPointerProperty(props, SDL_PROP_THREAD_CREATE_ENTRY_FUNCTION_POINTER, (void *)pool_worker);
+        SDL_SetStringProperty(props, SDL_PROP_THREAD_CREATE_NAME_STRING, "tnfs-job");
+        SDL_SetNumberProperty(props, SDL_PROP_THREAD_CREATE_STACKSIZE_NUMBER, POOL_STACK_BYTES);
+        pool.thread[pool.workers] = SDL_CreateThreadWithProperties(props);
+        SDL_DestroyProperties(props);
         if (pool.thread[pool.workers] == NULL) break;
         pool.workers++;
     }

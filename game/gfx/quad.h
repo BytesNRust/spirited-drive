@@ -40,8 +40,12 @@ typedef struct {
     int clip_left, clip_top, clip_right, clip_bottom;
 } QuadTarget;
 
-/* The target must be valid: 0 <= left < right, 0 <= top < bottom <= 768 (the
- * game's per-scanline tables hold 768 rows), and the clip rectangle must lie
+/* port: the rows of the per-scanline tables (the exe's 768, 0x300), lifted for a render at 3x the 1440-row 21:9
+ * frame (re/notes/render-scale-design.md). A target taller than the exe's rows draws as the rows below do. */
+enum { QUAD_MAX_ROWS = 1440 };
+
+/* The target must be valid: 0 <= left < right, 0 <= top < bottom <= QUAD_MAX_ROWS (the
+ * per-scanline tables hold that many rows), and the clip rectangle must lie
  * inside the surface. An invalid target or texture type draws nothing.
  *
  * Texels read outside the texture's pixel data read as 0; the original reads

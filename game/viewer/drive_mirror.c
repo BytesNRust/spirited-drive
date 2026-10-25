@@ -3,6 +3,7 @@
 
 #include "game/gfx/blit.h"
 #include "game/gfx/flat.h"
+#include "game/gfx/raster_record.h"
 #include "game/gfx/shape_flip.h"
 #include "game/race/car_shadow.h"
 #include "game/race/mirror_sky.h"
@@ -10,6 +11,7 @@
 #include "game/race/track_geometry.h"
 #include "game/race/track_render.h"
 #include "game/race/track_step.h"
+#include "game/sys/bands.h"
 #include "game/viewer/modern_road.h"
 #include "game/viewer/screen_layout.h"
 
@@ -204,7 +206,16 @@ static void transform_op(void *ctx)
     mirror_transform(&in, &f->m->near, f->m->vertices);
 }
 
-static void select_op(void *ctx) { (void)ctx; }  /* the picture is Frame.target throughout */
+/* port (render bands P4): from here to the flip the mirror's draws are recorded and replayed by bands, once; the
+ * picture is its own buffer, so the main view's recorder is not active (stage 3 runs before stage 6) */
+static struct RasterRecorder mirror_recorder;
+
+static void select_op(void *ctx)  /* the picture is Frame.target throughout */
+{
+    if (bands_threads() == 0 || raster_active != NULL) return;
+    raster_record_set_runner(bands_rows);
+    raster_record_begin(&mirror_recorder, ((Frame *)ctx)->target.pixels);
+}
 
 static void sky_fill(void *ctx, uint32_t colour)
 {
@@ -326,7 +337,11 @@ static void scene_op(void *ctx, int32_t count)
     mirror_scene(&ops, &in, count);
 }
 
-static void flip_op(void *ctx) { shape_flip(((Frame *)ctx)->m->picture); }
+static void flip_op(void *ctx)
+{
+    if (raster_active == &mirror_recorder) raster_record_end(&mirror_recorder);
+    shape_flip(((Frame *)ctx)->m->picture);
+}
 
 int drive_mirror_begin(DriveMirror *m, const DriveMirrorWorld *w, DriveMirrorFrame *f)
 {

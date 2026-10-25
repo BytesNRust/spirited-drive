@@ -7,8 +7,8 @@
  * 004c78c0, 004c78c4, 004c78c8), carried by QuadTarget like the quad mapper.
  * Only the low byte of a colour is drawn: these are 8-bit surfaces.
  *
- * The scan converter keeps one left and one right x per row in tables of 600
- * rows, so clip_bottom must be at most 600; an invalid target draws nothing.
+ * The scan converter keeps one left and one right x per row in tables of
+ * FLAT_MAX_ROWS rows (the exe: 600), so clip_bottom must be at most that; an invalid target draws nothing.
  *
  * Quirks of the original that are kept: a polygon is not drawn when its
  * leftmost x is the last visible column (clip_right - 1), and its bottom row
@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 
-enum { FLAT_MAX_ROWS = 600 };
+enum { FLAT_MAX_ROWS = 1440 };  /* port: lifted from the exe's 600 for the render scale */
 
 /* 0048434e (points through a pointer) and 00484389 (the same points passed
  * inline on the stack, which in C is the same call): fills the polygon through
