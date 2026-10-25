@@ -37,7 +37,7 @@ static void test_map(void)
     normal[ORIGIN_A] = 10, normal[BODY_B] = 4, normal[SHARED] = 50;
     /* alternate: D (luma 1920, weight 3) and C (luma 3776, weight 7) are body; SHARED is on both */
     alt[BODY_C] = 7, alt[BODY_D] = 3, alt[SHARED] = 50;
-    const int count = car_livery_map(normal, alt, pairs);
+    const int count = car_livery_map(normal, alt, NULL, 0, pairs);
     CHECK_EQ_INT(count, 2);
     /* A's midpoint is 5 of 14 pixels: the alternate's D covers the first 3, so C; B's is 12 of 14: C again */
     CHECK_EQ_INT(pairs[0].from, ORIGIN_A);
@@ -47,7 +47,20 @@ static void test_map(void)
     /* a livery with no colour of its own has nothing to map */
     memset(alt, 0, PSX_COLOURS * sizeof *alt);
     alt[SHARED] = 50;
-    CHECK_EQ_INT(car_livery_map(normal, alt, pairs), 0);
+    CHECK_EQ_INT(car_livery_map(normal, alt, NULL, 0, pairs), 0);
+    /* a forced colour the alternate also has (SHARED, not body by count) joins the body, weighing the mean body
+     * colour: with one normal body colour A (weight 10) and the alternate's C, the forced SHARED maps to C as well */
+    memset(alt, 0, PSX_COLOURS * sizeof *alt);
+    memset(normal, 0, PSX_COLOURS * sizeof *normal);
+    alt[BODY_C] = 7;
+    alt[SHARED] = 50;
+    normal[ORIGIN_A] = 10, normal[SHARED] = 50;
+    const uint16_t forced[1] = { SHARED };
+    CHECK_EQ_INT(car_livery_map(normal, alt, forced, 1, pairs), 2);
+    CHECK_EQ_INT(pairs[0].from, ORIGIN_A);
+    CHECK_EQ_INT(pairs[0].to, BODY_C);
+    CHECK_EQ_INT(pairs[1].from, SHARED);
+    CHECK_EQ_INT(pairs[1].to, BODY_C);
     free(normal);
     free(alt);
 }

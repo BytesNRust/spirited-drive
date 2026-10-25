@@ -168,10 +168,8 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     size_t size = 0;
     drive_cars.file[slot] = read_named(path, strlen(dir), &size);
     if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
-        CarLiveryPair pairs[CAR_LIVERY_PAIRS];
-        const int count = drive_livery_pairs(drive_cars.psx_dir, stem, pairs);
-        if (count > 0) drive_livery_apply(drive_cars.file[slot], size, pairs, count);
-        port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
+        const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size);
+        if (count > 0) port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
     const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);

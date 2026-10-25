@@ -48,12 +48,32 @@ static size_t body_colours(const uint32_t *own, const uint32_t *other, Weighted 
     return n;
 }
 
-int car_livery_map(const uint32_t *normal, const uint32_t *alternate, CarLiveryPair pairs[CAR_LIVERY_PAIRS])
+/* Adds the forced colours the count left out, each at the mean weight of the body colours, and sorts the list again. */
+static size_t add_forced(Weighted *from, size_t nf, const uint16_t *forced, int forced_count)
 {
-    Weighted *from = malloc(sizeof *from * PSX_COLOURS), *to = malloc(sizeof *to * PSX_COLOURS);
+    uint64_t total = 0;
+    for (size_t i = 0; i < nf; i++) total += from[i].weight;
+    const uint64_t mean = nf > 0 ? total / nf : 1;
+    for (int k = 0; k < forced_count; k++) {
+        size_t i = 0;
+        while (i < nf && from[i].colour != forced[k]) i++;
+        if (i < nf) continue;
+        from[nf].colour = forced[k], from[nf].weight = mean > 0 ? mean : 1;
+        nf++;
+    }
+    qsort(from, nf, sizeof *from, by_luma);
+    return nf;
+}
+
+int car_livery_map(const uint32_t *normal, const uint32_t *alternate, const uint16_t *forced, int forced_count,
+                   CarLiveryPair pairs[CAR_LIVERY_PAIRS])
+{
+    Weighted *from = malloc(sizeof *from * (PSX_COLOURS + CAR_LIVERY_PAIRS)), *to = malloc(sizeof *to * PSX_COLOURS);
     int count = 0;
     if (from != NULL && to != NULL) {
-        const size_t nf = body_colours(normal, alternate, from), nt = body_colours(alternate, normal, to);
+        size_t nf = body_colours(normal, alternate, from);
+        const size_t nt = body_colours(alternate, normal, to);
+        if (forced_count > 0 && nf <= CAR_LIVERY_PAIRS) nf = add_forced(from, nf, forced, forced_count);
         if (nf > 0 && nt > 0 && nf <= CAR_LIVERY_PAIRS) {
             uint64_t total_from = 0, total_to = 0;
             for (size_t i = 0; i < nf; i++) total_from += from[i].weight;
@@ -81,7 +101,7 @@ int car_livery_map(const uint32_t *normal, const uint32_t *alternate, CarLiveryP
 }
 
 /* The 5-bit colour of a palette entry of this type. A 6-bit entry is 8-bit's >> 2, so its 5 bits are its bits 1..5. */
-static uint16_t entry_colour(const uint8_t *entry, int type)
+uint16_t car_livery_colour(const uint8_t *entry, int type)
 {
     const int shift = type == PALETTE_6BIT ? 1 : CHANNEL_SHIFT_8;
     const uint16_t r = (uint16_t)(entry[0] >> shift);
@@ -95,7 +115,7 @@ void car_livery_remap(uint8_t *palette, int type, const CarLiveryPair *pairs, in
     if (type != PALETTE_8BIT && type != PALETTE_6BIT) return;
     for (int i = 0; i < PALETTE_ENTRIES; i++) {
         uint8_t *entry = palette + 3 * i;
-        const uint16_t colour = entry_colour(entry, type);
+        const uint16_t colour = car_livery_colour(entry, type);
         for (int k = 0; k < count; k++) {
             if (pairs[k].from != colour) continue;
             const uint16_t to = pairs[k].to;

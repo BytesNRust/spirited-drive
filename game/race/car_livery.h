@@ -19,9 +19,15 @@ typedef struct {
 } CarLiveryPair;
 
 /* The map from the normal livery's colour counts (`normal`) to the alternate's (`alternate`), both PSX_COLOURS long.
- * Only the colours one livery has and the other lacks are mapped. Writes up to CAR_LIVERY_PAIRS pairs into `pairs`
- * and returns their number; 0 when either livery has no body colours to map, or more than CAR_LIVERY_PAIRS. */
-int car_livery_map(const uint32_t *normal, const uint32_t *alternate, CarLiveryPair pairs[CAR_LIVERY_PAIRS]);
+ * Only the colours one livery has and the other lacks are mapped, plus the `forced` colours (BGR555): the body colours
+ * the PC palette has that the PS1 textures share with the alternate (a grey trim both liveries paint), which the count
+ * alone would leave out. A forced colour weighs as the mean body colour. Writes up to CAR_LIVERY_PAIRS pairs into
+ * `pairs` and returns their number; 0 when either livery has no body colours to map, or more than CAR_LIVERY_PAIRS. */
+int car_livery_map(const uint32_t *normal, const uint32_t *alternate, const uint16_t *forced, int forced_count,
+                   CarLiveryPair pairs[CAR_LIVERY_PAIRS]);
+
+/* The 5-bit colour (BGR555) of a palette entry of this type: 0x24 as the PC wrote it (8 bits a channel), 0x22 6 bits. */
+uint16_t car_livery_colour(const uint8_t *entry, int type);
 
 /* Remaps the 256 colours of a CFM palette in place. `type` is the shape's (0x24: 8 bits a channel, as the PC wrote it;
  * 0x22: 6 bits a channel); any other type is left alone. A colour whose 5-bit form is in `pairs` is replaced by the
