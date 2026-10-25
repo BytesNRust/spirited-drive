@@ -24,8 +24,9 @@ static int32_t voice_start(void *user, int32_t sound, int32_t pan, uint8_t volum
     return f->next++;
 }
 static void voice_set(void *user, int32_t voice, int32_t v) { (void)user, (void)voice, (void)v; }
-static void voice_stop(void *user, int32_t voice) { ((Fake *)user)->live[voice] = 0; }
-static int32_t voice_stopped(void *user, int32_t voice) { return ((Fake *)user)->live[voice] == 0; }
+/* voice -1 is "no voice" (a start that failed, or none yet): stopped, nothing to cut */
+static void voice_stop(void *user, int32_t voice) { if (voice >= 0 && voice < VOICES) ((Fake *)user)->live[voice] = 0; }
+static int32_t voice_stopped(void *user, int32_t voice) { return voice < 0 || voice >= VOICES || ((Fake *)user)->live[voice] == 0; }
 
 static RaceState race;
 static Car car;
