@@ -210,6 +210,41 @@ static void test_fog_grazing_floor(void)
     modern_road_set_style(NULL);
 }
 
+/* a road cell, an object's textured polygon and a flat one at the same depth come out with the same fog, pixel for pixel
+ * (the cars' fog is the road's: a car is as fogged as the road at its own depth, neither more nor less) */
+static void test_fog_same_depth_same_level(void)
+{
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    memset(texels, 10, sizeof texels);
+    static uint8_t fog[MODERN_FOG_LEVELS][256];
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 256; c++) fog[l][c] = (uint8_t)(l == 0 ? c : 100 + l);
+    const ModernStyle style = { 0, (const uint8_t (*)[256])fog, 250, 4200 };
+    modern_road_set_style(&style);
+    static uint8_t road[W * H], car[W * H], flat[W * H];
+    static int32_t c[4][3];
+    const int32_t uv[8] = { 0, 0, TEX << 16, 0, TEX << 16, TEX << 16, 0, TEX << 16 };
+    const FshEntry t = texture();
+    int distinct = 0;
+    for (int32_t z = 400; z <= 6000; z += 700) {
+        /* a floor receding from z to z + 600, as a road cell does */
+        const int32_t corners[4][3] = { { -60, -30, z }, { 60, -30, z }, { 60, -30, z + 600 }, { -60, -30, z + 600 } };
+        memcpy(c, corners, sizeof c);
+        const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+        const QuadTarget qr = { road, W, 0, 0, W, H }, qc = { car, W, 0, 0, W, H }, qf = { flat, W, 0, 0, W, H };
+        memset(road, UNTOUCHED, sizeof road), memset(car, UNTOUCHED, sizeof car), memset(flat, UNTOUCHED, sizeof flat);
+        modern_road_cell(&qr, &view, &t, uv, cam, 0);
+        modern_polygon(&qc, &view, &t, uv, cam, 4, MAP_OPAQUE, NULL);
+        modern_flat(&qf, &view, 10, cam, 4);
+        CHECK(memcmp(road, car, sizeof road) == 0);
+        CHECK(memcmp(road, flat, sizeof road) == 0);
+        for (int i = 0; i < W * H; i++) distinct += road[i] != UNTOUCHED && road[i] != 10;
+    }
+    CHECK(distinct > 1000);   /* the fog did touch them */
+    modern_road_set_style(NULL);
+}
+
 int main(void)
 {
     test_fog_grazing_floor();
@@ -218,5 +253,6 @@ int main(void)
     test_fog_tables();
     test_fog_depths();
     test_fog_dither();
+    test_fog_same_depth_same_level();
     return TEST_REPORT();
 }
