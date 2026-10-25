@@ -51,6 +51,10 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
 /* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
 void ported_view_set_light(const PsxLight *light, const float tint[3]);
+
+struct PsxSkyDraw;
+/* port: the PS1 sky (psx_sky_draw.h) drawn in place of the track's sky and ring, NULL for the track's own. Not owned. */
+void ported_view_set_psx_sky(struct PsxSkyDraw *sky);
 /* port (weather.h): the race's weather, WEATHER_CLEAR (the default) draws as it always did; fog needs Modern 3D on */
 void ported_view_set_weather(int weather);
 void ported_view_set_modern(int on);

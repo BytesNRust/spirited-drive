@@ -245,6 +245,8 @@ add_library(tnfs_game STATIC
     game/race/car_variant.c
     game/race/psx_light.c
     game/race/psx_lgs.c
+    game/race/psx_sky.c
+    game/race/psx_sky_bitmap.c
     game/race/car_wheels.c
     game/race/race_grid.c
     game/race/race_models.c
@@ -416,6 +418,7 @@ add_executable(tnfs
     game/viewer/modern_look.c
     game/viewer/weather_draw.c
     game/viewer/horizon_smooth.c
+    game/viewer/psx_sky_draw.c
     game/viewer/sky_smooth.c
     game/viewer/drive_bumper.c
     game/viewer/model_view.c
@@ -465,7 +468,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant psx_light remap_mode psx_lgs weather)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant psx_light remap_mode psx_lgs psx_sky psx_sky_bitmap weather)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -845,6 +848,9 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(probe_movie PRIVATE tnfs_game)
     target_compile_options(probe_movie PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_palette tools/probe_palette.c)
+    add_executable(psx_sky_dump tools/psx_sky_dump.c)
+    target_link_libraries(psx_sky_dump PRIVATE tnfs_game)
+    target_compile_options(psx_sky_dump PRIVATE ${TNFS_WARNINGS})
     add_executable(probe_config tools/probe_config.c)
     target_link_libraries(probe_config PRIVATE tnfs_game)
     target_compile_options(probe_config PRIVATE ${TNFS_WARNINGS})

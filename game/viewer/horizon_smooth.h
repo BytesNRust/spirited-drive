@@ -15,12 +15,19 @@ enum { HORIZON_SMOOTH_CELLS = 1 << 15 };
 typedef struct {
     uint8_t palette[768];                       /* the one `nearest` was made for */
     uint8_t nearest[HORIZON_SMOOTH_CELLS];      /* r >> 3 << 10 | g >> 3 << 5 | b >> 3: the nearest colour */
+    uint8_t map[256];                           /* a texel's own colour where the four are one: itself, or horizon_smooth_sky's */
+    uint8_t target[768];                        /* horizon_smooth_sky: the palette the screen takes its colours from */
     int ready;
 } HorizonSmooth;
 
 /* The table for `palette` (768 bytes, 0..255 a channel), remade only when it changed; 0xfe and 0xff, the mappers'
  * markers, never chosen. */
 void horizon_smooth_palette(HorizonSmooth *s, const uint8_t palette[768]);
+
+/* port (the PS1 sky, psx_sky_bitmap.h): the bitmap's texels index `decode`, a palette of its own, and the screen gets the colours
+ * of `target` (the race's, tinted as the world is shown): the table is made for `target` and a texel's own colour is the
+ * target's nearest to its decode colour. Remade only when either changed; not for the same HorizonSmooth as _palette. */
+void horizon_smooth_sky(HorizonSmooth *s, const uint8_t decode[768], const uint8_t target[768]);
 
 /* The table's colour for r, g, b. */
 uint8_t horizon_smooth_nearest(const HorizonSmooth *s, int r, int g, int b);

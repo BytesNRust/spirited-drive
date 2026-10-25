@@ -30,6 +30,8 @@
 #include "viewer/object_sink.h"
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
+#include "viewer/psx_sky_draw.h"
+#include "viewer/drive_light.h"
 #include "viewer/weather_draw.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
@@ -197,6 +199,8 @@ void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const
     const WeatherSky sky = weather_sky(target->pixels, target->pitch, target->clip_left, target->clip_right, wt, view, matrix);
     weather_sky_band((void *)&sky, target->clip_top, target->clip_bottom);
 }
+static PsxSkyDraw *psx_sky;        /* port: the PS1 sky (ported_view_set_psx_sky) */
+void ported_view_set_psx_sky(PsxSkyDraw *sky) { psx_sky = sky; }
 static HorizonSmooth smooth;       /* port: the Texture Filter's table for the sky's palette (horizon_smooth.h) */
 
 void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
@@ -895,6 +899,7 @@ typedef struct {
     const TrackCamera *cam;
     const PortedCamera *pc;
     const HorizonSmooth *smooth;
+    const FshEntry *horz;      /* the flat horizon's bitmap: the track's, or the PS1 sky's */
     int32_t box_left, box_right, line;
     int ring, flat, banded;
 } SkyStage;
@@ -919,13 +924,13 @@ static void sky_stage_band(void *user, int top, int bottom)
     } else if (st->flat) {
         const HorizonTarget ht = { st->pixels, screen_w };
         if (st->smooth != NULL) {  /* the magnified flat sky blended */
-            horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, &st->art->horizon, st->pc->yaw, view_mirrored(),
+            horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(),
                                      sky_off, st->line);
         } else if (st->banded) {  /* the box is the whole clip's, only the stores are the band's */
-            horizon_draw_flat_rows(st->horizon, &ht, st->clip, &st->art->horizon, st->pc->yaw, view_mirrored(), sky_off,
+            horizon_draw_flat_rows(st->horizon, &ht, st->clip, st->horz, st->pc->yaw, view_mirrored(), sky_off,
                                    st->line, top, bottom);
         } else {
-            horizon_draw_flat(st->horizon, &ht, &clip, &st->art->horizon, st->pc->yaw, view_mirrored(), sky_off, st->line);
+            horizon_draw_flat(st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(), sky_off, st->line);
         }
     }
 }
@@ -1001,10 +1006,17 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
      * 004218d0's tiles and frame) cleared here for the frames without one. */
     const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
     if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
-    const int ring = art->has_horizon && info->ring != 0;
+    PsxSkyDraw *const own = psx_sky;   /* port: the PS1 sky (psx_sky_draw.h) in place of the track's, on the flat horizon */
+    if (own != NULL) {
+        uint8_t shown[768];
+        drive_light_palette(art->palette, shown);
+        psx_sky_draw_target(own, shown);
+    }
+    const int ring = own == NULL && art->has_horizon && info->ring != 0;
     if (ring) sky_ring_build(&sky_ring, info, &art->horizon);
-    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, info, &cam, pc, sky_filter ? &smooth : NULL,
-                       box[0], box[2], 0, ring && sky_ring.enabled, art->has_horizon && !ring, bands_threads() != 0 };
+    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, info, &cam, pc,
+                       own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon,
+                       box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
     if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;

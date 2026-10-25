@@ -7,7 +7,7 @@ enum {
     BIGF_COUNT = 8, BIGF_ENTRIES = 16,      /* u32 count at 8; entries from 16: be32 offset, be32 size, then the name */
     SHPP_COUNT = 8, SHPP_ENTRIES = 16,      /* u32 count at 8; entries from 16: a 4-byte name, le32 offset */
     SHPP_NAME = 4, SHPP_STRIDE = 8, SHPP_MAX = 256,
-    BLOCK_HEADER = 16, BLOCK_CLUT = 0x23, BLOCK_IMAGE_4BPP = 0x40,
+    BLOCK_HEADER = 16, BLOCK_CLUT = 0x23, BLOCK_IMAGE_4BPP = 0x40, BLOCK_IMAGE_8BPP = 0x41, CLUT_8BPP = 256,
     CLUT_ENTRIES = 16, PIXEL_MASK = 0x7fff
 };
 
@@ -91,4 +91,56 @@ int psx_shpp_colours(const uint8_t *file, size_t size, uint32_t counts[PSX_COLOU
         any |= count_texture(file + offsets[i], end - offsets[i], counts);
     }
     return any;
+}
+
+/* The first 0x23 block at or after `at` in a texture of `length` bytes, past the blocks before it; -1 when there is none. */
+static long clut_at(const uint8_t *tex, size_t length, size_t at)
+{
+    while (at + BLOCK_HEADER <= length && tex[at] != BLOCK_CLUT) {
+        const uint32_t len = le24(tex + at + 1);
+        if (len == 0 || len > length - at) return -1;
+        at += len;
+    }
+    return at + BLOCK_HEADER <= length && tex[at] == BLOCK_CLUT ? (long)at : -1;
+}
+
+uint32_t psx_shpp_count(const uint8_t *file, size_t size)
+{
+    if (size < SHPP_ENTRIES) return 0;
+    const uint32_t count = le32(file + SHPP_COUNT);
+    return count > SHPP_MAX || count > (size - SHPP_ENTRIES) / SHPP_STRIDE ? 0 : count;
+}
+
+int psx_shpp_image8(const uint8_t *file, size_t size, const char *name, PsxImage8 *out)
+{
+    const uint32_t count = psx_shpp_count(file, size);
+    if (count == 0 || strlen(name) != SHPP_NAME) return 0;
+    uint32_t offsets[SHPP_MAX];
+    for (uint32_t i = 0; i < count; i++) {
+        offsets[i] = le32(file + SHPP_ENTRIES + SHPP_STRIDE * i + SHPP_NAME);
+        if (offsets[i] >= size) return 0;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        if (memcmp(file + SHPP_ENTRIES + SHPP_STRIDE * i, name, SHPP_NAME) != 0) continue;
+        const uint8_t *tex = file + offsets[i];
+        const size_t length = span_end(size, offsets, count, offsets[i]) - offsets[i];
+        if (length < BLOCK_HEADER || tex[0] != BLOCK_IMAGE_8BPP) return 0;
+        const uint32_t image_len = le24(tex + 1), w = le16(tex + 4), h = le16(tex + 6);
+        if (image_len < BLOCK_HEADER || image_len > length || w == 0 || h == 0) return 0;
+        const size_t stride = ((size_t)w + 1) & ~(size_t)1;   /* VRAM halfwords */
+        if ((size_t)h * stride > image_len - BLOCK_HEADER) return 0;
+        const long clut = clut_at(tex, length, image_len);
+        if (clut < 0 || (size_t)clut + BLOCK_HEADER + 2 * CLUT_8BPP > length) return 0;
+        if (stride != w) return 0;   /* odd widths are not in the files; the rows would need repacking */
+        out->width = (int)w, out->height = (int)h;
+        out->pixels = tex + BLOCK_HEADER, out->clut = tex + clut + BLOCK_HEADER;
+        return 1;
+    }
+    return 0;
+}
+
+void psx_clut_rgb(const uint8_t *clut, int index, uint8_t rgb[3])
+{
+    const uint32_t v = le16(clut + 2 * index);
+    rgb[0] = (uint8_t)((v & 31) << 3), rgb[1] = (uint8_t)((v >> 5 & 31) << 3), rgb[2] = (uint8_t)((v >> 10 & 31) << 3);
 }

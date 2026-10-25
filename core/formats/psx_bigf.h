@@ -18,4 +18,21 @@ int psx_bigf_member(const uint8_t *file, size_t size, const char *name, const ui
  * directory does not parse or has no 4bpp texture; textures that are not 4bpp are skipped. */
 int psx_shpp_colours(const uint8_t *file, size_t size, uint32_t counts[PSX_COLOURS]);
 
+/* An 8bpp texture of a SHPP directory (the horizon tiles of Z<TRACK><A|B|C>.PSH): `pixels` are width x height CLUT indices, one
+ * byte each, `clut` the 256 BGR555 entries that follow it. They point into the file. */
+typedef struct {
+    int width, height;
+    const uint8_t *pixels;
+    const uint8_t *clut;
+} PsxImage8;
+
+/* The entries of a SHPP directory, 0 when it does not parse. */
+uint32_t psx_shpp_count(const uint8_t *file, size_t size);
+
+/* The 8bpp texture `name` of the directory `file`. 0 when there is none, when it is not 8bpp, or when it runs past the file. */
+int psx_shpp_image8(const uint8_t *file, size_t size, const char *name, PsxImage8 *out);
+
+/* CLUT entry `index` (BGR555) as 8-bit RGB, each channel its 5 bits << 3 (the STP bit ignored). */
+void psx_clut_rgb(const uint8_t *clut, int index, uint8_t rgb[3]);
+
 #endif

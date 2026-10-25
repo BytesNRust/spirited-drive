@@ -1,5 +1,7 @@
 #include "viewer/drive_light.h"
 #include "viewer/ported_view.h"
+#include "viewer/psx_sky_draw.h"
+#include "game/race/psx_sky.h"
 #include "game/platform/platform.h"
 #include "game/race/psx_lgs.h"
 #include "game/race/psx_light.h"
@@ -17,6 +19,7 @@ static const char LETTERS[] = { 'B', 'A', 'C' };   /* by PSX_TIME_*: day, dawn, 
 
 static PsxLight light;
 static float tint[3] = { 1, 1, 1 };
+static PsxSkyDraw sky_draw;
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
 static void file_path(char *out, size_t size, const char *psx_dir, const char *track, char letter, const char *ext)
@@ -46,13 +49,50 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
     platform_free_file(file);
 }
 
+/* dawn and dusk: the PS1's own sky (Z<TRACK><A|C>.INF and .PSH) for the race; the day, a missing or unreadable file, or only the INF
+ * leave the track's own sky (tinted with the world) */
+static void load_sky(const char *psx_dir, const char *track, char letter)
+{
+    char path[LIGHT_PATH];
+    file_path(path, sizeof path, psx_dir, track, letter, "PSH");
+    size_t psh_size = 0;
+    uint8_t *psh = platform_read_file(path, &psh_size);
+    if (psh == NULL) {
+        port_log("psx_sky: no %s, the track's sky stays\n", path);
+        return;
+    }
+    PsxSky sky;
+    const int panorama = psx_sky_panorama(psh, psh_size, &sky);
+    platform_free_file(psh);
+    if (!panorama) {
+        port_log("psx_sky: %s has no horizon tiles hrz0..hrz7, the track's sky stays\n", path);
+        return;
+    }
+    PsxSkyInf inf = { { 0 }, { 0 }, { 0 }, 0, 0, 0, 0, 0 };
+    file_path(path, sizeof path, psx_dir, track, letter, "INF");
+    size_t inf_size = 0;
+    uint8_t *text = platform_read_file(path, &inf_size);
+    const int gradient = text != NULL && psx_sky_inf_parse(text, inf_size, &inf);
+    if (text != NULL) platform_free_file(text);
+    if (!gradient) port_log("psx_sky: %s does not read, no gradient above the horizon\n", path);
+    if (psx_sky_draw_make(&sky_draw, &sky, &inf)) {
+        ported_view_set_psx_sky(&sky_draw);
+        port_log("psx_sky: %dx%d panorama, gradient %d,%d,%d to %d,%d,%d\n", sky.width, sky.height, inf.top[0], inf.top[1], inf.top[2],
+                 inf.bottom[0], inf.bottom[1], inf.bottom[2]);
+    }
+    psx_sky_free(&sky);
+}
+
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     ported_view_set_light(NULL, NULL);
+    ported_view_set_psx_sky(NULL);
+    psx_sky_draw_free(&sky_draw);
     psx_light_free(&light);
     tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_DUSK ? time : PSX_TIME_DAY];
+    if (time != PSX_TIME_DAY) load_sky(psx_dir, track, letter);
     char path[LIGHT_PATH];
     file_path(path, sizeof path, psx_dir, track, letter, "LGT");
     size_t size = 0;
