@@ -13,7 +13,7 @@
 
 enum { LIGHT_PATH = 320, LIGHT_TRACK = 16 };
 
-static const char LETTERS[] = { 'B', 'A', 'C' };   /* by PSX_TIME_* */
+static const char LETTERS[] = { 'B', 'A', 'C' };   /* by PSX_TIME_*: day, dawn, dusk */
 
 static PsxLight light;
 static float tint[3] = { 1, 1, 1 };
@@ -52,7 +52,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     psx_light_free(&light);
     tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
-    const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_C ? time : PSX_TIME_DAY];
+    const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_DUSK ? time : PSX_TIME_DAY];
     char path[LIGHT_PATH];
     file_path(path, sizeof path, psx_dir, track, letter, "LGT");
     size_t size = 0;

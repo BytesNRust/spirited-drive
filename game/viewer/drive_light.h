@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* `time` is a PSX_TIME_* (port_settings.h): the letter of the files, B for the day, A, C; the ambient colour of its .LGS tints
+/* `time` is a PSX_TIME_* (port_settings.h): the letter of the files, B for the day, A for dawn, C for dusk; the ambient colour of its .LGS tints
  * the light (a missing or unreadable LGS leaves it neutral). Loads the light of `track` ("TR1") into the renderer (ported_view_set_light), or clears it; `ring_nodes` is the TRI's node_count
  * (segment_count * 4; a stage's ring_nodes is 0x20000, a mask), which the file's must match. The previous race's light is freed. */
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes);

@@ -12,7 +12,7 @@ typedef enum { SCREEN_4_3 = 0, SCREEN_16_9 = 1, SCREEN_21_9 = 2 } ScreenFormat;
 enum { PSX_DIR_MAX = 256 };   /* port: the longest psx_dir kept; a longer one is cut */
 
 /* port: the PS1 time of day the light and its ambient colour come from (the letter of Z<TRACK><letter>.LGT / .LGS is 'B', 'A', 'C') */
-enum { PSX_TIME_DAY = 0, PSX_TIME_A = 1, PSX_TIME_C = 2 };
+enum { PSX_TIME_DAY = 0, PSX_TIME_DAWN = 1, PSX_TIME_DUSK = 2 };
 
 typedef struct {
     ScreenFormat format;     /* SCREEN_4_3 */
@@ -34,7 +34,8 @@ typedef struct {
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
     int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
-    int psx_time;            /* with psx_light: the PS1's time of day, PSX_TIME_DAY (B), PSX_TIME_A or PSX_TIME_C: `psx_time=day|a|c` */
+    int psx_time;            /* with psx_light: the PS1's time of day, PSX_TIME_DAWN (files A), PSX_TIME_DAY (B) or PSX_TIME_DUSK (C):
+                             * `psx_time=dawn|day|dusk` (a, b, c also read) */
     int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain`, re/notes/weather-design.md; clear */
 } PortSettings;
 
@@ -43,7 +44,7 @@ int port_render_scale(void);
 
 /* 1 when the race draws with the PS1's light: TNFS_PSX_LIGHT=0/1 when set, else port.cfg's psx_light. */
 int port_psx_light(void);
-/* The time of day (PSX_TIME_*): TNFS_PSX_TIME=day|a|c when set, else port.cfg's psx_time. */
+/* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
 /* The weather of the race: TNFS_WEATHER=clear|fog|rain when set, else port.cfg's weather (a WEATHER_* of weather.h). */
 int port_weather(void);

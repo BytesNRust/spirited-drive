@@ -110,7 +110,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_time = PSX_TIME_C, .weather = WEATHER_RAIN };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -143,9 +143,22 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).psx_light, 0);
     CHECK_EQ_INT(s.psx_time, PSX_TIME_DAY);
     const char *at = "psx_time=A\n", *ct = "psx_time=c\n", *bt = "psx_time=day\n", *no = "psx_time=noon\n";
-    CHECK_EQ_INT(port_settings_parse(at, strlen(at)).psx_time, PSX_TIME_A);
-    CHECK_EQ_INT(port_settings_parse(ct, strlen(ct)).psx_time, PSX_TIME_C);
+    const char *dawn = "psx_time=Dawn\n", *dusk = "psx_time=DUSK\n", *b = "psx_time=B\n";
+    CHECK_EQ_INT(port_settings_parse(at, strlen(at)).psx_time, PSX_TIME_DAWN);
+    CHECK_EQ_INT(port_settings_parse(ct, strlen(ct)).psx_time, PSX_TIME_DUSK);
     CHECK_EQ_INT(port_settings_parse(bt, strlen(bt)).psx_time, PSX_TIME_DAY);
+    CHECK_EQ_INT(port_settings_parse(b, strlen(b)).psx_time, PSX_TIME_DAY);
+    CHECK_EQ_INT(port_settings_parse(dawn, strlen(dawn)).psx_time, PSX_TIME_DAWN);
+    CHECK_EQ_INT(port_settings_parse(dusk, strlen(dusk)).psx_time, PSX_TIME_DUSK);
+    /* written as the words */
+    char out[512];
+    PortSettings w = port_settings_defaults();
+    w.psx_time = PSX_TIME_DAWN;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dawn\n") != NULL);
+    w.psx_time = PSX_TIME_DUSK;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dusk\n") != NULL);
+    w.psx_time = PSX_TIME_DAY;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=day\n") != NULL);
     CHECK_EQ_INT(port_settings_parse(no, strlen(no)).psx_time, PSX_TIME_DAY);
 }
 
