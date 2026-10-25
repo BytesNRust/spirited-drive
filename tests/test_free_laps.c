@@ -23,6 +23,23 @@ static void test_exe_counts(void)
     CHECK(!free_laps_is_exe(99));
 }
 
+/* the laps choice (0..2) a race of `laps` is in a track's table of totals: the track's own counts, else none */
+static void test_choice(void)
+{
+    CHECK_EQ_INT(free_laps_choice(3, 4), 0);
+    CHECK_EQ_INT(free_laps_choice(3, 8), 1);
+    CHECK_EQ_INT(free_laps_choice(3, 16), 2);
+    CHECK_EQ_INT(free_laps_choice(3, 7), -1);
+    CHECK_EQ_INT(free_laps_choice(3, 12), -1);   /* the short tracks' count, not this one's */
+    CHECK_EQ_INT(free_laps_choice(4, 2), 0);
+    CHECK_EQ_INT(free_laps_choice(4, 6), 1);
+    CHECK_EQ_INT(free_laps_choice(7, 12), 2);
+    CHECK_EQ_INT(free_laps_choice(4, 16), -1);
+    CHECK_EQ_INT(free_laps_choice(8, 16), 2);
+    CHECK_EQ_INT(free_laps_choice(1, 4), -1);    /* a stage has no laps */
+    CHECK_EQ_INT(free_laps_choice(3, 0), -1);
+}
+
 static void test_environment(void)
 {
     setenv("TNFS_LAPS", "17", 1);
@@ -56,6 +73,7 @@ static void test_running_race(void)
 int main(void)
 {
     test_exe_counts();
+    test_choice();
     test_environment();
     test_running_race();
     return TEST_REPORT();

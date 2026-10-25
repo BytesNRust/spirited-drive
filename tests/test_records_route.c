@@ -3,6 +3,7 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/records_glue.h"
 #include "game/frontend/records_route.h"
+#include "game/sys/free_laps.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -289,9 +290,96 @@ static void test_tournament_totals_show_the_tournaments_table(void)
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
+/* ----- a free race (free_laps.h): the best lap and the top speed always count; its total counts only when its laps are
+ * one of the track's own, in that choice's table, whatever laps choice the menu holds ----- */
+
+static const uint8_t *totals_of(const uint8_t *image, int track, int choice)
+{
+    return image + FIRST + RECORDS_BLOCK * track + 0xea + 0x186 * choice;
+}
+
+static void test_a_free_race_keeps_its_lap_and_top_speed(void)
+{
+    fresh();
+    Race r;
+    race(&r, 0, 2, 1, 0x3fffffff, 1);   /* the menu's laps choice is 2: 16 laps */
+    free_laps_set(7);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 1);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    CHECK_EQ_INT(g32(block_of(r.image) + 0xd0 - FIRST), 1);
+    free_laps_set(0);
+}
+
+static void test_a_free_race_on_the_tracks_own_count_takes_that_choices_totals(void)
+{
+    fresh();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    race(&r, 0, 2, 5000, 99999, 100);   /* the menu holds choice 2; N = 8 is choice 1 */
+    const Race before = r;
+    free_laps_set(8);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    free_laps_set(0);
+    CHECK(memcmp(totals_of(r.image, TR1, 1), totals_of(before.image, TR1, 1), 0x186) != 0);
+    CHECK(memcmp(totals_of(r.image, TR1, 2), totals_of(before.image, TR1, 2), 0x186) == 0);
+    CHECK(memcmp(totals_of(r.image, TR1, 0), totals_of(before.image, TR1, 0), 0x186) == 0);
+    CHECK_EQ_INT(r.image[0xb3] | r.image[0xb4] << 8, 2);   /* the menu's choice is left as it was */
+}
+
+static void test_a_free_race_on_another_count_keeps_no_total(void)
+{
+    fresh();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    race(&r, 0, 1, 5000, 99999, 100);
+    const Race before = r;
+    free_laps_set(7);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    free_laps_set(16 - 0);   /* the long tracks' count on a short track: track 4 counts 2, 6, 12 */
+    p16(r.image + 0x95, 4);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    free_laps_set(0);
+    CHECK(memcmp(r.image + FIRST, before.image + FIRST, RECORDS_BLOCK * 9) == 0);
+}
+
+static void test_a_free_race_with_a_cheat_marks_the_remapped_choice_or_nothing(void)
+{
+    fresh();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    const RaceKind nitro = { RECORDS_NORMAL, EXTRAS_MARK_NITRO };
+    race(&r, 0, 0, 5000, 99999, 100);
+    free_laps_set(16);
+    CHECK_EQ_INT(records_route(nitro, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    const uint8_t *marks = port_records_marks(TR1, RECORDS_NORMAL);
+    CHECK_EQ_INT(marks[records_slot_totals(TR1, 2, 0)], EXTRAS_MARK_NITRO);
+    CHECK_EQ_INT(marks[records_slot_totals(TR1, 0, 0)], 0);
+    free_laps_set(7);
+    race(&r, 0, 0, 5000, 99999, 50);
+    CHECK_EQ_INT(records_route(nitro, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(marks[records_slot_totals(TR1, 0, 0)], 0);   /* nothing written, nothing before the table either */
+    CHECK_EQ_INT(marks[SLOT_TOTALS - 1], 0);
+    free_laps_set(0);
+}
+
+static void test_a_free_race_keeps_no_segment_record(void)
+{
+    fresh();
+    Race r;
+    race(&r, 0, 0, 1, 99999, 1);
+    free_laps_set(8);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 0);
+    free_laps_set(0);
+}
+
 int main(void)
 {
     test_the_results_show_the_table_the_race_was_checked_on();
+    test_a_free_race_keeps_its_lap_and_top_speed();
+    test_a_free_race_on_the_tracks_own_count_takes_that_choices_totals();
+    test_a_free_race_on_another_count_keeps_no_total();
+    test_a_free_race_with_a_cheat_marks_the_remapped_choice_or_nothing();
+    test_a_free_race_keeps_no_segment_record();
     test_a_normal_race_without_cheats_takes_the_images_table();
     test_a_mirror_race_leaves_the_images_table();
     test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark();
