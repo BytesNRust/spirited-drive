@@ -42,13 +42,16 @@ void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3])
     for (int k = 0; k < 3; k++) rgb[k] = (uint8_t)(c[k] + ((grey - c[k]) * MODERN_LOOK_GREY_PERCENT) / 100);
 }
 
+void modern_look_set_dark(ModernLook *look, int dark) { look->dark = dark != 0; }
+
 const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int filter, int fog, int32_t segments)
 {
     if (!filter && !fog) return NULL;
     look->style = (ModernStyle){ filter != 0, NULL, 0, 0, 0, 0 };
     if (!fog) return &look->style;
     uint8_t rgb[3];
-    modern_look_fog_colour(art, rgb);
+    if (look->dark) rgb[0] = rgb[1] = rgb[2] = MODERN_LOOK_DARK;
+    else modern_look_fog_colour(art, rgb);
     if (!look->made || memcmp(look->palette, art->palette, sizeof look->palette) != 0 ||
         memcmp(look->rgb, rgb, sizeof rgb) != 0) {
         modern_fog_tables(art->palette, rgb, look->tables);

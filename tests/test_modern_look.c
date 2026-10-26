@@ -95,11 +95,27 @@ static void test_style(void)
     CHECK_EQ_INT(s->fog[1][50], 50);   /* now a green, nearest itself a step in: remade */
 }
 
+/* the PS1 look's forced dark fog: a light foot (a hazy horizon) gives the dark colour, and the foot's own again when it is cleared */
+static void test_dark_fog_forced(void)
+{
+    make_art();
+    static ModernLook look;
+    memset(&look, 0, sizeof look);
+    modern_look_set_dark(&look, 1);
+    const ModernStyle *s = modern_look_style(&look, &art, 0, 1, 0x1c);
+    CHECK(s != NULL && s->fog != NULL);
+    CHECK(s->fog[MODERN_FOG_LEVELS - 1][255] < 40);   /* the fog's whole is near black, not the foot's light grey */
+    modern_look_set_dark(&look, 0);
+    s = modern_look_style(&look, &art, 0, 1, 0x1c);
+    CHECK(s->fog[MODERN_FOG_LEVELS - 1][255] > 40);
+}
+
 int main(void)
 {
     test_fog_colour();
     test_night_fog_stays_dark();
     test_colour_is_softened_not_lost();
     test_style();
+    test_dark_fog_forced();
     return TEST_REPORT();
 }

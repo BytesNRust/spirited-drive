@@ -214,6 +214,7 @@ int ported_view_modern(void) { return modern; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 static ModernLook look;
+void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
 
 static void weather_style(const TrackArt *art, const WeatherTables *wt)
 {
