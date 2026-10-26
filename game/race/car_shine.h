@@ -16,7 +16,7 @@ enum { CAR_SHINE_LEVELS = 16, CAR_SHINE_NEUTRAL = 4 };
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256]);
 
 /* the level (0 .. CAR_SHINE_LEVELS - 1, fractional: the draw dithers between two) of a surface with the unit `normal` (camera space, toward the
- * viewer, y down) seen along the unit `view` (from the eye to the surface); `phase` scrolls the streaks (the car's travel and heading, in turns). */
+ * viewer, the exe's y up) seen along the unit `view` (from the eye to the surface); `phase` scrolls the streaks (the car's travel and heading, in turns). */
 float car_shine_level(const float normal[3], const float view[3], float phase);
 
 #endif

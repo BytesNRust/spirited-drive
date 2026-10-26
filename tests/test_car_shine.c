@@ -73,8 +73,8 @@ static void test_tables_leave_the_markers_and_the_dark_alone(void)
 
 static void test_level_roof_lighter_than_side(void)
 {
-    const float view[3] = { 0, 0.3f, 0.954f };   /* a camera above looking down: camera y is down */
-    const float roof[3] = { 0, -1, 0 }, side[3] = { 1, 0, 0 }, low[3] = { 0, 0.2f, -0.98f };
+    const float view[3] = { 0, -0.3f, 0.954f };   /* a camera above looking down: the exe's camera y is up */
+    const float roof[3] = { 0, 1, 0 }, side[3] = { 1, 0, 0 }, low[3] = { 0, -0.2f, -0.98f };
     const float up = car_shine_level(roof, view, 0), flank = car_shine_level(side, view, 0), under = car_shine_level(low, view, 0);
     CHECK(up > CAR_SHINE_NEUTRAL);
     CHECK(flank < CAR_SHINE_NEUTRAL);   /* a lower vertical face stays darker */
@@ -84,10 +84,10 @@ static void test_level_roof_lighter_than_side(void)
 
 static void test_level_in_range_and_moves_with_the_phase(void)
 {
-    const float view[3] = { 0, 0.3f, 0.954f };
+    const float view[3] = { 0, -0.3f, 0.954f };
     int moved = 0;
     for (int k = 0; k < 24; k++) {
-        const float a = (float)k * 0.2618f, n[3] = { sinf(a), -cosf(a) * 0.8f, cosf(a) * 0.6f };
+        const float a = (float)k * 0.2618f, n[3] = { sinf(a), cosf(a) * 0.8f, cosf(a) * 0.6f };
         const float len = sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]), u[3] = { n[0] / len, n[1] / len, n[2] / len };
         for (int p = 0; p < 6; p++) {
             const float level = car_shine_level(u, view, (float)p * 0.37f);
