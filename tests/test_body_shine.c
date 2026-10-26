@@ -15,7 +15,7 @@ static uint8_t palette_a[768], palette_b[768];
 
 static void move_to(Car *c, int x_metres, int z_metres)
 {
-    c->body_position[0] = x_metres * UNIT, c->body_position[1] = 0, c->body_position[2] = z_metres * UNIT;
+    c->x = x_metres * UNIT, c->y = 0, c->z = z_metres * UNIT;
 }
 
 static void test_off_sets_nothing(void)

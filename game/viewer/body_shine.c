@@ -47,7 +47,7 @@ static ShineTables tables_for(const uint8_t palette[768])
 static void travel_to(int slot, const Car *car)
 {
     float now[3];
-    for (int k = 0; k < 3; k++) now[k] = (float)car->body_position[k] / UNIT;
+    now[0] = (float)car->x / UNIT, now[1] = (float)car->y / UNIT, now[2] = (float)car->z / UNIT;
     if (travel[slot].started) {
         const float dx = now[0] - travel[slot].last[0], dy = now[1] - travel[slot].last[1], dz = now[2] - travel[slot].last[2];
         const float step = sqrtf(dx * dx + dy * dy + dz * dz);
