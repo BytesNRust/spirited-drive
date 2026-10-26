@@ -88,7 +88,7 @@ static void check_car(const char *root, int model, const uint8_t paint[3])
     const uint8_t *body_before, *body_after;
     const size_t n = colours_of(file, size, &before, &body_before);
     CHECK(n > 0);
-    const int changed = drive_livery_dash(car_model_names[model], file, size, NULL, 0, paint);
+    const int changed = drive_livery_dash(car_model_names[model], file, size, paint);
     CHECK(colours_of(file, size, &after, &body_after) == n);
     size_t body = 0, repainted = 0, others_moved = 0;
     for (size_t t = 0; t < n; t++) {

@@ -8,7 +8,6 @@
 #include "viewer/track_viewer.h"
 #include "game/race/frame_draw.h"
 #include "game/sys/port_settings.h"
-#include "game/race/car_livery.h"
 #include "viewer/drive_bumper.h"
 #include "viewer/drive_keys.h"
 #include "viewer/drive_menu.h"
@@ -32,8 +31,8 @@ typedef struct {
     int model[RACE_CARS];       /* port: the slot's race model (car_model_names), for its catalogue paint */
     uint8_t paint[RACE_CARS][3]; /* port: the slot's catalogue paint (car_paint.h), valid where paint_on */
     int paint_on[RACE_CARS];
-    CarLiveryPair dash_pairs[CAR_LIVERY_PAIRS];   /* port: the player's PS1 livery map, for the dash art's body (drive_livery_dash) */
-    int dash_pair_count;
+    uint8_t dash_rgb[3];        /* port: the player's PS1 livery's main colour, for the dash art's body (drive_livery_dash), valid where dash_rgb_on */
+    int dash_rgb_on;
     char psx_dir[PSX_DIR_MAX];  /* port: port.cfg's psx_dir for this race, "" none */
 } DriveCars;
 

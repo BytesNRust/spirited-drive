@@ -258,7 +258,7 @@ int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[
     return found;
 }
 
-int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size, CarLiveryPair *keep, int *kept)
+int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size, uint8_t main_rgb[3])
 {
     char upper[LIVERY_STEM], lower[LIVERY_STEM];
     size_t i = 0;
@@ -275,6 +275,8 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
         const int nforced = forced_colours(cfm, size, upper, forced);
         count = car_livery_map(normal, alternate, forced, nforced, pairs);
     }
+    uint16_t main_colour = 0;
+    const int has_main = count > 0 && main_rgb != NULL && car_livery_main(pairs, count, alternate, &main_colour);
     free(normal);
     free(alternate);
     if (count == 0) {
@@ -283,7 +285,8 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
     }
     const RepaintJob job = { pairs, count, NULL, glass_floor(upper) };
     repaint_cfm(cfm, size, stem, upper, run_pairs, (void *)&job);
-    if (keep != NULL && kept != NULL) memcpy(keep, pairs, (size_t)count * sizeof *pairs), *kept = count;
+    if (has_main)
+        for (int k = 0; k < 3; k++) main_rgb[k] = (uint8_t)(((main_colour >> (5 * k)) & 31) << 3);
     return count;
 }
 
@@ -317,7 +320,7 @@ static uint8_t *dash_palette(uint8_t *bank)
     return shape;
 }
 
-int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const CarLiveryPair *pairs, int count, const uint8_t rgb[3])
+int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_t rgb[3])
 {
     char upper[LIVERY_STEM];
     size_t i = 0;
@@ -345,8 +348,8 @@ int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const CarLiv
         textures[n++] = tex;
     }
     const RepaintBank rb = { textures, n, { pal + PALETTE_HEADER, NULL }, 1, pal[0], 0 };
-    const RepaintJob job = { pairs, count, rgb, glass_floor(upper) };
-    const int changed = pairs != NULL && count > 0 ? run_pairs(&rb, NULL, (void *)&job) : rgb != NULL ? run_paint(&rb, NULL, (void *)&job) : 0;
+    const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
+    const int changed = run_paint(&rb, NULL, (void *)&job);
     for (int k = 0; k < n; k++) free(masks[k]);
     return changed > 0 ? changed : 0;
 }
