@@ -334,8 +334,17 @@ enum { LIGHTS_PAD_LEFT = 2, LIGHTS_PAD_RIGHT = 14, LIGHTS_PAD_TOP = 3, LIGHTS_PA
 
 static int in_rect(int x, int y, int left, int top, int w, int h) { return x >= left && x < left + w && y >= top && y < top + h; }
 
-/* `placed`: the 640 box where the map was and the dash is drawn instead (wide_art_placed), NULL when the map is there or it is not the dash */
-static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car, const LayerRect *placed)
+/* the ellipse inscribed in the rectangle (a round dial's box has the dash's art in its corners) */
+static int in_ellipse(int x, int y, int left, int top, int w, int h)
+{
+    if (w <= 0 || h <= 0) return 0;
+    const long dx = 2L * x + 1 - 2L * left - w, dy = 2L * y + 1 - 2L * top - h;
+    return dx * dx * h * h + dy * dy * w * w <= (long)w * w * h * h;
+}
+
+/* `placed`: the 640 box where the map was and the dash is drawn instead (wide_art_placed), NULL when the map is there or it is not the dash;
+ * `map_on`: the map is in its box (off, the box holds the dash's art and is the dash's like the rest of it) */
+static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car, const LayerRect *placed, int map_on)
 {
     static uint8_t classes[SCREEN_W * SCREEN_H], *shadow;
     static size_t shadow_size;
@@ -359,9 +368,9 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++) {
             const uint8_t v = frame[y * SCREEN_W + x];
-            int hud = !in_car || y < HUD_BAR_HEIGHT || in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H);
+            int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
             hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
-            hud = hud || in_rect(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_rect(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+            hud = hud || in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
             classes[y * SCREEN_W + x] = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
         }
     memset(shadow, LAYER_KEY, out);
@@ -439,7 +448,7 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit), drive_wide_canvas(), 0);  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
     compose_banded(&c, frame);
-    if (drive_light_active()) compose_classes(&c, frame, in_car, in_car && box_on ? &map : NULL);
+    if (drive_light_active()) compose_classes(&c, frame, in_car, in_car && box_on ? &map : NULL, map_on);
     const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
     if (mirror_on) {  /* the picture's place in the layer, as wide_mirror puts it */
         const int left = (int)((int64_t)(drive_hud.mirror_x - mirror.left) * mirror_scale >> 16);
