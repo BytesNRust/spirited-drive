@@ -1,17 +1,16 @@
 /* port (body shine): see body_shine.h. */
 #include "viewer/body_shine.h"
 
+#include "game/race/car_shine.h"
+#include "game/sys/fixed_math.h"
 #include "viewer/object_sink.h"
 
 #include <math.h>
 #include <string.h>
 
-enum { SLOTS = 16, CACHED = 2 };
-static const float UNIT = 65536.0f;      /* the car's position is 16.16 metres */
-static const float TURN_METRES = 40.0f;  /* a streak comes round to where it was after this much travel */
-static const float JUMP_METRES = 30.0f;  /* a step longer than this (a reset, a replay's jump) is not travel */
+enum { CACHED = 2 };
 
-static int enabled;
+static int enabled, strength;
 
 typedef struct {
     uint8_t palette[768];
@@ -22,14 +21,14 @@ typedef struct {
 static Made made[CACHED];
 static int next_made;
 static ShineTables current;
+static float up_in_camera[3] = { 0, 1, 0 };
 
-static struct {
-    float odometer;
-    float last[3];
-    int started;
-} travel[SLOTS];
+void body_shine_enable(int level)
+{
+    strength = level < 0 ? 0 : level > 3 ? 3 : level;
+    enabled = strength != 0;
+}
 
-void body_shine_enable(int on) { enabled = on != 0; }
 int body_shine_enabled(void) { return enabled; }
 
 static ShineTables tables_for(const uint8_t palette[768])
@@ -44,37 +43,39 @@ static ShineTables tables_for(const uint8_t palette[768])
     return m->tables;
 }
 
-static void travel_to(int slot, const Car *car)
+/* the world's up taken to the camera's space, as the weather's sky takes it (ported_view.c weather_sky) */
+static void world_up(const int32_t camera_matrix[9], float out[3])
 {
-    float now[3];
-    now[0] = (float)car->x / UNIT, now[1] = (float)car->y / UNIT, now[2] = (float)car->z / UNIT;
-    if (travel[slot].started) {
-        const float dx = now[0] - travel[slot].last[0], dy = now[1] - travel[slot].last[1], dz = now[2] - travel[slot].last[2];
-        const float step = sqrtf(dx * dx + dy * dy + dz * dz);
-        if (step < JUMP_METRES) travel[slot].odometer += step;
-    }
-    memcpy(travel[slot].last, now, sizeof now);
-    travel[slot].started = 1;
-}
-
-void body_shine_begin(int slot, const Car *car, const uint8_t palette[768])
-{
-    current = NULL;
-    if (!enabled || slot < 0 || slot >= SLOTS || car == NULL || palette == NULL) {
-        object_sink_set_shine(NULL, 0);
+    const int32_t up_world[3] = { 0, 0x10000, 0 };
+    int32_t c[3];
+    mat3_apply(up_world, camera_matrix, c);
+    const float len = sqrtf((float)c[0] * (float)c[0] + (float)c[1] * (float)c[1] + (float)c[2] * (float)c[2]);
+    if (len <= 0) {
+        out[0] = 0, out[1] = 1, out[2] = 0;
         return;
     }
-    travel_to(slot, car);
+    for (int k = 0; k < 3; k++) out[k] = (float)c[k] / len;
+}
+
+void body_shine_begin(const uint8_t palette[768], const int32_t camera_matrix[9])
+{
+    current = NULL;
+    if (!enabled || palette == NULL || camera_matrix == NULL) {
+        object_sink_set_shine(NULL, NULL);
+        return;
+    }
     current = tables_for(palette);
-    object_sink_set_shine(current, body_shine_phase(slot));
+    world_up(camera_matrix, up_in_camera);
+    object_sink_set_shine_strength(strength);
+    object_sink_set_shine(current, up_in_camera);
 }
 
 void body_shine_end(void)
 {
     current = NULL;
-    object_sink_set_shine(NULL, 0);
+    object_sink_set_shine(NULL, NULL);
 }
 
 ShineTables body_shine_tables(void) { return current; }
 
-float body_shine_phase(int slot) { return slot >= 0 && slot < SLOTS ? travel[slot].odometer / TURN_METRES : 0.0f; }
+const float *body_shine_up(void) { return up_in_camera; }

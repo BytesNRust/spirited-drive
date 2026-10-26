@@ -110,7 +110,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         else if (parse_int(value, &n) && n >= 0 && n <= 8)
             s->render_bands = (int)n;
     } else if (strcmp(key, "body_shine") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
+        if (parse_int(value, &n) && n >= 0 && n <= 3)
             s->body_shine = (int)n;
     }
 }
@@ -255,7 +255,7 @@ int port_psx_shadow(void)
 int port_body_shine(void)
 {
     const char *v = getenv("TNFS_BODY_SHINE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().body_shine;
 }
 

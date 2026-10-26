@@ -16,7 +16,9 @@ enum { CAR_SHINE_LEVELS = 16, CAR_SHINE_NEUTRAL = 4 };
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256]);
 
 /* the level (0 .. CAR_SHINE_LEVELS - 1, fractional: the draw dithers between two) of a surface with the unit `normal` (camera space, toward the
- * viewer, the exe's y up) seen along the unit `view` (from the eye to the surface); `phase` scrolls the streaks (the car's travel and heading, in turns). */
-float car_shine_level(const float normal[3], const float view[3], float phase);
+ * viewer, the exe's y up) seen along the unit `view` (from the eye to the surface). `up` is the world's up in the camera's space (unit): the
+ * reflection is looked up against it, so the horizon is the world's and holds still while the body pitches, rolls and yaws under it, as in
+ * Gran Turismo: a bright band above the line, a dark one below, nothing scrolling. `strength` 1 subtle, 2 the default look, 3 strong. */
+float car_shine_level(const float normal[3], const float view[3], const float up[3], int strength);
 
 #endif

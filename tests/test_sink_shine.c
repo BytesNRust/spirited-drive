@@ -111,6 +111,21 @@ static void test_the_exe_path_gets_the_pass_too(void)
     object_sink_set_shine(NULL, 0);
 }
 
+static void test_the_strength_reaches_the_levels(void)
+{
+    int level[4] = { 0 };
+    for (int st = 1; st <= 3; st++) {
+        setup();
+        object_sink_set_shine(tables, 0);
+        object_sink_set_shine_strength(st);
+        level[st] = draw_floor(UP) - 100;
+    }
+    object_sink_set_shine_strength(1);
+    object_sink_set_shine(NULL, 0);
+    CHECK(level[1] > CAR_SHINE_NEUTRAL);
+    CHECK(level[3] > level[1]);   /* the strong look lifts the same panel higher */
+}
+
 int main(void)
 {
     test_off_by_default_draws_the_texture_only();
@@ -118,5 +133,6 @@ int main(void)
     test_no_normals_or_no_class_map_leaves_the_texture();
     test_matte_texels_are_not_touched();
     test_the_exe_path_gets_the_pass_too();
+    test_the_strength_reaches_the_levels();
     return TEST_REPORT();
 }

@@ -889,7 +889,7 @@ static void row_draw(void *ctx, Car *car, int pass)
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
             object_sink_set_light(car_light(car->node, object_pixels.palette));
-            body_shine_begin(i, car, object_pixels.palette);
+            body_shine_begin(object_pixels.palette, model_view.camera_matrix);
             render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
             body_shine_end();
             object_sink_set_light(NULL);
@@ -907,7 +907,7 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
     object_sink_set_light(car_light(car->node, palette));
-    body_shine_begin(slot, car, palette);
+    body_shine_begin(palette, mv->camera_matrix);
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
     body_shine_end();
     object_sink_set_light(NULL);

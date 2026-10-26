@@ -22,11 +22,17 @@ static uint8_t lit_colour(uint8_t colour) { return light_table != NULL ? light_t
 static MapMode lit_mode(MapMode m) { return light_table == NULL || m == MAP_SHADE ? m : m == MAP_TRANSPARENT ? MAP_REMAP_TRANSPARENT : MAP_REMAP; }
 static const uint8_t *lit_shade(MapMode m, const uint8_t *shade) { return light_table == NULL || m == MAP_SHADE ? shade : light_table; }
 
-/* port (body shine): the tables and the scroll of the car being drawn, NULL tables for none */
+/* port (body shine): the tables and the world's up (in camera space; NULL: the camera's own y) of the car being drawn, NULL tables for none */
 static ShineTables shine_tables;
-static float shine_phase;
+static float shine_up[3] = { 0, 1, 0 };
+static int shine_strength = 1;
 
-void object_sink_set_shine(ShineTables tables, float phase) { shine_tables = tables, shine_phase = phase; }
+void object_sink_set_shine(ShineTables tables, const float *up)
+{
+    shine_tables = tables;
+    for (int k = 0; k < 3; k++) shine_up[k] = up != NULL ? up[k] : (k == 1 ? 1.0f : 0.0f);
+}
+void object_sink_set_shine_strength(int strength) { shine_strength = strength; }
 
 /* the shine level at each corner of a polygon that carries normals: its normal reflected about the line of sight (the eye is the origin of the
  * camera space); a corner without a normal stays neutral. 0 when the polygon takes no pass. */
@@ -40,7 +46,7 @@ static int shine_levels(const Object3DCorners *c, float level[4])
         level[i] = CAR_SHINE_NEUTRAL;
         if (len <= 0 || (n[0] == 0 && n[1] == 0 && n[2] == 0)) continue;
         const float v[3] = { p[0] / len, p[1] / len, p[2] / len };
-        level[i] = car_shine_level(n, v, shine_phase);
+        level[i] = car_shine_level(n, v, shine_up, shine_strength);
     }
     return 1;
 }

@@ -23,9 +23,10 @@ Object3DSink object_sink(ObjectSink *s);
  * NULL for none; the shadow's shade mode is left as it is. */
 void object_sink_set_light(const uint8_t *table);
 /* port (body shine): while `tables` is set (car_shine_tables for the palette, kept by pointer until the frame is flushed), a textured polygon
- * the class maps know (shine_class.h) that carries vertex normals gets the shine's second pass after its own draw (shine_draw.h), `phase` the
- * streaks' scroll; NULL for none, and the draws are the exe's. */
-void object_sink_set_shine(ShineTables tables, float phase);
+ * the class maps know (shine_class.h) that carries vertex normals gets the shine's second pass after its own draw (shine_draw.h), `up` the
+ * world's up in the camera's space (the shine's fixed horizon; NULL: the camera's y); NULL tables for none, and the draws are the exe's. */
+void object_sink_set_shine(ShineTables tables, const float *up);
+void object_sink_set_shine_strength(int strength);   /* 1..3 (car_shine.h); 1 until set */
 void object_sink_shade(const uint8_t palette[768], uint8_t shade[256]);
 
 #endif

@@ -65,16 +65,27 @@ void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-float car_shine_level(const float normal[3], const float view[3], float phase)
+typedef struct {
+    float sky;    /* how far the bright band above the horizon climbs toward the lightest level */
+    float dark;   /* how far the band below sinks toward the darkest */
+} Gains;
+
+static const Gains GAINS[3] = { { 0.80f, 0.60f }, { 0.95f, 0.85f }, { 1.05f, 1.00f } };
+static const float HORIZON = 0.12f;   /* the reflection's elevation over which the line between the bands passes: a thin soft line */
+
+static const Gains *gains(int strength) { return &GAINS[strength < 1 ? 0 : strength > 3 ? 2 : strength - 1]; }
+
+static float smooth(float x) { return x >= 1.0f ? 1.0f : x <= 0.0f ? 0.0f : x * x * (3.0f - 2.0f * x); }
+
+float car_shine_level(const float normal[3], const float view[3], const float up[3], int strength)
 {
+    const Gains *g = gains(strength);
     const float d = view[0] * normal[0] + view[1] * normal[1] + view[2] * normal[2];
-    float r[3];
-    for (int k = 0; k < 3; k++) r[k] = view[k] - 2.0f * d * normal[k];
-    const float up = clampf(r[1], -1.0f, 1.0f);   /* the exe's camera y is up (view_project: screen y = centre - y) */
+    float e = 0;   /* the reflection's elevation over the world's horizon */
+    for (int k = 0; k < 3; k++) e += (view[k] - 2.0f * d * normal[k]) * up[k];
+    e = clampf(e, -1.0f, 1.0f);
     const float top = (float)(CAR_SHINE_LEVELS - 1 - CAR_SHINE_NEUTRAL);
-    /* the sky band above, the shade below, and wide soft streaks along the reflection's sideways drift */
-    float level = CAR_SHINE_NEUTRAL + (up > 0 ? powf(up, 0.6f) * top * 0.75f : up * CAR_SHINE_NEUTRAL * 0.9f);
-    const float streak = powf(fmaxf(0.0f, cosf(7.0f * (r[0] + 0.6f * (up * 0.5f + 0.5f)) + 6.2832f * phase)), 6.0f);
-    level += streak * top * 0.45f * (0.35f + 0.65f * fmaxf(up, 0.0f));
+    const float level = e >= 0 ? CAR_SHINE_NEUTRAL + top * g->sky * smooth(e / HORIZON)
+                               : CAR_SHINE_NEUTRAL - CAR_SHINE_NEUTRAL * g->dark * smooth(-e / HORIZON) * (0.8f + 0.2f * -e);
     return clampf(level, 0.0f, (float)(CAR_SHINE_LEVELS - 1));
 }
