@@ -178,7 +178,7 @@ static const uint8_t *dash_art_layer(const Cockpit *c)
 
 /* port: a box of the 640 dash where it lands on the wide screen (screen_dash_x / _y), drawn from `art` (LAYER_KEY
  * left alone) */
-static void wide_art_placed(const LayerRect *r, const uint8_t *art)
+static void wide_art_placed(const LayerRect *r, const uint8_t *art, uint8_t *into, int as_class)
 {
     const int *column = screen_dash_columns(drive_wide.width);
     const int width = drive_wide.width < SCREEN_DASH_MOST_WIDTH ? drive_wide.width : SCREEN_DASH_MOST_WIDTH;
@@ -189,7 +189,7 @@ static void wide_art_placed(const LayerRect *r, const uint8_t *art)
             const int sx = column[x];
             if (sx < r->left || sx >= r->right) continue;
             const uint8_t p = art[sy * SCREEN_W + sx];
-            if (p != LAYER_KEY) drive_wide_canvas()[(size_t)y * drive_wide.width + x] = p;
+            if (p != LAYER_KEY) into[(size_t)y * drive_wide.width + x] = as_class ? (uint8_t)PSX_CLASS_DASH : p;
         }
     }
 }
@@ -334,7 +334,8 @@ enum { LIGHTS_PAD_LEFT = 2, LIGHTS_PAD_RIGHT = 14, LIGHTS_PAD_TOP = 3, LIGHTS_PA
 
 static int in_rect(int x, int y, int left, int top, int w, int h) { return x >= left && x < left + w && y >= top && y < top + h; }
 
-static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car)
+/* `placed`: the 640 box where the map was and the dash is drawn instead (wide_art_placed), NULL when the map is there or it is not the dash */
+static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car, const LayerRect *placed)
 {
     static uint8_t classes[SCREEN_W * SCREEN_H], *shadow;
     static size_t shadow_size;
@@ -364,6 +365,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
             classes[y * SCREEN_W + x] = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
         }
     memset(shadow, LAYER_KEY, out);
+    if (placed != NULL) wide_art_placed(placed, art, shadow, 1);   /* the dash placed where the map was is the dash's: half the tint, not the 3D's */
     layer_compose(c, classes, shadow);
     drive_light_world_class(shadow, drive_wide.width, SCREEN_H, drive_wide.scale);
 }
@@ -434,10 +436,10 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     if (police) memset(drive_wide_canvas(), 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     else if (drive_wide.scale > 1) memset(drive_wide.layer, LAYER_KEY, (size_t)drive_wide.width * SCREEN_H);  /* the 3D shows through */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
-    if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit));  /* the dash where the map was */
+    if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit), drive_wide_canvas(), 0);  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
     compose_banded(&c, frame);
-    if (drive_light_active()) compose_classes(&c, frame, in_car);
+    if (drive_light_active()) compose_classes(&c, frame, in_car, in_car && box_on ? &map : NULL);
     const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
     if (mirror_on) {  /* the picture's place in the layer, as wide_mirror puts it */
         const int left = (int)((int64_t)(drive_hud.mirror_x - mirror.left) * mirror_scale >> 16);
