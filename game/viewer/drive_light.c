@@ -55,16 +55,6 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
     platform_free_file(file);
 }
 
-/* the tunnels can only be where the light script has a context (psx_light_set_zone): the segment of each node is in one or not */
-static void set_zone(void)
-{
-    uint8_t *zone = malloc(light.nodes);
-    if (zone == NULL) return;
-    for (uint32_t n = 0; n < light.nodes; n++) zone[n] = (uint8_t)psx_lgs_inside(&ambient, (int)(n >> 2));
-    psx_light_set_zone(&light, zone);
-    free(zone);
-}
-
 /* dawn and dusk: the PS1's own sky (Z<TRACK><A|C>.INF and .PSH) for the race; the day, a missing or unreadable file, or only the INF
  * leave the track's own sky (tinted with the world) */
 static void load_sky(const char *psx_dir, const char *track, char letter)
@@ -138,7 +128,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     ambient_nodes = ring_nodes;
     if (ambient_ok) {
         ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
-        set_zone();
+        psx_light_set_script(&light, &ambient);   /* the exe's light of the track's points */
         split = 1;
     }
     const PsxLamp *lamps = NULL;

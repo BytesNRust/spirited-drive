@@ -23,21 +23,25 @@ int psx_light_parse(const uint8_t *file, size_t size, uint32_t expected_nodes, P
 void psx_light_free(PsxLight *light)
 {
     free(light->data);
-    free(light->zone);
     light->data = NULL;
-    light->zone = NULL;
+    light->scripted = 0;
     light->nodes = 0;
 }
 
-int psx_light_set_zone(PsxLight *light, const uint8_t *zone)
+int psx_light_set_script(PsxLight *light, const PsxLgs *script)
 {
-    if (light == NULL || light->data == NULL || zone == NULL) return 0;
-    uint8_t *copy = malloc(light->nodes);
-    if (copy == NULL) return 0;
-    memcpy(copy, zone, light->nodes);
-    free(light->zone);
-    light->zone = copy;
+    if (light == NULL || light->data == NULL || script == NULL) return 0;
+    light->script = *script;
+    light->scripted = 1;
     return 1;
+}
+
+uint8_t psx_light_byte(const PsxLight *light, uint32_t node, int point)
+{
+    if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= PSX_LIGHT_POINTS) return PSX_LIGHT_FULL;
+    node %= light->nodes;
+    if (node == light->nodes - 1) node--;
+    return light->data[(size_t)node * PSX_LIGHT_POINTS + (size_t)point];
 }
 
 static int row_is_tunnel(const uint8_t *row)
@@ -50,7 +54,8 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node)
     if (light == NULL || light->data == NULL || light->nodes < 2) return 0;
     node %= light->nodes;
     if (node == light->nodes - 1) node--;
-    return (light->zone == NULL || light->zone[node]) && row_is_tunnel(light->data + (size_t)node * PSX_LIGHT_POINTS);
+    if (light->scripted) return psx_lgs_switched(&light->script, (int)(node >> 2));
+    return row_is_tunnel(light->data + (size_t)node * PSX_LIGHT_POINTS);
 }
 
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
@@ -59,6 +64,12 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
     node %= light->nodes;
     if (node == light->nodes - 1) node--;
     const uint8_t *row = light->data + (size_t)node * PSX_LIGHT_POINTS;
+    if (light->scripted) {   /* the exe's light: the context's colour or the LGT through T, as the luminance of the three channels */
+        float f[3];
+        psx_lgs_light(&light->script, (int)node, row[point], f);
+        const float y = 0.30f * f[0] + 0.59f * f[1] + 0.11f * f[2];
+        return (uint8_t)(y >= 1.0f ? 255 : y <= 0.0f ? 0 : y * 255.0f + 0.5f);
+    }
     const int tunnel = psx_light_tunnel(light, node);
     /* in a tunnel a 0 beyond a lit wall foot (point 2 right, 7 left) is no data, not black: the PS1 shows its walls and pillars at about half light;
      * anywhere else (a cutting, a bridge's shade) a 0 is the black it says */

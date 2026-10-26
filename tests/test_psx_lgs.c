@@ -194,19 +194,67 @@ static void test_mask_rect(void)
     for (int i = 0; i < 48; i++) CHECK_EQ_INT(untouched[i], 0);
 }
 
-static void test_inside(void)
+/* the exe's light of a point (T, the block's context, the node's parity) */
+static void test_exe_light(void)
 {
-    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 2, { { 0 } } };
-    lgs.contexts[0] = (PsxLgsContext){ 10, 12, PSX_LGS_FIXED, { 64, 64, 64 }, { 0, 0, 0 } };
-    lgs.contexts[1] = (PsxLgsContext){ 20, 20, PSX_LGS_RAMP, { 64, 64, 64 }, { 90, 90, 90 } };
-    CHECK(!psx_lgs_inside(&lgs, 9) && psx_lgs_inside(&lgs, 10) && psx_lgs_inside(&lgs, 12) && !psx_lgs_inside(&lgs, 13));   /* the blend does not count */
-    CHECK(psx_lgs_inside(&lgs, 20) && !psx_lgs_inside(&lgs, 21));
-    CHECK(!psx_lgs_inside(NULL, 10));
+    CHECK_EQ_INT(psx_exe_t(0), 32);
+    CHECK_EQ_INT(psx_exe_t(255), PSX_EXE_FULL);
+    CHECK_EQ_INT(psx_exe_t(128), 96);
+    CHECK_EQ_INT(psx_exe_t(510), 255);   /* clamped */
+    CHECK_EQ_INT(psx_exe_t(-5), 32);
+    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 3, { { 0 } } };
+    lgs.contexts[0] = (PsxLgsContext){ 266, 292, PSX_LGS_RAMP, { 128, 115, 96 }, { 60, 60, 60 } };
+    lgs.contexts[1] = (PsxLgsContext){ 125, 125, PSX_LGS_FIXED, { 128, 115, 96 }, { 0, 0, 0 } };
+    lgs.contexts[2] = (PsxLgsContext){ 10, 10, PSX_LGS_FIXED, { 198, 198, 198 }, { 0, 0, 0 } };
+    float f[3];
+    psx_lgs_light(&lgs, 1200, 255, f);   /* open road: the LGT through T; the lit road is 1 */
+    CHECK(f[0] == 1.0f && f[1] == 1.0f && f[2] == 1.0f);
+    psx_lgs_light(&lgs, 1200, 0, f);     /* T's floor: 0.2, not black */
+    CHECK(f[0] > 0.199f && f[0] < 0.201f);
+    psx_lgs_light(NULL, 7, 128, f);      /* no script */
+    CHECK(f[1] == 0.6f);
+    psx_lgs_light(&lgs, 1100, 255, f);   /* in the tunnel (block 275): the context's colour, the LGT not read; even node: its first colour */
+    CHECK(f[0] == 96.0f / 160 && f[2] == 80.0f / 160);
+    psx_lgs_light(&lgs, 1101, 255, f);   /* odd node: its second colour (60: 32 + 30 = 62) */
+    CHECK(f[0] == 62.0f / 160 && f[1] == f[0]);
+    psx_lgs_light(&lgs, 1100, 0, f);     /* the same with another LGT byte */
+    CHECK(f[0] == 96.0f / 160);
+    psx_lgs_light(&lgs, 500, 255, f);    /* a FIXED context (block 125): the colour whatever the node's parity */
+    psx_lgs_light(&lgs, 501, 255, f);
+    CHECK(f[0] == 96.0f / 160 && f[2] == 80.0f / 160);
+    psx_lgs_light(&lgs, 40, 255, f);     /* CY2's 198: 32 + 99 = 131, 0.82 (a multiplier of 1.56 it is not) */
+    CHECK(f[0] == 131.0f / 160);
+    psx_lgs_light(&lgs, 1063, 255, f);   /* the segment before the tunnel's first block (265): no blend at the edge */
+    CHECK(f[0] == 1.0f);
+}
+
+/* a ring that is not a power of two (CY1's 1920) wraps by a modulo: a mask read node 1200 as 1072, inside the tunnel */
+static void test_ring_and_car(void)
+{
+    CHECK_EQ_INT(psx_ring_node(1200, 1920), 1200);
+    CHECK_EQ_INT(psx_ring_node(1920, 1920), 0);
+    CHECK_EQ_INT(psx_ring_node(1921 + 1920, 1920), 1);
+    CHECK_EQ_INT(psx_ring_node(-1, 1920), 1919);
+    CHECK_EQ_INT(psx_ring_node(7, 0), 0);
+    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 1, { { 0 } } };
+    lgs.contexts[0] = (PsxLgsContext){ 266, 292, PSX_LGS_RAMP, { 128, 115, 96 }, { 60, 60, 60 } };
+    float r[3];
+    psx_lgs_car_ratio(&lgs, 1920, 1200, 255, 16, r);   /* open road, segment 300 (masked: 1072, segment 268, the tunnel) */
+    CHECK(r[0] == 1.0f && r[1] == 1.0f && r[2] == 1.0f);
+    psx_lgs_car_ratio(&lgs, 1920, 1160, 255, 16, r);   /* the tunnel's last segments (290; masked 1032, no context): its first colour, even node */
+    CHECK(r[0] == 0.625f && r[2] == 0.5f);
+    psx_lgs_car_ratio(&lgs, 1920, 1161, 255, 16, r);   /* odd: the second, the lamps' alternation */
+    CHECK(r[0] == 0.375f && r[2] == 0.375f);
+    psx_lgs_car_ratio(&lgs, 1920, 1161 + 1920, 255, 16, r);   /* a lap on: the same place */
+    CHECK(r[0] == 0.375f);
+    psx_lgs_car_ratio(&lgs, 1920, 1200, 0, 16, r);     /* a dark LGT byte: 0.2 in sixteenths */
+    CHECK(r[0] == 3.0f / 16);
 }
 
 int main(void)
 {
-    test_inside();
+    test_exe_light();
+    test_ring_and_car();
     test_switched();
     test_mask_rect();
     test_palette_tint();

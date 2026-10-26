@@ -40,9 +40,24 @@ void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float ou
  * the edges are exact, no blend. 0 for NULL. */
 int psx_lgs_switched(const PsxLgs *lgs, int segment);
 
-/* 1 when `segment` is inside any context, fixed or ramped (the edges exact, no blend): the stretches the track's light script names, tunnels and the
- * bridges and underpasses among them. 0 for NULL. */
-int psx_lgs_inside(const PsxLgs *lgs, int segment);
+/* The exe's light of a track point (0x8003DAD0 fills the colour, 0x8003D380 the table T): the light script's contexts are by BLOCK (a block is 4 nodes,
+ * the segment) with no blend at their edges. In a block with a context of mode PSX_LGS_FIXED or PSX_LGS_RAMP (0x40: its colour is added) the point's
+ * input is the context's colour alone (the LGT is read only by a mode with 0x80, the default of a block with no context); a RAMP context (0x20)
+ * takes its second colour on odd nodes and its first on even ones, the lamps' alternation. Per channel k = colour + LGT, C = T[k] and the light is
+ * C / PSX_EXE_FULL: the lit road (LGT 255, no context) is 1, LGT 0 is 0.2 (T's floor of 32), a context's colour 128 is 0.6. T[k] = min(255, 32 + 128 k / 255).
+ * `lgt` is the LGT byte of the point (the file's), `lgs` may be NULL (no contexts). Not capped above (a colour of 255 is 1.59). The exe takes C / 128 as
+ * its modulate factor, which makes the lit road 1.25: the port keeps the lit road at 1 (PSX_EXE_FULL = T[255] = 160), the one constant to change for that. */
+enum { PSX_EXE_FULL = 160 };
+
+/* `node` on a ring of `ring_nodes`: the node the road's data (the light, the script's blocks) is of. The rings are not powers of two (CY1 has 1920), so
+ * this is a modulo, never a mask. */
+uint32_t psx_ring_node(int32_t node, uint32_t ring_nodes);
+int psx_exe_t(int k);
+void psx_lgs_light(const PsxLgs *lgs, int node, int lgt, float out[3]);
+
+/* The factor a car's (and the dash's) colours are scaled by at `node` of a ring of `ring_nodes`: the exe's light of the road's centre point there
+ * (`lgt` its LGT byte), rounded to 1/`step` and at most 2. The node is the car's own (the exe gives every car the viewer's). Exactly 1 where the light is full. */
+void psx_lgs_car_ratio(const PsxLgs *lgs, uint32_t ring_nodes, int32_t node, int lgt, int step, float out[3]);
 
 /* The ambient at `segment` over the world's `tint`, per channel, rounded to 1/`step` and at most 2 (a tint under 0.01 counts as 0.01): what the
  * cars' and the dash's colours are scaled by. Exactly 1 where the ambient is what the world already has. */

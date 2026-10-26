@@ -81,12 +81,46 @@ int psx_lgs_switched(const PsxLgs *lgs, int segment)
     return 0;
 }
 
-int psx_lgs_inside(const PsxLgs *lgs, int segment)
+uint32_t psx_ring_node(int32_t node, uint32_t ring_nodes)
 {
-    if (lgs == NULL) return 0;
-    for (int c = 0; c < lgs->context_count; c++)
-        if (segment >= lgs->contexts[c].seg_ini && segment <= lgs->contexts[c].seg_fin) return 1;
-    return 0;
+    if (ring_nodes == 0) return 0;
+    const int64_t n = node % (int64_t)ring_nodes;
+    return (uint32_t)(n < 0 ? n + ring_nodes : n);
+}
+
+int psx_exe_t(int k)
+{
+    k = k < 0 ? 0 : k > 511 ? 511 : k;
+    const int v = 32 + 128 * k / 255;
+    return v > 255 ? 255 : v;
+}
+
+void psx_lgs_light(const PsxLgs *lgs, int node, int lgt, float out[3])
+{
+    const PsxLgsContext *x = NULL;
+    for (int c = 0; lgs != NULL && c < lgs->context_count; c++)
+        if ((node >> 2) >= lgs->contexts[c].seg_ini && (node >> 2) <= lgs->contexts[c].seg_fin) {
+            x = &lgs->contexts[c];
+            break;
+        }
+    for (int k = 0; k < 3; k++) {
+        int input = lgt;
+        if (x != NULL) {
+            const int *colour = (x->mode & 0x20) && (node & 1) ? x->c2 : x->c1;
+            input = ((x->mode & 0x40) ? colour[k] : 0) + ((x->mode & 0x80) ? lgt : 0);
+        }
+        out[k] = (float)psx_exe_t(input) / (float)PSX_EXE_FULL;
+    }
+}
+
+void psx_lgs_car_ratio(const PsxLgs *lgs, uint32_t ring_nodes, int32_t node, int lgt, int step, float out[3])
+{
+    const int n = (int)psx_ring_node(node, ring_nodes);
+    psx_lgs_light(lgs, n, lgt, out);
+    for (int k = 0; k < 3; k++) {
+        const int q = (int)(out[k] * (float)step + 0.5f);
+        out[k] = (float)(q > 2 * step ? 2 * step : q) / (float)step;
+    }
 }
 
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3])

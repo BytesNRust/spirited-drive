@@ -1,7 +1,6 @@
 #include "game/race/psx_lamps.h"
 
 #include <ctype.h>
-#include <math.h>
 #include <string.h>
 
 /* CY1: the ceiling's white oval (x 33-41, y 68-76 of byte 38's 80 x 80); CY2: the amber fitting (byte 37); CY3: the ceiling lamp (byte 20)
@@ -32,44 +31,6 @@ int psx_lamps_for(const char *track, const PsxLamp **out)
             return TRACKS[i].count;
         }
     return 0;
-}
-
-int psx_lamp_lit(double node_position, double v)
-{
-    const double along = node_position / PSX_LAMP_NODES;
-    double d = fabs(along - floor(along) - v);
-    if (d > 0.5) d = 1.0 - d;
-    return d <= PSX_LAMP_DUTY / 2;
-}
-
-double psx_lamp_place(const PsxLamp *lamp, int width)
-{
-    if (lamp == NULL || width <= 0) return 0.5;
-    const int x1 = lamp->rect[2] >= width ? width - 1 : lamp->rect[2];
-    const double u = (lamp->rect[0] + x1 + 1) / 2.0 / width;
-    return 1.0 - u;
-}
-
-uint32_t psx_ring_node(int32_t node, uint32_t ring_nodes)
-{
-    if (ring_nodes == 0) return 0;
-    const int64_t n = node % (int64_t)ring_nodes;
-    return (uint32_t)(n < 0 ? n + ring_nodes : n);
-}
-
-/* the PS1 car under a lamp takes a warmer, a little brighter light than between them, in hard steps; the ratios measured on the PS1 clip
- * against the daylight (red ~0.43 / 0.52, green the same, blue a little less lit), in 1/16 */
-const float PSX_TUNNEL_UNLIT[3] = { 7.0f / 16, 7.0f / 16, 7.0f / 16 };
-const float PSX_TUNNEL_LIT[3] = { 9.0f / 16, 7.0f / 16, 6.0f / 16 };
-
-void psx_light_car_ratio(const PsxLgs *lgs, uint32_t ring_nodes, int32_t node, double position, double lamp_v, const float tint[3], int step, float out[3])
-{
-    const uint32_t n = psx_ring_node(node, ring_nodes);
-    psx_lgs_ratio(lgs, (int)(n >> 2), (int)(ring_nodes >> 2), tint, step, out);
-    if (lamp_v >= 0 && psx_lgs_switched(lgs, (int)(n >> 2))) {
-        const int lit = psx_lamp_lit(position, lamp_v);
-        for (int k = 0; k < 3; k++) out[k] = lit ? PSX_TUNNEL_LIT[k] : PSX_TUNNEL_UNLIT[k];
-    }
 }
 
 void psx_lamp_exempt(const PsxLamp *lamp, const uint8_t *pixels, int w, int h, uint8_t exempt[256])

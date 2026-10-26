@@ -65,7 +65,7 @@ static void test_tunnel_wall_floor(void)
         255, 255, 255, 0, 200, 0, 255, 40, 0, 0, 0,  /* lit wall foot, one point 0 beyond; no tunnel on either side */
         0,                                           /* the file's last node, not light */
     };
-    const PsxLight light = { rows, 4, NULL };
+    const PsxLight light = { .data = rows, .nodes = 4 };
     CHECK_EQ_INT(psx_light_at(&light, 0, 2), 126);
     CHECK_EQ_INT(psx_light_at(&light, 0, 3), PSX_LIGHT_WALL);
     CHECK_EQ_INT(psx_light_at(&light, 0, 5), PSX_LIGHT_WALL);
@@ -77,30 +77,34 @@ static void test_tunnel_wall_floor(void)
     CHECK_EQ_INT(psx_light_at(&light, 2, 4), 200);
 }
 
-/* a tunnel can only be inside the light script's zone: a row with the tunnel's look outside it (a cutting, CL2's rows that are no tunnel) keeps its bytes,
- * and a tunnel row inside keeps the look */
-static void test_zone(void)
+/* with the track's light script the points are the exe's: the context's colour in a tunnel, the LGT through T elsewhere, as grey; the fitted rules are not used */
+static void test_script(void)
 {
-    static uint8_t rows[4 * PSX_LIGHT_POINTS] = {
-        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,   /* the tunnel's look */
-        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,   /* the same look */
-        255, 255, 200, 90, 100, 100, 255, 255, 60, 70, 80,   /* inside the zone, lit beyond the foot (CL2's tunnel rows): no look */
+    static uint8_t rows[6 * PSX_LIGHT_POINTS] = {
+        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,   /* nodes 0, 1: a block with a RAMP context (the tunnel) */
+        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,
+        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,   /* nodes 2, 3 the same bytes */
+        255, 255, 255, 0, 0, 0, 255, 150, 0, 0, 0,
+        255, 255, 255, 0, 200, 0, 255, 40, 0, 60, 0, /* node 4: block 1, no context */
         0,
     };
-    PsxLight light = { rows, 4, NULL };
-    CHECK(psx_light_tunnel(&light, 0) && psx_light_tunnel(&light, 1));   /* no zone: the row alone decides */
-    const uint8_t zone[4] = { 1, 0, 1, 0 };
-    CHECK(psx_light_set_zone(&light, zone));
-    CHECK(psx_light_tunnel(&light, 0));
-    CHECK(!psx_light_tunnel(&light, 1));                                  /* the look outside the zone */
-    CHECK_EQ_INT(psx_light_at(&light, 1, 3), 0);                          /* is not a tunnel's: the 0 stays, the road is not dimmed */
-    CHECK_EQ_INT(psx_light_at(&light, 1, 0), 255);
-    CHECK_EQ_INT(psx_light_at(&light, 0, 3), PSX_LIGHT_WALL);
-    CHECK_EQ_INT(psx_light_at(&light, 0, 0), PSX_LIGHT_TUNNEL_ROAD);
-    CHECK_EQ_INT(psx_light_at(&light, 2, 4), 100);                        /* a lit row inside the zone keeps its own values */
-    CHECK_EQ_INT(psx_light_at(&light, 2, 2), 200);
-    CHECK(!psx_light_set_zone(&light, NULL));
-    free(light.zone);
+    PsxLight light = { .data = rows, .nodes = 6 };
+    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 1, { { 0 } } };
+    lgs.contexts[0] = (PsxLgsContext){ 0, 0, PSX_LGS_RAMP, { 128, 128, 128 }, { 60, 60, 60 } };
+    CHECK(psx_light_set_script(&light, &lgs));
+    CHECK(psx_light_tunnel(&light, 0) && psx_light_tunnel(&light, 3));        /* the RAMP context's block, whatever the rows say */
+    CHECK(!psx_light_tunnel(&light, 4));                                      /* and not the rest, whatever the rows say */
+    CHECK_EQ_INT(psx_light_at(&light, 0, 0), 153);                            /* even node: colour 128 -> T 96 -> 0.6 */
+    CHECK_EQ_INT(psx_light_at(&light, 0, 8), 153);                            /* every point of the row the same: the LGT is not read */
+    CHECK_EQ_INT(psx_light_at(&light, 1, 0), 99);                             /* odd node: colour 60 -> T 62 -> 0.3875 */
+    CHECK_EQ_INT(psx_light_at(&light, 4, 0), 255);                            /* outside: the lit road is 1 */
+    CHECK_EQ_INT(psx_light_at(&light, 4, 3), 51);                             /* LGT 0 is 0.2, not black */
+    CHECK_EQ_INT(psx_light_at(&light, 4, 4), 210);                            /* LGT 200: T 32 + 100 = 132, 0.825 */
+    CHECK_EQ_INT(psx_light_byte(&light, 4, 4), 200);
+    CHECK_EQ_INT(psx_light_byte(&light, 5, 4), 200);                          /* the last node is not light: the one before */
+    CHECK_EQ_INT(psx_light_byte(&light, 4 + 6, 4), 200);                      /* the ring wraps */
+    CHECK_EQ_INT(psx_light_byte(NULL, 1, 1), PSX_LIGHT_FULL);
+    CHECK(!psx_light_set_script(&light, NULL));
 }
 
 /* inside a tunnel (a lit wall foot with 0s beyond it, on either side) the road's own points are dimmed to PSX_LIGHT_TUNNEL_ROAD: the PS1
@@ -114,7 +118,7 @@ static void test_tunnel_road(void)
         100, 100, 126, 0, 0, 0, 100, 128, 0, 0, 0,       /* a tunnel with a road darker than the dim already */
         0,
     };
-    const PsxLight light = { rows, 5, NULL };
+    const PsxLight light = { .data = rows, .nodes = 5 };
     CHECK_EQ_INT(psx_light_at(&light, 0, 0), PSX_LIGHT_TUNNEL_ROAD);
     CHECK_EQ_INT(psx_light_at(&light, 0, 6), PSX_LIGHT_TUNNEL_ROAD);
     CHECK_EQ_INT(psx_light_at(&light, 0, 1), PSX_LIGHT_TUNNEL_ROAD);
@@ -135,7 +139,7 @@ static void test_tunnel_road(void)
 int main(void)
 {
     test_tunnel_road();
-    test_zone();
+    test_script();
     test_tunnel_wall_floor();
     test_parse_and_lookup();
     test_rejected_files();

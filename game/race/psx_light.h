@@ -7,6 +7,8 @@
 #ifndef TNFS_PSX_LIGHT_H
 #define TNFS_PSX_LIGHT_H
 
+#include "game/race/psx_lgs.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -15,21 +17,25 @@ enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LI
 typedef struct {
     uint8_t *data;      /* nodes * PSX_LIGHT_POINTS bytes (owned), NULL when none is loaded */
     uint32_t nodes;
-    uint8_t *zone;      /* nodes bytes (owned): 1 for a node of a stretch the track's light script names (psx_light_set_zone); NULL none */
+    PsxLgs script;      /* the track's light script (psx_light_set_script), read when `scripted` */
+    int scripted;
 } PsxLight;
 
 /* The file's bytes as a PsxLight: its node count must be `expected_nodes` (the track's ring nodes) and the file at least as
  * long as the rows. 1 on success; `out` is untouched otherwise. */
 int psx_light_parse(const uint8_t *file, size_t size, uint32_t expected_nodes, PsxLight *out);
 
-/* The nodes where a tunnel can be: `zone` (light->nodes bytes, copied) is 1 for a node inside one of the light script's contexts (the LGS, whose mode-96
- * contexts are the tunnels and whose fixed ones the underpasses). A row has the tunnel's look (psx_light_tunnel) only inside the zone, so a cutting or
- * a bridge's shade elsewhere keeps its own bytes; a track whose script does not read has no zone and the row alone decides. 1 on success. */
-int psx_light_set_zone(PsxLight *light, const uint8_t *zone);
+/* The track's light script (the LGS, copied): the points' light is then the exe's (psx_lgs_light, by block and node parity, as grey: the luminance of the
+ * three channels, 0..255 with 255 the lit road), the tunnels are the script's RAMP contexts, and the fitted rules below are not used. Without one the
+ * LGT's bytes are read as they are and the fitted rules stand. 1 on success. */
+int psx_light_set_script(PsxLight *light, const PsxLgs *script);
+
+/* The LGT byte of a point as the file has it (the node taken modulo the nodes, the last node as the one before it; PSX_LIGHT_FULL out of range). */
+uint8_t psx_light_byte(const PsxLight *light, uint32_t node, int point);
 
 void psx_light_free(PsxLight *light);
 
-/* 1 when node `node`'s row is a tunnel's (inside the zone, when there is one): a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
+/* 1 when node `node` is in a tunnel: in a script's RAMP context, or without a script its row is a tunnel's: a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
  * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
 int psx_light_tunnel(const PsxLight *light, uint32_t node);
 
