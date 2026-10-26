@@ -91,6 +91,18 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 
 static int time_tinted;
 
+/* A track the PS1 CD holds no light for (Burnt Sienna is tr6 and its ZTR6 has other nodes, Transtropolis is tr7 and has no Z file): a flat ambient
+ * for the time, no light at the nodes. The average of the three TR tracks whose scripts give a time of day (ZTR1, ZTR2, ZTR3's LGS start colours, as
+ * a part of 128), dawn then dusk; the one place to change for a pick per track. */
+static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.55f, 0.46f } };
+
+static void use_fallback_tint(int time)
+{
+    const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK];
+    tint[0] = f[0], tint[1] = f[1], tint[2] = f[2];
+    port_log("psx_light: no light of this track, the flat ambient of the time: tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
+}
+
 int drive_light_time_tinted(void) { return time_tinted || split; }
 
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
@@ -114,6 +126,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     uint8_t *file = platform_read_file(path, &size);
     if (file == NULL) {
         port_log("psx_light: no %s\n", path);
+        if (time != PSX_TIME_DAY) use_fallback_tint(time);
         return;
     }
     PsxLight parsed = { 0 };
@@ -121,6 +134,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     platform_free_file(file);
     if (!ok) {
         port_log("psx_light: %s does not fit the track (%u nodes)\n", path, ring_nodes);
+        if (time != PSX_TIME_DAY) use_fallback_tint(time);
         return;
     }
     light = parsed;
