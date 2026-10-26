@@ -7,6 +7,8 @@
 #include <string.h>
 
 enum { MAX_VERTS = 8 };
+static const float EDGE_GROW = 0.45f;   /* modern_road.c's: a polygon's outer edges reach this much of a pixel out */
+static const float ROW_REACH = 0.5f;    /* the exe's mapper rounds a row's ends: half a pixel past an outer edge, either way (the square the mapper's rounding spans) */
 static const float IZ_MIN = 1e-9f;
 
 /* the 4x4 ordered dither's thresholds, as modern_road.c's: (BAYER + 0.5) / 16 by (y & 3, x & 3) */
@@ -31,13 +33,21 @@ static float edge(const Screen *a, const Screen *b, float x, float y)
     return (b->sx - a->sx) * (y - a->sy) - (b->sy - a->sy) * (x - a->sx);
 }
 
-/* The pass follows each polygon's own exe draw, which overwrites whatever a neighbour drew there, so it may reach every pixel the exe's mapper
- * fills, however it rounds: a pixel whose centre lies within half a pixel of the outline is the polygon's (an outer edge). A pixel missed here
- * is left dark along the seam against its shined neighbours. Only the diagonals inside one polygon's fan are exact, a centre on one belonging to
- * the side the edge's direction names, as the fan's two triangles would otherwise shine it twice (the pass is not idempotent). */
+/* The pass follows each polygon's own exe draw, which overwrites whatever a neighbour drew there, so it reaches exactly the pixels that draw
+ * fills: the closed outline, a pixel on an edge included (a shared edge is drawn by both polygons, the later over the earlier, and each
+ * pass follows its own draw). One pixel more is a pixel the polygon did not redraw, shined twice (a light line down a seam); one less is a dark
+ * dot. Only the diagonals inside one polygon's fan are exact: a pixel on one belongs to the side the edge's direction names, as the fan's two
+ * triangles are one draw. `origin` is where a pixel sits in the coordinates: the exe's affine mapper has no centre offset (0), the 3D one
+ * (modern_road.c) takes pixel centres (0.5) and grows a polygon's outer edges by EDGE_GROW of a pixel (`grow`), as this does. */
 typedef struct {
     int outer_ab, outer_bc, outer_ca;
 } Outline;
+
+/* the least edge value a pixel may have: nothing for an inside diagonal, `grow` pixels past an outer edge (the edge value is the distance times its length) */
+static float reach(const Screen *from, const Screen *to, int outer, float grow, float row_reach)
+{
+    return outer ? -grow * hypotf(to->sx - from->sx, to->sy - from->sy) - row_reach * (fabsf(to->sy - from->sy) + fabsf(to->sx - from->sx)) : 0.0f;
+}
 
 static int owns_tie(const Screen *from, const Screen *to)
 {
@@ -45,13 +55,8 @@ static int owns_tie(const Screen *from, const Screen *to)
     return dy > 0 || (dy == 0 && dx < 0);
 }
 
-/* the least edge value a pixel centre may have: nothing for an inside diagonal, the pixel's half extent past an outer edge */
-static float reach(const Screen *from, const Screen *to, int outer)
-{
-    return outer ? -0.5f * (fabsf(to->sx - from->sx) + fabsf(to->sy - from->sy)) : 0.0f;
-}
-
-static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, const ShineClass *cls, ShineTables tables)
+static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin,
+                     float grow, float row_reach, const ShineClass *cls, ShineTables tables)
 {
     const float area = edge(a, b, c->sx, c->sy);
     if (fabsf(area) < 1e-6f) return;
@@ -62,7 +67,8 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
         o.outer_ab = o.outer_ca, o.outer_ca = u;
     }
     const float inv = 1.0f / fabsf(area);
-    const float min_bc = reach(b, c, o.outer_bc), min_ca = reach(c, a, o.outer_ca), min_ab = reach(a, b, o.outer_ab);
+    const float min_bc = reach(b, c, o.outer_bc, grow, row_reach), min_ca = reach(c, a, o.outer_ca, grow, row_reach),
+                min_ab = reach(a, b, o.outer_ab, grow, row_reach);
     const int own_bc = o.outer_bc || owns_tie(b, c), own_ca = o.outer_ca || owns_tie(c, a), own_ab = o.outer_ab || owns_tie(a, b);
     const int x0 = (int)fmaxf((float)q->clip_left, floorf(fminf(a->sx, fminf(b->sx, c->sx))) - 1),
               x1 = (int)fminf((float)q->clip_right - 1, ceilf(fmaxf(a->sx, fmaxf(b->sx, c->sx))) + 1);
@@ -70,9 +76,9 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
               y1 = (int)fminf((float)q->clip_bottom - 1, ceilf(fmaxf(a->sy, fmaxf(b->sy, c->sy))) + 1);
     for (int y = y0; y <= y1; y++) {
         uint8_t *row = q->pixels + (size_t)y * (size_t)q->pitch;
-        const float py = y + 0.5f;
+        const float py = y + origin;
         for (int x = x0; x <= x1; x++) {
-            const float px = x + 0.5f;
+            const float px = x + origin;
             const float ea = edge(b, c, px, py), eb = edge(c, a, px, py), ec = edge(a, b, px, py);
             if (ea < min_bc || eb < min_ca || ec < min_ab || (ea == 0 && !own_bc) || (eb == 0 && !own_ca) || (ec == 0 && !own_ab)) continue;
             const float wa = ea * inv, wb = eb * inv, wc = ec * inv;
@@ -92,9 +98,9 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
     }
 }
 
-static void fan(const QuadTarget *q, const Screen *s, int n, const ShineClass *cls, ShineTables tables)
+static void fan(const QuadTarget *q, const Screen *s, int n, float origin, float grow, float row_reach, const ShineClass *cls, ShineTables tables)
 {
-    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, cls, tables);
+    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, origin, grow, row_reach, cls, tables);
 }
 
 static void draw_affine(const QuadTarget *q, const ShineClass *cls, ShineTables tables, const int32_t screen[8], const int32_t uv[8],
@@ -103,7 +109,7 @@ static void draw_affine(const QuadTarget *q, const ShineClass *cls, ShineTables 
     Screen s[4];
     for (int i = 0; i < corners; i++)
         s[i] = (Screen){ (float)screen[2 * i], (float)screen[2 * i + 1], 1.0f, (float)uv[2 * i], (float)uv[2 * i + 1], level[i] };
-    fan(q, s, corners, cls, tables);
+    fan(q, s, corners, 0.0f, 0.0f, ROW_REACH, cls, tables);
 }
 
 typedef struct {
@@ -144,7 +150,7 @@ static void draw_camera(const QuadTarget *q, const ShineClass *cls, ShineTables 
         s[i] = (Screen){ kept_view->centre_x + out[i].x * focal * iz, kept_view->centre_y - out[i].y * focal * iz, iz, out[i].u * iz,
                          out[i].v * iz, out[i].l * iz };
     }
-    fan(q, s, n, cls, tables);
+    fan(q, s, n, 0.5f, EDGE_GROW, 0.0f, cls, tables);
 }
 
 enum { KIND_AFFINE = 0, KIND_CAMERA = 1 };

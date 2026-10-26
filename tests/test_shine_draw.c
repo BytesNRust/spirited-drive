@@ -112,18 +112,41 @@ static void test_a_shared_edge_between_polygons_leaves_no_gap(void)
     }
 }
 
-/* the exe's mapper also fills pixels its polygon only touches: a pixel whose centre is within a half pixel outside the outline is reached */
-static void test_a_pixel_the_outline_only_touches_is_reached(void)
+/* the exe's mapper has no pixel-centre offset: a pixel is the polygon's when its (x, y) lies in the closed outline, so a quad from (8,8) to (40,40)
+ * fills 8..40 on both axes. The pass keeps to those pixels, no more (a pixel past them was not redrawn by the polygon, and shining it again
+ * would brighten it twice: a light line down a seam) and no fewer (a dark dot) */
+static void test_the_exe_path_keeps_to_the_mappers_pixels(void)
 {
     setup();
     for (int i = 0; i < TEX * TEX; i++) klass[i] = 0;
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     const float level[4] = { 8, 8, 8, 8 };
     shine_draw_affine(&Q, &CLS, tables, screen, uv, level, 4);
-    CHECK(screen_px[20 * W + 7] != START);    /* the pixel just outside the left edge, its centre half a pixel out */
-    CHECK(screen_px[7 * W + 20] != START);    /* and above the top one */
-    CHECK_EQ_INT(screen_px[20 * W + 6], START);   /* a whole pixel out is not */
-    CHECK_EQ_INT(screen_px[6 * W + 20], START);
+    CHECK(screen_px[8 * W + 8] != START);     /* the corner pixel */
+    CHECK(screen_px[40 * W + 40] != START);   /* the far corner pixel */
+    CHECK(screen_px[20 * W + 8] != START && screen_px[20 * W + 40] != START);
+    CHECK(screen_px[8 * W + 20] != START && screen_px[40 * W + 20] != START);
+    CHECK_EQ_INT(screen_px[20 * W + 7], START);   /* one pixel out is not */
+    CHECK_EQ_INT(screen_px[20 * W + 41], START);
+    CHECK_EQ_INT(screen_px[7 * W + 20], START);
+    CHECK_EQ_INT(screen_px[41 * W + 20], START);
+}
+
+/* two quads side by side meeting on x = 24: the mapper draws column 24 for each, the later one over the earlier one's, and the pass follows each
+ * draw, so the column is shined once. Tables here stand for the exe's draw: it resets a pixel before each polygon's pass */
+static void test_the_columns_both_polygons_cover_are_shined_once_each_after_their_own_draw(void)
+{
+    setup();
+    for (int i = 0; i < TEX * TEX; i++) klass[i] = 0;
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++)
+        for (int i = 0; i < 255; i++) tables[l][i] = (uint8_t)(i + 1);   /* each pass adds one to what the pixel holds */
+    const int32_t left[8] = { 8, 8, 24, 8, 24, 40, 8, 40 }, right[8] = { 24, 8, 40, 8, 40, 40, 24, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    const float level[4] = { 5, 5, 5, 5 };
+    shine_draw_affine(&Q, &CLS, tables, left, uv, level, 4);
+    for (int y = 8; y <= 40; y++) screen_px[y * W + 24] = START;   /* the right quad's own draw over the shared column */
+    shine_draw_affine(&Q, &CLS, tables, right, uv, level, 4);
+    for (int y = 9; y < 40; y++) CHECK_EQ_INT(screen_px[y * W + 24], START + 1);
+    for (int y = 9; y < 40; y++) CHECK_EQ_INT(screen_px[y * W + 23], START + 1);   /* the left's own, not the right's reach */
 }
 
 /* a floor 10 below the eye from z 200 to 20, v 0 .. TEX over it: paint where v < TEX / 2. Perspective-correct, the boundary is at depth 110 */
@@ -201,7 +224,8 @@ int main(void)
     test_a_triangle_and_the_clip();
     test_the_diagonal_is_drawn_once();
     test_a_shared_edge_between_polygons_leaves_no_gap();
-    test_a_pixel_the_outline_only_touches_is_reached();
+    test_the_exe_path_keeps_to_the_mappers_pixels();
+    test_the_columns_both_polygons_cover_are_shined_once_each_after_their_own_draw();
     test_camera_pass_is_perspective_correct();
     test_a_polygon_behind_the_eye_draws_nothing();
     test_recorded_is_the_direct_draw();
