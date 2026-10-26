@@ -41,6 +41,7 @@ typedef struct {
     /* the render threads: 0 off (the plain path, as the exe draws it), -1 "auto" (as many as the logical cores,
      * at most eight), or a thread count. The TNFS_BANDS environment variable wins over this one. */
     int render_bands;        /* -1 (auto) */
+    int body_shine;          /* 1: a shine over the cars' paint that slides as the car turns and travels (body_shine.h, re/TODO.md); 0 the exe's frames */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -52,6 +53,8 @@ int port_psx_light(void);
 int port_psx_shadow(void);
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
+/* 1 when the cars have the body shine: TNFS_BODY_SHINE=0/1 when set, else port.cfg's body_shine. */
+int port_body_shine(void);
 /* The weather of the race: TNFS_WEATHER=clear|fog|rain when set, else port.cfg's weather (a WEATHER_* of weather.h). */
 int port_weather(void);
 

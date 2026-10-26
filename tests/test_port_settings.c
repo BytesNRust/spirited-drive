@@ -93,6 +93,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.laps, b.laps);
     CHECK_EQ_INT(a.weather, b.weather);
     CHECK_EQ_INT(a.render_bands, b.render_bands);
+    CHECK_EQ_INT(a.body_shine, b.body_shine);
 }
 
 static void test_defaults(void)
@@ -108,12 +109,13 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.texture_filter, 0);
     CHECK_EQ_INT(d.fog, 0);
     CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
+    CHECK_EQ_INT(d.body_shine, 0);      /* the exe's frames until asked */
 }
 
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 1 };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -234,6 +236,9 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).psx_shadow, 1);
     const char *bad_shadow = "psx_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
+    const char *shine = "body_shine=1\n", *bad_shine = "body_shine=2\n";
+    CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 1);
+    CHECK_EQ_INT(port_settings_parse(bad_shine, strlen(bad_shine)).body_shine, 0);
     const char *lit = "psx_light=1\n";
     CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
     const char *bad = "psx_light=2\n";
