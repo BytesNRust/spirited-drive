@@ -374,9 +374,9 @@ static int run_draft(const RepaintBank *bank, const BankMeta *meta, void *ctx)
     int paint = -1;
     if (ok) paint = car_repaint_draft(bank, j->floor, keeps);
     if (paint >= 0) {
-        const int second = bank->palettes > 1 && bank->palette[1] != NULL && (bank->type2 == 0x24 || bank->type2 == 0x22);
-        const uint8_t *pal = second ? bank->palette[1] : bank->palette[0];
-        const int shift = (second ? bank->type2 : bank->type) == 0x22 ? 2 : 0;
+        /* the bank's first palette ('!PAL') is what the textures' indices show; the second ('!xxx') holds only the car's own colours */
+        const uint8_t *pal = bank->palette[0];
+        const int shift = bank->type == 0x22 ? 2 : 0;
         uint8_t rgb[768];
         for (int i = 0; i < 768; i++) rgb[i] = (uint8_t)(pal[i] << shift);
         for (int t = 0; t < bank->texture_count; t++) {
