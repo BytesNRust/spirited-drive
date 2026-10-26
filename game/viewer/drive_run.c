@@ -639,6 +639,7 @@ static void frame_times_print(void)
 int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
     drive_wide_size(screen_width(drive_screen_format()));
+    start_at_node(&drive_sim.race);   /* port (dev, env only): TNFS_START_NODE, as the window run takes it */
     const char *view = getenv("TNFS_VIEW");
     if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
     const char *frames_env = getenv("TNFS_FRAMES");
