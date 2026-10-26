@@ -3,7 +3,10 @@
 #include "game/sys/port_log.h"
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
+#include "viewer/drive_light.h"
 #include "game/gfx/blit.h"
+#include "game/sys/fixed_math.h"
+#include "game/race/ai_lanes.h"
 #include "game/race/car_draw_setup.h"
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
@@ -16,6 +19,7 @@
 #include "game/sys/port_extras.h"
 
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -249,7 +253,32 @@ static void run_engines_start(void *ctx) { (void)ctx, race_sound_start_engine(&d
 static void run_forces_on(void *ctx) { (void)ctx, race_forces_enable(&drive_sim.race); }
 static void run_forces_clear(void *ctx) { (void)ctx, race_forces_clear(&drive_sim.race); }
 static void run_forces_off(void *ctx) { (void)ctx, race_forces_disable(&drive_sim.race); }
-static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; }  /* race_sim_start_field's */
+/* port (dev, env only): TNFS_START_NODE=N starts the player car on the road at node N (the road's centre, heading along it, standing), to
+ * capture a place the grid is far from: a tunnel, a bridge. Unset, the race starts as it always does. */
+static void start_at_node(RaceState *race)
+{
+    const char *at = getenv("TNFS_START_NODE");
+    Car *car = race->cars[0];
+    if (at == NULL || car == NULL || race->tri == NULL || race->tri->ring_nodes == 0) return;
+    const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
+    const int32_t node = (int32_t)((uint32_t)where % race->tri->ring_nodes);
+    car->node = node;
+    car->progress = node;
+    car->ai_target_lateral = 0;
+    car->steer = 0;
+    ai_snap_to_road(car, race);
+    car->yaw = (int32_t)((uint32_t)fx_atan2(car->matrix[6], car->matrix[8]) << 8);   /* as car_prepare takes the heading from the matrix */
+    TriNode a, b;
+    const double fraction = where - floor(where);
+    if (fraction > 0 && tri_node(race->tri, (uint32_t)node, &a) == TRI_OK && tri_node(race->tri, ((uint32_t)node + 1) % race->tri->ring_nodes, &b) == TRI_OK) {
+        car->x += (int32_t)(fraction * ((double)b.position.x - a.position.x));
+        car->y += (int32_t)(fraction * ((double)b.position.y - a.position.y));
+        car->z += (int32_t)(fraction * ((double)b.position.z - a.position.z));
+    }
+    port_log("TNFS_START_NODE: the player car at node %d\n", node);
+}
+
+static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; start_at_node(&drive_sim.race); }  /* race_sim_start_field's laps; the dev start */
 static void run_tick(void *ctx) { (void)ctx, race_sim_tick_only(&drive_sim); }
 
 static uint32_t screenshot_input(uint32_t i, uint32_t ticks);
@@ -333,11 +362,39 @@ static void run_frame(void *ctx, int32_t frame)
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
+/* port: the PS1 light's ambient at the car the dash is of (drive_light.h) */
+static void light_dash_node(void)
+{
+    const Car *car = drive_sim.race.cars[race_slot(drive_sim.race.player)];
+    float ratio[3];
+    drive_light_dash_ratio(ported_view_car_ratio(car, ratio) ? ratio : NULL);
+}
+
+/* port: the PS1 light's time of day tints the 3D's pixels only (drive_light.h), the picture as the window shows it */
+static int write_drive_ppm(const char *path, const uint8_t *shown, int width, const uint8_t *palette)
+{
+    const int height = drive_output_height();
+    const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
+    if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
+    uint8_t world[768], half[768];
+    light_dash_node();
+    drive_light_palette(palette, world);
+    drive_light_palette_half(palette, half);
+    return track_viewer_write_ppm_split(path, shown, width, height, palette, world, half, mask);
+}
+
 static void present_drive(const Track *t, uint8_t *pixels)
 {
-    PlatformColor palette[256];
-    for (int i = 0; i < 256; i++)  /* the police screen writes the palette (00476460) */
+    PlatformColor palette[256], world[256], half[256];
+    uint8_t world_palette[768], half_palette[768];
+    light_dash_node();
+    drive_light_palette(t->art.palette, world_palette);   /* port: the PS1 light's time of day, for the 3D's pixels */
+    drive_light_palette_half(t->art.palette, half_palette);   /* and half of it for the dash's art */
+    for (int i = 0; i < 256; i++) {  /* the police screen writes the palette (00476460) */
         palette[i] = (PlatformColor){ t->art.palette[3 * i], t->art.palette[3 * i + 1], t->art.palette[3 * i + 2] };
+        world[i] = (PlatformColor){ world_palette[3 * i], world_palette[3 * i + 1], world_palette[3 * i + 2] };
+        half[i] = (PlatformColor){ half_palette[3 * i], half_palette[3 * i + 1], half_palette[3 * i + 2] };
+    }
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
     /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
@@ -347,7 +404,9 @@ static void present_drive(const Track *t, uint8_t *pixels)
                                  .segments = ported_view_draw_segments(), .modern = ported_view_modern(),
                                  .filter = ported_view_filter_on(), .fog = ported_view_fog_on() };
     shown = race_stats_compose(&race_stats, shown, width, drive_output_height(), t->art.palette, &view);
-    platform_present(shown, palette);
+    const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)drive_output_height());   /* the overlay is 2D */
+    if (mask != NULL) platform_present_split(shown, palette, world, half, mask);
+    else platform_present(shown, palette);
 }
 
 /* port: render_drive with the cars and the eye between the last two steps, by the time since the newer one; the
@@ -494,7 +553,7 @@ int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const 
     render_drive(t, pixels);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), t->art.palette);
+    return write_drive_ppm(screenshot, shown, width, t->art.palette);
 }
 
 static const RaceRunOps *drive_run_ops(void)
@@ -622,7 +681,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     printf("segments %d\n", (int)ported_view_draw_segments());  /* the F12 overlay's "View n segments" (drive_run.c) */
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    return track_viewer_write_ppm(screenshot, shown, width, drive_output_height(), t->art.palette);
+    return write_drive_ppm(screenshot, shown, width, t->art.palette);
 }
 
 /* --- a link race's messages (004bcb98[2], [3]) --- */

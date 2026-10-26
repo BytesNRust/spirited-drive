@@ -14,6 +14,9 @@
 #include "game/race/mirror_scene.h"
 #include "game/race/track_info.h"
 #include "game/race/track_render.h"
+#include "game/race/psx_lgs.h"
+#include "game/race/psx_lamps.h"
+#include "game/race/psx_light.h"
 
 #include "viewer/model_view.h"
 
@@ -48,7 +51,34 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
 
 /* port: EXTRAS' Modern 3D: the near road clipped against the near plane, projected without pixel snapping and
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
+/* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
+void ported_view_set_light(const PsxLight *light, const float tint[3]);
+
+/* port (the PS1 look's light): the track's tunnel lamps (psx_lamps.h), `count` of them (copied; NULL or 0 none): the colours of each
+ * lamp's fitting in its texture are not darkened by the light. Needs ported_view_set_light's light. */
+void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
+
+/* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
+void ported_view_set_soft_shadow(int on);
+
+/* port: the PS1 look's ambient light on the cars (psx_lgs.h): each car is drawn through a colour table of its segment's ambient
+ * colour over the world's `tint`, so a context's colour (a tunnel's, a bridge's) shows on the cars and the world's mean does not
+ * double. NULL, none (the cars take the world's tint as before). `lgs` is copied. Needs ported_view_set_light's light. */
+void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3]);
+/* The ratio the PS1 light scales `car`'s colours by at its place (psx_light_car_ratio), 1 and `out` set; 0 with no light script. The dash takes the player's. */
+int ported_view_car_ratio(const Car *car, float out[3]);
+
+struct PsxSkyDraw;
+/* port: the PS1 sky (psx_sky_draw.h) drawn in place of the track's sky and ring, NULL for the track's own. Not owned. */
+void ported_view_set_psx_sky(struct PsxSkyDraw *sky);
+/* port (weather.h): the race's weather, WEATHER_CLEAR (the default) draws as it always did; fog needs Modern 3D on */
+void ported_view_set_weather(int weather);
 void ported_view_set_modern(int on);
+/* port (weather): the mirror's road style for the weather (0: clear weather, nothing set) and its sky, drawn by then */
+int ported_view_mirror_weather(const TrackArt *art);
+/* 1 when the weather draws something in the mirror (not clear, Modern 3D on): the sky's recorder is only stopped and restarted then */
+int ported_view_mirror_weather_on(void);
+void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9]);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */
 void ported_view_set_look(int filter, int fog);

@@ -1,0 +1,50 @@
+/* port: the PS1 look's baked light (re/notes/psx-lgt-format.md, branch docs/psx-lgt). The PS1 CD has, for each track and time
+ * of day (A, B, C), a Z<TRACK><A|B|C>.LGT: u32 node count, u32 scale, 11 bytes of intensity a node (0 black, 255 full)
+ * in the order of the node's terrain row (TriRow: middle, right[0..4], left[0..4]), then a 12-byte CRCF trailer. The road's
+ * points never darken; the terrain under a bridge does. In a tunnel a 0 beyond a lit wall foot (point 2 / 7 at PSX_LIGHT_WALL_FOOT or more) is
+ * no data, not black: psx_light_at gives it PSX_LIGHT_WALL, about half light, as the PS1's tunnel walls, pillars and ceiling look. The bytes are the user's own files, read
+ * at the race's start; nothing of them is in the repo, and the tests use made-up rows. */
+#ifndef TNFS_PSX_LIGHT_H
+#define TNFS_PSX_LIGHT_H
+
+#include "game/race/psx_lgs.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LIGHT_WALL_FOOT = 64, PSX_LIGHT_TUNNEL_ROAD = 100 };
+
+typedef struct {
+    uint8_t *data;      /* nodes * PSX_LIGHT_POINTS bytes (owned), NULL when none is loaded */
+    uint32_t nodes;
+    PsxLgs script;      /* the track's light script (psx_light_set_script), read when `scripted` */
+    int scripted;
+} PsxLight;
+
+/* The file's bytes as a PsxLight: its node count must be `expected_nodes` (the track's ring nodes) and the file at least as
+ * long as the rows. 1 on success; `out` is untouched otherwise. */
+int psx_light_parse(const uint8_t *file, size_t size, uint32_t expected_nodes, PsxLight *out);
+
+/* The track's light script (the LGS, copied): the points' light is then the exe's (psx_lgs_light, by block and node parity, as grey: the luminance of the
+ * three channels, 0..255 with 255 the lit road), the tunnels are the script's RAMP contexts, and the fitted rules below are not used. Without one the
+ * LGT's bytes are read as they are and the fitted rules stand. 1 on success. */
+int psx_light_set_script(PsxLight *light, const PsxLgs *script);
+
+/* The LGT byte of a point as the file has it (the node taken modulo the nodes, the last node as the one before it; PSX_LIGHT_FULL out of range). */
+uint8_t psx_light_byte(const PsxLight *light, uint32_t node, int point);
+
+void psx_light_free(PsxLight *light);
+
+/* 1 when node `node` is in a tunnel: in a script's RAMP context, or without a script its row is a tunnel's: a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
+ * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
+int psx_light_tunnel(const PsxLight *light, uint32_t node);
+
+/* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last
+ * node is not light (random bytes) and takes the one before it; PSX_LIGHT_FULL without data or for a point out of range. */
+uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point);
+
+/* The light of what stands at a node (a scenery object): the mean of its terrain points' intensities, the road's left out;
+ * PSX_LIGHT_FULL without data. */
+uint8_t psx_light_node(const PsxLight *light, uint32_t node);
+
+#endif

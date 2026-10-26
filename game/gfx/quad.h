@@ -31,7 +31,12 @@
 typedef enum {
     MAP_OPAQUE = 0,
     MAP_TRANSPARENT = 1,
-    MAP_SHADE = 2
+    MAP_SHADE = 2,
+    /* port (the PS1 look's light, psx_light.h): every texel through the 256-entry table `shade` on its way to the surface
+     * (a darker palette entry, say); with _TRANSPARENT colour 0xFF is skipped first, as MAP_TRANSPARENT. The exe has no
+     * such mapper: the modes above are unchanged. */
+    MAP_REMAP = 3,
+    MAP_REMAP_TRANSPARENT = 4
 } MapMode;
 
 typedef struct {
@@ -62,7 +67,7 @@ void quad_draw_rows(const QuadTarget *target, const FshEntry *texture, const int
                     int transparent, int32_t top, int32_t bottom);
 
 /* The same as quad_draw, with any MapMode: 00487180, 00486950 or 004aa600.
- * shade is read only for MAP_SHADE and must then point at 256 bytes. */
+ * shade is read only for MAP_SHADE, MAP_REMAP and MAP_REMAP_TRANSPARENT and must then point at 256 bytes. */
 void quad_draw_mode(const QuadTarget *target, const FshEntry *texture, const int32_t uv[8],
                     const int32_t screen[8], MapMode mode, const uint8_t *shade);
 

@@ -122,6 +122,10 @@ void track_build_segment(TrackBuild *b, int32_t first, int32_t segment, int32_t 
             if (*select != point) continue;
             if (b->world_next >= 0 && b->world_next < b->world_capacity)  /* port guard */
                 for (int k = 0; k < 3; k++) b->world[b->world_next][k] = rd32(points + 12 * point + 4 * k);
+            if (b->light_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
+                b->light_out[b->world_next] = psx_light_at(b->light, (uint32_t)node, point);   /* port: the PS1's light */
+            if (b->tunnel_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
+                b->tunnel_out[b->world_next] = (uint8_t)psx_light_tunnel(b->light, (uint32_t)node);
             b->world_next++;
             select++;
         }

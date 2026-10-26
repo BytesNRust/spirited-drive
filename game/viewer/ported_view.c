@@ -1,4 +1,5 @@
 #include "viewer/ported_view.h"
+#include "game/sys/fixed_math.h"
 #include "game/sys/bands.h"
 #include "game/gfx/raster_record.h"
 
@@ -14,6 +15,7 @@
 #include "game/race/car_shadow.h"
 #include "game/race/car_tag.h"
 #include "game/race/car_lights.h"
+#include "game/race/psx_lgs.h"
 #include "game/race/car_body_draw.h"
 #include "game/race/car_render.h"
 #include "game/gfx/x86_int.h"
@@ -29,8 +31,14 @@
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
+#include "viewer/soft_shadow.h"
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
+#include "viewer/psx_sky_draw.h"
+#include "viewer/drive_light.h"
+#include "viewer/weather_draw.h"
+#include "viewer/drive_light.h"
+#include "game/race/weather.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -53,19 +61,190 @@ static int transparent(const FshEntry *texture)
     return texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE;
 }
 
+/* port (the PS1 look's light): the terrain polygon being drawn carries one darkness level, the mean of its corners'
+ * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
+ * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
+static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
+static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
+static int lit_level;
+static int lit_active;           /* a polygon or object of the light's is being drawn (between the hook's two calls) */
+static int lit_tinted;           /* the ambient colour is not neutral: even full light goes through the tables */
+static float lit_tint[3] = { 1, 1, 1 };
+static uint8_t lit_corner[4];   /* the polygon's corners' intensities, for the Modern 3D road's per-pixel gradient */
+
+static void light_hook(const uint8_t corners[4])
+{
+    lit_active = corners != NULL;
+    if (corners == NULL) {
+        lit_level = 0;
+        memset(lit_corner, 255, sizeof lit_corner);
+        return;
+    }
+    memcpy(lit_corner, corners, sizeof lit_corner);
+    const int mean = (corners[0] + corners[1] + corners[2] + corners[3] + 2) / 4;
+    lit_level = ((255 - mean) * (MODERN_FOG_LEVELS - 1) + 127) / 255;
+}
+
+/* port (the tunnel lamps, psx_lamps.h): the lamp textures of the frame, by their bitmaps, and the darkening tables that let their fitting's
+ * colours through; remade with `lit_tables` */
+enum { LAMPS_MAX = 4, LAMP_VARIANTS = 8 };
+static PsxLamp lamp_spec[LAMPS_MAX];
+static int lamp_count;
+static const FshEntry *lamp_bitmap[LAMPS_MAX][LAMP_VARIANTS];
+static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
+/* the tunnel's dim road and walls on the PS1 are olive / amber, never the texture's own grey: green and blue lost on every darkened level
+ * (fitted to the clip's road, (38,34,16) for a grey texture) */
+static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
+
+void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
+{
+    lamp_count = lamps != NULL && count > 0 ? (count < LAMPS_MAX ? count : LAMPS_MAX) : 0;
+    for (int i = 0; i < lamp_count; i++) lamp_spec[i] = lamps[i];
+}
+
+/* the lamp `texture` is, or -1 */
+static int lamp_of(const FshEntry *texture)
+{
+    for (int i = 0; i < lamp_count; i++)
+        for (int v = 0; v < LAMP_VARIANTS; v++)
+            if (lamp_bitmap[i][v] == texture) return i;
+    return -1;
+}
+
+static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
+{
+    const int lamp = lamp_of(texture);
+    return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
+}
+
+static const uint8_t *lit_table_for(const FshEntry *texture)
+{
+    return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables_for(texture)[lit_level] : NULL;
+}
+
+static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? (track_light_tunnel ? tunnel_tables : lit_tables)[lit_level] : NULL; }
+
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
-    quad_draw(user, texture, uv, screen, transparent(texture));
+    const uint8_t *lit = lit_table_for(texture);
+    if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    else quad_draw(user, texture, uv, screen, transparent(texture));
 }
 
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
 
 void ported_view_set_modern(int on) { modern = on != 0; }
+
+/* port (weather, re/notes/weather-design.md): WEATHER_CLEAR runs none of it. The tables are made again when the palette or the
+ * weather changes. */
+static int weather;
+typedef struct {
+    uint8_t palette[768];
+    int weather, made;
+    uint8_t fog[3];      /* the fog's colour */
+    uint8_t sky[256];    /* the sky's palette moved toward its colour */
+    uint8_t levels[MODERN_FOG_LEVELS][256];   /* all its levels: the fog's sky gets the fog's whole at the horizon */
+    int sky_low, sky_high;
+    float tint[3];       /* the time of day's tint the fog colour was made for */
+    uint8_t rain[256];   /* a streak's lightening */
+} WeatherTables;
+
+void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
+
+static const WeatherTables *weather_tables(const TrackArt *art)
+{
+    static WeatherTables wt;
+    float tint[3];
+    drive_light_tint(tint);
+    if (wt.made && wt.weather == weather && memcmp(wt.tint, tint, sizeof tint) == 0 &&
+        memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
+        return &wt;
+    static uint8_t scratch[MODERN_FOG_LEVELS][256];
+    uint8_t base[3], sky[3], rain[3];
+    modern_look_fog_colour(art, base);
+    weather_fog_colour(weather, base, wt.fog);
+    weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
+    weather_sky_colour(weather, wt.fog, sky);
+    modern_fog_tables(art->palette, sky, scratch);
+    wt.sky_low = weather == WEATHER_RAIN ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
+    wt.sky_high = weather == WEATHER_RAIN ? wt.sky_low : MODERN_FOG_LEVELS - 1;
+    memcpy(wt.sky, scratch[wt.sky_low], sizeof wt.sky);
+    memcpy(wt.levels, scratch, sizeof wt.levels);
+    weather_rain_colour(rain);
+    modern_fog_tables(art->palette, rain, scratch);
+    memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
+    memcpy(wt.palette, art->palette, sizeof wt.palette);
+    memcpy(wt.tint, tint, sizeof tint);
+    wt.weather = weather, wt.made = 1;
+    return &wt;
+}
+
+typedef struct {
+    uint8_t *pixels;
+    int32_t pitch, left, right;   /* the columns clipped to the buffer */
+    const WeatherTables *wt;
+    int32_t cx, cy;               /* the view's centre and focal length, and the world's up in its space (unit) */
+    float focal, up[3];
+} WeatherSky;
+
+/* the weather's sky for the view `view` at the camera matrix `matrix` (the world's up taken to the camera's space) */
+static WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, const WeatherTables *wt,
+                              const View *view, const int32_t matrix[9])
+{
+    const int32_t up_world[3] = { 0, 0x10000, 0 };
+    int32_t c[3];
+    mat3_apply(up_world, matrix, c);
+    const float len = sqrtf((float)c[0] * (float)c[0] + (float)c[1] * (float)c[1] + (float)c[2] * (float)c[2]);
+    const float k = len > 0 ? 1.0f / len : 0.0f;
+    return (WeatherSky){ pixels, pitch, left, right, wt, view->centre_x, view->centre_y, (float)view->focal_x,
+                         { (float)c[0] * k, (float)c[1] * k, (float)c[2] * k } };
+}
+
+static void weather_sky_band(void *user, int top, int bottom)
+{
+    const WeatherSky *s = user;
+    if (s->wt->sky_high > s->wt->sky_low)
+        weather_sky_fade(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->levels, s->wt->sky_low, s->wt->sky_high,
+                         s->cx, s->cy, s->focal, s->up);
+    else weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->sky);
+}
 int ported_view_modern(void) { return modern; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 static ModernLook look;
+
+static void weather_style(const TrackArt *art, const WeatherTables *wt)
+{
+    const int fog = weather == WEATHER_FOG;
+    ModernStyle style = *modern_look_fixed_fog(&look, art, look_filter, wt->fog, fog ? WEATHER_FOG_START : WEATHER_RAIN_FOG_START,
+                                               fog ? WEATHER_FOG_END : WEATHER_RAIN_FOG_END);
+    if (fog && weather_fog_curve())   /* the exponential variant (weather.h) */
+        style.fog_exp = WEATHER_FOG_EXP_SCALE, style.fog_cap = WEATHER_FOG_EXP_CAP_PERCENT / 100.0f;
+    modern_road_set_style(&style);
+}
+
+/* the rear-view mirror draws before the front view of the frame: its road gets the weather's style (not last frame's);
+ * 0 (nothing set) in WEATHER_CLEAR or without Modern 3D */
+int ported_view_mirror_weather_on(void) { return weather != WEATHER_CLEAR && modern; }
+
+int ported_view_mirror_weather(const TrackArt *art)
+{
+    if (weather == WEATHER_CLEAR || !modern) return 0;
+    weather_style(art, weather_tables(art));
+    return 1;
+}
+
+/* the mirror's own sky, drawn by now: toward the weather's colour, meeting the fog at its horizon (its camera `matrix`) */
+void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9])
+{
+    if (!ported_view_mirror_weather(art)) return;
+    const WeatherTables *wt = weather_tables(art);
+    const WeatherSky sky = weather_sky(target->pixels, target->pitch, target->clip_left, target->clip_right, wt, view, matrix);
+    weather_sky_band((void *)&sky, target->clip_top, target->clip_bottom);
+}
+static PsxSkyDraw *psx_sky;        /* port: the PS1 sky (ported_view_set_psx_sky) */
+void ported_view_set_psx_sky(PsxSkyDraw *sky) { psx_sky = sky; }
 static HorizonSmooth smooth;       /* port: the Texture Filter's table for the sky's palette (horizon_smooth.h) */
 
 void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
@@ -79,19 +258,116 @@ static const View *modern_view(const View *view) { return modern ? view : NULL; 
 static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
 {
-    modern_road_cell(user, view, texture, uv, cam, transparent(texture));
+    if (lit_active && (lit_tinted || lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255)) {
+        /* the intensities at the polygon's corners (texture (0,0), (w,0), (w,h), (0,h)) across the cell by its uv, a
+         * darkness a pixel takes between two of the tables */
+        float dark[4];
+        const float w = (float)(int16_t)texture->width * 65536.0f, h = (float)(int16_t)texture->height * 65536.0f;
+        for (int i = 0; i < 4; i++) {
+            const float a = fminf(fmaxf(uv[2 * i] / w, 0), 1), b = fminf(fmaxf(uv[2 * i + 1] / h, 0), 1);
+            const float top = lit_corner[0] + (lit_corner[1] - lit_corner[0]) * a;
+            const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
+            dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        }
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
+    } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    quad_draw_full_tri(user, texture, screen, transparent(texture));
+    const uint8_t *lit = lit_table_for(texture);
+    if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
+        const MapMode mode = transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP;
+        const int32_t right = (int32_t)(int16_t)texture->width - 2, bottom = (int32_t)(int16_t)texture->height - 2;
+        const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom }, uv_b[6] = { right, bottom, 1, bottom, 1, 1 };
+        const int32_t scr_b[6] = { screen[4], screen[5], screen[6], screen[7], screen[0], screen[1] };
+        tri_draw_mode(user, texture, uv_a, screen, mode, lit);
+        tri_draw_mode(user, texture, uv_b, scr_b, mode, lit);
+    } else quad_draw_full_tri(user, texture, screen, transparent(texture));
 }
 
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
 static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 {
-    quad_draw_full(user, texture, screen, transparent(texture));
+    const uint8_t *lit = lit_table_for(texture);
+    if (lit != NULL) {
+        const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
+        const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+        quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
+    } else quad_draw_full(user, texture, screen, transparent(texture));
+}
+
+/* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
+static const PsxLight *psx_light;
+
+void ported_view_set_light(const PsxLight *light, const float tint[3])
+{
+    psx_light = light;
+    for (int k = 0; k < 3; k++) lit_tint[k] = light != NULL && tint != NULL ? tint[k] : 1.0f;
+    lit_tinted = lit_tint[0] != 1.0f || lit_tint[1] != 1.0f || lit_tint[2] != 1.0f;
+}
+
+/* port (the PS1 light on the cars): the ambient colour by segment (a node is 4 to a segment) over the world's tint is the ratio each car's
+ * colours are scaled by, as a table by the nearest palette entry; the ratio is kept to 1/16 and the tables cached by it */
+enum { AMBIENT_TABLES = 8, AMBIENT_STEP = 16 };
+static PsxLgs ambient;
+static int ambient_on;
+static uint32_t ambient_nodes;
+static float ambient_tint[3] = { 1, 1, 1 };
+
+void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3])
+{
+    ambient_on = lgs != NULL && tint != NULL && ring_nodes >= 4;
+    if (!ambient_on) return;
+    ambient = *lgs, ambient_nodes = ring_nodes;
+    for (int k = 0; k < 3; k++) ambient_tint[k] = tint[k];
+}
+
+static RaceState *shadow_race;
+
+/* port (the PS1 light on the cars and the dash): the exe's light of the road's centre at the car's own node (psx_lgs_car_ratio; the exe gives every car the
+ * viewer's, the port its own node's), the one factor of the cars and the dash; 0 and `out` untouched when there is no light script. A context's colour is
+ * its own tunnel's tint, and a RAMP context's odd / even nodes are the lamps' alternation. */
+static int ratio_at(int32_t node, float out[3])
+{
+    if (!ambient_on || psx_light == NULL) return 0;
+    const int32_t at = (int32_t)psx_ring_node(node, ambient_nodes);
+    psx_lgs_car_ratio(&ambient, ambient_nodes, at, psx_light_byte(psx_light, (uint32_t)at, 0), AMBIENT_STEP, out);
+    return 1;
+}
+
+int ported_view_car_ratio(const Car *car, float out[3])
+{
+    return car != NULL && ratio_at(car->node, out);
+}
+
+/* the table for a car at `node`, NULL when its ambient is the world's */
+static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
+{
+    if (!ambient_on || psx_light == NULL || palette == NULL) return NULL;
+    static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
+    static uint8_t made_for[768];
+    static int next, valid;
+    float ratio[3];
+    ratio_at(node, ratio);
+    int key[3], neutral = 1;
+    for (int k = 0; k < 3; k++) {
+        key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
+        neutral = neutral && key[k] == AMBIENT_STEP;
+    }
+    if (neutral) return NULL;
+    if (!valid || memcmp(made_for, palette, sizeof made_for) != 0) {   /* a fade changed the palette */
+        memset(cache, 0, sizeof cache);
+        memcpy(made_for, palette, sizeof made_for), valid = 1, next = 0;
+    }
+    for (int i = 0; i < AMBIENT_TABLES; i++)
+        if (cache[i].used && memcmp(cache[i].key, key, sizeof key) == 0) return cache[i].table;
+    const int slot = next;
+    next = (next + 1) % AMBIENT_TABLES;
+    memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
+    psx_lit_table(palette, ratio, cache[slot].table);
+    return cache[slot].table;
 }
 
 /* Scenery models through the ported 3D engine (00458c04), one object per
@@ -108,7 +384,9 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
     (void)user;
     if (model < 0 || model >= PORTED_VIEW_MODELS || !object_ok[model]) return;
     const Object3DSink sink = object_sink(&object_pixels);
+    object_sink_set_light(lit_table());
     model_draw_object(&objects[model], position, (int32_t)heading, &model_view, &sink);
+    object_sink_set_light(NULL);
 }
 
 void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored)
@@ -344,12 +622,34 @@ static void trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y)
 static int32_t last_near_dir[3];
 static int32_t last_near;
 
+/* port (psx_shadow): the soft shadow's flag and its half-way remap, made from the palette and the exe's shade table when either changes */
+static int soft_shadow_on;
+
+void ported_view_set_soft_shadow(int on) { soft_shadow_on = on != 0; }
+
+static const uint8_t *soft_half(void)
+{
+    static uint8_t half[256], made_from[256], made_for[768];
+    static int valid;
+    if (!valid || memcmp(made_from, shadow_remap, sizeof made_from) != 0 || memcmp(made_for, object_pixels.palette, sizeof made_for) != 0) {
+        soft_shadow_half(object_pixels.palette, shadow_remap, half);
+        memcpy(made_from, shadow_remap, sizeof made_from), memcpy(made_for, object_pixels.palette, sizeof made_for);
+        valid = 1;
+    }
+    return half;
+}
+
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
 {
     (void)ctx;
     const CarShadowOps ops = { NULL, shadow_contact, shadow_followed };
     int32_t screen[8];
+    if (soft_shadow_on && shadow_remap != NULL && object_pixels.palette != NULL) {   /* port: the quad's corners, the shade not drawn (remap NULL) */
+        if (car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, NULL, screen))
+            soft_shadow_draw(object_pixels.target, shadow_remap, soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
+        return;
+    }
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
 }
 
@@ -577,7 +877,11 @@ static void row_draw(void *ctx, Car *car, int pass)
     (void)ctx;
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].car == car) render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
+        if (cars[i].ok && cars[i].car == car) {
+            object_sink_set_light(car_light(car->node, object_pixels.palette));
+            render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
+            object_sink_set_light(NULL);
+        }
 }
 
 int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const QuadTarget *target, const uint8_t palette[768])
@@ -590,7 +894,9 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     const Object3DSink sink = object_sink(&pixels);
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
+    object_sink_set_light(car_light(car->node, palette));
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
+    object_sink_set_light(NULL);
     return 1;
 }
 
@@ -616,7 +922,11 @@ static void draw_cars(void *user, int32_t node)
     }
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
-        if (cars[i].ok && cars[i].node == node) car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
+        if (cars[i].ok && cars[i].node == node) {
+            object_sink_set_light(car_light(node, object_pixels.palette));
+            car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
+            object_sink_set_light(NULL);
+        }
 }
 
 typedef struct {
@@ -727,6 +1037,7 @@ typedef struct {
     const TrackCamera *cam;
     const PortedCamera *pc;
     const HorizonSmooth *smooth;
+    const FshEntry *horz;      /* the flat horizon's bitmap: the track's, or the PS1 sky's */
     int32_t box_left, box_right, line;
     int ring, flat, banded;
 } SkyStage;
@@ -751,13 +1062,13 @@ static void sky_stage_band(void *user, int top, int bottom)
     } else if (st->flat) {
         const HorizonTarget ht = { st->pixels, screen_w };
         if (st->smooth != NULL) {  /* the magnified flat sky blended */
-            horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, &st->art->horizon, st->pc->yaw, view_mirrored(),
+            horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(),
                                      sky_off, st->line);
         } else if (st->banded) {  /* the box is the whole clip's, only the stores are the band's */
-            horizon_draw_flat_rows(st->horizon, &ht, st->clip, &st->art->horizon, st->pc->yaw, view_mirrored(), sky_off,
+            horizon_draw_flat_rows(st->horizon, &ht, st->clip, st->horz, st->pc->yaw, view_mirrored(), sky_off,
                                    st->line, top, bottom);
         } else {
-            horizon_draw_flat(st->horizon, &ht, &clip, &st->art->horizon, st->pc->yaw, view_mirrored(), sky_off, st->line);
+            horizon_draw_flat(st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(), sky_off, st->line);
         }
     }
 }
@@ -780,6 +1091,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         render.build.knocked = shadow_race->scenery_state;
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
+    track_render_set_light(&render, psx_light);  /* before the build: it fills the light with the vertices */
     track_render_build(&render, tri, art, camera_node);
     if (shadow_race != NULL) {
         render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
@@ -859,14 +1171,29 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
      * 004218d0's tiles and frame) cleared here for the frames without one. */
     const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
     if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
-    const int ring = art->has_horizon && info->ring != 0;
+    PsxSkyDraw *const own = psx_sky;   /* port: the PS1 sky (psx_sky_draw.h) in place of the track's, on the flat horizon */
+    if (own != NULL) {
+        uint8_t shown[768];
+        drive_light_palette(art->palette, shown);
+        psx_sky_draw_target(own, shown);
+    }
+    const int ring = own == NULL && art->has_horizon && info->ring != 0;
     if (ring) sky_ring_build(&sky_ring, info, &art->horizon);
-    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, info, &cam, pc, sky_filter ? &smooth : NULL,
-                       box[0], box[2], 0, ring && sky_ring.enabled, art->has_horizon && !ring, bands_threads() != 0 };
+    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, info, &cam, pc,
+                       own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon,
+                       box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
     if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
+    const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
+    if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
+        const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
+                                           &view, cam.matrix);
+        bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, weather_sky_band, (void *)&sky);
+    }
     stream(tri, art, pc->node);
-    modern_road_set_style(modern ? modern_look_style(&look, art, look_filter, look_fog, render.draw_segments) : NULL);
+    if (!modern) modern_road_set_style(NULL);
+    else if (wt != NULL) weather_style(art, wt);
+    else modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
@@ -889,6 +1216,33 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         raster_record_set_runner(bands_rows);
         raster_record_begin(&recorder, pixels);
     }
+    if (psx_light != NULL) {
+        /* the tables again only when the palette or the tint moved (a fade changes the palette) */
+        static uint8_t made_for[768];
+        static float made_tint[3];
+        static int made, made_cast;
+        const int cast = lamp_count > 0;   /* a tunnel track: its darkened levels take the olive cast */
+        if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
+            modern_light_tables(art->palette, lit_tint, lit_tables);
+            modern_light_tables_cast(art->palette, lit_tint, cast ? TUNNEL_CAST : NO_CAST, tunnel_tables);
+            memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
+        }
+        for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
+            for (int v = 0; v < LAMP_VARIANTS; v++) {
+                const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
+                                            ? &art->slots[lamp_spec[i].slot][v] : NULL;
+                lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
+            }
+        for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
+            const FshEntry *t = lamp_bitmap[i][0];
+            uint8_t exempt[256];
+            psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
+            psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+        }
+        track_light_hook = light_hook;
+    }
+    lit_level = 0;
+    memset(lit_corner, 255, sizeof lit_corner);
     int ahead = 1;   /* the exe's pass draws the track */
     if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
         follow_arm_window(&render, FOLLOW_ARM_SEGMENTS);
@@ -899,8 +1253,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         }
     }
     if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    track_light_hook = NULL;
+    lit_active = 0;
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
+    if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
+        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,
@@ -910,7 +1268,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     if (tri_node(tri, node, &n) != TRI_OK) return;
     const PortedCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, n.orientation * 0x400 + yaw,
                                0, (int32_t)node, 0 };
-    const int32_t parked = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
+    const int32_t parked = (int32_t)psx_ring_node((int32_t)node + car_ahead, tri->ring_nodes);   /* a modulo: the rings are not powers of two */
     if (cars[0].ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
         const CarPose pose = { { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
         ported_view_render_from(tri, art, info, &cam, &pose, parked, pixels);

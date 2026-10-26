@@ -11,10 +11,9 @@
 
 enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
 
-void horizon_smooth_palette(HorizonSmooth *s, const uint8_t palette[768])
+/* the table for `palette` (what the screen can show) */
+static void make_nearest(HorizonSmooth *s, const uint8_t palette[768])
 {
-    if (s->ready && memcmp(s->palette, palette, sizeof s->palette) == 0) return;
-    memcpy(s->palette, palette, sizeof s->palette);
     for (int cell = 0; cell < HORIZON_SMOOTH_CELLS; cell++) {
         /* the cell's middle */
         const int r = (cell >> 10 & 31) * 8 + 4, g = (cell >> 5 & 31) * 8 + 4, b = (cell & 31) * 8 + 4;
@@ -26,6 +25,24 @@ void horizon_smooth_palette(HorizonSmooth *s, const uint8_t palette[768])
         }
         s->nearest[cell] = (uint8_t)best;
     }
+}
+
+void horizon_smooth_palette(HorizonSmooth *s, const uint8_t palette[768])
+{
+    if (s->ready && memcmp(s->palette, palette, sizeof s->palette) == 0) return;
+    memcpy(s->palette, palette, sizeof s->palette);
+    make_nearest(s, palette);
+    for (int i = 0; i < 256; i++) s->map[i] = (uint8_t)i;
+    s->ready = 1;
+}
+
+void horizon_smooth_sky(HorizonSmooth *s, const uint8_t decode[768], const uint8_t target[768])
+{
+    if (s->ready && memcmp(s->palette, decode, sizeof s->palette) == 0 && memcmp(s->target, target, sizeof s->target) == 0) return;
+    memcpy(s->palette, decode, sizeof s->palette);
+    memcpy(s->target, target, sizeof s->target);
+    make_nearest(s, target);
+    for (int i = 0; i < 256; i++) s->map[i] = horizon_smooth_nearest(s, decode[3 * i], decode[3 * i + 1], decode[3 * i + 2]);
     s->ready = 1;
 }
 
@@ -93,7 +110,7 @@ typedef struct {
 static void pair_make(const HorizonSmooth *s, const Column *c, const uint8_t *row0, const uint8_t *row1, Pair *p)
 {
     const uint8_t t00 = row0[c->c0], t10 = row0[c->c1], t01 = row1[c->c0], t11 = row1[c->c1];
-    p->only = t00 == t10 && t00 == t01 && t00 == t11 ? t00 : -1;
+    p->only = t00 == t10 && t00 == t01 && t00 == t11 ? s->map[t00] : -1;
     if (p->only >= 0) return;   /* one texel: no blend to make, its index is the pixel */
     for (int k = 0; k < 3; k++) {
         p->top[k] = (ONE - c->w) * s->palette[3 * t00 + k] + c->w * s->palette[3 * t10 + k];
@@ -160,7 +177,7 @@ static inline __attribute__((always_inline)) uint8_t texel_at(const HorizonSmoot
     /* pair_make and pair_blend with the three channels in the lanes of one register: the same integer sums, products
      * and shifts */
     const uint8_t t00 = row0[col.c0], t10 = row0[col.c1], t01 = row1[col.c0], t11 = row1[col.c1];
-    if (t00 == t10 && t00 == t01 && t00 == t11) return t00;
+    if (t00 == t10 && t00 == t01 && t00 == t11) return s->map[t00];
     const int32_t wv = (int32_t)((uint32_t)v & 0xffff) >> 8;
     const __m128i p00 = palette_rgb(s, t00), p10 = palette_rgb(s, t10), p01 = palette_rgb(s, t01),
                   p11 = palette_rgb(s, t11);
@@ -201,7 +218,7 @@ typedef struct {
 static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *row0, const uint8_t *row1, Planes *p, int i)
 {
     const uint8_t t00 = row0[c->c0], t10 = row0[c->c1], t01 = row1[c->c0], t11 = row1[c->c1];
-    p->only[i] = t00 == t10 && t00 == t01 && t00 == t11 ? t00 : -1;
+    p->only[i] = t00 == t10 && t00 == t01 && t00 == t11 ? s->map[t00] : -1;
     if (p->only[i] >= 0) return;
     for (int k = 0; k < 3; k++) {   /* the pair's top and bottom, as Pair makes them: (ONE - w) a + w b = ONE a + w (b - a) */
         const int32_t top = ONE * s->palette[3 * t00 + k] + c->w * (s->palette[3 * t10 + k] - s->palette[3 * t00 + k]);

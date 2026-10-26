@@ -45,7 +45,7 @@ void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3])
 const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int filter, int fog, int32_t segments)
 {
     if (!filter && !fog) return NULL;
-    look->style = (ModernStyle){ filter != 0, NULL, 0, 0 };
+    look->style = (ModernStyle){ filter != 0, NULL, 0, 0, 0, 0 };
     if (!fog) return &look->style;
     uint8_t rgb[3];
     modern_look_fog_colour(art, rgb);
@@ -59,5 +59,22 @@ const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int 
     look->style.fog = (const uint8_t (*)[256])look->tables;
     look->style.fog_end = FOG_END_PER_SEGMENT * (float)segments;
     look->style.fog_start = look->style.fog_end * FOG_START_SHARE;
+    return &look->style;
+}
+
+const ModernStyle *modern_look_fixed_fog(ModernLook *look, const TrackArt *art, int filter, const uint8_t rgb[3], float start,
+                                         float end)
+{
+    look->style = (ModernStyle){ filter != 0, NULL, 0, 0, 0, 0 };
+    if (!look->made || memcmp(look->palette, art->palette, sizeof look->palette) != 0 ||
+        memcmp(look->rgb, rgb, sizeof look->rgb) != 0) {
+        modern_fog_tables(art->palette, rgb, look->tables);
+        memcpy(look->palette, art->palette, sizeof look->palette);
+        memcpy(look->rgb, rgb, sizeof look->rgb);
+        look->made = 1;
+    }
+    look->style.fog = (const uint8_t (*)[256])look->tables;
+    look->style.fog_start = start;
+    look->style.fog_end = end;
     return &look->style;
 }

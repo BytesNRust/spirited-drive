@@ -70,8 +70,10 @@ void track_near_draw(const TrackFarOps *far_ops, const TrackNearOps *ops, const 
             }
             if (track_visible_near(in->bounds, quad, p->strip, f->mirrored)) {
                 const FshEntry *t = f->fence_ops->texture(f->fence_ops->ctx, record[2 + p->strip] * VARIANTS + uv->variant + level);
+                track_light_set(&f->fence, first, p->corner);
                 if (t != NULL)
                     f->fence_ops->subdivide(f->fence_ops->ctx, t, uv->u_level, uv->u_cell, corners, quad, f->fence.near);
+                track_light_clear(&f->fence);
             }
             if (p->rows_done == 0) continue;
             fences(f, lod, record, uv, first, at, level);

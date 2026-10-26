@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define PORT_EXTRAS_NAME "extras.cfg"
+#define PSX_LIVERY_CARS_MASK 0xfff   /* cars 0..11 (11 the Warrior) */
 
 static const char *const START_NAMES[] = { "game_mode", "network", "central" };
 static const char *const UNIT_NAMES[] = { "language", "mph", "kmh" };
@@ -17,7 +18,7 @@ static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas"
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
                                             "modern_3d", "texture_filter", "fog", "bumper_mirror",
                                             "bumper_radar", "variant_time", "stats_overlay", "car_markers",
-                                            "lunar_springs", "movies_wide", "follow_camera" };
+                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
@@ -26,7 +27,7 @@ static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
                         e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d,
                         e->texture_filter, e->fog, e->bumper_mirror, e->bumper_radar, e->variant_time,
-                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera };
+                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries };
     memcpy(rows, all, sizeof all);
 }
 
@@ -36,14 +37,14 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
                          &e->modern_3d, &e->texture_filter, &e->fog, &e->bumper_mirror, &e->bumper_radar,
                          &e->variant_time, &e->stats_overlay, &e->car_markers, &e->lunar_springs, &e->movies_wide,
-                         &e->follow_camera };
+                         &e->follow_camera, &e->psx_liveries };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 } };
     return d;
 }
 
@@ -69,6 +70,20 @@ static void apply(PortExtras *e, const char *key, const char *value)
                 e->dash_box = (DashBox)i;
         return;
     }
+    if (strcmp(key, "psx_livery_cars") == 0) {   /* the old mask: read, never written */
+        if (parse_int(value, &n) && n >= 0 && n <= PSX_LIVERY_CARS_MASK)
+            e->psx_livery_cars = (int)n;
+        return;
+    }
+    if (strcmp(key, "car_paint") == 0) {
+        for (int c = 0; c < CAR_PAINT_SLOTS && value[c] != '\0'; c++) {
+            const char d = value[c];
+            const int v = d >= '0' && d <= '9' ? d - '0' : d >= 'a' && d <= 'f' ? d - 'a' + 10 : -1;
+            if (v < 0) break;
+            e->car_paint[c] = (uint8_t)v;
+        }
+        return;
+    }
     if (strcmp(key, "units") == 0) {
         for (int i = 0; i < 3; i++)
             if (strcmp(value, UNIT_NAMES[i]) == 0)
@@ -90,6 +105,7 @@ static void apply(PortExtras *e, const char *key, const char *value)
 PortExtras port_extras_parse(const char *text, size_t size)
 {
     PortExtras e = port_extras_defaults();
+    int has_paint = 0;
     size_t pos = 0;
     while (pos < size) {
         char line[64];
@@ -107,8 +123,12 @@ PortExtras port_extras_parse(const char *text, size_t size)
         if (eq) {
             *eq = '\0';
             apply(&e, line, eq + 1);
+            has_paint |= strcmp(line, "car_paint") == 0;
         }
     }
+    if (!has_paint)   /* an old file: its PS1 choices are the paint 1 */
+        for (int c = 0; c < CAR_PAINT_SLOTS; c++)
+            if ((e.psx_livery_cars >> c) & 1) e.car_paint[c] = PAINT_PS1;
     return e;
 }
 
@@ -126,7 +146,13 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
             return 0;
         n += w;
     }
-    return (size_t)n;
+    char paint[CAR_PAINT_SLOTS + 1];
+    for (int c = 0; c < CAR_PAINT_SLOTS; c++) paint[c] = "0123456789abcdef"[e->car_paint[c] & 15];
+    paint[CAR_PAINT_SLOTS] = '\0';
+    const int w = snprintf(out + n, size - (size_t)n, "car_paint=%s\n", paint);
+    if (w < 0 || (size_t)w >= size - (size_t)n)
+        return 0;
+    return (size_t)(n + w);
 }
 
 PortExtras port_extras_load(void)
@@ -177,4 +203,18 @@ int speed_units_kmh(SpeedUnits units, int german)
 uint32_t port_extras_cheat_marks(const PortExtras *e)
 {
     return (e->nitro ? EXTRAS_MARK_NITRO : 0) | (e->explode ? EXTRAS_MARK_EXPLODE : 0) | (e->turbo ? EXTRAS_MARK_TURBO : 0);
+}
+
+int port_extras_car_paint(int car)
+{
+    return car >= 0 && car < CAR_PAINT_SLOTS ? port_extras_load().car_paint[car] : PAINT_OWN;
+}
+
+bool port_extras_set_car_paint(int car, int paint)
+{
+    if (car < 0 || car >= CAR_PAINT_SLOTS || paint < 0 || paint > 15) return false;
+    PortExtras e = port_extras_load();
+    e.car_paint[car] = (uint8_t)paint;
+    e.psx_livery_cars = 0;   /* the old mask is folded into car_paint at load and not written back */
+    return port_extras_save(&e);
 }

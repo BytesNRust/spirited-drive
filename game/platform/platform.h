@@ -130,6 +130,11 @@ void platform_free_names(char **names);
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
 
+/* The same, a pixel with `mask[i]` 1 through `world_palette` instead of `palette`, 2 through `half_palette` (the PS1 light's time of
+ * day tints the 3D's pixels, the dash's art half, and not the 2D layer's other pixels, which index the same entries). */
+void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                            const PlatformColor half_palette[256], const uint8_t *mask);
+
 /* Blocks until the next display refresh (paced at config->refresh_hz, 60 by default, on every target).
  * The original waited on DirectDraw's WaitForVerticalBlank. */
 void platform_wait_vblank(void);
@@ -207,6 +212,11 @@ void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette
                               int threads);
 
 /* The same into rows `pitch` bytes apart (a locked texture's), pitch a multiple of 4 and at least width * 4. */
+/* The same through three palettes by `mask` (a byte a pixel: 1 `world_palette`, 2 `half_palette`, 0 or other `palette`): what
+ * platform_present_split shows. */
+void platform_palette_to_xrgb_split_pitch(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                                          const PlatformColor half_palette[256], const uint8_t *mask, void *out, int pitch, int width,
+                                          int height, int threads);
 void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor palette[256], void *out, int pitch, int width,
                                     int height, int threads);
 

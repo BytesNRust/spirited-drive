@@ -111,6 +111,22 @@ static void test_wrap_same_row(void)
         for (int x = 4; x < W; x++) CHECK(screen[y * W + x] == screen[y * W + x - 4]);
 }
 
+/* the PS1 sky: texels index a palette of their own, the screen gets the target palette's nearest colours */
+static void test_sky_palettes(void)
+{
+    make_palette();
+    uint8_t decode[768];
+    memset(decode, 0, sizeof decode);
+    decode[0] = decode[1] = decode[2] = 100;   /* the bitmap's colour 0: grey 100, which the target has as colour 2 + 12 */
+    static HorizonSmooth s;
+    horizon_smooth_sky(&s, decode, palette);
+    memset(texels, 0, sizeof texels);
+    CHECK_EQ_INT(horizon_smooth_texel(&s, bitmap(), 5 << 16, 3 << 16, 7, 9), 2 + 12);
+    draw(&s);
+    CHECK_EQ_INT(screen[200 * W + 100], 2 + 12);   /* a texel's own colour, through the map */
+    CHECK_EQ_INT(screen[200 * W + 640 - 1], 2 + 12);
+}
+
 /* the band cache: any sequence of draws, the inputs changed one at a time (in place too: the same bitmap address with other
  * texels), comes out as the draws without the cache, on any of the bands' slots; and a repeated draw is a copy */
 static uint32_t lcg_state = 12345;
@@ -272,6 +288,7 @@ int main(void)
     test_rows_blend();
     test_uniform_kept();
     test_wrap_same_row();
+    test_sky_palettes();
     test_cache_exact();
     test_band_reference();
     return TEST_REPORT();

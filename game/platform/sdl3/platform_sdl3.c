@@ -936,7 +936,8 @@ void platform_wait_vblank(void)
 
 typedef struct {
     const uint8_t *pixels;
-    const uint32_t *lut;
+    const uint32_t *lut;     /* 256 entries; with a mask 3 x 256, the mask's value picking the table */
+    const uint8_t *mask;     /* NULL: one table */
     uint32_t *out;
     int width, height, count;
     size_t stride;   /* out's row, in pixels (the texture's pitch may be wider than width) */
@@ -949,7 +950,12 @@ static void lut_band(void *ctx, int index)
     for (int y = from; y < to; y++) {
         const uint8_t *in = j->pixels + (size_t)y * (size_t)j->width;
         uint32_t *row = j->out + (size_t)y * j->stride;
-        for (int x = 0; x < j->width; x++) row[x] = j->lut[in[x]];
+        if (j->mask == NULL) {
+            for (int x = 0; x < j->width; x++) row[x] = j->lut[in[x]];
+        } else {
+            const uint8_t *m = j->mask + (size_t)y * (size_t)j->width;
+            for (int x = 0; x < j->width; x++) row[x] = j->lut[(m[x] > 2 ? 0 : m[x]) * 256 + in[x]];
+        }
     }
 }
 
@@ -964,7 +970,24 @@ void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor p
     int count = threads > 1 ? threads * 2 : 1;
     if (count > height / MIN_ROWS) count = height / MIN_ROWS;
     if (count < 1) count = 1;
-    const LutJob job = { pixels, lut, out, width, height, count, (size_t)pitch / sizeof(uint32_t) };
+    const LutJob job = { pixels, lut, NULL, out, width, height, count, (size_t)pitch / sizeof(uint32_t) };
+    platform_parallel_for(count, lut_band, (void *)&job, threads);
+}
+
+void platform_palette_to_xrgb_split_pitch(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                                          const PlatformColor half_palette[256], const uint8_t *mask, void *out, int pitch, int width,
+                                          int height, int threads)
+{
+    uint32_t lut[3 * 256];
+    const PlatformColor *const by_mask[3] = { palette, world_palette, half_palette };
+    for (int m = 0; m < 3; m++)
+        for (int i = 0; i < 256; i++)
+            lut[m * 256 + i] = ((uint32_t)by_mask[m][i].r << 16) | ((uint32_t)by_mask[m][i].g << 8) | by_mask[m][i].b;
+    enum { MIN_ROWS = 32 };
+    int count = threads > 1 ? threads * 2 : 1;
+    if (count > height / MIN_ROWS) count = height / MIN_ROWS;
+    if (count < 1) count = 1;
+    const LutJob job = { pixels, lut, mask, out, width, height, count, (size_t)pitch / sizeof(uint32_t) };
     platform_parallel_for(count, lut_band, (void *)&job, threads);
 }
 
@@ -982,7 +1005,9 @@ static int present_lock = 1;
 
 void platform_set_present_lock(int on) { present_lock = on; }
 
-void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
+/* the frame through one palette, or through three by the mask (the PS1 light's time of day); the texture's memory locked or the buffer */
+static void present_frame(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                          const PlatformColor half_palette[256], const uint8_t *mask)
 {
     last_present_ms = (uint32_t)SDL_GetTicks() - script_start_ms;
     void *locked = NULL;
@@ -991,18 +1016,35 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
      * the upload, and a failed lock falls back to it */
 #ifndef __EMSCRIPTEN__
     if (capture_dir == NULL && present_lock && SDL_LockTexture(texture, NULL, &locked, &pitch)) {
-        platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, fb_width, fb_height, present_threads);
+        if (mask != NULL)
+            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, locked, pitch, fb_width, fb_height,
+                                                 present_threads);
+        else platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, fb_width, fb_height, present_threads);
         SDL_UnlockTexture(texture);
     } else
 #endif
     {
-        platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
+        if (mask != NULL)
+            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, rgb_buffer,
+                                                 fb_width * (int)sizeof *rgb_buffer, fb_width, fb_height, present_threads);
+        else platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
         capture_frame();
         SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
     }
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
+}
+
+void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
+{
+    present_frame(pixels, palette, NULL, NULL, NULL);
+}
+
+void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
+                            const PlatformColor half_palette[256], const uint8_t *mask)
+{
+    present_frame(pixels, palette, world_palette, half_palette, mask);
 }
 
 uint32_t platform_ticks_ms(void)

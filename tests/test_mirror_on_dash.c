@@ -1,9 +1,18 @@
 /* port: a mirror on the dash (the Warrior's, by the wheel) is not widened on a wide screen; one at the windshield's
  * top is (drive_mirror.h). */
 #include "viewer/drive_mirror.h"
+#include "viewer/ported_view.h"
 #include "test.h"
 
 #include <string.h>
+
+/* the weather's hooks (ported_view.c, not built here): clear */
+int ported_view_mirror_weather(const TrackArt *art) { (void)art; return 0; }
+int ported_view_mirror_weather_on(void) { return 0; }
+void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9])
+{
+    (void)art, (void)target, (void)view, (void)matrix;
+}
 
 static void start(DriveMirror *m, int32_t top)
 {

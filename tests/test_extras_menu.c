@@ -506,15 +506,32 @@ static void test_page_one_has_twelve_rows(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: ten switches, Intro video the last of them. Walk the whole page down */
+/* port: Car colours is the last row of In-race options (page 2): Enter turns it on, and Done saves it, the rest as it was */
+static void test_psx_livery_row_is_saved_on_done(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_PSX_LIVERY);
+    keys[n++] = ENTER;                                     /* on */
+    n = downs(keys, n, downs_to_done(ROW_PSX_LIVERY));     /* down to Done */
+    keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.psx_liveries, 1);
+    CHECK_EQ_INT(r.fake.saved.no_movies, 0);
+}
+
+/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: eleven switches, Intro video the last of them. Walk the whole page down */
 static void test_page_two_has_ten_rows(void)
 {
     Rig r;
     int keys[48];
     int n = keys_to_row(keys, ROW_FIRST_P2);
-    n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the ten) */
+    n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 10);
+    CHECK_EQ_INT(ROWS_P2, 11);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -525,6 +542,7 @@ static void test_page_two_has_ten_rows(void)
     CHECK(shown(&r.fake, "Rival car markers"));
     CHECK(shown(&r.fake, "3D render stats"));
     CHECK(shown(&r.fake, "Dash box"));
+    CHECK(shown(&r.fake, "Car colours"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
@@ -701,11 +719,11 @@ static void test_both_pages_share_one_layout(void)
     turn[n++] = ESCAPE;
     run(&two, turn, n);
 
-    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 9 on page 2 (the lines
+    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 10 on page 2 (the lines
      * are PITCH apart, with the gap of 14 added from the second header down) */
     CHECK_EQ_INT(y_in(&two.fake, "In-race options"), y_in(&one.fake, "Cheats"));
     CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods"), 100 + 5 * PITCH + 14);
-    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 9 * PITCH + 14);
+    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 10 * PITCH + 14);
     /* the pitch: one row a line below the last */
     CHECK_EQ_INT(y_in(&one.fake, "Nitro mode") - y_in(&one.fake, "Explode mode"), PITCH);
     CHECK_EQ_INT(y_in(&two.fake, "No driving assists") - y_in(&two.fake, "Speed units"), PITCH);
@@ -1037,6 +1055,7 @@ int main(void)
     test_the_graphics_settings_are_gone();
     test_page_one_has_twelve_rows();
     test_page_two_has_ten_rows();
+    test_psx_livery_row_is_saved_on_done();
     test_race_switch_rows_save_with_done();
     test_lunar_row_is_saved_on_done();
     test_follow_camera_row_toggles_and_saves();

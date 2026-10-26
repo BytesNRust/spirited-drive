@@ -15,6 +15,7 @@
 #include "game/viewer/follow_arm.h"
 #include "game/viewer/follow_behind.h"
 #include "game/viewer/modern_road.h"
+#include "game/viewer/ported_view.h"
 #include "game/viewer/screen_layout.h"
 
 #include <stdlib.h>
@@ -243,6 +244,8 @@ static struct RasterRecorder mirror_recorder;
 
 static void select_op(void *ctx)  /* the picture is Frame.target throughout */
 {
+    Frame *f = ctx;
+    if (f->w->port_modern) ported_view_mirror_weather(f->w->art);  /* port (weather): fog in the mirror's road */
     if (bands_threads() == 0 || raster_active != NULL) return;
     raster_record_set_runner(bands_rows);
     raster_record_begin(&mirror_recorder, ((Frame *)ctx)->target.pixels);
@@ -278,6 +281,12 @@ static void sky_op(void *ctx)
                                  (int16_t)race->frontend_track, 0, f->target.clip_right, f->target.clip_bottom, f->m->horz };
     const MirrorSkyOps ops = { f, node_property, sky_fill, sky_rect, sky_quad };
     mirror_sky(&ops, &in);
+    if (!f->w->port_modern || !ported_view_mirror_weather_on()) return;   /* clear weather: the recorder runs on */
+    /* port (weather): the sky toward the weather's colour before the road covers it; the recorded sky is drawn first */
+    const int recording = raster_active == &mirror_recorder;
+    if (recording) raster_record_end(&mirror_recorder);
+    ported_view_mirror_sky(f->w->art, &f->target, &f->m->view, f->m->matrix);
+    if (recording) raster_record_begin(&mirror_recorder, f->target.pixels);
 }
 
 static const FshEntry *scene_texture(void *ctx, int32_t flat)

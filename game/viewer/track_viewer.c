@@ -13,6 +13,12 @@
 #include "game/sys/port_extras.h"
 #include "game/sys/free_laps.h"
 #include "game/race/race_schedule.h"
+#include "game/sys/port_settings.h"
+#include "game/race/car_livery.h"
+#include "game/race/car_paint.h"
+#include "viewer/drive_livery.h"
+#include "viewer/drive_light.h"
+#include "game/race/weather.h"
 #include "game/race/race_replay_image.h"
 #include "viewer/drive_slide.h"
 #include "viewer/drive_joy.h"
@@ -94,7 +100,9 @@ static void drive_wide_setup(void)
      * (port_settings_load still falls back to extras.cfg for a file written before they moved). The TNFS_MODERN_3D,
      * TNFS_TEXTURE_FILTER and TNFS_FOG env vars override them for the checks. */
     const PortExtras extras = port_extras_load();
-    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective));
+    const int weather = port_weather();   /* port: weather=fog needs the per-pixel fog of Modern 3D, so it turns Modern 3D on */
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective) || weather == WEATHER_FOG);
+    ported_view_set_weather(weather);
     ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
     drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
                        env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
@@ -166,6 +174,15 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     if (!car_load_path(car, race, dir, path, stem)) return NULL;
     size_t size = 0;
     drive_cars.file[slot] = read_named(path, strlen(dir), &size);
+    if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
+        const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size);
+        if (count > 0) port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
+    }
+    if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot]) {  /* port: a catalogue paint, in the body textures only */
+        const int n = drive_livery_paint(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, drive_cars.paint[slot]);
+        port_log("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
+                 drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
+    }
     const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
     drive_cars.loaded[slot] = r == CAR_LOAD_OK;
@@ -251,6 +268,44 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
     return drive_link.exchange(&own, drive_menus_on ? drive_menus.game_state : NULL, &link_wait_ticks, seed, flags);
 }
 
+/* port: the car colours for this race (extras.cfg psx_liveries, the CUSTOMIZE switch, and car_paint, the car showcase's Color box):
+ * the player's car wears the paint the box picked, whether the PS1 livery (needs port.cfg's psx_dir files) or a catalogue paint
+ * (car_paint.h); every rival draws its own from the race's seed, so a replay of the seed shows the same colours, and is never the
+ * player's when it drives the same car. Off, nobody is repainted. */
+static int rival_paint_choice(const RaceField *field, int slot, int player_car, int player_paint, const char *psx_dir)
+{
+    const int car = field->entries[slot].car;
+    uint16_t swatch[2];
+    const int ps1 = psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(psx_dir, car_model_names[car], swatch);
+    return car_paint_pick(field->seed, slot, car, player_car, player_paint, car_paint_count(car), ps1);
+}
+
+static void rival_liveries(const RaceField *field, int player)
+{
+    const PortExtras extras = port_extras_load();
+    const PortSettings settings = port_settings_load();
+    memset(drive_cars.livery, 0, sizeof drive_cars.livery);
+    memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
+    snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
+    port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
+    if (!extras.psx_liveries) return;
+    const int player_car = field->entries[player].car;
+    int player_paint = player_car >= 0 && player_car < CAR_PAINT_SLOTS ? extras.car_paint[player_car] : PAINT_OWN;
+    if ((player_paint == PAINT_PS1 && settings.psx_dir[0] == '\0') || player_paint >= PAINT_CATALOGUE + car_paint_count(player_car))
+        player_paint = PAINT_OWN;   /* a choice the files or the table no longer have */
+    for (int i = 0; i < field->racers && i < RACE_CARS; i++) {
+        const int car = field->entries[i].car;
+        const int paint = i == player ? player_paint : rival_paint_choice(field, i, player_car, player_paint, settings.psx_dir);
+        drive_cars.model[i] = car;
+        drive_cars.livery[i] = paint == PAINT_PS1;
+        if (paint >= PAINT_CATALOGUE && car_paint(car, paint - PAINT_CATALOGUE) != NULL) {
+            memcpy(drive_cars.paint[i], car_paint(car, paint - PAINT_CATALOGUE)->rgb, 3);
+            drive_cars.paint_on[i] = 1;
+        }
+        port_log("car colours: slot %d (car %d) takes paint %d%s\n", i, car, paint, i == player ? " (the player's)" : "");
+    }
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
@@ -331,7 +386,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const int wanted = replay_of == NULL && !drive_link_on ? port_laps() : 0;
     const int laps = wanted > 0 ? wanted : exe_laps;
     const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
+    rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
+    drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
     drive_sim.race.port_free_laps = free_race;
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
@@ -475,7 +532,9 @@ void track_viewer_graphics_close(const uint8_t *options)
 {
     const PortSettings ps = port_settings_load();
     drive_wide.fov_adjust = ps.fov_adjust;
-    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective));
+    const int weather = port_weather();   /* port: weather=fog needs the per-pixel fog of Modern 3D, so it turns Modern 3D on */
+    ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective) || weather == WEATHER_FOG);
+    ported_view_set_weather(weather);
     ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* as the race's start reads it */
     drive_run_refresh_set(hz != NULL && atoi(hz) >= 30 && atoi(hz) <= 240 ? atoi(hz) : ps.refresh_hz);

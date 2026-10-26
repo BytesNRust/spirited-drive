@@ -1,5 +1,6 @@
 /* --drive's frame: 0044cc74's calls (frame_draw.h) on the ported renderer, the cockpit and the mirror. */
 #include "viewer/drive_session.h"
+#include "viewer/drive_light.h"
 #include "game/race/car_wheels.h"
 #include "game/race/car_scenery.h"
 #include "game/race/race_chase.h"
@@ -290,11 +291,13 @@ static void df_near(void *ctx, int32_t segments, int32_t node)
         ported_view_set_screen(drive_wide.width * s, SCREEN_H * s);
         ported_view_set_viewport(&vp);
         ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, drive_wide.pixels);
+        drive_light_world_done(drive_wide.pixels, (size_t)drive_wide.width * s * SCREEN_H * s);   /* port: before the 2D layer */
         ported_view_set_screen(SCREEN_W, SCREEN_H);
         drive_wide_set_viewport(f->race);
         return;
     }
     ported_view_render_cars(&t->tri, &t->art, &t->info, &f->cam, list, drive_sim.count, view);
+    drive_light_world_done(view, (size_t)SCREEN_W * SCREEN_H);   /* port: before the HUD */
 }
 
 /* The redline: the player's specs' +0xac, for the cockpit's car and the HUD's alike. */
