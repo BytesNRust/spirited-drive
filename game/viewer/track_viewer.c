@@ -409,6 +409,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
     drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
+    drive_light_load_alt_sky(data_root, name);
     drive_sim.race.port_free_laps = free_race;
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
@@ -631,8 +632,8 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
         look.time_of_day = track_fam_time_of(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
                                              port_extras_load().variant_time, drive_menus.time_of_day);
         drive_time_of_day = drive_menus.time_of_day;
-    } else if (track_viewer_fam_missing(data_root, name, &look)) {
-        look.time_of_day = 1;
+    } else if (track_viewer_fam_missing(data_root, name, &look) || getenv("TNFS_MIDDAY") != NULL) {
+        look.time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the PS1 look */
     }
     int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
              track_viewer_load(&t, data_root, name, &look);

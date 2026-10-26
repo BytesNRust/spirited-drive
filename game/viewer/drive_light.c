@@ -4,6 +4,7 @@
 #include "game/race/psx_sky.h"
 #include "game/platform/platform.h"
 #include "game/race/psx_lgs.h"
+#include "viewer/track_load.h"
 #include "game/race/psx_light.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
@@ -91,6 +92,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 }
 
 static int time_tinted;
+static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds no sky of its own for the track (drive_light_load_alt_sky) */
 
 /* Lost Vegas (tr4) under the PS1 look: its light 10% darker than the CD's script gives, and its fog always dark */
 static const float LOST_VEGAS_DARKEN = 0.9f;
@@ -114,12 +116,14 @@ int drive_light_time_tinted(void) { return time_tinted || split; }
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
+    alt_sky_wanted = 0;
     split = 0;
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
     ported_view_set_psx_lamps(NULL, 0);
     ported_view_set_light(NULL, NULL);
     ported_view_set_psx_ambient(NULL, 0, NULL);
     ported_view_set_psx_sky(NULL);
+    ported_view_set_psx_sky_info(NULL);
     ported_view_set_dark_fog(0);
     psx_sky_draw_free(&sky_draw);
     psx_light_free(&light);
@@ -128,6 +132,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (is_lost_vegas(track)) ported_view_set_dark_fog(1);
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_DUSK ? time : PSX_TIME_DAY];
     if (time != PSX_TIME_DAY) load_sky(psx_dir, track, letter);
+    alt_sky_wanted = time != PSX_TIME_DAY && !sky_draw.ready;
     char path[LIGHT_PATH];
     file_path(path, sizeof path, psx_dir, track, letter, "LGT");
     size_t size = 0;
@@ -160,6 +165,28 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     ported_view_set_psx_lamps(lamps, lamp_count);
     ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
+}
+
+/* the PC's alternative sky (NTRACKFM/<TRACK>_T01.FAM, the art the original's morning / evening race ran on) for a dawn or dusk the CD has no PS1 sky for:
+ * only its 'horz' picture, palette and INFO (the ring), drawn through the PS1 sky's path (the nearest of the world as it is shown), so the time's tint is
+ * not put on a sky that is already of its time; the rest of the art stays the midday's. Nothing when the CD holds no such FAM (Lost Vegas). */
+static TrackInfo alt_info;
+
+void drive_light_load_alt_sky(const char *data_root, const char *track)
+{
+    if (!alt_sky_wanted || data_root == NULL || track == NULL) return;
+    alt_sky_wanted = 0;
+    FshEntry horizon;
+    uint8_t palette[768];
+    uint8_t *file = NULL;
+    if (track_viewer_pc_sky(data_root, track, &alt_info, &horizon, palette, &file) && psx_sky_draw_make_indexed(&sky_draw, &horizon, palette)) {
+        ported_view_set_psx_sky(&sky_draw);
+        ported_view_set_psx_sky_info(&alt_info);
+        port_log("psx_sky: the PC's %s sky, %dx%d, ring %d\n", track, horizon.width, horizon.height, alt_info.ring);
+    } else {
+        port_log("psx_sky: no PC sky for %s, the track's sky stays\n", track);
+    }
+    platform_free_file(file);
 }
 
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768])

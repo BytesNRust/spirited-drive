@@ -247,6 +247,9 @@ void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const
 }
 static PsxSkyDraw *psx_sky;        /* port: the PS1 sky (ported_view_set_psx_sky) */
 void ported_view_set_psx_sky(PsxSkyDraw *sky) { psx_sky = sky; }
+static const TrackInfo *psx_sky_info;   /* port: the alternative sky's INFO (ported_view_set_psx_sky_info) */
+void ported_view_set_psx_sky_info(const TrackInfo *info) { psx_sky_info = info; }
+const FshEntry *ported_view_sky_in_palette(void) { return psx_sky != NULL ? psx_sky_draw_in_palette(psx_sky) : NULL; }
 static HorizonSmooth smooth;       /* port: the Texture Filter's table for the sky's palette (horizon_smooth.h) */
 
 void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
@@ -1012,7 +1015,7 @@ void ported_view_set_viewport(const PortedViewport *v)
 
 static SkyRing sky_ring;   /* built once a frame by the caller, read by every band */
 
-static void draw_sky_ring(const SkyTargets *targets, const View *view, const TrackArt *art, const TrackInfo *info,
+static void draw_sky_ring(const SkyTargets *targets, const View *view, const FshEntry *horz, const TrackInfo *info,
                           const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
     const SkyRing *ring = &sky_ring;
@@ -1023,7 +1026,7 @@ static void draw_sky_ring(const SkyTargets *targets, const View *view, const Tra
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
-    sky_ring_draw(ring, info, &frame, &art->horizon, &sink);
+    sky_ring_draw(ring, info, &frame, horz, &sink);
 }
 
 /* port (render bands): the view's clear and the sky, one band's rows of them (everything they read is built before) */
@@ -1040,6 +1043,7 @@ typedef struct {
     const PortedCamera *pc;
     const HorizonSmooth *smooth;
     const FshEntry *horz;      /* the flat horizon's bitmap: the track's, or the PS1 sky's */
+    const FshEntry *ring_horz; /* the ring's: the track's, or the alternative sky's */
     int32_t box_left, box_right, line;
     int ring, flat, banded;
 } SkyStage;
@@ -1060,7 +1064,7 @@ static void sky_stage_band(void *user, int top, int bottom)
     }
     if (st->ring) {  /* the circuits' 3D ring */
         const SkyTargets targets = { &quad, st->target, st->smooth, st->quad, st->banded, top, bottom };
-        draw_sky_ring(&targets, st->view, st->art, st->info, st->cam, st->pc->yaw, st->pc->roll);
+        draw_sky_ring(&targets, st->view, st->ring_horz, st->info, st->cam, st->pc->yaw, st->pc->roll);
     } else if (st->flat) {
         const HorizonTarget ht = { st->pixels, screen_w };
         if (st->smooth != NULL) {  /* the magnified flat sky blended */
@@ -1179,10 +1183,14 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         drive_light_palette(art->palette, shown);
         psx_sky_draw_target(own, shown);
     }
-    const int ring = own == NULL && art->has_horizon && info->ring != 0;
-    if (ring) sky_ring_build(&sky_ring, info, &art->horizon);
-    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, info, &cam, pc,
-                       own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon,
+    /* the PC's alternative sky (drive_light.c) is the morning / evening 3D ring of its INFO, on its own horizon */
+    const int alt_ring = own != NULL && psx_sky_info != NULL && psx_sky_info->ring != 0;
+    const TrackInfo *const sky_info = alt_ring ? psx_sky_info : info;
+    const FshEntry *const ring_horz = alt_ring ? &own->horz : &art->horizon;
+    const int ring = alt_ring || (own == NULL && art->has_horizon && info->ring != 0);
+    if (ring) sky_ring_build(&sky_ring, sky_info, ring_horz);
+    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, sky_info, &cam, pc,
+                       own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon, ring_horz,
                        box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
     if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);

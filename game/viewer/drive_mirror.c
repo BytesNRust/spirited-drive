@@ -64,10 +64,8 @@ static void free_picture(void *ctx, void *picture)
 }
 
 /* The track's 'horz' as a bank of one shape, for 0044bddc's 004732dd. */
-static uint8_t *horz_bank(const TrackArt *art)
+static uint8_t *horz_bank(const FshEntry *h)
 {
-    if (!art->has_horizon) return NULL;
-    const FshEntry *h = &art->horizon;
     const size_t pixels = (size_t)h->width * h->height, at = BANK_HEADER + BANK_ENTRY;
     uint8_t *bank = calloc(1, at + SHAPE_HEADER + pixels);
     if (bank == NULL) return NULL;
@@ -80,6 +78,13 @@ static uint8_t *horz_bank(const TrackArt *art)
     for (int i = 0; i < 4; i++) put16(shape + 8 + 2 * i, h->misc[i]);
     memcpy(shape + SHAPE_HEADER, h->payload, pixels <= h->payload_size ? pixels : h->payload_size);
     return bank;
+}
+
+/* port (the PS1 look's sky): the sky as the main view has it, in the race palette's colours (ported_view_sky_in_palette), else the track's own */
+static const FshEntry *sky_horizon(const DriveMirrorWorld *w)
+{
+    const FshEntry *own = ported_view_sky_in_palette();
+    return own != NULL ? own : w->art->has_horizon ? &w->art->horizon : NULL;
 }
 
 enum { ON_DASH_Y = 240 };  /* port: a mirror box from here down is on the dash, not at the windshield's top */
@@ -274,13 +279,19 @@ static void sky_quad(void *ctx, const uint8_t *shape, const int32_t points[8])
 {
     (void)shape;  /* the bank's only shape: the track's 'horz' */
     Frame *f = ctx;
-    quad_draw_full_tri(&f->target, &f->w->art->horizon, points, 0);  /* 00486720 */
+    quad_draw_full_tri(&f->target, sky_horizon(f->w), points, 0);  /* 00486720 */
 }
 
 static void sky_op(void *ctx)
 {
     Frame *f = ctx;
-    if (f->m->horz == NULL) f->m->horz = horz_bank(f->w->art);
+    const FshEntry *sky = sky_horizon(f->w);
+    if (sky == NULL) return;
+    if (sky != &f->w->art->horizon) {   /* the PS1 look's sky: its texels follow the world's palette, so the bank is made again */
+        free(f->m->horz);
+        f->m->horz = NULL;
+    }
+    if (f->m->horz == NULL) f->m->horz = horz_bank(sky);
     if (f->m->horz == NULL) return;
     const RaceState *race = f->w->race;
     const ViewRow *row = &race_view_rows[HIGH_MODE][MIRROR_VIEW];

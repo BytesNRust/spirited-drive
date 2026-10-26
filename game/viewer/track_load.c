@@ -19,7 +19,7 @@
 /* 0043a370's file: the INFO text read whole (the port's name, not "%s%sInfo"). */
 typedef struct {
     const char *p, *end;
-    Track *t;
+    RacePaletteTint *tint;
 } InfoFile;
 
 static int32_t info_open(void *ctx, const char *name) { (void)name; return ((InfoFile *)ctx)->p < ((InfoFile *)ctx)->end; }
@@ -44,20 +44,25 @@ static void info_tint(void *ctx, int32_t red, int32_t green, int32_t blue, int32
 {
     static RacePalette scratch;  /* 004471ac on the tint's words alone */
     race_palette_set_tint(&scratch, red, green, blue, saturation, brightness);
-    ((InfoFile *)ctx)->t->tint = scratch.tint;
+    *((InfoFile *)ctx)->tint = scratch.tint;
 }
 
 /* 0043a370 for the track `name` (its stem lower case as the frontend gives it), the time of day (004fa0ec), 640 x 480. */
-static void load_info(Track *t, const char *name, int time_of_day, const char *text, size_t size)
+static void load_info_into(TrackInfo *info, RacePaletteTint *tint, const char *name, int time_of_day, const char *text, size_t size)
 {
     char stem[16] = { 0 };
     for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof stem; i++) stem[i] = (char)tolower((unsigned char)name[i]);
-    InfoFile f = { text, text + size, t };
-    t->tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
+    InfoFile f = { text, text + size, tint };
+    *tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     const TrackInfoOps ops = { &f, info_open, info_gets, info_close, info_tint };
     const TrackInfoInputs in = { stem, "", 1, time_of_day, 1 };
-    memset(&t->info, 0, sizeof t->info);
-    track_info_load(&ops, &in, &t->info);
+    memset(info, 0, sizeof *info);
+    track_info_load(&ops, &in, info);
+}
+
+static void load_info(Track *t, const char *name, int time_of_day, const char *text, size_t size)
+{
+    load_info_into(&t->info, &t->tint, name, time_of_day, text, size);
 }
 
 uint8_t *track_viewer_read_any(const char *data_root, const char *dir, const char *name, const char *const *suffixes,
@@ -208,6 +213,48 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     for (uint32_t i = 0; i < t->tri.scenery_count; i++)
         if (track_object(&t->tri, i, &t->objects[t->object_count]) == TRI_OK) t->object_count++;
     return 1;
+}
+
+/* port (the PS1 look's alternative sky, track_load.h): the horizon of NTRACKFM/<NAME>_T01.FAM, the palette it is shown with and the INFO of the time of
+ * day 0 (the 3D ring it sets), the PC's own morning / evening sky */
+int track_viewer_pc_sky(const char *data_root, const char *name, TrackInfo *info, FshEntry *horizon, uint8_t palette[768], uint8_t **file)
+{
+    char path[512], upper[16] = { 0 };
+    for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof upper; i++) upper[i] = (char)toupper((unsigned char)name[i]);
+    snprintf(path, sizeof path, "%s/SIMDATA/NTRACKFM/%s_T01.FAM", data_root, upper);
+    size_t size = 0;
+    *file = platform_read_file(path, &size);
+    if (*file == NULL) return 0;
+    Chunk root, sky_bank;
+    Fsh fsh;
+    uint32_t index;
+    FshEntry pal;
+    TrackArt *art = calloc(1, sizeof *art);
+    int ok = art != NULL && chunk_open(&root, *file, size) == CHUNK_OK && track_art_load(art, &root) && art->has_horizon && art->has_palette;
+    if (ok) {
+        *horizon = art->horizon;
+        memcpy(palette, art->palette, 768);   /* the horizon bank's own '!pal' when it has one (drive_palette.c's remap), else the track's */
+        if (chunk_child(&root, FAM_CHILD_HORIZON, &sky_bank) == CHUNK_OK && sky_bank.kind == CHUNK_KIND_BITMAP && chunk_bitmaps(&sky_bank, &fsh) == FSH_OK &&
+            fsh_find(&fsh, "!pal", &index) == FSH_OK && fsh_entry(&fsh, index, &pal) == FSH_OK)
+            fsh_palette_rgb(&pal, palette);
+        char info_path[512];
+        size_t info_size = 0;
+        snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);
+        uint8_t *text = platform_read_file(info_path, &info_size);
+        RacePaletteTint tint;
+        load_info_into(info, &tint, name, 0, (const char *)text, text != NULL ? info_size : 0);
+        platform_free_file(text);
+        /* the time's tint is the colours' as the race shows them (004471dc on 6-bit colours) */
+        static RacePalette tinting;
+        tinting.tint = tint, tinting.tint_ready = 1;
+        uint8_t six[768];
+        for (int i = 0; i < 768; i++) six[i] = (uint8_t)(palette[i] >> 2);
+        race_palette_tint(&tinting, 0, 256, six);
+        for (int i = 0; i < 768; i++) palette[i] = (uint8_t)(six[i] << 2 | six[i] >> 4);
+    }
+    free(art);
+    if (!ok) platform_free_file(*file), *file = NULL;
+    return ok;
 }
 
 /* A CFM's high (children 0, 1) and low (2, 3) detail models. */

@@ -193,6 +193,10 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
 /* yaw: extra turn, 24-bit angle. pixels: 640 x 480. */
 /* port (the PS1 light in the rear mirror's follow pass): begin sets the light hook from the tables the last render made and gives 1, or gives 0
  * (hook untouched) with no light; end clears it. `sinks` are the main pass's own lit draws for the mirror's target to use between the two. */
+/* The PS1 look's sky (or the PC's alternative) as a horizon picture in the race palette's colours, for the draws without a smooth horizon; NULL without one */
+const FshEntry *ported_view_sky_in_palette(void);
+/* The INFO of the sky set with ported_view_set_psx_sky when it is the PC's alternative one (its ring); NULL for the PS1's own */
+void ported_view_set_psx_sky_info(const TrackInfo *info);
 void ported_view_set_dark_fog(int dark);   /* port (the PS1 look): Lost Vegas' fog dark (modern_look_set_dark) */
 int ported_view_mirror_light_begin(void);
 /* port: the PS1 light of a road point (the mirror's rows: segment x 4's node) and 1 in `tunnel` when its node is in one; 255 and 0 without a light */
