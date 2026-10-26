@@ -4,7 +4,7 @@
 #include <math.h>
 
 enum { MARKERS = 0xfe, NEAR_BLACK = 30, CHROMA_MIN = 20 };
-static const float HUE_TOLERANCE = 14.0f;   /* degrees */
+static const float HUE_TOLERANCE = 8.0f;   /* degrees */
 static const float LIFT = 0.54f, WHITE = 42.0f, SHADOW = 0.35f;
 
 typedef struct {

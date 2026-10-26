@@ -5,6 +5,7 @@
  * track_load.c. */
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
+#include "viewer/shine_class.h"
 #include "game/race/car_load.h"
 #include "game/race/single_rival.h"
 #include "game/race/race_chase.h"
@@ -168,6 +169,14 @@ static void drive_slide(void *user, int32_t picture, int32_t car)
     drive_slide_show(car, picture);
 }
 
+/* the draft's class of each texel of a body texture, kept by the address of the texels the car's object will read */
+static void shine_register(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep,
+                           const uint8_t rgb[768])
+{
+    (void)level, (void)name, (void)rgb;
+    shine_class_add(*(const int *)user, pixels, width, height, keep);
+}
+
 static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
 {
     (void)user;
@@ -178,6 +187,11 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     if (!car_load_path(car, race, dir, path, stem)) return NULL;
     size_t size = 0;
     drive_cars.file[slot] = read_named(path, strlen(dir), &size);
+    shine_class_drop_slot(slot);
+    if (drive_cars.file[slot] != NULL && port_body_shine()) {   /* port (body shine): the paint texels, from the colours as the file has them */
+        int owner = slot;
+        drive_livery_draft(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, shine_register, &owner);
+    }
     if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
         const int player = slot == race_slot(race->player);
         uint8_t main_rgb[3] = { 0 };
@@ -512,6 +526,7 @@ static void free_drive(void)
         drive_cars.loaded[i] = 0;
         platform_free_file(drive_cars.file[i]);
         drive_cars.file[i] = NULL;
+        shine_class_drop_slot(i);
     }
     platform_free_file(drive_cars.carpal);
     drive_cars.carpal = NULL;
