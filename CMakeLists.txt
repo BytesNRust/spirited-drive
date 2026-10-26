@@ -435,6 +435,7 @@ add_executable(tnfs
     game/viewer/object_sink.c
     game/viewer/shine_draw.c
     game/viewer/shine_class.c
+    game/viewer/body_shine.c
     game/viewer/soft_shadow.c
     game/viewer/ported_view.c
     game/viewer/follow_arm.c
@@ -579,6 +580,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_sink_shine PRIVATE tnfs_game)
     target_compile_options(test_sink_shine PRIVATE ${TNFS_WARNINGS})
     add_test(NAME sink_shine COMMAND test_sink_shine)
+    add_executable(test_body_shine tests/test_body_shine.c game/viewer/body_shine.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    target_include_directories(test_body_shine PRIVATE game)
+    target_link_libraries(test_body_shine PRIVATE tnfs_game)
+    target_compile_options(test_body_shine PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME body_shine COMMAND test_body_shine)
     add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
     target_include_directories(test_modern_objects PRIVATE game)
     target_link_libraries(test_modern_objects PRIVATE tnfs_game)
