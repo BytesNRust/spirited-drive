@@ -179,7 +179,10 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     size_t size = 0;
     drive_cars.file[slot] = read_named(path, strlen(dir), &size);
     if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
-        const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size);
+        const int player = slot == race_slot(race->player);
+        uint8_t main_rgb[3] = { 0 };
+        const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size, player ? main_rgb : NULL);
+        if (player && count > 0) memcpy(drive_cars.dash_rgb, main_rgb, 3), drive_cars.dash_rgb_on = 1;
         if (count > 0) port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
     if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot]) {  /* port: a catalogue paint, in the body textures only */
@@ -290,6 +293,7 @@ static void rival_liveries(const RaceField *field, int player)
     const PortSettings settings = port_settings_load();
     memset(drive_cars.livery, 0, sizeof drive_cars.livery);
     memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
+    drive_cars.dash_rgb_on = 0;
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
     port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
     if (!extras.psx_liveries) return;
@@ -308,6 +312,18 @@ static void rival_liveries(const RaceField *field, int player)
         }
         port_log("car colours: slot %d (car %d) takes paint %d%s\n", i, car, paint, i == player ? " (the player's)" : "");
     }
+}
+
+/* port: the player's livery or paint on the dash art's body, for the HUD's loads of the dash bank (drive_hud.dash_paint) */
+static int paint_dash(void *user, uint8_t *bank, size_t size)
+{
+    (void)user;
+    const int slot = race_slot(drive_sim.race.player);
+    if (slot < 0 || slot >= RACE_CARS) return 0;
+    const char *stem = car_model_names[drive_cars.model[slot]];
+    if (drive_cars.livery[slot] && drive_cars.dash_rgb_on) return drive_livery_dash(stem, bank, size, drive_cars.dash_rgb);
+    if (drive_cars.paint_on[slot]) return drive_livery_dash(stem, bank, size, drive_cars.paint[slot]);
+    return 0;
 }
 
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
@@ -476,6 +492,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_replay.dash = &drive_hud.art;
     drive_replay.panel = &drive_hud.panel, drive_replay.replay_art = &drive_hud.replay;  /* 00471460 */
     /* 0041f9a0 from 004400f4, before 00455a5c builds the palette (0041f818 maps the dash onto it) */
+    drive_hud.dash_paint = paint_dash;
     drive_hud_cockpit(&drive_hud, &drive_sim.race, data_root, stem);
     /* 00456a7c from 00455a5c (after the cars' load), its bank and 00456948 at 00447098's end */
     drive_smoke_setup(&drive_smoke, data_root, &drive_sim.race.trail);

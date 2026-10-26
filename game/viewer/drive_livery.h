@@ -12,7 +12,8 @@
  * body palette entries (drive_livery.c), and applied to the palettes of the CFM's high and low detail banks and its
  * '!xxx' colours. The CFM buffer is the caller's, so the change is this car's alone. Returns the number of colours
  * mapped; 0 when a file is missing or there is nothing to map, and then the CFM is left as it was. */
-int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size);
+int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size, uint8_t main_rgb[3]);
+/* `main_rgb` (NULL: none) gets the alternate livery's main body colour (8 bits a channel), for the dash art (drive_livery_dash). */
 
 /* The showcase box's colours: the main body colour (BGR555) of the normal livery (`colours`[0]) and of the alternate
  * (`colours`[1]), from psx_dir's Z<STEM>.VSM and .WSM, as drive_livery_car maps them. Returns 1 with both set; 0 when a
@@ -22,6 +23,12 @@ int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[
 /* A catalogue paint (car_paint.h) for the car: its body textures' colours recoloured towards `rgb`, texel by texel in the body
  * textures only (car_repaint.h), in the CFM the caller owns, before the loader reads it. Returns the body texels changed. */
 int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
+
+/* The dash art's body (the bonnet, wings and pillars the cockpit picture shows) in a paint: `bank` is the dash's SHPI (SIMDATA/DASH/<stem>DH.FSH) as
+ * read, `rgb` a catalogue paint (car_paint.h) or the PS1 livery's main colour (drive_livery_car's `main_rgb`; the dash shows tones the car's textures
+ * do not, so the livery's map by colour would leave them grey). Texel by texel, in the entries DASH_BODY_FIRST..LAST of the 'dash' picture alone; the
+ * gauges, plastics and the HUD keep theirs. Run on the bank before the palette is built. Returns the number of body texels changed. */
+int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_t rgb[3]);
 
 /* The draft of a car's masks (car_mask.h) from the rules that repaint it today, for the hand-made ones to start from: for each body
  * texture of each bank, `fn(user, level, name, width, height, pixels, keep, rgb)` with `keep` (width x height of REPAINT_DRAFT_*: paint, or the rules leave the
