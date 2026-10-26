@@ -2,6 +2,7 @@
 #include "game/frontend/records_route.h"
 #include "game/sys/free_laps.h"
 #include "game/sys/port_log.h"
+#include "game/sys/reverse_track.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -78,6 +79,7 @@ static void mark(RaceKind kind, RouteOp op, int track, int segment_word, int cho
 int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAGE],
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
+    if (reverse_track_running()) return nothing(op);   /* port: a reversed track keeps no record (its own boards come later) */
     kind = records_kind_with_car(kind, g16(image + CAR));
     static uint8_t scratch[RECORD_CHECK_IMAGE];
     const int track = g16(image + TRACK);

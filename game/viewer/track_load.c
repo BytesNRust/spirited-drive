@@ -10,6 +10,7 @@
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
 #include "game/sys/port_log.h"
+#include "formats/tri_reverse.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -143,6 +144,18 @@ int track_viewer_fam_missing(const char *data_root, const char *name, const Trac
     return data == NULL;
 }
 
+/* port: the circuit's file turned in place to run the other way round; a stage (or a file that does not open) is left as it
+ * is, and the race runs forwards. */
+static int reverse_file(uint8_t *file, size_t size, const char *name)
+{
+    uint8_t *turned = malloc(size);
+    const TriResult r = turned != NULL ? tri_reverse(file, size, turned) : TRI_ERR_BOUNDS;
+    if (r == TRI_OK) memcpy(file, turned, size);
+    else port_log("track_viewer: %s cannot run backwards (%s), forwards\n", name, tri_result_str(r));
+    free(turned);
+    return r == TRI_OK;
+}
+
 /* The track `name` with 004510e8's art and 0043a370's sky for `look` (its time of day, variants and track). */
 int track_viewer_load(Track *t, const char *data_root, const char *name, const TrackFamInputs *look)
 {
@@ -190,6 +203,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
                            LUNAR_ROAD_GANTRY_QUARTERS);
         if (getenv("TNFS_TRACE_FAM") != NULL) port_log("track_viewer: rally art, %d far roads from the near\n", far);
     }
+    if (look->port_reverse) t->reversed = reverse_file(t->tri_file, tri_size, name);
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
     if (tr != TRI_OK || cr != CHUNK_OK || !track_art_load(&t->art, &t->fam)) {

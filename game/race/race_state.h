@@ -448,6 +448,8 @@ typedef struct {
     int32_t port_free_laps;         /* port: 1 the race's laps are not the exe's (free_laps.h): the places the lap count outgrows
                                      * guard themselves (the splits' 85, the game state's 20 lap times, the finish estimate's
                                      * int32, the AI zones' int16 progress); 0 the exe's, byte for byte */
+    int32_t port_reverse;           /* port: 1 the track runs the other way round (tri_reverse.h): no rival times (the splits' tables
+                                     * are for the track's own direction); 0 the exe's */
 } RaceState;
 
 enum {

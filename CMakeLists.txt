@@ -357,6 +357,7 @@ add_library(tnfs_game STATIC
     game/sys/text_soft.c
     game/sys/port_settings.c
     game/sys/free_laps.c
+    game/sys/reverse_track.c
     game/sys/port_extras.c
     game/sys/port_icon.c
     game/sys/port_controls.c
