@@ -355,14 +355,17 @@ static void point_screen(void *ctx, const int32_t world[3], int32_t camera[3], i
 
 /* port (PS1 light): the polygon the road's draws paint is a lit one while light_now says so; the sink hears of it for the
  * length of the draw */
+static const uint8_t *light_now_of(const Glue *g) { return g->light_now != NULL ? g->light_now : g->r->light_now; }
+
 static void light_on(const Glue *g)
 {
-    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_tunnel = g->r->light_now[5], track_light_hook(g->r->light_now);
+    const uint8_t *now = light_now_of(g);
+    if (track_light_hook != NULL && now[4] != 0) track_light_tunnel = now[5], track_light_hook(now);
 }
 
 static void light_off(const Glue *g)
 {
-    if (track_light_hook != NULL && g->r->light_now[4] != 0) track_light_tunnel = 0, track_light_hook(NULL);
+    if (track_light_hook != NULL && light_now_of(g)[4] != 0) track_light_tunnel = 0, track_light_hook(NULL);
 }
 
 static void subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
@@ -431,7 +434,7 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
 static void object_light_on(const Glue *g)
 {
     if (track_light_hook == NULL || g->r->psx == NULL) return;
-    const uint8_t v = psx_light_node(g->r->psx, (uint32_t)g->r->build.walk.node);
+    const uint8_t v = psx_light_node(g->r->psx, (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node);
     const uint8_t corners[4] = { v, v, v, v };
     track_light_hook(corners);
 }
@@ -513,7 +516,7 @@ void track_render_push_near(int32_t v[3], int32_t near, const int32_t dir[3])
 void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext *ctx, int mirrored, int32_t frame)
 {
     if (r->tri == NULL || r->vertex_count == 0) return;
-    const Glue g = { r, cam, ctx };
+    const Glue g = { r, cam, ctx, NULL, NULL };
     TrackObjectWalk *walk = &r->build.walk;
     track_objects_from_last(walk);  /* 0044a804, before the draws (0044cc74) */
     TrackObjectDraw objects = { walk, r->nodes, (const int32_t (*)[3])r->object_world,

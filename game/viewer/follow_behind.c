@@ -29,6 +29,9 @@ typedef struct {
     TrackSegmentEntry entries[TRACK_SEGMENT_ENTRIES];
     int32_t run_cursor[RUN_CAPACITY], run_node[RUN_CAPACITY], run_end[RUN_CAPACITY];
     int run_count;
+    /* port (the PS1 light): the light of each point of `world`, 1 for those in a tunnel's row, and the corners of the polygon being drawn, as the render's */
+    uint8_t light_vertex[WORLD_CAPACITY], tunnel_vertex[WORLD_CAPACITY], light_now[6];
+    int lit;
 } Behind;
 
 static Behind B;
@@ -61,6 +64,8 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     b->world = B.world, b->world_capacity = WORLD_CAPACITY, b->segments = B.entries, b->reach = r->build.reach;
     b->object_world = B.object_world, b->object_capacity = OBJECT_CAPACITY;
     b->walk = r->build.walk;
+    B.lit = r->psx != NULL;
+    if (B.lit) b->light = r->psx, b->light_out = B.light_vertex, b->tunnel_out = B.tunnel_vertex;   /* the same light, per node, as the main pass's */
     track_objects_start(&b->walk, (int32_t)(b->segment_mask & (uint32_t)first));
     for (int32_t s = first; s <= last; s++)
     {
@@ -231,7 +236,37 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
     (void)strip;
 }
 
+/* port (the PS1 light): a polygon's or rail's corners in light_now (track_fence.h's), and the sink told for the length of the draw as the glue's draws tell it;
+ * the draws here that go straight to the sink (the cut cells, the subdivided road) have no glue to do it. Nothing without a light. */
+static TrackFenceInputs lit_inputs(void)
+{
+    return (TrackFenceInputs){ .light = B.lit ? B.light_vertex : NULL, .light_now = B.light_now, .tunnel = B.lit ? B.tunnel_vertex : NULL };
+}
+
+static void lit_on(void)
+{
+    if (track_light_hook != NULL && B.light_now[4] != 0) track_light_tunnel = B.light_now[5], track_light_hook(B.light_now);
+}
+
+static void lit_off(void)
+{
+    if (track_light_hook != NULL && B.light_now[4] != 0) track_light_tunnel = 0, track_light_hook(NULL);
+}
+
+static void polygon_body(Pass *p, const TrackSegmentEntry *e, const uint8_t *record, const TrackPolygon *poly, int near_style, int32_t band);
+
 static void draw_polygon(Pass *p, const TrackSegmentEntry *e, const uint8_t *record, const TrackPolygon *poly, int near_style,
+                         int32_t band)
+{
+    const TrackFenceInputs in = lit_inputs();
+    track_light_set(&in, e->first, poly->corner);
+    lit_on();
+    polygon_body(p, e, record, poly, near_style, band);
+    lit_off();
+    track_light_clear(&in);
+}
+
+static void polygon_body(Pass *p, const TrackSegmentEntry *e, const uint8_t *record, const TrackPolygon *poly, int near_style,
                          int32_t band)
 {
     const TrackUv *uv = &TRACK_UVS[poly->uv];
@@ -308,7 +343,19 @@ static void draw_rail_cut(const Pass *p, const FshEntry *t, const int32_t *const
 /* one rail panel (0044a2b4's quad: b's top, a's top, a, b) from the points' unpushed camera-space coordinates: clipped to
  * the near plane like the road's quads, its corners slid along the edges, so a rail that passes the lens runs off the
  * screen's edge instead of being dropped or pushed out of shape; one wholly behind the lens is not drawn */
+static void rail_body(Pass *p, const int32_t pair[2], int32_t base, const TrackUv *uv, int level, int32_t texture, int tall);
+
 static void draw_rail(Pass *p, const int32_t pair[2], int32_t base, const TrackUv *uv, int level, int32_t texture, int tall)
+{
+    const TrackFenceInputs in = lit_inputs();
+    track_light_set_points(&in, base + pair[0], base + pair[1]);
+    lit_on();
+    rail_body(p, pair, base, uv, level, texture, tall);
+    lit_off();
+    track_light_clear(&in);
+}
+
+static void rail_body(Pass *p, const int32_t pair[2], int32_t base, const TrackUv *uv, int level, int32_t texture, int tall)
 {
     const int32_t height = tall ? 0x20000 : 0xE666;
     const int32_t a = base + pair[0], b = base + pair[1];
@@ -484,7 +531,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
         to_camera(cam, shift, B.object_world[i], B.object_camera[i]);
         view_project(p->ctx.view, B.object_camera[i], B.object_screen[i]);
     }
-    p->glue = (TrackGlue){ r, cam, &p->ctx };
+    p->glue = (TrackGlue){ r, cam, &p->ctx, B.light_now, &B.build.walk };
     track_render_fence_ops(&p->glue, &p->fence_ops);
     TrackObjectDrawOps object_ops;
     track_render_object_ops(&p->glue, &object_ops);

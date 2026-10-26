@@ -141,6 +141,8 @@ typedef struct {
     const TrackRender *r;
     const TrackCamera *cam;
     const DrawContext *ctx;
+    const uint8_t *light_now;        /* port (PS1 light): the corners of the polygon being drawn, as TrackRender's light_now; NULL the render's own */
+    const TrackObjectWalk *walk;     /* port (PS1 light): the walker of the objects drawn, the node their light is of; NULL the render's own */
 } TrackGlue;
 void track_render_fence_ops(const TrackGlue *g, TrackFenceOps *out);
 void track_render_object_ops(const TrackGlue *g, TrackObjectDrawOps *out);
