@@ -107,7 +107,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.perspective, 0);
     CHECK_EQ_INT(d.texture_filter, 0);
     CHECK_EQ_INT(d.fog, 0);
-    CHECK_EQ_INT(d.render_bands, 0);   /* the render threads are off by default */
+    CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
 }
 
 static void test_round_trip(void)
@@ -154,14 +154,14 @@ static void test_render_bands_values(void)
     CHECK(strstr(text, "render_bands=0\n") != NULL);
 }
 
-/* a damaged value keeps the default, like every other key: the render threads stay off */
+/* a damaged value keeps the default, like every other key: the render threads stay on Auto */
 static void test_bad_render_bands_keeps_the_default(void)
 {
     static const char *const bad[] = { "render_bands=9\n", "render_bands=-2\n", "render_bands=two\n",
                                        "render_bands=Auto\n", "render_bands=\n" };
     for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
         const PortSettings s = port_settings_parse(bad[i], strlen(bad[i]));
-        CHECK_EQ_INT(s.render_bands, 0);
+        CHECK_EQ_INT(s.render_bands, -1);
     }
 }
 

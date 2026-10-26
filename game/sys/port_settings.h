@@ -40,7 +40,7 @@ typedef struct {
     int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain`, re/notes/weather-design.md; clear */
     /* the render threads: 0 off (the plain path, as the exe draws it), -1 "auto" (as many as the logical cores,
      * at most eight), or a thread count. The TNFS_BANDS environment variable wins over this one. */
-    int render_bands;        /* 0 */
+    int render_bands;        /* -1 (auto) */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */

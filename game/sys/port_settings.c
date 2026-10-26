@@ -33,7 +33,9 @@ static int psx_time_named(const char *name)
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, PSX_TIME_DAY, WEATHER_CLEAR, 0 };
+    /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
+     * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, PSX_TIME_DAY, WEATHER_CLEAR, -1 };
     return d;
 }
 
@@ -102,7 +104,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
     } else if (strcmp(key, "render_bands") == 0) {
         /* the render threads: "auto" for as many as the logical cores, or a count. Anything else keeps the default
-         * (off), so a damaged file cannot turn the threads on by accident. */
+         * (auto), so a damaged file cannot turn the threads off by accident. */
         if (strcmp(value, "auto") == 0)
             s->render_bands = -1;
         else if (parse_int(value, &n) && n >= 0 && n <= 8)

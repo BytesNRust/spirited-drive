@@ -72,7 +72,9 @@ With everything off and the 4:3 format the game plays as the original. The addit
   - field of view;
   - view distance Close / Medium / Far / Ultra;
   - perspective-correct 3D, texture filter and fog (all off by default);
-  - render threads: off (the original's one thread), Auto (as many as the machine's logical cores), 2 or 4.
+  - render threads: Auto by default (as many as the machine's logical cores, at most eight), or off (the original's one
+    thread), 2 or 4. The picture is the same with any of them; the wall is quicker with the threads on. `TNFS_BANDS` in
+    the environment wins over the setting.
   The pause menu's Graphics opens the same screen; the rows that need a new race say "(next race)".
 - **Controls** (Options → Controls setup): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead

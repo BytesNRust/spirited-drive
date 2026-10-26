@@ -774,7 +774,7 @@ static void test_value_texts(void)
     graphics_own_value(&s, GRAPHICS_OWN_FULLSCREEN, out);
     CHECK(strcmp(out, "Off") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_BANDS, out);
-    CHECK(strcmp(out, "Off") == 0);
+    CHECK(strcmp(out, "Auto") == 0);   /* Auto is the default: as many threads as the logical cores */
 
     s.view_ultra = 1;
     graphics_own_view_value(0, s.view_ultra, out);
@@ -797,6 +797,9 @@ static void test_render_threads_values(void)
     PortSettings s = port_settings_defaults();
     char out[16];
     graphics_own_value(&s, GRAPHICS_OWN_BANDS, out);
+    CHECK(strcmp(out, "Auto") == 0);   /* Auto is the default */
+    s.render_bands = 0;
+    graphics_own_value(&s, GRAPHICS_OWN_BANDS, out);
     CHECK(strcmp(out, "Off") == 0);
     s.render_bands = -1;
     graphics_own_value(&s, GRAPHICS_OWN_BANDS, out);
@@ -813,16 +816,17 @@ static void test_render_threads_values(void)
 static void test_render_threads_step(void)
 {
     PortSettings s = port_settings_defaults();
+    CHECK_EQ_INT(s.render_bands, -1);   /* Auto is where the row starts */
     graphics_own_step(&s, GRAPHICS_OWN_BANDS, 1, SCREEN_4_3);
-    CHECK_EQ_INT(s.render_bands, -1);   /* Off -> Auto */
-    graphics_own_step(&s, GRAPHICS_OWN_BANDS, 1, SCREEN_4_3);
-    CHECK_EQ_INT(s.render_bands, 2);
+    CHECK_EQ_INT(s.render_bands, 2);   /* Auto -> 2 */
     graphics_own_step(&s, GRAPHICS_OWN_BANDS, 1, SCREEN_4_3);
     CHECK_EQ_INT(s.render_bands, 4);
     graphics_own_step(&s, GRAPHICS_OWN_BANDS, 1, SCREEN_4_3);
-    CHECK_EQ_INT(s.render_bands, 0);   /* and back to Off */
+    CHECK_EQ_INT(s.render_bands, 0);   /* 4 -> Off */
+    graphics_own_step(&s, GRAPHICS_OWN_BANDS, 1, SCREEN_4_3);
+    CHECK_EQ_INT(s.render_bands, -1);  /* and back to Auto */
     graphics_own_step(&s, GRAPHICS_OWN_BANDS, -1, SCREEN_4_3);
-    CHECK_EQ_INT(s.render_bands, 4);   /* and the other way round */
+    CHECK_EQ_INT(s.render_bands, 0);   /* and the other way round */
     /* the rest of the settings are not touched */
     CHECK_EQ_INT(s.format, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 60);
@@ -1074,8 +1078,8 @@ static void test_race_dims_next_race_rows(void)
     rig_init(&bands);
     bands.plus.race = 1;
     run_script(&bands, script_walk(GRAPHICS_OWN_BANDS, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(bands.port.render_bands, 0);
-    CHECK(drew(&bands.f, "Off (next race)"));
+    CHECK_EQ_INT(bands.port.render_bands, -1);   /* dimmed: it holds still at the default, Auto */
+    CHECK(drew(&bands.f, "Auto (next race)"));
 }
 
 /* the render threads on the page: the tenth row, its label, its value, and the band it sits in */
@@ -1096,8 +1100,8 @@ static void test_render_threads_row_on_the_page(void)
     CHECK(drew(&r.f, "Render threads"));
     for (int i = 0; i < r.f.text_count && i < 96; i++)
         if (strcmp(r.f.texts[i], "Render threads") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
-    /* and the value, on the right */
-    CHECK(drew(&r.f, "Off"));
+    /* and the value, on the right: Auto, the default */
+    CHECK(drew(&r.f, "Auto"));
 
     /* the tenth row's band, and every row's: the bands the screen asked about, in order. The last one is the tenth
      * row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not run
@@ -1114,7 +1118,7 @@ static void test_render_threads_row_is_reachable(void)
     Rig r;
     rig_init(&r);
     run_script(&r, script_walk(GRAPHICS_OWN_BANDS, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(r.port.render_bands, -1);   /* Off -> Auto */
+    CHECK_EQ_INT(r.port.render_bands, 2);   /* Auto -> 2 */
     CHECK_EQ_INT(r.f.saves, 1);
 }
 
