@@ -48,7 +48,7 @@ static void test_sink_perspective_correct(void)
     const Object3DSink sink = object_sink(&s);
     CHECK(sink.textured_camera != NULL && sink.flat_camera != NULL);
     memset(screen_px, UNTOUCHED, sizeof screen_px);
-    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, 20, -20, -10, 20 }, 4 };
+    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, 20, -20, -10, 20 }, 4, NULL };
     sink.textured_camera(sink.user, OBJECT3D_TABLE_QUAD_WHOLE, 0, &t, &c);
     const int got = first_row_pixel(&view, 110, -10);
     CHECK(abs(got - TEX / 2) <= 2);
@@ -70,7 +70,7 @@ static void test_sink_modes(void)
     for (int i = 0; i < 256; i++) shade[i] = (uint8_t)(255 - i);
     ObjectSink s = { &q, palette, shade, &view };
     const Object3DSink sink = object_sink(&s);
-    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, 20, -20, -10, 20 }, 4 };
+    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, 20, -20, -10, 20 }, 4, NULL };
     memset(screen_px, 7, sizeof screen_px);
     sink.textured_camera(sink.user, OBJECT3D_TABLE_QUAD_WHOLE, 2, &t, &c);
     CHECK_EQ_INT(screen_px[(view.centre_y + 30) * W + view.centre_x], 255 - 7);
@@ -94,7 +94,7 @@ static void test_sink_inset_and_bad_mode(void)
     uint8_t shade[256] = { 0 }, palette[768] = { 0 };
     ObjectSink s = { &q, palette, shade, &view };
     const Object3DSink sink = object_sink(&s);
-    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, 20, -20, -10, 20 }, 4 };
+    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, 20, -20, -10, 20 }, 4, NULL };
     memset(screen_px, UNTOUCHED, sizeof screen_px);
     sink.textured_camera(sink.user, OBJECT3D_TABLE_QUAD_WHOLE_TRIANGLES, 0, &t, &c);
     int border = 0, inner = 0;
@@ -118,11 +118,11 @@ static void test_sink_flat(void)
     palette[3 * 9] = 200;   /* colour 9: the red; every other colour black */
     ObjectSink s = { &q, palette, shade, &view };
     const Object3DSink sink = object_sink(&s);
-    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, -50, -20, -10, -50 }, 4 };
+    const Object3DCorners c = { { 0 }, { 0 }, { -20, -10, 200, 20, -10, 200, 20, -10, -50, -20, -10, -50 }, 4, NULL };
     memset(screen_px, UNTOUCHED, sizeof screen_px);
     sink.flat_camera(sink.user, 0x000000c8, &c);   /* red in the mesh's packing: the first byte blue, the last red */
     CHECK(screen_px[(H - 1) * W + view.centre_x] != UNTOUCHED);   /* down to the bottom: cut at the near plane, not pushed */
-    const Object3DCorners behind = { { 0 }, { 0 }, { -20, -10, -5, 20, -10, -5, 20, -10, -50 }, 3 };
+    const Object3DCorners behind = { { 0 }, { 0 }, { -20, -10, -5, 20, -10, -5, 20, -10, -50 }, 3, NULL };
     memset(screen_px, UNTOUCHED, sizeof screen_px);
     sink.flat_camera(sink.user, 0x000000c8, &behind);
     int drawn = 0;

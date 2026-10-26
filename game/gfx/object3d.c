@@ -2,6 +2,7 @@
 
 #include "game/sys/fixed_math.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -180,6 +181,7 @@ void object3d_free(Object3D *obj)
     free(obj->polygons);
     free(obj->order);
     free(obj->textures);
+    free(obj->normal);
     memset(obj, 0, sizeof *obj);
 }
 
@@ -227,6 +229,46 @@ void object3d_project(Object3D *obj, const View *view)
     /* 00491690's other path (+0x10 & 0x20: 004a30c6, 16.16 then rounded) is for objects created
      * with flag 4; the race creates them with 0 and 1 only (004576f0, 00457d40). */
     for (uint32_t v = 0; v < obj->vertex_count; v++) view_project(view, obj->camera[v], obj->screen[v]);
+}
+
+int object3d_enable_normals(Object3D *obj)
+{
+    if (obj->normal != NULL) return 1;
+    obj->normal = calloc(obj->vertex_count ? obj->vertex_count : 1, sizeof *obj->normal);
+    return obj->normal != NULL;
+}
+
+static int32_t winding_camera(const Object3D *obj, const Object3DPolygon *p);
+
+void object3d_update_normals(Object3D *obj)
+{
+    if (obj->normal == NULL) return;
+    memset(obj->normal, 0, (obj->vertex_count ? obj->vertex_count : 1) * sizeof *obj->normal);
+    for (uint32_t i = 0; i < obj->polygon_count; i++) {
+        const Object3DPolygon *p = &obj->polygons[i];
+        const int corners = (int)(p->flags & POLY_CORNERS);
+        if (corners < 3 || corners > 4 || p->vertex[0] >= obj->vertex_count || p->vertex[1] >= obj->vertex_count ||
+            p->vertex[2] >= obj->vertex_count || (corners == 4 && p->vertex[3] >= obj->vertex_count))
+            continue;
+        if (!(p->flags & (POLY_TWO_SIDED | POLY_NO_CULL)) && ((p->flags & POLY_REVERSED) == 0) != (winding_camera(obj, p) > 0)) continue;
+        const int32_t *a = obj->camera[p->vertex[0]], *b = obj->camera[p->vertex[1]], *c = obj->camera[p->vertex[2]];
+        const double u[3] = { (double)b[0] - a[0], (double)b[1] - a[1], (double)b[2] - a[2] },
+                     w[3] = { (double)c[0] - a[0], (double)c[1] - a[1], (double)c[2] - a[2] };
+        double n[3] = { u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0] };
+        const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        if (len < 1e-9) continue;
+        double toward = n[0] * a[0] + n[1] * a[1] + n[2] * a[2];   /* the eye is the origin: a normal on the eye's side has this negative */
+        const double sign = toward > 0 ? -1.0 : 1.0;
+        for (int k = 0; k < 3; k++) n[k] = sign * n[k] / len;
+        for (int k = 0; k < corners; k++)
+            for (int m = 0; m < 3; m++) obj->normal[p->vertex[k]][m] += (float)n[m];
+    }
+    for (uint32_t v = 0; v < obj->vertex_count; v++) {
+        float *n = obj->normal[v];
+        const float len = sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        if (len > 1e-6f) n[0] /= len, n[1] /= len, n[2] /= len;
+        else n[0] = n[1] = n[2] = 0;
+    }
 }
 
 /* 004a3110: Shell sort, largest key first, the order list moved with it. */
@@ -307,7 +349,7 @@ static Object3DTable table_for(uint32_t flags, int corners, int alt)
     return split ? OBJECT3D_TABLE_QUAD_WHOLE_TRIANGLES : OBJECT3D_TABLE_QUAD_WHOLE;
 }
 
-static void gather(const Object3D *obj, const Object3DPolygon *p, int corners, Object3DCorners *c)
+static void gather(const Object3D *obj, const Object3DPolygon *p, int corners, Object3DCorners *c, float normal[12])
 {
     memset(c, 0, sizeof *c);
     c->corners = corners;
@@ -315,6 +357,7 @@ static void gather(const Object3D *obj, const Object3DPolygon *p, int corners, O
         c->screen[2 * i] = obj->screen[p->vertex[i]][0];
         c->screen[2 * i + 1] = obj->screen[p->vertex[i]][1];
         for (int k = 0; k < 3; k++) c->camera[3 * i + k] = obj->camera[p->vertex[i]][k];
+        if (obj->normal != NULL && p->vertex[i] < obj->vertex_count) memcpy(normal + 3 * i, obj->normal[p->vertex[i]], 3 * sizeof *normal);
         MeshUv uv;
         if (p->uv[i] != UINT32_MAX && mesh_uv(obj->mesh, p->uv[i], &uv) == MESH_OK) {
             c->uv[2 * i] = uv.u;
@@ -343,7 +386,9 @@ static void draw_polygon(const Object3D *obj, uint32_t index, int32_t near_z, co
         if (((flags & POLY_REVERSED) == 0) != (facing > 0)) return;
     }
     Object3DCorners c;
-    gather(obj, p, corners, &c);
+    float normal[12] = { 0 };
+    gather(obj, p, corners, &c, normal);
+    if (obj->normal != NULL) c.normal = normal;
     if (textured) {
         const int mode = (int)((flags >> 3) & 0xF);
         const Object3DTable table = table_for(flags, corners, (obj->flags & OBJECT3D_FLAG_ALT_MAPPERS) != 0);
