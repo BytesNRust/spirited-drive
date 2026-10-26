@@ -25,6 +25,7 @@ void psx_light_free(PsxLight *light)
     free(light->data);
     light->data = NULL;
     light->scripted = 0;
+    light->reversed = 0;
     light->nodes = 0;
 }
 
@@ -36,10 +37,31 @@ int psx_light_set_script(PsxLight *light, const PsxLgs *script)
     return 1;
 }
 
+int psx_light_set_reversed(PsxLight *light, int reversed)
+{
+    if (light == NULL || light->data == NULL) return 0;
+    light->reversed = reversed != 0;
+    return 1;
+}
+
+uint32_t psx_light_old_node(const PsxLight *light, uint32_t node)
+{
+    if (light == NULL || light->nodes == 0) return node;
+    node %= light->nodes;
+    return light->reversed ? (light->nodes - node) % light->nodes : node;
+}
+
+/* a point of a row as the file has it: the chains swap on a reversed track */
+static int old_point(const PsxLight *light, int point)
+{
+    return light->reversed && point > 0 ? (point + 5 - 1) % 10 + 1 : point;
+}
+
 uint8_t psx_light_byte(const PsxLight *light, uint32_t node, int point)
 {
     if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= PSX_LIGHT_POINTS) return PSX_LIGHT_FULL;
-    node %= light->nodes;
+    node = psx_light_old_node(light, node);
+    point = old_point(light, point);
     if (node == light->nodes - 1) node--;
     return light->data[(size_t)node * PSX_LIGHT_POINTS + (size_t)point];
 }
@@ -49,7 +71,8 @@ static int row_is_tunnel(const uint8_t *row)
     return (row[2] >= PSX_LIGHT_WALL_FOOT && row[4] == 0 && row[5] == 0) || (row[7] >= PSX_LIGHT_WALL_FOOT && row[9] == 0 && row[10] == 0);
 }
 
-int psx_light_tunnel(const PsxLight *light, uint32_t node)
+/* the tunnel test on a node of the file's own direction */
+static int tunnel_in_file(const PsxLight *light, uint32_t node)
 {
     if (light == NULL || light->data == NULL || light->nodes < 2) return 0;
     node %= light->nodes;
@@ -58,10 +81,16 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node)
     return row_is_tunnel(light->data + (size_t)node * PSX_LIGHT_POINTS);
 }
 
+int psx_light_tunnel(const PsxLight *light, uint32_t node)
+{
+    return tunnel_in_file(light, psx_light_old_node(light, node));
+}
+
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
 {
     if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= PSX_LIGHT_POINTS) return PSX_LIGHT_FULL;
-    node %= light->nodes;
+    node = psx_light_old_node(light, node);
+    point = old_point(light, point);
     if (node == light->nodes - 1) node--;
     const uint8_t *row = light->data + (size_t)node * PSX_LIGHT_POINTS;
     if (light->scripted) {   /* the exe's light: the context's colour or the LGT through T, as the luminance of the three channels */
@@ -70,7 +99,7 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
         const float y = 0.30f * f[0] + 0.59f * f[1] + 0.11f * f[2];
         return (uint8_t)(y >= 1.0f ? 255 : y <= 0.0f ? 0 : y * 255.0f + 0.5f);
     }
-    const int tunnel = psx_light_tunnel(light, node);
+    const int tunnel = tunnel_in_file(light, node);
     /* in a tunnel a 0 beyond a lit wall foot (point 2 right, 7 left) is no data, not black: the PS1 shows its walls and pillars at about half light;
      * anywhere else (a cutting, a bridge's shade) a 0 is the black it says */
     const int foot = point >= 3 && point <= 5 ? row[2] : point >= 8 ? row[7] : 0;

@@ -167,6 +167,11 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
 }
 
+void drive_light_set_reversed(int reversed)
+{
+    psx_light_set_reversed(&light, reversed);
+}
+
 /* the PC's alternative sky (NTRACKFM/<TRACK>_T01.FAM, the art the original's morning / evening race ran on) for a dawn or dusk the CD has no PS1 sky for:
  * only its 'horz' picture, palette and INFO (the ring), drawn through the PS1 sky's path (the nearest of the world as it is shown), so the time's tint is
  * not put on a sky that is already of its time; the rest of the art stays the midday's. Nothing when the CD holds no such FAM (Lost Vegas). */
