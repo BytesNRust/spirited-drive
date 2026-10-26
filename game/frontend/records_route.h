@@ -6,6 +6,7 @@
 #define TNFS_RECORDS_ROUTE_H
 
 #include "game/frontend/record_check.h"
+#include "game/sys/free_records.h"
 #include "game/sys/port_records.h"
 
 typedef struct {
@@ -24,6 +25,11 @@ int records_slot_totals(int track, int choice, int row);   /* the slot of a tota
 /* The laps choice whose tables of totals the race's records and results use: the image's own (the menu's difficulty), or
  * in a free race (free_laps.h) the choice its lap count is in the track's table, when it is one of the track's. */
 int records_choice(const uint8_t image[RECORD_CHECK_IMAGE]);
+
+/* port (free records): the table of the ten best totals a free race of a lap count its track lacks (free_laps_choice -1) is checked against,
+ * for `kind`: free_records.h's, made from the seed when none exists yet (nothing saved). NULL when the race is not one: the flag off
+ * (port_free_records), not a free race, a stage, or a lap count the track has. */
+FreeTable *records_free_table(const uint8_t image[RECORD_CHECK_IMAGE], RaceKind kind);
 
 /* The race's kind from the flags the original keeps (rally before mirror when both are set). */
 RaceKind records_race_kind(int variant_m, int variant_r, int explode, int nitro, int turbo);

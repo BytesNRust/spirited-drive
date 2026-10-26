@@ -97,6 +97,18 @@ static void take_cd_rows(void)
     }
 }
 
+const uint8_t *port_records_default_block(int track)
+{
+    static ConfigDat builtin, cd;
+    static const ConfigDat *source;
+    if (track < 0 || track >= RECORDS_TRACKS) return NULL;
+    if (source == NULL) {
+        config_dat_defaults(&builtin, 0);
+        source = cd_config(&cd) ? &cd : &builtin;
+    }
+    return block_in(source, track);
+}
+
 static void ensure(void)
 {
     if (!store.ready) defaults();

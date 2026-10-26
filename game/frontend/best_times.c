@@ -1,12 +1,15 @@
 #include "game/frontend/best_times.h"
 
 #include "game/frontend/records_route.h"
+#include "game/sys/free_laps.h"
+#include "game/sys/free_records.h"
 
 #include <stdio.h>
 #include <string.h>
 
 enum {
-    TRACKS = 9, ITEMS = 6, DONE = 0, PREV = 1, NEXT = 2, BACK = 3, NOTHING = 4, CHEATS = 5 /* port: the gap after Done */,
+    TRACKS = 9, ITEMS = 7, DONE = 0, PREV = 1, NEXT = 2, BACK = 3, NOTHING = 4, CHEATS = 5 /* port: the gap after Done */,
+    LAPS = 6 /* port (free records): the gap between the arrows */, MAX_LAPS = 3 + FREE_LAPS_MAX,
     LOST_VEGAS = 8, TOURNAMENT = 3,
     OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, REST = 0x19, KEY_SPACE = 0x20,
     KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = 0x4800, KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00, KEY_DOWN = 0x5000,
@@ -20,6 +23,9 @@ enum {
 enum {
     CHEATS_X = 0x94, CHEATS_Y = 0x1bb, CHEATS_POINTER_X = 0x94, CHEATS_RECT_X0 = 0x82, CHEATS_RECT_X1 = 0xc8
 };
+/* port (free records): the lap-count item's label, centred between the arrows (the left one ends at 0xfa, the right one starts at 0x172) on the
+ * same baseline, its pointer and its hit rect */
+enum { LAPS_X = 0x136, LAPS_POINTER_X = 0x136, LAPS_RECT_X0 = 0xfa, LAPS_RECT_X1 = 0x172 };
 
 /* the tracks' files (004673f8) and the cars (0046741c) */
 static const char *const TRACK_FILE[TRACKS] = { "citybst", "coastbst", "alpbst", "rustbst", "autbst", "brunbst",
@@ -34,11 +40,14 @@ static const char *const DIM[4] = { "dond", "lard", "rard", "desd" };
 /* the arrows' moves (004673d0, 004673da) and where the pointer goes per item (004673e4, 004673ee) */
 static const int16_t LEFT[ITEMS] = { 3, 0, 1, 2, 0 };
 static const int16_t RIGHT[ITEMS] = { 1, 2, 3, 0, 0 };
-static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 320, CHEATS_POINTER_X };
-static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 240, 455 };
+static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 320, CHEATS_POINTER_X, LAPS_POINTER_X };
+static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 240, 455, 455 };
 /* port: with a plus the cheats item between Done and the left arrow, the ring runs Done, cheats, left arrow */
-static const int16_t LEFT_PLUS[ITEMS] = { 3, CHEATS, 1, 2, 0, DONE };
-static const int16_t RIGHT_PLUS[ITEMS] = { CHEATS, 2, 3, 0, 0, PREV };
+static const int16_t LEFT_PLUS[ITEMS] = { 3, CHEATS, 1, 2, 0, DONE, 1 };
+static const int16_t RIGHT_PLUS[ITEMS] = { CHEATS, 2, 3, 0, 0, PREV, 2 };
+/* port (free records): with the lap-count item the ring runs Done, cheats, left arrow, laps, right arrow, Back */
+static const int16_t LEFT_LAPS[ITEMS] = { 3, CHEATS, LAPS, 2, 0, DONE, 1 };
+static const int16_t RIGHT_LAPS[ITEMS] = { CHEATS, LAPS, 3, 0, 0, PREV, 2 };
 /* 004baef8: a tournament's car per track */
 static const int16_t TOURNAMENT_CAR[TRACKS] = { 0, 3, 6, 0, 3, 3, 6, 6, 7 };
 
@@ -51,6 +60,7 @@ typedef struct Screen {
     int redraw;        /* esp + 0x6c8 */
     int refresh;       /* esp + 0x6d0: the art drawn whole, the palette faded in */
     int repaint;       /* port: the records drawn again over the art, no fade */
+    int laps;          /* port (free records): the lap count shown, 0 until the item steps it (then the menu's) */
     int changed;       /* esp + 0x6d4 */
     int armed;         /* esp + 0x6e0: the keys taken */
     int released;      /* esp + 0x6d8: the buttons seen up */
@@ -78,6 +88,9 @@ static int track_of(const BestTimesState *st)
     return g16(st->config, TRACK_SELECT_TRACK);
 }
 
+/* port (free records): whether the lap-count item is on this screen: a circuit, the flag on */
+static int selector(const BestTimesState *st) { return st->plus && st->plus->laps_select && track_of(st) > 2; }
+
 /* the palette from the bank's "!pal", the screens cleared, the palette set */
 static void palette_load(Screen *s, BestTimesState *st, const BestTimesOps *ops)
 {
@@ -103,6 +116,7 @@ static void follow(Screen *s, const BestTimesState *st, const BestTimesOps *ops)
     else if (st->plus && ops->pointer_in_rect(ops->ctx, CHEATS_RECT_X0, CHEATS_RECT_X1, 0x1b3, 0x1e0))
         now = CHEATS;   /* port */
     else if (ops->pointer_in_rect(ops->ctx, 0xc8, 0xfa, 0x1b3, 0x1e0)) now = PREV;
+    else if (selector(st) && ops->pointer_in_rect(ops->ctx, LAPS_RECT_X0, LAPS_RECT_X1, 0x1b3, 0x1e0)) now = LAPS;   /* port */
     else if (ops->pointer_in_rect(ops->ctx, 0x172, 0x1a4, 0x1b3, 0x1e0)) now = NEXT;
     else if (ops->pointer_in_rect(ops->ctx, 0x1e0, 0x280, 0x1b3, 0x1df)) now = BACK;
     if (now == s->item) return;
@@ -127,22 +141,58 @@ static void draw_marks(const BestTimesState *st, int track, int slot, int32_t y,
     if (text[0] != '\0') ops->text_shadowed(ops->ctx, text, MARK_X, y);
 }
 
-static void draw_records(const BestTimesInputs *in, const BestTimesState *st, const BestTimesOps *ops)
+/* the lap counts the item steps through, ascending: the track's three and the free counts with a table in the table shown */
+static int lap_counts(const BestTimesState *st, int out[MAX_LAPS])
+{
+    const int track = track_of(st);
+    int free_laps[FREE_LAPS_MAX];
+    const int n_free = free_records_laps(track, (RecordVariant)st->plus->variant, st->plus->cheats, free_laps, FREE_LAPS_MAX);
+    int n = 0, f = 0, e = 0;
+    while (e < 3 || f < n_free) {
+        const int exe = e < 3 ? free_laps_exe_laps(track, e) : 1 << 30, free_count = f < n_free ? free_laps[f] : 1 << 30;
+        const int next = exe <= free_count ? exe : free_count;
+        if (exe <= free_count) e++;
+        if (free_count <= next) f++;
+        out[n++] = next;
+    }
+    return n;
+}
+
+/* the lap count shown: the item's pick, else the menu's laps choice */
+static int shown_laps(const Screen *s, const BestTimesState *st)
+{
+    return s->laps ? s->laps : free_laps_exe_laps(track_of(st), g16(st->config, TRACK_SELECT_LAPS_CHOICE));
+}
+
+static void draw_records(const Screen *s, const BestTimesInputs *in, const BestTimesState *st, const BestTimesOps *ops)
 {
     const int track = track_of(st);
     const uint8_t *top = (st->plus ? st->plus->records[st->plus->cheats] : in->records) + track * BEST_TIMES_TRACK;
     char text[TEXT];
+    int choice = g16(st->config, TRACK_SELECT_LAPS_CHOICE);
+    const FreeTable *free_table = NULL;   /* port (free records): the table of a lap count the track lacks */
+    if (selector(st)) {
+        const int laps = shown_laps(s, st), exe = free_laps_choice(track, laps);
+        if (exe >= 0) choice = exe;
+        else free_table = free_records_find(track, (RecordVariant)st->plus->variant, st->plus->cheats, laps);
+    }
     ops->text_select(ops->ctx, 1);
     for (int16_t i = 0; i < BEST_TIMES_ROWS; i++) {
-        const uint8_t *row = top + i * BEST_TIMES_ROW;
-        if (track > 2) row += g16(st->config, TRACK_SELECT_LAPS_CHOICE) * BEST_TIMES_CHOICE;
+        const uint8_t *row = free_table ? free_table->rows + i * BEST_TIMES_ROW : top + i * BEST_TIMES_ROW;
+        if (track > 2 && !free_table) row += choice * BEST_TIMES_CHOICE;
         const int32_t y = i * ROW_STEP + ROW_Y;
         ops->text_fit(ops->ctx, (const char *)row, NAME_X, y, NAME_WIDTH);
         ops->time_text(ops->ctx, text, d32(row + BEST_TIMES_TIME));
         ops->text_shadowed(ops->ctx, text, TIME_X, y);
         ops->text_shadowed(ops->ctx, car_name(d32(row + BEST_TIMES_CAR)), CAR_X, y);
         shift(in, d32(row + BEST_TIMES_SHIFT), y, ops);
-        if (st->plus) draw_marks(st, track, records_slot_totals(track, g16(st->config, TRACK_SELECT_LAPS_CHOICE), i), y, ops);
+        if (free_table) {
+            char marks[8];
+            records_mark_text(st->plus->cheats ? free_table->marks[i] : 0, marks);
+            if (marks[0] != '\0') ops->text_shadowed(ops->ctx, marks, MARK_X, y);
+        } else if (st->plus) {
+            draw_marks(st, track, records_slot_totals(track, choice, i), y, ops);
+        }
     }
     ops->text_select(ops->ctx, 1);
     if (st->plus) ops->text_shadowed(ops->ctx, st->plus->cheats ? "Records (cheats)" : "Records", LABEL_X, LABEL_Y);
@@ -162,15 +212,24 @@ static void cheats_label(const Screen *s, const BestTimesState *st, const BestTi
     ops->plus_text(ops->ctx, s->item == CHEATS, text, CHEATS_X - ops->plus_text_width(ops->ctx, text) / 2, CHEATS_Y);
 }
 
+/* port (free records): the lap-count item's words, "Laps: N", cream when idle and yellow when lit */
+static void laps_label(const Screen *s, const BestTimesState *st, const BestTimesOps *ops)
+{
+    char text[TEXT];
+    snprintf(text, sizeof text, "Laps: %d", shown_laps(s, st));
+    ops->plus_text(ops->ctx, s->item == LAPS, text, LAPS_X - ops->plus_text_width(ops->ctx, text) / 2, CHEATS_Y);
+}
+
 static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops)
 {
     ops->select(ops->ctx, in->screen);
     if (s->refresh || s->repaint) {
         ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, "bgnd"));
-        draw_records(in, st, ops);
+        draw_records(s, in, st, ops);
     }
     if ((uint16_t)s->item < 4) ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, LIT[s->item]));
     if (st->plus) cheats_label(s, st, ops);   /* port */
+    if (selector(st)) laps_label(s, st, ops);
     if (s->refresh) {
         uint8_t black[PALETTE_PUT_BYTES];
         palette_put_clear(black);
@@ -208,7 +267,7 @@ static void draw_change(Screen *s, const BestTimesInputs *in, const BestTimesOps
     else if (s->was == BACK) ops->blit_masked(ops->ctx, ops->shape(ops->ctx, s->bank, DIM[BACK]));
     if ((uint16_t)s->item < BACK) ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, LIT[s->item]));
     else if (s->item == BACK) ops->blit_masked(ops->ctx, ops->shape(ops->ctx, s->bank, LIT[BACK]));
-    if (s->was == CHEATS || s->item == CHEATS) s->repaint = 1;   /* port: its words are drawn again over the art */
+    if (s->was == CHEATS || s->item == CHEATS || s->was == LAPS || s->item == LAPS) s->repaint = 1;   /* port: its words are drawn again over the art */
     s->changed = 0;
 }
 
@@ -233,6 +292,7 @@ static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *s
         ops->car_flags(ops->ctx);
     }
     set_laps(st);
+    s->laps = 0;
     ops->fade_out(ops->ctx, 0, ALL);
     ops->pointer_hide(ops->ctx);
     ops->music_feed(ops->ctx);
@@ -251,6 +311,12 @@ static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *s
 static void toggle(Screen *s, BestTimesState *st, const BestTimesOps *ops)
 {
     st->plus->cheats ^= 1;
+    if (s->laps && selector(st)) {   /* port (free records): a count the other table lacks falls back to the menu's */
+        int counts[MAX_LAPS], found = 0;
+        const int n = lap_counts(st, counts);
+        for (int i = 0; i < n; i++) found |= counts[i] == s->laps;
+        if (!found) s->laps = 0;
+    }
     s->redraw = s->repaint = 1;
     ops->sound(ops->ctx, SOUND_MOVE);
 }
@@ -258,6 +324,7 @@ static void toggle(Screen *s, BestTimesState *st, const BestTimesOps *ops)
 /* port: the item the arrows move to; with a plus the cheats item is in the ring */
 static int16_t neighbour(const BestTimesState *st, uint16_t key, int16_t item)
 {
+    if (selector(st)) return (key == KEY_LEFT ? LEFT_LAPS : RIGHT_LAPS)[item];
     if (st->plus) return (key == KEY_LEFT ? LEFT_PLUS : RIGHT_PLUS)[item];
     return (key == KEY_LEFT ? LEFT : RIGHT)[item];
 }
@@ -273,6 +340,16 @@ static void act(Screen *s, const BestTimesInputs *in, BestTimesState *st, const 
     case CHEATS:   /* port */
         toggle(s, st, ops);
         break;
+    case LAPS: {   /* port (free records): the next lap count that has a table, round to the first */
+        int counts[MAX_LAPS], at = -1;
+        const int n = lap_counts(st, counts), now = shown_laps(s, st);
+        for (int i = 0; i < n; i++)
+            if (counts[i] == now) at = i;
+        s->laps = counts[(at + 1) % n];
+        s->redraw = s->repaint = 1;
+        ops->sound(ops->ctx, SOUND_MOVE);
+        break;
+    }
     case PREV: {
         int16_t to = (int16_t)(track - 1);
         if (to < 0) to = in->lost_vegas ? LOST_VEGAS : 7;

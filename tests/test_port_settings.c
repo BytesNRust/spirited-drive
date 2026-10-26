@@ -93,6 +93,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.laps, b.laps);
     CHECK_EQ_INT(a.weather, b.weather);
     CHECK_EQ_INT(a.render_bands, b.render_bands);
+    CHECK_EQ_INT(a.free_records, b.free_records);
 }
 
 static void test_defaults(void)
@@ -107,13 +108,14 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.perspective, 0);
     CHECK_EQ_INT(d.texture_filter, 0);
     CHECK_EQ_INT(d.fog, 0);
+    CHECK_EQ_INT(d.free_records, 0);    /* the free races keep no total for a lap count the exe lacks, until asked */
     CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
 }
 
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .free_records = 1 };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -122,6 +124,13 @@ static void test_round_trip(void)
 
 /* the render threads: the number of threads the bands use, 0 for off (the plain path) and -1 for "auto" (as many as
  * the logical cores, at most eight). The file names them "render_bands=0|auto|2|4". */
+static void test_free_records_values(void)
+{
+    const char *const on = "free_records=1\n", *const bad = "free_records=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).free_records, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).free_records, 0);
+}
+
 static void test_render_bands_values(void)
 {
     char text[256];
@@ -337,6 +346,7 @@ int main(void)
     test_parse_keys();
     test_bad_input_keeps_defaults();
     test_render_bands_values();
+    test_free_records_values();
     test_bad_render_bands_keeps_the_default();
     test_render_scale_values();
     test_bad_render_scale_keeps_the_default();
