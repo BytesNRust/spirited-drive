@@ -10,6 +10,7 @@
 int ported_view_mirror_weather(const TrackArt *art) { (void)art; return 0; }
 int ported_view_mirror_weather_on(void) { return 0; }
 int ported_view_mirror_light_begin(void) { return 0; }
+uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel) { (void)node, (void)point; *tunnel = 0; return 255; }
 void ported_view_mirror_light_end(void) {}
 void ported_view_mirror_sinks(void (**uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]),
                               void (**full)(void *, const FshEntry *, const int32_t[8]),

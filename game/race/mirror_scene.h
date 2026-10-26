@@ -131,6 +131,8 @@ void mirror_transform(const MirrorTransformInputs *in, int32_t *near, int32_t *v
 typedef struct {
     void *ctx;
     uint8_t (*property)(void *ctx, int32_t node);  /* the road node's +7 (00505038, masked by 00504208) */
+    /* port (the PS1 light): told of each point put in `world`, its place there (`index`), the segment's and the record's point; NULL none */
+    void (*point)(void *ctx, int32_t segment, int point, int32_t index);
 } MirrorRowOps;
 
 /* 0043f3a8: segment's mirror LOD (004bc464 by the property of its first

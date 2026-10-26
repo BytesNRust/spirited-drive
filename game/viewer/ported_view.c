@@ -1263,6 +1263,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }
 
+uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)
+{
+    *tunnel = (uint8_t)psx_light_tunnel(psx_light, node);
+    return psx_light_at(psx_light, node, point);
+}
+
 /* port (the PS1 light in the rear mirror's follow pass): the same sinks the main pass draws with, and the hook set for the pass, from the tables
  * the last render made. Without a light (or before the first render) begin gives 0 and the mirror draws as it did. */
 int ported_view_mirror_light_begin(void)

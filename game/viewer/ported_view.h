@@ -194,6 +194,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
 /* port (the PS1 light in the rear mirror's follow pass): begin sets the light hook from the tables the last render made and gives 1, or gives 0
  * (hook untouched) with no light; end clears it. `sinks` are the main pass's own lit draws for the mirror's target to use between the two. */
 int ported_view_mirror_light_begin(void);
+/* port: the PS1 light of a road point (the mirror's rows: segment x 4's node) and 1 in `tunnel` when its node is in one; 255 and 0 without a light */
+uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel);
 void ported_view_mirror_light_end(void);
 void ported_view_mirror_sinks(void (**uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]),
                               void (**full)(void *, const FshEntry *, const int32_t[8]),
