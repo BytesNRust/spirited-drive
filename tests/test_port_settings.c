@@ -92,6 +92,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.render_scale, b.render_scale);
     CHECK_EQ_INT(a.laps, b.laps);
     CHECK_EQ_INT(a.weather, b.weather);
+    CHECK_EQ_INT(a.render_bands, b.render_bands);
 }
 
 static void test_defaults(void)
@@ -106,16 +107,62 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.perspective, 0);
     CHECK_EQ_INT(d.texture_filter, 0);
     CHECK_EQ_INT(d.fog, 0);
+    CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
 }
 
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4 };
     char text[256];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
     check_same(port_settings_parse(text, n), s);
+}
+
+/* the render threads: the number of threads the bands use, 0 for off (the plain path) and -1 for "auto" (as many as
+ * the logical cores, at most eight). The file names them "render_bands=0|auto|2|4". */
+static void test_render_bands_values(void)
+{
+    char text[256];
+    const char *const text_in = "render_bands=auto\n";
+    PortSettings s = port_settings_parse(text_in, strlen(text_in));
+    CHECK_EQ_INT(s.render_bands, -1);   /* "auto" is the sentinel, not a count */
+
+    const char *const two = "render_bands=2\n";
+    s = port_settings_parse(two, strlen(two));
+    CHECK_EQ_INT(s.render_bands, 2);
+
+    const char *const four = "render_bands=4\n";
+    s = port_settings_parse(four, strlen(four));
+    CHECK_EQ_INT(s.render_bands, 4);
+
+    const char *const off = "render_bands=0\n";
+    s = port_settings_parse(off, strlen(off));
+    CHECK_EQ_INT(s.render_bands, 0);
+
+    /* the written form: "auto" for the sentinel, the count for a number */
+    PortSettings a = port_settings_defaults();
+    a.render_bands = -1;
+    CHECK(port_settings_format(&a, text, sizeof text) > 0);
+    CHECK(strstr(text, "render_bands=auto\n") != NULL);
+    a.render_bands = 4;
+    CHECK(port_settings_format(&a, text, sizeof text) > 0);
+    CHECK(strstr(text, "render_bands=4\n") != NULL);
+    a.render_bands = 0;
+    CHECK(port_settings_format(&a, text, sizeof text) > 0);
+    CHECK(strstr(text, "render_bands=0\n") != NULL);
+}
+
+/* a damaged value keeps the default, like every other key: the render threads stay on Auto */
+static void test_bad_render_bands_keeps_the_default(void)
+{
+    static const char *const bad[] = { "render_bands=9\n", "render_bands=-2\n", "render_bands=two\n",
+                                       "render_bands=Auto\n", "render_bands=\n" };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        const PortSettings s = port_settings_parse(bad[i], strlen(bad[i]));
+        CHECK_EQ_INT(s.render_bands, -1);
+    }
 }
 
 static void test_parse_keys(void)
@@ -179,7 +226,8 @@ static void test_load_save(void)
 {
     check_same(port_settings_load(), port_settings_defaults());   /* no file yet */
     const PortSettings s = { .format = SCREEN_16_9, .refresh_hz = 120, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = 15, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 2 };
+                             .fov_adjust = 15, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1,
+                             .render_scale = 2, .render_bands = 2 };
     CHECK(port_settings_save(&s));
     check_same(port_settings_load(), s);
 }
@@ -244,6 +292,8 @@ int main(void)
     test_round_trip();
     test_parse_keys();
     test_bad_input_keeps_defaults();
+    test_render_bands_values();
+    test_bad_render_bands_keeps_the_default();
     test_load_save();
     test_moved_settings_fall_back_to_extras();
     return TEST_REPORT();

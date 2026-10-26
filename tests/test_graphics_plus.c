@@ -203,7 +203,7 @@ static void test_fullscreen_takes_the_desktop_format(void)
 static void test_value_text(void)
 {
     char text[16];
-    PortSettings s = { SCREEN_21_9, 144, 1, 1, -5, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, 0, 0 };
+    PortSettings s = { SCREEN_21_9, 144, 1, 1, -5, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, 0, 0, 0 };
     graphics_plus_value(&s, PLUS_FORMAT, text); CHECK(strcmp(text, "21:9") == 0);
     graphics_plus_value(&s, PLUS_REFRESH, text); CHECK(strcmp(text, "144 Hz") == 0);
     graphics_plus_value(&s, PLUS_SCALE, text); CHECK(strcmp(text, "Whole") == 0);

@@ -19,6 +19,7 @@
 #include "viewer/drive_livery.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
+#include "game/sys/bands.h"
 #include "game/race/race_replay_image.h"
 #include "viewer/drive_slide.h"
 #include "viewer/drive_joy.h"
@@ -104,6 +105,9 @@ static void drive_wide_setup(void)
     ported_view_set_modern(env_switch("TNFS_MODERN_3D", ps.perspective) || weather == WEATHER_FOG);
     ported_view_set_weather(weather);
     ported_view_set_look(env_switch("TNFS_TEXTURE_FILTER", ps.texture_filter), env_switch("TNFS_FOG", ps.fog));
+    /* port: the render threads (the Graphics screen's "Render threads" row, port.cfg's render_bands). The
+     * TNFS_BANDS environment variable wins over the file's value, and "auto" is as many as the logical cores. */
+    bands_apply(ps.render_bands);
     drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
                        env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
     drive_mirror_free(&bumper_mirror);  /* the last track's horizon with it */

@@ -33,7 +33,9 @@ static int psx_time_named(const char *name)
 
 PortSettings port_settings_defaults(void)
 {
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, PSX_TIME_DAY, WEATHER_CLEAR };
+    /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
+     * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
+    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, PSX_TIME_DAY, WEATHER_CLEAR, -1 };
     return d;
 }
 
@@ -100,6 +102,13 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (t >= 0) s->psx_time = t;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
+    } else if (strcmp(key, "render_bands") == 0) {
+        /* the render threads: "auto" for as many as the logical cores, or a count. Anything else keeps the default
+         * (auto), so a damaged file cannot turn the threads off by accident. */
+        if (strcmp(value, "auto") == 0)
+            s->render_bands = -1;
+        else if (parse_int(value, &n) && n >= 0 && n <= 8)
+            s->render_bands = (int)n;
     }
 }
 
@@ -143,12 +152,17 @@ PortSettings port_settings_parse(const char *text, size_t size)
 
 size_t port_settings_format(const PortSettings *s, char *out, size_t size)
 {
+    /* the render threads: "auto" for the sentinel, the count for a number */
+    char bands_text[8];
+    const char *const bands = s->render_bands < 0 ? "auto" : bands_text;
+    if (s->render_bands >= 0) snprintf(bands_text, sizeof bands_text, "%d", s->render_bands);
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
+                           "render_bands=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
-                           s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather));
+                           s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 

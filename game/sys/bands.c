@@ -9,16 +9,23 @@ enum { MAX_THREADS = 8, BANDS_A_THREAD = 4, MIN_ROWS = 8 };
 
 static int threads = -1;   /* -1: not read yet */
 
-static int from_environment(void)
+/* the value of a TNFS_BANDS or a port.cfg's render_bands: "auto" is as many as the logical cores (at most eight),
+ * a number is that many threads, anything else is off. */
+static int parse_value(const char *v)
 {
-    const char *v = getenv("TNFS_BANDS");
-    if (v == NULL || *v == '\0') return 0;
     if (strcmp(v, "auto") == 0) {
         const int n = platform_cpu_count();
         return n > MAX_THREADS ? MAX_THREADS : n;
     }
     const int n = atoi(v);
     return n < 0 ? 0 : n > MAX_THREADS ? MAX_THREADS : n;
+}
+
+static int from_environment(void)
+{
+    const char *v = getenv("TNFS_BANDS");
+    if (v == NULL || *v == '\0') return 0;
+    return parse_value(v);
 }
 
 int bands_threads(void)
@@ -34,6 +41,24 @@ void bands_set_threads(int n)
 {
     threads = n < 0 ? -1 : n > MAX_THREADS ? MAX_THREADS : n;
     platform_set_present_threads(threads < 0 ? 0 : threads);
+}
+
+/* The threads the setting asks for: the TNFS_BANDS environment variable wins over the file's own value, and "auto"
+ * (the file's -1) is as many as the logical cores. */
+int bands_resolve(int configured)
+{
+    const char *v = getenv("TNFS_BANDS");
+    if (v != NULL && *v != '\0') return parse_value(v);
+    if (configured < 0) {
+        const int n = platform_cpu_count();
+        return n > MAX_THREADS ? MAX_THREADS : n;
+    }
+    return configured > MAX_THREADS ? MAX_THREADS : configured;
+}
+
+void bands_apply(int configured)
+{
+    bands_set_threads(bands_resolve(configured));
 }
 
 typedef struct {
