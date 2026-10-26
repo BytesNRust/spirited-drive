@@ -60,8 +60,41 @@ static void test_time_of_day_with_variants(void)
     CHECK_EQ_INT(track_fam_time_offered(8, 0, 0, 1), 0);
 }
 
+/* the weather row and the PS1 time (psx_time 0 day, 1 dawn, 2 dusk; weather 0 clear, 1 fog, 2 rain) */
+static void test_weather_and_time_cycles(void)
+{
+    CHECK_EQ_INT(track_select_weather_step(0, 1), 1);
+    CHECK_EQ_INT(track_select_weather_step(1, 1), 2);
+    CHECK_EQ_INT(track_select_weather_step(2, 1), 0);
+    CHECK_EQ_INT(track_select_weather_step(0, -1), 2);
+    CHECK_EQ_INT(track_select_psx_time_step(0, 1), 1);   /* day -> dawn -> dusk -> day */
+    CHECK_EQ_INT(track_select_psx_time_step(1, 1), 2);
+    CHECK_EQ_INT(track_select_psx_time_step(2, 1), 0);
+    CHECK_EQ_INT(track_select_psx_time_step(0, -1), 2);
+    CHECK_EQ_INT(track_select_psx_time_art(1), 0);   /* dawn shows the morning art, day midday, dusk evening */
+    CHECK_EQ_INT(track_select_psx_time_art(0), 1);
+    CHECK_EQ_INT(track_select_psx_time_art(2), 2);
+}
+
+/* the arrows with the weather row: DONE -> TIME_OF_DAY -> WEATHER -> DONE going up and down; a hidden time is skipped */
+static void test_weather_in_the_arrow_chain(void)
+{
+    enum { DONE = 0, LAPS = 7, TIME = 9, WEATHER = 10 };
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, TIME, DONE, 1), WEATHER);
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, LAPS, DONE, 1), WEATHER);    /* time hidden: Laps' down was Done */
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, WEATHER, 7, 1), DONE);
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_UP, DONE, TIME, 1), WEATHER);
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_UP, WEATHER, TIME, 1), TIME);
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_LEFT, WEATHER, 0, 1), 3);          /* Best, as the time row's */
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_RIGHT, WEATHER, 0, 1), 2);         /* Next */
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, TIME, DONE, 0), DONE);       /* without the row: the original's */
+    CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, 4, 9, 1), 9);                /* other moves stay */
+}
+
 int main(void)
 {
+    test_weather_and_time_cycles();
+    test_weather_in_the_arrow_chain();
     test_without_variants_it_is_the_originals_walk();
     test_the_variants_follow_their_track();
     test_lost_vegas_has_none();

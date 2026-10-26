@@ -486,8 +486,13 @@ static void track_select(void *ctx)
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_kmh(), g.variant_m, g.variant_r, g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
+    /* port: the weather row, and with the PS1 look the time-of-day item on its psx_time; both written to port.cfg
+     * when the screen leaves them changed (the race reads them there, as it does today) */
+    int weather = port_weather(), psx_time = port_psx_time();
     TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r,
-                             port_extras_load().variant_time };   /* port: variants as entries */
+                             port_extras_load().variant_time,   /* port: variants as entries */
+                             1, &weather, port_psx_light() ? &psx_time : NULL };
+    const int was_weather = weather, was_psx_time = psx_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette, &plus };
     int x, y;
     pointer_position(&x, &y);
@@ -500,6 +505,12 @@ static void track_select(void *ctx)
         off_dialog, music,
         deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
+    if (weather != was_weather || psx_time != was_psx_time) {
+        PortSettings saved = port_settings_load();
+        if (weather != was_weather) saved.weather = weather;
+        if (psx_time != was_psx_time) saved.psx_time = psx_time;
+        if (!port_settings_save(&saved)) port_log("track select: port.cfg could not be saved\n");
+    }
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) {
         after.variant_m = g.variant_m, after.variant_r = g.variant_r;   /* port: as the screen left them (get_race zeroes them) */

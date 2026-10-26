@@ -1,15 +1,16 @@
 #include "game/frontend/track_select.h"
 #include "game/race/track_fam.h"
+#include "game/race/weather.h"
 
 #include <stdio.h>
 #include <string.h>
 
 enum {
-    TRACKS = 9, ITEMS = 10, DONE = 0, PREV = 1, NEXT = 2, BEST = 3, SEGMENT_1 = 4, LAPS = 7, NOTHING = 8,
+    TRACKS = 9, ITEMS = 11, DONE = 0, PREV = 1, NEXT = 2, BEST = 3, SEGMENT_1 = 4, LAPS = 7, NOTHING = 8,
     TIME_OF_DAY = 9, LOST_VEGAS = 8, TOURNAMENT = 3, OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47,
-    SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = 0x4800,
-    KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00, KEY_DOWN = 0x5000, PATH = 0x100, TEXT = 0x28, VARIANT_X = 0xc8,
-    VARIANT_Y = 0x13c
+    SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = TRACK_SELECT_KEY_UP,
+    KEY_LEFT = TRACK_SELECT_KEY_LEFT, KEY_RIGHT = TRACK_SELECT_KEY_RIGHT, KEY_DOWN = TRACK_SELECT_KEY_DOWN, PATH = 0x100, TEXT = 0x28, VARIANT_X = 0xc8,
+    VARIANT_Y = 0x13c, WEATHER_X = 0x10, WEATHER_Y = 0x1a4
 };
 
 /* the tracks' files (0046751c) and music (00467540) */
@@ -34,13 +35,13 @@ static const int32_t TIME_OTHER[TRACKS] = { 0, 2, 2, 2, 0, 2, 2, 2, 2 };
 static const char *const LIT[8] = { "donl", "prel", "nexl", "besl", "ssg1", "ssg2", "ssg3", "lapl" };
 static const char *const DIM[4] = { "dond", "pred", "nexd", "besd" };
 /* where the pointer goes per item (004674f4, 00467508) */
-static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 256, 256, 256, 80, 0, 80 };
-static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 275, 205, 119, 380, 0, 404 };
+static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 256, 256, 256, 80, 0, 80, 80 };
+static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 275, 205, 119, 380, 0, 404, 428 };
 /* the arrows' moves per item, past the first three tracks and on them */
-static const int16_t UP[2][ITEMS] = { { 9, 9, 9, 9, 9, 9, 9, 0, 0, 7 }, { 9, 9, 9, 9, 5, 6, 0, 0, 0, 4 } };
-static const int16_t DOWN[2][ITEMS] = { { 7, 7, 7, 7, 9, 9, 9, 9, 0, 0 }, { 6, 6, 6, 6, 9, 4, 5, 0, 0, 0 } };
-static const int16_t LEFT[2][ITEMS] = { { 3, 0, 1, 2, 9, 9, 9, 3, 0, 3 }, { 3, 0, 1, 2, 0, 0, 0, 0, 0, 3 } };
-static const int16_t RIGHT[2][ITEMS] = { { 1, 2, 3, 0, 9, 9, 9, 2, 0, 2 }, { 1, 2, 3, 0, 2, 2, 2, 0, 0, 2 } };
+static const int16_t UP[2][ITEMS] = { { 9, 9, 9, 9, 9, 9, 9, 0, 0, 7, 9 }, { 9, 9, 9, 9, 5, 6, 0, 0, 0, 4, 9 } };
+static const int16_t DOWN[2][ITEMS] = { { 7, 7, 7, 7, 9, 9, 9, 9, 0, 0, 0 }, { 6, 6, 6, 6, 9, 4, 5, 0, 0, 0, 0 } };
+static const int16_t LEFT[2][ITEMS] = { { 3, 0, 1, 2, 9, 9, 9, 3, 0, 3, 3 }, { 3, 0, 1, 2, 0, 0, 0, 0, 0, 3, 3 } };
+static const int16_t RIGHT[2][ITEMS] = { { 1, 2, 3, 0, 9, 9, 9, 2, 0, 2, 2 }, { 1, 2, 3, 0, 2, 2, 2, 0, 0, 2, 2 } };
 /* the segments' boxes per track: x (00467684, 00467696), y from and to (00467618, 0046764e) */
 static const int16_t SEGMENT_X0[TRACKS] = { 228, 213, 212, 213, 213, 213, 213, 213, 213 };
 static const int16_t SEGMENT_X1[TRACKS] = { 301, 301, 300, 301, 301, 301, 301, 301, 301 };
@@ -65,6 +66,35 @@ static void p16(uint8_t *config, int at, int v)
 static int track_of(const TrackSelectState *st)
 {
     return g16(st->config, TRACK_SELECT_TRACK);
+}
+
+int track_select_weather_step(int weather, int direction)
+{
+    return (weather + direction + WEATHER_COUNT) % WEATHER_COUNT;
+}
+
+/* PSX_TIME_DAY 0, DAWN 1, DUSK 2 (port_settings.h): the toggle's order is day, dawn, dusk */
+int track_select_psx_time_step(int psx_time, int direction)
+{
+    return (psx_time + direction + 3) % 3;
+}
+
+int track_select_psx_time_art(int psx_time)
+{
+    return psx_time == 1 ? 0 : psx_time == 2 ? 2 : 1;
+}
+
+int track_select_arrow_plus(int key, int item, int original, int weather_on)
+{
+    if (!weather_on) return original;
+    if (item == TRACK_SELECT_WEATHER) {
+        if (key == KEY_LEFT || key == KEY_RIGHT) return key == KEY_LEFT ? BEST : NEXT;
+        if (key == KEY_DOWN) return DONE;
+        return original;   /* up: the arrow() tables lead to the time of day, or what stands in for it */
+    }
+    if (key == KEY_DOWN && original == DONE && item != NOTHING && item != DONE) return TRACK_SELECT_WEATHER;
+    if (key == KEY_UP && item == DONE) return TRACK_SELECT_WEATHER;
+    return original;
 }
 
 /* the laps for the choice: tracks 4..7 are the short ones */
@@ -107,9 +137,26 @@ static int variant_of(const TrackSelectState *st)
 
 static int no_time_of_day(const TrackSelectInputs *in, const TrackSelectState *st, int track)
 {
+    if (st->plus && st->plus->psx_time) return track == LOST_VEGAS;   /* port: the PS1 time follows a variant too */
     if (st->plus)
         return !track_fam_time_offered(track, *st->plus->variant_m, *st->plus->variant_r, st->plus->variant_time);
     return track == LOST_VEGAS || in->variant_m || in->variant_r;
+}
+
+/* the time-of-day art lit: the PS1 time's (the art itself stays midday), else the exe's per-track value */
+static int time_art(const TrackSelectState *st, int track)
+{
+    return st->plus && st->plus->psx_time ? track_select_psx_time_art(*st->plus->psx_time) : st->time_of_day[track];
+}
+
+static int weather_on(const TrackSelectState *st)
+{
+    return st->plus && st->plus->port_track_weather && st->plus->weather;
+}
+
+static const char *weather_text(int weather)
+{
+    return weather == WEATHER_FOG ? "Fog" : weather == WEATHER_RAIN ? "Rain" : "Clear";
 }
 
 static int has_variant(const TrackSelectPlus *plus, int track, int variant)
@@ -120,7 +167,7 @@ static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0 };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL };
     const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {
@@ -167,6 +214,11 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
     }
     if (st->plus && variant_of(st) != 0)   /* port: the variant's name, with the game's text routine */
         ops->text_shadowed(ops->ctx, variant_of(st) == 1 ? "Mirror" : "Rally", VARIANT_X, VARIANT_Y);
+    if (weather_on(st)) {   /* port: the weather row, in the game's text like the laps */
+        ops->text_select(ops->ctx, item == TRACK_SELECT_WEATHER ? 1 : 0);
+        snprintf(text, sizeof text, "Weather: %s", weather_text(*st->plus->weather));
+        ops->text_shadowed(ops->ctx, text, WEATHER_X, WEATHER_Y);
+    }
     if (track < 3) {
         snprintf(text, sizeof text, "bsg%d", segment);
         plain(bank, text, ops);
@@ -181,13 +233,13 @@ static void draw_screen(const TrackSelectInputs *in, const TrackSelectState *st,
     const int track = track_of(st);
     ops->select(ops->ctx, in->screen);
     plain(bank, "bgnd", ops);
-    if (!no_time_of_day(in, st, track)) masked(bank, TIME_DIM[st->time_of_day[track]], ops);
+    if (!no_time_of_day(in, st, track)) masked(bank, TIME_DIM[time_art(st, track)], ops);
     draw_texts(in, st, bank, item, segment, ops);
     if (item < 8) {
         masked(bank, LIT[item], ops);
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS) {
         masked(bank, "timl", ops);
-        masked(bank, TIME_LIT[st->time_of_day[track]], ops);
+        masked(bank, TIME_LIT[time_art(st, track)], ops);
     }
 }
 
@@ -211,7 +263,7 @@ static void draw_change(const TrackSelectInputs *in, const TrackSelectState *st,
         snprintf(text, sizeof text, "%d", g16(st->config, TRACK_SELECT_LAPS));  /* and never drawn */
     } else if (was == TIME_OF_DAY && track != LOST_VEGAS) {
         masked(bank, "timd", ops);
-        masked(bank, TIME_DIM[st->time_of_day[track]], ops);
+        masked(bank, TIME_DIM[time_art(st, track)], ops);
     }
     ops->text_select(ops->ctx, 1);
     if (item < BEST) {
@@ -221,7 +273,7 @@ static void draw_change(const TrackSelectInputs *in, const TrackSelectState *st,
         if (item == LAPS) snprintf(text, sizeof text, "%d", g16(st->config, TRACK_SELECT_LAPS));
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS) {
         masked(bank, "timl", ops);
-        masked(bank, TIME_LIT[st->time_of_day[track]], ops);
+        masked(bank, TIME_LIT[time_art(st, track)], ops);
     }
 }
 
@@ -240,6 +292,7 @@ static int pointed(const TrackSelectInputs *in, const TrackSelectState *st, cons
     }
     if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x15e, 0x183) && track > 2) return LAPS;
     if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x184, 0x1a0) && !no_time_of_day(in, st, track)) return TIME_OF_DAY;
+    if (weather_on(st) && ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x1a1, 0x1b2)) return TRACK_SELECT_WEATHER;
     return NOTHING;
 }
 
@@ -319,6 +372,12 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
             set_laps(st, (int16_t)choice);
         }
         *changed = 1;
+    } else if (item == TRACK_SELECT_WEATHER && weather_on(st)) {
+        *st->plus->weather = track_select_weather_step(*st->plus->weather, 1);
+        *changed = 1;
+    } else if (item == TIME_OF_DAY && track != LOST_VEGAS && st->plus && st->plus->psx_time) {
+        *st->plus->psx_time = track_select_psx_time_step(*st->plus->psx_time, 1);
+        *changed = 1;
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS) {
         int32_t *t = &st->time_of_day[track];
         *t = *t == 1 ? TIME_OTHER[track] : 1;
@@ -332,8 +391,8 @@ static int arrow(const TrackSelectInputs *in, const TrackSelectState *st, int ke
 {
     const int track = track_of(st), low = track <= 2;
     int to;
-    if (key == KEY_LEFT) return LEFT[low][item];
-    if (key == KEY_RIGHT) return RIGHT[low][item];
+    if (key == KEY_LEFT) return track_select_arrow_plus(key, item, LEFT[low][item], weather_on(st));
+    if (key == KEY_RIGHT) return track_select_arrow_plus(key, item, RIGHT[low][item], weather_on(st));
     if (key == KEY_UP) {
         to = UP[low][item];
         if (to == TIME_OF_DAY && no_time_of_day(in, st, track)) to = low ? SEGMENT_1 : LAPS;
@@ -341,7 +400,7 @@ static int arrow(const TrackSelectInputs *in, const TrackSelectState *st, int ke
         to = DOWN[low][item];
         if (to == TIME_OF_DAY && no_time_of_day(in, st, track)) to = DONE;
     }
-    return to;
+    return track_select_arrow_plus(key, item, to, weather_on(st));
 }
 
 int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer *p,
@@ -350,6 +409,10 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
     uint8_t saved[TRACK_SELECT_CONFIG], pal[PALETTE_PUT_BYTES], black[PALETTE_PUT_BYTES];
     memcpy(saved, st->config, sizeof saved);
     const int32_t saved_m = st->plus ? *st->plus->variant_m : 0, saved_r = st->plus ? *st->plus->variant_r : 0;
+    const int saved_weather = weather_on(st) ? *st->plus->weather : 0;
+    const int saved_psx_time = st->plus && st->plus->psx_time ? *st->plus->psx_time : 0;
+    if (st->plus && st->plus->psx_time)   /* port: the art is midday whatever the exe's toggle was left at */
+        for (int t = 0; t < TRACKS; t++) st->time_of_day[t] = 1;
     int quit = 0, refresh = 1, redraw = 1, changed = 0, was = 0, item = DONE, keys_armed = 1, buttons_armed = 1;
     int segment = 1;
     int16_t best = 0;
@@ -416,6 +479,8 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
             if (key == KEY_ESCAPE) {
                 memcpy(st->config, saved, sizeof saved);
                 if (st->plus) *st->plus->variant_m = saved_m, *st->plus->variant_r = saved_r;   /* port */
+                if (weather_on(st)) *st->plus->weather = saved_weather;
+                if (st->plus && st->plus->psx_time) *st->plus->psx_time = saved_psx_time;
                 ops->sound(ops->ctx, SOUND_SELECT);
                 quit = 1;
             } else if (key == KEY_LEFT || key == KEY_RIGHT || key == KEY_UP || key == KEY_DOWN) {
