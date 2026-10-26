@@ -73,7 +73,7 @@ float car_shine_level(const float normal[3], const float view[3], float phase)
     const float up = clampf(r[1], -1.0f, 1.0f);   /* the exe's camera y is up (view_project: screen y = centre - y) */
     const float top = (float)(CAR_SHINE_LEVELS - 1 - CAR_SHINE_NEUTRAL);
     /* the sky band above, the shade below, and wide soft streaks along the reflection's sideways drift */
-    float level = CAR_SHINE_NEUTRAL + (up > 0 ? up * up * top * 0.55f : up * CAR_SHINE_NEUTRAL * 0.9f);
+    float level = CAR_SHINE_NEUTRAL + (up > 0 ? powf(up, 0.6f) * top * 0.75f : up * CAR_SHINE_NEUTRAL * 0.9f);
     const float streak = powf(fmaxf(0.0f, cosf(7.0f * (r[0] + 0.6f * (up * 0.5f + 0.5f)) + 6.2832f * phase)), 6.0f);
     level += streak * top * 0.45f * (0.35f + 0.65f * fmaxf(up, 0.0f));
     return clampf(level, 0.0f, (float)(CAR_SHINE_LEVELS - 1));
