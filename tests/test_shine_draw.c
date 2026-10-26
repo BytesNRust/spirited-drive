@@ -91,6 +91,41 @@ static void test_the_diagonal_is_drawn_once(void)
     CHECK_EQ_INT(missed, 0);
 }
 
+/* two polygons meeting on a 45 degree edge through pixel centres: the exe's mapper draws those pixels for each, so the pass reaches them
+ * for each too (it follows each polygon's own draw, which overwrites the other's) and never leaves a gap, whichever way each winds */
+static void test_a_shared_edge_between_polygons_leaves_no_gap(void)
+{
+    for (int flip = 0; flip < 2; flip++) {
+        setup();
+        for (int i = 0; i < TEX * TEX; i++) klass[i] = 0;
+        for (int l = 0; l < CAR_SHINE_LEVELS; l++)
+            for (int i = 0; i < 255; i++) tables[l][i] = (uint8_t)(i + 1);
+        const int32_t a[6] = { 8, 8, 40, 8, 8, 40 }, b[6] = { 40, 8, 40, 40, 8, 40 }, bf[6] = { 40, 8, 8, 40, 40, 40 };
+        const int32_t uv[6] = { 0, 0, TEX, 0, 0, TEX };
+        const float level[3] = { 5, 5, 5 };
+        shine_draw_affine(&Q, &CLS, tables, a, uv, level, 3);
+        shine_draw_affine(&Q, &CLS, tables, flip ? bf : b, uv, level, 3);
+        int missed = 0;
+        for (int y = 9; y < 39; y++)
+            for (int x = 9; x < 39; x++) missed += screen_px[y * W + x] == START;
+        CHECK_EQ_INT(missed, 0);
+    }
+}
+
+/* the exe's mapper also fills pixels its polygon only touches: a pixel whose centre is within a half pixel outside the outline is reached */
+static void test_a_pixel_the_outline_only_touches_is_reached(void)
+{
+    setup();
+    for (int i = 0; i < TEX * TEX; i++) klass[i] = 0;
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    const float level[4] = { 8, 8, 8, 8 };
+    shine_draw_affine(&Q, &CLS, tables, screen, uv, level, 4);
+    CHECK(screen_px[20 * W + 7] != START);    /* the pixel just outside the left edge, its centre half a pixel out */
+    CHECK(screen_px[7 * W + 20] != START);    /* and above the top one */
+    CHECK_EQ_INT(screen_px[20 * W + 6], START);   /* a whole pixel out is not */
+    CHECK_EQ_INT(screen_px[6 * W + 20], START);
+}
+
 /* a floor 10 below the eye from z 200 to 20, v 0 .. TEX over it: paint where v < TEX / 2. Perspective-correct, the boundary is at depth 110 */
 static void test_camera_pass_is_perspective_correct(void)
 {
@@ -165,6 +200,8 @@ int main(void)
     test_the_level_runs_across_the_polygon();
     test_a_triangle_and_the_clip();
     test_the_diagonal_is_drawn_once();
+    test_a_shared_edge_between_polygons_leaves_no_gap();
+    test_a_pixel_the_outline_only_touches_is_reached();
     test_camera_pass_is_perspective_correct();
     test_a_polygon_behind_the_eye_draws_nothing();
     test_recorded_is_the_direct_draw();

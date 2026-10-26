@@ -31,26 +31,51 @@ static float edge(const Screen *a, const Screen *b, float x, float y)
     return (b->sx - a->sx) * (y - a->sy) - (b->sy - a->sy) * (x - a->sx);
 }
 
-/* a pixel is the triangle's when its centre is strictly inside: a pixel on an edge is left to neither side, as drawing it twice would
- * brighten it twice (the pass is not idempotent). The one edge a fan's next triangle shares (p0 - p2) is the exception: it is this triangle's,
- * so a diagonal through pixel centres leaves no dotted line. */
-static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, int owns_shared, const ShineClass *cls,
-                     ShineTables tables)
+/* The pass follows each polygon's own exe draw, which overwrites whatever a neighbour drew there, so it may reach every pixel the exe's mapper
+ * fills, however it rounds: a pixel whose centre lies within half a pixel of the outline is the polygon's (an outer edge). A pixel missed here
+ * is left dark along the seam against its shined neighbours. Only the diagonals inside one polygon's fan are exact, a centre on one belonging to
+ * the side the edge's direction names, as the fan's two triangles would otherwise shine it twice (the pass is not idempotent). */
+typedef struct {
+    int outer_ab, outer_bc, outer_ca;
+} Outline;
+
+static int owns_tie(const Screen *from, const Screen *to)
+{
+    const float dx = to->sx - from->sx, dy = to->sy - from->sy;
+    return dy > 0 || (dy == 0 && dx < 0);
+}
+
+/* the least edge value a pixel centre may have: nothing for an inside diagonal, the pixel's half extent past an outer edge */
+static float reach(const Screen *from, const Screen *to, int outer)
+{
+    return outer ? -0.5f * (fabsf(to->sx - from->sx) + fabsf(to->sy - from->sy)) : 0.0f;
+}
+
+static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, const ShineClass *cls, ShineTables tables)
 {
     const float area = edge(a, b, c->sx, c->sy);
     if (fabsf(area) < 1e-6f) return;
-    const int x0 = (int)fmaxf((float)q->clip_left, floorf(fminf(a->sx, fminf(b->sx, c->sx)))),
-              x1 = (int)fminf((float)q->clip_right - 1, ceilf(fmaxf(a->sx, fmaxf(b->sx, c->sx))));
-    const int y0 = (int)fmaxf((float)q->clip_top, floorf(fminf(a->sy, fminf(b->sy, c->sy)))),
-              y1 = (int)fminf((float)q->clip_bottom - 1, ceilf(fmaxf(a->sy, fmaxf(b->sy, c->sy))));
-    const float inv = 1.0f / area;   /* signed: the weights are positive inside whichever way the triangle winds */
+    if (area < 0) {   /* wind it one way, so the tie rule means the same to every polygon */
+        const Screen *t = b;
+        b = c, c = t;
+        const int u = o.outer_ab;
+        o.outer_ab = o.outer_ca, o.outer_ca = u;
+    }
+    const float inv = 1.0f / fabsf(area);
+    const float min_bc = reach(b, c, o.outer_bc), min_ca = reach(c, a, o.outer_ca), min_ab = reach(a, b, o.outer_ab);
+    const int own_bc = o.outer_bc || owns_tie(b, c), own_ca = o.outer_ca || owns_tie(c, a), own_ab = o.outer_ab || owns_tie(a, b);
+    const int x0 = (int)fmaxf((float)q->clip_left, floorf(fminf(a->sx, fminf(b->sx, c->sx))) - 1),
+              x1 = (int)fminf((float)q->clip_right - 1, ceilf(fmaxf(a->sx, fmaxf(b->sx, c->sx))) + 1);
+    const int y0 = (int)fmaxf((float)q->clip_top, floorf(fminf(a->sy, fminf(b->sy, c->sy))) - 1),
+              y1 = (int)fminf((float)q->clip_bottom - 1, ceilf(fmaxf(a->sy, fmaxf(b->sy, c->sy))) + 1);
     for (int y = y0; y <= y1; y++) {
         uint8_t *row = q->pixels + (size_t)y * (size_t)q->pitch;
         const float py = y + 0.5f;
         for (int x = x0; x <= x1; x++) {
             const float px = x + 0.5f;
-            const float wa = edge(b, c, px, py) * inv, wb = edge(c, a, px, py) * inv, wc = edge(a, b, px, py) * inv;
-            if (wa <= 0 || wc <= 0 || wb < 0 || (wb == 0 && !owns_shared)) continue;
+            const float ea = edge(b, c, px, py), eb = edge(c, a, px, py), ec = edge(a, b, px, py);
+            if (ea < min_bc || eb < min_ca || ec < min_ab || (ea == 0 && !own_bc) || (eb == 0 && !own_ca) || (ec == 0 && !own_ab)) continue;
+            const float wa = ea * inv, wb = eb * inv, wc = ec * inv;
             const float iz = wa * a->iz + wb * b->iz + wc * c->iz;
             if (iz < IZ_MIN) continue;
             const float r = 1.0f / iz;
@@ -69,7 +94,7 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
 
 static void fan(const QuadTarget *q, const Screen *s, int n, const ShineClass *cls, ShineTables tables)
 {
-    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], i + 2 < n, cls, tables);
+    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, cls, tables);
 }
 
 static void draw_affine(const QuadTarget *q, const ShineClass *cls, ShineTables tables, const int32_t screen[8], const int32_t uv[8],
