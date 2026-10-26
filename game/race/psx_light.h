@@ -15,15 +15,21 @@ enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LI
 typedef struct {
     uint8_t *data;      /* nodes * PSX_LIGHT_POINTS bytes (owned), NULL when none is loaded */
     uint32_t nodes;
+    uint8_t *zone;      /* nodes bytes (owned): 1 for a node of a stretch the track's light script names (psx_light_set_zone); NULL none */
 } PsxLight;
 
 /* The file's bytes as a PsxLight: its node count must be `expected_nodes` (the track's ring nodes) and the file at least as
  * long as the rows. 1 on success; `out` is untouched otherwise. */
 int psx_light_parse(const uint8_t *file, size_t size, uint32_t expected_nodes, PsxLight *out);
 
+/* The nodes where a tunnel can be: `zone` (light->nodes bytes, copied) is 1 for a node inside one of the light script's contexts (the LGS, whose mode-96
+ * contexts are the tunnels and whose fixed ones the underpasses). A row has the tunnel's look (psx_light_tunnel) only inside the zone, so a cutting or
+ * a bridge's shade elsewhere keeps its own bytes; a track whose script does not read has no zone and the row alone decides. 1 on success. */
+int psx_light_set_zone(PsxLight *light, const uint8_t *zone);
+
 void psx_light_free(PsxLight *light);
 
-/* 1 when node `node`'s row is a tunnel's: a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
+/* 1 when node `node`'s row is a tunnel's (inside the zone, when there is one): a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
  * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
 int psx_light_tunnel(const PsxLight *light, uint32_t node);
 

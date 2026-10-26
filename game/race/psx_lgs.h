@@ -40,6 +40,10 @@ void psx_lgs_ambient(const PsxLgs *lgs, int segment, int segment_count, float ou
  * the edges are exact, no blend. 0 for NULL. */
 int psx_lgs_switched(const PsxLgs *lgs, int segment);
 
+/* 1 when `segment` is inside any context, fixed or ramped (the edges exact, no blend): the stretches the track's light script names, tunnels and the
+ * bridges and underpasses among them. 0 for NULL. */
+int psx_lgs_inside(const PsxLgs *lgs, int segment);
+
 /* The ambient at `segment` over the world's `tint`, per channel, rounded to 1/`step` and at most 2 (a tint under 0.01 counts as 0.01): what the
  * cars' and the dash's colours are scaled by. Exactly 1 where the ambient is what the world already has. */
 void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const float tint[3], int step, float out[3]);

@@ -194,8 +194,19 @@ static void test_mask_rect(void)
     for (int i = 0; i < 48; i++) CHECK_EQ_INT(untouched[i], 0);
 }
 
+static void test_inside(void)
+{
+    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 2, { { 0 } } };
+    lgs.contexts[0] = (PsxLgsContext){ 10, 12, PSX_LGS_FIXED, { 64, 64, 64 }, { 0, 0, 0 } };
+    lgs.contexts[1] = (PsxLgsContext){ 20, 20, PSX_LGS_RAMP, { 64, 64, 64 }, { 90, 90, 90 } };
+    CHECK(!psx_lgs_inside(&lgs, 9) && psx_lgs_inside(&lgs, 10) && psx_lgs_inside(&lgs, 12) && !psx_lgs_inside(&lgs, 13));   /* the blend does not count */
+    CHECK(psx_lgs_inside(&lgs, 20) && !psx_lgs_inside(&lgs, 21));
+    CHECK(!psx_lgs_inside(NULL, 10));
+}
+
 int main(void)
 {
+    test_inside();
     test_switched();
     test_mask_rect();
     test_palette_tint();
