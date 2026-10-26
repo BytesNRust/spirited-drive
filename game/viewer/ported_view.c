@@ -1268,7 +1268,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     if (tri_node(tri, node, &n) != TRI_OK) return;
     const PortedCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, n.orientation * 0x400 + yaw,
                                0, (int32_t)node, 0 };
-    const int32_t parked = (int32_t)((node + (uint32_t)car_ahead) & (tri->ring_nodes - 1u));
+    const int32_t parked = (int32_t)psx_ring_node((int32_t)node + car_ahead, tri->ring_nodes);   /* a modulo: the rings are not powers of two */
     if (cars[0].ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
         const CarPose pose = { { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
         ported_view_render_from(tri, art, info, &cam, &pose, parked, pixels);

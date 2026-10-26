@@ -236,6 +236,9 @@ static void test_ring_and_car(void)
     CHECK_EQ_INT(psx_ring_node(1921 + 1920, 1920), 1);
     CHECK_EQ_INT(psx_ring_node(-1, 1920), 1919);
     CHECK_EQ_INT(psx_ring_node(7, 0), 0);
+    /* the track viewer's parked car stands `ahead` nodes on, wrapping the ring: node 1919 + 3 on CY1's 1920 is node 2; the mask it used gave 1922 & 1919 = 1794 */
+    CHECK_EQ_INT(psx_ring_node(1919 + 3, 1920), 2);
+    CHECK((uint32_t)((1919u + 3u) & (1920u - 1u)) != 2);
     PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 1, { { 0 } } };
     lgs.contexts[0] = (PsxLgsContext){ 266, 292, PSX_LGS_RAMP, { 128, 115, 96 }, { 60, 60, 60 } };
     float r[3];
