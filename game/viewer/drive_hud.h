@@ -57,6 +57,7 @@ typedef struct {
     char root[512];             /* the data root those two lie under */
     char dash_stem[COCKPIT_NAME];
     size_t dash_dir_length;
+    int (*dash_paint)(void *user, uint8_t *bank, size_t size);   /* port: recolours the dash bank just read (the car's paint), NULL none */
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */
     uint8_t *rgb;               /* the frame's 8-bit palette, redone from palette->screen_rgbx after a write */
     int32_t gate_state;         /* 004b945c: 0041f5bc's */

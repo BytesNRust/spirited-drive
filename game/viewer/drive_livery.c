@@ -258,7 +258,7 @@ int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[
     return found;
 }
 
-int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size)
+int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t size, CarLiveryPair *keep, int *kept)
 {
     char upper[LIVERY_STEM], lower[LIVERY_STEM];
     size_t i = 0;
@@ -283,6 +283,7 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
     }
     const RepaintJob job = { pairs, count, NULL, glass_floor(upper) };
     repaint_cfm(cfm, size, stem, upper, run_pairs, (void *)&job);
+    if (keep != NULL && kept != NULL) memcpy(keep, pairs, (size_t)count * sizeof *pairs), *kept = count;
     return count;
 }
 
@@ -294,6 +295,60 @@ int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_
     upper[i] = '\0';
     const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
     return repaint_cfm(cfm, size, stem, upper, run_paint, (void *)&job);
+}
+
+/* ----- the dash art ----- */
+
+enum { DASH_TEXTURES = 64, DASH_BODY_FIRST = 128, DASH_BODY_LAST = 143, PALETTE_HEADER = 0x10 };
+
+static const uint8_t DASH_NAME[4] = { 'd', 'a', 's', 'h' }, DASH_PAL_NAME[4] = { '!', 'p', 'a', 'l' };
+
+static uint32_t word_at(const uint8_t *b) { return (uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24; }
+
+/* the bank's palette as cockpit_load finds it: a '!pal' shape, else the one that follows the 'dash' shape's pixels. NULL when there is none. */
+static uint8_t *dash_palette(uint8_t *bank)
+{
+    uint8_t *shape = shape_bank_find(bank, DASH_PAL_NAME);
+    if (shape == NULL) {
+        uint8_t *dash = shape_bank_find(bank, DASH_NAME);
+        if (dash == NULL) return NULL;
+        shape = dash + (word_at(dash) >> 8);
+    }
+    return shape;
+}
+
+int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const CarLiveryPair *pairs, int count, const uint8_t rgb[3])
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    Fsh fsh;
+    uint8_t *const pal = dash_palette(bank);
+    if (pal == NULL || fsh_open(&fsh, bank, size) != FSH_OK || pal + PALETTE_HEADER + 768 > bank + size) return 0;
+    RepaintTexture textures[DASH_TEXTURES];
+    uint8_t *masks[DASH_TEXTURES] = { NULL };
+    int n = 0;
+    for (uint32_t k = 0; k < fsh.count && n < DASH_TEXTURES; k++) {
+        FshEntry e;
+        if (fsh_entry(&fsh, k, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP || e.name[0] == '!') continue;
+        size_t pixels = (size_t)e.width * e.height;
+        if (pixels > e.payload_size) pixels = e.payload_size;
+        RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, REPAINT_NONE, (int)e.width, { { 0 } }, NULL };
+        if (memcmp(e.name, DASH_NAME, 4) == 0) {   /* the body the dash shows is the entries DASH_BODY_FIRST..LAST, in this texture alone */
+            masks[n] = malloc(pixels);
+            if (masks[n] == NULL) continue;
+            for (size_t t = 0; t < pixels; t++)
+                masks[n][t] = tex.pixels[t] >= DASH_BODY_FIRST && tex.pixels[t] <= DASH_BODY_LAST ? 0 : CAR_MASK_MATTE;
+            tex.body = REPAINT_MAIN, tex.mask = masks[n];
+        }
+        textures[n++] = tex;
+    }
+    const RepaintBank rb = { textures, n, { pal + PALETTE_HEADER, NULL }, 1, pal[0], 0 };
+    const RepaintJob job = { pairs, count, rgb, glass_floor(upper) };
+    const int changed = pairs != NULL && count > 0 ? run_pairs(&rb, NULL, (void *)&job) : rgb != NULL ? run_paint(&rb, NULL, (void *)&job) : 0;
+    for (int k = 0; k < n; k++) free(masks[k]);
+    return changed > 0 ? changed : 0;
 }
 
 /* ----- the drafts of the masks ----- */
