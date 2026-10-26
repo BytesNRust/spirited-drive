@@ -9,6 +9,15 @@
 /* the weather's hooks (ported_view.c, not built here): clear */
 int ported_view_mirror_weather(const TrackArt *art) { (void)art; return 0; }
 int ported_view_mirror_weather_on(void) { return 0; }
+int ported_view_mirror_light_begin(void) { return 0; }
+void ported_view_mirror_light_end(void) {}
+void ported_view_mirror_sinks(void (**uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]),
+                              void (**full)(void *, const FshEntry *, const int32_t[8]),
+                              void (**full_alt)(void *, const FshEntry *, const int32_t[8]),
+                              void (**camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]))
+{
+    (void)uv, (void)full, (void)full_alt, (void)camera;
+}
 void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9])
 {
     (void)art, (void)target, (void)view, (void)matrix;

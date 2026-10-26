@@ -392,10 +392,15 @@ static void follow_cars(void *user, int32_t node)
 static void follow_scene(Frame *f)
 {
     const RaceState *race = f->w->race;
+    const int lit = ported_view_mirror_light_begin();   /* port (the PS1 light): the main pass's lit sinks, 0 and the plain ones without a light */
+    void (*uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]) = draw_uv;
+    void (*full)(void *, const FshEntry *, const int32_t[8]) = follow_full, (*full_alt)(void *, const FshEntry *, const int32_t[8]) = follow_full_alt;
+    void (*camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]) = draw_camera;
+    if (lit) ported_view_mirror_sinks(&uv, &full, &full_alt, &camera);
     const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
-                             { &f->target, draw_uv, follow_full, follow_full_alt, NULL, follow_cars, NULL,
-                               f->w->port_modern ? draw_camera : NULL, NULL },
+                             { &f->target, uv, full, full_alt, NULL, follow_cars, NULL,
+                               f->w->port_modern ? camera : NULL, NULL },
                              f->m->near, 0 };
     TrackCamera cam = { { race->chase.position[0], race->chase.position[1], race->chase.position[2] }, { 0 }, race->chase.node };
     memcpy(cam.matrix, f->m->matrix, sizeof cam.matrix);
@@ -406,6 +411,7 @@ static void follow_scene(Frame *f)
     follow_behind_draw(&arm, off < FOLLOW_MIRROR_BEHIND_BELOW ? FOLLOW_MIRROR_SEGMENTS : 0,
                        off > FOLLOW_MIRROR_AHEAD_ABOVE ? FOLLOW_MIRROR_SEGMENTS : 0);
     follow_frame = NULL;
+    if (lit) ported_view_mirror_light_end();
 }
 
 static void scene_op(void *ctx, int32_t count)

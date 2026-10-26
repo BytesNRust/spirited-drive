@@ -67,6 +67,7 @@ static int transparent(const FshEntry *texture)
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
+static int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
 static int lit_active;           /* a polygon or object of the light's is being drawn (between the hook's two calls) */
 static int lit_tinted;           /* the ambient colour is not neutral: even full light goes through the tables */
 static float lit_tint[3] = { 1, 1, 1 };
@@ -1240,6 +1241,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
         }
         track_light_hook = light_hook;
+        tables_made = 1;
     }
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
@@ -1259,6 +1261,32 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (raster_active == &recorder) raster_record_end(&recorder);
     if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
+}
+
+/* port (the PS1 light in the rear mirror's follow pass): the same sinks the main pass draws with, and the hook set for the pass, from the tables
+ * the last render made. Without a light (or before the first render) begin gives 0 and the mirror draws as it did. */
+int ported_view_mirror_light_begin(void)
+{
+    if (psx_light == NULL || !tables_made) return 0;
+    track_light_hook = light_hook;
+    lit_level = 0;
+    memset(lit_corner, 255, sizeof lit_corner);
+    return 1;
+}
+
+void ported_view_mirror_light_end(void)
+{
+    track_light_hook = NULL;
+    lit_active = 0;
+    track_light_tunnel = 0;
+}
+
+void ported_view_mirror_sinks(void (**uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]),
+                              void (**full)(void *, const FshEntry *, const int32_t[8]),
+                              void (**full_alt)(void *, const FshEntry *, const int32_t[8]),
+                              void (**camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]))
+{
+    *uv = draw_uv, *full = draw_full, *full_alt = draw_full_alt, *camera = draw_camera;
 }
 
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,

@@ -191,6 +191,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                              const PortedCar *list, int count, uint8_t *pixels);
 
 /* yaw: extra turn, 24-bit angle. pixels: 640 x 480. */
+/* port (the PS1 light in the rear mirror's follow pass): begin sets the light hook from the tables the last render made and gives 1, or gives 0
+ * (hook untouched) with no light; end clears it. `sinks` are the main pass's own lit draws for the mirror's target to use between the two. */
+int ported_view_mirror_light_begin(void);
+void ported_view_mirror_light_end(void);
+void ported_view_mirror_sinks(void (**uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]),
+                              void (**full)(void *, const FshEntry *, const int32_t[8]),
+                              void (**full_alt)(void *, const FshEntry *, const int32_t[8]),
+                              void (**camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]));
+
 void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *info, uint32_t node, int32_t yaw,
                         uint8_t *pixels);
 
