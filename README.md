@@ -75,6 +75,8 @@ With everything off and the 4:3 format the game plays as the original. The addit
   - render threads: Auto by default (as many as the machine's logical cores, at most eight), or off (the original's one
     thread), 2 or 4. The picture is the same with any of them; the wall is quicker with the threads on. `TNFS_BANDS` in
     the environment wins over the setting.
+  - render scale: 1x by default, or 2x or 3x — the many times the world is drawn over the frame's size, so the 3D
+    picture is sharper the more of them. `TNFS_RENDER_SCALE` in the environment wins over the setting.
   The pause menu's Graphics opens the same screen; the rows that need a new race say "(next race)".
 - **Controls** (Options → Controls setup): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
@@ -100,7 +102,7 @@ directory (SDL's pref path, `~/Library/Application Support/tnfs/tnfs/` on macOS;
 
 | File | Contents |
 |------|----------|
-| `port.cfg` | Graphics (format, scaling, refresh, FOV, view distance, 3D options, render threads) |
+| `port.cfg` | Graphics (format, scaling, refresh, FOV, view distance, 3D options, render threads, render scale) |
 | `controls.cfg` | the bindings and axis settings |
 | `extras.cfg` | the Customize Game switches |
 | `records.dat` | the records the original has no place for: variants and the cheats table |

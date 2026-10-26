@@ -165,6 +165,50 @@ static void test_bad_render_bands_keeps_the_default(void)
     }
 }
 
+/* the render scale: the many times the world is drawn over the frame's size, 1, 2 or 3. The file names them
+ * "render_scale=1|2|3". */
+static void test_render_scale_values(void)
+{
+    static const char *const good[] = { "render_scale=1\n", "render_scale=2\n", "render_scale=3\n" };
+    for (int i = 0; i < 3; i++) {
+        const PortSettings s = port_settings_parse(good[i], strlen(good[i]));
+        CHECK_EQ_INT(s.render_scale, i + 1);
+    }
+    /* the written form: the number on its own */
+    char text[256];
+    PortSettings a = port_settings_defaults();
+    a.render_scale = 3;
+    CHECK(port_settings_format(&a, text, sizeof text) > 0);
+    CHECK(strstr(text, "render_scale=3\n") != NULL);
+}
+
+/* a damaged value keeps the default, like every other key: the render scale stays at 1x */
+static void test_bad_render_scale_keeps_the_default(void)
+{
+    static const char *const bad[] = { "render_scale=4\n", "render_scale=0\n", "render_scale=-1\n",
+                                       "render_scale=two\n", "render_scale=\n" };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        const PortSettings s = port_settings_parse(bad[i], strlen(bad[i]));
+        CHECK_EQ_INT(s.render_scale, 1);
+    }
+}
+
+/* the environment wins over the file: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. It is what
+ * the checks run with, so a file that says 1 must not stop the environment from saying 3. */
+static void test_the_environment_wins_over_the_setting(void)
+{
+    unsetenv("TNFS_RENDER_SCALE");
+    CHECK_EQ_INT(port_render_scale(), 1);   /* the default, with no file and no environment */
+    setenv("TNFS_RENDER_SCALE", "3", 1);
+    CHECK_EQ_INT(port_render_scale(), 3);
+    setenv("TNFS_RENDER_SCALE", "", 1);
+    CHECK_EQ_INT(port_render_scale(), 1);   /* an empty value is not a setting */
+    setenv("TNFS_RENDER_SCALE", "9", 1);
+    CHECK_EQ_INT(port_render_scale(), 1);   /* nor is one outside the range */
+    unsetenv("TNFS_RENDER_SCALE");
+    CHECK_EQ_INT(port_render_scale(), 1);
+}
+
 static void test_parse_keys(void)
 {
     const char *text = "format=21:9\nrefresh_hz=144\n";
@@ -294,6 +338,9 @@ int main(void)
     test_bad_input_keeps_defaults();
     test_render_bands_values();
     test_bad_render_bands_keeps_the_default();
+    test_render_scale_values();
+    test_bad_render_scale_keeps_the_default();
+    test_the_environment_wins_over_the_setting();
     test_load_save();
     test_moved_settings_fall_back_to_extras();
     return TEST_REPORT();

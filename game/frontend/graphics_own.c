@@ -22,31 +22,31 @@ enum { TITLE_X = 8, TITLE_Y = 56 };
 
 static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
                                                           "View Distance", "Fog", "Field of view", "Screen format",
-                                                          "Refresh rate", "Full screen", "Render threads" };
+                                                          "Refresh rate", "Full screen", "Render threads", "Render scale" };
 static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
 
 /* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are 0..0x8c for
- * its first row and then about 53 apart, with Done and Cancel in 0x1a4..0x1e0. Ten settings do not fit at that
- * pitch -- 0x1e0 is the bottom of the screen -- so the first row keeps the exe's band and the other nine share the
- * 280 pixels between it and Done's, 31 each: the last one ends at 0x1a3, one pixel above the buttons' band. The x's
+ * its first row and then about 53 apart, with Done and Cancel in 0x1a4..0x1e0. Eleven settings do not fit at that
+ * pitch -- 0x1e0 is the bottom of the screen -- so the first row keeps the exe's band and the other ten share the
+ * 280 pixels between it and Done's, 28 each: the last one ends at 0x1a3, one pixel above the buttons' band. The x's
  * are the exe's: the wide 0x280 for the settings, and its 0x140 / 0x145 corners for the two buttons, which are the
  * background's own words (config_bgnd.c's CORNERS). */
 enum { WIDE = 0x280 };
-static const int16_t POINTER_X[GRAPHICS_OWN_ROWS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565 };
-static const int16_t POINTER_Y[GRAPHICS_OWN_ROWS] = { 116, 160, 191, 222, 253, 284, 315, 346, 377, 408, 445, 445 };
-static const int16_t BAND_LEFT[GRAPHICS_OWN_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145 };
-static const int16_t BAND_RIGHT[GRAPHICS_OWN_ROWS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140,
+static const int16_t POINTER_X[GRAPHICS_OWN_ROWS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565 };
+static const int16_t POINTER_Y[GRAPHICS_OWN_ROWS] = { 116, 160, 188, 216, 244, 272, 300, 328, 356, 384, 412, 445, 445 };
+static const int16_t BAND_LEFT[GRAPHICS_OWN_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145 };
+static const int16_t BAND_RIGHT[GRAPHICS_OWN_ROWS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140,
                                                        WIDE };
-static const int16_t BAND_TOP[GRAPHICS_OWN_ROWS] = { 0x0, 0x8c, 0xab, 0xca, 0xe9, 0x108, 0x127, 0x146, 0x165, 0x184,
-                                                     0x1a4, 0x1a4 };
-static const int16_t BAND_BOTTOM[GRAPHICS_OWN_ROWS] = { 0x8c, 0xab, 0xca, 0xe9, 0x108, 0x127, 0x146, 0x165, 0x184, 0x1a3,
-                                                        0x1e0, 0x1df };
+static const int16_t BAND_TOP[GRAPHICS_OWN_ROWS] = { 0x0, 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c,
+                                                     0x188, 0x1a4, 0x1a4 };
+static const int16_t BAND_BOTTOM[GRAPHICS_OWN_ROWS] = { 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c, 0x188,
+                                                        0x1a3, 0x1e0, 0x1df };
 /* the labels' y, as graphics_menu.c's TEXT_Y is: each ten below its band's top, and ten below every label the
- * pointer. The first sits 35 above the second (the exe's own 106 left it 44 above) and the rest are 31 apart, the
+ * pointer. The first sits 35 above the second (the exe's own 106 left it 44 above) and the rest are 28 apart, the
  * bands' own pitch */
-static const int16_t TEXT_Y[GRAPHICS_OWN_ROWS] = { 115, 150, 181, 212, 243, 274, 305, 336, 367, 398, 438, 438 };
+static const int16_t TEXT_Y[GRAPHICS_OWN_ROWS] = { 115, 150, 178, 206, 234, 262, 290, 318, 346, 374, 402, 438, 438 };
 
 static int wrap(int value, int direction, int count)
 {
@@ -110,6 +110,7 @@ int graphics_own_live_in_race(int setting, int16_t view, int ultra)
     case GRAPHICS_OWN_FORMAT:
     case GRAPHICS_OWN_FULLSCREEN:
     case GRAPHICS_OWN_BANDS:   /* the render threads are read when the race starts, not while it runs */
+    case GRAPHICS_OWN_SCALE:   /* and so is the render scale: the framebuffer is sized when the race starts */
         return 0;
     case GRAPHICS_OWN_VIEW:
         return !(ultra && view == 0);
@@ -162,12 +163,22 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
         s->render_bands = VALUES[wrap(at, direction, 4)];
         break;
     }
+    case GRAPHICS_OWN_SCALE: {
+        /* the render scale: 1x, 2x and 3x, wrapping at both ends. The number is the many times the world is drawn
+         * over the frame's size, which is what the race's framebuffer is sized by. */
+        static const int VALUES[3] = { 1, 2, 3 };
+        int at = 0;
+        for (int i = 0; i < 3; i++)
+            if (VALUES[i] == s->render_scale) at = i;
+        s->render_scale = VALUES[wrap(at, direction, 3)];
+        break;
+    }
     default:
         break;   /* the view distance steps through config.dat's own short, not here */
     }
 }
 
-/* the nine rows that live in port.cfg. The view distance is read from config.dat instead, by the caller. */
+/* the ten rows that live in port.cfg. The view distance is read from config.dat instead, by the caller. */
 void graphics_own_value(const PortSettings *s, int setting, char out[16])
 {
     switch (setting) {
@@ -187,6 +198,7 @@ void graphics_own_value(const PortSettings *s, int setting, char out[16])
         else
             snprintf(out, 16, "%d", s->render_bands);
         break;
+    case GRAPHICS_OWN_SCALE: snprintf(out, 16, "%dx", s->render_scale); break;
     default: out[0] = '\0'; break;
     }
 }

@@ -1,4 +1,4 @@
-/* The port's own Graphics screen (graphics_own.c): the ten rows in the owner's order over the clean configuration
+/* The port's own Graphics screen (graphics_own.c): the eleven rows in the owner's order over the clean configuration
  * background, its own title, and Done/Cancel as Options has them. Driven through the fake ops with a key script, the
  * same rig test_graphics_plus.c uses.
  *
@@ -232,7 +232,8 @@ static int row_of(const char *text)
 {
     static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
                                                              "View Distance", "Fog", "Field of view", "Screen format",
-                                                             "Refresh rate", "Full screen", "Render threads" };
+                                                             "Refresh rate", "Full screen", "Render threads",
+                                                             "Render scale" };
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++)
         if (strcmp(text, LABEL[row]) == 0) return row;
     return -1;
@@ -460,8 +461,8 @@ static void test_rows_in_order(void)
 
     static const char *const want[] = { "Perspective Correction", "Texture Filter", "Scaling", "View Distance",
                                         "Fog", "Field of view", "Screen format", "Refresh rate", "Full screen",
-                                        "Render threads" };
-    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 10);
+                                        "Render threads", "Render scale" };
+    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 11);
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) {
         CHECK(drew(&r.f, want[row]));
         /* each label drawn at the same left edge: the labels are a column */
@@ -775,6 +776,8 @@ static void test_value_texts(void)
     CHECK(strcmp(out, "Off") == 0);
     graphics_own_value(&s, GRAPHICS_OWN_BANDS, out);
     CHECK(strcmp(out, "Auto") == 0);   /* Auto is the default: as many threads as the logical cores */
+    graphics_own_value(&s, GRAPHICS_OWN_SCALE, out);
+    CHECK(strcmp(out, "1x") == 0);   /* 1x is the default: the world drawn at the frame's size */
 
     s.view_ultra = 1;
     graphics_own_view_value(0, s.view_ultra, out);
@@ -810,6 +813,41 @@ static void test_render_threads_values(void)
     s.render_bands = 4;
     graphics_own_value(&s, GRAPHICS_OWN_BANDS, out);
     CHECK(strcmp(out, "4") == 0);
+}
+
+/* the render scale's three values: 1x, 2x and 3x */
+static void test_render_scale_values(void)
+{
+    PortSettings s = port_settings_defaults();
+    char out[16];
+    graphics_own_value(&s, GRAPHICS_OWN_SCALE, out);
+    CHECK(strcmp(out, "1x") == 0);   /* 1x is the default */
+    s.render_scale = 2;
+    graphics_own_value(&s, GRAPHICS_OWN_SCALE, out);
+    CHECK(strcmp(out, "2x") == 0);
+    s.render_scale = 3;
+    graphics_own_value(&s, GRAPHICS_OWN_SCALE, out);
+    CHECK(strcmp(out, "3x") == 0);
+}
+
+/* the row steps through its three values, wrapping at both ends, and writes only its own setting */
+static void test_render_scale_step(void)
+{
+    PortSettings s = port_settings_defaults();
+    CHECK_EQ_INT(s.render_scale, 1);   /* 1x is where the row starts */
+    graphics_own_step(&s, GRAPHICS_OWN_SCALE, 1, SCREEN_4_3);
+    CHECK_EQ_INT(s.render_scale, 2);   /* 1x -> 2x */
+    graphics_own_step(&s, GRAPHICS_OWN_SCALE, 1, SCREEN_4_3);
+    CHECK_EQ_INT(s.render_scale, 3);
+    graphics_own_step(&s, GRAPHICS_OWN_SCALE, 1, SCREEN_4_3);
+    CHECK_EQ_INT(s.render_scale, 1);   /* 3x -> 1x */
+    graphics_own_step(&s, GRAPHICS_OWN_SCALE, -1, SCREEN_4_3);
+    CHECK_EQ_INT(s.render_scale, 3);   /* and the other way round */
+    /* the rest of the settings are not touched */
+    CHECK_EQ_INT(s.format, SCREEN_4_3);
+    CHECK_EQ_INT(s.refresh_hz, 60);
+    CHECK_EQ_INT(s.fullscreen, 0);
+    CHECK_EQ_INT(s.render_bands, -1);
 }
 
 /* the row steps through its four values, wrapping at both ends, and writes only its own setting */
@@ -1004,6 +1042,7 @@ static void test_race_live_rows(void)
     CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_FORMAT, 0, 0), 0);
     CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_FULLSCREEN, 0, 0), 0);
     CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_BANDS, 0, 0), 0);
+    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_SCALE, 0, 0), 0);
     CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_VIEW, 0, 1), 0);
 }
 
@@ -1080,6 +1119,14 @@ static void test_race_dims_next_race_rows(void)
     run_script(&bands, script_walk(GRAPHICS_OWN_BANDS, RIGHT, 1, GRAPHICS_OWN_DONE));
     CHECK_EQ_INT(bands.port.render_bands, -1);   /* dimmed: it holds still at the default, Auto */
     CHECK(drew(&bands.f, "Auto (next race)"));
+
+    /* and so is the render scale: the framebuffer is sized when the race starts, not while it runs */
+    Rig scale;
+    rig_init(&scale);
+    scale.plus.race = 1;
+    run_script(&scale, script_walk(GRAPHICS_OWN_SCALE, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(scale.port.render_scale, 1);   /* dimmed: it holds still at the default, 1x */
+    CHECK(drew(&scale.f, "1x (next race)"));
 }
 
 /* the render threads on the page: the tenth row, its label, its value, and the band it sits in */
@@ -1087,29 +1134,67 @@ static void test_render_threads_row_on_the_page(void)
 {
     Rig r;
     rig_init(&r);
-    /* the pointer down to the tenth row and on to Done: the screen asks about the bands from the first row up to
+    /* the pointer down to the last row and on to Done: the screen asks about the bands from the first row up to
      * the one the pointer is in, so only a walk that reaches the last row asks about every row's band. */
     int n = 0;
-    for (int i = 0; i < GRAPHICS_OWN_BANDS + 1; i++) script[n++] = DOWN;
+    for (int i = 0; i < GRAPHICS_OWN_SETTINGS; i++) script[n++] = DOWN;
     script[n++] = 0;
     script[n++] = SPACE;
     script[n++] = 0;
     run_script(&r, n);
 
-    /* the label is drawn, in the label column, with the other nine */
+    /* the label is drawn, in the label column, with the other ten */
     CHECK(drew(&r.f, "Render threads"));
     for (int i = 0; i < r.f.text_count && i < 96; i++)
         if (strcmp(r.f.texts[i], "Render threads") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     /* and the value, on the right: Auto, the default */
     CHECK(drew(&r.f, "Auto"));
 
-    /* the tenth row's band, and every row's: the bands the screen asked about, in order. The last one is the tenth
-     * row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not run
-     * into it, or the tenth row and the buttons would share their rows. */
+    /* the tenth row's band, and every row's: the bands the screen asked about, in order. Its band ends above the
+     * Done/Cancel band, which starts at 0x1a4 (420) -- a row's band must not run into it, or that row and the
+     * buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    const int last = GRAPHICS_OWN_SETTINGS - 1;
-    CHECK_EQ_INT(r.f.band_best_tops[last], 0x184);
-    CHECK(r.f.band_best_bottoms[last] <= 0x1a4);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 0x16c);
+    CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_BANDS] <= 0x1a4);
+}
+
+/* the render scale on the page: the eleventh row, its label, its value, and the band it sits in */
+static void test_render_scale_row_on_the_page(void)
+{
+    Rig r;
+    rig_init(&r);
+    /* the pointer down to the eleventh row and on to Done: the screen asks about the bands from the first row up to
+     * the one the pointer is in, so only a walk that reaches the last row asks about every row's band. */
+    int n = 0;
+    for (int i = 0; i < GRAPHICS_OWN_SCALE + 1; i++) script[n++] = DOWN;
+    script[n++] = 0;
+    script[n++] = SPACE;
+    script[n++] = 0;
+    run_script(&r, n);
+
+    /* the label is drawn, in the label column, with the other ten */
+    CHECK(drew(&r.f, "Render scale"));
+    for (int i = 0; i < r.f.text_count && i < 96; i++)
+        if (strcmp(r.f.texts[i], "Render scale") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
+    /* and the value, on the right: 1x, the default */
+    CHECK(drew(&r.f, "1x"));
+
+    /* the eleventh row's band, and every row's: the bands the screen asked about, in order. The last one is the
+     * eleventh row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not
+     * run into it, or the last row and the buttons would share their rows. */
+    CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 0x188);
+    CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_SCALE] <= 0x1a4);
+}
+
+/* the eleventh row is reachable and its step writes the setting */
+static void test_render_scale_row_is_reachable(void)
+{
+    Rig r;
+    rig_init(&r);
+    run_script(&r, script_walk(GRAPHICS_OWN_SCALE, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(r.port.render_scale, 2);   /* 1x -> 2x */
+    CHECK_EQ_INT(r.f.saves, 1);
 }
 
 /* the tenth row is reachable and its step writes the setting */
@@ -1160,6 +1245,10 @@ int main(void)
     test_render_threads_step();
     test_render_threads_row_on_the_page();
     test_render_threads_row_is_reachable();
+    test_render_scale_values();
+    test_render_scale_step();
+    test_render_scale_row_on_the_page();
+    test_render_scale_row_is_reachable();
     test_step_writes_only_its_row();
     test_fullscreen_takes_desktop_format();
     test_the_three_exits_that_are_not_a_decision_save();
