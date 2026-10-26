@@ -12,6 +12,9 @@
  * (segment_count * 4; a stage's ring_nodes is 0x20000, a mask), which the file's must match. The previous race's light is freed. */
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes);
 
+/* After drive_light_load, with the CD's data root: the PC's alternative sky for a dawn or dusk without a PS1 one (drive_light.c) */
+void drive_light_load_alt_sky(const char *data_root, const char *track);
+
 /* The palette with every entry multiplied by the ambient colour of the light loaded (the palette itself with none), so a
  * texture keeps its variation under the tint. For what is all 3D (the track viewer); a race's frame has the HUD's pixels too, which
  * index the same entries: see below. */

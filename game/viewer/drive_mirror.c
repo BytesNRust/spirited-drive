@@ -64,10 +64,8 @@ static void free_picture(void *ctx, void *picture)
 }
 
 /* The track's 'horz' as a bank of one shape, for 0044bddc's 004732dd. */
-static uint8_t *horz_bank(const TrackArt *art)
+static uint8_t *horz_bank(const FshEntry *h)
 {
-    if (!art->has_horizon) return NULL;
-    const FshEntry *h = &art->horizon;
     const size_t pixels = (size_t)h->width * h->height, at = BANK_HEADER + BANK_ENTRY;
     uint8_t *bank = calloc(1, at + SHAPE_HEADER + pixels);
     if (bank == NULL) return NULL;
@@ -80,6 +78,13 @@ static uint8_t *horz_bank(const TrackArt *art)
     for (int i = 0; i < 4; i++) put16(shape + 8 + 2 * i, h->misc[i]);
     memcpy(shape + SHAPE_HEADER, h->payload, pixels <= h->payload_size ? pixels : h->payload_size);
     return bank;
+}
+
+/* port (the PS1 look's sky): the sky as the main view has it, in the race palette's colours (ported_view_sky_in_palette), else the track's own */
+static const FshEntry *sky_horizon(const DriveMirrorWorld *w)
+{
+    const FshEntry *own = ported_view_sky_in_palette();
+    return own != NULL ? own : w->art->has_horizon ? &w->art->horizon : NULL;
 }
 
 enum { ON_DASH_Y = 240 };  /* port: a mirror box from here down is on the dash, not at the windshield's top */
@@ -191,10 +196,18 @@ static uint8_t node_property(void *ctx, int32_t node)
 static void step_none(void *ctx, int32_t segment) { (void)ctx, (void)segment; }
 static void build_none(void *ctx, int32_t node, int32_t segment, int32_t count) { (void)ctx, (void)node, (void)segment, (void)count; }
 
+/* port (the PS1 light): the mirror's points have the light of their segment's first node (a row of the record's 11 points per segment) */
+static void mirror_point_op(void *ctx, int32_t segment, int point, int32_t index)
+{
+    DriveMirror *m = ((Frame *)ctx)->m;
+    if (index < 0 || index >= MIRROR_POINTS) return;
+    m->light[index] = ported_view_light_at((uint32_t)segment << 2, point, &m->tunnel[index]);
+}
+
 static void mirror_row_op(void *ctx, int32_t segment)
 {
     Frame *f = ctx;
-    const MirrorRowOps ops = { f, node_property };
+    const MirrorRowOps ops = { f, node_property, mirror_point_op };
     mirror_row(&ops, f->cache, f->segment_mask, segment, f->m->world, &f->m->count, segment_bytes);
 }
 
@@ -266,13 +279,19 @@ static void sky_quad(void *ctx, const uint8_t *shape, const int32_t points[8])
 {
     (void)shape;  /* the bank's only shape: the track's 'horz' */
     Frame *f = ctx;
-    quad_draw_full_tri(&f->target, &f->w->art->horizon, points, 0);  /* 00486720 */
+    quad_draw_full_tri(&f->target, sky_horizon(f->w), points, 0);  /* 00486720 */
 }
 
 static void sky_op(void *ctx)
 {
     Frame *f = ctx;
-    if (f->m->horz == NULL) f->m->horz = horz_bank(f->w->art);
+    const FshEntry *sky = sky_horizon(f->w);
+    if (sky == NULL) return;
+    if (sky != &f->w->art->horizon) {   /* the PS1 look's sky: its texels follow the world's palette, so the bank is made again */
+        free(f->m->horz);
+        f->m->horz = NULL;
+    }
+    if (f->m->horz == NULL) f->m->horz = horz_bank(sky);
     if (f->m->horz == NULL) return;
     const RaceState *race = f->w->race;
     const ViewRow *row = &race_view_rows[HIGH_MODE][MIRROR_VIEW];
@@ -309,6 +328,11 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
     modern_road_cell(user, view, texture, uv, cam, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
 }
 
+/* port (the PS1 light): the exe's mirror pass with the main pass's lit sinks, each quad's corners lit from the rows' points */
+static int exe_lit;
+static void (*exe_uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]) = draw_uv;
+static void (*exe_camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]) = draw_camera;
+
 static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32_t u_cell, const int32_t *const cam[4],
                             const int32_t screen[8], int32_t near)
 {
@@ -321,9 +345,22 @@ static void scene_subdivide(void *ctx, const FshEntry *t, int32_t u_level, int32
         if (cam[i] >= f->m->vertices + 3 * f->m->count) return;
     const DrawContext dc = { &f->m->view, { f->target.clip_left, f->target.clip_top, f->target.clip_right, f->target.clip_bottom },
                              WORLD_SHIFT, { f->w->near_dir[0], f->w->near_dir[1], f->w->near_dir[2] },
-                             { &f->target, draw_uv, NULL, NULL, NULL, NULL, NULL,
-                               f->w->port_modern ? draw_camera : NULL, NULL }, 0, 0 };
+                             { &f->target, exe_lit ? exe_uv : draw_uv, NULL, NULL, NULL, NULL, NULL,
+                               f->w->port_modern ? (exe_lit ? exe_camera : draw_camera) : NULL, NULL }, 0, 0 };
+    uint8_t corners[6] = { 255, 255, 255, 255, 0, 0 };
+    if (exe_lit) {
+        int tunnel = 1;
+        for (int i = 0; i < 4; i++) {
+            const int32_t v = (int32_t)((cam[i] - f->m->vertices) / 3);
+            corners[i] = f->m->light[v];
+            tunnel = tunnel && f->m->tunnel[v];
+        }
+        corners[4] = 1, corners[5] = (uint8_t)tunnel;
+        track_light_tunnel = tunnel;
+        track_light_hook(corners);
+    }
     mirror_draw_subdivided(&dc, t, u_level, 0, u_cell, 0, cam, screen, near);
+    if (exe_lit) track_light_tunnel = 0, track_light_hook(NULL);
 }
 
 static void no_contact(void *ctx, Car *car) { (void)ctx, (void)car; }
@@ -426,7 +463,12 @@ static void scene_op(void *ctx, int32_t count)
                                    f->w->race->circuit, (int32_t)(tri->ring_nodes - 1u), segment_bytes, f->cache,
                                    f->m->vertices, 1 };
     const MirrorSceneOps ops = { f, scene_texture, scene_subdivide, scene_cars };
+    exe_lit = ported_view_mirror_light_begin();
+    void (*full)(void *, const FshEntry *, const int32_t[8]), (*full_alt)(void *, const FshEntry *, const int32_t[8]);
+    if (exe_lit) ported_view_mirror_sinks(&exe_uv, &full, &full_alt, &exe_camera);
     mirror_scene(&ops, &in, count);
+    if (exe_lit) ported_view_mirror_light_end();
+    exe_lit = 0;
 }
 
 static void flip_op(void *ctx)

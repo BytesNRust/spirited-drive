@@ -25,6 +25,7 @@ typedef struct {
     int32_t count;              /* 00509784 */
     int32_t near;               /* the mirror camera's +4 (0044b970) */
     int32_t world[MIRROR_POINTS][3];        /* 0050909c */
+    uint8_t light[MIRROR_POINTS], tunnel[MIRROR_POINTS];   /* port (the PS1 light): each point's intensity and whether it is in a tunnel, parallel to `world` */
     int32_t vertices[MIRROR_SCREEN_WORDS_AT + 2 * (MIRROR_POINTS + 11) + 2];  /* 00509330, 005095c4 */
     uint8_t *horz;              /* a one-shape bank holding the track's 'horz' (0051203c) */
     uint32_t enclosed_colour;   /* 0050b7c0 (00446bac: grey 0x20) */

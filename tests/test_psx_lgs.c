@@ -41,6 +41,25 @@ static void test_neutral_and_rejected(void)
     CHECK(!psx_lgs_parse((const uint8_t *)BIG, sizeof BIG - 1, &lgs));              /* a channel past 255 */
 }
 
+/* ZTR5 and ZTR6's scripts start with two ESC bytes before the first comment: the numbers are the same as without them */
+static void test_leading_junk(void)
+{
+    static const char JUNK[] = "\x1b\x1b";
+    char text[sizeof JUNK - 1 + sizeof TEXT];
+    memcpy(text, JUNK, sizeof JUNK - 1);
+    memcpy(text + sizeof JUNK - 1, TEXT, sizeof TEXT);
+    PsxLgs plain, junk;
+    CHECK(psx_lgs_parse((const uint8_t *)TEXT, sizeof TEXT - 1, &plain));
+    CHECK(psx_lgs_parse((const uint8_t *)text, sizeof text - 1, &junk));
+    CHECK(memcmp(plain.depth, junk.depth, sizeof plain.depth) == 0);
+    CHECK(memcmp(plain.start, junk.start, sizeof plain.start) == 0 && memcmp(plain.end, junk.end, sizeof plain.end) == 0);
+    CHECK_EQ_INT(junk.context_count, plain.context_count);
+    CHECK_EQ_INT(junk.contexts[0].seg_ini, plain.contexts[0].seg_ini);
+    CHECK_EQ_INT(junk.contexts[0].mode, plain.contexts[0].mode);
+    static const char ONLY[] = "\x1b\x1b";
+    CHECK(!psx_lgs_parse((const uint8_t *)ONLY, sizeof ONLY - 1, &junk));   /* nothing after them */
+}
+
 /* the contexts: one fixed (64), one ramp (96); outside them the default start -> end across the track, blended in and out */
 /* a mode-96 context (kUseAC + kSwitchAC) covers its segments exactly: the tunnels' lamps switch the cars' light there */
 static void test_switched(void)
@@ -264,6 +283,7 @@ int main(void)
     test_world_mask();
     test_ambient_and_tint();
     test_neutral_and_rejected();
+    test_leading_junk();
     test_ambient_contexts();
     test_lit_table();
     test_ratio();

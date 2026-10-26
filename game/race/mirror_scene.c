@@ -174,6 +174,7 @@ void mirror_row(const MirrorRowOps *ops, const uint8_t *cache, int32_t segment_m
         select++;
         if (*count >= MIRROR_POINTS) continue;  /* port guard: 0050909c holds 55 */
         const uint8_t *point = record + RECORD_ROW + ROW_POINT_BYTES * p;
+        if (ops->point != NULL) ops->point(ops->ctx, segment, p, *count);
         for (int c = 0; c < 3; c++) world[*count][c] = record_word(point + 4 * c);
         *count = x_add(*count, 1);
     }

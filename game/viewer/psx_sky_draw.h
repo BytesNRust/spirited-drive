@@ -14,10 +14,20 @@ typedef struct PsxSkyDraw {
     FshEntry horz;           /* the bitmap as the flat horizon reads it (misc[1] the horizon row) */
     HorizonSmooth smooth;
     int ready;
+    FshEntry in_palette;     /* `horz` with its texels already the race palette's nearest colours (the mirror's flat draw has no smooth horizon) */
+    uint8_t *mapped;         /* its pixels (owned) */
+    uint8_t mapped_map[256]; /* the smooth map they were made with */
+    int mapped_ok;
 } PsxSkyDraw;
 
 /* 1 when the sky's bitmap is made (the draw owns its memory), 0 and nothing kept otherwise. */
 int psx_sky_draw_make(PsxSkyDraw *d, const PsxSky *sky, const PsxSkyInf *inf);
+/* port (the PC's alternative sky): the sky of a PC horizon picture `horizon` ('horz', its texels indices of `palette`, 768 bytes), as it is, no zoom
+ * and no gradient: its horizon row is the picture's misc[1]. 1 when made (copied), 0 and nothing kept otherwise. */
+int psx_sky_draw_make_indexed(PsxSkyDraw *d, const FshEntry *horizon, const uint8_t palette[768]);
+/* The sky as a horizon picture in the race palette (the nearest colours of the last psx_sky_draw_target's target), for the draws that have no
+ * smooth horizon (the rear mirror's); NULL before the first target. Valid until the next call. */
+const FshEntry *psx_sky_draw_in_palette(PsxSkyDraw *d);
 /* The screen colours for the frame: `target` the palette the world is shown with (768 bytes). Cheap when it did not change. */
 void psx_sky_draw_target(PsxSkyDraw *d, const uint8_t target[768]);
 void psx_sky_draw_free(PsxSkyDraw *d);

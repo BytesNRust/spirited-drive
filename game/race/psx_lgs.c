@@ -4,12 +4,13 @@
 
 enum { NUMBERS = 14, CONTEXT_NUMBERS = 9, ALL_NUMBERS = NUMBERS + 1 + CONTEXT_NUMBERS * PSX_LGS_CONTEXTS, NEUTRAL = 128, CHANNEL_MAX = 255 };
 
-/* The first `count` integers of the text outside comments, stopping at the first letter outside a comment (the trailer);
+/* The first `count` integers of the text outside comments (after any bytes before its first comment or digit), stopping at the first letter outside a comment (the trailer);
  * the number read. */
 static int numbers(const uint8_t *p, size_t size, int *out, int count)
 {
     int n = 0;
     size_t i = 0;
+    while (i < size && p[i] != '/' && !(p[i] >= '0' && p[i] <= '9')) i++;   /* some files (ZTR5, ZTR6) start with two ESC bytes */
     while (i < size && n < count) {
         if (p[i] == '/' && i + 1 < size && p[i + 1] == '*') {
             for (i += 2; i + 1 < size && !(p[i] == '*' && p[i + 1] == '/'); i++) {}
