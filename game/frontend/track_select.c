@@ -10,7 +10,7 @@ enum {
     TIME_OF_DAY = 9, LOST_VEGAS = 8, TOURNAMENT = 3, OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47,
     SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = TRACK_SELECT_KEY_UP,
     KEY_LEFT = TRACK_SELECT_KEY_LEFT, KEY_RIGHT = TRACK_SELECT_KEY_RIGHT, KEY_DOWN = TRACK_SELECT_KEY_DOWN, PATH = 0x100, TEXT = 0x28, VARIANT_X = 0xc8,
-    VARIANT_Y = 0x13c, WEATHER_X = 0x10, WEATHER_Y = 0x1a4
+    VARIANT_Y = 0x13c, WEATHER_X = 6, WEATHER_VALUE_X = 0xc3, WEATHER_Y = 0x19c
 };
 
 /* the tracks' files (0046751c) and music (00467540) */
@@ -216,8 +216,8 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
         ops->text_shadowed(ops->ctx, variant_of(st) == 1 ? "Mirror" : "Rally", VARIANT_X, VARIANT_Y);
     if (weather_on(st)) {   /* port: the weather row, in the game's text like the laps */
         ops->text_select(ops->ctx, item == TRACK_SELECT_WEATHER ? 1 : 0);
-        snprintf(text, sizeof text, "Weather: %s", weather_text(*st->plus->weather));
-        ops->text_shadowed(ops->ctx, text, WEATHER_X, WEATHER_Y);
+        ops->text_shadowed(ops->ctx, "Weather", WEATHER_X, WEATHER_Y);
+        ops->text_shadowed(ops->ctx, weather_text(*st->plus->weather), WEATHER_VALUE_X, WEATHER_Y);
     }
     if (track < 3) {
         snprintf(text, sizeof text, "bsg%d", segment);
