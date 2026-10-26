@@ -65,6 +65,8 @@ void ported_view_set_soft_shadow(int on);
  * colour over the world's `tint`, so a context's colour (a tunnel's, a bridge's) shows on the cars and the world's mean does not
  * double. NULL, none (the cars take the world's tint as before). `lgs` is copied. Needs ported_view_set_light's light. */
 void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3]);
+/* The ratio the PS1 light scales `car`'s colours by at its place (psx_light_car_ratio), 1 and `out` set; 0 with no light script. The dash takes the player's. */
+int ported_view_car_ratio(const Car *car, float out[3]);
 
 struct PsxSkyDraw;
 /* port: the PS1 sky (psx_sky_draw.h) drawn in place of the track's sky and ring, NULL for the track's own. Not owned. */

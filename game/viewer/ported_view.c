@@ -95,7 +95,7 @@ static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
 /* the tunnel's dim road and walls on the PS1 are olive / amber, never the texture's own grey: green and blue lost on every darkened level
  * (fitted to the clip's road, (38,34,16) for a grey texture) */
 static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
-static double lamp_v = 0.9;   /* where the first lamp hangs along its segment (the texture's v, 0..1), from its rectangle; for the cars' switched light */
+static double lamp_v = 0.5;   /* where the first lamp hangs along its segment (0..1 from its first node, psx_lamp_place), from its rectangle; for the cars' switched light */
 
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
 {
@@ -333,8 +333,8 @@ static double car_node_position(const Car *car, int32_t node)
 {
     TriNode a, b;
     if (car == NULL || shadow_race == NULL || shadow_race->tri == NULL) return node;
-    const uint32_t mask = shadow_race->tri->ring_nodes - 1;
-    if (tri_node(shadow_race->tri, (uint32_t)node & mask, &a) != TRI_OK || tri_node(shadow_race->tri, ((uint32_t)node + 1) & mask, &b) != TRI_OK) return node;
+    const uint32_t ring = shadow_race->tri->ring_nodes;   /* not a power of two on most tracks: a modulo, not a mask */
+    if (tri_node(shadow_race->tri, psx_ring_node(node, ring), &a) != TRI_OK || tri_node(shadow_race->tri, psx_ring_node(node + 1, ring), &b) != TRI_OK) return node;
     const double d[3] = { (double)b.position.x - a.position.x, (double)b.position.y - a.position.y, (double)b.position.z - a.position.z };
     const double r[3] = { (double)car->x - a.position.x, (double)car->y - a.position.y, (double)car->z - a.position.z };
     const double length2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
@@ -343,10 +343,20 @@ static double car_node_position(const Car *car, int32_t node)
     return node + (along < -0.5 ? -0.5 : along > 1.5 ? 1.5 : along);
 }
 
-/* port (the tunnels' lamps): under a lamp the PS1 car takes a warmer, a little brighter light than between them, in hard steps; the
- * ratios measured on the PS1 clip against the daylight (red ~0.43 / 0.52, green the same, blue a little less lit), in 1/16 */
-static const float TUNNEL_UNLIT[3] = { 7.0f / 16, 7.0f / 16, 7.0f / 16 };
-static const float TUNNEL_LIT[3] = { 9.0f / 16, 7.0f / 16, 6.0f / 16 };
+/* port (the PS1 light on the cars and the dash): the ratio at a car, the one function of both (psx_light_car_ratio); 0 and `out` untouched when there is no
+ * light script. A car's position is its node and the fraction past it; a rival drawn by its row has the node alone. */
+static int ratio_at(const Car *car, int32_t node, float out[3])
+{
+    if (!ambient_on || psx_light == NULL) return 0;
+    const int32_t at = (int32_t)psx_ring_node(node, ambient_nodes);
+    psx_light_car_ratio(&ambient, ambient_nodes, at, car_node_position(car, at), lamp_count > 0 ? lamp_v : -1.0, ambient_tint, AMBIENT_STEP, out);
+    return 1;
+}
+
+int ported_view_car_ratio(const Car *car, float out[3])
+{
+    return car != NULL && ratio_at(car, car->node, out);
+}
 
 /* the table for a car at `node`, NULL when its ambient is the world's */
 static const uint8_t *car_light(const Car *car, int32_t node, const uint8_t palette[768])
@@ -356,12 +366,7 @@ static const uint8_t *car_light(const Car *car, int32_t node, const uint8_t pale
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3];
-    const uint32_t n = (uint32_t)node & (ambient_nodes - 1u);
-    psx_lgs_ratio(&ambient, (int)(n >> 2), (int)(ambient_nodes >> 2), ambient_tint, AMBIENT_STEP, ratio);
-    if (lamp_count > 0 && psx_lgs_switched(&ambient, (int)(n >> 2))) {
-        const int lit = psx_lamp_lit(car_node_position(car, (int32_t)n), lamp_v);
-        for (int k = 0; k < 3; k++) ratio[k] = lit ? TUNNEL_LIT[k] : TUNNEL_UNLIT[k];
-    }
+    ratio_at(car, node, ratio);
     int key[3], neutral = 1;
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
@@ -1246,7 +1251,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             }
         for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
             const FshEntry *t = lamp_bitmap[i][0];
-            if (i == 0 && t != NULL && t->height > 0) lamp_v = (lamp_spec[0].rect[1] + lamp_spec[0].rect[3] + 1) / 2.0 / t->height;
+            if (i == 0 && t != NULL && t->width > 0) lamp_v = psx_lamp_place(&lamp_spec[0], t->width);
             uint8_t exempt[256];
             psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
             psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */

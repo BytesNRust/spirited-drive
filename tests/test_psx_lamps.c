@@ -3,6 +3,7 @@
 #include "game/race/psx_lamps.h"
 #include "test.h"
 
+#include <math.h>
 #include <string.h>
 
 static void test_lookup(void)
@@ -97,8 +98,59 @@ static void test_lit(void)
     CHECK_EQ_INT(psx_lamp_lit(1100.0, v), psx_lamp_lit(1100.0 + 4 * 25, v));      /* the same in every segment */
 }
 
+/* the lamp hangs where its rectangle is along the texture's u, which runs against the nodes: 1 - u */
+static void test_place(void)
+{
+    const PsxLamp *lamps = NULL;
+    psx_lamps_for("CY1", &lamps);   /* x 33..41 of an 80 wide texture */
+    CHECK(fabs(psx_lamp_place(&lamps[0], 80) - (1.0 - 37.5 / 80)) < 1e-9);   /* about 0.53, not the 0.91 of its y */
+    psx_lamps_for("TR4", &lamps);   /* the full width: mid-segment */
+    CHECK(fabs(psx_lamp_place(&lamps[0], 128) - 0.5) < 1e-9);
+    CHECK(fabs(psx_lamp_place(NULL, 80) - 0.5) < 1e-9);
+}
+
+/* a ring that is not a power of two (CY1's 1920) wraps by a modulo: a mask read node 1200 as 1072 */
+static void test_ring(void)
+{
+    CHECK_EQ_INT(psx_ring_node(1200, 1920), 1200);
+    CHECK_EQ_INT(psx_ring_node(1920, 1920), 0);
+    CHECK_EQ_INT(psx_ring_node(1921 + 1920, 1920), 1);
+    CHECK_EQ_INT(psx_ring_node(-1, 1920), 1919);
+    CHECK_EQ_INT(psx_ring_node(505, 1760), 505);
+    CHECK_EQ_INT(psx_ring_node(7, 0), 0);
+}
+
+/* CY1's script: a ramped (tunnel) context at segments 266..292 and fixed ones (underpasses) at 125 and 127; the car's ratio is the ambient's outside
+ * a tunnel and the lamp's steps inside, and it is the one of the place, wherever the ring's mask would have put it */
+static void test_car_ratio(void)
+{
+    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 128, 128, 128 }, 3, { { 0 } } };
+    lgs.contexts[0] = (PsxLgsContext){ 266, 292, PSX_LGS_RAMP, { 128, 115, 96 }, { 60, 60, 60 } };
+    lgs.contexts[1] = (PsxLgsContext){ 125, 125, PSX_LGS_FIXED, { 128, 115, 96 }, { 0, 0, 0 } };
+    lgs.contexts[2] = (PsxLgsContext){ 127, 127, PSX_LGS_FIXED, { 128, 115, 96 }, { 0, 0, 0 } };
+    const float tint[3] = { 1, 1, 1 };
+    float r[3];
+    psx_light_car_ratio(&lgs, 1920, 1200, 1200.3, 0.53, tint, 16, r);   /* open road, segment 300 (masked: 1072, segment 268, the tunnel) */
+    CHECK(r[0] == 1.0f && r[1] == 1.0f && r[2] == 1.0f);
+    psx_light_car_ratio(&lgs, 1920, 1160, 1160.0 + 4 * 0.53, 0.53, tint, 16, r);   /* the tunnel's last segments (290; masked: 1032, segment 258, no context) */
+    CHECK(r[0] == PSX_TUNNEL_LIT[0] && r[2] == PSX_TUNNEL_LIT[2]);
+    psx_light_car_ratio(&lgs, 1920, 1100, 1100.0 + 4 * 0.53, 0.53, tint, 16, r);   /* in the tunnel, on the lamp */
+    CHECK(r[0] == PSX_TUNNEL_LIT[0] && r[1] == PSX_TUNNEL_LIT[1] && r[2] == PSX_TUNNEL_LIT[2]);
+    psx_light_car_ratio(&lgs, 1920, 1100, 1100.0 + 4 * 0.03, 0.53, tint, 16, r);   /* between lamps */
+    CHECK(r[0] == PSX_TUNNEL_UNLIT[0] && r[2] == PSX_TUNNEL_UNLIT[2]);
+    psx_light_car_ratio(&lgs, 1920, 1100 + 1920, 1100.0 + 1920 + 4 * 0.03, 0.53, tint, 16, r);   /* a lap on: the same place */
+    CHECK(r[0] == PSX_TUNNEL_UNLIT[0]);
+    psx_light_car_ratio(&lgs, 1920, 1100, 1100.0, -1.0, tint, 16, r);   /* a track with no lamps: the ambient ramp, no steps */
+    CHECK(r[0] != PSX_TUNNEL_UNLIT[0] && r[0] <= 1.0f && r[2] < 1.0f);
+    psx_light_car_ratio(&lgs, 1920, 500, 500.0, 0.53, tint, 16, r);   /* segment 125: the underpass, fixed (128,115,96) */
+    CHECK(r[0] == 1.0f && r[2] == 0.75f);
+}
+
 int main(void)
 {
+    test_place();
+    test_ring();
+    test_car_ratio();
     test_lit();
     test_lookup();
     test_table_sane();

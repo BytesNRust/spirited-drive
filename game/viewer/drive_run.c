@@ -366,7 +366,8 @@ static void run_frame(void *ctx, int32_t frame)
 static void light_dash_node(void)
 {
     const Car *car = drive_sim.race.cars[race_slot(drive_sim.race.player)];
-    drive_light_dash_node(car != NULL ? car->node : -1);
+    float ratio[3];
+    drive_light_dash_ratio(ported_view_car_ratio(car, ratio) ? ratio : NULL);
 }
 
 /* port: the PS1 light's time of day tints the 3D's pixels only (drive_light.h), the picture as the window shows it */

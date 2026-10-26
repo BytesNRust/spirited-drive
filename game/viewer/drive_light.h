@@ -25,20 +25,21 @@ void drive_light_world_done(const uint8_t *frame, size_t count);
 enum { PSX_CLASS_DASH = 1, PSX_CLASS_HUD = 2 };
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
 int drive_light_active(void);
-/* 1 when the race was loaded with the light on and a time other than the day (dawn, dusk): its 3D is tinted, which needs the wide path.
- * Kept at the race's start (drive_light_load), not read from port.cfg each frame. */
+/* 1 when the race was loaded with the light on and a time other than the day (dawn, dusk), or at any time with the light script read (the dash has its own
+ * light even by day): its 3D and 2D are told apart, which needs the wide path. Kept at the race's start (drive_light_load), not read from port.cfg each frame. */
 int drive_light_time_tinted(void);
 /* The ambient tint of the light loaded, per channel (1 neutral). */
 void drive_light_tint(float out[3]);   /* the tint is not neutral */
-/* The node of the car the dash is of, which sets its ambient (the LGS context there, over the world's tint); -1, none. */
-void drive_light_dash_node(int32_t node);
-/* The palette with every entry half way from `palette` to drive_light_palette's, times the dash's ambient ratio (drive_light_dash_node). */
+/* The ratio the dash's colours are scaled by (the light of the car the dash is of: ported_view_car_ratio, the same as the car's own, tunnel steps and
+ * all); NULL, none (1). Set each frame before the palettes are made. */
+void drive_light_dash_ratio(const float ratio[3]);
+/* The palette with every entry half way from `palette` to drive_light_palette's, times the dash's ratio (drive_light_dash_ratio). */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768]);
 /* The rear-view mirror's picture, in the output frame `width` pixels wide: the 2D layer carries it but it shows the 3D, so it is
  * the world's (tinted); w <= 0 clears it. Set again each frame by the compose. */
 void drive_light_world_rect(int width, int x, int y, int w, int h);
 /* The pixels of `shown` (the frame now, count of them): 1 the 3D's (the full tint), 2 the dash's art (half), 0 the 2D's (none): the mask to
- * give platform_present_split with drive_light_palette's and _half's; NULL when the tint is neutral or no 3D was kept for this size. */
+ * give platform_present_split with drive_light_palette's and _half's; NULL when there is no light script or no 3D was kept for this size. */
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count);
 
 #endif

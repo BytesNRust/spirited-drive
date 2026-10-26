@@ -22,8 +22,8 @@ static float tint[3] = { 1, 1, 1 };
 static PsxLgs ambient;
 static int ambient_ok;   /* ambient holds the LGS read */
 static uint32_t ambient_nodes;
-static int32_t dash_node = -1;   /* the node of the car the dash is of; -1 none */
-enum { DASH_STEP = 32 };
+static float dash_ratio[3] = { 1, 1, 1 };   /* the dash's ambient over the world's tint, from the car's light (drive_light_dash_ratio) */
+static int split;   /* the race has the light and its script: the dash has its own ambient, so the 3D and the 2D go through the split present */
 static PsxSkyDraw sky_draw;
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
@@ -41,7 +41,7 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
 {
     tint[0] = tint[1] = tint[2] = 1.0f;
     ambient_ok = 0;
-    dash_node = -1;
+    dash_ratio[0] = dash_ratio[1] = dash_ratio[2] = 1.0f;
     char path[LIGHT_PATH];
     file_path(path, sizeof path, psx_dir, track, letter, "LGS");
     size_t size = 0;
@@ -53,6 +53,16 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
     if (psx_lgs_parse(file, size, &ambient)) ambient_ok = 1, psx_lgs_tint(&ambient, tint);
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);
     platform_free_file(file);
+}
+
+/* the tunnels can only be where the light script has a context (psx_light_set_zone): the segment of each node is in one or not */
+static void set_zone(void)
+{
+    uint8_t *zone = malloc(light.nodes);
+    if (zone == NULL) return;
+    for (uint32_t n = 0; n < light.nodes; n++) zone[n] = (uint8_t)psx_lgs_inside(&ambient, (int)(n >> 2));
+    psx_light_set_zone(&light, zone);
+    free(zone);
 }
 
 /* dawn and dusk: the PS1's own sky (Z<TRACK><A|C>.INF and .PSH) for the race; the day, a missing or unreadable file, or only the INF
@@ -91,11 +101,12 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 
 static int time_tinted;
 
-int drive_light_time_tinted(void) { return time_tinted; }
+int drive_light_time_tinted(void) { return time_tinted || split; }
 
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
+    split = 0;
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
     ported_view_set_psx_lamps(NULL, 0);
     ported_view_set_light(NULL, NULL);
@@ -125,7 +136,11 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light = parsed;
     load_tint(psx_dir, track, letter);
     ambient_nodes = ring_nodes;
-    if (ambient_ok) ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
+    if (ambient_ok) {
+        ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
+        set_zone();
+        split = 1;
+    }
     const PsxLamp *lamps = NULL;
     const int lamp_count = psx_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
     ported_view_set_psx_lamps(lamps, lamp_count);
@@ -144,7 +159,7 @@ static size_t world_size;
 
 void drive_light_world_done(const uint8_t *frame, size_t count)
 {
-    if (tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f) return;
+    if (!drive_light_active()) return;
     if (world_size != count) {
         uint8_t *f = realloc(world_frame, count), *m = realloc(world_mask, count);
         if (f != NULL) world_frame = f;
@@ -167,7 +182,7 @@ static int class_width, class_scale = 1;
 
 void drive_light_tint(float out[3]) { memcpy(out, tint, sizeof tint); }
 
-int drive_light_active(void) { return tint[0] != 1.0f || tint[1] != 1.0f || tint[2] != 1.0f; }
+int drive_light_active(void) { return split || tint[0] != 1.0f || tint[1] != 1.0f || tint[2] != 1.0f; }
 
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale)
 {
@@ -188,21 +203,21 @@ void drive_light_world_class(const uint8_t *layer, int width, int height, int sc
     class_width = width, class_scale = scale < 1 ? 1 : scale;
 }
 
-void drive_light_dash_node(int32_t node) { dash_node = node; }
+void drive_light_dash_ratio(const float ratio[3])
+{
+    for (int k = 0; k < 3; k++) dash_ratio[k] = ratio != NULL ? ratio[k] : 1.0f;
+}
 
-/* the dash's art: half the world's tint, as the dawn / dusk base, times the ambient at the car's segment over the world's tint */
+/* the dash's art: half the world's tint, as the dawn / dusk base, times the car's light ratio */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768])
 {
     uint8_t full[768];
     psx_tint_palette(palette, tint, full);
     for (int i = 0; i < 768; i++) out[i] = (uint8_t)((palette[i] + full[i] + 1) / 2);
-    if (!ambient_ok || dash_node < 0 || ambient_nodes < 4) return;
-    float ratio[3];
-    psx_lgs_ratio(&ambient, (int)(((uint32_t)dash_node & (ambient_nodes - 1u)) >> 2), (int)(ambient_nodes >> 2), tint, DASH_STEP, ratio);
-    if (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f) return;
+    if (dash_ratio[0] == 1.0f && dash_ratio[1] == 1.0f && dash_ratio[2] == 1.0f) return;
     uint8_t base[768];
     memcpy(base, out, sizeof base);
-    psx_tint_palette(base, ratio, out);
+    psx_tint_palette(base, dash_ratio, out);
 }
 
 void drive_light_world_rect(int width, int x, int y, int w, int h)
@@ -212,7 +227,7 @@ void drive_light_world_rect(int width, int x, int y, int w, int h)
 
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
 {
-    if ((tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f) || world_size != count || world_frame == NULL) return NULL;
+    if (!drive_light_active() || world_size != count || world_frame == NULL) return NULL;
     psx_world_mask(shown, world_frame, count, world_mask);
     if (class_width > 0 && rect_width == class_width * class_scale && count % (size_t)rect_width == 0) {
         /* the 2D layer's own marks over the diff's: the dash's art half, the HUD and the gauges not at all */
