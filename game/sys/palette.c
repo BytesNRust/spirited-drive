@@ -18,6 +18,24 @@ const uint8_t *palette_usable(void)
     return usable_now;
 }
 
+static uint8_t world_hidden[PALETTE_COLORS];
+
+void palette_world_hide(const uint8_t hidden[PALETTE_COLORS])
+{
+    if (hidden == NULL) memset(world_hidden, 0, sizeof world_hidden);
+    else memcpy(world_hidden, hidden, sizeof world_hidden);
+}
+
+const uint8_t *palette_world_hidden(void) { return world_hidden; }
+
+const uint8_t *palette_world_usable(void)
+{
+    static uint8_t out[PALETTE_COLORS];
+    const uint8_t *usable = palette_usable();
+    for (int i = 0; i < PALETTE_COLORS; i++) out[i] = usable[i] && !world_hidden[i];
+    return out;
+}
+
 void palette_usable_set(const uint8_t usable[PALETTE_COLORS])
 {
     memcpy(usable_now, usable, sizeof usable_now);

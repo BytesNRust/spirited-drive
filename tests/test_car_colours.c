@@ -65,7 +65,7 @@ static void test_a_light_tone_gets_a_slot(void)
     art[0].bank = make_bank(texels, 3, 16, 16);
     art[0].palette = palette6;
     CarFitReport report;
-    const int changed = car_colours_fit(&pal, &race, art, 0, &report);
+    const int changed = car_colours_fit(&pal, &race, art, 0, NULL, &report);
     CHECK(changed > 0);
     CHECK_EQ_INT(report.count, 1);
     CHECK_EQ_INT(report.block[0].first, 0x30);
@@ -94,7 +94,7 @@ static void test_a_block_that_does_well_is_left(void)
     art[0].palette = palette6;
     uint8_t before[256 * 4];
     memcpy(before, pal.screen_rgbx, sizeof before);
-    CHECK_EQ_INT(car_colours_fit(&pal, &race, art, 0, NULL), 0);
+    CHECK_EQ_INT(car_colours_fit(&pal, &race, art, 0, NULL, NULL), 0);
     CHECK_MEM(before, pal.screen_rgbx, sizeof before);
 }
 
@@ -111,9 +111,47 @@ static void test_other_entries_are_not_touched(void)
     art[0].palette = palette6;
     uint8_t before[256 * 4];
     memcpy(before, pal.screen_rgbx, sizeof before);
-    CHECK(car_colours_fit(&pal, &race, art, 0, NULL) > 0);
+    CHECK(car_colours_fit(&pal, &race, art, 0, NULL, NULL) > 0);
     CHECK_MEM(before, pal.screen_rgbx, 4 * 0x30);                       /* below the block */
     CHECK_MEM(before + 4 * 0x47, pal.screen_rgbx + 4 * 0x47, 4 * (256 - 0x47));   /* above it */
+}
+
+/* an entry the scenery is mapped to is not rewritten, whatever the car would gain: the track is as the exe maps it */
+static void test_kept_entries_stay(void)
+{
+    screen_setup(0x30, 0x17);
+    race_setup(1);
+    uint8_t palette6[256 * 3] = { 0 };
+    memcpy(palette6 + 3, (const uint8_t[3]){ 16, 26, 28 }, 3);
+    memcpy(palette6 + 6, (const uint8_t[3]){ 4, 16, 18 }, 3);
+    const uint8_t texels[2] = { 1, 2 };
+    RaceCarArt art[RACE_CARS];
+    memset(art, 0, sizeof art);
+    art[0].bank = make_bank(texels, 2, 8, 8);
+    art[0].palette = palette6;
+    uint8_t keep[256] = { 0 }, before[256 * 4];
+    for (int e = 0x30; e < 0x38; e++) keep[e] = 1;
+    memcpy(before, pal.screen_rgbx, sizeof before);
+    CHECK(car_colours_fit(&pal, &race, art, 0, keep, NULL) > 0);
+    CHECK_MEM(before + 4 * 0x30, pal.screen_rgbx + 4 * 0x30, 4 * 8);   /* the kept ones */
+    CHECK(memcmp(before + 4 * 0x38, pal.screen_rgbx + 4 * 0x38, 4 * 15) != 0);   /* the others took the car's colours */
+    memcpy(pal.screen_rgbx, before, sizeof before);
+    for (int e = 0x30; e < 0x47; e++) keep[e] = 1;
+    CHECK_EQ_INT(car_colours_fit(&pal, &race, art, 0, keep, NULL), 0);   /* every one kept: nothing to take */
+    CHECK_MEM(before, pal.screen_rgbx, sizeof before);
+}
+
+/* the entries a mapped bank shows */
+static void test_bank_entries(void)
+{
+    const uint8_t texels[3] = { 7, 7, 200 };
+    uint8_t *bank = make_bank(texels, 3, 4, 3);
+    uint8_t used[256] = { 0 };
+    race_palette_bank_entries(bank, used);
+    int n = 0;
+    for (int e = 0; e < 256; e++) n += used[e];
+    CHECK_EQ_INT(n, 2);
+    CHECK(used[7] && used[200]);
 }
 
 static uint8_t *slurp(const char *path, size_t *size)
@@ -160,7 +198,7 @@ static void test_the_real_cars(const char *root)
         screen_setup(0x30, 0x17);
         race_setup(1);
         CarFitReport report;
-        const int changed = car_colours_fit(&pal, &race, art, 0, &report);
+        const int changed = car_colours_fit(&pal, &race, art, 0, NULL, &report);
         fprintf(stderr, "  %-7s %d colours, %2d of 23 slots new, distance %.1f -> %.1f\n", car_model_names[model], report.count ? report.block[0].colours : 0,
                 changed, report.count ? report.block[0].before : 0.0, report.count ? report.block[0].after : 0.0);
         CHECK(report.count == 1 && report.block[0].after <= report.block[0].before);
@@ -174,6 +212,8 @@ int main(void)
     test_a_light_tone_gets_a_slot();
     test_a_block_that_does_well_is_left();
     test_other_entries_are_not_touched();
+    test_kept_entries_stay();
+    test_bank_entries();
     const char *root = getenv("TNFS_DATA");
     char fallback[512] = "";
 #ifdef TNFS_SOURCE_DIR

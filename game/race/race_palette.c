@@ -112,6 +112,19 @@ void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
     remap_shapes(p, bank);
 }
 
+void race_palette_bank_entries(const uint8_t *bank, uint8_t used[RACE_PALETTE_COLOURS])
+{
+    for (uint32_t i = le32(bank + BANK_COUNT); i-- > 0;) {
+        const uint8_t *entry = bank + BANK_DIRECTORY + BANK_ENTRY * i;
+        if (entry[0] == HIDDEN_MARK)
+            continue;
+        const uint8_t *shape = bank + le32(entry + 4);
+        const uint32_t pixels = (uint32_t)le16s(shape + SHAPE_WIDTH) * (uint32_t)le16s(shape + SHAPE_HEIGHT);
+        for (uint32_t k = 0; k < pixels; k++)
+            used[shape[SHAPE_PIXELS + k]] = 1;
+    }
+}
+
 void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6)
 {
     uint8_t rgb[RACE_PALETTE_COLOURS * 3];

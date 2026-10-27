@@ -2,6 +2,7 @@
 
 #include "game/race/race_palette.h"
 #include "game/race/track_palette_repair.h"
+#include "game/sys/palette.h"
 #include "game/sys/shape_bank.h"
 
 #include "game/race/car_colours.h"
@@ -10,7 +11,6 @@
 #include <string.h>
 
 enum {
-    PALETTE_BYTES = 0x300,
     PALETTE_8_BITS = 0x24,      /* a '!pal' of 8-bit channels; 0x22 is 6-bit */
     SHAPE_PIXELS = 0x10,
     TRACK_FIRST = 0x90,         /* 0044c36c: the track's first 0x60 colours */
@@ -41,22 +41,29 @@ static const uint8_t *palette6(uint8_t *bank, const uint8_t name[4])
 }
 
 /* The banks of a wwww's children (or the chunk itself when it is one). */
-static void remap_track_banks(RacePalette *p, const Chunk *c, const uint8_t *palette)
+/* (with `used` set nothing is remapped: the entries the banks, as mapped, show are marked) */
+static void map_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette, uint8_t *used)
+{
+    if (used != NULL) race_palette_bank_entries(bank, used);
+    else race_palette_remap_track_bank(p, bank, palette);
+}
+
+static void remap_track_banks(RacePalette *p, const Chunk *c, const uint8_t *palette, uint8_t *used)
 {
     if (c->kind == CHUNK_KIND_BITMAP) {
-        race_palette_remap_track_bank(p, bank_of(c), palette);
+        map_track_bank(p, bank_of(c), palette, used);
         return;
     }
     Chunk child;
     for (uint32_t i = 0; c->kind == CHUNK_KIND_HEADER && i < c->count; i++)
         if (chunk_child(c, i, &child) == CHUNK_OK && child.kind == CHUNK_KIND_BITMAP)
-            race_palette_remap_track_bank(p, bank_of(&child), palette);
+            map_track_bank(p, bank_of(&child), palette, used);
 }
 
 /* 004576f0 (from 004585e4): each scenery model's bank (FAM child 3) queued
  * with its own '!PAL' (004b1160), upper case: the midday FAMs' model banks
  * have only that one, the others a '!pal' too. */
-static void remap_model_banks(RacePalette *p, const Chunk *models)
+static void remap_model_banks(RacePalette *p, const Chunk *models, uint8_t *used)
 {
     Chunk pair, bank;
     for (uint32_t i = 0; models->kind == CHUNK_KIND_HEADER && i < models->count; i++) {
@@ -64,7 +71,7 @@ static void remap_model_banks(RacePalette *p, const Chunk *models)
         for (uint32_t k = 0; k < pair.count; k++) {
             if (chunk_child(&pair, k, &bank) != CHUNK_OK || bank.kind != CHUNK_KIND_BITMAP) continue;
             const uint8_t *own = palette6(bank_of(&bank), MODEL_PAL);
-            if (own != NULL) race_palette_remap_track_bank(p, bank_of(&bank), own);
+            if (own != NULL) map_track_bank(p, bank_of(&bank), own, used);
         }
     }
 }
@@ -94,18 +101,61 @@ static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const car
 }
 
 /* port (car colours): the cars' slots of the screen palette, fitted to the colours the cars show (car_colours.h) */
-static void fit_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const uint8_t *carpal)
+/* the track, its scenery, the horizon and the scenery's models, mapped onto the screen palette (or, with `used`, only the entries they show) */
+static void map_world(RacePalette *p, const Chunk *fam, const Chunk *terrain, const uint8_t *track, uint8_t *used)
+{
+    Chunk scenery, horizon, models;
+    remap_track_banks(p, terrain, track, used);
+    if (chunk_child(fam, FAM_CHILD_SCENERY, &scenery) == CHUNK_OK) remap_track_banks(p, &scenery, track, used);
+    if (chunk_child(fam, FAM_CHILD_HORIZON, &horizon) == CHUNK_OK) {
+        const uint8_t *sky = palette6(bank_of(&horizon), TRACK_PAL);
+        remap_track_banks(p, &horizon, sky != NULL ? sky : track, used);
+    }
+    if (chunk_child(fam, FAM_CHILD_OBJECTS, &models) == CHUNK_OK) remap_model_banks(p, &models, used);
+}
+
+/* port (car colours): the cars' slots of the screen palette, fitted to the colours the cars show (car_colours.h); the entries the world is
+ * mapped to are left as they are, so the scenery is what the exe maps it to whatever the cars are */
+static void fit_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const uint8_t *carpal, const uint8_t keep[256])
 {
     RaceCarArt art[RACE_CARS];
     car_art(race, cars, art);
     CarFitReport report;
-    const int changed = car_colours_fit(p, race, art, carpal != NULL && shape_bank_find((uint8_t *)(uintptr_t)carpal, (const uint8_t[4]){ '!', 'P', 'A', 'L' }) != NULL, &report);
+    const int changed = car_colours_fit(p, race, art, carpal != NULL && shape_bank_find((uint8_t *)(uintptr_t)carpal, (const uint8_t[4]){ '!', 'P', 'A', 'L' }) != NULL, keep, &report);
     for (int i = 0; i < report.count; i++) {
         const CarFitBlock *b = &report.block[i];
         port_log("car_colours: entries %d..%d for %s: %d colours, %d new, distance %.1f -> %.1f\n", b->first, b->first + b->count - 1,
                  b->car >= 0 ? "one car" : "every car", b->colours, b->changed, b->before, b->after);
     }
     port_log("car_colours: %d entries fitted\n", changed);
+}
+
+/* port (car colours): with the palette as the exe has it at this point (the dash and the search set made), the world is mapped as the exe maps
+ * it, the entries it and the dash show are kept, and the cars' slots are fitted to the rest; the fitted entries are then the cars' alone for the
+ * port's tables of the world (palette_world_hide), and the search a car is mapped by is made again for the new colours */
+static void fit_after_world(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const uint8_t *carpal, const Chunk *fam,
+                            const Chunk *terrain, const uint8_t *track, const uint8_t *dash_bank)
+{
+    uint8_t used[RACE_PALETTE_COLOURS] = { 0 }, table[RACE_PALETTE_COLOURS], before[sizeof p->screen_rgbx], hidden[RACE_PALETTE_COLOURS] = { 0 };
+    memcpy(table, p->table, sizeof table);
+    map_world(p, fam, terrain, track, NULL);
+    map_world(p, fam, terrain, track, used);
+    if (dash_bank != NULL) race_palette_bank_entries(dash_bank, used);
+    memcpy(p->table, table, sizeof table);   /* the cars' mapping starts from the exe's identity (0xfa.. map to themselves) */
+    memcpy(before, p->screen_rgbx, sizeof before);
+    fit_cars(p, race, cars, carpal, used);
+    for (int e = 0; e < RACE_PALETTE_COLOURS; e++) hidden[e] = memcmp(before + 4 * e, p->screen_rgbx + 4 * e, 3) != 0;
+    palette_world_hide(hidden);
+    if (p->inverse != NULL) race_palette_inverse(p);
+}
+
+/* the search set without the entries the fit gave the cars (the inverse made again for it, where there is one) */
+static void hide_fitted(RacePalette *p)
+{
+    const uint8_t *hidden = palette_world_hidden();
+    for (int e = 0; e < RACE_PALETTE_COLOURS; e++)
+        if (hidden[e]) p->enabled[e] = 0;
+    if (p->inverse != NULL) race_palette_inverse(p);
 }
 
 typedef struct {
@@ -124,7 +174,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
                         DriveHud *hud, const DrivePaletteLate *late, const RacePaletteTint *tint, uint8_t rgb[768])
 {
     static RacePalette p;
-    Chunk terrain, scenery, horizon, models, first;
+    Chunk terrain, first;
     if (chunk_child(fam, FAM_CHILD_TERRAIN, &terrain) != CHUNK_OK || terrain.kind != CHUNK_KIND_HEADER ||
         chunk_child(&terrain, 0, &first) != CHUNK_OK)
         return 0;
@@ -147,23 +197,23 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
         cockpit_queue_palette(&p, hud->cockpit.palette);  /* 0041f988: the dashboard's 0..0x2f, after 004572e0 */
     if (hud != NULL) drive_hud_setup(hud, &p);  /* 00450838 after 0041f988, as 00455a5c */
     race_palette_apply(&p);
-    if (port_car_colours()) fit_cars(&p, race, cars, carpal);
     if (hud != NULL && hud->cockpit_ready)  /* 0041f818 whole: the dash bank onto the palette, 004f9744, ... */
         cockpit_colours(&p, race, &hud->cockpit, &hud->cockpit_world, &hud->hud, &hud->colours);
     else
         race_palette_enable(&p, race);
+    const int fitted = port_car_colours();
+    palette_world_hide(NULL);
+    if (fitted) fit_after_world(&p, race, cars, carpal, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
     remap_cars(&p, race, cars);
-    remap_track_banks(&p, &terrain, track);
-    if (chunk_child(fam, FAM_CHILD_SCENERY, &scenery) == CHUNK_OK) remap_track_banks(&p, &scenery, track);
-    if (chunk_child(fam, FAM_CHILD_HORIZON, &horizon) == CHUNK_OK) {
-        const uint8_t *sky = palette6(bank_of(&horizon), TRACK_PAL);
-        remap_track_banks(&p, &horizon, sky != NULL ? sky : track);
-    }
-    if (chunk_child(fam, FAM_CHILD_OBJECTS, &models) == CHUNK_OK) remap_model_banks(&p, &models);
+    if (!fitted) map_world(&p, fam, &terrain, track, NULL);
+    uint8_t enabled[RACE_PALETTE_COLOURS];
+    memcpy(enabled, p.enabled, sizeof enabled);
+    if (fitted) hide_fitted(&p);   /* the smoke's, the dash's and the mask's colours are the world's: not the slots the cars were given */
     if (late != NULL) late->run(late->ctx, &p);
     if (hud != NULL) drive_hud_start(hud, &p), hud->rgb = rgb;
     AfterBanks after = { late, &p };
     race_palette_map_banks(&p, after_banks, &after);  /* 00447098: the mask's and the smoke's banks */
+    if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];
         rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];

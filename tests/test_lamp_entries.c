@@ -92,9 +92,31 @@ static void test_a_blend_near_the_lamp_takes_the_next_colour(void)
     palette_usable_set(usable_all);
 }
 
+/* the entries the fit gave the cars are theirs alone for the tables of the world, not for the cars' own (the body shine) */
+static void test_fitted_entries_are_the_cars(void)
+{
+    setup();
+    palette_usable_set(usable_race);
+    uint8_t hidden[256] = { 0 }, fog[MODERN_FOG_LEVELS][256];
+    static const uint8_t maroon[3] = { 60, 12, 12 };
+    set(0x33, 61, 12, 12);   /* a fitted entry that is the nearest to the fog's colour */
+    modern_fog_tables(palette, maroon, fog);
+    CHECK(fog[MODERN_FOG_LEVELS - 1][0x20] == 0x33);
+    hidden[0x33] = 1;
+    palette_world_hide(hidden);
+    CHECK_EQ_INT(palette_world_usable()[0x33], 0);
+    CHECK_EQ_INT(palette_usable()[0x33], 1);
+    modern_fog_tables(palette, maroon, fog);
+    CHECK(fog[MODERN_FOG_LEVELS - 1][0x20] != 0x33);
+    palette_world_hide(NULL);
+    CHECK_EQ_INT(palette_world_usable()[0x33], 1);
+    palette_usable_set(usable_all);
+}
+
 int main(void)
 {
     test_the_tables_leave_the_lamp_alone();
     test_a_blend_near_the_lamp_takes_the_next_colour();
+    test_fitted_entries_are_the_cars();
     return TEST_REPORT();
 }
