@@ -4,16 +4,27 @@
 #include "game/race/car_mask.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 enum { W = 5, H = 3 };
 
+/* the lookup test reads real files (the directory of TNFS_CAR_MASKS) */
 uint8_t *platform_read_file(const char *path, size_t *size)
 {
-    (void)path;
     *size = 0;
-    return NULL;
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+    long n = 0;
+    uint8_t *d = NULL;
+    if (fseek(f, 0, SEEK_END) == 0) n = ftell(f);
+    if (n > 0 && fseek(f, 0, SEEK_SET) == 0) d = malloc((size_t)n);
+    if (d != NULL && fread(d, 1, (size_t)n, f) == (size_t)n) *size = (size_t)n;
+    else free(d), d = NULL;
+    fclose(f);
+    return d;
 }
 void platform_free_file(uint8_t *data) { free(data); }
 
@@ -107,7 +118,50 @@ static void test_refused(void)
     CHECK(!car_mask_parse(png, len, 0, 2, out));
     CHECK(!car_mask_parse(png, len / 2, 2, 2, out));   /* cut short */
     png_free(png);
-    CHECK(car_mask_load("TSupra", "rsid", 4, 4) == NULL);   /* no file */
+    CHECK(car_mask_load("TNoSuch", "rsid", 0, 4, 4) == NULL);   /* no file */
+}
+
+#define ROOT "car_mask_test_masks"   /* the directory the test makes in the working directory */
+
+static void write_mask(const char *car, const char *file, const uint8_t *mask, int width, int height)
+{
+    char path[256];
+    snprintf(path, sizeof path, "%s/%s/%s", ROOT, car, file);
+    uint8_t *png = NULL;
+    size_t len = 0;
+    CHECK(car_mask_write(mask, width, height, &png, &len));
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        CHECK(fwrite(png, 1, len, f) == len);
+        fclose(f);
+    }
+    png_free(png);
+}
+
+/* the high detail level reads <tex>_mask.png, the low one <tex>_lo_mask.png, and never the other's file: the low texture is of
+ * another size, and its own mask is the one that marks it */
+static void test_lookup_by_level(void)
+{
+    uint8_t high[W * H], low[2 * 2];
+    memset(high, CAR_MASK_PAINT, sizeof high);
+    memset(low, CAR_MASK_MATTE, sizeof low);
+    mkdir(ROOT, 0755);
+    mkdir(ROOT "/TLook", 0755);
+    mkdir(ROOT "/THigh", 0755);
+    write_mask("TLook", "rsid_mask.png", high, W, H);
+    write_mask("TLook", "rsid_lo_mask.png", low, 2, 2);
+    write_mask("THigh", "rsid_mask.png", high, W, H);
+    setenv("TNFS_CAR_MASKS", ROOT, 1);
+    uint8_t *m0 = car_mask_load("TLook", "rsid", 0, W, H);
+    CHECK(m0 != NULL);
+    if (m0 != NULL) CHECK_EQ_INT(m0[0], CAR_MASK_PAINT);
+    free(m0);
+    uint8_t *m1 = car_mask_load("TLook", "rsid", 1, 2, 2);
+    CHECK(m1 != NULL);
+    if (m1 != NULL) CHECK_EQ_INT(m1[0], CAR_MASK_MATTE);
+    free(m1);
+    CHECK(car_mask_load("THigh", "rsid", 1, 2, 2) == NULL);   /* only the high detail's file: the low detail has none */
 }
 
 int main(void)
@@ -117,5 +171,6 @@ int main(void)
     test_colours();
     test_scaled();
     test_refused();
+    test_lookup_by_level();
     return TEST_REPORT();
 }

@@ -43,6 +43,11 @@ typedef struct {
     int type, type2;      /* the palettes' shape type: 0x24, 8 bits a channel, or 0x22, 6 bits; any other type2 leaves [1] alone */
 } RepaintBank;
 
+/* The body class of a texture (REPAINT_MAIN, REPAINT_END or REPAINT_NONE) by its 4-letter name and the detail level of its bank (0 high,
+ * 1 low). The high bank's body textures: topv, rsid, bott, wing, J000, J001 (main) and frnt, rear (end). The low bank's side (main) and
+ * back (end) are body textures too; the high bank has no texture of those names, so they are none at level 0. */
+int car_repaint_body_class(const char name[4], int level);
+
 /* The body's colours towards the paint `rgb` (car_paint.h's recolour). Returns the number of body texels changed; -1 for a
  * palette type that is not 0x24 or 0x22 (the bank is left as it is). */
 int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor);

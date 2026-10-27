@@ -1,8 +1,8 @@
-/* port: the hand-made masks of the cars' body textures. One PNG a texture, <root>/<CAR>/<tex>_mask.png (data/car_masks in the
- * source tree), three values: 0 a texel that is painted; 128 one kept as it is that takes the body shine (glass, lamps); 255 one kept as it
- * is without it (plastics, trim, plate, badges, vents). The repaint only asks paint or not (any non-zero is kept); the class is for the
- * shine pass. The mask has the size of the
- * high detail bank's texture; the low detail bank's, of another size, takes it scaled by nearest neighbour. A texture with a mask is
+/* port: the hand-made masks of the cars' body textures. One PNG a texture and detail level: <root>/<CAR>/<tex>_mask.png for the high
+ * detail bank (data/car_masks in the source tree), <tex>_lo_mask.png for the low detail bank (its textures are of other sizes, so they
+ * have their own files). Three values: 0 a texel that is painted; 128 one kept as it is that takes the body shine (glass, lamps); 255 one
+ * kept as it is without it (plastics, trim, plate, badges, vents). The repaint only asks paint or not (any non-zero is kept); the class is
+ * for the shine pass. The mask has the size of its texture, or any other size, scaled by nearest neighbour. A texture with a mask is
  * repainted by it alone (car_repaint.h's RepaintTexture.mask); one without keeps the family rules. The masks hold no colour. */
 #ifndef TNFS_CAR_MASK_H
 #define TNFS_CAR_MASK_H
@@ -21,9 +21,10 @@ int car_mask_parse(const uint8_t *png, size_t len, int width, int height, uint8_
  * `*out` is freed with png_free. Returns 0 when it cannot. */
 int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len);
 
-/* The mask of the car `stem` ("TSupra", as the PC names it)'s texture `name` (4 letters) for a texture of width x height texels,
- * from the first of $TNFS_CAR_MASKS, data/car_masks and the source tree's data/car_masks that has the file. malloc'd; NULL when there
- * is none or it does not read: the texture then follows the rules. */
-uint8_t *car_mask_load(const char *stem, const char name[4], int width, int height);
+/* The mask of the car `stem` ("TSupra", as the PC names it)'s texture `name` (4 letters) at detail `level` (0 high, 1 low: the file is
+ * <tex>_mask.png, or <tex>_lo_mask.png for the low one, which never falls back on the high one's file) for a texture of width x height
+ * texels, from the first of $TNFS_CAR_MASKS, data/car_masks and the source tree's data/car_masks that has the file. malloc'd; NULL when
+ * there is none or it does not read: the texture then follows the rules. */
+uint8_t *car_mask_load(const char *stem, const char name[4], int level, int width, int height);
 
 #endif

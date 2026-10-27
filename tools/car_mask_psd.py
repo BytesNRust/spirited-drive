@@ -8,10 +8,12 @@ Each texture becomes one PSD at its native size, 8-bit RGB, with two layers:
              blue (0,0,255)  KEEP its colour, and shines (glass, lamps)
              white        KEEP its colour, no shine (plastics, trim, plate, badges, vents)
 tools/car_mask_from_psd.py reads the mask layer back into data/car_masks/<CAR>/<tex>_mask.png (0 paint, 128 shine, 255 matte).
+The low detail bank's textures are the same with a _lo suffix: <tex>_lo.psd is read into <tex>_lo_mask.png.
 
 usage: car_mask_psd.py <drafts dir> <output dir>
-<drafts dir>/<CAR>/<tex>.rgb.png and <tex>.keep.png (0 / 128 / 255) come from car_mask_draft (the game's pixels: they stay out of the repository).
-Writes <output dir>/<CAR>/<tex>.psd. Needs Pillow; writes the PSD by hand (no other dependency).
+<drafts dir>/<CAR>/<tex>.rgb.png and <tex>.keep.png (0 / 128 / 255) come from car_mask_draft (the game's pixels: they stay out of the repository);
+the low detail bank's are <tex>_lo.rgb.png and <tex>_lo.keep.png.
+Writes <output dir>/<CAR>/<tex>.psd (<tex>_lo.psd for the low bank). Needs Pillow; writes the PSD by hand (no other dependency).
 """
 import os
 import struct

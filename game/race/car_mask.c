@@ -50,9 +50,10 @@ int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, si
     return r == PNG_OK;
 }
 
-uint8_t *car_mask_load(const char *stem, const char name[4], int width, int height)
+uint8_t *car_mask_load(const char *stem, const char name[4], int level, int width, int height)
 {
     if (stem == NULL || width <= 0 || height <= 0) return NULL;
+    const char *const suffix = level != 0 ? "_lo" : "";   /* the low detail bank's files are <tex>_lo_mask.png */
     const char *env = getenv("TNFS_CAR_MASKS");
     const char *roots[3] = { env, "data/car_masks",
 #ifdef TNFS_SOURCE_DIR
@@ -64,7 +65,7 @@ uint8_t *car_mask_load(const char *stem, const char name[4], int width, int heig
     for (int r = 0; r < 3; r++) {
         if (roots[r] == NULL || roots[r][0] == '\0') continue;
         char path[PATH];
-        snprintf(path, sizeof path, "%s/%s/%.4s_mask.png", roots[r], stem, name);
+        snprintf(path, sizeof path, "%s/%s/%.4s%s_mask.png", roots[r], stem, name, suffix);
         size_t size = 0;
         uint8_t *file = platform_read_file(path, &size);
         if (file == NULL) continue;
