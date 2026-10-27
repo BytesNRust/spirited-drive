@@ -79,6 +79,36 @@ static void test_a_light_tone_gets_a_slot(void)
     CHECK(seen_teal && seen_dark);
 }
 
+/* a paint tone is wanted darkened too (the PS1 light and the shadow take it to the nearest colour of its hue), a grey is not */
+static void test_darker_tones_are_wanted(void)
+{
+    screen_setup(0x30, 0x17);
+    race_setup(1);
+    uint8_t palette6[256 * 3] = { 0 };
+    const uint8_t teal[3] = { 8, 40, 44 }, grey[3] = { 30, 30, 30 };
+    memcpy(palette6 + 3 * 1, teal, 3);
+    memcpy(palette6 + 3 * 2, grey, 3);
+    RaceCarArt art[RACE_CARS];
+    memset(art, 0, sizeof art);
+    const uint8_t teal_only[1] = { 1 }, grey_only[1] = { 2 };
+    art[0].bank = make_bank(grey_only, 1, 16, 16);
+    art[0].palette = palette6;
+    CarFitReport report;
+    car_colours_fit(&pal, &race, art, 0, NULL, &report);
+    CHECK_EQ_INT(report.block[0].colours, 1);   /* the grey: itself */
+    art[0].bank = make_bank(teal_only, 1, 16, 16);
+    screen_setup(0x30, 0x17);
+    car_colours_fit(&pal, &race, art, 0, NULL, &report);
+    CHECK_EQ_INT(report.block[0].colours, 3);   /* the teal and two darker tones of it */
+    int dim = 0;
+    for (int e = 0x30; e < 0x30 + 0x17; e++) {
+        const uint8_t *c = pal.screen_rgbx + 4 * e;
+        const int r = c[0] >> 2, g = c[1] >> 2, b = c[2] >> 2;
+        dim |= abs(r - 6) <= 2 && abs(g - 31) <= 2 && abs(b - 34) <= 2;   /* 0.78 of the teal */
+    }
+    CHECK(dim);
+}
+
 static void test_a_block_that_does_well_is_left(void)
 {
     screen_setup(0x30, 0x17);
@@ -210,6 +240,7 @@ static void test_the_real_cars(const char *root)
 int main(void)
 {
     test_a_light_tone_gets_a_slot();
+    test_darker_tones_are_wanted();
     test_a_block_that_does_well_is_left();
     test_other_entries_are_not_touched();
     test_kept_entries_stay();
