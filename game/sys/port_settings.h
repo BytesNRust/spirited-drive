@@ -44,6 +44,8 @@ typedef struct {
     int body_shine;          /* 1 subtle, 2 the default look, 3 strong: the horizon shine over the cars' paint (body_shine.h, re/TODO.md); 4 the envmap (car_envmap.h, Gran Turismo style streaks); 0 the exe's frames */
     int free_records;        /* 1: a free race (laps=N) of a lap count the track lacks keeps its own table of the ten best totals
                               * (free_records.h); 0: no total for it, as the exe has no table */
+    int car_colours;         /* 1: the screen palette's slots the cars own are filled with the colours the cars show most (race_palette_fit);
+                              * 0: the exe's own slots, whose nearest colours turn a body's light tones to grey */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -55,6 +57,8 @@ int port_psx_light(void);
 int port_psx_shadow(void);
 /* 1 when a free race's total goes in the per-lap-count tables (free_records.h): TNFS_FREE_RECORDS=0/1 when set, else port.cfg's free_records. */
 int port_free_records(void);
+/* 1 when the cars' palette slots are fitted to the colours they show (race_palette.h): TNFS_CAR_COLOURS=0/1 when set, else port.cfg's car_colours. */
+int port_car_colours(void);
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
 /* the cars' body shine strength, 0 (the exe's frames) to 4: TNFS_BODY_SHINE=0..4 when set, else port.cfg's body_shine. */

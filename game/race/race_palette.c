@@ -259,20 +259,46 @@ void race_palette_cars(RacePalette *p, const RaceState *race, const uint8_t *con
     }
 }
 
-void race_palette_enable(RacePalette *p, const RaceState *race)
+void race_palette_enabled_mask(const RacePalette *p, const RaceState *race, uint8_t out[RACE_PALETTE_COLOURS])
 {
     for (int i = 0; i < ENABLED_FILL; i++)
-        p->enabled[i] = 1;
-    p->enabled[FOLLOWED_OWN] = 0;
+        out[i] = 1;
+    out[FOLLOWED_OWN] = 0;
     if (race->race_type < RACING_TYPE)
-        p->enabled[SLOT1_OWN] = 0;
+        out[SLOT1_OWN] = 0;
     for (int i = OFF_FIRST; i < RACE_PALETTE_COLOURS; i++)
-        p->enabled[i] = 0;
+        out[i] = 0;
     for (int32_t i = 0; i < race->car_count && i < RACE_PALETTE_SLOTS; i++)
         if (p->slot_colours[i] != 0)
-            p->enabled[p->slot_colours[i]] = 0;
+            out[p->slot_colours[i]] = 0;
+}
+
+void race_palette_enable(RacePalette *p, const RaceState *race)
+{
+    race_palette_enabled_mask(p, race, p->enabled);
     p->inverse = NULL;
     palette_usable_set(p->enabled);  /* 004c5ff8 is the menus' too: they search it after the race */
+}
+
+int race_palette_blocks(const RaceState *race, int have_carpal, RacePaletteBlock out[RACE_PALETTE_BLOCKS])
+{
+    int n = 0;
+    if (race->race_type >= RACING_TYPE) {
+        if (!have_carpal || (uint32_t)race->player >= RACE_PLAYERS)
+            return 0;
+        out[n++] = (RacePaletteBlock){ FOLLOWED_FIRST, FOLLOWED_COUNT - 1, race->player, 0 };   /* 0x47 is the model's light */
+        out[n++] = (RacePaletteBlock){ CARPAL_FIRST, CARPAL_COUNT, -1, 1 };
+        return n;
+    }
+    for (int32_t i = 0; i < race->car_count && i < RACE_CARS && i < SLOT_TABLE; i++) {
+        const Car *car = race->cars[i];
+        if (car == NULL || (car->flags_174 & OWN_FLAGGED) != 0 || SLOT_COUNT[i] == 0)
+            continue;
+        if (race->race_type == PLAYBACK_RACE_TYPE && race->playback != 0 && i == PLAYBACK_SKIPPED_SLOT)
+            continue;
+        out[n++] = (RacePaletteBlock){ SLOT_FIRST[i], SLOT_COUNT[i], i, 0 };
+    }
+    return n;
 }
 
 int race_palette_inverse(RacePalette *p)

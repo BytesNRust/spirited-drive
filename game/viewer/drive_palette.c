@@ -4,6 +4,9 @@
 #include "game/race/track_palette_repair.h"
 #include "game/sys/shape_bank.h"
 
+#include "game/race/car_colours.h"
+#include "game/sys/port_log.h"
+#include "game/sys/port_settings.h"
 #include <string.h>
 
 enum {
@@ -68,10 +71,10 @@ static void remap_model_banks(RacePalette *p, const Chunk *models)
 
 /* 004574ec's car fields as the loader (00457d40) left them: the high and
  * low detail banks with their '!PAL', the high detail object. */
-static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS])
+static void car_art(const RaceState *race, CarLoad *const cars[RACE_CARS], RaceCarArt art[RACE_CARS])
 {
-    RaceCarArt art[RACE_CARS];
-    memset(art, 0, sizeof art);
+    (void)race;
+    memset(art, 0, sizeof *art * RACE_CARS);
     for (int i = 0; i < RACE_CARS; i++) {
         CarLoad *c = cars[i];
         if (c == NULL) continue;
@@ -81,7 +84,28 @@ static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const car
         art[i].palette2 = c->palette[1];
         art[i].mesh = &c->object[0];
     }
+}
+
+static void remap_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS])
+{
+    RaceCarArt art[RACE_CARS];
+    car_art(race, cars, art);
     race_palette_remap_cars(p, race->car_count, art, race->unknown_4fbab8);
+}
+
+/* port (car colours): the cars' slots of the screen palette, fitted to the colours the cars show (car_colours.h) */
+static void fit_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const uint8_t *carpal)
+{
+    RaceCarArt art[RACE_CARS];
+    car_art(race, cars, art);
+    CarFitReport report;
+    const int changed = car_colours_fit(p, race, art, carpal != NULL && shape_bank_find((uint8_t *)(uintptr_t)carpal, (const uint8_t[4]){ '!', 'P', 'A', 'L' }) != NULL, &report);
+    for (int i = 0; i < report.count; i++) {
+        const CarFitBlock *b = &report.block[i];
+        port_log("car_colours: entries %d..%d for %s: %d colours, %d new, distance %.1f -> %.1f\n", b->first, b->first + b->count - 1,
+                 b->car >= 0 ? "one car" : "every car", b->colours, b->changed, b->before, b->after);
+    }
+    port_log("car_colours: %d entries fitted\n", changed);
 }
 
 typedef struct {
@@ -123,6 +147,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
         cockpit_queue_palette(&p, hud->cockpit.palette);  /* 0041f988: the dashboard's 0..0x2f, after 004572e0 */
     if (hud != NULL) drive_hud_setup(hud, &p);  /* 00450838 after 0041f988, as 00455a5c */
     race_palette_apply(&p);
+    if (port_car_colours()) fit_cars(&p, race, cars, carpal);
     if (hud != NULL && hud->cockpit_ready)  /* 0041f818 whole: the dash bank onto the palette, 004f9744, ... */
         cockpit_colours(&p, race, &hud->cockpit, &hud->cockpit_world, &hud->hud, &hud->colours);
     else
