@@ -19,6 +19,8 @@ typedef struct {
     uint32_t nodes;
     PsxLgs script;      /* the track's light script (psx_light_set_script), read when `scripted` */
     int scripted;
+    int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
+                         * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
 } PsxLight;
 
 /* The file's bytes as a PsxLight: its node count must be `expected_nodes` (the track's ring nodes) and the file at least as
@@ -34,6 +36,12 @@ int psx_light_set_script(PsxLight *light, const PsxLgs *script);
 uint8_t psx_light_byte(const PsxLight *light, uint32_t node, int point);
 
 void psx_light_free(PsxLight *light);
+
+/* port: the light as a reversed track asks it (see `reversed`). 1 on success. */
+int psx_light_set_reversed(PsxLight *light, int reversed);
+
+/* The node of the file's (and the script's) own direction that node `node` of the track as it runs is: `node` modulo the nodes, mirrored when reversed. */
+uint32_t psx_light_old_node(const PsxLight *light, uint32_t node);
 
 /* 1 when node `node` is in a tunnel: in a script's RAMP context, or without a script its row is a tunnel's: a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
  * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */

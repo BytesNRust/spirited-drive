@@ -40,6 +40,7 @@ add_library(tnfs_core STATIC
     core/formats/tri.c
     core/formats/tri_exchange.c
     core/formats/track_gen.c
+    core/formats/tri_reverse.c
     core/formats/tri_write.c
     core/formats/tsv.c
     core/formats/validate.c
@@ -358,6 +359,7 @@ add_library(tnfs_game STATIC
     game/sys/text_soft.c
     game/sys/port_settings.c
     game/sys/free_laps.c
+    game/sys/reverse_track.c
     game/sys/port_extras.c
     game/sys/port_icon.c
     game/sys/port_controls.c
@@ -486,7 +488,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf)
+    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -877,6 +879,7 @@ if(NOT EMSCRIPTEN)
     if(TNFS_TRI_FILES)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
         add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
+        add_test(NAME tri_reverse_cd COMMAND test_tri_reverse ${TNFS_TRI_FILES})
         add_test(NAME tri_exchange_cd COMMAND test_tri_exchange ${TNFS_TRI_FILES})
         add_test(NAME track_gen_cd COMMAND test_track_gen ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)

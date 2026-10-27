@@ -37,6 +37,7 @@ typedef struct {
     uint8_t *car_file;      /* TNFS_CAR=NAME: CARFAMS/NAME.CFM parked ahead */
     ViewModel car[2];       /* high and low detail */
     int car_ok;
+    int reversed;           /* port: the circuit runs the other way round (tri_reverse.h) */
 } Track;
 
 /* The track `name` with 004510e8's art and 0043a370's sky for `look`; 0 and a message when a file is missing. */

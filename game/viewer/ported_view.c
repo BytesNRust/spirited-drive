@@ -340,7 +340,9 @@ static int ratio_at(int32_t node, float out[3])
 {
     if (!ambient_on || psx_light == NULL) return 0;
     const int32_t at = (int32_t)psx_ring_node(node, ambient_nodes);
-    psx_lgs_car_ratio(&ambient, ambient_nodes, at, psx_light_byte(psx_light, (uint32_t)at, 0), AMBIENT_STEP, out);
+    /* the script's blocks are of the file's direction: a reversed track asks them at the node's old place */
+    psx_lgs_car_ratio(&ambient, ambient_nodes, (int32_t)psx_light_old_node(psx_light, (uint32_t)at),
+                      psx_light_byte(psx_light, (uint32_t)at, 0), AMBIENT_STEP, out);
     return 1;
 }
 

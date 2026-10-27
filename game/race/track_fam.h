@@ -23,6 +23,8 @@ typedef struct {
     /* port: 1 with extras.cfg's lunar_springs: the rally on Rusty Springs reads the moon's FAM (lunar_springs.h). Last,
      * so the initialisers above keep their meaning. 0 is the exe. */
     int port_lunar;
+    /* port: 1 reverses a circuit's file as it loads (tri_reverse.h); 0 is the exe. Last, as above. */
+    int port_reverse;
 } TrackFamInputs;
 
 typedef struct {
