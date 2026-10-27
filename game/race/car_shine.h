@@ -15,6 +15,9 @@ enum { CAR_SHINE_LEVELS = 16, CAR_SHINE_NEUTRAL = 4 };
  * the colour scaled up and lifted toward white. The markers 0xfe and 0xff and the near-black entries (trim, tyres, glass) stay. */
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256]);
 
+/* whether colours `a` and `b` (8 bits a channel) are of one hue family: within 8 degrees of hue, a grey with a grey (the family the shine tables keep) */
+int car_shine_same_family(const uint8_t a[3], const uint8_t b[3]);
+
 /* port (body_shine 4, envmap, car_envmap.h): the tables for the palette's paint texels and for the keep-and-shine ones (glass, lamps), level by
  * level as car_shine_tables, but a highlight goes toward white and loses saturation. The glass (mask 128) keeps its own colour as the base. */
 void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVELS][256], uint8_t glass[CAR_SHINE_LEVELS][256]);

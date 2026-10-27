@@ -129,8 +129,27 @@ static void test_pick(void)
     CHECK_EQ_INT(car_paint_pick(7, 2, 5, -1, 0, 0, 0), 0);
 }
 
+/* a paint near the top of a channel leaves the body's lighter tones room: they do not all clip to one colour (a yellow 242, 197, 0 gave its
+ * nine lighter tones six levels), and the main tone keeps most of the paint; a paint with room is as it was */
+static void test_bright_paint_keeps_steps(void)
+{
+    const uint8_t ramp[6][3] = { { 16, 32, 32 }, { 16, 64, 72 }, { 32, 72, 80 }, { 48, 80, 88 }, { 48, 88, 96 }, { 80, 112, 120 } };
+    const uint32_t weight[6] = { 900, 2040, 1778, 1056, 1224, 300 };
+    const uint8_t yellow[3] = { 242, 197, 0 }, blue[3] = { 30, 70, 160 };
+    CarPaintPlan plan;
+    car_paint_plan(&plan, ramp, weight, 6, yellow);
+    uint8_t out[6][3];
+    for (int i = 0; i < 6; i++) car_paint_shade(&plan, ramp[i], out[i]);
+    CHECK(plan.rgb[0] >= 242 * 8 / 10 && plan.rgb[0] < 242);   /* the main tone gave up some, not all */
+    for (int i = 1; i < 6; i++) CHECK(out[i][0] > out[i - 1][0] || out[i][1] > out[i - 1][1]);   /* each tone its own colour, no clip */
+    CHECK(out[5][1] - out[1][1] >= 20);   /* and a step the eye sees between the body's tones */
+    car_paint_plan(&plan, ramp, weight, 6, blue);
+    CHECK_EQ_INT(plan.rgb[2], 160);   /* a paint with room is as the table has it */
+}
+
 int main(void)
 {
+    test_bright_paint_keeps_steps();
     test_table();
     test_pick();
     test_recolour(0x24);

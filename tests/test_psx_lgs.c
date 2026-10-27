@@ -1,6 +1,7 @@
 /* The PS1 look's light script (psx_lgs.h) on made-up text in the real files' shape: CR line endings, spaced and comma
  * separated numbers, comments, a binary trailer. No game or CD data. */
 #include "game/race/psx_lgs.h"
+#include "game/sys/palette.h"
 #include "test.h"
 
 #include <math.h>
@@ -273,8 +274,27 @@ static void test_ring_and_car(void)
     CHECK(r[0] == 3.0f / 16);
 }
 
+/* a car's colours under a darker light stay in their hue family: a yellow does not go to olive, orange or pink where a palette has no darker
+ * yellow nearer in RGB, and falls back to the nearest of all where the family has nothing */
+static void test_lit_table_keeps_hue(void)
+{
+    uint8_t palette[768] = { 0 };
+    const uint8_t colours[][3] = { { 240, 200, 0 }, { 150, 125, 0 }, { 150, 70, 20 }, { 120, 120, 120 }, { 60, 60, 60 } };
+    for (int i = 0; i < 5; i++) memcpy(palette + 3 * i, colours[i], 3);
+    for (int i = 5; i < 0xfe; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = 250;   /* far from everything above */
+    uint8_t usable[256] = { 0 };
+    memset(usable, 1, 0xfe);
+    palette_usable_set(usable);
+    const float ratio[3] = { 0.6f, 0.6f, 0.6f };
+    uint8_t table[256];
+    psx_lit_table(palette, ratio, table);
+    CHECK_EQ_INT(table[0], 1);   /* the darker yellow, not the orange or the olive grey that are as near */
+    CHECK_EQ_INT(table[3], 4);   /* a grey takes a grey */
+}
+
 int main(void)
 {
+    test_lit_table_keeps_hue();
     test_exe_light();
     test_ring_and_car();
     test_switched();

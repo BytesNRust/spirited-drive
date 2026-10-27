@@ -47,6 +47,12 @@ static float level_t(int l)
                                   : (float)(l - CAR_SHINE_NEUTRAL) / CAR_SHINE_NEUTRAL;
 }
 
+int car_shine_same_family(const uint8_t a[3], const uint8_t b[3])
+{
+    const Family fa = family(a), fb = family(b);
+    return same_family(&fa, &fb);
+}
+
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256])
 {
     Family fam[256];
