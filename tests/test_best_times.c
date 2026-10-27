@@ -400,7 +400,7 @@ static void test_the_warrior_is_named_on_the_cheats_table(void)
     CHECK(was_drawn("WARRIOR"));
 }
 
-/* ----- port (free records): the lap-count selector between the arrows ----- */
+/* ----- port (free records): the lap-count control on the header's row ----- */
 
 /* a circuit (track 3, counts 4, 8, 16) with the menu's laps choice 1 (8 laps) and the selector on or off */
 static int32_t run_laps(BestTimesPlus *plus, int track, int select)
@@ -471,10 +471,16 @@ static void test_enter_on_the_selector_steps_through_the_counts_and_shows_a_free
 
 static void test_the_selector_sits_in_the_ring_between_the_arrows(void)
 {
-    static const int keys[] = { RIGHT, RIGHT, RIGHT, RIGHT, ENTER, ESCAPE };   /* back -> done -> cheats -> left arrow -> selector */
+    /* back -> done -> cheats -> left arrow -> the lap count's left arrow (the previous count: 8 -> 4) */
+    static const int keys[] = { RIGHT, RIGHT, RIGHT, RIGHT, ENTER, ESCAPE };
     BestTimesPlus plus;
     free_records_reset();
     reset(keys, 6, -1);
+    CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
+    CHECK(label_index("Laps: 4") >= 0);
+    CHECK(label_index("Laps: 16") < 0);
+    static const int up[] = { RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, ENTER, ESCAPE };   /* one more: its right arrow (the next count: 8 -> 16) */
+    reset(up, 7, -1);
     CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
     CHECK(label_index("Laps: 16") >= 0);
     static const int skip[] = { RIGHT, RIGHT, RIGHT, RIGHT, ESCAPE };   /* without it: the right arrow */
