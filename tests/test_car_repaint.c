@@ -352,8 +352,26 @@ static void test_body_class(void)
     CHECK_EQ_INT(car_repaint_body_class("circ", 0), REPAINT_NONE);
 }
 
+/* a body texture's transparent index (0xff, skipped when drawn) is not paint: it stays 0xff, and its colour does not pull the family's hue */
+static void test_transparent_index(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    for (int i = 0; i < TEXELS; i += 2) f.body[i] = 0xff;   /* half the body texture is cut out */
+    set(f.pal, 0xff, 0, 0, 252);                             /* its palette colour is a saturated blue, as the low bank's */
+    memcpy(f.xxx, f.pal, sizeof f.xxx);
+    uint8_t cut[TEXELS];
+    for (int i = 0; i < TEXELS; i++) cut[i] = f.body[i] == 0xff;
+    const uint8_t red[3] = { 200, 30, 30 };
+    CHECK(car_repaint_paint(&f.bank, red, 44) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        if (cut[i]) CHECK_EQ_INT(f.body[i], 0xff);
+    CHECK_EQ_INT(colour(&f, f.pal, 0xff, 2), 252);   /* and its colour is as it was */
+}
+
 int main(void)
 {
+    test_transparent_index();
     test_body_class();
     test_paint(0x24);
     test_paint(0x22);

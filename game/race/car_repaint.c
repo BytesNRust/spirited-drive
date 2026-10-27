@@ -11,7 +11,8 @@ enum {
     NEUTRAL_SPREAD = 24,        /* a grey body's family: spread up to this */
     MIN_MAIN_PIXELS = 8,        /* an entry the main textures show at least this often... */
     HUE_WINDOW = 30,
-    FIRST_RESERVED = 0xfa       /* 0xfa..0xff: the police slots and the transparent index */
+    FIRST_RESERVED = 0xfa,      /* 0xfa..0xff: the police slots and the transparent index */
+    TRANSPARENT = 0xff          /* the index a texture's cut-out texels have: not drawn, so not paint */
 };
 
 static int spread_of(const uint8_t c[3])
@@ -94,6 +95,7 @@ static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
         uint32_t *into = tex->body == REPAINT_MAIN ? s->main : tex->body == REPAINT_END ? s->end : s->other;
         const int masked = tex->mask != NULL && tex->body != REPAINT_NONE;
         for (size_t i = 0; i < tex->count; i++) {
+            if (tex->pixels[i] == TRANSPARENT) continue;
             const int keeps = masked ? tex->mask[i] != 0 : kept(tex, i);
             (keeps ? s->other : into)[tex->pixels[i]]++;
             if (masked && !keeps) s->forced[tex->pixels[i]] = 1;
