@@ -3,12 +3,13 @@
 
 #include "game/platform/platform.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_settings.h"
 
 #include <stdio.h>
 #include <string.h>
 
 enum { TRACKS = 9, SCANCODE_TAB = 0x0f, FIRST_RECORD = 0xea, SCREEN_RECORDS = 0x19f, TRACK_WORD = 0x95, CAR_WORD = 0x9b,
-       BLOCK_AT = 0xb5 };
+       BLOCK_AT = 0xb5, DIFFICULTY_WORD = 0xb3 };
 
 static RaceKind current;
 static int in_tournament, loaded;
@@ -59,6 +60,12 @@ void records_glue_shown_as(RouteOp op, uint8_t out[RECORD_CHECK_IMAGE], const ui
     const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
     const RaceKind kind = shown_kind(op, image);
     memcpy(out, image, RECORD_CHECK_IMAGE);
+    const FreeTable *const free_table = records_free_table(image, kind);
+    if (free_table != NULL) {   /* port (free records): the lap count's table, as the first choice's of the image the screens read */
+        memcpy(out + BLOCK_AT + RECORDS_BLOCK * track + FIRST_RECORD, free_table->rows, FREE_RECORDS_TABLE);
+        out[DIFFICULTY_WORD] = 0, out[DIFFICULTY_WORD + 1] = 0;
+        return;
+    }
     if (kind.variant == RECORDS_NORMAL && kind.marks == 0) return;
     const uint8_t *block = port_records_block(track, kind.variant, kind.marks != 0);
     if (block != NULL) memcpy(out + BLOCK_AT + RECORDS_BLOCK * track, block, RECORDS_BLOCK);
@@ -78,6 +85,15 @@ void records_glue_marks_as(RouteOp op, const uint8_t *image, ResultsMarks *out)
 {
     const int track = (int16_t)(image[TRACK_WORD] | image[TRACK_WORD + 1] << 8);
     const RaceKind kind = shown_kind(op, image);
+    const FreeTable *const free_table = records_free_table(image, kind);
+    if (free_table != NULL) {   /* port (free records): the marks of the lap count's table, in the first choice's slots */
+        static uint8_t marks[RECORDS_MARK_SLOTS];
+        memset(marks, 0, sizeof marks);
+        memcpy(marks + records_slot_totals(track, 0, 0), free_table->marks, FREE_RECORDS_ROWS);
+        out->slots = kind.marks == 0 ? NULL : marks;
+        out->choice = 0;
+        return;
+    }
     out->slots = kind.marks == 0 ? NULL : port_records_marks(track, kind.variant);
     out->choice = records_choice(image);
 }
@@ -102,6 +118,8 @@ BestTimesPlus *records_glue_best_plus(const uint8_t *image, int variant_m, int v
     load_once();
     const RaceKind kind = records_race_kind(variant_m, variant_r, 0, 0, 0);
     plus.cheats = 0;
+    plus.laps_select = port_free_records();   /* port (free records): the lap-count item */
+    plus.variant = kind.variant;
     if (kind.variant == RECORDS_NORMAL) {
         plus.records[0] = image + SCREEN_RECORDS;
     } else {

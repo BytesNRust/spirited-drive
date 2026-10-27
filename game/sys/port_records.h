@@ -26,6 +26,10 @@ uint8_t *port_records_block(int track, RecordVariant v, int with_cheats);
  * range. */
 uint8_t *port_records_marks(int track, RecordVariant v);
 
+/* The block of a track as the CD's config.dat has it by default (the built-in defaults when there is no CD), not the player's records: the
+ * seed of a table that starts later (free_records.h). NULL out of range. */
+const uint8_t *port_records_default_block(int track);
+
 /* The cheats a tournament in progress began with (EXTRAS_MARK_* bits), kept with the records so that a tournament
  * left half way and taken up later still ends in the table it began for. */
 int port_records_tournament(void);

@@ -4,6 +4,7 @@
 #include "game/frontend/records_glue.h"
 #include "game/frontend/records_route.h"
 #include "game/sys/free_laps.h"
+#include "game/sys/free_records.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -70,6 +71,8 @@ static void fresh(void)
 {
     stored_present = 0;
     saves = 0;
+    unsetenv("TNFS_FREE_RECORDS");
+    free_records_reset();
     port_records_load();
 }
 
@@ -372,6 +375,153 @@ static void test_a_free_race_keeps_no_segment_record(void)
     free_laps_set(0);
 }
 
+/* ----- port (free records): with the flag, a free race's total goes in its own lap count's table, apart from the exe's ----- */
+
+static void flag_on(void) { setenv("TNFS_FREE_RECORDS", "1", 1); }
+
+static void test_a_free_race_takes_its_own_lap_counts_table_with_the_flag(void)
+{
+    fresh();
+    flag_on();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    race(&r, 0, 1, 5000, 99999, 100);   /* TR1 counts 4, 8, 16: 7 is none of them */
+    const Race before = r;
+    free_laps_set(7);
+    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 7) == NULL);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);   /* config.dat's tables are as they were */
+    const FreeTable *t = free_records_find(TR1, RECORDS_NORMAL, 0, 7);
+    CHECK(t != NULL);
+    if (t != NULL) {
+        CHECK(memcmp(t->rows, "ME", 3) == 0);
+        CHECK_EQ_INT(g32(t->rows + FREE_RECORDS_TIME), 100);
+    }
+    CHECK(strcmp(stored_name, "free_records.dat") == 0);
+    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 9) == NULL);   /* another count has its own */
+    const int after_first = saves;
+    race(&r, 0, 1, 5000, 99999, 2000000000);   /* slower than all ten rows: nothing taken, nothing saved */
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(saves, after_first);
+    race(&r, 0, 1, 5000, 99999, 99);    /* better: row 0, the old one down a row */
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    t = free_records_find(TR1, RECORDS_NORMAL, 0, 7);
+    if (t != NULL) {
+        CHECK_EQ_INT(g32(t->rows + FREE_RECORDS_TIME), 99);
+        CHECK_EQ_INT(g32(t->rows + FREE_RECORDS_ROW + FREE_RECORDS_TIME), 100);
+    }
+    free_laps_set(0);
+}
+
+static void test_without_the_flag_a_free_race_keeps_no_total(void)
+{
+    fresh();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    race(&r, 0, 1, 5000, 99999, 100);
+    free_laps_set(7);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 7) == NULL);
+    free_laps_set(0);
+}
+
+static void test_the_flag_leaves_the_exes_counts_and_races_alone(void)
+{
+    fresh();
+    flag_on();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    race(&r, 0, 2, 5000, 99999, 100);
+    free_laps_set(8);   /* the track's own count: config.dat's table of choice 1, as before */
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    free_laps_set(0);
+    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 8) == NULL);
+    race(&r, 0, 1, 5000, 99999, 100);   /* not a free race at all: the exe's, whatever the flag */
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    CHECK(free_records_laps(TR1, RECORDS_NORMAL, 0, (int[4]){ 0 }, 4) == 0);
+}
+
+static void test_a_free_race_with_cheats_or_a_variant_has_its_own_tables(void)
+{
+    fresh();
+    flag_on();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    free_laps_set(7);
+    race(&r, 0, 1, 5000, 99999, 100);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, EXTRAS_MARK_NITRO }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    race(&r, 0, 1, 5000, 99999, 100);
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_MIRROR, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    const FreeTable *cheats = free_records_find(TR1, RECORDS_NORMAL, 1, 7), *mirror = free_records_find(TR1, RECORDS_MIRROR, 0, 7);
+    CHECK(cheats != NULL && mirror != NULL);
+    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 7) == NULL);
+    if (cheats != NULL) CHECK_EQ_INT(cheats->marks[0], EXTRAS_MARK_NITRO);
+    if (mirror != NULL) CHECK_EQ_INT(mirror->marks[0], 0);   /* no cheats, no mark */
+    free_laps_set(0);
+}
+
+static void test_a_stage_or_the_warrior_keeps_no_free_total(void)
+{
+    fresh();
+    flag_on();
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    free_laps_set(7);
+    race(&r, 0, 1, 5000, 99999, 100);
+    p16(r.image + 0x95, 1);   /* a stage */
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
+    race(&r, WARRIOR, 1, 5000, 99999, 100);   /* the Warrior's times are the port's, on the cheats table with its mark */
+    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
+    const FreeTable *t = free_records_find(TR1, RECORDS_NORMAL, 1, 7);
+    CHECK(t != NULL);
+    if (t != NULL) CHECK_EQ_INT(t->marks[0], EXTRAS_MARK_WARRIOR);
+    free_laps_set(0);
+}
+
+/* the results show the table the race was checked against: the free count's, in the first choice's place of the image the screens read */
+static void test_the_results_show_the_free_table_the_race_took_a_row_in(void)
+{
+    static uint8_t shown[RECORD_CHECK_IMAGE];
+    static const uint8_t no_races[18];
+    static uint8_t game[RECORD_CHECK_GAME];
+    Race r;
+    int32_t times[RECORD_CHECK_TIMES] = { 0 };
+    fresh();
+    flag_on();
+    race(&r, 0, 2, 5000, 99999, 100);   /* the menu's choice is 2 */
+    memcpy(game, r.game, sizeof game);
+    records_glue_begin(0, no_races, 0, 0, 0, 1, 0);   /* NITRO: the cheats table */
+    free_laps_set(7);
+    CHECK_EQ_INT(records_glue_route(ROUTE_TOTALS, r.image, game, 0, times), 0);
+    records_glue_shown_as(ROUTE_TOTALS, shown, r.image);
+    CHECK_EQ_INT(records_choice(shown), 0);   /* the table the screens read is the first choice's of the shown image */
+    CHECK(memcmp(shown + FIRST + RECORDS_BLOCK * TR1 + 0xea, "ME", 3) == 0);
+    CHECK_EQ_INT(g32(shown + FIRST + RECORDS_BLOCK * TR1 + 0xea + FREE_RECORDS_TIME), 100);
+    ResultsMarks marks;
+    records_glue_marks_as(ROUTE_TOTALS, r.image, &marks);
+    CHECK_EQ_INT(marks.choice, 0);
+    CHECK(marks.slots != NULL);
+    if (marks.slots != NULL) CHECK_EQ_INT(marks.slots[records_slot_totals(TR1, 0, 0)], EXTRAS_MARK_NITRO);
+    free_laps_set(8);   /* a race of the track's own count shows that choice's table, as it always did */
+    records_glue_shown_as(ROUTE_TOTALS, shown, r.image);
+    CHECK_EQ_INT(records_choice(shown), 1);
+    free_laps_set(0);
+}
+
+static void test_the_records_screen_gets_the_selector_only_with_the_flag(void)
+{
+    static uint8_t image[RECORD_CHECK_IMAGE];
+    fresh();
+    BestTimesPlus *plus = records_glue_best_plus(image, 1, 0);
+    CHECK_EQ_INT(plus->laps_select, 0);
+    CHECK_EQ_INT(plus->variant, RECORDS_MIRROR);
+    flag_on();
+    plus = records_glue_best_plus(image, 0, 1);
+    CHECK_EQ_INT(plus->laps_select, 1);
+    CHECK_EQ_INT(plus->variant, RECORDS_RALLY);
+    CHECK_EQ_INT(records_glue_best_plus(image, 0, 0)->variant, RECORDS_NORMAL);
+}
+
 int main(void)
 {
     test_the_results_show_the_table_the_race_was_checked_on();
@@ -380,6 +530,13 @@ int main(void)
     test_a_free_race_on_another_count_keeps_no_total();
     test_a_free_race_with_a_cheat_marks_the_remapped_choice_or_nothing();
     test_a_free_race_keeps_no_segment_record();
+    test_a_free_race_takes_its_own_lap_counts_table_with_the_flag();
+    test_without_the_flag_a_free_race_keeps_no_total();
+    test_the_flag_leaves_the_exes_counts_and_races_alone();
+    test_a_free_race_with_cheats_or_a_variant_has_its_own_tables();
+    test_a_stage_or_the_warrior_keeps_no_free_total();
+    test_the_results_show_the_free_table_the_race_took_a_row_in();
+    test_the_records_screen_gets_the_selector_only_with_the_flag();
     test_a_normal_race_without_cheats_takes_the_images_table();
     test_a_mirror_race_leaves_the_images_table();
     test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark();

@@ -1,6 +1,7 @@
 /* port: see records_route.h. */
 #include "game/frontend/records_route.h"
 #include "game/sys/free_laps.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/port_log.h"
 #include "game/sys/reverse_track.h"
 
@@ -9,7 +10,7 @@
 
 enum {
     TRACK = 0x95, CAR = 0x9b, SEGMENT = 0x93, DIFFICULTY = 0xb3, FIRST_BLOCK = 0xb5, CIRCUIT_FROM = 3, ROWS = 10,
-    WARRIOR = 11
+    WARRIOR = 11, TOTALS_AT = 0xea
 };
 
 static int16_t g16(const uint8_t *at) { return (int16_t)(uint16_t)(at[0] | at[1] << 8); }
@@ -25,6 +26,15 @@ int records_choice(const uint8_t image[RECORD_CHECK_IMAGE])
     const int menu = g16(image + DIFFICULTY);
     const int free = free_laps_count() != 0 ? free_laps_choice(g16(image + TRACK), free_laps_count()) : -1;
     return free >= 0 ? free : menu;
+}
+
+FreeTable *records_free_table(const uint8_t image[RECORD_CHECK_IMAGE], RaceKind kind)
+{
+    const int laps = free_laps_count(), track = g16(image + TRACK);
+    if (laps == 0 || !port_free_records() || track < CIRCUIT_FROM || free_laps_choice(track, laps) >= 0) return NULL;
+    uint8_t seed[FREE_RECORDS_TABLE];
+    free_records_seed(track, laps, seed);
+    return free_records_make(track, kind.variant, kind.marks != 0, laps, seed);
 }
 
 int records_has_cheats(RaceKind kind) { return kind.marks != 0; }
@@ -43,6 +53,11 @@ RaceKind records_race_kind(int variant_m, int variant_r, int explode, int nitro,
     if (turbo) k.marks |= EXTRAS_MARK_TURBO;
     return k;
 }
+
+/* port (free records): a total of a free race into its lap count's table: the exe's check on a scratch image whose first choice's table is
+ * the free one and whose choice word is 0, the rows and the marks written back when a row was taken */
+static int32_t free_totals(RaceKind kind, uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
+                           const int32_t times[RECORD_CHECK_TIMES]);
 
 static int32_t original(RouteOp op, uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times)
 {
@@ -85,6 +100,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     const int track = g16(image + TRACK);
     const int free_race = free_laps_count() != 0;
     const int choice = records_choice(image);
+    if (free_race && op == ROUTE_TOTALS && records_free_table(image, kind) != NULL) return free_totals(kind, image, game, player, times);
     /* port (free laps): the best lap and the top speed count; a total only for a lap count the track has (its choice's
      * table, through the scratch copy); no segment record */
     if (free_race && (op == ROUTE_SEGMENT || (op == ROUTE_TOTALS && free_laps_choice(track, free_laps_count()) < 0)))
@@ -113,6 +129,25 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     if (records_has_cheats(kind))
         mark(kind, op, track, g16(image + SEGMENT), choice, answer, marks);
     if (!port_records_save()) port_log("records: records.dat could not be saved\n");
+    return answer;
+}
+
+static int32_t free_totals(RaceKind kind, uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
+                           const int32_t times[RECORD_CHECK_TIMES])
+{
+    static uint8_t scratch[RECORD_CHECK_IMAGE];
+    FreeTable *const table = records_free_table(image, kind);
+    if (table == NULL) return RECORD_CHECK_NONE;
+    memcpy(scratch, image, sizeof scratch);
+    memcpy(scratch + FIRST_BLOCK + RECORDS_BLOCK * g16(image + TRACK) + TOTALS_AT, table->rows, FREE_RECORDS_TABLE);
+    scratch[DIFFICULTY] = 0, scratch[DIFFICULTY + 1] = 0;
+    if (g16(scratch + CAR) == WARRIOR) scratch[CAR] = 0, scratch[CAR + 1] = 0;   /* as the port's other tables: the original records no Warrior */
+    const int32_t answer = original(ROUTE_TOTALS, scratch, game, player, times);
+    if (answer == RECORD_CHECK_NONE) return answer;
+    memcpy(table->rows, scratch + FIRST_BLOCK + RECORDS_BLOCK * g16(image + TRACK) + TOTALS_AT, FREE_RECORDS_TABLE);
+    for (int j = ROWS - 1; j > answer; j--) table->marks[j] = table->marks[j - 1];
+    table->marks[answer] = (uint8_t)kind.marks;
+    if (!free_records_save()) port_log("records: free_records.dat could not be saved\n");
     return answer;
 }
 
