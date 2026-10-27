@@ -191,7 +191,7 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     shine_class_drop_slot(slot);
     if (drive_cars.file[slot] != NULL && port_body_shine()) {   /* port (body shine): the paint texels, from the colours as the file has them */
         int owner = slot;
-        drive_livery_draft(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, shine_register, &owner);
+        drive_livery_draft(stem, drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with psx_liveries) */
     }
     if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
         const int player = slot == race_slot(race->player);
