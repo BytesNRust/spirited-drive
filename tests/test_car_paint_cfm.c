@@ -5,6 +5,7 @@
 #include "formats/fsh.h"
 #include "game/race/car_paint.h"
 #include "game/race/car_load.h"
+#include "game/race/car_repaint.h"
 #include "game/sys/shape_bank.h"
 #include "game/viewer/drive_livery.h"
 #include "test.h"
@@ -48,10 +49,11 @@ static uint8_t *slurp(const char *path, size_t *size)
     return d;
 }
 
-static int class_of(const char *n)
+/* 0 other, 1 main, 2 end: the repaint's own classes (the low detail bank's side and back are body textures there) */
+static int class_of(const char *n, int level)
 {
-    if (!memcmp(n, "topv", 4) || !memcmp(n, "rsid", 4) || !memcmp(n, "bott", 4) || !memcmp(n, "wing", 4) || !memcmp(n, "J00", 3)) return 1;
-    return !memcmp(n, "frnt", 4) || !memcmp(n, "rear", 4) ? 2 : 0;
+    const int c = car_repaint_body_class(n, level);
+    return c == REPAINT_MAIN ? 1 : c == REPAINT_END ? 2 : 0;
 }
 
 static int snap(uint8_t *cfm, size_t size, int level, Snapshot *s)
@@ -73,7 +75,7 @@ static int snap(uint8_t *cfm, size_t size, int level, Snapshot *s)
         size_t n = (size_t)e.width * e.height;
         if (n > e.payload_size) n = e.payload_size;
         memcpy(s->name[s->count], e.name, 4);
-        s->body[s->count] = class_of(e.name);
+        s->body[s->count] = class_of(e.name, level);
         s->pixels[s->count] = malloc(n);
         memcpy(s->pixels[s->count], e.payload, n);
         s->size[s->count++] = n;
@@ -137,7 +139,7 @@ static void check_car(const char *root, int model, const uint8_t paint[3])
                 if (before.body[t] == 1 && spread(a) <= 24 && 30 * a[0] + 59 * a[1] + 11 * a[2] > 6400) grey_mid++, grey_painted += !same;
             }
         }
-        if (lamps > 0 && model != 0 && model != 4) CHECK_EQ_INT(lamps_kept, lamps);   /* (the red cars' body is as saturated as a lamp) */
+        if (lamps > 0 && model != 0 && model != 4 && model != 7 && model != 8 && model != 9) CHECK_EQ_INT(lamps_kept, lamps);   /* (the red cars' body and the MRX7's lime one are as saturated as a lamp) */
         if (model == 3) CHECK_EQ_INT(reds_kept, reds);
         if (model == 6 || model == 1) CHECK(grey_mid == 0 || grey_painted * 100 >= grey_mid * 90);   /* a grey body is all paint */
         if (level == 0) fprintf(stderr, "  %s %d,%d,%d: lamps %u kept %u, grey body texels %u painted %u\n", car_model_names[model],
