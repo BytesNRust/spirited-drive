@@ -72,13 +72,15 @@ void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][
 
 /* port (body_shine 4, envmap): a lift goes toward white (ENV_WHITE of the way at the lightest) and a shade toward black (ENV_SHADE at the darkest),
  * so the highlight takes the paint's hue and loses saturation rather than gaining it */
-static const float ENV_WHITE = 0.55f, ENV_SHADE = 0.5f;
+static const float ENV_WHITE = 0.6f, ENV_SHADE = 0.5f;
+static const float ENV_LIGHT[3] = { 240.0f, 245.0f, 255.0f };   /* the highlight's colour: white with a subtle blue */
+static const float ENV_NEAR_WHITE = 0.8f;   /* past this lift the strongest cores may take any palette entry: they reach near-white */
 
 static void envmap_want(const uint8_t *rgb, float t, float want[3])
 {
     for (int k = 0; k < 3; k++) {
         const float c = rgb[k];
-        want[k] = t > 0 ? c + (255.0f - c) * ENV_WHITE * t : c * (1.0f + ENV_SHADE * t);
+        want[k] = t > 0 ? c + (ENV_LIGHT[k] - c) * ENV_WHITE * t : c * (1.0f + ENV_SHADE * t);
     }
 }
 
@@ -107,10 +109,12 @@ void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVEL
             if (i >= MARKERS || l == CAR_SHINE_NEUTRAL) continue;
             float want[3];
             envmap_want(palette + 3 * i, t, want);
-            /* the same intensity for the paint and for the glass and lamps (class 128): each keeps its own colour as the base, within its own
-             * hue family (the owner's correction: no stronger or weaker shine for the glass). The near-black trim and tyres stay as they are. */
-            if (fam[i].top >= NEAR_BLACK) paint[l][i] = nearest_entry(palette, fam, &fam[i], want);
-            glass[l][i] = nearest_entry(palette, fam, &fam[i], want);
+            /* the same intensity for the paint and for the glass and lamps (class 128), each from its own colour. A partial lift stays in the
+             * colour's hue family (the pink blend the owner accepts); only the strongest cores may take any palette entry, so they reach
+             * near-white. A shade stays in the family. The near-black trim and tyres stay as they are. */
+            const Family *like = (t > 0 && t >= ENV_NEAR_WHITE) ? NULL : &fam[i];
+            if (fam[i].top >= NEAR_BLACK) paint[l][i] = nearest_entry(palette, fam, like, want);
+            glass[l][i] = nearest_entry(palette, fam, like, want);
         }
     }
 }
