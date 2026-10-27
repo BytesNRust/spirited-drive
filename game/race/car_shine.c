@@ -1,6 +1,7 @@
 /* port (body shine): see car_shine.h. */
 #include "game/race/car_shine.h"
 #include "game/race/car_envmap.h"
+#include "game/sys/palette.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -49,6 +50,7 @@ static float level_t(int l)
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256])
 {
     Family fam[256];
+    const uint8_t *usable = palette_usable();   /* a shine never lands on an entry the race rewrites (the brake lamp, the police lights) */
     for (int i = 0; i < MARKERS; i++) fam[i] = family(palette + 3 * i);
     for (int l = 0; l < CAR_SHINE_LEVELS; l++) {
         const float t = level_t(l);
@@ -62,7 +64,7 @@ void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][
             }
             float best_d = 1e30f;
             for (int j = 0; j < MARKERS; j++) {
-                if (!same_family(&fam[i], &fam[j])) continue;
+                if (!usable[j] || !same_family(&fam[i], &fam[j])) continue;
                 const float dr = palette[3 * j] - want[0], dg = palette[3 * j + 1] - want[1], db = palette[3 * j + 2] - want[2];
                 const float d = dr * dr + dg * dg + db * db;
                 if (d < best_d) out[l][i] = (uint8_t)j, best_d = d;
@@ -90,8 +92,9 @@ static uint8_t nearest_entry(const uint8_t palette[768], const Family fam[256], 
 {
     uint8_t best = 0;
     float best_d = 1e30f;
+    const uint8_t *usable = palette_usable();
     for (int j = 0; j < MARKERS; j++) {
-        if (like != NULL && !same_family(like, &fam[j])) continue;
+        if (!usable[j] || (like != NULL && !same_family(like, &fam[j]))) continue;
         const float dr = palette[3 * j] - want[0], dg = palette[3 * j + 1] - want[1], db = palette[3 * j + 2] - want[2];
         const float d = dr * dr + dg * dg + db * db;
         if (d < best_d) best = (uint8_t)j, best_d = d;
