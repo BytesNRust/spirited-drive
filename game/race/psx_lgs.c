@@ -1,4 +1,5 @@
 #include "game/race/psx_lgs.h"
+#include "game/sys/palette.h"
 
 #include <string.h>
 
@@ -144,6 +145,7 @@ void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const floa
 void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out[256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
+    const uint8_t *usable = palette_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
     for (int c = 0; c < 256; c++) {
         if (c >= CHOICES || (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f)) {
             out[c] = (uint8_t)c;
@@ -154,6 +156,7 @@ void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out
         int best = 0;
         float best_d = 1e30f;
         for (int i = 0; i < CHOICES; i++) {
+            if (!usable[i]) continue;
             const float dr = (float)palette[3 * i] - want[0], dg = (float)palette[3 * i + 1] - want[1], db = (float)palette[3 * i + 2] - want[2];
             const float d = dr * dr + dg * dg + db * db;
             if (d < best_d) best = i, best_d = d;

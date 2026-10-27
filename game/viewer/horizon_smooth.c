@@ -2,6 +2,7 @@
 #include "viewer/horizon_smooth.h"
 
 #include "game/sys/bands.h"
+#include "game/sys/palette.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,11 +15,13 @@ enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels *
 /* the table for `palette` (what the screen can show) */
 static void make_nearest(HorizonSmooth *s, const uint8_t palette[768])
 {
+    const uint8_t *usable = palette_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
     for (int cell = 0; cell < HORIZON_SMOOTH_CELLS; cell++) {
         /* the cell's middle */
         const int r = (cell >> 10 & 31) * 8 + 4, g = (cell >> 5 & 31) * 8 + 4, b = (cell & 31) * 8 + 4;
         int best = 0, best_d = 1 << 30;
         for (int i = 0; i < CHOICES; i++) {
+            if (!usable[i]) continue;
             const int dr = palette[3 * i] - r, dg = palette[3 * i + 1] - g, db = palette[3 * i + 2] - b;
             const int d = dr * dr + dg * dg + db * db;
             if (d < best_d) best = i, best_d = d;
