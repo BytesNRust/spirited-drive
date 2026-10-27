@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """The masks from the owner's PSDs (tools/car_mask_psd.py): reads each PSD's "mask" layer and writes data/car_masks/<CAR>/<tex>_mask.png.
+A PSD named <tex>_lo.psd (the low detail bank's texture) is written as <tex>_lo_mask.png, the file car_mask_load reads for that bank.
 
 A texel of the mask layer is classed by its alpha and colour:
   alpha < 128                      0    PAINT (recoloured, shines)

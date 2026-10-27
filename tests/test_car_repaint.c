@@ -333,8 +333,28 @@ static void test_draft(void)
     CHECK_EQ_INT(keep1[0], REPAINT_DRAFT_MATTE);   /* not a body texture: all kept */
 }
 
+/* the body textures by name and detail level: the high bank's are as before; the low bank's side and back (the far car's) are the
+ * sides and the rear, as the high bank's rsid and rear are, so the far car repaints as the near one does */
+static void test_body_class(void)
+{
+    CHECK_EQ_INT(car_repaint_body_class("topv", 0), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("rsid", 0), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("J001", 0), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("frnt", 0), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("rear", 0), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("frnt", 1), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("rear", 1), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("side", 1), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("back", 1), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("side", 0), REPAINT_NONE);   /* the high bank has no such texture: nothing changes there */
+    CHECK_EQ_INT(car_repaint_body_class("back", 0), REPAINT_NONE);
+    CHECK_EQ_INT(car_repaint_body_class("tyr1", 1), REPAINT_NONE);
+    CHECK_EQ_INT(car_repaint_body_class("circ", 0), REPAINT_NONE);
+}
+
 int main(void)
 {
+    test_body_class();
     test_paint(0x24);
     test_paint(0x22);
     test_pairs();
