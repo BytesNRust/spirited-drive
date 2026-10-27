@@ -29,6 +29,7 @@
 #include "game/frontend/extras_apply.h"
 #include "game/frontend/variant_rule.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/reverse_track.h"
 #include "game/sys/port_controls.h"
 #include "game/frontend/cop_stop.h"
 #include "game/frontend/win_movie.h"
@@ -489,9 +490,11 @@ static void track_select(void *ctx)
     /* port: the weather row, and with the PS1 look the time-of-day item on its psx_time; both written to port.cfg
      * when the screen leaves them changed (the race reads them there, as it does today) */
     int weather = port_weather(), psx_time = port_psx_time();
+    int reverse = reverse_track_picked();   /* port: extras.cfg's reverse offers the row; the pick is the session's, not saved */
+    const PortExtras extras = port_extras_load();
     TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r,
-                             port_extras_load().variant_time,   /* port: variants as entries */
-                             1, &weather, port_psx_light() ? &psx_time : NULL };
+                             extras.variant_time,   /* port: variants as entries */
+                             1, &weather, port_psx_light() ? &psx_time : NULL, extras.reverse ? &reverse : NULL };
     const int was_weather = weather, was_psx_time = psx_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette, &plus };
     int x, y;
@@ -505,6 +508,7 @@ static void track_select(void *ctx)
         off_dialog, music,
         deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
+    if (extras.reverse) reverse_track_pick(reverse);
     if (weather != was_weather || psx_time != was_psx_time) {
         PortSettings saved = port_settings_load();
         if (weather != was_weather) saved.weather = weather;

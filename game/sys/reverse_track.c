@@ -4,14 +4,17 @@
 
 #include <stdlib.h>
 
-static int running;
+static int running, picked;
 
 int reverse_track_wanted(void)
 {
     const char *v = getenv("TNFS_REVERSE");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] == '1';
-    return port_extras_load().reverse != 0;
+    return port_extras_load().reverse != 0 && picked;
 }
 
 void reverse_track_set(int on) { running = on != 0; }
 int reverse_track_running(void) { return running; }
+
+void reverse_track_pick(int on) { picked = on != 0; }
+int reverse_track_picked(void) { return picked; }

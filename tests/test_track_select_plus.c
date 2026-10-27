@@ -89,6 +89,17 @@ static void test_weather_in_the_arrow_chain(void)
     CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_RIGHT, WEATHER, 0, 1), 2);         /* Next */
     CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, TIME, DONE, 0), DONE);       /* without the row: the original's */
     CHECK_EQ_INT(track_select_arrow_plus(TRACK_SELECT_KEY_DOWN, 4, 9, 1), 9);                /* other moves stay */
+    /* the Reverse row (11): right of the weather, or alone */
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_RIGHT, WEATHER, 0, 2, 1, 1), 11);
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_LEFT, 11, 0, 0, 1, 1), WEATHER);
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_RIGHT, 11, 0, 0, 1, 1), 2);        /* Next */
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_DOWN, 11, 0, WEATHER, 1, 1), DONE);
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_UP, 11, TIME, TIME, 1, 1), TIME);
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_LEFT, 11, 0, 0, 0, 1), 3);         /* no weather: Best */
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_DOWN, TIME, DONE, DONE, 0, 1), 11);
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_UP, DONE, TIME, TIME, 0, 1), 11);
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_DOWN, TIME, DONE, WEATHER, 1, 1), WEATHER);   /* the weather first */
+    CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_DOWN, TIME, DONE, DONE, 0, 0), DONE);          /* the row off: the moves' */
 }
 
 int main(void)
