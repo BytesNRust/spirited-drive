@@ -1,17 +1,20 @@
-/* port: the Graphics screen, the port's own; see graphics_own.h. Its loop is graphics_plus.c's second page over the
+/* port: the Graphics screen, the port's own; see graphics_own.h. Its loop is EXTRAS' page logic (extras_menu.c) over the
  * same ops as graphics_menu.c (00423d28): the arrows move, Space / Enter / the left button choose, Escape cancels,
  * the idle deadline and the right button leave. What is new is the background (the clean one, composed once at run
- * time), the title, and the ten rows, which are all text over it. */
+ * time), the title, the rows, which are all text over it, and the two pages: page 1 the eleven settings, page 2 the
+ * PS1 look's four. The page indicator is the one EXTRAS draws (page_arrows.h). */
 #include "game/frontend/graphics_own.h"
 
 #include "core/formats/fsh.h"
+#include "game/frontend/page_arrows.h"
+#include "game/race/weather.h"
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
-       LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
+       PAGE_DOWN = 0x5100, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19 };
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_DIM = 4 /* TEXT_DIM (text.h) */ };
 enum { FOV_MIN = -10, FOV_MAX = 20, FOV_STEP = 5 };
@@ -20,33 +23,86 @@ enum { FOV_MIN = -10, FOV_MAX = 20, FOV_STEP = 5 };
 enum { TITLE_X = 8, TITLE_Y = 56 };
 /* the rows' text needs no panel: the background behind them is the clean one, with nothing burnt into it */
 
-static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
-                                                          "View Distance", "Fog", "Field of view", "Screen format",
-                                                          "Refresh rate", "Full screen", "Render threads", "Render scale" };
+/* every row id's label, by the global id: the buttons have none (their words are the background's) */
+enum { ROW_IDS = GRAPHICS_OWN_ROWS + GRAPHICS_OWN_PSX_COUNT };
+static const char *const LABEL[ROW_IDS] = {
+    [GRAPHICS_OWN_PERSPECTIVE] = "Perspective Correction", [GRAPHICS_OWN_FILTER] = "Texture Filter",
+    [GRAPHICS_OWN_SCALING] = "Scaling", [GRAPHICS_OWN_VIEW] = "View Distance", [GRAPHICS_OWN_FOG] = "Fog",
+    [GRAPHICS_OWN_FOV] = "Field of view", [GRAPHICS_OWN_FORMAT] = "Screen format", [GRAPHICS_OWN_REFRESH] = "Refresh rate",
+    [GRAPHICS_OWN_FULLSCREEN] = "Full screen", [GRAPHICS_OWN_BANDS] = "Render threads",
+    [GRAPHICS_OWN_SCALE] = "Render scale", [GRAPHICS_OWN_PSX_LIGHT] = "PS1 light", [GRAPHICS_OWN_PSX_SHADOW] = "PS1 shadow",
+    [GRAPHICS_OWN_PSX_TIME] = "Time of day", [GRAPHICS_OWN_WEATHER] = "Weather",
+};
 static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
+/* the values of the second page's switches, by PSX_TIME_* and WEATHER_* */
+static const char *const PSX_TIME_TEXT[3] = { "Day", "Dawn", "Dusk" };
+static const char *const WEATHER_TEXT[WEATHER_COUNT] = { "Clear", "Fog", "Rain" };
 
 /* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are 0..0x8c for
  * its first row and then about 53 apart, with Done and Cancel in 0x1a4..0x1e0. Eleven settings do not fit at that
  * pitch -- 0x1e0 is the bottom of the screen -- so the first row keeps the exe's band and the other ten share the
  * 280 pixels between it and Done's, 28 each: the last one ends at 0x1a3, one pixel above the buttons' band. The x's
  * are the exe's: the wide 0x280 for the settings, and its 0x140 / 0x145 corners for the two buttons, which are the
- * background's own words (config_bgnd.c's CORNERS). */
+ * background's own words (config_bgnd.c's CORNERS). The second page's four rows take the first four places of the
+ * first page, so they sit where page 1's first four do (the last four entries, row ids 13..16). */
 enum { WIDE = 0x280 };
-static const int16_t POINTER_X[GRAPHICS_OWN_ROWS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565 };
-static const int16_t POINTER_Y[GRAPHICS_OWN_ROWS] = { 116, 160, 188, 216, 244, 272, 300, 328, 356, 384, 412, 445, 445 };
-static const int16_t BAND_LEFT[GRAPHICS_OWN_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145 };
-static const int16_t BAND_RIGHT[GRAPHICS_OWN_ROWS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140,
-                                                       WIDE };
-static const int16_t BAND_TOP[GRAPHICS_OWN_ROWS] = { 0x0, 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c,
-                                                     0x188, 0x1a4, 0x1a4 };
-static const int16_t BAND_BOTTOM[GRAPHICS_OWN_ROWS] = { 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c, 0x188,
-                                                        0x1a3, 0x1e0, 0x1df };
+static const int16_t POINTER_X[ROW_IDS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565,
+                                            230, 230, 230, 230 };
+static const int16_t POINTER_Y[ROW_IDS] = { 116, 160, 188, 216, 244, 272, 300, 328, 356, 384, 412, 445, 445,
+                                            116, 160, 188, 216 };
+static const int16_t BAND_LEFT[ROW_IDS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145, 0, 0, 0, 0 };
+static const int16_t BAND_RIGHT[ROW_IDS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140, WIDE,
+                                             WIDE, WIDE, WIDE, WIDE };
+static const int16_t BAND_TOP[ROW_IDS] = { 0x0, 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c, 0x188, 0x1a4,
+                                           0x1a4, 0x0, 0x8c, 0xa8, 0xc4 };
+static const int16_t BAND_BOTTOM[ROW_IDS] = { 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c, 0x188, 0x1a3, 0x1e0,
+                                              0x1df, 0x8c, 0xa8, 0xc4, 0xe0 };
 /* the labels' y, as graphics_menu.c's TEXT_Y is: each ten below its band's top, and ten below every label the
  * pointer. The first sits 35 above the second (the exe's own 106 left it 44 above) and the rest are 28 apart, the
  * bands' own pitch */
-static const int16_t TEXT_Y[GRAPHICS_OWN_ROWS] = { 115, 150, 178, 206, 234, 262, 290, 318, 346, 374, 402, 438, 438 };
+static const int16_t TEXT_Y[ROW_IDS] = { 115, 150, 178, 206, 234, 262, 290, 318, 346, 374, 402, 438, 438,
+                                          115, 150, 178, 206 };
+
+/* The pages. Page 1 is the eleven settings, then Done and Cancel; page 2 the PS1 look's four, then Done and Cancel.
+ * A page's walk is its settings in order and then its two buttons, and the ids are the global ones: Done and Cancel
+ * are the same two on both pages. */
+static int settings_of(int page)
+{
+    return page == 0 ? GRAPHICS_OWN_SETTINGS : GRAPHICS_OWN_PSX_COUNT;
+}
+static int first_of(int page)
+{
+    return page == 0 ? GRAPHICS_OWN_PERSPECTIVE : GRAPHICS_OWN_PSX_LIGHT;
+}
+static int is_psx(int row)
+{
+    return row >= GRAPHICS_OWN_PSX_LIGHT && row < GRAPHICS_OWN_PSX_LIGHT + GRAPHICS_OWN_PSX_COUNT;
+}
+/* a settings row (a switch, a step) rather than one of the two buttons */
+static int is_setting(int row)
+{
+    return row < GRAPHICS_OWN_SETTINGS || is_psx(row);
+}
+/* the row at `slot` of a page: its settings first, then Done, then Cancel */
+static int row_at(int page, int slot)
+{
+    const int n = settings_of(page);
+    if (slot < n) return first_of(page) + slot;
+    return slot == n ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
+}
+static int slot_of(int page, int row)
+{
+    if (row == GRAPHICS_OWN_DONE) return settings_of(page);
+    if (row == GRAPHICS_OWN_CANCEL) return settings_of(page) + 1;
+    return row - first_of(page);
+}
+/* a page's slots: its settings and its two buttons */
+static int slots_of(int page)
+{
+    return settings_of(page) + 2;
+}
 
 static int wrap(int value, int direction, int count)
 {
@@ -114,8 +170,12 @@ int graphics_own_live_in_race(int setting, int16_t view, int ultra)
         return 0;
     case GRAPHICS_OWN_VIEW:
         return !(ultra && view == 0);
+    case GRAPHICS_OWN_PSX_LIGHT:   /* the PS1 look is read when the race starts (port_psx_light, port_psx_shadow, time) */
+    case GRAPHICS_OWN_PSX_SHADOW:
+    case GRAPHICS_OWN_PSX_TIME:
+        return 0;
     default:
-        return 1;
+        return 1;   /* weather is applied when the pause menu closes */
     }
 }
 
@@ -173,15 +233,31 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
         s->render_scale = VALUES[wrap(at, direction, 3)];
         break;
     }
+    case GRAPHICS_OWN_PSX_LIGHT:
+        s->psx_light ^= 1;
+        break;
+    case GRAPHICS_OWN_PSX_SHADOW:
+        s->psx_shadow ^= 1;
+        break;
+    case GRAPHICS_OWN_PSX_TIME:
+        s->psx_time = wrap(s->psx_time, direction, 3);   /* Day, Dawn, Dusk (PSX_TIME_*) */
+        break;
+    case GRAPHICS_OWN_WEATHER:
+        s->weather = wrap(s->weather, direction, WEATHER_COUNT);   /* Clear, Fog, Rain (WEATHER_*) */
+        break;
     default:
         break;   /* the view distance steps through config.dat's own short, not here */
     }
 }
 
-/* the ten rows that live in port.cfg. The view distance is read from config.dat instead, by the caller. */
+/* the rows that live in port.cfg. The view distance is read from config.dat instead, by the caller. */
 void graphics_own_value(const PortSettings *s, int setting, char out[16])
 {
     switch (setting) {
+    case GRAPHICS_OWN_PSX_LIGHT: snprintf(out, 16, "%s", s->psx_light ? "On" : "Off"); break;
+    case GRAPHICS_OWN_PSX_SHADOW: snprintf(out, 16, "%s", s->psx_shadow ? "On" : "Off"); break;
+    case GRAPHICS_OWN_PSX_TIME: snprintf(out, 16, "%s", PSX_TIME_TEXT[s->psx_time]); break;
+    case GRAPHICS_OWN_WEATHER: snprintf(out, 16, "%s", WEATHER_TEXT[s->weather]); break;
     case GRAPHICS_OWN_PERSPECTIVE: snprintf(out, 16, "%s", s->perspective ? "On" : "Off"); break;
     case GRAPHICS_OWN_FILTER: snprintf(out, 16, "%s", s->texture_filter ? "On" : "Off"); break;
     case GRAPHICS_OWN_SCALING: snprintf(out, 16, "%s", s->scale_integer ? "Whole" : "Fill"); break;
@@ -219,7 +295,22 @@ typedef struct Screen {
     uint8_t burnt_in_pal[GRAPHICS_PALETTE];
     int palette_on;   /* the palette put on the display, once: it is the same one on every redraw */
     uint8_t screen_pal[768];   /* the palette_set destination, kept apart from the one it reads */
+    int page;         /* 0 the first page, 1 the PS1 look's second (GRAPHICS_OWN_PAGES) */
+    int nav_lit;      /* the page indicator's triangle the pointer is on (page_nav_lit), 0 none */
 } Screen;
+
+/* the page indicator's box and its ops: the screen's own text and triangles, as EXTRAS' indicator has them */
+static PageNavOps nav_ops(const GraphicsMenuOps *o)
+{
+    const PageNavOps n = { o->ctx, o->plus_text_smooth != NULL ? o->plus_text_smooth : o->plus_text,
+                           o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow };
+    return n;
+}
+
+static int on_nav(const GraphicsMenuOps *o)
+{
+    return o->pointer_in_rect(o->ctx, PAGE_NAV_X0, PAGE_NAV_X1, PAGE_NAV_Y0, PAGE_NAV_Y1);
+}
 
 /* The clean configuration background, composed at run time from the CD and kept: config_bgnd_load reads the ten
  * screens it is built from, and the screen redraws on every move. `plus_bgnd` is the glue's; with none (a screen
@@ -309,19 +400,38 @@ static void select_row(Screen *s, int row, const GraphicsMenuOps *o)
     o->sound(o->ctx, MOVED);
 }
 
-/* the first band the pointer is in becomes the selection */
+/* the page's first row is the selection after a page turn, the pointer goes to it, and the page is redrawn */
+static void turn(Screen *s, int page, const GraphicsMenuOps *o)
+{
+    s->page = page;
+    s->selected = (int16_t)row_at(page, 0);
+    s->redraw = 1;
+    s->nav_lit = 0;
+    move_to(s->selected, o);
+    o->sound(o->ctx, MOVED);
+}
+
+/* the page indicator's triangle the pointer is on, redrawn when it changes */
+static void follow_nav(Screen *s, const GraphicsMenuOps *o)
+{
+    const PageNavOps nav = nav_ops(o);
+    const int lit = page_nav_lit(&nav, s->page, GRAPHICS_OWN_PAGES);
+    if (lit != s->nav_lit) s->nav_lit = lit, s->redraw = 1;
+}
+
+/* the first band the pointer is in becomes the selection; over the page indicator it is none (the indicator's box
+ * overlaps Done's band, so it is checked first) */
 static void follow(Screen *s, const GraphicsMenuOps *o)
 {
-    for (int row = 0; row < GRAPHICS_OWN_ROWS; row++)
+    follow_nav(s, o);
+    if (on_nav(o)) return;
+    for (int slot = 0; slot < slots_of(s->page); slot++) {
+        const int row = row_at(s->page, slot);
         if (o->pointer_in_rect(o->ctx, BAND_LEFT[row], BAND_RIGHT[row], BAND_TOP[row], BAND_BOTTOM[row])) {
             select_row(s, row, o);
             return;
         }
-}
-
-static int row_y(int row)
-{
-    return TEXT_Y[row];
+    }
 }
 
 /* one row's text: the label at the column's left edge, its value at the right, the selection lit */
@@ -338,8 +448,8 @@ static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
         snprintf(shown, sizeof shown, "%s", value);
     else
         snprintf(shown, sizeof shown, "%s (next race)", value);
-    own_text(o, style, LABEL[row], GRAPHICS_OWN_LABEL_X, row_y(row));
-    text_right(o, style, shown, GRAPHICS_OWN_VALUE_RIGHT, row_y(row));
+    own_text(o, style, LABEL[row], GRAPHICS_OWN_LABEL_X, TEXT_Y[row]);
+    text_right(o, style, shown, GRAPHICS_OWN_VALUE_RIGHT, TEXT_Y[row]);
 }
 
 /* the clean background is a picture of the screen, so it is blitted whole, then its palette put on before the
@@ -359,7 +469,7 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
         memcpy(s->screen_pal, s->palette, sizeof s->screen_pal);
         o->palette_set(o->ctx, s->screen_pal, 0, 0x100, s->palette, FSH_TYPE_PALETTE_8BIT);
     }
-    for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) row_text(s, row, o);
+    for (int slot = 0; slot < settings_of(s->page); slot++) row_text(s, row_at(s->page, slot), o);
     if (o->plus_title != NULL)
         o->plus_title(o->ctx, TITLE, TITLE_X, TITLE_Y);
     else
@@ -374,6 +484,9 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
         if (done != NULL) o->blit_own(o->ctx, done);
         if (cancel != NULL) o->blit_own(o->ctx, cancel);
     }
+    /* the page indicator, drawn over the background after the buttons, as EXTRAS' page draws it */
+    const PageNavOps nav = nav_ops(o);
+    page_nav_draw(&nav, s->page, GRAPHICS_OWN_PAGES, s->nav_lit);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->unlock(o->ctx);
@@ -432,11 +545,16 @@ static void choose(Screen *s, const GraphicsMenuOps *o)
 {
     o->pointer_click(o->ctx);
     if (s->armed) {
-        o->sound(o->ctx, CHOSEN);
-        if (s->selected < GRAPHICS_OWN_SETTINGS)
-            step_row(s, o, s->selected, 1);
-        else
-            s->result = s->selected == GRAPHICS_OWN_DONE;
+        /* the page indicator turns the page (round), whatever row the selection is on */
+        if (on_nav(o)) {
+            turn(s, (s->page + 1) % GRAPHICS_OWN_PAGES, o);
+        } else {
+            o->sound(o->ctx, CHOSEN);
+            if (is_setting(s->selected))
+                step_row(s, o, s->selected, 1);
+            else
+                s->result = s->selected == GRAPHICS_OWN_DONE;
+        }
     }
     o->ticks(o->ctx);
     s->released = s->armed = 0;
@@ -449,14 +567,25 @@ static void step(Screen *s, uint16_t k, const GraphicsMenuOps *o)
     if (k == ESCAPE) {
         s->result = 0;
         o->sound(o->ctx, CHOSEN);
+    } else if (k == PAGE_DOWN) {
+        turn(s, (s->page + 1) % GRAPHICS_OWN_PAGES, o);
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
-        const int from = s->selected;
-        const int to = k == DOWN ? (from + 1) % GRAPHICS_OWN_ROWS : (from + GRAPHICS_OWN_ROWS - 1) % GRAPHICS_OWN_ROWS;
-        select_row(s, to, o);
+        const int n = slots_of(s->page);
+        const int from = slot_of(s->page, s->selected);
+        const int to = k == DOWN ? (from + 1) % n : (from + n - 1) % n;
+        select_row(s, row_at(s->page, to), o);
         move_to(s->selected, o);
     } else if (k == LEFT || k == RIGHT) {
-        if (s->selected < GRAPHICS_OWN_SETTINGS) {
+        /* Left on Done and Right on Cancel turn the page, as EXTRAS' do; on the first page Right on Cancel goes on to
+         * the second. Anywhere else they step a setting, or walk between the two buttons. */
+        if (s->selected == GRAPHICS_OWN_DONE && k == LEFT && s->page > 0) {
+            turn(s, s->page - 1, o);
+            select_row(s, GRAPHICS_OWN_CANCEL, o);
+            move_to(s->selected, o);
+        } else if (s->selected == GRAPHICS_OWN_CANCEL && k == RIGHT && s->page + 1 < GRAPHICS_OWN_PAGES) {
+            turn(s, s->page + 1, o);
+        } else if (is_setting(s->selected)) {
             step_row(s, o, s->selected, k == RIGHT ? 1 : -1);
         } else {
             /* Left and Right walk between Done and Cancel, as the original's last row does */

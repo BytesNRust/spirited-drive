@@ -1,5 +1,7 @@
-/* port: the Graphics screen, the port's own: eleven settings in the order the owner named them, over the configuration
- * screens' clean background with no burnt-in text, the game's own letters and its Done/Cancel. Not in the original:
+/* port: the Graphics screen, the port's own: two pages over the configuration screens' clean background with no burnt-in
+ * text, the game's own letters and its Done/Cancel. Page 1 is the eleven settings in the order the owner named them;
+ * page 2 is the PS1 look's four (psx_light, psx_shadow, psx_time, weather). The page indicator turns the page as
+ * EXTRAS' does. Not in the original:
  * the original's graphics_menu.c (00423d28) is kept as it is, and no longer on any path of the game -- both Options
  * and the race's pause menu open this screen. In the race (GraphicsPlus.race) the rows the next race reads are shown
  * dimmed and cannot be changed (graphics_own_live_in_race).
@@ -11,8 +13,8 @@
 
 #include "game/frontend/graphics_menu.h"
 
-/* the eleven settings, in the owner's order, then the two buttons. DONE restarts from SETTINGS, as graphics_plus.h's
- * ROW_DONE does: without it the two buttons would start one row after the settings' count. */
+/* the first page's eleven settings, in the owner's order, then the two buttons. DONE restarts from SETTINGS, as
+ * graphics_plus.h's ROW_DONE does: without it the two buttons would start one row after the settings' count. */
 enum { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
        GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_BANDS,
        GRAPHICS_OWN_SCALE, GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_DONE = GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_CANCEL,
