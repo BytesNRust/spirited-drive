@@ -289,6 +289,24 @@ static void test_mask(void)
     }
 }
 
+/* the draft of a masked texture carries the mask's three classes: 0 paint, 128 keep with the shine (glass, lamps), 255 keep matte; a masked paint
+ * texel among kept ones (and a mask 0 on a dithered or lamp-slot texel) is paint all the same, as the repaint does it */
+static void test_draft_carries_the_masks_classes(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    f.body[7] = 0xfe;   /* a lamp slot, the mask says paint */
+    uint8_t mask[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 3 == 0 ? 0 : i % 3 == 1 ? 128 : 255);
+    mask[7] = 0, mask[6] = 255, mask[8] = 128;
+    f.tex[0].mask = mask;
+    uint8_t *const keeps[3] = { keep0, keep1, keep2 };
+    CHECK(car_repaint_draft(&f.bank, 44, keeps) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        CHECK_EQ_INT(keep0[i], mask[i] == 0 ? REPAINT_DRAFT_PAINT : mask[i] == 128 ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE);
+}
+
 /* the PS1 pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
 static void test_mask_pairs(void)
 {
@@ -387,5 +405,6 @@ int main(void)
     test_mask();
     test_mask_pairs();
     test_draft();
+    test_draft_carries_the_masks_classes();
     return TEST_REPORT();
 }

@@ -123,8 +123,30 @@ static void test_the_level_follows_the_byte(void)
     }
 }
 
+/* the steps between a table's neighbouring levels that jump far in colour are marked hard (they are not dithered): a red to a pink, not a red to
+ * the next red; the lightest level has no step above it */
+static void test_far_steps_are_hard(void)
+{
+    uint8_t palette[768] = { 0 };
+    static uint8_t tab[CAR_SHINE_LEVELS][256], hard[CAR_SHINE_LEVELS][256];
+    const uint8_t cols[5][3] = { { 0, 0, 0 }, { 251, 56, 52 }, { 186, 89, 81 }, { 178, 24, 24 }, { 158, 4, 8 } };
+    for (int e = 0; e < 5; e++)
+        for (int k = 0; k < 3; k++) palette[3 * e + k] = cols[e][k];
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++)
+        for (int i = 0; i < 256; i++) tab[l][i] = (uint8_t)i;
+    tab[5][1] = 1, tab[6][1] = 2;    /* red to pink: 79 apart */
+    tab[5][3] = 3, tab[6][3] = 4;    /* red to a darker red: 32 apart */
+    tab[CAR_SHINE_LEVELS - 1][1] = 2;
+    car_envmap_hard(palette, tab, hard);
+    CHECK_EQ_INT(hard[5][1], 1);
+    CHECK_EQ_INT(hard[5][3], 0);
+    CHECK_EQ_INT(hard[4][1], 0);                          /* the same entry at both levels */
+    CHECK_EQ_INT(hard[CAR_SHINE_LEVELS - 1][1], 0);       /* no level above the lightest */
+}
+
 int main(void)
 {
+    test_far_steps_are_hard();
     test_facing_the_viewer_is_the_centre();
     test_turned_to_the_right_maps_right_of_centre();
     test_an_up_facing_panel_reflects_the_sky();

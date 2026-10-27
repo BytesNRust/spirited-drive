@@ -1,5 +1,6 @@
 /* port (body shine): see car_shine.h. */
 #include "game/race/car_shine.h"
+#include "game/race/car_envmap.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -117,6 +118,18 @@ void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVEL
             glass[l][i] = nearest_entry(palette, fam, like, want);
         }
     }
+}
+
+void car_envmap_hard(const uint8_t palette[768], const uint8_t tables[16][256], uint8_t hard[16][256])
+{
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++)
+        for (int i = 0; i < 256; i++) {
+            hard[l][i] = 0;
+            if (l + 1 >= CAR_SHINE_LEVELS) continue;
+            const uint8_t *a = palette + 3 * tables[l][i], *b = palette + 3 * tables[l + 1][i];
+            const float dr = (float)a[0] - b[0], dg = (float)a[1] - b[1], db = (float)a[2] - b[2];
+            hard[l][i] = dr * dr + dg * dg + db * db > CAR_ENVMAP_HARD_STEP * CAR_ENVMAP_HARD_STEP;
+        }
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : v > hi ? hi : v; }

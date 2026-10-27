@@ -21,6 +21,7 @@ typedef struct {
     int valid;
     uint8_t tables[CAR_SHINE_LEVELS][256];                 /* the classic pass, strength 1..3 */
     uint8_t paint[CAR_SHINE_LEVELS][256], glass[CAR_SHINE_LEVELS][256];   /* the envmap, strength 4 */
+    uint8_t paint_hard[CAR_SHINE_LEVELS][256], glass_hard[CAR_SHINE_LEVELS][256];
     EnvShine env;
 } Made;
 
@@ -51,7 +52,9 @@ static Made *made_for(const uint8_t palette[768])
     m->kind = kind;
     if (kind == KIND_ENVMAP) {
         car_envmap_tables(palette, m->paint, m->glass);
-        m->env = (EnvShine){ m->paint, m->glass, car_envmap_image() };
+        car_envmap_hard(palette, m->paint, m->paint_hard);
+        car_envmap_hard(palette, m->glass, m->glass_hard);
+        m->env = (EnvShine){ m->paint, m->glass, car_envmap_image(), m->paint_hard, m->glass_hard };
     } else {
         car_shine_tables(palette, m->tables);
     }

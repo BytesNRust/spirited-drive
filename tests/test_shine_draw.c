@@ -1,6 +1,8 @@
 /* port (body shine): the second pass (shine_draw.h) on a software target: only the texels the class map calls paint change, by the level's
  * table; the level runs across the polygon; Modern 3D's pass is perspective-correct; a recorded draw is the direct one. */
 #include "game/gfx/raster_record.h"
+#include "game/race/car_envmap.h"
+#include "game/race/car_repaint.h"
 #include "game/viewer/shine_draw.h"
 #include "test.h"
 
@@ -217,8 +219,63 @@ static void test_recorded_is_the_direct_draw(void)
     free(rec);
 }
 
+/* the envmap pass on the draft's own class codes (car_repaint.h: 0 paint, 1 matte, 2 shine): paint through the paint table, the glass and lamps
+ * (shine) through the glass table, matte not at all. The image is all sky, so every pixel asks for a lifted level. */
+static uint8_t image[CAR_ENVMAP_SIZE * CAR_ENVMAP_SIZE];
+static uint8_t paint_tab[CAR_SHINE_LEVELS][256], glass_tab[CAR_SHINE_LEVELS][256], paint_hard[CAR_SHINE_LEVELS][256], glass_hard[CAR_SHINE_LEVELS][256];
+
+static EnvShine env_setup(uint8_t sample)
+{
+    setup();
+    memset(image, sample, sizeof image);
+    memset(paint_hard, 0, sizeof paint_hard), memset(glass_hard, 0, sizeof glass_hard);
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++)
+        for (int i = 0; i < 256; i++) {
+            paint_tab[l][i] = (uint8_t)(i == START ? 60 + l : i);
+            glass_tab[l][i] = (uint8_t)(i == START ? 160 + l : i);
+        }
+    for (int y = 0; y < TEX; y++)
+        for (int x = 0; x < TEX; x++) klass[y * TEX + x] = x < 3 ? REPAINT_DRAFT_PAINT : x < 6 ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE;
+    return (EnvShine){ .paint = paint_tab, .glass = glass_tab, .image = image, .paint_hard = paint_hard, .glass_hard = glass_hard };
+}
+
+static void test_the_envmap_shines_the_drafts_glass(void)
+{
+    const EnvShine env = env_setup(255);
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    float c[2] = { 0.5f, 0.5f };
+    const int32_t packed[4] = { car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c) };
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    CHECK(screen_px[24 * W + 10] >= 60 && screen_px[24 * W + 10] < 60 + CAR_SHINE_LEVELS);    /* paint: the paint table */
+    CHECK(screen_px[24 * W + 22] >= 160 && screen_px[24 * W + 22] < 160 + CAR_SHINE_LEVELS);  /* shine (glass, lamps): the glass table */
+    CHECK_EQ_INT(screen_px[24 * W + 36], START);                                              /* matte: untouched */
+}
+
+/* where the two levels' entries a pixel falls between are far apart in colour (`hard`), the pixel takes the nearer one, not a dither of both */
+static void test_a_hard_step_is_not_dithered(void)
+{
+    EnvShine env = env_setup(183);   /* level 8.29 */
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, 2, 0, 2, TEX, 0, TEX };
+    float c[2] = { 0.5f, 0.5f };
+    const int32_t packed[4] = { car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c) };
+    int lower = 0, upper = 0;
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    for (int y = 10; y < 38; y++)
+        for (int x = 10; x < 38; x++) lower += screen_px[y * W + x] == 68, upper += screen_px[y * W + x] == 69;
+    CHECK(lower > 0 && upper > 0);   /* an ordinary step is dithered between the two */
+    env_setup(183);
+    memset(paint_hard[8], 1, 256);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    lower = upper = 0;
+    for (int y = 10; y < 38; y++)
+        for (int x = 10; x < 38; x++) lower += screen_px[y * W + x] == 68, upper += screen_px[y * W + x] == 69;
+    CHECK(lower > 0 && upper == 0);  /* a hard one takes the nearer level (8.29: 8) everywhere */
+}
+
 int main(void)
 {
+    test_the_envmap_shines_the_drafts_glass();
+    test_a_hard_step_is_not_dithered();
     test_only_paint_texels_change();
     test_the_level_runs_across_the_polygon();
     test_a_triangle_and_the_clip();

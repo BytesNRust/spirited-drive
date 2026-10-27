@@ -24,6 +24,7 @@ typedef struct {
     const uint8_t (*paint)[256];
     const uint8_t (*glass)[256];
     const uint8_t *image;
+    const uint8_t (*paint_hard)[256], (*glass_hard)[256];   /* car_envmap_hard of each table: a step not to dither (may be NULL: none) */
 } EnvShine;
 
 /* the exe's path: the polygon's integer screen corners (x, y) and its uvs in whole texels (as the mappers take them), 3 or 4 corners, affine;

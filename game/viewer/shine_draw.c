@@ -3,11 +3,13 @@
 
 #include "game/gfx/raster_record.h"
 #include "game/race/car_envmap.h"
+#include "game/race/car_repaint.h"
 
 #include <math.h>
 #include <string.h>
 
-enum { MAX_VERTS = 8, SHINE_PAINT = 0, SHINE_GLASS = 128 };
+/* the class map's codes are the draft's (car_repaint.h): paint, matte and shine (glass, lamps) */
+enum { MAX_VERTS = 8, SHINE_PAINT = REPAINT_DRAFT_PAINT, SHINE_GLASS = REPAINT_DRAFT_SHINE };
 static const float EDGE_GROW = 0.45f;   /* modern_road.c's: a polygon's outer edges reach this much of a pixel out */
 static const float ROW_REACH = 0.5f;    /* the exe's mapper rounds a row's ends: half a pixel past an outer edge, either way (the square the mapper's rounding spans) */
 static const float IZ_MIN = 1e-9f;
@@ -69,7 +71,13 @@ static void envmap_pixel(uint8_t *px, const EnvShine *env, int glass, float eu, 
 {
     const uint8_t sample = car_envmap_sample(env->image, eu, ev);
     const float gain = glass ? CAR_ENVMAP_GLASS_GAIN : CAR_ENVMAP_BODY_GAIN;
-    int level = (int)floorf(car_envmap_level(sample, gain) + BAYER[y & 3][x & 3]);
+    const float want = car_envmap_level(sample, gain);
+    const int lo = (int)floorf(want);
+    /* between two levels the entries may be far apart in colour (a red palette steps from red to pink): a dither between them is noise, so the
+     * pixel takes the nearer one there (car_envmap_hard) */
+    const uint8_t (*hard)[256] = glass ? env->glass_hard : env->paint_hard;
+    const float threshold = hard != NULL && lo >= 0 && lo < CAR_SHINE_LEVELS && hard[lo][*px] ? 0.5f : BAYER[y & 3][x & 3];
+    int level = (int)floorf(want + threshold);
     level = level < 0 ? 0 : level >= CAR_SHINE_LEVELS ? CAR_SHINE_LEVELS - 1 : level;
     *px = (glass ? env->glass : env->paint)[level][*px];
 }

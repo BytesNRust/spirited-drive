@@ -17,6 +17,12 @@ void car_envmap_uv(const float normal[3], const float view[3], float uv[2]);
 int32_t car_envmap_pack(const float uv[2]);
 void car_envmap_unpack(int32_t packed, float uv[2]);
 
+/* `hard`[level][entry] is 1 where the entries `tables` gives at that level and the next are farther apart in colour than CAR_ENVMAP_HARD_STEP (RGB
+ * distance, 8 bits): a palette with few entries in a hue (a red) steps from a red to a pink there, and a dither between the two is noise, not a
+ * blend. The lightest level has no step above it. */
+#define CAR_ENVMAP_HARD_STEP 48.0f
+void car_envmap_hard(const uint8_t palette[768], const uint8_t tables[16][256], uint8_t hard[16][256]);
+
 /* the image, made on the first call (CAR_ENVMAP_SIZE^2 bytes, kept for the run) */
 const uint8_t *car_envmap_image(void);
 

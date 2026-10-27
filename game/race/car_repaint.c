@@ -1,4 +1,5 @@
 #include "game/race/car_repaint.h"
+#include "game/race/car_mask.h"
 #include "game/race/car_paint.h"
 
 #include <math.h>
@@ -314,7 +315,9 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
                 const int to = remap[tex->pixels[i]];
                 if (tex->mask != NULL ? tex->mask[i] == 0 : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
                     draft[t][i] = REPAINT_DRAFT_PAINT, changed++;
-                } else if (tex->mask == NULL && !kept(tex, i)) {
+                } else if (tex->mask != NULL) {   /* the mask's class: glass and lamps shine, the rest is matte */
+                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE;
+                } else if (!kept(tex, i)) {
                     draft[t][i] = (uint8_t)((guard[t] != NULL && guard[t][i]) || shines(bank, tex->pixels[i], floor) ? REPAINT_DRAFT_SHINE
                                                                                                                   : REPAINT_DRAFT_MATTE);
                 }
