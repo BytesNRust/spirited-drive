@@ -236,9 +236,10 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).psx_shadow, 1);
     const char *bad_shadow = "psx_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
-    const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *bad_shine = "body_shine=4\n";
+    const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
     CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 1);
     CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 3);
+    CHECK_EQ_INT(port_settings_parse(envmap, strlen(envmap)).body_shine, 4);
     CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 2);
     CHECK_EQ_INT(port_settings_parse(bad_shine, strlen(bad_shine)).body_shine, 0);
     const char *lit = "psx_light=1\n";

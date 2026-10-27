@@ -59,10 +59,27 @@ static void test_the_worlds_up_in_the_cameras_space(void)
     body_shine_end();
 }
 
+/* strength 4 is the envmap: its tables (paint and glass) come with the image, and the classic tables are not made; 0..3 make no envmap */
+static void test_strength_four_is_the_envmap(void)
+{
+    body_shine_enable(4);
+    body_shine_begin(palette_a, IDENTITY);
+    CHECK(body_shine_env() != NULL && body_shine_env()->image != NULL);
+    CHECK(body_shine_env()->paint != NULL && body_shine_env()->glass != NULL);
+    CHECK(body_shine_tables() == NULL);
+    body_shine_end();
+    CHECK(body_shine_env() == NULL);
+    body_shine_enable(3);
+    body_shine_begin(palette_a, IDENTITY);
+    CHECK(body_shine_env() == NULL && body_shine_tables() != NULL);
+    body_shine_end();
+}
+
 int main(void)
 {
     test_off_sets_nothing();
     test_on_makes_tables_for_the_palette_and_keeps_them();
     test_the_worlds_up_in_the_cameras_space();
+    test_strength_four_is_the_envmap();
     return TEST_REPORT();
 }

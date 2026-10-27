@@ -4,6 +4,7 @@
 #include "game/gfx/object_mappers.h"
 #include "game/gfx/palette_match.h"
 #include "game/gfx/quad.h"
+#include "game/race/car_envmap.h"
 #include "viewer/modern_road.h"
 #include "viewer/shine_class.h"
 
@@ -34,6 +35,11 @@ void object_sink_set_shine(ShineTables tables, const float *up)
 }
 void object_sink_set_shine_strength(int strength) { shine_strength = strength; }
 
+/* port (body_shine 4): the envmap pass's tables and image, NULL for none (kept by pointer until the frame is flushed) */
+static const EnvShine *env_shine;
+
+void object_sink_set_envmap(const EnvShine *env) { env_shine = env; }
+
 /* the shine level at each corner of a polygon that carries normals: its normal reflected about the line of sight (the eye is the origin of the
  * camera space); a corner without a normal stays neutral. 0 when the polygon takes no pass. */
 static int shine_levels(const Object3DCorners *c, float level[4])
@@ -52,6 +58,26 @@ static int shine_levels(const Object3DCorners *c, float level[4])
 }
 
 static void shine_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, const Object3DCorners *c);
+static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, const Object3DCorners *c);
+
+/* port (body_shine 4): each corner's sphere-map uv of the envmap (car_envmap.h) from its normal and the line of sight, packed; 0 when the
+ * polygon carries no normals */
+static int envmap_corners(const Object3DCorners *c, int32_t packed[4])
+{
+    if (c->normal == NULL || c->corners < 3 || c->corners > 4) return 0;
+    for (int i = 0; i < c->corners; i++) {
+        const float *n = c->normal + 3 * i;
+        const float p[3] = { (float)c->camera[3 * i], (float)c->camera[3 * i + 1], (float)c->camera[3 * i + 2] };
+        const float len = sqrtf(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+        float uv[2] = { 0.5f, 0.5f };
+        if (len > 0 && !(n[0] == 0 && n[1] == 0 && n[2] == 0)) {
+            const float v[3] = { p[0] / len, p[1] / len, p[2] / len };
+            car_envmap_uv(n, v, uv);
+        }
+        packed[i] = car_envmap_pack(uv);
+    }
+    return 1;
+}
 
 static void textured(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
 {
@@ -80,6 +106,7 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
         break;
     }
     shine_exe(s, shape, texture, c);
+    envmap_exe(s, shape, texture, c);
 }
 
 /* 00473140 on an 8-bit screen without the inverse table: the nearest of
@@ -150,6 +177,17 @@ static void shine_exe(const ObjectSink *s, ObjShape shape, const FshEntry *textu
     shine_draw_affine(s->target, cls, shine_tables, c->screen, uv, level, c->corners);
 }
 
+/* port (body_shine 4): the envmap's pass on the exe's path, the same polygon and uvs as shine_exe */
+static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, const Object3DCorners *c)
+{
+    int32_t packed[4], uv16[8], uv[8];
+    const ShineClass *cls;
+    if (env_shine == NULL || texture->type != FSH_TYPE_BITMAP || (cls = shine_class_find(texture->payload)) == NULL) return;
+    if (!envmap_corners(c, packed) || !camera_uv(shape, texture, c, uv16)) return;
+    for (int i = 0; i < 2 * c->corners; i++) uv[i] = uv16[i] >> 16;
+    shine_draw_env_affine(s->target, cls, env_shine, c->screen, uv, packed, c->corners);
+}
+
 static void textured_camera(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
@@ -162,9 +200,13 @@ static void textured_camera(void *user, Object3DTable table, int mode, const Fsh
     modern_polygon(s->target, s->view, texture, uv, cam, c->corners, lit_mode(base), lit_shade(base, s->shade));
     float level[4];
     const ShineClass *cls;
+    int32_t packed[4];
     if (shine_tables != NULL && (cls = shine_class_find(texture->payload)) != NULL && shine_levels(c, level)) {   /* port (body shine) */
         shine_draw_set_view(s->view);
         shine_draw_camera(s->target, cls, shine_tables, uv, cam, level, c->corners);
+    } else if (env_shine != NULL && (cls = shine_class_find(texture->payload)) != NULL && envmap_corners(c, packed)) {   /* port (body_shine 4) */
+        shine_draw_set_view(s->view);
+        shine_draw_env_camera(s->target, cls, env_shine, uv, cam, packed, c->corners);
     }
 }
 

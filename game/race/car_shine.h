@@ -15,6 +15,10 @@ enum { CAR_SHINE_LEVELS = 16, CAR_SHINE_NEUTRAL = 4 };
  * the colour scaled up and lifted toward white. The markers 0xfe and 0xff and the near-black entries (trim, tyres, glass) stay. */
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256]);
 
+/* port (body_shine 4, envmap, car_envmap.h): the tables for the palette's paint texels and for the keep-and-shine ones (glass, lamps), level by
+ * level as car_shine_tables, but a highlight goes toward white and loses saturation. The glass (mask 128) keeps its own colour as the base. */
+void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVELS][256], uint8_t glass[CAR_SHINE_LEVELS][256]);
+
 /* the level (0 .. CAR_SHINE_LEVELS - 1, fractional: the draw dithers between two) of a surface with the unit `normal` (camera space, toward the
  * viewer, the exe's y up) seen along the unit `view` (from the eye to the surface). `up` is the world's up in the camera's space (unit): the
  * reflection is looked up against it, so the horizon is the world's and holds still while the body pitches, rolls and yaws under it, as in

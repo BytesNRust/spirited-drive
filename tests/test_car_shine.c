@@ -142,6 +142,21 @@ static void test_strength_raises_the_bright_band_and_deepens_the_dark_one(void)
     for (int st = 1; st <= 3; st++) CHECK(sky[st] <= CAR_SHINE_LEVELS - 1 && dark[st] >= 0);
 }
 
+/* the envmap tables (body_shine 4): the neutral level is the palette itself, a lift takes a red lighter in its own family, and the glass and
+ * the paint get the same lift of their own colour (the same intensity) */
+static void test_envmap_tables_lift_in_the_colours_own_family(void)
+{
+    uint8_t pal[768], paint[CAR_SHINE_LEVELS][256], glass[CAR_SHINE_LEVELS][256];
+    palette(pal);
+    car_envmap_tables(pal, paint, glass);
+    CHECK_EQ_INT(paint[CAR_SHINE_NEUTRAL][RED], RED);
+    CHECK_EQ_INT(glass[CAR_SHINE_NEUTRAL][BLUE], BLUE);
+    CHECK(luma(pal, paint[CAR_SHINE_LEVELS - 1][RED]) > luma(pal, RED));
+    CHECK(luma(pal, glass[CAR_SHINE_LEVELS - 1][BLUE]) > luma(pal, BLUE));
+    CHECK(luma(pal, paint[0][RED]) < luma(pal, RED));
+    CHECK_EQ_INT(paint[CAR_SHINE_LEVELS - 1][BLACK], BLACK);   /* the near-black trim stays */
+}
+
 int main(void)
 {
     test_tables_neutral_level_is_the_palette_itself();
@@ -152,5 +167,6 @@ int main(void)
     test_the_level_follows_the_worlds_up_not_the_cameras();
     test_the_horizon_is_a_line_between_a_bright_and_a_dark_band();
     test_strength_raises_the_bright_band_and_deepens_the_dark_one();
+    test_envmap_tables_lift_in_the_colours_own_family();
     return TEST_REPORT();
 }

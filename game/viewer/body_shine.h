@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-void body_shine_enable(int strength);   /* the flag, read at the cars' load: 0 off, 1..3 the strength (car_shine.h) */
+void body_shine_enable(int strength);   /* the flag, read at the cars' load: 0 off, 1..3 the strength (car_shine.h), 4 the envmap (car_envmap.h) */
 int body_shine_enabled(void);
 
 /* Before a car's body is drawn with `palette` (768 bytes, 8 bits) under the camera `camera_matrix` (16.16, the one the weather's sky uses): the
@@ -17,8 +17,10 @@ int body_shine_enabled(void);
 void body_shine_begin(const uint8_t palette[768], const int32_t camera_matrix[9]);
 void body_shine_end(void);
 
-/* what the last begin set (for the tests): the tables or NULL, and the world's up in the camera's space (unit) */
+/* what the last begin set (for the tests): the classic tables or NULL, the envmap's tables (strength 4) or NULL, and the world's up in the
+ * camera's space (unit) */
 ShineTables body_shine_tables(void);
+const EnvShine *body_shine_env(void);
 const float *body_shine_up(void);
 
 #endif

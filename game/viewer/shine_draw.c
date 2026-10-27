@@ -2,11 +2,12 @@
 #include "viewer/shine_draw.h"
 
 #include "game/gfx/raster_record.h"
+#include "game/race/car_envmap.h"
 
 #include <math.h>
 #include <string.h>
 
-enum { MAX_VERTS = 8 };
+enum { MAX_VERTS = 8, SHINE_PAINT = 0, SHINE_GLASS = 128 };
 static const float EDGE_GROW = 0.45f;   /* modern_road.c's: a polygon's outer edges reach this much of a pixel out */
 static const float ROW_REACH = 0.5f;    /* the exe's mapper rounds a row's ends: half a pixel past an outer edge, either way (the square the mapper's rounding spans) */
 static const float IZ_MIN = 1e-9f;
@@ -23,9 +24,16 @@ static const View *kept_view;
 
 void shine_draw_set_view(const View *view) { kept_view = view; }
 
-/* a corner on the screen: 1 / z (1 for the affine pass) and u, v, level over z */
+/* what a pass draws with: the classic levels through `tables`, or (env set) the envmap, whose level comes from the image at each pixel */
 typedef struct {
-    float sx, sy, iz, uz, vz, lz;
+    const ShineClass *cls;
+    ShineTables tables;
+    const EnvShine *env;
+} Shine;
+
+/* a corner on the screen: 1 / z (1 for the affine pass), u, v, level and the envmap's sphere uv, each over z */
+typedef struct {
+    float sx, sy, iz, uz, vz, lz, eu, ev;
 } Screen;
 
 static float edge(const Screen *a, const Screen *b, float x, float y)
@@ -55,8 +63,19 @@ static int owns_tie(const Screen *from, const Screen *to)
     return dy > 0 || (dy == 0 && dx < 0);
 }
 
-static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin,
-                     float grow, float row_reach, const ShineClass *cls, ShineTables tables)
+/* port (body_shine 4): the pixel at (x, y) takes the envmap's level at its interpolated uv, at the paint's intensity or the glass's, dithered,
+ * through the paint table or the glass table */
+static void envmap_pixel(uint8_t *px, const EnvShine *env, int glass, float eu, float ev, int x, int y)
+{
+    const uint8_t sample = car_envmap_sample(env->image, eu, ev);
+    const float gain = glass ? CAR_ENVMAP_GLASS_GAIN : CAR_ENVMAP_BODY_GAIN;
+    int level = (int)floorf(car_envmap_level(sample, gain) + BAYER[y & 3][x & 3]);
+    level = level < 0 ? 0 : level >= CAR_SHINE_LEVELS ? CAR_SHINE_LEVELS - 1 : level;
+    *px = (glass ? env->glass : env->paint)[level][*px];
+}
+
+static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin, float grow,
+                     float row_reach, const Shine *sh)
 {
     const float area = edge(a, b, c->sx, c->sy);
     if (fabsf(area) < 1e-6f) return;
@@ -87,39 +106,50 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
             const float r = 1.0f / iz;
             const float u = (wa * a->uz + wb * b->uz + wc * c->uz) * r, v = (wa * a->vz + wb * b->vz + wc * c->vz) * r;
             int tx = (int)floorf(u), ty = (int)floorf(v);
-            tx = tx < 0 ? 0 : tx >= cls->width ? cls->width - 1 : tx;
-            ty = ty < 0 ? 0 : ty >= cls->height ? cls->height - 1 : ty;
-            if (cls->klass[(size_t)ty * (size_t)cls->width + (size_t)tx] != 0) continue;   /* not paint */
+            tx = tx < 0 ? 0 : tx >= sh->cls->width ? sh->cls->width - 1 : tx;
+            ty = ty < 0 ? 0 : ty >= sh->cls->height ? sh->cls->height - 1 : ty;
+            const uint8_t k = sh->cls->klass[(size_t)ty * (size_t)sh->cls->width + (size_t)tx];
+            if (sh->env != NULL) {
+                /* the mask drives the shine: paint (0) at the body intensity, tinted by the paint; glass and lamps (128) at the glass
+                 * intensity, keeping their own colour; matte (255) and the rest not at all */
+                if (k != SHINE_PAINT && k != SHINE_GLASS) continue;
+                const float eu = (wa * a->eu + wb * b->eu + wc * c->eu) * r, ev = (wa * a->ev + wb * b->ev + wc * c->ev) * r;
+                envmap_pixel(&row[x], sh->env, k == SHINE_GLASS, eu, ev, x, y);
+                continue;
+            }
+            if (k != SHINE_PAINT) continue;   /* not paint */
             const float l = (wa * a->lz + wb * b->lz + wc * c->lz) * r;
             int level = (int)floorf(l + BAYER[y & 3][x & 3]);
             level = level < 0 ? 0 : level >= CAR_SHINE_LEVELS ? CAR_SHINE_LEVELS - 1 : level;
-            row[x] = tables[level][row[x]];
+            row[x] = sh->tables[level][row[x]];
         }
     }
 }
 
-static void fan(const QuadTarget *q, const Screen *s, int n, float origin, float grow, float row_reach, const ShineClass *cls, ShineTables tables)
+static void fan(const QuadTarget *q, const Screen *s, int n, float origin, float grow, float row_reach, const Shine *sh)
 {
-    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, origin, grow, row_reach, cls, tables);
+    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, origin, grow, row_reach, sh);
 }
 
-static void draw_affine(const QuadTarget *q, const ShineClass *cls, ShineTables tables, const int32_t screen[8], const int32_t uv[8],
-                        const float level[4], int corners)
+/* `level` (the classic pass) or `eo` (the envmap's uv per corner, 2 floats each) is NULL for the other */
+static void draw_affine(const QuadTarget *q, const Shine *sh, const int32_t screen[8], const int32_t uv[8], const float level[4],
+                        const float eo[8], int corners)
 {
     Screen s[4];
     for (int i = 0; i < corners; i++)
-        s[i] = (Screen){ (float)screen[2 * i], (float)screen[2 * i + 1], 1.0f, (float)uv[2 * i], (float)uv[2 * i + 1], level[i] };
-    fan(q, s, corners, 0.0f, 0.0f, ROW_REACH, cls, tables);
+        s[i] = (Screen){ (float)screen[2 * i], (float)screen[2 * i + 1], 1.0f, (float)uv[2 * i], (float)uv[2 * i + 1],
+                         level != NULL ? level[i] : 0.0f, eo != NULL ? eo[2 * i] : 0.0f, eo != NULL ? eo[2 * i + 1] : 0.0f };
+    fan(q, s, corners, 0.0f, 0.0f, ROW_REACH, sh);
 }
 
 typedef struct {
-    float x, y, z, u, v, l;
+    float x, y, z, u, v, l, eu, ev;
 } Vert;
 
 static Vert lerp(Vert a, Vert b, float t)
 {
     return (Vert){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.u + (b.u - a.u) * t,
-                   a.v + (b.v - a.v) * t, a.l + (b.l - a.l) * t };
+                   a.v + (b.v - a.v) * t, a.l + (b.l - a.l) * t, a.eu + (b.eu - a.eu) * t, a.ev + (b.ev - a.ev) * t };
 }
 
 static int clip_near(const Vert *in, int count, float near_z, Vert *out)
@@ -134,13 +164,14 @@ static int clip_near(const Vert *in, int count, float near_z, Vert *out)
     return n;
 }
 
-static void draw_camera(const QuadTarget *q, const ShineClass *cls, ShineTables tables, const int32_t uv[8], const int32_t *const cam[4],
-                        const float level[4], int corners)
+static void draw_camera(const QuadTarget *q, const Shine *sh, const int32_t uv[8], const int32_t *const cam[4], const float level[4],
+                        const float eo[8], int corners)
 {
     if (kept_view == NULL) return;
     Vert in[4], out[MAX_VERTS];
     for (int i = 0; i < corners; i++)
-        in[i] = (Vert){ (float)cam[i][0], (float)cam[i][1], (float)cam[i][2], uv[2 * i] / 65536.0f, uv[2 * i + 1] / 65536.0f, level[i] };
+        in[i] = (Vert){ (float)cam[i][0], (float)cam[i][1], (float)cam[i][2], uv[2 * i] / 65536.0f, uv[2 * i + 1] / 65536.0f,
+                        level != NULL ? level[i] : 0.0f, eo != NULL ? eo[2 * i] : 0.0f, eo != NULL ? eo[2 * i + 1] : 0.0f };
     const int n = clip_near(in, corners, (float)kept_view->near_z, out);
     if (n < 3) return;
     Screen s[MAX_VERTS];
@@ -148,35 +179,53 @@ static void draw_camera(const QuadTarget *q, const ShineClass *cls, ShineTables 
     for (int i = 0; i < n; i++) {
         const float iz = 1.0f / out[i].z;
         s[i] = (Screen){ kept_view->centre_x + out[i].x * focal * iz, kept_view->centre_y - out[i].y * focal * iz, iz, out[i].u * iz,
-                         out[i].v * iz, out[i].l * iz };
+                         out[i].v * iz, out[i].l * iz, out[i].eu * iz, out[i].ev * iz };
     }
-    fan(q, s, n, 0.5f, EDGE_GROW, 0.0f, cls, tables);
+    fan(q, s, n, 0.5f, EDGE_GROW, 0.0f, sh);
 }
 
-enum { KIND_AFFINE = 0, KIND_CAMERA = 1 };
+enum { KIND_AFFINE = 0, KIND_CAMERA = 1, KIND_ENV_AFFINE = 2, KIND_ENV_CAMERA = 3 };
 
-/* the recorded forms: affine keeps screen (8), uv (8) and the levels (4 floats) in c->v; camera keeps uv (8), the corners (12) and the levels */
+static void unpack_corners(const int32_t packed[4], int corners, float eo[8])
+{
+    for (int i = 0; i < corners; i++) car_envmap_unpack(packed[i], eo + 2 * i);
+}
+
+/* the recorded forms: affine keeps screen (8), uv (8) and the levels (4 floats) or the packed envmap uvs (4) in c->v; camera keeps uv (8), the
+ * corners (12) and the levels or the packed uvs (4); c->shape is the tables, or the EnvShine for the envmap kinds */
 static void replay(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
 {
     QuadTarget band;
     if (!raster_narrow(whole, top, bottom, &band)) return;
-    const ShineClass *cls = c->table;
-    ShineTables tables = (ShineTables)c->shape;
-    float level[4];
+    const int env = c->mode == KIND_ENV_AFFINE || c->mode == KIND_ENV_CAMERA;
+    const Shine sh = { c->table, env ? NULL : (ShineTables)c->shape, env ? (const EnvShine *)c->shape : NULL };
+    float level[4], eo[8];
     if (c->mode == KIND_AFFINE) {
         memcpy(level, c->v + 16, sizeof level);
-        draw_affine(&band, cls, tables, c->v, c->v + 8, level, c->count);
-    } else {
+        draw_affine(&band, &sh, c->v, c->v + 8, level, NULL, c->count);
+    } else if (c->mode == KIND_CAMERA) {
         const int32_t *cam[4] = { c->v + 8, c->v + 11, c->v + 14, c->v + 17 };
         memcpy(level, c->v + 20, sizeof level);
-        draw_camera(&band, cls, tables, c->v, cam, level, c->count);
+        draw_camera(&band, &sh, c->v, cam, level, NULL, c->count);
+    } else if (c->mode == KIND_ENV_AFFINE) {
+        unpack_corners(c->v + 16, c->count, eo);
+        draw_affine(&band, &sh, c->v, c->v + 8, NULL, eo, c->count);
+    } else {
+        const int32_t *cam[4] = { c->v + 8, c->v + 11, c->v + 14, c->v + 17 };
+        unpack_corners(c->v + 20, c->count, eo);
+        draw_camera(&band, &sh, c->v, cam, NULL, eo, c->count);
     }
+}
+
+static int usable(const ShineClass *cls, int corners)
+{
+    return cls != NULL && cls->klass != NULL && cls->width > 0 && cls->height > 0 && (corners == 3 || corners == 4);
 }
 
 void shine_draw_affine(const QuadTarget *q, const ShineClass *cls, ShineTables tables, const int32_t screen[8], const int32_t uv[8],
                        const float level[4], int corners)
 {
-    if (cls == NULL || cls->klass == NULL || cls->width <= 0 || cls->height <= 0 || (corners != 3 && corners != 4)) return;
+    if (!usable(cls, corners)) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
         RasterCmd *c = raster_record_add(rec, q, replay);
@@ -187,13 +236,14 @@ void shine_draw_affine(const QuadTarget *q, const ShineClass *cls, ShineTables t
         raster_cmd_rows(c, screen, corners);
         return;
     }
-    draw_affine(q, cls, tables, screen, uv, level, corners);
+    const Shine sh = { cls, tables, NULL };
+    draw_affine(q, &sh, screen, uv, level, NULL, corners);
 }
 
 void shine_draw_camera(const QuadTarget *q, const ShineClass *cls, ShineTables tables, const int32_t uv[8], const int32_t *const cam[4],
                        const float level[4], int corners)
 {
-    if (cls == NULL || cls->klass == NULL || cls->width <= 0 || cls->height <= 0 || (corners != 3 && corners != 4)) return;
+    if (!usable(cls, corners)) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
         RasterCmd *c = raster_record_add(rec, q, replay);
@@ -203,5 +253,45 @@ void shine_draw_camera(const QuadTarget *q, const ShineClass *cls, ShineTables t
         memcpy(c->v + 20, level, 4 * sizeof *level);
         return;
     }
-    draw_camera(q, cls, tables, uv, cam, level, corners);
+    const Shine sh = { cls, tables, NULL };
+    draw_camera(q, &sh, uv, cam, level, NULL, corners);
+}
+
+void shine_draw_env_affine(const QuadTarget *q, const ShineClass *cls, const EnvShine *env, const int32_t screen[8], const int32_t uv[8],
+                           const int32_t packed[4], int corners)
+{
+    if (!usable(cls, corners) || env == NULL || env->image == NULL) return;
+    struct RasterRecorder *rec = raster_recorder_for(q);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, q, replay);
+        c->mode = KIND_ENV_AFFINE, c->count = corners, c->table = cls, c->shape = (const uint8_t *)env;
+        memcpy(c->v, screen, 8 * sizeof *screen);
+        memcpy(c->v + 8, uv, 8 * sizeof *uv);
+        memcpy(c->v + 16, packed, 4 * sizeof *packed);
+        raster_cmd_rows(c, screen, corners);
+        return;
+    }
+    float eo[8];
+    unpack_corners(packed, corners, eo);
+    const Shine sh = { cls, NULL, env };
+    draw_affine(q, &sh, screen, uv, NULL, eo, corners);
+}
+
+void shine_draw_env_camera(const QuadTarget *q, const ShineClass *cls, const EnvShine *env, const int32_t uv[8], const int32_t *const cam[4],
+                           const int32_t packed[4], int corners)
+{
+    if (!usable(cls, corners) || env == NULL || env->image == NULL) return;
+    struct RasterRecorder *rec = raster_recorder_for(q);
+    if (rec != NULL) {
+        RasterCmd *c = raster_record_add(rec, q, replay);
+        c->mode = KIND_ENV_CAMERA, c->count = corners, c->table = cls, c->shape = (const uint8_t *)env;
+        memcpy(c->v, uv, 8 * sizeof *uv);
+        for (int i = 0; i < corners; i++) memcpy(c->v + 8 + 3 * i, cam[i], 3 * sizeof *cam[i]);
+        memcpy(c->v + 20, packed, 4 * sizeof *packed);
+        return;
+    }
+    float eo[8];
+    unpack_corners(packed, corners, eo);
+    const Shine sh = { cls, NULL, env };
+    draw_camera(q, &sh, uv, cam, NULL, eo, corners);
 }

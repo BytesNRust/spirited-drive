@@ -2,6 +2,7 @@
 #include "game/race/car_shine.h"
 
 #include <math.h>
+#include <stddef.h>
 
 enum { MARKERS = 0xfe, NEAR_BLACK = 30, CHROMA_MIN = 20 };
 static const float HUE_TOLERANCE = 8.0f;   /* degrees */
@@ -37,13 +38,19 @@ static int same_family(const Family *a, const Family *b)
     return d <= HUE_TOLERANCE;
 }
 
+/* the level as -1 (darkest) .. 0 (neutral) .. 1 (lightest) */
+static float level_t(int l)
+{
+    return l >= CAR_SHINE_NEUTRAL ? (float)(l - CAR_SHINE_NEUTRAL) / (CAR_SHINE_LEVELS - 1 - CAR_SHINE_NEUTRAL)
+                                  : (float)(l - CAR_SHINE_NEUTRAL) / CAR_SHINE_NEUTRAL;
+}
+
 void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][256])
 {
     Family fam[256];
     for (int i = 0; i < MARKERS; i++) fam[i] = family(palette + 3 * i);
     for (int l = 0; l < CAR_SHINE_LEVELS; l++) {
-        const float t = l >= CAR_SHINE_NEUTRAL ? (float)(l - CAR_SHINE_NEUTRAL) / (CAR_SHINE_LEVELS - 1 - CAR_SHINE_NEUTRAL)
-                                               : (float)(l - CAR_SHINE_NEUTRAL) / CAR_SHINE_NEUTRAL;
+        const float t = level_t(l);
         for (int i = 0; i < 256; i++) {
             out[l][i] = (uint8_t)i;
             if (i >= MARKERS || l == CAR_SHINE_NEUTRAL || fam[i].top < NEAR_BLACK) continue;
@@ -59,6 +66,51 @@ void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][
                 const float d = dr * dr + dg * dg + db * db;
                 if (d < best_d) out[l][i] = (uint8_t)j, best_d = d;
             }
+        }
+    }
+}
+
+/* port (body_shine 4, envmap): a lift goes toward white (ENV_WHITE of the way at the lightest) and a shade toward black (ENV_SHADE at the darkest),
+ * so the highlight takes the paint's hue and loses saturation rather than gaining it */
+static const float ENV_WHITE = 0.55f, ENV_SHADE = 0.5f;
+
+static void envmap_want(const uint8_t *rgb, float t, float want[3])
+{
+    for (int k = 0; k < 3; k++) {
+        const float c = rgb[k];
+        want[k] = t > 0 ? c + (255.0f - c) * ENV_WHITE * t : c * (1.0f + ENV_SHADE * t);
+    }
+}
+
+/* the palette entry nearest `want`; `like` (NULL: any) limits it to the entries of its hue family */
+static uint8_t nearest_entry(const uint8_t palette[768], const Family fam[256], const Family *like, const float want[3])
+{
+    uint8_t best = 0;
+    float best_d = 1e30f;
+    for (int j = 0; j < MARKERS; j++) {
+        if (like != NULL && !same_family(like, &fam[j])) continue;
+        const float dr = palette[3 * j] - want[0], dg = palette[3 * j + 1] - want[1], db = palette[3 * j + 2] - want[2];
+        const float d = dr * dr + dg * dg + db * db;
+        if (d < best_d) best = (uint8_t)j, best_d = d;
+    }
+    return best;
+}
+
+void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVELS][256], uint8_t glass[CAR_SHINE_LEVELS][256])
+{
+    Family fam[256];
+    for (int i = 0; i < MARKERS; i++) fam[i] = family(palette + 3 * i);
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++) {
+        const float t = level_t(l);
+        for (int i = 0; i < 256; i++) {
+            paint[l][i] = glass[l][i] = (uint8_t)i;
+            if (i >= MARKERS || l == CAR_SHINE_NEUTRAL) continue;
+            float want[3];
+            envmap_want(palette + 3 * i, t, want);
+            /* the same intensity for the paint and for the glass and lamps (class 128): each keeps its own colour as the base, within its own
+             * hue family (the owner's correction: no stronger or weaker shine for the glass). The near-black trim and tyres stay as they are. */
+            if (fam[i].top >= NEAR_BLACK) paint[l][i] = nearest_entry(palette, fam, &fam[i], want);
+            glass[l][i] = nearest_entry(palette, fam, &fam[i], want);
         }
     }
 }

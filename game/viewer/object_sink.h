@@ -27,6 +27,9 @@ void object_sink_set_light(const uint8_t *table);
  * world's up in the camera's space (the shine's fixed horizon; NULL: the camera's y); NULL tables for none, and the draws are the exe's. */
 void object_sink_set_shine(ShineTables tables, const float *up);
 void object_sink_set_shine_strength(int strength);   /* 1..3 (car_shine.h); 1 until set */
+/* port (body_shine 4): while set, a textured polygon the class maps know that carries vertex normals takes the envmap pass (shine_draw.h's
+ * EnvShine, kept by pointer until the frame is flushed) instead of the classic one; NULL for none. */
+void object_sink_set_envmap(const EnvShine *env);
 void object_sink_shade(const uint8_t palette[768], uint8_t shade[256]);
 
 #endif
