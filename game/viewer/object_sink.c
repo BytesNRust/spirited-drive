@@ -5,6 +5,7 @@
 #include "game/gfx/palette_match.h"
 #include "game/gfx/quad.h"
 #include "game/race/car_envmap.h"
+#include "game/sys/palette.h"
 #include "viewer/modern_road.h"
 #include "viewer/shine_class.h"
 
@@ -116,10 +117,11 @@ static uint8_t nearest(const uint8_t palette[768], uint32_t rgb)
 {
     uint8_t quad[PALETTE_MATCH_ENTRIES * PALETTE_MATCH_ENTRY_BYTES] = { 0 };
     uint8_t enabled[PALETTE_MATCH_ENTRIES];
+    const uint8_t *hidden = palette_world_hidden();   /* port (car colours): not the slots the fit gave the cars */
     for (int i = 0; i < PALETTE_MATCH_ENTRIES; i++) {
         uint8_t *const q = &quad[i * PALETTE_MATCH_ENTRY_BYTES];
         q[0] = palette[3 * i + 2], q[1] = palette[3 * i + 1], q[2] = palette[3 * i];
-        enabled[i] = 1;
+        enabled[i] = i >= PALETTE_COLORS || !hidden[i];
     }
     return (uint8_t)palette_match_nearest(quad, enabled, rgb);
 }

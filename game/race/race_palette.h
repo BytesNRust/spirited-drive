@@ -90,6 +90,9 @@ void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
  * no slot or police colours. */
 void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6);
 
+/* port (car colours): sets used[e] for each palette entry the texels of `bank` (a bank already mapped onto the screen palette) show. */
+void race_palette_bank_entries(const uint8_t *bank, uint8_t used[RACE_PALETTE_COLOURS]);
+
 /* 00446f90: queues a write of `count` colours (6 bits a channel) to the
  * screen entries from `first`. The original hangs on a 51st (it writes the
  * entry past the queue first); the port drops it. */

@@ -15,7 +15,7 @@ enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels *
 /* the table for `palette` (what the screen can show) */
 static void make_nearest(HorizonSmooth *s, const uint8_t palette[768])
 {
-    const uint8_t *usable = palette_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
+    const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
     for (int cell = 0; cell < HORIZON_SMOOTH_CELLS; cell++) {
         /* the cell's middle */
         const int r = (cell >> 10 & 31) * 8 + 4, g = (cell >> 5 & 31) * 8 + 4, b = (cell & 31) * 8 + 4;

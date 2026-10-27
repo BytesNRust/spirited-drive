@@ -3,7 +3,8 @@
  * and maps every texel to the nearest colour of the whole screen palette; the track fills the rest, so a body's light, softly
  * coloured tones (a teal highlight) have no neighbour and land on a blue grey. Here the slots are chosen after the race palette is
  * written and before the cars are mapped: of the colours the cars' textures use, the ones that most reduce the distance of every texel to
- * its nearest screen colour (a greedy cover), and a block whose colours already do as well is left alone. Off (0) is the exe. */
+ * its nearest screen colour (a greedy cover), and a block whose colours already do as well is left alone. An entry the scenery lands on
+ * (`keep`) is never rewritten: the track is mapped as the exe maps it, whatever the cars. Off (0) is the exe. */
 #ifndef TNFS_CAR_COLOURS_H
 #define TNFS_CAR_COLOURS_H
 
@@ -23,8 +24,10 @@ typedef struct {
 } CarFitReport;
 
 /* Fits the blocks of the race palette `p` (already applied: race_palette_apply) to the cars in `art` (their banks as the loaders left them,
- * not yet mapped). `have_carpal`: the race has the shared car palette. Writes the new colours to the screen palette; `report` (may be NULL)
- * tells what each block did. Returns the entries changed. */
-int car_colours_fit(RacePalette *p, const RaceState *race, const RaceCarArt art[RACE_CARS], int have_carpal, CarFitReport *report);
+ * not yet mapped). `have_carpal`: the race has the shared car palette. `keep` (256 flags, NULL none): entries that stay as they are, the ones
+ * other banks are mapped to. Writes the new colours to the screen palette; `report` (may be NULL) tells what each block did. Returns the
+ * entries changed. */
+int car_colours_fit(RacePalette *p, const RaceState *race, const RaceCarArt art[RACE_CARS], int have_carpal, const uint8_t keep[256],
+                    CarFitReport *report);
 
 #endif

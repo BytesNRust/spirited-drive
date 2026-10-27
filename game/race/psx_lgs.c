@@ -145,7 +145,7 @@ void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const floa
 void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out[256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
-    const uint8_t *usable = palette_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
+    const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
     for (int c = 0; c < 256; c++) {
         if (c >= CHOICES || (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f)) {
             out[c] = (uint8_t)c;

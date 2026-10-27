@@ -140,7 +140,7 @@ static int pick(const Items *it, const Pool *pool, int pool_n, const uint8_t (*b
     return got;
 }
 
-static int fit_block(RacePalette *p, const RaceState *race, const RacePaletteBlock *b, const Items *it, CarFitBlock *out)
+static int fit_block(RacePalette *p, const RaceState *race, const RacePaletteBlock *b, const Items *it, const uint8_t keep[256], CarFitBlock *out)
 {
     out->first = b->first, out->count = b->count, out->car = b->car, out->colours = it->count, out->changed = 0;
     uint8_t usable[RACE_PALETTE_COLOURS];
@@ -151,13 +151,16 @@ static int fit_block(RacePalette *p, const RaceState *race, const RacePaletteBlo
     uint32_t *err = malloc(sizeof(uint32_t) * (size_t)(it->count + 1));
     int changed = 0;
     if (base == NULL || pool == NULL || chosen == NULL || err == NULL) goto done;
-    int base_n = 0;
+    int base_n = 0, places = 0;
+    uint8_t held[RACE_PALETTE_COLOURS] = { 0 };   /* the block's entries that stay: the ones the scenery is mapped to */
+    for (int k = 0; k < b->count; k++) held[k] = keep != NULL && keep[b->first + k] != 0, places += !held[k];
     for (int e = 0; e < CAR_COLOURS; e++)
-        if (usable[e] && (e < b->first || e >= b->first + b->count)) screen_colour(p, e, base[base_n++]);
+        if (usable[e] && (e < b->first || e >= b->first + b->count || held[e - b->first])) screen_colour(p, e, base[base_n++]);
     int pool_n = 0;
     uint8_t old6[RACE_PALETTE_COLOURS][3];
     for (int k = 0; k < b->count; k++) {   /* the block's colours as they are: kept where they do as well */
         screen_colour6(p, b->first + k, old6[k]);
+        if (held[k]) continue;
         Pool *c = &pool[pool_n++];
         memcpy(c->rgb6, old6[k], 3);
         palette_6_to_8(1, c->rgb6, c->rgb8);
@@ -178,11 +181,12 @@ static int fit_block(RacePalette *p, const RaceState *race, const RacePaletteBlo
     for (int k = 0; k < old_n; k++) memcpy(with_old[with_n++], pool[k].rgb8, 3);
     nearest(it, with_old, with_n, err);
     out->before = mean_distance(it, err);
-    const int got = pick(it, pool, pool_n, base, base_n, b->count, chosen);
+    const int got = places > 0 ? pick(it, pool, pool_n, base, base_n, places, chosen) : 0;
     if (got == 0) { out->after = out->before; goto done; }
     /* the new set: the old entries that were picked stay where they are, the new ones take the places of those that were not */
     uint8_t layout[RACE_PALETTE_COLOURS][3];
     int taken[RACE_PALETTE_COLOURS] = { 0 }, placed = 0;
+    for (int k = 0; k < b->count; k++) taken[k] = held[k];
     for (int c = 0; c < old_n; c++)
         if (chosen[c]) memcpy(layout[pool[c].old], pool[c].rgb6, 3), taken[pool[c].old] = 1, placed++;
     int next = 0;
@@ -192,10 +196,11 @@ static int fit_block(RacePalette *p, const RaceState *race, const RacePaletteBlo
         if (next >= b->count) break;
         memcpy(layout[next], pool[c].rgb6, 3), taken[next] = 1, placed++;
     }
-    for (int k = 0; k < b->count; k++)   /* a place left over (the picks ran out) keeps its colour */
-        if (!taken[k]) memcpy(layout[k], old6[k], 3);
+    for (int k = 0; k < b->count; k++)   /* a place left over (the picks ran out) or held keeps its colour */
+        if (!taken[k] || held[k]) memcpy(layout[k], old6[k], 3);
     int n8 = base_n;
-    for (int k = 0; k < b->count; k++) palette_6_to_8(1, layout[k], base[n8++]);
+    for (int k = 0; k < b->count; k++)
+        if (!held[k]) palette_6_to_8(1, layout[k], base[n8++]);
     nearest(it, base, n8, err);
     const double after = mean_distance(it, err);
     if (after > out->before - (double)MIN_GAIN_X10 / 10.0) { out->after = out->before; goto done; }   /* not better: the exe's */
@@ -222,7 +227,8 @@ done:
     return changed;
 }
 
-int car_colours_fit(RacePalette *p, const RaceState *race, const RaceCarArt art[RACE_CARS], int have_carpal, CarFitReport *report)
+int car_colours_fit(RacePalette *p, const RaceState *race, const RaceCarArt art[RACE_CARS], int have_carpal, const uint8_t keep[256],
+                    CarFitReport *report)
 {
     RacePaletteBlock blocks[RACE_PALETTE_BLOCKS];
     const int n = race_palette_blocks(race, have_carpal, blocks);
@@ -240,7 +246,7 @@ int car_colours_fit(RacePalette *p, const RaceState *race, const RaceCarArt art[
         if (it->count == 0) continue;
         CarFitBlock fit;
         memset(&fit, 0, sizeof fit);
-        total += fit_block(p, race, &blocks[i], it, &fit);
+        total += fit_block(p, race, &blocks[i], it, keep, &fit);
         if (report != NULL && report->count < RACE_PALETTE_BLOCKS) report->block[report->count++] = fit;
     }
     free(it);

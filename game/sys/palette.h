@@ -18,6 +18,12 @@ enum {
 const uint8_t *palette_usable(void);
 void palette_usable_set(const uint8_t usable[PALETTE_COLORS]);
 
+/* port (car colours): the entries the fit gave the cars (car_colours.h) are theirs alone: the port's tables of the world (fog, light, the
+ * horizon's blend) pick from palette_world_usable(), the usable set less them, so the scenery is as the exe's palette has it. NULL clears. */
+void palette_world_hide(const uint8_t hidden[PALETTE_COLORS]);
+const uint8_t *palette_world_usable(void);
+const uint8_t *palette_world_hidden(void);   /* the entries palette_world_hide hid, 1 each */
+
 /* 004920bc: dst[0..count*3) = src[first*3..] * step >> 5. */
 void palette_scale(const uint8_t *src, uint8_t *dst, int first, int count, int step);
 
