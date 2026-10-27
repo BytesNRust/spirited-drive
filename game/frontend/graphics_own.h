@@ -16,7 +16,14 @@
 enum { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
        GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_BANDS,
        GRAPHICS_OWN_SCALE, GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_DONE = GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_CANCEL,
-       GRAPHICS_OWN_ROWS };
+       GRAPHICS_OWN_ROWS,
+       /* the second page's own settings, the PS1 look's rows. They come after the first page's rows so the first
+        * page's numbers do not move: a row's number is also its place in the labels' table. */
+       GRAPHICS_OWN_PSX_LIGHT = GRAPHICS_OWN_ROWS, GRAPHICS_OWN_PSX_SHADOW, GRAPHICS_OWN_PSX_TIME,
+       GRAPHICS_OWN_WEATHER };
+
+/* how many settings the second page has, and how many pages the screen has */
+enum { GRAPHICS_OWN_PSX_COUNT = 4, GRAPHICS_OWN_PAGES = 2 };
 
 /* the clean background's size, as config_bgnd.h's CONFIG_BGND_W and _H */
 enum { GRAPHICS_OWN_W = 640, GRAPHICS_OWN_H = 480 };
