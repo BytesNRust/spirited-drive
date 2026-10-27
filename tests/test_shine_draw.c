@@ -252,9 +252,19 @@ static void test_the_envmap_shines_the_drafts_glass(void)
 }
 
 /* where the two levels' entries a pixel falls between are far apart in colour (`hard`), the pixel takes the nearer one, not a dither of both */
+/* the byte whose paint level falls a third of the way from level 8 to 9, whatever the paint's gain */
+static uint8_t between_8_and_9(void)
+{
+    for (int b = 128; b < 256; b++)
+        if (car_envmap_level((uint8_t)b, CAR_ENVMAP_BODY_GAIN) >= 8.25f) return (uint8_t)b;
+    return 255;
+}
+
 static void test_a_hard_step_is_not_dithered(void)
 {
-    EnvShine env = env_setup(183);   /* level 8.29 */
+    const uint8_t sample = between_8_and_9();
+    CHECK(car_envmap_level(sample, CAR_ENVMAP_BODY_GAIN) < 8.75f);
+    EnvShine env = env_setup(sample);
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, 2, 0, 2, TEX, 0, TEX };
     float c[2] = { 0.5f, 0.5f };
     const int32_t packed[4] = { car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c) };
@@ -263,7 +273,7 @@ static void test_a_hard_step_is_not_dithered(void)
     for (int y = 10; y < 38; y++)
         for (int x = 10; x < 38; x++) lower += screen_px[y * W + x] == 68, upper += screen_px[y * W + x] == 69;
     CHECK(lower > 0 && upper > 0);   /* an ordinary step is dithered between the two */
-    env_setup(183);
+    env_setup(sample);
     memset(paint_hard[8], 1, 256);
     shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
     lower = upper = 0;

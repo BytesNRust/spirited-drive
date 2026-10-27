@@ -114,7 +114,8 @@ static void test_the_level_follows_the_byte(void)
 {
     CHECK(fabsf(car_envmap_level(128, CAR_ENVMAP_BODY_GAIN) - CAR_SHINE_NEUTRAL) < 0.0001f);   /* transparent: the paint as it is */
     CHECK(fabsf(car_envmap_level(0, CAR_ENVMAP_BODY_GAIN) - CAR_SHINE_NEUTRAL) < 0.0001f);     /* additive: no darkening */
-    CHECK(car_envmap_level(255, CAR_ENVMAP_BODY_GAIN) > CAR_SHINE_LEVELS - 2.5f);
+    CHECK(car_envmap_level(255, CAR_ENVMAP_GLASS_GAIN) > CAR_SHINE_LEVELS - 2.5f);
+    CHECK(car_envmap_level(255, CAR_ENVMAP_BODY_GAIN) < car_envmap_level(255, CAR_ENVMAP_GLASS_GAIN));   /* the paint shines less than the glass */
     float last = -1.0f;
     for (int b = 0; b < 256; b++) {
         const float l = car_envmap_level((uint8_t)b, CAR_ENVMAP_BODY_GAIN);

@@ -29,8 +29,9 @@ const uint8_t *car_envmap_image(void);
 /* the image's byte at uv (nearest texel) */
 uint8_t car_envmap_sample(const uint8_t *image, float u, float v);
 
-/* the intensities of the envmap, as the level's share of its range: the paint (mask 0) and the glass and lamps (mask 128) have one each */
-#define CAR_ENVMAP_BODY_GAIN 0.9f
+/* the intensities of the envmap, as the level's share of its range: the paint (mask 0) and the glass and lamps (mask 128) have one each. The
+ * paint is the softer: at the glass's it read too glossy (the owner) */
+#define CAR_ENVMAP_BODY_GAIN 0.65f
 #define CAR_ENVMAP_GLASS_GAIN 0.9f
 
 /* the level (car_shine.h's scale, fractional) an image byte asks for at `gain`: the sky and the sun lift, the ground takes it down */
