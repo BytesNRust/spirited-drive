@@ -282,9 +282,27 @@ static void test_a_hard_step_is_not_dithered(void)
     CHECK(lower > 0 && upper == 0);  /* a hard one takes the nearer level (8.29: 8) everywhere */
 }
 
+/* a dark sample shades the paint below the neutral: the paint table's entries for levels 1 and 2 (61, 62), where a neutral sample gives the
+ * neutral level's entry (64) exactly */
+static void test_a_dark_sample_shades_the_paint_below_neutral(void)
+{
+    const float centre[2] = { 0.5f, 0.5f };
+    const int32_t c = car_envmap_pack(centre);
+    const int32_t packed[4] = { c, c, c, c };
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    EnvShine env = env_setup(0);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    for (int y = 24; y < 26; y++)
+        for (int x = 10; x < 14; x++) CHECK(screen_px[y * W + x] >= 61 && screen_px[y * W + x] <= 62);
+    env = env_setup(128);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    CHECK_EQ_INT(screen_px[24 * W + 10], 64);
+}
+
 int main(void)
 {
     test_the_envmap_shines_the_drafts_glass();
+    test_a_dark_sample_shades_the_paint_below_neutral();
     test_a_hard_step_is_not_dithered();
     test_only_paint_texels_change();
     test_the_level_runs_across_the_polygon();

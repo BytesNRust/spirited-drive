@@ -72,7 +72,7 @@ static int envmap_corners(const Object3DCorners *c, int32_t packed[4])
         float uv[2] = { 0.5f, 0.5f };
         if (len > 0 && !(n[0] == 0 && n[1] == 0 && n[2] == 0)) {
             const float v[3] = { p[0] / len, p[1] / len, p[2] / len };
-            car_envmap_uv(n, v, uv);
+            car_envmap_uv(n, v, shine_up, uv);
         }
         packed[i] = car_envmap_pack(uv);
     }

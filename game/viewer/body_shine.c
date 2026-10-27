@@ -87,7 +87,7 @@ void body_shine_begin(const uint8_t palette[768], const int32_t camera_matrix[9]
     Made *m = made_for(palette);
     world_up(camera_matrix, up_in_camera);
     if (strength == ENVMAP) {
-        object_sink_set_shine(NULL, NULL);
+        object_sink_set_shine(NULL, up_in_camera);   /* no classic pass; the envmap's sphere map is looked up against the same up */
         current_env = &m->env;
         object_sink_set_envmap(current_env);
         return;
