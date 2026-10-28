@@ -134,6 +134,24 @@ static void test_the_sky_is_brighter_toward_the_zenith(void)
     CHECK(b > a);
 }
 
+/* the sky near the zenith, where a flat panel (a bonnet, a roof) looks, is not one lift: the clear sky there stays well under the sun's, and
+ * the clouds stand out of it by a good part of the range, so a panel's reflection is patchy and not uniformly bright (a saturated paint read the
+ * uniform lift as a flat change of colour) */
+static void test_the_high_sky_has_clouds_standing_out_of_a_modest_clear_sky(void)
+{
+    const uint8_t *image = car_envmap_image();
+    int lo = 255, hi = 0;
+    for (int i = 0; i < 96; i++) {
+        float r[3], uv[2];
+        reflection_at(0.8f, (float)i * 0.0654f, r);
+        uv_of_reflection(r, uv);
+        const int b = car_envmap_sample(image, uv[0], uv[1]);
+        lo = b < lo ? b : lo, hi = b > hi ? b : hi;
+    }
+    CHECK(lo <= 128 + 70);        /* the clear sky: at most 70 bytes above the neutral */
+    CHECK(hi - lo >= 40);         /* a cloud rises 40 bytes or more out of it */
+}
+
 /* the dark band just under the horizon is darker than the flat ground further down */
 static void test_the_band_under_the_horizon_is_darker_than_the_ground(void)
 {
@@ -287,6 +305,7 @@ int main(void)
     test_pack_and_unpack_round_trip();
     test_the_sky_is_above_neutral_and_the_ground_below();
     test_the_sky_is_brighter_toward_the_zenith();
+    test_the_high_sky_has_clouds_standing_out_of_a_modest_clear_sky();
     test_the_band_under_the_horizon_is_darker_than_the_ground();
     test_the_sun_texel_is_the_brightest();
     test_the_image_is_signed();

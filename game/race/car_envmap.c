@@ -15,11 +15,11 @@ static const float SUN_BYTES = 127.0f;                        /* the sun's lift 
 static const float SUN[3] = { -0.3478f, 0.7951f, 0.4969f };   /* unit, toward the viewer, high and upper left (elevation about 53 degrees) */
 
 /* the sky (bytes above the neutral): from the horizon up to the zenith, a light gradient */
-static const float SKY_HORIZON = 40.0f, SKY_ZENITH = 90.0f;
+static const float SKY_HORIZON = 40.0f, SKY_ZENITH = 55.0f;
 
 /* the clouds: the noise's threshold band (soft edges), their lift in bytes, the elevation they fade in over, and the blocks they are drawn in
  * (the image's texels are quantised to CLOUD_BLOCK texels, so the edges read blocky, as a PS1 texture's do) */
-static const float CLOUD_LOW = 0.6f, CLOUD_HIGH = 0.85f, CLOUD_BYTES = 40.0f, CLOUD_FADE = 0.35f;
+static const float CLOUD_LOW = 0.6f, CLOUD_HIGH = 0.85f, CLOUD_BYTES = 60.0f, CLOUD_FADE = 0.35f;
 /* the sky's brightest byte before the sun: below the sun's, so the sun spot is the brightest texel */
 static const float SKY_CAP = 110.0f;
 
