@@ -1,5 +1,6 @@
 /* port (car colours): see car_colours.h. */
 #include "game/race/car_colours.h"
+#include "game/race/car_shine.h"
 #include "game/sys/palette.h"
 #include <math.h>
 #include <stdlib.h>
@@ -11,10 +12,13 @@ enum {
     MIN_GAIN_X10 = 3,         /* a block changes only for a gain of 0.3 levels of mean distance: the exe's colours were chosen by hand */
     MAX_ITEMS = 3072, MAX_POOL = MAX_ITEMS + 80,
     DARK_SPREAD = 10,         /* a colour is a paint tone when its 6-bit channels spread this far (a grey has no hue to keep in shadow) */
-    DARK_WEIGHT_DIV = 6      /* a darkened tone is wanted a sixth as much as the tone itself: the texels show the tone, the light only sometimes */
+    DARK_WEIGHT_DIV = 6,     /* a darkened tone is wanted a sixth as much as the tone itself: the texels show the tone, the light only sometimes */
+    LIGHT_SPREAD = 24,       /* a paint is saturated when its 6-bit channels spread this far: its lift keeps a hue the track's palette has few lighter tones of */
+    LIGHT_WEIGHT_DIV = 6     /* a lightened tone is wanted a sixth as much as the tone itself, as a darkened one */
 };
 
 static const float DARK_STEP[] = { 0.78f, 0.60f };   /* the light ratios the PS1 light's dusk and shadow bring (psx_lit_table) */
+static const float LIGHT_STEP[] = { 0.40f, 0.60f };  /* the envmap's lifts (level_t) the middle and upper levels of a flat panel's reflection ask for: levels 8 to 11 */
 
 typedef struct {
     uint8_t rgb6[3], rgb8[3];
@@ -70,6 +74,25 @@ static void add_darkened(Items *it, const uint8_t rgb6[3], uint32_t weight)
     }
 }
 
+/* the tone under the envmap's lift (body_shine 4): a saturated paint's lift goes toward white with less chroma, and a palette of the track's colours
+ * has one pale tone of the hue (a steel blue) that every level from the middle up falls to, so a flat panel's reflection is one flat colour. The
+ * lighter tones are wanted too, so the ramp has steps there */
+static void add_lightened(Items *it, const uint8_t rgb6[3], uint32_t weight)
+{
+    const int hi = rgb6[0] > rgb6[1] ? (rgb6[0] > rgb6[2] ? rgb6[0] : rgb6[2]) : (rgb6[1] > rgb6[2] ? rgb6[1] : rgb6[2]);
+    const int lo = rgb6[0] < rgb6[1] ? (rgb6[0] < rgb6[2] ? rgb6[0] : rgb6[2]) : (rgb6[1] < rgb6[2] ? rgb6[1] : rgb6[2]);
+    if (hi - lo < LIGHT_SPREAD || weight < LIGHT_WEIGHT_DIV) return;
+    uint8_t rgb8[3];
+    palette_6_to_8(1, rgb6, rgb8);
+    for (size_t s = 0; s < sizeof LIGHT_STEP / sizeof *LIGHT_STEP; s++) {
+        float want[3];
+        uint8_t light[3];
+        car_envmap_want(rgb8, LIGHT_STEP[s], want);
+        for (int k = 0; k < 3; k++) light[k] = (uint8_t)fminf(want[k] / 4.0f + 0.5f, 63.0f);
+        add_item(it, light, weight / LIGHT_WEIGHT_DIV);
+    }
+}
+
 static void add_bank(Items *it, const uint8_t *bank, const uint8_t *palette6)
 {
     if (bank == NULL || palette6 == NULL) return;
@@ -78,7 +101,7 @@ static void add_bank(Items *it, const uint8_t *bank, const uint8_t *palette6)
     for (int e = 0; e < CAR_COLOURS; e++)
         if (hist[e] != 0) add_item(it, palette6 + 3 * e, hist[e]);
     for (int e = 0; e < CAR_COLOURS; e++)   /* after every real tone: a darkened one never takes the place of a real one in the 5-bit merge */
-        if (hist[e] != 0) add_darkened(it, palette6 + 3 * e, hist[e]);
+        if (hist[e] != 0) add_darkened(it, palette6 + 3 * e, hist[e]), add_lightened(it, palette6 + 3 * e, hist[e]);
 }
 
 static void add_car(Items *it, const RaceCarArt *a)
