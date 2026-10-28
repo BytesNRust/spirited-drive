@@ -157,6 +157,20 @@ static void test_envmap_tables_lift_in_the_colours_own_family(void)
     CHECK_EQ_INT(paint[CAR_SHINE_LEVELS - 1][BLACK], BLACK);   /* the near-black trim stays */
 }
 
+/* a palette short of light reds has a dull pink of the red's hue (a fifth of its chroma): a lift of the red never lands on it */
+static void test_a_saturated_colour_never_lifts_to_a_dull_tone_of_its_hue(void)
+{
+    enum { DULL_PINK = 20 };
+    uint8_t pal[768], t[CAR_SHINE_LEVELS][256], paint[CAR_SHINE_LEVELS][256], glass[CAR_SHINE_LEVELS][256];
+    palette(pal);
+    set(pal, DULL_PINK, 150, 108, 110);
+    car_shine_tables(pal, t);
+    car_envmap_tables(pal, paint, glass);
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++) CHECK(t[l][RED] != DULL_PINK);
+    for (int l = 0; l < CAR_SHINE_LEVELS - 3; l++) CHECK(paint[l][RED] != DULL_PINK);   /* (the last three, the cores, may take any entry to reach near-white) */
+    CHECK_EQ_INT(t[CAR_SHINE_NEUTRAL][DULL_PINK], DULL_PINK);   /* the pink itself, a low-chroma colour, is still its own family */
+}
+
 int main(void)
 {
     test_tables_neutral_level_is_the_palette_itself();
@@ -168,5 +182,6 @@ int main(void)
     test_the_horizon_is_a_line_between_a_bright_and_a_dark_band();
     test_strength_raises_the_bright_band_and_deepens_the_dark_one();
     test_envmap_tables_lift_in_the_colours_own_family();
+    test_a_saturated_colour_never_lifts_to_a_dull_tone_of_its_hue();
     return TEST_REPORT();
 }

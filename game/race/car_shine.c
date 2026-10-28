@@ -31,10 +31,14 @@ static Family family(const uint8_t *rgb)
     return f;
 }
 
+static const float KEEP_CHROMA = 0.34f;   /* a saturated colour's family keeps a third of its chroma: a red's lighter tone is a light red, not the grey-pink of
+                                           * the same hue that a palette short of light reds has (grey patches on a red roof) */
+
 static int same_family(const Family *a, const Family *b)
 {
     if (a->chroma < CHROMA_MIN) return b->chroma < CHROMA_MIN * 1.5f;   /* a grey takes a grey */
     if (b->chroma < CHROMA_MIN * 0.5f) return 0;
+    if (a->chroma >= CHROMA_MIN * 2.0f && b->chroma < a->chroma * KEEP_CHROMA) return 0;
     float d = fabsf(a->hue - b->hue);
     if (d > 180.0f) d = 360.0f - d;
     return d <= HUE_TOLERANCE;
