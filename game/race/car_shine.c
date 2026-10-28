@@ -87,6 +87,8 @@ void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][
  * so the highlight takes the paint's hue and loses saturation rather than gaining it */
 static const float ENV_WHITE = 0.6f, ENV_SHADE = 0.5f;
 static const float ENV_LIGHT[3] = { 240.0f, 245.0f, 255.0f };   /* the highlight's colour: white with a subtle blue */
+static const int ENV_PAINT_MIN = 10;   /* the darkest entry a paint's lift takes: a black body's ramp is dark all through (the NSX's tops out at 28 a channel, under NEAR_BLACK),
+                                        * only the trim and tyres under this stay */
 static const float ENV_NEAR_WHITE = 0.8f;   /* past this lift the strongest cores may take any palette entry: they reach near-white */
 
 void car_envmap_want(const uint8_t rgb[3], float t, float want[3])
@@ -125,9 +127,15 @@ void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVEL
             car_envmap_want(palette + 3 * i, t, want);
             /* the same intensity for the paint and for the glass and lamps (class 128), each from its own colour. A partial lift stays in the
              * colour's hue family (the pink blend the owner accepts); only the strongest cores may take any palette entry, so they reach
-             * near-white. A shade stays in the family. The near-black trim and tyres stay as they are. */
+             * near-white. A shade stays in the family. The trim and tyres under ENV_PAINT_MIN stay as they are. */
             const Family *like = (t > 0 && t >= ENV_NEAR_WHITE) ? NULL : &fam[i];
-            if (fam[i].top >= NEAR_BLACK) paint[l][i] = nearest_entry(palette, fam, like, want);
+            if (fam[i].top >= ENV_PAINT_MIN) {
+                /* a dark tone lifts in proportion to how dark it is: a black body keeps its depth, its highlights stay dim */
+                float pw[3] = { want[0], want[1], want[2] };
+                if (t > 0 && fam[i].top < NEAR_BLACK)
+                    for (int k = 0; k < 3; k++) pw[k] = palette[3 * i + k] + (want[k] - palette[3 * i + k]) * ((float)fam[i].top / NEAR_BLACK);
+                paint[l][i] = nearest_entry(palette, fam, like, pw);
+            }
             glass[l][i] = nearest_entry(palette, fam, like, want);
         }
     }

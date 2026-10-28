@@ -171,6 +171,22 @@ static void test_a_saturated_colour_never_lifts_to_a_dull_tone_of_its_hue(void)
     CHECK_EQ_INT(t[CAR_SHINE_NEUTRAL][DULL_PINK], DULL_PINK);   /* the pink itself, a low-chroma colour, is still its own family */
 }
 
+/* a black paint's ramp is dark all through (the NSX's body entries are 4..28 a channel): the dark body tones take the lift like any paint's,
+ * only the near-black trim and tyres under them stay. Otherwise a black body shows no shine, only its glass */
+static void test_a_black_bodys_dark_tones_take_the_lift(void)
+{
+    enum { BODY_DARK = 30, BODY_DARKER = 31, TYRE = 32 };
+    uint8_t pal[768], paint[CAR_SHINE_LEVELS][256], glass[CAR_SHINE_LEVELS][256];
+    palette(pal);
+    set(pal, BODY_DARK, 24, 28, 28), set(pal, BODY_DARKER, 12, 12, 12), set(pal, TYRE, 4, 4, 8);
+    car_envmap_tables(pal, paint, glass);
+    CHECK(luma(pal, paint[CAR_SHINE_LEVELS - 2][BODY_DARK]) > luma(pal, BODY_DARK) + 20);
+    CHECK(luma(pal, paint[CAR_SHINE_LEVELS - 2][BODY_DARKER]) > luma(pal, BODY_DARKER) + 20);
+    CHECK(luma(pal, paint[CAR_SHINE_LEVELS - 1][BODY_DARKER]) < 90);   /* a black body keeps its depth: its highlights stay dim */
+    CHECK(luma(pal, paint[0][BODY_DARK]) <= luma(pal, BODY_DARK));
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++) CHECK_EQ_INT(paint[l][TYRE], TYRE);
+}
+
 int main(void)
 {
     test_tables_neutral_level_is_the_palette_itself();
@@ -183,5 +199,6 @@ int main(void)
     test_strength_raises_the_bright_band_and_deepens_the_dark_one();
     test_envmap_tables_lift_in_the_colours_own_family();
     test_a_saturated_colour_never_lifts_to_a_dull_tone_of_its_hue();
+    test_a_black_bodys_dark_tones_take_the_lift();
     return TEST_REPORT();
 }
