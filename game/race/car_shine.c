@@ -89,7 +89,7 @@ static const float ENV_WHITE = 0.6f, ENV_SHADE = 0.5f;
 static const float ENV_LIGHT[3] = { 240.0f, 245.0f, 255.0f };   /* the highlight's colour: white with a subtle blue */
 static const float ENV_NEAR_WHITE = 0.8f;   /* past this lift the strongest cores may take any palette entry: they reach near-white */
 
-static void envmap_want(const uint8_t *rgb, float t, float want[3])
+void car_envmap_want(const uint8_t rgb[3], float t, float want[3])
 {
     for (int k = 0; k < 3; k++) {
         const float c = rgb[k];
@@ -122,7 +122,7 @@ void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVEL
             paint[l][i] = glass[l][i] = (uint8_t)i;
             if (i >= MARKERS || l == CAR_SHINE_NEUTRAL) continue;
             float want[3];
-            envmap_want(palette + 3 * i, t, want);
+            car_envmap_want(palette + 3 * i, t, want);
             /* the same intensity for the paint and for the glass and lamps (class 128), each from its own colour. A partial lift stays in the
              * colour's hue family (the pink blend the owner accepts); only the strongest cores may take any palette entry, so they reach
              * near-white. A shade stays in the family. The near-black trim and tyres stay as they are. */

@@ -22,6 +22,10 @@ int car_shine_same_family(const uint8_t a[3], const uint8_t b[3]);
  * level as car_shine_tables, but a highlight goes toward white and loses saturation. The glass (mask 128) keeps its own colour as the base. */
 void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVELS][256], uint8_t glass[CAR_SHINE_LEVELS][256]);
 
+/* the colour (8 bits a channel, as floats) the envmap asks for from `rgb` at the lift `t` (the level_t of its level: 0 .. 1; negative for a
+ * shade): toward white and less saturated for a lift. car_colours wants the tones a saturated paint's lift asks for. */
+void car_envmap_want(const uint8_t rgb[3], float t, float want[3]);
+
 /* the level (0 .. CAR_SHINE_LEVELS - 1, fractional: the draw dithers between two) of a surface with the unit `normal` (camera space, toward the
  * viewer, the exe's y up) seen along the unit `view` (from the eye to the surface). `up` is the world's up in the camera's space (unit): the
  * reflection is looked up against it, so the horizon is the world's and holds still while the body pitches, rolls and yaws under it, as in
