@@ -28,12 +28,12 @@ uint8_t *platform_read_file(const char *path, size_t *size)
 }
 void platform_free_file(uint8_t *data) { free(data); }
 
-/* the three values come back as they went in; any other non-zero value is matte */
+/* the four values come back as they went in; any other non-zero value is matte */
 static void test_round_trip(void)
 {
     uint8_t mask[W * H], back[W * H];
-    static const uint8_t CLASSES[3] = { CAR_MASK_PAINT, CAR_MASK_SHINE, CAR_MASK_MATTE };
-    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[i % 3];
+    static const uint8_t CLASSES[4] = { CAR_MASK_PAINT, CAR_MASK_SHINE, CAR_MASK_MATTE, CAR_MASK_BODY };
+    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[i % 4];
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK(car_mask_write(mask, W, H, &png, &len));
@@ -86,6 +86,25 @@ static void test_colours(void)
     CHECK_EQ_INT(out[2], CAR_MASK_MATTE);
     CHECK_EQ_INT(out[3], CAR_MASK_MATTE);
     CHECK_EQ_INT(out[4], CAR_MASK_SHINE);
+    png_free(png);
+}
+
+/* the body class (192: keeps the texture's colour, shines like the body): a grey of 192 and a green-dominant colour; the other classes' greys and
+ * the colours that were matte stay as they were (a bright red is still matte) */
+static void test_the_body_class(void)
+{
+    uint8_t rgba[6 * 4] = { 192, 192, 192, 255, 40, 200, 40, 255, 0, 160, 0, 255, 255, 255, 255, 255, 200, 40, 40, 255, 128, 128, 128, 255 };
+    uint8_t *png = NULL;
+    size_t len = 0;
+    CHECK_EQ_INT(png_write_rgba(rgba, 6, 1, &png, &len), PNG_OK);
+    uint8_t out[6];
+    CHECK(car_mask_parse(png, len, 6, 1, out));
+    CHECK_EQ_INT(out[0], CAR_MASK_BODY);
+    CHECK_EQ_INT(out[1], CAR_MASK_BODY);
+    CHECK_EQ_INT(out[2], CAR_MASK_BODY);
+    CHECK_EQ_INT(out[3], CAR_MASK_MATTE);
+    CHECK_EQ_INT(out[4], CAR_MASK_MATTE);
+    CHECK_EQ_INT(out[5], CAR_MASK_SHINE);
     png_free(png);
 }
 
@@ -169,6 +188,7 @@ int main(void)
     test_round_trip();
     test_file_values();
     test_colours();
+    test_the_body_class();
     test_scaled();
     test_refused();
     test_lookup_by_level();

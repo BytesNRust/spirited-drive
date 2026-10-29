@@ -19,8 +19,8 @@
 enum { REPAINT_NONE = 0, REPAINT_MAIN = 1, REPAINT_END = 2, REPAINT_KEEPS = 4 };
 
 /* the draft's classes of a texel (car_repaint_draft): painted, left as it is without a shine (plate, trim, badge, vents), left as it is
- * with one (glass, lamps) */
-enum { REPAINT_DRAFT_PAINT = 0, REPAINT_DRAFT_MATTE = 1, REPAINT_DRAFT_SHINE = 2 };
+ * with the glass's (glass, lamps), left as it is with the body's shine (a two-tone car's black roof) */
+enum { REPAINT_DRAFT_PAINT = 0, REPAINT_DRAFT_MATTE = 1, REPAINT_DRAFT_SHINE = 2, REPAINT_DRAFT_BODY = 3 };
 
 typedef struct {
     uint8_t *pixels;     /* the texture's texels, palette indices */

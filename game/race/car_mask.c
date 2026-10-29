@@ -7,14 +7,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { MAX_SIDE = 4096, PATH = 512, MATTE_FROM = 192 };
+enum { MAX_SIDE = 4096, PATH = 512, MATTE_FROM = 192, BODY_UNTIL = 224, GREY_SPREAD = 16 };
 
 /* the class of a mask colour */
 static int class_of(const uint8_t c[3])
 {
     if (c[0] == 0 && c[1] == 0 && c[2] == 0) return CAR_MASK_PAINT;
     if (c[2] > c[0] && c[2] > c[1]) return CAR_MASK_SHINE;
+    if (c[1] > c[0] && c[1] > c[2]) return CAR_MASK_BODY;   /* the owner's convention in the PSDs: green is a body texel that keeps its colour */
     const int top = c[0] > c[1] ? (c[0] > c[2] ? c[0] : c[2]) : (c[1] > c[2] ? c[1] : c[2]);
+    const int low = c[0] < c[1] ? (c[0] < c[2] ? c[0] : c[2]) : (c[1] < c[2] ? c[1] : c[2]);
+    if (top >= MATTE_FROM && top < BODY_UNTIL && top - low <= GREY_SPREAD) return CAR_MASK_BODY;   /* the grey 192 the tools write */
     return top >= MATTE_FROM ? CAR_MASK_MATTE : CAR_MASK_SHINE;
 }
 
@@ -41,10 +44,11 @@ int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, si
     const size_t count = (size_t)width * (size_t)height;
     uint8_t *indices = malloc(count);
     if (indices == NULL) return 0;
-    for (size_t i = 0; i < count; i++) indices[i] = mask[i] == 0 ? 0 : mask[i] == CAR_MASK_SHINE ? 1 : 2;
+    for (size_t i = 0; i < count; i++) indices[i] = mask[i] == 0 ? 0 : mask[i] == CAR_MASK_SHINE ? 1 : mask[i] == CAR_MASK_BODY ? 3 : 2;
     uint8_t palette[768] = { 0 };
     palette[3] = palette[4] = palette[5] = CAR_MASK_SHINE;
     palette[6] = palette[7] = palette[8] = CAR_MASK_MATTE;
+    palette[9] = palette[10] = palette[11] = CAR_MASK_BODY;
     const PngResult r = png_write_indexed(indices, (uint32_t)width, (uint32_t)height, palette, out, len);
     free(indices);
     return r == PNG_OK;

@@ -6,6 +6,7 @@
 #include "game/viewer/shine_draw.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -251,6 +252,24 @@ static void test_the_envmap_shines_the_drafts_glass(void)
     CHECK_EQ_INT(screen_px[24 * W + 36], START);                                              /* matte: untouched */
 }
 
+/* the body class (REPAINT_DRAFT_BODY: a texel that keeps its colour and shines like the body): it goes through the paint table at the body's
+ * gain, not through the glass table at the glass's. The paint table is what dims a dark tone, so a black roof shines as the black paint does */
+static void test_the_body_class_shines_through_the_paint_table_at_the_body_gain(void)
+{
+    const EnvShine env = env_setup(255);
+    for (int y = 0; y < TEX; y++)
+        for (int x = 6; x < TEX; x++) klass[y * TEX + x] = REPAINT_DRAFT_BODY;
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    float c[2] = { 0.5f, 0.5f };
+    const int32_t packed[4] = { car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c), car_envmap_pack(c) };
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    const int lo = (int)floorf(car_envmap_level(255, CAR_ENVMAP_BODY_GAIN));
+    for (int x = 33; x < 39; x++) {   /* the texels 6 and 7 of the 32-wide polygon, 4 pixels each */
+        const int v = screen_px[24 * W + x];
+        CHECK(v == 60 + lo || v == 60 + lo + 1);   /* the paint table's entry at the body's level, never the glass table's (160+) */
+    }
+}
+
 /* where the two levels' entries a pixel falls between are far apart in colour (`hard`), the pixel takes the nearer one, not a dither of both */
 /* the byte whose paint level falls a third of the way from level 8 to 9, whatever the paint's gain */
 static uint8_t between_8_and_9(void)
@@ -302,6 +321,7 @@ static void test_a_dark_sample_shades_the_paint_below_neutral(void)
 int main(void)
 {
     test_the_envmap_shines_the_drafts_glass();
+    test_the_body_class_shines_through_the_paint_table_at_the_body_gain();
     test_a_dark_sample_shades_the_paint_below_neutral();
     test_a_hard_step_is_not_dithered();
     test_only_paint_texels_change();
