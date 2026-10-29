@@ -43,7 +43,7 @@ uint8_t car_envmap_sample(const uint8_t *image, float u, float v);
 /* the intensities of the envmap, as the level's share of its range: the paint (mask 0) and the glass and lamps (mask 128) have one each. The
  * paint is the softer: at the glass's it read too glossy (the owner) */
 #define CAR_ENVMAP_BODY_GAIN 0.65f
-#define CAR_ENVMAP_GLASS_GAIN 0.9f
+#define CAR_ENVMAP_GLASS_GAIN 0.8f
 
 /* the most a shade takes the level down, as a fraction of the levels below the neutral: the darkest byte is (1 - this) of the neutral's way
  * to the darkest level, so the paint keeps its colour (it darkens to about 0.7 of its value, never near black). The lift has its own gains. */

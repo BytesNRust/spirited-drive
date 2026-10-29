@@ -207,7 +207,7 @@ static void test_the_level_follows_the_byte(void)
     CHECK(car_envmap_level(0, CAR_ENVMAP_BODY_GAIN) < neutral);                       /* a dark byte shades */
     CHECK(car_envmap_level(0, CAR_ENVMAP_BODY_GAIN) >= limit - 0.0001f);             /* and not past the shade limit */
     CHECK(car_envmap_level(0, CAR_ENVMAP_GLASS_GAIN) >= limit - 0.0001f);
-    CHECK(car_envmap_level(255, CAR_ENVMAP_GLASS_GAIN) > CAR_SHINE_LEVELS - 2.5f);
+    CHECK(car_envmap_level(255, CAR_ENVMAP_GLASS_GAIN) > CAR_SHINE_LEVELS - 3.5f);
     CHECK(car_envmap_level(255, CAR_ENVMAP_BODY_GAIN) < car_envmap_level(255, CAR_ENVMAP_GLASS_GAIN));   /* the paint shines less than the glass */
     float last = -1.0f;
     for (int b = 0; b < 256; b++) {
