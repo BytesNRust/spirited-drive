@@ -19,4 +19,9 @@ int dash_box_gate_always(DashBox mode);
  * change otherwise (`gate_state`, 0041f5bc's, not 0). Otherwise the dash runs on unbroken through it. */
 int dash_box_shown(DashBox mode, int use_parts, int32_t gate_state, int in_car);
 
+/* The gate state to carry on with after the dash was drawn afresh (a camera back into the cockpit, a reload): the lever
+ * is drawn only when its state changes, over a dash the redraw has just painted clean, so in Gear lever the state starts
+ * again from 0 and the next frame draws the lever. The other modes keep the exe's (the gate there is a moment's). */
+int32_t dash_box_gate_state_after_redraw(DashBox mode, int32_t gate_state);
+
 #endif
