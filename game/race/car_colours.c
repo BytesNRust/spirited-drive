@@ -14,7 +14,10 @@ enum {
     DARK_SPREAD = 10,         /* a colour is a paint tone when its 6-bit channels spread this far (a grey has no hue to keep in shadow) */
     DARK_WEIGHT_DIV = 6,     /* a darkened tone is wanted a sixth as much as the tone itself: the texels show the tone, the light only sometimes */
     LIGHT_SPREAD = 24,       /* a paint is saturated when its 6-bit channels spread this far: its lift keeps a hue the track's palette has few lighter tones of */
-    LIGHT_WEIGHT_DIV = 6     /* a lightened tone is wanted a sixth as much as the tone itself, as a darkened one */
+    LIGHT_WEIGHT_DIV = 6,    /* a lightened tone is wanted a sixth as much as the tone itself, as a darkened one */
+    LIGHT_DARK_SPREAD = 6,   /* a dark paint (a teal body whose brightest channel is 20 of 63) is a paint tone from this spread when the chroma is most of its ... */
+    LIGHT_DARK_CHROMA_PCT = 50,  /* ... brightest channel: a grey with a faint tint is not */
+    LIGHT_DARK_WEIGHT_DIV = 2    /* a dark body's lifted tone is wanted half as much: its own tones are the track's few, and at a sixth it lost its slot to the rest */
 };
 
 static const float DARK_STEP[] = { 0.78f, 0.60f };   /* the light ratios the PS1 light's dusk and shadow bring (psx_lit_table) */
@@ -81,7 +84,8 @@ static void add_lightened(Items *it, const uint8_t rgb6[3], uint32_t weight)
 {
     const int hi = rgb6[0] > rgb6[1] ? (rgb6[0] > rgb6[2] ? rgb6[0] : rgb6[2]) : (rgb6[1] > rgb6[2] ? rgb6[1] : rgb6[2]);
     const int lo = rgb6[0] < rgb6[1] ? (rgb6[0] < rgb6[2] ? rgb6[0] : rgb6[2]) : (rgb6[1] < rgb6[2] ? rgb6[1] : rgb6[2]);
-    if (hi - lo < LIGHT_SPREAD || weight < LIGHT_WEIGHT_DIV) return;
+    const int saturated = hi - lo >= LIGHT_SPREAD, dark_paint = hi - lo >= LIGHT_DARK_SPREAD && (hi - lo) * 100 >= hi * LIGHT_DARK_CHROMA_PCT;
+    if (!(saturated || dark_paint) || weight < LIGHT_WEIGHT_DIV) return;
     uint8_t rgb8[3];
     palette_6_to_8(1, rgb6, rgb8);
     for (size_t s = 0; s < sizeof LIGHT_STEP / sizeof *LIGHT_STEP; s++) {
@@ -89,7 +93,7 @@ static void add_lightened(Items *it, const uint8_t rgb6[3], uint32_t weight)
         uint8_t light[3];
         car_envmap_want(rgb8, LIGHT_STEP[s], want);
         for (int k = 0; k < 3; k++) light[k] = (uint8_t)fminf(want[k] / 4.0f + 0.5f, 63.0f);
-        add_item(it, light, weight / LIGHT_WEIGHT_DIV);
+        add_item(it, light, weight / (saturated ? LIGHT_WEIGHT_DIV : LIGHT_DARK_WEIGHT_DIV));
     }
 }
 

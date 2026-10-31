@@ -146,6 +146,41 @@ static void test_a_saturated_paints_lifted_tones_are_wanted(void)
     CHECK(near);
 }
 
+/* a dark, muted-saturation paint (the default 911's teal: 6-bit (2,10,10), (5,13,15)) has no lighter teal in a track's palette either: its lifted tones
+ * are wanted too. A grey with a faint tint is not a paint tone, so it is not */
+static void test_a_dark_paints_lifted_tones_are_wanted(void)
+{
+    screen_setup(0x30, 0x17);
+    race_setup(1);
+    uint8_t palette6[256 * 3] = { 0 };
+    const uint8_t teal[3] = { 2, 10, 10 }, tinted_grey[3] = { 21, 25, 30 };
+    memcpy(palette6 + 3 * 1, teal, 3);
+    memcpy(palette6 + 3 * 2, tinted_grey, 3);
+    RaceCarArt art[RACE_CARS];
+    memset(art, 0, sizeof art);
+    const uint8_t grey_only[1] = { 2 }, teal_only[1] = { 1 };
+    art[0].palette = palette6;
+    art[0].bank = make_bank(grey_only, 1, 16, 16);
+    CarFitReport report;
+    car_colours_fit(&pal, &race, art, 0, NULL, &report);
+    CHECK_EQ_INT(report.block[0].colours, 1);   /* the tinted grey: itself */
+    art[0].bank = make_bank(teal_only, 1, 16, 16);
+    screen_setup(0x30, 0x17);
+    car_colours_fit(&pal, &race, art, 0, NULL, &report);
+    CHECK_EQ_INT(report.block[0].colours, 3);   /* the teal and its two lifted tones */
+    uint8_t teal8[3], want[3];
+    float lift[3];
+    palette_6_to_8(1, teal, teal8);
+    car_envmap_want(teal8, 0.6f, lift);
+    for (int k = 0; k < 3; k++) want[k] = (uint8_t)(lift[k] / 4.0f + 0.5f);
+    int near = 0;
+    for (int e = 0x30; e < 0x30 + 0x17; e++) {
+        const uint8_t *c = pal.screen_rgbx + 4 * e;
+        near |= abs((c[0] >> 2) - want[0]) <= 2 && abs((c[1] >> 2) - want[1]) <= 2 && abs((c[2] >> 2) - want[2]) <= 2;
+    }
+    CHECK(near);
+}
+
 static void test_a_block_that_does_well_is_left(void)
 {
     screen_setup(0x30, 0x17);
@@ -279,6 +314,7 @@ int main(void)
     test_a_light_tone_gets_a_slot();
     test_darker_tones_are_wanted();
     test_a_saturated_paints_lifted_tones_are_wanted();
+    test_a_dark_paints_lifted_tones_are_wanted();
     test_a_block_that_does_well_is_left();
     test_other_entries_are_not_touched();
     test_kept_entries_stay();
