@@ -94,11 +94,23 @@ static void test_extras_key_round_trip(void)
     }
 }
 
+/* the lever is drawn only on a change of state, so a dash redrawn under it (the cockpit again after an outside camera)
+ * must start the state over in Gear lever, and leave the exe's modes as they are */
+static void test_redraw_restarts_the_lever_only_in_gear_lever(void)
+{
+    for (int32_t state = 0; state <= 5; state++) {
+        CHECK_EQ_INT(dash_box_gate_state_after_redraw(DASH_BOX_LEVER, state), 0);
+        CHECK_EQ_INT(dash_box_gate_state_after_redraw(DASH_BOX_MAP, state), state);
+        CHECK_EQ_INT(dash_box_gate_state_after_redraw(DASH_BOX_HIDDEN, state), state);
+    }
+}
+
 int main(void)
 {
     test_start_shows_the_map_only_in_the_exes_mode();
     test_box_per_state();
     test_gate_always_only_in_gear_lever();
+    test_redraw_restarts_the_lever_only_in_gear_lever();
     test_m_toggles_map_and_chosen_mode();
     test_extras_key_round_trip();
     return TEST_REPORT();
