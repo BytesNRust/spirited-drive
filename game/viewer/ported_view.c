@@ -145,6 +145,7 @@ static int weather;
 typedef struct {
     uint8_t palette[768];
     int weather, made;
+    int sample, lift;    /* port (fog_sample): the colour's source the fog was made from */
     uint8_t fog[3];      /* the fog's colour */
     uint8_t sky[256];    /* the sky's palette moved toward its colour */
     uint8_t levels[MODERN_FOG_LEVELS][256];   /* all its levels: the fog's sky gets the fog's whole at the horizon */
@@ -160,12 +161,14 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     static WeatherTables wt;
     float tint[3];
     drive_light_tint(tint);
-    if (wt.made && wt.weather == weather && memcmp(wt.tint, tint, sizeof tint) == 0 &&
+    const int sample = port_fog_sample(), lift = port_fog_lift();
+    if (wt.made && wt.weather == weather && wt.sample == sample && wt.lift == lift && memcmp(wt.tint, tint, sizeof tint) == 0 &&
         memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
         return &wt;
     static uint8_t scratch[MODERN_FOG_LEVELS][256];
     uint8_t base[3], sky[3], rain[3];
-    modern_look_fog_colour(art, base);
+    if (sample) modern_look_fog_colour_sampled(art, lift, base);
+    else modern_look_fog_colour(art, base);
     weather_fog_colour(weather, base, wt.fog);
     weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
     weather_sky_colour(weather, wt.fog, sky);
@@ -179,7 +182,7 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
-    wt.weather = weather, wt.made = 1;
+    wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.made = 1;
     return &wt;
 }
 
@@ -1214,7 +1217,10 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     stream(tri, art, pc->node);
     if (!modern) modern_road_set_style(NULL);
     else if (wt != NULL) weather_style(art, wt);
-    else modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
+    else {
+        modern_look_set_sample(&look, port_fog_sample(), port_fog_lift());
+        modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
+    }
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;

@@ -106,6 +106,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "free_records") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->free_records = (int)n;
+    } else if (strcmp(key, "fog_sample") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->fog_sample = (int)n;
     } else if (strcmp(key, "car_colours") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->car_colours = (int)n;
@@ -169,11 +172,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours);
+                           s->free_records, s->car_colours, s->fog_sample);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -251,6 +254,21 @@ int port_psx_time(void)
     const char *v = getenv("TNFS_PSX_TIME");
     const int t = v != NULL ? psx_time_named(v) : -1;
     return t >= 0 ? t : port_settings_load().psx_time;
+}
+
+int port_fog_sample(void)
+{
+    const char *v = getenv("TNFS_FOG_SAMPLE");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().fog_sample;
+}
+
+int port_fog_lift(void)
+{
+    const char *v = getenv("TNFS_FOG_LIFT");
+    char *end;
+    const long n = v != NULL ? strtol(v, &end, 10) : -1;
+    return v != NULL && end != v && *end == '\0' && n >= 0 && n <= 100 ? (int)n : FOG_SAMPLE_LIFT_DEFAULT;
 }
 
 int port_free_records(void)
