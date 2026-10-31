@@ -358,6 +358,25 @@ static void test_a_fixed_black_texel_is_black_whatever_the_paint(void)
     }
 }
 
+/* a fixed black texel has the tone of the body under a black paint, not its own darker one: a 120 grey texel beside a 196 grey body comes out as the
+ * body's black does (the rank of its lightness among the fixed texels, matched to the same rank among the body's pixels) */
+static void test_a_fixed_black_texel_takes_the_bodys_tone(void)
+{
+    Fixture f, g;
+    make(&f, 0x24), make(&g, 0x24);
+    f.tex[0].width = g.tex[0].width = SIDE;
+    uint8_t mask[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 4 == 0 ? 0 : i % 4 == 1 ? CAR_MASK_BLACK : i % 4 == 2 ? 128 : 255);
+    f.tex[0].mask = mask, g.tex[0].mask = mask;
+    const uint8_t black[3] = { 14, 14, 16 };
+    CHECK(car_repaint_fixed_black(&f.bank, black, 44) > 0);
+    CHECK(car_repaint_paint(&g.bank, black, 44) > 0);
+    const uint8_t *body = g.pal + 3 * g.body[0];   /* a paint texel under the black paint */
+    for (int i = 0; i < TEXELS; i++)
+        if (mask[i] == CAR_MASK_BLACK)
+            for (int c = 0; c < 3; c++) CHECK(abs((int)f.pal[3 * f.body[i] + c] - (int)body[c]) <= 2);
+}
+
 /* the PS1 pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
 static void test_mask_pairs(void)
 {
@@ -459,5 +478,6 @@ int main(void)
     test_draft_carries_the_masks_classes();
     test_a_body_class_texel_is_kept_and_drafted_as_body();
     test_a_fixed_black_texel_is_black_whatever_the_paint();
+    test_a_fixed_black_texel_takes_the_bodys_tone();
     return TEST_REPORT();
 }

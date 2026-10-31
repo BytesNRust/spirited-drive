@@ -343,6 +343,81 @@ typedef struct {
 
 /* ----- the fixed black ----- */
 
+/* The body's tones under the black plan, darkest first, each with the pixels the paint texels have of it. */
+typedef struct {
+    float luma;
+    uint32_t weight;
+    uint8_t out[3], second[3];
+} BodyTone;
+
+/* Each entry the fixed black texels use takes the black of the body's tone at the same rank: the fixed texels sorted by lightness, their place in that order (by
+ * pixels) read off the body's tones in theirs. A fixed texel then has the distribution of tones a black body has, as a texel of the paint would; run through the
+ * plan on its own colour it kept the darkness of the texture it is in (a frame's shadow) and came out flatter and darker than the body. */
+static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx *ctx, int planned, const uint8_t black[3], int floor, Spares *sp, int remap[ENTRIES])
+{
+    BodyTone tone[ENTRIES];
+    int tones = 0;
+    uint64_t total_weight = 0;
+    for (int e = 0; e < ENTRIES; e++) {
+        remap[e] = -2;
+        if (!planned || s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;
+        BodyTone b = { 0, s->main[e] + s->end[e], { 0 }, { 0 } };
+        uint8_t in[3];
+        colour_of(bank, e, in);
+        b.luma = luma_of(in);
+        car_paint_shade(&ctx->plan, in, b.out);
+        memcpy(b.second, b.out, 3);
+        if (second_valid(bank)) {
+            uint8_t own[3];
+            second_colour_of(bank, e, own);
+            car_paint_shade(&ctx->plan, own, b.second);
+        }
+        int k = tones++;
+        while (k > 0 && tone[k - 1].luma > b.luma) tone[k] = tone[k - 1], k--;
+        tone[k] = b;
+        total_weight += b.weight;
+    }
+    uint32_t used[ENTRIES] = { 0 };
+    uint64_t total_used = 0;
+    for (int t = 0; t < bank->texture_count; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->body == REPAINT_NONE || tex->mask == NULL) continue;
+        for (size_t i = 0; i < tex->count; i++)
+            if (tex->mask[i] == CAR_MASK_BLACK && tex->pixels[i] != TRANSPARENT) used[tex->pixels[i]]++, total_used++;
+    }
+    int order[ENTRIES], n = 0;
+    for (int e = 0; e < ENTRIES; e++) {
+        if (used[e] == 0) continue;
+        uint8_t c[3];
+        colour_of(bank, e, c);
+        int k = n++;
+        while (k > 0) {
+            uint8_t o[3];
+            colour_of(bank, order[k - 1], o);
+            if (luma_of(o) <= luma_of(c)) break;
+            order[k] = order[k - 1], k--;
+        }
+        order[k] = e;
+    }
+    uint64_t before = 0;
+    for (int k = 0; k < n; k++) {
+        const int e = order[k];
+        uint8_t out[3], second[3];
+        if (tones == 0) {
+            memcpy(out, black, 3), memcpy(second, black, 3);
+        } else {
+            /* the middle of this entry's share of the fixed texels, as a share of the body's pixels */
+            const uint64_t at = (2 * before + used[e]) * total_weight / (2 * total_used);
+            uint64_t sum = 0;
+            int j = 0;
+            while (j + 1 < tones && sum + tone[j].weight <= at) sum += tone[j].weight, j++;
+            memcpy(out, tone[j].out, 3), memcpy(second, tone[j].second, 3);
+        }
+        before += used[e];
+        remap[e] = spare_for(bank, sp, out, second);
+    }
+}
+
 int car_repaint_fixed_black(const RepaintBank *bank, const uint8_t black[3], int floor)
 {
     if (bank == NULL || (bank->type != PALETTE_8BIT && bank->type != PALETTE_6BIT) || bank->palette[0] == NULL) return -1;
@@ -371,26 +446,13 @@ int car_repaint_fixed_black(const RepaintBank *bank, const uint8_t black[3], int
     }
     if (n > 0) car_paint_plan(&ctx->plan, (const uint8_t (*)[3])colours, weight, n, black);
     int remap[ENTRIES], changed = 0;
-    for (int e = 0; e < ENTRIES; e++) remap[e] = -2;   /* not made yet */
+    fixed_black_remap(bank, s, ctx, n > 0, black, floor, sp, remap);
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
         if (tex->body == REPAINT_NONE || tex->mask == NULL) continue;
         for (size_t i = 0; i < tex->count; i++) {
             const int e = tex->pixels[i];
             if (tex->mask[i] != CAR_MASK_BLACK || e == TRANSPARENT) continue;
-            if (remap[e] == -2) {
-                uint8_t in[3], out[3], second[3];
-                colour_of(bank, e, in);
-                if (n > 0) car_paint_shade(&ctx->plan, in, out);
-                else memcpy(out, black, 3);
-                memcpy(second, out, 3);
-                if (second_valid(bank) && n > 0) {
-                    uint8_t own[3];
-                    second_colour_of(bank, e, own);
-                    car_paint_shade(&ctx->plan, own, second);
-                }
-                remap[e] = spare_for(bank, sp, out, second);
-            }
             if (remap[e] >= 0) tex->pixels[i] = (uint8_t)remap[e], changed++;
         }
     }
