@@ -164,7 +164,7 @@ void race_splits_start(RaceState *race)
         for (int k = 0; k < SPLITS_A_LAP; k++)
             s->checkpoints[lap * SPLITS_A_LAP + k] = table_word(template_row + 4 * k) + lap * race->loop_nodes;
     s->passed = 0;
-    if (race->race_type != 0) {
+    if (race->race_type != 0 || race->port_reverse) {   /* port: a reversed track has no rival times */
         s->rival_passed = 0;
         memset(s->rival_ticks, 0, sizeof s->rival_ticks);
     } else {

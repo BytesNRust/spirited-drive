@@ -1,4 +1,5 @@
 #include "game/race/car_repaint.h"
+#include "game/race/car_mask.h"
 #include "game/race/car_paint.h"
 
 #include <math.h>
@@ -11,7 +12,8 @@ enum {
     NEUTRAL_SPREAD = 24,        /* a grey body's family: spread up to this */
     MIN_MAIN_PIXELS = 8,        /* an entry the main textures show at least this often... */
     HUE_WINDOW = 30,
-    FIRST_RESERVED = 0xfa       /* 0xfa..0xff: the police slots and the transparent index */
+    FIRST_RESERVED = 0xfa,      /* 0xfa..0xff: the police slots and the transparent index */
+    TRANSPARENT = 0xff          /* the index a texture's cut-out texels have: not drawn, so not paint */
 };
 
 static int spread_of(const uint8_t c[3])
@@ -94,6 +96,7 @@ static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
         uint32_t *into = tex->body == REPAINT_MAIN ? s->main : tex->body == REPAINT_END ? s->end : s->other;
         const int masked = tex->mask != NULL && tex->body != REPAINT_NONE;
         for (size_t i = 0; i < tex->count; i++) {
+            if (tex->pixels[i] == TRANSPARENT) continue;
             const int keeps = masked ? tex->mask[i] != 0 : kept(tex, i);
             (keeps ? s->other : into)[tex->pixels[i]]++;
             if (masked && !keeps) s->forced[tex->pixels[i]] = 1;
@@ -312,7 +315,9 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
                 const int to = remap[tex->pixels[i]];
                 if (tex->mask != NULL ? tex->mask[i] == 0 : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
                     draft[t][i] = REPAINT_DRAFT_PAINT, changed++;
-                } else if (tex->mask == NULL && !kept(tex, i)) {
+                } else if (tex->mask != NULL) {   /* the mask's class: glass and lamps shine, the rest is matte */
+                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE;
+                } else if (!kept(tex, i)) {
                     draft[t][i] = (uint8_t)((guard[t] != NULL && guard[t][i]) || shines(bank, tex->pixels[i], floor) ? REPAINT_DRAFT_SHINE
                                                                                                                   : REPAINT_DRAFT_MATTE);
                 }
@@ -476,6 +481,28 @@ int car_repaint_pairs(const RepaintBank *bank, const CarLiveryPair *pairs, int c
     }
     free(s);
     return changed;
+}
+
+/* ----- the body textures ----- */
+
+static int named(const char name[4], const char *const names[], size_t count)
+{
+    for (size_t k = 0; k < count; k++)
+        if (memcmp(name, names[k], 4) == 0) return 1;
+    return 0;
+}
+
+int car_repaint_body_class(const char name[4], int level)
+{
+    /* (the 512 TR has no topv: its top is J000 and J001) */
+    static const char *const MAIN[] = { "topv", "rsid", "bott", "wing", "J000", "J001" }, *const END[] = { "frnt", "rear" };
+    /* the low detail bank's side and back: the sides and the rear, as the high bank's rsid and rear are (no high texture has these names) */
+    static const char *const LOW_MAIN[] = { "side" }, *const LOW_END[] = { "back" };
+    if (named(name, MAIN, sizeof MAIN / sizeof *MAIN)) return REPAINT_MAIN;
+    if (level != 0 && named(name, LOW_MAIN, sizeof LOW_MAIN / sizeof *LOW_MAIN)) return REPAINT_MAIN;
+    if (named(name, END, sizeof END / sizeof *END)) return REPAINT_END;
+    if (level != 0 && named(name, LOW_END, sizeof LOW_END / sizeof *LOW_END)) return REPAINT_END;
+    return REPAINT_NONE;
 }
 
 /* ----- the drafts of the hand-made masks ----- */

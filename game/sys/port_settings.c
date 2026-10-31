@@ -35,7 +35,8 @@ PortSettings port_settings_defaults(void)
 {
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
-    const PortSettings d = { SCREEN_4_3, 60, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, "", 0, 0, PSX_TIME_DAY, WEATHER_CLEAR, -1 };
+    const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
+                             .weather = WEATHER_CLEAR, .render_bands = -1 };
     return d;
 }
 
@@ -102,6 +103,12 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (t >= 0) s->psx_time = t;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
+    } else if (strcmp(key, "free_records") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->free_records = (int)n;
+    } else if (strcmp(key, "car_colours") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->car_colours = (int)n;
     } else if (strcmp(key, "render_bands") == 0) {
         /* the render threads: "auto" for as many as the logical cores, or a count. Anything else keeps the default
          * (auto), so a damaged file cannot turn the threads off by accident. */
@@ -109,6 +116,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
             s->render_bands = -1;
         else if (parse_int(value, &n) && n >= 0 && n <= 8)
             s->render_bands = (int)n;
+    } else if (strcmp(key, "body_shine") == 0) {
+        if (parse_int(value, &n) && n >= 0 && n <= 4)
+            s->body_shine = (int)n;
     }
 }
 
@@ -159,10 +169,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
-                           s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands);
+                           s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
+                           s->free_records, s->car_colours);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -210,7 +221,7 @@ PortSettings port_settings_load(void)
 
 bool port_settings_save(const PortSettings *s)
 {
-    char text[512];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest */
+    char text[1024];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest (about 270 more) */
     const size_t n = port_settings_format(s, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
 }
@@ -242,11 +253,32 @@ int port_psx_time(void)
     return t >= 0 ? t : port_settings_load().psx_time;
 }
 
+int port_free_records(void)
+{
+    const char *v = getenv("TNFS_FREE_RECORDS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().free_records;
+}
+
+int port_car_colours(void)
+{
+    const char *v = getenv("TNFS_CAR_COLOURS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().car_colours;
+}
+
 int port_psx_shadow(void)
 {
     const char *v = getenv("TNFS_PSX_SHADOW");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().psx_shadow;
+}
+
+int port_body_shine(void)
+{
+    const char *v = getenv("TNFS_BODY_SHINE");
+    if (v != NULL && v[0] >= '0' && v[0] <= '4' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().body_shine;
 }
 
 int port_psx_light(void)

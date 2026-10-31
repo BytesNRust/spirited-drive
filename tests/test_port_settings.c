@@ -12,7 +12,7 @@
  * extras.cfg is only read, as the fallback for the three settings that moved in from there. */
 typedef struct {
     char name[32];
-    uint8_t bytes[256];
+    uint8_t bytes[512];
     size_t size;
     int present;
 } Stored;
@@ -93,6 +93,9 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.laps, b.laps);
     CHECK_EQ_INT(a.weather, b.weather);
     CHECK_EQ_INT(a.render_bands, b.render_bands);
+    CHECK_EQ_INT(a.body_shine, b.body_shine);
+    CHECK_EQ_INT(a.free_records, b.free_records);
+    CHECK_EQ_INT(a.car_colours, b.car_colours);
 }
 
 static void test_defaults(void)
@@ -107,14 +110,17 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.perspective, 0);
     CHECK_EQ_INT(d.texture_filter, 0);
     CHECK_EQ_INT(d.fog, 0);
+    CHECK_EQ_INT(d.car_colours, 0);     /* the exe's palette slots until asked */
+    CHECK_EQ_INT(d.free_records, 0);    /* the free races keep no total for a lap count the exe lacks, until asked */
     CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
+    CHECK_EQ_INT(d.body_shine, 0);      /* the exe's frames until asked */
 }
 
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4 };
-    char text[256];
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1 };
+    char text[512];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
     check_same(port_settings_parse(text, n), s);
@@ -122,9 +128,16 @@ static void test_round_trip(void)
 
 /* the render threads: the number of threads the bands use, 0 for off (the plain path) and -1 for "auto" (as many as
  * the logical cores, at most eight). The file names them "render_bands=0|auto|2|4". */
+static void test_free_records_values(void)
+{
+    const char *const on = "free_records=1\n", *const bad = "free_records=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).free_records, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).free_records, 0);
+}
+
 static void test_render_bands_values(void)
 {
-    char text[256];
+    char text[512];
     const char *const text_in = "render_bands=auto\n";
     PortSettings s = port_settings_parse(text_in, strlen(text_in));
     CHECK_EQ_INT(s.render_bands, -1);   /* "auto" is the sentinel, not a count */
@@ -175,7 +188,7 @@ static void test_render_scale_values(void)
         CHECK_EQ_INT(s.render_scale, i + 1);
     }
     /* the written form: the number on its own */
-    char text[256];
+    char text[512];
     PortSettings a = port_settings_defaults();
     a.render_scale = 3;
     CHECK(port_settings_format(&a, text, sizeof text) > 0);
@@ -234,6 +247,12 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).psx_shadow, 1);
     const char *bad_shadow = "psx_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
+    const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
+    CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 1);
+    CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 3);
+    CHECK_EQ_INT(port_settings_parse(envmap, strlen(envmap)).body_shine, 4);
+    CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 2);
+    CHECK_EQ_INT(port_settings_parse(bad_shine, strlen(bad_shine)).body_shine, 0);
     const char *lit = "psx_light=1\n";
     CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
     const char *bad = "psx_light=2\n";
@@ -313,7 +332,7 @@ static void test_moved_settings_fall_back_to_extras(void)
     s.fog = 0;
     CHECK(port_settings_save(&s));
     /* the saved text carries all three, so a later load never has to consult extras.cfg for them */
-    char text[256] = "";
+    char text[512] = "";
     CHECK(port_settings_format(&s, text, sizeof text) > 0);
     CHECK(strstr(text, "perspective=") != NULL);
     CHECK(strstr(text, "texture_filter=") != NULL);
@@ -329,6 +348,28 @@ static void test_moved_settings_fall_back_to_extras(void)
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
+/* a psx_dir of the longest length kept with every other key set: the text the file is written from is about 270 bytes past it, which the save's
+ * buffer holds (1024) and the older 512 did not */
+static void test_a_longest_psx_dir_round_trips(void)
+{
+    PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
+                       .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1 };
+    memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
+    s.psx_dir[0] = '/';
+    s.psx_dir[PSX_DIR_MAX - 1] = '\0';
+    char text[1024];
+    const size_t n = port_settings_format(&s, text, sizeof text);
+    CHECK(n > 0);
+    CHECK(n > 480);   /* about the size of the older 512 buffer: one more key would not have fitted */
+    const PortSettings back = port_settings_parse(text, n);
+    CHECK(strcmp(back.psx_dir, s.psx_dir) == 0);
+    CHECK_EQ_INT(back.body_shine, 3);
+    CHECK_EQ_INT(back.free_records, 1);
+    CHECK_EQ_INT(back.car_colours, 1);
+    CHECK_EQ_INT(back.render_bands, 4);
+}
+
 int main(void)
 {
     clear_files();
@@ -337,11 +378,13 @@ int main(void)
     test_parse_keys();
     test_bad_input_keeps_defaults();
     test_render_bands_values();
+    test_free_records_values();
     test_bad_render_bands_keeps_the_default();
     test_render_scale_values();
     test_bad_render_scale_keeps_the_default();
     test_the_environment_wins_over_the_setting();
     test_load_save();
     test_moved_settings_fall_back_to_extras();
+    test_a_longest_psx_dir_round_trips();
     return TEST_REPORT();
 }

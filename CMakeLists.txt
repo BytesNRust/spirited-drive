@@ -40,6 +40,7 @@ add_library(tnfs_core STATIC
     core/formats/tri.c
     core/formats/tri_exchange.c
     core/formats/track_gen.c
+    core/formats/tri_reverse.c
     core/formats/tri_write.c
     core/formats/tsv.c
     core/formats/validate.c
@@ -249,6 +250,8 @@ add_library(tnfs_game STATIC
     game/race/car_paint.c
     game/race/car_repaint.c
     game/race/car_mask.c
+    game/race/car_shine.c
+    game/race/car_envmap.c
     game/race/psx_light.c
     game/race/psx_lamps.c
     game/race/psx_lgs.c
@@ -260,6 +263,7 @@ add_library(tnfs_game STATIC
     game/race/single_rival.c
     game/race/race_sound.c
     game/race/race_palette.c
+    game/race/car_colours.c
     game/race/dash_art.c
     game/race/dash_load.c
     game/race/hud_colours.c
@@ -356,6 +360,8 @@ add_library(tnfs_game STATIC
     game/sys/text_soft.c
     game/sys/port_settings.c
     game/sys/free_laps.c
+    game/sys/reverse_track.c
+    game/sys/free_records.c
     game/sys/port_extras.c
     game/sys/port_icon.c
     game/sys/port_controls.c
@@ -432,6 +438,9 @@ add_executable(tnfs
     game/viewer/drive_bumper.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
+    game/viewer/shine_draw.c
+    game/viewer/shine_class.c
+    game/viewer/body_shine.c
     game/viewer/soft_shadow.c
     game/viewer/ported_view.c
     game/viewer/follow_arm.c
@@ -481,13 +490,13 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf)
+    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_paint_cfm car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -496,6 +505,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_car_colours PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_dash PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_title_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_item_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -535,6 +545,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_modern_look PRIVATE tnfs_game)
     target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_look COMMAND test_modern_look)
+    add_executable(test_lamp_entries tests/test_lamp_entries.c game/viewer/modern_road.c game/viewer/horizon_smooth.c game/sys/band_index.c)
+    target_include_directories(test_lamp_entries PRIVATE game)
+    target_link_libraries(test_lamp_entries PRIVATE tnfs_game)
+    target_compile_options(test_lamp_entries PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME lamp_entries COMMAND test_lamp_entries)
     add_executable(test_horizon_smooth tests/test_horizon_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_horizon_smooth PRIVATE game)
     target_link_libraries(test_horizon_smooth PRIVATE tnfs_game)
@@ -561,7 +576,27 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_car_render_sides PRIVATE tnfs_game)
     target_compile_options(test_car_render_sides PRIVATE ${TNFS_WARNINGS})
     add_test(NAME car_render_sides COMMAND test_car_render_sides)
-    add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c)
+    add_executable(test_shine_draw tests/test_shine_draw.c game/viewer/shine_draw.c)
+    target_include_directories(test_shine_draw PRIVATE game)
+    target_link_libraries(test_shine_draw PRIVATE tnfs_game)
+    target_compile_options(test_shine_draw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME shine_draw COMMAND test_shine_draw)
+    add_executable(test_shine_class tests/test_shine_class.c game/viewer/shine_class.c game/viewer/shine_draw.c)
+    target_include_directories(test_shine_class PRIVATE game)
+    target_link_libraries(test_shine_class PRIVATE tnfs_game)
+    target_compile_options(test_shine_class PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME shine_class COMMAND test_shine_class)
+    add_executable(test_sink_shine tests/test_sink_shine.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    target_include_directories(test_sink_shine PRIVATE game)
+    target_link_libraries(test_sink_shine PRIVATE tnfs_game)
+    target_compile_options(test_sink_shine PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME sink_shine COMMAND test_sink_shine)
+    add_executable(test_body_shine tests/test_body_shine.c game/viewer/body_shine.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    target_include_directories(test_body_shine PRIVATE game)
+    target_link_libraries(test_body_shine PRIVATE tnfs_game)
+    target_compile_options(test_body_shine PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME body_shine COMMAND test_body_shine)
+    add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
     target_include_directories(test_modern_objects PRIVATE game)
     target_link_libraries(test_modern_objects PRIVATE tnfs_game)
     target_compile_options(test_modern_objects PRIVATE ${TNFS_WARNINGS})
@@ -571,7 +606,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_near_scenery PRIVATE tnfs_game)
     target_compile_options(test_near_scenery PRIVATE ${TNFS_WARNINGS})
     add_test(NAME near_scenery COMMAND test_near_scenery)
-    add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c game/viewer/modern_road.c)
+    add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
     target_include_directories(test_object_sink PRIVATE game)
     target_link_libraries(test_object_sink PRIVATE tnfs_game)
     target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
@@ -852,6 +887,7 @@ if(NOT EMSCRIPTEN)
     if(TNFS_TRI_FILES)
         add_test(NAME tri_cd COMMAND test_tri ${TNFS_TRI_FILES})
         add_test(NAME tri_write_cd COMMAND test_tri_write ${TNFS_TRI_FILES})
+        add_test(NAME tri_reverse_cd COMMAND test_tri_reverse ${TNFS_TRI_FILES})
         add_test(NAME tri_exchange_cd COMMAND test_tri_exchange ${TNFS_TRI_FILES})
         add_test(NAME track_gen_cd COMMAND test_track_gen ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)

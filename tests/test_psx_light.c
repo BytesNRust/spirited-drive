@@ -136,6 +136,43 @@ static void test_tunnel_road(void)
     CHECK_EQ_INT(psx_light_at(&light, 3, 1), 100);
 }
 
+/* a track run the other way round (tri_reverse.h): the light is the same places' light, asked at the new node (j is the file's (N - j) mod N) and
+ * the new side (the two chains of a row swap), with and without the script, in a tunnel and out */
+static void test_reversed(void)
+{
+    enum { N = 12 };
+    uint8_t rows[N * PSX_LIGHT_POINTS];
+    for (int n = 0; n < N; n++)
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) rows[n * PSX_LIGHT_POINTS + p] = (uint8_t)(7 * n + 11 * p + 3);
+    for (int n = 4; n < 8; n++) {   /* a tunnel: a lit left wall foot with 0s beyond it, on the file's left side only */
+        uint8_t *row = rows + n * PSX_LIGHT_POINTS;
+        row[7] = 200, row[9] = 0, row[10] = 0;
+    }
+    PsxLgs lgs = { { 0 }, { 128, 128, 128 }, { 100, 100, 100 }, 1, { { 0 } } };
+    lgs.contexts[0] = (PsxLgsContext){ 1, 1, PSX_LGS_RAMP, { 128, 128, 128 }, { 60, 60, 60 } };   /* block 1: nodes 4..7 */
+    for (int scripted = 0; scripted < 2; scripted++) {
+        PsxLight forward = { .data = rows, .nodes = N }, back = { .data = rows, .nodes = N };
+        if (scripted) CHECK(psx_light_set_script(&forward, &lgs) && psx_light_set_script(&back, &lgs));
+        CHECK(psx_light_set_reversed(&back, 1));
+        for (uint32_t j = 0; j < N; j++) {
+            const uint32_t old = (N - j) % N;
+            CHECK_EQ_INT(psx_light_old_node(&back, j), old);
+            CHECK_EQ_INT(psx_light_old_node(&back, j + N), old);   /* the ring wraps */
+            CHECK_EQ_INT(psx_light_tunnel(&back, j), psx_light_tunnel(&forward, old));
+            CHECK_EQ_INT(psx_light_node(&back, j), psx_light_node(&forward, old));
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+                const int side = p == 0 ? 0 : (p + 4) % 10 + 1;
+                CHECK_EQ_INT(psx_light_at(&back, j, p), psx_light_at(&forward, old, side));
+                CHECK_EQ_INT(psx_light_byte(&back, j, p), psx_light_byte(&forward, old, side));
+            }
+        }
+        CHECK_EQ_INT(psx_light_at(&back, 0, 7), psx_light_at(&forward, 0, 2));   /* node 0 stays, its sides swap */
+    }
+    PsxLight none = { 0 };
+    CHECK(!psx_light_set_reversed(&none, 1));
+    CHECK_EQ_INT(psx_light_old_node(NULL, 5), 5);
+}
+
 int main(void)
 {
     test_tunnel_road();
@@ -143,5 +180,6 @@ int main(void)
     test_tunnel_wall_floor();
     test_parse_and_lookup();
     test_rejected_files();
+    test_reversed();
     return TEST_REPORT();
 }

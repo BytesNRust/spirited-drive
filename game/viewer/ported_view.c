@@ -31,6 +31,8 @@
 #include "viewer/modern_look.h"
 #include "viewer/modern_road.h"
 #include "viewer/object_sink.h"
+#include "viewer/body_shine.h"
+#include "game/sys/port_settings.h"
 #include "viewer/soft_shadow.h"
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
@@ -338,7 +340,9 @@ static int ratio_at(int32_t node, float out[3])
 {
     if (!ambient_on || psx_light == NULL) return 0;
     const int32_t at = (int32_t)psx_ring_node(node, ambient_nodes);
-    psx_lgs_car_ratio(&ambient, ambient_nodes, at, psx_light_byte(psx_light, (uint32_t)at, 0), AMBIENT_STEP, out);
+    /* the script's blocks are of the file's direction: a reversed track asks them at the node's old place */
+    psx_lgs_car_ratio(&ambient, ambient_nodes, (int32_t)psx_light_old_node(psx_light, (uint32_t)at),
+                      psx_light_byte(psx_light, (uint32_t)at, 0), AMBIENT_STEP, out);
     return 1;
 }
 
@@ -460,6 +464,8 @@ void ported_view_set_car_objects(int slot, Object3D *high, Object3D *low)
     if (high == NULL || low == NULL) return;
     c->high = high, c->low = low, c->borrowed = 1;
     c->ok = car_model_init(&c->model, high, low);
+    body_shine_enable(port_body_shine());   /* port (body shine): the bodies keep vertex normals for the shine's reflections */
+    if (c->ok && body_shine_enabled()) object3d_enable_normals(high), object3d_enable_normals(low);
 }
 
 Object3D *ported_view_car_object(int slot)
@@ -700,6 +706,7 @@ static void body_matrix(void *ctx, uint32_t object, const void *m) { (void)objec
 static void body_transform(void *ctx, uint32_t object)
 {
     (void)object, object3d_transform(body_model(ctx), IDENTITY, ((BodyCtx *)ctx)->eye, 0);
+    object3d_update_normals(body_model(ctx));   /* port (body shine): none kept unless the flag is on */
 }
 static void body_project(void *ctx, uint32_t object) { (void)object, object3d_project(body_model(ctx), ((BodyCtx *)ctx)->mv->view); }
 static void body_sort(void *ctx, uint32_t object) { (void)object, object3d_sort(body_model(ctx)); }
@@ -884,7 +891,9 @@ static void row_draw(void *ctx, Car *car, int pass)
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
             object_sink_set_light(car_light(car->node, object_pixels.palette));
+            body_shine_begin(object_pixels.palette, model_view.camera_matrix);
             render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
+            body_shine_end();
             object_sink_set_light(NULL);
         }
 }
@@ -900,7 +909,9 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
     object_sink_set_light(car_light(car->node, palette));
+    body_shine_begin(palette, mv->camera_matrix);
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
+    body_shine_end();
     object_sink_set_light(NULL);
     return 1;
 }

@@ -124,18 +124,6 @@ static int forced_colours(uint8_t *cfm, size_t size, const char *upper, uint16_t
     return count;
 }
 
-/* The textures of a car's bank: the body's are the ones the repaint changes (car_repaint.h). */
-static int texture_class(const char name[4])
-{
-    /* (the 512 TR has no topv: its top is J000 and J001) */
-    static const char *const MAIN[] = { "topv", "rsid", "bott", "wing", "J000", "J001" }, *const END[] = { "frnt", "rear" };
-    for (size_t k = 0; k < sizeof MAIN / sizeof *MAIN; k++)
-        if (memcmp(name, MAIN[k], 4) == 0) return REPAINT_MAIN;
-    for (size_t k = 0; k < sizeof END / sizeof *END; k++)
-        if (memcmp(name, END[k], 4) == 0) return REPAINT_END;
-    return REPAINT_NONE;
-}
-
 /* the number plates, in the high-detail texture's own texels (x, y, w, h; the texture's width tells it from the low-detail one's): left as they were by the repaint, as the plate's grey would take the paint */
 static const struct { const char *stem, name[5]; int width, rects[REPAINT_KEEPS][4]; } PLATES[] = {
     { "ANSX", "rsid", 257, { { 0, 87, 13, 13 } } }, { "ANSX", "frnt", 65, { { 19, 17, 11, 6 } } },
@@ -199,10 +187,10 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *
             if (fsh_entry(&bank, i, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP || e.name[0] == '!') continue;
             size_t pixels = (size_t)e.width * e.height;
             if (pixels > e.payload_size) pixels = e.payload_size;
-            RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, texture_class(e.name), 0, { 0 }, NULL };
+            RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, car_repaint_body_class(e.name, (int)level), 0, { 0 }, NULL };
             tex.width = (int)e.width;
             keep_plate(&tex, upper, e.name, (int)e.width);
-            if (tex.body != REPAINT_NONE) tex.mask = car_mask_load(stem, e.name, (int)e.width, (int)e.height);
+            if (tex.body != REPAINT_NONE) tex.mask = car_mask_load(stem, e.name, (int)level, (int)e.width, (int)e.height);
             memcpy(meta.name[count], e.name, 4);
             textures[count++] = tex;
         }

@@ -289,6 +289,24 @@ static void test_mask(void)
     }
 }
 
+/* the draft of a masked texture carries the mask's three classes: 0 paint, 128 keep with the shine (glass, lamps), 255 keep matte; a masked paint
+ * texel among kept ones (and a mask 0 on a dithered or lamp-slot texel) is paint all the same, as the repaint does it */
+static void test_draft_carries_the_masks_classes(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    f.body[7] = 0xfe;   /* a lamp slot, the mask says paint */
+    uint8_t mask[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 3 == 0 ? 0 : i % 3 == 1 ? 128 : 255);
+    mask[7] = 0, mask[6] = 255, mask[8] = 128;
+    f.tex[0].mask = mask;
+    uint8_t *const keeps[3] = { keep0, keep1, keep2 };
+    CHECK(car_repaint_draft(&f.bank, 44, keeps) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        CHECK_EQ_INT(keep0[i], mask[i] == 0 ? REPAINT_DRAFT_PAINT : mask[i] == 128 ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE);
+}
+
 /* the PS1 pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
 static void test_mask_pairs(void)
 {
@@ -333,8 +351,46 @@ static void test_draft(void)
     CHECK_EQ_INT(keep1[0], REPAINT_DRAFT_MATTE);   /* not a body texture: all kept */
 }
 
+/* the body textures by name and detail level: the high bank's are as before; the low bank's side and back (the far car's) are the
+ * sides and the rear, as the high bank's rsid and rear are, so the far car repaints as the near one does */
+static void test_body_class(void)
+{
+    CHECK_EQ_INT(car_repaint_body_class("topv", 0), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("rsid", 0), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("J001", 0), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("frnt", 0), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("rear", 0), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("frnt", 1), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("rear", 1), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("side", 1), REPAINT_MAIN);
+    CHECK_EQ_INT(car_repaint_body_class("back", 1), REPAINT_END);
+    CHECK_EQ_INT(car_repaint_body_class("side", 0), REPAINT_NONE);   /* the high bank has no such texture: nothing changes there */
+    CHECK_EQ_INT(car_repaint_body_class("back", 0), REPAINT_NONE);
+    CHECK_EQ_INT(car_repaint_body_class("tyr1", 1), REPAINT_NONE);
+    CHECK_EQ_INT(car_repaint_body_class("circ", 0), REPAINT_NONE);
+}
+
+/* a body texture's transparent index (0xff, skipped when drawn) is not paint: it stays 0xff, and its colour does not pull the family's hue */
+static void test_transparent_index(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    for (int i = 0; i < TEXELS; i += 2) f.body[i] = 0xff;   /* half the body texture is cut out */
+    set(f.pal, 0xff, 0, 0, 252);                             /* its palette colour is a saturated blue, as the low bank's */
+    memcpy(f.xxx, f.pal, sizeof f.xxx);
+    uint8_t cut[TEXELS];
+    for (int i = 0; i < TEXELS; i++) cut[i] = f.body[i] == 0xff;
+    const uint8_t red[3] = { 200, 30, 30 };
+    CHECK(car_repaint_paint(&f.bank, red, 44) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        if (cut[i]) CHECK_EQ_INT(f.body[i], 0xff);
+    CHECK_EQ_INT(colour(&f, f.pal, 0xff, 2), 252);   /* and its colour is as it was */
+}
+
 int main(void)
 {
+    test_transparent_index();
+    test_body_class();
     test_paint(0x24);
     test_paint(0x22);
     test_pairs();
@@ -349,5 +405,6 @@ int main(void)
     test_mask();
     test_mask_pairs();
     test_draft();
+    test_draft_carries_the_masks_classes();
     return TEST_REPORT();
 }

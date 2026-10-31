@@ -90,6 +90,9 @@ void race_palette_remap_bank(RacePalette *p, uint8_t *bank, const uint8_t *palet
  * no slot or police colours. */
 void race_palette_remap_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette6);
 
+/* port (car colours): sets used[e] for each palette entry the texels of `bank` (a bank already mapped onto the screen palette) show. */
+void race_palette_bank_entries(const uint8_t *bank, uint8_t used[RACE_PALETTE_COLOURS]);
+
 /* 00446f90: queues a write of `count` colours (6 bits a channel) to the
  * screen entries from `first`. The original hangs on a 51st (it writes the
  * entry past the queue first); the port drops it. */
@@ -205,5 +208,17 @@ typedef struct {
  * `police` is 004fbab8. A missing bank or mesh is skipped (the original
  * faults). */
 void race_palette_remap_cars(RacePalette *p, int32_t car_count, const RaceCarArt art[RACE_CARS], int32_t police);
+
+/* The entries the matcher may pick (race_palette_enable's `enabled`), as they stand now. */
+void race_palette_enabled_mask(const RacePalette *p, const RaceState *race, uint8_t out[RACE_PALETTE_COLOURS]);
+
+/* port (car colours): a run of screen entries that a car's own colours fill (the exe queues them from the car's '!xxx' block, or from the
+ * shared car palette in a race): the entries, the slot of the car whose colours they serve (-1: every car), and 1 when the colours
+ * the race tints (the shared palette). `have_carpal`: the race has the shared palette (race_palette_cars finds it). */
+enum { RACE_PALETTE_BLOCKS = RACE_PALETTE_SLOTS + 2 };
+typedef struct {
+    int32_t first, count, car, tinted;
+} RacePaletteBlock;
+int race_palette_blocks(const RaceState *race, int have_carpal, RacePaletteBlock out[RACE_PALETTE_BLOCKS]);
 
 #endif

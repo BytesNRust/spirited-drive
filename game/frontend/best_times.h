@@ -95,6 +95,9 @@ typedef struct BestTimesPlus {
     const uint8_t *records[2];
     const uint8_t *marks[9];
     int cheats;   /* the table shown now: 0 or 1 */
+    /* port (free records): 1 puts a lap-count item between the arrows on a circuit (free_records.h's tables, for the record variant) */
+    int laps_select;
+    int variant;  /* RecordVariant of the tables shown */
 } BestTimesPlus;
 
 typedef struct BestTimesState {

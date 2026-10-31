@@ -13,6 +13,8 @@ static const float DARK_BODY = 56.0f;
 static const float RANK_SPAN = 0.32f;   /* the gain is 1 at the main tone's rank and spans this much across the ramp */
 /* a dark paint's highlights are lifted by up to this many levels at the shading's top, so black still shows its curves */
 static const float DARK_LIFT = 24.0f;
+static const float TONE_FLOOR = 0.8f;   /* a bright paint gives up at most this much of its main tone to leave the body's lighter tones room above it */
+static const float GIVE_FROM = 190.0f, GIVE_FULL = 230.0f;   /* its brightest channel over which that comes in: none under, all over */
 
 typedef struct {
     const char *name;
@@ -149,12 +151,20 @@ void car_paint_plan(CarPaintPlan *plan, const uint8_t (*rgb)[3], const uint32_t 
         f = f < 0.1f ? 0.1f : f > 4.0f ? 4.0f : f;
         fmax = f > fmax ? f : fmax;
     }
-    const float brightest = (float)(target[0] > target[1] ? (target[0] > target[2] ? target[0] : target[2])
-                                                          : (target[1] > target[2] ? target[1] : target[2]));
+    const float peak = (float)(target[0] > target[1] ? (target[0] > target[2] ? target[0] : target[2])
+                                                       : (target[1] > target[2] ? target[1] : target[2]));
+    /* a paint already near the top of a channel has no room for the tones above the main one: they would all clip to the same colour (a yellow
+     * 242, 197, 0 gave the body's nine lighter tones six levels between them). The main tone gives up some of its brightness, the paint's hue kept,
+     * so the lightest tone just reaches the channel's top, but not past TONE_FLOOR of the paint */
+    float give = fmax > 1.0f && peak * fmax > 255.0f ? 255.0f / (peak * fmax) : 1.0f;
+    give = give < TONE_FLOOR ? TONE_FLOOR : give;
+    const float onset = peak <= GIVE_FROM ? 0.0f : peak >= GIVE_FULL ? 1.0f : (peak - GIVE_FROM) / (GIVE_FULL - GIVE_FROM);
+    give = 1.0f - (1.0f - give) * onset;
+    const float brightest = peak * give;
     const float headroom = brightest > 0 ? 255.0f / brightest : 1.0f;
     plan->room = headroom > 1.0f ? (headroom - 1.0f) / (fmax - 1.0f > 0 ? fmax - 1.0f : 1.0f) : 0.0f;
     plan->lift = brightest < 64.0f ? DARK_LIFT * (64.0f - brightest) / 64.0f : 0.0f;
-    for (int c = 0; c < 3; c++) plan->rgb[c] = target[c];
+    for (int c = 0; c < 3; c++) plan->rgb[c] = (uint8_t)((float)target[c] * give + 0.5f);
 }
 
 void car_paint_shade(const CarPaintPlan *plan, const uint8_t in[3], uint8_t out[3])

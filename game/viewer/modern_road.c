@@ -5,6 +5,7 @@
 
 #include "game/gfx/quad_pixel.h"
 #include "game/gfx/raster_record.h"
+#include "game/sys/palette.h"
 
 #include <math.h>
 #include <string.h>
@@ -75,6 +76,7 @@ void modern_road_set_style(const ModernStyle *s)
 void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
+    const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
     for (int c = 0; c < 256; c++) out[0][c] = (uint8_t)c;
     for (int l = 1; l < MODERN_FOG_LEVELS; l++) {
         const float t = (float)l / (MODERN_FOG_LEVELS - 1);
@@ -84,6 +86,7 @@ void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t
             int best = 0;
             float best_d = 1e30f;
             for (int i = 0; i < CHOICES; i++) {
+                if (!usable[i]) continue;
                 const float dr = palette[3 * i] - want[0], dg = palette[3 * i + 1] - want[1], db = palette[3 * i + 2] - want[2];
                 const float d = dr * dr + dg * dg + db * db;
                 if (d < best_d) best = i, best_d = d;
@@ -102,6 +105,7 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
+    const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
     for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
         const float f = 1.0f - (float)l / (MODERN_FOG_LEVELS - 1);
         for (int c = 0; c < 256; c++) {
@@ -114,6 +118,7 @@ void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], c
             int best = 0;
             float best_d = 1e30f;
             for (int i = 0; i < CHOICES; i++) {
+                if (!usable[i]) continue;
                 const float dr = palette[3 * i] - want[0], dg = palette[3 * i + 1] - want[1], db = palette[3 * i + 2] - want[2];
                 const float d = dr * dr + dg * dg + db * db;
                 if (d < best_d) best = i, best_d = d;

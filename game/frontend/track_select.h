@@ -94,10 +94,14 @@ typedef struct TrackSelectPlus {
      * psx_time (PSX_TIME_*) that leaves the track's art at midday, so the PS1 tint is not laid over the CD's own evening;
      * NULL is the exe's morning/midday/evening toggle on the art. */
     int *psx_time;
+    /* port: non-NULL shows the Reverse row (item 11) on the circuits, outside a tournament: the value is 0 / 1, the way round the
+     * race is run (reverse_track.h). It sits right of the weather row, or alone where the weather is off. */
+    int *reverse;
 } TrackSelectPlus;
 
 enum { TRACK_SELECT_KEY_UP = 0x4800, TRACK_SELECT_KEY_LEFT = 0x4b00, TRACK_SELECT_KEY_RIGHT = 0x4d00,
-       TRACK_SELECT_KEY_DOWN = 0x5000, TRACK_SELECT_WEATHER = 10 };
+       TRACK_SELECT_KEY_DOWN = 0x5000, TRACK_SELECT_WEATHER = 10,
+       TRACK_SELECT_REVERSE = 11 };
 
 /* port: the next weather (WEATHER_*: clear, fog, rain) and PS1 time (PSX_TIME_*: day, dawn, dusk) for `direction` 1 or -1,
  * round; the art index (0 morning, 1 midday, 2 evening) a PS1 time lights on the time-of-day item. */
@@ -108,6 +112,11 @@ int track_select_psx_time_art(int psx_time);
 /* port: the item an arrow `key` leads to from `item` when the weather row is there; `original` is the exe's answer.
  * The row sits between the time of day and Done. */
 int track_select_arrow_plus(int key, int item, int original, int weather_on);
+
+/* port: arrow_plus's answer `moved` for an arrow `key` from `item`, with the Reverse row there as well: right of the weather
+ * (Left goes back to it, or to Best where the weather is off), Down to Done, Up where the weather's goes, entered as the weather
+ * row is. `original` is the exe's answer. */
+int track_select_arrow_reverse(int key, int item, int original, int moved, int weather_on, int reverse_on);
 
 typedef struct TrackSelectState {
     uint8_t *config;          /* 00524df9, TRACK_SELECT_CONFIG bytes */

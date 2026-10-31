@@ -274,6 +274,7 @@ static void cockpit_redraw_now(DriveHud *h, CockpitSurfaces *s)
     const CockpitRedrawOps ops = { s, cockpit_select, cockpit_labels, h->port_grab != NULL ? cockpit_grab : NULL };
     const CockpitRedrawInputs in = { 0, drive_hud_view_clip_inputs(s->screen.pitch, s->screen.clip_bottom), h->back, h->shade };
     cockpit_redraw(&ops, &h->hud, &h->cockpit, &h->cockpit_world, &in);
+    h->gate_state = dash_box_gate_state_after_redraw((DashBox)h->dash_box, h->gate_state);  /* port: the lever is on the clean dash again */
 }
 
 /* The frame's colours from the race palette's after 00476460 wrote it. */

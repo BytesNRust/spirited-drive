@@ -48,6 +48,8 @@ typedef struct {
     uint8_t car_paint[CAR_PAINT_SLOTS];   /* the player's paint per car (the car showcase's Color box): PAINT_OWN 0 the car's own colour,
                                            * PAINT_PS1 1 the PS1 livery, PAINT_CATALOGUE + k the k-th catalogue paint
                                            * (car_paint.h). Written as car_paint=<one hex digit a car>. */
+    int reverse;        /* 0/1: a circuit driven the other way round (tri_reverse.h: the file's nodes run backwards at load);
+                         * 0 the exe's. Off. Last, as car_paint. */
 } PortExtras;
 
 /* the player's paint choice for `car` as extras.cfg has it (PAINT_OWN for a car without a slot), and its write back: false

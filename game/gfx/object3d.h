@@ -74,6 +74,7 @@ typedef struct {
     int32_t uv[8];        /* the mesh's uvs for those corners, as stored */
     int32_t camera[12];   /* port: the corners in camera space (x, y, z each), for the sink's camera calls */
     int corners;
+    const float *normal;  /* port (body shine): the corners' unit normals in camera space, 3 floats each; NULL when the object keeps none (object3d_enable_normals) */
 } Object3DCorners;
 
 typedef struct {
@@ -115,11 +116,18 @@ typedef struct {
     Object3DPolygon *polygons;
     Object3DTexture *textures;    /* +0x14 */
     uint32_t texture_count;
+    float (*normal)[3];           /* port (body shine): a camera-space unit normal a vertex, NULL when off */
 } Object3D;
 
 /* Returns 0 on a malformed mesh or allocation failure (object left empty). */
 int object3d_create(Object3D *obj, const Mesh *mesh);
 void object3d_free(Object3D *obj);
+/* port (body shine): gives the object a normal per vertex (0 when it cannot allocate). object3d_update_normals then sets them from the camera-space
+ * corners (after object3d_transform): a vertex takes the mean of the faces it belongs to that the engine would draw (a one-sided one turned
+ * away is left out; a two-sided one counts turned toward the eye), a vertex of none gets (0, 0, 0). The polygons handed to the sink carry them in
+ * Object3DCorners.normal. An object without them draws as it always did. */
+int object3d_enable_normals(Object3D *obj);
+void object3d_update_normals(Object3D *obj);
 /* 004fbad8 set (a mirrored track): POLY_REVERSED flipped on the first order_count polygons, as 00457d40 does for
  * the cars and 004576f0 for the scenery models, so their faces keep facing the mirrored camera. */
 void object3d_mirror(Object3D *obj);

@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-enum { UP = TRACK_SELECT_KEY_UP, DOWN = TRACK_SELECT_KEY_DOWN, ENTER = 0xd, ESCAPE = 0x1b };
+enum { UP = TRACK_SELECT_KEY_UP, DOWN = TRACK_SELECT_KEY_DOWN, LEFT = TRACK_SELECT_KEY_LEFT, RIGHT = TRACK_SELECT_KEY_RIGHT, ENTER = 0xd, ESCAPE = 0x1b };
 
 typedef struct Script {
     const uint16_t *keys;
@@ -56,14 +56,14 @@ static int32_t key(void *ctx)
 }
 
 /* the screen on track 3 (not a tournament), the keys, and what the weather and the PS1 time are afterwards */
-static void run(const uint16_t *keys, int count, int *weather, int *psx_time, int use_psx_time)
+static void run_on(const uint16_t *keys, int count, int *weather, int *psx_time, int use_psx_time, int *reverse, int track)
 {
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, variant_m = 0, variant_r = 0;
-    config[TRACK_SELECT_TRACK] = 3;
+    config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS] = 8;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
-    TrackSelectPlus plus = { 0, 0, &variant_m, &variant_r, 0, 1, weather, use_psx_time ? psx_time : NULL };
+    TrackSelectPlus plus = { 0, 0, &variant_m, &variant_r, 0, 1, weather, use_psx_time ? psx_time : NULL, reverse };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, count };
@@ -81,6 +81,37 @@ static void run(const uint16_t *keys, int count, int *weather, int *psx_time, in
         .music_fade_out = nothing, .music_end = nothing, .ctx = &script };
     track_select_screen(&in, &st, &p, &ops);
     CHECK_EQ_INT(time_of_day[3], 1);   /* the art stays at midday under the PS1 look */
+}
+
+static void run(const uint16_t *keys, int count, int *weather, int *psx_time, int use_psx_time)
+{
+    run_on(keys, count, weather, psx_time, use_psx_time, NULL, 3);
+}
+
+static void test_reverse_row(void)
+{
+    int weather = 0, psx_time = 0, reverse = 0;
+    /* Up: Weather; Right: Reverse; Enter: on; Down: Done; Done ends */
+    const uint16_t on[] = { UP, RIGHT, ENTER, DOWN, ENTER };
+    run_on(on, 5, &weather, &psx_time, 0, &reverse, 3);
+    CHECK_EQ_INT(reverse, 1);
+    CHECK_EQ_INT(weather, 0);
+    const uint16_t off[] = { UP, RIGHT, ENTER, ENTER, DOWN, ENTER };   /* on, then off again */
+    reverse = 0;
+    run_on(off, 6, &weather, &psx_time, 0, &reverse, 3);
+    CHECK_EQ_INT(reverse, 0);
+    const uint16_t back[] = { UP, RIGHT, LEFT, ENTER, DOWN, ENTER };   /* Left from Reverse is the weather: clear -> fog */
+    run_on(back, 6, &weather, &psx_time, 0, &reverse, 3);
+    CHECK_EQ_INT(weather, 1);
+    CHECK_EQ_INT(reverse, 0);
+    reverse = 0, weather = 0;
+    const uint16_t esc[] = { UP, RIGHT, ENTER, ESCAPE };   /* Escape puts the pick back */
+    run_on(esc, 4, &weather, &psx_time, 0, &reverse, 3);
+    CHECK_EQ_INT(reverse, 0);
+    reverse = 0;
+    const uint16_t stage[] = { UP, RIGHT, ENTER, DOWN, ENTER };   /* a stage (track 1): no row, nothing set */
+    run_on(stage, 5, &weather, &psx_time, 0, &reverse, 1);
+    CHECK_EQ_INT(reverse, 0);
 }
 
 static void test_weather_row(void)
@@ -120,7 +151,7 @@ static void test_without_the_row_up_is_the_originals(void)
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, vm = 0, vr = 0;
     config[TRACK_SELECT_TRACK] = 3;
-    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL };   /* port_track_weather 0 */
+    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL };   /* port_track_weather 0 */
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     (void)psx_time;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
@@ -146,6 +177,7 @@ static void test_without_the_row_up_is_the_originals(void)
 int main(void)
 {
     test_weather_row();
+    test_reverse_row();
     test_escape_puts_them_back();
     test_psx_time_toggle();
     test_without_the_row_up_is_the_originals();

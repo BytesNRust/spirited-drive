@@ -1,7 +1,8 @@
-/* The drafts of the hand-made car masks: for each of the eight cars' body textures (high detail bank), what today's repaint rules leave
+/* The drafts of the hand-made car masks: for each of the eight cars' body textures (both detail banks), what today's repaint rules leave
  * as it is, as the mask's PNG (car_mask.h: black paint, grey 128 shine, white matte) and the texture itself in the car's own colours as an RGBA PNG.
  * usage: car_mask_draft <data dir with SIMDATA/CARFAMS> <output dir>
- * writes <output>/<CAR>/<tex>.keep.png and <tex>.rgb.png. The RGB files hold the game's pixels: keep them out of the repository. */
+ * writes <output>/<CAR>/<tex>.keep.png and <tex>.rgb.png for the high detail bank, and <tex>_lo.keep.png and <tex>_lo.rgb.png for the low
+ * one (the names car_mask_load looks up). The RGB files hold the game's pixels: keep them out of the repository. */
 #include "formats/png.h"
 #include "game/race/car_mask.h"
 #include "game/race/car_paint.h"
@@ -40,7 +41,7 @@ static void draft(void *user, int level, const char name[4], int width, int heig
                   const uint8_t rgb[768])
 {
     Out *o = user;
-    if (level != 0) return;
+    const char *const suffix = level != 0 ? "_lo" : "";   /* the low detail bank's drafts: <tex>_lo.keep.png, as car_mask_load reads them */
     const size_t count = (size_t)width * (size_t)height;
     uint8_t *rgba = malloc(count * 4);
     if (rgba == NULL) return;
@@ -54,11 +55,11 @@ static void draft(void *user, int level, const char name[4], int width, int heig
     size_t len = 0, mask_len = 0;
     char path[700];
     if (png_write_rgba(rgba, (uint32_t)width, (uint32_t)height, &png, &len) == PNG_OK) {
-        snprintf(path, sizeof path, "%s/%.4s.rgb.png", o->dir, name);
+        snprintf(path, sizeof path, "%s/%.4s%s.rgb.png", o->dir, name, suffix);
         o->written += write_file(path, png, len);
     }
     if (classes != NULL && car_mask_write(classes, width, height, &mask, &mask_len)) {
-        snprintf(path, sizeof path, "%s/%.4s.keep.png", o->dir, name);
+        snprintf(path, sizeof path, "%s/%.4s%s.keep.png", o->dir, name, suffix);
         o->written += write_file(path, mask, mask_len);
     }
     png_free(png);
