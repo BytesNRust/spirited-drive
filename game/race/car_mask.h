@@ -1,7 +1,8 @@
 /* port: the hand-made masks of the cars' body textures. One PNG a texture and detail level: <root>/<CAR>/<tex>_mask.png for the high
  * detail bank (data/car_masks in the source tree), <tex>_lo_mask.png for the low detail bank (its textures are of other sizes, so they
- * have their own files). Four values: 0 a texel that is painted; 128 one kept as it is that takes the glass shine (glass, lamps); 192 one kept as it is that shines as the
- * body does (a two-tone car's roof and pillars: black in the texture, but body); 255 one
+ * have their own files). Five values: 0 a texel that is painted; 128 one kept as it is that takes the glass shine (glass, lamps); 192 one kept as it is that shines as the
+ * body does (a two-tone car's roof and pillars: black in the texture, but body); 224 one repainted with the car's black whatever paint the car has
+ * (car_repaint_fixed_black: a two-tone car's black roof whose texture is light grey), and shining as paint; 255 one
  * kept as it is without it (plastics, trim, plate, badges, vents). The repaint only asks paint or not (any non-zero is kept); the class is
  * for the shine pass. The mask has the size of its texture, or any other size, scaled by nearest neighbour. A texture with a mask is
  * repainted by it alone (car_repaint.h's RepaintTexture.mask); one without keeps the family rules. The masks hold no colour. */
@@ -11,14 +12,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { CAR_MASK_PAINT = 0, CAR_MASK_SHINE = 128, CAR_MASK_BODY = 192, CAR_MASK_MATTE = 255 };
+enum { CAR_MASK_PAINT = 0, CAR_MASK_SHINE = 128, CAR_MASK_BODY = 192, CAR_MASK_BLACK = 224, CAR_MASK_MATTE = 255 };
 
 /* Decodes a mask PNG into `out` (width x height bytes of CAR_MASK_*), scaled from the image's own size by nearest neighbour. A texel is
  * classed by its colour (an indexed image's palette colour): black paints; a blue one (blue above red and green) or a dim one (no channel
- * of 192) shines as glass; a green one (green above red and blue) or a grey of 192 to 223 shines as the body; any other is matte. Returns 0 for data that is not a readable PNG or a zero size. */
+ * of 192) shines as glass; a green one (green above red and blue) or a grey of 192 to 223 shines as the body; a magenta one (red and blue well above green) or a grey of 224 to 239 is the fixed black; any other is matte. Returns 0 for data that is not a readable PNG or a zero size. */
 int car_mask_parse(const uint8_t *png, size_t len, int width, int height, uint8_t *out);
 
-/* Writes `mask` (width x height of CAR_MASK_*; any other non-zero value is matte) as the mask's PNG: indexed, black, grey 128, grey 192 and white.
+/* Writes `mask` (width x height of CAR_MASK_*; any other non-zero value is matte) as the mask's PNG: indexed, black, grey 128, grey 192, grey 224 and white.
  * `*out` is freed with png_free. Returns 0 when it cannot. */
 int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len);
 

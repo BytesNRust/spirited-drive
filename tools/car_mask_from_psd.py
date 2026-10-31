@@ -7,9 +7,12 @@ A texel of the mask layer is classed by its alpha and colour:
   blue-dominant (blue > red, green) 128  KEEP its colour, shines as glass (glass, lamps)
   green-dominant (green > red, blue) 192 KEEP its colour, shines as the body (a two-tone car's roof and pillars: black in the texture,
                                          but body, so the car_paint recolour leaves it alone and it takes the paint's gain and dimming)
+  magenta (red and blue both >= 128, green at most half the lesser, red and blue within 32 of each other: ff00ff) 224  the FIXED BLACK:
+                                         repainted with the car's catalogue black whatever paint the car has, and shining as paint (a two-tone
+                                         car's black roof whose texture is a light grey: green would leave it grey)
   dark (opaque, brightest channel < 64)  0   PAINT too (black is paint, as in the old two-value masks)
   anything else                    255  KEEP its colour, no shine (plastics, trim, plate, badges, vents)
-The layer's own opacity is ignored: it is only how the mask shows over the texture. The PNG is grey, 0 / 128 / 192 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
+The layer's own opacity is ignored: it is only how the mask shows over the texture. The PNG is grey, 0 / 128 / 192 / 224 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
 
 usage: car_mask_from_psd.py <dir of CAR/<tex>.psd> [<output dir, default data/car_masks next to tools/>]
 Needs psd-tools (pip install psd-tools) and Pillow.
@@ -22,6 +25,14 @@ from PIL import Image
 
 # the mask layer's colour for "keeps its colour, shines as the body" (192): the dominant channel of the texel's RGB, an index into (r, g, b)
 BODY_KEEPS = 1   # green (0 red; blue is glass's)
+
+
+FIXED_BLACK = 224   # car_mask.h CAR_MASK_BLACK; its colour in the PSD is magenta (is_magenta below, as car_mask.c reads it)
+
+
+def is_magenta(r, g, b):
+    pink = min(r, b)
+    return pink >= 128 and g * 2 <= pink and abs(r - b) <= 32
 
 
 def dominant(r, g, b):
@@ -61,7 +72,9 @@ def keep_mask(psd):
             r, g, b, a = px[x, y]
             if a < 128:
                 continue
-            if b > r and b > g:
+            if is_magenta(r, g, b):
+                out[tx, ty] = FIXED_BLACK
+            elif b > r and b > g:
                 out[tx, ty] = 128
             elif dominant(r, g, b) == BODY_KEEPS:
                 out[tx, ty] = 192

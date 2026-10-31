@@ -147,8 +147,26 @@ static void test_bright_paint_keeps_steps(void)
     CHECK_EQ_INT(plan.rgb[2], 160);   /* a paint with room is as the table has it */
 }
 
+/* the black a car's catalogue has (the one the player gets by choosing black), by the race model's stem in any case; none for a car without one */
+static void test_the_catalogue_black(void)
+{
+    const CarPaint *nsx = car_paint_black_of("ANSX"), *nero = car_paint_black_of("f512tr"), *p911 = car_paint_black_of("P911");
+    CHECK(nsx != NULL && nero != NULL && p911 != NULL);
+    if (nsx != NULL) CHECK(nsx->rgb[0] == 14 && nsx->rgb[1] == 14 && nsx->rgb[2] == 16);
+    if (nero != NULL) CHECK(nero->rgb[0] == 10);
+    if (p911 != NULL) CHECK(strcmp(p911->name, "Black") == 0);
+    CHECK(car_paint_black_of("TSupra") == NULL);   /* white, silver and blue only */
+    CHECK(car_paint_black_of("NOPE") == NULL && car_paint_black_of(NULL) == NULL);
+    static const char *const STEMS[CAR_PAINT_MODELS] = { "TSupra", "LDiabl", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" };
+    for (int model = 0; model < CAR_PAINT_MODELS; model++) {
+        const CarPaint *b = car_paint_black_of(STEMS[model]);
+        if (b != NULL) CHECK(b->rgb[0] <= 32 && b->rgb[1] <= 32 && b->rgb[2] <= 32);   /* a black is dark in every channel */
+    }
+}
+
 int main(void)
 {
+    test_the_catalogue_black();
     test_bright_paint_keeps_steps();
     test_table();
     test_pick();

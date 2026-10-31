@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <strings.h>
 
 enum { PALETTE_8BIT = 0x24, PALETTE_6BIT = 0x22 };
 
@@ -58,6 +59,25 @@ int car_paint_count(int model)
 const CarPaint *car_paint(int model, int k)
 {
     return k >= 0 && k < car_paint_count(model) ? &TABLE[model].paints[k] : NULL;
+}
+
+static const int BLACK_MAX = 32;   /* a catalogue paint is a black when none of its channels passes this */
+
+const CarPaint *car_paint_black_of(const char *stem)
+{
+    if (stem == NULL) return NULL;
+    for (int model = 0; model < CAR_PAINT_MODELS; model++) {
+        if (strcasecmp(TABLE[model].name, stem) != 0) continue;
+        const CarPaint *best = NULL;
+        int best_top = BLACK_MAX + 1;
+        for (int k = 0; k < TABLE[model].count; k++) {
+            const uint8_t *c = TABLE[model].paints[k].rgb;
+            const int top = c[0] > c[1] ? (c[0] > c[2] ? c[0] : c[2]) : (c[1] > c[2] ? c[1] : c[2]);
+            if (top < best_top) best = &TABLE[model].paints[k], best_top = top;
+        }
+        return best;
+    }
+    return NULL;
 }
 
 const uint8_t *car_paint_default(int model)

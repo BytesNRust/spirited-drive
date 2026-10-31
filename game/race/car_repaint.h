@@ -52,6 +52,12 @@ int car_repaint_body_class(const char name[4], int level);
  * palette type that is not 0x24 or 0x22 (the bank is left as it is). */
 int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor);
 
+/* The texels a mask marks as CAR_MASK_BLACK (car_mask.h) repainted with `black` (the car's catalogue black, car_paint_black_of), whatever paint the car gets: they
+ * take the shades of the plan towards the black that the body's own colours would, each in a spare entry of its colour. Run it BEFORE car_repaint_paint or
+ * car_repaint_pairs (it reads the body's colours as the file has them); those leave the texels alone. A bank with no such texel is left as it is. Returns the
+ * number of texels changed; -1 for a palette type that is not 0x24 or 0x22. */
+int car_repaint_fixed_black(const RepaintBank *bank, const uint8_t black[3], int floor);
+
 /* The texels the rules above would leave as they are, for the drafts of the hand-made masks: `keep`[t] is `count` bytes for the bank's
  * texture t, set to REPAINT_DRAFT_PAINT where the texel is repainted, and where it is not to REPAINT_DRAFT_SHINE for a lamp slot and its ring, a
  * dithered glass texel, a glass colour (a neutral under `floor`) and a very saturated colour (a lamp), else to REPAINT_DRAFT_MATTE (a texture
