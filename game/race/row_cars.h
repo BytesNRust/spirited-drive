@@ -45,4 +45,25 @@ typedef struct {
  * 004591d4, pass 0. */
 void cars_on_row(const RowCarsOps *ops, const RowCarsInputs *in, int32_t row);
 
+/* port (port_follow_camera): the cars on the rows BEHIND the camera's node, which the exe's pass draws none on (cars_on_row reads a row behind as the end of the
+ * ring): the arm of the road behind the camera (follow_behind.h) draws them as it draws the rows. `behind` is by nodes behind the camera's, 1 up to
+ * ROW_CARS_BEHIND - 1 (the camera's own is the pass's). */
+enum { ROW_CARS_BEHIND = 0x80 };
+
+/* the flags of the rows behind holding a car (not physics 6), from the draw_node car_rows_ahead has moved on this frame; `behind` cleared first */
+void car_rows_behind(Car *const *cars, int32_t count, int32_t segments, int32_t camera_node, uint8_t behind[ROW_CARS_BEHIND]);
+
+typedef struct {
+    int32_t camera_node;
+    int32_t segments;           /* 0050420c */
+    const uint8_t *behind;      /* ROW_CARS_BEHIND flags (car_rows_behind) */
+    Car *const *list;
+    int32_t count;
+    const Car *followed;        /* never drawn here: the port draws the player's own car after the track (draw_followed_car) */
+} RowCarsBehindInputs;
+
+/* the listed cars, last first, not physics 6 nor the followed car, whose draw_node is `row`, when `row` is 1..ROW_CARS_BEHIND - 1 nodes behind the camera's
+ * and flagged: 0045a724 and 004591d4 as cars_on_row, pass 0. */
+void cars_on_row_behind(const RowCarsOps *ops, const RowCarsBehindInputs *in, int32_t row);
+
 #endif
