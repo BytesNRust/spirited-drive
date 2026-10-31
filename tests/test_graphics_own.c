@@ -264,13 +264,12 @@ static int32_t f_deadline_passed(void *ctx)
  * The two lists are the screen's own: the words in the order it draws them, and the number each of them is. The
  * numbers are the settings' own, so the second page's four are the ones after the first page's eleven, not four more
  * after them. */
-static const char *const LABEL[] = { "Perspective Correction", "Texture Filter", "Scaling", "View Distance", "Fog",
-                                     "Field of view", "Screen format", "Refresh rate", "Full screen", "Render threads",
-                                     "Render scale", "PS1 light", "PS1 shadow", "Time of day", "Weather" };
-static const int LABEL_ROW[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_VIEW,
-                                 GRAPHICS_OWN_FOG, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH,
-                                 GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE, GRAPHICS_OWN_PSX_LIGHT,
-                                 GRAPHICS_OWN_PSX_SHADOW, GRAPHICS_OWN_PSX_TIME, GRAPHICS_OWN_WEATHER };
+static const char *const LABEL[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                     "Light Effects", "Field of view", "Screen format", "Refresh rate", "Full screen",
+                                     "Scaling", "Render threads", "Render scale" };
+static const int LABEL_ROW[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
+                                 GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH,
+                                 GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE };
 static int row_of(const char *text)
 {
     for (size_t row = 0; row < sizeof LABEL / sizeof *LABEL; row++)
@@ -502,10 +501,10 @@ static void test_rows_in_order(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
 
-    static const char *const want[] = { "Perspective Correction", "Texture Filter", "Scaling", "View Distance",
-                                        "Fog", "Field of view", "Screen format", "Refresh rate", "Full screen",
-                                        "Render threads", "Render scale" };
-    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 11);
+    static const char *const want[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                        "Light Effects", "Field of view", "Screen format", "Refresh rate",
+                                        "Full screen", "Scaling", "Render threads", "Render scale" };
+    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 12);
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) {
         CHECK(drew(&r.f, want[row]));
         /* each label drawn at the same left edge: the labels are a column */
@@ -1197,7 +1196,7 @@ static void test_render_threads_row_on_the_page(void)
      * Done/Cancel band, which starts at 0x1a4 (420) -- a row's band must not run into it, or that row and the
      * buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 0x16c);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 365);
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_BANDS] <= 0x1a4);
 }
 
@@ -1226,7 +1225,7 @@ static void test_render_scale_row_on_the_page(void)
      * eleventh row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not
      * run into it, or the last row and the buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 0x188);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 390);
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_SCALE] <= 0x1a4);
 }
 
@@ -1262,303 +1261,98 @@ static void test_race_cancel_puts_back(void)
     CHECK_EQ_INT(r.f.saves, 0);
 }
 
-/* ---- the second page: the PS1 look's four rows ---- */
+/* ---- Light effects, and what is no longer on the screen ---- */
 
-/* the second page's walk: PageDown turns to it, then `row`'s slot down from its first row (the page's order is its
- * four rows and then Done and Cancel), then the key `times` times, then how the screen ends. `end` is DONE (Space on
- * it, which keeps the values), CANCEL (right from Done, then Space) or ESCAPE. */
-static int page2_walk(int row, int key, int times, int end)
-{
-    int n = 0;
-    script[n++] = PAGE_DOWN;
-    script[n++] = 0;
-    for (int i = GRAPHICS_OWN_PSX_LIGHT; i < row; i++) script[n++] = DOWN;
-    for (int i = 0; i < times; i++) {
-        script[n++] = key;
-        if (i + 1 < times) script[n++] = 0;
-    }
-    if (end == ESCAPE) {
-        script[n++] = ESCAPE;
-        return n;
-    }
-    for (int i = row; i <= GRAPHICS_OWN_WEATHER; i++) script[n++] = DOWN;   /* the last of the four, then Done */
-    if (end == GRAPHICS_OWN_CANCEL) {
-        script[n++] = RIGHT;
-        script[n++] = 0;
-    }
-    script[n++] = 0;
-    script[n++] = SPACE;
-    script[n++] = 0;
-    return n;
-}
-
-/* the second page's four rows: their values, pinned one by one */
-static void test_psx_rows_values(void)
+/* the row is one switch over both keys; a port.cfg that has them mixed shows Off, and a step turns both on */
+static void test_light_effects_value_and_step(void)
 {
     PortSettings s = port_settings_defaults();
     char out[16];
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_LIGHT, out);
+    s.psx_light = 0, s.psx_shadow = 0;
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
     CHECK(strcmp(out, "Off") == 0);
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_SHADOW, out);
-    CHECK(strcmp(out, "Off") == 0);
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_TIME, out);
-    CHECK(strcmp(out, "Day") == 0);
-    graphics_own_value(&s, GRAPHICS_OWN_WEATHER, out);
-    CHECK(strcmp(out, "Clear") == 0);
-
-    s.psx_light = 1;
-    s.psx_shadow = 1;
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_LIGHT, out);
-    CHECK(strcmp(out, "On") == 0);
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_SHADOW, out);
-    CHECK(strcmp(out, "On") == 0);
-    s.psx_time = PSX_TIME_DAWN;
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_TIME, out);
-    CHECK(strcmp(out, "Dawn") == 0);
-    s.psx_time = PSX_TIME_DUSK;
-    graphics_own_value(&s, GRAPHICS_OWN_PSX_TIME, out);
-    CHECK(strcmp(out, "Dusk") == 0);
-    s.weather = WEATHER_FOG;
-    graphics_own_value(&s, GRAPHICS_OWN_WEATHER, out);
-    CHECK(strcmp(out, "Fog") == 0);
-    s.weather = WEATHER_RAIN;
-    graphics_own_value(&s, GRAPHICS_OWN_WEATHER, out);
-    CHECK(strcmp(out, "Rain") == 0);
-}
-
-/* the steps: the two switches toggle, time of day goes Day, Dawn, Dusk and round, weather Clear, Fog, Rain and round */
-static void test_psx_rows_steps(void)
-{
-    PortSettings s = port_settings_defaults();
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_LIGHT, 1, SCREEN_21_9);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
     CHECK_EQ_INT(s.psx_light, 1);
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_LIGHT, -1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_light, 0);
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_SHADOW, 1, SCREEN_21_9);
     CHECK_EQ_INT(s.psx_shadow, 1);
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_SHADOW, -1, SCREEN_21_9);
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "On") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, -1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 0);
     CHECK_EQ_INT(s.psx_shadow, 0);
 
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_TIME, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_time, PSX_TIME_DAWN);
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_TIME, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_time, PSX_TIME_DUSK);
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_TIME, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_time, PSX_TIME_DAY);
-    graphics_own_step(&s, GRAPHICS_OWN_PSX_TIME, -1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_time, PSX_TIME_DUSK);
-
-    graphics_own_step(&s, GRAPHICS_OWN_WEATHER, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.weather, WEATHER_FOG);
-    graphics_own_step(&s, GRAPHICS_OWN_WEATHER, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.weather, WEATHER_RAIN);
-    graphics_own_step(&s, GRAPHICS_OWN_WEATHER, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.weather, WEATHER_CLEAR);
-    graphics_own_step(&s, GRAPHICS_OWN_WEATHER, -1, SCREEN_21_9);
-    CHECK_EQ_INT(s.weather, WEATHER_RAIN);
+    s.psx_light = 1, s.psx_shadow = 0;
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "Off") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 1);
+    CHECK_EQ_INT(s.psx_shadow, 1);
+    s.psx_light = 0, s.psx_shadow = 1;
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "Off") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 1);
+    CHECK_EQ_INT(s.psx_shadow, 1);
 }
 
-/* the pause: the three PS1 switches are dimmed and do not change; Weather stays editable */
-static void test_psx_rows_live_in_race(void)
+/* the PS1 look is read when the race starts, so the pause menu dims the row */
+static void test_light_effects_live_in_race(void)
 {
-    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_PSX_LIGHT, 0, 0), 0);
-    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_PSX_SHADOW, 0, 0), 0);
-    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_PSX_TIME, 0, 0), 0);
-    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_WEATHER, 0, 0), 1);
-
-    Rig light;
-    rig_init(&light);
-    light.plus.race = 1;
-    run_script(&light, page2_walk(GRAPHICS_OWN_PSX_LIGHT, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(light.port.psx_light, 0);
-    CHECK(drew(&light.f, "Off (next race)"));
-
-    Rig shadow;
-    rig_init(&shadow);
-    shadow.plus.race = 1;
-    run_script(&shadow, page2_walk(GRAPHICS_OWN_PSX_SHADOW, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(shadow.port.psx_shadow, 0);
-    CHECK(drew(&shadow.f, "Off (next race)"));
-
-    Rig time;
-    rig_init(&time);
-    time.plus.race = 1;
-    run_script(&time, page2_walk(GRAPHICS_OWN_PSX_TIME, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(time.port.psx_time, PSX_TIME_DAY);
-    CHECK(drew(&time.f, "Day (next race)"));
-
-    Rig weather;
-    rig_init(&weather);
-    weather.plus.race = 1;
-    run_script(&weather, page2_walk(GRAPHICS_OWN_WEATHER, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(weather.port.weather, WEATHER_FOG);
-    CHECK(!drew(&weather.f, "Clear (next race)"));
-    CHECK(!drew(&weather.f, "Fog (next race)"));
-    CHECK_EQ_INT(weather.f.saves, 1);
+    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_LIGHT, 0, 0), 0);
 }
 
-/* a step on one row of the second page changes that setting and no other, and Done saves */
-static void test_psx_rows_write_only_their_own_setting(void)
-{
-    Rig light;
-    rig_init(&light);
-    run_script(&light, page2_walk(GRAPHICS_OWN_PSX_LIGHT, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(light.port.psx_light, 1);
-    CHECK_EQ_INT(light.port.psx_shadow, 0);
-    CHECK_EQ_INT(light.port.psx_time, PSX_TIME_DAY);
-    CHECK_EQ_INT(light.port.weather, WEATHER_CLEAR);
-    CHECK_EQ_INT(light.port.fog, 0);
-    CHECK_EQ_INT(light.port.fov_adjust, 0);
-    CHECK_EQ_INT(light.port.render_scale, 1);
-    CHECK_EQ_INT(light.f.saves, 1);
-
-    Rig shadow;
-    rig_init(&shadow);
-    run_script(&shadow, page2_walk(GRAPHICS_OWN_PSX_SHADOW, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(shadow.port.psx_shadow, 1);
-    CHECK_EQ_INT(shadow.port.psx_light, 0);
-
-    Rig time;
-    rig_init(&time);
-    run_script(&time, page2_walk(GRAPHICS_OWN_PSX_TIME, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(time.port.psx_time, PSX_TIME_DAWN);
-    CHECK_EQ_INT(time.port.psx_light, 0);
-
-    Rig weather;
-    rig_init(&weather);
-    run_script(&weather, page2_walk(GRAPHICS_OWN_WEATHER, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(weather.port.weather, WEATHER_FOG);
-    CHECK_EQ_INT(weather.port.psx_time, PSX_TIME_DAY);
-    CHECK_EQ_INT(weather.f.saves, 1);
-}
-
-/* PageDown turns to page 2: page 1 reads "1/2 >", page 2 "< 2/2", and page 2's four labels are drawn */
-static void test_second_page_is_reached(void)
+/* a step on the row through the screen writes both keys and nothing else, and Done saves it */
+static void test_light_effects_write_only_the_light_keys(void)
 {
     Rig r;
     rig_init(&r);
-    script[0] = PAGE_DOWN;
-    script[1] = 0;
-    script[2] = ESCAPE;
-    run_script(&r, 3);
-    CHECK(drew(&r.f, "1/2 >"));
-    CHECK(drew(&r.f, "Perspective Correction"));
-    CHECK(drew(&r.f, "PS1 light"));
-    CHECK(drew(&r.f, "PS1 shadow"));
-    CHECK(drew(&r.f, "Time of day"));
-    CHECK(drew(&r.f, "Weather"));
-    CHECK(strcmp(r.f.nav_last, "< 2/2") == 0);
-}
-
-/* the page turns by PageDown (round to the first page), by Right on Cancel, and Left on Done goes back to page 1 */
-static void test_second_page_turns(void)
-{
-    Rig down;
-    rig_init(&down);
-    script[0] = PAGE_DOWN;
-    script[1] = 0;
-    script[2] = ESCAPE;
-    run_script(&down, 3);
-    CHECK(strcmp(down.f.nav_last, "< 2/2") == 0);
-
-    Rig round;
-    rig_init(&round);
-    script[0] = PAGE_DOWN;
-    script[1] = 0;
-    script[2] = PAGE_DOWN;
-    script[3] = 0;
-    script[4] = ESCAPE;
-    run_script(&round, 5);
-    CHECK(strcmp(round.f.nav_last, "1/2 >") == 0);
-
-    Rig right;
-    rig_init(&right);
-    int n = 0;
-    for (int i = 0; i < GRAPHICS_OWN_CANCEL; i++) script[n++] = DOWN;   /* page 1's Cancel */
-    script[n++] = RIGHT;
-    script[n++] = 0;
-    script[n++] = ESCAPE;
-    run_script(&right, n);
-    CHECK(strcmp(right.f.nav_last, "< 2/2") == 0);
-
-    Rig left;
-    rig_init(&left);
-    n = 0;
-    script[n++] = PAGE_DOWN;
-    script[n++] = 0;
-    for (int i = 0; i < 4; i++) script[n++] = DOWN;   /* Weather's slot to Done: 13, 14, 15, 16, Done */
-    script[n++] = LEFT;
-    script[n++] = 0;
-    script[n++] = ESCAPE;
-    run_script(&left, n);
-    CHECK(strcmp(left.f.nav_last, "1/2 >") == 0);
-    CHECK_EQ_INT(left.f.pointer_row, GRAPHICS_OWN_CANCEL);
-}
-
-/* the second page's own buttons: Done saves its values, Cancel puts them back */
-static void test_second_page_has_its_own_buttons(void)
-{
-    Rig done;
-    rig_init(&done);
-    run_script(&done, page2_walk(GRAPHICS_OWN_WEATHER, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(done.port.weather, WEATHER_FOG);
-    CHECK_EQ_INT(done.f.saves, 1);
-    CHECK_EQ_INT(done.f.put_backs, 0);
-
-    Rig cancel;
-    rig_init(&cancel);
-    run_script(&cancel, page2_walk(GRAPHICS_OWN_WEATHER, RIGHT, 1, GRAPHICS_OWN_CANCEL));
-    CHECK_EQ_INT(cancel.port.weather, WEATHER_CLEAR);
-    CHECK_EQ_INT(cancel.f.put_backs, 1);
-    CHECK_EQ_INT(cancel.f.saves, 0);
-}
-
-/* the mouse on the indicator: a click turns the page; the pointer parked on it selects no row and steps nothing */
-static void test_second_page_mouse_nav(void)
-{
-    static const int one_click[] = { 0, LEFT_BUTTON, 0 };
-    Rig one;
-    rig_init(&one);
-    one.pointer_active = 1;
-    one.f.hold_in_nav = 1;
-    one.f.button_script = one_click;
-    one.f.button_count = (int)(sizeof one_click / sizeof *one_click);
-    for (int i = 0; i < 6; i++) script[i] = 0;
-    run_script_quitting(&one, 6);
-    CHECK(strcmp(one.f.nav_last, "< 2/2") == 0);
-    CHECK_EQ_INT(one.port.psx_light, 0);
-    CHECK_EQ_INT(one.port.weather, WEATHER_CLEAR);
-
-    static const int two_clicks[] = { 0, LEFT_BUTTON, 0, LEFT_BUTTON, 0 };
-    Rig back;
-    rig_init(&back);
-    back.pointer_active = 1;
-    back.f.hold_in_nav = 1;
-    back.f.button_script = two_clicks;
-    back.f.button_count = (int)(sizeof two_clicks / sizeof *two_clicks);
-    for (int i = 0; i < 8; i++) script[i] = 0;
-    run_script_quitting(&back, 8);
-    CHECK(strcmp(back.f.nav_last, "1/2 >") == 0);
-}
-
-/* the mouse on page 2's rows: hovering Weather selects it, and a click steps it, as on page 1 */
-static void test_second_page_mouse_rows(void)
-{
-    static const int clicks[] = { 0, 0, 0, LEFT_BUTTON, 0, 0, 0, 0 };
-    Rig r;
-    rig_init(&r);
-    r.pointer_active = 1;
-    r.f.hold_at = 1;
-    r.f.hold_x = 230;
-    r.f.hold_y = 0xd0;   /* page 2's fourth row, Weather: its band is 0xc4..0xe0 */
-    r.f.button_script = clicks;
-    r.f.button_count = (int)(sizeof clicks / sizeof *clicks);
-    script[0] = PAGE_DOWN;
-    for (int i = 1; i < 8; i++) script[i] = 0;
-    run_script_quitting(&r, 8);
-    CHECK_EQ_INT(r.f.pointer_row, GRAPHICS_OWN_WEATHER);
-    CHECK_EQ_INT(r.port.weather, WEATHER_FOG);
+    r.port.psx_light = 0, r.port.psx_shadow = 0;
+    r.port.psx_time = PSX_TIME_DUSK;
+    r.port.weather = WEATHER_RAIN;
+    run_script(&r, script_walk(GRAPHICS_OWN_LIGHT, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(r.port.psx_light, 1);
+    CHECK_EQ_INT(r.port.psx_shadow, 1);
+    CHECK_EQ_INT(r.port.psx_time, PSX_TIME_DUSK);   /* the track screen's, kept in port.cfg */
+    CHECK_EQ_INT(r.port.weather, WEATHER_RAIN);
     CHECK_EQ_INT(r.f.saves, 1);
+}
+
+/* the order the owner named: Distance Fog, Light Effects right after it, Scaling right after Full screen; and no
+ * Time of day, Weather, PS1 rows or page indicator */
+static void test_reorganised_screen(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                         "Light Effects", "Field of view", "Screen format", "Refresh rate",
+                                         "Full screen", "Scaling", "Render threads", "Render scale" };
+    int last_y = -1;
+    for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
+        int y = -1;
+        for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
+            if (strcmp(r.f.texts[t], order[i]) == 0 && r.f.text_x[t] == GRAPHICS_OWN_LABEL_X) y = r.f.text_y[t];
+        CHECK(y > last_y);
+        last_y = y;
+    }
+    CHECK(!drew(&r.f, "Fog"));
+    CHECK(!drew(&r.f, "Time of day"));
+    CHECK(!drew(&r.f, "Weather"));
+    CHECK(!drew(&r.f, "PS1 light"));
+    CHECK(!drew(&r.f, "PS1 shadow"));
+    CHECK_EQ_INT(r.f.nav_last[0], 0);   /* one page: no indicator */
+}
+
+/* the last row ends above the buttons' band, and the bands do not overlap */
+static void test_rows_fit_above_the_buttons(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
+        if (r.f.text_x[t] == GRAPHICS_OWN_LABEL_X && strcmp(r.f.texts[t], "Render scale") == 0)
+            CHECK(r.f.text_y[t] + 10 < 0x1a4);
 }
 
 int main(void)
@@ -1598,14 +1392,10 @@ int main(void)
     test_no_flash_on_the_way_in();
     test_an_already_black_display_is_not_faded_again();
     test_the_display_is_faded_out_on_the_way_out();
-    test_psx_rows_values();
-    test_psx_rows_steps();
-    test_psx_rows_live_in_race();
-    test_psx_rows_write_only_their_own_setting();
-    test_second_page_is_reached();
-    test_second_page_turns();
-    test_second_page_has_its_own_buttons();
-    test_second_page_mouse_nav();
-    test_second_page_mouse_rows();
+    test_light_effects_value_and_step();
+    test_light_effects_live_in_race();
+    test_light_effects_write_only_the_light_keys();
+    test_reorganised_screen();
+    test_rows_fit_above_the_buttons();
     return TEST_REPORT();
 }
