@@ -31,6 +31,7 @@ typedef struct {
     int model[RACE_CARS];       /* port: the slot's race model (car_model_names), for its catalogue paint */
     uint8_t paint[RACE_CARS][3]; /* port: the slot's catalogue paint (car_paint.h), valid where paint_on */
     int paint_on[RACE_CARS];
+    int fixed_black[RACE_CARS]; /* port: the car's masks' fixed black texels (car_mask.h) are repainted with its catalogue black; set with the car colours (extras.cfg psx_liveries) */
     uint8_t dash_rgb[3];        /* port: the player's PS1 livery's main colour, for the dash art's body (drive_livery_dash), valid where dash_rgb_on */
     int dash_rgb_on;
     char psx_dir[PSX_DIR_MAX];  /* port: port.cfg's psx_dir for this race, "" none */

@@ -19,8 +19,8 @@
 enum { REPAINT_NONE = 0, REPAINT_MAIN = 1, REPAINT_END = 2, REPAINT_KEEPS = 4 };
 
 /* the draft's classes of a texel (car_repaint_draft): painted, left as it is without a shine (plate, trim, badge, vents), left as it is
- * with one (glass, lamps) */
-enum { REPAINT_DRAFT_PAINT = 0, REPAINT_DRAFT_MATTE = 1, REPAINT_DRAFT_SHINE = 2 };
+ * with the glass's (glass, lamps), left as it is with the body's shine (a two-tone car's black roof) */
+enum { REPAINT_DRAFT_PAINT = 0, REPAINT_DRAFT_MATTE = 1, REPAINT_DRAFT_SHINE = 2, REPAINT_DRAFT_BODY = 3 };
 
 typedef struct {
     uint8_t *pixels;     /* the texture's texels, palette indices */
@@ -51,6 +51,12 @@ int car_repaint_body_class(const char name[4], int level);
 /* The body's colours towards the paint `rgb` (car_paint.h's recolour). Returns the number of body texels changed; -1 for a
  * palette type that is not 0x24 or 0x22 (the bank is left as it is). */
 int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor);
+
+/* The texels a mask marks as CAR_MASK_BLACK (car_mask.h) repainted with `black` (the car's catalogue black, car_paint_black_of), whatever paint the car gets: they
+ * take the shades of the plan towards the black that the body's own colours would, each in a spare entry of its colour. Run it BEFORE car_repaint_paint or
+ * car_repaint_pairs (it reads the body's colours as the file has them); those leave the texels alone. A bank with no such texel is left as it is. Returns the
+ * number of texels changed; -1 for a palette type that is not 0x24 or 0x22. */
+int car_repaint_fixed_black(const RepaintBank *bank, const uint8_t black[3], int floor);
 
 /* The texels the rules above would leave as they are, for the drafts of the hand-made masks: `keep`[t] is `count` bytes for the bank's
  * texture t, set to REPAINT_DRAFT_PAINT where the texel is repainted, and where it is not to REPAINT_DRAFT_SHINE for a lamp slot and its ring, a

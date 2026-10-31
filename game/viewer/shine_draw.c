@@ -9,7 +9,7 @@
 #include <string.h>
 
 /* the class map's codes are the draft's (car_repaint.h): paint, matte and shine (glass, lamps) */
-enum { MAX_VERTS = 8, SHINE_PAINT = REPAINT_DRAFT_PAINT, SHINE_GLASS = REPAINT_DRAFT_SHINE };
+enum { MAX_VERTS = 8, SHINE_PAINT = REPAINT_DRAFT_PAINT, SHINE_GLASS = REPAINT_DRAFT_SHINE, SHINE_BODY = REPAINT_DRAFT_BODY };
 static const float EDGE_GROW = 0.45f;   /* modern_road.c's: a polygon's outer edges reach this much of a pixel out */
 static const float ROW_REACH = 0.5f;    /* the exe's mapper rounds a row's ends: half a pixel past an outer edge, either way (the square the mapper's rounding spans) */
 static const float IZ_MIN = 1e-9f;
@@ -119,13 +119,14 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
             const uint8_t k = sh->cls->klass[(size_t)ty * (size_t)sh->cls->width + (size_t)tx];
             if (sh->env != NULL) {
                 /* the mask drives the shine: paint (0) at the body intensity, tinted by the paint; glass and lamps (128) at the glass
-                 * intensity, keeping their own colour; matte (255) and the rest not at all */
-                if (k != SHINE_PAINT && k != SHINE_GLASS) continue;
+                 * intensity, keeping their own colour; a body texel (192) keeps its colour too but takes the paint's intensity and table;
+                 * matte (255) and the rest not at all */
+                if (k != SHINE_PAINT && k != SHINE_GLASS && k != SHINE_BODY) continue;
                 const float eu = (wa * a->eu + wb * b->eu + wc * c->eu) * r, ev = (wa * a->ev + wb * b->ev + wc * c->ev) * r;
                 envmap_pixel(&row[x], sh->env, k == SHINE_GLASS, eu, ev, x, y);
                 continue;
             }
-            if (k != SHINE_PAINT) continue;   /* not paint */
+            if (k != SHINE_PAINT && k != SHINE_BODY) continue;   /* not paint */
             const float l = (wa * a->lz + wb * b->lz + wc * c->lz) * r;
             int level = (int)floorf(l + BAYER[y & 3][x & 3]);
             level = level < 0 ? 0 : level >= CAR_SHINE_LEVELS ? CAR_SHINE_LEVELS - 1 : level;

@@ -313,10 +313,12 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
         for (size_t i = 0; i < tex->count; i++) {
             if (draft != NULL) {
                 const int to = remap[tex->pixels[i]];
-                if (tex->mask != NULL ? tex->mask[i] == 0 : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
+                if (tex->mask != NULL ? tex->mask[i] == 0 || tex->mask[i] == CAR_MASK_BLACK : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
                     draft[t][i] = REPAINT_DRAFT_PAINT, changed++;
-                } else if (tex->mask != NULL) {   /* the mask's class: glass and lamps shine, the rest is matte */
-                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE;
+                } else if (tex->mask != NULL) {   /* the mask's class: glass and lamps shine as glass, a body texel as the body, the rest is matte */
+                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE  ? REPAINT_DRAFT_SHINE
+                                    : tex->mask[i] == CAR_MASK_BODY ? REPAINT_DRAFT_BODY
+                                                                    : REPAINT_DRAFT_MATTE;
                 } else if (!kept(tex, i)) {
                     draft[t][i] = (uint8_t)((guard[t] != NULL && guard[t][i]) || shines(bank, tex->pixels[i], floor) ? REPAINT_DRAFT_SHINE
                                                                                                                   : REPAINT_DRAFT_MATTE);
@@ -335,11 +337,130 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
     return changed;
 }
 
-/* ----- the catalogue paint ----- */
-
 typedef struct {
     CarPaintPlan plan;
 } PaintCtx;
+
+/* ----- the fixed black ----- */
+
+/* The body's tones under the black plan, darkest first, each with the pixels the paint texels have of it. */
+typedef struct {
+    float luma;
+    uint32_t weight;
+    uint8_t out[3], second[3];
+} BodyTone;
+
+/* Each entry the fixed black texels use takes the black of the body's tone at the same rank: the fixed texels sorted by lightness, their place in that order (by
+ * pixels) read off the body's tones in theirs. A fixed texel then has the distribution of tones a black body has, as a texel of the paint would; run through the
+ * plan on its own colour it kept the darkness of the texture it is in (a frame's shadow) and came out flatter and darker than the body. */
+static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx *ctx, int planned, const uint8_t black[3], int floor, Spares *sp, int remap[ENTRIES])
+{
+    BodyTone tone[ENTRIES];
+    int tones = 0;
+    uint64_t total_weight = 0;
+    for (int e = 0; e < ENTRIES; e++) {
+        remap[e] = -2;
+        if (!planned || s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;
+        BodyTone b = { 0, s->main[e] + s->end[e], { 0 }, { 0 } };
+        uint8_t in[3];
+        colour_of(bank, e, in);
+        b.luma = luma_of(in);
+        car_paint_shade(&ctx->plan, in, b.out);
+        memcpy(b.second, b.out, 3);
+        if (second_valid(bank)) {
+            uint8_t own[3];
+            second_colour_of(bank, e, own);
+            car_paint_shade(&ctx->plan, own, b.second);
+        }
+        int k = tones++;
+        while (k > 0 && tone[k - 1].luma > b.luma) tone[k] = tone[k - 1], k--;
+        tone[k] = b;
+        total_weight += b.weight;
+    }
+    uint32_t used[ENTRIES] = { 0 };
+    uint64_t total_used = 0;
+    for (int t = 0; t < bank->texture_count; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->body == REPAINT_NONE || tex->mask == NULL) continue;
+        for (size_t i = 0; i < tex->count; i++)
+            if (tex->mask[i] == CAR_MASK_BLACK && tex->pixels[i] != TRANSPARENT) used[tex->pixels[i]]++, total_used++;
+    }
+    int order[ENTRIES], n = 0;
+    for (int e = 0; e < ENTRIES; e++) {
+        if (used[e] == 0) continue;
+        uint8_t c[3];
+        colour_of(bank, e, c);
+        int k = n++;
+        while (k > 0) {
+            uint8_t o[3];
+            colour_of(bank, order[k - 1], o);
+            if (luma_of(o) <= luma_of(c)) break;
+            order[k] = order[k - 1], k--;
+        }
+        order[k] = e;
+    }
+    uint64_t before = 0;
+    for (int k = 0; k < n; k++) {
+        const int e = order[k];
+        uint8_t out[3], second[3];
+        if (tones == 0) {
+            memcpy(out, black, 3), memcpy(second, black, 3);
+        } else {
+            /* the middle of this entry's share of the fixed texels, as a share of the body's pixels */
+            const uint64_t at = (2 * before + used[e]) * total_weight / (2 * total_used);
+            uint64_t sum = 0;
+            int j = 0;
+            while (j + 1 < tones && sum + tone[j].weight <= at) sum += tone[j].weight, j++;
+            memcpy(out, tone[j].out, 3), memcpy(second, tone[j].second, 3);
+        }
+        before += used[e];
+        remap[e] = spare_for(bank, sp, out, second);
+    }
+}
+
+int car_repaint_fixed_black(const RepaintBank *bank, const uint8_t black[3], int floor)
+{
+    if (bank == NULL || (bank->type != PALETTE_8BIT && bank->type != PALETTE_6BIT) || bank->palette[0] == NULL) return -1;
+    int wanted = 0;
+    for (int t = 0; t < bank->texture_count && !wanted; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->body == REPAINT_NONE || tex->mask == NULL) continue;
+        for (size_t i = 0; i < tex->count && !wanted; i++) wanted = tex->mask[i] == CAR_MASK_BLACK;
+    }
+    if (!wanted) return 0;
+    Survey *s = malloc(sizeof *s);
+    Spares *sp = calloc(1, sizeof *sp);
+    PaintCtx *ctx = malloc(sizeof *ctx);
+    if (s == NULL || sp == NULL || ctx == NULL) {
+        free(s), free(sp), free(ctx);
+        return 0;
+    }
+    survey(bank, floor, s);
+    /* the black takes the same shades as a black the player chose: the plan of the family's colours (the paint texels') towards the black */
+    uint8_t colours[ENTRIES][3];
+    uint32_t weight[ENTRIES];
+    int n = 0;
+    for (int e = 0; e < ENTRIES; e++) {
+        sp->used[e] = (uint8_t)(s->main[e] + s->end[e] + s->other[e] != 0 || e >= FIRST_RESERVED);
+        if (s->any && s->main[e] + s->end[e] != 0 && in_family(bank, s, e, floor)) colour_of(bank, e, colours[n]), weight[n++] = s->main[e] + s->end[e];
+    }
+    if (n > 0) car_paint_plan(&ctx->plan, (const uint8_t (*)[3])colours, weight, n, black);
+    int remap[ENTRIES], changed = 0;
+    fixed_black_remap(bank, s, ctx, n > 0, black, floor, sp, remap);
+    for (int t = 0; t < bank->texture_count; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->body == REPAINT_NONE || tex->mask == NULL) continue;
+        for (size_t i = 0; i < tex->count; i++) {
+            const int e = tex->pixels[i];
+            if (tex->mask[i] != CAR_MASK_BLACK || e == TRANSPARENT) continue;
+            if (remap[e] >= 0) tex->pixels[i] = (uint8_t)remap[e], changed++;
+        }
+    }
+    free(s), free(sp), free(ctx);
+    return changed;
+}
+
+/* ----- the catalogue paint ----- */
 
 static int paint_colour(void *ctx, int entry, const uint8_t in[3], uint8_t out[3])
 {

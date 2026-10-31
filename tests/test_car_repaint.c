@@ -1,5 +1,6 @@
 /* The texel-scoped repaint of a car's bank (car_repaint.h) on a synthetic bank: the body textures change, nothing else does. */
 #include "game/race/car_repaint.h"
+#include "game/race/car_mask.h"
 #include "test.h"
 
 #include <stdlib.h>
@@ -307,6 +308,75 @@ static void test_draft_carries_the_masks_classes(void)
         CHECK_EQ_INT(keep0[i], mask[i] == 0 ? REPAINT_DRAFT_PAINT : mask[i] == 128 ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE);
 }
 
+/* a mask's 192 keeps the texel's colour (no recolour, as 128 and 255) and its draft class is the body's own, REPAINT_DRAFT_BODY */
+static void test_a_body_class_texel_is_kept_and_drafted_as_body(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    uint8_t mask[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS], body_before[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 4 == 0 ? 0 : i % 4 == 1 ? 128 : i % 4 == 2 ? 192 : 255);
+    f.tex[0].mask = mask;
+    memcpy(body_before, f.body, sizeof body_before);
+    uint8_t *const keeps[3] = { keep0, keep1, keep2 };
+    CHECK(car_repaint_draft(&f.bank, 44, keeps) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        CHECK_EQ_INT(keep0[i], mask[i] == 0 ? REPAINT_DRAFT_PAINT : mask[i] == 128 ? REPAINT_DRAFT_SHINE : mask[i] == 192 ? REPAINT_DRAFT_BODY : REPAINT_DRAFT_MATTE);
+    const uint8_t blue[3] = { 30, 70, 200 };
+    CHECK(car_repaint_paint(&f.bank, blue, 44) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        if (mask[i] == 192) CHECK_EQ_INT(f.body[i], body_before[i]);
+}
+
+/* a mask's 224 (fixed black): the texel takes the black paint's colour whatever paint the car gets (car_repaint_fixed_black, then the paint), is drafted as
+ * paint (it shines as the body), and the paint leaves it alone; with no paint at all it is black too. The other classes keep their colours. */
+static void test_a_fixed_black_texel_is_black_whatever_the_paint(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    uint8_t mask[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS], body_before[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 4 == 0 ? 0 : i % 4 == 1 ? CAR_MASK_BLACK : i % 4 == 2 ? 128 : 255);
+    f.tex[0].mask = mask;
+    memcpy(body_before, f.body, sizeof body_before);
+    uint8_t *const keeps[3] = { keep0, keep1, keep2 };
+    CHECK(car_repaint_draft(&f.bank, 44, keeps) > 0);
+    for (int i = 0; i < TEXELS; i++)
+        if (mask[i] == CAR_MASK_BLACK) CHECK_EQ_INT(keep0[i], REPAINT_DRAFT_PAINT);
+    const uint8_t black[3] = { 14, 14, 16 }, blue[3] = { 30, 70, 200 };
+    CHECK(car_repaint_fixed_black(&f.bank, black, 44) > 0);
+    for (int i = 0; i < TEXELS; i++) {
+        const uint8_t *c = f.pal + 3 * f.body[i];
+        if (mask[i] == CAR_MASK_BLACK) CHECK(c[0] <= 40 && c[1] <= 40 && c[2] <= 40);   /* black, not the 120 grey it was */
+        else CHECK_EQ_INT(f.body[i], body_before[i]);   /* every other texel is as it was */
+    }
+    CHECK(car_repaint_paint(&f.bank, blue, 44) > 0);
+    for (int i = 0; i < TEXELS; i++) {
+        const uint8_t *c = f.pal + 3 * f.body[i];
+        if (mask[i] == CAR_MASK_BLACK) CHECK(c[0] <= 40 && c[1] <= 40 && c[2] <= 40 && c[2] >= c[0]);   /* still black, under a blue paint */
+        if (mask[i] == 0) CHECK(c[2] > c[0] + 20);   /* the paint's texels did go blue */
+    }
+}
+
+/* a fixed black texel has the tone of the body under a black paint, not its own darker one: a 120 grey texel beside a 196 grey body comes out as the
+ * body's black does (the rank of its lightness among the fixed texels, matched to the same rank among the body's pixels) */
+static void test_a_fixed_black_texel_takes_the_bodys_tone(void)
+{
+    Fixture f, g;
+    make(&f, 0x24), make(&g, 0x24);
+    f.tex[0].width = g.tex[0].width = SIDE;
+    uint8_t mask[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i % 4 == 0 ? 0 : i % 4 == 1 ? CAR_MASK_BLACK : i % 4 == 2 ? 128 : 255);
+    f.tex[0].mask = mask, g.tex[0].mask = mask;
+    const uint8_t black[3] = { 14, 14, 16 };
+    CHECK(car_repaint_fixed_black(&f.bank, black, 44) > 0);
+    CHECK(car_repaint_paint(&g.bank, black, 44) > 0);
+    const uint8_t *body = g.pal + 3 * g.body[0];   /* a paint texel under the black paint */
+    for (int i = 0; i < TEXELS; i++)
+        if (mask[i] == CAR_MASK_BLACK)
+            for (int c = 0; c < 3; c++) CHECK(abs((int)f.pal[3 * f.body[i] + c] - (int)body[c]) <= 2);
+}
+
 /* the PS1 pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
 static void test_mask_pairs(void)
 {
@@ -406,5 +476,8 @@ int main(void)
     test_mask_pairs();
     test_draft();
     test_draft_carries_the_masks_classes();
+    test_a_body_class_texel_is_kept_and_drafted_as_body();
+    test_a_fixed_black_texel_is_black_whatever_the_paint();
+    test_a_fixed_black_texel_takes_the_bodys_tone();
     return TEST_REPORT();
 }

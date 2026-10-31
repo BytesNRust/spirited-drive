@@ -20,6 +20,10 @@ typedef struct {
 int car_paint_count(int model);
 const CarPaint *car_paint(int model, int k);
 
+/* The car's black, the catalogue paint a player gets by choosing black (the darkest one whose channels are all 32 or under), by the race model's stem in
+ * any case ("ANSX", "p911"); NULL for a car without one, an unknown stem or NULL. */
+const CarPaint *car_paint_black_of(const char *stem);
+
 /* The model's own colour as the PC has it (its main body tone), for the box's swatch when no PS1 files are read. */
 const uint8_t *car_paint_default(int model);
 

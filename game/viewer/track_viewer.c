@@ -193,6 +193,13 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
         int owner = slot;
         drive_livery_draft(stem, drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with psx_liveries) */
     }
+    if (drive_cars.file[slot] != NULL && drive_cars.fixed_black[slot]) {   /* port: a mask's fixed black texels take the car's black, before any paint or livery */
+        const CarPaint *black = car_paint_black_of(stem);
+        if (black != NULL) {
+            const int n = drive_livery_black(stem, drive_cars.file[slot], size, black->rgb);
+            if (n > 0) port_log("car_paint: slot %d %s fixed black, %d texels\n", slot, stem, n);
+        }
+    }
     if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
         const int player = slot == race_slot(race->player);
         uint8_t main_rgb[3] = { 0 };
@@ -308,6 +315,7 @@ static void rival_liveries(const RaceField *field, int player)
     const PortSettings settings = port_settings_load();
     memset(drive_cars.livery, 0, sizeof drive_cars.livery);
     memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
+    memset(drive_cars.fixed_black, 0, sizeof drive_cars.fixed_black);
     drive_cars.dash_rgb_on = 0;
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
     port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
@@ -321,6 +329,7 @@ static void rival_liveries(const RaceField *field, int player)
         const int paint = i == player ? player_paint : rival_paint_choice(field, i, player_car, player_paint, settings.psx_dir);
         drive_cars.model[i] = car;
         drive_cars.livery[i] = paint == PAINT_PS1;
+        drive_cars.fixed_black[i] = 1;
         if (paint >= PAINT_CATALOGUE && car_paint(car, paint - PAINT_CATALOGUE) != NULL) {
             memcpy(drive_cars.paint[i], car_paint(car, paint - PAINT_CATALOGUE)->rgb, 3);
             drive_cars.paint_on[i] = 1;

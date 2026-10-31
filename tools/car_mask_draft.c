@@ -51,7 +51,8 @@ static void draft(void *user, int level, const char name[4], int width, int heig
     }
     uint8_t *classes = malloc(count), *png = NULL, *mask = NULL;
     for (size_t i = 0; classes != NULL && i < count; i++)
-        classes[i] = keep[i] == REPAINT_DRAFT_PAINT ? CAR_MASK_PAINT : keep[i] == REPAINT_DRAFT_SHINE ? CAR_MASK_SHINE : CAR_MASK_MATTE;
+        classes[i] = keep[i] == REPAINT_DRAFT_PAINT ? CAR_MASK_PAINT : keep[i] == REPAINT_DRAFT_SHINE ? CAR_MASK_SHINE
+                                                                              : keep[i] == REPAINT_DRAFT_BODY ? CAR_MASK_BODY : CAR_MASK_MATTE;
     size_t len = 0, mask_len = 0;
     char path[700];
     if (png_write_rgba(rgba, (uint32_t)width, (uint32_t)height, &png, &len) == PNG_OK) {

@@ -24,6 +24,10 @@ int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[
  * textures only (car_repaint.h), in the CFM the caller owns, before the loader reads it. Returns the body texels changed. */
 int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
 
+/* The texels the car's masks mark as the fixed black (car_mask.h CAR_MASK_BLACK) repainted with the car's catalogue black `rgb` (car_paint_black_of), in the CFM the caller owns,
+ * before the loader reads it and before any paint or livery of the car (car_repaint_fixed_black). Returns the texels changed. */
+int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
+
 /* The dash art's body (the bonnet, wings and pillars the cockpit picture shows) in a paint: `bank` is the dash's SHPI (SIMDATA/DASH/<stem>DH.FSH) as
  * read, `rgb` a catalogue paint (car_paint.h) or the PS1 livery's main colour (drive_livery_car's `main_rgb`; the dash shows tones the car's textures
  * do not, so the livery's map by colour would leave them grey). Texel by texel, in the entries DASH_BODY_FIRST..LAST of the 'dash' picture alone; the

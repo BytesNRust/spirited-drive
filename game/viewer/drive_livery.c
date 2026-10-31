@@ -224,6 +224,13 @@ static int run_paint(const RepaintBank *bank, const BankMeta *meta, void *ctx)
     return car_repaint_paint(bank, j->rgb, j->floor);
 }
 
+static int run_black(const RepaintBank *bank, const BankMeta *meta, void *ctx)
+{
+    (void)meta;
+    const RepaintJob *j = ctx;
+    return car_repaint_fixed_black(bank, j->rgb, j->floor);
+}
+
 int drive_livery_swatch(const char *psx_dir, const char *stem, uint16_t colours[2])
 {
     char upper[LIVERY_STEM], lower[LIVERY_STEM];
@@ -306,6 +313,16 @@ static uint8_t *dash_palette(uint8_t *bank)
         shape = dash + (word_at(dash) >> 8);
     }
     return shape;
+}
+
+int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3])
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
+    return repaint_cfm(cfm, size, stem, upper, run_black, (void *)&job);
 }
 
 int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_t rgb[3])
