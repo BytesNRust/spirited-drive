@@ -35,6 +35,11 @@ void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead);
  * 0 when no corner is in front. */
 int follow_arm_clip_quad(const int32_t *const in[4], int32_t plane, int32_t out[4][3]);
 
+/* How many of the `wanted` segments behind the camera's the cache really keeps: what its window holds behind its ahead (`behind` - `ahead`), at
+ * least 0. The cache is a ring of 64 records; an Ultra view's 58 ahead leave the exe's 5 behind (follow_arm_window cannot raise it), and a segment
+ * farther behind reads the record of one at the far end ahead: a polygon from one end of the drawn stretch to the other. */
+int32_t follow_arm_kept_behind(const TrackCacheWindow *w, int32_t wanted);
+
 /* The cache window's reach behind, for an arm of `segments`: the segments loaded again after the camera jumps. */
 void follow_arm_window(TrackRender *r, int32_t segments);
 

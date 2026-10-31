@@ -46,8 +46,26 @@ static void test_rail_panel(void)
     CHECK(!follow_arm_clip_quad(nothing, NEAR, out));
 }
 
+/* the segments behind the camera's the cache keeps: what the window holds behind its ahead, whatever more the arm asks for (the ring is 64 records: an
+ * Ultra view's 58 ahead leave 5 behind, and the farthest of ten behind would read the records of the farthest ahead) */
+static void test_kept_behind(void)
+{
+    TrackCacheWindow w = { 0 };
+    w.ahead = 58, w.behind = 63;   /* Ultra: draw_segments 56 + 2 ahead, the exe's 5 behind */
+    CHECK_EQ_INT(follow_arm_kept_behind(&w, FOLLOW_ARM_SEGMENTS), 5);
+    w.ahead = 30, w.behind = 40;   /* follow_arm_window raised it to 10 behind (the exe's draw distance fits the ring) */
+    CHECK_EQ_INT(follow_arm_kept_behind(&w, FOLLOW_ARM_SEGMENTS), 10);
+    w.ahead = 30, w.behind = 35;   /* the exe's own */
+    CHECK_EQ_INT(follow_arm_kept_behind(&w, FOLLOW_ARM_SEGMENTS), 5);
+    CHECK_EQ_INT(follow_arm_kept_behind(&w, 3), 3);   /* asking for fewer than the cache keeps */
+    CHECK_EQ_INT(follow_arm_kept_behind(&w, 0), 0);
+    w.ahead = 70, w.behind = 60;   /* a window that holds less than its ahead: nothing, not a negative count */
+    CHECK_EQ_INT(follow_arm_kept_behind(&w, FOLLOW_ARM_SEGMENTS), 0);
+}
+
 int main(void)
 {
+    test_kept_behind();
     test_direction();
     test_rail_panel();
     return TEST_REPORT();

@@ -499,6 +499,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     const TrackCamera *cam = a->camera;
     if (r->tri == NULL) return;
     if (behind > FOLLOW_ARM_SEGMENTS) behind = FOLLOW_ARM_SEGMENTS;
+    behind = follow_arm_kept_behind(&r->window, behind);   /* no farther than the cache keeps: past it the records are the far ahead's (Ultra) */
     const int32_t mask = (int32_t)r->build.segment_mask;
     const int32_t camera_segment = cam->node / 4;
     int32_t first = camera_segment - behind;

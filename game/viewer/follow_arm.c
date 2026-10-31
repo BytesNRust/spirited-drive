@@ -66,6 +66,13 @@ int follow_arm_clip_quad(const int32_t *const in[4], int32_t plane, int32_t out[
     return 1;
 }
 
+int32_t follow_arm_kept_behind(const TrackCacheWindow *w, int32_t wanted)
+{
+    const int32_t kept = w->behind - w->ahead;
+    if (kept <= 0 || wanted <= 0) return 0;
+    return wanted < kept ? wanted : kept;
+}
+
 void follow_arm_window(TrackRender *r, int32_t segments)
 {
     /* the segments loaded when the window starts again: the exe's five behind, or `segments` when they fit the 62 records */
@@ -87,6 +94,7 @@ void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead)
     const TrackCamera *cam = a->camera;
     const DrawContext *ctx = a->ctx;
     if (segments > FOLLOW_ARM_SEGMENTS) segments = FOLLOW_ARM_SEGMENTS;
+    if (!ahead) segments = follow_arm_kept_behind(&r->window, segments);   /* the segments behind the cache still holds */
     const int32_t mask = (int32_t)r->build.segment_mask;
     const int32_t camera_segment = cam->node / 4;
     int32_t first = ahead ? camera_segment : camera_segment - segments;
