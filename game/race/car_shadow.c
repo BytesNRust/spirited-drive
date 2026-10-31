@@ -26,7 +26,7 @@ int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass,
     for (int i = 0; i < 3; i++) car->camera_position[i] = place[i];
     if (pass != 0) return 0;
     const int32_t z = place[2], x = place[0];
-    if (z > FAR_Z || (ops->clip_quad == NULL && z < NEAR_Z)) return 0;   /* port: the cut keeps a car nearer than 0x20 (the cone below drops the one behind the lens) */
+    if (z > FAR_Z || ((ops->clip_quad == NULL || followed) && z < NEAR_Z)) return 0;   /* port: the cut keeps a car nearer than 0x20 (the cone below drops the one behind the lens), but not the player's own: in the bumper view its box lies about the lens and was dropped */
     const int wide = ops->clip_quad != NULL && ops->frustum != 0;   /* port: the field's own frustum, tested on the cut box below */
     if (wide ? z < -SHADOW_REACH : (x > 0 ? x : x_sub(0, x)) > z) return 0;
     ops->road_contact(ops->ctx, car);
