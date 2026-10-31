@@ -7,7 +7,7 @@
 
 #include <string.h>
 
-enum { CAMERA_SHIFT = 9, BOX_SHIFT = 10, NEAR_Z = 0x20, FAR_Z = 0x1900 };
+enum { CAMERA_SHIFT = 9, BOX_SHIFT = 10, NEAR_Z = 0x20, FAR_Z = 0x1900, SHADOW_REACH = 0x200 };   /* the reach: a box's half length and width together, at most, behind the lens */
 
 static void camera_place(const int32_t world[3], const ModelView *mv, int32_t out[3])
 {
@@ -27,7 +27,8 @@ int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass,
     if (pass != 0) return 0;
     const int32_t z = place[2], x = place[0];
     if (z > FAR_Z || (ops->clip_quad == NULL && z < NEAR_Z)) return 0;   /* port: the cut keeps a car nearer than 0x20 (the cone below drops the one behind the lens) */
-    if ((x > 0 ? x : x_sub(0, x)) > z) return 0;
+    const int wide = ops->clip_quad != NULL && ops->frustum != 0;   /* port: the field's own frustum, tested on the cut box below */
+    if (wide ? z < -SHADOW_REACH : (x > 0 ? x : x_sub(0, x)) > z) return 0;
     ops->road_contact(ops->ctx, car);
     int32_t centre[3], f[3], s[3];
     const int32_t point[3] = { car->road_point_heading[0], car->road_point_heading[1], car->road_point_heading[2] };
@@ -56,6 +57,14 @@ int car_shadow(const CarShadowOps *ops, Car *car, const ModelView *mv, int pass,
             if (!ops->clip_quad(in, plane, cut)) return 0;
             memcpy(place_of, cut, sizeof place_of);
         }
+    }
+    if (wide) {   /* the box wholly outside the field's left or right side: nothing to draw */
+        int right = 1, left = 1;
+        for (int k = 0; k < 4; k++) {
+            const int64_t side = (int64_t)place_of[k][0] * mv->view->focal_x, reach = (int64_t)place_of[k][2] * mv->view->centre_x;
+            right &= side > reach, left &= -side > reach;
+        }
+        if (right || left) return 0;
     }
     for (int k = 0; k < 4; k++) view_project(mv->view, place_of[k], screen + 2 * k);
     if (followed) ops->followed(ops->ctx, car, f, s, point);

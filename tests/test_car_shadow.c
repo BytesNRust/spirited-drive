@@ -55,11 +55,11 @@ static int has_minimum(const int32_t screen[8])
 static void test_close_car(void)
 {
     int32_t screen[8];
-    const CarShadowOps exe = { NULL, contact, followed, NULL };
+    const CarShadowOps exe = { NULL, contact, followed, NULL, 0 };
     setup(60, 184);
     CHECK_EQ_INT(shadow(&exe, screen), 1);
     CHECK(has_minimum(screen));   /* the exe's: the corners behind the plane are not points */
-    const CarShadowOps cut = { NULL, contact, followed, follow_arm_clip_quad };
+    const CarShadowOps cut = { NULL, contact, followed, follow_arm_clip_quad, 0 };
     setup(60, 184);
     CHECK_EQ_INT(shadow(&cut, screen), 1);
     CHECK(!has_minimum(screen));
@@ -70,7 +70,7 @@ static void test_close_car(void)
 static void test_far_car_is_the_exes(void)
 {
     int32_t a[8], b[8];
-    const CarShadowOps exe = { NULL, contact, followed, NULL }, cut = { NULL, contact, followed, follow_arm_clip_quad };
+    const CarShadowOps exe = { NULL, contact, followed, NULL, 0 }, cut = { NULL, contact, followed, follow_arm_clip_quad, 0 };
     setup(80, 900);
     CHECK_EQ_INT(shadow(&exe, a), 1);
     setup(80, 900);
@@ -85,7 +85,7 @@ static void test_far_car_is_the_exes(void)
 static void test_centre_at_the_lens(void)
 {
     int32_t screen[8];
-    const CarShadowOps exe = { NULL, contact, followed, NULL }, cut = { NULL, contact, followed, follow_arm_clip_quad };
+    const CarShadowOps exe = { NULL, contact, followed, NULL, 0 }, cut = { NULL, contact, followed, follow_arm_clip_quad, 0 };
     setup(0, 10);
     CHECK_EQ_INT(shadow(&exe, screen), 0);
     setup(0, 10);
@@ -95,10 +95,36 @@ static void test_centre_at_the_lens(void)
     CHECK_EQ_INT(shadow(&cut, screen), 0);
 }
 
+/* the cone: the exe drops a car whose centre is outside 45 degrees (|x| > z); in a wide field (here 60 degrees to either side) a car between the two is in view,
+ * so with `frustum` its shadow is kept, one past the field's edge is not, and one whose centre is just behind the lens keeps the front of its box */
+static void test_the_fields_frustum(void)
+{
+    int32_t screen[8];
+    const CarShadowOps cone = { NULL, contact, followed, follow_arm_clip_quad, 0 }, wide = { NULL, contact, followed, follow_arm_clip_quad, 1 };
+    setup(400, 300);   /* 53 degrees off the axis */
+    CHECK_EQ_INT(shadow(&cone, screen), 0);
+    setup(400, 300);
+    CHECK_EQ_INT(shadow(&wide, screen), 1);
+    CHECK(!has_minimum(screen));
+    setup(2000, 300);  /* 81 degrees: out of the field, its box too */
+    CHECK_EQ_INT(shadow(&wide, screen), 0);
+    setup(0, -100);    /* the centre behind the lens, the front of the box 200 ahead of it */
+    CHECK_EQ_INT(shadow(&cone, screen), 0);
+    setup(0, -100);
+    CHECK_EQ_INT(shadow(&wide, screen), 1);
+    CHECK(!has_minimum(screen));
+    setup(0, -1000);   /* the whole box behind */
+    CHECK_EQ_INT(shadow(&wide, screen), 0);
+    const CarShadowOps exe = { NULL, contact, followed, NULL, 1 };   /* the frustum is the cut's: the exe's culls stay without it */
+    setup(400, 300);
+    CHECK_EQ_INT(shadow(&exe, screen), 0);
+}
+
 int main(void)
 {
     test_close_car();
     test_far_car_is_the_exes();
     test_centre_at_the_lens();
+    test_the_fields_frustum();
     return TEST_REPORT();
 }

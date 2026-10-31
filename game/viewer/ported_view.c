@@ -654,10 +654,10 @@ static const uint8_t *soft_half(void)
 static void row_prepare(void *ctx, Car *car, int pass)
 {
     (void)ctx;
-    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed, NULL };
+    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed, NULL, 0 };
     int32_t screen[8];
     if (soft_shadow_on && shadow_remap != NULL && object_pixels.palette != NULL) {   /* port: the quad's corners, the shade not drawn (remap NULL) */
-        const CarShadowOps cut = { NULL, shadow_contact, shadow_followed, follow_arm_clip_quad };   /* and the quad cut at the near plane, not lost */
+        const CarShadowOps cut = { NULL, shadow_contact, shadow_followed, follow_arm_clip_quad, 1 };   /* and the quad cut at the near plane, not lost */
         if (car_prepare(&cut, car, &model_view, pass, car == followed_car(), object_pixels.target, NULL, screen))
             soft_shadow_draw(object_pixels.target, shadow_remap, soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
         return;
@@ -921,7 +921,7 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
 static void row_unseen(void *ctx, Car *car)
 {
     (void)ctx;
-    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed, NULL };
+    const CarShadowOps ops = { NULL, shadow_contact, shadow_followed, NULL, 0 };
     car_skid_unseen(&ops, car);
 }
 
