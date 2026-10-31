@@ -11,12 +11,14 @@
  *   - the clean background being asked for exactly once and then cached, and the title drawn at the top left. */
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/graphics_own.h"
+#include "game/race/weather.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
 
 #include "core/formats/fsh.h"
 #include "game/platform/platform.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,7 +32,9 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 void platform_free_file(uint8_t *data) { (void)data; }
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
-       LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
+       PAGE_UP = 0x4900, PAGE_DOWN = 0x5100, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
+
+enum { TEXTS = 256, NAV_X0 = 270, NAV_X1 = 370, NAV_Y0 = 432, NAV_Y1 = 476 };
 
 typedef struct Fake {
     int *keys;
@@ -38,11 +42,20 @@ typedef struct Fake {
     int saves, ticks_each;
     int bgnd_calls;          /* how many times the clean background was composed (must be 1: it is cached) */
     int title_draws;         /* the title drawn at the top left */
-    char texts[96][28];      /* every plus_text call, in order */
+    char texts[TEXTS][32];   /* every plus_text call, in order */
     int text_count;
-    int32_t text_x[96], text_y[96];
+    int32_t text_x[TEXTS], text_y[TEXTS];
     int pointer_row;         /* the row the pointer is in (-1: nowhere) */
     int pointer_x, pointer_y; /* where the screen last put the pointer */
+    int pointer_in_nav;      /* whether the pointer is in the page indicator */
+    char nav_last[16];       /* the page indicator's last text, "1/2 >" or "< 2/2" */
+    int hold_at;             /* the pointer stays where hold_x / hold_y put it, as a mouse parked on a row would */
+    int32_t hold_x, hold_y;
+    int hold_in_nav;         /* the pointer stays on the page indicator, as a mouse parked on it would */
+    int pointer_down;        /* the left button, when no scripted sequence is needed */
+    const int *button_script; /* buttons read one after the other; the last stays */
+    int button_count, button_next;
+    int nav_click_at;        /* the button read (1-based) that finds the pointer on the page indicator */
     int panel_calls;
     int bgnd_shapes;         /* times the background was put on the screen (once per draw) */
     int burnt_in_reads;       /* times the original's own screen was asked for its palette */
@@ -98,12 +111,25 @@ static void f_void(void *ctx) { (void)ctx; }
 static void f_move(void *ctx, int32_t x, int32_t y)
 {
     Fake *f = ctx;
+    /* the mouse parked on the page indicator: where it is does not change when the screen moves the pointer */
+    if (f->hold_in_nav) {
+        x = 330;
+        y = 452;
+    } else if (f->hold_at) {
+        x = f->hold_x;
+        y = f->hold_y;
+    }
     f->pointer_x = x;
     f->pointer_y = y;
     /* Done and Cancel are two words the clean background paints in its bottom corners (config_bgnd.c's CORNERS:
      * 430..475, the left one Done and the right one Cancel). The screen does not draw over them, so the pointer is
-     * the only thing that says which of the two the selection has landed on. */
-    if (y >= 430 && y < 475) f->pointer_row = x < 320 ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
+     * the only thing that says which of the two the selection has landed on. The page indicator overlaps neither
+     * word, but it overlays the menu's broad Done band and therefore must not pretend to be a button. */
+    f->pointer_in_nav = NAV_X0 <= x && x < NAV_X1 && NAV_Y0 <= y && y < NAV_Y1;
+    if (f->pointer_in_nav)
+        f->pointer_row = -1;
+    else if (y >= 430 && y < 475)
+        f->pointer_row = x < 320 ? GRAPHICS_OWN_DONE : GRAPHICS_OWN_CANCEL;
 }
 static int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 /* the original's own Graphics screen: its shapes, and the palette 00423d28's open_screen reads as "!pal" -- sixteen
@@ -150,6 +176,9 @@ static void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t count, con
 static int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
     Fake *f = ctx;
+    const int nav = x0 == NAV_X0 && x1 == NAV_X1 && y0 == NAV_Y0 && y1 == NAV_Y1;
+    const int nav_half = x0 == NAV_X0 && (x1 == 320 || x1 == NAV_X1) && y0 == NAV_Y0 && y1 == NAV_Y1;
+    if (nav || nav_half) return f->pointer_in_nav;
     if (y0 == 0 && f->band_n > 0) {
         if (f->band_n > f->band_best) {
             f->band_best = f->band_n;
@@ -209,6 +238,9 @@ static int32_t f_ticks(void *ctx)
 static int32_t f_buttons(void *ctx)
 {
     Fake *f = ctx;
+    if (f->button_script != NULL)
+        return f->button_script[f->button_next < f->button_count ? f->button_next++ : f->button_count - 1];
+    if (f->pointer_down) return f->pointer_down;
     if (f->key_next < f->key_count) return 0;
     if (!f->right_button) return 0;
     if (f->right_buttons_read == 0) {   /* up: the release that arms the leaving */
@@ -227,15 +259,21 @@ static int32_t f_deadline_passed(void *ctx)
 
 /* The row each of the screen's own words belongs to, so the fake can read the selection off the draw: the selected row
  * is drawn lit, and the screen lights exactly one. (Only the settings -- Done and Cancel are the background's
- * words, which f_move reads off the pointer instead.) */
+ * words, which f_move reads off the pointer instead.)
+ *
+ * The two lists are the screen's own: the words in the order it draws them, and the number each of them is. The
+ * numbers are the settings' own, so the second page's four are the ones after the first page's eleven, not four more
+ * after them. */
+static const char *const LABEL[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                     "Light Effects", "Field Of View", "Screen Format", "Refresh Rate", "Full Screen",
+                                     "Scaling", "Render Threads", "Render Scale" };
+static const int LABEL_ROW[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
+                                 GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH,
+                                 GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE };
 static int row_of(const char *text)
 {
-    static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
-                                                             "View Distance", "Fog", "Field of view", "Screen format",
-                                                             "Refresh rate", "Full screen", "Render threads",
-                                                             "Render scale" };
-    for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++)
-        if (strcmp(text, LABEL[row]) == 0) return row;
+    for (size_t row = 0; row < sizeof LABEL / sizeof *LABEL; row++)
+        if (strcmp(text, LABEL[row]) == 0) return LABEL_ROW[row];
     return -1;
 }
 
@@ -243,13 +281,16 @@ static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_
 {
     Fake *f = ctx;
     if (style == 4) f->dim_draws++;
-    if (style == 1) {
+    /* a lit label names the selection; a lit value can read as a label too ("Fog" is Weather's value as well as a row),
+     * so only the label column counts */
+    if (style == 1 && x == GRAPHICS_OWN_LABEL_X) {
         const int row = row_of(text);
         if (row >= 0) f->pointer_row = row;
     }
+    if (strchr(text, '/') != NULL) snprintf(f->nav_last, sizeof f->nav_last, "%s", text);
     if (strcmp(text, "DONE") == 0) f->done_draws++;
     if (strcmp(text, "CANCEL") == 0) f->cancel_draws++;
-    if (f->text_count < 96) {
+    if (f->text_count < TEXTS) {
         snprintf(f->texts[f->text_count], sizeof f->texts[0], "%s", text);
         f->text_x[f->text_count] = x;
         f->text_y[f->text_count] = y;
@@ -380,10 +421,11 @@ static void rig_init(Rig *r)
 /* whether `text` was drawn at all */
 static int drew(const Fake *f, const char *text)
 {
-    for (int i = 0; i < f->text_count && i < 96; i++)
+    for (int i = 0; i < f->text_count && i < TEXTS; i++)
         if (strcmp(f->texts[i], text) == 0) return 1;
     return 0;
 }
+
 
 /* The key script the screen reads: one key per iteration, and it arms on the first iteration's own ticks, so the
  * whole walk belongs in a single session -- re-entering the screen starts again on the first row. */
@@ -459,14 +501,14 @@ static void test_rows_in_order(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
 
-    static const char *const want[] = { "Perspective Correction", "Texture Filter", "Scaling", "View Distance",
-                                        "Fog", "Field of view", "Screen format", "Refresh rate", "Full screen",
-                                        "Render threads", "Render scale" };
-    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 11);
+    static const char *const want[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                        "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
+                                        "Full Screen", "Scaling", "Render Threads", "Render Scale" };
+    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 12);
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) {
         CHECK(drew(&r.f, want[row]));
         /* each label drawn at the same left edge: the labels are a column */
-        for (int i = 0; i < r.f.text_count && i < 96; i++)
+        for (int i = 0; i < r.f.text_count && i < TEXTS; i++)
             if (strcmp(r.f.texts[i], want[row]) == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     }
     CHECK(!drew(&r.f, "Modern 3D"));
@@ -586,7 +628,7 @@ static void test_rows_are_drawn_without_a_smooth_op(void)
     OPS.plus_text_smooth = f_text_smooth;
     CHECK_EQ_INT(r.f.smooth_draws, 0);
     CHECK(drew(&r.f, "Perspective Correction"));
-    CHECK(drew(&r.f, "Full screen"));
+    CHECK(drew(&r.f, "Full Screen"));
     CHECK(r.f.title_draws > 0);
 }
 
@@ -1144,9 +1186,9 @@ static void test_render_threads_row_on_the_page(void)
     run_script(&r, n);
 
     /* the label is drawn, in the label column, with the other ten */
-    CHECK(drew(&r.f, "Render threads"));
-    for (int i = 0; i < r.f.text_count && i < 96; i++)
-        if (strcmp(r.f.texts[i], "Render threads") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
+    CHECK(drew(&r.f, "Render Threads"));
+    for (int i = 0; i < r.f.text_count && i < TEXTS; i++)
+        if (strcmp(r.f.texts[i], "Render Threads") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     /* and the value, on the right: Auto, the default */
     CHECK(drew(&r.f, "Auto"));
 
@@ -1154,7 +1196,7 @@ static void test_render_threads_row_on_the_page(void)
      * Done/Cancel band, which starts at 0x1a4 (420) -- a row's band must not run into it, or that row and the
      * buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 0x16c);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 365);
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_BANDS] <= 0x1a4);
 }
 
@@ -1173,9 +1215,9 @@ static void test_render_scale_row_on_the_page(void)
     run_script(&r, n);
 
     /* the label is drawn, in the label column, with the other ten */
-    CHECK(drew(&r.f, "Render scale"));
-    for (int i = 0; i < r.f.text_count && i < 96; i++)
-        if (strcmp(r.f.texts[i], "Render scale") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
+    CHECK(drew(&r.f, "Render Scale"));
+    for (int i = 0; i < r.f.text_count && i < TEXTS; i++)
+        if (strcmp(r.f.texts[i], "Render Scale") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     /* and the value, on the right: 1x, the default */
     CHECK(drew(&r.f, "1x"));
 
@@ -1183,7 +1225,7 @@ static void test_render_scale_row_on_the_page(void)
      * eleventh row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not
      * run into it, or the last row and the buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 0x188);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 391);
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_SCALE] <= 0x1a4);
 }
 
@@ -1217,6 +1259,123 @@ static void test_race_cancel_puts_back(void)
     CHECK_EQ_INT(r.f.put_backs, 1);
     CHECK_EQ_INT(r.port.fog, 0);
     CHECK_EQ_INT(r.f.saves, 0);
+}
+
+/* ---- Light effects, and what is no longer on the screen ---- */
+
+/* the row is one switch over both keys; a port.cfg that has them mixed shows Off, and a step turns both on */
+static void test_light_effects_value_and_step(void)
+{
+    PortSettings s = port_settings_defaults();
+    char out[16];
+    s.psx_light = 0, s.psx_shadow = 0;
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "Off") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 1);
+    CHECK_EQ_INT(s.psx_shadow, 1);
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "On") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, -1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 0);
+    CHECK_EQ_INT(s.psx_shadow, 0);
+
+    s.psx_light = 1, s.psx_shadow = 0;
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "Off") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 1);
+    CHECK_EQ_INT(s.psx_shadow, 1);
+    s.psx_light = 0, s.psx_shadow = 1;
+    graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
+    CHECK(strcmp(out, "Off") == 0);
+    graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
+    CHECK_EQ_INT(s.psx_light, 1);
+    CHECK_EQ_INT(s.psx_shadow, 1);
+}
+
+/* the PS1 look is read when the race starts, so the pause menu dims the row */
+static void test_light_effects_live_in_race(void)
+{
+    CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_LIGHT, 0, 0), 0);
+}
+
+/* a step on the row through the screen writes both keys and nothing else, and Done saves it */
+static void test_light_effects_write_only_the_light_keys(void)
+{
+    Rig r;
+    rig_init(&r);
+    r.port.psx_light = 0, r.port.psx_shadow = 0;
+    r.port.psx_time = PSX_TIME_DUSK;
+    r.port.weather = WEATHER_RAIN;
+    run_script(&r, script_walk(GRAPHICS_OWN_LIGHT, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(r.port.psx_light, 1);
+    CHECK_EQ_INT(r.port.psx_shadow, 1);
+    CHECK_EQ_INT(r.port.psx_time, PSX_TIME_DUSK);   /* the track screen's, kept in port.cfg */
+    CHECK_EQ_INT(r.port.weather, WEATHER_RAIN);
+    CHECK_EQ_INT(r.f.saves, 1);
+}
+
+/* the order the owner named: Distance Fog, Light Effects right after it, Scaling right after Full screen; and no
+ * Time of day, Weather, PS1 rows or page indicator */
+static void test_reorganised_screen(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                         "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
+                                         "Full Screen", "Scaling", "Render Threads", "Render Scale" };
+    int last_y = -1;
+    for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
+        int y = -1;
+        for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
+            if (strcmp(r.f.texts[t], order[i]) == 0 && r.f.text_x[t] == GRAPHICS_OWN_LABEL_X) y = r.f.text_y[t];
+        CHECK(y > last_y);
+        last_y = y;
+    }
+    CHECK(!drew(&r.f, "Fog"));
+    CHECK(!drew(&r.f, "Time of day"));
+    CHECK(!drew(&r.f, "Weather"));
+    CHECK(!drew(&r.f, "PS1 light"));
+    CHECK(!drew(&r.f, "PS1 shadow"));
+    CHECK_EQ_INT(r.f.nav_last[0], 0);   /* one page: no indicator */
+}
+
+/* every row is the same distance from the one before it, the first included */
+static void test_rows_are_evenly_spaced(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                         "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
+                                         "Full Screen", "Scaling", "Render Threads", "Render Scale" };
+    int last_y = -1, pitch = -1;
+    for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
+        int y = -1;
+        for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
+            if (strcmp(r.f.texts[t], order[i]) == 0 && r.f.text_x[t] == GRAPHICS_OWN_LABEL_X) y = r.f.text_y[t];
+        if (i > 0) {
+            if (pitch < 0) pitch = y - last_y;
+            CHECK_EQ_INT(y - last_y, pitch);
+        }
+        last_y = y;
+    }
+}
+
+/* the last row ends above the buttons' band, and the bands do not overlap */
+static void test_rows_fit_above_the_buttons(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
+        if (r.f.text_x[t] == GRAPHICS_OWN_LABEL_X && strcmp(r.f.texts[t], "Render Scale") == 0)
+            CHECK(r.f.text_y[t] + 10 < 0x1a4);
 }
 
 int main(void)
@@ -1256,5 +1415,11 @@ int main(void)
     test_no_flash_on_the_way_in();
     test_an_already_black_display_is_not_faded_again();
     test_the_display_is_faded_out_on_the_way_out();
+    test_light_effects_value_and_step();
+    test_light_effects_live_in_race();
+    test_light_effects_write_only_the_light_keys();
+    test_reorganised_screen();
+    test_rows_fit_above_the_buttons();
+    test_rows_are_evenly_spaced();
     return TEST_REPORT();
 }

@@ -1,7 +1,7 @@
-/* port: the Graphics screen, the port's own; see graphics_own.h. Its loop is graphics_plus.c's second page over the
+/* port: the Graphics screen, the port's own; see graphics_own.h. Its loop is EXTRAS' page logic (extras_menu.c) over the
  * same ops as graphics_menu.c (00423d28): the arrows move, Space / Enter / the left button choose, Escape cancels,
  * the idle deadline and the right button leave. What is new is the background (the clean one, composed once at run
- * time), the title, and the ten rows, which are all text over it. */
+ * time), the title, the rows, which are all text over it: the twelve settings on one page. */
 #include "game/frontend/graphics_own.h"
 
 #include "core/formats/fsh.h"
@@ -20,33 +20,34 @@ enum { FOV_MIN = -10, FOV_MAX = 20, FOV_STEP = 5 };
 enum { TITLE_X = 8, TITLE_Y = 56 };
 /* the rows' text needs no panel: the background behind them is the clean one, with nothing burnt into it */
 
-static const char *const LABEL[GRAPHICS_OWN_SETTINGS] = { "Perspective Correction", "Texture Filter", "Scaling",
-                                                          "View Distance", "Fog", "Field of view", "Screen format",
-                                                          "Refresh rate", "Full screen", "Render threads", "Render scale" };
+/* every row id's label, by the id: the buttons have none (their words are the background's) */
+enum { ROW_IDS = GRAPHICS_OWN_ROWS };
+static const char *const LABEL[ROW_IDS] = {
+    [GRAPHICS_OWN_PERSPECTIVE] = "Perspective Correction", [GRAPHICS_OWN_FILTER] = "Texture Filter",
+    [GRAPHICS_OWN_VIEW] = "View Distance", [GRAPHICS_OWN_FOG] = "Distance Fog", [GRAPHICS_OWN_LIGHT] = "Light Effects",
+    [GRAPHICS_OWN_FOV] = "Field Of View", [GRAPHICS_OWN_FORMAT] = "Screen Format", [GRAPHICS_OWN_REFRESH] = "Refresh Rate",
+    [GRAPHICS_OWN_FULLSCREEN] = "Full Screen", [GRAPHICS_OWN_SCALING] = "Scaling", [GRAPHICS_OWN_BANDS] = "Render Threads",
+    [GRAPHICS_OWN_SCALE] = "Render Scale",
+};
 static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
 
-/* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are 0..0x8c for
- * its first row and then about 53 apart, with Done and Cancel in 0x1a4..0x1e0. Eleven settings do not fit at that
- * pitch -- 0x1e0 is the bottom of the screen -- so the first row keeps the exe's band and the other ten share the
- * 280 pixels between it and Done's, 28 each: the last one ends at 0x1a3, one pixel above the buttons' band. The x's
- * are the exe's: the wide 0x280 for the settings, and its 0x140 / 0x145 corners for the two buttons, which are the
- * background's own words (config_bgnd.c's CORNERS). */
+/* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are about 53 apart,
+ * with Done and Cancel in 0x1a4..0x1e0. Twelve settings do not fit at that pitch -- 0x1e0 is the bottom of the screen
+ * -- so all twelve share the space between the title and Done's band at one pitch, 26 pixels: the first label at
+ * y 115 and the last at 401, whose band ends at 0x1a3, one pixel above the buttons' band. The x's are the exe's: the
+ * wide 0x280 for the settings, and its 0x140 / 0x145 corners for the two buttons, which are the background's own
+ * words (config_bgnd.c's CORNERS). */
 enum { WIDE = 0x280 };
-static const int16_t POINTER_X[GRAPHICS_OWN_ROWS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565 };
-static const int16_t POINTER_Y[GRAPHICS_OWN_ROWS] = { 116, 160, 188, 216, 244, 272, 300, 328, 356, 384, 412, 445, 445 };
-static const int16_t BAND_LEFT[GRAPHICS_OWN_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145 };
-static const int16_t BAND_RIGHT[GRAPHICS_OWN_ROWS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140,
-                                                       WIDE };
-static const int16_t BAND_TOP[GRAPHICS_OWN_ROWS] = { 0x0, 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c,
-                                                     0x188, 0x1a4, 0x1a4 };
-static const int16_t BAND_BOTTOM[GRAPHICS_OWN_ROWS] = { 0x8c, 0xa8, 0xc4, 0xe0, 0xfc, 0x118, 0x134, 0x150, 0x16c, 0x188,
-                                                        0x1a3, 0x1e0, 0x1df };
-/* the labels' y, as graphics_menu.c's TEXT_Y is: each ten below its band's top, and ten below every label the
- * pointer. The first sits 35 above the second (the exe's own 106 left it 44 above) and the rest are 28 apart, the
- * bands' own pitch */
-static const int16_t TEXT_Y[GRAPHICS_OWN_ROWS] = { 115, 150, 178, 206, 234, 262, 290, 318, 346, 374, 402, 438, 438 };
+static const int16_t POINTER_X[ROW_IDS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565 };
+static const int16_t POINTER_Y[ROW_IDS] = { 125, 151, 177, 203, 229, 255, 281, 307, 333, 359, 385, 411, 445, 445 };
+static const int16_t BAND_LEFT[ROW_IDS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145 };
+static const int16_t BAND_RIGHT[ROW_IDS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140, WIDE };
+static const int16_t BAND_TOP[ROW_IDS] = { 0x0, 0x83, 0x9d, 0xb7, 0xd1, 0xeb, 0x105, 0x11f, 0x139, 0x153, 0x16d, 0x187, 0x1a4, 0x1a4 };
+static const int16_t BAND_BOTTOM[ROW_IDS] = { 0x83, 0x9d, 0xb7, 0xd1, 0xeb, 0x105, 0x11f, 0x139, 0x153, 0x16d, 0x187, 0x1a3, 0x1e0, 0x1df };
+/* the labels' y: ten below each band's top, and ten below every label the pointer, the bands' own pitch apart */
+static const int16_t TEXT_Y[ROW_IDS] = { 115, 141, 167, 193, 219, 245, 271, 297, 323, 349, 375, 401, 438, 438 };
 
 static int wrap(int value, int direction, int count)
 {
@@ -114,6 +115,8 @@ int graphics_own_live_in_race(int setting, int16_t view, int ultra)
         return 0;
     case GRAPHICS_OWN_VIEW:
         return !(ultra && view == 0);
+    case GRAPHICS_OWN_LIGHT:   /* the PS1 look is read when the race starts (port_psx_light, port_psx_shadow) */
+        return 0;
     default:
         return 1;
     }
@@ -173,15 +176,22 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
         s->render_scale = VALUES[wrap(at, direction, 3)];
         break;
     }
+    case GRAPHICS_OWN_LIGHT: {
+        /* both keys together; a port.cfg that has them mixed shows Off, so the step turns both on */
+        const int on = !(s->psx_light && s->psx_shadow);
+        s->psx_light = s->psx_shadow = on;
+        break;
+    }
     default:
         break;   /* the view distance steps through config.dat's own short, not here */
     }
 }
 
-/* the ten rows that live in port.cfg. The view distance is read from config.dat instead, by the caller. */
+/* the rows that live in port.cfg. The view distance is read from config.dat instead, by the caller. */
 void graphics_own_value(const PortSettings *s, int setting, char out[16])
 {
     switch (setting) {
+    case GRAPHICS_OWN_LIGHT: snprintf(out, 16, "%s", s->psx_light && s->psx_shadow ? "On" : "Off"); break;
     case GRAPHICS_OWN_PERSPECTIVE: snprintf(out, 16, "%s", s->perspective ? "On" : "Off"); break;
     case GRAPHICS_OWN_FILTER: snprintf(out, 16, "%s", s->texture_filter ? "On" : "Off"); break;
     case GRAPHICS_OWN_SCALING: snprintf(out, 16, "%s", s->scale_integer ? "Whole" : "Fill"); break;
@@ -312,16 +322,12 @@ static void select_row(Screen *s, int row, const GraphicsMenuOps *o)
 /* the first band the pointer is in becomes the selection */
 static void follow(Screen *s, const GraphicsMenuOps *o)
 {
-    for (int row = 0; row < GRAPHICS_OWN_ROWS; row++)
+    for (int row = 0; row < GRAPHICS_OWN_ROWS; row++) {
         if (o->pointer_in_rect(o->ctx, BAND_LEFT[row], BAND_RIGHT[row], BAND_TOP[row], BAND_BOTTOM[row])) {
             select_row(s, row, o);
             return;
         }
-}
-
-static int row_y(int row)
-{
-    return TEXT_Y[row];
+    }
 }
 
 /* one row's text: the label at the column's left edge, its value at the right, the selection lit */
@@ -338,8 +344,8 @@ static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
         snprintf(shown, sizeof shown, "%s", value);
     else
         snprintf(shown, sizeof shown, "%s (next race)", value);
-    own_text(o, style, LABEL[row], GRAPHICS_OWN_LABEL_X, row_y(row));
-    text_right(o, style, shown, GRAPHICS_OWN_VALUE_RIGHT, row_y(row));
+    own_text(o, style, LABEL[row], GRAPHICS_OWN_LABEL_X, TEXT_Y[row]);
+    text_right(o, style, shown, GRAPHICS_OWN_VALUE_RIGHT, TEXT_Y[row]);
 }
 
 /* the clean background is a picture of the screen, so it is blitted whole, then its palette put on before the
@@ -451,8 +457,8 @@ static void step(Screen *s, uint16_t k, const GraphicsMenuOps *o)
         o->sound(o->ctx, CHOSEN);
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
-        const int from = s->selected;
-        const int to = k == DOWN ? (from + 1) % GRAPHICS_OWN_ROWS : (from + GRAPHICS_OWN_ROWS - 1) % GRAPHICS_OWN_ROWS;
+        const int n = GRAPHICS_OWN_ROWS;
+        const int to = k == DOWN ? (s->selected + 1) % n : (s->selected + n - 1) % n;
         select_row(s, to, o);
         move_to(s->selected, o);
     } else if (k == LEFT || k == RIGHT) {
