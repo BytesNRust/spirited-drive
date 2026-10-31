@@ -109,6 +109,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "fog_sample") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->fog_sample = (int)n;
+    } else if (strcmp(key, "sky_fill") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->sky_fill = (int)n;
     } else if (strcmp(key, "car_colours") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->car_colours = (int)n;
@@ -172,11 +175,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -269,6 +272,21 @@ int port_fog_lift(void)
     char *end;
     const long n = v != NULL ? strtol(v, &end, 10) : -1;
     return v != NULL && end != v && *end == '\0' && n >= 0 && n <= 100 ? (int)n : FOG_SAMPLE_LIFT_DEFAULT;
+}
+
+int port_sky_fill(void)
+{
+    const char *v = getenv("TNFS_SKY_FILL");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().sky_fill;
+}
+
+int port_sky_fill_mode(void)
+{
+    const char *v = getenv("TNFS_SKY_FILL_MODE");
+    if (v != NULL && (strcmp(v, "a") == 0 || strcmp(v, "1") == 0)) return 1;
+    if (v != NULL && (strcmp(v, "b") == 0 || strcmp(v, "2") == 0)) return 2;
+    return SKY_FILL_MODE_DEFAULT;
 }
 
 int port_free_records(void)

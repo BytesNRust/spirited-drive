@@ -48,6 +48,8 @@ typedef struct {
                               * 0: the exe's own slots, whose nearest colours turn a body's light tones to grey */
     int fog_sample;          /* 1: the distance fog's colour from the horizon art's band around its line (modern_look.h); 0: from the
                               * art's last rows, as it was */
+    int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
+                              * 0: the exe's, a flat colour above the art's top */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -66,6 +68,11 @@ int port_fog_sample(void);
 /* the percent (0..100) of the way to white that band's colour is lifted: TNFS_FOG_LIFT when set, else FOG_SAMPLE_LIFT_DEFAULT. */
 int port_fog_lift(void);
 enum { FOG_SAMPLE_LIFT_DEFAULT = 15 };
+/* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
+int port_sky_fill(void);
+/* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
+enum { SKY_FILL_MODE_DEFAULT = 1 };
+int port_sky_fill_mode(void);
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
 /* the cars' body shine strength, 0 (the exe's frames) to 4: TNFS_BODY_SHINE=0..4 when set, else port.cfg's body_shine. */

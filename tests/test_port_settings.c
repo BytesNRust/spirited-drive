@@ -97,6 +97,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.free_records, b.free_records);
     CHECK_EQ_INT(a.car_colours, b.car_colours);
     CHECK_EQ_INT(a.fog_sample, b.fog_sample);
+    CHECK_EQ_INT(a.sky_fill, b.sky_fill);
 }
 
 static void test_defaults(void)
@@ -113,6 +114,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.fog, 0);
     CHECK_EQ_INT(d.car_colours, 0);     /* the exe's palette slots until asked */
     CHECK_EQ_INT(d.fog_sample, 0);      /* the fog from the art's foot until asked */
+    CHECK_EQ_INT(d.sky_fill, 0);        /* the exe's flat colour above the sky art until asked */
     CHECK_EQ_INT(d.free_records, 0);    /* the free races keep no total for a lap count the exe lacks, until asked */
     CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
     CHECK_EQ_INT(d.body_shine, 0);      /* the exe's frames until asked */
@@ -121,7 +123,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1 };
     char text[512];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -135,6 +137,22 @@ static void test_fog_sample_values(void)
     const char *const on = "fog_sample=1\n", *const bad = "fog_sample=2\n";
     CHECK_EQ_INT(port_settings_parse(on, strlen(on)).fog_sample, 1);
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).fog_sample, 0);
+}
+
+static void test_sky_fill_values(void)
+{
+    unsetenv("TNFS_SKY_FILL_MODE");
+    CHECK_EQ_INT(port_sky_fill_mode(), SKY_FILL_MODE_DEFAULT);
+    setenv("TNFS_SKY_FILL_MODE", "a", 1);
+    CHECK_EQ_INT(port_sky_fill_mode(), 1);
+    setenv("TNFS_SKY_FILL_MODE", "2", 1);
+    CHECK_EQ_INT(port_sky_fill_mode(), 2);
+    setenv("TNFS_SKY_FILL_MODE", "x", 1);
+    CHECK_EQ_INT(port_sky_fill_mode(), SKY_FILL_MODE_DEFAULT);
+    unsetenv("TNFS_SKY_FILL_MODE");
+    const char *const on = "sky_fill=1\n", *const bad = "sky_fill=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).sky_fill, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).sky_fill, 0);
 }
 
 static void test_free_records_values(void)
@@ -363,7 +381,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -377,6 +395,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.free_records, 1);
     CHECK_EQ_INT(back.car_colours, 1);
     CHECK_EQ_INT(back.fog_sample, 1);
+    CHECK_EQ_INT(back.sky_fill, 1);
     CHECK_EQ_INT(back.render_bands, 4);
 }
 
@@ -390,6 +409,7 @@ int main(void)
     test_render_bands_values();
     test_free_records_values();
     test_fog_sample_values();
+    test_sky_fill_values();
     test_bad_render_bands_keeps_the_default();
     test_render_scale_values();
     test_bad_render_scale_keeps_the_default();

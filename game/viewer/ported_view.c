@@ -6,6 +6,7 @@
 #include "game/gfx/quad.h"
 #include "game/race/horizon.h"
 #include "game/race/sky_ring.h"
+#include "game/race/sky_stretch.h"
 #include "game/race/track_render.h"
 #include "game/gfx/sprite_scaled.h"
 #include "game/race/view.h"
@@ -1208,6 +1209,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                        own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon, ring_horz,
                        box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
     if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
+    static SkyStretch stretch;   /* port (sky_fill): the art reaching the view's top, built once a frame for all the bands */
+    if (stage.flat && port_sky_fill()) stage.horz = sky_stretch(&stretch, stage.horz, horizon.scale, stage.line, ctx.clip.y0, port_sky_fill_mode(), art->palette);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
