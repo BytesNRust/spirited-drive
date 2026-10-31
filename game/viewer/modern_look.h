@@ -13,7 +13,9 @@ enum {
     MODERN_LOOK_LIFT_PERCENT = 40,   /* the foot's colour this far to white: a haze is lighter than the land behind */
     MODERN_LOOK_GREY_PERCENT = 35,   /* then this far to its own grey: a haze keeps its tint, softened */
     MODERN_LOOK_NIGHT = 4,           /* a foot darker than this (Lost Vegas' black) is night: its fog stays dark */
-    MODERN_LOOK_DARK = 6             /* the forced dark fog's grey (modern_look_set_dark) */
+    MODERN_LOOK_DARK = 6,            /* the forced dark fog's grey (modern_look_set_dark) */
+    MODERN_LOOK_BAND_ABOVE = 8,      /* port (fog_sample): the rows above the horizon's line the fog's colour is taken from */
+    MODERN_LOOK_BAND_BELOW = 6       /* ... and the rows from the line down */
 };
 
 typedef struct {
@@ -22,6 +24,8 @@ typedef struct {
     uint8_t rgb[3];
     int made;
     int dark;                        /* port (the PS1 look): the fog's colour is MODERN_LOOK_DARK whatever the horizon's foot is */
+    int sample;                      /* port (fog_sample): 1 takes the fog's colour from the band around the horizon's line (lift in lift) */
+    int lift;                        /* the percent of the way to white that band is lifted */
     uint8_t tables[MODERN_FOG_LEVELS][256];
 } ModernLook;
 
@@ -29,6 +33,16 @@ typedef struct {
  * way to white and then MODERN_LOOK_GREY_PERCENT to its grey, in the palette's scale; a night foot (its grey under
  * MODERN_LOOK_NIGHT) as it is; MODERN_LOOK_NO_HORIZON grey without one. */
 void modern_look_fog_colour(const TrackArt *art, uint8_t rgb[3]);
+
+/* port (fog_sample): the same from the band of rows around the horizon's line (MODERN_LOOK_BAND_ABOVE above it,
+ * MODERN_LOOK_BAND_BELOW from it down: the land meeting the sky, not the art's bottom fill, which is a flat colour
+ * that can be a sky blue), lifted `lift_percent` of the way to white (0..100) and then MODERN_LOOK_GREY_PERCENT to
+ * its grey; a night band as it is; MODERN_LOOK_NO_HORIZON grey without a horizon. */
+void modern_look_fog_colour_sampled(const TrackArt *art, int lift_percent, uint8_t rgb[3]);
+
+/* port (fog_sample): the style's fog colour from the band around the horizon's line (modern_look_fog_colour_sampled
+ * with `lift_percent`) when `on`, the foot's own when not. */
+void modern_look_set_sample(ModernLook *look, int on, int lift_percent);
 
 /* port (the PS1 look): the fog dark (MODERN_LOOK_DARK on each channel) whatever the horizon's foot says, 0 for the foot's own. */
 void modern_look_set_dark(ModernLook *look, int dark);

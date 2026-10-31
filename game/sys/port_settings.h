@@ -46,6 +46,8 @@ typedef struct {
                               * (free_records.h); 0: no total for it, as the exe has no table */
     int car_colours;         /* 1: the screen palette's slots the cars own are filled with the colours the cars show most (race_palette_fit);
                               * 0: the exe's own slots, whose nearest colours turn a body's light tones to grey */
+    int fog_sample;          /* 1: the distance fog's colour from the horizon art's band around its line (modern_look.h); 0: from the
+                              * art's last rows, as it was */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -59,6 +61,11 @@ int port_psx_shadow(void);
 int port_free_records(void);
 /* 1 when the cars' palette slots are fitted to the colours they show (race_palette.h): TNFS_CAR_COLOURS=0/1 when set, else port.cfg's car_colours. */
 int port_car_colours(void);
+/* 1 when the distance fog takes its colour from the band around the horizon's line: TNFS_FOG_SAMPLE=0/1 when set, else port.cfg's fog_sample. */
+int port_fog_sample(void);
+/* the percent (0..100) of the way to white that band's colour is lifted: TNFS_FOG_LIFT when set, else FOG_SAMPLE_LIFT_DEFAULT. */
+int port_fog_lift(void);
+enum { FOG_SAMPLE_LIFT_DEFAULT = 15 };
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
 /* the cars' body shine strength, 0 (the exe's frames) to 4: TNFS_BODY_SHINE=0..4 when set, else port.cfg's body_shine. */
