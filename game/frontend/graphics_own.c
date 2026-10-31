@@ -25,31 +25,29 @@ enum { ROW_IDS = GRAPHICS_OWN_ROWS };
 static const char *const LABEL[ROW_IDS] = {
     [GRAPHICS_OWN_PERSPECTIVE] = "Perspective Correction", [GRAPHICS_OWN_FILTER] = "Texture Filter",
     [GRAPHICS_OWN_VIEW] = "View Distance", [GRAPHICS_OWN_FOG] = "Distance Fog", [GRAPHICS_OWN_LIGHT] = "Light Effects",
-    [GRAPHICS_OWN_FOV] = "Field of view", [GRAPHICS_OWN_FORMAT] = "Screen format", [GRAPHICS_OWN_REFRESH] = "Refresh rate",
-    [GRAPHICS_OWN_FULLSCREEN] = "Full screen", [GRAPHICS_OWN_SCALING] = "Scaling", [GRAPHICS_OWN_BANDS] = "Render threads",
-    [GRAPHICS_OWN_SCALE] = "Render scale",
+    [GRAPHICS_OWN_FOV] = "Field Of View", [GRAPHICS_OWN_FORMAT] = "Screen Format", [GRAPHICS_OWN_REFRESH] = "Refresh Rate",
+    [GRAPHICS_OWN_FULLSCREEN] = "Full Screen", [GRAPHICS_OWN_SCALING] = "Scaling", [GRAPHICS_OWN_BANDS] = "Render Threads",
+    [GRAPHICS_OWN_SCALE] = "Render Scale",
 };
 static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
 static const int REFRESH[3] = { 60, 120, 144 };
 
-/* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are 0..0x8c for
- * its first row and then about 53 apart, with Done and Cancel in 0x1a4..0x1e0. Twelve settings do not fit at that
- * pitch -- 0x1e0 is the bottom of the screen -- so the first row keeps the exe's band and the other eleven share the
- * 280 pixels between it and Done's, 25 each: the last one ends at 0x1a3, one pixel above the buttons' band. The x's
- * are the exe's: the wide 0x280 for the settings, and its 0x140 / 0x145 corners for the two buttons, which are the
- * background's own words (config_bgnd.c's CORNERS). */
+/* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are about 53 apart,
+ * with Done and Cancel in 0x1a4..0x1e0. Twelve settings do not fit at that pitch -- 0x1e0 is the bottom of the screen
+ * -- so all twelve share the space between the title and Done's band at one pitch, 26 pixels: the first label at
+ * y 115 and the last at 401, whose band ends at 0x1a3, one pixel above the buttons' band. The x's are the exe's: the
+ * wide 0x280 for the settings, and its 0x140 / 0x145 corners for the two buttons, which are the background's own
+ * words (config_bgnd.c's CORNERS). */
 enum { WIDE = 0x280 };
 static const int16_t POINTER_X[ROW_IDS] = { 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 60, 565 };
-static const int16_t POINTER_Y[ROW_IDS] = { 116, 160, 185, 210, 235, 260, 285, 310, 335, 360, 385, 410, 445, 445 };
+static const int16_t POINTER_Y[ROW_IDS] = { 125, 151, 177, 203, 229, 255, 281, 307, 333, 359, 385, 411, 445, 445 };
 static const int16_t BAND_LEFT[ROW_IDS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x145 };
 static const int16_t BAND_RIGHT[ROW_IDS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x140, WIDE };
-static const int16_t BAND_TOP[ROW_IDS] = { 0x0, 0x8c, 0xa5, 0xbe, 0xd7, 0xf0, 0x109, 0x122, 0x13b, 0x154, 0x16d, 0x186, 0x1a4, 0x1a4 };
-static const int16_t BAND_BOTTOM[ROW_IDS] = { 0x8c, 0xa5, 0xbe, 0xd7, 0xf0, 0x109, 0x122, 0x13b, 0x154, 0x16d, 0x186, 0x1a3, 0x1e0, 0x1df };
-/* the labels' y, as graphics_menu.c's TEXT_Y is: each ten below its band's top, and ten below every label the
- * pointer. The first sits 35 above the second (the exe's own 106 left it 44 above) and the rest are 25 apart, the
- * bands' own pitch */
-static const int16_t TEXT_Y[ROW_IDS] = { 115, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 438, 438 };
+static const int16_t BAND_TOP[ROW_IDS] = { 0x0, 0x83, 0x9d, 0xb7, 0xd1, 0xeb, 0x105, 0x11f, 0x139, 0x153, 0x16d, 0x187, 0x1a4, 0x1a4 };
+static const int16_t BAND_BOTTOM[ROW_IDS] = { 0x83, 0x9d, 0xb7, 0xd1, 0xeb, 0x105, 0x11f, 0x139, 0x153, 0x16d, 0x187, 0x1a3, 0x1e0, 0x1df };
+/* the labels' y: ten below each band's top, and ten below every label the pointer, the bands' own pitch apart */
+static const int16_t TEXT_Y[ROW_IDS] = { 115, 141, 167, 193, 219, 245, 271, 297, 323, 349, 375, 401, 438, 438 };
 
 static int wrap(int value, int direction, int count)
 {

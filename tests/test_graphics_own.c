@@ -265,8 +265,8 @@ static int32_t f_deadline_passed(void *ctx)
  * numbers are the settings' own, so the second page's four are the ones after the first page's eleven, not four more
  * after them. */
 static const char *const LABEL[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
-                                     "Light Effects", "Field of view", "Screen format", "Refresh rate", "Full screen",
-                                     "Scaling", "Render threads", "Render scale" };
+                                     "Light Effects", "Field Of View", "Screen Format", "Refresh Rate", "Full Screen",
+                                     "Scaling", "Render Threads", "Render Scale" };
 static const int LABEL_ROW[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
                                  GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH,
                                  GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE };
@@ -502,8 +502,8 @@ static void test_rows_in_order(void)
     run_script(&r, 1);
 
     static const char *const want[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
-                                        "Light Effects", "Field of view", "Screen format", "Refresh rate",
-                                        "Full screen", "Scaling", "Render threads", "Render scale" };
+                                        "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
+                                        "Full Screen", "Scaling", "Render Threads", "Render Scale" };
     CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 12);
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) {
         CHECK(drew(&r.f, want[row]));
@@ -628,7 +628,7 @@ static void test_rows_are_drawn_without_a_smooth_op(void)
     OPS.plus_text_smooth = f_text_smooth;
     CHECK_EQ_INT(r.f.smooth_draws, 0);
     CHECK(drew(&r.f, "Perspective Correction"));
-    CHECK(drew(&r.f, "Full screen"));
+    CHECK(drew(&r.f, "Full Screen"));
     CHECK(r.f.title_draws > 0);
 }
 
@@ -1186,9 +1186,9 @@ static void test_render_threads_row_on_the_page(void)
     run_script(&r, n);
 
     /* the label is drawn, in the label column, with the other ten */
-    CHECK(drew(&r.f, "Render threads"));
+    CHECK(drew(&r.f, "Render Threads"));
     for (int i = 0; i < r.f.text_count && i < TEXTS; i++)
-        if (strcmp(r.f.texts[i], "Render threads") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
+        if (strcmp(r.f.texts[i], "Render Threads") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     /* and the value, on the right: Auto, the default */
     CHECK(drew(&r.f, "Auto"));
 
@@ -1215,9 +1215,9 @@ static void test_render_scale_row_on_the_page(void)
     run_script(&r, n);
 
     /* the label is drawn, in the label column, with the other ten */
-    CHECK(drew(&r.f, "Render scale"));
+    CHECK(drew(&r.f, "Render Scale"));
     for (int i = 0; i < r.f.text_count && i < TEXTS; i++)
-        if (strcmp(r.f.texts[i], "Render scale") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
+        if (strcmp(r.f.texts[i], "Render Scale") == 0) CHECK_EQ_INT(r.f.text_x[i], GRAPHICS_OWN_LABEL_X);
     /* and the value, on the right: 1x, the default */
     CHECK(drew(&r.f, "1x"));
 
@@ -1225,7 +1225,7 @@ static void test_render_scale_row_on_the_page(void)
      * eleventh row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not
      * run into it, or the last row and the buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 390);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 391);
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_SCALE] <= 0x1a4);
 }
 
@@ -1325,8 +1325,8 @@ static void test_reorganised_screen(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
     static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
-                                         "Light Effects", "Field of view", "Screen format", "Refresh rate",
-                                         "Full screen", "Scaling", "Render threads", "Render scale" };
+                                         "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
+                                         "Full Screen", "Scaling", "Render Threads", "Render Scale" };
     int last_y = -1;
     for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
         int y = -1;
@@ -1343,6 +1343,29 @@ static void test_reorganised_screen(void)
     CHECK_EQ_INT(r.f.nav_last[0], 0);   /* one page: no indicator */
 }
 
+/* every row is the same distance from the one before it, the first included */
+static void test_rows_are_evenly_spaced(void)
+{
+    Rig r;
+    rig_init(&r);
+    script[0] = ESCAPE;
+    run_script(&r, 1);
+    static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
+                                         "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
+                                         "Full Screen", "Scaling", "Render Threads", "Render Scale" };
+    int last_y = -1, pitch = -1;
+    for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
+        int y = -1;
+        for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
+            if (strcmp(r.f.texts[t], order[i]) == 0 && r.f.text_x[t] == GRAPHICS_OWN_LABEL_X) y = r.f.text_y[t];
+        if (i > 0) {
+            if (pitch < 0) pitch = y - last_y;
+            CHECK_EQ_INT(y - last_y, pitch);
+        }
+        last_y = y;
+    }
+}
+
 /* the last row ends above the buttons' band, and the bands do not overlap */
 static void test_rows_fit_above_the_buttons(void)
 {
@@ -1351,7 +1374,7 @@ static void test_rows_fit_above_the_buttons(void)
     script[0] = ESCAPE;
     run_script(&r, 1);
     for (int t = 0; t < r.f.text_count && t < TEXTS; t++)
-        if (r.f.text_x[t] == GRAPHICS_OWN_LABEL_X && strcmp(r.f.texts[t], "Render scale") == 0)
+        if (r.f.text_x[t] == GRAPHICS_OWN_LABEL_X && strcmp(r.f.texts[t], "Render Scale") == 0)
             CHECK(r.f.text_y[t] + 10 < 0x1a4);
 }
 
@@ -1397,5 +1420,6 @@ int main(void)
     test_light_effects_write_only_the_light_keys();
     test_reorganised_screen();
     test_rows_fit_above_the_buttons();
+    test_rows_are_evenly_spaced();
     return TEST_REPORT();
 }
