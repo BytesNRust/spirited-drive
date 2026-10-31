@@ -14,6 +14,10 @@ typedef struct {
     void (*road_contact)(void *ctx, Car *car);  /* 00428918(car, 1): the road plane under it (car_road_contact) */
     /* 004596a8 (car; forward, side, point) for the followed car */
     void (*followed)(void *ctx, Car *car, const int32_t forward[3], const int32_t side[3], const int32_t point[3]);
+    /* port (psx_shadow; NULL the exe's): the box's corners nearer than the view's plane are slid along its edges to it (follow_arm_clip_quad's contract)
+     * instead of projected to INT32_MIN, which lost the whole shadow of a car whose centre passes the culls with its back corners behind the lens,
+     * and a car whose centre is nearer than 0x20 keeps the front of its box */
+    int (*clip_quad)(const int32_t *const in[4], int32_t plane, int32_t out[4][3]);
 } CarShadowOps;
 
 /* 0045a3e8 (watcall (car, pass)): car +0x391 = the car's place in camera
