@@ -1,6 +1,7 @@
 #include "game/race/track_build.h"
 
 #include "game/gfx/x86_int.h"
+#include "game/race/track_cache.h"
 #include "game/race/track_tables.h"
 #include "game/sys/fixed_math.h"
 
@@ -112,7 +113,7 @@ void track_build_segment(TrackBuild *b, int32_t first, int32_t segment, int32_t 
     TrackObjectWalk *w = &b->walk;
     int32_t node = (int32_t)((uint32_t)segment << 2 & w->node_mask);
     const int32_t start = b->world_next;
-    const uint8_t *cache = b->cache + ((uint32_t)segment & b->segment_mask) * TRACK_BUILD_SEGMENT_SIZE % TRACK_BUILD_CACHE_SIZE;
+    const uint8_t *cache = b->cache + ((uint32_t)segment & b->segment_mask) * TRACK_BUILD_SEGMENT_SIZE % (uint32_t)track_cache_size();
     const int lod = lod_of(b, first, segment, node);
     const uint8_t *select = TRACK_LODS[lod].select;
     const uint8_t *end = select + TRACK_LOD_SELECT;

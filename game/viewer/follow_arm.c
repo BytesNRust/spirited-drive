@@ -11,9 +11,9 @@
 
 enum {
     ROW = MIRROR_ROW_POINTS,
-    ROWS = FOLLOW_ARM_SEGMENTS + 2,   /* the behind arm also draws the camera's own segment */
+    ROWS = FOLLOW_ARM_MAX + 2,   /* the behind arm also draws the camera's own segment */
     RECORD_ROW = 0xc, POINT_BYTES = 12, RECORD_TEXTURES = 2, FLAT_VARIANTS = 8, NEAR_VARIANT = 1, DETAIL_VARIANT = 0, DETAIL_SEGMENTS = 3,
-    PROPERTY_AT = 7, CACHE_SEGMENTS = 62, MIRROR_CLOSE = 0x23333
+    PROPERTY_AT = 7, SPARE_RECORDS = 2, MIRROR_CLOSE = 0x23333
 };
 
 /* 004bc464: the mirror's LOD by a road property (mirror_scene.c's) */
@@ -73,11 +73,17 @@ int32_t follow_arm_kept_behind(const TrackCacheWindow *w, int32_t wanted)
     return wanted < kept ? wanted : kept;
 }
 
+int32_t follow_arm_segments(void)
+{
+    return track_cache_records() > TRACK_CACHE_RECORDS ? FOLLOW_ARM_RING_SEGMENTS : FOLLOW_ARM_SEGMENTS;
+}
+
 void follow_arm_window(TrackRender *r, int32_t segments)
 {
-    /* the segments loaded when the window starts again: the exe's five behind, or `segments` when they fit the 62 records */
+    /* the segments loaded when the window starts again: the exe's five behind, or `segments` when they fit the ring's records (62 of its 64) */
+    const int32_t records = track_cache_records() - SPARE_RECORDS;
     int32_t behind = segments > 5 ? segments : 5;
-    if (r->window.ahead + behind > CACHE_SEGMENTS - 2) behind = CACHE_SEGMENTS - 2 - r->window.ahead;
+    if (r->window.ahead + behind > records) behind = records - r->window.ahead;
     if (behind > 5) r->window.behind = r->window.ahead + behind;
 }
 
@@ -93,7 +99,7 @@ void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead)
     const TrackRender *r = a->render;
     const TrackCamera *cam = a->camera;
     const DrawContext *ctx = a->ctx;
-    if (segments > FOLLOW_ARM_SEGMENTS) segments = FOLLOW_ARM_SEGMENTS;
+    if (segments > FOLLOW_ARM_MAX) segments = FOLLOW_ARM_MAX;
     if (!ahead) segments = follow_arm_kept_behind(&r->window, segments);   /* the segments behind the cache still holds */
     const int32_t mask = (int32_t)r->build.segment_mask;
     const int32_t camera_segment = cam->node / 4;

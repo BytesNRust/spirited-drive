@@ -10,7 +10,19 @@
 
 #include <stdint.h>
 
-enum { TRACK_CACHE_SIZE = 0x8700 };
+enum {
+    TRACK_CACHE_RECORDS = 64,
+    TRACK_CACHE_SIZE = 0x8700,   /* the exe's: TRACK_CACHE_RECORDS records of 0x21c */
+    TRACK_CACHE_RECORDS_MAX = 128,
+    TRACK_CACHE_SIZE_MAX = TRACK_CACHE_RECORDS_MAX * 0x21c   /* what a cache array holds */
+};
+
+/* port (port_follow_ring): how many records the ring holds, TRACK_CACHE_RECORDS (the exe's) up to TRACK_CACHE_RECORDS_MAX; any other count is the exe's.
+ * The records already loaded are not where the new size reads them: set it before a window is filled, or start the window again (track_render_set_ring). */
+void track_cache_set_records(int32_t records);
+int32_t track_cache_records(void);
+/* the ring's bytes: the records x 0x21c (0x8700 for the exe's) */
+int32_t track_cache_size(void);
 
 typedef struct {
     void *ctx;

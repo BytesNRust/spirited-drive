@@ -16,7 +16,7 @@
 #include <string.h>
 
 enum {
-    WORLD_CAPACITY = TRACK_MAX_VERTICES, OBJECT_CAPACITY = TRACK_MAX_OBJECT_VERTICES, RUN_CAPACITY = 1024,
+    WORLD_CAPACITY = TRACK_MAX_VERTICES, OBJECT_CAPACITY = 2 * TRACK_MAX_OBJECT_VERTICES, RUN_CAPACITY = 1024,
     ROWS = 4, VARIANTS = 8, MIN_DIR_Z = 0x1999,
     FENCE_RIGHT = 0x80, FENCE_LEFT = 0x40, FENCE_LOW = 0x20, FENCE_TEXTURE = 0x20,
     NODE_POSITION = 8, MIRROR_LOD_DISTANCE = 4, MIRROR_LEVEL = 1, CUT_GRID = 4, CUT_DIVISOR = 2, CARS_LAG = 5
@@ -498,7 +498,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     const TrackRender *r = a->render;
     const TrackCamera *cam = a->camera;
     if (r->tri == NULL) return;
-    if (behind > FOLLOW_ARM_SEGMENTS) behind = FOLLOW_ARM_SEGMENTS;
+    if (behind > FOLLOW_ARM_MAX) behind = FOLLOW_ARM_MAX;
     behind = follow_arm_kept_behind(&r->window, behind);   /* no farther than the cache keeps: past it the records are the far ahead's (Ultra) */
     const int32_t mask = (int32_t)r->build.segment_mask;
     const int32_t camera_segment = cam->node / 4;

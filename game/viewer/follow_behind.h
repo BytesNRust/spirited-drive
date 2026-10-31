@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-/* The track from `behind` segments before the camera's (at most FOLLOW_ARM_SEGMENTS) to `ahead` after it, the farthest
+/* The track from `behind` segments before the camera's (at most FOLLOW_ARM_MAX) to `ahead` after it, the farthest
  * first: in place of the exe's pass, for a camera that does not look along the road. */
 void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead);
 

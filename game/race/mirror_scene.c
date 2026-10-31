@@ -2,6 +2,7 @@
 #include "game/race/mirror_scene.h"
 
 #include "game/gfx/x86_int.h"
+#include "game/race/track_cache.h"
 #include "game/race/track_step.h"
 #include "game/race/track_tables.h"
 #include "game/sys/fixed_math.h"
@@ -18,7 +19,7 @@ void mirror_bounds(const ViewLayout *layout, MirrorBounds *b)
 
 uint32_t mirror_segment_offset(int32_t segment, int32_t mask)
 {
-    return ((uint32_t)(segment & mask) * MIRROR_SEGMENT_RECORD) % MIRROR_SEGMENT_CACHE;
+    return ((uint32_t)(segment & mask) * MIRROR_SEGMENT_RECORD) % (uint32_t)track_cache_size();
 }
 
 enum { PHYSICS_SKIPPED = 6, MIRROR_PASS = 1 };
