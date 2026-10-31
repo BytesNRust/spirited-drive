@@ -43,6 +43,11 @@ static int shadow(const CarShadowOps *ops, int32_t screen[8])
     return car_shadow(ops, &car, &mv, 0, 0, screen);
 }
 
+static int shadow_of(const CarShadowOps *ops, int is_followed, int32_t screen[8])
+{
+    return car_shadow(ops, &car, &mv, 0, is_followed, screen);
+}
+
 static int has_minimum(const int32_t screen[8])
 {
     for (int i = 0; i < 8; i++)
@@ -120,11 +125,34 @@ static void test_the_fields_frustum(void)
     CHECK_EQ_INT(shadow(&exe, screen), 0);
 }
 
+/* the player's own car: the exe drops its shadow when its centre is nearer than 0x20 (the bumper view's, behind the lens), and the port's cut and field
+ * must not bring it back; a followed car ahead of the lens (the chase views) is as it is for any other */
+static void test_the_followed_car_keeps_the_exes_near_cull(void)
+{
+    int32_t a[8], b[8];
+    const CarShadowOps wide = { NULL, contact, followed, follow_arm_clip_quad, 1 };
+    setup(0, -100);   /* the bumper view: the car's centre behind the lens, the front of the box ahead of it */
+    CHECK_EQ_INT(shadow_of(&wide, 1, a), 0);
+    setup(0, 10);
+    CHECK_EQ_INT(shadow_of(&wide, 1, a), 0);
+    setup(0, -100);
+    CHECK_EQ_INT(shadow_of(&wide, 0, a), 1);   /* another car there keeps it */
+    setup(80, 900);   /* a chase view: the same shadow as any car's */
+    CHECK_EQ_INT(shadow_of(&wide, 1, a), 1);
+    setup(80, 900);
+    CHECK_EQ_INT(shadow_of(&wide, 0, b), 1);
+    CHECK(memcmp(a, b, sizeof a) == 0);
+    setup(184, 184);  /* ahead of the lens, the box's back corners behind it: still cut, as main's */
+    CHECK_EQ_INT(shadow_of(&wide, 1, a), 1);
+    CHECK(!has_minimum(a));
+}
+
 int main(void)
 {
     test_close_car();
     test_far_car_is_the_exes();
     test_centre_at_the_lens();
     test_the_fields_frustum();
+    test_the_followed_car_keeps_the_exes_near_cull();
     return TEST_REPORT();
 }
