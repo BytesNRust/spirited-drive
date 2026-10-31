@@ -377,7 +377,7 @@ static void mirror_prepare(void *ctx, Car *car, int mirror)
     Frame *f = ctx;
     const ModelView mv = { &f->m->view, f->w->race->chase.position, f->m->matrix,
                            model_draw_half_side(f->w->race->track, f->w->race->track_variant), 0 };
-    const CarShadowOps ops = { NULL, no_contact, no_skids };
+    const CarShadowOps ops = { NULL, no_contact, no_skids, NULL, 0 };
     int32_t screen[8];
     car_prepare(&ops, car, &mv, mirror, 0, &f->target, NULL, screen);
 }
