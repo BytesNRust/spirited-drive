@@ -104,6 +104,24 @@ static void test_column_rows_are_the_top_row(void)
     sky_stretch_free(&s);
 }
 
+/* column mode: one odd pixel in the top row (as on AL1, where a column of row 0 differs from rows 1..7) does not become a band
+ * above the art; each column takes the colour most of its top rows share */
+static void test_column_ignores_odd_top_pixel(void)
+{
+    uint8_t px[W * H];
+    FshEntry art = make_art(px);
+    for (int y = 0; y < ABOVE; y++) memset(px + y * W, 60, W);
+    px[2] = 90;   /* row 0, column 2: the odd one */
+    SkyStretch s = { 0 };
+    const FshEntry *out = sky_stretch(&s, &art, 0x20000, 100, 100 - 40, SKY_FILL_COLUMN, grey);
+    const int32_t above = out->misc[1], added = above - ABOVE;
+    CHECK(added > 0);
+    for (int32_t r = 0; r < added; r++)
+        for (int x = 0; x < W; x++) CHECK_EQ_INT(out->payload[r * W + x], 60);
+    CHECK(memcmp(out->payload + added * W, art.payload, (size_t)H * W) == 0);   /* the art itself is not changed */
+    sky_stretch_free(&s);
+}
+
 /* the same camera numbers, another mode, give the same added row count: the mode only changes the colours */
 static void test_modes_agree_on_the_rows(void)
 {
@@ -227,6 +245,7 @@ int main(void)
     test_rows_needed();
     test_rows_below_the_line_untouched();
     test_column_rows_are_the_top_row();
+    test_column_ignores_odd_top_pixel();
     test_modes_agree_on_the_rows();
     test_blend_rows();
     test_blend_skips_transparent();
