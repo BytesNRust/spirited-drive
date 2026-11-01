@@ -1,6 +1,7 @@
 /* The track screen's weather row and PS1 time, driven through track_select_screen with ops that only feed keys:
  * Up from Done reaches the weather, Enter cycles it, Escape puts it back, Done keeps it. */
 #include "game/frontend/track_select.h"
+#include "game/sys/palette.h"
 #include "test.h"
 
 #include <string.h>
@@ -211,6 +212,9 @@ static void test_night_art_is_darkened(void)
     int weather = 0;
     config[TRACK_SELECT_TRACK] = 3;
     const uint8_t day[4] = { 10, 20, 0xff, 30 };
+    uint8_t after_a_race[256] = { 0 };   /* the entries a race leaves usable (palette_usable_set) are the race's, not the menu's: few, and none of the dark ones */
+    after_a_race[200] = after_a_race[250] = 1;
+    palette_usable_set(after_a_race);
     for (int night = 0; night < 2; night++) {
         int psx_time = night ? 3 : 2;
         TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &psx_time, NULL };
@@ -243,6 +247,9 @@ static void test_night_art_is_darkened(void)
         }
         CHECK_MEM(evening + 0x10, day, 4);   /* the bank's own shape is not touched */
     }
+    uint8_t all[256];
+    memset(all, 1, sizeof all);
+    palette_usable_set(all);
 }
 
 int main(void)

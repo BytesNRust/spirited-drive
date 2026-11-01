@@ -172,6 +172,25 @@ static int time_art(const TrackSelectState *st, int track)
 
 static void masked(int32_t bank, const char *tag, const TrackSelectOps *ops);
 
+/* the night's table for the screen's own palette: each colour to the entry nearest it times the night's light. The menu's palette is the whole 256, whatever a
+ * race left usable in the port's tables (palette_usable) or lit (palette_emissive), so it is searched here, on the plain colours. */
+static void night_table(const uint8_t palette[768], uint8_t out[256])
+{
+    enum { CHOICES = 0xfe };   /* 0xfe and 0xff are the pointer's and the see-through */
+    for (int c = 0; c < 256; c++) {
+        out[c] = (uint8_t)c;
+        if (c >= CHOICES) continue;
+        float want[3];
+        for (int k = 0; k < 3; k++) want[k] = (float)palette[3 * c + k] * psx_night_light[k];
+        float best = 1e30f;
+        for (int i = 0; i < CHOICES; i++) {
+            const float dr = (float)palette[3 * i] - want[0], dg = (float)palette[3 * i + 1] - want[1], db = (float)palette[3 * i + 2] - want[2];
+            const float d = dr * dr + dg * dg + db * db;
+            if (d < best) best = d, out[c] = (uint8_t)i;
+        }
+    }
+}
+
 /* port: the time-of-day item's art for the state's time: the exe's, or at the night the evening's with its texels moved to the entries nearest their
  * colours at the night's light (a copy of the shape: the bank's own is left), the transparent texel kept */
 static void time_masked(int32_t bank, const char *const tags[3], const TrackSelectState *st, int track, const TrackSelectOps *ops)
@@ -189,7 +208,7 @@ static void time_masked(int32_t bank, const char *const tags[3], const TrackSele
         return;
     }
     uint8_t table[256];
-    psx_lit_table(st->screen_palette, psx_night_light, table);
+    night_table(st->screen_palette, table);
     memcpy(copy, shape, SHAPE_HEADER + pixels);
     for (size_t i = 0; i < pixels; i++)
         if (copy[SHAPE_HEADER + i] != TRANSPARENT) copy[SHAPE_HEADER + i] = table[copy[SHAPE_HEADER + i]];
