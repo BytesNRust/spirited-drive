@@ -73,9 +73,9 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car",
     "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track",
-    "Unlock Level", "Time with variants", "Follow camera",
+    "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
-    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "Car colours",
+    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera",
     "Start Screen", "Intro video"
 };
 
@@ -85,11 +85,11 @@ static int *flag_of(PortExtras *e, int page, int row)
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior,
                                   &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs,
-                                  NULL /* Unlock Level */, &e->variant_time, &e->follow_camera };
+                                  NULL /* Unlock Level */, &e->variant_time, &e->psx_liveries };
         return p1[row];
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
-                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->psx_liveries,
+                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera,
                                NULL /* Start Screen */, &e->no_movies };
     return p2[row];
 }

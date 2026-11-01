@@ -480,7 +480,7 @@ static void test_no_background_leaves_the_display_alone(void)
     CHECK_EQ_INT(r.fake.fade_outs, 0);
 }
 
-/* CHEATS and UNLOCKS & MODS on page 1: twelve switches, Follow camera the last one. Walk the whole page down
+/* CHEATS and UNLOCKS & MODS on page 1: twelve switches, Car Colours the last one. Walk the whole page down
  * and they are all of them */
 static void test_page_one_has_twelve_rows(void)
 {
@@ -502,11 +502,11 @@ static void test_page_one_has_twelve_rows(void)
     CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(shown(&r.fake, "Time with variants"));
-    CHECK(shown(&r.fake, "Follow camera"));
+    CHECK(shown(&r.fake, "Car Colours"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* port: Car colours is the last row of In-race options (page 2): Enter turns it on, and Done saves it, the rest as it was */
+/* port: Car Colours is the last row of Unlocks & mods (page 1): Enter turns it on, and Done saves it, the rest as it was */
 static void test_psx_livery_row_is_saved_on_done(void)
 {
     Rig r;
@@ -542,7 +542,7 @@ static void test_page_two_has_ten_rows(void)
     CHECK(shown(&r.fake, "Rival car markers"));
     CHECK(shown(&r.fake, "3D render stats"));
     CHECK(shown(&r.fake, "Dash box"));
-    CHECK(shown(&r.fake, "Car colours"));
+    CHECK(shown(&r.fake, "360 Camera"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
     CHECK_EQ_INT(r.fake.saves, 1);
@@ -742,8 +742,8 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     run(&one, here, 1);
     /* the page's first and last words, as the text's own top and its bottom */
     CHECK(y_in(&one.fake, "Cheats") >= TITLE_BOTTOM);
-    CHECK(y_in(&one.fake, "Follow camera") + LINE < BUTTONS_TOP);
-    CHECK(y_in(&one.fake, "Time with variants") < y_in(&one.fake, "Follow camera"));   /* the group's last row */
+    CHECK(y_in(&one.fake, "Car Colours") + LINE < BUTTONS_TOP);
+    CHECK(y_in(&one.fake, "Time with variants") < y_in(&one.fake, "Car Colours"));   /* the group's last row */
 
     Rig two;
     setup(&two);
@@ -988,7 +988,7 @@ static void test_lunar_row_is_saved_on_done(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* port: Follow camera, the last row of Unlocks & mods: off to start with, Enter turns it on and Done saves it (the
+/* port: 360 Camera, the last row of In-race options: off to start with, Enter turns it on and Done saves it (the
  * file the race reads it from), another Enter turns it off again */
 static void test_follow_camera_row_toggles_and_saves(void)
 {
@@ -998,7 +998,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     keys[n++] = ENTER;
     n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, ROW_FIRST_P2 - 1);   /* the last row on page 1, under Unlocks & mods */
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 3);   /* the last row of In-race options, before Miscellaneous */
     setup(&r);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     run(&r, keys, n);
@@ -1015,7 +1015,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     CHECK_EQ_INT(again.fake.saved.follow_camera, 0);
 }
 
-/* Escape puts Follow camera back like the other rows */
+/* Escape puts 360 Camera back like the other rows */
 static void test_follow_camera_row_escape_restores(void)
 {
     Rig r;
