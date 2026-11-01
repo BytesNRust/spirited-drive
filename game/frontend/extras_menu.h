@@ -20,7 +20,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *
  *   page 1  Cheats             Explode mode, Nitro mode, Turbo mode, Warrior Player Car
  *            Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
- *                               Lunar Springs Track, Unlock Level, Time with variants, Follow camera
+ *                               Lunar Springs Track, Unlock Level, Time with variants, Car Colours
  *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Bumper view police radar,
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden)
@@ -40,11 +40,11 @@ enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the gr
 enum {
     ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
     ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
-    ROW_FOLLOW_CAMERA,                             /* port: Unlocks & mods' last (port_extras.h's follow_camera) */
+    ROW_PSX_LIVERY,                                /* port: Unlocks & mods' last, the car colours: the PS1 liveries and the catalogue paints (port_extras.h) */
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
     ROW_DASH_BOX,                                  /* port: In-race options' the dash's map box (port_extras.h) */
-    ROW_PSX_LIVERY,                                /* port: In-race options' last, the car colours: the PS1 liveries and the catalogue paints (port_extras.h) */
+    ROW_FOLLOW_CAMERA,                             /* port: In-race options' last, the 360 camera (port_extras.h's follow_camera) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
