@@ -212,6 +212,7 @@ void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind
     chase->next_kind = kind;
     if (car != chase->car) chase->yaw = node_heading(race, car->node);
     chase->car = car;
+    chase->port_follow_car = NULL;   /* port (port_follow_camera): a view change or a race start starts the yaw spring again at the car's heading, no sweep */
     race_chase_take(race, chase, kind);
 }
 

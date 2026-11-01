@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 /* One tick of the camera's yaw spring toward the heading of `car` (the chase's followed car), its own state in `chase`
- * (started at the car's heading for a car it was not following); the yaw, a 24-bit angle. */
+ * (started at the car's heading for a car it was not following, or after race_chase_follow, which every view change and race start goes through); the yaw, a 24-bit angle. */
 int32_t race_follow_yaw(RaceChase *chase, const Car *car);
 
 /* Whether the look back is held: only with the 360 camera (`follow_camera`), by the keyboard's key (`key`, a scancode, 0 none) or the pad's

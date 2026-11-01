@@ -1,5 +1,6 @@
 /* port (port_follow_camera): the camera's follow of the car's heading (race_follow.h, race_camera.h's camera_faces_road) */
 #include "game/race/race_camera.h"
+#include "game/race/race_chase.h"
 #include "game/race/race_follow.h"
 #include "game/race/race_keys.h"
 #include "game/sys/fixed_math.h"
@@ -54,6 +55,19 @@ static void test_follow(void)
     CHECK(abs(wrapped(at - car.yaw)) < 0x20000);
     other.yaw = 0x555555;   /* another car: started at its heading, not swung round from the first's */
     CHECK_EQ_INT(race_follow_yaw(&chase, &other), 0x555555);
+    CHECK_EQ_INT(chase.port_follow_velocity, 0);
+}
+
+/* a view change or a race start (race_chase_follow) starts the spring again: the same car, turned since, is not swept to */
+static void test_view_change_restarts_the_spring(void)
+{
+    RaceChase chase = { 0 };
+    car.yaw = 0x123456, car.yaw_rate = 0;
+    race_follow_yaw(&chase, &car);
+    car.yaw = 0x923456;                                   /* the car turned half a turn while the camera was not followed */
+    chase.car = &car;                                     /* the same car: race_chase_follow keeps its road yaw... */
+    race_chase_follow(&race, &chase, &car, 6);            /* ...and a view change, a race start, goes through it */
+    CHECK_EQ_INT(race_follow_yaw(&chase, &car), 0x923456);   /* snapped behind, not swept from the old heading */
     CHECK_EQ_INT(chase.port_follow_velocity, 0);
 }
 
@@ -190,6 +204,7 @@ int main(void)
     test_look_back();
     test_faces();
     test_follow();
+    test_view_change_restarts_the_spring();
     test_spin();
     test_direction();
     return TEST_REPORT();
