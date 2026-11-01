@@ -63,6 +63,8 @@ static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
 /* Speed units is the other, with its own values: mph and km/h, its words the language's until it is chosen. It sits
  * on page 2, the first row. */
 static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
+/* Difficulty is the last with three values on page 2: Easy, Original, Hard (extras.cfg's difficulty 0, 1, 2) */
+static int difficulty_row(void) { return ROW_DIFFICULTY - ROW_FIRST_P2; }
 static int shows_kmh(const PortExtras *e, int language_kmh)
 {
     return e->units == UNITS_KMH || (e->units == UNITS_LANGUAGE && language_kmh);
@@ -75,7 +77,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track", "Lunar Gravity",
     "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
-    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera",
+    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
     "Start Screen", "Intro video"
 };
 
@@ -89,7 +91,7 @@ static int *flag_of(PortExtras *e, int page, int row)
         return p1[row];
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
-                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera,
+                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */,
                                NULL /* Start Screen */, &e->no_movies };
     return p2[row];
 }
@@ -98,6 +100,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     static const char *const DASH_BOX[3] = { "Map", "Gear lever", "Hidden" };
+    static const char *const DIFFICULTY[3] = { "Easy", "Original", "Hard" };
     const int *const flag = flag_of(e, page, row);
     /* port: the movies switch reads the other way round, "Intro video" On while extras.cfg's no_movies is 0, so the
      * file keeps its meaning */
@@ -106,6 +109,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
     else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
+    else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -200,6 +204,8 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
         *unlock = (int16_t)((*unlock + step + 3) % 3);
     } else if (p->page == 1 && p->selected == dash_box_row()) {
         e->dash_box = (DashBox)((e->dash_box + step + 3) % 3);
+    } else if (p->page == 1 && p->selected == difficulty_row()) {
+        e->difficulty = (e->difficulty + step + 3) % 3;
     } else if (p->page == 1 && p->selected == units_row()) {
         e->units = shows_kmh(e, o->language_kmh) ? UNITS_MPH : UNITS_KMH;
     } else {

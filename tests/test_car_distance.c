@@ -1,4 +1,4 @@
-/* port (port.cfg's car_draw_distance): the distances a car is cut and drops to its low detail model at, by render scale (car_draw.h) */
+/* port (automatic at a render scale of 2 or 3): the distances a car is cut and drops to its low detail model at, by render scale (car_draw.h) */
 #include "game/race/car_draw.h"
 #include "test.h"
 

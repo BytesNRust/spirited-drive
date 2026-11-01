@@ -44,7 +44,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1 };
     return d;
 }
 
@@ -88,6 +88,11 @@ static void apply(PortExtras *e, const char *key, const char *value)
         for (int i = 0; i < 3; i++)
             if (strcmp(value, UNIT_NAMES[i]) == 0)
                 e->units = (SpeedUnits)i;
+        return;
+    }
+    if (strcmp(key, "difficulty") == 0) {
+        if (parse_int(value, &n) && n >= 0 && n <= 2)
+            e->difficulty = (int)n;
         return;
     }
     for (int i = 0; i < SWITCH_COUNT; i++)
@@ -149,7 +154,7 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
     char paint[CAR_PAINT_SLOTS + 1];
     for (int c = 0; c < CAR_PAINT_SLOTS; c++) paint[c] = "0123456789abcdef"[e->car_paint[c] & 15];
     paint[CAR_PAINT_SLOTS] = '\0';
-    const int w = snprintf(out + n, size - (size_t)n, "car_paint=%s\n", paint);
+    const int w = snprintf(out + n, size - (size_t)n, "car_paint=%s\ndifficulty=%d\n", paint, e->difficulty);
     if (w < 0 || (size_t)w >= size - (size_t)n)
         return 0;
     return (size_t)(n + w);

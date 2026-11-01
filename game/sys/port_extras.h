@@ -52,6 +52,8 @@ typedef struct {
                          * 0 the exe's. Off. Last, as car_paint. */
     int lunar_gravity;  /* 0/1: the moon's race (lunar_springs, track_gravity.h) pulls a car a third as hard and grips at two
                          * thirds; 0 the exe's gravity and grip. Off. Last, after reverse. */
+    int difficulty;     /* 0 Easy, 1 Original, 2 Hard (difficulty.h): the rivals', the police's and the traffic's together; 1 the exe's. Last,
+                         * after lunar_gravity. */
 } PortExtras;
 
 /* the player's paint choice for `car` as extras.cfg has it (PAINT_OWN for a car without a slot), and its write back: false

@@ -1,5 +1,7 @@
 #include "game/race/race_replay_image.h"
 
+#include "game/race/difficulty.h"
+
 #include <ctype.h>
 #include <string.h>
 
@@ -58,6 +60,7 @@ int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *o
     const int marked = (cheats & 0xff00) == CHEATS_MARK;
     out->explode = marked && (cheats & CHEATS_EXPLODE) != 0;
     out->nitro = marked && (cheats & CHEATS_NITRO) != 0;
+    f->port_difficulty = marked ? difficulty_unstamp(cheats & 0xff) : difficulty_unstamp(0);   /* port: the race's difficulty, Original in the CD's */
     f->mirrored = get32(setup, AT_MIRRORED) != 0, out->arcade = get32(setup, AT_ARCADE) != 0;
     if (out->stem[0] == 0 || f->racers < 1 || f->racers > RACE_PLAYERS || f->cops < 0 || f->cops > 1) return 0;
     if (f->traffic < 0 || f->racers + f->cops + f->traffic > RACE_CARS + 6) return 0;
@@ -86,9 +89,10 @@ void race_replay_image_setup(const RaceState *race, uint32_t seed, uint8_t setup
     put32(setup, AT_HUMANS, race->humans), put32(setup, AT_COPS, race->cops), put32(setup, AT_CARS, race->car_count);
     put32(setup, AT_TRAFFIC, race->traffic_setting), put32(setup, AT_4FB7F0, race->unknown_4fb7f0);
     put32(setup, AT_SEED, (int32_t)seed);
-    if (race->unknown_4c5cd4 != 0 || race->start_input != 0) {   /* port: the EXPLODE and NITRO cheats' words are not in the
+    const unsigned difficulty = difficulty_stamp(&race->port_difficulty);
+    if (race->unknown_4c5cd4 != 0 || race->start_input != 0 || difficulty != 0) {   /* port: the EXPLODE and NITRO cheats' words are not in the
                                                                    * exe's setup; a replay plays without them */
-        setup[AT_PORT_CHEATS] = (uint8_t)((race->unknown_4c5cd4 != 0 ? CHEATS_EXPLODE : 0) | (race->start_input != 0 ? CHEATS_NITRO : 0));
+        setup[AT_PORT_CHEATS] = (uint8_t)((race->unknown_4c5cd4 != 0 ? CHEATS_EXPLODE : 0) | (race->start_input != 0 ? CHEATS_NITRO : 0) | difficulty);
         setup[AT_PORT_CHEATS + 1] = CHEATS_MARK >> 8;
     }
     memcpy(setup + AT_ENTRIES, race->entries, sizeof race->entries);
