@@ -1,6 +1,7 @@
 /* port: EXTRAS' Texture Filter and Fog made into Modern 3D's style for a track (modern_look.h): the fog's colour
  * from the horizon's foot, its depths from the track drawn, its tables remade when the palette changes. */
 #include "viewer/modern_look.h"
+#include "game/race/weather.h"
 #include "test.h"
 
 #include <string.h>
@@ -108,6 +109,50 @@ static void test_dark_fog_forced(void)
     modern_look_set_dark(&look, 0);
     s = modern_look_style(&look, &art, 0, 1, 0x1c);
     CHECK(s->fog[MODERN_FOG_LEVELS - 1][255] > 40);
+}
+
+/* port (the PS1 look): the weather fog is the distance fog's dark on a dark track, the weather's own colour otherwise */
+static void test_weather_fog_dark(void)
+{
+    make_art();
+    static ModernLook look;
+    memset(&look, 0, sizeof look);
+    uint8_t fog[3] = { 150, 160, 170 };
+    uint8_t out[3];
+    modern_look_weather_fog(&look, fog, out);
+    CHECK_MEM(out, fog, 3);                              /* not dark: the weather's rgb as it is */
+    modern_look_set_dark(&look, 1);
+    modern_look_weather_fog(&look, fog, out);
+    CHECK_EQ_INT(out[0], MODERN_LOOK_DARK);              /* dark: the distance fog's colour, outright */
+    CHECK_EQ_INT(out[1], MODERN_LOOK_DARK);
+    CHECK_EQ_INT(out[2], MODERN_LOOK_DARK);
+    modern_look_style(&look, &art, 0, 1, 0x1c);          /* the distance fog of the same dark look */
+    CHECK_MEM(out, look.rgb, 3);
+    modern_look_weather_fog(&look, fog, fog);            /* in place: a dark look still overwrites */
+    CHECK_EQ_INT(fog[0], MODERN_LOOK_DARK);
+}
+
+/* the rain's haze and sky, made as ported_view's weather_tables does: light on a light look, MODERN_LOOK_DARK on a dark one */
+static void test_rain_dark(void)
+{
+    static ModernLook look;
+    memset(&look, 0, sizeof look);
+    const uint8_t base[3] = { 150, 160, 170 };
+    uint8_t fog[3], sky[3];
+    weather_fog_colour(WEATHER_RAIN, base, fog);
+    weather_sky_colour(WEATHER_RAIN, fog, sky);
+    modern_look_weather_fog(&look, fog, fog);
+    modern_look_weather_fog(&look, sky, sky);
+    CHECK(fog[0] > MODERN_LOOK_DARK && sky[0] > MODERN_LOOK_DARK);   /* not dark: the rain's own greys */
+    modern_look_set_dark(&look, 1);
+    weather_fog_colour(WEATHER_RAIN, base, fog);
+    weather_sky_colour(WEATHER_RAIN, fog, sky);
+    modern_look_weather_fog(&look, fog, fog);
+    modern_look_weather_fog(&look, sky, sky);
+    for (int k = 0; k < 3; k++) {
+        CHECK_EQ_INT(fog[k], MODERN_LOOK_DARK);
+        CHECK_EQ_INT(sky[k], MODERN_LOOK_DARK);
+    }
 }
 
 /* port (fog_sample): a 4 x 20 horizon whose line is row 10: the band (rows 2..15) forest green, the rows around it other
@@ -230,5 +275,7 @@ int main(void)
     test_sampled_rows();
     test_sampled_edges();
     test_style_follows_the_switch();
+    test_weather_fog_dark();
+    test_rain_dark();
     return TEST_REPORT();
 }

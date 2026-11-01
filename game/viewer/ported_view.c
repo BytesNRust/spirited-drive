@@ -143,10 +143,12 @@ void ported_view_set_modern(int on) { modern = on != 0; }
 /* port (weather, re/notes/weather-design.md): WEATHER_CLEAR runs none of it. The tables are made again when the palette or the
  * weather changes. */
 static int weather;
+static ModernLook look;   /* port: the Texture Filter and Fog's look (the PS1 look's dark fog too: ported_view_set_dark_fog) */
 typedef struct {
     uint8_t palette[768];
     int weather, made;
     int sample, lift;    /* port (fog_sample): the colour's source the fog was made from */
+    int dark;            /* port (the PS1 look): the weather fog was made dark (modern_look_weather_fog) */
     uint8_t fog[3];      /* the fog's colour */
     uint8_t sky[256];    /* the sky's palette moved toward its colour */
     uint8_t levels[MODERN_FOG_LEVELS][256];   /* all its levels: the fog's sky gets the fog's whole at the horizon */
@@ -162,9 +164,9 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     static WeatherTables wt;
     float tint[3];
     drive_light_tint(tint);
-    const int sample = port_fog_sample(), lift = port_fog_lift();
-    if (wt.made && wt.weather == weather && wt.sample == sample && wt.lift == lift && memcmp(wt.tint, tint, sizeof tint) == 0 &&
-        memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
+    const int sample = port_fog_sample(), lift = port_fog_lift(), dark = look.dark;
+    if (wt.made && wt.weather == weather && wt.sample == sample && wt.lift == lift && wt.dark == dark &&
+        memcmp(wt.tint, tint, sizeof tint) == 0 && memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
         return &wt;
     static uint8_t scratch[MODERN_FOG_LEVELS][256];
     uint8_t base[3], sky[3], rain[3];
@@ -172,7 +174,9 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     else modern_look_fog_colour(art, base);
     weather_fog_colour(weather, base, wt.fog);
     weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
+    modern_look_weather_fog(&look, wt.fog, wt.fog);   /* the dark track's fog as its distance fog: the rain's haze too */
     weather_sky_colour(weather, wt.fog, sky);
+    modern_look_weather_fog(&look, sky, sky);          /* the rain's own sky colour: dark as well */
     modern_fog_tables(art->palette, sky, scratch);
     wt.sky_low = weather == WEATHER_RAIN ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
     wt.sky_high = weather == WEATHER_RAIN ? wt.sky_low : MODERN_FOG_LEVELS - 1;
@@ -183,7 +187,7 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
-    wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.made = 1;
+    wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
     return &wt;
 }
 
@@ -219,7 +223,6 @@ static void weather_sky_band(void *user, int top, int bottom)
 int ported_view_modern(void) { return modern; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
-static ModernLook look;
 void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
 
 static void weather_style(const TrackArt *art, const WeatherTables *wt)
