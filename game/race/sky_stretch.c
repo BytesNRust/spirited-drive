@@ -35,6 +35,19 @@ static uint8_t mean_colour(const FshEntry *horz, int32_t w, const uint8_t *palet
     return (uint8_t)best;
 }
 
+/* the colour of column x for the rows put above the art (SKY_FILL_COLUMN): the top row's pixel, unless every one of the
+ * `rows` - 1 rows under it holds one other colour, a lone odd pixel in row 0 (AL1: a 18-column run of it) that the rows
+ * below do not share; then that shared colour. Cloud columns, which vary from row to row, keep their top pixel. */
+static uint8_t column_colour(const FshEntry *horz, int32_t w, int32_t rows, int32_t x)
+{
+    const uint8_t top = horz->payload[x];
+    if (rows < 2) return top;
+    const uint8_t below = horz->payload[w + x];
+    for (int32_t r = 1; r < rows; r++)
+        if (horz->payload[(size_t)r * w + x] != below) return top;
+    return below != top && below != 0xff ? below : top;
+}
+
 /* the 4x4 ordered-dither threshold, 0..15 */
 static int bayer(int32_t x, int32_t y)
 {
@@ -67,7 +80,12 @@ const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, 
     for (int32_t r = 0; r < added; r++) {
         uint8_t *const row = s->pixels + (size_t)r * w;
         if (mode == SKY_FILL_COLUMN) {
-            memcpy(row, horz->payload, (size_t)w);
+            if (r == 0) {   /* the first added row carries the column colours; the rest copy it */
+                const int32_t sample = above < SKY_FILL_COLUMN_ROWS ? above : SKY_FILL_COLUMN_ROWS;
+                for (int32_t x = 0; x < w; x++) row[x] = column_colour(horz, w, sample, x);
+            } else {
+                memcpy(row, s->pixels, (size_t)w);
+            }
             continue;
         }
         /* the mean colour, taking in the top row's pixel more and more over the last rows before the art */

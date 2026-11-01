@@ -13,10 +13,10 @@
 
 /* how the added rows are filled */
 enum {
-    SKY_FILL_COLUMN = 1,   /* every column takes the colour of its own top row */
+    SKY_FILL_COLUMN = 1,   /* every column takes the most frequent colour of its top rows (SKY_FILL_COLUMN_ROWS) */
     SKY_FILL_BLEND = 2     /* one colour (the nearest palette entry to the mean of the top rows), dithered into the top row */
 };
-enum { SKY_FILL_MEAN_ROWS = 4, SKY_FILL_BLEND_ROWS = 12 };
+enum { SKY_FILL_MEAN_ROWS = 4, SKY_FILL_BLEND_ROWS = 12, SKY_FILL_COLUMN_ROWS = 8 };
 
 typedef struct {
     FshEntry entry;
