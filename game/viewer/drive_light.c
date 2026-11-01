@@ -120,6 +120,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     time_tinted = enabled && time != PSX_TIME_DAY;
     alt_sky_wanted = 0;
     split = 0;
+    ported_view_set_flares(port_psx_flares());
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
     ported_view_set_psx_lamps(NULL, 0);
     ported_view_set_light(NULL, NULL);

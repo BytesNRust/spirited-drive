@@ -114,14 +114,18 @@ static void run(const char *root)
     drive_lamps_arm();
     drive_lamps_set_entries(0xa1, 0xa2, 0xa3, 0xa4);   /* lit brake, position, headlight, reversing */
     const uint8_t *rsid_texels = rsid.payload, *bott_texels = bott.payload;
+    CHECK_EQ_INT(drive_lamps_brake_lit(0), 0);   /* nothing drawn yet */
     drive_lamps_frame(0, 1, 0, 0);   /* low light, the brake released: the brake texels show the position entry */
+    CHECK_EQ_INT(drive_lamps_brake_lit(0), 0);
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa2);
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], original[(size_t)(bott.payload - cfm) + i]);   /* the reversing light is not lit by the dark */
     CHECK_EQ_INT(rsid_texels[9], original[(size_t)(rsid.payload - cfm) + 9]);   /* the next texels are left */
     CHECK_EQ_INT(rsid_texels[20], original[(size_t)(rsid.payload - cfm) + 20]);
     drive_lamps_frame(0, 1, 1, 0);   /* braking: the lit entry */
+    CHECK_EQ_INT(drive_lamps_brake_lit(0), 0xa1);   /* the flare's lamp: the entry the car's brake texels show */
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa1);
     drive_lamps_frame(0, 0, 1, 0);   /* day, even braking: byte for byte what the file was */
+    CHECK_EQ_INT(drive_lamps_brake_lit(0), 0);      /* and no lit lamp */
     CHECK_MEM(cfm, original, size);
     drive_lamps_frame(0, 0, 0, 1);   /* day, in reverse gear: the reversing light is lit, the brake's texels are not */
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], 0xa4);

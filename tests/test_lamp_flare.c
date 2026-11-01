@@ -1,0 +1,122 @@
+/* The tail light halo (lamp_flare.h): the blob scan, the radius, the dithered level, the draw  */
+#include "tests/test.h"
+
+#include "game/race/lamp_flare.h"
+
+#include <string.h>
+
+enum { W = 40, H = 24, LAMP = 77 };
+
+static void disc(uint8_t *px, int cx, int cy, int r, uint8_t v)
+{
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+            if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r) px[y * W + x] = v;
+}
+
+static void test_blobs(void)
+{
+    uint8_t member[256] = { 0 };
+    member[LAMP] = 1;
+    uint8_t px[W * H];
+    memset(px, 3, sizeof px);
+    disc(px, 8, 12, 3, LAMP);    /* 29 pixels */
+    disc(px, 30, 12, 2, LAMP);   /* 13 pixels */
+    disc(px, 20, 4, 3, 99);      /* another index, not a lamp */
+    LampBlob b[LAMP_FLARE_BLOBS];
+    const int n = lamp_blobs(px, W, 0, 0, W - 1, H - 1, member, b, LAMP_FLARE_BLOBS);
+    CHECK_EQ_INT(n, 2);
+    CHECK(b[0].area > b[1].area);      /* the largest first */
+    CHECK_EQ_INT(b[0].cx, 8);
+    CHECK_EQ_INT(b[0].cy, 12);
+    CHECK_EQ_INT(b[1].cx, 30);
+    CHECK_EQ_INT(b[1].cy, 12);
+    /* a rectangle that holds only the right blob finds only it; one holding none finds none */
+    CHECK_EQ_INT(lamp_blobs(px, W, 20, 0, W - 1, H - 1, member, b, LAMP_FLARE_BLOBS), 1);
+    CHECK_EQ_INT(lamp_blobs(px, W, 14, 0, 24, H - 1, member, b, LAMP_FLARE_BLOBS), 0);
+    CHECK_EQ_INT(lamp_blobs(px, W, 0, 0, W - 1, H - 1, member, b, 1), 1);   /* the cap */
+    /* two touching discs are one blob */
+    memset(px, 3, sizeof px);
+    disc(px, 10, 12, 3, LAMP);
+    disc(px, 15, 12, 3, LAMP);
+    CHECK_EQ_INT(lamp_blobs(px, W, 0, 0, W - 1, H - 1, member, b, LAMP_FLARE_BLOBS), 1);
+    CHECK_EQ_INT(b[0].value, LAMP);
+}
+
+static void test_radius(void)
+{
+    CHECK_EQ_INT(lamp_flare_radius(0), 3);
+    CHECK_EQ_INT(lamp_flare_radius(12), 4);   /* the blob's r = 2, times 2.2 */
+    CHECK(lamp_flare_radius(100) > lamp_flare_radius(12));
+    CHECK_EQ_INT(lamp_flare_radius(1000000), LAMP_FLARE_MAX_RADIUS);
+}
+
+static void test_level(void)
+{
+    const int r = 12;
+    int sum_in = 0, sum_out = 0;
+    for (int dy = -3; dy <= 3; dy++)
+        for (int dx = -3; dx <= 3; dx++) sum_in += lamp_halo_level(dx, dy, r);
+    for (int dy = -r; dy <= r; dy++)
+        for (int dx = 8; dx <= r; dx++) sum_out += lamp_halo_level(dx, dy, r);
+    CHECK(sum_in > sum_out);                         /* the centre is brighter than the rim */
+    CHECK_EQ_INT(lamp_halo_level(r, 0, r), 0);       /* nothing at and past the radius */
+    CHECK_EQ_INT(lamp_halo_level(r + 5, r + 5, r), 0);
+    CHECK_EQ_INT(lamp_halo_level(0, 0, 0), 0);
+    for (int dy = -r; dy <= r; dy++)
+        for (int dx = -r; dx <= r; dx++) {
+            const int l = lamp_halo_level(dx, dy, r);
+            CHECK(l >= 0 && l <= LAMP_FLARE_LEVELS);
+        }
+    /* the dither: near the centre both levels appear over a block, so it is a pattern and not a flat disc */
+    int seen[LAMP_FLARE_LEVELS + 1] = { 0 };
+    for (int dy = -r / 2; dy <= r / 2; dy++)
+        for (int dx = -r / 2; dx <= r / 2; dx++) seen[lamp_halo_level(dx, dy, r)]++;
+    CHECK(seen[1] > 0);
+    CHECK(seen[2] > 0);
+}
+
+static uint8_t map_one[256], map_two[256];
+
+static void test_draw(void)
+{
+    for (int i = 0; i < 256; i++) map_one[i] = i == 77 ? 77 : 11, map_two[i] = i == 77 ? 77 : 22;
+    const uint8_t *const map[LAMP_FLARE_LEVELS] = { map_one, map_two };
+    uint8_t px[W * H];
+    memset(px, 3, sizeof px);
+    lamp_halo_draw(px, W, 0, 0, W - 1, H - 1, 20, 12, 8, map);
+    int ones = 0, twos = 0, kept = 0, outside = 0;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) {
+            const uint8_t v = px[y * W + x];
+            ones += v == 11, twos += v == 22, kept += v == 3;
+            if (v != 3 && (x - 20) * (x - 20) + (y - 12) * (y - 12) >= 64) outside++;
+        }
+    CHECK(ones > 0 && twos > 0 && kept > 0);
+    CHECK_EQ_INT(outside, 0);
+    CHECK(px[12 * W + 20] == 22 || px[12 * W + 20] == 11);   /* the centre is lit */
+    /* a lamp pixel under the halo keeps its colour (the map's own entry for it) */
+    memset(px, 3, sizeof px);
+    px[12 * W + 20] = 77;
+    lamp_halo_draw(px, W, 0, 0, W - 1, H - 1, 20, 12, 8, map);
+    CHECK_EQ_INT(px[12 * W + 20], 77);
+    /* the clip: a halo half off the surface and one off it entirely draw only inside it */
+    memset(px, 3, sizeof px);
+    lamp_halo_draw(px, W, 0, 0, W - 1, H - 1, 0, 0, 8, map);
+    lamp_halo_draw(px, W, 0, 0, W - 1, H - 1, -50, -50, 8, map);
+    CHECK(px[0] != 3);
+    /* a clip rectangle smaller than the surface keeps the pixels outside it */
+    memset(px, 3, sizeof px);
+    lamp_halo_draw(px, W, 18, 10, 22, 14, 20, 12, 8, map);
+    CHECK_EQ_INT(px[0], 3);
+    CHECK_EQ_INT(px[12 * W + 10], 3);
+}
+
+int main(void)
+{
+    test_blobs();
+    test_radius();
+    test_level();
+    test_draw();
+    return TEST_REPORT();
+}

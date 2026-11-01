@@ -60,6 +60,8 @@ void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
 
 /* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
 void ported_view_set_soft_shadow(int on);
+/* port (psx_flares): a soft halo round a lit brake light in low light and in fog (lamp_flare.h); 0 the exe's */
+void ported_view_set_flares(int on);
 
 /* port: the PS1 look's ambient light on the cars (psx_lgs.h): each car is drawn through a colour table of its segment's ambient
  * colour over the world's `tint`, so a context's colour (a tunnel's, a bridge's) shows on the cars and the world's mean does not
