@@ -2,6 +2,7 @@
 #include "game/race/race_follow.h"
 
 #include "game/race/follow_yaw.h"
+#include "game/race/race_chase.h"
 #include "game/race/race_keys.h"
 #include "game/sys/fixed_math.h"
 
@@ -59,4 +60,17 @@ void race_follow_keep_radius(const int32_t car[2], const int32_t before[2], int3
     const double s = fabs(s1) <= fabs(s2) ? s1 : s2;   /* the nearer to where the eye was along the barrier */
     after[0] = (int32_t)lround((double)after[0] - nz * s);
     after[1] = (int32_t)lround((double)after[1] + nx * s);
+}
+
+void race_look_back_view(RaceState *race)
+{
+    RaceChase *chase = &race->chase;
+    if (race->port_follow_camera == 0 || chase->car == NULL) return;
+    if (chase->port_look_back != 0 && chase->kind == 0 && chase->port_look_swapped == 0) {
+        chase->port_look_swapped = 1;
+        race_chase_follow(race, chase, chase->car, 1);
+    } else if (chase->port_look_back == 0 && chase->port_look_swapped != 0) {
+        chase->port_look_swapped = 0;
+        if (chase->kind == 1) race_chase_follow(race, chase, chase->car, 0);   /* not when a view key already took it elsewhere */
+    }
 }

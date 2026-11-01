@@ -127,6 +127,43 @@ static void test_look_back(void)
     CHECK(abs(wrapped(at - (car.yaw + 0x800000))) < 0x100000);
 }
 
+/* look back in the interior view takes the bumper's (no cockpit over the rearward world) while held and gives the interior back on release;
+ * not without the 360 camera, not in another view, and not if a view key moved the view meanwhile */
+static void test_look_back_view_swap(void)
+{
+    RaceChase *chase = &race.chase;
+    memset(chase, 0, sizeof *chase);
+    chase->car = &car;
+    race.port_follow_camera = 1;
+    chase->kind = 0;
+    chase->port_look_back = 1;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 1);
+    CHECK_EQ_INT(chase->port_look_swapped, 1);
+    race_look_back_view(&race);   /* held on: no second change */
+    CHECK_EQ_INT(chase->kind, 1);
+    chase->port_look_back = 0;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 0);
+    CHECK_EQ_INT(chase->port_look_swapped, 0);
+    chase->kind = 2;   /* another view: nothing taken */
+    chase->port_look_back = 1;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 2);
+    chase->port_look_back = 0;
+    chase->kind = 0, chase->port_look_back = 1;
+    race_look_back_view(&race);
+    chase->kind = 5;   /* a view key took the view while held: it is not given back over it */
+    chase->port_look_back = 0;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 5);
+    race.port_follow_camera = 0;
+    chase->kind = 0, chase->port_look_back = 1;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 0);   /* the 360 camera off: the exe's */
+    memset(chase, 0, sizeof *chase);
+}
+
 /* the look back is held only with the 360 camera, by the key or the pad's button; none, or another key, and it is not */
 static void test_look_back_held(void)
 {
@@ -201,6 +238,7 @@ int main(void)
     test_keep_radius();
     test_swing_distance();
     test_look_back_held();
+    test_look_back_view_swap();
     test_look_back();
     test_faces();
     test_follow();

@@ -5,6 +5,7 @@
 #define TNFS_RACE_FOLLOW_H
 
 #include "game/race/chase_struct.h"
+#include "game/race/race_state.h"
 
 #include <stdint.h>
 
@@ -15,6 +16,11 @@ int32_t race_follow_yaw(RaceChase *chase, const Car *car);
 /* Whether the look back is held: only with the 360 camera (`follow_camera`), by the keyboard's key (`key`, a scancode, 0 none) or the pad's
  * (RACE_KEYS_PAD_LOOK_BACK); `keys` is a flag per key code, `codes` how many it has. */
 int32_t race_look_back_held(int32_t follow_camera, const uint8_t *keys, int32_t codes, int32_t key);
+
+/* The look back in the interior view (kind 0): the cockpit would stay drawn over the rearward world, so while it is held the view is the bumper's
+ * (kind 1: no cockpit, no mirror, the HUD kept), taken the way a view change takes it, and the release puts the interior back. Call after
+ * `port_look_back` is set each frame. Nothing without the 360 camera, and nothing in another view. */
+void race_look_back_view(RaceState *race);
 
 /* The direction (x, 0, z) of a camera yaw, as 004046b0's road direction is for the exe's: angle_of(dir[2], dir[0]) is `yaw`. */
 void race_follow_direction(int32_t yaw, int32_t dir[3]);

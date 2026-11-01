@@ -667,6 +667,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             const int32_t key = port_controls_look_back_key(&look_port);
             drive_input.keys[key] = (int32_t)i >= look_from && (int32_t)i < look_to;
             drive_sim.race.chase.port_look_back = race_look_back_held(drive_sim.race.port_follow_camera, drive_input.keys, (int32_t)sizeof drive_input.keys, key);
+            race_look_back_view(&drive_sim.race);
         }
         if (f3_keys) {
             drive_input.keys[KEY_F3] = f3_env_press((int32_t)i) ? 1 : 0;
