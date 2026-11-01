@@ -25,7 +25,7 @@
 enum { PORTED_VIEW_MODELS = 64, PORTED_VIEW_CARS = 9 };
 
 /* The FAM 3D objects, drawn through the renderer's model callback. */
-void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored);  /* mirrored: race->mirrored */
+void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored, int two_sided);  /* mirrored: race->mirrored; two_sided: port_two_sided_scenery's */
 
 /* Where the 3D view sits on the 640 x 480 frame (a race camera's 004b7080
  * row: left + x, top + y, width, height for the projection; its horizon
