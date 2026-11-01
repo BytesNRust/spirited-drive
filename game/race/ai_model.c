@@ -4,6 +4,7 @@
 #include "game/race/ai_lanes.h"
 #include "game/race/car_crash.h"
 #include "game/race/car_progress.h"
+#include "game/race/track_gravity.h"
 
 #include "game/sys/fixed_math.h"
 #include "game/sys/rigid_math.h"
@@ -206,7 +207,7 @@ void ai_model_tick(Car *car, RaceState *race)
             car->ai_speed = (car->ai_speed >> 8) * 0xff;
     }
     at_barrier(car, race);
-    if (car->on_ground == 0) car->velocity_y -= GRAVITY_STEP;
+    if (car->on_ground == 0) car->velocity_y -= track_gravity(race->port_lunar_gravity, GRAVITY_STEP);
     car->x -= step_of(car->velocity_x);
     car->y += step_of(car->velocity_y);
     car->z += step_of(car->velocity_z);

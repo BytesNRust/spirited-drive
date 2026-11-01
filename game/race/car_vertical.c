@@ -1,6 +1,7 @@
 #include "game/race/car_vertical.h"
 
 #include "game/race/car_road.h"
+#include "game/race/track_gravity.h"
 #include "game/sys/fixed_math.h"
 
 #include <string.h>
@@ -92,9 +93,13 @@ void car_vertical(Car *car, RaceState *race, int on_road)
     car_road_contact(car, race, 0);
     race->last_node = car->node;
     const int32_t gravity = ((car->tick_scale >> 2) * GRAVITY) >> 14;
-    car->velocity_y -= gravity;
     const int32_t road_y = car->road_point[1];
-    if (!(race->track_flags & TRACK_FLAG_LOW_GRAVITY)) car->velocity_y -= gravity / 2;
+    if (race->port_lunar_gravity) {   /* port: the moon's pull, a third of the unit and its half */
+        car->velocity_y -= track_gravity(1, gravity + gravity / 2);
+    } else {
+        car->velocity_y -= gravity;
+        if (!(race->track_flags & TRACK_FLAG_LOW_GRAVITY)) car->velocity_y -= gravity / 2;
+    }
     const int32_t fallen = (((car->velocity_y / 4 + car->velocity_y) >> 12) * (car->tick_scale >> 4)) + car->y;
     if (!on_road) {
         car->y = road_y;

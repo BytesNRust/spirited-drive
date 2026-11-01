@@ -82,6 +82,7 @@ struct RaceField {
     int humans;                         /* 004fb7e0: the cars at the controls, first in the field (0: one) */
     const CarSpecs *specs[RACE_PLAYERS];  /* each human's specs after slot 0's (a link game's); NULL none */
     uint32_t track_flags;               /* 004fb7d8: 0052b306 as 0042702c copies it (bit 2 No Mercy, bit 3 Turbo) */
+    int port_lunar_gravity;             /* port: RaceState's port_lunar_gravity for this race (lunar_gravity_active) */
     int mirrored;                       /* 004fbad8: the "m" tracks (SKCART), read in place by the race */
     /* 004571e8's showing, after each of its picks: picture 0..6 of the followed player's car (`user` the load's);
      * NULL shows none */

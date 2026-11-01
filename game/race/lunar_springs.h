@@ -13,6 +13,13 @@
  * art entry, the rally's springs ("springsr" in central_draw.c's TRACK_NAMES: the rally base 19 plus 3) */
 enum { LUNAR_TRACK_RUSTY = 3, LUNAR_ART_SPRINGSR = 22 };
 
+/* 1 when the race is Rusty Springs' rally (track `track` with variant_r set) and `lunar` is on: the moon's race. */
+int lunar_springs_active(int track, int variant_r, int lunar);
+
+/* 1 when the moon's race also takes the moon's gravity and grip (track_gravity.h): the moon's race with extras.cfg's
+ * lunar_gravity on, 0 otherwise. */
+int lunar_gravity_active(int track, int variant_r, int lunar, int lunar_gravity);
+
 /* 1 when the race is Rusty Springs' rally (track `track` with variant_r set) and `lunar` is on: the FAM to read is
  * then "<data_root>/SIMDATA/NTRACKFM/TR8_R01.FAM", written to `out` (size bytes). 0 leaves `out` alone. */
 int lunar_springs_fam(const char *data_root, int track, int variant_r, int lunar, char *out, size_t size);
