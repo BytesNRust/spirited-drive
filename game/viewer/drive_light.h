@@ -4,6 +4,8 @@
 #ifndef TNFS_DRIVE_LIGHT_H
 #define TNFS_DRIVE_LIGHT_H
 
+#include "formats/tri.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -11,6 +13,10 @@
  * the light (a missing or unreadable LGS leaves it neutral). Loads the light of `track` ("TR1") into the renderer (ported_view_set_light), or clears it; `ring_nodes` is the TRI's node_count
  * (segment_count * 4; a stage's ring_nodes is 0x20000, a mask), which the file's must match. The previous race's light is freed. */
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes);
+
+/* port: after drive_light_load, for a track the CD has no light for (Burnt Sienna, Transtropolis: psx_light_synth_track), with the light on and no light
+ * loaded: the light made from the road's tunnels (psx_light_synth.h) in place of none, the time of day's flat tint kept. Anything else changes nothing. */
+void drive_light_load_synth(const Tri *tri, const char *track);
 
 /* port: the light of a track that runs the other way round (tri_reverse.h), after drive_light_load: the nodes and the sides asked as the new
  * file has them. */

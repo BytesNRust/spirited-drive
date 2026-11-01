@@ -17,6 +17,7 @@
 #include "game/race/car_tag.h"
 #include "game/race/car_lights.h"
 #include "game/race/psx_lgs.h"
+#include "game/race/psx_light_synth.h"
 #include "game/race/car_body_draw.h"
 #include "game/race/car_render.h"
 #include "game/gfx/x86_int.h"
@@ -324,6 +325,7 @@ void ported_view_set_light(const PsxLight *light, const float tint[3])
 enum { AMBIENT_TABLES = 8, AMBIENT_STEP = 16 };
 static PsxLgs ambient;
 static int ambient_on;
+static int synth_on;   /* the light is one psx_light_synth made: the cars and the dash take its tunnel factor */
 static uint32_t ambient_nodes;
 static float ambient_tint[3] = { 1, 1, 1 };
 
@@ -337,11 +339,17 @@ void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const f
 
 static RaceState *shadow_race;
 
+void ported_view_set_psx_synth(int on) { synth_on = on; }
+
 /* port (the PS1 light on the cars and the dash): the exe's light of the road's centre at the car's own node (psx_lgs_car_ratio; the exe gives every car the
  * viewer's, the port its own node's), the one factor of the cars and the dash; 0 and `out` untouched when there is no light script. A context's colour is
  * its own tunnel's tint, and a RAMP context's odd / even nodes are the lamps' alternation. */
 static int ratio_at(int32_t node, float out[3])
 {
+    if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's own factor */
+        out[0] = out[1] = out[2] = psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes));
+        return 1;
+    }
     if (!ambient_on || psx_light == NULL) return 0;
     const int32_t at = (int32_t)psx_ring_node(node, ambient_nodes);
     /* the script's blocks are of the file's direction: a reversed track asks them at the node's old place */
@@ -358,7 +366,7 @@ int ported_view_car_ratio(const Car *car, float out[3])
 /* the table for a car at `node`, NULL when its ambient is the world's */
 static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
 {
-    if (!ambient_on || psx_light == NULL || palette == NULL) return NULL;
+    if (!(ambient_on || synth_on) || psx_light == NULL || palette == NULL) return NULL;
     static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
     static uint8_t made_for[768];
     static int next, valid;

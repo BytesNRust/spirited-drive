@@ -433,6 +433,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
     drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
+    drive_light_load_synth(&t->tri, name);   /* port: Burnt Sienna and Transtropolis, which the CD has no light for */
     drive_light_load_alt_sky(data_root, name);
     drive_light_set_reversed(t->reversed);   /* port: the light's nodes and sides of the file's own direction */
     drive_sim.race.port_free_laps = free_race;
