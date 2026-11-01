@@ -10,6 +10,7 @@
 #include "game/sys/bands.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
+#include "game/race/car_draw.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -506,6 +507,7 @@ void drive_wide_size(int width)
 {
     drive_wide.width = width;
     drive_wide.scale = scale_off ? 1 : port_render_scale();
+    car_draw_set_distance_scale(port_settings_load().car_draw_distance ? drive_wide.scale : 1);   /* port: cars drawn as far as the scale shows them */
     drive_mirror_widen(&drive_hud.mirror, width > SCREEN_W);
     free(drive_wide.layer);
     drive_wide.layer = NULL;

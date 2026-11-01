@@ -24,6 +24,13 @@ enum {
     CAR_MIRROR_FAR_Z = 0xa00
 };
 
+/* port (port.cfg's car_draw_distance): a car is drawn `scale` times as far at a render scale of `scale` (1..3): the 3D world is drawn at that many
+ * times the frame's size, so a car at a given distance covers that many times the pixels, and the exe's cut and low detail distances are too short
+ * for it. 1, the default, is the exe's. The distances for `scale`: the cut (CAR_MAX_Z) and the low detail model's (CAR_FAR_Z). */
+void car_draw_set_distance_scale(int32_t scale);
+int32_t car_draw_max_z(int32_t scale);
+int32_t car_draw_far_z(int32_t scale);
+
 typedef struct {
     Object3D *body;   /* car +0x52e */
     Object3D *far;    /* car +0x666 */

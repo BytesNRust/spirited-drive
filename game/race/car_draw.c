@@ -108,15 +108,21 @@ static void set_near(Object3D *obj, int on)
     }
 }
 
+static int32_t distance_scale = 1;   /* port: car_draw_set_distance_scale */
+
+void car_draw_set_distance_scale(int32_t scale) { distance_scale = scale < 1 ? 1 : scale > 3 ? 3 : scale; }
+int32_t car_draw_max_z(int32_t scale) { return CAR_MAX_Z * (scale < 1 ? 1 : scale > 3 ? 3 : scale); }
+int32_t car_draw_far_z(int32_t scale) { return CAR_FAR_Z * (scale < 1 ? 1 : scale > 3 ? 3 : scale); }
+
 static int draw_at(CarModel *car, const CarPose *pose, const int32_t cam[3], const ModelView *mv, int mirror,
                    const Object3DSink *sink, const CarSmokeHook *smoke)
 {
     const int32_t z = cam[2];
-    if (z < CAR_MIN_Z || z > CAR_MAX_Z) return 0;
+    if (z < CAR_MIN_Z || z > car_draw_max_z(distance_scale)) return 0;
     if ((int64_t)magnitude(cam[0]) > 2 * (int64_t)z) return 0;
     int far;
     if (!mirror) {
-        far = z > CAR_FAR_Z && !pose->always_near;
+        far = z > car_draw_far_z(distance_scale) && !pose->always_near;
     } else {
         if (z > CAR_MIRROR_MAX_Z) return 0;
         far = z > CAR_MIRROR_FAR_Z;
