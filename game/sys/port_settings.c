@@ -36,7 +36,7 @@ PortSettings port_settings_defaults(void)
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
     const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
-                             .weather = WEATHER_CLEAR, .render_bands = -1, .car_draw_distance = 1 };
+                             .weather = WEATHER_CLEAR, .render_bands = -1 };
     return d;
 }
 
@@ -77,9 +77,6 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "render_scale") == 0) {
         if (parse_int(value, &n) && n >= 1 && n <= 3)
             s->render_scale = (int)n;
-    } else if (strcmp(key, "car_draw_distance") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->car_draw_distance = (int)n;
     } else if (strcmp(key, "laps") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 99)
             s->laps = (int)n;
@@ -181,11 +178,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\ncar_draw_distance=%d\ntwo_sided_scenery=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\ntwo_sided_scenery=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->car_draw_distance, s->two_sided_scenery);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->two_sided_scenery);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 

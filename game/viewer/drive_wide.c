@@ -503,11 +503,18 @@ int drive_output_height(void)
 static int scale_off;
 void drive_wide_scale_off(void) { scale_off = 1; }
 
+/* automatic at a render scale of 2 or 3; TNFS_CAR_DRAW_DISTANCE=0 (dev only) keeps the exe's distances */
+static int car_distance_wanted(void)
+{
+    const char *const v = getenv("TNFS_CAR_DRAW_DISTANCE");
+    return !(v != NULL && v[0] == '0' && v[1] == '\0');
+}
+
 void drive_wide_size(int width)
 {
     drive_wide.width = width;
     drive_wide.scale = scale_off ? 1 : port_render_scale();
-    car_draw_set_distance_scale(port_settings_load().car_draw_distance ? drive_wide.scale : 1);   /* port: cars drawn as far as the scale shows them */
+    car_draw_set_distance_scale(car_distance_wanted() ? drive_wide.scale : 1);   /* port: cars drawn as far as the scale shows them */
     drive_mirror_widen(&drive_hud.mirror, width > SCREEN_W);
     free(drive_wide.layer);
     drive_wide.layer = NULL;
