@@ -60,7 +60,7 @@ typedef struct {
     int32_t object_camera[TRACK_MAX_OBJECT_VERTICES][3];  /* 004ffb64 */
     int32_t object_screen[TRACK_MAX_OBJECT_VERTICES][2];  /* 00502594 */
     /* the original's state the build and the draws work on */
-    uint8_t cache[TRACK_BUILD_CACHE_SIZE];                                /* 005041d8 */
+    uint8_t cache[TRACK_CACHE_SIZE_MAX];                                  /* 005041d8: 0x8700 in the exe; port_follow_ring more (track_cache.h) */
     uint8_t nodes[(TRI_NODE_CAPACITY + TRACK_NODE_SPARE) * TRACK_BUILD_NODE_SIZE];  /* 00505038 */
     uint8_t descriptors[256 * TRI_DESCRIPTOR_SIZE];                       /* 00504204 */
     uint8_t records[(TRI_SCENERY_MAX + 1) * TRI_SCENERY_SIZE];            /* 00509788 */
@@ -126,6 +126,9 @@ void track_render_build(TrackRender *r, const Tri *tri, const TrackArt *art, int
  * or any other value; the cache window keeps its two segments ahead and five behind. Taken at once, and at every later
  * bind. */
 void track_render_set_reach(TrackRender *r, int32_t segments);
+
+/* port (port_follow_ring): the cache's ring at `records` (track_cache_set_records); when it changes the window starts again, its records being where the old size put them */
+void track_render_set_ring(TrackRender *r, int32_t records);
 
 /* port: the PS1's baked light on the terrain's polygons (NULL none): the track is built again with it at the next frame */
 void track_render_set_light(TrackRender *r, const PsxLight *light);

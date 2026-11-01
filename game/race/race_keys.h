@@ -23,6 +23,8 @@ typedef struct {
 enum { RACE_KEYS_PAD_VIEW = 0x59 };
 /* port: the pad's Nitro button as a key (platform_virtual_key's scancode for ACT_NITRO; start_keys.h) */
 enum { RACE_KEYS_PAD_NITRO = 0x5a };
+/* port: the pad's Look back button as a key (platform_virtual_key's scancode for ACT_LOOK_BACK; race_follow.h) */
+enum { RACE_KEYS_PAD_LOOK_BACK = 0x5b };
 
 typedef struct {
     const uint8_t *keys;      /* 004c693c: a flag per key code */

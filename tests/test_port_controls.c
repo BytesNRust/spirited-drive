@@ -244,6 +244,36 @@ static void test_keyboard_keys(void)
     port_controls_reset_keys(&c);
     CHECK_EQ_INT(c.keys_custom, 0);
     CHECK_EQ_INT(c.key[PKEY_LEFT], 0);
+    CHECK_EQ_INT(c.key[PKEY_LOOK_BACK], 0x30);   /* B comes back with the rest */
+}
+
+/* the look back key: B until it is the player's (config.dat has no word for it), kept out of the race's key codes, in the file with the others,
+ * and B again for a file from before it existed */
+static void test_look_back_key(void)
+{
+    PortControls c = port_controls_defaults();
+    const int16_t config[13] = { 0, 0, 0, 0x4b00, 0x4d00, 0x4800, 0x5000, 'A', 'Z', ' ', 'C', 'H', 'V' };
+    int defaults[PKEY_COUNT];
+    port_controls_key_defaults(config, 0, defaults);
+    CHECK_EQ_INT(defaults[PKEY_LOOK_BACK], 0x30);
+    CHECK_EQ_INT(port_controls_look_back_key(&c), 0x30);
+    CHECK_EQ_INT(port_controls_key_of_word(-1), -1);   /* no config.dat word is it */
+    CHECK(strcmp(port_controls_key_name(PKEY_LOOK_BACK), "Look back") == 0);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_LOOK_BACK, 0x22), -1);
+    CHECK_EQ_INT(port_controls_look_back_key(&c), 0x22);
+    char text[2048];
+    size_t n = port_controls_format(&c, text, sizeof text);
+    CHECK(n > 0 && strstr(text, "key_look_back=34\n") && strstr(text, "look_back=button9\n"));
+    CHECK_EQ_INT(port_controls_parse(text, n).key[PKEY_LOOK_BACK], 0x22);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_HORN, 0x22), PKEY_LOOK_BACK);   /* a key a row has goes to the row that asks: swapped */
+    CHECK_EQ_INT(port_controls_look_back_key(&c), 0x23);
+    const char *const old = "key_left=16\nkey_right=17\n";   /* a file from before the key: it is not none */
+    const PortControls from_old = port_controls_parse(old, strlen(old));
+    CHECK_EQ_INT(from_old.keys_custom, 1);
+    CHECK_EQ_INT(port_controls_look_back_key(&from_old), 0x30);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_LOOK_BACK, 0), -1);
+    CHECK_EQ_INT(port_controls_look_back_key(&c), 0);   /* none on purpose */
+    CHECK(port_controls_key_reserved(0x5b));   /* the pad's virtual key is not offered to the keyboard */
 }
 
 int main(void)
@@ -257,5 +287,6 @@ int main(void)
     test_a_file_can_say_the_pad_is_not_custom();
     test_nitro_is_a_binding_in_the_file();
     test_keyboard_keys();
+    test_look_back_key();
     return TEST_REPORT();
 }

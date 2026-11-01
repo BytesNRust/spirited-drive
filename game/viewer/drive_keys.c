@@ -7,6 +7,7 @@
 #include "game/race/input_queue.h"
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
+#include "game/race/race_follow.h"
 #include "game/race/race_loop.h"
 #include "game/race/race_sound.h"
 #include "game/sys/port_extras.h"
@@ -132,6 +133,7 @@ void drive_keys_frame(DriveKeys *k, DriveInput *in, RaceState *race, RaceViews *
     race_keys(&ops, &k->state, &inputs);
     /* port: F6 flipped the car markers: the new value goes to extras.cfg, so the next race starts with it */
     if (k->state.hidden != hidden_before) port_extras_set_race_switch(RACE_SWITCH_MARKERS, !k->state.hidden);
+    race->chase.port_look_back = race_look_back_held(race->port_follow_camera, in->keys, (int32_t)sizeof in->keys, in->look_back_key);   /* port: the 360 camera's look back */
     race->viewed = k->state.viewed;
     race->view_taken = k->state.view_changed;
 }

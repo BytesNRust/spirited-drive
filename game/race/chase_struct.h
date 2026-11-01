@@ -74,6 +74,8 @@ typedef struct {
     Car *car;                   /* +0x90: the car followed */
     const Car *port_follow_car; /* port (port_follow_camera): the car the yaw spring below was started for */
     int32_t port_follow_yaw, port_follow_velocity;   /* its state (follow_yaw.h) */
+    int32_t port_look_fast;     /* the look back's quicker spring is on: while it is held and until the camera is back behind the car */
+    int32_t port_look_back;     /* port (port_follow_camera): the look back key is held: the camera's target is the car's heading turned half a turn */
 } RaceChase;
 
 #endif

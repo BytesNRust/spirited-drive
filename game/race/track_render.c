@@ -89,6 +89,13 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
     if (r->reach != 0) track_render_set_reach(r, r->reach);
 }
 
+void track_render_set_ring(TrackRender *r, int32_t records)
+{
+    const int32_t before = track_cache_records();
+    track_cache_set_records(records);
+    if (track_cache_records() != before) r->window.head = WINDOW_HEAD, r->build.first_node = -1;   /* loaded and built again from the camera's segment */
+}
+
 void track_render_set_light(TrackRender *r, const PsxLight *light)
 {
     if (light == r->psx) return;

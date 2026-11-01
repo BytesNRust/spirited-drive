@@ -22,8 +22,8 @@ static const char *const SUBTITLE[PAGES - 1] = { "Keyboard", "Game controller", 
 /* the title where the configuration screens' are (extras_menu.c's and graphics_own.c's TITLE_X, TITLE_Y) */
 enum { TITLE_X = 8, TITLE_Y = 56 };
 static const char *const TITLE = "Controls Setup";   /* title case: the title art's letters are the CD's own */
-/* the rows: a line per row and per group header, 21 apart, a group after the first 8 lower; the second group's header
- * and rows end at y 402, so the page stays between the title's band and the buttons' (96..430) */
+/* the rows: a line per row and per group header, 21 apart, a group after the first 8 lower; the second group's last row
+ * is at y 402 at most, so the page stays between the title's band and the buttons' (96..430) */
 enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = TUNE_COUNT };
 /* the tuning page's rows are as far apart as its '%' needs: graver18's reaches y 5..21 of its line, and the smooth draw
  * keeps its shadow and the background's cover (own_plus_text, 6 of room) below that, which the next row's cover
@@ -31,8 +31,10 @@ enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = T
 enum { TUNE_PITCH = 28 };
 /* each page's two groups: the rows in each, and their headers ("" none: the second group of page 3 is Defaults alone).
  * Indexed by page - KEYBOARD_PAGE. */
-static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 4 }, { 9, 4 }, { 3, 1 } };
-static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Driving", "Other" },
+static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 5 }, { 9, 5 }, { 3, 1 } };
+/* the actions' second group has no header of its own: with Look back it has five rows and a header's line would take the last row past y 402 (the buttons'
+ * band starts at 405); the gap above it still sets it apart */
+static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Driving", NULL },
                                                           { "Tuning", NULL } };
 /* Done and Cancel as the original's (00413aa0, 00463f80's calls) */
 enum { DONE_X = 50, CANCEL_X = 565, ITEMS_Y = 450 };

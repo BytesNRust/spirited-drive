@@ -552,6 +552,9 @@ static void draw_skids(void *user, int32_t row, const int32_t s[2], const int32_
 
 /* 0051c7ac: the rows ahead of the camera holding a car (00459d70). */
 static uint8_t ahead_rows[ROW_CARS_AHEAD];
+/* port (port_follow_camera): the rows behind the camera's node holding a car, for the arm of road behind it (row_cars.h), and whether the arm is drawing */
+static uint8_t behind_rows[ROW_CARS_BEHIND];
+static int arm_drawing;
 
 void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS])
 {
@@ -560,6 +563,8 @@ void ported_view_frame_rows(uint8_t behind[MIRROR_CAR_ROWS])
     skid_rows(&skid_marks, &ring, shadow_race->chase.node);
     car_rows_ahead(shadow_race->cars, shadow_race->car_count, shadow_race->segments, shadow_race->chase.node, ahead_rows,
                    behind);
+    if (shadow_race->port_follow_camera)
+        car_rows_behind(shadow_race->cars, shadow_race->car_count, shadow_race->segments, shadow_race->chase.node, behind_rows);
 }
 
 /* port: the mirror's rows again for the camera's node of this frame, the cars not moved on (mirror_car_rows_at) */
@@ -943,6 +948,10 @@ static void draw_cars(void *user, int32_t node)
         const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->drawn, race->drawn_count, followed_car(),
                                    race->chase.kind, 0 };
         cars_on_row(&ops, &in, node);
+        if (arm_drawing) {   /* port: the rows behind the camera's node, which the exe's pass reads as the end of the ring */
+            const RowCarsBehindInputs back = { race->chase.node, race->segments, behind_rows, race->drawn, race->drawn_count, followed_car() };
+            cars_on_row_behind(&ops, &back, node);
+        }
         return;
     }
     const Object3DSink sink = object_sink(&object_pixels);
@@ -1118,6 +1127,8 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
     track_render_set_light(&render, psx_light);  /* before the build: it fills the light with the vertices */
+    track_render_set_ring(&render, shadow_race != NULL && shadow_race->port_follow_ring ? TRACK_CACHE_RECORDS_MAX : TRACK_CACHE_RECORDS);   /* port (port_follow_ring) */
+    if (shadow_race != NULL && shadow_race->port_follow_camera) follow_arm_window(&render, follow_arm_segments());   /* the window's reach behind before it is filled */
     track_render_build(&render, tri, art, camera_node);
     if (shadow_race != NULL) {
         render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
@@ -1281,11 +1292,13 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     memset(lit_corner, 255, sizeof lit_corner);
     int ahead = 1;   /* the exe's pass draws the track */
     if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
-        follow_arm_window(&render, FOLLOW_ARM_SEGMENTS);
+        follow_arm_window(&render, follow_arm_segments());
         ahead = follow_off_road(pc) <= FOLLOW_EXE_BELOW;
         if (!ahead) {
             const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri), anim_tick, view_mirrored(), 0 };
-            follow_behind_draw(&arm, FOLLOW_ARM_SEGMENTS, render.draw_segments - 2);
+            arm_drawing = 1;
+            follow_behind_draw(&arm, follow_arm_segments(), render.draw_segments - 2);
+            arm_drawing = 0;
         }
     }
     if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);

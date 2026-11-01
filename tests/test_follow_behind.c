@@ -1,5 +1,6 @@
 /* port (port_follow_camera, phase 2): the road behind the camera's node (follow_behind.h): the near plane's push along the
  * road direction turned about, and the rail panel that passes the lens clipped to the plane instead of dropped */#include "game/race/track_tables.h"
+#include "game/race/track_cache.h"
 #include "game/viewer/follow_behind.h"
 #include "test.h"
 
@@ -63,9 +64,27 @@ static void test_kept_behind(void)
     CHECK_EQ_INT(follow_arm_kept_behind(&w, FOLLOW_ARM_SEGMENTS), 0);
 }
 
+/* port (port_follow_ring): with the ring of 128 records the arm behind is longer, and an Ultra view keeps what it asks for behind: the window is raised to
+ * ahead + behind where the exe's ring would cap it at 62 */
+static void test_the_bigger_ring_keeps_more_behind(void)
+{
+    static TrackRender r;
+    CHECK_EQ_INT(follow_arm_segments(), FOLLOW_ARM_SEGMENTS);   /* the exe's ring: ten */
+    r.window.ahead = 58, r.window.behind = 63;   /* Ultra */
+    follow_arm_window(&r, follow_arm_segments());
+    CHECK_EQ_INT(follow_arm_kept_behind(&r.window, follow_arm_segments()), 5);
+    track_cache_set_records(128);
+    CHECK(follow_arm_segments() > FOLLOW_ARM_SEGMENTS && follow_arm_segments() <= FOLLOW_ARM_MAX);
+    follow_arm_window(&r, follow_arm_segments());
+    CHECK_EQ_INT(follow_arm_kept_behind(&r.window, follow_arm_segments()), follow_arm_segments());
+    CHECK(r.window.behind <= track_cache_records() - 2);   /* the whole window in the ring */
+    track_cache_set_records(64);
+}
+
 int main(void)
 {
     test_kept_behind();
+    test_the_bigger_ring_keeps_more_behind();
     test_direction();
     test_rail_panel();
     return TEST_REPORT();

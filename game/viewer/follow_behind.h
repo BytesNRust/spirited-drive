@@ -15,9 +15,16 @@
 
 #include <stdint.h>
 
-/* The track from `behind` segments before the camera's (at most FOLLOW_ARM_SEGMENTS) to `ahead` after it, the farthest
+/* The track from `behind` segments before the camera's (at most FOLLOW_ARM_MAX) to `ahead` after it, the farthest
  * first: in place of the exe's pass, for a camera that does not look along the road. */
 void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead);
+
+/* The place of a scenery record's `node` in the run of the arm's range, which starts at `first_node` and may cross the lap seam: its distance
+ * on from there round the ring (node_mask the ring's nodes less 1), so the run's order is the key's. */
+int32_t follow_behind_run_key(int32_t node, int32_t first_node, int32_t node_mask);
+
+/* The scenery records the last pass's range holds, and how many of them it drew (for the tests). */
+void follow_behind_runs(int32_t *runs, int32_t *drawn);
 
 /* The road direction in camera space pointing away from the camera, from the world positions of two nodes, `lo` the one
  * nearer the track's start: (lo - hi) >> shift through the matrix, its z at least 0x1999 as 004497d8 has it. */

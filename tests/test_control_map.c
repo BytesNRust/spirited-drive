@@ -147,6 +147,7 @@ static void test_sources_the_device_lacks_are_ignored(void)
     c.bind[ACT_STEER][0] = (ControlSource){ SRC_AXIS_FULL, 6, 0, 0 };
     c.bind[ACT_PAUSE][0] = (ControlSource){ SRC_HAT, 1, 1, 0 };
     c.bind[ACT_NITRO][0] = (ControlSource){ SRC_BUTTON, 14, 0, 0 };
+    c.bind[ACT_LOOK_BACK][0] = (ControlSource){ SRC_BUTTON, 20, 0, 0 };
     RawPad r = wheel(11, 4);                 /* a smaller device than the file names */
     memset(r.button, 1, sizeof r.button);    /* the arrays past its counts hold anything */
     memset(r.axis, 0x7f, sizeof r.axis);
@@ -207,6 +208,20 @@ static void test_nitro_is_a_virtual_key(void)
     r.button[RIGHT_SHOULDER] = 1;
     CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_NITRO);
     CHECK(strcmp(control_map_action_name(ACT_NITRO), "Nitro") == 0);
+}
+
+/* Look back is a virtual key of the pad's left shoulder by default (the 360 camera's, race_follow.h), away from the others' */
+static void test_look_back_is_a_virtual_key(void)
+{
+    const PortControls c = port_controls_defaults();
+    RawPad r = pad();
+    CHECK_EQ_INT(control_map_apply(&c, &r).keys & (1u << ACT_LOOK_BACK), 0);
+    r.button[LEFT_SHOULDER] = 1;
+    CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_LOOK_BACK);
+    CHECK(strcmp(control_map_action_name(ACT_LOOK_BACK), "Look back") == 0);
+    const PortControls moved = control_map_assign(&c, ACT_LOOK_BACK, 0, (ControlSource){ SRC_BUTTON, NORTH, 0, 0 });
+    CHECK_EQ_INT(moved.bind[ACT_HANDBRAKE][0].kind, SRC_NONE);   /* a button belongs to one action: the handbrake gave it up */
+    CHECK_EQ_INT(moved.bind[ACT_LOOK_BACK][0].index, NORTH);
 }
 
 static void test_a_wheel_without_a_file_passes_through(void)
@@ -482,6 +497,7 @@ int main(void)
     test_dead_zone_and_sensitivity_stay_in_range();
     test_virtual_keys();
     test_nitro_is_a_virtual_key();
+    test_look_back_is_a_virtual_key();
     test_a_wheel_without_a_file_passes_through();
     test_a_wheel_with_a_file_keeps_its_other_buttons();
     return TEST_REPORT();

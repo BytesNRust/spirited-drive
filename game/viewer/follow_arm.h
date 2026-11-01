@@ -11,7 +11,14 @@
 
 #include <stdint.h>
 
-enum { FOLLOW_ARM_SEGMENTS = 10 };   /* how far behind the camera's segment (the cache holds 62 segments, 30 of them ahead) */
+enum {
+    FOLLOW_ARM_SEGMENTS = 10,        /* how far behind the camera's segment with the exe's ring (the cache holds 62 segments, 30 of them ahead) */
+    FOLLOW_ARM_RING_SEGMENTS = 30,   /* and with port_follow_ring's bigger one (track_cache.h) */
+    FOLLOW_ARM_MAX = FOLLOW_ARM_RING_SEGMENTS
+};
+
+/* how far behind the camera's segment the arm goes: FOLLOW_ARM_SEGMENTS, or FOLLOW_ARM_RING_SEGMENTS when the cache's ring is the bigger one */
+int32_t follow_arm_segments(void);
 
 typedef struct {
     const TrackRender *render;   /* the cache, nodes and masks, bound to the track */
@@ -26,7 +33,7 @@ typedef struct {
 enum { FOLLOW_ARM_BEHIND, FOLLOW_ARM_AHEAD };
 
 /* The arm drawn into the sink's target (its draws are the main view's, so recorded for the bands and the render scale's
- * as the track's are). `segments` at most FOLLOW_ARM_SEGMENTS. The behind arm is the segments before the camera's, the ahead
+ * as the track's are). `segments` at most FOLLOW_ARM_MAX. The behind arm is the segments before the camera's, the ahead
  * one, for the mirror of a car that points back along the track, the camera's and those after it, the farthest first. */
 void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead);
 
