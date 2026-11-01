@@ -90,7 +90,7 @@ void ai_use_game_profiles(RaceState *race)
 
 void ai_grid_place(Car *car, RaceState *race)
 {
-    const TriNode lanes = race_node(race, GRID_LANE_NODE);
+    const TriNode lanes = ai_grid_node(race, GRID_LANE_NODE);
     const int32_t gap = ai_lane_width(race, lanes.flags[0] & 0xf, lanes.right_verge) << 8;
     const int32_t place = (uint32_t)car->player < RACE_PLAYERS ? race->grid[car->player] : 0;  /* port guard */
     car->node = GRID_FRONT - (race->racers > PAIRED_RACERS ? place * 2 : place / 2 * 4);
@@ -100,7 +100,7 @@ void ai_grid_place(Car *car, RaceState *race)
         car->x += at.position.x;
         car->yaw = (int32_t)((uint32_t)(int32_t)at.orientation << 10);
     }
-    const TriNode narrow = race_node(race, GRID_NARROW_NODE);
+    const TriNode narrow = ai_grid_node(race, GRID_NARROW_NODE);
     if (narrow.flags[0] >> 4 == 2 && (narrow.flags[0] & 0xf) == 1 && place % 2 == 0) car->x -= gap;
     car->lateral = 0;
     car->z = race_node(race, car->node).position.z;

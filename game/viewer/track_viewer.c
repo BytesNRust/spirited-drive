@@ -445,6 +445,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const int laps = wanted > 0 ? wanted : exe_laps;
     const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
     rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
+    field.port_reverse = t->reversed;   /* port: the grid is placed at the start, before the race knows its direction otherwise */
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
     drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
     drive_light_load_alt_sky(data_root, name);

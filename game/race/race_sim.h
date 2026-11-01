@@ -85,6 +85,7 @@ struct RaceField {
     RaceDifficulty port_difficulty;     /* port: RaceState's port_difficulty for this race (difficulty_resolve) */
     int port_lunar_gravity;             /* port: RaceState's port_lunar_gravity for this race (lunar_gravity_active) */
     int mirrored;                       /* 004fbad8: the "m" tracks (SKCART), read in place by the race */
+    int port_reverse;                   /* port: the track runs the other way round (tri_reverse.h); read by the grid at the start */
     /* 004571e8's showing, after each of its picks: picture 0..6 of the followed player's car (`user` the load's);
      * NULL shows none */
     void (*slide)(void *user, int32_t picture, int32_t car);
