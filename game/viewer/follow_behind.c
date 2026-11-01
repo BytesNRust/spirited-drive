@@ -28,6 +28,8 @@ typedef struct {
     int32_t object_world[OBJECT_CAPACITY][3], object_camera[OBJECT_CAPACITY][3], object_screen[OBJECT_CAPACITY][2];
     TrackSegmentEntry entries[TRACK_SEGMENT_ENTRIES];
     int32_t run_cursor[RUN_CAPACITY], run_node[RUN_CAPACITY], run_end[RUN_CAPACITY];
+    int32_t run_key[RUN_CAPACITY];   /* run_node as a distance along the road from the first row (follow_behind_run_key), so the run goes up across the lap seam */
+    int32_t runs_drawn;
     int run_count;
     /* port (the PS1 light): the light of each point of `world`, 1 for those in a tunnel's row, and the corners of the polygon being drawn, as the render's */
     uint8_t light_vertex[WORLD_CAPACITY], tunnel_vertex[WORLD_CAPACITY], light_now[6];
@@ -39,6 +41,17 @@ static Behind B;
 static int32_t rd32(const uint8_t *p)
 {
     return (int32_t)((uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24);
+}
+
+int32_t follow_behind_run_key(int32_t node, int32_t first_node, int32_t node_mask)
+{
+    return (int32_t)((uint32_t)(node - first_node) & (uint32_t)node_mask);
+}
+
+void follow_behind_runs(int32_t *runs, int32_t *drawn)
+{
+    *runs = B.run_count;
+    *drawn = B.runs_drawn;
 }
 
 void follow_behind_direction(const int32_t lo[3], const int32_t hi[3], const int32_t matrix[9], int shift, int32_t dir[3])
@@ -76,13 +89,18 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     }
     const TrackObjectWalk *w = &b->walk;
     B.run_count = 0;
+    B.runs_drawn = 0;
     int32_t end = 0;
+    const int32_t first_node = (int32_t)((uint32_t)first * 4u & w->node_mask);
     for (int32_t i = 0; i < w->count && B.run_count < RUN_CAPACITY && w->record_count > 0; i++) {
         const int32_t at = (w->first + i) % w->record_count;
         const uint8_t *record = w->records + (uint32_t)at * TRACK_WALK_RECORD_SIZE;
         end += w->descriptors[(uint32_t)record[4] * TRACK_WALK_RECORD_SIZE + 1];
         B.run_cursor[B.run_count] = at, B.run_node[B.run_count] = rd32(record), B.run_end[B.run_count++] = end;
+        B.run_key[B.run_count - 1] = follow_behind_run_key(B.run_node[B.run_count - 1], first_node, (int32_t)w->node_mask);
     }
+    /* the walk starts at the record before the first row's when none stands on it: that one is behind the range, whatever its key says */
+    if (B.run_count > 1 && B.run_key[0] > B.run_key[1]) B.run_key[0] = -1;
     return b->vertex_count <= WORLD_CAPACITY && w->vertex_total <= OBJECT_CAPACITY;
 }
 
@@ -101,7 +119,7 @@ typedef struct {
     TrackFenceOps fence_ops;
     TrackObjectDraw objects;
     MirrorBounds bounds;
-    int32_t camera_node, node_mask, mask, run_lo, run_hi;
+    int32_t camera_node, node_mask, mask, run_lo, run_hi, first_node;   /* first_node: the range's first row, run_key's origin */
     int backward;   /* the lower nodes lie away from the camera */
     int32_t last_node;   /* the last row drawn nearer by node, whose cars are still to come (-1: none) */
 } Pass;
@@ -411,25 +429,29 @@ static void draw_fences(Pass *p, const TrackLod *lod, const uint8_t *record, con
     if (fence & FENCE_LEFT) draw_rail(p, (const int32_t[2]){ lod->fence[pair], lod->fence[pair + 1] }, base, uv, level, texture, tall);
 }
 
-/* the scenery on a row's node, the walker put on each record in turn: up the run behind the camera, down it ahead */
+/* the scenery on a row's node, the walker put on each record in turn: up the run behind the camera, down it ahead. The run is in the
+ * walk's order, which goes round the ring: a node's place in it is its distance from the range's first (run_key), not its number */
 static void draw_objects(Pass *p, int32_t node, int32_t band, int ascending)
 {
     TrackObjectWalk *w = p->objects.walk;
+    const int32_t key = follow_behind_run_key(node, p->first_node, p->node_mask);
     if (ascending) {
-        while (p->run_lo < B.run_count && B.run_node[p->run_lo] < node) p->run_lo++;
-        while (p->run_lo < B.run_count && B.run_node[p->run_lo] == node) {
+        while (p->run_lo < B.run_count && B.run_key[p->run_lo] < key) p->run_lo++;
+        while (p->run_lo < B.run_count && B.run_key[p->run_lo] == key) {
             w->cursor = B.run_cursor[p->run_lo];
             w->node = node;
             w->vertex_cursor = B.run_end[p->run_lo++];
             track_object_draw(&p->objects, band, 1);
+            B.runs_drawn++;
         }
     } else {
-        while (p->run_hi >= 0 && B.run_node[p->run_hi] > node) p->run_hi--;
-        while (p->run_hi >= 0 && B.run_node[p->run_hi] == node) {
+        while (p->run_hi >= 0 && B.run_key[p->run_hi] > key) p->run_hi--;
+        while (p->run_hi >= 0 && B.run_key[p->run_hi] == key) {
             w->cursor = B.run_cursor[p->run_hi];
             w->node = node;
             w->vertex_cursor = B.run_end[p->run_hi--];
             track_object_draw(&p->objects, band, 1);
+            B.runs_drawn++;
         }
     }
 }
@@ -509,7 +531,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     if (!build_range(r, first, last + 1, camera_segment, a->low_lod)) return;   /* the segment past the last: its first row closes the last's polygons */
 
     Pass *p = &(Pass){ .arm = a, .ctx = *a->ctx, .camera_node = cam->node, .node_mask = (int32_t)r->build.walk.node_mask,
-                       .mask = mask, .run_hi = B.run_count - 1, .last_node = -1 };
+                       .mask = mask, .run_hi = B.run_count - 1, .first_node = (int32_t)((uint32_t)first * 4u & (uint32_t)r->build.walk.node_mask), .last_node = -1 };
     const int shift = p->ctx.world_shift & 31;
     int32_t lo[3], hi[3];
     node_position(r, (camera_segment - 1) * 4, lo);
@@ -555,7 +577,9 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
             hi_s--;
         }
     }
-    if (p->last_node >= 0 && p->ctx.sink.draw_cars != NULL)   /* the rows the lag left: the nearest cars */
-        for (int32_t k = 1; k < CARS_LAG; k++)
-            p->ctx.sink.draw_cars(p->ctx.sink.user, (int32_t)((uint32_t)(p->last_node + 1 - CARS_LAG + k) & (uint32_t)p->node_mask));
+    if (p->ctx.sink.draw_cars != NULL) {   /* the rows the lag left: the nearest cars, and the one row between the two halves, which neither calls for */
+        const int32_t last_node = p->last_node >= 0 ? p->last_node : camera_segment * 4 - 1;
+        for (int32_t k = p->last_node >= 0 ? 1 : CARS_LAG; k <= CARS_LAG; k++)
+            p->ctx.sink.draw_cars(p->ctx.sink.user, (int32_t)((uint32_t)(last_node + 1 - CARS_LAG + k) & (uint32_t)p->node_mask));
+    }
 }
