@@ -121,25 +121,56 @@ static void test_times_of_day(void)
     CHECK_EQ_INT(psx_light_byte(&light, 30, 2), 130);
 }
 
+static float car_green(const PsxLight *light, uint32_t node)
+{
+    float f[3];
+    psx_light_synth_car(light, node, f);
+    return f[1];
+}
+
 static void test_car_factor_follows_the_beyond_points(void)
 {
     uint8_t data[NODES * PSX_LIGHT_POINTS];
     PsxLight light = { 0 };
     rows(&light, data, PSX_SYNTH_DAY);
-    const float inside = PSX_SYNTH_CAR_PERCENT / 100.0f;
-    CHECK(psx_light_synth_car(&light, 5) == 1.0f);
-    CHECK(psx_light_synth_car(&light, 30) == inside);
-    float last = 1.0f;
-    for (int d = PSX_SYNTH_BEYOND_ENTRY; d >= 1; d--) {                                              /* going in: never lighter, ends at the tunnel's */
-        const float f = psx_light_synth_car(&light, (uint32_t)(20 - d));
-        CHECK(f <= last && f >= inside);
-        last = f;
+    float f[3];
+    psx_light_synth_car(&light, 5, f);                                                               /* the open road: full light */
+    CHECK(f[0] == 1.0f && f[1] == 1.0f && f[2] == 1.0f);
+    const float inside = car_green(&light, 30);                                                      /* an even node in the tunnel: under a lamp */
+    CHECK(inside < 1.0f);
+    for (int d = PSX_SYNTH_BEYOND_ENTRY; d >= 1; d--) {                                              /* going in (even nodes): never lighter, ends at the tunnel's */
+        const float g = car_green(&light, (uint32_t)(20 - d - ((20 - d) & 1)));
+        CHECK(g <= 1.0f && g >= inside);
     }
-    CHECK(psx_light_synth_car(&light, 17) < 1.0f && psx_light_synth_car(&light, 17) > inside);
-    CHECK(psx_light_synth_car(&light, 43) > inside);                                                 /* the exit gives it back, slowly */
-    CHECK(psx_light_synth_car(&light, 48) < 1.0f);
-    CHECK(psx_light_synth_car(&light, 49) == 1.0f);
-    CHECK(psx_light_synth_car(NULL, 3) == 1.0f);
+    CHECK(car_green(&light, 42) > car_green(&light, 30));                                            /* the exit gives it back, slowly */
+    CHECK(car_green(&light, 48) < 1.0f);
+    CHECK(car_green(&light, 49) == 1.0f);
+    float none[3];
+    psx_light_synth_car(NULL, 3, none);
+    CHECK(none[0] == 1.0f && none[1] == 1.0f && none[2] == 1.0f);
+}
+
+/* the lamps: inside a tunnel the light alternates node by node, warm under a lamp (even) and a dimmer grey between (odd), the CD's RAMP context */
+static void test_lamps_flicker_node_by_node(void)
+{
+    uint8_t data[NODES * PSX_LIGHT_POINTS];
+    PsxLight light = { 0 };
+    rows(&light, data, PSX_SYNTH_DAY);
+    for (uint32_t node = 24; node < 36; node += 2) {
+        float lit[3], dim[3];
+        psx_light_synth_car(&light, node, lit);
+        psx_light_synth_car(&light, node + 1, dim);
+        CHECK(lit[0] > dim[0] && lit[1] > dim[1] && lit[2] > dim[2]);                                /* every channel brighter under the lamp */
+        CHECK(lit[0] > lit[1] && lit[1] > lit[2]);                                                   /* yellowish: red over green over blue */
+        CHECK(dim[0] == dim[1] && dim[1] == dim[2]);                                                 /* between lamps: grey */
+        CHECK(lit[0] == 96.0f / 160 && dim[0] == 62.0f / 160);                                       /* the CD's values through the exe's table */
+    }
+    float a[3], b[3];                                                                                /* the open road does not flicker */
+    psx_light_synth_car(&light, 2, a);
+    psx_light_synth_car(&light, 3, b);
+    CHECK(a[0] == 1.0f && b[0] == 1.0f);
+    CHECK(car_green(&light, 14) < 1.0f && car_green(&light, 14) >= car_green(&light, 30));          /* a door fades the alternation in, not a step */
+    CHECK(car_green(&light, 14) > car_green(&light, 16));
 }
 
 static void test_tracks(void)
@@ -156,6 +187,7 @@ int main(void)
     test_doors_follow_the_measured_ramps();
     test_times_of_day();
     test_car_factor_follows_the_beyond_points();
+    test_lamps_flicker_node_by_node();
     test_tracks();
     return TEST_REPORT();
 }

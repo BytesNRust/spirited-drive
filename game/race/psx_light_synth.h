@@ -39,9 +39,10 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out);
 /* 1 for the tracks it is for: "TR6" and "TR7" (any case). */
 int psx_light_synth_track(const char *track);
 
-/* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel: 1 on the open road, PSX_SYNTH_CAR_PERCENT in a tunnel, the
- * way the points beyond the foot go dark at the doors between. The CD's lamp contexts average R 0.51, G 0.44, B 0.40 in tunnels (re/notes/psx-light.md). */
-enum { PSX_SYNTH_CAR_PERCENT = 50 };
-float psx_light_synth_car(const PsxLight *light, uint32_t node);
+/* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel (`out`, 3): 1 on the open road, in a tunnel the CD's lamp
+ * alternation (a RAMP context takes its first colour on even nodes and its second on odd ones: CY1's 266..292 is 128,115,96 then 60,60,60 through the exe's
+ * table, 0.60 0.56 0.50 under a lamp, 0.39 grey between), which flickers yellowish with the speed; the way the points beyond the foot go dark at the doors,
+ * the light goes between the open road's 1 and the alternation. A NULL light is 1. */
+void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3]);
 
 #endif

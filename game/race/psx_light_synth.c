@@ -117,9 +117,15 @@ int psx_light_synth_track(const char *track)
     return track != NULL && (strcasecmp(track, "TR6") == 0 || strcasecmp(track, "TR7") == 0);
 }
 
-float psx_light_synth_car(const PsxLight *light, uint32_t node)
+/* CY1's lamp context through the exe's table (psx_lgs.h): 128,115,96 under a lamp (even nodes), 60,60,60 between (odd) */
+static const float LAMP_LIT[3] = { 96.0f / 160, 89.0f / 160, 80.0f / 160 };
+static const float LAMP_DIM[3] = { 62.0f / 160, 62.0f / 160, 62.0f / 160 };
+
+void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
 {
-    if (light == NULL || light->data == NULL) return 1.0f;
-    const float dark = 1.0f - (float)psx_light_byte(light, node, 4) / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
-    return 1.0f - (1.0f - PSX_SYNTH_CAR_PERCENT / 100.0f) * dark;
+    const float dark = light == NULL || light->data == NULL
+                           ? 0.0f
+                           : 1.0f - (float)psx_light_byte(light, node, 4) / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
+    const float *lamp = (node & 1u) != 0 ? LAMP_DIM : LAMP_LIT;
+    for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
 }

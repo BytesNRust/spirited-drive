@@ -349,8 +349,8 @@ void ported_view_set_psx_synth(int on) { synth_on = on; }
  * its own tunnel's tint, and a RAMP context's odd / even nodes are the lamps' alternation. */
 static int ratio_at(int32_t node, float out[3])
 {
-    if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's own factor */
-        out[0] = out[1] = out[2] = psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes));
+    if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's lamp alternation */
+        psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes), out);
         return 1;
     }
     if (!ambient_on || psx_light == NULL) return 0;

@@ -187,6 +187,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     if (!psx_light_synth(tri, synth_time, &made)) return;
     light = made;
     synth_on = 1;
+    split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);
     ported_view_set_psx_synth(1);
     port_log("psx_light: %s has no light on the CD, made from the road's tunnels (%u nodes)\n", track, light.nodes);
