@@ -20,4 +20,7 @@ typedef struct {
  * damping is toward that rate, so a steady turn is followed without lag. Opposite the camera, the way the target turns. */
 void follow_yaw_step(FollowYaw *s, int32_t target, int32_t target_rate);
 
+/* The same with the spring `boost` times as fast (its rate: stiffness boost squared, damping boost, so it stays critically damped); 1 is follow_yaw_step. */
+void follow_yaw_step_boost(FollowYaw *s, int32_t target, int32_t target_rate, int32_t boost);
+
 #endif

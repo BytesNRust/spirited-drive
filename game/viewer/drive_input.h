@@ -18,6 +18,7 @@ typedef struct {
     InputQueue queues[RACE_PLAYERS];  /* 004faa7c */
     int32_t codes[INPUT_KEY_CODES];   /* 004fb6dc */
     uint8_t keys[256];                /* 004c693c: a flag per key code */
+    int32_t look_back_key;            /* port: the look back's scancode (controls.cfg, B by default), 0 none */
     int16_t own_stand_ins[1 + RACE_PLAYERS];   /* 004f829e racing alone */
     int16_t *stand_in_block;          /* 004f829e: the kind word (0041019c), then 004f82a0's stand-ins; a link race's are the link's */
     int32_t ticks;                    /* the tick's clock (004bb8e0's role): twice the ticks taken */

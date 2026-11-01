@@ -18,6 +18,8 @@
 #include "viewer/race_stats.h"
 #include "game/sys/port_extras.h"
 
+#include "game/race/race_follow.h"
+#include "game/sys/port_controls.h"
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -645,8 +647,18 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     const char *frames_env = getenv("TNFS_FRAMES");
     const uint32_t frames = frames_env == NULL ? 0 : (uint32_t)atoi(frames_env);
     const int f3_keys = getenv("TNFS_F3_AT") != NULL;  /* the captures' F3 presses: the race's keys, as the window run reads them */
+    /* port (dev, env only): TNFS_LOOK_BACK_AT=from:to holds the look back key (B, or the player's) over those ticks, for the captures */
+    int32_t look_from = -1, look_to = -1;
+    const char *look_env = getenv("TNFS_LOOK_BACK_AT");
+    if (look_env != NULL) sscanf(look_env, "%d:%d", &look_from, &look_to);
+    const PortControls look_port = port_controls_load();
     for (uint32_t i = 0; i < ticks; i++) {
         drive_replay_key(&drive_replay, env_press((int32_t)i));
+        if (look_from >= 0) {
+            const int32_t key = port_controls_look_back_key(&look_port);
+            drive_input.keys[key] = (int32_t)i >= look_from && (int32_t)i < look_to;
+            drive_sim.race.chase.port_look_back = race_look_back_held(drive_sim.race.port_follow_camera, drive_input.keys, (int32_t)sizeof drive_input.keys, key);
+        }
         if (f3_keys) {
             drive_input.keys[KEY_F3] = f3_env_press((int32_t)i) ? 1 : 0;
             drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
