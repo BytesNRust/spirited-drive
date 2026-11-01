@@ -272,11 +272,12 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->arcade = arcade;
     race->mirrored = field->mirrored;
     race->track_flags = field->track_flags;
+    race->port_difficulty = field->port_difficulty;
     race->port_lunar_gravity = field->port_lunar_gravity;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->cops = field->cops < 0 ? 0 : field->cops;
-    race->traffic_setting = field->traffic < 0 ? 0 : field->traffic;
+    race->traffic_setting = field->traffic < 0 ? 0 : difficulty_traffic_count(&race->port_difficulty, field->traffic);
     race->car_count = race->racers + race->cops + race->traffic_setting;  /* 00439c98 */
     if (race->car_count > RACE_CARS) race->car_count = RACE_CARS;     /* port guard: 9 slots */
     race->humans = field->humans > 1 ? (field->humans < race->racers ? field->humans : race->racers) : 1;

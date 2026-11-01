@@ -77,6 +77,25 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.movies_wide, 1);     /* the movies fill a wide screen */
 }
 
+/* difficulty: 0 Easy, 1 Original (the default), 2 Hard; written and read back; another value keeps the default */
+static void test_difficulty_key(void)
+{
+    CHECK_EQ_INT(port_extras_defaults().difficulty, 1);
+    const char *text = "difficulty=2\n";
+    PortExtras e = port_extras_parse(text, strlen(text));
+    CHECK_EQ_INT(e.difficulty, 2);
+    char out[512];
+    CHECK(port_extras_format(&e, out, sizeof out) > 0);
+    CHECK(strstr(out, "difficulty=2\n") != NULL);
+    CHECK_EQ_INT(port_extras_parse(out, strlen(out)).difficulty, 2);
+    text = "difficulty=0\n";
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).difficulty, 0);
+    text = "difficulty=3\n";
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).difficulty, 1);
+    text = "difficulty=-1\n";
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).difficulty, 1);
+}
+
 /* movies_wide is a switch of its own: parsed, written and read back */
 static void test_movies_wide(void)
 {
@@ -218,6 +237,7 @@ int main(void)
 {
     test_defaults();
     test_movies_wide();
+    test_difficulty_key();
     test_units_default_to_the_language();
     test_units_parse();
     test_units_round_trip();

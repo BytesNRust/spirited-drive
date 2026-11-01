@@ -28,6 +28,7 @@
 #include "viewer/drive_smoke.h"
 #include "game/sys/port_log.h"
 #include "game/race/lunar_springs.h"
+#include "game/race/difficulty.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -434,6 +435,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         }
     }
     field.port_lunar_gravity = lunar_gravity_race(name, arcade);
+    /* port (difficulty.h): extras.cfg's level; Original in a link race, a replay's own (the CD's demos: Original) */
+    field.port_difficulty = difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL,
+                                               drive_link_on);
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
     /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
      * a race whose laps are not the exe's for its track and difficulty is a free one, and guards what the lap count outgrows */

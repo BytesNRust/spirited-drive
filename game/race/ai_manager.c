@@ -6,6 +6,7 @@
 #include "game/race/ai_lanes.h"
 #include "game/race/car_control.h"
 #include "game/race/car_crash.h"
+#include "game/race/difficulty.h"
 #include "game/sys/rigid_math.h"
 #include "game/sys/fixed_math.h"
 
@@ -352,7 +353,7 @@ void ai_place_police(RaceState *race)
             const TriNode spot = race_node(race, at);
             if (!(spot.unknown_1a & POLICE_SPOT)) continue;
             const uint32_t chance = race_random(race);
-            if ((int32_t)((chance & 0x7f00) << 8) <= POLICE_ODDS[(spot.unknown_1a & 0x18) >> 3] << 16)
+            if ((int32_t)((chance & 0x7f00) << 8) <= difficulty_police_odds(&race->port_difficulty, (spot.unknown_1a & 0x18) >> 3, POLICE_ODDS[(spot.unknown_1a & 0x18) >> 3]) << 16)
                 place_police_car(race, cop, first, at, &spot);
             break;
         }
@@ -466,6 +467,13 @@ int32_t ai_target_pace(Car *car, RaceState *race)
     const int32_t progress = car->progress, first_progress = first->progress;
     const int32_t limit = segment_speed(race, car->node);
     const DriverProfile *profile = race->track_flags & NO_PROFILE ? NULL : ai_driver_profile(race, car->player);
+    DriverProfile hard;   /* port: Hard's rivals: no catch-up band of their own, and the bends faster (difficulty.h) */
+    if (profile != NULL && difficulty_rivals_flat(&race->port_difficulty)) {
+        hard = *profile;
+        for (size_t i = 0; i < sizeof hard.pace_by_gap / sizeof hard.pace_by_gap[0]; i++) hard.pace_by_gap[i] = 0x10000;
+        hard.bend_scale = difficulty_bend_scale(&race->port_difficulty, hard.bend_scale);
+        profile = &hard;
+    }
     const int32_t mass = profile != NULL ? fx_mul_round(profile->mass_scale, car->pdn_18) : car->pdn_18;
     const int32_t curve = bend_pace(car, race, profile);
     const int32_t step = (progress - first_progress) / 10 + 10;

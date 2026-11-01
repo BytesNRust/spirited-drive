@@ -3,6 +3,7 @@
 #include "game/race/ai_lanes.h"
 #include "game/race/car_held.h"
 #include "game/race/car_scenery.h"
+#include "game/race/difficulty.h"
 
 enum {
     CHASING = 0x24,             /* flags_175: bits 2 (chasing) and 5 (gave up) */
@@ -23,7 +24,7 @@ enum {
     STILL = 0x10000,            /* slower than this counts as stopped */
     SLOW = 0x30000,
     LEAN = 0x2e0000,            /* the wish's push to the road's side */
-    STOPS_TO_END = 1,
+    STOPS_TO_END = 1,           /* the exe's (difficulty.h) */
     END_ARRESTED = 4,
     TRI_SPEED_TABLE = 0x15b0c   /* 3 bytes per segment (004c5cd0) */
 };
@@ -63,7 +64,7 @@ static void stop(Car *cop, RaceState *race, Car *player, int32_t slot)
     race->ai.unknown_364 = 0;
     ai_recheck_cars(race);
     car_beside_road(player, race, slot >= 0);
-    if (record != NULL && record->police_stops[0] > STOPS_TO_END && race->phase == 1) {
+    if (record != NULL && record->police_stops[0] > difficulty_stops_to_end(&race->port_difficulty, STOPS_TO_END) && race->phase == 1) {
         race->end_request = END_ARRESTED;
         race->end_state = END_ARRESTED;
         record->finish = 0;

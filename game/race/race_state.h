@@ -9,6 +9,7 @@
 #include "game/race/car.h"
 #include "game/race/chase_struct.h"
 #include "game/race/crash_trail.h"
+#include "game/race/difficulty.h"
 #include "game/race/race_splits.h"
 
 #include <stddef.h>
@@ -433,6 +434,7 @@ typedef struct {
     int32_t sound_pitch[RACE_VOICES];  /* 004bc6f4: the pitch a channel keeps while it plays the same sound (00443e70) */
     RaceSounds sounds;
     int32_t port_replay_cameras;    /* port: the extra (extras.cfg): the own live car's view key goes the replay's way */
+    RaceDifficulty port_difficulty;  /* port: the race's difficulty (extras.cfg's difficulty, difficulty.h); all Original (0) the exe's */
     int32_t port_lunar_gravity;     /* port: the moon's race (extras.cfg's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
     int32_t port_follow_camera;     /* port: the experimental extra: every camera follows the car's heading (race_follow.h); 0 the exe's */
     int32_t port_time_of_day;       /* port: 004fbae0[track], the menus' time of day (0..2) a replay's setup keeps */

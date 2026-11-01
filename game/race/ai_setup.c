@@ -3,6 +3,7 @@
 #include "game/race/ai_lanes.h"
 #include "game/race/ai_profiles.h"
 #include "game/race/ai_zones.h"
+#include "game/race/difficulty.h"
 
 #include <string.h>
 
@@ -157,6 +158,7 @@ void ai_race_setup(RaceState *race, int32_t fallback_row)
     race->ai.lane_cars[1] = race->traffic_setting;
     race->ai.unknown_168 = race->unknown_4fb7f0;
     ai_default_params(race->ai.params);
+    difficulty_apply_params(&race->port_difficulty, race->ai.params);   /* port: Original leaves them */
     race->ai.racer_decel = RACER_DECEL;
     if (race->race_type == 0 || (race->race_type == 1 && race->circuit != 0)) race->ai.params[PARAM_COPS_AT] = 0;
     for (int32_t i = 0; i < race->humans && i < RACE_PLAYERS; i++)
