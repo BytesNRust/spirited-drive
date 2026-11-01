@@ -149,7 +149,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
     synth_wanted = psx_light_synth_track(track);
-    synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT ? PSX_SYNTH_DUSK : PSX_SYNTH_DAY;   /* the night is the dusk's, darker */
+    synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_NIGHT ? time : PSX_TIME_DAY];
     if (time != PSX_TIME_DAY) load_sky(psx_dir, track, letter);
