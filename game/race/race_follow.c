@@ -7,7 +7,7 @@
 
 #include <math.h>
 
-enum { TICKS_A_SECOND = 30, ANGLE_MASK = 0xffffff, ANGLE_SHIFT = 8, HALF_TURN = 0x800000, LOOK_BOOST = 3, LOOK_SETTLED = 0x20000 };   /* look back's spring: 3 times as fast, 0.117 s; settled within 2.8 degrees */
+enum { TICKS_A_SECOND = 30, ANGLE_MASK = 0xffffff, ANGLE_SHIFT = 8, HALF_TURN = 0x800000, LOOK_BOOST = 6, LOOK_SETTLED = 0x20000 };   /* look back's spring: 6 times as fast (a half turn in about 21 ticks, 0.7 s); settled within 2.8 degrees */
 
 int32_t race_follow_yaw(RaceChase *chase, const Car *car)
 {

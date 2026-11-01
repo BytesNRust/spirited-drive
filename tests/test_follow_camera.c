@@ -99,7 +99,7 @@ static void test_direction(void)
 }
 
 /* look back (port_look_back): while held the spring's target is the car's heading turned half a turn, and released it returns to it, both
- * ways through the same spring: no jump, and settled within a second and a half */
+ * ways through the same spring: no jump, and settled within a second */
 static void test_look_back(void)
 {
     RaceChase chase = { 0 };
@@ -107,16 +107,16 @@ static void test_look_back(void)
     race_follow_yaw(&chase, &car);
     chase.port_look_back = 1;
     const int32_t first = race_follow_yaw(&chase, &car);
-    CHECK(abs(wrapped(first - 0x100000)) < 0x70000);   /* the first tick has not jumped: the spring's top speed is 8.5 degrees a tick */
+    CHECK(abs(wrapped(first - 0x100000)) < 0x140000);   /* the first tick has not jumped: the spring's top speed is 26 degrees a tick */
     int ticks = 0;
     int32_t at = first;
     while (ticks < 200 && abs(wrapped(at - (car.yaw + 0x800000))) > 0x38e4) at = race_follow_yaw(&chase, &car), ticks++;   /* within 1.4 degrees */
-    CHECK(ticks < 45);   /* a second and a half at 30 ticks */
+    CHECK(ticks < 30);   /* a second at 30 ticks: half the first look back's time */
     printf("look back settles in %d ticks\n", ticks);
     chase.port_look_back = 0;
     ticks = 0;
     while (ticks < 200 && abs(wrapped(at - car.yaw)) > 0x38e4) at = race_follow_yaw(&chase, &car), ticks++;
-    CHECK(ticks < 45);
+    CHECK(ticks < 30);
     printf("and back in %d ticks\n", ticks);
     chase.port_look_back = 1;   /* the car turning while looked back: the camera stays behind it */
     car.yaw_rate = 0x600000;
