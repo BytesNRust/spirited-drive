@@ -773,7 +773,7 @@ static void race(void *ctx)
     config_dat_set_race(config, &before);
     level_to_image();
     ea_select_default();
-    *ea_screen_slot() = 0;  /* Control Central freed it */
+    ea_screen_release();  /* Control Central freed it; a picture it left is freed here, not lost from the pool */
     static int32_t ghost[MENU_RACE_GHOST];
     static const int16_t no_link = 0;
     static const int32_t player = 0, font = 0, host = 0;

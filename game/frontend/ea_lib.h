@@ -17,6 +17,7 @@ int32_t ea_picture_shape(int32_t picture);                    /* the picture's +
 /* port: a picture's w x h pixels after its header, its size from the header; NULL when it is none */
 uint8_t *ea_picture_pixels(int32_t picture, int32_t *w, int32_t *h);
 int32_t ea_screen(void);                                      /* 00524834: the screen's 640 x 480 picture */
+void ea_screen_release(void);                                   /* the screen's picture freed, if it has one; none made */
 int32_t *ea_screen_slot(void);                                /* 00524834 itself, for a screen that frees it */
 void ea_free(int32_t handle);                                 /* 00475260: a bank or a picture */
 

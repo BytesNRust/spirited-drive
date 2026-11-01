@@ -519,6 +519,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mirror_on_dash COMMAND test_mirror_on_dash)
+    # the screen picture's pool across races (ea_lib's pictures, built into the test with its source)
+    add_executable(test_screen_pool tests/test_screen_pool.c game/frontend/ea_lib.c)
+    target_link_libraries(test_screen_pool PRIVATE tnfs_game)
+    target_compile_options(test_screen_pool PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME screen_pool COMMAND test_screen_pool)
     # port (render scale): the scaled viewport, built into the test with its source
     add_executable(test_render_scale tests/test_render_scale.c game/viewer/ported_viewport.c)
     target_include_directories(test_render_scale PRIVATE game)
