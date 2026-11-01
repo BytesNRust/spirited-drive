@@ -104,6 +104,9 @@ void ai_grid_place(Car *car, RaceState *race)
     if (narrow.flags[0] >> 4 == 2 && (narrow.flags[0] & 0xf) == 1 && place % 2 == 0) car->x -= gap;
     car->lateral = 0;
     car->z = race_node(race, car->node).position.z;
+    /* port (reverse): the exe starts a car at y 0 and lets the first tick settle it on the road, which is above 0 on every forward start; a reversed
+     * start can lie below 0 (Vertigo Ridge's is at -7), and the car fell onto it from y 0. It starts at the road's own height. */
+    if (race->port_reverse) car->y = race_node(race, car->node).position.y;
 }
 
 void ai_default_params(int32_t params[107])
