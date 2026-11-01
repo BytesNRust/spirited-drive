@@ -28,6 +28,10 @@ typedef struct {
 /* 1 and `out` set when the text has the depth cue and both ambient colours (each channel 0..255); 0 otherwise. */
 int psx_lgs_parse(const uint8_t *file, size_t size, PsxLgs *out);
 
+/* The night's light over a time of day's: each channel of the dusk's ambient times this (a dark blue); the one place to change the night's darkness
+ * and colour (the race's light, drive_light.c, and the track screen's night art, track_select.c). */
+extern const float psx_night_light[3];
+
 /* The ambient colours (the start's and the end's, and each context's two) multiplied per channel by `mul`, rounded and kept in 0..255: the night's
  * light over a time of day's script. */
 void psx_lgs_scale(PsxLgs *lgs, const float mul[3]);

@@ -1,11 +1,15 @@
 #include "game/frontend/track_select.h"
 #include "game/race/track_fam.h"
+#include "game/race/psx_lgs.h"
 #include "game/race/weather.h"
+#include "game/sys/port_settings.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum {
+    SHAPE_HEADER = 0x10, TRANSPARENT = 0xff,   /* a bank entry's header; the masked blit's skipped texel */
     TRACKS = 9, ITEMS = 12, DONE = 0, PREV = 1, NEXT = 2, BEST = 3, SEGMENT_1 = 4, LAPS = 7, NOTHING = 8,
     TIME_OF_DAY = 9, LOST_VEGAS = 8, TOURNAMENT = 3, OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47,
     SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = TRACK_SELECT_KEY_UP,
@@ -74,15 +78,15 @@ int track_select_weather_step(int weather, int direction)
     return (weather + direction + WEATHER_COUNT) % WEATHER_COUNT;
 }
 
-/* PSX_TIME_DAY 0, DAWN 1, DUSK 2 (port_settings.h): the toggle's order is day, dawn, dusk */
+/* PSX_TIME_DAY 0, DAWN 1, DUSK 2, NIGHT 3 (port_settings.h): the toggle's order is day, dawn, dusk, night */
 int track_select_psx_time_step(int psx_time, int direction)
 {
-    return (psx_time + direction + 3) % 3;
+    return (psx_time + direction + 4) % 4;
 }
 
 int track_select_psx_time_art(int psx_time)
 {
-    return psx_time == 1 ? 0 : psx_time == 2 ? 2 : 1;
+    return psx_time == 1 ? 0 : psx_time == 2 || psx_time == 3 ? 2 : 1;
 }
 
 int track_select_arrow_plus(int key, int item, int original, int weather_on)
@@ -164,6 +168,33 @@ static int no_time_of_day(const TrackSelectInputs *in, const TrackSelectState *s
 static int time_art(const TrackSelectState *st, int track)
 {
     return st->plus && st->plus->psx_time ? track_select_psx_time_art(*st->plus->psx_time) : st->time_of_day[track];
+}
+
+static void masked(int32_t bank, const char *tag, const TrackSelectOps *ops);
+
+/* port: the time-of-day item's art for the state's time: the exe's, or at the night the evening's with its texels moved to the entries nearest their
+ * colours at the night's light (a copy of the shape: the bank's own is left), the transparent texel kept */
+static void time_masked(int32_t bank, const char *const tags[3], const TrackSelectState *st, int track, const TrackSelectOps *ops)
+{
+    const char *tag = tags[time_art(st, track)];
+    if (!st->plus || !st->plus->psx_time || *st->plus->psx_time != PSX_TIME_NIGHT || !st->screen_palette) {
+        masked(bank, tag, ops);
+        return;
+    }
+    const uint8_t *shape = ops->shape(ops->ctx, bank, tag);
+    const size_t pixels = (size_t)(shape[4] | shape[5] << 8) * (size_t)(shape[6] | shape[7] << 8);
+    uint8_t *copy = malloc(SHAPE_HEADER + pixels);
+    if (copy == NULL) {
+        ops->blit_masked(ops->ctx, shape);
+        return;
+    }
+    uint8_t table[256];
+    psx_lit_table(st->screen_palette, psx_night_light, table);
+    memcpy(copy, shape, SHAPE_HEADER + pixels);
+    for (size_t i = 0; i < pixels; i++)
+        if (copy[SHAPE_HEADER + i] != TRANSPARENT) copy[SHAPE_HEADER + i] = table[copy[SHAPE_HEADER + i]];
+    ops->blit_masked(ops->ctx, copy);
+    free(copy);
 }
 
 static int weather_on(const TrackSelectState *st)
@@ -260,13 +291,13 @@ static void draw_screen(const TrackSelectInputs *in, const TrackSelectState *st,
     const int track = track_of(st);
     ops->select(ops->ctx, in->screen);
     plain(bank, "bgnd", ops);
-    if (!no_time_of_day(in, st, track)) masked(bank, TIME_DIM[time_art(st, track)], ops);
+    if (!no_time_of_day(in, st, track)) time_masked(bank, TIME_DIM, st, track, ops);
     draw_texts(in, st, bank, item, segment, ops);
     if (item < 8) {
         masked(bank, LIT[item], ops);
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS) {
         masked(bank, "timl", ops);
-        masked(bank, TIME_LIT[time_art(st, track)], ops);
+        time_masked(bank, TIME_LIT, st, track, ops);
     }
 }
 
@@ -290,7 +321,7 @@ static void draw_change(const TrackSelectInputs *in, const TrackSelectState *st,
         snprintf(text, sizeof text, "%d", g16(st->config, TRACK_SELECT_LAPS));  /* and never drawn */
     } else if (was == TIME_OF_DAY && track != LOST_VEGAS) {
         masked(bank, "timd", ops);
-        masked(bank, TIME_DIM[time_art(st, track)], ops);
+        time_masked(bank, TIME_DIM, st, track, ops);
     }
     ops->text_select(ops->ctx, 1);
     if (item < BEST) {
@@ -300,7 +331,7 @@ static void draw_change(const TrackSelectInputs *in, const TrackSelectState *st,
         if (item == LAPS) snprintf(text, sizeof text, "%d", g16(st->config, TRACK_SELECT_LAPS));
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS) {
         masked(bank, "timl", ops);
-        masked(bank, TIME_LIT[time_art(st, track)], ops);
+        time_masked(bank, TIME_LIT, st, track, ops);
     }
 }
 

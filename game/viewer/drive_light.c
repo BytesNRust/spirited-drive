@@ -20,10 +20,6 @@ enum { LIGHT_PATH = 320, LIGHT_TRACK = 16 };
 
 static const char LETTERS[] = { 'B', 'A', 'C', 'C' };   /* by PSX_TIME_*: day, dawn, dusk, night (the dusk's files, darker) */
 
-/* The night over the dusk's light: each channel of the dusk's ambient (the script's, or the flat fallback) times this, a dark blue; the one place to change
- * the night's darkness and its colour. */
-static const float NIGHT_LIGHT[3] = { 0.30f, 0.36f, 0.62f };
-
 static PsxLight light;
 static float tint[3] = { 1, 1, 1 };
 static PsxLgs ambient;
@@ -58,7 +54,7 @@ static void load_tint(const char *psx_dir, const char *track, char letter, int n
         return;
     }
     if (psx_lgs_parse(file, size, &ambient)) {
-        if (night) psx_lgs_scale(&ambient, NIGHT_LIGHT);   /* the contexts' ambient with the world's: the cars' ratio over it stays the script's */
+        if (night) psx_lgs_scale(&ambient, psx_night_light);   /* the contexts' ambient with the world's: the cars' ratio over it stays the script's */
         ambient_ok = 1, psx_lgs_tint(&ambient, tint);
     }
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);
@@ -117,7 +113,7 @@ static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.5
 static void use_fallback_tint(int time)
 {
     const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT];
-    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time == PSX_TIME_NIGHT ? NIGHT_LIGHT[k] : 1.0f);
+    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time == PSX_TIME_NIGHT ? psx_night_light[k] : 1.0f);
     port_log("psx_light: no light of this track, the flat ambient of the time: tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
 }
 

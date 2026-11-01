@@ -126,6 +126,8 @@ void psx_lgs_car_ratio(const PsxLgs *lgs, uint32_t ring_nodes, int32_t node, int
     }
 }
 
+const float psx_night_light[3] = { 0.30f, 0.36f, 0.62f };
+
 static int scaled(int value, float mul)
 {
     const int v = (int)((float)value * mul + 0.5f);
