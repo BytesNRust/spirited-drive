@@ -50,6 +50,8 @@ typedef struct {
                               * art's last rows, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
+    int car_draw_distance;   /* 1: at a render scale of 2 or 3 the cars are cut and drop to their low detail model that many times as far
+                              * (car_draw.h); 0: the exe's distances */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
