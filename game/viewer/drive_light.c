@@ -118,6 +118,7 @@ int drive_light_time_tinted(void) { return time_tinted || split; }
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
+    ported_view_set_police_lights(enabled);   /* the light effects: the police car's lights flash (police_lights.h) */
     alt_sky_wanted = 0;
     split = 0;
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */

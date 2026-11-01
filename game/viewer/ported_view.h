@@ -68,6 +68,8 @@ void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const f
 /* port: 1 when the light given to ported_view_set_light was made from the road (psx_light_synth.h) and has no script: the cars and the dash take its tunnel
  * factor (psx_light_synth_car) in place of a script's ratio. 0 (the default) otherwise. */
 void ported_view_set_psx_synth(int on);
+/* port (psx_light, police_lights.h): 1 for the police car's lights to flash red and blue while it chases; 0 (the default) the exe's. Set at the race's start. */
+void ported_view_set_police_lights(int on);
 /* The ratio the PS1 light scales `car`'s colours by at its place (psx_light_car_ratio), 1 and `out` set; 0 with no light script. The dash takes the player's. */
 int ported_view_car_ratio(const Car *car, float out[3]);
 
