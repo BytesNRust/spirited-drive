@@ -452,6 +452,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.port_free_laps = free_race;
     drive_sim.race.port_reverse = t->reversed;
     reverse_track_set(t->reversed);
+    difficulty_running_set(&field.port_difficulty);
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
     if (free_race) port_log("free laps: %d laps (the exe's would be %d), no record is kept\n", laps, exe_laps);

@@ -21,6 +21,10 @@ RaceDifficulty difficulty_from_extras(int level);
 /* 1 when every axis is Original: the one question the records' code asks */
 int difficulty_is_original(const RaceDifficulty *d);
 
+/* The race now running (set at its start, like reverse_track_set): records_route.c keeps no record in a race that is not Original */
+void difficulty_running_set(const RaceDifficulty *d);
+int difficulty_running_original(void);
+
 /* The race's difficulty: Original in a link race, the replay's own (NULL: a race, not a replay) in a replay, else extras.cfg's level */
 RaceDifficulty difficulty_resolve(int extras_level, const RaceDifficulty *replay, int linked);
 

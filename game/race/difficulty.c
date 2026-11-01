@@ -34,6 +34,11 @@ RaceDifficulty difficulty_from_extras(int level)
     return d;
 }
 
+static int running_original = 1;
+
+void difficulty_running_set(const RaceDifficulty *d) { running_original = difficulty_is_original(d); }
+int difficulty_running_original(void) { return running_original; }
+
 int difficulty_is_original(const RaceDifficulty *d)
 {
     return level_of(d->rivals) == DIFFICULTY_ORIGINAL && level_of(d->police) == DIFFICULTY_ORIGINAL &&

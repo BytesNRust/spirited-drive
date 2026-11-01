@@ -1,5 +1,6 @@
 /* port: see records_route.h. */
 #include "game/frontend/records_route.h"
+#include "game/race/difficulty.h"
 #include "game/sys/free_laps.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/port_log.h"
@@ -95,6 +96,7 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
                       const uint8_t game[RECORD_CHECK_GAME], int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
     if (reverse_track_running()) return nothing(op);   /* port: a reversed track keeps no record (its own boards come later) */
+    if (!difficulty_running_original()) return nothing(op);   /* port: nor does a race on Easy or Hard (difficulty.h) */
     kind = records_kind_with_car(kind, g16(image + CAR));
     static uint8_t scratch[RECORD_CHECK_IMAGE];
     const int track = g16(image + TRACK);

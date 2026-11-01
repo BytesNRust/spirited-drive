@@ -3,6 +3,7 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/records_glue.h"
 #include "game/frontend/records_route.h"
+#include "game/race/difficulty.h"
 #include "game/sys/free_laps.h"
 #include "game/sys/free_records.h"
 #include "test.h"
@@ -88,6 +89,28 @@ static void test_a_normal_race_without_cheats_takes_the_images_table(void)
     CHECK_EQ_INT(g32(block_of(r.image) + 0xd0 - FIRST), 1);
     CHECK_EQ_INT(saves, 0);                                                          /* the port's file untouched */
     CHECK(memcmp(port_records_block(TR1, RECORDS_MIRROR, 0), block_of(before.image), RECORDS_BLOCK) == 0);
+}
+
+/* port (difficulty.h): a race on Easy or Hard keeps no record, in the image's table or the port's; Original (the zero) keeps them again */
+static void test_a_race_outside_original_keeps_no_record(void)
+{
+    const RaceDifficulty levels[] = { difficulty_from_extras(0), difficulty_from_extras(2) };
+    for (int i = 0; i < 2; i++) {
+        fresh();
+        difficulty_running_set(&levels[i]);
+        Race r;
+        race(&r, 0, 0, 1, 99999, 1);
+        const Race before = r;
+        const RaceKind plain = { RECORDS_NORMAL, 0 }, nitro = { RECORDS_NORMAL, EXTRAS_MARK_NITRO }, mirror = { RECORDS_MIRROR, 0 };
+        CHECK_EQ_INT(records_route(plain, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+        CHECK_EQ_INT(records_route(nitro, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+        CHECK_EQ_INT(records_route(mirror, ROUTE_TOTALS, r.image, r.game, 0, NULL), RECORD_CHECK_NONE);
+        CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+        CHECK_EQ_INT(saves, 0);
+        const RaceDifficulty original = difficulty_from_extras(1);
+        difficulty_running_set(&original);
+        CHECK_EQ_INT(records_route(plain, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    }
 }
 
 static void test_a_mirror_race_leaves_the_images_table(void)
@@ -538,6 +561,7 @@ int main(void)
     test_the_results_show_the_free_table_the_race_took_a_row_in();
     test_the_records_screen_gets_the_selector_only_with_the_flag();
     test_a_normal_race_without_cheats_takes_the_images_table();
+    test_a_race_outside_original_keeps_no_record();
     test_a_mirror_race_leaves_the_images_table();
     test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark();
     test_a_segment_check_marks_only_the_rows_it_takes();
