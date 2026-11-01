@@ -315,8 +315,8 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
                 const int to = remap[tex->pixels[i]];
                 if (tex->mask != NULL ? tex->mask[i] == 0 || tex->mask[i] == CAR_MASK_BLACK : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
                     draft[t][i] = REPAINT_DRAFT_PAINT, changed++;
-                } else if (tex->mask != NULL) {   /* the mask's class: glass and lamps shine as glass, a body texel as the body, the rest is matte */
-                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE  ? REPAINT_DRAFT_SHINE
+                } else if (tex->mask != NULL) {   /* the mask's class: glass and the lamp classes (240..248, emissive in low light) shine as glass, a body texel as the body, the rest is matte */
+                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE || (tex->mask[i] >= CAR_MASK_BRAKE && tex->mask[i] <= CAR_MASK_HEADLIGHT) ? REPAINT_DRAFT_SHINE
                                     : tex->mask[i] == CAR_MASK_BODY ? REPAINT_DRAFT_BODY
                                                                     : REPAINT_DRAFT_MATTE;
                 } else if (!kept(tex, i)) {

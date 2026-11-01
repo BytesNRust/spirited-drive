@@ -308,6 +308,21 @@ static void test_draft_carries_the_masks_classes(void)
         CHECK_EQ_INT(keep0[i], mask[i] == 0 ? REPAINT_DRAFT_PAINT : mask[i] == 128 ? REPAINT_DRAFT_SHINE : REPAINT_DRAFT_MATTE);
 }
 
+/* the lamp classes (240 brake, 244 position, 248 headlight) shine by day exactly as the glass, class 128: a lamp texel is kept and drafted REPAINT_DRAFT_SHINE */
+static void test_lamp_classes_shine_as_glass(void)
+{
+    Fixture f;
+    make(&f, 0x24);
+    f.tex[0].width = SIDE;
+    uint8_t mask[TEXELS], keep0[TEXELS], keep1[TEXELS], keep2[TEXELS];
+    for (int i = 0; i < TEXELS; i++) mask[i] = (uint8_t)(i == 0 ? 0 : i % 4 == 0 ? 128 : i % 4 == 1 ? 240 : i % 4 == 2 ? 244 : 248);
+    f.tex[0].mask = mask;
+    uint8_t *const keeps[3] = { keep0, keep1, keep2 };
+    CHECK(car_repaint_draft(&f.bank, 44, keeps) > 0);
+    CHECK_EQ_INT(keep0[0], REPAINT_DRAFT_PAINT);
+    for (int i = 1; i < TEXELS; i++) CHECK_EQ_INT(keep0[i], REPAINT_DRAFT_SHINE);
+}
+
 /* a mask's 192 keeps the texel's colour (no recolour, as 128 and 255) and its draft class is the body's own, REPAINT_DRAFT_BODY */
 static void test_a_body_class_texel_is_kept_and_drafted_as_body(void)
 {
@@ -476,6 +491,7 @@ int main(void)
     test_mask_pairs();
     test_draft();
     test_draft_carries_the_masks_classes();
+    test_lamp_classes_shine_as_glass();
     test_a_body_class_texel_is_kept_and_drafted_as_body();
     test_a_fixed_black_texel_is_black_whatever_the_paint();
     test_a_fixed_black_texel_takes_the_bodys_tone();
