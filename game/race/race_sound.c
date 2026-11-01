@@ -1,5 +1,6 @@
 /* The race's sound levels (race_sound.h). */
 #include "game/race/race_sound.h"
+#include "game/race/rally_gravel.h"
 
 #include "game/gfx/x86_int.h"
 #include "game/sys/fixed_math.h"
@@ -216,7 +217,13 @@ static int32_t road_noise(RaceState *race, const Car *car)
     RaceEngineSound *e = &race->engine_sound;
     int32_t level = car->speed >> 16;
     level = (int32_t)((level > 0 ? (uint32_t)level : 0u - (uint32_t)level) * 2u);
-    if (car->node_flag_4aa != 0) {
+    if (race->port_rally_gravel != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0 && car->airborne_ticks == 0) {
+        /* port (rally_gravel.h): the rally rolls on gravel: the road noise as the shoulder's own (the off-road branch below: its level plus
+         * 0x14 and the pitch 0x5e), only lower. The continuous voice alone: the gravel one-shot struck every few ticks at this volume was
+         * a tinkle, not the shoulder's scrape. */
+        level = rally_gravel_level(race->port_rally_gravel, (int32_t)((uint32_t)level + 0x14u));
+        e->pitch = 0x5e;
+    } else if (car->node_flag_4aa != 0) {
         level = (int32_t)((uint32_t)level + 0x14u);
         e->pitch = 0x5e;
         if (race->track == 5) {

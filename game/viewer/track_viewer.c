@@ -29,6 +29,7 @@
 #include "game/sys/port_log.h"
 #include "game/race/lunar_springs.h"
 #include "game/race/difficulty.h"
+#include "game/race/rally_gravel.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -385,7 +386,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.seed = seed;
     field.track_flags = flags;
     field.mirrored = drive_menus_on ? drive_menus.variant_m != 0 : 0;  /* 004fbad8 / 004fbadc: the cheats' and track select's */
-    /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace */
+    /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace and the rally gravel's captures */
     int arcade = drive_menus_on ? drive_menus.variant_r != 0 : getenv("TNFS_RALLY") != NULL;
     field.load = drive_load;
     field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
@@ -438,6 +439,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     /* port (difficulty.h): extras.cfg's level; Original in a link race, a replay's own (the CD's demos: Original) */
     field.port_difficulty = difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL,
                                                drive_link_on);
+    {   /* port: extras.cfg's rally_gravel (rally_gravel.h) */
+        const PortExtras gravel = port_extras_load();
+        field.port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
+    }
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
     /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
      * a race whose laps are not the exe's for its track and difficulty is a free one, and guards what the lap count outgrows */
