@@ -36,7 +36,7 @@ PortSettings port_settings_defaults(void)
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
     const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
-                             .weather = WEATHER_CLEAR, .render_bands = -1 };
+                             .weather = WEATHER_CLEAR, .render_bands = -1, .car_draw_distance = 1 };
     return d;
 }
 
