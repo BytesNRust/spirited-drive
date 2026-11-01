@@ -12,14 +12,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { CAR_MASK_PAINT = 0, CAR_MASK_SHINE = 128, CAR_MASK_BODY = 192, CAR_MASK_BLACK = 224, CAR_MASK_MATTE = 255 };
+enum { CAR_MASK_PAINT = 0, CAR_MASK_SHINE = 128, CAR_MASK_BODY = 192, CAR_MASK_BLACK = 224, CAR_MASK_BRAKE = 240, CAR_MASK_POSITION = 244, CAR_MASK_HEADLIGHT = 248, CAR_MASK_MATTE = 255 };
+/* port: 240 a brake light, 244 a rear position light, 248 a headlight: texels kept as they are that glow when the light is low (the greys 240..243, 244..247 and
+ * 248..251 read as those; 252 to 255 are matte). */
 
 /* Decodes a mask PNG into `out` (width x height bytes of CAR_MASK_*), scaled from the image's own size by nearest neighbour. A texel is
  * classed by its colour (an indexed image's palette colour): black paints; a blue one (blue above red and green) or a dim one (no channel
- * of 192) shines as glass; a green one (green above red and blue) or a grey of 192 to 223 shines as the body; a magenta one (red and blue well above green) or a grey of 224 to 239 is the fixed black; any other is matte. Returns 0 for data that is not a readable PNG or a zero size. */
+ * of 192) shines as glass; a green one (green above red and blue) or a grey of 192 to 223 shines as the body; a magenta one (red and blue well above green) or a grey of 224 to 239 is the fixed black; a grey of 240 to 251 is a brake, position or head light (four values each); any other is matte. Returns 0 for data that is not a readable PNG or a zero size. */
 int car_mask_parse(const uint8_t *png, size_t len, int width, int height, uint8_t *out);
 
-/* Writes `mask` (width x height of CAR_MASK_*; any other non-zero value is matte) as the mask's PNG: indexed, black, grey 128, grey 192, grey 224 and white.
+/* Writes `mask` (width x height of CAR_MASK_*; any other non-zero value is matte) as the mask's PNG: indexed, black, grey 128, grey 192, grey 224, the three light greys and white.
  * `*out` is freed with png_free. Returns 0 when it cannot. */
 int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len);
 

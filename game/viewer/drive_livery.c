@@ -5,6 +5,7 @@
 #include "formats/psx_bigf.h"
 #include "game/race/car_livery.h"
 #include "game/race/car_mask.h"
+#include "game/race/lamp_emissive.h"
 #include "game/race/car_repaint.h"
 #include "game/platform/platform.h"
 #include "game/sys/port_log.h"
@@ -163,9 +164,10 @@ typedef struct {
 } BankMeta;
 
 typedef int (*RepaintFn)(const RepaintBank *bank, const BankMeta *meta, void *ctx);
+static int run_lamps(const RepaintBank *bank, const BankMeta *meta, void *ctx);
 
 /* Runs `fn` on each of the CFM's two banks (high and low detail) with its textures and palettes, as the loader will read them. A body
- * texture that has a hand-made mask (car_mask.h, by the car's `stem` and the texture's name) is given it. */
+ * texture (any texture, for the lamps' walk) that has a hand-made mask (car_mask.h, by the car's `stem` and the texture's name) is given it. */
 static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *upper, RepaintFn fn, void *ctx)
 {
     Chunk file;
@@ -190,7 +192,7 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *
             RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, car_repaint_body_class(e.name, (int)level), 0, { 0 }, NULL };
             tex.width = (int)e.width;
             keep_plate(&tex, upper, e.name, (int)e.width);
-            if (tex.body != REPAINT_NONE) tex.mask = car_mask_load(stem, e.name, (int)level, (int)e.width, (int)e.height);
+            if (tex.body != REPAINT_NONE || fn == run_lamps) tex.mask = car_mask_load(stem, e.name, (int)level, (int)e.width, (int)e.height);
             memcpy(meta.name[count], e.name, 4);
             textures[count++] = tex;
         }
@@ -323,6 +325,35 @@ int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_
     upper[i] = '\0';
     const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
     return repaint_cfm(cfm, size, stem, upper, run_black, (void *)&job);
+}
+
+typedef struct {
+    const uint8_t *cfm;
+    LampTexels *out;
+} LampJob;
+
+static int run_lamps(const RepaintBank *bank, const BankMeta *meta, void *ctx)
+{
+    (void)meta;
+    const LampJob *j = ctx;
+    int added = 0;
+    for (int t = 0; t < bank->texture_count; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->mask == NULL || tex->pixels < j->cfm) continue;
+        const int n = lamp_texels_collect(j->out, (uint32_t)(tex->pixels - j->cfm), tex->mask, tex->count);
+        if (n > 0) added += n;
+    }
+    return added;
+}
+
+int drive_livery_lamps(const char *stem, uint8_t *cfm, size_t size, LampTexels *out)
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    const LampJob job = { cfm, out };
+    return repaint_cfm(cfm, size, stem, upper, run_lamps, (void *)&job);
 }
 
 int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_t rgb[3])

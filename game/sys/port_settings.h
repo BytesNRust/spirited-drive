@@ -78,6 +78,9 @@ enum { SKY_FILL_MODE_DEFAULT = 1 };
 int port_sky_fill_mode(void);
 /* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else port.cfg's psx_time. */
 int port_psx_time(void);
+/* 1 when the masked lamp texels glow in low light (lamp_emissive.h): the Graphics Light Effects switch (port_psx_light), unless TNFS_EMISSIVE_LAMPS=0/1 is set. */
+int port_emissive_lamps(void);
+
 /* the cars' body shine strength, 0 (the exe's frames) to 4: TNFS_BODY_SHINE=0..4 when set, else port.cfg's body_shine. */
 int port_body_shine(void);
 /* The weather of the race: TNFS_WEATHER=clear|fog|rain when set, else port.cfg's weather (a WEATHER_* of weather.h). */

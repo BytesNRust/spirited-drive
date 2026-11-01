@@ -36,6 +36,16 @@ const uint8_t *palette_world_usable(void)
     return out;
 }
 
+static uint8_t emissive_now[PALETTE_COLORS];
+
+void palette_emissive_set(const uint8_t emissive[PALETTE_COLORS])
+{
+    if (emissive == NULL) memset(emissive_now, 0, sizeof emissive_now);
+    else memcpy(emissive_now, emissive, sizeof emissive_now);
+}
+
+const uint8_t *palette_emissive(void) { return emissive_now; }
+
 void palette_usable_set(const uint8_t usable[PALETTE_COLORS])
 {
     memcpy(usable_now, usable, sizeof usable_now);

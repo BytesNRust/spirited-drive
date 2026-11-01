@@ -40,6 +40,8 @@
 #include "viewer/sky_smooth.h"
 #include "viewer/psx_sky_draw.h"
 #include "viewer/drive_light.h"
+#include "viewer/drive_lamps.h"
+#include "game/race/lamp_emissive.h"
 #include "viewer/weather_draw.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
@@ -803,6 +805,15 @@ static void body_palette(void *ctx, int32_t first, int32_t count, const uint8_t 
 
 static const uint8_t NO_SLOT_COLOURS[RACE_CARS + 1];
 
+/* port (emissive lamps): the car's lamp texels as the light at the car is (the day's, or glowing, lit by its brake), before it is drawn */
+static void lamp_state(const Car *car)
+{
+    float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
+    ratio_at(car->node, ratio);
+    drive_light_tint(tint);
+    drive_lamps_frame(car->index, lamp_emissive_low(tint, ratio), car->brake > LAMP_BRAKE_ON);
+}
+
 /* 00458d4c(car, 0051c774, +0x391) */
 static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int32_t position[3])
 {
@@ -813,6 +824,7 @@ static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int3
     const CarLightInputs in = { { race->stop_notice[0], race->stop_notice[1] },
                                 light_slots != NULL ? light_slots : NO_SLOT_COLOURS, race->finish_cars, race->tick,
                                 &flash_tick, &flash };
+    lamp_state(car);
     b->part = 0;
     car_body_draw(&ops, &in, car, followed_car(), matrix, position);
 }

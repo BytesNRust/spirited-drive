@@ -24,6 +24,11 @@ void palette_world_hide(const uint8_t hidden[PALETTE_COLORS]);
 const uint8_t *palette_world_usable(void);
 const uint8_t *palette_world_hidden(void);   /* the entries palette_world_hide hid, 1 each */
 
+/* port (emissive lamps, lamp_emissive.h): the entries that glow whatever the light: the port's tint of the palette (psx_tint_palette), the cars' light
+ * table (psx_lit_table) and the fog and light tables (modern_fog_tables, modern_light_tables_cast) leave them as they are. NULL clears. */
+void palette_emissive_set(const uint8_t emissive[PALETTE_COLORS]);
+const uint8_t *palette_emissive(void);   /* 1 each; all 0 when none */
+
 /* 004920bc: dst[0..count*3) = src[first*3..] * step >> 5. */
 void palette_scale(const uint8_t *src, uint8_t *dst, int first, int count, int step);
 

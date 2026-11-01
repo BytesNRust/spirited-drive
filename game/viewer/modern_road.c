@@ -77,10 +77,15 @@ void modern_fog_tables(const uint8_t palette[768], const uint8_t rgb[3], uint8_t
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
     const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
+    const uint8_t *emissive = palette_emissive();   /* port (emissive lamps): a lamp is not fogged */
     for (int c = 0; c < 256; c++) out[0][c] = (uint8_t)c;
     for (int l = 1; l < MODERN_FOG_LEVELS; l++) {
         const float t = (float)l / (MODERN_FOG_LEVELS - 1);
         for (int c = 0; c < 256; c++) {
+            if (emissive[c]) {
+                out[l][c] = (uint8_t)c;
+                continue;
+            }
             float want[3];
             for (int k = 0; k < 3; k++) want[k] = palette[3 * c + k] + (rgb[k] - palette[3 * c + k]) * t;
             int best = 0;
@@ -106,10 +111,11 @@ void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], c
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
     const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
+    const uint8_t *emissive = palette_emissive();   /* port (emissive lamps): a lamp is not darkened */
     for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
         const float f = 1.0f - (float)l / (MODERN_FOG_LEVELS - 1);
         for (int c = 0; c < 256; c++) {
-            if (c >= CHOICES || (l == 0 && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
+            if (c >= CHOICES || emissive[c] || (l == 0 && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
                 out[l][c] = (uint8_t)c;
                 continue;
             }

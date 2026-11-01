@@ -112,7 +112,7 @@ static void test_the_body_class(void)
  * other classes' colours stay what they were (blue glass, a pale pink and a white are matte or glass as before) */
 static void test_the_fixed_black_class(void)
 {
-    uint8_t rgba[7 * 4] = { 255, 0, 255, 255, 224, 224, 224, 255, 232, 232, 232, 255, 240, 240, 240, 255, 0, 0, 255, 255, 255, 200, 255, 255, 200, 40, 40, 255 };
+    uint8_t rgba[7 * 4] = { 255, 0, 255, 255, 224, 224, 224, 255, 232, 232, 232, 255, 252, 252, 252, 255, 0, 0, 255, 255, 255, 200, 255, 255, 200, 40, 40, 255 };
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK_EQ_INT(png_write_rgba(rgba, 7, 1, &png, &len), PNG_OK);
@@ -125,6 +125,28 @@ static void test_the_fixed_black_class(void)
     CHECK_EQ_INT(out[4], CAR_MASK_SHINE);
     CHECK_EQ_INT(out[5], CAR_MASK_MATTE);   /* a pale pink is not the magenta */
     CHECK_EQ_INT(out[6], CAR_MASK_MATTE);
+    png_free(png);
+}
+
+/* the emissive classes (grey 240 brake light, 244 position light, 248 headlight; a range of four each): the greys the tools write and the ones near
+ * them, with 252 and 255 matte and 239 still the fixed black */
+static void test_the_emissive_classes(void)
+{
+    static const uint8_t GREYS[9] = { 239, 240, 243, 244, 247, 248, 251, 252, 255 };
+    static const uint8_t WANT[9] = { CAR_MASK_BLACK, CAR_MASK_BRAKE, CAR_MASK_BRAKE, CAR_MASK_POSITION, CAR_MASK_POSITION, CAR_MASK_HEADLIGHT, CAR_MASK_HEADLIGHT, CAR_MASK_MATTE, CAR_MASK_MATTE };
+    uint8_t rgba[9 * 4];
+    for (int i = 0; i < 9; i++) rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = GREYS[i], rgba[i * 4 + 3] = 255;
+    uint8_t *png = NULL;
+    size_t len = 0;
+    CHECK_EQ_INT(png_write_rgba(rgba, 9, 1, &png, &len), PNG_OK);
+    uint8_t out[9];
+    CHECK(car_mask_parse(png, len, 9, 1, out));
+    CHECK_MEM(out, WANT, sizeof WANT);
+    png_free(png);
+    uint8_t mask[6] = { CAR_MASK_BRAKE, CAR_MASK_POSITION, CAR_MASK_HEADLIGHT, CAR_MASK_PAINT, CAR_MASK_BLACK, CAR_MASK_MATTE }, back[6];
+    CHECK(car_mask_write(mask, 6, 1, &png, &len));
+    CHECK(car_mask_parse(png, len, 6, 1, back));
+    CHECK_MEM(back, mask, sizeof mask);
     png_free(png);
 }
 
@@ -210,6 +232,7 @@ int main(void)
     test_colours();
     test_the_body_class();
     test_the_fixed_black_class();
+    test_the_emissive_classes();
     test_scaled();
     test_refused();
     test_lookup_by_level();
