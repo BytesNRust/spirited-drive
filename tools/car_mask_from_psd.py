@@ -10,6 +10,9 @@ A texel of the mask layer is classed by its alpha and colour:
   magenta (red and blue both >= 128, green at most half the lesser, red and blue within 32 of each other: ff00ff) 224  the FIXED BLACK:
                                          repainted with the car's catalogue black whatever paint the car has, and shining as paint (a two-tone
                                          car's black roof whose texture is a light grey: green would leave it grey)
+  red (ff0000: red >= 192, green and blue <= 64)          240  BRAKE light (emissive in low light; the position red when released)
+  orange (ff8000: red >= 192, green 96..176, blue <= 64)  244  POSITION light (emissive red, dimmer, in low light)
+  yellow (ffff00: red and green >= 192, blue <= 64)       248  HEADLIGHT (emissive warm white in low light)
   dark (opaque, brightest channel < 64)  0   PAINT too (black is paint, as in the old two-value masks)
   anything else                    255  KEEP its colour, no shine (plastics, trim, plate, badges, vents)
 The layer's own opacity is ignored: it is only how the mask shows over the texture. The PNG is grey, 0 / 128 / 192 / 224 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
@@ -28,6 +31,22 @@ BODY_KEEPS = 1   # green (0 red; blue is glass's)
 
 
 FIXED_BLACK = 224   # car_mask.h CAR_MASK_BLACK; its colour in the PSD is magenta (is_magenta below, as car_mask.c reads it)
+
+
+LAMP_BRAKE, LAMP_POSITION, LAMP_HEAD = 240, 244, 248   # car_mask.h's lamp classes (feat/emissive-lamps)
+
+
+def lamp_class(r, g, b):
+    """The lamp class of a mask texel's colour: red brake, orange position, yellow headlight; 0 when it is none of them."""
+    if r < 192 or b > 64:
+        return 0
+    if g <= 64:
+        return LAMP_BRAKE
+    if 96 <= g <= 176:
+        return LAMP_POSITION
+    if g >= 192:
+        return LAMP_HEAD
+    return 0
 
 
 def is_magenta(r, g, b):
@@ -72,7 +91,10 @@ def keep_mask(psd):
             r, g, b, a = px[x, y]
             if a < 128:
                 continue
-            if is_magenta(r, g, b):
+            lamp = lamp_class(r, g, b)
+            if lamp:
+                out[tx, ty] = lamp
+            elif is_magenta(r, g, b):
                 out[tx, ty] = FIXED_BLACK
             elif b > r and b > g:
                 out[tx, ty] = 128
