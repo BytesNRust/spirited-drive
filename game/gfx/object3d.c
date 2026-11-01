@@ -173,6 +173,34 @@ void object3d_mirror(Object3D *obj)
     for (uint32_t i = 0; i < obj->order_count && i < obj->polygon_count; i++) obj->polygons[i].flags ^= POLY_REVERSED;
 }
 
+int object3d_both_sides(Object3D *obj)
+{
+    int set = 0;
+    for (uint32_t i = 0; i < obj->polygon_count; i++) {
+        Object3DPolygon *const p = &obj->polygons[i];
+        const int n = (int)(p->flags & POLY_CORNERS);
+        if (n < 3 || (p->flags & (POLY_TWO_SIDED | POLY_NO_CULL))) continue;
+        int open = 0;
+        for (int e = 0; e < n && !open; e++) {
+            const uint32_t a = p->vertex[e], b = p->vertex[(e + 1) % n];
+            int shared = 0;
+            for (uint32_t j = 0; j < obj->polygon_count && !shared; j++) {
+                if (j == i) continue;
+                const Object3DPolygon *const q = &obj->polygons[j];
+                const int m = (int)(q->flags & POLY_CORNERS);
+                if (m < 3) continue;
+                for (int f = 0; f < m && !shared; f++) {
+                    const uint32_t c = q->vertex[f], d = q->vertex[(f + 1) % m];
+                    shared = (c == a && d == b) || (c == b && d == a);
+                }
+            }
+            open = !shared;
+        }
+        if (open) p->flags |= POLY_NO_CULL, set++;
+    }
+    return set;
+}
+
 void object3d_free(Object3D *obj)
 {
     free(obj->model);

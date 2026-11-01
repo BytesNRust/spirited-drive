@@ -52,6 +52,8 @@ typedef struct {
                               * 0: the exe's, a flat colour above the art's top */
     int car_draw_distance;   /* 1: at a render scale of 2 or 3 the cars are cut and drop to their low detail model that many times as far
                               * (car_draw.h); 0: the exe's distances */
+    int two_sided_scenery;   /* 1: the scenery's 3D models (tunnel mouths, arches, buildings open on a side) are drawn from behind too (object3d_both_sides);
+                              * 0: the exe's one-sided faces */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -72,6 +74,8 @@ int port_fog_lift(void);
 enum { FOG_SAMPLE_LIFT_DEFAULT = 15 };
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
+/* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 when set, else port.cfg's two_sided_scenery. */
+int port_two_sided_scenery(void);
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
 int port_sky_fill_mode(void);

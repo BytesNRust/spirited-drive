@@ -413,6 +413,7 @@ void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored)
         object_ok[i] = list != NULL && ok[i] && object3d_create(&objects[i], &list[i].mesh);
         if (object_ok[i] && list[i].has_textures) object3d_bind(&objects[i], &list[i].textures);
         if (object_ok[i] && mirrored) object3d_mirror(&objects[i]);   /* 004576f0 on 004fbad8 */
+        if (object_ok[i] && port_two_sided_scenery()) object3d_both_sides(&objects[i]);   /* port (two_sided_scenery): the open models from behind too */
     }
     models = list, models_mirrored = mirrored;
 }
