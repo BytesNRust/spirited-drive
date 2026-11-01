@@ -15,12 +15,14 @@ enum {
     RACERS = 2,
     TICKS = 3,
     LANE = 0x50000,             /* 5 units, 16.16: the TR3 grid's lane (ai_grid_place's gap) */
-    SEPARATION_TOLERANCE = 8    /* the reversed separation is within 1/8 of the forward one */
+    SEPARATION_TOLERANCE = 8,   /* the reversed separation is within 1/8 of the forward one */
+    MAX_HOVER = 0x20000         /* the player starts within 2 units of the road: not above it, to fall onto it */
 };
 
 static RaceSim forward_sim;
 static RaceSim reverse_sim;
 static CarPdn pdns[RACERS];
+static int32_t hover[2];   /* the player's height over the road after the first ticks, forward and reversed */
 
 static uint8_t *read_file(const char *path, size_t *size)
 {
@@ -66,6 +68,8 @@ static int32_t start_head_to_head(RaceSim *sim, const uint8_t *tri_file, size_t 
     field->port_reverse = reversed;
     race_sim_start_field(sim, &tri, "TR3", specs, field, 2, 0);
     for (int t = 0; t < TICKS; t++) race_sim_tick(sim, 0);
+    const Car *player = sim->race.cars[0];
+    hover[reversed != 0] = player->y - player->road_point[1];
     return separation(sim);
 }
 
@@ -108,8 +112,9 @@ int main(int argc, char **argv)
     const int32_t fwd = start_head_to_head(&forward_sim, forward, size, &specs, &field, 0);
     const int32_t rev = start_head_to_head(&reverse_sim, reversed, size, &specs, &field, 1);
     const int32_t diff = rev > fwd ? rev - fwd : fwd - rev;
-    const int ok = fwd >= LANE && rev >= LANE && diff * SEPARATION_TOLERANCE <= fwd;
-    printf("TR3 head to head: forward separation %d, reversed %d, lane %d%s\n", fwd, rev, LANE, ok ? "" : "  FAIL");
+    const int32_t up = hover[1] < 0 ? -hover[1] : hover[1];
+    const int ok = fwd >= LANE && rev >= LANE && diff * SEPARATION_TOLERANCE <= fwd && up <= MAX_HOVER;
+    printf("TR3 head to head: forward separation %d, reversed %d, lane %d; reversed start %d over the road%s\n", fwd, rev, LANE, hover[1], ok ? "" : "  FAIL");
     free(forward);
     free(reversed);
     return ok ? 0 : 1;
