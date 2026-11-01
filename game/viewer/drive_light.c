@@ -61,7 +61,7 @@ static void load_tint(const char *psx_dir, const char *track, char letter, int n
         return;
     }
     if (psx_lgs_parse(file, size, &ambient)) {
-        if (night) psx_lgs_scale(&ambient, psx_night_light);   /* the contexts' ambient with the world's: the cars' ratio over it stays the script's */
+        if (night) psx_lgs_scale(&ambient, psx_night_light, 0);   /* the open road's: a tunnel's own lights (the contexts) stay lit, pools in the dark */
         ambient_ok = 1, psx_lgs_tint(&ambient, tint);
     }
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);

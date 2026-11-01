@@ -134,12 +134,12 @@ static int scaled(int value, float mul)
     return v < 0 ? 0 : v > 255 ? 255 : v;
 }
 
-void psx_lgs_scale(PsxLgs *lgs, const float mul[3])
+void psx_lgs_scale(PsxLgs *lgs, const float mul[3], int contexts)
 {
     for (int k = 0; k < 3; k++) {
         lgs->start[k] = scaled(lgs->start[k], mul[k]);
         lgs->end[k] = scaled(lgs->end[k], mul[k]);
-        for (int c = 0; c < lgs->context_count && c < PSX_LGS_CONTEXTS; c++) {
+        for (int c = 0; contexts && c < lgs->context_count && c < PSX_LGS_CONTEXTS; c++) {
             lgs->contexts[c].c1[k] = scaled(lgs->contexts[c].c1[k], mul[k]);
             lgs->contexts[c].c2[k] = scaled(lgs->contexts[c].c2[k], mul[k]);
         }
