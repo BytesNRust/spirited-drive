@@ -504,7 +504,14 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
         if (floor < chase->eye[1]) chase->eye[1] = floor;
     }
     chase->flags |= point_find_node(chase->eye, race, &chase->node);
+    const int32_t unclamped[2] = { chase->eye[0], chase->eye[2] };
     inside_barriers(race, chase);
+    if (race->port_follow_camera) {   /* port: the barrier slides the eye along it instead of dragging it across the car when the camera swings round */
+        const int32_t car_xz[2] = { chase->base->x, chase->base->z };   /* the eye is the base car's plus an offset */
+        int32_t clamped[2] = { chase->eye[0], chase->eye[2] };
+        race_follow_keep_radius(car_xz, unclamped, clamped);
+        chase->eye[0] = clamped[0], chase->eye[2] = clamped[1];
+    }
     int32_t turn_yaw = aim_yaw;
     if (!race->port_follow_camera &&
         (row->mode == 3 || row->mode == 4 || chase->kind == KIND_REPLAY || chase->kind == KIND_NO_ROAD)) {

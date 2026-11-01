@@ -19,4 +19,10 @@ int32_t race_look_back_held(int32_t follow_camera, const uint8_t *keys, int32_t 
 /* The direction (x, 0, z) of a camera yaw, as 004046b0's road direction is for the exe's: angle_of(dir[2], dir[0]) is `yaw`. */
 void race_follow_direction(int32_t yaw, int32_t dir[3]);
 
+/* The eye `after` the road's barriers moved it from `before` (both x, z; `car` the followed car's): when the move brought it closer to the
+ * car than it was, it is slid along the barrier (the line through `after` square to the move) to where it is as far from the car as
+ * `before`, so the camera swinging round the car keeps its distance instead of cutting across it. Left as it is when the barrier does
+ * not move it or the car is outside the barrier. */
+void race_follow_keep_radius(const int32_t car[2], const int32_t before[2], int32_t after[2]);
+
 #endif

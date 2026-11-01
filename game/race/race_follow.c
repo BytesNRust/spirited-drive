@@ -5,6 +5,8 @@
 #include "game/race/race_keys.h"
 #include "game/sys/fixed_math.h"
 
+#include <math.h>
+
 enum { TICKS_A_SECOND = 30, ANGLE_MASK = 0xffffff, ANGLE_SHIFT = 8, HALF_TURN = 0x800000, LOOK_BOOST = 3, LOOK_SETTLED = 0x20000 };   /* look back's spring: 3 times as fast, 0.117 s; settled within 2.8 degrees */
 
 int32_t race_follow_yaw(RaceChase *chase, const Car *car)
@@ -42,4 +44,19 @@ void race_follow_direction(int32_t yaw, int32_t dir[3])
     dir[0] = fx_sin16(angle);
     dir[1] = 0;
     dir[2] = fx_cos16(angle);
+}
+
+void race_follow_keep_radius(const int32_t car[2], const int32_t before[2], int32_t after[2])
+{
+    const double nx = (double)after[0] - before[0], nz = (double)after[1] - before[1];   /* the barrier's move, square to the barrier */
+    const double qx = (double)before[0] - car[0], qz = (double)before[1] - car[1];       /* the eye as it was, from the car */
+    const double r2 = qx * qx + qz * qz, n2 = nx * nx + nz * nz;
+    const double px = qx + nx, pz = qz + nz;                                              /* the clamped eye, from the car */
+    if (n2 == 0 || px * px + pz * pz >= r2) return;
+    const double a = px * -nz + pz * nx, disc = a * a - n2 * (px * px + pz * pz - r2);   /* |p + s t|^2 = r2 along t = (-nz, nx) */
+    if (disc < 0) return;   /* the car is outside the barrier: no point on it is that far */
+    const double root = sqrt(disc), s1 = (-a + root) / n2, s2 = (-a - root) / n2;
+    const double s = fabs(s1) <= fabs(s2) ? s1 : s2;   /* the nearer to where the eye was along the barrier */
+    after[0] = (int32_t)lround((double)after[0] - nz * s);
+    after[1] = (int32_t)lround((double)after[1] + nx * s);
 }
