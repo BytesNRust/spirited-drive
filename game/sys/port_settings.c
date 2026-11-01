@@ -15,9 +15,9 @@
 #define FOV_MAX 20
 
 static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
-static const char *const PSX_TIME_NAMES[] = { "day", "dawn", "dusk" };   /* by PSX_TIME_* */
+static const char *const PSX_TIME_NAMES[] = { "day", "dawn", "dusk", "night" };   /* by PSX_TIME_* */
 
-/* the PSX_TIME_* a name stands for ("dawn" or "a", "day" or "b", "dusk" or "c", any case), or -1 */
+/* the PSX_TIME_* a name stands for ("dawn" or "a", "day" or "b", "dusk" or "c", "night", any case), or -1 */
 static int psx_time_named(const char *name)
 {
     char lower[8];
@@ -28,6 +28,7 @@ static int psx_time_named(const char *name)
     if (strcmp(lower, "day") == 0 || strcmp(lower, "b") == 0) return PSX_TIME_DAY;
     if (strcmp(lower, "dawn") == 0 || strcmp(lower, "a") == 0) return PSX_TIME_DAWN;
     if (strcmp(lower, "dusk") == 0 || strcmp(lower, "c") == 0) return PSX_TIME_DUSK;
+    if (strcmp(lower, "night") == 0) return PSX_TIME_NIGHT;
     return -1;
 }
 

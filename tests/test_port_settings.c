@@ -293,6 +293,8 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(b, strlen(b)).psx_time, PSX_TIME_DAY);
     CHECK_EQ_INT(port_settings_parse(dawn, strlen(dawn)).psx_time, PSX_TIME_DAWN);
     CHECK_EQ_INT(port_settings_parse(dusk, strlen(dusk)).psx_time, PSX_TIME_DUSK);
+    const char *night = "psx_time=Night\n";
+    CHECK_EQ_INT(port_settings_parse(night, strlen(night)).psx_time, PSX_TIME_NIGHT);
     /* written as the words */
     char out[512];
     PortSettings w = port_settings_defaults();
@@ -300,6 +302,8 @@ static void test_parse_keys(void)
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dawn\n") != NULL);
     w.psx_time = PSX_TIME_DUSK;
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dusk\n") != NULL);
+    w.psx_time = PSX_TIME_NIGHT;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=night\n") != NULL);
     w.psx_time = PSX_TIME_DAY;
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=day\n") != NULL);
     CHECK_EQ_INT(port_settings_parse(no, strlen(no)).psx_time, PSX_TIME_DAY);

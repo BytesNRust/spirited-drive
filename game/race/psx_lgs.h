@@ -28,6 +28,10 @@ typedef struct {
 /* 1 and `out` set when the text has the depth cue and both ambient colours (each channel 0..255); 0 otherwise. */
 int psx_lgs_parse(const uint8_t *file, size_t size, PsxLgs *out);
 
+/* The ambient colours (the start's and the end's, and each context's two) multiplied per channel by `mul`, rounded and kept in 0..255: the night's
+ * light over a time of day's script. */
+void psx_lgs_scale(PsxLgs *lgs, const float mul[3]);
+
 /* The ambient colour as a multiplier of each channel, 1.0 for 128; the mean of the start and end colours. */
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3]);
 

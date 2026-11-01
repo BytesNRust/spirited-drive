@@ -18,7 +18,11 @@
 
 enum { LIGHT_PATH = 320, LIGHT_TRACK = 16 };
 
-static const char LETTERS[] = { 'B', 'A', 'C' };   /* by PSX_TIME_*: day, dawn, dusk */
+static const char LETTERS[] = { 'B', 'A', 'C', 'C' };   /* by PSX_TIME_*: day, dawn, dusk, night (the dusk's files, darker) */
+
+/* The night over the dusk's light: each channel of the dusk's ambient (the script's, or the flat fallback) times this, a dark blue; the one place to change
+ * the night's darkness and its colour. */
+static const float NIGHT_LIGHT[3] = { 0.30f, 0.36f, 0.62f };
 
 static PsxLight light;
 static float tint[3] = { 1, 1, 1 };
@@ -40,7 +44,7 @@ static void file_path(char *out, size_t size, const char *psx_dir, const char *t
 }
 
 /* the LGS's ambient colour as a tint, neutral when the file is missing or does not read */
-static void load_tint(const char *psx_dir, const char *track, char letter)
+static void load_tint(const char *psx_dir, const char *track, char letter, int night)
 {
     tint[0] = tint[1] = tint[2] = 1.0f;
     ambient_ok = 0;
@@ -53,7 +57,10 @@ static void load_tint(const char *psx_dir, const char *track, char letter)
         port_log("psx_light: no %s, the ambient stays neutral\n", path);
         return;
     }
-    if (psx_lgs_parse(file, size, &ambient)) ambient_ok = 1, psx_lgs_tint(&ambient, tint);
+    if (psx_lgs_parse(file, size, &ambient)) {
+        if (night) psx_lgs_scale(&ambient, NIGHT_LIGHT);   /* the contexts' ambient with the world's: the cars' ratio over it stays the script's */
+        ambient_ok = 1, psx_lgs_tint(&ambient, tint);
+    }
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);
     platform_free_file(file);
 }
@@ -106,10 +113,11 @@ static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp
  * a part of 128), dawn then dusk; the one place to change for a pick per track. */
 static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.55f, 0.46f } };
 
+
 static void use_fallback_tint(int time)
 {
-    const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK];
-    tint[0] = f[0], tint[1] = f[1], tint[2] = f[2];
+    const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT];
+    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time == PSX_TIME_NIGHT ? NIGHT_LIGHT[k] : 1.0f);
     port_log("psx_light: no light of this track, the flat ambient of the time: tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
 }
 
@@ -135,9 +143,9 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
     synth_wanted = psx_light_synth_track(track);
-    synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : PSX_SYNTH_DAY;
-    if (is_lost_vegas(track)) ported_view_set_dark_fog(1);
-    const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_DUSK ? time : PSX_TIME_DAY];
+    synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT ? PSX_SYNTH_DUSK : PSX_SYNTH_DAY;   /* the night is the dusk's, darker */
+    if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
+    const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_NIGHT ? time : PSX_TIME_DAY];
     if (time != PSX_TIME_DAY) load_sky(psx_dir, track, letter);
     alt_sky_wanted = time != PSX_TIME_DAY && !sky_draw.ready;
     char path[LIGHT_PATH];
@@ -158,7 +166,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         return;
     }
     light = parsed;
-    load_tint(psx_dir, track, letter);
+    load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT);
     if (is_lost_vegas(track))
         for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
     ambient_nodes = ring_nodes;
