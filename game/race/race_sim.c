@@ -272,6 +272,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->arcade = arcade;
     race->mirrored = field->mirrored;
     race->track_flags = field->track_flags;
+    race->port_lunar_gravity = field->port_lunar_gravity;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->cops = field->cops < 0 ? 0 : field->cops;

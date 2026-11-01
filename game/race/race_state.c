@@ -1,5 +1,7 @@
 #include "game/race/race_state.h"
 
+#include "game/race/track_gravity.h"
+
 #include <string.h>
 
 void race_note(RaceState *race, int32_t level)
@@ -50,6 +52,8 @@ void race_surfaces_init(RaceState *race)
     }
     if (race->arcade)
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i] = surface(0x180, 0x80, 0x1999, 1);
+    if (race->port_lunar_gravity)   /* port: the moon's grip */
+        for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i].grip = track_grip(race->port_lunar_gravity, race->surfaces[i].grip);
 }
 
 void race_dash_gauges(RaceState *race, int32_t a, int32_t b)

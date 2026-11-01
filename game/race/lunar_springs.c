@@ -17,9 +17,19 @@ static int join(char *out, size_t size, const char *root, const char *rest)
     return snprintf(out, size, "%s/%s", root, rest) < (int)size;
 }
 
+int lunar_springs_active(int track, int variant_r, int lunar)
+{
+    return lunar != 0 && variant_r != 0 && track == LUNAR_TRACK_RUSTY;
+}
+
+int lunar_gravity_active(int track, int variant_r, int lunar, int lunar_gravity)
+{
+    return lunar_gravity != 0 && lunar_springs_active(track, variant_r, lunar);
+}
+
 int lunar_springs_fam(const char *data_root, int track, int variant_r, int lunar, char *out, size_t size)
 {
-    if (!lunar || !variant_r || track != LUNAR_TRACK_RUSTY) return 0;
+    if (!lunar_springs_active(track, variant_r, lunar)) return 0;
     return join(out, size, data_root, MOON_FAM);
 }
 

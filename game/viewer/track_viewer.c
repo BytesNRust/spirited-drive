@@ -27,6 +27,7 @@
 #include "viewer/drive_joy.h"
 #include "viewer/drive_smoke.h"
 #include "game/sys/port_log.h"
+#include "game/race/lunar_springs.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -350,6 +351,13 @@ static int paint_dash(void *user, uint8_t *bank, size_t size)
     return 0;
 }
 
+/* port: lunar_gravity (lunar_springs.h): the moon's race takes the moon's pull and grip (track_gravity.h) */
+static int lunar_gravity_race(const char *name, int arcade)
+{
+    const PortExtras e = port_extras_load();
+    return lunar_gravity_active(race_sim_track_index(name), arcade, e.lunar_springs, e.lunar_gravity);
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
@@ -376,7 +384,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.seed = seed;
     field.track_flags = flags;
     field.mirrored = drive_menus_on ? drive_menus.variant_m != 0 : 0;  /* 004fbad8 / 004fbadc: the cheats' and track select's */
-    int arcade = drive_menus_on ? drive_menus.variant_r != 0 : 0;
+    /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace */
+    int arcade = drive_menus_on ? drive_menus.variant_r != 0 : getenv("TNFS_RALLY") != NULL;
     field.load = drive_load;
     field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
     drive_cars.data_root = data_root;
@@ -424,6 +433,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
             field.specs[i] = &human_specs[i];
         }
     }
+    field.port_lunar_gravity = lunar_gravity_race(name, arcade);
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
     /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
      * a race whose laps are not the exe's for its track and difficulty is a free one, and guards what the lap count outgrows */
