@@ -1,6 +1,7 @@
 /* --drive's loop: race_run's calls on the sim (00455a5c), the window, TNFS_RUN's headless run, the screenshots and a link
  * race's messages. */
 #include "game/sys/port_log.h"
+#include "viewer/drive_autopilot.h"
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
 #include "viewer/drive_light.h"
@@ -549,6 +550,11 @@ int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const 
     RaceRunOps ops = *drive_run_ops();
     ops.ctx = &r;
     race_run(&ops, &drive_sim.race, &w);
+    if (drive_autopilot_on()) {   /* port: test harness only: the racers' finish ticks, as the window run prints them (track_viewer.c's "finish:") */
+        printf("finish:");
+        for (int slot = 0; slot < drive_sim.race.racers && slot < RACE_PLAYERS; slot++) printf(" %d=%d", slot, (int)drive_sim.race.players[slot].finish);
+        printf("\n");
+    }
     drive_replay.pace = drive_replay.timer = drive_replay.due = drive_replay.done = NULL;
     render_drive(t, pixels);
     int width;
@@ -577,6 +583,9 @@ enum { SPIN_TICKS = 150, SPIN_BRAKE_TICKS = 30 };   /* TNFS_SCRIPT=spin: the las
  * lock TNFS_STEER=left / right asks for. */
 static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
 {
+    const Car *own = drive_sim.race.cars[drive_sim.race.player];
+    if (drive_autopilot_on() && own != NULL)   /* port: test harness only (drive_autopilot.h): the headless run is driven as the window run is */
+        return drive_autopilot_word(own, &drive_sim.race, drive_input.own_specs);
     const char *script = getenv("TNFS_SCRIPT");
     if (script != NULL && strcmp(script, "spin") == 0 && i + SPIN_TICKS >= ticks) {   /* full lock left, the handbrake for a second */
         const uint32_t into = i + SPIN_TICKS - ticks;
