@@ -339,18 +339,35 @@ void ai_choose_node(const Car *car, RaceState *race, int32_t *lane, int32_t *nod
     *node = at & node_mask(race);
 }
 
+/* port: a head to head race on a track run the other way round reads the grid's nodes as the forward track has them: the
+ * reversal swapped their verges and flag nibbles (tri_reverse.h), so the lanes and the narrow side turn back. Other
+ * races read the nodes as they are. */
+static int head_to_head_reverse(const RaceState *race) { return race->port_reverse && race->racers == 2; }
+
+TriNode ai_grid_node(const RaceState *race, int32_t node)
+{
+    TriNode n = race_node(race, node);
+    if (!head_to_head_reverse(race)) return n;
+    const uint8_t left = n.left_verge;
+    n.left_verge = n.right_verge;
+    n.right_verge = left;
+    n.flags[0] = (uint8_t)(n.flags[0] << 4 | n.flags[0] >> 4);
+    return n;
+}
+
 void ai_grid_slot(Car *car, const RaceState *race, int32_t *node)
 {
     if (!(flags_of(car) & AI_RACER) || race->entries[1].car == OPPONENT_CAR_MODEL) return;
-    const int32_t first_open = (race_node(race, 0).flags[0] >> 4) == 0;
-    const TriNode a = race_node(race, GRID_NODE_A);
+    const int32_t first_open = (ai_grid_node(race, 0).flags[0] >> 4) == 0;
+    const TriNode a = ai_grid_node(race, GRID_NODE_A);
     const int32_t grid = car->player >= 0 && car->player < RACE_PLAYERS ? race->grid[car->player] : 0;
     const int32_t width = ai_lane_width(race, a.flags[0] & 0xf, a.right_verge) << 8;
     const int32_t side = grid % 2;
-    int32_t offset = car->lane_bias + (first_open ? width : 0) + side * width + (-width) / 2;
-    const TriNode b = race_node(race, GRID_NODE_B);
-    if ((b.flags[0] >> 4) == 2 && (b.flags[0] & 0xf) == 1 && side == 0) offset -= width;
-    car->ai_target_lateral = offset;
+    int32_t lateral = (first_open ? width : 0) + side * width + (-width) / 2;
+    const TriNode b = ai_grid_node(race, GRID_NODE_B);
+    if ((b.flags[0] >> 4) == 2 && (b.flags[0] & 0xf) == 1 && side == 0) lateral -= width;
+    /* a reversed head to head mirrors the forward layout across the road: the rival's lane is the forward one, turned */
+    car->ai_target_lateral = car->lane_bias + (head_to_head_reverse(race) ? -lateral : lateral);
     *node = race->racers > 2 ? GRID_NODE - grid * 2 : GRID_NODE - (grid / 2) * 4;
 }
 

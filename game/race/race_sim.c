@@ -271,6 +271,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->track_variant = race_sim_track_variant(stem);
     race->arcade = arcade;
     race->mirrored = field->mirrored;
+    race->port_reverse = field->port_reverse;
     race->track_flags = field->track_flags;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;

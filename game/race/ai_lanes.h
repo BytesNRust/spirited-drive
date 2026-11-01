@@ -49,6 +49,8 @@ void ai_place_car(Car *car, RaceState *race, int32_t activate);
 void ai_choose_node(const Car *car, RaceState *race, int32_t *lane, int32_t *node);
 /* 0046ec38: opponents on the grid: the lateral place and the node. */
 void ai_grid_slot(Car *car, const RaceState *race, int32_t *node);
+/* port: a grid node as the grid reads it: the node as it is, or in a head to head on a reversed track, as the forward track has it. */
+TriNode ai_grid_node(const RaceState *race, int32_t node);
 /* 0046f110: puts the car at the node with the lateral offset. */
 void ai_respawn(Car *car, RaceState *race, int32_t node, int32_t lane, int32_t offset, int32_t activate);
 
