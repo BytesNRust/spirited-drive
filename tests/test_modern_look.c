@@ -1,6 +1,7 @@
 /* port: EXTRAS' Texture Filter and Fog made into Modern 3D's style for a track (modern_look.h): the fog's colour
  * from the horizon's foot, its depths from the track drawn, its tables remade when the palette changes. */
 #include "viewer/modern_look.h"
+#include "game/race/weather.h"
 #include "test.h"
 
 #include <string.h>
@@ -131,6 +132,29 @@ static void test_weather_fog_dark(void)
     CHECK_EQ_INT(fog[0], MODERN_LOOK_DARK);
 }
 
+/* the rain's haze and sky, made as ported_view's weather_tables does: light on a light look, MODERN_LOOK_DARK on a dark one */
+static void test_rain_dark(void)
+{
+    static ModernLook look;
+    memset(&look, 0, sizeof look);
+    const uint8_t base[3] = { 150, 160, 170 };
+    uint8_t fog[3], sky[3];
+    weather_fog_colour(WEATHER_RAIN, base, fog);
+    weather_sky_colour(WEATHER_RAIN, fog, sky);
+    modern_look_weather_fog(&look, fog, fog);
+    modern_look_weather_fog(&look, sky, sky);
+    CHECK(fog[0] > MODERN_LOOK_DARK && sky[0] > MODERN_LOOK_DARK);   /* not dark: the rain's own greys */
+    modern_look_set_dark(&look, 1);
+    weather_fog_colour(WEATHER_RAIN, base, fog);
+    weather_sky_colour(WEATHER_RAIN, fog, sky);
+    modern_look_weather_fog(&look, fog, fog);
+    modern_look_weather_fog(&look, sky, sky);
+    for (int k = 0; k < 3; k++) {
+        CHECK_EQ_INT(fog[k], MODERN_LOOK_DARK);
+        CHECK_EQ_INT(sky[k], MODERN_LOOK_DARK);
+    }
+}
+
 /* port (fog_sample): a 4 x 20 horizon whose line is row 10: the band (rows 2..15) forest green, the rows around it other
  * colours (0, 1 red; 16, 17 yellow), the foot (18, 19) a strong blue as Alpine's */
 enum { SW = 4, SH = 20, LINE = 10 };
@@ -252,5 +276,6 @@ int main(void)
     test_sampled_edges();
     test_style_follows_the_switch();
     test_weather_fog_dark();
+    test_rain_dark();
     return TEST_REPORT();
 }

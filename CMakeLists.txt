@@ -541,7 +541,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_modern_style PRIVATE tnfs_game)
     target_compile_options(test_modern_style PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_style COMMAND test_modern_style)
-    add_executable(test_modern_look tests/test_modern_look.c game/viewer/modern_look.c game/viewer/modern_road.c)
+    add_executable(test_modern_look tests/test_modern_look.c game/viewer/modern_look.c game/viewer/modern_road.c game/race/weather.c)
     target_include_directories(test_modern_look PRIVATE game)
     target_link_libraries(test_modern_look PRIVATE tnfs_game)
     target_compile_options(test_modern_look PRIVATE ${TNFS_WARNINGS})

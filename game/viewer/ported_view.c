@@ -174,8 +174,9 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     else modern_look_fog_colour(art, base);
     weather_fog_colour(weather, base, wt.fog);
     weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
-    if (weather == WEATHER_FOG) modern_look_weather_fog(&look, wt.fog, wt.fog);   /* the dark track's fog as its distance fog */
+    modern_look_weather_fog(&look, wt.fog, wt.fog);   /* the dark track's fog as its distance fog: the rain's haze too */
     weather_sky_colour(weather, wt.fog, sky);
+    modern_look_weather_fog(&look, sky, sky);          /* the rain's own sky colour: dark as well */
     modern_fog_tables(art->palette, sky, scratch);
     wt.sky_low = weather == WEATHER_RAIN ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
     wt.sky_high = weather == WEATHER_RAIN ? wt.sky_low : MODERN_FOG_LEVELS - 1;
