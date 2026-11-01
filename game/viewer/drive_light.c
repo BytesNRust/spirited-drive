@@ -6,6 +6,7 @@
 #include "game/race/psx_lgs.h"
 #include "viewer/track_load.h"
 #include "game/race/psx_light.h"
+#include "game/race/psx_light_synth.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 
@@ -92,6 +93,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 }
 
 static int time_tinted;
+static int synth_wanted, synth_on, synth_time;   /* a track the CD has no light for, with the light on; the light is one made from the road (drive_light_load_synth) */
 static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds no sky of its own for the track (drive_light_load_alt_sky) */
 
 /* Lost Vegas (tr4) under the PS1 look: its light 10% darker than the CD's script gives, and its fog always dark */
@@ -122,13 +124,18 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     ported_view_set_psx_lamps(NULL, 0);
     ported_view_set_light(NULL, NULL);
     ported_view_set_psx_ambient(NULL, 0, NULL);
+    ported_view_set_psx_synth(0);
+    synth_wanted = 0;
     ported_view_set_psx_sky(NULL);
     ported_view_set_psx_sky_info(NULL);
     ported_view_set_dark_fog(0);
     psx_sky_draw_free(&sky_draw);
     psx_light_free(&light);
+    synth_on = 0;
     tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
+    synth_wanted = psx_light_synth_track(track);
+    synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : PSX_SYNTH_DAY;
     if (is_lost_vegas(track)) ported_view_set_dark_fog(1);
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_DUSK ? time : PSX_TIME_DAY];
     if (time != PSX_TIME_DAY) load_sky(psx_dir, track, letter);
@@ -169,7 +176,20 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 
 void drive_light_set_reversed(int reversed)
 {
+    if (synth_on) return;   /* made from the track as it runs: already in its direction */
     psx_light_set_reversed(&light, reversed);
+}
+
+void drive_light_load_synth(const Tri *tri, const char *track)
+{
+    if (!synth_wanted || light.data != NULL || tri == NULL || !psx_light_synth_track(track)) return;
+    PsxLight made = { 0 };
+    if (!psx_light_synth(tri, synth_time, &made)) return;
+    light = made;
+    synth_on = 1;
+    ported_view_set_light(&light, NULL);
+    ported_view_set_psx_synth(1);
+    port_log("psx_light: %s has no light on the CD, made from the road's tunnels (%u nodes)\n", track, light.nodes);
 }
 
 /* the PC's alternative sky (NTRACKFM/<TRACK>_T01.FAM, the art the original's morning / evening race ran on) for a dawn or dusk the CD has no PS1 sky for:
