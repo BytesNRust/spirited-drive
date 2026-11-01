@@ -47,6 +47,10 @@ void modern_look_set_sample(ModernLook *look, int on, int lift_percent);
 /* port (the PS1 look): the fog dark (MODERN_LOOK_DARK on each channel) whatever the horizon's foot says, 0 for the foot's own. */
 void modern_look_set_dark(ModernLook *look, int dark);
 
+/* port (the PS1 look): the weather fog's colour `out` (may be `rgb`): MODERN_LOOK_DARK on each channel when the look is dark, the same
+ * as the distance fog's, `rgb` as it is otherwise. */
+void modern_look_weather_fog(const ModernLook *look, const uint8_t rgb[3], uint8_t out[3]);
+
 /* The style for the switches over `art` with `segments` of track drawn: NULL with both off. The fog reaches its
  * whole by the farthest road and begins a tenth of the way there; its tables are remade when the palette or the
  * fog's colour changes. */

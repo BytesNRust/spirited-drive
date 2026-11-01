@@ -65,6 +65,11 @@ void modern_look_set_sample(ModernLook *look, int on, int lift_percent)
 
 void modern_look_set_dark(ModernLook *look, int dark) { look->dark = dark != 0; }
 
+void modern_look_weather_fog(const ModernLook *look, const uint8_t rgb[3], uint8_t out[3])
+{
+    for (int k = 0; k < 3; k++) out[k] = look->dark ? MODERN_LOOK_DARK : rgb[k];
+}
+
 const ModernStyle *modern_look_style(ModernLook *look, const TrackArt *art, int filter, int fog, int32_t segments)
 {
     if (!filter && !fog) return NULL;
