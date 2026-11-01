@@ -20,14 +20,14 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *
  *   page 1  Cheats             Explode mode, Nitro mode, Turbo mode, Warrior Player Car
  *            Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
- *                               Lunar Springs Track, Unlock Level, Time with variants, Car Colours
+ *                               Lunar Springs Track, Lunar Gravity, Unlock Level, Time with variants, Car Colours
  *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Bumper view police radar,
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden)
  *            Miscellaneous      Start Screen, Intro video
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
- * is twelve rows and two headers, fourteen lines, which is what the 22 pitch fits.)
+ * is thirteen rows and two headers, fifteen lines, which is what the 20 pitch fits.)
  *
  * The rows below are that list in order, page 1's first, so a page is the first ROWS_P1 of them and page 2 the rest,
  * and a group is a range of them. The list is the switches only: Done and Cancel are the clean background's own words,
@@ -39,7 +39,7 @@ enum { EXTRAS_PAGES = 2, EXTRAS_GROUPS = 2 };
 enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the groups, in the pages' order */
 enum {
     ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
-    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
+    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
     ROW_PSX_LIVERY,                                /* port: Unlocks & mods' last, the car colours: the PS1 liveries and the catalogue paints (port_extras.h) */
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */

@@ -219,7 +219,7 @@ static int32_t y_in(const Fake *f, const char *text)
 enum { LINE = 20 };
 
 /* the pitch the rows are set at (extras_menu.c's ROW_PITCH): the spacing between two rows of a group */
-enum { PITCH = 22 };
+enum { PITCH = 20 };
 
 typedef struct Rig {
     Fake fake;
@@ -480,15 +480,15 @@ static void test_no_background_leaves_the_display_alone(void)
     CHECK_EQ_INT(r.fake.fade_outs, 0);
 }
 
-/* CHEATS and UNLOCKS & MODS on page 1: twelve switches, Car Colours the last one. Walk the whole page down
+/* CHEATS and UNLOCKS & MODS on page 1: thirteen switches, Car Colours the last one. Walk the whole page down
  * and they are all of them */
-static void test_page_one_has_twelve_rows(void)
+static void test_page_one_has_thirteen_rows(void)
 {
     Rig r;
     int keys[48];
-    int n = downs(keys, 0, ROWS_P1);                       /* down to Done, past the twelve */
+    int n = downs(keys, 0, ROWS_P1);                       /* down to Done, past the thirteen */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P1, 12);
+    CHECK_EQ_INT(ROWS_P1, 13);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Explode mode"));
@@ -1053,7 +1053,7 @@ int main(void)
     test_rally_excludes_mirror();
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
-    test_page_one_has_twelve_rows();
+    test_page_one_has_thirteen_rows();
     test_page_two_has_ten_rows();
     test_psx_livery_row_is_saved_on_done();
     test_race_switch_rows_save_with_done();

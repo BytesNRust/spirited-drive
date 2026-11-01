@@ -26,14 +26,14 @@ enum { LABEL_X = 16, VALUE_RIGHT = 600 };
  * everything under it carry GROUP_GAP as well, which is the owner's "shorter than a row" on screen: a header takes
  * less height than a row, and the room it leaves reads as a gap rather than as another row.
  *
- * The pitch is 22 because page 1 is the fuller of the two now -- fourteen lines, twelve rows and two headers -- and has
+ * The pitch is 20 because page 1 is the fuller of the two now -- fifteen lines, thirteen rows and two headers -- and has
  * to fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
- * CORNERS, top 430). At 24 its last line would sit at 426 and end at 450, on the buttons; at 22 it sits at 400 and ends
- * at 422. ROW_TALL, the selection and hit height, is no taller than the pitch, so a selected row's band never reaches
+ * CORNERS, top 430). At 22 its last line would sit at 422 and end at 444, on the buttons; at 20 it sits at 394 and ends
+ * at 414. ROW_TALL, the selection and hit height, is no taller than the pitch, so a selected row's band never reaches
  * the next row.
  *
  * The fallback panel runs that band, 96..422, so it never reaches the words it did not draw. */
-enum { ROW_TOP = 100, ROW_PITCH = 22, ROW_TALL = 22, GROUP_GAP = 14 };
+enum { ROW_TOP = 100, ROW_PITCH = 20, ROW_TALL = 20, GROUP_GAP = 14 };
 enum { PANEL_X0 = 4, PANEL_Y0 = 96, PANEL_X1 = 635, PANEL_Y1 = 422 };
 /* port: the screen's own title where the originals' are: under the logo at the left, its letters' tops on Game
  * Mode's (y 65) -- config_bgnd.c patches the burnt-in one out of (0,60)-(124,94) */
@@ -72,7 +72,7 @@ static int shows_kmh(const PortExtras *e, int language_kmh)
  * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car",
-    "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track",
+    "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track", "Lunar Gravity",
     "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera",
@@ -84,7 +84,7 @@ static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior,
-                                  &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs,
+                                  &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs, &e->lunar_gravity,
                                   NULL /* Unlock Level */, &e->variant_time, &e->psx_liveries };
         return p1[row];
     }
