@@ -13,9 +13,11 @@ A texel of the mask layer is classed by its alpha and colour:
   red (ff0000: red >= 192, green and blue <= 64)          240  BRAKE light (emissive in low light; the position red when released)
   orange (ff8000: red >= 192, green 96..176, blue <= 64)  244  POSITION light (emissive red, dimmer, in low light)
   yellow (ffff00: red and green >= 192, blue <= 64)       248  HEADLIGHT (emissive warm white in low light)
+  cyan (00ffff: red <= 64, green and blue >= 192)         252  REVERSING light (white, emissive while the car is in reverse gear, in any
+                                         light; checked before the blue and green rules, since cyan has blue = green)
   dark (opaque, brightest channel < 64)  0   PAINT too (black is paint, as in the old two-value masks)
   anything else                    255  KEEP its colour, no shine (plastics, trim, plate, badges, vents)
-The layer's own opacity is ignored: it is only how the mask shows over the texture. The PNG is grey, 0 / 128 / 192 / 224 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
+The layer's own opacity is ignored: it is only how the mask shows over the texture. The PNG is grey, 0 / 128 / 192 / 224 / 240 / 244 / 248 / 252 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
 
 usage: car_mask_from_psd.py <dir of CAR/<tex>.psd> [<output dir, default data/car_masks next to tools/>]
 Needs psd-tools (pip install psd-tools) and Pillow.
@@ -33,11 +35,13 @@ BODY_KEEPS = 1   # green (0 red; blue is glass's)
 FIXED_BLACK = 224   # car_mask.h CAR_MASK_BLACK; its colour in the PSD is magenta (is_magenta below, as car_mask.c reads it)
 
 
-LAMP_BRAKE, LAMP_POSITION, LAMP_HEAD = 240, 244, 248   # car_mask.h's lamp classes (feat/emissive-lamps)
+LAMP_BRAKE, LAMP_POSITION, LAMP_HEAD, LAMP_REVERSE = 240, 244, 248, 252   # car_mask.h's lamp classes
 
 
 def lamp_class(r, g, b):
-    """The lamp class of a mask texel's colour: red brake, orange position, yellow headlight; 0 when it is none of them."""
+    """The lamp class of a mask texel's colour: red brake, orange position, yellow headlight, cyan reversing light; 0 when it is none of them."""
+    if r <= 64 and g >= 192 and b >= 192:   # cyan first: it has b == g, so the blue and green rules would not see it as a lamp
+        return LAMP_REVERSE
     if r < 192 or b > 64:
         return 0
     if g <= 64:

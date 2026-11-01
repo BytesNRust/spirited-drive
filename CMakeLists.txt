@@ -962,6 +962,11 @@ if(NOT EMSCRIPTEN)
         add_test(NAME keyboard_race_sim COMMAND test_keyboard_race_sim "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
+    find_program(TNFS_PYTHON3 python3)   # the PSD mask tool's lamp colours (skips itself when Pillow is missing)
+    if(TNFS_PYTHON3)
+        add_test(NAME car_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_psd.py")
+    endif()
+
     file(GLOB_RECURSE TNFS_MODEL_FILES
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.FAM" "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.fam"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.CFM" "${CMAKE_SOURCE_DIR}/original/SIMDATA/*.cfm")
