@@ -20,6 +20,7 @@
 #include "game/race/car_paint.h"
 #include "viewer/drive_livery.h"
 #include "viewer/drive_light.h"
+#include "viewer/drive_lamps.h"
 #include "game/race/weather.h"
 #include "game/sys/bands.h"
 #include "game/race/race_replay_image.h"
@@ -214,6 +215,8 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
         port_log("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
                  drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
     }
+    drive_lamps_clear(slot);   /* port (emissive lamps): the texels the masks mark as lamps, before the loader reads the file */
+    if (drive_cars.file[slot] != NULL) drive_lamps_find(slot, stem, drive_cars.file[slot], size);
     const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
     drive_cars.loaded[slot] = r == CAR_LOAD_OK;

@@ -317,6 +317,13 @@ int port_psx_shadow(void)
     return port_settings_load().psx_shadow;
 }
 
+int port_emissive_lamps(void)
+{
+    const char *v = getenv("TNFS_EMISSIVE_LAMPS");   /* a dev override; the game follows the Graphics Light Effects switch */
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_psx_light();
+}
+
 int port_body_shine(void)
 {
     const char *v = getenv("TNFS_BODY_SHINE");

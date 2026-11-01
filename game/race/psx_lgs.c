@@ -147,8 +147,9 @@ void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
     const uint8_t *usable = palette_usable();   /* not the entries the race rewrites (the brake lamp, the police lights); the cars' own slots are here */
+    const uint8_t *emissive = palette_emissive();   /* port (emissive lamps): a lamp is lit whatever the light */
     for (int c = 0; c < 256; c++) {
-        if (c >= CHOICES || (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f)) {
+        if (c >= CHOICES || emissive[c] || (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f)) {
             out[c] = (uint8_t)c;
             continue;
         }
@@ -171,8 +172,13 @@ void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out
 
 void psx_tint_palette(const uint8_t palette[768], const float tint[3], uint8_t out[768])
 {
+    const uint8_t *emissive = palette_emissive();
     for (int i = 0; i < 256; i++)
         for (int k = 0; k < 3; k++) {
+            if (emissive[i]) {
+                out[3 * i + k] = palette[3 * i + k];
+                continue;
+            }
             const float v = (float)palette[3 * i + k] * tint[k] + 0.5f;
             out[3 * i + k] = (uint8_t)(v > 255.0f ? 255 : v);
         }

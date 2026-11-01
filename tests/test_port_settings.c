@@ -377,6 +377,23 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 
 /* a psx_dir of the longest length kept with every other key set: the text the file is written from is about 270 bytes past it, which the save's
  * buffer holds (1024) and the older 512 did not */
+static void test_emissive_lamps_follow_light_effects(void)
+{
+    unsetenv("TNFS_EMISSIVE_LAMPS");
+    setenv("TNFS_PSX_LIGHT", "1", 1);
+    CHECK_EQ_INT(port_emissive_lamps(), 1);   /* the Light Effects switch on */
+    setenv("TNFS_PSX_LIGHT", "0", 1);
+    CHECK_EQ_INT(port_emissive_lamps(), 0);   /* off: the exe's */
+    setenv("TNFS_PSX_LIGHT", "1", 1);
+    setenv("TNFS_EMISSIVE_LAMPS", "0", 1);
+    CHECK_EQ_INT(port_emissive_lamps(), 0);   /* the dev override */
+    setenv("TNFS_PSX_LIGHT", "0", 1);
+    setenv("TNFS_EMISSIVE_LAMPS", "1", 1);
+    CHECK_EQ_INT(port_emissive_lamps(), 1);
+    unsetenv("TNFS_EMISSIVE_LAMPS");
+    unsetenv("TNFS_PSX_LIGHT");
+}
+
 static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
@@ -436,6 +453,7 @@ int main(void)
     test_free_records_values();
     test_fog_sample_values();
     test_sky_fill_values();
+    test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();
     test_render_scale_values();
     test_bad_render_scale_keeps_the_default();
