@@ -26,6 +26,7 @@ static void last_win(const WinMovieState *st, const CopStopOps *ops)
         ops->movie(ops->ctx, "win#7.tgv");
         return;
     }
+    if (*st->screen != 0) ops->picture_free(ops->ctx, *st->screen);  /* the race's screen, freed before its place is taken */
     *st->screen = ops->picture_new(ops->ctx, WIDE, HIGH, 0);
     ops->screen_show(ops->ctx, "winner.qfs", 0, 0);
     ops->picture_free(ops->ctx, *st->screen);

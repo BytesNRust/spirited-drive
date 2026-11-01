@@ -130,6 +130,12 @@ int32_t *ea_screen_slot(void)
     return &screen;
 }
 
+/* the screen picture freed if there is one, so the next ea_screen makes a new one: nothing is allocated here */
+void ea_screen_release(void)
+{
+    if (screen != 0) ea_picture_free(screen);
+}
+
 void ea_select(int32_t picture)
 {
     uint8_t *const p = picture_of(picture);
