@@ -1,10 +1,13 @@
 #include "viewer/drive_light.h"
+#include "viewer/drive_palette.h"
 #include "viewer/ported_view.h"
 #include "viewer/psx_sky_draw.h"
 #include "game/race/psx_sky.h"
 #include "game/platform/platform.h"
 #include "game/race/psx_lgs.h"
 #include "viewer/track_load.h"
+#include "game/race/track_art.h"
+#include "game/race/psx_lamps.h"
 #include "game/race/psx_light.h"
 #include "game/race/psx_light_synth.h"
 #include "game/sys/port_log.h"
@@ -28,6 +31,9 @@ static uint32_t ambient_nodes;
 static float dash_ratio[3] = { 1, 1, 1 };   /* the dash's ambient over the world's tint, from the car's light (drive_light_dash_ratio) */
 static int split;   /* the race has the light and its script: the dash has its own ambient, so the 3D and the 2D go through the split present */
 static PsxSkyDraw sky_draw;
+static int lamp_pool_count;
+static const PsxLamp *night_lamp_spec;   /* the tunnel lamps of the track when the race is at night (drive_light_night_lamps), else none */
+static int night_lamp_count;
 static int night_sky;   /* the race is at night: a sky of the dusk is darkened by the night's light before it is matched to the shown palette */
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
@@ -125,6 +131,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
     night_sky = time == PSX_TIME_NIGHT;
+    night_lamp_spec = NULL, night_lamp_count = 0, lamp_pool_count = 0;
     alt_sky_wanted = 0;
     split = 0;
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
@@ -177,6 +184,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     const PsxLamp *lamps = NULL;
     const int lamp_count = psx_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
     ported_view_set_psx_lamps(lamps, lamp_count);
+    if (time == PSX_TIME_NIGHT) night_lamp_spec = lamps, night_lamp_count = lamp_count;
     ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
 }
@@ -220,6 +228,63 @@ void drive_light_load_alt_sky(const char *data_root, const char *track)
         port_log("psx_sky: no PC sky for %s, the track's sky stays\n", track);
     }
     platform_free_file(file);
+}
+
+int drive_light_night_lamps(const PsxLamp **out)
+{
+    if (out != NULL) *out = night_lamp_spec;
+    return night_lamp_count;
+}
+
+static uint8_t lamp_pool[16];
+
+void drive_light_lamp_pool(const uint8_t entry[], int n)
+{
+    lamp_pool_count = n < (int)sizeof lamp_pool ? n : (int)sizeof lamp_pool;
+    memcpy(lamp_pool, entry, (size_t)lamp_pool_count);
+}
+
+static int brighter(const uint8_t palette[768], int a, int b)
+{
+    return palette[3 * a] + palette[3 * a + 1] + palette[3 * a + 2] > palette[3 * b] + palette[3 * b + 1] + palette[3 * b + 2];
+}
+
+void drive_light_lamps_night(TrackArt *art)
+{
+    if (night_lamp_count <= 0 || lamp_pool_count <= 0 || art == NULL) return;
+    uint8_t wanted[256] = { 0 }, colour[256], remap[256];
+    int n = 0;
+    for (int i = 0; i < night_lamp_count; i++) {
+        const int slot = night_lamp_spec[i].slot;
+        const TrackTexture *t = slot >= 0 && slot < TRACK_TEXTURE_SLOTS ? &art->slots[slot][0] : NULL;
+        uint8_t exempt[256];
+        psx_lamp_exempt(&night_lamp_spec[i], t != NULL && t->present ? t->bitmap.payload : NULL, t != NULL ? t->bitmap.width : 0,
+                        t != NULL ? t->bitmap.height : 0, exempt);
+        for (int c = 0; c < 256; c++)
+            if (exempt[c] && !wanted[c]) wanted[c] = 1, colour[n++] = (uint8_t)c;
+    }
+    for (int a = 1; a < n; a++) {   /* brightest first: with fewer entries than colours it is the glare that stays lit */
+        const uint8_t c = colour[a];
+        int b = a - 1;
+        while (b >= 0 && brighter(art->palette, c, colour[b])) colour[b + 1] = colour[b], b--;
+        colour[b + 1] = c;
+    }
+    for (int c = 0; c < 256; c++) remap[c] = (uint8_t)c;
+    const int used = n < lamp_pool_count ? n : lamp_pool_count;
+    for (int k = 0; k < used; k++) {
+        remap[colour[k]] = lamp_pool[k];
+        memcpy(art->palette + 3 * lamp_pool[k], art->palette + 3 * colour[k], 3);
+        drive_palette_write(lamp_pool[k], art->palette + 3 * colour[k]);
+    }
+    size_t texels = 0;   /* the lamp textures (every variant) draw the entries of their own: raw or through the tables, the tint leaves them alone */
+    for (int i = 0; i < night_lamp_count; i++) {
+        const int slot = night_lamp_spec[i].slot;
+        for (int v = 0; slot >= 0 && slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS; v++) {
+            const TrackTexture *t = &art->slots[slot][v];
+            if (t->present) texels += psx_lamp_recolour((uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.payload_size, remap);
+        }
+    }
+    port_log("night_lamps: %d of %d lamp colours in entries of their own (brightest first), %zu texels\n", used, n, texels);
 }
 
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768])

@@ -4,6 +4,8 @@
 #ifndef TNFS_DRIVE_LIGHT_H
 #define TNFS_DRIVE_LIGHT_H
 
+#include "game/race/psx_lamps.h"
+#include "game/race/track_art.h"
 #include "formats/tri.h"
 
 #include <stddef.h>
@@ -28,6 +30,13 @@ void drive_light_load_alt_sky(const char *data_root, const char *track);
 /* The palette with every entry multiplied by the ambient colour of the light loaded (the palette itself with none), so a
  * texture keeps its variation under the tint. For what is all 3D (the track viewer); a race's frame has the HUD's pixels too, which
  * index the same entries: see below. */
+/* port (night): the tunnel lamps of the track when the race is at night (how many, and `*out` their table), none otherwise. */
+int drive_light_night_lamps(const PsxLamp **out);
+/* port (night): the palette entries set aside for the lamps' colours (drive_palette.c), then, with the race palette built, drive_light_lamps_night fills
+ * them from the lamp textures of `art` (psx_lamp_exempt, brightest first; art->palette gets the colours at the pool's entries) and the lamps' tables
+ * draw those colours there. */
+void drive_light_lamp_pool(const uint8_t entry[], int n);
+void drive_light_lamps_night(TrackArt *art);
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768]);
 
 /* A race's frame: `frame` (count pixels) is the 3D when it is done and the 2D layer (HUD, dash, menus over it) not yet drawn. */

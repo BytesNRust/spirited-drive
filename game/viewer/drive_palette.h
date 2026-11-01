@@ -35,4 +35,8 @@ typedef struct {
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
                         DriveHud *hud, const DrivePaletteLate *late, const RacePaletteTint *tint, uint8_t rgb[768]);
 
+/* port (night): the tunnel lamp entries drive_light_lamps_night fills, written into the race's palette too, which later uses of it (the fades, the screen)
+ * read again: one entry's colour after drive_palette_build. */
+void drive_palette_write(int entry, const uint8_t rgb[3]);
+
 #endif

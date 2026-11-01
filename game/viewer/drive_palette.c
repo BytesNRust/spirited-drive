@@ -10,6 +10,8 @@
 #include "game/sys/port_settings.h"
 #include "game/race/lamp_emissive.h"
 #include "viewer/drive_lamps.h"
+#include "viewer/drive_light.h"
+#include "game/race/psx_lamps.h"
 #include <string.h>
 
 enum {
@@ -235,6 +237,33 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
     drive_lamps_set_entries(entry[1], entry[0], entry[2], entry[3]);
 }
 
+/* port (night, psx_lamps.h): the tunnel lamps' colours must stay lit in the night's light, which the tint of the palette would darken (the lamps' entries are
+ * shared with the sky and the windows). A pool of entries nothing shows is set aside here, out of every search and the world's tables and out of the tint;
+ * drive_light_lamps_night fills them with the colours the lamps' textures show once the textures are in the race palette's terms. */
+enum { NIGHT_LAMP_ENTRIES = 8 };
+
+static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
+                        const uint8_t *track, const uint8_t *dash_bank)
+{
+    const PsxLamp *lamps = NULL;
+    if (drive_light_night_lamps(&lamps) <= 0) return;
+    uint8_t rgb[RACE_PALETTE_COLOURS * 3], entry[NIGHT_LAMP_ENTRIES], used[RACE_PALETTE_COLOURS];
+    for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
+    used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
+    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, NIGHT_LAMP_ENTRIES, entry);
+    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps\n", found, NIGHT_LAMP_ENTRIES);
+    if (found <= 0) return;
+    uint8_t hidden[RACE_PALETTE_COLOURS], exempt[RACE_PALETTE_COLOURS];
+    memcpy(hidden, palette_world_hidden(), sizeof hidden);
+    memcpy(exempt, palette_emissive(), sizeof exempt);
+    for (int i = 0; i < found; i++) p->enabled[entry[i]] = 0, hidden[entry[i]] = 1, exempt[entry[i]] = 1;
+    palette_world_hide(hidden);
+    palette_usable_set(p->enabled);
+    palette_emissive_set(exempt);
+    if (p->inverse != NULL) race_palette_inverse(p);
+    drive_light_lamp_pool(entry, found);
+}
+
 typedef struct {
     const DrivePaletteLate *late;
     RacePalette *p;
@@ -247,10 +276,18 @@ static void after_banks(void *ctx)
     if (a->late != NULL && a->late->after_banks != NULL) a->late->after_banks(a->late->ctx, a->p);
 }
 
+static RacePalette race_palette_now;   /* the race's palette as the build leaves it */
+
+void drive_palette_write(int entry, const uint8_t rgb[3])
+{
+    race_palette_write(&race_palette_now, entry, 1, rgb);
+}
+
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
                         DriveHud *hud, const DrivePaletteLate *late, const RacePaletteTint *tint, uint8_t rgb[768])
 {
-    static RacePalette p;
+    RacePalette *const built = &race_palette_now;
+#define p (*built)
     Chunk terrain, first;
     if (chunk_child(fam, FAM_CHILD_TERRAIN, &terrain) != CHUNK_OK || terrain.kind != CHUNK_KIND_HEADER ||
         chunk_child(&terrain, 0, &first) != CHUNK_OK)
@@ -292,6 +329,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     race_palette_map_banks(&p, after_banks, &after);  /* 00447098: the mask's and the smoke's banks */
     if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     emissive_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
+    night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];
         rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];
@@ -299,3 +337,4 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     }
     return 1;
 }
+#undef p

@@ -81,11 +81,24 @@ static void test_exempt(void)
     CHECK_EQ_INT(exempt[50], 0);
 }
 
+/* the night's lamp texels: each colour that has an entry of its own is changed to it, the others stay */
+static void test_recolour(void)
+{
+    uint8_t pixels[6] = { 27, 33, 27, 255, 170, 5 }, remap[256];
+    for (int c = 0; c < 256; c++) remap[c] = (uint8_t)c;
+    remap[27] = 144, remap[170] = 143;
+    CHECK_EQ_INT((int)psx_lamp_recolour(pixels, 6, remap), 3);
+    CHECK(pixels[0] == 144 && pixels[1] == 33 && pixels[2] == 144 && pixels[3] == 255 && pixels[4] == 143 && pixels[5] == 5);
+    CHECK_EQ_INT((int)psx_lamp_recolour(NULL, 6, remap), 0);
+    CHECK_EQ_INT((int)psx_lamp_recolour(pixels, 0, remap), 0);
+}
+
 int main(void)
 {
     test_lookup();
     test_table_sane();
     test_tables();
     test_exempt();
+    test_recolour();
     return TEST_REPORT();
 }

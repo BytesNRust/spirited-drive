@@ -131,6 +131,19 @@ static void test_pick_entries(void)
     CHECK_EQ_INT(lamp_pick_entries(used, usable, rgb, 0, 255, 2, out), 0);
 }
 
+/* more than three entries (the night's pool of tunnel lamp colours): the nearest `want` free ones in order, none past the end of the table */
+static void test_pick_many_entries(void)
+{
+    uint8_t used[256], usable[256] = { 0 }, rgb[768] = { 0 }, out[8];
+    memset(used, 1, sizeof used);
+    usable[0x10] = 1;                          /* the usable colour: black */
+    for (int i = 0; i < 6; i++) used[0x40 + i] = 0, rgb[3 * (0x40 + i)] = (uint8_t)(10 * (i + 1));   /* free, 10, 20 .. 60 from it */
+    CHECK_EQ_INT(lamp_pick_entries(used, usable, rgb, 0x30, 0xef, 8, out), 6);
+    for (int i = 0; i < 6; i++) CHECK_EQ_INT(out[i], 0x40 + i);
+    CHECK_EQ_INT(lamp_pick_entries(used, usable, rgb, 0x30, 0xef, 5, out), 5);
+    CHECK_EQ_INT(out[4], 0x44);
+}
+
 static void test_entry_zero_is_none(void)
 {
     const uint8_t mask[3] = { CAR_MASK_BRAKE, CAR_MASK_POSITION, CAR_MASK_HEADLIGHT };
@@ -165,6 +178,7 @@ int main(void)
     test_offsets_past_the_file_are_dropped();
     test_no_lamps_no_change();
     test_pick_entries();
+    test_pick_many_entries();
     test_entry_zero_is_none();
     test_low_light();
     return TEST_REPORT();

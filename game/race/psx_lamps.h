@@ -6,6 +6,7 @@
 #ifndef TNFS_PSX_LAMPS_H
 #define TNFS_PSX_LAMPS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 enum { PSX_LAMP_COLOURS = 8 };
@@ -26,5 +27,9 @@ void psx_lamp_exempt(const PsxLamp *lamp, const uint8_t *pixels, int w, int h, u
 
 /* `out`: `levels` darkening tables like `lit` (256 bytes each, level 0 the world's lightest) with the `exempt` colours mapped to themselves. */
 void psx_lamp_tables(const uint8_t exempt[256], const uint8_t (*lit)[256], int levels, uint8_t (*out)[256]);
+
+/* port (night): the texels of a lamp texture (`count` palette indices) with each colour `remap` names changed to its entry (remap[c] != c); the night's
+ * lamps are drawn in entries of their own that the tint leaves alone. Returns how many texels changed. */
+size_t psx_lamp_recolour(uint8_t *pixels, size_t count, const uint8_t remap[256]);
 
 #endif
