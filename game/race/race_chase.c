@@ -509,8 +509,10 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
     if (!race->port_follow_camera &&
         (row->mode == 3 || row->mode == 4 || chase->kind == KIND_REPLAY || chase->kind == KIND_NO_ROAD)) {
         turn_yaw = chase->yaw;
-        if (row->mode == 3) pitch = mul(a->pitch, 5) / 4;
     }
+    /* the chase rows (mode 3) tilt with the car by a quarter more than it pitches, with or without the follow camera:
+     * its look-at point at the car's height gave a different tilt on the crests and the dips (the camera sat lower) */
+    if (row->mode == 3) pitch = mul(a->pitch, 5) / 4;
     chase->turn[1] = sub(turn_yaw, a->yaw);
     chase->turn[0] = sub(pitch, a->pitch);
     if (row->mode != 3) chase->turn[2] = neg(a->roll);
