@@ -122,6 +122,10 @@ typedef struct {
 /* Returns 0 on a malformed mesh or allocation failure (object left empty). */
 int object3d_create(Object3D *obj, const Mesh *mesh);
 void object3d_free(Object3D *obj);
+/* port (two_sided_scenery): the polygons of an open surface are drawn from behind too. A polygon with a corner edge no other polygon of the object shares
+ * (the object is open there: a board, an arch, a tunnel mouth, an inverted U) gets POLY_NO_CULL; the polygons of a closed solid keep the culling, as their
+ * back faces are inside it. Returns how many it set; polygons that already draw both ways are not counted. */
+int object3d_both_sides(Object3D *obj);
 /* port (body shine): gives the object a normal per vertex (0 when it cannot allocate). object3d_update_normals then sets them from the camera-space
  * corners (after object3d_transform): a vertex takes the mean of the faces it belongs to that the engine would draw (a one-sided one turned
  * away is left out; a two-sided one counts turned toward the eye), a vertex of none gets (0, 0, 0). The polygons handed to the sink carry them in
