@@ -23,7 +23,8 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Lunar Springs Track, Lunar Gravity, Unlock Level, Time with variants, Car Colours
  *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Bumper view police radar,
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
- *                               Dash box (Map / Gear lever / Hidden)
+ *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
+ *                               Difficulty (Easy / Original / Hard)
  *            Miscellaneous      Start Screen, Intro video
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
@@ -44,7 +45,8 @@ enum {
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
     ROW_DASH_BOX,                                  /* port: In-race options' the dash's map box (port_extras.h) */
-    ROW_FOLLOW_CAMERA,                             /* port: In-race options' last, the 360 camera (port_extras.h's follow_camera) */
+    ROW_FOLLOW_CAMERA,                             /* port: In-race options' 360 camera (port_extras.h's follow_camera) */
+    ROW_DIFFICULTY,                                /* port: In-race options' last, Easy / Original / Hard (port_extras.h's difficulty, difficulty.h) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };

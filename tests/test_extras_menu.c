@@ -523,7 +523,7 @@ static void test_psx_livery_row_is_saved_on_done(void)
     CHECK_EQ_INT(r.fake.saved.no_movies, 0);
 }
 
-/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: eleven switches, Intro video the last of them. Walk the whole page down */
+/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: twelve rows, Intro video the last of them. Walk the whole page down */
 static void test_page_two_has_ten_rows(void)
 {
     Rig r;
@@ -531,7 +531,7 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 11);
+    CHECK_EQ_INT(ROWS_P2, 12);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -719,11 +719,11 @@ static void test_both_pages_share_one_layout(void)
     turn[n++] = ESCAPE;
     run(&two, turn, n);
 
-    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 10 on page 2 (the lines
+    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 11 on page 2 (the lines
      * are PITCH apart, with the gap of 14 added from the second header down) */
     CHECK_EQ_INT(y_in(&two.fake, "In-race options"), y_in(&one.fake, "Cheats"));
     CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods"), 100 + 5 * PITCH + 14);
-    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 10 * PITCH + 14);
+    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 11 * PITCH + 14);
     /* the pitch: one row a line below the last */
     CHECK_EQ_INT(y_in(&one.fake, "Nitro mode") - y_in(&one.fake, "Explode mode"), PITCH);
     CHECK_EQ_INT(y_in(&two.fake, "No driving assists") - y_in(&two.fake, "Speed units"), PITCH);
@@ -998,7 +998,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     keys[n++] = ENTER;
     n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 3);   /* the last row of In-race options, before Miscellaneous */
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 4);   /* before Difficulty, the last row of In-race options, and Miscellaneous */
     setup(&r);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     run(&r, keys, n);
@@ -1026,6 +1026,52 @@ static void test_follow_camera_row_escape_restores(void)
     run(&r, keys, n);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     CHECK_EQ_INT(r.fake.saves, 0);
+}
+
+/* port: Difficulty, the last row of In-race options: Enter / Right step Easy -> Original -> Hard and round, Left goes
+ * back, Done saves the number the race reads (0 Easy, 1 Original, 2 Hard), and Escape puts it back */
+static void test_difficulty_row_cycles_saves_and_escapes(void)
+{
+    Rig r;
+    int keys[48] = {0};
+    int n = keys_to_row(keys, ROW_DIFFICULTY);
+    keys[n++] = RIGHT;                                     /* Original -> Hard */
+    n = downs(keys, n, downs_to_done(ROW_DIFFICULTY));
+    keys[n++] = ENTER;
+    setup(&r);
+    r.e.difficulty = 1;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.e.difficulty, 2);
+    CHECK_EQ_INT(r.fake.saved.difficulty, 2);
+    CHECK(shown(&r.fake, "Difficulty"));
+    CHECK(shown(&r.fake, "Hard"));
+
+    Rig wrap;                                              /* Hard -> Easy on Right, Easy -> Hard on Left */
+    int k2[48] = {0};
+    int m = keys_to_row(k2, ROW_DIFFICULTY);
+    k2[m++] = RIGHT;
+    m = downs(k2, m, downs_to_done(ROW_DIFFICULTY));
+    k2[m++] = ENTER;
+    setup(&wrap);
+    wrap.e.difficulty = 2;
+    run(&wrap, k2, m);
+    CHECK_EQ_INT(wrap.e.difficulty, 0);
+    CHECK(shown(&wrap.fake, "Easy"));
+    k2[keys_to_row(k2, ROW_DIFFICULTY)] = LEFT;
+    setup(&wrap);
+    wrap.e.difficulty = 0;
+    run(&wrap, k2, m);
+    CHECK_EQ_INT(wrap.e.difficulty, 2);
+
+    Rig esc;
+    int k3[48] = {0};
+    int q = keys_to_row(k3, ROW_DIFFICULTY);
+    k3[q++] = RIGHT, k3[q++] = ESCAPE;
+    setup(&esc);
+    esc.e.difficulty = 1;
+    run(&esc, k3, q);
+    CHECK_EQ_INT(esc.e.difficulty, 1);
+    CHECK_EQ_INT(esc.fake.saves, 0);
 }
 
 /* Done writes the on-disk file (saves++ in the rig) */
@@ -1060,6 +1106,7 @@ int main(void)
     test_lunar_row_is_saved_on_done();
     test_follow_camera_row_toggles_and_saves();
     test_follow_camera_row_escape_restores();
+    test_difficulty_row_cycles_saves_and_escapes();
     test_speed_units_row_reads_mph_in_english();
     test_speed_units_follow_the_language_until_chosen();
     test_speed_units_choice_overrides_german();
