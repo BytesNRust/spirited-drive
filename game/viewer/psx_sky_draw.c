@@ -57,6 +57,17 @@ void psx_sky_draw_target(PsxSkyDraw *d, const uint8_t target[768])
     if (d->ready) horizon_smooth_sky(&d->smooth, d->bitmap.palette, target);
 }
 
+void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
+{
+    if (!d->ready) return;
+    for (int i = 0; i < 256; i++)
+        for (int k = 0; k < 3; k++) {
+            const float v = (float)d->bitmap.palette[3 * i + k] * mul[k] + 0.5f;
+            d->bitmap.palette[3 * i + k] = (uint8_t)(v > 255.0f ? 255.0f : v);
+        }
+    d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
+}
+
 void psx_sky_draw_free(PsxSkyDraw *d)
 {
     psx_sky_bitmap_free(&d->bitmap);

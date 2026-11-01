@@ -48,9 +48,33 @@ static void test_rejected(void)
     CHECK(!d.ready);
 }
 
+/* the night: the sky's own colours scaled per channel before they are matched to the shown palette, so a bright orange sky matches the dark entries' darkness */
+static void test_scale_darkens_the_sky(void)
+{
+    uint8_t texels[W * H] = { 0, 1, 1, 0, 1, 1, 0, 0 };
+    uint8_t decode[768] = { 0 };
+    decode[3 * 1] = 200, decode[3 * 1 + 1] = 100, decode[3 * 1 + 2] = 40;
+    FshEntry horizon = { { 0 }, FSH_TYPE_BITMAP, 0, W, H, { 0, 1, 0, 0 }, texels, sizeof texels };
+    PsxSkyDraw d;
+    memset(&d, 0, sizeof d);
+    CHECK(psx_sky_draw_make_indexed(&d, &horizon, decode));
+    const float mul[3] = { 0.5f, 0.25f, 2.0f };
+    psx_sky_draw_scale(&d, mul);
+    CHECK_EQ_INT(d.bitmap.palette[3], 100);
+    CHECK_EQ_INT(d.bitmap.palette[4], 25);
+    CHECK_EQ_INT(d.bitmap.palette[5], 80);
+    CHECK_EQ_INT(d.bitmap.palette[0], 0);
+    const float big[3] = { 4, 4, 4 };
+    psx_sky_draw_scale(&d, big);
+    CHECK_EQ_INT(d.bitmap.palette[3], 255);   /* kept in a byte */
+    psx_sky_draw_free(&d);
+    psx_sky_draw_scale(&d, mul);   /* nothing made: nothing happens */
+}
+
 int main(void)
 {
     test_indexed_and_in_palette();
     test_rejected();
+    test_scale_darkens_the_sky();
     return TEST_REPORT();
 }

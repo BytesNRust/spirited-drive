@@ -28,6 +28,7 @@ static uint32_t ambient_nodes;
 static float dash_ratio[3] = { 1, 1, 1 };   /* the dash's ambient over the world's tint, from the car's light (drive_light_dash_ratio) */
 static int split;   /* the race has the light and its script: the dash has its own ambient, so the 3D and the 2D go through the split present */
 static PsxSkyDraw sky_draw;
+static int night_sky;   /* the race is at night: a sky of the dusk is darkened by the night's light before it is matched to the shown palette */
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
 static void file_path(char *out, size_t size, const char *psx_dir, const char *track, char letter, const char *ext)
@@ -88,6 +89,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
     if (text != NULL) platform_free_file(text);
     if (!gradient) port_log("psx_sky: %s does not read, no gradient above the horizon\n", path);
     if (psx_sky_draw_make(&sky_draw, &sky, &inf)) {
+        if (night_sky) psx_sky_draw_scale(&sky_draw, psx_night_light);
         ported_view_set_psx_sky(&sky_draw);
         port_log("psx_sky: %dx%d panorama, gradient %d,%d,%d to %d,%d,%d\n", sky.width, sky.height, inf.top[0], inf.top[1], inf.top[2],
                  inf.bottom[0], inf.bottom[1], inf.bottom[2]);
@@ -122,6 +124,7 @@ int drive_light_time_tinted(void) { return time_tinted || split; }
 void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
+    night_sky = time == PSX_TIME_NIGHT;
     alt_sky_wanted = 0;
     split = 0;
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
@@ -209,6 +212,7 @@ void drive_light_load_alt_sky(const char *data_root, const char *track)
     uint8_t palette[768];
     uint8_t *file = NULL;
     if (track_viewer_pc_sky(data_root, track, &alt_info, &horizon, palette, &file) && psx_sky_draw_make_indexed(&sky_draw, &horizon, palette)) {
+        if (night_sky) psx_sky_draw_scale(&sky_draw, psx_night_light);
         ported_view_set_psx_sky(&sky_draw);
         ported_view_set_psx_sky_info(&alt_info);
         port_log("psx_sky: the PC's %s sky, %dx%d, ring %d\n", track, horizon.width, horizon.height, alt_info.ring);
