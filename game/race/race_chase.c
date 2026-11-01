@@ -212,6 +212,7 @@ void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind
     chase->next_kind = kind;
     if (car != chase->car) chase->yaw = node_heading(race, car->node);
     chase->car = car;
+    chase->port_follow_car = NULL;   /* port (port_follow_camera): a view change or a race start starts the yaw spring again at the car's heading, no sweep */
     race_chase_take(race, chase, kind);
 }
 
@@ -353,6 +354,8 @@ static void in_car(RaceState *race, RaceChase *chase, ChaseKind *row)
     row->yaw_car = car;
     chase->yaw = car->yaw;
     memcpy(chase->target, row->target, sizeof chase->target);
+    /* port (look back, with the 360 camera): in the car the view is turned round at once, no spring */
+    if (race->port_follow_camera) chase->turn[1] = chase->port_look_back != 0 ? HALF_TURN : 0;   /* (the exe's in-car turn[1] is 0 throughout) */
 }
 
 /* The eye jumps to the car when its node is more than 16 nodes off, round
@@ -410,7 +413,7 @@ static void start_glide(const RaceState *race, RaceChase *chase, ChaseKind *row)
 }
 
 /* The road's slope under the car, blended across its node and the next. */
-static int32_t slope_lift(const RaceState *race, const RaceChase *chase, int32_t blend, int32_t rest)
+static int32_t slope_lift(const RaceState *race, const RaceChase *chase, int32_t blend, int32_t rest, int32_t along)
 {
     int32_t a = race_node(race, chase->car->node).slope * HEADING_SCALE;
     if (a > HALF_TURN) a -= FULL_TURN;
@@ -418,7 +421,7 @@ static int32_t slope_lift(const RaceState *race, const RaceChase *chase, int32_t
     if (b > HALF_TURN) b -= FULL_TURN;
     int32_t t = add(mul(a >> 8, rest), mul(b >> 8, blend)) >> 2;
     if (t > 0) t /= 2;
-    return mul(fx_sin16(t >> 8) >> 8, chase->target[2] >> 9);
+    return mul(fx_sin16(t >> 8) >> 8, along >> 9);
 }
 
 /* The eye is kept between the node's barriers. */
@@ -459,6 +462,7 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
     dir[2] = add(mul(sub(ahead.position.z, behind.position.z) >> 8, rest),
                  mul(blend, sub(ahead2.position.z, behind2.position.z) >> 8)) / BLEND_FULL;
     int32_t road_yaw = angle_of(dir[2], dir[0]);
+    const int32_t exe_yaw = road_yaw;
     if (race->port_follow_camera) {   /* port: the camera's heading is the car's, not the road's */
         road_yaw = race_follow_yaw(chase, car);
         race_follow_direction(road_yaw, dir);
@@ -495,7 +499,13 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
     else if (chase->kind == KIND_NO_ROAD) race_chase_unturn(chase->target, chase->offset, pitch, 0, yaw);
     else race_chase_unturn(chase->target, chase->offset, 0, 0, yaw);
     chase->eye[0] = add(chase->base->x, chase->offset[0]);
-    chase->offset[1] = add(chase->offset[1], slope_lift(race, chase, blend, rest));
+    int32_t along = chase->target[2];   /* how far the eye is along the road from the car: behind it, the exe's; the 360 camera may be anywhere round it */
+    if (race->port_follow_camera) {
+        int32_t road[3];
+        race_follow_direction(exe_yaw, road);
+        along = (int32_t)(((int64_t)chase->offset[0] * road[0] + (int64_t)chase->offset[2] * road[2]) >> 16);
+    }
+    chase->offset[1] = add(chase->offset[1], slope_lift(race, chase, blend, rest, along));
     chase->eye[1] = add(chase->base->y, chase->offset[1]);
     chase->eye[2] = add(chase->base->z, chase->offset[2]);
     const Car *held = race_car_by_handle(race, car->unknown_088);

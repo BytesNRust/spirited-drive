@@ -1,5 +1,6 @@
 /* port (port_follow_camera): the camera's follow of the car's heading (race_follow.h, race_camera.h's camera_faces_road) */
 #include "game/race/race_camera.h"
+#include "game/race/race_chase.h"
 #include "game/race/race_follow.h"
 #include "game/race/race_keys.h"
 #include "game/sys/fixed_math.h"
@@ -57,6 +58,19 @@ static void test_follow(void)
     CHECK_EQ_INT(chase.port_follow_velocity, 0);
 }
 
+/* a view change or a race start (race_chase_follow) starts the spring again: the same car, turned since, is not swept to */
+static void test_view_change_restarts_the_spring(void)
+{
+    RaceChase chase = { 0 };
+    car.yaw = 0x123456, car.yaw_rate = 0;
+    race_follow_yaw(&chase, &car);
+    car.yaw = 0x923456;                                   /* the car turned half a turn while the camera was not followed */
+    chase.car = &car;                                     /* the same car: race_chase_follow keeps its road yaw... */
+    race_chase_follow(&race, &chase, &car, 6);            /* ...and a view change, a race start, goes through it */
+    CHECK_EQ_INT(race_follow_yaw(&chase, &car), 0x923456);   /* snapped behind, not swept from the old heading */
+    CHECK_EQ_INT(chase.port_follow_velocity, 0);
+}
+
 /* a car spinning at a steady rate is followed round: the camera keeps within a few degrees of the heading */
 static void test_spin(void)
 {
@@ -85,7 +99,7 @@ static void test_direction(void)
 }
 
 /* look back (port_look_back): while held the spring's target is the car's heading turned half a turn, and released it returns to it, both
- * ways through the same spring: no jump, and settled within a second and a half */
+ * ways through the same spring: no jump, and settled within a second */
 static void test_look_back(void)
 {
     RaceChase chase = { 0 };
@@ -93,16 +107,16 @@ static void test_look_back(void)
     race_follow_yaw(&chase, &car);
     chase.port_look_back = 1;
     const int32_t first = race_follow_yaw(&chase, &car);
-    CHECK(abs(wrapped(first - 0x100000)) < 0x70000);   /* the first tick has not jumped: the spring's top speed is 8.5 degrees a tick */
+    CHECK(abs(wrapped(first - 0x100000)) < 0x140000);   /* the first tick has not jumped: the spring's top speed is 26 degrees a tick */
     int ticks = 0;
     int32_t at = first;
     while (ticks < 200 && abs(wrapped(at - (car.yaw + 0x800000))) > 0x38e4) at = race_follow_yaw(&chase, &car), ticks++;   /* within 1.4 degrees */
-    CHECK(ticks < 45);   /* a second and a half at 30 ticks */
+    CHECK(ticks < 30);   /* a second at 30 ticks: half the first look back's time */
     printf("look back settles in %d ticks\n", ticks);
     chase.port_look_back = 0;
     ticks = 0;
     while (ticks < 200 && abs(wrapped(at - car.yaw)) > 0x38e4) at = race_follow_yaw(&chase, &car), ticks++;
-    CHECK(ticks < 45);
+    CHECK(ticks < 30);
     printf("and back in %d ticks\n", ticks);
     chase.port_look_back = 1;   /* the car turning while looked back: the camera stays behind it */
     car.yaw_rate = 0x600000;
@@ -111,6 +125,43 @@ static void test_look_back(void)
         at = race_follow_yaw(&chase, &car);
     }
     CHECK(abs(wrapped(at - (car.yaw + 0x800000))) < 0x100000);
+}
+
+/* look back in the interior view takes the bumper's (no cockpit over the rearward world) while held and gives the interior back on release;
+ * not without the 360 camera, not in another view, and not if a view key moved the view meanwhile */
+static void test_look_back_view_swap(void)
+{
+    RaceChase *chase = &race.chase;
+    memset(chase, 0, sizeof *chase);
+    chase->car = &car;
+    race.port_follow_camera = 1;
+    chase->kind = 0;
+    chase->port_look_back = 1;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 1);
+    CHECK_EQ_INT(chase->port_look_swapped, 1);
+    race_look_back_view(&race);   /* held on: no second change */
+    CHECK_EQ_INT(chase->kind, 1);
+    chase->port_look_back = 0;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 0);
+    CHECK_EQ_INT(chase->port_look_swapped, 0);
+    chase->kind = 2;   /* another view: nothing taken */
+    chase->port_look_back = 1;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 2);
+    chase->port_look_back = 0;
+    chase->kind = 0, chase->port_look_back = 1;
+    race_look_back_view(&race);
+    chase->kind = 5;   /* a view key took the view while held: it is not given back over it */
+    chase->port_look_back = 0;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 5);
+    race.port_follow_camera = 0;
+    chase->kind = 0, chase->port_look_back = 1;
+    race_look_back_view(&race);
+    CHECK_EQ_INT(chase->kind, 0);   /* the 360 camera off: the exe's */
+    memset(chase, 0, sizeof *chase);
 }
 
 /* the look back is held only with the 360 camera, by the key or the pad's button; none, or another key, and it is not */
@@ -187,9 +238,11 @@ int main(void)
     test_keep_radius();
     test_swing_distance();
     test_look_back_held();
+    test_look_back_view_swap();
     test_look_back();
     test_faces();
     test_follow();
+    test_view_change_restarts_the_spring();
     test_spin();
     test_direction();
     return TEST_REPORT();
