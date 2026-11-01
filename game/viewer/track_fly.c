@@ -175,7 +175,7 @@ static void render(const Track *t, uint32_t node, float yaw, int stand_in, uint8
         render_stand_in(t, node, yaw, pixels);
         return;
     }
-    ported_view_set_models(t->models, t->model_ok, 0);
+    ported_view_set_models(t->models, t->model_ok, 0, port_two_sided_scenery(0));
     if (t->car_ok) ported_view_set_car(&t->car[0], &t->car[1], CAR_AHEAD);
     ported_view_render(&t->tri, &t->art, &t->info, node, (int32_t)(yaw / (2.0f * 3.14159265f) * 0x1000000), pixels);
 }

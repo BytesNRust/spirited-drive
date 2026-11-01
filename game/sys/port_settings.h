@@ -50,8 +50,6 @@ typedef struct {
                               * art's last rows, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
-    int two_sided_scenery;   /* 1: the scenery's 3D models (tunnel mouths, arches, buildings open on a side) are drawn from behind too (object3d_both_sides);
-                              * 0: the exe's one-sided faces */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -72,8 +70,9 @@ int port_fog_lift(void);
 enum { FOG_SAMPLE_LIFT_DEFAULT = 15 };
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
-/* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 when set, else port.cfg's two_sided_scenery. */
-int port_two_sided_scenery(void);
+/* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 (dev) when set, else `automatic`: the race has a reversed track or the 360 camera
+ * on (both show the scenery from behind), decided when the track's models are made. No port.cfg key (an old two_sided_scenery line is ignored). */
+int port_two_sided_scenery(int automatic);
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
 int port_sky_fill_mode(void);
