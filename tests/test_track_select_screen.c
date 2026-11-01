@@ -159,6 +159,19 @@ static void test_psx_time_toggle(void)
     CHECK_EQ_INT(weather, 0);
 }
 
+/* dusk -> night -> day stay on the screen: three steps on the Time item leave psx_time 3 and a fourth wraps to 0, the screen's own exit is Done */
+static void test_psx_time_reaches_night_and_wraps(void)
+{
+    int weather = 0, psx_time = 0;
+    const uint16_t keys3[] = { UP, UP, ENTER, ENTER, ENTER, DOWN, DOWN, ENTER };
+    run(keys3, 8, &weather, &psx_time, 1);
+    CHECK_EQ_INT(psx_time, 3);
+    psx_time = 0;
+    const uint16_t keys4[] = { UP, UP, ENTER, ENTER, ENTER, ENTER, DOWN, DOWN, ENTER };
+    run(keys4, 9, &weather, &psx_time, 1);
+    CHECK_EQ_INT(psx_time, 0);
+}
+
 static void test_without_the_row_up_is_the_originals(void)
 {
     int weather = 0, psx_time = 0;
@@ -238,6 +251,7 @@ int main(void)
     test_reverse_row();
     test_escape_puts_them_back();
     test_psx_time_toggle();
+    test_psx_time_reaches_night_and_wraps();
     test_night_art_is_darkened();
     test_without_the_row_up_is_the_originals();
     return TEST_REPORT();
