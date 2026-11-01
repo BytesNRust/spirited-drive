@@ -6,7 +6,7 @@
 
 static int kind_of(uint8_t cls)
 {
-    return cls == CAR_MASK_BRAKE ? LAMP_BRAKE : cls == CAR_MASK_POSITION ? LAMP_POSITION : cls == CAR_MASK_HEADLIGHT ? LAMP_HEADLIGHT : -1;
+    return cls == CAR_MASK_BRAKE ? LAMP_BRAKE : cls == CAR_MASK_POSITION ? LAMP_POSITION : cls == CAR_MASK_HEADLIGHT ? LAMP_HEADLIGHT : cls == CAR_MASK_REVERSE ? LAMP_REVERSE : -1;
 }
 
 int lamp_texels_collect(LampTexels *l, uint32_t base, const uint8_t *mask, size_t count)
@@ -52,8 +52,11 @@ int lamp_texels_write(const LampTexels *l, uint8_t *file, size_t size, LampState
     for (int i = 0; i < l->count; i++) {
         const LampTexel *t = &l->texel[i];
         if (t->offset >= size) continue;
-        const uint8_t entry = t->kind == LAMP_BRAKE ? (state == LAMP_BRAKING ? e->brake_lit : e->position) : t->kind == LAMP_POSITION ? e->position : e->headlight;
-        const uint8_t want = state == LAMP_DAY || entry == 0 ? t->day : entry;
+        const int low = (state & (LAMP_LOW | LAMP_BRAKING)) != 0, braking = (state & LAMP_BRAKING) != 0;
+        uint8_t entry = 0;
+        if (t->kind == LAMP_REVERSE) entry = (state & LAMP_REVERSING) != 0 ? e->reverse : 0;   /* lit in any light, only in reverse gear */
+        else if (low) entry = t->kind == LAMP_BRAKE ? (braking ? e->brake_lit : e->position) : t->kind == LAMP_POSITION ? e->position : e->headlight;
+        const uint8_t want = entry == 0 ? t->day : entry;
         if (file[t->offset] != want) file[t->offset] = want, changed++;
     }
     return changed;
@@ -82,13 +85,13 @@ static int gap(const uint8_t usable[256], const uint8_t rgb[768], int entry)
 
 int lamp_pick_entries(const uint8_t used[256], const uint8_t usable[256], const uint8_t rgb[768], int first, int last, int want, uint8_t *out)
 {
-    int found = 0, distance[3] = { 0, 0, 0 };
+    int found = 0, distance[4] = { 0, 0, 0, 0 };
     for (int e = first < 0 ? 0 : first; e <= last && e < 256; e++) {
         if (used[e]) continue;
         const int d = gap(usable, rgb, e);
         int at = found;   /* the want nearest, kept in order: a later (higher) entry wins a tie */
         while (at > 0 && d <= distance[at - 1]) at--;
-        if (at >= want || at >= 3) continue;
+        if (at >= want || at >= 4) continue;
         for (int k = (found < want ? found : want - 1); k > at; k--) out[k] = out[k - 1], distance[k] = distance[k - 1];
         out[at] = (uint8_t)e, distance[at] = d;
         if (found < want) found++;

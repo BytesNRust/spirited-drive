@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { MAX_SIDE = 4096, PATH = 512, MATTE_FROM = 192, BODY_UNTIL = 224, BLACK_UNTIL = 240, LIGHT_UNTIL = 252, GREY_SPREAD = 16, MAGENTA_FROM = 128, MAGENTA_APART = 32 };
+enum { MAX_SIDE = 4096, PATH = 512, MATTE_FROM = 192, BODY_UNTIL = 224, BLACK_UNTIL = 240, LIGHT_UNTIL = 255, GREY_SPREAD = 16, MAGENTA_FROM = 128, MAGENTA_APART = 32 };
 
 /* the class of a mask colour */
 static int class_of(const uint8_t c[3])
@@ -22,7 +22,7 @@ static int class_of(const uint8_t c[3])
     if (top >= MATTE_FROM && top < BODY_UNTIL && top - low <= GREY_SPREAD) return CAR_MASK_BODY;   /* the grey 192 the tools write */
     if (top >= BODY_UNTIL && top < BLACK_UNTIL && top - low <= GREY_SPREAD) return CAR_MASK_BLACK;   /* the grey 224 */
     if (top >= BLACK_UNTIL && top < LIGHT_UNTIL && top - low <= GREY_SPREAD)   /* the greys of the lamps */
-        return top < CAR_MASK_POSITION ? CAR_MASK_BRAKE : top < CAR_MASK_HEADLIGHT ? CAR_MASK_POSITION : CAR_MASK_HEADLIGHT;
+        return top < CAR_MASK_POSITION ? CAR_MASK_BRAKE : top < CAR_MASK_HEADLIGHT ? CAR_MASK_POSITION : top < CAR_MASK_REVERSE ? CAR_MASK_HEADLIGHT : CAR_MASK_REVERSE;
     return top >= MATTE_FROM ? CAR_MASK_MATTE : CAR_MASK_SHINE;
 }
 
@@ -49,7 +49,7 @@ int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, si
     const size_t count = (size_t)width * (size_t)height;
     uint8_t *indices = malloc(count);
     if (indices == NULL) return 0;
-    for (size_t i = 0; i < count; i++) indices[i] = mask[i] == 0 ? 0 : mask[i] == CAR_MASK_SHINE ? 1 : mask[i] == CAR_MASK_BODY ? 3 : mask[i] == CAR_MASK_BLACK ? 4 : mask[i] == CAR_MASK_BRAKE ? 5 : mask[i] == CAR_MASK_POSITION ? 6 : mask[i] == CAR_MASK_HEADLIGHT ? 7 : 2;
+    for (size_t i = 0; i < count; i++) indices[i] = mask[i] == 0 ? 0 : mask[i] == CAR_MASK_SHINE ? 1 : mask[i] == CAR_MASK_BODY ? 3 : mask[i] == CAR_MASK_BLACK ? 4 : mask[i] == CAR_MASK_BRAKE ? 5 : mask[i] == CAR_MASK_POSITION ? 6 : mask[i] == CAR_MASK_HEADLIGHT ? 7 : mask[i] == CAR_MASK_REVERSE ? 8 : 2;
     uint8_t palette[768] = { 0 };
     palette[3] = palette[4] = palette[5] = CAR_MASK_SHINE;
     palette[6] = palette[7] = palette[8] = CAR_MASK_MATTE;
@@ -58,6 +58,7 @@ int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, si
     palette[15] = palette[16] = palette[17] = CAR_MASK_BRAKE;
     palette[18] = palette[19] = palette[20] = CAR_MASK_POSITION;
     palette[21] = palette[22] = palette[23] = CAR_MASK_HEADLIGHT;
+    palette[24] = palette[25] = palette[26] = CAR_MASK_REVERSE;
     const PngResult r = png_write_indexed(indices, (uint32_t)width, (uint32_t)height, palette, out, len);
     free(indices);
     return r == PNG_OK;

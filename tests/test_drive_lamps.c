@@ -99,34 +99,43 @@ static void run(const char *root)
     CHECK(texture(cfm, size, "rsid", &rsid));
     CHECK(texture(cfm, size, "bott", &bott));
     make_mask(0, "rsid", &rsid, CAR_MASK_BRAKE);
-    make_mask(1, "bott", &bott, CAR_MASK_HEADLIGHT);
+    make_mask(1, "bott", &bott, CAR_MASK_REVERSE);
     setenv("TNFS_CAR_MASKS", "/m", 1);
     setenv("TNFS_EMISSIVE_LAMPS", "1", 1);
 
     drive_lamps_clear(0);
     CHECK_EQ_INT(drive_lamps_find(0, "P911", cfm, size), 20);   /* ten in rsid, ten in bott (not a body texture) */
     CHECK(drive_lamps_has(0, LAMP_BRAKE));
-    CHECK(drive_lamps_has(0, LAMP_HEADLIGHT));
+    CHECK(drive_lamps_has(0, LAMP_REVERSE));
+    CHECK(!drive_lamps_has(0, LAMP_HEADLIGHT));
     CHECK(!drive_lamps_has(0, LAMP_POSITION));
     CHECK_MEM(cfm, original, size);   /* finding changes nothing */
 
     drive_lamps_arm();
-    drive_lamps_set_entries(0xa1, 0xa2, 0xa3);   /* lit brake, position, headlight */
+    drive_lamps_set_entries(0xa1, 0xa2, 0xa3, 0xa4);   /* lit brake, position, headlight, reversing */
     const uint8_t *rsid_texels = rsid.payload, *bott_texels = bott.payload;
-    drive_lamps_frame(0, 1, 0);   /* low light, the brake released: the brake texels show the position entry */
+    drive_lamps_frame(0, 1, 0, 0);   /* low light, the brake released: the brake texels show the position entry */
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa2);
-    for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], 0xa3);
+    for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], original[(size_t)(bott.payload - cfm) + i]);   /* the reversing light is not lit by the dark */
     CHECK_EQ_INT(rsid_texels[9], original[(size_t)(rsid.payload - cfm) + 9]);   /* the next texels are left */
     CHECK_EQ_INT(rsid_texels[20], original[(size_t)(rsid.payload - cfm) + 20]);
-    drive_lamps_frame(0, 1, 1);   /* braking: the lit entry */
+    drive_lamps_frame(0, 1, 1, 0);   /* braking: the lit entry */
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa1);
-    drive_lamps_frame(0, 0, 1);   /* day, even braking: byte for byte what the file was */
+    drive_lamps_frame(0, 0, 1, 0);   /* day, even braking: byte for byte what the file was */
+    CHECK_MEM(cfm, original, size);
+    drive_lamps_frame(0, 0, 0, 1);   /* day, in reverse gear: the reversing light is lit, the brake's texels are not */
+    for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], 0xa4);
+    for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], original[(size_t)(rsid.payload - cfm) + i]);
+    drive_lamps_frame(0, 1, 1, 1);   /* low light, braking, in reverse: all lit */
+    for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], 0xa4);
+    for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa1);
+    drive_lamps_frame(0, 0, 0, 0);   /* out of reverse in daylight: byte for byte what the file was */
     CHECK_MEM(cfm, original, size);
 
     drive_lamps_clear(0);
     CHECK_EQ_INT(drive_lamps_find(0, "TSupra", cfm, size), 0);   /* no mask for that car: no lamps, nothing written */
     drive_lamps_arm();
-    drive_lamps_frame(0, 1, 1);
+    drive_lamps_frame(0, 1, 1, 0);
     CHECK_MEM(cfm, original, size);
 
     unsetenv("TNFS_EMISSIVE_LAMPS");
