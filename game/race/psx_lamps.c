@@ -55,3 +55,23 @@ void psx_lamp_tables(const uint8_t exempt[256], const uint8_t (*lit)[256], int l
         for (int c = 0; c < 256; c++)
             if (exempt[c]) out[l][c] = (uint8_t)c;
 }
+
+size_t psx_lamp_recolour(uint8_t *pixels, size_t count, const uint8_t remap[256])
+{
+    size_t changed = 0;
+    for (size_t i = 0; pixels != NULL && i < count; i++)
+        if (remap[pixels[i]] != pixels[i]) pixels[i] = remap[pixels[i]], changed++;
+    return changed;
+}
+
+size_t psx_lamp_recolour_rect(const PsxLamp *lamp, uint8_t *pixels, int w, int h, const uint8_t remap[256])
+{
+    size_t changed = 0;
+    if (lamp == NULL || pixels == NULL || w <= 0 || h <= 0) return 0;
+    for (int y = lamp->rect[1]; y <= lamp->rect[3] && y < h; y++)
+        for (int x = lamp->rect[0]; x <= lamp->rect[2] && x < w; x++) {
+            uint8_t *p = &pixels[y * w + x];
+            if (remap[*p] != *p) *p = remap[*p], changed++;
+        }
+    return changed;
+}

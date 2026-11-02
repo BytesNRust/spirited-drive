@@ -1,6 +1,7 @@
 /* The track screen's weather row and PS1 time, driven through track_select_screen with ops that only feed keys:
  * Up from Done reaches the weather, Enter cycles it, Escape puts it back, Done keeps it. */
 #include "game/frontend/track_select.h"
+#include "game/sys/palette.h"
 #include "test.h"
 
 #include <string.h>
@@ -18,7 +19,15 @@ static void move_to(void *ctx, int32_t x, int32_t y) { (void)ctx; pointer_x = x,
 static int32_t load_bank(void *ctx, const char *path, int32_t flags) { (void)ctx, (void)path, (void)flags; return 1; }
 static int32_t load_inverse(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static uint8_t picture[0x400];   /* the bank's !pal and every shape: black */
-static const uint8_t *shape(void *ctx, int32_t bank, const char *tag) { (void)ctx, (void)bank, (void)tag; return picture; }
+/* the evening art of the time-of-day item: 4 x 1 texels, the last masked blit of a shape of that size is kept */
+static uint8_t evening[0x10 + 4] = { 0x40, 0, 0, 0, 4, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 20, 0xff, 30 };
+static uint8_t evening_seen[4];
+static int evening_blits;
+static const uint8_t *shape(void *ctx, int32_t bank, const char *tag)
+{
+    (void)ctx, (void)bank;
+    return strcmp(tag, "evel") == 0 || strcmp(tag, "eved") == 0 ? evening : picture;
+}
 static void palette_set(void *ctx, int32_t first, int32_t count, const uint8_t *rgb)
 {
     (void)ctx, (void)first, (void)count, (void)rgb;
@@ -30,9 +39,21 @@ static int32_t in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1
 }
 static void select_picture(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
 static void blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
+static void blit_masked(void *ctx, const uint8_t *s)
+{
+    (void)ctx;
+    if (s[4] != 4 || s[6] != 1) return;   /* not the evening art */
+    memcpy(evening_seen, s + 0x10, 4);
+    evening_blits++;
+}
 static void blit_word(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static void style(void *ctx, int32_t s) { (void)ctx, (void)s; }
-static void text(void *ctx, const char *t, int32_t x, int32_t y) { (void)ctx, (void)t, (void)x, (void)y; }
+static int night_words;   /* the times the word Night was written */
+static void text(void *ctx, const char *t, int32_t x, int32_t y)
+{
+    (void)ctx, (void)x, (void)y;
+    if (strcmp(t, "Night") == 0) night_words++;
+}
 static void mark(void *ctx, DialogPointer *p) { (void)ctx, (void)p; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
 static void music_start(void *ctx, const char *name) { (void)ctx, (void)name; }
@@ -71,7 +92,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *psx_time,
         .flush = nothing, .pointer_move_to = move_to, .load_bank = load_bank, .load_inverse = load_inverse,
         .music_feed = nothing, .shape = shape, .palette_set = palette_set, .inverse_build = nothing,
         .text_styles = nothing, .pointer_poll = nothing, .pointer_hide = nothing, .pointer_in_rect = in_rect,
-        .select = select_picture, .select_default = nothing, .blit = blit, .blit_masked = blit, .blit_word = blit_word,
+        .select = select_picture, .select_default = nothing, .blit = blit, .blit_masked = blit_masked, .blit_word = blit_word,
         .text_select = style, .text_shadowed = text, .lock = nothing, .unlock = nothing, .flip = nothing,
         .pointer_show = nothing, .pointer_mark = mark, .pointer_buttons = zero, .music_start = music_start,
         .fade_in = fade_in, .music_play = nothing, .delay = delay, .sound = sound, .ticks = ticks,
@@ -144,6 +165,19 @@ static void test_psx_time_toggle(void)
     CHECK_EQ_INT(weather, 0);
 }
 
+/* dusk -> night -> day stay on the screen: three steps on the Time item leave psx_time 3 and a fourth wraps to 0, the screen's own exit is Done */
+static void test_psx_time_reaches_night_and_wraps(void)
+{
+    int weather = 0, psx_time = 0;
+    const uint16_t keys3[] = { UP, UP, ENTER, ENTER, ENTER, DOWN, DOWN, ENTER };
+    run(keys3, 8, &weather, &psx_time, 1);
+    CHECK_EQ_INT(psx_time, 3);
+    psx_time = 0;
+    const uint16_t keys4[] = { UP, UP, ENTER, ENTER, ENTER, ENTER, DOWN, DOWN, ENTER };
+    run(keys4, 9, &weather, &psx_time, 1);
+    CHECK_EQ_INT(psx_time, 0);
+}
+
 static void test_without_the_row_up_is_the_originals(void)
 {
     int weather = 0, psx_time = 0;
@@ -161,7 +195,7 @@ static void test_without_the_row_up_is_the_originals(void)
         .flush = nothing, .pointer_move_to = move_to, .load_bank = load_bank, .load_inverse = load_inverse,
         .music_feed = nothing, .shape = shape, .palette_set = palette_set, .inverse_build = nothing,
         .text_styles = nothing, .pointer_poll = nothing, .pointer_hide = nothing, .pointer_in_rect = in_rect,
-        .select = select_picture, .select_default = nothing, .blit = blit, .blit_masked = blit, .blit_word = blit_word,
+        .select = select_picture, .select_default = nothing, .blit = blit, .blit_masked = blit_masked, .blit_word = blit_word,
         .text_select = style, .text_shadowed = text, .lock = nothing, .unlock = nothing, .flip = nothing,
         .pointer_show = nothing, .pointer_mark = mark, .pointer_buttons = zero, .music_start = music_start,
         .fade_in = fade_in, .music_play = nothing, .delay = delay, .sound = sound, .ticks = ticks,
@@ -174,12 +208,66 @@ static void test_without_the_row_up_is_the_originals(void)
     CHECK_EQ_INT(time_of_day[3], 2);   /* the toggle is the exe's: midday -> evening */
 }
 
+/* the night (psx_time 3): the evening art's texels moved to darker entries, the transparent one left; dusk draws it as it is */
+/* the night's label is the word Night in the text font over the evening's strip; dusk keeps the art as it is */
+static void test_night_label_is_text(void)
+{
+    uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300];
+    for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)i;   /* a grey ramp */
+    int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, vm = 0, vr = 0;
+    int weather = 0;
+    config[TRACK_SELECT_TRACK] = 3;
+    const uint8_t day[4] = { 10, 20, 0xff, 30 };
+    uint8_t after_a_race[256] = { 0 };   /* the entries a race leaves usable (palette_usable_set) are the race's, not the menu's: few, and none of the dark ones */
+    after_a_race[200] = after_a_race[250] = 1;
+    palette_usable_set(after_a_race);
+    for (int night = 0; night < 2; night++) {
+        int psx_time = night ? 3 : 2;
+        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &psx_time, NULL };
+        TrackSelectState st = { config, time_of_day, 0, palette, &plus };
+        const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
+        DialogPointer p = { 0, 0, 0, 0, 0, 0 };
+        const uint16_t keys[1] = { ESCAPE };
+        Script script = { keys, 0, 0 };
+        const TrackSelectOps ops = {
+            .flush = nothing, .pointer_move_to = move_to, .load_bank = load_bank, .load_inverse = load_inverse,
+            .music_feed = nothing, .shape = shape, .palette_set = palette_set, .inverse_build = nothing,
+            .text_styles = nothing, .pointer_poll = nothing, .pointer_hide = nothing, .pointer_in_rect = in_rect,
+            .select = select_picture, .select_default = nothing, .blit = blit, .blit_masked = blit_masked, .blit_word = blit_word,
+            .text_select = style, .text_shadowed = text, .lock = nothing, .unlock = nothing, .flip = nothing,
+            .pointer_show = nothing, .pointer_mark = mark, .pointer_buttons = zero, .music_start = music_start,
+            .fade_in = fade_in, .music_play = nothing, .delay = delay, .sound = sound, .ticks = ticks,
+            .pointer_activate_if_moved = nothing, .key = key, .pointer_click = nothing, .music_stop = nothing,
+            .music_free = nothing, .fade_out = fade_out, .free = free_bank, .free_inverse = nothing, .best_times = zero,
+            .car_flags = nothing, .pointer_off = nothing, .music_service = nothing, .deadline_passed = zero,
+            .music_fade_out = nothing, .music_end = nothing, .ctx = &script };
+        evening_blits = 0;
+        night_words = 0;
+        memset(evening_seen, 0, sizeof evening_seen);
+        track_select_screen(&in, &st, &p, &ops);
+        if (!night) {
+            CHECK(evening_blits > 0);
+            CHECK_MEM(evening_seen, day, 4);   /* dusk: the art as it is */
+            CHECK_EQ_INT(night_words, 0);
+        } else {
+            CHECK(evening_blits > 0);   /* the strip (its word wiped: none here, the test palette is black) still covers the screen's own label */
+            CHECK(night_words > 0);
+        }
+        CHECK_MEM(evening + 0x10, day, 4);   /* the bank's own shape is not touched */
+    }
+    uint8_t all[256];
+    memset(all, 1, sizeof all);
+    palette_usable_set(all);
+}
+
 int main(void)
 {
     test_weather_row();
     test_reverse_row();
     test_escape_puts_them_back();
     test_psx_time_toggle();
+    test_psx_time_reaches_night_and_wraps();
+    test_night_label_is_text();
     test_without_the_row_up_is_the_originals();
     return TEST_REPORT();
 }

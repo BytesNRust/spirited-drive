@@ -63,8 +63,8 @@ static uint8_t door_value(int inside, uint32_t d)
 void psx_light_synth_rows(const uint8_t *flags, uint32_t count, int ring, int time, uint8_t *data)
 {
     /* CY1 inside, by the time of the CD's files A, B, C: the road and the wall foot */
-    static const int ROAD_INSIDE[3] = { 215, 255, 214 }, FOOT_INSIDE[3] = { 196, 130, 106 };
-    const int road_inside = ROAD_INSIDE[time >= 0 && time <= 2 ? time : PSX_SYNTH_DAY], foot_inside = FOOT_INSIDE[time >= 0 && time <= 2 ? time : PSX_SYNTH_DAY];
+    static const int ROAD_INSIDE[4] = { 215, 255, 214, 255 }, FOOT_INSIDE[4] = { 196, 130, 106, 255 };   /* the night's: the tint darkens it */
+    const int road_inside = ROAD_INSIDE[time >= 0 && time <= 3 ? time : PSX_SYNTH_DAY], foot_inside = FOOT_INSIDE[time >= 0 && time <= 3 ? time : PSX_SYNTH_DAY];
     static const int ROAD[] = { 0, 1, 6 }, FOOT[] = { 2, 7 }, BEYOND[] = { 3, 4, 5, 8, 9, 10 };
     for (uint32_t n = 0; n < count; n++) {
         uint8_t *row = data + (size_t)n * PSX_LIGHT_POINTS;

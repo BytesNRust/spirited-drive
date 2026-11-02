@@ -109,6 +109,19 @@ void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
     for (int i = 0; i < lamp_count; i++) lamp_spec[i] = lamps[i];
 }
 
+/* port (night, psx_headlights; street_lamp.h): the street lamp's board, whose entries of its own the light tables leave alone as the lamps' colours are */
+static const FshEntry *street_bitmap;
+static int street_scenery = -1;
+static uint8_t street_entry[3];
+static uint8_t street_tables[MODERN_FOG_LEVELS][256];
+
+void ported_view_set_street_lamp(int scenery, const uint8_t entry[3])
+{
+    street_scenery = entry != NULL ? scenery : -1;
+    street_bitmap = NULL;
+    if (entry != NULL) memcpy(street_entry, entry, sizeof street_entry);
+}
+
 /* the lamp `texture` is, or -1 */
 static int lamp_of(const FshEntry *texture)
 {
@@ -121,6 +134,7 @@ static int lamp_of(const FshEntry *texture)
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
+    if (street_bitmap != NULL && texture == street_bitmap) return street_tables;
     return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
 }
 
@@ -349,7 +363,34 @@ void ported_view_set_psx_synth(int on) { synth_on = on; }
 /* port (the PS1 light on the cars and the dash): the exe's light of the road's centre at the car's own node (psx_lgs_car_ratio; the exe gives every car the
  * viewer's, the port its own node's), the one factor of the cars and the dash; 0 and `out` untouched when there is no light script. A context's colour is
  * its own tunnel's tint, and a RAMP context's odd / even nodes are the lamps' alternation. */
+static int ratio_of(int32_t node, float out[3]);
+
+/* port (psx_headlights): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
+static void headlights_update(void)
+{
+    if (psx_light == NULL || psx_light->pool == NULL) return;
+    HeadlightPool *pool = psx_light->pool;
+    pool->count = 0;
+    pool->ring = psx_light->nodes;
+    if (shadow_race == NULL) return;
+    const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
+    for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
+        const Car *car = shadow_race->cars[i];
+        if (car != NULL && (car->flags_51a & 4)) pool->node[pool->count++] = car->node;
+    }
+}
+
 static int ratio_at(int32_t node, float out[3])
+{
+    const int found = ratio_of(node, out);
+    if (found && psx_light != NULL && psx_light->pool != NULL && !psx_light_tunnel(psx_light, psx_ring_node(node, psx_light->nodes))) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
+        const float gain = (float)headlight_pool_gain(psx_light->pool, psx_ring_node(node, psx_light->nodes)) / 256.0f;
+        for (int k = 0; k < 3; k++) out[k] *= gain;
+    }
+    return found;
+}
+
+static int ratio_of(int32_t node, float out[3])
 {
     if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's own factor */
         out[0] = out[1] = out[2] = psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes));
@@ -1260,6 +1301,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         modern_look_set_sample(&look, port_fog_sample(), port_fog_lift());
         modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
     }
+    headlights_update();   /* port (psx_headlights): the pools of the cars with their lights on, before the rows are built */
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;
@@ -1304,6 +1346,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             uint8_t exempt[256];
             psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
             psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+        }
+        if (street_scenery >= 0 && street_scenery < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery].present) {   /* the street lamp's board: its entries kept */
+            uint8_t exempt[256] = { 0 };
+            for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
+            street_bitmap = &art->scenery[street_scenery].bitmap;
+            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
         }
         track_light_hook = light_hook;
         tables_made = 1;

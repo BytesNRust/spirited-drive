@@ -27,6 +27,52 @@ static void test_ambient_and_tint(void)
     CHECK(fabsf(tint[2] - 52.0f / 128.0f) < 1e-6f);
 }
 
+/* the night: the ambient colours (start, end and each context's) scaled per channel, rounded and kept in 0..255; the tint follows */
+static void test_night_scale(void)
+{
+    static const char TEXT_CTX[] = "/* d */\n0,100, 10,95, 20,50, 100,50,\n/* s */\n128,100,60,\n/* e */\n128,100,60,\n";
+    PsxLgs lgs;
+    CHECK(psx_lgs_parse((const uint8_t *)TEXT_CTX, sizeof TEXT_CTX - 1, &lgs));
+    lgs.context_count = 1;
+    lgs.contexts[0] = (PsxLgsContext){ 0, 9, PSX_LGS_RAMP, { 200, 100, 50 }, { 255, 10, 0 } };
+    const float mul[3] = { 0.5f, 0.25f, 2.0f };
+    psx_lgs_scale(&lgs, mul, 1);
+    CHECK_EQ_INT(lgs.start[0], 64);
+    CHECK_EQ_INT(lgs.start[1], 25);
+    CHECK_EQ_INT(lgs.start[2], 120);
+    CHECK_EQ_INT(lgs.end[2], 120);
+    CHECK_EQ_INT(lgs.contexts[0].c1[0], 100);
+    CHECK_EQ_INT(lgs.contexts[0].c1[2], 100);
+    CHECK_EQ_INT(lgs.contexts[0].c2[0], 128);   /* 127.5 rounded */
+    CHECK_EQ_INT(lgs.contexts[0].c2[2], 0);
+    const float big[3] = { 4, 4, 4 };
+    psx_lgs_scale(&lgs, big, 1);
+    CHECK_EQ_INT(lgs.start[2], 255);            /* kept in a byte */
+    float tint[3];
+    PsxLgs plain;
+    CHECK(psx_lgs_parse((const uint8_t *)TEXT_CTX, sizeof TEXT_CTX - 1, &plain));
+    const float one[3] = { 1, 1, 1 };
+    psx_lgs_scale(&plain, one, 1);
+    psx_lgs_tint(&plain, tint);
+    CHECK(fabsf(tint[1] - 100.0f / 128.0f) < 1e-6f);   /* a multiplier of 1 changes nothing */
+}
+
+/* the night leaves the contexts (a tunnel's own lights) as the script has them: only the open road's colours (start and end) are scaled */
+static void test_night_scale_keeps_the_contexts(void)
+{
+    static const char TEXT_CTX[] = "/* d */\n0,100, 10,95, 20,50, 100,50,\n/* s */\n128,100,60,\n/* e */\n128,100,60,\n";
+    PsxLgs lgs;
+    CHECK(psx_lgs_parse((const uint8_t *)TEXT_CTX, sizeof TEXT_CTX - 1, &lgs));
+    lgs.context_count = 1;
+    lgs.contexts[0] = (PsxLgsContext){ 0, 9, PSX_LGS_RAMP, { 200, 100, 50 }, { 255, 10, 0 } };
+    const float mul[3] = { 0.5f, 0.5f, 0.5f };
+    psx_lgs_scale(&lgs, mul, 0);
+    CHECK_EQ_INT(lgs.start[0], 64);
+    CHECK_EQ_INT(lgs.end[1], 50);
+    CHECK_EQ_INT(lgs.contexts[0].c1[0], 200);
+    CHECK_EQ_INT(lgs.contexts[0].c2[0], 255);
+}
+
 static void test_neutral_and_rejected(void)
 {
     static const char NEUTRAL[] = "/* d */\n0,100, 10,95, 20,50, 100,50,\n/* s */\n128,128,128,\n/* e */\n128,128,128,\n";
@@ -302,6 +348,8 @@ int main(void)
     test_palette_tint();
     test_world_mask();
     test_ambient_and_tint();
+    test_night_scale();
+    test_night_scale_keeps_the_contexts();
     test_neutral_and_rejected();
     test_leading_junk();
     test_ambient_contexts();

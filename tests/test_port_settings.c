@@ -88,6 +88,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.psx_light, b.psx_light);
     CHECK_EQ_INT(a.psx_shadow, b.psx_shadow);
+    CHECK_EQ_INT(a.psx_headlights, b.psx_headlights);
     CHECK_EQ_INT(a.psx_time, b.psx_time);
     CHECK_EQ_INT(a.render_scale, b.render_scale);
     CHECK_EQ_INT(a.laps, b.laps);
@@ -123,7 +124,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1 };
     char text[512];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -272,6 +273,11 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.psx_shadow, 0);
     const char *shadow = "psx_shadow=1\n";
     CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).psx_shadow, 1);
+    CHECK_EQ_INT(s.psx_headlights, 0);   /* off by default: the night's first look */
+    const char *headlights = "psx_headlights=1\n";
+    CHECK_EQ_INT(port_settings_parse(headlights, strlen(headlights)).psx_headlights, 1);
+    const char *bad_headlights = "psx_headlights=2\n";
+    CHECK_EQ_INT(port_settings_parse(bad_headlights, strlen(bad_headlights)).psx_headlights, 0);
     const char *bad_shadow = "psx_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
     const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
@@ -293,6 +299,8 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(b, strlen(b)).psx_time, PSX_TIME_DAY);
     CHECK_EQ_INT(port_settings_parse(dawn, strlen(dawn)).psx_time, PSX_TIME_DAWN);
     CHECK_EQ_INT(port_settings_parse(dusk, strlen(dusk)).psx_time, PSX_TIME_DUSK);
+    const char *night = "psx_time=Night\n";
+    CHECK_EQ_INT(port_settings_parse(night, strlen(night)).psx_time, PSX_TIME_NIGHT);
     /* written as the words */
     char out[512];
     PortSettings w = port_settings_defaults();
@@ -300,6 +308,8 @@ static void test_parse_keys(void)
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dawn\n") != NULL);
     w.psx_time = PSX_TIME_DUSK;
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dusk\n") != NULL);
+    w.psx_time = PSX_TIME_NIGHT;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=night\n") != NULL);
     w.psx_time = PSX_TIME_DAY;
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=day\n") != NULL);
     CHECK_EQ_INT(port_settings_parse(no, strlen(no)).psx_time, PSX_TIME_DAY);

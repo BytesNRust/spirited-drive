@@ -86,7 +86,7 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node)
     return tunnel_in_file(light, psx_light_old_node(light, node));
 }
 
-uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
+static uint8_t light_at(const PsxLight *light, uint32_t node, int point)
 {
     if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= PSX_LIGHT_POINTS) return PSX_LIGHT_FULL;
     node = psx_light_old_node(light, node);
@@ -108,6 +108,13 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
     if (tunnel && (point == 0 || point == 1 || point == 6) && row[point] > PSX_LIGHT_TUNNEL_ROAD) return PSX_LIGHT_TUNNEL_ROAD;
     if (tunnel && (point == 2 || point == 7) && row[point] > PSX_LIGHT_WALL) return PSX_LIGHT_WALL;   /* the shoulder's far edge: half light too */
     return row[point];
+}
+
+uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
+{
+    const uint8_t v = light_at(light, node, point);
+    if (light == NULL || light->pool == NULL || psx_light_tunnel(light, node)) return v;   /* a tunnel keeps the dusk's light, its own lamps' */
+    return headlight_pool_apply(v, headlight_pool_gain(light->pool, node));
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node)

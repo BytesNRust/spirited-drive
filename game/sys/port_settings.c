@@ -15,9 +15,9 @@
 #define FOV_MAX 20
 
 static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
-static const char *const PSX_TIME_NAMES[] = { "day", "dawn", "dusk" };   /* by PSX_TIME_* */
+static const char *const PSX_TIME_NAMES[] = { "day", "dawn", "dusk", "night" };   /* by PSX_TIME_* */
 
-/* the PSX_TIME_* a name stands for ("dawn" or "a", "day" or "b", "dusk" or "c", any case), or -1 */
+/* the PSX_TIME_* a name stands for ("dawn" or "a", "day" or "b", "dusk" or "c", "night", any case), or -1 */
 static int psx_time_named(const char *name)
 {
     char lower[8];
@@ -28,6 +28,7 @@ static int psx_time_named(const char *name)
     if (strcmp(lower, "day") == 0 || strcmp(lower, "b") == 0) return PSX_TIME_DAY;
     if (strcmp(lower, "dawn") == 0 || strcmp(lower, "a") == 0) return PSX_TIME_DAWN;
     if (strcmp(lower, "dusk") == 0 || strcmp(lower, "c") == 0) return PSX_TIME_DUSK;
+    if (strcmp(lower, "night") == 0) return PSX_TIME_NIGHT;
     return -1;
 }
 
@@ -95,6 +96,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "psx_light") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->psx_light = (int)n;
+    } else if (strcmp(key, "psx_headlights") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->psx_headlights = (int)n;
     } else if (strcmp(key, "psx_shadow") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->psx_shadow = (int)n;
@@ -175,11 +179,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\npsx_headlights=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->psx_headlights);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -308,6 +312,13 @@ int port_car_colours(void)
     const char *v = getenv("TNFS_CAR_COLOURS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().car_colours;
+}
+
+int port_psx_headlights(void)
+{
+    const char *v = getenv("TNFS_PSX_HEADLIGHTS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_headlights;
 }
 
 int port_psx_shadow(void)

@@ -57,6 +57,94 @@ void psx_sky_draw_target(PsxSkyDraw *d, const uint8_t target[768])
     if (d->ready) horizon_smooth_sky(&d->smooth, d->bitmap.palette, target);
 }
 
+void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
+{
+    if (!d->ready) return;
+    for (int i = 0; i < 256; i++)
+        for (int k = 0; k < 3; k++) {
+            const float v = (float)d->bitmap.palette[3 * i + k] * mul[k] + 0.5f;
+            d->bitmap.palette[3 * i + k] = (uint8_t)(v > 255.0f ? 255.0f : v);
+        }
+    d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
+}
+
+enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 7 };
+static const uint8_t STAR_GREY[STAR_GREYS] = { 110, 170, 235 };
+
+static uint32_t star_hash(uint32_t x, uint32_t y, uint32_t seed)
+{
+    uint32_t h = x * 0x9e3779b1u ^ y * 0x85ebca6bu ^ seed * 0xc2b2ae35u;
+    h ^= h >> 15, h *= 0x2c1b3c6du, h ^= h >> 12, h *= 0x297a2d39u, h ^= h >> 15;
+    return h;
+}
+
+static int luma_of(const uint8_t *palette, int i)
+{
+    return (299 * palette[3 * i] + 587 * palette[3 * i + 1] + 114 * palette[3 * i + 2]) / 1000;
+}
+
+/* the STAR_GREYS entries the picture uses least, their texels moved to the nearest of the others */
+static void free_entries(PsxSkyDraw *d, int chosen[STAR_GREYS])
+{
+    const size_t count = (size_t)d->bitmap.width * (size_t)d->bitmap.height;
+    size_t used[256] = { 0 };
+    for (size_t i = 0; i < count; i++) used[d->bitmap.pixels[i]]++;
+    for (int k = 0; k < STAR_GREYS; k++) {
+        int best = -1;
+        for (int e = 0; e < 256; e++) {
+            int taken = 0;
+            for (int j = 0; j < k; j++) taken |= chosen[j] == e;
+            if (!taken && (best < 0 || used[e] < used[best])) best = e;
+        }
+        chosen[k] = best;
+    }
+    uint8_t into[256];
+    for (int e = 0; e < 256; e++) {
+        into[e] = (uint8_t)e;
+        int is_chosen = 0;
+        for (int k = 0; k < STAR_GREYS; k++) is_chosen |= chosen[k] == e;
+        if (!is_chosen || used[e] == 0) continue;
+        long best_d = -1;
+        for (int o = 0; o < 256; o++) {
+            int other_chosen = 0;
+            for (int k = 0; k < STAR_GREYS; k++) other_chosen |= chosen[k] == o;
+            if (other_chosen || used[o] == 0) continue;
+            long dist = 0;
+            for (int c = 0; c < 3; c++) {
+                const long diff = (long)d->bitmap.palette[3 * e + c] - d->bitmap.palette[3 * o + c];
+                dist += diff * diff;
+            }
+            if (best_d < 0 || dist < best_d) best_d = dist, into[e] = (uint8_t)o;
+        }
+    }
+    for (size_t i = 0; i < count; i++) d->bitmap.pixels[i] = into[d->bitmap.pixels[i]];
+}
+
+int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
+{
+    if (!d->ready || d->bitmap.pixels == NULL) return 0;
+    const int width = d->bitmap.width, limit = d->bitmap.horizon_row - STAR_HORIZON_GAP;
+    if (width <= 0 || limit <= 0 || limit > d->bitmap.height) return 0;
+    int chosen[STAR_GREYS];
+    free_entries(d, chosen);
+    for (int k = 0; k < STAR_GREYS; k++)
+        for (int c = 0; c < 3; c++) d->bitmap.palette[3 * chosen[k] + c] = STAR_GREY[k];
+    int stars = 0;
+    for (int y = 0; y < limit; y++) {
+        const uint32_t per_mille = 1 + (uint32_t)(STAR_TOP_PER_MILLE * (limit - y) / limit);   /* thinning to the horizon */
+        for (int x = 0; x < width; x++) {
+            uint8_t *texel = &d->bitmap.pixels[(size_t)y * (size_t)width + (size_t)x];
+            const uint32_t h = star_hash((uint32_t)x, (uint32_t)y, seed);
+            if (h % 1000 >= per_mille || luma_of(d->bitmap.palette, *texel) >= STAR_DARK_LUMA) continue;
+            const uint32_t pick = (h >> 12) % 8;   /* one in eight bright, three in eight middle, the rest dim */
+            *texel = (uint8_t)chosen[pick == 0 ? 2 : pick < 4 ? 1 : 0];
+            stars++;
+        }
+    }
+    d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
+    return stars;
+}
+
 void psx_sky_draw_free(PsxSkyDraw *d)
 {
     psx_sky_bitmap_free(&d->bitmap);

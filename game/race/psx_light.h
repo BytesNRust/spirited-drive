@@ -7,6 +7,7 @@
 #ifndef TNFS_PSX_LIGHT_H
 #define TNFS_PSX_LIGHT_H
 
+#include "game/race/headlight_pool.h"
 #include "game/race/psx_lgs.h"
 
 #include <stddef.h>
@@ -19,6 +20,8 @@ typedef struct {
     uint32_t nodes;
     PsxLgs script;      /* the track's light script (psx_light_set_script), read when `scripted` */
     int scripted;
+    HeadlightPool *pool; /* port (psx_headlights): the cars' pools of light the night's nodes are lifted by (headlight_pool.h); NULL none (not owned: the one who set it
+                         * keeps the nodes up to date; the light reads it through a const PsxLight) */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
                          * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
 } PsxLight;

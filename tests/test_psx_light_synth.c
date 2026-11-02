@@ -148,6 +148,20 @@ static void test_tracks(void)
     CHECK(!psx_light_synth_track("TR1") && !psx_light_synth_track("CY1") && !psx_light_synth_track(NULL));
 }
 
+/* the night's tunnel: the road and the wall foot at the open road's 255 (the night's tint is what darkens it; the dusk's 214 and 106 would leave it black),
+ * the points beyond the wall dark as at every time, and still a tunnel to the renderer */
+static void test_night_tunnel_is_not_darker_than_the_road(void)
+{
+    uint8_t data[NODES * PSX_LIGHT_POINTS];
+    PsxLight light = { 0 };
+    rows(&light, data, PSX_SYNTH_NIGHT);
+    CHECK_EQ_INT(psx_light_byte(&light, 30, 0), PSX_LIGHT_FULL);   /* the road */
+    CHECK_EQ_INT(psx_light_byte(&light, 30, 2), PSX_LIGHT_FULL);   /* the wall foot */
+    CHECK_EQ_INT(psx_light_byte(&light, 30, 3), 0);                /* beyond it */
+    CHECK(psx_light_tunnel(&light, 30));
+    CHECK_EQ_INT(psx_light_byte(&light, 5, 0), PSX_LIGHT_FULL);
+}
+
 int main(void)
 {
     test_runs_and_short_runs();
@@ -155,6 +169,7 @@ int main(void)
     test_rows_open_and_tunnel();
     test_doors_follow_the_measured_ramps();
     test_times_of_day();
+    test_night_tunnel_is_not_darker_than_the_road();
     test_car_factor_follows_the_beyond_points();
     test_tracks();
     return TEST_REPORT();

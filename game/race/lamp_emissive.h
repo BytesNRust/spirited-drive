@@ -56,6 +56,6 @@ int lamp_emissive_low(const float tint[3], const float ratio[3]);
 /* Up to `want` entries from `first` to `last` (inclusive) that `used` does not mark, into `out`: the ones whose colour (`rgb`, 256 x 3 at 8 bits) has the
  * nearest other entry of `usable`, nearest first (the highest index first on a tie), so taking them out of the search shifts the world's picks the least.
  * Returns how many it found. */
-int lamp_pick_entries(const uint8_t used[256], const uint8_t usable[256], const uint8_t rgb[768], int first, int last, int want, uint8_t *out);   /* want <= 4 */
+int lamp_pick_entries(const uint8_t used[256], const uint8_t usable[256], const uint8_t rgb[768], int first, int last, int want, uint8_t *out);   /* `out` holds `want` entries (at most 256) */
 
 #endif

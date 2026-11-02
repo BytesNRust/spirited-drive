@@ -126,6 +126,26 @@ void psx_lgs_car_ratio(const PsxLgs *lgs, uint32_t ring_nodes, int32_t node, int
     }
 }
 
+const float psx_night_light[3] = { 0.30f, 0.36f, 0.62f };
+
+static int scaled(int value, float mul)
+{
+    const int v = (int)((float)value * mul + 0.5f);
+    return v < 0 ? 0 : v > 255 ? 255 : v;
+}
+
+void psx_lgs_scale(PsxLgs *lgs, const float mul[3], int contexts)
+{
+    for (int k = 0; k < 3; k++) {
+        lgs->start[k] = scaled(lgs->start[k], mul[k]);
+        lgs->end[k] = scaled(lgs->end[k], mul[k]);
+        for (int c = 0; contexts && c < lgs->context_count && c < PSX_LGS_CONTEXTS; c++) {
+            lgs->contexts[c].c1[k] = scaled(lgs->contexts[c].c1[k], mul[k]);
+            lgs->contexts[c].c2[k] = scaled(lgs->contexts[c].c2[k], mul[k]);
+        }
+    }
+}
+
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3])
 {
     for (int k = 0; k < 3; k++) tint[k] = (float)(lgs->start[k] + lgs->end[k]) / (2.0f * NEUTRAL);

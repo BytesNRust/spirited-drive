@@ -85,13 +85,13 @@ static int gap(const uint8_t usable[256], const uint8_t rgb[768], int entry)
 
 int lamp_pick_entries(const uint8_t used[256], const uint8_t usable[256], const uint8_t rgb[768], int first, int last, int want, uint8_t *out)
 {
-    int found = 0, distance[4] = { 0, 0, 0, 0 };
+    int found = 0, distance[256] = { 0 };
     for (int e = first < 0 ? 0 : first; e <= last && e < 256; e++) {
         if (used[e]) continue;
         const int d = gap(usable, rgb, e);
         int at = found;   /* the want nearest, kept in order: a later (higher) entry wins a tie */
         while (at > 0 && d <= distance[at - 1]) at--;
-        if (at >= want || at >= 4) continue;
+        if (at >= want) continue;
         for (int k = (found < want ? found : want - 1); k > at; k--) out[k] = out[k - 1], distance[k] = distance[k - 1];
         out[at] = (uint8_t)e, distance[at] = d;
         if (found < want) found++;

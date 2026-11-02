@@ -23,7 +23,7 @@ enum {
 };
 
 /* the time of day the rows are of: the PS1 CD's files A, B and C */
-enum { PSX_SYNTH_DAWN = 0, PSX_SYNTH_DAY = 1, PSX_SYNTH_DUSK = 2 };
+enum { PSX_SYNTH_DAWN = 0, PSX_SYNTH_DAY = 1, PSX_SYNTH_DUSK = 2, PSX_SYNTH_NIGHT = 3 };   /* the night: the dusk's doors, a tunnel's road and foot at 255 */
 
 /* 1 on node `i` of `property` (`count` bytes, a ring when `ring`) when it is in a run of PSX_SYNTH_MIN_RUN or more nodes with the tunnel bit; `flags` gets
  * 0 or 1 per node. A ring joins a run across node 0. */

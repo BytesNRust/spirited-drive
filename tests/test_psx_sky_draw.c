@@ -48,9 +48,120 @@ static void test_rejected(void)
     CHECK(!d.ready);
 }
 
+/* the night: the sky's own colours scaled per channel before they are matched to the shown palette, so a bright orange sky matches the dark entries' darkness */
+static void test_scale_darkens_the_sky(void)
+{
+    uint8_t texels[W * H] = { 0, 1, 1, 0, 1, 1, 0, 0 };
+    uint8_t decode[768] = { 0 };
+    decode[3 * 1] = 200, decode[3 * 1 + 1] = 100, decode[3 * 1 + 2] = 40;
+    FshEntry horizon = { { 0 }, FSH_TYPE_BITMAP, 0, W, H, { 0, 1, 0, 0 }, texels, sizeof texels };
+    PsxSkyDraw d;
+    memset(&d, 0, sizeof d);
+    CHECK(psx_sky_draw_make_indexed(&d, &horizon, decode));
+    const float mul[3] = { 0.5f, 0.25f, 2.0f };
+    psx_sky_draw_scale(&d, mul);
+    CHECK_EQ_INT(d.bitmap.palette[3], 100);
+    CHECK_EQ_INT(d.bitmap.palette[4], 25);
+    CHECK_EQ_INT(d.bitmap.palette[5], 80);
+    CHECK_EQ_INT(d.bitmap.palette[0], 0);
+    const float big[3] = { 4, 4, 4 };
+    psx_sky_draw_scale(&d, big);
+    CHECK_EQ_INT(d.bitmap.palette[3], 255);   /* kept in a byte */
+    psx_sky_draw_free(&d);
+    psx_sky_draw_scale(&d, mul);   /* nothing made: nothing happens */
+}
+
+/* a made-up night sky: 256 x 32, the horizon at row 24, row y of palette entry y (a dark ramp), entry 31 a bright cloud */
+enum { SW = 256, SH = 32, SHORIZON = 24, CLOUD = 31 };
+
+static void night_sky(PsxSkyDraw *d, uint8_t pixels[SW * SH])
+{
+    memset(d, 0, sizeof *d);
+    uint8_t palette[768] = { 0 };
+    for (int i = 0; i < SH; i++) palette[3 * i] = (uint8_t)(i + 5), palette[3 * i + 1] = (uint8_t)(i + 8), palette[3 * i + 2] = (uint8_t)(i * 2 + 20);
+    palette[3 * CLOUD] = palette[3 * CLOUD + 1] = palette[3 * CLOUD + 2] = 220;
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++) pixels[y * SW + x] = (uint8_t)(x == 5 && y < SHORIZON ? CLOUD : y);
+    FshEntry horizon = { { 0 }, FSH_TYPE_BITMAP, 0, SW, SH, { 0, SHORIZON, 0, 0 }, pixels, SW * SH };
+    psx_sky_draw_make_indexed(d, &horizon, palette);
+}
+
+static int is_star(const PsxSkyDraw *d, uint8_t index)
+{
+    return index >= 32 && index < 35 && d->bitmap.palette[3 * index] == d->bitmap.palette[3 * index + 1];
+}
+
+static void test_stars_in_the_dark_sky(void)
+{
+    uint8_t pixels[SW * SH];
+    PsxSkyDraw d;
+    night_sky(&d, pixels);
+    const int n = psx_sky_draw_stars(&d, 7);
+    CHECK(n > 10 && n < SW * SHORIZON / 8);          /* a sprinkle, not a snow */
+    int seen = 0;
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++) {
+            const uint8_t v = d.horz.payload[y * SW + x];
+            if (is_star(&d, v)) {
+                seen++;
+                CHECK(y < SHORIZON - 2);                 /* none on the horizon or below */
+                CHECK(x != 5);                           /* none over the cloud's column (a bright texel stays) */
+            } else {
+                CHECK_EQ_INT(v, pixels[y * SW + x]);     /* the rest of the sky is as it was */
+            }
+        }
+    CHECK_EQ_INT(seen, n);
+    CHECK(d.bitmap.palette[3 * 32] < d.bitmap.palette[3 * 33] && d.bitmap.palette[3 * 33] < d.bitmap.palette[3 * 34]);   /* three greys, dim to bright */
+    psx_sky_draw_free(&d);
+}
+
+static void test_stars_are_the_seeds_and_thinner_low(void)
+{
+    uint8_t pa[SW * SH], pb[SW * SH], pc[SW * SH];
+    PsxSkyDraw a, b, c;
+    night_sky(&a, pa), night_sky(&b, pb), night_sky(&c, pc);
+    CHECK_EQ_INT(psx_sky_draw_stars(&a, 3), psx_sky_draw_stars(&b, 3));
+    CHECK(memcmp(a.horz.payload, b.horz.payload, SW * SH) == 0);   /* the same seed, the same stars */
+    psx_sky_draw_stars(&c, 4);
+    CHECK(memcmp(a.horz.payload, c.horz.payload, SW * SH) != 0);
+    int top = 0, low = 0;
+    for (int y = 0; y < SHORIZON; y++)
+        for (int x = 0; x < SW; x++)
+            if (is_star(&a, a.horz.payload[y * SW + x])) {
+                if (y < SHORIZON / 2) top++;
+                else low++;
+            }
+    CHECK(top > low);   /* thicker overhead, thinning to the horizon */
+    psx_sky_draw_free(&a), psx_sky_draw_free(&b), psx_sky_draw_free(&c);
+    CHECK_EQ_INT(psx_sky_draw_stars(&a, 1), 0);   /* nothing made: nothing happens */
+}
+
+static void test_stars_take_the_least_used_entries(void)
+{
+    uint8_t pixels[SW * SH];
+    PsxSkyDraw d;
+    night_sky(&d, pixels);
+    for (int i = 32; i < 256; i++) {   /* every entry in use, none grey: the ground's rows hold entries 32.. once each */
+        d.bitmap.palette[3 * i] = (uint8_t)i, d.bitmap.palette[3 * i + 1] = (uint8_t)(255 - i), d.bitmap.palette[3 * i + 2] = 9;
+        d.bitmap.pixels[26 * SW + (i - 32)] = (uint8_t)i;
+    }
+    psx_sky_draw_stars(&d, 1);
+    int grey = 0;
+    for (int i = 0; i < SW * 4; i++) {   /* the ground's texels are never stars; a used entry taken for them was given up for the nearest left */
+        const uint8_t v = d.horz.payload[26 * SW + i];
+        grey += d.bitmap.palette[3 * v] == d.bitmap.palette[3 * v + 1] && d.bitmap.palette[3 * v] == d.bitmap.palette[3 * v + 2];
+    }
+    CHECK_EQ_INT(grey, 0);
+    psx_sky_draw_free(&d);
+}
+
 int main(void)
 {
     test_indexed_and_in_palette();
     test_rejected();
+    test_scale_darkens_the_sky();
+    test_stars_in_the_dark_sky();
+    test_stars_are_the_seeds_and_thinner_low();
+    test_stars_take_the_least_used_entries();
     return TEST_REPORT();
 }
