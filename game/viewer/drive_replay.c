@@ -364,7 +364,7 @@ static void update(void *user)
     if (r->timer != NULL) *r->timer = r->dir.timer;
     if (r->due != NULL) *r->due = r->dir.due;
     if (r->done != NULL)
-        *r->done = race_replay_resumed_done(was_racing, r->sim->race.phase == PHASE_RACING, r->dir.timer, *r->done, r->port_resume);
+        *r->done = race_replay_resumed_done(was_racing, r->sim->race.phase == PHASE_RACING, r->dir.timer, *r->done);
 }
 
 static uint8_t *allocate(void *ctx, int32_t size)
@@ -376,7 +376,7 @@ static uint8_t *allocate(void *ctx, int32_t size)
 
 int drive_replay_start(DriveReplay *r, RaceSim *sim, RaceViews *views)
 {
-    *r = (DriveReplay){ .sim = sim, .views = views, .port_resume = 1 };
+    *r = (DriveReplay){ .sim = sim, .views = views };
     RaceState *race = &sim->race;
     race->unknown_4fbb0c = 1;  /* a local game records (drive_keys and drive_input take it as 1 too) */
     RaceReplayStart s = { 0 };

@@ -324,8 +324,8 @@ void race_replay_button(RaceState *race, RaceReplayDirector *w, const RaceReplay
 
 /* port: race_run's 004c5590 (the frames run) once the director has put the timer back (004bb8d8 = the saved one) and the
  * race is on again from a replay: the replay's own frames counted, the race would wait them out. Back in the race (not
- * racing the frame before, racing now) with more frames run than the timer, the count is the timer's. Else, and
- * with port 0, the exe's, unchanged. */
-int32_t race_replay_resumed_done(int32_t was_racing, int32_t racing, int32_t timer, int32_t done, int32_t port);
+ * racing the frame before, racing now) with more frames run than the timer, the count is the timer's. Else unchanged.
+ * The exe has no wait to keep: 0044fe84 puts 004c5590 back (00512d84) with the timer; the host's own count did not. */
+int32_t race_replay_resumed_done(int32_t was_racing, int32_t racing, int32_t timer, int32_t done);
 
 #endif
