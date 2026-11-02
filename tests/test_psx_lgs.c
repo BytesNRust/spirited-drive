@@ -338,6 +338,23 @@ static void test_lit_table_keeps_hue(void)
     CHECK_EQ_INT(table[3], 4);   /* a grey takes a grey */
 }
 
+/* the dash's art: the tint by `share` (half at dawn and dusk, the whole at night: the dash is dark with the world; only the dials keep their light) */
+static void test_dash_palette_share(void)
+{
+    uint8_t palette[768] = { 0 }, out[768];
+    palette[3] = 100, palette[4] = 200, palette[5] = 60;
+    const float tint[3] = { 0.5f, 0.25f, 1.0f };
+    psx_dash_palette(palette, tint, 1, 2, out);
+    CHECK_EQ_INT(out[3], 75);
+    CHECK_EQ_INT(out[4], 125);
+    CHECK_EQ_INT(out[5], 60);   /* half way to the tinted */
+    psx_dash_palette(palette, tint, 1, 1, out);
+    CHECK_EQ_INT(out[3], 50);
+    CHECK_EQ_INT(out[4], 50);
+    CHECK_EQ_INT(out[5], 60);    /* the whole tint */
+    CHECK_EQ_INT(out[0], 0);
+}
+
 int main(void)
 {
     test_lit_table_keeps_hue();
@@ -355,5 +372,6 @@ int main(void)
     test_ambient_contexts();
     test_lit_table();
     test_ratio();
+    test_dash_palette_share();
     return TEST_REPORT();
 }
