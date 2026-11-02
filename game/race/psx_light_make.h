@@ -34,6 +34,13 @@ typedef struct {
 /* The time's own sun (PSX_SYNTH_DAWN .. PSX_SYNTH_DUSK): the day's high, the dawn's and the dusk's low; the azimuth the track's own (the default is 0). */
 void psx_light_sun_default(int time, PsxLightSun *out);
 
+/* What the light of a point is made from, for a tool that fits it to the CD's (tools/psx_light_fit.c): the share of the dome it sees, the tangent of the horizon
+ * toward the default sun, its surface's upward normal, how far it is over the node's centre point and across from it (units). */
+typedef struct {
+    float sky, sun_tan, nx, ny, nz, rise, lateral;
+} PsxLightFeatures;
+void psx_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, PsxLightFeatures *out);
+
 /* As psx_light_make_rows with the sun given (NULL: the time's default). */
 int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data);
 

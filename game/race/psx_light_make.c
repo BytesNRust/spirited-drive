@@ -86,6 +86,17 @@ static LightPos normal_of(const LightPos *pts, uint32_t count, int ring, uint32_
     return (LightPos){ n.x / len, n.y / len, n.z / len };
 }
 
+void psx_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, PsxLightFeatures *out)
+{
+    PsxLightSun sun;
+    psx_light_sun_default(PSX_SYNTH_DAY, &sun);
+    const Horizon h = horizon_of(pts, count, ring, node, point, &sun);
+    const LightPos n = normal_of(pts, count, ring, node, point);
+    const LightPos *at = &pts[node * PSX_LIGHT_POINTS + (uint32_t)point], *centre = &pts[node * PSX_LIGHT_POINTS];
+    const float dx = at->x - centre->x, dz = at->z - centre->z;
+    *out = (PsxLightFeatures){ h.sky, h.sun_tan, n.x, n.y, n.z, at->y - centre->y, sqrtf(dx * dx + dz * dz) };
+}
+
 void psx_light_sun_default(int time, PsxLightSun *out)
 {
     if (out == NULL) return;
