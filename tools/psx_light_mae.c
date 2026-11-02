@@ -107,6 +107,27 @@ int main(int argc, char **argv)
                 add(&raw, (int)(v * 255.0f + 0.5f), psx_light_byte(&ps1, n, p));
             }
         }
+        /* the CD's own quantiser: for each 0.05 band of the raw model value, how many points, the CD's mean level (0..15) there, and how many of them are at level 15 (255) and
+         * at 14 (238); if the CD's level is round(15 v) the mean is 15 v, if it is floor(16 v) it is 16 v - 0.5 */
+        long bin_n[24] = { 0 }, bin_full[24] = { 0 }, bin_14[24] = { 0 };
+        double bin_level[24] = { 0 }, bin_v[24] = { 0 };
+        for (uint32_t n = 0; n + 1 < count; n++) {
+            if (psx_light_tunnel(&ps1, n)) continue;
+            for (int p = 2; p <= 9; p++) {
+                if (p == 5 || p == 6) continue;
+                PsxLightFeatures f;
+                psx_light_features(pts, count, ring, n, p, &f);
+                const float v = psx_light_lambert(time, f.nx, f.ny);
+                const int b = (int)(v * 20.0f + 0.5f) - 4;   /* bands 0.40 .. 1.55 */
+                if (b < 0 || b >= 24) continue;
+                const int theirs = psx_light_byte(&ps1, n, p);
+                bin_n[b]++, bin_level[b] += theirs / 17.0, bin_v[b] += v, bin_full[b] += theirs == 255, bin_14[b] += theirs == 238;
+            }
+        }
+        printf("  the CD's level by raw model value (band mean v: n, mean level, share at 15, share at 14):\n");
+        for (int b = 0; b < 24; b++)
+            if (bin_n[b] >= 20) printf("    v %.3f: n %5ld  level %5.2f (15v %5.2f, 16v-.5 %5.2f)  at15 %3.0f%%  at14 %3.0f%%\n", bin_v[b] / (double)bin_n[b], bin_n[b], bin_level[b] / (double)bin_n[b],
+                   15.0 * bin_v[b] / (double)bin_n[b], 16.0 * bin_v[b] / (double)bin_n[b] - 0.5, 100.0 * (double)bin_full[b] / (double)bin_n[b], 100.0 * (double)bin_14[b] / (double)bin_n[b]);
         printf("  the model alone, points 2-4 and 7-9: MAE %.1f, bias %+.1f\n", raw.n > 0 ? raw.abs_sum / (double)raw.n : 0, raw.n > 0 ? raw.signed_sum / (double)raw.n : 0);
     }
     Stat flat = { 0 };

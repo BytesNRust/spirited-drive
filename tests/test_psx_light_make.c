@@ -44,7 +44,7 @@ static void test_a_flat_open_track_is_lit_as_the_cd_lights_flat_ground(void)
     memset(data, 7, sizeof data);
     for (int time = PSX_SYNTH_DAWN; time <= PSX_SYNTH_DUSK; time++) {
         CHECK(psx_light_make_rows(pts, NODES, 0, time, data));
-        const int expected = time == PSX_SYNTH_DAY ? 255 : 204;
+        const int expected = time == PSX_SYNTH_DAY ? 238 : 204;   /* flat ground by day is 0.96, level 14 */
         const int outer5[3] = { 170, 170, 136 }, outer10[3] = { 136, 170, 170 };   /* the outer points: their means in the 16 levels */
         for (int n = 0; n < NODES; n++)
             for (int p = 0; p < PSX_LIGHT_POINTS; p++)

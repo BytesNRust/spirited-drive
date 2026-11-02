@@ -28,7 +28,7 @@ static const float LAMP_POOL = 0.6f;        /* a lamp's added light under it, fa
  * darkening by distance or height. The sun is fixed along the track's x axis: at -x at dawn, +x at dusk, overhead by day. The constants are the mean of the per-track fits (tools/
  * psx_light_fit.c, the points 2-4 and 7-9, 13 CD tracks) of the tracks that fit well (the day's with the same +.04 as dawn and dusk: flat ground is level 15, 255, and slopes keep the fit's .96; R2 .9 and over: CY1, CY3, CL1, CL3, AL1, AL2, TR1, TR2; CY2, CL2, AL3 and TR3/TR4 are the CD's
  * hand work and stay out). {c, k_ny, k_nx} by time. */
-static const float LAMBERT[3][3] = { { 0.04f, 0.76f, -0.41f }, { 0.04f, 0.96f, 0.0f }, { 0.04f, 0.76f, 0.41f } };   /* dawn, day, dusk */
+static const float LAMBERT[3][3] = { { 0.04f, 0.76f, -0.41f }, { 0.0f, 0.96f, 0.0f }, { 0.04f, 0.76f, 0.41f } };   /* dawn, day, dusk */
 /* The outer points (5 and 10, the far verges, walls and hills) are not their normal's: their fits swing from track to track (R2 under .5, the sky's coefficient changing sign), so they are the
  * CD's mean at each time (dawn, day, dusk; point 5 then 10). */
 static const float OUTER[3][2] = { { 0.680f, 0.562f }, { 0.637f, 0.651f }, { 0.558f, 0.686f } };
