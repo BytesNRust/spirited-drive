@@ -51,6 +51,7 @@ static int32_t fold(int32_t d, int32_t ring)
 /* 0043e300 */
 void track_cache_window(const TrackWindowOps *ops, TrackCacheWindow *w, int32_t segment)
 {
+    const int unloaded = w->head == TRACK_WINDOW_UNLOADED;
     int32_t d = fold(x_sub(w->head, segment), w->ring);
     int32_t from_back = x_sub(segment, x_sub(w->head, w->ahead));
     if (from_back < 1) from_back = x_sub(0, from_back);
@@ -70,4 +71,9 @@ void track_cache_window(const TrackWindowOps *ops, TrackCacheWindow *w, int32_t 
         w->head = x_sub(w->head, 1) & w->mask;
         d = fold(x_sub(w->head, segment), w->ring);
     }
+    /* port: the loops above fill the window only from a start near segment 0 (the head's masked sentinel is 242, and `fold` leaves a jump from -9999
+     * far past `behind`, so the jump's own reset never runs): anywhere else they load a few segments at the back and none ahead, so the road ahead
+     * is empty. The segments ahead of the camera are loaded here, those the loops loaded again with the same record. */
+    if (unloaded)
+        for (int32_t i = 0; i < w->ahead; i++) ops->load(ops->ctx, x_add(segment, i));
 }
