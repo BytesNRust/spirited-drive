@@ -3,6 +3,7 @@
 #include "game/race/psx_light_synth.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -60,6 +61,8 @@ static void test_hall_rows_and_cars(void)
     psx_light_synth_car(&light, 5, open);
     CHECK(lit[0] < 1.0f && dim[0] < lit[0]);
     CHECK(open[0] == 1.0f);
+    CHECK(lit[0] > lit[1] && lit[1] > lit[2] && dim[0] > dim[1] && dim[1] > dim[2]);   /* warm orange, both under and between the lamps */
+    CHECK(fabsf(lit[0] - 150.0f / 160) < 1e-5f && fabsf(lit[2] - 32.0f / 160) < 1e-5f);
 }
 
 static void test_ring_joins_a_run_across_node_zero(void)
