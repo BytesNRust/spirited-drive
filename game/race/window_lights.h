@@ -24,4 +24,23 @@ int window_boards_for(const char *track, const WindowBoard **out);
  * a board of another size is left alone (0). */
 size_t window_board_paint(const WindowBoard *board, uint8_t *pixels, int width, int height, uint8_t entry, uint32_t seed);
 
+/* A board whose windows are not on a grid (a facade with its own openings): the windows are its dark patches. A patch is a 4-connected run of texels darker than
+ * `dark_luma` (0..255, from the board's palette) inside `region`, as big as a window (min..max) and not the transparent index. A seeded share of the patches is
+ * painted, texel by texel, so the frame round the glass stays as it is. */
+typedef struct {
+    int scenery;
+    int width, height;
+    int region[4];                        /* x0, y0, x1, y1 inclusive: where to look */
+    int dark_luma;
+    int min_w, min_h, max_w, max_h;       /* a patch's bounding box */
+    uint8_t transparent;
+} WindowDark;
+
+/* The track's by-darkness boards (any case): their count, `*out` pointing at them; 0 for a track with none. */
+int window_darks_for(const char *track, const WindowDark **out);
+
+/* Paints a seeded share (two in five) of the board's dark patches in `entry` (`palette` is 3 bytes per index); returns the patches lit. Painting again changes
+ * nothing; a board of another size is left alone (0). */
+size_t window_dark_paint(const WindowDark *board, uint8_t *pixels, int width, int height, const uint8_t *palette, uint8_t entry, uint32_t seed);
+
 #endif

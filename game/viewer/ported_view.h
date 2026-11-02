@@ -60,7 +60,7 @@ void ported_view_set_light(const PsxLight *light, const float tint[3]);
 void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entry[3]);   /* the lamp boards (at most 3) whose entries the tables leave alone; NULL / 0 none */
 
 /* port (night; window_lights.h): the scenery boards whose lit windows' `entry` the light tables leave alone (at most WINDOW_BOARDS_MAX); none with n 0 */
-enum { WINDOW_BOARDS_MAX = 6 };
+enum { WINDOW_BOARDS_MAX = 12 };
 void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry);
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
 
