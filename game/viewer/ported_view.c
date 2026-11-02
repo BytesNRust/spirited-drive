@@ -1555,6 +1555,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                           modern ? draw_camera : NULL, draw_camera }, 0,
                         vp->near_scale };
     track_port_wide_board = wide_board_on();
+    track_port_close_boxes = port_close_boxes(shadow_race != NULL && (shadow_race->port_reverse != 0 || shadow_race->port_follow_camera != 0));
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, view_mirrored(), vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's

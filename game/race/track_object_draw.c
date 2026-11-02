@@ -31,6 +31,7 @@ static const uint8_t LEVEL[TRACK_OBJECT_BANDS] = {
 };
 
 int track_port_wide_board;
+int track_port_close_boxes;
 
 static int32_t rd32(const uint8_t *p)
 {
@@ -108,6 +109,26 @@ static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint
     board(d, 0, near, texture, at, ORDER);
 }
 
+/* port: the two walls and the roof the L lacks, from the camera-space points of its six corners (0..3 the front's, 4 and 5 the side's far edge): the far
+ * corners of the other two walls are the front's left corners carried along the side (by the side's depth). Each wall seen from outside, so its texture runs the
+ * right way round: the back's left is the side's far edge, the left wall's left is its far edge. */
+static void close_box(TrackObjectDraw *d, const uint8_t *desc, int level, int32_t at)
+{
+    const int32_t *c[6];
+    for (int i = 0; i < 6; i++) c[i] = d->object_camera[at + i];
+    int32_t far_top[3], far_bottom[3];
+    for (int k = 0; k < 3; k++) {
+        far_top[k] = c[0][k] + (c[4][k] - c[1][k]);
+        far_bottom[k] = c[3][k] + (c[5][k] - c[2][k]);
+    }
+    const int32_t *back[4] = { c[4], far_top, far_bottom, c[5] };
+    const int32_t *left[4] = { far_top, c[0], c[3], far_bottom };
+    const int32_t *roof[4] = { far_top, c[4], c[1], c[0] };
+    d->ops.full_camera(d->ops.user, desc[2] + level, back);
+    d->ops.full_camera(d->ops.user, desc[3] + level, left);
+    if (d->ops.roof_camera != NULL) d->ops.roof_camera(d->ops.user, desc[2] + level, roof);
+}
+
 static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band, int32_t at, int near)
 {
     if (!deep(d, at + 4, 2)) {
@@ -125,6 +146,7 @@ static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band
     d->side_face = 1;
     board(d, 1, near, desc[3] + level, at, SIDE[(desc[0] & SIDE_FROM_4) != 0]);
     d->side_face |= before;
+    if (track_port_close_boxes && d->ops.full_camera != NULL && !near && at >= 0 && at + 6 <= d->object_capacity) close_box(d, desc, level, at);
 }
 
 /* The walker one record back; before the first, the last on a circuit
