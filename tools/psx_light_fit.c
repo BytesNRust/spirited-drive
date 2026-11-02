@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { FEATURES = 5, MAX_SAMPLES = 400000, MAX_TRACKS = 32 };
-static const char *const NAME[FEATURES] = { "1", "sky", "nx", "nz", "ny" };   /* the first fit with all eight showed the others (sun_tan, nz, rise, lateral) near 0 */
+enum { FEATURES = 7, MAX_SAMPLES = 400000, MAX_TRACKS = 32 };
+static const char *const NAME[FEATURES] = { "1", "sky", "nx", "nz", "ny", "rise", "lateral" };   /* rise and lateral in tens of units: the outer points (5, 10) need them */   /* the first fit with all eight showed the others (sun_tan, nz, rise, lateral) near 0 */
 
 typedef struct {
     float x[FEATURES];
@@ -73,7 +73,7 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
             PsxLightFeatures f;
             psx_light_features(pts, count, ring, n, p, &f);
             Sample *s = &samples[sample_count++];
-            const float x[FEATURES] = { 1, f.sky, f.nx, f.nz, f.ny };
+            const float x[FEATURES] = { 1, f.sky, f.nx, f.nz, f.ny, f.rise / 10.0f, f.lateral / 10.0f };
             memcpy(s->x, x, sizeof x);
             s->y = (float)psx_light_byte(&ps1, n, p) / 255.0f;
             s->point = (uint8_t)p;
@@ -97,7 +97,7 @@ static int fit(int point, double coef[FEATURES], double *r2, double *mae, double
     long n = 0;
     for (size_t k = 0; k < sample_count; k++) {
         const Sample *s = &samples[k];
-        if (k < fit_lo || k >= fit_hi || (point >= 0 && s->point != point) || (point == -2 && (s->point == 5 || s->point == 10))) continue;
+        if (k < fit_lo || k >= fit_hi || (point >= 0 && s->point != point) || (point == -2 && (s->point == 5 || s->point == 10)) || (point == -3 && s->point != 5 && s->point != 10)) continue;
         for (int i = 0; i < FEATURES; i++) {
             for (int j = 0; j < FEATURES; j++) a[i][j] += (double)s->x[i] * s->x[j];
             a[i][FEATURES] += (double)s->x[i] * s->y;
@@ -123,7 +123,7 @@ static int fit(int point, double coef[FEATURES], double *r2, double *mae, double
     double sse = 0, abs_err = 0;
     for (size_t k = 0; k < sample_count; k++) {
         const Sample *s = &samples[k];
-        if (k < fit_lo || k >= fit_hi || (point >= 0 && s->point != point) || (point == -2 && (s->point == 5 || s->point == 10))) continue;
+        if (k < fit_lo || k >= fit_hi || (point >= 0 && s->point != point) || (point == -2 && (s->point == 5 || s->point == 10)) || (point == -3 && s->point != 5 && s->point != 10)) continue;
         double v = 0;
         for (int i = 0; i < FEATURES; i++) v += coef[i] * s->x[i];
         v = v < 0 ? 0 : v > 1 ? 1 : v;
@@ -160,7 +160,7 @@ int main(int argc, char **argv)
     }
     /* per track, the points 2..4 and 7..9 (not the outer ones) together: where the light grows is toward the sun, whose horizontal direction is (nx, nz)'s coefficients; the
      * azimuth of that against the heading of the track's first stretch says whether the CD's sun is the world's or the track's */
-    printf("per track (points 2-4, 7-9): n, R2, fitMAE | %s | light grows toward azimuth, track heading (degrees, atan2(z, x))\n", "1 sky nx nz ny");
+    printf("per track (points 2-4, 7-9): n, R2, fitMAE | %s | light grows toward azimuth, track heading (degrees, atan2(z, x))\n", "1 sky nx nz ny rise lateral");
     for (int t = 0; t < track_count; t++) {
         double coef[FEATURES], r2, mae, mean;
         long n;
@@ -170,6 +170,16 @@ int main(int argc, char **argv)
         printf("%-4s n %5ld R2 %.2f MAE %5.1f |", tracks[t].name, n, r2, mae);
         for (int i = 0; i < FEATURES; i++) printf(" %+.3f", coef[i]);
         printf(" | az %4.0f heading %4.0f\n", atan2(coef[3], coef[2]) * 180.0 / 3.14159265, tracks[t].heading);
+    }
+    printf("per track, the outer points 5 and 10 together: n, R2, fitMAE | %s\n", "1 sky nx nz ny rise lateral");
+    for (int t = 0; t < track_count; t++) {
+        double coef[FEATURES], r2, mae, mean;
+        long n;
+        fit_lo = tracks[t].first, fit_hi = tracks[t].end;
+        if (!fit(-3, coef, &r2, &mae, &mean, &n)) continue;
+        printf("%-4s n %5ld mean %5.1f R2 %.2f MAE %5.1f |", tracks[t].name, n, mean * 255.0, r2, mae);
+        for (int i = 0; i < FEATURES; i++) printf(" %+.3f", coef[i]);
+        printf("\n");
     }
     free(samples);
     return 0;
