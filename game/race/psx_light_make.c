@@ -56,8 +56,10 @@ static Horizon horizon_of(const LightPos *pts, uint32_t count, int ring, uint32_
         const LightPos *row = &pts[(uint32_t)other * PSX_LIGHT_POINTS];
         for (int q = 0; q < PSX_LIGHT_POINTS; q++) {
             const float dx = row[q].x - at->x, dz = row[q].z - at->z, dy = row[q].y - at->y;
-            const float run = sqrtf(dx * dx + dz * dz);
-            if (run < 0.5f || run > SKY_REACH) continue;
+            if (!(dy > 0.0f)) continue;   /* only terrain that rises raises the horizon (its tangent starts at 0) */
+            const float run2 = dx * dx + dz * dz;
+            if (run2 < 0.25f || run2 > (float)(SKY_REACH * SKY_REACH)) continue;
+            const float run = sqrtf(run2);
             const float t = dy / run;
             const int sector = (int)((atan2f(dz, dx) + 3.14159265f) * (float)SKY_SECTORS / 6.28318531f) % SKY_SECTORS;
             if (t > tan_max[sector]) tan_max[sector] = t;
