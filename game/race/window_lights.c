@@ -30,6 +30,11 @@ static const WindowBoard AL1_BOARDS[] = {
     { 22, 176, 64, 9, 1, { { 34, 39 }, { 49, 54 }, { 71, 83 }, { 88, 100 }, { 106, 118 }, { 123, 135 }, { 139, 144 }, { 152, 157 }, { 167, 172 } }, { { 20, 27 } } },
 };
 
+/* TR7's office block (scenery texture 26, 120 x 109): three window groups across by three rows */
+static const WindowBoard TR7_BOARDS[] = {
+    { 26, 120, 109, 3, 3, { { 12, 34 }, { 50, 72 }, { 87, 109 } }, { { 30, 39 }, { 48, 58 }, { 72, 95 } } },
+};
+
 /* CY3's white tower (scenery texture 21, 32 x 128, 49 placements): nineteen ribbons of glass, each split in three to light a part of it */
 static const WindowBoard CY3_BOARDS[] = {
     { 21, 32, 128, 3, 19, { { 4, 12 }, { 13, 21 }, { 22, 30 } },
@@ -54,6 +59,10 @@ int window_boards_for(const char *track, const WindowBoard **out)
     if (is_track(track, "CY2")) {
         *out = CY2_BOARDS;
         return (int)(sizeof CY2_BOARDS / sizeof CY2_BOARDS[0]);
+    }
+    if (is_track(track, "TR7")) {
+        *out = TR7_BOARDS;
+        return (int)(sizeof TR7_BOARDS / sizeof TR7_BOARDS[0]);
     }
     if (is_track(track, "AL1")) {
         *out = AL1_BOARDS;
@@ -101,6 +110,8 @@ static const WindowDark CL1_DARKS[] = { DARKS(25, 64, 64, 70, 12, 20), DARKS(27,
 static const WindowDark AL1_DARKS[] = { DARKS(15, 125, 62, 60, 14, 20), DARKS(16, 126, 62, 60, 14, 20) };
 /* TR4 (Lost Vegas): the pawn shop and the bail bonds */
 static const WindowDark TR4_DARKS[] = { DARKS(38, 100, 100, 60, 16, 24), DARKS(39, 100, 100, 60, 16, 24), DARKS(40, 100, 68, 60, 16, 24) };
+/* TR7 (Transtropolis): the tall tower's windows are pale ribbons on a dark wall, so the light patches are taken (a negative luma) */
+static const WindowDark TR7_DARKS[] = { { 42, 150, 125, { 0, 0, 149, 124 }, -170, 4, 1, 16, 4, 255 } };
 /* CY3's tall towers */
 static const WindowDark CY3_DARKS[] = { DARKS(24, 64, 126, 70, 10, 14), DARKS(26, 63, 126, 70, 10, 14) };
 
@@ -113,6 +124,7 @@ int window_darks_for(const char *track, const WindowDark **out)
     DARK_SET("AL1", AL1_DARKS)
     DARK_SET("TR4", TR4_DARKS)
     DARK_SET("CY3", CY3_DARKS)
+    DARK_SET("TR7", TR7_DARKS)
     return 0;
 }
 
@@ -132,7 +144,11 @@ size_t window_dark_paint(const WindowDark *board, uint8_t *pixels, int width, in
     static uint32_t queue[DARK_SIDE_MAX * DARK_SIDE_MAX];
     memset(seen, 0, (size_t)width * (size_t)height);
     uint8_t dark[256];
-    for (int i = 0; i < 256; i++) dark[i] = i != board->transparent && i != entry && luma_of(palette, (uint8_t)i) < board->dark_luma;
+    const int pale = board->dark_luma < 0, limit = pale ? -board->dark_luma : board->dark_luma;
+    for (int i = 0; i < 256; i++) {
+        const int l = luma_of(palette, (uint8_t)i);
+        dark[i] = i != board->transparent && i != entry && (pale ? l > limit : l < limit);
+    }
     const int x0 = board->region[0] > 0 ? board->region[0] : 0, y0 = board->region[1] > 0 ? board->region[1] : 0;
     const int x1 = board->region[2] < width - 1 ? board->region[2] : width - 1, y1 = board->region[3] < height - 1 ? board->region[3] : height - 1;
     size_t lit = 0;

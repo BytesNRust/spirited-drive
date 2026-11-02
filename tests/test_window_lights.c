@@ -130,6 +130,23 @@ static void test_dark_patches_are_the_windows(void)
     CHECK_EQ_INT((int)window_dark_paint(&DARKS, small, 8, 8, pal, LIT, 5), 0);   /* another size is left alone */
 }
 
+/* a negative dark_luma looks for the light patches instead (a facade whose windows are pale on a dark wall) */
+static void test_light_patches_are_the_windows_when_asked(void)
+{
+    uint8_t px[DW * DH], pal[768], keep[DW * DH];
+    dark_palette(pal);
+    memset(pal + 3 * BRIGHT, 20, 3);          /* the wall is dark ... */
+    memset(pal + 3 * DARK, 220, 3);           /* ... the windows are the pale texels */
+    dark_board(px), dark_board(keep);
+    const WindowDark light = { 3, DW, DH, { 0, 0, DW - 1, DH - 2 }, -150, 3, 4, 12, 16, 255 };
+    const size_t lit = window_dark_paint(&light, px, DW, DH, pal, LIT, 5);
+    CHECK(lit > 0 && lit < 6);
+    for (int i = 0; i < DW * DH; i++) {
+        if (px[i] == LIT) CHECK(keep[i] == DARK);
+        else CHECK(px[i] == keep[i]);
+    }
+}
+
 static void test_the_dark_boards_of_each_track(void)
 {
     const WindowDark *d = NULL;
@@ -139,12 +156,15 @@ static void test_the_dark_boards_of_each_track(void)
     CHECK_EQ_INT(window_darks_for("AL1", &d), 2);
     CHECK_EQ_INT(window_darks_for("TR4", &d), 3);
     CHECK_EQ_INT(window_darks_for("tr4", &d), 3);
+    CHECK_EQ_INT(window_darks_for("TR7", &d), 1);
+    CHECK_EQ_INT(window_boards_for("TR7", &(const WindowBoard *){ NULL }), 1);
     CHECK_EQ_INT(window_darks_for(NULL, &d), 0);
 }
 
 int main(void)
 {
     test_dark_patches_are_the_windows();
+    test_light_patches_are_the_windows_when_asked();
     test_the_dark_boards_of_each_track();
     test_every_board_stays_inside_its_texture();
     test_the_city_boards_by_number();
