@@ -106,6 +106,9 @@ static void test_the_scenery_across_the_seam(const Tri *tri)
 /* the key puts a node by its distance on from the range's first, round the ring */
 static void test_run_key(void)
 {
+    CHECK_EQ_INT(follow_behind_lower_node(10, 0), 36);
+    CHECK_EQ_INT(follow_behind_lower_node(0, 0), 0);    /* no segment before the first of an open track */
+    CHECK_EQ_INT(follow_behind_lower_node(0, 1), -4);   /* a circuit's ring wraps it */
     CHECK_EQ_INT(follow_behind_run_key(508, 508, 511), 0);
     CHECK_EQ_INT(follow_behind_run_key(511, 508, 511), 3);
     CHECK_EQ_INT(follow_behind_run_key(0, 508, 511), 4);
