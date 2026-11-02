@@ -3,6 +3,7 @@
 #include "game/gfx/x86_int.h"
 #include "game/race/track_render.h"
 #include "game/race/track_tables.h"
+#include "game/race/track_wall.h"
 
 enum {
     ROW_POINTS = 11,
@@ -53,7 +54,7 @@ void track_near_draw(const TrackFarOps *far_ops, const TrackNearOps *ops, const 
     int32_t at = (int32_t)((uint32_t)x_sub(x_add(node & ~3, x_shl(near, 2)), 1) & mask);
     for (int32_t k = near - 1; k >= 0; k--) {
         const TrackSegmentEntry *e = &f->segments[(uint32_t)segment & f->segment_mask];
-        const TrackLod *lod = &TRACK_LODS[e->lod < TRACK_LOD_COUNT ? e->lod : 0];  /* port guard */
+        const TrackLod *lod = track_wall_lod(e->lod < TRACK_LOD_COUNT ? e->lod : 0);  /* port guard; a reversed circuit's walls where they were */
         first = x_sub(first, e->count);
         const uint8_t *record = f->cache + mirror_segment_offset(segment, (int32_t)f->segment_mask);
         for (int32_t i = lod->polygon_count - 1; i >= 0; i--) {
