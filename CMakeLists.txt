@@ -420,6 +420,7 @@ add_library(tnfs_game STATIC
     game/sys/reverse_track.c
     game/sys/free_records.c
     game/sys/port_extras.c
+    game/sys/port_stats.c
     game/sys/port_icon.c
     game/sys/port_controls.c
     game/sys/port_records.c
@@ -715,6 +716,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_version_footer PRIVATE tnfs_game)
     target_compile_options(test_version_footer PRIVATE ${TNFS_WARNINGS})
     add_test(NAME version_footer COMMAND test_version_footer)
+    add_executable(test_port_stats tests/test_port_stats.c)
+    target_include_directories(test_port_stats PRIVATE game .)
+    target_link_libraries(test_port_stats PRIVATE tnfs_game)
+    target_compile_options(test_port_stats PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME port_stats COMMAND test_port_stats)
     add_executable(test_cheat_switches tests/test_cheat_switches.c)
     target_include_directories(test_cheat_switches PRIVATE game .)
     target_link_libraries(test_cheat_switches PRIVATE tnfs_game)

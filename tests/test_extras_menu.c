@@ -892,7 +892,7 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* Check for updates, page 2's last switch */
+    keys[n++] = UP;                                        /* Updates and anonymous stats, page 2's last switch */
     keys[n++] = RIGHT;                                     /* off */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
@@ -1091,7 +1091,7 @@ static void test_done_writes_extras_cfg(void)
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
-/* Check for updates: On by default, Right turns it Off and Done saves it */
+/* Updates and anonymous stats: On by default, Right turns it Off and Done saves it */
 static void test_check_for_updates_switch(void)
 {
     Rig r;
@@ -1103,7 +1103,7 @@ static void test_check_for_updates_switch(void)
     setup(&r);
     CHECK_EQ_INT(r.e.update_check, 1);
     run(&r, keys, n);
-    CHECK(shown(&r.fake, "Check for updates"));
+    CHECK(shown(&r.fake, "Updates and anonymous stats"));
     CHECK_EQ_INT(r.fake.saved.update_check, 0);
 }
 

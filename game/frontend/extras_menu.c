@@ -78,7 +78,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
-    "Start Screen", "Intro video", "Check for updates"
+    "Start Screen", "Intro video", "Updates and anonymous stats"
 };
 
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */

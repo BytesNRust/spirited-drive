@@ -75,6 +75,7 @@
 #include "game/viewer/drive_joy.h"
 #include "game/viewer/track_viewer.h"
 
+#include "game/sys/port_stats.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1565,6 +1566,7 @@ static void after_race(void *ctx)
     AfterRaceState st = after_race_state();
     const AfterRaceOps ops = after_race_ops(after_options, ctx);
     credits_last = timer_ticks();
+    port_stats_event(STATS_FIRST_RACE);   /* port: a race was run to its end; once per install, only with the switch On */
     after_race_menu(&st, &ops);
     volumes_sync();
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);

@@ -27,6 +27,7 @@
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/port_stats.h"
 #include "game/sys/port_icon.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -226,7 +227,8 @@ static int run_game(const Options *opt)
     pointer_start();
     pointer_on_wait(menu_audio_music_service);
     joy_start_up(opt->german);
-    if (port_extras_load().update_check) platform_update_check_start(TNFS_VERSION);   /* port: one background question, never blocking */
+    if (port_extras_load().update_check) platform_update_check_start(TNFS_VERSION);   /* port: one background question to our API (it counts the start), never blocking */
+    port_stats_event(STATS_FIRST_START);   /* port: once per install, only with the same switch On; a dev build sends nothing */
     frontend_run();
     text_free();
     pointer_free();
@@ -251,6 +253,7 @@ static int resolve_data_root(const Options *opt, char *out, size_t out_size)
         port_fatal("no game data: run it once without --data on a machine with a display and choose the CD's folder, or give --data DIR\n");
         return 0;
     }
+    port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On) */
     snprintf(out, out_size, "%s", copy);
     return 1;
 }
@@ -259,6 +262,7 @@ int main(int argc, char **argv)
 {
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
+    port_stats_set_sender(platform_stats_post);
     platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in tnfs.log too */
     int ok;
     static char data_root[1024];
