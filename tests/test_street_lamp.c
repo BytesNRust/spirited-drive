@@ -21,7 +21,7 @@ static void test_the_lamp_of_each_track(void)
     CHECK(street_lamp_for("cy1", &l));
     CHECK_EQ_INT(l.scenery, 10);
     CHECK_EQ_INT(l.width, 64);
-    CHECK(!street_lamp_for("CY2", &l) && !street_lamp_for("TR5", &l) && !street_lamp_for(NULL, &l));
+    CHECK(!street_lamp_for("TR5", &l) && !street_lamp_for(NULL, &l));
     /* Coastal's first track: the lamp with the arm, board 10 (87 x 128; its amber lens is at the arm's end, rows 7 and 8) */
     CHECK(street_lamp_for("CL1", &l));
     CHECK(street_lamp_for("cl1r", &l));
@@ -51,6 +51,10 @@ static void test_vertigo_ridge_has_two_lamps(void)
     CHECK_EQ_INT(l[1].height, 82);
     CHECK_EQ_INT(street_lamps_for("CY1", l, STREET_LAMPS_MAX), 1);
     CHECK_EQ_INT(street_lamps_for("AL1", l, STREET_LAMPS_MAX), 0);
+    CHECK_EQ_INT(street_lamps_for("CY2", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 65); CHECK_EQ_INT(l[0].height, 128);
+    CHECK_EQ_INT(street_lamps_for("CY3", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 128);
     enum { BW = 144, BH = 82 };
     uint8_t px[BW * BH];
     memset(px, 255, sizeof px);

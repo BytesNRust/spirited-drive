@@ -6,6 +6,11 @@
 /* CY1's board (scenery texture 10): the lens is rows 7..9, x 48..62, the housing and arm above it (the transparent texels are 255) */
 static const StreetLamp CY1_LAMP = { 10, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10, 255, 0 };
 
+/* Cyberia's other two (CY2 and CY3, scenery texture 7, 172 and 163 placements): the same lamp as CY1's, the lens rows 7..9 at the arm's end; CY2's board is a
+ * texel wider */
+static const StreetLamp CY2_LAMP = { 7, 65, 128, { 46, 7, 64, 9 }, 55, 10, 5, 10, 255, 0 };
+static const StreetLamp CY3_LAMP = { 7, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10, 255, 0 };
+
 /* CL1's board (scenery texture 10, 42 placements): the lamp with its arm; the lens is the amber at the arm's end, rows 7 and 8, x 76..84 (the housing above
  * it is grey, rows 0..6); the halo hangs under it */
 static const StreetLamp CL1_LAMP = { 10, 87, 128, { 76, 7, 84, 8 }, 80, 10, 5, 10, 255, 0 };
@@ -32,6 +37,8 @@ int street_lamps_for(const char *track, StreetLamp *out, int max)
 {
     if (track == NULL || out == NULL || max <= 0) return 0;
     if (is_track(track, "CY1")) out[0] = CY1_LAMP;
+    else if (is_track(track, "CY2")) out[0] = CY2_LAMP;
+    else if (is_track(track, "CY3")) out[0] = CY3_LAMP;
     else if (is_track(track, "CL1")) out[0] = CL1_LAMP;
     else if (is_track(track, "TR2")) out[0] = TR2_LAMP;
     else if (is_track(track, "TR3")) {

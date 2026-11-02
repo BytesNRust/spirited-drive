@@ -55,8 +55,37 @@ static void test_a_board_of_another_size_is_left_alone(void)
     for (size_t i = 0; i < sizeof px; i++) CHECK(px[i] == WALL);
 }
 
+static void test_every_board_stays_inside_its_texture(void)
+{
+    static const char *const tracks[] = { "CY1", "CY2", "CY3" };
+    static const int boards[] = { 1, 4, 1 };
+    for (int t = 0; t < 3; t++) {
+        const WindowBoard *b = NULL;
+        CHECK_EQ_INT(window_boards_for(tracks[t], &b), boards[t]);
+        for (int i = 0; i < boards[t]; i++) {
+            CHECK(b[i].ncol >= 1 && b[i].ncol <= WINDOW_COLS_MAX && b[i].nrow >= 1 && b[i].nrow <= WINDOW_ROWS_MAX);
+            for (int c = 0; c < b[i].ncol; c++) CHECK(b[i].col[c][0] >= 0 && b[i].col[c][0] <= b[i].col[c][1] && b[i].col[c][1] < b[i].width);
+            for (int r = 0; r < b[i].nrow; r++) CHECK(b[i].row[r][0] >= 0 && b[i].row[r][0] <= b[i].row[r][1] && b[i].row[r][1] < b[i].height);
+            for (int c = 1; c < b[i].ncol; c++) CHECK(b[i].col[c][0] > b[i].col[c - 1][1]);
+            for (int r = 1; r < b[i].nrow; r++) CHECK(b[i].row[r][0] > b[i].row[r - 1][1]);
+        }
+    }
+}
+
+static void test_the_city_boards_by_number(void)
+{
+    const WindowBoard *b = NULL;
+    CHECK_EQ_INT(window_boards_for("CY2", &b), 4);
+    CHECK_EQ_INT(b[0].scenery, 25); CHECK_EQ_INT(b[1].scenery, 27); CHECK_EQ_INT(b[2].scenery, 29); CHECK_EQ_INT(b[3].scenery, 17);
+    CHECK_EQ_INT(b[0].ncol, 6); CHECK_EQ_INT(b[0].nrow, 2);
+    CHECK_EQ_INT(window_boards_for("CY3", &b), 1);
+    CHECK_EQ_INT(b[0].scenery, 21); CHECK_EQ_INT(b[0].width, 32); CHECK_EQ_INT(b[0].height, 128);
+}
+
 int main(void)
 {
+    test_every_board_stays_inside_its_texture();
+    test_the_city_boards_by_number();
     test_the_boards_of_each_track();
     test_a_seeded_subset_is_lit_inside_the_windows();
     test_a_board_of_another_size_is_left_alone();

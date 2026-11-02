@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { WINDOW_COLS_MAX = 12, WINDOW_ROWS_MAX = 8 };
+enum { WINDOW_COLS_MAX = 12, WINDOW_ROWS_MAX = 20 };
 
 typedef struct {
     int scenery;                          /* the board: TrackArt.scenery[scenery] */

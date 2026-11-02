@@ -9,6 +9,23 @@ static const WindowBoard CY1_BOARDS[] = {
     { 40, 63, 63, 8, 4, { { 6, 10 }, { 12, 16 }, { 18, 22 }, { 24, 28 }, { 30, 34 }, { 36, 41 }, { 44, 50 }, { 52, 58 } }, { { 9, 15 }, { 19, 25 }, { 29, 35 }, { 40, 46 } } },
 };
 
+/* CY2's storeys (scenery textures 25, 27 and 29, 64 x 32, 62 placements: a grey, a tan and an orange wall): six windows by two rows, the glass inside the dark
+ * frames; and its red brick block (texture 17, 63 x 63, 16 placements): eight columns by four rows over the shop row */
+#define CY2_STOREY(n, h) { n, 64, h, 6, 2, { { 3, 8 }, { 14, 19 }, { 24, 29 }, { 35, 40 }, { 46, 51 }, { 56, 61 } }, { { 3, 11 }, { 17, 26 } } }
+static const WindowBoard CY2_BOARDS[] = {
+    CY2_STOREY(25, 32),
+    CY2_STOREY(27, 32),
+    CY2_STOREY(29, 31),
+    { 17, 63, 63, 8, 4, { { 2, 5 }, { 10, 14 }, { 17, 20 }, { 23, 26 }, { 29, 33 }, { 37, 41 }, { 46, 51 }, { 56, 59 } }, { { 8, 16 }, { 19, 27 }, { 29, 37 }, { 39, 47 } } },
+};
+
+/* CY3's white tower (scenery texture 21, 32 x 128, 49 placements): nineteen ribbons of glass, each split in three to light a part of it */
+static const WindowBoard CY3_BOARDS[] = {
+    { 21, 32, 128, 3, 19, { { 4, 12 }, { 13, 21 }, { 22, 30 } },
+      { { 19, 21 }, { 25, 27 }, { 31, 33 }, { 37, 38 }, { 42, 44 }, { 48, 50 }, { 54, 56 }, { 59, 61 }, { 65, 67 }, { 71, 73 }, { 76, 78 }, { 83, 84 }, { 88, 90 },
+        { 94, 96 }, { 100, 102 }, { 106, 107 }, { 111, 113 }, { 117, 119 }, { 123, 125 } } },
+};
+
 static int is_track(const char *track, const char *name)
 {
     for (const char *t = track; *name != '\0'; t++, name++)
@@ -22,6 +39,14 @@ int window_boards_for(const char *track, const WindowBoard **out)
     if (is_track(track, "CY1")) {
         *out = CY1_BOARDS;
         return (int)(sizeof CY1_BOARDS / sizeof CY1_BOARDS[0]);
+    }
+    if (is_track(track, "CY2")) {
+        *out = CY2_BOARDS;
+        return (int)(sizeof CY2_BOARDS / sizeof CY2_BOARDS[0]);
+    }
+    if (is_track(track, "CY3")) {
+        *out = CY3_BOARDS;
+        return (int)(sizeof CY3_BOARDS / sizeof CY3_BOARDS[0]);
     }
     return 0;
 }
