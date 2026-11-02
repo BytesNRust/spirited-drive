@@ -61,12 +61,13 @@ void car_shine_tables(const uint8_t palette[768], uint8_t out[CAR_SHINE_LEVELS][
 {
     Family fam[256];
     const uint8_t *usable = palette_usable();   /* a shine never lands on an entry the race rewrites (the brake lamp, the police lights) */
+    const uint8_t *emissive = palette_emissive();   /* nor moves an entry that glows whatever the light is (the lit lamps) */
     for (int i = 0; i < MARKERS; i++) fam[i] = family(palette + 3 * i);
     for (int l = 0; l < CAR_SHINE_LEVELS; l++) {
         const float t = level_t(l);
         for (int i = 0; i < 256; i++) {
             out[l][i] = (uint8_t)i;
-            if (i >= MARKERS || l == CAR_SHINE_NEUTRAL || fam[i].top < NEAR_BLACK) continue;
+            if (i >= MARKERS || l == CAR_SHINE_NEUTRAL || fam[i].top < NEAR_BLACK || emissive[i]) continue;
             float want[3];
             for (int k = 0; k < 3; k++) {
                 const float c = palette[3 * i + k];
@@ -117,12 +118,13 @@ static uint8_t nearest_entry(const uint8_t palette[768], const Family fam[256], 
 void car_envmap_tables(const uint8_t palette[768], uint8_t paint[CAR_SHINE_LEVELS][256], uint8_t glass[CAR_SHINE_LEVELS][256])
 {
     Family fam[256];
+    const uint8_t *emissive = palette_emissive();   /* an entry that glows whatever the light is stays as it is */
     for (int i = 0; i < MARKERS; i++) fam[i] = family(palette + 3 * i);
     for (int l = 0; l < CAR_SHINE_LEVELS; l++) {
         const float t = level_t(l);
         for (int i = 0; i < 256; i++) {
             paint[l][i] = glass[l][i] = (uint8_t)i;
-            if (i >= MARKERS || l == CAR_SHINE_NEUTRAL) continue;
+            if (i >= MARKERS || l == CAR_SHINE_NEUTRAL || emissive[i]) continue;
             float want[3];
             car_envmap_want(palette + 3 * i, t, want);
             /* the same intensity for the paint and for the glass and lamps (class 128), each from its own colour. A partial lift stays in the

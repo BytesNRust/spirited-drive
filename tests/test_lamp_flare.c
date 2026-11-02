@@ -45,8 +45,9 @@ static void test_blobs(void)
 
 static void test_radius(void)
 {
-    CHECK_EQ_INT(lamp_flare_radius(0), 3);
-    CHECK_EQ_INT(lamp_flare_radius(12), 4);   /* the blob's r = 2, times 2.2 */
+    CHECK_EQ_INT(lamp_flare_radius(0), LAMP_FLARE_MIN_RADIUS);
+    CHECK_EQ_INT(lamp_flare_radius(12), 2 * LAMP_FLARE_REACH / 10);   /* the blob's r = 2, times the reach */
+    CHECK(lamp_flare_radius(100) >= 3 * 5);                          /* a lamp of a hundred pixels glows a few times its own size */
     CHECK(lamp_flare_radius(100) > lamp_flare_radius(12));
     CHECK_EQ_INT(lamp_flare_radius(1000000), LAMP_FLARE_MAX_RADIUS);
 }
@@ -74,27 +75,28 @@ static void test_level(void)
         for (int dx = -r / 2; dx <= r / 2; dx++) seen[lamp_halo_level(dx, dy, r)]++;
     CHECK(seen[1] > 0);
     CHECK(seen[2] > 0);
+    CHECK(seen[3] > 0);
 }
 
-static uint8_t map_one[256], map_two[256];
+static uint8_t map_one[256], map_two[256], map_three[256];
 
 static void test_draw(void)
 {
-    for (int i = 0; i < 256; i++) map_one[i] = i == 77 ? 77 : 11, map_two[i] = i == 77 ? 77 : 22;
-    const uint8_t *const map[LAMP_FLARE_LEVELS] = { map_one, map_two };
+    for (int i = 0; i < 256; i++) map_one[i] = i == 77 ? 77 : 11, map_two[i] = i == 77 ? 77 : 22, map_three[i] = i == 77 ? 77 : 33;
+    const uint8_t *const map[LAMP_FLARE_LEVELS] = { map_one, map_two, map_three };
     uint8_t px[W * H];
     memset(px, 3, sizeof px);
     lamp_halo_draw(px, W, 0, 0, W - 1, H - 1, 20, 12, 8, map);
-    int ones = 0, twos = 0, kept = 0, outside = 0;
+    int ones = 0, twos = 0, threes = 0, kept = 0, outside = 0;
     for (int y = 0; y < H; y++)
         for (int x = 0; x < W; x++) {
             const uint8_t v = px[y * W + x];
-            ones += v == 11, twos += v == 22, kept += v == 3;
+            ones += v == 11, twos += v == 22, threes += v == 33, kept += v == 3;
             if (v != 3 && (x - 20) * (x - 20) + (y - 12) * (y - 12) >= 64) outside++;
         }
-    CHECK(ones > 0 && twos > 0 && kept > 0);
+    CHECK(ones > 0 && twos > 0 && threes > 0 && kept > 0);
     CHECK_EQ_INT(outside, 0);
-    CHECK(px[12 * W + 20] == 22 || px[12 * W + 20] == 11);   /* the centre is lit */
+    CHECK(px[12 * W + 20] == 33 || px[12 * W + 20] == 22);   /* the centre is lit */
     /* a lamp pixel under the halo keeps its colour (the map's own entry for it) */
     memset(px, 3, sizeof px);
     px[12 * W + 20] = 77;

@@ -914,7 +914,7 @@ static int32_t car_reach(const Object3D *o)
 
 /* port (psx_flares): the halo round a lit brake light. The lamp's pixels are the emissive lit-brake entry (drive_lamps_brake_lit: not tinted, not fogged), found
  * in the rectangle of the car's projected vertices after the car is drawn, so what hides the lamp hides its blobs; the halo is added to the pixels' palette, in
- * the lamp's colour at 1/5 and 9/20 */
+ * the lamp's colour at 30, 60 and 100 percent over a radius a few times the lamp's own */
 static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, const uint8_t palette[768])
 {
     const Object3D *body = vc->model.body;
@@ -938,7 +938,7 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     member[entry] = 1;
     LampBlob blobs[LAMP_FLARE_BLOBS];
     const int count = lamp_blobs(t->pixels, t->pitch, x0, y0, x1, y1, member, blobs, LAMP_FLARE_BLOBS);
-    static const int PERCENT[LAMP_FLARE_LEVELS] = { 20, 45 };
+    static const int PERCENT[LAMP_FLARE_LEVELS] = { 30, 60, 100 };   /* the lamp's colour added to the pixel, a soft glow stronger toward the lamp */
     const uint8_t *const usable = palette_usable();
     for (int i = 0; i < count; i++) {
         uint8_t maps[LAMP_FLARE_LEVELS][256];
@@ -951,7 +951,7 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
                 }
                 maps[l][d] = member[d] || !usable[d] ? (uint8_t)d : (uint8_t)palette_nearest(palette, usable, rgb[0], rgb[1], rgb[2]);   /* the lamp keeps its own colour */
             }
-        const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[0], maps[1] };
+        const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[0], maps[1], maps[2] };
         lamp_halo_draw(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, blobs[i].cx, blobs[i].cy,
                        lamp_flare_radius(blobs[i].area), map);
     }

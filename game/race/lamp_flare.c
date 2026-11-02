@@ -60,8 +60,8 @@ int lamp_flare_radius(int area)
 {
     int r = 0;
     while ((r + 1) * (r + 1) * 3 <= area) r++;   /* the blob's radius: sqrt(area / 3), a little under sqrt(area / pi) */
-    r = r * 22 / 10;
-    return r < 3 ? 3 : r > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : r;
+    r = r * LAMP_FLARE_REACH / 10;
+    return r < LAMP_FLARE_MIN_RADIUS ? LAMP_FLARE_MIN_RADIUS : r > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : r;
 }
 
 int lamp_halo_level(int dx, int dy, int radius)
