@@ -280,7 +280,8 @@ static RacePalette race_palette_now;   /* the race's palette as the build leaves
 
 void drive_palette_write(int entry, const uint8_t rgb[3])
 {
-    race_palette_write(&race_palette_now, entry, 1, rgb);
+    const uint8_t six[3] = { (uint8_t)(rgb[0] >> 2), (uint8_t)(rgb[1] >> 2), (uint8_t)(rgb[2] >> 2) };   /* the palette's writes are the VGA's 6 bits; the callers' colours are 8 */
+    race_palette_write(&race_palette_now, entry, 1, six);
 }
 
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
