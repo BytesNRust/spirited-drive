@@ -25,7 +25,7 @@ static int point_of(const TrackLod *lod, int vertex)
 
 int main(void)
 {
-    int moved = 0;
+    int moved = 0, left_moved = 0;
     for (int n = 0; n < TRACK_LOD_COUNT; n++) {
         const TrackLod *lod = &TRACK_LODS[n];
         track_wall_set_inner(0);
@@ -35,7 +35,11 @@ int main(void)
         CHECK(inner != lod);
         CHECK_EQ_INT(inner->vertex_count, lod->vertex_count);
         CHECK_EQ_INT(inner->first_polygon, lod->first_polygon);
-        CHECK(memcmp(inner->fence, lod->fence, 8) == 0);           /* the left-flagged wall is not touched */
+        for (int i = 0; i < 8; i++) {   /* the left-flagged wall is the old right's: on the third point where the exe's right chain had it there, else the second */
+            const int right = lod->fence[8 + i] != 0 ? point_of(lod, lod->fence[8 + i]) : -1;
+            if (right == 8) { CHECK_EQ_INT(point_of(inner, inner->fence[i]), 3); left_moved++; }
+            else CHECK_EQ_INT(inner->fence[i], lod->fence[i]);
+        }
         CHECK(memcmp(inner->select, lod->select, sizeof lod->select) == 0);
         for (int i = 8; i < 16; i++) {
             const int was = point_of(lod, lod->fence[i]), now = point_of(inner, inner->fence[i]);
@@ -44,6 +48,7 @@ int main(void)
             CHECK(now != 8);
         }
     }
+    CHECK(left_moved > 0);
     CHECK(moved > 0);   /* some LODs do put it on the third */
     return TEST_REPORT();
 }
