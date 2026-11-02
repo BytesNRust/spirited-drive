@@ -2,6 +2,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/sys/data_path.h"
 #include "game/sys/port_log.h"
 
 #include <SDL3/SDL.h>
@@ -150,6 +151,7 @@ bool platform_cursor_hidden(void)
 
 bool platform_init(const PlatformConfig *config)
 {
+    data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
