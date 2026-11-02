@@ -206,6 +206,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
         const PsxLamp *own_lamps = NULL;
         const int own_count = psx_lamps_for(track, &own_lamps);
+        ported_view_set_psx_lamps(own_lamps, own_count);   /* the lamps' glow (psx_flares) needs them known even with no light */
         if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = own_lamps, night_lamp_count = own_count;   /* the lamps' own colours are kept lit in the night's palette */
         return;
     }

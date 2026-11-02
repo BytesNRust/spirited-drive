@@ -228,6 +228,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     for (uint32_t i = 0; i < t->tri.scenery_count; i++)
         if (track_object(&t->tri, i, &t->objects[t->object_count]) == TRI_OK) t->object_count++;
     if (getenv("TNFS_SCENERY_DUMP") != NULL) scenery_dump(t, getenv("TNFS_SCENERY_DUMP"));   /* port (dev) */
+    if (getenv("TNFS_SLOT_DUMP") != NULL) slot_dump(t, getenv("TNFS_SLOT_DUMP"));   /* port (dev) */
     return 1;
 }
 

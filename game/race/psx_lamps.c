@@ -9,10 +9,12 @@ enum { ALL = 255 };   /* a rectangle's far edge: the texture's own */
 static const PsxLamp CY1[] = { { 38, 5, { 0, 74, 87, 63, 67 }, { 33, 68, 41, 76 } } };
 static const PsxLamp CY2[] = { { 37, 4, { 75, 53, 32, 44 }, { 43, 50, 77, 60 } } };
 static const PsxLamp CY3[] = { { 20, 4, { 0, 38, 67, 77 }, { 34, 0, 42, 15 } }, { 19, 3, { 55, 68, 87 }, { 0, 65, ALL, 69 } } };
+/* TR3 (Vertigo Ridge): the amber bulb in the tunnel portal's ceiling (byte 19, 128 x 128, the strip at x 46-78, y 2-13) */
+static const PsxLamp TR3[] = { { 19, 0, { 0 }, { 46, 2, 78, 13 } }, { 21, 0, { 0 }, { 36, 2, 61, 11 } } };   /* byte 21: 102 x 102, the strip at x 36-61, y 2-11 */
 static const PsxLamp TR4[] = { { 20, 2, { 60, 29 }, { 0, 15, ALL, 48 } } };
 
 static const struct { const char *track; const PsxLamp *lamps; int count; } TRACKS[] = {
-    { "CY1", CY1, 1 }, { "CY2", CY2, 1 }, { "CY3", CY3, 2 }, { "TR4", TR4, 1 },
+    { "CY1", CY1, 1 }, { "CY2", CY2, 1 }, { "CY3", CY3, 2 }, { "TR3", TR3, 2 }, { "TR4", TR4, 1 },
 };
 
 static int same_name(const char *a, const char *b)
