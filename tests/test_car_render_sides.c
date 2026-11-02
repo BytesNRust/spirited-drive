@@ -1,6 +1,7 @@
 /* port: a car beside a wide field's eye (car_render.h's port_reach): the exe's 004591d4 drops a car whose centre is
  * under 0x20 deep or more than twice its depth to the side, while half of it is still on a field wider than its
  * cone; with port_reach the car is drawn while any of it can be in front of the eye, its mark only in front. */
+#include "game/race/car_draw.h"
 #include "game/race/car_render.h"
 #include "test.h"
 
@@ -80,9 +81,24 @@ static void test_reach_keeps_a_car_beside(void)
     CHECK_EQ_INT(drawn_slot(0, 0x300, 0x100, REACH, &t), 0);
 }
 
+/* the race's own car draw takes the render scale's distance too (car_draw.h): the cut moves out, a car past the exe's cut shows at a scale of 2 */
+static void test_scale_moves_the_cut(void)
+{
+    int t;
+    car_draw_set_distance_scale(1);
+    CHECK_EQ_INT(drawn(0, 0x5a01, 0, &t), 0);
+    CHECK_EQ_INT(drawn(0, 0x5a01, REACH, &t), 0);
+    car_draw_set_distance_scale(2);
+    CHECK_EQ_INT(drawn(0, 0x5a01, 0, &t), 1);
+    CHECK_EQ_INT(drawn(0, 0x5a01, REACH, &t), 1);
+    CHECK_EQ_INT(drawn(0, 2 * 0x5a00 + 1, 0, &t), 0);
+    car_draw_set_distance_scale(1);
+}
+
 int main(void)
 {
     test_exe_culls();
     test_reach_keeps_a_car_beside();
+    test_scale_moves_the_cut();
     return TEST_REPORT();
 }

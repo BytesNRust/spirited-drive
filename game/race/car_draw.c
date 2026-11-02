@@ -111,6 +111,7 @@ static void set_near(Object3D *obj, int on)
 static int32_t distance_scale = 1;   /* port: car_draw_set_distance_scale */
 
 void car_draw_set_distance_scale(int32_t scale) { distance_scale = scale < 1 ? 1 : scale > 3 ? 3 : scale; }
+int32_t car_draw_distance_scale(void) { return distance_scale; }
 int32_t car_draw_max_z(int32_t scale) { return CAR_MAX_Z * (scale < 1 ? 1 : scale > 3 ? 3 : scale); }
 int32_t car_draw_far_z(int32_t scale) { return CAR_FAR_Z * (scale < 1 ? 1 : scale > 3 ? 3 : scale); }
 

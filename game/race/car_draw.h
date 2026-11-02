@@ -30,6 +30,8 @@ enum {
 void car_draw_set_distance_scale(int32_t scale);
 int32_t car_draw_max_z(int32_t scale);
 int32_t car_draw_far_z(int32_t scale);
+/* the scale set (1 when none): the race's own car draw (car_render.c) takes its cut and low detail distances from it too */
+int32_t car_draw_distance_scale(void);
 
 typedef struct {
     Object3D *body;   /* car +0x52e */
