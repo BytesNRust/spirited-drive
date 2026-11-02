@@ -55,4 +55,8 @@ typedef struct {
  * a circuit unless that is on the drawn record's node. */
 void track_object_draw(TrackObjectDraw *d, int32_t band, int visible);
 
+/* port: 1 and a board the exe drops for a corner past +-0x800 across (0044a450) while its middle shows (a big tree) goes to ops.port_near_camera, its
+ * whole texture clipped at the near plane; 0, the default, the exe's drop */
+extern int track_port_wide_board;
+
 #endif
