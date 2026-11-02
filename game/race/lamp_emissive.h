@@ -53,6 +53,14 @@ enum { LAMP_BRAKE_ON = 10,   /* a car's brake above this is lit (car_lights.c) *
  * NULL for a light that is not there. */
 int lamp_emissive_low(const float tint[3], const float ratio[3]);
 
+/* port (day): the lamps follow the light at the car with a margin, so a light shade does not light them. A car's state: whether its lamps are lit,
+ * and for how many frames the light has been back. They light at once when the world's tint is below 1 (dawn, dusk, night) or the ambient ratio at the
+ * car is under LAMP_SHADE_ON_PERCENT on any channel (a tunnel's), and go out only after the ratio has been at LAMP_SHADE_OFF_PERCENT or more for
+ * LAMP_SHADE_HOLD frames in a row. Returns the state. */
+enum { LAMP_SHADE_ON_PERCENT = 70, LAMP_SHADE_OFF_PERCENT = 85, LAMP_SHADE_HOLD = 12 };
+typedef struct { int low, back; } LampLight;
+int lamp_light_step(LampLight *s, const float tint[3], const float ratio[3]);
+
 /* Up to `want` entries from `first` to `last` (inclusive) that `used` does not mark, into `out`: the ones whose colour (`rgb`, 256 x 3 at 8 bits) has the
  * nearest other entry of `usable`, nearest first (the highest index first on a tie), so taking them out of the search shifts the world's picks the least.
  * Returns how many it found. */
