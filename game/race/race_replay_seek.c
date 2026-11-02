@@ -631,7 +631,7 @@ void race_replay_request(RaceReplayDirector *w, int32_t request)
     if (request == 4 || request == 5 || request == 8) w->unknown_513740 = 1;
 }
 
-int32_t race_replay_resumed_done(int32_t was_racing, int32_t racing, int32_t timer, int32_t done, int32_t port)
+int32_t race_replay_resumed_done(int32_t was_racing, int32_t racing, int32_t timer, int32_t done)
 {
-    return port && !was_racing && racing && done > timer ? timer : done;
+    return !was_racing && racing && done > timer ? timer : done;
 }
