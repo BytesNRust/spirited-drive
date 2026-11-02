@@ -325,6 +325,25 @@ static void test_the_real_cd(void)
     CHECK(c.total == DATA_MANIFEST_COUNT && DATA_MANIFEST_COUNT >= 10);
 }
 
+/* a real CD image, only when TNFS_TEST_ISO names one (read-only; the copy goes to a scratch folder and is deleted): the manifest matches and the copy checks as a folder */
+static void test_the_real_iso(void)
+{
+    const char *iso = getenv("TNFS_TEST_ISO");
+    if (iso == NULL || iso[0] == '\0') return;
+    DataCheck c;
+    CHECK_EQ_INT(data_check_iso(iso, &c), 1);
+    CHECK_EQ_INT(c.matched, DATA_MANIFEST_COUNT);
+    char base[] = "/tmp/tnfs_real_iso_XXXXXX", dest[700], cmd[800];
+    CHECK(mkdtemp(base) != NULL);
+    snprintf(dest, sizeof dest, "%s/gamedata", base);
+    CHECK(data_copy_iso_size(iso, c.root) > 0);
+    CHECK_EQ_INT(data_copy_iso(iso, c.root, dest, NULL, NULL), 1);
+    CHECK_EQ_INT(data_check(dest, &c), 1);
+    CHECK_EQ_INT(data_looks_installed(dest), 1);
+    snprintf(cmd, sizeof cmd, "find %s -delete", base);
+    CHECK_EQ_INT(system(cmd), 0);
+}
+
 int main(void)
 {
     test_digests();
@@ -334,5 +353,6 @@ int main(void)
     test_iso_check_and_copy();
     test_the_root();
     test_the_real_cd();
+    test_the_real_iso();
     return TEST_REPORT();
 }
