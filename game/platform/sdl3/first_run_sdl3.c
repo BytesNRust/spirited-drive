@@ -144,7 +144,11 @@ bool first_run_setup(const char *dest)
         ok = copy_with_bar(root, dest);
         if (!ok) {
             static const char *const OK[] = { "OK" };
-            ask("The copy failed", "The game's files could not be copied (is there room on the disk?). Nothing was kept; the next start asks again.", OK, 1);
+            {
+                char text[1500];
+                snprintf(text, sizeof text, "The game's files could not be copied: %s. Nothing was kept; the next start asks again.", data_copy_error());
+                ask("The copy failed", text, OK, 1);
+            }
         }
     }
     SDL_Quit();

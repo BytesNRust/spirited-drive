@@ -98,6 +98,64 @@ static void test_check_and_copy(void)
     CHECK_EQ_INT(system(path), 0);
 }
 
+/* the copy never follows a link to a folder (the owner's source had original/original -> original, a loop), copies a link to a file as the file, copes with read-only
+ * files (the CD's are r--------) and says what failed: the path and the reason, not a guess about the disk */
+static void test_copy_links_and_read_only(void)
+{
+    char base[] = "/tmp/tnfs_data_copy_XXXXXX";
+    CHECK(mkdtemp(base) != NULL);
+    char src[600], path[1300], dest[600];
+    snprintf(src, sizeof src, "%s/src", base);
+    mkdir(src, 0755);
+    snprintf(path, sizeof path, "%s/sub", src);
+    mkdir(path, 0755);
+    snprintf(path, sizeof path, "%s/sub/A.BIN", src);
+    put(path, "abc");
+    chmod(path, 0400);   /* as on the CD */
+    snprintf(path, sizeof path, "%s/loop", src);
+    CHECK_EQ_INT(symlink(src, path), 0);   /* a folder that links to its own parent */
+    snprintf(path, sizeof path, "%s/sub/up", src);
+    CHECK_EQ_INT(symlink("..", path), 0);
+    snprintf(path, sizeof path, "%s/alias.bin", src);
+    CHECK_EQ_INT(symlink("sub/A.BIN", path), 0);   /* a link to a file */
+    snprintf(path, sizeof path, "%s/dangling", src);
+    CHECK_EQ_INT(symlink("/no/such/file", path), 0);
+    CHECK_EQ_INT((int)data_copy_size(src), 6);   /* A.BIN and the alias; the links to folders are not entered */
+    snprintf(dest, sizeof dest, "%s/dest", base);
+    CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 1);
+    CHECK(strcmp(data_copy_error(), "") == 0);
+    snprintf(path, sizeof path, "%s/sub/A.BIN", dest);
+    CHECK(access(path, R_OK) == 0);
+    snprintf(path, sizeof path, "%s/alias.bin", dest);
+    struct stat st;
+    CHECK(lstat(path, &st) == 0 && S_ISREG(st.st_mode) && st.st_size == 3);   /* the file's contents, not a link */
+    snprintf(path, sizeof path, "%s/loop", dest);
+    CHECK(lstat(path, &st) != 0);   /* nothing made of the link to a folder */
+    /* a failure: an unreadable file says which, and leaves nothing behind (a read-only .part from before is cleared) */
+    snprintf(path, sizeof path, "%s/sub/A.BIN", src);
+    chmod(path, 0000);
+    snprintf(dest, sizeof dest, "%s/dest2", base);
+    char part[700];
+    snprintf(part, sizeof part, "%s.part", dest);
+    mkdir(part, 0755);
+    snprintf(path, sizeof path, "%s/stale", part);
+    put(path, "x");
+    chmod(path, 0400);
+    chmod(part, 0500);
+    if (geteuid() != 0) {   /* root reads anything */
+        CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 0);
+        CHECK(strstr(data_copy_error(), "A.BIN") != NULL);
+        CHECK(strstr(data_copy_error(), "Permission denied") != NULL);
+    }
+    CHECK(access(dest, F_OK) != 0);
+    CHECK(access(part, F_OK) != 0);
+    snprintf(path, sizeof path, "%s/sub/A.BIN", src);
+    chmod(path, 0400);
+    CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 1);   /* and the retry works */
+    snprintf(path, sizeof path, "find %s -delete", base);
+    CHECK_EQ_INT(system(path), 0);
+}
+
 /* where the data is: --data as given, the player's copy, a development folder, else the wizard */
 static void test_the_root(void)
 {
@@ -136,6 +194,7 @@ int main(void)
 {
     test_digests();
     test_check_and_copy();
+    test_copy_links_and_read_only();
     test_the_root();
     test_the_real_cd();
     return TEST_REPORT();

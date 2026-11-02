@@ -14,4 +14,8 @@ int64_t data_copy_size(const char *src);
 /* Copies `src` to `dest` (which must not exist). Returns 1 when done, 0 on any failure or a cancel (`dest` is then not left behind, and `dest`.part is removed). */
 int data_copy_tree(const char *src, const char *dest, DataCopyProgress progress, void *user);
 
+/* Why the last data_copy_tree failed, "could not <what> <path>: <reason>" (also in tnfs.log); "" after a success. A folder that is a symbolic link is never entered, so a loop
+ * cannot run the copy away; a link to a file is copied as the file. */
+const char *data_copy_error(void);
+
 #endif
