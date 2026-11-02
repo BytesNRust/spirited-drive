@@ -10,6 +10,10 @@ static const StreetLamp CY1_LAMP = { 10, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 1
  * it is grey, rows 0..6); the halo hangs under it */
 static const StreetLamp CL1_LAMP = { 10, 87, 128, { 76, 7, 84, 8 }, 80, 10, 5, 10, 255 };
 
+/* Autumn Valley's (TR2) floodlight poles (scenery texture 5, 38 placements): four heads over rows 0..21 and the pole (x 17..19) under them; the lit faces are
+ * the heads' lower rows, the halo hangs from their foot */
+static const StreetLamp TR2_LAMP = { 5, 38, 148, { 0, 8, 37, 20 }, 18, 21, 5, 10, 255 };
+
 static int is_track(const char *track, const char *name)
 {
     for (const char *t = track; *name != '\0'; t++, name++)
@@ -22,6 +26,7 @@ int street_lamp_for(const char *track, StreetLamp *out)
     if (track == NULL || out == NULL) return 0;
     if (is_track(track, "CY1")) *out = CY1_LAMP;
     else if (is_track(track, "CL1")) *out = CL1_LAMP;
+    else if (is_track(track, "TR2")) *out = TR2_LAMP;
     else return 0;
     return 1;
 }
