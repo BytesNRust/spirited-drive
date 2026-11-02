@@ -1,6 +1,7 @@
 /* The viewers' track loading (track_load.h): the TRI and FAM, the art, the INFO's sky and tint, the scenery's models and
  * a car parked ahead. */
 #include "viewer/track_load.h"
+#include "game/viewer/scenery_dump.h"
 
 #include "race/fam_mirror.h"
 #include "race/lunar_springs.h"
@@ -226,6 +227,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
             t->model_ok[i] = chunk_child(&objects, i, &pair) == CHUNK_OK && model_load(&t->models[i], &pair);
     for (uint32_t i = 0; i < t->tri.scenery_count; i++)
         if (track_object(&t->tri, i, &t->objects[t->object_count]) == TRI_OK) t->object_count++;
+    if (getenv("TNFS_SCENERY_DUMP") != NULL) scenery_dump(t, getenv("TNFS_SCENERY_DUMP"));   /* port (dev) */
     return 1;
 }
 

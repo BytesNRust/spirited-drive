@@ -22,6 +22,21 @@ static void test_the_lamp_of_each_track(void)
     CHECK_EQ_INT(l.scenery, 10);
     CHECK_EQ_INT(l.width, 64);
     CHECK(!street_lamp_for("CY2", &l) && !street_lamp_for("TR5", &l) && !street_lamp_for(NULL, &l));
+    /* Coastal's first track: the lamp with the arm, board 10 (87 x 128; its amber lens is at the arm's end, rows 7 and 8) */
+    CHECK(street_lamp_for("CL1", &l));
+    CHECK(street_lamp_for("cl1r", &l));
+    CHECK_EQ_INT(l.scenery, 10);
+    CHECK_EQ_INT(l.width, 87);
+    CHECK_EQ_INT(l.height, 128);
+    CHECK(l.lens_rect[0] >= 70 && l.lens_rect[2] < 87 && l.lens_rect[1] == 7 && l.lens_rect[3] == 8);
+    CHECK(!street_lamp_for("CL2", &l) && !street_lamp_for("AL1", &l));
+    /* Autumn Valley (TR2): the floodlight pole, board 5 (38 x 148; four heads over rows 0..21, the pole under them) */
+    CHECK(street_lamp_for("TR2", &l));
+    CHECK_EQ_INT(l.scenery, 5);
+    CHECK_EQ_INT(l.width, 38);
+    CHECK_EQ_INT(l.height, 148);
+    CHECK(l.lens_rect[3] <= 21 && l.halo_y >= l.lens_rect[3]);
+    CHECK(!street_lamp_for("TR1", &l) && !street_lamp_for("TR3", &l));
 }
 
 static void test_the_lens_and_the_halo(void)

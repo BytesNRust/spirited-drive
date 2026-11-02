@@ -127,6 +127,18 @@ void ported_view_set_street_lamp(int scenery, const uint8_t entry[3])
     if (entry != NULL) memcpy(street_entry, entry, sizeof street_entry);
 }
 
+static const FshEntry *window_bitmap[WINDOW_BOARDS_MAX];
+static int window_scenery[WINDOW_BOARDS_MAX], window_count;
+static uint8_t window_entry;
+static uint8_t window_tables[MODERN_FOG_LEVELS][256];
+
+void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry)
+{
+    window_count = scenery != NULL && n > 0 ? (n < WINDOW_BOARDS_MAX ? n : WINDOW_BOARDS_MAX) : 0;
+    for (int i = 0; i < window_count; i++) window_scenery[i] = scenery[i], window_bitmap[i] = NULL;
+    window_entry = entry;
+}
+
 /* the lamp `texture` is, or -1 */
 static int lamp_of(const FshEntry *texture)
 {
@@ -140,6 +152,8 @@ static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
     if (street_bitmap != NULL && texture == street_bitmap) return street_tables;
+    for (int i = 0; i < window_count; i++)
+        if (window_bitmap[i] != NULL && texture == window_bitmap[i]) return window_tables;
     return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
 }
 
@@ -1482,6 +1496,14 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
             street_bitmap = &art->scenery[street_scenery].bitmap;
             psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
+        }
+        if (window_count > 0) {   /* the lit windows' boards: their entry kept */
+            uint8_t exempt[256] = { 0 };
+            exempt[window_entry] = 1;
+            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
+            for (int i = 0; i < window_count; i++)
+                window_bitmap[i] = window_scenery[i] >= 0 && window_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[window_scenery[i]].present
+                                       ? &art->scenery[window_scenery[i]].bitmap : NULL;
         }
         track_light_hook = light_hook;
         tables_made = 1;
