@@ -8,8 +8,11 @@ int police_lights_on(const RaceState *race, const Car *car)
            ((car->flags_175 & CHASE) != 0 || (car->flags_176[0] & SIREN_FLAGS) != 0);
 }
 
-static uint8_t own_red, own_blue;   /* the entries set aside for the flash (0: none, the palette's nearest are used) */
-void police_lights_set_entries(uint8_t red, uint8_t blue) { own_red = red, own_blue = blue; }
+static uint8_t own_red, own_blue, own_red_halo, own_blue_halo;   /* the entries set aside for the flash (0: none, the palette's nearest are used) */
+void police_lights_set_entries(uint8_t red, uint8_t blue, uint8_t red_halo, uint8_t blue_halo)
+{
+    own_red = red, own_blue = blue, own_red_halo = red_halo, own_blue_halo = blue_halo;
+}
 
 int police_lights_phase(int32_t tick) { return (int)(((uint32_t)tick / POLICE_FLASH_TICKS) & 1u); }
 
@@ -32,6 +35,9 @@ void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_
     const uint8_t red = own_red != 0 && own_blue != 0 ? own_red : (uint8_t)police_lights_entry(palette, 1),
                   blue = own_red != 0 && own_blue != 0 ? own_blue : (uint8_t)police_lights_entry(palette, 0);
     const int phase = police_lights_phase(tick);
-    out[POLICE_LIGHT_FIRST] = out[POLICE_LIGHT_FIRST + 1] = phase == 0 ? red : blue;
-    out[POLICE_LIGHT_FIRST + 2] = out[POLICE_LIGHT_FIRST + 3] = phase == 0 ? blue : red;
+    const uint8_t red_halo = own_red_halo != 0 && own_red != 0 && own_blue != 0 ? own_red_halo : red, blue_halo = own_blue_halo != 0 && own_red != 0 && own_blue != 0 ? own_blue_halo : blue;
+    out[POLICE_LIGHT_FIRST] = phase == 0 ? red : blue;          /* the exe's entries 0xfa and 0xfc are its bright ones, 0xfb and 0xfd its darker */
+    out[POLICE_LIGHT_FIRST + 1] = phase == 0 ? red_halo : blue_halo;
+    out[POLICE_LIGHT_FIRST + 2] = phase == 0 ? blue : red;
+    out[POLICE_LIGHT_FIRST + 3] = phase == 0 ? blue_halo : red_halo;
 }
