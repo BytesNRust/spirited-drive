@@ -38,3 +38,10 @@ int32_t rally_gravel_shoulder_level(int kind, int32_t level, int32_t speed)
     if (kind == RALLY_GRAVEL_OFF || !rolling || level >= RALLY_SHOULDER_FLOOR) return level;
     return RALLY_SHOULDER_FLOOR;
 }
+
+int32_t rally_gravel_road_level(int kind, int32_t level, int32_t speed)
+{
+    const int32_t rolling = speed >= 0x10000 || speed <= -0x10000;
+    if (kind == RALLY_GRAVEL_OFF || !rolling || level >= RALLY_ROAD_FLOOR) return level;
+    return RALLY_ROAD_FLOOR;
+}

@@ -27,6 +27,11 @@ int32_t rally_gravel_level(int kind, int32_t level);
 enum { RALLY_SHOULDER_FLOOR = 0x40 };
 int32_t rally_gravel_shoulder_level(int kind, int32_t level, int32_t speed);
 
+/* The same for the road in a rally with the switch (the rolling gravel, rally_gravel_level's result): a car that rolls gets RALLY_ROAD_FLOOR at least, about
+ * half the shoulder's, so the road is heard at a crawl and the shoulder stays the louder. */
+enum { RALLY_ROAD_FLOOR = 0x28 };
+int32_t rally_gravel_road_level(int kind, int32_t level, int32_t speed);
+
 /* How much dust a car rolling at `speed` (16.16 metres a second) on the ground throws: 0 for none (nonzero drops puffs, see dust_trail.h). Compacted
  * gravel and a standing car throw none here; the exe's own skid marks and smoke are left to the tyres. */
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground);

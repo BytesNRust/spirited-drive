@@ -118,8 +118,25 @@ static void test_shoulder_scrape_is_heard_at_a_crawl(void)
     }
 }
 
+/* the road's rolling gravel at a crawl: the lowered level at 2 m/s is 18 of 127 or less (8 on the moon), then the outside views' 6/10: not heard. A rolling
+ * car gets RALLY_ROAD_FLOOR, under the shoulder's floor; standing, fast and switch-off keep the level the caller has */
+static void test_road_gravel_is_heard_at_a_crawl(void)
+{
+    const int32_t crawl = 2 << 16;
+    CHECK_EQ_INT(rally_gravel_road_level(RALLY_GRAVEL_OFF, 5, crawl), 5);
+    for (int kind = RALLY_GRAVEL_COMPACT; kind <= RALLY_GRAVEL_REGOLITH; kind++) {
+        const int32_t low = rally_gravel_level(kind, 0x14 + 4);
+        CHECK(low < RALLY_ROAD_FLOOR);
+        CHECK_EQ_INT(rally_gravel_road_level(kind, low, crawl), RALLY_ROAD_FLOOR);
+        CHECK_EQ_INT(rally_gravel_road_level(kind, 0x14, 0), 0x14);
+        CHECK_EQ_INT(rally_gravel_road_level(kind, 0x60, 50 << 16), 0x60);
+        CHECK(RALLY_ROAD_FLOOR < RALLY_SHOULDER_FLOOR);
+    }
+}
+
 int main(void)
 {
+    test_road_gravel_is_heard_at_a_crawl();
     test_shoulder_scrape_is_heard_at_a_crawl();
     test_kinds();
     test_level_and_dust();

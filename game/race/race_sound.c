@@ -222,6 +222,7 @@ static int32_t road_noise(RaceState *race, const Car *car)
          * 0x14 and the pitch 0x5e), only lower. The continuous voice alone: the gravel one-shot struck every few ticks at this volume was
          * a tinkle, not the shoulder's scrape. */
         level = rally_gravel_level(race->port_rally_gravel, (int32_t)((uint32_t)level + 0x14u));
+        level = rally_gravel_road_level(race->port_rally_gravel, level, car->speed);   /* and heard at a crawl */
         e->pitch = 0x5e;
     } else if (car->node_flag_4aa != 0) {
         level = (int32_t)((uint32_t)level + 0x14u);
