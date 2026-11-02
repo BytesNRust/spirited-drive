@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Pushing a tag vX.Y.Z builds the universal macOS app (Apple Silicon + Intel), packs the DMG and publishes the
+# GitHub Release. The game's update check reads /releases/latest, which skips releases marked "pre-release", so
+# beta versions are published as normal releases (their version number says beta).
+name: Release macOS
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  SDL_TAG: release-3.4.10          # the SDL the game is developed against
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0             # the version comes from the tag
+
+      - name: Install tools
+        run: brew install ninja
+
+      - name: Build SDL 3 (universal)
+        run: |
+          git clone --depth 1 --branch "$SDL_TAG" https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/SDL"
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF \
+                -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl3"
+          cmake --build "$RUNNER_TEMP/SDL/build"
+          cmake --install "$RUNNER_TEMP/SDL/build"
+
+      - name: Build the game (universal, release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
+          cmake --build build/rel
+
+      - name: Test (Apple Silicon)
+        run: ctest --test-dir build/rel --output-on-failure
+
+      - name: Check the version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          got=$(sed -n 's/^#define TNFS_VERSION "\(.*\)".*/\1/p' build/rel/generated/tnfs_version.h)
+          echo "tag $want, build $got"
+          [ "$want" = "$got" ]
+
+      - name: Package
+        run: |
+          icon=""
+          [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
+          tools/package_macos.sh build/rel dist $icon
+          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q arm64
+          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q x86_64
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=""
+          [ -f RELEASE_NOTES.md ] && notes="--notes-file RELEASE_NOTES.md"
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "TNFS Restomod ${GITHUB_REF_NAME#v}" \
+             ${notes:---generate-notes} --verify-tag

@@ -1,0 +1,69 @@
+name: Bug report
+description: Something in the game is broken or behaves differently from the original.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Questions and ideas go to **Discussions**, not here.
+        Please never attach game files from the CD, and don't ask for copies of the game.
+  - type: input
+    id: version
+    attributes:
+      label: Game version
+      description: Shown in the main menu corner and in Options (e.g. 0.9.0).
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options:
+        - macOS, Apple Silicon (M1/M2/M3/M4)
+        - macOS, Intel
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      placeholder: macOS 15.1
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Profile
+      options:
+        - Stock '96
+        - Restored '96
+        - Restomod '26
+        - Custom
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Single race, Coastal, Porsche 911, rally
+        2. Drive to the first tunnel
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: |
+        Drag the log file here. On macOS it is in ~/Library/Application Support/tnfs/tnfs/
+        (Finder: Go → Go to Folder…, paste the path).
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or video
