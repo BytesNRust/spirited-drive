@@ -143,8 +143,20 @@ static void test_a_skewed_box_is_left_open(void)
     CHECK_EQ_INT(c.roof, 0);
 }
 
+/* a box whose far corners are behind the eye (the car stands by the house): the new walls and the roof would run through the near plane and sweep a wedge across the
+ * screen, so what has a corner behind the eye is not drawn flat */
+static void test_a_corner_behind_the_eye_draws_no_wedge(void)
+{
+    /* the car by the house, the box turned a quarter: every point of the front and the side's far edge are ahead (0x86), yet the far left corner the walls and the roof share is behind the eye */
+    const int32_t cam[6][3] = { { 40, 200, 140 }, { 300, 200, 400 }, { 300, -200, 400 }, { 40, -200, 140 }, { 560, 200, 140 }, { 560, -200, 140 } };
+    const Calls c = draw_box(cam, 1, 1, 1);
+    CHECK_EQ_INT(c.roof, 0);        /* the roof and the new walls would have corners behind the eye: through the near plane they sweep a wedge across the screen */
+    CHECK(c.camera <= 2);           /* the front and the side as ever, no wall with a corner behind the eye */
+}
+
 int main(void)
 {
+    test_a_corner_behind_the_eye_draws_no_wedge();
     test_a_gabled_house_is_left_open();
     test_a_skewed_box_is_left_open();
     test_without_the_flag_it_is_the_l();
