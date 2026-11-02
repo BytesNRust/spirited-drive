@@ -412,16 +412,23 @@ static void start_glide(const RaceState *race, RaceChase *chase, ChaseKind *row)
     chase->gliding = 2;
 }
 
-/* The road's slope under the car, blended across its node and the next. */
-static int32_t slope_lift(const RaceState *race, const RaceChase *chase, int32_t blend, int32_t rest, int32_t along)
+/* The road's slope under the car, blended across its node and the next. The exe halves an uphill slope: its eye is behind the car, and the road behind
+ * the car is lower, so the eye keeps most of its height. port: an eye AHEAD of the car (the 360 camera looking back) has the road rising under it, and
+ * is lifted by the whole slope: with the half it sat inside the hill. */
+int32_t race_chase_slope_lift(int32_t slope_a, int32_t slope_b, int32_t blend, int32_t rest, int32_t along)
 {
-    int32_t a = race_node(race, chase->car->node).slope * HEADING_SCALE;
+    int32_t a = slope_a * HEADING_SCALE;
     if (a > HALF_TURN) a -= FULL_TURN;
-    int32_t b = race_node(race, add(chase->car->node, 1)).slope * HEADING_SCALE;
+    int32_t b = slope_b * HEADING_SCALE;
     if (b > HALF_TURN) b -= FULL_TURN;
     int32_t t = add(mul(a >> 8, rest), mul(b >> 8, blend)) >> 2;
-    if (t > 0) t /= 2;
+    if (t > 0 && along <= 0) t /= 2;
     return mul(fx_sin16(t >> 8) >> 8, along >> 9);
+}
+
+static int32_t slope_lift(const RaceState *race, const RaceChase *chase, int32_t blend, int32_t rest, int32_t along)
+{
+    return race_chase_slope_lift(race_node(race, chase->car->node).slope, race_node(race, add(chase->car->node, 1)).slope, blend, rest, along);
 }
 
 /* The eye is kept between the node's barriers. */

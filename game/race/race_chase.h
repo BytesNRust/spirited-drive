@@ -87,6 +87,10 @@ int race_chase_ahead_of_other(const RaceState *race, int32_t after, int32_t upto
  * shorts x 2 (fx_cross, 0042ec50). */
 int32_t race_chase_road_height(const RaceState *race, int32_t node, const int32_t point[3]);
 
+/* The eye's lift from the road's slope under the car (nodes' slope words a and b, blended by rest and blend, BLEND_FULL = 0x600 together) for an eye `along` the
+ * road from the car (negative behind it). Uphill the exe's half applies to an eye behind the car only (race_chase.c). */
+int32_t race_chase_slope_lift(int32_t slope_a, int32_t slope_b, int32_t blend, int32_t rest, int32_t along);
+
 typedef struct {
     void *ctx;
     void (*views)(void *ctx);                                       /* 00405630 */
