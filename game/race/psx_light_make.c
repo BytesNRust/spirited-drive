@@ -29,6 +29,9 @@ static const float LAMP_POOL = 0.6f;        /* a lamp's added light under it, fa
  * The constants are the CD's tracks' own agreement (tools/psx_light_fit.c, the per-track fits of the tracks that fit well, R2 .9 and over: AL1, AL2, CL1, CL3, TR1, TR2
  * at dawn and dusk, almost all of them by day). {k_ny, k_nx} by time. */
 static const float LAMBERT[3][2] = { { 0.77f, -0.43f }, { 0.97f, 0.0f }, { 0.77f, 0.42f } };   /* dawn, day, dusk */
+/* The outer points (5 and 10, the far verges, walls and hills) are not their normal's: they fit to nothing the terrain gives (R2 under .3), so they are the CD's mean at each
+ * time (dawn, day, dusk; point 5 then 10). */
+static const float OUTER[3][2] = { { 0.65f, 0.59f }, { 0.638f, 0.651f }, { 0.589f, 0.654f } };
 
 static int is_road_point(int p) { return p == 0 || p == 1 || p == 6; }
 
@@ -88,6 +91,11 @@ static LightPos normal_of(const LightPos *pts, uint32_t count, int ring, uint32_
     if (len < 1e-4f) return (LightPos){ 0, 1, 0 };
     if (n.y < 0) n = (LightPos){ -n.x, -n.y, -n.z };
     return (LightPos){ n.x / len, n.y / len, n.z / len };
+}
+
+float psx_light_lambert(int time, float nx, float ny)
+{
+    return time < PSX_SYNTH_DAWN || time > PSX_SYNTH_DUSK ? 0.0f : LAMBERT[time][0] * ny + LAMBERT[time][1] * nx;
 }
 
 void psx_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, PsxLightFeatures *out)
@@ -170,10 +178,14 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
                 *out = NIGHT_AMBIENT * horizon_of(pts, count, ring, n, p, sun).sky;   /* the moon is no sun: the sky's share only, a dark night */
                 continue;
             }
+            if (p == 5 || p == 10) {
+                *out = OUTER[time][p == 10];
+                continue;
+            }
             const LightPos nm = normal_of(pts, count, ring, n, p);
             *out = LAMBERT[time][0] * nm.y + LAMBERT[time][1] * nm.x;
         }
-    psx_light_smooth(light, count, ring);
+    if (time == PSX_SYNTH_NIGHT) psx_light_smooth(light, count, ring);   /* the day's light follows each node's own normal, as the CD's does: smoothing it blurs what matches */
     for (size_t i = 0; i < (size_t)count * PSX_LIGHT_POINTS; i++) data[i] = psx_light_level(light[i]);
     free(light);
     return 1;

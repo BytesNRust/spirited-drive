@@ -45,9 +45,10 @@ static void test_a_flat_open_track_is_lit_as_the_cd_lights_flat_ground(void)
     for (int time = PSX_SYNTH_DAWN; time <= PSX_SYNTH_DUSK; time++) {
         CHECK(psx_light_make_rows(pts, NODES, 0, time, data));
         const int expected = time == PSX_SYNTH_DAY ? 255 : 204;
+        const int outer5[3] = { 170, 170, 153 }, outer10[3] = { 153, 170, 170 };   /* the outer points: their means in the 16 levels */
         for (int n = 0; n < NODES; n++)
             for (int p = 0; p < PSX_LIGHT_POINTS; p++)
-                CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], road_point(p) ? 255 : expected);
+                CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], road_point(p) ? 255 : p == 5 ? outer5[time] : p == 10 ? outer10[time] : expected);
     }
 }
 

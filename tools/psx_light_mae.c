@@ -93,6 +93,22 @@ int main(int argc, char **argv)
             printf("\n");
         }
     }
+    {   /* the model on its own, from the fit tool's features (psx_light_features), no smoothing and no 16 levels: if this is far from the rows' MAE above, the rows do
+         * something the features do not */
+        Stat raw = { 0 };
+        for (uint32_t n = 0; n + 1 < count; n++) {
+            if (psx_light_tunnel(&ps1, n)) continue;
+            for (int p = 2; p <= 9; p++) {
+                if (p == 5 || p == 6) continue;
+                PsxLightFeatures f;
+                psx_light_features(pts, count, ring, n, p, &f);
+                float v = psx_light_lambert(time, f.nx, f.ny);
+                v = v < 0 ? 0 : v > 1 ? 1 : v;
+                add(&raw, (int)(v * 255.0f + 0.5f), psx_light_byte(&ps1, n, p));
+            }
+        }
+        printf("  the model alone, points 2-4 and 7-9: MAE %.1f, bias %+.1f\n", raw.n > 0 ? raw.abs_sum / (double)raw.n : 0, raw.n > 0 ? raw.signed_sum / (double)raw.n : 0);
+    }
     Stat flat = { 0 };
     for (uint32_t n = 0; n + 1 < count; n++) {
         if (psx_light_tunnel(&ps1, n)) continue;

@@ -41,6 +41,9 @@ typedef struct {
 } PsxLightFeatures;
 void psx_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, PsxLightFeatures *out);
 
+/* The day's Lambert light (0..1, unclipped) of a surface normal at a time (PSX_SYNTH_DAWN .. PSX_SYNTH_DUSK), the model before smoothing and the 16 levels. */
+float psx_light_lambert(int time, float nx, float ny);
+
 /* As psx_light_make_rows with the sun given (NULL: the time's default). */
 int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data);
 
