@@ -1,8 +1,7 @@
 /* psx_light_fit <psx_dir> <data_dir> <A|B|C> <track>...: fits the PS1 CD's light of those tracks (at one time of day) from what our own generator can see of the terrain, numbers
  * only: for each terrain point (2..5, 7..10) and for all of them, the least-squares coefficients of the CD's byte / 255 over
- *   1, sky, sun_tan, nx, nz, ny, rise, lateral
- * (psx_light_make.h's PsxLightFeatures: the share of the dome seen, the horizon toward the default sun, the surface normal's x, z and y, how far over and across the
- * node's centre the point is), the R squared, and the mean absolute error of the fit in the 0..255 bytes. Also the mean of the CD's bytes per point. Reads the CD's and the PC's
+ *   1, sky, nx, ny
+ * (psx_light_make.h's PsxLightFeatures: the share of the dome seen, the surface normal's x and y; the PS1's sun is fixed along the track's x axis), the R squared, and the mean absolute error of the fit in the 0..255 bytes. Also the mean of the CD's bytes per point. Reads the CD's and the PC's
  * files, writes nothing and prints no byte of them: only these statistics. Tunnel nodes are skipped. */
 #include "game/race/psx_light.h"
 #include "game/race/psx_light_make.h"
@@ -13,8 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { FEATURES = 8, MAX_SAMPLES = 400000 };
-static const char *const NAME[FEATURES] = { "1", "sky", "sun_tan", "nx", "nz", "ny", "rise", "lateral" };
+enum { FEATURES = 4, MAX_SAMPLES = 400000 };
+static const char *const NAME[FEATURES] = { "1", "sky", "nx", "ny" };   /* the first fit with all eight showed the others (sun_tan, nz, rise, lateral) near 0 */
 
 typedef struct {
     float x[FEATURES];
@@ -67,7 +66,7 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
             PsxLightFeatures f;
             psx_light_features(pts, count, ring, n, p, &f);
             Sample *s = &samples[sample_count++];
-            const float x[FEATURES] = { 1, f.sky, f.sun_tan, f.nx, f.nz, f.ny, f.rise / 10.0f, f.lateral / 10.0f };
+            const float x[FEATURES] = { 1, f.sky, f.nx, f.ny };
             memcpy(s->x, x, sizeof x);
             s->y = (float)psx_light_byte(&ps1, n, p) / 255.0f;
             s->point = (uint8_t)p;
