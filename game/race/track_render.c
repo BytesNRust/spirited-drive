@@ -487,18 +487,19 @@ static void object_full_camera(void *user, int32_t texture, const int32_t *const
     object_light_off(g);
 }
 
-/* port (track_port_close_boxes): a roof's tone, the darkest colour a facade really uses (at least one texel in fifty of it, the transparent one left out) */
-enum { ROOF_CACHE = 64, ROOF_SHARE = 50 };
+/* port (track_port_close_boxes): a roof's tone, the darkest colour a facade really uses (at least one texel in fifty of it, the transparent one left out).
+ * The roof is a 2 x 2 texture of that tone, kept per facade for good: the render bands replay a recorded draw later, by the texture's pointer, so it must
+ * outlive the frame's walk (a local one was a dangling pointer on the band threads: the TR3 crash) */
+enum { ROOF_CACHE = 512, ROOF_SHARE = 50 };
 static struct {
     const uint8_t *payload;
     size_t size;
-    uint8_t index;
+    uint8_t flat[4];
+    FshEntry roof;
 } roof_cache[ROOF_CACHE];
 
-static uint8_t roof_index(const TrackArt *art, const FshEntry *t)
+static uint8_t roof_tone(const TrackArt *art, const FshEntry *t)
 {
-    for (int i = 0; i < ROOF_CACHE; i++)
-        if (roof_cache[i].payload == t->payload && roof_cache[i].size == t->payload_size) return roof_cache[i].index;
     size_t count[256] = { 0 }, opaque = 0;
     const size_t pixels = (size_t)t->width * t->height < t->payload_size ? (size_t)t->width * t->height : t->payload_size;
     for (size_t i = 0; i < pixels; i++)
@@ -510,10 +511,21 @@ static uint8_t roof_index(const TrackArt *art, const FshEntry *t)
         const int luma = 299 * rgb[0] + 587 * rgb[1] + 114 * rgb[2];
         if (luma < best_luma) best_luma = luma, best = c;
     }
+    return best >= 0 ? (uint8_t)best : 0;
+}
+
+static const FshEntry *roof_texture(const TrackArt *art, const FshEntry *t)
+{
+    for (int i = 0; i < ROOF_CACHE; i++)
+        if (roof_cache[i].payload == t->payload && roof_cache[i].size == t->payload_size) return &roof_cache[i].roof;
     static int next;
     const int slot = next++ % ROOF_CACHE;
-    roof_cache[slot].payload = t->payload, roof_cache[slot].size = t->payload_size, roof_cache[slot].index = best >= 0 ? (uint8_t)best : 0;
-    return roof_cache[slot].index;
+    roof_cache[slot].payload = t->payload, roof_cache[slot].size = t->payload_size;
+    memset(roof_cache[slot].flat, roof_tone(art, t), sizeof roof_cache[slot].flat);
+    roof_cache[slot].roof = *t;
+    roof_cache[slot].roof.width = 2, roof_cache[slot].roof.height = 2;
+    roof_cache[slot].roof.payload = roof_cache[slot].flat, roof_cache[slot].roof.payload_size = sizeof roof_cache[slot].flat;
+    return &roof_cache[slot].roof;
 }
 
 /* port (track_port_close_boxes): the box's roof, a flat quad of the facade's darkest tone, from camera-space corners */
@@ -522,12 +534,8 @@ static void object_roof_camera(void *user, int32_t texture, const int32_t *const
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
     if (t == NULL || t->payload == NULL) return;
-    uint8_t flat[4];
-    memset(flat, roof_index(g->r->art, t), sizeof flat);
-    FshEntry roof = *t;
-    roof.width = 2, roof.height = 2, roof.payload = flat, roof.payload_size = sizeof flat;
     object_light_on(g);
-    full_camera(user, &roof, cam);
+    full_camera(user, roof_texture(g->r->art, t), cam);
     object_light_off(g);
 }
 
