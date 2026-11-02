@@ -93,6 +93,18 @@ static void test_recolour(void)
     CHECK_EQ_INT((int)psx_lamp_recolour(pixels, 0, remap), 0);
 }
 
+static void test_recolour_rect(void)
+{
+    /* 4 x 3: the lamp's rectangle is x 1-2, y 1-1; colour 27 is the glare and also the wall around it */
+    uint8_t pixels[12] = { 27, 27, 27, 27,  27, 27, 33, 27,  27, 27, 27, 27 }, remap[256];
+    const PsxLamp lamp = { 0, 1, { 27 }, { 1, 1, 2, 1 } };
+    for (int c = 0; c < 256; c++) remap[c] = (uint8_t)c;
+    remap[27] = 144;
+    CHECK_EQ_INT((int)psx_lamp_recolour_rect(&lamp, pixels, 4, 3, remap), 1);
+    CHECK(pixels[5] == 144 && pixels[0] == 27 && pixels[4] == 27 && pixels[6] == 33 && pixels[7] == 27 && pixels[9] == 27);
+    CHECK_EQ_INT((int)psx_lamp_recolour_rect(&lamp, NULL, 4, 3, remap), 0);
+}
+
 int main(void)
 {
     test_lookup();
@@ -100,5 +112,6 @@ int main(void)
     test_tables();
     test_exempt();
     test_recolour();
+    test_recolour_rect();
     return TEST_REPORT();
 }

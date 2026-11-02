@@ -63,3 +63,15 @@ size_t psx_lamp_recolour(uint8_t *pixels, size_t count, const uint8_t remap[256]
         if (remap[pixels[i]] != pixels[i]) pixels[i] = remap[pixels[i]], changed++;
     return changed;
 }
+
+size_t psx_lamp_recolour_rect(const PsxLamp *lamp, uint8_t *pixels, int w, int h, const uint8_t remap[256])
+{
+    size_t changed = 0;
+    if (lamp == NULL || pixels == NULL || w <= 0 || h <= 0) return 0;
+    for (int y = lamp->rect[1]; y <= lamp->rect[3] && y < h; y++)
+        for (int x = lamp->rect[0]; x <= lamp->rect[2] && x < w; x++) {
+            uint8_t *p = &pixels[y * w + x];
+            if (remap[*p] != *p) *p = remap[*p], changed++;
+        }
+    return changed;
+}

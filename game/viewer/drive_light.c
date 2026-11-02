@@ -281,7 +281,8 @@ void drive_light_lamps_night(TrackArt *art)
         const int slot = night_lamp_spec[i].slot;
         for (int v = 0; slot >= 0 && slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS; v++) {
             const TrackTexture *t = &art->slots[slot][v];
-            if (t->present) texels += psx_lamp_recolour((uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.payload_size, remap);
+            if (t->present)
+                texels += psx_lamp_recolour_rect(&night_lamp_spec[i], (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, remap);
         }
     }
     port_log("night_lamps: %d of %d lamp colours in entries of their own (brightest first), %zu texels\n", used, n, texels);

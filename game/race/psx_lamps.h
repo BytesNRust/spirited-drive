@@ -32,4 +32,8 @@ void psx_lamp_tables(const uint8_t exempt[256], const uint8_t (*lit)[256], int l
  * lamps are drawn in entries of their own that the tint leaves alone. Returns how many texels changed. */
 size_t psx_lamp_recolour(uint8_t *pixels, size_t count, const uint8_t remap[256]);
 
+/* port (night): the same, but only inside the lamp's own rectangle of a w x h texture: the rest of the texture (walls, signs, neon sharing the
+ * lamp's colours) keeps its entries and is tinted with the night. */
+size_t psx_lamp_recolour_rect(const PsxLamp *lamp, uint8_t *pixels, int w, int h, const uint8_t remap[256]);
+
 #endif
