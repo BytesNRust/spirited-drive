@@ -21,7 +21,7 @@ static void test_the_lamp_of_each_track(void)
     CHECK(street_lamp_for("cy1", &l));
     CHECK_EQ_INT(l.scenery, 10);
     CHECK_EQ_INT(l.width, 64);
-    CHECK(!street_lamp_for("CY2", &l) && !street_lamp_for("TR5", &l) && !street_lamp_for(NULL, &l));
+    CHECK(!street_lamp_for("TR5", &l) && !street_lamp_for(NULL, &l));
     /* Coastal's first track: the lamp with the arm, board 10 (87 x 128; its amber lens is at the arm's end, rows 7 and 8) */
     CHECK(street_lamp_for("CL1", &l));
     CHECK(street_lamp_for("cl1r", &l));
@@ -37,6 +37,33 @@ static void test_the_lamp_of_each_track(void)
     CHECK_EQ_INT(l.height, 148);
     CHECK(l.lens_rect[3] <= 21 && l.halo_y >= l.lens_rect[3]);
     CHECK(!street_lamp_for("TR1", &l));
+}
+
+/* the other lamps: Cyberia's boards 7 (CY2 a texel wider) and Transtropolis' lamp with the foundry truss's two bulbs */
+static void test_the_other_tracks_lamps(void)
+{
+    StreetLamp l[STREET_LAMPS_MAX];
+    /* Lost Vegas' burning barrels (boards 29 and 31, 50 x 120): no lens, the halo round the flame on the board's transparent texels */
+    CHECK_EQ_INT(street_lamps_for("TR4", l, STREET_LAMPS_MAX), 2);
+    CHECK_EQ_INT(l[0].scenery, 29); CHECK_EQ_INT(l[1].scenery, 31); CHECK_EQ_INT(l[0].width, 50); CHECK_EQ_INT(l[0].height, 120);
+    {
+        uint8_t px[50 * 120];
+        memset(px, 255, sizeof px);
+        for (int y = 40; y < 120; y++) memset(px + y * 50, 30, 50);   /* the barrel */
+        const uint8_t e[STREET_LAMP_ENTRIES] = { 200, 201, 202 };
+        const StreetLampPaint p = street_lamp_paint(&l[0], px, 50, 120, e);
+        CHECK_EQ_INT((int)p.lens, 0);
+        CHECK(p.halo > 20);
+        for (int y = 40; y < 120; y++) CHECK(px[y * 50] == 30);   /* the barrel is left alone */
+    }
+    CHECK_EQ_INT(street_lamps_for("CY2", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 65); CHECK_EQ_INT(l[0].height, 128);
+    CHECK_EQ_INT(street_lamps_for("TR7", l, STREET_LAMPS_MAX), 3);
+    CHECK_EQ_INT(l[1].scenery, 22); CHECK_EQ_INT(l[2].scenery, 22); CHECK_EQ_INT(l[1].width, 194); CHECK_EQ_INT(l[1].height, 24);
+    CHECK(l[1].lens_rect[2] < l[2].lens_rect[0]);   /* the truss's two bulbs are apart */
+    CHECK_EQ_INT(l[0].scenery, 28); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 127);
+    CHECK_EQ_INT(street_lamps_for("CY3", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 128);
 }
 
 /* Vertigo Ridge (TR3): two boards, the lantern post (16 x 150) and the truss with its hanging bulb (144 x 82, the bulb at its foot: the halo goes round it) */
@@ -120,6 +147,7 @@ static void test_painting_again_and_the_wrong_board(void)
 int main(void)
 {
     test_the_lamp_of_each_track();
+    test_the_other_tracks_lamps();
     test_vertigo_ridge_has_two_lamps();
     test_the_lens_and_the_halo();
     test_painting_again_and_the_wrong_board();

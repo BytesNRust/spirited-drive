@@ -36,6 +36,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "game/viewer/scenery_dump.h"
 #include <string.h>
 #include <time.h>
 
@@ -556,6 +557,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     if (!drive_palette_build(&drive_sim.race, &t->fam, cars, drive_cars.carpal, &drive_hud, &late, &t->tint, t->art.palette))
         port_log("track_viewer: the race palette was not built; the track's own is used\n");
     else drive_light_lamps_night(&t->art);   /* port (night): the tunnel lamps' colours in entries of their own */
+    if (getenv("TNFS_SCENERY_DUMP_NIGHT") != NULL) scenery_dump(t, getenv("TNFS_SCENERY_DUMP_NIGHT"));   /* port (dev): the boards as the night leaves them */
     if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, drive_draw_rand, NULL, &drive_sim.race.trail);
     return 1;
 }
