@@ -252,6 +252,7 @@ void platform_framebuffer_size(int *width, int *height)
 
 bool platform_desktop_size(int *width, int *height)
 {
+    if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO)) return false;   /* asked before the window (the profiles' format): the video system first */
     const SDL_DisplayID display = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode *mode = display != 0 ? SDL_GetDesktopDisplayMode(display) : NULL;
     if (mode == NULL || mode->w <= 0 || mode->h <= 0) return false;

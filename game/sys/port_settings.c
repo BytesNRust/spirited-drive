@@ -3,6 +3,7 @@
 #include "game/platform/platform.h"
 #include "game/race/weather.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
 #include "game/viewer/screen_layout.h"
 
 #include <stddef.h>
@@ -129,6 +130,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
             s->render_bands = -1;
         else if (parse_int(value, &n) && n >= 0 && n <= 8)
             s->render_bands = (int)n;
+    } else if (strcmp(key, "profile") == 0) {
+        const int p = port_profile_named(value);
+        if (p >= 0) s->profile = p;
     } else if (strcmp(key, "body_shine") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 4)
             s->body_shine = (int)n;
@@ -182,11 +186,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\npsx_headlights=%d\npsx_flares=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\npsx_headlights=%d\npsx_flares=%d\nprofile=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->psx_headlights, s->psx_flares);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->psx_headlights, s->psx_flares, port_profile_key((Profile)s->profile));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -217,6 +221,16 @@ static void take_from_extras(PortSettings *s, const char *text, size_t size)
                 *(const int *)((const char *)&extras + MOVED[i].extras_offset);
 }
 
+static bool (*display_probe)(int *width, int *height);
+
+void port_settings_set_display_probe(bool (*probe)(int *width, int *height)) { display_probe = probe; }
+
+ScreenFormat port_monitor_format(ScreenFormat fallback)
+{
+    int w = 0, h = 0;
+    return display_probe != NULL && display_probe(&w, &h) && w > 0 && h > 0 ? port_profile_monitor_format(w, h) : fallback;
+}
+
 PortSettings port_settings_load(void)
 {
     size_t size = 0;
@@ -229,14 +243,47 @@ PortSettings port_settings_load(void)
     PortSettings s = port_settings_parse((const char *)data, size);
     take_from_extras(&s, (const char *)data, size);
     platform_free_file(data);
-    return s;
+    if (s.profile == PROFILE_CUSTOM) return s;
+    return port_profile_settings((Profile)s.profile, s, port_monitor_format(s.format));   /* a profile's settings are its table's, whatever the file says */
+}
+
+int port_settings_profile(void)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
+    if (!data) return PROFILE_CUSTOM;
+    const int p = port_settings_parse((const char *)data, size).profile;
+    platform_free_file(data);
+    return p;
 }
 
 bool port_settings_save(const PortSettings *s)
 {
+    PortSettings c = *s;
+    if (c.profile != PROFILE_CUSTOM && !port_profile_settings_match((Profile)c.profile, &c, port_monitor_format(c.format)))
+        c.profile = PROFILE_CUSTOM;   /* changed by hand: the values stay, the profile is no more */
     char text[1024];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest (about 270 more) */
-    const size_t n = port_settings_format(s, text, sizeof text);
+    const size_t n = port_settings_format(&c, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
+}
+
+bool port_settings_profile_custom(void)
+{
+    PortSettings s = port_settings_load();
+    if (s.profile == PROFILE_CUSTOM) return true;
+    s.profile = PROFILE_CUSTOM;
+    return port_settings_save(&s);
+}
+
+bool port_profile_select(int p)
+{
+    if (p < 0 || p >= PROFILE_COUNT) return false;
+    PortSettings s = port_settings_load();
+    s.profile = p;
+    s = port_profile_settings((Profile)p, s, port_monitor_format(s.format));
+    if (!port_settings_save(&s)) return false;   /* port.cfg first: port_extras_save reads the profile from it */
+    const PortExtras e = port_profile_extras((Profile)p, port_extras_load());
+    return port_extras_save(&e);
 }
 
 PlatformConfig port_platform_config(const char *title)

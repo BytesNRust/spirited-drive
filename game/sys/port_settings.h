@@ -53,6 +53,8 @@ typedef struct {
                               * (lamp_flare.h); 0: the exe's */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
+    int profile;             /* a Profile (port_profile.h): PROFILE_CUSTOM 0 (no `profile=` line) keeps the values below as they are; another takes the settings it controls from its table
+                              * at load. `profile=custom|stock|restored|restomod`. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -93,6 +95,20 @@ int port_emissive_lamps(void);
 int port_body_shine(void);
 /* The weather of the race: TNFS_WEATHER=clear|fog|rain when set, else port.cfg's weather (a WEATHER_* of weather.h). */
 int port_weather(void);
+
+/* The profile port.cfg names (PROFILE_CUSTOM without the line or the file), read from the file itself (port_extras_load takes it from here, so it cannot go through
+ * port_settings_load, which reads extras.cfg). */
+int port_settings_profile(void);
+/* Chooses profile `p` (a Profile): port.cfg's name and the settings it controls in port.cfg and extras.cfg set to its table (PROFILE_CUSTOM: only the name, the values stay).
+ * False when a file does not take it. */
+bool port_profile_select(int p);
+/* The settings in port.cfg and extras.cfg changed by hand: a profile whose table they no longer match becomes custom (port_settings_save and port_extras_save do it themselves;
+ * this is for the menus that rewrite one by another way). */
+bool port_settings_profile_custom(void);
+/* Where the display's size comes from (the program sets platform_desktop_size; without one, or when it cannot tell, port_monitor_format gives its fallback). */
+void port_settings_set_display_probe(bool (*probe)(int *width, int *height));
+/* The widescreen format of the display the window is on (4:3 on a 4:3 one); `fallback` when it cannot be told. */
+ScreenFormat port_monitor_format(ScreenFormat fallback);
 
 PortSettings port_settings_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */
