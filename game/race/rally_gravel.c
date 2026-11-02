@@ -31,3 +31,17 @@ int32_t rally_dust_skid(int kind, int32_t speed, int on_ground)
     const int32_t v = speed > DUST_TOP ? DUST_TOP : speed;
     return kind == RALLY_GRAVEL_DUST ? DUST_BASE + v / 2 : DUST_FROM + 0x40000 + v / 16;
 }
+
+int32_t rally_gravel_shoulder_level(int kind, int32_t level, int32_t speed)
+{
+    const int32_t rolling = speed >= 0x10000 || speed <= -0x10000;
+    if (kind == RALLY_GRAVEL_OFF || !rolling || level >= RALLY_SHOULDER_FLOOR) return level;
+    return RALLY_SHOULDER_FLOOR;
+}
+
+int32_t rally_gravel_road_level(int kind, int32_t level, int32_t speed)
+{
+    const int32_t rolling = speed >= 0x10000 || speed <= -0x10000;
+    if (kind == RALLY_GRAVEL_OFF || !rolling || level >= RALLY_ROAD_FLOOR) return level;
+    return RALLY_ROAD_FLOOR;
+}
