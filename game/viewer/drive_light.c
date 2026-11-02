@@ -124,6 +124,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 }
 
 static int time_tinted;
+static char light_letter = 'B';   /* the time's CD letter, for the rules file */
 static int made_wanted;   /* port (own light): no CD light for this track, so one is made from its terrain (psx_light_make.h) in drive_light_load_synth */
 static int synth_wanted, synth_on, synth_time;   /* a track the CD has no light for, with the light on; the light is one made from the road (drive_light_load_synth) */
 static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds no sky of its own for the track (drive_light_load_alt_sky) */
@@ -182,6 +183,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_NIGHT ? time : PSX_TIME_DAY];
+    light_letter = time == PSX_TIME_NIGHT ? 'N' : letter;   /* the night has its own rules (the CD's C is the dusk) */
     if (time != PSX_TIME_DAY && have_dir) load_sky(psx_dir, track, letter);
     alt_sky_wanted = time != PSX_TIME_DAY && !sky_draw.ready;
     if (!have_dir) {
@@ -235,16 +237,52 @@ void drive_light_set_reversed(int reversed)
 
 /* port (own light): the terrain's light of the time (psx_light_make.h), with a tunnel's rows laid over it where the road has one (the synth's rows are 255 in the open, so the lower of
  * the two is the right one everywhere) */
-static int make_light(const Tri *tri, PsxLight *out)
+enum { MAX_LAMP_NODES = 1000, MAX_RULES = 512 };
+
+/* the nodes of the street lamp posts of the track (CY1 only), where the made night's pools go */
+static size_t street_lamp_pool_nodes(const Tri *tri, uint32_t *out)
+{
+    if (!street_lamp_on || tri->descriptor_count == 0 || tri->descriptor_count > 64 || tri->scenery_count > MAX_LAMP_NODES) return 0;
+    TriDescriptor descriptors[64];
+    static TriScenery scenery[MAX_LAMP_NODES];
+    for (uint32_t i = 0; i < tri->descriptor_count; i++)
+        if (tri_descriptor(tri, i, &descriptors[i]) != TRI_OK) return 0;
+    for (uint32_t i = 0; i < tri->scenery_count; i++)
+        if (tri_scenery(tri, i, &scenery[i]) != TRI_OK) return 0;
+    return street_lamp_nodes(&street_lamp, descriptors, tri->descriptor_count, scenery, tri->scenery_count, out, MAX_LAMP_NODES);
+}
+
+/* the track's own rules over the made light: the player's folder's psx_light_<TRACK><A|B|C|N>.txt (N the night), a rule a line (psx_light_make.h); no file, no rules */
+static void apply_rules_file(const char *track, PsxLight *made)
+{
+    char name[64];
+    if (track == NULL) return;
+    snprintf(name, sizeof name, "psx_light_%s%c.txt", track, light_letter);
+    if (!platform_user_file_exists(name)) return;
+    size_t size = 0;
+    uint8_t *text = platform_read_user_file(name, &size);
+    if (text == NULL) return;
+    static PsxLightRule rules[MAX_RULES];
+    const int n = psx_light_rules_parse((const char *)text, size, rules, MAX_RULES);
+    platform_free_file(text);
+    psx_light_apply_rules(made->data, made->nodes, rules, n);
+    port_log("psx_light: %d rules from %s\n", n, name);
+}
+
+static int make_light(const Tri *tri, const char *track, PsxLight *out)
 {
     PsxLight made = { 0 };
-    if (!psx_light_make(tri, synth_time, &made)) return 0;
+    static uint32_t lamp_nodes[MAX_LAMP_NODES];
+    const size_t lamps = synth_time == PSX_SYNTH_NIGHT ? street_lamp_pool_nodes(tri, lamp_nodes) : 0;
+    if (!psx_light_make_lit(tri, synth_time, lamp_nodes, (int)lamps, &made)) return 0;
+    if (lamps > 0) port_log("psx_light: %zu street lamp pools\n", lamps);
     PsxLight tunnels = { 0 };
     if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
         for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++)
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
     }
     psx_light_free(&tunnels);
+    apply_rules_file(track, &made);
     *out = made;
     return 1;
 }
@@ -254,7 +292,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     const int tunnel_track = synth_wanted && psx_light_synth_track(track);
     if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
     PsxLight made = { 0 };
-    if (!make_light(tri, &made)) return;
+    if (!make_light(tri, track, &made)) return;
     light = made;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;

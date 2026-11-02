@@ -76,8 +76,32 @@ static void test_painting_again_and_the_wrong_board(void)
     CHECK_EQ_INT((int)street_lamp_paint(&l, NULL, W, H, entry).lens, 0);
 }
 
+static void test_the_lamp_posts_nodes(void)
+{
+    StreetLamp l;
+    street_lamp_for("CY1", &l);
+    TriDescriptor d[3] = { { 0 } };
+    d[0].type = 6, d[0].resource_id = 40;   /* the lamp */
+    d[1].type = 1, d[1].resource_id = 40;   /* a model of the same resource number: not a board */
+    d[2].type = 4, d[2].resource_id = 12;   /* another board */
+    TriScenery sc[6] = { { 0 } };
+    sc[0].node = 10, sc[0].descriptor = 0;
+    sc[1].node = 20, sc[1].descriptor = 1;
+    sc[2].node = 30, sc[2].descriptor = 2;
+    sc[3].node = 40, sc[3].descriptor = 0;
+    sc[4].node = -1, sc[4].descriptor = 0;   /* no node */
+    sc[5].node = 50, sc[5].descriptor = 9;   /* a descriptor that is not there */
+    uint32_t nodes[8];
+    CHECK_EQ_INT((int)street_lamp_nodes(&l, d, 3, sc, 6, nodes, 8), 2);
+    CHECK_EQ_INT((int)nodes[0], 10);
+    CHECK_EQ_INT((int)nodes[1], 40);
+    CHECK_EQ_INT((int)street_lamp_nodes(&l, d, 3, sc, 6, nodes, 1), 1);   /* up to the room */
+    CHECK_EQ_INT((int)street_lamp_nodes(NULL, d, 3, sc, 6, nodes, 8), 0);
+}
+
 int main(void)
 {
+    test_the_lamp_posts_nodes();
     test_the_lamp_of_each_track();
     test_the_lens_and_the_halo();
     test_painting_again_and_the_wrong_board();

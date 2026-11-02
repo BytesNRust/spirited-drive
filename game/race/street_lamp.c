@@ -4,7 +4,7 @@
 #include <string.h>
 
 /* CY1's board (scenery texture 10): the lens is rows 7..9, x 48..62, the housing and arm above it (the transparent texels are 255) */
-static const StreetLamp CY1_LAMP = { 10, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10, 255 };
+static const StreetLamp CY1_LAMP = { 40, 10, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10, 255 };
 
 int street_lamp_for(const char *track, StreetLamp *out)
 {
@@ -14,6 +14,19 @@ int street_lamp_for(const char *track, StreetLamp *out)
         if (toupper((unsigned char)*t) != *name) return 0;
     *out = CY1_LAMP;
     return 1;
+}
+
+size_t street_lamp_nodes(const StreetLamp *lamp, const TriDescriptor *descriptors, uint32_t descriptor_count, const TriScenery *scenery, uint32_t scenery_count, uint32_t *out,
+                         size_t max)
+{
+    size_t n = 0;
+    if (lamp == NULL || descriptors == NULL || scenery == NULL || out == NULL) return 0;
+    for (uint32_t i = 0; i < scenery_count && n < max; i++) {
+        if (scenery[i].descriptor >= descriptor_count || scenery[i].node < 0) continue;
+        const TriDescriptor *d = &descriptors[scenery[i].descriptor];
+        if ((d->type == 4 || d->type == 6) && d->resource_id == lamp->resource) out[n++] = (uint32_t)scenery[i].node;
+    }
+    return n;
 }
 
 StreetLampPaint street_lamp_paint(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES])
