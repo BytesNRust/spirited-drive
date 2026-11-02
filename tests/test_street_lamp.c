@@ -167,8 +167,30 @@ static void test_the_lamp_posts_nodes(void)
     CHECK_EQ_INT((int)street_lamp_nodes(NULL, d, 3, sc, 6, nodes, 8), 0);
 }
 
+/* TR7's truss lists its board twice (two bulbs): its 6 placements count once, and distinct boards' nodes all stay */
+static void test_a_board_named_twice_counts_once(void)
+{
+    StreetLamp lamps[3];
+    CHECK_EQ_INT(street_lamps_for("TR7", lamps, 3), 3);
+    CHECK_EQ_INT(lamps[1].scenery, lamps[2].scenery);
+    TriDescriptor d[3] = { { 0 } };
+    d[0].type = 4, d[0].resource_id = (uint8_t)(lamps[0].scenery * 4);   /* the street lamp's board */
+    d[1].type = 6, d[1].resource_id = (uint8_t)(lamps[1].scenery * 4);   /* the truss */
+    d[2].type = 4, d[2].resource_id = 12;                               /* another board */
+    TriScenery sc[5] = { { 0 } };
+    sc[0].node = 10, sc[0].descriptor = 0;
+    sc[1].node = 20, sc[1].descriptor = 1;
+    sc[2].node = 20, sc[2].descriptor = 1;   /* a second post on the same node stays */
+    sc[3].node = 30, sc[3].descriptor = 2;
+    sc[4].node = 40, sc[4].descriptor = 0;
+    uint32_t nodes[16];
+    CHECK_EQ_INT((int)street_lamps_nodes(lamps, 3, d, 3, sc, 5, nodes, 16), 4);   /* 10, 20, 20, 40 and the truss's once, not twice */
+    CHECK_EQ_INT((int)street_lamps_nodes(lamps, 3, d, 3, sc, 5, nodes, 2), 2);
+}
+
 int main(void)
 {
+    test_a_board_named_twice_counts_once();
     test_the_lamp_posts_nodes();
     test_the_lamp_of_each_track();
     test_the_other_tracks_lamps();

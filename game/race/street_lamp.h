@@ -29,6 +29,11 @@ enum { STREET_LAMPS_MAX = 3 };   /* the boards a track may have */
 size_t street_lamp_nodes(const StreetLamp *lamp, const TriDescriptor *descriptors, uint32_t descriptor_count, const TriScenery *scenery, uint32_t scenery_count, uint32_t *out,
                          size_t max);
 
+/* The nodes of all of a track's lamp boards (`lamps`, `lamp_count` of them, as street_lamps_for gives): a board named by two entries (TR7's truss lists its two
+ * bulbs on the one board) counts once, so its placements are not doubled. Up to `max`, their count. */
+size_t street_lamps_nodes(const StreetLamp *lamps, int lamp_count, const TriDescriptor *descriptors, uint32_t descriptor_count, const TriScenery *scenery,
+                          uint32_t scenery_count, uint32_t *out, size_t max);
+
 /* The track's street lamp (CY1, any case): 1 and `*out` set, 0 for the others. */
 int street_lamp_for(const char *track, StreetLamp *out);
 /* All of the track's lamp boards, at most `max`: how many, in `out`. */
