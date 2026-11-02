@@ -1,6 +1,7 @@
 /* port (body shine, envmap): see car_envmap.h. The image is signed around the neutral byte (128): above it a lift (the sky, the clouds, the sun),
  * below it a shade (the band under the horizon, the ground). */
 #include "game/race/car_envmap.h"
+#include "game/sys/data_path.h"
 
 #include "formats/png.h"
 #include "game/race/car_shine.h"
@@ -216,12 +217,10 @@ void car_envmap_build(uint8_t *image)
 {
     const char *env = getenv("TNFS_CAR_ENVMAP");
     if (env != NULL && env[0] != '\0' && car_envmap_file(env, image)) return;
-    if (car_envmap_file("data/car_envmap.png", image)) return;
-#ifdef TNFS_SOURCE_DIR
-    char path[PATH];
-    snprintf(path, sizeof path, "%s/data/car_envmap.png", TNFS_SOURCE_DIR);
-    if (car_envmap_file(path, image)) return;
-#endif
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    (void)data_path_candidates("car_envmap.png", found);   /* the program's own data, the working directory, a development build's source tree */
+    for (int i = 0; i < DATA_PATH_CANDIDATES; i++)
+        if (found[i][0] != '\0' && car_envmap_file(found[i], image)) return;
     make(image);
 }
 
