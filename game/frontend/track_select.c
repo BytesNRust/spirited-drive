@@ -35,6 +35,9 @@ static const char *const KM[6] = { "2.4 km", "4.9 km", "4.9 km", "4.9 km", "4.9 
 /* the time of day lit (0046743c) and not (00467448); the one past midday per track (00467594) */
 static const char *const TIME_LIT[3] = { "morl", "midl", "evel" };
 static const char *const TIME_DIM[3] = { "mord", "midd", "eved" };
+/* the night's label, in the text font: where the weather's value stands (0xc3), on the time row (0x184 is its top) */
+#define NIGHT_LABEL "Night"
+enum { NIGHT_LABEL_X = 0xc3, NIGHT_LABEL_Y = 0x185, NIGHT_WORD_LIGHT = 420, NIGHT_MARGIN = 3, NIGHT_GRAIN = 24 };   /* a word texel: r+g+b above this */
 static const int32_t TIME_OTHER[TRACKS] = { 0, 2, 2, 2, 0, 2, 2, 2, 2 };
 /* the items lit and not */
 static const char *const LIT[8] = { "donl", "prel", "nexl", "besl", "ssg1", "ssg2", "ssg3", "lapl" };
@@ -172,48 +175,49 @@ static int time_art(const TrackSelectState *st, int track)
 
 static void masked(int32_t bank, const char *tag, const TrackSelectOps *ops);
 
-/* the night's table for the screen's own palette: each colour to the entry nearest it times the night's light. The menu's palette is the whole 256, whatever a
- * race left usable in the port's tables (palette_usable) or lit (palette_emissive), so it is searched here, on the plain colours. */
-static void night_table(const uint8_t palette[768], uint8_t out[256])
+/* port: the night's label. It has no art of its own: the evening's strip is blitted with its word wiped (the strip is opaque and also covers the midday the
+ * screen's background carries), then "Night" is written over it in the text font, lit or dim. The word is the strip's bright texels (on the screen's palette) and
+ * a margin for its shadow; they take the strip's own texels from its left end, where there is no word, so the grain goes on. */
+static void night_label(const uint8_t *shape, int lit, const TrackSelectState *st, const TrackSelectOps *ops)
 {
-    enum { CHOICES = 0xfe };   /* 0xfe and 0xff are the pointer's and the see-through */
-    for (int c = 0; c < 256; c++) {
-        out[c] = (uint8_t)c;
-        if (c >= CHOICES) continue;
-        float want[3];
-        for (int k = 0; k < 3; k++) want[k] = (float)palette[3 * c + k] * psx_night_light[k];
-        float best = 1e30f;
-        for (int i = 0; i < CHOICES; i++) {
-            const float dr = (float)palette[3 * i] - want[0], dg = (float)palette[3 * i + 1] - want[1], db = (float)palette[3 * i + 2] - want[2];
-            const float d = dr * dr + dg * dg + db * db;
-            if (d < best) best = d, out[c] = (uint8_t)i;
+    const int width = shape[4] | shape[5] << 8, height = shape[6] | shape[7] << 8;
+    uint8_t *copy = st->screen_palette ? malloc(SHAPE_HEADER + (size_t)width * (size_t)height) : NULL;
+    if (copy != NULL) {
+        memcpy(copy, shape, SHAPE_HEADER + (size_t)width * (size_t)height);
+        uint8_t *px = copy + SHAPE_HEADER;
+        int x0 = width, x1 = -1, y0 = height, y1 = -1;
+        for (int j = 0; j < height; j++)
+            for (int i = 0; i < width; i++) {
+                const uint8_t *c = st->screen_palette + 3 * px[j * width + i];
+                if (px[j * width + i] != TRANSPARENT && c[0] + c[1] + c[2] > NIGHT_WORD_LIGHT) {
+                    if (i < x0) x0 = i;
+                    if (i > x1) x1 = i;
+                    if (j < y0) y0 = j;
+                    if (j > y1) y1 = j;
+                }
+            }
+        if (x1 >= 0 && x0 - NIGHT_MARGIN >= NIGHT_GRAIN) {
+            x0 -= NIGHT_MARGIN, x1 += NIGHT_MARGIN, y1 += NIGHT_MARGIN;   /* the shadow falls right and down */
+            for (int j = y0 < 0 ? 0 : y0; j <= y1 && j < height; j++)
+                for (int i = x0 < NIGHT_GRAIN ? NIGHT_GRAIN : x0; i <= x1 && i < width; i++)
+                    px[j * width + i] = px[j * width + i % NIGHT_GRAIN];
         }
+        ops->blit_masked(ops->ctx, copy);
+        free(copy);
     }
+    ops->text_select(ops->ctx, lit);
+    ops->text_shadowed(ops->ctx, NIGHT_LABEL, NIGHT_LABEL_X, NIGHT_LABEL_Y);
 }
 
-/* port: the time-of-day item's art for the state's time: the exe's, or at the night the evening's with its texels moved to the entries nearest their
- * colours at the night's light (a copy of the shape: the bank's own is left), the transparent texel kept */
+/* port: the time-of-day item's art for the state's time: the exe's, or at the night the label above */
 static void time_masked(int32_t bank, const char *const tags[3], const TrackSelectState *st, int track, const TrackSelectOps *ops)
 {
     const char *tag = tags[time_art(st, track)];
-    if (!st->plus || !st->plus->psx_time || *st->plus->psx_time != PSX_TIME_NIGHT || !st->screen_palette) {
+    if (!st->plus || !st->plus->psx_time || *st->plus->psx_time != PSX_TIME_NIGHT) {
         masked(bank, tag, ops);
         return;
     }
-    const uint8_t *shape = ops->shape(ops->ctx, bank, tag);
-    const size_t pixels = (size_t)(shape[4] | shape[5] << 8) * (size_t)(shape[6] | shape[7] << 8);
-    uint8_t *copy = malloc(SHAPE_HEADER + pixels);
-    if (copy == NULL) {
-        ops->blit_masked(ops->ctx, shape);
-        return;
-    }
-    uint8_t table[256];
-    night_table(st->screen_palette, table);
-    memcpy(copy, shape, SHAPE_HEADER + pixels);
-    for (size_t i = 0; i < pixels; i++)
-        if (copy[SHAPE_HEADER + i] != TRANSPARENT) copy[SHAPE_HEADER + i] = table[copy[SHAPE_HEADER + i]];
-    ops->blit_masked(ops->ctx, copy);
-    free(copy);
+    night_label(ops->shape(ops->ctx, bank, tag), tags == TIME_LIT, st, ops);
 }
 
 static int weather_on(const TrackSelectState *st)

@@ -48,7 +48,12 @@ static void blit_masked(void *ctx, const uint8_t *s)
 }
 static void blit_word(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static void style(void *ctx, int32_t s) { (void)ctx, (void)s; }
-static void text(void *ctx, const char *t, int32_t x, int32_t y) { (void)ctx, (void)t, (void)x, (void)y; }
+static int night_words;   /* the times the word Night was written */
+static void text(void *ctx, const char *t, int32_t x, int32_t y)
+{
+    (void)ctx, (void)x, (void)y;
+    if (strcmp(t, "Night") == 0) night_words++;
+}
 static void mark(void *ctx, DialogPointer *p) { (void)ctx, (void)p; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
 static void music_start(void *ctx, const char *name) { (void)ctx, (void)name; }
@@ -204,7 +209,8 @@ static void test_without_the_row_up_is_the_originals(void)
 }
 
 /* the night (psx_time 3): the evening art's texels moved to darker entries, the transparent one left; dusk draws it as it is */
-static void test_night_art_is_darkened(void)
+/* the night's label is the word in the text font, not the evening's art (darkened or not); dusk keeps the art as it is */
+static void test_night_label_is_text(void)
 {
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300];
     for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)i;   /* a grey ramp */
@@ -236,14 +242,16 @@ static void test_night_art_is_darkened(void)
             .car_flags = nothing, .pointer_off = nothing, .music_service = nothing, .deadline_passed = zero,
             .music_fade_out = nothing, .music_end = nothing, .ctx = &script };
         evening_blits = 0;
+        night_words = 0;
         memset(evening_seen, 0, sizeof evening_seen);
         track_select_screen(&in, &st, &p, &ops);
-        CHECK(evening_blits > 0);
         if (!night) {
+            CHECK(evening_blits > 0);
             CHECK_MEM(evening_seen, day, 4);   /* dusk: the art as it is */
+            CHECK_EQ_INT(night_words, 0);
         } else {
-            CHECK(evening_seen[0] < 10 && evening_seen[1] < 20 && evening_seen[3] < 30);
-            CHECK_EQ_INT(evening_seen[2], 0xff);
+            CHECK_EQ_INT(evening_blits, 0);
+            CHECK(night_words > 0);
         }
         CHECK_MEM(evening + 0x10, day, 4);   /* the bank's own shape is not touched */
     }
@@ -259,7 +267,7 @@ int main(void)
     test_escape_puts_them_back();
     test_psx_time_toggle();
     test_psx_time_reaches_night_and_wraps();
-    test_night_art_is_darkened();
+    test_night_label_is_text();
     test_without_the_row_up_is_the_originals();
     return TEST_REPORT();
 }
