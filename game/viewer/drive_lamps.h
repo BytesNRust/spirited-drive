@@ -31,4 +31,7 @@ void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headli
 /* Points the slot's texels at the glowing entries or the day's, by the light at its car, its brake and its gear (`reversing`: the reversing light is lit, in any
  * light). Cheap when nothing changed. */
 void drive_lamps_frame(int slot, int low, int braking, int reversing);
+/* The same from the light itself: the world's tint and the ambient ratio at the car (NULL for none), through lamp_light_step's margin (a light shade by day does
+ * not light them; the slot's state starts out at drive_lamps_arm; each flip is logged with the node). */
+void drive_lamps_light(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing);
 #endif

@@ -12,6 +12,7 @@ typedef struct {
     size_t size;
     int armed;
     LampState state;
+    LampLight light;
 } Slot;
 
 static Slot slots[DRIVE_LAMP_SLOTS];
@@ -72,7 +73,7 @@ void drive_lamps_arm(void)
         Slot *s = &slots[i];
         if (s->texels.count == 0 || s->file == NULL) continue;
         lamp_texels_read(&s->texels, s->file, s->size);
-        s->armed = 1, s->state = LAMP_DAY;
+        s->armed = 1, s->state = LAMP_DAY, s->light = (LampLight){ 0 };
     }
 }
 
@@ -89,4 +90,16 @@ void drive_lamps_frame(int slot, int low, int braking, int reversing)
     if (state == s->state) return;
     lamp_texels_write(&s->texels, s->file, s->size, state, &entries);
     s->state = state;
+}
+
+void drive_lamps_light(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing)
+{
+    if (!valid(slot) || !slots[slot].armed) return;
+    Slot *s = &slots[slot];
+    const int was = s->light.low, low = lamp_light_step(&s->light, tint, ratio);
+    if (low != was)   /* one line per flip, to catch a lamp lit in the sun */
+        port_log("lamps: slot %d node %d %s: tint %.2f %.2f %.2f, ratio %.2f %.2f %.2f\n", slot, node, low ? "ON" : "OFF", tint != NULL ? tint[0] : 1.0f,
+                 tint != NULL ? tint[1] : 1.0f, tint != NULL ? tint[2] : 1.0f, ratio != NULL ? ratio[0] : 1.0f, ratio != NULL ? ratio[1] : 1.0f,
+                 ratio != NULL ? ratio[2] : 1.0f);
+    drive_lamps_frame(slot, low, braking, reversing);
 }
