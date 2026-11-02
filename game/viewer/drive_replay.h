@@ -38,7 +38,6 @@ typedef struct {
     size_t file_at;       /* 0044d514's reads so far */
     uint32_t seed;        /* 004fb7f4: the race's seed, for the setup 0044d420 writes */
     int32_t *done;        /* race_run's 004c5590, the frames run: put back to the timer when a replay is left; NULL none */
-    int port_resume;      /* port: 1 the race goes on at once from a replay (race_replay_resumed_done); 0 the exe's wait */
 } DriveReplay;
 
 /* 0044edd8 on the sim's race, in a local game (004fbb0c 1): the recording
