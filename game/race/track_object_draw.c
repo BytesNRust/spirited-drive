@@ -115,20 +115,44 @@ static int faces_eye(const int32_t n[3], const int32_t p[3])
     return (int64_t)n[0] * p[0] + (int64_t)n[1] * p[1] + (int64_t)n[2] * p[2] < 0;
 }
 
+static double dot3(const int32_t a[3], const int32_t b[3])
+{
+    return (double)a[0] * b[0] + (double)a[1] * b[1] + (double)a[2] * b[2];
+}
+
+/* port: a rectangular box, not a gabled house or a tower on a base: the side's far edge is the near edge carried along one depth at the top and the bottom,
+ * and the depth stands square to the front's width and height (to within an eighth of the lengths). Anything else (a roof's apex among the points) is left open:
+ * the closing walls and roof of a box that is not one are wrong, a huge triangle in the sky. */
+static int is_rectangular_box(const int32_t *const c[6])
+{
+    int32_t top[3], bottom[3], width[3], up[3], gap[3];
+    for (int k = 0; k < 3; k++) {
+        top[k] = c[4][k] - c[1][k], bottom[k] = c[5][k] - c[2][k];
+        width[k] = c[0][k] - c[1][k], up[k] = c[0][k] - c[3][k], gap[k] = top[k] - bottom[k];
+    }
+    const double depth2 = dot3(top, top), width2 = dot3(width, width), up2 = dot3(up, up);
+    if (depth2 <= 0.0 || width2 <= 0.0 || up2 <= 0.0) return 0;
+    if (dot3(gap, gap) * 64.0 > depth2) return 0;                                  /* the top and the bottom edges carried by different depths */
+    const double dw = dot3(top, width), du = dot3(top, up);
+    return dw * dw * 64.0 <= depth2 * width2 && du * du * 64.0 <= depth2 * up2;
+}
+
 /* port: the two walls and the roof the L lacks, from the camera-space points of its six corners (0..3 the front's, 4 and 5 the side's far edge): the far
  * corners of the other two walls are the front's left corners carried along the side (by the side's depth). Each wall seen from outside, so its texture runs the
- * right way round: the back's left is the side's far edge, the left wall's left is its far edge. */
+ * right way round (the owner: mirrored from the first try, so the windows run on from the neighbouring face at the corner): the back's left is its far
+ * corner, the left wall's left is the front's edge. */
 static void close_box(TrackObjectDraw *d, const uint8_t *desc, int level, int32_t at)
 {
     const int32_t *c[6];
     for (int i = 0; i < 6; i++) c[i] = d->object_camera[at + i];
+    if (!is_rectangular_box(c)) return;
     int32_t far_top[3], far_bottom[3];
     for (int k = 0; k < 3; k++) {
         far_top[k] = c[0][k] + (c[4][k] - c[1][k]);
         far_bottom[k] = c[3][k] + (c[5][k] - c[2][k]);
     }
-    const int32_t *back[4] = { c[4], far_top, far_bottom, c[5] };
-    const int32_t *left[4] = { far_top, c[0], c[3], far_bottom };
+    const int32_t *back[4] = { far_top, c[4], c[5], far_bottom };
+    const int32_t *left[4] = { c[0], far_top, far_bottom, c[3] };
     const int32_t *roof[4] = { far_top, c[4], c[1], c[0] };
     /* a wall or a roof seen from inside, or from beneath, is the far side of a solid: left out (the exe's front and side keep the exe's own culling) */
     const int32_t depth[3] = { c[4][0] - c[1][0], c[4][1] - c[1][1], c[4][2] - c[1][2] };       /* from the front toward the back */
