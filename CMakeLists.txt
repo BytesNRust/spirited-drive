@@ -583,6 +583,7 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_compile_definitions(test_item_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_page_arrows PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_sources(test_data_check PRIVATE tests/iso_build.c)   # the synthetic images of the ISO checks
     target_compile_definitions(test_data_check PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/follow_arm.c game/viewer/follow_behind.c game/viewer/modern_road.c
