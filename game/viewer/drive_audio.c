@@ -10,6 +10,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -45,6 +46,68 @@ static void unlock(void) { held--, platform_audio_unlock(); }
 /* The device's thread, the stream locked (platform_audio_lock keeps the game's changes out meanwhile): the driver
  * mixed (00497cb2) with its 100 Hz service (004a4ac0: the speech queue, volume ramps, countdowns) run every
  * TICK_FRAMES of the sample clock, as 0048c290's thread ran it beside the mixing */
+/* port (dev only): TNFS_AUDIO_DUMP=file.wav writes what the mixer produced (16-bit stereo at MIX_RATE), the header kept current as it goes, so a run's
+ * sound can be measured without a speaker. */
+static FILE *dump_file;
+static uint32_t dump_bytes;
+static int dump_tried;
+
+static void dump_frames(const int16_t *frames, uint32_t count)
+{
+    if (!dump_tried) {
+        dump_tried = 1;
+        const char *path = getenv("TNFS_AUDIO_DUMP");
+        if (path != NULL && path[0] != '\0') dump_file = fopen(path, "wb");
+    }
+    if (dump_file == NULL) return;
+    const uint32_t rate = MIX_RATE, bytes = (dump_bytes += count * 4), riff = 36 + bytes, byte_rate = rate * 4;
+    uint8_t h[44] = { 'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ', 16, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 16, 0, 'd', 'a', 't', 'a' };
+    for (int i = 0; i < 4; i++) {
+        h[4 + i] = (uint8_t)(riff >> (8 * i)), h[24 + i] = (uint8_t)(rate >> (8 * i)), h[28 + i] = (uint8_t)(byte_rate >> (8 * i));
+    }
+    uint8_t size[4] = { (uint8_t)bytes, (uint8_t)(bytes >> 8), (uint8_t)(bytes >> 16), (uint8_t)(bytes >> 24) };
+    memcpy(h + 40, size, 4);
+    fseek(dump_file, 0, SEEK_SET);
+    fwrite(h, 1, sizeof h, dump_file);
+    fseek(dump_file, 0, SEEK_END);
+    fwrite(frames, 4, count, dump_file);
+    fflush(dump_file);
+}
+
+/* port (dev only, with TNFS_AUDIO_DUMP): each voice mixed alone from a copy of its record and the mean square kept per slot; every second of the sample
+ * clock one line per voice that played: its slot, sample address' low bits, gains (the pan and volume as the mixer has them) and its own RMS. */
+static double voice_sq[SOUND_VOICES];
+static uint32_t voice_frames, voice_seen[SOUND_VOICES];
+
+static void voice_stats(uint32_t count)
+{
+    if (dump_file == NULL) return;
+    for (uint32_t slot = 0; slot < SOUND_VOICES; slot++) {
+        const MixVoice *v = driver.mixer.voice[slot];
+        if (v == NULL || v->on != 1 || (v->flags & 2) != 0) continue;   /* the plain PCM voices (the packed ones decode into a shared buffer) */
+        SoundMixer solo;
+        MixVoice copy = *v;
+        memset(&solo, 0, sizeof solo);
+        solo.voice[slot] = &copy;
+        int16_t out[2 * SOUND_MIX_FRAMES];
+        if (!sound_mix_frames(&solo, out, (int32_t)count)) continue;
+        for (uint32_t i = 0; i < 2 * count; i++) voice_sq[slot] += (double)out[i] * out[i];
+        voice_seen[slot] += count;
+    }
+    voice_frames += count;
+    if (voice_frames < MIX_RATE) return;
+    for (uint32_t slot = 0; slot < SOUND_VOICES; slot++) {
+        if (voice_seen[slot] > 0) {
+            const MixVoice *v = driver.mixer.voice[slot];
+            port_log("audio: voice %2u rms %6.0f gains %u,%u rate %u\n", slot, sqrt(voice_sq[slot] / (2.0 * voice_seen[slot])), v != NULL ? v->gains.left >> 10 : 0,
+                     v != NULL ? v->gains.right >> 10 : 0, v != NULL ? v->rate : 0);
+        }
+        voice_sq[slot] = 0, voice_seen[slot] = 0;
+    }
+    port_log("audio: -- second\n");
+    voice_frames = 0;
+}
+
 static void mix(void *user, int16_t *frames, uint32_t count)
 {
     (void)user;
@@ -52,8 +115,11 @@ static void mix(void *user, int16_t *frames, uint32_t count)
         memset(frames, 0, (size_t)count * 2 * sizeof *frames);
         return;
     }
+    int16_t *const all = frames;
+    const uint32_t total = count;
     while (count > 0) {
         const uint32_t n = count < TICK_FRAMES ? count : TICK_FRAMES;
+        voice_stats(n);
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
         frames += 2 * n, count -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) {
@@ -61,6 +127,7 @@ static void mix(void *user, int16_t *frames, uint32_t count)
             sound_driver_tick(&driver);
         }
     }
+    dump_frames(all, total);
 }
 
 static int32_t voice_start(void *user, int32_t sound, int32_t pan, uint8_t volume, uint8_t pitch)

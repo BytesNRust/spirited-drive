@@ -22,14 +22,14 @@ int rally_gravel_kind(int track, int variant_r, int lunar, int enabled);
 int32_t rally_gravel_level(int kind, int32_t level);
 
 /* The shoulder's scrape (the road noise's off-road branch) in a rally with the switch: the exe's level is 0x14 + twice the speed in metres a second, which
- * at a crawl is faint (24 of 127 at 2 m/s) and the owner could not hear it. A car that rolls (1 m/s or more) gets RALLY_SHOULDER_FLOOR at least; a standing
+ * at a crawl is faint (24 of 127 at 2 m/s) and the owner could not hear it. A car that rolls gets RALLY_SHOULDER_FLOOR at least, in full from 3 m/s and in proportion below (a standing one none); a standing
  * one and a fast one keep the exe's level; RALLY_GRAVEL_OFF too. `speed` as car->speed (16.16). */
-enum { RALLY_SHOULDER_FLOOR = 0x40 };
+enum { RALLY_SHOULDER_FLOOR = 0x70 };
 int32_t rally_gravel_shoulder_level(int kind, int32_t level, int32_t speed);
 
 /* The same for the road in a rally with the switch (the rolling gravel, rally_gravel_level's result): a car that rolls gets RALLY_ROAD_FLOOR at least, about
  * half the shoulder's, so the road is heard at a crawl and the shoulder stays the louder. */
-enum { RALLY_ROAD_FLOOR = 0x28 };
+enum { RALLY_ROAD_FLOOR = 0x50 };
 int32_t rally_gravel_road_level(int kind, int32_t level, int32_t speed);
 
 /* How much dust a car rolling at `speed` (16.16 metres a second) on the ground throws: 0 for none (nonzero drops puffs, see dust_trail.h). Compacted
