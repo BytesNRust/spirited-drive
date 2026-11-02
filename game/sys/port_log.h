@@ -13,6 +13,13 @@
 #define PORT_LOG_FORMAT(a, b)
 #endif
 
+/* A log file for the player to attach to a bug report: `path` (the user directory's tnfs.log) is opened afresh each run, the last run's kept beside it as `path`.1, and every
+ * line port_log, port_out and port_fatal say goes into it too, verbose or not (the console stays as it was). It stops at PORT_LOG_FILE_MAX bytes with a line saying so.
+ * 1 when it is open, 0 when it could not be (the game goes on without). */
+enum { PORT_LOG_FILE_MAX = 4 * 1024 * 1024 };
+int port_log_open_file(const char *path);
+void port_log_close_file(void);
+
 /* 1 when TNFS_VERBOSE is set to anything but "" or "0" (read once), or port_log_set_verbose(1) was called */
 int port_log_verbose(void);
 void port_log_set_verbose(int on);
