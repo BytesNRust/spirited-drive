@@ -383,13 +383,32 @@ static void headlights_update(void)
 {
     if (psx_light == NULL || psx_light->pool == NULL) return;
     HeadlightPool *pool = psx_light->pool;
+    /* per car, kept between frames: where its pool is (256ths of a node, eased towards the car's node: the pool glides over the nodes, it does not step) and which way the car travels */
+    static int32_t at[RACE_CARS], seen[RACE_CARS];
+    static int8_t travel[RACE_CARS];
+    static uint32_t of_ring;
     pool->count = 0;
     pool->ring = psx_light->nodes;
     if (shadow_race == NULL) return;
+    const int32_t ring = (int32_t)pool->ring;
+    if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel), memset(at, 0, sizeof at);   /* another track */
     const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
-        if (car != NULL && (car->flags_51a & 4)) pool->node[pool->count++] = car->node;
+        if (car == NULL || !(car->flags_51a & 4)) continue;
+        int32_t moved = car->node - seen[i];
+        if (ring > 0) moved = moved > ring / 2 ? moved - ring : moved < -ring / 2 ? moved + ring : moved;
+        if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;   /* the first frame: the gear says, the nodes after */
+        if (moved != 0 && moved > -4 && moved < 4) travel[i] = moved > 0 ? 1 : -1;
+        seen[i] = car->node;
+        int32_t gap = car->node * 256 - at[i];
+        if (ring > 0) gap = gap > ring * 128 ? gap - ring * 256 : gap < -ring * 128 ? gap + ring * 256 : gap;
+        at[i] = gap > 4 * 256 || gap < -4 * 256 ? car->node * 256 : at[i] + gap / 6;   /* a respawn or a far jump snaps */
+        if (ring > 0) at[i] = ((at[i] % (ring * 256)) + ring * 256) % (ring * 256);
+        pool->node[pool->count] = at[i] >> 8;
+        pool->sub[pool->count] = (int16_t)(at[i] & 255);
+        pool->dir[pool->count] = travel[i];
+        pool->count++;
     }
 }
 
@@ -397,7 +416,7 @@ static int ratio_at(int32_t node, float out[3])
 {
     const int found = ratio_of(node, out);
     if (found && psx_light != NULL && psx_light->pool != NULL && !psx_light_tunnel(psx_light, psx_ring_node(node, psx_light->nodes))) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
-        const float gain = (float)headlight_pool_gain(psx_light->pool, psx_ring_node(node, psx_light->nodes)) / 256.0f;
+        const float gain = (float)headlight_pool_car_gain(headlight_pool_gain(psx_light->pool, psx_ring_node(node, psx_light->nodes))) / 256.0f;   /* a car takes only part of the pool's lift */
         for (int k = 0; k < 3; k++) out[k] *= gain;
     }
     return found;
