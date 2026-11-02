@@ -14,6 +14,12 @@ void police_lights_set_entries(uint8_t red, uint8_t blue, uint8_t red_halo, uint
     own_red = red, own_blue = blue, own_red_halo = red_halo, own_blue_halo = blue_halo;
 }
 
+void police_lights_set_found(const uint8_t entry[4], int found)
+{
+    if (found < 2) police_lights_set_entries(0, 0, 0, 0);
+    else police_lights_set_entries(entry[0], entry[1], found > 2 ? entry[2] : 0, found > 3 ? entry[3] : 0);
+}
+
 int police_lights_phase(int32_t tick) { return (int)(((uint32_t)tick / POLICE_FLASH_TICKS) & 1u); }
 
 int police_lights_entry(const uint8_t palette[768], int red)

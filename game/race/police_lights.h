@@ -33,6 +33,9 @@ int police_lights_entry(const uint8_t palette[768], int red);
  * (non-zero), else the palette's nearest entries; a halo not set is its core. (0, 0, 0, 0) forgets them (a race start). */
 void police_lights_set_entries(uint8_t red, uint8_t blue, uint8_t red_halo, uint8_t blue_halo);
 
+/* The same from the `found` entries (2 to 4) the palette had free, in the order core red, core blue, halo red, halo blue: a halo not found is 0 (its core). Fewer than 2 forgets them all. */
+void police_lights_set_found(const uint8_t entry[4], int found);
+
 /* `out` (256 bytes): `base` (NULL for the identity) with the four light entries sent to the red and blue entries of `palette` as the phase of `tick` says. */
 void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_t tick, uint8_t out[256]);
 

@@ -91,9 +91,38 @@ static void test_own_entries(void)
     CHECK_EQ_INT(out[0xfc], 9);
 }
 
+/* fewer than four free entries: two are enough (the halos are their cores), three give the red halo only, one or none forgets them (the search) */
+static void test_found_two_and_three(void)
+{
+    uint8_t palette[768] = { 0 }, out[256];
+    const uint8_t pair[4] = { 40, 41, 42, 43 };
+    palette[3 * 7] = 250, palette[3 * 9 + 2] = 250;
+    police_lights_set_found(pair, 2);
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfa], 40);
+    CHECK_EQ_INT(out[0xfb], 40);                           /* no halo: the core */
+    CHECK_EQ_INT(out[0xfc], 41);
+    CHECK_EQ_INT(out[0xfd], 41);
+    police_lights_set_found(pair, 3);
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfa], 40);
+    CHECK_EQ_INT(out[0xfb], 42);                           /* the red halo found */
+    CHECK_EQ_INT(out[0xfc], 41);
+    CHECK_EQ_INT(out[0xfd], 41);                           /* the blue halo not: its core */
+    police_lights_set_found(pair, 4);
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfd], 43);
+    police_lights_set_found(pair, 1);                      /* one is not a pair: the search */
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfa], 7);
+    CHECK_EQ_INT(out[0xfc], 9);
+    police_lights_set_entries(0, 0, 0, 0);
+}
+
 int main(void)
 {
     test_own_entries();
+    test_found_two_and_three();
     test_when_on();
     test_phase();
     test_table();
