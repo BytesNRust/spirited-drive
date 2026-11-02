@@ -24,14 +24,14 @@ static const float SUN_BEAM_COS = 0.98f;    /* the terrain within about 11 degre
 static const float NIGHT_AMBIENT = 0.25f;   /* the terrain's light at night under an open sky */
 static const float LAMP_POOL = 0.6f;        /* a lamp's added light under it, fading to the edge of its reach */
 
-/* The day's light, dawn, day and dusk, as the PS1 CD's: plain Lambert shading, light = k_ny * ny + k_nx * nx of the surface's upward normal (nx, ny), with no ambient
- * term, no sky, no cast shadows and no darkening by distance or height. The sun is fixed along the track's x axis: at -x at dawn, +x at dusk, and overhead by day.
- * The constants are the CD's tracks' own agreement (tools/psx_light_fit.c, the per-track fits of the tracks that fit well, R2 .9 and over: AL1, AL2, CL1, CL3, TR1, TR2
- * at dawn and dusk, almost all of them by day). {k_ny, k_nx} by time. */
-static const float LAMBERT[3][2] = { { 0.77f, -0.43f }, { 0.97f, 0.0f }, { 0.77f, 0.42f } };   /* dawn, day, dusk */
-/* The outer points (5 and 10, the far verges, walls and hills) are not their normal's: they fit to nothing the terrain gives (R2 under .3), so they are the CD's mean at each
- * time (dawn, day, dusk; point 5 then 10). */
-static const float OUTER[3][2] = { { 0.65f, 0.59f }, { 0.638f, 0.651f }, { 0.589f, 0.654f } };
+/* The day's light, dawn, day and dusk, as the PS1 CD's: plain Lambert shading, light = c + k_ny * ny + k_nx * nx of the surface's upward normal (nx, ny), with no sky, no cast shadows and no
+ * darkening by distance or height. The sun is fixed along the track's x axis: at -x at dawn, +x at dusk, overhead by day. The constants are the mean of the per-track fits (tools/
+ * psx_light_fit.c, the points 2-4 and 7-9, 13 CD tracks) of the tracks that fit well (R2 .9 and over: CY1, CY3, CL1, CL3, AL1, AL2, TR1, TR2; CY2, CL2, AL3 and TR3/TR4 are the CD's
+ * hand work and stay out). {c, k_ny, k_nx} by time. */
+static const float LAMBERT[3][3] = { { 0.04f, 0.76f, -0.41f }, { 0.0f, 0.96f, 0.0f }, { 0.04f, 0.76f, 0.41f } };   /* dawn, day, dusk */
+/* The outer points (5 and 10, the far verges, walls and hills) are not their normal's: their fits swing from track to track (R2 under .5, the sky's coefficient changing sign), so they are the
+ * CD's mean at each time (dawn, day, dusk; point 5 then 10). */
+static const float OUTER[3][2] = { { 0.680f, 0.562f }, { 0.637f, 0.651f }, { 0.558f, 0.686f } };
 
 static int is_road_point(int p) { return p == 0 || p == 1 || p == 6; }
 
@@ -95,7 +95,7 @@ static LightPos normal_of(const LightPos *pts, uint32_t count, int ring, uint32_
 
 float psx_light_lambert(int time, float nx, float ny)
 {
-    return time < PSX_SYNTH_DAWN || time > PSX_SYNTH_DUSK ? 0.0f : LAMBERT[time][0] * ny + LAMBERT[time][1] * nx;
+    return time < PSX_SYNTH_DAWN || time > PSX_SYNTH_DUSK ? 0.0f : LAMBERT[time][0] + LAMBERT[time][1] * ny + LAMBERT[time][2] * nx;
 }
 
 void psx_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, PsxLightFeatures *out)
@@ -183,7 +183,7 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
                 continue;
             }
             const LightPos nm = normal_of(pts, count, ring, n, p);
-            *out = LAMBERT[time][0] * nm.y + LAMBERT[time][1] * nm.x;
+            *out = LAMBERT[time][0] + LAMBERT[time][1] * nm.y + LAMBERT[time][2] * nm.x;
         }
     if (time == PSX_SYNTH_NIGHT) psx_light_smooth(light, count, ring);   /* the day's light follows each node's own normal, as the CD's does: smoothing it blurs what matches */
     for (size_t i = 0; i < (size_t)count * PSX_LIGHT_POINTS; i++) data[i] = psx_light_level(light[i]);
