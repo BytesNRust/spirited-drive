@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, help and ideas
+    url: https://github.com/BytesNRust/tnfs-restomod/discussions
+    about: How to install, "my CD isn't found", feature ideas, showing your liveries — all welcome in Discussions.
+  - name: I don't have the game
+    url: https://github.com/BytesNRust/tnfs-restomod#you-need-the-original-game
+    about: TNFS Restomod needs your own copy of The Need for Speed SE (PC, 1996). We can't help find copies.
