@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     printf("%s %c: %u nodes, %s, sun elevation %.0f degrees\n", track, letter, count, ring ? "a circuit" : "a stage", sun.elevation * 180.0 / 3.14159265);
     double best = 1e9;
     int best_az = 0;
-    for (int az = 0; az < 360; az += 30) {
+    for (int az = 0; az < 1; az += 30) {   /* the CD's sun is fixed along x (psx_light_make.c): one azimuth is all there is */
         sun.azimuth = (float)az * 3.14159265f / 180.0f;
         if (!psx_light_make_rows_sun(pts, count, ring, time, &sun, ours)) return fprintf(stderr, "no rows\n"), 1;
         Stat all = { 0 }, per[PSX_LIGHT_POINTS] = { { 0 } };

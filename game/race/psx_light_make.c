@@ -21,10 +21,21 @@ enum {
 };
 
 static const float SUN_BEAM_COS = 0.98f;    /* the terrain within about 11 degrees of the sun's azimuth can shade it */
-static const float SHADOW_SOFT = 4.0f;      /* how fast the shadow's edge goes from lit to shaded with the horizon's tangent */
 static const float NIGHT_AMBIENT = 0.25f;   /* the terrain's light at night under an open sky */
 static const float LAMP_POOL = 0.6f;        /* a lamp's added light under it, fading to the edge of its reach */
-static const float AMBIENT_DAY = 0.45f, AMBIENT_LOW = 0.55f;   /* the sky's share of the light: the sun's is the rest */
+
+/* The day's light, dawn, day and dusk, fitted to the PS1 CD's (tools/psx_light_fit.c, 13 tracks, per terrain point) as light = c + k_sky * sky + k_nx * nx + k_ny * ny
+ * with the surface's upward normal (nx, ny) and the share of the dome the point sees: the CD's is plain Lambert shading from a sun fixed along the track's x axis (at -x at
+ * dawn, +x at dusk, high, near overhead by day), with no cast shadows and no darkening by distance or height. The outer points 5 and 10 follow nothing the terrain gives
+ * (they fit to R2 under .3): they are their own mean. Rows are {c, k_sky, k_nx, k_ny} by point (0, 1 and 6 are the road's, never darkened). */
+static const float FIT[3][PSX_LIGHT_POINTS][4] = {
+    { { 0 }, { 0 }, { .288f, .025f, -.262f, .495f }, { .081f, .116f, -.293f, .580f }, { .260f, -.092f, -.278f, .601f }, { .650f, 0, 0, 0 }, { 0 },
+      { .034f, .129f, -.332f, .677f }, { -.249f, .389f, -.281f, .706f }, { -.033f, .137f, -.306f, .739f }, { .591f, 0, 0, 0 } },   /* dawn */
+    { { 0 }, { 0 }, { .171f, .165f, -.018f, .633f }, { -.309f, .398f, -.032f, .866f }, { .058f, -.031f, .008f, .926f }, { .638f, 0, 0, 0 }, { 0 },
+      { .061f, .138f, .015f, .769f }, { -.254f, .360f, -.001f, .859f }, { .123f, -.065f, -.034f, .893f }, { .651f, 0, 0, 0 } },    /* day */
+    { { 0 }, { 0 }, { .176f, .284f, .265f, .375f }, { -.302f, .404f, .267f, .731f }, { .090f, .036f, .295f, .701f }, { .589f, 0, 0, 0 }, { 0 },
+      { .152f, .006f, .329f, .648f }, { .061f, .212f, .262f, .518f }, { .322f, -.085f, .236f, .534f }, { .654f, 0, 0, 0 } }      /* dusk */
+};
 
 static int is_road_point(int p) { return p == 0 || p == 1 || p == 6; }
 
@@ -153,9 +164,6 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
     if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;
     PsxLightSun own;
     if (sun == NULL) psx_light_sun_default(time, &own), sun = &own;
-    const float up = sinf(sun->elevation), tan_sun = tanf(sun->elevation);
-    const float sx = cosf(sun->elevation) * cosf(sun->azimuth), sy = up, sz = cosf(sun->elevation) * sinf(sun->azimuth);
-    const float amb = time == PSX_SYNTH_DAY ? AMBIENT_DAY : AMBIENT_LOW, beam = 1.0f - amb;
     float *light = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *light);
     if (light == NULL) return 0;
     for (uint32_t n = 0; n < count; n++)
@@ -166,13 +174,13 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
                 continue;
             }
             const Horizon h = horizon_of(pts, count, ring, n, p, sun);
+            if (time == PSX_SYNTH_NIGHT) {
+                *out = NIGHT_AMBIENT * h.sky;   /* the moon is no sun: the sky's share only, a dark night */
+                continue;
+            }
             const LightPos nm = normal_of(pts, count, ring, n, p);
-            float facing = nm.x * sx + nm.y * sy + nm.z * sz;
-            if (facing < 0) facing = 0;
-            float shadow = 0.5f + (tan_sun - h.sun_tan) * SHADOW_SOFT;   /* the horizon under the sun: lit; over it: shaded; a soft edge between */
-            shadow = shadow < 0 ? 0 : shadow > 1 ? 1 : shadow;
-            *out = time == PSX_SYNTH_NIGHT ? NIGHT_AMBIENT * h.sky   /* the moon is no sun: the sky's share only, a dark night */
-                                           : (amb * h.sky + beam * facing * shadow) / (amb + beam * up);   /* flat, open and unshaded: exactly 1 */
+            const float *k = FIT[time][p];
+            *out = k[0] + k[1] * h.sky + k[2] * nm.x + k[3] * nm.y;
         }
     psx_light_smooth(light, count, ring);
     for (size_t i = 0; i < (size_t)count * PSX_LIGHT_POINTS; i++) data[i] = psx_light_level(light[i]);
