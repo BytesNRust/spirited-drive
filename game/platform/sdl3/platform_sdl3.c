@@ -2,6 +2,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/sys/key_latch.h"
 #include "game/sys/port_log.h"
 
 #include <SDL3/SDL.h>
@@ -346,6 +347,45 @@ static PlatformKey translate_key(SDL_Keycode key)
 
 static void (*joy_refresh)(void);  /* port: reads the open pads' keys again (platform_joy_virtual_refresher) */
 
+/* port (--verbose): the window's focus and visibility changes, to see what releases a held key (SDL lets every key go when the window loses the focus) */
+static void log_window_event(Uint32 type)
+{
+    const char *name = type == SDL_EVENT_WINDOW_FOCUS_GAINED ? "focus gained" : type == SDL_EVENT_WINDOW_FOCUS_LOST ? "focus lost"
+        : type == SDL_EVENT_WINDOW_OCCLUDED ? "occluded" : type == SDL_EVENT_WINDOW_HIDDEN ? "hidden"
+        : type == SDL_EVENT_WINDOW_MINIMIZED ? "minimized" : type == SDL_EVENT_WINDOW_RESTORED ? "restored"
+        : type == SDL_EVENT_WINDOW_EXPOSED ? "exposed" : NULL;
+    if (name != NULL) port_log("platform: window %s at %llu ms\n", name, (unsigned long long)SDL_GetTicks());
+}
+
+/* port (--verbose): the arrows and the race's letter keys as the events say they are held, against SDL's keyboard state, to catch a held key the
+ * state reads up (a missed key up, a focus lost, a stalled queue): each press, release and disagreement is logged with the time */
+static const SDL_Scancode WATCHED[] = { SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_A, SDL_SCANCODE_Z };
+enum { WATCHED_COUNT = sizeof WATCHED / sizeof WATCHED[0] };
+static bool watched_held[WATCHED_COUNT], watched_disagree[WATCHED_COUNT];
+
+static void watch_key_event(const SDL_Event *event)
+{
+    if (event->type != SDL_EVENT_KEY_DOWN && event->type != SDL_EVENT_KEY_UP) return;
+    for (int k = 0; k < WATCHED_COUNT; k++) {
+        if (event->key.scancode != WATCHED[k]) continue;
+        if (event->type == SDL_EVENT_KEY_DOWN && event->key.repeat) return;
+        watched_held[k] = event->type == SDL_EVENT_KEY_DOWN;
+        port_log("platform: key %s %s at %llu ms\n", SDL_GetScancodeName(WATCHED[k]), watched_held[k] ? "down" : "up", (unsigned long long)SDL_GetTicks());
+    }
+}
+
+static void watch_keys_check(void)
+{
+    const bool *state = SDL_GetKeyboardState(NULL);
+    for (int k = 0; k < WATCHED_COUNT; k++) {
+        const bool disagree = watched_held[k] != state[WATCHED[k]];
+        if (disagree != watched_disagree[k])
+            port_log("platform: key %s: the events say %s, the state says %s (%s) at %llu ms\n", SDL_GetScancodeName(WATCHED[k]),
+                     watched_held[k] ? "held" : "up", state[WATCHED[k]] ? "held" : "up", disagree ? "now they disagree" : "agree again", (unsigned long long)SDL_GetTicks());
+        watched_disagree[k] = disagree;
+    }
+}
+
 bool platform_poll_events(void)
 {
     static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
@@ -353,12 +393,16 @@ bool platform_poll_events(void)
     if (quit) return false;
     /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
     if (joy_refresh != NULL) joy_refresh();
+    key_latch_pump();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
             return false;
         }
+        log_window_event(event.type);
+        watch_key_event(&event);
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), memset(watched_held, 0, sizeof watched_held);
             window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
             cursor_apply();
             continue;
@@ -375,12 +419,14 @@ bool platform_poll_events(void)
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
         }
         if (event.type == SDL_EVENT_TEXT_INPUT) push_utf8(event.text.text);
+        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
         if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
             const PlatformKey key = translate_key(event.key.key);
             if (key != PLATFORM_KEY_NONE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
         }
     }
+    watch_keys_check();
     return true;
 }
 
@@ -700,6 +746,7 @@ bool platform_key_down(int scancode)
     const SDL_Scancode sc = from_set1(scancode);
     if (sc == SDL_SCANCODE_UNKNOWN) return false;
     const bool *state = SDL_GetKeyboardState(NULL);
+    if (key_latch_down((int)sc)) return true;   /* port: a key tapped since the last poll */
     /* Both Ctrl / Alt / Enter keys count, as on a PC keyboard. */
     if (sc == SDL_SCANCODE_LCTRL) return state[sc] || state[SDL_SCANCODE_RCTRL];
     if (sc == SDL_SCANCODE_LALT) return state[sc] || state[SDL_SCANCODE_RALT];
