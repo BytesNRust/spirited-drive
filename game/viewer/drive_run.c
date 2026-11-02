@@ -624,6 +624,7 @@ static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
         const uint32_t into = i + SPIN_TICKS - ticks;
         return (into < SPIN_BRAKE_TICKS ? 0x8000u : 0u) | 0u;
     }
+    if (script != NULL && strcmp(script, "brake") == 0 && i + 40 >= ticks) return 0x20u | (0x3fu << 6);   /* TNFS_SCRIPT=brake: the brake held over the last 40 steps (the lamps' captures) */
     const char *steer_env = getenv("TNFS_STEER");
     const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
     const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;

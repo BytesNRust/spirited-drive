@@ -45,6 +45,8 @@
 #include "viewer/drive_light.h"
 #include "viewer/drive_lamps.h"
 #include "game/race/lamp_emissive.h"
+#include "game/race/lamp_flare.h"
+#include "game/sys/palette.h"
 #include "viewer/weather_draw.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
@@ -909,12 +911,16 @@ static void body_palette(void *ctx, int32_t first, int32_t count, const uint8_t 
 static const uint8_t NO_SLOT_COLOURS[RACE_CARS + 1];
 
 /* port (emissive lamps): the car's lamp texels as the light at the car is (the day's, or glowing, lit by its brake), before it is drawn */
+static int flare_on;   /* port (psx_flares): a soft halo round a lit brake light (lamp_flare.h) */
+void ported_view_set_flares(int on) { flare_on = on != 0; }
+
 static void lamp_state(const Car *car)
 {
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
     ratio_at(car->node, ratio);
     drive_light_tint(tint);
-    drive_lamps_frame(car->index, lamp_emissive_low(tint, ratio), car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
+    drive_lamps_frame(car->index, lamp_emissive_low(tint, ratio) || (flare_on && weather == WEATHER_FOG), car->brake > LAMP_BRAKE_ON,
+                      car->gear == LAMP_REVERSE_GEAR);   /* port (psx_flares): the lamps glow in fog too */
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */
@@ -1009,6 +1015,51 @@ static int32_t car_reach(const Object3D *o)
     return (int32_t)sqrt((double)most) + 1;
 }
 
+/* port (psx_flares): the halo round a lit brake light. The lamp's pixels are the emissive lit-brake entry (drive_lamps_brake_lit: not tinted, not fogged), found
+ * in the rectangle of the car's projected vertices after the car is drawn, so what hides the lamp hides its blobs; the halo is added to the pixels' palette, in
+ * the lamp's colour at 30, 60 and 100 percent over a radius a few times the lamp's own */
+static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, const uint8_t palette[768])
+{
+    const Object3D *body = vc->model.body;
+    if (!flare_on || palette == NULL || body == NULL || body->screen == NULL) return;
+    if (car->far != 0 || car->index < 0 || car->index >= RACE_CARS || car->index >= shadow_race->finish_cars) return;
+    const int entry = drive_lamps_brake_lit(car->index);
+    if (entry == 0) return;
+    int x0 = INT32_MAX, y0 = INT32_MAX, x1 = INT32_MIN, y1 = INT32_MIN;
+    for (uint32_t v = 0; v < body->vertex_count; v++) {
+        if (body->screen[v][0] < x0) x0 = body->screen[v][0];
+        if (body->screen[v][0] > x1) x1 = body->screen[v][0];
+        if (body->screen[v][1] < y0) y0 = body->screen[v][1];
+        if (body->screen[v][1] > y1) y1 = body->screen[v][1];
+    }
+    if (x0 < t->clip_left) x0 = t->clip_left;
+    if (y0 < t->clip_top) y0 = t->clip_top;
+    if (x1 >= t->clip_right) x1 = t->clip_right - 1;
+    if (y1 >= t->clip_bottom) y1 = t->clip_bottom - 1;
+    raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
+    uint8_t member[256] = { 0 };
+    member[entry] = 1;
+    LampBlob blobs[LAMP_FLARE_BLOBS];
+    const int count = lamp_blobs(t->pixels, t->pitch, x0, y0, x1, y1, member, blobs, LAMP_FLARE_BLOBS);
+    static const int PERCENT[LAMP_FLARE_LEVELS] = { 30, 60, 100 };   /* the lamp's colour added to the pixel, a soft glow stronger toward the lamp */
+    const uint8_t *const usable = palette_usable();
+    for (int i = 0; i < count; i++) {
+        uint8_t maps[LAMP_FLARE_LEVELS][256];
+        for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
+            for (int d = 0; d < 256; d++) {
+                int rgb[3];
+                for (int k = 0; k < 3; k++) {
+                    rgb[k] = palette[3 * d + k] + palette[3 * entry + k] * PERCENT[l] / 100;
+                    if (rgb[k] > 255) rgb[k] = 255;
+                }
+                maps[l][d] = member[d] || !usable[d] ? (uint8_t)d : (uint8_t)palette_nearest(palette, usable, rgb[0], rgb[1], rgb[2]);   /* the lamp keeps its own colour */
+            }
+        const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[0], maps[1], maps[2] };
+        lamp_halo_draw(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, blobs[i].cx, blobs[i].cy,
+                       lamp_flare_radius(blobs[i].area), map);
+    }
+}
+
 static void render_slot(ViewCar *vc, Car *car, int pass, const ModelView *mv, const Object3DSink *sink,
                         const QuadTarget *target)
 {
@@ -1031,6 +1082,7 @@ static void row_draw(void *ctx, Car *car, int pass)
             body_shine_begin(object_pixels.palette, model_view.camera_matrix);
             render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
             body_shine_end();
+            draw_flare(&cars[i], car, object_pixels.target, object_pixels.palette);
             object_sink_set_light(NULL);
         }
 }
@@ -1049,6 +1101,7 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     body_shine_begin(palette, mv->camera_matrix);
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
     body_shine_end();
+    draw_flare(&cars[slot], car, target, palette);
     object_sink_set_light(NULL);
     return 1;
 }

@@ -31,4 +31,6 @@ void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headli
 /* Points the slot's texels at the glowing entries or the day's, by the light at its car, its brake and its gear (`reversing`: the reversing light is lit, in any
  * light). Cheap when nothing changed. */
 void drive_lamps_frame(int slot, int low, int braking, int reversing);
+/* The palette entry the slot's brake texels show while they are lit (low light, the brake down), else 0: what the lamp's halo (lamp_flare.h) is found by. */
+int drive_lamps_brake_lit(int slot);
 #endif

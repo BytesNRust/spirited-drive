@@ -81,6 +81,12 @@ void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headli
     entries = (LampEntries){ brake_lit, position, headlight, reverse };
 }
 
+int drive_lamps_brake_lit(int slot)
+{
+    if (!valid(slot) || !slots[slot].armed || !drive_lamps_has(slot, LAMP_BRAKE)) return 0;
+    return slots[slot].state & LAMP_BRAKING ? entries.brake_lit : 0;
+}
+
 void drive_lamps_frame(int slot, int low, int braking, int reversing)
 {
     if (!valid(slot) || !slots[slot].armed) return;
