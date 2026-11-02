@@ -59,16 +59,11 @@ static int skipped(void)
     return input_next_char() != 0 || pointer_read_buttons() != 0;
 }
 
-void boot_screen_show(void)
+/* one page: black, the lines, a fade in, the hold (a key or a click ends it), a fade out */
+static void show_page(const BootLine *lines, int n, int hold_frames, void (*tick)(void))
 {
-    static int shown;
-    if (shown) return;
-    shown = 1;
-    BootLine lines[BOOT_LINES_MAX];
-    const int n = boot_screen_lines(TNFS_VERSION, lines);
     uint8_t rgb[PALETTE_COLOURS * 3], black[PALETTE_COLOURS * 3] = { 0 };
     palette_make(rgb);
-    if (!text_small_init()) return;
     ea_select_default();
     video_set_palette(0, PALETTE_COLOURS, black);
     video_clear_back();
@@ -76,9 +71,34 @@ void boot_screen_show(void)
     draw(lines, n);
     video_flip();
     video_fade_in(0, PALETTE_COLOURS, rgb);
-    for (int frame = 0; frame < HOLD_FRAMES && !skipped(); frame++) video_wait_vblank();
+    for (int frame = 0; frame < hold_frames && !skipped(); frame++) {
+        if (tick != NULL) tick();
+        video_wait_vblank();
+    }
     video_fade_out(0, PALETTE_COLOURS);
     ea_select_default();
     video_clear_back();
     video_flip();
+}
+
+void boot_screen_show(void)
+{
+    static int shown;
+    if (shown) return;
+    shown = 1;
+    BootLine lines[BOOT_LINES_MAX];
+    const int n = boot_screen_lines(TNFS_VERSION, lines);
+    if (!text_small_init()) return;
+    show_page(lines, n, HOLD_FRAMES, NULL);
+}
+
+void credits_extra_show(const char *version, void (*tick)(void))
+{
+    enum { PAGE_FRAMES = 300 };
+    BootLine lines[BOOT_LINES_MAX];
+    if (!text_small_init()) return;
+    for (int page = 0; page < CREDITS_EXTRA_PAGES; page++) {
+        const int n = credits_extra_lines(page, version, lines);
+        if (n > 0) show_page(lines, n, PAGE_FRAMES, tick);
+    }
 }

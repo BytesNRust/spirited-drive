@@ -17,6 +17,15 @@ typedef struct {
 /* The screen's lines, top to bottom, for `version` (NULL or empty: no version line); how many (never more than BOOT_LINES_MAX). */
 int boot_screen_lines(const char *version, BootLine out[BOOT_LINES_MAX]);
 
+/* The pages our own credits add after the original's five (credits.fsh, from the player's own CD): the dedication, then ours. Page numbers from 0; the line count,
+ * 0 when there is no such page. */
+enum { CREDITS_EXTRA_PAGES = 2 };
+int credits_extra_lines(int page, const char *version, BootLine out[BOOT_LINES_MAX]);
+
+/* port (boot_screen_glue.c): shows those pages one after another over black, each until a key or a click (or about 12 seconds); `tick` (may be NULL) is called every
+ * frame, for the credits' music. */
+void credits_extra_show(const char *version, void (*tick)(void));
+
 /* port (boot_screen_glue.c): shows it, fades in and out, about 3 seconds, any key or click ends it early. Once per run: later calls do nothing. */
 void boot_screen_show(void);
 

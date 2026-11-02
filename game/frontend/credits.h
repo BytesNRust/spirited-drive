@@ -30,6 +30,8 @@ typedef struct CreditsOps {
     void (*free)(void *ctx, int32_t bank);                                   /* 00475260 (cdecl) */
     void (*pointer_mark)(void *ctx);                                         /* 00441858 */
     void *ctx;
+    /* port, after ctx so the original's initializers leave it NULL: our own pages after the original's five (not when the player left early); the music plays on */
+    void (*extra)(void *ctx);
 } CreditsOps;
 
 /* the globals the screen reads, through pointers as the original reads memory */

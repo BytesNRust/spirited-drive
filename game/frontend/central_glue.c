@@ -75,6 +75,8 @@
 #include "game/viewer/drive_joy.h"
 #include "game/viewer/track_viewer.h"
 
+#include "game/frontend/boot_screen.h"
+#include "tnfs_version.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -817,13 +819,21 @@ static void blit_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_
 static void poll(void *ctx) { (void)ctx; pointer_sync_from_os(); }
 
 
+/* port: our dedication and credits pages after the original's, over the credits' music */
+static void credits_service(void) { menu_audio_music_service(); }
+static void credits_extra(void *ctx)
+{
+    (void)ctx;
+    credits_extra_show(TNFS_VERSION, credits_service);
+}
+
 /* 004166e0 from Options */
 static void credits(void *ctx, int32_t mode)
 {
     (void)mode;
     const CreditsOps ops = { load_art, shape, palette_set, music_feed, select_picture, blit, select_default,
                              picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
-                             free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx };
+                             free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx, credits_extra };
     const CreditsState st = { ea_screen_slot(), pointer_active_word(), &g.buttons, stage_word(), &credits_idle };
     credits_last = timer_ticks();
     credits_show(&st, &ops);
