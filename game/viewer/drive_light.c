@@ -282,7 +282,10 @@ static size_t street_lamp_pool_nodes(const Tri *tri, uint32_t *out)
         if (tri_descriptor(tri, i, &descriptors[i]) != TRI_OK) return 0;
     for (uint32_t i = 0; i < tri->scenery_count; i++)
         if (tri_scenery(tri, i, &scenery[i]) != TRI_OK) return 0;
-    return street_lamp_nodes(&street_lamp, descriptors, tri->descriptor_count, scenery, tri->scenery_count, out, MAX_LAMP_NODES);
+    size_t n = 0;
+    for (int i = 0; i < street_lamp_count && n < MAX_LAMP_NODES; i++)   /* every board of the track; a board whose resource is unknown (-1) has none */
+        n += street_lamp_nodes(&street_lamps[i], descriptors, tri->descriptor_count, scenery, tri->scenery_count, out + n, MAX_LAMP_NODES - n);
+    return n;
 }
 
 /* the track's own rules over the made light: the player's folder's psx_light_<TRACK><A|B|C|N>.txt (N the night), a rule a line (psx_light_make.h); no file, no rules */
