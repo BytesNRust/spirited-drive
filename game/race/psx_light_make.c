@@ -21,6 +21,8 @@ enum {
 
 static const float SUN_BEAM_COS = 0.98f;    /* the terrain within about 11 degrees of the sun's azimuth can shade it */
 static const float SHADOW_SOFT = 4.0f;      /* how fast the shadow's edge goes from lit to shaded with the horizon's tangent */
+static const float NIGHT_AMBIENT = 0.25f;   /* the terrain's light at night under an open sky */
+static const float LAMP_POOL = 0.6f;        /* a lamp's added light under it, fading to the edge of its reach */
 static const float AMBIENT_DAY = 0.45f, AMBIENT_LOW = 0.55f;   /* the sky's share of the light: the sun's is the rest */
 
 static int is_road_point(int p) { return p == 0 || p == 1 || p == 6; }
@@ -114,6 +116,26 @@ void psx_light_smooth(float *light, uint32_t count, int ring)
     free(copy);
 }
 
+void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
+{
+    if (data == NULL || lamp_nodes == NULL || count < 2) return;
+    for (int i = 0; i < n; i++) {
+        if (!ring && lamp_nodes[i] >= count) continue;
+        const int64_t lamp = (int64_t)(lamp_nodes[i] % count);
+        for (int d = -PSX_LIGHT_LAMP_REACH; d <= PSX_LIGHT_LAMP_REACH; d++) {
+            int64_t node = lamp + d;
+            if (ring) node = ((node % count) + count) % count;
+            else if (node < 0 || node >= count) continue;
+            const float r = (float)d / (float)(PSX_LIGHT_LAMP_REACH + 1), add = LAMP_POOL * (1.0f - r * r);
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+                if (is_road_point(p)) continue;
+                uint8_t *at = &data[(uint32_t)node * PSX_LIGHT_POINTS + (uint32_t)p];
+                *at = psx_light_level((float)*at / (float)PSX_LIGHT_FULL + add);
+            }
+        }
+    }
+}
+
 int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data)
 {
     if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;
@@ -137,7 +159,8 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
             if (facing < 0) facing = 0;
             float shadow = 0.5f + (tan_sun - h.sun_tan) * SHADOW_SOFT;   /* the horizon under the sun: lit; over it: shaded; a soft edge between */
             shadow = shadow < 0 ? 0 : shadow > 1 ? 1 : shadow;
-            *out = (amb * h.sky + beam * facing * shadow) / (amb + beam * up);   /* flat, open and unshaded: exactly 1 */
+            *out = time == PSX_SYNTH_NIGHT ? NIGHT_AMBIENT * h.sky   /* the moon is no sun: the sky's share only, a dark night */
+                                           : (amb * h.sky + beam * facing * shadow) / (amb + beam * up);   /* flat, open and unshaded: exactly 1 */
         }
     psx_light_smooth(light, count, ring);
     for (size_t i = 0; i < (size_t)count * PSX_LIGHT_POINTS; i++) data[i] = psx_light_level(light[i]);
@@ -150,7 +173,7 @@ int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time,
     return psx_light_make_rows_sun(pts, count, ring, time, NULL, data);
 }
 
-int psx_light_make(const Tri *tri, int time, PsxLight *out)
+int psx_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, PsxLight *out)
 {
     if (tri == NULL || out == NULL || tri->node_count < 2) return 0;
     const uint32_t count = tri->node_count, segments = count / TRI_NODES_PER_SEGMENT;
@@ -168,6 +191,7 @@ int psx_light_make(const Tri *tri, int time, PsxLight *out)
                 }
     }
     ok = ok && psx_light_make_rows(pts, count, tri_is_circuit(tri), time, data);
+    if (ok && time == PSX_SYNTH_NIGHT) psx_light_add_lamps(data, count, tri_is_circuit(tri), lamp_nodes, lamps);
     if (ok) {
         memset(out, 0, sizeof *out);
         out->data = data;
@@ -176,4 +200,9 @@ int psx_light_make(const Tri *tri, int time, PsxLight *out)
     }
     free(pts), free(data);
     return ok;
+}
+
+int psx_light_make(const Tri *tri, int time, PsxLight *out)
+{
+    return psx_light_make_lit(tri, time, NULL, 0, out);
 }

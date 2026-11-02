@@ -194,8 +194,73 @@ static void test_smoothing_wraps_a_ring(void)
     CHECK(ring[0 * PSX_LIGHT_POINTS + 4] < 1.0f);    /* a ring does */
 }
 
+/* the night: moonlight on the terrain, the lamps' pools the light that does the work */
+static void test_the_night_is_dark_on_the_terrain_and_lit_on_the_road(void)
+{
+    LightPos pts[NODES * PSX_LIGHT_POINTS];
+    uint8_t day[NODES * PSX_LIGHT_POINTS], night[NODES * PSX_LIGHT_POINTS];
+    flat(pts);
+    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAY, day));
+    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_NIGHT, night));
+    for (int n = 0; n < NODES; n++)
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            if (road_point(p)) CHECK_EQ_INT(night[n * PSX_LIGHT_POINTS + p], 255);   /* the road is the pools' to darken, not the light's */
+            else CHECK(night[n * PSX_LIGHT_POINTS + p] > 0 && night[n * PSX_LIGHT_POINTS + p] <= 90);   /* a dark night, not black */
+        }
+}
+
+static void test_the_night_has_no_sun_to_cast_shadows(void)
+{
+    LightPos pts[NODES * PSX_LIGHT_POINTS];
+    uint8_t a[NODES * PSX_LIGHT_POINTS], b[NODES * PSX_LIGHT_POINTS];
+    flat(pts);
+    const PsxLightSun east = { 0.0f, 0.3f }, west = { 3.14159265f, 0.3f };
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_NIGHT, &east, a));
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_NIGHT, &west, b));
+    CHECK(memcmp(a, b, sizeof a) == 0);
+}
+
+static void test_a_lamp_pools_light_on_the_terrain_near_it(void)
+{
+    LightPos pts[NODES * PSX_LIGHT_POINTS];
+    uint8_t dark[NODES * PSX_LIGHT_POINTS], lit[NODES * PSX_LIGHT_POINTS];
+    flat(pts);
+    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_NIGHT, dark));
+    memcpy(lit, dark, sizeof lit);
+    const uint32_t lamps[] = { 20 };
+    psx_light_add_lamps(lit, NODES, 0, lamps, 1);
+    CHECK(lit[20 * PSX_LIGHT_POINTS + 3] > dark[20 * PSX_LIGHT_POINTS + 3] + 50);   /* under the lamp: well lit */
+    CHECK(lit[22 * PSX_LIGHT_POINTS + 3] > dark[22 * PSX_LIGHT_POINTS + 3]);        /* two nodes off: still lifted */
+    CHECK(lit[22 * PSX_LIGHT_POINTS + 3] < lit[20 * PSX_LIGHT_POINTS + 3]);         /* ... less */
+    CHECK_EQ_INT(lit[34 * PSX_LIGHT_POINTS + 3], dark[34 * PSX_LIGHT_POINTS + 3]);  /* far off: as it was */
+    CHECK_EQ_INT(lit[20 * PSX_LIGHT_POINTS + 0], 255);                              /* the road is as it was */
+    for (int i = 0; i < NODES * PSX_LIGHT_POINTS; i++) CHECK(lit[i] % 17 == 0);     /* still the 16 levels */
+}
+
+static void test_a_lamp_beside_the_closing_node_lights_across_it_on_a_ring(void)
+{
+    LightPos pts[NODES * PSX_LIGHT_POINTS];
+    uint8_t ring[NODES * PSX_LIGHT_POINTS], open[NODES * PSX_LIGHT_POINTS], base[NODES * PSX_LIGHT_POINTS];
+    flat(pts);
+    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_NIGHT, base));
+    memcpy(ring, base, sizeof ring), memcpy(open, base, sizeof open);
+    const uint32_t lamps[] = { NODES - 1 };
+    psx_light_add_lamps(ring, NODES, 1, lamps, 1);
+    psx_light_add_lamps(open, NODES, 0, lamps, 1);
+    CHECK(ring[1 * PSX_LIGHT_POINTS + 3] > base[1 * PSX_LIGHT_POINTS + 3]);
+    CHECK_EQ_INT(open[1 * PSX_LIGHT_POINTS + 3], base[1 * PSX_LIGHT_POINTS + 3]);
+    const uint32_t beyond[] = { 5000 };   /* a placement past the nodes wraps on a ring and is dropped on a stage */
+    memcpy(open, base, sizeof open);
+    psx_light_add_lamps(open, NODES, 0, beyond, 1);
+    CHECK(memcmp(open, base, sizeof open) == 0);
+}
+
 int main(void)
 {
+    test_the_night_is_dark_on_the_terrain_and_lit_on_the_road();
+    test_the_night_has_no_sun_to_cast_shadows();
+    test_a_lamp_pools_light_on_the_terrain_near_it();
+    test_a_lamp_beside_the_closing_node_lights_across_it_on_a_ring();
     test_smoothing_spreads_a_spike_and_keeps_the_road();
     test_smoothing_wraps_a_ring();
     test_a_slope_facing_the_sun_is_lighter_than_one_facing_away();

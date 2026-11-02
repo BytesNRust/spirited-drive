@@ -40,7 +40,15 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
  * made apart), into `data` (count * PSX_LIGHT_POINTS bytes). 1 on success; 0 for a NULL, fewer than 2 nodes or an unknown time. `ring` joins the last node to the first. */
 int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time, uint8_t *data);
 
+/* The night's lamps: the terrain's points within PSX_LIGHT_LAMP_REACH nodes of each of the `n` lamp nodes (a ring wraps; on a stage a node past the end is dropped) are
+ * lifted by a pool that fades with the distance, still in the 16 levels. The road's points are left as they are. */
+enum { PSX_LIGHT_LAMP_REACH = 6 };
+void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n);
+
 /* A PsxLight of the track's terrain (the data owned: psx_light_free). 1 on success, else 0 and `out` is untouched. */
 int psx_light_make(const Tri *tri, int time, PsxLight *out);
+
+/* As psx_light_make, with the night's lamps at `lamp_nodes` (the scenery placements' nodes of the street lamp boards): ignored by day. */
+int psx_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, PsxLight *out);
 
 #endif
