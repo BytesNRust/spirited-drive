@@ -39,6 +39,20 @@ static void test_the_lamp_of_each_track(void)
     CHECK(!street_lamp_for("TR1", &l));
 }
 
+/* the other lamps: Cyberia's boards 7 (CY2 a texel wider) and Transtropolis' lamp with the foundry truss's two bulbs */
+static void test_the_other_tracks_lamps(void)
+{
+    StreetLamp l[STREET_LAMPS_MAX];
+    CHECK_EQ_INT(street_lamps_for("CY2", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 65); CHECK_EQ_INT(l[0].height, 128);
+    CHECK_EQ_INT(street_lamps_for("TR7", l, STREET_LAMPS_MAX), 3);
+    CHECK_EQ_INT(l[1].scenery, 22); CHECK_EQ_INT(l[2].scenery, 22); CHECK_EQ_INT(l[1].width, 194); CHECK_EQ_INT(l[1].height, 24);
+    CHECK(l[1].lens_rect[2] < l[2].lens_rect[0]);   /* the truss's two bulbs are apart */
+    CHECK_EQ_INT(l[0].scenery, 28); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 127);
+    CHECK_EQ_INT(street_lamps_for("CY3", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 128);
+}
+
 /* Vertigo Ridge (TR3): two boards, the lantern post (16 x 150) and the truss with its hanging bulb (144 x 82, the bulb at its foot: the halo goes round it) */
 static void test_vertigo_ridge_has_two_lamps(void)
 {
@@ -51,12 +65,6 @@ static void test_vertigo_ridge_has_two_lamps(void)
     CHECK_EQ_INT(l[1].height, 82);
     CHECK_EQ_INT(street_lamps_for("CY1", l, STREET_LAMPS_MAX), 1);
     CHECK_EQ_INT(street_lamps_for("AL1", l, STREET_LAMPS_MAX), 0);
-    CHECK_EQ_INT(street_lamps_for("CY2", l, STREET_LAMPS_MAX), 1);
-    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 65); CHECK_EQ_INT(l[0].height, 128);
-    CHECK_EQ_INT(street_lamps_for("TR7", l, STREET_LAMPS_MAX), 1);
-    CHECK_EQ_INT(l[0].scenery, 28); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 127);
-    CHECK_EQ_INT(street_lamps_for("CY3", l, STREET_LAMPS_MAX), 1);
-    CHECK_EQ_INT(l[0].scenery, 7); CHECK_EQ_INT(l[0].width, 64); CHECK_EQ_INT(l[0].height, 128);
     enum { BW = 144, BH = 82 };
     uint8_t px[BW * BH];
     memset(px, 255, sizeof px);
@@ -126,6 +134,7 @@ static void test_painting_again_and_the_wrong_board(void)
 int main(void)
 {
     test_the_lamp_of_each_track();
+    test_the_other_tracks_lamps();
     test_vertigo_ridge_has_two_lamps();
     test_the_lens_and_the_halo();
     test_painting_again_and_the_wrong_board();

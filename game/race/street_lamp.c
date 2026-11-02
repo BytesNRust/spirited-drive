@@ -14,6 +14,12 @@ static const StreetLamp CY3_LAMP = { 7, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10
 /* Transtropolis' (TR7) street lamp (scenery texture 28, 64 x 127, 79 placements): a grey head on an arch, the lens under it at rows 16..19, x 50..57 */
 static const StreetLamp TR7_LAMP = { 28, 64, 127, { 50, 16, 57, 19 }, 54, 21, 5, 10, 255, 0 };
 
+/* the foundry's truss (TR7, scenery texture 22, 194 x 24, 6 placements): two shaded bulbs hang from it, their lit undersides at rows 22 and 23, x 44..54 and 140..150 */
+static const StreetLamp TR7_TRUSS_LAMPS[] = {
+    { 22, 194, 24, { 44, 22, 54, 23 }, 49, 21, 3, 6, 255, 1 },
+    { 22, 194, 24, { 140, 22, 150, 23 }, 145, 21, 3, 6, 255, 1 },
+};
+
 /* CL1's board (scenery texture 10, 42 placements): the lamp with its arm; the lens is the amber at the arm's end, rows 7 and 8, x 76..84 (the housing above
  * it is grey, rows 0..6); the halo hangs under it */
 static const StreetLamp CL1_LAMP = { 10, 87, 128, { 76, 7, 84, 8 }, 80, 10, 5, 10, 255, 0 };
@@ -42,7 +48,12 @@ int street_lamps_for(const char *track, StreetLamp *out, int max)
     if (is_track(track, "CY1")) out[0] = CY1_LAMP;
     else if (is_track(track, "CY2")) out[0] = CY2_LAMP;
     else if (is_track(track, "CY3")) out[0] = CY3_LAMP;
-    else if (is_track(track, "TR7")) out[0] = TR7_LAMP;
+    else if (is_track(track, "TR7")) {
+        out[0] = TR7_LAMP;
+        int n = 1;
+        for (int i = 0; i < 2 && n < max; i++) out[n++] = TR7_TRUSS_LAMPS[i];
+        return n;
+    }
     else if (is_track(track, "CL1")) out[0] = CL1_LAMP;
     else if (is_track(track, "TR2")) out[0] = TR2_LAMP;
     else if (is_track(track, "TR3")) {
