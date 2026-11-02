@@ -771,6 +771,15 @@ bool platform_set_mods(const char *data_root, const char *mods_dir)
     return true;
 }
 
+void platform_open_log(const char *mods_dir)
+{
+    SDL_PathInfo info;
+    if (mods_dir != NULL && mods_dir[0] != '\0' && SDL_GetPathInfo(mods_dir, &info) && info.type == SDL_PATHTYPE_DIRECTORY)
+        SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);   /* platform_set_mods checks it and says so when it is not there */
+    data_path_set_base(SDL_GetBasePath());
+    open_log();
+}
+
 const char *platform_mods_error(void)
 {
     return mods_error;
@@ -851,10 +860,21 @@ static const char *user_dir(char *out, size_t out_size)
         SDL_CreateDirectory(out);
         return out;
     }
+    const char *const env = SDL_getenv("TNFS_PREF_DIR");   /* a dev/test override: the tests and modders keep clear of the player's own folder */
+    if (env != NULL && env[0] != '\0') {
+        SDL_snprintf(out, out_size, "%s/", env);
+        SDL_CreateDirectory(out);
+        return out;
+    }
     if (pref == NULL) pref = SDL_GetPrefPath("tnfs", "tnfs");
     if (pref == NULL) return NULL;
     SDL_snprintf(out, out_size, "%s", pref);
     return out;
+}
+
+bool platform_user_dir(char *out, size_t out_size)
+{
+    return user_dir(out, out_size) != NULL;
 }
 
 static const char *user_path(const char *name, char *out, size_t out_size)

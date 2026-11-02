@@ -1,6 +1,7 @@
 /* port: see platform/first_run.h. */
 #include "game/platform/first_run.h"
 
+#include "game/platform/platform.h"
 #include "game/sys/data_check.h"
 #include "game/sys/data_copy.h"
 #include "game/sys/port_log.h"
@@ -12,9 +13,9 @@
 
 bool first_run_user_copy(char *out, size_t out_size)
 {
-    const char *pref = SDL_GetPrefPath("tnfs", "tnfs");
-    if (pref == NULL) return false;
-    snprintf(out, out_size, "%sgamedata", pref);
+    char dir[1024];
+    if (!platform_user_dir(dir, sizeof dir)) return false;   /* the --mods folder's user/, $TNFS_PREF_DIR or the OS's: the same one as the settings and the log */
+    snprintf(out, out_size, "%sgamedata", dir);
     return true;
 }
 

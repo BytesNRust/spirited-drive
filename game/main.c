@@ -256,6 +256,7 @@ int main(int argc, char **argv)
 {
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
+    platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in tnfs.log too */
     int ok;
     static char data_root[1024];
     if (!resolve_data_root(&opt, data_root, sizeof data_root)) return EXIT_FAILURE;
