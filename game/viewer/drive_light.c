@@ -10,6 +10,7 @@
 #include "game/race/psx_lamps.h"
 #include "game/race/psx_light.h"
 #include "game/race/street_lamp.h"
+#include "game/race/window_lights.h"
 #include "game/race/psx_light_synth.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
@@ -42,6 +43,9 @@ static int headlights_on;               /* the race is at night with the pools: 
 static const float NIGHT_PALETTE[3] = { 0.80f, 0.96f, 1.0f };
 static StreetLamp street_lamp;   /* port (psx_headlights): City's street lamps flare at night (street_lamp.h) */
 static int street_lamp_on;
+static const WindowBoard *window_boards;   /* port (psx_headlights): the night's lit windows (window_lights.h), one pool entry for all the boards */
+static int window_board_count;
+enum { WINDOW_SEED = 0x71d0, WINDOW_ENTRIES = 1 };
 static int night_sky;   /* the race is at night: a sky of the dusk is darkened by the night's light before it is matched to the shown palette */
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
@@ -152,6 +156,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     night_sky = time == PSX_TIME_NIGHT;
     headlights_on = 0;
     street_lamp_on = 0;
+    window_boards = NULL, window_board_count = 0;
     night_lamp_spec = NULL, night_lamp_count = 0, lamp_pool_count = 0;
     ported_view_set_police_lights(enabled);   /* the light effects: the police car's lights flash (police_lights.h) */
     alt_sky_wanted = 0;
@@ -174,6 +179,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
     headlights_on = time == PSX_TIME_NIGHT && port_psx_headlights();
     street_lamp_on = headlights_on && street_lamp_for(track, &street_lamp);
+    window_board_count = headlights_on ? window_boards_for(track, &window_boards) : 0;
     synth_wanted = psx_light_synth_track(track);
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
@@ -277,19 +283,23 @@ static int brighter(const uint8_t palette[768], int a, int b)
     return palette[3 * a] + palette[3 * a + 1] + palette[3 * a + 2] > palette[3 * b] + palette[3 * b + 1] + palette[3 * b + 2];
 }
 
+/* the pool's last entries are the extras': the street lamp's three, then the windows' one */
+static int street_entries(void) { return street_lamp_on ? STREET_LAMP_ENTRIES : 0; }
+static int window_entries(void) { return window_board_count > 0 ? WINDOW_ENTRIES : 0; }
+
 int drive_light_street_lamp_entries(void)
 {
-    return street_lamp_on ? STREET_LAMP_ENTRIES : 0;
+    return street_entries() + window_entries();
 }
 
 /* the street lamp's colours (the lens bright, the halo's core and rim warmer and dimmer), in the last pool entries after the tunnels' colours */
 static void street_lamps_night(TrackArt *art)
 {
     static const uint8_t RGB[STREET_LAMP_ENTRIES][3] = { { 255, 236, 170 }, { 214, 160, 70 }, { 130, 84, 34 } };
-    if (!street_lamp_on || lamp_pool_count < STREET_LAMP_ENTRIES || art == NULL) return;
+    if (!street_lamp_on || lamp_pool_count < street_entries() + window_entries() || art == NULL) return;
     uint8_t entry[STREET_LAMP_ENTRIES];
     for (int k = 0; k < STREET_LAMP_ENTRIES; k++) {
-        entry[k] = lamp_pool[lamp_pool_count - STREET_LAMP_ENTRIES + k];
+        entry[k] = lamp_pool[lamp_pool_count - window_entries() - STREET_LAMP_ENTRIES + k];
         memcpy(art->palette + 3 * entry[k], RGB[k], 3);
         drive_palette_write(entry[k], RGB[k]);
     }
@@ -300,10 +310,32 @@ static void street_lamps_night(TrackArt *art)
     port_log("street_lamps: %zu lens texels and %zu halo texels in entries %d %d %d\n", p.lens, p.halo, entry[0], entry[1], entry[2]);
 }
 
+/* the lit windows' colour (a warm yellow, dimmer than the lamps' lens), the pool's very last entry, painted into each window board */
+static void windows_night(TrackArt *art)
+{
+    static const uint8_t RGB[3] = { 236, 190, 96 };
+    if (window_board_count <= 0 || lamp_pool_count < window_entries() || art == NULL) return;
+    const uint8_t entry = lamp_pool[lamp_pool_count - 1];
+    memcpy(art->palette + 3 * entry, RGB, 3);
+    drive_palette_write(entry, RGB);
+    int scenery[WINDOW_BOARDS_MAX];
+    int n = 0;
+    for (int i = 0; i < window_board_count && n < WINDOW_BOARDS_MAX; i++) {
+        const WindowBoard *b = &window_boards[i];
+        TrackTexture *t = b->scenery >= 0 && b->scenery < TRACK_SCENERY_TEXTURES ? &art->scenery[b->scenery] : NULL;
+        if (t == NULL || !t->present) continue;
+        const size_t lit = window_board_paint(b, (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, entry, WINDOW_SEED);
+        port_log("windows: board %d: %zu of %d windows lit in entry %d\n", b->scenery, lit, b->ncol * b->nrow, entry);
+        scenery[n++] = b->scenery;
+    }
+    ported_view_set_window_boards(scenery, n, entry);
+}
+
 void drive_light_lamps_night(TrackArt *art)
 {
-    const int street = street_lamp_on ? STREET_LAMP_ENTRIES : 0;   /* the pool's last entries are the street lamp's */
+    const int street = street_entries() + window_entries();   /* the pool's last entries are the extras' */
     street_lamps_night(art);
+    windows_night(art);
     if (night_lamp_count <= 0 || lamp_pool_count - street <= 0 || art == NULL) return;
     uint8_t wanted[256] = { 0 }, colour[256], remap[256];
     int n = 0;
