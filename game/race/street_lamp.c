@@ -4,15 +4,15 @@
 #include <string.h>
 
 /* CY1's board (scenery texture 10): the lens is rows 7..9, x 48..62, the housing and arm above it (the transparent texels are 255) */
-static const StreetLamp CY1_LAMP = { 10, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10, 255 };
+static const StreetLamp CY1_LAMP = { 10, 64, 128, { 46, 7, 63, 9 }, 55, 10, 5, 10, 255, 0 };
 
 /* CL1's board (scenery texture 10, 42 placements): the lamp with its arm; the lens is the amber at the arm's end, rows 7 and 8, x 76..84 (the housing above
  * it is grey, rows 0..6); the halo hangs under it */
-static const StreetLamp CL1_LAMP = { 10, 87, 128, { 76, 7, 84, 8 }, 80, 10, 5, 10, 255 };
+static const StreetLamp CL1_LAMP = { 10, 87, 128, { 76, 7, 84, 8 }, 80, 10, 5, 10, 255, 0 };
 
 /* Autumn Valley's (TR2) floodlight poles (scenery texture 5, 38 placements): four heads over rows 0..21 and the pole (x 17..19) under them; the lit faces are
  * the heads' lower rows, the halo hangs from their foot */
-static const StreetLamp TR2_LAMP = { 5, 38, 148, { 0, 8, 37, 20 }, 18, 21, 5, 10, 255 };
+static const StreetLamp TR2_LAMP = { 5, 38, 148, { 0, 8, 37, 20 }, 18, 21, 5, 10, 255, 0 };
 
 static int is_track(const char *track, const char *name)
 {
