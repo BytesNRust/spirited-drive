@@ -19,7 +19,7 @@ typedef struct {
     float x, y, z;   /* a terrain point in the track's units, y up */
 } LightPos;
 
-/* 0..1 (anything outside is clipped) as one of 16 levels: 0, 17 .. 255 (level * 17, the PS1's banded look). */
+/* 0..1 (anything outside is clipped) as a byte 0..255 (the CD's own bytes are not banded: its mean follows 255 v at every band). */
 uint8_t psx_light_level(float v);
 
 /* Smooths a light of `count` nodes of PSX_LIGHT_POINTS values (0..1) in place: 1-2-1 along the nodes and along each chain of terrain points; the road's points

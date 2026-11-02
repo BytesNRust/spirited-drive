@@ -11,7 +11,7 @@ uint8_t psx_light_level(float v)
 {
     if (!(v > 0.0f)) return 0;
     if (v >= 1.0f) return PSX_LIGHT_FULL;
-    return (uint8_t)(lroundf(v * 15.0f) * 17);
+    return (uint8_t)(lroundf(v * 255.0f));
 }
 
 enum {

@@ -30,8 +30,8 @@ static void test_quantised_to_sixteen_levels(void)
     CHECK_EQ_INT(psx_light_level(0.0f), 0);
     CHECK_EQ_INT(psx_light_level(2.0f), 255);    /* above full: full */
     CHECK_EQ_INT(psx_light_level(-1.0f), 0);     /* below none: none */
-    for (int i = 0; i <= 100; i++) CHECK(psx_light_level((float)i / 100.0f) % 17 == 0);
-    CHECK(psx_light_level(0.5f) == 119 || psx_light_level(0.5f) == 136);   /* the half is one of the two levels round it */
+    for (int i = 0; i <= 100; i++) CHECK_EQ_INT(psx_light_level((float)i / 100.0f), (int)lroundf((float)i * 2.55f));
+    CHECK_EQ_INT(psx_light_level(0.5f), 128);
 }
 
 /* the road's points (0, 1, 6) are always full; the terrain's are Lambert shading (psx_light_make.c's LAMBERT): flat ground at noon is full (the CD's flat ground is level 15), at dawn and dusk
@@ -44,8 +44,8 @@ static void test_a_flat_open_track_is_lit_as_the_cd_lights_flat_ground(void)
     memset(data, 7, sizeof data);
     for (int time = PSX_SYNTH_DAWN; time <= PSX_SYNTH_DUSK; time++) {
         CHECK(psx_light_make_rows(pts, NODES, 0, time, data));
-        const int expected = time == PSX_SYNTH_DAY ? 238 : 204;   /* flat ground by day is 0.96, level 14 */
-        const int outer5[3] = { 170, 170, 136 }, outer10[3] = { 136, 170, 170 };   /* the outer points: their means in the 16 levels */
+        const int expected = time == PSX_SYNTH_DAY ? 245 : 204;   /* flat ground by day is 0.96 */
+        const int outer5[3] = { 173, 162, 142 }, outer10[3] = { 143, 166, 175 };   /* the outer points: their means */
         for (int n = 0; n < NODES; n++)
             for (int p = 0; p < PSX_LIGHT_POINTS; p++)
                 CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], road_point(p) ? 255 : p == 5 ? outer5[time] : p == 10 ? outer10[time] : expected);
@@ -212,7 +212,6 @@ static void test_a_lamp_pools_light_on_the_terrain_near_it(void)
     CHECK(lit[22 * PSX_LIGHT_POINTS + 3] < lit[20 * PSX_LIGHT_POINTS + 3]);         /* ... less */
     CHECK_EQ_INT(lit[34 * PSX_LIGHT_POINTS + 3], dark[34 * PSX_LIGHT_POINTS + 3]);  /* far off: as it was */
     CHECK_EQ_INT(lit[20 * PSX_LIGHT_POINTS + 0], 255);                              /* the road is as it was */
-    for (int i = 0; i < NODES * PSX_LIGHT_POINTS; i++) CHECK(lit[i] % 17 == 0);     /* still the 16 levels */
 }
 
 static void test_a_lamp_beside_the_closing_node_lights_across_it_on_a_ring(void)
@@ -264,7 +263,7 @@ static void test_the_rules_set_their_points_in_the_levels(void)
     for (int n = 0; n < NODES; n++)
         for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
             const int inside = n >= 10 && n <= 12 && p >= 2 && p <= 4;
-            if (inside) CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], psx_light_level(100.0f / 255.0f));   /* in the 16 levels */
+            if (inside) CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], psx_light_level(100.0f / 255.0f));
             else CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], 255);
         }
 }
