@@ -51,6 +51,7 @@
 #include "game/frontend/menu_race.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
+#include "game/sys/port_settings.h"
 #include "game/frontend/race_settings.h"
 #include "game/frontend/random_pick.h"
 #include "game/frontend/save_files.h"
@@ -1084,6 +1085,17 @@ void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, in
     plus_text(ctx, style_id, text, x, y);
 }
 int32_t glue_plus_text_width(void *ctx, const char *text) { return plus_text_width(ctx, text); }
+void glue_plus_text_scaled(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)ctx;
+    text_select((TextStyle)style_id);
+    text_draw_smooth(text, x, y, num, den);
+}
+int32_t glue_plus_text_width_scaled(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    (void)ctx;
+    return text_width_scaled(text, num, den);
+}
 void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     plus_panel(ctx, rgb, x0, y0, x1, y1, framed);
@@ -1635,7 +1647,8 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel };
+        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel, port_profile_ui() ? glue_profile : NULL,
+        glue_plus_text_scaled, glue_plus_text_width_scaled };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],

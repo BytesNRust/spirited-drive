@@ -1,7 +1,10 @@
 /* port: see port_profile.h. */
 #include "game/sys/port_profile.h"
 
+#include "game/platform/platform.h"
+
 #include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char *const KEYS[PROFILE_COUNT] = { "custom", "stock", "restored", "restomod" };
@@ -87,3 +90,51 @@ int port_profile_extras_match(Profile p, const PortExtras *e)
     const PortExtras want = port_profile_extras(p, *e);
     return e->movies_wide == want.movies_wide && e->psx_liveries == want.psx_liveries && e->rally_gravel == want.rally_gravel;
 }
+
+/* the Options screen's Cancel: port.cfg and extras.cfg as they were before the first profile step, kept in memory (the files are tiny) */
+static struct {
+    int armed, taken;
+    uint8_t *file[2];
+    size_t size[2];
+} undo;
+static const char *const UNDO_NAMES[2] = { "port.cfg", "extras.cfg" };
+
+static void undo_free(void)
+{
+    for (int i = 0; i < 2; i++) free(undo.file[i]), undo.file[i] = NULL, undo.size[i] = 0;
+    undo.armed = undo.taken = 0;
+}
+
+void port_profile_undo_begin(void)
+{
+    undo_free();
+    undo.armed = 1;
+}
+
+void port_profile_undo_note(void)
+{
+    if (!undo.armed || undo.taken) return;
+    for (int i = 0; i < 2; i++) {
+        size_t n = 0;
+        uint8_t *data = platform_read_user_file(UNDO_NAMES[i], &n);
+        if (data != NULL && n > 0) {
+            undo.file[i] = malloc(n);
+            if (undo.file[i] != NULL) memcpy(undo.file[i], data, n), undo.size[i] = n;
+        }
+        if (data != NULL) platform_free_file(data);
+    }
+    undo.taken = 1;
+}
+
+int port_profile_undo_restore(void)
+{
+    int ok = 1, restored = undo.taken;
+    for (int i = 0; undo.taken && i < 2; i++) {
+        static const uint8_t NONE[] = "\n";   /* a file that was not there: an empty one reads as the defaults, with no profile */
+        ok &= platform_write_user_file(UNDO_NAMES[i], undo.file[i] != NULL ? undo.file[i] : NONE, undo.file[i] != NULL ? undo.size[i] : 1) ? 1 : 0;
+    }
+    undo_free();
+    return restored ? (ok ? 1 : -1) : 0;
+}
+
+void port_profile_undo_end(void) { undo_free(); }

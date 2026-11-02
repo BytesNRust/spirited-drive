@@ -201,8 +201,58 @@ static void test_files(void)
     CHECK_EQ_INT(port_settings_load().format, SCREEN_21_9);
 }
 
+/* Options' Cancel: the files as they were before the first profile step; Done (end) keeps; without begin nothing is kept */
+static void test_undo(void)
+{
+    port_settings_set_display_probe(NULL);
+    clear_files();
+    put_file("port.cfg", "format=4:3\npsx_light=1\nlaps=7\n");   /* custom, a hand-made mix */
+    port_profile_undo_begin();
+    CHECK(port_profile_select(PROFILE_STOCK));
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTOMOD);
+    CHECK_EQ_INT(port_profile_undo_restore(), 1);
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_CUSTOM);   /* back to custom, with its own values */
+    CHECK_EQ_INT(port_settings_load().laps, 7);
+    CHECK_EQ_INT(port_settings_load().psx_light, 1);
+    CHECK_EQ_INT(port_profile_undo_restore(), 0);   /* nothing left to put back */
+    /* a file that was not there is an empty one again (the defaults, custom) */
+    clear_files();
+    port_profile_undo_begin();
+    CHECK(port_profile_select(PROFILE_RESTORED));
+    CHECK_EQ_INT(port_profile_undo_restore(), 1);
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_CUSTOM);
+    /* Done: kept */
+    put_file("port.cfg", "profile=stock\n");
+    port_profile_undo_begin();
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    port_profile_undo_end();
+    CHECK_EQ_INT(port_profile_undo_restore(), 0);
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTOMOD);
+    /* not armed (Game Mode's row): no undo */
+    port_profile_undo_end();
+    CHECK(port_profile_select(PROFILE_STOCK));
+    CHECK_EQ_INT(port_profile_undo_restore(), 0);
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_STOCK);
+}
+
+/* port_profile_ui: on by default, off with 0, kept by a save */
+static void test_profile_ui_key(void)
+{
+    clear_files();
+    CHECK_EQ_INT(port_settings_defaults().profile_ui, 1);
+    CHECK_EQ_INT(port_settings_parse("port_profile_ui=0\n", 18).profile_ui, 0);
+    CHECK_EQ_INT(port_settings_parse("port_profile_ui=2\n", 18).profile_ui, 1);   /* not a 0 or 1: the default */
+    PortSettings s = port_settings_defaults();
+    s.profile_ui = 0;
+    CHECK(port_settings_save(&s));
+    CHECK_EQ_INT(port_settings_load().profile_ui, 0);
+}
+
 int main(void)
 {
+    test_undo();
+    test_profile_ui_key();
     test_names_and_monitor();
     test_tables();
     test_files();

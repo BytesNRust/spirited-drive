@@ -53,6 +53,7 @@ typedef struct {
                               * (lamp_flare.h); 0: the exe's */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
+    int profile_ui;          /* 1 (the port's default): Game Mode and Options show the Profile row (profile.h); 0: the exe's menus, no row. `port_profile_ui=0|1`. Not controlled by a profile. */
     int profile;             /* a Profile (port_profile.h): PROFILE_CUSTOM 0 (no `profile=` line) keeps the values below as they are; another takes the settings it controls from its table
                               * at load. `profile=custom|stock|restored|restomod`. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
@@ -76,6 +77,9 @@ int port_fog_sample(void);
 /* the percent (0..100) of the way to white that band's colour is lifted: TNFS_FOG_LIFT when set, else FOG_SAMPLE_LIFT_DEFAULT. */
 int port_fog_lift(void);
 enum { FOG_SAMPLE_LIFT_DEFAULT = 15 };
+/* 1 when Game Mode and Options show the Profile row: TNFS_PROFILE_UI=0/1 when set, else port.cfg's port_profile_ui (default 1). */
+int port_profile_ui(void);
+
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
 /* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_PSX_FLARES=0/1 when set, else port.cfg's psx_flares; never without port_psx_light. */

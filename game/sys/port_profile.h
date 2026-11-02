@@ -28,4 +28,11 @@ PortExtras port_profile_extras(Profile p, PortExtras e);
 int port_profile_settings_match(Profile p, const PortSettings *s, ScreenFormat monitor);
 int port_profile_extras_match(Profile p, const PortExtras *e);
 
+/* Undo for the Options screen's Cancel: begin arms it (and forgets an older one); the first change a profile step makes calls note, which keeps port.cfg and extras.cfg as
+ * they are; restore writes them back (1 done, 0 nothing was kept, -1 a write failed); end (Done) forgets. Without begin, note keeps nothing (Game Mode's row has no undo). */
+void port_profile_undo_begin(void);
+void port_profile_undo_note(void);
+int port_profile_undo_restore(void);
+void port_profile_undo_end(void);
+
 #endif
