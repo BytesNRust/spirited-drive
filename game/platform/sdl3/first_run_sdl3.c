@@ -142,6 +142,7 @@ bool first_run_setup(const char *dest)
         (void)data_check(chosen, &c);   /* the folder that holds the files (one level down, perhaps) */
         const char *const root = c.root[0] != '\0' ? c.root : chosen;
         ok = copy_with_bar(root, dest);
+        if (ok && c.matched != c.total) (void)data_mark_accepted(dest, &c);   /* Use it anyway: the next start must not ask again */
         if (!ok) {
             static const char *const OK[] = { "OK" };
             {

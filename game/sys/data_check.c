@@ -96,10 +96,27 @@ int data_check_against(const char *dir, const DataFile *files, int count, DataCh
 
 int data_check(const char *dir, DataCheck *out) { return data_check_against(dir, DATA_MANIFEST, DATA_MANIFEST_COUNT, out); }
 
+/* the file that says the player chose this copy knowing some of its files differ ("Use it anyway") */
+#define ACCEPTED_FILE ".accepted"
+
+int data_mark_accepted(const char *dir, const DataCheck *c)
+{
+    char path[1100];
+    if (dir == NULL || snprintf(path, sizeof path, "%s/" ACCEPTED_FILE, dir) >= (int)sizeof path) return 0;
+    FILE *f = fopen(path, "w");
+    if (f == NULL) return 0;
+    fprintf(f, "accepted: %d of %d key files as in the manifest, %d missing, %d different\n", c != NULL ? c->matched : 0, c != NULL ? c->total : 0,
+            c != NULL ? c->missing : 0, c != NULL ? c->different : 0);
+    return fclose(f) == 0;
+}
+
 int data_looks_installed(const char *dir)
 {
-    char path[1024];
+    char path[1100];
     struct stat st;
-    return dir != NULL && DATA_MANIFEST_COUNT > 0 && find_path(dir, DATA_MANIFEST[0].path, path, sizeof path) && stat(path, &st) == 0 &&
-           (long)st.st_size == DATA_MANIFEST[0].size;
+    if (dir == NULL || DATA_MANIFEST_COUNT <= 0) return 0;
+    if (!find_path(dir, DATA_MANIFEST[0].path, path, sizeof path) || stat(path, &st) != 0) return 0;
+    if ((long)st.st_size == DATA_MANIFEST[0].size) return 1;
+    snprintf(path, sizeof path, "%s/" ACCEPTED_FILE, dir);   /* a different first file, but the player accepted this copy */
+    return stat(path, &st) == 0;
 }

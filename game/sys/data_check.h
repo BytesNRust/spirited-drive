@@ -28,4 +28,7 @@ int data_check(const char *dir, DataCheck *out);
 /* Cheap: whether `dir` has the manifest's first file at its size (the exe), what a copy that was verified leaves; no hashing. */
 int data_looks_installed(const char *dir);
 
+/* Writes <dir>/.accepted (what the check found): the folder was copied by Use it anyway, so data_looks_installed takes it on the next start. 1 on success. */
+int data_mark_accepted(const char *dir, const DataCheck *c);
+
 #endif
