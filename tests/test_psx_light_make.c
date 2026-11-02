@@ -74,12 +74,13 @@ static void test_a_wall_darkens_the_terrain_under_it_not_the_road(void)
     flat(pts);
     for (int n = 0; n < NODES; n++)
         for (int k = 3; k < 5; k++) pts[n * PSX_LIGHT_POINTS + 6 + k].y = 30;   /* the far points of the left chain stand up: a cliff */
-    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAY, data));
+    const PsxLightSun overhead = { 0.0f, 1.5f };   /* the sun overhead: the cliff takes sky, and tilts the ground it stands on */
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &overhead, data));
     for (int n = 0; n < NODES; n++) {
         for (int p = 0; p < PSX_LIGHT_POINTS; p++)
             if (road_point(p)) CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], 255);
-        for (int p = 2; p <= 5; p++) CHECK(data[n * PSX_LIGHT_POINTS + p] >= 238);   /* the open side is as it was (nearly: the cliff is far) */
-        CHECK(data[n * PSX_LIGHT_POINTS + 8] < (n >= 5 && n < NODES - 5 ? 200 : 210));   /* under the cliff (the road's ends see half of it) */
+        for (int p = 2; p <= 5; p++) CHECK(data[n * PSX_LIGHT_POINTS + p] >= 221);   /* the open side is as it was (nearly: the cliff is far) */
+        CHECK(data[n * PSX_LIGHT_POINTS + 8] < (n >= 5 && n < NODES - 5 ? 200 : 215));   /* under the cliff (the road's ends see half of it) */
     }
 }
 
@@ -89,7 +90,8 @@ static void test_a_bridge_darkens_the_terrain_below_its_deck(void)
     uint8_t data[NODES * PSX_LIGHT_POINTS];
     flat(pts);
     for (int n = 10; n < 30; n++) pts[n * PSX_LIGHT_POINTS].y = 6;   /* the deck over a flat valley: the centre row lifted */
-    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAY, data));
+    const PsxLightSun from_left = { 3.14159265f, 0.3f };   /* a low sun over the deck: its shadow falls on the ground beside it */
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &from_left, data));
     CHECK_EQ_INT(data[20 * PSX_LIGHT_POINTS + 0], 255);               /* the deck is lit */
     CHECK(data[20 * PSX_LIGHT_POINTS + 2] < data[2 * PSX_LIGHT_POINTS + 2]);   /* the ground beside it, under it, is darker than the open ground */
     CHECK_EQ_INT(data[2 * PSX_LIGHT_POINTS + 2], 255);
@@ -115,15 +117,58 @@ static void test_a_ring_sees_across_its_closing_node(void)
     LightPos pts[NODES * PSX_LIGHT_POINTS];
     uint8_t open[NODES * PSX_LIGHT_POINTS], ring[NODES * PSX_LIGHT_POINTS];
     circle(pts);
-    for (int n = NODES - 4; n < NODES; n++) pts[n * PSX_LIGHT_POINTS + 9].y = 40;   /* a rise at the end, beside node 1 round the ring */
-    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAY, open));
-    CHECK(psx_light_make_rows(pts, NODES, 1, PSX_SYNTH_DAY, ring));
+    for (int n = NODES - 6; n < NODES; n++)
+        for (int p = 8; p <= 10; p++) pts[n * PSX_LIGHT_POINTS + p].y = 40;   /* a rise at the end, beside node 1 round the ring */
+    const PsxLightSun overhead = { 0.0f, 1.5f };
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &overhead, open));
+    CHECK(psx_light_make_rows_sun(pts, NODES, 1, PSX_SYNTH_DAY, &overhead, ring));
     CHECK(ring[1 * PSX_LIGHT_POINTS + 8] < open[1 * PSX_LIGHT_POINTS + 8]);   /* only the ring knows the rise is next door */
-    CHECK_EQ_INT(ring[20 * PSX_LIGHT_POINTS + 2], 255);                       /* the far side of the circle is open */
+    CHECK(ring[20 * PSX_LIGHT_POINTS + 2] >= 238);                            /* the far side of the circle is open */
+}
+
+/* the sun: its direction and what it does to a slope and behind a cliff */
+static void test_a_slope_facing_the_sun_is_lighter_than_one_facing_away(void)
+{
+    LightPos pts[NODES * PSX_LIGHT_POINTS];
+    uint8_t toward[NODES * PSX_LIGHT_POINTS], away[NODES * PSX_LIGHT_POINTS];
+    flat(pts);
+    for (int n = 0; n < NODES; n++)
+        for (int k = 0; k < 5; k++) pts[n * PSX_LIGHT_POINTS + 1 + k].y = (float)(k + 1) * 8 * 0.5f;   /* the right side rises toward +x, 27 degrees */
+    const PsxLightSun east = { 0.0f, 0.6f }, west = { 3.14159265f, 0.6f };   /* the sun over +x, over -x: the slope rising toward +x faces -x */
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &west, toward));
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &east, away));
+    CHECK(toward[20 * PSX_LIGHT_POINTS + 4] > away[20 * PSX_LIGHT_POINTS + 4]);
+    CHECK(away[20 * PSX_LIGHT_POINTS + 4] > 0);   /* the sky still lights it */
+    CHECK_EQ_INT(away[20 * PSX_LIGHT_POINTS + 0], 255);   /* the road is lit whatever the sun does */
+}
+
+static void test_a_cliff_between_a_point_and_the_sun_shades_it(void)
+{
+    LightPos pts[NODES * PSX_LIGHT_POINTS];
+    uint8_t lit[NODES * PSX_LIGHT_POINTS], shaded[NODES * PSX_LIGHT_POINTS], high[NODES * PSX_LIGHT_POINTS];
+    flat(pts);
+    for (int n = 0; n < NODES; n++) pts[n * PSX_LIGHT_POINTS + 6 + 3].y = 24;   /* a cliff on the left, 32 units out, 24 high */
+    const PsxLightSun from_left = { 3.14159265f, 0.5f }, from_right = { 0.0f, 0.5f }, overhead = { 3.14159265f, 1.4f };
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &from_right, lit));
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &from_left, shaded));
+    CHECK(psx_light_make_rows_sun(pts, NODES, 0, PSX_SYNTH_DAY, &overhead, high));
+    CHECK(shaded[20 * PSX_LIGHT_POINTS + 8] < lit[20 * PSX_LIGHT_POINTS + 8]);   /* the foot of the cliff, the sun behind it */
+    CHECK(high[20 * PSX_LIGHT_POINTS + 8] >= shaded[20 * PSX_LIGHT_POINTS + 8]);  /* the sun high: the shadow is short */
+}
+
+static void test_each_time_has_a_sun(void)
+{
+    PsxLightSun dawn, day, dusk;
+    psx_light_sun_default(PSX_SYNTH_DAWN, &dawn), psx_light_sun_default(PSX_SYNTH_DAY, &day), psx_light_sun_default(PSX_SYNTH_DUSK, &dusk);
+    CHECK(day.elevation > dawn.elevation && day.elevation > dusk.elevation);   /* the day's sun is the highest */
+    CHECK(dawn.elevation > 0.05f && dusk.elevation > 0.05f);                   /* none is under the horizon */
 }
 
 int main(void)
 {
+    test_a_slope_facing_the_sun_is_lighter_than_one_facing_away();
+    test_a_cliff_between_a_point_and_the_sun_shades_it();
+    test_each_time_has_a_sun();
     test_a_wall_darkens_the_terrain_under_it_not_the_road();
     test_a_bridge_darkens_the_terrain_below_its_deck();
     test_a_ring_sees_across_its_closing_node();

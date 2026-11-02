@@ -21,6 +21,17 @@ typedef struct {
 /* 0..1 (anything outside is clipped) as one of 16 levels: 0, 17 .. 255 (level * 17, the PS1's banded look). */
 uint8_t psx_light_level(float v);
 
+/* The sun of a time of day: the direction in the ground's plane (radians, 0 toward +x, pi/2 toward +z) and its elevation over the horizon (radians). */
+typedef struct {
+    float azimuth, elevation;
+} PsxLightSun;
+
+/* The time's own sun (PSX_SYNTH_DAWN .. PSX_SYNTH_DUSK): the day's high, the dawn's and the dusk's low; the azimuth the track's own (the default is 0). */
+void psx_light_sun_default(int time, PsxLightSun *out);
+
+/* As psx_light_make_rows with the sun given (NULL: the time's default). */
+int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data);
+
 /* The rows for `count` nodes of 11 points (`pts`: TriRow order, the centre, a chain of 5 each side), at `time` (PSX_SYNTH_DAWN .. PSX_SYNTH_DUSK; the night is
  * made apart), into `data` (count * PSX_LIGHT_POINTS bytes). 1 on success; 0 for a NULL, fewer than 2 nodes or an unknown time. `ring` joins the last node to the first. */
 int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time, uint8_t *data);

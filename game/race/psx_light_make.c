@@ -19,14 +19,26 @@ enum {
     SKY_REACH = 80          /* units: what is further does not shade (the hills are the sky's) */
 };
 
+static const float SUN_BEAM_COS = 0.98f;    /* the terrain within about 11 degrees of the sun's azimuth can shade it */
+static const float SHADOW_SOFT = 4.0f;      /* how fast the shadow's edge goes from lit to shaded with the horizon's tangent */
+static const float AMBIENT_DAY = 0.45f, AMBIENT_LOW = 0.55f;   /* the sky's share of the light: the sun's is the rest */
+
 static int is_road_point(int p) { return p == 0 || p == 1 || p == 6; }
 
-/* The sky a point sees: for each of SKY_SECTORS azimuths the highest elevation of the terrain points round it, and over that horizon the cosine-weighted share
- * of the dome left, 1 / (1 + tan^2) (a flat horizon sees all of it, a wall straight up none), averaged over the sectors. */
-static float sky_visibility(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point)
+
+typedef struct {
+    float sky;        /* the share of the dome seen, 0..1 */
+    float sun_tan;    /* the tangent of the highest terrain in the sun's direction (0 when none rises) */
+} Horizon;
+
+/* What a point sees round it: for each of SKY_SECTORS azimuths the highest elevation of the terrain points near it, and over that horizon the cosine-weighted
+ * share of the dome left, 1 / (1 + tan^2) (a flat horizon sees all of it, a wall straight up none), averaged over the sectors; and the horizon toward the sun. */
+static Horizon horizon_of(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, const PsxLightSun *sun)
 {
     const LightPos *at = &pts[node * PSX_LIGHT_POINTS + (uint32_t)point];
     float tan_max[SKY_SECTORS] = { 0 };
+    Horizon h = { 0, 0 };
+    const float sun_x = cosf(sun->azimuth), sun_z = sinf(sun->azimuth);
     for (int d = -SKY_WINDOW; d <= SKY_WINDOW; d++) {
         int64_t other = (int64_t)node + d;
         if (ring) other = ((other % count) + count) % count;
@@ -39,20 +51,75 @@ static float sky_visibility(const LightPos *pts, uint32_t count, int ring, uint3
             const float t = dy / run;
             const int sector = (int)((atan2f(dz, dx) + 3.14159265f) * (float)SKY_SECTORS / 6.28318531f) % SKY_SECTORS;
             if (t > tan_max[sector]) tan_max[sector] = t;
+            if ((dx * sun_x + dz * sun_z) / run > SUN_BEAM_COS && t > h.sun_tan) h.sun_tan = t;
         }
     }
-    float seen = 0;
-    for (int i = 0; i < SKY_SECTORS; i++) seen += 1.0f / (1.0f + tan_max[i] * tan_max[i]);
-    return seen / (float)SKY_SECTORS;
+    for (int i = 0; i < SKY_SECTORS; i++) h.sky += 1.0f / (1.0f + tan_max[i] * tan_max[i]);
+    h.sky /= (float)SKY_SECTORS;
+    return h;
+}
+
+static LightPos sub(LightPos a, LightPos b) { return (LightPos){ a.x - b.x, a.y - b.y, a.z - b.z }; }
+
+/* The surface's upward normal at a point: along the road (the node after minus the one before) crossed with across it (the chain's neighbours, the centre's
+ * two chains' first points). Straight up when the points do not span a surface. */
+static LightPos normal_of(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point)
+{
+    const uint32_t before = node > 0 ? node - 1 : (ring ? count - 1 : 0), after = node + 1 < count ? node + 1 : (ring ? 0 : count - 1);
+    const LightPos *row = &pts[node * PSX_LIGHT_POINTS];
+    const LightPos along = sub(pts[after * PSX_LIGHT_POINTS + (uint32_t)point], pts[before * PSX_LIGHT_POINTS + (uint32_t)point]);
+    LightPos across;
+    if (point == 0) across = sub(row[1], row[6]);
+    else {
+        const int chain_start = point <= 5 ? 1 : 6, first = chain_start, last = chain_start + 4;
+        const int prev = point == first ? 0 : point - 1, next = point == last ? point : point + 1;
+        across = sub(row[next], row[prev]);
+        if (point > 5) across = (LightPos){ -across.x, -across.y, -across.z };   /* the left chain runs the other way: the same side of the road as the right's */
+    }
+    LightPos n = { along.y * across.z - along.z * across.y, along.z * across.x - along.x * across.z, along.x * across.y - along.y * across.x };
+    const float len = sqrtf(n.x * n.x + n.y * n.y + n.z * n.z);
+    if (len < 1e-4f) return (LightPos){ 0, 1, 0 };
+    if (n.y < 0) n = (LightPos){ -n.x, -n.y, -n.z };
+    return (LightPos){ n.x / len, n.y / len, n.z / len };
+}
+
+void psx_light_sun_default(int time, PsxLightSun *out)
+{
+    if (out == NULL) return;
+    out->azimuth = 0.0f;
+    out->elevation = time == PSX_SYNTH_DAY ? 0.87f : time == PSX_SYNTH_DAWN ? 0.26f : 0.21f;   /* about 50, 15 and 12 degrees */
+}
+
+int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data)
+{
+    if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;
+    PsxLightSun own;
+    if (sun == NULL) psx_light_sun_default(time, &own), sun = &own;
+    const float up = sinf(sun->elevation), tan_sun = tanf(sun->elevation);
+    const float sx = cosf(sun->elevation) * cosf(sun->azimuth), sy = up, sz = cosf(sun->elevation) * sinf(sun->azimuth);
+    const float amb = time == PSX_SYNTH_DAY ? AMBIENT_DAY : AMBIENT_LOW, beam = 1.0f - amb;
+    for (uint32_t n = 0; n < count; n++)
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            uint8_t *out = &data[n * PSX_LIGHT_POINTS + (uint32_t)p];
+            if (is_road_point(p)) {
+                *out = PSX_LIGHT_FULL;
+                continue;
+            }
+            const Horizon h = horizon_of(pts, count, ring, n, p, sun);
+            const LightPos nm = normal_of(pts, count, ring, n, p);
+            float facing = nm.x * sx + nm.y * sy + nm.z * sz;
+            if (facing < 0) facing = 0;
+            float shadow = 0.5f + (tan_sun - h.sun_tan) * SHADOW_SOFT;   /* the horizon under the sun: lit; over it: shaded; a soft edge between */
+            shadow = shadow < 0 ? 0 : shadow > 1 ? 1 : shadow;
+            const float light = (amb * h.sky + beam * facing * shadow) / (amb + beam * up);   /* flat, open and unshaded: exactly 1 */
+            *out = psx_light_level(light);
+        }
+    return 1;
 }
 
 int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time, uint8_t *data)
 {
-    if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;
-    for (uint32_t n = 0; n < count; n++)
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++)
-            data[n * PSX_LIGHT_POINTS + (uint32_t)p] = is_road_point(p) ? PSX_LIGHT_FULL : psx_light_level(sky_visibility(pts, count, ring, n, p));
-    return 1;
+    return psx_light_make_rows_sun(pts, count, ring, time, NULL, data);
 }
 
 int psx_light_make(const Tri *tri, int time, PsxLight *out)
