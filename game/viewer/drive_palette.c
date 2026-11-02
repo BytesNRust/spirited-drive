@@ -2,6 +2,7 @@
 
 #include "game/race/race_palette.h"
 #include "game/race/track_palette_repair.h"
+#include "game/gfx/palette_match.h"
 #include "game/sys/palette.h"
 #include "game/sys/shape_bank.h"
 
@@ -266,8 +267,22 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
  * drive_light_lamps_night fills them with the colours the lamps' textures show once the textures are in the race palette's terms. */
 enum { NIGHT_LAMP_ENTRIES = 8, NIGHT_LAMP_MAX = NIGHT_LAMP_ENTRIES + 4 };   /* + the street lamp's (drive_light_street_lamp_entries) */
 
+/* port: the shade table (the HUD's remap, the shadow quad's darkening) was matched before the entries were set aside: a colour whose darker one is a set-aside
+ * entry (about to become a lamp colour) takes the nearest still enabled to the colour that entry had. */
+static void shade_off_set_aside(const RacePalette *p, uint8_t *shade, const uint8_t aside[RACE_PALETTE_COLOURS])
+{
+    if (shade == NULL) return;
+    for (int i = 0; i < RACE_PALETTE_COLOURS; i++) {
+        const uint8_t to = shade[i];
+        if (!aside[to]) continue;
+        const uint32_t rgb = (uint32_t)p->screen_rgbx[4 * to] | (uint32_t)p->screen_rgbx[4 * to + 1] << 8 | (uint32_t)p->screen_rgbx[4 * to + 2] << 16;
+        const PaletteMatch m = { p->inverse, p->screen_rgbx, p->enabled };
+        shade[i] = (uint8_t)palette_match_rgb(&m, rgb);
+    }
+}
+
 static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
-                        const uint8_t *track, const uint8_t *dash_bank)
+                        const uint8_t *track, const uint8_t *dash_bank, uint8_t *shade)
 {
     const PsxLamp *lamps = NULL;
     const int street = drive_light_street_lamp_entries();
@@ -286,6 +301,9 @@ static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const ca
     palette_usable_set(p->enabled);
     palette_emissive_set(exempt);
     if (p->inverse != NULL) race_palette_inverse(p);
+    uint8_t aside[RACE_PALETTE_COLOURS] = { 0 };
+    for (int i = 0; i < found; i++) aside[entry[i]] = 1;
+    shade_off_set_aside(p, shade, aside);
     drive_light_lamp_pool(entry, found);
 }
 
@@ -355,7 +373,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     race_palette_map_banks(&p, after_banks, &after);  /* 00447098: the mask's and the smoke's banks */
     if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     emissive_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
-    night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
+    night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL, hud != NULL && hud->ready ? hud->shade : NULL);
     /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out
      * lamp-amber. Matched again on the palette as it now stands. */
     if (late != NULL && late->after_banks != NULL) late->after_banks(late->ctx, &p);
