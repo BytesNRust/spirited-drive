@@ -205,6 +205,10 @@ static int run_game(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
+    /* port: the speed's units from extras.cfg from the first screen (run_drive and the headless frame set them; the menus' game never did, so km/h in the file
+     * read mph until CUSTOMIZE's Done was pressed in the session) */
+    resource_set_units(port_extras_load().units);
+    port_log("units: %s\n", resource_kmh() ? "km/h" : "mph");
     timer_init();
     config_dat_startup_volume(config_current());
     /* 004322f8 loads the pointer; port: its CD and memory checks have nothing to check here, the fonts are
