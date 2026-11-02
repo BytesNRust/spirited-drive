@@ -90,6 +90,30 @@ void psx_light_sun_default(int time, PsxLightSun *out)
     out->elevation = time == PSX_SYNTH_DAY ? 0.87f : time == PSX_SYNTH_DAWN ? 0.26f : 0.21f;   /* about 50, 15 and 12 degrees */
 }
 
+void psx_light_smooth(float *light, uint32_t count, int ring)
+{
+    if (light == NULL || count < 2) return;
+    float *copy = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *copy);
+    if (copy == NULL) return;
+    memcpy(copy, light, (size_t)count * PSX_LIGHT_POINTS * sizeof *copy);
+    for (uint32_t n = 0; n < count; n++) {   /* along the road */
+        const uint32_t before = n > 0 ? n - 1 : (ring ? count - 1 : n), after = n + 1 < count ? n + 1 : (ring ? 0 : n);
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+            if (!is_road_point(p))
+                light[n * PSX_LIGHT_POINTS + (uint32_t)p] = 0.25f * copy[before * PSX_LIGHT_POINTS + (uint32_t)p] + 0.5f * copy[n * PSX_LIGHT_POINTS + (uint32_t)p] +
+                                                            0.25f * copy[after * PSX_LIGHT_POINTS + (uint32_t)p];
+    }
+    memcpy(copy, light, (size_t)count * PSX_LIGHT_POINTS * sizeof *copy);
+    for (uint32_t n = 0; n < count; n++)     /* along each chain: points 2..5 and 7..10 */
+        for (int first = 2; first <= 7; first += 5)
+            for (int p = first; p < first + 4; p++) {
+                const float *row = &copy[n * PSX_LIGHT_POINTS];
+                const float inner = p > first ? row[p - 1] : row[p], outer = p < first + 3 ? row[p + 1] : row[p];
+                light[n * PSX_LIGHT_POINTS + (uint32_t)p] = 0.25f * inner + 0.5f * row[p] + 0.25f * outer;
+            }
+    free(copy);
+}
+
 int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data)
 {
     if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;
@@ -98,11 +122,13 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
     const float up = sinf(sun->elevation), tan_sun = tanf(sun->elevation);
     const float sx = cosf(sun->elevation) * cosf(sun->azimuth), sy = up, sz = cosf(sun->elevation) * sinf(sun->azimuth);
     const float amb = time == PSX_SYNTH_DAY ? AMBIENT_DAY : AMBIENT_LOW, beam = 1.0f - amb;
+    float *light = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *light);
+    if (light == NULL) return 0;
     for (uint32_t n = 0; n < count; n++)
         for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-            uint8_t *out = &data[n * PSX_LIGHT_POINTS + (uint32_t)p];
+            float *out = &light[n * PSX_LIGHT_POINTS + (uint32_t)p];
             if (is_road_point(p)) {
-                *out = PSX_LIGHT_FULL;
+                *out = 1.0f;
                 continue;
             }
             const Horizon h = horizon_of(pts, count, ring, n, p, sun);
@@ -111,9 +137,11 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
             if (facing < 0) facing = 0;
             float shadow = 0.5f + (tan_sun - h.sun_tan) * SHADOW_SOFT;   /* the horizon under the sun: lit; over it: shaded; a soft edge between */
             shadow = shadow < 0 ? 0 : shadow > 1 ? 1 : shadow;
-            const float light = (amb * h.sky + beam * facing * shadow) / (amb + beam * up);   /* flat, open and unshaded: exactly 1 */
-            *out = psx_light_level(light);
+            *out = (amb * h.sky + beam * facing * shadow) / (amb + beam * up);   /* flat, open and unshaded: exactly 1 */
         }
+    psx_light_smooth(light, count, ring);
+    for (size_t i = 0; i < (size_t)count * PSX_LIGHT_POINTS; i++) data[i] = psx_light_level(light[i]);
+    free(light);
     return 1;
 }
 

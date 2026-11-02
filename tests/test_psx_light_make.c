@@ -164,8 +164,40 @@ static void test_each_time_has_a_sun(void)
     CHECK(dawn.elevation > 0.05f && dusk.elevation > 0.05f);                   /* none is under the horizon */
 }
 
+/* smoothing: 1-2-1 along the nodes and along each chain, the road's points left out */
+static void test_smoothing_spreads_a_spike_and_keeps_the_road(void)
+{
+    float light[NODES * PSX_LIGHT_POINTS];
+    for (int i = 0; i < NODES * PSX_LIGHT_POINTS; i++) light[i] = 1.0f;
+    light[20 * PSX_LIGHT_POINTS + 4] = 0.0f;   /* one dark terrain point in a lit field */
+    psx_light_smooth(light, NODES, 0);
+    CHECK(fabsf(light[20 * PSX_LIGHT_POINTS + 4] - 0.75f) < 1e-4f);   /* the spike is lifted (1-2-1 both ways: a quarter of the dark stays) ... */
+    CHECK(light[19 * PSX_LIGHT_POINTS + 4] < 1.0f && light[21 * PSX_LIGHT_POINTS + 4] < 1.0f);   /* ... its neighbours along the road taken down */
+    CHECK(light[20 * PSX_LIGHT_POINTS + 3] < 1.0f && light[20 * PSX_LIGHT_POINTS + 5] < 1.0f);   /* ... and along the chain */
+    CHECK(light[20 * PSX_LIGHT_POINTS + 9] == 1.0f && light[15 * PSX_LIGHT_POINTS + 4] == 1.0f);  /* the far and the other side are as they were */
+    for (int n = 0; n < NODES; n++)
+        for (int p = 0; p < 7; p += (p == 0 ? 1 : p == 1 ? 5 : 1))
+            if (p == 0 || p == 1 || p == 6) CHECK(light[n * PSX_LIGHT_POINTS + p] == 1.0f);   /* the road never darkens */
+    float sum = 0;
+    for (int i = 0; i < NODES * PSX_LIGHT_POINTS; i++) sum += light[i];
+    CHECK(fabsf(sum - ((float)NODES * PSX_LIGHT_POINTS - 1.0f)) < 1e-3f);   /* the dark is spread, not lost */
+}
+
+static void test_smoothing_wraps_a_ring(void)
+{
+    float open[NODES * PSX_LIGHT_POINTS], ring[NODES * PSX_LIGHT_POINTS];
+    for (int i = 0; i < NODES * PSX_LIGHT_POINTS; i++) open[i] = ring[i] = 1.0f;
+    open[(NODES - 1) * PSX_LIGHT_POINTS + 4] = ring[(NODES - 1) * PSX_LIGHT_POINTS + 4] = 0.0f;
+    psx_light_smooth(open, NODES, 0);
+    psx_light_smooth(ring, NODES, 1);
+    CHECK(open[0 * PSX_LIGHT_POINTS + 4] == 1.0f);   /* the end of a stage does not meet its start */
+    CHECK(ring[0 * PSX_LIGHT_POINTS + 4] < 1.0f);    /* a ring does */
+}
+
 int main(void)
 {
+    test_smoothing_spreads_a_spike_and_keeps_the_road();
+    test_smoothing_wraps_a_ring();
     test_a_slope_facing_the_sun_is_lighter_than_one_facing_away();
     test_a_cliff_between_a_point_and_the_sun_shades_it();
     test_each_time_has_a_sun();

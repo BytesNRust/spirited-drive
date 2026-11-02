@@ -21,6 +21,10 @@ typedef struct {
 /* 0..1 (anything outside is clipped) as one of 16 levels: 0, 17 .. 255 (level * 17, the PS1's banded look). */
 uint8_t psx_light_level(float v);
 
+/* Smooths a light of `count` nodes of PSX_LIGHT_POINTS values (0..1) in place: 1-2-1 along the nodes and along each chain of terrain points; the road's points
+ * (0, 1 and 6) keep their value and do not enter the terrain's. `ring` joins the last node to the first. */
+void psx_light_smooth(float *light, uint32_t count, int ring);
+
 /* The sun of a time of day: the direction in the ground's plane (radians, 0 toward +x, pi/2 toward +z) and its elevation over the horizon (radians). */
 typedef struct {
     float azimuth, elevation;
