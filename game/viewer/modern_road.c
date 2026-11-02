@@ -185,6 +185,19 @@ static inline __m128i fog_levels_line(__m128 z, int x, int y, const float fog_st
     return _mm_or_si128(_mm_and_si128(over, top), _mm_andnot_si128(over, l));
 }
 
+/* dark_level for the darkness d of four pixels x .. x + 3 of row y: the same operations, a lane each */
+static inline __m128i dark_levels(__m128 d, int x, int y)
+{
+    const float *b = BAYER[y & 3];
+    const __m128 f = _mm_add_ps(d, _mm_setr_ps(b[x & 3], b[(x + 1) & 3], b[(x + 2) & 3], b[(x + 3) & 3]));
+    __m128i l = _mm_cvttps_epi32(f);   /* floor: the truncation, one less where f was below it */
+    l = _mm_add_epi32(l, _mm_castps_si128(_mm_cmplt_ps(f, _mm_cvtepi32_ps(l))));
+    const __m128i top = _mm_set1_epi32(MODERN_FOG_LEVELS - 1);
+    l = _mm_andnot_si128(_mm_cmplt_epi32(l, _mm_setzero_si128()), l);
+    const __m128i over = _mm_cmpgt_epi32(l, top);
+    return _mm_or_si128(_mm_and_si128(over, top), _mm_andnot_si128(over, l));
+}
+
 static inline __m128i fog_levels(__m128 z, int x, int y, const float fog_start, const float fog_span)
 {
     if (style.fog_exp > 0) {   /* the curve a lane at a time, then the line's levels */
@@ -306,6 +319,8 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const uint8_t (*fog)[256] = style.fog;
     const uint8_t (*lit)[256] = fill->lit;
     const float lz = at[3].base + at[3].dx * px + at[3].dy * py, lzdx = at[3].dx;
+    const Paint paint = fill->paint;   /* locals: the row's stores (chars) would make every pixel reload them */
+    const uint8_t *const payload = fill->texture->payload;
     int x = xs;
 #if defined(__SSE2__) && !defined(__FMA__)
     /* four pixels at a time through the perspective: the same IEEE operations in the same order, so the same floats
@@ -334,15 +349,18 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         size_t at4[4];
         int32_t lv[4] = { 0 };
         texel_offsets(fill, uv, vv, at4);
-        float rs[4];
-        _mm_storeu_ps(rs, rv);
+        int32_t dl[4] = { 0 };
         if (fog != NULL)
             _mm_storeu_si128((__m128i *)lv, fog_levels(rv, x, y, style.fog_start, style.fog_end - style.fog_start));
+        if (lit != NULL) {   /* (lz + lzdx k) r a lane each, as the scalar tail computes it */
+            const __m128 kl = _mm_add_ps(_mm_set1_ps((float)(x - xs)), _mm_setr_ps(0, 1, 2, 3));
+            _mm_storeu_si128((__m128i *)dl, dark_levels(_mm_mul_ps(_mm_add_ps(_mm_set1_ps(lz), _mm_mul_ps(_mm_set1_ps(lzdx), kl)), rv), x, y));
+        }
         for (int j = 0; j < 4; j++) {
-            uint8_t c = fill->texture->payload[at4[j]];
+            uint8_t c = payload[at4[j]];
             if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[lv[j]][c];
-            if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dark_level((lz + lzdx * (float)(x + j - xs)) * rs[j], x + j, y)][c];
-            paint_texel(&fill->paint, &row[x + j], c);
+            if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dl[j]][c];
+            paint_texel(&paint, &row[x + j], c);
         }
     }
 #endif
@@ -361,7 +379,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         uint8_t c = texel(fill, u, v);
         if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(r, x, y)][c];
         if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dark_level((lz + lzdx * k) * r, x, y)][c];
-        paint_texel(&fill->paint, &row[x], c);
+        paint_texel(&paint, &row[x], c);
     }
 }
 
