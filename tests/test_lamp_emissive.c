@@ -170,6 +170,27 @@ static void test_low_light(void)
     CHECK(!lamp_emissive_low(rounded, NULL)); /* the day's rounding */
 }
 
+static void test_shade_does_not_light_the_lamps(void)
+{
+    const float day[3] = { 1, 1, 1 }, shade[3] = { 0.9f, 0.9f, 0.9f }, dimmer[3] = { 0.75f, 0.75f, 0.75f }, owners[3] = { 0.875f, 0.875f, 0.875f }, tunnel[3] = { 0.5f, 0.5f, 0.5f },
+                dusk[3] = { 0.88f, 0.55f, 0.46f };
+    LampLight l = { 0, 0 };
+    CHECK(!lamp_light_step(&l, day, shade));   /* a light shade by day: the lamps stay off */
+    CHECK(!lamp_light_step(&l, day, dimmer));
+    CHECK(lamp_light_step(&l, day, tunnel));   /* a tunnel lights them at once */
+    CHECK(lamp_light_step(&l, day, dimmer));   /* between the two levels they stay as they were */
+    CHECK(lamp_light_step(&l, day, shade));
+    for (int i = 0; i < LAMP_SHADE_HOLD - 2; i++) CHECK(lamp_light_step(&l, day, day));   /* the light has to hold before they go out */
+    CHECK(lamp_light_step(&l, day, tunnel));   /* a dip resets the count */
+    LampLight t = { 1, 0 };   /* TR3's shaded run (0.875 throughout) after a tunnel: the lamps go out once it holds */
+    for (int i = 0; i < LAMP_SHADE_HOLD - 1; i++) CHECK(lamp_light_step(&t, day, owners));
+    CHECK(!lamp_light_step(&t, day, owners));
+    for (int i = 0; i < LAMP_SHADE_HOLD - 1; i++) CHECK(lamp_light_step(&l, day, day));
+    CHECK(!lamp_light_step(&l, day, day));
+    CHECK(lamp_light_step(&l, dusk, day));     /* the world's own dawn, dusk and night need no hold */
+    CHECK(lamp_light_step(&l, dusk, NULL));
+}
+
 int main(void)
 {
     test_collect_and_toggle();
@@ -181,5 +202,6 @@ int main(void)
     test_pick_many_entries();
     test_entry_zero_is_none();
     test_low_light();
+    test_shade_does_not_light_the_lamps();
     return TEST_REPORT();
 }

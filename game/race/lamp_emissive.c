@@ -71,6 +71,21 @@ int lamp_emissive_low(const float tint[3], const float ratio[3])
     return 0;
 }
 
+int lamp_light_step(LampLight *s, const float tint[3], const float ratio[3])
+{
+    const float on = LAMP_SHADE_ON_PERCENT / 100.0f, off = LAMP_SHADE_OFF_PERCENT / 100.0f;
+    const int world = lamp_emissive_low(tint, NULL);
+    int dark = 0, bright = 1;
+    for (int k = 0; k < 3; k++) {
+        dark = dark || (ratio != NULL && ratio[k] < on);
+        bright = bright && (ratio == NULL || ratio[k] >= off);
+    }
+    if (world || dark) s->low = 1, s->back = 0;
+    else if (s->low && bright && ++s->back >= LAMP_SHADE_HOLD) s->low = 0, s->back = 0;
+    else if (!bright) s->back = 0;
+    return s->low;
+}
+
 static int gap(const uint8_t usable[256], const uint8_t rgb[768], int entry)
 {
     int best = 1 << 30;

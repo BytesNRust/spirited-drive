@@ -136,6 +136,26 @@ static void run(const char *root)
     drive_lamps_frame(0, 0, 0, 0);   /* out of reverse in daylight: byte for byte what the file was */
     CHECK_MEM(cfm, original, size);
 
+    /* the light at the car: a shade of 0.94 by day does not light them, a tunnel's 0.5 does, they hold until the light has been back for LAMP_SHADE_HOLD frames,
+     * and a new arming (a new race) starts them out */
+    {
+        const float sun[3] = { 1, 1, 1 }, shade[3] = { 0.94f, 0.94f, 0.94f }, tunnel[3] = { 0.5f, 0.5f, 0.5f }, back[3] = { 0.9f, 0.9f, 0.9f };
+        drive_lamps_arm();
+        drive_lamps_light(0, 0, sun, shade, 0, 0);
+        CHECK_MEM(cfm, original, size);
+        drive_lamps_light(0, 0, sun, tunnel, 0, 0);
+        for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa2);
+        for (int f = 0; f < LAMP_SHADE_HOLD - 1; f++) drive_lamps_light(0, 0, sun, back, 0, 0);
+        for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa2);   /* still lit */
+        drive_lamps_light(0, 0, sun, back, 0, 0);
+        CHECK_MEM(cfm, original, size);                                     /* out */
+        drive_lamps_light(0, 0, sun, tunnel, 0, 0);
+        drive_lamps_frame(0, 0, 0, 0);
+        drive_lamps_arm();                                                  /* a new race: the day's texels, the state back to out */
+        drive_lamps_light(0, 0, sun, back, 0, 0);
+        CHECK_MEM(cfm, original, size);
+    }
+
     drive_lamps_clear(0);
     CHECK_EQ_INT(drive_lamps_find(0, "TSupra", cfm, size), 0);   /* no mask for that car: no lamps, nothing written */
     drive_lamps_arm();

@@ -33,4 +33,7 @@ void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headli
 void drive_lamps_frame(int slot, int low, int braking, int reversing);
 /* The palette entry the slot's brake texels show while they are lit (low light, the brake down), else 0: what the lamp's halo (lamp_flare.h) is found by. */
 int drive_lamps_brake_lit(int slot);
+/* The same from the light itself: the world's tint and the ambient ratio at the car (NULL for none), through lamp_light_step's margin (a light shade by day does
+ * not light them; the slot's state starts out at drive_lamps_arm; each flip is logged with the node). */
+void drive_lamps_light(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing);
 #endif
