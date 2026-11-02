@@ -11,6 +11,8 @@ int police_lights_on(const RaceState *race, const Car *car)
 static uint8_t own_red, own_blue;   /* the entries set aside for the flash (0: none, the palette's nearest are used) */
 void police_lights_set_entries(uint8_t red, uint8_t blue) { own_red = red, own_blue = blue; }
 
+int police_lights_own_entry(int red) { return red ? own_red : own_blue; }
+
 int police_lights_phase(int32_t tick) { return (int)(((uint32_t)tick / POLICE_FLASH_TICKS) & 1u); }
 
 int police_lights_entry(const uint8_t palette[768], int red)
