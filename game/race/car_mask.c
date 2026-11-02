@@ -1,5 +1,6 @@
 #include "game/race/car_mask.h"
 #include "game/sys/data_path.h"
+#include "game/sys/port_log.h"
 
 #include "formats/png.h"
 #include "game/platform/platform.h"
@@ -89,8 +90,12 @@ uint8_t *car_mask_load(const char *stem, const char name[4], int level, int widt
         uint8_t *mask = malloc((size_t)width * (size_t)height);
         const int ok = mask != NULL && car_mask_parse(file, size, width, height, mask);
         platform_free_file(file);
-        if (ok) return mask;
+        if (ok) {
+            port_log("car mask: %s\n", path);   /* the log alone says where a mask came from (the bundle's data, the working directory, ...) */
+            return mask;
+        }
         free(mask);
     }
+    port_log("car mask: none for %s/%.4s%s\n", stem, name, suffix);
     return NULL;
 }
