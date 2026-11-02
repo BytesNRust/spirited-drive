@@ -298,7 +298,7 @@ static void test_scenery_boards(void)
         TrackObjectWalk walk = { descriptor, record, 1, 0, 1, 4, 4, 0, 0, 4, 0, 0, 0 };
         Boards b = { 0 };
         TrackObjectDraw d = { &walk, NULL, NULL, camera, screen, 4, 0, 0,
-                              { &b, b_model, b_full, b_alt, pass ? b_camera : NULL, NULL } };
+                              { &b, b_model, b_full, b_alt, pass ? b_camera : NULL, NULL, NULL } };
         track_object_draw(&d, 10, 1);
         CHECK_EQ_INT(b.full, pass ? 0 : 1);
         CHECK_EQ_INT(b.camera, pass ? 1 : 0);
@@ -314,7 +314,7 @@ static void test_scenery_boards(void)
     static const int32_t scr6[6][2] = { { 100, 100 }, { 200, 100 }, { 200, 200 }, { 100, 200 }, { 150, 100 }, { 150, 200 } };
     TrackObjectWalk walk = { two, record, 1, 0, 1, 6, 6, 0, 0, 6, 0, 0, 0 };
     Boards b = { 0 };
-    TrackObjectDraw d = { &walk, NULL, NULL, cam6, scr6, 6, 0, 0, { &b, b_model, b_full, b_alt, b_camera, NULL } };
+    TrackObjectDraw d = { &walk, NULL, NULL, cam6, scr6, 6, 0, 0, { &b, b_model, b_full, b_alt, b_camera, NULL, NULL } };
     track_object_draw(&d, 10, 1);
     CHECK_EQ_INT(b.camera, 2);
     CHECK_EQ_INT(b.alt, 0);
