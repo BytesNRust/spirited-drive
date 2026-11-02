@@ -1,6 +1,6 @@
 # Original-bug fixes the port makes (inventory for the profiles)
 
-Base: origin/main 699ec6a8. Written for M1 phase 2: "Stock '96 = the exe, bugs included" against "Restored '96 = bugs fixed".
+Base: origin/main 699ec6a8. Revised after checking each fix against the binary (see section 6). Written for M1 phase 2: "Stock '96 = the exe, bugs included" against "Restored '96 = bugs fixed".
 No code in this change. The doc is for a decision by the owner.
 
 How it was made: the `port:` comments and `port_*` fields in `game/` and `core/`, plus the `fix:`/`feat:` commit subjects on main.
@@ -28,13 +28,10 @@ Making Stock honest needs one place the profile can reach, which is the proposal
 |---|---|---|---|---|---|---|
 | 1 | A looping horn (voices 0x3f..0x41) or skid (0x2a) voice is not cut when another sound takes its channel: the record is lost and it loops to the end of the race | The voice is cut when its channel is taken | `RaceState.port_stop_replaced` (set at `track_viewer.c:480`; logic in `race_sound.c`) | 0 | 1 | 1 |
 | 2 | After the pause menu closes, ESC is dead for `MENU_GAP` (0xb4) ticks, and back from a replay the ESC that closed it is read as the menu's | ESC and the pause key work at once | `port_resume_keys` in `DrivePause`, `DriveMenu`, `RacePauseInputs` (`drive_pause.c:130`; state `port_esc_up_wait`/`port_pause_up_wait` in `race_schedule.c`) | 0 | 1 | 1 |
-| 3 | Leaving a replay, the race waits before it goes on | The race goes on at once | `DriveReplay.port_resume` (`drive_replay.c:379`) | 0 | 1 | 1 |
-| 4 | A replay never launches: a NITRO start is not recorded and a replay of it is wrong | The launch is recorded (the sim's own tick, so slow replay and rewind count it the same) and played back | `RaceState.port_replay_launch` (`car_drive.c:50`) | 0 | 1 | 1 |
-| 5 | A scenery board is dropped whole when one corner is past +-0x800 across (0044a450) while its middle shows: a big tree or a building's face pops out near the screen edge | Drawn by the near call, clipped at the near plane, perspective-correct | Env `TNFS_WIDE_BOARD` only (`ported_view.c`), default on; `track_port_wide_board` in `track_object_draw.c`. To verify: whether it needs Modern 3D (the near call is `ops.port_near_camera`) | 0 | 1 | 1 |
+| 3 | A scenery board is dropped whole when one corner is past +-0x800 across (0044a450) while its middle shows: a big tree or a building's face pops out near the screen edge | Drawn by the near call, clipped at the near plane, perspective-correct | Env `TNFS_WIDE_BOARD` only (`ported_view.c`), default on; `track_port_wide_board` in `track_object_draw.c`. To verify: whether it needs Modern 3D (the near call is `ops.port_near_camera`) | 0 | 1 | 1 |
 
 Reading of the columns: Stock 0 is the whole point of Stock. Restored 1 is the "bugs fixed" promise. Restomod 1 because it is Restored plus more.
-Items 1-3 are certain bugs (the exe loses a record, waits for no reason). Item 4 is a bug of the exe only if a NITRO start is a feature of the exe at all (see 3.1).
-Item 5 is a rendering artefact; if the owner wants Restored to be pixel-identical to the exe in a 4:3 frame, move 5 to Restomod only.
+Items 1-2 are exe behaviour confirmed at the binary (6). Item 3 is the exe's own cull (`0044a450`), a rendering artefact; if the owner wants Restored to be pixel-identical to the exe in a 4:3 frame, move it to Restomod only.
 
 ## 2. Fixes with no flag
 
@@ -68,9 +65,10 @@ The exe's output there is not reproducible, so there is nothing to put behind a 
 
 ## 3. Items that look like fixes and are not (do not put them under "bugs fixed")
 
+3.0 Extensions of the exe's format (moved here from the table): `port_replay_launch` records the NITRO start in the replay and plays it back. The exe's launch routine only runs with `playback == 0`, so a replay never launches: an exe limitation we extended (feat `c392d3d8`, `269247ec`), not a fix. It depends on `port_nitro_start`; they move together.
+
 3.1 `port_nitro_start` (N alone opens the launch) and `port_pad_and_keys` (keys and pad both live; the exe's config.dat device words pick one device per action) are input design changes.
 Hard-wired 1 as well. Same story as section 0: propose they follow the switch of section 5, or stay as player options in the controls screen. Owner's call.
-`port_replay_launch` (item 4) depends on `port_nitro_start`, so they should move together.
 
 3.2 Wide-screen consequences, not bugs: `port_reach`/`port_all_sides` (cars and models the exe culls by its 90 degree cone), `port_wide` (sky slices), `port_eye_ahead`, `port_near_scale`, `port_near_camera`, `TNFS_TWO_SIDED`/`port_two_sided_scenery`.
 They are 0 or automatic in a 4:3 frame (`port_two_sided_scenery(automatic)` follows reverse/follow camera). They follow the profile's `widescreen` column already; nothing to decide. To verify: that all of them are 0 in 4:3 with no env var.
@@ -94,8 +92,8 @@ Not bugs. `port_banner` is the one with a Stock-vs-port argument: it is on-scree
 |---|---|---|
 | 0 | 1 | 1 |
 
-`port_bug_fixes()` (same shape as `port_psx_flares()`: env `TNFS_BUG_FIXES` overrides, else port.cfg) is read at the five places in section 0 instead of the literal 1.
-Covers items 1-5. Section 2 stays always on. Cost: small, mostly the table column, the key, the row and the five call sites; the Options undo already restores port.cfg.
+`port_bug_fixes()` (same shape as `port_psx_flares()`: env `TNFS_BUG_FIXES` overrides, else port.cfg) is read at the places in section 0 for items 1-3 instead of the literal 1.
+Covers items 1-3. Section 2 stays always on. Cost: small, mostly the table column, the key, the row and the five call sites; the Options undo already restores port.cfg.
 
 **B. One key per fix** (`stop_replaced`, `resume_keys`, `resume`, `replay_launch`, `wide_board`). More exact, but five rows that mean nothing to a player, and the profile table grows five columns. Only worth it if the owner wants to mix (for instance the horn fix without the ESC fix). Not recommended.
 
@@ -106,3 +104,15 @@ Decisions needed from the owner:
 2. Whether item 5 (wide board) is "bug fixed" (Restored on) or Restomod only.
 3. Whether `port_nitro_start` / `port_pad_and_keys` (3.1) follow the switch or become player options.
 4. `port_banner` default per profile (3.3).
+
+## 6. Check against the binary (revision)
+
+| Fix | Verdict | Evidence |
+|---|---|---|
+| Horn/skid voice (`port_stop_replaced`) | Exe | `0044404c` writes the channel's record (`0050a4cc/d0`) over a playing voice without stopping it (read in the decompile; no sound oracle) |
+| ESC gap (`port_resume_keys`) | Exe | `004557e8` stores the tick in `00513e54`, `004557f4` needs `+ 0xb4`; `tools/oracle_input.py` `menukeys` runs the exe's `0x4557F4` |
+| Wait leaving a replay (`port_resume`) | **Port regression, flag removed** | the exe's `0044fe84` (lines 60-61) puts `004c5590` back with the timer; the `--drive` host did not (`8ecf685f` broke it, `c66eae0a` fixed it). Its "0" was never the exe. Branch `fix/resume-no-flag` drops the flag and keeps the fix always on |
+| NITRO start in replays (`port_replay_launch`) | Extension | the exe's launch needs `playback == 0` |
+| Wide board (`TNFS_WIDE_BOARD`) | Exe cull | `0044a450` rejects a board with a corner past +-0x800 |
+
+The same-day regressions of the ESC fix (`2e45296e`, the ESC held at return from a replay in `c66eae0a`) were ours too; they sit on the `port_resume_keys` path.
