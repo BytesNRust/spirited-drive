@@ -258,12 +258,9 @@ static void run_forces_clear(void *ctx) { (void)ctx, race_forces_clear(&drive_si
 static void run_forces_off(void *ctx) { (void)ctx, race_forces_disable(&drive_sim.race); }
 /* port (dev, env only): TNFS_START_NODE=N starts the player car on the road at node N (the road's centre, heading along it, standing), to
  * capture a place the grid is far from: a tunnel, a bridge. Unset, the race starts as it always does. */
-static void start_at_node(RaceState *race)
+/* a car at a (fractional) node of the road, its heading the road's */
+static void place_car(Car *car, RaceState *race, double where)
 {
-    const char *at = getenv("TNFS_START_NODE");
-    Car *car = race->cars[0];
-    if (at == NULL || car == NULL || race->tri == NULL || race->tri->ring_nodes == 0) return;
-    const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
     const int32_t node = (int32_t)((uint32_t)where % race->tri->ring_nodes);
     car->node = node;
     car->progress = node;
@@ -278,7 +275,41 @@ static void start_at_node(RaceState *race)
         car->y += (int32_t)(fraction * ((double)b.position.y - a.position.y));
         car->z += (int32_t)(fraction * ((double)b.position.z - a.position.z));
     }
-    port_log("TNFS_START_NODE: the player car at node %d\n", node);
+}
+
+/* port (dev, env only): TNFS_POLICE_NEAR=N, in a --drive of race type 1 (the open road with its police car, police mode on): the police car (cars[2]) is put N nodes
+ * behind the player (6 for "1"; a negative N: that many ahead) and its chase started the exe's own way (ai_police.c: flags_175 bit 2 and the race's chase word 004c5cd8), so the chase view shows
+ * it behind and the look back, its lights going */
+static void police_near(RaceState *race, double player_node)
+{
+    const char *v = getenv("TNFS_POLICE_NEAR");
+    Car *const cop = race->cars[2];
+    if (v == NULL || cop == NULL || race->unknown_4fbab8 == 0) return;
+    const int behind = atoi(v) == 1 || atoi(v) == 0 ? 6 : atoi(v);   /* a negative N puts it ahead, for a picture from the chase view */
+    cop->zone = race->cars[0]->zone;
+    ai_respawn(cop, race, (int32_t)player_node - behind, 1, 0, 0);   /* the exe's own placement of the police car (ai_manager.c place_police_car) */
+    cop->flags_51a |= 4;      /* active */
+    cop->flags_175 |= 4;      /* chasing */
+    cop->flags_175 &= (uint8_t)~0x20;   /* not given up */
+    cop->flags_176[0] &= (uint8_t)~8;   /* not lost */
+    race->unknown_4c5cd8 = 1;
+    port_log("TNFS_POLICE_NEAR: the police car at node %d, %d behind the player, chasing\n", cop->node, behind);
+}
+
+static void start_at_node(RaceState *race)
+{
+    const char *at = getenv("TNFS_START_NODE");
+    Car *car = race->cars[0];
+    if (car == NULL || race->tri == NULL || race->tri->ring_nodes == 0) return;
+    if (at == NULL && getenv("TNFS_POLICE_NEAR") != NULL) {   /* the police next to where the player already is */
+        police_near(race, (double)car->node);
+        return;
+    }
+    if (at == NULL) return;
+    const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
+    place_car(car, race, where);
+    port_log("TNFS_START_NODE: the player car at node %d\n", car->node);
+    police_near(race, where);
 }
 
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; start_at_node(&drive_sim.race); }  /* race_sim_start_field's laps; the dev start */
@@ -652,7 +683,10 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     drive_wide_size(screen_width(drive_screen_format()));
     start_at_node(&drive_sim.race);   /* port (dev, env only): TNFS_START_NODE, as the window run takes it */
     const char *view = getenv("TNFS_VIEW");
-    if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, drive_sim.race.cars[0], atoi(view) % CHASE_KINDS);
+    const char *follow = getenv("TNFS_FOLLOW_CAR");   /* port (dev, env only): the chase view follows this slot's car (2: the police car) */
+    Car *const followed = follow != NULL && atoi(follow) > 0 && atoi(follow) < RACE_CARS && drive_sim.race.cars[atoi(follow)] != NULL
+                              ? drive_sim.race.cars[atoi(follow)] : drive_sim.race.cars[0];
+    if (view != NULL) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, followed, atoi(view) % CHASE_KINDS);
     const char *frames_env = getenv("TNFS_FRAMES");
     const uint32_t frames = frames_env == NULL ? 0 : (uint32_t)atoi(frames_env);
     const int f3_keys = getenv("TNFS_F3_AT") != NULL;  /* the captures' F3 presses: the race's keys, as the window run reads them */
