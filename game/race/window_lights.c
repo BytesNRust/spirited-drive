@@ -25,6 +25,11 @@ static const WindowBoard TR2_BOARDS[] = {
     { 37, 128, 128, 8, 2, { { 9, 18 }, { 22, 31 }, { 35, 44 }, { 47, 56 }, { 73, 82 }, { 86, 95 }, { 99, 108 }, { 111, 120 } }, { { 8, 16 }, { 23, 30 } } },
 };
 
+/* AL1's passenger coach (scenery texture 22, 176 x 64): a row of nine windows along its side */
+static const WindowBoard AL1_BOARDS[] = {
+    { 22, 176, 64, 9, 1, { { 34, 39 }, { 49, 54 }, { 71, 83 }, { 88, 100 }, { 106, 118 }, { 123, 135 }, { 139, 144 }, { 152, 157 }, { 167, 172 } }, { { 20, 27 } } },
+};
+
 /* CY3's white tower (scenery texture 21, 32 x 128, 49 placements): nineteen ribbons of glass, each split in three to light a part of it */
 static const WindowBoard CY3_BOARDS[] = {
     { 21, 32, 128, 3, 19, { { 4, 12 }, { 13, 21 }, { 22, 30 } },
@@ -49,6 +54,10 @@ int window_boards_for(const char *track, const WindowBoard **out)
     if (is_track(track, "CY2")) {
         *out = CY2_BOARDS;
         return (int)(sizeof CY2_BOARDS / sizeof CY2_BOARDS[0]);
+    }
+    if (is_track(track, "AL1")) {
+        *out = AL1_BOARDS;
+        return (int)(sizeof AL1_BOARDS / sizeof AL1_BOARDS[0]);
     }
     if (is_track(track, "TR2")) {
         *out = TR2_BOARDS;

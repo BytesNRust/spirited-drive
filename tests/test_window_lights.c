@@ -16,7 +16,7 @@ static void test_the_boards_of_each_track(void)
     CHECK_EQ_INT(b[0].width, 63);
     CHECK_EQ_INT(b[0].height, 63);
     CHECK(window_boards_for("cy1", &b) >= 1);
-    CHECK_EQ_INT(window_boards_for("AL1", &b), 0);
+    CHECK_EQ_INT(window_boards_for("AL2", &b), 0);
     CHECK_EQ_INT(window_boards_for(NULL, &b), 0);
 }
 
@@ -57,9 +57,9 @@ static void test_a_board_of_another_size_is_left_alone(void)
 
 static void test_every_board_stays_inside_its_texture(void)
 {
-    static const char *const tracks[] = { "CY1", "CY2", "CY3", "TR2" };
-    static const int boards[] = { 1, 4, 1, 1 };
-    for (int t = 0; t < 4; t++) {
+    static const char *const tracks[] = { "CY1", "CY2", "CY3", "TR2", "AL1" };
+    static const int boards[] = { 1, 4, 1, 1, 1 };
+    for (int t = 0; t < 5; t++) {
         const WindowBoard *b = NULL;
         CHECK_EQ_INT(window_boards_for(tracks[t], &b), boards[t]);
         for (int i = 0; i < boards[t]; i++) {
