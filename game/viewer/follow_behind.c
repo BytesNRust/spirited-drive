@@ -5,6 +5,7 @@
 #include "game/race/mirror_scene.h"
 #include "game/race/track_build.h"
 #include "game/race/track_fence.h"
+#include "game/race/track_wall.h"
 #include "game/race/track_object_draw.h"
 #include "game/race/track_render.h"
 #include "game/race/track_tables.h"
@@ -498,7 +499,7 @@ static void draw_segment(Pass *p, int32_t s, int ascending, int near_style)
     enum { MAX_BLOCKS = 9 };
     const TrackRender *r = p->arm->render;
     const TrackSegmentEntry *e = &B.entries[(uint32_t)s & (uint32_t)p->mask];
-    const TrackLod *lod = &TRACK_LODS[e->lod < TRACK_LOD_COUNT ? e->lod : 0];
+    const TrackLod *lod = track_wall_lod(e->lod < TRACK_LOD_COUNT ? e->lod : 0);   /* a reversed circuit's walls where they were */
     const uint8_t *record = r->cache + mirror_segment_offset(s, p->mask);
     const int32_t count = lod->polygon_count;
     if (count <= 0 || lod->first_polygon + count > TRACK_POLYGON_COUNT) return;
