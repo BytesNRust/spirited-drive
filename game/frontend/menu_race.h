@@ -37,6 +37,8 @@ typedef struct MenuRaceOps {
     void (*unlocks)(void *ctx);                                /* 00432e48 */
     void (*game_reset)(void *ctx);                             /* 00466ae4 */
     void *ctx;
+    /* port, after ctx so the original's initializers leave it NULL: a race that was run to its end (the FINISHED branch), not one given up or lost */
+    void (*finished)(void *ctx);
 } MenuRaceOps;
 
 enum { MENU_RACE_IMAGE = 0x5f52, MENU_RACE_GAME = 0x5bc, MENU_RACE_GHOST = 100, MENU_RACE_TIMES = 7 };

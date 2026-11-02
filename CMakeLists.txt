@@ -1127,5 +1127,8 @@ if(NOT EMSCRIPTEN)
     if(NOT TNFS_RELEASE AND EXISTS "${CMAKE_SOURCE_DIR}/original/NFS_WIN.EXE")
         add_test(NAME dev_data_default COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/dev_data_default -P ${CMAKE_SOURCE_DIR}/tests/dev_data_default.cmake)
         set_tests_properties(dev_data_default PROPERTIES TIMEOUT 120)
+        # the anonymous counters of a "release" version run with --mods: the flag in <mods>/user, nothing in the pref dir, nothing when Off
+        add_test(NAME stats_mods_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/stats_mods_isolation -P ${CMAKE_SOURCE_DIR}/tests/stats_mods_isolation.cmake)
+        set_tests_properties(stats_mods_isolation PROPERTIES TIMEOUT 60)
     endif()
 endif()
