@@ -11,6 +11,7 @@
 #include "game/race/psx_light.h"
 #include "game/race/street_lamp.h"
 #include "game/race/window_lights.h"
+#include "game/race/psx_light_make.h"
 #include "game/race/psx_light_synth.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
@@ -147,6 +148,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 }
 
 static int time_tinted;
+static int made_wanted;   /* port (own light): no CD light for this track, so one is made from its terrain (psx_light_make.h) in drive_light_load_synth */
 static int synth_wanted, synth_on, synth_time;   /* a track the CD has no light for, with the light on; the light is one made from the road (drive_light_load_synth) */
 static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds no sky of its own for the track (drive_light_load_alt_sky) */
 
@@ -164,7 +166,7 @@ static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.5
 static void use_fallback_tint(int time)
 {
     const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT];
-    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time != PSX_TIME_NIGHT ? 1.0f : headlights_on && synth_wanted ? NIGHT_PALETTE[k] : psx_night_light[k]);   /* a made light carries the night in its nodes with the pools */
+    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time != PSX_TIME_NIGHT ? 1.0f : headlights_on && (synth_wanted || made_wanted) ? NIGHT_PALETTE[k] : psx_night_light[k]);   /* a made light carries the night in its nodes with the pools */
     port_log("psx_light: no light of this track, the flat ambient of the time: tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
 }
 
@@ -191,6 +193,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     ported_view_set_psx_ambient(NULL, 0, NULL);
     ported_view_set_psx_synth(0);
     synth_wanted = 0;
+    made_wanted = 0;
     ported_view_set_psx_sky(NULL);
     ported_view_set_psx_sky_info(NULL);
     ported_view_set_dark_fog(0);
@@ -221,6 +224,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (file == NULL) {
         if (have_dir) port_log("psx_light: no %s\n", path);
         else port_log("psx_light: no PS1 directory, the port's own effects only\n");
+        made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
         const PsxLamp *own_lamps = NULL;
         const int own_count = psx_lamps_for(track, &own_lamps);
@@ -233,6 +237,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     platform_free_file(file);
     if (!ok) {
         port_log("psx_light: %s does not fit the track (%u nodes)\n", path, ring_nodes);
+        made_wanted = 1;
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
         return;
     }
@@ -261,18 +266,35 @@ void drive_light_set_reversed(int reversed)
     psx_light_set_reversed(&light, reversed);
 }
 
+/* port (own light): the terrain's light of the time (psx_light_make.h), with a tunnel's rows laid over it where the road has one (the synth's rows are 255 in the open, so the lower of
+ * the two is the right one everywhere) */
+static int make_light(const Tri *tri, PsxLight *out)
+{
+    PsxLight made = { 0 };
+    if (!psx_light_make(tri, synth_time, &made)) return 0;
+    PsxLight tunnels = { 0 };
+    if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
+        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++)
+            if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
+    }
+    psx_light_free(&tunnels);
+    *out = made;
+    return 1;
+}
+
 void drive_light_load_synth(const Tri *tri, const char *track)
 {
-    if (!synth_wanted || light.data != NULL || tri == NULL || !psx_light_synth_track(track)) return;
+    const int tunnel_track = synth_wanted && psx_light_synth_track(track);
+    if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
     PsxLight made = { 0 };
-    if (!psx_light_synth(tri, synth_time, &made)) return;
+    if (!make_light(tri, &made)) return;
     light = made;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);
-    ported_view_set_psx_synth(1);
-    port_log("psx_light: %s has no light on the CD, made from the road's tunnels (%u nodes)\n", track, light.nodes);
+    ported_view_set_psx_synth(tunnel_track);   /* the tunnel tracks' car and dash light follows their tunnels */
+    port_log("psx_light: %s has no light on the CD, made from its terrain%s (%u nodes)\n", track, tunnel_track ? " and the road's tunnels" : "", light.nodes);
 }
 
 /* the PC's alternative sky (NTRACKFM/<TRACK>_T01.FAM, the art the original's morning / evening race ran on) for a dawn or dusk the CD has no PS1 sky for:

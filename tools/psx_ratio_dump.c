@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     uint8_t *lgt = slurp(path, &size);
     if (lgt == NULL) return fprintf(stderr, "cannot read %s\n", path), 1;
     const uint32_t nodes = (uint32_t)(lgt[0] | lgt[1] << 8 | lgt[2] << 16 | (uint32_t)lgt[3] << 24);
-    PsxLight light;
+    PsxLight light = { 0 };   /* psx_light_parse sets only the rows: the flags must start at 0 or the CD is read mirrored */
     if (!psx_light_parse(lgt, size, nodes, &light)) return fprintf(stderr, "%s does not parse as %u nodes\n", path, nodes), 1;
     snprintf(path, sizeof path, "%s/Z%s%c.LGS", argv[1], track, letter);
     size_t lgs_size;
