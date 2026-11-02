@@ -370,7 +370,8 @@ static void test_page_two_switches_saved(void)
     keys[n++] = ENTER;                                     /* on */
     n = downs(keys, n, downs_to_done(ROW_WARRIOR));         /* page 1's Done */
     keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* Done to Cancel, Cancel to page 2's first row */
-    n = downs(keys, n, ROW_START - ROW_FIRST_P2);          /* down to Start Screen */
+    n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
+    keys[n++] = RIGHT, keys[n++] = RIGHT;                  /* and on to page 3's first row, Start Screen */
     for (int i = 0; i < 3; i++) keys[n++] = LEFT;          /* Start's three values, round back to Game Mode */
     n = downs(keys, n, downs_to_done(ROW_START));          /* down to Done */
     keys[n++] = ENTER;
@@ -541,7 +542,7 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 12);
+    CHECK_EQ_INT(ROWS_P2, 10);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -553,8 +554,28 @@ static void test_page_two_has_ten_rows(void)
     CHECK(shown(&r.fake, "3D render stats"));
     CHECK(shown(&r.fake, "Dash box"));
     CHECK(shown(&r.fake, "360 Camera"));
+    CHECK(shown(&r.fake, "Difficulty"));
+    CHECK(!shown(&r.fake, "Start Screen"));   /* the Miscellaneous section is page 3's */
+    CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* page 3 is the whole Miscellaneous section: Start Screen, Intro video, Updates and anonymous stats, Open the log folder; four rows */
+static void test_page_three_is_miscellaneous(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_FIRST_P3);
+    n = downs(keys, n, ROWS_P3);
+    keys[n++] = ENTER;
+    CHECK_EQ_INT(ROWS_P3, 4);
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Miscellaneous"));
     CHECK(shown(&r.fake, "Start Screen"));
     CHECK(shown(&r.fake, "Intro video"));
+    CHECK(shown(&r.fake, "Updates and anonymous stats"));
+    CHECK(shown(&r.fake, "Open the log folder"));
+    CHECK(!shown(&r.fake, "Speed units"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
@@ -663,7 +684,7 @@ static void test_the_groups_have_headers(void)
     turn[n++] = ESCAPE;
     run(&two, turn, n);
     CHECK(shown(&two.fake, "In-race options"));
-    CHECK(shown(&two.fake, "Miscellaneous"));
+    CHECK(!shown(&two.fake, "Miscellaneous"));   /* it heads page 3 now */
     /* page 1's headers are not page 2's: the two pages name different groups, and each redraw paints the whole page,
      * so what is left on screen after turning is page 2 alone */
     CHECK(!shown(&two.fake, "Cheats"));
@@ -708,9 +729,16 @@ static void test_the_rows_sit_under_their_groups(void)
     CHECK(y_in(&two.fake, "In-race options") < y_in(&two.fake, "Speed units"));
     CHECK(y_in(&two.fake, "Speed units") < y_in(&two.fake, "3D render stats"));
     CHECK(y_in(&two.fake, "3D render stats") < y_in(&two.fake, "Dash box"));
-    CHECK(y_in(&two.fake, "Dash box") < y_in(&two.fake, "Miscellaneous"));
-    CHECK(y_in(&two.fake, "Miscellaneous") < y_in(&two.fake, "Start Screen"));
-    CHECK(y_in(&two.fake, "Start Screen") < y_in(&two.fake, "Intro video"));
+    CHECK(y_in(&two.fake, "Dash box") < y_in(&two.fake, "Difficulty"));
+    Rig three;
+    setup(&three);
+    n = keys_to_row(turn, ROW_FIRST_P3);
+    turn[n++] = ESCAPE;
+    run(&three, turn, n);
+    CHECK(y_in(&three.fake, "Miscellaneous") < y_in(&three.fake, "Start Screen"));
+    CHECK(y_in(&three.fake, "Start Screen") < y_in(&three.fake, "Intro video"));
+    CHECK(y_in(&three.fake, "Intro video") < y_in(&three.fake, "Updates and anonymous stats"));
+    CHECK(y_in(&three.fake, "Updates and anonymous stats") < y_in(&three.fake, "Open the log folder"));
 }
 
 /* The headers sit in the same place on both pages, the rows are one pitch apart, and there is a visible gap before the
@@ -733,7 +761,13 @@ static void test_both_pages_share_one_layout(void)
      * are PITCH apart, with the gap of 14 added from the second header down) */
     CHECK_EQ_INT(y_in(&two.fake, "In-race options"), y_in(&one.fake, "Cheats"));
     CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods"), 100 + 5 * PITCH + 14);
-    CHECK_EQ_INT(y_in(&two.fake, "Miscellaneous"), 100 + 11 * PITCH + 14);
+    Rig three;
+    setup(&three);
+    n = keys_to_row(turn, ROW_FIRST_P3);
+    turn[n++] = ESCAPE;
+    run(&three, turn, n);
+    CHECK_EQ_INT(y_in(&three.fake, "Miscellaneous"), y_in(&one.fake, "Cheats"));   /* pages 2 and 3 have one header, on the first line */
+    CHECK_EQ_INT(y_in(&three.fake, "Start Screen"), y_in(&two.fake, "Speed units"));
     /* the pitch: one row a line below the last */
     CHECK_EQ_INT(y_in(&one.fake, "Nitro mode") - y_in(&one.fake, "Explode mode"), PITCH);
     CHECK_EQ_INT(y_in(&two.fake, "No driving assists") - y_in(&two.fake, "Speed units"), PITCH);
@@ -762,7 +796,13 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     turn[n++] = ESCAPE;
     run(&two, turn, n);
     CHECK(y_in(&two.fake, "In-race options") >= TITLE_BOTTOM);
-    CHECK(y_in(&two.fake, "Intro video") + LINE < BUTTONS_TOP);
+    CHECK(y_in(&two.fake, "Difficulty") + LINE < BUTTONS_TOP);
+    Rig three;
+    setup(&three);
+    n = keys_to_row(turn, ROW_FIRST_P3);
+    turn[n++] = ESCAPE;
+    run(&three, turn, n);
+    CHECK(y_in(&three.fake, "Open the log folder") + LINE < BUTTONS_TOP);
 }
 
 /* port: the screen names itself, in the words the player just clicked in Game Mode and Options. It sits on the band's
@@ -894,23 +934,25 @@ static void test_left_on_page_two_done_goes_back(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* Up from Cancel is the last row (Open the log folder), and the one over it the last switch (Intro video) */
+/* Up from Cancel is the last row (Open the log folder), and the one over it the last switch (Updates and anonymous stats) */
 static void test_up_from_cancel_reaches_the_last_switch(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
-    n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
-    keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* Intro video, page 2's last switch */
+    int n = keys_to_row(keys, ROW_FIRST_P3);               /* page 3, its first row */
+    n = downs(keys, n, ROWS_P3);                           /* page 3's Done */
+    keys[n++] = RIGHT;                                     /* page 3's Cancel */
+    keys[n++] = UP;                                        /* Open the log folder, the last row */
+    keys[n++] = UP;                                        /* Updates and anonymous stats, the last switch */
     keys[n++] = RIGHT;                                     /* off */
+    keys[n++] = DOWN;                                      /* the log folder row */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.no_movies, 1);
+    CHECK_EQ_INT(r.fake.saved.update_check, 0);
 }
 
 /* the Done/Cancel walk: Right from Done is Cancel, as it was before the regrouping, and Cancel saves nothing */
@@ -1117,7 +1159,7 @@ static void test_check_for_updates_switch(void)
     CHECK_EQ_INT(r.fake.saved.update_check, 0);
 }
 
-/* port (bug reports): Open the log folder is an action row on page 2's Miscellaneous. Return runs the op once; the arrows do not; Done still saves */
+/* port (bug reports): Open the log folder is an action row, the last of page 3's Miscellaneous. Return runs the op once; the arrows do not; Done still saves */
 static void test_extras_has_open_log_folder_row(void)
 {
     Rig r;
@@ -1131,7 +1173,7 @@ static void test_extras_has_open_log_folder_row(void)
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Open the log folder"));
-    CHECK(shown(&r.fake, "Updates") && shown(&r.fake, "Support"));   /* page 3's two headers */
+    CHECK(shown(&r.fake, "Miscellaneous"));
     CHECK_EQ_INT(r.fake.log_opens, 1);
     CHECK_EQ_INT(r.fake.saves, 1);
     CHECK_EQ_INT(ROW_LOG_FOLDER, EXTRAS_ROWS - 1);
@@ -1164,6 +1206,7 @@ int main(void)
 {
     test_check_for_updates_switch();
     test_mirror_toggle_excludes_rally();
+    test_page_three_is_miscellaneous();
     test_extras_has_open_log_folder_row();
     test_the_log_folder_row_without_the_op();
     test_escape_restores_input();

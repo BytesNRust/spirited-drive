@@ -44,12 +44,12 @@ enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_
 
 /* the two headers of each page, in the owner's words */
 static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Cheats", "Unlocks & mods" },
-                                                                 { "In-race options", "Miscellaneous" },
-                                                                 { "Updates", "Support" } };
+                                                                 { "In-race options", NULL },
+                                                                 { "Miscellaneous", NULL } };   /* NULL: the page has one group */
 
 /* where each page's second group begins, as a row of that page: extras_menu.h's order already has each page's first
  * group first, so the second is the first row under its header (Warrior Rival Car on page 1, Start Screen on page 2) */
-static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_RIVAL - ROW_EXPLODE, ROW_START - ROW_FIRST_P2, ROW_LOG_FOLDER - ROW_FIRST_P3 };
+static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_RIVAL - ROW_EXPLODE, ROWS_P2, ROWS_P3 };   /* pages 2 and 3 have no second group: it would begin past their last row */
 
 /* the first switch of each page, in extras_menu.h's flat list */
 static int first_of(int page) { return page == 0 ? ROW_EXPLODE : page == 1 ? ROW_FIRST_P2 : ROW_FIRST_P3; }
@@ -95,9 +95,9 @@ static int *flag_of(PortExtras *e, int page, int row)
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
                                &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */,
-                               NULL /* Start Screen */, &e->no_movies };
+                               };
     if (page == 1) return p2[row];
-    int *const p3[ROWS_P3] = { &e->update_check, NULL /* Open the log folder: an action */ };
+    int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */ };
     return p3[row];
 }
 
@@ -324,6 +324,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     /* the page's two headers: they name the group under them and are never the selection. Underlined across the
      * rows, as the credits head and close off their sections */
     for (int group = 0; group < EXTRAS_GROUPS; group++) {
+        if (HEADERS[p->page][group] == NULL) continue;
         const int y = line_y(p->page, header_line(p->page, group));
         if (o->plus_header != NULL) o->plus_header(o->ctx, HEADERS[p->page][group], LABEL_X, y, VALUE_RIGHT - LABEL_X);
         else text(o, STYLE_RED, HEADERS[p->page][group], LABEL_X, y);
