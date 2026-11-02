@@ -28,6 +28,40 @@ static void test_runs_and_short_runs(void)
     }
 }
 
+/* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
+static void test_hall_is_a_tunnel(void)
+{
+    uint8_t property[NODES], flags[NODES];
+    for (int i = 0; i < NODES; i++) property[i] = 3;
+    for (int i = NODES - 5; i < NODES; i++) property[i] = 17;
+    for (int i = 0; i < 10; i++) property[i] = 17;              /* 15 nodes across the line */
+    property[30] = property[31] = 17;                           /* two nodes of the hall bit: too short */
+    psx_light_synth_tunnels(property, NODES, 1, flags);
+    CHECK_EQ_INT(flags[NODES - 5], PSX_SYNTH_FLAG_HALL);
+    CHECK_EQ_INT(flags[0], PSX_SYNTH_FLAG_HALL);
+    CHECK_EQ_INT(flags[9], PSX_SYNTH_FLAG_HALL);
+    CHECK_EQ_INT(flags[10], 0);
+    CHECK_EQ_INT(flags[30], 0);
+}
+
+/* a hall's rows leave the world's light (254 of 255 at the one point) and mark the cars' alternation: warm under a lamp (even node), dim between, as a tunnel's */
+static void test_hall_rows_and_cars(void)
+{
+    uint8_t flags[NODES] = { 0 }, data[NODES * PSX_LIGHT_POINTS];
+    for (int i = 10; i < 30; i++) flags[i] = PSX_SYNTH_FLAG_HALL;
+    psx_light_synth_rows(flags, NODES, 0, PSX_SYNTH_DAY, data);
+    for (int p = 0; p < PSX_LIGHT_POINTS; p++) CHECK(data[20 * PSX_LIGHT_POINTS + p] >= PSX_SYNTH_HALL_MARK);
+    CHECK_EQ_INT(data[9 * PSX_LIGHT_POINTS + 4], PSX_LIGHT_FULL);   /* next to the hall: nothing, no doors */
+    PsxLight light = { 0 };
+    light.data = data, light.nodes = NODES;
+    float lit[3], dim[3], open[3];
+    psx_light_synth_car(&light, 20, lit);
+    psx_light_synth_car(&light, 21, dim);
+    psx_light_synth_car(&light, 5, open);
+    CHECK(lit[0] < 1.0f && dim[0] < lit[0]);
+    CHECK(open[0] == 1.0f);
+}
+
 static void test_ring_joins_a_run_across_node_zero(void)
 {
     uint8_t property[NODES] = { 0 }, flags[NODES];
@@ -182,6 +216,8 @@ static void test_tracks(void)
 int main(void)
 {
     test_runs_and_short_runs();
+    test_hall_is_a_tunnel();
+    test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();
     test_doors_follow_the_measured_ramps();

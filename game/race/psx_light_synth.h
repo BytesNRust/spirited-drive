@@ -16,6 +16,11 @@
 enum {
     PSX_SYNTH_PROPERTY_TUNNEL = 4,   /* TriNode.property bit: a tunnel (CY1 1064..1171, TR6 199..546) */
     PSX_SYNTH_PROPERTY_OPEN = 1,     /* with the tunnel bit: not a tunnel (TR7 778..818, an open truss bridge: the sky shows through its sides) */
+    PSX_SYNTH_PROPERTY_HALL = 16,    /* TriNode.property bit: a hall, a roofed straight lit by lamps like a tunnel (TR7's steelworks, 1011..1023 and 0..62, property 17) */
+    PSX_SYNTH_FLAG_TUNNEL = 1,       /* psx_light_synth_tunnels' flag of a tunnel's node */
+    PSX_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
+    PSX_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (psx_light_synth_car) */
+    PSX_SYNTH_HALL_MARK = 254,       /* a hall node's value there: 254 of 255 to the world, the mark of a lit hall to the cars */
     PSX_SYNTH_MIN_RUN = 12,          /* nodes: the shortest run that is a tunnel */
     PSX_SYNTH_FOOT_RAMP = 9,         /* nodes either side of a tunnel over which the wall foot and the road go to their tunnel values */
     PSX_SYNTH_BEYOND_ENTRY = 7,      /* nodes before a tunnel over which the points beyond the foot go dark (CY1: 220 at 12, 192 at 6, 99 at 4, 11 at 3, 0 from 1) */
