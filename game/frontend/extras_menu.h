@@ -25,7 +25,9 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
  *                               Difficulty (Easy / Original / Hard)
- *            Miscellaneous      Start Screen, Intro video, Updates and anonymous stats, Open the log folder (an action, no value)
+ *            Miscellaneous      Start Screen, Intro video
+ *  page 3  Updates            Updates and anonymous stats
+ *            Support            Open the log folder (an action, no value)
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
  * is thirteen rows and two headers, fifteen lines, which is what the 20 pitch fits.)
@@ -36,7 +38,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  * are Cheats (they change how a race runs) and No Movies is Miscellaneous' "Intro video" (On while no_movies is 0).
  * Modern 3D, Texture Filter and Fog are not here at all: they are on the port's own Graphics screen (graphics_own.c)
  * and edited in port.cfg from there. */
-enum { EXTRAS_PAGES = 2, EXTRAS_GROUPS = 2 };
+enum { EXTRAS_PAGES = 3, EXTRAS_GROUPS = 2 };
 enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the groups, in the pages' order */
 enum {
     ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
@@ -53,7 +55,7 @@ enum {
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */
-enum { ROW_FIRST_P2 = ROW_UNITS, ROWS_P1 = ROW_FIRST_P2, ROWS_P2 = EXTRAS_ROWS - ROW_FIRST_P2 };
+enum { ROW_FIRST_P2 = ROW_UNITS, ROWS_P1 = ROW_FIRST_P2, ROW_FIRST_P3 = ROW_UPDATE, ROWS_P2 = ROW_FIRST_P3 - ROW_FIRST_P2, ROWS_P3 = EXTRAS_ROWS - ROW_FIRST_P3 };
 
 typedef struct ExtrasMenuOps {
     void (*pointer_move_to)(void *ctx, int32_t x, int32_t y);

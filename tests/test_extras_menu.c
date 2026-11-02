@@ -272,24 +272,28 @@ static int downs(int *keys, int n, int count)
     return n;
 }
 
-/* the flat list of rows splits into the two pages at ROW_FIRST_P2: a row before it is page 1's, the rest page 2's */
-static int page_of(int row) { return row < ROW_FIRST_P2 ? 0 : 1; }
+/* the flat list of rows splits into the three pages at ROW_FIRST_P2 and ROW_FIRST_P3 */
+static int page_of(int row) { return row < ROW_FIRST_P2 ? 0 : row < ROW_FIRST_P3 ? 1 : 2; }
+static int first_on(int page) { return page == 0 ? 0 : page == 1 ? ROW_FIRST_P2 : ROW_FIRST_P3; }
 /* a row's index on its own page */
-static int index_of(int row) { return page_of(row) == 0 ? row : row - ROW_FIRST_P2; }
+static int index_of(int row) { return row - first_on(page_of(row)); }
 /* how many rows its page shows */
-static int rows_on(int row) { return page_of(row) == 0 ? ROWS_P1 : ROWS_P2; }
+static int rows_of_page(int page) { return page == 0 ? ROWS_P1 : page == 1 ? ROWS_P2 : ROWS_P3; }
+static int rows_on(int row) { return rows_of_page(page_of(row)); }
 
 /* the DOWNs from a row to its page's Done, which is the row past the page's last switch */
 static int downs_to_done(int row) { return rows_on(row) - index_of(row); }
 
-/* the keys from the screen's first row to `row`: on page 1, DOWN to it; on page 2, DOWN to page 1's Done, RIGHT to
- * Cancel, RIGHT round to page 2's first row, then DOWN to it. Returns how many keys were written. */
+/* the keys from the screen's first row to `row`: for each page before its own, DOWN to Done, RIGHT to Cancel, RIGHT round to the next page's first row; then DOWN to
+ * the row. Returns how many keys were written. */
 static int keys_to_row(int *keys, int row)
 {
-    if (page_of(row) == 0) return downs(keys, 0, row);
-    int n = downs(keys, 0, ROWS_P1);
-    keys[n++] = RIGHT, keys[n++] = RIGHT;
-    return downs(keys, n, row - ROW_FIRST_P2);
+    int n = 0;
+    for (int page = 0; page < page_of(row); page++) {
+        n = downs(keys, n, rows_of_page(page));
+        keys[n++] = RIGHT, keys[n++] = RIGHT;
+    }
+    return downs(keys, n, index_of(row));
 }
 
 /* Edit Mirror (on page 1, then Done) turns it on and turns Rally off when Rally was on */
@@ -335,7 +339,7 @@ static void test_right_turns_to_page_two(void)
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/3 >"));
     CHECK(shown(&r.fake, "Speed units"));
 }
 
@@ -537,7 +541,7 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 14);
+    CHECK_EQ_INT(ROWS_P2, 12);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -898,17 +902,15 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* Open the log folder, page 2's last row */
-    keys[n++] = UP;                                        /* Updates and anonymous stats, the last switch */
+    keys[n++] = UP;                                        /* Intro video, page 2's last switch */
     keys[n++] = RIGHT;                                     /* off */
-    keys[n++] = DOWN;                                      /* the log folder row */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.update_check, 0);
+    CHECK_EQ_INT(r.fake.saved.no_movies, 1);
 }
 
 /* the Done/Cancel walk: Right from Done is Cancel, as it was before the regrouping, and Cancel saves nothing */
@@ -933,7 +935,7 @@ static void test_nav_click_turns_the_page(void)
     setup(&r);
     r.fake.pointer_in_nav = 1;
     run(&r, keys, 2);
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/3 >"));
 }
 
 /* port: PageDown turns the page, as the screen's own words promise (a click on the page indicator or PageDown turns
@@ -947,7 +949,7 @@ static void test_page_down_turns_the_page(void)
     const int keys[] = { PAGE_DOWN, ESCAPE };
     setup(&r);
     run(&r, keys, 2);
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/3 >"));
 }
 
 /* port: page 1's Unlock Level still steps through its three values, under Unlocks & mods */
@@ -1129,6 +1131,7 @@ static void test_extras_has_open_log_folder_row(void)
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Open the log folder"));
+    CHECK(shown(&r.fake, "Updates") && shown(&r.fake, "Support"));   /* page 3's two headers */
     CHECK_EQ_INT(r.fake.log_opens, 1);
     CHECK_EQ_INT(r.fake.saves, 1);
     CHECK_EQ_INT(ROW_LOG_FOLDER, EXTRAS_ROWS - 1);
