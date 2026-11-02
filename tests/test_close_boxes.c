@@ -98,14 +98,14 @@ static void test_the_flag_closes_the_box(void)
     /* the far corners the walls share: the left wall's far top is the front's top-left carried by the side's depth */
     const int32_t far_top_left[3] = { cam[0][0] + (cam[4][0] - cam[1][0]), cam[0][1] + (cam[4][1] - cam[1][1]), cam[0][2] + (cam[4][2] - cam[1][2]) };
     const int32_t far_bottom_left[3] = { cam[3][0] + (cam[5][0] - cam[2][0]), cam[3][1] + (cam[5][1] - cam[2][1]), cam[3][2] + (cam[5][2] - cam[2][2]) };
-    CHECK(memcmp(c.cam[2][0], cam[4], sizeof far_top_left) == 0);               /* the back, seen from outside: its left is the side's far edge */
-    CHECK(memcmp(c.cam[2][1], far_top_left, sizeof far_top_left) == 0);
-    CHECK(memcmp(c.cam[2][2], far_bottom_left, sizeof far_top_left) == 0);
-    CHECK(memcmp(c.cam[2][3], cam[5], sizeof far_top_left) == 0);
-    CHECK(memcmp(c.cam[3][0], far_top_left, sizeof far_top_left) == 0);         /* the left wall from outside: far edge, then the front's left edge */
-    CHECK(memcmp(c.cam[3][1], cam[0], sizeof far_top_left) == 0);
-    CHECK(memcmp(c.cam[3][2], cam[3], sizeof far_top_left) == 0);
-    CHECK(memcmp(c.cam[3][3], far_bottom_left, sizeof far_top_left) == 0);
+    CHECK(memcmp(c.cam[2][0], far_top_left, sizeof far_top_left) == 0);         /* the back, mirrored as the owner asked: its left is the far left corner */
+    CHECK(memcmp(c.cam[2][1], cam[4], sizeof far_top_left) == 0);
+    CHECK(memcmp(c.cam[2][2], cam[5], sizeof far_top_left) == 0);
+    CHECK(memcmp(c.cam[2][3], far_bottom_left, sizeof far_top_left) == 0);
+    CHECK(memcmp(c.cam[3][0], cam[0], sizeof far_top_left) == 0);               /* the left wall, mirrored: the front's left edge, then the far edge */
+    CHECK(memcmp(c.cam[3][1], far_top_left, sizeof far_top_left) == 0);
+    CHECK(memcmp(c.cam[3][2], far_bottom_left, sizeof far_top_left) == 0);
+    CHECK(memcmp(c.cam[3][3], cam[3], sizeof far_top_left) == 0);
     CHECK(memcmp(c.roof_cam[0], far_top_left, sizeof far_top_left) == 0);       /* the roof from above: far left, far right, near right, near left */
     CHECK(memcmp(c.roof_cam[1], cam[4], sizeof far_top_left) == 0);
     CHECK(memcmp(c.roof_cam[2], cam[1], sizeof far_top_left) == 0);
@@ -121,8 +121,32 @@ static void test_no_roof_op_still_gets_its_walls(void)
     CHECK_EQ_INT(c.roof, 0);
 }
 
+/* a gabled house: the side's far top is the ridge, higher than the near top (an apex among the points); it is left open, no walls and no roof from a wrong corner */
+static void test_a_gabled_house_is_left_open(void)
+{
+    int32_t cam[6][3];
+    seen_from_behind(cam);
+    cam[4][1] += 400;
+    const Calls c = draw_box(cam, 1, 1, 1);
+    CHECK_EQ_INT(c.camera, 2);   /* the front and the side only */
+    CHECK_EQ_INT(c.roof, 0);
+}
+
+/* the two far ends carried by different depths (a tower on a base) */
+static void test_a_skewed_box_is_left_open(void)
+{
+    int32_t cam[6][3];
+    seen_from_behind(cam);
+    cam[5][2] += 300;
+    const Calls c = draw_box(cam, 1, 1, 1);
+    CHECK_EQ_INT(c.camera, 2);
+    CHECK_EQ_INT(c.roof, 0);
+}
+
 int main(void)
 {
+    test_a_gabled_house_is_left_open();
+    test_a_skewed_box_is_left_open();
     test_without_the_flag_it_is_the_l();
     test_the_exes_mapper_is_left_alone();
     test_from_the_front_the_new_walls_and_the_roof_are_not_drawn();
