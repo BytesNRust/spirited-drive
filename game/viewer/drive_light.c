@@ -178,7 +178,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     psx_light_free(&light);
     synth_on = 0;
     tint[0] = tint[1] = tint[2] = 1.0f;
-    if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
+    if (!enabled) return;
+    const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
     headlights_on = (time == PSX_TIME_NIGHT || is_lost_vegas(track)) && port_psx_headlights();
     street_lamp_on = headlights_on && street_lamp_for(track, &street_lamp);
     window_board_count = headlights_on ? window_boards_for(track, &window_boards) : 0;
@@ -186,15 +187,22 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_NIGHT ? time : PSX_TIME_DAY];
-    if (time != PSX_TIME_DAY) load_sky(psx_dir, track, letter);
+    if (time != PSX_TIME_DAY && have_dir) load_sky(psx_dir, track, letter);
     alt_sky_wanted = time != PSX_TIME_DAY && !sky_draw.ready;
-    char path[LIGHT_PATH];
-    file_path(path, sizeof path, psx_dir, track, letter, "LGT");
+    char path[LIGHT_PATH] = "";
     size_t size = 0;
-    uint8_t *file = platform_read_file(path, &size);
+    uint8_t *file = NULL;
+    if (have_dir) {
+        file_path(path, sizeof path, psx_dir, track, letter, "LGT");
+        file = platform_read_file(path, &size);
+    }
     if (file == NULL) {
-        port_log("psx_light: no %s\n", path);
+        if (have_dir) port_log("psx_light: no %s\n", path);
+        else port_log("psx_light: no PS1 directory, the port's own effects only\n");
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
+        const PsxLamp *own_lamps = NULL;
+        const int own_count = psx_lamps_for(track, &own_lamps);
+        if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = own_lamps, night_lamp_count = own_count;   /* the lamps' own colours are kept lit in the night's palette */
         return;
     }
     PsxLight parsed = { 0 };
