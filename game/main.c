@@ -19,6 +19,8 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tgv_player.h"
+#include "game/platform/first_run.h"
+#include "game/sys/data_root.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
@@ -42,6 +44,7 @@
 
 typedef struct {
     const char *data_root;
+    int data_explicit;   /* --data was given */
     const char *mods;
     int german;
     const char *view;
@@ -61,12 +64,13 @@ typedef struct {
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
-    *opt = (Options){ "original", NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
+    *opt = (Options){ "original", 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
                       0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
             opt->data_root = argv[++i];
+            opt->data_explicit = 1;
         } else if (strcmp(argv[i], "--mods") == 0 && has_value) {
             opt->mods = argv[++i];
         } else if (strcmp(argv[i], "--german") == 0) {
@@ -228,11 +232,35 @@ static int run_game(const Options *opt)
     return 1;
 }
 
+/* port (the first-run wizard): --data as given, else the player's own copy of the CD (<user dir>/gamedata), else a development build's original/, else the wizard asks for the
+ * CD's folder and makes the copy */
+static int resolve_data_root(const Options *opt, char *out, size_t out_size)
+{
+    char copy[1024];
+    const int has_copy = first_run_user_copy(copy, sizeof copy);
+#ifdef TNFS_SOURCE_DIR
+    const char *const dev = "original";   /* a development build, run from the repository */
+#else
+    const char *const dev = NULL;
+#endif
+    if (data_root_resolve(opt->data_explicit ? opt->data_root : NULL, has_copy ? copy : NULL, dev, out, out_size) != DATA_ROOT_NEEDS_SETUP) return 1;
+    if (!has_copy || !first_run_setup(copy)) {
+        port_fatal("no game data: run it once without --data on a machine with a display and choose the CD's folder, or give --data DIR\n");
+        return 0;
+    }
+    snprintf(out, out_size, "%s", copy);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
+    platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in tnfs.log too */
     int ok;
+    static char data_root[1024];
+    if (!resolve_data_root(&opt, data_root, sizeof data_root)) return EXIT_FAILURE;
+    opt.data_root = data_root;
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
