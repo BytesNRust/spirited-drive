@@ -36,6 +36,9 @@ typedef struct {
 void track_cache_load(const TrackCacheOps *ops, const TrackSegmentSource *src, int32_t circuit, uint8_t *cache,
                       int32_t segment);
 
+/* the head before anything is loaded (005041dc after 0043e4e0) */
+enum { TRACK_WINDOW_UNLOADED = -9999 };
+
 /* The window about the camera's segment (005041dc..e8, 0050420c, 00504210). */
 typedef struct {
     int32_t head;     /* 005041dc: one past the newest segment loaded; -9999 after 0043e4e0 */
