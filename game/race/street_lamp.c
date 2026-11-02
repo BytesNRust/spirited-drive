@@ -20,6 +20,13 @@ static const StreetLamp TR7_TRUSS_LAMPS[] = {
     { 22, 194, 24, { 140, 22, 150, 23 }, 145, 21, 3, 6, 255, 1 },
 };
 
+/* Lost Vegas' (TR4) burning barrels (scenery texture 29, 98 placements, and 31, one): the flame is already bright, so there is no lens, only the glow round it
+ * on the board's transparent texels (rows 0..39, the barrel under it is left alone) */
+static const StreetLamp TR4_BARRELS[] = {
+    { 29, 50, 120, { 0, 0, 0, -1 }, 25, 24, 6, 20, 255, 1 },
+    { 31, 50, 120, { 0, 0, 0, -1 }, 25, 24, 6, 20, 255, 1 },
+};
+
 /* CL1's board (scenery texture 10, 42 placements): the lamp with its arm; the lens is the amber at the arm's end, rows 7 and 8, x 76..84 (the housing above
  * it is grey, rows 0..6); the halo hangs under it */
 static const StreetLamp CL1_LAMP = { 10, 87, 128, { 76, 7, 84, 8 }, 80, 10, 5, 10, 255, 0 };
@@ -48,7 +55,11 @@ int street_lamps_for(const char *track, StreetLamp *out, int max)
     if (is_track(track, "CY1")) out[0] = CY1_LAMP;
     else if (is_track(track, "CY2")) out[0] = CY2_LAMP;
     else if (is_track(track, "CY3")) out[0] = CY3_LAMP;
-    else if (is_track(track, "TR7")) {
+    else if (is_track(track, "TR4")) {
+        int n = 0;
+        for (; n < 2 && n < max; n++) out[n] = TR4_BARRELS[n];
+        return n;
+    } else if (is_track(track, "TR7")) {
         out[0] = TR7_LAMP;
         int n = 1;
         for (int i = 0; i < 2 && n < max; i++) out[n++] = TR7_TRUSS_LAMPS[i];
