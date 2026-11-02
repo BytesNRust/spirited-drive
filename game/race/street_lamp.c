@@ -21,13 +21,32 @@ static int is_track(const char *track, const char *name)
     return 1;
 }
 
+/* Vertigo Ridge's (TR3): the lantern post (scenery texture 33, 19 placements: the glass at rows 8..25) and the wooden truss's hanging bulb (texture 34, 6
+ * placements, in the tunnel mouths: the bulb at x 69..75, y 69..80, the halo round it on the board's transparent texels) */
+static const StreetLamp TR3_LAMPS[] = {
+    { 33, 16, 150, { 2, 8, 13, 25 }, 8, 26, 4, 9, 255, 0 },
+    { 34, 144, 82, { 69, 69, 75, 80 }, 72, 75, 5, 14, 255, 1 },
+};
+
+int street_lamps_for(const char *track, StreetLamp *out, int max)
+{
+    if (track == NULL || out == NULL || max <= 0) return 0;
+    if (is_track(track, "CY1")) out[0] = CY1_LAMP;
+    else if (is_track(track, "CL1")) out[0] = CL1_LAMP;
+    else if (is_track(track, "TR2")) out[0] = TR2_LAMP;
+    else if (is_track(track, "TR3")) {
+        int n = 0;
+        for (; n < 2 && n < max; n++) out[n] = TR3_LAMPS[n];
+        return n;
+    } else return 0;
+    return 1;
+}
+
 int street_lamp_for(const char *track, StreetLamp *out)
 {
-    if (track == NULL || out == NULL) return 0;
-    if (is_track(track, "CY1")) *out = CY1_LAMP;
-    else if (is_track(track, "CL1")) *out = CL1_LAMP;
-    else if (is_track(track, "TR2")) *out = TR2_LAMP;
-    else return 0;
+    StreetLamp all[STREET_LAMPS_MAX];
+    if (street_lamps_for(track, all, STREET_LAMPS_MAX) <= 0 || out == NULL) return 0;
+    *out = all[0];
     return 1;
 }
 
@@ -43,7 +62,7 @@ StreetLampPaint street_lamp_paint(const StreetLamp *lamp, uint8_t *pixels, int w
             *t = entry[0];
             done.lens++;
         }
-    for (int y = below + 1; y < height && y <= lamp->halo_y + lamp->rim; y++)
+    for (int y = lamp->halo_around ? (lamp->halo_y - lamp->rim > 0 ? lamp->halo_y - lamp->rim : 0) : below + 1; y < height && y <= lamp->halo_y + lamp->rim; y++)
         for (int x = lamp->halo_x - lamp->rim; x <= lamp->halo_x + lamp->rim; x++) {
             if (x < 0 || x >= width) continue;
             uint8_t *t = &pixels[y * width + x];

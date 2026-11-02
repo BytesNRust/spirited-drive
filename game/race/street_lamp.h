@@ -17,10 +17,15 @@ typedef struct {
     int halo_x, halo_y;                   /* the halo's centre */
     int core, rim;                        /* its radii, in texels */
     uint8_t transparent;                  /* the board's transparent entry */
+    int halo_around;                      /* 1: the halo goes round the lens (a bulb hanging at the board's foot), 0 only under it */
 } StreetLamp;
+
+enum { STREET_LAMPS_MAX = 3 };   /* the boards a track may have */
 
 /* The track's street lamp (CY1, any case): 1 and `*out` set, 0 for the others. */
 int street_lamp_for(const char *track, StreetLamp *out);
+/* All of the track's lamp boards, at most `max`: how many, in `out`. */
+int street_lamps_for(const char *track, StreetLamp *out, int max);
 
 typedef struct {
     size_t lens;   /* texels turned to the lens entry */

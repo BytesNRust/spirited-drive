@@ -116,16 +116,18 @@ void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
 }
 
 /* port (night, psx_headlights; street_lamp.h): the street lamp's board, whose entries of its own the light tables leave alone as the lamps' colours are */
-static const FshEntry *street_bitmap;
-static int street_scenery = -1;
+enum { STREET_BOARDS = 3 };
+static const FshEntry *street_bitmap[STREET_BOARDS];
+static int street_scenery[STREET_BOARDS], street_count;
 static uint8_t street_entry[3];
 static uint8_t street_tables[MODERN_FOG_LEVELS][256];
 
-void ported_view_set_street_lamp(int scenery, const uint8_t entry[3])
+void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entry[3])
 {
-    street_scenery = entry != NULL ? scenery : -1;
-    street_bitmap = NULL;
-    if (entry != NULL) memcpy(street_entry, entry, sizeof street_entry);
+    street_count = entry != NULL && scenery != NULL && n > 0 ? (n < STREET_BOARDS ? n : STREET_BOARDS) : 0;
+    for (int i = 0; i < STREET_BOARDS; i++) street_bitmap[i] = NULL;
+    for (int i = 0; i < street_count; i++) street_scenery[i] = scenery[i];
+    if (street_count > 0) memcpy(street_entry, entry, sizeof street_entry);
 }
 
 static const FshEntry *window_bitmap[WINDOW_BOARDS_MAX];
@@ -199,7 +201,8 @@ static int lamp_of(const FshEntry *texture)
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
-    if (street_bitmap != NULL && texture == street_bitmap) return street_tables;
+    for (int i = 0; i < street_count; i++)
+        if (street_bitmap[i] != NULL && texture == street_bitmap[i]) return street_tables;
     for (int i = 0; i < window_count; i++)
         if (window_bitmap[i] != NULL && texture == window_bitmap[i]) return window_tables;
     return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
@@ -1613,10 +1616,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             }
             lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
         }
-        if (street_scenery >= 0 && street_scenery < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery].present) {   /* the street lamp's board: its entries kept */
+        if (street_count > 0) {   /* the street lamps' boards: their entries kept */
             uint8_t exempt[256] = { 0 };
             for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
-            street_bitmap = &art->scenery[street_scenery].bitmap;
+            for (int i = 0; i < street_count; i++)
+                street_bitmap[i] = street_scenery[i] >= 0 && street_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery[i]].present
+                                       ? &art->scenery[street_scenery[i]].bitmap : NULL;
             psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
         }
         if (window_count > 0) {   /* the lit windows' boards: their entry kept */

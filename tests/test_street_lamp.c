@@ -36,7 +36,33 @@ static void test_the_lamp_of_each_track(void)
     CHECK_EQ_INT(l.width, 38);
     CHECK_EQ_INT(l.height, 148);
     CHECK(l.lens_rect[3] <= 21 && l.halo_y >= l.lens_rect[3]);
-    CHECK(!street_lamp_for("TR1", &l) && !street_lamp_for("TR3", &l));
+    CHECK(!street_lamp_for("TR1", &l));
+}
+
+/* Vertigo Ridge (TR3): two boards, the lantern post (16 x 150) and the truss with its hanging bulb (144 x 82, the bulb at its foot: the halo goes round it) */
+static void test_vertigo_ridge_has_two_lamps(void)
+{
+    StreetLamp l[STREET_LAMPS_MAX];
+    CHECK_EQ_INT(street_lamps_for("TR3", l, STREET_LAMPS_MAX), 2);
+    CHECK_EQ_INT(l[0].scenery, 33);
+    CHECK_EQ_INT(l[0].width, 16);
+    CHECK_EQ_INT(l[1].scenery, 34);
+    CHECK_EQ_INT(l[1].width, 144);
+    CHECK_EQ_INT(l[1].height, 82);
+    CHECK_EQ_INT(street_lamps_for("CY1", l, STREET_LAMPS_MAX), 1);
+    CHECK_EQ_INT(street_lamps_for("AL1", l, STREET_LAMPS_MAX), 0);
+    enum { BW = 144, BH = 82 };
+    uint8_t px[BW * BH];
+    memset(px, 255, sizeof px);
+    for (int y = 69; y <= 80; y++) memset(px + y * BW + 69, 40, 7);   /* the bulb */
+    const uint8_t entry[STREET_LAMP_ENTRIES] = { 200, 201, 202 };
+    const StreetLampPaint p = street_lamp_paint(&l[1], px, BW, BH, entry);
+    CHECK_EQ_INT((int)p.lens, 7 * 12);
+    int above = 0, beside = 0;
+    for (int y = 0; y < BH; y++)
+        for (int x = 0; x < BW; x++)
+            if (px[y * BW + x] >= 201) above += y < 69, beside += y >= 69 && (x < 69 || x > 75);
+    CHECK(above > 0 && beside > 0);   /* the halo is round the bulb, not only under it */
 }
 
 static void test_the_lens_and_the_halo(void)
@@ -94,6 +120,7 @@ static void test_painting_again_and_the_wrong_board(void)
 int main(void)
 {
     test_the_lamp_of_each_track();
+    test_vertigo_ridge_has_two_lamps();
     test_the_lens_and_the_halo();
     test_painting_again_and_the_wrong_board();
     return TEST_REPORT();

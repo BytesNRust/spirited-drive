@@ -41,7 +41,8 @@ static int headlights_on;               /* the race is at night with the pools: 
 /* with the pools the palette is the dusk's with the night's hue (psx_night_light over HEADLIGHT_FLOOR, 1 at most per channel) and the nodes carry the rest of the
  * dark (headlight_pool.h): open road and country go to the night's light, a tunnel and a car's pool keep the dusk's; the sky keeps psx_night_light */
 static const float NIGHT_PALETTE[3] = { 0.80f, 0.96f, 1.0f };
-static StreetLamp street_lamp;   /* port (psx_headlights): City's street lamps flare at night (street_lamp.h) */
+static StreetLamp street_lamps[STREET_LAMPS_MAX];   /* port (psx_headlights): the street lamps flare at night (street_lamp.h) */
+static int street_lamp_count;
 static int street_lamp_on;
 static int night_look;   /* the night's look beyond the sky: the dash darkens (the night, and Lost Vegas always) */
 static const WindowBoard *window_boards;   /* port (psx_headlights): the night's lit windows (window_lights.h), one pool entry for all the boards */
@@ -178,7 +179,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     ported_view_set_flares(port_psx_flares());
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */
     ported_view_set_psx_lamps(NULL, 0);
-    ported_view_set_street_lamp(0, NULL);
+    ported_view_set_street_lamps(NULL, 0, NULL);
+    street_lamp_count = 0;
     ported_view_set_light(NULL, NULL);
     ported_view_set_psx_ambient(NULL, 0, NULL);
     ported_view_set_psx_synth(0);
@@ -193,7 +195,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (!enabled) return;
     const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
     headlights_on = (time == PSX_TIME_NIGHT || is_lost_vegas(track)) && port_psx_headlights();
-    street_lamp_on = headlights_on && street_lamp_for(track, &street_lamp);
+    street_lamp_count = headlights_on ? street_lamps_for(track, street_lamps, STREET_LAMPS_MAX) : 0;
+    street_lamp_on = street_lamp_count > 0;
     window_board_count = headlights_on ? window_boards_for(track, &window_boards) : 0;
     synth_wanted = psx_light_synth_track(track);
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
@@ -326,11 +329,16 @@ static void street_lamps_night(TrackArt *art)
         memcpy(art->palette + 3 * entry[k], RGB[k], 3);
         drive_palette_write(entry[k], RGB[k]);
     }
-    ported_view_set_street_lamp(street_lamp.scenery, entry);
-    TrackTexture *t = street_lamp.scenery >= 0 && street_lamp.scenery < TRACK_SCENERY_TEXTURES ? &art->scenery[street_lamp.scenery] : NULL;
-    if (t == NULL || !t->present) return;
-    const StreetLampPaint p = street_lamp_paint(&street_lamp, (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, entry);
-    port_log("street_lamps: %zu lens texels and %zu halo texels in entries %d %d %d\n", p.lens, p.halo, entry[0], entry[1], entry[2]);
+    int scenery[STREET_LAMPS_MAX];
+    for (int i = 0; i < street_lamp_count; i++) scenery[i] = street_lamps[i].scenery;
+    ported_view_set_street_lamps(scenery, street_lamp_count, entry);
+    for (int i = 0; i < street_lamp_count; i++) {
+        const StreetLamp *const l = &street_lamps[i];
+        TrackTexture *t = l->scenery >= 0 && l->scenery < TRACK_SCENERY_TEXTURES ? &art->scenery[l->scenery] : NULL;
+        if (t == NULL || !t->present) continue;
+        const StreetLampPaint p = street_lamp_paint(l, (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, entry);
+        port_log("street_lamps: board %d: %zu lens texels and %zu halo texels in entries %d %d %d\n", l->scenery, p.lens, p.halo, entry[0], entry[1], entry[2]);
+    }
 }
 
 /* the lit windows' colour (a warm yellow, dimmer than the lamps' lens), the pool's very last entry, painted into each window board */
