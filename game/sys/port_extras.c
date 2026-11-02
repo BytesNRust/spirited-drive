@@ -1,5 +1,6 @@
 /* port: the port's own extras file (extras.cfg). */
 #include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
 #include "game/platform/platform.h"
 
 #include <stdio.h>
@@ -173,9 +174,13 @@ PortExtras port_extras_load(void)
 
 bool port_extras_save(const PortExtras *e)
 {
-    char text[512];
+    char text[1024];   /* the file is about 400 bytes with 25 switches; a key more must never push it past the buffer */
     const size_t n = port_extras_format(e, text, sizeof text);
-    return n > 0 && platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+    if (n == 0) {
+        port_log("extras: extras.cfg was not saved: its text does not fit %zu bytes\n", sizeof text);
+        return false;
+    }
+    return platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
 }
 
 DashBox port_extras_dash_box(void)
