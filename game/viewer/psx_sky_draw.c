@@ -69,8 +69,10 @@ void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
 }
 
 /* the stars keep to the upper STAR_BAND_NUM / STAR_BAND_DEN of the sky above its horizon row, and off the land: a column's silhouette starts at the first row whose
- * texel is under STAR_EDGE_PERCENT of the one STAR_EDGE_ROWS above it (and that one was not itself near black), and no star is put on it or the row over it */
-enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 7, STAR_BAND_NUM = 3, STAR_BAND_DEN = 5, STAR_EDGE_ROWS = 3,
+ * rows (their mean, over STAR_EDGE_ROWS) are under STAR_EDGE_PERCENT of the ones above them: a step, which a gradient darkening to the horizon, dithered or not,
+ * never makes; no star is put on it or the row over it. The density is raised by the band's share
+ * (STAR_TOP_PER_MILLE) so the sky holds as many stars as when they went down to the horizon. */
+enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 14, STAR_BAND_NUM = 3, STAR_BAND_DEN = 5, STAR_EDGE_ROWS = 4,
        STAR_EDGE_PERCENT = 60, STAR_EDGE_FROM_LUMA = 6 };
 static const uint8_t STAR_GREY[STAR_GREYS] = { 110, 170, 235 };
 
@@ -123,14 +125,18 @@ static void free_entries(PsxSkyDraw *d, int chosen[STAR_GREYS])
     for (size_t i = 0; i < count; i++) d->bitmap.pixels[i] = into[d->bitmap.pixels[i]];
 }
 
-/* the first row of column x that the land takes (the sky's, from the first row down), or `horizon` when the column has none */
+/* the first row of column x that the land takes (the sky's, from the first row down), or `horizon` when the column has none: the row from which the mean of the
+ * next STAR_EDGE_ROWS rows is under STAR_EDGE_PERCENT of the mean of the STAR_EDGE_ROWS before it (means, so a dithered or noisy gradient is not an edge) */
 static int silhouette_top(const PsxSkyDraw *d, int x, int horizon)
 {
     const int width = d->bitmap.width;
-    for (int y = STAR_EDGE_ROWS; y < horizon; y++) {
-        const int above = luma_of(d->bitmap.palette, d->bitmap.pixels[(size_t)(y - STAR_EDGE_ROWS) * (size_t)width + (size_t)x]);
-        const int here = luma_of(d->bitmap.palette, d->bitmap.pixels[(size_t)y * (size_t)width + (size_t)x]);
-        if (above >= STAR_EDGE_FROM_LUMA && here * 100 < above * STAR_EDGE_PERCENT) return y;
+    for (int y = STAR_EDGE_ROWS; y + STAR_EDGE_ROWS <= horizon; y++) {
+        int above = 0, below = 0;
+        for (int k = 0; k < STAR_EDGE_ROWS; k++) {
+            above += luma_of(d->bitmap.palette, d->bitmap.pixels[(size_t)(y - 1 - k) * (size_t)width + (size_t)x]);
+            below += luma_of(d->bitmap.palette, d->bitmap.pixels[(size_t)(y + k) * (size_t)width + (size_t)x]);
+        }
+        if (above >= STAR_EDGE_FROM_LUMA * STAR_EDGE_ROWS && below * 100 < above * STAR_EDGE_PERCENT) return y;
     }
     return horizon;
 }
