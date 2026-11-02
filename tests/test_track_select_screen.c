@@ -209,7 +209,7 @@ static void test_without_the_row_up_is_the_originals(void)
 }
 
 /* the night (psx_time 3): the evening art's texels moved to darker entries, the transparent one left; dusk draws it as it is */
-/* the night's label is the word in the text font, not the evening's art (darkened or not); dusk keeps the art as it is */
+/* the night's label is the word Night in the text font over the evening's strip; dusk keeps the art as it is */
 static void test_night_label_is_text(void)
 {
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300];
@@ -250,7 +250,7 @@ static void test_night_label_is_text(void)
             CHECK_MEM(evening_seen, day, 4);   /* dusk: the art as it is */
             CHECK_EQ_INT(night_words, 0);
         } else {
-            CHECK_EQ_INT(evening_blits, 0);
+            CHECK(evening_blits > 0);   /* the strip (its word wiped: none here, the test palette is black) still covers the screen's own label */
             CHECK(night_words > 0);
         }
         CHECK_MEM(evening + 0x10, day, 4);   /* the bank's own shape is not touched */
