@@ -462,6 +462,7 @@ add_executable(tnfs
     game/viewer/ported_viewport.c
     game/viewer/raster.c
     game/viewer/track_load.c
+    game/viewer/scenery_dump.c
     game/viewer/track_fly.c
     game/viewer/drive_wide.c
     game/viewer/drive_draw.c
