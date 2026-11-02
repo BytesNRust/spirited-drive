@@ -13,6 +13,7 @@
 #include "game/race/race_draw_setup.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/free_laps.h"
+#include "game/race/track_wall.h"
 #include "game/sys/reverse_track.h"
 #include "game/race/race_schedule.h"
 #include "game/sys/port_settings.h"
@@ -463,6 +464,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.port_free_laps = free_race;
     drive_sim.race.port_reverse = t->reversed;
     reverse_track_set(t->reversed);
+    track_wall_set_inner(t->reversed);   /* the walls where they were */
     difficulty_running_set(&field.port_difficulty);
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
