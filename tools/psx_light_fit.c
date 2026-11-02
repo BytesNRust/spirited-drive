@@ -57,7 +57,7 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
     if (tri_data == NULL || tri_open(&tri, tri_data, tri_size) != TRI_OK) return fprintf(stderr, "cannot read %s\n", path), 0;
     snprintf(path, sizeof path, "%s/Z%s%c.LGT", psx_dir, track, letter);
     uint8_t *lgt_data = slurp(path, &lgt_size);
-    PsxLight ps1;
+    PsxLight ps1 = { 0 };   /* psx_light_parse sets only the rows: the flags (reversed, scripted) must start at 0 or the CD is read mirrored */
     if (lgt_data == NULL || !psx_light_parse(lgt_data, lgt_size, tri.node_count, &ps1)) return fprintf(stderr, "cannot read %s\n", path), 0;
     const uint32_t count = tri.node_count;
     LightPos *pts = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *pts);

@@ -57,7 +57,7 @@ int main(int argc, char **argv)
     snprintf(path, sizeof path, "%s/Z%s%c.LGT", argv[1], track, letter);
     uint8_t *lgt_data = slurp(path, &lgt_size);
     if (lgt_data == NULL) return fprintf(stderr, "cannot read %s\n", path), 1;
-    PsxLight ps1;
+    PsxLight ps1 = { 0 };   /* psx_light_parse sets only the rows: the flags (reversed, scripted) must start at 0 or the CD is read mirrored */
     if (!psx_light_parse(lgt_data, lgt_size, tri.node_count, &ps1))
         return fprintf(stderr, "%s %c: the CD's light does not have the TRI's %u nodes\n", track, letter, tri.node_count), 1;
     const uint32_t count = tri.node_count;
