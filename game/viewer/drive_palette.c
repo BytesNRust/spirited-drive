@@ -240,18 +240,19 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
 /* port (night, psx_lamps.h): the tunnel lamps' colours must stay lit in the night's light, which the tint of the palette would darken (the lamps' entries are
  * shared with the sky and the windows). A pool of entries nothing shows is set aside here, out of every search and the world's tables and out of the tint;
  * drive_light_lamps_night fills them with the colours the lamps' textures show once the textures are in the race palette's terms. */
-enum { NIGHT_LAMP_ENTRIES = 8 };
+enum { NIGHT_LAMP_ENTRIES = 8, NIGHT_LAMP_MAX = NIGHT_LAMP_ENTRIES + 4 };   /* + the street lamp's (drive_light_street_lamp_entries) */
 
 static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
                         const uint8_t *track, const uint8_t *dash_bank)
 {
     const PsxLamp *lamps = NULL;
-    if (drive_light_night_lamps(&lamps) <= 0) return;
-    uint8_t rgb[RACE_PALETTE_COLOURS * 3], entry[NIGHT_LAMP_ENTRIES], used[RACE_PALETTE_COLOURS];
+    const int street = drive_light_street_lamp_entries();
+    if (drive_light_night_lamps(&lamps) <= 0 && street <= 0) return;
+    uint8_t rgb[RACE_PALETTE_COLOURS * 3], entry[NIGHT_LAMP_MAX], used[RACE_PALETTE_COLOURS];
     for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
     used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
-    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, NIGHT_LAMP_ENTRIES, entry);
-    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps\n", found, NIGHT_LAMP_ENTRIES);
+    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, NIGHT_LAMP_ENTRIES + street, entry);
+    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps and the street lamps\n", found, NIGHT_LAMP_ENTRIES + street);
     if (found <= 0) return;
     uint8_t hidden[RACE_PALETTE_COLOURS], exempt[RACE_PALETTE_COLOURS];
     memcpy(hidden, palette_world_hidden(), sizeof hidden);

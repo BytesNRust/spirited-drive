@@ -109,6 +109,19 @@ void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
     for (int i = 0; i < lamp_count; i++) lamp_spec[i] = lamps[i];
 }
 
+/* port (night, psx_headlights; street_lamp.h): the street lamp's board, whose entries of its own the light tables leave alone as the lamps' colours are */
+static const FshEntry *street_bitmap;
+static int street_scenery = -1;
+static uint8_t street_entry[3];
+static uint8_t street_tables[MODERN_FOG_LEVELS][256];
+
+void ported_view_set_street_lamp(int scenery, const uint8_t entry[3])
+{
+    street_scenery = entry != NULL ? scenery : -1;
+    street_bitmap = NULL;
+    if (entry != NULL) memcpy(street_entry, entry, sizeof street_entry);
+}
+
 /* the lamp `texture` is, or -1 */
 static int lamp_of(const FshEntry *texture)
 {
@@ -121,6 +134,7 @@ static int lamp_of(const FshEntry *texture)
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
+    if (street_bitmap != NULL && texture == street_bitmap) return street_tables;
     return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
 }
 
@@ -1332,6 +1346,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             uint8_t exempt[256];
             psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
             psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+        }
+        if (street_scenery >= 0 && street_scenery < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery].present) {   /* the street lamp's board: its entries kept */
+            uint8_t exempt[256] = { 0 };
+            for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
+            street_bitmap = &art->scenery[street_scenery].bitmap;
+            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
         }
         track_light_hook = light_hook;
         tables_made = 1;

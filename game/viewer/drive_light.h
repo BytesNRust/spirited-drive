@@ -37,6 +37,8 @@ int drive_light_night_lamps(const PsxLamp **out);
  * draw those colours there. */
 void drive_light_lamp_pool(const uint8_t entry[], int n);
 void drive_light_lamps_night(TrackArt *art);
+/* port (night, psx_headlights): the entries more the pool needs for the street lamp's flare (street_lamp.h; City's first track), else 0. */
+int drive_light_street_lamp_entries(void);
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768]);
 
 /* A race's frame: `frame` (count pixels) is the 3D when it is done and the 2D layer (HUD, dash, menus over it) not yet drawn. */
