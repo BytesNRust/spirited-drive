@@ -137,7 +137,7 @@ static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.5
 static void use_fallback_tint(int time)
 {
     const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT];
-    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time == PSX_TIME_NIGHT ? psx_night_light[k] : 1.0f);
+    for (int k = 0; k < 3; k++) tint[k] = f[k] * (time != PSX_TIME_NIGHT ? 1.0f : headlights_on && synth_wanted ? NIGHT_PALETTE[k] : psx_night_light[k]);   /* a made light carries the night in its nodes with the pools */
     port_log("psx_light: no light of this track, the flat ambient of the time: tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
 }
 
@@ -220,6 +220,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     PsxLight made = { 0 };
     if (!psx_light_synth(tri, synth_time, &made)) return;
     light = made;
+    light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     ported_view_set_light(&light, NULL);
     ported_view_set_psx_synth(1);
