@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-enum { CELL_W = 96, CELL_H = 144, COLUMNS = 10 };
+enum { CELL_W = 256, CELL_H = 200, COLUMNS = 4 };
 
 void scenery_dump(const Track *t, const char *path)
 {
