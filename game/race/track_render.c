@@ -487,6 +487,50 @@ static void object_full_camera(void *user, int32_t texture, const int32_t *const
     object_light_off(g);
 }
 
+/* port (track_port_close_boxes): a roof's tone, the darkest colour a facade really uses (at least one texel in fifty of it, the transparent one left out) */
+enum { ROOF_CACHE = 64, ROOF_SHARE = 50 };
+static struct {
+    const uint8_t *payload;
+    size_t size;
+    uint8_t index;
+} roof_cache[ROOF_CACHE];
+
+static uint8_t roof_index(const TrackArt *art, const FshEntry *t)
+{
+    for (int i = 0; i < ROOF_CACHE; i++)
+        if (roof_cache[i].payload == t->payload && roof_cache[i].size == t->payload_size) return roof_cache[i].index;
+    size_t count[256] = { 0 }, opaque = 0;
+    const size_t pixels = (size_t)t->width * t->height < t->payload_size ? (size_t)t->width * t->height : t->payload_size;
+    for (size_t i = 0; i < pixels; i++)
+        if (t->payload[i] != 255) count[t->payload[i]]++, opaque++;
+    int best = -1, best_luma = 1 << 30;
+    for (int c = 0; c < 256; c++) {
+        if (count[c] == 0 || count[c] * ROOF_SHARE < opaque) continue;
+        const uint8_t *rgb = art->palette + 3 * c;
+        const int luma = 299 * rgb[0] + 587 * rgb[1] + 114 * rgb[2];
+        if (luma < best_luma) best_luma = luma, best = c;
+    }
+    static int next;
+    const int slot = next++ % ROOF_CACHE;
+    roof_cache[slot].payload = t->payload, roof_cache[slot].size = t->payload_size, roof_cache[slot].index = best >= 0 ? (uint8_t)best : 0;
+    return roof_cache[slot].index;
+}
+
+/* port (track_port_close_boxes): the box's roof, a flat quad of the facade's darkest tone, from camera-space corners */
+static void object_roof_camera(void *user, int32_t texture, const int32_t *const cam[4])
+{
+    const Glue *g = user;
+    const FshEntry *t = scenery_texture(g->r->art, texture);
+    if (t == NULL || t->payload == NULL) return;
+    uint8_t flat[4];
+    memset(flat, roof_index(g->r->art, t), sizeof flat);
+    FshEntry roof = *t;
+    roof.width = 2, roof.height = 2, roof.payload = flat, roof.payload_size = sizeof flat;
+    object_light_on(g);
+    full_camera(user, &roof, cam);
+    object_light_off(g);
+}
+
 /* port: a scenery board too near for the exe, the whole texture from camera-space corners */
 static void object_near_camera(void *user, int32_t texture, const int32_t *const cam[4])
 {
@@ -510,7 +554,8 @@ void track_render_object_ops(const TrackGlue *g, TrackObjectDrawOps *out)
 {
     *out = (TrackObjectDrawOps){ (void *)g, object_model, object_full, object_full_alt,
                                  g->ctx->sink.draw_camera != NULL ? object_full_camera : NULL,
-                                 g->ctx->sink.port_near_camera != NULL ? object_near_camera : NULL };
+                                 g->ctx->sink.port_near_camera != NULL ? object_near_camera : NULL,
+                                 g->ctx->sink.draw_camera != NULL ? object_roof_camera : NULL };
 }
 
 void track_render_push_near(int32_t v[3], int32_t near, const int32_t dir[3])
@@ -531,7 +576,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
                                 TRACK_MAX_OBJECT_VERTICES, frame, r->side_face,
                                 { (void *)&g, object_model, object_full, object_full_alt,
                                   ctx->sink.draw_camera != NULL ? object_full_camera : NULL,
-                                  ctx->sink.port_near_camera != NULL ? object_near_camera : NULL } };
+                                  ctx->sink.port_near_camera != NULL ? object_near_camera : NULL,
+                                  ctx->sink.draw_camera != NULL ? object_roof_camera : NULL } };
     const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt,
                                       ctx->sink.draw_camera != NULL ? full_camera : NULL };
     const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars,

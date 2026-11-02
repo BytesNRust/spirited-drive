@@ -288,6 +288,13 @@ int port_two_sided_scenery(int automatic)
     return automatic != 0;
 }
 
+int port_close_boxes(int automatic)
+{
+    const char *v = getenv("TNFS_CLOSE_BOXES");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return automatic != 0;
+}
+
 int port_psx_flares(void)
 {
     if (!port_psx_light()) return 0;   /* the halo is the PS1 look's */
