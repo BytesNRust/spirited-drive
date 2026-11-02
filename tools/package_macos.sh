@@ -59,14 +59,23 @@ cp "$SDL_FILE" "$APP/Contents/Frameworks/libSDL3.0.dylib"
 chmod u+w "$APP/Contents/Frameworks/libSDL3.0.dylib"
 install_name_tool -id "@rpath/libSDL3.0.dylib" "$APP/Contents/Frameworks/libSDL3.0.dylib"
 install_name_tool -change "$SDL_PATH" "@executable_path/../Frameworks/libSDL3.0.dylib" "$APP/Contents/MacOS/tnfs"
+# The builder's rpaths (Nix store, CI temp dirs) mean nothing on a player's Mac: drop them.
+for rp in $(otool -l "$APP/Contents/MacOS/tnfs" | awk '/cmd LC_RPATH/ {getline; getline; print $2}'); do
+    install_name_tool -delete_rpath "$rp" "$APP/Contents/MacOS/tnfs"
+done
 
-# Our own data, if the tree has it.
-if [ -d "$SRC_DIR/data" ]; then
-    cp -R "$SRC_DIR/data" "$APP/Contents/Resources/data"
+# Our own data: only the files git tracks under data/ (a dev machine's untracked files never ship).
+if git -C "$SRC_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    (cd "$SRC_DIR" && git ls-files -z -- data | cpio -0 -pdm --quiet "$APP/Contents/Resources")
+else
+    echo "warning: $SRC_DIR is not a git checkout: no data/ in the bundle" >&2
 fi
 for doc in LICENSE NOTICE.md; do
     [ -f "$SRC_DIR/$doc" ] && cp "$SRC_DIR/$doc" "$APP/Contents/Resources/"
 done
+if [ -d "$SRC_DIR/LICENSES" ]; then
+    cp -R "$SRC_DIR/LICENSES" "$APP/Contents/Resources/LICENSES"
+fi
 ICON_KEY=""
 if [ -n "$ICNS" ]; then
     cp "$ICNS" "$APP/Contents/Resources/tnfs.icns"

@@ -15,10 +15,12 @@
 #define UPDATE_POPEN _popen
 #define UPDATE_PCLOSE _pclose
 #define UPDATE_NULL_DEV "NUL"
+#define UPDATE_CURL "curl.exe"           /* System32's, Windows 10 1803 and later */
 #else
 #define UPDATE_POPEN popen
 #define UPDATE_PCLOSE pclose
 #define UPDATE_NULL_DEV "/dev/null"
+#define UPDATE_CURL "/usr/bin/curl"      /* the system's, never one earlier on PATH */
 #endif
 
 #define UPDATE_ANSWER_MAX 65536
@@ -31,13 +33,19 @@ static char latest_found[32];        /* written by the thread before `state` tur
 #if !defined(__EMSCRIPTEN__)
 static int fetch_latest_json(char *buf, size_t cap)
 {
-    const char *cmd = "curl -fsSL --max-time 8 -H \"Accept: application/vnd.github+json\" "
+    const char *cmd = UPDATE_CURL " -fsSL --proto =https --proto-redir =https --max-time 8 "
+                      "-H \"Accept: application/vnd.github+json\" "
                       "-A tnfs-restomod-update-check \"" UPDATE_RELEASES_API "\" 2>" UPDATE_NULL_DEV;
     FILE *pipe = UPDATE_POPEN(cmd, "r");
     if (!pipe) return 0;
     size_t n = 0, got;
     while (n + 1 < cap && (got = fread(buf + n, 1, cap - 1 - n, pipe)) > 0) n += got;
     buf[n] = '\0';
+    /* a long answer (long release notes): keep only the start, where tag_name is, but read the rest so curl
+     * ends normally instead of failing on a closed pipe */
+    char drain[4096];
+    while (fread(drain, 1, sizeof drain, pipe) > 0) {
+    }
     int status = UPDATE_PCLOSE(pipe);
     return status == 0 && n > 0;
 }
