@@ -4,6 +4,7 @@
 #include "formats/validate.h"
 #include "game/sys/data_path.h"
 #include "game/sys/port_log.h"
+#include "tnfs_version.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -149,9 +150,30 @@ bool platform_cursor_hidden(void)
     return window != NULL && !SDL_CursorVisible();
 }
 
+static const char *user_path(const char *name, char *out, size_t out_size);
+
+/* port (the bug-report log): tnfs.log in the user directory, what the game said this run (the last run's as tnfs.log.1), headed with what a report needs */
+static void open_log(void)
+{
+    static int opened;   /* once a run: another window's init must not rotate this run's log away */
+    char path[1024];
+    if (opened) return;
+    opened = 1;
+    if (user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
+#ifdef TNFS_VERSION
+    port_log("tnfs %s\n", TNFS_VERSION);
+#else
+    port_log("tnfs (no version)\n");
+#endif
+    port_log("system: %s, SDL %d.%d.%d, %d logical cpus\n", SDL_GetPlatform(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
+             SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores());
+    port_log("log: %s\n", path);
+}
+
 bool platform_init(const PlatformConfig *config)
 {
     data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
+    open_log();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
