@@ -826,7 +826,7 @@ static void lamp_state(const Car *car)
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
     ratio_at(car->node, ratio);
     drive_light_tint(tint);
-    drive_lamps_frame(car->index, lamp_emissive_low(tint, ratio), car->brake > LAMP_BRAKE_ON);
+    drive_lamps_frame(car->index, lamp_emissive_low(tint, ratio), car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */

@@ -622,7 +622,7 @@ static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t tick
     snprintf(name, sizeof name, "%.*s_%05u.ppm", (int)(colon - spec), spec, i);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
-    track_viewer_write_ppm(name, shown, width, drive_output_height(), t->art.palette);
+    write_drive_ppm(name, shown, width, t->art.palette);   /* as the final screenshot and the window: the time of day's tint too */
     (void)ticks;
 }
 

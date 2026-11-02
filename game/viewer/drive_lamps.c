@@ -76,16 +76,16 @@ void drive_lamps_arm(void)
     }
 }
 
-void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headlight)
+void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headlight, uint8_t reverse)
 {
-    entries = (LampEntries){ brake_lit, position, headlight };
+    entries = (LampEntries){ brake_lit, position, headlight, reverse };
 }
 
-void drive_lamps_frame(int slot, int low, int braking)
+void drive_lamps_frame(int slot, int low, int braking, int reversing)
 {
     if (!valid(slot) || !slots[slot].armed) return;
     Slot *s = &slots[slot];
-    const LampState state = !low ? LAMP_DAY : braking ? LAMP_BRAKING : LAMP_LOW;
+    const LampState state = (LampState)((!low ? LAMP_DAY : braking ? LAMP_BRAKING : LAMP_LOW) | (reversing ? LAMP_REVERSING : 0));
     if (state == s->state) return;
     lamp_texels_write(&s->texels, s->file, s->size, state, &entries);
     s->state = state;
