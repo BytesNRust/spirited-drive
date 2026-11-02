@@ -1,6 +1,7 @@
 #include "game/frontend/game_mode.h"
 
 #include <stdio.h>
+#include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { SINGLE, MODEM, NETWORK, EXIT, OPTIONS };
@@ -16,6 +17,8 @@ static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0 };
 static const char *const LIT[OPTIONS] = { "sinl", "modl", "netl", "exil" };   /* 004afaf8.. */
 static const char *const DARK[OPTIONS] = { "sind", "modd", "netd", "exid" };  /* 004afb18.. */
 
+enum { FOOTER_CAP = 80, FOOTER_X = 8, FOOTER_Y = 452 };
+
 typedef struct Menu {
     int32_t bank;
     int16_t selected;  /* esp + 0x384 */
@@ -28,6 +31,7 @@ typedef struct Menu {
     int released;      /* esp + 0x360: the buttons seen up */
     int done;          /* esp + 0x37c */
     int16_t result;    /* esp + 0x380 */
+    char footer[FOOTER_CAP];       /* port: the foot line as last drawn */
     uint8_t rgb[GAME_MODE_PALETTE];
 } Menu;
 
@@ -69,12 +73,30 @@ static void extras_label(const Menu *m, const GameModeOps *o)
                  CENTRE_Y[MODEM] - TEXT_HALF_HEIGHT);
 }
 
+/* port: the foot line, in the plain style at the bottom left */
+static void footer_draw(Menu *m, const GameModeOps *o)
+{
+    if (o->footer == NULL || o->plus_text == NULL) return;
+    if (!o->footer(o->ctx, m->footer, sizeof m->footer)) m->footer[0] = 0;
+    if (m->footer[0] != 0) o->plus_text(o->ctx, 0, m->footer, FOOTER_X, FOOTER_Y);
+}
+
+/* port: 1 when the foot line is not the one drawn */
+static int footer_stale(const Menu *m, const GameModeOps *o)
+{
+    char now[FOOTER_CAP] = "";
+    if (o->footer == NULL) return 0;
+    if (!o->footer(o->ctx, now, sizeof now)) now[0] = 0;
+    return strcmp(now, m->footer) != 0;
+}
+
 static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
 {
     o->select(o->ctx, st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, m->bank, "bgnd"));
     if ((uint16_t)m->selected < OPTIONS) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, LIT[m->selected]));
     extras_label(m, o);
+    footer_draw(m, o);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
     o->lock(o->ctx);
@@ -243,6 +265,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
         }
         ops->music(ops->ctx);
         if (st->redraw) st->redraw = 0, m.redraw = 1;
+        if (footer_stale(&m, ops)) m.redraw = 1;   /* port: the update check answered */
         if (m.fade || m.done) continue;
         if (ops->deadline_passed(ops->ctx)) {
             ops->sound(ops->ctx, CHOSEN);

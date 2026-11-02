@@ -38,6 +38,9 @@
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
+#include "game/frontend/version_footer.h"
+#include "game/platform/update.h"
+#include "tnfs_version.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -811,6 +814,15 @@ static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
     if (cover != NULL) ea_blit_own(cover);
 }
 
+/* port: the foot line of Game Mode: the version, and the update notice once the check has answered */
+static int32_t mode_footer(void *ctx, char *line, size_t cap)
+{
+    char latest[32] = "";
+    (void)ctx;
+    const UpdateState state = platform_update_check_poll(latest, sizeof latest);
+    return version_footer_line(line, cap, TNFS_VERSION, state, latest);
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
@@ -820,7 +832,7 @@ int32_t glue_game_mode(void)
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
-                              mode_extras, extras_text_glue, extras_text_width_glue, mode_cover };
+                              mode_extras, extras_text_glue, extras_text_width_glue, mode_cover, mode_footer };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

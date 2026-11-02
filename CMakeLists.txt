@@ -145,6 +145,7 @@ add_library(tnfs_game STATIC
     game/frontend/net_host.c
     game/frontend/central.c
     game/frontend/central_banner.c
+    game/frontend/version_footer.c
     game/frontend/central_follow.c
     game/frontend/central_draw.c
     game/frontend/central_select.c
@@ -709,6 +710,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_central_banner PRIVATE tnfs_game)
     target_compile_options(test_central_banner PRIVATE ${TNFS_WARNINGS})
     add_test(NAME central_banner COMMAND test_central_banner)
+    add_executable(test_version_footer tests/test_version_footer.c)
+    target_include_directories(test_version_footer PRIVATE game .)
+    target_link_libraries(test_version_footer PRIVATE tnfs_game)
+    target_compile_options(test_version_footer PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME version_footer COMMAND test_version_footer)
     add_executable(test_cheat_switches tests/test_cheat_switches.c)
     target_include_directories(test_cheat_switches PRIVATE game .)
     target_link_libraries(test_cheat_switches PRIVATE tnfs_game)

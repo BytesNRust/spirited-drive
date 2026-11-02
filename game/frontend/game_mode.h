@@ -2,6 +2,7 @@
 #ifndef TNFS_GAME_MODE_H
 #define TNFS_GAME_MODE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* the palette's bytes (004376ac's 0x300 on its stack) */
@@ -59,6 +60,9 @@ typedef struct GameModeOps {
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
+    /* port: the line at the foot (version, update notice) into line (cap bytes); 1 when there is one. Asked every
+     * pass: the menu is drawn again when the line changes. NULL: none */
+    int32_t (*footer)(void *ctx, char *line, size_t cap);
 } GameModeOps;
 
 typedef struct GameModeState {

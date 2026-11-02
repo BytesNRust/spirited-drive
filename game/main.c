@@ -20,6 +20,7 @@
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tgv_player.h"
 #include "game/platform/first_run.h"
+#include "game/platform/update.h"
 #include "game/sys/data_root.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
@@ -33,6 +34,7 @@
 #include "game/sys/video.h"
 #include "game/race/race_sim.h"
 #include "platform/platform.h"
+#include "tnfs_version.h"
 #include "viewer/asset_viewer.h"
 #include "viewer/drive_joy.h"
 #include "viewer/track_viewer.h"
@@ -224,6 +226,7 @@ static int run_game(const Options *opt)
     pointer_start();
     pointer_on_wait(menu_audio_music_service);
     joy_start_up(opt->german);
+    if (port_extras_load().update_check) platform_update_check_start(TNFS_VERSION);   /* port: one background question, never blocking */
     frontend_run();
     text_free();
     pointer_free();
