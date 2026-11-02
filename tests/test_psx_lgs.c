@@ -338,6 +338,18 @@ static void test_lit_table_keeps_hue(void)
     CHECK_EQ_INT(table[3], 4);   /* a grey takes a grey */
 }
 
+/* the night's ceiling: a tint brighter than the ceiling (by the mean of its channels) is scaled down to it, a darker one is left (1) */
+static void test_night_ceiling(void)
+{
+    const float bright[3] = { 0.81f, 0.62f, 0.39f }, dark[3] = { 0.58f, 0.34f, 0.42f };
+    const float f = psx_night_ceiling_scale(bright, 0.45f);
+    CHECK(f > 0.73f && f < 0.75f);   /* .45 / .607 */
+    CHECK((bright[0] + bright[1] + bright[2]) / 3 * f < 0.4501f);
+    CHECK(psx_night_ceiling_scale(dark, 0.45f) == 1.0f);   /* CY1's night (mean .447) is already under it */
+    const float black[3] = { 0, 0, 0 };
+    CHECK(psx_night_ceiling_scale(black, 0.45f) == 1.0f);
+}
+
 /* the dash's art: the tint by `share` (half at dawn and dusk, the whole at night: the dash is dark with the world; only the dials keep their light) */
 static void test_dash_palette_share(void)
 {
@@ -373,5 +385,6 @@ int main(void)
     test_lit_table();
     test_ratio();
     test_dash_palette_share();
+    test_night_ceiling();
     return TEST_REPORT();
 }

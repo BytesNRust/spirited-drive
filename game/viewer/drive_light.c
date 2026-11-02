@@ -60,6 +60,9 @@ static void file_path(char *out, size_t size, const char *psx_dir, const char *t
 }
 
 /* the LGS's ambient colour as a tint, neutral when the file is missing or does not read */
+/* the most a night's ambient may carry (the mean of its channels): CY1's and TR1's nights, the darkest of the CD's (.45, .42) */
+static const float NIGHT_TINT_CEILING = 0.45f;
+
 static void load_tint(const char *psx_dir, const char *track, char letter, int night)
 {
     tint[0] = tint[1] = tint[2] = 1.0f;
@@ -76,6 +79,15 @@ static void load_tint(const char *psx_dir, const char *track, char letter, int n
     if (psx_lgs_parse(file, size, &ambient)) {
         if (night) psx_lgs_scale(&ambient, light.pool != NULL ? NIGHT_PALETTE : psx_night_light, 0);   /* the open road's: a tunnel's own lights (the contexts) stay lit, pools in the dark; with the pools the nodes carry the night, the ambient stays the dusk's */
         ambient_ok = 1, psx_lgs_tint(&ambient, tint);
+        if (night) {   /* port: every night goes dark, the PS1's own brightest (TR2's orange dusk) too; the hue is kept */
+            const float k = psx_night_ceiling_scale(tint, NIGHT_TINT_CEILING);
+            if (k < 1.0f) {
+                const float mul[3] = { k, k, k };
+                psx_lgs_scale(&ambient, mul, 0);   /* a tunnel's own lights stay lit */
+                psx_lgs_tint(&ambient, tint);
+                port_log("psx_light: the night's tint brought under the ceiling (x%.2f)\n", k);
+            }
+        }
     }
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);
     platform_free_file(file);
