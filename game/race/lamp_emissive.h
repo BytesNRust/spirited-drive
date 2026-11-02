@@ -57,7 +57,7 @@ int lamp_emissive_low(const float tint[3], const float ratio[3]);
  * and for how many frames the light has been back. They light at once when the world's tint is below 1 (dawn, dusk, night) or the ambient ratio at the
  * car is under LAMP_SHADE_ON_PERCENT on any channel (a tunnel's), and go out only after the ratio has been at LAMP_SHADE_OFF_PERCENT or more for
  * LAMP_SHADE_HOLD frames in a row. Returns the state. */
-enum { LAMP_SHADE_ON_PERCENT = 70, LAMP_SHADE_OFF_PERCENT = 85, LAMP_SHADE_HOLD = 12 };
+enum { LAMP_SHADE_ON_PERCENT = 70, LAMP_SHADE_OFF_PERCENT = 80, LAMP_SHADE_HOLD = 12 };
 typedef struct { int low, back; } LampLight;
 int lamp_light_step(LampLight *s, const float tint[3], const float ratio[3]);
 
