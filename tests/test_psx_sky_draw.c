@@ -155,7 +155,7 @@ static void test_stars_take_the_least_used_entries(void)
     psx_sky_draw_free(&d);
 }
 
-/* the stars stay high and clear of the land: none in the lower part of the sky above the horizon (the band is three fifths of it), none on a hill's or a
+/* the stars stay high and clear of the land: none above the horizon's row, none on a hill's or a
  * building's silhouette (a column whose texels fall to black from some row down), and the sky above one still has them */
 static void test_stars_stay_high_and_off_the_land(void)
 {
@@ -172,7 +172,7 @@ static void test_stars_stay_high_and_off_the_land(void)
     for (int y = 0; y < SH; y++)
         for (int x = 0; x < SW; x++)
             if (d.bitmap.pixels[y * SW + x] != before[y * SW + x]) {
-                CHECK(y < SHORIZON * 3 / 5);                                      /* high */
+                CHECK(y < SHORIZON);                                              /* above the horizon */
                 CHECK(!(x >= HILL_FROM && x <= HILL_TO && y >= HILL_TOP - 1));      /* not on the land, nor the row just over it */
                 above_hill += x >= HILL_FROM && x <= HILL_TO;
             }

@@ -68,11 +68,12 @@ void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
     d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
 }
 
-/* the stars keep to the upper STAR_BAND_NUM / STAR_BAND_DEN of the sky above its horizon row, and off the land: a column's silhouette starts at the first row whose
+/* the stars go down the sky above its horizon row, thinning toward it (a band of the bitmap's upper rows put none in a PS1 panorama's view, whose 448 rows
+ * show only the lowest ones: TR1), and off the land: a column's silhouette starts at the first row whose
  * rows (their mean, over STAR_EDGE_ROWS) are under STAR_EDGE_PERCENT of the ones above them: a step, which a gradient darkening to the horizon, dithered or not,
  * never makes; no star is put on it or the row over it. The density is raised by the band's share
- * (STAR_TOP_PER_MILLE) so the sky holds as many stars as when they went down to the horizon. */
-enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 14, STAR_BAND_NUM = 3, STAR_BAND_DEN = 5, STAR_EDGE_ROWS = 4,
+ * (STAR_TOP_PER_MILLE). */
+enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 7, STAR_EDGE_ROWS = 4,
        STAR_EDGE_PERCENT = 60, STAR_EDGE_FROM_LUMA = 6 };
 static const uint8_t STAR_GREY[STAR_GREYS] = { 110, 170, 235 };
 
@@ -145,8 +146,7 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
 {
     if (!d->ready || d->bitmap.pixels == NULL) return 0;
     const int width = d->bitmap.width, horizon = d->bitmap.horizon_row;
-    const int old = getenv("TNFS_DBG_STARS_OLD") != NULL;   /* DBG: the band down to the horizon, no silhouette */
-    const int limit = old ? horizon - STAR_HORIZON_GAP : (horizon - STAR_HORIZON_GAP) * STAR_BAND_NUM / STAR_BAND_DEN;
+    const int limit = horizon - STAR_HORIZON_GAP;
     if (width <= 0 || limit <= 0 || horizon > d->bitmap.height) return 0;
     int chosen[STAR_GREYS];
     free_entries(d, chosen);
@@ -156,7 +156,7 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
     if (tops == NULL) return 0;
     d->star_rows = limit, d->star_land_columns = 0;
     for (int x = 0; x < width; x++) {
-        tops[x] = old ? horizon : silhouette_top(d, x, horizon);
+        tops[x] = silhouette_top(d, x, horizon);
         if (tops[x] < limit + 1) d->star_land_columns++;
     }
     int stars = 0;
