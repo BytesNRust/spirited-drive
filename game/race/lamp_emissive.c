@@ -6,7 +6,7 @@
 
 static int kind_of(uint8_t cls)
 {
-    return cls == CAR_MASK_BRAKE ? LAMP_BRAKE : cls == CAR_MASK_POSITION ? LAMP_POSITION : cls == CAR_MASK_HEADLIGHT ? LAMP_HEADLIGHT : -1;
+    return cls == CAR_MASK_BRAKE ? LAMP_BRAKE : cls == CAR_MASK_POSITION ? LAMP_POSITION : cls == CAR_MASK_HEADLIGHT ? LAMP_HEADLIGHT : cls == CAR_MASK_REVERSE ? LAMP_REVERSE : -1;
 }
 
 int lamp_texels_collect(LampTexels *l, uint32_t base, const uint8_t *mask, size_t count)
@@ -52,8 +52,11 @@ int lamp_texels_write(const LampTexels *l, uint8_t *file, size_t size, LampState
     for (int i = 0; i < l->count; i++) {
         const LampTexel *t = &l->texel[i];
         if (t->offset >= size) continue;
-        const uint8_t entry = t->kind == LAMP_BRAKE ? (state == LAMP_BRAKING ? e->brake_lit : e->position) : t->kind == LAMP_POSITION ? e->position : e->headlight;
-        const uint8_t want = state == LAMP_DAY || entry == 0 ? t->day : entry;
+        const int low = (state & (LAMP_LOW | LAMP_BRAKING)) != 0, braking = (state & LAMP_BRAKING) != 0;
+        uint8_t entry = 0;
+        if (t->kind == LAMP_REVERSE) entry = (state & LAMP_REVERSING) != 0 ? e->reverse : 0;   /* lit in any light, only in reverse gear */
+        else if (low) entry = t->kind == LAMP_BRAKE ? (braking ? e->brake_lit : e->position) : t->kind == LAMP_POSITION ? e->position : e->headlight;
+        const uint8_t want = entry == 0 ? t->day : entry;
         if (file[t->offset] != want) file[t->offset] = want, changed++;
     }
     return changed;
