@@ -356,6 +356,9 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     emissive_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
     night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
+    /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out
+     * lamp-amber. Matched again on the palette as it now stands. */
+    if (late != NULL && late->after_banks != NULL) late->after_banks(late->ctx, &p);
     for (int i = 0; i < 256; i++) {
         rgb[3 * i] = p.screen_rgbx[4 * i];
         rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];
