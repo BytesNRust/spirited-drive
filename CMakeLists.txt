@@ -1,5 +1,31 @@
 cmake_minimum_required(VERSION 3.24)
-project(tnfs C)
+project(tnfs VERSION 0.9.0 LANGUAGES C)
+
+# The version players see: the git tag when the tree sits on one (v0.9.0 -> 0.9.0), else
+# <project version>-dev+<short hash>. TNFS_VERSION_OVERRIDE (e.g. from CI) wins over both.
+set(TNFS_VERSION "${PROJECT_VERSION}-dev")
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --exact-match --match "v[0-9]*"
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE TNFS_GIT_TAG
+                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE TNFS_GIT_TAG_RC)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE TNFS_GIT_HASH
+                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(TNFS_GIT_TAG_RC EQUAL 0 AND TNFS_GIT_TAG)
+        string(REGEX REPLACE "^v" "" TNFS_VERSION "${TNFS_GIT_TAG}")
+    elseif(TNFS_GIT_HASH)
+        set(TNFS_VERSION "${PROJECT_VERSION}-dev+${TNFS_GIT_HASH}")
+    endif()
+endif()
+if(TNFS_VERSION_OVERRIDE)
+    set(TNFS_VERSION "${TNFS_VERSION_OVERRIDE}")
+endif()
+message(STATUS "tnfs version: ${TNFS_VERSION}")
+configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.h.in ${CMAKE_BINARY_DIR}/generated/tnfs_version.h @ONLY)
+
+# Release builds (the packaged app) never look in the source tree for data.
+option(TNFS_RELEASE "Build for distribution: no source-tree data fallbacks" OFF)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -38,6 +64,7 @@ add_library(tnfs_core STATIC
     core/formats/slots.c
     core/formats/table_exchange.c
     core/formats/tri.c
+    core/update/update_check.c
     core/formats/tri_exchange.c
     core/formats/track_gen.c
     core/formats/tri_reverse.c
@@ -389,8 +416,10 @@ add_library(tnfs_game STATIC
     game/frontend/variant_rule.c
     game/sys/resource.c
 )
-target_include_directories(tnfs_game PUBLIC game .)
-target_compile_definitions(tnfs_game PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # car_mask.c: the source tree's data/car_masks
+target_include_directories(tnfs_game PUBLIC game . ${CMAKE_BINARY_DIR}/generated)
+if(NOT TNFS_RELEASE)
+    target_compile_definitions(tnfs_game PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # car_mask.c: the source tree's data/car_masks
+endif()
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
 target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
@@ -469,6 +498,7 @@ add_executable(tnfs
     game/viewer/viewer_main.c
     game/platform/sdl3/platform_sdl3.c
     game/platform/sdl3/platform_joy_sdl3.c
+    game/platform/sdl3/update_sdl3.c
 )
 target_link_libraries(tnfs PRIVATE tnfs_game)
 if(UNIX AND NOT APPLE)
@@ -502,7 +532,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf)
+    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
