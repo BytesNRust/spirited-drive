@@ -77,6 +77,7 @@ add_library(tnfs_core STATIC
     core/formats/table_exchange.c
     core/formats/tri.c
     core/update/update_check.c
+    core/iso/iso9660.c
     core/formats/tri_exchange.c
     core/formats/track_gen.c
     core/formats/tri_reverse.c
@@ -567,6 +568,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
+    # the ISO reader on synthetic images (tests/iso_build.c writes them)
+    add_executable(test_iso9660 tests/test_iso9660.c tests/iso_build.c)
+    target_link_libraries(test_iso9660 PRIVATE tnfs_core)
+    target_compile_options(test_iso9660 PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME iso9660 COMMAND test_iso9660)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
