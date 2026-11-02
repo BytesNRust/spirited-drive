@@ -519,6 +519,9 @@ add_executable(tnfs
     game/platform/sdl3/platform_joy_sdl3.c
     game/platform/sdl3/update_sdl3.c
 )
+if(NOT TNFS_RELEASE)
+    target_compile_definitions(tnfs PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # main.c: a development build run from the repository takes ./original when there is no --data
+endif()
 target_link_libraries(tnfs PRIVATE tnfs_game)
 if(UNIX AND NOT APPLE)
     target_link_libraries(tnfs PRIVATE m)
@@ -1108,4 +1111,9 @@ if(NOT EMSCRIPTEN)
     # a run with --mods keeps every user file in <mods>/user/ and touches nothing in the pref dir, the log included, even a run that stops for want of game data
     add_test(NAME pref_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DWORK=${CMAKE_BINARY_DIR}/pref_isolation -P ${CMAKE_SOURCE_DIR}/tests/pref_isolation.cmake)
     set_tests_properties(pref_isolation PROPERTIES TIMEOUT 60)
+    # a development build run from the repository with no --data takes ./original (tools/golden_frames.sh runs so)
+    if(NOT TNFS_RELEASE AND EXISTS "${CMAKE_SOURCE_DIR}/original/NFS_WIN.EXE")
+        add_test(NAME dev_data_default COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/dev_data_default -P ${CMAKE_SOURCE_DIR}/tests/dev_data_default.cmake)
+        set_tests_properties(dev_data_default PROPERTIES TIMEOUT 120)
+    endif()
 endif()
