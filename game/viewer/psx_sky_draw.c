@@ -153,7 +153,11 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
         for (int c = 0; c < 3; c++) d->bitmap.palette[3 * chosen[k] + c] = STAR_GREY[k];
     int *const tops = malloc((size_t)width * sizeof *tops);   /* each column's land, found once */
     if (tops == NULL) return 0;
-    for (int x = 0; x < width; x++) tops[x] = silhouette_top(d, x, horizon);
+    d->star_rows = limit, d->star_land_columns = 0;
+    for (int x = 0; x < width; x++) {
+        tops[x] = silhouette_top(d, x, horizon);
+        if (tops[x] < limit + 1) d->star_land_columns++;
+    }
     int stars = 0;
     for (int y = 0; y < limit; y++) {
         const uint32_t per_mille = 1 + (uint32_t)(STAR_TOP_PER_MILLE * (limit - y) / limit);   /* thinning to the horizon */
