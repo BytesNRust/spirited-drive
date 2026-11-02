@@ -37,7 +37,7 @@ static const char *const TIME_LIT[3] = { "morl", "midl", "evel" };
 static const char *const TIME_DIM[3] = { "mord", "midd", "eved" };
 /* the night's label, in the text font: where the weather's value stands (0xc3), on the time row (0x184 is its top) */
 #define NIGHT_LABEL "Night"
-enum { NIGHT_LABEL_X = 0xc3, NIGHT_LABEL_Y = 0x185, NIGHT_WORD_LIGHT = 420, NIGHT_MARGIN = 3, NIGHT_GRAIN = 24 };   /* a word texel: r+g+b above this */
+enum { NIGHT_LABEL_X = 0xc3, NIGHT_LABEL_Y = 0x185, NIGHT_WORD_LIGHT = 420, NIGHT_MARGIN = 3, NIGHT_SHADOW = 7, NIGHT_GRAIN = 24 };   /* a word texel: r+g+b above this */
 static const int32_t TIME_OTHER[TRACKS] = { 0, 2, 2, 2, 0, 2, 2, 2, 2 };
 /* the items lit and not */
 static const char *const LIT[8] = { "donl", "prel", "nexl", "besl", "ssg1", "ssg2", "ssg3", "lapl" };
@@ -197,7 +197,7 @@ static void night_label(const uint8_t *shape, int lit, const TrackSelectState *s
                 }
             }
         if (x1 >= 0 && x0 - NIGHT_MARGIN >= NIGHT_GRAIN) {
-            x0 -= NIGHT_MARGIN, x1 += NIGHT_MARGIN, y1 += NIGHT_MARGIN;   /* the shadow falls right and down */
+            x0 -= NIGHT_MARGIN, x1 += NIGHT_SHADOW, y1 += NIGHT_SHADOW;   /* the shadow falls right and down */
             for (int j = y0 < 0 ? 0 : y0; j <= y1 && j < height; j++)
                 for (int i = x0 < NIGHT_GRAIN ? NIGHT_GRAIN : x0; i <= x1 && i < width; i++)
                     px[j * width + i] = px[j * width + i % NIGHT_GRAIN];
