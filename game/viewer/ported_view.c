@@ -1414,7 +1414,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     static SkyStretch stretch;   /* port (sky_fill): the art reaching the view's top, built once a frame for all the bands */
     /* port (night): the flat colour over the art would be the day's navy beside the night's sky; at night the art is carried up to the top of the view as the
      * sky_fill switch does (every column takes its top rows' colour), whether the switch is on or not */
-    const int night_fill = drive_light_night();
+    const int night_fill = drive_light_night() && getenv("TNFS_DBG_NO_NIGHT_FILL") == NULL;   /* DBG: bisect of the missing stars */
     if (stage.flat && (port_sky_fill() || night_fill))
         stage.horz = sky_stretch(&stretch, stage.horz, horizon.scale, stage.line, ctx.clip.y0, port_sky_fill() ? port_sky_fill_mode() : SKY_FILL_COLUMN, art->palette);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);

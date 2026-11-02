@@ -145,7 +145,8 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
 {
     if (!d->ready || d->bitmap.pixels == NULL) return 0;
     const int width = d->bitmap.width, horizon = d->bitmap.horizon_row;
-    const int limit = (horizon - STAR_HORIZON_GAP) * STAR_BAND_NUM / STAR_BAND_DEN;
+    const int old = getenv("TNFS_DBG_STARS_OLD") != NULL;   /* DBG: the band down to the horizon, no silhouette */
+    const int limit = old ? horizon - STAR_HORIZON_GAP : (horizon - STAR_HORIZON_GAP) * STAR_BAND_NUM / STAR_BAND_DEN;
     if (width <= 0 || limit <= 0 || horizon > d->bitmap.height) return 0;
     int chosen[STAR_GREYS];
     free_entries(d, chosen);
@@ -155,7 +156,7 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
     if (tops == NULL) return 0;
     d->star_rows = limit, d->star_land_columns = 0;
     for (int x = 0; x < width; x++) {
-        tops[x] = silhouette_top(d, x, horizon);
+        tops[x] = old ? horizon : silhouette_top(d, x, horizon);
         if (tops[x] < limit + 1) d->star_land_columns++;
     }
     int stars = 0;
