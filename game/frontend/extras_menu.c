@@ -18,7 +18,7 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIG
 enum { MOVED = 0x47, CHOSEN = 0x48, REST = 0x19, WIDE = 0x280, LEFT_BUTTON = 1 };
 /* port: the styles, as text.h's TextStyle: 0 cream, 1 yellow, 2 red. A header names its group and is never a row, so
  * it is always red; a row is yellow while the selection is on it and cream otherwise. */
-enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2 };
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, STYLE_DIM = 4 /* TEXT_DIM (text.h) */ };
 enum { LABEL_X = 16, VALUE_RIGHT = 600 };
 /* port: the one layout both pages share, which is what makes their headers sit in the same place. A page is a list of
  * lines -- one line per header, one per row -- and every line moves by the same pitch, so a header lands where a row
@@ -96,6 +96,13 @@ static int *flag_of(PortExtras *e, int page, int row)
     return p2[row];
 }
 
+/* port: Unlock Level 1 or more gives the Warrior, as the exe does (extras_apply.c's settle), whatever the switch says:
+ * the row shows that, dimmed and with its reason, instead of a switch that goes back by itself */
+static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
+{
+    return page == 0 && unlock >= 1 && flag_of(e, page, row) == &e->warrior;
+}
+
 static void value(PortExtras *e, int16_t unlock, int page, int row, int language_kmh, char out[16])
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
@@ -105,7 +112,8 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
     /* port: the movies switch reads the other way round, "Intro video" On while extras.cfg's no_movies is 0, so the
      * file keeps its meaning */
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
-    if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
+    if (fixed_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
+    else if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
     else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
@@ -192,6 +200,10 @@ static void follow(Page *p, const ExtrasMenuOps *o)
 static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const ExtrasMenuOps *o)
 {
     int *const flag = flag_of(e, p->page, p->selected);
+    if (fixed_by_level(e, *unlock, p->page, p->selected)) {
+        o->sound(o->ctx, MOVED);   /* the level holds it: nothing to change */
+        return;
+    }
     if (flag != NULL) {
         *flag = !*flag;
         /* port: with the two allowed together, turning one on leaves the other as it is; the exe's screen clears
@@ -323,8 +335,10 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
         const int lit = p->selected == row;
         value(e, unlock, p->page, row, o->language_kmh, v);
         const int y = line_y(p->page, line_of(p->page, row));
-        text(o, lit ? STYLE_YELLOW : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
-        text_right(o, lit, v, VALUE_RIGHT, y);
+        const int held = fixed_by_level(e, unlock, p->page, row);
+        text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
+        if (held) text(o, lit ? STYLE_YELLOW : STYLE_DIM, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), y);
+        else text_right(o, lit, v, VALUE_RIGHT, y);
     }
     /* the bottom row's Done and Cancel: the exe's Options look, both always drawn (lit when selected, dark
      * otherwise) the way Options' rows paint their labels. The art replaces the flat panel and the words. Names are
