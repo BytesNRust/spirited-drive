@@ -81,6 +81,8 @@ void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out
  * polygon's colours to the nearest palette entry gathers them into the few dark ones the palette has. It is used for the 3D's
  * pixels only (psx_world_mask): the HUD and the dash index the same entries. */
 void psx_tint_palette(const uint8_t palette[768], const float tint[3], uint8_t out[768]);
+/* The dash's art: `palette` moved the share num / den of the way to its tint (half at dawn and dusk, the whole at night). */
+void psx_dash_palette(const uint8_t palette[768], const float tint[3], int num, int den, uint8_t out[768]);
 
 /* Which pixels of a finished frame are the 3D world's: `world` is the frame as it was when the 3D was done and the 2D not yet
  * drawn, `shown` the frame now; a pixel the 2D layer changed is not the world's (mask 0), the others are (1). */

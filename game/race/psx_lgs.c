@@ -215,3 +215,10 @@ void psx_mask_rect(uint8_t *mask, int width, int height, int x, int y, int w, in
     for (int row = top; row < bottom; row++)
         if (right > left) memset(mask + (size_t)row * (size_t)width + left, 1, (size_t)(right - left));
 }
+
+void psx_dash_palette(const uint8_t palette[768], const float tint[3], int num, int den, uint8_t out[768])
+{
+    uint8_t full[768];
+    psx_tint_palette(palette, tint, full);
+    for (int i = 0; i < 768; i++) out[i] = (uint8_t)((palette[i] * (den - num) + full[i] * num + den / 2) / den);
+}

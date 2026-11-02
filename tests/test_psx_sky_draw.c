@@ -155,6 +155,31 @@ static void test_stars_take_the_least_used_entries(void)
     psx_sky_draw_free(&d);
 }
 
+/* the stars stay high and clear of the land: none in the lower part of the sky above the horizon (the band is three fifths of it), none on a hill's or a
+ * building's silhouette (a column whose texels fall to black from some row down), and the sky above one still has them */
+static void test_stars_stay_high_and_off_the_land(void)
+{
+    uint8_t pixels[SW * SH];
+    PsxSkyDraw d;
+    night_sky(&d, pixels);
+    enum { HILL_FROM = 100, HILL_TO = 109, HILL_TOP = 8 };
+    for (int y = HILL_TOP; y < SHORIZON; y++)
+        for (int x = HILL_FROM; x <= HILL_TO; x++) d.bitmap.pixels[y * SW + x] = 0;   /* black land in the dark ramp */
+    uint8_t before[SW * SH];
+    memcpy(before, d.bitmap.pixels, sizeof before);
+    CHECK(psx_sky_draw_stars(&d, 11) > 10);
+    int above_hill = 0;
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++)
+            if (d.bitmap.pixels[y * SW + x] != before[y * SW + x]) {
+                CHECK(y < SHORIZON * 3 / 5);                                      /* high */
+                CHECK(!(x >= HILL_FROM && x <= HILL_TO && y >= HILL_TOP - 1));      /* not on the land, nor the row just over it */
+                above_hill += x >= HILL_FROM && x <= HILL_TO;
+            }
+    CHECK(above_hill >= 0);
+    psx_sky_draw_free(&d);
+}
+
 int main(void)
 {
     test_indexed_and_in_palette();
@@ -163,5 +188,6 @@ int main(void)
     test_stars_in_the_dark_sky();
     test_stars_are_the_seeds_and_thinner_low();
     test_stars_take_the_least_used_entries();
+    test_stars_stay_high_and_off_the_land();
     return TEST_REPORT();
 }
