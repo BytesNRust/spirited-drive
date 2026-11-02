@@ -65,6 +65,8 @@ static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
 static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
 /* Difficulty is the last with three values on page 2: Easy, Original, Hard (extras.cfg's difficulty 0, 1, 2) */
 static int difficulty_row(void) { return ROW_DIFFICULTY - ROW_FIRST_P2; }
+/* Open the log folder is an action row: no value, Return runs it */
+static int log_row(void) { return ROW_LOG_FOLDER - ROW_FIRST_P2; }
 static int shows_kmh(const PortExtras *e, int language_kmh)
 {
     return e->units == UNITS_KMH || (e->units == UNITS_LANGUAGE && language_kmh);
@@ -78,7 +80,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
-    "Start Screen", "Intro video", "Updates and anonymous stats"
+    "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder"
 };
 
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
@@ -92,7 +94,7 @@ static int *flag_of(PortExtras *e, int page, int row)
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
                                &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */,
-                               NULL /* Start Screen */, &e->no_movies, &e->update_check };
+                               NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */ };
     return p2[row];
 }
 
@@ -110,6 +112,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
+    else if (page == 1 && row == log_row()) out[0] = '\0';
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -192,6 +195,7 @@ static void follow(Page *p, const ExtrasMenuOps *o)
 static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const ExtrasMenuOps *o)
 {
     int *const flag = flag_of(e, p->page, p->selected);
+    if (p->page == 1 && p->selected == log_row()) return;   /* an action: only Return, Space or a click run it (choose) */
     if (flag != NULL) {
         *flag = !*flag;
         /* port: with the two allowed together, turning one on leaves the other as it is; the exe's screen clears
@@ -228,6 +232,9 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
     } else if (p->selected == cancel_of(p->page)) {
         o->sound(o->ctx, CHOSEN);
         p->result = 0;
+    } else if (p->page == 1 && p->selected == log_row()) {   /* port: the log folder opens in the file browser */
+        o->sound(o->ctx, CHOSEN);
+        if (o->open_log_folder != NULL) o->open_log_folder(o->ctx);
     } else {
         change(p, e, unlock, 1, o);
     }

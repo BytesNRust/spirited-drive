@@ -14,6 +14,7 @@
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
 #include "game/frontend/extras_menu.h"
+#include "game/platform/platform.h"
 #include "game/sys/port_extras.h"
 #include "game/frontend/net_game.h"
 #include "game/frontend/net_host.h"
@@ -615,6 +616,13 @@ static int32_t mode_network_game(void *ctx)
 static int32_t mode_extras_screen;
 static int16_t mode_extras_unlock;
 
+/* port: the Open the log folder row of the EXTRAS screen: the file browser on the user folder, where tnfs.log is */
+static void open_log_folder_glue(void *ctx)
+{
+    (void)ctx;
+    if (!platform_open_user_dir()) port_log("extras: the log folder could not be opened\n");
+}
+
 static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
 {
     (void)ctx;
@@ -773,6 +781,7 @@ int32_t glue_extras_screen(int16_t unlock)
         NULL,               /* ctx */
         glue_plus_arrow_size, /* plus_arrow_size: the page indicator's triangles */
         own_panel_arrow,    /* plus_arrow */
+        open_log_folder_glue, /* open_log_folder: the Open the log folder row */
     };
     mode_extras_screen = ea_screen();
     /* port: the page keys, so PageDown turns the page as the screen's own words promise (extras_menu.c's header).

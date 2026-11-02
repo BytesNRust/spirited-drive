@@ -25,7 +25,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
  *                               Difficulty (Easy / Original / Hard)
- *            Miscellaneous      Start Screen, Intro video, Check for updates
+ *            Miscellaneous      Start Screen, Intro video, Updates and anonymous stats, Open the log folder (an action, no value)
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
  * is thirteen rows and two headers, fifteen lines, which is what the 20 pitch fits.)
@@ -49,6 +49,7 @@ enum {
     ROW_DIFFICULTY,                                /* port: In-race options' last, Easy / Original / Hard (port_extras.h's difficulty, difficulty.h) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     ROW_UPDATE,                                    /* port: Miscellaneous' last, Check for updates (port_extras.h's update_check, platform/update.h) */
+    ROW_LOG_FOLDER,                                /* port: Miscellaneous' last, Open the log folder: an action row (ExtrasMenuOps.open_log_folder), for bug reports */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */
@@ -122,6 +123,9 @@ typedef struct ExtrasMenuOps {
      * a style's colours (lit yellow, else cream). Both NULL keeps the text "1/2 >". */
     int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
     void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
+    /* port: the Open the log folder row's action, run on Return, Space or a click on it (not on the arrows); the platform's file browser on the folder that holds tnfs.log.
+     * NULL: the row does nothing. */
+    void (*open_log_folder)(void *ctx);
 } ExtrasMenuOps;
 
 /* The two pages, run sequentially over the screen's live picture. 1 on Done (extras_save was called),

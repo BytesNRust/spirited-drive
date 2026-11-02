@@ -26,6 +26,7 @@ typedef struct Fake {
     const int *keys;
     int key_count, key_next;
     int saves;
+    int log_opens;   /* the Open the log folder row's action, run */
     PortExtras saved;
     int16_t saved_unlock;
     char drawn[512][40];
@@ -183,6 +184,11 @@ static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
     ((Fake *)ctx)->titles++;
     f_text(ctx, 2, text, x, y);
 }
+static void f_open_log(void *ctx)
+{
+    Fake *f = ctx;
+    f->log_opens++;
+}
 static void f_save(void *ctx, const PortExtras *e, int16_t unlock)
 {
     Fake *f = ctx;
@@ -253,7 +259,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .language_kmh = r->fake.german, .ctx = &r->fake };
+        .extras_save = f_save, .language_kmh = r->fake.german, .ctx = &r->fake, .open_log_folder = f_open_log };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
@@ -523,7 +529,7 @@ static void test_psx_livery_row_is_saved_on_done(void)
     CHECK_EQ_INT(r.fake.saved.no_movies, 0);
 }
 
-/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: twelve rows, Intro video the last of them. Walk the whole page down */
+/* IN-RACE OPTIONS and MISCELLANEOUS on page 2: thirteen rows, Open the log folder the last of them. Walk the whole page down */
 static void test_page_two_has_ten_rows(void)
 {
     Rig r;
@@ -531,7 +537,7 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 13);
+    CHECK_EQ_INT(ROWS_P2, 14);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -884,7 +890,7 @@ static void test_left_on_page_two_done_goes_back(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
-/* Up from Cancel is the last switch (Intro video) */
+/* Up from Cancel is the last row (Open the log folder), and the one over it the last switch (Intro video) */
 static void test_up_from_cancel_reaches_the_last_switch(void)
 {
     Rig r;
@@ -892,8 +898,10 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* Updates and anonymous stats, page 2's last switch */
+    keys[n++] = UP;                                        /* Open the log folder, page 2's last row */
+    keys[n++] = UP;                                        /* Updates and anonymous stats, the last switch */
     keys[n++] = RIGHT;                                     /* off */
+    keys[n++] = DOWN;                                      /* the log folder row */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
@@ -998,7 +1006,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     keys[n++] = ENTER;
     n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 5);   /* before Difficulty, the last row of In-race options, and Miscellaneous' three */
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 6);   /* before Difficulty, the last row of In-race options, and Miscellaneous' four */
     setup(&r);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     run(&r, keys, n);
@@ -1107,10 +1115,54 @@ static void test_check_for_updates_switch(void)
     CHECK_EQ_INT(r.fake.saved.update_check, 0);
 }
 
+/* port (bug reports): Open the log folder is an action row on page 2's Miscellaneous. Return runs the op once; the arrows do not; Done still saves */
+static void test_extras_has_open_log_folder_row(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_LOG_FOLDER);
+    keys[n++] = ENTER;
+    keys[n++] = RIGHT, keys[n++] = LEFT;                     /* the arrows turn nothing on an action */
+    n = downs(keys, n, downs_to_done(ROW_LOG_FOLDER));
+    keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Open the log folder"));
+    CHECK_EQ_INT(r.fake.log_opens, 1);
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(ROW_LOG_FOLDER, EXTRAS_ROWS - 1);
+}
+
+/* without the op the row does nothing and the screen goes on */
+static void test_the_log_folder_row_without_the_op(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_LOG_FOLDER);
+    keys[n++] = ENTER;
+    keys[n++] = DOWN, keys[n++] = ENTER;
+    setup(&r);
+    r.fake.keys = keys;
+    r.fake.key_count = n;
+    ExtrasMenuOps ops = { .pointer_move_to = f_move, .load_art = f_art, .shape = f_shape, .palette_set = f_palette, .pointer_in_rect = f_in_rect, .select = f_select,
+                          .blit_own = f_blit, .picture_shape = f_picture, .select_default = f_void, .pointer_hide = f_void, .flip = f_flip, .pointer_show = f_void,
+                          .pointer_buttons = f_buttons, .text_styles = f_styles, .fade_in = f_fade_in, .deadline_set = f_one, .fade_out = f_fade_out,
+                          .deadline_passed = f_zero, .sound = f_one, .ticks = f_ticks, .pointer_activate_if_moved = f_void, .key = f_key, .pointer_click = f_void,
+                          .pointer_off = f_void, .music = f_void, .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_bgnd = f_bgnd,
+                          .plus_bgnd_shape = f_bgnd_shape, .plus_text_smooth = f_text_smooth, .plus_title = f_title, .plus_header = f_header,
+                          .extras_save = f_save, .ctx = &r.fake };
+    (void)extras_menu_run(&r.e, &r.unlock, 1, &ops);
+    CHECK_EQ_INT(r.fake.log_opens, 0);
+    CHECK_EQ_INT(r.fake.saves, 1);
+}
+
 int main(void)
 {
     test_check_for_updates_switch();
     test_mirror_toggle_excludes_rally();
+    test_extras_has_open_log_folder_row();
+    test_the_log_folder_row_without_the_op();
     test_escape_restores_input();
     test_right_turns_to_page_two();
     test_rally_excludes_mirror();
