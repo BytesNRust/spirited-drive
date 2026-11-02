@@ -58,6 +58,9 @@ int psx_light_rules_parse(const char *text, size_t size, PsxLightRule *out, int 
 /* Applies `n` rules to `count` nodes of rows, in order, the last word the later one's. */
 void psx_light_apply_rules(uint8_t *data, uint32_t count, const PsxLightRule *rules, int n);
 
+/* The terrain's points of a track, node_count * PSX_LIGHT_POINTS of them, into `out` (the track's units: 16.16 fixed point scaled to 1 = a unit). 1 on success. */
+int psx_light_tri_points(const Tri *tri, LightPos *out);
+
 /* A PsxLight of the track's terrain (the data owned: psx_light_free). 1 on success, else 0 and `out` is untouched. */
 int psx_light_make(const Tri *tri, int time, PsxLight *out);
 
