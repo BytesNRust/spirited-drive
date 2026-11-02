@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { FEATURES = 4, MAX_SAMPLES = 400000 };
-static const char *const NAME[FEATURES] = { "1", "sky", "nx", "ny" };   /* the first fit with all eight showed the others (sun_tan, nz, rise, lateral) near 0 */
+enum { FEATURES = 5, MAX_SAMPLES = 400000, MAX_TRACKS = 32 };
+static const char *const NAME[FEATURES] = { "1", "sky", "nx", "nz", "ny" };   /* the first fit with all eight showed the others (sun_tan, nz, rise, lateral) near 0 */
 
 typedef struct {
     float x[FEATURES];
@@ -23,6 +23,10 @@ typedef struct {
 
 static Sample *samples;
 static size_t sample_count;
+static struct { char name[16]; size_t first, end; double heading; } tracks[MAX_TRACKS];   /* a track's samples, and the heading of its first stretch (degrees) */
+static int track_count;
+static size_t fit_lo, fit_hi;   /* the samples a fit takes */
+static int terrain_only_inner;   /* 1: the points 2..4 and 7..9, those that fit */
 
 static uint8_t *slurp(const char *path, size_t *size)
 {
@@ -59,6 +63,9 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
     LightPos *pts = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *pts);
     if (pts == NULL || !psx_light_tri_points(&tri, pts)) return fprintf(stderr, "no terrain\n"), 0;
     const int ring = tri_is_circuit(&tri);
+    const size_t first = sample_count;
+    const uint32_t ahead = count > 12 ? 12 : count - 1;
+    const double heading = atan2((double)(pts[ahead * PSX_LIGHT_POINTS].z - pts[0].z), (double)(pts[ahead * PSX_LIGHT_POINTS].x - pts[0].x)) * 180.0 / 3.14159265;
     for (uint32_t n = 0; n + 1 < count; n++) {
         if (psx_light_tunnel(&ps1, n)) continue;
         for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
@@ -66,11 +73,16 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
             PsxLightFeatures f;
             psx_light_features(pts, count, ring, n, p, &f);
             Sample *s = &samples[sample_count++];
-            const float x[FEATURES] = { 1, f.sky, f.nx, f.ny };
+            const float x[FEATURES] = { 1, f.sky, f.nx, f.nz, f.ny };
             memcpy(s->x, x, sizeof x);
             s->y = (float)psx_light_byte(&ps1, n, p) / 255.0f;
             s->point = (uint8_t)p;
         }
+    }
+    if (track_count < MAX_TRACKS) {
+        snprintf(tracks[track_count].name, sizeof tracks[track_count].name, "%s", track);
+        tracks[track_count].first = first, tracks[track_count].end = sample_count, tracks[track_count].heading = heading;
+        track_count++;
     }
     printf("  %s: %u nodes\n", track, count);
     psx_light_free(&ps1);
@@ -85,7 +97,7 @@ static int fit(int point, double coef[FEATURES], double *r2, double *mae, double
     long n = 0;
     for (size_t k = 0; k < sample_count; k++) {
         const Sample *s = &samples[k];
-        if (point >= 0 && s->point != point) continue;
+        if (k < fit_lo || k >= fit_hi || (point >= 0 && s->point != point) || (point == -2 && (s->point == 5 || s->point == 10))) continue;
         for (int i = 0; i < FEATURES; i++) {
             for (int j = 0; j < FEATURES; j++) a[i][j] += (double)s->x[i] * s->x[j];
             a[i][FEATURES] += (double)s->x[i] * s->y;
@@ -111,7 +123,7 @@ static int fit(int point, double coef[FEATURES], double *r2, double *mae, double
     double sse = 0, abs_err = 0;
     for (size_t k = 0; k < sample_count; k++) {
         const Sample *s = &samples[k];
-        if (point >= 0 && s->point != point) continue;
+        if (k < fit_lo || k >= fit_hi || (point >= 0 && s->point != point) || (point == -2 && (s->point == 5 || s->point == 10))) continue;
         double v = 0;
         for (int i = 0; i < FEATURES; i++) v += coef[i] * s->x[i];
         v = v < 0 ? 0 : v > 1 ? 1 : v;
@@ -136,6 +148,7 @@ int main(int argc, char **argv)
     printf("%zu samples\ncoefficients of byte/255 over:", sample_count);
     for (int i = 0; i < FEATURES; i++) printf(" %s", NAME[i]);
     printf("\n");
+    fit_lo = 0, fit_hi = sample_count;
     for (int p = -1; p < PSX_LIGHT_POINTS; p++) {
         if (p >= 0 && !terrain(p)) continue;
         double coef[FEATURES], r2, mae, mean;
@@ -144,6 +157,19 @@ int main(int argc, char **argv)
         printf("%s%2d: n %6ld mean %5.1f R2 %.2f fitMAE %5.1f |", p < 0 ? "all" : "pt ", p < 0 ? 0 : p, n, mean * 255.0, r2, mae);
         for (int i = 0; i < FEATURES; i++) printf(" %+.3f", coef[i]);
         printf("\n");
+    }
+    /* per track, the points 2..4 and 7..9 (not the outer ones) together: where the light grows is toward the sun, whose horizontal direction is (nx, nz)'s coefficients; the
+     * azimuth of that against the heading of the track's first stretch says whether the CD's sun is the world's or the track's */
+    printf("per track (points 2-4, 7-9): n, R2, fitMAE | %s | light grows toward azimuth, track heading (degrees, atan2(z, x))\n", "1 sky nx nz ny");
+    for (int t = 0; t < track_count; t++) {
+        double coef[FEATURES], r2, mae, mean;
+        long n;
+        fit_lo = tracks[t].first, fit_hi = tracks[t].end;
+        (void)terrain_only_inner;
+        if (!fit(-2, coef, &r2, &mae, &mean, &n)) continue;
+        printf("%-4s n %5ld R2 %.2f MAE %5.1f |", tracks[t].name, n, r2, mae);
+        for (int i = 0; i < FEATURES; i++) printf(" %+.3f", coef[i]);
+        printf(" | az %4.0f heading %4.0f\n", atan2(coef[3], coef[2]) * 180.0 / 3.14159265, tracks[t].heading);
     }
     free(samples);
     return 0;
