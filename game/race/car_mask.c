@@ -1,4 +1,6 @@
 #include "game/race/car_mask.h"
+#include "game/sys/data_path.h"
+#include "game/sys/port_log.h"
 
 #include "formats/png.h"
 #include "game/platform/platform.h"
@@ -69,25 +71,31 @@ uint8_t *car_mask_load(const char *stem, const char name[4], int level, int widt
     if (stem == NULL || width <= 0 || height <= 0) return NULL;
     const char *const suffix = level != 0 ? "_lo" : "";   /* the low detail bank's files are <tex>_lo_mask.png */
     const char *env = getenv("TNFS_CAR_MASKS");
-    const char *roots[3] = { env, "data/car_masks",
-#ifdef TNFS_SOURCE_DIR
-                             TNFS_SOURCE_DIR "/data/car_masks"
-#else
-                             NULL
-#endif
-    };
-    for (int r = 0; r < 3; r++) {
-        if (roots[r] == NULL || roots[r][0] == '\0') continue;
-        char path[PATH];
-        snprintf(path, sizeof path, "%s/%s/%.4s%s_mask.png", roots[r], stem, name, suffix);
+    char file_name[256], found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    snprintf(file_name, sizeof file_name, "car_masks/%s/%.4s%s_mask.png", stem, name, suffix);
+    const int dev = env != NULL && env[0] != '\0';   /* a dev override first: TNFS_CAR_MASKS=<dir of <car>/<tex>_mask.png> */
+    (void)data_path_candidates(file_name, found);     /* then the program's own data (the bundle's), the working directory, a development build's source tree */
+    for (int r = 0; r < 1 + DATA_PATH_CANDIDATES; r++) {
+        char path[DATA_PATH_MAX];
+        if (r == 0) {
+            if (!dev) continue;
+            snprintf(path, sizeof path, "%s/%s/%.4s%s_mask.png", env, stem, name, suffix);
+        } else {
+            if (found[r - 1][0] == '\0') continue;
+            snprintf(path, sizeof path, "%s", found[r - 1]);
+        }
         size_t size = 0;
         uint8_t *file = platform_read_file(path, &size);
         if (file == NULL) continue;
         uint8_t *mask = malloc((size_t)width * (size_t)height);
         const int ok = mask != NULL && car_mask_parse(file, size, width, height, mask);
         platform_free_file(file);
-        if (ok) return mask;
+        if (ok) {
+            port_log("car mask: %s\n", path);   /* the log alone says where a mask came from (the bundle's data, the working directory, ...) */
+            return mask;
+        }
         free(mask);
     }
+    port_log("car mask: none for %s/%.4s%s\n", stem, name, suffix);
     return NULL;
 }

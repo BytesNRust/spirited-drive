@@ -27,6 +27,47 @@ static void log_one(void) { port_log("log %d\n", 1); }
 static void out_one(void) { port_out("out %d\n", 1); }
 static void fatal_one(void) { port_fatal("fatal %d\n", 1); }
 
+static long size_of(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return -1;
+    fseek(f, 0, SEEK_END);
+    const long n = ftell(f);
+    fclose(f);
+    return n;
+}
+
+/* the bug-report file: every line goes into it, verbose or not; a new run keeps the last one beside it; it stops at its limit */
+static void test_log_file(void)
+{
+    char dir[] = "/tmp/tnfs_port_log_dir_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[200], old[210];
+    snprintf(path, sizeof path, "%s/tnfs.log", dir);
+    snprintf(old, sizeof old, "%s.1", path);
+    port_log_set_verbose(0);
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    CHECK_EQ_INT((int)written(log_one, 2), 0);   /* the console is as quiet as it was */
+    port_log("log %d\n", 2);
+    port_out("out %d\n", 3);
+    port_fatal("fatal %d\n", 4);
+    CHECK_EQ_INT((int)size_of(path), 6 + 6 + 6 + 8);   /* log_one's, then the three: all kept */
+    CHECK_EQ_INT((int)size_of(old), -1);
+    CHECK_EQ_INT(port_log_open_file(path), 1);   /* the next run */
+    CHECK_EQ_INT((int)size_of(old), 26);          /* the last one kept */
+    CHECK_EQ_INT((int)size_of(path), 0);
+    for (long n = 0; n < PORT_LOG_FILE_MAX / 1000 + 50; n++)
+        port_log("%0999d\n", 7);
+    CHECK(size_of(path) < PORT_LOG_FILE_MAX + 2000);   /* the limit holds (at most a line over), with its own line */
+    CHECK(size_of(path) >= PORT_LOG_FILE_MAX);
+    port_log_close_file();
+    port_log("after close\n");   /* no file: no crash */
+    CHECK_EQ_INT(port_log_open_file("/no/such/dir/tnfs.log"), 0);   /* the game goes on without */
+    unlink(path);
+    unlink(old);
+    rmdir(dir);
+}
+
 int main(void)
 {
     unsetenv("TNFS_VERBOSE");
@@ -40,5 +81,6 @@ int main(void)
     CHECK_EQ_INT((int)written(log_one, 2), 6);
     CHECK_EQ_INT((int)written(out_one, 1), 6);
     CHECK_EQ_INT((int)written(fatal_one, 2), 8);
+    test_log_file();
     return TEST_REPORT();
 }
