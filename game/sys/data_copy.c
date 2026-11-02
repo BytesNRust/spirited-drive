@@ -151,22 +151,33 @@ static void remove_tree(const char *path, int depth)
 
 int data_copy_tree(const char *src, const char *dest, DataCopyProgress progress, void *user)
 {
-    char part[1100];
+    char part[1100], old[1100];
     struct stat st;
     error_text[0] = '\0';
-    if (lstat(dest, &st) == 0) return fail("copy over", dest, EEXIST), 0;
-    if (snprintf(part, sizeof part, "%s.part", dest) >= (int)sizeof part) return fail("use the name", dest, ENAMETOOLONG), 0;
+    if (snprintf(part, sizeof part, "%s.part", dest) >= (int)sizeof part || snprintf(old, sizeof old, "%s.old", dest) >= (int)sizeof old)
+        return fail("use the name", dest, ENAMETOOLONG), 0;
     remove_tree(part, 0);   /* what an interrupted copy left */
+    remove_tree(old, 0);
     Job job = { progress, user, 0, 0 };
     copy_dir(src, part, &job, 0);
     if (job.failed) {
         remove_tree(part, 0);
         return 0;
     }
-    if (rename(part, dest) != 0) {
-        fail("move into place", dest, errno);
+    const int replacing = lstat(dest, &st) == 0;
+    /* a copy already there is moved aside, the new one into place, and only then the old one deleted: a failure at any step leaves one whole copy */
+    if (replacing && rename(dest, old) != 0) {
+        fail("move aside", dest, errno);
         remove_tree(part, 0);
         return 0;
     }
+    if (rename(part, dest) != 0) {
+        const int why = errno;
+        if (replacing) (void)rename(old, dest);
+        fail("move into place", dest, why);
+        remove_tree(part, 0);
+        return 0;
+    }
+    if (replacing) remove_tree(old, 0);
     return 1;
 }

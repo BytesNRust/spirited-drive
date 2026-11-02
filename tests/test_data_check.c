@@ -85,7 +85,13 @@ static void test_check_and_copy(void)
     snprintf(part, sizeof part, "%s.part", dest);
     CHECK_EQ_INT(data_copy_tree(under, dest, NULL, NULL), 1);
     CHECK_EQ_INT(data_check_against(dest, files, 2, &c), 1);
-    CHECK_EQ_INT(data_copy_tree(under, dest, NULL, NULL), 0);   /* it exists: not touched */
+    CHECK_EQ_INT(data_copy_tree(under, dest, NULL, NULL), 1);   /* it exists: replaced as a whole */
+    CHECK_EQ_INT(data_check_against(dest, files, 2, &c), 1);
+    char aside[720];
+    snprintf(aside, sizeof aside, "%s.old", dest);
+    CHECK(access(aside, F_OK) != 0);
+    CHECK_EQ_INT(data_copy_tree(under, dest, cancel, NULL), 0);   /* a cancelled replacement leaves the old copy */
+    CHECK_EQ_INT(data_check_against(dest, files, 2, &c), 1);
     char again[700];
     snprintf(again, sizeof again, "%s/again", base);
     CHECK_EQ_INT(data_copy_tree(under, again, (DataCopyProgress)NULL, NULL), 1);
@@ -157,6 +163,32 @@ static void test_copy_links_and_read_only(void)
 }
 
 /* where the data is: --data as given, the player's copy, a development folder, else the wizard */
+/* "Use it anyway" (a folder whose NFS_WIN.EXE is another size): the copy is marked, the next start takes it with no wizard, and a new copy replaces it */
+static void test_use_it_anyway_then_restart(void)
+{
+    char base[] = "/tmp/tnfs_data_anyway_XXXXXX";
+    CHECK(mkdtemp(base) != NULL);
+    char src[600], dest[600], path[1300], out[1024];
+    snprintf(src, sizeof src, "%s/src", base);
+    mkdir(src, 0755);
+    snprintf(path, sizeof path, "%s/%s", src, DATA_MANIFEST[0].path);
+    put(path, "another edition");   /* not the manifest's size */
+    snprintf(dest, sizeof dest, "%s/gamedata", base);
+    DataCheck c;
+    CHECK_EQ_INT(data_check(src, &c), 0);
+    CHECK(c.root[0] != '\0' && c.different >= 1);
+    CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 1);
+    CHECK_EQ_INT(data_looks_installed(dest), 0);   /* the start check alone fails: this is the wizard again... */
+    CHECK_EQ_INT((int)data_root_resolve(NULL, dest, NULL, out, sizeof out), (int)DATA_ROOT_NEEDS_SETUP);
+    CHECK_EQ_INT(data_mark_accepted(dest, &c), 1);   /* ...unless the accepted copy was marked */
+    CHECK_EQ_INT(data_looks_installed(dest), 1);
+    CHECK_EQ_INT((int)data_root_resolve(NULL, dest, NULL, out, sizeof out), (int)DATA_ROOT_USER_COPY);
+    CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 1);   /* a new copy over the old one, no "File exists" */
+    CHECK_EQ_INT(data_looks_installed(dest), 0);   /* the replacement is whole and unmarked until the wizard marks it */
+    snprintf(path, sizeof path, "find %s -delete", base);
+    CHECK_EQ_INT(system(path), 0);
+}
+
 static void test_the_root(void)
 {
     char out[1024];
@@ -195,6 +227,7 @@ int main(void)
     test_digests();
     test_check_and_copy();
     test_copy_links_and_read_only();
+    test_use_it_anyway_then_restart();
     test_the_root();
     test_the_real_cd();
     return TEST_REPORT();
