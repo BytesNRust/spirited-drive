@@ -268,6 +268,14 @@ void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look
 int ported_view_filter_on(void) { return modern && look_filter; }
 int ported_view_fog_on(void) { return modern && look_fog; }
 
+/* port: a scenery board the exe drops for a corner past +-0x800 across (0044a450) while its middle shows (a big tree) is drawn clipped at the near
+ * plane, perspective-correct; TNFS_WIDE_BOARD=0 the exe's drop */
+static int wide_board_on(void)
+{
+    const char *env = getenv("TNFS_WIDE_BOARD");
+    return env == NULL || atoi(env) != 0;
+}
+
 /* port: the view the 3D objects' pixels clip and project by when Modern 3D is on, else NULL (the exe's mappers) */
 static const View *modern_view(const View *view) { return modern ? view : NULL; }
 
@@ -1221,6 +1229,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids,
                           modern ? draw_camera : NULL, draw_camera }, 0,
                         vp->near_scale };
+    track_port_wide_board = wide_board_on();
     TrackCamera cam = { { pc->position[0], pc->position[1], pc->position[2] }, { 0 }, pc->node };
     track_camera_matrix(pc->pitch, pc->yaw, pc->roll, view_mirrored(), vp->scale, cam.matrix);  /* the layout's +4 (00449670) */
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's

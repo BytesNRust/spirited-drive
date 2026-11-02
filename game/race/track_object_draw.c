@@ -30,6 +30,8 @@ static const uint8_t LEVEL[TRACK_OBJECT_BANDS] = {
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0
 };
 
+int track_port_wide_board;
+
 static int32_t rd32(const uint8_t *p)
 {
     return (int32_t)((uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24);
@@ -75,7 +77,14 @@ static void board(TrackObjectDraw *d, int alternate, int near, int32_t texture, 
     }
     int32_t screen[8];
     corners(d, first, order, screen);
-    if (!track_quad_on_screen(screen)) return;
+    if (!track_quad_on_screen(screen)) {
+        /* port: a big board (a tree) has a corner far off to the side while its middle shows: the exe drops it whole */
+        if (!track_port_wide_board || d->ops.port_near_camera == NULL) return;
+        const int32_t *cam[4];
+        camera_corners(d, first, order, cam);
+        d->ops.port_near_camera(d->ops.user, texture, cam);
+        return;
+    }
     if (d->ops.full_camera != NULL) {
         const int32_t *cam[4];
         camera_corners(d, first, order, cam);

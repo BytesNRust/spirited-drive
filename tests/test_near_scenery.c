@@ -115,10 +115,33 @@ static void test_near_two_sided(void)
     CHECK_EQ_INT(b.near, 0);
 }
 
+/* a big tree's board: every corner deep (past 0x86) but one's screen x past the exe's +-0x800 limit: the exe drops it whole; with the
+ * port's wide-board flag the near call draws it (clipped at the near plane), as long as there is one */
+static void test_wide_board(void)
+{
+    static const int32_t cam4[4][3] = { { -9000, 400, 500 }, { 300, 400, 900 }, { 300, -400, 900 }, { -9000, -400, 500 } };
+    static const int32_t scr4[4][2] = { { -3000, 100 }, { 600, 100 }, { 600, 300 }, { -3000, 300 } };
+    uint8_t descriptor[TRACK_WALK_RECORD_SIZE] = { 0 }, record[TRACK_WALK_RECORD_SIZE] = { 0 };
+    descriptor[1] = 4, descriptor[2] = 9;
+    for (int flag = 0; flag < 2; flag++)
+        for (int near = 0; near < 2; near++) {
+            track_port_wide_board = flag;
+            TrackObjectWalk walk = { descriptor, record, 1, 0, 1, 4, 4, 0, 0, 4, 0, 0, 0 };
+            Boards b = { 0 };
+            TrackObjectDraw d = { &walk, NULL, NULL, cam4, scr4, 4, 0, 0, { &b, b_model, b_full, b_alt, NULL, near ? b_near : NULL } };
+            track_object_draw(&d, 10, 1);
+            CHECK_EQ_INT(b.near, flag && near ? 1 : 0);
+            CHECK_EQ_INT(b.full + b.alt + b.camera, 0);
+            if (flag && near) CHECK(b.cam[0] == cam4[0] && b.cam[2] == cam4[2]);
+        }
+    track_port_wide_board = 0;
+}
+
 int main(void)
 {
     test_model_sides();
     test_near_billboard();
     test_near_two_sided();
+    test_wide_board();
     return TEST_REPORT();
 }
