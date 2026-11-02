@@ -53,7 +53,7 @@ static void body_matrix(const Car *car, int32_t out[9])
 static int32_t far_model(const Car *car, int32_t mirror, int32_t z)
 {
     if (mirror != 0) return z > MIRROR_FAR_Z;
-    return z > FAR_Z && car->index != ALWAYS_NEAR_SLOT;
+    return z > car_draw_far_z(car_draw_distance_scale()) && car->index != ALWAYS_NEAR_SLOT;   /* port: the render scale's distance */
 }
 
 static void draw_trail(const CarRenderOps *ops, Car *car)
@@ -81,9 +81,9 @@ void car_render(const CarRenderOps *ops, const CarRenderInputs *in, Car *car, in
 {
     const int32_t z = car->camera_position[2], x = car->camera_position[0];
     if (in->port_reach > 0 && car->index != in->followed) {   /* the followed car: the bumper view sits inside it */
-        if (z < -in->port_reach || z > MAX_Z) return;
+        if (z < -in->port_reach || z > car_draw_max_z(car_draw_distance_scale())) return;
     } else {
-        if (z < MIN_Z || z > MAX_Z) return;
+        if (z < MIN_Z || z > car_draw_max_z(car_draw_distance_scale())) return;
         if ((int32_t)((uint32_t)z * 2u) < (x > 0 ? x : (int32_t)(0u - (uint32_t)x))) return;
     }
     if (mirror != 0 && z > MIRROR_MAX_Z) return;
