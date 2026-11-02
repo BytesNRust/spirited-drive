@@ -226,7 +226,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (file == NULL) {
         if (have_dir) port_log("psx_light: no %s\n", path);
         else port_log("psx_light: no PS1 directory, the port's own effects only\n");
-        made_wanted = 1;
+        made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
         const PsxLamp *own_lamps = NULL;
         const int own_count = psx_lamps_for(track, &own_lamps);
@@ -272,19 +272,19 @@ void drive_light_set_reversed(int reversed)
  * the two is the right one everywhere) */
 enum { MAX_LAMP_NODES = 1000, MAX_RULES = 512 };
 
-/* the nodes of the track's street lamps, every board of street_lamps_for (CY1's posts, TR3's lanterns and bulbs, TR7's truss, TR4's barrels, ...), where the made night's pools go */
+/* the nodes of the street lamp posts of the track (CY1 only), where the made night's pools go */
 static size_t street_lamp_pool_nodes(const Tri *tri, uint32_t *out)
 {
-    if (!street_lamp_on || tri->descriptor_count == 0 || tri->descriptor_count > 64 || tri->scenery_count == 0) return 0;
+    if (!street_lamp_on || tri->descriptor_count == 0 || tri->descriptor_count > 64 || tri->scenery_count > MAX_LAMP_NODES) return 0;
     TriDescriptor descriptors[64];
-    TriScenery *const scenery = malloc((size_t)tri->scenery_count * sizeof *scenery);   /* sized to the track: MAX_LAMP_NODES is the room for the nodes alone */
-    if (scenery == NULL) return 0;
+    static TriScenery scenery[MAX_LAMP_NODES];
+    for (uint32_t i = 0; i < tri->descriptor_count; i++)
+        if (tri_descriptor(tri, i, &descriptors[i]) != TRI_OK) return 0;
+    for (uint32_t i = 0; i < tri->scenery_count; i++)
+        if (tri_scenery(tri, i, &scenery[i]) != TRI_OK) return 0;
     size_t n = 0;
-    int ok = 1;
-    for (uint32_t i = 0; ok && i < tri->descriptor_count; i++) ok = tri_descriptor(tri, i, &descriptors[i]) == TRI_OK;
-    for (uint32_t i = 0; ok && i < tri->scenery_count; i++) ok = tri_scenery(tri, i, &scenery[i]) == TRI_OK;
-    if (ok) n = street_lamps_nodes(street_lamps, street_lamp_count, descriptors, tri->descriptor_count, scenery, tri->scenery_count, out, MAX_LAMP_NODES);
-    free(scenery);
+    for (int i = 0; i < street_lamp_count && n < MAX_LAMP_NODES; i++)   /* every board of the track; a board whose resource is unknown (-1) has none */
+        n += street_lamp_nodes(&street_lamps[i], descriptors, tri->descriptor_count, scenery, tri->scenery_count, out + n, MAX_LAMP_NODES - n);
     return n;
 }
 
