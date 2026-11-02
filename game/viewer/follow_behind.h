@@ -22,6 +22,8 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead);
 /* The place of a scenery record's `node` in the run of the arm's range, which starts at `first_node` and may cross the lap seam: its distance
  * on from there round the ring (node_mask the ring's nodes less 1), so the run's order is the key's. */
 int32_t follow_behind_run_key(int32_t node, int32_t first_node, int32_t node_mask);
+/* the first node of the segment before the camera's: on a circuit the ring's (the walk masks it), on a open track the camera's own at the start (no segment before it; -4 was an index before the nodes) */
+int32_t follow_behind_lower_node(int32_t camera_segment, int circuit);
 
 /* The scenery records the last pass's range holds, and how many of them it drew (for the tests). */
 void follow_behind_runs(int32_t *runs, int32_t *drawn);
