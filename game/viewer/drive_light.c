@@ -84,7 +84,11 @@ static void sky_scale_night(void)
     float mul[3];
     for (int k = 0; k < 3; k++) mul[k] = headlights_on ? psx_night_light[k] * psx_night_light[k] / NIGHT_PALETTE[k] : psx_night_light[k];
     psx_sky_draw_scale(&sky_draw, mul);
-    if (headlights_on) psx_sky_draw_stars(&sky_draw, NIGHT_STARS_SEED);   /* port (psx_headlights): the night's stars in the dark of the sky */
+    if (headlights_on) {   /* port (psx_headlights): the night's stars in the dark of the sky */
+        const int stars = psx_sky_draw_stars(&sky_draw, NIGHT_STARS_SEED);
+        port_log("psx_sky: stars %d, band rows 0..%d of horizon row %d (bitmap %dx%d), %d columns of land reach the band\n", stars, sky_draw.star_rows,
+                 sky_draw.bitmap.horizon_row, sky_draw.bitmap.width, sky_draw.bitmap.height, sky_draw.star_land_columns);
+    }
 }
 
 /* dawn and dusk: the PS1's own sky (Z<TRACK><A|C>.INF and .PSH) for the race; the day, a missing or unreadable file, or only the INF
