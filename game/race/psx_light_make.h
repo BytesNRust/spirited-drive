@@ -12,6 +12,7 @@
 #include "game/race/psx_light.h"
 #include "game/race/psx_light_synth.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -44,6 +45,18 @@ int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time,
  * lifted by a pool that fades with the distance, still in the 16 levels. The road's points are left as they are. */
 enum { PSX_LIGHT_LAMP_REACH = 6 };
 void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n);
+
+/* An override: nodes node_from..node_to and points point_from..point_to (0..10) get `value` (0..255, put in the 16 levels). The per-track text file, one rule a line:
+ * `node_from node_to point_from point_to value`, `#` starts a comment, a bad line is skipped. A rule's nodes past the track are ignored when applied. */
+typedef struct {
+    int node_from, node_to, point_from, point_to, value;
+} PsxLightRule;
+
+/* The rules of `text` (`size` bytes, not NUL-terminated needed): up to `max`, their count. NULL or empty text: 0. */
+int psx_light_rules_parse(const char *text, size_t size, PsxLightRule *out, int max);
+
+/* Applies `n` rules to `count` nodes of rows, in order, the last word the later one's. */
+void psx_light_apply_rules(uint8_t *data, uint32_t count, const PsxLightRule *rules, int n);
 
 /* A PsxLight of the track's terrain (the data owned: psx_light_free). 1 on success, else 0 and `out` is untouched. */
 int psx_light_make(const Tri *tri, int time, PsxLight *out);

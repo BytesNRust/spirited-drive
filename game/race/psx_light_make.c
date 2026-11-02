@@ -3,6 +3,7 @@
 #include "game/race/track_geometry.h"
 
 #include <math.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -171,6 +172,51 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
 int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time, uint8_t *data)
 {
     return psx_light_make_rows_sun(pts, count, ring, time, NULL, data);
+}
+
+int psx_light_rules_parse(const char *text, size_t size, PsxLightRule *out, int max)
+{
+    if (text == NULL || out == NULL || max <= 0) return 0;
+    int n = 0;
+    for (size_t at = 0; at < size && n < max;) {
+        char line[128];
+        size_t len = 0;
+        while (at < size && text[at] != '\n') {
+            if (len < sizeof line - 1 && text[at] != '#') line[len++] = text[at];
+            else if (text[at] == '#') {   /* the rest of the line is the comment */
+                while (at < size && text[at] != '\n') at++;
+                break;
+            }
+            at++;
+        }
+        at++;
+        line[len] = '\0';
+        long v[5];
+        char *p = line, *end;
+        int got = 0;
+        for (; got < 5; got++) {
+            while (*p != '\0' && isspace((unsigned char)*p)) p++;
+            if (*p == '\0') break;
+            v[got] = strtol(p, &end, 10);
+            if (end == p) break;
+            p = end;
+        }
+        while (*p != '\0' && isspace((unsigned char)*p)) p++;
+        if (got != 5 || *p != '\0') continue;
+        if (v[0] < 0 || v[1] < v[0] || v[2] < 0 || v[3] < v[2] || v[3] >= PSX_LIGHT_POINTS || v[4] < 0 || v[4] > PSX_LIGHT_FULL) continue;
+        out[n++] = (PsxLightRule){ (int)v[0], (int)v[1], (int)v[2], (int)v[3], (int)v[4] };
+    }
+    return n;
+}
+
+void psx_light_apply_rules(uint8_t *data, uint32_t count, const PsxLightRule *rules, int n)
+{
+    if (data == NULL || rules == NULL) return;
+    for (int i = 0; i < n; i++) {
+        const uint8_t level = psx_light_level((float)rules[i].value / (float)PSX_LIGHT_FULL);
+        for (int node = rules[i].node_from; node <= rules[i].node_to && (uint32_t)node < count; node++)
+            for (int p = rules[i].point_from; p <= rules[i].point_to; p++) data[(uint32_t)node * PSX_LIGHT_POINTS + (uint32_t)p] = level;
+    }
 }
 
 int psx_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, PsxLight *out)

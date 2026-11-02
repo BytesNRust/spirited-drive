@@ -255,8 +255,46 @@ static void test_a_lamp_beside_the_closing_node_lights_across_it_on_a_ring(void)
     CHECK(memcmp(open, base, sizeof open) == 0);
 }
 
+/* the override file: `node_from node_to point_from point_to value` lines, # comments, applied last */
+static void test_the_override_text_is_read(void)
+{
+    PsxLightRule rules[8];
+    const char *text = "# a shaded cutting\n"
+                       "100 120 2 5 40   # the right side\n"
+                       "\n"
+                       "  7 7 0 10 255\r\n"
+                       "bad line\n"
+                       "5 4 0 0 10\n"        /* from after to: dropped */
+                       "1 2 3 11 10\n"       /* a point past 10: dropped */
+                       "1 2 3 4 300\n"       /* a value past 255: dropped */
+                       "-1 2 3 4 10\n";      /* a negative node: dropped */
+    CHECK_EQ_INT(psx_light_rules_parse(text, strlen(text), rules, 8), 2);
+    CHECK_EQ_INT(rules[0].node_from, 100); CHECK_EQ_INT(rules[0].node_to, 120);
+    CHECK_EQ_INT(rules[0].point_from, 2); CHECK_EQ_INT(rules[0].point_to, 5); CHECK_EQ_INT(rules[0].value, 40);
+    CHECK_EQ_INT(rules[1].node_from, 7); CHECK_EQ_INT(rules[1].value, 255);
+    CHECK_EQ_INT(psx_light_rules_parse(text, strlen(text), rules, 1), 1);   /* the room given is not passed */
+    CHECK_EQ_INT(psx_light_rules_parse("", 0, rules, 8), 0);
+    CHECK_EQ_INT(psx_light_rules_parse(NULL, 0, rules, 8), 0);
+}
+
+static void test_the_rules_set_their_points_in_the_levels(void)
+{
+    uint8_t data[NODES * PSX_LIGHT_POINTS];
+    memset(data, 255, sizeof data);
+    const PsxLightRule rules[] = { { 10, 12, 2, 4, 100 }, { NODES + 5, NODES + 6, 0, 0, 0 } };
+    psx_light_apply_rules(data, NODES, rules, 2);
+    for (int n = 0; n < NODES; n++)
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            const int inside = n >= 10 && n <= 12 && p >= 2 && p <= 4;
+            if (inside) CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], psx_light_level(100.0f / 255.0f));   /* in the 16 levels */
+            else CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], 255);
+        }
+}
+
 int main(void)
 {
+    test_the_override_text_is_read();
+    test_the_rules_set_their_points_in_the_levels();
     test_the_night_is_dark_on_the_terrain_and_lit_on_the_road();
     test_the_night_has_no_sun_to_cast_shadows();
     test_a_lamp_pools_light_on_the_terrain_near_it();
