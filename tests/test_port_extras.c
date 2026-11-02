@@ -230,6 +230,24 @@ static void test_load_save(void)
     check_same(port_extras_load(), e);
 }
 
+/* the fullest file (every switch on, the longest words, every paint) still saves, and reads back the same: the save buffer has room to grow */
+static void test_fullest_file_saves(void)
+{
+    PortExtras e = port_extras_defaults();
+    e.start = START_NETWORK, e.units = UNITS_LANGUAGE, e.dash_box = DASH_BOX_HIDDEN, e.difficulty = 2;
+    int *const flags[] = { &e.mirror, &e.rally, &e.warrior, &e.vegas, &e.explode, &e.nitro, &e.turbo, &e.replay_cameras, &e.warrior_rival,
+                           &e.no_movies, &e.no_assists, &e.modern_3d, &e.texture_filter, &e.fog, &e.bumper_mirror, &e.bumper_radar,
+                           &e.variant_time, &e.stats_overlay, &e.car_markers, &e.lunar_springs, &e.movies_wide, &e.follow_camera,
+                           &e.psx_liveries, &e.reverse, &e.lunar_gravity };
+    for (size_t i = 0; i < sizeof flags / sizeof flags[0]; i++) *flags[i] = 1;
+    for (int c = 0; c < CAR_PAINT_SLOTS; c++) e.car_paint[c] = 15;
+    char out[1024];
+    const size_t n = port_extras_format(&e, out, sizeof out);
+    CHECK(n > 0 && n < 512);   /* it fits the old 512-byte buffer today: the test warns when a key more would not */
+    CHECK(port_extras_save(&e));
+    check_same(port_extras_load(), port_extras_parse(out, n));
+}
+
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
@@ -246,6 +264,7 @@ int main(void)
     test_bad_input_keeps_defaults();
     test_cheat_marks();
     test_load_save();
+    test_fullest_file_saves();
     test_race_switch_keys_parse();
     test_race_switches_are_saved();
     return TEST_REPORT();
