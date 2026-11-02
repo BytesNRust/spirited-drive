@@ -1,6 +1,8 @@
 /* The body shine's pure parts (car_shine.h): the level a surface takes from its normal, and the tables that brighten or darken a
  * palette entry to another entry of the same colour family. */
 #include "game/race/car_shine.h"
+#include "game/race/car_envmap.h"
+#include "game/sys/palette.h"
 #include "test.h"
 
 #include <math.h>
@@ -69,6 +71,29 @@ static void test_tables_leave_the_markers_and_the_dark_alone(void)
         CHECK_EQ_INT(t[l][0xff], 0xff);
     }
     for (int l = CAR_SHINE_NEUTRAL; l < CAR_SHINE_LEVELS; l++) CHECK_EQ_INT(t[l][BLACK], BLACK);   /* near black takes no light */
+}
+
+/* port (emissive lamps): an entry that glows whatever the light is no entry the shine moves: the tables map it to itself at every level */
+static void test_emissive_entries_keep_their_colour(void)
+{
+    uint8_t pal[768], shine[CAR_SHINE_LEVELS][256], paint[CAR_SHINE_LEVELS][256], glass[CAR_SHINE_LEVELS][256], emissive[256] = { 0 };
+    palette(pal);
+    car_shine_tables(pal, shine);
+    car_envmap_tables(pal, paint, glass);
+    int moved = 0;
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++) moved += shine[l][RED] != RED || paint[l][RED] != RED || glass[l][RED] != RED;
+    CHECK(moved > 0);   /* without the flag the red is shined, so the test means something */
+    emissive[RED] = 1;
+    palette_emissive_set(emissive);
+    car_shine_tables(pal, shine);
+    car_envmap_tables(pal, paint, glass);
+    for (int l = 0; l < CAR_SHINE_LEVELS; l++) {
+        CHECK_EQ_INT(shine[l][RED], RED);
+        CHECK_EQ_INT(paint[l][RED], RED);
+        CHECK_EQ_INT(glass[l][RED], RED);
+    }
+    CHECK(shine[CAR_SHINE_LEVELS - 1][BLUE] != BLUE);
+    palette_emissive_set(NULL);
 }
 
 static const float UP[3] = { 0, 1, 0 };
@@ -193,6 +218,7 @@ int main(void)
     test_tables_keep_the_colour_family();
     test_tables_run_light_to_dark();
     test_tables_leave_the_markers_and_the_dark_alone();
+    test_emissive_entries_keep_their_colour();
     test_level_roof_lighter_than_side();
     test_the_level_follows_the_worlds_up_not_the_cameras();
     test_the_horizon_is_a_line_between_a_bright_and_a_dark_band();
