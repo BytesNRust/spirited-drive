@@ -28,6 +28,8 @@
 #include "game/race/row_cars.h"
 #include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
+#include "game/race/dust_trail.h"
+#include "game/race/rally_gravel.h"
 #include "game/viewer/follow_arm.h"
 #include "game/viewer/follow_behind.h"
 #include "viewer/horizon_smooth.h"
@@ -694,11 +696,58 @@ static int32_t smoke_view_angle(void *ctx, const Car *car)
     return car_view_angle(car, shadow_race);
 }
 
+/* port (rally_gravel.h): the dust of the followed car, a trail (dust_trail.h): puffs born at the rear wheels that stay where they were dropped, low,
+ * rising and spreading a little, fading behind it. Each is a smoke puff over a few of the exe's own gravel puffs (puff_dirt, dir1..4), so
+ * it reads as grit in a haze; the screen's place is the car's own world-to-screen (render_point). */
+static DustTrail dust_trail;
+static int32_t last_near_dir[3];   /* the main view's near plane (set by the render, used by render_point and the dust) */
+static int32_t last_near;
+
+static int world_screen(const int32_t place[3], int32_t camera[3], int32_t screen[2])
+{
+    TrackCamera cam = { { 0 }, { 0 }, 0 };
+    memcpy(cam.position, model_view.camera_position, sizeof cam.position);
+    memcpy(cam.matrix, model_view.camera_matrix, sizeof cam.matrix);
+    DrawContext dc = { 0 };
+    dc.view = model_view.view, dc.world_shift = WORLD_SHIFT;
+    memcpy(dc.near_dir, last_near_dir, sizeof dc.near_dir);
+    dc.near = last_near;
+    track_point_screen(&cam, &dc, place, camera, screen);
+    return camera[2] > 0;
+}
+
+enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100 of the trail's, and the share (of 4) that gets gravel over its smoke */
+
+static void dust_draw(const Car *car)
+{
+    const int kind = shadow_race->port_rally_gravel;
+    const int drop = rally_dust_skid(kind, car->speed, car->airborne_ticks == 0) != 0;
+    const int32_t at[3] = { car->x, car->y, car->z };
+    dust_trail_step(&dust_trail, shadow_race->tick, kind, drop, at, car->yaw, car->speed);
+    if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH) return;
+    const PuffView v = puff_view();
+    const int lunar = shadow_race->port_lunar_gravity != 0;
+    for (int n = 0; n < DUST_TRAIL_PUFFS; n++) {   /* the ring's oldest first: the farthest from a camera behind the car */
+        const DustPuff *p = &dust_trail.puff[(dust_trail.next + n) % DUST_TRAIL_PUFFS];
+        int32_t place[3], size, camera[3], screen[2];
+        if (!dust_puff_at(p, shadow_race->tick, kind, lunar, place, &size)) continue;
+        if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
+        const int32_t depth = 0x38400 / camera[2];
+        const int32_t scale = depth * size * DUST_SIZE / 0x100 * 8;
+        puff_smoke(&v, screen[0], screen[1], scale);
+        if ((p->seed & 3) < DUST_DIRT_SHARE) {
+            const int32_t dx = (p->seed >> 2 & 0x1f) - 0x10, dy = (p->seed >> 7 & 0xf) - 8;
+            puff_dirt(&v, screen[0] + dx * depth / 0x1000, screen[1] + dy * depth / 0x1000, scale / 2);
+        }
+    }
+}
+
 /* 00458988 */
 static void smoke_draw(void *ctx, int in_car)
 {
     const TyreSmokeOps ops = { puff_rand_ctx, smoke_view_angle, puff_rand, smoke_puffs };
     tyre_smoke(&ops, (const Car *)ctx, in_car, shadow_race->camera_roll_add);
+    if (ctx == followed_car()) dust_draw(ctx);
 }
 
 /* 00490570 with *004c55e0 ('smok') */
@@ -709,8 +758,6 @@ static void trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y)
 }
 
 
-static int32_t last_near_dir[3];
-static int32_t last_near;
 
 /* port (psx_shadow): the soft shadow's flag and its half-way remap, made from the palette and the exe's shade table when either changes */
 static int soft_shadow_on;

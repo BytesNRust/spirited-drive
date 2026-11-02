@@ -18,7 +18,7 @@ static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas"
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
                                             "modern_3d", "texture_filter", "fog", "bumper_mirror",
                                             "bumper_radar", "variant_time", "stats_overlay", "car_markers",
-                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity" };
+                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity", "rally_gravel" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
@@ -27,7 +27,7 @@ static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
                         e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d,
                         e->texture_filter, e->fog, e->bumper_mirror, e->bumper_radar, e->variant_time,
-                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity };
+                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity, e->rally_gravel };
     memcpy(rows, all, sizeof all);
 }
 
@@ -37,14 +37,14 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
                          &e->modern_3d, &e->texture_filter, &e->fog, &e->bumper_mirror, &e->bumper_radar,
                          &e->variant_time, &e->stats_overlay, &e->car_markers, &e->lunar_springs, &e->movies_wide,
-                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity };
+                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1, 0 };
     return d;
 }
 
