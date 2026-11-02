@@ -105,8 +105,22 @@ static void test_puff(void)
     CHECK(dust_life(RALLY_GRAVEL_REGOLITH, 0) > dust_life(RALLY_GRAVEL_DUST, 0));
 }
 
+/* the shoulder's scrape at a crawl: the exe's level at 2 m/s is 0x14 + 4 = 24 of 127, hardly there; with the switch a rolling car's scrape has a floor, a
+ * standing one's is the exe's, and the exe's own level when off */
+static void test_shoulder_scrape_is_heard_at_a_crawl(void)
+{
+    const int32_t crawl = 2 << 16, standing = 0, exe_crawl = 0x14 + 4, exe_standing = 0x14;
+    CHECK_EQ_INT(rally_gravel_shoulder_level(RALLY_GRAVEL_OFF, exe_crawl, crawl), exe_crawl);
+    for (int kind = RALLY_GRAVEL_COMPACT; kind <= RALLY_GRAVEL_REGOLITH; kind++) {
+        CHECK(rally_gravel_shoulder_level(kind, exe_crawl, crawl) >= RALLY_SHOULDER_FLOOR);
+        CHECK_EQ_INT(rally_gravel_shoulder_level(kind, exe_standing, standing), exe_standing);
+        CHECK_EQ_INT(rally_gravel_shoulder_level(kind, 0x7f, 60 << 16), 0x7f);   /* fast: the exe's, already loud */
+    }
+}
+
 int main(void)
 {
+    test_shoulder_scrape_is_heard_at_a_crawl();
     test_kinds();
     test_level_and_dust();
     test_trail();

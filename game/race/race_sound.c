@@ -225,6 +225,7 @@ static int32_t road_noise(RaceState *race, const Car *car)
         e->pitch = 0x5e;
     } else if (car->node_flag_4aa != 0) {
         level = (int32_t)((uint32_t)level + 0x14u);
+        level = rally_gravel_shoulder_level(race->port_rally_gravel, level, car->speed);   /* port: heard at a crawl in the rally */
         e->pitch = 0x5e;
         if (race->track == 5) {
             const int32_t volume = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
