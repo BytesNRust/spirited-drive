@@ -15,6 +15,9 @@ enum { DRIVE_LAMP_SLOTS = 10 };
 
 /* Forgets the slot's texels (a car is loaded into it). */
 void drive_lamps_clear(int slot);
+/* Forgets every slot's texels and the pointer to the file they were found in: the race is over and its car files are freed, so a slot no car is loaded into next
+ * (an empty one, a traffic car fewer) must not be armed over a freed file. */
+void drive_lamps_clear_all(void);
 /* The slot's texels from the masks of `stem` over `file`. Returns how many. */
 int drive_lamps_find(int slot, const char *stem, uint8_t *file, size_t size);
 /* Whether the slot has texels of a kind (LampKind), found. */

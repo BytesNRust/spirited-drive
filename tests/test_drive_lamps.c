@@ -167,6 +167,23 @@ static void run(const char *root)
     drive_lamps_frame(0, 1, 1, 0);
     CHECK_MEM(cfm, original, size);
 
+    /* two races in a row (the owner's crash): the first loads cars with lamps into slots 5 and 7 and ends, its car files are freed; the second has no car in
+     * those slots, so nothing loads there, and arming reads each slot's texels from its file. With the files freed and the slots left alone that is a read of freed
+     * memory: run this test under ASan with DRIVE_LAMPS_OLD_FREE=1 (free_drive as it was, no drive_lamps_clear_all) to see the heap-use-after-free. */
+    uint8_t *race1 = malloc(size);
+    CHECK(race1 != NULL);
+    memcpy(race1, cfm, size);
+    drive_lamps_clear(5);
+    drive_lamps_clear(7);
+    CHECK_EQ_INT(drive_lamps_find(5, "P911", race1, size), 20);
+    CHECK_EQ_INT(drive_lamps_find(7, "P911", race1, size), 20);
+    free(race1);   /* free_drive */
+    if (getenv("DRIVE_LAMPS_OLD_FREE") == NULL) drive_lamps_clear_all();
+    drive_lamps_arm();   /* the second race's palette is mapped */
+    CHECK_EQ_INT(drive_lamps_count(5), 0);
+    CHECK_EQ_INT(drive_lamps_count(7), 0);
+    drive_lamps_frame(5, 1, 1, 0);
+
     unsetenv("TNFS_EMISSIVE_LAMPS");
     drive_lamps_clear(0);
     CHECK_EQ_INT(drive_lamps_find(0, "P911", cfm, size), 0);    /* the flag off: nothing */

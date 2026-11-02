@@ -572,6 +572,7 @@ static void free_drive(void)
         drive_cars.file[i] = NULL;
         shine_class_drop_slot(i);
     }
+    drive_lamps_clear_all();   /* port (emissive lamps): their texels point into the files just freed */
     platform_free_file(drive_cars.carpal);
     drive_cars.carpal = NULL;
     drive_hud.director = NULL;

@@ -27,6 +27,11 @@ void drive_lamps_clear(int slot)
     slots[slot] = (Slot){ 0 };
 }
 
+void drive_lamps_clear_all(void)
+{
+    for (int i = 0; i < DRIVE_LAMP_SLOTS; i++) drive_lamps_clear(i);
+}
+
 int drive_lamps_find(int slot, const char *stem, uint8_t *file, size_t size)
 {
     if (!valid(slot) || file == NULL || !port_emissive_lamps()) return 0;
