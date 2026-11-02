@@ -63,7 +63,7 @@ static void test_own_entries(void)
     uint8_t palette[768] = { 0 }, out[256];
     palette[3 * 7] = 250, palette[3 * 7 + 1] = 10, palette[3 * 7 + 2] = 10;
     palette[3 * 9] = 10, palette[3 * 9 + 1] = 10, palette[3 * 9 + 2] = 250;
-    police_lights_set_entries(40, 41);
+    police_lights_set_entries(40, 41, 0, 0);
     police_lights_table(NULL, palette, 0, out);
     CHECK_EQ_INT(out[0xfa], 40);
     CHECK_EQ_INT(out[0xfb], 40);
@@ -72,10 +72,21 @@ static void test_own_entries(void)
     police_lights_table(NULL, palette, 15, out);
     CHECK_EQ_INT(out[0xfa], 41);                           /* the sides swap every 15 ticks */
     CHECK_EQ_INT(out[0xfd], 40);
-    police_lights_set_entries(40, 0);                      /* one missing: the search */
+    police_lights_set_entries(40, 41, 42, 43);             /* halos of their own: the cores 0xfa and 0xfc bright, 0xfb and 0xfd darker */
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfa], 40);
+    CHECK_EQ_INT(out[0xfb], 42);
+    CHECK_EQ_INT(out[0xfc], 41);
+    CHECK_EQ_INT(out[0xfd], 43);
+    police_lights_table(NULL, palette, 15, out);
+    CHECK_EQ_INT(out[0xfa], 41);
+    CHECK_EQ_INT(out[0xfb], 43);
+    CHECK_EQ_INT(out[0xfc], 40);
+    CHECK_EQ_INT(out[0xfd], 42);
+    police_lights_set_entries(40, 0, 0, 0);                      /* one missing: the search */
     police_lights_table(NULL, palette, 0, out);
     CHECK_EQ_INT(out[0xfa], 7);
-    police_lights_set_entries(0, 0);
+    police_lights_set_entries(0, 0, 0, 0);
     police_lights_table(NULL, palette, 0, out);
     CHECK_EQ_INT(out[0xfc], 9);
 }

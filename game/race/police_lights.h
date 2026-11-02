@@ -28,9 +28,10 @@ int police_lights_phase(int32_t tick);
  * to pure red (red = 1) or pure blue (0). */
 int police_lights_entry(const uint8_t palette[768], int red);
 
-/* The palette entries set aside for the flash (drive_palette.c), pure red and pure blue past the tint and the tables: police_lights_table uses them when both are
- * set (non-zero), else the palette's nearest entries. (0, 0) forgets them (a race start). */
-void police_lights_set_entries(uint8_t red, uint8_t blue);
+/* The palette entries set aside for the flash (drive_palette.c), past the tint and the tables: pure red and pure blue for the lights' cores (0xfa, 0xfc: the exe's bright
+ * ones) and a darker red and blue for their halos (0xfb, 0xfd: its darker ones), as the exe's four entries are. police_lights_table uses the cores when both are set
+ * (non-zero), else the palette's nearest entries; a halo not set is its core. (0, 0, 0, 0) forgets them (a race start). */
+void police_lights_set_entries(uint8_t red, uint8_t blue, uint8_t red_halo, uint8_t blue_halo);
 
 /* The entry set aside for the flash's red (red = 1) or blue (0), 0 when there is none. */
 int police_lights_own_entry(int red);
