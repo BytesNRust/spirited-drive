@@ -18,7 +18,8 @@ static void test_lookup(void)
     CHECK_EQ_INT(lamps[0].slot, 20);
     CHECK_EQ_INT(lamps[1].slot, 19);
     CHECK_EQ_INT(psx_lamps_for("TR4", &lamps), 1);
-    CHECK_EQ_INT(lamps[0].slot, 20);
+    CHECK_EQ_INT(psx_lamps_for("TR3", &lamps), 2);   /* Vertigo Ridge: the portal's two bulbs (bytes 19 and 21) */
+    CHECK(lamps[0].slot == 19 && lamps[1].slot == 21);    CHECK_EQ_INT(lamps[0].slot, 20);
     CHECK_EQ_INT(psx_lamps_for("CY2", &lamps), 1);
     CHECK_EQ_INT(psx_lamps_for("AL1", &lamps), 0);   /* a frieze only */
     CHECK_EQ_INT(psx_lamps_for("AL3", &lamps), 0);

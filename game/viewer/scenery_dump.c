@@ -43,3 +43,31 @@ void scenery_dump(const Track *t, const char *path)
     }
     free(img);
 }
+
+/* the track's texture slots (variant 0): cells 130 x 130, eight to a row, the id (slot) on the log lines */
+void slot_dump(const Track *t, const char *path)
+{
+    enum { SCELL = 130, SCOLS = 8 };
+    const int rows = (TRACK_TEXTURE_SLOTS + SCOLS - 1) / SCOLS, w = SCOLS * SCELL, h = rows * SCELL;
+    uint8_t *img = calloc((size_t)w * h, 3);
+    if (img == NULL) return;
+    for (int i = 0; i < TRACK_TEXTURE_SLOTS; i++) {
+        const TrackTexture *tx = &t->art.slots[i][0];
+        if (!tx->present) continue;
+        port_log("slot_dump: slot %2d: %3d x %3d\n", i, tx->bitmap.width, tx->bitmap.height);
+        const int ox = i % SCOLS * SCELL, oy = i / SCOLS * SCELL;
+        for (int y = 0; y < tx->bitmap.height && y < SCELL; y++)
+            for (int x = 0; x < tx->bitmap.width && x < SCELL; x++) {
+                const uint8_t v = tx->bitmap.payload[(size_t)y * tx->bitmap.width + x];
+                uint8_t *p = img + 3 * ((size_t)(oy + y) * w + ox + x);
+                p[0] = t->art.palette[3 * v], p[1] = t->art.palette[3 * v + 1], p[2] = t->art.palette[3 * v + 2];
+            }
+    }
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) {
+        fprintf(f, "P6\n%d %d\n255\n", w, h);
+        fwrite(img, 3, (size_t)w * h, f);
+        fclose(f);
+    }
+    free(img);
+}

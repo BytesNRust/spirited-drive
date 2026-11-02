@@ -46,6 +46,7 @@
 #include "viewer/drive_lamps.h"
 #include "game/race/lamp_emissive.h"
 #include "game/race/lamp_flare.h"
+#include "game/sys/port_log.h"
 #include "game/sys/palette.h"
 #include "viewer/weather_draw.h"
 #include "viewer/drive_light.h"
@@ -139,6 +140,53 @@ void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry)
     window_entry = entry;
 }
 
+
+/* port (psx_flares): the tunnel lamps' glow. Each lamp texture's polygon drawn notes where the lamp's rectangle lies on the screen (the rectangle's centre
+ * across the polygon's corners); once the 3D is done a halo is drawn at each that still shows one of the lamp's own colours at that pixel (nothing nearer
+ * covers it; the colours stay unchanged through the lamp tables, shared entries or not), by day and by night. */
+static int flare_on;   /* port (psx_flares): a soft halo round a lit brake light and the tunnel lamps (lamp_flare.h) */
+enum { TUNNEL_FLARES_MAX = 128 };
+typedef struct { int lamp, x, y, size; } TunnelFlare;
+static TunnelFlare tunnel_flares[TUNNEL_FLARES_MAX];
+static int tunnel_flare_count;
+static uint8_t lamp_exempt_set[LAMPS_MAX][256];
+static uint8_t lamp_glow[LAMPS_MAX];   /* each lamp's brightest colour: the halo's */
+
+static int lamp_of(const FshEntry *texture);
+
+static void tunnel_flare_note(const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
+{
+    if (!flare_on || tunnel_flare_count >= TUNNEL_FLARES_MAX) return;
+    const int lamp = lamp_of(texture);
+    if (lamp < 0) return;
+    const PsxLamp *const l = &lamp_spec[lamp];
+    const int tw = (int16_t)texture->width, th = (int16_t)texture->height;
+    const int x1 = l->rect[2] < tw ? l->rect[2] + 1 : tw, y1 = l->rect[3] < th ? l->rect[3] + 1 : th;
+    const double cu = 65536.0 * (l->rect[0] + x1) / 2, cv = 65536.0 * (l->rect[1] + y1) / 2;
+    /* the polygon's uv is affine on the corners 0, 1 and 3 (any rotation or mirroring of the texture): solve uv0 + a (uv1 - uv0) + b (uv3 - uv0) = (cu, cv) */
+    const double e1u = (double)uv[2] - uv[0], e1v = (double)uv[3] - uv[1], e2u = (double)uv[6] - uv[0], e2v = (double)uv[7] - uv[1];
+    const double det = e1u * e2v - e1v * e2u;
+    if (fabs(det) < 1) return;
+    const double ru = cu - uv[0], rv = cv - uv[1];
+    const double a = (ru * e2v - rv * e2u) / det, b = (e1u * rv - e1v * ru) / det;
+    if (a < 0 || a > 1 || b < 0 || b > 1) return;
+    double p[2];
+    for (int k = 0; k < 2; k++) {
+        const double top = screen[k] + (screen[2 + k] - screen[k]) * a, bottom = screen[6 + k] + (screen[4 + k] - screen[6 + k]) * a;
+        p[k] = top + (bottom - top) * b;
+    }
+    const double quad_w = hypot((double)screen[2] - screen[0], (double)screen[3] - screen[1]);
+    const double rect_w = (double)(x1 - l->rect[0]) * 65536.0, edge_u = hypot(e1u, e1v);
+    tunnel_flares[tunnel_flare_count++] = (TunnelFlare){ lamp, (int)lrint(p[0]), (int)lrint(p[1]), (int)lrint(quad_w * rect_w / edge_u) };
+}
+
+static void tunnel_flare_note_full(const FshEntry *texture, const int32_t screen[8])
+{
+    const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
+    const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+    tunnel_flare_note(texture, uv, screen);
+}
+
 /* the lamp `texture` is, or -1 */
 static int lamp_of(const FshEntry *texture)
 {
@@ -167,6 +215,7 @@ static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || l
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
+    tunnel_flare_note(texture, uv, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
     else quad_draw(user, texture, uv, screen, transparent(texture));
@@ -334,6 +383,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
 static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 {
+    tunnel_flare_note_full(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
         const MapMode mode = transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP;
@@ -348,6 +398,7 @@ static void draw_full(void *user, const FshEntry *texture, const int32_t screen[
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
 static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 {
+    tunnel_flare_note_full(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) {
         const int32_t right = ((int32_t)(int16_t)texture->width << 16) - 1, bottom = ((int32_t)(int16_t)texture->height << 16) - 1;
@@ -933,7 +984,6 @@ static void body_palette(void *ctx, int32_t first, int32_t count, const uint8_t 
 static const uint8_t NO_SLOT_COLOURS[RACE_CARS + 1];
 
 /* port (emissive lamps): the car's lamp texels as the light at the car is (the day's, or glowing, lit by its brake), before it is drawn */
-static int flare_on;   /* port (psx_flares): a soft halo round a lit brake light (lamp_flare.h) */
 void ported_view_set_flares(int on) { flare_on = on != 0; }
 
 static void lamp_state(const Car *car)
@@ -1037,6 +1087,68 @@ static int32_t car_reach(const Object3D *o)
         if (x * x + y * y + z * z > most) most = x * x + y * y + z * z;
     }
     return (int32_t)sqrt((double)most) + 1;
+}
+
+/* port (psx_flares): the lamp textures and their colours when the light's tables are not made (the light is off but the lamps are set) */
+static void lamp_flare_textures(const TrackArt *art)
+{
+    for (int i = 0; i < lamp_count; i++) {
+        for (int v = 0; v < LAMP_VARIANTS; v++) {
+            const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
+                                        ? &art->slots[lamp_spec[i].slot][v] : NULL;
+            lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
+        }
+        const FshEntry *t = lamp_bitmap[i][0];
+        psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, lamp_exempt_set[i]);
+        int best = -1, best_sum = -1;
+        for (int c = 0; c < 256; c++) {
+            const uint8_t *const q = art->palette + 3 * c;
+            const int hi = q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2]), lo = q[0] < q[1] ? (q[0] < q[2] ? q[0] : q[2]) : (q[1] < q[2] ? q[1] : q[2]);
+            const int sum = lamp_exempt_set[i][c] ? q[0] + q[1] + q[2] + 3 * (hi - lo) : -1;   /* bright, and the colour rather than the white glare */
+            if (sum > best_sum) best = c, best_sum = sum;
+        }
+        lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
+    }
+}
+
+/* port (psx_flares): the halos of the tunnel lamps noted this frame (tunnel_flare_note), over the finished 3D */
+static void tunnel_flare_draw(const QuadTarget *t, const uint8_t palette[768])
+{
+    if (!flare_on || tunnel_flare_count <= 0 || t == NULL || t->pixels == NULL) return;
+    static const int PERCENT[LAMP_FLARE_LEVELS] = { 30, 60, 100 };
+    const uint8_t *const usable = palette_usable();
+    uint8_t maps[LAMPS_MAX][LAMP_FLARE_LEVELS][256];
+    int made[LAMPS_MAX] = { 0 };
+    for (int i = 0; i < tunnel_flare_count; i++) {
+        const TunnelFlare *f = &tunnel_flares[i];
+        if (f->x < t->clip_left || f->x >= t->clip_right || f->y < t->clip_top || f->y >= t->clip_bottom) continue;
+        int shows = 0;   /* one of the lamp's colours within two pixels of its centre: else what is nearer covers it */
+        for (int dy = -2; dy <= 2 && !shows; dy++)
+            for (int dx = -2; dx <= 2 && !shows; dx++) {
+                const int x = f->x + dx, y = f->y + dy;
+                shows = x >= t->clip_left && x < t->clip_right && y >= t->clip_top && y < t->clip_bottom &&
+                        lamp_exempt_set[f->lamp][t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x]];
+            }
+        if (!shows) continue;
+        const uint8_t entry = lamp_glow[f->lamp];
+        if (!made[f->lamp]) {
+            for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
+                for (int d = 0; d < 256; d++) {
+                    int rgb[3];
+                    for (int k = 0; k < 3; k++) {
+                        rgb[k] = palette[3 * d + k] + palette[3 * entry + k] * PERCENT[l] / 100;
+                        if (rgb[k] > 255) rgb[k] = 255;
+                    }
+                    maps[f->lamp][l][d] = lamp_exempt_set[f->lamp][d] || !usable[d] ? (uint8_t)d : (uint8_t)palette_nearest(palette, usable, rgb[0], rgb[1], rgb[2]);
+                }
+            made[f->lamp] = 1;
+        }
+        const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[f->lamp][0], maps[f->lamp][1], maps[f->lamp][2] };
+        lamp_halo_draw(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, f->x, f->y,
+                       lamp_flare_radius(f->size * f->size), map);
+        static int logged;
+        if (logged++ < 4) port_log("tunnel_flare: halo at %d,%d size %d (lamp %d, glow entry %d)\n", f->x, f->y, f->size, f->lamp, entry);
+    }
 }
 
 /* port (psx_flares): the halo round a lit brake light. The lamp's pixels are the emissive lit-brake entry (drive_lamps_brake_lit: not tinted, not fogged), found
@@ -1468,6 +1580,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         raster_record_set_runner(bands_rows);
         raster_record_begin(&recorder, pixels);
     }
+    if (psx_light == NULL && flare_on && lamp_count > 0) lamp_flare_textures(art);
     if (psx_light != NULL) {
         /* the tables again only when the palette or the tint moved (a fade changes the palette) */
         static uint8_t made_for[768];
@@ -1490,6 +1603,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             uint8_t exempt[256];
             psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
             psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+            memcpy(lamp_exempt_set[i], exempt, sizeof exempt);
+            int best = -1, best_sum = -1;
+            for (int c = 0; c < 256; c++) {
+                const uint8_t *const q = art->palette + 3 * c;
+            const int hi = q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2]), lo = q[0] < q[1] ? (q[0] < q[2] ? q[0] : q[2]) : (q[1] < q[2] ? q[1] : q[2]);
+            const int sum = exempt[c] ? q[0] + q[1] + q[2] + 3 * (hi - lo) : -1;
+                if (sum > best_sum) best = c, best_sum = sum;
+            }
+            lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
         }
         if (street_scenery >= 0 && street_scenery < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery].present) {   /* the street lamp's board: its entries kept */
             uint8_t exempt[256] = { 0 };
@@ -1521,11 +1643,13 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             arm_drawing = 0;
         }
     }
+    tunnel_flare_count = 0;
     if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
     track_light_hook = NULL;
     lit_active = 0;
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
+    tunnel_flare_draw(&quad, art->palette);
     if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }

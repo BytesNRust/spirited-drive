@@ -7,5 +7,7 @@
 #include "game/viewer/track_load.h"
 
 void scenery_dump(const Track *t, const char *path);
+/* TNFS_SLOT_DUMP=file.ppm: every texture slot (variant 0) of the track, with its id on the log */
+void slot_dump(const Track *t, const char *path);
 
 #endif
