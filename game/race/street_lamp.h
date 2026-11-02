@@ -5,12 +5,15 @@
 #ifndef TNFS_STREET_LAMP_H
 #define TNFS_STREET_LAMP_H
 
+#include "formats/tri.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
 enum { STREET_LAMP_ENTRIES = 3 };   /* palette entries it needs: the lens, the halo's core and its outer rim */
 
 typedef struct {
+    int resource;                         /* the descriptor's resource_id of the lamp post */
     int scenery;                          /* the board: TrackArt.scenery[scenery] */
     int width, height;                    /* its size, to be sure it is the one */
     int lens_rect[4];                     /* x0, y0, x1, y1 inclusive: every opaque texel in it is the lens (the board's colours are its own palette's, matched to the race's) */
@@ -21,6 +24,10 @@ typedef struct {
 } StreetLamp;
 
 enum { STREET_LAMPS_MAX = 3 };   /* the boards a track may have */
+/* The nodes of the lamp posts among `scenery` (the track\'s placements, `descriptors` the descriptors they index): those whose descriptor is a bitmap (type 4 or 6)
+ * of the lamp's resource, in the file's order (a node may repeat). Up to `max`, their count; the made night's pools (psx_light_make_lit) go there. */
+size_t street_lamp_nodes(const StreetLamp *lamp, const TriDescriptor *descriptors, uint32_t descriptor_count, const TriScenery *scenery, uint32_t scenery_count, uint32_t *out,
+                         size_t max);
 
 /* The track's street lamp (CY1, any case): 1 and `*out` set, 0 for the others. */
 int street_lamp_for(const char *track, StreetLamp *out);
