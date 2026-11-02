@@ -25,7 +25,7 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
  *                               Difficulty (Easy / Original / Hard)
- *            Miscellaneous      Start Screen, Intro video
+ *            Miscellaneous      Start Screen, Intro video, Check for updates
  *
  * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
  * is thirteen rows and two headers, fifteen lines, which is what the 20 pitch fits.)
@@ -48,6 +48,7 @@ enum {
     ROW_FOLLOW_CAMERA,                             /* port: In-race options' 360 camera (port_extras.h's follow_camera) */
     ROW_DIFFICULTY,                                /* port: In-race options' last, Easy / Original / Hard (port_extras.h's difficulty, difficulty.h) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
+    ROW_UPDATE,                                    /* port: Miscellaneous' last, Check for updates (port_extras.h's update_check, platform/update.h) */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */

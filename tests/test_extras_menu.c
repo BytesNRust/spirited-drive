@@ -380,7 +380,7 @@ static void test_the_graphics_settings_are_gone(void)
     int keys[48];
     int n = keys_to_row(keys, ROW_MOVIES);
     keys[n++] = RIGHT;                                     /* off: no movies */
-    keys[n++] = DOWN, keys[n++] = ENTER;                  /* down to Done, save */
+    n = downs(keys, n, downs_to_done(ROW_MOVIES)), keys[n++] = ENTER;   /* down to Done, save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
@@ -531,7 +531,7 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 12);
+    CHECK_EQ_INT(ROWS_P2, 13);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -892,7 +892,7 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);               /* page 2, its first row */
     n = downs(keys, n, ROWS_P2);                           /* page 2's Done */
     keys[n++] = RIGHT;                                     /* page 2's Cancel */
-    keys[n++] = UP;                                        /* Intro video, page 2's last switch */
+    keys[n++] = UP;                                        /* Check for updates, page 2's last switch */
     keys[n++] = RIGHT;                                     /* off */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
@@ -900,7 +900,7 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.no_movies, 1);
+    CHECK_EQ_INT(r.fake.saved.update_check, 0);
 }
 
 /* the Done/Cancel walk: Right from Done is Cancel, as it was before the regrouping, and Cancel saves nothing */
@@ -998,7 +998,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     keys[n++] = ENTER;
     n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 4);   /* before Difficulty, the last row of In-race options, and Miscellaneous */
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 5);   /* before Difficulty, the last row of In-race options, and Miscellaneous' three */
     setup(&r);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     run(&r, keys, n);
@@ -1091,8 +1091,25 @@ static void test_done_writes_extras_cfg(void)
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
+/* Check for updates: On by default, Right turns it Off and Done saves it */
+static void test_check_for_updates_switch(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_UPDATE);
+    keys[n++] = RIGHT;                                     /* off */
+    n = downs(keys, n, downs_to_done(ROW_UPDATE)), keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
+    setup(&r);
+    CHECK_EQ_INT(r.e.update_check, 1);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Check for updates"));
+    CHECK_EQ_INT(r.fake.saved.update_check, 0);
+}
+
 int main(void)
 {
+    test_check_for_updates_switch();
     test_mirror_toggle_excludes_rally();
     test_escape_restores_input();
     test_right_turns_to_page_two();
