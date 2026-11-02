@@ -5,6 +5,8 @@
 #include "game/sys/data_check.h"
 #include "game/sys/data_copy.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
+#include "game/sys/port_settings.h"
 
 #include <SDL3/SDL.h>
 
@@ -30,6 +32,23 @@ static int ask(const char *title, const char *text, const char *const labels[], 
     int pressed = count - 1;
     if (!SDL_ShowMessageBox(&box, &pressed)) return count - 1;
     return pressed;
+}
+
+/* port (profiles): the three profiles as buttons, Restomod '26 first (Return and Escape both take it), with what each is; the choice is kept in port.cfg */
+static void choose_profile(void)
+{
+    static const Profile ORDER[3] = { PROFILE_RESTOMOD, PROFILE_RESTORED, PROFILE_STOCK };
+    char text[1500];
+    int n = snprintf(text, sizeof text, "Choose how the game looks and plays. You can change it any time (Options).\n\n");
+    for (int i = 0; i < 3 && n > 0 && (size_t)n < sizeof text; i++)
+        n += snprintf(text + n, sizeof text - (size_t)n, "%s\n%s\n%s\n\n", port_profile_title(ORDER[i]), port_profile_line1(ORDER[i]), port_profile_line2(ORDER[i]));
+    SDL_MessageBoxButtonData buttons[3];
+    for (int i = 0; i < 3; i++)
+        buttons[i] = (SDL_MessageBoxButtonData){ i == 0 ? SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT : 0, i, port_profile_title(ORDER[i]) };
+    const SDL_MessageBoxData box = { SDL_MESSAGEBOX_INFORMATION, NULL, "Pick your profile", text, 3, buttons, NULL };
+    int pressed = 0;
+    if (!SDL_ShowMessageBox(&box, &pressed) || pressed < 0 || pressed > 2) pressed = 0;
+    if (!port_profile_select(ORDER[pressed])) port_log("first_run: could not keep the profile %s\n", port_profile_key(ORDER[pressed]));
 }
 
 typedef struct {
@@ -143,6 +162,7 @@ bool first_run_setup(const char *dest)
         const char *const root = c.root[0] != '\0' ? c.root : chosen;
         ok = copy_with_bar(root, dest);
         if (ok && c.matched != c.total) (void)data_mark_accepted(dest, &c);   /* Use it anyway: the next start must not ask again */
+        if (ok && port_settings_profile() == PROFILE_CUSTOM) choose_profile();   /* a file that already names a profile (a reinstall) keeps it */
         if (!ok) {
             static const char *const OK[] = { "OK" };
             {
