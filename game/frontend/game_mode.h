@@ -60,9 +60,12 @@ typedef struct GameModeOps {
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
-    /* port: the line at the foot (version, update notice) into line (cap bytes); 1 when there is one. Asked every
+    /* port: line 0 (the version) and 1 (the update notice, drawn above it) at the foot, into text (cap bytes); 1 when there is one. Asked every
      * pass: the menu is drawn again when the line changes. NULL: none */
-    int32_t (*footer)(void *ctx, char *line, size_t cap);
+    int32_t (*footer)(void *ctx, int32_t line, char *text, size_t cap);
+    /* port: a left click on the update notice opens the releases page (the notice is inside Exit's band, so it is
+     * taken before the choosing). NULL: the notice is not clickable */
+    void (*open_notice)(void *ctx);
 } GameModeOps;
 
 typedef struct GameModeState {

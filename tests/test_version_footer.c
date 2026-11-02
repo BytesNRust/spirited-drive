@@ -5,32 +5,37 @@
 static void test_the_version_alone(void)
 {
     char line[64];
-    CHECK_EQ_INT(version_footer_line(line, sizeof line, "0.9.0", UPDATE_PENDING, ""), 1);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 0, "0.9.0", UPDATE_PENDING, ""), 1);
     CHECK(strcmp(line, "v0.9.0") == 0);
-    CHECK_EQ_INT(version_footer_line(line, sizeof line, "0.9.0", UPDATE_NONE, ""), 1);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 0, "0.9.0", UPDATE_NONE, ""), 1);
     CHECK(strcmp(line, "v0.9.0") == 0);
 }
 
 static void test_a_newer_release_is_announced(void)
 {
     char line[64];
-    CHECK_EQ_INT(version_footer_line(line, sizeof line, "0.9.0", UPDATE_NEWER, "0.9.1"), 1);
-    CHECK(strcmp(line, "v0.9.0 - Update available: v0.9.1") == 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 0, "0.9.0", UPDATE_NEWER, "0.9.1"), 1);
+    CHECK(strcmp(line, "v0.9.0") == 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 1, "0.9.0", UPDATE_NEWER, "0.9.1"), 1);
+    CHECK(strcmp(line, "Update available: v0.9.1") == 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 1, "0.9.0", UPDATE_NONE, ""), 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 1, "0.9.0", UPDATE_PENDING, ""), 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 2, "0.9.0", UPDATE_NEWER, "0.9.1"), 0);
 }
 
 static void test_a_short_buffer_is_cut_not_overrun(void)
 {
     char line[8];
-    CHECK_EQ_INT(version_footer_line(line, sizeof line, "0.9.0-dev+abcdef0", UPDATE_NONE, ""), 1);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 0, "0.9.0-dev+abcdef0", UPDATE_NONE, ""), 1);
     CHECK_EQ_INT(strlen(line), 7);
-    CHECK_EQ_INT(version_footer_line(NULL, 0, "0.9.0", UPDATE_NONE, ""), 0);
-    CHECK_EQ_INT(version_footer_line(line, sizeof line, NULL, UPDATE_NONE, ""), 0);
+    CHECK_EQ_INT(version_footer_line(NULL, 0, 0, "0.9.0", UPDATE_NONE, ""), 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 0, NULL, UPDATE_NONE, ""), 0);
 }
 
 static void test_an_empty_version_gives_no_line(void)
 {
     char line[16] = "x";
-    CHECK_EQ_INT(version_footer_line(line, sizeof line, "", UPDATE_NONE, ""), 0);
+    CHECK_EQ_INT(version_footer_line(line, sizeof line, 0, "", UPDATE_NONE, ""), 0);
     CHECK_EQ_INT(line[0], 0);
 }
 

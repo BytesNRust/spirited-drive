@@ -3,14 +3,18 @@
 
 #include <stdio.h>
 
-int version_footer_line(char *out, size_t cap, const char *version, UpdateState state, const char *latest)
+int version_footer_line(char *out, size_t cap, int line, const char *version, UpdateState state, const char *latest)
 {
     if (out == NULL || cap == 0) return 0;
     out[0] = 0;
-    if (version == NULL || version[0] == 0) return 0;
-    if (state == UPDATE_NEWER && latest != NULL && latest[0] != 0)
-        snprintf(out, cap, "v%s - Update available: v%s", version, latest);
-    else
+    if (line == 0) {
+        if (version == NULL || version[0] == 0) return 0;
         snprintf(out, cap, "v%s", version);
-    return 1;
+        return 1;
+    }
+    if (line == 1 && state == UPDATE_NEWER && latest != NULL && latest[0] != 0) {
+        snprintf(out, cap, "Update available: v%s", latest);
+        return 1;
+    }
+    return 0;
 }

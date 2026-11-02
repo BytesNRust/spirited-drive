@@ -17,7 +17,7 @@ static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0 };
 static const char *const LIT[OPTIONS] = { "sinl", "modl", "netl", "exil" };   /* 004afaf8.. */
 static const char *const DARK[OPTIONS] = { "sind", "modd", "netd", "exid" };  /* 004afb18.. */
 
-enum { FOOTER_CAP = 80, FOOTER_X = 8, FOOTER_Y = 452 };
+enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 8, FOOTER_Y = 452, FOOTER_STEP = 28 };
 
 typedef struct Menu {
     int32_t bank;
@@ -31,7 +31,7 @@ typedef struct Menu {
     int released;      /* esp + 0x360: the buttons seen up */
     int done;          /* esp + 0x37c */
     int16_t result;    /* esp + 0x380 */
-    char footer[FOOTER_CAP];       /* port: the foot line as last drawn */
+    char footer[FOOTER_LINES][FOOTER_CAP];   /* port: the foot lines as last drawn */
     uint8_t rgb[GAME_MODE_PALETTE];
 } Menu;
 
@@ -73,21 +73,35 @@ static void extras_label(const Menu *m, const GameModeOps *o)
                  CENTRE_Y[MODEM] - TEXT_HALF_HEIGHT);
 }
 
-/* port: the foot line, in the plain style at the bottom left */
+/* port: the foot lines, in the plain style at the bottom left, the notice above the version */
 static void footer_draw(Menu *m, const GameModeOps *o)
 {
     if (o->footer == NULL || o->plus_text == NULL) return;
-    if (!o->footer(o->ctx, m->footer, sizeof m->footer)) m->footer[0] = 0;
-    if (m->footer[0] != 0) o->plus_text(o->ctx, 0, m->footer, FOOTER_X, FOOTER_Y);
+    for (int32_t i = 0; i < FOOTER_LINES; i++) {
+        if (!o->footer(o->ctx, i, m->footer[i], sizeof m->footer[i])) m->footer[i][0] = 0;
+        if (m->footer[i][0] != 0) o->plus_text(o->ctx, 0, m->footer[i], FOOTER_X, FOOTER_Y - i * FOOTER_STEP);
+    }
 }
 
-/* port: 1 when the foot line is not the one drawn */
+/* port: 1 when a foot line is not the one drawn */
 static int footer_stale(const Menu *m, const GameModeOps *o)
 {
-    char now[FOOTER_CAP] = "";
     if (o->footer == NULL) return 0;
-    if (!o->footer(o->ctx, now, sizeof now)) now[0] = 0;
-    return strcmp(now, m->footer) != 0;
+    for (int32_t i = 0; i < FOOTER_LINES; i++) {
+        char now[FOOTER_CAP] = "";
+        if (!o->footer(o->ctx, i, now, sizeof now)) now[0] = 0;
+        if (strcmp(now, m->footer[i]) != 0) return 1;
+    }
+    return 0;
+}
+
+/* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row) */
+static int on_notice(const Menu *m, const GameModeOps *o)
+{
+    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28 };
+    if (o->open_notice == NULL || o->footer == NULL || m->footer[1][0] == 0) return 0;
+    const int32_t top = FOOTER_Y - FOOTER_STEP;
+    return o->pointer_in_rect(o->ctx, 0, NOTICE_WIDTH, top, top + NOTICE_HEIGHT) != 0;
 }
 
 static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
@@ -250,7 +264,10 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
         k = (int16_t)ops->key(ops->ctx);
         if (k == SPACE || k == ENTER || (st->buttons == LEFT_BUTTON && m.released)) {
             ops->pointer_click(ops->ctx);
-            if (m.armed) {
+            if (m.armed && st->buttons == LEFT_BUTTON && on_notice(&m, ops)) {
+                ops->sound(ops->ctx, CHOSEN);
+                ops->open_notice(ops->ctx);
+            } else if (m.armed) {
                 ops->sound(ops->ctx, CHOSEN);
                 choose(&m, st, ops);
             }

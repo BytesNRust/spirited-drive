@@ -7,7 +7,8 @@
 
 #include <stddef.h>
 
-/* Writes the line into out (cut to cap - 1 characters). 1 when there is a line; 0 for no version or no room */
-int version_footer_line(char *out, size_t cap, const char *version, UpdateState state, const char *latest);
+/* Line 0: the version. Line 1: "Update available: vX" once the check found a newer release (drawn above line 0).
+ * Writes into out (cut to cap - 1 characters). 1 when there is such a line; 0 for none or no room */
+int version_footer_line(char *out, size_t cap, int line, const char *version, UpdateState state, const char *latest);
 
 #endif
