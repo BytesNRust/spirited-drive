@@ -57,8 +57,32 @@ static void test_table(void)
     CHECK_EQ_INT(out[0x10], 0x10);                         /* no base: the identity */
 }
 
+/* the entries set aside for the flash win over the palette's nearest, and forgetting them goes back to the search */
+static void test_own_entries(void)
+{
+    uint8_t palette[768] = { 0 }, out[256];
+    palette[3 * 7] = 250, palette[3 * 7 + 1] = 10, palette[3 * 7 + 2] = 10;
+    palette[3 * 9] = 10, palette[3 * 9 + 1] = 10, palette[3 * 9 + 2] = 250;
+    police_lights_set_entries(40, 41);
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfa], 40);
+    CHECK_EQ_INT(out[0xfb], 40);
+    CHECK_EQ_INT(out[0xfc], 41);
+    CHECK_EQ_INT(out[0xfd], 41);
+    police_lights_table(NULL, palette, 15, out);
+    CHECK_EQ_INT(out[0xfa], 41);                           /* the sides swap every 15 ticks */
+    CHECK_EQ_INT(out[0xfd], 40);
+    police_lights_set_entries(40, 0);                      /* one missing: the search */
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfa], 7);
+    police_lights_set_entries(0, 0);
+    police_lights_table(NULL, palette, 0, out);
+    CHECK_EQ_INT(out[0xfc], 9);
+}
+
 int main(void)
 {
+    test_own_entries();
     test_when_on();
     test_phase();
     test_table();

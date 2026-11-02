@@ -28,6 +28,10 @@ int police_lights_phase(int32_t tick);
  * to pure red (red = 1) or pure blue (0). */
 int police_lights_entry(const uint8_t palette[768], int red);
 
+/* The palette entries set aside for the flash (drive_palette.c), pure red and pure blue past the tint and the tables: police_lights_table uses them when both are
+ * set (non-zero), else the palette's nearest entries. (0, 0) forgets them (a race start). */
+void police_lights_set_entries(uint8_t red, uint8_t blue);
+
 /* `out` (256 bytes): `base` (NULL for the identity) with the four light entries sent to the red and blue entries of `palette` as the phase of `tick` says. */
 void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_t tick, uint8_t out[256]);
 
