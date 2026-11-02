@@ -34,6 +34,11 @@ static PsxSkyDraw sky_draw;
 static int lamp_pool_count;
 static const PsxLamp *night_lamp_spec;   /* the tunnel lamps of the track when the race is at night (drive_light_night_lamps), else none */
 static int night_lamp_count;
+static HeadlightPool headlight_pool;   /* port (psx_headlights): the pools of light the cars lift the night's dark nodes by (ported_view keeps its nodes) */
+static int headlights_on;               /* the race is at night with the pools: the ambient is the pooled night's, the nodes' light carries the dark */
+/* with the pools the palette is the dusk's with the night's hue (psx_night_light over HEADLIGHT_FLOOR, 1 at most per channel) and the nodes carry the rest of the
+ * dark (headlight_pool.h): open road and country go to the night's light, a tunnel and a car's pool keep the dusk's; the sky keeps psx_night_light */
+static const float NIGHT_PALETTE[3] = { 0.80f, 0.96f, 1.0f };
 static int night_sky;   /* the race is at night: a sky of the dusk is darkened by the night's light before it is matched to the shown palette */
 
 /* the files' path: <psx_dir>/Z<TRACK><letter>.<ext> */
@@ -61,11 +66,22 @@ static void load_tint(const char *psx_dir, const char *track, char letter, int n
         return;
     }
     if (psx_lgs_parse(file, size, &ambient)) {
-        if (night) psx_lgs_scale(&ambient, psx_night_light, 0);   /* the open road's: a tunnel's own lights (the contexts) stay lit, pools in the dark */
+        if (night) psx_lgs_scale(&ambient, light.pool != NULL ? NIGHT_PALETTE : psx_night_light, 0);   /* the open road's: a tunnel's own lights (the contexts) stay lit, pools in the dark; with the pools the nodes carry the night, the ambient stays the dusk's */
         ambient_ok = 1, psx_lgs_tint(&ambient, tint);
     }
     else port_log("psx_light: %s does not read, the ambient stays neutral\n", path);
     platform_free_file(file);
+}
+
+enum { NIGHT_STARS_SEED = 0x57a5 };
+
+/* the night's darkness of the sky: psx_night_light, kept the same under the pools, whose palette is the dusk's (the sky is matched to it) */
+static void sky_scale_night(void)
+{
+    float mul[3];
+    for (int k = 0; k < 3; k++) mul[k] = headlights_on ? psx_night_light[k] * psx_night_light[k] / NIGHT_PALETTE[k] : psx_night_light[k];
+    psx_sky_draw_scale(&sky_draw, mul);
+    if (headlights_on) psx_sky_draw_stars(&sky_draw, NIGHT_STARS_SEED);   /* port (psx_headlights): the night's stars in the dark of the sky */
 }
 
 /* dawn and dusk: the PS1's own sky (Z<TRACK><A|C>.INF and .PSH) for the race; the day, a missing or unreadable file, or only the INF
@@ -95,7 +111,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
     if (text != NULL) platform_free_file(text);
     if (!gradient) port_log("psx_sky: %s does not read, no gradient above the horizon\n", path);
     if (psx_sky_draw_make(&sky_draw, &sky, &inf)) {
-        if (night_sky) psx_sky_draw_scale(&sky_draw, psx_night_light);
+        if (night_sky) sky_scale_night();
         ported_view_set_psx_sky(&sky_draw);
         port_log("psx_sky: %dx%d panorama, gradient %d,%d,%d to %d,%d,%d\n", sky.width, sky.height, inf.top[0], inf.top[1], inf.top[2],
                  inf.bottom[0], inf.bottom[1], inf.bottom[2]);
@@ -131,6 +147,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
     night_sky = time == PSX_TIME_NIGHT;
+    headlights_on = 0;
     night_lamp_spec = NULL, night_lamp_count = 0, lamp_pool_count = 0;
     alt_sky_wanted = 0;
     split = 0;
@@ -148,6 +165,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     synth_on = 0;
     tint[0] = tint[1] = tint[2] = 1.0f;
     if (!enabled || psx_dir == NULL || psx_dir[0] == '\0') return;
+    headlights_on = time == PSX_TIME_NIGHT && port_psx_headlights();
     synth_wanted = psx_light_synth_track(track);
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
@@ -172,6 +190,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         return;
     }
     light = parsed;
+    light.pool = headlights_on ? &headlight_pool : NULL;
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT);
     if (is_lost_vegas(track))
         for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
@@ -220,7 +239,7 @@ void drive_light_load_alt_sky(const char *data_root, const char *track)
     uint8_t palette[768];
     uint8_t *file = NULL;
     if (track_viewer_pc_sky(data_root, track, &alt_info, &horizon, palette, &file) && psx_sky_draw_make_indexed(&sky_draw, &horizon, palette)) {
-        if (night_sky) psx_sky_draw_scale(&sky_draw, psx_night_light);
+        if (night_sky) sky_scale_night();
         ported_view_set_psx_sky(&sky_draw);
         ported_view_set_psx_sky_info(&alt_info);
         port_log("psx_sky: the PC's %s sky, %dx%d, ring %d\n", track, horizon.width, horizon.height, alt_info.ring);

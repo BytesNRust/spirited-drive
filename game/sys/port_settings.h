@@ -34,6 +34,7 @@ typedef struct {
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
     int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
+    int psx_headlights;      /* with psx_light at night: 1 the night's second look, the road dark and lit by a pool ahead of each car (headlight_pool.h); 0 the first look */
     int psx_shadow;          /* 1: the PS1 look's soft shadow under each car, weaker in the dark (soft_shadow.h); 0 the exe's quad */
     int psx_time;            /* with psx_light: the PS1's time of day, PSX_TIME_DAWN (files A), PSX_TIME_DAY (B) or PSX_TIME_DUSK (C):
                              * `psx_time=dawn|day|dusk` (a, b, c also read) */
@@ -59,6 +60,9 @@ int port_render_scale(void);
 int port_psx_light(void);
 /* 1 when the cars have the PS1 look's soft shadow: TNFS_PSX_SHADOW=0/1 when set, else port.cfg's psx_shadow. */
 int port_psx_shadow(void);
+
+/* 1 when the night is lit by the cars' headlight pools: TNFS_PSX_HEADLIGHTS=0/1 when set, else port.cfg's psx_headlights. */
+int port_psx_headlights(void);
 /* 1 when a free race's total goes in the per-lap-count tables (free_records.h): TNFS_FREE_RECORDS=0/1 when set, else port.cfg's free_records. */
 int port_free_records(void);
 /* 1 when the cars' palette slots are fitted to the colours they show (race_palette.h): TNFS_CAR_COLOURS=0/1 when set, else port.cfg's car_colours. */
