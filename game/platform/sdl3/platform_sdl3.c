@@ -2,6 +2,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/sys/key_latch.h"
 #include "game/sys/port_log.h"
 
 #include <SDL3/SDL.h>
@@ -353,12 +354,14 @@ bool platform_poll_events(void)
     if (quit) return false;
     /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
     if (joy_refresh != NULL) joy_refresh();
+    key_latch_pump();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
             return false;
         }
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear();
             window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
             cursor_apply();
             continue;
@@ -375,6 +378,7 @@ bool platform_poll_events(void)
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
         }
         if (event.type == SDL_EVENT_TEXT_INPUT) push_utf8(event.text.text);
+        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
         if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
             const PlatformKey key = translate_key(event.key.key);
@@ -700,6 +704,7 @@ bool platform_key_down(int scancode)
     const SDL_Scancode sc = from_set1(scancode);
     if (sc == SDL_SCANCODE_UNKNOWN) return false;
     const bool *state = SDL_GetKeyboardState(NULL);
+    if (key_latch_down((int)sc)) return true;   /* port: a key tapped since the last poll */
     /* Both Ctrl / Alt / Enter keys count, as on a PC keyboard. */
     if (sc == SDL_SCANCODE_LCTRL) return state[sc] || state[SDL_SCANCODE_RCTRL];
     if (sc == SDL_SCANCODE_LALT) return state[sc] || state[SDL_SCANCODE_RALT];
