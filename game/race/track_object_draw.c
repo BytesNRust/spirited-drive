@@ -109,6 +109,12 @@ static void draw_billboard(TrackObjectDraw *d, const uint8_t *record, const uint
     board(d, 0, near, texture, at, ORDER);
 }
 
+/* port: a face of the box is drawn only when the eye (the camera-space origin) is on its outer side: its outward normal `n` against a point `p` on it */
+static int faces_eye(const int32_t n[3], const int32_t p[3])
+{
+    return (int64_t)n[0] * p[0] + (int64_t)n[1] * p[1] + (int64_t)n[2] * p[2] < 0;
+}
+
 /* port: the two walls and the roof the L lacks, from the camera-space points of its six corners (0..3 the front's, 4 and 5 the side's far edge): the far
  * corners of the other two walls are the front's left corners carried along the side (by the side's depth). Each wall seen from outside, so its texture runs the
  * right way round: the back's left is the side's far edge, the left wall's left is its far edge. */
@@ -124,9 +130,13 @@ static void close_box(TrackObjectDraw *d, const uint8_t *desc, int level, int32_
     const int32_t *back[4] = { c[4], far_top, far_bottom, c[5] };
     const int32_t *left[4] = { far_top, c[0], c[3], far_bottom };
     const int32_t *roof[4] = { far_top, c[4], c[1], c[0] };
-    d->ops.full_camera(d->ops.user, desc[2] + level, back);
-    d->ops.full_camera(d->ops.user, desc[3] + level, left);
-    if (d->ops.roof_camera != NULL) d->ops.roof_camera(d->ops.user, desc[2] + level, roof);
+    /* a wall or a roof seen from inside, or from beneath, is the far side of a solid: left out (the exe's front and side keep the exe's own culling) */
+    const int32_t depth[3] = { c[4][0] - c[1][0], c[4][1] - c[1][1], c[4][2] - c[1][2] };       /* from the front toward the back */
+    const int32_t outward[3] = { c[0][0] - c[1][0], c[0][1] - c[1][1], c[0][2] - c[1][2] };     /* toward the left wall's side */
+    const int32_t up[3] = { c[0][0] - c[3][0], c[0][1] - c[3][1], c[0][2] - c[3][2] };
+    if (faces_eye(depth, c[4])) d->ops.full_camera(d->ops.user, desc[2] + level, back);
+    if (faces_eye(outward, c[0])) d->ops.full_camera(d->ops.user, desc[3] + level, left);
+    if (d->ops.roof_camera != NULL && faces_eye(up, c[0])) d->ops.roof_camera(d->ops.user, desc[2] + level, roof);
 }
 
 static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band, int32_t at, int near)
