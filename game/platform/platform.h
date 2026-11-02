@@ -106,6 +106,12 @@ bool platform_mouse(int *x, int *y, unsigned *buttons);
  * User files (config, saves, replays) go to <mods>/user/ and are read from there, so the CD data and the mod's
  * own files are never written. Returns false when the directory does not exist. */
 bool platform_set_mods(const char *data_root, const char *mods_dir);
+/* The player's writable folder with its trailing '/': <mods>/user/ with a mods directory, else $TNFS_PREF_DIR (tests, modders), else the OS's own (SDL_GetPrefPath).
+ * False when there is none. */
+bool platform_user_dir(char *out, size_t out_size);
+/* Opens tnfs.log in that folder at once (the program calls it first, with its --mods directory or NULL), so a run that stops before platform_init (no game data) still
+ * leaves its report. platform_init opens it too when this was not called. */
+void platform_open_log(const char *mods_dir);
 /* The last mod file refused, with the reason; "" when none. */
 const char *platform_mods_error(void);
 

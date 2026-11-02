@@ -201,9 +201,46 @@ uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int
     return texel_at(s, bitmap, u, v, x, y);
 }
 
+#ifdef __SSE4_1__
+typedef struct {
+    int32_t base[3][HORIZON_WIDE_WIDTH + 4], gap[3][HORIZON_WIDE_WIDTH + 4];   /* the bottom blend x ONE, and top - bottom */
+    int16_t only[HORIZON_WIDE_WIDTH + 4];
+} Planes;
+static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *row0, const uint8_t *row1, Planes *p, int i);
+static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x0, int x1, int x, int sy, uint8_t *dst);
+
+/* port: a row whose v does not change along it (the sky's: v is a function of y) has one bitmap row pair and one weight, so
+ * its pixels go through the band's planes (four blended at once) instead of one by one: the same u, v and integer blend */
+static void span_flat_v(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y,
+                        const double u[3], const double v[3])
+{
+    static BANDS_THREAD_LOCAL Planes planes;
+    const int32_t w = bitmap->width, h = bitmap->height;
+    const int32_t vi = (int32_t)floor(v[0] + v[1] * x0 + v[2] * y);
+    const int32_t r = vi >> 16, wv = (int32_t)((uint32_t)vi & 0xffff) >> 8;
+    const uint8_t *row0 = bitmap->payload + (size_t)clamp_texel(r, h) * w;
+    const uint8_t *row1 = bitmap->payload + (size_t)clamp_texel(r + 1, h) * w;
+    for (int32_t xs = x0; xs <= x1; xs += HORIZON_WIDE_WIDTH) {
+        const int32_t n = x1 - xs + 1 < HORIZON_WIDE_WIDTH ? x1 - xs + 1 : HORIZON_WIDE_WIDTH;
+        for (int32_t i = 0; i < n; i++) {
+            const int32_t ui = (int32_t)floor(u[0] + u[1] * (xs + i) + u[2] * y), c = ui >> 16;
+            const Column col = { clamp_texel(c, w), clamp_texel(c + 1, w), (int32_t)((uint32_t)ui & 0xffff) >> 8 };
+            planes_make(s, &col, row0, row1, &planes, i);
+        }
+        blend_row(s, &planes, wv, 0, n, xs, y, row + xs);
+    }
+}
+#endif
+
 void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y,
                          const double u[3], const double v[3])
 {
+#ifdef __SSE4_1__
+    if (v[1] == 0.0 && x1 - x0 >= 7) {
+        span_flat_v(s, bitmap, row, x0, x1, y, u, v);
+        return;
+    }
+#endif
     for (int32_t x = x0; x <= x1; x++)
         row[x] = texel_at(s, bitmap, (int32_t)floor(u[0] + u[1] * x + u[2] * y), (int32_t)floor(v[0] + v[1] * x + v[2] * y),
                           x, y);
@@ -213,11 +250,6 @@ void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t
 /* port: the band's columns as planes (one array a channel) so four pixels blend at once: pair_make's sums in
  * 32-bit lanes of a plane each, pair_blend's mix, shift and clamp on four pixels, the dither a lane each, then the
  * nearest colour's table index; the pixels are looked up one by one */
-typedef struct {
-    int32_t base[3][HORIZON_WIDE_WIDTH + 4], gap[3][HORIZON_WIDE_WIDTH + 4];   /* the bottom blend x ONE, and top - bottom */
-    int16_t only[HORIZON_WIDE_WIDTH + 4];
-} Planes;
-
 static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *row0, const uint8_t *row1, Planes *p, int i)
 {
     const uint8_t t00 = row0[c->c0], t10 = row0[c->c1], t01 = row1[c->c0], t11 = row1[c->c1];

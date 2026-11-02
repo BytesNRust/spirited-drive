@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the universal macOS app (Apple Silicon + Intel), packs the DMG and
+# opens a DRAFT GitHub Release with the DMG and its SHA-256; a maintainer reviews and publishes it by hand.
+# The game's update check reads /releases/latest, which skips releases marked "pre-release", so beta versions are
+# published as normal releases (their version number says beta).
+#
+# The build job only reads the repo (its token is not kept in the checkout); only the publish job may write.
+name: Release macOS
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  SDL_TAG: release-3.4.10                                   # the SDL the game is developed against
+  SDL_COMMIT: 8e37db5e797b6167f3a00d697d816a684bd259c7      # that tag's commit: a moved tag cannot change the build
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check the tag is a version
+        run: |
+          echo "$GITHUB_REF_NAME" | grep -E -q '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-pre]"; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version comes from the tag
+          persist-credentials: false
+
+      - name: Install tools
+        run: brew install ninja
+
+      - name: Build SDL 3 (universal)
+        run: |
+          git init -q "$RUNNER_TEMP/SDL"
+          git -C "$RUNNER_TEMP/SDL" fetch -q --depth 1 https://github.com/libsdl-org/SDL.git "$SDL_COMMIT"
+          git -C "$RUNNER_TEMP/SDL" checkout -q FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF \
+                -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl3"
+          cmake --build "$RUNNER_TEMP/SDL/build"
+          cmake --install "$RUNNER_TEMP/SDL/build"
+
+      - name: Build the game (universal, release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
+          cmake --build build/rel
+
+      - name: Test (Apple Silicon)
+        run: ctest --test-dir build/rel --output-on-failure
+
+      - name: Check the version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          got=$(sed -n 's/^#define TNFS_VERSION "\(.*\)".*/\1/p' build/rel/generated/tnfs_version.h)
+          echo "tag $want, build $got"
+          [ "$want" = "$got" ]
+
+      - name: Package
+        run: |
+          icon=""
+          [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
+          tools/package_macos.sh build/rel dist $icon
+          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q arm64
+          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q x86_64
+          cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: macos-dmg
+          path: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4 (RELEASE_NOTES.md, if any)
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4
+        with:
+          name: macos-dmg
+          path: dist
+
+      - name: Open the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          notes="--generate-notes"
+          [ -f RELEASE_NOTES.md ] && notes="--notes-file RELEASE_NOTES.md"
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/SHA256SUMS.txt --draft --verify-tag \
+             --title "TNFS Restomod ${GITHUB_REF_NAME#v}" $notes

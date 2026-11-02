@@ -282,6 +282,31 @@ static void test_band_reference(void)
     horizon_smooth_cache_enable(1);
 }
 
+/* the sky's rows (v not changing along a row) come out as the texel at each pixel, as every other row does */
+static void test_span_flat_v(void)
+{
+    make_palette();
+    uint8_t decode[768];
+    for (int i = 0; i < 256; i++) decode[3 * i] = (uint8_t)(i * 7), decode[3 * i + 1] = (uint8_t)(i * 3), decode[3 * i + 2] = (uint8_t)(255 - i);
+    static HorizonSmooth s;
+    horizon_smooth_sky(&s, decode, palette);
+    lcg_state = 777;
+    for (int i = 0; i < BW * BH; i++) texels[i] = (uint8_t)(lcg() >> 24 & 7);   /* few colours: flat quads and blends both */
+    static uint8_t row[W];
+    for (int n = 0; n < 200; n++) {
+        const double u[3] = { (double)(lcg() % (BW * 65536)) - 65536.0 * 3, 3000.0 + (double)(lcg() % 90000) / 7,
+                              (n & 1) ? (double)(lcg() % 5000) : 0 };
+        const double v[3] = { (double)(lcg() % (BH * 65536)) - 65536.0, 0.0, (double)(lcg() % 3000) / 3 };
+        const int x0 = (int)(lcg() % 100), x1 = x0 + 7 + (int)(lcg() % 500), y = (int)(lcg() % 400);
+        memset(row, 0xee, sizeof row);
+        horizon_smooth_span(&s, bitmap(), row, x0, x1, y, u, v);
+        for (int x = x0; x <= x1; x++)
+            CHECK_EQ_INT(row[x], horizon_smooth_texel(&s, bitmap(), (int32_t)floor(u[0] + u[1] * x + u[2] * y),
+                                                      (int32_t)floor(v[0] + v[1] * x + v[2] * y), x, y));
+        CHECK_EQ_INT(row[x1 + 1], 0xee);
+    }
+}
+
 int main(void)
 {
     test_nearest();
@@ -291,5 +316,6 @@ int main(void)
     test_sky_palettes();
     test_cache_exact();
     test_band_reference();
+    test_span_flat_v();
     return TEST_REPORT();
 }
