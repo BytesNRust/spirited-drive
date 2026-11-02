@@ -5,6 +5,7 @@
 
 #include "game/gfx/quad.h"
 #include "game/race/horizon.h"
+#include "game/race/police_lights.h"
 #include "game/race/sky_ring.h"
 #include "game/race/sky_stretch.h"
 #include "game/race/track_render.h"
@@ -409,6 +410,9 @@ int ported_view_car_ratio(const Car *car, float out[3])
     return car != NULL && ratio_at(car->node, out);
 }
 
+static int police_flash_on;   /* port (psx_light): the police car's lights flash (police_lights.h) */
+void ported_view_set_police_lights(int on) { police_flash_on = on; }
+
 /* the table for a car at `node`, NULL when its ambient is the world's */
 static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
 {
@@ -435,6 +439,17 @@ static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
     psx_lit_table(palette, ratio, cache[slot].table);
     return cache[slot].table;
+}
+
+/* the table `car` is drawn through: its ambient's (car_light), and for the police car of a chase on, with its lights going to pure red and blue
+ * past the light (police_lights.h) */
+static const uint8_t *car_table(const Car *car, const uint8_t palette[768])
+{
+    const uint8_t *base = car_light(car->node, palette);
+    if (!police_flash_on || palette == NULL || !police_lights_on(shadow_race, car)) return base;
+    static uint8_t table[256];
+    police_lights_table(base, palette, shadow_race->tick, table);
+    return table;
 }
 
 /* Scenery models through the ported 3D engine (00458c04), one object per
@@ -965,7 +980,7 @@ static void row_draw(void *ctx, Car *car, int pass)
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].car == car) {
-            object_sink_set_light(car_light(car->node, object_pixels.palette));
+            object_sink_set_light(car_table(car, object_pixels.palette));
             body_shine_begin(object_pixels.palette, model_view.camera_matrix);
             render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
             body_shine_end();
@@ -983,7 +998,7 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     const Object3DSink sink = object_sink(&pixels);
     const int32_t slot = car->index;  /* the slots are the race's (ported_view_set_car_slot) */
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
-    object_sink_set_light(car_light(car->node, palette));
+    object_sink_set_light(car_table(car, palette));
     body_shine_begin(palette, mv->camera_matrix);
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
     body_shine_end();

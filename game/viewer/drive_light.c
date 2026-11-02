@@ -153,6 +153,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     headlights_on = 0;
     street_lamp_on = 0;
     night_lamp_spec = NULL, night_lamp_count = 0, lamp_pool_count = 0;
+    ported_view_set_police_lights(enabled);   /* the light effects: the police car's lights flash (police_lights.h) */
     alt_sky_wanted = 0;
     split = 0;
     ported_view_set_soft_shadow(port_psx_shadow());   /* its own flag: no light or PS1 files needed */

@@ -9,6 +9,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/race/lamp_emissive.h"
+#include "game/race/police_lights.h"
 #include "viewer/drive_lamps.h"
 #include "viewer/drive_light.h"
 #include "game/race/psx_lamps.h"
@@ -232,6 +233,29 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
         palette_world_hide(hidden);
         palette_usable_set(p->enabled);
         if (p->inverse != NULL) race_palette_inverse(p);
+    }
+    /* port (police_lights.h): a police car in the race (police mode on) flashes with two entries of its own, pure red and pure blue, set aside like the lamps' (no
+     * search picks them, no table of the world maps to them, the tint and the light leave them), since the palette's nearest to blue is a dull (20,65,150) */
+    police_lights_set_entries(0, 0);
+    if (race != NULL && race->unknown_4fbab8 != 0) {
+        uint8_t used[RACE_PALETTE_COLOURS], pair[2], rgb[RACE_PALETTE_COLOURS * 3];
+        used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
+        for (int k = 0; k < LAMP_ENTRIES; k++) used[entry[k]] = 1;
+        for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
+        const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, 2, pair);
+        port_log("police_lights: %d of 2 palette entries set aside for the red and blue flash\n", found);
+        if (found == 2) {
+            static const uint8_t red[3] = { 63, 0, 0 }, blue[3] = { 0, 0, 63 };
+            uint8_t hidden[RACE_PALETTE_COLOURS];
+            memcpy(hidden, palette_world_hidden(), sizeof hidden);
+            race_palette_write(p, pair[0], 1, red);
+            race_palette_write(p, pair[1], 1, blue);
+            for (int k = 0; k < 2; k++) p->enabled[pair[k]] = 0, hidden[pair[k]] = 1, exempt[pair[k]] = 1;
+            palette_world_hide(hidden);
+            palette_usable_set(p->enabled);
+            if (p->inverse != NULL) race_palette_inverse(p);
+            police_lights_set_entries(pair[0], pair[1]);
+        }
     }
     palette_emissive_set(exempt);   /* only the shared entries: no texel shows them by day */
     drive_lamps_set_entries(entry[1], entry[0], entry[2], entry[3]);
