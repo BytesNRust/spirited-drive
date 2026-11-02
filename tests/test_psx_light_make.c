@@ -21,6 +21,9 @@ static void flat(LightPos *pts)
     }
 }
 
+/* the road's points (0, 1, 6) never darken; the terrain's (2..5, 7..10) do */
+static int road_point(int p) { return p == 0 || p == 1 || p == 6; }
+
 static void test_quantised_to_sixteen_levels(void)
 {
     CHECK_EQ_INT(psx_light_level(1.0f), 255);
@@ -31,8 +34,8 @@ static void test_quantised_to_sixteen_levels(void)
     CHECK(psx_light_level(0.5f) == 119 || psx_light_level(0.5f) == 136);   /* the half is one of the two levels round it */
 }
 
-/* the road's points (0, 1, 6) are always full; the terrain's follow the fitted light (psx_light_make.c's FIT): a flat open field at noon is nearly full, at dawn
- * and dusk a little less (the CD's flat ground is 0.84 and 0.82 of full, not 1), the outer points 5 and 10 their own means */
+/* the road's points (0, 1, 6) are always full; the terrain's are Lambert shading (psx_light_make.c's LAMBERT): flat ground at noon is full (.97), at dawn and dusk
+ * .77 of full (level 12, 204), the CD's flat ground, not 1 */
 static void test_a_flat_open_track_is_lit_as_the_cd_lights_flat_ground(void)
 {
     LightPos pts[NODES * PSX_LIGHT_POINTS];
@@ -41,19 +44,11 @@ static void test_a_flat_open_track_is_lit_as_the_cd_lights_flat_ground(void)
     memset(data, 7, sizeof data);
     for (int time = PSX_SYNTH_DAWN; time <= PSX_SYNTH_DUSK; time++) {
         CHECK(psx_light_make_rows(pts, NODES, 0, time, data));
+        const int expected = time == PSX_SYNTH_DAY ? 255 : 204;
         for (int n = 0; n < NODES; n++)
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-                const uint8_t v = data[n * PSX_LIGHT_POINTS + p];
-                if (p == 0 || p == 1 || p == 6) CHECK_EQ_INT(v, 255);
-                else CHECK(v >= 136);   /* none of flat ground is dark */
-            }
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+                CHECK_EQ_INT(data[n * PSX_LIGHT_POINTS + p], road_point(p) ? 255 : expected);
     }
-    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAY, data));
-    /* (the chains are smoothed, so a point has its neighbours' share) */
-    CHECK(data[20 * PSX_LIGHT_POINTS + 4] >= 204 && data[20 * PSX_LIGHT_POINTS + 4] <= 238);   /* day, point 4: .058 - .031 + .926 = .953 of full, with point 3's .93 and point 5's .64 mixed in */
-    CHECK(data[20 * PSX_LIGHT_POINTS + 10] >= 153 && data[20 * PSX_LIGHT_POINTS + 10] <= 187);   /* the outermost: its mean (.651) with point 9's */
-    CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAWN, data));
-    CHECK(data[20 * PSX_LIGHT_POINTS + 4] < 238 && data[20 * PSX_LIGHT_POINTS + 4] >= 153);   /* dawn's flat ground is less than noon's, still not dark */
 }
 
 static void test_the_arguments_are_checked(void)
@@ -77,9 +72,6 @@ static void test_the_same_points_give_the_same_bytes(void)
     CHECK(memcmp(a, b, sizeof a) == 0);
 }
 
-/* the road's points (0, 1, 6) never darken; the terrain's (2..5, 7..10) do */
-static int road_point(int p) { return p == 0 || p == 1 || p == 6; }
-
 static void test_a_wall_darkens_the_terrain_under_it_not_the_road(void)
 {
     LightPos pts[NODES * PSX_LIGHT_POINTS];
@@ -92,7 +84,7 @@ static void test_a_wall_darkens_the_terrain_under_it_not_the_road(void)
     for (int n = 0; n < NODES; n++) {
         for (int p = 0; p < PSX_LIGHT_POINTS; p++)
             if (road_point(p)) CHECK_EQ_INT(walled[n * PSX_LIGHT_POINTS + p], 255);
-        CHECK(walled[n * PSX_LIGHT_POINTS + 8] < open[n * PSX_LIGHT_POINTS + 8]);   /* under the cliff: less sky and a tilted ground */
+        CHECK(walled[n * PSX_LIGHT_POINTS + 8] < open[n * PSX_LIGHT_POINTS + 8]);   /* under the cliff: a tilted ground */
     }
 }
 
@@ -120,8 +112,8 @@ static void test_a_ring_sees_across_its_closing_node(void)
         for (int p = 8; p <= 10; p++) pts[n * PSX_LIGHT_POINTS + p].y = 40;   /* a rise at the end, beside node 1 round the ring */
     CHECK(psx_light_make_rows(pts, NODES, 0, PSX_SYNTH_DAY, open));
     CHECK(psx_light_make_rows(pts, NODES, 1, PSX_SYNTH_DAY, ring));
-    CHECK(ring[1 * PSX_LIGHT_POINTS + 8] < open[1 * PSX_LIGHT_POINTS + 8]);   /* only the ring knows the rise is next door */
-    CHECK(ring[20 * PSX_LIGHT_POINTS + 2] >= 204);                            /* the far side of the circle is open */
+    CHECK(ring[0 * PSX_LIGHT_POINTS + 8] < open[0 * PSX_LIGHT_POINTS + 8]);   /* only the ring knows the rise is the node before the first */
+    CHECK(ring[20 * PSX_LIGHT_POINTS + 2] >= 204);                            /* the far side of the circle is flat */
 }
 
 /* the CD's sun is fixed along the track's x axis: at dawn it is at -x, at dusk at +x. A slope rising toward +x faces -x: dawn's light, brighter than dusk's there */
