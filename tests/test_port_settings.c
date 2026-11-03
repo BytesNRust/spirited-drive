@@ -206,6 +206,30 @@ static void test_last_camera_values(void)
     unsetenv("TNFS_LAST_CAMERA");
 }
 
+/* sky_fill_below: the flag is the exe's (0) until asked, and in 4:3 the exe's fill stays whatever the flag says */
+static void test_sky_fill_below_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().sky_fill_below, 0);
+    const char *const on = "sky_fill_below=1\n", *const bad = "sky_fill_below=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).sky_fill_below, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).sky_fill_below, 0);
+    PortSettings s = port_settings_defaults();
+    s.sky_fill_below = 1;
+    s.format = SCREEN_4_3;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 0);   /* 4:3: the last pixel, as the exe's */
+    s.format = SCREEN_16_9;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 1);
+    s.format = SCREEN_21_9;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 1);
+    s.sky_fill_below = 0;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 0);
+    char text[PORT_CFG_TEXT_MAX];
+    s.sky_fill_below = 1;
+    const size_t n = port_settings_format(&s, text, sizeof text);
+    CHECK(n > 0 && strstr(text, "sky_fill_below=1\n") != NULL);
+    CHECK_EQ_INT(port_settings_parse(text, n).sky_fill_below, 1);
+}
+
 static void test_sky_fill_values(void)
 {
     unsetenv("TNFS_SKY_FILL_MODE");
@@ -540,6 +564,7 @@ int main(void)
     test_sky_fill_values();
     test_replay_no_ffb_values();
     test_last_camera_values();
+    test_sky_fill_below_values();
     test_psx_flares_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();

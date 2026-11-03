@@ -293,10 +293,82 @@ static void test_quiet_column_catches_a_dim_star_and_spares_a_grey_bump(void)
     sky_stretch_free(&s);
 }
 
+/* sky_fill_below: an art that already reaches the bottom is the same entry, whatever the flag-on caller asks */
+static void test_below_unchanged_when_it_reaches(void)
+{
+    uint8_t px[W * H];
+    const FshEntry art = make_art(px);
+    SkyStretch s = { 0 };
+    /* line 100, 6 rows above x 2: the art's top at 88, its last row at 88 + scaled(9) = 106 */
+    CHECK(sky_stretch_below(&s, &art, 0x20000, 100, 106) == &art);
+    CHECK(sky_stretch_below(&s, &art, 0x20000, 100, 50) == &art);
+    CHECK(sky_stretch_below(&s, NULL, 0x20000, 100, 200) == NULL);
+    CHECK(sky_stretch_below(&s, &art, 0, 100, 200) == &art);
+    CHECK(sky_stretch_below(&s, &art, 0x20000, INT32_MIN, 200) == &art);
+    sky_stretch_free(&s);
+}
+
+/* the rows added reach the bottom, the art's own rows and its horizon row are as they were */
+static void test_below_adds_the_rows_that_reach(void)
+{
+    uint8_t px[W * H];
+    const FshEntry art = make_art(px);
+    SkyStretch s = { 0 };
+    const FshEntry *const e = sky_stretch_below(&s, &art, 0x20000, 100, 110);
+    CHECK(e != &art);
+    CHECK_EQ_INT((int16_t)e->height, 12);           /* ceil((110 - 88) / 2) + 1 rows */
+    CHECK_EQ_INT((int16_t)e->misc[1], ABOVE);       /* the horizon row is where it was */
+    CHECK_EQ_INT((int16_t)e->width, W);
+    CHECK(memcmp(e->payload, px, sizeof px) == 0);  /* the art's own rows */
+    CHECK_EQ_INT(88 + scaled(11, 0x20000) >= 110, 1);   /* and they reach the bottom */
+    for (int x = 0; x < W; x++) {
+        CHECK_EQ_INT(e->payload[10 * W + x], 19);   /* every row of the last 8 differs: the lowest wins the tie */
+        CHECK_EQ_INT(e->payload[11 * W + x], 19);
+    }
+    sky_stretch_free(&s);
+}
+
+/* a lone odd pixel in the last rows is outvoted; a transparent one is not a colour; only the most frequent counts */
+static void test_below_colour_is_the_most_frequent(void)
+{
+    uint8_t px[W * H];
+    for (int y = 0; y < H; y++) memset(px + y * W, 50, W);
+    px[9 * W + 1] = 200;                    /* a star on the last row of column 1 */
+    px[7 * W + 2] = 0xff;                   /* transparent in column 2 */
+    px[6 * W + 3] = 77, px[7 * W + 3] = 77, px[8 * W + 3] = 77, px[9 * W + 3] = 90;   /* column 3: 77 three times, 90 once */
+    CHECK_EQ_INT(sky_below_colour(px, W, H, 0, SKY_FILL_BELOW_ROWS), 50);
+    CHECK_EQ_INT(sky_below_colour(px, W, H, 1, SKY_FILL_BELOW_ROWS), 50);   /* the star is outvoted */
+    CHECK_EQ_INT(sky_below_colour(px, W, H, 2, SKY_FILL_BELOW_ROWS), 50);
+    CHECK_EQ_INT(sky_below_colour(px, W, H, 3, SKY_FILL_BELOW_ROWS), 50);   /* 50 appears 4 times in 8 rows, 77 3 times */
+    CHECK_EQ_INT(sky_below_colour(px, W, H, 3, 4), 77);                      /* of the last 4 rows 77 is the 3 */
+    for (int y = 0; y < H; y++) memset(px + y * W, 0xff, W);
+    CHECK_EQ_INT(sky_below_colour(px, W, H, 0, SKY_FILL_BELOW_ROWS), 0xff);   /* all transparent: the colour of the exe's fill */
+    /* fewer rows than asked for */
+    uint8_t two[W * 2];
+    memset(two, 5, sizeof two);
+    CHECK_EQ_INT(sky_below_colour(two, W, 2, 1, SKY_FILL_BELOW_ROWS), 5);
+}
+
+/* the horizon table maps HORIZON_ROWS rows: a bottom far away stops there, the rest keeps the exe's flat fill */
+static void test_below_stops_at_the_row_table(void)
+{
+    uint8_t px[W * H];
+    const FshEntry art = make_art(px);
+    SkyStretch s = { 0 };
+    const FshEntry *const e = sky_stretch_below(&s, &art, 0x10000, 0, 100000);
+    CHECK(e != &art);
+    CHECK_EQ_INT((int16_t)e->height, HORIZON_ROWS);   /* scale 1: one output row a bitmap row */
+    sky_stretch_free(&s);
+}
+
 int main(void)
 {
     for (int i = 0; i < 256; i++) grey[3 * i] = grey[3 * i + 1] = grey[3 * i + 2] = (uint8_t)i;
     test_unchanged_when_it_reaches();
+    test_below_unchanged_when_it_reaches();
+    test_below_adds_the_rows_that_reach();
+    test_below_colour_is_the_most_frequent();
+    test_below_stops_at_the_row_table();
     test_degenerate_inputs();
     test_rows_needed();
     test_rows_below_the_line_untouched();
