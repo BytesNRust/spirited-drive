@@ -16,6 +16,7 @@ typedef struct Fake {
     int profile_net, profile_reads, profile_steps;
     int drawn_profile;
     int exits_asked;
+    int foot_big, foot_small, foot_low, foot_high_y, foot_right, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
 } Fake;
 
 static int32_t f_key(void *c)
@@ -66,11 +67,37 @@ static void f_free(void *c, int32_t b) { (void)c, (void)b; }
 static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
 {
     Fake *f = c;
-    (void)style, (void)x, (void)y;
+    (void)style;
     if (strncmp(t, "<  ", 3) == 0) f->drawn_profile++;
+    if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) {
+        f->foot_big++;
+        if (y >= 0x191) f->foot_low++;
+        (void)x;
+    }
 }
+static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w);
 static int32_t f_width(void *c, const char *t) { (void)c; return (int32_t)strlen(t) * 8; }
-static void f_text_scaled(void *c, int32_t s, const char *t, int32_t x, int32_t y, int32_t n, int32_t d) { (void)c, (void)s, (void)t, (void)x, (void)y, (void)n, (void)d; }
+static void f_text_scaled(void *c, int32_t s, const char *t, int32_t x, int32_t y, int32_t n, int32_t d)
+{
+    (void)s;
+    if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) note_foot(c, t, x, y, (int32_t)strlen(t) * 8 * n / d);
+}
+static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w)
+{
+    f->foot_small++;
+    if (y >= 0x191) f->foot_low++;
+    if (y > f->foot_high_y) f->foot_high_y = y;
+    if (x + w > f->foot_right) f->foot_right = x + w;
+    if (t[0] == 'v') f->version_y = y; else f->notice_y = y;
+}
+static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
+{
+    (void)c;
+    if (line > 1) return 0;
+    snprintf(text, cap, "%s", line == 0 ? "v0.9.0-dev+abcdef0" : "Update available: v9.9.9");
+    return 1;
+}
+static void f_open(void *c) { (void)c; }
 static int32_t f_width_scaled(void *c, const char *t, int32_t n, int32_t d) { (void)c; return (int32_t)strlen(t) * 8 * n / d; }
 static void f_cover(void *c, int32_t x, int32_t y, int32_t w, int32_t h) { (void)c, (void)x, (void)y, (void)w, (void)h; }
 static int32_t f_profile(void *c, int32_t step, const char *text[3])
@@ -83,7 +110,7 @@ static int32_t f_profile(void *c, int32_t step, const char *text[3])
     return 1;
 }
 
-static int32_t run(Fake *f, const int *keys, int count, int with_profile)
+static int32_t run_with(Fake *f, const int *keys, int count, int with_profile, int with_footer)
 {
     f->keys = keys, f->key_count = count;
     GameModeState st = { 0 };
@@ -99,8 +126,10 @@ static int32_t run(Fake *f, const int *keys, int count, int with_profile)
         .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_zero, .sound_free = f_void, .free = f_free, .ctx = f,
         .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover };
     if (with_profile) ops.profile = f_profile, ops.plus_text_scaled = f_text_scaled, ops.plus_text_width_scaled = f_width_scaled;
+    if (with_footer) ops.footer = f_footer, ops.open_notice = f_open;
     return game_mode_menu(0, &st, &ops);
 }
+static int32_t run(Fake *f, const int *keys, int count, int with_profile) { return run_with(f, keys, count, with_profile, 0); }
 
 static void rig(Fake *f, int x, int y, int pinned)
 {
@@ -171,11 +200,32 @@ static void test_the_pointer_bands(void)
     CHECK_EQ_INT(f.key_calls, 2);
 }
 
+/* the version and the update notice: at the foot, full size, without the row; with it they leave the row's foot to it and go small to the top right, the
+ * notice still above the version, inside the screen */
+static void test_the_foot_lines_leave_the_row_alone(void)
+{
+    Fake f;
+    const int none[] = { ESCAPE };
+    rig(&f, 320, 0x91, 0);
+    run_with(&f, none, 1, 0, 1);
+    CHECK(f.foot_big >= 2);
+    CHECK_EQ_INT(f.foot_small, 0);
+    rig(&f, 320, 0x91, 0);
+    run_with(&f, none, 1, 1, 1);
+    CHECK_EQ_INT(f.foot_big, 0);
+    CHECK(f.foot_small >= 2);
+    CHECK_EQ_INT(f.foot_low, 0);
+    CHECK(f.foot_high_y < 0x40);
+    CHECK(f.foot_right <= 0x280);
+    CHECK(f.notice_y < f.version_y);
+}
+
 int main(void)
 {
     test_without_the_op_four_items();
     test_the_row_is_the_fifth_item();
     test_the_arrows_and_return_step_the_profile();
     test_the_pointer_bands();
+    test_the_foot_lines_leave_the_row_alone();
     return TEST_REPORT();
 }

@@ -19,6 +19,9 @@ static const char *const LIT[OPTIONS] = { "sinl", "modl", "netl", "exil" };   /*
 static const char *const DARK[OPTIONS] = { "sind", "modd", "netd", "exid" };  /* 004afb18.. */
 
 enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 8, FOOTER_Y = 452, FOOTER_STEP = 28 };
+/* port: with the profile row the foot is that row's, so the lines go to the dark band at the top right, at 3/5 of their size, right-aligned, the
+ * notice still above the version */
+enum { FOOTER_TOP_Y = 6, FOOTER_TOP_STEP = 18, FOOTER_RIGHT = WIDE - 8, FOOTER_NUM = 3, FOOTER_DEN = 5 };
 
 typedef struct Menu {
     int32_t bank;
@@ -96,13 +99,32 @@ static void profile_row(const Menu *m, const GameModeOps *o)
     o->plus_text_scaled(o->ctx, 0, text[2], CENTRE - o->plus_text_width_scaled(o->ctx, text[2], SMALL_NUM, SMALL_DEN) / 2, LINE2_Y, SMALL_NUM, SMALL_DEN);
 }
 
-/* port: the foot lines, in the plain style at the bottom left, the notice above the version */
+/* port: 1 when the foot lines go to the top right (the profile row has the foot, and the small text is there to draw them) */
+static int footer_on_top(const GameModeOps *o) { return o->profile != NULL && o->plus_text_scaled != NULL && o->plus_text_width_scaled != NULL; }
+
+/* port: where foot line i (its text) goes and how wide it is */
+static void footer_place(const GameModeOps *o, int32_t i, const char *text, int32_t *x, int32_t *y, int32_t *w)
+{
+    if (footer_on_top(o)) {
+        *w = o->plus_text_width_scaled(o->ctx, text, FOOTER_NUM, FOOTER_DEN);
+        *x = FOOTER_RIGHT - *w, *y = FOOTER_TOP_Y + (FOOTER_LINES - 1 - i) * FOOTER_TOP_STEP;
+    } else {
+        *w = o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
+        *x = FOOTER_X, *y = FOOTER_Y - i * FOOTER_STEP;
+    }
+}
+
+/* port: the foot lines, in the plain style at the bottom left (at the top right with the profile row), the notice above the version */
 static void footer_draw(Menu *m, const GameModeOps *o)
 {
     if (o->footer == NULL || o->plus_text == NULL) return;
     for (int32_t i = 0; i < FOOTER_LINES; i++) {
         if (!o->footer(o->ctx, i, m->footer[i], sizeof m->footer[i])) m->footer[i][0] = 0;
-        if (m->footer[i][0] != 0) o->plus_text(o->ctx, 0, m->footer[i], FOOTER_X, FOOTER_Y - i * FOOTER_STEP);
+        if (m->footer[i][0] == 0) continue;
+        int32_t x, y, w;
+        footer_place(o, i, m->footer[i], &x, &y, &w);
+        if (footer_on_top(o)) o->plus_text_scaled(o->ctx, 0, m->footer[i], x, y, FOOTER_NUM, FOOTER_DEN);
+        else o->plus_text(o->ctx, 0, m->footer[i], x, y);
     }
 }
 
@@ -118,13 +140,15 @@ static int footer_stale(const Menu *m, const GameModeOps *o)
     return 0;
 }
 
-/* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row) */
+/* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row; at the top right, the text's own width) */
 static int on_notice(const Menu *m, const GameModeOps *o)
 {
-    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28 };
+    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28, NOTICE_TOP_HEIGHT = FOOTER_TOP_STEP };
     if (o->open_notice == NULL || o->footer == NULL || m->footer[1][0] == 0) return 0;
-    const int32_t top = FOOTER_Y - FOOTER_STEP;
-    return o->pointer_in_rect(o->ctx, 0, NOTICE_WIDTH, top, top + NOTICE_HEIGHT) != 0;
+    int32_t x, y, w;
+    footer_place(o, 1, m->footer[1], &x, &y, &w);
+    if (footer_on_top(o)) return o->pointer_in_rect(o->ctx, x, x + w, y, y + NOTICE_TOP_HEIGHT) != 0;
+    return o->pointer_in_rect(o->ctx, 0, NOTICE_WIDTH, y, y + NOTICE_HEIGHT) != 0;
 }
 
 static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
