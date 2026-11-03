@@ -104,6 +104,8 @@ static void test_tables(void)
     CHECK_EQ_INT(s.night_sky_hue, 0);
     CHECK_EQ_INT(s.sky_fill_below, 0);
     CHECK_EQ_INT(s.radar_all_views, 0);
+    CHECK_EQ_INT(s.tach_dim, 0);
+    CHECK_EQ_INT(s.gauge_wheel, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
@@ -117,12 +119,16 @@ static void test_tables(void)
     CHECK_EQ_INT(s.night_sky_hue, 0);
     CHECK_EQ_INT(s.sky_fill_below, 0);
     CHECK_EQ_INT(s.radar_all_views, 0);
+    CHECK_EQ_INT(s.tach_dim, 0);
+    CHECK_EQ_INT(s.gauge_wheel, 0);
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
     CHECK_EQ_INT(s.psx_light, 1);
     CHECK_EQ_INT(s.psx_flares, 1);
     CHECK_EQ_INT(s.sky_fill_below, 1);
     CHECK_EQ_INT(s.radar_all_views, 1);
+    CHECK_EQ_INT(s.tach_dim, 1);
+    CHECK_EQ_INT(s.gauge_wheel, 1);
     CHECK_EQ_INT(s.psx_headlights, 1);
     CHECK_EQ_INT(s.perspective, 1);
     CHECK_EQ_INT(s.body_shine, 4);   /* the envmap */
@@ -154,7 +160,11 @@ static void test_tables(void)
     s.sky_fill_below = 1;
     s.psx_flares = 1, s.radar_all_views = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
-    s.radar_all_views = 1;
+    s.radar_all_views = 1, s.tach_dim = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.tach_dim = 1, s.gauge_wheel = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.gauge_wheel = 1;
     s.psx_flares = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_CUSTOM, &s, SCREEN_21_9), 1);   /* custom is never wrong */
     s.psx_flares = 1;

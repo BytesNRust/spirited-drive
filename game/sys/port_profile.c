@@ -53,12 +53,14 @@ typedef struct {
     int last_camera, replay_no_ffb;   /* port.cfg's, appended */
     int sky_fill_below;   /* port.cfg's, appended */
     int radar_all_views;   /* port.cfg's, appended */
+    int tach_dim;   /* port.cfg's, appended */
+    int gauge_wheel;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 },
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 static int controlled(Profile p) { return p > PROFILE_CUSTOM && p < PROFILE_COUNT; }
@@ -78,6 +80,8 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.last_camera = t->last_camera, s.replay_no_ffb = t->replay_no_ffb;
     s.sky_fill_below = t->sky_fill_below;
     s.radar_all_views = t->radar_all_views;
+    s.tach_dim = t->tach_dim;
+    s.gauge_wheel = t->gauge_wheel;
     return s;
 }
 
@@ -102,7 +106,7 @@ int port_profile_settings_match(Profile p, const PortSettings *s, ScreenFormat m
            s->night_stretch_clean == want.night_stretch_clean &&
            s->forest_dark == want.forest_dark &&
            s->night_sky_hue == want.night_sky_hue && s->scale_integer == want.scale_integer &&
-           s->last_camera == want.last_camera && s->replay_no_ffb == want.replay_no_ffb && s->sky_fill_below == want.sky_fill_below && s->radar_all_views == want.radar_all_views;
+           s->last_camera == want.last_camera && s->replay_no_ffb == want.replay_no_ffb && s->sky_fill_below == want.sky_fill_below && s->radar_all_views == want.radar_all_views && s->tach_dim == want.tach_dim && s->gauge_wheel == want.gauge_wheel;
 }
 
 int port_profile_extras_match(Profile p, const PortExtras *e)
