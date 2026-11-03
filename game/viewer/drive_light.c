@@ -234,6 +234,11 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         else port_log("psx_light: no PS1 directory, the port's own effects only\n");
         made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
+        if (time == PSX_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night()) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
+            static const float VEGAS_NIGHT[3] = { 0.27f, 0.33f, 0.34f };
+            for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c];
+            port_log("psx_light: Lost Vegas' night tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
+        }
         const PsxLamp *own_lamps = NULL;
         const int own_count = psx_lamps_for(track, &own_lamps);
         ported_view_set_psx_lamps(own_lamps, own_count);   /* the lamps' glow (psx_flares) needs them known even with no light */

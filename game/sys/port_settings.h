@@ -58,6 +58,8 @@ typedef struct {
     int car_tunnel_light;    /* 1: with the PS1 light on a made-light track (TR6, TR7) that has the road's tunnel flags (made_tunnels), the car's light is the tunnel's alone, with a
                               * short ramp at the mouths: the terrain's shade (a canyon) no longer darkens it into the tunnel's light and lamps, and TR6's property-16 stretch after the
                               * mine is no longer taken for a hall (only TR7 has one); 0: as it was */
+    int vegas_car_night;     /* 1: with the Light Effects switch and the night, Lost Vegas with no PS1 light takes its night tint under the same ceiling the CD's nights take,
+                              * so the car is no longer lit as by day in its dark; 0: the fallback's night tint as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
@@ -127,6 +129,8 @@ int port_headlight_relight(void);
 
 /* 1 when the car's light of a made light is the tunnel's alone (car_tunnel_light): TNFS_CAR_TUNNEL_LIGHT=0/1 when set, else port.cfg's; never without port_psx_light. */
 int port_car_tunnel_light(void);
+/* 1 when Lost Vegas' made night has the darker tint (vegas_car_night): TNFS_VEGAS_CAR_NIGHT=0/1 when set, else port.cfg's; never without port_psx_light. */
+int port_vegas_car_night(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
