@@ -114,7 +114,11 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
 {
     const uint8_t v = light_at(light, node, point);
     if (light == NULL || light->pool == NULL) return v;
-    return headlight_pool_apply(v, psx_light_tunnel(light, node) ? headlight_pool_gain_tunnel(light->pool, node) : headlight_pool_gain(light->pool, node));   /* a tunnel is less dark: its own lamps' light, the beam over it */
+    if (!psx_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node)) return headlight_pool_apply(v, headlight_pool_gain(light->pool, node));
+    /* a tunnel: less dark than the open night (its own lamps), and the beam lights it to TUNNEL_BEAM where its own rows are darker (a tunnel with no lamps is black) */
+    const uint8_t scaled = headlight_pool_apply(v, headlight_pool_gain_tunnel(light->pool, node));
+    const int lit = TUNNEL_BEAM * headlight_pool_beam(light->pool, node) / 256;
+    return lit > scaled ? (uint8_t)lit : scaled;
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node)

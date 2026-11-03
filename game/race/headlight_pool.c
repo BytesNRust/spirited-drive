@@ -15,10 +15,10 @@ static int lift(int ahead)
     return smooth(256 - 256 * (ahead - hold) / (end - hold));
 }
 
-static int gain_with(const HeadlightPool *pool, uint32_t node, int floor)
+static int best_lift(const HeadlightPool *pool, uint32_t node)
 {
     int best = 0;
-    if (pool == NULL) return 256;
+    if (pool == NULL) return 0;
     for (int i = 0; i < pool->count && i < HEADLIGHT_MAX; i++) {
         int32_t d = (int32_t)(node % (pool->ring != 0 ? pool->ring : 1)) - pool->node[i];
         if (pool->ring != 0) {   /* the nearest way round the ring */
@@ -29,13 +29,25 @@ static int gain_with(const HeadlightPool *pool, uint32_t node, int floor)
         const int l = lift(d * 256 - pool->frac[i]);
         if (l > best) best = l;
     }
-    return floor + (256 - floor) * best / 256;
+    return best;
 }
+
+static int gain_with(const HeadlightPool *pool, uint32_t node, int floor)
+{
+    if (pool == NULL) return 256;
+    return floor + (256 - floor) * best_lift(pool, node) / 256;
+}
+
+int headlight_pool_beam(const HeadlightPool *pool, uint32_t node) { return best_lift(pool, node); }
 
 int headlight_pool_gain(const HeadlightPool *pool, uint32_t node)
 {
-    const int tunnel = pool != NULL && pool->tunnel != NULL && pool->ring != 0 && pool->tunnel[node % pool->ring];
-    return gain_with(pool, node, tunnel ? TUNNEL_FLOOR : HEADLIGHT_FLOOR);
+    return gain_with(pool, node, headlight_pool_tunnel(pool, node) ? TUNNEL_FLOOR : HEADLIGHT_FLOOR);
+}
+
+int headlight_pool_tunnel(const HeadlightPool *pool, uint32_t node)
+{
+    return pool != NULL && pool->tunnel != NULL && pool->ring != 0 && pool->tunnel[node % pool->ring];
 }
 
 int headlight_pool_car_at(const HeadlightPool *pool, uint32_t node)

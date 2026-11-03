@@ -67,6 +67,14 @@ static void test_the_roads_own_tunnel_flags_and_the_car_itself(void)
     CHECK_EQ_INT(headlight_pool_gain(&p, 50 + HEADLIGHT_FULL), 256);
     CHECK(headlight_pool_car_at(&p, 50) && !headlight_pool_car_at(&p, 51));
     CHECK(!headlight_pool_car_at(NULL, 50));
+    CHECK_EQ_INT(headlight_pool_beam(&p, 50), 0);
+    CHECK_EQ_INT(headlight_pool_beam(&p, 50 + HEADLIGHT_FULL), 256);
+    uint8_t rows[200 * PSX_LIGHT_POINTS];
+    memset(rows, 0, sizeof rows);   /* a tunnel whose own rows are black */
+    PsxLight light = { .data = rows, .nodes = 200, .pool = &p };
+    CHECK_EQ_INT(psx_light_at(&light, 70, 0), 0);                         /* beyond the beam: still black */
+    flags[50 + HEADLIGHT_FULL] = 1;
+    CHECK_EQ_INT(psx_light_at(&light, 50 + HEADLIGHT_FULL, 0), TUNNEL_BEAM);   /* in the beam: lit */
 }
 
 static void test_the_ring_and_several_cars(void)
