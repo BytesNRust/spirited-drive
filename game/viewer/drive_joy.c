@@ -3,6 +3,7 @@
 
 #include "platform/platform.h"
 #include "game/frontend/save_files.h"
+#include "game/race/race_camera.h"
 #include "game/race/race_forces.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/joy_calibrate.h"
