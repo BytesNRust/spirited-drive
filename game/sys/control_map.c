@@ -287,7 +287,7 @@ void control_map_binding_text(const PortControls *c, PortAction act, int gamepad
 
 const char *control_map_action_name(PortAction act)
 {
-    static const char *const NAME[ACT_COUNT] = { "Analog steering", "Steer left", "Steer right", "Accelerate", "Brake",
+    static const char *const NAME[ACT_COUNT] = { "Steering", "Steer left", "Steer right", "Accelerate", "Brake",
                                                  "Gear up", "Gear down", "Camera", "Handbrake", "Horn", "Pause",
                                                  "View", "Nitro", "Look back" };
     return act >= 0 && act < ACT_COUNT ? NAME[act] : "";
