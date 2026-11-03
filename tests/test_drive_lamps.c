@@ -131,11 +131,14 @@ static void run(const char *root)
     CHECK_EQ_INT(drive_lamps_brake_lit(0), 0);      /* and no lit lamp */
     CHECK_MEM(cfm, original, size);
     drive_lamps_frame(0, 0, 0, 1);   /* day, in reverse gear: the reversing light is lit, the brake's texels are not */
-    CHECK_EQ_INT(drive_lamps_lit_entry(0, LAMP_REVERSE), 0xa4);   /* its halo's lamp, in any light */
+    CHECK_EQ_INT(drive_lamps_lit_entry(0, LAMP_REVERSE), 0xa4);   /* its texels' lamp, in any light */
+    CHECK_EQ_INT(drive_lamps_low(0), 0);   /* but no halo in the day: the flare is for low light only */
     CHECK_EQ_INT(drive_lamps_lit_entry(0, LAMP_BRAKE), 0);
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], 0xa4);
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], original[(size_t)(rsid.payload - cfm) + i]);
     drive_lamps_frame(0, 1, 1, 1);   /* low light, braking, in reverse: all lit */
+    CHECK_EQ_INT(drive_lamps_low(0), 1);
+    CHECK_EQ_INT(drive_lamps_low(-1), 0);
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(bott_texels[i], 0xa4);
     for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa1);
     drive_lamps_frame(0, 0, 0, 0);   /* out of reverse in daylight: byte for byte what the file was */

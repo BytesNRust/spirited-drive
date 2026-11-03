@@ -1086,7 +1086,7 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     const int brake = drive_lamps_lit_entry(car->index, LAMP_BRAKE), reverse = drive_lamps_lit_entry(car->index, LAMP_REVERSE),
               head = drive_lamps_lit_entry(car->index, LAMP_HEADLIGHT);
     if (brake != 0) lamps[n++] = (FlareLamp){ brake, { 30, 60, 100 } };
-    if (reverse != 0) lamps[n++] = (FlareLamp){ reverse, { 20, 40, 70 } };   /* white: softer than the brake's red, which reads on dark paint */
+    if (reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, { 20, 40, 70 } };   /* white: softer than the brake's red, which reads on dark paint */
     if (head != 0) lamps[n++] = (FlareLamp){ head, { 20, 45, 80 } };
     const int police = police_flash_on && police_lights_on(shadow_race, car);
     const int red = police ? police_lights_own_entry(1) : 0, blue = police ? police_lights_own_entry(0) : 0;

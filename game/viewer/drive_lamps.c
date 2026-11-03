@@ -100,6 +100,11 @@ int drive_lamps_lit_entry(int slot, int kind)
     }
 }
 
+int drive_lamps_low(int slot)
+{
+    return valid(slot) && slots[slot].armed && (slots[slot].state & (LAMP_LOW | LAMP_BRAKING)) != 0;
+}
+
 void drive_lamps_frame(int slot, int low, int braking, int reversing)
 {
     if (!valid(slot) || !slots[slot].armed) return;

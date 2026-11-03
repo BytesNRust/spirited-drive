@@ -39,4 +39,7 @@ int drive_lamps_lit_entry(int slot, int kind);
 /* The same from the light itself: the world's tint and the ambient ratio at the car (NULL for none), through lamp_light_step's margin (a light shade by day does
  * not light them; the slot's state starts out at drive_lamps_arm; each flip is logged with the node). */
 void drive_lamps_light(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing);
+/* 1 when the slot's lamps are in low light (dusk, night, a tunnel, fog): the light their halos (lamp_flare.h) are drawn in. The reversing light's texels glow in any light, its halo does not. */
+int drive_lamps_low(int slot);
+
 #endif
