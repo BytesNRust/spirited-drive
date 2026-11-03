@@ -257,6 +257,28 @@ static void test_light_tunnel_flags_override_the_rows(void)
     CHECK(!psx_light_tunnel(&light, 19) && !psx_light_tunnel(&light, 30));
 }
 
+/* the made light's selection (made_tunnels): a road tunnel takes the tunnel's rows and its flag, a hall (its own flag, or hall_light's range) keeps the terrain's rows and no flag */
+static void test_made_light_selection_hall_wins(void)
+{
+    enum { N = 40 };
+    uint8_t made_data[N * PSX_LIGHT_POINTS], tunnel_data[N * PSX_LIGHT_POINTS], hall[N] = { 0 }, flags[N] = { 0 };
+    memset(made_data, 20, sizeof made_data);
+    memset(tunnel_data, 200, sizeof tunnel_data);
+    for (int i = 5; i < 35; i++) flags[i] = 1;     /* the road's tunnel run */
+    for (int i = 8; i < 12; i++) hall[i] = 1;      /* a hall inside it (property 16 as well) */
+    PsxLight made = { .data = made_data, .nodes = N, .hall = hall };
+    PsxLight tunnels = { .data = tunnel_data, .nodes = N, .tunnel = flags };
+    psx_light_synth_made_tunnels(&made, &tunnels, 20, 24);   /* hall_light's range */
+    CHECK(made.tunnel == flags && tunnels.tunnel == NULL);
+    CHECK(psx_light_tunnel(&made, 6) && psx_light_tunnel(&made, 30));
+    CHECK_EQ_INT(psx_light_byte(&made, 6, 3), 200);       /* a tunnel's rows */
+    CHECK(!psx_light_tunnel(&made, 9));                   /* the hall flag wins ... */
+    CHECK_EQ_INT(psx_light_byte(&made, 9, 3), 20);        /* ... and the terrain's rows stay */
+    CHECK(!psx_light_tunnel(&made, 22));                  /* hall_light's range wins too */
+    CHECK_EQ_INT(psx_light_byte(&made, 22, 3), 20);
+    CHECK_EQ_INT(psx_light_byte(&made, 2, 3), 20);        /* the open road is untouched */
+}
+
 int main(void)
 {
     test_runs_and_short_runs();
@@ -271,5 +293,6 @@ int main(void)
     test_lamps_flicker_node_by_node();
     test_tracks();
     test_light_tunnel_flags_override_the_rows();
+    test_made_light_selection_hall_wins();
     return TEST_REPORT();
 }
