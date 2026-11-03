@@ -109,12 +109,13 @@ static void test_puff(void)
  * standing one's is the exe's, and the exe's own level when off */
 static void test_shoulder_scrape_is_heard_at_a_crawl(void)
 {
-    const int32_t crawl = 2 << 16, standing = 0, exe_crawl = 0x14 + 4, exe_standing = 0x14;
+    const int32_t crawl = 4 << 16, standing = 0, exe_crawl = 0x14 + 4, exe_standing = 0x14;
     CHECK_EQ_INT(rally_gravel_shoulder_level(RALLY_GRAVEL_OFF, exe_crawl, crawl), exe_crawl);
     for (int kind = RALLY_GRAVEL_COMPACT; kind <= RALLY_GRAVEL_REGOLITH; kind++) {
         CHECK(rally_gravel_shoulder_level(kind, exe_crawl, crawl) >= RALLY_SHOULDER_FLOOR);
         CHECK_EQ_INT(rally_gravel_shoulder_level(kind, exe_standing, standing), exe_standing);
         CHECK_EQ_INT(rally_gravel_shoulder_level(kind, 0x7f, 60 << 16), 0x7f);   /* fast: the exe's, already loud */
+        CHECK_EQ_INT(rally_gravel_shoulder_level(kind, 0, 3 << 15), RALLY_SHOULDER_FLOOR / 2);   /* 1.5 m/s: half the floor */
     }
 }
 
@@ -122,7 +123,7 @@ static void test_shoulder_scrape_is_heard_at_a_crawl(void)
  * car gets RALLY_ROAD_FLOOR, under the shoulder's floor; standing, fast and switch-off keep the level the caller has */
 static void test_road_gravel_is_heard_at_a_crawl(void)
 {
-    const int32_t crawl = 2 << 16;
+    const int32_t crawl = 4 << 16;
     CHECK_EQ_INT(rally_gravel_road_level(RALLY_GRAVEL_OFF, 5, crawl), 5);
     for (int kind = RALLY_GRAVEL_COMPACT; kind <= RALLY_GRAVEL_REGOLITH; kind++) {
         const int32_t low = rally_gravel_level(kind, 0x14 + 4);

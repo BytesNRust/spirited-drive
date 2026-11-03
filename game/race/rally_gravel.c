@@ -32,16 +32,23 @@ int32_t rally_dust_skid(int kind, int32_t speed, int on_ground)
     return kind == RALLY_GRAVEL_DUST ? DUST_BASE + v / 2 : DUST_FROM + 0x40000 + v / 16;
 }
 
+/* the floor a car at `speed` (16.16 m/s) gets: all of it from 3 m/s, in proportion below, none standing */
+static int32_t floor_at(int32_t floor, int32_t speed)
+{
+    const int64_t sp = speed < 0 ? -(int64_t)speed : speed, full = 3 << 16;
+    return sp >= full ? floor : (int32_t)(floor * sp / full);
+}
+
 int32_t rally_gravel_shoulder_level(int kind, int32_t level, int32_t speed)
 {
-    const int32_t rolling = speed >= 0x10000 || speed <= -0x10000;
-    if (kind == RALLY_GRAVEL_OFF || !rolling || level >= RALLY_SHOULDER_FLOOR) return level;
-    return RALLY_SHOULDER_FLOOR;
+    if (kind == RALLY_GRAVEL_OFF) return level;
+    const int32_t floor = floor_at(RALLY_SHOULDER_FLOOR, speed);
+    return level < floor ? floor : level;
 }
 
 int32_t rally_gravel_road_level(int kind, int32_t level, int32_t speed)
 {
-    const int32_t rolling = speed >= 0x10000 || speed <= -0x10000;
-    if (kind == RALLY_GRAVEL_OFF || !rolling || level >= RALLY_ROAD_FLOOR) return level;
-    return RALLY_ROAD_FLOOR;
+    if (kind == RALLY_GRAVEL_OFF) return level;
+    const int32_t floor = floor_at(RALLY_ROAD_FLOOR, speed);
+    return level < floor ? floor : level;
 }
