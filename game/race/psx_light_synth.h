@@ -41,6 +41,11 @@ void psx_light_synth_rows(const uint8_t *flags, uint32_t count, int ring, int ti
 /* A PsxLight of the track's tunnels (its nodes node_count, the data owned: psx_light_free). 1 when the track has a tunnel, else 0 and `out` is untouched. */
 int psx_light_synth(const Tri *tri, int time, PsxLight *out);
 
+/* port (made_tunnels): the road's tunnel nodes of `tunnels` (psx_light_synth's, its `tunnel` flags taken over) become `made`'s own: each takes the tunnel's rows (under a roof
+ * the terrain's light does not fall) and is flagged, except a hall's (made->hall) and the nodes hall_from..hall_to (an empty range when hall_from > hall_to), which stay as the
+ * made light has them. */
+void psx_light_synth_made_tunnels(PsxLight *made, PsxLight *tunnels, uint32_t hall_from, uint32_t hall_to);
+
 /* 1 for the tracks it is for: "TR6" and "TR7" (any case). */
 int psx_light_synth_track(const char *track);
 

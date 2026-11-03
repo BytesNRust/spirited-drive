@@ -2,6 +2,7 @@
 #include "game/race/psx_light_synth.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 /* the road property of a covered road: the tunnel bit and not the one beside it (TR7 778..818, property 5, is an open truss bridge: the sky shows through) */
@@ -153,4 +154,16 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
     const float dark = hall ? 1.0f : 1.0f - (float)beyond / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
     const float *lamp = (node & 1u) != 0 ? (hall ? HALL_DIM : LAMP_DIM) : (hall ? HALL_LIT : LAMP_LIT);
     for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
+}
+
+void psx_light_synth_made_tunnels(PsxLight *made, PsxLight *tunnels, uint32_t hall_from, uint32_t hall_to)
+{
+    if (made == NULL || tunnels == NULL || tunnels->tunnel == NULL || tunnels->data == NULL || tunnels->nodes != made->nodes) return;
+    for (uint32_t n = 0; n < made->nodes; n++) {
+        const int hall = (made->hall != NULL && made->hall[n] != 0) || (n >= hall_from && n <= hall_to);
+        if (hall) tunnels->tunnel[n] = 0;
+        else if (tunnels->tunnel[n]) memcpy(made->data + (size_t)n * PSX_LIGHT_POINTS, tunnels->data + (size_t)n * PSX_LIGHT_POINTS, PSX_LIGHT_POINTS);
+    }
+    made->tunnel = tunnels->tunnel;
+    tunnels->tunnel = NULL;
 }
