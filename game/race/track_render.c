@@ -539,6 +539,27 @@ static void object_roof_camera(void *user, int32_t texture, const int32_t *const
     object_light_off(g);
 }
 
+/* port (track_port_close_boxes): a piece of a generated face clipped to the near limit (track_object_draw.c): its camera-space corners and its texture fractions (16.16 of the
+ * texture, as whole_uv's corners), the roof's flat tone of the facade when `roof` */
+static void object_box_clipped(void *user, int32_t texture, int roof, const int32_t *const cam[4], const int32_t frac[8])
+{
+    const Glue *g = user;
+    const FshEntry *t = scenery_texture(g->r->art, texture);
+    if (t == NULL || t->payload == NULL) return;
+    const FshEntry *const drawn = roof ? roof_texture(g->r->art, t) : t;
+    int32_t whole[8], uv[8];
+    whole_uv(drawn, whole);   /* corner 2 is (right, bottom): the texture's extent in 16.16 */
+    for (int i = 0; i < 4; i++) {
+        uv[2 * i] = (int32_t)((int64_t)frac[2 * i] * whole[4] / 65536);
+        uv[2 * i + 1] = (int32_t)((int64_t)frac[2 * i + 1] * whole[5] / 65536);
+    }
+    object_light_on(g);
+    light_on(g);
+    g->ctx->sink.draw_camera(g->ctx->sink.user, g->ctx->view, drawn, uv, cam);
+    light_off(g);
+    object_light_off(g);
+}
+
 /* port: a scenery board too near for the exe, the whole texture from camera-space corners */
 static void object_near_camera(void *user, int32_t texture, const int32_t *const cam[4])
 {
@@ -563,7 +584,8 @@ void track_render_object_ops(const TrackGlue *g, TrackObjectDrawOps *out)
     *out = (TrackObjectDrawOps){ (void *)g, object_model, object_full, object_full_alt,
                                  g->ctx->sink.draw_camera != NULL ? object_full_camera : NULL,
                                  g->ctx->sink.port_near_camera != NULL ? object_near_camera : NULL,
-                                 g->ctx->sink.draw_camera != NULL ? object_roof_camera : NULL };
+                                 g->ctx->sink.draw_camera != NULL ? object_roof_camera : NULL,
+                                 g->ctx->sink.draw_camera != NULL ? object_box_clipped : NULL };
 }
 
 void track_render_push_near(int32_t v[3], int32_t near, const int32_t dir[3])
@@ -585,7 +607,8 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
                                 { (void *)&g, object_model, object_full, object_full_alt,
                                   ctx->sink.draw_camera != NULL ? object_full_camera : NULL,
                                   ctx->sink.port_near_camera != NULL ? object_near_camera : NULL,
-                                  ctx->sink.draw_camera != NULL ? object_roof_camera : NULL } };
+                                  ctx->sink.draw_camera != NULL ? object_roof_camera : NULL,
+                                  ctx->sink.draw_camera != NULL ? object_box_clipped : NULL } };
     const TrackFenceOps fence_ops = { (void *)&g, road_texture, point_screen, subdivide, full_alt,
                                       ctx->sink.draw_camera != NULL ? full_camera : NULL };
     const TrackFarOps far_ops = { (void *)&g, road_texture, full, cars,

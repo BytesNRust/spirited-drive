@@ -4,6 +4,8 @@
 #include "game/race/track_build.h"
 #include "game/race/track_render.h"
 
+#include <string.h>
+
 enum {
     MODEL = 1,
     BILLBOARD = 4,
@@ -115,13 +117,68 @@ static int faces_eye(const int32_t n[3], const int32_t p[3])
     return (int64_t)n[0] * p[0] + (int64_t)n[1] * p[1] + (int64_t)n[2] * p[2] < 0;
 }
 
-/* port: a face of four camera-space corners all in front of the near limit; a generated wall or roof with a corner behind the eye (the car beside the house: the far
- * corners are the front's carried back) goes through the near plane, and drawn flat it sweeps a wedge across the screen */
-static int all_ahead(const int32_t *const corner[4])
+/* port: how many of a face's four camera-space corners are in front of the near limit; a generated wall or roof with a corner behind the eye (the car beside the house:
+ * the far corners are the front's carried back) goes through the near plane, and drawn whole it sweeps a wedge across the screen */
+static int corners_ahead(const int32_t *const corner[4])
 {
-    for (int i = 0; i < 4; i++)
-        if (corner[i][2] < MIN_DEPTH) return 0;
-    return 1;
+    int n = 0;
+    for (int i = 0; i < 4; i++) n += corner[i][2] >= MIN_DEPTH;
+    return n;
+}
+
+/* port: a corner of a clipped face: camera-space point and the texture fraction (16.16) there */
+typedef struct {
+    int32_t p[3], uv[2];
+} FaceVertex;
+
+enum { FACE_CLIP_MAX = 8, FACE_UV_ONE = 65536 };
+
+/* port: the face clipped to the near limit (Sutherland-Hodgman on z >= MIN_DEPTH), its texture fractions carried along; the polygon's count (3..5) */
+static int clip_face(const int32_t *const corner[4], FaceVertex out[FACE_CLIP_MAX])
+{
+    static const int32_t U[4] = { 0, FACE_UV_ONE, FACE_UV_ONE, 0 }, V[4] = { 0, 0, FACE_UV_ONE, FACE_UV_ONE };   /* the corners' fractions, as whole_uv's order */
+    int n = 0;
+    for (int i = 0; i < 4; i++) {
+        const int j = (i + 1) & 3;
+        const int32_t za = corner[i][2], zb = corner[j][2];
+        const int a_in = za >= MIN_DEPTH, b_in = zb >= MIN_DEPTH;
+        if (a_in) {
+            memcpy(out[n].p, corner[i], sizeof out[n].p);
+            out[n].uv[0] = U[i], out[n].uv[1] = V[i];
+            n++;
+        }
+        if (a_in != b_in) {
+            const double t = (double)(MIN_DEPTH - za) / (double)(zb - za);
+            for (int k = 0; k < 3; k++) out[n].p[k] = (int32_t)((double)corner[i][k] + ((double)corner[j][k] - (double)corner[i][k]) * t);
+            out[n].p[2] = MIN_DEPTH;
+            out[n].uv[0] = (int32_t)((double)U[i] + ((double)U[j] - (double)U[i]) * t);
+            out[n].uv[1] = (int32_t)((double)V[i] + ((double)V[j] - (double)V[i]) * t);
+            n++;
+        }
+    }
+    return n;
+}
+
+/* port: one generated face of a closed box: whole when all its corners are ahead of the near limit, clipped to it (box_clipped_camera, a fan of quads) when some are,
+ * nothing when none are (it is behind the eye) */
+static void box_face(TrackObjectDraw *d, int32_t texture, int roof, const int32_t *const corner[4])
+{
+    const int ahead = corners_ahead(corner);
+    if (ahead == 4) {
+        if (roof) d->ops.roof_camera(d->ops.user, texture, corner);
+        else d->ops.full_camera(d->ops.user, texture, corner);
+        return;
+    }
+    if (ahead == 0 || d->ops.box_clipped_camera == NULL) return;
+    FaceVertex poly[FACE_CLIP_MAX];
+    const int n = clip_face(corner, poly);
+    for (int i = 1; i + 1 < n; i++) {   /* the fan from the first corner: a quad per triangle, its last corner repeated */
+        const FaceVertex *const v[4] = { &poly[0], &poly[i], &poly[i + 1], &poly[i + 1] };
+        const int32_t *cam[4];
+        int32_t uv[8];
+        for (int k = 0; k < 4; k++) cam[k] = v[k]->p, uv[2 * k] = v[k]->uv[0], uv[2 * k + 1] = v[k]->uv[1];
+        d->ops.box_clipped_camera(d->ops.user, texture, roof, cam, uv);
+    }
 }
 
 static double dot3(const int32_t a[3], const int32_t b[3])
@@ -167,9 +224,9 @@ static void close_box(TrackObjectDraw *d, const uint8_t *desc, int level, int32_
     const int32_t depth[3] = { c[4][0] - c[1][0], c[4][1] - c[1][1], c[4][2] - c[1][2] };       /* from the front toward the back */
     const int32_t outward[3] = { c[0][0] - c[1][0], c[0][1] - c[1][1], c[0][2] - c[1][2] };     /* toward the left wall's side */
     const int32_t up[3] = { c[0][0] - c[3][0], c[0][1] - c[3][1], c[0][2] - c[3][2] };
-    if (faces_eye(depth, c[4]) && all_ahead(back)) d->ops.full_camera(d->ops.user, desc[2] + level, back);
-    if (faces_eye(outward, c[0]) && all_ahead(left)) d->ops.full_camera(d->ops.user, desc[3] + level, left);
-    if (d->ops.roof_camera != NULL && faces_eye(up, c[0]) && all_ahead(roof)) d->ops.roof_camera(d->ops.user, desc[2] + level, roof);
+    if (faces_eye(depth, c[4])) box_face(d, desc[2] + level, 0, back);
+    if (faces_eye(outward, c[0])) box_face(d, desc[3] + level, 0, left);
+    if (d->ops.roof_camera != NULL && faces_eye(up, c[0])) box_face(d, desc[2] + level, 1, roof);
 }
 
 static void draw_two_sided(TrackObjectDraw *d, const uint8_t *desc, int32_t band, int32_t at, int near)

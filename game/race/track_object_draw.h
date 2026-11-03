@@ -31,6 +31,10 @@ typedef struct {
     /* port (track_port_close_boxes): a box's roof, a flat quad in a dark tone of `texture` (the facade's), from its camera-space corners (far left, far right,
      * near right, near left); NULL no roof */
     void (*roof_camera)(void *user, int32_t texture, const int32_t *const cam[4]);
+    /* port (track_port_close_boxes): a generated face with some corners behind the near limit (0x86), clipped to it: a polygon piece of the face as four camera-space corners (a
+     * triangle repeats its last), all at least 0x86 deep, and the face's own texture coordinates there as 16.16 fractions of the texture (0..65536, corner order as the face's);
+     * `roof` 1: the flat roof tone of `texture` (the facade's) instead of the texture; NULL the face is dropped */
+    void (*box_clipped_camera)(void *user, int32_t texture, int roof, const int32_t *const cam[4], const int32_t uv[8]);
 } TrackObjectDrawOps;
 
 typedef struct {
