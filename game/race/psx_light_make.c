@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 uint8_t psx_light_level(float v)
 {
@@ -276,6 +277,39 @@ int psx_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int
     }
     free(pts), free(data);
     return ok;
+}
+
+static const float FOREST_TONE[2] = { 0.40f, 0.62f };   /* the darker band, the dark one */
+
+void psx_light_forest(uint8_t *data, uint32_t count, uint32_t from, uint32_t to, int period)
+{
+    if (data == NULL || period <= 0 || from > to || to >= count) return;
+    for (uint32_t n = from; n <= to; n++) {
+        const float tone = FOREST_TONE[((n - from) / (uint32_t)period) % 2];
+        const uint32_t in = n - from, out = to - n, edge = in < out ? in : out;
+        const float ease = edge >= PSX_LIGHT_FOREST_RAMP ? 1.0f : (float)(edge + 1) / (float)(PSX_LIGHT_FOREST_RAMP + 1);   /* 0 = untouched, 1 = the band's own tone */
+        const float scale = 1.0f - ease * (1.0f - tone);
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            uint8_t *at = &data[n * PSX_LIGHT_POINTS + (uint32_t)p];
+            *at = psx_light_level(scale * (float)*at / (float)PSX_LIGHT_FULL);
+        }
+    }
+}
+
+int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to)
+{
+    if (track == NULL || strcasecmp(track, "TR3") != 0) return 0;
+    if (from != NULL) *from = 852;
+    if (to != NULL) *to = 934;
+    return 1;
+}
+
+int psx_light_forest_apply(PsxLight *light, const char *track)
+{
+    uint32_t from, to;
+    if (light == NULL || light->data == NULL || !psx_light_forest_range(track, &from, &to) || to >= light->nodes) return 0;
+    psx_light_forest(light->data, light->nodes, from, to, PSX_LIGHT_FOREST_BAND);
+    return 1;
 }
 
 int psx_light_make(const Tri *tri, int time, PsxLight *out)
