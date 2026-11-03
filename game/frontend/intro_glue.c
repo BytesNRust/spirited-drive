@@ -3,6 +3,7 @@
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/ea_lib.h"
+#include "game/frontend/boot_screen.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/intro.h"
 #include "game/frontend/menu_audio.h"
@@ -99,6 +100,7 @@ void glue_intro_show(void)
     IntroState s = state(&flag, path);
     intro_show(&s, &ops);
     memcpy(config_current()->image + REPLAY_FLAG, &flag, sizeof flag);
+    boot_screen_show();   /* port: our own screen after EA's movies, once per run */
 }
 
 void glue_intro_movie(const char *name)
