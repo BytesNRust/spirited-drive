@@ -368,6 +368,12 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             for (uint32_t n = 0; n < made.nodes; n++) made.hall[n] = tunnels.data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
     }
     if (port_car_tunnel_light() && !psx_light_synth_hall(track, NULL, NULL)) {   /* port (car_tunnel_light): only TR7 has a hall; TR6's property-16 stretch after the mine is open road in the sun, not an orange hall */
+        if (port_canyon_shade() && tunnels.tunnel != NULL && tunnels.nodes == made.nodes) {   /* port (canyon_shade): remember the canyon's nodes before the flag is cleared */
+            made.canyon = calloc(made.nodes, 1);
+            if (made.canyon != NULL)
+                for (uint32_t n = 0; n < made.nodes; n++) made.canyon[n] = tunnels.tunnel[n] == PSX_SYNTH_FLAG_HALL;
+            if (made.canyon != NULL) { uint32_t a = 0, b = 0, c = 0; for (uint32_t n = 0; n < made.nodes; n++) if (made.canyon[n]) { if (c++ == 0) a = n; b = n; } port_log("canyon: %u nodes, %u..%u\n", c, a, b); }
+        }
         if (made.hall != NULL) memset(made.hall, 0, made.nodes);
         if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes)
             for (uint32_t n = 0; n < made.nodes; n++)
