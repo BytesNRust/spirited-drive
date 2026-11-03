@@ -84,6 +84,12 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder"
 };
 
+/* port (radar_all_views): the radar's switch shows in every outside view then, and says so */
+static const char *label_of(const ExtrasMenuOps *o, int index)
+{
+    return index == ROW_BUMPER_RADAR && o->radar_all_views ? "Police radar" : LABEL[index];
+}
+
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
 static int *flag_of(PortExtras *e, int page, int row)
 {
@@ -347,7 +353,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
         value(e, unlock, p->page, row, o->language_kmh, v);
         const int y = line_y(p->page, line_of(p->page, row));
         const int held = fixed_by_level(e, unlock, p->page, row);
-        text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
+        text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, label_of(o, first_of(p->page) + row), LABEL_X, y);
         if (held) text(o, lit ? STYLE_YELLOW : STYLE_DIM, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), y);
         else text_right(o, lit, v, VALUE_RIGHT, y);
     }

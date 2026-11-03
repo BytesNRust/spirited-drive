@@ -781,6 +781,7 @@ int32_t glue_extras_screen(int16_t unlock)
         own_header_text,    /* plus_header */
         extras_save_glue,   /* extras_save */
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
+        port_radar_all_views(),  /* radar_all_views: the radar's row reads "Police radar" when it shows in every outside view */
         (int)resource_german(),  /* language_kmh: the Speed units row reads the language's units until it is chosen */
         NULL,               /* ctx */
         glue_plus_arrow_size, /* plus_arrow_size: the page indicator's triangles */
