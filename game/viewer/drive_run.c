@@ -631,14 +631,14 @@ static uint32_t screenshot_input(uint32_t i, uint32_t ticks)
     return (i + 20 >= ticks ? lock : 0x20) | (tap ? 0x1000u : 0);
 }
 
-/* Headless: `ticks` steps in drive at full throttle, then a screenshot
+/* Headless: `ticks` steps in drive at full throttle, then a screenshot (taken at the run's end, where the car has driven to: TNFS_START_NODE is not the frame's node; the eye node of the last frame is on the "tick" line, and of each TNFS_SHOTS shot on its line)
  * (TNFS_VIEW=N: from view kind N; TNFS_STEER=left / right: full lock at the
  * end; TNFS_NOTICE=1 / 2: that police stop notice up for the last 10 ticks,
  * TNFS_NOTICE=1off / 2off: and down again for the last 5; TNFS_FRAMES=N:
  * whole frames over the last N ticks, so what builds up while drawing, the
  * skid marks, does). */
-/* TNFS_SHOTS=prefix:every: a picture (prefix_tick.ppm) every `every` ticks of the last frames, with the car's and the camera's yaw
- * (the follow camera's tests) */
+/* TNFS_SHOTS=prefix:every: a picture (prefix_tick.ppm) every `every` ticks of the last frames, with the eye's node and the car's and the camera's yaw
+ * (the follow camera's tests). The eye node in the line is the frame's: TNFS_START_NODE only says where the car starts, and the car drives on at full throttle. */
 static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t ticks)
 {
     const char *spec = getenv("TNFS_SHOTS");
@@ -648,7 +648,7 @@ static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t tick
     int32_t off = (int32_t)(((uint32_t)drive_sim.race.chase.angles[1] -
                              (uint32_t)race_node(&drive_sim.race, drive_sim.race.chase.node).orientation * 0x400u) & 0xffffff);
     if (off > 0x800000) off -= 0x1000000;
-    printf("shot %u: car yaw %d, camera yaw %d (a turn is 16777216), camera %.0f degrees off the road, speed %.1f\n", i,
+    printf("shot %u: eye node %d, car yaw %d, camera yaw %d (a turn is 16777216), camera %.0f degrees off the road, speed %.1f\n", i, (int)drive_sim.race.chase.node,
            car->yaw & 0xffffff, drive_sim.race.chase.angles[1] & 0xffffff, off * 360.0 / 16777216.0, car->speed / 65536.0);
     char name[512];
     snprintf(name, sizeof name, "%.*s_%05u.ppm", (int)(colon - spec), spec, i);
