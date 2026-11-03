@@ -179,8 +179,8 @@ static int reverse_file(uint8_t *file, size_t size, const char *name, const uint
 {
     uint8_t *turned = malloc(size);
     TriPivot pivots[TRACK_MODELS];
-    const uint32_t count = port_reverse_tunnels() ? model_pivots(fam, fam_size, pivots) : 0;
-    const TriReverseOptions options = { port_reverse_tunnels(), count > 0 ? pivots : NULL, count };
+    const uint32_t count = model_pivots(fam, fam_size, pivots);
+    const TriReverseOptions options = { 1, count > 0 ? pivots : NULL, count };
     const TriResult r = turned != NULL ? tri_reverse_with(file, size, turned, &options) : TRI_ERR_BOUNDS;
     if (r == TRI_OK) memcpy(file, turned, size);
     else port_log("track_viewer: %s cannot run backwards (%s), forwards\n", name, tri_result_str(r));
