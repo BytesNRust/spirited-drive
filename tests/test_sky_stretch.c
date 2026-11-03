@@ -276,6 +276,23 @@ static void test_quiet_column_keeps_a_wide_highlight(void)
     sky_stretch_free(&s);
 }
 
+static void test_quiet_column_catches_a_dim_star_and_spares_a_grey_bump(void)
+{
+    enum { WW = 16, HH = 10 };
+    uint8_t px[WW * HH];
+    for (int y = 0; y < HH; y++) memset(px + y * WW, 10 + y, WW);   /* the sky under the top row: lightness 11 */
+    px[1] = 40;     /* a dim star: 29 lighter, 3.6 times as light */
+    px[8] = 51;       /* a grey bump on a lit sky: 21 lighter than the 30 under it, under 3 times as light */
+    px[WW + 8] = 30;
+    FshEntry art = { { 'h', 'o', 'r', 'z' }, 0, 0, WW, HH, { 0, ABOVE, 0, 0 }, px, WW * HH };
+    SkyStretch s = { 0 };
+    const FshEntry *quiet = sky_stretch(&s, &art, 0x20000, 100, 100 - 40, SKY_FILL_COLUMN_QUIET, grey);
+    CHECK(quiet != &art);
+    CHECK_EQ_INT(quiet->payload[1], 10);    /* the dim star is not carried up: the column beside it */
+    CHECK_EQ_INT(quiet->payload[8], 51);    /* the bump is the sky's own */
+    sky_stretch_free(&s);
+}
+
 int main(void)
 {
     for (int i = 0; i < 256; i++) grey[3 * i] = grey[3 * i + 1] = grey[3 * i + 2] = (uint8_t)i;
@@ -288,6 +305,7 @@ int main(void)
     test_modes_agree_on_the_rows();
     test_quiet_column_does_not_carry_a_star_up();
     test_quiet_column_keeps_a_wide_highlight();
+    test_quiet_column_catches_a_dim_star_and_spares_a_grey_bump();
     test_blend_rows();
     test_blend_skips_transparent();
     test_horizon_flat_reaches_the_top();

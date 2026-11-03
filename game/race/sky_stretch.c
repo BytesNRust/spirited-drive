@@ -54,7 +54,9 @@ static int lightness(const uint8_t *palette, uint8_t i) { return (77 * palette[3
 static int is_star(const FshEntry *horz, int32_t w, int32_t x, uint8_t colour, const uint8_t *palette)
 {
     const uint8_t under = horz->payload[w + x];
-    return colour != 0xff && under != 0xff && lightness(palette, colour) > lightness(palette, under) + SKY_FILL_STAR_LUMA;
+    if (colour == 0xff || under == 0xff) return 0;
+    const int l = lightness(palette, colour), u = lightness(palette, under);
+    return l >= u + SKY_FILL_STAR_LUMA && 2 * l >= SKY_FILL_STAR_RATIO_X2 * u;   /* relative: a dim star on a dark sky counts, a grey bump on the sky's grey does not */
 }
 
 /* SKY_FILL_COLUMN_QUIET: the row of column colours (column_colour's) with its stars taken out: a run of at most SKY_FILL_STAR_WIDTH columns of stars (a longer run is a cloud's
