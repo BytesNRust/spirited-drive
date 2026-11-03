@@ -299,13 +299,13 @@ void drive_audio_pump(void) {}
 /* port (dev, env only): TNFS_AUDIO_DUMP=out.wav, in the headless --drive. The driver with no device, the banks loaded as a race loads them, and every tick the mixer
  * renders its share of frames into a WAV, so the sound as the race commands it (race_sound.c) is heard as the mixer makes it, tick for tick, as fast as the sim runs. The
  * sounds the race starts are logged (port_log: "audio: start sound ..."). */
-static FILE *dump_file;
-static uint32_t dump_frames;
+static FILE *drive_dump_file;
+static uint32_t drive_dump_frames;
 static int32_t (*dump_real_start)(void *, int32_t, int32_t, uint8_t, uint8_t);
 
 static int32_t dump_voice_start(void *user, int32_t sound, int32_t pan, uint8_t volume, uint8_t pitch)
 {
-    port_log("audio: start sound %#x pan %d volume %d pitch %d (tick %u)\n", (unsigned)sound, pan, volume, pitch, dump_frames / (MIX_RATE / STEPS_PER_SECOND));
+    port_log("audio: start sound %#x pan %d volume %d pitch %d (tick %u)\n", (unsigned)sound, pan, volume, pitch, drive_dump_frames / (MIX_RATE / STEPS_PER_SECOND));
     return dump_real_start(user, sound, pan, volume, pitch);
 }
 
@@ -322,10 +322,10 @@ static void dump_header(FILE *f, uint32_t frames)
 int drive_audio_offline_open(RaceState *race, const char *data_root, const char *wav_path)
 {
     root = data_root;
-    dump_file = fopen(wav_path, "wb");
-    if (dump_file == NULL) return 0;
-    dump_header(dump_file, 0);
-    dump_frames = 0, tick_frames = 0;
+    drive_dump_file = fopen(wav_path, "wb");
+    if (drive_dump_file == NULL) return 0;
+    dump_header(drive_dump_file, 0);
+    drive_dump_frames = 0, tick_frames = 0;
     sound_channels_reset(&driver.channels);
     driver.rand_seed = RAND_SEED;
     sound_driver_init(&driver, MIX_RATE);
@@ -346,25 +346,25 @@ int drive_audio_offline_open(RaceState *race, const char *data_root, const char 
 
 void drive_audio_offline_tick(void)
 {
-    if (dump_file == NULL) return;
+    if (drive_dump_file == NULL) return;
     /* a race step is 1/30 s (drive_clock.h: 30 steps a second): that many frames, the 100 Hz service run every TICK_FRAMES of them as the device's thread does (mix) */
     int16_t frames[2 * TICK_FRAMES];
     for (uint32_t left = MIX_RATE / STEPS_PER_SECOND; left > 0;) {
         const uint32_t n = left < TICK_FRAMES ? left : TICK_FRAMES;
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
-        fwrite(frames, sizeof frames[0], 2 * n, dump_file);
-        dump_frames += n, left -= n;
+        fwrite(frames, sizeof frames[0], 2 * n, drive_dump_file);
+        drive_dump_frames += n, left -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) sound_driver_tick(&driver);
     }
 }
 
 void drive_audio_offline_close(void)
 {
-    if (dump_file == NULL) return;
-    fseek(dump_file, 0, SEEK_SET);
-    dump_header(dump_file, dump_frames);
-    fclose(dump_file);
-    dump_file = NULL;
+    if (drive_dump_file == NULL) return;
+    fseek(drive_dump_file, 0, SEEK_SET);
+    dump_header(drive_dump_file, drive_dump_frames);
+    fclose(drive_dump_file);
+    drive_dump_file = NULL;
 }
 
 enum { EACS_HEADER = 0x20 };
