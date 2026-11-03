@@ -3,6 +3,7 @@
 #include "game/sys/data_copy.h"
 #include "game/sys/data_root.h"
 #include "game/sys/sha256.h"
+#include "iso_build.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -189,6 +190,108 @@ static void test_use_it_anyway_then_restart(void)
     CHECK_EQ_INT(system(path), 0);
 }
 
+/* ---- port (ISO): the check and the copy from a synthetic image (never the CD's files) ---- */
+
+typedef struct {
+    const char *path;
+    const char *text;
+} IsoSample;
+
+static const IsoSample SAMPLE[3] = { { "NFS_WIN.EXE", "the exe of a test disc" }, { "SIMDATA/MISC/TR1.TRI", "a track, 0123456789" }, { "README.", "read me" } };
+
+static void sample_manifest(DataFile out[3], char hex[3][65])
+{
+    for (int i = 0; i < 3; i++) {
+        hex_of(SAMPLE[i].text, hex[i]);
+        const char *rel = i == 2 ? "README" : SAMPLE[i].path;   /* the image has it as README.;1 */
+        out[i] = (DataFile){ rel, (long)strlen(SAMPLE[i].text), hex[i] };
+    }
+}
+
+static int build_sample(const char *out, const char *under, const char *changed)
+{
+    char names[3][200];
+    IsoBuildFile files[3];
+    for (int i = 0; i < 3; i++) {
+        snprintf(names[i], sizeof names[i], "%s%s%s", under, under[0] != '\0' ? "/" : "", SAMPLE[i].path);
+        files[i] = (IsoBuildFile){ names[i], SAMPLE[i].text, strlen(SAMPLE[i].text) };
+    }
+    if (changed != NULL) files[1].data = changed;
+    return iso_build(out, files, 3);
+}
+
+static void test_iso_check_and_copy(void)
+{
+    char base[] = "/tmp/tnfs_data_iso_XXXXXX";
+    CHECK(mkdtemp(base) != NULL);
+    DataFile manifest[3];
+    char hex[3][65];
+    sample_manifest(manifest, hex);
+    char img[700], deep[700], other[700];
+    snprintf(img, sizeof img, "%s/a.iso", base);
+    snprintf(deep, sizeof deep, "%s/deep.iso", base);
+    snprintf(other, sizeof other, "%s/other.iso", base);
+    CHECK(build_sample(img, "", NULL));
+    DataCheck c;
+    CHECK_EQ_INT(data_check_iso_against(img, manifest, 3, &c), 1);   /* iso_check_matches_test_manifest */
+    CHECK_EQ_INT(c.matched, 3);
+    CHECK_EQ_INT(c.found, 1);
+    CHECK(c.root[0] == '\0');
+    CHECK(build_sample(deep, "NFS", NULL));   /* iso_check_finds_root_one_down */
+    CHECK_EQ_INT(data_check_iso_against(deep, manifest, 3, &c), 1);
+    CHECK(strcmp(c.root, "NFS") == 0);
+    CHECK(build_sample(other, "", "a track, 0123456780"));   /* iso_check_counts_different: one byte changed */
+    CHECK_EQ_INT(data_check_iso_against(other, manifest, 3, &c), 0);
+    CHECK_EQ_INT(c.different, 1);
+    CHECK_EQ_INT(c.matched, 2);
+    CHECK_EQ_INT(c.found, 1);
+    CHECK_EQ_INT(data_check_iso_against("/no/such.iso", manifest, 3, &c), 0);   /* an image that is not there counts nothing */
+    CHECK_EQ_INT(c.found, 0);
+    CHECK_EQ_INT(c.missing, 3);
+    CHECK_EQ_INT(data_is_iso_path("/x/Game.ISO"), 1);
+    CHECK_EQ_INT(data_is_iso_path("/x/Game.iso.zip"), 0);
+    CHECK_EQ_INT(data_is_iso_path("/x/iso"), 0);
+    char err[160];
+    CHECK_EQ_INT(data_iso_readable(img, err, sizeof err), 1);
+    put(other, "this is not a disc image");
+    CHECK_EQ_INT(data_iso_readable(other, err, sizeof err), 0);
+    CHECK(strstr(err, "not a CD image") != NULL);
+
+    /* iso_copy_makes_tree: the files with the image's names, no ";1", no .part left */
+    char dest[700], part[720], path[900];
+    snprintf(dest, sizeof dest, "%s/gamedata", base);
+    snprintf(part, sizeof part, "%s.part", dest);
+    CHECK_EQ_INT((int)data_copy_iso_size(deep, "NFS"), (int)(strlen(SAMPLE[0].text) + strlen(SAMPLE[1].text) + strlen(SAMPLE[2].text)));
+    CHECK_EQ_INT(data_copy_iso(deep, "NFS", dest, NULL, NULL), 1);
+    CHECK_EQ_INT(data_check_against(dest, manifest, 3, &c), 1);   /* the folder check on the copy: README, not README.;1 */
+    snprintf(path, sizeof path, "%s/NFS_WIN.EXE", dest);
+    CHECK(access(path, F_OK) == 0);
+    snprintf(path, sizeof path, "%s/NFS_WIN.EXE;1", dest);
+    CHECK(access(path, F_OK) != 0);
+    CHECK(access(part, F_OK) != 0);
+    /* iso_copy_replaces_existing: a stale file in the old copy is gone after */
+    snprintf(path, sizeof path, "%s/STALE.TXT", dest);
+    put(path, "old");
+    CHECK_EQ_INT(data_copy_iso(img, "", dest, NULL, NULL), 1);
+    CHECK(access(path, F_OK) != 0);
+    CHECK_EQ_INT(data_check_against(dest, manifest, 3, &c), 1);
+    /* iso_copy_cancel_leaves_nothing (and the old copy stays whole when a replacement is cancelled) */
+    char fresh[700];
+    snprintf(fresh, sizeof fresh, "%s/fresh", base);
+    CHECK_EQ_INT(data_copy_iso(img, "", fresh, cancel, NULL), 0);
+    CHECK(access(fresh, F_OK) != 0);
+    snprintf(path, sizeof path, "%s.part", fresh);
+    CHECK(access(path, F_OK) != 0);
+    CHECK_EQ_INT(data_copy_iso(img, "", dest, cancel, NULL), 0);
+    CHECK_EQ_INT(data_check_against(dest, manifest, 3, &c), 1);
+    /* a file that is not an image: a clear error, nothing made */
+    CHECK_EQ_INT(data_copy_iso(other, "", fresh, NULL, NULL), 0);
+    CHECK(strstr(data_copy_error(), "not a CD image") != NULL);
+    CHECK(access(fresh, F_OK) != 0);
+    snprintf(path, sizeof path, "find %s -delete", base);
+    CHECK_EQ_INT(system(path), 0);
+}
+
 static void test_the_root(void)
 {
     char out[1024];
@@ -222,13 +325,34 @@ static void test_the_real_cd(void)
     CHECK(c.total == DATA_MANIFEST_COUNT && DATA_MANIFEST_COUNT >= 10);
 }
 
+/* a real CD image, only when TNFS_TEST_ISO names one (read-only; the copy goes to a scratch folder and is deleted): the manifest matches and the copy checks as a folder */
+static void test_the_real_iso(void)
+{
+    const char *iso = getenv("TNFS_TEST_ISO");
+    if (iso == NULL || iso[0] == '\0') return;
+    DataCheck c;
+    CHECK_EQ_INT(data_check_iso(iso, &c), 1);
+    CHECK_EQ_INT(c.matched, DATA_MANIFEST_COUNT);
+    char base[] = "/tmp/tnfs_real_iso_XXXXXX", dest[700], cmd[800];
+    CHECK(mkdtemp(base) != NULL);
+    snprintf(dest, sizeof dest, "%s/gamedata", base);
+    CHECK(data_copy_iso_size(iso, c.root) > 0);
+    CHECK_EQ_INT(data_copy_iso(iso, c.root, dest, NULL, NULL), 1);
+    CHECK_EQ_INT(data_check(dest, &c), 1);
+    CHECK_EQ_INT(data_looks_installed(dest), 1);
+    snprintf(cmd, sizeof cmd, "find %s -delete", base);
+    CHECK_EQ_INT(system(cmd), 0);
+}
+
 int main(void)
 {
     test_digests();
     test_check_and_copy();
     test_copy_links_and_read_only();
     test_use_it_anyway_then_restart();
+    test_iso_check_and_copy();
     test_the_root();
     test_the_real_cd();
+    test_the_real_iso();
     return TEST_REPORT();
 }

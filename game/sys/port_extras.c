@@ -1,6 +1,8 @@
 /* port: the port's own extras file (extras.cfg). */
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
+#include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
 
 #include <stdio.h>
@@ -19,7 +21,7 @@ static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas"
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
                                             "modern_3d", "texture_filter", "fog", "bumper_mirror",
                                             "bumper_radar", "variant_time", "stats_overlay", "car_markers",
-                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity", "rally_gravel" };
+                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity", "rally_gravel", "update_check" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
@@ -28,7 +30,7 @@ static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
                         e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d,
                         e->texture_filter, e->fog, e->bumper_mirror, e->bumper_radar, e->variant_time,
-                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity, e->rally_gravel };
+                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity, e->rally_gravel, e->update_check };
     memcpy(rows, all, sizeof all);
 }
 
@@ -38,14 +40,14 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
                          &e->modern_3d, &e->texture_filter, &e->fog, &e->bumper_mirror, &e->bumper_radar,
                          &e->variant_time, &e->stats_overlay, &e->car_markers, &e->lunar_springs, &e->movies_wide,
-                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel };
+                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel, &e->update_check };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1, 0 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1, 0, 1 };
     return d;
 }
 
@@ -166,10 +168,10 @@ PortExtras port_extras_load(void)
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_EXTRAS_NAME, &size);
     if (!data)
-        return port_extras_defaults();
+        return port_profile_extras((Profile)port_settings_profile(), port_extras_defaults());
     const PortExtras e = port_extras_parse((const char *)data, size);
     platform_free_file(data);
-    return e;
+    return port_profile_extras((Profile)port_settings_profile(), e);   /* a profile's switches are its table's, whatever the file says */
 }
 
 bool port_extras_save(const PortExtras *e)
@@ -180,7 +182,10 @@ bool port_extras_save(const PortExtras *e)
         port_log("extras: extras.cfg was not saved: its text does not fit %zu bytes\n", sizeof text);
         return false;
     }
-    return platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+    const bool saved = platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+    const int profile = port_settings_profile();
+    if (saved && profile != PROFILE_CUSTOM && !port_profile_extras_match((Profile)profile, e)) port_settings_profile_custom();   /* changed by hand: the profile is no more */
+    return saved;
 }
 
 DashBox port_extras_dash_box(void)

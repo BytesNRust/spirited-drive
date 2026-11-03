@@ -20,12 +20,14 @@
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tgv_player.h"
 #include "game/platform/first_run.h"
+#include "game/platform/update.h"
 #include "game/sys/data_root.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/port_stats.h"
 #include "game/sys/port_icon.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -33,6 +35,7 @@
 #include "game/sys/video.h"
 #include "game/race/race_sim.h"
 #include "platform/platform.h"
+#include "tnfs_version.h"
 #include "viewer/asset_viewer.h"
 #include "viewer/drive_joy.h"
 #include "viewer/track_viewer.h"
@@ -224,6 +227,8 @@ static int run_game(const Options *opt)
     pointer_start();
     pointer_on_wait(menu_audio_music_service);
     joy_start_up(opt->german);
+    if (port_extras_load().update_check) platform_update_check_start(TNFS_VERSION);   /* port: one background question to our API (it counts the start), never blocking */
+    port_stats_event(STATS_FIRST_START);   /* port: once per install, only with the same switch On; a dev build sends nothing */
     frontend_run();
     text_free();
     pointer_free();
@@ -234,7 +239,7 @@ static int run_game(const Options *opt)
 
 /* port (the first-run wizard): --data as given, else the player's own copy of the CD (<user dir>/gamedata), else a development build's original/, else the wizard asks for the
  * CD's folder and makes the copy */
-static int resolve_data_root(const Options *opt, char *out, size_t out_size)
+static int resolve_data_root(const Options *opt, char *out, size_t out_size, int *data_copied)
 {
     char copy[1024];
     const int has_copy = first_run_user_copy(copy, sizeof copy);
@@ -248,20 +253,42 @@ static int resolve_data_root(const Options *opt, char *out, size_t out_size)
         port_fatal("no game data: run it once without --data on a machine with a display and choose the CD's folder, or give --data DIR\n");
         return 0;
     }
+    *data_copied = 1;   /* port: counted as data_ready once --mods is in place (below), so a --mods run writes nothing to the pref dir */
     snprintf(out, out_size, "%s", copy);
     return 1;
+}
+
+/* port: the events go to our API; a development build (TNFS_SOURCE_DIR, never a release) with TNFS_STATS_DRYRUN=<version> counts them as that version and
+ * only writes what it would send to the log, so the tests can run a "release" without a request */
+static void stats_dry_sender(const char *event, const char *version) { port_log("stats: dry run, would send %s v=%s\n", event, version); }
+
+static void set_stats_sender(void)
+{
+#ifdef TNFS_SOURCE_DIR
+    const char *const dry = getenv("TNFS_STATS_DRYRUN");
+    if (dry != NULL && dry[0] != '\0') {
+        port_stats_set_version(dry);
+        port_stats_set_sender(stats_dry_sender);
+        return;
+    }
+#endif
+    port_stats_set_sender(platform_stats_post);
 }
 
 int main(int argc, char **argv)
 {
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
+    port_settings_set_display_probe(platform_desktop_size);   /* the profiles' widescreen is the display's own shape */
+    set_stats_sender();
     platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in tnfs.log too */
     int ok;
     static char data_root[1024];
-    if (!resolve_data_root(&opt, data_root, sizeof data_root)) return EXIT_FAILURE;
+    int data_copied = 0;
+    if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
+    if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to <mods>/user with --mods */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
     else if (opt.movie != NULL) ok = run_movie(&opt);

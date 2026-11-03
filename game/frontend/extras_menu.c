@@ -44,16 +44,17 @@ enum { BUTTON_Y = 445, DONE_X = 40, CANCEL_RIGHT = 600, DONE_X1 = 0x141, CANCEL_
 
 /* the two headers of each page, in the owner's words */
 static const char *const HEADERS[EXTRAS_PAGES][EXTRAS_GROUPS] = { { "Cheats", "Unlocks & mods" },
-                                                                 { "In-race options", "Miscellaneous" } };
+                                                                 { "In-race options", NULL },
+                                                                 { "Miscellaneous", NULL } };   /* NULL: the page has one group */
 
 /* where each page's second group begins, as a row of that page: extras_menu.h's order already has each page's first
  * group first, so the second is the first row under its header (Warrior Rival Car on page 1, Start Screen on page 2) */
-static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_RIVAL - ROW_EXPLODE, ROW_START - ROW_FIRST_P2 };
+static const int SECOND_GROUP[EXTRAS_PAGES] = { ROW_RIVAL - ROW_EXPLODE, ROWS_P2, ROWS_P3 };   /* pages 2 and 3 have no second group: it would begin past their last row */
 
 /* the first switch of each page, in extras_menu.h's flat list */
-static int first_of(int page) { return page == 0 ? ROW_EXPLODE : ROW_FIRST_P2; }
+static int first_of(int page) { return page == 0 ? ROW_EXPLODE : page == 1 ? ROW_FIRST_P2 : ROW_FIRST_P3; }
 /* how many switches a page shows, which is where its Done sits: Cancel is the one past it */
-static int rows_of(int page) { return page == 0 ? ROWS_P1 : ROWS_P2; }
+static int rows_of(int page) { return page == 0 ? ROWS_P1 : page == 1 ? ROWS_P2 : ROWS_P3; }
 static int done_of(int page) { return rows_of(page); }
 static int cancel_of(int page) { return rows_of(page) + 1; }
 /* Unlock Level is the one switch on page 1 with three values rather than two */
@@ -65,6 +66,8 @@ static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
 static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
 /* Difficulty is the last with three values on page 2: Easy, Original, Hard (extras.cfg's difficulty 0, 1, 2) */
 static int difficulty_row(void) { return ROW_DIFFICULTY - ROW_FIRST_P2; }
+/* Open the log folder is an action row: no value, Return runs it */
+static int log_row(void) { return ROW_LOG_FOLDER - ROW_FIRST_P3; }
 static int shows_kmh(const PortExtras *e, int language_kmh)
 {
     return e->units == UNITS_KMH || (e->units == UNITS_LANGUAGE && language_kmh);
@@ -78,7 +81,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
-    "Start Screen", "Intro video"
+    "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder"
 };
 
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
@@ -92,8 +95,10 @@ static int *flag_of(PortExtras *e, int page, int row)
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
                                &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */,
-                               NULL /* Start Screen */, &e->no_movies };
-    return p2[row];
+                               };
+    if (page == 1) return p2[row];
+    int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */ };
+    return p3[row];
 }
 
 /* port: Unlock Level 1 or more gives the Warrior, as the exe does (extras_apply.c's settle), whatever the switch says:
@@ -118,6 +123,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
+    else if (page == 2 && row == log_row()) out[0] = '\0';
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -200,6 +206,7 @@ static void follow(Page *p, const ExtrasMenuOps *o)
 static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const ExtrasMenuOps *o)
 {
     int *const flag = flag_of(e, p->page, p->selected);
+    if (p->page == 2 && p->selected == log_row()) return;   /* an action: only Return, Space or a click run it (choose) */
     if (fixed_by_level(e, *unlock, p->page, p->selected)) {
         o->sound(o->ctx, MOVED);   /* the level holds it: nothing to change */
         return;
@@ -240,6 +247,9 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
     } else if (p->selected == cancel_of(p->page)) {
         o->sound(o->ctx, CHOSEN);
         p->result = 0;
+    } else if (p->page == 2 && p->selected == log_row()) {   /* port: the log folder opens in the file browser */
+        o->sound(o->ctx, CHOSEN);
+        if (o->open_log_folder != NULL) o->open_log_folder(o->ctx);
     } else {
         change(p, e, unlock, 1, o);
     }
@@ -326,6 +336,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     /* the page's two headers: they name the group under them and are never the selection. Underlined across the
      * rows, as the credits head and close off their sections */
     for (int group = 0; group < EXTRAS_GROUPS; group++) {
+        if (HEADERS[p->page][group] == NULL) continue;
         const int y = line_y(p->page, header_line(p->page, group));
         if (o->plus_header != NULL) o->plus_header(o->ctx, HEADERS[p->page][group], LABEL_X, y, VALUE_RIGHT - LABEL_X);
         else text(o, STYLE_RED, HEADERS[p->page][group], LABEL_X, y);

@@ -1,28 +1,30 @@
 #include "game/frontend/options_menu.h"
 
 #include <stddef.h>
+#include <stdio.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
-enum { TRANSMISSION, ABS, TRACTION, AUDIO, GRAPHICS, CONTROLS, LOAD_SAVE, CREDITS, EXTRAS, DONE, CANCEL, ITEMS };
+enum { TRANSMISSION, ABS, TRACTION, AUDIO, GRAPHICS, CONTROLS, LOAD_SAVE, CREDITS, EXTRAS, DONE, CANCEL, PROFILE, ITEMS };   /* PROFILE: the port's row between Customize game and Done, last in the arrays */
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, WIDE = 0x280, TALL = 0x1e0, ALL = 0x100 };
 enum { NOT_OFFERED = 2, TOURNAMENT = 3, CIRCUIT = 2, TIME_TRIAL = 0, TRACKS = 9 };
 
 /* 00444ad0 / 00444ae4: where the pointer goes per item */
-static const int16_t POINTER_X[ITEMS] = { 240, 240, 240, 240, 240, 240, 240, 240, 240, 40, 565 };
-static const int16_t POINTER_Y[ITEMS] = { 118, 151, 185, 220, 253, 287, 324, 363, 396, 450, 450 };
+static const int16_t POINTER_X[ITEMS] = { 240, 240, 240, 240, 240, 240, 240, 240, 240, 40, 565, 240 };
+static const int16_t POINTER_Y[ITEMS] = { 118, 151, 185, 220, 253, 287, 324, 363, 396, 450, 450, 420 };
 /* the bands 00463f80 is asked about, in turn: the eight rows across the screen, then Done and Cancel side by side.
  * port: with the extras op, Customize game takes the bottom of Credits' band under its art and the top of the
  * Done / Cancel band (0x17d..0x1b1), free space in option/options.qfs; the row is text over the picture. Without it
  * Credits ends at 0x184 and Done and Cancel keep their band from 0x185. */
-static const int16_t BAND_LEFT[ITEMS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x143 };
-static const int16_t BAND_RIGHT[ITEMS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x141, WIDE };
-static const int16_t BAND_TOP[ITEMS] = { 0, 0x86, 0xa8, 0xcc, 0xed, 0x10f, 0x133, 0x156, 0x17d, 0x1b2, 0x1b2 };
+static const int16_t BAND_LEFT[ITEMS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x143, 0 };
+static const int16_t BAND_RIGHT[ITEMS] = { WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, WIDE, 0x141, WIDE, WIDE };
+static const int16_t BAND_TOP[ITEMS] = { 0, 0x86, 0xa8, 0xcc, 0xed, 0x10f, 0x133, 0x156, 0x17d, 0x1b2, 0x1b2, 0x19b };
+enum { EXTRAS_BOTTOM_WITH_PROFILE = 0x19a };   /* with the profile row (0x19b..0x1b1, between Customize game and Done) the Customize band ends over it */
 enum { DONE_BAND_TOP = 0x185 };     /* Done's and Cancel's top without the Customize row */
 enum { CREDITS_BAND_BOTTOM = 0x184 };   /* Credits' bottom without the Customize row */
-static const int16_t BAND_BOTTOM[ITEMS] = { 0x85, 0xa7, 0xcb, 0xec, 0x10e, 0x132, 0x155, 0x17c, 0x1b1, TALL, 0x1df };
-static const char *const LIT[ITEMS] = { "Tral", "Absl", "Trcl", "Audl", "Gral", "Conl", "Loal", "Crel", NULL, "Donl", "Canl" };
-static const char *const DARK[ITEMS] = { "Trad", "Absd", "Trcd", "Audd", "Grad", "Cond", "Load", "Cred", NULL, "Dond", "Cand" };
+static const int16_t BAND_BOTTOM[ITEMS] = { 0x85, 0xa7, 0xcb, 0xec, 0x10e, 0x132, 0x155, 0x17c, 0x1b1, TALL, 0x1df, 0x1b1 };
+static const char *const LIT[ITEMS] = { "Tral", "Absl", "Trcl", "Audl", "Gral", "Conl", "Loal", "Crel", NULL, "Donl", "Canl", NULL };
+static const char *const DARK[ITEMS] = { "Trad", "Absd", "Trcd", "Audd", "Grad", "Cond", "Load", "Cred", NULL, "Dond", "Cand", NULL };
 /* port: the Customize row's label and where it is written: the art rows' left edge, one row step under Credits as
  * the eye reads it */
 static const char EXTRAS_LABEL[] = "Customize game";
@@ -77,6 +79,32 @@ static void extras_row(const Menu *m, const OptionsMenuState *st, int32_t style,
     o->plus_text(o->ctx, style, EXTRAS_LABEL, EXTRAS_X, EXTRAS_Y);
 }
 
+/* port (profiles): the row's words over the picture, between Customize game and Done: "Profile" at the rows' left edge, "<  name  >" where the settings' values stand (lit while it is the selection) and the
+ * profile's first line under them, smaller. The picture is drawn again whenever the row changes, so nothing is left behind. */
+static void profile_row(const Menu *m, const OptionsMenuOps *o)
+{
+    enum { LABEL_X = 6, VALUE_RIGHT = 570, TITLE_Y = 404, LINE_Y = 424, SMALL_NUM = 3, SMALL_DEN = 5 };
+    const char *text[3] = { "", "", "" };
+    if (o->profile == NULL || o->plus_text == NULL || o->plus_text_width == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL ||
+        !o->profile(o->ctx, 0, text))
+        return;
+    char value[96];
+    snprintf(value, sizeof value, "<  %s  >", text[0]);
+    const int style = m->selected == PROFILE;
+    o->plus_text(o->ctx, style, "Profile", LABEL_X, TITLE_Y);
+    o->plus_text(o->ctx, style, value, VALUE_RIGHT - o->plus_text_width(o->ctx, value), TITLE_Y);
+    o->plus_text_scaled(o->ctx, 0, text[1], LABEL_X, LINE_Y, SMALL_NUM, SMALL_DEN);
+}
+
+/* port (profiles): the next (+1) or previous (-1) profile, the picture drawn again */
+static void cycle_profile(Menu *m, const OptionsMenuOps *o, int step)
+{
+    const char *text[3];
+    if (o->profile == NULL) return;
+    o->profile(o->ctx, step, text);
+    m->redraw = 1;
+}
+
 static void palette(Menu *m, const OptionsMenuOps *o)
 {
     m->pal = o->shape(o->ctx, m->bank, "!pal");
@@ -88,8 +116,9 @@ static void follow(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 {
     for (int16_t i = 0; i < ITEMS; i++) {
         if (i == EXTRAS && o->extras == NULL) continue;
-        const int16_t top = i > EXTRAS && o->extras == NULL ? DONE_BAND_TOP : BAND_TOP[i];
-        const int16_t bottom = i == CREDITS && o->extras == NULL ? CREDITS_BAND_BOTTOM : BAND_BOTTOM[i];
+        if (i == PROFILE && o->profile == NULL) continue;
+        const int16_t top = i > EXTRAS && i != PROFILE && o->extras == NULL ? DONE_BAND_TOP : BAND_TOP[i];
+        const int16_t bottom = i == CREDITS && o->extras == NULL ? CREDITS_BAND_BOTTOM : i == EXTRAS && o->profile != NULL ? EXTRAS_BOTTOM_WITH_PROFILE : BAND_BOTTOM[i];
         if (!o->pointer_in_rect(o->ctx, BAND_LEFT[i], BAND_RIGHT[i], top, bottom)) continue;
         if (m->selected != i && (i != LOAD_SAVE || *st->lost == 0)) {
             m->previous = m->selected;
@@ -122,6 +151,7 @@ static void draw(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
     for (int16_t i = AUDIO; i < ITEMS; i++)
         if (m->selected == i) blit(m, LIT[i], o);
     extras_row(m, st, m->selected == EXTRAS ? 1 : 0, o);
+    profile_row(m, o);
     if (*st->lost) blit(m, "Loam", o);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
@@ -217,6 +247,10 @@ static void put_back(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *
     *st->traction = m->kept[3];
     m->done = 1;
     o->music_fade_to(o->ctx, *st->music_volume);
+    if (o->profile != NULL) {   /* port: Cancel puts the profile back as it was on entry, like the values above */
+        const char *text[3];
+        o->profile(o->ctx, OPTIONS_PROFILE_CANCEL, text);
+    }
 }
 
 static void choose(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
@@ -278,6 +312,9 @@ static void choose(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
         o->extras(o->ctx);
         back(m, st, o);
         break;
+    case PROFILE:   /* port: Return or a click on the right: the next profile; on the left third of the row: the previous one */
+        cycle_profile(m, o, o->pointer_in_rect(o->ctx, 0, 0xd5, BAND_TOP[PROFILE], BAND_BOTTOM[PROFILE]) ? -1 : 1);
+        break;
     case DONE:
         settle(m, st, o);
         m->done = 1;
@@ -293,6 +330,10 @@ static void choose(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 /* Up: back one, Cancel to Credits, over Load / save while the connection is lost, Transmission to Done */
 static void step_up(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 {
+    if (o->profile != NULL && (m->selected == DONE || m->selected == CANCEL || m->selected == PROFILE)) {   /* port: the profile row is between Customize game and Done */
+        m->selected = m->selected == PROFILE ? EXTRAS : PROFILE;
+        return;
+    }
     if (m->selected == CANCEL) m->selected--;
     m->selected--;
     if (m->selected < 0) m->selected = DONE;
@@ -303,6 +344,10 @@ static void step_up(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o
 /* Down: Done and Cancel to Transmission, else on one */
 static void step_down(Menu *m, const OptionsMenuState *st, const OptionsMenuOps *o)
 {
+    if (o->profile != NULL && (m->selected == EXTRAS || m->selected == PROFILE)) {   /* port: Customize game goes to the profile row, it to Done */
+        m->selected = m->selected == EXTRAS ? PROFILE : DONE;
+        return;
+    }
     if (m->selected == DONE || m->selected == CANCEL) {
         m->selected = TRANSMISSION;
         return;
@@ -325,6 +370,8 @@ static void step(Menu *m, const OptionsMenuState *st, uint16_t k, const OptionsM
         else step_down(m, st, o);
         move_to(m->selected, o);
         m->changed = 1;
+    } else if ((k == LEFT || k == RIGHT) && m->selected == PROFILE && o->profile != NULL) {   /* port: the profile row's arrows */
+        cycle_profile(m, o, k == LEFT ? -1 : 1);
     } else if ((k == LEFT || k == RIGHT) && (m->selected == DONE || m->selected == CANCEL)) {
         const int16_t to = m->selected == DONE ? CANCEL : DONE;
         o->pointer_off(o->ctx);
@@ -344,6 +391,10 @@ int32_t options_menu(OptionsMenuState *st, const OptionsMenuOps *ops)
     static Menu zero;
     Menu m = zero;
     m.kept[0] = *st->transmission, m.kept[1] = *st->automatic, m.kept[2] = *st->abs, m.kept[3] = *st->traction;
+    if (ops->profile != NULL) {   /* port: what the profile row changes can be undone until Options is left */
+        const char *text[3];
+        ops->profile(ops->ctx, OPTIONS_PROFILE_BEGIN, text);
+    }
     move_to(TRANSMISSION, ops);
     m.bank = ops->load_art(ops->ctx, "option/options.qfs");
     *st->inverse = ops->load_inverse(ops->ctx, "option/options.inv");
@@ -390,6 +441,10 @@ int32_t options_menu(OptionsMenuState *st, const OptionsMenuOps *ops)
             m.done = 1;
         }
     } while (!m.done);
+    if (ops->profile != NULL) {
+        const char *text[3];
+        ops->profile(ops->ctx, OPTIONS_PROFILE_END, text);   /* left by Done: what was changed stays */
+    }
     ops->fade_out(ops->ctx, 0, ALL);
     ops->free_inverse(ops->ctx);
     ops->free(ops->ctx, m.bank);

@@ -3,7 +3,10 @@
 #include "formats/modpath.h"
 #include "formats/validate.h"
 #include "game/sys/key_latch.h"
+#include "game/sys/data_path.h"
+#include "game/sys/file_url.h"
 #include "game/sys/port_log.h"
+#include "tnfs_version.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -149,8 +152,30 @@ bool platform_cursor_hidden(void)
     return window != NULL && !SDL_CursorVisible();
 }
 
+static const char *user_path(const char *name, char *out, size_t out_size);
+
+/* port (the bug-report log): tnfs.log in the user directory, what the game said this run (the last run's as tnfs.log.1), headed with what a report needs */
+static void open_log(void)
+{
+    static int opened;   /* once a run: another window's init must not rotate this run's log away */
+    char path[1024];
+    if (opened) return;
+    opened = 1;
+    if (user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
+#ifdef TNFS_VERSION
+    port_log("tnfs %s\n", TNFS_VERSION);
+#else
+    port_log("tnfs (no version)\n");
+#endif
+    port_log("system: %s, SDL %d.%d.%d, %d logical cpus\n", SDL_GetPlatform(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
+             SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores());
+    port_log("log: %s\n", path);
+}
+
 bool platform_init(const PlatformConfig *config)
 {
+    data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
+    open_log();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
@@ -229,6 +254,7 @@ void platform_framebuffer_size(int *width, int *height)
 
 bool platform_desktop_size(int *width, int *height)
 {
+    if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO)) return false;   /* asked before the window (the profiles' format): the video system first */
     const SDL_DisplayID display = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode *mode = display != 0 ? SDL_GetDesktopDisplayMode(display) : NULL;
     if (mode == NULL || mode->w <= 0 || mode->h <= 0) return false;
@@ -794,6 +820,15 @@ bool platform_set_mods(const char *data_root, const char *mods_dir)
     return true;
 }
 
+void platform_open_log(const char *mods_dir)
+{
+    SDL_PathInfo info;
+    if (mods_dir != NULL && mods_dir[0] != '\0' && SDL_GetPathInfo(mods_dir, &info) && info.type == SDL_PATHTYPE_DIRECTORY)
+        SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);   /* platform_set_mods checks it and says so when it is not there */
+    data_path_set_base(SDL_GetBasePath());
+    open_log();
+}
+
 const char *platform_mods_error(void)
 {
     return mods_error;
@@ -874,10 +909,28 @@ static const char *user_dir(char *out, size_t out_size)
         SDL_CreateDirectory(out);
         return out;
     }
+    const char *const env = SDL_getenv("TNFS_PREF_DIR");   /* a dev/test override: the tests and modders keep clear of the player's own folder */
+    if (env != NULL && env[0] != '\0') {
+        SDL_snprintf(out, out_size, "%s/", env);
+        SDL_CreateDirectory(out);
+        return out;
+    }
     if (pref == NULL) pref = SDL_GetPrefPath("tnfs", "tnfs");
     if (pref == NULL) return NULL;
     SDL_snprintf(out, out_size, "%s", pref);
     return out;
+}
+
+bool platform_user_dir(char *out, size_t out_size)
+{
+    return user_dir(out, out_size) != NULL;
+}
+
+int platform_open_user_dir(void)
+{
+    char dir[1200], url[3700];
+    if (user_dir(dir, sizeof dir) == NULL || file_url_from_path(dir, url, sizeof url) == 0) return 0;
+    return SDL_OpenURL(url) ? 1 : 0;
 }
 
 static const char *user_path(const char *name, char *out, size_t out_size)

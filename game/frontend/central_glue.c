@@ -51,6 +51,7 @@
 #include "game/frontend/menu_race.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
+#include "game/sys/port_settings.h"
 #include "game/frontend/race_settings.h"
 #include "game/frontend/random_pick.h"
 #include "game/frontend/save_files.h"
@@ -75,6 +76,9 @@
 #include "game/viewer/drive_joy.h"
 #include "game/viewer/track_viewer.h"
 
+#include "game/frontend/boot_screen.h"
+#include "tnfs_version.h"
+#include "game/sys/port_stats.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -764,6 +768,7 @@ static void raise_unlocks(void *ctx)
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state: alone, this machine's player 0; in a link
  * game, the link game's words */
 static void after_race(void *ctx);
+static void race_finished(void *ctx);
 static void race(void *ctx)
 {
     (void)ctx;
@@ -788,7 +793,7 @@ static void race(void *ctx)
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
-        points, after_race, next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx };
+        points, after_race, next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx, race_finished };
     menu_race(&st, &ops);
     g.warrior = (int16_t)race_warrior;
     int32_t *const slot = ea_screen_slot();
@@ -799,6 +804,13 @@ static void race(void *ctx)
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
     races_from_state();
     extras_apply();   /* port: get_race zeroes the variants; the next race from the same Control Central keeps them */
+}
+
+/* port: a race run to its end (not one given up or lost): the first one of an install is counted, if the switch is On */
+static void race_finished(void *ctx)
+{
+    (void)ctx;
+    port_stats_event(STATS_FIRST_RACE);
 }
 
 /* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */
@@ -817,13 +829,21 @@ static void blit_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_
 static void poll(void *ctx) { (void)ctx; pointer_sync_from_os(); }
 
 
+/* port: our dedication and credits pages after the original's, over the credits' music */
+static void credits_service(void) { menu_audio_music_service(); }
+static void credits_extra(void *ctx)
+{
+    (void)ctx;
+    credits_extra_show(TNFS_VERSION, credits_service);
+}
+
 /* 004166e0 from Options */
 static void credits(void *ctx, int32_t mode)
 {
     (void)mode;
     const CreditsOps ops = { load_art, shape, palette_set, music_feed, select_picture, blit, select_default,
                              picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
-                             free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx };
+                             free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx, credits_extra };
     const CreditsState st = { ea_screen_slot(), pointer_active_word(), &g.buttons, stage_word(), &credits_idle };
     credits_last = timer_ticks();
     credits_show(&st, &ops);
@@ -1084,6 +1104,17 @@ void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, in
     plus_text(ctx, style_id, text, x, y);
 }
 int32_t glue_plus_text_width(void *ctx, const char *text) { return plus_text_width(ctx, text); }
+void glue_plus_text_scaled(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)ctx;
+    text_select((TextStyle)style_id);
+    text_draw_smooth(text, x, y, num, den);
+}
+int32_t glue_plus_text_width_scaled(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    (void)ctx;
+    return text_width_scaled(text, num, den);
+}
 void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     plus_panel(ctx, rgb, x0, y0, x1, y1, framed);
@@ -1635,7 +1666,8 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel };
+        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel, port_profile_ui() ? glue_profile : NULL,
+        glue_plus_text_scaled, glue_plus_text_width_scaled };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],

@@ -109,6 +109,8 @@ bool platform_set_mods(const char *data_root, const char *mods_dir);
 /* The player's writable folder with its trailing '/': <mods>/user/ with a mods directory, else $TNFS_PREF_DIR (tests, modders), else the OS's own (SDL_GetPrefPath).
  * False when there is none. */
 bool platform_user_dir(char *out, size_t out_size);
+/* Opens that folder (the one holding tnfs.log) in the OS file browser, for bug reports. 1 when the OS took the request, 0 when there is no folder or it could not. */
+int platform_open_user_dir(void);
 /* Opens tnfs.log in that folder at once (the program calls it first, with its --mods directory or NULL), so a run that stops before platform_init (no game data) still
  * leaves its report. platform_init opens it too when this was not called. */
 void platform_open_log(const char *mods_dir);

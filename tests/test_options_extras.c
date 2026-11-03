@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000 };
+enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000 };
 
 typedef struct Fake {
     const int *keys;
@@ -18,6 +18,10 @@ typedef struct Fake {
     char drawn[128][32];
     int drawn_count;
     int text_x, text_y;   /* where the last text went */
+    int drawn_y[128];
+    int profile_net, profile_reads, profile_steps;   /* the profile op: the sum of the steps, how often it was asked */
+    int profile_begin, profile_cancel, profile_end;   /* entered, left by Cancel, left at the end (every way out) */
+    int scaled_y;         /* where the small line under the profile went */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -69,12 +73,35 @@ static void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_
     Fake *f = ctx;
     (void)style;
     f->text_x = x, f->text_y = y;
+    if (f->drawn_count < 128) f->drawn_y[f->drawn_count] = y;
     if (f->drawn_count < 128) snprintf(f->drawn[f->drawn_count++], sizeof f->drawn[0], "%s", text);
 }
 static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * 8; }
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     (void)ctx, (void)rgb, (void)x0, (void)y0, (void)x1, (void)y1, (void)framed;
+}
+
+static void f_text_scaled(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    Fake *f = ctx;
+    (void)style, (void)text, (void)x, (void)num, (void)den;
+    f->scaled_y = y;
+}
+static int32_t f_text_width_scaled(void *ctx, const char *text, int32_t num, int32_t den) { (void)ctx; return (int32_t)strlen(text) * 8 * num / den; }
+static int32_t f_profile(void *ctx, int32_t step, const char *text[3])
+{
+    Fake *f = ctx;
+    if (step == OPTIONS_PROFILE_BEGIN) return f->profile_begin++, 1;
+    if (step == OPTIONS_PROFILE_CANCEL) return f->profile_cancel++, 1;
+    if (step == OPTIONS_PROFILE_END) return f->profile_end++, 1;
+    f->profile_reads++;
+    if (step != 0) f->profile_steps++;
+    f->profile_net += step;
+    text[0] = "Stock '96";
+    text[1] = "Factory spec.";
+    text[2] = "4:3.";
+    return 1;
 }
 
 /* the EXTRAS screen itself: opened, then left on Done (it never writes here) */
@@ -97,6 +124,7 @@ typedef struct Rig {
     int16_t transmission, automatic, abs, traction, opponent, player_car, net_car, laps, difficulty;
     int16_t race_type, track, music_volume, lost, pointer_active, buttons, net_off, quit, redraw_asked;
     int16_t link_game;
+    int with_profile;   /* the port's Profile row */
     int no_extras;   /* the original's ops: no extras op, no Extras row */
     int32_t screen, inverse;
 } Rig;
@@ -141,6 +169,7 @@ static void run(Rig *r, const int *keys, int count)
         .pointer_off = f_void, .music = f_void, .net_sync = f_void, .deadline_passed = f_zero,
         .extras = f_extras, .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .ctx = &r->fake };
+    if (r->with_profile) ops.profile = f_profile, ops.plus_text_scaled = f_text_scaled, ops.plus_text_width_scaled = f_text_width_scaled;
     if (r->no_extras) ops.extras = NULL, ops.plus_text = NULL, ops.plus_text_width = NULL, ops.plus_panel = NULL;
     (void)options_menu(&st, &ops);
 }
@@ -253,6 +282,126 @@ static void test_without_the_op_done_band_from_0x185(void)
     CHECK_EQ_INT(r.fake.key_next, 1);   /* Done left on the Enter: no Escape asked after it */
 }
 
+/* without the profile op the screen is the one it was: no row, Customize game goes to Done */
+static void test_without_the_profile_op_no_row(void)
+{
+    Rig r;
+    int keys[16];
+    int n = 0;
+    for (int i = 0; i < 9; i++) keys[n++] = DOWN;   /* Credits is the 7th; then Extras, Done */
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(!shown(&r.fake, "Profile"));
+    CHECK_EQ_INT(r.fake.moved_y[7], 396);   /* Extras */
+    CHECK_EQ_INT(r.fake.moved_y[8], 450);   /* Done, not the profile row */
+    CHECK_EQ_INT(r.fake.profile_reads, 0);
+}
+
+/* with it the row is text at x 6, y 404, its value on the right, the small line under it at 424 */
+static void test_the_profile_row_is_drawn(void)
+{
+    Rig r;
+    const int keys[] = { ESCAPE };
+    setup(&r);
+    r.with_profile = 1;
+    run(&r, keys, 1);
+    CHECK(shown(&r.fake, "Profile"));
+    CHECK(shown(&r.fake, "<  Stock '96  >"));
+    for (int i = 0; i < r.fake.drawn_count; i++)
+        if (strcmp(r.fake.drawn[i], "Profile") == 0) CHECK_EQ_INT(r.fake.drawn_y[i], 404);
+    CHECK_EQ_INT(r.fake.scaled_y, 424);
+}
+
+/* Down from Customize game lands on the profile row (pointer y 420), one more on Done; Up from Done is the row, and from the row Customize game */
+static void test_the_profile_row_sits_between_customize_and_done(void)
+{
+    Rig r;
+    int keys[16];
+    int n = 0;
+    for (int i = 0; i < 10; i++) keys[n++] = DOWN;
+    keys[n++] = UP;
+    keys[n++] = UP;
+    setup(&r);
+    r.with_profile = 1;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.moved_y[7], 396);   /* Customize game */
+    CHECK_EQ_INT(r.fake.moved_y[8], 420);   /* the profile row */
+    CHECK_EQ_INT(r.fake.moved_y[9], 450);   /* Done */
+    CHECK_EQ_INT(r.fake.moved_y[10], 420);
+    CHECK_EQ_INT(r.fake.moved_y[11], 396);
+}
+
+/* Right and Left on the row step it; Return steps forward */
+static void test_the_arrows_and_return_cycle_the_profile(void)
+{
+    Rig r;
+    int keys[16];
+    int n = 0;
+    for (int i = 0; i < 9; i++) keys[n++] = DOWN;
+    keys[n++] = RIGHT;
+    keys[n++] = RIGHT;
+    keys[n++] = LEFT;
+    keys[n++] = ENTER;
+    setup(&r);
+    r.with_profile = 1;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.profile_steps, 4);
+    CHECK_EQ_INT(r.fake.profile_net, 2);   /* +1 +1 -1 +1 */
+    CHECK_EQ_INT(r.fake.extras_opens, 0);
+}
+
+/* the pointer: the band is 0x19b..0x1b1 (411..433); a click on its left third steps back, elsewhere forward; Customize game's band ends at 0x19a */
+static void test_the_pointer_and_the_profile_band(void)
+{
+    Rig r;
+    const int keys[] = { ENTER, ESCAPE };
+    setup(&r);
+    r.with_profile = 1;
+    r.fake.pointer_pinned = 1;
+    r.fake.pointer_x = 60;
+    r.fake.pointer_y = 420;
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.profile_net, -1);
+    setup(&r);
+    r.with_profile = 1;
+    r.fake.pointer_pinned = 1;
+    r.fake.pointer_x = 400;
+    r.fake.pointer_y = 420;
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.profile_net, 1);
+    setup(&r);
+    r.with_profile = 1;
+    r.fake.pointer_pinned = 1;
+    r.fake.pointer_x = 60;
+    r.fake.pointer_y = 410;   /* Customize game's last row */
+    run(&r, keys, 2);
+    CHECK_EQ_INT(r.fake.extras_opens, 1);
+    CHECK_EQ_INT(r.fake.profile_net, 0);
+}
+
+/* Options asks to arm the undo on entry and to close it on the way out; Cancel (Escape) asks to put the profile back, Done does not */
+static void test_cancel_puts_the_profile_back(void)
+{
+    Rig r;
+    const int escape[] = { ESCAPE };
+    setup(&r);
+    r.with_profile = 1;
+    run(&r, escape, 1);
+    CHECK_EQ_INT(r.fake.profile_begin, 1);
+    CHECK_EQ_INT(r.fake.profile_end, 1);
+    CHECK_EQ_INT(r.fake.profile_cancel, 1);
+    int keys[16];
+    int n = 0;
+    for (int i = 0; i < 10; i++) keys[n++] = DOWN;   /* to Done */
+    keys[n++] = ENTER;
+    setup(&r);
+    r.with_profile = 1;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.profile_begin, 1);
+    CHECK_EQ_INT(r.fake.profile_cancel, 0);
+    CHECK_EQ_INT(r.fake.profile_end, 1);
+}
+
 int main(void)
 {
     test_without_the_op_no_extras_row();
@@ -263,5 +412,11 @@ int main(void)
     test_extras_is_the_last_element_before_done();
     test_enter_on_extras_opens_the_screen();
     test_the_pointer_reaches_the_extras_row();
+    test_without_the_profile_op_no_row();
+    test_the_profile_row_is_drawn();
+    test_the_profile_row_sits_between_customize_and_done();
+    test_the_arrows_and_return_cycle_the_profile();
+    test_the_pointer_and_the_profile_band();
+    test_cancel_puts_the_profile_back();
     return TEST_REPORT();
 }

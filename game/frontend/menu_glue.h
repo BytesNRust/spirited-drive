@@ -52,6 +52,9 @@ int32_t glue_extras_screen(int16_t unlock);
 /* port (central_glue.c): the additions' text (style 0 cream, 1 yellow) and shaded panel */
 void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 int32_t glue_plus_text_width(void *ctx, const char *text);
+int32_t glue_profile(void *ctx, int32_t step, const char *text[3]);   /* port (profiles): Game Mode's and Options' profile row: step 0 reads, +1 / -1 cycles */
+void glue_plus_text_scaled(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);   /* port: the same at num/den of its size */
+int32_t glue_plus_text_width_scaled(void *ctx, const char *text, int32_t num, int32_t den);
 void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
 /* port (central_glue.c): the configuration screens' clean background, one composed copy shared by the Graphics and
  * EXTRAS screens. The second composes it into the caller's buffers, the first puts it on with its palette. */

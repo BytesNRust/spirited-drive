@@ -2,6 +2,7 @@
 #ifndef TNFS_GAME_MODE_H
 #define TNFS_GAME_MODE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* the palette's bytes (004376ac's 0x300 on its stack) */
@@ -59,6 +60,18 @@ typedef struct GameModeOps {
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
+    /* port (profiles): a fifth item under Exit, "Profile < name >" with two lines about it. step 0 reads, +1 / -1 cycles to the next / previous; text[0] the name, text[1] and
+     * text[2] the lines; returns 1 when there is a profile row at all. NULL: the original's four items, their bands as they were. */
+    int32_t (*profile)(void *ctx, int32_t step, const char *text[3]);
+    /* port (profiles): the same text at num/den of its size, for the two lines under the name (the long ones are wider than the screen at full size) */
+    void (*plus_text_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
+    int32_t (*plus_text_width_scaled)(void *ctx, const char *text, int32_t num, int32_t den);
+    /* port: line 0 (the version) and 1 (the update notice, drawn above it) at the foot, into text (cap bytes); 1 when there is one. Asked every
+     * pass: the menu is drawn again when the line changes. NULL: none */
+    int32_t (*footer)(void *ctx, int32_t line, char *text, size_t cap);
+    /* port: a left click on the update notice opens the releases page (the notice is inside Exit's band, so it is
+     * taken before the choosing). NULL: the notice is not clickable */
+    void (*open_notice)(void *ctx);
 } GameModeOps;
 
 typedef struct GameModeState {

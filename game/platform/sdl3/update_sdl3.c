@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The update check over SDL3: a thread asks GitHub through the system's curl (shipped with macOS, Windows 10+ and
+/* The update check over SDL3: a thread asks our API (api.bytesnrust.com; the question counts the start) through the system's curl (shipped with macOS, Windows 10+ and
  * nearly every Linux), so the game needs no TLS library. The command line is a constant: nothing from the network
  * or the player reaches the shell. Any failure (no curl, offline, rate limit) just ends as UPDATE_NONE. */
 #include "game/platform/update.h"
@@ -14,13 +14,9 @@
 #if defined(_WIN32)
 #define UPDATE_POPEN _popen
 #define UPDATE_PCLOSE _pclose
-#define UPDATE_NULL_DEV "NUL"
-#define UPDATE_CURL "curl.exe"           /* System32's, Windows 10 1803 and later */
 #else
 #define UPDATE_POPEN popen
 #define UPDATE_PCLOSE pclose
-#define UPDATE_NULL_DEV "/dev/null"
-#define UPDATE_CURL "/usr/bin/curl"      /* the system's, never one earlier on PATH */
 #endif
 
 #define UPDATE_ANSWER_MAX 65536
@@ -33,9 +29,8 @@ static char latest_found[32];        /* written by the thread before `state` tur
 #if !defined(__EMSCRIPTEN__)
 static int fetch_latest_json(char *buf, size_t cap)
 {
-    const char *cmd = UPDATE_CURL " -fsSL --proto =https --proto-redir =https --max-time 8 "
-                      "-H \"Accept: application/vnd.github+json\" "
-                      "-A tnfs-restomod-update-check \"" UPDATE_RELEASES_API "\" 2>" UPDATE_NULL_DEV;
+    char cmd[512];
+    if (!update_api_command(cmd, sizeof cmd, NULL, current)) return 0;
     FILE *pipe = UPDATE_POPEN(cmd, "r");
     if (!pipe) return 0;
     size_t n = 0, got;
@@ -55,8 +50,8 @@ static int SDLCALL update_thread(void *unused)
     (void)unused;
     static char answer[UPDATE_ANSWER_MAX];
     char tag[32];
-    int result = UPDATE_NONE;
-    if (fetch_latest_json(answer, sizeof answer) && update_parse_latest_tag(answer, tag, sizeof tag)
+    int result = UPDATE_NONE;   /* offline, 503 {"latest":null} before the first release, HTML, garbage: no notice */
+    if (fetch_latest_json(answer, sizeof answer) && update_parse_api_latest(answer, tag, sizeof tag)
         && update_version_compare(tag, current) > 0) {
         memcpy(latest_found, tag, sizeof latest_found);
         result = UPDATE_NEWER;
@@ -65,6 +60,51 @@ static int SDLCALL update_thread(void *unused)
     return 0;
 }
 #endif
+
+#if !defined(__EMSCRIPTEN__)
+typedef struct {
+    char event[24];
+    char version[40];
+} StatsPost;
+
+/* one anonymous event, on its own thread; the answer (204) is thrown away */
+static int SDLCALL stats_thread(void *arg)
+{
+    StatsPost *post = arg;
+    char cmd[512];
+    if (update_api_command(cmd, sizeof cmd, post->event, post->version)) {
+        FILE *pipe = UPDATE_POPEN(cmd, "r");
+        if (pipe) {
+            char drain[256];
+            while (fread(drain, 1, sizeof drain, pipe) > 0) {
+            }
+            UPDATE_PCLOSE(pipe);
+        }
+    }
+    SDL_free(post);
+    return 0;
+}
+#endif
+
+void platform_stats_post(const char *event, const char *version)
+{
+#if !defined(__EMSCRIPTEN__)
+    if (!event || !version || strlen(event) >= sizeof(((StatsPost *)0)->event) || strlen(version) >= sizeof(((StatsPost *)0)->version))
+        return;
+    StatsPost *post = SDL_calloc(1, sizeof *post);
+    if (!post) return;
+    memcpy(post->event, event, strlen(event) + 1);
+    memcpy(post->version, version, strlen(version) + 1);
+    SDL_Thread *thread = SDL_CreateThread(stats_thread, "stats-event", post);
+    if (!thread) {
+        SDL_free(post);
+        return;
+    }
+    SDL_DetachThread(thread);
+#else
+    (void)event, (void)version;
+#endif
+}
 
 void platform_update_check_start(const char *current_version)
 {

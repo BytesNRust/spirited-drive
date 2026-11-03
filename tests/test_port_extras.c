@@ -251,8 +251,25 @@ static void test_fullest_file_saves(void)
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
+/* "Check for updates" (update_check): On by default, an Off sticks and is written */
+static void test_update_check(void)
+{
+    CHECK_EQ_INT(port_extras_defaults().update_check, 1);
+    CHECK_EQ_INT(port_extras_parse("update_check=0\n", 15).update_check, 0);
+    CHECK_EQ_INT(port_extras_parse("update_check=1\n", 15).update_check, 1);
+    CHECK_EQ_INT(port_extras_parse("update_check=2\n", 15).update_check, 1);   /* not a switch value: left as it was */
+    CHECK_EQ_INT(port_extras_parse("", 0).update_check, 1);                     /* an old file with no key: On */
+    PortExtras e = port_extras_defaults();
+    e.update_check = 0;
+    char out[1024];
+    const size_t n = port_extras_format(&e, out, sizeof out);
+    CHECK(n > 0 && strstr(out, "update_check=0") != NULL);
+    CHECK_EQ_INT(port_extras_parse(out, n).update_check, 0);
+}
+
 int main(void)
 {
+    test_update_check();
     test_defaults();
     test_movies_wide();
     test_difficulty_key();

@@ -44,6 +44,7 @@ void credits_show(const CreditsState *st, const CreditsOps *ops)
         ops->fade_out(ops->ctx, 0, ALL);
         ops->music_feed(ops->ctx);
     }
+    if (!leave && ops->extra != NULL) ops->extra(ops->ctx);
     ops->free_inverse(ops->ctx);
     ops->music_fade_out(ops->ctx);
     ops->fade_out(ops->ctx, 0, ALL);
