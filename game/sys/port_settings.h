@@ -66,6 +66,8 @@ typedef struct {
                               * descent (the exe's half lift left it low on climbs and high on descents); 0: as it was */
     int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (psx_light_lamp_classes);
                               * 0: the pools only lift the light, as they did */
+    int canyon_shade;        /* 1: with car_tunnel_light, the car is 30 % darker in Burnt Sienna's canyon (TR6, the property-16 stretch after the mine, nodes 547..585, where the walls
+                              * shade the road); 0: full sun there, as it was */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -164,6 +166,9 @@ int port_chase_height(void);
 int port_lamp_pool_tint(void);
 /* 1 when Transtropolis' made light is corrected (trans_shadows): TNFS_TRANS_SHADOWS=0/1 when set, else port.cfg's; never without port_psx_light. */
 int port_trans_shadows(void);
+
+/* 1 when the car is shaded in the canyon (canyon_shade): TNFS_CANYON_SHADE=0/1 when set, else port.cfg's; never without port_car_tunnel_light. */
+int port_canyon_shade(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };

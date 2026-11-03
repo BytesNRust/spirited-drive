@@ -25,6 +25,8 @@ void psx_light_free(PsxLight *light)
     free(light->data);
     free(light->hall);
     free(light->tunnel);
+    free(light->canyon);
+    light->canyon = NULL;
     free(light->pool_class);
     light->pool_class = NULL;
     light->data = NULL;

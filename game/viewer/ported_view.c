@@ -535,10 +535,16 @@ static int ratio_at(int32_t node, float out[3])
     return found;
 }
 
+static const float CANYON_SHADE_FACTOR = 0.70f;   /* port (canyon_shade): the owner's pick, 30 % darker */
+
 static int ratio_of(int32_t node, float out[3])
 {
     if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's lamp alternation */
         (port_car_tunnel_light() ? psx_light_synth_car_tunnel : psx_light_synth_car)(psx_light, psx_ring_node(node, psx_light->nodes), out);   /* port (car_tunnel_light) */
+        if (psx_light->canyon != NULL && psx_light->canyon[psx_ring_node(node, psx_light->nodes)]) {   /* port (canyon_shade): the walls shade the car in the canyon */
+            const float f = port_canyon_shade() ? CANYON_SHADE_FACTOR : 1.0f;
+            for (int k = 0; k < 3; k++) out[k] *= f;
+        }
         return 1;
     }
     if (!ambient_on || psx_light == NULL) return 0;
