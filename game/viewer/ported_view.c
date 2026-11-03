@@ -1392,15 +1392,16 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
         if (y1 <= y0) return;
         y = (int32_t)y0, h = (int32_t)(y1 - y0);
     }
-    raster_fill(t->raster, x, y, w, h, colour);
+    raster_fill(t->raster, x, y, w, h, t->smooth != NULL ? t->smooth->map[colour] : colour);   /* port: the PS1 / PC alt sky's bitmap index is of its own palette */
 }
 
 /* 00484389 */
 static void sky_polygon(void *user, uint8_t colour, const int32_t points[8])
 {
     const SkyTargets *t = user;
-    if (t->banded) flat_polygon_rows(t->full, colour, 4, points, t->top, t->bottom);
-    else flat_polygon(t->quad, colour, 4, points);
+    const uint8_t shown = t->smooth != NULL ? t->smooth->map[colour] : colour;
+    if (t->banded) flat_polygon_rows(t->full, shown, 4, points, t->top, t->bottom);
+    else flat_polygon(t->quad, shown, 4, points);
 }
 
 static int sky_off;  /* 004fb786 */
