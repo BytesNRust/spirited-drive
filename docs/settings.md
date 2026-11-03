@@ -1,6 +1,6 @@
 # Settings reference: port.cfg, extras.cfg and the profiles
 
-Every key the port reads from its two files, its default, the value that reproduces the exe, its range, where a menu shows it, its `TNFS_*` variable, and what each profile sets. Read from `game/sys/port_settings.{c,h}`, `game/sys/port_extras.{c,h}`, `game/sys/port_profile.c` (`TABLES`) and the menus in `game/frontend/`, at `origin/combo/c40` + `feat/police-glow` (113e4a1d). Three keys that live on branches not in that base are in their own section at the end.
+Every key the port reads from its two files, its default, the value that reproduces the exe, its range, where a menu shows it, its `TNFS_*` variable, and what each profile sets. Read from `game/sys/port_settings.{c,h}`, `game/sys/port_extras.{c,h}`, `game/sys/port_profile.c` (`TABLES`) and the menus in `game/frontend/`, at `origin/combo/c44` (17516708). Every key added to the port since (`police_glow`, `radar_all_views`, `tach_dim`, `gauge_wheel`, `replay_no_ffb`, `last_camera`/`camera_kind`, `sky_fill_below`, `chase_height`, `lamp_pool_tint`, `trans_shadows`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`) is in the tables, with its value in each profile; a key that is in no profile column says "not set".
 
 Both files are plain `key=value` lines in the user folder. An unknown key, or a value out of range, is ignored (the default stays). A key in `port.cfg` wins over the same key in `extras.cfg`.
 
@@ -37,7 +37,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `fog_sample` | 0 | 0 | 0, 1 (the fog's colour from the band round the horizon, not the art's last rows) | none | `TNFS_FOG_SAMPLE` (`TNFS_FOG_LIFT` 0..100, dev) | 0 / 0 / 1 |
 | `weather` | `clear` | `clear` | `clear`, `fog`, `rain` | Track Select: Weather | `TNFS_WEATHER` | not set |
 | `body_shine` | 0 | 0 | 0..4 (1 subtle, 2 default look, 3 strong, 4 the envmap; 0 the exe's frames) | none | `TNFS_BODY_SHINE` | 0 / 0 / 4 |
-| `car_colours` | 0 | 0 | 0, 1 (the screen palette's car slots fitted to the colours the cars show) | none (the CUSTOMIZE "Car Colours" row is extras.cfg's `psx_liveries`) | `TNFS_CAR_COLOURS` | 0 / 0 / 1 |
+| `car_colours` | 0 | 0 | 0, 1 (the screen palette's car slots fitted to the colours the cars show; up to 12 palette entries are kept out of the fit for the police lights, the cars' lamps and the night lamps) | none (the CUSTOMIZE "Car Colours" row is extras.cfg's `psx_liveries`) | `TNFS_CAR_COLOURS` | 0 / 0 / 1 |
 | `laps` | 0 | 0 (the exe's laps) | 0, 1..99 | none (the track screen's lap count follows it) | `TNFS_LAPS` | not set |
 | `free_records` | 0 | 0 (no table for a free lap count) | 0, 1 | none | `TNFS_FREE_RECORDS` | not set |
 
@@ -65,6 +65,8 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `headlight_relight` | 0 | 0 | 0, 1 (the night pools' light is asked again every frame) | none | `TNFS_HEADLIGHT_RELIGHT` | 0 / 0 / 1 | `psx_headlights` |
 | `vegas_car_night` | 0 | 0 | 0, 1 (Lost Vegas' made night takes the darker tint under the CD nights' ceiling) | none | `TNFS_VEGAS_CAR_NIGHT` | not set | `psx_light`, night |
 | `rally_gravel_shoulder` | 0 | 0 | 0, 1 (the rolling gravel's one-shot is the shoulder's own, about one a second) | none | `TNFS_RALLY_GRAVEL_SHOULDER` | not set | extras `rally_gravel` |
+| `lamp_pool_tint` | 0 | 0 | 0, 1 (the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool) | none | `TNFS_LAMP_POOL_TINT` | not set | `psx_headlights` |
+| `trans_shadows` | 0 | 0 | 0, 1 (Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge) | none | `TNFS_TRANS_SHADOWS` | not set | `psx_light` |
 
 ### Dash, cameras and replay
 
@@ -74,6 +76,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `tach_dim` | 0 | 0 | 0, 1 (the outside views' tachometer takes the dash's half tint) | none | `TNFS_TACH_DIM` | 0 / 0 / 1 |
 | `gauge_wheel` | 0 | 0 | 0, 1 (at night the wheel in front of the gauges takes the dash's half tint) | none | `TNFS_GAUGE_WHEEL` | 0 / 0 / 1 |
 | `replay_no_ffb` | 0 | 0 | 0, 1 (a replay leaves the force-feedback stick and the pad's rumble still) | none | `TNFS_REPLAY_NO_FFB` | 0 / 0 / 1 |
+| `chase_height` | 0 | 0 | 0, 1 (the chase eye behind the car keeps the flat chase's height above the road on a climb or a descent; acts only with extras `follow_camera`) | none | `TNFS_CHASE_HEIGHT` | not set |
 | `last_camera` | 0 | 0 (a race starts in the dash) | 0, 1 (a race starts in the last camera used) | none | `TNFS_LAST_CAMERA` | 0 / 0 / 1 |
 | `camera_kind` | -1 | -1 | -1 (none yet), 0..5 | none; the game writes it, read only with `last_camera` | none | not set |
 
@@ -170,17 +173,7 @@ All 36 columns of the table, in file order. A column that is not here is not tou
 | `gauge_wheel` | port.cfg | 0 | 0 | 1 |
 | `police_glow` | port.cfg | 0 | 0 | 1 |
 
-The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `port_profile_ui`, `camera_kind`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`. `car_tunnel_light`, `vegas_car_night` and `rally_gravel_shoulder` are the three newer port.cfg keys that are in no profile column (each is gated on `psx_light`, `made_tunnels` or `rally_gravel`, which a profile does set): decide whether Restomod should turn them on.
-
-## Keys on branches not in this base
-
-Each is a port.cfg key, 0/1, default 0, exe 0, no menu, and none is in a profile column on its branch (`port_profile.c` is untouched there). Each is read by `TNFS_<KEY>` first, then port.cfg.
-
-| key | branch | env | what | needs |
-|---|---|---|---|---|
-| `chase_height` | `fix/chase-slope-height-c40` | `TNFS_CHASE_HEIGHT` | the chase eye behind the car keeps the flat chase's height above the road on a climb or a descent | extras `follow_camera` |
-| `lamp_pool_tint` | `feat/lamp-pool-tint-c40` | `TNFS_LAMP_POOL_TINT` | the road under a street lamp takes a warm yellow tint, strongest under the lamp | `psx_headlights` |
-| `trans_shadows` | `fix/trans-shadow-map-c40` | `TNFS_TRANS_SHADOWS` | Transtropolis' made light has no shade of the walls beside the airport's approach to the truss bridge | `psx_light` |
+The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `port_profile_ui`, `camera_kind`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`. `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`, `chase_height`, `lamp_pool_tint` and `trans_shadows` are the six newer port.cfg keys that are in no profile column. Each is gated on a key a profile does set (`psx_light`, `made_tunnels`, `psx_headlights`, `rally_gravel`, `follow_camera`), so in Restomod they are on only if the player turns them on: decide whether Restomod should turn them on.
 
 ## Development-only variables
 
