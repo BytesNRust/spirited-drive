@@ -97,12 +97,18 @@ static void test_tables(void)
     CHECK_EQ_INT(s.refresh_hz, 60);
     CHECK_EQ_INT(s.f3_ultra, 0);   /* the exe's three views */
     CHECK_EQ_INT(s.psx_light, 0);
+    CHECK_EQ_INT(s.made_tunnels + s.hall_light + s.headlight_relight + s.night_stretch_clean, 0);
+    CHECK_EQ_INT(s.forest_dark, 0);
+    CHECK_EQ_INT(s.night_sky_hue, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.render_scale, 1);
     CHECK_EQ_INT(s.psx_light, 0);
     CHECK_EQ_INT(s.body_shine, 0);
+    CHECK_EQ_INT(s.made_tunnels + s.hall_light + s.headlight_relight + s.night_stretch_clean, 0);
+    CHECK_EQ_INT(s.forest_dark, 0);
+    CHECK_EQ_INT(s.night_sky_hue, 0);
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
     CHECK_EQ_INT(s.psx_light, 1);
@@ -110,6 +116,12 @@ static void test_tables(void)
     CHECK_EQ_INT(s.psx_headlights, 1);
     CHECK_EQ_INT(s.perspective, 1);
     CHECK_EQ_INT(s.body_shine, 4);   /* the envmap */
+    CHECK_EQ_INT(s.made_tunnels, 1);
+    CHECK_EQ_INT(s.hall_light, 1);
+    CHECK_EQ_INT(s.headlight_relight, 1);
+    CHECK_EQ_INT(s.night_stretch_clean, 1);
+    CHECK_EQ_INT(s.forest_dark, 1);
+    CHECK_EQ_INT(s.night_sky_hue, 1);
     /* what is the player's own is not touched: laps, the PS1 folder, the time of day, full screen */
     PortSettings own = base;
     own.laps = 7, own.fullscreen = 1, own.psx_time = PSX_TIME_NIGHT;
@@ -123,6 +135,21 @@ static void test_tables(void)
     s.psx_flares = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_CUSTOM, &s, SCREEN_21_9), 1);   /* custom is never wrong */
+    s.psx_flares = 1;
+    s.made_tunnels = 0;   /* each of the later keys counts in the match too */
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.made_tunnels = 1, s.hall_light = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.hall_light = 1, s.headlight_relight = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.headlight_relight = 1, s.night_stretch_clean = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.night_stretch_clean = 1, s.forest_dark = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.forest_dark = 1, s.night_sky_hue = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.night_sky_hue = 1;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
     e = port_profile_extras(PROFILE_RESTOMOD, e);
