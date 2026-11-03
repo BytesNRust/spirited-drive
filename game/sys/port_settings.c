@@ -387,6 +387,12 @@ int port_two_sided_scenery(int automatic)
     return automatic != 0;
 }
 
+int port_reverse_tunnels(void)
+{
+    const char *v = getenv("TNFS_REVERSE_TUNNELS");
+    return v != NULL && v[0] == '1' && v[1] == '\0';
+}
+
 int port_close_boxes(int automatic)
 {
     const char *v = getenv("TNFS_CLOSE_BOXES");

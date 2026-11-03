@@ -137,6 +137,8 @@ int port_two_sided_scenery(int automatic);
 /* 1 when the L buildings (the two-sided boards) are closed into boxes (track_object_draw.h): TNFS_CLOSE_BOXES=0/1 (dev, for A/B) when set, else `automatic`, the same
  * condition as the open models drawn from behind: a reversed track or the 360 camera. No port.cfg key, no menu. */
 int port_close_boxes(int automatic);
+/* 1 when a reversed circuit is turned fully (tri_reverse_with): the tunnel/LOD byte goes with its strip and the 3D models (tunnel portals, bridges) turn about the centre of their footprint, not their corner: TNFS_REVERSE_TUNNELS=0/1 (dev), default 0 (the file as tri_reverse makes it). No port.cfg key yet. */
+int port_reverse_tunnels(void);
 /* 1 when the foundry hall's car and shadow take the scenery's light (psx_light_synth.h): TNFS_HALL_LIGHT=0/1 when set, else port.cfg's hall_light; never without port_psx_light. */
 int port_hall_light(void);
 
