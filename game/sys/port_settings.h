@@ -55,6 +55,8 @@ typedef struct {
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
+    int night_sky_hue;       /* 1: the night's sky of the dusk's art takes a blue-black hue at its own luminance (psx_sky_draw_rehue); 0: the art's
+                              * hues under the night's tint, as it was */
 } PortSettings;
 
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else port.cfg's render_scale. */
@@ -78,6 +80,8 @@ int port_fog_lift(void);
 enum { FOG_SAMPLE_LIFT_DEFAULT = 15 };
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
+/* 1 when the night's sky is re-hued blue-black (psx_sky_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else port.cfg's night_sky_hue. */
+int port_night_sky_hue(void);
 /* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_PSX_FLARES=0/1 when set, else port.cfg's psx_flares; never without port_psx_light. */
 int port_psx_flares(void);
 /* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 (dev) when set, else `automatic`: the race has a reversed track or the 360 camera

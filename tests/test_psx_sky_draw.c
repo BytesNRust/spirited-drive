@@ -2,6 +2,7 @@
 #include "viewer/psx_sky_draw.h"
 #include "test.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum { W = 4, H = 2 };
@@ -69,6 +70,31 @@ static void test_scale_darkens_the_sky(void)
     CHECK_EQ_INT(d.bitmap.palette[3], 255);   /* kept in a byte */
     psx_sky_draw_free(&d);
     psx_sky_draw_scale(&d, mul);   /* nothing made: nothing happens */
+}
+
+/* the night's hue: every colour of the sky keeps its luminance and takes the ramp's hue, an orange dusk sky and an olive one alike go blue-black */
+static void test_rehue_keeps_luminance_and_drops_the_dusk_hue(void)
+{
+    uint8_t texels[W * H] = { 0, 1, 2, 0, 1, 2, 0, 0 };
+    uint8_t decode[768] = { 0 };
+    decode[3 * 1] = 60, decode[3 * 1 + 1] = 30, decode[3 * 1 + 2] = 20;    /* a dusk's red-brown */
+    decode[3 * 2] = 25, decode[3 * 2 + 1] = 27, decode[3 * 2 + 2] = 0;     /* an olive */
+    FshEntry horizon = { { 0 }, FSH_TYPE_BITMAP, 0, W, H, { 0, 1, 0, 0 }, texels, sizeof texels };
+    PsxSkyDraw d;
+    memset(&d, 0, sizeof d);
+    CHECK(psx_sky_draw_make_indexed(&d, &horizon, decode));
+    const float ramp[3] = { 0.6f, 0.8f, 1.0f };
+    psx_sky_draw_rehue(&d, ramp);
+    for (int i = 1; i <= 2; i++) {
+        const uint8_t *const c = d.bitmap.palette + 3 * i;
+        const int was = i == 1 ? (30 * 60 + 59 * 30 + 11 * 20 + 50) / 100 : (30 * 25 + 59 * 27 + 50) / 100;
+        const int now = (30 * c[0] + 59 * c[1] + 11 * c[2] + 50) / 100;
+        CHECK(abs(now - was) <= 2);                 /* the luminance stays */
+        CHECK(c[2] > c[1] && c[1] > c[0]);          /* the ramp's order: blue over green over red */
+    }
+    CHECK_EQ_INT(d.bitmap.palette[0], 0);           /* black stays black */
+    psx_sky_draw_free(&d);
+    psx_sky_draw_rehue(&d, ramp);                    /* nothing made: nothing happens */
 }
 
 /* a made-up night sky: 256 x 32, the horizon at row 24, row y of palette entry y (a dark ramp), entry 31 a bright cloud */
@@ -203,6 +229,7 @@ int main(void)
     test_indexed_and_in_palette();
     test_rejected();
     test_scale_darkens_the_sky();
+    test_rehue_keeps_luminance_and_drops_the_dusk_hue();
     test_stars_in_the_dark_sky();
     test_stars_are_the_seeds_and_thinner_low();
     test_stars_take_the_least_used_entries();
