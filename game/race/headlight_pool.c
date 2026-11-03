@@ -14,6 +14,14 @@ static int lift(int distance)
     return t * t * (3 * 256 - 2 * t) / (256 * 256);                         /* smoothstep, still 0..256 */
 }
 
+/* the lift at a distance of `d256` 256ths of a node ahead (negative: behind): between the whole nodes' lifts, linearly */
+static int lift_at(int32_t d256)
+{
+    const int32_t whole = d256 >= 0 ? d256 / 256 : -((-d256 + 255) / 256);   /* floor */
+    const int32_t part = d256 - whole * 256;
+    return (lift((int)whole) * (256 - part) + lift((int)whole + 1) * part) / 256;
+}
+
 int headlight_pool_gain(const HeadlightPool *pool, uint32_t node)
 {
     int best = 0;
@@ -25,10 +33,23 @@ int headlight_pool_gain(const HeadlightPool *pool, uint32_t node)
             if (d > half) d -= (int32_t)pool->ring;
             else if (d < -half) d += (int32_t)pool->ring;
         }
-        const int l = lift(d);
+        int32_t d256 = d * 256 - pool->sub[i];
+        if (pool->dir[i] < 0) d256 = -d256;   /* the light is ahead of the car's travel */
+        const int l = lift_at(d256);
         if (l > best) best = l;
     }
     return HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * best / 256;
+}
+
+int headlight_pool_width(int point)
+{
+    static const int SHARE[11] = { 256, 256, 256, 112, 48, 0, 256, 256, 112, 48, 0 };
+    return point >= 0 && point < 11 ? SHARE[point] : 256;
+}
+
+int headlight_pool_car_gain(int gain)
+{
+    return HEADLIGHT_FLOOR + (gain - HEADLIGHT_FLOOR) * HEADLIGHT_CAR_SHARE / 256;
 }
 
 uint8_t headlight_pool_apply(uint8_t value, int gain)

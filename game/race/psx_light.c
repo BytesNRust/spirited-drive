@@ -114,7 +114,8 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
 {
     const uint8_t v = light_at(light, node, point);
     if (light == NULL || light->pool == NULL || psx_light_tunnel(light, node)) return v;   /* a tunnel keeps the dusk's light, its own lamps' */
-    return headlight_pool_apply(v, headlight_pool_gain(light->pool, node));
+    const int gain = headlight_pool_gain(light->pool, node);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
+    return headlight_pool_apply(v, HEADLIGHT_FLOOR + (gain - HEADLIGHT_FLOOR) * headlight_pool_width(point) / 256);
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node)
