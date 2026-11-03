@@ -49,6 +49,12 @@ int32_t follow_behind_run_key(int32_t node, int32_t first_node, int32_t node_mas
     return (int32_t)((uint32_t)(node - first_node) & (uint32_t)node_mask);
 }
 
+int32_t follow_behind_lower_node(int32_t camera_segment, int circuit)
+{
+    const int32_t node = (camera_segment - 1) * 4;
+    return !circuit && node < 0 ? 0 : node;
+}
+
 void follow_behind_runs(int32_t *runs, int32_t *drawn)
 {
     *runs = B.run_count;
@@ -535,7 +541,7 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
                        .mask = mask, .run_hi = B.run_count - 1, .first_node = (int32_t)((uint32_t)first * 4u & (uint32_t)r->build.walk.node_mask), .last_node = -1 };
     const int shift = p->ctx.world_shift & 31;
     int32_t lo[3], hi[3];
-    node_position(r, (camera_segment - 1) * 4, lo);
+    node_position(r, follow_behind_lower_node(camera_segment, a->circuit), lo);
     node_position(r, camera_segment * 4, hi);
     follow_behind_direction(lo, hi, cam->matrix, shift, p->ctx.near_dir);
     {
