@@ -116,6 +116,8 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out)
             out->nodes = count;
             out->scripted = 0;
             out->reversed = 0;
+            out->tunnel = flags;   /* the road's tunnel nodes go with it (made_tunnels) */
+            flags = NULL;
             data = NULL;
         }
     }
