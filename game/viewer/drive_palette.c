@@ -245,16 +245,17 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
         for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
         const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, 4, pair);
         port_log("police_lights: %d of 4 palette entries set aside for the red and blue flash\n", found);
-        if (found == 4) {
-            static const uint8_t colour[4][3] = { { 63, 0, 0 }, { 0, 0, 63 }, { 44, 0, 0 }, { 0, 0, 44 } };   /* the cores, then the darker halos (the exe's 63/48 and 63/48) */
+        if (found >= 2) {   /* the two rims are enough; a centre not found stays 0 and police_lights_table uses its rim */
+            /* COPMUST.CFM's !PAL (police_lights.h): the rims 0xfb (252,0,0) and 0xfd (0,0,252) first, then the centres 0xfa (252,100,84) and 0xfc (76,124,252), in 6 bits */
+            static const uint8_t colour[4][3] = { { 63, 0, 0 }, { 0, 0, 63 }, { 63, 25, 21 }, { 19, 31, 63 } };
             uint8_t hidden[RACE_PALETTE_COLOURS];
             memcpy(hidden, palette_world_hidden(), sizeof hidden);
-            for (int k = 0; k < 4; k++) race_palette_write(p, pair[k], 1, colour[k]);
-            for (int k = 0; k < 4; k++) p->enabled[pair[k]] = 0, hidden[pair[k]] = 1, exempt[pair[k]] = 1;
+            for (int k = 0; k < found; k++) race_palette_write(p, pair[k], 1, colour[k]);
+            for (int k = 0; k < found; k++) p->enabled[pair[k]] = 0, hidden[pair[k]] = 1, exempt[pair[k]] = 1;
             palette_world_hide(hidden);
             palette_usable_set(p->enabled);
             if (p->inverse != NULL) race_palette_inverse(p);
-            police_lights_set_entries(pair[0], pair[1], pair[2], pair[3]);
+            police_lights_set_found(pair, found);
         }
     }
     palette_emissive_set(exempt);   /* only the shared entries: no texel shows them by day */
