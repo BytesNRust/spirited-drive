@@ -108,6 +108,8 @@ static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
 /* the tunnel's dim road and walls on the PS1 are olive / amber, never the texture's own grey: green and blue lost on every darkened level
  * (fitted to the clip's road, (38,34,16) for a grey texture) */
 static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
+/* the least light a tunnel's surfaces take (the dusk's mean): its own lamps light it, the night's tint and its ceiling do not darken it below */
+static const float TUNNEL_LIGHT = 0.6f;
 
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
 {
@@ -1659,7 +1661,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int cast = lamp_count > 0;   /* a tunnel track: its darkened levels take the olive cast */
         if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
-            modern_light_tables_cast(art->palette, lit_tint, cast ? TUNNEL_CAST : NO_CAST, tunnel_tables);
+            if (cast) modern_tunnel_tables(art->palette, lit_tint, TUNNEL_CAST, TUNNEL_LIGHT, tunnel_tables);
+            else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
             memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
         }
         for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
