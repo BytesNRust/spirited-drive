@@ -24,13 +24,17 @@ typedef struct {
     uint8_t frac[HEADLIGHT_MAX];   /* how far each is on to the next node, out of 256 (0 when not known) */
     int count;
     uint32_t ring;                 /* the track's nodes: a node ahead wraps round it */
+    const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, psx_light_synth_tunnels); NULL when not known */
 } HeadlightPool;
 
-/* How much of its light a node has: 256 for full, HEADLIGHT_FLOOR for none of the pool's; the best of the cars' pools. A pool with no cars is all dark. */
+/* How much of its light a node has (a tunnel node of pool->tunnel with TUNNEL_FLOOR): 256 for full, HEADLIGHT_FLOOR for none of the pool's; the best of the cars' pools. A pool with no cars is all dark. */
 int headlight_pool_gain(const HeadlightPool *pool, uint32_t node);
 
-/* the same inside a tunnel (TUNNEL_FLOOR) */
+/* the same as a tunnel node, whatever pool->tunnel says (a light whose own rows mark the node a tunnel) */
 int headlight_pool_gain_tunnel(const HeadlightPool *pool, uint32_t node);
+
+/* 1 when a car with its headlights on is at `node`: the car's own place takes the light the beam leaves out ahead of it (its body and the dash stay lit) */
+int headlight_pool_car_at(const HeadlightPool *pool, uint32_t node);
 
 /* `value` (0..255) scaled by `gain` (256 = whole). */
 uint8_t headlight_pool_apply(uint8_t value, int gain);

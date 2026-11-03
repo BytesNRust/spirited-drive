@@ -32,7 +32,19 @@ static int gain_with(const HeadlightPool *pool, uint32_t node, int floor)
     return floor + (256 - floor) * best / 256;
 }
 
-int headlight_pool_gain(const HeadlightPool *pool, uint32_t node) { return gain_with(pool, node, HEADLIGHT_FLOOR); }
+int headlight_pool_gain(const HeadlightPool *pool, uint32_t node)
+{
+    const int tunnel = pool != NULL && pool->tunnel != NULL && pool->ring != 0 && pool->tunnel[node % pool->ring];
+    return gain_with(pool, node, tunnel ? TUNNEL_FLOOR : HEADLIGHT_FLOOR);
+}
+
+int headlight_pool_car_at(const HeadlightPool *pool, uint32_t node)
+{
+    if (pool == NULL) return 0;
+    for (int i = 0; i < pool->count && i < HEADLIGHT_MAX; i++)
+        if ((uint32_t)pool->node[i] == (pool->ring != 0 ? node % pool->ring : node)) return 1;
+    return 0;
+}
 
 int headlight_pool_gain_tunnel(const HeadlightPool *pool, uint32_t node) { return gain_with(pool, node, TUNNEL_FLOOR); }
 

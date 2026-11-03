@@ -56,6 +56,19 @@ static void test_a_tunnel_is_lit_by_the_beam_too(void)
     CHECK(TUNNEL_FLOOR > HEADLIGHT_FLOOR && TUNNEL_FLOOR < 256);
 }
 
+static void test_the_roads_own_tunnel_flags_and_the_car_itself(void)
+{
+    uint8_t flags[200] = { 0 };
+    for (int i = 60; i < 80; i++) flags[i] = 1;
+    HeadlightPool p = pool_of(200, 1, 50, 0);
+    p.tunnel = flags;
+    CHECK_EQ_INT(headlight_pool_gain(&p, 120), HEADLIGHT_FLOOR);          /* open: the open dark */
+    CHECK_EQ_INT(headlight_pool_gain(&p, 70), TUNNEL_FLOOR);              /* a flagged node beyond the beam: the tunnel's */
+    CHECK_EQ_INT(headlight_pool_gain(&p, 50 + HEADLIGHT_FULL), 256);
+    CHECK(headlight_pool_car_at(&p, 50) && !headlight_pool_car_at(&p, 51));
+    CHECK(!headlight_pool_car_at(NULL, 50));
+}
+
 static void test_the_ring_and_several_cars(void)
 {
     const HeadlightPool p = pool_of(100, 2, 98, 40);
@@ -91,6 +104,7 @@ int main(void)
     test_the_pool_ahead_of_a_car();
     test_the_pool_slides_with_the_car_inside_a_node();
     test_a_tunnel_is_lit_by_the_beam_too();
+    test_the_roads_own_tunnel_flags_and_the_car_itself();
     test_the_ring_and_several_cars();
     test_apply_and_the_light_bytes();
     return TEST_REPORT();
