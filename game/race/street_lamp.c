@@ -75,6 +75,18 @@ int street_lamps_for(const char *track, StreetLamp *out, int max)
     return 1;
 }
 
+int street_lamps_for_day(const char *track, StreetLamp *out, int max)
+{
+    if (track == NULL || out == NULL || max <= 0) return 0;
+    int n = 0;
+    if (is_track(track, "TR3")) {
+        for (; n < 2 && n < max; n++) out[n] = TR3_LAMPS[n];
+    } else if (is_track(track, "TR7")) {
+        for (; n < 2 && n < max; n++) out[n] = TR7_TRUSS_LAMPS[n];
+    }
+    return n;
+}
+
 int street_lamp_for(const char *track, StreetLamp *out)
 {
     StreetLamp all[STREET_LAMPS_MAX];
@@ -83,7 +95,7 @@ int street_lamp_for(const char *track, StreetLamp *out)
     return 1;
 }
 
-StreetLampPaint street_lamp_paint(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES])
+static StreetLampPaint paint(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES], int rim_on)
 {
     StreetLampPaint done = { 0, 0 };
     if (lamp == NULL || pixels == NULL || entry == NULL || width != lamp->width || height != lamp->height) return done;
@@ -102,7 +114,17 @@ StreetLampPaint street_lamp_paint(const StreetLamp *lamp, uint8_t *pixels, int w
             if (*t != lamp->transparent) continue;
             const int dx = x - lamp->halo_x, dy = y - lamp->halo_y, d2 = dx * dx + dy * dy;
             if (d2 <= lamp->core * lamp->core && (x + y) % 2 == 0) *t = entry[1], done.halo++;                       /* the core: a checker */
-            else if (d2 > lamp->core * lamp->core && d2 <= lamp->rim * lamp->rim && x % 2 == 0 && y % 2 == 0) *t = entry[2], done.halo++;   /* the rim: one in four */
+            else if (rim_on && d2 > lamp->core * lamp->core && d2 <= lamp->rim * lamp->rim && x % 2 == 0 && y % 2 == 0) *t = entry[2], done.halo++;   /* the rim: one in four */
         }
     return done;
+}
+
+StreetLampPaint street_lamp_paint(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES])
+{
+    return paint(lamp, pixels, width, height, entry, 1);
+}
+
+StreetLampPaint street_lamp_paint_day(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES])
+{
+    return paint(lamp, pixels, width, height, entry, 0);
 }

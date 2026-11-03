@@ -45,6 +45,7 @@ static const float NIGHT_PALETTE[3] = { 0.80f, 0.96f, 1.0f };
 static StreetLamp street_lamps[STREET_LAMPS_MAX];   /* port (psx_headlights): the street lamps flare at night (street_lamp.h) */
 static int street_lamp_count;
 static int street_lamp_on;
+static int street_lamp_by_day;   /* the lamps are lit in the daylight (the day's paint: no outer rim) */
 static int night_look;   /* the night's look beyond the sky: the dash darkens (the night, and Lost Vegas always) */
 static const WindowBoard *window_boards;   /* port (psx_headlights): the night's lit windows (window_lights.h), one pool entry for all the boards */
 static int window_board_count;
@@ -204,7 +205,9 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (!enabled) return;
     const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
     headlights_on = (time == PSX_TIME_NIGHT || is_lost_vegas(track)) && port_psx_headlights();
-    street_lamp_count = headlights_on ? street_lamps_for(track, street_lamps, STREET_LAMPS_MAX) : 0;
+    street_lamp_count = headlights_on ? street_lamps_for(track, street_lamps, STREET_LAMPS_MAX)
+                                      : port_psx_headlights() ? street_lamps_for_day(track, street_lamps, STREET_LAMPS_MAX) : 0;   /* port: the Light Effects' lamps lit by day too (street_lamp.h) */
+    street_lamp_by_day = !headlights_on;
     street_lamp_on = street_lamp_count > 0;
     window_board_count = headlights_on ? window_boards_for(track, &window_boards) : 0;
     dark_board_count = headlights_on ? window_darks_for(track, &dark_boards) : 0;
@@ -365,7 +368,9 @@ static void street_lamps_night(TrackArt *art)
         const StreetLamp *const l = &street_lamps[i];
         TrackTexture *t = l->scenery >= 0 && l->scenery < TRACK_SCENERY_TEXTURES ? &art->scenery[l->scenery] : NULL;
         if (t == NULL || !t->present) continue;
-        const StreetLampPaint p = street_lamp_paint(l, (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, entry);
+        uint8_t *const pixels = (uint8_t *)(uintptr_t)t->bitmap.payload;
+        const StreetLampPaint p = street_lamp_by_day ? street_lamp_paint_day(l, pixels, t->bitmap.width, t->bitmap.height, entry)
+                                                     : street_lamp_paint(l, pixels, t->bitmap.width, t->bitmap.height, entry);
         port_log("street_lamps: board %d: %zu lens texels and %zu halo texels in entries %d %d %d\n", l->scenery, p.lens, p.halo, entry[0], entry[1], entry[2]);
     }
 }

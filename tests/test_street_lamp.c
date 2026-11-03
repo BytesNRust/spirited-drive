@@ -144,6 +144,41 @@ static void test_painting_again_and_the_wrong_board(void)
     CHECK_EQ_INT((int)street_lamp_paint(&l, NULL, W, H, entry).lens, 0);
 }
 
+/* by day (street_lamp.h): Vertigo Ridge's two boards and the foundry's truss are lit, nothing else; the day's paint is the lens and the glow's core, no outer rim */
+static void test_the_lamps_lit_by_day(void)
+{
+    StreetLamp l[STREET_LAMPS_MAX];
+    CHECK_EQ_INT(street_lamps_for_day("TR3", l, STREET_LAMPS_MAX), 2);
+    CHECK_EQ_INT(l[0].scenery, 33); CHECK_EQ_INT(l[1].scenery, 34);
+    CHECK_EQ_INT(street_lamps_for_day("tr7", l, STREET_LAMPS_MAX), 2);   /* the foundry truss's two bulbs, not the street lamp */
+    CHECK_EQ_INT(l[0].scenery, 22); CHECK_EQ_INT(l[1].scenery, 22);
+    CHECK_EQ_INT(street_lamps_for_day("CY1", l, STREET_LAMPS_MAX), 0);
+    CHECK_EQ_INT(street_lamps_for_day("TR4", l, STREET_LAMPS_MAX), 0);
+    CHECK_EQ_INT(street_lamps_for_day("TR2", l, STREET_LAMPS_MAX), 0);
+    CHECK_EQ_INT(street_lamps_for_day(NULL, l, STREET_LAMPS_MAX), 0);
+    CHECK_EQ_INT(street_lamps_for_day("TR3", l, 1), 1);
+    /* the truss bulb (board 34, 144 x 82): bulb at x 69..75, y 69..80, the transparent texels round it */
+    StreetLamp bulb;
+    CHECK_EQ_INT(street_lamps_for("TR3", l, STREET_LAMPS_MAX), 2);
+    bulb = l[1];
+    static uint8_t day[144 * 82], night[144 * 82];
+    memset(day, 255, sizeof day);
+    for (int y = 69; y <= 80; y++) memset(day + y * 144 + 69, 40, 7);   /* the bulb's opaque texels */
+    memcpy(night, day, sizeof day);
+    const uint8_t e[STREET_LAMP_ENTRIES] = { 200, 201, 202 };
+    const StreetLampPaint pd = street_lamp_paint_day(&bulb, day, 144, 82, e);
+    const StreetLampPaint pn = street_lamp_paint(&bulb, night, 144, 82, e);
+    CHECK(pd.lens > 0 && pd.lens == pn.lens);                      /* the same lens */
+    CHECK(pd.halo > 0 && pd.halo < pn.halo);                       /* a glow, a smaller one */
+    int rim_day = 0, rim_night = 0;
+    for (int i = 0; i < 144 * 82; i++) rim_day += day[i] == 202, rim_night += night[i] == 202;
+    CHECK_EQ_INT(rim_day, 0);                                      /* no outer rim by day */
+    CHECK(rim_night > 0);
+    const StreetLampPaint again = street_lamp_paint_day(&bulb, day, 144, 82, e);
+    CHECK_EQ_INT((int)again.lens, 0);                              /* painting again changes nothing */
+    CHECK_EQ_INT((int)again.halo, 0);
+}
+
 int main(void)
 {
     test_the_lamp_of_each_track();
@@ -151,5 +186,6 @@ int main(void)
     test_vertigo_ridge_has_two_lamps();
     test_the_lens_and_the_halo();
     test_painting_again_and_the_wrong_board();
+    test_the_lamps_lit_by_day();
     return TEST_REPORT();
 }

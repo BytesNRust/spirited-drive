@@ -290,8 +290,10 @@ static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const ca
     uint8_t rgb[RACE_PALETTE_COLOURS * 3], entry[NIGHT_LAMP_MAX], used[RACE_PALETTE_COLOURS];
     for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
     used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
-    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, NIGHT_LAMP_ENTRIES + street, entry);
-    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps and the street lamps\n", found, NIGHT_LAMP_ENTRIES + street);
+    /* by day only the street lamps' own entries (street_lamp.h's lit-by-day boards); the tunnel lamps' pool is the night's */
+    const int want = (drive_light_night() || drive_light_night_lamps(NULL) > 0 ? NIGHT_LAMP_ENTRIES : 0) + street;
+    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, want, entry);
+    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps and the street lamps\n", found, want);
     if (found <= 0) return;
     uint8_t hidden[RACE_PALETTE_COLOURS], exempt[RACE_PALETTE_COLOURS];
     memcpy(hidden, palette_world_hidden(), sizeof hidden);
