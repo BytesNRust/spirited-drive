@@ -64,8 +64,8 @@ static void file_path(char *out, size_t size, const char *psx_dir, const char *t
 }
 
 /* the LGS's ambient colour as a tint, neutral when the file is missing or does not read */
-/* the most a night's ambient may carry (the mean of its channels): CY1's and TR1's nights, the darkest of the CD's (.45, .42) */
-static const float NIGHT_TINT_CEILING = 0.45f;
+/* the most a night's ambient may carry (the mean of its channels): CY1's and TR1's nights, the darkest of the CD's (.45, .42) lowered to .35: TR2's valley still read as day at .45 */
+static const float NIGHT_TINT_CEILING = 0.35f;
 
 static void load_tint(const char *psx_dir, const char *track, char letter, int night)
 {
