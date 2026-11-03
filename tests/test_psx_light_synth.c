@@ -309,6 +309,12 @@ static void test_car_tunnel_light_follows_the_flags(void)
     for (int k = 0; k < 3; k++) CHECK(fabsf(same[k] - old[k]) < 1e-6f);
 }
 
+static void test_mine_track(void)
+{
+    CHECK(psx_light_synth_mine("TR6") && psx_light_synth_mine("tr6"));
+    CHECK(!psx_light_synth_mine("TR7") && !psx_light_synth_mine(NULL));
+}
+
 static void test_trans_closed_range(void)
 {
     uint32_t a = 0, b = 0, r = 0;
@@ -329,6 +335,7 @@ int main(void)
 {
     test_trans_ranges();
     test_trans_closed_range();
+    test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();
     test_hall_rows_and_cars();

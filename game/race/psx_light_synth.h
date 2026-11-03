@@ -64,6 +64,9 @@ int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open
  * the marked run whose tunnel row is the interior shade the range takes. */
 int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node);
 
+/* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
+int psx_light_synth_mine(const char *track);
+
 /* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel (`out`, 3): 1 on the open road, in a tunnel the CD's lamp
  * alternation (a RAMP context takes its first colour on even nodes and its second on odd ones: CY1's 266..292 is 128,115,96 then 60,60,60 through the exe's
  * table, 0.60 0.56 0.50 under a lamp, 0.39 grey between), which flickers yellowish with the speed; the way the points beyond the foot go dark at the doors,

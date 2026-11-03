@@ -143,6 +143,11 @@ int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to
     return 1;
 }
 
+int psx_light_synth_mine(const char *track)
+{
+    return track != NULL && strcasecmp(track, "TR6") == 0;
+}
+
 int psx_light_synth_track(const char *track)
 {
     return track != NULL && (strcasecmp(track, "TR6") == 0 || strcasecmp(track, "TR7") == 0);

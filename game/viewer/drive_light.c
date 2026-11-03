@@ -377,6 +377,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         uint32_t hall_from = 1, hall_to = 0;
         const int hall_range = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
         psx_light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
+        made.neutral_cast = psx_light_synth_mine(track);   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
     }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);
