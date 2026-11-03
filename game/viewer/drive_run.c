@@ -696,6 +696,13 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     const char *look_env = getenv("TNFS_LOOK_BACK_AT");
     if (look_env != NULL) sscanf(look_env, "%d:%d", &look_from, &look_to);
     const PortControls look_port = port_controls_load();
+    const char *dump_path = getenv("TNFS_AUDIO_DUMP");   /* port (dev, env only): the race's sound mixed offline to this WAV (drive_audio.c) */
+    const int dumping = dump_path != NULL && drive_audio_offline_open(&drive_sim.race, drive_cars.data_root, dump_path);
+    if (dumping) {
+        race_sound_setup(&drive_sim.race, run_music_volume, NULL);
+        race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks);
+        race_sound_start_voices(&drive_sim.race);
+    }
     for (uint32_t i = 0; i < ticks; i++) {
         drive_replay_key(&drive_replay, env_press((int32_t)i));
         if (look_from >= 0) {
@@ -711,6 +718,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             take_detail(&drive_keys.detail_pending);
         }
         drive_tick(screenshot_input(i, ticks));
+        if (dumping) drive_audio_offline_tick();
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
             drive_sim.race.stop_notice[notice[0] - '1'] = !(notice[1] == 'o' && i + 5 >= ticks);
@@ -729,6 +737,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
         drive_hud_strip(&drive_hud, &drive_sim.race);  /* the HUD keeps drawing every frame */
         ported_view_stream(&t->tri, &t->art, chase_camera(&drive_sim.race.chase, t->tri.ring_nodes).node);  /* and 0043f540 */
     }
+    if (dumping) drive_audio_offline_close();
     frame_times_print();
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;
