@@ -74,7 +74,7 @@ void ported_view_set_flares(int on);
  * double. NULL, none (the cars take the world's tint as before). `lgs` is copied. Needs ported_view_set_light's light. */
 void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3]);
 /* port: 1 when the light given to ported_view_set_light was made from the road (psx_light_synth.h) and has no script: the cars and the dash take its tunnel
- * factor (psx_light_synth_car) in place of a script's ratio. 0 (the default) otherwise. */
+ * lamp alternation (psx_light_synth_car) in place of a script's ratio. 0 (the default) otherwise. */
 void ported_view_set_psx_synth(int on);
 /* port (psx_light, police_lights.h): 1 for the police car's lights to flash red and blue while it chases; 0 (the default) the exe's. Set at the race's start. */
 void ported_view_set_police_lights(int on);

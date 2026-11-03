@@ -7,26 +7,36 @@
 /* the road property of a covered road: the tunnel bit and not the one beside it (TR7 778..818, property 5, is an open truss bridge: the sky shows through) */
 static int is_tunnel(uint8_t property) { return (property & (PSX_SYNTH_PROPERTY_TUNNEL | PSX_SYNTH_PROPERTY_OPEN)) == PSX_SYNTH_PROPERTY_TUNNEL; }
 
-void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags)
+/* a hall: TR7's steelworks (the start straight, nodes 1011..1023 and 0..62, property 17): a roof over the road, lit by lamps */
+static int is_hall(uint8_t property) { return (property & PSX_SYNTH_PROPERTY_HALL) != 0; }
+
+/* `value` in `flags` for each node of a run of PSX_SYNTH_MIN_RUN or more nodes `in` holds for; `blocks` is the bits that start a run, so the scan of a ring
+ * starts on a node outside any (no run is cut in two) */
+static void mark_runs(const uint8_t *property, uint32_t count, int ring, int (*in)(uint8_t), uint8_t blocks, uint8_t value, uint8_t *flags)
 {
-    for (uint32_t i = 0; i < count; i++) flags[i] = 0;
-    uint32_t first = 0;   /* where the scan starts: on a ring, a node that is not a tunnel's, so no run is cut in two */
+    uint32_t first = 0;
     if (ring) {
-        while (first < count && (property[first] & PSX_SYNTH_PROPERTY_TUNNEL)) first++;
+        while (first < count && (property[first] & blocks)) first++;
         if (first == count) first = 0;
     }
     uint32_t run = 0;
     for (uint32_t k = 0; k <= count; k++) {
         const uint32_t i = (first + k) % count;
-        const int in = k < count && is_tunnel(property[i]);
-        if (in) {
+        if (k < count && in(property[i])) {
             run++;
             continue;
         }
         if (run >= PSX_SYNTH_MIN_RUN)
-            for (uint32_t j = 0; j < run; j++) flags[(first + k - run + j) % count] = 1;
+            for (uint32_t j = 0; j < run; j++) flags[(first + k - run + j) % count] = value;
         run = 0;
     }
+}
+
+void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags)
+{
+    for (uint32_t i = 0; i < count; i++) flags[i] = 0;
+    mark_runs(property, count, ring, is_hall, PSX_SYNTH_PROPERTY_HALL, PSX_SYNTH_FLAG_HALL, flags);
+    mark_runs(property, count, ring, is_tunnel, PSX_SYNTH_PROPERTY_TUNNEL, PSX_SYNTH_FLAG_TUNNEL, flags);
 }
 
 /* the distance from node i forward (ahead along the nodes) to the nearest flagged one, and back to it, up to `limit` (limit + 1 when none is that near) */
@@ -34,8 +44,8 @@ static uint32_t distance(const uint8_t *flags, uint32_t count, int ring, uint32_
 {
     for (uint32_t d = 0; d <= limit; d++) {
         if (ring) {
-            if (flags[forward ? (i + d) % count : (i + count - d % count) % count]) return d;
-        } else if (forward ? (i + d < count && flags[i + d]) : (i >= d && flags[i - d])) {
+            if (flags[forward ? (i + d) % count : (i + count - d % count) % count] == PSX_SYNTH_FLAG_TUNNEL) return d;
+        } else if (forward ? (i + d < count && flags[i + d] == PSX_SYNTH_FLAG_TUNNEL) : (i >= d && flags[i - d] == PSX_SYNTH_FLAG_TUNNEL)) {
             return d;
         }
     }
@@ -83,6 +93,7 @@ void psx_light_synth_rows(const uint8_t *flags, uint32_t count, int ring, int ti
         for (size_t k = 0; k < sizeof ROAD / sizeof *ROAD; k++) row[ROAD[k]] = (uint8_t)road;
         for (size_t k = 0; k < sizeof FOOT / sizeof *FOOT; k++) row[FOOT[k]] = (uint8_t)foot;
         for (size_t k = 0; k < sizeof BEYOND / sizeof *BEYOND; k++) row[BEYOND[k]] = (uint8_t)beyond;
+        if (flags[n] == PSX_SYNTH_FLAG_HALL) row[PSX_SYNTH_HALL_POINT] = PSX_SYNTH_HALL_MARK;   /* the world's light unchanged (254 of 255), the car's alternation marked */
     }
 }
 
@@ -98,7 +109,7 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out)
             property[i] = tri_node(tri, i, &node) == TRI_OK ? node.property : 0;
         }
         psx_light_synth_tunnels(property, count, tri_is_circuit(tri), flags);
-        for (uint32_t i = 0; i < count; i++) any |= flags[i];
+        for (uint32_t i = 0; i < count; i++) any |= flags[i] != 0;
         if (any) {
             psx_light_synth_rows(flags, count, tri_is_circuit(tri), time, data);
             out->data = data;
@@ -125,9 +136,18 @@ int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to)
     return 1;
 }
 
-float psx_light_synth_car(const PsxLight *light, uint32_t node)
+/* CY1's lamp context through the exe's table (psx_lgs.h): 128,115,96 under a lamp (even nodes), 60,60,60 between (odd) */
+static const float LAMP_LIT[3] = { 96.0f / 160, 89.0f / 160, 80.0f / 160 };
+static const float LAMP_DIM[3] = { 62.0f / 160, 62.0f / 160, 62.0f / 160 };
+/* the steelworks hall's, warm orange like TR3's tunnel contexts (150,96,32 over the full 160): lit under a lamp, dimmer between */
+static const float HALL_LIT[3] = { 150.0f / 160, 96.0f / 160, 32.0f / 160 };
+static const float HALL_DIM[3] = { 96.0f / 160, 62.0f / 160, 21.0f / 160 };
+
+void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
 {
-    if (light == NULL || light->data == NULL) return 1.0f;
-    const float dark = 1.0f - (float)psx_light_byte(light, node, 4) / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
-    return 1.0f - (1.0f - PSX_SYNTH_CAR_PERCENT / 100.0f) * dark;
+    const int beyond = light == NULL || light->data == NULL ? PSX_LIGHT_FULL : psx_light_byte(light, node, PSX_SYNTH_HALL_POINT);
+    const float dark = beyond == PSX_SYNTH_HALL_MARK ? 1.0f : 1.0f - (float)beyond / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
+    const int hall = beyond == PSX_SYNTH_HALL_MARK;
+    const float *lamp = (node & 1u) != 0 ? (hall ? HALL_DIM : LAMP_DIM) : (hall ? HALL_LIT : LAMP_LIT);
+    for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
 }

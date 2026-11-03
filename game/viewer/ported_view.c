@@ -473,8 +473,8 @@ static int ratio_at(int32_t node, float out[3])
 
 static int ratio_of(int32_t node, float out[3])
 {
-    if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's own factor */
-        out[0] = out[1] = out[2] = psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes));
+    if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's lamp alternation */
+        psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes), out);
         return 1;
     }
     if (!ambient_on || psx_light == NULL) return 0;
