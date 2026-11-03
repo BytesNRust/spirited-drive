@@ -104,6 +104,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.night_stretch_clean, b.night_stretch_clean);
     CHECK_EQ_INT(a.last_camera, b.last_camera);
     CHECK_EQ_INT(a.camera_kind, b.camera_kind);
+    CHECK_EQ_INT(a.replay_no_ffb, b.replay_no_ffb);
     CHECK_EQ_INT(a.psx_flares, b.psx_flares);
     CHECK_EQ_INT(a.hall_light, b.hall_light);
     CHECK_EQ_INT(a.made_tunnels, b.made_tunnels);
@@ -126,6 +127,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.fog_sample, 0);      /* the fog from the art's foot until asked */
     CHECK_EQ_INT(d.last_camera, 0);     /* the dash at the start, as the exe's, until asked */
     CHECK_EQ_INT(d.camera_kind, -1);    /* and no camera used yet */
+    CHECK_EQ_INT(d.replay_no_ffb, 0);   /* a replay shakes the stick, as the exe's, until asked */
     CHECK_EQ_INT(d.sky_fill, 0);        /* the exe's flat colour above the sky art until asked */
     CHECK_EQ_INT(d.night_sky_hue, 0);   /* the night's sky as it was until asked */
     CHECK_EQ_INT(d.forest_dark, 0);     /* the made light's forest as it was until asked */
@@ -142,7 +144,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .last_camera = 1, .camera_kind = 4, .made_tunnels = 1, .headlight_relight = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .replay_no_ffb = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .last_camera = 1, .camera_kind = 4, .made_tunnels = 1, .headlight_relight = 1 };
     char text[512];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -186,6 +188,18 @@ static void test_last_camera_values(void)
     setenv("TNFS_LAST_CAMERA", "1", 1);
     CHECK_EQ_INT(port_last_camera(), 1);
     unsetenv("TNFS_LAST_CAMERA");
+}
+
+static void test_replay_no_ffb_values(void)
+{
+    const char *const on = "replay_no_ffb=1\n", *const bad = "replay_no_ffb=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).replay_no_ffb, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).replay_no_ffb, 0);
+    setenv("TNFS_REPLAY_NO_FFB", "1", 1);
+    CHECK_EQ_INT(port_replay_no_ffb(), 1);
+    setenv("TNFS_REPLAY_NO_FFB", "0", 1);
+    CHECK_EQ_INT(port_replay_no_ffb(), 0);
+    unsetenv("TNFS_REPLAY_NO_FFB");
 }
 
 static void test_sky_fill_values(void)
@@ -519,6 +533,7 @@ int main(void)
     test_fog_sample_values();
     test_sky_fill_values();
     test_last_camera_values();
+    test_replay_no_ffb_values();
     test_psx_flares_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();
