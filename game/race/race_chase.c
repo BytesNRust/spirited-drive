@@ -412,6 +412,13 @@ static void start_glide(const RaceState *race, RaceChase *chase, ChaseKind *row)
     chase->gliding = 2;
 }
 
+/* The look back's eye height: the same height above the road at the eye's place (`road_eye`) as the flat chase eye (base car at `base_y`, `flat_y` above it, over
+ * a road at `road_car`) has. */
+int32_t race_chase_look_back_y(int32_t road_eye, int32_t road_car, int32_t base_y, int32_t flat_y)
+{
+    return add(road_eye, sub(add(base_y, flat_y), road_car));
+}
+
 /* The road's slope under the car, blended across its node and the next. The exe halves an uphill slope: its eye is behind the car, and the road behind
  * the car is lower, so the eye keeps most of its height. port: an eye AHEAD of the car (the 360 camera looking back) has the road rising under it, and
  * is lifted by the whole slope: with the half it sat inside the hill. */
@@ -512,7 +519,18 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
         race_follow_direction(exe_yaw, road);
         along = (int32_t)(((int64_t)chase->offset[0] * road[0] + (int64_t)chase->offset[2] * road[2]) >> 16);
     }
+    const int32_t flat_y = chase->offset[1];
     chase->offset[1] = add(chase->offset[1], slope_lift(race, chase, blend, rest, along));
+    if (race->port_follow_camera && chase->port_look_back != 0) {
+        /* port (look back, 360 camera): the eye ahead of the car keeps the height above the road the flat chase has, measured at the eye's own place: the slope's lift
+         * left it low under a climbing road and high over a falling one (the road ahead is not the car's plane) */
+        const int32_t at_eye[3] = { chase->eye[0], add(chase->base->y, flat_y), add(chase->base->z, chase->offset[2]) };
+        const int32_t at_car[3] = { chase->base->x, chase->base->y, chase->base->z };
+        int32_t eye_node = chase->node;
+        point_find_node(at_eye, race, &eye_node);
+        const int32_t eye_y = race_chase_look_back_y(race_chase_road_height(race, eye_node, at_eye), race_chase_road_height(race, car->node, at_car), chase->base->y, flat_y);
+        chase->offset[1] = sub(eye_y, chase->base->y);
+    }
     chase->eye[1] = add(chase->base->y, chase->offset[1]);
     chase->eye[2] = add(chase->base->z, chase->offset[2]);
     const Car *held = race_car_by_handle(race, car->unknown_088);
