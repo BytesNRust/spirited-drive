@@ -133,6 +133,25 @@ static void test_light_cast(void)
     CHECK_EQ_INT(cast[4][255], 255);
 }
 
+/* the tunnel's tables take the tint's brightness, not its hue: at dusk (a red-orange tint) the dim road is as warm as by day, not red;
+ * and the cast reaches level 0 once the tint darkens it */
+static void test_tunnel_hue(void)
+{
+    uint8_t palette[768];
+    for (int i = 0; i < 256; i++) {
+        palette[3 * i] = (uint8_t)((i >> 5) * 36), palette[3 * i + 1] = (uint8_t)(((i >> 2) & 7) * 36), palette[3 * i + 2] = (uint8_t)((i & 3) * 85);
+    }
+    static uint8_t red[MODERN_FOG_LEVELS][256], warm[MODERN_FOG_LEVELS][256];
+    const float dusk[3] = { 0.81f, 0.62f, 0.39f }, cast[3] = { 1.0f, 0.8f, 0.15f };
+    modern_light_tables_cast(palette, dusk, cast, red);
+    modern_tunnel_tables(palette, dusk, cast, warm);
+    const int white = (7 << 5) | (7 << 2) | 3;   /* 252, 252, 255 */
+    for (int l = 0; l <= 2; l++) {
+        const uint8_t *const r = palette + 3 * red[l][white], *const w = palette + 3 * warm[l][white];
+        CHECK(w[1] * r[0] > r[1] * w[0]);   /* more green for its red than the tint's own hue gives */
+    }
+}
+
 /* a wall before the fog's start untouched; past its end the fog's colour; textured and flat alike */
 static void test_fog_depths(void)
 {
@@ -317,6 +336,7 @@ int main(void)
     test_filter_minified();
     test_fog_tables();
     test_light_cast();
+    test_tunnel_hue();
     test_fog_depths();
     test_fog_dither();
     test_fog_same_depth_same_level();

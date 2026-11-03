@@ -1640,7 +1640,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int cast = lamp_count > 0;   /* a tunnel track: its darkened levels take the olive cast */
         if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
-            modern_light_tables_cast(art->palette, lit_tint, cast ? TUNNEL_CAST : NO_CAST, tunnel_tables);
+            if (cast) modern_tunnel_tables(art->palette, lit_tint, TUNNEL_CAST, tunnel_tables);
+            else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
             memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
         }
         for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
