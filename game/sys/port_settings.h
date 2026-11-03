@@ -59,6 +59,7 @@ typedef struct {
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
+    int replay_no_ffb;       /* 1: a replay does not move the force-feedback stick or the pad's rumble (race_forces_replay_silent); 0: the exe's, it shakes as in the race */
     int night_sky_hue;       /* 1: the night's sky of the dusk's art takes a blue-black hue at its own luminance (psx_sky_draw_rehue); 0: the art's
                               * hues under the night's tint, as it was */
     int forest_dark;         /* 1: Vertigo Ridge's forest before the finish alternates two dark tones (psx_light_forest); 0: the made light as it was */
@@ -98,6 +99,8 @@ int port_night_sky_hue(void);
 int port_forest_dark(void);
 /* 1 when the night's stretched sky leaves its stars out of the fill: TNFS_NIGHT_STRETCH_CLEAN=0/1 when set, else port.cfg's night_stretch_clean. */
 int port_night_stretch_clean(void);
+/* 1 when a replay leaves the force feedback still: TNFS_REPLAY_NO_FFB=0/1 when set, else port.cfg's replay_no_ffb. */
+int port_replay_no_ffb(void);
 /* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_PSX_FLARES=0/1 when set, else port.cfg's psx_flares; never without port_psx_light. */
 int port_psx_flares(void);
 
