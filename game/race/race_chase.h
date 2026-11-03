@@ -91,6 +91,10 @@ int32_t race_chase_road_height(const RaceState *race, int32_t node, const int32_
  * road from the car (negative behind it). Uphill the exe's half applies to an eye behind the car only (race_chase.c). */
 int32_t race_chase_slope_lift(int32_t slope_a, int32_t slope_b, int32_t blend, int32_t rest, int32_t along);
 
+/* The look back's eye height (the 360 camera): the road under the eye (`road_eye`) plus the height above the road the flat chase eye has: the base car's `base_y` + `flat_y` over
+ * `road_car`. */
+int32_t race_chase_look_back_y(int32_t road_eye, int32_t road_car, int32_t base_y, int32_t flat_y);
+
 typedef struct {
     void *ctx;
     void (*views)(void *ctx);                                       /* 00405630 */

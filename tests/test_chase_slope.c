@@ -18,5 +18,10 @@ int main(void)
     CHECK(behind_down > 0 && ahead_down < 0);
     CHECK_EQ_INT(ahead_down, -behind_down);                      /* downhill was never halved: symmetric */
     CHECK_EQ_INT(race_chase_slope_lift(UP, UP, 0, FULL, 0), 0);  /* the eye above the car: no lift */
+    /* the look back's eye keeps the flat chase's height above the road at its own place, up or down the slope */
+    const int32_t base_y = 100 << 16, flat_y = 4 << 16, road_car = 98 << 16;
+    CHECK_EQ_INT(race_chase_look_back_y(road_car, road_car, base_y, flat_y), base_y + flat_y);                         /* flat: the chase's own eye */
+    CHECK_EQ_INT(race_chase_look_back_y(road_car + (3 << 16), road_car, base_y, flat_y), base_y + flat_y + (3 << 16));  /* the road rises under the eye: so does it */
+    CHECK_EQ_INT(race_chase_look_back_y(road_car - (3 << 16), road_car, base_y, flat_y), base_y + flat_y - (3 << 16));  /* it falls: so does the eye */
     return TEST_REPORT();
 }
