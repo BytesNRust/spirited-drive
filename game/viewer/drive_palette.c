@@ -290,6 +290,9 @@ static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const ca
     uint8_t rgb[RACE_PALETTE_COLOURS * 3], entry[NIGHT_LAMP_MAX], used[RACE_PALETTE_COLOURS];
     for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
     used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
+    const uint8_t *const lit = palette_emissive();   /* the cars' lamp entries are set aside already: not the tunnel lamps' too (the traffic's tail lights came out as a tunnel lamp's colour) */
+    for (int e = 0; e < RACE_PALETTE_COLOURS; e++)
+        if (lit[e]) used[e] = 1;
     const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, NIGHT_LAMP_ENTRIES + street, entry);
     port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps and the street lamps\n", found, NIGHT_LAMP_ENTRIES + street);
     if (found <= 0) return;
