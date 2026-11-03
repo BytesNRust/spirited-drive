@@ -46,12 +46,13 @@ typedef struct {
     int psx_light, psx_headlights, psx_shadow, psx_flares, body_shine, car_colours, fog_sample, sky_fill;
     int movies_wide, psx_liveries, rally_gravel;   /* extras.cfg's */
     int made_tunnels, hall_light, headlight_relight, night_stretch_clean;   /* port.cfg's, appended after the extras' three */
+    int forest_dark;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 60,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },   /* body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 60,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 },
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },   /* body_shine 4: the envmap, the owner's pick */
 };
 
 static int controlled(Profile p) { return p > PROFILE_CUSTOM && p < PROFILE_COUNT; }
@@ -65,6 +66,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.psx_light = t->psx_light, s.psx_headlights = t->psx_headlights, s.psx_shadow = t->psx_shadow;
     s.psx_flares = t->psx_flares, s.body_shine = t->body_shine, s.car_colours = t->car_colours, s.fog_sample = t->fog_sample, s.sky_fill = t->sky_fill;
     s.made_tunnels = t->made_tunnels, s.hall_light = t->hall_light, s.headlight_relight = t->headlight_relight, s.night_stretch_clean = t->night_stretch_clean;
+    s.forest_dark = t->forest_dark;
     return s;
 }
 
@@ -85,7 +87,8 @@ int port_profile_settings_match(Profile p, const PortSettings *s, ScreenFormat m
            s->psx_light == want.psx_light && s->psx_headlights == want.psx_headlights && s->psx_shadow == want.psx_shadow && s->psx_flares == want.psx_flares &&
            s->body_shine == want.body_shine && s->car_colours == want.car_colours && s->fog_sample == want.fog_sample && s->sky_fill == want.sky_fill &&
            s->made_tunnels == want.made_tunnels && s->hall_light == want.hall_light && s->headlight_relight == want.headlight_relight &&
-           s->night_stretch_clean == want.night_stretch_clean;
+           s->night_stretch_clean == want.night_stretch_clean &&
+           s->forest_dark == want.forest_dark;
 }
 
 int port_profile_extras_match(Profile p, const PortExtras *e)
