@@ -446,45 +446,73 @@ void ported_view_set_psx_synth(int on) { synth_on = on; }
  * its own tunnel's tint, and a RAMP context's odd / even nodes are the lamps' alternation. */
 static int ratio_of(int32_t node, float out[3]);
 
+/* port (psx_headlights): the nodes the road itself marks a tunnel (its property bit, runs of PSX_SYNTH_MIN_RUN and more: the wooden tunnels and sheds the CD's light
+ * rows do not all mark), made once for the track; NULL when it has no data */
+static const uint8_t *road_tunnels(const RaceState *race, uint32_t nodes)
+{
+    static uint8_t *flags;
+    static uint32_t have;
+    static const RaceState *for_race;
+    if (nodes == 0) return NULL;
+    if (flags != NULL && have == nodes && for_race == race) return flags;
+    free(flags);
+    flags = malloc(nodes);
+    uint8_t *property = malloc(nodes);
+    if (flags == NULL || property == NULL) { free(property); free(flags); flags = NULL; return NULL; }
+    for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
+    psx_light_synth_tunnels(property, nodes, 1, flags);
+    free(property);
+    have = nodes, for_race = race;
+    return flags;
+}
+
+/* how far the car is on from its node to the next, out of 256 (its place projected on the road's step) */
+static uint8_t headlight_frac(const RaceState *race, const Car *car)
+{
+    const TriNode a = race_node(race, car->node), b = race_node(race, car->node + 1);
+    const double sx = (double)b.position.x - a.position.x, sz = (double)b.position.z - a.position.z;
+    const double len2 = sx * sx + sz * sz;
+    if (len2 <= 0.0) return 0;
+    const double t = (((double)car->x - a.position.x) * sx + ((double)car->z - a.position.z) * sz) / len2;
+    return (uint8_t)(t <= 0.0 ? 0 : t >= 1.0 ? 255 : t * 256.0);
+}
+
 /* port (psx_headlights): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
 static void headlights_update(void)
 {
     if (psx_light == NULL || psx_light->pool == NULL) return;
     HeadlightPool *pool = psx_light->pool;
-    /* per car, kept between frames: where its pool is (256ths of a node, eased towards the car's node: the pool glides over the nodes, it does not step) and which way the car travels */
-    static int32_t at[RACE_CARS], seen[RACE_CARS];
+    static int32_t seen[RACE_CARS];
     static int8_t travel[RACE_CARS];
     static uint32_t of_ring;
     pool->count = 0;
     pool->ring = psx_light->nodes;
     if (shadow_race == NULL) return;
     const int32_t ring = (int32_t)pool->ring;
-    if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel), memset(at, 0, sizeof at);   /* another track */
+    if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel);   /* another track */
+    pool->tunnel = road_tunnels(shadow_race, psx_light->nodes);
     const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL || !(car->flags_51a & 4)) continue;
-        int32_t moved = car->node - seen[i];
+        int32_t moved = car->node - seen[i];   /* which way the car travels: the nodes it moved over, the gear on the first frame */
         if (ring > 0) moved = moved > ring / 2 ? moved - ring : moved < -ring / 2 ? moved + ring : moved;
-        if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;   /* the first frame: the gear says, the nodes after */
+        if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;
         if (moved != 0 && moved > -4 && moved < 4) travel[i] = moved > 0 ? 1 : -1;
         seen[i] = car->node;
-        int32_t gap = car->node * 256 - at[i];
-        if (ring > 0) gap = gap > ring * 128 ? gap - ring * 256 : gap < -ring * 128 ? gap + ring * 256 : gap;
-        at[i] = gap > 4 * 256 || gap < -4 * 256 ? car->node * 256 : at[i] + gap / 6;   /* a respawn or a far jump snaps */
-        if (ring > 0) at[i] = ((at[i] % (ring * 256)) + ring * 256) % (ring * 256);
-        pool->node[pool->count] = at[i] >> 8;
-        pool->sub[pool->count] = (int16_t)(at[i] & 255);
+        pool->sub[pool->count] = headlight_frac(shadow_race, car);
         pool->dir[pool->count] = travel[i];
-        pool->count++;
+        pool->node[pool->count++] = car->node;
     }
 }
 
 static int ratio_at(int32_t node, float out[3])
 {
     const int found = ratio_of(node, out);
-    if (found && psx_light != NULL && psx_light->pool != NULL && !psx_light_tunnel(psx_light, psx_ring_node(node, psx_light->nodes))) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
-        const float gain = (float)headlight_pool_car_gain(headlight_pool_gain(psx_light->pool, psx_ring_node(node, psx_light->nodes))) / 256.0f;   /* a car takes only part of the pool's lift */
+    if (found && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
+        const uint32_t at = psx_ring_node(node, psx_light->nodes);
+        const int g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
+        const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
     }
     return found;
