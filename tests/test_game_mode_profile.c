@@ -13,9 +13,10 @@ typedef struct Fake {
     int key_count, key_calls;   /* the menu asks twice a turn: one scripted key serves both asks of its turn */
     int pointer_x, pointer_y, pinned;
     int moved_y[16], moved_count;
-    int profile_net, profile_reads, profile_steps;
+    int profile_net, profile_reads, profile_steps;   /* steps: profiles applied; net: where the cycle stands (3 profiles, round) */
+    int peeks, last_peek, no_answer, clicks;           /* clicks: a bit per menu turn with the left button down */
     int drawn_profile;
-    int exits_asked;
+    int exits_asked, apply_asked;
     int foot_big, foot_small, foot_low, foot_high_y, foot_right, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
 } Fake;
 
@@ -59,9 +60,9 @@ static void f_fade_out(void *c, int32_t a, int32_t n) { (void)c, (void)a, (void)
 static int32_t f_yes(void *c, const char *t)
 {
     Fake *f = c;
-    (void)t;
-    f->exits_asked++;
-    return 1;
+    f->exits_asked += strcmp(t, "Replace settings ?") != 0;
+    f->apply_asked += strcmp(t, "Replace settings ?") == 0;
+    return strcmp(t, "Replace settings ?") == 0 && f->no_answer ? 0 : 1;
 }
 static void f_free(void *c, int32_t b) { (void)c, (void)b; }
 static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
@@ -100,14 +101,27 @@ static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
 static void f_open(void *c) { (void)c; }
 static int32_t f_width_scaled(void *c, const char *t, int32_t n, int32_t d) { (void)c; return (int32_t)strlen(t) * 8 * n / d; }
 static void f_cover(void *c, int32_t x, int32_t y, int32_t w, int32_t h) { (void)c, (void)x, (void)y, (void)w, (void)h; }
+static int mod3(int n) { return ((n % 3) + 3) % 3; }
 static int32_t f_profile(void *c, int32_t step, const char *text[3])
 {
     Fake *f = c;
     f->profile_reads++;
-    if (step != 0) f->profile_steps++;
-    f->profile_net += step;
     text[0] = "Stock '96", text[1] = "line one", text[2] = "line two";
+    if (step >= GAME_MODE_PROFILE_APPLY - 3 && step <= GAME_MODE_PROFILE_APPLY + 3) {
+        f->profile_steps++, f->profile_net += step - GAME_MODE_PROFILE_APPLY;
+        return 1;
+    }
+    if (step >= GAME_MODE_PROFILE_PEEK - 3 && step <= GAME_MODE_PROFILE_PEEK + 3) {
+        f->peeks++, f->last_peek = step - GAME_MODE_PROFILE_PEEK;
+        return mod3(f->last_peek) != 0 ? 2 : 1;
+    }
     return 1;
+}
+static int32_t f_buttons(void *c)
+{
+    const Fake *f = c;
+    const int turn = (f->key_calls - 1) / 2;   /* read between the turn's two asks for a key */
+    return turn >= 0 && turn < 31 && (f->clicks >> turn & 1) ? 1 : 0;
 }
 
 static int32_t run_with(Fake *f, const int *keys, int count, int with_profile, int with_footer)
@@ -120,7 +134,7 @@ static int32_t run_with(Fake *f, const int *keys, int count, int with_profile, i
     GameModeOps ops = {
         .palette_clear = f_clear, .pointer_move_to = f_move, .sound_load = f_void, .load_art = f_art, .music_feed = f_void, .shape = f_shape, .palette_set = f_pal,
         .pointer_mark = f_void, .pointer_in_rect = f_in_rect, .select = f_int, .blit_own = f_blit, .select_default = f_void, .pointer_hide = f_void, .lock = f_void,
-        .picture_shape = f_picture, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_zero, .fade_in = f_fade_in, .inverse_build = f_void,
+        .picture_shape = f_picture, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_buttons, .fade_in = f_fade_in, .inverse_build = f_void,
         .banner_wait = f_banner, .deadline_set = f_int, .sound = f_int, .key = f_key, .ticks = f_ticks, .pointer_activate_if_moved = f_void, .pointer_click = f_void,
         .name_box = f_name, .fade_out = f_fade_out, .free_inverse = f_void, .modem = f_zero, .network_found = f_zero, .network_game = f_zero, .yes_no = f_yes,
         .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_zero, .sound_free = f_void, .free = f_free, .ctx = f,
@@ -167,20 +181,87 @@ static void test_the_row_is_the_fifth_item(void)
     CHECK_EQ_INT(f.moved_y[1], 0x1c0);
 }
 
-/* the arrows and Return on the row step it: +1 +1 -1 +1 */
-static void test_the_arrows_and_return_step_the_profile(void)
+/* the arrows only show a profile (+1 +1 -1: one along); Return asks, and the Yes applies the one shown */
+static void test_the_arrows_show_and_return_applies(void)
 {
     Fake f;
     int keys[12], n = 0;
     for (int i = 0; i < 4; i++) keys[n++] = DOWN;
-    keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = LEFT, keys[n++] = ENTER;
+    keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = LEFT;
     rig(&f, 320, 0x91, 0);
     run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.profile_steps, 4);
-    CHECK_EQ_INT(f.profile_net, 2);
+    CHECK_EQ_INT(f.profile_steps, 0);   /* nothing applied by the arrows */
+    CHECK_EQ_INT(f.last_peek, 1);
+    CHECK_EQ_INT(f.apply_asked, 0);
+    keys[n++] = ENTER;
+    rig(&f, 320, 0x91, 0);
+    run(&f, keys, n, 1);
+    CHECK_EQ_INT(f.apply_asked, 1);
+    CHECK_EQ_INT(f.profile_steps, 1);
+    CHECK_EQ_INT(f.profile_net, 1);
 }
 
-/* the bands: Exit's ends at 0x190 and the row's takes 0x191..0x1e0; a click on the row's left third steps back, elsewhere forward */
+/* No keeps the profile in use; Return with nothing shown asks nothing; three steps come round to the one in use */
+static void test_no_and_round_apply_nothing(void)
+{
+    Fake f;
+    int keys[12], n = 0;
+    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
+    keys[n++] = LEFT, keys[n++] = ENTER;
+    rig(&f, 320, 0x91, 0);
+    f.no_answer = 1;
+    run(&f, keys, n, 1);
+    CHECK_EQ_INT(f.apply_asked, 1);
+    CHECK_EQ_INT(f.profile_steps, 0);
+    n = 4, keys[n++] = ENTER;
+    rig(&f, 320, 0x91, 0);
+    run(&f, keys, n, 1);
+    CHECK_EQ_INT(f.apply_asked, 0);
+    n = 4, keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = ENTER;
+    rig(&f, 320, 0x91, 0);
+    run(&f, keys, n, 1);
+    CHECK_EQ_INT(f.apply_asked, 0);
+    CHECK_EQ_INT(f.profile_steps, 0);
+}
+
+/* leaving the row forgets the profile shown: Right, Up to Exit, Down back, Return asks nothing */
+static void test_leaving_the_row_forgets(void)
+{
+    Fake f;
+    int keys[12], n = 0;
+    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
+    keys[n++] = RIGHT, keys[n++] = UP, keys[n++] = DOWN, keys[n++] = ENTER;
+    rig(&f, 320, 0x91, 0);
+    run(&f, keys, n, 1);
+    CHECK_EQ_INT(f.apply_asked, 0);
+    CHECK_EQ_INT(f.profile_steps, 0);
+}
+
+/* the pointer: a click on the left third shows the previous profile, on the right third the next, and neither applies; a click on the name applies after the Yes */
+static void test_clicks_show_and_the_name_applies(void)
+{
+    Fake f;
+    const int idle[] = { 0, 0, 0, 0 };
+    rig(&f, 60, 0x1c0, 1);
+    f.clicks = 1 << 3;
+    run(&f, idle, 4, 1);
+    CHECK_EQ_INT(f.last_peek, -1);
+    CHECK_EQ_INT(f.profile_steps, 0);
+    rig(&f, 600, 0x1c0, 1);
+    f.clicks = 1 << 3;
+    run(&f, idle, 4, 1);
+    CHECK_EQ_INT(f.last_peek, 1);
+    CHECK_EQ_INT(f.profile_steps, 0);
+    const int right[] = { RIGHT, 0, 0, 0 };   /* shown with the arrow, then a click on the name */
+    rig(&f, 320, 0x1c0, 1);
+    f.clicks = 1 << 5;
+    run(&f, right, 4, 1);
+    CHECK_EQ_INT(f.apply_asked, 1);
+    CHECK_EQ_INT(f.profile_steps, 1);
+    CHECK_EQ_INT(f.profile_net, 1);
+}
+
+/* the bands: Exit's ends at 0x190 and the row's takes 0x191..0x1e0 */
 static void test_the_pointer_bands(void)
 {
     Fake f;
@@ -189,12 +270,10 @@ static void test_the_pointer_bands(void)
     CHECK_EQ_INT(run(&f, enter, 1, 1), 1);   /* Exit: leaves on the Return */
     CHECK_EQ_INT(f.profile_steps, 0);
     CHECK_EQ_INT(f.key_calls, 2);
-    rig(&f, 400, 0x191, 1);
-    run(&f, enter, 1, 1);
-    CHECK_EQ_INT(f.profile_net, 1);
-    rig(&f, 60, 0x1c0, 1);
-    run(&f, enter, 1, 1);
-    CHECK_EQ_INT(f.profile_net, -1);
+    rig(&f, 400, 0x191, 1);   /* the row's band: Return there is the row's (nothing shown, so nothing asked), not Exit's */
+    CHECK_EQ_INT(run(&f, enter, 1, 1), 1);
+    CHECK(f.key_calls > 2);
+    CHECK_EQ_INT(f.apply_asked, 0);
     rig(&f, 320, 0x191, 1);   /* without the op the same spot is Exit's */
     CHECK_EQ_INT(run(&f, enter, 1, 0), 1);
     CHECK_EQ_INT(f.key_calls, 2);
@@ -224,7 +303,10 @@ int main(void)
 {
     test_without_the_op_four_items();
     test_the_row_is_the_fifth_item();
-    test_the_arrows_and_return_step_the_profile();
+    test_the_arrows_show_and_return_applies();
+    test_no_and_round_apply_nothing();
+    test_leaving_the_row_forgets();
+    test_clicks_show_and_the_name_applies();
     test_the_pointer_bands();
     test_the_foot_lines_leave_the_row_alone();
     return TEST_REPORT();

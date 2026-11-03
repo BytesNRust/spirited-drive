@@ -828,12 +828,34 @@ static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
     free(cover);
 }
 
-/* port (profiles): Game Mode's fifth item reads or steps the profile; a step that changes the window's shape or rate is taken by the window at once */
+/* port (profiles): the profile `steps` along the cycle from `profile` (Stock, Restored, Restomod, round). Custom is not on it: it shows after a hand-made change, and the
+ * first step goes on from the nearest of the three (forward: Stock, back: Restomod) */
+static int profile_cycled(int profile, int steps)
+{
+    for (; steps > 0; steps--) profile = profile == PROFILE_RESTOMOD || profile == PROFILE_CUSTOM ? PROFILE_STOCK : profile + 1;
+    for (; steps < 0; steps++) profile = profile <= PROFILE_STOCK ? PROFILE_RESTOMOD : profile - 1;
+    return profile;
+}
+
+/* port (profiles): `profile` made the one in use (its settings written); a change of the window's shape or rate is taken by the window at once */
+static void profile_apply(int profile, const PortSettings *was)
+{
+    if (!port_profile_select(profile)) port_log("profile: the files could not be saved\n");
+    const PortSettings now = port_settings_load();
+    if (was->format != now.format || was->refresh_hz != now.refresh_hz) {
+        const PlatformConfig config = port_platform_config(NULL);
+        if (!platform_reconfigure(&config)) port_log("profile: the window keeps its old settings\n");
+    }
+}
+
+/* port (profiles): the profile rows of Game Mode and Options read, peek at or step the profile (game_mode.h and options_menu.h say which step is which) */
 int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
 {
+    enum { REACH = 3 };   /* PEEK / APPLY take n from -REACH to REACH */
     (void)ctx;
     const PortSettings was = port_settings_load();
     int profile = was.profile;
+    int32_t shown = 1;
     if (step == OPTIONS_PROFILE_BEGIN) {
         port_profile_undo_begin();
         return 1;
@@ -851,21 +873,20 @@ int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
         }
         return 1;
     }
-    if (step != 0) {
-        /* custom is not on the cycle: it shows after a hand-made change, and the next step goes on from the nearest of the three (forward: Stock, back: Restomod) */
-        profile = step > 0 ? (profile == PROFILE_RESTOMOD ? PROFILE_STOCK : profile + 1) : (profile <= PROFILE_STOCK ? PROFILE_RESTOMOD : profile - 1);
-        if (profile == PROFILE_CUSTOM) profile = step > 0 ? PROFILE_STOCK : PROFILE_RESTOMOD;
-        if (!port_profile_select(profile)) port_log("profile: the files could not be saved\n");
-        const PortSettings now = port_settings_load();
-        if (was.format != now.format || was.refresh_hz != now.refresh_hz) {
-            const PlatformConfig config = port_platform_config(NULL);
-            if (!platform_reconfigure(&config)) port_log("profile: the window keeps its old settings\n");
-        }
+    if (step >= GAME_MODE_PROFILE_PEEK - REACH && step <= GAME_MODE_PROFILE_PEEK + REACH) {   /* Game Mode: shown, not applied */
+        profile = profile_cycled(profile, step - GAME_MODE_PROFILE_PEEK);
+        shown = profile != was.profile ? 2 : 1;
+    } else if (step >= GAME_MODE_PROFILE_APPLY - REACH && step <= GAME_MODE_PROFILE_APPLY + REACH) {   /* Game Mode: applied after its Yes */
+        profile = profile_cycled(profile, step - GAME_MODE_PROFILE_APPLY);
+        if (profile != was.profile) profile_apply(profile, &was);
+    } else if (step == 1 || step == -1) {   /* Options: a step applies at once (its Cancel puts the files back) */
+        profile = profile_cycled(profile, step);
+        profile_apply(profile, &was);
     }
     text[0] = port_profile_title((Profile)profile);
     text[1] = port_profile_line1((Profile)profile);
     text[2] = port_profile_line2((Profile)profile);
-    return 1;
+    return shown;
 }
 
 /* port: the foot line of Game Mode: the version, and the update notice once the check has answered */
