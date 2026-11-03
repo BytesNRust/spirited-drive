@@ -43,7 +43,18 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
     if (in->light == NULL || in->light_now == NULL) return;
     for (int k = 0; k < 4; k++) in->light_now[k] = in->light[first + corner[k]];
     in->light_now[4] = 1;
-    in->light_now[5] = in->tunnel != NULL && in->tunnel[first + corner[0]] && in->tunnel[first + corner[1]] && in->tunnel[first + corner[2]] && in->tunnel[first + corner[3]];
+    in->light_now[5] = 0;   /* 1 a tunnel's polygon (all four corners), 2..5 a lamp's pool (psx_light_tunnel_class: the weakest of the four, none mixed with a tunnel) */
+    if (in->tunnel != NULL) {
+        uint8_t low = 255;
+        int tunnels = 0;
+        for (int k = 0; k < 4; k++) {
+            const uint8_t v = in->tunnel[first + corner[k]];
+            tunnels += v == 1;
+            if (v < low) low = v;
+        }
+        if (tunnels == 4) in->light_now[5] = 1;
+        else if (tunnels == 0 && low >= 2) in->light_now[5] = low;
+    }
 }
 
 /* the same for a fence standing on the points a and b of `first`'s row (its top has their light) */

@@ -62,6 +62,8 @@ typedef struct {
                               * so the car is no longer lit as by day in its dark; 0: the fallback's night tint as it was */
     int rally_gravel_shoulder; /* 1: with extras.cfg's rally_gravel, the rolling gravel's one-shot is the shoulder's own (same sample, same pitch, about one a second) and not the
                               * faster double strike that rang like drops; 0: as it was */
+    int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (psx_light_lamp_classes);
+                              * 0: the pools only lift the light, as they did */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
@@ -149,6 +151,8 @@ int port_car_tunnel_light(void);
 int port_vegas_car_night(void);
 /* 1 when the rolling rally gravel strikes as the shoulder does (rally_gravel_shoulder): TNFS_RALLY_GRAVEL_SHOULDER=0/1 when set, else port.cfg's. */
 int port_rally_gravel_shoulder(void);
+/* 1 when a street lamp's pool tints the road warm (lamp_pool_tint): TNFS_LAMP_POOL_TINT=0/1 when set, else port.cfg's; never without port_psx_headlights. */
+int port_lamp_pool_tint(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };

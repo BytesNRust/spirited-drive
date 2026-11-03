@@ -324,6 +324,10 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     const size_t lamps = synth_time == PSX_SYNTH_NIGHT ? street_lamp_pool_nodes(tri, lamp_nodes) : 0;
     if (!psx_light_make_lit(tri, synth_time, lamp_nodes, (int)lamps, &made)) return 0;
     if (lamps > 0) port_log("psx_light: %zu street lamp pools\n", lamps);
+    if (lamps > 0 && port_lamp_pool_tint()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
+        made.pool_class = malloc(made.nodes);
+        if (made.pool_class != NULL) psx_light_lamp_classes(made.pool_class, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
+    }
     PsxLight tunnels = { 0 };
     if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
         uint32_t hall_from = 1, hall_to = 0;
