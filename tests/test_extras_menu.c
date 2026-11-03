@@ -52,7 +52,6 @@ typedef struct Fake {
     int titles;           /* titles drawn through the title op */
     int headers;          /* headers drawn through the header op */
     int32_t header_width; /* the last one's underline */
-    int german;           /* the language, as the menu's ops report it: 1 is German, whose units are km/h */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -259,7 +258,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .language_kmh = r->fake.german, .ctx = &r->fake, .open_log_folder = f_open_log };
+        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
@@ -653,36 +652,6 @@ static void test_speed_units_row_reads_mph_in_english(void)
     CHECK(!shown(&r.fake, "km/h"));
     CHECK_EQ_INT(style_in(&r.fake, "Speed units"), STYLE_YELLOW);   /* the selection is on it */
     CHECK(y_in(&r.fake, "Speed units") < y_in(&r.fake, "3D render stats"));
-}
-
-/* under German the row reads "km/h", the units the language already gives, until it is chosen */
-static void test_speed_units_follow_the_language_until_chosen(void)
-{
-    Rig r;
-    int keys[48] = { 0 };
-    const int n = keys_to_speed_units(keys);
-    setup(&r);
-    r.fake.german = 1;
-    run(&r, keys, n + 1);   /* then Escape: the last frame the screen drew is the page as it stands */
-    CHECK(shown(&r.fake, "km/h"));
-    CHECK(!shown(&r.fake, "mph"));
-}
-
-/* Enter turns the German km/h to mph, and Done saves the choice, the language staying German */
-static void test_speed_units_choice_overrides_german(void)
-{
-    Rig r;
-    int keys[48] = { 0 };
-    int n = keys_to_speed_units(keys);
-    keys[n++] = ENTER;
-    n = downs(keys, n, downs_to_done(ROW_UNITS));          /* down to Done */
-    keys[n++] = ENTER;
-    setup(&r);
-    r.fake.german = 1;
-    run(&r, keys, n);
-    CHECK(shown(&r.fake, "mph"));
-    CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.units, UNITS_MPH);
 }
 
 /* Enter on the units row, from the default, turns the English units to km/h, and Done saves that */
@@ -1260,8 +1229,6 @@ int main(void)
     test_follow_camera_row_escape_restores();
     test_difficulty_row_cycles_saves_and_escapes();
     test_speed_units_row_reads_mph_in_english();
-    test_speed_units_follow_the_language_until_chosen();
-    test_speed_units_choice_overrides_german();
     test_speed_units_toggle_saves_kmh();
     test_the_groups_have_headers();
     test_headers_are_red_and_never_lit();

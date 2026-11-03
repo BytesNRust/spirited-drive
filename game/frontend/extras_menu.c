@@ -61,17 +61,14 @@ static int cancel_of(int page) { return rows_of(page) + 1; }
 static int unlock_row(void) { return ROW_UNLOCK - ROW_EXPLODE; }
 /* Dash box is the other with three values on page 2: Map, Gear lever, None */
 static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
-/* Speed units is the other, with its own values: mph and km/h, its words the language's until it is chosen. It sits
+/* Speed units is the other, with its own values: mph (until chosen) and km/h. It sits
  * on page 2, the first row. */
 static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
 /* Difficulty is the last with three values on page 2: Easy, Original, Hard (extras.cfg's difficulty 0, 1, 2) */
 static int difficulty_row(void) { return ROW_DIFFICULTY - ROW_FIRST_P2; }
 /* Open the log folder is an action row: no value, Return runs it */
 static int log_row(void) { return ROW_LOG_FOLDER - ROW_FIRST_P3; }
-static int shows_kmh(const PortExtras *e, int language_kmh)
-{
-    return e->units == UNITS_KMH || (e->units == UNITS_LANGUAGE && language_kmh);
-}
+static int shows_kmh(const PortExtras *e) { return e->units == UNITS_KMH; }
 
 /* port: the switches' words, in extras_menu.h's order, which is the owner's order: page 1 is the first ROWS_P1 of
  * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
@@ -108,7 +105,7 @@ static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
     return page == 0 && unlock >= 1 && flag_of(e, page, row) == &e->warrior;
 }
 
-static void value(PortExtras *e, int16_t unlock, int page, int row, int language_kmh, char out[16])
+static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16])
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     static const char *const DASH_BOX[3] = { "Map", "Gear lever", "Hidden" };
@@ -119,7 +116,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, int language
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
     if (fixed_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
     else if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
-    else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e, language_kmh) ? "km/h" : "mph");
+    else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e) ? "km/h" : "mph");
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
@@ -226,7 +223,7 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
     } else if (p->page == 1 && p->selected == difficulty_row()) {
         e->difficulty = (e->difficulty + step + 3) % 3;
     } else if (p->page == 1 && p->selected == units_row()) {
-        e->units = shows_kmh(e, o->language_kmh) ? UNITS_MPH : UNITS_KMH;
+        e->units = shows_kmh(e) ? UNITS_MPH : UNITS_KMH;
     } else {
         e->start = (StartScreen)((e->start + step + 3) % 3);
     }
@@ -344,7 +341,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
     for (int row = 0; row < rows_of(p->page); row++) {
         char v[16];
         const int lit = p->selected == row;
-        value(e, unlock, p->page, row, o->language_kmh, v);
+        value(e, unlock, p->page, row, v);
         const int y = line_y(p->page, line_of(p->page, row));
         const int held = fixed_by_level(e, unlock, p->page, row);
         text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
