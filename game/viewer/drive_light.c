@@ -335,6 +335,12 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         if (made.hall != NULL)
             for (uint32_t n = 0; n < made.nodes; n++) made.hall[n] = tunnels.data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
     }
+    if (port_car_tunnel_light() && !psx_light_synth_hall(track, NULL, NULL)) {   /* port (car_tunnel_light): only TR7 has a hall; TR6's property-16 stretch after the mine is open road in the sun, not an orange hall */
+        if (made.hall != NULL) memset(made.hall, 0, made.nodes);
+        if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes)
+            for (uint32_t n = 0; n < made.nodes; n++)
+                if (tunnels.tunnel[n] == PSX_SYNTH_FLAG_HALL) tunnels.tunnel[n] = 0;
+    }
     if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes && port_made_tunnels()) {   /* port (made_tunnels): the road's own tunnel nodes, as the PS1 files' rows mark theirs */
         uint32_t hall_from = 1, hall_to = 0;
         const int hall_range = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);

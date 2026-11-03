@@ -19,6 +19,7 @@ enum {
     PSX_SYNTH_PROPERTY_HALL = 16,    /* TriNode.property bit: a hall, a roofed straight lit by lamps like a tunnel (TR7's steelworks, 1011..1023 and 0..62, property 17) */
     PSX_SYNTH_FLAG_TUNNEL = 1,       /* psx_light_synth_tunnels' flag of a tunnel's node */
     PSX_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
+    PSX_SYNTH_CAR_RAMP = 3,          /* the nodes outside a tunnel's mouth over which the car's light comes back (psx_light_synth_car_tunnel) */
     PSX_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (psx_light_synth_car) */
     PSX_SYNTH_HALL_MARK = 254,       /* a hall node's value there: 254 of 255 to the world, the mark of a lit hall to the cars */
     PSX_SYNTH_MIN_RUN = 12,          /* nodes: the shortest run that is a tunnel */
@@ -59,5 +60,10 @@ int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to);
  * table, 0.60 0.56 0.50 under a lamp, 0.39 grey between), which flickers yellowish with the speed; the way the points beyond the foot go dark at the doors,
  * the light goes between the open road's 1 and the alternation. A NULL light is 1. */
 void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3]);
+
+/* port (car_tunnel_light): the same on a made light that has the road's tunnel flags (PsxLight.tunnel), but the car's darkness is the flags' alone: 1 in a tunnel (or a hall), ramping
+ * to 0 over PSX_SYNTH_CAR_RAMP nodes outside either mouth. The rows' own points beyond the foot carry the terrain's shade as well (a canyon darkened the car into the tunnel's
+ * light and lit its lamps by day) and ramp over ten nodes at the exit (the car stayed dark metres past the door). Without flags it is psx_light_synth_car. */
+void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3]);
 
 #endif

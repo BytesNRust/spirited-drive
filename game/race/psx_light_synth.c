@@ -156,6 +156,24 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
     for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
 }
 
+void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3])
+{
+    if (light == NULL || light->tunnel == NULL || light->nodes == 0) {
+        psx_light_synth_car(light, node, out);
+        return;
+    }
+    const int hall = light->hall != NULL && node < light->nodes && light->hall[node] != 0;
+    float dark = hall ? 1.0f : 0.0f;
+    for (uint32_t d = 0; !hall && d < PSX_SYNTH_CAR_RAMP; d++) {   /* the nearest flagged node, either way along the ring */
+        if (light->tunnel[(node + d) % light->nodes] || light->tunnel[(node + light->nodes - d % light->nodes) % light->nodes]) {
+            dark = 1.0f - (float)d / (float)PSX_SYNTH_CAR_RAMP;
+            break;
+        }
+    }
+    const float *lamp = (node & 1u) != 0 ? (hall ? HALL_DIM : LAMP_DIM) : (hall ? HALL_LIT : LAMP_LIT);
+    for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
+}
+
 void psx_light_synth_made_tunnels(PsxLight *made, PsxLight *tunnels, uint32_t hall_from, uint32_t hall_to)
 {
     if (made == NULL || tunnels == NULL || tunnels->tunnel == NULL || tunnels->data == NULL || tunnels->nodes != made->nodes) return;
