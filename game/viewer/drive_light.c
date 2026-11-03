@@ -341,6 +341,20 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
         }
     }
+    uint32_t closed_from = 1, closed_to = 0, closed_row = 0;
+    if (trans && psx_light_synth_trans_closed(track, &closed_from, &closed_to, &closed_row) && tunnels.data != NULL && tunnels.nodes == made.nodes && closed_to < made.nodes) {
+        uint32_t hall_from = 1, hall_to = 0;   /* port (trans_shadows): the parking's deck roofs nodes 450..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
+        const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
+        for (uint32_t n = closed_from; n <= closed_to; n++)
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+                const int beyond = p == 3 || p == 4 || p == 5 || p >= 8;
+                const uint8_t row = tunnels.data[(size_t)closed_row * PSX_LIGHT_POINTS + (size_t)p];
+                uint8_t *at = &made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p];
+                if (!(hall && beyond) && row < *at) *at = row;
+            }
+        if (tunnels.tunnel != NULL)
+            for (uint32_t n = closed_from; n <= closed_to; n++) tunnels.tunnel[n] = PSX_SYNTH_FLAG_TUNNEL;
+    }
     if (trans && open_to < made.nodes) {   /* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
         uint8_t open_level = 0;
         for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) open_level = made.data[i] > open_level ? made.data[i] : open_level;
@@ -363,6 +377,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         uint32_t hall_from = 1, hall_to = 0;
         const int hall_range = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
         psx_light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
+        made.neutral_cast = psx_light_synth_mine(track);   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
     }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);
