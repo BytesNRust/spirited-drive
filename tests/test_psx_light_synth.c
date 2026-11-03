@@ -309,8 +309,17 @@ static void test_car_tunnel_light_follows_the_flags(void)
     for (int k = 0; k < 3; k++) CHECK(fabsf(same[k] - old[k]) < 1e-6f);
 }
 
+static void test_trans_ranges(void)
+{
+    uint32_t a = 0, b = 0;
+    CHECK(psx_light_synth_trans("tr7", &a, &b));
+    CHECK(a == 700 && b == 776);
+    CHECK(!psx_light_synth_trans("TR6", &a, &b) && !psx_light_synth_trans(NULL, &a, &b));
+}
+
 int main(void)
 {
+    test_trans_ranges();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();
     test_hall_rows_and_cars();

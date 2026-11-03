@@ -329,6 +329,8 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         if (made.pool_class != NULL) psx_light_lamp_classes(made.pool_class, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
     PsxLight tunnels = { 0 };
+    uint32_t open_from = 1, open_to = 0;
+    const int trans = port_trans_shadows() && psx_light_synth_trans(track, &open_from, &open_to);
     if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
         uint32_t hall_from = 1, hall_to = 0;
         const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
@@ -338,6 +340,13 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             if (hall && node >= hall_from && node <= hall_to && beyond) continue;   /* port (hall_light): the hall keeps the terrain's light there */
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
         }
+    }
+    if (trans && open_to < made.nodes) {   /* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
+        uint8_t open_level = 0;
+        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) open_level = made.data[i] > open_level ? made.data[i] : open_level;
+        for (uint32_t n = open_from; n <= open_to; n++)
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+                if (p != 0 && p != 1 && p != 6) made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] = open_level;
     }
     if (tunnels.data != NULL && tunnels.nodes == made.nodes) {   /* port: the hall nodes' flag (the mark in the synth's row is lost to the terrain's lower light above) */
         made.hall = calloc(made.nodes, 1);
