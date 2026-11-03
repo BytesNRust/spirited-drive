@@ -437,6 +437,7 @@ typedef struct {
     RaceDifficulty port_difficulty;  /* port: the race's difficulty (extras.cfg's difficulty, difficulty.h); all Original (0) the exe's */
     int32_t port_lunar_gravity;     /* port: the moon's race (extras.cfg's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
     int32_t port_rally_gravel;      /* port: RALLY_GRAVEL_* (rally_gravel.h), the rally's gravel noise and dust; 0 the exe's */
+    int32_t port_chase_height;      /* port: with port_follow_camera, the chase eye behind the car keeps the flat chase's height above the road at its own place on slopes (race_chase.c); 0 the exe's lift */
     int32_t port_follow_camera;     /* port: the experimental extra: every camera follows the car's heading (race_follow.h); 0 the exe's */
     int32_t port_follow_ring;       /* port: with port_follow_camera, the segment cache's ring is TRACK_CACHE_RECORDS_MAX records, not the exe's 64 (the arm behind keeps more); 0 the exe's */
     int32_t port_time_of_day;       /* port: 004fbae0[track], the menus' time of day (0..2) a replay's setup keeps */

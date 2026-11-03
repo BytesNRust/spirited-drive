@@ -519,10 +519,11 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
         race_follow_direction(exe_yaw, road);
         along = (int32_t)(((int64_t)chase->offset[0] * road[0] + (int64_t)chase->offset[2] * road[2]) >> 16);
     }
-    const int32_t flat_y = chase->offset[1];
+    int32_t flat_y = chase->offset[1];
+    if (race->port_follow_camera && chase->port_look_back == 0 && race->port_chase_height != 0) flat_y = chase->target[1];   /* port (chase_height): the nominal eye height; offset[1] is turned by the car's pitch, low on a climb, high on a descent */
     chase->offset[1] = add(chase->offset[1], slope_lift(race, chase, blend, rest, along));
-    if (race->port_follow_camera && chase->port_look_back != 0) {
-        /* port (look back, 360 camera): the eye ahead of the car keeps the height above the road the flat chase has, measured at the eye's own place: the slope's lift
+    if (race->port_follow_camera && (chase->port_look_back != 0 || race->port_chase_height != 0)) {
+        /* port (look back, 360 camera; chase_height: every chase eye): the eye keeps the height above the road the flat chase has, measured at the eye's own place: the slope's lift
          * left it low under a climbing road and high over a falling one (the road ahead is not the car's plane) */
         const int32_t at_eye[3] = { chase->eye[0], add(chase->base->y, flat_y), add(chase->base->z, chase->offset[2]) };
         const int32_t at_car[3] = { chase->base->x, chase->base->y, chase->base->z };

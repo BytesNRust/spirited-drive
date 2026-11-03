@@ -55,6 +55,8 @@ typedef struct {
                               * (lamp_flare.h); 0: the exe's */
     int headlight_relight;   /* 1: with the night pools, the road's vertex light is asked again of the pools every frame, not only when the camera changes segment (the beam
                               * lagged and jumped every four nodes); 0: as before */
+    int chase_height;        /* 1: with extras.cfg's follow_camera, the chase eye behind the car keeps the flat chase's height above the road at the eye's own place on a climb or a
+                              * descent (the exe's half lift left it low on climbs and high on descents); 0: as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
@@ -114,6 +116,9 @@ int port_hall_light(void);
 
 /* 1 when the road's light is asked again each frame (headlight_relight): TNFS_HEADLIGHT_RELIGHT=0/1 when set, else port.cfg's; never without port_psx_headlights. */
 int port_headlight_relight(void);
+
+/* 1 when every chase eye keeps its height above the road (chase_height): TNFS_CHASE_HEIGHT=0/1 when set, else port.cfg's; acts only with follow_camera. */
+int port_chase_height(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
