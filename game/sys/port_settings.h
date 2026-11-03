@@ -79,6 +79,7 @@ typedef struct {
     int radar_all_views;     /* 1: EXTRAS' police radar (Bumper Radar) shows in every view outside the car, not only the bumper's (drive_radar_view); 0: the bumper view only, as it was */
     int tach_dim;            /* 1: the R&T tachometer of the views outside the car takes the dash's half tint with the time of day (a little darker at night), its needle staying lit (tach_dim.h); 0: untinted, as it was */
     int gauge_wheel;         /* 1: at night the steering wheel in front of the gauges is the dash's (half tint) like the rest of the wheel, not lit with the dials; 0: lit, as it was */
+    int police_glow;         /* 1: the police car's lights have a near-white core of the light's colour, and a stronger halo in poor light (psx_flares on); 0: the flat colour, as it was */
     int profile_ui;          /* 1 (the port's default): Game Mode and Options show the Profile row (profile.h); 0: the exe's menus, no row. `port_profile_ui=0|1`. Not controlled by a profile. */
     int profile;             /* a Profile (port_profile.h): PROFILE_CUSTOM 0 (no `profile=` line) keeps the values below as they are; another takes the settings it controls from its table
                               * at load. `profile=custom|stock|restored|restomod`. Last, so the positional initialisers keep their meaning. */
@@ -110,6 +111,8 @@ int port_profile_ui(void);
 int port_sky_fill(void);
 /* 1 when the wheel in front of the gauges is not lit with them: TNFS_GAUGE_WHEEL=0/1 when set, else port.cfg's gauge_wheel. */
 int port_gauge_wheel(void);
+/* 1 when the police lights have a bright core and a stronger halo in poor light: TNFS_POLICE_GLOW=0/1 when set, else port.cfg's police_glow. */
+int port_police_glow(void);
 /* 1 when the outside views' tachometer is tinted: TNFS_TACH_DIM=0/1 when set, else port.cfg's tach_dim. */
 int port_tach_dim(void);
 /* 1 when the flat sky's art reaches the bottom of the view: TNFS_SKY_FILL_BELOW=0/1 when set, else port.cfg's sky_fill_below; never in 4:3 (sky_fill_below_applies). */

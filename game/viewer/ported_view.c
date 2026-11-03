@@ -1276,8 +1276,11 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     if (rect[2] >= t->clip_right) rect[2] = t->clip_right - 1;
     if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
-    if (red != 0 && !far_police) lamps[n++] = (FlareLamp){ red, { 30, 60, 100 } };
-    if (blue != 0 && !far_police) lamps[n++] = (FlareLamp){ blue, { 30, 60, 100 } };
+    const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
+    const FlareLamp copred = { red, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) } };
+    const FlareLamp copblue = { blue, { copred.percent[0], copred.percent[1], copred.percent[2] } };
+    if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, { 30, 60, 100 } };
+    if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, { 30, 60, 100 } };
     for (int i = 0; i < n; i++) flare_lamp(t, palette, rect, &lamps[i]);
     if (far_police && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
         const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
