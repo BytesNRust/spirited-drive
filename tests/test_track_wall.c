@@ -6,26 +6,41 @@
 
 #include <string.h>
 
-/* the point (0..10) a vertex of `lod` is, -1 if it is not in the rows; a vertex past the last row is the next segment's first row: all 11 points in order */
+/* the point (0..10) a vertex of `lod` is, -1 if it is not in the rows; a vertex past the last row is the next segment's first row: all 11 points in order.
+ * The select list has four rows, each ended by 255; a row can be empty (two 255s in a row: LODs 1, 6, 9 ... have no second row), and the rows after it still count. */
 static int point_of(const TrackLod *lod, int vertex)
 {
-    int start = 0;
-    for (int row = 0; row < 4; row++) {
+    int start = 0, at = 0;
+    for (int row = 0; row < 4 && at < TRACK_LOD_SELECT; row++) {
         int n = 0;
-        const uint8_t *s = lod->select;
-        int at = 0, r = 0;
-        while (r < row && at < TRACK_LOD_SELECT) { if (s[at++] == 255) r++; }
-        while (at + n < TRACK_LOD_SELECT && s[at + n] != 255) n++;
-        if (n == 0 || (row > 0 && at >= TRACK_LOD_SELECT)) break;
-        if (vertex >= start && vertex < start + n) return s[at + (vertex - start)];
+        while (at + n < TRACK_LOD_SELECT && lod->select[at + n] != 255) n++;
+        if (vertex >= start && vertex < start + n) return lod->select[at + (vertex - start)];
         start += n;
+        at += n + 1;
     }
     return vertex >= lod->vertex_count && vertex < lod->vertex_count + 11 ? vertex - lod->vertex_count : -1;
 }
 
+static int turned(int p) { return p == 0 ? 0 : p <= 5 ? p + 5 : p - 5; }
+
+/* every wall of a reversed circuit stands where the old one did: a turned row has the old points 1..5 on 6..10 and 6..10 on 1..5, so the left wall is the old right chain's turned (its points 7, 8 are now 2, 3), the right wall the old left's (2 is now 7); checked on every vertex of every LOD, the far LODs with an empty row among them */
+static void test_every_lod_every_vertex(void)
+{
+    for (int n = 0; n < TRACK_LOD_COUNT; n++) {
+        const TrackLod *lod = &TRACK_LODS[n];
+        track_wall_set_inner(1);
+        const TrackLod *inner = track_wall_lod(n);
+        for (int i = 0; i < 8; i++) {
+            if (lod->fence[i] == 0 || lod->fence[8 + i] == 0) continue;
+            CHECK_EQ_INT(point_of(inner, inner->fence[i]), turned(point_of(lod, lod->fence[8 + i])));
+            CHECK_EQ_INT(point_of(inner, inner->fence[8 + i]), turned(point_of(lod, lod->fence[i])));
+        }
+    }
+    track_wall_set_inner(0);
+}
+
 int main(void)
 {
-    int moved = 0, left_moved = 0;
     for (int n = 0; n < TRACK_LOD_COUNT; n++) {
         const TrackLod *lod = &TRACK_LODS[n];
         track_wall_set_inner(0);
@@ -35,20 +50,8 @@ int main(void)
         CHECK(inner != lod);
         CHECK_EQ_INT(inner->vertex_count, lod->vertex_count);
         CHECK_EQ_INT(inner->first_polygon, lod->first_polygon);
-        for (int i = 0; i < 8; i++) {   /* the left-flagged wall is the old right's: on the third point where the exe's right chain had it there, else the second */
-            const int right = lod->fence[8 + i] != 0 ? point_of(lod, lod->fence[8 + i]) : -1;
-            if (right == 8) { CHECK_EQ_INT(point_of(inner, inner->fence[i]), 3); left_moved++; }
-            else CHECK_EQ_INT(inner->fence[i], lod->fence[i]);
-        }
         CHECK(memcmp(inner->select, lod->select, sizeof lod->select) == 0);
-        for (int i = 8; i < 16; i++) {
-            const int was = point_of(lod, lod->fence[i]), now = point_of(inner, inner->fence[i]);
-            if (was == 8) { CHECK_EQ_INT(now, 7); moved++; }
-            else CHECK_EQ_INT(inner->fence[i], lod->fence[i]);     /* the second point already, or no wall (0) */
-            CHECK(now != 8);
-        }
     }
-    CHECK(left_moved > 0);
-    CHECK(moved > 0);   /* some LODs do put it on the third */
+    test_every_lod_every_vertex();
     return TEST_REPORT();
 }

@@ -2,9 +2,13 @@
 
 #include <string.h>
 
-enum { RIGHT_PAIRS = 8, THIRD = 8, SECOND = 7, ROW_POINTS = 11 };
+enum { RIGHT_PAIRS = 8, ROW_POINTS = 11 };
 
-/* the point of the left chain or the right one that `vertex` is, and the vertex of its row that is `want`: both through the LOD's rows (select), and past
+/* where a point of a row stands once the row is turned */
+static int turned(int point) { return point == 0 ? 0 : point <= 5 ? point + 5 : point - 5; }
+
+/* the select list is four rows ended by 255; a row can be empty (two 255s: the LODs with vertex_count 20 have no second row) and the rows after it still count.
+ * The point of the left chain or the right one that `vertex` is, and the vertex of its row that is `want`: both through the LOD's rows (select), and past
  * them the next segment's first row, every point in order. `point` is -1 for none. */
 static int point_of(const TrackLod *lod, uint8_t vertex)
 {
@@ -12,7 +16,6 @@ static int point_of(const TrackLod *lod, uint8_t vertex)
     for (int row = 0, at = 0; row < 4 && at < TRACK_LOD_SELECT; row++) {
         int n = 0;
         while (at + n < TRACK_LOD_SELECT && lod->select[at + n] != 255) n++;
-        if (n == 0) break;
         if (vertex >= start && vertex < start + n) return lod->select[at + (vertex - start)];
         start += n;
         at += n + 1;
@@ -26,7 +29,6 @@ static uint8_t same_row_vertex(const TrackLod *lod, uint8_t vertex, int want)
     for (int row = 0, at = 0; row < 4 && at < TRACK_LOD_SELECT; row++) {
         int n = 0;
         while (at + n < TRACK_LOD_SELECT && lod->select[at + n] != 255) n++;
-        if (n == 0) break;
         if (vertex >= start && vertex < start + n) {
             for (int k = 0; k < n; k++)
                 if (lod->select[at + k] == want) return (uint8_t)(start + k);
@@ -52,15 +54,15 @@ const TrackLod *track_wall_lod(int lod)
     if (!built) {
         for (int n = 0; n < TRACK_LOD_COUNT; n++) {
             inner_lods[n] = TRACK_LODS[n];
-            /* the right-flagged pairs take the second point; the left-flagged ones, which are now the old right's, take the third where the exe's right chain did (the
-             * left's own point two of the old chain is the right's second, the old right's third is its third) */
+            /* a reversed circuit's left wall is the old right chain's, turned with the row (points 1..5 on 6..10, 6..10 on 1..5), and its right wall the old left's:
+             * the second and third points the exe's chains stand on (2, 7, 8) are now 7, 2, 3, and the odd ends some far LODs have (0, 5, 6) turn the same way */
             for (int i = 0; i < RIGHT_PAIRS; i++) {
-                const uint8_t was_right = TRACK_LODS[n].fence[RIGHT_PAIRS + i];
-                if (was_right != 0 && point_of(&TRACK_LODS[n], was_right) == THIRD)
-                    inner_lods[n].fence[i] = same_row_vertex(&TRACK_LODS[n], TRACK_LODS[n].fence[i], THIRD - 5);
+                const uint8_t left = TRACK_LODS[n].fence[i], right = TRACK_LODS[n].fence[RIGHT_PAIRS + i];
+                if (left == 0 || right == 0) continue;
+                const int was_left = point_of(&TRACK_LODS[n], left), was_right = point_of(&TRACK_LODS[n], right);
+                if (was_right >= 0) inner_lods[n].fence[i] = same_row_vertex(&TRACK_LODS[n], left, turned(was_right));
+                if (was_left >= 0) inner_lods[n].fence[RIGHT_PAIRS + i] = same_row_vertex(&TRACK_LODS[n], right, turned(was_left));
             }
-            for (int i = RIGHT_PAIRS; i < 2 * RIGHT_PAIRS; i++)
-                if (point_of(&TRACK_LODS[n], TRACK_LODS[n].fence[i]) == THIRD) inner_lods[n].fence[i] = same_row_vertex(&TRACK_LODS[n], TRACK_LODS[n].fence[i], SECOND);
         }
         built = 1;
     }
