@@ -22,6 +22,7 @@ typedef struct {
     int scripted;
     HeadlightPool *pool; /* port (psx_headlights): the cars' pools of light the night's nodes are lifted by (headlight_pool.h); NULL none (not owned: the one who set it
                          * keeps the nodes up to date; the light reads it through a const PsxLight) */
+    uint8_t *hall;      /* port (made light): per node (owned), 1 where the node is a lit hall's (psx_light_synth.h: the car takes the lamps' alternation there); NULL none */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
                          * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
 } PsxLight;

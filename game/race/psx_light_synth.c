@@ -128,6 +128,14 @@ int psx_light_synth_track(const char *track)
     return track != NULL && (strcasecmp(track, "TR6") == 0 || strcasecmp(track, "TR7") == 0);
 }
 
+int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to)
+{
+    if (track == NULL || strcasecmp(track, "TR7") != 0) return 0;
+    if (from != NULL) *from = 471;
+    if (to != NULL) *to = 570;
+    return 1;
+}
+
 /* CY1's lamp context through the exe's table (psx_lgs.h): 128,115,96 under a lamp (even nodes), 60,60,60 between (odd) */
 static const float LAMP_LIT[3] = { 96.0f / 160, 89.0f / 160, 80.0f / 160 };
 static const float LAMP_DIM[3] = { 62.0f / 160, 62.0f / 160, 62.0f / 160 };
@@ -138,8 +146,9 @@ static const float HALL_DIM[3] = { 96.0f / 160, 62.0f / 160, 21.0f / 160 };
 void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
 {
     const int beyond = light == NULL || light->data == NULL ? PSX_LIGHT_FULL : psx_light_byte(light, node, PSX_SYNTH_HALL_POINT);
-    const float dark = beyond == PSX_SYNTH_HALL_MARK ? 1.0f : 1.0f - (float)beyond / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
-    const int hall = beyond == PSX_SYNTH_HALL_MARK;
+    /* a hall: the made light's flag (the terrain's light, lower than the mark, replaces the mark in the row's byte), or the mark itself in a light that is the synth's alone */
+    const int hall = light != NULL && ((light->hall != NULL && node < light->nodes && light->hall[node] != 0) || beyond == PSX_SYNTH_HALL_MARK);
+    const float dark = hall ? 1.0f : 1.0f - (float)beyond / (float)PSX_LIGHT_FULL;   /* how far the points beyond the foot have gone: 0 open, 1 in the tunnel */
     const float *lamp = (node & 1u) != 0 ? (hall ? HALL_DIM : LAMP_DIM) : (hall ? HALL_LIT : LAMP_LIT);
     for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
 }

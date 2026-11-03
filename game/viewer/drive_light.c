@@ -232,7 +232,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (file == NULL) {
         if (have_dir) port_log("psx_light: no %s\n", path);
         else port_log("psx_light: no PS1 directory, the port's own effects only\n");
-        made_wanted = 1;
+        made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
         const PsxLamp *own_lamps = NULL;
         const int own_count = psx_lamps_for(track, &own_lamps);
@@ -320,8 +320,19 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     if (lamps > 0) port_log("psx_light: %zu street lamp pools\n", lamps);
     PsxLight tunnels = { 0 };
     if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
-        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++)
+        uint32_t hall_from = 1, hall_to = 0;
+        const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
+        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) {
+            const uint32_t node = (uint32_t)(i / PSX_LIGHT_POINTS), point = (uint32_t)(i % PSX_LIGHT_POINTS);
+            const int beyond = point == 3 || point == 4 || point == 5 || point >= 8;   /* the points beyond the foot: the scenery's side */
+            if (hall && node >= hall_from && node <= hall_to && beyond) continue;   /* port (hall_light): the hall keeps the terrain's light there */
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
+        }
+    }
+    if (tunnels.data != NULL && tunnels.nodes == made.nodes) {   /* port: the hall nodes' flag (the mark in the synth's row is lost to the terrain's lower light above) */
+        made.hall = calloc(made.nodes, 1);
+        if (made.hall != NULL)
+            for (uint32_t n = 0; n < made.nodes; n++) made.hall[n] = tunnels.data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
     }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);

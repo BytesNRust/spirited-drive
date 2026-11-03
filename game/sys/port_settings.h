@@ -51,6 +51,8 @@ typedef struct {
                               * art's last rows, as it was */
     int psx_flares;          /* 1: with the Light Effects switch, a soft halo round a lit brake light in low light (dawn, dusk, night, a tunnel) and in fog
                               * (lamp_flare.h); 0: the exe's */
+    int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
+                              * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
     int night_sky_hue;       /* 1: the night's sky of the dusk's art takes a blue-black hue at its own luminance (psx_sky_draw_rehue); 0: the art's
@@ -94,6 +96,9 @@ int port_two_sided_scenery(int automatic);
 /* 1 when the L buildings (the two-sided boards) are closed into boxes (track_object_draw.h): TNFS_CLOSE_BOXES=0/1 (dev, for A/B) when set, else `automatic`, the same
  * condition as the open models drawn from behind: a reversed track or the 360 camera. No port.cfg key, no menu. */
 int port_close_boxes(int automatic);
+/* 1 when the foundry hall's car and shadow take the scenery's light (psx_light_synth.h): TNFS_HALL_LIGHT=0/1 when set, else port.cfg's hall_light; never without port_psx_light. */
+int port_hall_light(void);
+
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
 int port_sky_fill_mode(void);

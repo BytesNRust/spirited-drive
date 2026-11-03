@@ -63,6 +63,17 @@ static void test_hall_rows_and_cars(void)
     CHECK(open[0] == 1.0f);
     CHECK(lit[0] > lit[1] && lit[1] > lit[2] && dim[0] > dim[1] && dim[1] > dim[2]);   /* warm orange, both under and between the lamps */
     CHECK(fabsf(lit[0] - 150.0f / 160) < 1e-5f && fabsf(lit[2] - 32.0f / 160) < 1e-5f);
+    /* the made light: the terrain's lower light took the mark's byte, the node's flag carries the hall */
+    uint8_t made[NODES * PSX_LIGHT_POINTS], hall[NODES] = { 0 };
+    memset(made, 61, sizeof made);   /* the night's terrain light at the start straight */
+    hall[20] = hall[21] = 1;
+    PsxLight own = { 0 };
+    own.data = made, own.nodes = NODES, own.hall = hall;
+    float flagged[3], other[3];
+    psx_light_synth_car(&own, 20, flagged);
+    psx_light_synth_car(&own, 30, other);
+    CHECK(fabsf(flagged[0] - 150.0f / 160) < 1e-5f && fabsf(flagged[2] - 32.0f / 160) < 1e-5f);   /* the warm alternation, whatever the byte says */
+    CHECK(other[0] < 1.0f && other[0] != flagged[0]);                                              /* a node not flagged takes the tunnel formula */
 }
 
 static void test_ring_joins_a_run_across_node_zero(void)
@@ -213,6 +224,9 @@ static void test_lamps_flicker_node_by_node(void)
 static void test_tracks(void)
 {
     CHECK(psx_light_synth_track("TR6") && psx_light_synth_track("tr7"));
+    uint32_t from = 0, to = 0;
+    CHECK(psx_light_synth_hall("TR7", &from, &to) && from == 471 && to == 570 && psx_light_synth_hall("tr7", NULL, NULL));   /* the foundry hall */
+    CHECK(!psx_light_synth_hall("TR6", &from, &to) && !psx_light_synth_hall(NULL, &from, &to));
     CHECK(!psx_light_synth_track("TR1") && !psx_light_synth_track("CY1") && !psx_light_synth_track(NULL));
 }
 
