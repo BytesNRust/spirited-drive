@@ -144,12 +144,19 @@ static void test_tunnel_hue(void)
     static uint8_t red[MODERN_FOG_LEVELS][256], warm[MODERN_FOG_LEVELS][256];
     const float dusk[3] = { 0.81f, 0.62f, 0.39f }, cast[3] = { 1.0f, 0.8f, 0.15f };
     modern_light_tables_cast(palette, dusk, cast, red);
-    modern_tunnel_tables(palette, dusk, cast, warm);
-    const int white = (7 << 5) | (7 << 2) | 3;   /* 252, 252, 255 */
-    for (int l = 0; l <= 2; l++) {
+    modern_tunnel_tables(palette, dusk, cast, 0.0f, warm);
+    const int white = (6 << 5) | (6 << 2) | 1;   /* a light grey, 216, 216, 85 */
+    for (int l = 1; l <= 3; l++) {
         const uint8_t *const r = palette + 3 * red[l][white], *const w = palette + 3 * warm[l][white];
         CHECK(w[1] * r[0] > r[1] * w[0]);   /* more green for its red than the tint's own hue gives */
     }
+    /* a night's tint darker than the floor: the tunnel is lit to the floor, not to the tint */
+    static uint8_t dark[MODERN_FOG_LEVELS][256], floored[MODERN_FOG_LEVELS][256];
+    const float night[3] = { 0.25f, 0.25f, 0.3f };
+    modern_tunnel_tables(palette, night, cast, 0.0f, dark);
+    modern_tunnel_tables(palette, night, cast, 0.6f, floored);
+    const uint8_t *const d = palette + 3 * dark[1][white], *const f = palette + 3 * floored[1][white];
+    CHECK(f[0] > d[0]);
 }
 
 /* a wall before the fog's start untouched; past its end the fog's colour; textured and flat alike */

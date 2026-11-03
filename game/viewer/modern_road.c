@@ -139,9 +139,9 @@ void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], c
     light_tables(palette, tint, cast, 0, out);
 }
 
-void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256])
+void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, uint8_t out[MODERN_FOG_LEVELS][256])
 {
-    const float m = (tint[0] + tint[1] + tint[2]) / 3.0f, grey[3] = { m, m, m };
+    const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
     light_tables(palette, grey, cast, 1, out);
 }
 
