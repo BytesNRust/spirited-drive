@@ -230,6 +230,17 @@ static void test_sky_fill_below_values(void)
     CHECK_EQ_INT(port_settings_parse(text, n).sky_fill_below, 1);
 }
 
+static void test_radar_all_views_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().radar_all_views, 0);
+    const char *const on = "radar_all_views=1\n", *const bad = "radar_all_views=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).radar_all_views, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).radar_all_views, 0);
+    setenv("TNFS_RADAR_ALL_VIEWS", "1", 1);
+    CHECK_EQ_INT(port_radar_all_views(), 1);
+    unsetenv("TNFS_RADAR_ALL_VIEWS");
+}
+
 static void test_sky_fill_values(void)
 {
     unsetenv("TNFS_SKY_FILL_MODE");
@@ -565,6 +576,7 @@ int main(void)
     test_replay_no_ffb_values();
     test_last_camera_values();
     test_sky_fill_below_values();
+    test_radar_all_views_values();
     test_psx_flares_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();
