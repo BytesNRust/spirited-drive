@@ -237,6 +237,45 @@ static void test_reuse(void)
     sky_stretch_free(&s);
 }
 
+/* the night's stars sit in the art's top rows: the column fill carries a star in row 0 up as a stripe to the view's top; the quiet one leaves the stars where they are */
+static void test_quiet_column_does_not_carry_a_star_up(void)
+{
+    uint8_t px[W * H];
+    FshEntry art = make_art(px);
+    px[1] = 235;                 /* a bright star in the top row of column 1 */
+    px[2 * W + 2] = 235;         /* and one two rows down in column 2: no stripe either way */
+    SkyStretch s = { 0 };
+    const FshEntry *loud = sky_stretch(&s, &art, 0x20000, 100, 100 - 40, SKY_FILL_COLUMN, grey);
+    CHECK(loud != &art && loud->payload[1] == 235);          /* what the owner sees: the stripe */
+    const int added = (int)(loud->height) - (H - ABOVE) - ABOVE;
+    const FshEntry *quiet = sky_stretch(&s, &art, 0x20000, 100, 100 - 40, SKY_FILL_COLUMN_QUIET, grey);
+    CHECK(quiet != &art && added > 0);
+    for (int r = 0; r < added; r++) {
+        CHECK(quiet->payload[r * W + 1] < 100);               /* the star's column takes the sky under it */
+        CHECK_EQ_INT(quiet->payload[r * W + 0], 10);          /* a column with no star keeps its top pixel, as before */
+        CHECK_EQ_INT(quiet->payload[r * W + 3], 10);
+    }
+    CHECK_EQ_INT(quiet->payload[added * W + 1], 235);         /* the art's own rows are copied as they are, the star kept */
+    CHECK(sky_stretch(&s, &art, 0x20000, 100, 100 - 40, SKY_FILL_COLUMN_QUIET, NULL) == &art);   /* it needs the palette to see a star */
+    sky_stretch_free(&s);
+}
+
+static void test_quiet_column_keeps_a_wide_highlight(void)
+{
+    enum { WW = 16, HH = 10 };
+    uint8_t px[WW * HH];
+    for (int y = 0; y < HH; y++) memset(px + y * WW, 10 + y, WW);
+    for (int x = 4; x < 12; x++) px[x] = 200;   /* eight columns of light: a cloud's edge, not a star */
+    px[1] = 235;                                /* a star at the left */
+    FshEntry art = { { 'h', 'o', 'r', 'z' }, 0, 0, WW, HH, { 0, ABOVE, 0, 0 }, px, WW * HH };
+    SkyStretch s = { 0 };
+    const FshEntry *quiet = sky_stretch(&s, &art, 0x20000, 100, 100 - 40, SKY_FILL_COLUMN_QUIET, grey);
+    CHECK(quiet != &art);
+    CHECK_EQ_INT(quiet->payload[1], 10);        /* the star: the column beside it */
+    for (int x = 4; x < 12; x++) CHECK_EQ_INT(quiet->payload[x], 200);   /* the highlight is carried up as it was */
+    sky_stretch_free(&s);
+}
+
 int main(void)
 {
     for (int i = 0; i < 256; i++) grey[3 * i] = grey[3 * i + 1] = grey[3 * i + 2] = (uint8_t)i;
@@ -247,6 +286,8 @@ int main(void)
     test_column_rows_are_the_top_row();
     test_column_ignores_odd_top_pixel();
     test_modes_agree_on_the_rows();
+    test_quiet_column_does_not_carry_a_star_up();
+    test_quiet_column_keeps_a_wide_highlight();
     test_blend_rows();
     test_blend_skips_transparent();
     test_horizon_flat_reaches_the_top();

@@ -48,6 +48,35 @@ static uint8_t column_colour(const FshEntry *horz, int32_t w, int32_t rows, int3
     return below != top && below != 0xff ? below : top;
 }
 
+static int lightness(const uint8_t *palette, uint8_t i) { return (77 * palette[3 * i] + 150 * palette[3 * i + 1] + 29 * palette[3 * i + 2]) >> 8; }
+
+/* a star at the top of column x: its colour much lighter (SKY_FILL_STAR_LUMA) than the pixel under it, which is the sky (the art's rows under a star are not lit, as a cloud's top is) */
+static int is_star(const FshEntry *horz, int32_t w, int32_t x, uint8_t colour, const uint8_t *palette)
+{
+    const uint8_t under = horz->payload[w + x];
+    return colour != 0xff && under != 0xff && lightness(palette, colour) > lightness(palette, under) + SKY_FILL_STAR_LUMA;
+}
+
+/* SKY_FILL_COLUMN_QUIET: the row of column colours (column_colour's) with its stars taken out: a run of at most SKY_FILL_STAR_WIDTH columns of stars (a longer run is a cloud's
+ * highlight, and stays) takes the colour of the column beside the run, the left one, else the right one */
+static void quiet_stars(const FshEntry *horz, int32_t w, const uint8_t *palette, uint8_t *row)
+{
+    int32_t x = 0;
+    while (x < w) {
+        if (!is_star(horz, w, x, row[x], palette)) {
+            x++;
+            continue;
+        }
+        int32_t end = x;
+        while (end + 1 < w && is_star(horz, w, end + 1, row[end + 1], palette)) end++;
+        if (end - x + 1 <= SKY_FILL_STAR_WIDTH) {
+            const uint8_t beside = x > 0 ? row[x - 1] : end + 1 < w ? row[end + 1] : horz->payload[w + x];
+            for (int32_t k = x; k <= end; k++) row[k] = beside;
+        }
+        x = end + 1;
+    }
+}
+
 /* the 4x4 ordered-dither threshold, 0..15 */
 static int bayer(int32_t x, int32_t y)
 {
@@ -58,7 +87,7 @@ static int bayer(int32_t x, int32_t y)
 const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, int32_t line, int32_t top, int mode,
                             const uint8_t *palette)
 {
-    if (mode != SKY_FILL_COLUMN && !(mode == SKY_FILL_BLEND && palette != NULL)) return horz;
+    if (mode != SKY_FILL_COLUMN && !((mode == SKY_FILL_BLEND || mode == SKY_FILL_COLUMN_QUIET) && palette != NULL)) return horz;
     if (horz == NULL || horz->payload == NULL || scale <= 0 || line == INT32_MIN) return horz;
     const int32_t w = (int16_t)horz->width, h = (int16_t)horz->height, above = (int16_t)horz->misc[1];
     if (w <= 0 || h <= 0 || above <= 0 || above > h || (size_t)w * (size_t)h > horz->payload_size) return horz;
@@ -79,10 +108,11 @@ const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, 
     const uint8_t mean = mode == SKY_FILL_BLEND ? mean_colour(horz, w, palette) : 0;
     for (int32_t r = 0; r < added; r++) {
         uint8_t *const row = s->pixels + (size_t)r * w;
-        if (mode == SKY_FILL_COLUMN) {
+        if (mode == SKY_FILL_COLUMN || mode == SKY_FILL_COLUMN_QUIET) {
             if (r == 0) {   /* the first added row carries the column colours; the rest copy it */
                 const int32_t sample = above < SKY_FILL_COLUMN_ROWS ? above : SKY_FILL_COLUMN_ROWS;
                 for (int32_t x = 0; x < w; x++) row[x] = column_colour(horz, w, sample, x);
+                if (mode == SKY_FILL_COLUMN_QUIET) quiet_stars(horz, w, palette, row);
             } else {
                 memcpy(row, s->pixels, (size_t)w);
             }
