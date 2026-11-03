@@ -49,6 +49,8 @@ typedef struct {
                               * 0: the exe's own slots, whose nearest colours turn a body's light tones to grey */
     int fog_sample;          /* 1: the distance fog's colour from the horizon art's band around its line (modern_look.h); 0: from the
                               * art's last rows, as it was */
+    int made_tunnels;        /* 1: with the Light Effects switch, a track whose light is made (no PS1 file: TR6, TR7) takes its tunnels from the road's property bit, so the
+                              * tunnel tables (grey floor, warm cast) and the tunnel's light apply there as on the PS1 tracks; 0: as before */
     int psx_flares;          /* 1: with the Light Effects switch, a soft halo round a lit brake light in low light (dawn, dusk, night, a tunnel) and in fog
                               * (lamp_flare.h); 0: the exe's */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -96,6 +98,9 @@ int port_forest_dark(void);
 int port_night_stretch_clean(void);
 /* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_PSX_FLARES=0/1 when set, else port.cfg's psx_flares; never without port_psx_light. */
 int port_psx_flares(void);
+
+/* 1 when a made light marks its tunnels from the road (made_tunnels): TNFS_MADE_TUNNELS=0/1 when set, else port.cfg's made_tunnels; never without port_psx_light. */
+int port_made_tunnels(void);
 /* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 (dev) when set, else `automatic`: the race has a reversed track or the 360 camera
  * on (both show the scenery from behind), decided when the track's models are made. No port.cfg key (an old two_sided_scenery line is ignored). */
 int port_two_sided_scenery(int automatic);

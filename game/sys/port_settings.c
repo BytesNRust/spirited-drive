@@ -114,6 +114,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "fog_sample") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->fog_sample = (int)n;
+    } else if (strcmp(key, "made_tunnels") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->made_tunnels = (int)n;
     } else if (strcmp(key, "psx_flares") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->psx_flares = (int)n;
@@ -201,11 +204,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -356,6 +359,14 @@ int port_close_boxes(int automatic)
     const char *v = getenv("TNFS_CLOSE_BOXES");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return automatic != 0;
+}
+
+int port_made_tunnels(void)
+{
+    if (!port_psx_light()) return 0;
+    const char *v = getenv("TNFS_MADE_TUNNELS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().made_tunnels;
 }
 
 int port_psx_flares(void)
