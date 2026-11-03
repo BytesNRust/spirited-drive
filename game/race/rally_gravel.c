@@ -25,6 +25,19 @@ int32_t rally_gravel_level(int kind, int32_t level)
     }
 }
 
+int32_t rally_gravel_crunch(int kind, int32_t speed, uint32_t rand)
+{
+    enum { MIN_SPEED = 2, TOP_SPEED = 30, SLOWEST = 8, SPEED_PER_STEP = 6, VOLUME_BASE = 0x50, VOLUME_PER_METRE = 2, VOLUME_TOP = 0x7f };
+    if (kind == RALLY_GRAVEL_OFF) return 0;
+    const int32_t metres = (speed < 0 ? -speed : speed) >> 16;
+    if (metres < MIN_SPEED) return 0;
+    const int32_t period = SLOWEST - (metres > TOP_SPEED ? TOP_SPEED : metres) / SPEED_PER_STEP;   /* a strike every `period` steps (30 a second) on average: 4 a second slowly, 10 flat out; the exe's own is 1 in 30 */
+    if ((int32_t)(((rand & 0xffffu) * (uint32_t)period) >> 16) != 0) return 0;
+    int32_t volume = VOLUME_BASE + VOLUME_PER_METRE * (metres > TOP_SPEED ? TOP_SPEED : metres);
+    if (volume > VOLUME_TOP) volume = VOLUME_TOP;
+    return kind == RALLY_GRAVEL_REGOLITH ? volume / 2 : kind == RALLY_GRAVEL_DUST ? volume * 3 / 4 : volume;
+}
+
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground)
 {
     if (!on_ground || speed < DUST_MOVING || (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH)) return 0;

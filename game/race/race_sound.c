@@ -32,6 +32,7 @@ enum {
     NODE_TOP = 0x7a,
     GRAVEL_CHANNEL = 0xf,         /* track 5 off the road (+0x4aa) */
     GRAVEL_SOUND = 0x50,
+    GRAVEL_LOW_PITCH = 0x30,
     RUMBLE_CHANNEL = 4,           /* track 5 on a +0x4c6 node */
     RUMBLE_SOUND = 0x21,
     ENGINE_SOUND = 1,
@@ -219,11 +220,18 @@ static int32_t road_noise(RaceState *race, const Car *car)
     level = (int32_t)((level > 0 ? (uint32_t)level : 0u - (uint32_t)level) * 2u);
     if (race->port_rally_gravel != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0 && car->airborne_ticks == 0) {
         /* port (rally_gravel.h): the rally rolls on gravel: the road noise as the shoulder's own (the off-road branch below: its level plus
-         * 0x14 and the pitch 0x5e), only lower. The continuous voice alone: the gravel one-shot struck every few ticks at this volume was
-         * a tinkle, not the shoulder's scrape. */
+         * 0x14 and the pitch 0x5e), only lower. */
         level = rally_gravel_level(race->port_rally_gravel, (int32_t)((uint32_t)level + 0x14u));
         level = rally_gravel_road_level(race->port_rally_gravel, level, car->speed);   /* and heard at a crawl */
         e->pitch = 0x5e;
+        /* and the exe's own gravel sample struck on the rolling car (rally_gravel_crunch): the road voice alone is sample 0x29, the same low murmur the asphalt has */
+        const int32_t crunch = rally_gravel_crunch(race->port_rally_gravel, car->speed, race_rand(race) & 0xffffu);
+        if (crunch > 0) {
+            const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
+            race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, PAN_CENTRE, crunch, pan);
+            /* the sample is the bank's quietest (0.09 of full scale against the engine's 0.3): a second strike, lower and from the other side, doubles it and thickens it */
+            race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, GRAVEL_LOW_PITCH, crunch, LEVEL_MAX - pan);
+        }
     } else if (car->node_flag_4aa != 0) {
         level = (int32_t)((uint32_t)level + 0x14u);
         level = rally_gravel_shoulder_level(race->port_rally_gravel, level, car->speed);   /* port: heard at a crawl in the rally */
