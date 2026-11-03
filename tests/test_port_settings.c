@@ -230,6 +230,17 @@ static void test_sky_fill_below_values(void)
     CHECK_EQ_INT(port_settings_parse(text, n).sky_fill_below, 1);
 }
 
+static void test_gauge_wheel_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().gauge_wheel, 0);
+    const char *const on = "gauge_wheel=1\n", *const bad = "gauge_wheel=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).gauge_wheel, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).gauge_wheel, 0);
+    setenv("TNFS_GAUGE_WHEEL", "1", 1);
+    CHECK_EQ_INT(port_gauge_wheel(), 1);
+    unsetenv("TNFS_GAUGE_WHEEL");
+}
+
 static void test_tach_dim_values(void)
 {
     CHECK_EQ_INT(port_settings_defaults().tach_dim, 0);
@@ -589,6 +600,7 @@ int main(void)
     test_sky_fill_below_values();
     test_radar_all_views_values();
     test_tach_dim_values();
+    test_gauge_wheel_values();
     test_psx_flares_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();
