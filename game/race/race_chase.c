@@ -290,6 +290,12 @@ void race_chase_cycle(RaceState *race, RaceChase *chase)
     }
 }
 
+int32_t race_chase_start_kind(const RaceState *race, const ChaseKind *row, int32_t next)
+{
+    if (race->port_last_camera == 0 || race->port_start_camera <= 0 || race->replay != 0 || row != &race->chase_kinds[KIND_ALT]) return next;
+    return race->port_start_camera - 1;
+}
+
 void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
 {
     if (chase->car == NULL) return;  /* port guard: the original reads the car unchecked */
@@ -306,6 +312,9 @@ void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
             kind = KIND_REPLAY + 1;
         }
     }
+    if (race->port_last_camera != 0 && race->phase == RACING && race->replay == 0 && kind >= 0 && kind <= KIND_ATTACHED &&
+        race->player >= 0 && race->player < RACE_CARS && chase->car == race->cars[race->player])
+        race->port_start_camera = kind + 1;   /* port (last_camera): the player's own live view */
     const int32_t last = chase->kind;
     chase->kind = kind;
     chase->unknown_08 = 0;
@@ -502,8 +511,9 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
             chase->yaw = source_yaw(row, road_yaw);
             chase->gliding = 0;
             if (row->next >= 0) {
-                chase->next_kind = row->next;
-                race_chase_take(race, chase, row->next);
+                const int32_t next = race_chase_start_kind(race, row, row->next);   /* port (last_camera): the intro lands on the last camera used */
+                chase->next_kind = next;
+                race_chase_take(race, chase, next);
                 return 1;
             }
         }

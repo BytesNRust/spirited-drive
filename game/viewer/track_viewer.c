@@ -469,6 +469,12 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
     if (free_race) port_log("free laps: %d laps (the exe's would be %d), no record is kept\n", laps, exe_laps);
+    drive_sim.race.port_last_camera = replay_of == NULL ? port_last_camera() : 0;   /* port: the race starts in the last camera used */
+    drive_sim.race.port_start_camera = 0;
+    if (drive_sim.race.port_last_camera != 0) {
+        const PortSettings cam = port_settings_load();
+        if (cam.camera_kind >= 0 && cam.camera_kind <= 5) drive_sim.race.port_start_camera = cam.camera_kind + 1;
+    }
     drive_sim.race.port_follow_camera = port_extras_load().follow_camera;   /* port: extras.cfg's Follow camera (CUSTOMIZE, Unlocks & mods) */
     drive_sim.race.port_follow_ring = drive_sim.race.port_follow_camera != 0;   /* port: and its arm behind, a longer one, in a bigger cache */
     if (drive_menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
@@ -633,6 +639,13 @@ void drive_end(void)
     race_sim_end(&drive_sim);
     drive_cars.ended = 1;
     const RaceState *race = &drive_sim.race;
+    if (race->port_last_camera != 0 && race->port_start_camera > 0) {   /* port (last_camera): the camera in use is kept for the next race */
+        PortSettings cam = port_settings_load();
+        if (cam.camera_kind != race->port_start_camera - 1) {
+            cam.camera_kind = race->port_start_camera - 1;
+            if (!port_settings_save(&cam)) port_log("last camera: port.cfg could not be saved\n");
+        }
+    }
     drive_results = (TrackViewerResults){ 1, (int16_t)race->end_request, race->results_player_rank, race->results_rival_rank,
                                     race->results_rival, race->results_rival_name, { 0 }, race->results_player_place,
                                     race->results_shown_place, race->racers, race->player, race->end_state };
