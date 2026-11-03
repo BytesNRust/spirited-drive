@@ -68,6 +68,22 @@ void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
     d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
 }
 
+void psx_sky_draw_rehue(PsxSkyDraw *d, const float ramp[3])
+{
+    if (!d->ready) return;
+    const float ramp_luma = 0.30f * ramp[0] + 0.59f * ramp[1] + 0.11f * ramp[2];
+    if (ramp_luma <= 0.0f) return;
+    for (int i = 0; i < 256; i++) {
+        uint8_t *const c = d->bitmap.palette + 3 * i;
+        const float luma = 0.30f * c[0] + 0.59f * c[1] + 0.11f * c[2];
+        for (int k = 0; k < 3; k++) {
+            const float v = luma * ramp[k] / ramp_luma + 0.5f;
+            c[k] = (uint8_t)(v > 255.0f ? 255.0f : v);
+        }
+    }
+    d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
+}
+
 /* the stars go down the sky above its horizon row, thinning toward it (a band of the bitmap's upper rows put none in a PS1 panorama's view, whose 448 rows
  * show only the lowest ones: TR1), and off the land: a column's silhouette starts at the first row whose
  * rows (their mean, over STAR_EDGE_ROWS) are under STAR_EDGE_PERCENT of the ones above them: a step, which a gradient darkening to the horizon, dithered or not,

@@ -42,6 +42,8 @@ static int headlights_on;               /* the race is at night with the pools: 
 /* with the pools the palette is the dusk's with the night's hue (psx_night_light over HEADLIGHT_FLOOR, 1 at most per channel) and the nodes carry the rest of the
  * dark (headlight_pool.h): open road and country go to the night's light, a tunnel and a car's pool keep the dusk's; the sky keeps psx_night_light */
 static const float NIGHT_PALETTE[3] = { 0.80f, 0.96f, 1.0f };
+/* port (night_sky_hue): the hue of the made night's sky, blue-black: the sky's colours keep their luminance and take these channels' proportions */
+static const float NIGHT_SKY_RAMP[3] = { 0.62f, 0.80f, 1.0f };
 static StreetLamp street_lamps[STREET_LAMPS_MAX];   /* port (psx_headlights): the street lamps flare at night (street_lamp.h) */
 static int street_lamp_count;
 static int street_lamp_on;
@@ -105,6 +107,7 @@ static void sky_scale_night(void)
     float mul[3];
     for (int k = 0; k < 3; k++) mul[k] = headlights_on ? psx_night_light[k] * psx_night_light[k] / NIGHT_PALETTE[k] : psx_night_light[k];
     psx_sky_draw_scale(&sky_draw, mul);
+    if (port_night_sky_hue()) psx_sky_draw_rehue(&sky_draw, NIGHT_SKY_RAMP);   /* port (night_sky_hue): not the dusk art's orange and olive */
     if (headlights_on) {   /* port (psx_headlights): the night's stars in the dark of the sky */
         const int stars = psx_sky_draw_stars(&sky_draw, NIGHT_STARS_SEED);
         port_log("psx_sky: stars %d, band rows 0..%d of horizon row %d (bitmap %dx%d), %d columns of land reach the band\n", stars, sky_draw.star_rows,
