@@ -120,8 +120,98 @@ done:
     free(buf), free(rev), free(back), free(again);
 }
 
+/* a model turns half a turn about the centre of its footprint (the pivots), not about its corner: its centre stays where it
+ * stood, so reversing twice with the pivots gives the offsets back (up to the offsets' rounding), and once they have moved
+ * the models, never the boards */
+static void check_pivots(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) { CHECK(0); return; }
+    fseek(f, 0, SEEK_END);
+    const long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *buf = malloc((size_t)size), *once = malloc((size_t)size), *twice = malloc((size_t)size), *plain = malloc((size_t)size);
+    uint8_t *plain2 = malloc((size_t)size);
+    const int ok = buf != NULL && once != NULL && twice != NULL && plain != NULL && plain2 != NULL &&
+                   fread(buf, 1, (size_t)size, f) == (size_t)size;
+    fclose(f);
+    Tri tri, a, b, c, d2;
+    CHECK(ok && tri_open(&tri, buf, (size_t)size) == TRI_OK);
+    if (!ok || !tri_is_circuit(&tri)) goto done;
+    TriPivot pivots[64];
+    for (int i = 0; i < 64; i++) pivots[i] = (TriPivot){ 100 + 7 * i, -30 + 3 * i };
+    const TriReverseOptions opt = { 0, pivots, 64 };
+    CHECK_EQ_INT(tri_reverse(buf, (size_t)size, plain), TRI_OK);
+    CHECK_EQ_INT(tri_reverse(plain, (size_t)size, plain2), TRI_OK);
+    CHECK_EQ_INT(tri_reverse_with(buf, (size_t)size, once, &opt), TRI_OK);
+    CHECK_EQ_INT(tri_reverse_with(once, (size_t)size, twice, &opt), TRI_OK);
+    CHECK_EQ_INT(tri_open(&a, plain, (size_t)size), TRI_OK);
+    CHECK_EQ_INT(tri_open(&b, once, (size_t)size), TRI_OK);
+    CHECK_EQ_INT(tri_open(&c, twice, (size_t)size), TRI_OK);
+    CHECK_EQ_INT(tri_open(&d2, plain2, (size_t)size), TRI_OK);
+    int moved = 0, models = 0;
+    for (uint32_t i = 0; i < a.scenery_count; i++) {
+        TriScenery sa, sb, sc, sd;
+        TriDescriptor d;
+        CHECK_EQ_INT(tri_scenery(&a, i, &sa), TRI_OK);
+        CHECK_EQ_INT(tri_scenery(&b, i, &sb), TRI_OK);
+        CHECK_EQ_INT(tri_scenery(&c, i, &sc), TRI_OK);
+        CHECK_EQ_INT(tri_scenery(&d2, i, &sd), TRI_OK);
+        CHECK_EQ_INT(tri_descriptor(&a, sa.descriptor, &d), TRI_OK);
+        CHECK_EQ_INT(sa.node, sb.node);
+        CHECK_EQ_INT(sa.orientation, sb.orientation);
+        CHECK_EQ_INT(sa.y, sb.y);
+        if (d.type != 1 || d.resource_id >= 64) {   /* a board is left alone */
+            CHECK_EQ_INT(sa.x, sb.x);
+            CHECK_EQ_INT(sa.z, sb.z);
+            continue;
+        }
+        models++;
+        if (sa.x != sb.x || sa.z != sb.z) moved++;
+        CHECK(abs(sc.x - sd.x) <= 4 && abs(sc.z - sd.z) <= 4);
+    }
+    CHECK(moved > 0 || models == 0);
+done:
+    free(buf), free(once), free(twice), free(plain), free(plain2);
+}
+
+/* the property byte (tunnel, LOD, sound) belongs to the strip from a node to the next: the new node j has that of the old strip
+ * it now starts, the one that ended at old node N - j; and reversing twice gives every node's own back */
+static void check_strip_property(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) { CHECK(0); return; }
+    fseek(f, 0, SEEK_END);
+    const long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *buf = malloc((size_t)size), *once = malloc((size_t)size), *twice = malloc((size_t)size);
+    const int ok = buf != NULL && once != NULL && twice != NULL && fread(buf, 1, (size_t)size, f) == (size_t)size;
+    fclose(f);
+    Tri tri, a, b;
+    CHECK(ok && tri_open(&tri, buf, (size_t)size) == TRI_OK);
+    if (!ok || !tri_is_circuit(&tri)) goto done;
+    const TriReverseOptions opt = { 1, NULL, 0 };
+    CHECK_EQ_INT(tri_reverse_with(buf, (size_t)size, once, &opt), TRI_OK);
+    CHECK_EQ_INT(tri_reverse_with(once, (size_t)size, twice, &opt), TRI_OK);
+    CHECK_EQ_INT(tri_open(&a, once, (size_t)size), TRI_OK);
+    CHECK_EQ_INT(tri_open(&b, twice, (size_t)size), TRI_OK);
+    const uint32_t ring = tri.ring_nodes;
+    for (uint32_t j = 0; j < ring; j++) {
+        const uint32_t old = (ring - j) % ring, before = (old + ring - 1) % ring;
+        TriNode n, o, t, own;
+        CHECK_EQ_INT(tri_node(&a, j, &n), TRI_OK);
+        CHECK_EQ_INT(tri_node(&tri, before, &o), TRI_OK);
+        CHECK_EQ_INT(tri_node(&b, j, &t), TRI_OK);
+        CHECK_EQ_INT(tri_node(&tri, j, &own), TRI_OK);
+        CHECK_EQ_INT(n.property, o.property);
+        CHECK_EQ_INT(t.property, own.property);
+    }
+done:
+    free(buf), free(once), free(twice);
+}
+
 int main(int argc, char **argv)
 {
-    for (int a = 1; a < argc; ++a) check_file(argv[a]);
+    for (int a = 1; a < argc; ++a) check_file(argv[a]), check_pivots(argv[a]), check_strip_property(argv[a]);
     return TEST_REPORT();
 }

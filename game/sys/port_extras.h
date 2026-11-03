@@ -9,9 +9,9 @@
 
 typedef enum { START_GAME_MODE = 0, START_NETWORK = 1, START_CENTRAL = 2 } StartScreen;
 
-/* The speed's units, and the distances (miles or km) and the cockpit's dial with them. UNITS_LANGUAGE is the exe's:
- * km/h under German, mph otherwise; the other two are the player's choice, whatever the language. */
-typedef enum { UNITS_LANGUAGE = 0, UNITS_MPH = 1, UNITS_KMH = 2 } SpeedUnits;
+/* The speed's units, and the distances (miles or km) and the cockpit's dial with them: the player's choice, mph until it is made (the port has no
+ * languages, so the exe's German km/h is not a default; an older file's `units=language` reads as mph). */
+typedef enum { UNITS_MPH = 0, UNITS_KMH = 1 } SpeedUnits;
 
 /* The dash's box under the right vent, where the exe puts the map (M hides it) and, with the map hidden, the gear
  * lever for a gear change. DASH_BOX_MAP is the exe's; DASH_BOX_LEVER keeps the lever in the box all the time and shows
@@ -32,7 +32,7 @@ typedef struct {
     int stats_overlay;  /* 0/1: the race's stats overlay (F12 turns it in a race); off */
     int car_markers;    /* 0/1: the coloured triangles over the rival cars (F6 turns them in a race); On, the exe's */
     StartScreen start;                                          /* START_GAME_MODE */
-    SpeedUnits units;                                           /* UNITS_LANGUAGE */
+    SpeedUnits units;                                           /* UNITS_MPH */
     int lunar_springs;  /* 0/1: the rally on Rusty Springs runs the cut moon track's textures and picture (lunar_springs.h).
                          * Last, so the positional initialisers above keep their meaning. */
     DashBox dash_box;   /* DASH_BOX_MAP */
@@ -83,8 +83,7 @@ typedef enum { RACE_SWITCH_STATS = 0, RACE_SWITCH_MARKERS = 1 } RaceSwitch;
 DashBox port_extras_dash_box(void);
 int port_extras_race_on(RaceSwitch which);                      /* 0/1 as extras.cfg has it */
 bool port_extras_set_race_switch(RaceSwitch which, int on);     /* the file as it is, that switch set */
-/* 1 when the speeds, distances and the cockpit's dial are in km/h: the player's choice, or with UNITS_LANGUAGE the
- * language's (german 1 is km/h, as 0052b31c gives it). */
-int speed_units_kmh(SpeedUnits units, int german);
+/* 1 when the speeds, distances and the cockpit's dial are in km/h: the player's choice. */
+int speed_units_kmh(SpeedUnits units);
 
 #endif

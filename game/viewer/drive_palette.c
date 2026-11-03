@@ -26,6 +26,9 @@ enum {
     TRACK_COUNT = 0x60
 };
 
+enum { RESERVE_MAX = 12 };   /* the entries the exe leaves free after the cars are mapped, CL1 at night */
+enum { NIGHT_LAMP_ENTRIES = 8, NIGHT_LAMP_MAX = NIGHT_LAMP_ENTRIES + 4 };   /* + the street lamp's (drive_light_street_lamp_entries) */
+
 static const uint8_t TRACK_PAL[4] = { '!', 'p', 'a', 'l' };
 static const uint8_t MODEL_PAL[4] = { '!', 'P', 'A', 'L' };
 
@@ -139,6 +142,34 @@ static void fit_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[
     port_log("car_colours: %d entries fitted\n", changed);
 }
 
+/* port (car colours): the entries the light effects will want (the police car's four, the cars' lamps' four, the night's tunnel and street lamps'). The fit fills the cars' blocks
+ * and the cars are then mapped over everything the world leaves free, so the lamps, the police and the night found none (police 0 of 4, night lamps 0 of 12; the exe's 12 free
+ * entries were 4 after the fit). The entries of the track's range (0x90 on: the fit never writes them) that the world and the dash do not show are taken out here, the
+ * cars' search no longer reaches them, and the searches of the lamps find them as they find the free ones without the fit. `used` is the world's and the dash's; the
+ * entries taken are added to it (the fit keeps them as they are) . */
+static void reserve_for_lights(RacePalette *p, const RaceState *race, uint8_t used[RACE_PALETTE_COLOURS])
+{
+    const PsxLamp *lamps = NULL;
+    const int street = drive_light_street_lamp_entries();
+    const int night = drive_light_night_lamps(&lamps) > 0 || street > 0 ? (drive_light_night() || drive_light_night_lamps(NULL) > 0 ? NIGHT_LAMP_ENTRIES : 0) + street : 0;
+    const int want = (race->unknown_4fbab8 != 0 ? 4 : 0) + (port_emissive_lamps() ? LAMP_ENTRIES : 0) + night;
+    if (want <= 0) return;
+    uint8_t unavailable[RACE_PALETTE_COLOURS], rgb[RACE_PALETTE_COLOURS * 3], picked[RESERVE_MAX];
+    for (int e = 0; e < RACE_PALETTE_COLOURS; e++) {
+        unavailable[e] = used[e] || e < TRACK_FIRST;
+        memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
+    }
+    const int room = want < RESERVE_MAX ? want : RESERVE_MAX;
+    int found = lamp_pick_entries(unavailable, p->enabled, rgb, TRACK_FIRST, LAMP_SCAN_LAST, room, picked);
+    if (found < room) {   /* the rest from the cars' blocks the world leaves free, as many as the exe leaves free in all */
+        memcpy(unavailable, used, sizeof unavailable);
+        found += lamp_pick_entries(unavailable, p->enabled, rgb, LAMP_SCAN_FIRST, TRACK_FIRST - 1, room - found, picked + found);
+    }
+    for (int i = 0; i < found; i++) used[picked[i]] = 1, p->enabled[picked[i]] = 0;
+    if (found > 0 && p->inverse != NULL) race_palette_inverse(p);
+    port_log("car_colours: %d of %d entries kept for the light effects\n", found, want);
+}
+
 /* port (car colours): with the palette as the exe has it at this point (the dash and the search set made), the world is mapped as the exe maps
  * it, the entries it and the dash show are kept, and the cars' slots are fitted to the rest; the fitted entries are then the cars' alone for the
  * port's tables of the world (palette_world_hide), and the search a car is mapped by is made again for the new colours */
@@ -150,6 +181,7 @@ static void fit_after_world(RacePalette *p, const RaceState *race, CarLoad *cons
     map_world(p, fam, terrain, track, NULL);
     map_world(p, fam, terrain, track, used);
     if (dash_bank != NULL) race_palette_bank_entries(dash_bank, used);
+    reserve_for_lights(p, race, used);
     memcpy(p->table, table, sizeof table);   /* the cars' mapping starts from the exe's identity (0xfa.. map to themselves) */
     memcpy(before, p->screen_rgbx, sizeof before);
     fit_cars(p, race, cars, carpal, used);
@@ -250,7 +282,10 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
             static const uint8_t colour[4][3] = { { 63, 0, 0 }, { 0, 0, 63 }, { 63, 25, 21 }, { 19, 31, 63 } };
             uint8_t hidden[RACE_PALETTE_COLOURS];
             memcpy(hidden, palette_world_hidden(), sizeof hidden);
-            for (int k = 0; k < found; k++) race_palette_write(p, pair[k], 1, colour[k]);
+            uint8_t core[2][3];
+            police_glow_core(1, core[0]);
+            police_glow_core(0, core[1]);
+            for (int k = 0; k < found; k++) race_palette_write(p, pair[k], 1, k >= 2 && port_police_glow() ? core[k - 2] : colour[k]);
             for (int k = 0; k < found; k++) p->enabled[pair[k]] = 0, hidden[pair[k]] = 1, exempt[pair[k]] = 1;
             palette_world_hide(hidden);
             palette_usable_set(p->enabled);
@@ -265,7 +300,6 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
 /* port (night, psx_lamps.h): the tunnel lamps' colours must stay lit in the night's light, which the tint of the palette would darken (the lamps' entries are
  * shared with the sky and the windows). A pool of entries nothing shows is set aside here, out of every search and the world's tables and out of the tint;
  * drive_light_lamps_night fills them with the colours the lamps' textures show once the textures are in the race palette's terms. */
-enum { NIGHT_LAMP_ENTRIES = 8, NIGHT_LAMP_MAX = NIGHT_LAMP_ENTRIES + 4 };   /* + the street lamp's (drive_light_street_lamp_entries) */
 
 /* port: the shade table (the HUD's remap, the shadow quad's darkening) was matched before the entries were set aside: a colour whose darker one is a set-aside
  * entry (about to become a lamp colour) takes the nearest still enabled to the colour that entry had. */

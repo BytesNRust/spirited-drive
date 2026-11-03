@@ -20,6 +20,12 @@ int drive_bumper_view(int32_t chase_kind)
     return chase_kind == DRIVE_BUMPER_KIND;
 }
 
+int drive_radar_view(int32_t chase_kind, int all_views)
+{
+    if (!all_views) return drive_bumper_view(chase_kind);
+    return chase_kind != DRIVE_DASH_KIND && chase_kind != DRIVE_DASH_FLY_IN_KIND;
+}
+
 ScreenPoint drive_bumper_mirror_at(int width, int mirror_w)
 {
     return (ScreenPoint){ width - mirror_w - DRIVE_BUMPER_MARGIN, HUD_BAR_HEIGHT + DRIVE_BUMPER_MARGIN };

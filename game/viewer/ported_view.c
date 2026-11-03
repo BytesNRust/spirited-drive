@@ -77,6 +77,8 @@ static int transparent(const FshEntry *texture)
  * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
  * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
+static uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];   /* port (lamp_pool_tint): the tables of a street lamp's pool, by class: the lit ones with a warm tint, the more the nearer the lamp */
+static int pool_ready;
 static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
 static int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
@@ -200,6 +202,14 @@ static int lamp_of(const FshEntry *texture)
     return -1;
 }
 
+/* the tables of the polygon being drawn: a tunnel's (track_light_tunnel 1), a lamp pool's (2..5), the road's */
+static uint8_t (*light_tables(void))[256]
+{
+    if (track_light_tunnel == 1) return tunnel_tables;
+    if (track_light_tunnel >= 2 && pool_ready) return pool_tables[(track_light_tunnel - 2) & 3];
+    return track_light_tunnel ? tunnel_tables : lit_tables;
+}
+
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
@@ -207,7 +217,7 @@ static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
         if (street_bitmap[i] != NULL && texture == street_bitmap[i]) return street_tables;
     for (int i = 0; i < window_count; i++)
         if (window_bitmap[i] != NULL && texture == window_bitmap[i]) return window_tables;
-    return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
+    return lamp >= 0 ? lamp_tables[lamp] : light_tables();
 }
 
 static const uint8_t *lit_table_for(const FshEntry *texture)
@@ -215,7 +225,7 @@ static const uint8_t *lit_table_for(const FshEntry *texture)
     return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables_for(texture)[lit_level] : NULL;
 }
 
-static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? (track_light_tunnel ? tunnel_tables : lit_tables)[lit_level] : NULL; }
+static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? light_tables()[lit_level] : NULL; }
 
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
@@ -528,7 +538,7 @@ static int ratio_at(int32_t node, float out[3])
 static int ratio_of(int32_t node, float out[3])
 {
     if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's lamp alternation */
-        psx_light_synth_car(psx_light, psx_ring_node(node, psx_light->nodes), out);
+        (port_car_tunnel_light() ? psx_light_synth_car_tunnel : psx_light_synth_car)(psx_light, psx_ring_node(node, psx_light->nodes), out);   /* port (car_tunnel_light) */
         return 1;
     }
     if (!ambient_on || psx_light == NULL) return 0;
@@ -1251,7 +1261,9 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
 {
     const Object3D *body = vc->model.body;
     if (!flare_on || palette == NULL || body == NULL || body->screen == NULL) return;
-    if (car->index < 0 || car->index >= RACE_CARS || car->index >= shadow_race->finish_cars) return;
+    /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (psx_flares) */
+    const int cop = port_police_glow() && police_flash_on && police_lights_on(shadow_race, car);
+    if (car->index < 0 || car->index >= RACE_CARS || (car->index >= shadow_race->finish_cars && !cop)) return;
     const int far_police = car->far != 0 && police_flash_on && police_lights_on(shadow_race, car);   /* the low detail model has no light texels: a far police car flashes by its rectangle */
     if (car->far != 0 && !far_police) return;
     FlareLamp lamps[5];
@@ -1276,8 +1288,11 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     if (rect[2] >= t->clip_right) rect[2] = t->clip_right - 1;
     if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
-    if (red != 0 && !far_police) lamps[n++] = (FlareLamp){ red, { 30, 60, 100 } };
-    if (blue != 0 && !far_police) lamps[n++] = (FlareLamp){ blue, { 30, 60, 100 } };
+    const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
+    const FlareLamp copred = { red, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) } };
+    const FlareLamp copblue = { blue, { copred.percent[0], copred.percent[1], copred.percent[2] } };
+    if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, { 30, 60, 100 } };
+    if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, { 30, 60, 100 } };
     for (int i = 0; i < n; i++) flare_lamp(t, palette, rect, &lamps[i]);
     if (far_police && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
         const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
@@ -1640,6 +1655,8 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         stage.horz = sky_stretch(&stretch, stage.horz, horizon.scale, stage.line, ctx.clip.y0,
                                  night_fill && port_night_stretch_clean() ? SKY_FILL_COLUMN_QUIET : port_sky_fill() ? port_sky_fill_mode() : SKY_FILL_COLUMN,
                                  night_fill && port_night_stretch_clean() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
+    static SkyStretch below;   /* port (sky_fill_below): and downward, to the view's bottom, in 16:9 and 21:9 */
+    if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon.scale, stage.line, ctx.clip.y1);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
@@ -1684,7 +1701,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         static uint8_t made_for[768];
         static float made_tint[3];
         static int made, made_cast;
-        const int cast = lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
+        const int cast = psx_light != NULL && psx_light->neutral_cast ? 2 : lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
         /* a made light's tunnel: the palette shown is the night's (drive_light_palette), so its tables are made brighter by as much as the palette takes off, to TUNNEL_LIGHT on the screen */
         float tunnel_tint[3] = { lit_tint[0], lit_tint[1], lit_tint[2] };
         if (psx_light->tunnel != NULL) {
@@ -1694,11 +1711,22 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             tunnel_tint[0] = tunnel_tint[1] = tunnel_tint[2] = gain;
         }
         static float made_tunnel_tint[3];
-        if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0) {
+        static int made_pool;
+        const int has_pool = psx_light->pool_class != NULL;
+        if (!made || made_pool != has_pool || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
             memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
-            if (cast) modern_tunnel_tables(art->palette, tunnel_tint, TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
+            if (cast) modern_tunnel_tables(art->palette, tunnel_tint, cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
             else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
+            if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
+                static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
+                for (int k = 0; k < 4; k++) {
+                    float tint[3];
+                    for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
+                    modern_light_tables(art->palette, tint, pool_tables[k]);
+                }
+            }
+            pool_ready = has_pool, made_pool = has_pool;
             memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
         }
         for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */

@@ -140,10 +140,10 @@ static void test_race_switches_are_saved(void)
     CHECK_EQ_INT(port_extras_load().nitro, 1);   /* the rest of the file is as it was */
 }
 
-static void test_units_default_to_the_language(void)
+static void test_units_default_to_mph(void)
 {
-    CHECK_EQ_INT(port_extras_defaults().units, UNITS_LANGUAGE);
-    CHECK_EQ_INT(port_extras_parse("", 0).units, UNITS_LANGUAGE);
+    CHECK_EQ_INT(port_extras_defaults().units, UNITS_MPH);
+    CHECK_EQ_INT(port_extras_parse("", 0).units, UNITS_MPH);
 }
 
 static void test_units_parse(void)
@@ -151,14 +151,16 @@ static void test_units_parse(void)
     const char *kmh = "units=kmh\n", *mph = "units=mph\n", *lang = "units=language\n", *bad = "units=knots\n";
     CHECK_EQ_INT(port_extras_parse(kmh, strlen(kmh)).units, UNITS_KMH);
     CHECK_EQ_INT(port_extras_parse(mph, strlen(mph)).units, UNITS_MPH);
-    CHECK_EQ_INT(port_extras_parse(lang, strlen(lang)).units, UNITS_LANGUAGE);
-    CHECK_EQ_INT(port_extras_parse(bad, strlen(bad)).units, UNITS_LANGUAGE);   /* an unknown name keeps the default */
+    CHECK_EQ_INT(port_extras_parse(lang, strlen(lang)).units, UNITS_MPH);   /* an older file's `language` reads as mph, German or not */
+    CHECK_EQ_INT(port_extras_parse(bad, strlen(bad)).units, UNITS_MPH);   /* an unknown name keeps the default */
+    const char *lang_after_kmh = "units=kmh\nunits=language\n";
+    CHECK_EQ_INT(port_extras_parse(lang_after_kmh, strlen(lang_after_kmh)).units, UNITS_MPH);
 }
 
 static void test_units_round_trip(void)
 {
-    const SpeedUnits all[] = { UNITS_LANGUAGE, UNITS_MPH, UNITS_KMH };
-    for (int i = 0; i < 3; i++) {
+    const SpeedUnits all[] = { UNITS_MPH, UNITS_KMH };
+    for (int i = 0; i < 2; i++) {
         PortExtras e = port_extras_defaults();
         e.units = all[i];
         char text[512];
@@ -234,7 +236,7 @@ static void test_load_save(void)
 static void test_fullest_file_saves(void)
 {
     PortExtras e = port_extras_defaults();
-    e.start = START_NETWORK, e.units = UNITS_LANGUAGE, e.dash_box = DASH_BOX_HIDDEN, e.difficulty = 2;
+    e.start = START_NETWORK, e.units = UNITS_KMH, e.dash_box = DASH_BOX_HIDDEN, e.difficulty = 2;
     int *const flags[] = { &e.mirror, &e.rally, &e.warrior, &e.vegas, &e.explode, &e.nitro, &e.turbo, &e.replay_cameras, &e.warrior_rival,
                            &e.no_movies, &e.no_assists, &e.modern_3d, &e.texture_filter, &e.fog, &e.bumper_mirror, &e.bumper_radar,
                            &e.variant_time, &e.stats_overlay, &e.car_markers, &e.lunar_springs, &e.movies_wide, &e.follow_camera,
@@ -273,7 +275,7 @@ int main(void)
     test_defaults();
     test_movies_wide();
     test_difficulty_key();
-    test_units_default_to_the_language();
+    test_units_default_to_mph();
     test_units_parse();
     test_units_round_trip();
     test_round_trip();

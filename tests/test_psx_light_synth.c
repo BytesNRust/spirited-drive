@@ -279,8 +279,63 @@ static void test_made_light_selection_hall_wins(void)
     CHECK_EQ_INT(psx_light_byte(&made, 2, 3), 20);        /* the open road is untouched */
 }
 
+/* car_tunnel_light: the car's darkness is the road's tunnel flags': a canyon's shade in the rows (point 4 low, no flag) leaves it at 1, the tunnel is the lamp alternation, and the
+ * door ramps back over PSX_SYNTH_CAR_RAMP nodes where the rows took ten */
+static void test_car_tunnel_light_follows_the_flags(void)
+{
+    enum { N = 60 };
+    uint8_t data[N * PSX_LIGHT_POINTS], flags[N] = { 0 };
+    memset(data, PSX_LIGHT_FULL, sizeof data);
+    for (int i = 40; i < 50; i++) data[i * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] = 60;   /* a canyon: shaded rows, no tunnel */
+    for (int i = 10; i < 20; i++) flags[i] = 1;
+    PsxLight light = { .data = data, .nodes = N, .tunnel = flags };
+    float open[3], old[3], in_even[3], in_odd[3], door1[3], door2[3], past[3];
+    psx_light_synth_car_tunnel(&light, 44, open);
+    psx_light_synth_car(&light, 44, old);
+    CHECK(old[0] < 0.95f);                                   /* the rows alone darkened the car there ... */
+    for (int k = 0; k < 3; k++) CHECK(fabsf(open[k] - 1.0f) < 1e-6f);   /* ... the flags do not */
+    psx_light_synth_car_tunnel(&light, 14, in_even);
+    psx_light_synth_car_tunnel(&light, 15, in_odd);
+    CHECK(in_even[0] < 0.7f && in_odd[0] < in_even[0]);      /* the lamp alternation inside */
+    psx_light_synth_car_tunnel(&light, 20, door1);           /* one node past the last one */
+    psx_light_synth_car_tunnel(&light, 22, door2);
+    psx_light_synth_car_tunnel(&light, 24, past);
+    CHECK(door1[1] > in_even[1] || door1[1] > in_odd[1]);
+    CHECK(door2[0] > door1[0] || door2[1] > door1[1]);
+    for (int k = 0; k < 3; k++) CHECK(fabsf(past[k] - 1.0f) < 1e-6f);   /* the open road's light 3 nodes out */
+    light.tunnel = NULL;                                     /* no flags: as psx_light_synth_car */
+    float same[3];
+    psx_light_synth_car_tunnel(&light, 44, same);
+    for (int k = 0; k < 3; k++) CHECK(fabsf(same[k] - old[k]) < 1e-6f);
+}
+
+static void test_mine_track(void)
+{
+    CHECK(psx_light_synth_mine("TR6") && psx_light_synth_mine("tr6"));
+    CHECK(!psx_light_synth_mine("TR7") && !psx_light_synth_mine(NULL));
+}
+
+static void test_trans_closed_range(void)
+{
+    uint32_t a = 0, b = 0, r = 0;
+    CHECK(psx_light_synth_trans_closed("TR7", &a, &b, &r));
+    CHECK(a == 465 && b == 470 && r == 475);   /* just before the marked run, which starts at 471 */
+    CHECK(!psx_light_synth_trans_closed("TR6", &a, &b, &r) && !psx_light_synth_trans_closed(NULL, &a, &b, &r));
+}
+
+static void test_trans_ranges(void)
+{
+    uint32_t a = 0, b = 0;
+    CHECK(psx_light_synth_trans("tr7", &a, &b));
+    CHECK(a == 700 && b == 776);
+    CHECK(!psx_light_synth_trans("TR6", &a, &b) && !psx_light_synth_trans(NULL, &a, &b));
+}
+
 int main(void)
 {
+    test_trans_ranges();
+    test_trans_closed_range();
+    test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();
     test_hall_rows_and_cars();
@@ -294,5 +349,6 @@ int main(void)
     test_tracks();
     test_light_tunnel_flags_override_the_rows();
     test_made_light_selection_hall_wins();
+    test_car_tunnel_light_follows_the_flags();
     return TEST_REPORT();
 }

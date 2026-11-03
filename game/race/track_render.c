@@ -116,7 +116,7 @@ void track_render_relight(TrackRender *r)
     if (count > TRACK_MAX_VERTICES) count = TRACK_MAX_VERTICES;
     for (int32_t i = 0; i < count; i++) {
         r->light_vertex[i] = psx_light_at(r->psx, r->vertex_node[i], r->vertex_point[i]);
-        r->tunnel_vertex[i] = (uint8_t)psx_light_tunnel(r->psx, r->vertex_node[i]);
+        r->tunnel_vertex[i] = (uint8_t)psx_light_tunnel_class(r->psx, r->vertex_node[i]);
     }
 }
 

@@ -32,6 +32,20 @@ static void test_only_the_bumper_view(void)
     CHECK(!drive_bumper_view(5));
 }
 
+/* port (radar_all_views): the bumper view's only without the flag; with it every view outside the car, not the dash or its fly-in */
+static void test_radar_views(void)
+{
+    CHECK(drive_radar_view(DRIVE_BUMPER_KIND, 0));
+    CHECK(!drive_radar_view(5, 0));      /* as it was */
+    CHECK(!drive_radar_view(0, 0));
+    CHECK(drive_radar_view(DRIVE_BUMPER_KIND, 1));
+    for (int k = 2; k <= 9; k++) CHECK(drive_radar_view(k, 1));   /* the chase views */
+    CHECK(drive_radar_view(11, 1) && drive_radar_view(13, 1));
+    CHECK(!drive_radar_view(DRIVE_DASH_KIND, 1));         /* the dash has its own */
+    CHECK(!drive_radar_view(DRIVE_DASH_FLY_IN_KIND, 1));
+    CHECK(!drive_bumper_view(5));        /* and the mirror stays the bumper view's */
+}
+
 /* the mirror against the right edge under the scoreboard, the frame's margin inside the screen */
 static void test_mirror_place(void)
 {
@@ -167,6 +181,7 @@ int main(void)
     test_radar();
     test_keys_turn_over_on_a_press();
     test_only_the_bumper_view();
+    test_radar_views();
     test_mirror_place();
     test_blit();
     return TEST_REPORT();
