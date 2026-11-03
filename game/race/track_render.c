@@ -81,7 +81,8 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
                        TRACK_MAX_VERTICES, 0, 0, r->entries, r->object_world, TRACK_MAX_OBJECT_VERTICES,
                        { r->descriptors, r->records, (int32_t)count, 0, 0, 0, 0, 0, -1, 0, circuit,
                          circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu, 0 },
-                       0, -1, 0, r->psx != NULL ? r->light_vertex : NULL, r->psx, r->psx != NULL ? r->tunnel_vertex : NULL };
+                       0, -1, 0, r->psx != NULL ? r->light_vertex : NULL, r->psx, r->psx != NULL ? r->tunnel_vertex : NULL,
+                       r->psx != NULL ? r->vertex_node : NULL, r->psx != NULL ? r->vertex_point : NULL };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
     r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
                                     circuit ? (int32_t)tri->ring_segments : STAGE_RING,
@@ -103,7 +104,20 @@ void track_render_set_light(TrackRender *r, const PsxLight *light)
     r->build.light = light;
     r->build.light_out = light != NULL ? r->light_vertex : NULL;
     r->build.tunnel_out = light != NULL ? r->tunnel_vertex : NULL;
+    r->build.node_out = light != NULL ? r->vertex_node : NULL;
+    r->build.point_out = light != NULL ? r->vertex_point : NULL;
     r->build.first_node = -1;   /* the track built again with (or without) the light */
+}
+
+void track_render_relight(TrackRender *r)
+{
+    if (r->psx == NULL || r->psx->pool == NULL) return;
+    int32_t count = r->build.world_next;
+    if (count > TRACK_MAX_VERTICES) count = TRACK_MAX_VERTICES;
+    for (int32_t i = 0; i < count; i++) {
+        r->light_vertex[i] = psx_light_at(r->psx, r->vertex_node[i], r->vertex_point[i]);
+        r->tunnel_vertex[i] = (uint8_t)psx_light_tunnel(r->psx, r->vertex_node[i]);
+    }
 }
 
 /* port: the nearest distance the detail asks for (race_detail.c's NEAREST) */
