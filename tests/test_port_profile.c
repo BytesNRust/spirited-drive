@@ -109,7 +109,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.psx_flares, 1);
     CHECK_EQ_INT(s.psx_headlights, 1);
     CHECK_EQ_INT(s.perspective, 1);
-    CHECK_EQ_INT(s.body_shine, 2);
+    CHECK_EQ_INT(s.body_shine, 4);   /* the envmap */
     /* what is the player's own is not touched: laps, the PS1 folder, the time of day, full screen */
     PortSettings own = base;
     own.laps = 7, own.fullscreen = 1, own.psx_time = PSX_TIME_NIGHT;
