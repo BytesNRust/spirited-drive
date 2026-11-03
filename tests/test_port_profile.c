@@ -94,7 +94,8 @@ static void test_tables(void)
     const PortSettings base = port_settings_defaults();
     PortSettings s = port_profile_settings(PROFILE_STOCK, base, SCREEN_21_9);
     CHECK_EQ_INT(s.format, SCREEN_4_3);
-    CHECK_EQ_INT(s.refresh_hz, 60);
+    CHECK_EQ_INT(s.refresh_hz, 30);   /* the exe's 30 steps a second, drawn once each */
+    CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
     CHECK_EQ_INT(s.f3_ultra, 0);   /* the exe's three views */
     CHECK_EQ_INT(s.psx_light, 0);
     CHECK_EQ_INT(s.made_tunnels + s.hall_light + s.headlight_relight + s.night_stretch_clean, 0);
@@ -103,6 +104,7 @@ static void test_tables(void)
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
+    CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
     CHECK_EQ_INT(s.render_scale, 1);
     CHECK_EQ_INT(s.psx_light, 0);
     CHECK_EQ_INT(s.body_shine, 0);
@@ -116,6 +118,9 @@ static void test_tables(void)
     CHECK_EQ_INT(s.psx_headlights, 1);
     CHECK_EQ_INT(s.perspective, 1);
     CHECK_EQ_INT(s.body_shine, 4);   /* the envmap */
+    CHECK_EQ_INT(s.render_scale, 2);
+    CHECK_EQ_INT(s.refresh_hz, 144);
+    CHECK_EQ_INT(s.scale_integer, 0);   /* Fill */
     CHECK_EQ_INT(s.made_tunnels, 1);
     CHECK_EQ_INT(s.hall_light, 1);
     CHECK_EQ_INT(s.headlight_relight, 1);
@@ -150,14 +155,26 @@ static void test_tables(void)
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     s.night_sky_hue = 1;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
+    s.scale_integer = 1;   /* a scaling the profile does not have counts in the match */
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.scale_integer = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
     e = port_profile_extras(PROFILE_RESTOMOD, e);
     CHECK_EQ_INT(e.psx_liveries, 1);
     CHECK_EQ_INT(e.rally_gravel, 1);
+    CHECK_EQ_INT(e.bumper_mirror + e.bumper_radar + e.follow_camera, 3);
     CHECK_EQ_INT(port_profile_extras_match(PROFILE_RESTOMOD, &e), 1);
     e.rally_gravel = 0;
     CHECK_EQ_INT(port_profile_extras_match(PROFILE_RESTOMOD, &e), 0);
+    e.rally_gravel = 1, e.bumper_radar = 0;
+    CHECK_EQ_INT(port_profile_extras_match(PROFILE_RESTOMOD, &e), 0);   /* the three extras count in the match too */
+    e.bumper_radar = 1, e.follow_camera = 0;
+    CHECK_EQ_INT(port_profile_extras_match(PROFILE_RESTOMOD, &e), 0);
+    e.follow_camera = 1, e.bumper_mirror = 0;
+    CHECK_EQ_INT(port_profile_extras_match(PROFILE_RESTOMOD, &e), 0);
+    e.bumper_mirror = 1;
     /* the personal switches of extras are not the profile's */
     e = port_extras_defaults();
     e.car_markers = 0, e.dash_box = DASH_BOX_LEVER, e.follow_camera = 1;
@@ -191,7 +208,7 @@ static void test_files(void)
     /* Stock stays 4:3 whatever the display is */
     CHECK(port_profile_select(PROFILE_STOCK));
     CHECK_EQ_INT(port_settings_load().format, SCREEN_4_3);
-    CHECK_EQ_INT(port_settings_load().refresh_hz, 60);
+    CHECK_EQ_INT(port_settings_load().refresh_hz, 30);
     CHECK_EQ_INT(port_extras_load().movies_wide, 0);
     /* a controlled setting changed by hand in port.cfg: custom, the values as they were left */
     PortSettings t = port_settings_load();
@@ -199,7 +216,7 @@ static void test_files(void)
     CHECK(port_settings_save(&t));
     CHECK_EQ_INT(port_settings_profile(), PROFILE_CUSTOM);
     CHECK_EQ_INT(port_settings_load().psx_light, 1);
-    CHECK_EQ_INT(port_settings_load().refresh_hz, 60);
+    CHECK_EQ_INT(port_settings_load().refresh_hz, 30);
     /* and one in extras.cfg */
     CHECK(port_profile_select(PROFILE_RESTORED));
     CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTORED);

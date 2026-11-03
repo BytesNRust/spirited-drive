@@ -57,7 +57,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
             if (strcmp(value, FORMAT_NAMES[i]) == 0)
                 s->format = (ScreenFormat)i;
     } else if (strcmp(key, "refresh_hz") == 0) {
-        if (parse_int(value, &n) && (n == 60 || n == 120 || n == 144))
+        if (parse_int(value, &n) && (n == 30 || n == 60 || n == 120 || n == 144))
             s->refresh_hz = (int)n;
     } else if (strcmp(key, "scale") == 0) {
         if (strcmp(value, "fill") == 0)
@@ -165,7 +165,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (p >= 0) s->profile = p;
     } else if (strcmp(key, "body_shine") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 4)
-            s->body_shine = (int)n;
+            s->body_shine = n == 0 ? 0 : 4;   /* off or the envmap: the strengths 1..3 of an older file are the envmap now */
     }
 }
 
