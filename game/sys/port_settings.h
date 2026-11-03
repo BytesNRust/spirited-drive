@@ -63,6 +63,7 @@ typedef struct {
                               * hues under the night's tint, as it was */
     int forest_dark;         /* 1: Vertigo Ridge's forest before the finish alternates two dark tones (psx_light_forest); 0: the made light as it was */
     int night_stretch_clean; /* 1: the night's sky carried up to the view's top does not carry a star up as a stripe (sky_stretch.h, SKY_FILL_COLUMN_QUIET); 0: as it was */
+    int radar_all_views;     /* 1: EXTRAS' police radar (Bumper Radar) shows in every view outside the car, not only the bumper's (drive_radar_view); 0: the bumper view only, as it was */
     int profile_ui;          /* 1 (the port's default): Game Mode and Options show the Profile row (profile.h); 0: the exe's menus, no row. `port_profile_ui=0|1`. Not controlled by a profile. */
     int profile;             /* a Profile (port_profile.h): PROFILE_CUSTOM 0 (no `profile=` line) keeps the values below as they are; another takes the settings it controls from its table
                               * at load. `profile=custom|stock|restored|restomod`. Last, so the positional initialisers keep their meaning. */
@@ -92,6 +93,8 @@ int port_profile_ui(void);
 
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
+/* 1 when the police radar shows in every outside view: TNFS_RADAR_ALL_VIEWS=0/1 when set, else port.cfg's radar_all_views. */
+int port_radar_all_views(void);
 /* 1 when the night's sky is re-hued blue-black (psx_sky_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else port.cfg's night_sky_hue. */
 int port_night_sky_hue(void);
 /* 1 when Vertigo Ridge's forest is sombre (psx_light_make.h): TNFS_FOREST_DARK=0/1 when set, else port.cfg's forest_dark. */

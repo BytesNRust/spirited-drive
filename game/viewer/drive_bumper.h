@@ -10,6 +10,8 @@
 
 enum {
     DRIVE_BUMPER_KIND = 1,     /* the chase kind of the bumper view */
+    DRIVE_DASH_KIND = 0,       /* the dash (in the car), whose radar is the dash's own */
+    DRIVE_DASH_FLY_IN_KIND = 10,   /* and the fly-in that hands over to it */
     DRIVE_BUMPER_MARGIN = 6,   /* between the scoreboard or the screen's edge and the frame */
     DRIVE_BUMPER_MIRROR_PERCENT = 150,   /* the mirror's picture against the mirror camera's own size (the owner's choice) */
     DRIVE_BUMPER_FRAME = 0     /* the frame's colour (black in the race's palettes) */
@@ -25,6 +27,9 @@ void drive_bumper_start(DriveBumper *b, int mirror, int radar);
 /* This frame's F1 (the mirror) and F2 (the radar): a press (up to down) turns its switch over. */
 void drive_bumper_keys(DriveBumper *b, int mirror_key, int radar_key);
 int drive_bumper_view(int32_t chase_kind);
+/* port (radar_all_views): the views that show the radar. Without the flag the bumper view's only; with it every view outside the car: not the dash (kind 0),
+ * which has the radar of its own, nor its fly-in (kind 10). The mirror stays the bumper view's (drive_bumper_view). */
+int drive_radar_view(int32_t chase_kind, int all_views);
 /* Where a mirror picture `mirror_w` wide goes on a `width` screen: its right side DRIVE_BUMPER_MARGIN in from the edge,
  * its top as far under the scoreboard. */
 ScreenPoint drive_bumper_mirror_at(int width, int mirror_w);
