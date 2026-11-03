@@ -121,7 +121,8 @@ static void f_subtitle(void *ctx, const char *text, int32_t x, int32_t y)
     (void)x;
     f_record(ctx, SUBTITLE, text, y);
 }
-static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * 10; }
+static int char_width = 10;   /* what a letter takes: a test makes the font wide */
+static int32_t f_text_width(void *ctx, const char *text) { (void)ctx; return (int32_t)strlen(text) * char_width; }
 static void f_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     Fake *f = ctx;
@@ -261,6 +262,17 @@ static void test_enter_captures_an_axis_for_the_steering(void)
     CHECK(shown(&r.fake, "Press a button or move an axis..."));
 }
 
+/* the long prompt must not run into the label: with a wide font the steering's (Analog steering) asks for the shorter one */
+static void test_the_prompt_gives_way_to_a_long_label(void)
+{
+    char_width = 18;
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(RIGHT, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_axis(2, 30000)));
+    char_width = 10;
+    CHECK(shown(&r.fake, "Press a button or axis..."));
+    CHECK(!shown(&r.fake, "Press a button or move an axis..."));
+}
+
 static void test_escape_in_a_capture_assigns_nothing(void)
 {
     Run r = { .port = port_controls_defaults() };
@@ -377,9 +389,9 @@ static void test_headers_and_labels_use_the_port_ops(void)
     run(&r, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&r.fake, "Driving", HEADER));
     CHECK(shown_as(&r.fake, "Other", HEADER));
-    CHECK(shown_as(&r.fake, "Steering", SMOOTH));
+    CHECK(shown_as(&r.fake, "Analog steering", SMOOTH));
     CHECK(shown_as(&r.fake, "Nitro", SMOOTH));
-    CHECK(!shown_as(&r.fake, "Steering", PLAIN));   /* the labels go over the background, not onto the picture */
+    CHECK(!shown_as(&r.fake, "Analog steering", PLAIN));   /* the labels go over the background, not onto the picture */
     Run t = { .port = port_controls_defaults() };
     run(&t, KEYS(RIGHT, 0, RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&t.fake, "Tuning", HEADER));
@@ -653,6 +665,7 @@ int main(void)
 {
     test_tuning_stays_in_range();
     test_enter_captures_an_axis_for_the_steering();
+    test_the_prompt_gives_way_to_a_long_label();
     test_escape_in_a_capture_assigns_nothing();
     test_nothing_for_a_while_assigns_nothing();
     test_a_held_button_is_not_a_press();
