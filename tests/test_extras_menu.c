@@ -20,7 +20,7 @@ void platform_free_file(uint8_t *data) { (void)data; }
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        PAGE_DOWN = 0x5100 };
 /* the game's text styles (text.h): 0 cream, 1 yellow, 2 red, 3 white */
-enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2 };
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, STYLE_DIM = 4 };
 
 typedef struct Fake {
     const int *keys;
@@ -370,6 +370,41 @@ static void test_page_two_switches_saved(void)
     CHECK_EQ_INT(r.fake.saves, 1);
     CHECK_EQ_INT(r.fake.saved.warrior, 1);
     CHECK_EQ_INT((int)r.fake.saved.start, START_GAME_MODE);
+}
+
+/* Unlock Level 1 or more gives the Warrior as the exe does (extras_apply.c's settle): the row shows that, dimmed and
+ * with its reason, and a toggle does not turn it off behind the player's back */
+static void test_warrior_row_is_fixed_by_the_level(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_WARRIOR);
+    keys[n++] = SPACE;                                       /* tries to turn it on or off */
+    n = downs(keys, n, downs_to_done(ROW_WARRIOR));
+    keys[n++] = ENTER;
+    setup(&r);
+    r.unlock = 1;
+    r.e.warrior = 0;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(r.fake.saved.warrior, 0);                   /* the player's switch is untouched */
+    CHECK(shown(&r.fake, "On (level)"));
+    CHECK_EQ_INT(style_in(&r.fake, "On (level)"), STYLE_DIM);
+}
+
+/* at level 0 the row is an ordinary switch */
+static void test_warrior_row_toggles_at_level_zero(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_WARRIOR);
+    keys[n++] = SPACE;
+    n = downs(keys, n, downs_to_done(ROW_WARRIOR));
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saved.warrior, 1);
+    CHECK(!shown(&r.fake, "On (level)"));
 }
 
 /* The three settings that moved to the port's own Graphics screen are not here any more. */
@@ -1097,6 +1132,8 @@ int main(void)
     test_escape_restores_input();
     test_right_turns_to_page_two();
     test_rally_excludes_mirror();
+    test_warrior_row_is_fixed_by_the_level();
+    test_warrior_row_toggles_at_level_zero();
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
     test_page_one_has_thirteen_rows();
