@@ -45,5 +45,20 @@ int main(void)
     race.port_replay_cameras = 0;
     race.replay = 1;
     CHECK_EQ_INT(next_of(3), 4);
+    /* port (last_camera): the intro's fly-over (the row with the alt target, kind 8) lands on the last camera used, nothing else does */
+    race.replay = 0;
+    const ChaseKind *const intro = &race.chase_kinds[8], *const other = &race.chase_kinds[11];
+    CHECK_EQ_INT(intro->next, 0);   /* the exe: it lands on the dash */
+    CHECK_EQ_INT(race_chase_start_kind(&race, intro, intro->next), 0);   /* flag off */
+    race.port_start_camera = 4;     /* kind 3 + 1 */
+    CHECK_EQ_INT(race_chase_start_kind(&race, intro, intro->next), 0);   /* still off */
+    race.port_last_camera = 1;
+    CHECK_EQ_INT(race_chase_start_kind(&race, intro, intro->next), 3);
+    CHECK_EQ_INT(race_chase_start_kind(&race, other, other->next), other->next);   /* the other fly-ins keep their own */
+    race.port_start_camera = 0;
+    CHECK_EQ_INT(race_chase_start_kind(&race, intro, intro->next), 0);   /* nothing used yet */
+    race.port_start_camera = 6;
+    race.replay = 1;
+    CHECK_EQ_INT(race_chase_start_kind(&race, intro, intro->next), 0);   /* a replay is not a race start */
     return TEST_REPORT();
 }

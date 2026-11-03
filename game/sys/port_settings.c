@@ -38,7 +38,7 @@ PortSettings port_settings_defaults(void)
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
     const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
-                             .weather = WEATHER_CLEAR, .render_bands = -1, .profile_ui = 1 };
+                             .weather = WEATHER_CLEAR, .render_bands = -1, .profile_ui = 1, .camera_kind = -1 };
     return d;
 }
 
@@ -129,6 +129,12 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "hall_light") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->hall_light = (int)n;
+    } else if (strcmp(key, "last_camera") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->last_camera = (int)n;
+    } else if (strcmp(key, "camera_kind") == 0) {
+        if (parse_int(value, &n) && n >= -1 && n <= 5)
+            s->camera_kind = (int)n;
     } else if (strcmp(key, "sky_fill") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->sky_fill = (int)n;
@@ -207,11 +213,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -401,6 +407,13 @@ int port_hall_light(void)
     const char *v = getenv("TNFS_HALL_LIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().hall_light;
+}
+
+int port_last_camera(void)
+{
+    const char *v = getenv("TNFS_LAST_CAMERA");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().last_camera;
 }
 
 int port_sky_fill(void)

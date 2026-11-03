@@ -12,6 +12,9 @@ try:
     spec = importlib.util.spec_from_file_location("car_mask_from_psd", os.path.join(here, "..", "tools", "car_mask_from_psd.py"))
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
+    spec = importlib.util.spec_from_file_location("car_mask_psd", os.path.join(here, "..", "tools", "car_mask_psd.py"))
+    writer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(writer)
 except ImportError as error:
     print("test_car_mask_psd: skipped (%s)" % error)
     sys.exit(0)
@@ -40,5 +43,26 @@ check("pure green stays body", tool.lamp_class(0, 255, 0), 0)
 check("a pale cyan is not the light", tool.lamp_class(150, 255, 255), 0)
 check("a dull cyan is not the light", tool.lamp_class(0, 150, 150), 0)
 check("white is not a lamp", tool.lamp_class(255, 255, 255), 0)
+
+# the writer (tools/car_mask_psd.py): a class's colour is the one the reader decodes to the same class, and the lamps' greys keep their class
+classes = dict((name, int(value)) for name, value in re.findall(r"CAR_MASK_(BRAKE|POSITION|HEADLIGHT|REVERSE) = (\d+)", header))
+for value in (classes["BRAKE"], classes["POSITION"], classes["HEADLIGHT"], classes["REVERSE"]):
+    check("writer colour of lamp %d is read back" % value, tool.lamp_class(*writer.CLASS_COLOUR[value]), value)
+check("class_of: paint, shine, body, black", [writer.class_of(v) for v in (0, 100, 128, 192, 223, 224, 239)], [0, 128, 128, 192, 192, 224, 224])
+check("class_of: the lamps' fours", [writer.class_of(v) for v in (240, 243, 244, 247, 248, 251, 252, 254, 255)], [240, 240, 244, 244, 248, 248, 252, 252, 255])
+alpha, red, green, blue = writer.mask_planes(bytes([0, 128, 240, 248, 255]))
+check("mask_planes alpha", alpha, bytes([0, 255, 255, 255, 255]))
+check("mask_planes colours", list(zip(red, green, blue)), [(255, 255, 255), (0, 0, 255), (255, 0, 0), (255, 255, 0), (255, 255, 255)])
+from PIL import Image
+import tempfile
+with tempfile.TemporaryDirectory() as tmp:
+    rgb = Image.new("RGB", (4, 1), (10, 20, 30))
+    keep = Image.frombytes("L", (4, 1), bytes([0, 128, 248, 255]))
+    out = os.path.join(tmp, "t.psd")
+    writer.write_psd(out, rgb, keep)
+    psd = Image.open(out)
+    check("psd: size and two layers", (psd.size, getattr(psd, "n_frames", 1)), ((4, 1), 2))
+    shown = psd.convert("RGB").getpixel((2, 0))   # the texture under yellow at 50 %: about (132, 137, 15)
+    check("psd: a headlight texel shows yellow over the texture", all(abs(a - b) <= 2 for a, b in zip(shown, (132, 137, 15))), True)
 print("test_car_mask_psd: %d failures" % failures)
 sys.exit(1 if failures else 0)
