@@ -93,6 +93,18 @@ int drive_lamps_brake_lit(int slot)
     return slots[slot].state & LAMP_BRAKING ? entries.brake_lit : 0;
 }
 
+int drive_lamps_lit_entry(int slot, int kind)
+{
+    if (!valid(slot) || !slots[slot].armed || !drive_lamps_has(slot, kind)) return 0;
+    const LampState state = slots[slot].state;
+    switch (kind) {
+    case LAMP_BRAKE: return state & LAMP_BRAKING ? entries.brake_lit : 0;
+    case LAMP_REVERSE: return state & LAMP_REVERSING ? entries.reverse : 0;
+    case LAMP_HEADLIGHT: return state & (LAMP_LOW | LAMP_BRAKING) ? entries.headlight : 0;
+    default: return 0;
+    }
+}
+
 void drive_lamps_frame(int slot, int low, int braking, int reversing)
 {
     if (!valid(slot) || !slots[slot].armed) return;
