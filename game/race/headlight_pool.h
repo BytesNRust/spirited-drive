@@ -14,6 +14,7 @@ enum {
     HEADLIGHT_AHEAD = 14,    /* nodes the light reaches ahead of a car */
     HEADLIGHT_START = 1,     /* nodes ahead of the car's place where the light begins (the car's own section and what is behind it stay dark) */
     HEADLIGHT_RISE = 2,      /* nodes over which it rises to full */
+    HEADLIGHT_CAR_SHARE = 176, /* of 256: the share of the pool's lift a car's own colours take */
     HEADLIGHT_FULL = 5,      /* nodes ahead of the car's place to which it stays full */
     HEADLIGHT_FLOOR = 96,    /* the dark's share of the light, out of 256: the night's luminance over the dusk's palette (drive_light.c NIGHT_PALETTE) */
     TUNNEL_BEAM = 150,       /* the light, out of 255, a tunnel node takes at the beam's full when its own rows are darker (a tunnel with no lamps is black at night) */
@@ -22,7 +23,8 @@ enum {
 
 typedef struct {
     int32_t node[HEADLIGHT_MAX];   /* the nodes of the cars with their headlights on */
-    uint8_t frac[HEADLIGHT_MAX];   /* how far each is on to the next node, out of 256 (0 when not known) */
+    int16_t sub[HEADLIGHT_MAX];    /* how far each car is on past its node, in 256ths of a node (0 when the caller keeps whole nodes): the pool slides, it does not step */
+    int8_t dir[HEADLIGHT_MAX];     /* +1 the car travels to higher nodes, -1 to lower (reversing, or the wrong way round); 0 counts as +1: the light is ahead of the car's travel */
     int count;
     uint32_t ring;                 /* the track's nodes: a node ahead wraps round it */
     const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, psx_light_synth_tunnels); NULL when not known */
@@ -33,6 +35,13 @@ int headlight_pool_gain(const HeadlightPool *pool, uint32_t node);
 
 /* 1 when pool->tunnel marks `node` a tunnel */
 int headlight_pool_tunnel(const HeadlightPool *pool, uint32_t node);
+
+/* The share (0..256) of a pool's lift that a point of a node's row takes: the road and its verge whole, the ground beyond falling to nothing, so the pool is as wide as the
+ * road and its shoulders (point numbering as psx_light.h: 0, 1, 6 the road, 2 and 7 the shoulders' far edge, 3..5 and 8..10 beyond). */
+int headlight_pool_width(int point);
+
+/* The gain a car's own colours take from the pool gain `gain` at its node (a car is lit less than the road under its own lamps: HEADLIGHT_CAR_SHARE of the lift). */
+int headlight_pool_car_gain(int gain);
 
 /* the same as a tunnel node, whatever pool->tunnel says (a light whose own rows mark the node a tunnel) */
 int headlight_pool_gain_tunnel(const HeadlightPool *pool, uint32_t node);

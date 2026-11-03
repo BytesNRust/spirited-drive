@@ -482,15 +482,26 @@ static void headlights_update(void)
 {
     if (psx_light == NULL || psx_light->pool == NULL) return;
     HeadlightPool *pool = psx_light->pool;
+    static int32_t seen[RACE_CARS];
+    static int8_t travel[RACE_CARS];
+    static uint32_t of_ring;
     pool->count = 0;
     pool->ring = psx_light->nodes;
     if (shadow_race == NULL) return;
+    const int32_t ring = (int32_t)pool->ring;
+    if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel);   /* another track */
     pool->tunnel = road_tunnels(shadow_race, psx_light->nodes);
     const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL || !(car->flags_51a & 4)) continue;
-        pool->frac[pool->count] = headlight_frac(shadow_race, car);
+        int32_t moved = car->node - seen[i];   /* which way the car travels: the nodes it moved over, the gear on the first frame */
+        if (ring > 0) moved = moved > ring / 2 ? moved - ring : moved < -ring / 2 ? moved + ring : moved;
+        if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;
+        if (moved != 0 && moved > -4 && moved < 4) travel[i] = moved > 0 ? 1 : -1;
+        seen[i] = car->node;
+        pool->sub[pool->count] = headlight_frac(shadow_race, car);
+        pool->dir[pool->count] = travel[i];
         pool->node[pool->count++] = car->node;
     }
 }
@@ -500,7 +511,7 @@ static int ratio_at(int32_t node, float out[3])
     const int found = ratio_of(node, out);
     if (found && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
         const uint32_t at = psx_ring_node(node, psx_light->nodes);
-        const int g = headlight_pool_car_at(psx_light->pool, at) ? 256 : psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at);   /* a car with its lights on keeps its own light: the beam is ahead of it */
+        const int g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
     }

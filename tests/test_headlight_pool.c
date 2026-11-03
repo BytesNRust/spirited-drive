@@ -37,14 +37,14 @@ static void test_the_pool_slides_with_the_car_inside_a_node(void)
     HeadlightPool p = pool_of(200, 1, 50, 0);
     int last = headlight_pool_gain(&p, 56);
     for (int f = 0; f < 256; f += 16) {   /* the car moving on through one node: a node 6 ahead of it rises towards full, in small steps */
-        p.frac[0] = (uint8_t)f;
+        p.sub[0] = (uint8_t)f;
         const int g = headlight_pool_gain(&p, 56);
         CHECK(g >= last && g - last < 40);
         last = g;
     }
-    p.frac[0] = 0;
+    p.sub[0] = 0;
     const int at0 = headlight_pool_gain(&p, 50 + HEADLIGHT_AHEAD - 1);
-    p.frac[0] = 255;
+    p.sub[0] = 255;
     CHECK(headlight_pool_gain(&p, 50 + HEADLIGHT_AHEAD - 1) >= at0);      /* the far end comes nearer */
 }
 
@@ -107,6 +107,42 @@ static void test_apply_and_the_light_bytes(void)
     CHECK_EQ_INT(psx_light_at(&light, 4, 0), headlight_pool_apply(255, HEADLIGHT_FLOOR));
 }
 
+/* the light is ahead of the car's travel (a reversing car lights the lower nodes), between the nodes it glides, the ground beyond the road takes less, a car less than the road */
+static void test_travel_glide_width_and_cars(void)
+{
+    HeadlightPool p = pool_of(200, 1, 50, 0);
+    p.dir[0] = -1;
+    CHECK(headlight_pool_gain(&p, 45) > headlight_pool_gain(&p, 55));     /* reversing: behind the car in the node order is where the light goes */
+    CHECK_EQ_INT(headlight_pool_gain(&p, 47), 256);
+    p.dir[0] = 0;                                                         /* unset: forward, as before */
+    CHECK(headlight_pool_gain(&p, 55) > headlight_pool_gain(&p, 45));
+    int last = headlight_pool_gain(&p, 60);                               /* a car creeping on by a quarter of a node: no step bigger than the lift's own slope */
+    for (int sub = 0; sub <= 256; sub += 64) {
+        p.sub[0] = (int16_t)sub;
+        const int g = headlight_pool_gain(&p, 60);
+        CHECK(g >= last - 1);                                             /* moving on: the node 60 is nearer the car, never darker */
+        CHECK(g - last < 24);                                             /* and by small steps */
+        last = g;
+    }
+    p.sub[0] = 256;
+    HeadlightPool q = pool_of(200, 1, 51, 0);
+    CHECK_EQ_INT(headlight_pool_gain(&p, 60), headlight_pool_gain(&q, 60));   /* a whole node of sub is the next node */
+    CHECK_EQ_INT(headlight_pool_width(0), 256);
+    CHECK(headlight_pool_width(3) < 256 && headlight_pool_width(4) < headlight_pool_width(3) && headlight_pool_width(5) == 0);
+    CHECK(headlight_pool_width(8) == headlight_pool_width(3) && headlight_pool_width(10) == 0);
+    uint8_t rows[8 * PSX_LIGHT_POINTS];
+    memset(rows, 255, sizeof rows);
+    HeadlightPool one = pool_of(8, 1, 1, 0);
+    PsxLight light = { .data = rows, .nodes = 8 };
+    light.pool = &one;
+    CHECK_EQ_INT(psx_light_at(&light, 4, 0), 255);
+    CHECK_EQ_INT(psx_light_at(&light, 4, 5), headlight_pool_apply(255, HEADLIGHT_FLOOR));   /* the far ground stays dark even in the beam */
+    CHECK(psx_light_at(&light, 4, 3) < 255 && psx_light_at(&light, 4, 3) > psx_light_at(&light, 4, 5));
+    CHECK_EQ_INT(headlight_pool_car_gain(256), HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * HEADLIGHT_CAR_SHARE / 256);
+    CHECK(headlight_pool_car_gain(256) < 256);
+    CHECK_EQ_INT(headlight_pool_car_gain(HEADLIGHT_FLOOR), HEADLIGHT_FLOOR);   /* the dark stays the dark */
+}
+
 int main(void)
 {
     test_the_pool_ahead_of_a_car();
@@ -115,5 +151,6 @@ int main(void)
     test_the_roads_own_tunnel_flags_and_the_car_itself();
     test_the_ring_and_several_cars();
     test_apply_and_the_light_bytes();
+    test_travel_glide_width_and_cars();
     return TEST_REPORT();
 }

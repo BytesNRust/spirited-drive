@@ -26,7 +26,9 @@ static int best_lift(const HeadlightPool *pool, uint32_t node)
             if (d > half) d -= (int32_t)pool->ring;
             else if (d < -half) d += (int32_t)pool->ring;
         }
-        const int l = lift(d * 256 - pool->frac[i]);
+        int32_t d256 = d * 256 - pool->sub[i];
+        if (pool->dir[i] < 0) d256 = -d256;   /* the light is ahead of the car's travel */
+        const int l = lift(d256);
         if (l > best) best = l;
     }
     return best;
@@ -64,4 +66,15 @@ uint8_t headlight_pool_apply(uint8_t value, int gain)
 {
     const int v = value * gain / 256;
     return (uint8_t)(v > 255 ? 255 : v);
+}
+
+int headlight_pool_width(int point)
+{
+    static const int SHARE[11] = { 256, 256, 256, 112, 48, 0, 256, 256, 112, 48, 0 };
+    return point >= 0 && point < 11 ? SHARE[point] : 256;
+}
+
+int headlight_pool_car_gain(int gain)
+{
+    return HEADLIGHT_FLOOR + (gain - HEADLIGHT_FLOOR) * HEADLIGHT_CAR_SHARE / 256;
 }
