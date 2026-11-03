@@ -1,6 +1,7 @@
 /* port: --drive's bumper view: EXTRAS' Bumper Mirror and Radar (drive_bumper.h) in the frame. */
 #include "viewer/drive_session.h"
 #include "game/sys/palette.h"
+#include "game/sys/port_settings.h"
 
 #include <string.h>
 
@@ -41,7 +42,7 @@ void drive_bumper_draw(const RaceState *race, uint8_t *pixels, int mirror)
                           bumper_mirror.picture + DRIVE_MIRROR_SHAPE_HEADER, bumper_mirror.width, bumper_mirror.height, at);
         drive_wide_hires_place(&bumper_mirror, at.x, at.y, bumper_mirror.width, bumper_mirror.height);
     }
-    if (drive_bumper.radar && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL && drive_hud.cockpit_ready) {
+    if (drive_bumper.radar && drive_radar_view(race->chase.kind, port_radar_all_views()) && drive_hud.police.screen == NULL && drive_hud.cockpit_ready) {
         const Cockpit *c = &drive_hud.cockpit;
         DriveBumperRadarArt art = { c->big_lit, c->big_dark, c->small_lit, c->small_dark, 0, 0, 0 };
         if (drive_hud.rgb != NULL) {  /* the case's greys: the race palette's nearest */

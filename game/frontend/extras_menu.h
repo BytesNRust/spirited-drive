@@ -117,6 +117,8 @@ typedef struct ExtrasMenuOps {
     /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),
      * where the exe's screen switches one off as the other is turned on. 0 is the exe. */
     int port_combine_variants;
+    /* port (radar_all_views): 1 when the police radar shows in every outside view, so its row reads "Police radar" and not "Bumper view police radar" */
+    int radar_all_views;
     void *ctx;
     /* port: the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and one drawn in
      * a style's colours (lit yellow, else cream). Both NULL keeps the text "1/2 >". */

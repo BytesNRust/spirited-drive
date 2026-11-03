@@ -52,6 +52,7 @@ typedef struct Fake {
     int titles;           /* titles drawn through the title op */
     int headers;          /* headers drawn through the header op */
     int32_t header_width; /* the last one's underline */
+    int radar_all_views;  /* port_radar_all_views, as the glue reports it */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -258,7 +259,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log };
+        .extras_save = f_save, .radar_all_views = r->fake.radar_all_views, .ctx = &r->fake, .open_log_folder = f_open_log };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
@@ -594,6 +595,24 @@ static void test_page_two_has_ten_rows(void)
 }
 
 /* page 3 is the whole Miscellaneous section: Start Screen, Intro video, Updates and anonymous stats, Open the log folder; four rows */
+/* radar_all_views: the radar's row says "Police radar" (it shows in every outside view), else the bumper view's name */
+static void test_radar_row_label_follows_the_flag(void)
+{
+    for (int all = 0; all <= 1; all++) {
+        Rig r;
+        int keys[48];
+        int n = keys_to_row(keys, ROW_FIRST_P2);
+        n = downs(keys, n, ROWS_P2);
+        keys[n++] = ENTER;
+        setup(&r);
+        r.fake.radar_all_views = all;
+        run(&r, keys, n);
+        CHECK_EQ_INT(shown(&r.fake, "Police radar") != 0, all);
+        CHECK_EQ_INT(shown(&r.fake, "Bumper view police radar") != 0, !all);
+        CHECK(shown(&r.fake, "Bumper view mirror"));   /* the mirror's row is the bumper view's either way */
+    }
+}
+
 static void test_page_three_is_miscellaneous(void)
 {
     Rig r;
@@ -1210,6 +1229,7 @@ int main(void)
 {
     test_check_for_updates_switch();
     test_mirror_toggle_excludes_rally();
+    test_radar_row_label_follows_the_flag();
     test_page_three_is_miscellaneous();
     test_extras_has_open_log_folder_row();
     test_the_log_folder_row_without_the_op();
