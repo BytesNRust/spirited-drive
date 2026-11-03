@@ -33,6 +33,16 @@ typedef struct {
 const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, int32_t line, int32_t top, int mode,
                             const uint8_t *palette);
 
+/* port (sky_fill_below): the same downward. horizon_flat fills what lies under the art with the art's last pixel, one flat colour; at night against the black
+ * of the frame it is a hard edge. This adds rows under the art, enough to reach `bottom` (the box's bottom row, screen rows), every column taking the most frequent
+ * colour of its last SKY_FILL_BELOW_ROWS rows (a lone pixel, a star, is outvoted; a tie goes to the lower row). The same entry when the art already reaches
+ * `bottom` (or there is nothing to extend); never more than HORIZON_ROWS output rows in all, the horizon table's reach. Valid until the next call. */
+enum { SKY_FILL_BELOW_ROWS = 8 };
+const FshEntry *sky_stretch_below(SkyStretch *s, const FshEntry *horz, int32_t scale, int32_t line, int32_t bottom);
+
+/* the colour column x of `horz` (w x h) takes under the art: the most frequent of its last `rows` rows, 0xff (transparent) only when all are */
+uint8_t sky_below_colour(const uint8_t *payload, int32_t w, int32_t h, int32_t x, int32_t rows);
+
 void sky_stretch_free(SkyStretch *s);
 
 #endif

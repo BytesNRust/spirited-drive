@@ -1,6 +1,8 @@
 /* port: see sky_stretch.h. */
 #include "game/race/sky_stretch.h"
 
+#include "game/race/horizon.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -133,6 +135,51 @@ const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, 
     s->entry = *horz;
     s->entry.height = (uint16_t)height;
     s->entry.misc[1] = (int16_t)grown;
+    s->entry.payload = s->pixels;
+    s->entry.payload_size = size;
+    return &s->entry;
+}
+
+uint8_t sky_below_colour(const uint8_t *payload, int32_t w, int32_t h, int32_t x, int32_t rows)
+{
+    if (rows > h) rows = h;
+    uint8_t best = payload[(size_t)(h - 1) * w + x];
+    int best_n = 0;
+    for (int32_t r = h - rows; r < h; r++) {
+        const uint8_t p = payload[(size_t)r * w + x];
+        if (p == 0xff) continue;
+        int n = 0;
+        for (int32_t q = h - rows; q < h; q++) n += payload[(size_t)q * w + x] == p;
+        if (n >= best_n) best = p, best_n = n;   /* the rows go down, so >= lets the lower row win a tie */
+    }
+    return best;
+}
+
+const FshEntry *sky_stretch_below(SkyStretch *s, const FshEntry *horz, int32_t scale, int32_t line, int32_t bottom)
+{
+    if (horz == NULL || horz->payload == NULL || scale <= 0 || line == INT32_MIN) return horz;
+    const int32_t w = (int16_t)horz->width, h = (int16_t)horz->height, above = (int16_t)horz->misc[1];
+    if (w <= 0 || h <= 0 || above < 0 || above > h || (size_t)w * (size_t)h > horz->payload_size) return horz;
+    const int64_t y = (int64_t)line - scaled(above, scale);
+    const int64_t needed = (int64_t)bottom - y;   /* the output rows from the art's top to the box's bottom */
+    if (needed <= scaled(h - 1, scale)) return horz;
+    int64_t last = ((needed << 16) + scale - 1) / scale;   /* the art's last row index: the fewest whose scaled height covers it */
+    const int64_t reach = (((int64_t)HORIZON_ROWS - 1) << 16) / scale;   /* what the row table maps */
+    if (last > reach) last = reach;
+    if (last + 1 <= h) return horz;
+    const int32_t rows = (int32_t)(last + 1);
+    const size_t size = (size_t)w * (size_t)rows;
+    if (s->cap < size) {
+        uint8_t *bigger = realloc(s->pixels, size);
+        if (bigger == NULL) return horz;
+        s->pixels = bigger, s->cap = size;
+    }
+    memcpy(s->pixels, horz->payload, (size_t)w * (size_t)h);
+    uint8_t *const first = s->pixels + (size_t)h * w;
+    for (int32_t x = 0; x < w; x++) first[x] = sky_below_colour(horz->payload, w, h, x, SKY_FILL_BELOW_ROWS);
+    for (int32_t r = h + 1; r < rows; r++) memcpy(s->pixels + (size_t)r * w, first, (size_t)w);
+    s->entry = *horz;
+    s->entry.height = (uint16_t)rows;
     s->entry.payload = s->pixels;
     s->entry.payload_size = size;
     return &s->entry;
