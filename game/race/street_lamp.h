@@ -36,6 +36,8 @@ size_t street_lamps_nodes(const StreetLamp *lamps, int lamp_count, const TriDesc
 
 /* The track's street lamp (CY1, any case): 1 and `*out` set, 0 for the others. */
 int street_lamp_for(const char *track, StreetLamp *out);
+/* The boards lit by day too (port: Vertigo Ridge's lantern post and wooden truss bulb, the foundry truss's two bulbs): at most `max`, how many, in `out`; 0 for every other track. */
+int street_lamps_for_day(const char *track, StreetLamp *out, int max);
 /* All of the track's lamp boards, at most `max`: how many, in `out`. */
 int street_lamps_for(const char *track, StreetLamp *out, int max);
 
@@ -48,5 +50,8 @@ typedef struct {
  * (a checker, half of them) and within the rim in entry[2] (every fourth). Nothing else changes; painting again changes nothing. Zero counts when the
  * board is not the lamp's size. */
 StreetLampPaint street_lamp_paint(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES]);
+
+/* The same by day: the lens, and the glow's core only (the checker round it), no outer rim: a bulb on in the daylight, not a halo in the dark. */
+StreetLampPaint street_lamp_paint_day(const StreetLamp *lamp, uint8_t *pixels, int width, int height, const uint8_t entry[STREET_LAMP_ENTRIES]);
 
 #endif
