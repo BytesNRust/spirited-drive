@@ -479,6 +479,10 @@ static uint8_t headlight_frac(const RaceState *race, const Car *car)
     return (uint8_t)(t <= 0.0 ? 0 : t >= 1.0 ? 255 : t * 256.0);
 }
 
+/* port (psx_headlights): the tick each car's body was last drawn (its draw distance, the render scale's): a car that is not drawn does not light the road, so no lit road
+ * shows far from a car that is not there yet. Stored as tick + 1: 0 is never */
+static int32_t body_drawn_tick[RACE_CARS];
+
 /* port (psx_headlights): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
 static void headlights_update(void)
 {
@@ -497,6 +501,7 @@ static void headlights_update(void)
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL || !(car->flags_51a & 4)) continue;
+        if (i != race_slot(shadow_race->player) && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* not drawn lately: no light */
         int32_t moved = car->node - seen[i];   /* which way the car travels: the nodes it moved over, the gear on the first frame */
         if (ring > 0) moved = moved > ring / 2 ? moved - ring : moved < -ring / 2 ? moved + ring : moved;
         if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;
@@ -1060,6 +1065,7 @@ static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int3
                                 light_slots != NULL ? light_slots : NO_SLOT_COLOURS, race->finish_cars, race->tick,
                                 &flash_tick, &flash };
     lamp_state(car);
+    if (car->index >= 0 && car->index < RACE_CARS) body_drawn_tick[car->index] = race->tick + 1;   /* port (psx_headlights): this car was drawn: its pool may light the road */
     b->part = 0;
     car_body_draw(&ops, &in, car, followed_car(), matrix, position);
 }
