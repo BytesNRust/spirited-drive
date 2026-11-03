@@ -24,6 +24,8 @@ typedef struct {
                          * keeps the nodes up to date; the light reads it through a const PsxLight) */
     uint8_t *hall;      /* port (made light): per node (owned), 1 where the node is a lit hall's (psx_light_synth.h: the car takes the lamps' alternation there); NULL none */
     uint8_t *tunnel;    /* port (made_tunnels): 1 per node the road marks a tunnel (owned), the made light's; NULL none (then the rows decide: psx_light_tunnel) */
+    int neutral_cast;   /* port (made_tunnels, i074): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
+    uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
                          * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
 } PsxLight;
@@ -51,6 +53,9 @@ uint32_t psx_light_old_node(const PsxLight *light, uint32_t node);
 /* 1 when node `node` is in a tunnel: in a script's RAMP context, or without a script its row is a tunnel's: a lit wall foot (point 2 or 7, PSX_LIGHT_WALL_FOOT or more) with 0s from point 4 / 9 on, either side.
  * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
 int psx_light_tunnel(const PsxLight *light, uint32_t node);
+
+/* port (lamp_pool_tint): what the light of the polygons at `node` is tabled by: 1 a tunnel (psx_light_tunnel), 2..5 a street lamp's pool of class 1..4 (the road there takes a warm tint), 0 else. */
+int psx_light_tunnel_class(const PsxLight *light, uint32_t node);
 
 /* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last
  * node is not light (random bytes) and takes the one before it; PSX_LIGHT_FULL without data or for a point out of range. */

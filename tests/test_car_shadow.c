@@ -35,7 +35,7 @@ static void setup(int x, int z)
     view_init(&view, 0, 0, 1120, 480, 120, 60);
     mv = (ModelView){ &view, ORIGIN, IDENTITY, 0, 0 };
     memset(&car, 0, sizeof car);
-    car.x = x << SHIFT, car.y = -(100 << SHIFT), car.z = z << SHIFT;   /* the road 100 units under the lens */
+    car.x = x * (1 << SHIFT), car.y = -(100 << SHIFT), car.z = z * (1 << SHIFT);   /* the road 100 units under the lens */
 }
 
 static int shadow(const CarShadowOps *ops, int32_t screen[8])

@@ -145,12 +145,43 @@ int track_viewer_fam_missing(const char *data_root, const char *name, const Trac
     return data == NULL;
 }
 
+/* port: the centre of each model's footprint (x and z, model units), from the FAM's objects; a model that does not open has none (0) */
+static uint32_t model_pivots(const uint8_t *fam, size_t fam_size, TriPivot *out)
+{
+    Chunk root, objects, pair, mesh_chunk;
+    uint32_t n = 0;
+    if (chunk_open(&root, fam, fam_size) != CHUNK_OK || chunk_child(&root, FAM_CHILD_OBJECTS, &objects) != CHUNK_OK ||
+        objects.kind != CHUNK_KIND_HEADER)
+        return 0;
+    for (; n < objects.count && n < TRACK_MODELS; n++) {
+        Mesh mesh;
+        int32_t lo[2] = { INT32_MAX, INT32_MAX }, hi[2] = { INT32_MIN, INT32_MIN };
+        out[n] = (TriPivot){ 0, 0 };
+        if (chunk_child(&objects, n, &pair) != CHUNK_OK || chunk_child(&pair, 0, &mesh_chunk) != CHUNK_OK ||
+            mesh_open(&mesh, &mesh_chunk) != MESH_OK)
+            continue;
+        for (uint32_t v = 0; v < mesh.vertex_count; v++) {
+            MeshVertex mv;
+            if (mesh_vertex(&mesh, v, &mv) != MESH_OK) continue;
+            if (mv.x < lo[0]) lo[0] = mv.x;
+            if (mv.x > hi[0]) hi[0] = mv.x;
+            if (mv.z < lo[1]) lo[1] = mv.z;
+            if (mv.z > hi[1]) hi[1] = mv.z;
+        }
+        if (lo[0] <= hi[0]) out[n] = (TriPivot){ (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2 };
+    }
+    return n;
+}
+
 /* port: the circuit's file turned in place to run the other way round; a stage (or a file that does not open) is left as it
  * is, and the race runs forwards. */
-static int reverse_file(uint8_t *file, size_t size, const char *name)
+static int reverse_file(uint8_t *file, size_t size, const char *name, const uint8_t *fam, size_t fam_size)
 {
     uint8_t *turned = malloc(size);
-    const TriResult r = turned != NULL ? tri_reverse(file, size, turned) : TRI_ERR_BOUNDS;
+    TriPivot pivots[TRACK_MODELS];
+    const uint32_t count = model_pivots(fam, fam_size, pivots);
+    const TriReverseOptions options = { 1, count > 0 ? pivots : NULL, count };
+    const TriResult r = turned != NULL ? tri_reverse_with(file, size, turned, &options) : TRI_ERR_BOUNDS;
     if (r == TRI_OK) memcpy(file, turned, size);
     else port_log("track_viewer: %s cannot run backwards (%s), forwards\n", name, tri_result_str(r));
     free(turned);
@@ -204,7 +235,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
                            LUNAR_ROAD_GANTRY_QUARTERS);
         if (getenv("TNFS_TRACE_FAM") != NULL) port_log("track_viewer: rally art, %d far roads from the near\n", far);
     }
-    if (look->port_reverse) t->reversed = reverse_file(t->tri_file, tri_size, name);
+    if (look->port_reverse) t->reversed = reverse_file(t->tri_file, tri_size, name, t->fam_file, fam_size);
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
     if (tr != TRI_OK || cr != CHUNK_OK || !track_art_load(&t->art, &t->fam)) {

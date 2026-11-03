@@ -14,6 +14,9 @@
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        INSERT = 0x5200, DELETE = 0x5300, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, CAPTURE_WAIT = 500, REST = 0x19, WIDE = 0x280 };
+#define PROMPT_LONG "Press a button or move an axis..."
+#define PROMPT_SHORT "Press a button or axis..."
+enum { PROMPT_GAP = 16 };   /* the room kept between a label and the prompt that follows it */
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, LABEL_X = 16, VALUE_RIGHT = 600, STEP = 5 };
 enum { PAGES = 4, KEYBOARD_PAGE = 1, ACTION_PAGE = 2, TUNE_PAGE = 3 };
 /* the device each page is for, under the title */
@@ -257,10 +260,13 @@ static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps 
         else text_right(o, lit, value, VALUE_RIGHT, y);
     } else if (r->page == ACTION_PAGE) {
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name((PortAction)row), LABEL_X, y);
-        if (r->capturing == row)
-            snprintf(value, sizeof value, "%s", r->have_pad ? "Press a button or move an axis..."
-                                                            : "No controller found");
-        else control_map_binding_text(st->plus->port, (PortAction)row, r->gamepad, value, sizeof value);
+        if (r->capturing == row) {
+            /* the long prompt runs into a long label (Analog steering) from the right: the shorter one then */
+            const char *const prompt = o->plus_text_width(o->ctx, control_map_action_name((PortAction)row)) + o->plus_text_width(o->ctx, PROMPT_LONG) +
+                                               PROMPT_GAP > VALUE_RIGHT - LABEL_X ? PROMPT_SHORT : PROMPT_LONG;
+            snprintf(value, sizeof value, "%s", r->have_pad ? prompt : "No controller found");
+        } else
+            control_map_binding_text(st->plus->port, (PortAction)row, r->gamepad, value, sizeof value);
         text_right(o, lit, value, VALUE_RIGHT, y);
     } else if (row < TUNE_COUNT) {
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, TUNE_LABEL[row], LABEL_X, y);

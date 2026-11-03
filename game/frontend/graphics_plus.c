@@ -31,7 +31,7 @@ static const int16_t TEXT_Y[PLUS_SETTINGS] = { 106, 159, 210, 262, 315 };
 static const char *const LABEL[PLUS_SETTINGS] = { "Screen format", "Refresh rate", "Scaling", "Full screen",
                                                   "Field of view" };
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
-static const int REFRESH[3] = { 60, 120, 144 };
+static const int REFRESH[4] = { 30, 60, 120, 144 };   /* 30: the exe's own 30 steps a second, drawn once each */
 
 static int wrap(int value, int direction, int count)
 {
@@ -46,9 +46,9 @@ void graphics_plus_step(PortSettings *s, int setting, int direction, ScreenForma
         break;
     case PLUS_REFRESH: {
         int at = 0;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
             if (REFRESH[i] == s->refresh_hz) at = i;
-        s->refresh_hz = REFRESH[wrap(at, direction, 3)];
+        s->refresh_hz = REFRESH[wrap(at, direction, 4)];
         break;
     }
     case PLUS_SCALE:

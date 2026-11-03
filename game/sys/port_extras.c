@@ -13,7 +13,7 @@
 #define PSX_LIVERY_CARS_MASK 0xfff   /* cars 0..11 (11 the Warrior) */
 
 static const char *const START_NAMES[] = { "game_mode", "network", "central" };
-static const char *const UNIT_NAMES[] = { "language", "mph", "kmh" };
+static const char *const UNIT_NAMES[] = { "mph", "kmh" };
 static const char *const DASH_BOX_NAMES[] = { "map", "lever", "hidden" };
 
 /* The switches, in the order they are written. */
@@ -47,7 +47,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_LANGUAGE, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1, 0, 1 };
+    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_MPH, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1, 0, 1 };
     return d;
 }
 
@@ -88,9 +88,10 @@ static void apply(PortExtras *e, const char *key, const char *value)
         return;
     }
     if (strcmp(key, "units") == 0) {
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 2; i++)
             if (strcmp(value, UNIT_NAMES[i]) == 0)
                 e->units = (SpeedUnits)i;
+        if (strcmp(value, "language") == 0) e->units = UNITS_MPH;   /* an older file: the port has no languages */
         return;
     }
     if (strcmp(key, "difficulty") == 0) {
@@ -209,9 +210,8 @@ bool port_extras_set_race_switch(RaceSwitch which, int on)
     return port_extras_save(&e);
 }
 
-int speed_units_kmh(SpeedUnits units, int german)
+int speed_units_kmh(SpeedUnits units)
 {
-    if (units == UNITS_LANGUAGE) return german != 0;
     return units == UNITS_KMH;
 }
 

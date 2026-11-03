@@ -28,7 +28,7 @@ void resource_set_units(SpeedUnits choice)
 
 int resource_kmh(void)
 {
-    return speed_units_kmh(units, is_german);
+    return speed_units_kmh(units);
 }
 
 void resource_init(const char *data_root, int german)

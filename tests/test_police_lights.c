@@ -120,6 +120,23 @@ static void test_found_two_and_three(void)
     police_lights_set_entries(0, 0, 0, 0);
 }
 
+/* port (police_glow): the lamp's core is near white in the light's colour (still redder / bluer than white), and the halo is stronger in poor light */
+static void test_glow(void)
+{
+    uint8_t red[3], blue[3];
+    police_glow_core(1, red);
+    police_glow_core(0, blue);
+    CHECK(red[0] >= 60 && red[1] >= 48 && red[2] >= 44);   /* 6-bit: nearly white */
+    CHECK(red[0] > red[1] && red[1] >= red[2]);             /* but red */
+    CHECK(blue[2] >= 60 && blue[1] >= 52 && blue[0] >= 44);
+    CHECK(blue[2] > blue[1] && blue[1] >= blue[0]);         /* but blue */
+    for (int l = 0; l < 3; l++) CHECK(police_glow_percent(1, l) > police_glow_percent(0, l));
+    for (int low = 0; low < 2; low++)
+        for (int l = 1; l < 3; l++) CHECK(police_glow_percent(low, l) > police_glow_percent(low, l - 1));   /* stronger toward the lamp */
+    CHECK_EQ_INT(police_glow_percent(0, 0), 30);   /* by day: the halo the lamps already have */
+    CHECK_EQ_INT(police_glow_percent(0, 2), 100);
+}
+
 int main(void)
 {
     test_own_entries();
@@ -127,5 +144,6 @@ int main(void)
     test_when_on();
     test_phase();
     test_table();
+    test_glow();
     return TEST_REPORT();
 }

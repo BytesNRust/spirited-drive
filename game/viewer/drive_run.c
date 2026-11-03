@@ -48,6 +48,9 @@ static struct {
     uint32_t next_frame_ms;
 } drive_interp;
 
+/* the race's steps a second (drive_clock.h: 3 base ticks of 90 Hz). A refresh of 30 is those steps drawn once each, no frame between them: a real cap of 30 fps. */
+enum { DRIVE_STEP_HZ = 30 };
+
 void drive_run_refresh_set(int32_t hz)
 {
     drive_interp.refresh_hz = hz;
@@ -133,7 +136,7 @@ static void run_service(void *ctx)
     r->timer_written = r->w->timer;
     if (r->w->timer > r->w->done) return;
     /* port: no step due: a frame between steps when one is due on the refresh rate */
-    if (drive_interp.on && drive_interp.cur.valid && r->w->running && (int32_t)(now - drive_interp.next_frame_ms) >= 0)
+    if (drive_interp.on && drive_interp.refresh_hz > DRIVE_STEP_HZ && drive_interp.cur.valid && r->w->running && (int32_t)(now - drive_interp.next_frame_ms) >= 0)
         present_blended(r);
     else platform_sleep_ms(DRIVE_IDLE_MS);
 }
@@ -294,6 +297,14 @@ static void police_near(RaceState *race, double player_node)
     cop->flags_176[0] &= (uint8_t)~8;   /* not lost */
     race->unknown_4c5cd8 = 1;
     port_log("TNFS_POLICE_NEAR: the police car at node %d, %d behind the player, chasing\n", cop->node, behind);
+}
+
+/* port (dev, env only): TNFS_POLICE_NEAR's chase is started once, and the police AI drops it within a few ticks (flags_175 bit 2), which stops its lights; kept each tick the lights keep flashing for the captures */
+static void police_keep(RaceState *race)
+{
+    Car *const cop = race->cars[2];
+    if (getenv("TNFS_POLICE_NEAR") == NULL || cop == NULL || race->unknown_4fbab8 == 0) return;
+    cop->flags_175 |= 4;
 }
 
 static void start_at_node(RaceState *race)
@@ -718,6 +729,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             take_detail(&drive_keys.detail_pending);
         }
         drive_tick(screenshot_input(i, ticks));
+        police_keep(&drive_sim.race);
         if (dumping) drive_audio_offline_tick();
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {

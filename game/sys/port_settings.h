@@ -55,6 +55,19 @@ typedef struct {
                               * (lamp_flare.h); 0: the exe's */
     int headlight_relight;   /* 1: with the night pools, the road's vertex light is asked again of the pools every frame, not only when the camera changes segment (the beam
                               * lagged and jumped every four nodes); 0: as before */
+    int car_tunnel_light;    /* 1: with the PS1 light on a made-light track (TR6, TR7) that has the road's tunnel flags (made_tunnels), the car's light is the tunnel's alone, with a
+                              * short ramp at the mouths: the terrain's shade (a canyon) no longer darkens it into the tunnel's light and lamps, and TR6's property-16 stretch after the
+                              * mine is no longer taken for a hall (only TR7 has one); 0: as it was */
+    int vegas_car_night;     /* 1: with the Light Effects switch and the night, Lost Vegas with no PS1 light takes its night tint under the same ceiling the CD's nights take,
+                              * so the car is no longer lit as by day in its dark; 0: the fallback's night tint as it was */
+    int rally_gravel_shoulder; /* 1: with extras.cfg's rally_gravel, the rolling gravel's one-shot is the shoulder's own (same sample, same pitch, about one a second) and not the
+                              * faster double strike that rang like drops; 0: as it was */
+    int chase_height;        /* 1: with extras.cfg's follow_camera, the chase eye behind the car keeps the flat chase's height above the road at the eye's own place on a climb or a
+                              * descent (the exe's half lift left it low on climbs and high on descents); 0: as it was */
+    int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (psx_light_lamp_classes);
+                              * 0: the pools only lift the light, as they did */
+    int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
+                              * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
@@ -63,6 +76,14 @@ typedef struct {
                               * hues under the night's tint, as it was */
     int forest_dark;         /* 1: Vertigo Ridge's forest before the finish alternates two dark tones (psx_light_forest); 0: the made light as it was */
     int night_stretch_clean; /* 1: the night's sky carried up to the view's top does not carry a star up as a stripe (sky_stretch.h, SKY_FILL_COLUMN_QUIET); 0: as it was */
+    int replay_no_ffb;       /* 1: a replay does not move the force-feedback stick or the pad's rumble (race_forces_replay_silent); 0: the exe's, it shakes as in the race */
+    int last_camera;         /* 1: a race starts in the camera the player last used (the intro's fly-over lands on it, not on the dash): the game writes camera_kind itself; 0: the exe's, the dash */
+    int camera_kind;         /* the chase kind last used live (0..5, race_chase.h), -1 none yet; read only with last_camera */
+    int sky_fill_below;      /* 1: the flat sky's art extended downward until it reaches the bottom of the view, every column in the colour its last rows share (sky_stretch_below), 16:9 and 21:9 only; 0: the exe's, one flat colour from the art's last pixel */
+    int radar_all_views;     /* 1: EXTRAS' police radar (Bumper Radar) shows in every view outside the car, not only the bumper's (drive_radar_view); 0: the bumper view only, as it was */
+    int tach_dim;            /* 1: the R&T tachometer of the views outside the car takes the dash's half tint with the time of day (a little darker at night), its needle staying lit (tach_dim.h); 0: untinted, as it was */
+    int gauge_wheel;         /* 1: at night the steering wheel in front of the gauges is the dash's (half tint) like the rest of the wheel, not lit with the dials; 0: lit, as it was */
+    int police_glow;         /* 1: the police car's lights have a near-white core of the light's colour, and a stronger halo in poor light (psx_flares on); 0: the flat colour, as it was */
     int profile_ui;          /* 1 (the port's default): Game Mode and Options show the Profile row (profile.h); 0: the exe's menus, no row. `port_profile_ui=0|1`. Not controlled by a profile. */
     int profile;             /* a Profile (port_profile.h): PROFILE_CUSTOM 0 (no `profile=` line) keeps the values below as they are; another takes the settings it controls from its table
                               * at load. `profile=custom|stock|restored|restomod`. Last, so the positional initialisers keep their meaning. */
@@ -92,12 +113,28 @@ int port_profile_ui(void);
 
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
+/* 1 when the wheel in front of the gauges is not lit with them: TNFS_GAUGE_WHEEL=0/1 when set, else port.cfg's gauge_wheel. */
+int port_gauge_wheel(void);
+/* 1 when the police lights have a bright core and a stronger halo in poor light: TNFS_POLICE_GLOW=0/1 when set, else port.cfg's police_glow. */
+int port_police_glow(void);
+/* 1 when the outside views' tachometer is tinted: TNFS_TACH_DIM=0/1 when set, else port.cfg's tach_dim. */
+int port_tach_dim(void);
+/* 1 when the flat sky's art reaches the bottom of the view: TNFS_SKY_FILL_BELOW=0/1 when set, else port.cfg's sky_fill_below; never in 4:3 (sky_fill_below_applies). */
+int port_sky_fill_below(void);
+/* the flag `s` has, and the format it is for: on, and not 4:3, where the exe's fill stays whatever the flag says */
+int sky_fill_below_applies(const PortSettings *s);
+/* 1 when the police radar shows in every outside view: TNFS_RADAR_ALL_VIEWS=0/1 when set, else port.cfg's radar_all_views. */
+int port_radar_all_views(void);
 /* 1 when the night's sky is re-hued blue-black (psx_sky_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else port.cfg's night_sky_hue. */
 int port_night_sky_hue(void);
 /* 1 when Vertigo Ridge's forest is sombre (psx_light_make.h): TNFS_FOREST_DARK=0/1 when set, else port.cfg's forest_dark. */
 int port_forest_dark(void);
 /* 1 when the night's stretched sky leaves its stars out of the fill: TNFS_NIGHT_STRETCH_CLEAN=0/1 when set, else port.cfg's night_stretch_clean. */
 int port_night_stretch_clean(void);
+/* 1 when a replay leaves the force feedback still: TNFS_REPLAY_NO_FFB=0/1 when set, else port.cfg's replay_no_ffb. */
+int port_replay_no_ffb(void);
+/* 1 when a race starts in the last camera used: TNFS_LAST_CAMERA=0/1 when set, else port.cfg's last_camera. */
+int port_last_camera(void);
 /* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_PSX_FLARES=0/1 when set, else port.cfg's psx_flares; never without port_psx_light. */
 int port_psx_flares(void);
 
@@ -114,6 +151,19 @@ int port_hall_light(void);
 
 /* 1 when the road's light is asked again each frame (headlight_relight): TNFS_HEADLIGHT_RELIGHT=0/1 when set, else port.cfg's; never without port_psx_headlights. */
 int port_headlight_relight(void);
+
+/* 1 when the car's light of a made light is the tunnel's alone (car_tunnel_light): TNFS_CAR_TUNNEL_LIGHT=0/1 when set, else port.cfg's; never without port_psx_light. */
+int port_car_tunnel_light(void);
+/* 1 when Lost Vegas' made night has the darker tint (vegas_car_night): TNFS_VEGAS_CAR_NIGHT=0/1 when set, else port.cfg's; never without port_psx_light. */
+int port_vegas_car_night(void);
+/* 1 when the rolling rally gravel strikes as the shoulder does (rally_gravel_shoulder): TNFS_RALLY_GRAVEL_SHOULDER=0/1 when set, else port.cfg's. */
+int port_rally_gravel_shoulder(void);
+/* 1 when every chase eye keeps its height above the road (chase_height): TNFS_CHASE_HEIGHT=0/1 when set, else port.cfg's; acts only with follow_camera. */
+int port_chase_height(void);
+/* 1 when a street lamp's pool tints the road warm (lamp_pool_tint): TNFS_LAMP_POOL_TINT=0/1 when set, else port.cfg's; never without port_psx_headlights. */
+int port_lamp_pool_tint(void);
+/* 1 when Transtropolis' made light is corrected (trans_shadows): TNFS_TRANS_SHADOWS=0/1 when set, else port.cfg's; never without port_psx_light. */
+int port_trans_shadows(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
@@ -146,6 +196,8 @@ PortSettings port_settings_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */
 PortSettings port_settings_parse(const char *text, size_t size);
 /* Writes the text form, NUL-terminated; returns its length, or 0 when it does not fit. */
+/* the room port.cfg's text needs: every key, a psx_dir of PSX_DIR_MAX bytes, and space for the keys still to come */
+enum { PORT_CFG_TEXT_MAX = 2048 };
 size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 PortSettings port_settings_load(void);   /* user file "port.cfg"; the defaults when it does not exist */
 bool port_settings_save(const PortSettings *s);

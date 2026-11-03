@@ -19,6 +19,7 @@ enum {
     PSX_SYNTH_PROPERTY_HALL = 16,    /* TriNode.property bit: a hall, a roofed straight lit by lamps like a tunnel (TR7's steelworks, 1011..1023 and 0..62, property 17) */
     PSX_SYNTH_FLAG_TUNNEL = 1,       /* psx_light_synth_tunnels' flag of a tunnel's node */
     PSX_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
+    PSX_SYNTH_CAR_RAMP = 3,          /* the nodes outside a tunnel's mouth over which the car's light comes back (psx_light_synth_car_tunnel) */
     PSX_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (psx_light_synth_car) */
     PSX_SYNTH_HALL_MARK = 254,       /* a hall node's value there: 254 of 255 to the world, the mark of a lit hall to the cars */
     PSX_SYNTH_MIN_RUN = 12,          /* nodes: the shortest run that is a tunnel */
@@ -54,10 +55,27 @@ int psx_light_synth_track(const char *track);
  * terrain's own light, where a tunnel's rows darken them, so the car and the shadow there follow the scenery. */
 int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to);
 
+/* port (trans_shadows): Transtropolis' (TR7) airport approach to the open truss bridge, nodes 700..776: the terrain's walls shaded the scenery beside an open road in the made light.
+ * 1 and the range (inclusive) for TR7, else 0. */
+int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to);
+
+/* port (trans_shadows): Transtropolis' (TR7) closed parking, the other way round: its deck roofs the road from node 465 (the sky shows to 460, the facade 460..464) but the road property marks the tunnel only from 471
+ * (to 609, where the road is open again), so nodes 465..470 under the deck got the open light. 1 and the range (inclusive) for TR7, else 0; `row_node` is a node inside
+ * the marked run whose tunnel row is the interior shade the range takes. */
+int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node);
+
+/* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
+int psx_light_synth_mine(const char *track);
+
 /* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel (`out`, 3): 1 on the open road, in a tunnel the CD's lamp
  * alternation (a RAMP context takes its first colour on even nodes and its second on odd ones: CY1's 266..292 is 128,115,96 then 60,60,60 through the exe's
  * table, 0.60 0.56 0.50 under a lamp, 0.39 grey between), which flickers yellowish with the speed; the way the points beyond the foot go dark at the doors,
  * the light goes between the open road's 1 and the alternation. A NULL light is 1. */
 void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3]);
+
+/* port (car_tunnel_light): the same on a made light that has the road's tunnel flags (PsxLight.tunnel), but the car's darkness is the flags' alone: 1 in a tunnel (or a hall), ramping
+ * to 0 over PSX_SYNTH_CAR_RAMP nodes outside either mouth. The rows' own points beyond the foot carry the terrain's shade as well (a canyon darkened the car into the tunnel's
+ * light and lit its lamps by day) and ramp over ten nodes at the exit (the car stayed dark metres past the door). Without flags it is psx_light_synth_car. */
+void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3]);
 
 #endif

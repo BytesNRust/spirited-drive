@@ -12,7 +12,7 @@
  * extras.cfg is only read, as the fallback for the three settings that moved in from there. */
 typedef struct {
     char name[32];
-    uint8_t bytes[512];
+    uint8_t bytes[PORT_CFG_TEXT_MAX];
     size_t size;
     int present;
 } Stored;
@@ -102,10 +102,19 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.night_sky_hue, b.night_sky_hue);
     CHECK_EQ_INT(a.forest_dark, b.forest_dark);
     CHECK_EQ_INT(a.night_stretch_clean, b.night_stretch_clean);
+    CHECK_EQ_INT(a.replay_no_ffb, b.replay_no_ffb);
+    CHECK_EQ_INT(a.last_camera, b.last_camera);
+    CHECK_EQ_INT(a.camera_kind, b.camera_kind);
     CHECK_EQ_INT(a.psx_flares, b.psx_flares);
     CHECK_EQ_INT(a.hall_light, b.hall_light);
     CHECK_EQ_INT(a.made_tunnels, b.made_tunnels);
     CHECK_EQ_INT(a.headlight_relight, b.headlight_relight);
+    CHECK_EQ_INT(a.car_tunnel_light, b.car_tunnel_light);
+    CHECK_EQ_INT(a.vegas_car_night, b.vegas_car_night);
+    CHECK_EQ_INT(a.rally_gravel_shoulder, b.rally_gravel_shoulder);
+    CHECK_EQ_INT(a.chase_height, b.chase_height);
+    CHECK_EQ_INT(a.lamp_pool_tint, b.lamp_pool_tint);
+    CHECK_EQ_INT(a.trans_shadows, b.trans_shadows);
 }
 
 static void test_defaults(void)
@@ -122,10 +131,19 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.fog, 0);
     CHECK_EQ_INT(d.car_colours, 0);     /* the exe's palette slots until asked */
     CHECK_EQ_INT(d.fog_sample, 0);      /* the fog from the art's foot until asked */
+    CHECK_EQ_INT(d.replay_no_ffb, 0);   /* a replay shakes the stick, as the exe's, until asked */
+    CHECK_EQ_INT(d.last_camera, 0);     /* the dash at the start, as the exe's, until asked */
+    CHECK_EQ_INT(d.camera_kind, -1);    /* and no camera used yet */
     CHECK_EQ_INT(d.sky_fill, 0);        /* the exe's flat colour above the sky art until asked */
     CHECK_EQ_INT(d.night_sky_hue, 0);   /* the night's sky as it was until asked */
     CHECK_EQ_INT(d.forest_dark, 0);     /* the made light's forest as it was until asked */
     CHECK_EQ_INT(d.night_stretch_clean, 0);   /* the stretched night sky as it was until asked */
+    CHECK_EQ_INT(d.car_tunnel_light, 0);   /* the car's light as it was, until asked */
+    CHECK_EQ_INT(d.vegas_car_night, 0);   /* Lost Vegas' night tint as it was, until asked */
+    CHECK_EQ_INT(d.rally_gravel_shoulder, 0);   /* the rally's crunch as it was, until asked */
+    CHECK_EQ_INT(d.chase_height, 0);   /* the exe's slope lift, until asked */
+    CHECK_EQ_INT(d.lamp_pool_tint, 0);   /* the pools only lift the light, until asked */
+    CHECK_EQ_INT(d.trans_shadows, 0);   /* Transtropolis' made light as it was, until asked */
     CHECK_EQ_INT(d.headlight_relight, 0);   /* the road's light as built, until asked */
     CHECK_EQ_INT(d.made_tunnels, 0);    /* a made light keeps no tunnel flags until asked */
     CHECK_EQ_INT(d.psx_flares, 0);      /* no halo round the lit tail lights until asked */
@@ -138,8 +156,8 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1 };
-    char text[512];
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1, .replay_no_ffb = 1, .last_camera = 1, .camera_kind = 4 };
+    char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
     check_same(port_settings_parse(text, n), s);
@@ -172,6 +190,98 @@ static void test_psx_flares_values(void)
     unsetenv("TNFS_PSX_LIGHT");
 }
 
+static void test_replay_no_ffb_values(void)
+{
+    const char *const on = "replay_no_ffb=1\n", *const bad = "replay_no_ffb=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).replay_no_ffb, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).replay_no_ffb, 0);
+    setenv("TNFS_REPLAY_NO_FFB", "1", 1);
+    CHECK_EQ_INT(port_replay_no_ffb(), 1);
+    setenv("TNFS_REPLAY_NO_FFB", "0", 1);
+    CHECK_EQ_INT(port_replay_no_ffb(), 0);
+    unsetenv("TNFS_REPLAY_NO_FFB");
+}
+
+static void test_last_camera_values(void)
+{
+    const char *const ok = "last_camera=1\ncamera_kind=3\n", *const bad = "last_camera=2\ncamera_kind=6\n";
+    CHECK_EQ_INT(port_settings_parse(ok, strlen(ok)).last_camera, 1);
+    CHECK_EQ_INT(port_settings_parse(ok, strlen(ok)).camera_kind, 3);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).last_camera, 0);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).camera_kind, -1);   /* out of range: none */
+    setenv("TNFS_LAST_CAMERA", "1", 1);
+    CHECK_EQ_INT(port_last_camera(), 1);
+    unsetenv("TNFS_LAST_CAMERA");
+}
+
+/* sky_fill_below: the flag is the exe's (0) until asked, and in 4:3 the exe's fill stays whatever the flag says */
+static void test_sky_fill_below_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().sky_fill_below, 0);
+    const char *const on = "sky_fill_below=1\n", *const bad = "sky_fill_below=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).sky_fill_below, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).sky_fill_below, 0);
+    PortSettings s = port_settings_defaults();
+    s.sky_fill_below = 1;
+    s.format = SCREEN_4_3;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 0);   /* 4:3: the last pixel, as the exe's */
+    s.format = SCREEN_16_9;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 1);
+    s.format = SCREEN_21_9;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 1);
+    s.sky_fill_below = 0;
+    CHECK_EQ_INT(sky_fill_below_applies(&s), 0);
+    char text[PORT_CFG_TEXT_MAX];
+    s.sky_fill_below = 1;
+    const size_t n = port_settings_format(&s, text, sizeof text);
+    CHECK(n > 0 && strstr(text, "sky_fill_below=1\n") != NULL);
+    CHECK_EQ_INT(port_settings_parse(text, n).sky_fill_below, 1);
+}
+
+static void test_police_glow_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().police_glow, 0);
+    const char *const on = "police_glow=1\n", *const bad = "police_glow=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).police_glow, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).police_glow, 0);
+    setenv("TNFS_POLICE_GLOW", "1", 1);
+    CHECK_EQ_INT(port_police_glow(), 1);
+    unsetenv("TNFS_POLICE_GLOW");
+}
+
+static void test_gauge_wheel_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().gauge_wheel, 0);
+    const char *const on = "gauge_wheel=1\n", *const bad = "gauge_wheel=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).gauge_wheel, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).gauge_wheel, 0);
+    setenv("TNFS_GAUGE_WHEEL", "1", 1);
+    CHECK_EQ_INT(port_gauge_wheel(), 1);
+    unsetenv("TNFS_GAUGE_WHEEL");
+}
+
+static void test_tach_dim_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().tach_dim, 0);
+    const char *const on = "tach_dim=1\n", *const bad = "tach_dim=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).tach_dim, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).tach_dim, 0);
+    setenv("TNFS_TACH_DIM", "1", 1);
+    CHECK_EQ_INT(port_tach_dim(), 1);
+    unsetenv("TNFS_TACH_DIM");
+}
+
+static void test_radar_all_views_values(void)
+{
+    CHECK_EQ_INT(port_settings_defaults().radar_all_views, 0);
+    const char *const on = "radar_all_views=1\n", *const bad = "radar_all_views=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).radar_all_views, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).radar_all_views, 0);
+    setenv("TNFS_RADAR_ALL_VIEWS", "1", 1);
+    CHECK_EQ_INT(port_radar_all_views(), 1);
+    unsetenv("TNFS_RADAR_ALL_VIEWS");
+}
+
 static void test_sky_fill_values(void)
 {
     unsetenv("TNFS_SKY_FILL_MODE");
@@ -197,7 +307,7 @@ static void test_free_records_values(void)
 
 static void test_render_bands_values(void)
 {
-    char text[512];
+    char text[PORT_CFG_TEXT_MAX];
     const char *const text_in = "render_bands=auto\n";
     PortSettings s = port_settings_parse(text_in, strlen(text_in));
     CHECK_EQ_INT(s.render_bands, -1);   /* "auto" is the sentinel, not a count */
@@ -248,7 +358,7 @@ static void test_render_scale_values(void)
         CHECK_EQ_INT(s.render_scale, i + 1);
     }
     /* the written form: the number on its own */
-    char text[512];
+    char text[PORT_CFG_TEXT_MAX];
     PortSettings a = port_settings_defaults();
     a.render_scale = 3;
     CHECK(port_settings_format(&a, text, sizeof text) > 0);
@@ -284,6 +394,9 @@ static void test_the_environment_wins_over_the_setting(void)
 
 static void test_parse_keys(void)
 {
+    const char *thirty = "refresh_hz=30\n", *bad_hz = "refresh_hz=45\n";
+    CHECK_EQ_INT(port_settings_parse(thirty, strlen(thirty)).refresh_hz, 30);
+    CHECK_EQ_INT(port_settings_parse(bad_hz, strlen(bad_hz)).refresh_hz, 60);
     const char *text = "format=21:9\nrefresh_hz=144\n";
     const PortSettings s = port_settings_parse(text, strlen(text));
     CHECK_EQ_INT(s.format, SCREEN_21_9);
@@ -313,10 +426,11 @@ static void test_parse_keys(void)
     const char *bad_shadow = "psx_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
     const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
-    CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 1);
-    CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 3);
+    CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 4);   /* off or the envmap: an older file's strengths 1..3 are the envmap */
+    CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 4);
     CHECK_EQ_INT(port_settings_parse(envmap, strlen(envmap)).body_shine, 4);
-    CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 2);
+    CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 4);
+    CHECK_EQ_INT(port_settings_parse("body_shine=0\n", 13).body_shine, 0);
     CHECK_EQ_INT(port_settings_parse(bad_shine, strlen(bad_shine)).body_shine, 0);
     const char *lit = "psx_light=1\n";
     CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
@@ -334,7 +448,7 @@ static void test_parse_keys(void)
     const char *night = "psx_time=Night\n";
     CHECK_EQ_INT(port_settings_parse(night, strlen(night)).psx_time, PSX_TIME_NIGHT);
     /* written as the words */
-    char out[512];
+    char out[PORT_CFG_TEXT_MAX];
     PortSettings w = port_settings_defaults();
     w.psx_time = PSX_TIME_DAWN;
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dawn\n") != NULL);
@@ -401,7 +515,7 @@ static void test_moved_settings_fall_back_to_extras(void)
     s.fog = 0;
     CHECK(port_settings_save(&s));
     /* the saved text carries all three, so a later load never has to consult extras.cfg for them */
-    char text[512] = "";
+    char text[PORT_CFG_TEXT_MAX] = "";
     CHECK(port_settings_format(&s, text, sizeof text) > 0);
     CHECK(strstr(text, "perspective=") != NULL);
     CHECK(strstr(text, "texture_filter=") != NULL);
@@ -440,7 +554,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -450,7 +564,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK(n > 480);   /* about the size of the older 512 buffer: one more key would not have fitted */
     const PortSettings back = port_settings_parse(text, n);
     CHECK(strcmp(back.psx_dir, s.psx_dir) == 0);
-    CHECK_EQ_INT(back.body_shine, 3);
+    CHECK_EQ_INT(back.body_shine, 4);
     CHECK_EQ_INT(back.free_records, 1);
     CHECK_EQ_INT(back.car_colours, 1);
     CHECK_EQ_INT(back.fog_sample, 1);
@@ -458,6 +572,12 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.psx_flares, 1);
     CHECK_EQ_INT(back.made_tunnels, 1);
     CHECK_EQ_INT(back.headlight_relight, 1);
+    CHECK_EQ_INT(back.car_tunnel_light, 1);
+    CHECK_EQ_INT(back.vegas_car_night, 1);
+    CHECK_EQ_INT(back.rally_gravel_shoulder, 1);
+    CHECK_EQ_INT(back.chase_height, 1);
+    CHECK_EQ_INT(back.lamp_pool_tint, 1);
+    CHECK_EQ_INT(back.trans_shadows, 1);
     CHECK_EQ_INT(back.render_bands, 4);
     /* the old car_draw_distance line is ignored, and no longer written */
     const char *const old = "car_draw_distance=0\nfog_sample=1\n";
@@ -498,6 +618,13 @@ int main(void)
     test_free_records_values();
     test_fog_sample_values();
     test_sky_fill_values();
+    test_replay_no_ffb_values();
+    test_last_camera_values();
+    test_sky_fill_below_values();
+    test_radar_all_views_values();
+    test_tach_dim_values();
+    test_gauge_wheel_values();
+    test_police_glow_values();
     test_psx_flares_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();

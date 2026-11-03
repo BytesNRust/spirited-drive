@@ -38,7 +38,7 @@ PortSettings port_settings_defaults(void)
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
     const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
-                             .weather = WEATHER_CLEAR, .render_bands = -1, .profile_ui = 1 };
+                             .weather = WEATHER_CLEAR, .render_bands = -1, .profile_ui = 1, .camera_kind = -1 };
     return d;
 }
 
@@ -57,7 +57,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
             if (strcmp(value, FORMAT_NAMES[i]) == 0)
                 s->format = (ScreenFormat)i;
     } else if (strcmp(key, "refresh_hz") == 0) {
-        if (parse_int(value, &n) && (n == 60 || n == 120 || n == 144))
+        if (parse_int(value, &n) && (n == 30 || n == 60 || n == 120 || n == 144))
             s->refresh_hz = (int)n;
     } else if (strcmp(key, "scale") == 0) {
         if (strcmp(value, "fill") == 0)
@@ -120,15 +120,57 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "psx_flares") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->psx_flares = (int)n;
+    } else if (strcmp(key, "sky_fill_below") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->sky_fill_below = (int)n;
+    } else if (strcmp(key, "radar_all_views") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->radar_all_views = (int)n;
+    } else if (strcmp(key, "tach_dim") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->tach_dim = (int)n;
+    } else if (strcmp(key, "gauge_wheel") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->gauge_wheel = (int)n;
+    } else if (strcmp(key, "police_glow") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->police_glow = (int)n;
     } else if (strcmp(key, "port_profile_ui") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->profile_ui = (int)n;
+    } else if (strcmp(key, "car_tunnel_light") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->car_tunnel_light = (int)n;
+    } else if (strcmp(key, "vegas_car_night") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->vegas_car_night = (int)n;
+    } else if (strcmp(key, "rally_gravel_shoulder") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->rally_gravel_shoulder = (int)n;
+    } else if (strcmp(key, "chase_height") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->chase_height = (int)n;
+    } else if (strcmp(key, "lamp_pool_tint") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->lamp_pool_tint = (int)n;
+    } else if (strcmp(key, "trans_shadows") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->trans_shadows = (int)n;
     } else if (strcmp(key, "headlight_relight") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->headlight_relight = (int)n;
     } else if (strcmp(key, "hall_light") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->hall_light = (int)n;
+    } else if (strcmp(key, "replay_no_ffb") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->replay_no_ffb = (int)n;
+    } else if (strcmp(key, "last_camera") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->last_camera = (int)n;
+    } else if (strcmp(key, "camera_kind") == 0) {
+        if (parse_int(value, &n) && n >= -1 && n <= 5)
+            s->camera_kind = (int)n;
     } else if (strcmp(key, "sky_fill") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->sky_fill = (int)n;
@@ -156,7 +198,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (p >= 0) s->profile = p;
     } else if (strcmp(key, "body_shine") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 4)
-            s->body_shine = (int)n;
+            s->body_shine = n == 0 ? 0 : 4;   /* off or the envmap: the strengths 1..3 of an older file are the envmap now */
     }
 }
 
@@ -207,11 +249,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->chase_height, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -283,7 +325,7 @@ bool port_settings_save(const PortSettings *s)
     PortSettings c = *s;
     if (c.profile != PROFILE_CUSTOM && !port_profile_settings_match((Profile)c.profile, &c, port_monitor_format(c.format)))
         c.profile = PROFILE_CUSTOM;   /* changed by hand: the values stay, the profile is no more */
-    char text[1024];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest (about 270 more) */
+    char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&c, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
 }
@@ -387,6 +429,52 @@ int port_profile_ui(void)
     return port_settings_load().profile_ui;
 }
 
+int port_car_tunnel_light(void)
+{
+    if (!port_psx_light()) return 0;
+    const char *v = getenv("TNFS_CAR_TUNNEL_LIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().car_tunnel_light;
+}
+
+int port_vegas_car_night(void)
+{
+    if (!port_psx_light()) return 0;
+    const char *v = getenv("TNFS_VEGAS_CAR_NIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().vegas_car_night;
+}
+
+int port_rally_gravel_shoulder(void)
+{
+    const char *v = getenv("TNFS_RALLY_GRAVEL_SHOULDER");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().rally_gravel_shoulder;
+}
+
+int port_chase_height(void)
+{
+    const char *v = getenv("TNFS_CHASE_HEIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().chase_height;
+}
+
+int port_lamp_pool_tint(void)
+{
+    if (!port_psx_headlights()) return 0;
+    const char *v = getenv("TNFS_LAMP_POOL_TINT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().lamp_pool_tint;
+}
+
+int port_trans_shadows(void)
+{
+    if (!port_psx_light()) return 0;
+    const char *v = getenv("TNFS_TRANS_SHADOWS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().trans_shadows;
+}
+
 int port_headlight_relight(void)
 {
     if (!port_psx_headlights()) return 0;
@@ -401,6 +489,58 @@ int port_hall_light(void)
     const char *v = getenv("TNFS_HALL_LIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().hall_light;
+}
+
+int port_replay_no_ffb(void)
+{
+    const char *v = getenv("TNFS_REPLAY_NO_FFB");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().replay_no_ffb;
+}
+
+int port_last_camera(void)
+{
+    const char *v = getenv("TNFS_LAST_CAMERA");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().last_camera;
+}
+
+int sky_fill_below_applies(const PortSettings *s) { return s->sky_fill_below != 0 && s->format != SCREEN_4_3; }
+
+int port_sky_fill_below(void)
+{
+    PortSettings s = port_settings_load();
+    const char *v = getenv("TNFS_SKY_FILL_BELOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') s.sky_fill_below = v[0] - '0';
+    return sky_fill_below_applies(&s);
+}
+
+int port_radar_all_views(void)
+{
+    const char *v = getenv("TNFS_RADAR_ALL_VIEWS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().radar_all_views;
+}
+
+int port_tach_dim(void)
+{
+    const char *v = getenv("TNFS_TACH_DIM");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().tach_dim;
+}
+
+int port_gauge_wheel(void)
+{
+    const char *v = getenv("TNFS_GAUGE_WHEEL");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().gauge_wheel;
+}
+
+int port_police_glow(void)
+{
+    const char *v = getenv("TNFS_POLICE_GLOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().police_glow;
 }
 
 int port_sky_fill(void)
