@@ -1261,7 +1261,9 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
 {
     const Object3D *body = vc->model.body;
     if (!flare_on || palette == NULL || body == NULL || body->screen == NULL) return;
-    if (car->index < 0 || car->index >= RACE_CARS || car->index >= shadow_race->finish_cars) return;
+    /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (psx_flares) */
+    const int cop = port_police_glow() && police_flash_on && police_lights_on(shadow_race, car);
+    if (car->index < 0 || car->index >= RACE_CARS || (car->index >= shadow_race->finish_cars && !cop)) return;
     const int far_police = car->far != 0 && police_flash_on && police_lights_on(shadow_race, car);   /* the low detail model has no light texels: a far police car flashes by its rectangle */
     if (car->far != 0 && !far_police) return;
     FlareLamp lamps[5];

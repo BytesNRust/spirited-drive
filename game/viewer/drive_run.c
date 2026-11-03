@@ -299,6 +299,14 @@ static void police_near(RaceState *race, double player_node)
     port_log("TNFS_POLICE_NEAR: the police car at node %d, %d behind the player, chasing\n", cop->node, behind);
 }
 
+/* port (dev, env only): TNFS_POLICE_NEAR's chase is started once, and the police AI drops it within a few ticks (flags_175 bit 2), which stops its lights; kept each tick the lights keep flashing for the captures */
+static void police_keep(RaceState *race)
+{
+    Car *const cop = race->cars[2];
+    if (getenv("TNFS_POLICE_NEAR") == NULL || cop == NULL || race->unknown_4fbab8 == 0) return;
+    cop->flags_175 |= 4;
+}
+
 static void start_at_node(RaceState *race)
 {
     const char *at = getenv("TNFS_START_NODE");
@@ -721,6 +729,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             take_detail(&drive_keys.detail_pending);
         }
         drive_tick(screenshot_input(i, ticks));
+        police_keep(&drive_sim.race);
         if (dumping) drive_audio_offline_tick();
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
