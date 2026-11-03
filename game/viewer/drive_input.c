@@ -2,6 +2,7 @@
 #include "viewer/drive_input.h"
 
 #include "platform/platform.h"
+#include "game/sys/key_latch.h"
 #include "game/frontend/config.h"
 #include "game/race/input_read.h"
 #include "game/race/input_tick.h"
@@ -175,6 +176,7 @@ void drive_input_read_keys(DriveInput *in)
 {
     memset(in->keys, 0, sizeof in->keys);
     for (int code = 1; code < KEY_CODES; code++) in->keys[code] = platform_key_down(code);
+    key_latch_step();   /* port: a tapped key has been read by one more step */
 }
 
 uint32_t drive_input_tick(DriveInput *in, RaceState *race)

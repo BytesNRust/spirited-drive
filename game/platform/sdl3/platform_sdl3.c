@@ -2,9 +2,8 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
-#include "game/sys/data_path.h"
+#include "game/sys/key_latch.h"
 #include "game/sys/port_log.h"
-#include "tnfs_version.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -150,30 +149,8 @@ bool platform_cursor_hidden(void)
     return window != NULL && !SDL_CursorVisible();
 }
 
-static const char *user_path(const char *name, char *out, size_t out_size);
-
-/* port (the bug-report log): tnfs.log in the user directory, what the game said this run (the last run's as tnfs.log.1), headed with what a report needs */
-static void open_log(void)
-{
-    static int opened;   /* once a run: another window's init must not rotate this run's log away */
-    char path[1024];
-    if (opened) return;
-    opened = 1;
-    if (user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
-#ifdef TNFS_VERSION
-    port_log("tnfs %s\n", TNFS_VERSION);
-#else
-    port_log("tnfs (no version)\n");
-#endif
-    port_log("system: %s, SDL %d.%d.%d, %d logical cpus\n", SDL_GetPlatform(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
-             SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores());
-    port_log("log: %s\n", path);
-}
-
 bool platform_init(const PlatformConfig *config)
 {
-    data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
-    open_log();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
@@ -370,6 +347,45 @@ static PlatformKey translate_key(SDL_Keycode key)
 
 static void (*joy_refresh)(void);  /* port: reads the open pads' keys again (platform_joy_virtual_refresher) */
 
+/* port (--verbose): the window's focus and visibility changes, to see what releases a held key (SDL lets every key go when the window loses the focus) */
+static void log_window_event(Uint32 type)
+{
+    const char *name = type == SDL_EVENT_WINDOW_FOCUS_GAINED ? "focus gained" : type == SDL_EVENT_WINDOW_FOCUS_LOST ? "focus lost"
+        : type == SDL_EVENT_WINDOW_OCCLUDED ? "occluded" : type == SDL_EVENT_WINDOW_HIDDEN ? "hidden"
+        : type == SDL_EVENT_WINDOW_MINIMIZED ? "minimized" : type == SDL_EVENT_WINDOW_RESTORED ? "restored"
+        : type == SDL_EVENT_WINDOW_EXPOSED ? "exposed" : NULL;
+    if (name != NULL) port_log("platform: window %s at %llu ms\n", name, (unsigned long long)SDL_GetTicks());
+}
+
+/* port (--verbose): the arrows and the race's letter keys as the events say they are held, against SDL's keyboard state, to catch a held key the
+ * state reads up (a missed key up, a focus lost, a stalled queue): each press, release and disagreement is logged with the time */
+static const SDL_Scancode WATCHED[] = { SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_A, SDL_SCANCODE_Z };
+enum { WATCHED_COUNT = sizeof WATCHED / sizeof WATCHED[0] };
+static bool watched_held[WATCHED_COUNT], watched_disagree[WATCHED_COUNT];
+
+static void watch_key_event(const SDL_Event *event)
+{
+    if (event->type != SDL_EVENT_KEY_DOWN && event->type != SDL_EVENT_KEY_UP) return;
+    for (int k = 0; k < WATCHED_COUNT; k++) {
+        if (event->key.scancode != WATCHED[k]) continue;
+        if (event->type == SDL_EVENT_KEY_DOWN && event->key.repeat) return;
+        watched_held[k] = event->type == SDL_EVENT_KEY_DOWN;
+        port_log("platform: key %s %s at %llu ms\n", SDL_GetScancodeName(WATCHED[k]), watched_held[k] ? "down" : "up", (unsigned long long)SDL_GetTicks());
+    }
+}
+
+static void watch_keys_check(void)
+{
+    const bool *state = SDL_GetKeyboardState(NULL);
+    for (int k = 0; k < WATCHED_COUNT; k++) {
+        const bool disagree = watched_held[k] != state[WATCHED[k]];
+        if (disagree != watched_disagree[k])
+            port_log("platform: key %s: the events say %s, the state says %s (%s) at %llu ms\n", SDL_GetScancodeName(WATCHED[k]),
+                     watched_held[k] ? "held" : "up", state[WATCHED[k]] ? "held" : "up", disagree ? "now they disagree" : "agree again", (unsigned long long)SDL_GetTicks());
+        watched_disagree[k] = disagree;
+    }
+}
+
 bool platform_poll_events(void)
 {
     static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
@@ -377,12 +393,16 @@ bool platform_poll_events(void)
     if (quit) return false;
     /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
     if (joy_refresh != NULL) joy_refresh();
+    key_latch_pump();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
             return false;
         }
+        log_window_event(event.type);
+        watch_key_event(&event);
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), memset(watched_held, 0, sizeof watched_held);
             window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
             cursor_apply();
             continue;
@@ -399,12 +419,14 @@ bool platform_poll_events(void)
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
         }
         if (event.type == SDL_EVENT_TEXT_INPUT) push_utf8(event.text.text);
+        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
         if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
             const PlatformKey key = translate_key(event.key.key);
             if (key != PLATFORM_KEY_NONE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
         }
     }
+    watch_keys_check();
     return true;
 }
 
@@ -724,6 +746,7 @@ bool platform_key_down(int scancode)
     const SDL_Scancode sc = from_set1(scancode);
     if (sc == SDL_SCANCODE_UNKNOWN) return false;
     const bool *state = SDL_GetKeyboardState(NULL);
+    if (key_latch_down((int)sc)) return true;   /* port: a key tapped since the last poll */
     /* Both Ctrl / Alt / Enter keys count, as on a PC keyboard. */
     if (sc == SDL_SCANCODE_LCTRL) return state[sc] || state[SDL_SCANCODE_RCTRL];
     if (sc == SDL_SCANCODE_LALT) return state[sc] || state[SDL_SCANCODE_RALT];
@@ -769,15 +792,6 @@ bool platform_set_mods(const char *data_root, const char *mods_dir)
     SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", mods_dir);
 #endif
     return true;
-}
-
-void platform_open_log(const char *mods_dir)
-{
-    SDL_PathInfo info;
-    if (mods_dir != NULL && mods_dir[0] != '\0' && SDL_GetPathInfo(mods_dir, &info) && info.type == SDL_PATHTYPE_DIRECTORY)
-        SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);   /* platform_set_mods checks it and says so when it is not there */
-    data_path_set_base(SDL_GetBasePath());
-    open_log();
 }
 
 const char *platform_mods_error(void)
@@ -860,21 +874,10 @@ static const char *user_dir(char *out, size_t out_size)
         SDL_CreateDirectory(out);
         return out;
     }
-    const char *const env = SDL_getenv("TNFS_PREF_DIR");   /* a dev/test override: the tests and modders keep clear of the player's own folder */
-    if (env != NULL && env[0] != '\0') {
-        SDL_snprintf(out, out_size, "%s/", env);
-        SDL_CreateDirectory(out);
-        return out;
-    }
     if (pref == NULL) pref = SDL_GetPrefPath("tnfs", "tnfs");
     if (pref == NULL) return NULL;
     SDL_snprintf(out, out_size, "%s", pref);
     return out;
-}
-
-bool platform_user_dir(char *out, size_t out_size)
-{
-    return user_dir(out, out_size) != NULL;
 }
 
 static const char *user_path(const char *name, char *out, size_t out_size)
