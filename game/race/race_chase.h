@@ -46,6 +46,10 @@ int32_t race_chase_pick(RaceState *race, const RaceChase *chase);
  * 4 or this one 8); then 004046b0, then 00405210 on the camera's view. */
 void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind);
 
+/* port (last_camera): the kind the intro's fly-over (kind 8, the only row with KIND_ALT) lands on when its glide ends: the camera the player last used
+ * (race->port_start_camera, a race that is not a replay, with port_last_camera) in place of the row's own `next`; every other row's `next` is returned as it is. */
+int32_t race_chase_start_kind(const RaceState *race, const ChaseKind *row, int32_t next);
+
 /* 004046b0: places the eye for this tick. Kinds 0 and 1 sit in the car (its
  * tilt and suspension in the turn), 9 at the row's target; the others look
  * ahead along the road from behind the car, glide while gliding (taking the
