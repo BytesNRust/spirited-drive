@@ -5,9 +5,12 @@ Each texture becomes one PSD at its native size, 8-bit RGB, with two layers:
   texture  the original texture (locked)
   mask     the texel's class, at layer opacity 50%:
              transparent  PAINT: recoloured by the paint, and shines
-             blue (0,0,255)  KEEP its colour, and shines (glass, lamps)
+             blue (0,0,255)   KEEP its colour, and shines (glass)
+             green (0,255,0)  KEEP, shines as the body (a two-tone car's roof and pillars)
+             magenta (255,0,255)  the fixed black
+             red (255,0,0)    a brake light, orange (255,128,0) a position light, yellow (255,255,0) a headlight, cyan (0,255,255) a reversing light
              white        KEEP its colour, no shine (plastics, trim, plate, badges, vents)
-tools/car_mask_from_psd.py reads the mask layer back into data/car_masks/<CAR>/<tex>_mask.png (0 paint, 128 shine, 255 matte).
+tools/car_mask_from_psd.py reads the mask layer back into data/car_masks/<CAR>/<tex>_mask.png (car_mask.h's classes; the colours are its own).
 The low detail bank's textures are the same with a _lo suffix: <tex>_lo.psd is read into <tex>_lo_mask.png.
 
 usage: car_mask_psd.py <drafts dir> <output dir>
@@ -24,6 +27,32 @@ from PIL import Image
 LOCK_ALL = 0x80000000   # 'lspf' protection flags: everything locked
 MASK_OPACITY = 128      # 50 %
 SHINE = 128             # the class of a kept texel that shines (car_mask.h CAR_MASK_SHINE)
+# car_mask.h's classes and the colour each has in the mask layer (car_mask_from_psd.py reads them back); any other non-zero class is matte
+CLASS_COLOUR = {128: (0, 0, 255), 192: (0, 255, 0), 224: (255, 0, 255), 240: (255, 0, 0), 244: (255, 128, 0), 248: (255, 255, 0), 252: (0, 255, 255)}
+MATTE = (255, 255, 255)
+
+
+def class_of(value):
+    """A draft or mask PNG's grey as the class it stands for: the lamps' greys come in fours (240..243 brake, 244..247 position, 248..251 headlight, 252..254
+    reversing), the old two-tone drafts' values below 192 shine."""
+    if value == 0:
+        return 0
+    if value < 192:
+        return SHINE
+    if value < 224:
+        return 192
+    if value < 240:
+        return 224
+    if value < 255:
+        return 240 + (value - 240) // 4 * 4 if value < 252 else 252
+    return 255
+
+
+def mask_planes(classes):
+    """The mask layer's alpha and red, green and blue planes (bytes) for `classes` (a texel's class a byte each)."""
+    colours = [CLASS_COLOUR.get(c, MATTE) for c in classes]
+    alpha = bytes(0 if c == 0 else 255 for c in classes)
+    return (alpha,) + tuple(bytes(colour[k] for colour in colours) for k in range(3))
 
 
 def pascal(name, pad):
@@ -48,27 +77,25 @@ def channel_data(plane):
 
 
 def write_psd(path, rgb, keep):
-    """rgb: RGB Image; keep: 'L' Image, 0 paint, 128 kept with a shine, 255 kept without."""
+    """rgb: RGB Image; keep: 'L' Image of classes (class_of), 0 paint, 128 kept with a shine, 192 as the body, 224 the fixed black, 240..252 the lamps, 255 kept without."""
     width, height = rgb.size
     if keep.size != rgb.size:
         raise ValueError("mask and texture sizes differ")
     r, g, b = (bytes(band.tobytes()) for band in rgb.split())
     classes = keep.tobytes()
-    alpha = bytes(0 if c == 0 else 255 for c in classes)
-    red = bytes(0 if c == SHINE else 255 for c in classes)   # blue where it shines, white where it does not
-    white = b"\xff" * (width * height)
+    alpha, red, green, blue = mask_planes(classes)
     texture_channels = (0, 1, 2)
     mask_channels = (-1, 0, 1, 2)   # alpha first, as Photoshop writes it
     records = layer_record("texture", width, height, 255, True, texture_channels)
     records += layer_record("mask", width, height, MASK_OPACITY, False, mask_channels)
     data = b"".join(channel_data(p) for p in (r, g, b))
-    data += b"".join(channel_data(p) for p in (alpha, red, red, white))
+    data += b"".join(channel_data(p) for p in (alpha, red, green, blue))
     layer_info = struct.pack(">h", 2) + records + data
     if len(layer_info) % 2:
         layer_info += b"\0"
     section = struct.pack(">I", len(layer_info)) + layer_info + struct.pack(">I", 0)   # no global layer mask
     # the merged image: the texture under the mask at its opacity
-    over = Image.merge("RGB", [Image.frombytes("L", rgb.size, red)] * 2 + [Image.frombytes("L", rgb.size, white)])
+    over = Image.merge("RGB", [Image.frombytes("L", rgb.size, plane) for plane in (red, green, blue)])
     soft = Image.frombytes("L", rgb.size, alpha).point(lambda v: v * MASK_OPACITY // 255)
     merged = Image.composite(over, rgb, soft)
     planes = b"".join(band.tobytes() for band in merged.split())
@@ -96,7 +123,7 @@ def main(argv):
                 continue
             tex = name[: -len(".rgb.png")]
             rgb = Image.open(os.path.join(folder, name)).convert("RGB")
-            keep = Image.open(os.path.join(folder, tex + ".keep.png")).convert("L").point(lambda v: 0 if v == 0 else SHINE if v < 192 else 255)
+            keep = Image.open(os.path.join(folder, tex + ".keep.png")).convert("L").point(class_of)
             path = os.path.join(out_dir, car, tex + ".psd")
             write_psd(path, rgb, keep)
             count += 1
