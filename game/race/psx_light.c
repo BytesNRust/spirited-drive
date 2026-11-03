@@ -23,7 +23,9 @@ int psx_light_parse(const uint8_t *file, size_t size, uint32_t expected_nodes, P
 void psx_light_free(PsxLight *light)
 {
     free(light->data);
+    free(light->hall);
     light->data = NULL;
+    light->hall = NULL;
     light->scripted = 0;
     light->reversed = 0;
     light->nodes = 0;

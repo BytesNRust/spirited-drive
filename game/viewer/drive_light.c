@@ -278,19 +278,19 @@ void drive_light_set_reversed(int reversed)
  * the two is the right one everywhere) */
 enum { MAX_LAMP_NODES = 1000, MAX_RULES = 512 };
 
-/* the nodes of the street lamp posts of the track (CY1 only), where the made night's pools go */
+/* the nodes of the track's street lamps, every board of street_lamps_for (CY1's posts, TR3's lanterns and bulbs, TR7's truss, TR4's barrels, ...), where the made night's pools go */
 static size_t street_lamp_pool_nodes(const Tri *tri, uint32_t *out)
 {
-    if (!street_lamp_on || tri->descriptor_count == 0 || tri->descriptor_count > 64 || tri->scenery_count > MAX_LAMP_NODES) return 0;
+    if (!street_lamp_on || tri->descriptor_count == 0 || tri->descriptor_count > 64 || tri->scenery_count == 0) return 0;
     TriDescriptor descriptors[64];
-    static TriScenery scenery[MAX_LAMP_NODES];
-    for (uint32_t i = 0; i < tri->descriptor_count; i++)
-        if (tri_descriptor(tri, i, &descriptors[i]) != TRI_OK) return 0;
-    for (uint32_t i = 0; i < tri->scenery_count; i++)
-        if (tri_scenery(tri, i, &scenery[i]) != TRI_OK) return 0;
+    TriScenery *const scenery = malloc((size_t)tri->scenery_count * sizeof *scenery);   /* sized to the track: MAX_LAMP_NODES is the room for the nodes alone */
+    if (scenery == NULL) return 0;
     size_t n = 0;
-    for (int i = 0; i < street_lamp_count && n < MAX_LAMP_NODES; i++)   /* every board of the track; a board whose resource is unknown (-1) has none */
-        n += street_lamp_nodes(&street_lamps[i], descriptors, tri->descriptor_count, scenery, tri->scenery_count, out + n, MAX_LAMP_NODES - n);
+    int ok = 1;
+    for (uint32_t i = 0; ok && i < tri->descriptor_count; i++) ok = tri_descriptor(tri, i, &descriptors[i]) == TRI_OK;
+    for (uint32_t i = 0; ok && i < tri->scenery_count; i++) ok = tri_scenery(tri, i, &scenery[i]) == TRI_OK;
+    if (ok) n = street_lamps_nodes(street_lamps, street_lamp_count, descriptors, tri->descriptor_count, scenery, tri->scenery_count, out, MAX_LAMP_NODES);
+    free(scenery);
     return n;
 }
 
@@ -320,8 +320,19 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     if (lamps > 0) port_log("psx_light: %zu street lamp pools\n", lamps);
     PsxLight tunnels = { 0 };
     if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
-        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++)
+        uint32_t hall_from = 1, hall_to = 0;
+        const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
+        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) {
+            const uint32_t node = (uint32_t)(i / PSX_LIGHT_POINTS), point = (uint32_t)(i % PSX_LIGHT_POINTS);
+            const int beyond = point == 3 || point == 4 || point == 5 || point >= 8;   /* the points beyond the foot: the scenery's side */
+            if (hall && node >= hall_from && node <= hall_to && beyond) continue;   /* port (hall_light): the hall keeps the terrain's light there */
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
+        }
+    }
+    if (tunnels.data != NULL && tunnels.nodes == made.nodes) {   /* port: the hall nodes' flag (the mark in the synth's row is lost to the terrain's lower light above) */
+        made.hall = calloc(made.nodes, 1);
+        if (made.hall != NULL)
+            for (uint32_t n = 0; n < made.nodes; n++) made.hall[n] = tunnels.data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
     }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);
