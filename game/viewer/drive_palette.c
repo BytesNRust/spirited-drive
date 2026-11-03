@@ -250,7 +250,10 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
             static const uint8_t colour[4][3] = { { 63, 0, 0 }, { 0, 0, 63 }, { 63, 25, 21 }, { 19, 31, 63 } };
             uint8_t hidden[RACE_PALETTE_COLOURS];
             memcpy(hidden, palette_world_hidden(), sizeof hidden);
-            for (int k = 0; k < found; k++) race_palette_write(p, pair[k], 1, colour[k]);
+            uint8_t core[2][3];
+            police_glow_core(1, core[0]);
+            police_glow_core(0, core[1]);
+            for (int k = 0; k < found; k++) race_palette_write(p, pair[k], 1, k >= 2 && port_police_glow() ? core[k - 2] : colour[k]);
             for (int k = 0; k < found; k++) p->enabled[pair[k]] = 0, hidden[pair[k]] = 1, exempt[pair[k]] = 1;
             palette_world_hide(hidden);
             palette_usable_set(p->enabled);

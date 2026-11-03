@@ -51,3 +51,15 @@ void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_
     out[POLICE_LIGHT_FIRST + 2] = phase == 0 ? blue_centre : red_centre;
     out[POLICE_LIGHT_FIRST + 3] = phase == 0 ? blue : red;
 }
+
+void police_glow_core(int red, uint8_t rgb[3])
+{
+    static const uint8_t RED[3] = { 63, 54, 50 }, BLUE[3] = { 52, 57, 63 };
+    for (int k = 0; k < 3; k++) rgb[k] = red ? RED[k] : BLUE[k];
+}
+
+int police_glow_percent(int low, int level)
+{
+    static const int DAY[3] = { 30, 60, 100 }, DARK[3] = { 45, 90, 140 };   /* the brake lights' halo, and over it where nothing else lights the scene */
+    return (low ? DARK : DAY)[level < 0 ? 0 : level > 2 ? 2 : level];
+}

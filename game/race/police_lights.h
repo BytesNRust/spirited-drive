@@ -44,4 +44,10 @@ int police_lights_own_entry(int red);
 /* `out` (256 bytes): `base` (NULL for the identity) with the four light entries sent to the red and blue entries of `palette` as the phase of `tick` says. */
 void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_t tick, uint8_t out[256]);
 
+/* port (police_glow): the lamp's core, 6-bit RGB: near white in the light's colour (red = 1, else blue), in place of the art's pinker (252,100,84) and bluer (76,124,252) tints. */
+void police_glow_core(int red, uint8_t rgb[3]);
+
+/* The halo's strength (percent of the lamp's colour added) at dither `level` (0 .. 2, stronger toward the lamp) in poor light (low = 1: night, tunnel) or by day. */
+int police_glow_percent(int low, int level);
+
 #endif
