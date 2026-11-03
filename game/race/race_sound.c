@@ -225,6 +225,14 @@ static int32_t road_noise(RaceState *race, const Car *car)
         level = rally_gravel_road_level(race->port_rally_gravel, level, car->speed);   /* and heard at a crawl */
         e->pitch = 0x5e;
         /* and the exe's own gravel sample struck on the rolling car (rally_gravel_crunch): the road voice alone is sample 0x29, the same low murmur the asphalt has */
+        if (race->port_rally_shoulder_sound != 0) {
+            /* port (rally_gravel_shoulder): the shoulder's own strike, the same sample at the same pitch, random volume and side and about one a second, nothing faster or doubled */
+            const int32_t volume = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
+            const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
+            if ((int16_t)(((race_rand(race) & 0xffffu) * 0x1eu) >> 16) == 0)
+                race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, PAN_CENTRE, volume, pan);
+            return at_most(level, LEVEL_MAX);
+        }
         const int32_t crunch = rally_gravel_crunch(race->port_rally_gravel, car->speed, race_rand(race) & 0xffffu);
         if (crunch > 0) {
             const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
