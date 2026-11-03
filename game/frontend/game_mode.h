@@ -8,6 +8,9 @@
 /* the palette's bytes (004376ac's 0x300 on its stack) */
 enum { GAME_MODE_PALETTE = 0x300 };
 
+/* the profile op's steps for a profile n steps along without (PEEK) and with (APPLY) changing it; a step is the code + n, n from -3 to 3 */
+enum { GAME_MODE_PROFILE_PEEK = 0x100, GAME_MODE_PROFILE_APPLY = 0x200 };
+
 typedef struct GameModeOps {
     void (*palette_clear)(void *ctx, uint8_t *rgb);                          /* 00463df0: eax */
     void (*pointer_move_to)(void *ctx, int32_t x, int32_t y);                /* 00464038: eax, edx */
@@ -60,8 +63,10 @@ typedef struct GameModeOps {
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
-    /* port (profiles): a fifth item under Exit, "Profile < name >" with two lines about it. step 0 reads, +1 / -1 cycles to the next / previous; text[0] the name, text[1] and
-     * text[2] the lines; returns 1 when there is a profile row at all. NULL: the original's four items, their bands as they were. */
+    /* port (profiles): a fifth item under Exit, "Profile < name >" with two lines about it. step 0 reads the one in use; GAME_MODE_PROFILE_PEEK + n reads the one n steps
+     * along the cycle (n -3..3: three profiles, and Custom before them) without changing anything, and returns 2 when that is not the one in use, 1 when it is (the cycle came round); GAME_MODE_PROFILE_APPLY + n
+     * makes that one the profile, which rewrites the settings it controls. text[0] the name, text[1] and text[2] the lines; returns 1 when there is a profile row at all.
+     * NULL: the original's four items, their bands as they were. */
     int32_t (*profile)(void *ctx, int32_t step, const char *text[3]);
     /* port (profiles): the same text at num/den of its size, for the two lines under the name (the long ones are wider than the screen at full size) */
     void (*plus_text_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);

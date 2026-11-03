@@ -15,6 +15,8 @@ static const int16_t CENTRE_Y[OPTIONS] = { 0x91, 0xda, 0x122, 0x16f, 0x1c0 };
 static const int16_t BAND_TOP[OPTIONS] = { 0, 0xb2, 0xfe, 0x14a, 0x191 };
 static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0, 0x1e0 };
 static const int16_t EXIT_BOTTOM_WITH_PROFILE = 0x190;
+/* port (profiles): the row's thirds for the pointer: left of PROFILE_LEFT the previous profile, from PROFILE_RIGHT on the next, between them its name */
+enum { PROFILE_LEFT = 0xd5, PROFILE_RIGHT = 0x1ab };
 static const char *const LIT[OPTIONS] = { "sinl", "modl", "netl", "exil" };   /* 004afaf8.. */
 static const char *const DARK[OPTIONS] = { "sind", "modd", "netd", "exid" };  /* 004afb18.. */
 
@@ -36,6 +38,7 @@ typedef struct Menu {
     int done;          /* esp + 0x37c */
     int16_t result;    /* esp + 0x380 */
     char footer[FOOTER_LINES][FOOTER_CAP];   /* port: the foot lines as last drawn */
+    int pending;       /* port (profiles): how many steps along the cycle the row shows, not yet applied (0: the profile in use) */
     uint8_t rgb[GAME_MODE_PALETTE];
 } Menu;
 
@@ -82,6 +85,10 @@ static void extras_label(const Menu *m, const GameModeOps *o)
                  CENTRE_Y[MODEM] - TEXT_HALF_HEIGHT);
 }
 
+/* port (profiles): the row's second line while it shows a profile not yet applied, and the question before applying it (the box is 0x154 wide) */
+static const char PENDING_LINE[] = "Return applies it and replaces your settings.";
+static const char APPLY_ASK[] = "Replace settings ?";
+
 /* port (profiles): the fifth item's words over the live picture: the strip under Exit put back to the clean background, then "<  name  >" (lit while it is the selection) and the
  * two lines about the profile under it */
 static void profile_row(const Menu *m, const GameModeOps *o)
@@ -89,8 +96,9 @@ static void profile_row(const Menu *m, const GameModeOps *o)
     enum { STRIP_Y = 0x192, STRIP_H = 0x1e0 - 0x192, TITLE_Y = 0x196, LINE1_Y = 0x1b7, LINE2_Y = 0x1c9, CENTRE = 311, SMALL_NUM = 3, SMALL_DEN = 5 };
     const char *text[3] = { "", "", "" };
     if (o->profile == NULL || o->plus_text == NULL || o->plus_text_width == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL ||
-        !o->profile(o->ctx, 0, text))
+        !o->profile(o->ctx, m->pending != 0 ? GAME_MODE_PROFILE_PEEK + m->pending : 0, text))
         return;
+    if (m->pending != 0) text[2] = PENDING_LINE;   /* not applied yet: say how */
     if (o->extras_cover != NULL) o->extras_cover(o->ctx, 0, STRIP_Y, WIDE, STRIP_H);
     char title[96];
     snprintf(title, sizeof title, "<  %s  >", text[0]);
@@ -191,6 +199,7 @@ static void redraw_options(Menu *m, GameModeState *st, const GameModeOps *o)
     if ((uint16_t)m->previous < PROFILE) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, DARK[m->previous]));
     if ((uint16_t)m->selected < PROFILE) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, LIT[m->selected]));
     if (m->previous == MODEM || m->selected == MODEM) extras_label(m, o);
+    if (m->previous == PROFILE && m->selected != PROFILE) m->pending = 0;   /* leaving the row forgets a profile not applied */
     if (m->previous == PROFILE || m->selected == PROFILE) profile_row(m, o);
     m->changed = 0;
 }
@@ -222,12 +231,25 @@ static void came_back(Menu *m, GameModeState *st, int16_t r, const GameModeOps *
     }
 }
 
-/* port (profiles): the next (+1) or previous (-1) profile, the row drawn again and the settings it changed taken by the window */
+/* port (profiles): the row shows the next (+1) or previous (-1) profile; nothing is changed until it is applied. Coming round to the one in use shows it as it is */
 static void cycle_profile(Menu *m, const GameModeOps *o, int step)
 {
     const char *text[3];
     if (o->profile == NULL) return;
-    o->profile(o->ctx, step, text);
+    enum { REACH = 3 };   /* from Custom the three profiles are 1..3 steps away; one more is round to the one in use */
+    const int want = m->pending + step >= -REACH && m->pending + step <= REACH ? m->pending + step : 0;
+    m->pending = want != 0 && o->profile(o->ctx, GAME_MODE_PROFILE_PEEK + want, text) == 2 ? want : 0;
+    m->redraw = 1;
+}
+
+/* port (profiles): Return on the row (or a click on its name): the profile it shows, after a Yes, since it rewrites the player's settings; No leaves the one in use */
+static void apply_profile(Menu *m, const GameModeOps *o)
+{
+    const char *text[3];
+    if (o->profile == NULL || m->pending == 0) return;
+    if ((int16_t)o->yes_no(o->ctx, APPLY_ASK)) o->profile(o->ctx, GAME_MODE_PROFILE_APPLY + m->pending, text);
+    o->drain(o->ctx);
+    m->pending = 0;
     m->redraw = 1;
 }
 
@@ -270,8 +292,10 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         m->done = 1;
         m->result = LEAVE;
         break;
-    case PROFILE:   /* port: Return or a click on the right of the row: the next profile; on its left third: the previous one */
-        cycle_profile(m, o, o->pointer_in_rect(o->ctx, 0, 0xd5, BAND_TOP[PROFILE], BAND_BOTTOM[PROFILE]) ? -1 : 1);
+    case PROFILE:   /* port: a click on the row's left third shows the previous profile, on its right third the next; Return or a click on the name applies it */
+        if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, 0, PROFILE_LEFT, BAND_TOP[PROFILE], BAND_BOTTOM[PROFILE])) cycle_profile(m, o, -1);
+        else if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, PROFILE_RIGHT, WIDE, BAND_TOP[PROFILE], BAND_BOTTOM[PROFILE])) cycle_profile(m, o, 1);
+        else apply_profile(m, o);
         break;
     }
 }

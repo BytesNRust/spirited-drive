@@ -50,7 +50,7 @@ typedef struct {
 static const Table TABLES[PROFILE_COUNT] = {
     [PROFILE_STOCK]    = { 0, 60,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1 },
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1 },   /* body_shine 4: the envmap, the owner's pick */
 };
 
 static int controlled(Profile p) { return p > PROFILE_CUSTOM && p < PROFILE_COUNT; }
