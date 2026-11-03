@@ -127,7 +127,7 @@ static void test_cfg(void)
     PortSettings p = port_settings_parse(dir, strlen(dir));
     CHECK(strcmp(p.psx_dir, "/Volumes/PS1 CD/car files") == 0);
     CHECK_EQ_INT(p.fov_adjust, 2);
-    char out[1024];   /* port.cfg has grown past 512 bytes with every key set */
+    char out[PORT_CFG_TEXT_MAX];
     CHECK(port_settings_format(&p, out, sizeof out) > 0);
     CHECK(strstr(out, "psx_dir=/Volumes/PS1 CD/car files\n") != NULL);
 }

@@ -159,6 +159,8 @@ PortSettings port_settings_defaults(void);
 /* "key=value" per line; unknown keys and out-of-range values are ignored (the default stays). */
 PortSettings port_settings_parse(const char *text, size_t size);
 /* Writes the text form, NUL-terminated; returns its length, or 0 when it does not fit. */
+/* the room port.cfg's text needs: every key, a psx_dir of PSX_DIR_MAX bytes, and space for the keys still to come */
+enum { PORT_CFG_TEXT_MAX = 2048 };
 size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 PortSettings port_settings_load(void);   /* user file "port.cfg"; the defaults when it does not exist */
 bool port_settings_save(const PortSettings *s);

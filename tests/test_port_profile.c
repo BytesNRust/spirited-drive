@@ -9,7 +9,7 @@
 
 typedef struct {
     char name[32];
-    uint8_t bytes[1024];
+    uint8_t bytes[PORT_CFG_TEXT_MAX];
     size_t size;
     int present;
 } Stored;

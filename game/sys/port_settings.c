@@ -295,7 +295,7 @@ bool port_settings_save(const PortSettings *s)
     PortSettings c = *s;
     if (c.profile != PROFILE_CUSTOM && !port_profile_settings_match((Profile)c.profile, &c, port_monitor_format(c.format)))
         c.profile = PROFILE_CUSTOM;   /* changed by hand: the values stay, the profile is no more */
-    char text[1024];   /* port: a psx_dir line of up to PSX_DIR_MAX bytes, as well as the rest (about 270 more) */
+    char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&c, text, sizeof text);
     return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
 }

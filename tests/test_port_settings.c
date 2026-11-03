@@ -12,7 +12,7 @@
  * extras.cfg is only read, as the fallback for the three settings that moved in from there. */
 typedef struct {
     char name[32];
-    uint8_t bytes[512];
+    uint8_t bytes[PORT_CFG_TEXT_MAX];
     size_t size;
     int present;
 } Stored;
@@ -147,7 +147,7 @@ static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
                              .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1, .replay_no_ffb = 1, .last_camera = 1, .camera_kind = 4 };
-    char text[512];
+    char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
     check_same(port_settings_parse(text, n), s);
@@ -229,7 +229,7 @@ static void test_free_records_values(void)
 
 static void test_render_bands_values(void)
 {
-    char text[512];
+    char text[PORT_CFG_TEXT_MAX];
     const char *const text_in = "render_bands=auto\n";
     PortSettings s = port_settings_parse(text_in, strlen(text_in));
     CHECK_EQ_INT(s.render_bands, -1);   /* "auto" is the sentinel, not a count */
@@ -280,7 +280,7 @@ static void test_render_scale_values(void)
         CHECK_EQ_INT(s.render_scale, i + 1);
     }
     /* the written form: the number on its own */
-    char text[512];
+    char text[PORT_CFG_TEXT_MAX];
     PortSettings a = port_settings_defaults();
     a.render_scale = 3;
     CHECK(port_settings_format(&a, text, sizeof text) > 0);
@@ -370,7 +370,7 @@ static void test_parse_keys(void)
     const char *night = "psx_time=Night\n";
     CHECK_EQ_INT(port_settings_parse(night, strlen(night)).psx_time, PSX_TIME_NIGHT);
     /* written as the words */
-    char out[512];
+    char out[PORT_CFG_TEXT_MAX];
     PortSettings w = port_settings_defaults();
     w.psx_time = PSX_TIME_DAWN;
     CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dawn\n") != NULL);
@@ -437,7 +437,7 @@ static void test_moved_settings_fall_back_to_extras(void)
     s.fog = 0;
     CHECK(port_settings_save(&s));
     /* the saved text carries all three, so a later load never has to consult extras.cfg for them */
-    char text[512] = "";
+    char text[PORT_CFG_TEXT_MAX] = "";
     CHECK(port_settings_format(&s, text, sizeof text) > 0);
     CHECK(strstr(text, "perspective=") != NULL);
     CHECK(strstr(text, "texture_filter=") != NULL);
