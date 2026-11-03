@@ -56,6 +56,7 @@ typedef struct {
                          * after lunar_gravity. */
     int rally_gravel;   /* 0/1: the rally rolls on gravel (rally_gravel.h): a gravel noise all along, and dust from the desert's tyres; 0 the
                          * exe's. Off. Last, after lunar_gravity. */
+    int update_check;   /* 0/1: THE switch for the update check (one request to our API at start, platform/update.h) and the three anonymous one-shot counters (port_stats.h); On; the EXTRAS row reads "Updates and anonymous stats". Last, after rally_gravel. */
 } PortExtras;
 
 /* the player's paint choice for `car` as extras.cfg has it (PAINT_OWN for a car without a slot), and its write back: false
