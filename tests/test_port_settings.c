@@ -111,6 +111,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.headlight_relight, b.headlight_relight);
     CHECK_EQ_INT(a.car_tunnel_light, b.car_tunnel_light);
     CHECK_EQ_INT(a.vegas_car_night, b.vegas_car_night);
+    CHECK_EQ_INT(a.rally_gravel_shoulder, b.rally_gravel_shoulder);
 }
 
 static void test_defaults(void)
@@ -136,6 +137,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.night_stretch_clean, 0);   /* the stretched night sky as it was until asked */
     CHECK_EQ_INT(d.car_tunnel_light, 0);   /* the car's light as it was, until asked */
     CHECK_EQ_INT(d.vegas_car_night, 0);   /* Lost Vegas' night tint as it was, until asked */
+    CHECK_EQ_INT(d.rally_gravel_shoulder, 0);   /* the rally's crunch as it was, until asked */
     CHECK_EQ_INT(d.headlight_relight, 0);   /* the road's light as built, until asked */
     CHECK_EQ_INT(d.made_tunnels, 0);    /* a made light keeps no tunnel flags until asked */
     CHECK_EQ_INT(d.psx_flares, 0);      /* no halo round the lit tail lights until asked */
@@ -502,7 +504,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .car_tunnel_light = 1, .vegas_car_night = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -522,6 +524,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.headlight_relight, 1);
     CHECK_EQ_INT(back.car_tunnel_light, 1);
     CHECK_EQ_INT(back.vegas_car_night, 1);
+    CHECK_EQ_INT(back.rally_gravel_shoulder, 1);
     CHECK_EQ_INT(back.render_bands, 4);
     /* the old car_draw_distance line is ignored, and no longer written */
     const char *const old = "car_draw_distance=0\nfog_sample=1\n";

@@ -276,6 +276,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->port_difficulty = field->port_difficulty;
     race->port_lunar_gravity = field->port_lunar_gravity;
     race->port_rally_gravel = field->port_rally_gravel;
+    race->port_rally_shoulder_sound = field->port_rally_shoulder_sound;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->cops = field->cops < 0 ? 0 : field->cops;

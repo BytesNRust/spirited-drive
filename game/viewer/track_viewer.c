@@ -447,6 +447,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     {   /* port: extras.cfg's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = port_extras_load();
         field.port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
+        field.port_rally_shoulder_sound = port_rally_gravel_shoulder();
     }
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
     /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
