@@ -113,8 +113,8 @@ static uint8_t light_at(const PsxLight *light, uint32_t node, int point)
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
 {
     const uint8_t v = light_at(light, node, point);
-    if (light == NULL || light->pool == NULL || psx_light_tunnel(light, node)) return v;   /* a tunnel keeps the dusk's light, its own lamps' */
-    return headlight_pool_apply(v, headlight_pool_gain(light->pool, node));
+    if (light == NULL || light->pool == NULL) return v;
+    return headlight_pool_apply(v, psx_light_tunnel(light, node) ? headlight_pool_gain_tunnel(light->pool, node) : headlight_pool_gain(light->pool, node));   /* a tunnel is less dark: its own lamps' light, the beam over it */
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node)

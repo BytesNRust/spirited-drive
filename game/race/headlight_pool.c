@@ -2,19 +2,20 @@
 
 #include <stddef.h>
 
-/* the lift 0..256 at `distance` nodes from a car (negative: behind it): 256 under the car and HEADLIGHT_FULL ahead, a smoothstep down to 0 at HEADLIGHT_AHEAD
- * ahead (or HEADLIGHT_BEHIND behind) */
-static int lift(int distance)
+/* the lift 0..256 at `ahead` 1/256 nodes in front of a car's place (negative: behind it): none behind it and under the first HEADLIGHT_START nodes, a smoothstep up
+ * to 256 over HEADLIGHT_RISE, full to HEADLIGHT_FULL, a smoothstep down to 0 at HEADLIGHT_AHEAD */
+static int smooth(int t) { return t * t * (3 * 256 - 2 * t) / (256 * 256); }
+
+static int lift(int ahead)
 {
-    if (distance < -HEADLIGHT_BEHIND || distance > HEADLIGHT_AHEAD) return 0;
-    if (distance >= 0 && distance <= HEADLIGHT_FULL) return 256;
-    const int span = distance > 0 ? HEADLIGHT_AHEAD - HEADLIGHT_FULL : HEADLIGHT_BEHIND + 1;
-    const int into = distance > 0 ? distance - HEADLIGHT_FULL : -distance;   /* 1..span */
-    const int t = 256 - 256 * into / span;                                  /* 256 near, 0 far */
-    return t * t * (3 * 256 - 2 * t) / (256 * 256);                         /* smoothstep, still 0..256 */
+    const int from = HEADLIGHT_START * 256, full = (HEADLIGHT_START + HEADLIGHT_RISE) * 256, hold = HEADLIGHT_FULL * 256, end = HEADLIGHT_AHEAD * 256;
+    if (ahead <= from || ahead >= end) return 0;
+    if (ahead < full) return smooth(256 * (ahead - from) / (full - from));
+    if (ahead <= hold) return 256;
+    return smooth(256 - 256 * (ahead - hold) / (end - hold));
 }
 
-int headlight_pool_gain(const HeadlightPool *pool, uint32_t node)
+static int gain_with(const HeadlightPool *pool, uint32_t node, int floor)
 {
     int best = 0;
     if (pool == NULL) return 256;
@@ -25,11 +26,15 @@ int headlight_pool_gain(const HeadlightPool *pool, uint32_t node)
             if (d > half) d -= (int32_t)pool->ring;
             else if (d < -half) d += (int32_t)pool->ring;
         }
-        const int l = lift(d);
+        const int l = lift(d * 256 - pool->frac[i]);
         if (l > best) best = l;
     }
-    return HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * best / 256;
+    return floor + (256 - floor) * best / 256;
 }
+
+int headlight_pool_gain(const HeadlightPool *pool, uint32_t node) { return gain_with(pool, node, HEADLIGHT_FLOOR); }
+
+int headlight_pool_gain_tunnel(const HeadlightPool *pool, uint32_t node) { return gain_with(pool, node, TUNNEL_FLOOR); }
 
 uint8_t headlight_pool_apply(uint8_t value, int gain)
 {
