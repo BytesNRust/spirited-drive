@@ -138,7 +138,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1 };
     char text[512];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -284,6 +284,9 @@ static void test_the_environment_wins_over_the_setting(void)
 
 static void test_parse_keys(void)
 {
+    const char *thirty = "refresh_hz=30\n", *bad_hz = "refresh_hz=45\n";
+    CHECK_EQ_INT(port_settings_parse(thirty, strlen(thirty)).refresh_hz, 30);
+    CHECK_EQ_INT(port_settings_parse(bad_hz, strlen(bad_hz)).refresh_hz, 60);
     const char *text = "format=21:9\nrefresh_hz=144\n";
     const PortSettings s = port_settings_parse(text, strlen(text));
     CHECK_EQ_INT(s.format, SCREEN_21_9);
@@ -313,10 +316,11 @@ static void test_parse_keys(void)
     const char *bad_shadow = "psx_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
     const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
-    CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 1);
-    CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 3);
+    CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 4);   /* off or the envmap: an older file's strengths 1..3 are the envmap */
+    CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 4);
     CHECK_EQ_INT(port_settings_parse(envmap, strlen(envmap)).body_shine, 4);
-    CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 2);
+    CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 4);
+    CHECK_EQ_INT(port_settings_parse("body_shine=0\n", 13).body_shine, 0);
     CHECK_EQ_INT(port_settings_parse(bad_shine, strlen(bad_shine)).body_shine, 0);
     const char *lit = "psx_light=1\n";
     CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
@@ -440,7 +444,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -450,7 +454,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK(n > 480);   /* about the size of the older 512 buffer: one more key would not have fitted */
     const PortSettings back = port_settings_parse(text, n);
     CHECK(strcmp(back.psx_dir, s.psx_dir) == 0);
-    CHECK_EQ_INT(back.body_shine, 3);
+    CHECK_EQ_INT(back.body_shine, 4);
     CHECK_EQ_INT(back.free_records, 1);
     CHECK_EQ_INT(back.car_colours, 1);
     CHECK_EQ_INT(back.fog_sample, 1);

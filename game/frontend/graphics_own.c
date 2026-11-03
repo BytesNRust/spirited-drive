@@ -31,7 +31,7 @@ static const char *const LABEL[ROW_IDS] = {
 };
 static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
-static const int REFRESH[3] = { 60, 120, 144 };
+static const int REFRESH[4] = { 30, 60, 120, 144 };   /* 30: the exe's own 30 steps a second, drawn once each */
 
 /* The rows' place. The exe's own bands (00423c10 / 00423c20 and graphics_menu.c's copies of them) are about 53 apart,
  * with Done and Cancel in 0x1a4..0x1e0. Twelve settings do not fit at that pitch -- 0x1e0 is the bottom of the screen
@@ -142,9 +142,9 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
         break;
     case GRAPHICS_OWN_REFRESH: {
         int at = 0;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
             if (REFRESH[i] == s->refresh_hz) at = i;
-        s->refresh_hz = REFRESH[wrap(at, direction, 3)];
+        s->refresh_hz = REFRESH[wrap(at, direction, 4)];
         break;
     }
     case GRAPHICS_OWN_FULLSCREEN:

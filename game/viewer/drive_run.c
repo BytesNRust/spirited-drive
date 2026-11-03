@@ -48,6 +48,9 @@ static struct {
     uint32_t next_frame_ms;
 } drive_interp;
 
+/* the race's steps a second (drive_clock.h: 3 base ticks of 90 Hz). A refresh of 30 is those steps drawn once each, no frame between them: a real cap of 30 fps. */
+enum { DRIVE_STEP_HZ = 30 };
+
 void drive_run_refresh_set(int32_t hz)
 {
     drive_interp.refresh_hz = hz;
@@ -133,7 +136,7 @@ static void run_service(void *ctx)
     r->timer_written = r->w->timer;
     if (r->w->timer > r->w->done) return;
     /* port: no step due: a frame between steps when one is due on the refresh rate */
-    if (drive_interp.on && drive_interp.cur.valid && r->w->running && (int32_t)(now - drive_interp.next_frame_ms) >= 0)
+    if (drive_interp.on && drive_interp.refresh_hz > DRIVE_STEP_HZ && drive_interp.cur.valid && r->w->running && (int32_t)(now - drive_interp.next_frame_ms) >= 0)
         present_blended(r);
     else platform_sleep_ms(DRIVE_IDLE_MS);
 }

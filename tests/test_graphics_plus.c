@@ -170,6 +170,8 @@ static void test_value_steps(void)
     graphics_plus_step(&s, PLUS_REFRESH, +1, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 144);
     graphics_plus_step(&s, PLUS_REFRESH, +1, SCREEN_4_3);
+    CHECK_EQ_INT(s.refresh_hz, 30);   /* wraps to the 30 fps cap */
+    graphics_plus_step(&s, PLUS_REFRESH, +1, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 60);
     graphics_plus_step(&s, PLUS_SCALE, +1, SCREEN_4_3);
     CHECK_EQ_INT(s.scale_integer, 1);
