@@ -66,7 +66,7 @@ static Boards billboard(int modern, int near)
     TrackObjectWalk walk = { descriptor, record, 1, 0, 1, 4, 4, 0, 0, 4, 0, 0, 0 };
     Boards b = { 0 };
     TrackObjectDraw d = { &walk, NULL, NULL, SIGN, SIGN_SCREEN, 4, 0, 0,
-                          { &b, b_model, b_full, b_alt, modern ? b_camera : NULL, near ? b_near : NULL } };
+                          { &b, b_model, b_full, b_alt, modern ? b_camera : NULL, near ? b_near : NULL, NULL, NULL } };
     track_object_draw(&d, 10, 1);
     return b;
 }
@@ -97,7 +97,7 @@ static void test_near_two_sided(void)
         TrackObjectWalk walk = { two, record, 1, 0, 1, 6, 6, 0, 0, 6, 0, 0, 0 };
         Boards b = { 0 };
         TrackObjectDraw d = { &walk, NULL, NULL, cam6, scr6, 6, 0, 0,
-                              { &b, b_model, b_full, b_alt, NULL, near ? b_near : NULL } };
+                              { &b, b_model, b_full, b_alt, NULL, near ? b_near : NULL, NULL, NULL } };
         track_object_draw(&d, 10, 1);
         CHECK_EQ_INT(b.near, near ? 2 : 0);
         CHECK_EQ_INT(b.alt, 0);
@@ -109,7 +109,7 @@ static void test_near_two_sided(void)
     static const int32_t deep_scr[6][2] = { { 100, 100 }, { 200, 100 }, { 200, 200 }, { 100, 200 }, { 220, 110 }, { 220, 190 } };
     TrackObjectWalk walk = { two, record, 1, 0, 1, 6, 6, 0, 0, 6, 0, 0, 0 };
     Boards b = { 0 };
-    TrackObjectDraw d = { &walk, NULL, NULL, deep6, deep_scr, 6, 0, 0, { &b, b_model, b_full, b_alt, NULL, b_near } };
+    TrackObjectDraw d = { &walk, NULL, NULL, deep6, deep_scr, 6, 0, 0, { &b, b_model, b_full, b_alt, NULL, b_near, NULL, NULL } };
     track_object_draw(&d, 10, 1);
     CHECK_EQ_INT(b.alt, 2);
     CHECK_EQ_INT(b.near, 0);
@@ -128,7 +128,7 @@ static void test_wide_board(void)
             track_port_wide_board = flag;
             TrackObjectWalk walk = { descriptor, record, 1, 0, 1, 4, 4, 0, 0, 4, 0, 0, 0 };
             Boards b = { 0 };
-            TrackObjectDraw d = { &walk, NULL, NULL, cam4, scr4, 4, 0, 0, { &b, b_model, b_full, b_alt, NULL, near ? b_near : NULL } };
+            TrackObjectDraw d = { &walk, NULL, NULL, cam4, scr4, 4, 0, 0, { &b, b_model, b_full, b_alt, NULL, near ? b_near : NULL, NULL, NULL } };
             track_object_draw(&d, 10, 1);
             CHECK_EQ_INT(b.near, flag && near ? 1 : 0);
             CHECK_EQ_INT(b.full + b.alt + b.camera, 0);

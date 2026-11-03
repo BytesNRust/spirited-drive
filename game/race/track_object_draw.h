@@ -28,6 +28,13 @@ typedef struct {
     /* port: a board with a point nearer than 0x86 (the exe drops it whole) through its camera-space corners, clipped
      * at the near plane: a wide field shows its far end at the screen's side; NULL the exe's */
     void (*port_near_camera)(void *user, int32_t texture, const int32_t *const cam[4]);
+    /* port (track_port_close_boxes): a box's roof, a flat quad in a dark tone of `texture` (the facade's), from its camera-space corners (far left, far right,
+     * near right, near left); NULL no roof */
+    void (*roof_camera)(void *user, int32_t texture, const int32_t *const cam[4]);
+    /* port (track_port_close_boxes): a generated face with some corners behind the near limit (0x86), clipped to it: a polygon piece of the face as four camera-space corners (a
+     * triangle repeats its last), all at least 0x86 deep, and the face's own texture coordinates there as 16.16 fractions of the texture (0..65536, corner order as the face's);
+     * `roof` 1: the flat roof tone of `texture` (the facade's) instead of the texture; NULL the face is dropped */
+    void (*box_clipped_camera)(void *user, int32_t texture, int roof, const int32_t *const cam[4], const int32_t uv[8]);
 } TrackObjectDrawOps;
 
 typedef struct {
@@ -58,5 +65,10 @@ void track_object_draw(TrackObjectDraw *d, int32_t band, int visible);
 /* port: 1 and a board the exe drops for a corner past +-0x800 across (0044a450) while its middle shows (a big tree) goes to ops.port_near_camera, its
  * whole texture clipped at the near plane; 0, the default, the exe's drop */
 extern int track_port_wide_board;
+
+/* port (a reversed track, the 360 camera: both show the scenery from behind): 1 and a two-sided board (an L of a front and a side, the buildings) drawn through
+ * the camera-space op is closed into a box: the back and the left wall as the opposite faces (the front's and the side's textures, unmirrored, facing out) and
+ * a roof (ops.roof_camera). 0, the default, the exe's L. */
+extern int track_port_close_boxes;
 
 #endif
