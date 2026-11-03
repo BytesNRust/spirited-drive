@@ -73,6 +73,7 @@ typedef struct {
     int camera_kind;         /* the chase kind last used live (0..5, race_chase.h), -1 none yet; read only with last_camera */
     int sky_fill_below;      /* 1: the flat sky's art extended downward until it reaches the bottom of the view, every column in the colour its last rows share (sky_stretch_below), 16:9 and 21:9 only; 0: the exe's, one flat colour from the art's last pixel */
     int radar_all_views;     /* 1: EXTRAS' police radar (Bumper Radar) shows in every view outside the car, not only the bumper's (drive_radar_view); 0: the bumper view only, as it was */
+    int tach_dim;            /* 1: the R&T tachometer of the views outside the car takes the dash's half tint with the time of day (a little darker at night), its needle staying lit (tach_dim.h); 0: untinted, as it was */
     int profile_ui;          /* 1 (the port's default): Game Mode and Options show the Profile row (profile.h); 0: the exe's menus, no row. `port_profile_ui=0|1`. Not controlled by a profile. */
     int profile;             /* a Profile (port_profile.h): PROFILE_CUSTOM 0 (no `profile=` line) keeps the values below as they are; another takes the settings it controls from its table
                               * at load. `profile=custom|stock|restored|restomod`. Last, so the positional initialisers keep their meaning. */
@@ -102,6 +103,8 @@ int port_profile_ui(void);
 
 /* 1 when the flat sky's art reaches the top of the view (sky_stretch.h): TNFS_SKY_FILL=0/1 when set, else port.cfg's sky_fill. */
 int port_sky_fill(void);
+/* 1 when the outside views' tachometer is tinted: TNFS_TACH_DIM=0/1 when set, else port.cfg's tach_dim. */
+int port_tach_dim(void);
 /* 1 when the flat sky's art reaches the bottom of the view: TNFS_SKY_FILL_BELOW=0/1 when set, else port.cfg's sky_fill_below; never in 4:3 (sky_fill_below_applies). */
 int port_sky_fill_below(void);
 /* the flag `s` has, and the format it is for: on, and not 4:3, where the exe's fill stays whatever the flag says */

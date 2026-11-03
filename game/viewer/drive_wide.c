@@ -11,6 +11,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/race/car_draw.h"
+#include "game/race/tach_dim.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -366,12 +367,14 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     }
     lights_left -= LIGHTS_PAD_LEFT, lights_top -= LIGHTS_PAD_TOP;
     const int lights_w = lights_right - lights_left + LIGHTS_PAD_RIGHT, lights_h = LIGHTS_PAD_TOP + LIGHTS_PAD_BOTTOM;
+    const int dim_tach = !in_car && drive_hud.police.screen == NULL && port_tach_dim();   /* port (tach_dim) */
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++) {
             const uint8_t v = frame[y * SCREEN_W + x];
             int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
             hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
             hud = hud || in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+            if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
             classes[y * SCREEN_W + x] = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
         }
     memset(shadow, LAYER_KEY, out);
