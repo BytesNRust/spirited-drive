@@ -137,7 +137,7 @@ int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open
 int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node)
 {
     if (track == NULL || strcasecmp(track, "TR7") != 0) return 0;
-    if (from != NULL) *from = 450;
+    if (from != NULL) *from = 465;
     if (to != NULL) *to = 470;
     if (row_node != NULL) *row_node = 475;
     return 1;

@@ -59,8 +59,8 @@ int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to);
  * 1 and the range (inclusive) for TR7, else 0. */
 int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to);
 
-/* port (trans_shadows): Transtropolis' (TR7) closed parking, the other way round: its deck roofs the road from node 450 but the road property marks the tunnel only from 471
- * (to 609, where the road is open again), so nodes 450..470 under the deck got the open light. 1 and the range (inclusive) for TR7, else 0; `row_node` is a node inside
+/* port (trans_shadows): Transtropolis' (TR7) closed parking, the other way round: its deck roofs the road from node 465 (the sky shows to 460, the facade 460..464) but the road property marks the tunnel only from 471
+ * (to 609, where the road is open again), so nodes 465..470 under the deck got the open light. 1 and the range (inclusive) for TR7, else 0; `row_node` is a node inside
  * the marked run whose tunnel row is the interior shade the range takes. */
 int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node);
 
