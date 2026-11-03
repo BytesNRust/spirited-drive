@@ -17,10 +17,16 @@ static JoyState joy;
 static JoyStart start;
 static RaceForces forces;
 static bool started, forces_open;
-static const RaceState *quiet_race;   /* port (replay_no_ffb): the race whose replay leaves the stick still */
-static int replay_no_ffb;
+static RaceState *quiet_race;   /* port (replay_no_ffb): the race whose replay leaves the stick still */
+static int replay_no_ffb, was_quiet;
 
-static bool quiet(void) { return race_forces_replay_silent(quiet_race, replay_no_ffb) != 0; }
+/* a replay that starts silent clears what was already running (a vibration holds until cleared), once */
+static bool quiet(void)
+{
+    const int silent = race_forces_replay_silent(quiet_race, replay_no_ffb);
+    if (race_forces_edge(&was_quiet, silent)) race_forces_clear(quiet_race);
+    return silent != 0;
+}
 
 static int32_t joy_read(void *ctx, int32_t device, uint32_t *buttons, int32_t axis[JOY_AXES])
 {
@@ -85,6 +91,7 @@ void drive_joy_menu(JoyState **j, int32_t *present, int32_t *device, const JoyOp
 
 void drive_joy_pad_read(InputPad *pad)
 {
+    if (forces_open) (void)quiet();   /* port (replay_no_ffb): the edge, seen even when nothing asks for a force */
     joy_pad_read(&joy, &start, &JOY);
     pad->x = joy.pad_x;
     pad->y = joy.pad_y;
@@ -140,6 +147,7 @@ static void buffeting(void *user, int32_t level)
 void drive_joy_install(RaceState *race)
 {
     quiet_race = race;
+    was_quiet = 0;
     replay_no_ffb = port_replay_no_ffb();
     race->effects = forces_open ? 1 : 0;
     if (!forces_open) return;

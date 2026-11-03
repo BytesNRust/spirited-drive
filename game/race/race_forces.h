@@ -29,5 +29,7 @@ void race_buffet(RaceState *race, int32_t on);
 
 /* port (replay_no_ffb): 1 when the stick stays still: the flag is on and the race is a replay (race->replay). The exe shakes it in a replay as in a race. */
 int race_forces_replay_silent(const RaceState *race, int replay_no_ffb);
+/* port (replay_no_ffb): the rising edge of `now` against `*was` (which it updates): 1 the moment the replay begins to be silent, so the effects already running are cleared once. */
+int race_forces_edge(int *was, int now);
 
 #endif

@@ -35,3 +35,11 @@ void race_buffet(RaceState *race, int32_t on)
 
 /* port (replay_no_ffb) */
 int race_forces_replay_silent(const RaceState *race, int replay_no_ffb) { return replay_no_ffb != 0 && race != NULL && race->replay != 0; }
+
+/* port (replay_no_ffb) */
+int race_forces_edge(int *was, int now)
+{
+    const int rose = now != 0 && *was == 0;
+    *was = now != 0;
+    return rose;
+}

@@ -78,11 +78,22 @@ static void test_a_replay_is_silent_only_with_the_flag(void)
     CHECK_EQ_INT(race_forces_replay_silent(NULL, 1), 0);
 }
 
+static void test_the_replay_clears_once_as_it_begins(void)
+{
+    int was = 0;
+    CHECK_EQ_INT(race_forces_edge(&was, 0), 0);
+    CHECK_EQ_INT(race_forces_edge(&was, 1), 1);   /* the replay begins */
+    CHECK_EQ_INT(race_forces_edge(&was, 1), 0);   /* and not again while it runs */
+    CHECK_EQ_INT(race_forces_edge(&was, 0), 0);
+    CHECK_EQ_INT(race_forces_edge(&was, 1), 1);   /* a second replay clears again */
+}
+
 int main(void)
 {
     test_a_jolt_past_the_window_goes_through();
     test_jolts_go_through_without_the_cheat();
     test_a_clock_held_at_zero_drops_the_jolt();
     test_a_replay_is_silent_only_with_the_flag();
+    test_the_replay_clears_once_as_it_begins();
     return TEST_REPORT();
 }
