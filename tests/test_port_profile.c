@@ -96,6 +96,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.format, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 30);   /* the exe's 30 steps a second, drawn once each */
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
+    CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.f3_ultra, 0);   /* the exe's three views */
     CHECK_EQ_INT(s.psx_light, 0);
     CHECK_EQ_INT(s.made_tunnels + s.hall_light + s.headlight_relight + s.night_stretch_clean, 0);
@@ -105,6 +106,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
+    CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.render_scale, 1);
     CHECK_EQ_INT(s.psx_light, 0);
     CHECK_EQ_INT(s.body_shine, 0);
@@ -121,6 +123,8 @@ static void test_tables(void)
     CHECK_EQ_INT(s.render_scale, 2);
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.scale_integer, 0);   /* Fill */
+    CHECK_EQ_INT(s.last_camera, 1);
+    CHECK_EQ_INT(s.replay_no_ffb, 1);
     CHECK_EQ_INT(s.made_tunnels, 1);
     CHECK_EQ_INT(s.hall_light, 1);
     CHECK_EQ_INT(s.headlight_relight, 1);
@@ -158,6 +162,12 @@ static void test_tables(void)
     s.scale_integer = 1;   /* a scaling the profile does not have counts in the match */
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     s.scale_integer = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
+    s.last_camera = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.last_camera = 1, s.replay_no_ffb = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.replay_no_ffb = 1;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
