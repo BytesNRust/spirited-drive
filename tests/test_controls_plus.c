@@ -377,9 +377,9 @@ static void test_headers_and_labels_use_the_port_ops(void)
     run(&r, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&r.fake, "Driving", HEADER));
     CHECK(shown_as(&r.fake, "Other", HEADER));
-    CHECK(shown_as(&r.fake, "Steering", SMOOTH));
+    CHECK(shown_as(&r.fake, "Analog steering", SMOOTH));
     CHECK(shown_as(&r.fake, "Nitro", SMOOTH));
-    CHECK(!shown_as(&r.fake, "Steering", PLAIN));   /* the labels go over the background, not onto the picture */
+    CHECK(!shown_as(&r.fake, "Analog steering", PLAIN));   /* the labels go over the background, not onto the picture */
     Run t = { .port = port_controls_defaults() };
     run(&t, KEYS(RIGHT, 0, RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&t.fake, "Tuning", HEADER));

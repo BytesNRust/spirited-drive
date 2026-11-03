@@ -455,7 +455,7 @@ static void test_binding_text_joins_the_sources(void)
     control_map_binding_text(&c, ACT_HORN, 1, t, sizeof t);
     CHECK(strcmp(t, "-") == 0);                                         /* nothing bound */
     CHECK(strcmp(control_map_action_name(ACT_HANDBRAKE), "Handbrake") == 0);
-    CHECK(strcmp(control_map_action_name(ACT_STEER), "Steering") == 0);
+    CHECK(strcmp(control_map_action_name(ACT_STEER), "Analog steering") == 0);
 }
 
 static void test_force_strength_scales_the_games_level(void)
