@@ -105,8 +105,39 @@ static void test_puff(void)
     CHECK(dust_life(RALLY_GRAVEL_REGOLITH, 0) > dust_life(RALLY_GRAVEL_DUST, 0));
 }
 
+/* the shoulder's scrape at a crawl: the exe's level at 2 m/s is 0x14 + 4 = 24 of 127, hardly there; with the switch a rolling car's scrape has a floor, a
+ * standing one's is the exe's, and the exe's own level when off */
+static void test_shoulder_scrape_is_heard_at_a_crawl(void)
+{
+    const int32_t crawl = 2 << 16, standing = 0, exe_crawl = 0x14 + 4, exe_standing = 0x14;
+    CHECK_EQ_INT(rally_gravel_shoulder_level(RALLY_GRAVEL_OFF, exe_crawl, crawl), exe_crawl);
+    for (int kind = RALLY_GRAVEL_COMPACT; kind <= RALLY_GRAVEL_REGOLITH; kind++) {
+        CHECK(rally_gravel_shoulder_level(kind, exe_crawl, crawl) >= RALLY_SHOULDER_FLOOR);
+        CHECK_EQ_INT(rally_gravel_shoulder_level(kind, exe_standing, standing), exe_standing);
+        CHECK_EQ_INT(rally_gravel_shoulder_level(kind, 0x7f, 60 << 16), 0x7f);   /* fast: the exe's, already loud */
+    }
+}
+
+/* the road's rolling gravel at a crawl: the lowered level at 2 m/s is 18 of 127 or less (8 on the moon), then the outside views' 6/10: not heard. A rolling
+ * car gets RALLY_ROAD_FLOOR, under the shoulder's floor; standing, fast and switch-off keep the level the caller has */
+static void test_road_gravel_is_heard_at_a_crawl(void)
+{
+    const int32_t crawl = 2 << 16;
+    CHECK_EQ_INT(rally_gravel_road_level(RALLY_GRAVEL_OFF, 5, crawl), 5);
+    for (int kind = RALLY_GRAVEL_COMPACT; kind <= RALLY_GRAVEL_REGOLITH; kind++) {
+        const int32_t low = rally_gravel_level(kind, 0x14 + 4);
+        CHECK(low < RALLY_ROAD_FLOOR);
+        CHECK_EQ_INT(rally_gravel_road_level(kind, low, crawl), RALLY_ROAD_FLOOR);
+        CHECK_EQ_INT(rally_gravel_road_level(kind, 0x14, 0), 0x14);
+        CHECK_EQ_INT(rally_gravel_road_level(kind, 0x60, 50 << 16), 0x60);
+        CHECK(RALLY_ROAD_FLOOR < RALLY_SHOULDER_FLOOR);
+    }
+}
+
 int main(void)
 {
+    test_road_gravel_is_heard_at_a_crawl();
+    test_shoulder_scrape_is_heard_at_a_crawl();
     test_kinds();
     test_level_and_dust();
     test_trail();
