@@ -268,14 +268,20 @@ void drive_light_set_reversed(int reversed)
 
 /* port (own light): the terrain's light of the time (psx_light_make.h), with a tunnel's rows laid over it where the road has one (the synth's rows are 255 in the open, so the lower of
  * the two is the right one everywhere) */
-static int make_light(const Tri *tri, PsxLight *out)
+static int make_light(const Tri *tri, const char *track, PsxLight *out)
 {
     PsxLight made = { 0 };
     if (!psx_light_make(tri, synth_time, &made)) return 0;
     PsxLight tunnels = { 0 };
     if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
-        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++)
+        uint32_t hall_from = 1, hall_to = 0;
+        const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
+        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) {
+            const uint32_t node = (uint32_t)(i / PSX_LIGHT_POINTS), point = (uint32_t)(i % PSX_LIGHT_POINTS);
+            const int beyond = point == 3 || point == 4 || point == 5 || point >= 8;   /* the points beyond the foot: the scenery's side */
+            if (hall && node >= hall_from && node <= hall_to && beyond) continue;   /* port (hall_light): the hall keeps the terrain's light there */
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
+        }
     }
     psx_light_free(&tunnels);
     *out = made;
@@ -287,7 +293,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     const int tunnel_track = synth_wanted && psx_light_synth_track(track);
     if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
     PsxLight made = { 0 };
-    if (!make_light(tri, &made)) return;
+    if (!make_light(tri, track, &made)) return;
     light = made;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;

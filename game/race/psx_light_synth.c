@@ -117,6 +117,14 @@ int psx_light_synth_track(const char *track)
     return track != NULL && (strcasecmp(track, "TR6") == 0 || strcasecmp(track, "TR7") == 0);
 }
 
+int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to)
+{
+    if (track == NULL || strcasecmp(track, "TR7") != 0) return 0;
+    if (from != NULL) *from = 471;
+    if (to != NULL) *to = 570;
+    return 1;
+}
+
 float psx_light_synth_car(const PsxLight *light, uint32_t node)
 {
     if (light == NULL || light->data == NULL) return 1.0f;

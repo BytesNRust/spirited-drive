@@ -39,6 +39,11 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out);
 /* 1 for the tracks it is for: "TR6" and "TR7" (any case). */
 int psx_light_synth_track(const char *track);
 
+/* The foundry hall of `track` (TR7: nodes 471..570 of the tunnel run 471..609, an open hall whose girders and pillars show the scenery's light; the run's last nodes are a
+ * closed tunnel): 1 and the first and last node in `from` and `to` (inclusive), else 0. With port_hall_light the made light leaves the hall's points beyond the foot at the
+ * terrain's own light, where a tunnel's rows darken them, so the car and the shadow there follow the scenery. */
+int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to);
+
 /* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel: 1 on the open road, PSX_SYNTH_CAR_PERCENT in a tunnel, the
  * way the points beyond the foot go dark at the doors between. The CD's lamp contexts average R 0.51, G 0.44, B 0.40 in tunnels (re/notes/psx-light.md). */
 enum { PSX_SYNTH_CAR_PERCENT = 50 };

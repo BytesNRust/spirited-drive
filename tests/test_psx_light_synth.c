@@ -145,6 +145,9 @@ static void test_car_factor_follows_the_beyond_points(void)
 static void test_tracks(void)
 {
     CHECK(psx_light_synth_track("TR6") && psx_light_synth_track("tr7"));
+    uint32_t from = 0, to = 0;
+    CHECK(psx_light_synth_hall("TR7", &from, &to) && from == 471 && to == 570 && psx_light_synth_hall("tr7", NULL, NULL));   /* the foundry hall */
+    CHECK(!psx_light_synth_hall("TR6", &from, &to) && !psx_light_synth_hall(NULL, &from, &to));
     CHECK(!psx_light_synth_track("TR1") && !psx_light_synth_track("CY1") && !psx_light_synth_track(NULL));
 }
 
