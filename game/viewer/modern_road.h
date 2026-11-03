@@ -54,4 +54,9 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
  * parts stay as they are while its dim road and walls turn olive). A neutral cast is modern_light_tables. */
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
+/* The tunnel's tables: the same cast, but the tint only as its brightness (the mean of its channels, no hue; at least min_light, a
+ * tunnel's own lamps keep it lit when the night's tint is darker), the cast on every level the tint darkens: a tunnel is as warm at
+ * dusk or night as by day, not the red the dusk tint times the cast makes, nor the black the night's ceiling leaves. */
+void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, uint8_t out[MODERN_FOG_LEVELS][256]);
+
 #endif
