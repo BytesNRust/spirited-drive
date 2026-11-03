@@ -343,7 +343,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     }
     uint32_t closed_from = 1, closed_to = 0, closed_row = 0;
     if (trans && psx_light_synth_trans_closed(track, &closed_from, &closed_to, &closed_row) && tunnels.data != NULL && tunnels.nodes == made.nodes && closed_to < made.nodes) {
-        uint32_t hall_from = 1, hall_to = 0;   /* port (trans_shadows): the parking's deck roofs nodes 450..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
+        uint32_t hall_from = 1, hall_to = 0;   /* port (trans_shadows): the parking's deck roofs nodes 465..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
         const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
         for (uint32_t n = closed_from; n <= closed_to; n++)
             for (int p = 0; p < PSX_LIGHT_POINTS; p++) {

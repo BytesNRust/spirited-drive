@@ -319,7 +319,7 @@ static void test_trans_closed_range(void)
 {
     uint32_t a = 0, b = 0, r = 0;
     CHECK(psx_light_synth_trans_closed("TR7", &a, &b, &r));
-    CHECK(a == 450 && b == 470 && r == 475);   /* just before the marked run, which starts at 471 */
+    CHECK(a == 465 && b == 470 && r == 475);   /* just before the marked run, which starts at 471 */
     CHECK(!psx_light_synth_trans_closed("TR6", &a, &b, &r) && !psx_light_synth_trans_closed(NULL, &a, &b, &r));
 }
 
