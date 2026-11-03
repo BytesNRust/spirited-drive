@@ -25,6 +25,8 @@ void psx_light_free(PsxLight *light)
     free(light->data);
     free(light->hall);
     free(light->tunnel);
+    free(light->pool_class);
+    light->pool_class = NULL;
     light->data = NULL;
     light->hall = NULL;
     light->tunnel = NULL;
@@ -89,6 +91,14 @@ static int tunnel_in_file(const PsxLight *light, uint32_t node)
 int psx_light_tunnel(const PsxLight *light, uint32_t node)
 {
     return tunnel_in_file(light, psx_light_old_node(light, node));
+}
+
+int psx_light_tunnel_class(const PsxLight *light, uint32_t node)
+{
+    if (psx_light_tunnel(light, node)) return 1;
+    if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
+    const uint8_t c = light->pool_class[node % light->nodes];
+    return c > 0 ? 1 + c : 0;
 }
 
 static uint8_t light_at(const PsxLight *light, uint32_t node, int point)

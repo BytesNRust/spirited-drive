@@ -163,6 +163,24 @@ void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t
     }
 }
 
+void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
+{
+    if (out == NULL || count < 2) return;
+    memset(out, 0, count);
+    for (int i = 0; lamp_nodes != NULL && i < n; i++) {
+        if (!ring && lamp_nodes[i] >= count) continue;
+        const int64_t lamp = (int64_t)(lamp_nodes[i] % count);
+        for (int d = -PSX_LIGHT_LAMP_REACH; d <= PSX_LIGHT_LAMP_REACH; d++) {
+            int64_t node = lamp + d;
+            if (ring) node = ((node % count) + count) % count;
+            else if (node < 0 || node >= count) continue;
+            const float r = (float)d / (float)(PSX_LIGHT_LAMP_REACH + 1), w = 1.0f - r * r;
+            const uint8_t c = w >= 0.9f ? 4 : w >= 0.7f ? 3 : w >= 0.45f ? 2 : w >= 0.2f ? 1 : 0;
+            if (c > out[node]) out[node] = c;
+        }
+    }
+}
+
 int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data)
 {
     if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;

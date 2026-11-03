@@ -128,7 +128,7 @@ void track_build_segment(TrackBuild *b, int32_t first, int32_t segment, int32_t 
             if (b->node_out != NULL && b->point_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
                 b->node_out[b->world_next] = (uint32_t)node, b->point_out[b->world_next] = (uint8_t)point;
             if (b->tunnel_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
-                b->tunnel_out[b->world_next] = (uint8_t)psx_light_tunnel(b->light, (uint32_t)node);
+                b->tunnel_out[b->world_next] = (uint8_t)psx_light_tunnel_class(b->light, (uint32_t)node);
             b->world_next++;
             select++;
         }
