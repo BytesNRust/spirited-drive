@@ -1,6 +1,8 @@
 /* port: the port's own extras file (extras.cfg). */
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
+#include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
 
 #include <stdio.h>
@@ -166,10 +168,10 @@ PortExtras port_extras_load(void)
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_EXTRAS_NAME, &size);
     if (!data)
-        return port_extras_defaults();
+        return port_profile_extras((Profile)port_settings_profile(), port_extras_defaults());
     const PortExtras e = port_extras_parse((const char *)data, size);
     platform_free_file(data);
-    return e;
+    return port_profile_extras((Profile)port_settings_profile(), e);   /* a profile's switches are its table's, whatever the file says */
 }
 
 bool port_extras_save(const PortExtras *e)
@@ -180,7 +182,10 @@ bool port_extras_save(const PortExtras *e)
         port_log("extras: extras.cfg was not saved: its text does not fit %zu bytes\n", sizeof text);
         return false;
     }
-    return platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+    const bool saved = platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
+    const int profile = port_settings_profile();
+    if (saved && profile != PROFILE_CUSTOM && !port_profile_extras_match((Profile)profile, e)) port_settings_profile_custom();   /* changed by hand: the profile is no more */
+    return saved;
 }
 
 DashBox port_extras_dash_box(void)

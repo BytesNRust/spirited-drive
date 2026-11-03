@@ -17,13 +17,24 @@ extern const int DATA_MANIFEST_COUNT;
 
 typedef struct {
     int total, matched, missing, different;   /* of the manifest's files */
-    char root[1024];                          /* the folder that holds the files (the given one or the one under it), "" when none does */
+    char root[1024];                          /* the folder that holds the files (the given one or the one under it), "" when none does; for an ISO image the path inside
+                                              * the image ("" its root, "NFS" a folder in it) */
+    int found;                                /* 1 when the game's own files are there (the first file of the manifest was found), whichever they are */
 } DataCheck;
 
 /* Checks `dir` against `files` (`count` of them). Returns 1 when every file is there and equal, else 0 (the counts say how it fell short). */
 int data_check_against(const char *dir, const DataFile *files, int count, DataCheck *out);
 /* The same against the manifest of the PC SE. */
 int data_check(const char *dir, DataCheck *out);
+
+/* port (ISO): the same against an .iso image of the CD (core/iso). `root` is the path inside the image; a file the image has under the name NFS_WIN.EXE;1 is NFS_WIN.EXE.
+ * Returns 0 for an image that cannot be read too (nothing is counted: use data_iso_readable to tell why). */
+int data_check_iso_against(const char *iso_path, const DataFile *files, int count, DataCheck *out);
+int data_check_iso(const char *iso_path, DataCheck *out);
+/* 1 when the path ends in .iso (any case) */
+int data_is_iso_path(const char *path);
+/* 1 when the file reads as an ISO 9660 image; else 0 and in `err` why ("not a CD image: ...", for a box) */
+int data_iso_readable(const char *iso_path, char *err, size_t err_cap);
 
 /* Cheap: whether `dir` has the manifest's first file at its size (the exe), what a copy that was verified leaves; no hashing. */
 int data_looks_installed(const char *dir);

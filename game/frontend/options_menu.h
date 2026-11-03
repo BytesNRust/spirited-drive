@@ -6,6 +6,9 @@
 
 enum { OPTIONS_MENU_PALETTE = 0x300 }; /* 00444bb0's palette on its stack */
 
+/* the `step` the profile op is given besides 0 (read) and +1 / -1 (cycle): Options is entered, left by Cancel (put the profile back as it was on entry), left by Done or the like */
+enum { OPTIONS_PROFILE_BEGIN = 2, OPTIONS_PROFILE_CANCEL = 3, OPTIONS_PROFILE_END = 4 };
+
 typedef struct OptionsMenuOps {
     void (*pointer_move_to)(void *ctx, int32_t x, int32_t y);                /* 00464038: eax, edx */
     int32_t (*load_art)(void *ctx, const char *name);                        /* 00466c34: eax the name; the bank */
@@ -61,6 +64,11 @@ typedef struct OptionsMenuOps {
     int32_t (*plus_text_width)(void *ctx, const char *text);
     void (*plus_panel)(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
                        int32_t framed);
+    /* port (profiles): a row between Customize game and Done, "Profile  < name >" with a line about the profile under it, step 0 reads, +1 / -1 cycles; text[0] the name, text[1] and
+     * text[2] the lines (only the first is shown here). NULL: no such row, the bands as they were. */
+    int32_t (*profile)(void *ctx, int32_t step, const char *text[3]);
+    void (*plus_text_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
+    int32_t (*plus_text_width_scaled)(void *ctx, const char *text, int32_t num, int32_t den);
 } OptionsMenuOps;
 
 /* config.dat's shorts and the globals the screen reads; read through the pointers as the original reads memory,

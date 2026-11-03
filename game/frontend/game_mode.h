@@ -59,6 +59,12 @@ typedef struct GameModeOps {
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
+    /* port (profiles): a fifth item under Exit, "Profile < name >" with two lines about it. step 0 reads, +1 / -1 cycles to the next / previous; text[0] the name, text[1] and
+     * text[2] the lines; returns 1 when there is a profile row at all. NULL: the original's four items, their bands as they were. */
+    int32_t (*profile)(void *ctx, int32_t step, const char *text[3]);
+    /* port (profiles): the same text at num/den of its size, for the two lines under the name (the long ones are wider than the screen at full size) */
+    void (*plus_text_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
+    int32_t (*plus_text_width_scaled)(void *ctx, const char *text, int32_t num, int32_t den);
 } GameModeOps;
 
 typedef struct GameModeState {

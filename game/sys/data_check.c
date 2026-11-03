@@ -2,9 +2,11 @@
 #include "game/sys/data_check.h"
 
 #include "game/sys/sha256.h"
+#include "iso/iso9660.h"
 
 #include <dirent.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
@@ -81,8 +83,9 @@ static void find_root(const char *dir, const char *first, char root[1024])
 
 int data_check_against(const char *dir, const DataFile *files, int count, DataCheck *out)
 {
-    DataCheck r = { count, 0, 0, 0, { 0 } };
+    DataCheck r = { count, 0, 0, 0, { 0 }, 0 };
     if (dir != NULL && count > 0) find_root(dir, files[0].path, r.root);
+    r.found = r.root[0] != '\0';
     for (int i = 0; i < count; i++) {
         char path[1024], hex[65];
         long size = 0;
@@ -95,6 +98,78 @@ int data_check_against(const char *dir, const DataFile *files, int count, DataCh
 }
 
 int data_check(const char *dir, DataCheck *out) { return data_check_against(dir, DATA_MANIFEST, DATA_MANIFEST_COUNT, out); }
+
+/* port (ISO): the same check inside an image. The folder that holds the files is the image's root or one folder under it. */
+static int iso_has(IsoImage *iso, const char *root, const char *rel, IsoEntry *e)
+{
+    char path[1100];
+    if (snprintf(path, sizeof path, "%s%s%s", root, root[0] != '\0' ? "/" : "", rel) >= (int)sizeof path) return 0;
+    return iso_stat(iso, path, e) && !e->is_dir;
+}
+
+static int iso_find_root(IsoImage *iso, const char *first, char root[1024])
+{
+    IsoEntry e;
+    root[0] = '\0';
+    if (iso_has(iso, "", first, &e)) return 1;
+    const int n = iso_list(iso, "", NULL, 0);
+    IsoEntry *top = n > 0 ? malloc((size_t)n * sizeof *top) : NULL;
+    int found = 0;
+    if (top != NULL && iso_list(iso, "", top, n) == n) {
+        for (int i = 0; i < n && !found; i++)
+            if (top[i].is_dir && iso_has(iso, top[i].name, first, &e)) snprintf(root, 1024, "%s", top[i].name), found = 1;
+    }
+    free(top);
+    return found;
+}
+
+static int iso_hash(IsoImage *iso, const IsoEntry *e, char hex[65])
+{
+    Sha256 s;
+    sha256_init(&s);
+    static unsigned char buf[65536];
+    int64_t off = 0;
+    while (off < (int64_t)e->size) {
+        const int64_t n = iso_read(iso, e, off, buf, sizeof buf);
+        if (n <= 0) return 0;
+        sha256_update(&s, buf, (size_t)n);
+        off += n;
+    }
+    sha256_hex(&s, hex);
+    return 1;
+}
+
+int data_check_iso_against(const char *iso_path, const DataFile *files, int count, DataCheck *out)
+{
+    DataCheck r = { count, 0, 0, 0, { 0 }, 0 };
+    IsoImage *iso = iso_path != NULL ? iso_open(iso_path, NULL, 0) : NULL;
+    if (iso != NULL && count > 0) r.found = iso_find_root(iso, files[0].path, r.root);
+    for (int i = 0; i < count; i++) {
+        IsoEntry e;
+        char hex[65];
+        if (iso == NULL || !r.found || !iso_has(iso, r.root, files[i].path, &e) || !iso_hash(iso, &e, hex)) r.missing++;
+        else if ((long)e.size != files[i].size || strcmp(hex, files[i].sha256) != 0) r.different++;
+        else r.matched++;
+    }
+    iso_close(iso);
+    if (out != NULL) *out = r;
+    return r.matched == count && count > 0;
+}
+
+int data_check_iso(const char *iso_path, DataCheck *out) { return data_check_iso_against(iso_path, DATA_MANIFEST, DATA_MANIFEST_COUNT, out); }
+
+int data_is_iso_path(const char *path)
+{
+    const size_t n = path != NULL ? strlen(path) : 0;
+    return n > 4 && strcasecmp(path + n - 4, ".iso") == 0;
+}
+
+int data_iso_readable(const char *iso_path, char *err, size_t err_cap)
+{
+    IsoImage *iso = iso_open(iso_path, err, err_cap);
+    iso_close(iso);
+    return iso != NULL;
+}
 
 /* the file that says the player chose this copy knowing some of its files differ ("Use it anyway") */
 #define ACCEPTED_FILE ".accepted"

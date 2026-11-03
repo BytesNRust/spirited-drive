@@ -13,8 +13,12 @@
 #include "game/frontend/menu_audio.h"
 #include "game/frontend/message_banner.h"
 #include "game/frontend/name_box.h"
+#include "game/frontend/options_menu.h"
 #include "game/frontend/extras_menu.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
+#include "game/sys/port_settings.h"
+#include "game/platform/platform.h"
 #include "game/frontend/net_game.h"
 #include "game/frontend/net_host.h"
 #include "game/frontend/palette_put.h"
@@ -793,22 +797,63 @@ static void mode_extras(void *ctx)
  * built once (it takes a while) and kept */
 static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
 {
-    static uint8_t *cover;
+    static uint8_t *pixels;   /* the clean background, kept: it takes a while to compose, and each rectangle asked (the Modem words, the profile strip) is cut from it */
     static int tried;
     (void)ctx;
     if (!tried) {
         tried = 1;
-        uint8_t *pixels = malloc(CONFIG_BGND_W * CONFIG_BGND_H);
-        cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
+        pixels = malloc(CONFIG_BGND_W * CONFIG_BGND_H);
         mode_palette_known = pixels != NULL && config_bgnd_load(resource_load_art, CONFIG_BGND_GAME_MODE, 0, pixels,
                                                                 mode_palette);
-        if (cover == NULL || !mode_palette_known || config_bgnd_shape(pixels, x, y, w, h, cover) == 0) {
+        if (!mode_palette_known) {
             port_log("game mode: no clean background, the Modem words stay under the label\n");
-            free(cover), cover = NULL;
+            free(pixels), pixels = NULL;
         }
-        free(pixels);
     }
-    if (cover != NULL) ea_blit_own(cover);
+    if (pixels == NULL) return;
+    uint8_t *cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * (size_t)h);
+    if (cover != NULL && config_bgnd_shape(pixels, x, y, w, h, cover) != 0) ea_blit_own(cover);
+    free(cover);
+}
+
+/* port (profiles): Game Mode's fifth item reads or steps the profile; a step that changes the window's shape or rate is taken by the window at once */
+int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
+{
+    (void)ctx;
+    const PortSettings was = port_settings_load();
+    int profile = was.profile;
+    if (step == OPTIONS_PROFILE_BEGIN) {
+        port_profile_undo_begin();
+        return 1;
+    }
+    if (step == OPTIONS_PROFILE_END) {
+        port_profile_undo_end();
+        return 1;
+    }
+    if (step == OPTIONS_PROFILE_CANCEL) {   /* Options left by Cancel: the files as they were on entry, the window to match */
+        if (port_profile_undo_restore() < 0) port_log("profile: the files could not be put back\n");
+        const PortSettings back = port_settings_load();
+        if (was.format != back.format || was.refresh_hz != back.refresh_hz) {
+            const PlatformConfig config = port_platform_config(NULL);
+            if (!platform_reconfigure(&config)) port_log("profile: the window keeps its settings\n");
+        }
+        return 1;
+    }
+    if (step != 0) {
+        /* custom is not on the cycle: it shows after a hand-made change, and the next step goes on from the nearest of the three (forward: Stock, back: Restomod) */
+        profile = step > 0 ? (profile == PROFILE_RESTOMOD ? PROFILE_STOCK : profile + 1) : (profile <= PROFILE_STOCK ? PROFILE_RESTOMOD : profile - 1);
+        if (profile == PROFILE_CUSTOM) profile = step > 0 ? PROFILE_STOCK : PROFILE_RESTOMOD;
+        if (!port_profile_select(profile)) port_log("profile: the files could not be saved\n");
+        const PortSettings now = port_settings_load();
+        if (was.format != now.format || was.refresh_hz != now.refresh_hz) {
+            const PlatformConfig config = port_platform_config(NULL);
+            if (!platform_reconfigure(&config)) port_log("profile: the window keeps its old settings\n");
+        }
+    }
+    text[0] = port_profile_title((Profile)profile);
+    text[1] = port_profile_line1((Profile)profile);
+    text[2] = port_profile_line2((Profile)profile);
+    return 1;
 }
 
 /* 004376ac (game_mode.c) */
@@ -820,7 +865,8 @@ int32_t glue_game_mode(void)
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
-                              mode_extras, extras_text_glue, extras_text_width_glue, mode_cover };
+                              mode_extras, extras_text_glue, extras_text_width_glue, mode_cover, port_profile_ui() ? glue_profile : NULL,
+                              glue_plus_text_scaled, glue_plus_text_width_scaled };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };
