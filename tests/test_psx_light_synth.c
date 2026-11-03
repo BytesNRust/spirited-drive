@@ -244,6 +244,19 @@ static void test_night_tunnel_is_not_darker_than_the_road(void)
     CHECK_EQ_INT(psx_light_byte(&light, 5, 0), PSX_LIGHT_FULL);
 }
 
+/* a made light's own tunnel flags (made_tunnels): the nodes the road marks are tunnels whatever the rows say, the rest are not */
+static void test_light_tunnel_flags_override_the_rows(void)
+{
+    uint8_t data[NODES * PSX_LIGHT_POINTS], flags[NODES] = { 0 };
+    memset(data, PSX_LIGHT_FULL, sizeof data);   /* a night's rows: 255 everywhere, no row a tunnel's */
+    for (int i = 20; i < 30; i++) flags[i] = 1;
+    PsxLight light = { .data = data, .nodes = NODES };
+    CHECK(!psx_light_tunnel(&light, 25));
+    light.tunnel = flags;
+    CHECK(psx_light_tunnel(&light, 25) && psx_light_tunnel(&light, 20) && psx_light_tunnel(&light, 29));
+    CHECK(!psx_light_tunnel(&light, 19) && !psx_light_tunnel(&light, 30));
+}
+
 int main(void)
 {
     test_runs_and_short_runs();
@@ -257,5 +270,6 @@ int main(void)
     test_car_factor_follows_the_beyond_points();
     test_lamps_flicker_node_by_node();
     test_tracks();
+    test_light_tunnel_flags_override_the_rows();
     return TEST_REPORT();
 }

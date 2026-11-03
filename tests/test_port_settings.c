@@ -102,6 +102,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.night_sky_hue, b.night_sky_hue);
     CHECK_EQ_INT(a.psx_flares, b.psx_flares);
     CHECK_EQ_INT(a.hall_light, b.hall_light);
+    CHECK_EQ_INT(a.made_tunnels, b.made_tunnels);
 }
 
 static void test_defaults(void)
@@ -120,6 +121,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.fog_sample, 0);      /* the fog from the art's foot until asked */
     CHECK_EQ_INT(d.sky_fill, 0);        /* the exe's flat colour above the sky art until asked */
     CHECK_EQ_INT(d.night_sky_hue, 0);   /* the night's sky as it was until asked */
+    CHECK_EQ_INT(d.made_tunnels, 0);    /* a made light keeps no tunnel flags until asked */
     CHECK_EQ_INT(d.psx_flares, 0);      /* no halo round the lit tail lights until asked */
     CHECK_EQ_INT(d.hall_light, 0);      /* the hall is a tunnel to the car until asked */
     CHECK_EQ_INT(d.free_records, 0);    /* the free races keep no total for a lap count the exe lacks, until asked */
@@ -130,7 +132,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .made_tunnels = 1, .hall_light = 1 };
     char text[512];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -432,7 +434,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 3, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -448,6 +450,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.fog_sample, 1);
     CHECK_EQ_INT(back.sky_fill, 1);
     CHECK_EQ_INT(back.psx_flares, 1);
+    CHECK_EQ_INT(back.made_tunnels, 1);
     CHECK_EQ_INT(back.render_bands, 4);
     /* the old car_draw_distance line is ignored, and no longer written */
     const char *const old = "car_draw_distance=0\nfog_sample=1\n";

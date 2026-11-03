@@ -331,6 +331,12 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         if (made.hall != NULL)
             for (uint32_t n = 0; n < made.nodes; n++) made.hall[n] = tunnels.data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
     }
+    if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes && port_made_tunnels()) {   /* port (made_tunnels): the road's own tunnel nodes, as the PS1 files' rows mark theirs */
+        for (uint32_t n = 0; n < made.nodes; n++)   /* under a tunnel's roof the terrain's light (the night's dark) does not fall: the tunnel's own rows */
+            if (tunnels.tunnel[n]) memcpy(made.data + (size_t)n * PSX_LIGHT_POINTS, tunnels.data + (size_t)n * PSX_LIGHT_POINTS, PSX_LIGHT_POINTS);
+        made.tunnel = tunnels.tunnel;
+        tunnels.tunnel = NULL;
+    }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);
     *out = made;

@@ -24,8 +24,10 @@ void psx_light_free(PsxLight *light)
 {
     free(light->data);
     free(light->hall);
+    free(light->tunnel);
     light->data = NULL;
     light->hall = NULL;
+    light->tunnel = NULL;
     light->scripted = 0;
     light->reversed = 0;
     light->nodes = 0;
@@ -79,6 +81,7 @@ static int tunnel_in_file(const PsxLight *light, uint32_t node)
     if (light == NULL || light->data == NULL || light->nodes < 2) return 0;
     node %= light->nodes;
     if (node == light->nodes - 1) node--;
+    if (light->tunnel != NULL) return light->tunnel[node] != 0;
     if (light->scripted) return psx_lgs_switched(&light->script, (int)(node >> 2));
     return row_is_tunnel(light->data + (size_t)node * PSX_LIGHT_POINTS);
 }
@@ -121,7 +124,7 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
         return headlight_pool_apply(v, HEADLIGHT_FLOOR + (gain - HEADLIGHT_FLOOR) * headlight_pool_width(point) / 256);
     }
     /* a tunnel: less dark than the open night (its own lamps), and the beam lights it to TUNNEL_BEAM where its own rows are darker (a tunnel with no lamps is black) */
-    const uint8_t scaled = headlight_pool_apply(v, headlight_pool_gain_tunnel(light->pool, node));
+    const uint8_t scaled = light->tunnel != NULL ? v : headlight_pool_apply(v, headlight_pool_gain_tunnel(light->pool, node));   /* a made light's tunnel (made_tunnels) keeps the dusk's light its rows carry: the night's floor is the open road's */
     const int lit = TUNNEL_BEAM * headlight_pool_beam(light->pool, node) / 256;
     return lit > scaled ? (uint8_t)lit : scaled;
 }
