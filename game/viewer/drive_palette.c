@@ -293,8 +293,10 @@ static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const ca
     const uint8_t *const lit = palette_emissive();   /* the cars' lamp entries are set aside already: not the tunnel lamps' too (the traffic's tail lights came out as a tunnel lamp's colour) */
     for (int e = 0; e < RACE_PALETTE_COLOURS; e++)
         if (lit[e]) used[e] = 1;
-    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, NIGHT_LAMP_ENTRIES + street, entry);
-    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps and the street lamps\n", found, NIGHT_LAMP_ENTRIES + street);
+    /* by day only the street lamps' own entries (street_lamp.h's lit-by-day boards); the tunnel lamps' pool is the night's */
+    const int want = (drive_light_night() || drive_light_night_lamps(NULL) > 0 ? NIGHT_LAMP_ENTRIES : 0) + street;
+    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, want, entry);
+    port_log("night_lamps: %d of %d palette entries set aside for the tunnel lamps and the street lamps\n", found, want);
     if (found <= 0) return;
     uint8_t hidden[RACE_PALETTE_COLOURS], exempt[RACE_PALETTE_COLOURS];
     memcpy(hidden, palette_world_hidden(), sizeof hidden);
