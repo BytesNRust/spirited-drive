@@ -291,6 +291,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     light = made;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
+    split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);
     ported_view_set_psx_synth(tunnel_track);   /* the tunnel tracks' car and dash light follows their tunnels */
     port_log("psx_light: %s has no light on the CD, made from its terrain%s (%u nodes)\n", track, tunnel_track ? " and the road's tunnels" : "", light.nodes);

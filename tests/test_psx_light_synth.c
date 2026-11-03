@@ -3,6 +3,7 @@
 #include "game/race/psx_light_synth.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +27,42 @@ static void test_runs_and_short_runs(void)
         const int tunnel = i >= 10 && i < 10 + PSX_SYNTH_MIN_RUN;
         CHECK_EQ_INT(flags[i], tunnel);
     }
+}
+
+/* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
+static void test_hall_is_a_tunnel(void)
+{
+    uint8_t property[NODES], flags[NODES];
+    for (int i = 0; i < NODES; i++) property[i] = 3;
+    for (int i = NODES - 5; i < NODES; i++) property[i] = 17;
+    for (int i = 0; i < 10; i++) property[i] = 17;              /* 15 nodes across the line */
+    property[30] = property[31] = 17;                           /* two nodes of the hall bit: too short */
+    psx_light_synth_tunnels(property, NODES, 1, flags);
+    CHECK_EQ_INT(flags[NODES - 5], PSX_SYNTH_FLAG_HALL);
+    CHECK_EQ_INT(flags[0], PSX_SYNTH_FLAG_HALL);
+    CHECK_EQ_INT(flags[9], PSX_SYNTH_FLAG_HALL);
+    CHECK_EQ_INT(flags[10], 0);
+    CHECK_EQ_INT(flags[30], 0);
+}
+
+/* a hall's rows leave the world's light (254 of 255 at the one point) and mark the cars' alternation: warm under a lamp (even node), dim between, as a tunnel's */
+static void test_hall_rows_and_cars(void)
+{
+    uint8_t flags[NODES] = { 0 }, data[NODES * PSX_LIGHT_POINTS];
+    for (int i = 10; i < 30; i++) flags[i] = PSX_SYNTH_FLAG_HALL;
+    psx_light_synth_rows(flags, NODES, 0, PSX_SYNTH_DAY, data);
+    for (int p = 0; p < PSX_LIGHT_POINTS; p++) CHECK(data[20 * PSX_LIGHT_POINTS + p] >= PSX_SYNTH_HALL_MARK);
+    CHECK_EQ_INT(data[9 * PSX_LIGHT_POINTS + 4], PSX_LIGHT_FULL);   /* next to the hall: nothing, no doors */
+    PsxLight light = { 0 };
+    light.data = data, light.nodes = NODES;
+    float lit[3], dim[3], open[3];
+    psx_light_synth_car(&light, 20, lit);
+    psx_light_synth_car(&light, 21, dim);
+    psx_light_synth_car(&light, 5, open);
+    CHECK(lit[0] < 1.0f && dim[0] < lit[0]);
+    CHECK(open[0] == 1.0f);
+    CHECK(lit[0] > lit[1] && lit[1] > lit[2] && dim[0] > dim[1] && dim[1] > dim[2]);   /* warm orange, both under and between the lamps */
+    CHECK(fabsf(lit[0] - 150.0f / 160) < 1e-5f && fabsf(lit[2] - 32.0f / 160) < 1e-5f);
 }
 
 static void test_ring_joins_a_run_across_node_zero(void)
@@ -121,25 +158,56 @@ static void test_times_of_day(void)
     CHECK_EQ_INT(psx_light_byte(&light, 30, 2), 130);
 }
 
+static float car_green(const PsxLight *light, uint32_t node)
+{
+    float f[3];
+    psx_light_synth_car(light, node, f);
+    return f[1];
+}
+
 static void test_car_factor_follows_the_beyond_points(void)
 {
     uint8_t data[NODES * PSX_LIGHT_POINTS];
     PsxLight light = { 0 };
     rows(&light, data, PSX_SYNTH_DAY);
-    const float inside = PSX_SYNTH_CAR_PERCENT / 100.0f;
-    CHECK(psx_light_synth_car(&light, 5) == 1.0f);
-    CHECK(psx_light_synth_car(&light, 30) == inside);
-    float last = 1.0f;
-    for (int d = PSX_SYNTH_BEYOND_ENTRY; d >= 1; d--) {                                              /* going in: never lighter, ends at the tunnel's */
-        const float f = psx_light_synth_car(&light, (uint32_t)(20 - d));
-        CHECK(f <= last && f >= inside);
-        last = f;
+    float f[3];
+    psx_light_synth_car(&light, 5, f);                                                               /* the open road: full light */
+    CHECK(f[0] == 1.0f && f[1] == 1.0f && f[2] == 1.0f);
+    const float inside = car_green(&light, 30);                                                      /* an even node in the tunnel: under a lamp */
+    CHECK(inside < 1.0f);
+    for (int d = PSX_SYNTH_BEYOND_ENTRY; d >= 1; d--) {                                              /* going in (even nodes): never lighter, ends at the tunnel's */
+        const float g = car_green(&light, (uint32_t)(20 - d - ((20 - d) & 1)));
+        CHECK(g <= 1.0f && g >= inside);
     }
-    CHECK(psx_light_synth_car(&light, 17) < 1.0f && psx_light_synth_car(&light, 17) > inside);
-    CHECK(psx_light_synth_car(&light, 43) > inside);                                                 /* the exit gives it back, slowly */
-    CHECK(psx_light_synth_car(&light, 48) < 1.0f);
-    CHECK(psx_light_synth_car(&light, 49) == 1.0f);
-    CHECK(psx_light_synth_car(NULL, 3) == 1.0f);
+    CHECK(car_green(&light, 42) > car_green(&light, 30));                                            /* the exit gives it back, slowly */
+    CHECK(car_green(&light, 48) < 1.0f);
+    CHECK(car_green(&light, 49) == 1.0f);
+    float none[3];
+    psx_light_synth_car(NULL, 3, none);
+    CHECK(none[0] == 1.0f && none[1] == 1.0f && none[2] == 1.0f);
+}
+
+/* the lamps: inside a tunnel the light alternates node by node, warm under a lamp (even) and a dimmer grey between (odd), the CD's RAMP context */
+static void test_lamps_flicker_node_by_node(void)
+{
+    uint8_t data[NODES * PSX_LIGHT_POINTS];
+    PsxLight light = { 0 };
+    rows(&light, data, PSX_SYNTH_DAY);
+    for (uint32_t node = 24; node < 36; node += 2) {
+        float lit[3], dim[3];
+        psx_light_synth_car(&light, node, lit);
+        psx_light_synth_car(&light, node + 1, dim);
+        CHECK(lit[0] > dim[0] && lit[1] > dim[1] && lit[2] > dim[2]);                                /* every channel brighter under the lamp */
+        CHECK(lit[0] > lit[1] && lit[1] > lit[2]);                                                   /* yellowish: red over green over blue */
+        CHECK(dim[0] == dim[1] && dim[1] == dim[2]);                                                 /* between lamps: grey */
+        CHECK(lit[0] == 96.0f / 160 && dim[0] == 62.0f / 160);                                       /* the CD's values through the exe's table */
+    }
+    float a[3], b[3];                                                                                /* the open road does not flicker */
+    psx_light_synth_car(&light, 2, a);
+    psx_light_synth_car(&light, 3, b);
+    CHECK(a[0] == 1.0f && b[0] == 1.0f);
+    CHECK(car_green(&light, 14) < 1.0f && car_green(&light, 14) >= car_green(&light, 30));          /* a door fades the alternation in, not a step */
+    CHECK(car_green(&light, 14) > car_green(&light, 16));
 }
 
 static void test_tracks(void)
@@ -165,12 +233,15 @@ static void test_night_tunnel_is_not_darker_than_the_road(void)
 int main(void)
 {
     test_runs_and_short_runs();
+    test_hall_is_a_tunnel();
+    test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();
     test_doors_follow_the_measured_ramps();
     test_times_of_day();
     test_night_tunnel_is_not_darker_than_the_road();
     test_car_factor_follows_the_beyond_points();
+    test_lamps_flicker_node_by_node();
     test_tracks();
     return TEST_REPORT();
 }
