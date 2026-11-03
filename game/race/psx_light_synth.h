@@ -54,6 +54,10 @@ int psx_light_synth_track(const char *track);
  * terrain's own light, where a tunnel's rows darken them, so the car and the shadow there follow the scenery. */
 int psx_light_synth_hall(const char *track, uint32_t *from, uint32_t *to);
 
+/* port (trans_shadows): Transtropolis' (TR7) airport approach to the open truss bridge, nodes 700..776: the terrain's walls shaded the scenery beside an open road in the made light.
+ * 1 and the range (inclusive) for TR7, else 0. */
+int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to);
+
 /* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel (`out`, 3): 1 on the open road, in a tunnel the CD's lamp
  * alternation (a RAMP context takes its first colour on even nodes and its second on odd ones: CY1's 266..292 is 128,115,96 then 60,60,60 through the exe's
  * table, 0.60 0.56 0.50 under a lamp, 0.39 grey between), which flickers yellowish with the speed; the way the points beyond the foot go dark at the doors,

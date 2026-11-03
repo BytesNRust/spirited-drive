@@ -126,6 +126,14 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out)
     return any;
 }
 
+int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to)
+{
+    if (track == NULL || strcasecmp(track, "TR7") != 0) return 0;
+    if (open_from != NULL) *open_from = 700;
+    if (open_to != NULL) *open_to = 776;
+    return 1;
+}
+
 int psx_light_synth_track(const char *track)
 {
     return track != NULL && (strcasecmp(track, "TR6") == 0 || strcasecmp(track, "TR7") == 0);
