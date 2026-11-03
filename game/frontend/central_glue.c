@@ -78,6 +78,7 @@
 
 #include "game/frontend/boot_screen.h"
 #include "tnfs_version.h"
+#include "game/sys/port_stats.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -767,6 +768,7 @@ static void raise_unlocks(void *ctx)
 /* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state: alone, this machine's player 0; in a link
  * game, the link game's words */
 static void after_race(void *ctx);
+static void race_finished(void *ctx);
 static void race(void *ctx)
 {
     (void)ctx;
@@ -791,7 +793,7 @@ static void race(void *ctx)
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
-        points, after_race, next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx };
+        points, after_race, next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx, race_finished };
     menu_race(&st, &ops);
     g.warrior = (int16_t)race_warrior;
     int32_t *const slot = ea_screen_slot();
@@ -802,6 +804,13 @@ static void race(void *ctx)
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
     races_from_state();
     extras_apply();   /* port: get_race zeroes the variants; the next race from the same Control Central keeps them */
+}
+
+/* port: a race run to its end (not one given up or lost): the first one of an install is counted, if the switch is On */
+static void race_finished(void *ctx)
+{
+    (void)ctx;
+    port_stats_event(STATS_FIRST_RACE);
 }
 
 /* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */

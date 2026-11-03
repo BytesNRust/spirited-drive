@@ -205,6 +205,7 @@ void menu_race(const MenuRaceState *st, const MenuRaceOps *ops)
         memcpy(st->image + CONTROLS, st->game + CONTROLS_KEPT, CONTROLS_SIZE);
         if (g16(st->game + RACED) == ENDED_4) ops->cop_stop(ops->ctx);
         if (g16(st->game + RACED) == FINISHED) {
+            if (ops->finished != NULL) ops->finished(ops->ctx);
             if (track_of(st) > 2 || g16(st->game + RUN) > 2) keep_record(st, ops);
             ops->bank_load(ops->ctx);
             ops->screen_mode(ops->ctx, 0);

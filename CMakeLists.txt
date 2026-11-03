@@ -148,6 +148,7 @@ add_library(tnfs_game STATIC
     game/frontend/central_banner.c
     game/frontend/boot_screen.c
     game/frontend/boot_screen_glue.c
+    game/frontend/version_footer.c
     game/frontend/central_follow.c
     game/frontend/central_draw.c
     game/frontend/central_select.c
@@ -296,6 +297,7 @@ add_library(tnfs_game STATIC
     game/sys/data_path.c
     game/sys/sha256.c
     game/sys/data_check.c
+    game/sys/file_url.c
     game/sys/data_manifest.c
     game/sys/data_copy.c
     game/sys/data_root.c
@@ -424,6 +426,7 @@ add_library(tnfs_game STATIC
     game/sys/reverse_track.c
     game/sys/free_records.c
     game/sys/port_extras.c
+    game/sys/port_stats.c
     game/sys/port_icon.c
     game/sys/port_controls.c
     game/sys/port_records.c
@@ -565,7 +568,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth psx_light_make lamp_emissive drive_lamps headlight_pool street_lamp police_lights rally_gravel lamp_flare data_path data_check port_profile game_mode_profile)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth psx_light_make lamp_emissive drive_lamps headlight_pool street_lamp police_lights rally_gravel lamp_flare data_path data_check port_profile game_mode_profile file_url)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -725,6 +728,16 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_boot_screen PRIVATE tnfs_game)
     target_compile_options(test_boot_screen PRIVATE ${TNFS_WARNINGS})
     add_test(NAME boot_screen COMMAND test_boot_screen)
+    add_executable(test_version_footer tests/test_version_footer.c)
+    target_include_directories(test_version_footer PRIVATE game .)
+    target_link_libraries(test_version_footer PRIVATE tnfs_game)
+    target_compile_options(test_version_footer PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME version_footer COMMAND test_version_footer)
+    add_executable(test_port_stats tests/test_port_stats.c)
+    target_include_directories(test_port_stats PRIVATE game .)
+    target_link_libraries(test_port_stats PRIVATE tnfs_game)
+    target_compile_options(test_port_stats PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME port_stats COMMAND test_port_stats)
     add_executable(test_cheat_switches tests/test_cheat_switches.c)
     target_include_directories(test_cheat_switches PRIVATE game .)
     target_link_libraries(test_cheat_switches PRIVATE tnfs_game)
@@ -1140,5 +1153,8 @@ if(NOT EMSCRIPTEN)
     if(NOT TNFS_RELEASE AND EXISTS "${CMAKE_SOURCE_DIR}/original/NFS_WIN.EXE")
         add_test(NAME dev_data_default COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/dev_data_default -P ${CMAKE_SOURCE_DIR}/tests/dev_data_default.cmake)
         set_tests_properties(dev_data_default PROPERTIES TIMEOUT 120)
+        # the anonymous counters of a "release" version run with --mods: the flag in <mods>/user, nothing in the pref dir, nothing when Off
+        add_test(NAME stats_mods_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/stats_mods_isolation -P ${CMAKE_SOURCE_DIR}/tests/stats_mods_isolation.cmake)
+        set_tests_properties(stats_mods_isolation PROPERTIES TIMEOUT 60)
     endif()
 endif()

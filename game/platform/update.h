@@ -21,11 +21,15 @@ typedef enum {
     UPDATE_NONE = -1      /* up to date, a dev build, offline, or the answer could not be read */
 } UpdateState;
 
-/* Starts the check in the background (once; later calls do nothing). Dev builds (x.y.z-dev...) never check. */
+/* Starts the check in the background (once; later calls do nothing): one GET to our API, which also counts the start. Dev builds (x.y.z-dev...) never check. */
 void platform_update_check_start(const char *current_version);
 
 /* The check's state; with UPDATE_NEWER, `latest` (cap >= 32) receives the newer version, e.g. "0.9.1". */
 UpdateState platform_update_check_poll(char *latest, size_t cap);
+
+/* Sends one anonymous event ("first_start", "data_ready" or "first_race") to our API on its own thread, never
+ * blocking. port_stats.h decides whether and when; this only sends. */
+void platform_stats_post(const char *event, const char *version);
 
 /* Opens the latest release's download page in the player's browser; 0 when it could not. */
 int platform_open_releases_page(void);

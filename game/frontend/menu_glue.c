@@ -15,6 +15,7 @@
 #include "game/frontend/name_box.h"
 #include "game/frontend/options_menu.h"
 #include "game/frontend/extras_menu.h"
+#include "game/platform/platform.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
@@ -42,6 +43,9 @@
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
+#include "game/frontend/version_footer.h"
+#include "game/platform/update.h"
+#include "tnfs_version.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -616,6 +620,13 @@ static int32_t mode_network_game(void *ctx)
 static int32_t mode_extras_screen;
 static int16_t mode_extras_unlock;
 
+/* port: the Open the log folder row of the EXTRAS screen: the file browser on the user folder, where tnfs.log is */
+static void open_log_folder_glue(void *ctx)
+{
+    (void)ctx;
+    if (!platform_open_user_dir()) port_log("extras: the log folder could not be opened\n");
+}
+
 static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
 {
     (void)ctx;
@@ -774,6 +785,7 @@ int32_t glue_extras_screen(int16_t unlock)
         NULL,               /* ctx */
         glue_plus_arrow_size, /* plus_arrow_size: the page indicator's triangles */
         own_panel_arrow,    /* plus_arrow */
+        open_log_folder_glue, /* open_log_folder: the Open the log folder row */
     };
     mode_extras_screen = ea_screen();
     /* port: the page keys, so PageDown turns the page as the screen's own words promise (extras_menu.c's header).
@@ -856,6 +868,28 @@ int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
     return 1;
 }
 
+/* port: the foot line of Game Mode: the version, and the update notice once the check has answered */
+static int32_t mode_footer(void *ctx, int32_t line, char *text, size_t cap)
+{
+    char latest[32] = "";
+    (void)ctx;
+    UpdateState state = platform_update_check_poll(latest, sizeof latest);
+#ifdef TNFS_SOURCE_DIR   /* development builds only (TNFS_RELEASE leaves it undefined): TNFS_UPDATE_FAKE=9.9.9 shows the notice */
+    const char *const fake = getenv("TNFS_UPDATE_FAKE");
+    if (fake != NULL && fake[0] != 0) {
+        snprintf(latest, sizeof latest, "%s", fake[0] == 'v' ? fake + 1 : fake);
+        state = UPDATE_NEWER;
+    }
+#endif
+    return version_footer_line(text, cap, line, TNFS_VERSION, state, latest);
+}
+
+static void mode_open_notice(void *ctx)
+{
+    (void)ctx;
+    if (!platform_open_releases_page()) port_log("update: the releases page could not be opened\n");
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
@@ -866,7 +900,7 @@ int32_t glue_game_mode(void)
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
                               mode_extras, extras_text_glue, extras_text_width_glue, mode_cover, port_profile_ui() ? glue_profile : NULL,
-                              glue_plus_text_scaled, glue_plus_text_width_scaled };
+                              glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

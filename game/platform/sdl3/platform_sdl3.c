@@ -3,6 +3,7 @@
 #include "formats/modpath.h"
 #include "formats/validate.h"
 #include "game/sys/data_path.h"
+#include "game/sys/file_url.h"
 #include "game/sys/port_log.h"
 #include "tnfs_version.h"
 
@@ -876,6 +877,13 @@ static const char *user_dir(char *out, size_t out_size)
 bool platform_user_dir(char *out, size_t out_size)
 {
     return user_dir(out, out_size) != NULL;
+}
+
+int platform_open_user_dir(void)
+{
+    char dir[1200], url[3700];
+    if (user_dir(dir, sizeof dir) == NULL || file_url_from_path(dir, url, sizeof url) == 0) return 0;
+    return SDL_OpenURL(url) ? 1 : 0;
 }
 
 static const char *user_path(const char *name, char *out, size_t out_size)
