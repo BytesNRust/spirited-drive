@@ -307,6 +307,8 @@ static void test_car_tunnel_light_follows_the_flags(void)
     float same[3];
     psx_light_synth_car_tunnel(&light, 44, same);
     for (int k = 0; k < 3; k++) CHECK(fabsf(same[k] - old[k]) < 1e-6f);
+}
+
 static void test_trans_ranges(void)
 {
     uint32_t a = 0, b = 0;
