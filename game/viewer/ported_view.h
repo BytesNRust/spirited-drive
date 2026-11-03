@@ -57,7 +57,11 @@ void ported_view_set_light(const PsxLight *light, const float tint[3]);
 /* port (the PS1 look's light): the track's tunnel lamps (psx_lamps.h), `count` of them (copied; NULL or 0 none): the colours of each
  * lamp's fitting in its texture are not darkened by the light. Needs ported_view_set_light's light. */
 /* port (night, psx_headlights): the street lamp's board (TrackArt.scenery[scenery]) with its three entries the light tables leave alone; NULL entry: none. */
-void ported_view_set_street_lamp(int scenery, const uint8_t entry[3]);
+void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entry[3]);   /* the lamp boards (at most 3) whose entries the tables leave alone; NULL / 0 none */
+
+/* port (night; window_lights.h): the scenery boards whose lit windows' `entry` the light tables leave alone (at most WINDOW_BOARDS_MAX); none with n 0 */
+enum { WINDOW_BOARDS_MAX = 12 };
+void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry);
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
 
 /* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */

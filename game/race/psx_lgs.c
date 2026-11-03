@@ -222,3 +222,9 @@ void psx_dash_palette(const uint8_t palette[768], const float tint[3], int num, 
     psx_tint_palette(palette, tint, full);
     for (int i = 0; i < 768; i++) out[i] = (uint8_t)((palette[i] * (den - num) + full[i] * num + den / 2) / den);
 }
+
+float psx_night_ceiling_scale(const float tint[3], float ceiling)
+{
+    const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f;
+    return mean > ceiling && mean > 0.0f ? ceiling / mean : 1.0f;
+}

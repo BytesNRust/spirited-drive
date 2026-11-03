@@ -36,6 +36,10 @@ extern const float psx_night_light[3];
  * light over a time of day's script; each context's two (a tunnel's own lights) too when `contexts`, else as the script has them. */
 void psx_lgs_scale(PsxLgs *lgs, const float mul[3], int contexts);
 
+/* port (the night's ceiling): the factor (at most 1) that brings the mean of `tint`'s channels down to `ceiling`; 1 when it is under it already. The PS1's nights
+ * differ widely (TR2's orange dusk is as bright as the open roads' day), the port's all go dark (the owner's rule), the hue kept. */
+float psx_night_ceiling_scale(const float tint[3], float ceiling);
+
 /* The ambient colour as a multiplier of each channel, 1.0 for 128; the mean of the start and end colours. */
 void psx_lgs_tint(const PsxLgs *lgs, float tint[3]);
 
