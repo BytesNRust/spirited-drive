@@ -4,6 +4,7 @@
 #include "game/race/mirror_scene.h"
 #include "game/race/track_render.h"
 #include "game/race/track_tables.h"
+#include "game/race/track_wall.h"
 
 enum {
     ROW_POINTS = 11,
@@ -24,7 +25,7 @@ static int far_level(int32_t band)
 static const TrackLod *lod_of(const TrackFarInputs *in, int32_t segment)
 {
     const unsigned lod = in->segments[(uint32_t)segment & in->segment_mask].lod;
-    return &TRACK_LODS[lod < TRACK_LOD_COUNT ? lod : 0];  /* port guard */
+    return track_wall_lod(lod < TRACK_LOD_COUNT ? (int)lod : 0);   /* port guard; a reversed circuit's walls where they were */
 }
 
 static void quad_of(const TrackFarInputs *in, int32_t first, const TrackPolygon *p, int32_t quad[8])
