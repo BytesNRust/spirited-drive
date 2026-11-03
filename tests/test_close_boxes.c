@@ -11,6 +11,9 @@ typedef struct {
     int32_t texture[8];
     int32_t cam[8][4][3];   /* the corners of each camera-space draw */
     int32_t roof_cam[4][3];
+    int clipped, clipped_roof;       /* the clipped pieces drawn, and how many of them the roof's */
+    int32_t clip_cam[16][4][3];      /* their camera-space corners */
+    int32_t clip_uv[16][8];          /* and their texture fractions */
 } Calls;
 
 static void c_model(void *u, int32_t m, const int32_t p[3], int32_t a) { (void)u, (void)m, (void)p, (void)a; }
@@ -33,21 +36,38 @@ static void c_roof(void *u, int32_t t, const int32_t *const cam[4])
     for (int i = 0; i < 4; i++) memcpy(c->roof_cam[i], cam[i], sizeof c->roof_cam[0]);
 }
 
+static void c_clip(void *u, int32_t t, int roof, const int32_t *const cam[4], const int32_t uv[8])
+{
+    Calls *c = u;
+    (void)t;
+    if (c->clipped < 16) {
+        for (int i = 0; i < 4; i++) memcpy(c->clip_cam[c->clipped][i], cam[i], sizeof c->clip_cam[0][0]);
+        memcpy(c->clip_uv[c->clipped], uv, sizeof c->clip_uv[0]);
+    }
+    c->clipped++;
+    c->clipped_roof += roof != 0;
+}
+
 /* a box seen from the front-right: the front's corners 0..3 (top-left, top-right, bottom-right, bottom-left), then 4 and 5 the side's far edge (top, bottom) */
 static const int32_t BOX[6][3] = { { -300, 200, 500 }, { 300, 200, 500 }, { 300, -200, 500 }, { -300, -200, 500 }, { 300, 200, 900 }, { 300, -200, 900 } };
 static const int32_t SCREEN[6][2] = { { 10, 10 }, { 60, 10 }, { 60, 50 }, { 10, 50 }, { 80, 12 }, { 80, 48 } };
 
-static Calls draw_box(const int32_t box[6][3], int flag, int with_camera, int with_roof)
+static Calls draw_box_clip(const int32_t box[6][3], int flag, int with_camera, int with_roof, int with_clip)
 {
     uint8_t descriptor[TRACK_WALK_RECORD_SIZE] = { 0 }, record[TRACK_WALK_RECORD_SIZE] = { 0 };
     descriptor[1] = 6, descriptor[2] = 8, descriptor[3] = 12;   /* the front's and the side's textures */
     Calls c = { 0 };
     TrackObjectWalk walk = { descriptor, record, 1, 0, 1, 6, 6, 0, 0, 6, 0, 0, 0 };
-    TrackObjectDraw d = { &walk, NULL, NULL, box, SCREEN, 6, 0, 0, { &c, c_model, c_full, c_alt, with_camera ? c_camera : NULL, NULL, with_roof ? c_roof : NULL } };
+    TrackObjectDraw d = { &walk, NULL, NULL, box, SCREEN, 6, 0, 0, { &c, c_model, c_full, c_alt, with_camera ? c_camera : NULL, NULL, with_roof ? c_roof : NULL, with_clip ? c_clip : NULL } };
     track_port_close_boxes = flag;
     track_object_draw(&d, 10, 1);
     track_port_close_boxes = 0;
     return c;
+}
+
+static Calls draw_box(const int32_t box[6][3], int flag, int with_camera, int with_roof)
+{
+    return draw_box_clip(box, flag, with_camera, with_roof, 1);
 }
 
 static Calls draw(int flag, int with_camera, int with_roof) { return draw_box(BOX, flag, with_camera, with_roof); }
@@ -143,20 +163,73 @@ static void test_a_skewed_box_is_left_open(void)
     CHECK_EQ_INT(c.roof, 0);
 }
 
-/* a box whose far corners are behind the eye (the car stands by the house): the new walls and the roof would run through the near plane and sweep a wedge across the
- * screen, so what has a corner behind the eye is not drawn flat */
-static void test_a_corner_behind_the_eye_draws_no_wedge(void)
+/* the car by the house, the box turned a quarter: every point of the front and the side's far edge are ahead (0x86), yet the far left corner the walls and the roof share (at
+ * z -120) is behind the eye. The left wall faces the eye; the back and the roof face away */
+static const int32_t BESIDE[6][3] = { { 40, 200, 140 }, { 300, 200, 400 }, { 300, -200, 400 }, { 40, -200, 140 }, { 560, 200, 140 }, { 560, -200, 140 } };
+
+/* a face with a corner behind the eye is clipped to the near limit, not drawn whole (a wedge across the screen) and not dropped (a hole): the pieces' corners are all at or
+ * beyond 0x86, and nothing projects far off the screen */
+static void test_a_corner_behind_the_eye_is_clipped(void)
 {
-    /* the car by the house, the box turned a quarter: every point of the front and the side's far edge are ahead (0x86), yet the far left corner the walls and the roof share is behind the eye */
-    const int32_t cam[6][3] = { { 40, 200, 140 }, { 300, 200, 400 }, { 300, -200, 400 }, { 40, -200, 140 }, { 560, 200, 140 }, { 560, -200, 140 } };
+    const Calls c = draw_box(BESIDE, 1, 1, 1);
+    CHECK_EQ_INT(c.camera, 2);      /* the front and the side as ever, no wall drawn whole with a corner behind the eye */
+    CHECK_EQ_INT(c.roof, 0);
+    CHECK(c.clipped >= 1);          /* the left wall, clipped */
+    CHECK_EQ_INT(c.clipped_roof, 0);
+    for (int p = 0; p < c.clipped && p < 16; p++)
+        for (int k = 0; k < 4; k++) {
+            const int32_t *v = c.clip_cam[p][k];
+            CHECK(v[2] >= 0x86);                                         /* at or beyond the near limit */
+            CHECK(v[0] * 320 / v[2] >= -2560 && v[0] * 320 / v[2] <= 2560);   /* no wedge: a screen position (focal 320) within four screens' width */
+            CHECK(v[1] * 320 / v[2] >= -2560 && v[1] * 320 / v[2] <= 2560);
+        }
+}
+
+/* the clipped wall keeps its texture where it was: the fractions of the near corners are the wall's own (the left wall's near edge, its first and last corners, is the front's left
+ * edge: u 0), the new corners are on the face's edges between them */
+static void test_the_clipped_piece_keeps_its_texture_coordinates(void)
+{
+    const Calls c = draw_box(BESIDE, 1, 1, 1);
+    CHECK(c.clipped >= 1);
+    for (int p = 0; p < c.clipped && p < 16; p++)
+        for (int k = 0; k < 8; k++) CHECK(c.clip_uv[p][k] >= 0 && c.clip_uv[p][k] <= 65536);
+    /* the left wall's corners are c0 (u 0, v 0), far top (u 1, v 0), far bottom (u 1, v 1), c3 (u 0, v 1); the piece starts at c0 */
+    CHECK_EQ_INT(c.clip_uv[0][0], 0);
+    CHECK_EQ_INT(c.clip_uv[0][1], 0);
+}
+
+/* the roof with a corner behind the eye is clipped as the roof (its flat tone), not as the facade */
+static void test_a_roof_with_a_corner_behind_the_eye_is_clipped_as_the_roof(void)
+{
+    /* the eye above the box (its y is negative): the roof faces it. As BESIDE turned over: the far-left corner (the front's left carried back, z -120) is behind the near limit, the
+     * side's far edge (z 140) and the front's corners are ahead */
+    const int32_t cam[6][3] = { { 40, -200, 140 }, { 300, -200, 400 }, { 300, -600, 400 }, { 40, -600, 140 }, { 560, -200, 140 }, { 560, -600, 140 } };
     const Calls c = draw_box(cam, 1, 1, 1);
-    CHECK_EQ_INT(c.roof, 0);        /* the roof and the new walls would have corners behind the eye: through the near plane they sweep a wedge across the screen */
-    CHECK(c.camera <= 2);           /* the front and the side as ever, no wall with a corner behind the eye */
+    CHECK(c.clipped_roof >= 1);
+    for (int p = 0; p < c.clipped && p < 16; p++)
+        for (int k = 0; k < 4; k++) CHECK(c.clip_cam[p][k][2] >= 0x86);
+}
+
+/* a face wholly behind the eye goes; with no clipped op a partly hidden one goes too (the exe's own faces are untouched) */
+static void test_a_face_behind_the_eye_goes_and_no_op_drops_the_partial(void)
+{
+    int32_t cam[6][3];
+    seen_from_behind(cam);
+    for (int i = 0; i < 6; i++) cam[i][2] -= 3000;   /* everything behind the eye */
+    const Calls gone = draw_box(cam, 1, 1, 1);
+    CHECK_EQ_INT(gone.clipped, 0);
+    CHECK_EQ_INT(gone.roof, 0);
+    const Calls none = draw_box_clip(BESIDE, 1, 1, 1, 0);
+    CHECK_EQ_INT(none.clipped, 0);   /* no clipped op: dropped, as before */
+    CHECK_EQ_INT(none.camera, 2);
 }
 
 int main(void)
 {
-    test_a_corner_behind_the_eye_draws_no_wedge();
+    test_a_corner_behind_the_eye_is_clipped();
+    test_the_clipped_piece_keeps_its_texture_coordinates();
+    test_a_roof_with_a_corner_behind_the_eye_is_clipped_as_the_roof();
+    test_a_face_behind_the_eye_goes_and_no_op_drops_the_partial();
     test_a_gabled_house_is_left_open();
     test_a_skewed_box_is_left_open();
     test_without_the_flag_it_is_the_l();
