@@ -68,6 +68,14 @@ int psx_light_rules_parse(const char *text, size_t size, PsxLightRule *out, int 
 /* Applies `n` rules to `count` nodes of rows, in order, the last word the later one's. */
 void psx_light_apply_rules(uint8_t *data, uint32_t count, const PsxLightRule *rules, int n);
 
+/* port (forest_dark): a forest, nodes `from`..`to` of the rows, is sombre: the whole row alternates between two dark tones, `period` nodes each (the first band the darker), the way a
+ * hall of lamps does, eased in over the first and the last PSX_LIGHT_FOREST_RAMP nodes. A multiple of what the rows hold, so what the terrain shaded stays shaded. Nothing for bad arguments. */
+enum { PSX_LIGHT_FOREST_RAMP = 3 };
+void psx_light_forest(uint8_t *data, uint32_t count, uint32_t from, uint32_t to, int period);
+
+/* the nodes of a track's forest (Vertigo Ridge's, TR3, the trees before the finish), 1 and `from`, `to` when the track has one */
+int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to);
+
 /* The terrain's points of a track, node_count * PSX_LIGHT_POINTS of them, into `out` (the track's units: 16.16 fixed point scaled to 1 = a unit). 1 on success. */
 int psx_light_tri_points(const Tri *tri, LightPos *out);
 

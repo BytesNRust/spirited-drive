@@ -268,8 +268,53 @@ static void test_the_rules_set_their_points_in_the_levels(void)
         }
 }
 
+enum { FOREST_NODES = 100 };
+
+static void test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be(void)
+{
+    uint8_t data[FOREST_NODES * PSX_LIGHT_POINTS];
+    memset(data, 255, sizeof data);
+    psx_light_forest(data, FOREST_NODES, 20, 60, 8);
+    const int hi = data[(20 + 12) * PSX_LIGHT_POINTS + 0], lo = data[(20 + 4) * PSX_LIGHT_POINTS + 0];   /* past the ramp: the bands' own tones */
+    CHECK(hi < 255 && lo < hi && lo > 0);                                                              /* dark, and darker */
+    for (int p = 0; p < PSX_LIGHT_POINTS; p++) {                                                       /* the road's points too: the whole row */
+        CHECK_EQ_INT(data[(20 + 12) * PSX_LIGHT_POINTS + p], hi);
+        CHECK_EQ_INT(data[(20 + 4) * PSX_LIGHT_POINTS + p], lo);
+        CHECK_EQ_INT(data[(20 + 20) * PSX_LIGHT_POINTS + p], lo);                                       /* the alternation goes on, two bands a period */
+        CHECK_EQ_INT(data[19 * PSX_LIGHT_POINTS + p], 255);                                             /* outside the range: untouched */
+        CHECK_EQ_INT(data[61 * PSX_LIGHT_POINTS + p], 255);
+    }
+    CHECK(data[20 * PSX_LIGHT_POINTS] > lo);   /* the entry is eased, not a step */
+    psx_light_forest(NULL, FOREST_NODES, 20, 60, 8);                                                          /* the arguments are checked */
+    psx_light_forest(data, FOREST_NODES, 60, 20, 8);
+    psx_light_forest(data, FOREST_NODES, 20, FOREST_NODES + 40, 0);
+}
+
+static void test_a_forest_darkens_what_is_already_dark_less_than_a_proportion(void)
+{
+    uint8_t data[FOREST_NODES * PSX_LIGHT_POINTS];
+    memset(data, 0, sizeof data);
+    data[30 * PSX_LIGHT_POINTS + 3] = 100;
+    psx_light_forest(data, FOREST_NODES, 20, 60, 8);
+    CHECK(data[30 * PSX_LIGHT_POINTS + 3] < 100);   /* a multiple: what the made light shaded stays shaded more */
+    CHECK_EQ_INT(data[30 * PSX_LIGHT_POINTS + 4], 0);
+}
+
+static void test_the_forest_is_vertigo_ridges_only(void)
+{
+    uint32_t from = 0, to = 0;
+    CHECK(psx_light_forest_range("TR3", &from, &to));
+    CHECK(from < to && to < 1024);
+    CHECK(psx_light_forest_range("tr3", &from, &to));
+    CHECK(!psx_light_forest_range("TR1", &from, &to));
+    CHECK(!psx_light_forest_range(NULL, &from, &to));
+}
+
 int main(void)
 {
+    test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be();
+    test_a_forest_darkens_what_is_already_dark_less_than_a_proportion();
+    test_the_forest_is_vertigo_ridges_only();
     test_the_override_text_is_read();
     test_the_rules_set_their_points_in_the_levels();
     test_the_night_is_dark_on_the_terrain_and_lit_on_the_road();

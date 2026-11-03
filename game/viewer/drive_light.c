@@ -149,6 +149,7 @@ static void load_sky(const char *psx_dir, const char *track, char letter)
 
 static int time_tinted;
 static int made_wanted;   /* port (own light): no CD light for this track, so one is made from its terrain (psx_light_make.h) in drive_light_load_synth */
+enum { FOREST_BAND = 8 };   /* port (forest_dark): nodes to a band of the forest's two dark tones */
 static int synth_wanted, synth_on, synth_time;   /* a track the CD has no light for, with the light on; the light is one made from the road (drive_light_load_synth) */
 static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds no sky of its own for the track (drive_light_load_alt_sky) */
 
@@ -288,6 +289,9 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
     PsxLight made = { 0 };
     if (!make_light(tri, &made)) return;
+    uint32_t forest_from, forest_to;
+    if (port_forest_dark() && psx_light_forest_range(track, &forest_from, &forest_to))
+        psx_light_forest(made.data, made.nodes, forest_from, forest_to, FOREST_BAND);
     light = made;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
