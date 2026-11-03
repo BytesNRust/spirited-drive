@@ -85,7 +85,11 @@ static void sky_scale_night(void)
     float mul[3];
     for (int k = 0; k < 3; k++) mul[k] = headlights_on ? psx_night_light[k] * psx_night_light[k] / NIGHT_PALETTE[k] : psx_night_light[k];
     psx_sky_draw_scale(&sky_draw, mul);
-    if (headlights_on) psx_sky_draw_stars(&sky_draw, NIGHT_STARS_SEED);   /* port (psx_headlights): the night's stars in the dark of the sky */
+    if (headlights_on) {   /* port (psx_headlights): the night's stars in the dark of the sky */
+        const int stars = psx_sky_draw_stars(&sky_draw, NIGHT_STARS_SEED);
+        port_log("psx_sky: stars %d, band rows 0..%d of horizon row %d (bitmap %dx%d), %d columns of land reach the band\n", stars, sky_draw.star_rows,
+                 sky_draw.bitmap.horizon_row, sky_draw.bitmap.width, sky_draw.bitmap.height, sky_draw.star_land_columns);
+    }
 }
 
 /* dawn and dusk: the PS1's own sky (Z<TRACK><A|C>.INF and .PSH) for the race; the day, a missing or unreadable file, or only the INF
@@ -403,6 +407,8 @@ static int class_width, class_scale = 1;
 
 void drive_light_tint(float out[3]) { memcpy(out, tint, sizeof tint); }
 
+int drive_light_night(void) { return night_sky; }
+
 int drive_light_active(void) { return split || tint[0] != 1.0f || tint[1] != 1.0f || tint[2] != 1.0f; }
 
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale)
@@ -429,12 +435,10 @@ void drive_light_dash_ratio(const float ratio[3])
     for (int k = 0; k < 3; k++) dash_ratio[k] = ratio != NULL ? ratio[k] : 1.0f;
 }
 
-/* the dash's art: half the world's tint, as the dawn / dusk base, times the car's light ratio */
+/* the dash's art: half the world's tint (the whole at night), as the dawn / dusk base, times the car's light ratio */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768])
 {
-    uint8_t full[768];
-    psx_tint_palette(palette, tint, full);
-    for (int i = 0; i < 768; i++) out[i] = (uint8_t)((palette[i] + full[i] + 1) / 2);
+    psx_dash_palette(palette, tint, 1, night_sky ? 1 : 2, out);   /* port: the dash is dark with the night; the dials (the HUD's class) are not touched */
     if (dash_ratio[0] == 1.0f && dash_ratio[1] == 1.0f && dash_ratio[2] == 1.0f) return;
     uint8_t base[768];
     memcpy(base, out, sizeof base);

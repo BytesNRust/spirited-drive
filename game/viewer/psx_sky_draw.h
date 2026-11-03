@@ -18,6 +18,7 @@ typedef struct PsxSkyDraw {
     uint8_t *mapped;         /* its pixels (owned) */
     uint8_t mapped_map[256]; /* the smooth map they were made with */
     int mapped_ok;
+    int star_rows, star_land_columns;   /* the last stars' band (rows) and the columns it skipped as land, for the log */
 } PsxSkyDraw;
 
 /* 1 when the sky's bitmap is made (the draw owns its memory), 0 and nothing kept otherwise. */

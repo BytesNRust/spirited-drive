@@ -155,6 +155,49 @@ static void test_stars_take_the_least_used_entries(void)
     psx_sky_draw_free(&d);
 }
 
+/* the stars stay high and clear of the land: none above the horizon's row, none on a hill's or a
+ * building's silhouette (a column whose texels fall to black from some row down), and the sky above one still has them */
+static void test_stars_stay_high_and_off_the_land(void)
+{
+    uint8_t pixels[SW * SH];
+    PsxSkyDraw d;
+    night_sky(&d, pixels);
+    enum { HILL_FROM = 100, HILL_TO = 109, HILL_TOP = 8 };
+    for (int y = HILL_TOP; y < SHORIZON; y++)
+        for (int x = HILL_FROM; x <= HILL_TO; x++) d.bitmap.pixels[y * SW + x] = 0;   /* black land in the dark ramp */
+    uint8_t before[SW * SH];
+    memcpy(before, d.bitmap.pixels, sizeof before);
+    CHECK(psx_sky_draw_stars(&d, 11) > 10);
+    int above_hill = 0;
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++)
+            if (d.bitmap.pixels[y * SW + x] != before[y * SW + x]) {
+                CHECK(y < SHORIZON);                                              /* above the horizon */
+                CHECK(!(x >= HILL_FROM && x <= HILL_TO && y >= HILL_TOP - 1));      /* not on the land, nor the row just over it */
+                above_hill += x >= HILL_FROM && x <= HILL_TO;
+            }
+    CHECK(above_hill >= 0);
+    psx_sky_draw_free(&d);
+}
+
+/* a sky that darkens smoothly to the horizon (the PS1 panoramas' gradient, 97 to 57 and under) is not land: its columns keep their stars, and the count stays
+ * what the old sprinkle gave over the same area */
+static void test_a_gradient_is_not_land(void)
+{
+    uint8_t pixels[SW * SH];
+    PsxSkyDraw d;
+    memset(&d, 0, sizeof d);
+    uint8_t palette[768] = { 0 };
+    for (int i = 0; i < SH; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = (uint8_t)(60 - i);   /* darker as it goes down: 60 .. 29 */
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++) pixels[y * SW + x] = (uint8_t)(y + ((x * 7 + y * 13) % 5 == 0 ? 6 : 0));   /* dithered: a texel in five a few steps darker */
+    FshEntry horizon = { { 0 }, FSH_TYPE_BITMAP, 0, SW, SH, { 0, SHORIZON, 0, 0 }, pixels, SW * SH };
+    psx_sky_draw_make_indexed(&d, &horizon, palette);
+    const int n = psx_sky_draw_stars(&d, 5);
+    CHECK(n > SW * SHORIZON / 400);   /* about a hundredth of the band, not a handful */
+    psx_sky_draw_free(&d);
+}
+
 int main(void)
 {
     test_indexed_and_in_palette();
@@ -163,5 +206,7 @@ int main(void)
     test_stars_in_the_dark_sky();
     test_stars_are_the_seeds_and_thinner_low();
     test_stars_take_the_least_used_entries();
+    test_stars_stay_high_and_off_the_land();
+    test_a_gradient_is_not_land();
     return TEST_REPORT();
 }

@@ -68,7 +68,13 @@ void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
     d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
 }
 
-enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 7 };
+/* the stars go down the sky above its horizon row, thinning toward it (a band of the bitmap's upper rows put none in a PS1 panorama's view, whose 448 rows
+ * show only the lowest ones: TR1), and off the land: a column's silhouette starts at the first row whose
+ * rows (their mean, over STAR_EDGE_ROWS) are under STAR_EDGE_PERCENT of the ones above them: a step, which a gradient darkening to the horizon, dithered or not,
+ * never makes; no star is put on it or the row over it. The density is raised by the band's share
+ * (STAR_TOP_PER_MILLE). */
+enum { STAR_GREYS = 3, STAR_DARK_LUMA = 90, STAR_HORIZON_GAP = 2, STAR_TOP_PER_MILLE = 7, STAR_EDGE_ROWS = 4,
+       STAR_EDGE_PERCENT = 60, STAR_EDGE_FROM_LUMA = 6 };
 static const uint8_t STAR_GREY[STAR_GREYS] = { 110, 170, 235 };
 
 static uint32_t star_hash(uint32_t x, uint32_t y, uint32_t seed)
@@ -120,19 +126,44 @@ static void free_entries(PsxSkyDraw *d, int chosen[STAR_GREYS])
     for (size_t i = 0; i < count; i++) d->bitmap.pixels[i] = into[d->bitmap.pixels[i]];
 }
 
+/* the first row of column x that the land takes (the sky's, from the first row down), or `horizon` when the column has none: the row from which the mean of the
+ * next STAR_EDGE_ROWS rows is under STAR_EDGE_PERCENT of the mean of the STAR_EDGE_ROWS before it (means, so a dithered or noisy gradient is not an edge) */
+static int silhouette_top(const PsxSkyDraw *d, int x, int horizon)
+{
+    const int width = d->bitmap.width;
+    for (int y = STAR_EDGE_ROWS; y + STAR_EDGE_ROWS <= horizon; y++) {
+        int above = 0, below = 0;
+        for (int k = 0; k < STAR_EDGE_ROWS; k++) {
+            above += luma_of(d->bitmap.palette, d->bitmap.pixels[(size_t)(y - 1 - k) * (size_t)width + (size_t)x]);
+            below += luma_of(d->bitmap.palette, d->bitmap.pixels[(size_t)(y + k) * (size_t)width + (size_t)x]);
+        }
+        if (above >= STAR_EDGE_FROM_LUMA * STAR_EDGE_ROWS && below * 100 < above * STAR_EDGE_PERCENT) return y;
+    }
+    return horizon;
+}
+
 int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
 {
     if (!d->ready || d->bitmap.pixels == NULL) return 0;
-    const int width = d->bitmap.width, limit = d->bitmap.horizon_row - STAR_HORIZON_GAP;
-    if (width <= 0 || limit <= 0 || limit > d->bitmap.height) return 0;
+    const int width = d->bitmap.width, horizon = d->bitmap.horizon_row;
+    const int limit = horizon - STAR_HORIZON_GAP;
+    if (width <= 0 || limit <= 0 || horizon > d->bitmap.height) return 0;
     int chosen[STAR_GREYS];
     free_entries(d, chosen);
     for (int k = 0; k < STAR_GREYS; k++)
         for (int c = 0; c < 3; c++) d->bitmap.palette[3 * chosen[k] + c] = STAR_GREY[k];
+    int *const tops = malloc((size_t)width * sizeof *tops);   /* each column's land, found once */
+    if (tops == NULL) return 0;
+    d->star_rows = limit, d->star_land_columns = 0;
+    for (int x = 0; x < width; x++) {
+        tops[x] = silhouette_top(d, x, horizon);
+        if (tops[x] < limit + 1) d->star_land_columns++;
+    }
     int stars = 0;
     for (int y = 0; y < limit; y++) {
         const uint32_t per_mille = 1 + (uint32_t)(STAR_TOP_PER_MILLE * (limit - y) / limit);   /* thinning to the horizon */
         for (int x = 0; x < width; x++) {
+            if (y >= tops[x] - 1) continue;
             uint8_t *texel = &d->bitmap.pixels[(size_t)y * (size_t)width + (size_t)x];
             const uint32_t h = star_hash((uint32_t)x, (uint32_t)y, seed);
             if (h % 1000 >= per_mille || luma_of(d->bitmap.palette, *texel) >= STAR_DARK_LUMA) continue;
@@ -141,6 +172,7 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
             stars++;
         }
     }
+    free(tops);
     d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
     return stars;
 }
