@@ -33,6 +33,37 @@ static void test_level_and_dust(void)
     CHECK(rally_dust_skid(RALLY_GRAVEL_DUST, fast, 1) > rally_dust_skid(RALLY_GRAVEL_DUST, 0x80000, 1));    /* more with speed */
 }
 
+/* the rolling crunch: the exe's gravel sample (0x50) struck on the rolling car, oftener and louder with speed, none off or standing, quieter on the moon */
+static int strikes(int kind, int32_t speed)
+{
+    int n = 0;
+    for (uint32_t r = 0; r < 0x10000; r += 7) n += rally_gravel_crunch(kind, speed, r) > 0;
+    return n;
+}
+
+static void test_crunch(void)
+{
+    const int32_t slow = 0x30000, mid = 0xf0000, fast = 0x1e0000;
+    CHECK_EQ_INT(strikes(RALLY_GRAVEL_OFF, fast), 0);                                   /* the exe's: nothing of ours */
+    CHECK_EQ_INT(strikes(RALLY_GRAVEL_COMPACT, 0x10000), 0);                            /* standing */
+    CHECK_EQ_INT(strikes(RALLY_GRAVEL_COMPACT, -0x10000), 0);
+    CHECK(strikes(RALLY_GRAVEL_COMPACT, slow) > 0);
+    CHECK(strikes(RALLY_GRAVEL_COMPACT, mid) > strikes(RALLY_GRAVEL_COMPACT, slow));    /* oftener with speed */
+    CHECK(strikes(RALLY_GRAVEL_COMPACT, fast) > strikes(RALLY_GRAVEL_COMPACT, mid));
+    CHECK(strikes(RALLY_GRAVEL_COMPACT, fast) * 2 < 0x10000 / 7);                      /* never more than every other step */
+    int32_t seen = 0;
+    for (uint32_t r = 0; r < 0x10000; r++) if (rally_gravel_crunch(RALLY_GRAVEL_COMPACT, fast, r) > seen) seen = rally_gravel_crunch(RALLY_GRAVEL_COMPACT, fast, r);
+    CHECK(seen > 0 && seen <= 0x7f);
+    int32_t vol_slow = 0, vol_fast = 0, vol_moon = 0;
+    for (uint32_t r = 0; r < 0x10000; r++) {
+        if (rally_gravel_crunch(RALLY_GRAVEL_COMPACT, slow, r) > 0) vol_slow = rally_gravel_crunch(RALLY_GRAVEL_COMPACT, slow, r);
+        if (rally_gravel_crunch(RALLY_GRAVEL_COMPACT, fast, r) > 0) vol_fast = rally_gravel_crunch(RALLY_GRAVEL_COMPACT, fast, r);
+        if (rally_gravel_crunch(RALLY_GRAVEL_REGOLITH, fast, r) > 0) vol_moon = rally_gravel_crunch(RALLY_GRAVEL_REGOLITH, fast, r);
+    }
+    CHECK(vol_fast > vol_slow);                                                          /* louder with speed */
+    CHECK(vol_moon < vol_fast);                                                          /* the moon's regolith is quieter */
+}
+
 /* the trail: puffs at the two rear wheels each tick the car throws dust, none when it does not, left where they were dropped, gone at the end of
  * their life; the ring clears on a new race; a long pause leaves a gap, not a burst */
 static int live(const DustTrail *t, int32_t tick, int kind, int lunar)
@@ -109,6 +140,7 @@ int main(void)
 {
     test_kinds();
     test_level_and_dust();
+    test_crunch();
     test_trail();
     test_puff();
     test_catch_up_is_spread();

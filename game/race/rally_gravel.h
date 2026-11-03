@@ -21,6 +21,11 @@ int rally_gravel_kind(int track, int variant_r, int lunar, int enabled);
  * road_noise has it before its limit. */
 int32_t rally_gravel_level(int kind, int32_t level);
 
+/* The rolling crunch: the exe's own gravel sample (race_sound.c's 0x50, a quiet impulsive crunch: the sound bank's one sample of the kind) struck on the rolling car as the exe strikes
+ * it on a track 5 shoulder, at random, but oftener the faster the car goes. `speed` 16.16 metres a second (signed), `rand` 0..0xffff: the volume (1..0x7f) to strike it with this tick,
+ * 0 for none (the switch off, a standing car). The strikes overlap (a fresh voice each), so they run into a roll. */
+int32_t rally_gravel_crunch(int kind, int32_t speed, uint32_t rand);
+
 /* How much dust a car rolling at `speed` (16.16 metres a second) on the ground throws: 0 for none (nonzero drops puffs, see dust_trail.h). Compacted
  * gravel and a standing car throw none here; the exe's own skid marks and smoke are left to the tyres. */
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground);

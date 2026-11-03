@@ -41,6 +41,11 @@ const RaceSoundBankOps *drive_audio_bank_ops(void);
  * here into the driver holds platform_audio_lock. */
 void drive_audio_pump(void);
 
+/* port (dev, env only): TNFS_AUDIO_DUMP in the headless --drive: the driver with no device, every tick's mix written to a WAV (drive_audio.c). 1 when the file opened. */
+int drive_audio_offline_open(RaceState *race, const char *data_root, const char *wav_path);
+void drive_audio_offline_tick(void);
+void drive_audio_offline_close(void);
+
 /* EA's speech queue (game/audio/sound_queue.c, 004c7b60) on the driver: 00492438 its two channels and volume,
  * 004924f8 an EACS file queued (refused, -1, when it is shorter than its header or than the frames it names;
  * the file stays the caller's while it plays), 004925a8 played, 00492620 stopped. The pump runs 00492330 before
