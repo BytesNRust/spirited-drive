@@ -32,6 +32,9 @@ int police_lights_entry(const uint8_t palette[768], int red);
  * set (non-zero), else the palette's nearest entries. (0, 0) forgets them (a race start). */
 void police_lights_set_entries(uint8_t red, uint8_t blue);
 
+/* The entry set aside for the flash's red (red = 1) or blue (0), 0 when there is none. */
+int police_lights_own_entry(int red);
+
 /* `out` (256 bytes): `base` (NULL for the identity) with the four light entries sent to the red and blue entries of `palette` as the phase of `tick` says. */
 void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_t tick, uint8_t out[256]);
 
