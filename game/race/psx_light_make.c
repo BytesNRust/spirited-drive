@@ -302,6 +302,14 @@ int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to)
     return 1;
 }
 
+int psx_light_forest_apply(PsxLight *light, const char *track)
+{
+    uint32_t from, to;
+    if (light == NULL || light->data == NULL || !psx_light_forest_range(track, &from, &to) || to >= light->nodes) return 0;
+    psx_light_forest(light->data, light->nodes, from, to, PSX_LIGHT_FOREST_BAND);
+    return 1;
+}
+
 int psx_light_make(const Tri *tri, int time, PsxLight *out)
 {
     return psx_light_make_lit(tri, time, NULL, 0, out);

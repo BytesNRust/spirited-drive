@@ -310,8 +310,31 @@ static void test_the_forest_is_vertigo_ridges_only(void)
     CHECK(!psx_light_forest_range(NULL, &from, &to));
 }
 
+static void test_the_forest_goes_over_a_loaded_light_in_its_own_node_order(void)
+{
+    uint32_t from = 0, to = 0;
+    CHECK(psx_light_forest_range("TR3", &from, &to));
+    PsxLight cd = { 0 };   /* stands in for a CD's: 1024 nodes of rows, all full */
+    cd.nodes = 1024;
+    cd.data = malloc((size_t)cd.nodes * PSX_LIGHT_POINTS);
+    CHECK(cd.data != NULL);
+    memset(cd.data, 255, (size_t)cd.nodes * PSX_LIGHT_POINTS);
+    CHECK(!psx_light_forest_apply(&cd, "TR1"));
+    CHECK_EQ_INT(cd.data[(from + 4) * PSX_LIGHT_POINTS], 255);   /* another track: untouched */
+    CHECK(psx_light_forest_apply(&cd, "TR3"));
+    CHECK(cd.data[(from + 4) * PSX_LIGHT_POINTS] < cd.data[(from + 12) * PSX_LIGHT_POINTS]);   /* the darker band, then the dark one */
+    CHECK(cd.data[(from + 12) * PSX_LIGHT_POINTS] < 255);
+    CHECK_EQ_INT(cd.data[(from - 1) * PSX_LIGHT_POINTS], 255);
+    CHECK_EQ_INT(cd.data[(to + 1) * PSX_LIGHT_POINTS], 255);
+    cd.nodes = 500;   /* a light that does not reach the forest: nothing */
+    CHECK(!psx_light_forest_apply(&cd, "TR3"));
+    CHECK(!psx_light_forest_apply(NULL, "TR3"));
+    free(cd.data);
+}
+
 int main(void)
 {
+    test_the_forest_goes_over_a_loaded_light_in_its_own_node_order();
     test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be();
     test_a_forest_darkens_what_is_already_dark_less_than_a_proportion();
     test_the_forest_is_vertigo_ridges_only();
