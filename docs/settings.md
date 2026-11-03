@@ -1,6 +1,6 @@
 # Settings reference: port.cfg, extras.cfg and the profiles
 
-Every key the port reads from its two files, its default, the value that reproduces the exe, its range, where a menu shows it, its `TNFS_*` variable, and what each profile sets. Read from `game/sys/port_settings.{c,h}`, `game/sys/port_extras.{c,h}`, `game/sys/port_profile.c` (`TABLES`) and the menus in `game/frontend/`, at `origin/combo/c44` (17516708). Every key added to the port since (`police_glow`, `radar_all_views`, `tach_dim`, `gauge_wheel`, `replay_no_ffb`, `last_camera`/`camera_kind`, `sky_fill_below`, `chase_height`, `lamp_pool_tint`, `trans_shadows`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`) is in the tables, with its value in each profile; a key that is in no profile column says "not set".
+Every key the port reads from its two files, its default, the value that reproduces the exe, its range, where a menu shows it, its `TNFS_*` variable, and what each profile sets. Read from `game/sys/port_settings.{c,h}`, `game/sys/port_extras.{c,h}`, `game/sys/port_profile.c` (`TABLES`) and the menus in `game/frontend/`, at `feat/restomod-profile-i073-i074` on `origin/combo/c44` (the six lights keys are in `TABLES` there). Every key added to the port since (`police_glow`, `radar_all_views`, `tach_dim`, `gauge_wheel`, `replay_no_ffb`, `last_camera`/`camera_kind`, `sky_fill_below`, `chase_height`, `lamp_pool_tint`, `trans_shadows`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`) is in the tables, with its value in each profile; a key that is in no profile column says "not set" (`camera_kind` and the player's own matters below).
 
 Both files are plain `key=value` lines in the user folder. An unknown key, or a value out of range, is ignored (the default stays). A key in `port.cfg` wins over the same key in `extras.cfg`.
 
@@ -60,13 +60,13 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `night_stretch_clean` | 0 | 0 | 0, 1 (a star is not carried up as a stripe) | none | `TNFS_NIGHT_STRETCH_CLEAN` | 0 / 0 / 1 | `sky_fill`, night |
 | `forest_dark` | 0 | 0 | 0, 1 (Vertigo Ridge's forest before the finish alternates two dark tones) | none | `TNFS_FOREST_DARK` | 0 / 0 / 1 | `psx_light` |
 | `made_tunnels` | 0 | 0 | 0, 1 (made-light tracks take their tunnels from the road's property bit) | none | `TNFS_MADE_TUNNELS` | 0 / 0 / 1 | `psx_light`, TR6/TR7 |
-| `car_tunnel_light` | 0 | 0 | 0, 1 (the car's light in a made-light tunnel is the tunnel's alone, with a ramp at the mouths) | none | `TNFS_CAR_TUNNEL_LIGHT` | not set | `psx_light`, `made_tunnels` |
+| `car_tunnel_light` | 0 | 0 | 0, 1 (the car's light in a made-light tunnel is the tunnel's alone, with a ramp at the mouths) | none | `TNFS_CAR_TUNNEL_LIGHT` | 0 / 0 / 1 | `psx_light`, `made_tunnels` |
 | `hall_light` | 0 | 0 | 0, 1 (TR7's foundry hall lights the car and its shadow with the scenery's light) | none | `TNFS_HALL_LIGHT` | 0 / 0 / 1 | `psx_light`, TR7 |
 | `headlight_relight` | 0 | 0 | 0, 1 (the night pools' light is asked again every frame) | none | `TNFS_HEADLIGHT_RELIGHT` | 0 / 0 / 1 | `psx_headlights` |
-| `vegas_car_night` | 0 | 0 | 0, 1 (Lost Vegas' made night takes the darker tint under the CD nights' ceiling) | none | `TNFS_VEGAS_CAR_NIGHT` | not set | `psx_light`, night |
-| `rally_gravel_shoulder` | 0 | 0 | 0, 1 (the rolling gravel's one-shot is the shoulder's own, about one a second) | none | `TNFS_RALLY_GRAVEL_SHOULDER` | not set | extras `rally_gravel` |
-| `lamp_pool_tint` | 0 | 0 | 0, 1 (the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool) | none | `TNFS_LAMP_POOL_TINT` | not set | `psx_headlights` |
-| `trans_shadows` | 0 | 0 | 0, 1 (Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge) | none | `TNFS_TRANS_SHADOWS` | not set | `psx_light` |
+| `vegas_car_night` | 0 | 0 | 0, 1 (Lost Vegas' made night takes the darker tint under the CD nights' ceiling) | none | `TNFS_VEGAS_CAR_NIGHT` | 0 / 0 / 1 | `psx_light`, night |
+| `rally_gravel_shoulder` | 0 | 0 | 0, 1 (the rolling gravel's one-shot is the shoulder's own, about one a second) | none | `TNFS_RALLY_GRAVEL_SHOULDER` | 0 / 0 / 1 | extras `rally_gravel` |
+| `lamp_pool_tint` | 0 | 0 | 0, 1 (the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool) | none | `TNFS_LAMP_POOL_TINT` | 0 / 0 / 1 | `psx_headlights` |
+| `trans_shadows` | 0 | 0 | 0, 1 (Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge) | none | `TNFS_TRANS_SHADOWS` | 0 / 0 / 1 | `psx_light` |
 
 ### Dash, cameras and replay
 
@@ -76,7 +76,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `tach_dim` | 0 | 0 | 0, 1 (the outside views' tachometer takes the dash's half tint) | none | `TNFS_TACH_DIM` | 0 / 0 / 1 |
 | `gauge_wheel` | 0 | 0 | 0, 1 (at night the wheel in front of the gauges takes the dash's half tint) | none | `TNFS_GAUGE_WHEEL` | 0 / 0 / 1 |
 | `replay_no_ffb` | 0 | 0 | 0, 1 (a replay leaves the force-feedback stick and the pad's rumble still) | none | `TNFS_REPLAY_NO_FFB` | 0 / 0 / 1 |
-| `chase_height` | 0 | 0 | 0, 1 (the chase eye behind the car keeps the flat chase's height above the road on a climb or a descent; acts only with extras `follow_camera`) | none | `TNFS_CHASE_HEIGHT` | not set |
+| `chase_height` | 0 | 0 | 0, 1 (the chase eye behind the car keeps the flat chase's height above the road on a climb or a descent; acts only with extras `follow_camera`) | none | `TNFS_CHASE_HEIGHT` | 0 / 0 / 1 |
 | `last_camera` | 0 | 0 (a race starts in the dash) | 0, 1 (a race starts in the last camera used) | none | `TNFS_LAST_CAMERA` | 0 / 0 / 1 |
 | `camera_kind` | -1 | -1 | -1 (none yet), 0..5 | none; the game writes it, read only with `last_camera` | none | not set |
 
@@ -132,7 +132,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 36 columns of the table, in file order. A column that is not here is not touched by any profile. "file" is the file the key is written to.
+All 42 columns of the table, in file order. A column that is not here is not touched by any profile. "file" is the file the key is written to.
 
 | column | file | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -172,8 +172,14 @@ All 36 columns of the table, in file order. A column that is not here is not tou
 | `tach_dim` | port.cfg | 0 | 0 | 1 |
 | `gauge_wheel` | port.cfg | 0 | 0 | 1 |
 | `police_glow` | port.cfg | 0 | 0 | 1 |
+| `car_tunnel_light` | port.cfg | 0 | 0 | 1 |
+| `vegas_car_night` | port.cfg | 0 | 0 | 1 |
+| `rally_gravel_shoulder` | port.cfg | 0 | 0 | 1 |
+| `chase_height` | port.cfg | 0 | 0 | 1 |
+| `lamp_pool_tint` | port.cfg | 0 | 0 | 1 |
+| `trans_shadows` | port.cfg | 0 | 0 | 1 |
 
-The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `port_profile_ui`, `camera_kind`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`. `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`, `chase_height`, `lamp_pool_tint` and `trans_shadows` are the six newer port.cfg keys that are in no profile column. Each is gated on a key a profile does set (`psx_light`, `made_tunnels`, `psx_headlights`, `rally_gravel`, `follow_camera`), so in Restomod they are on only if the player turns them on: decide whether Restomod should turn them on.
+The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `port_profile_ui`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 
 ## Development-only variables
 
