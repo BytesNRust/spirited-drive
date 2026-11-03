@@ -65,10 +65,24 @@ static void test_a_clock_held_at_zero_drops_the_jolt(void)
     CHECK_EQ_INT(tones, 0);
 }
 
+/* port (replay_no_ffb): the stick stays still in a replay with the flag on, and only then */
+static void test_a_replay_is_silent_only_with_the_flag(void)
+{
+    RaceState race;
+    memset(&race, 0, sizeof race);
+    CHECK_EQ_INT(race_forces_replay_silent(&race, 1), 0);   /* a live race shakes */
+    CHECK_EQ_INT(race_forces_replay_silent(&race, 0), 0);
+    race.replay = 1;
+    CHECK_EQ_INT(race_forces_replay_silent(&race, 1), 1);
+    CHECK_EQ_INT(race_forces_replay_silent(&race, 0), 0);   /* the exe's: a replay shakes as well */
+    CHECK_EQ_INT(race_forces_replay_silent(NULL, 1), 0);
+}
+
 int main(void)
 {
     test_a_jolt_past_the_window_goes_through();
     test_jolts_go_through_without_the_cheat();
     test_a_clock_held_at_zero_drops_the_jolt();
+    test_a_replay_is_silent_only_with_the_flag();
     return TEST_REPORT();
 }

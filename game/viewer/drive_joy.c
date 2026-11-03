@@ -4,6 +4,7 @@
 #include "platform/platform.h"
 #include "game/frontend/save_files.h"
 #include "game/race/race_forces.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/joy_calibrate.h"
 #include "game/sys/joy_pad.h"
 #include "game/sys/resource.h"
@@ -16,6 +17,10 @@ static JoyState joy;
 static JoyStart start;
 static RaceForces forces;
 static bool started, forces_open;
+static const RaceState *quiet_race;   /* port (replay_no_ffb): the race whose replay leaves the stick still */
+static int replay_no_ffb;
+
+static bool quiet(void) { return race_forces_replay_silent(quiet_race, replay_no_ffb) != 0; }
 
 static int32_t joy_read(void *ctx, int32_t device, uint32_t *buttons, int32_t axis[JOY_AXES])
 {
@@ -90,12 +95,14 @@ void drive_joy_pad_read(InputPad *pad)
 static void jolt_tone(void *user, int32_t strength, int32_t direction, int32_t ms)
 {
     (void)user;
+    if (quiet()) return;
     platform_forces_jolt(strength, direction, ms);
 }
 
 static void buffet(void *user, int32_t speed, int32_t kick)
 {
     (void)speed, (void)kick;
+    if (quiet()) return;
     race_buffet(user, 1);
 }
 
@@ -106,12 +113,17 @@ static void jolt(void *user, int32_t car_a, int32_t car_b, int32_t x, int32_t y,
     race_jolt(&forces, race->start_clock, race->viewed, race->cars[car_a]->player, x, impulse, &race->sounds);
 }
 
-static void vector(void *user, int32_t x, int32_t y) { (void)user; platform_forces_vector(x, y); }
+static void vector(void *user, int32_t x, int32_t y)
+{
+    (void)user;
+    if (!quiet()) platform_forces_vector(x, y);
+}
 static void release(void *user) { race_buffet(user, 0); }
 
 static void vibration(void *user, int32_t axis, int32_t a, int32_t b, int32_t c)
 {
     (void)user;
+    if (quiet()) return;
     platform_forces_vibration(axis, a, b, c);
 }
 
@@ -119,10 +131,16 @@ static void vibration_clear(void *user, int32_t axis) { (void)user; platform_for
 static void enable(void *user) { (void)user; platform_forces_enable(true); }
 static void disable(void *user) { (void)user; platform_forces_enable(false); }
 static void clear(void *user) { (void)user; platform_forces_clear(); }
-static void buffeting(void *user, int32_t level) { (void)user; platform_forces_buffeting(level); }
+static void buffeting(void *user, int32_t level)
+{
+    (void)user;
+    if (!quiet()) platform_forces_buffeting(level);
+}
 
 void drive_joy_install(RaceState *race)
 {
+    quiet_race = race;
+    replay_no_ffb = port_replay_no_ffb();
     race->effects = forces_open ? 1 : 0;
     if (!forces_open) return;
     race->sounds.tone = jolt_tone;

@@ -27,4 +27,7 @@ void race_jolt(RaceForces *f, int32_t clock, int32_t viewed, int32_t player_a, i
  * The race's buffet op is it with 1, force_release with 0. */
 void race_buffet(RaceState *race, int32_t on);
 
+/* port (replay_no_ffb): 1 when the stick stays still: the flag is on and the race is a replay (race->replay). The exe shakes it in a replay as in a race. */
+int race_forces_replay_silent(const RaceState *race, int replay_no_ffb);
+
 #endif

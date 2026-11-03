@@ -32,3 +32,6 @@ void race_buffet(RaceState *race, int32_t on)
         if (race->sounds.buffeting != NULL) race->sounds.buffeting(race->sounds.user, BUFFETING);
     }
 }
+
+/* port (replay_no_ffb) */
+int race_forces_replay_silent(const RaceState *race, int replay_no_ffb) { return replay_no_ffb != 0 && race != NULL && race->replay != 0; }
