@@ -77,6 +77,8 @@ static int transparent(const FshEntry *texture)
  * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
  * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
+static uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];   /* port (lamp_pool_tint): the tables of a street lamp's pool, by class: the lit ones with a warm tint, the more the nearer the lamp */
+static int pool_ready;
 static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
 static int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
@@ -200,6 +202,14 @@ static int lamp_of(const FshEntry *texture)
     return -1;
 }
 
+/* the tables of the polygon being drawn: a tunnel's (track_light_tunnel 1), a lamp pool's (2..5), the road's */
+static uint8_t (*light_tables(void))[256]
+{
+    if (track_light_tunnel == 1) return tunnel_tables;
+    if (track_light_tunnel >= 2 && pool_ready) return pool_tables[(track_light_tunnel - 2) & 3];
+    return track_light_tunnel ? tunnel_tables : lit_tables;
+}
+
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
 {
     const int lamp = lamp_of(texture);
@@ -207,7 +217,7 @@ static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
         if (street_bitmap[i] != NULL && texture == street_bitmap[i]) return street_tables;
     for (int i = 0; i < window_count; i++)
         if (window_bitmap[i] != NULL && texture == window_bitmap[i]) return window_tables;
-    return lamp >= 0 ? lamp_tables[lamp] : track_light_tunnel ? tunnel_tables : lit_tables;
+    return lamp >= 0 ? lamp_tables[lamp] : light_tables();
 }
 
 static const uint8_t *lit_table_for(const FshEntry *texture)
@@ -215,7 +225,7 @@ static const uint8_t *lit_table_for(const FshEntry *texture)
     return lit_active && (lit_level > 0 || lit_tinted) ? lit_tables_for(texture)[lit_level] : NULL;
 }
 
-static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? (track_light_tunnel ? tunnel_tables : lit_tables)[lit_level] : NULL; }
+static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? light_tables()[lit_level] : NULL; }
 
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
@@ -1699,11 +1709,22 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
             tunnel_tint[0] = tunnel_tint[1] = tunnel_tint[2] = gain;
         }
         static float made_tunnel_tint[3];
-        if (!made || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0) {
+        static int made_pool;
+        const int has_pool = psx_light->pool_class != NULL;
+        if (!made || made_pool != has_pool || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
             memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
             if (cast) modern_tunnel_tables(art->palette, tunnel_tint, TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
             else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
+            if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
+                static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
+                for (int k = 0; k < 4; k++) {
+                    float tint[3];
+                    for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
+                    modern_light_tables(art->palette, tint, pool_tables[k]);
+                }
+            }
+            pool_ready = has_pool, made_pool = has_pool;
             memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
         }
         for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */

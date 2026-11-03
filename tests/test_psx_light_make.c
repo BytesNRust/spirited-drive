@@ -232,6 +232,30 @@ static void test_a_lamp_beside_the_closing_node_lights_across_it_on_a_ring(void)
     CHECK(memcmp(open, base, sizeof open) == 0);
 }
 
+/* lamp_pool_tint: the class of a node is how strong its lamp's pool is, 4 under the lamp down to 0 beyond the reach, the strongest of two lamps, ring and stage as the pools' */
+static void test_lamp_classes_follow_the_pool(void)
+{
+    uint8_t c[NODES];
+    const uint32_t lamps[] = { 20, 24 };
+    psx_light_lamp_classes(c, NODES, 0, lamps, 2);
+    CHECK_EQ_INT(c[20], 4);
+    CHECK(c[23] >= c[21] || c[22] >= c[21]);          /* between two lamps the nearer one's class */
+    CHECK(c[17] < c[20] && c[17] > 0);                /* fading off */
+    CHECK_EQ_INT(c[5], 0);                            /* far off: none */
+    const uint32_t edge[] = { NODES - 1 };
+    psx_light_lamp_classes(c, NODES, 1, edge, 1);
+    CHECK(c[1] > 0);                                  /* a ring wraps */
+    psx_light_lamp_classes(c, NODES, 0, edge, 1);
+    CHECK_EQ_INT(c[1], 0);                            /* a stage does not */
+    PsxLight light = { 0 };
+    light.nodes = NODES;
+    light.pool_class = c;
+    c[7] = 3;
+    CHECK_EQ_INT(psx_light_tunnel_class(&light, 7), 4);   /* a pool: class + 1 */
+    CHECK_EQ_INT(psx_light_tunnel_class(&light, 8), 0);
+    light.pool_class = NULL;
+}
+
 /* the override file: `node_from node_to point_from point_to value` lines, # comments, applied last */
 static void test_the_override_text_is_read(void)
 {
@@ -334,6 +358,7 @@ static void test_the_forest_goes_over_a_loaded_light_in_its_own_node_order(void)
 
 int main(void)
 {
+    test_lamp_classes_follow_the_pool();
     test_the_forest_goes_over_a_loaded_light_in_its_own_node_order();
     test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be();
     test_a_forest_darkens_what_is_already_dark_less_than_a_proportion();

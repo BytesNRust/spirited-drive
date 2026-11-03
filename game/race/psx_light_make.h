@@ -56,6 +56,10 @@ int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time,
 enum { PSX_LIGHT_LAMP_REACH = 6 };
 void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n);
 
+/* port (lamp_pool_tint): how strong the lamps' pool is at each of `count` nodes, 0 (none) .. 4 (under a lamp), into `out`: the pool's own weight (the one psx_light_add_lamps lifts the
+ * terrain by) in four steps, the strongest of the lamps' near. */
+void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n);
+
 /* An override: nodes node_from..node_to and points point_from..point_to (0..10) get `value` (0..255, put in the 16 levels). The per-track text file, one rule a line:
  * `node_from node_to point_from point_to value`, `#` starts a comment, a bad line is skipped. A rule's nodes past the track are ignored when applied. */
 typedef struct {
