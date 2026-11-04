@@ -39,6 +39,28 @@ static void test_every_lod_every_vertex(void)
     track_wall_set_inner(0);
 }
 
+static void test_rows_read_as_forward_only_on_a_reversed_circuit_with_the_option(void)
+{
+    track_wall_set_inner(0), track_wall_set_rows(1);
+    CHECK_EQ_INT(track_wall_point(3), 3);                  /* forward circuit: untouched */
+    CHECK_EQ_INT(track_wall_strip(2), 2);
+    CHECK_EQ_INT(track_wall_fence(0xC5), 0xC5);
+    track_wall_set_inner(1), track_wall_set_rows(0);
+    CHECK_EQ_INT(track_wall_point(3), 3);                  /* option off: the swapped rows as the exe's reverse has them */
+    CHECK_EQ_INT(track_wall_strip(2), 2);
+    track_wall_set_rows(1);
+    CHECK_EQ_INT(track_wall_point(0), 0);
+    CHECK_EQ_INT(track_wall_point(1), 6);                  /* a chain point is read from the other chain */
+    CHECK_EQ_INT(track_wall_point(5), 10);
+    CHECK_EQ_INT(track_wall_point(8), 3);
+    CHECK_EQ_INT(track_wall_strip(2), 7);                  /* and the strip is the other side's */
+    CHECK_EQ_INT(track_wall_strip(9), 4);
+    CHECK_EQ_INT(track_wall_fence(0x80 | 0x05), 0x40 | 0x05);   /* the fence bits go back to their sides, the texture bits stay */
+    CHECK_EQ_INT(track_wall_fence(0xC1), 0xC1);
+    CHECK(track_wall_lod(25) == &TRACK_LODS[25]);          /* the LOD's own fence pairs */
+    track_wall_set_inner(0), track_wall_set_rows(0);
+}
+
 int main(void)
 {
     for (int n = 0; n < TRACK_LOD_COUNT; n++) {
@@ -53,5 +75,6 @@ int main(void)
         CHECK(memcmp(inner->select, lod->select, sizeof lod->select) == 0);
     }
     test_every_lod_every_vertex();
+    test_rows_read_as_forward_only_on_a_reversed_circuit_with_the_option();
     return TEST_REPORT();
 }

@@ -43,14 +43,27 @@ static uint8_t same_row_vertex(const TrackLod *lod, uint8_t vertex, int want)
 
 static int reversed;
 
+static int rows_as_forward;
+enum { STRIP_HALF = 5, STRIPS = 10, FENCE_BIT_RIGHT = 0x80, FENCE_BIT_LEFT = 0x40 };
+
 void track_wall_set_inner(int inner) { reversed = inner != 0; }
+void track_wall_set_rows(int on) { rows_as_forward = on != 0; }
+
+static int forward_rows(void) { return rows_as_forward && reversed; }
+int track_wall_point(int point) { return forward_rows() ? turned(point) : point; }
+int track_wall_strip(int strip) { return forward_rows() ? (strip + STRIP_HALF) % STRIPS : strip; }
+uint8_t track_wall_fence(uint8_t fence)
+{
+    if (!forward_rows()) return fence;
+    return (uint8_t)((fence & ~(FENCE_BIT_RIGHT | FENCE_BIT_LEFT)) | ((fence & FENCE_BIT_RIGHT) ? FENCE_BIT_LEFT : 0) | ((fence & FENCE_BIT_LEFT) ? FENCE_BIT_RIGHT : 0));
+}
 
 const TrackLod *track_wall_lod(int lod)
 {
     static TrackLod inner_lods[TRACK_LOD_COUNT];
     static int built;
     if (lod < 0 || lod >= TRACK_LOD_COUNT) lod = 0;
-    if (!reversed) return &TRACK_LODS[lod];
+    if (!reversed || rows_as_forward) return &TRACK_LODS[lod];   /* forward rows: the exe's own fence pairs */
     if (!built) {
         for (int n = 0; n < TRACK_LOD_COUNT; n++) {
             inner_lods[n] = TRACK_LODS[n];
