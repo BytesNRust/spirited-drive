@@ -147,8 +147,33 @@ static void test_rain_cone_lights_the_drops(void)
     CHECK(weather_rain_level_fog(0) < weather_rain_level_fog(1) && weather_rain_level_fog(2) < weather_rain_level_fog(3));
 }
 
+/* rain_fx: the spray's plume */
+static void test_rain_spray_plume(void)
+{
+    int32_t rel[3], size, far_slow = 0, far_fast = 0;
+    CHECK_EQ_INT(weather_rain_spray_puff(3, 1, 10, 5 << 16, 1, rel, &size), 0);    /* under 8 m/s: none */
+    CHECK_EQ_INT(size, 0);
+    CHECK_EQ_INT(weather_rain_spray_puff(3, 1, 10, 30 << 16, 0, rel, &size), 0);   /* in the air or on the shoulder: none */
+    CHECK_EQ_INT(weather_rain_spray_puff(WEATHER_SPRAY_PUFFS, 1, 10, 30 << 16, 1, rel, &size), 0);
+    int live = 0;
+    for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++) {
+        int32_t a[3], b[3], sa, sb;
+        const int ra = weather_rain_spray_puff(k, -1, 77, 30 << 16, 1, a, &sa), rb = weather_rain_spray_puff(k, -1, 77, 30 << 16, 1, b, &sb);
+        CHECK(ra == rb && sa == sb && memcmp(a, b, sizeof a) == 0);                  /* a pure function */
+        if (ra) live++;
+        CHECK(a[0] > 0);                                                            /* behind the wheel */
+        CHECK(a[1] < 0);                                                            /* the left wheel's puffs go out to the left */
+        int32_t s2[3], z2;
+        weather_rain_spray_puff(k, -1, 77, 15 << 16, 1, s2, &z2);
+        if (k == WEATHER_SPRAY_PUFFS - 1) far_slow = s2[0], far_fast = a[0];
+    }
+    CHECK(live >= WEATHER_SPRAY_PUFFS - 2);
+    CHECK(far_fast > far_slow);                                                     /* the plume is longer the faster */
+}
+
 int main(void)
 {
+    test_rain_spray_plume();
     test_rain_spokes_follow_the_speed();
     test_rain_cone_lights_the_drops();
     test_fog_curve_default();

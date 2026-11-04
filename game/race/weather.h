@@ -63,6 +63,16 @@ int weather_rain_width(int scale);   /* pixels across */
 enum { WEATHER_SPOKE_FULL = 40, WEATHER_RAIN_LEVELS = 4, WEATHER_RAIN_DAY_LEVEL = 2 };
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level);
 
+/* port (rain_fx): the spray a car at `speed` (16.16 m/s) throws from each rear wheel: WEATHER_SPRAY_PUFFS puffs per wheel strung out behind it, a plume that hangs in the
+ * air behind the car as it goes (not left where they were dropped: a chase camera would drive through them). Puff `k` of the wheel on `side` (-1 left, 1 right) at `tick`:
+ * `out` its place relative to the wheel in 16.16 metres { behind, to the side (outward), up } and `*size` (0x100 a standard puff, 0 none). It has none below 8 m/s, on the
+ * shoulder or in the air (`wet_road` 0). The plume lengthens with the speed and thins out along its length; the same arguments give the same puff. */
+enum { WEATHER_SPRAY_PUFFS = 22 };
+int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size);
+
+/* The brightness level (0..WEATHER_RAIN_LEVELS - 1) a spray puff is drawn at: by day white, at night a mid level (it lies behind the car, outside the headlights' cone). */
+int weather_rain_spray_level(int night);
+
 /* The fog level (of the 16) of each brightness level's table, from dark to white. */
 int weather_rain_level_fog(int level);
 

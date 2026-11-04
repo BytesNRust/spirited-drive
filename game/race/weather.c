@@ -168,3 +168,28 @@ void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, i
     }
     *level = l;
 }
+
+int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size)
+{
+    const int64_t v = speed < 0 ? -(int64_t)speed : speed;
+    const float metres = (float)(v >> 16);
+    *size = 0;
+    if (!wet_road || metres < 8.0f || k < 0 || k >= WEATHER_SPRAY_PUFFS) return 0;
+    const uint32_t h = hash((uint32_t)k * 2u + (side > 0 ? 1u : 0u), 7u + tick);
+    const float jitter = (float)(h & 0xff) / 255.0f - 0.5f, jitter2 = (float)((h >> 8) & 0xff) / 255.0f - 0.5f;
+    const float reach = clampf(metres / 30.0f, 0.4f, 1.6f);                  /* the plume's length grows with the speed */
+    const float t = (float)k / (float)(WEATHER_SPRAY_PUFFS - 1);            /* 0 at the wheel .. 1 at the plume's end */
+    const float behind = 0.3f + 2.4f * reach * t + jitter * 0.3f;   /* a chase camera sits only a few metres behind: a plume longer than that is behind the lens */
+    const float sideways = (float)side * (0.3f + 1.6f * t) + jitter2 * 0.4f;
+    const float up = 0.2f + 1.2f * t + jitter * 0.2f;
+    out[0] = (int32_t)(behind * 65536.0f), out[1] = (int32_t)(sideways * 65536.0f), out[2] = (int32_t)(up * 65536.0f);
+    const float grow = 0.5f + 1.1f * t, thin = 1.0f - t * t * 0.85f;           /* swells, then thins out */
+    const float speedy = clampf(metres / 40.0f, 0.5f, 1.0f);
+    *size = (int32_t)(256.0f * grow * thin * speedy);
+    return *size > 0;
+}
+
+int weather_rain_spray_level(int night)
+{
+    return night ? 1 : WEATHER_RAIN_LEVELS - 1;
+}
