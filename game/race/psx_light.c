@@ -144,8 +144,13 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point)
     const uint8_t v = light_at(light, node, point);
     if (light == NULL || light->pool == NULL) return v;
     if (!psx_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node)) {
-        const int gain = headlight_pool_gain(light->pool, node);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
-        const uint8_t open = headlight_pool_apply(v, HEADLIGHT_FLOOR + (gain - HEADLIGHT_FLOOR) * headlight_pool_width(point) / 256);
+        int gain = headlight_pool_gain(light->pool, node);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
+        int floor = HEADLIGHT_FLOOR;
+        if (light->night_lift > 0) {   /* port (city_lift, vegas_lift): the dark of the open night is less deep, a lit pool keeps its full light */
+            floor += (256 - floor) * light->night_lift / 256;
+            if (gain < floor) gain = floor;
+        }
+        const uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * headlight_pool_width(point) / 256);
         if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (tunnel_headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * headlight_pool_beam(light->pool, node) / 256;
             return hall_lit > open ? (uint8_t)hall_lit : open;
