@@ -6,7 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-enum { MAX_GRID = 6, SPREAD = 24, WIDE_M = 8 };
+enum { MAX_GRID = 12, SPREAD = 24, WIDE_M = 8 };
+static int grid_cap(void)
+{
+    static int cap;
+    if (cap == 0) { const char *e = getenv("TNFS_CELL_GRID"); cap = e != NULL ? atoi(e) : 6; if (cap < 2 || cap > MAX_GRID) cap = 6; }   /* dev: the grid's largest side */
+    return cap;
+}
+static int dbg(void) { static int d = -1; if (d < 0) d = getenv("TNFS_CELL_STATS") != NULL; return d; }
 static long cells_drawn, polygons_drawn;
 static int stats_registered;
 
@@ -36,16 +43,27 @@ int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *textu
         if (lift[k] < lo) lo = lift[k];
         if (lift[k] > hi) hi = lift[k];
     }
+    /* a polygon bigger than the patch can have the beam inside and none at its corners: its edges' middles and its centre count too */
+    for (int k = 0; k < 5; k++) {
+        const double x = k < 4 ? (xz[k][0] + xz[(k + 1) % 4][0]) / 2 : (xz[0][0] + xz[1][0] + xz[2][0] + xz[3][0]) / 4;
+        const double z = k < 4 ? (xz[k][1] + xz[(k + 1) % 4][1]) / 2 : (xz[0][1] + xz[1][1] + xz[2][1] + xz[3][1]) / 4;
+        const int l = headlight_pool_lift_xz(light->pool, x, z);
+        if (l > hi) hi = l;
+    }
     double extent = 0;
     for (int k = 0; k < 4; k++) {
         const double d = hypot(xz[k][0] - xz[(k + 1) % 4][0], xz[k][1] - xz[(k + 1) % 4][1]);
         if (d > extent) extent = d;
     }
     /* the polygon is fine as it is when the beam does not touch it, or is the same all over it, or is small */
-    if ((hi == 0 && lo == 0) || (hi - lo < SPREAD && extent < WIDE_M) || extent < 3.0) return 0;
+    if ((hi == 0 && lo == 0) || (hi - lo < SPREAD && extent < WIDE_M) || extent < 3.0) {
+        if (dbg()) fprintf(stderr, "CELL skip lift %d..%d extent %.1f\n", lo, hi, extent);
+        return 0;
+    }
     int n = (int)ceil(extent / 4.0);
     if (n < 2) n = 2;
-    if (n > MAX_GRID) n = MAX_GRID;
+    if (n > grid_cap()) n = grid_cap();
+    if (dbg()) fprintf(stderr, "CELL draw n=%d lift %d..%d extent %.1f\n", n, lo, hi, extent);
     /* the open night's gain at each corner, to take the row's own byte back out of the light the corner carries */
     double base[4];
     for (int k = 0; k < 4; k++) base[k] = corner[k] * 256.0 / psx_light_open_gain(light, lift[k]);
