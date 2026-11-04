@@ -226,11 +226,7 @@ static int32_t road_noise(RaceState *race, const Car *car)
         e->pitch = 0x5e;
         /* and the exe's own gravel sample struck on the rolling car (rally_gravel_crunch): the road voice alone is sample 0x29, the same low murmur the asphalt has */
         if (race->port_rally_shoulder_sound != 0) {
-            /* port (rally_gravel_shoulder): the shoulder's own strike, the same sample at the same pitch, random volume and side and about one a second, nothing faster or doubled */
-            const int32_t volume = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
-            const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
-            if ((int16_t)(((race_rand(race) & 0xffffu) * 0x1eu) >> 16) == 0)
-                race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, PAN_CENTRE, volume, pan);
+            /* port (rally_gravel_shoulder): the shoulder's own tyre sound carries the roll (race_sound_tyres), so no strike of the 0x50 sample here */
             return at_most(level, LEVEL_MAX);
         }
         const int32_t crunch = rally_gravel_crunch(race->port_rally_gravel, car->speed, race_rand(race) & 0xffffu);
@@ -620,11 +616,19 @@ void race_sound_tyres(RaceState *race)
         byte = race->surfaces[(uint32_t)car->surface < RACE_SURFACES ? car->surface : 0].off_road == 0  /* port guard */
             ? TYRE_ON_ROAD : TYRE_OFF_ROAD;
     }
+    int32_t front = car->skid_front, rear = car->skid_rear;
+    if (race->port_rally_gravel != 0 && race->port_rally_shoulder_sound != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0) {
+        /* port (rally_gravel_shoulder): the rolling rally gravel scrubs as the shoulder does: the same tyre sound, its off-road variant, fed by speed */
+        const int on_ground = car->airborne_ticks == 0;
+        front = rally_gravel_tyre_skid(race->port_rally_gravel, car->speed, front, on_ground);
+        rear = rally_gravel_tyre_skid(race->port_rally_gravel, car->speed, rear, on_ground);
+        if (on_ground && (front != car->skid_front || rear != car->skid_rear)) byte = TYRE_OFF_ROAD;
+    }
     if (race->unknown_4bc6f0 != 0) {
-        if (tyre_heard(race, TYRE_FRONT_CHANNEL, car->skid_front))
-            race_sound_effect(race, TYRE_FRONT_CHANNEL, sound, byte, car->skid_front, x_add(distance, 1), angle);
-        if (tyre_heard(race, TYRE_REAR_CHANNEL, car->skid_rear))
-            race_sound_effect(race, TYRE_REAR_CHANNEL, sound, byte, car->skid_rear, x_add(rear_distance, 1), rear_angle);
+        if (tyre_heard(race, TYRE_FRONT_CHANNEL, front))
+            race_sound_effect(race, TYRE_FRONT_CHANNEL, sound, byte, front, x_add(distance, 1), angle);
+        if (tyre_heard(race, TYRE_REAR_CHANNEL, rear))
+            race_sound_effect(race, TYRE_REAR_CHANNEL, sound, byte, rear, x_add(rear_distance, 1), rear_angle);
     } else {
         race->car_sound_ticks = 0;
     }
