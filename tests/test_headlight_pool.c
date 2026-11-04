@@ -245,6 +245,43 @@ static void test_the_light_bytes_with_the_cone(void)
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), 255);              /* the node 5 ahead along the track is full, the place is not asked */
 }
 
+/* a car that is not drawn still lights the road when it is just behind the player's (the camera is in front of it), with the cone only */
+static void test_an_undrawn_car_just_behind_still_lights_the_road(void)
+{
+    CHECK_EQ_INT(headlight_car_lights(1, -50, 0), 1);                          /* drawn: always */
+    CHECK_EQ_INT(headlight_car_lights(1, 400, 1), 1);
+    CHECK_EQ_INT(headlight_car_lights(0, 3, 1), 1);                            /* not drawn, 3 nodes behind: lights */
+    CHECK_EQ_INT(headlight_car_lights(0, 0, 1), 1);                            /* level with the player */
+    CHECK_EQ_INT(headlight_car_lights(0, HEADLIGHT_UNDRAWN_NODES, 1), 1);
+    CHECK_EQ_INT(headlight_car_lights(0, HEADLIGHT_UNDRAWN_NODES + 1, 1), 0);  /* too far behind: its light would show far from where it is */
+    CHECK_EQ_INT(headlight_car_lights(0, -3, 1), 0);                           /* ahead and not drawn: not there yet */
+    CHECK_EQ_INT(headlight_car_lights(0, 3, 0), 0);                            /* the cone off: as it was */
+}
+
+/* i097: a car takes its own patch limited to CONE_OWN_SHARE plus the best of the others', at most 256; the ground keeps the best of the patches */
+static void test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own(void)
+{
+    HeadlightPool p = cone_of(0, 0, 0, 1);   /* car 0 at the origin heading +z */
+    p.cone_car[0] = 0;
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 0), 256);                    /* the ground at the car: the whole patch */
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(&p, 0, 0, 0), CONE_OWN_SHARE);   /* the car alone: its own patch, limited */
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(&p, -1, 0, 0), 256);             /* no car given: the best of all */
+    /* a rival 5 m behind it, heading the same way: its fan holds the car */
+    p.count = 2, p.cone_car[1] = 1;
+    p.cone_x[1] = 0, p.cone_z[1] = -5, p.cone_hx[1] = 0, p.cone_hz[1] = 1;
+    CHECK(headlight_pool_car_lift_xz(&p, 0, 0, 0) > CONE_OWN_SHARE);         /* lighter with the rival behind */
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(&p, 0, 0, 0), 256);              /* own 160 + its 256, capped */
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 0), 256);                     /* the ground: the max, as it was */
+    /* a rival far away adds nothing */
+    p.cone_z[1] = -300;
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(&p, 0, 0, 0), CONE_OWN_SHARE);
+    /* the rival's own car is lit by the first one's patch limited the other way round */
+    p.cone_z[1] = 0, p.cone_x[1] = 40, p.cone_hz[1] = 1;
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(&p, 1, 40, 0), CONE_OWN_SHARE);  /* far apart: each takes only its own */
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(&p, 0, 0, 0), CONE_OWN_SHARE);
+    CHECK_EQ_INT(headlight_pool_car_lift_xz(NULL, 0, 0, 0), 0);
+}
+
 int main(void)
 {
     test_the_pool_ahead_of_a_car();
@@ -259,5 +296,7 @@ int main(void)
     test_the_cone_has_no_step();
     test_the_cone_of_several_cars_and_the_old_path();
     test_the_light_bytes_with_the_cone();
+    test_an_undrawn_car_just_behind_still_lights_the_road();
+    test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own();
     return TEST_REPORT();
 }
