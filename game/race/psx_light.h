@@ -82,4 +82,7 @@ uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const d
  * PSX_LIGHT_FULL without data. */
 uint8_t psx_light_node(const PsxLight *light, uint32_t node);
 
+/* port (headlight_cone): the same for an object that stands at the ground place xz = { x, z } in metres (NULL: as psx_light_node): the cone's light at its own place */
+uint8_t psx_light_node_xz(const PsxLight *light, uint32_t node, const double *xz);
+
 #endif

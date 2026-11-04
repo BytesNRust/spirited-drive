@@ -16,19 +16,36 @@ static int lift(int ahead)
     return smooth(256 - 256 * (ahead - hold) / (end - hold));
 }
 
-/* one car's cone at a ground point: the lift of its distance ahead along the nose, times the falloff across it */
+/* one car's patch of light at a ground point: a fan ahead along the nose, brightest close to the car, full to CONE_HOLD_M and falling smoothly to nothing at CONE_REACH_M, with a half-width
+ * that grows with the distance and fades across (a smoothstep from the axis, no plateau, no edge); and a faint glow round the car and just behind it (a disc of radius CONE_GLOW_M
+ * at CONE_GLOW_SHARE of the beam). The best of the two. */
+int headlight_cone_weight_local(double forward_m, double lateral_m, double height_m)
+{
+    const double along = forward_m, across = fabs(lateral_m);
+    int best = 0;
+    const double r = sqrt(forward_m * forward_m + lateral_m * lateral_m);
+    if (r < CONE_GLOW_M) best = CONE_GLOW_SHARE * (256 - smooth((int)(256.0 * r / CONE_GLOW_M))) / 256;
+    if (along > -CONE_BACK_M && along < CONE_REACH_M) {
+        int d = 256;
+        if (along < 0.0) d = smooth((int)(256.0 * (along + CONE_BACK_M) / CONE_BACK_M));   /* the fan is born just behind the nose: no edge across the car */
+        if (along > CONE_HOLD_M) d = smooth(256 - (int)(256.0 * (along - CONE_HOLD_M) / (CONE_REACH_M - CONE_HOLD_M)));
+        const double half = CONE_WIDTH_BASE + (along > 0.0 ? along : 0.0) * CONE_WIDTH_PERCENT / 100.0;
+        if (across < half) {
+            const int l = d * (256 - smooth((int)(256.0 * across / half))) / 256;
+            if (l > best) best = l;
+        }
+    }
+    const double h = height_m < 0.0 ? 0.0 : height_m;   /* the light thins with the height above the ground: full to CONE_HEIGHT_FULL_M, none from CONE_HEIGHT_END_M */
+    if (h >= CONE_HEIGHT_END_M) return 0;
+    if (h > CONE_HEIGHT_FULL_M) best = best * (256 - smooth((int)(256.0 * (h - CONE_HEIGHT_FULL_M) / (CONE_HEIGHT_END_M - CONE_HEIGHT_FULL_M)))) / 256;
+    return best;
+}
+
+/* one car's patch of light at a ground point, in the car's own frame */
 static int cone_lift(const HeadlightPool *pool, int car, double x, double z)
 {
     const double dx = x - pool->cone_x[car], dz = z - pool->cone_z[car];
-    const double along = dx * pool->cone_hx[car] + dz * pool->cone_hz[car];
-    const double across = fabs(dx * pool->cone_hz[car] - dz * pool->cone_hx[car]);
-    const int d = lift((int)(along * 256.0 / CONE_METRES_PER_NODE));
-    if (d == 0) return 0;
-    const double half = CONE_WIDTH_BASE + along * CONE_WIDTH_PERCENT / 100.0;
-    if (across >= half) return 0;
-    const double edge = 0.55 * half;
-    if (across <= edge) return d;
-    return d * (256 - smooth((int)(256.0 * (across - edge) / (half - edge)))) / 256;
+    return headlight_cone_weight_local(dx * pool->cone_hx[car] + dz * pool->cone_hz[car], dx * pool->cone_hz[car] - dz * pool->cone_hx[car], 0.0);
 }
 
 int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z)

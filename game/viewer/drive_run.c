@@ -324,6 +324,13 @@ static void start_at_node(RaceState *race)
         for (int row = 0; row < 3; row++) car->matrix[3 * row] = -car->matrix[3 * row], car->matrix[3 * row + 2] = -car->matrix[3 * row + 2];
         car->yaw = (int32_t)((uint32_t)car->yaw + 0x800000u) & 0xffffff;
     }
+    if (turn != NULL && turn[0] == '2') {   /* port (dev, env only): TNFS_START_TURN=2 turns it a quarter, across the road */
+        for (int row = 0; row < 3; row++) {
+            const int32_t a = car->matrix[3 * row], c = car->matrix[3 * row + 2];
+            car->matrix[3 * row] = c, car->matrix[3 * row + 2] = -a;
+        }
+        car->yaw = (int32_t)((uint32_t)car->yaw + 0x400000u) & 0xffffff;
+    }
     port_log("TNFS_START_NODE: the player car at node %d\n", car->node);
     police_near(race, where);
 }

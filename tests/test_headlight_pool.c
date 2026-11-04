@@ -156,25 +156,37 @@ static HeadlightPool cone_of(double x, double z, double hx, double hz)
 static void test_the_cone_follows_the_heading(void)
 {
     HeadlightPool p = cone_of(0, 0, 0, 1);                               /* facing +z */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 30), 256);                /* full ahead */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, -30), 0);                 /* nothing behind */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 2), 0);                   /* nor under the nose */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 120), 0);                 /* the beam ends */
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 8), 256);                 /* full close ahead */
+    CHECK(headlight_pool_lift_xz(&p, 0, 40) > 0 && headlight_pool_lift_xz(&p, 0, 40) < 256);   /* fading with the distance */
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, -30), 0);                 /* nothing far behind */
+    CHECK(headlight_pool_lift_xz(&p, 0, -11) > 0 && headlight_pool_lift_xz(&p, 0, -11) < 128);   /* a faint glow just behind the car */
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 130), 0);                 /* the beam ends */
     CHECK_EQ_INT(headlight_pool_lift_xz(&p, 80, 10), 0);                 /* nor far to the side */
-    CHECK(headlight_pool_lift_xz(&p, 3, 30) > 200);                      /* the road's width is lit */
+    CHECK(headlight_pool_lift_xz(&p, 3, 8) > 200);                      /* the road's width is lit */
+    CHECK(headlight_pool_lift_xz(&p, 10, 25) > 0);                       /* and its verges a little: the cone has no edge but its fading */
     p = cone_of(0, 0, 0, -1);                                            /* the car turned round: the beam went with it */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 30), 0);
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, -30), 256);
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 25), 0);
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, -8), 256);
     p = cone_of(0, 0, 1, 0);                                             /* across the road's nodes' direction: a pool by nodes could not */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 30, 0), 256);
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 30), 0);
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 8, 0), 256);
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 25), 0);
+}
+
+static void test_the_local_weight(void)
+{
+    CHECK_EQ_INT(headlight_cone_weight_local(8, 0, 0), 256);
+    CHECK_EQ_INT(headlight_cone_weight_local(8, 3, 0), headlight_cone_weight_local(8, -3, 0));   /* symmetric */
+    CHECK_EQ_INT(headlight_cone_weight_local(8, 0, 20), 0);                                     /* high above the ground: none */
+    CHECK(headlight_cone_weight_local(8, 0, 6) > 0 && headlight_cone_weight_local(8, 0, 6) < 256);
+    const HeadlightPool p = cone_of(10, -5, 0.6, 0.8);                                          /* the world's lift is the local one at ground level */
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 10 + 0.6 * 20, -5 + 0.8 * 20), headlight_cone_weight_local(20, 0, 0));
 }
 
 static void test_the_cone_has_no_step(void)
 {
     const HeadlightPool p = cone_of(10, -5, 0.6, 0.8);
     int worst = 0;
-    for (double along = 0; along < 100; along += 0.5)                     /* walked along the axis and across it: no jump bigger than 24 of 256 per half metre */
+    for (double along = 0; along < 140; along += 0.5)                     /* walked along the axis and across it: no jump bigger than 16 of 256 per half metre */
         for (double lat = -50; lat < 50; lat += 0.5) {
             const double x = 10 + 0.6 * along - 0.8 * lat, z = -5 + 0.8 * along + 0.6 * lat;
             const double x2 = x + 0.5 * 0.6, z2 = z + 0.5 * 0.8;
@@ -182,10 +194,16 @@ static void test_the_cone_has_no_step(void)
             if (d < 0) d = -d;
             if (d > worst) worst = d;
         }
-    CHECK(worst <= 24);
+    CHECK(worst <= 16);
     int last = 256;
-    for (double along = 30; along < 90; along += 1) {                    /* never brighter further ahead */
+    for (double along = 30; along < 130; along += 1) {                   /* never brighter further ahead */
         const int l = headlight_pool_lift_xz(&p, 10 + 0.6 * along, -5 + 0.8 * along);
+        CHECK(l <= last);
+        last = l;
+    }
+    last = 256;
+    for (double lat = 0; lat < 60; lat += 1) {                           /* nor to the side */
+        const int l = headlight_pool_lift_xz(&p, 10 + 0.6 * 30 - 0.8 * lat, -5 + 0.8 * 30 + 0.6 * lat);
         CHECK(l <= last);
         last = l;
     }
@@ -195,9 +213,9 @@ static void test_the_cone_of_several_cars_and_the_old_path(void)
 {
     HeadlightPool p = cone_of(0, 0, 0, 1);
     p.count = 2, p.cone_x[1] = 0, p.cone_z[1] = 200, p.cone_hx[1] = 0, p.cone_hz[1] = -1;   /* an oncoming car: both light the road between */
-    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 25), 256);   /* ahead of the first, full */
-    CHECK(headlight_pool_lift_xz(&p, 0, 140) > 0);        /* ahead of the oncoming one too: the best of the cars */
-    CHECK(headlight_pool_lift_xz(&p, 0, 150) > 0);
+    CHECK_EQ_INT(headlight_pool_lift_xz(&p, 0, 8), 256);   /* ahead of the first, full */
+    CHECK(headlight_pool_lift_xz(&p, 0, 150) > 0);        /* ahead of the oncoming one too: the best of the cars */
+    CHECK(headlight_pool_lift_xz(&p, 0, 170) > 0);
     p.cone = 0;                                                          /* off: the node path as it was, the node table never read */
     p.ring = 200, p.node[0] = 50, p.node[1] = 0;
     CHECK_EQ_INT(headlight_pool_beam(&p, 50 + HEADLIGHT_FULL), 256);
@@ -215,13 +233,13 @@ static void test_the_light_bytes_with_the_cone(void)
     p.ring = 40, p.node_xz = xz;
     PsxLight light = { .data = rows, .nodes = 40, .pool = &p };
     const uint8_t dark = headlight_pool_apply(255, HEADLIGHT_FLOOR);
-    const double ahead[2] = { 0, 30 }, behind[2] = { 0, -30 }, wide[2] = { 90, 30 };
+    const double ahead[2] = { 0, 8 }, behind[2] = { 0, -30 }, wide[2] = { 90, 30 };
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, ahead), 255);               /* ahead of the nose: lit, whatever node it is asked as */
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), dark);             /* behind it: dark */
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, wide), dark);               /* far beside the road: dark */
-    CHECK_EQ_INT(psx_light_at(&light, 5, 0), 255);                         /* no place given: the node's centre (30 m on) */
+    CHECK(psx_light_at(&light, 3, 0) > 240);                               /* no place given: the node's centre (18 m on) */
     p.cone_hz[0] = -1;                                                     /* turned round: the same node is dark now, the one behind is lit */
-    CHECK_EQ_INT(psx_light_at(&light, 5, 0), dark);
+    CHECK_EQ_INT(psx_light_at(&light, 3, 0), dark);
     p.cone = 0;                                                            /* the cone off: the places are ignored, the nodes' pool as it was */
     p.count = 1, p.ring = 40, p.node[0] = 0, p.sub[0] = 0, p.dir[0] = 1;
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), 255);              /* the node 5 ahead along the track is full, the place is not asked */
@@ -237,6 +255,7 @@ int main(void)
     test_apply_and_the_light_bytes();
     test_travel_glide_width_and_cars();
     test_the_cone_follows_the_heading();
+    test_the_local_weight();
     test_the_cone_has_no_step();
     test_the_cone_of_several_cars_and_the_old_path();
     test_the_light_bytes_with_the_cone();
