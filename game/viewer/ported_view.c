@@ -402,7 +402,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
             const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
             dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
         }
-        if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz)) return;   /* port (headlight_cone): lit inside the polygon */
+        if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
         modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }

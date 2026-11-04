@@ -58,13 +58,13 @@ typedef struct {
     int police_glow;   /* port.cfg's, appended */
     int car_tunnel_light, vegas_car_night, rally_gravel_shoulder, chase_height, lamp_pool_tint, trans_shadows;   /* port.cfg's, appended */
     int canyon_shade, tunnel_headlight, parking_dark, forest_neutral, cavern_dark, vegas_objects, close_houses;   /* port.cfg's, appended */
-    int brake_over_gas, lamp_pools, lamp_car_shade, reverse_rows, city_lift, vegas_lift, headlight_cone, rain_fx, rain_grip, gauge_light, finish_gate_light;   /* port.cfg's, appended */
+    int brake_over_gas, lamp_pools, lamp_car_shade, reverse_rows, city_lift, vegas_lift, headlight_cone, rain_fx, rain_grip, gauge_light, finish_gate_light, lamp_pool_bright;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 0, 0 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 static int controlled(Profile p) { return p > PROFILE_CUSTOM && p < PROFILE_COUNT; }
@@ -88,7 +88,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.gauge_wheel = t->gauge_wheel;
     s.police_glow = t->police_glow;
     s.car_tunnel_light = t->car_tunnel_light, s.vegas_car_night = t->vegas_car_night, s.rally_gravel_shoulder = t->rally_gravel_shoulder;
-    s.chase_height = t->chase_height, s.lamp_pool_tint = t->lamp_pool_tint, s.trans_shadows = t->trans_shadows, s.canyon_shade = t->canyon_shade, s.tunnel_headlight = t->tunnel_headlight, s.parking_dark = t->parking_dark, s.forest_neutral = t->forest_neutral, s.cavern_dark = t->cavern_dark, s.vegas_objects = t->vegas_objects, s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.lamp_pools = t->lamp_pools, s.lamp_car_shade = t->lamp_car_shade, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.headlight_cone = t->headlight_cone, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light;
+    s.chase_height = t->chase_height, s.lamp_pool_tint = t->lamp_pool_tint, s.trans_shadows = t->trans_shadows, s.canyon_shade = t->canyon_shade, s.tunnel_headlight = t->tunnel_headlight, s.parking_dark = t->parking_dark, s.forest_neutral = t->forest_neutral, s.cavern_dark = t->cavern_dark, s.vegas_objects = t->vegas_objects, s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.lamp_pools = t->lamp_pools, s.lamp_car_shade = t->lamp_car_shade, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.headlight_cone = t->headlight_cone, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light, s.lamp_pool_bright = t->lamp_pool_bright;
     return s;
 }
 
@@ -116,7 +116,7 @@ int port_profile_settings_match(Profile p, const PortSettings *s, ScreenFormat m
            s->last_camera == want.last_camera && s->replay_no_ffb == want.replay_no_ffb && s->sky_fill_below == want.sky_fill_below && s->radar_all_views == want.radar_all_views && s->tach_dim == want.tach_dim && s->gauge_wheel == want.gauge_wheel &&
            s->police_glow == want.police_glow &&
            s->car_tunnel_light == want.car_tunnel_light && s->vegas_car_night == want.vegas_car_night && s->rally_gravel_shoulder == want.rally_gravel_shoulder &&
-           s->chase_height == want.chase_height && s->lamp_pool_tint == want.lamp_pool_tint && s->trans_shadows == want.trans_shadows && s->canyon_shade == want.canyon_shade && s->tunnel_headlight == want.tunnel_headlight && s->parking_dark == want.parking_dark && s->forest_neutral == want.forest_neutral && s->cavern_dark == want.cavern_dark && s->vegas_objects == want.vegas_objects && s->close_houses == want.close_houses && s->brake_over_gas == want.brake_over_gas && s->lamp_pools == want.lamp_pools && s->lamp_car_shade == want.lamp_car_shade && s->reverse_rows == want.reverse_rows && s->city_lift == want.city_lift && s->vegas_lift == want.vegas_lift && s->headlight_cone == want.headlight_cone && s->rain_fx == want.rain_fx && s->rain_grip == want.rain_grip && s->gauge_light == want.gauge_light && s->finish_gate_light == want.finish_gate_light;
+           s->chase_height == want.chase_height && s->lamp_pool_tint == want.lamp_pool_tint && s->trans_shadows == want.trans_shadows && s->canyon_shade == want.canyon_shade && s->tunnel_headlight == want.tunnel_headlight && s->parking_dark == want.parking_dark && s->forest_neutral == want.forest_neutral && s->cavern_dark == want.cavern_dark && s->vegas_objects == want.vegas_objects && s->close_houses == want.close_houses && s->brake_over_gas == want.brake_over_gas && s->lamp_pools == want.lamp_pools && s->lamp_car_shade == want.lamp_car_shade && s->reverse_rows == want.reverse_rows && s->city_lift == want.city_lift && s->vegas_lift == want.vegas_lift && s->headlight_cone == want.headlight_cone && s->rain_fx == want.rain_fx && s->rain_grip == want.rain_grip && s->gauge_light == want.gauge_light && s->finish_gate_light == want.finish_gate_light && s->lamp_pool_bright == want.lamp_pool_bright;
 }
 
 int port_profile_extras_match(Profile p, const PortExtras *e)

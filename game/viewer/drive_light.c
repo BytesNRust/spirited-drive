@@ -269,6 +269,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
+    light.lamp_bright = headlights_on ? port_lamp_pool_bright() : 0;   /* port (lamp_pool_bright) */
     light.night_lift = !headlights_on ? 0 : is_city(track) ? CITY_FLOOR_LIFT[port_city_lift()] : is_lost_vegas(track) ? VEGAS_FLOOR_LIFT[port_vegas_lift()] : 0;   /* port (city_lift, vegas_lift) */
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
     if (is_lost_vegas(track))
@@ -344,7 +345,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         made.pool_class = malloc(made.nodes);
         if (made.pool_class != NULL) psx_light_lamp_classes(made.pool_class, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
-    if (lamps > 0 && port_lamp_car_shade()) {   /* port (lamp_car_shade): and the same classes for the car's light */
+    if (lamps > 0 && (port_lamp_car_shade() || port_lamp_pool_bright())) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
         made.car_pool = malloc(made.nodes);
         if (made.car_pool != NULL) psx_light_lamp_classes(made.car_pool, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
@@ -431,7 +432,7 @@ static void pool_cd_light(const Tri *tri)
 {
     cd_lamp_count = 0;
     if (tri == NULL || light.data == NULL || light.pooled || synth_on || made_wanted || !headlights_on || synth_time != PSX_SYNTH_NIGHT) return;
-    if (!port_lamp_pools() && !port_lamp_car_shade()) return;
+    if (!port_lamp_pools() && !port_lamp_car_shade() && !port_lamp_pool_bright()) return;
     cd_lamp_count = street_lamp_pool_nodes(tri, cd_lamp_nodes);
     cd_lamp_ring = tri_is_circuit(tri);
 }
@@ -439,7 +440,7 @@ static void pool_cd_light(const Tri *tri)
 static void lay_cd_pools(void)
 {
     if (cd_lamp_count == 0 || light.data == NULL || light.pooled) return;
-    if (psx_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_lamp_pools(), port_lamp_pools() && port_lamp_pool_tint(), port_lamp_car_shade()))
+    if (psx_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_lamp_pools(), port_lamp_pools() && port_lamp_pool_tint(), port_lamp_car_shade() || port_lamp_pool_bright()))
         port_log("psx_light: %zu street lamp pools over the CD's light\n", cd_lamp_count);
     cd_lamp_count = 0;
 }
@@ -455,6 +456,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     light = made;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
+    light.lamp_bright = headlights_on ? port_lamp_pool_bright() : 0;   /* port (lamp_pool_bright) */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */

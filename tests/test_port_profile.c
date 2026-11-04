@@ -224,7 +224,9 @@ static void test_tables(void)
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     s.vegas_lift = 2, s.headlight_cone = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
-    s.headlight_cone = 1;
+    s.headlight_cone = 1, s.lamp_pool_bright = 1;   /* not in Restomod until the owner approves it */
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.lamp_pool_bright = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     s.rain_fx = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
