@@ -379,7 +379,8 @@ static int in_dial(const Cockpit *k, int x, int y)
            in_ellipse(x, y, k->sped_x + k->sped_w / 12, k->sped_y + k->sped_h / 12, k->sped_w - k->sped_w / 6, k->sped_h - k->sped_h / 6);
 }
 
-/* port (dev, env only): TNFS_DASH_DUMP=<dir> writes each dash's 2D layer as <dir>/<STEM>.ppm (the dash art in the track's palette, the windshield black) and a draft mask
+/* port (dev, env only): TNFS_DASH_DUMP=<dir> writes each dash's 2D layer as <dir>/<STEM>.ppm (the dash art in the track's palette, the windshield black, and black too
+ * wherever the steering wheel is in some pose: the wheel is drawn over the dash later, so the template does not hold it; wheel_front_zone) and a draft mask
  * <dir>/<STEM>.mask.png (the two gauge ellipses as DIAL), once per dash, for tools/dash_mask_psd.py's drafts */
 static void dash_dump(const Cockpit *k, const uint8_t *art)
 {
@@ -389,20 +390,22 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     snprintf(done, sizeof done, "%s", drive_hud.dash_stem);
     char path[512];
     snprintf(path, sizeof path, "%s/%s.ppm", dir, done);
+    static uint8_t zone[SCREEN_W * SCREEN_H];
+    wheel_front_zone(k, art, zone);
     FILE *f = fopen(path, "wb");
     if (f != NULL) {
         fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
             const uint8_t v = art[i];
             static const uint8_t black[3] = { 0, 0, 0 };
-            fwrite(v == LAYER_KEY ? black : lit_palette + 3 * v, 1, 3, f);
+            fwrite(v == LAYER_KEY || zone[i] ? black : lit_palette + 3 * v, 1, 3, f);
         }
         fclose(f);
     }
     static uint8_t draft[SCREEN_W * SCREEN_H];
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++)
-            draft[y * SCREEN_W + x] = in_dial(k, x, y) && art[y * SCREEN_W + x] != LAYER_KEY ? DASH_MASK_DIAL : DASH_MASK_AUTO;
+            draft[y * SCREEN_W + x] = in_dial(k, x, y) && art[y * SCREEN_W + x] != LAYER_KEY && !zone[y * SCREEN_W + x] ? DASH_MASK_DIAL : DASH_MASK_AUTO;
     uint8_t *png = NULL;
     size_t len = 0;
     snprintf(path, sizeof path, "%s/%s.mask.png", dir, done);
@@ -442,9 +445,12 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     /* port (gauge_wheel): the 't' and 's' frames of this steering frame, the wheel drawn over the dials */
     const Car *const driven = drive_sim.race.player >= 0 && drive_sim.race.player < RACE_CARS ? drive_sim.race.cars[drive_sim.race.player] : NULL;
     const int wheel_gauge = in_car && driven != NULL && port_gauge_wheel();
+    const int wheel_masked = lit_keyed && driven != NULL && dash_mask != NULL;   /* the wheel is drawn after the dash and turns: the mask never classes it */
     const int steer_negative = driven != NULL && driven->steer < 0;
-    const uint8_t *const wheel_t = wheel_gauge ? wheel_front_shape(k, 0, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
-    const uint8_t *const wheel_s = wheel_gauge ? wheel_front_shape(k, 1, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
+    const int wheel_any = wheel_gauge || wheel_masked;
+    const uint8_t *const wheel_t = wheel_any ? wheel_front_shape(k, 0, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
+    const uint8_t *const wheel_s = wheel_any ? wheel_front_shape(k, 1, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
+    const uint8_t *const wheel_w = wheel_masked ? wheel_front_shape(k, 2, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++) {
             const uint8_t v = frame[y * SCREEN_W + x];
@@ -456,7 +462,8 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
             if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
             uint8_t class = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
             /* port (gauge_light): in the cockpit at night, a dial's bright marks (the numerals, the ticks) are lit: not the needle, not what is the dash's art under the dial (the ellipse's corners) */
-            if (lit_keyed && v != LAYER_KEY && v != (uint8_t)drive_hud.needle_colour) {
+            if (wheel_masked && v != LAYER_KEY && wheel_front_now(gauge ? NULL : wheel_w, wheel_t, wheel_s, art, x, y)) class = PSX_CLASS_DASH;   /* the wheel: the dash's half tint, whatever the mask says (in a gauge the dial is drawn over the 'w' frame: only the 't' / 's' frames are the wheel there) */
+            else if (lit_keyed && v != LAYER_KEY && v != (uint8_t)drive_hud.needle_colour) {
                 if (dash_mask != NULL) {   /* a hand-made mask decides alone: the automatic marks are off */
                     const uint8_t m = dash_mask[y * SCREEN_W + x];
                     if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
