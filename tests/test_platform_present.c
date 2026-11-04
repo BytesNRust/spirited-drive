@@ -57,18 +57,20 @@ static void split_case(int width, int height, int threads, unsigned seed)
     const size_t count = (size_t)width * (size_t)height;
     uint8_t *px = malloc(count), *mask = malloc(count);
     uint32_t *want = malloc(count * 4);
-    PlatformColor palette[256], world[256], half[256];
+    PlatformColor palette[256], world[256], half[256], lit[256];
     for (int i = 0; i < 256; i++) {
         palette[i] = (PlatformColor){ (uint8_t)(i * 7 + seed), (uint8_t)(i * 13 + 5 * seed), (uint8_t)(255 - i + seed) };
         world[i] = (PlatformColor){ (uint8_t)(palette[i].r / 2), (uint8_t)(palette[i].g / 3), (uint8_t)(palette[i].b / 5) };
         half[i] = (PlatformColor){ (uint8_t)((palette[i].r + world[i].r) / 2), (uint8_t)((palette[i].g + world[i].g) / 2),
                                    (uint8_t)((palette[i].b + world[i].b) / 2) };
+        lit[i] = (PlatformColor){ (uint8_t)(palette[i].g), (uint8_t)(palette[i].b / 2), (uint8_t)(palette[i].r / 3) };   /* gauge_light's, mask 3 */
     }
+    platform_set_lit_palette(lit);
     platform_set_present_threads(threads);
     for (size_t i = 0; i < count; i++) {
         px[i] = (uint8_t)((i * 2654435761u) >> 23);
-        mask[i] = (uint8_t)(((i * 40503u) >> 7) % 3);
-        const PlatformColor c = mask[i] == 1 ? world[px[i]] : mask[i] == 2 ? half[px[i]] : palette[px[i]];
+        mask[i] = (uint8_t)(((i * 40503u) >> 7) % 4);
+        const PlatformColor c = mask[i] == 1 ? world[px[i]] : mask[i] == 2 ? half[px[i]] : mask[i] == 3 ? lit[px[i]] : palette[px[i]];
         want[i] = (uint32_t)c.r << 16 | (uint32_t)c.g << 8 | c.b;
     }
     for (int lock = 1; lock >= 0; lock--) {
@@ -80,6 +82,7 @@ static void split_case(int width, int height, int threads, unsigned seed)
         free(got);
     }
     platform_set_present_lock(1);
+    platform_set_lit_palette(NULL);
     free(px), free(mask), free(want);
     platform_shutdown();
 }

@@ -83,6 +83,7 @@ struct RaceField {
     const CarSpecs *specs[RACE_PLAYERS];  /* each human's specs after slot 0's (a link game's); NULL none */
     uint32_t track_flags;               /* 004fb7d8: 0052b306 as 0042702c copies it (bit 2 No Mercy, bit 3 Turbo) */
     RaceDifficulty port_difficulty;     /* port: RaceState's port_difficulty for this race (difficulty_resolve) */
+    int port_rain_grip;                 /* port: RaceState's port_rain_grip for this race (port_rain_grip_active) */
     int port_lunar_gravity;             /* port: RaceState's port_lunar_gravity for this race (lunar_gravity_active) */
     int port_rally_gravel;              /* port: RaceState's port_rally_gravel for this race (rally_gravel_kind) */
     int port_rally_shoulder_sound;      /* port: RaceState's port_rally_shoulder_sound for this race (port.cfg's rally_gravel_shoulder) */

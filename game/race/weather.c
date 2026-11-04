@@ -1,5 +1,6 @@
 #include "game/race/weather.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -114,4 +115,98 @@ void weather_rain_streak(int drop, uint32_t tick, int32_t box_w, int32_t box_h, 
     out[3] = head;
     out[0] = out[2] + length / SLANT_DIVISOR;
     out[1] = head - length;
+}
+
+/* ---- rain_fx: streaks by speed and light ---- */
+
+static float clampf(float v, float lo, float hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+int weather_rain_cone_weight(float ahead, float lateral, float height)
+{
+    if (ahead <= 0.0f || height <= 0.0f || height >= 5.0f) return 0;
+    const float in = clampf(ahead / 3.0f, 0.0f, 1.0f), out = clampf((70.0f - ahead) / 25.0f, 0.0f, 1.0f);
+    const float half = 1.5f + 0.30f * ahead, t = fabsf(lateral) / half;
+    const float side = t >= 1.0f ? 0.0f : 1.0f - t * t;
+    const float up = height <= 2.5f ? 1.0f : (5.0f - height) / 2.5f;
+    return (int)(256.0f * in * out * side * up);
+}
+
+int weather_rain_level_fog(int level)
+{
+    static const int FOG[WEATHER_RAIN_LEVELS] = { 3, 5, 7, 10 };
+    return FOG[level < 0 ? 0 : level >= WEATHER_RAIN_LEVELS ? WEATHER_RAIN_LEVELS - 1 : level];
+}
+
+void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level)
+{
+    const uint32_t d = (uint32_t)drop;
+    const uint32_t fall = FALL_MIN + hash(d, 1) % FALL_RANGE, phase = hash(d, 2) & 0xffff;
+    const float column = (float)((int64_t)(hash(d, 3) & 0xffff) * box_w >> 16);
+    const float base = (float)(box_h * (LENGTH_MIN + (int32_t)(hash(d, 4) % LENGTH_RANGE)) / 480);
+    const float metres = (float)((speed < 0 ? -(int64_t)speed : speed) >> 16);
+    const float s = clampf(metres / WEATHER_SPOKE_FULL, 0.0f, 1.0f);
+    const float p = (float)((phase + fall * tick) & 0xffff) / 65536.0f;
+    const float theta = (float)(hash(d, 5) & 0xffff) * (6.2831853f / 65536.0f);
+    /* the direction: a falling streak's (today's slant) turned to the spoke's, from the drop's own angle about the vanishing point */
+    float dx = (1.0f - s) * -0.196f + s * cosf(theta), dy = (1.0f - s) * 0.981f + s * sinf(theta) * 0.8f;
+    const float n = sqrtf(dx * dx + dy * dy);
+    dx /= n, dy /= n;
+    const float ox = (1.0f - s) * column + s * (float)vx, oy = s * (float)vy;
+    const float reach = (float)box_h * (1.0f + 0.6f * s);
+    const float near_end = 0.12f * reach * s;   /* a spoke is born a little way from the vanishing point, not at it */
+    const float head = near_end + (reach - near_end) * powf(p, 1.0f + s);
+    const float len = base * (1.0f + 2.5f * s) * (0.3f + p * s + (1.0f - s) * 0.7f);
+    const float tail = head - len > near_end ? head - len : near_end;
+    out[0] = (int32_t)(ox + dx * tail), out[1] = (int32_t)(oy + dy * tail);
+    out[2] = (int32_t)(ox + dx * head), out[3] = (int32_t)(oy + dy * head);
+    int l = WEATHER_RAIN_DAY_LEVEL;
+    if (night && focal > 0.0f) {
+        const float z = 4.0f + 36.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f;   /* the depth the drop is taken at: most near */
+        const float rx = ((float)out[2] - (float)vx) / focal, ry = ((float)vy - (float)out[3]) / focal;
+        const int w = weather_rain_cone_weight(z, rx * z, 1.2f + ry * z);
+        l = w < 24 ? 0 : w < 96 ? 1 : w < 176 ? 2 : 3;
+    }
+    *level = l;
+}
+
+int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size)
+{
+    const int64_t v = speed < 0 ? -(int64_t)speed : speed;
+    const float metres = (float)(v >> 16);
+    *size = 0;
+    if (!wet_road || metres < 8.0f || k < 0 || k >= WEATHER_SPRAY_PUFFS) return 0;
+    const uint32_t h = hash((uint32_t)k * 2u + (side > 0 ? 1u : 0u), 7u + tick);
+    const float jitter = (float)(h & 0xff) / 255.0f - 0.5f, jitter2 = (float)((h >> 8) & 0xff) / 255.0f - 0.5f;
+    const float reach = clampf(metres / 30.0f, 0.4f, 1.6f);                  /* the plume's length grows with the speed */
+    const float t = (float)k / (float)(WEATHER_SPRAY_PUFFS - 1);            /* 0 at the wheel .. 1 at the plume's end */
+    const float behind = 0.3f + 2.4f * reach * t + jitter * 0.3f;   /* a chase camera sits only a few metres behind: a plume longer than that is behind the lens */
+    const float sideways = (float)side * (0.3f + 1.6f * t) + jitter2 * 0.4f;
+    const float up = 0.2f + 1.2f * t + jitter * 0.2f;
+    out[0] = (int32_t)(behind * 65536.0f), out[1] = (int32_t)(sideways * 65536.0f), out[2] = (int32_t)(up * 65536.0f);
+    const float grow = 0.5f + 1.1f * t, thin = 1.0f - t * t * 0.85f;           /* swells, then thins out */
+    const float speedy = clampf(metres / 40.0f, 0.5f, 1.0f);
+    *size = (int32_t)(256.0f * grow * thin * speedy);
+    return *size > 0;
+}
+
+int weather_rain_spray_level(int night)
+{
+    return night ? 1 : WEATHER_RAIN_LEVELS - 1;
+}
+
+int weather_rain_flash(uint32_t tick)
+{
+    if (tick < 150) return 0;
+    const uint32_t slot = tick / WEATHER_STORM_SLOT, at = tick - slot * WEATHER_STORM_SLOT;
+    const uint32_t h = hash(slot, 11);
+    if ((h & 3) == 0) return 0;                                     /* one slot in four is quiet */
+    const uint32_t start = (h >> 4) % (WEATHER_STORM_SLOT - WEATHER_STORM_DOUBLE - 1);
+    const int twice = (h >> 12) & 1;
+    /* two ticks a flash: the race's tick goes up by two a drawn frame in the drive run, so a one-tick flash could fall between frames */
+    return at - start < 2 || (twice && at - start - WEATHER_STORM_DOUBLE < 2);
+}
+
+void weather_flash_colour(uint8_t out[3])
+{
+    out[0] = 205, out[1] = 220, out[2] = 255;
 }

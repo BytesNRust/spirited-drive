@@ -77,7 +77,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track", "Lunar Gravity",
     "Unlock Level", "Time with variants", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
-    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
+    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty", "Rain with storm",
     "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder"
 };
 
@@ -97,7 +97,7 @@ static int *flag_of(PortExtras *e, int page, int row)
         return p1[row];
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
-                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */,
+                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */, &e->rain_lightning,
                                };
     if (page == 1) return p2[row];
     int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */ };

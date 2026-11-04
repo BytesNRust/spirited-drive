@@ -1,0 +1,101 @@
+/* The hand-made dash masks (dash_mask.h): the four colours class as they are painted, a draft written as a PNG reads back as it was, a mask of another size is
+ * scaled by nearest neighbour, the lookup finds <root>/<CAR>/dash_mask.png (as given or in upper case), and what is not a PNG is refused. */
+#include "formats/png.h"
+#include "game/race/dash_mask.h"
+#include "test.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+enum { W = 6, H = 2 };
+
+uint8_t *platform_read_file(const char *path, size_t *size)
+{
+    *size = 0;
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+    long n = 0;
+    uint8_t *d = NULL;
+    if (fseek(f, 0, SEEK_END) == 0) n = ftell(f);
+    if (n > 0 && fseek(f, 0, SEEK_SET) == 0) d = malloc((size_t)n);
+    if (d != NULL && fread(d, 1, (size_t)n, f) == (size_t)n) *size = (size_t)n;
+    else free(d), d = NULL;
+    fclose(f);
+    return d;
+}
+void platform_free_file(uint8_t *data) { free(data); }
+
+static void test_colours(void)
+{
+    const uint8_t black[3] = { 0, 0, 0 }, dim[3] = { 30, 40, 50 }, blue[3] = { 0, 0, 255 }, paleblue[3] = { 90, 120, 230 }, green[3] = { 0, 255, 0 };
+    const uint8_t white[3] = { 255, 255, 255 }, grey[3] = { 200, 200, 200 }, red[3] = { 255, 0, 0 }, yellow[3] = { 255, 255, 0 }, midgrey[3] = { 128, 128, 128 };
+    CHECK_EQ_INT(dash_mask_class(black), DASH_MASK_AUTO);
+    CHECK_EQ_INT(dash_mask_class(dim), DASH_MASK_AUTO);       /* a dark colour is not a mark */
+    CHECK_EQ_INT(dash_mask_class(blue), DASH_MASK_DASH);
+    CHECK_EQ_INT(dash_mask_class(paleblue), DASH_MASK_DASH);
+    CHECK_EQ_INT(dash_mask_class(green), DASH_MASK_DIAL);
+    CHECK_EQ_INT(dash_mask_class(white), DASH_MASK_LIT);
+    CHECK_EQ_INT(dash_mask_class(grey), DASH_MASK_LIT);
+    CHECK_EQ_INT(dash_mask_class(red), DASH_MASK_AUTO);       /* any other colour: not marked */
+    CHECK_EQ_INT(dash_mask_class(yellow), DASH_MASK_AUTO);
+    CHECK_EQ_INT(dash_mask_class(midgrey), DASH_MASK_AUTO);
+}
+
+static void test_round_trip_and_scale(void)
+{
+    uint8_t mask[W * H], back[W * H];
+    static const uint8_t CLASSES[4] = { DASH_MASK_AUTO, DASH_MASK_DASH, DASH_MASK_DIAL, DASH_MASK_LIT };
+    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[(i * 3 + i / W) % 4];
+    uint8_t *png = NULL;
+    size_t len = 0;
+    CHECK(dash_mask_write(mask, W, H, &png, &len));
+    CHECK(png != NULL && dash_mask_parse(png, len, W, H, back));
+    CHECK(memcmp(mask, back, sizeof mask) == 0);
+    uint8_t half[3 * 1];   /* scaled down by nearest neighbour: the pixel at (x * 6 / 3, 0) */
+    CHECK(dash_mask_parse(png, len, 3, 1, half));
+    for (int x = 0; x < 3; x++) CHECK_EQ_INT(half[x], mask[x * W / 3]);
+    CHECK(!dash_mask_parse(png, 7, W, H, back));              /* cut short: refused */
+    const uint8_t junk[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    CHECK(!dash_mask_parse(junk, sizeof junk, W, H, back));
+    png_free(png);
+}
+
+#define ROOT "/tmp/tnfs_test_dash_masks"
+static void test_lookup(void)
+{
+    static uint8_t full[DASH_MASK_W * DASH_MASK_H];
+    memset(full, DASH_MASK_AUTO, sizeof full);
+    full[5] = DASH_MASK_LIT, full[DASH_MASK_W + 7] = DASH_MASK_DIAL;
+    uint8_t *png = NULL;
+    size_t len = 0;
+    CHECK(dash_mask_write(full, DASH_MASK_W, DASH_MASK_H, &png, &len));
+    mkdir(ROOT, 0755);
+    mkdir(ROOT "/TDASH", 0755);
+    FILE *f = fopen(ROOT "/TDASH/dash_mask.png", "wb");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        CHECK(fwrite(png, 1, len, f) == len);
+        fclose(f);
+    }
+    png_free(png);
+    setenv("TNFS_DASH_MASKS", ROOT, 1);
+    uint8_t *m = dash_mask_load("TDASH");
+    CHECK(m != NULL);
+    if (m != NULL) CHECK(m[5] == DASH_MASK_LIT && m[DASH_MASK_W + 7] == DASH_MASK_DIAL && m[0] == DASH_MASK_AUTO);
+    free(m);
+    m = dash_mask_load("TDash");                              /* the dash's stem in mixed case: found in upper case */
+    CHECK(m != NULL);
+    free(m);
+    CHECK(dash_mask_load("TNOSUCH") == NULL);
+    CHECK(dash_mask_load(NULL) == NULL);
+}
+
+int main(void)
+{
+    test_colours();
+    test_round_trip_and_scale();
+    test_lookup();
+    return TEST_REPORT();
+}

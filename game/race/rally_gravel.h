@@ -42,6 +42,10 @@ int32_t rally_gravel_crunch(int kind, int32_t speed, uint32_t rand);
 enum { RALLY_TYRE_TOP = 0x30, RALLY_TYRE_PER_METRE_X2 = 3, RALLY_TYRE_MOVING = 2 };   /* half the first version's 3 a metre up to 0x60: the roll 50 % quieter, a slide's own skid as it was */
 int32_t rally_gravel_tyre_skid(int kind, int32_t speed, int32_t skid, int on_ground);
 
+/* The tyre sound's volume (race_sound_play): the front tyre's (channel 4) is skid * loudness / 128, so the floor above already halves it; the rear's (channel 12) is the loudness alone, the skid
+ * only sets its pitch, so halving the floor changed nothing audible there. The rear's roll is halved by a farther distance: the one at which race_sound_loudness is half of `distance`'s. */
+int32_t rally_gravel_roll_distance(int32_t distance);
+
 /* How much dust a car rolling at `speed` (16.16 metres a second) on the ground throws: 0 for none (nonzero drops puffs, see dust_trail.h). Compacted
  * gravel and a standing car throw none here; the exe's own skid marks and smoke are left to the tyres. */
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground);

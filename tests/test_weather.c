@@ -99,8 +99,107 @@ static void test_fog_for_tint(void)
     CHECK(memcmp(out, again, 3) == 0);
 }
 
+static int span2(const int32_t s[4]) { return (s[2] - s[0]) * (s[2] - s[0]) + (s[3] - s[1]) * (s[3] - s[1]); }
+
+/* rain_fx: a standing car's streak falls; a fast car's is a spoke away from the vanishing point, longer; a pure function; lit by the cone at night */
+static void test_rain_spokes_follow_the_speed(void)
+{
+    const int32_t vx = 320, vy = 200;
+    int level, still_falls = 0, radial = 0, longer = 0, n = 0;
+    for (int drop = 0; drop < 240; drop++) {
+        int32_t a[4], f[4], g[4];
+        weather_rain_spoke(drop, 50, 0, 640, 480, vx, vy, 500.0f, 0, a, &level);
+        CHECK_EQ_INT(level, WEATHER_RAIN_DAY_LEVEL);                                    /* by day the phase 1 colour */
+        weather_rain_spoke(drop, 50, 40 << 16, 640, 480, vx, vy, 500.0f, 0, f, &level);
+        weather_rain_spoke(drop, 50, 40 << 16, 640, 480, vx, vy, 500.0f, 0, g, &level);
+        CHECK(memcmp(f, g, sizeof f) == 0);                                              /* a pure function */
+        if (a[3] > a[1]) still_falls++;                                                  /* the head is the lower end */
+        if (span2(f) < 16) continue;
+        n++;
+        const int64_t outward = (int64_t)(f[2] - vx) * (f[2] - f[0]) + (int64_t)(f[3] - vy) * (f[3] - f[1]);   /* the head is farther out than the tail */
+        if (outward > 0) radial++;
+        if (span2(f) > span2(a)) longer++;
+    }
+    CHECK(still_falls > 230);
+    CHECK(n > 200 && radial * 100 > n * 97);
+    CHECK(longer * 100 > 240 * 55);   /* most are longer (the ones just born are cut by the origin) */
+    int32_t slow[4], mid[4];
+    weather_rain_spoke(9, 50, 5 << 16, 640, 480, vx, vy, 500.0f, 0, slow, &level);   /* it changes smoothly with the speed */
+    weather_rain_spoke(9, 50, 6 << 16, 640, 480, vx, vy, 500.0f, 0, mid, &level);
+    CHECK(abs(slow[2] - mid[2]) + abs(slow[3] - mid[3]) < 40);
+}
+
+static void test_rain_cone_lights_the_drops(void)
+{
+    CHECK(weather_rain_cone_weight(15.0f, 0.0f, 1.0f) > 200);   /* ahead of the nose */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 12.0f, 1.0f), 0);   /* far to the side */
+    CHECK_EQ_INT(weather_rain_cone_weight(-5.0f, 0.0f, 1.0f), 0);    /* behind */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 0.0f, 6.0f), 0);    /* high above */
+    int dark = 0, bright = 0, level;
+    for (int drop = 0; drop < 240; drop++) {
+        int32_t s[4];
+        weather_rain_spoke(drop, 7, 0, 640, 480, 320, 200, 500.0f, 1, s, &level);
+        CHECK(level >= 0 && level < WEATHER_RAIN_LEVELS);
+        if (level == 0) dark++;
+        if (level >= 2) bright++;
+    }
+    CHECK(dark > 0 && bright > 0 && dark > bright);   /* a few in the beam, most outside it */
+    CHECK(weather_rain_level_fog(0) < weather_rain_level_fog(1) && weather_rain_level_fog(2) < weather_rain_level_fog(3));
+}
+
+/* rain_fx: the spray's plume */
+static void test_rain_spray_plume(void)
+{
+    int32_t rel[3], size, far_slow = 0, far_fast = 0;
+    CHECK_EQ_INT(weather_rain_spray_puff(3, 1, 10, 5 << 16, 1, rel, &size), 0);    /* under 8 m/s: none */
+    CHECK_EQ_INT(size, 0);
+    CHECK_EQ_INT(weather_rain_spray_puff(3, 1, 10, 30 << 16, 0, rel, &size), 0);   /* in the air or on the shoulder: none */
+    CHECK_EQ_INT(weather_rain_spray_puff(WEATHER_SPRAY_PUFFS, 1, 10, 30 << 16, 1, rel, &size), 0);
+    int live = 0;
+    for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++) {
+        int32_t a[3], b[3], sa, sb;
+        const int ra = weather_rain_spray_puff(k, -1, 77, 30 << 16, 1, a, &sa), rb = weather_rain_spray_puff(k, -1, 77, 30 << 16, 1, b, &sb);
+        CHECK(ra == rb && sa == sb && memcmp(a, b, sizeof a) == 0);                  /* a pure function */
+        if (ra) live++;
+        CHECK(a[0] > 0);                                                            /* behind the wheel */
+        CHECK(a[1] < 0);                                                            /* the left wheel's puffs go out to the left */
+        int32_t s2[3], z2;
+        weather_rain_spray_puff(k, -1, 77, 15 << 16, 1, s2, &z2);
+        if (k == WEATHER_SPRAY_PUFFS - 1) far_slow = s2[0], far_fast = a[0];
+    }
+    CHECK(live >= WEATHER_SPRAY_PUFFS - 2);
+    CHECK(far_fast > far_slow);                                                     /* the plume is longer the faster */
+}
+
+/* rain_lightning: the storm's clock */
+static void test_storm_clock(void)
+{
+    int flashes = 0, doubles = 0, quiet_slots = 0;
+    for (uint32_t t = 0; t < 150; t++) CHECK_EQ_INT(weather_rain_flash(t), 0);   /* none in the first 5 seconds */
+    for (uint32_t slot = 0; slot < 40; slot++) {
+        int n = 0;
+        for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) {
+            const int f = weather_rain_flash(t);
+            CHECK_EQ_INT(f, weather_rain_flash(t));   /* a pure function of the tick */
+            if (f) n++, flashes++;
+            if (f && weather_rain_flash(t + 1) && weather_rain_flash(t + 2)) CHECK(0);   /* two ticks, never three in a row */
+        }
+        if (n == 0 && slot > 0) quiet_slots++;
+        CHECK(n == 0 || n == 2 || n == 4);            /* a flash is two ticks; a double four */
+        if (n == 4) doubles++;
+        
+    }
+    CHECK(flashes > 40 && flashes < 160);   /* a storm, not a strobe: about a flash a slot */
+    CHECK(doubles > 3);
+    CHECK(quiet_slots > 2);
+}
+
 int main(void)
 {
+    test_storm_clock();
+    test_rain_spray_plume();
+    test_rain_spokes_follow_the_speed();
+    test_rain_cone_lights_the_drops();
     test_fog_curve_default();
     test_fog_for_tint();
     test_names();

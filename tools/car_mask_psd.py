@@ -76,7 +76,7 @@ def channel_data(plane):
     return struct.pack(">H", 0) + plane   # raw
 
 
-def write_psd(path, rgb, keep):
+def write_psd(path, rgb, keep, base_name="texture"):
     """rgb: RGB Image; keep: 'L' Image of classes (class_of), 0 paint, 128 kept with a shine, 192 as the body, 224 the fixed black, 240..252 the lamps, 255 kept without."""
     width, height = rgb.size
     if keep.size != rgb.size:
@@ -86,7 +86,7 @@ def write_psd(path, rgb, keep):
     alpha, red, green, blue = mask_planes(classes)
     texture_channels = (0, 1, 2)
     mask_channels = (-1, 0, 1, 2)   # alpha first, as Photoshop writes it
-    records = layer_record("texture", width, height, 255, True, texture_channels)
+    records = layer_record(base_name, width, height, 255, True, texture_channels)
     records += layer_record("mask", width, height, MASK_OPACITY, False, mask_channels)
     data = b"".join(channel_data(p) for p in (r, g, b))
     data += b"".join(channel_data(p) for p in (alpha, red, green, blue))

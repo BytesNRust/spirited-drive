@@ -16,4 +16,9 @@ void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
  * `table`; their width is `scale` pixels. The same call draws the same picture. */
 void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, const uint8_t table[256]);
 
+/* port (rain_fx): the streaks of weather_rain_spoke: speed (the followed car's, 16.16 m/s), the vanishing point (vx, vy) in box pixels, the lens's focal in pixels, `night` for the
+ * cone's light; `tables` the four brightness levels' (weather_rain_level_fog). */
+void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int32_t speed, int32_t vx, int32_t vy, float focal, int night,
+                          const uint8_t tables[][256]);
+
 #endif
