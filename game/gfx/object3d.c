@@ -198,8 +198,10 @@ static uint32_t vertex_at(Object3D *obj, int32_t x, int32_t y, int32_t z)
     return obj->vertex_count++;
 }
 
-/* A copy of polygon `src` with each corner moved by f and its corner order reversed (keeping the first corner), so it faces the other way; its flags,
- * texture and uvs are the source's. */
+/* A copy of polygon `src` with each corner moved by f and the texture turned over along its horizontal edge, so seen from outside it reads as the source
+ * does from its own side (not mirrored, not rotated): the corners swap across the horizontal edge (0<->1 and 2<->3, or 0<->3 and 1<->2, the edge of
+ * corner 0 that stays level). The face looks the other way, and that swap restores the winding the move took, so the flags (culling, colour key) are the
+ * source's. Each uv goes with its corner. */
 typedef void (*CornerMap)(int32_t out[3], const int32_t in[3]);
 
 static void add_facing_back(Object3D *obj, uint32_t src, CornerMap f)
@@ -207,8 +209,13 @@ static void add_facing_back(Object3D *obj, uint32_t src, CornerMap f)
     Object3DPolygon p = obj->polygons[src];
     const int n = (int)(p.flags & POLY_CORNERS);
     uint32_t v[4] = { 0, 0, 0, 0 }, u[4] = { 0, 0, 0, 0 };
+    if (n != 4) return;
+    const int32_t *c0 = obj->model[p.vertex[0]];
+    const int32_t d01 = abs(c0[1] - obj->model[p.vertex[1]][1]), d03 = abs(c0[1] - obj->model[p.vertex[3]][1]);
+    static const int FLIP_01[4] = { 1, 0, 3, 2 }, FLIP_03[4] = { 3, 2, 1, 0 };
+    const int *flip = d01 <= d03 ? FLIP_01 : FLIP_03;
     for (int i = 0; i < n; i++) {
-        const int from = i == 0 ? 0 : n - i;   /* 0, n-1, ..., 1 */
+        const int from = flip[i];
         int32_t c[3];
         f(c, obj->model[p.vertex[from]]);
         v[i] = vertex_at(obj, c[0], c[1], c[2]);

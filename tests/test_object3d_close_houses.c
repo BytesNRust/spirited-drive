@@ -41,8 +41,12 @@ static void test_the_house_gets_three_faces_and_keeps_the_source_look(void)
     CHECK_EQ_INT((int)o.polygons[3].flags, 0x8c);   /* the colour key and flags of the source */
     CHECK_EQ_INT((int)o.polygons[4].flags, 0x84);
     CHECK_EQ_INT((int)o.polygons[5].flags, 0x84);
-    CHECK_EQ_INT((int)o.polygons[3].uv[0], 10);      /* first corner keeps its uv, the rest run the other way */
-    CHECK_EQ_INT((int)o.polygons[3].uv[1], 13);
+    CHECK_EQ_INT((int)o.polygons[3].uv[0], 11);      /* the texture is turned over along its level edge (corners 0<->1, 2<->3), each uv with its corner */
+    CHECK_EQ_INT((int)o.polygons[3].uv[1], 10);
+    CHECK_EQ_INT((int)o.polygons[3].uv[2], 13);
+    CHECK_EQ_INT((int)o.polygons[3].uv[3], 12);
+    CHECK_EQ_INT((int)o.polygons[4].uv[0], 23);      /* the back wall's level edge is corner 0 to 3 */
+    CHECK_EQ_INT((int)o.polygons[4].uv[1], 22);
     for (uint32_t k = 0; k < o.vertex_count; k++) CHECK(o.model[k][0] >= 0 && o.model[k][0] <= 312 && o.model[k][2] >= 0 && o.model[k][2] <= 240);
     CHECK_EQ_INT(object3d_close_houses(&o), 0);      /* closed once: the box and counts no longer match */
     object3d_free(&o);
@@ -55,8 +59,9 @@ static void test_the_right_wall_is_the_left_one_across_the_house(void)
     object3d_close_houses(&o);
     const Object3DPolygon *w = &o.polygons[3];
     for (int k = 0; k < 4; k++) CHECK_EQ_INT(o.model[w->vertex[k]][0], 312);
-    CHECK_EQ_INT(o.model[w->vertex[0]][1], 264);
-    CHECK_EQ_INT(o.model[w->vertex[0]][2], 240);
+    CHECK_EQ_INT(o.model[w->vertex[0]][1], 264);   /* the source's corner 1 (top, front) is now first */
+    CHECK_EQ_INT(o.model[w->vertex[0]][2], 0);
+    CHECK_EQ_INT(o.model[w->vertex[1]][2], 240);
     object3d_free(&o);
 }
 
