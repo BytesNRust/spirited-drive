@@ -195,6 +195,8 @@ static void place_eye(RaceChase *chase)
     chase->eye[2] = add(base->z, chase->offset[2]);
 }
 
+static void take_view(RaceState *race, RaceChase *chase, int32_t kind, int record);
+
 void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind)
 {
     if (car == NULL) return;
@@ -213,7 +215,7 @@ void race_chase_follow(RaceState *race, RaceChase *chase, Car *car, int32_t kind
     if (car != chase->car) chase->yaw = node_heading(race, car->node);
     chase->car = car;
     chase->port_follow_car = NULL;   /* port (port_follow_camera): a view change or a race start starts the yaw spring again at the car's heading, no sweep */
-    race_chase_take(race, chase, kind);
+    take_view(race, chase, kind, 0);   /* port (last_camera): the race's own setup, not the player's choice */
 }
 
 enum {
@@ -296,7 +298,15 @@ int32_t race_chase_start_kind(const RaceState *race, const ChaseKind *row, int32
     return race->port_start_camera - 1;
 }
 
-void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
+int race_chase_remembers(const RaceState *race, const RaceChase *chase, int32_t kind)
+{
+    return race->port_last_camera != 0 && race->phase == RACING && race->replay == 0 && kind >= 0 && kind <= KIND_ATTACHED &&
+           race->player >= 0 && race->player < RACE_CARS && chase->car == race->cars[race->player];
+}
+
+/* record: the kind is the player's own choice (a view key, a menu), kept as the camera for the next race. race_chase_follow's takes (the race's start, the finish's
+ * outside view, another car, a cut) are the race's own and are not: they would overwrite what the player chose. */
+static void take_view(RaceState *race, RaceChase *chase, int32_t kind, int record)
 {
     if (chase->car == NULL) return;  /* port guard: the original reads the car unchecked */
     if ((kind < 4 || kind == KIND_REPLAY || kind == KIND_REPLAY + 1) && !faces_road(race, chase->car)) {
@@ -312,8 +322,7 @@ void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
             kind = KIND_REPLAY + 1;
         }
     }
-    if (race->port_last_camera != 0 && race->phase == RACING && race->replay == 0 && kind >= 0 && kind <= KIND_ATTACHED &&
-        race->player >= 0 && race->player < RACE_CARS && chase->car == race->cars[race->player])
+    if (record && race_chase_remembers(race, chase, kind))
         race->port_start_camera = kind + 1;   /* port (last_camera): the player's own live view */
     const int32_t last = chase->kind;
     chase->kind = kind;
@@ -336,6 +345,11 @@ void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
     race_chase_tick(race, chase);
     if (chase->camera != NULL && chase->camera->view >= 0 && race->select_view != NULL)
         race->select_view(race->view_user, race->chase.camera, chase->camera->view, race->window_size);
+}
+
+void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind)
+{
+    take_view(race, chase, kind, 1);
 }
 
 /* What the kind's +0x10 points at; road_yaw is 004046b0's local. */

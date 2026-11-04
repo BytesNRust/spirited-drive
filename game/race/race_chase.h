@@ -46,6 +46,10 @@ int32_t race_chase_pick(RaceState *race, const RaceChase *chase);
  * 4 or this one 8); then 004046b0, then 00405210 on the camera's view. */
 void race_chase_take(RaceState *race, RaceChase *chase, int32_t kind);
 
+/* port (last_camera): 1 when a view `kind` the chase takes is one to keep for the next race: the flag on, racing live (not a replay), kinds 0..5, the player's own car.
+ * race_chase_take records it into port_start_camera when so; race_chase_follow (the race's start and finish, another car, a cut) never does. */
+int race_chase_remembers(const RaceState *race, const RaceChase *chase, int32_t kind);
+
 /* port (last_camera): the kind the intro's fly-over (kind 8, the only row with KIND_ALT) lands on when its glide ends: the camera the player last used
  * (race->port_start_camera, a race that is not a replay, with port_last_camera) in place of the row's own `next`; every other row's `next` is returned as it is. */
 int32_t race_chase_start_kind(const RaceState *race, const ChaseKind *row, int32_t next);

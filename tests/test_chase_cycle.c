@@ -60,5 +60,20 @@ int main(void)
     race.port_start_camera = 6;
     race.replay = 1;
     CHECK_EQ_INT(race_chase_start_kind(&race, intro, intro->next), 0);   /* a replay is not a race start */
+    /* port (last_camera): which takes are the player's to keep */
+    static Car car;
+    RaceChase chase = { 0 };
+    race.player = 0, race.cars[0] = &car, chase.car = &car, race.phase = 1, race.replay = 0, race.port_last_camera = 1;
+    for (int32_t kind = 0; kind <= 5; kind++) CHECK(race_chase_remembers(&race, &chase, kind));
+    CHECK(!race_chase_remembers(&race, &chase, 6));    /* the other car, police, fly-ins: not a camera to come back to */
+    CHECK(!race_chase_remembers(&race, &chase, 13));
+    race.port_last_camera = 0;
+    CHECK(!race_chase_remembers(&race, &chase, 2));    /* flag off */
+    race.port_last_camera = 1, race.replay = 1;
+    CHECK(!race_chase_remembers(&race, &chase, 2));    /* a replay */
+    race.replay = 0, race.phase = 2;
+    CHECK(!race_chase_remembers(&race, &chase, 2));    /* not racing */
+    race.phase = 1, chase.car = NULL;
+    CHECK(!race_chase_remembers(&race, &chase, 2));    /* another car's view */
     return TEST_REPORT();
 }
