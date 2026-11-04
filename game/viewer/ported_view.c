@@ -555,17 +555,31 @@ static void headlights_update(void)
     }
 }
 
-static int ratio_at(int32_t node, float out[3])
+/* xz: the car's own place on the ground in metres, or NULL (the node's) */
+static int ratio_at_xz(int32_t node, const double *xz, float out[3])
 {
     const int found = ratio_of(node, out);
     if (found && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
         const uint32_t at = psx_ring_node(node, psx_light->nodes);
-        const int g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
+        int g;
+        if (psx_light->pool->cone && xz != NULL) {   /* port (headlight_cone): by where the car is in every car's patch of light, its own included (the glow round it): rivals, police and the player alike */
+            const int lift = headlight_pool_lift_xz(psx_light->pool, xz[0], xz[1]);
+            g = headlight_pool_car_gain(headlight_pool_gain_at_lift(psx_light_tunnel(psx_light, at) ? TUNNEL_FLOOR : HEADLIGHT_FLOOR, lift));
+        } else {
+            g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
+        }
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
         if (port_lamp_car_shade()) (void)psx_light_car_pool(psx_light, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
     return found;
+}
+
+/* a car's ratio at its own place */
+static int ratio_of_car(const Car *car, float out[3])
+{
+    const double xz[2] = { car->x / 65536.0, car->z / 65536.0 };
+    return ratio_at_xz(car->node, xz, out);
 }
 
 static const float CANYON_SHADE_FACTOR = 0.70f;   /* port (canyon_shade): the owner's pick, 30 % darker */
@@ -590,21 +604,21 @@ static int ratio_of(int32_t node, float out[3])
 
 int ported_view_car_ratio(const Car *car, float out[3])
 {
-    return car != NULL && ratio_at(car->node, out);
+    return car != NULL && ratio_of_car(car, out);
 }
 
 static int police_flash_on;   /* port (psx_light): the police car's lights flash (police_lights.h) */
 void ported_view_set_police_lights(int on) { police_flash_on = on; }
 
 /* the table for a car at `node`, NULL when its ambient is the world's */
-static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
+static const uint8_t *car_light(int32_t node, const double *xz, const uint8_t palette[768])
 {
     if (!(ambient_on || synth_on) || psx_light == NULL || palette == NULL) return NULL;
     static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3];
-    ratio_at(node, ratio);
+    ratio_at_xz(node, xz, ratio);
     int key[3], neutral = 1;
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
@@ -628,7 +642,8 @@ static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
  * past the light (police_lights.h) */
 static const uint8_t *car_table(const Car *car, const uint8_t palette[768])
 {
-    const uint8_t *base = car_light(car->node, palette);
+    const double xz[2] = { car->x / 65536.0, car->z / 65536.0 };
+    const uint8_t *base = car_light(car->node, xz, palette);
     if (!police_flash_on || palette == NULL || !police_lights_on(shadow_race, car)) return base;
     static uint8_t table[256];
     police_lights_table(base, palette, shadow_race->tick, table);
@@ -1096,7 +1111,7 @@ void ported_view_set_flares(int on) { flare_on = on != 0; }
 static void lamp_state(const Car *car)
 {
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
-    ratio_at(car->node, ratio);
+    ratio_of_car(car, ratio);
     drive_light_tint(tint);
     if (flare_on && weather == WEATHER_FOG)   /* port (psx_flares): the lamps glow in fog too */
         drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
@@ -1420,7 +1435,7 @@ static void draw_cars(void *user, int32_t node)
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].node == node) {
-            object_sink_set_light(car_light(node, object_pixels.palette));
+            object_sink_set_light(car_light(node, NULL, object_pixels.palette));
             car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
             object_sink_set_light(NULL);
         }
