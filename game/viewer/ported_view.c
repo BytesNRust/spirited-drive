@@ -11,6 +11,8 @@
 #include "game/race/track_render.h"
 #include "game/gfx/sprite_scaled.h"
 #include "game/race/view.h"
+#include "game/viewer/cone_cells.h"
+#include "game/race/track_fence.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
@@ -86,6 +88,8 @@ static int lit_active;           /* a polygon or object of the light's is being 
 static int lit_tinted;           /* the ambient colour is not neutral: even full light goes through the tables */
 static float lit_tint[3] = { 1, 1, 1 };
 static uint8_t lit_corner[4];   /* the polygon's corners' intensities, for the Modern 3D road's per-pixel gradient */
+
+static const PsxLight *psx_light;   /* the track's light (set below) */
 
 static void light_hook(const uint8_t corners[4])
 {
@@ -391,6 +395,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
             const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
             dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
         }
+        if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz)) return;   /* port (headlight_cone): lit inside the polygon */
         modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }

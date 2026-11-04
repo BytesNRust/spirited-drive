@@ -502,6 +502,7 @@ add_executable(tnfs
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
+    game/viewer/cone_cells.c
     game/viewer/modern_look.c
     game/viewer/weather_draw.c
     game/viewer/horizon_smooth.c

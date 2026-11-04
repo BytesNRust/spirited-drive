@@ -82,6 +82,9 @@ uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const d
  * PSX_LIGHT_FULL without data. */
 uint8_t psx_light_node(const PsxLight *light, uint32_t node);
 
+/* port (headlight_cone): the open night's gain (0..256) at a beam lift 0..256: what psx_light_at multiplies a row's byte by outside a tunnel, the dark's floor and the night lift in it (256 without a pool) */
+int psx_light_open_gain(const PsxLight *light, int lift);
+
 /* port (headlight_cone): the same for an object that stands at the ground place xz = { x, z } in metres (NULL: as psx_light_node): the cone's light at its own place */
 uint8_t psx_light_node_xz(const PsxLight *light, uint32_t node, const double *xz);
 

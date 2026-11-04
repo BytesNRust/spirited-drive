@@ -166,6 +166,17 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
     return lit > scaled ? (uint8_t)lit : scaled;
 }
 
+int psx_light_open_gain(const PsxLight *light, int lift)
+{
+    if (light == NULL || light->pool == NULL) return 256;
+    int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);
+    if (light->night_lift > 0) {
+        const int floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * light->night_lift / 256;
+        if (gain < floor) gain = floor;
+    }
+    return gain;
+}
+
 uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const double *xz)
 {
     const uint8_t v = light_at_dark(light, node, point, xz);
