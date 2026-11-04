@@ -29,6 +29,7 @@ typedef struct {
     uint32_t ring;                 /* the track's nodes: a node ahead wraps round it */
     int cone;                      /* port (headlight_cone): 1 the beam is each car's cone (below) in metres, not the nodes' pool; 0 the nodes' pool as it was */
     double cone_x[HEADLIGHT_MAX], cone_z[HEADLIGHT_MAX];    /* each car's place on the ground, metres */
+    int8_t cone_car[HEADLIGHT_MAX];                         /* the race slot of the car of each patch (headlight_pool_car_lift_xz tells a car its own patch from the others') */
     double cone_hx[HEADLIGHT_MAX], cone_hz[HEADLIGHT_MAX];  /* and its heading, a unit vector (the nose, not the track's direction) */
     const int32_t *node_xz;        /* cone: the nodes' centres (x, z) in 16.16 metres, two per node: what a caller that knows only a node is lit at; NULL when not known */
     const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, psx_light_synth_tunnels); NULL when not known */
@@ -69,6 +70,12 @@ int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z);
  * pure (no track, node or world lookup). Height thins it: full to CONE_HEIGHT_FULL_M, none from CONE_HEIGHT_END_M. headlight_pool_lift_xz is this per car at ground level. */
 enum { CONE_HEIGHT_FULL_M = 3, CONE_HEIGHT_END_M = 12 };
 int headlight_cone_weight_local(double forward_m, double lateral_m, double height_m);
+
+/* port (headlight_cone): how much light (0..256) a car at the ground point (x, z) takes, the car in race slot `car`: its own patch limited to CONE_OWN_SHARE of 256 (the lamps lighting the nose
+ * that carries them, not a floodlight on it), plus the best of the OTHER cars' patches there, at most 256. So a car alone is darker than the road ahead of it, and one with a rival's lights on it
+ * is lighter. `car` -1 (or a car with no patch): the best of all, as headlight_pool_lift_xz. The ground is not given this: it keeps the best of the patches. */
+enum { CONE_OWN_SHARE = 160 };
+int headlight_pool_car_lift_xz(const HeadlightPool *pool, int car, double x, double z);
 
 /* the lamps' places in the car's own frame (the nose's two lamps, metres): forward of the car's centre, to each side of its axis, above the ground */
 enum { CONE_LAMP_FORWARD_CM = 220, CONE_LAMP_LATERAL_CM = 70, CONE_LAMP_HEIGHT_CM = 65 };

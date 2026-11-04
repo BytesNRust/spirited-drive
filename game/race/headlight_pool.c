@@ -53,6 +53,20 @@ static int cone_lift(const HeadlightPool *pool, int car, double x, double z)
     return headlight_cone_weight_local(dx * pool->cone_hx[car] + dz * pool->cone_hz[car], dx * pool->cone_hz[car] - dz * pool->cone_hx[car], 0.0);
 }
 
+int headlight_pool_car_lift_xz(const HeadlightPool *pool, int car, double x, double z)
+{
+    if (pool == NULL) return 0;
+    int own = 0, others = 0;
+    for (int i = 0; i < pool->count && i < HEADLIGHT_MAX; i++) {
+        const int l = cone_lift(pool, i, x, z);
+        if (car >= 0 && pool->cone_car[i] == car) own = l > own ? l : own;
+        else if (l > others) others = l;
+    }
+    if (car < 0) return own > others ? own : others;
+    const int total = (own < CONE_OWN_SHARE ? own : CONE_OWN_SHARE) + others;
+    return total < 256 ? total : 256;
+}
+
 int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z)
 {
     int best = 0;
