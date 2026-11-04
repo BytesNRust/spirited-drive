@@ -577,7 +577,7 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 10);
+    CHECK_EQ_INT(ROWS_P2, 11);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
@@ -1073,7 +1073,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     keys[n++] = ENTER;
     n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 6);   /* before Difficulty, the last row of In-race options, and Miscellaneous' four */
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 7);   /* before Difficulty and Rain with storm, the last rows of In-race options, and Miscellaneous' four */
     setup(&r);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     run(&r, keys, n);

@@ -255,6 +255,7 @@ typedef struct {
     int sky_low, sky_high;
     float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
+    uint8_t flash[256];   /* port (rain_lightning): the picture lifted toward the lightning's colour */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
 } WeatherTables;
 
@@ -287,6 +288,9 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
+    weather_flash_colour(rain);
+    modern_fog_tables(art->palette, rain, scratch);
+    memcpy(wt.flash, scratch[WEATHER_FLASH_LEVEL], sizeof wt.flash);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
     wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
@@ -1876,6 +1880,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                              drive_light_night(), wt->rain4);
     } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
+    if (wt != NULL && weather == WEATHER_RAIN && port_rain_lightning() && weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)))   /* port (rain_lightning): one frame lifted */
+        for (int32_t y = box[1] < 0 ? 0 : box[1]; y < (box[3] < screen_h ? box[3] : screen_h); y++)
+            for (int32_t x = box[0] < 0 ? 0 : box[0]; x < (box[2] < screen_w ? box[2] : screen_w); x++) {
+                uint8_t *p = pixels + (size_t)y * (size_t)screen_w + (size_t)x;
+                *p = wt->flash[*p];
+            }
 }
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)

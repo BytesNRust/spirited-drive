@@ -269,8 +269,24 @@ static void test_update_check(void)
     CHECK_EQ_INT(port_extras_parse(out, n).update_check, 0);
 }
 
+/* "Rain with storm" (rain_lightning): off by default and in an old file, an On is written and read back */
+static void test_rain_lightning(void)
+{
+    CHECK_EQ_INT(port_extras_defaults().rain_lightning, 0);
+    CHECK_EQ_INT(port_extras_parse("", 0).rain_lightning, 0);
+    CHECK_EQ_INT(port_extras_parse("rain_lightning=1\n", 17).rain_lightning, 1);
+    CHECK_EQ_INT(port_extras_parse("rain_lightning=2\n", 17).rain_lightning, 0);
+    PortExtras e = port_extras_defaults();
+    e.rain_lightning = 1;
+    char out[1024];
+    const size_t n = port_extras_format(&e, out, sizeof out);
+    CHECK(n > 0 && strstr(out, "rain_lightning=1") != NULL);
+    CHECK_EQ_INT(port_extras_parse(out, n).rain_lightning, 1);
+}
+
 int main(void)
 {
+    test_rain_lightning();
     test_update_check();
     test_defaults();
     test_movies_wide();

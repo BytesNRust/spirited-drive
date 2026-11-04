@@ -171,8 +171,32 @@ static void test_rain_spray_plume(void)
     CHECK(far_fast > far_slow);                                                     /* the plume is longer the faster */
 }
 
+/* rain_lightning: the storm's clock */
+static void test_storm_clock(void)
+{
+    int flashes = 0, doubles = 0, quiet_slots = 0;
+    for (uint32_t t = 0; t < 150; t++) CHECK_EQ_INT(weather_rain_flash(t), 0);   /* none in the first 5 seconds */
+    for (uint32_t slot = 0; slot < 40; slot++) {
+        int n = 0;
+        for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) {
+            const int f = weather_rain_flash(t);
+            CHECK_EQ_INT(f, weather_rain_flash(t));   /* a pure function of the tick */
+            if (f) n++, flashes++;
+            if (f && weather_rain_flash(t + 1) && weather_rain_flash(t + 2)) CHECK(0);   /* two ticks, never three in a row */
+        }
+        if (n == 0 && slot > 0) quiet_slots++;
+        CHECK(n == 0 || n == 2 || n == 4);            /* a flash is two ticks; a double four */
+        if (n == 4) doubles++;
+        
+    }
+    CHECK(flashes > 40 && flashes < 160);   /* a storm, not a strobe: about a flash a slot */
+    CHECK(doubles > 3);
+    CHECK(quiet_slots > 2);
+}
+
 int main(void)
 {
+    test_storm_clock();
     test_rain_spray_plume();
     test_rain_spokes_follow_the_speed();
     test_rain_cone_lights_the_drops();

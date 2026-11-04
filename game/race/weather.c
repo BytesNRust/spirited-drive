@@ -193,3 +193,20 @@ int weather_rain_spray_level(int night)
 {
     return night ? 1 : WEATHER_RAIN_LEVELS - 1;
 }
+
+int weather_rain_flash(uint32_t tick)
+{
+    if (tick < 150) return 0;
+    const uint32_t slot = tick / WEATHER_STORM_SLOT, at = tick - slot * WEATHER_STORM_SLOT;
+    const uint32_t h = hash(slot, 11);
+    if ((h & 3) == 0) return 0;                                     /* one slot in four is quiet */
+    const uint32_t start = (h >> 4) % (WEATHER_STORM_SLOT - WEATHER_STORM_DOUBLE - 1);
+    const int twice = (h >> 12) & 1;
+    /* two ticks a flash: the race's tick goes up by two a drawn frame in the drive run, so a one-tick flash could fall between frames */
+    return at - start < 2 || (twice && at - start - WEATHER_STORM_DOUBLE < 2);
+}
+
+void weather_flash_colour(uint8_t out[3])
+{
+    out[0] = 205, out[1] = 220, out[2] = 255;
+}

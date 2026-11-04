@@ -49,6 +49,7 @@ enum {
     ROW_DASH_BOX,                                  /* port: In-race options' the dash's map box (port_extras.h) */
     ROW_FOLLOW_CAMERA,                             /* port: In-race options' 360 camera (port_extras.h's follow_camera) */
     ROW_DIFFICULTY,                                /* port: In-race options' last, Easy / Original / Hard (port_extras.h's difficulty, difficulty.h) */
+    ROW_STORM,                                     /* port: In-race options' last, Rain with storm: lightning in the rain (port_extras.h's rain_lightning) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     ROW_UPDATE,                                    /* port: Miscellaneous' last, Check for updates (port_extras.h's update_check, platform/update.h) */
     ROW_LOG_FOLDER,                                /* port: Miscellaneous' last, Open the log folder: an action row (ExtrasMenuOps.open_log_folder), for bug reports */
