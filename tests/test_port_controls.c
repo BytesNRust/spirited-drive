@@ -66,9 +66,11 @@ static void check_source(ControlSource s, SourceKind kind, int index)
 static void test_defaults_are_todays_pad(void)
 {
     const PortControls d = port_controls_defaults();
-    check_source(d.bind[ACT_STEER][0], SRC_AXIS_FULL, 0);             /* the left stick's x */
-    check_source(d.bind[ACT_STEER_LEFT][0], SRC_BUTTON, 13);          /* the d-pad */
-    check_source(d.bind[ACT_STEER_RIGHT][0], SRC_BUTTON, 14);
+    check_source(d.bind[ACT_STEER][0], SRC_NONE, 0);                  /* no whole axis: the stick is Steer left's and Steer right's halves */
+    check_source(d.bind[ACT_STEER_LEFT][0], SRC_AXIS_NEG, 0);         /* the left stick's x, its left half */
+    check_source(d.bind[ACT_STEER_RIGHT][0], SRC_AXIS_POS, 0);
+    check_source(d.bind[ACT_STEER_LEFT][1], SRC_BUTTON, 13);          /* the d-pad */
+    check_source(d.bind[ACT_STEER_RIGHT][1], SRC_BUTTON, 14);
     check_source(d.bind[ACT_GAS][0], SRC_AXIS_POS, 5);                /* the right trigger */
     check_source(d.bind[ACT_BRAKE][0], SRC_AXIS_POS, 4);              /* the left trigger */
     check_source(d.bind[ACT_GEAR_UP][0], SRC_BUTTON, 0);              /* A */
@@ -89,7 +91,7 @@ static void test_defaults_are_todays_pad(void)
 static void test_round_trip(void)
 {
     PortControls c = port_controls_defaults();
-    c.bind[ACT_STEER][0] = (ControlSource){ SRC_AXIS_FULL, 3, 0, 1 };                 /* inverted */
+    c.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_AXIS_POS, 3, 0, 1 };            /* inverted */
     c.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_HAT, 0, 8, 0 };
     c.bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_BUTTON, 13, 0, 0 };              /* two sources */
     c.bind[ACT_GAS][0] = (ControlSource){ SRC_AXIS_FULL, 5, -32768, 0 };              /* a wheel's pedal */
@@ -119,7 +121,47 @@ static void test_parse_text(void)
     check_source(c.bind[ACT_BRAKE][0], SRC_AXIS_POS, 2);
     CHECK_EQ_INT(c.bind[ACT_BRAKE][0].invert, 1);
     CHECK_EQ_INT(c.deadzone, 12);
-    check_source(c.bind[ACT_STEER_RIGHT][0], SRC_BUTTON, 14);       /* not in the text: the default */
+    check_source(c.bind[ACT_STEER_RIGHT][1], SRC_BUTTON, 14);       /* not in the text: the default d-pad */
+}
+
+/* a controls.cfg of before has the steering as one whole axis: it is now the halves of Steer left and Steer right */
+static void test_a_whole_steering_axis_loads_as_two_halves(void)
+{
+    const char *text = "steer=~axis3@100\n";
+    PortControls c = port_controls_parse(text, strlen(text));
+    check_source(c.bind[ACT_STEER][0], SRC_NONE, 0);                  /* the row is gone: nothing is left on it */
+    check_source(c.bind[ACT_STEER_LEFT][0], SRC_AXIS_NEG, 3);         /* the file's stick over the default's */
+    check_source(c.bind[ACT_STEER_RIGHT][0], SRC_AXIS_POS, 3);
+    CHECK_EQ_INT(c.bind[ACT_STEER_LEFT][0].invert, 1);                /* its rest and its inversion kept */
+    CHECK_EQ_INT(c.bind[ACT_STEER_LEFT][0].rest, 100);
+    CHECK_EQ_INT(c.bind[ACT_STEER_RIGHT][0].invert, 1);
+    check_source(c.bind[ACT_STEER_LEFT][1], SRC_BUTTON, 13);          /* the d-pad stays */
+    check_source(c.bind[ACT_STEER_RIGHT][1], SRC_BUTTON, 14);
+    /* a side the file names keeps what it names, the stick takes its free slot */
+    text = "steer=axis2\nsteer_left=hat0.8\n";
+    c = port_controls_parse(text, strlen(text));
+    check_source(c.bind[ACT_STEER_LEFT][0], SRC_HAT, 0);
+    check_source(c.bind[ACT_STEER_LEFT][1], SRC_AXIS_NEG, 2);
+    check_source(c.bind[ACT_STEER_RIGHT][0], SRC_AXIS_POS, 2);
+    check_source(c.bind[ACT_STEER][0], SRC_NONE, 0);
+    /* two sticks (the old row held two) */
+    text = "steer=axis2,axis0\n";
+    c = port_controls_parse(text, strlen(text));
+    check_source(c.bind[ACT_STEER_LEFT][0], SRC_AXIS_NEG, 2);
+    check_source(c.bind[ACT_STEER_LEFT][1], SRC_BUTTON, 13);          /* no room for the second on this side: it stays on the old row */
+    check_source(c.bind[ACT_STEER][0], SRC_AXIS_FULL, 0);
+    /* `steer=` alone: no stick at all, the d-pad stays */
+    text = "steer=\n";
+    c = port_controls_parse(text, strlen(text));
+    check_source(c.bind[ACT_STEER_LEFT][0], SRC_BUTTON, 13);
+    check_source(c.bind[ACT_STEER_RIGHT][0], SRC_BUTTON, 14);
+    /* what is written now reads back as it is: the folded file again gives the same */
+    text = "steer=axis3\n";
+    c = port_controls_parse(text, strlen(text));
+    char out[2048];
+    const size_t n = port_controls_format(&c, out, sizeof out);
+    const PortControls back = port_controls_parse(out, n);
+    check_same(&back, &c);
 }
 
 static void test_bad_lines_keep_the_default(void)
@@ -281,6 +323,7 @@ int main(void)
     test_defaults_are_todays_pad();
     test_round_trip();
     test_parse_text();
+    test_a_whole_steering_axis_loads_as_two_halves();
     test_bad_lines_keep_the_default();
     test_empty_value_clears();
     test_load_save();

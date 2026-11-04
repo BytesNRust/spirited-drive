@@ -39,9 +39,10 @@ const char *port_controls_key_name(PortKey key) { return key >= 0 && key < PKEY_
 PortControls port_controls_defaults(void)
 {
     PortControls c = { .deadzone = 0, .sensitivity = 100, .ffb_strength = 100 };
-    c.bind[ACT_STEER][0] = (ControlSource){ SRC_AXIS_FULL, PAD_AXIS_LEFTX, 0, 0 };
-    c.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_BUTTON, PAD_DPAD_LEFT, 0, 0 };
-    c.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_BUTTON, PAD_DPAD_RIGHT, 0, 0 };
+    c.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_AXIS_NEG, PAD_AXIS_LEFTX, 0, 0 };   /* the left stick's two halves: the same steering as its whole axis */
+    c.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_AXIS_POS, PAD_AXIS_LEFTX, 0, 0 };
+    c.bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_BUTTON, PAD_DPAD_LEFT, 0, 0 };
+    c.bind[ACT_STEER_RIGHT][1] = (ControlSource){ SRC_BUTTON, PAD_DPAD_RIGHT, 0, 0 };
     c.bind[ACT_GAS][0] = (ControlSource){ SRC_AXIS_POS, PAD_AXIS_RIGHT_TRIGGER, 0, 0 };
     c.bind[ACT_BRAKE][0] = (ControlSource){ SRC_AXIS_POS, PAD_AXIS_LEFT_TRIGGER, 0, 0 };
     c.bind[ACT_GEAR_UP][0] = (ControlSource){ SRC_BUTTON, PAD_SOUTH, 0, 0 };
@@ -142,12 +143,19 @@ static void apply_number(int *field, const char *value, long min, long max)
     if (parse_number(&at, min, max, &n) && *at == '\0') *field = (int)n;
 }
 
-static void apply(PortControls *c, int *plain, const char *key, const char *value)
+/* which steering lines the text had (a line that did not parse counts for none) */
+typedef struct { int steer, left, right; } Seen;
+
+static void apply(PortControls *c, int *plain, Seen *seen, const char *key, const char *value)
 {
     if (strcmp(key, "custom") == 0 && strcmp(value, "0") == 0) *plain = 1;
     for (int act = 0; act < ACT_COUNT; act++)
         if (strcmp(key, ACTION_KEY[act]) == 0) {
-            parse_sources(value, c->bind[act]);
+            if (parse_sources(value, c->bind[act])) {
+                if (act == ACT_STEER) seen->steer = 1;
+                else if (act == ACT_STEER_LEFT) seen->left = 1;
+                else if (act == ACT_STEER_RIGHT) seen->right = 1;
+            }
             return;
         }
     for (int k = 0; k < PKEY_COUNT; k++)
@@ -161,10 +169,58 @@ static void apply(PortControls *c, int *plain, const char *key, const char *valu
     else if (strcmp(key, "ffb_strength") == 0) apply_number(&c->ffb_strength, value, 0, STRENGTH_MAX);
 }
 
+/* a whole axis's two halves, one for each side of the steering: the axis, its rest and its inversion kept */
+static int is_half(const ControlSource *s) { return s->kind == SRC_AXIS_NEG || s->kind == SRC_AXIS_POS; }
+
+/* puts `src` on a side: over the stick's default half the side still has when `replace` (the file named another stick), else in its free slot; 0 when there is none */
+static int put_half(ControlSource side[2], ControlSource src, int *replace)
+{
+    if (*replace && is_half(&side[0])) {
+        side[0] = src;
+        *replace = 0;
+        return 1;
+    }
+    *replace = 0;
+    for (int k = 0; k < 2; k++)
+        if (side[k].kind == SRC_NONE) {
+            side[k] = src;
+            return 1;
+        }
+    return 0;
+}
+
+/* port: a controls.cfg of before has the steering as one whole axis (`steer=axis0`); Steer left and Steer right are now the steering's two rows, so that axis becomes their two halves, over the
+ * default stick's on a side the text left alone (`steer=` alone drops the default stick's), and the old row empties when both are placed. A side the text named keeps what it names. */
+static void fold_steer(PortControls *c, const Seen *seen)
+{
+    if (!seen->steer) return;
+    int replace_left = !seen->left, replace_right = !seen->right;
+    if (c->bind[ACT_STEER][0].kind == SRC_NONE && c->bind[ACT_STEER][1].kind == SRC_NONE) {   /* `steer=`: no stick */
+        if (replace_left && is_half(&c->bind[ACT_STEER_LEFT][0])) c->bind[ACT_STEER_LEFT][0] = c->bind[ACT_STEER_LEFT][1], c->bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+        if (replace_right && is_half(&c->bind[ACT_STEER_RIGHT][0])) c->bind[ACT_STEER_RIGHT][0] = c->bind[ACT_STEER_RIGHT][1], c->bind[ACT_STEER_RIGHT][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+        return;
+    }
+    for (int k = 0; k < 2; k++) {
+        ControlSource *whole = &c->bind[ACT_STEER][k];
+        if (whole->kind != SRC_AXIS_FULL) continue;
+        ControlSource neg = *whole, pos = *whole;
+        neg.kind = SRC_AXIS_NEG, pos.kind = SRC_AXIS_POS;
+        PortControls tried = *c;
+        int rl = replace_left, rr = replace_right;
+        if (put_half(tried.bind[ACT_STEER_LEFT], neg, &rl) && put_half(tried.bind[ACT_STEER_RIGHT], pos, &rr)) {
+            tried.bind[ACT_STEER][k] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+            *c = tried;
+            replace_left = replace_right = 0;
+        }
+    }
+    if (c->bind[ACT_STEER][0].kind == SRC_NONE) c->bind[ACT_STEER][0] = c->bind[ACT_STEER][1], c->bind[ACT_STEER][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+}
+
 /* `plain`: the text said "custom=0" */
 static PortControls parse(const char *text, size_t size, int *plain)
 {
     PortControls c = port_controls_defaults();
+    Seen seen = { 0, 0, 0 };
     size_t pos = 0;
     while (pos < size) {
         char line[LINE_SIZE];
@@ -179,9 +235,10 @@ static PortControls parse(const char *text, size_t size, int *plain)
         char *eq = strchr(line, '=');
         if (eq != NULL) {
             *eq = '\0';
-            apply(&c, plain, line, eq + 1);
+            apply(&c, plain, &seen, line, eq + 1);
         }
     }
+    fold_steer(&c, &seen);
     return c;
 }
 

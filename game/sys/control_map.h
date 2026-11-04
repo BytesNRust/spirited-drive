@@ -47,6 +47,11 @@ PortControls control_map_assign(const PortControls *c, PortAction act, int slot,
  * axis) or already has. */
 PortControls control_map_swap(const PortControls *c, PortAction act, int slot, ControlSource src, ControlSource old);
 
+/* port: `src` was just bound to Steer left or Steer right (`act`) and is a half of an axis: the other side gets the other half of the same axis (its rest and inversion kept),
+ * so one push of a stick binds the steering both ways. It takes the place of the other side's own half-axis source if it has one, else its first free slot; a side with neither is
+ * left as it is, and so is anything that is not a half-axis on a steering action. */
+PortControls control_map_mirror_half(const PortControls *c, PortAction act, ControlSource src);
+
 /* port: the words the controls screen shows. A source's name: SDL_Gamepad's own ("A", "RT", "Left X") when `gamepad`,
  * else "Button 5", "Axis 2-", "Hat 0 Left"; " inv" after an inverted axis; "-" for none. Cut to `size`. */
 void control_map_source_name(const ControlSource *s, int gamepad, char *out, size_t size);

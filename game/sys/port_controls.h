@@ -14,8 +14,8 @@
 #include <stdint.h>
 
 typedef enum {
-    ACT_STEER,                          /* an axis: the virtual stick's x */
-    ACT_STEER_LEFT, ACT_STEER_RIGHT,    /* buttons that take x to an end (the d-pad today) */
+    ACT_STEER,                          /* a whole axis (a controls.cfg of before; loaded as the halves of the next two, no row of its own) */
+    ACT_STEER_LEFT, ACT_STEER_RIGHT,    /* buttons (the full lock) or the halves of a stick (in proportion): the virtual stick's x */
     ACT_GAS, ACT_BRAKE,                 /* pedals: the virtual axes 2 and 3 */
     ACT_GEAR_UP, ACT_GEAR_DOWN,         /* buttons bits 0 and 1 */
     ACT_CAMERA,                         /* bit 2 (PAD_HOLD, X today) */

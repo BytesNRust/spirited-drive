@@ -251,13 +251,29 @@ static void test_tuning_stays_in_range(void)
     CHECK(strcmp(t, "100%") == 0);
 }
 
-static void test_enter_captures_an_axis_for_the_steering(void)
+static void test_enter_captures_a_stick_for_both_ways_of_steering(void)
 {
+    /* Steer left is the first row: a stick pushed left binds its left half there and the right half to Steer right, over the default stick's */
     Run r = { .port = port_controls_defaults() };
-    r.port.bind[ACT_STEER][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
-    run(&r, KEYS(RIGHT, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_axis(2, 30000)));   /* start, rest, then moved */
-    CHECK_EQ_INT(r.port.bind[ACT_STEER][0].kind, SRC_AXIS_FULL);                      /* steering takes the whole axis */
-    CHECK_EQ_INT(r.port.bind[ACT_STEER][0].index, 2);
+    run(&r, KEYS(RIGHT, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_axis(2, -30000)));   /* start, rest, then moved */
+    CHECK_EQ_INT(r.port.bind[ACT_STEER_LEFT][0].kind, SRC_AXIS_NEG);
+    CHECK_EQ_INT(r.port.bind[ACT_STEER_LEFT][0].index, 2);
+    CHECK_EQ_INT(r.port.bind[ACT_STEER_RIGHT][0].kind, SRC_AXIS_POS);                 /* the other half of the same axis */
+    CHECK_EQ_INT(r.port.bind[ACT_STEER_RIGHT][0].index, 2);
+    CHECK_EQ_INT(r.port.bind[ACT_STEER_RIGHT][1].index, 14);                          /* the d-pad stays */
+    CHECK_EQ_INT(r.port.bind[ACT_STEER][0].kind, SRC_NONE);                           /* no whole axis any more */
+    /* pushed the other way, Steer left takes that half (the stick set up backwards) and the mirror follows */
+    Run b = { .port = port_controls_defaults() };
+    run(&b, KEYS(RIGHT, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_axis(2, 30000)));
+    CHECK_EQ_INT(b.port.bind[ACT_STEER_LEFT][0].kind, SRC_AXIS_POS);
+    CHECK_EQ_INT(b.port.bind[ACT_STEER_RIGHT][0].kind, SRC_AXIS_NEG);
+    /* Steer right on its own: the second row captures the half its stick is pushed and mirrors it to Steer left */
+    Run c = { .port = port_controls_defaults() };
+    run(&c, KEYS(RIGHT, 0, DOWN, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_axis(2, 30000)));
+    CHECK_EQ_INT(c.port.bind[ACT_STEER_RIGHT][0].kind, SRC_AXIS_POS);
+    CHECK_EQ_INT(c.port.bind[ACT_STEER_RIGHT][0].index, 2);
+    CHECK_EQ_INT(c.port.bind[ACT_STEER_LEFT][0].kind, SRC_AXIS_NEG);
+    CHECK_EQ_INT(c.port.bind[ACT_STEER_LEFT][0].index, 2);
     CHECK_EQ_INT(r.result, CONTROLS_PAGE_CANCEL);
     CHECK(shown(&r.fake, "Press a button or move an axis..."));
 }
@@ -313,8 +329,8 @@ static void test_no_pad_waits_and_says_so(void)
 static void test_a_source_moves_from_the_action_that_had_it(void)
 {
     Run r = { .port = port_controls_defaults() };   /* gas is axis 5+ */
-    /* down to Brake (row 4), capture the right trigger there */
-    run(&r, KEYS(RIGHT, 0, DOWN, 0, DOWN, 0, DOWN, 0, DOWN, 0, ENTER, 0, 0, ESCAPE),
+    /* down to Brake (row 3), capture the right trigger there */
+    run(&r, KEYS(RIGHT, 0, DOWN, 0, DOWN, 0, DOWN, 0, ENTER, 0, 0, ESCAPE),
         PADS(idle(), idle(), with_axis(5, 32000)));
     CHECK_EQ_INT(r.port.bind[ACT_BRAKE][0].kind, SRC_AXIS_POS);
     CHECK_EQ_INT(r.port.bind[ACT_BRAKE][0].index, 5);
@@ -326,23 +342,23 @@ static void test_enter_replaces_and_insert_adds(void)
 {
     Run r = { .port = port_controls_defaults() };
     r.port.bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_BUTTON, 7, 0, 0 };
-    /* Steer left is row 1: Enter replaces both with button 4 */
-    run(&r, KEYS(RIGHT, 0, DOWN, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
+    /* Steer left is row 0: Enter replaces both with button 4 */
+    run(&r, KEYS(RIGHT, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
     CHECK_EQ_INT(r.port.bind[ACT_STEER_LEFT][0].index, 4);
     CHECK_EQ_INT(r.port.bind[ACT_STEER_LEFT][1].kind, SRC_NONE);
     Run s = { .port = port_controls_defaults() };
-    run(&s, KEYS(RIGHT, 0, DOWN, 0, INSERT, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
-    CHECK_EQ_INT(s.port.bind[ACT_STEER_LEFT][0].index, 13);       /* the d-pad stays */
-    CHECK_EQ_INT(s.port.bind[ACT_STEER_LEFT][1].index, 4);
+    run(&s, KEYS(RIGHT, 0, INSERT, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
+    CHECK_EQ_INT(s.port.bind[ACT_STEER_LEFT][0].kind, SRC_AXIS_NEG);   /* the stick's half stays */
+    CHECK_EQ_INT(s.port.bind[ACT_STEER_LEFT][1].index, 4);              /* the d-pad's slot is taken by the new one: the second source */
 }
 
 static void test_an_edit_makes_the_pad_custom(void)
 {
     Run r = { .port = port_controls_defaults() };
-    run(&r, KEYS(RIGHT, 0, DOWN, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
+    run(&r, KEYS(RIGHT, 0, ENTER, 0, 0, ESCAPE), PADS(idle(), idle(), with_button(4)));
     CHECK_EQ_INT(r.port.custom, 1);
     Run d = { .port = port_controls_defaults() };
-    run(&d, KEYS(RIGHT, 0, DOWN, 0, DELETE, 0, ESCAPE), PADS(idle()));
+    run(&d, KEYS(RIGHT, 0, DELETE, 0, ESCAPE), PADS(idle()));
     CHECK_EQ_INT(d.port.custom, 1);
     Run t = { .port = port_controls_defaults() };
     run(&t, KEYS(RIGHT, 0, RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
@@ -355,9 +371,9 @@ static void test_an_edit_makes_the_pad_custom(void)
 static void test_delete_clears(void)
 {
     Run r = { .port = port_controls_defaults() };
-    run(&r, KEYS(RIGHT, 0, DOWN, 0, DELETE, 0, ESCAPE), PADS(idle()));
+    run(&r, KEYS(RIGHT, 0, DELETE, 0, ESCAPE), PADS(idle()));
     CHECK_EQ_INT(r.port.bind[ACT_STEER_LEFT][0].kind, SRC_NONE);
-    CHECK_EQ_INT(r.port.bind[ACT_STEER][0].kind, SRC_AXIS_FULL);   /* the others stay */
+    CHECK_EQ_INT(r.port.bind[ACT_STEER_RIGHT][0].kind, SRC_AXIS_POS);   /* the others stay */
 }
 
 /* the pages are drawn over the clean configuration background, with the title and the group headers as the other
@@ -389,9 +405,9 @@ static void test_headers_and_labels_use_the_port_ops(void)
     run(&r, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&r.fake, "Driving", HEADER));
     CHECK(shown_as(&r.fake, "Other", HEADER));
-    CHECK(shown_as(&r.fake, "Analog steering", SMOOTH));
+    CHECK(shown_as(&r.fake, "Steer left", SMOOTH));
     CHECK(shown_as(&r.fake, "Nitro", SMOOTH));
-    CHECK(!shown_as(&r.fake, "Analog steering", PLAIN));   /* the labels go over the background, not onto the picture */
+    CHECK(!shown_as(&r.fake, "Steer left", PLAIN));   /* the labels go over the background, not onto the picture */
     Run t = { .port = port_controls_defaults() };
     run(&t, KEYS(RIGHT, 0, RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&t.fake, "Tuning", HEADER));
@@ -513,7 +529,7 @@ static void test_a_wheel_shows_its_own_numbers(void)
     wheel.gamepad = 0;
     run(&r, KEYS(RIGHT, 0, ESCAPE), PADS(wheel));
     CHECK(shown(&r.fake, "Button 13, Axis 5+") == 0);
-    CHECK(shown(&r.fake, "Axis 0"));
+    CHECK(shown(&r.fake, "Axis 0-, Button 13"));
     CHECK(shown(&r.fake, "Axis 5+"));
 }
 
@@ -664,7 +680,7 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 int main(void)
 {
     test_tuning_stays_in_range();
-    test_enter_captures_an_axis_for_the_steering();
+    test_enter_captures_a_stick_for_both_ways_of_steering();
     test_the_prompt_gives_way_to_a_long_label();
     test_escape_in_a_capture_assigns_nothing();
     test_nothing_for_a_while_assigns_nothing();
