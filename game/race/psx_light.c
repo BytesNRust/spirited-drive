@@ -99,7 +99,9 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node)
 
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node)
 {
-    if (psx_light_tunnel(light, node)) return 1;
+    const uint32_t file_node = light != NULL ? psx_light_old_node(light, node) : 0;
+    const int forest = light != NULL && light->forest_road && file_node >= light->forest_from && file_node <= light->forest_to;   /* port (forest_neutral): its shade is not a tunnel's */
+    if (!forest && psx_light_tunnel(light, node)) return 1;
     if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
     const uint8_t c = light->pool_class[node % light->nodes];
     return c > 0 ? 1 + c : 0;

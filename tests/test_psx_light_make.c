@@ -356,6 +356,14 @@ static void test_the_forest_goes_over_a_loaded_light_in_its_own_node_order(void)
     free(cd.data);
 }
 
+static void test_the_forest_road_range_is_vertigo_ridges_only(void)
+{
+    uint32_t from = 0, to = 0;
+    CHECK(psx_light_forest_road_range("TR3", &from, &to));
+    CHECK(from == 852 && to == 943);   /* the forest band, and the rows' tunnel run (860..943) it lies in */
+    CHECK(!psx_light_forest_road_range("TR1", &from, &to) && !psx_light_forest_road_range(NULL, &from, &to));
+}
+
 int main(void)
 {
     test_lamp_classes_follow_the_pool();
@@ -363,6 +371,7 @@ int main(void)
     test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be();
     test_a_forest_darkens_what_is_already_dark_less_than_a_proportion();
     test_the_forest_is_vertigo_ridges_only();
+    test_the_forest_road_range_is_vertigo_ridges_only();
     test_the_override_text_is_read();
     test_the_rules_set_their_points_in_the_levels();
     test_the_night_is_dark_on_the_terrain_and_lit_on_the_road();

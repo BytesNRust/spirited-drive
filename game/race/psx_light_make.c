@@ -314,6 +314,15 @@ void psx_light_forest(uint8_t *data, uint32_t count, uint32_t from, uint32_t to,
     }
 }
 
+int psx_light_forest_road_range(const char *track, uint32_t *from, uint32_t *to)
+{
+    uint32_t a = 0, b = 0;
+    if (!psx_light_forest_range(track, &a, &b)) return 0;
+    if (from != NULL) *from = a;
+    if (to != NULL) *to = 943;   /* the rows mark the shade as a tunnel to 943 (860..943), past the forest_dark band's 934 */
+    return 1;
+}
+
 int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to)
 {
     if (track == NULL || strcasecmp(track, "TR3") != 0) return 0;

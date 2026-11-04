@@ -256,6 +256,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     }
     if (port_forest_dark()) psx_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
     light = parsed;
+    light.forest_road = port_forest_neutral() && psx_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.pool = headlights_on ? &headlight_pool : NULL;
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT);

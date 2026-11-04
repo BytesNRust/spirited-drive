@@ -80,6 +80,9 @@ void psx_light_forest(uint8_t *data, uint32_t count, uint32_t from, uint32_t to,
 /* the nodes of a track's forest (Vertigo Ridge's, TR3, the trees before the finish), 1 and `from`, `to` when the track has one */
 int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to);
 
+/* port (forest_neutral): the nodes whose rows mark the forest's shade as a tunnel (TR3: 852..943, the file's order); 1 and the range, else 0 */
+int psx_light_forest_road_range(const char *track, uint32_t *from, uint32_t *to);
+
 /* The forest of `track` laid over `light`'s rows (made, or the CD's: the file's node order), the flag's to ask. 1 when the track has a forest and the rows reach it. */
 int psx_light_forest_apply(PsxLight *light, const char *track);
 
