@@ -441,6 +441,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         }
     }
     field.port_lunar_gravity = lunar_gravity_race(name, arcade);
+    field.port_rain_grip = port_rain_grip_active();
     /* port (difficulty.h): extras.cfg's level; Original in a link race, a replay's own (the CD's demos: Original) */
     field.port_difficulty = difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL,
                                                drive_link_on);

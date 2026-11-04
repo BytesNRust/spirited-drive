@@ -274,6 +274,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->port_reverse = field->port_reverse;
     race->track_flags = field->track_flags;
     race->port_difficulty = field->port_difficulty;
+    race->port_rain_grip = field->port_rain_grip;
     race->port_lunar_gravity = field->port_lunar_gravity;
     race->port_rally_gravel = field->port_rally_gravel;
     race->port_rally_shoulder_sound = field->port_rally_shoulder_sound;

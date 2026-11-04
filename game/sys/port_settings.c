@@ -601,6 +601,11 @@ int port_lamp_car_shade(void)
     return port_settings_load().lamp_car_shade;
 }
 
+int port_rain_grip_active(void)
+{
+    return port_rain_grip() && port_weather() == WEATHER_RAIN;
+}
+
 int port_rain_grip(void)
 {
     const char *v = getenv("TNFS_RAIN_GRIP");

@@ -206,6 +206,8 @@ int port_rain_fx(void);
 int port_rain_lightning(void);
 /* 1 when rain_grip is on: TNFS_RAIN_GRIP=0/1 when set, else port.cfg's. */
 int port_rain_grip(void);
+/* 1 for a wet race: rain_grip on and the weather rain (the grip is reduced and the race's records are not kept; track_gravity.h). */
+int port_rain_grip_active(void);
 /* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else port.cfg's; never without port_psx_light. */
 int port_reverse_rows(void);
 /* The city_lift level (0..2): TNFS_CITY_LIFT=0..2 when set, else port.cfg's; 0 without port_psx_light. */

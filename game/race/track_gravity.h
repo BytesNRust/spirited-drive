@@ -19,4 +19,9 @@ int32_t track_gravity(int32_t moon, int32_t pull);
 /* a surface's grip (8.8) as the race grips it */
 int32_t track_grip(int32_t moon, int32_t grip);
 
+/* port (rain_grip): the wet road. A road surface's grip (8.8) in a wet race (`wet`): RAIN_GRIP_NUM / RAIN_GRIP_DEN of its own, 0.8; the same with `wet` 0. The shoulder (off-road
+ * surfaces) keeps its own: it is loose already. */
+enum { RAIN_GRIP_NUM = 4, RAIN_GRIP_DEN = 5 };
+int32_t track_rain_grip(int32_t wet, int32_t grip);
+
 #endif

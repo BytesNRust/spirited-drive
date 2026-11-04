@@ -658,8 +658,24 @@ static void test_two_sided_is_automatic(void)
     CHECK(strstr(text, "two_sided") == NULL);
 }
 
+/* a wet race: rain_grip on and the weather rain, both */
+static void test_rain_grip_needs_the_rain(void)
+{
+    setenv("TNFS_RAIN_GRIP", "1", 1);
+    setenv("TNFS_WEATHER", "rain", 1);
+    CHECK_EQ_INT(port_rain_grip_active(), 1);
+    setenv("TNFS_WEATHER", "clear", 1);
+    CHECK_EQ_INT(port_rain_grip_active(), 0);
+    setenv("TNFS_WEATHER", "rain", 1);
+    setenv("TNFS_RAIN_GRIP", "0", 1);
+    CHECK_EQ_INT(port_rain_grip_active(), 0);
+    unsetenv("TNFS_RAIN_GRIP");
+    unsetenv("TNFS_WEATHER");
+}
+
 int main(void)
 {
+    test_rain_grip_needs_the_rain();
     clear_files();
     test_defaults();
     test_round_trip();
