@@ -46,6 +46,14 @@ int32_t rally_gravel_tyre_skid(int kind, int32_t speed, int32_t skid, int on_gro
     return skid > floor ? skid : floor;
 }
 
+int32_t rally_gravel_roll_distance(int32_t distance)
+{
+    enum { HEARD_WITHIN = 0x200000 };   /* race_sound_loudness's range */
+    if (distance >= HEARD_WITHIN) return distance;
+    if (distance < 0) distance = 0;
+    return HEARD_WITHIN - ((HEARD_WITHIN - distance) >> 1);
+}
+
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground)
 {
     if (!on_ground || speed < DUST_MOVING || (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH)) return 0;
