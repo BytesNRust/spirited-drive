@@ -11,6 +11,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/race/car_draw.h"
+#include "game/race/dash_mask.h"
 #include "game/race/tach_dim.h"
 #include "game/race/wheel_front.h"
 
@@ -356,6 +357,21 @@ static int in_ellipse(int x, int y, int left, int top, int w, int h)
     return dx * dx * h * h + dy * dy * w * w <= (long)w * w * h * h;
 }
 
+/* port (gauge_light): the hand-made mask of the dash on screen (dash_mask.h), loaded once per dash; NULL when it has none */
+static const uint8_t *dash_mask_now(void)
+{
+    static uint8_t *mask;
+    static char loaded[sizeof drive_hud.dash_stem];
+    static int tried;
+    if (!tried || strcmp(loaded, drive_hud.dash_stem) != 0) {
+        free(mask);
+        mask = dash_mask_load(drive_hud.dash_stem);
+        snprintf(loaded, sizeof loaded, "%s", drive_hud.dash_stem);
+        tried = 1;
+    }
+    return mask;
+}
+
 /* port (gauge_light): inside a dial proper: the gauge's ellipse inset by a twelfth of its size each side (the rim is the dash's art) */
 static int in_dial(const Cockpit *k, int x, int y)
 {
@@ -387,6 +403,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     lights_left -= LIGHTS_PAD_LEFT, lights_top -= LIGHTS_PAD_TOP;
     const int lights_w = lights_right - lights_left + LIGHTS_PAD_RIGHT, lights_h = LIGHTS_PAD_TOP + LIGHTS_PAD_BOTTOM;
     const int lit_keyed = in_car && drive_light_night() && port_gauge_light() > 0;   /* port (gauge_light) */
+    const uint8_t *const dash_mask = lit_keyed ? dash_mask_now() : NULL;
     const int dim_tach = !in_car && drive_hud.police.screen == NULL && port_tach_dim();   /* port (tach_dim) */
     /* port (gauge_wheel): the 't' and 's' frames of this steering frame, the wheel drawn over the dials */
     const Car *const driven = drive_sim.race.player >= 0 && drive_sim.race.player < RACE_CARS ? drive_sim.race.cars[drive_sim.race.player] : NULL;
@@ -405,9 +422,15 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
             if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
             uint8_t class = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
             /* port (gauge_light): in the cockpit at night, a dial's bright marks (the numerals, the ticks) are lit: not the needle, not what is the dash's art under the dial (the ellipse's corners) */
-            if (lit_keyed && class == PSX_CLASS_HUD && gauge && v != (uint8_t)drive_hud.needle_colour) {
-                if (!in_dial(k, x, y)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
-                else if (lit_pixel(v)) class = PSX_CLASS_LIT;
+            if (lit_keyed && v != LAYER_KEY && v != (uint8_t)drive_hud.needle_colour) {
+                if (dash_mask != NULL) {   /* a hand-made mask decides alone: the automatic marks are off */
+                    const uint8_t m = dash_mask[y * SCREEN_W + x];
+                    if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
+                    else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = PSX_CLASS_LIT;
+                } else if (class == PSX_CLASS_HUD && gauge) {
+                    if (!in_dial(k, x, y)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
+                    else if (lit_pixel(v)) class = PSX_CLASS_LIT;
+                }
             }
             classes[y * SCREEN_W + x] = class;
         }
