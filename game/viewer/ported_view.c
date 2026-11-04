@@ -937,6 +937,17 @@ enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100
 
 /* port (rain_fx): the wet road's spray, a plume behind each rear wheel (weather_rain_spray_puff) of the followed car, each puff a disc of every other pixel (a checker, no
  * blend) lightened through the rain's table; painted once the frame's 3D is whole (the recorder replayed), as the rain's streaks are, over what the car's draw laid down. */
+/* port (rain_fx, dev env only): TNFS_RAIN_SPRAY_STYLE=1 draws the wheels' spray as streaks along the travel in a thin haze instead of discs; unset or 0, the discs */
+static int spray_style_streaks(void)
+{
+    static int style = -1;
+    if (style < 0) {
+        const char *v = getenv("TNFS_RAIN_SPRAY_STYLE");
+        style = v != NULL && v[0] == '1' && v[1] == '\0';
+    }
+    return style;
+}
+
 static void spray_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
 {
     if (shadow_race == NULL) return;
@@ -956,6 +967,27 @@ static void spray_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], co
             place[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
             if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
             const int32_t radius = 0x38400 / camera[2] * size / SPRAY_DIV + 1;
+            if (spray_style_streaks()) {   /* the dev variant (TNFS_RAIN_SPRAY_STYLE=1): a streak along the travel, a mist, not a disc */
+                int32_t ahead[3], cam2[3], to[2];
+                const int32_t length = 0x18000 + (int32_t)(((int64_t)size * 0x20000) >> 8);   /* 1.5 m, longer the bigger the puff */
+                ahead[0] = place[0] + (int32_t)(((int64_t)fx * length) >> 16), ahead[1] = place[1], ahead[2] = place[2] + (int32_t)(((int64_t)fz * length) >> 16);
+                if (!world_screen(ahead, cam2, to) || cam2[2] < 64) continue;
+                int32_t steps = abs(to[0] - screen[0]) > abs(to[1] - screen[1]) ? abs(to[0] - screen[0]) : abs(to[1] - screen[1]);
+                steps = steps < 1 ? 1 : steps > 64 ? 64 : steps;
+                for (int32_t t = 0; t <= steps; t++) {
+                    const int32_t cx = screen[0] + (to[0] - screen[0]) * t / steps, cy = screen[1] + (to[1] - screen[1]) * t / steps;
+                    const int32_t r = radius * (steps - t) / (steps * 2);   /* thick at the puff, thin toward the car */
+                    for (int32_t y = -r; y <= r; y++)
+                        for (int32_t x = -r; x <= r; x++) {
+                            if (((cx + x) + 2 * (cy + y) + k + t) % 3 != 0) continue;   /* sparse: a haze */
+                            const int32_t px = cx + x, py = cy + y;
+                            if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) continue;
+                            uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
+                            *d = table[*d];
+                        }
+                }
+                continue;
+            }
             for (int32_t y = -radius; y <= radius; y++)
                 for (int32_t x = -radius; x <= radius; x++) {
                     if (x * x + y * y > radius * radius || ((x + y) & 1) != 0) continue;   /* a disc, every other pixel */
