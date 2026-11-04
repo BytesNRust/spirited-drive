@@ -31,13 +31,12 @@ void cone_cells_stats(long *cells, long *polygons)
 static double lerp(double a, double b, double t) { return a + (b - a) * t; }
 
 int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], int transparent,
-                    const uint8_t (*tables)[256], const PsxLight *light, const uint8_t corner[4], const double xz[4][2])
+                    const uint8_t (*tables)[256], const PsxLight *light, const uint8_t corner[4], const double xz[4][2], const uint32_t node[4])
 {
     if (light == NULL || light->pool == NULL || !light->pool->cone) return 0;
     static int off = -1;
     if (off < 0) off = getenv("TNFS_CELL_OFF") != NULL;   /* dev: the cells off, for the before / after */
     if (off) return 0;
-    if (light->lamp_bright && light->car_pool != NULL) return 0;   /* a street lamp's pool lifts the light by node: the cells' base would be wrong there */
     int lift[4], lo = 256, hi = 0;
     for (int k = 0; k < 4; k++) {
         lift[k] = headlight_pool_lift_xz(light->pool, xz[k][0], xz[k][1]);
@@ -66,8 +65,11 @@ int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *textu
     if (n > grid_cap()) n = grid_cap();
     if (dbg()) fprintf(stderr, "CELL draw n=%d lift %d..%d extent %.1f\n", n, lo, hi, extent);
     /* the open night's gain at each corner, to take the row's own byte back out of the light the corner carries */
-    double base[4];
-    for (int k = 0; k < 4; k++) base[k] = corner[k] * 256.0 / psx_light_open_gain(light, lift[k]);
+    double base[4], lamp[4];   /* and the lamp's floor at each corner (port, lamp_pool_bright), interpolated like the rest */
+    for (int k = 0; k < 4; k++) {
+        lamp[k] = psx_light_lamp_floor(light, node[k]);
+        base[k] = corner[k] * 256.0 / psx_light_open_gain_floor(light, lift[k], (int)lamp[k]);
+    }
     const double w = (double)(int16_t)texture->width * 65536.0, h = (double)(int16_t)texture->height * 65536.0;
     if (!stats_registered) stats_registered = 1, atexit(print_stats);
     polygons_drawn++;
@@ -83,7 +85,8 @@ int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *textu
             double x = lerp(lerp(xz[0][0], xz[1][0], a), lerp(xz[3][0], xz[2][0], a), b);
             double z = lerp(lerp(xz[0][1], xz[1][1], a), lerp(xz[3][1], xz[2][1], a), b);
             const double bv = lerp(lerp(base[0], base[1], a), lerp(base[3], base[2], a), b);
-            double v = bv * psx_light_open_gain(light, headlight_pool_lift_xz(light->pool, x, z)) / 256.0;
+            const double lf = lerp(lerp(lamp[0], lamp[1], a), lerp(lamp[3], lamp[2], a), b);
+            double v = bv * psx_light_open_gain_floor(light, headlight_pool_lift_xz(light->pool, x, z), (int)lf) / 256.0;
             if (v > 255.0) v = 255.0;
             dark[j][i] = (float)((255.0 - v) * (MODERN_FOG_LEVELS - 1) / 255.0);
         }

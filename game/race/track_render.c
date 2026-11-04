@@ -642,7 +642,7 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
     const TrackFarInputs far = { r->entries, r->build.segment_mask, r->cache, r->vertex_count, mirrored, 0,
                                  { (const int32_t (*)[3])r->world, (const int32_t (*)[3])r->camera,
                                    (const int32_t (*)[2])r->screen, ctx->near, ctx->clip,
-                                   r->psx != NULL ? r->light_vertex : NULL, r->light_now, r->psx != NULL ? r->tunnel_vertex : NULL },
+                                   r->psx != NULL ? r->light_vertex : NULL, r->light_now, r->psx != NULL ? r->tunnel_vertex : NULL, r->psx != NULL ? r->vertex_node : NULL },
                                  &fence_ops, &objects, &r->quarter };
     /* 00449f50 reads the camera's layout; the clip holds its edges */
     const ViewLayout layout = { 0, 0, 0, 0, 0, 0, ctx->clip.x0, ctx->clip.y0, x_sub(ctx->clip.x1, ctx->clip.x0),

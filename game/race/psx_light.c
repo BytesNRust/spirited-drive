@@ -153,12 +153,9 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
             if (gain < floor) gain = floor;
         }
         const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
-        if (light->lamp_bright && light->car_pool != NULL && light->nodes > 0) {   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
-            const int pc = light->car_pool[node % light->nodes];
-            const int lamp_floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * pc / 4;
-            if (pc > 0 && floor < lamp_floor) floor = lamp_floor;
-            if (gain < floor) gain = floor;
-        }
+        const int lamp_floor = psx_light_lamp_floor(light, node);   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
+        if (lamp_floor > floor) floor = lamp_floor;
+        if (gain < floor) gain = floor;
         const uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
         if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (tunnel_headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * lift / 256;
@@ -172,16 +169,28 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
     return lit > scaled ? (uint8_t)lit : scaled;
 }
 
-int psx_light_open_gain(const PsxLight *light, int lift)
+int psx_light_lamp_floor(const PsxLight *light, uint32_t node)
+{
+    if (light == NULL || !light->lamp_bright || light->car_pool == NULL || light->nodes == 0) return 0;
+    const int pc = light->car_pool[node % light->nodes];
+    return pc > 0 ? HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * pc / 4 : 0;
+}
+
+int psx_light_open_gain_floor(const PsxLight *light, int lift, int lamp_floor)
 {
     if (light == NULL || light->pool == NULL) return 256;
     int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);
+    int floor = HEADLIGHT_FLOOR;
     if (light->night_lift > 0) {
-        const int floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * light->night_lift / 256;
+        floor += (256 - floor) * light->night_lift / 256;
         if (gain < floor) gain = floor;
     }
+    if (lamp_floor > floor) floor = lamp_floor;
+    if (gain < floor) gain = floor;
     return gain;
 }
+
+int psx_light_open_gain(const PsxLight *light, int lift) { return psx_light_open_gain_floor(light, lift, 0); }
 
 uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const double *xz)
 {

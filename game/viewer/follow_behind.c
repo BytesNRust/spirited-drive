@@ -277,7 +277,7 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
  * the draws here that go straight to the sink (the cut cells, the subdivided road) have no glue to do it. Nothing without a light. */
 static TrackFenceInputs lit_inputs(void)
 {
-    return (TrackFenceInputs){ .world = (const int32_t (*)[3])B.world, .light = B.lit ? B.light_vertex : NULL, .light_now = B.light_now, .tunnel = B.lit ? B.tunnel_vertex : NULL };
+    return (TrackFenceInputs){ .world = (const int32_t (*)[3])B.world, .light = B.lit ? B.light_vertex : NULL, .light_now = B.light_now, .node = B.lit ? B.vertex_node : NULL, .tunnel = B.lit ? B.tunnel_vertex : NULL };
 }
 
 static void lit_on(void)
