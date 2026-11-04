@@ -647,9 +647,17 @@ int port_rain_fx(void)
     return port_settings_load().rain_fx;
 }
 
+/* Perspective Correction on: the cone is drawn on Modern 3D's road (TNFS_MODERN_3D overrides the setting) */
+static int perspective_on(void)
+{
+    const char *v = getenv("TNFS_MODERN_3D");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().perspective;
+}
+
 int port_headlight_cone(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_psx_headlights() || !perspective_on()) return 0;   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
     const char *v = getenv("TNFS_HEADLIGHT_CONE");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().headlight_cone;

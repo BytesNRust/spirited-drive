@@ -25,6 +25,10 @@ typedef struct {
     void (*full_camera)(void *ctx, const FshEntry *t, const int32_t *const cam[4]);
 } TrackFenceOps;
 
+/* port (headlight_cone): the ground places (x, z in metres) of the polygon about to be drawn's four corners, valid (ok 1) while it is, for the sink to light inside it */
+extern double track_light_xz[4][2];
+extern int track_light_xz_ok;
+
 typedef struct {
     const int32_t (*world)[3];   /* 0050503c */
     const int32_t (*camera)[3];  /* 00506860 */
@@ -42,6 +46,9 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
 {
     if (in->light == NULL || in->light_now == NULL) return;
     for (int k = 0; k < 4; k++) in->light_now[k] = in->light[first + corner[k]];
+    track_light_xz_ok = in->world != NULL;
+    if (track_light_xz_ok)
+        for (int k = 0; k < 4; k++) track_light_xz[k][0] = in->world[first + corner[k]][0] / 65536.0, track_light_xz[k][1] = in->world[first + corner[k]][2] / 65536.0;
     in->light_now[4] = 1;
     in->light_now[5] = 0;   /* 1 a tunnel's polygon (all four corners), 2..5 a lamp's pool (psx_light_tunnel_class: the weakest of the four, none mixed with a tunnel) */
     if (in->tunnel != NULL) {
@@ -63,6 +70,7 @@ static inline void track_light_set_points(const TrackFenceInputs *in, int32_t a,
     if (in->light == NULL || in->light_now == NULL) return;
     in->light_now[0] = in->light_now[3] = in->light[b];
     in->light_now[1] = in->light_now[2] = in->light[a];
+    track_light_xz_ok = 0;
     in->light_now[4] = 1;
     in->light_now[5] = 0;
 }
@@ -70,6 +78,7 @@ static inline void track_light_set_points(const TrackFenceInputs *in, int32_t a,
 static inline void track_light_clear(const TrackFenceInputs *in)
 {
     if (in->light_now != NULL) in->light_now[4] = 0;
+    track_light_xz_ok = 0;
 }
 
 /* 0044a2b4 (watcall pair, -, base, uv; variant, texture, tall; ret 0xc):

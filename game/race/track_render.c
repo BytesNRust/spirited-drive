@@ -462,6 +462,7 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
 static void object_light_on(const Glue *g, int32_t resource)
 {
     if (track_light_hook == NULL || g->r->psx == NULL) return;
+    track_light_xz_ok = 0;   /* port (headlight_cone): an object is lit as a whole */
     const uint32_t node = (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node;
     const int cone = g->r->psx->pool != NULL && g->r->psx->pool->cone && track_port_object_at != NULL;   /* port (headlight_cone): the object at its own place in the cones */
     const double at[2] = { cone ? track_port_object_at[0] / 65536.0 : 0.0, cone ? track_port_object_at[2] / 65536.0 : 0.0 };
