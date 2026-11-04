@@ -59,11 +59,19 @@ int headlight_pool_beam(const HeadlightPool *pool, uint32_t node);
 /* `value` (0..255) scaled by `gain` (256 = whole). */
 uint8_t headlight_pool_apply(uint8_t value, int gain);
 
-/* port (headlight_cone): how much of the beam (0..256) a ground point (x, z) in metres gets from the cars' cones: ahead of a car's nose from METRES_PER_NODE x HEADLIGHT_START,
- * the same rise, hold and fall as the pool's nodes (6 m a node), widening with the distance (half-width CONE_WIDTH_BASE + CONE_WIDTH_SLOPE x along) and falling smoothly to
- * nothing at its edge; the best of the cars. Nothing behind a car. */
-enum { CONE_METRES_PER_NODE = 6, CONE_WIDTH_BASE = 6, CONE_WIDTH_PERCENT = 50 };
+/* port (headlight_cone): how much of the beam (0..256) a ground point (x, z) in metres gets from the cars' lights, as one patch that travels with each car: a fan ahead of its nose,
+ * brightest close to it, full to CONE_HOLD_M and falling smoothly to nothing at CONE_REACH_M, as wide as CONE_WIDTH_BASE + CONE_WIDTH_PERCENT of the distance each side and fading
+ * across; and a faint glow (CONE_GLOW_SHARE of the beam, radius CONE_GLOW_M) round the car and behind it. Smooth in metres everywhere, so no row of the road shows it; the best of the cars. */
+enum { CONE_HOLD_M = 12, CONE_REACH_M = 100, CONE_WIDTH_BASE = 10, CONE_WIDTH_PERCENT = 60, CONE_BACK_M = 8, CONE_GLOW_M = 14, CONE_GLOW_SHARE = 80 };
 int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z);
+
+/* port (headlight_cone): one car's patch of light at a point in the car's own frame, metres: forward along its nose, lateral (either sign, symmetric), height above the ground. 0..256,
+ * pure (no track, node or world lookup). Height thins it: full to CONE_HEIGHT_FULL_M, none from CONE_HEIGHT_END_M. headlight_pool_lift_xz is this per car at ground level. */
+enum { CONE_HEIGHT_FULL_M = 3, CONE_HEIGHT_END_M = 12 };
+int headlight_cone_weight_local(double forward_m, double lateral_m, double height_m);
+
+/* the lamps' places in the car's own frame (the nose's two lamps, metres): forward of the car's centre, to each side of its axis, above the ground */
+enum { CONE_LAMP_FORWARD_CM = 220, CONE_LAMP_LATERAL_CM = 70, CONE_LAMP_HEIGHT_CM = 65 };
 
 /* The beam's gain at `lift` (0..256) of the beam: floor + (256 - floor) x lift / 256, the gain a node takes at that lift. */
 int headlight_pool_gain_at_lift(int floor, int lift);

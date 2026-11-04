@@ -4,6 +4,7 @@
 #include "game/race/track_cache.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_near.h"
+#include "game/race/track_object_draw.h"
 #include "game/race/track_tables.h"
 #include "game/gfx/x86_int.h"
 #include "game/sys/fixed_math.h"
@@ -460,7 +461,10 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
 static void object_light_on(const Glue *g)
 {
     if (track_light_hook == NULL || g->r->psx == NULL) return;
-    uint8_t v = psx_light_node(g->r->psx, (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node);
+    const uint32_t node = (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node;
+    const int cone = g->r->psx->pool != NULL && g->r->psx->pool->cone && track_port_object_at != NULL;   /* port (headlight_cone): the object at its own place in the cones */
+    const double at[2] = { cone ? track_port_object_at[0] / 65536.0 : 0.0, cone ? track_port_object_at[2] / 65536.0 : 0.0 };
+    uint8_t v = cone ? psx_light_node_xz(g->r->psx, node, at) : psx_light_node(g->r->psx, node);
     if (g->r->psx->object_floor > v) v = g->r->psx->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
     const uint8_t corners[4] = { v, v, v, v };
     track_light_hook(corners);

@@ -152,7 +152,8 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
             floor += (256 - floor) * light->night_lift / 256;
             if (gain < floor) gain = floor;
         }
-        const uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * headlight_pool_width(point) / 256);
+        const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
+        const uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
         if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (tunnel_headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * lift / 256;
             return hall_lit > open ? (uint8_t)hall_lit : open;
@@ -175,14 +176,16 @@ uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const d
 
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point) { return psx_light_at_xz(light, node, point, NULL); }
 
-uint8_t psx_light_node(const PsxLight *light, uint32_t node)
+uint8_t psx_light_node_xz(const PsxLight *light, uint32_t node, const double *xz)
 {
     static const int TERRAIN[] = { 2, 3, 4, 5, 7, 8, 9, 10 };
     if (light == NULL || light->data == NULL) return PSX_LIGHT_FULL;
     unsigned sum = 0;
-    for (size_t i = 0; i < sizeof TERRAIN / sizeof *TERRAIN; i++) sum += psx_light_at(light, node, TERRAIN[i]);
+    for (size_t i = 0; i < sizeof TERRAIN / sizeof *TERRAIN; i++) sum += psx_light_at_xz(light, node, TERRAIN[i], xz);
     return (uint8_t)((sum + sizeof TERRAIN / sizeof *TERRAIN / 2) / (sizeof TERRAIN / sizeof *TERRAIN));
 }
+
+uint8_t psx_light_node(const PsxLight *light, uint32_t node) { return psx_light_node_xz(light, node, NULL); }
 
 int psx_light_car_pool(const PsxLight *light, uint32_t node, float out[3])
 {
