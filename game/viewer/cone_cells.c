@@ -37,6 +37,7 @@ int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *textu
     static int off = -1;
     if (off < 0) off = getenv("TNFS_CELL_OFF") != NULL;   /* dev: the cells off, for the before / after */
     if (off) return 0;
+    if (light->lamp_bright && light->car_pool != NULL) return 0;   /* a street lamp's pool lifts the light by node: the cells' base would be wrong there */
     int lift[4], lo = 256, hi = 0;
     for (int k = 0; k < 4; k++) {
         lift[k] = headlight_pool_lift_xz(light->pool, xz[k][0], xz[k][1]);

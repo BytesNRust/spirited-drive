@@ -124,10 +124,12 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.close_houses, b.close_houses);
     CHECK_EQ_INT(a.lamp_car_shade, b.lamp_car_shade);
     CHECK_EQ_INT(a.headlight_cone, b.headlight_cone);
+    CHECK_EQ_INT(a.lamp_pool_bright, b.lamp_pool_bright);
     CHECK_EQ_INT(a.reverse_rows, b.reverse_rows);
     CHECK_EQ_INT(a.city_lift, b.city_lift);
     CHECK_EQ_INT(a.vegas_lift, b.vegas_lift);
     CHECK_EQ_INT(a.headlight_cone, b.headlight_cone);
+    CHECK_EQ_INT(a.lamp_pool_bright, b.lamp_pool_bright);
     CHECK_EQ_INT(a.lamp_pools, b.lamp_pools);
     CHECK_EQ_INT(a.brake_over_gas, b.brake_over_gas);
 }
@@ -166,7 +168,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.brake_over_gas, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.lamp_pools, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.headlight_cone, 0);   /* the exe's, until asked */
-    CHECK_EQ_INT(d.headlight_cone, 0);   /* the exe's, until asked */
+    CHECK_EQ_INT(d.lamp_pool_bright, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.vegas_lift, 0);   /* as the exe has it, until asked */
     CHECK_EQ_INT(d.city_lift, 0);   /* as the exe has it, until asked */
     CHECK_EQ_INT(d.reverse_rows, 0);   /* as the exe has it, until asked */
@@ -584,7 +586,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .canyon_shade = 1, .tunnel_headlight = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .canyon_shade = 1, .tunnel_headlight = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .lamp_pool_bright = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -617,10 +619,12 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.close_houses, 1);
     CHECK_EQ_INT(back.lamp_car_shade, 1);
     CHECK_EQ_INT(back.headlight_cone, 1);
+    CHECK_EQ_INT(back.lamp_pool_bright, 1);
     CHECK_EQ_INT(back.reverse_rows, 1);
     CHECK_EQ_INT(back.city_lift, 2)   /* a level 0..2, not a flag */;
     CHECK_EQ_INT(back.vegas_lift, 1);
     CHECK_EQ_INT(back.headlight_cone, 1);
+    CHECK_EQ_INT(back.lamp_pool_bright, 1);
     CHECK_EQ_INT(back.lamp_pools, 1);
     CHECK_EQ_INT(back.brake_over_gas, 1);
     CHECK_EQ_INT(back.render_bands, 4);

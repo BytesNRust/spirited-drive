@@ -153,6 +153,12 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
             if (gain < floor) gain = floor;
         }
         const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
+        if (light->lamp_bright && light->car_pool != NULL && light->nodes > 0) {   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
+            const int pc = light->car_pool[node % light->nodes];
+            const int lamp_floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * pc / 4;
+            if (pc > 0 && floor < lamp_floor) floor = lamp_floor;
+            if (gain < floor) gain = floor;
+        }
         const uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
         if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (tunnel_headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * lift / 256;
