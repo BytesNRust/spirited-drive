@@ -307,6 +307,18 @@ static void police_keep(RaceState *race)
     cop->flags_175 |= 4;
 }
 
+/* port (dev, env only): TNFS_RIVAL_BEHIND=N, in a --drive with a rival (--racers 2 or more, or TNFS_OPPONENT): the first rival (cars[1]) is put N nodes behind the player on the road,
+ * active, so its headlights light the player's car (the headlight cone's captures). Negative N: that many ahead. Unset, or no rival, nothing changes. */
+static void rival_behind(RaceState *race, double player_node)
+{
+    const char *v = getenv("TNFS_RIVAL_BEHIND");
+    Car *const rival = race->cars[1];
+    if (v == NULL || rival == NULL || race->car_count < 2) return;
+    ai_respawn(rival, race, (int32_t)player_node - atoi(v), 1, 0, 1);
+    rival->flags_51a |= 4;   /* active */
+    port_log("TNFS_RIVAL_BEHIND: the rival at node %d, %d behind the player\n", rival->node, atoi(v));
+}
+
 static void start_at_node(RaceState *race)
 {
     const char *at = getenv("TNFS_START_NODE");
@@ -316,7 +328,10 @@ static void start_at_node(RaceState *race)
         police_near(race, (double)car->node);
         return;
     }
-    if (at == NULL) return;
+    if (at == NULL) {
+        rival_behind(race, (double)car->node);
+        return;
+    }
     const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
     place_car(car, race, where);
     const char *const turn = getenv("TNFS_START_TURN");
@@ -333,6 +348,7 @@ static void start_at_node(RaceState *race)
     }
     port_log("TNFS_START_NODE: the player car at node %d\n", car->node);
     police_near(race, where);
+    rival_behind(race, where);
 }
 
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; start_at_node(&drive_sim.race); }  /* race_sim_start_field's laps; the dev start */
