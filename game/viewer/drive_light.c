@@ -256,6 +256,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     }
     if (port_forest_dark()) psx_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
     light = parsed;
+    light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.pool = headlights_on ? &headlight_pool : NULL;
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT);
     if (is_lost_vegas(track))
@@ -399,6 +400,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     if (!make_light(tri, track, &made)) return;
     if (port_forest_dark()) psx_light_forest_apply(&made, track);
     light = made;
+    light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */

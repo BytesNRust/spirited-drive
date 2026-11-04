@@ -107,7 +107,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade, 0);
+    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
@@ -124,7 +124,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade, 0);
+    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight, 0);
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
     CHECK_EQ_INT(s.psx_light, 1);
@@ -148,7 +148,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.night_stretch_clean, 1);
     CHECK_EQ_INT(s.forest_dark, 1);
     CHECK_EQ_INT(s.night_sky_hue, 1);
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade, 7);   /* the seven fixes of the day: car tunnel light, Vegas car night, rally shoulder gravel, chase height, lamp pool, Transtropolis shadows, canyon shade */
+    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight, 8);   /* the seven fixes of the day: car tunnel light, Vegas car night, rally shoulder gravel, chase height, lamp pool, Transtropolis shadows, canyon shade */
     /* what is the player's own is not touched: laps, the PS1 folder, the time of day, full screen */
     PortSettings own = base;
     own.laps = 7, own.fullscreen = 1, own.psx_time = PSX_TIME_NIGHT;
@@ -195,7 +195,9 @@ static void test_tables(void)
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     s.trans_shadows = 1, s.canyon_shade = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
-    s.canyon_shade = 1;
+    s.canyon_shade = 1, s.tunnel_headlight = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.tunnel_headlight = 1;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     s.scale_integer = 1;   /* a scaling the profile does not have counts in the match */
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
