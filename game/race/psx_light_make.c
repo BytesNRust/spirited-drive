@@ -335,14 +335,22 @@ int psx_light_make(const Tri *tri, int time, PsxLight *out)
     return psx_light_make_lit(tri, time, NULL, 0, out);
 }
 
-int psx_light_add_pools(PsxLight *light, int ring, const uint32_t *lamp_nodes, int n, int classes)
+int psx_light_add_pools(PsxLight *light, int ring, const uint32_t *lamp_nodes, int n, int lift, int tint, int car)
 {
     if (light == NULL || light->data == NULL || light->pooled || lamp_nodes == NULL || n <= 0 || light->nodes < 2) return 0;
-    psx_light_add_lamps(light->data, light->nodes, ring, lamp_nodes, n);
+    uint32_t *file_nodes = malloc((size_t)n * sizeof *file_nodes);   /* the rows are the file's: where each lamp stands in them */
+    if (file_nodes == NULL) return 0;
+    for (int i = 0; i < n; i++) file_nodes[i] = psx_light_old_node(light, lamp_nodes[i]);
+    if (lift) psx_light_add_lamps(light->data, light->nodes, ring, file_nodes, n);
+    free(file_nodes);
     light->pooled = 1;
-    if (classes && light->pool_class == NULL) {
+    if (tint && light->pool_class == NULL) {
         light->pool_class = malloc(light->nodes);
         if (light->pool_class != NULL) psx_light_lamp_classes(light->pool_class, light->nodes, ring, lamp_nodes, n);
+    }
+    if (car && light->car_pool == NULL) {
+        light->car_pool = malloc(light->nodes);
+        if (light->car_pool != NULL) psx_light_lamp_classes(light->car_pool, light->nodes, ring, lamp_nodes, n);
     }
     return 1;
 }

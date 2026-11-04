@@ -60,9 +60,10 @@ void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t
  * terrain by) in four steps, the strongest of the lamps' near. */
 void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n);
 
-/* port (lamp_pools): the night's lamps laid over a light that was not made here (the CD's own LGT): psx_light_add_lamps on its rows, and with `classes` its pool_class (psx_light_lamp_classes)
- * made too. 1 when pools were added; 0 for no light, no lamps, or one already pooled (`light->pooled`), so a second call changes nothing. */
-int psx_light_add_pools(PsxLight *light, int ring, const uint32_t *lamp_nodes, int n, int classes);
+/* port (lamp_pools): the night's lamps laid over a light that was not made here (the CD's own LGT): `lamp_nodes` are the lamps' nodes as the track runs now; with `lift` psx_light_add_lamps on its rows (the
+ * file's node of each, on a reversed light), and with `tint` its pool_class (psx_light_lamp_classes), with `car` its car_pool (lamp_car_shade), made too, by the new nodes. 1 when pools were added; 0 for no light, no
+ * lamps, or one already pooled (`light->pooled`), so a second call changes nothing. */
+int psx_light_add_pools(PsxLight *light, int ring, const uint32_t *lamp_nodes, int n, int lift, int tint, int car);
 
 /* An override: nodes node_from..node_to and points point_from..point_to (0..10) get `value` (0..255, put in the 16 levels). The per-track text file, one rule a line:
  * `node_from node_to point_from point_to value`, `#` starts a comment, a bad line is skipped. A rule's nodes past the track are ignored when applied. */
