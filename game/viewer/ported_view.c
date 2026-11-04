@@ -255,6 +255,7 @@ typedef struct {
     int sky_low, sky_high;
     float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
+    uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
 } WeatherTables;
 
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
@@ -285,6 +286,7 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     weather_rain_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
+    for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
     wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
@@ -1832,7 +1834,13 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
     tunnel_flare_draw(&quad, art->palette);
-    if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
+    if (wt != NULL && weather == WEATHER_RAIN && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
+        const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
+        const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
+        const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
+        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
+                             drive_light_night(), wt->rain4);
+    } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }
 

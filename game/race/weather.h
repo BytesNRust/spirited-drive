@@ -54,4 +54,21 @@ int weather_rain_count(int32_t box_w, int32_t box_h);
 void weather_rain_streak(int drop, uint32_t tick, int32_t box_w, int32_t box_h, int32_t out[4]);
 int weather_rain_width(int scale);   /* pixels across */
 
+/* port (rain_fx): the streaks follow the car. A drop's streak at `tick` for a car at `speed` (16.16 metres a second, signed) in a box_w x box_h box whose vanishing point
+ * is (vx, vy) (box pixels) and whose lens has `focal` pixels: a standing car's is today's, a falling streak; as the car goes faster it turns to a spoke that leaves the
+ * vanishing point outward (all the way at WEATHER_SPOKE_FULL metres a second), longer the faster and the nearer the edge. `out` is tail (x0, y0) .. head (x1, y1)
+ * as weather_rain_streak's. A pure function of its arguments: the drop's own numbers do not depend on the speed, so it changes smoothly as the speed does.
+ * The streak's brightness `*level` (0 dark .. WEATHER_RAIN_LEVELS - 1 white): by day WEATHER_RAIN_DAY_LEVEL (the phase 1 colour); at night (`night`) by how much of the
+ * headlight cone the drop is in (weather_rain_cone_weight at the place the drop is taken to be). */
+enum { WEATHER_SPOKE_FULL = 40, WEATHER_RAIN_LEVELS = 4, WEATHER_RAIN_DAY_LEVEL = 2 };
+void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level);
+
+/* The fog level (of the 16) of each brightness level's table, from dark to white. */
+int weather_rain_level_fog(int level);
+
+/* The headlight cone's weight 0..256 at a point in the car's own frame (metres: `ahead` along the nose, `lateral` to the right, `height` above the road). A stand-in with
+ * the cone's shape (to be dev2's headlight_cone_weight_local): a beam ahead of the nose that widens with distance, fading in over 3 metres and out from 45 to 70, no light
+ * more than 5 metres up. */
+int weather_rain_cone_weight(float ahead, float lateral, float height);
+
 #endif

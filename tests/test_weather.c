@@ -99,8 +99,58 @@ static void test_fog_for_tint(void)
     CHECK(memcmp(out, again, 3) == 0);
 }
 
+static int span2(const int32_t s[4]) { return (s[2] - s[0]) * (s[2] - s[0]) + (s[3] - s[1]) * (s[3] - s[1]); }
+
+/* rain_fx: a standing car's streak falls; a fast car's is a spoke away from the vanishing point, longer; a pure function; lit by the cone at night */
+static void test_rain_spokes_follow_the_speed(void)
+{
+    const int32_t vx = 320, vy = 200;
+    int level, still_falls = 0, radial = 0, longer = 0, n = 0;
+    for (int drop = 0; drop < 240; drop++) {
+        int32_t a[4], f[4], g[4];
+        weather_rain_spoke(drop, 50, 0, 640, 480, vx, vy, 500.0f, 0, a, &level);
+        CHECK_EQ_INT(level, WEATHER_RAIN_DAY_LEVEL);                                    /* by day the phase 1 colour */
+        weather_rain_spoke(drop, 50, 40 << 16, 640, 480, vx, vy, 500.0f, 0, f, &level);
+        weather_rain_spoke(drop, 50, 40 << 16, 640, 480, vx, vy, 500.0f, 0, g, &level);
+        CHECK(memcmp(f, g, sizeof f) == 0);                                              /* a pure function */
+        if (a[3] > a[1]) still_falls++;                                                  /* the head is the lower end */
+        if (span2(f) < 16) continue;
+        n++;
+        const int64_t outward = (int64_t)(f[2] - vx) * (f[2] - f[0]) + (int64_t)(f[3] - vy) * (f[3] - f[1]);   /* the head is farther out than the tail */
+        if (outward > 0) radial++;
+        if (span2(f) > span2(a)) longer++;
+    }
+    CHECK(still_falls > 230);
+    CHECK(n > 200 && radial * 100 > n * 97);
+    CHECK(longer * 100 > 240 * 55);   /* most are longer (the ones just born are cut by the origin) */
+    int32_t slow[4], mid[4];
+    weather_rain_spoke(9, 50, 5 << 16, 640, 480, vx, vy, 500.0f, 0, slow, &level);   /* it changes smoothly with the speed */
+    weather_rain_spoke(9, 50, 6 << 16, 640, 480, vx, vy, 500.0f, 0, mid, &level);
+    CHECK(abs(slow[2] - mid[2]) + abs(slow[3] - mid[3]) < 40);
+}
+
+static void test_rain_cone_lights_the_drops(void)
+{
+    CHECK(weather_rain_cone_weight(15.0f, 0.0f, 1.0f) > 200);   /* ahead of the nose */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 12.0f, 1.0f), 0);   /* far to the side */
+    CHECK_EQ_INT(weather_rain_cone_weight(-5.0f, 0.0f, 1.0f), 0);    /* behind */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 0.0f, 6.0f), 0);    /* high above */
+    int dark = 0, bright = 0, level;
+    for (int drop = 0; drop < 240; drop++) {
+        int32_t s[4];
+        weather_rain_spoke(drop, 7, 0, 640, 480, 320, 200, 500.0f, 1, s, &level);
+        CHECK(level >= 0 && level < WEATHER_RAIN_LEVELS);
+        if (level == 0) dark++;
+        if (level >= 2) bright++;
+    }
+    CHECK(dark > 0 && bright > 0 && dark > bright);   /* a few in the beam, most outside it */
+    CHECK(weather_rain_level_fog(0) < weather_rain_level_fog(1) && weather_rain_level_fog(2) < weather_rain_level_fog(3));
+}
+
 int main(void)
 {
+    test_rain_spokes_follow_the_speed();
+    test_rain_cone_lights_the_drops();
     test_fog_curve_default();
     test_fog_for_tint();
     test_names();

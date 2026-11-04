@@ -1,5 +1,6 @@
 #include "game/race/weather.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -114,4 +115,56 @@ void weather_rain_streak(int drop, uint32_t tick, int32_t box_w, int32_t box_h, 
     out[3] = head;
     out[0] = out[2] + length / SLANT_DIVISOR;
     out[1] = head - length;
+}
+
+/* ---- rain_fx: streaks by speed and light ---- */
+
+static float clampf(float v, float lo, float hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+int weather_rain_cone_weight(float ahead, float lateral, float height)
+{
+    if (ahead <= 0.0f || height <= 0.0f || height >= 5.0f) return 0;
+    const float in = clampf(ahead / 3.0f, 0.0f, 1.0f), out = clampf((70.0f - ahead) / 25.0f, 0.0f, 1.0f);
+    const float half = 1.5f + 0.30f * ahead, t = fabsf(lateral) / half;
+    const float side = t >= 1.0f ? 0.0f : 1.0f - t * t;
+    const float up = height <= 2.5f ? 1.0f : (5.0f - height) / 2.5f;
+    return (int)(256.0f * in * out * side * up);
+}
+
+int weather_rain_level_fog(int level)
+{
+    static const int FOG[WEATHER_RAIN_LEVELS] = { 3, 5, 7, 10 };
+    return FOG[level < 0 ? 0 : level >= WEATHER_RAIN_LEVELS ? WEATHER_RAIN_LEVELS - 1 : level];
+}
+
+void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level)
+{
+    const uint32_t d = (uint32_t)drop;
+    const uint32_t fall = FALL_MIN + hash(d, 1) % FALL_RANGE, phase = hash(d, 2) & 0xffff;
+    const float column = (float)((int64_t)(hash(d, 3) & 0xffff) * box_w >> 16);
+    const float base = (float)(box_h * (LENGTH_MIN + (int32_t)(hash(d, 4) % LENGTH_RANGE)) / 480);
+    const float metres = (float)((speed < 0 ? -(int64_t)speed : speed) >> 16);
+    const float s = clampf(metres / WEATHER_SPOKE_FULL, 0.0f, 1.0f);
+    const float p = (float)((phase + fall * tick) & 0xffff) / 65536.0f;
+    const float theta = (float)(hash(d, 5) & 0xffff) * (6.2831853f / 65536.0f);
+    /* the direction: a falling streak's (today's slant) turned to the spoke's, from the drop's own angle about the vanishing point */
+    float dx = (1.0f - s) * -0.196f + s * cosf(theta), dy = (1.0f - s) * 0.981f + s * sinf(theta) * 0.8f;
+    const float n = sqrtf(dx * dx + dy * dy);
+    dx /= n, dy /= n;
+    const float ox = (1.0f - s) * column + s * (float)vx, oy = s * (float)vy;
+    const float reach = (float)box_h * (1.0f + 0.6f * s);
+    const float near_end = 0.12f * reach * s;   /* a spoke is born a little way from the vanishing point, not at it */
+    const float head = near_end + (reach - near_end) * powf(p, 1.0f + s);
+    const float len = base * (1.0f + 2.5f * s) * (0.3f + p * s + (1.0f - s) * 0.7f);
+    const float tail = head - len > near_end ? head - len : near_end;
+    out[0] = (int32_t)(ox + dx * tail), out[1] = (int32_t)(oy + dy * tail);
+    out[2] = (int32_t)(ox + dx * head), out[3] = (int32_t)(oy + dy * head);
+    int l = WEATHER_RAIN_DAY_LEVEL;
+    if (night && focal > 0.0f) {
+        const float z = 4.0f + 36.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f;   /* the depth the drop is taken at: most near */
+        const float rx = ((float)out[2] - (float)vx) / focal, ry = ((float)vy - (float)out[3]) / focal;
+        const int w = weather_rain_cone_weight(z, rx * z, 1.2f + ry * z);
+        l = w < 24 ? 0 : w < 96 ? 1 : w < 176 ? 2 : 3;
+    }
+    *level = l;
 }
