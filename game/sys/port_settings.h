@@ -74,6 +74,9 @@ typedef struct {
     int cavern_dark;    /* with car_tunnel_light, Burnt Sienna's cavern (nodes 322..546, after the mine's tunnel) keeps the car at the dim tone, steady, no highway-lamp alternation; 0: the alternation */
     int vegas_objects;    /* with the PS1 light, Lost Vegas' buildings and 3D objects keep almost full light (245 of 255) while the road takes the dark and the headlights, so the lit windows and the neon stand out; 0: they take the road's dark */
     int close_houses;    /* TR3's village houses (model 4) and the long building (model 3) */
+    int brake_over_gas;    /* 1: with split pedals (a pad's two triggers), a brake held past its dead zone is the pedal and the gas is ignored, so the car brakes and the brake light lights; 0: the exe's, the pedals summed (brake less gas) */
+    int lamp_pools;    /* 1: with the PS1 headlights at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
+    int lamp_car_shade;    /* 1: with the PS1 headlights at night, a car under a street lamp's pool is lit by it (half way to a warm light at the lamp, fading with the pool), CD light or made; 0: the car's shade as it was */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -187,6 +190,12 @@ int port_cavern_dark(void);
 int port_vegas_objects(void);
 /* 1 when close_houses is on: TNFS_CLOSE_HOUSES=0/1 when set, else port.cfg's; never without port_psx_light. */
 int port_close_houses(void);
+/* 1 when lamp_car_shade: TNFS_LAMP_CAR_SHADE=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
+int port_lamp_car_shade(void);
+/* 1 when lamp_pools: TNFS_LAMP_POOLS=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
+int port_lamp_pools(void);
+/* 1 when brake_over_gas: TNFS_BRAKE_OVER_GAS=0/1 when set, else port.cfg's. */
+int port_brake_over_gas(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };

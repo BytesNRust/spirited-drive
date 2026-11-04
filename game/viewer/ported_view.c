@@ -531,6 +531,7 @@ static int ratio_at(int32_t node, float out[3])
         const int g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
+        if (port_lamp_car_shade()) (void)psx_light_car_pool(psx_light, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
     return found;
 }

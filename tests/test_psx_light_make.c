@@ -364,8 +364,86 @@ static void test_the_forest_road_range_is_vertigo_ridges_only(void)
     CHECK(!psx_light_forest_road_range("TR1", &from, &to) && !psx_light_forest_road_range(NULL, &from, &to));
 }
 
+static void test_pools_go_over_a_light_the_cd_gave(void)
+{
+    /* a CD night as the file holds it: 8 header bytes (the node count first), every point at 40 */
+    uint8_t file[8 + NODES * PSX_LIGHT_POINTS];
+    memset(file, 40, sizeof file);
+    memset(file, 0, 8);
+    file[0] = (uint8_t)NODES;
+    PsxLight cd = { 0 };
+    CHECK(psx_light_parse(file, sizeof file, NODES, &cd));
+    const uint32_t lamps[] = { 20 };
+    CHECK_EQ_INT(psx_light_add_pools(&cd, 0, lamps, 1, 1, 1, 1), 1);
+    CHECK(cd.data[20 * PSX_LIGHT_POINTS + 3] > 40 + 50);                 /* the ground under the lamp is lit */
+    CHECK(cd.data[22 * PSX_LIGHT_POINTS + 3] > 40);                      /* and fades with the distance */
+    CHECK(cd.data[22 * PSX_LIGHT_POINTS + 3] < cd.data[20 * PSX_LIGHT_POINTS + 3]);
+    CHECK_EQ_INT(cd.data[34 * PSX_LIGHT_POINTS + 3], 40);                /* far off: the CD's own */
+    CHECK_EQ_INT(cd.data[20 * PSX_LIGHT_POINTS + 0], 40);                /* the road's rows are left to the pool's tint */
+    CHECK(cd.pool_class != NULL && cd.pool_class[20] == 4 && cd.pool_class[34] == 0);
+    const uint8_t after = cd.data[20 * PSX_LIGHT_POINTS + 3];
+    CHECK_EQ_INT(psx_light_add_pools(&cd, 0, lamps, 1, 1, 1, 1), 0);           /* once: a second call adds nothing */
+    CHECK_EQ_INT(cd.data[20 * PSX_LIGHT_POINTS + 3], after);
+    PsxLight none = { 0 };
+    CHECK_EQ_INT(psx_light_add_pools(&none, 0, lamps, 1, 1, 1, 1), 0);         /* no light, no pools */
+    psx_light_free(&cd);
+    CHECK_EQ_INT(cd.pooled, 0);
+}
+
+static void test_car_shade_follows_the_pool(void)
+{
+    uint8_t file[8 + NODES * PSX_LIGHT_POINTS];
+    memset(file, 40, sizeof file);
+    memset(file, 0, 8);
+    file[0] = (uint8_t)NODES;
+    PsxLight cd = { 0 };
+    CHECK(psx_light_parse(file, sizeof file, NODES, &cd));
+    float dark[3] = { 0.2f, 0.2f, 0.2f }, out[3];
+    memcpy(out, dark, sizeof out);
+    CHECK_EQ_INT(psx_light_car_pool(&cd, 20, out), 0);   /* no pools yet: nothing changes */
+    const uint32_t lamps[] = { 20 };
+    CHECK_EQ_INT(psx_light_add_pools(&cd, 0, lamps, 1, 1, 0, 1), 1);
+    CHECK(cd.pool_class == NULL && cd.car_pool != NULL);   /* the road's tint was not asked for */
+    memcpy(out, dark, sizeof out);
+    CHECK_EQ_INT(psx_light_car_pool(&cd, 20, out), 1);
+    CHECK(out[0] > 0.5f && out[1] > 0.47f && out[2] > 0.35f);    /* under the lamp the car is lit by it */
+    CHECK(out[0] > out[2]);                                       /* and warm */
+    float near[3] = { 0.2f, 0.2f, 0.2f };
+    CHECK_EQ_INT(psx_light_car_pool(&cd, 24, near), 1);
+    CHECK(near[0] > 0.2f && near[0] < out[0]);                    /* it fades with the distance */
+    float far[3] = { 0.2f, 0.2f, 0.2f };
+    CHECK_EQ_INT(psx_light_car_pool(&cd, 34, far), 0);
+    CHECK(far[0] == 0.2f);
+    float bright[3] = { 1.9f, 2.5f, 1.0f };
+    CHECK_EQ_INT(psx_light_car_pool(&cd, 20, bright), 1);
+    CHECK(bright[0] >= 1.9f && bright[0] <= 2.0f && bright[1] == 2.5f && bright[2] > 1.0f);   /* never darkened, at most 2 */
+    psx_light_free(&cd);
+    CHECK(cd.car_pool == NULL);
+}
+
+static void test_pools_on_a_reversed_track_sit_where_the_lamps_are_now(void)
+{
+    uint8_t file[8 + NODES * PSX_LIGHT_POINTS];
+    memset(file, 40, sizeof file);
+    memset(file, 0, 8);
+    file[0] = (uint8_t)NODES;
+    PsxLight cd = { 0 };
+    CHECK(psx_light_parse(file, sizeof file, NODES, &cd));
+    psx_light_set_reversed(&cd, 1);   /* the file's node j is now node NODES - j */
+    const uint32_t lamps[] = { NODES - 10 };   /* a lamp at the new node NODES - 10 stands at the file's node 10 */
+    CHECK_EQ_INT(psx_light_add_pools(&cd, 0, lamps, 1, 1, 1, 1), 1);
+    CHECK(cd.data[10 * PSX_LIGHT_POINTS + 3] > 40 + 50);         /* the rows are the file's */
+    CHECK_EQ_INT(cd.data[(NODES - 10) * PSX_LIGHT_POINTS + 3], 40);
+    CHECK(cd.pool_class[NODES - 10] == 4 && cd.pool_class[10] == 0);   /* the classes are asked by the new node */
+    CHECK(cd.car_pool[NODES - 10] == 4);
+    psx_light_free(&cd);
+}
+
 int main(void)
 {
+    test_car_shade_follows_the_pool();
+    test_pools_on_a_reversed_track_sit_where_the_lamps_are_now();
+    test_pools_go_over_a_light_the_cd_gave();
     test_lamp_classes_follow_the_pool();
     test_the_forest_goes_over_a_loaded_light_in_its_own_node_order();
     test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be();

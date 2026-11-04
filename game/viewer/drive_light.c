@@ -278,10 +278,13 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     port_log("psx_light: %s, %u nodes, tint %.2f %.2f %.2f\n", path, light.nodes, tint[0], tint[1], tint[2]);
 }
 
+static void lay_cd_pools(void);
+
 void drive_light_set_reversed(int reversed)
 {
     if (synth_on) return;   /* made from the track as it runs: already in its direction */
     psx_light_set_reversed(&light, reversed);
+    lay_cd_pools();
 }
 
 /* port (own light): the terrain's light of the time (psx_light_make.h), with a tunnel's rows laid over it where the road has one (the synth's rows are 255 in the open, so the lower of
@@ -331,6 +334,10 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     if (lamps > 0 && port_lamp_pool_tint()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
         made.pool_class = malloc(made.nodes);
         if (made.pool_class != NULL) psx_light_lamp_classes(made.pool_class, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
+    }
+    if (lamps > 0 && port_lamp_car_shade()) {   /* port (lamp_car_shade): and the same classes for the car's light */
+        made.car_pool = malloc(made.nodes);
+        if (made.car_pool != NULL) psx_light_lamp_classes(made.car_pool, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
     PsxLight tunnels = { 0 };
     uint32_t open_from = 1, open_to = 0;
@@ -405,8 +412,32 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     return 1;
 }
 
+/* port (lamp_pools): the CD's own light (a night's LGT) has no street lamps in it; the made pools go over it, where the lamps stand. The lamps are kept here and laid when the track's direction is
+ * known (drive_light_set_reversed): the CD's rows are of the file's own direction, the lamps' nodes of the track as it runs */
+static uint32_t cd_lamp_nodes[MAX_LAMP_NODES];
+static size_t cd_lamp_count;
+static int cd_lamp_ring;
+
+static void pool_cd_light(const Tri *tri)
+{
+    cd_lamp_count = 0;
+    if (tri == NULL || light.data == NULL || light.pooled || synth_on || made_wanted || !headlights_on || synth_time != PSX_SYNTH_NIGHT) return;
+    if (!port_lamp_pools() && !port_lamp_car_shade()) return;
+    cd_lamp_count = street_lamp_pool_nodes(tri, cd_lamp_nodes);
+    cd_lamp_ring = tri_is_circuit(tri);
+}
+
+static void lay_cd_pools(void)
+{
+    if (cd_lamp_count == 0 || light.data == NULL || light.pooled) return;
+    if (psx_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_lamp_pools(), port_lamp_pools() && port_lamp_pool_tint(), port_lamp_car_shade()))
+        port_log("psx_light: %zu street lamp pools over the CD's light\n", cd_lamp_count);
+    cd_lamp_count = 0;
+}
+
 void drive_light_load_synth(const Tri *tri, const char *track)
 {
+    pool_cd_light(tri);
     const int tunnel_track = synth_wanted && psx_light_synth_track(track);
     if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
     PsxLight made = { 0 };

@@ -30,11 +30,14 @@ void psx_light_free(PsxLight *light)
     free(light->canyon);
     light->canyon = NULL;
     free(light->pool_class);
+    free(light->car_pool);
+    light->car_pool = NULL;
     light->pool_class = NULL;
     light->data = NULL;
     light->hall = NULL;
     light->tunnel = NULL;
     light->scripted = 0;
+    light->pooled = 0;
     light->reversed = 0;
     light->nodes = 0;
 }
@@ -170,4 +173,18 @@ uint8_t psx_light_node(const PsxLight *light, uint32_t node)
     unsigned sum = 0;
     for (size_t i = 0; i < sizeof TERRAIN / sizeof *TERRAIN; i++) sum += psx_light_at(light, node, TERRAIN[i]);
     return (uint8_t)((sum + sizeof TERRAIN / sizeof *TERRAIN / 2) / (sizeof TERRAIN / sizeof *TERRAIN));
+}
+
+int psx_light_car_pool(const PsxLight *light, uint32_t node, float out[3])
+{
+    static const float LAMP_GAIN[3] = { 2.6f, 2.4f, 1.8f };   /* at the lamp: the car's ratio times this, warm (the world's tint is dark, a ratio of 1 is the night as it is) */
+    enum { RATIO_MAX = 2 };
+    if (light == NULL || light->car_pool == NULL || light->nodes == 0 || out == NULL) return 0;
+    const uint8_t c = light->car_pool[node % light->nodes];
+    if (c == 0) return 0;
+    for (int k = 0; k < 3; k++) {
+        const float lifted = out[k] * (1.0f + (LAMP_GAIN[k] - 1.0f) * (float)c / 4.0f);
+        if (lifted > out[k]) out[k] = lifted < (float)RATIO_MAX ? lifted : (out[k] > (float)RATIO_MAX ? out[k] : (float)RATIO_MAX);
+    }
+    return 1;
 }

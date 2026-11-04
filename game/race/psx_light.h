@@ -32,6 +32,8 @@ typedef struct {
     uint8_t object_floor;   /* port (vegas_objects): the least light (of 255) a 3D object (a building, a sign) takes from its node; 0 none, the node's own light */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
+    uint8_t *car_pool;  /* port (lamp_car_shade): per node (owned), 0 none, 1..4 how strong a street lamp's pool is under a car there (the new node's); NULL none */
+    int pooled;         /* port (lamp_pools): the street lamps' pools are in `data` already (psx_light_add_pools) */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
                          * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
 } PsxLight;
@@ -62,6 +64,10 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node);
 
 /* port (lamp_pool_tint): what the light of the polygons at `node` is tabled by: 1 a tunnel (psx_light_tunnel), 2..5 a street lamp's pool of class 1..4 (the road there takes a warm tint), 0 else. */
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node);
+
+/* port (lamp_car_shade): a car's light ratio (`out`, 0..1 a channel) times a warm lamp gain by the pool at `node` (car_pool, 2.6 / 2.4 / 1.8 at the strongest, fading with its class, at most 2, never darkened): 1 when it
+ * changed, 0 with no pool there. */
+int psx_light_car_pool(const PsxLight *light, uint32_t node, float out[3]);
 
 /* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last
  * node is not light (random bytes) and takes the one before it; PSX_LIGHT_FULL without data or for a point out of range. */
