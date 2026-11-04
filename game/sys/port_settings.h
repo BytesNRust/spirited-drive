@@ -76,6 +76,7 @@ typedef struct {
     int close_houses;    /* TR3's village houses (model 4) and the long building (model 3) */
     int brake_over_gas;    /* 1: with split pedals (a pad's two triggers), a brake held past its dead zone is the pedal and the gas is ignored, so the car brakes and the brake light lights; 0: the exe's, the pedals summed (brake less gas) */
     int lamp_pools;    /* 1: with the PS1 headlights at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
+    int headlight_cone;    /* 1: with the PS1 headlights at night, the car's beam is a cone from its position and heading, per vertex of the road and scenery (it follows the nose, a turn, a U-turn); 0: the pool along the track's nodes as it was */
     int lamp_car_shade;    /* 1: with the PS1 headlights at night, a car under a street lamp's pool is lit by it (half way to a warm light at the lamp, fading with the pool), CD light or made; 0: the car's shade as it was */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
@@ -192,6 +193,8 @@ int port_vegas_objects(void);
 int port_close_houses(void);
 /* 1 when lamp_car_shade: TNFS_LAMP_CAR_SHADE=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
 int port_lamp_car_shade(void);
+/* 1 when headlight_cone: TNFS_HEADLIGHT_CONE=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
+int port_headlight_cone(void);
 /* 1 when lamp_pools: TNFS_LAMP_POOLS=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
 int port_lamp_pools(void);
 /* 1 when brake_over_gas: TNFS_BRAKE_OVER_GAS=0/1 when set, else port.cfg's. */

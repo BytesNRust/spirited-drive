@@ -489,6 +489,32 @@ static uint8_t headlight_frac(const RaceState *race, const Car *car)
     return (uint8_t)(t <= 0.0 ? 0 : t >= 1.0 ? 255 : t * 256.0);
 }
 
+/* port (headlight_cone): the nodes' centres (x, z in 16.16 metres), once per track: what the objects and the cars, lit by the node, take the cones at */
+static const int32_t *cone_node_xz(const RaceState *race, uint32_t nodes)
+{
+    static int32_t *xz;
+    static uint32_t have;
+    static const RaceState *for_race;
+    if (nodes == 0) return NULL;
+    if (xz != NULL && have == nodes && for_race == race) return xz;
+    free(xz);
+    xz = malloc(sizeof *xz * 2 * nodes);
+    if (xz == NULL) return NULL;
+    for (uint32_t i = 0; i < nodes; i++) {
+        const TriNode n = race_node(race, (int32_t)i);
+        xz[2 * i] = n.position.x, xz[2 * i + 1] = n.position.z;
+    }
+    have = nodes, for_race = race;
+    return xz;
+}
+
+/* port (headlight_cone): a car's heading as a unit vector on the ground from its yaw (24 bits a turn) */
+static void cone_heading(const Car *car, double *hx, double *hz)
+{
+    const double a = (double)(car->yaw & 0xffffff) * (6.283185307179586 / 16777216.0);
+    *hx = sin(a), *hz = cos(a);
+}
+
 /* port (psx_headlights): the tick each car's body was last drawn (its draw distance, the render scale's): a car that is not drawn does not light the road, so no lit road
  * shows far from a car that is not there yet. Stored as tick + 1: 0 is never */
 static int32_t body_drawn_tick[RACE_CARS];
@@ -507,6 +533,8 @@ static void headlights_update(void)
     const int32_t ring = (int32_t)pool->ring;
     if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel);   /* another track */
     pool->tunnel = road_tunnels(shadow_race, psx_light->nodes);
+    pool->cone = port_headlight_cone();
+    pool->node_xz = pool->cone ? cone_node_xz(shadow_race, psx_light->nodes) : NULL;
     const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
@@ -517,6 +545,10 @@ static void headlights_update(void)
         if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;
         if (moved != 0 && moved > -4 && moved < 4) travel[i] = moved > 0 ? 1 : -1;
         seen[i] = car->node;
+        if (pool->cone) {   /* port (headlight_cone): the cone from the car's place along its nose */
+            pool->cone_x[pool->count] = car->x / 65536.0, pool->cone_z[pool->count] = car->z / 65536.0;
+            cone_heading(car, &pool->cone_hx[pool->count], &pool->cone_hz[pool->count]);
+        }
         pool->sub[pool->count] = headlight_frac(shadow_race, car);
         pool->dir[pool->count] = travel[i];
         pool->node[pool->count++] = car->node;
@@ -1680,7 +1712,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
     }
     headlights_update();   /* port (psx_headlights): the pools of the cars with their lights on, before the rows are built */
-    if (port_headlight_relight()) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
+    if (port_headlight_relight() || (psx_light != NULL && psx_light->pool != NULL && psx_light->pool->cone)) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
     track_render_transform(&render, &cam, &ctx);
     memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
     last_near = ctx.near;

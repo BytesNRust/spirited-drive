@@ -319,6 +319,11 @@ static void start_at_node(RaceState *race)
     if (at == NULL) return;
     const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
     place_car(car, race, where);
+    const char *const turn = getenv("TNFS_START_TURN");
+    if (turn != NULL && turn[0] == '1') {   /* port (dev, env only): TNFS_START_TURN=1 turns the car round (half a turn about the vertical), for the headlight cone's U-turn captures */
+        for (int row = 0; row < 3; row++) car->matrix[3 * row] = -car->matrix[3 * row], car->matrix[3 * row + 2] = -car->matrix[3 * row + 2];
+        car->yaw = (int32_t)((uint32_t)car->yaw + 0x800000u) & 0xffffff;
+    }
     port_log("TNFS_START_NODE: the player car at node %d\n", car->node);
     police_near(race, where);
 }

@@ -1,5 +1,6 @@
 #include "game/race/headlight_pool.h"
 
+#include <math.h>
 #include <stddef.h>
 
 /* the lift 0..256 at `ahead` 1/256 nodes in front of a car's place (negative: behind it): none behind it and under the first HEADLIGHT_START nodes, a smoothstep up
@@ -15,10 +16,40 @@ static int lift(int ahead)
     return smooth(256 - 256 * (ahead - hold) / (end - hold));
 }
 
+/* one car's cone at a ground point: the lift of its distance ahead along the nose, times the falloff across it */
+static int cone_lift(const HeadlightPool *pool, int car, double x, double z)
+{
+    const double dx = x - pool->cone_x[car], dz = z - pool->cone_z[car];
+    const double along = dx * pool->cone_hx[car] + dz * pool->cone_hz[car];
+    const double across = fabs(dx * pool->cone_hz[car] - dz * pool->cone_hx[car]);
+    const int d = lift((int)(along * 256.0 / CONE_METRES_PER_NODE));
+    if (d == 0) return 0;
+    const double half = CONE_WIDTH_BASE + along * CONE_WIDTH_PERCENT / 100.0;
+    if (across >= half) return 0;
+    const double edge = 0.55 * half;
+    if (across <= edge) return d;
+    return d * (256 - smooth((int)(256.0 * (across - edge) / (half - edge)))) / 256;
+}
+
+int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z)
+{
+    int best = 0;
+    if (pool == NULL) return 0;
+    for (int i = 0; i < pool->count && i < HEADLIGHT_MAX; i++) {
+        const int l = cone_lift(pool, i, x, z);
+        if (l > best) best = l;
+    }
+    return best;
+}
+
+int headlight_pool_gain_at_lift(int floor, int lift) { return floor + (256 - floor) * lift / 256; }
+
 static int best_lift(const HeadlightPool *pool, uint32_t node)
 {
     int best = 0;
     if (pool == NULL) return 0;
+    if (pool->cone && pool->node_xz != NULL && pool->ring != 0)   /* port (headlight_cone): the node's centre in the cars' cones */
+        return headlight_pool_lift_xz(pool, pool->node_xz[2 * (node % pool->ring)] / 65536.0, pool->node_xz[2 * (node % pool->ring) + 1] / 65536.0);
     for (int i = 0; i < pool->count && i < HEADLIGHT_MAX; i++) {
         int32_t d = (int32_t)(node % (pool->ring != 0 ? pool->ring : 1)) - pool->node[i];
         if (pool->ring != 0) {   /* the nearest way round the ring */

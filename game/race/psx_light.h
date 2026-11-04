@@ -73,6 +73,10 @@ int psx_light_car_pool(const PsxLight *light, uint32_t node, float out[3]);
  * node is not light (random bytes) and takes the one before it; PSX_LIGHT_FULL without data or for a point out of range. */
 uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point);
 
+/* port (headlight_cone): the same for a point of the row at the ground place xz = { x, z } in metres (NULL: as psx_light_at, the node's own place): with the pool's cone on the beam is the
+ * cone's at that place, so the light changes inside a polygon's corners and not a node's row at a time. */
+uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const double *xz);
+
 /* The light of what stands at a node (a scenery object): the mean of its terrain points' intensities, the road's left out;
  * PSX_LIGHT_FULL without data. */
 uint8_t psx_light_node(const PsxLight *light, uint32_t node);

@@ -69,6 +69,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `trans_shadows` | 0 | 0 | 0, 1 (Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge) | none | `TNFS_TRANS_SHADOWS` | 0 / 0 / 1 | `psx_light` |
 | `brake_over_gas` | 0 | 0 | 0, 1 (a pad's brake past its dead zone beats the gas: the car brakes and the brake light lights; 0 sums them as the exe does) | none | `TNFS_BRAKE_OVER_GAS` | 0 / 0 / 1 | none |
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
+| `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `psx_headlights` |
 | `lamp_car_shade` | 0 | 0 | 0, 1 (a car under a street lamp is lit by its pool: warmer and lighter, fading as it leaves) | none | `TNFS_LAMP_CAR_SHADE` | 0 / 0 / 1 | `psx_headlights` |
 | `tunnel_headlight` | 0 | 0 | 0, 1 (with the PS1 headlights at night, the beam lights a tunnel's walls and road, and a lit hall's, to 180 of 255; 0 the exe's 150 in a tunnel, nothing in a hall) | none | `TNFS_TUNNEL_HEADLIGHT` | 0 / 0 / 1 | `psx_light` |
 | `parking_dark` | 0 | 0 | 0, 1 (with car_tunnel_light, the car stays at the darkest tone of the hall in TR7's whole parking, nodes 465..570, with no alternating light; 0 the lamps' alternation) | none | `TNFS_PARKING_DARK` | 0 / 0 / 1 | `psx_light` |
@@ -194,6 +195,7 @@ All 43 columns of the table, in file order. A column that is not here is not tou
 | `vegas_objects` | port.cfg | 0 | 0 | 1 |
 | `close_houses` | port.cfg | 0 | 0 | 1 |
 | `lamp_car_shade` | port.cfg | 0 | 0 | 1 |
+| `headlight_cone` | port.cfg | 0 | 0 | 1 |
 | `lamp_pools` | port.cfg | 0 | 0 | 1 |
 | `brake_over_gas` | port.cfg | 0 | 0 | 1 |
 

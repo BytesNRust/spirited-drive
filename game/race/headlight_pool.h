@@ -27,6 +27,10 @@ typedef struct {
     int8_t dir[HEADLIGHT_MAX];     /* +1 the car travels to higher nodes, -1 to lower (reversing, or the wrong way round); 0 counts as +1: the light is ahead of the car's travel */
     int count;
     uint32_t ring;                 /* the track's nodes: a node ahead wraps round it */
+    int cone;                      /* port (headlight_cone): 1 the beam is each car's cone (below) in metres, not the nodes' pool; 0 the nodes' pool as it was */
+    double cone_x[HEADLIGHT_MAX], cone_z[HEADLIGHT_MAX];    /* each car's place on the ground, metres */
+    double cone_hx[HEADLIGHT_MAX], cone_hz[HEADLIGHT_MAX];  /* and its heading, a unit vector (the nose, not the track's direction) */
+    const int32_t *node_xz;        /* cone: the nodes' centres (x, z) in 16.16 metres, two per node: what a caller that knows only a node is lit at; NULL when not known */
     const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, psx_light_synth_tunnels); NULL when not known */
 } HeadlightPool;
 
@@ -54,5 +58,14 @@ int headlight_pool_beam(const HeadlightPool *pool, uint32_t node);
 
 /* `value` (0..255) scaled by `gain` (256 = whole). */
 uint8_t headlight_pool_apply(uint8_t value, int gain);
+
+/* port (headlight_cone): how much of the beam (0..256) a ground point (x, z) in metres gets from the cars' cones: ahead of a car's nose from METRES_PER_NODE x HEADLIGHT_START,
+ * the same rise, hold and fall as the pool's nodes (6 m a node), widening with the distance (half-width CONE_WIDTH_BASE + CONE_WIDTH_SLOPE x along) and falling smoothly to
+ * nothing at its edge; the best of the cars. Nothing behind a car. */
+enum { CONE_METRES_PER_NODE = 6, CONE_WIDTH_BASE = 6, CONE_WIDTH_PERCENT = 50 };
+int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z);
+
+/* The beam's gain at `lift` (0..256) of the beam: floor + (256 - floor) x lift / 256, the gain a node takes at that lift. */
+int headlight_pool_gain_at_lift(int floor, int lift);
 
 #endif

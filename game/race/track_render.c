@@ -115,7 +115,12 @@ void track_render_relight(TrackRender *r)
     int32_t count = r->build.world_next;
     if (count > TRACK_MAX_VERTICES) count = TRACK_MAX_VERTICES;
     for (int32_t i = 0; i < count; i++) {
-        r->light_vertex[i] = psx_light_at(r->psx, r->vertex_node[i], r->vertex_point[i]);
+        if (r->psx->pool->cone) {   /* port (headlight_cone): each vertex lit by the cones at its own place */
+            const double at[2] = { r->build.world[i][0] / 65536.0, r->build.world[i][2] / 65536.0 };
+            r->light_vertex[i] = psx_light_at_xz(r->psx, r->vertex_node[i], r->vertex_point[i], at);
+        } else {
+            r->light_vertex[i] = psx_light_at(r->psx, r->vertex_node[i], r->vertex_point[i]);
+        }
         r->tunnel_vertex[i] = (uint8_t)psx_light_tunnel_class(r->psx, r->vertex_node[i]);
     }
 }
