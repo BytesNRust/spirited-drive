@@ -379,6 +379,39 @@ static int in_dial(const Cockpit *k, int x, int y)
            in_ellipse(x, y, k->sped_x + k->sped_w / 12, k->sped_y + k->sped_h / 12, k->sped_w - k->sped_w / 6, k->sped_h - k->sped_h / 6);
 }
 
+/* port (dev, env only): TNFS_DASH_DUMP=<dir> writes each dash's 2D layer as <dir>/<STEM>.ppm (the dash art in the track's palette, the windshield black) and a draft mask
+ * <dir>/<STEM>.mask.png (the two gauge ellipses as DIAL), once per dash, for tools/dash_mask_psd.py's drafts */
+static void dash_dump(const Cockpit *k, const uint8_t *art)
+{
+    const char *dir = getenv("TNFS_DASH_DUMP");
+    static char done[sizeof drive_hud.dash_stem];
+    if (dir == NULL || lit_palette == NULL || strcmp(done, drive_hud.dash_stem) == 0) return;
+    snprintf(done, sizeof done, "%s", drive_hud.dash_stem);
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s.ppm", dir, done);
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) {
+        fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
+        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+            const uint8_t v = art[i];
+            static const uint8_t black[3] = { 0, 0, 0 };
+            fwrite(v == LAYER_KEY ? black : lit_palette + 3 * v, 1, 3, f);
+        }
+        fclose(f);
+    }
+    static uint8_t draft[SCREEN_W * SCREEN_H];
+    for (int y = 0; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++)
+            draft[y * SCREEN_W + x] = in_dial(k, x, y) && art[y * SCREEN_W + x] != LAYER_KEY ? DASH_MASK_DIAL : DASH_MASK_AUTO;
+    uint8_t *png = NULL;
+    size_t len = 0;
+    snprintf(path, sizeof path, "%s/%s.mask.png", dir, done);
+    f = fopen(path, "wb");
+    if (f != NULL && dash_mask_write(draft, SCREEN_W, SCREEN_H, &png, &len)) fwrite(png, 1, len, f);
+    if (f != NULL) fclose(f);
+    free(png);
+}
+
 /* `placed`: the 640 box where the map was and the dash is drawn instead (wide_art_placed), NULL when the map is there or it is not the dash;
  * `map_on`: the map is in its box (off, the box holds the dash's art and is the dash's like the rest of it) */
 static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car, const LayerRect *placed, int map_on)
@@ -393,6 +426,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     }
     const Cockpit *k = &drive_hud.cockpit;
     const uint8_t *art = dash_art_layer(k);
+    if (in_car) dash_dump(k, art);
     /* the radar detector's lights (cockpit_lights: the big one at dash point 2, the five small at 3..7): they are lights, untinted; what in
      * their box the lights drew over the dash's art (the case round them is the art's: half) */
     int lights_left = k->dash_points[2].x, lights_right = lights_left, lights_top = k->dash_points[2].y;

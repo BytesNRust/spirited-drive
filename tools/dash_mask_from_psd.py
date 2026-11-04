@@ -66,9 +66,8 @@ def mask_image(width, height, layer_image, left, top):
 def save_mask(classes, path):
     """The class image as the indexed PNG dash_mask.h reads."""
     index = {AUTO: 0, DASH: 1, DIAL: 2, LIT: 3}
-    img = Image.new("P", classes.size)
+    img = Image.frombytes("P", classes.size, bytes(index.get(v, 0) for v in classes.tobytes()))
     img.putpalette([c for v in (AUTO, DASH, DIAL, LIT) for c in PALETTE[v]])
-    img.putdata([index.get(v, 0) for v in classes.getdata()])
     img.save(path, optimize=True)
 
 
@@ -92,8 +91,9 @@ def main(argv):
         if not os.path.isfile(psd_path):
             continue
         classes = psd_mask(PSDImage.open(psd_path))
-        os.makedirs(os.path.join(dest, car), exist_ok=True)
-        path = os.path.join(dest, car, PNG_NAME)
+        folder = car.upper()   # the game looks a dash up by its stem, upper case (dash_mask.c)
+        os.makedirs(os.path.join(dest, folder), exist_ok=True)
+        path = os.path.join(dest, folder, PNG_NAME)
         save_mask(classes, path)
         count += 1
         print(path)
