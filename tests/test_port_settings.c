@@ -570,7 +570,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
-    char text[1024];
+    char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0);
     CHECK(n > 480);   /* about the size of the older 512 buffer: one more key would not have fitted */
@@ -620,7 +620,7 @@ static void test_two_sided_is_automatic(void)
     const char *const old = "two_sided_scenery=1\nfog_sample=1\n";
     const PortSettings s = port_settings_parse(old, strlen(old));
     CHECK_EQ_INT(s.fog_sample, 1);
-    char text[1024];
+    char text[PORT_CFG_TEXT_MAX];
     CHECK(port_settings_format(&s, text, sizeof text) > 0);
     CHECK(strstr(text, "two_sided") == NULL);
 }
