@@ -177,6 +177,8 @@ static void test_tyre_skid(void)
     CHECK(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, mid, 0, 1) > 0);
     CHECK(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, fast, 0, 1) > rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, mid, 0, 1));   /* louder with speed */
     CHECK(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, 90 << 16, 0, 1) <= RALLY_TYRE_TOP);
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, fast, 0, 1), 45);   /* half the first version's 90: 50 % quieter */
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, fast, 0x70, 1), 0x70);   /* a skid is the original volume */
     CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, mid, 0x70000, 1), 0x70000);   /* a real slide keeps its own, larger skid */
 }
 
