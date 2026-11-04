@@ -166,8 +166,23 @@ static void test_road_gravel_is_heard_at_a_crawl(void)
     }
 }
 
+/* the rolling tyre scrub: the shoulder's own tyre sound while rolling, its skid value raised with speed, never lowered, none off, standing or in the air */
+static void test_tyre_skid(void)
+{
+    const int32_t fast = 30 << 16, mid = 10 << 16;
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_OFF, fast, 0, 1), 0);               /* the exe's: its own skid */
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_OFF, fast, 7, 1), 7);
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, 0x10000, 0, 1), 0);        /* standing */
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, fast, 0, 0), 0);           /* in the air */
+    CHECK(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, mid, 0, 1) > 0);
+    CHECK(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, fast, 0, 1) > rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, mid, 0, 1));   /* louder with speed */
+    CHECK(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, 90 << 16, 0, 1) <= RALLY_TYRE_TOP);
+    CHECK_EQ_INT(rally_gravel_tyre_skid(RALLY_GRAVEL_COMPACT, mid, 0x70000, 1), 0x70000);   /* a real slide keeps its own, larger skid */
+}
+
 int main(void)
 {
+    test_tyre_skid();
     test_road_gravel_is_heard_at_a_crawl();
     test_shoulder_scrape_is_heard_at_a_crawl();
     test_kinds();

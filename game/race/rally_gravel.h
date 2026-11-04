@@ -37,6 +37,11 @@ int32_t rally_gravel_road_level(int kind, int32_t level, int32_t speed);
  * 0 for none (the switch off, a standing car). The strikes overlap (a fresh voice each), so they run into a roll. */
 int32_t rally_gravel_crunch(int kind, int32_t speed, uint32_t rand);
 
+/* The rolling tyre scrub: the skid value the tyre sound (race_sound_tyres: the shoulder's own 0x26/0x28 off-road variant) is fed while a car rolls on rally gravel, in place
+ * of `skid` (the exe's own, 0 on a straight): 3 a metre a second up to RALLY_TYRE_TOP, never below `skid`. 0/`skid` for the switch off, a standing car or one in the air. */
+enum { RALLY_TYRE_TOP = 0x60, RALLY_TYRE_PER_METRE = 3, RALLY_TYRE_MOVING = 2 };
+int32_t rally_gravel_tyre_skid(int kind, int32_t speed, int32_t skid, int on_ground);
+
 /* How much dust a car rolling at `speed` (16.16 metres a second) on the ground throws: 0 for none (nonzero drops puffs, see dust_trail.h). Compacted
  * gravel and a standing car throw none here; the exe's own skid marks and smoke are left to the tyres. */
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground);

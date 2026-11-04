@@ -60,8 +60,8 @@ typedef struct {
                               * mine is no longer taken for a hall (only TR7 has one); 0: as it was */
     int vegas_car_night;     /* 1: with the Light Effects switch and the night, Lost Vegas with no PS1 light takes its night tint under the same ceiling the CD's nights take,
                               * so the car is no longer lit as by day in its dark; 0: the fallback's night tint as it was */
-    int rally_gravel_shoulder; /* 1: with extras.cfg's rally_gravel, the rolling gravel's one-shot is the shoulder's own (same sample, same pitch, about one a second) and not the
-                              * faster double strike that rang like drops; 0: as it was */
+    int rally_gravel_shoulder; /* 1: with extras.cfg's rally_gravel, the rolling gravel scrubs with the shoulder's own tyre sound (race_sound_tyres, off-road variant, by speed)
+                              * and no gravel strikes (those rang like drops); 0: as it was */
     int chase_height;        /* 1: with extras.cfg's follow_camera, the chase eye behind the car keeps the flat chase's height above the road at the eye's own place on a climb or a
                               * descent (the exe's half lift left it low on climbs and high on descents); 0: as it was */
     int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (psx_light_lamp_classes);

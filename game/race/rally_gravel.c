@@ -38,6 +38,14 @@ int32_t rally_gravel_crunch(int kind, int32_t speed, uint32_t rand)
     return kind == RALLY_GRAVEL_REGOLITH ? volume / 2 : kind == RALLY_GRAVEL_DUST ? volume * 3 / 4 : volume;
 }
 
+int32_t rally_gravel_tyre_skid(int kind, int32_t speed, int32_t skid, int on_ground)
+{
+    if (kind == RALLY_GRAVEL_OFF || !on_ground || (speed >> 16) < RALLY_TYRE_MOVING) return skid;
+    const int32_t roll = (speed >> 16) * RALLY_TYRE_PER_METRE;
+    const int32_t floor = roll > RALLY_TYRE_TOP ? RALLY_TYRE_TOP : roll;
+    return skid > floor ? skid : floor;
+}
+
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground)
 {
     if (!on_ground || speed < DUST_MOVING || (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH)) return 0;
