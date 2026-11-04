@@ -1,4 +1,5 @@
 #include "game/race/weather.h"
+#include "game/race/headlight_pool.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -121,14 +122,12 @@ void weather_rain_streak(int drop, uint32_t tick, int32_t box_w, int32_t box_h, 
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+/* the eye's place along the car's nose from its centre (the cockpit's and the bumper's; a chase camera sits behind, but the drops are taken near the lens either way) */
+static const float EYE_FORWARD_M = 0.5f;
+
 int weather_rain_cone_weight(float ahead, float lateral, float height)
 {
-    if (ahead <= 0.0f || height <= 0.0f || height >= 5.0f) return 0;
-    const float in = clampf(ahead / 3.0f, 0.0f, 1.0f), out = clampf((70.0f - ahead) / 25.0f, 0.0f, 1.0f);
-    const float half = 1.5f + 0.30f * ahead, t = fabsf(lateral) / half;
-    const float side = t >= 1.0f ? 0.0f : 1.0f - t * t;
-    const float up = height <= 2.5f ? 1.0f : (5.0f - height) / 2.5f;
-    return (int)(256.0f * in * out * side * up);
+    return headlight_cone_weight_local((double)ahead + (double)EYE_FORWARD_M, (double)lateral, (double)height);   /* the cone's own, so the rain is lit where the road is */
 }
 
 int weather_rain_level_fog(int level)

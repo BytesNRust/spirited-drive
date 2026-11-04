@@ -1,5 +1,6 @@
 /* The weather's pure parts (weather.h): names, the rain's determinism and bounds. No game or CD data. */
 #include "game/race/weather.h"
+#include "game/race/headlight_pool.h"
 #include "test.h"
 
 #include <stdlib.h>
@@ -132,9 +133,14 @@ static void test_rain_spokes_follow_the_speed(void)
 static void test_rain_cone_lights_the_drops(void)
 {
     CHECK(weather_rain_cone_weight(15.0f, 0.0f, 1.0f) > 200);   /* ahead of the nose */
-    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 12.0f, 1.0f), 0);   /* far to the side */
-    CHECK_EQ_INT(weather_rain_cone_weight(-5.0f, 0.0f, 1.0f), 0);    /* behind */
-    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 0.0f, 6.0f), 0);    /* high above */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 40.0f, 1.0f), 0);   /* far to the side */
+    CHECK_EQ_INT(weather_rain_cone_weight(-25.0f, 0.0f, 1.0f), 0);    /* well behind: past the glow round the car */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 0.0f, 20.0f), 0);    /* high above */
+    CHECK_EQ_INT(weather_rain_cone_weight(150.0f, 0.0f, 1.0f), 0);    /* beyond the reach */
+    CHECK_EQ_INT(weather_rain_cone_weight(8.0f, 3.0f, 1.0f), weather_rain_cone_weight(8.0f, -3.0f, 1.0f));   /* symmetric */
+    /* it is the cone's own weight, the eye half a metre ahead of the car's centre */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 4.0f, 2.0f), headlight_cone_weight_local(15.5, 4.0, 2.0));
+    CHECK(weather_rain_cone_weight(30.0f, 0.0f, 1.0f) < weather_rain_cone_weight(15.0f, 0.0f, 1.0f));   /* it fades with the distance */
     int dark = 0, bright = 0, level;
     for (int drop = 0; drop < 240; drop++) {
         int32_t s[4];
@@ -143,7 +149,7 @@ static void test_rain_cone_lights_the_drops(void)
         if (level == 0) dark++;
         if (level >= 2) bright++;
     }
-    CHECK(dark > 0 && bright > 0 && dark > bright);   /* a few in the beam, most outside it */
+    CHECK(dark > 0 && bright > dark);   /* the cone is a broad patch: most drops are in it, a few outside */
     CHECK(weather_rain_level_fog(0) < weather_rain_level_fog(1) && weather_rain_level_fog(2) < weather_rain_level_fog(3));
 }
 
