@@ -143,6 +143,15 @@ int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to
     return 1;
 }
 
+int psx_light_synth_parking(const char *track, uint32_t *from, uint32_t *to)
+{
+    uint32_t closed_from = 0, hall_to = 0;
+    if (!psx_light_synth_trans_closed(track, &closed_from, NULL, NULL) || !psx_light_synth_hall(track, NULL, &hall_to)) return 0;
+    if (from != NULL) *from = closed_from;
+    if (to != NULL) *to = hall_to;
+    return 1;
+}
+
 int psx_light_synth_mine(const char *track)
 {
     return track != NULL && strcasecmp(track, "TR6") == 0;
@@ -180,6 +189,10 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
 
 void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3])
 {
+    if (light != NULL && light->car_dim != NULL && light->nodes > 0 && light->car_dim[node % light->nodes]) {   /* port (parking_dark): the darkest tone of the lamp alternation (the exit tunnel's dim, which is right), whichever node */
+        for (int k = 0; k < 3; k++) out[k] = LAMP_DIM[k];
+        return;
+    }
     if (light == NULL || light->tunnel == NULL || light->nodes == 0) {
         psx_light_synth_car(light, node, out);
         return;

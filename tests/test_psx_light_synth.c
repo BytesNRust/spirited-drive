@@ -323,6 +323,25 @@ static void test_trans_closed_range(void)
     CHECK(!psx_light_synth_trans_closed("TR6", &a, &b, &r) && !psx_light_synth_trans_closed(NULL, &a, &b, &r));
 }
 
+static void test_parking_dark(void)
+{
+    uint32_t a = 0, b = 0;
+    CHECK(psx_light_synth_parking("TR7", &a, &b));
+    CHECK(a == 465 && b == 570);   /* the deck's first node to the hall's end, the exit tunnel's start is 571 */
+    CHECK(!psx_light_synth_parking("TR6", &a, &b) && !psx_light_synth_parking(NULL, &a, &b));
+    uint8_t dim[8] = { 0, 1, 1, 1, 0, 0, 0, 0 }, tunnel[8] = { 0 };
+    PsxLight light = { 0 };
+    light.nodes = 8, light.car_dim = dim, light.tunnel = tunnel;
+    float even[3], odd[3];
+    psx_light_synth_car_tunnel(&light, 2, even);
+    psx_light_synth_car_tunnel(&light, 3, odd);
+    CHECK(even[0] == odd[0] && even[1] == odd[1] && even[2] == odd[2]);   /* no alternation inside the span */
+    CHECK(even[0] < 0.4f && even[2] < 0.4f);   /* the alternation's dim tone, 62/160 */
+    psx_light_synth_car_tunnel(&light, 4, even);
+    psx_light_synth_car_tunnel(&light, 5, odd);
+    CHECK(even[0] == 1.0f && odd[0] == 1.0f);   /* outside it, no tunnel: the open light */
+}
+
 static void test_trans_ranges(void)
 {
     uint32_t a = 0, b = 0;
@@ -335,6 +354,7 @@ int main(void)
 {
     test_trans_ranges();
     test_trans_closed_range();
+    test_parking_dark();
     test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();

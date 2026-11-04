@@ -356,6 +356,11 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         if (tunnels.tunnel != NULL)
             for (uint32_t n = closed_from; n <= closed_to; n++) tunnels.tunnel[n] = PSX_SYNTH_FLAG_TUNNEL;
     }
+    uint32_t park_from = 1, park_to = 0;
+    if (port_parking_dark() && psx_light_synth_parking(track, &park_from, &park_to) && park_to < made.nodes) {   /* port (parking_dark): the car keeps the hall's dark tone from the deck's first node to the exit tunnel */
+        made.car_dim = calloc(made.nodes, 1);
+        if (made.car_dim != NULL) memset(made.car_dim + park_from, 1, park_to - park_from + 1);
+    }
     if (trans && open_to < made.nodes) {   /* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
         uint8_t open_level = 0;
         for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) open_level = made.data[i] > open_level ? made.data[i] : open_level;

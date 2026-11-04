@@ -64,6 +64,10 @@ int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open
  * the marked run whose tunnel row is the interior shade the range takes. */
 int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node);
 
+/* port (parking_dark): Transtropolis' (TR7) whole parking, from the deck's first node (465) to the node before the exit tunnel (570, the hall's end): the car keeps one dark tone there.
+ * 1 and the range (inclusive) for TR7, else 0. */
+int psx_light_synth_parking(const char *track, uint32_t *from, uint32_t *to);
+
 /* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
 int psx_light_synth_mine(const char *track);
 
