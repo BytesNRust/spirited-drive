@@ -33,6 +33,7 @@ void psx_light_free(PsxLight *light)
     light->hall = NULL;
     light->tunnel = NULL;
     light->scripted = 0;
+    light->pooled = 0;
     light->reversed = 0;
     light->nodes = 0;
 }

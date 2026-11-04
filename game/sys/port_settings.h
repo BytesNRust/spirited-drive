@@ -70,6 +70,7 @@ typedef struct {
                               * shade the road); 0: full sun there, as it was */
     int tunnel_headlight;    /* 1: with the PS1 headlights at night, the beam lights a tunnel's walls and road (and a lit hall's) to 180 of 255, a soft light; 0: as it was */
     int brake_over_gas;    /* 1: with split pedals (a pad's two triggers), a brake held past its dead zone is the pedal and the gas is ignored, so the car brakes and the brake light lights; 0: the exe's, the pedals summed (brake less gas) */
+    int lamp_pools;    /* 1: with the PS1 headlights at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -173,6 +174,8 @@ int port_trans_shadows(void);
 int port_canyon_shade(void);
 /* 180 when the beam lights tunnels (tunnel_headlight): TNFS_TUNNEL_HEADLIGHT=0/1 when set, else port.cfg's; never without port_psx_headlights. 0 off. */
 int port_tunnel_headlight(void);
+/* 1 when lamp_pools: TNFS_LAMP_POOLS=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
+int port_lamp_pools(void);
 /* 1 when brake_over_gas: TNFS_BRAKE_OVER_GAS=0/1 when set, else port.cfg's. */
 int port_brake_over_gas(void);
 

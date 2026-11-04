@@ -28,6 +28,7 @@ typedef struct {
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
+    int pooled;         /* port (lamp_pools): the street lamps' pools are in `data` already (psx_light_add_pools) */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
                          * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
 } PsxLight;

@@ -334,3 +334,15 @@ int psx_light_make(const Tri *tri, int time, PsxLight *out)
 {
     return psx_light_make_lit(tri, time, NULL, 0, out);
 }
+
+int psx_light_add_pools(PsxLight *light, int ring, const uint32_t *lamp_nodes, int n, int classes)
+{
+    if (light == NULL || light->data == NULL || light->pooled || lamp_nodes == NULL || n <= 0 || light->nodes < 2) return 0;
+    psx_light_add_lamps(light->data, light->nodes, ring, lamp_nodes, n);
+    light->pooled = 1;
+    if (classes && light->pool_class == NULL) {
+        light->pool_class = malloc(light->nodes);
+        if (light->pool_class != NULL) psx_light_lamp_classes(light->pool_class, light->nodes, ring, lamp_nodes, n);
+    }
+    return 1;
+}

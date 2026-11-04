@@ -392,8 +392,20 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     return 1;
 }
 
+/* port (lamp_pools): the CD's own light (a night's LGT) has no street lamps in it; the made pools go over it, where the lamps stand */
+static void pool_cd_light(const Tri *tri)
+{
+    static uint32_t lamp_nodes[MAX_LAMP_NODES];
+    if (tri == NULL || light.data == NULL || light.pooled || synth_on || made_wanted || !headlights_on || synth_time != PSX_SYNTH_NIGHT || !port_lamp_pools()) return;
+    const size_t lamps = street_lamp_pool_nodes(tri, lamp_nodes);
+    if (lamps == 0) return;
+    if (psx_light_add_pools(&light, tri_is_circuit(tri), lamp_nodes, (int)lamps, port_lamp_pool_tint()))
+        port_log("psx_light: %zu street lamp pools over the CD's light\n", lamps);
+}
+
 void drive_light_load_synth(const Tri *tri, const char *track)
 {
+    pool_cd_light(tri);
     const int tunnel_track = synth_wanted && psx_light_synth_track(track);
     if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
     PsxLight made = { 0 };

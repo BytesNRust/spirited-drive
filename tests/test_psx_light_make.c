@@ -356,8 +356,35 @@ static void test_the_forest_goes_over_a_loaded_light_in_its_own_node_order(void)
     free(cd.data);
 }
 
+static void test_pools_go_over_a_light_the_cd_gave(void)
+{
+    /* a CD night as the file holds it: 8 header bytes (the node count first), every point at 40 */
+    uint8_t file[8 + NODES * PSX_LIGHT_POINTS];
+    memset(file, 40, sizeof file);
+    memset(file, 0, 8);
+    file[0] = (uint8_t)NODES;
+    PsxLight cd = { 0 };
+    CHECK(psx_light_parse(file, sizeof file, NODES, &cd));
+    const uint32_t lamps[] = { 20 };
+    CHECK_EQ_INT(psx_light_add_pools(&cd, 0, lamps, 1, 1), 1);
+    CHECK(cd.data[20 * PSX_LIGHT_POINTS + 3] > 40 + 50);                 /* the ground under the lamp is lit */
+    CHECK(cd.data[22 * PSX_LIGHT_POINTS + 3] > 40);                      /* and fades with the distance */
+    CHECK(cd.data[22 * PSX_LIGHT_POINTS + 3] < cd.data[20 * PSX_LIGHT_POINTS + 3]);
+    CHECK_EQ_INT(cd.data[34 * PSX_LIGHT_POINTS + 3], 40);                /* far off: the CD's own */
+    CHECK_EQ_INT(cd.data[20 * PSX_LIGHT_POINTS + 0], 40);                /* the road's rows are left to the pool's tint */
+    CHECK(cd.pool_class != NULL && cd.pool_class[20] == 4 && cd.pool_class[34] == 0);
+    const uint8_t after = cd.data[20 * PSX_LIGHT_POINTS + 3];
+    CHECK_EQ_INT(psx_light_add_pools(&cd, 0, lamps, 1, 1), 0);           /* once: a second call adds nothing */
+    CHECK_EQ_INT(cd.data[20 * PSX_LIGHT_POINTS + 3], after);
+    PsxLight none = { 0 };
+    CHECK_EQ_INT(psx_light_add_pools(&none, 0, lamps, 1, 1), 0);         /* no light, no pools */
+    psx_light_free(&cd);
+    CHECK_EQ_INT(cd.pooled, 0);
+}
+
 int main(void)
 {
+    test_pools_go_over_a_light_the_cd_gave();
     test_lamp_classes_follow_the_pool();
     test_the_forest_goes_over_a_loaded_light_in_its_own_node_order();
     test_a_forest_alternates_two_dark_tones_and_lets_the_open_road_be();
