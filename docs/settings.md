@@ -71,7 +71,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
 | `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `psx_headlights` |
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
-| `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 0 | `weather=rain` |
+| `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 1 | `weather=rain` |
 | `gauge_light` | 0 | 0 | 0..4 (at night the lit parts of the dash gauges take a colour: 1 greenish, 2 reddish, 3 orange, 4 bluish; 0 the exe's untinted white; Graphics options page; a hand-made mask per dash, `data/dash_masks/<CAR>/dash_mask.png` or `$TNFS_DASH_MASKS`, from `tools/dash_mask_from_psd.py`, marks the lit parts: blue the dash, green a dial, white always lit) | none | `TNFS_GAUGE_LIGHT` | 0 / 0 / 0 | `weather=rain` |
 | `lamp_car_shade` | 0 | 0 | 0, 1 (a car under a street lamp is lit by its pool: warmer and lighter, fading as it leaves) | none | `TNFS_LAMP_CAR_SHADE` | 0 / 0 / 1 | `psx_headlights` |
 | `reverse_rows` | 0 | 0 | 0, 1 (a reversed circuit's rows are read the way the forward circuit's are (the exe's reverse swaps the two chains of each row, which bends a tunnel's roof into a slab and lays its wall down as a hillside): the tunnels keep their walls and roof; 0 the rows swapped as the exe's reverse has them) | none | `TNFS_REVERSE_ROWS` | 0 / 0 / 1 | none |
@@ -204,7 +204,7 @@ All 43 columns of the table, in file order. A column that is not here is not tou
 | `lamp_car_shade` | port.cfg | 0 | 0 | 1 |
 | `headlight_cone` | port.cfg | 0 | 0 | 1 |
 | `rain_fx` | port.cfg | 0 | 0 | 1 |
-| `rain_grip` | port.cfg | 0 | 0 | 0 |
+| `rain_grip` | port.cfg | 0 | 0 | 1 |
 | `gauge_light` | port.cfg | 0 | 0 | 0 |
 | `reverse_rows` | port.cfg | 0 | 0 | 1 |
 | `city_lift` | port.cfg | 0 | 0 | 1 |
