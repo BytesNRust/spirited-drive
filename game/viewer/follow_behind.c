@@ -34,6 +34,8 @@ typedef struct {
     int run_count;
     /* port (the PS1 light): the light of each point of `world`, 1 for those in a tunnel's row, and the corners of the polygon being drawn, as the render's */
     uint8_t light_vertex[WORLD_CAPACITY], tunnel_vertex[WORLD_CAPACITY], light_now[6];
+    uint32_t vertex_node[WORLD_CAPACITY];   /* port (headlight_cone): the node and the place in its row of each point, to light it at its own place */
+    uint8_t vertex_point[WORLD_CAPACITY];
     int lit;
 } Behind;
 
@@ -85,7 +87,7 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     b->object_world = B.object_world, b->object_capacity = OBJECT_CAPACITY;
     b->walk = r->build.walk;
     B.lit = r->psx != NULL;
-    if (B.lit) b->light = r->psx, b->light_out = B.light_vertex, b->tunnel_out = B.tunnel_vertex;   /* the same light, per node, as the main pass's */
+    if (B.lit) b->light = r->psx, b->light_out = B.light_vertex, b->tunnel_out = B.tunnel_vertex, b->node_out = B.vertex_node, b->point_out = B.vertex_point;   /* the same light, per node, as the main pass's */
     track_objects_start(&b->walk, (int32_t)(b->segment_mask & (uint32_t)first));
     for (int32_t s = first; s <= last; s++)
     {
@@ -108,6 +110,16 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     }
     /* the walk starts at the record before the first row's when none stands on it: that one is behind the range, whatever its key says */
     if (B.run_count > 1 && B.run_key[0] > B.run_key[1]) B.run_key[0] = -1;
+    static int off = -1;
+    if (off < 0) off = getenv("TNFS_FB_RELIGHT_OFF") != NULL;   /* dev: the relight off, for the before / after */
+    if (!off && B.lit && r->psx->pool != NULL && r->psx->pool->cone) {   /* port (headlight_cone): each point lit by the cones at its own place, as the main pass's track_render_relight */
+        int32_t count = b->world_next;
+        if (count > WORLD_CAPACITY) count = WORLD_CAPACITY;
+        for (int32_t i = 0; i < count; i++) {
+            const double at[2] = { B.world[i][0] / 65536.0, B.world[i][2] / 65536.0 };
+            B.light_vertex[i] = psx_light_at_xz(r->psx, B.vertex_node[i], B.vertex_point[i], at);
+        }
+    }
     return b->vertex_count <= WORLD_CAPACITY && w->vertex_total <= OBJECT_CAPACITY;
 }
 
