@@ -1,6 +1,7 @@
 #include "game/race/track_render.h"
 
 #include "game/race/race_detail.h"
+#include "game/race/finish_gate_light.h"
 #include "game/race/track_cache.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_near.h"
@@ -457,11 +458,12 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
 }
 
 /* port (PS1 light): the object being drawn stands at the walker's node and takes its terrain's light */
-static void object_light_on(const Glue *g)
+static void object_light_on(const Glue *g, int32_t resource)
 {
     if (track_light_hook == NULL || g->r->psx == NULL) return;
     uint8_t v = psx_light_node(g->r->psx, (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node);
     if (g->r->psx->object_floor > v) v = g->r->psx->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
+    v = finish_gate_light_level(g->r->psx->gate_board, resource, v);   /* port (finish_gate_light): the stage gate keeps its light */
     const uint8_t corners[4] = { v, v, v, v };
     track_light_hook(corners);
 }
@@ -474,7 +476,7 @@ static void object_light_off(const Glue *g)
 static void object_model(void *user, int32_t model, const int32_t position[3], int32_t angle)
 {
     const Glue *g = user;
-    object_light_on(g);
+    object_light_on(g, -1);
     if (g->ctx->sink.draw_model != NULL) g->ctx->sink.draw_model(g->ctx->sink.user, model, position, (uint32_t)angle);
     object_light_off(g);
 }
@@ -483,7 +485,7 @@ static void object_full(void *user, int32_t texture, const int32_t screen[8])
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
-    object_light_on(g);
+    object_light_on(g, texture);
     if (t != NULL) g->ctx->sink.draw_full(g->ctx->sink.user, t, screen);
     object_light_off(g);
 }
@@ -492,7 +494,7 @@ static void object_full_alt(void *user, int32_t texture, const int32_t screen[8]
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
-    object_light_on(g);
+    object_light_on(g, texture);
     if (t != NULL) g->ctx->sink.draw_full_alt(g->ctx->sink.user, t, screen);
     object_light_off(g);
 }
@@ -502,7 +504,7 @@ static void object_full_camera(void *user, int32_t texture, const int32_t *const
 {
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
-    object_light_on(g);
+    object_light_on(g, texture);
     if (t != NULL) full_camera(user, t, cam);
     object_light_off(g);
 }
@@ -554,7 +556,7 @@ static void object_roof_camera(void *user, int32_t texture, const int32_t *const
     const Glue *g = user;
     const FshEntry *t = scenery_texture(g->r->art, texture);
     if (t == NULL || t->payload == NULL) return;
-    object_light_on(g);
+    object_light_on(g, texture);
     full_camera(user, roof_texture(g->r->art, t), cam);
     object_light_off(g);
 }
@@ -573,7 +575,7 @@ static void object_box_clipped(void *user, int32_t texture, int roof, const int3
         uv[2 * i] = (int32_t)((int64_t)frac[2 * i] * whole[4] / 65536);
         uv[2 * i + 1] = (int32_t)((int64_t)frac[2 * i + 1] * whole[5] / 65536);
     }
-    object_light_on(g);
+    object_light_on(g, texture);
     light_on(g);
     g->ctx->sink.draw_camera(g->ctx->sink.user, g->ctx->view, drawn, uv, cam);
     light_off(g);
@@ -588,7 +590,7 @@ static void object_near_camera(void *user, int32_t texture, const int32_t *const
     if (t == NULL) return;
     int32_t uv[8];
     whole_uv(t, uv);
-    object_light_on(g);
+    object_light_on(g, texture);
     g->ctx->sink.port_near_camera(g->ctx->sink.user, g->ctx->view, t, uv, cam);
     object_light_off(g);
 }

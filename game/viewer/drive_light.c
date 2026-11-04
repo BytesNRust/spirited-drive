@@ -10,6 +10,7 @@
 #include "game/race/psx_lamps.h"
 #include "game/race/psx_light.h"
 #include "game/race/street_lamp.h"
+#include "game/race/finish_gate_light.h"
 #include "game/race/window_lights.h"
 #include "game/race/psx_light_make.h"
 #include "game/race/psx_light_synth.h"
@@ -263,6 +264,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     }
     if (port_forest_dark()) psx_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
     light = parsed;
+    light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.forest_road = port_forest_neutral() && psx_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
@@ -451,6 +453,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     if (!make_light(tri, track, &made)) return;
     if (port_forest_dark()) psx_light_forest_apply(&made, track);
     light = made;
+    light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
