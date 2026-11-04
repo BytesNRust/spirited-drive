@@ -83,9 +83,8 @@ int weather_rain_spray_level(int night);
 /* The fog level (of the 16) of each brightness level's table, from dark to white. */
 int weather_rain_level_fog(int level);
 
-/* The headlight cone's weight 0..256 at a point in the car's own frame (metres: `ahead` along the nose, `lateral` to the right, `height` above the road). A stand-in with
- * the cone's shape (to be dev2's headlight_cone_weight_local): a beam ahead of the nose that widens with distance, fading in over 3 metres and out from 45 to 70, no light
- * more than 5 metres up. */
+/* The headlight cone's weight 0..256 at a point `ahead` of the eye, `lateral` to the right of it and `height` above the road, metres: headlight_cone_weight_local (headlight_pool.h)
+ * at that point in the car's own frame (the eye taken EYE_FORWARD_M ahead of the car's centre): the drops are lit where the road is. */
 int weather_rain_cone_weight(float ahead, float lateral, float height);
 
 #endif
