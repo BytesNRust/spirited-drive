@@ -61,12 +61,17 @@ def pascal(name, pad):
     return out + b"\0" * ((-len(out)) % pad)
 
 
-def layer_record(name, width, height, opacity, lock, channels):
+def layer_record(name, width, height, opacity, lock, channels, hidden=False):
     rec = struct.pack(">iiii", 0, 0, height, width) + struct.pack(">H", len(channels))
     for cid in channels:
         rec += struct.pack(">hI", cid, 2 + width * height)   # 2: the compression word; raw rows follow
-    rec += b"8BIM" + b"norm" + bytes([opacity, 0, 0, 0])      # opacity, clipping, flags (visible), filler
-    extra = struct.pack(">I", 0) + struct.pack(">I", 0) + pascal(name, 4)   # no layer mask, no blending ranges
+    rec += b"8BIM" + b"norm" + bytes([opacity, 0, 2 if hidden else 0, 0])      # opacity, clipping, flags (bit 1: hidden), filler
+    ascii_name = name.encode("ascii", "ignore").decode("ascii") if not name.isascii() else name
+    extra = struct.pack(">I", 0) + struct.pack(">I", 0) + pascal(ascii_name, 4)   # no layer mask, no blending ranges
+    if not name.isascii():   # 'luni': the Unicode name (the Pascal one above is its ASCII part)
+        text = struct.pack(">I", len(name)) + name.encode("utf-16-be")
+        text += b"\0" * (len(text) % 2)
+        extra += b"8BIM" + b"luni" + struct.pack(">I", len(text)) + text
     if lock:
         extra += b"8BIM" + b"lspf" + struct.pack(">II", 4, LOCK_ALL)
     return rec + struct.pack(">I", len(extra)) + extra
@@ -76,8 +81,9 @@ def channel_data(plane):
     return struct.pack(">H", 0) + plane   # raw
 
 
-def write_psd(path, rgb, keep):
-    """rgb: RGB Image; keep: 'L' Image of classes (class_of), 0 paint, 128 kept with a shine, 192 as the body, 224 the fixed black, 240..252 the lamps, 255 kept without."""
+def write_psd(path, rgb, keep, base_name="texture", guide=None):
+    """rgb: RGB Image; keep: 'L' Image of classes (class_of), 0 paint, 128 kept with a shine, 192 as the body, 224 the fixed black, 240..252 the lamps, 255 kept without.
+    guide: None, or (name, RGB Image, 'L' Image alpha): a hidden, locked layer between the texture and the mask (the dash's wheel)."""
     width, height = rgb.size
     if keep.size != rgb.size:
         raise ValueError("mask and texture sizes differ")
@@ -86,11 +92,19 @@ def write_psd(path, rgb, keep):
     alpha, red, green, blue = mask_planes(classes)
     texture_channels = (0, 1, 2)
     mask_channels = (-1, 0, 1, 2)   # alpha first, as Photoshop writes it
-    records = layer_record("texture", width, height, 255, True, texture_channels)
-    records += layer_record("mask", width, height, MASK_OPACITY, False, mask_channels)
+    records = layer_record(base_name, width, height, 255, True, texture_channels)
     data = b"".join(channel_data(p) for p in (r, g, b))
+    count = 2
+    if guide is not None:
+        gname, grgb, galpha = guide
+        if grgb.size != rgb.size or galpha.size != rgb.size:
+            raise ValueError("guide and texture sizes differ")
+        records += layer_record(gname, width, height, 255, True, mask_channels, hidden=True)
+        data += b"".join(channel_data(bytes(p)) for p in (galpha.tobytes(),) + tuple(band.tobytes() for band in grgb.split()))
+        count = 3
+    records += layer_record("mask", width, height, MASK_OPACITY, False, mask_channels)
     data += b"".join(channel_data(p) for p in (alpha, red, green, blue))
-    layer_info = struct.pack(">h", 2) + records + data
+    layer_info = struct.pack(">h", count) + records + data
     if len(layer_info) % 2:
         layer_info += b"\0"
     section = struct.pack(">I", len(layer_info)) + layer_info + struct.pack(">I", 0)   # no global layer mask

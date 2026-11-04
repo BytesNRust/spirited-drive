@@ -98,6 +98,8 @@ void drive_wide_set_viewport(const RaceState *race);
 PortedViewport drive_wide_viewport(const RaceState *race);
 void drive_wide_key_box(const RaceState *race, uint8_t *surface);
 void drive_wide_compose(const RaceState *race, const uint8_t *frame);
+/* port (gauge_light): the track's palette (768 bytes), read for the brightness of the dials' pixels; call before drive_wide_compose */
+void drive_wide_set_palette(const uint8_t *palette);
 void drive_wide_centre(const uint8_t *frame);
 void drive_wide_map_grab(uint8_t *back);
 

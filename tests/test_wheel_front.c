@@ -51,9 +51,55 @@ static void test_the_frame_is_the_one_cockpit_frame_draws(void)
     CHECK(wheel_front_shape(NULL, 0, 0, 0, 0) == NULL);
 }
 
+/* a 'w' shape 3 x 2 at (5, 4): colours 1..6, one see-through */
+static void make_w(uint8_t s[0x10 + 6])
+{
+    memset(s, 0, 0x10);
+    s[4] = 3, s[6] = 2, s[0xc] = 5, s[0xe] = 4;
+    const uint8_t px[6] = { 1, 2, 3, 4, 0xff, 6 };
+    memcpy(s + 0x10, px, 6);
+}
+
+static uint8_t art_pic[640 * 480];
+static uint8_t zone_pic[640 * 480];
+
+static void test_the_wheel_in_the_shown_frame(void)
+{
+    uint8_t w[0x10 + 6], t[0x10 + 12];
+    make_w(w), make(t);
+    memset(art_pic, 9, sizeof art_pic);
+    art_pic[4 * 640 + 5] = 1;    /* the dash already holds this pixel: not the wheel */
+    CHECK(!wheel_front_now(w, NULL, NULL, art_pic, 5, 4));
+    CHECK(wheel_front_now(w, NULL, NULL, art_pic, 6, 4));    /* 2 over the dash's 9 */
+    CHECK(!wheel_front_now(w, NULL, NULL, art_pic, 6, 5));   /* the see-through one */
+    CHECK(wheel_front_now(NULL, t, NULL, art_pic, 11, 21));  /* the 't' frame is the wheel whatever the art holds */
+    CHECK(!wheel_front_now(NULL, t, NULL, art_pic, 12, 21));
+    CHECK(!wheel_front_now(NULL, NULL, NULL, art_pic, 6, 4));
+}
+
+static void test_the_zone_is_the_wheel_in_any_pose(void)
+{
+    static Cockpit c;
+    memset(&c, 0, sizeof c);
+    uint8_t w0[0x10 + 6], w1[0x10 + 6], t[0x10 + 12];
+    make_w(w0), make_w(w1), make(t);
+    w1[0x10 + 5] = 7;            /* in this pose the last pixel differs */
+    c.frames[0][0] = w0, c.frames[0][1] = w1, c.frames[2][0] = t;
+    memset(art_pic, 0, sizeof art_pic);
+    for (int i = 0; i < 6; i++) art_pic[(4 + i / 3) * 640 + 5 + i % 3] = w0[0x10 + i] == 0xff ? 0 : w0[0x10 + i];   /* the straight pose is in the dash */
+    wheel_front_zone(&c, art_pic, zone_pic);
+    CHECK(zone_pic[5 * 640 + 7] == 1);    /* the pixel that changes with the steering */
+    CHECK(zone_pic[4 * 640 + 5] == 0);    /* same in every pose: the dash's */
+    CHECK(zone_pic[21 * 640 + 11] == 1);  /* the 't' frame's pixels */
+    CHECK(zone_pic[22 * 640 + 13] == 1);
+    CHECK(zone_pic[0] == 0);
+}
+
 int main(void)
 {
     test_pixels();
     test_the_frame_is_the_one_cockpit_frame_draws();
+    test_the_wheel_in_the_shown_frame();
+    test_the_zone_is_the_wheel_in_any_pose();
     return TEST_REPORT();
 }

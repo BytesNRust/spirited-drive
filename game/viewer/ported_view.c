@@ -260,6 +260,8 @@ typedef struct {
     int sky_low, sky_high;
     float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
+    uint8_t flash[256];   /* port (rain_lightning): the picture lifted toward the lightning's colour */
+    uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
 } WeatherTables;
 
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
@@ -290,6 +292,10 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     weather_rain_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
+    for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
+    weather_flash_colour(rain);
+    modern_fog_tables(art->palette, rain, scratch);
+    memcpy(wt.flash, scratch[WEATHER_FLASH_LEVEL], sizeof wt.flash);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
     wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
@@ -903,6 +909,7 @@ static int32_t smoke_view_angle(void *ctx, const Car *car)
  * rising and spreading a little, fading behind it. Each is a smoke puff over a few of the exe's own gravel puffs (puff_dirt, dir1..4), so
  * it reads as grit in a haze; the screen's place is the car's own world-to-screen (render_point). */
 static DustTrail dust_trail;
+enum { SPRAY_DIV = 0x14000 };   /* a spray puff's pixel radius: depth x size / SPRAY_DIV */
 static int32_t last_near_dir[3];   /* the main view's near plane (set by the render, used by render_point and the dust) */
 static int32_t last_near;
 
@@ -920,6 +927,38 @@ static int world_screen(const int32_t place[3], int32_t camera[3], int32_t scree
 }
 
 enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100 of the trail's, and the share (of 4) that gets gravel over its smoke */
+
+/* port (rain_fx): the wet road's spray, a plume behind each rear wheel (weather_rain_spray_puff) of the followed car, each puff a disc of every other pixel (a checker, no
+ * blend) lightened through the rain's table; painted once the frame's 3D is whole (the recorder replayed), as the rain's streaks are, over what the car's draw laid down. */
+static void spray_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+{
+    if (shadow_race == NULL) return;
+    const Car *car = followed_car();
+    if (car == NULL) return;
+    const int wet = car->airborne_ticks == 0 && car->off_road == 0;
+    const uint8_t *table = wt->rain4[weather_rain_spray_level(drive_light_night())];
+    const int32_t angle = (car->yaw >> 8) & 0xffff;
+    const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);   /* forward (x, z); the right is (fz, -fx) */
+    for (int side = -1; side <= 1; side += 2)
+        for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++) {
+            int32_t rel[3], size, place[3], camera[3], screen[2];
+            if (!weather_rain_spray_puff(k, side, (uint32_t)shadow_race->tick, car->speed, wet, rel, &size)) continue;
+            const int32_t behind = 0x16000 + rel[0], across = side * 0xd000 + rel[1];   /* the wheel's place (1.4 m behind the centre, 0.8 m out), plus the puff's */
+            place[0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * across) >> 16);
+            place[1] = car->y - 0x5000 + rel[2];
+            place[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
+            if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
+            const int32_t radius = 0x38400 / camera[2] * size / SPRAY_DIV + 1;
+            for (int32_t y = -radius; y <= radius; y++)
+                for (int32_t x = -radius; x <= radius; x++) {
+                    if (x * x + y * y > radius * radius || ((x + y) & 1) != 0) continue;   /* a disc, every other pixel */
+                    const int32_t px = screen[0] + x, py = screen[1] + y;
+                    if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) continue;
+                    uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
+                    *d = table[*d];
+                }
+        }
+}
 
 static void dust_draw(const Car *car)
 {
@@ -1853,8 +1892,21 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
     tunnel_flare_draw(&quad, art->palette);
-    if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
+    if (wt != NULL && weather == WEATHER_RAIN && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
+        const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
+        const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
+        const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
+        spray_paint(pixels, screen_w, box, wt);
+        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
+                             drive_light_night(), wt->rain4);
+    } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
+    if (wt != NULL && weather == WEATHER_RAIN && port_rain_lightning() && weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)))   /* port (rain_lightning): one frame lifted */
+        for (int32_t y = box[1] < 0 ? 0 : box[1]; y < (box[3] < screen_h ? box[3] : screen_h); y++)
+            for (int32_t x = box[0] < 0 ? 0 : box[0]; x < (box[2] < screen_w ? box[2] : screen_w); x++) {
+                uint8_t *p = pixels + (size_t)y * (size_t)screen_w + (size_t)x;
+                *p = wt->flash[*p];
+            }
 }
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)

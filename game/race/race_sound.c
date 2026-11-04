@@ -623,6 +623,9 @@ void race_sound_tyres(RaceState *race)
         front = rally_gravel_tyre_skid(race->port_rally_gravel, car->speed, front, on_ground);
         rear = rally_gravel_tyre_skid(race->port_rally_gravel, car->speed, rear, on_ground);
         if (on_ground && (front != car->skid_front || rear != car->skid_rear)) byte = TYRE_OFF_ROAD;
+        /* the rear tyre's volume is the distance's alone (race_sound_play: only channel 4's, the front's, is scaled by the skid, which the floor already halved), so the rolling rear
+         * (its skid raised to the floor) is farther by the distance of half the loudness; a real skid keeps its own */
+        if (on_ground && rear != car->skid_rear) rear_distance = rally_gravel_roll_distance(rear_distance);
     }
     if (race->unknown_4bc6f0 != 0) {
         if (tyre_heard(race, TYRE_FRONT_CHANNEL, front))

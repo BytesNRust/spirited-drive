@@ -82,6 +82,10 @@ typedef struct {
     int reverse_rows;    /* a reversed TR3 reads the tunnel rows in the order their polygon tables were made for, so the roof and walls keep their shape */
     int city_lift;    /* 0, 1, 2: with the PS1 light and headlights, the City nights (CY1..CY3) are brought under a higher ceiling and their dark floor is lifted (1 mild, 2 more); 0 the exe's darkness (ceiling .35) */
     int vegas_lift;    /* 0, 1, 2: the same for Lost Vegas' night (1 mild, 2 more); 0 the exe's */
+    int rain_fx;    /* with weather=rain, the rain's streaks follow the car's speed (spokes from the vanishing point) and are lit by the headlights at night; 0 phase 1's fixed streaks */
+    int rain_grip;    /* with weather=rain, the road's grip is reduced; records of a wet race are kept apart */
+    int finish_gate_light;    /* 1: at night the stage tracks' CHECKPOINT / FINISH gate banner keeps its daylight look, lit against the dark (finish_gate_light.h); 0 the exe's */
+    int gauge_light;    /* 0..4: at night the lit parts of the dash gauges take a colour (1 greenish, 2 reddish, 3 orange, 4 bluish); 0 the exe's untinted white */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -199,8 +203,21 @@ int port_close_houses(void);
 int port_lamp_car_shade(void);
 /* 1 when headlight_cone: TNFS_HEADLIGHT_CONE=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
 int port_headlight_cone(void);
+/* 1 when rain_fx is on: TNFS_RAIN_FX=0/1 when set, else port.cfg's. */
+int port_rain_fx(void);
+/* 1 when the rain has its storm (extras.cfg rain_lightning, the EXTRAS row "Rain with storm"): TNFS_RAIN_LIGHTNING=0/1 when set; with weather=rain lightning flashes one frame. */
+int port_rain_lightning(void);
+/* 1 when rain_grip is on: TNFS_RAIN_GRIP=0/1 when set, else port.cfg's. */
+int port_rain_grip(void);
+/* 1 when gauge_light is on: TNFS_GAUGE_LIGHT=0/1 when set, else port.cfg's. */
+int port_gauge_light(void);
+
+/* 1 when finish_gate_light is on: TNFS_FINISH_GATE_LIGHT=0/1 when set, else port.cfg's; only acts at night with the PS1 light (psx_headlights). */
+int port_finish_gate_light(void);
 /* 1 when lamp_pool_bright: TNFS_LAMP_POOL_BRIGHT=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
 int port_lamp_pool_bright(void);
+/* 1 for a wet race: rain_grip on and the weather rain (the grip is reduced and the race's records are not kept; track_gravity.h). */
+int port_rain_grip_active(void);
 /* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else port.cfg's; never without port_psx_light. */
 int port_reverse_rows(void);
 /* The city_lift level (0..2): TNFS_CITY_LIFT=0..2 when set, else port.cfg's; 0 without port_psx_light. */

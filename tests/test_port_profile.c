@@ -107,7 +107,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.lamp_pool_bright, 0);
+    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
@@ -124,7 +124,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.lamp_pool_bright, 0);
+    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
     CHECK_EQ_INT(s.psx_light, 1);
@@ -148,6 +148,9 @@ static void test_tables(void)
     CHECK_EQ_INT(s.night_stretch_clean, 1);
     CHECK_EQ_INT(s.forest_dark, 1);
     CHECK_EQ_INT(s.night_sky_hue, 1);
+    CHECK_EQ_INT(s.rain_grip, 1);   /* the owner: less grip in the rain is Restomod's default */
+    CHECK_EQ_INT(s.gauge_light, 0);
+    CHECK_EQ_INT(s.finish_gate_light, 0);   /* until the owner approves it */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift, 20);   /* the nine fixes of the day: car tunnel light, Vegas car night, rally shoulder gravel, chase height, lamp pool, Transtropolis shadows, canyon shade */
     /* what is the player's own is not touched: laps, the PS1 folder, the time of day, full screen */
     PortSettings own = base;
@@ -224,6 +227,22 @@ static void test_tables(void)
     s.headlight_cone = 1, s.lamp_pool_bright = 1;   /* not in Restomod until the owner approves it */
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     s.lamp_pool_bright = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
+    s.rain_fx = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.rain_fx = 1;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
+    s.rain_grip = 0;   /* Restomod has less grip in the rain */
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.rain_grip = 1;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
+    s.gauge_light = 1;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.gauge_light = 0;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
+    s.finish_gate_light = 1;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.finish_gate_light = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     s.scale_integer = 1;   /* a scaling the profile does not have counts in the match */
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);

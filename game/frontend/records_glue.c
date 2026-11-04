@@ -45,6 +45,7 @@ RaceKind records_glue_kind(RouteOp op)
 int32_t records_glue_route(RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME],
                            int32_t player, const int32_t times[RECORD_CHECK_TIMES])
 {
+    if (port_rain_grip_active()) return op == ROUTE_TOTALS ? RECORD_CHECK_NONE : 0;   /* port (rain_grip): a wet race keeps no time or record, provisionally: no row taken, nothing saved */
     return records_route(records_glue_kind(op), op, image, game, player, times);
 }
 

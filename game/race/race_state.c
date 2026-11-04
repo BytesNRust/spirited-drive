@@ -54,6 +54,9 @@ void race_surfaces_init(RaceState *race)
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i] = surface(0x180, 0x80, 0x1999, 1);
     if (race->port_lunar_gravity)   /* port: the moon's grip */
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i].grip = track_grip(race->port_lunar_gravity, race->surfaces[i].grip);
+    if (race->port_rain_grip)   /* port (rain_grip): the wet road, not the shoulder */
+        for (int i = 0; i < RACE_SURFACES; i++)
+            if (race->surfaces[i].off_road == 0 || race->arcade) race->surfaces[i].grip = track_rain_grip(race->port_rain_grip, race->surfaces[i].grip);
 }
 
 void race_dash_gauges(RaceState *race, int32_t a, int32_t b)

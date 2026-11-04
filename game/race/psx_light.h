@@ -32,6 +32,7 @@ typedef struct {
     int lamp_bright;    /* port (lamp_pool_bright): a street lamp's pool (car_pool's classes) is not dimmed by the night's dark floor; 0 it is */
     int night_lift;     /* port (city_lift, vegas_lift): 0..256, how far toward full the open night's dark floor is lifted (0 none: the pools' own floor) */
     uint8_t object_floor;   /* port (vegas_objects): the least light (of 255) a 3D object (a building, a sign) takes from its node; 0 none, the node's own light */
+    int gate_board;     /* port (finish_gate_light): the stage gate's scenery board plus one, which keeps full light at night (finish_gate_light.h); 0 none */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
     uint8_t *car_pool;  /* port (lamp_car_shade): per node (owned), 0 none, 1..4 how strong a street lamp's pool is under a car there (the new node's); NULL none */

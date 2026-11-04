@@ -411,6 +411,7 @@ void render_drive(const Track *t, uint8_t *pixels)
     last_ms = f.last_ms;
     const int bumper = drive_bumper.mirror && drive_bumper_view(race->chase.kind) && drive_hud.police.screen == NULL
                        && drive_bumper_mirror_render(&f.mirror, drive_frame.mirror_count);
+    drive_wide_set_palette(t->art.palette);
     if (drive_wide_active()) drive_wide_compose(race, pixels);
     drive_bumper_draw(race, pixels, bumper);
     drive_wide_finish();   /* port (render scale): the 2D layer over the enlarged 3D, bumper pieces and all */
