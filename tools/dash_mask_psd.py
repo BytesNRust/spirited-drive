@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Layered PSD drafts for the hand-made dash masks (game/race/dash_mask.h), the dash's 2D layer as the game draws it.
 
-Each dash becomes one PSD at 640 x 480, 8-bit RGB, with two layers:
-  dash   the dash's art (the windshield black), locked
+Each dash becomes one PSD at 640 x 480, 8-bit RGB, with these layers (the first is the bottom one):
+  dash   the dash's art (the windshield black), locked; the steering wheel is left out (it is drawn over the dash later), the dials the game draws over it are in
+  volante (guía)   the straight-ahead wheel the dash's art holds, hidden and locked: switch it on to see what the wheel covers (the converter reads only "mask")
   mask   the class of a pixel, at layer opacity 50%:
            transparent   not marked: the cockpit's own gauge ellipses decide, as without a mask
            green (0,255,0)     inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not
@@ -94,7 +95,11 @@ def main(argv):
         folder = folder_for(out_dir, stem)
         os.makedirs(folder, exist_ok=True)
         path = free_name(folder)
-        writer.write_psd(path, rgb, keep, "dash")
+        guide = None
+        guide_rgb, zone = os.path.join(dump, stem + ".guide.ppm"), os.path.join(dump, stem + ".zone.pgm")
+        if os.path.isfile(guide_rgb) and os.path.isfile(zone):
+            guide = ("volante (guía)", Image.open(guide_rgb).convert("RGB"), Image.open(zone).convert("L"))
+        writer.write_psd(path, rgb, keep, "dash", guide)
         count += 1
         print(path)
     print(count, "files")

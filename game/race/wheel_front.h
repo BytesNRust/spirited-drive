@@ -11,7 +11,14 @@
 /* the 't' (which 0) or 's' (which 1) frame drawn over the gauges for the steering frame `shown` (the signed frame hud 004f9a20 keeps), as cockpit_frame picks it:
  * the left ones when the steering is negative on a plain track or positive on a mirrored one. NULL when the frame is out of range or missing. */
 const uint8_t *wheel_front_shape(const Cockpit *c, int which, int32_t shown, int steering_negative, int mirrored);
+/* which 2: the 'w' frame (the whole steering wheel's rectangle, drawn over the dash when the steering changes frame) */
 /* 1 when the shape draws a pixel (not its see-through 0xff) at (x, y) of the 640 view, where its header places it */
 int wheel_front_pixel(const uint8_t *shape, int x, int y);
+/* 1 when (x, y) is the steering wheel in the frame being shown: the 't' / 's' frames' pixels (the wheel in front of the dials), or a 'w' frame's pixel that is not
+ * the dash's own art there (`art`, the 640 x 480 'dash' layer, where the wheel straight ahead is already part of the picture). Any of the shapes may be NULL. */
+int wheel_front_now(const uint8_t *w, const uint8_t *t, const uint8_t *s, const uint8_t *art, int x, int y);
+/* the wheel in any pose: zone[y * 640 + x] = 1 where some steering frame's 'w' pixel differs from `art`, or a 't' / 's' frame draws, 0 elsewhere (the dash's art
+ * that the wheel never covers). The dash art with those pixels blanked is the dash the wheel is drawn over. */
+void wheel_front_zone(const Cockpit *c, const uint8_t *art, uint8_t *zone);
 
 #endif
