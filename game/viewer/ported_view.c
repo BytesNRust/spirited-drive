@@ -545,7 +545,13 @@ static void headlights_update(void)
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL || !(car->flags_51a & 4)) continue;
-        if (i != race_slot(shadow_race->player) && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* not drawn lately: no light */
+        if (i != race_slot(shadow_race->player)) {
+            const int drawn = !(body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i]);
+            const Car *const player = shadow_race->cars[race_slot(shadow_race->player)];
+            int32_t behind = player != NULL ? player->node - car->node : -1;
+            if (ring > 0) behind = behind > ring / 2 ? behind - ring : behind < -ring / 2 ? behind + ring : behind;
+            if (!headlight_car_lights(drawn, behind, pool->cone)) continue;   /* not drawn lately and not just behind the camera (headlight_cone): no light */
+        }
         int32_t moved = car->node - seen[i];   /* which way the car travels: the nodes it moved over, the gear on the first frame */
         if (ring > 0) moved = moved > ring / 2 ? moved - ring : moved < -ring / 2 ? moved + ring : moved;
         if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;

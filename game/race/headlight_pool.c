@@ -41,6 +41,11 @@ int headlight_cone_weight_local(double forward_m, double lateral_m, double heigh
     return best;
 }
 
+int headlight_car_lights(int drawn_lately, int32_t behind, int cone)
+{
+    return drawn_lately || (cone && behind >= 0 && behind <= HEADLIGHT_UNDRAWN_NODES);
+}
+
 /* one car's patch of light at a ground point, in the car's own frame */
 static int cone_lift(const HeadlightPool *pool, int car, double x, double z)
 {

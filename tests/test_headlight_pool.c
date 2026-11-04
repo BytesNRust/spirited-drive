@@ -245,6 +245,19 @@ static void test_the_light_bytes_with_the_cone(void)
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), 255);              /* the node 5 ahead along the track is full, the place is not asked */
 }
 
+/* a car that is not drawn still lights the road when it is just behind the player's (the camera is in front of it), with the cone only */
+static void test_an_undrawn_car_just_behind_still_lights_the_road(void)
+{
+    CHECK_EQ_INT(headlight_car_lights(1, -50, 0), 1);                          /* drawn: always */
+    CHECK_EQ_INT(headlight_car_lights(1, 400, 1), 1);
+    CHECK_EQ_INT(headlight_car_lights(0, 3, 1), 1);                            /* not drawn, 3 nodes behind: lights */
+    CHECK_EQ_INT(headlight_car_lights(0, 0, 1), 1);                            /* level with the player */
+    CHECK_EQ_INT(headlight_car_lights(0, HEADLIGHT_UNDRAWN_NODES, 1), 1);
+    CHECK_EQ_INT(headlight_car_lights(0, HEADLIGHT_UNDRAWN_NODES + 1, 1), 0);  /* too far behind: its light would show far from where it is */
+    CHECK_EQ_INT(headlight_car_lights(0, -3, 1), 0);                           /* ahead and not drawn: not there yet */
+    CHECK_EQ_INT(headlight_car_lights(0, 3, 0), 0);                            /* the cone off: as it was */
+}
+
 int main(void)
 {
     test_the_pool_ahead_of_a_car();
@@ -259,5 +272,6 @@ int main(void)
     test_the_cone_has_no_step();
     test_the_cone_of_several_cars_and_the_old_path();
     test_the_light_bytes_with_the_cone();
+    test_an_undrawn_car_just_behind_still_lights_the_road();
     return TEST_REPORT();
 }

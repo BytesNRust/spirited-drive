@@ -73,6 +73,13 @@ int headlight_cone_weight_local(double forward_m, double lateral_m, double heigh
 /* the lamps' places in the car's own frame (the nose's two lamps, metres): forward of the car's centre, to each side of its axis, above the ground */
 enum { CONE_LAMP_FORWARD_CM = 220, CONE_LAMP_LATERAL_CM = 70, CONE_LAMP_HEIGHT_CM = 65 };
 
+/* port (headlight_cone): whether a car other than the player's lights the road this frame. A car whose body was drawn lately always does; with the cone, one that was not drawn also does
+ * while it is at most HEADLIGHT_UNDRAWN_NODES nodes behind the player (`behind` the nodes the car is behind the player's, negative: ahead of it, wrapped to the ring): it is only behind the
+ * camera, and its patch lights the road in front of the view whether or not its body is on the screen. A car ahead and not drawn is too far to be there yet (no lit road far from a car that is
+ * not there), and without the cone nothing changes. */
+enum { HEADLIGHT_UNDRAWN_NODES = 20 };
+int headlight_car_lights(int drawn_lately, int32_t behind, int cone);
+
 /* The beam's gain at `lift` (0..256) of the beam: floor + (256 - floor) x lift / 256, the gain a node takes at that lift. */
 int headlight_pool_gain_at_lift(int floor, int lift);
 
