@@ -40,7 +40,7 @@ static void quad_of(const TrackFarInputs *in, int32_t first, const TrackPolygon 
 static void draw_fences(const TrackFarInputs *in, const TrackLod *lod, const uint8_t *record, const TrackUv *uv,
                         int32_t first, int32_t at, int level)
 {
-    const uint8_t fence = record[1];
+    const uint8_t fence = track_wall_fence(record[1]);
     const int32_t texture = (fence & 0x1f) + FENCE_TEXTURE;
     const int tall = (fence & FENCE_LOW) == 0;
     const int pair = (at & 3) * 2;
@@ -73,9 +73,9 @@ void track_far_draw(const TrackFarOps *ops, const TrackFarInputs *in, int32_t se
             const TrackUv *uv = &TRACK_UVS[p->uv];
             int32_t quad[8];
             quad_of(in, first, p, quad);
-            if (track_visible_far(&in->fence.clip, quad, p->strip, in->mirrored) &&
+            if (track_visible_far(&in->fence.clip, quad, track_wall_strip(p->strip), in->mirrored) &&
                 in->fence.camera[first + p->corner[3]][2] > 0) {
-                const FshEntry *t = ops->texture(ops->ctx, record[2 + p->strip] * VARIANTS + uv->variant + level);
+                const FshEntry *t = ops->texture(ops->ctx, record[2 + track_wall_strip(p->strip)] * VARIANTS + uv->variant + level);
                 track_light_set(&in->fence, first, p->corner);
                 if (t != NULL && ops->full_camera != NULL) {
                     const int32_t *const cam[4] = { in->fence.camera[first + p->corner[0]], in->fence.camera[first + p->corner[1]],

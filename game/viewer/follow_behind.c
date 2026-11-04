@@ -309,7 +309,7 @@ static void polygon_body(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
         if (cam[c][2] < lowest_z) lowest_z = cam[c][2];
     const int cut = lowest_z < p->ctx.near && p->ctx.sink.draw_camera == NULL;
     if (cut && near_style) {   /* the polygon cut at the plane */
-        const FshEntry *whole = p->fence_ops.texture(p->fence_ops.ctx, record[2 + poly->strip] * VARIANTS + uv->variant + level);
+        const FshEntry *whole = p->fence_ops.texture(p->fence_ops.ctx, record[2 + track_wall_strip(poly->strip)] * VARIANTS + uv->variant + level);
         if (whole != NULL) draw_cut_cell(p, whole, uv, cam, poly->strip);
         return;
     }
@@ -321,10 +321,10 @@ static void polygon_body(Pass *p, const TrackSegmentEntry *e, const uint8_t *rec
         }
     }
     if (p->arm->low_lod ? !mirror_visible(p, quad, poly->strip)
-        : near_style ? !track_visible_near(&p->bounds, quad, poly->strip, p->arm->mirrored)
-                     : !(track_visible_far(&p->ctx.clip, quad, poly->strip, p->arm->mirrored) && cam[3][2] > 0))
+        : near_style ? !track_visible_near(&p->bounds, quad, track_wall_strip(poly->strip), p->arm->mirrored)
+                     : !(track_visible_far(&p->ctx.clip, quad, track_wall_strip(poly->strip), p->arm->mirrored) && cam[3][2] > 0))
         return;
-    const FshEntry *t = p->fence_ops.texture(p->fence_ops.ctx, record[2 + poly->strip] * VARIANTS + uv->variant + level);
+    const FshEntry *t = p->fence_ops.texture(p->fence_ops.ctx, record[2 + track_wall_strip(poly->strip)] * VARIANTS + uv->variant + level);
     if (t == NULL) return;
     if (near_style) track_draw_subdivided(&p->ctx, t, uv->u_level, 0, uv->u_cell, 0, cam, quad, p->ctx.near);
     else if (p->fence_ops.full_camera != NULL) p->fence_ops.full_camera(p->fence_ops.ctx, t, cam);
@@ -428,7 +428,7 @@ static void rail_body(Pass *p, const int32_t pair[2], int32_t base, const TrackU
 static void draw_fences(Pass *p, const TrackLod *lod, const uint8_t *record, const TrackUv *uv, int32_t base, int32_t at,
                         int level)
 {
-    const uint8_t fence = record[1];
+    const uint8_t fence = track_wall_fence(record[1]);
     const int32_t texture = (fence & 0x1f) + FENCE_TEXTURE;
     const int tall = (fence & FENCE_LOW) == 0;
     const int pair = (at & 3) * 2;

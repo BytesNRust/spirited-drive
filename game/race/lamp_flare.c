@@ -64,6 +64,12 @@ int lamp_flare_radius(int area)
     return r < LAMP_FLARE_MIN_RADIUS ? LAMP_FLARE_MIN_RADIUS : r > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : r;
 }
 
+int lamp_flare_radius_scaled(int area, int percent)
+{
+    const int r = lamp_flare_radius(area) * (percent < 100 ? 100 : percent) / 100;
+    return r > LAMP_FLARE_BIG_RADIUS ? LAMP_FLARE_BIG_RADIUS : r;
+}
+
 int lamp_halo_level(int dx, int dy, int radius)
 {
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };

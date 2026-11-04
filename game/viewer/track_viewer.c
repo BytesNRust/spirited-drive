@@ -467,6 +467,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.port_reverse = t->reversed;
     reverse_track_set(t->reversed);
     track_wall_set_inner(t->reversed);   /* the walls where they were */
+    track_wall_set_rows(port_reverse_rows());   /* port (reverse_rows) */
     difficulty_running_set(&field.port_difficulty);
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);

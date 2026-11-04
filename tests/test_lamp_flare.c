@@ -50,6 +50,10 @@ static void test_radius(void)
     CHECK(lamp_flare_radius(100) >= 3 * 5);                          /* a lamp of a hundred pixels glows a few times its own size */
     CHECK(lamp_flare_radius(100) > lamp_flare_radius(12));
     CHECK_EQ_INT(lamp_flare_radius(1000000), LAMP_FLARE_MAX_RADIUS);
+    CHECK_EQ_INT(lamp_flare_radius_scaled(100, 100), lamp_flare_radius(100));            /* 100 %: the same */
+    CHECK_EQ_INT(lamp_flare_radius_scaled(100, 50), lamp_flare_radius(100));             /* never smaller */
+    CHECK_EQ_INT(lamp_flare_radius_scaled(100, 200), lamp_flare_radius(100) * 2);        /* a powerful light's halo is bigger */
+    CHECK_EQ_INT(lamp_flare_radius_scaled(1000000, 300), LAMP_FLARE_BIG_RADIUS);         /* and capped */
 }
 
 static void test_level(void)

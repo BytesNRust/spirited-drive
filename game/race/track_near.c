@@ -24,7 +24,7 @@ static int near_level(int32_t band)
 static void fences(const TrackFarInputs *f, const TrackLod *lod, const uint8_t *record, const TrackUv *uv, int32_t first,
                    int32_t at, int level)
 {
-    const uint8_t fence = record[1];
+    const uint8_t fence = track_wall_fence(record[1]);
     const int32_t texture = (fence & 0x1f) + FENCE_TEXTURE;
     const int tall = (fence & FENCE_LOW) == 0;
     const int pair = (at & 3) * 2;
@@ -69,8 +69,8 @@ void track_near_draw(const TrackFarOps *far_ops, const TrackNearOps *ops, const 
                 quad[2 * c + 1] = f->fence.screen[first + p->corner[c]][1];
                 corners[c] = f->fence.camera[first + p->corner[c]];
             }
-            if (track_visible_near(in->bounds, quad, p->strip, f->mirrored)) {
-                const FshEntry *t = f->fence_ops->texture(f->fence_ops->ctx, record[2 + p->strip] * VARIANTS + uv->variant + level);
+            if (track_visible_near(in->bounds, quad, track_wall_strip(p->strip), f->mirrored)) {
+                const FshEntry *t = f->fence_ops->texture(f->fence_ops->ctx, record[2 + track_wall_strip(p->strip)] * VARIANTS + uv->variant + level);
                 track_light_set(&f->fence, first, p->corner);
                 if (t != NULL)
                     f->fence_ops->subdivide(f->fence_ops->ctx, t, uv->u_level, uv->u_cell, corners, quad, f->fence.near);

@@ -28,6 +28,10 @@ int lamp_blobs(const uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1,
 /* The halo's radius for a blob of `area` pixels: the blob's own radius times LAMP_FLARE_REACH / 10, at least LAMP_FLARE_MIN_RADIUS, at most LAMP_FLARE_MAX_RADIUS. */
 int lamp_flare_radius(int area);
 
+/* The same for a powerful light (the police car's, the headlights): the radius scaled by `percent` (100 = lamp_flare_radius), at most LAMP_FLARE_BIG_RADIUS. */
+enum { LAMP_FLARE_BIG_RADIUS = 110 };
+int lamp_flare_radius_scaled(int area, int percent);
+
 /* The halo's dither level (0 none .. LAMP_FLARE_LEVELS) at (dx, dy) from the centre: the intensity falls off with the square of the distance
  * from 1 at the centre to 0 at `radius`, and a 4 x 4 ordered dither picks the level. */
 int lamp_halo_level(int dx, int dy, int radius);

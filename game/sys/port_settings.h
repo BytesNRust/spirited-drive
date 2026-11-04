@@ -78,6 +78,9 @@ typedef struct {
     int lamp_pools;    /* 1: with the PS1 headlights at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
     int headlight_cone;    /* 1: with the PS1 headlights at night, the car's beam is a cone from its position and heading, per vertex of the road and scenery (it follows the nose, a turn, a U-turn); 0: the pool along the track's nodes as it was */
     int lamp_car_shade;    /* 1: with the PS1 headlights at night, a car under a street lamp's pool is lit by it (half way to a warm light at the lamp, fading with the pool), CD light or made; 0: the car's shade as it was */
+    int reverse_rows;    /* a reversed TR3 reads the tunnel rows in the order their polygon tables were made for, so the roof and walls keep their shape */
+    int city_lift;    /* 0, 1, 2: with the PS1 light and headlights, the City nights (CY1..CY3) are brought under a higher ceiling and their dark floor is lifted (1 mild, 2 more); 0 the exe's darkness (ceiling .35) */
+    int vegas_lift;    /* 0, 1, 2: the same for Lost Vegas' night (1 mild, 2 more); 0 the exe's */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -195,6 +198,12 @@ int port_close_houses(void);
 int port_lamp_car_shade(void);
 /* 1 when headlight_cone: TNFS_HEADLIGHT_CONE=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
 int port_headlight_cone(void);
+/* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else port.cfg's; never without port_psx_light. */
+int port_reverse_rows(void);
+/* The city_lift level (0..2): TNFS_CITY_LIFT=0..2 when set, else port.cfg's; 0 without port_psx_light. */
+int port_city_lift(void);
+/* The vegas_lift level (0..2): TNFS_VEGAS_LIFT=0..2 when set, else port.cfg's; 0 without port_psx_light. */
+int port_vegas_lift(void);
 /* 1 when lamp_pools: TNFS_LAMP_POOLS=0/1 when set, else port.cfg's; never without port_psx_headlights(). */
 int port_lamp_pools(void);
 /* 1 when brake_over_gas: TNFS_BRAKE_OVER_GAS=0/1 when set, else port.cfg's. */
