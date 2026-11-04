@@ -138,6 +138,94 @@ static void test_a_wheel_pedal_resting_at_an_end(void)
     CHECK(v.axis[2] > 0x7000 && v.axis[2] < 0x9000);
 }
 
+/* Steer left and Steer right on the two halves of one axis steer in proportion, like the pedals: no dead spot or jump at the centre, the ends reached */
+static void test_half_axes_steer_in_proportion(void)
+{
+    PortControls c = port_controls_defaults();
+    c.custom = 1;
+    c.bind[ACT_STEER][0] = c.bind[ACT_STEER][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    c.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_AXIS_NEG, RIGHTX, 0, 0 };
+    c.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_AXIS_POS, RIGHTX, 0, 0 };
+    c.bind[ACT_STEER_LEFT][1] = c.bind[ACT_STEER_RIGHT][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    RawPad r = pad();
+    const int at[] = { 0, 1, -1, 12000, -12000, 20000, -20000, 32767, -32768 };
+    const int want[] = { MIDDLE, MIDDLE + 1, MIDDLE - 1, MIDDLE + 12000, MIDDLE - 12000, MIDDLE + 20000, MIDDLE - 20000, TOP, 0 };
+    for (int i = 0; i < 9; i++) {
+        r.axis[RIGHTX] = (int16_t)at[i];
+        CHECK_EQ_INT(control_map_apply(&c, &r).axis[0], want[i]);
+    }
+    int last = -1;
+    for (int x = -32768; x <= 32767; x += 257) {   /* no jump and never backwards across the whole travel */
+        r.axis[RIGHTX] = (int16_t)x;
+        const int v = control_map_apply(&c, &r).axis[0];
+        CHECK(v >= last);
+        CHECK(last < 0 || v - last <= 258);
+        last = v;
+    }
+    c.deadzone = 10;   /* a dead zone about the centre, the ends still reached */
+    r.axis[RIGHTX] = 1000;
+    CHECK_EQ_INT(control_map_apply(&c, &r).axis[0], MIDDLE);
+    r.axis[RIGHTX] = 32767;
+    CHECK_EQ_INT(control_map_apply(&c, &r).axis[0], TOP);
+    r.axis[RIGHTX] = -32768;
+    CHECK_EQ_INT(control_map_apply(&c, &r).axis[0], 0);
+    /* a button on one side is the full lock whatever the sensitivity, an axis half on the other still in proportion */
+    c.deadzone = 0, c.sensitivity = 50;
+    c.bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_BUTTON, DPAD_LEFT, 0, 0 };
+    r = pad();
+    r.button[DPAD_LEFT] = 1;
+    CHECK_EQ_INT(control_map_apply(&c, &r).axis[0], 0);
+    r = pad();
+    r.axis[RIGHTX] = 20000;
+    CHECK_EQ_INT(control_map_apply(&c, &r).axis[0], MIDDLE + 10000);   /* half the gain */
+}
+
+/* a pad with no controls.cfg steers with the stick's two halves and the d-pad, as it did with its one axis */
+/* one push of a stick binds both ways: the other half of the same axis goes to the other side */
+static void test_a_pushed_half_binds_the_other_side(void)
+{
+    PortControls c = port_controls_defaults();
+    const ControlSource left_of_right_stick = { SRC_AXIS_NEG, RIGHTX, 0, 1 };   /* inverted: kept on the mirror */
+    PortControls d = control_map_mirror_half(&c, ACT_STEER_LEFT, left_of_right_stick);
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].kind, SRC_AXIS_POS);       /* over the default stick's half */
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].index, RIGHTX);
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].invert, 1);
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][1].index, DPAD_RIGHT);        /* the d-pad stays */
+    CHECK_EQ_INT(d.bind[ACT_STEER_LEFT][0].index, LEFTX);              /* the pushed side is the caller's to set */
+    /* the other direction, and a side with a free slot but no half */
+    PortControls e = c;
+    e.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_BUTTON, DPAD_LEFT, 0, 0 };
+    e.bind[ACT_STEER_LEFT][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
+    e = control_map_mirror_half(&e, ACT_STEER_RIGHT, (ControlSource){ SRC_AXIS_POS, RIGHTX, 0, 0 });
+    CHECK_EQ_INT(e.bind[ACT_STEER_LEFT][0].kind, SRC_BUTTON);
+    CHECK_EQ_INT(e.bind[ACT_STEER_LEFT][1].kind, SRC_AXIS_NEG);
+    CHECK_EQ_INT(e.bind[ACT_STEER_LEFT][1].index, RIGHTX);
+    /* nothing to do for a button, a whole axis, or another action; nothing to give a side with no room */
+    d = control_map_mirror_half(&c, ACT_STEER_LEFT, (ControlSource){ SRC_BUTTON, 5, 0, 0 });
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].index, LEFTX);
+    d = control_map_mirror_half(&c, ACT_STEER_LEFT, (ControlSource){ SRC_AXIS_FULL, RIGHTX, 0, 0 });
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].index, LEFTX);
+    d = control_map_mirror_half(&c, ACT_GAS, (ControlSource){ SRC_AXIS_NEG, RIGHTX, 0, 0 });
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].index, LEFTX);
+    PortControls full = c;
+    full.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_BUTTON, 5, 0, 0 };
+    full.bind[ACT_STEER_RIGHT][1] = (ControlSource){ SRC_BUTTON, 6, 0, 0 };
+    d = control_map_mirror_half(&full, ACT_STEER_LEFT, left_of_right_stick);
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][0].index, 5);
+    CHECK_EQ_INT(d.bind[ACT_STEER_RIGHT][1].index, 6);
+}
+
+static void test_the_default_stick_is_two_halves(void)
+{
+    const PortControls c = port_controls_defaults();
+    CHECK_EQ_INT(c.bind[ACT_STEER][0].kind, SRC_NONE);
+    CHECK_EQ_INT(c.bind[ACT_STEER_LEFT][0].kind, SRC_AXIS_NEG);
+    CHECK_EQ_INT(c.bind[ACT_STEER_LEFT][0].index, LEFTX);
+    CHECK_EQ_INT(c.bind[ACT_STEER_RIGHT][0].kind, SRC_AXIS_POS);
+    CHECK_EQ_INT(c.bind[ACT_STEER_LEFT][1].index, DPAD_LEFT);
+    CHECK_EQ_INT(c.bind[ACT_STEER_RIGHT][1].index, DPAD_RIGHT);
+}
+
 static void test_sources_the_device_lacks_are_ignored(void)
 {
     PortControls c = port_controls_defaults();
@@ -145,6 +233,9 @@ static void test_sources_the_device_lacks_are_ignored(void)
     c.bind[ACT_GEAR_UP][0] = (ControlSource){ SRC_BUTTON, 14, 0, 0 };
     c.bind[ACT_GAS][0] = (ControlSource){ SRC_AXIS_POS, 7, 0, 0 };
     c.bind[ACT_STEER][0] = (ControlSource){ SRC_AXIS_FULL, 6, 0, 0 };
+    c.bind[ACT_STEER_LEFT][0] = (ControlSource){ SRC_AXIS_NEG, 6, 0, 0 };
+    c.bind[ACT_STEER_RIGHT][0] = (ControlSource){ SRC_AXIS_POS, 7, 0, 0 };
+    c.bind[ACT_STEER_LEFT][1] = c.bind[ACT_STEER_RIGHT][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
     c.bind[ACT_PAUSE][0] = (ControlSource){ SRC_HAT, 1, 1, 0 };
     c.bind[ACT_NITRO][0] = (ControlSource){ SRC_BUTTON, 14, 0, 0 };
     c.bind[ACT_LOOK_BACK][0] = (ControlSource){ SRC_BUTTON, 20, 0, 0 };
@@ -356,6 +447,7 @@ static void test_detect_a_hat_and_the_most_moved_axis(void)
 static void test_swap_gives_the_taker_what_the_action_gave_up(void)
 {
     PortControls c = port_controls_defaults();
+    c.bind[ACT_STEER][0] = (ControlSource){ SRC_AXIS_FULL, LEFTX, 0, 0 };   /* a controls.cfg of before: its whole axis */
     const ControlSource south = c.bind[ACT_GEAR_UP][0], east = c.bind[ACT_GEAR_DOWN][0];
     /* gear down takes A (gear up's) and gives up B: gear up gets B, so neither is left bare */
     PortControls base = c;
@@ -448,7 +540,7 @@ static void test_binding_text_joins_the_sources(void)
     char t[64];
     PortControls c = port_controls_defaults();
     control_map_binding_text(&c, ACT_STEER_LEFT, 1, t, sizeof t);
-    CHECK(strcmp(t, "Left") == 0);
+    CHECK(strcmp(t, "Left X-, Left") == 0);   /* the stick's left half and the d-pad */
     c.bind[ACT_GAS][1] = (ControlSource){ SRC_BUTTON, 7, 0, 0 };
     control_map_binding_text(&c, ACT_GAS, 1, t, sizeof t);
     CHECK(strcmp(t, "RT, L3") == 0);
@@ -493,6 +585,9 @@ int main(void)
     test_defaults_are_the_pad_as_it_was();
     test_defaults_buttons();
     test_a_wheel_pedal_resting_at_an_end();
+    test_half_axes_steer_in_proportion();
+    test_the_default_stick_is_two_halves();
+    test_a_pushed_half_binds_the_other_side();
     test_sources_the_device_lacks_are_ignored();
     test_dead_zone_and_sensitivity_stay_in_range();
     test_virtual_keys();

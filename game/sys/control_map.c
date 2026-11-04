@@ -105,13 +105,38 @@ static int shaped(int s, int deadzone, int sensitivity)
     return s < 0 ? -(int)mag : (int)mag;
 }
 
+/* a button or a hat's direction held: the steering's end, whatever the gain */
+static int held(const ControlSource *s, const RawPad *r)
+{
+    return (s->kind == SRC_BUTTON || s->kind == SRC_HAT) && amount(s, r) > 0;
+}
+
+/* how far the axis sources of a side (Steer left / Steer right) are pushed, 0..PEDAL_MAX: the pedals' way, an axis half in proportion */
+static int pushed(const PortControls *c, PortAction side, const RawPad *r)
+{
+    int p = 0;
+    for (int k = 0; k < 2; k++) {
+        const ControlSource *s = &c->bind[side][k];
+        if (s->kind != SRC_BUTTON && s->kind != SRC_HAT && amount(s, r) > p) p = amount(s, r);
+    }
+    return p;
+}
+
+/* Steer left and Steer right as the pedals are read: a button or a hat is the full lock, an axis (a half of a stick's, or a whole one) is in
+ * proportion to its push, so the two halves of one axis give the whole axis with no dead spot between. A whole axis on Analog steering (a
+ * controls.cfg of before) is still read. Left held wins over right held, as the d-pad always did. */
 static int steering(const PortControls *c, const RawPad *r)
 {
-    if (action_pressed(c, ACT_STEER_LEFT, r)) return AXIS_MIDDLE + STICK_MIN;
-    if (action_pressed(c, ACT_STEER_RIGHT, r)) return AXIS_MIDDLE + STICK_MAX;
+    for (int k = 0; k < 2; k++)
+        if (held(&c->bind[ACT_STEER_LEFT][k], r)) return AXIS_MIDDLE + STICK_MIN;
+    for (int k = 0; k < 2; k++)
+        if (held(&c->bind[ACT_STEER_RIGHT][k], r)) return AXIS_MIDDLE + STICK_MAX;
     int s = steer_of(&c->bind[ACT_STEER][0], r);
     const int other = steer_of(&c->bind[ACT_STEER][1], r);
     if (abs(other) > abs(s)) s = other;
+    const int left = pushed(c, ACT_STEER_LEFT, r), right = pushed(c, ACT_STEER_RIGHT, r);
+    const int halves = (right >= PEDAL_MAX ? STICK_MAX : right) + (left >= PEDAL_MAX ? STICK_MIN : -left);   /* the left end is -32768, the right 32767 */
+    if (abs(halves) > abs(s)) s = halves;
     return AXIS_MIDDLE + clamp(shaped(s, c->deadzone, c->sensitivity), STICK_MIN, STICK_MAX);
 }
 
@@ -229,6 +254,22 @@ PortControls control_map_swap(const PortControls *c, PortAction act, int slot, C
         if (!had || has || (a == ACT_STEER && !is_axis(&old))) continue;
         out = control_map_assign(&out, (PortAction)a, out.bind[a][0].kind == SRC_NONE ? 0 : 1, old);
     }
+    return out;
+}
+
+PortControls control_map_mirror_half(const PortControls *c, PortAction act, ControlSource src)
+{
+    PortControls out = *c;
+    if ((act != ACT_STEER_LEFT && act != ACT_STEER_RIGHT) || (src.kind != SRC_AXIS_NEG && src.kind != SRC_AXIS_POS)) return out;
+    const PortAction other = act == ACT_STEER_LEFT ? ACT_STEER_RIGHT : ACT_STEER_LEFT;
+    src.kind = src.kind == SRC_AXIS_NEG ? SRC_AXIS_POS : SRC_AXIS_NEG;
+    for (int k = 0; k < 2; k++)
+        if (out.bind[other][k].kind == SRC_AXIS_NEG || out.bind[other][k].kind == SRC_AXIS_POS) {
+            out.bind[other][k] = src;
+            return control_map_assign(&out, other, k, src);
+        }
+    for (int k = 0; k < 2; k++)
+        if (out.bind[other][k].kind == SRC_NONE) return control_map_assign(&out, other, k, src);
     return out;
 }
 

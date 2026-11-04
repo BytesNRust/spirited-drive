@@ -34,7 +34,7 @@ enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = T
 enum { TUNE_PITCH = 28 };
 /* each page's two groups: the rows in each, and their headers ("" none: the second group of page 3 is Defaults alone).
  * Indexed by page - KEYBOARD_PAGE. */
-static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 5 }, { 9, 5 }, { 3, 1 } };
+static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 5 }, { 8, 5 }, { 3, 1 } };
 /* the actions' second group has no header of its own: with Look back it has five rows and a header's line would take the last row past y 402 (the buttons'
  * band starts at 405); the gap above it still sets it apart */
 static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Driving", NULL },
@@ -148,9 +148,11 @@ static int run_nav_lit(const Run *r, const ControlsMenuOps *o)
 /* the rows before Done: the keyboard's keys and Defaults, the actions, the tuning rows and Defaults */
 static int rows(const Run *r)
 {
-    return r->page == KEYBOARD_PAGE ? PKEY_COUNT + 1 : r->page == ACTION_PAGE ? ACT_COUNT : TUNE_COUNT + 1;
+    return r->page == KEYBOARD_PAGE ? PKEY_COUNT + 1 : r->page == ACTION_PAGE ? ACT_COUNT - 1 : TUNE_COUNT + 1;   /* no row for Analog steering: Steer left and right take a stick's halves */
 }
 static int done_row(const Run *r) { return rows(r); }
+/* the actions' rows start at Steer left: Analog steering (ACT_STEER) has none, its stick is Steer left's and Steer right's halves */
+static PortAction act_of(int row) { return (PortAction)(row + 1); }
 static int cancel_row(const Run *r) { return rows(r) + 1; }
 
 /* the group a row is in, of the page's two */
@@ -259,14 +261,14 @@ static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps 
             words(o, STYLE_RED, value, VALUE_RIGHT - o->plus_text_width(o->ctx, value), y);   /* a control with no key */
         else text_right(o, lit, value, VALUE_RIGHT, y);
     } else if (r->page == ACTION_PAGE) {
-        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name((PortAction)row), LABEL_X, y);
-        if (r->capturing == row) {
+        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name(act_of(row)), LABEL_X, y);
+        if (r->capturing == (int)act_of(row)) {
             /* the long prompt runs into a long label (Analog steering) from the right: the shorter one then */
-            const char *const prompt = o->plus_text_width(o->ctx, control_map_action_name((PortAction)row)) + o->plus_text_width(o->ctx, PROMPT_LONG) +
+            const char *const prompt = o->plus_text_width(o->ctx, control_map_action_name(act_of(row))) + o->plus_text_width(o->ctx, PROMPT_LONG) +
                                                PROMPT_GAP > VALUE_RIGHT - LABEL_X ? PROMPT_SHORT : PROMPT_LONG;
             snprintf(value, sizeof value, "%s", r->have_pad ? prompt : "No controller found");
         } else
-            control_map_binding_text(st->plus->port, (PortAction)row, r->gamepad, value, sizeof value);
+            control_map_binding_text(st->plus->port, act_of(row), r->gamepad, value, sizeof value);
         text_right(o, lit, value, VALUE_RIGHT, y);
     } else if (row < TUNE_COUNT) {
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, TUNE_LABEL[row], LABEL_X, y);
@@ -339,7 +341,7 @@ static void capture(Run *r, int act, int add, const ControlsMenuState *st, const
     while (got.kind == SRC_NONE && !o->deadline_passed(o->ctx)) {
         o->music(o->ctx);
         if ((uint16_t)o->key(o->ctx) == ESCAPE) break;
-        if (have && o->pad_raw(o->ctx, &now)) got = control_map_detect(&rest, &now, act == ACT_STEER);
+        if (have && o->pad_raw(o->ctx, &now)) got = control_map_detect(&rest, &now, 0);
     }
     drain(o);
     r->capturing = -1;
@@ -352,6 +354,7 @@ static void capture(Run *r, int act, int add, const ControlsMenuState *st, const
         else base.bind[act][1] = (ControlSource){ SRC_NONE, 0, 0, 0 };
         if (slot == 0) gave_up = c->bind[act][0], base.bind[act][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
         *c = control_map_swap(&base, (PortAction)act, slot, got, gave_up);
+        *c = control_map_mirror_half(c, (PortAction)act, got);   /* a stick pushed one way binds the other half to the other side */
         c->custom = 1;
         o->sound(o->ctx, CHOSEN);
     }
@@ -421,7 +424,7 @@ static void choose(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o
             port_controls_reset_keys(st->plus->port);   /* config.dat's keys again */
             r->redraw = 1;
         } else if (r->page == KEYBOARD_PAGE) capture_key(r, (PortKey)r->selected, st, o);
-        else if (r->page == ACTION_PAGE) capture(r, r->selected, 0, st, o);
+        else if (r->page == ACTION_PAGE) capture(r, (int)act_of(r->selected), 0, st, o);
         else if (r->selected == DEFAULTS) {
             PortControls defaults = port_controls_defaults();   /* custom 0: as without a controls.cfg */
             memcpy(defaults.key, st->plus->port->key, sizeof defaults.key);   /* the keyboard's are its own page's */
@@ -470,9 +473,9 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
     } else if (r->page == KEYBOARD_PAGE && r->selected < PKEY_COUNT && k == DELETE) {
         port_controls_set_key(st->plus->port, r->key_defaults, (PortKey)r->selected, 0);   /* none */
         r->redraw = 1;
-    } else if (r->page == ACTION_PAGE && r->selected < ACT_COUNT && (k == DELETE || k == INSERT)) {
-        if (k == DELETE) clear_action(r, r->selected, st);
-        else capture(r, r->selected, 1, st, o);
+    } else if (r->page == ACTION_PAGE && r->selected < ACT_COUNT - 1 && (k == DELETE || k == INSERT)) {
+        if (k == DELETE) clear_action(r, (int)act_of(r->selected), st);
+        else capture(r, (int)act_of(r->selected), 1, st, o);
     }
     o->ticks(o->ctx);
     r->armed = 0;
