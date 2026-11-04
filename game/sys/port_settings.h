@@ -83,6 +83,7 @@ typedef struct {
     int vegas_lift;    /* 0, 1, 2: the same for Lost Vegas' night (1 mild, 2 more); 0 the exe's */
     int rain_fx;    /* with weather=rain, the rain's streaks follow the car's speed (spokes from the vanishing point) and are lit by the headlights at night; 0 phase 1's fixed streaks */
     int rain_grip;    /* with weather=rain, the road's grip is reduced; records of a wet race are kept apart */
+    int finish_gate_light;    /* 1: at night the stage tracks' CHECKPOINT / FINISH gate banner keeps its daylight look, lit against the dark (finish_gate_light.h); 0 the exe's */
     int gauge_light;    /* 0..4: at night the lit parts of the dash gauges take a colour (1 greenish, 2 reddish, 3 orange, 4 bluish); 0 the exe's untinted white */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
@@ -209,6 +210,9 @@ int port_rain_lightning(void);
 int port_rain_grip(void);
 /* 1 when gauge_light is on: TNFS_GAUGE_LIGHT=0/1 when set, else port.cfg's. */
 int port_gauge_light(void);
+
+/* 1 when finish_gate_light is on: TNFS_FINISH_GATE_LIGHT=0/1 when set, else port.cfg's; only acts at night with the PS1 light (psx_headlights). */
+int port_finish_gate_light(void);
 /* 1 for a wet race: rain_grip on and the weather rain (the grip is reduced and the race's records are not kept; track_gravity.h). */
 int port_rain_grip_active(void);
 /* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else port.cfg's; never without port_psx_light. */
