@@ -72,6 +72,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `forest_neutral` | 0 | 0 | 0, 1 (with the PS1 light, Vertigo Ridge's forest road, nodes 852..943 (the CD's rows mark its shade like a tunnel), is drawn with the road's neutral light instead of the tunnel's olive-orange cast; 0 the cast, yellow/orange asphalt) | none | `TNFS_FOREST_NEUTRAL` | 0 / 0 / 1 | `psx_light` |
 | `cavern_dark` | 0 | 0 | 0, 1 (with car_tunnel_light, TR6's cavern after the blue-lit mine tunnel, nodes 322..546, keeps the car at the lamp alternation's dim tone with no alternating light until the exit; 0 the alternation) | none | `TNFS_CAVERN_DARK` | 0 / 0 / 1 | `psx_light` |
 | `vegas_objects` | 0 | 0 | 0, 1 (with the PS1 light, Lost Vegas' buildings and 3D objects keep 245 of 255 of light at night while the road stays dark with the headlights and pools; 0 they are as dark as the road) | none | `TNFS_VEGAS_OBJECTS` | 0 / 0 / 1 | `psx_light` |
+| `close_houses` | 0 | 0 | 0, 1 (the TR3 village houses get their right wall, back wall and back roof slope, the long building its far end cap; 0 they are open as in the exe) | none | `TNFS_CLOSE_HOUSES` | 0 / 0 / 1 | none |
 
 ### Dash, cameras and replay
 
@@ -188,6 +189,7 @@ All 42 columns of the table, in file order. A column that is not here is not tou
 | `forest_neutral` | port.cfg | 0 | 0 | 1 |
 | `cavern_dark` | port.cfg | 0 | 0 | 1 |
 | `vegas_objects` | port.cfg | 0 | 0 | 1 |
+| `close_houses` | port.cfg | 0 | 0 | 1 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `port_profile_ui`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 

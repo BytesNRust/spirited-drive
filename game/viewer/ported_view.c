@@ -621,13 +621,14 @@ static void draw_model(void *user, int model, const int32_t position[3], uint32_
     object_sink_set_light(NULL);
 }
 
-void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored, int two_sided)
+void ported_view_set_models(const ViewModel *list, const int *ok, int mirrored, int two_sided, int close_houses)
 {
     if (list == models && mirrored == models_mirrored) return;
     for (int i = 0; i < PORTED_VIEW_MODELS; i++) {
         if (object_ok[i]) object3d_free(&objects[i]);
         object_ok[i] = list != NULL && ok[i] && object3d_create(&objects[i], &list[i].mesh);
         if (object_ok[i] && list[i].has_textures) object3d_bind(&objects[i], &list[i].textures);
+        if (object_ok[i] && close_houses) object3d_close_houses(&objects[i]);   /* port (close_houses): before the mirror, so the new faces follow it */
         if (object_ok[i] && mirrored) object3d_mirror(&objects[i]);   /* 004576f0 on 004fbad8 */
         if (object_ok[i] && two_sided) object3d_both_sides(&objects[i]);   /* port (two_sided_scenery): the open models from behind too */
     }
@@ -1566,7 +1567,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 void ported_view_forget_track(void)
 {
     render.tri = NULL;
-    ported_view_set_models(NULL, NULL, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
+    ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
 }
 

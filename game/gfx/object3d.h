@@ -126,6 +126,10 @@ void object3d_free(Object3D *obj);
  * (the object is open there: a board, an arch, a tunnel mouth, an inverted U) gets POLY_NO_CULL; the polygons of a closed solid keep the culling, as their
  * back faces are inside it. Returns how many it set; polygons that already draw both ways are not counted. */
 int object3d_both_sides(Object3D *obj);
+/* port (close_houses): TR3's village house (model 4) gets its right wall, back wall and back roof slope and the long building (model 3) its far end cap, each a
+ * copy of the polygon on the other side (same flags, texture and uvs) turned to face away. Called before object3d_mirror and object3d_both_sides, so the
+ * new polygons follow them. Any other object is left alone. Returns how many polygons it added. */
+int object3d_close_houses(Object3D *obj);
 /* port (body shine): gives the object a normal per vertex (0 when it cannot allocate). object3d_update_normals then sets them from the camera-space
  * corners (after object3d_transform): a vertex takes the mean of the faces it belongs to that the engine would draw (a one-sided one turned
  * away is left out; a two-sided one counts turned toward the eye), a vertex of none gets (0, 0, 0). The polygons handed to the sink carry them in

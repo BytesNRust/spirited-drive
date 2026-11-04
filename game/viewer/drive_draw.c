@@ -393,7 +393,7 @@ void render_drive(const Track *t, uint8_t *pixels)
     drive_cars.ticked = 0;
     draw_rands_frame(&draw_rands, ticked);
     /* port: the open models of the scenery are drawn from behind too in a reversed or 360 camera race; both are fixed for the race (extras.cfg is read at its start, the pause menu cannot change them), and the models are made once per track */
-    ported_view_set_models(t->models, t->model_ok, race->mirrored, port_two_sided_scenery(race->port_reverse != 0 || race->port_follow_camera != 0));
+    ported_view_set_models(t->models, t->model_ok, race->mirrored, port_two_sided_scenery(race->port_reverse != 0 || race->port_follow_camera != 0), port_close_houses());
     ported_view_set_shadows(race, drive_hud.ready ? drive_hud.shade : NULL);
     ported_view_set_tick(race->tick);
     if (drive_hud.ready) ported_view_set_tags(drive_hud.car_colours, HUD_MAP_COLOURS, drive_hud.strip_colour);

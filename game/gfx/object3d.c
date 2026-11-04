@@ -173,6 +173,87 @@ void object3d_mirror(Object3D *obj)
     for (uint32_t i = 0; i < obj->order_count && i < obj->polygon_count; i++) obj->polygons[i].flags ^= POLY_REVERSED;
 }
 
+/* port (close_houses): TR3's village houses (model 4: a left wall, a front wall and the front roof slope) and the long building (model 3: two side
+ * walls, a roof and one end strip) were drawn open at the sides the camera never saw from the road. */
+static int grow(Object3D *obj, uint32_t vertices, uint32_t polygons)
+{
+    int32_t (*model)[3] = realloc(obj->model, (obj->vertex_count + vertices) * sizeof *model);
+    if (model) obj->model = model;
+    int32_t (*camera)[3] = realloc(obj->camera, (obj->vertex_count + vertices) * sizeof *camera);
+    if (camera) obj->camera = camera;
+    int32_t (*screen)[2] = realloc(obj->screen, (obj->vertex_count + vertices) * sizeof *screen);
+    if (screen) obj->screen = screen;
+    Object3DPolygon *poly = realloc(obj->polygons, (obj->polygon_count + polygons) * sizeof *poly);
+    if (poly) obj->polygons = poly;
+    uint32_t *order = realloc(obj->order, (obj->polygon_count + polygons) * sizeof *order);
+    if (order) obj->order = order;
+    return model && camera && screen && poly && order;
+}
+
+static uint32_t vertex_at(Object3D *obj, int32_t x, int32_t y, int32_t z)
+{
+    for (uint32_t i = 0; i < obj->vertex_count; i++)
+        if (obj->model[i][0] == x && obj->model[i][1] == y && obj->model[i][2] == z) return i;
+    obj->model[obj->vertex_count][0] = x, obj->model[obj->vertex_count][1] = y, obj->model[obj->vertex_count][2] = z;
+    return obj->vertex_count++;
+}
+
+/* A copy of polygon `src` with each corner moved by f and its corner order reversed (keeping the first corner), so it faces the other way; its flags,
+ * texture and uvs are the source's. */
+typedef void (*CornerMap)(int32_t out[3], const int32_t in[3]);
+
+static void add_facing_back(Object3D *obj, uint32_t src, CornerMap f)
+{
+    Object3DPolygon p = obj->polygons[src];
+    const int n = (int)(p.flags & POLY_CORNERS);
+    uint32_t v[4] = { 0, 0, 0, 0 }, u[4] = { 0, 0, 0, 0 };
+    for (int i = 0; i < n; i++) {
+        const int from = i == 0 ? 0 : n - i;   /* 0, n-1, ..., 1 */
+        int32_t c[3];
+        f(c, obj->model[p.vertex[from]]);
+        v[i] = vertex_at(obj, c[0], c[1], c[2]);
+        u[i] = p.uv[from];
+    }
+    for (int i = 0; i < n; i++) p.vertex[i] = v[i], p.uv[i] = u[i];
+    obj->polygons[obj->polygon_count] = p;
+    obj->order[obj->order_count] = obj->polygon_count;
+    obj->polygon_count++, obj->order_count++;
+}
+
+static void to_right(int32_t out[3], const int32_t in[3]) { out[0] = 312, out[1] = in[1], out[2] = in[2]; }
+static void to_back(int32_t out[3], const int32_t in[3]) { out[0] = in[0], out[1] = in[1], out[2] = 240; }
+static void to_far_slope(int32_t out[3], const int32_t in[3]) { out[0] = in[0], out[1] = in[1], out[2] = 240 - in[2]; }
+static void to_far_end(int32_t out[3], const int32_t in[3]) { out[0] = in[0], out[1] = in[1], out[2] = 1500; }
+
+static int box_is(const Object3D *obj, int32_t x, int32_t y, int32_t z)
+{
+    int32_t hi[3] = { 0, 0, 0 };
+    for (uint32_t i = 0; i < obj->vertex_count; i++)
+        for (int a = 0; a < 3; a++) {
+            if (obj->model[i][a] < 0) return 0;
+            if (obj->model[i][a] > hi[a]) hi[a] = obj->model[i][a];
+        }
+    return hi[0] == x && hi[1] == y && hi[2] == z;
+}
+
+int object3d_close_houses(Object3D *obj)
+{
+    if (obj->order_count != obj->polygon_count) return 0;
+    if (obj->vertex_count == 10 && obj->polygon_count == 3 && box_is(obj, 312, 264, 240)) {
+        if (!grow(obj, 8, 3)) return 0;
+        add_facing_back(obj, 0, to_right);      /* the right wall: the left one across the house */
+        add_facing_back(obj, 1, to_back);       /* the back wall: the front one at the far end */
+        add_facing_back(obj, 2, to_far_slope);  /* the back roof slope: the front one across the ridge */
+        return 3;
+    }
+    if (obj->vertex_count == 16 && obj->polygon_count == 4 && box_is(obj, 225, 150, 1500)) {
+        if (!grow(obj, 4, 1)) return 0;
+        add_facing_back(obj, 3, to_far_end);    /* the end cap at the other end */
+        return 1;
+    }
+    return 0;
+}
+
 int object3d_both_sides(Object3D *obj)
 {
     int set = 0;
