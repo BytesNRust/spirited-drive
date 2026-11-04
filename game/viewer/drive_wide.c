@@ -390,22 +390,50 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     snprintf(done, sizeof done, "%s", drive_hud.dash_stem);
     char path[512];
     snprintf(path, sizeof path, "%s/%s.ppm", dir, done);
-    static uint8_t zone[SCREEN_W * SCREEN_H];
+    static uint8_t zone[SCREEN_W * SCREEN_H], dials[SCREEN_W * SCREEN_H], out[SCREEN_W * SCREEN_H];
     wheel_front_zone(k, art, zone);
+    /* the dials the game draws over the 'w' frame inside the gauge ellipses ('tach', 'sped'): they come back over the blanked wheel */
+    memset(dials, LAYER_KEY, sizeof dials);
+    const QuadTarget dt = { dials, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
+    if (k->tach != NULL) blit_shape_at_transparent(&dt, k->tach, 0, 0);
+    if (k->sped != NULL) blit_shape_at_transparent(&dt, k->sped, 0, 0);
+    for (int y = 0; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++) {
+            const int i = y * SCREEN_W + x;
+            const int dial = dials[i] != LAYER_KEY && (in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h));
+            out[i] = zone[i] ? (dial ? dials[i] : LAYER_KEY) : art[i];
+        }
     FILE *f = fopen(path, "wb");
     if (f != NULL) {
         fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
             const uint8_t v = art[i];
             static const uint8_t black[3] = { 0, 0, 0 };
-            fwrite(v == LAYER_KEY || zone[i] ? black : lit_palette + 3 * v, 1, 3, f);
+            fwrite(out[i] == LAYER_KEY ? black : lit_palette + 3 * out[i], 1, 3, f);
+            (void)v;
         }
+        fclose(f);
+    }
+    /* the straight-ahead wheel, for a guide layer: the stored art where the wheel is in some pose (<STEM>.guide.ppm) and where that is (<STEM>.zone.pgm) */
+    snprintf(path, sizeof path, "%s/%s.guide.ppm", dir, done);
+    if ((f = fopen(path, "wb")) != NULL) {
+        fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
+        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+            static const uint8_t black[3] = { 0, 0, 0 };
+            fwrite(zone[i] && art[i] != LAYER_KEY ? lit_palette + 3 * art[i] : black, 1, 3, f);
+        }
+        fclose(f);
+    }
+    snprintf(path, sizeof path, "%s/%s.zone.pgm", dir, done);
+    if ((f = fopen(path, "wb")) != NULL) {
+        fprintf(f, "P5\n%d %d\n255\n", SCREEN_W, SCREEN_H);
+        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) fputc(zone[i] && art[i] != LAYER_KEY ? 255 : 0, f);
         fclose(f);
     }
     static uint8_t draft[SCREEN_W * SCREEN_H];
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++)
-            draft[y * SCREEN_W + x] = in_dial(k, x, y) && art[y * SCREEN_W + x] != LAYER_KEY && !zone[y * SCREEN_W + x] ? DASH_MASK_DIAL : DASH_MASK_AUTO;
+            draft[y * SCREEN_W + x] = in_dial(k, x, y) && out[y * SCREEN_W + x] != LAYER_KEY ? DASH_MASK_DIAL : DASH_MASK_AUTO;
     uint8_t *png = NULL;
     size_t len = 0;
     snprintf(path, sizeof path, "%s/%s.mask.png", dir, done);
