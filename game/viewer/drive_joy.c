@@ -81,6 +81,7 @@ void drive_joy_start(int16_t *controls, int16_t german)
     started = true;
     const JoyStartOps ops = { NULL, calibrate, open_forces, count, caps };
     joy_start(&start, &joy, controls, german, resource_dir(PATH_CONFIG), &save_files_ops, &JOY, &ops);
+    start.brake_wins = port_brake_over_gas();   /* port (brake_over_gas) */
 }
 
 const JoyStart *drive_joy_state(void) { return &start; }

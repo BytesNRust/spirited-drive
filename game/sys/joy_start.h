@@ -19,6 +19,7 @@ typedef struct JoyStart {
     int32_t buttons;             /* 004fcdc8: its buttons */
     int32_t present;             /* 004fcdcc: joystick.cfg read (the pad present) */
     int32_t device;              /* 004bb908 */
+    int32_t brake_wins;          /* port (brake_over_gas): with split pedals a brake past its dead zone is the pedal, the gas ignored (the exe sums them: r less z); 0 the exe's */
 } JoyStart;
 
 typedef struct JoyStartOps {

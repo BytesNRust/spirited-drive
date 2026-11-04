@@ -47,7 +47,8 @@ void joy_pad_read(JoyState *j, const JoyStart *s, const JoyOps *joy)
     x = about_mid(x, j->x_scale_low, j->x_scale_high, STEER_LOW, STEER_HIGH, DEAD);
     y = about_mid(y, j->y_scale_low, j->y_scale_high, -PEDAL, PEDAL, DEAD);
     if (s->has_axis[3] != 0) {
-        const int32_t d = minus(pedal(r, j->r_pedal), pedal(z, j->z_pedal));
+        const int32_t brake = pedal(r, j->r_pedal);
+        const int32_t d = s->brake_wins != 0 && brake > 0 ? brake : minus(brake, pedal(z, j->z_pedal));   /* port (brake_over_gas): a brake held is the pedal, not the gas's difference */
         y = d < -PEDAL ? -PEDAL : d > PEDAL ? PEDAL : d;
     } else if (s->has_axis[2] != 0) {
         y = about_mid(z, j->z_scale_low, j->z_scale_high, -PEDAL, PEDAL, DEAD_Z_HIGH);
