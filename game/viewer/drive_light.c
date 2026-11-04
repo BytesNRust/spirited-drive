@@ -679,6 +679,20 @@ void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768])
     psx_tint_palette(base, dash_ratio, out);
 }
 
+int drive_light_palette_lit(const uint8_t palette[768], uint8_t out[768])
+{
+    /* the key's colours, per channel (the strongest 1): the mock's soft green, red, amber and light blue */
+    static const float COLOUR[5][3] = { { 1, 1, 1 }, { 0.55f, 1.0f, 0.6f }, { 1.0f, 0.45f, 0.4f }, { 1.0f, 0.7f, 0.25f }, { 0.5f, 0.75f, 1.0f } };
+    const int key = port_gauge_light();
+    if (key <= 0 || key > 4 || !night_look) return 0;
+    for (int i = 0; i < 256; i++) {
+        const float lum = (palette[3 * i] + palette[3 * i + 1] + palette[3 * i + 2]) / 3.0f;
+        const float lit = lum * 1.6f + 20.0f > 255.0f ? 255.0f : lum * 1.6f + 20.0f;   /* a lit dial is brighter than the unlit art */
+        for (int k = 0; k < 3; k++) out[3 * i + k] = (uint8_t)(lit * COLOUR[key][k] + 0.5f);
+    }
+    return 1;
+}
+
 void drive_light_world_rect(int width, int x, int y, int w, int h)
 {
     rect[0] = x, rect[1] = y, rect[2] = w, rect[3] = h, rect_width = width, rect_set = w > 0 && h > 0;
@@ -697,6 +711,7 @@ const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
                 const uint8_t c = row[x / (size_t)class_scale];
                 if (c == PSX_CLASS_DASH) world_mask[y * (size_t)rect_width + x] = 2;
                 else if (c == PSX_CLASS_HUD) world_mask[y * (size_t)rect_width + x] = 0;
+                else if (c == PSX_CLASS_LIT) world_mask[y * (size_t)rect_width + x] = 3;
             }
         }
     }

@@ -1036,7 +1036,7 @@ void platform_wait_vblank(void)
 
 typedef struct {
     const uint8_t *pixels;
-    const uint32_t *lut;     /* 256 entries; with a mask 3 x 256, the mask's value picking the table */
+    const uint32_t *lut;     /* 256 entries; with a mask 4 x 256, the mask's value picking the table */
     const uint8_t *mask;     /* NULL: one table */
     uint32_t *out;
     int width, height, count;
@@ -1054,7 +1054,7 @@ static void lut_band(void *ctx, int index)
             for (int x = 0; x < j->width; x++) row[x] = j->lut[in[x]];
         } else {
             const uint8_t *m = j->mask + (size_t)y * (size_t)j->width;
-            for (int x = 0; x < j->width; x++) row[x] = j->lut[(m[x] > 2 ? 0 : m[x]) * 256 + in[x]];
+            for (int x = 0; x < j->width; x++) row[x] = j->lut[(m[x] > 3 ? 0 : m[x]) * 256 + in[x]];
         }
     }
 }
@@ -1074,13 +1074,17 @@ void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor p
     platform_parallel_for(count, lut_band, (void *)&job, threads);
 }
 
+static const PlatformColor *lit_palette;
+
+void platform_set_lit_palette(const PlatformColor lit[256]) { lit_palette = lit; }
+
 void platform_palette_to_xrgb_split_pitch(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
                                           const PlatformColor half_palette[256], const uint8_t *mask, void *out, int pitch, int width,
                                           int height, int threads)
 {
-    uint32_t lut[3 * 256];
-    const PlatformColor *const by_mask[3] = { palette, world_palette, half_palette };
-    for (int m = 0; m < 3; m++)
+    uint32_t lut[4 * 256];
+    const PlatformColor *const by_mask[4] = { palette, world_palette, half_palette, lit_palette != NULL ? lit_palette : palette };
+    for (int m = 0; m < 4; m++)
         for (int i = 0; i < 256; i++)
             lut[m * 256 + i] = ((uint32_t)by_mask[m][i].r << 16) | ((uint32_t)by_mask[m][i].g << 8) | by_mask[m][i].b;
     enum { MIN_ROWS = 32 };

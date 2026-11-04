@@ -140,6 +140,9 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
 
 /* The same, a pixel with `mask[i]` 1 through `world_palette` instead of `palette`, 2 through `half_palette` (the PS1 light's time of
  * day tints the 3D's pixels, the dash's art half, and not the 2D layer's other pixels, which index the same entries). */
+/* port (gauge_light): the palette a pixel with mask value 3 goes through (the dash gauges' lit parts, coloured); NULL, or never set: `palette`. The caller keeps the
+ * array alive until the frame is shown. */
+void platform_set_lit_palette(const PlatformColor lit[256]);
 void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
                             const PlatformColor half_palette[256], const uint8_t *mask);
 

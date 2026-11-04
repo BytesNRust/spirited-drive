@@ -347,12 +347,12 @@ void track_viewer_free(Track *t)
 }
 
 int track_viewer_write_ppm_split(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb, const uint8_t *world_rgb,
-                                 const uint8_t *half_rgb, const uint8_t *mask)
+                                 const uint8_t *half_rgb, const uint8_t *lit_rgb, const uint8_t *mask)
 {
     FILE *f = fopen(path, "wb");
     if (f == NULL) return 0;
     int ok = fprintf(f, "P6\n%d %d\n255\n", w, h) > 0;
-    for (int i = 0; ok && i < w * h; i++) ok = fwrite((mask[i] == 1 ? world_rgb : mask[i] == 2 ? half_rgb : rgb) + 3 * pixels[i], 1, 3, f) == 3;
+    for (int i = 0; ok && i < w * h; i++) ok = fwrite((mask[i] == 1 ? world_rgb : mask[i] == 2 ? half_rgb : mask[i] == 3 && lit_rgb != NULL ? lit_rgb : rgb) + 3 * pixels[i], 1, 3, f) == 3;
     return fclose(f) == 0 && ok;
 }
 
