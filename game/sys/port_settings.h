@@ -72,6 +72,7 @@ typedef struct {
     int parking_dark;    /* with car_tunnel_light, Transtropolis' parking (nodes 465..570, up to the exit tunnel) keeps the car at the dark tone of the lamps' alternation, steady; 0: the alternation */
     int forest_neutral;    /* with the PS1 light, TR3's forest road (nodes 852..943, the rows mark its shade like a tunnel) is drawn with the road's neutral light, not the tunnel's olive-orange cast (yellow/orange asphalt); 0: as it was */
     int cavern_dark;    /* with car_tunnel_light, Burnt Sienna's cavern (nodes 322..546, after the mine's tunnel) keeps the car at the dim tone, steady, no highway-lamp alternation; 0: the alternation */
+    int vegas_objects;    /* with the PS1 light, Lost Vegas' buildings and 3D objects keep almost full light (245 of 255) while the road takes the dark and the headlights, so the lit windows and the neon stand out; 0: they take the road's dark */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
@@ -181,6 +182,8 @@ int port_parking_dark(void);
 int port_forest_neutral(void);
 /* 1 when cavern_dark is on: TNFS_CAVERN_DARK=0/1 when set, else port.cfg's; never without port_car_tunnel_light. */
 int port_cavern_dark(void);
+/* 1 when vegas_objects is on: TNFS_VEGAS_OBJECTS=0/1 when set, else port.cfg's; never without port_psx_light. */
+int port_vegas_objects(void);
 
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };

@@ -19,6 +19,23 @@ static size_t make_file(uint8_t *out, uint32_t nodes, uint32_t header_nodes)
     return 8 + (size_t)nodes * PSX_LIGHT_POINTS + TRAILER;
 }
 
+static void test_object_floor_lifts_only_the_points_beyond_the_road(void)
+{
+    uint8_t file[8 + NODES * PSX_LIGHT_POINTS + TRAILER];
+    const size_t size = make_file(file, NODES, NODES);
+    PsxLight light = { 0 };
+    CHECK(psx_light_parse(file, size, NODES, &light));
+    light.object_floor = 245;   /* port (vegas_objects) */
+    CHECK_EQ_INT(psx_light_at(&light, 1, 0), 16);     /* the road's own points keep their dark */
+    CHECK_EQ_INT(psx_light_at(&light, 1, 6), 16 + 6);
+    CHECK_EQ_INT(psx_light_at(&light, 1, 2), 16 + 2);
+    CHECK_EQ_INT(psx_light_at(&light, 1, 3), 245);   /* the buildings' side takes the floor */
+    CHECK_EQ_INT(psx_light_at(&light, 1, 9), 245);
+    light.object_floor = 0;
+    CHECK_EQ_INT(psx_light_at(&light, 1, 9), 16 + 9);   /* off: as it was */
+    psx_light_free(&light);
+}
+
 static void test_parse_and_lookup(void)
 {
     uint8_t file[8 + NODES * PSX_LIGHT_POINTS + TRAILER];
@@ -179,6 +196,7 @@ int main(void)
     test_script();
     test_tunnel_wall_floor();
     test_parse_and_lookup();
+    test_object_floor_lifts_only_the_points_beyond_the_road();
     test_rejected_files();
     test_reversed();
     return TEST_REPORT();

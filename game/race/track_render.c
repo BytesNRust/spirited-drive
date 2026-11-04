@@ -455,7 +455,8 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
 static void object_light_on(const Glue *g)
 {
     if (track_light_hook == NULL || g->r->psx == NULL) return;
-    const uint8_t v = psx_light_node(g->r->psx, (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node);
+    uint8_t v = psx_light_node(g->r->psx, (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node);
+    if (g->r->psx->object_floor > v) v = g->r->psx->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
     const uint8_t corners[4] = { v, v, v, v };
     track_light_hook(corners);
 }

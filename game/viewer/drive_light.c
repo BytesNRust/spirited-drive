@@ -159,6 +159,7 @@ static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds 
 
 /* Lost Vegas (tr4) under the PS1 look: its light 10% darker than the CD's script gives, and its fog always dark */
 static const float LOST_VEGAS_DARKEN = 0.9f;
+static const int VEGAS_OBJECT_LIGHT = 245;   /* port (vegas_objects): the light of 255 its buildings and objects keep, so the windows and the neon stand out */
 
 static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp(track, "TR4") == 0; }
 
@@ -258,6 +259,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light = parsed;
     light.forest_road = port_forest_neutral() && psx_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
+    light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT);
     if (is_lost_vegas(track))

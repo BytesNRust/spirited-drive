@@ -136,7 +136,7 @@ static int made_tunnel(const PsxLight *light, uint32_t node)
     return light->tunnel != NULL && light->nodes > 0 && light->tunnel[node % light->nodes] != 0;
 }
 
-uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
+static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point)
 {
     const uint8_t v = light_at(light, node, point);
     if (light == NULL || light->pool == NULL) return v;
@@ -153,6 +153,14 @@ uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
     const uint8_t scaled = made_tunnel(light, node) ? v : headlight_pool_apply(v, headlight_pool_gain_tunnel(light->pool, node));   /* a made light's tunnel (made_tunnels) keeps the dusk's light its rows carry: the night's floor is the open road's */
     const int lit = (light->beam_tunnel > 0 ? light->beam_tunnel : TUNNEL_BEAM) * headlight_pool_beam(light->pool, node) / 256;
     return lit > scaled ? (uint8_t)lit : scaled;
+}
+
+uint8_t psx_light_at(const PsxLight *light, uint32_t node, int point)
+{
+    const uint8_t v = light_at_dark(light, node, point);
+    /* port (vegas_objects): the points beyond the road's shoulder (3, 4, 5, 8..10: the walls and the buildings) keep almost full light, the road's own (0, 1, 2, 6, 7) take the dark and the pools */
+    const int beyond = point == 3 || point == 4 || point == 5 || point >= 8;
+    return light != NULL && light->object_floor > v && beyond ? light->object_floor : v;
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node)
