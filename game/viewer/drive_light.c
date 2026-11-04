@@ -70,7 +70,7 @@ static void file_path(char *out, size_t size, const char *psx_dir, const char *t
 /* the most a night's ambient may carry (the mean of its channels): CY1's and TR1's nights, the darkest of the CD's (.45, .42) lowered to .35: TR2's valley still read as day at .45 */
 static const float NIGHT_TINT_CEILING = 0.35f;
 
-static void load_tint(const char *psx_dir, const char *track, char letter, int night)
+static void load_tint(const char *psx_dir, const char *track, char letter, int night, float ceiling)
 {
     tint[0] = tint[1] = tint[2] = 1.0f;
     ambient_ok = 0;
@@ -87,7 +87,7 @@ static void load_tint(const char *psx_dir, const char *track, char letter, int n
         if (night) psx_lgs_scale(&ambient, light.pool != NULL ? NIGHT_PALETTE : psx_night_light, 0);   /* the open road's: a tunnel's own lights (the contexts) stay lit, pools in the dark; with the pools the nodes carry the night, the ambient stays the dusk's */
         ambient_ok = 1, psx_lgs_tint(&ambient, tint);
         if (night) {   /* port: every night goes dark, the PS1's own brightest (TR2's orange dusk) too; the hue is kept */
-            const float k = psx_night_ceiling_scale(tint, NIGHT_TINT_CEILING);
+            const float k = psx_night_ceiling_scale(tint, ceiling);
             if (k < 1.0f) {
                 const float mul[3] = { k, k, k };
                 psx_lgs_scale(&ambient, mul, 0);   /* a tunnel's own lights stay lit */
@@ -161,6 +161,12 @@ static int alt_sky_wanted;   /* the look is on at dawn or dusk and the CD holds 
 static const float LOST_VEGAS_DARKEN = 0.9f;
 static const int VEGAS_OBJECT_LIGHT = 245;   /* port (vegas_objects): the light of 255 its buildings and objects keep, so the windows and the neon stand out */
 
+/* port (city_lift, vegas_lift): level 0, 1, 2. The ceiling the City and Lost Vegas nights' tint is brought under (NIGHT_TINT_CEILING at 0) and how far the open night's dark floor is lifted (of 256) */
+static const float CITY_CEILING[3] = { 0.35f, 0.50f, 0.70f };
+static const float VEGAS_CEILING[3] = { 0.35f, 0.55f, 0.80f };
+static const int CITY_FLOOR_LIFT[3] = { 0, 120, 190 }, VEGAS_FLOOR_LIFT[3] = { 0, 90, 170 };   /* the open night's dark floor lifted (of 256) */
+
+static int is_city(const char *track) { return track != NULL && strncasecmp(track, "CY", 2) == 0; }
 static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp(track, "TR4") == 0; }
 
 /* A track the PS1 CD holds no light for (Burnt Sienna is tr6 and its ZTR6 has other nodes, Transtropolis is tr7 and has no Z file): a flat ambient
@@ -261,7 +267,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
-    load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT);
+    light.night_lift = !headlights_on ? 0 : is_city(track) ? CITY_FLOOR_LIFT[port_city_lift()] : is_lost_vegas(track) ? VEGAS_FLOOR_LIFT[port_vegas_lift()] : 0;   /* port (city_lift, vegas_lift) */
+    load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
     if (is_lost_vegas(track))
         for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
     ambient_nodes = ring_nodes;
