@@ -342,6 +342,14 @@ static void test_parking_dark(void)
     CHECK(even[0] == 1.0f && odd[0] == 1.0f);   /* outside it, no tunnel: the open light */
 }
 
+static void test_cavern_range(void)
+{
+    uint32_t a = 0, b = 0;
+    CHECK(psx_light_synth_cavern("TR6", &a, &b));
+    CHECK(a == 322 && b == 546);   /* after the mine tunnel's mouth, to the tunnel run's end */
+    CHECK(!psx_light_synth_cavern("TR7", &a, &b) && !psx_light_synth_cavern(NULL, &a, &b));
+}
+
 static void test_trans_ranges(void)
 {
     uint32_t a = 0, b = 0;
@@ -355,6 +363,7 @@ int main(void)
     test_trans_ranges();
     test_trans_closed_range();
     test_parking_dark();
+    test_cavern_range();
     test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();

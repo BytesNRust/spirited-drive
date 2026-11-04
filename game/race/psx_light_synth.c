@@ -157,6 +157,14 @@ int psx_light_synth_mine(const char *track)
     return track != NULL && strcasecmp(track, "TR6") == 0;
 }
 
+int psx_light_synth_cavern(const char *track, uint32_t *from, uint32_t *to)
+{
+    if (!psx_light_synth_mine(track)) return 0;
+    if (from != NULL) *from = 322;
+    if (to != NULL) *to = 546;
+    return 1;
+}
+
 int psx_light_synth_track(const char *track)
 {
     return track != NULL && (strcasecmp(track, "TR6") == 0 || strcasecmp(track, "TR7") == 0);

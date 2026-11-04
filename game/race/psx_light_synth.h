@@ -68,6 +68,10 @@ int psx_light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to
  * 1 and the range (inclusive) for TR7, else 0. */
 int psx_light_synth_parking(const char *track, uint32_t *from, uint32_t *to);
 
+/* port (cavern_dark): Burnt Sienna's (TR6) cavern, from the node after the blue-lit mine tunnel's mouth (322) to the road's tunnel run's end (546, the canyon's property-16 stretch is 547..): the car keeps one dim tone
+ * there. 1 and the range (inclusive) for TR6, else 0. */
+int psx_light_synth_cavern(const char *track, uint32_t *from, uint32_t *to);
+
 /* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
 int psx_light_synth_mine(const char *track);
 

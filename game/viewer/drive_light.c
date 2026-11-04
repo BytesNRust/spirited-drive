@@ -362,6 +362,11 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         made.car_dim = calloc(made.nodes, 1);
         if (made.car_dim != NULL) memset(made.car_dim + park_from, 1, park_to - park_from + 1);
     }
+    uint32_t cave_from = 1, cave_to = 0;
+    if (port_cavern_dark() && psx_light_synth_cavern(track, &cave_from, &cave_to) && cave_to < made.nodes) {   /* port (cavern_dark): the car keeps one dim tone through TR6's cavern */
+        if (made.car_dim == NULL) made.car_dim = calloc(made.nodes, 1);
+        if (made.car_dim != NULL) memset(made.car_dim + cave_from, 1, cave_to - cave_from + 1);
+    }
     if (trans && open_to < made.nodes) {   /* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
         uint8_t open_level = 0;
         for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) open_level = made.data[i] > open_level ? made.data[i] : open_level;
