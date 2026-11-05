@@ -213,7 +213,7 @@ static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.5
  * ceiling (the disc's logged tint over the ceiling's scale, so city_lift and vegas_lift bring it under their ceilings as on the CD path); 2 one neutral cool blue-grey for all (final, no
  * ceiling). `gain` (of the tint under the ceiling) is the track's brightness match to the CD's frame (mean road luminance of the road area of the frame). */
 static const struct { const char *track; float tint[3], gain; } NIGHT_TONE[] = {
-    { "CY1", { 0.59f, 0.34f, 0.43f }, 0.81f }, { "CY2", { 0.44f, 0.63f, 0.70f }, 1.0f }, { "CY3", { 0.40f, 0.42f, 0.68f }, 1.18f },
+    { "CY1", { 0.59f, 0.34f, 0.43f }, 1.1f }, { "CY2", { 0.44f, 0.63f, 0.70f }, 1.0f }, { "CY3", { 0.40f, 0.42f, 0.68f }, 1.18f },
     { "CL1", { 0.80f, 0.70f, 0.60f }, 0.92f }, { "CL2", { 0.71f, 0.41f, 0.43f }, 1.0f }, { "CL3", { 0.55f, 0.37f, 0.40f }, 0.98f },
     { "AL1", { 0.81f, 0.61f, 0.54f }, 0.89f }, { "AL2", { 0.75f, 0.42f, 0.36f }, 0.91f }, { "AL3", { 0.66f, 0.37f, 0.29f }, 0.85f },
     { "TR1", { 0.55f, 0.43f, 0.30f }, 0.86f }, { "TR2", { 0.82f, 0.63f, 0.40f }, 0.95f }, { "TR3", { 0.74f, 0.57f, 0.68f }, 1.21f },
