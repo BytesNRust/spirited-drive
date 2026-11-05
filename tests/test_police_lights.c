@@ -27,6 +27,25 @@ static void test_when_on(void)
     CHECK(!police_lights_on(NULL, &cop) && !police_lights_on(&race, NULL));
 }
 
+/* the cop that has stopped the player (ai_police.c stop(): its chase bit and LOST are cleared, the player is held) keeps its lights going while the stop lasts */
+static void test_stopped_ahead(void)
+{
+    RaceState race;
+    Car cop, player;
+    memset(&race, 0, sizeof race);
+    memset(&cop, 0, sizeof cop), memset(&player, 0, sizeof player);
+    cop.index = 2, cop.flags_51a = 4, cop.flags_175 = 0, cop.node = 100;
+    player.index = 0, player.node = 98;
+    race.cars[0] = &player, race.cars[2] = &cop, race.unknown_4fbab8 = 1;
+    CHECK(!police_lights_on(&race, &cop));                 /* stopped, the player free: the chase is over */
+    player.physics = 1;
+    CHECK(police_lights_on(&race, &cop));                  /* the player held beside it: the lights go on */
+    player.node = 300;
+    CHECK(!police_lights_on(&race, &cop));                 /* a held player far from the cop is not its stop */
+    player.node = 98, cop.flags_51a = 0;
+    CHECK(!police_lights_on(&race, &cop));                 /* not active */
+}
+
 static void test_phase(void)
 {
     CHECK_EQ_INT(police_lights_phase(0), 0);
@@ -142,6 +161,7 @@ int main(void)
     test_own_entries();
     test_found_two_and_three();
     test_when_on();
+    test_stopped_ahead();
     test_phase();
     test_table();
     test_glow();
