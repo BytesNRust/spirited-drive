@@ -262,6 +262,7 @@ typedef struct {
     uint8_t rain[256];   /* a streak's lightening */
     uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (rain_lightning): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
+    uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
 } WeatherTables;
 
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
@@ -293,6 +294,9 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
+    { const uint8_t dark[3] = { 20, 26, 36 };
+      modern_fog_tables(art->palette, dark, scratch);
+      memcpy(wt.lens, scratch[5], 256); }   /* port (rain v3) */
     weather_flash_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
     for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
@@ -1952,6 +1956,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         spray_paint(pixels, screen_w, box, wt);
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
                              drive_light_night(), wt->rain4);
+        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens);   /* port (rain v3): drops on the lens */
     } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }

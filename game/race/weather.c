@@ -7,7 +7,7 @@
 
 enum {
     DROPS_640x480 = 240,       /* the count in a 640 x 480 view; more pixels, more drops */
-    DROPS_FX_640x480 = 140,     /* rain_fx: far fewer, so a fast car's spokes do not cover the view */
+    DROPS_FX_640x480 = 80,      /* rain_fx: far fewer, so a fast car's spokes do not cover the view */
     DROPS_MAX = 2000,
     FALL_MIN = 5200,           /* a streak's fall a tick, of 65536 box heights: 7 to 12 ticks across */
     FALL_RANGE = 3600,
@@ -151,38 +151,103 @@ float weather_rain_blend(int32_t speed)
     return t * t * (3.0f - 2.0f * t);   /* smooth: a streak's direction turns to the spoke's by WEATHER_SPOKE_TURNED m/s, so they do not cross at the speeds between */
 }
 
+/* the distance from (vx, vy) along the unit direction (ux, uy) to the edge of a box w x h: where a spoke leaves the view */
+static float exit_distance(float vx, float vy, float ux, float uy, float w, float h)
+{
+    float t = 1e9f;
+    if (ux > 1e-4f) t = fminf(t, (w - vx) / ux);
+    if (ux < -1e-4f) t = fminf(t, -vx / ux);
+    if (uy > 1e-4f) t = fminf(t, (h - vy) / uy);
+    if (uy < -1e-4f) t = fminf(t, -vy / uy);
+    return t < 1.0f ? 1.0f : t;
+}
+
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level)
 {
     const uint32_t d = (uint32_t)drop;
     const uint32_t fall = FALL_MIN + hash(d, 1) % FALL_RANGE, phase = hash(d, 2) & 0xffff;
-    const float column = (float)((int64_t)(hash(d, 3) & 0xffff) * box_w >> 16);
+    const float W = (float)box_w, H = (float)box_h, fvx = (float)vx, fvy = (float)vy;
     const float base = (float)(box_h * (LENGTH_MIN + (int32_t)(hash(d, 4) % LENGTH_RANGE)) / 480);
     const float metres = (float)((speed < 0 ? -(int64_t)speed : speed) >> 16);
     const float s = clampf(metres / WEATHER_SPOKE_FULL, 0.0f, 1.0f);   /* how stretched */
     const float b = weather_rain_blend(speed);                          /* how far turned to the spoke */
     const float p = (float)((phase + fall * tick) & 0xffff) / 65536.0f;
-    /* a spoke's angle about the vanishing point: any but the wedge straight down, where the road ahead is (a streak never crosses it) */
-    const float theta = (145.0f + 250.0f * (float)(hash(d, 5) & 0xffff) / 65536.0f) * (3.14159265f / 180.0f);
-    float dx = (1.0f - b) * -0.196f + b * cosf(theta), dy = (1.0f - b) * 0.981f + b * sinf(theta);
-    const float n = sqrtf(dx * dx + dy * dy);
-    dx /= n, dy /= n;
-    const float ox = (1.0f - b) * column + b * (float)vx, oy = b * (float)vy;
-    const float reach = (float)box_h * (1.0f + 0.6f * s);
-    const float head = reach * powf(p, 1.0f + 0.5f * b);
-    /* short: a falling streak as today's, a spoke a fraction of the base that stretches (to about the base) with the speed and the way out; it begins at the vanishing point and is
-     * faded in there by the drawing (weather_rain_draw_fx), so there is no empty disc */
-    const float len = base * ((1.0f - b) * 0.7f + b * (0.3f + 1.0f * s * p));
-    const float tail = head - len > 0.0f ? head - len : 0.0f;
-    out[0] = (int32_t)(ox + dx * tail), out[1] = (int32_t)(oy + dy * tail);
-    out[2] = (int32_t)(ox + dx * head), out[3] = (int32_t)(oy + dy * head);
+    /* The drop's own place: a column over the box's whole width widened by the slant (a falling streak leans left, so columns only over the box left its right edge dry: a gap on a wide
+     * view) and a height. A standing car's streak falls from the top of that column; a fast car's is a spoke from the vanishing point toward where that place is: the same side of the
+     * vanishing point it began on, so the drops turn as the speed grows and none crosses to the other side. */
+    const float lean = 0.196f, reach = H * (1.0f + 0.6f * s);
+    const float column = (float)(hash(d, 3) & 0xffff) / 65536.0f * (W + lean * H), height = (float)(hash(d, 5) & 0xffff) / 65536.0f * H;
+    float ux = column - lean * height * 0.5f - fvx, uy = height - fvy;
+    float len2 = ux * ux + uy * uy;
+    if (len2 < 100.0f) {   /* a place on the vanishing point itself has no direction of its own: any */
+        const float a = 6.2831853f * (float)(hash(d, 9) & 0xffff) / 65536.0f;
+        ux = cosf(a), uy = sinf(a), len2 = 1.0f;
+    }
+    const float inv = 1.0f / sqrtf(len2);
+    ux *= inv, uy *= inv;
+    const float run = exit_distance(fvx, fvy, ux, uy, W, H);
+    /* the spoke's head runs out to the edge; short, stretching a little with the speed and with the way out */
+    const float rad_head = run * powf(p, 1.5f);
+    float rad_len = base * (0.2f + 0.7f * s * p);
+    float keep = 1.0f;
+    if (uy > 0.8f) {   /* the wedge straight down, the road ahead: some drops, shorter, not none (the lower the sparser) */
+        rad_len *= 0.5f;
+        keep = 0.5f;
+    }
+    const float fall_head = reach * p;
+    const float fall_len = base * 0.45f;
+    const float dxn = -lean, dyn = 1.0f;   /* a standing streak's direction down the box (not unit: y runs 1, x leans) */
+    const float hx = (1.0f - b) * (column + dxn * fall_head) + b * (fvx + ux * rad_head), hy = (1.0f - b) * (dyn * fall_head) + b * (fvy + uy * rad_head);
+    const float fall_tail = fall_head > fall_len ? fall_head - fall_len : 0.0f, rad_tail = rad_head > rad_len ? rad_head - rad_len : 0.0f;
+    const float tx = (1.0f - b) * (column + dxn * fall_tail) + b * (fvx + ux * rad_tail), ty = (1.0f - b) * (dyn * fall_tail) + b * (fvy + uy * rad_tail);
+    out[0] = (int32_t)tx, out[1] = (int32_t)ty, out[2] = (int32_t)hx, out[3] = (int32_t)hy;
     int l = WEATHER_RAIN_DAY_LEVEL;
     if (night && focal > 0.0f) {
         const float z = 4.0f + 36.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f;   /* the depth the drop is taken at: most near */
-        const float rx = ((float)out[2] - (float)vx) / focal, ry = ((float)vy - (float)out[3]) / focal;
+        const float rx = ((float)out[2] - fvx) / focal, ry = (fvy - (float)out[3]) / focal;
         const int w = weather_rain_cone_weight(z, rx * z, 1.2f + ry * z);
         l = w < 24 ? 0 : w < 96 ? 1 : w < 176 ? 2 : 3;
     }
+    /* a wedge drop leaves as the car speeds up, each at a speed of its own (no pop of them all at once) */
+    if (keep < 1.0f && b * (1.0f - keep) > (float)(hash(d, 8) & 0xffff) / 65536.0f) l = -1;
     *level = l;
+}
+
+int weather_lens_count(int32_t box_w, int32_t box_h)
+{
+    if (box_w <= 0 || box_h <= 0) return 0;
+    const int64_t n = (int64_t)WEATHER_LENS_PER_640x480 * box_w * box_h / (640 * 480);
+    return n > WEATHER_LENS_MAX ? WEATHER_LENS_MAX : n < 1 ? 1 : (int)n;
+}
+
+int weather_lens_drop(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, int32_t out[4])
+{
+    const uint32_t d = (uint32_t)drop;
+    const uint32_t period = 150 + hash(d, 20) % 150;
+    const uint32_t t = tick + hash(d, 21) % period, cycle = t / period;
+    const float u = (float)(t % period) / (float)period;
+    const uint32_t life = d * 977u + cycle * 7919u;   /* a place and a size of its own every life */
+    if (hash(life, 22) % 8 >= 6) return 0;             /* some lives are empty: the glass is not covered at all times */
+    const float W = (float)box_w, H = (float)box_h;
+    const float full = (float)(2 + hash(life, 23) % 4) * H / 480.0f;
+    float x = (0.04f + 0.92f * (float)(hash(life, 24) & 0xffff) / 65536.0f) * W, y = (0.06f + 0.74f * (float)(hash(life, 25) & 0xffff) / 65536.0f) * H;
+    float r = full, keep = 16.0f;
+    if (u < 0.05f) r = full * (0.25f + 0.75f * u / 0.05f);   /* it lands: a few frames of growing */
+    if (u > 0.7f) {                                           /* it goes: smaller and thinner */
+        const float f = (u - 0.7f) / 0.3f;
+        r = full * (1.0f - 0.3f * f), keep = 16.0f * (1.0f - f);
+    }
+    if (u > 0.15f) {   /* it slides a little: down on the glass, out from the vanishing point when the car goes */
+        const float b = weather_rain_blend(speed), slide = H * 0.06f * (u - 0.15f);
+        float ux = x - (float)vx, uy = y - (float)vy;
+        const float n = sqrtf(ux * ux + uy * uy);
+        if (n > 1.0f) ux /= n, uy /= n; else ux = 0.0f, uy = 1.0f;
+        x += b * ux * slide, y += (1.0f - b) * slide + b * uy * slide;
+    }
+    if (keep < 1.0f || r < 1.0f) return 0;
+    if (x < 0 || y < 0 || x >= W || y >= H) return 0;
+    out[0] = (int32_t)x, out[1] = (int32_t)y, out[2] = (int32_t)(r + 0.5f), out[3] = (int32_t)keep;
+    return 1;
 }
 
 int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size)

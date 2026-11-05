@@ -109,7 +109,7 @@ static int span2(const int32_t s[4]) { return (s[2] - s[0]) * (s[2] - s[0]) + (s
 static void test_rain_spokes_follow_the_speed(void)
 {
     const int32_t vx = 320, vy = 200;
-    int level, still_falls = 0, radial = 0, n = 0;
+    int level, still_falls = 0, radial = 0, n = 0, wedge = 0, shown = 0;
     for (int drop = 0; drop < 240; drop++) {
         int32_t a[4], f[4], g[4];
         weather_rain_spoke(drop, 50, 0, 640, 480, vx, vy, 500.0f, 0, a, &level);
@@ -124,14 +124,72 @@ static void test_rain_spokes_follow_the_speed(void)
         if (outward > 0) radial++;
         CHECK(span2(f) <= 80 * 80);                                                      /* short: no more than a sixth of the view */
         const double dist = sqrt((double)(f[2] - vx) * (f[2] - vx) + (double)(f[3] - vy) * (f[3] - vy));
-        if (dist > 4) CHECK((f[3] - vy) / dist < 0.6);                                   /* never in the wedge straight down: the road ahead */
+        if (level >= 0 && dist > 4 && (f[3] - vy) / dist >= 0.8) wedge++;                /* the wedge straight down: some drops, not none, and not many */
+        if (level >= 0) shown++;
     }
+    CHECK(wedge > 0 && wedge * 100 < shown * 20);
     CHECK(still_falls > 230);
     CHECK(n > 150 && radial * 100 > n * 97);
     int32_t slow[4], mid[4];
     weather_rain_spoke(9, 50, 5 << 16, 640, 480, vx, vy, 500.0f, 0, slow, &level);   /* it changes smoothly with the speed */
     weather_rain_spoke(9, 50, (5 << 16) + 6554, 640, 480, vx, vy, 500.0f, 0, mid, &level);   /* a tenth of a metre a second more */
     CHECK(abs(slow[2] - mid[2]) + abs(slow[3] - mid[3]) < 40);
+}
+
+/* rain v3: a drop keeps its side of the vanishing point as the speed grows (the direction is turned per drop, none crosses over), and a wide view is wet to its right edge */
+static void test_rain_keeps_its_side_and_fills_a_wide_view(void)
+{
+    const int32_t vx = 560, vy = 200;   /* a 21:9 box 1120 x 480 */
+    int level, flips = 0, tested = 0, right = 0, seen = 0;
+    for (int drop = 0; drop < 400; drop++) {
+        int prev = 0;
+        for (int m = 0; m <= 40; m += 2) {
+            int32_t s[4];
+            weather_rain_spoke(drop, 20, m << 16, 1120, 480, vx, vy, 500.0f, 0, s, &level);
+            if (level < 0 || abs(s[2] - vx) < 60) continue;   /* gone, or at the vanishing point itself: no side */
+            const int side = s[2] > vx ? 1 : -1;
+            if (prev != 0 && side != prev) flips++;
+            prev = side;
+            tested++;
+        }
+        for (uint32_t tick = 0; tick < 40; tick += 3) {   /* standing: where the heads are */
+            int32_t s[4];
+            weather_rain_spoke(drop, tick, 0, 1120, 480, vx, vy, 500.0f, 0, s, &level);
+            seen++;
+            if (s[2] > 1120 * 85 / 100 && s[2] < 1120 && s[3] > 0 && s[3] < 480) right++;
+        }
+    }
+    CHECK(tested > 2000 && flips * 100 < tested);   /* no drop crosses from one side to the other */
+    CHECK(right * 100 > seen * 6);                  /* the right 15 % is not dry (it was, with columns over the box alone) */
+}
+
+/* rain v3: drops on the lens land, stay, slide a little and fade; a pure function, inside the box, not always there, never moving fast */
+static void test_lens_drops(void)
+{
+    CHECK(weather_lens_count(640, 480) == WEATHER_LENS_PER_640x480 && weather_lens_count(1120, 480) > weather_lens_count(640, 480) && weather_lens_count(0, 480) == 0);
+    int here = 0, total = 0, grew = 0, faded = 0;
+    for (int drop = 0; drop < weather_lens_count(1120, 480); drop++) {
+        int32_t prev[4] = { 0 };
+        int had = 0;
+        for (uint32_t tick = 0; tick < 600; tick++) {
+            int32_t a[4], b[4];
+            const int ia = weather_lens_drop(drop, tick, 0, 1120, 480, 560, 200, a), ib = weather_lens_drop(drop, tick, 0, 1120, 480, 560, 200, b);
+            CHECK(ia == ib && (!ia || memcmp(a, b, sizeof a) == 0));   /* a pure function */
+            total++;
+            if (!ia) { had = 0; continue; }
+            here++;
+            CHECK(a[0] >= 0 && a[0] < 1120 && a[1] >= 0 && a[1] < 480 && a[2] >= 1 && a[2] <= 5 && a[3] >= 1 && a[3] <= 16);
+            const int new_life = a[3] == 16 && prev[3] < 8 && a[2] <= prev[2] + 3;   /* a life that begins as the last one ended: its own place */
+            if (had && !new_life) {
+                CHECK(abs(a[0] - prev[0]) + abs(a[1] - prev[1]) <= 2);   /* it sticks: a pixel or two a frame at most */
+                if (a[2] > prev[2]) grew++;
+                if (a[3] < prev[3]) faded++;
+            }
+            memcpy(prev, a, sizeof prev), had = 1;
+        }
+    }
+    CHECK(here * 100 > total * 25 && here * 100 < total * 85);   /* the glass is wet part of the time */
+    CHECK(grew > 0 && faded > 0);                                 /* they land (grow) and go (fade) */
 }
 
 static void test_rain_cone_lights_the_drops(void)
@@ -230,6 +288,8 @@ int main(void)
     test_storm_clock();
     test_rain_spray_plume();
     test_rain_spokes_follow_the_speed();
+    test_rain_keeps_its_side_and_fills_a_wide_view();
+    test_lens_drops();
     test_rain_cone_lights_the_drops();
     test_fog_curve_default();
     test_fog_for_tint();

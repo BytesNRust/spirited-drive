@@ -65,6 +65,13 @@ enum { WEATHER_SPOKE_FULL = 40, WEATHER_SPOKE_TURNED = 12, WEATHER_RAIN_LEVELS =
 float weather_rain_blend(int32_t speed);   /* 0 a standing car's falling streak .. 1 a spoke (smooth in the speed, 16.16 m/s); the drawing fades the streaks in near the vanishing point by it */
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level);
 
+/* port (rain_fx, rain v3): drops on the lens: a drop lands, grows over a few frames, stays and slides a little (down when the car stands, out from the vanishing point as it goes), then
+ * shrinks and fades. WEATHER_LENS_PER_640x480 of them in a 640 x 480 view, each with a life of its own and a place of its own every life. weather_lens_drop gives drop `i` at `tick`: 1 and
+ * `out` { x, y, radius (pixels), keep (0..16: how much of it is left, a dither) } in the box, or 0 when it is not there now. A pure function of its arguments. */
+enum { WEATHER_LENS_PER_640x480 = 9, WEATHER_LENS_MAX = 40 };
+int weather_lens_count(int32_t box_w, int32_t box_h);
+int weather_lens_drop(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, int32_t out[4]);
+
 /* port (rain_fx): the spray a car at `speed` (16.16 m/s) throws from each rear wheel: WEATHER_SPRAY_PUFFS puffs per wheel strung out behind it, a plume that hangs in the
  * air behind the car as it goes (not left where they were dropped: a chase camera would drive through them). Puff `k` of the wheel on `side` (-1 left, 1 right) at `tick`:
  * `out` its place relative to the wheel in 16.16 metres { behind, to the side (outward), up } and `*size` (0x100 a standard puff, 0 none). It has none below 8 m/s, on the

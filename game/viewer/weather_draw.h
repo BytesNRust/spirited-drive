@@ -21,4 +21,9 @@ void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
 void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int32_t speed, int32_t vx, int32_t vy, float focal, int night,
                           const uint8_t tables[][256]);
 
+/* port (rain_fx, rain v3): the drops on the lens (weather_lens_drop): each a small lens, its body the scene behind it turned about the drop's centre (a drop shows the world upside down)
+ * through `body` (a darkening table) and its rim lit, the upper left brighter, through `tables` (the brightness levels, `edge` the bright one); dithered away as it fades. */
+void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, int edge, const uint8_t tables[][256],
+                       const uint8_t body[256]);
+
 #endif
