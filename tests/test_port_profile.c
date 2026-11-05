@@ -156,6 +156,8 @@ static void test_tables(void)
     CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* not until the owner approves it */
     CHECK_EQ_INT(s.city_lift, 3);   /* the owner: the new City night is Restomod's default */
     CHECK_EQ_INT(s.night_tone, 2);   /* the owner picked the cool night (2) for the night with no disc */
+    CHECK_EQ_INT(s.rain_lamps, 0);   /* not until the owner approves it */
+    CHECK_EQ_INT(s.gauge_exterior, 0);   /* not until the owner approves it */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift, 22);   /* the nine fixes of the day: car tunnel light, Vegas car night, rally shoulder gravel, chase height, lamp pool, Transtropolis shadows, canyon shade */
     /* what is the player's own is not touched: laps, the PS1 folder, the time of day, full screen */
     PortSettings own = base;
@@ -235,6 +237,11 @@ static void test_tables(void)
     s.night_tone = 0;   /* the owner's pick: the cool night is Restomod's */
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
     s.night_tone = 2;
+    s.rain_lamps = 1;   /* not in Restomod until the owner approves it */
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.rain_lamps = 0, s.gauge_exterior = 1;
+    CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);
+    s.gauge_exterior = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 1);
     s.rain_fx = 0;
     CHECK_EQ_INT(port_profile_settings_match(PROFILE_RESTOMOD, &s, SCREEN_21_9), 0);

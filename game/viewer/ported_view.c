@@ -366,6 +366,7 @@ static void weather_sky_band(void *user, int top, int bottom)
     if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
 }
 int ported_view_modern(void) { return modern; }
+int ported_view_rain(void) { return weather == WEATHER_RAIN; }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
@@ -1443,7 +1444,7 @@ static void lamp_state(const Car *car)
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
     ratio_of_car(car, ratio);
     drive_light_tint(tint);
-    if (flare_on && weather == WEATHER_FOG)   /* port (psx_flares): the lamps glow in fog too */
+    if ((flare_on && weather == WEATHER_FOG) || (weather == WEATHER_RAIN && port_rain_lamps()))   /* port (psx_flares): the lamps glow in fog too; port (rain_lamps): and in rain, day included */
         drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
     else
         drive_lamps_light(car->index, car->node, tint, ratio, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);

@@ -77,6 +77,8 @@ typedef struct {
     int brake_over_gas;    /* 1: with split pedals (a pad's two triggers), a brake held past its dead zone is the pedal and the gas is ignored, so the car brakes and the brake light lights; 0: the exe's, the pedals summed (brake less gas) */
     int lamp_pools;    /* 1: with the PS1 headlights at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
     int night_tone;   /* 0, 1, 2: the night's flat tint with no PS1 light (no CD .LGS): 0 the fallback's warm brown-green, 1 each track's CD tint, 2 one neutral cool blue-grey; the CD's own light is never touched */
+    int rain_lamps;    /* 1: with weather=rain every car drives with its headlights on, day included: the lamp texels glow and the wet road shows their reflections; the night beam and pools stay the night's (no cone by day); 0: the exe's (the lamps follow the light only) */
+    int gauge_exterior;    /* 1: with gauge_light the gauges are lit whenever the exterior lights are on (night, dusk, and rain with rain_lamps), not at night only; by day dry they stay unlit; 0: at night only, as now */
     int lamp_pool_bright;  /* 1: with the PS1 headlights at night, a street lamp's pool is not dimmed by the night's dark floor: under the lamp the road, its shoulders and the scenery take the lamp's light in full, fading with the pool (the headlights' gain no longer swallows it); 0: the pool lifts the light the gain then dims, as now */
     int headlight_cone;    /* 1: with the PS1 headlights at night, the car's beam is a cone from its position and heading, per vertex of the road and scenery (it follows the nose, a turn, a U-turn); 0: the pool along the track's nodes as it was */
     int lamp_car_shade;    /* 1: with the PS1 headlights at night, a car under a street lamp's pool is lit by it (half way to a warm light at the lamp, fading with the pool), CD light or made; 0: the car's shade as it was */
@@ -219,6 +221,10 @@ int port_finish_gate_light(void);
 int port_lamp_pool_bright(void);
 /* 0, 1 or 2 (night_tone): TNFS_NIGHT_TONE=0/1/2 when set, else port.cfg's. */
 int port_night_tone(void);
+/* 1 when rain_lamps: TNFS_RAIN_LAMPS=0/1 when set, else port.cfg's; acts with weather=rain. */
+int port_rain_lamps(void);
+/* 1 when gauge_exterior: TNFS_GAUGE_EXTERIOR=0/1 when set, else port.cfg's. */
+int port_gauge_exterior(void);
 /* 1 for a wet race: rain_grip on and the weather rain (the grip is reduced and the race's records are not kept; track_gravity.h). */
 int port_rain_grip_active(void);
 /* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else port.cfg's; never without port_psx_light. */

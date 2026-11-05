@@ -49,6 +49,7 @@ static StreetLamp street_lamps[STREET_LAMPS_MAX];   /* port (psx_headlights): th
 static int street_lamp_count;
 static int street_lamp_on;
 static int street_lamp_by_day;   /* the lamps are lit in the daylight (the day's paint: no outer rim) */
+static int dusk_look;   /* port (gauge_exterior): the dusk: the exterior lights are on */
 static int night_look;   /* the night's look beyond the sky: the dash darkens (the night, and Lost Vegas always) */
 static const WindowBoard *window_boards;   /* port (psx_headlights): the night's lit windows (window_lights.h), one pool entry for all the boards */
 static int window_board_count;
@@ -268,6 +269,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
     night_sky = time == PSX_TIME_NIGHT;
+    dusk_look = enabled && time == PSX_TIME_DUSK;
     night_look = night_sky || (enabled && is_lost_vegas(track));   /* Lost Vegas is always night: its dash and effects are the night's, its sky already is */
     headlights_on = 0;
     city_night3 = 0, city_level = 0;
@@ -744,6 +746,12 @@ void drive_light_tint(float out[3]) { memcpy(out, tint, sizeof tint); }
 
 int drive_light_night(void) { return night_look; }
 
+/* port (gauge_exterior): the gauges are lit when the exterior lights are: the night, and with gauge_exterior the dusk and the rain with its headlights on (rain_lamps) */
+int drive_light_gauges_lit(void)
+{
+    return night_look || (port_gauge_exterior() && (dusk_look || (port_rain_lamps() && ported_view_rain())));
+}
+
 int drive_light_active(void) { return split || tint[0] != 1.0f || tint[1] != 1.0f || tint[2] != 1.0f; }
 
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale)
@@ -785,7 +793,7 @@ int drive_light_palette_lit(const uint8_t palette[768], uint8_t out[768])
     /* the key's colours, per channel (the strongest 1): the mock's soft green, red, amber and light blue */
     static const float COLOUR[5][3] = { { 1, 1, 1 }, { 0.55f, 1.0f, 0.6f }, { 1.0f, 0.45f, 0.4f }, { 1.0f, 0.7f, 0.25f }, { 0.5f, 0.75f, 1.0f } };
     const int key = port_gauge_light();
-    if (key <= 0 || key > 4 || !night_look) return 0;
+    if (key <= 0 || key > 4 || !drive_light_gauges_lit()) return 0;
     for (int i = 0; i < 256; i++) {
         const float lum = (palette[3 * i] + palette[3 * i + 1] + palette[3 * i + 2]) / 3.0f;
         const float lit = lum * 1.6f + 20.0f > 255.0f ? 255.0f : lum * 1.6f + 20.0f;   /* a lit dial is brighter than the unlit art */
