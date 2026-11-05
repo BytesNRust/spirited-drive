@@ -628,6 +628,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_cone_cells PRIVATE tnfs_game)
     target_compile_options(test_cone_cells PRIVATE ${TNFS_WARNINGS})
     add_test(NAME cone_cells COMMAND test_cone_cells)
+    add_executable(test_weather_draw tests/test_weather_draw.c game/viewer/weather_draw.c)
+    target_include_directories(test_weather_draw PRIVATE game)
+    target_link_libraries(test_weather_draw PRIVATE tnfs_game)
+    target_compile_options(test_weather_draw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME weather_draw COMMAND test_weather_draw)
     # port (emissive lamps): no tint, light table or fog table moves an emissive palette entry
     add_executable(test_palette_emissive tests/test_palette_emissive.c game/viewer/modern_road.c)
     target_include_directories(test_palette_emissive PRIVATE game)
