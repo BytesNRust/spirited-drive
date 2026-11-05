@@ -1,5 +1,4 @@
-/* Game Mode's Profile row (game_mode.c, the port's fifth item under Exit): selected with Up / Down, stepped with the arrows, Return and the pointer, its band taking the foot of
- * Exit's; without the profile op the menu is the original's four items. */
+/* Game Mode with the modes (game_mode.c): Profile, Single Player, Multiplayer, Exit, in the game's text; the cursor starts on Single Player, the arrows show a mode, Return applies it with no question, the version at the foot. */
 #include "game/frontend/game_mode.h"
 #include "test.h"
 
@@ -17,6 +16,7 @@ typedef struct Fake {
     int peeks, last_peek, no_answer, clicks;           /* clicks: a bit per menu turn with the left button down */
     int drawn_profile;
     int exits_asked, apply_asked;
+    int said_multiplayer, said_customize, said_single, said_exit;
     int foot_big, foot_small, foot_low, foot_high_y, foot_right, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
 } Fake;
 
@@ -60,9 +60,9 @@ static void f_fade_out(void *c, int32_t a, int32_t n) { (void)c, (void)a, (void)
 static int32_t f_yes(void *c, const char *t)
 {
     Fake *f = c;
-    f->exits_asked += strcmp(t, "Replace settings ?") != 0;
-    f->apply_asked += strcmp(t, "Replace settings ?") == 0;
-    return strcmp(t, "Replace settings ?") == 0 && f->no_answer ? 0 : 1;
+    f->exits_asked += strcmp(t, "Exit to system ?") == 0;
+    f->apply_asked += strcmp(t, "Exit to system ?") != 0;
+    return 1;
 }
 static void f_free(void *c, int32_t b) { (void)c, (void)b; }
 static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
@@ -70,6 +70,8 @@ static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
     Fake *f = c;
     (void)style;
     if (strncmp(t, "<  ", 3) == 0) f->drawn_profile++;
+    f->said_multiplayer += strcmp(t, "Multiplayer") == 0, f->said_customize += strcmp(t, "Customize game") == 0;
+    f->said_single += strcmp(t, "Single Player") == 0, f->said_exit += strcmp(t, "Exit") == 0;
     if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) {
         f->foot_big++;
         if (y >= 0x191) f->foot_low++;
@@ -151,163 +153,131 @@ static void rig(Fake *f, int x, int y, int pinned)
     f->pointer_x = x, f->pointer_y = y, f->pinned = pinned;
 }
 
-/* without the op: four items, Down from Exit wraps to Single player, the row never drawn or asked */
-static void test_without_the_op_four_items(void)
+enum { ROW_PROFILE = 0x91, ROW_SINGLE = 0xda, ROW_MULTI = 0x122, ROW_EXIT = 0x16f };
+
+/* Single Player first; Down runs Multiplayer, Exit, Profile and round; Up from it is the Profile row */
+static void test_the_order(void)
 {
     Fake f;
     int keys[8], n = 0;
     for (int i = 0; i < 4; i++) keys[n++] = DOWN;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 0);
-    CHECK_EQ_INT(f.moved_y[4], 0x91);   /* the 4th Down: back on Single player */
-    CHECK_EQ_INT(f.profile_reads, 0);
-    CHECK_EQ_INT(f.drawn_profile, 0);
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, keys, n, 1);
+    CHECK_EQ_INT(f.moved_y[0], ROW_SINGLE);
+    CHECK_EQ_INT(f.moved_y[1], ROW_MULTI);
+    CHECK_EQ_INT(f.moved_y[2], ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[3], ROW_PROFILE);
+    CHECK_EQ_INT(f.moved_y[4], ROW_SINGLE);
+    const int up[] = { UP };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, up, 1, 1);
+    CHECK_EQ_INT(f.moved_y[1], ROW_PROFILE);
 }
 
-/* with it Down from Exit lands on the row (pointer y 0x1c0), one more wraps to Single player; Up from Single player lands on the row */
-static void test_the_row_is_the_fifth_item(void)
+static void test_the_words(void)
 {
     Fake f;
-    int keys[8], n = 0;
-    for (int i = 0; i < 5; i++) keys[n++] = DOWN;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.moved_y[4], 0x1c0);
-    CHECK_EQ_INT(f.moved_y[5], 0x91);
+    const int none[] = { ESCAPE };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, none, 1, 1);
     CHECK(f.drawn_profile >= 1);
-    const int up[] = { UP };
-    rig(&f, 320, 0x91, 0);
-    run(&f, up, 1, 1);
-    CHECK_EQ_INT(f.moved_y[1], 0x1c0);
+    CHECK(f.said_single >= 1 && f.said_multiplayer >= 1 && f.said_exit >= 1);
+    CHECK_EQ_INT(f.said_customize, 0);   /* Customize is Options' now */
 }
 
-/* the arrows only show a profile (+1 +1 -1: one along); Return asks, and the Yes applies the one shown */
+/* the arrows only show a mode (+1 +1 -1: one along); Return applies it, with no question: nothing is lost */
 static void test_the_arrows_show_and_return_applies(void)
 {
     Fake f;
-    int keys[12], n = 0;
-    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
-    keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = LEFT;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.profile_steps, 0);   /* nothing applied by the arrows */
-    CHECK_EQ_INT(f.last_peek, 1);
-    CHECK_EQ_INT(f.apply_asked, 0);
-    keys[n++] = ENTER;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.apply_asked, 1);
+    const int keys[] = { RIGHT, RIGHT, LEFT, ENTER };
+    rig(&f, 320, ROW_PROFILE, 1);
+    run(&f, keys, 4, 1);
     CHECK_EQ_INT(f.profile_steps, 1);
     CHECK_EQ_INT(f.profile_net, 1);
+    CHECK_EQ_INT(f.apply_asked, 0);
 }
 
-/* No keeps the profile in use; Return with nothing shown asks nothing; three steps come round to the one in use */
-static void test_no_and_round_apply_nothing(void)
+/* three steps come round to the one in use: Return applies nothing */
+static void test_round_applies_nothing(void)
 {
     Fake f;
-    int keys[12], n = 0;
-    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
-    keys[n++] = LEFT, keys[n++] = ENTER;
-    rig(&f, 320, 0x91, 0);
-    f.no_answer = 1;
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.apply_asked, 1);
+    const int keys[] = { RIGHT, RIGHT, RIGHT, ENTER };
+    rig(&f, 320, ROW_PROFILE, 1);
+    run(&f, keys, 4, 1);
     CHECK_EQ_INT(f.profile_steps, 0);
-    n = 4, keys[n++] = ENTER;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.apply_asked, 0);
-    n = 4, keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = RIGHT, keys[n++] = ENTER;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.apply_asked, 0);
-    CHECK_EQ_INT(f.profile_steps, 0);
+    const int back[] = { LEFT, LEFT, ENTER };
+    rig(&f, 320, ROW_PROFILE, 1);
+    run(&f, back, 3, 1);
+    CHECK_EQ_INT(f.profile_net, -2);
 }
 
-/* leaving the row forgets the profile shown: Right, Up to Exit, Down back, Return asks nothing */
+/* leaving the row forgets a mode not applied */
 static void test_leaving_the_row_forgets(void)
 {
     Fake f;
-    int keys[12], n = 0;
-    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
-    keys[n++] = RIGHT, keys[n++] = UP, keys[n++] = DOWN, keys[n++] = ENTER;
-    rig(&f, 320, 0x91, 0);
-    run(&f, keys, n, 1);
-    CHECK_EQ_INT(f.apply_asked, 0);
+    const int keys[] = { UP, RIGHT, DOWN, UP, ENTER };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, keys, 5, 1);
     CHECK_EQ_INT(f.profile_steps, 0);
 }
 
-/* the pointer: a click on the left third shows the previous profile, on the right third the next, and neither applies; a click on the name applies after the Yes */
+/* a click on the row's left third shows the previous, on the right third the next, on the name it applies what is shown */
 static void test_clicks_show_and_the_name_applies(void)
 {
     Fake f;
     const int idle[] = { 0, 0, 0, 0 };
-    rig(&f, 60, 0x1c0, 1);
+    rig(&f, 60, ROW_PROFILE, 1);
     f.clicks = 1 << 3;
     run(&f, idle, 4, 1);
     CHECK_EQ_INT(f.last_peek, -1);
     CHECK_EQ_INT(f.profile_steps, 0);
-    rig(&f, 600, 0x1c0, 1);
+    rig(&f, 600, ROW_PROFILE, 1);
     f.clicks = 1 << 3;
     run(&f, idle, 4, 1);
     CHECK_EQ_INT(f.last_peek, 1);
     CHECK_EQ_INT(f.profile_steps, 0);
-    const int right[] = { RIGHT, 0, 0, 0 };   /* shown with the arrow, then a click on the name */
-    rig(&f, 320, 0x1c0, 1);
+    const int right[] = { RIGHT, 0, 0, 0 };
+    rig(&f, 320, ROW_PROFILE, 1);
     f.clicks = 1 << 5;
     run(&f, right, 4, 1);
-    CHECK_EQ_INT(f.apply_asked, 1);
     CHECK_EQ_INT(f.profile_steps, 1);
     CHECK_EQ_INT(f.profile_net, 1);
 }
 
-/* the bands: Exit's ends at 0x190 and the row's takes 0x191..0x1e0 */
+/* the bands are the art's four: Exit's from 0x14a to the screen's bottom leaves on the Return */
 static void test_the_pointer_bands(void)
 {
     Fake f;
     const int enter[] = { ENTER };
-    rig(&f, 320, 0x190, 1);
-    CHECK_EQ_INT(run(&f, enter, 1, 1), 1);   /* Exit: leaves on the Return */
-    CHECK_EQ_INT(f.profile_steps, 0);
+    rig(&f, 320, 0x14a, 1);
+    CHECK_EQ_INT(run(&f, enter, 1, 1), 1);
     CHECK_EQ_INT(f.key_calls, 2);
-    rig(&f, 400, 0x191, 1);   /* the row's band: Return there is the row's (nothing shown, so nothing asked), not Exit's */
+    rig(&f, 320, 0x149, 1);   /* Multiplayer's, with no network found: not Exit */
     CHECK_EQ_INT(run(&f, enter, 1, 1), 1);
     CHECK(f.key_calls > 2);
-    CHECK_EQ_INT(f.apply_asked, 0);
-    rig(&f, 320, 0x191, 1);   /* without the op the same spot is Exit's */
-    CHECK_EQ_INT(run(&f, enter, 1, 0), 1);
-    CHECK_EQ_INT(f.key_calls, 2);
 }
 
-/* the version and the update notice: at the foot, full size, without the row; with it they leave the row's foot to it and go small to the top right, the
- * notice still above the version, inside the screen */
-static void test_the_foot_lines_leave_the_row_alone(void)
+/* the version and the update notice: at the foot, full size, the notice above the version */
+static void test_the_foot_lines(void)
 {
     Fake f;
     const int none[] = { ESCAPE };
-    rig(&f, 320, 0x91, 0);
-    run_with(&f, none, 1, 0, 1);
+    rig(&f, 320, ROW_SINGLE, 0);
+    run_with(&f, none, 1, 1, 1);
     CHECK(f.foot_big >= 2);
     CHECK_EQ_INT(f.foot_small, 0);
-    rig(&f, 320, 0x91, 0);
-    run_with(&f, none, 1, 1, 1);
-    CHECK_EQ_INT(f.foot_big, 0);
-    CHECK(f.foot_small >= 2);
-    CHECK_EQ_INT(f.foot_low, 0);
-    CHECK(f.foot_high_y < 0x40);
-    CHECK(f.foot_right <= 0x280);
-    CHECK(f.notice_y < f.version_y);
+    CHECK(f.foot_low >= 2);
 }
 
 int main(void)
 {
-    test_without_the_op_four_items();
-    test_the_row_is_the_fifth_item();
+    test_the_order();
+    test_the_words();
     test_the_arrows_show_and_return_applies();
-    test_no_and_round_apply_nothing();
+    test_round_applies_nothing();
     test_leaving_the_row_forgets();
     test_clicks_show_and_the_name_applies();
     test_the_pointer_bands();
-    test_the_foot_lines_leave_the_row_alone();
+    test_the_foot_lines();
     return TEST_REPORT();
 }

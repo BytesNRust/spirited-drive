@@ -14,8 +14,16 @@ static uint8_t stored[512];
 static size_t stored_size;
 static int stored_present;
 
+static const char *mode = "profile=restomod\n";
+
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
+    if (strcmp(name, "port.cfg") == 0) {   /* the mode that leaves everything free; port_profile's test has the others */
+        uint8_t *copy_of_mode = malloc(strlen(mode) + 1);
+        memcpy(copy_of_mode, mode, strlen(mode) + 1);
+        *size = strlen(mode);
+        return copy_of_mode;
+    }
     if (!stored_present || strcmp(name, stored_name) != 0)
         return NULL;
     uint8_t *copy = malloc(stored_size);
@@ -26,6 +34,7 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
 
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
+    if (strcmp(name, "port.cfg") == 0) return true;   /* the mode stays */
     if (size > sizeof stored)
         return false;
     snprintf(stored_name, sizeof stored_name, "%s", name);
@@ -65,7 +74,25 @@ static void test_start_seeds_from_the_saved_value(void)
     CHECK_EQ_INT(s.on, 0);
 }
 
-/* F12 writes the new value to extras.cfg, and only on a toggle */
+/* F12 has no effect in Stock, which holds it */
+static void test_stock_holds_the_key(void)
+{
+    RaceStats s;
+    stored_present = 0;
+    mode = "profile=stock\n";
+    race_stats_start(&s, 0);
+    CHECK_EQ_INT(race_stats_key_save(&s, 1), 0);
+    CHECK_EQ_INT(s.on, 0);
+    CHECK(!stored_present);
+    mode = "profile=restored\n";
+    race_stats_start(&s, 0);
+    CHECK_EQ_INT(race_stats_key_save(&s, 1), 1);
+    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_STATS), 1);
+    stored_present = 0;
+    mode = "profile=restomod\n";
+}
+
+/* F12 writes the new value to the mode's file, and only on a toggle */
 static void test_key_writes_back_the_switch(void)
 {
     RaceStats s;
@@ -153,6 +180,7 @@ int main(void)
     test_key_is_f12();
     test_starts_off_and_toggles_on_the_edge();
     test_start_seeds_from_the_saved_value();
+    test_stock_holds_the_key();
     test_key_writes_back_the_switch();
     test_meter_averages_the_window();
     test_meter_waits_for_a_window_and_keeps_the_spike();

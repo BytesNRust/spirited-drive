@@ -106,7 +106,7 @@ static void drive_wide_setup(void)
     drive_keys_port(f3, ultra);
     ported_view_set_reach(ultra ? DRAW_SEGMENTS_ULTRA : 0);
     /* port: Perspective Correction, Texture Filter and Fog live on the Graphics screen now and are read from port.cfg
-     * (port_settings_load still falls back to extras.cfg for a file written before they moved). The TNFS_MODERN_3D,
+     * (port_settings_load still falls back to the mode's file for a file written before they moved). The TNFS_MODERN_3D,
      * TNFS_TEXTURE_FILTER and TNFS_FOG env vars override them for the checks. */
     const PortExtras extras = port_extras_load();
     const int weather = port_weather();   /* port: weather=fog needs the per-pixel fog of Modern 3D, so it turns Modern 3D on */
@@ -305,7 +305,7 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
     return drive_link.exchange(&own, drive_menus_on ? drive_menus.game_state : NULL, &link_wait_ticks, seed, flags);
 }
 
-/* port: the car colours for this race (extras.cfg psx_liveries, the CUSTOMIZE switch, and car_paint, the car showcase's Color box):
+/* port: the car colours for this race (the mode's file psx_liveries, the CUSTOMIZE switch, and car_paint, the car showcase's Color box):
  * the player's car wears the paint the box picked, whether the PS1 livery (needs port.cfg's psx_dir files) or a catalogue paint
  * (car_paint.h); every rival draws its own from the race's seed, so a replay of the seed shows the same colours, and is never the
  * player's when it drives the same car. Off, nobody is repainted. */
@@ -444,10 +444,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     field.port_lunar_gravity = lunar_gravity_race(name, arcade);
     field.port_rain_grip = port_rain_grip_active();
-    /* port (difficulty.h): extras.cfg's level; Original in a link race, a replay's own (the CD's demos: Original) */
+    /* port (difficulty.h): the mode's file's level; Original in a link race, a replay's own (the CD's demos: Original) */
     field.port_difficulty = difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL,
                                                drive_link_on);
-    {   /* port: extras.cfg's rally_gravel (rally_gravel.h) */
+    {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = port_extras_load();
         field.port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
         field.port_rally_shoulder_sound = port_rally_gravel_shoulder();
@@ -481,7 +481,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         const PortSettings cam = port_settings_load();
         if (cam.camera_kind >= 0 && cam.camera_kind <= 5) drive_sim.race.port_start_camera = cam.camera_kind + 1;
     }
-    drive_sim.race.port_follow_camera = port_extras_load().follow_camera;   /* port: extras.cfg's Follow camera (CUSTOMIZE, Unlocks & mods) */
+    drive_sim.race.port_follow_camera = port_extras_load().follow_camera;   /* port: the mode's file's Follow camera (CUSTOMIZE, Unlocks & mods) */
     drive_sim.race.port_follow_ring = drive_sim.race.port_follow_camera != 0;   /* port: and its arm behind, a longer one, in a bigger cache */
     if (drive_menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
         drive_sim.race.unknown_4c5cd4 = drive_menus.explode;
@@ -695,7 +695,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
         const int32_t track = le32_at(replay_file + 6);
         look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;
         /* port: the replay's art as its race had it: both variants together, and the time of day with a variant
-         * (extras.cfg's variant_time), each where the exe takes the mirror's art and midday */
+         * (the mode's file's variant_time), each where the exe takes the mirror's art and midday */
         look.port_both_variants = look.variant_m != 0 && look.variant_r != 0;
         const int32_t time = track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
         drive_time_of_day = time;
@@ -704,11 +704,11 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     } else if (drive_menus_on) {
         look.variant_m = drive_menus.variant_m, look.variant_r = drive_menus.variant_r;
         /* port: the menus' own pair is the combined state when both are on — the race reads the rally's FAM, the
-         * mirror keeping the geometry (variant_rule.h's rule). Asking extras.cfg instead would miss a race the
-         * frontend reached with both on but no extras.cfg on disk, which is every --drive NAME mr run.
+         * mirror keeping the geometry (variant_rule.h's rule). Asking the mode's file instead would miss a race the
+         * frontend reached with both on but no the mode's file on disk, which is every --drive NAME mr run.
          * A replay takes the same rule on its own pair (above). */
         look.port_both_variants = drive_menus.variant_m != 0 && drive_menus.variant_r != 0;
-        /* port: extras.cfg's variant_time keeps the time of day with a variant (fam_mirror.h makes its art) */
+        /* port: the mode's file's variant_time keeps the time of day with a variant (fam_mirror.h makes its art) */
         look.time_of_day = track_fam_time_of(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
                                              port_extras_load().variant_time, drive_menus.time_of_day);
         drive_time_of_day = drive_menus.time_of_day;

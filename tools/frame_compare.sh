@@ -11,7 +11,7 @@
 #   views    0 (in the car) 1 (chase) 2 5 9      (VIEWS=...)
 #   formats  4:3 16:9 21:9          (FORMATS=...; TNFS_SCREEN)
 #   ticks    400 (TICKS=...: the race tick the picture is taken at)
-#   looks    exe, modern (port.cfg perspective=1 texture_filter=1 fog=1)   (LOOKS=...)
+#   looks    exe, modern (Stock with TNFS_MODERN_3D=1 TNFS_TEXTURE_FILTER=1 TNFS_FOG=1)   (LOOKS=...)
 # 90 frames each way with the defaults; set the lists shorter for a quick check.
 #
 # DATA: the game's data, $TNFS_DATA or $PWD/original. OUT_DIR keeps the pictures (the default is a temp dir deleted at
@@ -44,7 +44,7 @@ render() {
   local track=$1 view=$2 format=$3 look=$4 envs=$5 ppm=$6
   local mods=$tmp/mods_${ppm:t:r}
   mkdir -p $mods/user || return 1
-  if [[ $look == modern ]]; then print -- "perspective=1\ntexture_filter=1\nfog=1" >$mods/user/port.cfg; fi
+  [[ $look == modern ]] && envs="TNFS_MODERN_3D=1 TNFS_TEXTURE_FILTER=1 TNFS_FOG=1 $envs"
   env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VIEW=$view TNFS_SCREEN=$format ${=envs} \
     timeout -k 5 $secs $bin --data $data --mods $mods --drive $track --entry $ticks --screenshot $ppm \
     >$ppm.log 2>&1

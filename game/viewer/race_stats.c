@@ -3,6 +3,7 @@
 #include "viewer/race_stats.h"
 
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
 
 #include <stdio.h>
 
@@ -22,6 +23,7 @@ int race_stats_key(RaceStats *s, int down)
 
 int race_stats_key_save(RaceStats *s, int down)
 {
+    if (!port_profile_key_free((Profile)port_settings_profile(), "stats_overlay")) return 0;   /* port (modes): no effect where the mode holds it */
     if (!race_stats_key(s, down)) return 0;
     port_extras_set_race_switch(RACE_SWITCH_STATS, s->on);
     return 1;

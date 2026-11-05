@@ -4,26 +4,22 @@
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT = 0x4b00, RIGHT = 0x4d00, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
-enum { SINGLE, MODEM, NETWORK, EXIT, PROFILE, OPTIONS };   /* PROFILE: the port's fifth item, with no art of its own (the original's four stop at EXIT) */
+/* port (modes): the Profile row where the exe's Single Player stands, then Single Player, Multiplayer (the exe's Network) and Exit; all four drawn in the game's text, "Multiplayer" has no art */
+enum { PROFILE, SINGLE, NETWORK, EXIT, OPTIONS };
 enum { RACE = 0, LEAVE = 1, TIMED_OUT = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x1194, REST = 0x19, TOLD = 0x12c, WIDE = 0x280, ALL = 0x100 };
 
-/* 00432134 / 0043213c: the options' centres */
-static const int16_t CENTRE_X[OPTIONS] = { 0x140, 0x140, 0x140, 0x140, 0x140 };
-static const int16_t CENTRE_Y[OPTIONS] = { 0x91, 0xda, 0x122, 0x16f, 0x1c0 };
-/* the bands 00463f80 is asked about, in turn; with the profile row Exit's ends at PROFILE_TOP - 1 and the profile's takes the rest */
-static const int16_t BAND_TOP[OPTIONS] = { 0, 0xb2, 0xfe, 0x14a, 0x191 };
-static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0, 0x1e0 };
-static const int16_t EXIT_BOTTOM_WITH_PROFILE = 0x190;
-/* port (profiles): the row's thirds for the pointer: left of PROFILE_LEFT the previous profile, from PROFILE_RIGHT on the next, between them its name */
+/* 00432134 / 0043213c: the options' centres, the art's four places */
+static const int16_t CENTRE_X[OPTIONS] = { 0x140, 0x140, 0x140, 0x140 };
+static const int16_t CENTRE_Y[OPTIONS] = { 0x91, 0xda, 0x122, 0x16f };
+/* the bands 00463f80 is asked about, in turn */
+static const int16_t BAND_TOP[OPTIONS] = { 0, 0xb2, 0xfe, 0x14a };
+static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0 };
+/* the row's thirds for the pointer: left of PROFILE_LEFT the previous mode, from PROFILE_RIGHT on the next, between them its name */
 enum { PROFILE_LEFT = 0xd5, PROFILE_RIGHT = 0x1ab };
-static const char *const LIT[OPTIONS] = { "sinl", "modl", "netl", "exil" };   /* 004afaf8.. */
-static const char *const DARK[OPTIONS] = { "sind", "modd", "netd", "exid" };  /* 004afb18.. */
+static const char *const WORDS[OPTIONS] = { NULL, "Single Player", "Multiplayer", "Exit" };
 
 enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 8, FOOTER_Y = 452, FOOTER_STEP = 28 };
-/* port: with the profile row the foot is that row's, so the lines go to the dark band at the top right, at 3/5 of their size, right-aligned, the
- * notice still above the version */
-enum { FOOTER_TOP_Y = 6, FOOTER_TOP_STEP = 18, FOOTER_RIGHT = WIDE - 8, FOOTER_NUM = 3, FOOTER_DEN = 5 };
 
 typedef struct Menu {
     int32_t bank;
@@ -42,11 +38,6 @@ typedef struct Menu {
     uint8_t rgb[GAME_MODE_PALETTE];
 } Menu;
 
-/* how many items there are: the original's four, five with the profile row */
-static int16_t items(const GameModeOps *o) { return o->profile != NULL ? OPTIONS : PROFILE; }
-
-static int16_t band_bottom(int16_t i, const GameModeOps *o) { return i == EXIT && o->profile != NULL ? EXIT_BOTTOM_WITH_PROFILE : BAND_BOTTOM[i]; }
-
 static void palette_load(Menu *m, const GameModeOps *o)
 {
     const uint8_t *pal = o->shape(o->ctx, m->bank, "!pal");
@@ -61,8 +52,8 @@ static void move_to(const Menu *m, const GameModeOps *o)
 /* the first band the pointer is in becomes the selection */
 static void follow(Menu *m, const GameModeOps *o)
 {
-    for (int16_t i = 0; i < items(o); i++) {
-        if (!o->pointer_in_rect(o->ctx, 0, WIDE, BAND_TOP[i], band_bottom(i, o))) continue;
+    for (int16_t i = 0; i < OPTIONS; i++) {
+        if (!o->pointer_in_rect(o->ctx, 0, WIDE, BAND_TOP[i], BAND_BOTTOM[i])) continue;
         if (m->selected != i) {
             m->previous = m->selected;
             m->selected = i;
@@ -72,34 +63,25 @@ static void follow(Menu *m, const GameModeOps *o)
     }
 }
 
-/* port: with the extras op, the Modem item's words covered with the clean background and "Customize game" written
- * there, lit while it is the selection. The cover is the item's art (modd / modl: 253 x 32 at (189, 207)). */
-static void extras_label(const Menu *m, const GameModeOps *o)
+/* the row's second line while it shows a mode not yet applied */
+static const char PENDING_LINE[] = "Return applies it.";
+
+/* the art's words put back to the clean background over a row's place */
+static void cover_row(const GameModeOps *o, int16_t row)
 {
-    /* LABEL_X: where the items' own words centre (Single player, Network, Exit: 310.5..311.5), not the pointer's 0x140 */
-    enum { TEXT_HALF_HEIGHT = 21, MODEM_X = 189, MODEM_Y = 207, MODEM_W = 253, MODEM_H = 32, LABEL_X = 311 };
-    if (o->extras == NULL || o->plus_text == NULL || o->plus_text_width == NULL) return;
-    if (o->extras_cover != NULL) o->extras_cover(o->ctx, MODEM_X, MODEM_Y, MODEM_W, MODEM_H);
-    const char *const text = "Customize game";
-    o->plus_text(o->ctx, m->selected == MODEM, text, LABEL_X - o->plus_text_width(o->ctx, text) / 2,
-                 CENTRE_Y[MODEM] - TEXT_HALF_HEIGHT);
+    enum { COVER_X = 96, COVER_W = 448, COVER_HALF = 36 };
+    if (o->extras_cover != NULL) o->extras_cover(o->ctx, COVER_X, CENTRE_Y[row] - COVER_HALF, COVER_W, COVER_HALF * 2);
 }
 
-/* port (profiles): the row's second line while it shows a profile not yet applied, and the question before applying it (the box is 0x154 wide) */
-static const char PENDING_LINE[] = "Return applies it and replaces your settings.";
-static const char APPLY_ASK[] = "Replace settings ?";
-
-/* port (profiles): the fifth item's words over the live picture: the strip under Exit put back to the clean background, then "<  name  >" (lit while it is the selection) and the
- * two lines about the profile under it */
+/* "<  name  >" (lit while it is the selection) and the two lines about the mode under it */
 static void profile_row(const Menu *m, const GameModeOps *o)
 {
-    enum { STRIP_Y = 0x192, STRIP_H = 0x1e0 - 0x192, TITLE_Y = 0x196, LINE1_Y = 0x1b7, LINE2_Y = 0x1c9, CENTRE = 311, SMALL_NUM = 3, SMALL_DEN = 5 };
+    enum { TITLE_Y = 110, LINE1_Y = 146, LINE2_Y = 164, CENTRE = 311, SMALL_NUM = 3, SMALL_DEN = 5 };
     const char *text[3] = { "", "", "" };
-    if (o->profile == NULL || o->plus_text == NULL || o->plus_text_width == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL ||
+    if (o->profile == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL ||
         !o->profile(o->ctx, m->pending != 0 ? GAME_MODE_PROFILE_PEEK + m->pending : 0, text))
         return;
     if (m->pending != 0) text[2] = PENDING_LINE;   /* not applied yet: say how */
-    if (o->extras_cover != NULL) o->extras_cover(o->ctx, 0, STRIP_Y, WIDE, STRIP_H);
     char title[96];
     snprintf(title, sizeof title, "<  %s  >", text[0]);
     o->plus_text(o->ctx, m->selected == PROFILE, title, CENTRE - o->plus_text_width(o->ctx, title) / 2, TITLE_Y);
@@ -107,22 +89,24 @@ static void profile_row(const Menu *m, const GameModeOps *o)
     o->plus_text_scaled(o->ctx, 0, text[2], CENTRE - o->plus_text_width_scaled(o->ctx, text[2], SMALL_NUM, SMALL_DEN) / 2, LINE2_Y, SMALL_NUM, SMALL_DEN);
 }
 
-/* port: 1 when the foot lines go to the top right (the profile row has the foot, and the small text is there to draw them) */
-static int footer_on_top(const GameModeOps *o) { return o->profile != NULL && o->plus_text_scaled != NULL && o->plus_text_width_scaled != NULL; }
+/* the four rows over the clean background */
+static void rows_draw(const Menu *m, const GameModeOps *o)
+{
+    enum { TEXT_HALF_HEIGHT = 21, LABEL_X = 311 };   /* LABEL_X: where the art's words centre, not the pointer's 0x140 */
+    for (int16_t i = 0; i < OPTIONS; i++) cover_row(o, i);
+    profile_row(m, o);
+    for (int16_t i = SINGLE; i < OPTIONS; i++)
+        o->plus_text(o->ctx, m->selected == i, WORDS[i], LABEL_X - o->plus_text_width(o->ctx, WORDS[i]) / 2, CENTRE_Y[i] - TEXT_HALF_HEIGHT);
+}
 
 /* port: where foot line i (its text) goes and how wide it is */
 static void footer_place(const GameModeOps *o, int32_t i, const char *text, int32_t *x, int32_t *y, int32_t *w)
 {
-    if (footer_on_top(o)) {
-        *w = o->plus_text_width_scaled(o->ctx, text, FOOTER_NUM, FOOTER_DEN);
-        *x = FOOTER_RIGHT - *w, *y = FOOTER_TOP_Y + (FOOTER_LINES - 1 - i) * FOOTER_TOP_STEP;
-    } else {
-        *w = o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
-        *x = FOOTER_X, *y = FOOTER_Y - i * FOOTER_STEP;
-    }
+    *w = o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
+    *x = FOOTER_X, *y = FOOTER_Y - i * FOOTER_STEP;
 }
 
-/* port: the foot lines, in the plain style at the bottom left (at the top right with the profile row), the notice above the version */
+/* port: the foot lines, in the plain style at the bottom left, the notice above the version */
 static void footer_draw(Menu *m, const GameModeOps *o)
 {
     if (o->footer == NULL || o->plus_text == NULL) return;
@@ -131,8 +115,7 @@ static void footer_draw(Menu *m, const GameModeOps *o)
         if (m->footer[i][0] == 0) continue;
         int32_t x, y, w;
         footer_place(o, i, m->footer[i], &x, &y, &w);
-        if (footer_on_top(o)) o->plus_text_scaled(o->ctx, 0, m->footer[i], x, y, FOOTER_NUM, FOOTER_DEN);
-        else o->plus_text(o->ctx, 0, m->footer[i], x, y);
+        o->plus_text(o->ctx, 0, m->footer[i], x, y);
     }
 }
 
@@ -148,14 +131,14 @@ static int footer_stale(const Menu *m, const GameModeOps *o)
     return 0;
 }
 
-/* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row; at the top right, the text's own width) */
+/* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row) */
 static int on_notice(const Menu *m, const GameModeOps *o)
 {
-    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28, NOTICE_TOP_HEIGHT = FOOTER_TOP_STEP };
+    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28 };
     if (o->open_notice == NULL || o->footer == NULL || m->footer[1][0] == 0) return 0;
     int32_t x, y, w;
     footer_place(o, 1, m->footer[1], &x, &y, &w);
-    if (footer_on_top(o)) return o->pointer_in_rect(o->ctx, x, x + w, y, y + NOTICE_TOP_HEIGHT) != 0;
+    (void)x, (void)w;
     return o->pointer_in_rect(o->ctx, 0, NOTICE_WIDTH, y, y + NOTICE_HEIGHT) != 0;
 }
 
@@ -163,9 +146,7 @@ static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
 {
     o->select(o->ctx, st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, m->bank, "bgnd"));
-    if ((uint16_t)m->selected < PROFILE) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, LIT[m->selected]));
-    extras_label(m, o);
-    profile_row(m, o);
+    rows_draw(m, o);
     footer_draw(m, o);
     o->select_default(o->ctx);
     o->pointer_hide(o->ctx);
@@ -191,16 +172,12 @@ static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
     m->redraw = 0;
 }
 
-static void redraw_options(Menu *m, GameModeState *st, const GameModeOps *o)
+/* the selection moved: its sound, and the page drawn again; leaving the Profile row forgets a mode not applied */
+static void redraw_options(Menu *m, const GameModeOps *o)
 {
-    o->select(o->ctx, st->screen);
-    m->redraw = 1;
     if (m->previous != m->selected) o->sound(o->ctx, MOVED);
-    if ((uint16_t)m->previous < PROFILE) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, DARK[m->previous]));
-    if ((uint16_t)m->selected < PROFILE) o->blit_own(o->ctx, o->shape(o->ctx, m->bank, LIT[m->selected]));
-    if (m->previous == MODEM || m->selected == MODEM) extras_label(m, o);
-    if (m->previous == PROFILE && m->selected != PROFILE) m->pending = 0;   /* leaving the row forgets a profile not applied */
-    if (m->previous == PROFILE || m->selected == PROFILE) profile_row(m, o);
+    if (m->previous == PROFILE && m->selected != PROFILE) m->pending = 0;
+    m->redraw = 1;
     m->changed = 0;
 }
 
@@ -236,19 +213,18 @@ static void cycle_profile(Menu *m, const GameModeOps *o, int step)
 {
     const char *text[3];
     if (o->profile == NULL) return;
-    enum { REACH = 3 };   /* from Custom the three profiles are 1..3 steps away; one more is round to the one in use */
+    enum { REACH = 2 };   /* the other two modes are 1 and 2 steps away; one more is round to the one in use */
     const int want = m->pending + step >= -REACH && m->pending + step <= REACH ? m->pending + step : 0;
     m->pending = want != 0 && o->profile(o->ctx, GAME_MODE_PROFILE_PEEK + want, text) == 2 ? want : 0;
     m->redraw = 1;
 }
 
-/* port (profiles): Return on the row (or a click on its name): the profile it shows, after a Yes, since it rewrites the player's settings; No leaves the one in use */
+/* port (modes): Return on the row (or a click on its name): the mode it shows; nothing is lost, each mode keeps its own */
 static void apply_profile(Menu *m, const GameModeOps *o)
 {
     const char *text[3];
     if (o->profile == NULL || m->pending == 0) return;
-    if ((int16_t)o->yes_no(o->ctx, APPLY_ASK)) o->profile(o->ctx, GAME_MODE_PROFILE_APPLY + m->pending, text);
-    o->drain(o->ctx);
+    o->profile(o->ctx, GAME_MODE_PROFILE_APPLY + m->pending, text);
     m->pending = 0;
     m->redraw = 1;
 }
@@ -262,20 +238,6 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         st->single = 0;
         st->network_raced = 0;
         m->done = 1;
-        break;
-    case MODEM:
-        if (o->extras != NULL) {   /* port: the EXTRAS screen over this one, then this menu again */
-            o->extras(o->ctx);
-            palette_load(m, o);
-            m->redraw = 1;
-            m->fade = 1;
-            move_to(m, o);
-            break;
-        }
-        if (!(int16_t)o->name_box(o->ctx, st->name)) break;
-        o->fade_out(o->ctx, 0, ALL);
-        o->free_inverse(o->ctx);
-        came_back(m, st, (int16_t)o->modem(o->ctx), o);
         break;
     case NETWORK:
         if (!o->network_found(o->ctx)) {
@@ -311,8 +273,8 @@ static void step(Menu *m, int16_t k, int german, const GameModeOps *o)
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
         m->previous = m->selected;
-        m->selected = k == UP ? (int16_t)(m->selected - 1) : (int16_t)((m->selected + 1) % items(o));
-        if (k == UP && m->selected < 0) m->selected = (int16_t)(items(o) - 1);
+        m->selected = k == UP ? (int16_t)(m->selected - 1) : (int16_t)((m->selected + 1) % OPTIONS);
+        if (k == UP && m->selected < 0) m->selected = (int16_t)(OPTIONS - 1);
         move_to(m, o);
         m->changed = 1;
     }
@@ -327,6 +289,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
 {
     Menu m = { 0 };
     m.redraw = m.fade = m.armed = m.released = 1;
+    m.selected = SINGLE;   /* the Profile row is above it */
     st->mode_menu = 1;
     st->intro_seen = 1;
     ops->palette_clear(ops->ctx, m.rgb);
@@ -339,7 +302,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
     do {
         follow(&m, ops);
         if (m.redraw) draw(&m, st, german, ops);
-        if (m.changed) redraw_options(&m, st, ops);
+        if (m.changed) redraw_options(&m, ops);
         int16_t k = (int16_t)ops->key(ops->ctx);
         if (!m.armed && k != ESCAPE && k != SPACE && k != ENTER) {
             m.rest += ops->ticks(ops->ctx);

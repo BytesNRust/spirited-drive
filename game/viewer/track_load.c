@@ -209,7 +209,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         if (m != NULL) fam_mirror_signs(t->fam_file, fam_size, t->fam_file, fam_size, m, mirror_size);
         platform_free_file(m);
     } else if (look->time_of_day != 1 && (look->variant_m || look->variant_r)) {
-        /* port: a variant at another time of day (extras.cfg's variant_time), on the _T01 art: the rally's own
+        /* port: a variant at another time of day (the mode's file's variant_time), on the _T01 art: the rally's own
          * bitmaps darkened into it, then the mirror's signs flipped */
         size_t day_size = 0, other_size = 0;
         uint8_t *const day = read_fam_variant(data_root, name, look, 0, 0, &day_size);

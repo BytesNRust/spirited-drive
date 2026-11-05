@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* port: three anonymous one-shot counters, sent to our API (core/update/update_check.h) and only when the one switch
- * (extras.cfg's update_check, "Updates and anonymous stats") is On: the first start, the data ready after the first-run
+ * (the mode's file's update_check, "Updates and anonymous stats") is On: the first start, the data ready after the first-run
  * copy, the first finished race. Nothing but the event's name and the version goes out. Each event is sent once per
  * install: its flag is written to <user dir>/stats.cfg BEFORE it is sent, so a crash can only lose an event, never
  * repeat one. A development build ("-dev") sends nothing. */

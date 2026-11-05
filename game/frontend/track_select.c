@@ -232,7 +232,7 @@ static int reverse_on(const TrackSelectState *st)
 
 static const char *weather_text(int weather)
 {
-    return weather == WEATHER_FOG ? "Fog" : weather == WEATHER_RAIN ? "Rain" : "Clear";
+    return weather == WEATHER_FOG ? "Fog" : weather == WEATHER_RAIN ? "Rain" : weather == WEATHER_STORM ? "Storm" : "Clear";
 }
 
 static int has_variant(const TrackSelectPlus *plus, int track, int variant)

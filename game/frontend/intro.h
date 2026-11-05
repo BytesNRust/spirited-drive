@@ -36,7 +36,7 @@ typedef struct IntroState {
     char *replay_name;      /* config.dat's 00524e2b: "REPLAY%d.RPL" */
     const char *movie_dir;  /* 005243c8: paths.dat's slot 7 */
     char *movie_path;       /* 00509ecc */
-    int intro_skip;         /* port: extras.cfg's no_movies skips the intro movies only (the title screen shows instead);
+    int intro_skip;         /* port: the mode's file's no_movies skips the intro movies only (the title screen shows instead);
                              * the game's own movies (intro_movie) still play while intro_movies is set */
 } IntroState;
 

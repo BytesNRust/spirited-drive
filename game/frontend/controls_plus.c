@@ -129,6 +129,7 @@ typedef struct Run {
     const Bgnd *bgnd;
     int palette_on;          /* the clean background's palette put on the display, once: the pages share it */
     int nav_lit;             /* the page indicator's triangle the pointer is on, 0 none */
+    int hide_look_back;   /* ControlsPlus's */
     int key_defaults[PKEY_COUNT];   /* config.dat's keys (the exe's page 1), what the keyboard has until it is the player's */
     const char *notice;      /* a key refused in the capture, shown in the row */
     int three;               /* the exe's page is not part of the screen: three pages, the Keyboard's the first */
@@ -150,10 +151,13 @@ static int run_nav_lit(const Run *r, const ControlsMenuOps *o)
     return page_nav_lit(&nav, nav_page(r), nav_pages(r));
 }
 
+/* the keyboard's keys shown: Look back is the last */
+static int key_rows(const Run *r) { return PKEY_COUNT - r->hide_look_back; }
+
 /* the rows before Done: the keyboard's keys and Defaults, the actions, the tuning rows and Defaults */
 static int rows(const Run *r)
 {
-    return r->page == KEYBOARD_PAGE ? PKEY_COUNT + 1 : r->page == ACTION_PAGE ? ACT_COUNT - 1 : TUNE_COUNT + 1;   /* no row for Analog steering: Steer left and right take a stick's halves */
+    return r->page == KEYBOARD_PAGE ? key_rows(r) + 1 : r->page == ACTION_PAGE ? ACT_COUNT - 1 - r->hide_look_back : TUNE_COUNT + 1;   /* no row for Analog steering: Steer left and right take a stick's halves */
 }
 static int done_row(const Run *r) { return rows(r); }
 /* the actions' rows start at Steer left: Analog steering (ACT_STEER) has none, its stick is Steer left's and Steer right's halves */
@@ -261,7 +265,7 @@ static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps 
     char value[64];
     const int lit = r->selected == row, y = row_y(r, row);
     if (r->page == KEYBOARD_PAGE) {
-        if (row == PKEY_COUNT) {
+        if (row == key_rows(r)) {
             words(o, lit ? STYLE_YELLOW : STYLE_CREAM, "Defaults", LABEL_X, y);
             return;
         }
@@ -435,7 +439,7 @@ static void choose(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o
         o->sound(o->ctx, CHOSEN);
         if (r->selected == done_row(r)) r->result = CONTROLS_PAGE_DONE;
         else if (r->selected == cancel_row(r)) r->result = CONTROLS_PAGE_CANCEL;
-        else if (r->page == KEYBOARD_PAGE && r->selected == PKEY_COUNT) {
+        else if (r->page == KEYBOARD_PAGE && r->selected == key_rows(r)) {
             port_controls_reset_keys(st->plus->port);   /* config.dat's keys again */
             r->redraw = 1;
         } else if (r->page == KEYBOARD_PAGE) capture_key(r, (PortKey)r->selected, st, o);
@@ -485,10 +489,10 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
         else if (!r->three) r->result = CONTROLS_PAGE_BACK;
     } else if (k == RIGHT) {
         turn(r, r->page + 1, o);
-    } else if (r->page == KEYBOARD_PAGE && r->selected < PKEY_COUNT && k == DELETE) {
+    } else if (r->page == KEYBOARD_PAGE && r->selected < key_rows(r) && k == DELETE) {
         port_controls_set_key(st->plus->port, r->key_defaults, (PortKey)r->selected, 0);   /* none */
         r->redraw = 1;
-    } else if (r->page == ACTION_PAGE && r->selected < ACT_COUNT - 1 && (k == DELETE || k == INSERT)) {
+    } else if (r->page == ACTION_PAGE && r->selected < ACT_COUNT - 1 - r->hide_look_back && (k == DELETE || k == INSERT)) {
         if (k == DELETE) clear_action(r, (int)act_of(r->selected), st);
         else capture(r, (int)act_of(r->selected), 1, st, o);
     }
@@ -517,7 +521,7 @@ ControlsPageResult controls_plus_run(const ControlsMenuState *st, const Controls
     /* not armed: the key that turned the page may still be down */
     Run r = { .page = KEYBOARD_PAGE, .redraw = 1, .released = *st->buttons == 0, .capturing = -1, .gamepad = 1,
               .result = -1, .bank = bank, .options = options, .bgnd = &bgnd, .nav_lit = 0,
-              .three = st->plus->port_three_pages != 0 };
+              .three = st->plus->port_three_pages != 0, .hide_look_back = st->plus->hide_look_back != 0 };
     if (o->pad_raw(o->ctx, &pad)) r.gamepad = pad.gamepad;
     if (st->controls != NULL && st->german != NULL) port_controls_key_defaults(st->controls, *st->german, r.key_defaults);
     move_to(&r, r.selected, o);

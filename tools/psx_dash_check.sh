@@ -12,8 +12,8 @@ mkdir -p $work/mods/user $work/psx
 python3 $here/psx_lgs_synthetic.py $work/psx/ZAL1A.LGS 64 64 64
 python3 $here/psx_light_synthetic.py $work/psx/ZAL1A.LGT 2080 full
 for time in day a; do
-    printf "psx_dir=$work/psx\npsx_light=1\npsx_time=$time\n" > $work/mods/user/port.cfg
-    env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VIEW=0 timeout -k 5 120 ${bin:a} --data $data --mods $work/mods --drive AL1 --entry 1200 --screenshot $work/$time.ppm >/dev/null 2>&1
+    printf "psx_dir=$work/psx\n" > $work/mods/user/port.cfg
+    env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PSX_LIGHT=1 TNFS_PSX_TIME=$time TNFS_VIEW=0 timeout -k 5 120 ${bin:a} --data $data --mods $work/mods --drive AL1 --entry 1200 --screenshot $work/$time.ppm >/dev/null 2>&1
 done
 python3 - $work/day.ppm $work/a.ppm <<'P'
 import sys

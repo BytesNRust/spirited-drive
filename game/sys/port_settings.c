@@ -38,7 +38,7 @@ PortSettings port_settings_defaults(void)
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
     const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
-                             .weather = WEATHER_CLEAR, .render_bands = -1, .profile_ui = 1, .camera_kind = -1 };
+                             .weather = WEATHER_CLEAR, .render_bands = -1, .camera_kind = -1 };
     return d;
 }
 
@@ -135,9 +135,6 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "police_glow") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->police_glow = (int)n;
-    } else if (strcmp(key, "port_profile_ui") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->profile_ui = (int)n;
     } else if (strcmp(key, "car_tunnel_light") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->car_tunnel_light = (int)n;
@@ -271,19 +268,6 @@ static void apply(PortSettings *s, const char *key, const char *value)
     }
 }
 
-/* which of the three that moved in from EXTRAS port.cfg actually names; the rest fall back to extras.cfg. The
- * extras.cfg key is the one EXTRAS used to write, so a file from before the move still carries it. */
-typedef struct Moved {
-    const char *key;   /* the key in port.cfg */
-    size_t offset;         /* the field in PortSettings */
-    size_t extras_offset;  /* the same setting's field in PortExtras */
-} Moved;
-
-static const Moved MOVED[3] = { { "perspective", offsetof(PortSettings, perspective), offsetof(PortExtras, modern_3d) },
-                                 { "texture_filter", offsetof(PortSettings, texture_filter),
-                                   offsetof(PortExtras, texture_filter) },
-                                 { "fog", offsetof(PortSettings, fog), offsetof(PortExtras, fog) } };
-
 PortSettings port_settings_parse(const char *text, size_t size)
 {
     PortSettings s = port_settings_defaults();
@@ -318,16 +302,15 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\ntunnel_headlight=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\ntunnel_headlight=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->tunnel_headlight, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->tunnel_headlight, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
-/* whether `text` has a line starting with `key=`; port.cfg wins over extras.cfg, so a save from the Graphics screen
- * is never undone by an extras.cfg left from before the settings moved. */
+/* whether `text` has a line starting with `key=` */
 static bool names(const char *text, size_t size, const char *key)
 {
     const size_t len = strlen(key);
@@ -342,17 +325,6 @@ static bool names(const char *text, size_t size, const char *key)
     return false;
 }
 
-/* The three that moved in from EXTRAS: the ones `text` (port.cfg) does not name come from extras.cfg, read-only. With no
- * port.cfg at all (`text` NULL) none of them is named, so all three come from there. */
-static void take_from_extras(PortSettings *s, const char *text, size_t size)
-{
-    const PortExtras extras = port_extras_load();
-    for (int i = 0; i < 3; i++)
-        if (!text || !names(text, size, MOVED[i].key))
-            *(int *)((char *)s + MOVED[i].offset) =
-                *(const int *)((const char *)&extras + MOVED[i].extras_offset);
-}
-
 static bool (*display_probe)(int *width, int *height);
 
 void port_settings_set_display_probe(bool (*probe)(int *width, int *height)) { display_probe = probe; }
@@ -363,60 +335,92 @@ ScreenFormat port_monitor_format(ScreenFormat fallback)
     return display_probe != NULL && display_probe(&w, &h) && w > 0 && h > 0 ? port_profile_monitor_format(w, h) : fallback;
 }
 
-PortSettings port_settings_load(void)
+/* port.cfg: the mode's name and the machine's folder */
+static PortSettings machine_load(void)
 {
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
-    if (!data) {
-        PortSettings s = port_settings_defaults();
-        take_from_extras(&s, NULL, 0);
-        return s;
-    }
-    PortSettings s = port_settings_parse((const char *)data, size);
-    take_from_extras(&s, (const char *)data, size);
+    if (data == NULL) return port_settings_defaults();
+    const PortSettings s = port_settings_parse((const char *)data, size);
     platform_free_file(data);
-    if (s.profile == PROFILE_CUSTOM) return s;
-    return port_profile_settings((Profile)s.profile, s, port_monitor_format(s.format));   /* a profile's settings are its table's, whatever the file says */
+    return s;
 }
 
-int port_settings_profile(void)
+static bool machine_save(int profile, const char *psx_dir)
+{
+    char text[PSX_DIR_MAX + 64];
+    const int n = snprintf(text, sizeof text, "profile=%s\npsx_dir=%s\n", port_profile_key((Profile)profile), psx_dir);
+    return n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+}
+
+/* the values of mode `p`'s table, with the machine's own */
+static PortSettings mode_values(int p, const char *psx_dir)
+{
+    PortSettings s = port_profile_settings((Profile)p, port_settings_defaults(), port_monitor_format(SCREEN_16_9));
+    s.profile = p;
+    snprintf(s.psx_dir, sizeof s.psx_dir, "%s", psx_dir);
+    return s;
+}
+
+static void take_setting(void *to, const char *key, const char *value) { apply(to, key, value); }
+
+PortSettings port_settings_load(void)
+{
+    const PortSettings machine = machine_load();
+    PortSettings s = mode_values(machine.profile, machine.psx_dir);
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(port_profile_file((Profile)machine.profile), &size);
+    if (data == NULL) return s;
+    port_profile_read_free((Profile)machine.profile, (const char *)data, size, take_setting, &s);
+    platform_free_file(data);
+    return s;
+}
+
+int port_settings_profile(void) { return machine_load().profile; }
+
+bool port_settings_profile_chosen(void)
 {
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
-    if (!data) return PROFILE_CUSTOM;
-    const int p = port_settings_parse((const char *)data, size).profile;
+    if (data == NULL) return false;
+    const bool chosen = names((const char *)data, size, "profile");
     platform_free_file(data);
-    return p;
+    return chosen;
+}
+
+bool port_mode_save(const PortSettings *s, const PortExtras *e)
+{
+    const Profile p = (Profile)s->profile;
+    const PortSettings base = mode_values(s->profile, s->psx_dir);
+    const PortExtras extras_base = port_profile_extras(p, port_extras_defaults());
+    char now[PORT_CFG_TEXT_MAX], was[PORT_CFG_TEXT_MAX], extras_now[PORT_EXTRAS_TEXT_MAX], extras_was[PORT_EXTRAS_TEXT_MAX];
+    char out[PORT_CFG_TEXT_MAX + PORT_EXTRAS_TEXT_MAX];
+    if (port_settings_format(s, now, sizeof now) == 0 || port_settings_format(&base, was, sizeof was) == 0 ||
+        port_extras_format(e, extras_now, sizeof extras_now) == 0 || port_extras_format(&extras_base, extras_was, sizeof extras_was) == 0) return false;
+    size_t n = port_profile_differences(p, was, now, out, sizeof out);
+    n += port_profile_differences(p, extras_was, extras_now, out + n, sizeof out - n);
+    if (n == 0) out[n++] = '\n';   /* nothing changed: an empty file, the mode's values */
+    return platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
 }
 
 bool port_settings_save(const PortSettings *s)
 {
-    PortSettings c = *s;
-    if (c.profile != PROFILE_CUSTOM && !port_profile_settings_match((Profile)c.profile, &c, port_monitor_format(c.format)))
-        c.profile = PROFILE_CUSTOM;   /* changed by hand: the values stay, the profile is no more */
-    char text[PORT_CFG_TEXT_MAX];
-    const size_t n = port_settings_format(&c, text, sizeof text);
-    return n > 0 && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, n);
-}
-
-bool port_settings_profile_custom(void)
-{
-    PortSettings s = port_settings_load();
-    if (s.profile == PROFILE_CUSTOM) return true;
-    s.profile = PROFILE_CUSTOM;
-    return port_settings_save(&s);
+    if (!machine_save(s->profile, s->psx_dir)) return false;   /* first: port_extras_load reads the mode from it */
+    const PortExtras e = port_extras_load();
+    return port_mode_save(s, &e);
 }
 
 bool port_profile_select(int p)
 {
     if (p < 0 || p >= PROFILE_COUNT) return false;
-    port_profile_undo_note();   /* the Options screen's Cancel puts the files back */
-    PortSettings s = port_settings_load();
-    s.profile = p;
-    s = port_profile_settings((Profile)p, s, port_monitor_format(s.format));
-    if (!port_settings_save(&s)) return false;   /* port.cfg first: port_extras_save reads the profile from it */
-    const PortExtras e = port_profile_extras((Profile)p, port_extras_load());
-    return port_extras_save(&e);
+    return machine_save(p, machine_load().psx_dir);
+}
+
+bool port_profile_reset(int p)
+{
+    if (p < 0 || p >= PROFILE_COUNT) return false;
+    static const uint8_t EMPTY[] = "\n";
+    return platform_write_user_file(port_profile_file((Profile)p), EMPTY, 1);
 }
 
 PlatformConfig port_platform_config(const char *title)
@@ -489,13 +493,6 @@ int port_psx_flares(void)
     const char *v = getenv("TNFS_PSX_FLARES");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().psx_flares;
-}
-
-int port_profile_ui(void)
-{
-    const char *v = getenv("TNFS_PROFILE_UI");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().profile_ui;
 }
 
 int port_car_tunnel_light(void)
@@ -624,7 +621,7 @@ int port_lamp_car_shade(void)
 
 int port_rain_grip_active(void)
 {
-    return port_rain_grip() && port_weather() == WEATHER_RAIN;
+    return port_rain_grip() && weather_wet(port_weather());
 }
 
 int port_gauge_light(void)
@@ -646,13 +643,6 @@ int port_rain_grip(void)
     const char *v = getenv("TNFS_RAIN_GRIP");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().rain_grip;
-}
-
-int port_rain_lightning(void)
-{
-    const char *v = getenv("TNFS_RAIN_LIGHTNING");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_extras_load().rain_lightning;
 }
 
 int port_rain_fx(void)

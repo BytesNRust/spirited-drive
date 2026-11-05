@@ -61,7 +61,7 @@ typedef struct {
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */
     uint8_t *rgb;               /* the frame's 8-bit palette, redone from palette->screen_rgbx after a write */
     int32_t gate_state;         /* 004b945c: 0041f5bc's */
-    int dash_box;               /* port: extras.cfg's dash_box (DashBox), read as the race starts */
+    int dash_box;               /* port: the mode's file's dash_box (DashBox), read as the race starts */
     DrivePanel panel;           /* 0044d640's two panels' words (0052b8f4 is panel.panel.redraw) */
     RaceReplayDirector *director;  /* the replay's (00513888.., 005120c8), NULL when none records */
     uint8_t shade[256];         /* 004c6604, as 00446bac fills it */

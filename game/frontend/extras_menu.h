@@ -1,7 +1,7 @@
 /* The CUSTOMIZE GAME screen, reached from Game Mode (where the Modem row's art shows the "EXTRAS" label)
  * and from Options (a new last entry). Two pages of switches grouped under the four headers the owner named,
  * painted with the game's text routine (plus_text / plus_panel / plus_text_width) over a darkened panel of the
- * live screen. The net effect of Done is to save extras.cfg and the unlock level into config.dat. Cancel and
+ * live screen. The net effect of Done is to save the mode's file and the unlock level into config.dat. Cancel and
  * Escape leave both untouched (the caller copies them back). */
 #ifndef TNFS_EXTRAS_MENU_H
 #define TNFS_EXTRAS_MENU_H
@@ -20,16 +20,16 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *
  *   page 1  Cheats             Explode mode, Nitro mode, Turbo mode, Warrior Player Car
  *            Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
- *                               Lunar Springs Track, Lunar Gravity, Unlock Level, Time with variants, Car Colours
- *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Bumper view police radar,
+ *                               Lunar Springs Track, Lunar Gravity, Unlock Level, Car Colours
+ *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Exterior views police radar,
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
  *                               Difficulty (Easy / Original / Hard)
- *  page 3  Miscellaneous      Start Screen, Intro video, Updates and anonymous stats, Open the log folder (an action, no value)
+ *  page 3  Miscellaneous      Start Screen, Intro video, Updates and anonymous stats, Open the log folder and Restore profile defaults (actions, no value)
  *
  * Pages 2 and 3 have one group each, so one header; page 1 has two.
  *
- * (Rival car markers and 3D render stats are the race's switches: extras.cfg's car_markers and stats_overlay. Page 1
+ * (Rival car markers and 3D render stats are the race's switches: the mode's file's car_markers and stats_overlay. Page 1
  * is thirteen rows and two headers, fifteen lines, which is what the 20 pitch fits.)
  *
  * The rows below are that list in order, page 1's first, so a page is the first ROWS_P1 of them and page 2 the rest,
@@ -42,17 +42,17 @@ enum { EXTRAS_PAGES = 3, EXTRAS_GROUPS = 2 };
 enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the groups, in the pages' order */
 enum {
     ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
-    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_UNLOCK, ROW_VARIANT_TIME,   /* Unlocks & mods */
+    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_UNLOCK,   /* Unlocks & mods */
     ROW_PSX_LIVERY,                                /* port: Unlocks & mods' last, the car colours: the PS1 liveries and the catalogue paints (port_extras.h) */
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
     ROW_DASH_BOX,                                  /* port: In-race options' the dash's map box (port_extras.h) */
     ROW_FOLLOW_CAMERA,                             /* port: In-race options' 360 camera (port_extras.h's follow_camera) */
     ROW_DIFFICULTY,                                /* port: In-race options' last, Easy / Original / Hard (port_extras.h's difficulty, difficulty.h) */
-    ROW_STORM,                                     /* port: In-race options' last, Rain with storm: lightning in the rain (port_extras.h's rain_lightning) */
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     ROW_UPDATE,                                    /* port: Miscellaneous' last, Check for updates (port_extras.h's update_check, platform/update.h) */
     ROW_LOG_FOLDER,                                /* port: Miscellaneous' last, Open the log folder: an action row (ExtrasMenuOps.open_log_folder), for bug reports */
+    ROW_RESET,                                     /* port (modes): Miscellaneous' last, Restore profile defaults: an action row (ExtrasMenuOps.reset_profile) */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
 /* where page 2 starts, and how many rows each page shows: the second page is the rest of the list */
@@ -113,13 +113,11 @@ typedef struct ExtrasMenuOps {
     /* port: a group's header as the credits draw theirs (tan capitals, underlined `width` pixels long); NULL draws it
      * as a red row */
     void (*plus_header)(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
-    /* port: persist the on-screen state — extras.cfg from `e` and the unlock level. The caller decides the files. */
+    /* port: persist the on-screen state — the mode's file from `e` and the unlock level. The caller decides the files. */
     void (*extras_save)(void *ctx, const PortExtras *e, int16_t unlock);
     /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),
      * where the exe's screen switches one off as the other is turned on. 0 is the exe. */
     int port_combine_variants;
-    /* port (radar_all_views): 1 when the police radar shows in every outside view, so its row reads "Police radar" and not "Bumper view police radar" */
-    int radar_all_views;
     void *ctx;
     /* port: the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and one drawn in
      * a style's colours (lit yellow, else cream). Both NULL keeps the text "1/2 >". */
@@ -128,6 +126,11 @@ typedef struct ExtrasMenuOps {
     /* port: the Open the log folder row's action, run on Return, Space or a click on it (not on the arrows); the platform's file browser on the folder that holds tnfs.log.
      * NULL: the row does nothing. */
     void (*open_log_folder)(void *ctx);
+    /* port (modes): the Profile in use: a row its mode does not leave free is dimmed, shows the mode's value and does not change */
+    int profile;
+    /* port (modes): the Restore row's action: asked first with `ask`, then the mode's file emptied and `e` set to what it now reads. NULL: the row does nothing */
+    int32_t (*ask)(void *ctx, const char *text);
+    void (*reset_profile)(void *ctx, PortExtras *e);
 } ExtrasMenuOps;
 
 /* The two pages, run sequentially over the screen's live picture. 1 on Done (extras_save was called),

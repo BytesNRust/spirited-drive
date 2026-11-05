@@ -180,7 +180,7 @@ static int run_drive(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
-    resource_set_units(port_extras_load().units);   /* port: the speed's units from extras.cfg, the language's by default */
+    resource_set_units(port_extras_load().units);   /* port: the speed's units from the mode's file, the language's by default */
     timer_init();
     pointer_load(0);
     text_init();
@@ -212,7 +212,7 @@ static int run_game(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
-    /* port: the speed's units from extras.cfg from the first screen (run_drive and the headless frame set them; the menus' game never did, so km/h in the file
+    /* port: the speed's units from the mode's file from the first screen (run_drive and the headless frame set them; the menus' game never did, so km/h in the file
      * read mph until CUSTOMIZE's Done was pressed in the session) */
     resource_set_units(port_extras_load().units);
     port_log("units: %s\n", resource_kmh() ? "km/h" : "mph");

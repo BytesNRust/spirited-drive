@@ -1,4 +1,4 @@
-/* port: the port's own extras (extras.cfg): the cheat codes as switches that last, and the handful of
+/* port: the port's own extras (the mode's file): the cheat codes as switches that last, and the handful of
  * things the original never offered as options. Kept apart from config.dat, which the game owns. */
 #ifndef TNFS_PORT_EXTRAS_H
 #define TNFS_PORT_EXTRAS_H
@@ -24,8 +24,6 @@ enum { CAR_PAINT_SLOTS = 12, PAINT_OWN = 0, PAINT_PS1 = 1, PAINT_CATALOGUE = 2 }
 typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
-    int modern_3d;    /* 0/1: the 3D clipped, unsnapped and perspective-correct, not the PS1-era mapper's warp */
-    int texture_filter, fog;    /* 0/1, over Modern 3D (modern_road.h's ModernStyle); nothing without it */
     int bumper_mirror, bumper_radar;   /* 0/1: the rear-view mirror and the radar detector in the bumper view, under
                                         * the scoreboard (F1 / F2 turn them over in a race) */
     int variant_time; /* 0/1: the time of day offered with Mirror or Rally (fam_mirror.h), which the original hides */
@@ -43,8 +41,6 @@ typedef struct {
     int psx_liveries;   /* 0/1: the car colours (the CUSTOMIZE switch; the key keeps its old name): every car offers its catalogue paints
                          * (car_paint.h) and, with the port.cfg psx_dir's files, the PS1 game's second livery (car_livery.h); the
                          * player's pick is car_paint, the rivals' are drawn from the race's seed; off, the exe's colours. Last, as dash_box. */
-    int psx_livery_cars;    /* the old per-car mask (bit c: car c on its PS1 livery), read only: an old extras.cfg's choices become
-                             * car_paint's 1; never written. Last, after psx_liveries. */
     uint8_t car_paint[CAR_PAINT_SLOTS];   /* the player's paint per car (the car showcase's Color box): PAINT_OWN 0 the car's own colour,
                                            * PAINT_PS1 1 the PS1 livery, PAINT_CATALOGUE + k the k-th catalogue paint
                                            * (car_paint.h). Written as car_paint=<one hex digit a car>. */
@@ -57,10 +53,9 @@ typedef struct {
     int rally_gravel;   /* 0/1: the rally rolls on gravel (rally_gravel.h): a gravel noise all along, and dust from the desert's tyres; 0 the
                          * exe's. Off. Last, after lunar_gravity. */
     int update_check;   /* 0/1: THE switch for the update check (one request to our API at start, platform/update.h) and the three anonymous one-shot counters (port_stats.h); On; the EXTRAS row reads "Updates and anonymous stats". Last, after rally_gravel. */
-    int rain_lightning; /* 0/1: with weather=rain, a storm: lightning flashes of one frame (weather.h's weather_rain_flash); the EXTRAS row "Rain with storm". Off. Last, after update_check. */
 } PortExtras;
 
-/* the player's paint choice for `car` as extras.cfg has it (PAINT_OWN for a car without a slot), and its write back: false
+/* the player's paint choice for `car` as the mode's file has it (PAINT_OWN for a car without a slot), and its write back: false
  * when the file does not take it */
 int port_extras_car_paint(int car);
 bool port_extras_set_car_paint(int car, int paint);
@@ -73,16 +68,19 @@ PortExtras port_extras_defaults(void);
 PortExtras port_extras_parse(const char *text, size_t size);
 /* Writes the text form, NUL-terminated; returns its length, or 0 when it does not fit. */
 size_t port_extras_format(const PortExtras *e, char *out, size_t size);
-PortExtras port_extras_load(void);   /* user file "extras.cfg"; the defaults when it does not exist */
+/* The extras of the mode in use: its table's values, with what its file says for what is free in it. */
+PortExtras port_extras_load(void);
+/* in the file of the mode in use, what differs from its values and is free in it */
 bool port_extras_save(const PortExtras *e);
+enum { PORT_EXTRAS_TEXT_MAX = 1024 };
 /* The cheats that make a race's time an advantage one: NITRO 1, EXPLODE 2, TURBO 4. */
 uint32_t port_extras_cheat_marks(const PortExtras *e);
 /* port: the two switches a race turns with a key (F12 the stats overlay, F6 the car markers). A race starts with the
- * saved value, and a key in the race writes the new one back to extras.cfg. */
+ * saved value, and a key in the race writes the new one back to the mode's file. */
 typedef enum { RACE_SWITCH_STATS = 0, RACE_SWITCH_MARKERS = 1 } RaceSwitch;
-/* port: the dash box's mode a race starts with, as extras.cfg has it */
+/* port: the dash box's mode a race starts with, as the mode's file has it */
 DashBox port_extras_dash_box(void);
-int port_extras_race_on(RaceSwitch which);                      /* 0/1 as extras.cfg has it */
+int port_extras_race_on(RaceSwitch which);                      /* 0/1 as the mode's file has it */
 bool port_extras_set_race_switch(RaceSwitch which, int on);     /* the file as it is, that switch set */
 /* 1 when the speeds, distances and the cockpit's dial are in km/h: the player's choice. */
 int speed_units_kmh(SpeedUnits units);

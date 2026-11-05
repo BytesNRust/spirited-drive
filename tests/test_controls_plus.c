@@ -213,14 +213,14 @@ static RawPad with_axis(int a, int v)
     return p;
 }
 
-typedef struct Run { ControlsPageResult result; PortControls port; Fake fake; int three; } Run;
+typedef struct Run { int hide_look_back; ControlsPageResult result; PortControls port; Fake fake; int three; } Run;
 
 static void run(Run *r, const int *keys, int key_count, const RawPad *pads, int pad_count)
 {
     int16_t buttons = 0;
     const int16_t pointer_active = 0, net_off = 1, quit = 0;
     const int32_t screen = 1;
-    ControlsPlus plus = { &r->port, r->three };
+    ControlsPlus plus = { &r->port, r->three, r->hide_look_back };
     int16_t controls[13] = { 0, 0, 0, /* config.dat's keys: Left, Right, Up, Down, A, Z, Space (handbrake), C (camera), H */
                              0x4b00, 0x4d00, 0x4800, 0x5000, 'A', 'Z', ' ', 'C', 'H' };
     const int16_t german = 0;
@@ -562,6 +562,29 @@ static void test_the_keyboard_page_shows_the_exe_keys_and_says_so(void)
     CHECK(shown_as(&t.fake, "Game controller", SUBTITLE));
 }
 
+/* a mode with no 360 camera: no Look back on either page; Nitro stays, with its note, and Defaults stands right after it */
+static void test_the_mode_hides_look_back(void)
+{
+    Run r = { .port = port_controls_defaults(), .hide_look_back = 1 };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    CHECK(shown_as(&r.fake, "Nitro", SMOOTH));
+    CHECK(shown_as(&r.fake, "only when cheat enabled", NOTE));
+    CHECK(!shown(&r.fake, "Look back"));
+    CHECK(!shown(&r.fake, "only with 360 camera"));
+    int32_t nitro_y = -1, defaults_y = -1;
+    for (int i = 0; i < r.fake.drawn_count; i++) {
+        const Text *w = &r.fake.drawn[i];
+        if (w->kind == SMOOTH && strcmp(w->text, "Nitro") == 0) nitro_y = w->y;
+        if (w->kind == SMOOTH && strcmp(w->text, "Defaults") == 0) defaults_y = w->y;
+    }
+    CHECK(nitro_y >= 0 && defaults_y > nitro_y);
+    Run p = { .port = port_controls_defaults(), .hide_look_back = 1 };
+    run(&p, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown(&p.fake, "Nitro"));
+    CHECK(!shown(&p.fake, "Look back"));
+    CHECK(!shown(&p.fake, "only with 360 camera"));
+}
+
 static void test_nitro_and_look_back_rows_say_when_they_work(void)
 {
     Run r = { .port = port_controls_defaults() };
@@ -707,6 +730,7 @@ int main(void)
 {
     test_tuning_stays_in_range();
     test_nitro_and_look_back_rows_say_when_they_work();
+    test_the_mode_hides_look_back();
     test_enter_captures_a_stick_for_both_ways_of_steering();
     test_the_prompt_gives_way_to_a_long_label();
     test_escape_in_a_capture_assigns_nothing();

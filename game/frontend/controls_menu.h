@@ -98,6 +98,7 @@ typedef struct ControlsPlus {
     int32_t port_three_pages;   /* port: 1 the screen is the three pages (Keyboard, Game controller, tuning) and opens on the
                                  * first, the exe's page left out (its device choice is port_pad_and_keys' to do: input_read.c);
                                  * 0 the exe's page first, four pages */
+    int32_t hide_look_back;     /* port (modes): 1 no Look back row, on either page (it is the last of each, so no gap is left): the mode has no 360 camera to look back with */
 } ControlsPlus;
 
 /* the globals the screen reads, through pointers as the original reads memory */

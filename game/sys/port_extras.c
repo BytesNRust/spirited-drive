@@ -1,4 +1,4 @@
-/* port: the port's own extras file (extras.cfg). */
+/* port: the port's own extras file (the mode's file). */
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PORT_EXTRAS_NAME "extras.cfg"
-#define PSX_LIVERY_CARS_MASK 0xfff   /* cars 0..11 (11 the Warrior) */
 
 static const char *const START_NAMES[] = { "game_mode", "network", "central" };
 static const char *const UNIT_NAMES[] = { "mph", "kmh" };
@@ -19,18 +17,18 @@ static const char *const DASH_BOX_NAMES[] = { "map", "lever", "hidden" };
 /* The switches, in the order they are written. */
 static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas", "explode", "nitro",
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
-                                            "modern_3d", "texture_filter", "fog", "bumper_mirror",
+                                            "bumper_mirror",
                                             "bumper_radar", "variant_time", "stats_overlay", "car_markers",
-                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity", "rally_gravel", "update_check", "rain_lightning" };
+                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity", "rally_gravel", "update_check" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
 static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
 {
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
-                        e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists, e->modern_3d,
-                        e->texture_filter, e->fog, e->bumper_mirror, e->bumper_radar, e->variant_time,
-                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity, e->rally_gravel, e->update_check, e->rain_lightning };
+                        e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists,
+                        e->bumper_mirror, e->bumper_radar, e->variant_time,
+                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity, e->rally_gravel, e->update_check };
     memcpy(rows, all, sizeof all);
 }
 
@@ -38,16 +36,16 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 {
     int *const all[] = { &e->mirror, &e->rally,  &e->warrior, &e->vegas,  &e->explode, &e->nitro,
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
-                         &e->modern_3d, &e->texture_filter, &e->fog, &e->bumper_mirror, &e->bumper_radar,
+                         &e->bumper_mirror, &e->bumper_radar,
                          &e->variant_time, &e->stats_overlay, &e->car_markers, &e->lunar_springs, &e->movies_wide,
-                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel, &e->update_check, &e->rain_lightning };
+                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel, &e->update_check };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
 
 PortExtras port_extras_defaults(void)
 {
-    const PortExtras d = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, START_GAME_MODE, UNITS_MPH, 0, DASH_BOX_MAP, 1, 0, 0, 0, { 0 }, 0, 0, 1, 0, 1, 0 };
+    const PortExtras d = { .car_markers = 1, .start = START_GAME_MODE, .units = UNITS_MPH, .dash_box = DASH_BOX_MAP, .movies_wide = 1, .difficulty = 1, .update_check = 1 };
     return d;
 }
 
@@ -71,11 +69,6 @@ static void apply(PortExtras *e, const char *key, const char *value)
         for (int i = 0; i < 3; i++)
             if (strcmp(value, DASH_BOX_NAMES[i]) == 0)
                 e->dash_box = (DashBox)i;
-        return;
-    }
-    if (strcmp(key, "psx_livery_cars") == 0) {   /* the old mask: read, never written */
-        if (parse_int(value, &n) && n >= 0 && n <= PSX_LIVERY_CARS_MASK)
-            e->psx_livery_cars = (int)n;
         return;
     }
     if (strcmp(key, "car_paint") == 0) {
@@ -114,7 +107,6 @@ static void apply(PortExtras *e, const char *key, const char *value)
 PortExtras port_extras_parse(const char *text, size_t size)
 {
     PortExtras e = port_extras_defaults();
-    int has_paint = 0;
     size_t pos = 0;
     while (pos < size) {
         char line[64];
@@ -132,12 +124,8 @@ PortExtras port_extras_parse(const char *text, size_t size)
         if (eq) {
             *eq = '\0';
             apply(&e, line, eq + 1);
-            has_paint |= strcmp(line, "car_paint") == 0;
         }
     }
-    if (!has_paint)   /* an old file: its PS1 choices are the paint 1 */
-        for (int c = 0; c < CAR_PAINT_SLOTS; c++)
-            if ((e.psx_livery_cars >> c) & 1) e.car_paint[c] = PAINT_PS1;
     return e;
 }
 
@@ -164,29 +152,26 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
     return (size_t)(n + w);
 }
 
+static void take_extra(void *to, const char *key, const char *value) { apply(to, key, value); }
+
 PortExtras port_extras_load(void)
 {
+    const Profile p = (Profile)port_settings_profile();
+    PortExtras e = port_profile_extras(p, port_extras_defaults());
     size_t size = 0;
-    uint8_t *data = platform_read_user_file(PORT_EXTRAS_NAME, &size);
-    if (!data)
-        return port_profile_extras((Profile)port_settings_profile(), port_extras_defaults());
-    const PortExtras e = port_extras_parse((const char *)data, size);
+    uint8_t *data = platform_read_user_file(port_profile_file(p), &size);
+    if (data == NULL) return e;
+    port_profile_read_free(p, (const char *)data, size, take_extra, &e);
     platform_free_file(data);
-    return port_profile_extras((Profile)port_settings_profile(), e);   /* a profile's switches are its table's, whatever the file says */
+    return e;
 }
 
 bool port_extras_save(const PortExtras *e)
 {
-    char text[1024];   /* the file is about 400 bytes with 25 switches; a key more must never push it past the buffer */
-    const size_t n = port_extras_format(e, text, sizeof text);
-    if (n == 0) {
-        port_log("extras: extras.cfg was not saved: its text does not fit %zu bytes\n", sizeof text);
-        return false;
-    }
-    const bool saved = platform_write_user_file(PORT_EXTRAS_NAME, (const uint8_t *)text, n);
-    const int profile = port_settings_profile();
-    if (saved && profile != PROFILE_CUSTOM && !port_profile_extras_match((Profile)profile, e)) port_settings_profile_custom();   /* changed by hand: the profile is no more */
-    return saved;
+    const PortSettings s = port_settings_load();
+    if (port_mode_save(&s, e)) return true;
+    port_log("extras: %s was not saved\n", port_profile_file((Profile)s.profile));
+    return false;
 }
 
 DashBox port_extras_dash_box(void)
@@ -230,6 +215,5 @@ bool port_extras_set_car_paint(int car, int paint)
     if (car < 0 || car >= CAR_PAINT_SLOTS || paint < 0 || paint > 15) return false;
     PortExtras e = port_extras_load();
     e.car_paint[car] = (uint8_t)paint;
-    e.psx_livery_cars = 0;   /* the old mask is folded into car_paint at load and not written back */
     return port_extras_save(&e);
 }

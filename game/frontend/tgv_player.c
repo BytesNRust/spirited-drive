@@ -103,7 +103,7 @@ static int wait_until(uint32_t at)
     return 0;
 }
 
-/* port (extras.cfg movies_wide): the width of a wide screen's frame, before the render scale, when the movies fill it;
+/* port (the mode's file movies_wide): the width of a wide screen's frame, before the render scale, when the movies fill it;
  * 0 when they keep the exe's look (the 4:3 frame), as always at 4:3 */
 static int wide_width(void)
 {

@@ -1,23 +1,23 @@
 /* port: see port_profile.h. */
 #include "game/sys/port_profile.h"
 
-#include "game/platform/platform.h"
-
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-static const char *const KEYS[PROFILE_COUNT] = { "custom", "stock", "restored", "restomod" };
-static const char *const TITLES[PROFILE_COUNT] = { "Custom", "Stock '96", "Restored '96", "Restomod '26" };
-static const char *const LINE1[PROFILE_COUNT] = { "Your own mix of settings.", "Factory spec. Every bolt as it shipped.", "Original paint, new bearings.",
+static const char *const KEYS[PROFILE_COUNT] = { "stock", "restored", "restomod" };
+static const char *const FILES[PROFILE_COUNT] = { "stock.cfg", "restored.cfg", "restomod.cfg" };
+static const char *const TITLES[PROFILE_COUNT] = { "Stock '96", "Restored '96", "Restomod '26" };
+static const char *const LINE1[PROFILE_COUNT] = { "Factory spec. Every bolt as it shipped.", "Original paint, new bearings.",
                                                  "Original block, period-correct mods." };
-static const char *const LINE2[PROFILE_COUNT] = { "", "4:3, as it shipped in 1996. Nothing touched.", "Same look, widescreen at 144 Hz.",
+static const char *const LINE2[PROFILE_COUNT] = { "4:3, as it shipped in 1996. Nothing touched.", "Same look, widescreen at 144 Hz.",
                                                  "1996 renderer, 2026 power: night, lights, paint jobs." };
 
-const char *port_profile_key(Profile p) { return p >= 0 && p < PROFILE_COUNT ? KEYS[p] : KEYS[PROFILE_CUSTOM]; }
-const char *port_profile_title(Profile p) { return p >= 0 && p < PROFILE_COUNT ? TITLES[p] : TITLES[PROFILE_CUSTOM]; }
-const char *port_profile_line1(Profile p) { return p >= 0 && p < PROFILE_COUNT ? LINE1[p] : LINE1[PROFILE_CUSTOM]; }
-const char *port_profile_line2(Profile p) { return p >= 0 && p < PROFILE_COUNT ? LINE2[p] : LINE2[PROFILE_CUSTOM]; }
+const char *port_profile_key(Profile p) { return p >= 0 && p < PROFILE_COUNT ? KEYS[p] : KEYS[PROFILE_STOCK]; }
+const char *port_profile_file(Profile p) { return p >= 0 && p < PROFILE_COUNT ? FILES[p] : FILES[PROFILE_STOCK]; }
+const char *port_profile_title(Profile p) { return p >= 0 && p < PROFILE_COUNT ? TITLES[p] : TITLES[PROFILE_STOCK]; }
+const char *port_profile_line1(Profile p) { return p >= 0 && p < PROFILE_COUNT ? LINE1[p] : LINE1[PROFILE_STOCK]; }
+const char *port_profile_line2(Profile p) { return p >= 0 && p < PROFILE_COUNT ? LINE2[p] : LINE2[PROFILE_STOCK]; }
 
 int port_profile_named(const char *name)
 {
@@ -39,16 +39,16 @@ ScreenFormat port_profile_monitor_format(int width, int height)
     return SCREEN_4_3;
 }
 
-/* what a profile sets: the picture and the look, not the player's own matters (full screen, laps, PS1 folder, time of day, weather, threads, view's field) */
+/* what a mode sets, column by column; what has no column (laps, time of day, weather, threads, the view's field) is at port_settings_defaults in every mode */
 typedef struct {
     int widescreen;   /* 1: the monitor's format, else 4:3 */
     int refresh_hz, view_ultra, perspective, texture_filter, fog, f3_ultra, render_scale;
     int psx_light, psx_headlights, psx_shadow, psx_flares, body_shine, car_colours, fog_sample, sky_fill;
-    int movies_wide, psx_liveries, rally_gravel;   /* extras.cfg's */
+    int movies_wide, psx_liveries, rally_gravel;   /* the mode's file's */
     int made_tunnels, hall_light, headlight_relight, night_stretch_clean;   /* port.cfg's, appended after the extras' three */
     int forest_dark;   /* port.cfg's, appended */
     int night_sky_hue;   /* port.cfg's, appended */
-    int bumper_mirror, bumper_radar, follow_camera;   /* extras.cfg's, appended */
+    int bumper_mirror, bumper_radar, follow_camera;   /* the mode's file's, appended */
     int scale_integer;   /* port.cfg's, appended: 1 whole multiples only, 0 fill */
     int last_camera, replay_no_ffb;   /* port.cfg's, appended */
     int sky_fill_below;   /* port.cfg's, appended */
@@ -68,12 +68,88 @@ static const Table TABLES[PROFILE_COUNT] = {
     [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 0, 1, 0, 2, 0, 0, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
-static int controlled(Profile p) { return p > PROFILE_CUSTOM && p < PROFILE_COUNT; }
+/* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
+static const char *const FREE_IN_ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check", NULL };
+static const char *const FREE_IN_RESTORED[] = { "format", "refresh_hz", "scale", "render_bands", "stats_overlay", NULL };
+static const char *const MACHINE[] = { "profile", "psx_dir", NULL };
+
+static int listed(const char *const *list, const char *key)
+{
+    for (; *list != NULL; list++)
+        if (strcmp(*list, key) == 0) return 1;
+    return 0;
+}
+
+int port_profile_key_free(Profile p, const char *key)
+{
+    if (listed(MACHINE, key)) return 0;
+    if (p == PROFILE_RESTOMOD) return 1;
+    return listed(FREE_IN_ALL, key) || (p == PROFILE_RESTORED && listed(FREE_IN_RESTORED, key));
+}
+
+/* one line of `text` from `pos` into `line` (cut to its size, no line end); the position after it */
+static size_t next_line(const char *text, size_t size, size_t pos, char *line, size_t room)
+{
+    size_t len = 0;
+    while (pos < size && text[pos] != '\n') {
+        if (len < room - 1) line[len++] = text[pos];
+        pos++;
+    }
+    if (len > 0 && line[len - 1] == '\r') len--;
+    line[len] = '\0';
+    return pos + 1;
+}
+
+void port_profile_read_free(Profile p, const char *text, size_t size, void (*take)(void *to, const char *key, const char *value), void *to)
+{
+    for (size_t pos = 0; pos < size;) {
+        char line[PSX_DIR_MAX + 32];
+        pos = next_line(text, size, pos, line, sizeof line);
+        char *eq = strchr(line, '=');
+        if (eq == NULL) continue;
+        *eq = '\0';
+        if (port_profile_key_free(p, line)) take(to, line, eq + 1);
+    }
+}
+
+static int has_line(const char *text, const char *line)
+{
+    const size_t size = strlen(text);
+    for (size_t pos = 0; pos < size;) {
+        char other[PSX_DIR_MAX + 32];
+        pos = next_line(text, size, pos, other, sizeof other);
+        if (strcmp(other, line) == 0) return 1;
+    }
+    return 0;
+}
+
+size_t port_profile_differences(Profile p, const char *base, const char *now, char *out, size_t room)
+{
+    size_t n = 0;
+    const size_t size = strlen(now);
+    if (room > 0) out[0] = '\0';
+    for (size_t pos = 0; pos < size;) {
+        char line[PSX_DIR_MAX + 32], key[64];
+        pos = next_line(now, size, pos, line, sizeof line);
+        const char *eq = strchr(line, '=');
+        if (eq == NULL || (size_t)(eq - line) >= sizeof key || has_line(base, line)) continue;
+        memcpy(key, line, (size_t)(eq - line));
+        key[eq - line] = '\0';
+        if (!port_profile_key_free(p, key)) continue;
+        const size_t len = strlen(line);
+        if (n + len + 2 > room) return 0;
+        memcpy(out + n, line, len);
+        n += len;
+        out[n++] = '\n';
+        out[n] = '\0';
+    }
+    return n;
+}
 
 PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monitor)
 {
-    if (!controlled(p)) return s;
-    const Table *t = &TABLES[p];
+    const Table *t = &TABLES[p >= 0 && p < PROFILE_COUNT ? p : PROFILE_STOCK];
+    s.fullscreen = 1;   /* the three start full screen */
     s.format = t->widescreen ? monitor : SCREEN_4_3;
     s.refresh_hz = t->refresh_hz, s.view_ultra = t->view_ultra, s.perspective = t->perspective, s.texture_filter = t->texture_filter, s.fog = t->fog;
     s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.psx_light = t->psx_light, s.psx_headlights = t->psx_headlights, s.psx_shadow = t->psx_shadow;
@@ -95,83 +171,10 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
 
 PortExtras port_profile_extras(Profile p, PortExtras e)
 {
-    if (!controlled(p)) return e;
-    const Table *t = &TABLES[p];
+    const Table *t = &TABLES[p >= 0 && p < PROFILE_COUNT ? p : PROFILE_STOCK];
+    e.variant_time = p == PROFILE_RESTOMOD;   /* the time of day also with Mirror and Rally */
+    e.reverse = p == PROFILE_RESTOMOD;   /* the track screen offers the way round */
     e.movies_wide = t->movies_wide, e.psx_liveries = t->psx_liveries, e.rally_gravel = t->rally_gravel;
     e.bumper_mirror = t->bumper_mirror, e.bumper_radar = t->bumper_radar, e.follow_camera = t->follow_camera;
     return e;
 }
-
-int port_profile_settings_match(Profile p, const PortSettings *s, ScreenFormat monitor)
-{
-    if (!controlled(p)) return 1;
-    const PortSettings want = port_profile_settings(p, *s, monitor);
-    return s->format == want.format && s->refresh_hz == want.refresh_hz && s->view_ultra == want.view_ultra && s->perspective == want.perspective &&
-           s->texture_filter == want.texture_filter && s->fog == want.fog && s->f3_ultra == want.f3_ultra && s->render_scale == want.render_scale &&
-           s->psx_light == want.psx_light && s->psx_headlights == want.psx_headlights && s->psx_shadow == want.psx_shadow && s->psx_flares == want.psx_flares &&
-           s->body_shine == want.body_shine && s->car_colours == want.car_colours && s->fog_sample == want.fog_sample && s->sky_fill == want.sky_fill &&
-           s->made_tunnels == want.made_tunnels && s->hall_light == want.hall_light && s->headlight_relight == want.headlight_relight &&
-           s->night_stretch_clean == want.night_stretch_clean &&
-           s->forest_dark == want.forest_dark &&
-           s->night_sky_hue == want.night_sky_hue && s->scale_integer == want.scale_integer &&
-           s->last_camera == want.last_camera && s->replay_no_ffb == want.replay_no_ffb && s->sky_fill_below == want.sky_fill_below && s->radar_all_views == want.radar_all_views && s->tach_dim == want.tach_dim && s->gauge_wheel == want.gauge_wheel &&
-           s->police_glow == want.police_glow &&
-           s->car_tunnel_light == want.car_tunnel_light && s->vegas_car_night == want.vegas_car_night && s->rally_gravel_shoulder == want.rally_gravel_shoulder &&
-           s->chase_height == want.chase_height && s->lamp_pool_tint == want.lamp_pool_tint && s->trans_shadows == want.trans_shadows && s->canyon_shade == want.canyon_shade && s->tunnel_headlight == want.tunnel_headlight && s->parking_dark == want.parking_dark && s->forest_neutral == want.forest_neutral && s->cavern_dark == want.cavern_dark && s->vegas_objects == want.vegas_objects && s->close_houses == want.close_houses && s->brake_over_gas == want.brake_over_gas && s->lamp_pools == want.lamp_pools && s->lamp_car_shade == want.lamp_car_shade && s->reverse_rows == want.reverse_rows && s->city_lift == want.city_lift && s->vegas_lift == want.vegas_lift && s->headlight_cone == want.headlight_cone && s->rain_fx == want.rain_fx && s->rain_grip == want.rain_grip && s->gauge_light == want.gauge_light && s->finish_gate_light == want.finish_gate_light && s->lamp_pool_bright == want.lamp_pool_bright && s->night_tone == want.night_tone && s->rain_lamps == want.rain_lamps && s->gauge_exterior == want.gauge_exterior && s->sign_glow == want.sign_glow;
-}
-
-int port_profile_extras_match(Profile p, const PortExtras *e)
-{
-    if (!controlled(p)) return 1;
-    const PortExtras want = port_profile_extras(p, *e);
-    return e->movies_wide == want.movies_wide && e->psx_liveries == want.psx_liveries && e->rally_gravel == want.rally_gravel &&
-           e->bumper_mirror == want.bumper_mirror && e->bumper_radar == want.bumper_radar && e->follow_camera == want.follow_camera;
-}
-
-/* the Options screen's Cancel: port.cfg and extras.cfg as they were before the first profile step, kept in memory (the files are tiny) */
-static struct {
-    int armed, taken;
-    uint8_t *file[2];
-    size_t size[2];
-} undo;
-static const char *const UNDO_NAMES[2] = { "port.cfg", "extras.cfg" };
-
-static void undo_free(void)
-{
-    for (int i = 0; i < 2; i++) free(undo.file[i]), undo.file[i] = NULL, undo.size[i] = 0;
-    undo.armed = undo.taken = 0;
-}
-
-void port_profile_undo_begin(void)
-{
-    undo_free();
-    undo.armed = 1;
-}
-
-void port_profile_undo_note(void)
-{
-    if (!undo.armed || undo.taken) return;
-    for (int i = 0; i < 2; i++) {
-        size_t n = 0;
-        uint8_t *data = platform_read_user_file(UNDO_NAMES[i], &n);
-        if (data != NULL && n > 0) {
-            undo.file[i] = malloc(n);
-            if (undo.file[i] != NULL) memcpy(undo.file[i], data, n), undo.size[i] = n;
-        }
-        if (data != NULL) platform_free_file(data);
-    }
-    undo.taken = 1;
-}
-
-int port_profile_undo_restore(void)
-{
-    int ok = 1, restored = undo.taken;
-    for (int i = 0; undo.taken && i < 2; i++) {
-        static const uint8_t NONE[] = "\n";   /* a file that was not there: an empty one reads as the defaults, with no profile */
-        ok &= platform_write_user_file(UNDO_NAMES[i], undo.file[i] != NULL ? undo.file[i] : NONE, undo.file[i] != NULL ? undo.size[i] : 1) ? 1 : 0;
-    }
-    undo_free();
-    return restored ? (ok ? 1 : -1) : 0;
-}
-
-void port_profile_undo_end(void) { undo_free(); }
