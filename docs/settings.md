@@ -70,7 +70,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `brake_over_gas` | 0 | 0 | 0, 1 (a pad's brake past its dead zone beats the gas: the car brakes and the brake light lights; 0 sums them as the exe does) | none | `TNFS_BRAKE_OVER_GAS` | 0 / 0 / 1 | none |
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
 | `lamp_pool_bright` | 0 | 0 | 0, 1 (a street lamp's pool is not dimmed by the night's dark floor: under the lamp the light is full, fading with the pool; 0 the pool is dimmed by the headlights' gain) | none | `TNFS_LAMP_POOL_BRIGHT` | 0 / 0 / 0 | `psx_headlights` |
-| `sign_glow` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 0 | `psx_headlights`, CY1 |
+| `sign_glow` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 1 | `psx_headlights`, CY1 |
 | `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `psx_headlights`, `perspective` (without Perspective Correction the cone counts as 0: the node pool) |
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
 | `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 1 | `weather=rain` |
@@ -214,7 +214,7 @@ All 43 columns of the table, in file order. A column that is not here is not tou
 | `gauge_light` | port.cfg | 0 | 0 | 0 |
 | `finish_gate_light` | port.cfg | 0 | 0 | 1 |
 | `lamp_pool_bright` | port.cfg | 0 | 0 | 0 |
-| `sign_glow` | port.cfg | 0 | 0 | 0 |
+| `sign_glow` | port.cfg | 0 | 0 | 1 |
 | `reverse_rows` | port.cfg | 0 | 0 | 1 |
 | `city_lift` | port.cfg | 0 | 0 | 1 |
 | `vegas_lift` | port.cfg | 0 | 0 | 2 |
