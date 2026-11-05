@@ -15,6 +15,16 @@ void weather_sky_rows(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
     }
 }
 
+void weather_mood_rows(uint8_t *pixels, int32_t pitch, const int32_t box[4], const uint8_t table[256], int share)
+{
+    static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    for (int32_t y = box[1]; y < box[3]; y++) {
+        uint8_t *row = pixels + (size_t)y * (size_t)pitch;
+        for (int32_t x = box[0]; x < box[2]; x++)
+            if (BAYER[y & 3][x & 3] < share) row[x] = table[row[x]];
+    }
+}
+
 void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, int32_t top, int32_t bottom,
                       const uint8_t tables[][256], int low, int high, int32_t cx, int32_t cy, float focal, const float up[3])
 {
@@ -97,20 +107,17 @@ void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uin
                 const int32_t px = cx + x, py = cy + y;
                 copy[y + r + 1][x + r + 1] = px >= 0 && px < w && py >= 0 && py < h ? pixels[(size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px)] : 0;
             }
-        for (int32_t y = -r; y <= r; y++)
+        for (int32_t y = -r; y <= r; y++)   /* a filled, soft blob: the scene behind it turned and darker, its edge a dither that thins out, a small highlight on the upper left */
             for (int32_t x = -r; x <= r; x++) {
                 const int32_t px = cx + x, py = cy + y;
                 if (px < 0 || px >= w || py < 0 || py >= h) continue;
-                if (keep * 1 <= BAYER[py & 3][px & 3]) continue;
-                const float dist = sqrtf((float)(x * x + y * y));
-                if (dist > (float)r + 0.5f) continue;
+                const float dist = sqrtf((float)(x * x + y * y)), soft = fmaxf(1.5f, 0.45f * (float)r);   /* the edge's width */
+                const float cover = fminf(1.0f, ((float)r + 0.5f - dist) / soft);
+                if (cover <= 0.0f || cover * (float)keep <= (float)BAYER[py & 3][px & 3]) continue;
                 uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
-                if (dist > (float)r - 1.0f) {   /* the rim, lit from the upper left */
-                    *p = tables[x + y < 0 ? edge : (edge > 0 ? edge - 1 : 0)][*p];
-                } else {                        /* the body: the world behind, turned about the centre and a little smaller, darker */
-                    const int32_t sx = -(x * 4) / 5, sy = -(y * 4) / 5;
-                    *p = body[copy[sy + r + 1][sx + r + 1]];
-                }
+                const int32_t sx = -(x * 4) / 5, sy = -(y * 4) / 5;
+                *p = body[copy[sy + r + 1][sx + r + 1]];
+                if (r >= 3 && x == -r / 3 && y == -r / 3) *p = tables[edge][*p];   /* the light on it */
             }
     }
 }

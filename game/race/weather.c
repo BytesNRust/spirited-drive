@@ -7,7 +7,7 @@
 
 enum {
     DROPS_640x480 = 240,       /* the count in a 640 x 480 view; more pixels, more drops */
-    DROPS_FX_640x480 = 80,      /* rain_fx: far fewer, so a fast car's spokes do not cover the view */
+    DROPS_FX_640x480 = 45,      /* rain_fx: few, a hint of rain and not its main element (the references' streaks are barely there) */
     DROPS_MAX = 2000,
     FALL_MIN = 5200,           /* a streak's fall a tick, of 65536 box heights: 7 to 12 ticks across */
     FALL_RANGE = 3600,
@@ -229,7 +229,7 @@ int weather_lens_drop(int drop, uint32_t tick, int32_t speed, int32_t box_w, int
     const uint32_t life = d * 977u + cycle * 7919u;   /* a place and a size of its own every life */
     if (hash(life, 22) % 8 >= 6) return 0;             /* some lives are empty: the glass is not covered at all times */
     const float W = (float)box_w, H = (float)box_h;
-    const float full = (float)(2 + hash(life, 23) % 4) * H / 480.0f;
+    const float full = (float)(3 + hash(life, 23) % 5) * H / 480.0f;
     float x = (0.04f + 0.92f * (float)(hash(life, 24) & 0xffff) / 65536.0f) * W, y = (0.06f + 0.74f * (float)(hash(life, 25) & 0xffff) / 65536.0f) * H;
     float r = full, keep = 16.0f;
     if (u < 0.05f) r = full * (0.25f + 0.75f * u / 0.05f);   /* it lands: a few frames of growing */

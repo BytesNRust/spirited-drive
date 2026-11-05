@@ -178,7 +178,7 @@ static void test_lens_drops(void)
             total++;
             if (!ia) { had = 0; continue; }
             here++;
-            CHECK(a[0] >= 0 && a[0] < 1120 && a[1] >= 0 && a[1] < 480 && a[2] >= 1 && a[2] <= 5 && a[3] >= 1 && a[3] <= 16);
+            CHECK(a[0] >= 0 && a[0] < 1120 && a[1] >= 0 && a[1] < 480 && a[2] >= 1 && a[2] <= 7 && a[3] >= 1 && a[3] <= 16);
             const int new_life = a[3] == 16 && prev[3] < 8 && a[2] <= prev[2] + 3;   /* a life that begins as the last one ended: its own place */
             if (had && !new_life) {
                 CHECK(abs(a[0] - prev[0]) + abs(a[1] - prev[1]) <= 2);   /* it sticks: a pixel or two a frame at most */

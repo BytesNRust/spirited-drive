@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 /* Every pixel of the rows [top, bottom) of the box [left, right) through `table` (256 bytes). */
+/* port (rain v4): `table` taken to a share (0..16 of 16, an ordered dither) of the box's pixels: a grading that keeps the picture's detail where a whole-picture table would flatten it to a few palette entries. */
+void weather_mood_rows(uint8_t *pixels, int32_t pitch, const int32_t box[4], const uint8_t table[256], int share);
 void weather_sky_rows(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, int32_t top, int32_t bottom,
                       const uint8_t table[256]);
 
