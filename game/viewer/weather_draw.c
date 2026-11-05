@@ -18,10 +18,19 @@ void weather_sky_rows(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
 void weather_mood_rows(uint8_t *pixels, int32_t pitch, const int32_t box[4], const uint8_t table[256], int share)
 {
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    /* the pixel's table by its place in the 4 x 4 pattern: the grade's, or the identity where the pattern keeps the pixel: no test a pixel */
+    uint8_t phase[4][256];
     for (int32_t y = box[1]; y < box[3]; y++) {
         uint8_t *row = pixels + (size_t)y * (size_t)pitch;
-        for (int32_t x = box[0]; x < box[2]; x++)
-            if (BAYER[y & 3][x & 3] < share) row[x] = table[row[x]];
+        for (int k = 0; k < 4; k++)
+            for (int v = 0; v < 256; v++) phase[k][v] = BAYER[y & 3][k] < share ? table[v] : (uint8_t)v;
+        int32_t x = box[0];
+        for (; x < box[2] && (x & 3) != 0; x++) row[x] = phase[x & 3][row[x]];
+        for (; x + 3 < box[2]; x += 4) {
+            row[x] = phase[0][row[x]], row[x + 1] = phase[1][row[x + 1]];
+            row[x + 2] = phase[2][row[x + 2]], row[x + 3] = phase[3][row[x + 3]];
+        }
+        for (; x < box[2]; x++) row[x] = phase[x & 3][row[x]];
     }
 }
 

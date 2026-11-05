@@ -335,6 +335,20 @@ static WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int3
                          { (float)c[0] * k, (float)c[1] * k, (float)c[2] * k } };
 }
 
+typedef struct {
+    uint8_t *pixels;
+    int32_t pitch, box[4];
+    const uint8_t *table;
+    int share;
+} RainMood;
+
+static void rain_mood_band(void *user, int top, int bottom)
+{
+    const RainMood *m = user;
+    const int32_t box[4] = { m->box[0], top, m->box[2], bottom };
+    weather_mood_rows(m->pixels, m->pitch, box, m->table, m->share);
+}
+
 static int storm_flash_level(void);   /* port (rain_lightning): the lightning's brightness this frame, 0 none */
 
 static void weather_sky_band(void *user, int top, int bottom)
@@ -2126,7 +2140,10 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        if (!rain_wet_off()) weather_mood_rows(pixels, screen_w, box, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE);   /* port (rain v4): the grey, low-contrast scene of rain */
+        if (!rain_wet_off()) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
+            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE };
+            bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
+        }
         rain_cars_paint(pixels, screen_w, box, wt);
         int32_t vanish[2] = { view.centre_x, view.centre_y };
         rain_vanishing_point(vanish);
