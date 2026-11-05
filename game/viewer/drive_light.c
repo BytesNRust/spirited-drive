@@ -168,6 +168,7 @@ static const float VEGAS_CEILING[3] = { 0.35f, 0.55f, 0.80f };
 static const int CITY_FLOOR_LIFT[4] = { 0, 120, 190, 30 }, CITY_TUNNEL_FLOOR = 215, CITY_BEAM_OPEN[3] = { 190, 230, 230 }, VEGAS_FLOOR_LIFT[3] = { 0, 90, 170 };   /* the open night's dark floor lifted (of 256) */
 
 static int city_night3;   /* port (city_lift 3): this track is a City night with level 3 */
+static int city_level;    /* port (city_lift): this track is a City night with the headlights on: its level (0 when it is not) */
 
 static int is_city(const char *track) { return track != NULL && strncasecmp(track, "CY", 2) == 0; }
 /* port (city_lift 3): the beam's open-ground light for CY1..CY3 (the narrow roads and walls of CY2 and CY3 leave the beam fainter than CY1's); TNFS_CITY_BEAM_OPEN=n (1..255) takes it for the captures */
@@ -177,6 +178,18 @@ static int city_beam_open(const char *track)
     if (env != NULL && atoi(env) > 0) return atoi(env) > 255 ? 255 : atoi(env);
     const int n = track != NULL && track[2] >= '1' && track[2] <= '3' ? track[2] - '1' : 0;
     return CITY_BEAM_OPEN[n];
+}
+static int is_lost_vegas(const char *track);
+
+/* port (city_lift): the light's City fields, the same for the CD's light and for the one made from the terrain (a player with no PS1 disc) */
+static void city_fields(PsxLight *l, const char *track)
+{
+    l->lamp_bright = headlights_on ? (port_lamp_pool_bright() || city_night3) : 0;   /* lamp_pool_bright; city_lift 3 has it in the City: the lamps' pools stand out of the darker base */
+    l->beam_on_top = city_night3;   /* the beam adds over the raised floor */
+    l->lamp_local = city_night3;   /* local lamp pools */
+    l->beam_open = city_night3 ? city_beam_open(track) : 0;   /* a visible patch of the beams on the dark City road */
+    l->tunnel_floor = city_night3 ? CITY_TUNNEL_FLOOR : 0;   /* brighter tunnels */
+    l->night_lift = !headlights_on ? 0 : is_city(track) ? CITY_FLOOR_LIFT[port_city_lift()] : is_lost_vegas(track) ? VEGAS_FLOOR_LIFT[port_vegas_lift()] : 0;   /* city_lift, vegas_lift */
 }
 static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp(track, "TR4") == 0; }
 
@@ -190,6 +203,10 @@ static void use_fallback_tint(int time)
 {
     const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT];
     for (int k = 0; k < 3; k++) tint[k] = f[k] * (time != PSX_TIME_NIGHT ? 1.0f : headlights_on && (synth_wanted || made_wanted) ? NIGHT_PALETTE[k] : psx_night_light[k]);   /* a made light carries the night in its nodes with the pools */
+    if (time == PSX_TIME_NIGHT && city_level > 0) {   /* port (city_lift): the City's ceiling over the made night's tint too, as over the CD's; level 0 stays as it was */
+        const float k = psx_night_ceiling_scale(tint, CITY_CEILING[city_level]);
+        for (int c = 0; c < 3; c++) tint[c] *= k;
+    }
     port_log("psx_light: no light of this track, the flat ambient of the time: tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
 }
 
@@ -201,6 +218,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     night_sky = time == PSX_TIME_NIGHT;
     night_look = night_sky || (enabled && is_lost_vegas(track));   /* Lost Vegas is always night: its dash and effects are the night's, its sky already is */
     headlights_on = 0;
+    city_night3 = 0, city_level = 0;
     street_lamp_on = 0;
     window_boards = NULL, window_board_count = 0, dark_boards = NULL, dark_board_count = 0;
     night_lamp_spec = NULL, night_lamp_count = 0, lamp_pool_count = 0;
@@ -227,6 +245,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (!enabled) return;
     const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
     headlights_on = (time == PSX_TIME_NIGHT || is_lost_vegas(track)) && port_psx_headlights();
+    city_night3 = headlights_on && is_city(track) && port_city_lift() >= 3;
+    city_level = headlights_on && time == PSX_TIME_NIGHT && is_city(track) ? port_city_lift() : 0;
     street_lamp_count = headlights_on ? street_lamps_for(track, street_lamps, STREET_LAMPS_MAX)
                                       : port_psx_headlights() ? street_lamps_for_day(track, street_lamps, STREET_LAMPS_MAX) : 0;   /* port: the Light Effects' lamps lit by day too (street_lamp.h) */
     street_lamp_by_day = !headlights_on;
@@ -279,13 +299,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
-    city_night3 = headlights_on && is_city(track) && port_city_lift() >= 3;
-    light.lamp_bright = headlights_on ? (port_lamp_pool_bright() || city_night3) : 0;   /* port (lamp_pool_bright; city_lift 3 has it in the City: the lamps' pools stand out of the darker base) */
-    light.beam_on_top = city_night3;   /* port (city_lift 3): the beam adds over the raised floor */
-    light.lamp_local = city_night3;   /* port (city_lift 3): local lamp pools */
-    light.beam_open = city_night3 ? city_beam_open(track) : 0;   /* port (city_lift 3): a visible patch of the beams on the dark City road */
-    light.tunnel_floor = headlights_on && is_city(track) && port_city_lift() >= 3 ? CITY_TUNNEL_FLOOR : 0;   /* port (city_lift 3): brighter tunnels */
-    light.night_lift = !headlights_on ? 0 : is_city(track) ? CITY_FLOOR_LIFT[port_city_lift()] : is_lost_vegas(track) ? VEGAS_FLOOR_LIFT[port_vegas_lift()] : 0;   /* port (city_lift, vegas_lift) */
+    city_fields(&light, track);   /* port (city_lift) */
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
     if (is_lost_vegas(track))
         for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
@@ -360,7 +374,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         made.pool_class = malloc(made.nodes);
         if (made.pool_class != NULL) psx_light_lamp_classes(made.pool_class, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
-    if (lamps > 0 && (port_lamp_car_shade() || port_lamp_pool_bright())) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
+    if (lamps > 0 && (port_lamp_car_shade() || port_lamp_pool_bright() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
         made.car_pool = malloc(made.nodes);
         if (made.car_pool != NULL) psx_light_lamp_classes(made.car_pool, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
@@ -471,7 +485,8 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     light = made;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
-    light.lamp_bright = headlights_on ? port_lamp_pool_bright() : 0;   /* port (lamp_pool_bright) */
+    city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
+    if (!is_city(track)) light.night_lift = 0;   /* Lost Vegas' vegas_lift stays as it was for the made light: not part of this */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
