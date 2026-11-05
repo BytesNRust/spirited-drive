@@ -570,6 +570,13 @@ static void test_nitro_and_look_back_rows_say_when_they_work(void)
     CHECK(shown_as(&r.fake, "only when cheat enabled", NOTE));
     CHECK(shown_as(&r.fake, "Look back", SMOOTH));
     CHECK(shown_as(&r.fake, "only with 360 camera", NOTE));
+    int32_t nitro_y = -1, look_back_y = -1;
+    for (int i = 0; i < r.fake.drawn_count; i++) {
+        const Text *w = &r.fake.drawn[i];
+        if (w->kind == SMOOTH && strcmp(w->text, "Nitro") == 0) nitro_y = w->y;
+        if (w->kind == SMOOTH && strcmp(w->text, "Look back") == 0) look_back_y = w->y;
+    }
+    CHECK(nitro_y >= 0 && nitro_y < look_back_y);   /* Look back last: hiding it leaves no gap */
     Run p = { .port = port_controls_defaults() };
     run(&p, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
     CHECK(shown_as(&p.fake, "only when cheat enabled", NOTE));   /* the pad's rows too */
