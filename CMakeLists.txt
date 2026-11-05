@@ -623,6 +623,11 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_modern_road PRIVATE tnfs_game)
     target_compile_options(test_modern_road PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_road COMMAND test_modern_road)
+    add_executable(test_cone_cells tests/test_cone_cells.c game/viewer/cone_cells.c game/viewer/modern_road.c)
+    target_include_directories(test_cone_cells PRIVATE game)
+    target_link_libraries(test_cone_cells PRIVATE tnfs_game)
+    target_compile_options(test_cone_cells PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME cone_cells COMMAND test_cone_cells)
     # port (emissive lamps): no tint, light table or fog table moves an emissive palette entry
     add_executable(test_palette_emissive tests/test_palette_emissive.c game/viewer/modern_road.c)
     target_include_directories(test_palette_emissive PRIVATE game)

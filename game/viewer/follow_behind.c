@@ -115,10 +115,7 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     if (!off && B.lit && r->psx->pool != NULL && r->psx->pool->cone) {   /* port (headlight_cone): each point lit by the cones at its own place, as the main pass's track_render_relight */
         int32_t count = b->world_next;
         if (count > WORLD_CAPACITY) count = WORLD_CAPACITY;
-        for (int32_t i = 0; i < count; i++) {
-            const double at[2] = { B.world[i][0] / 65536.0, B.world[i][2] / 65536.0 };
-            B.light_vertex[i] = psx_light_at_xz(r->psx, B.vertex_node[i], B.vertex_point[i], at);
-        }
+        psx_light_relight_xz(r->psx, (const int32_t (*)[3])B.world, B.vertex_node, B.vertex_point, count, B.light_vertex);
     }
     return b->vertex_count <= WORLD_CAPACITY && w->vertex_total <= OBJECT_CAPACITY;
 }

@@ -171,7 +171,7 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
 
 int psx_light_lamp_floor(const PsxLight *light, uint32_t node)
 {
-    if (light == NULL || !light->lamp_bright || light->car_pool == NULL || light->nodes == 0) return 0;
+    if (light == NULL || !light->lamp_bright || light->car_pool == NULL || light->nodes == 0 || node == PSX_LIGHT_NO_NODE) return 0;
     const int pc = light->car_pool[node % light->nodes];
     return pc > 0 ? HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * pc / 4 : 0;
 }
@@ -190,7 +190,14 @@ int psx_light_open_gain_floor(const PsxLight *light, int lift, int lamp_floor)
     return gain;
 }
 
-int psx_light_open_gain(const PsxLight *light, int lift) { return psx_light_open_gain_floor(light, lift, 0); }
+void psx_light_relight_xz(const PsxLight *light, const int32_t (*world)[3], const uint32_t *node, const uint8_t *point, int32_t count, uint8_t *out)
+{
+    if (light == NULL || light->pool == NULL || !light->pool->cone || world == NULL || node == NULL || point == NULL || out == NULL) return;
+    for (int32_t i = 0; i < count; i++) {
+        const double at[2] = { world[i][0] / 65536.0, world[i][2] / 65536.0 };
+        out[i] = psx_light_at_xz(light, node[i], point[i], at);
+    }
+}
 
 uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const double *xz)
 {

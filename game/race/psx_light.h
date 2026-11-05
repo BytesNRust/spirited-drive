@@ -84,12 +84,17 @@ uint8_t psx_light_at_xz(const PsxLight *light, uint32_t node, int point, const d
  * PSX_LIGHT_FULL without data. */
 uint8_t psx_light_node(const PsxLight *light, uint32_t node);
 
-/* port (headlight_cone): the open night's gain (0..256) at a beam lift 0..256: what psx_light_at multiplies a row's byte by outside a tunnel, the dark's floor and the night lift in it (256 without a pool) */
-int psx_light_open_gain(const PsxLight *light, int lift);
-
-/* port (lamp_pool_bright): the floor (0..256, 0 none) a street lamp's pool lifts a node to, and the open gain with such a floor */
+/* port (lamp_pool_bright): the floor (0..256, 0 none) a street lamp's pool lifts a node to (0 for PSX_LIGHT_NO_NODE); and the open night's gain (0..256) at a beam lift 0..256 with such a floor: what
+ * psx_light_at multiplies a row's byte by outside a tunnel, the dark's floor and the night lift in it (256 without a pool) */
 int psx_light_lamp_floor(const PsxLight *light, uint32_t node);
 int psx_light_open_gain_floor(const PsxLight *light, int lift, int lamp_floor);
+
+/* a node that is not known (a polygon drawn by a pass that has none): no street lamp's floor is read for it, the open night's is used */
+#define PSX_LIGHT_NO_NODE 0xffffffffu
+
+/* port (headlight_cone): the light of `count` points of a built road, each at its own ground place (world: 16.16 metres x y z; node and point: the node and the place in its row of each, as the build
+ * keeps them), into out[]; the follow camera's relight. Only with a cone pool: without one (NULL pool or cone 0) out[] is left as it is. */
+void psx_light_relight_xz(const PsxLight *light, const int32_t (*world)[3], const uint32_t *node, const uint8_t *point, int32_t count, uint8_t *out);
 
 /* port (headlight_cone): the same for an object that stands at the ground place xz = { x, z } in metres (NULL: as psx_light_node): the cone's light at its own place */
 uint8_t psx_light_node_xz(const PsxLight *light, uint32_t node, const double *xz);

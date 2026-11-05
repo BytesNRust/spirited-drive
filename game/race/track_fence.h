@@ -6,6 +6,7 @@
 #define TNFS_TRACK_FENCE_H
 
 #include "formats/fsh.h"
+#include "game/race/psx_light.h"
 #include "game/race/track_draw.h"
 #include "game/race/track_tables.h"
 
@@ -28,7 +29,7 @@ typedef struct {
 /* port (headlight_cone): the ground places (x, z in metres) of the polygon about to be drawn's four corners, valid (ok 1) while it is, for the sink to light inside it */
 extern double track_light_xz[4][2];
 extern int track_light_xz_ok;
-extern uint32_t track_light_node[4];   /* and their nodes (valid with track_light_xz_ok, 0 when the pass has none) */
+extern uint32_t track_light_node[4];   /* and their nodes (valid with track_light_xz_ok, PSX_LIGHT_NO_NODE when the pass has none) */
 
 typedef struct {
     const int32_t (*world)[3];   /* 0050503c */
@@ -52,7 +53,7 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
     if (track_light_xz_ok)
         for (int k = 0; k < 4; k++) {
             track_light_xz[k][0] = in->world[first + corner[k]][0] / 65536.0, track_light_xz[k][1] = in->world[first + corner[k]][2] / 65536.0;
-            track_light_node[k] = in->node != NULL ? in->node[first + corner[k]] : 0;
+            track_light_node[k] = in->node != NULL ? in->node[first + corner[k]] : PSX_LIGHT_NO_NODE;
         }
     in->light_now[4] = 1;
     in->light_now[5] = 0;   /* 1 a tunnel's polygon (all four corners), 2..5 a lamp's pool (psx_light_tunnel_class: the weakest of the four, none mixed with a tunnel) */

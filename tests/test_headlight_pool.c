@@ -282,6 +282,51 @@ static void test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own(void)
     CHECK_EQ_INT(headlight_pool_car_lift_xz(NULL, 0, 0, 0), 0);
 }
 
+/* lamp_pool_bright's floor under a street lamp: 0 unless on, with a pool class at the node; a class lifts the open floor toward full; no node asked, none read */
+static void test_the_lamp_floor(void)
+{
+    uint8_t cls[4] = { 0, 2, 4, 1 };
+    PsxLight light = { .nodes = 4, .car_pool = cls, .lamp_bright = 1 };
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 0), 0);                              /* no lamp there */
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 256);                            /* the strongest: full */
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 1), HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 2 / 4);
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 6), psx_light_lamp_floor(&light, 2));   /* the nodes wrap round the track */
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, PSX_LIGHT_NO_NODE), 0);              /* no node known: the open floor, the lamp of node 0 or any not read */
+    cls[0] = 4;
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, PSX_LIGHT_NO_NODE), 0);
+    light.lamp_bright = 0;
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 0);                              /* the flag off: the exe's */
+    light.lamp_bright = 1, light.car_pool = NULL;
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 0);
+    CHECK_EQ_INT(psx_light_lamp_floor(NULL, 2), 0);
+}
+
+/* the follow camera's relight of its vertices: each is the light at its own place, the cone only */
+static void test_the_relight_of_vertices(void)
+{
+    uint8_t rows[40 * PSX_LIGHT_POINTS];
+    memset(rows, 255, sizeof rows);
+    HeadlightPool p = cone_of(0, 0, 0, 1);
+    PsxLight light = { .data = rows, .nodes = 40, .pool = &p };
+    const int32_t world[3][3] = { { 0, 0, 8 * 65536 }, { 0, 0, -30 * 65536 }, { 90 * 65536, 0, 30 * 65536 } };
+    const uint32_t node[3] = { 5, 5, 7 };
+    const uint8_t point[3] = { 0, 0, 1 };
+    uint8_t out[3] = { 7, 7, 7 };
+    psx_light_relight_xz(&light, world, node, point, 3, out);
+    for (int i = 0; i < 3; i++) {
+        const double at[2] = { world[i][0] / 65536.0, world[i][2] / 65536.0 };
+        CHECK_EQ_INT(out[i], psx_light_at_xz(&light, node[i], point[i], at));
+    }
+    CHECK(out[0] > out[1]);                                                        /* lit ahead of the nose, dark behind it */
+    p.cone = 0;                                                                    /* no cone: nothing written, the build's own bytes stay */
+    uint8_t keep[3] = { 7, 7, 7 };
+    psx_light_relight_xz(&light, world, node, point, 3, keep);
+    CHECK_EQ_INT(keep[0], 7);
+    psx_light_relight_xz(NULL, world, node, point, 3, keep);
+    psx_light_relight_xz(&light, NULL, node, point, 3, keep);
+    CHECK_EQ_INT(keep[2], 7);
+}
+
 int main(void)
 {
     test_the_pool_ahead_of_a_car();
@@ -298,5 +343,7 @@ int main(void)
     test_the_light_bytes_with_the_cone();
     test_an_undrawn_car_just_behind_still_lights_the_road();
     test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own();
+    test_the_lamp_floor();
+    test_the_relight_of_vertices();
     return TEST_REPORT();
 }

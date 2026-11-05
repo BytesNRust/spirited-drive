@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "viewer/ported_view.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/bands.h"
