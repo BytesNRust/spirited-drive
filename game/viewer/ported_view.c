@@ -339,6 +339,20 @@ static WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int3
                          { (float)c[0] * k, (float)c[1] * k, (float)c[2] * k } };
 }
 
+typedef struct {
+    uint8_t *pixels;
+    int32_t pitch, box[4];
+    const uint8_t *table;
+    int share;
+} RainMood;
+
+static void rain_mood_band(void *user, int top, int bottom)
+{
+    const RainMood *m = user;
+    const int32_t box[4] = { m->box[0], top, m->box[2], bottom };
+    weather_mood_rows(m->pixels, m->pitch, box, m->table, m->share);
+}
+
 static int storm_flash_level(void);   /* port (rain_lightning): the lightning's brightness this frame, 0 none */
 
 static void weather_sky_band(void *user, int top, int bottom)
@@ -501,21 +515,33 @@ static int ratio_of(int32_t node, float out[3]);
 
 /* port (psx_headlights): the nodes the road itself marks a tunnel (its property bit, runs of PSX_SYNTH_MIN_RUN and more: the wooden tunnels and sheds the CD's light
  * rows do not all mark), made once for the track; NULL when it has no data */
+/* two callers ask with different counts (the light script's and the ring's): a slot each, or they would remake the flags every call, every frame;
+ * dropped when the track is forgotten (the next track's race may sit at the same address with as many nodes) */
+enum { TUNNEL_SLOTS = 2 };
+static struct { uint8_t *flags; uint32_t have; const RaceState *race; } tunnel_slot[TUNNEL_SLOTS];
+static int tunnel_next;
+
+static void road_tunnels_forget(void)
+{
+    for (int i = 0; i < TUNNEL_SLOTS; i++) free(tunnel_slot[i].flags), tunnel_slot[i].flags = NULL;
+}
+
 static const uint8_t *road_tunnels(const RaceState *race, uint32_t nodes)
 {
-    static uint8_t *flags;
-    static uint32_t have;
-    static const RaceState *for_race;
     if (nodes == 0) return NULL;
-    if (flags != NULL && have == nodes && for_race == race) return flags;
-    free(flags);
-    flags = malloc(nodes);
+    for (int i = 0; i < TUNNEL_SLOTS; i++)
+        if (tunnel_slot[i].flags != NULL && tunnel_slot[i].have == nodes && tunnel_slot[i].race == race) return tunnel_slot[i].flags;
+    const int at = tunnel_next;
+    tunnel_next = (tunnel_next + 1) % TUNNEL_SLOTS;
+    free(tunnel_slot[at].flags);
+    tunnel_slot[at].flags = NULL;
+    uint8_t *flags = malloc(nodes);
     uint8_t *property = malloc(nodes);
-    if (flags == NULL || property == NULL) { free(property); free(flags); flags = NULL; return NULL; }
+    if (flags == NULL || property == NULL) { free(property); free(flags); return NULL; }
     for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
     psx_light_synth_tunnels(property, nodes, 1, flags);
     free(property);
-    have = nodes, for_race = race;
+    tunnel_slot[at].flags = flags, tunnel_slot[at].have = nodes, tunnel_slot[at].race = race;
     return flags;
 }
 
@@ -1910,6 +1936,7 @@ void ported_view_forget_track(void)
     render.tri = NULL;
     ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
+    road_tunnels_forget();
 }
 
 void ported_view_set_reach(int32_t segments)
@@ -2149,7 +2176,10 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        if (!rain_wet_off()) weather_mood_rows(pixels, screen_w, box, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE);   /* port (rain v4): the grey, low-contrast scene of rain */
+        if (!rain_wet_off()) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
+            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE };
+            bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
+        }
         rain_cars_paint(pixels, screen_w, box, wt);
         int32_t vanish[2] = { view.centre_x, view.centre_y };
         rain_vanishing_point(vanish);
