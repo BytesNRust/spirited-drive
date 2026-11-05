@@ -13,6 +13,7 @@
 #define OLD_CFG_NAME "port.cfg"
 #define OLD_CFG_COPY "port.cfg.bak"
 #define OLD_EXTRAS_NAME "extras.cfg"
+#define OLD_EXTRAS_COPY "extras.cfg.bak"
 
 static void mark(void *to, const char *key, const char *value)
 {
@@ -20,7 +21,7 @@ static void mark(void *to, const char *key, const char *value)
     *(int *)to = 1;
 }
 
-int port_old_files_carried(const char *text, size_t size)
+static int carried_settings(const char *text, size_t size)
 {
     int carried = 0;
     port_profile_read_free(PROFILE_RESTOMOD, text, size, mark, &carried);   /* in Restomod everything but the machine's two is free */
@@ -66,10 +67,20 @@ static void from_custom(Profile p, const char *text, size_t size, const char *ex
     if (extras != NULL) port_profile_read_free(p, extras, extras_size, port_extras_take, e);
 }
 
-bool port_old_files_move(const char *text, size_t size)
+/* a copy of the old file, unless one is there: the first is the player's original */
+static bool keep_copy(const char *name, const void *text, size_t size)
 {
-    static bool failed;
-    if (failed) return false;
+    size_t have = 0;
+    uint8_t *there = platform_read_user_file(name, &have);
+    if (there != NULL) {
+        platform_free_file(there);
+        return true;
+    }
+    return platform_write_user_file(name, text, size);
+}
+
+static bool move_settings(const char *text, size_t size)
+{
     char name[16];
     const int named = value_of(text, size, "profile", name, sizeof name) ? port_profile_named(name) : -1;
     const Profile p = named >= 0 ? (Profile)named : PROFILE_RESTOMOD;
@@ -99,18 +110,24 @@ bool port_old_files_move(const char *text, size_t size)
         if (mode_file != NULL) memcpy(to, mode_file, mode_size), to += mode_size;
         *to = '\0';
     }
-    if (extras != NULL) platform_free_file(extras);
     if (mode_file != NULL) platform_free_file(mode_file);
 
     /* in this order: stopped halfway, port.cfg still carries it all and the next run does it again. What is not free in the mode stays only in the copy, and is logged. */
     int dropped = 0;
-    const bool ok = keep != NULL && platform_write_user_file(OLD_CFG_COPY, (const uint8_t *)text, size) && port_mode_write(&s, &e, keep, &dropped) && port_machine_save(p, s.psx_dir);
+    bool ok = keep != NULL && keep_copy(OLD_CFG_COPY, text, size) && (extras == NULL || keep_copy(OLD_EXTRAS_COPY, extras, extras_size)) &&
+              port_mode_write(&s, &e, keep, &dropped) && port_machine_save(p, s.psx_dir);
     free(keep);
-    if (!ok) {
-        failed = true;
-        port_log("settings: could not move the old port.cfg to %s\n", port_profile_file(p));
-        return false;
-    }
-    port_log("settings: the old port.cfg moved to %s, copy in %s\n", port_profile_file(p), OLD_CFG_COPY);
-    return true;
+    if (ok && extras != NULL && !platform_remove_user_file(OLD_EXTRAS_NAME)) port_log("settings: the old %s stays, nothing reads it\n", OLD_EXTRAS_NAME);
+    if (extras != NULL) platform_free_file(extras);
+    port_log(ok ? "settings: the old port.cfg moved to %s, copy in " OLD_CFG_COPY "\n" : "settings: could not move the old port.cfg to %s\n", port_profile_file(p));
+    return ok;
+}
+
+void port_old_files_migrate(void)
+{
+    size_t size = 0;
+    uint8_t *text = platform_read_user_file(OLD_CFG_NAME, &size);
+    if (text == NULL) return;
+    if (carried_settings((const char *)text, size)) (void)move_settings((const char *)text, size);
+    platform_free_file(text);
 }

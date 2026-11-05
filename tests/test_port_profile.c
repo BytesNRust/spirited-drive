@@ -295,11 +295,11 @@ static void test_saving(void)
     put_file("port.cfg", "profile=stock\n");
     s = port_settings_load();
     s.format = SCREEN_16_9, s.fullscreen = 0, s.fog = 1;
-    CHECK(!port_settings_save(&s));   /* the rest is written, and the caller is told */
+    CHECK(port_settings_save(&s));   /* the rest is written, what is fixed goes to the log */
     CHECK(strcmp(file_text("stock.cfg"), "fullscreen=0\n") == 0);
     e = port_extras_load();
     e.lunar_springs = 1, e.mirror = 1;
-    CHECK(!port_extras_save(&e));
+    CHECK(port_extras_save(&e));
     CHECK(strstr(file_text("stock.cfg"), "lunar_springs") == NULL);
     CHECK(strstr(file_text("stock.cfg"), "mirror=1\n") != NULL);
     /* F6 in Stock: the race's own, nothing kept */

@@ -26,6 +26,7 @@
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_old_files.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/port_stats.h"
 #include "game/sys/port_icon.h"
@@ -288,6 +289,7 @@ int main(int argc, char **argv)
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
+    port_old_files_migrate();   /* before any setting is read, and before there are threads */
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to <mods>/user with --mods */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);

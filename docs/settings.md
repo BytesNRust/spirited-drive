@@ -4,7 +4,10 @@ Every key the port reads from its two files, its default, the value that reprodu
 
 `port.cfg` holds only `profile=` and `psx_dir=`. `stock.cfg`, `restored.cfg` and `restomod.cfg` hold what the player changed in that mode, and only that. No file means Stock. All are plain `key=value` lines in the user folder. An unknown key, or a value out of range, is ignored. `config.dat` and `controls.cfg` are shared by the modes.
 
-An older `port.cfg` that still carries settings moves once to the mode's file, with a copy in `port.cfg.bak` (`game/sys/port_old_files.c`). A named mode keeps its name and what is free in it; `custom`, or no `profile` line, becomes Restomod. `extras.cfg` is read in that move and ignored after it.
+An older `port.cfg` that still carries settings moves once at startup to the mode's file (`game/sys/port_old_files.c`), with `extras.cfg`. Copies stay as `port.cfg.bak` and `extras.cfg.bak`, and `extras.cfg` goes. A copy already there is kept.
+
+- A named mode keeps its name. Its lines at a table column are not pinned: the old game ignored them, so the table's value stays and a later table reaches the player. What it left alone moves if it is free in the mode.
+- `custom`, or no `profile` line, becomes Restomod. Every key the file set stays set in `restomod.cfg`, even at the table's value, and survives later saves. A key the file did not set takes Restomod's value.
 
 ## How the pieces fit
 

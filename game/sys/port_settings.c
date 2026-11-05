@@ -4,7 +4,6 @@
 #include "game/race/weather.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
-#include "game/sys/port_old_files.h"
 #include "game/sys/port_profile.h"
 #include "game/viewer/screen_layout.h"
 
@@ -343,10 +342,6 @@ static PortSettings machine_load(void)
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
     if (data == NULL) return port_settings_defaults();
-    if (port_old_files_carried((const char *)data, size) && port_old_files_move((const char *)data, size)) {
-        platform_free_file(data);
-        return machine_load();
-    }
     const PortSettings s = port_settings_parse((const char *)data, size);
     platform_free_file(data);
     return s;
@@ -390,7 +385,6 @@ int port_settings_profile(void) { return machine_load().profile; }
 
 bool port_settings_profile_chosen(void)
 {
-    (void)machine_load();   /* an old port.cfg moves first: it counts as chosen */
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
     if (data == NULL) return false;
@@ -430,7 +424,7 @@ bool port_mode_save(const PortSettings *s, const PortExtras *e)
     int dropped = 0;
     const bool written = port_mode_write(s, e, keep, &dropped);
     free(keep);
-    return written && dropped == 0;
+    return written;   /* what was not free in the mode is in the log (port_profile_differences) */
 }
 
 bool port_settings_save(const PortSettings *s)

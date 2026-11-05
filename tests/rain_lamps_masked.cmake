@@ -1,0 +1,32 @@
+# usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P rain_lamps_masked.cmake
+# The P911 (--car 2, the car with a lamp mask) by day, seen from views 2 and 5: TNFS_RAIN_LAMPS must change the frame in rain and in storm, and not in clear.
+file(REMOVE_RECURSE "${WORK}")
+file(MAKE_DIRECTORY "${WORK}/mods/user" "${WORK}/pref")
+file(WRITE "${WORK}/mods/user/port.cfg" "profile=restomod\n")
+function(frame out view weather lamps)
+    execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0
+                            TNFS_PSX_TIME=day TNFS_WEATHER=${weather} TNFS_RAIN_LAMPS=${lamps} TNFS_VIEW=${view} TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_BANDS=0
+                            ${TNFS} --data ${REPO}/original --mods ${WORK}/mods --drive TR1 --car 2 --node 100 --screenshot ${WORK}/shot.ppm
+                    RESULT_VARIABLE rc OUTPUT_QUIET ERROR_QUIET)
+    if(NOT rc EQUAL 0 OR NOT EXISTS "${WORK}/shot.ppm")
+        message(FATAL_ERROR "view ${view} ${weather} lamps ${lamps}: the run failed (${rc})")
+    endif()
+    file(MD5 "${WORK}/shot.ppm" sum)
+    file(REMOVE "${WORK}/shot.ppm")
+    set(${out} ${sum} PARENT_SCOPE)
+endfunction()
+foreach(view 2 5)
+    foreach(weather rain storm)
+        frame(off ${view} ${weather} 0)
+        frame(on ${view} ${weather} 1)
+        if(off STREQUAL on)
+            message(FATAL_ERROR "view ${view} ${weather}: rain_lamps did not change the frame")
+        endif()
+    endforeach()
+    frame(off ${view} clear 0)
+    frame(on ${view} clear 1)
+    if(NOT off STREQUAL on)
+        message(FATAL_ERROR "view ${view} clear: rain_lamps changed the frame")
+    endif()
+endforeach()
+file(REMOVE_RECURSE "${WORK}")
