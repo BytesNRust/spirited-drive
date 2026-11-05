@@ -1006,7 +1006,7 @@ static int rain_open_at(int32_t node)
 static RainSpray rain_spray;
 static int rain_spray_on;   /* the frame draws rain_fx's spray */
 static int rain_open = 16;  /* 0..16: how much of the rain there is where the eye is: none in a tunnel, fading in and out at its mouths */
-enum { SPRAY_SIDE = 32, SPRAY_VARIANTS = 3, SPRAY_SHAPE_BYTES = 16 + SPRAY_SIDE * SPRAY_SIDE };
+enum { SPRAY_SIDE = 64, SPRAY_VARIANTS = 3, SPRAY_SHAPE_BYTES = 16 + SPRAY_SIDE * SPRAY_SIDE };
 static uint8_t spray_shape[RAIN_SPRAY_LEVELS][SPRAY_VARIANTS][SPRAY_SHAPE_BYTES];
 static uint8_t spray_identity[256];
 static const uint8_t *spray_rows[256];
@@ -1024,7 +1024,7 @@ static void spray_shapes_make(void)
             sh[0] = 0x7b, sh[4] = SPRAY_SIDE & 0xff, sh[5] = SPRAY_SIDE >> 8, sh[6] = SPRAY_SIDE & 0xff, sh[7] = SPRAY_SIDE >> 8;
             for (int y = 0; y < SPRAY_SIDE; y++)
                 for (int x = 0; x < SPRAY_SIDE; x++) {
-                    const float dx = ((float)x - 15.5f) / 16.0f, dy = ((float)y - 15.5f) / 16.0f, r2 = dx * dx + dy * dy;
+                    const float dx = ((float)x - 31.5f) / 32.0f, dy = ((float)y - 31.5f) / 32.0f, r2 = dx * dx + dy * dy;
                     const uint32_t h = rain_hash((uint32_t)(y * SPRAY_SIDE + x), (uint32_t)(l * 17 + v * 101 + 5));
                     uint8_t t = 0;
                     if (r2 < 1.0f && (int)(h % 100u) < (int)((float)DENSITY[l] * (1.0f - 0.85f * r2))) t = (h >> 12) % 5 == 0 ? 3 : (h >> 12) % 3 == 0 ? 2 : 1;   /* thicker at the heart */
