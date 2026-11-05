@@ -1,11 +1,16 @@
 #include "game/race/police_lights.h"
 
-enum { POLICE_SLOT = 2, ACTIVE = 4, CHASE = 4, SIREN_FLAGS = 0xc, SEARCH_END = 0xf0 };   /* CHASE: flags_175 (ai_police.c); SIREN_FLAGS: flags_176 (car_lights.c) */
+#include <stdlib.h>
+
+enum { POLICE_SLOT = 2, ACTIVE = 4, CHASE = 4, SIREN_FLAGS = 0xc, SEARCH_END = 0xf0, STOP_HELD = 1, STOP_NODES = 12 };   /* CHASE: flags_175 (ai_police.c); SIREN_FLAGS: flags_176 (car_lights.c) */
 
 int police_lights_on(const RaceState *race, const Car *car)
 {
-    return race != NULL && car != NULL && race->unknown_4fbab8 != 0 && car->index == POLICE_SLOT && (car->flags_51a & ACTIVE) != 0 &&
-           ((car->flags_175 & CHASE) != 0 || (car->flags_176[0] & SIREN_FLAGS) != 0);
+    if (race == NULL || car == NULL || race->unknown_4fbab8 == 0 || car->index != POLICE_SLOT || (car->flags_51a & ACTIVE) == 0) return 0;
+    if ((car->flags_175 & CHASE) != 0 || (car->flags_176[0] & SIREN_FLAGS) != 0) return 1;
+    /* port: ai_police.c's stop() clears the chase when the cop has stopped the player, who is held (physics 1); the cop stays lit while the stop lasts */
+    const Car *const player = race->cars[0];
+    return player != NULL && player != car && player->physics == STOP_HELD && abs(car->node - player->node) <= STOP_NODES;
 }
 
 static uint8_t own_red, own_blue, own_red_centre, own_blue_centre;   /* the entries set aside for the flash (0: none, the palette's nearest are used) */
@@ -21,6 +26,7 @@ void police_lights_set_found(const uint8_t entry[4], int found)
 }
 
 int police_lights_own_entry(int red) { return red ? own_red : own_blue; }
+int police_lights_own_centre(int red) { return red ? own_red_centre : own_blue_centre; }
 
 int police_lights_phase(int32_t tick) { return (int)(((uint32_t)tick / POLICE_FLASH_TICKS) & 1u); }
 

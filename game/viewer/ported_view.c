@@ -1422,6 +1422,7 @@ static void tunnel_flare_draw(const QuadTarget *t, const uint8_t palette[768])
  * lamp hides its blobs; the halo is added to the pixels' palette, in the lamp's colour at three strengths over a radius a few times the lamp's own */
 typedef struct {
     int entry;
+    int entry2;                       /* port: a second entry of the same lamp (a police lamp's centre, 0: none) whose pixels give the halo too */
     int percent[LAMP_FLARE_LEVELS];   /* the lamp's colour added to the pixel: a soft glow stronger toward the lamp */
     int reach;                        /* port: the halo's radius in percent of the usual (0 or 100: usual); the headlights' and the police lights' are powerful lights, bigger */
 } FlareLamp;
@@ -1452,6 +1453,7 @@ static void flare_lamp(const QuadTarget *t, const uint8_t palette[768], const in
 {
     uint8_t member[256] = { 0 };
     member[lamp->entry] = 1;
+    if (lamp->entry2 != 0) member[lamp->entry2] = 1;
     LampBlob blobs[LAMP_FLARE_BLOBS];
     const int count = lamp_blobs(t->pixels, t->pitch, rect[0], rect[1], rect[2], rect[3], member, blobs, LAMP_FLARE_BLOBS);
     for (int i = 0; i < count; i++)
@@ -1471,9 +1473,9 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     int n = 0;
     const int brake = drive_lamps_lit_entry(car->index, LAMP_BRAKE), reverse = drive_lamps_lit_entry(car->index, LAMP_REVERSE),
               head = drive_lamps_lit_entry(car->index, LAMP_HEADLIGHT);
-    if (brake != 0) lamps[n++] = (FlareLamp){ brake, { 30, 60, 100 }, 100 };
-    if (reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
-    if (head != 0) lamps[n++] = (FlareLamp){ head, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
+    if (brake != 0) lamps[n++] = (FlareLamp){ brake, 0, { 30, 60, 100 }, 100 };
+    if (reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, 0, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
+    if (head != 0) lamps[n++] = (FlareLamp){ head, 0, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
     const int police = police_flash_on && police_lights_on(shadow_race, car);
     const int red = police ? police_lights_own_entry(1) : 0, blue = police ? police_lights_own_entry(0) : 0;
     if (n == 0 && red == 0 && blue == 0) return;
@@ -1490,16 +1492,16 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
     const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
-    const FlareLamp copred = { red, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, BIG_REACH_POLICE };
-    const FlareLamp copblue = { blue, { copred.percent[0], copred.percent[1], copred.percent[2] }, BIG_REACH_POLICE };
-    if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, { 30, 60, 100 }, 100 };
-    if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, { 30, 60, 100 }, 100 };
+    const FlareLamp copred = { red, red != 0 ? police_lights_own_centre(1) : 0, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, BIG_REACH_POLICE };
+    const FlareLamp copblue = { blue, blue != 0 ? police_lights_own_centre(0) : 0, { copred.percent[0], copred.percent[1], copred.percent[2] }, BIG_REACH_POLICE };
+    if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, 0, { 30, 60, 100 }, 100 };
+    if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, 0, { 30, 60, 100 }, 100 };
     for (int i = 0; i < n; i++) flare_lamp(t, palette, rect, &lamps[i]);
     if (far_police && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
         const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
         const int radius = w * 7 / 10 < 8 ? 8 : w * 7 / 10 > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : w * 7 / 10;
         const int cy = rect[1] + h / 4;
-        const FlareLamp left = { phase == 0 ? red : blue, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, { 70, 120, 180 }, 100 };
+        const FlareLamp left = { phase == 0 ? red : blue, 0, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, 0, { 70, 120, 180 }, 100 };
         if (left.entry != 0) flare_halo(t, palette, &left, rect[0] + w / 3, cy, radius);
         if (right.entry != 0) flare_halo(t, palette, &right, rect[0] + w * 2 / 3, cy, radius);
     }
