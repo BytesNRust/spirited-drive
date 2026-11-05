@@ -175,7 +175,12 @@ int psx_light_lamp_floor(const PsxLight *light, uint32_t node)
 {
     if (light == NULL || !light->lamp_bright || light->car_pool == NULL || light->nodes == 0 || node == PSX_LIGHT_NO_NODE) return 0;
     const int pc = light->car_pool[node % light->nodes];
-    return pc > 0 ? HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * pc / 4 : 0;
+    if (pc <= 0) return 0;
+    if (light->lamp_local) {   /* port (city_lift 3): local pools, full at the lamp and a few metres round it, the dark base between lamps */
+        static const int LOCAL[5] = { 0, 0, 24, 96, 256 };   /* the share (of 256) of the way from the night's floor to full, by class */
+        return HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * LOCAL[pc > 4 ? 4 : pc] / 256;
+    }
+    return HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * pc / 4;
 }
 
 int psx_light_open_gain_floor(const PsxLight *light, int lift, int lamp_floor)

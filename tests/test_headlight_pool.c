@@ -296,7 +296,12 @@ static void test_the_lamp_floor(void)
     CHECK_EQ_INT(psx_light_lamp_floor(&light, PSX_LIGHT_NO_NODE), 0);
     light.lamp_bright = 0;
     CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 0);                              /* the flag off: the exe's */
-    light.lamp_bright = 1, light.car_pool = NULL;
+    light.lamp_bright = 1, light.lamp_local = 1;                                  /* city_lift 3: local pools: full only at the lamp, the outer classes at (about) the night floor */
+    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 256);
+    CHECK(psx_light_lamp_floor(&light, 1) < HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 2 / 4);
+    CHECK(psx_light_lamp_floor(&light, 3) < 140);                                  /* class 1 (node 3) hardly lifts it */
+    light.lamp_local = 0;
+    light.car_pool = NULL;
     CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 0);
     CHECK_EQ_INT(psx_light_lamp_floor(NULL, 2), 0);
 }
