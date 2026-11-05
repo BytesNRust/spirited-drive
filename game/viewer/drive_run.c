@@ -391,8 +391,8 @@ static void run_frame(void *ctx, int32_t frame)
     }
     env_buttons(frame);
     drive_input_read_keys(&drive_input);
-    start_keys_fill(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
-                    drive_sim.race.port_nitro_start);  /* the exe's keyboard handler's flags, read each step */
+    start_keys_fill_key(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
+                        drive_sim.race.port_nitro_start, drive_input.nitro_key);  /* the exe's keyboard handler's flags, read each step */
     drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
     drive_pause.detail = drive_keys.state.detail;
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);

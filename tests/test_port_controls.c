@@ -318,6 +318,28 @@ static void test_look_back_key(void)
     CHECK(port_controls_key_reserved(0x5b));   /* the pad's virtual key is not offered to the keyboard */
 }
 
+static void test_nitro_key(void)
+{
+    PortControls c = port_controls_defaults();
+    const int16_t config[13] = { 0, 0, 0, 0x4b00, 0x4d00, 0x4800, 0x5000, 'A', 'Z', ' ', 'C', 'H', 'V' };
+    int defaults[PKEY_COUNT];
+    port_controls_key_defaults(config, 0, defaults);
+    CHECK_EQ_INT(defaults[PKEY_NITRO], 0x31);
+    CHECK_EQ_INT(port_controls_nitro_key(&c), 0x31);
+    CHECK(strcmp(port_controls_key_name(PKEY_NITRO), "Nitro") == 0);
+    CHECK_EQ_INT(port_controls_set_key(&c, defaults, PKEY_NITRO, 0x22), -1);
+    CHECK_EQ_INT(port_controls_nitro_key(&c), 0x22);
+    char text[2048];
+    const size_t n = port_controls_format(&c, text, sizeof text);
+    CHECK(n > 0 && strstr(text, "key_nitro=34\n"));
+    CHECK_EQ_INT(port_controls_parse(text, n).key[PKEY_NITRO], 0x22);
+    const char *const old = "key_left=16\nkey_right=17\n";   /* a file from before the key: it is not none */
+    const PortControls from_old = port_controls_parse(old, strlen(old));
+    CHECK_EQ_INT(port_controls_nitro_key(&from_old), 0x31);
+    port_controls_reset_keys(&c);
+    CHECK_EQ_INT(port_controls_nitro_key(&c), 0x31);
+}
+
 int main(void)
 {
     test_defaults_are_todays_pad();
@@ -331,5 +353,6 @@ int main(void)
     test_nitro_is_a_binding_in_the_file();
     test_keyboard_keys();
     test_look_back_key();
+    test_nitro_key();
     return TEST_REPORT();
 }

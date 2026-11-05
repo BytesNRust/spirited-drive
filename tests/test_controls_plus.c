@@ -22,7 +22,7 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, D
        DELETE = 0x5300 };
 /* the band a row's words may stand in (controls_plus.c's ROW_TOP .. the Done band) */
 enum { BAND_TOP = 96, BAND_BOTTOM = 430 };
-enum { PLAIN = 0, SMOOTH = 1, HEADER = 2, TITLE = 3, SUBTITLE = 4 };
+enum { PLAIN = 0, SMOOTH = 1, HEADER = 2, TITLE = 3, SUBTITLE = 4, NOTE = 5 };
 /* a key script entry above 0xffff is not a key: HOLD(sc) puts a scancode down (f_key_down), RELEASE lets all go */
 #define HOLD(sc) ((sc) << 16)
 enum { RELEASE = 0x7fff0000 };
@@ -106,6 +106,11 @@ static void f_smooth(void *ctx, int32_t style, const char *text, int32_t x, int3
     (void)style, (void)x;
     f_record(ctx, SMOOTH, text, y);
 }
+static void f_note(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    (void)x;
+    f_record(ctx, NOTE, text, y);
+}
 static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
 {
     (void)x;
@@ -183,7 +188,7 @@ static ControlsMenuOps make_ops(Fake *f)
         .plus_text_width = f_text_width, .plus_panel = f_panel, .plus_save = f_save, .pad_raw = f_pad,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape, .plus_text_smooth = f_smooth, .plus_title = f_title,
         .plus_header = f_header, .plus_key_down = f_key_down, .plus_key_name = f_key_name,
-        .plus_subtitle = f_subtitle };
+        .plus_subtitle = f_subtitle, .plus_note = f_note };
     return o;
 }
 
@@ -557,6 +562,20 @@ static void test_the_keyboard_page_shows_the_exe_keys_and_says_so(void)
     CHECK(shown_as(&t.fake, "Game controller", SUBTITLE));
 }
 
+static void test_nitro_and_look_back_rows_say_when_they_work(void)
+{
+    Run r = { .port = port_controls_defaults() };
+    run(&r, KEYS(ESCAPE), PADS(idle()));
+    CHECK(shown_as(&r.fake, "Nitro", SMOOTH));
+    CHECK(shown_as(&r.fake, "only when cheat enabled", NOTE));
+    CHECK(shown_as(&r.fake, "Look back", SMOOTH));
+    CHECK(shown_as(&r.fake, "only with 360 camera", NOTE));
+    Run p = { .port = port_controls_defaults() };
+    run(&p, KEYS(RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown_as(&p.fake, "only when cheat enabled", NOTE));   /* the pad's rows too */
+    CHECK(shown_as(&p.fake, "only with 360 camera", NOTE));
+}
+
 static void test_a_key_is_assigned_to_a_row(void)
 {
     Run r = { .port = port_controls_defaults() };
@@ -680,6 +699,7 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 int main(void)
 {
     test_tuning_stays_in_range();
+    test_nitro_and_look_back_rows_say_when_they_work();
     test_enter_captures_a_stick_for_both_ways_of_steering();
     test_the_prompt_gives_way_to_a_long_label();
     test_escape_in_a_capture_assigns_nothing();
