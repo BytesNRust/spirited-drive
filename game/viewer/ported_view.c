@@ -521,8 +521,11 @@ enum { TUNNEL_SLOTS = 2 };
 static struct { uint8_t *flags; uint32_t have; const RaceState *race; } tunnel_slot[TUNNEL_SLOTS];
 static int tunnel_next;
 
+static uint8_t *rain_cover_flags;   /* rain_cover, below */
 static void road_tunnels_forget(void)
 {
+    free(rain_cover_flags);
+    rain_cover_flags = NULL;
     for (int i = 0; i < TUNNEL_SLOTS; i++) free(tunnel_slot[i].flags), tunnel_slot[i].flags = NULL;
 }
 
@@ -543,6 +546,25 @@ static const uint8_t *road_tunnels(const RaceState *race, uint32_t nodes)
     free(property);
     tunnel_slot[at].flags = flags, tunnel_slot[at].have = nodes, tunnel_slot[at].race = race;
     return flags;
+}
+
+/* port (rain_fx): the nodes with a roof over the road for the rain (psx_light_synth_rain_cover), made once for the track like road_tunnels' */
+static uint32_t rain_cover_have;
+static const RaceState *rain_cover_race;
+
+static const uint8_t *rain_cover(const RaceState *race, uint32_t nodes)
+{
+    if (nodes == 0) return NULL;
+    if (rain_cover_flags != NULL && rain_cover_have == nodes && rain_cover_race == race) return rain_cover_flags;
+    free(rain_cover_flags);
+    rain_cover_flags = malloc(nodes);
+    uint8_t *property = malloc(nodes);
+    if (rain_cover_flags == NULL || property == NULL) { free(property); free(rain_cover_flags); rain_cover_flags = NULL; return NULL; }
+    for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
+    psx_light_synth_rain_cover(property, nodes, 1, rain_cover_flags);
+    free(property);
+    rain_cover_have = nodes, rain_cover_race = race;
+    return rain_cover_flags;
 }
 
 /* how far the car is on from its node to the next, out of 256 (its place projected on the road's step) */
@@ -1024,9 +1046,15 @@ static int rain_open_at(int32_t node)
     if (shadow_race == NULL) return 16;
     const uint32_t nodes = shadow_race->tri->ring_nodes;
     const uint8_t *tunnel = road_tunnels(shadow_race, nodes);
-    if (tunnel == NULL) return 16;
-    for (int32_t d = 0; d <= RAIN_MOUTH_NODES; d++)
-        if (tunnel[(uint32_t)(node + d) & (nodes - 1u)] || tunnel[(uint32_t)(node - d) & (nodes - 1u)]) return d >= RAIN_MOUTH_NODES ? 16 : d * 16 / RAIN_MOUTH_NODES;
+    const uint8_t *cover = rain_cover(shadow_race, nodes);   /* a roof the lighting's tunnel runs do not mark: Coastal's galleries */
+    if (tunnel == NULL && cover == NULL && psx_light == NULL) return 16;
+    for (int32_t d = 0; d <= RAIN_MOUTH_NODES; d++) {
+        const uint32_t a = (uint32_t)(node + d) & (nodes - 1u), b = (uint32_t)(node - d) & (nodes - 1u);
+        /* the same sources the lighting darkens tunnels by: the road's tunnel runs, and the light's own (the CD's rows: Coastal's tunnels among them) */
+        if ((tunnel != NULL && (tunnel[a] || tunnel[b])) || (cover != NULL && (cover[a] || cover[b])) ||
+            (psx_light != NULL && (psx_light_tunnel(psx_light, a) || psx_light_tunnel(psx_light, b))))
+            return d >= RAIN_MOUTH_NODES ? 16 : d * 16 / RAIN_MOUTH_NODES;
+    }
     return 16;
 }
 
