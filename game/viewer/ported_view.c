@@ -262,6 +262,7 @@ typedef struct {
     uint8_t rain[256];   /* a streak's lightening */
     uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (rain_lightning): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
+    uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
 } WeatherTables;
 
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
@@ -293,6 +294,9 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
+    { const uint8_t dark[3] = { 20, 26, 36 };
+      modern_fog_tables(art->palette, dark, scratch);
+      memcpy(wt.lens, scratch[6], 256);   /* port (rain v3) */ }
     weather_flash_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
     for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
@@ -948,68 +952,65 @@ static int world_screen(const int32_t place[3], int32_t camera[3], int32_t scree
 
 enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100 of the trail's, and the share (of 4) that gets gravel over its smoke */
 
-/* port (rain_fx): the wet road's spray, a plume behind each rear wheel (weather_rain_spray_puff) of the followed car, each puff a disc of every other pixel (a checker, no
- * blend) lightened through the rain's table; painted once the frame's 3D is whole (the recorder replayed), as the rain's streaks are, over what the car's draw laid down. */
-/* port (rain_fx, dev env only): TNFS_RAIN_SPRAY_STYLE=1 draws the wheels' spray as streaks along the travel in a thin haze instead of discs; unset or 0, the discs */
-static int spray_style_streaks(void)
+/* port (rain_fx, rain v4): what a wet road does round every car on the screen (the followed one and the rivals ahead): spray, a cloud of grainy dithered dots behind the rear wheels (a
+ * plume from weather_rain_spray_puff: a puff's scatter of dots, thicker at its heart, widening and thinning toward the plume's end; some dots dark, so it is grit and not a lit
+ * disc). Painted once the frame's 3D is whole (the recorder replayed), as the streaks are. */
+static uint32_t rain_hash(uint32_t a, uint32_t b)
 {
-    static int style = -1;
-    if (style < 0) {
-        const char *v = getenv("TNFS_RAIN_SPRAY_STYLE");
-        style = v != NULL && v[0] == '1' && v[1] == '\0';
-    }
-    return style;
+    uint32_t h = a * 0x9e3779b1u ^ (b + 0x7f4a7c15u) * 0x85ebca6bu;
+    h ^= h >> 15, h *= 0x2c1b3c6du, h ^= h >> 12;
+    return h;
 }
 
-static void spray_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+static void rain_dot(uint8_t *pixels, int32_t pitch, const int32_t box[4], int32_t px, int32_t py, const uint8_t table[256])
 {
-    if (shadow_race == NULL) return;
-    const Car *car = followed_car();
-    if (car == NULL) return;
+    if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) return;
+    uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
+    *d = table[*d];
+}
+
+static void spray_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+{
     const int wet = car->airborne_ticks == 0 && car->off_road == 0;
-    const uint8_t *table = wt->rain4[weather_rain_spray_level(drive_light_night())];
+    const int level = weather_rain_spray_level(drive_light_night());
+    const uint8_t *light = wt->rain4[level], *mid = wt->rain4[level > 0 ? level - 1 : 0], *dark = wt->rain4[level > 1 ? level - 2 : 0];
+    const uint32_t tick = (uint32_t)shadow_race->tick;
     const int32_t angle = (car->yaw >> 8) & 0xffff;
     const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);   /* forward (x, z); the right is (fz, -fx) */
     for (int side = -1; side <= 1; side += 2)
         for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++) {
             int32_t rel[3], size, place[3], camera[3], screen[2];
-            if (!weather_rain_spray_puff(k, side, (uint32_t)shadow_race->tick, car->speed, wet, rel, &size)) continue;
-            const int32_t behind = 0x16000 + rel[0], across = side * 0xd000 + rel[1];   /* the wheel's place (1.4 m behind the centre, 0.8 m out), plus the puff's */
+            if (!weather_rain_spray_puff(k, side, tick, car->speed, wet, rel, &size)) continue;
+            const int32_t behind = 0x16000 + rel[0], across = side * 0xd000 + rel[1] / 5;   /* the plume hugs the car's track (a chase eye sees it behind, not at its sides); the wheel's place (1.4 m behind the centre, 0.8 m out), plus the puff's */
             place[0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * across) >> 16);
             place[1] = car->y - 0x5000 + rel[2];
             place[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
             if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
-            const int32_t radius = 0x38400 / camera[2] * size / SPRAY_DIV + 1;
-            if (spray_style_streaks()) {   /* the dev variant (TNFS_RAIN_SPRAY_STYLE=1): a streak along the travel, a mist, not a disc */
-                int32_t ahead[3], cam2[3], to[2];
-                const int32_t length = 0x18000 + (int32_t)(((int64_t)size * 0x20000) >> 8);   /* 1.5 m, longer the bigger the puff */
-                ahead[0] = place[0] + (int32_t)(((int64_t)fx * length) >> 16), ahead[1] = place[1], ahead[2] = place[2] + (int32_t)(((int64_t)fz * length) >> 16);
-                if (!world_screen(ahead, cam2, to) || cam2[2] < 64) continue;
-                int32_t steps = abs(to[0] - screen[0]) > abs(to[1] - screen[1]) ? abs(to[0] - screen[0]) : abs(to[1] - screen[1]);
-                steps = steps < 1 ? 1 : steps > 64 ? 64 : steps;
-                for (int32_t t = 0; t <= steps; t++) {
-                    const int32_t cx = screen[0] + (to[0] - screen[0]) * t / steps, cy = screen[1] + (to[1] - screen[1]) * t / steps;
-                    const int32_t r = radius * (steps - t) / (steps * 2);   /* thick at the puff, thin toward the car */
-                    for (int32_t y = -r; y <= r; y++)
-                        for (int32_t x = -r; x <= r; x++) {
-                            if (((cx + x) + 2 * (cy + y) + k + t) % 3 != 0) continue;   /* sparse: a haze */
-                            const int32_t px = cx + x, py = cy + y;
-                            if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) continue;
-                            uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
-                            *d = table[*d];
-                        }
-                }
-                continue;
-            }
+            const int32_t radius = 0x38400 / camera[2] * size / SPRAY_DIV * 5 / 2 + 3;   /* a far car's cloud is still a few pixels wide */
+            const int32_t far_cut = radius < 8 ? 35 : 100, density0 = 35 + size * 50 / 256 > 85 ? 85 : 35 + size * 50 / 256;
+            const int32_t density = density0 * far_cut / 100;
             for (int32_t y = -radius; y <= radius; y++)
                 for (int32_t x = -radius; x <= radius; x++) {
-                    if (x * x + y * y > radius * radius || ((x + y) & 1) != 0) continue;   /* a disc, every other pixel */
-                    const int32_t px = screen[0] + x, py = screen[1] + y;
-                    if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) continue;
-                    uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
-                    *d = table[*d];
+                    const int32_t d2 = x * x + y * y;
+                    if (d2 > radius * radius) continue;
+                    const uint32_t h = rain_hash((uint32_t)((screen[0] + x) * 7919 + (screen[1] + y)), (uint32_t)k * 131u + tick);
+                    if ((int32_t)(h % 100u) >= (d2 * 2 > radius * radius ? density / 2 : density)) continue;   /* thicker at the heart */
+                    rain_dot(pixels, pitch, box, screen[0] + x, screen[1] + y, (h >> 20) % 4 == 0 ? dark : (h >> 24) % 2 == 0 ? light : mid);
                 }
         }
+}
+
+static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+{
+    if (shadow_race == NULL) return;
+    const Car *player = followed_car();
+    const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
+    for (int32_t i = 0; i < n; i++) {
+        const Car *car = shadow_race->cars[i];
+        if (car == NULL) continue;
+        if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
+        spray_car(car, pixels, pitch, box, wt);
+    }
 }
 
 static void dust_draw(const Car *car)
@@ -1949,9 +1950,10 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        spray_paint(pixels, screen_w, box, wt);
+        rain_cars_paint(pixels, screen_w, box, wt);
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
                              drive_light_night(), wt->rain4);
+        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens);   /* port (rain v3): drops on the lens */
     } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
 }

@@ -59,6 +59,7 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
         int32_t s[4];
         int level;
         weather_rain_spoke(i, tick, speed, w, h, vx, vy, focal, night, s, &level);
+        if (level < 0) continue;   /* a drop of the wedge straight down that has gone */
         const int32_t steps = abs(s[2] - s[0]) > abs(s[3] - s[1]) ? abs(s[2] - s[0]) : abs(s[3] - s[1]);
         if (steps <= 0) continue;
         for (int32_t k = 0; k <= steps; k++) {
@@ -76,5 +77,37 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
                 *p = tables[level][*p];
             }
         }
+    }
+}
+
+void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, int edge, const uint8_t tables[][256],
+                       const uint8_t body[256])
+{
+    static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    const int32_t w = box[2] - box[0], h = box[3] - box[1];
+    const int drops = weather_lens_count(w, h);
+    enum { SIDE_MAX = 2 * 16 + 3 };
+    uint8_t copy[SIDE_MAX][SIDE_MAX];
+    for (int i = 0; i < drops; i++) {
+        int32_t o[4];
+        if (!weather_lens_drop(i, tick, speed, w, h, vx, vy, o)) continue;
+        const int32_t cx = o[0], cy = o[1], r = o[2] > 16 ? 16 : o[2], keep = o[3];
+        for (int32_t y = -r - 1; y <= r + 1; y++)   /* the scene as it was: the body samples it turned, and the rim is put over it */
+            for (int32_t x = -r - 1; x <= r + 1; x++) {
+                const int32_t px = cx + x, py = cy + y;
+                copy[y + r + 1][x + r + 1] = px >= 0 && px < w && py >= 0 && py < h ? pixels[(size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px)] : 0;
+            }
+        for (int32_t y = -r; y <= r; y++)   /* a filled, soft blob: the scene behind it turned and darker, its edge a dither that thins out, a small highlight on the upper left */
+            for (int32_t x = -r; x <= r; x++) {
+                const int32_t px = cx + x, py = cy + y;
+                if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                const float dist = sqrtf((float)(x * x + y * y)), soft = fmaxf(1.5f, 0.45f * (float)r);   /* the edge's width */
+                const float cover = fminf(1.0f, ((float)r + 0.5f - dist) / soft);
+                if (cover <= 0.0f || cover * (float)keep <= (float)BAYER[py & 3][px & 3]) continue;
+                uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
+                const int32_t sx = -(x * 4) / 5, sy = -(y * 4) / 5;
+                *p = body[copy[sy + r + 1][sx + r + 1]];
+                if (r >= 3 && x == -r / 3 && y == -r / 3) *p = tables[edge][*p];   /* the light on it */
+            }
     }
 }
