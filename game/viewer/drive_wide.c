@@ -324,6 +324,13 @@ static void compose_band(void *user, int top, int bottom)
     layer_compose_rows(job->c, job->frame, drive_wide_canvas(), top, bottom);
 }
 
+static uint8_t *shadow_out;
+static void shadow_band(void *user, int top, int bottom)
+{
+    const ComposeJob *job = user;
+    layer_compose_rows(job->c, job->frame, shadow_out, top, bottom);
+}
+
 static void compose_banded(const LayerCompose *c, const uint8_t *frame)
 {
     const ComposeJob job = { c, frame };
@@ -443,6 +450,57 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     free(png);
 }
 
+/* port (compose perf): what the class loop reads, so its rows can run on bands (each row is a function of the frame alone) */
+typedef struct {
+    const uint8_t *frame, *art;
+    const Cockpit *k;
+    const uint8_t *dash_mask;
+    uint8_t *classes;
+    const uint8_t *wheel_t, *wheel_s, *wheel_w;
+    int lights_left, lights_top, lights_w, lights_h;
+    int in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed;
+} ClassJob;
+
+static void class_band(void *user, int top, int bottom)
+{
+    const ClassJob *j = user;
+    const uint8_t *const frame = j->frame, *const art = j->art, *const dash_mask = j->dash_mask;
+    const uint8_t *const wheel_t = j->wheel_t, *const wheel_s = j->wheel_s, *const wheel_w = j->wheel_w;
+    uint8_t *const classes = j->classes;
+    const Cockpit *const k = j->k;
+    const int lights_left = j->lights_left, lights_top = j->lights_top, lights_w = j->lights_w, lights_h = j->lights_h;
+    const int in_car = j->in_car, map_on = j->map_on, dim_tach = j->dim_tach, wheel_gauge = j->wheel_gauge,
+              wheel_masked = j->wheel_masked, lit_keyed = j->lit_keyed;
+    for (int y = top; y < bottom; y++)
+        for (int x = 0; x < SCREEN_W; x++) {
+            const uint8_t v = frame[y * SCREEN_W + x];
+            if (v == LAYER_KEY) {   /* nothing drawn: the 3D's, whatever the rest says (every test below is on a drawn pixel) */
+                classes[y * SCREEN_W + x] = LAYER_KEY;
+                continue;
+            }
+            int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
+            hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
+            int gauge = in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+            if (gauge && wheel_gauge && (wheel_front_pixel(wheel_t, x, y) || wheel_front_pixel(wheel_s, x, y))) gauge = 0;   /* port (gauge_wheel): the wheel in front of the dials is the dash's */
+            hud = hud || gauge;
+            if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
+            uint8_t class = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
+            /* port (gauge_light): in the cockpit at night, a dial's bright marks (the numerals, the ticks) are lit: not the needle, not what is the dash's art under the dial (the ellipse's corners) */
+            if (wheel_masked && v != LAYER_KEY && wheel_front_now(gauge ? NULL : wheel_w, wheel_t, wheel_s, art, x, y)) class = PSX_CLASS_DASH;   /* the wheel: the dash's half tint, whatever the mask says (in a gauge the dial is drawn over the 'w' frame: only the 't' / 's' frames are the wheel there) */
+            else if (lit_keyed && v != LAYER_KEY && v != (uint8_t)drive_hud.needle_colour) {
+                if (dash_mask != NULL) {   /* a hand-made mask decides alone: the automatic marks are off */
+                    const uint8_t m = dash_mask[y * SCREEN_W + x];
+                    if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
+                    else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = PSX_CLASS_LIT;
+                } else if (class == PSX_CLASS_HUD && gauge) {
+                    if (!in_dial(k, x, y)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
+                    else if (lit_pixel(v)) class = PSX_CLASS_LIT;
+                }
+            }
+            classes[y * SCREEN_W + x] = class;
+        }
+}
+
 /* `placed`: the 640 box where the map was and the dash is drawn instead (wide_art_placed), NULL when the map is there or it is not the dash;
  * `map_on`: the map is in its box (off, the box holds the dash's art and is the dash's like the rest of it) */
 static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_car, const LayerRect *placed, int map_on)
@@ -479,33 +537,14 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     const uint8_t *const wheel_t = wheel_any ? wheel_front_shape(k, 0, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const uint8_t *const wheel_s = wheel_any ? wheel_front_shape(k, 1, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const uint8_t *const wheel_w = wheel_masked ? wheel_front_shape(k, 2, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
-    for (int y = 0; y < SCREEN_H; y++)
-        for (int x = 0; x < SCREEN_W; x++) {
-            const uint8_t v = frame[y * SCREEN_W + x];
-            int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
-            hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
-            int gauge = in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
-            if (gauge && wheel_gauge && (wheel_front_pixel(wheel_t, x, y) || wheel_front_pixel(wheel_s, x, y))) gauge = 0;   /* port (gauge_wheel): the wheel in front of the dials is the dash's */
-            hud = hud || gauge;
-            if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
-            uint8_t class = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
-            /* port (gauge_light): in the cockpit at night, a dial's bright marks (the numerals, the ticks) are lit: not the needle, not what is the dash's art under the dial (the ellipse's corners) */
-            if (wheel_masked && v != LAYER_KEY && wheel_front_now(gauge ? NULL : wheel_w, wheel_t, wheel_s, art, x, y)) class = PSX_CLASS_DASH;   /* the wheel: the dash's half tint, whatever the mask says (in a gauge the dial is drawn over the 'w' frame: only the 't' / 's' frames are the wheel there) */
-            else if (lit_keyed && v != LAYER_KEY && v != (uint8_t)drive_hud.needle_colour) {
-                if (dash_mask != NULL) {   /* a hand-made mask decides alone: the automatic marks are off */
-                    const uint8_t m = dash_mask[y * SCREEN_W + x];
-                    if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
-                    else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = PSX_CLASS_LIT;
-                } else if (class == PSX_CLASS_HUD && gauge) {
-                    if (!in_dial(k, x, y)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
-                    else if (lit_pixel(v)) class = PSX_CLASS_LIT;
-                }
-            }
-            classes[y * SCREEN_W + x] = class;
-        }
+    const ClassJob job = { frame, art, k, dash_mask, classes, wheel_t, wheel_s, wheel_w, lights_left, lights_top, lights_w, lights_h,
+                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed };
+    bands_rows(0, SCREEN_H, class_band, (void *)&job);
     memset(shadow, LAYER_KEY, out);
+    shadow_out = shadow;
     if (placed != NULL) wide_art_placed(placed, art, shadow, 1);   /* the dash placed where the map was is the dash's: half the tint, not the 3D's */
-    layer_compose(c, classes, shadow);
+    const ComposeJob cj = { c, classes };
+    bands_rows(0, c->layer_h, shadow_band, (void *)&cj);
     drive_light_world_class(shadow, drive_wide.width, SCREEN_H, drive_wide.scale);
 }
 
