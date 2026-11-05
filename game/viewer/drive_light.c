@@ -487,6 +487,7 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
+    light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects): the made light's buildings and objects keep their light as the CD's do */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
