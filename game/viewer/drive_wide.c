@@ -525,7 +525,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     }
     lights_left -= LIGHTS_PAD_LEFT, lights_top -= LIGHTS_PAD_TOP;
     const int lights_w = lights_right - lights_left + LIGHTS_PAD_RIGHT, lights_h = LIGHTS_PAD_TOP + LIGHTS_PAD_BOTTOM;
-    const int lit_keyed = in_car && drive_light_night() && port_gauge_light() > 0;   /* port (gauge_light) */
+    const int lit_keyed = in_car && drive_light_gauges_lit() && port_gauge_light() > 0;   /* port (gauge_light) */
     const uint8_t *const dash_mask = lit_keyed ? dash_mask_now() : NULL;
     const int dim_tach = !in_car && drive_hud.police.screen == NULL && port_tach_dim();   /* port (tach_dim) */
     /* port (gauge_wheel): the 't' and 's' frames of this steering frame, the wheel drawn over the dials */

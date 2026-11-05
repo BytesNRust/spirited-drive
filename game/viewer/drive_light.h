@@ -57,6 +57,8 @@ int drive_light_palette_lit(const uint8_t palette[768], uint8_t out[768]);
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
 /* 1 when the race loaded is at night (the night's sky and dash). */
 int drive_light_night(void);
+/* 1 when the gauges are lit (gauge_light): the night, and with gauge_exterior the dusk and rain with rain_lamps */
+int drive_light_gauges_lit(void);
 int drive_light_active(void);
 /* 1 when the race was loaded with the light on and a time other than the day (dawn, dusk), or at any time with the light script read (the dash has its own
  * light even by day): its 3D and 2D are told apart, which needs the wide path. Kept at the race's start (drive_light_load), not read from port.cfg each frame. */
