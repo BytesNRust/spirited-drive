@@ -58,7 +58,7 @@ void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
 }
 
 void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int32_t speed, int32_t vx, int32_t vy, float focal, int night,
-                          const uint8_t tables[][256])
+                          int open, const uint8_t tables[][256])
 {
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
     const int width = weather_rain_width(scale);
@@ -68,6 +68,7 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
     for (int i = 0; i < drops; i++) {
         int32_t s[4];
         int level;
+        if (open < 16 && (int)((uint32_t)i * 2654435761u >> 12 & 15u) >= open) continue;   /* a tunnel: no rain, thinning out at the mouths */
         weather_rain_spoke(i, tick, speed, w, h, vx, vy, focal, night, s, &level);
         if (level < 0) continue;   /* a drop of the wedge straight down that has gone */
         const int32_t steps = abs(s[2] - s[0]) > abs(s[3] - s[1]) ? abs(s[2] - s[0]) : abs(s[3] - s[1]);
@@ -91,7 +92,7 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
 }
 
 void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, int edge, const uint8_t tables[][256],
-                       const uint8_t body[256])
+                       const uint8_t body[256], int open)
 {
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
@@ -100,6 +101,7 @@ void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uin
     uint8_t copy[SIDE_MAX][SIDE_MAX];
     for (int i = 0; i < drops; i++) {
         int32_t o[4];
+        if (open < 16 && (int)((uint32_t)i * 2246822519u >> 12 & 15u) >= open) continue;   /* none lands in a tunnel */
         if (!weather_lens_drop(i, tick, speed, w, h, vx, vy, o)) continue;
         const int32_t cx = o[0], cy = o[1], r = o[2] > 16 ? 16 : o[2], keep = o[3];
         for (int32_t y = -r - 1; y <= r + 1; y++)   /* the scene as it was: the body samples it turned, and the rim is put over it */

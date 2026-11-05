@@ -151,15 +151,19 @@ float weather_rain_blend(int32_t speed)
     return t * t * (3.0f - 2.0f * t);   /* smooth: a streak's direction turns to the spoke's by WEATHER_SPOKE_TURNED m/s, so they do not cross at the speeds between */
 }
 
-/* the distance from (vx, vy) along the unit direction (ux, uy) to the edge of a box w x h: where a spoke leaves the view */
-static float exit_distance(float vx, float vy, float ux, float uy, float w, float h)
+/* where the ray from (vx, vy) along the unit direction (ux, uy) is inside the box w x h: from `*enter` (0 when the point is inside it: where a spoke is born) to `*leave` (where it
+ * leaves the view). The point may be off the box (a vanishing point off the screen: the outside cameras, the helicopter's): the spokes are then nearly parallel, and live between the two. */
+static void box_run(float vx, float vy, float ux, float uy, float w, float h, float *enter, float *leave)
 {
-    float t = 1e9f;
-    if (ux > 1e-4f) t = fminf(t, (w - vx) / ux);
-    if (ux < -1e-4f) t = fminf(t, -vx / ux);
-    if (uy > 1e-4f) t = fminf(t, (h - vy) / uy);
-    if (uy < -1e-4f) t = fminf(t, -vy / uy);
-    return t < 1.0f ? 1.0f : t;
+    float t0 = 0.0f, t1 = 1e9f;
+    const float v[2] = { vx, vy }, u[2] = { ux, uy }, size[2] = { w, h };
+    for (int k = 0; k < 2; k++) {
+        if (fabsf(u[k]) < 1e-4f) continue;
+        const float a = (0.0f - v[k]) / u[k], b = (size[k] - v[k]) / u[k];
+        t0 = fmaxf(t0, fminf(a, b)), t1 = fminf(t1, fmaxf(a, b));
+    }
+    if (t1 < t0 + 1.0f) t1 = t0 + 1.0f;
+    *enter = t0, *leave = t1;
 }
 
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level)
@@ -185,9 +189,11 @@ void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, i
     }
     const float inv = 1.0f / sqrtf(len2);
     ux *= inv, uy *= inv;
-    const float run = exit_distance(fvx, fvy, ux, uy, W, H);
+    float enter, leave;
+    box_run(fvx, fvy, ux, uy, W, H, &enter, &leave);
+    const float run = leave - enter;
     /* the spoke's head runs out to the edge; short, stretching a little with the speed and with the way out */
-    const float rad_head = run * powf(p, 1.5f);
+    const float rad_head = enter + run * powf(p, 1.5f);
     float rad_len = base * (0.2f + 0.7f * s * p);
     float keep = 1.0f;
     if (uy > 0.8f) {   /* the wedge straight down, the road ahead: some drops, shorter, not none (the lower the sparser) */
@@ -198,7 +204,7 @@ void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, i
     const float fall_len = base * 0.45f;
     const float dxn = -lean, dyn = 1.0f;   /* a standing streak's direction down the box (not unit: y runs 1, x leans) */
     const float hx = (1.0f - b) * (column + dxn * fall_head) + b * (fvx + ux * rad_head), hy = (1.0f - b) * (dyn * fall_head) + b * (fvy + uy * rad_head);
-    const float fall_tail = fall_head > fall_len ? fall_head - fall_len : 0.0f, rad_tail = rad_head > rad_len ? rad_head - rad_len : 0.0f;
+    const float fall_tail = fall_head > fall_len ? fall_head - fall_len : 0.0f, rad_tail = rad_head - rad_len > enter ? rad_head - rad_len : enter;
     const float tx = (1.0f - b) * (column + dxn * fall_tail) + b * (fvx + ux * rad_tail), ty = (1.0f - b) * (dyn * fall_tail) + b * (fvy + uy * rad_tail);
     out[0] = (int32_t)tx, out[1] = (int32_t)ty, out[2] = (int32_t)hx, out[3] = (int32_t)hy;
     int l = WEATHER_RAIN_DAY_LEVEL;
