@@ -55,6 +55,8 @@ static const WindowBoard *window_boards;   /* port (psx_headlights): the night's
 static int window_board_count;
 static const WindowDark *dark_boards;      /* the same, found by darkness (facades off the grid) */
 static int dark_board_count;
+static const WindowSign *sign_boards;     /* port (sign_glow): the City's lit matrix sign (window_lights.h), painted in the windows' entry */
+static int sign_board_count;
 enum { WINDOW_SEED = 0x71d0, WINDOW_ENTRIES = 1 };
 static int night_sky;   /* the race is at night: a sky of the dusk is darkened by the night's light before it is matched to the shown palette */
 
@@ -274,7 +276,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     headlights_on = 0;
     city_night3 = 0, city_level = 0;
     street_lamp_on = 0;
-    window_boards = NULL, window_board_count = 0, dark_boards = NULL, dark_board_count = 0;
+    window_boards = NULL, window_board_count = 0, dark_boards = NULL, dark_board_count = 0, sign_boards = NULL, sign_board_count = 0;
     night_lamp_spec = NULL, night_lamp_count = 0, lamp_pool_count = 0;
     ported_view_set_police_lights(enabled);   /* the light effects: the police car's lights flash (police_lights.h) */
     alt_sky_wanted = 0;
@@ -307,6 +309,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     street_lamp_on = street_lamp_count > 0;
     window_board_count = headlights_on ? window_boards_for(track, &window_boards) : 0;
     dark_board_count = headlights_on ? window_darks_for(track, &dark_boards) : 0;
+    sign_board_count = headlights_on && port_sign_glow() ? window_signs_for(track, &sign_boards) : 0;   /* port (sign_glow) */
     synth_wanted = psx_light_synth_track(track);
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
@@ -601,7 +604,7 @@ static int brighter(const uint8_t palette[768], int a, int b)
 
 /* the pool's last entries are the extras': the street lamp's three, then the windows' one */
 static int street_entries(void) { return street_lamp_on ? STREET_LAMP_ENTRIES : 0; }
-static int window_entries(void) { return window_board_count > 0 || dark_board_count > 0 ? WINDOW_ENTRIES : 0; }
+static int window_entries(void) { return window_board_count > 0 || dark_board_count > 0 || sign_board_count > 0 ? WINDOW_ENTRIES : 0; }
 
 int drive_light_street_lamp_entries(void)
 {
@@ -637,7 +640,7 @@ static void street_lamps_night(TrackArt *art)
 static void windows_night(TrackArt *art)
 {
     static const uint8_t RGB[3] = { 236, 190, 96 };
-    if ((window_board_count <= 0 && dark_board_count <= 0) || lamp_pool_count < window_entries() || art == NULL) return;
+    if ((window_board_count <= 0 && dark_board_count <= 0 && sign_board_count <= 0) || lamp_pool_count < window_entries() || art == NULL) return;
     const uint8_t entry = lamp_pool[lamp_pool_count - 1];
     memcpy(art->palette + 3 * entry, RGB, 3);
     drive_palette_write(entry, RGB);
@@ -657,6 +660,14 @@ static void windows_night(TrackArt *art)
         if (t == NULL || !t->present) continue;
         const size_t lit = window_dark_paint(b, (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, art->palette, entry, WINDOW_SEED);
         port_log("windows: board %d (by darkness): %zu patches lit in entry %d\n", b->scenery, lit, entry);
+        scenery[n++] = b->scenery;
+    }
+    for (int i = 0; i < sign_board_count && n < WINDOW_BOARDS_MAX; i++) {   /* port (sign_glow): the matrix sign's bulbs */
+        const WindowSign *b = &sign_boards[i];
+        TrackTexture *t = b->scenery >= 0 && b->scenery < TRACK_SCENERY_TEXTURES ? &art->scenery[b->scenery] : NULL;
+        if (t == NULL || !t->present) continue;
+        const size_t lit = window_sign_paint(b, (uint8_t *)(uintptr_t)t->bitmap.payload, t->bitmap.width, t->bitmap.height, art->palette, entry);
+        port_log("sign_glow: board %d: %zu bulb texels lit in entry %d\n", b->scenery, lit, entry);
         scenery[n++] = b->scenery;
     }
     ported_view_set_window_boards(scenery, n, entry);
