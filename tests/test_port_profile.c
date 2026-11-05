@@ -247,8 +247,8 @@ static void test_reading(void)
     CHECK_EQ_INT(port_extras_load().lunar_gravity, 1);
     CHECK_EQ_INT(s.profile, PROFILE_RESTOMOD);   /* the machine's keys are port.cfg's alone */
     CHECK(strcmp(s.psx_dir, "/ps1") == 0);
-    /* a name from before: Stock */
-    put_file("port.cfg", "profile=custom\nformat=21:9\npsx_light=1\n");
+    /* a name that is no mode, with no settings to move: Stock */
+    put_file("port.cfg", "profile=custom\n");
     CHECK_EQ_INT(port_settings_profile(), PROFILE_STOCK);
     CHECK_EQ_INT(port_settings_load().psx_light, 0);
     /* extras.cfg means nothing any more */
@@ -295,16 +295,72 @@ static void test_saving(void)
     put_file("port.cfg", "profile=stock\n");
     s = port_settings_load();
     s.format = SCREEN_16_9, s.fullscreen = 0, s.fog = 1;
-    CHECK(port_settings_save(&s));
+    CHECK(!port_settings_save(&s));   /* the rest is written, and the caller is told */
     CHECK(strcmp(file_text("stock.cfg"), "fullscreen=0\n") == 0);
     e = port_extras_load();
     e.lunar_springs = 1, e.mirror = 1;
-    CHECK(port_extras_save(&e));
+    CHECK(!port_extras_save(&e));
     CHECK(strstr(file_text("stock.cfg"), "lunar_springs") == NULL);
     CHECK(strstr(file_text("stock.cfg"), "mirror=1\n") != NULL);
     /* F6 in Stock: the race's own, nothing kept */
-    CHECK(port_extras_set_race_switch(RACE_SWITCH_MARKERS, 0));
+    CHECK(!port_extras_set_race_switch(RACE_SWITCH_MARKERS, 0));
     CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_MARKERS), 1);
+}
+
+/* a value equal to the table stays while the file has it, and leaves when the player moves it back */
+static void test_kept_lines(void)
+{
+    port_settings_set_display_probe(probe);
+    clear_files();
+    put_file("port.cfg", "profile=restomod\n");
+    put_file("restomod.cfg", "fog=1\nlaps=3\n");
+    PortSettings s = port_settings_load();
+    CHECK(port_settings_save(&s));
+    CHECK(strstr(file_text("restomod.cfg"), "fog=1\n") != NULL);
+    put_file("restomod.cfg", "fog=0\n");
+    s = port_settings_load();
+    s.fog = 1;
+    CHECK(port_settings_save(&s));
+    CHECK(strstr(file_text("restomod.cfg"), "fog=") == NULL);
+}
+
+/* no room is not "no differences": the mode's file is not emptied */
+static void test_no_room(void)
+{
+    char out[8];
+    int dropped = 0;
+    CHECK_EQ_INT((int)port_profile_differences(PROFILE_RESTOMOD, "", "laps=3\nfog=0\n", NULL, out, sizeof out, &dropped), -1);
+    CHECK_EQ_INT((int)port_profile_differences(PROFILE_RESTOMOD, "fog=0\n", "fog=0\n", NULL, out, sizeof out, &dropped), 0);
+    CHECK_EQ_INT(dropped, 0);
+    CHECK_EQ_INT((int)port_profile_differences(PROFILE_STOCK, "", "laps=3\n", NULL, out, sizeof out, &dropped), 0);
+    CHECK_EQ_INT(dropped, 1);
+}
+
+static void test_machine_file(void)
+{
+    port_settings_set_display_probe(probe);
+    clear_files();
+    put_file("port.cfg", "profile=restored\npsx_dir=/ps1\n");
+    PortSettings s = port_settings_load();
+    /* the settings of another mode are not saved over this one */
+    s.profile = PROFILE_RESTOMOD;
+    CHECK(!port_settings_save(&s));
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTORED);
+    CHECK(file_text("restomod.cfg")[0] == '\0');
+    /* a line end in the folder would write another key */
+    s = port_settings_load();
+    snprintf(s.psx_dir, sizeof s.psx_dir, "/ps1\nprofile=stock");
+    CHECK(!port_settings_save(&s));
+    CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTORED);
+    CHECK(strcmp(file_text("port.cfg"), "profile=restored\npsx_dir=/ps1\n") == 0);
+    /* a new folder is written, the same one is not */
+    s = port_settings_load();
+    snprintf(s.psx_dir, sizeof s.psx_dir, "/other");
+    CHECK(port_settings_save(&s));
+    CHECK(strcmp(port_settings_load().psx_dir, "/other") == 0);
+    put_file("port.cfg", "profile=restored\npsx_dir=/other\n\n");   /* a mark: rewriting would take the empty line away */
+    CHECK(port_settings_save(&s));
+    CHECK(strcmp(file_text("port.cfg"), "profile=restored\npsx_dir=/other\n\n") == 0);
 }
 
 /* each mode remembers its own; a change of mode writes only the name; back to default empties that mode's file alone */
@@ -350,5 +406,8 @@ int main(void)
     test_reading();
     test_saving();
     test_modes_remember();
+    test_kept_lines();
+    test_no_room();
+    test_machine_file();
     return TEST_REPORT();
 }

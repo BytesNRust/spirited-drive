@@ -152,7 +152,7 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
     return (size_t)(n + w);
 }
 
-static void take_extra(void *to, const char *key, const char *value) { apply(to, key, value); }
+void port_extras_take(void *to, const char *key, const char *value) { apply(to, key, value); }
 
 PortExtras port_extras_load(void)
 {
@@ -161,7 +161,7 @@ PortExtras port_extras_load(void)
     size_t size = 0;
     uint8_t *data = platform_read_user_file(port_profile_file(p), &size);
     if (data == NULL) return e;
-    port_profile_read_free(p, (const char *)data, size, take_extra, &e);
+    port_profile_read_free(p, (const char *)data, size, port_extras_take, &e);
     platform_free_file(data);
     return e;
 }
@@ -187,6 +187,8 @@ int port_extras_race_on(RaceSwitch which)
 
 bool port_extras_set_race_switch(RaceSwitch which, int on)
 {
+    /* where the mode holds it the key lasts the race (F6), or has no effect (F12): nothing to save */
+    if (!port_profile_key_free((Profile)port_settings_profile(), which == RACE_SWITCH_STATS ? "stats_overlay" : "car_markers")) return false;
     PortExtras e = port_extras_load();
     if (which == RACE_SWITCH_STATS)
         e.stats_overlay = on != 0;

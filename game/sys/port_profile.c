@@ -1,5 +1,6 @@
 /* port: see port_profile.h. */
 #include "game/sys/port_profile.h"
+#include "game/sys/port_log.h"
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -123,7 +124,7 @@ static int has_line(const char *text, const char *line)
     return 0;
 }
 
-size_t port_profile_differences(Profile p, const char *base, const char *now, char *out, size_t room)
+long port_profile_differences(Profile p, const char *base, const char *now, const char *keep, char *out, size_t room, int *dropped)
 {
     size_t n = 0;
     const size_t size = strlen(now);
@@ -132,18 +133,26 @@ size_t port_profile_differences(Profile p, const char *base, const char *now, ch
         char line[PSX_DIR_MAX + 32], key[64];
         pos = next_line(now, size, pos, line, sizeof line);
         const char *eq = strchr(line, '=');
-        if (eq == NULL || (size_t)(eq - line) >= sizeof key || has_line(base, line)) continue;
+        if (eq == NULL || (size_t)(eq - line) >= sizeof key) continue;
         memcpy(key, line, (size_t)(eq - line));
         key[eq - line] = '\0';
-        if (!port_profile_key_free(p, key)) continue;
+        const int differs = !has_line(base, line);
+        if (!port_profile_key_free(p, key)) {
+            if (differs) {
+                port_log("settings: %s is not free in %s, not saved\n", key, port_profile_key(p));
+                *dropped += 1;
+            }
+            continue;
+        }
+        if (!differs && (keep == NULL || !has_line(keep, line))) continue;
         const size_t len = strlen(line);
-        if (n + len + 2 > room) return 0;
+        if (n + len + 2 > room) return -1;
         memcpy(out + n, line, len);
         n += len;
         out[n++] = '\n';
         out[n] = '\0';
     }
-    return n;
+    return (long)n;
 }
 
 PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monitor)

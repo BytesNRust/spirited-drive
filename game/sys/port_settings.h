@@ -213,7 +213,7 @@ int port_finish_gate_light(void);
 int port_lamp_pool_bright(void);
 /* 0, 1 or 2 (night_tone): TNFS_NIGHT_TONE=0/1/2 when set, else the mode's. */
 int port_night_tone(void);
-/* 1 when rain_lamps: TNFS_RAIN_LAMPS=0/1 when set, else the mode's; acts with weather=rain. */
+/* 1 when rain_lamps: TNFS_RAIN_LAMPS=0/1 when set, else the mode's; acts with weather=rain or storm. */
 int port_rain_lamps(void);
 /* 1 when gauge_exterior: TNFS_GAUGE_EXTERIOR=0/1 when set, else the mode's. */
 int port_gauge_exterior(void);
@@ -266,6 +266,10 @@ PortSettings port_settings_parse(const char *text, size_t size);
 enum { PORT_CFG_TEXT_MAX = 2048 };
 size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 /* The settings of the mode in use: its table's values, with what its file says for what is free in it. */
+/* what port_old_files.c builds a mode's file from: mode `p`'s values with the machine's folder, one key=value over a PortSettings, and port.cfg's two lines */
+PortSettings port_mode_values(int p, const char *psx_dir);
+void port_settings_take(void *to, const char *key, const char *value);
+bool port_machine_save(int profile, const char *psx_dir);
 PortSettings port_settings_load(void);
 /* the mode's name and folder as `s` has them, and in the file of `s`'s mode what differs from its values and is free in it. */
 bool port_settings_save(const PortSettings *s);

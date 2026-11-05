@@ -69,6 +69,8 @@ PortExtras port_extras_parse(const char *text, size_t size);
 /* Writes the text form, NUL-terminated; returns its length, or 0 when it does not fit. */
 size_t port_extras_format(const PortExtras *e, char *out, size_t size);
 /* The extras of the mode in use: its table's values, with what its file says for what is free in it. */
+/* one key=value over a PortExtras */
+void port_extras_take(void *to, const char *key, const char *value);
 PortExtras port_extras_load(void);
 /* in the file of the mode in use, what differs from its values and is free in it */
 bool port_extras_save(const PortExtras *e);

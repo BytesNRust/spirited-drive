@@ -29,9 +29,13 @@ PortExtras port_profile_extras(Profile p, PortExtras e);
 int port_profile_key_free(Profile p, const char *key);
 /* `take` on each "key=value" line of `text` whose key is free in `p` */
 void port_profile_read_free(Profile p, const char *text, size_t size, void (*take)(void *to, const char *key, const char *value), void *to);
-/* the lines of `now` that are not in `base` and free in `p`, NUL-terminated in `out`; their length, 0 for none or when they do not fit */
-size_t port_profile_differences(Profile p, const char *base, const char *now, char *out, size_t room);
-/* in the file of `s`'s mode, what `s` and `e` have that differs from its values and is free in it */
+/* the lines of `now` free in `p` that are not in `base` or are in `keep` (NULL for none), NUL-terminated in `out`: their length, 0 for none, -1 when they do not
+ * fit. A line that differs and is not free is logged and counted in `*dropped`. */
+long port_profile_differences(Profile p, const char *base, const char *now, const char *keep, char *out, size_t room, int *dropped);
+/* the file of `s`'s mode: what `s` and `e` have that differs from its values and is free in it, and what `keep` holds even at the mode's value: a choice stays the
+ * player's when a later version changes the table; moved back to the table's value by hand it leaves the file. False when nothing could be written; `*dropped` counts what was not free. */
+bool port_mode_write(const PortSettings *s, const PortExtras *e, const char *keep, int *dropped);
+/* port_mode_write keeping what the mode's file already has; false too when something was not free in the mode, and then the rest is written */
 bool port_mode_save(const PortSettings *s, const PortExtras *e);
 
 #endif

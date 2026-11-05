@@ -3,6 +3,8 @@
 #include "game/platform/platform.h"
 #include "game/race/weather.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
+#include "game/sys/port_old_files.h"
 #include "game/sys/port_profile.h"
 #include "game/viewer/screen_layout.h"
 
@@ -341,20 +343,28 @@ static PortSettings machine_load(void)
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
     if (data == NULL) return port_settings_defaults();
+    if (port_old_files_carried((const char *)data, size) && port_old_files_move((const char *)data, size)) {
+        platform_free_file(data);
+        return machine_load();
+    }
     const PortSettings s = port_settings_parse((const char *)data, size);
     platform_free_file(data);
     return s;
 }
 
-static bool machine_save(int profile, const char *psx_dir)
+bool port_machine_save(int profile, const char *psx_dir)
 {
     char text[PSX_DIR_MAX + 64];
+    if (strpbrk(psx_dir, "\r\n") != NULL) {   /* a line end would write another key */
+        port_log("settings: the PS1 folder has a line end, not saved\n");
+        return false;
+    }
     const int n = snprintf(text, sizeof text, "profile=%s\npsx_dir=%s\n", port_profile_key((Profile)profile), psx_dir);
     return n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
 }
 
 /* the values of mode `p`'s table, with the machine's own */
-static PortSettings mode_values(int p, const char *psx_dir)
+PortSettings port_mode_values(int p, const char *psx_dir)
 {
     PortSettings s = port_profile_settings((Profile)p, port_settings_defaults(), port_monitor_format(SCREEN_16_9));
     s.profile = p;
@@ -362,16 +372,16 @@ static PortSettings mode_values(int p, const char *psx_dir)
     return s;
 }
 
-static void take_setting(void *to, const char *key, const char *value) { apply(to, key, value); }
+void port_settings_take(void *to, const char *key, const char *value) { apply(to, key, value); }
 
 PortSettings port_settings_load(void)
 {
     const PortSettings machine = machine_load();
-    PortSettings s = mode_values(machine.profile, machine.psx_dir);
+    PortSettings s = port_mode_values(machine.profile, machine.psx_dir);
     size_t size = 0;
     uint8_t *data = platform_read_user_file(port_profile_file((Profile)machine.profile), &size);
     if (data == NULL) return s;
-    port_profile_read_free((Profile)machine.profile, (const char *)data, size, take_setting, &s);
+    port_profile_read_free((Profile)machine.profile, (const char *)data, size, port_settings_take, &s);
     platform_free_file(data);
     return s;
 }
@@ -380,6 +390,7 @@ int port_settings_profile(void) { return machine_load().profile; }
 
 bool port_settings_profile_chosen(void)
 {
+    (void)machine_load();   /* an old port.cfg moves first: it counts as chosen */
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
     if (data == NULL) return false;
@@ -388,24 +399,48 @@ bool port_settings_profile_chosen(void)
     return chosen;
 }
 
-bool port_mode_save(const PortSettings *s, const PortExtras *e)
+bool port_mode_write(const PortSettings *s, const PortExtras *e, const char *keep, int *dropped)
 {
     const Profile p = (Profile)s->profile;
-    const PortSettings base = mode_values(s->profile, s->psx_dir);
+    const PortSettings base = port_mode_values(s->profile, s->psx_dir);
     const PortExtras extras_base = port_profile_extras(p, port_extras_defaults());
     char now[PORT_CFG_TEXT_MAX], was[PORT_CFG_TEXT_MAX], extras_now[PORT_EXTRAS_TEXT_MAX], extras_was[PORT_EXTRAS_TEXT_MAX];
     char out[PORT_CFG_TEXT_MAX + PORT_EXTRAS_TEXT_MAX];
     if (port_settings_format(s, now, sizeof now) == 0 || port_settings_format(&base, was, sizeof was) == 0 ||
         port_extras_format(e, extras_now, sizeof extras_now) == 0 || port_extras_format(&extras_base, extras_was, sizeof extras_was) == 0) return false;
-    size_t n = port_profile_differences(p, was, now, out, sizeof out);
-    n += port_profile_differences(p, extras_was, extras_now, out + n, sizeof out - n);
+    const long settings = port_profile_differences(p, was, now, keep, out, sizeof out, dropped);
+    if (settings < 0) return false;
+    const long extras = port_profile_differences(p, extras_was, extras_now, keep, out + settings, sizeof out - (size_t)settings, dropped);
+    if (extras < 0) return false;
+    size_t n = (size_t)settings + (size_t)extras;
     if (n == 0) out[n++] = '\n';   /* nothing changed: an empty file, the mode's values */
     return platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
 }
 
+bool port_mode_save(const PortSettings *s, const PortExtras *e)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(port_profile_file((Profile)s->profile), &size);
+    char *keep = data != NULL ? malloc(size + 1) : NULL;
+    if (keep != NULL) {
+        memcpy(keep, data, size);
+        keep[size] = '\0';
+    }
+    if (data != NULL) platform_free_file(data);
+    int dropped = 0;
+    const bool written = port_mode_write(s, e, keep, &dropped);
+    free(keep);
+    return written && dropped == 0;
+}
+
 bool port_settings_save(const PortSettings *s)
 {
-    if (!machine_save(s->profile, s->psx_dir)) return false;   /* first: port_extras_load reads the mode from it */
+    const PortSettings machine = machine_load();
+    if (s->profile != machine.profile) {   /* a change of mode is port_profile_select's */
+        port_log("settings: not saved: these are the settings of %s, the mode is %s\n", port_profile_key((Profile)s->profile), port_profile_key((Profile)machine.profile));
+        return false;
+    }
+    if ((!port_settings_profile_chosen() || strcmp(s->psx_dir, machine.psx_dir) != 0) && !port_machine_save(s->profile, s->psx_dir)) return false;
     const PortExtras e = port_extras_load();
     return port_mode_save(s, &e);
 }
@@ -413,7 +448,7 @@ bool port_settings_save(const PortSettings *s)
 bool port_profile_select(int p)
 {
     if (p < 0 || p >= PROFILE_COUNT) return false;
-    return machine_save(p, machine_load().psx_dir);
+    return port_machine_save(p, machine_load().psx_dir);
 }
 
 bool port_profile_reset(int p)

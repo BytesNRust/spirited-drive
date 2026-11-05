@@ -366,7 +366,7 @@ static void weather_sky_band(void *user, int top, int bottom)
     if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
 }
 int ported_view_modern(void) { return modern; }
-int ported_view_rain(void) { return weather == WEATHER_RAIN; }
+int ported_view_rain(void) { return weather_wet(weather); }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
@@ -1448,7 +1448,7 @@ static void lamp_state(const Car *car)
         drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
     else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */
         drive_lamps_light_forced(car->index, car->node, tint, ratio, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR,
-                                 weather == WEATHER_RAIN && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
+                                 weather_wet(weather) && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */
