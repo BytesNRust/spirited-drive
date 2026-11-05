@@ -161,8 +161,39 @@ static void test_the_dark_boards_of_each_track(void)
     CHECK_EQ_INT(window_darks_for(NULL, &d), 0);
 }
 
+/* port (sign_glow): the City's matrix sign (CY1 board 7, 128 x 63): its amber bulbs are the lit texels, the dark grid round them is left alone */
+static void test_the_matrix_sign_lights_its_amber_bulbs(void)
+{
+    const WindowSign *s = NULL;
+    CHECK_EQ_INT(window_signs_for("CY1", &s), 1);
+    CHECK_EQ_INT(s[0].scenery, 7);
+    CHECK_EQ_INT(window_signs_for("cy1", &s), 1);
+    CHECK_EQ_INT(s[0].width, 128);
+    CHECK_EQ_INT(s[0].height, 63);
+    CHECK_EQ_INT(window_signs_for("CY2", &s), 0);   /* no such sign there, and CY3's copy is placed by no node */
+    CHECK_EQ_INT(window_signs_for("CY3", &s), 0);
+    CHECK_EQ_INT(window_signs_for(NULL, &s), 0);
+    window_signs_for("CY1", &s);
+    uint8_t palette[256 * 3] = { 0 };
+    palette[3 * 1] = 12, palette[3 * 1 + 1] = 12, palette[3 * 1 + 2] = 12;      /* the grid */
+    palette[3 * 2] = 170, palette[3 * 2 + 1] = 145, palette[3 * 2 + 2] = 20;    /* a bulb's body */
+    palette[3 * 3] = 246, palette[3 * 3 + 1] = 226, palette[3 * 3 + 2] = 0;     /* a bulb's centre */
+    palette[3 * 4] = 140, palette[3 * 4 + 1] = 20, palette[3 * 4 + 2] = 20;     /* a red, not amber */
+    static uint8_t px[128 * 63], again[128 * 63];
+    for (int i = 0; i < 128 * 63; i++) px[i] = (uint8_t)(1 + i % 4);
+    memcpy(again, px, sizeof px);
+    const size_t lit = window_sign_paint(&s[0], px, 128, 63, palette, 9);
+    size_t expect = 0;
+    for (int i = 0; i < 128 * 63; i++) expect += again[i] == 2 || again[i] == 3;
+    CHECK_EQ_INT((int)lit, (int)expect);
+    for (int i = 0; i < 128 * 63; i++) CHECK_EQ_INT(px[i], again[i] == 2 || again[i] == 3 ? 9 : again[i]);   /* only the amber ones change */
+    CHECK_EQ_INT((int)window_sign_paint(&s[0], px, 128, 63, palette, 9), 0);   /* painting again changes nothing */
+    CHECK_EQ_INT((int)window_sign_paint(&s[0], again, 64, 63, palette, 9), 0);   /* a board of another size is left alone */
+}
+
 int main(void)
 {
+    test_the_matrix_sign_lights_its_amber_bulbs();
     test_dark_patches_are_the_windows();
     test_light_patches_are_the_windows_when_asked();
     test_the_dark_boards_of_each_track();
