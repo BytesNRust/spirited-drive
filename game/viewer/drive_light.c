@@ -274,7 +274,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         if (time != PSX_TIME_DAY) use_fallback_tint(time);
         if (time == PSX_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night()) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
             static const float VEGAS_NIGHT[3] = { 0.27f, 0.33f, 0.34f };
-            for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c];
+            const float lift_k = VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[0];   /* port (vegas_lift): the CD's tint rides its ceiling (the CD's own is above every level's); level 0 is as it was */
+            for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c] * lift_k;
             port_log("psx_light: Lost Vegas' night tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
         }
         const PsxLamp *own_lamps = NULL;
@@ -486,7 +487,6 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
-    if (!is_city(track)) light.night_lift = 0;   /* Lost Vegas' vegas_lift stays as it was for the made light: not part of this */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
