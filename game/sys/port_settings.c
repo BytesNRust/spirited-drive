@@ -159,6 +159,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "lamp_pools") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->lamp_pools = (int)n;
+    } else if (strcmp(key, "lamp_pool_bright") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->lamp_pool_bright = (int)n;
     } else if (strcmp(key, "headlight_cone") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->headlight_cone = (int)n;
@@ -187,7 +190,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->reverse_rows = (int)n;
     } else if (strcmp(key, "city_lift") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 2)
+        if (parse_int(value, &n) && n >= 0 && n <= 3)
             s->city_lift = (int)n;
     } else if (strcmp(key, "vegas_lift") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 2)
@@ -198,6 +201,9 @@ static void apply(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "rain_grip") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->rain_grip = (int)n;
+    } else if (strcmp(key, "finish_gate_light") == 0) {
+        if (parse_int(value, &n) && (n == 0 || n == 1))
+            s->finish_gate_light = (int)n;
     } else if (strcmp(key, "gauge_light") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 4)
             s->gauge_light = (int)n;
@@ -300,11 +306,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\ntunnel_headlight=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\ntunnel_headlight=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\nprofile=%s\nport_profile_ui=%d\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->tunnel_headlight, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->tunnel_headlight, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, port_profile_key((Profile)s->profile), s->profile_ui);
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -616,6 +622,13 @@ int port_gauge_light(void)
     return port_settings_load().gauge_light;
 }
 
+int port_finish_gate_light(void)
+{
+    const char *v = getenv("TNFS_FINISH_GATE_LIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().finish_gate_light;
+}
+
 int port_rain_grip(void)
 {
     const char *v = getenv("TNFS_RAIN_GRIP");
@@ -637,9 +650,25 @@ int port_rain_fx(void)
     return port_settings_load().rain_fx;
 }
 
-int port_headlight_cone(void)
+/* Perspective Correction on: the cone is drawn on Modern 3D's road (TNFS_MODERN_3D overrides the setting) */
+static int perspective_on(void)
+{
+    const char *v = getenv("TNFS_MODERN_3D");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().perspective;
+}
+
+int port_lamp_pool_bright(void)
 {
     if (!port_psx_headlights()) return 0;
+    const char *v = getenv("TNFS_LAMP_POOL_BRIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().lamp_pool_bright;
+}
+
+int port_headlight_cone(void)
+{
+    if (!port_psx_headlights() || !perspective_on()) return 0;   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
     const char *v = getenv("TNFS_HEADLIGHT_CONE");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().headlight_cone;
@@ -656,7 +685,7 @@ int port_city_lift(void)
 {
     if (!port_psx_light()) return 0;
     const char *v = getenv("TNFS_CITY_LIFT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().city_lift;
 }
 

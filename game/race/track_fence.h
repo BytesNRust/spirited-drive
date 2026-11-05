@@ -6,6 +6,7 @@
 #define TNFS_TRACK_FENCE_H
 
 #include "formats/fsh.h"
+#include "game/race/psx_light.h"
 #include "game/race/track_draw.h"
 #include "game/race/track_tables.h"
 
@@ -25,6 +26,11 @@ typedef struct {
     void (*full_camera)(void *ctx, const FshEntry *t, const int32_t *const cam[4]);
 } TrackFenceOps;
 
+/* port (headlight_cone): the ground places (x, z in metres) of the polygon about to be drawn's four corners, valid (ok 1) while it is, for the sink to light inside it */
+extern double track_light_xz[4][2];
+extern int track_light_xz_ok;
+extern uint32_t track_light_node[4];   /* and their nodes (valid with track_light_xz_ok, PSX_LIGHT_NO_NODE when the pass has none) */
+
 typedef struct {
     const int32_t (*world)[3];   /* 0050503c */
     const int32_t (*camera)[3];  /* 00506860 */
@@ -34,6 +40,7 @@ typedef struct {
     const uint8_t *light;        /* port (PS1 light): the intensity of each point, parallel to `world`; NULL none */
     uint8_t *light_now;          /* port: 6 bytes: the corners of the polygon about to be drawn, then 1 (the draw reads them), then 1 if all are in a tunnel */
     const uint8_t *tunnel;       /* port: 1 for each point of the vertices in a tunnel's row, parallel to `light`; NULL none */
+    const uint32_t *node;        /* port (headlight_cone): the node of each point, parallel to `world`; NULL none */
 } TrackFenceInputs;
 
 /* port (PS1 light): the corners of the polygon about to be drawn (`corner`: its four vertices' offsets from `first`) in
@@ -42,6 +49,12 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
 {
     if (in->light == NULL || in->light_now == NULL) return;
     for (int k = 0; k < 4; k++) in->light_now[k] = in->light[first + corner[k]];
+    track_light_xz_ok = in->world != NULL;
+    if (track_light_xz_ok)
+        for (int k = 0; k < 4; k++) {
+            track_light_xz[k][0] = in->world[first + corner[k]][0] / 65536.0, track_light_xz[k][1] = in->world[first + corner[k]][2] / 65536.0;
+            track_light_node[k] = in->node != NULL ? in->node[first + corner[k]] : PSX_LIGHT_NO_NODE;
+        }
     in->light_now[4] = 1;
     in->light_now[5] = 0;   /* 1 a tunnel's polygon (all four corners), 2..5 a lamp's pool (psx_light_tunnel_class: the weakest of the four, none mixed with a tunnel) */
     if (in->tunnel != NULL) {
@@ -63,6 +76,7 @@ static inline void track_light_set_points(const TrackFenceInputs *in, int32_t a,
     if (in->light == NULL || in->light_now == NULL) return;
     in->light_now[0] = in->light_now[3] = in->light[b];
     in->light_now[1] = in->light_now[2] = in->light[a];
+    track_light_xz_ok = 0;
     in->light_now[4] = 1;
     in->light_now[5] = 0;
 }
@@ -70,6 +84,7 @@ static inline void track_light_set_points(const TrackFenceInputs *in, int32_t a,
 static inline void track_light_clear(const TrackFenceInputs *in)
 {
     if (in->light_now != NULL) in->light_now[4] = 0;
+    track_light_xz_ok = 0;
 }
 
 /* 0044a2b4 (watcall pair, -, base, uv; variant, texture, tall; ret 0xc):

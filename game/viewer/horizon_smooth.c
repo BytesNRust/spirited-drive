@@ -61,7 +61,8 @@ typedef struct {
     const ClipRect *clip;
 } Draw;
 
-/* 004829b0 over the clip's width, clipped to its rows (as horizon.c's) */
+/* 004829b0 over the clip's width, clipped to its rows (as horizon.c's); the colour through the map as every texel is (the PS1 sky's texels index a palette of their own:
+ * the raw index was a screen entry of the cars' fit, a red block under the art) */
 static void smooth_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t rows, uint8_t colour)
 {
     const Draw *d = user;
@@ -69,7 +70,7 @@ static void smooth_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t row
     if (y < d->clip->y0) rows -= d->clip->y0 - y, y = d->clip->y0;
     if (y + rows > d->clip->y1) rows = d->clip->y1 - y;
     for (int32_t r = 0; r < rows; r++)
-        memset(d->target->pixels + (size_t)(y + r) * d->target->pitch + d->clip->x0, colour,
+        memset(d->target->pixels + (size_t)(y + r) * d->target->pitch + d->clip->x0, d->s->map[colour],
                (size_t)(d->clip->x1 - d->clip->x0));
 }
 
@@ -205,9 +206,10 @@ uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int
 typedef struct {
     int32_t base[3][HORIZON_WIDE_WIDTH + 4], gap[3][HORIZON_WIDE_WIDTH + 4];   /* the bottom blend x ONE, and top - bottom */
     int16_t only[HORIZON_WIDE_WIDTH + 4];
+    int32_t keep[HORIZON_WIDE_WIDTH + 4];   /* ONE - wv a pixel, for rows whose bitmap row pair changes along them (span_general) */
 } Planes;
 static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *row0, const uint8_t *row1, Planes *p, int i);
-static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x0, int x1, int x, int sy, uint8_t *dst);
+static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int per_pixel_wv, int x0, int x1, int x, int sy, uint8_t *dst);
 
 /* port: a row whose v does not change along it (the sky's: v is a function of y) has one bitmap row pair and one weight, so
  * its pixels go through the band's planes (four blended at once) instead of one by one: the same u, v and integer blend */
@@ -227,7 +229,29 @@ static void span_flat_v(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t 
             const Column col = { clamp_texel(c, w), clamp_texel(c + 1, w), (int32_t)((uint32_t)ui & 0xffff) >> 8 };
             planes_make(s, &col, row0, row1, &planes, i);
         }
-        blend_row(s, &planes, wv, 0, n, xs, y, row + xs);
+        blend_row(s, &planes, wv, 0, 0, n, xs, y, row + xs);
+    }
+}
+
+/* port: a row whose v changes along it (the sky's slanted slices): each pixel has its own bitmap row pair and weight, so the planes
+ * carry the weight too (keep) and four pixels still blend at once: the same u, v and integer blend as texel_at's */
+static void span_general(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y,
+                         const double u[3], const double v[3])
+{
+    static BANDS_THREAD_LOCAL Planes planes;
+    const int32_t w = bitmap->width, h = bitmap->height;
+    for (int32_t xs = x0; xs <= x1; xs += HORIZON_WIDE_WIDTH) {
+        const int32_t n = x1 - xs + 1 < HORIZON_WIDE_WIDTH ? x1 - xs + 1 : HORIZON_WIDE_WIDTH;
+        for (int32_t i = 0; i < n; i++) {
+            const int32_t ui = (int32_t)floor(u[0] + u[1] * (xs + i) + u[2] * y), c = ui >> 16;
+            const int32_t vi = (int32_t)floor(v[0] + v[1] * (xs + i) + v[2] * y), r = vi >> 16;
+            const Column col = { clamp_texel(c, w), clamp_texel(c + 1, w), (int32_t)((uint32_t)ui & 0xffff) >> 8 };
+            const uint8_t *row0 = bitmap->payload + (size_t)clamp_texel(r, h) * w;
+            const uint8_t *row1 = bitmap->payload + (size_t)clamp_texel(r + 1, h) * w;
+            planes.keep[i] = ONE - ((int32_t)((uint32_t)vi & 0xffff) >> 8);
+            planes_make(s, &col, row0, row1, &planes, i);
+        }
+        blend_row(s, &planes, 0, 1, 0, n, xs, y, row + xs);
     }
 }
 #endif
@@ -238,6 +262,10 @@ void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t
 #ifdef __SSE4_1__
     if (v[1] == 0.0 && x1 - x0 >= 7) {
         span_flat_v(s, bitmap, row, x0, x1, y, u, v);
+        return;
+    }
+    if (x1 - x0 >= 7) {
+        span_general(s, bitmap, row, x0, x1, y, u, v);
         return;
     }
 #endif
@@ -263,7 +291,7 @@ static void planes_make(const HorizonSmooth *s, const Column *c, const uint8_t *
     }
 }
 
-static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x0, int x1, int x, int sy, uint8_t *dst)
+static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int per_pixel_wv, int x0, int x1, int x, int sy, uint8_t *dst)
 {
     int32_t dither[4];   /* by x & 3: pair_blend's dither term for this row */
     for (int k = 0; k < 4; k++) dither[k] = (BAYER[sy & 3][k] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
@@ -273,11 +301,12 @@ static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x
     for (; i + 3 < x1; i += 4) {
         const int a = (x + i) & 3;
         const __m128i d = _mm_setr_epi32(dither[a], dither[(a + 1) & 3], dither[(a + 2) & 3], dither[(a + 3) & 3]);
+        const __m128i kp = per_pixel_wv ? _mm_loadu_si128((const __m128i *)&p->keep[i]) : keep;
         __m128i q[3];
         for (int k = 0; k < 3; k++) {
             /* keep top + wv bottom = ONE bottom + keep (top - bottom) */
             __m128i m = _mm_add_epi32(_mm_add_epi32(_mm_loadu_si128((const __m128i *)&p->base[k][i]),
-                                                    _mm_mullo_epi32(keep, _mm_loadu_si128((const __m128i *)&p->gap[k][i]))),
+                                                    _mm_mullo_epi32(kp, _mm_loadu_si128((const __m128i *)&p->gap[k][i]))),
                                       d);
             q[k] = _mm_min_epi32(_mm_max_epi32(_mm_srai_epi32(m, 16), zero), top);
         }
@@ -300,7 +329,7 @@ static void blend_row(const HorizonSmooth *s, const Planes *p, int32_t wv, int x
         }
         int rgb[3];
         for (int k = 0; k < 3; k++) {
-            const int32_t m = (p->base[k][i] + (ONE - wv) * p->gap[k][i] + dither[(x + i) & 3]) >> 16;
+            const int32_t m = (p->base[k][i] + (per_pixel_wv ? p->keep[i] : ONE - wv) * p->gap[k][i] + dither[(x + i) & 3]) >> 16;
             rgb[k] = m < 0 ? 0 : m > 255 ? 255 : m;
         }
         dst[i] = horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
@@ -349,7 +378,7 @@ static void blend_band(const Draw *d, const FshEntry *horz, int32_t x_offset, in
         }
         uint8_t *dst = d->target->pixels + (size_t)sy * d->target->pitch + x;
 #ifdef __SSE4_1__
-        blend_row(d->s, &planes, wv, x0, x1, x, sy, dst);
+        blend_row(d->s, &planes, wv, 0, x0, x1, x, sy, dst);
 #else
         for (int i = x0; i < x1; i++)
             dst[i] = pairs[i].only >= 0 ? (uint8_t)pairs[i].only : pair_blend(d->s, &pairs[i], wv, x + i, sy);

@@ -62,6 +62,29 @@ static void test_port_rule_takes_the_pad_key_and_the_exe_rule_does_not(void)
     CHECK_EQ_INT(out[0], 0);
 }
 
+static void test_the_players_key_replaces_n_under_the_port_rule(void)
+{
+    enum { OWN = 0x22 };
+    uint8_t keys[KEY_FLAGS] = { 0 }, out[4] = { 0 };
+    press(keys, OWN);
+    start_keys_fill_key(out, keys, CHEAT, RACING, PORT_RULE, OWN);
+    CHECK_EQ_INT(out[0], 1);
+    start_keys_fill_key(out, keys, CHEAT, RACING, EXE_RULE, OWN);
+    CHECK_EQ_INT(out[0], 0);   /* the exe's rule is N */
+    memset(keys, 0, sizeof keys);
+    press(keys, START_KEY_N);
+    start_keys_fill_key(out, keys, CHEAT, RACING, PORT_RULE, OWN);
+    CHECK_EQ_INT(out[0], 0);   /* N is free now */
+    start_keys_fill_key(out, keys, CHEAT, RACING, EXE_RULE, OWN);
+    CHECK_EQ_INT(out[0], 1);
+    keys[0] = 1;   /* no key: the flag at 0 is not read */
+    start_keys_fill_key(out, keys, CHEAT, RACING, PORT_RULE, 0);
+    CHECK_EQ_INT(out[0], 0);
+    press(keys, RACE_KEYS_PAD_NITRO);
+    start_keys_fill_key(out, keys, CHEAT, RACING, PORT_RULE, 0);
+    CHECK_EQ_INT(out[0], 1);   /* the pad's still is */
+}
+
 static void test_nothing_held_fills_zeros(void)
 {
     uint8_t keys[KEY_FLAGS] = { 0 }, out[4] = { 1, 1, 1, 1 };
@@ -172,6 +195,7 @@ int main(void)
     test_exe_rule_copies_the_other_flags();
     test_port_rule_takes_n_alone();
     test_port_rule_takes_the_pad_key_and_the_exe_rule_does_not();
+    test_the_players_key_replaces_n_under_the_port_rule();
     test_nothing_held_fills_zeros();
     test_without_the_cheat_or_in_playback_nothing_is_written();
     test_start_clock_follows_the_input_clock_in_every_race();

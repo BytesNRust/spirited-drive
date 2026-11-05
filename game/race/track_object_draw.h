@@ -65,6 +65,8 @@ void track_object_draw(TrackObjectDraw *d, int32_t band, int visible);
 /* port: 1 and a board the exe drops for a corner past +-0x800 across (0044a450) while its middle shows (a big tree) goes to ops.port_near_camera, its
  * whole texture clipped at the near plane; 0, the default, the exe's drop */
 extern int track_port_wide_board;
+/* port (headlight_cone): while an object is drawn, its anchor's world place (16.16 metres, x y z), NULL otherwise: what the light at its own place is asked of */
+extern const int32_t *track_port_object_at;
 
 /* port (a reversed track, the 360 camera: both show the scenery from behind): 1 and a two-sided board (an L of a front and a side, the buildings) drawn through
  * the camera-space op is closed into a box: the back and the left wall as the opposite faces (the front's and the side's textures, unmirrored, facing out) and

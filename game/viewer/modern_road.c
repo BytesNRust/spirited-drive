@@ -23,6 +23,8 @@ typedef struct {
     float u_lo, u_hi, v_lo, v_hi;   /* the polygon's own uv: a pixel past its edge (EDGE_GROW) reads no texel beyond */
     const uint8_t (*lit)[256];      /* port (PS1 light): MODERN_FOG_LEVELS tables a pixel's darkness picks from; NULL none */
     float dark[4];                  /* the darkness (0 light .. MODERN_FOG_LEVELS - 1) at each corner, in cam's order */
+    const uint8_t (*warm)[256];     /* port (lamp_pool_tint): the tables of a lamp's full warmth, which a pixel takes where its heat says (NULL none: the lit tables alone) */
+    float heat[4];                  /* the warmth (0..1) at each corner, in cam's order */
 } Fill;
 
 static void uv_box(Fill *fill, const int32_t uv[8], int corners)
@@ -36,17 +38,17 @@ static void uv_box(Fill *fill, const int32_t uv[8], int corners)
 }
 
 typedef struct {
-    float x, y, z, u, v, l;
+    float x, y, z, u, v, l, h;
 } Vert;
 
 typedef struct {
-    float sx, sy, iz, uz, vz, lz;
+    float sx, sy, iz, uz, vz, lz, hz;
 } Screen;
 
 static Vert lerp(Vert a, Vert b, float t)
 {
     return (Vert){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.u + (b.u - a.u) * t,
-                   a.v + (b.v - a.v) * t, a.l + (b.l - a.l) * t };
+                   a.v + (b.v - a.v) * t, a.l + (b.l - a.l) * t, a.h + (b.h - a.h) * t };
 }
 
 static int clip_near(const Vert *in, int count, float near_z, Vert *out)
@@ -178,6 +180,10 @@ static int dark_level(float d, int x, int y)
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 
+/* port (lamp_pool_tint): whether the pixel takes the warm tables, by its interpolated heat (0..1) against the same ordered dither: a pool's warmth fades in with the
+ * lamp's class at the corners, no polygon of its own class */
+static int warm_pixel(float h, int x, int y) { return h + BAYER[y & 3][x & 3] >= 1.0f; }
+
 #if defined(__SSE2__) && !defined(__FMA__)
 /* fog_level for the depths z of four pixels x .. x + 3 of row y: the same operations, a lane each */
 static inline __m128i fog_levels_line(__m128 z, int x, int y, const float fog_start, const float fog_span)
@@ -289,7 +295,7 @@ static Plane plane(const float c[3][2], float a0, float a1, float a2)
 
 /* one row's span: the pixels whose centres all three weights cover, its attributes stepped along it with one divide
  * per pixel for the perspective */
-static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3], const float slack[3], const Plane at[4],
+static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3], const float slack[3], const Plane at[5],
                  const Fill *fill)
 {
     const float py = y + 0.5f;
@@ -330,6 +336,8 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const uint8_t (*fog)[256] = style.fog;
     const uint8_t (*lit)[256] = fill->lit;
     const float lz = at[3].base + at[3].dx * px + at[3].dy * py, lzdx = at[3].dx;
+    const uint8_t (*warm)[256] = lit != NULL ? fill->warm : NULL;   /* port (lamp_pool_tint) */
+    const float hz = at[4].base + at[4].dx * px + at[4].dy * py, hzdx = at[4].dx;
     const Paint paint = fill->paint;   /* locals: the row's stores (chars) would make every pixel reload them */
     const uint8_t *const payload = fill->texture->payload;
     int x = xs;
@@ -361,16 +369,18 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         int32_t lv[4] = { 0 };
         texel_offsets(fill, uv, vv, at4);
         int32_t dl[4] = { 0 };
+        float hl[4] = { 0 };
         if (fog != NULL)
             _mm_storeu_si128((__m128i *)lv, fog_levels(rv, x, y, style.fog_start, style.fog_end - style.fog_start));
         if (lit != NULL) {   /* (lz + lzdx k) r a lane each, as the scalar tail computes it */
             const __m128 kl = _mm_add_ps(_mm_set1_ps((float)(x - xs)), _mm_setr_ps(0, 1, 2, 3));
             _mm_storeu_si128((__m128i *)dl, dark_levels(_mm_mul_ps(_mm_add_ps(_mm_set1_ps(lz), _mm_mul_ps(_mm_set1_ps(lzdx), kl)), rv), x, y));
+            if (warm != NULL) _mm_storeu_ps(hl, _mm_mul_ps(_mm_add_ps(_mm_set1_ps(hz), _mm_mul_ps(_mm_set1_ps(hzdx), kl)), rv));   /* the scalar tail's (hz + hzdx k) r */
         }
         for (int j = 0; j < 4; j++) {
             uint8_t c = payload[at4[j]];
             if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[lv[j]][c];
-            if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dl[j]][c];
+            if (lit != NULL && c < MAP_SHADE_TEXEL) c = (warm != NULL && warm_pixel(hl[j], x + j, y) ? warm : lit)[dl[j]][c];
             paint_texel(&paint, &row[x + j], c);
         }
     }
@@ -389,7 +399,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         }
         uint8_t c = texel(fill, u, v);
         if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(r, x, y)][c];
-        if (lit != NULL && c < MAP_SHADE_TEXEL) c = lit[dark_level((lz + lzdx * k) * r, x, y)][c];
+        if (lit != NULL && c < MAP_SHADE_TEXEL) c = (warm != NULL && warm_pixel((hz + hzdx * k) * r, x, y) ? warm : lit)[dark_level((lz + lzdx * k) * r, x, y)][c];
         paint_texel(&paint, &row[x], c);
     }
 }
@@ -415,11 +425,11 @@ static void triangle(const QuadTarget *q, const Screen *p0, const Screen *p1, co
     w[1][2] = -(w[1][0] * p2->sx + w[1][1] * p2->sy);
     for (int k = 0; k < 3; k++) w[2][k] = (k == 2 ? 1.0f : 0.0f) - w[0][k] - w[1][k];
     const float c[3][2] = { { w[0][0], w[0][1] }, { w[1][0], w[1][1] }, { 0, 0 } };
-    Plane at[4] = { plane(c, p0->iz, p1->iz, p2->iz), plane(c, p0->uz, p1->uz, p2->uz),
-                    plane(c, p0->vz, p1->vz, p2->vz), plane(c, p0->lz, p1->lz, p2->lz) };
-    const float a2[4] = { p2->iz, p2->uz, p2->vz, p2->lz }, a0[4] = { p0->iz, p0->uz, p0->vz, p0->lz },
-                a1[4] = { p1->iz, p1->uz, p1->vz, p1->lz };
-    for (int k = 0; k < 4; k++) at[k].base = a2[k] + w[0][2] * (a0[k] - a2[k]) + w[1][2] * (a1[k] - a2[k]);
+    Plane at[5] = { plane(c, p0->iz, p1->iz, p2->iz), plane(c, p0->uz, p1->uz, p2->uz),
+                    plane(c, p0->vz, p1->vz, p2->vz), plane(c, p0->lz, p1->lz, p2->lz), plane(c, p0->hz, p1->hz, p2->hz) };
+    const float a2[5] = { p2->iz, p2->uz, p2->vz, p2->lz, p2->hz }, a0[5] = { p0->iz, p0->uz, p0->vz, p0->lz, p0->hz },
+                a1[5] = { p1->iz, p1->uz, p1->vz, p1->lz, p1->hz };
+    for (int k = 0; k < 5; k++) at[k].base = a2[k] + w[0][2] * (a0[k] - a2[k]) + w[1][2] * (a1[k] - a2[k]);
     /* a shade texel darkens what is under it: drawn twice where two polygons meet, a dark seam; those keep their edges */
     const int grow = fill->texture == NULL || fill->paint.mode != MAP_SHADE;
     float slack[3];
@@ -434,7 +444,7 @@ static void draw_clipped(const QuadTarget *q, const View *view, const int32_t uv
     Vert in[4], out[MAX_VERTS];
     for (int i = 0; i < corners; i++)
         in[i] = (Vert){ (float)cam[i][0], (float)cam[i][1], (float)cam[i][2], uv[2 * i] / 65536.0f,
-                        uv[2 * i + 1] / 65536.0f, fill->lit != NULL ? fill->dark[i] : 0 };
+                        uv[2 * i + 1] / 65536.0f, fill->lit != NULL ? fill->dark[i] : 0, fill->lit != NULL && fill->warm != NULL ? fill->heat[i] : 0 };
     const int n = clip_near(in, corners, (float)view->near_z, out);
     if (n < 3) return;
     Screen s[MAX_VERTS];
@@ -442,7 +452,7 @@ static void draw_clipped(const QuadTarget *q, const View *view, const int32_t uv
     for (int i = 0; i < n; i++) {
         const float iz = 1.0f / out[i].z;
         s[i] = (Screen){ view->centre_x + out[i].x * focal * iz, view->centre_y - out[i].y * focal * iz, iz,
-                         out[i].u * iz, out[i].v * iz, out[i].l * iz };
+                         out[i].u * iz, out[i].v * iz, out[i].l * iz, out[i].h * iz };
     }
     /* the fan's triangle i: its edge i..i+1 the polygon's, 0..i only for the first, i+1..0 only for the last */
     for (int i = 1; i + 1 < n; i++)
@@ -457,6 +467,19 @@ static void keep(RasterCmd *c, const View *view, const int32_t uv[8], const int3
     c->table = view, c->count = corners;
     memcpy(c->v, uv, 8 * sizeof *uv);
     for (int i = 0; i < corners; i++) memcpy(c->v + 8 + 3 * i, cam[i], 3 * sizeof *cam[i]);
+    /* the rows it can touch, so a band that cannot see it skips its set-up too (the projection, the planes of each triangle): the corners' screen rows as draw_clipped takes them, a few rows
+     * over (its own edges reach a pixel past, EDGE_GROW less); a polygon the near plane clips is left unbounded */
+    float lo = 0, hi = 0;
+    const float near_z = (float)view->near_z, focal = (float)view->focal_x;
+    for (int i = 0; i < corners; i++) {
+        const float z = (float)cam[i][2];
+        if (!(z >= near_z) || !(z > 0.0f)) return;
+        const float y = view->centre_y - (float)cam[i][1] * focal * (1.0f / z);
+        if (i == 0 || y < lo) lo = y;
+        if (i == 0 || y > hi) hi = y;
+    }
+    if (!(lo > -1.0e9f && hi < 1.0e9f)) return;
+    c->top = (int32_t)floorf(lo) - 3, c->bottom = (int32_t)ceilf(hi) + 4;
 }
 
 static void cam_of(const RasterCmd *c, const int32_t *cam[4])
@@ -499,7 +522,7 @@ void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *tex
         keep(c, view, uv, cam, 4);
         return;
     }
-    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 } };
+    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 } };
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
@@ -510,26 +533,42 @@ static void replay_lit(const RasterCmd *c, const QuadTarget *whole, int32_t top,
 {
     QuadTarget band;
     const int32_t *cam[4];
-    float dark[4];
+    float dark[4], heat[4];
+    const uint8_t (*warm)[256];
     cam_of(c, cam);
     memcpy(dark, c->v + 20, sizeof dark);
+    memcpy(heat, c->v + 24, sizeof heat);
+    memcpy(&warm, c->v + 28, sizeof warm);
     if (raster_narrow(whole, top, bottom, &band))
-        modern_road_cell_lit(&band, c->table, c->texture, c->v, cam, (int)c->mode, (const uint8_t (*)[256])c->shape, dark);
+        modern_road_cell_lit_warm(&band, c->table, c->texture, c->v, cam, (int)c->mode, (const uint8_t (*)[256])c->shape, dark, warm, warm != NULL ? heat : NULL);
 }
 
 void modern_road_cell_lit(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                           const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4])
 {
+    modern_road_cell_lit_warm(q, view, texture, uv, cam, transparent, tables, dark, NULL, NULL);
+}
+
+void modern_road_cell_lit_warm(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
+                               const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4],
+                               const uint8_t (*warm)[256], const float heat[4])
+{
+    if (warm == NULL || heat == NULL) warm = NULL, heat = NULL;
+    else if (heat[0] <= 0 && heat[1] <= 0 && heat[2] <= 0 && heat[3] <= 0) warm = NULL, heat = NULL;   /* no warmth anywhere on it: the lit tables, as without the pool */
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
         RasterCmd *c = raster_record_add(rec, q, replay_lit);
         c->texture = texture, c->mode = transparent, c->shape = (const uint8_t *)tables;
         keep(c, view, uv, cam, 4);
         memcpy(c->v + 20, dark, 4 * sizeof *dark);
+        if (warm != NULL) memcpy(c->v + 24, heat, 4 * sizeof *heat);
+        else memset(c->v + 24, 0, 4 * sizeof *heat);
+        memcpy(c->v + 28, &warm, sizeof warm);
         return;
     }
     Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, tables,
-                  { dark[0], dark[1], dark[2], dark[3] } };
+                  { dark[0], dark[1], dark[2], dark[3] }, warm, { 0 } };
+    if (warm != NULL) memcpy(fill.heat, heat, sizeof fill.heat);
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
@@ -538,7 +577,7 @@ void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *textu
                     const int32_t *const cam[4], int corners, MapMode mode, const uint8_t *shade)
 {
     if (texture == NULL || (corners != 3 && corners != 4)) return;
-    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 } };
+    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 } };
     if (!paint_valid(&fill.paint)) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
@@ -562,6 +601,6 @@ void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const in
         keep(c, view, uv, cam, corners);
         return;
     }
-    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 } };
+    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 } };
     draw_clipped(q, view, uv, cam, corners, &fill);
 }

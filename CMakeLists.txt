@@ -313,6 +313,7 @@ add_library(tnfs_game STATIC
     game/race/headlight_pool.c
     game/race/street_lamp.c
     game/race/window_lights.c
+    game/race/finish_gate_light.c
     game/race/psx_lamps.c
     game/race/police_lights.c
     game/race/psx_lgs.c
@@ -364,6 +365,7 @@ add_library(tnfs_game STATIC
     game/race/race_state.c
     game/race/sky_ring.c
     game/race/weather.c
+    game/race/rain_spray.c
     game/race/track_art.c
     game/race/track_palette_repair.c
     game/race/track_build.c
@@ -503,6 +505,7 @@ add_executable(tnfs
     game/viewer/drive_audio.c
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
+    game/viewer/cone_cells.c
     game/viewer/modern_look.c
     game/viewer/weather_draw.c
     game/viewer/horizon_smooth.c
@@ -575,7 +578,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights police_lights rally_gravel rally_gravel_volume dash_mask lamp_flare key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front)
+foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights rally_gravel rally_gravel_volume dash_mask lamp_flare key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -621,6 +624,16 @@ foreach(name band_textures single_rival palette race_settings config_dat sky_rin
     target_link_libraries(test_modern_road PRIVATE tnfs_game)
     target_compile_options(test_modern_road PRIVATE ${TNFS_WARNINGS})
     add_test(NAME modern_road COMMAND test_modern_road)
+    add_executable(test_cone_cells tests/test_cone_cells.c game/viewer/cone_cells.c game/viewer/modern_road.c)
+    target_include_directories(test_cone_cells PRIVATE game)
+    target_link_libraries(test_cone_cells PRIVATE tnfs_game)
+    target_compile_options(test_cone_cells PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME cone_cells COMMAND test_cone_cells)
+    add_executable(test_weather_draw tests/test_weather_draw.c game/viewer/weather_draw.c)
+    target_include_directories(test_weather_draw PRIVATE game)
+    target_link_libraries(test_weather_draw PRIVATE tnfs_game)
+    target_compile_options(test_weather_draw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME weather_draw COMMAND test_weather_draw)
     # port (emissive lamps): no tint, light table or fog table moves an emissive palette entry
     add_executable(test_palette_emissive tests/test_palette_emissive.c game/viewer/modern_road.c)
     target_include_directories(test_palette_emissive PRIVATE game)
@@ -940,6 +953,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_platform_mods PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_mods COMMAND test_platform_mods)
+    add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c game/platform/sdl3/platform_sdl3.c)
+    target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_platform_cfg_cache PRIVATE m)
+    endif()
+    target_compile_options(test_platform_cfg_cache PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME platform_cfg_cache COMMAND test_platform_cfg_cache)
     add_executable(test_platform_keys tests/test_platform_keys.c game/platform/sdl3/platform_sdl3.c)
     target_link_libraries(test_platform_keys PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

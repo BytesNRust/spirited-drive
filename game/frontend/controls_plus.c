@@ -34,13 +34,18 @@ enum { ROW_TOP = 100, ROW_PITCH = 21, ROW_TALL = 19, GROUP_GAP = 8, DEFAULTS = T
 enum { TUNE_PITCH = 28 };
 /* each page's two groups: the rows in each, and their headers ("" none: the second group of page 3 is Defaults alone).
  * Indexed by page - KEYBOARD_PAGE. */
-static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 5 }, { 8, 5 }, { 3, 1 } };
+static const int GROUP_ROWS[PAGES - 1][2] = { { 6, 6 }, { 8, 5 }, { 3, 1 } };
 /* the actions' second group has no header of its own: with Look back it has five rows and a header's line would take the last row past y 402 (the buttons'
  * band starts at 405); the gap above it still sets it apart */
 static const char *const GROUP_HEADER[PAGES - 1][2] = { { "Driving", "Other" }, { "Driving", NULL },
                                                           { "Tuning", NULL } };
 /* Done and Cancel as the original's (00413aa0, 00463f80's calls) */
 enum { DONE_X = 50, CANCEL_X = 565, ITEMS_Y = 450 };
+
+/* the small notes beside two rows' labels: these controls do nothing without their switch. Lower than the label, so the two share a baseline at their sizes */
+static const char *const NITRO_NOTE = "only when cheat enabled";
+static const char *const LOOK_BACK_NOTE = "only with 360 camera";
+enum { NOTE_GAP = 12, NOTE_DROP = 6 };
 
 static const char *const TUNE_LABEL[TUNE_COUNT] = { "Dead zone", "Sensitivity", "Force feedback" };
 static const int TUNE_MIN[TUNE_COUNT] = { 0, 50, 0 };
@@ -245,6 +250,12 @@ static void key_text(const Run *r, const ControlsMenuState *st, const ControlsMe
     if (code != 0 && o->plus_key_name != NULL) o->plus_key_name(o->ctx, code, out, size);
 }
 
+/* a row's small note right of its label; none without the op or a note (a capture's prompt takes the room) */
+static void row_note(const ControlsMenuOps *o, const char *label, const char *note, int y)
+{
+    if (note != NULL && o->plus_note != NULL) o->plus_note(o->ctx, note, LABEL_X + o->plus_text_width(o->ctx, label) + NOTE_GAP, y + NOTE_DROP);
+}
+
 static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o, int row)
 {
     char value[64];
@@ -254,7 +265,9 @@ static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps 
             words(o, lit ? STYLE_YELLOW : STYLE_CREAM, "Defaults", LABEL_X, y);
             return;
         }
-        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, port_controls_key_name((PortKey)row), LABEL_X, y);
+        const char *const label = port_controls_key_name((PortKey)row);
+        words(o, lit ? STYLE_YELLOW : STYLE_CREAM, label, LABEL_X, y);
+        if (r->capturing != row) row_note(o, label, row == PKEY_NITRO ? NITRO_NOTE : row == PKEY_LOOK_BACK ? LOOK_BACK_NOTE : NULL, y);
         if (r->capturing == row) snprintf(value, sizeof value, "%s", r->notice != NULL ? r->notice : "Press a key...");
         else key_text(r, st, o, (PortKey)row, value, sizeof value);
         if (r->capturing != row && port_controls_key(st->plus->port, r->key_defaults, (PortKey)row) == 0)
@@ -262,6 +275,8 @@ static void draw_row(Run *r, const ControlsMenuState *st, const ControlsMenuOps 
         else text_right(o, lit, value, VALUE_RIGHT, y);
     } else if (r->page == ACTION_PAGE) {
         words(o, lit ? STYLE_YELLOW : STYLE_CREAM, control_map_action_name(act_of(row)), LABEL_X, y);
+        if (r->capturing != (int)act_of(row))
+            row_note(o, control_map_action_name(act_of(row)), act_of(row) == ACT_NITRO ? NITRO_NOTE : act_of(row) == ACT_LOOK_BACK ? LOOK_BACK_NOTE : NULL, y);
         if (r->capturing == (int)act_of(row)) {
             /* the long prompt runs into a long label (Analog steering) from the right: the shorter one then */
             const char *const prompt = o->plus_text_width(o->ctx, control_map_action_name(act_of(row))) + o->plus_text_width(o->ctx, PROMPT_LONG) +

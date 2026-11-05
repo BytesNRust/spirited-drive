@@ -11,6 +11,8 @@
 #include "game/race/track_render.h"
 #include "game/gfx/sprite_scaled.h"
 #include "game/race/view.h"
+#include "game/viewer/cone_cells.h"
+#include "game/race/track_fence.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
@@ -51,6 +53,7 @@
 #include "viewer/weather_draw.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
+#include "game/race/rain_spray.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -79,6 +82,7 @@ static int transparent(const FshEntry *texture)
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 static uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];   /* port (lamp_pool_tint): the tables of a street lamp's pool, by class: the lit ones with a warm tint, the more the nearer the lamp */
 static int pool_ready;
+enum { POOL_CLASSES = 4 };   /* the lamp pool's classes 1..4 (psx_light_tunnel_class 2..5): the warmth at class c is c / POOL_CLASSES */
 static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
 static int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
@@ -86,6 +90,8 @@ static int lit_active;           /* a polygon or object of the light's is being 
 static int lit_tinted;           /* the ambient colour is not neutral: even full light goes through the tables */
 static float lit_tint[3] = { 1, 1, 1 };
 static uint8_t lit_corner[4];   /* the polygon's corners' intensities, for the Modern 3D road's per-pixel gradient */
+
+static const PsxLight *psx_light;   /* the track's light (set below) */
 
 static void light_hook(const uint8_t corners[4])
 {
@@ -255,8 +261,12 @@ typedef struct {
     int sky_low, sky_high;
     float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
-    uint8_t flash[256];   /* port (rain_lightning): the picture lifted toward the lightning's colour */
+    uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (rain_lightning): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
+    uint8_t mood[256];   /* port (rain v4): the whole picture moved toward a dark grey: rain's desaturated, lower contrast light */
+    uint8_t tail[256];   /* port (rain v4): a road pixel under a tail light, moved toward its red */
+    uint8_t head[256];   /* port (rain_fx): a road pixel under a lit headlight, moved toward its warm white */
+    uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
 } WeatherTables;
 
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
@@ -288,9 +298,20 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     modern_fog_tables(art->palette, rain, scratch);
     memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
     for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
+    { const uint8_t dark[3] = { 20, 26, 36 };
+      modern_fog_tables(art->palette, dark, scratch);
+      memcpy(wt.lens, scratch[6], 256);   /* port (rain v3) */
+      const uint8_t grey[3] = { 92, 98, 108 }, red[3] = { 255, 34, 24 };   /* port (rain v4) */
+      modern_fog_tables(art->palette, grey, scratch);
+      memcpy(wt.mood, scratch[drive_light_night() ? 4 : 5], 256);
+      modern_fog_tables(art->palette, red, scratch);
+      memcpy(wt.tail, scratch[9], 256);
+      const uint8_t warm[3] = { 255, 226, 160 };
+      modern_fog_tables(art->palette, warm, scratch);
+      memcpy(wt.head, scratch[9], 256); }
     weather_flash_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
-    memcpy(wt.flash, scratch[WEATHER_FLASH_LEVEL], sizeof wt.flash);
+    for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
     wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
@@ -318,6 +339,22 @@ static WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int3
                          { (float)c[0] * k, (float)c[1] * k, (float)c[2] * k } };
 }
 
+typedef struct {
+    uint8_t *pixels;
+    int32_t pitch, box[4];
+    const uint8_t *table;
+    int share;
+} RainMood;
+
+static void rain_mood_band(void *user, int top, int bottom)
+{
+    const RainMood *m = user;
+    const int32_t box[4] = { m->box[0], top, m->box[2], bottom };
+    weather_mood_rows(m->pixels, m->pitch, box, m->table, m->share);
+}
+
+static int storm_flash_level(void);   /* port (rain_lightning): the lightning's brightness this frame, 0 none */
+
 static void weather_sky_band(void *user, int top, int bottom)
 {
     const WeatherSky *s = user;
@@ -325,6 +362,8 @@ static void weather_sky_band(void *user, int top, int bottom)
         weather_sky_fade(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->levels, s->wt->sky_low, s->wt->sky_high,
                          s->cx, s->cy, s->focal, s->up);
     else weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->sky);
+    const int flash = storm_flash_level();   /* the lightning: the sky, drawn before the scenery, goes (nearly) white, the silhouettes of what stands against it kept */
+    if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
 }
 int ported_view_modern(void) { return modern; }
 
@@ -387,17 +426,27 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
                         const int32_t *const cam[4])
 {
     if (lit_active && (lit_tinted || lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255)) {
-        /* the intensities at the polygon's corners (texture (0,0), (w,0), (w,h), (0,h)) across the cell by its uv, a
-         * darkness a pixel takes between two of the tables */
+        /* the intensities at the polygon's corners: cam's corner i is the polygon's own corner i (uv is only the polygon's piece of its texture, a lane's quarter of a strip's, so the light is not
+         * found by uv across the whole texture: it stopped short of the corners and the next polygon's edge started at another value, a hard step of the cone's light at every row) */
         float dark[4];
-        const float w = (float)(int16_t)texture->width * 65536.0f, h = (float)(int16_t)texture->height * 65536.0f;
-        for (int i = 0; i < 4; i++) {
-            const float a = fminf(fmaxf(uv[2 * i] / w, 0), 1), b = fminf(fmaxf(uv[2 * i + 1] / h, 0), 1);
-            const float top = lit_corner[0] + (lit_corner[1] - lit_corner[0]) * a;
-            const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
-            dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
+        const uint8_t (*tables)[256] = lit_tables_for(texture);
+        if (pool_ready && track_light_xz_ok && track_light_tunnel != 1 && psx_light != NULL && (tables == lit_tables || (track_light_tunnel >= 2 && tables == pool_tables[(track_light_tunnel - 2) & 3]))) {
+            /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the
+             * darkness is: the warmth fades along the road with the lamp's classes, no polygon with a table of its own */
+            float heat[4];
+            for (int k = 0; k < 4; k++) {
+                const int cls = psx_light_tunnel_class(psx_light, track_light_node[k]);
+                heat[k] = cls >= 2 ? (float)(cls - 1) / POOL_CLASSES : 0.0f;
+            }
+            const float *const corner = heat;
+            if (corner[0] > 0 || corner[1] > 0 || corner[2] > 0 || corner[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */
+                modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, pool_tables[POOL_CLASSES - 1], heat);
+                return;
+            }
         }
-        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), tables, dark);
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
@@ -466,21 +515,33 @@ static int ratio_of(int32_t node, float out[3]);
 
 /* port (psx_headlights): the nodes the road itself marks a tunnel (its property bit, runs of PSX_SYNTH_MIN_RUN and more: the wooden tunnels and sheds the CD's light
  * rows do not all mark), made once for the track; NULL when it has no data */
+/* two callers ask with different counts (the light script's and the ring's): a slot each, or they would remake the flags every call, every frame;
+ * dropped when the track is forgotten (the next track's race may sit at the same address with as many nodes) */
+enum { TUNNEL_SLOTS = 2 };
+static struct { uint8_t *flags; uint32_t have; const RaceState *race; } tunnel_slot[TUNNEL_SLOTS];
+static int tunnel_next;
+
+static void road_tunnels_forget(void)
+{
+    for (int i = 0; i < TUNNEL_SLOTS; i++) free(tunnel_slot[i].flags), tunnel_slot[i].flags = NULL;
+}
+
 static const uint8_t *road_tunnels(const RaceState *race, uint32_t nodes)
 {
-    static uint8_t *flags;
-    static uint32_t have;
-    static const RaceState *for_race;
     if (nodes == 0) return NULL;
-    if (flags != NULL && have == nodes && for_race == race) return flags;
-    free(flags);
-    flags = malloc(nodes);
+    for (int i = 0; i < TUNNEL_SLOTS; i++)
+        if (tunnel_slot[i].flags != NULL && tunnel_slot[i].have == nodes && tunnel_slot[i].race == race) return tunnel_slot[i].flags;
+    const int at = tunnel_next;
+    tunnel_next = (tunnel_next + 1) % TUNNEL_SLOTS;
+    free(tunnel_slot[at].flags);
+    tunnel_slot[at].flags = NULL;
+    uint8_t *flags = malloc(nodes);
     uint8_t *property = malloc(nodes);
-    if (flags == NULL || property == NULL) { free(property); free(flags); flags = NULL; return NULL; }
+    if (flags == NULL || property == NULL) { free(property); free(flags); return NULL; }
     for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
     psx_light_synth_tunnels(property, nodes, 1, flags);
     free(property);
-    have = nodes, for_race = race;
+    tunnel_slot[at].flags = flags, tunnel_slot[at].have = nodes, tunnel_slot[at].race = race;
     return flags;
 }
 
@@ -545,7 +606,13 @@ static void headlights_update(void)
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL || !(car->flags_51a & 4)) continue;
-        if (i != race_slot(shadow_race->player) && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* not drawn lately: no light */
+        if (i != race_slot(shadow_race->player)) {
+            const int drawn = !(body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i]);
+            const Car *const player = shadow_race->cars[race_slot(shadow_race->player)];
+            int32_t behind = player != NULL ? player->node - car->node : -1;
+            if (ring > 0) behind = behind > ring / 2 ? behind - ring : behind < -ring / 2 ? behind + ring : behind;
+            if (!headlight_car_lights(drawn, behind, pool->cone)) continue;   /* not drawn lately and not just behind the camera (headlight_cone): no light */
+        }
         int32_t moved = car->node - seen[i];   /* which way the car travels: the nodes it moved over, the gear on the first frame */
         if (ring > 0) moved = moved > ring / 2 ? moved - ring : moved < -ring / 2 ? moved + ring : moved;
         if (travel[i] == 0) travel[i] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;
@@ -555,23 +622,38 @@ static void headlights_update(void)
             pool->cone_x[pool->count] = car->x / 65536.0, pool->cone_z[pool->count] = car->z / 65536.0;
             cone_heading(car, &pool->cone_hx[pool->count], &pool->cone_hz[pool->count]);
         }
+        pool->cone_car[pool->count] = (int8_t)i;
         pool->sub[pool->count] = headlight_frac(shadow_race, car);
         pool->dir[pool->count] = travel[i];
         pool->node[pool->count++] = car->node;
     }
 }
 
-static int ratio_at(int32_t node, float out[3])
+/* xz: the car's own place on the ground in metres, or NULL (the node's) */
+static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
 {
     const int found = ratio_of(node, out);
     if (found && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
         const uint32_t at = psx_ring_node(node, psx_light->nodes);
-        const int g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
+        int g;
+        if (psx_light->pool->cone && xz != NULL) {   /* port (headlight_cone): by where the car is in every car's patch of light, its own included (the glow round it): rivals, police and the player alike */
+            const int lift = headlight_pool_car_lift_xz(psx_light->pool, car, xz[0], xz[1]);   /* its own patch limited, the others' added (i097) */
+            g = headlight_pool_car_gain(headlight_pool_gain_at_lift(psx_light_tunnel(psx_light, at) ? TUNNEL_FLOOR : HEADLIGHT_FLOOR, lift));
+        } else {
+            g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
+        }
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
         if (port_lamp_car_shade()) (void)psx_light_car_pool(psx_light, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
     return found;
+}
+
+/* a car's ratio at its own place */
+static int ratio_of_car(const Car *car, float out[3])
+{
+    const double xz[2] = { car->x / 65536.0, car->z / 65536.0 };
+    return ratio_at_xz(car->node, xz, car->index, out);
 }
 
 static const float CANYON_SHADE_FACTOR = 0.70f;   /* port (canyon_shade): the owner's pick, 30 % darker */
@@ -596,21 +678,21 @@ static int ratio_of(int32_t node, float out[3])
 
 int ported_view_car_ratio(const Car *car, float out[3])
 {
-    return car != NULL && ratio_at(car->node, out);
+    return car != NULL && ratio_of_car(car, out);
 }
 
 static int police_flash_on;   /* port (psx_light): the police car's lights flash (police_lights.h) */
 void ported_view_set_police_lights(int on) { police_flash_on = on; }
 
 /* the table for a car at `node`, NULL when its ambient is the world's */
-static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
+static const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
     if (!(ambient_on || synth_on) || psx_light == NULL || palette == NULL) return NULL;
     static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3];
-    ratio_at(node, ratio);
+    ratio_at_xz(node, xz, car, ratio);
     int key[3], neutral = 1;
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
@@ -634,7 +716,8 @@ static const uint8_t *car_light(int32_t node, const uint8_t palette[768])
  * past the light (police_lights.h) */
 static const uint8_t *car_table(const Car *car, const uint8_t palette[768])
 {
-    const uint8_t *base = car_light(car->node, palette);
+    const double xz[2] = { car->x / 65536.0, car->z / 65536.0 };
+    const uint8_t *base = car_light(car->node, xz, car->index, palette);
     if (!police_flash_on || palette == NULL || !police_lights_on(shadow_race, car)) return base;
     static uint8_t table[256];
     police_lights_table(base, palette, shadow_race->tick, table);
@@ -907,36 +990,231 @@ static int world_screen(const int32_t place[3], int32_t camera[3], int32_t scree
 
 enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100 of the trail's, and the share (of 4) that gets gravel over its smoke */
 
-/* port (rain_fx): the wet road's spray, a plume behind each rear wheel (weather_rain_spray_puff) of the followed car, each puff a disc of every other pixel (a checker, no
- * blend) lightened through the rain's table; painted once the frame's 3D is whole (the recorder replayed), as the rain's streaks are, over what the car's draw laid down. */
-static void spray_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+/* port (rain_fx, rain v4): what a wet road does round every car on the screen (the followed one and the rivals ahead): spray, a cloud of grainy dithered dots behind the rear wheels (a
+ * plume from weather_rain_spray_puff: a puff's scatter of dots, thicker at its heart, widening and thinning toward the plume's end; some dots dark, so it is grit and not a lit
+ * disc), and the tail lights' reflections, a short dithered streak of their red under each lamp. Painted once the frame's 3D is whole (the recorder replayed), as the streaks are. */
+enum { RAIN_MOOD_SHARE = 7, RAIN_MOOD_SHARE_NIGHT = 10 };   /* of 16 (a 4x4 ordered dither): how much of the picture is moved toward the rain's grey; at night the grey lifts the dark picture, so more of it keeps the rain no darker than the dry night */
+
+/* port (rain v4, dev env only): TNFS_RAIN_WET_OFF=1 leaves the grey scene and the tail reflections out, for the before / after captures */
+static int rain_wet_off(void)
+{
+    static int off = -1;
+    if (off < 0) off = getenv("TNFS_RAIN_WET_OFF") != NULL;
+    return off;
+}
+
+static uint32_t rain_hash(uint32_t a, uint32_t b)
+{
+    uint32_t h = a * 0x9e3779b1u ^ (b + 0x7f4a7c15u) * 0x85ebca6bu;
+    h ^= h >> 15, h *= 0x2c1b3c6du, h ^= h >> 12;
+    return h;
+}
+
+static void rain_dot(uint8_t *pixels, int32_t pitch, const int32_t box[4], int32_t px, int32_t py, const uint8_t table[256])
+{
+    if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) return;
+    uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
+    *d = table[*d];
+}
+
+/* port (rain_fx, rain v5): how much rain there is at the eye, 0..16: none in a tunnel (the road's own tunnel bit, the runs road_tunnels finds), fading in over RAIN_MOUTH_NODES nodes outside its mouths */
+enum { RAIN_MOUTH_NODES = 6 };
+static int rain_open_at(int32_t node)
+{
+    if (shadow_race == NULL) return 16;
+    const uint32_t nodes = shadow_race->tri->ring_nodes;
+    const uint8_t *tunnel = road_tunnels(shadow_race, nodes);
+    if (tunnel == NULL) return 16;
+    for (int32_t d = 0; d <= RAIN_MOUTH_NODES; d++)
+        if (tunnel[(uint32_t)(node + d) & (nodes - 1u)] || tunnel[(uint32_t)(node - d) & (nodes - 1u)]) return d >= RAIN_MOUTH_NODES ? 16 : d * 16 / RAIN_MOUTH_NODES;
+    return 16;
+}
+
+/* port (rain_fx, rain v5): the water the cars throw up, as particles of the world (race/rain_spray.h): each wheel drops one a tick where it passes and it stays there, a low mist that widens
+ * and thins for two thirds of a second. A particle is drawn when the draw of the road reaches the node it was dropped at, with the cars of that row (draw_cars), a grainy dithered sprite
+ * through the recorder like the tyre smoke: so the scenery nearer than it covers it, and the cars, the player's own too. A shape's texels pick a table: 1 lightens, 2 less, 3 darkens (grit). */
+static RainSpray rain_spray;
+static int rain_spray_on;   /* the frame draws rain_fx's spray */
+static int rain_open = 16;  /* 0..16: how much of the rain there is where the eye is: none in a tunnel, fading in and out at its mouths */
+enum { SPRAY_SIDE = 64, SPRAY_VARIANTS = 3, SPRAY_SHAPE_BYTES = 16 + SPRAY_SIDE * SPRAY_SIDE };
+static uint8_t spray_shape[RAIN_SPRAY_LEVELS][SPRAY_VARIANTS][SPRAY_SHAPE_BYTES];
+static uint8_t spray_identity[256];
+static const uint8_t *spray_rows[256];
+
+static void spray_shapes_make(void)
+{
+    static int done;
+    if (done) return;
+    done = 1;
+    for (int i = 0; i < 256; i++) spray_identity[i] = (uint8_t)i;
+    static const int DENSITY[RAIN_SPRAY_LEVELS] = { 26, 46, 66, 86 };   /* percent at the heart */
+    for (int l = 0; l < RAIN_SPRAY_LEVELS; l++)
+        for (int v = 0; v < SPRAY_VARIANTS; v++) {
+            uint8_t *sh = spray_shape[l][v];
+            sh[0] = 0x7b, sh[4] = SPRAY_SIDE & 0xff, sh[5] = SPRAY_SIDE >> 8, sh[6] = SPRAY_SIDE & 0xff, sh[7] = SPRAY_SIDE >> 8;
+            for (int y = 0; y < SPRAY_SIDE; y++)
+                for (int x = 0; x < SPRAY_SIDE; x++) {
+                    const float dx = ((float)x - 31.5f) / 32.0f, dy = ((float)y - 31.5f) / 32.0f, r2 = dx * dx + dy * dy;
+                    const uint32_t h = rain_hash((uint32_t)(y * SPRAY_SIDE + x), (uint32_t)(l * 17 + v * 101 + 5));
+                    uint8_t t = 0;
+                    if (r2 < 1.0f && (int)(h % 100u) < (int)((float)DENSITY[l] * (1.0f - 0.85f * r2))) t = (h >> 12) % 5 == 0 ? 3 : (h >> 12) % 3 == 0 ? 2 : 1;   /* thicker at the heart */
+                    sh[16 + y * SPRAY_SIDE + x] = t;
+                }
+        }
+}
+
+static void spray_tables_set(const WeatherTables *wt)
+{
+    spray_shapes_make();
+    const int level = weather_rain_spray_level(drive_light_night());
+    for (int i = 0; i < 256; i++) spray_rows[i] = spray_identity;
+    spray_rows[1] = wt->rain4[level], spray_rows[2] = wt->rain4[level > 0 ? level - 1 : 0], spray_rows[3] = wt->rain4[level > 1 ? level - 2 : 0];
+}
+
+/* once a tick, each car's wheels drop their water (the cars on the screen, and the player's) */
+static void spray_update(void)
+{
+    if (shadow_race == NULL) return;
+    const Car *player = followed_car();
+    const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
+    for (int32_t i = 0; i < n; i++) {
+        const Car *car = shadow_race->cars[i];
+        if (car == NULL) continue;
+        if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;
+        const int32_t angle = (car->yaw >> 8) & 0xffff;
+        const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);   /* forward (x, z); the right is (fz, -fx) */
+        const int32_t behind = 0x16000, across = 0xd000;   /* a rear wheel: 1.4 m behind the centre, 0.8 m out */
+        int32_t wheel[2][3];
+        for (int w = 0; w < 2; w++) {
+            const int32_t a = w == 0 ? -across : across;
+            wheel[w][0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * a) >> 16);
+            wheel[w][1] = car->y - 0x5000;
+            wheel[w][2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * a) >> 16);
+        }
+        const int32_t right[2] = { fz, -fx };
+        rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, car->airborne_ticks == 0 && car->off_road == 0);
+    }
+}
+
+/* the particles dropped at road node `node`, drawn with that row's cars */
+static void spray_row(int32_t node, int far_side)
+{
+    const uint32_t tick = (uint32_t)shadow_race->tick;
+    const int32_t focal = abs(model_view.view->focal_x);
+    for (int i = 0; i < RAIN_SPRAY_MAX; i++) {
+        const RainSprayParticle *p = &rain_spray.p[i];
+        int32_t place[3], radius, camera[3], screen[2];
+        int density;
+        if (!p->live || p->node != node || !rain_spray_look(p, tick, rain_open, place, &radius, &density)) continue;
+        if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
+        const Car *owner = p->car < RACE_CARS ? shadow_race->cars[p->car] : NULL;   /* a puff farther from the eye than its car is drawn before the row's cars, a nearer one after them */
+        int32_t own_camera[3], own_screen[2];
+        const int32_t own_at[3] = { owner != NULL ? owner->x : 0, owner != NULL ? owner->y : 0, owner != NULL ? owner->z : 0 };
+        const int farther = owner == NULL || !world_screen(own_at, own_camera, own_screen) || camera[2] >= own_camera[2];
+        if (farther != far_side) continue;
+        const int32_t px = (int32_t)((int64_t)(radius >> WORLD_SHIFT) * focal / camera[2]);   /* the radius in pixels */
+        const int32_t w = px * 2 + 3, h = w * 6 / 11 + 2;   /* flatter than wide: a mist along the road */
+        sprite_scaled_blend(object_pixels.target, spray_rows, spray_shape[density][(p->born * 7u + (uint32_t)i) % SPRAY_VARIANTS], w, h, screen[0] - w / 2, screen[1] - h / 2);
+    }
+}
+
+/* The lamps' reflections on a wet road: each lamp (at the car's bumper, 0.36 of its width out, a little above the road) is mirrored in the road below it, a short vertical dithered streak from
+ * the lamp's ground point (its x and z, the road's y) towards the viewer, wider at the top and thinning. A wet road is a mirror: it shows a lamp only when the lamp faces the viewer, so the
+ * tail lights' (red) show when the car's rear is toward the camera and the headlights' (warm white, lit ones only) when its front is, both gone at a side view (the dot of the car's forward
+ * vector with the car-to-camera one, |dot| 0.3 .. 0.7 smooth) and with distance (full to 25 m, none from 75 m). The car's own heading as it is drawn (traffic draws with its matrix, not the
+ * yaw) and its own length and width place the lamps. */
+enum { REFLECT_DEFAULT_LENGTH = 0x48000, REFLECT_DEFAULT_WIDTH = 0x1cccc };   /* a car's length and width (16.16) when the model gives none */
+
+/* The reflection's strength in percent for `car` seen from the camera (0 none), and whether it is the front that faces the camera. */
+static int reflection_weight(const Car *car, int32_t forward[2], int *front)
+{
+    int32_t fx, fz;
+    if (car->use_matrix) fx = car->matrix[6], fz = car->matrix[8];
+    else {
+        const int32_t angle = (car->yaw >> 8) & 0xffff;
+        fx = fx_sin16(angle), fz = fx_cos16(angle);
+    }
+    const double len = sqrt((double)fx * fx + (double)fz * fz);
+    if (len < 1.0) return 0;
+    const double ux = fx / len, uz = fz / len;
+    const double dx = ((double)model_view.camera_position[0] - car->x) / 65536.0, dz = ((double)model_view.camera_position[2] - car->z) / 65536.0;
+    const double dist = sqrt(dx * dx + dz * dz);
+    if (dist < 0.5 || dist >= WEATHER_REFLECT_FAR_M) return 0;
+    const double dot = (ux * dx + uz * dz) / dist;
+    forward[0] = (int32_t)(ux * 65536.0), forward[1] = (int32_t)(uz * 65536.0);
+    *front = dot > 0;
+    return weather_reflection_weight((float)dot, (float)dist);
+}
+
+static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+{
+    const int night = drive_light_night();
+    int32_t forward[2];
+    int front = 0;
+    const int weight = reflection_weight(car, forward, &front);
+    if (weight <= 0) return;
+    if (front && drive_lamps_lit_entry(car->index, LAMP_HEADLIGHT) == 0) return;   /* the headlights' only when they are lit */
+    const uint8_t *table = front ? wt->head : wt->tail;
+    const int32_t length = car->model_length > 0 ? car->model_length : REFLECT_DEFAULT_LENGTH, width = car->model_width > 0 ? car->model_width : REFLECT_DEFAULT_WIDTH;
+    const int32_t along = (int32_t)(((int64_t)length * (front ? 19 : -19)) / 40);   /* the bumper: 0.475 of the length from the centre */
+    for (int side = -1; side <= 1; side += 2) {
+        int32_t foot[3], mirror[3], c0[3], c1[3], s0[2], s1[2];
+        const int32_t across = (int32_t)(((int64_t)width * 9 * side) / 25);   /* 0.36 of the width out */
+        foot[0] = mirror[0] = car->x + (int32_t)(((int64_t)forward[0] * along) >> 16) + (int32_t)(((int64_t)forward[1] * across) >> 16);
+        foot[2] = mirror[2] = car->z + (int32_t)(((int64_t)forward[1] * along) >> 16) - (int32_t)(((int64_t)forward[0] * across) >> 16);
+        foot[1] = car->road_point_heading[1] != 0 ? car->road_point_heading[1] : car->y, mirror[1] = foot[1] - 0xc000;   /* the road under the lamp (the car's origin is on the road), and the lamp as the road shows it, below it (a wet road smears it longer than the lamp is high) */
+        if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
+        const int32_t half = (0x38400 / c0[2] * 220 / SPRAY_DIV + 1) * (night ? 3 : 2) / 2;   /* wider at night: the lamps are the light */
+        const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
+        if (steps < 1) continue;
+        for (int32_t t = 0; t <= steps; t++) {
+            const int32_t cy = s0[1] + (s1[1] - s0[1]) * t / steps, cx = s0[0] + (s1[0] - s0[0]) * t / steps;
+            const int32_t w = half * (steps - t / 2) / steps;   /* a little narrower toward the end */
+            const int32_t keep = ((night ? 100 : 75) * (steps - t) / steps + 10) * weight / 100;   /* and thinner, and thinner still where the weight is low */
+            for (int32_t x = -w; x <= w; x++)
+                if ((int32_t)(rain_hash((uint32_t)((cx + x) * 31 + cy), 5u) % 100u) < keep && (night || ((cy + t) % 3) != 0)) rain_dot(pixels, pitch, box, cx + x, cy, table);
+        }
+    }
+}
+
+/* port (rain_fx, rain v5): where the rain streams from: the screen point the followed car's velocity direction projects to in the CURRENT camera (the screen's centre in the cockpit and the
+ * bumper, the road's far end ahead of a chase camera), possibly off the screen (a helicopter's: the streaks are then parallel, along the travel). When that direction's far point is behind
+ * the lens the point is the travel's own direction on the screen, far out. `out` (screen pixels) holds the centre, which stays when the car is not known. */
+static void rain_vanishing_point(int32_t out[2])
 {
     if (shadow_race == NULL) return;
     const Car *car = followed_car();
     if (car == NULL) return;
-    const int wet = car->airborne_ticks == 0 && car->off_road == 0;
-    const uint8_t *table = wt->rain4[weather_rain_spray_level(drive_light_night())];
     const int32_t angle = (car->yaw >> 8) & 0xffff;
-    const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);   /* forward (x, z); the right is (fz, -fx) */
-    for (int side = -1; side <= 1; side += 2)
-        for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++) {
-            int32_t rel[3], size, place[3], camera[3], screen[2];
-            if (!weather_rain_spray_puff(k, side, (uint32_t)shadow_race->tick, car->speed, wet, rel, &size)) continue;
-            const int32_t behind = 0x16000 + rel[0], across = side * 0xd000 + rel[1];   /* the wheel's place (1.4 m behind the centre, 0.8 m out), plus the puff's */
-            place[0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * across) >> 16);
-            place[1] = car->y - 0x5000 + rel[2];
-            place[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
-            if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
-            const int32_t radius = 0x38400 / camera[2] * size / SPRAY_DIV + 1;
-            for (int32_t y = -radius; y <= radius; y++)
-                for (int32_t x = -radius; x <= radius; x++) {
-                    if (x * x + y * y > radius * radius || ((x + y) & 1) != 0) continue;   /* a disc, every other pixel */
-                    const int32_t px = screen[0] + x, py = screen[1] + y;
-                    if (px < box[0] || px >= box[2] || py < box[1] || py >= box[3]) continue;
-                    uint8_t *d = pixels + (size_t)py * (size_t)pitch + (size_t)px;
-                    *d = table[*d];
-                }
-        }
+    const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);
+    const int32_t at[3] = { car->x, car->y, car->z };
+    int32_t far[3], camera[3], s_far[2], s_at[2], s_near[2], near[3], c0[3], c1[3];
+    const int64_t far_m = (int64_t)300 << 16, near_m = (int64_t)20 << 16;
+    far[0] = at[0] + (int32_t)(((int64_t)fx * far_m) >> 16), far[1] = at[1], far[2] = at[2] + (int32_t)(((int64_t)fz * far_m) >> 16);
+    if (world_screen(far, camera, s_far) && camera[2] > 64) {
+        out[0] = s_far[0], out[1] = s_far[1];
+    } else {
+        near[0] = at[0] + (int32_t)(((int64_t)fx * near_m) >> 16), near[1] = at[1], near[2] = at[2] + (int32_t)(((int64_t)fz * near_m) >> 16);
+        if (!world_screen(at, c0, s_at) || c0[2] <= 64 || !world_screen(near, c1, s_near) || c1[2] <= 64) return;
+        const float dx = (float)(s_near[0] - s_at[0]), dy = (float)(s_near[1] - s_at[1]), n = sqrtf(dx * dx + dy * dy);
+        if (n < 1.0f) return;
+        out[0] = s_at[0] + (int32_t)(dx / n * 6000.0f), out[1] = s_at[1] + (int32_t)(dy / n * 6000.0f);
+    }
+    out[0] = out[0] < -8000 ? -8000 : out[0] > 8000 ? 8000 : out[0];
+    out[1] = out[1] < -8000 ? -8000 : out[1] > 8000 ? 8000 : out[1];
+}
+
+static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+{
+    if (shadow_race == NULL) return;
+    const Car *player = followed_car();
+    const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
+    for (int32_t i = 0; i < n; i++) {
+        const Car *car = shadow_race->cars[i];
+        if (car == NULL) continue;
+        if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
+        if (!rain_wet_off()) reflect_car(car, pixels, pitch, box, wt);
+    }
 }
 
 static void dust_draw(const Car *car)
@@ -1135,7 +1413,7 @@ void ported_view_set_flares(int on) { flare_on = on != 0; }
 static void lamp_state(const Car *car)
 {
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
-    ratio_at(car->node, ratio);
+    ratio_of_car(car, ratio);
     drive_light_tint(tint);
     if (flare_on && weather == WEATHER_FOG)   /* port (psx_flares): the lamps glow in fog too */
         drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
@@ -1144,6 +1422,7 @@ static void lamp_state(const Car *car)
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */
+static unsigned body_draws;   /* port: the bodies drawn so far; a pass that drew none left no screen corners to flare from */
 static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int32_t position[3])
 {
     BodyCtx *b = ctx;
@@ -1154,6 +1433,7 @@ static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int3
                                 light_slots != NULL ? light_slots : NO_SLOT_COLOURS, race->finish_cars, race->tick,
                                 &flash_tick, &flash };
     lamp_state(car);
+    body_draws++;
     if (car->index >= 0 && car->index < RACE_CARS) body_drawn_tick[car->index] = race->tick + 1;   /* port (psx_headlights): this car was drawn: its pool may light the road */
     b->part = 0;
     car_body_draw(&ops, &in, car, followed_car(), matrix, position);
@@ -1303,11 +1583,12 @@ static void tunnel_flare_draw(const QuadTarget *t, const uint8_t palette[768])
  * lamp hides its blobs; the halo is added to the pixels' palette, in the lamp's colour at three strengths over a radius a few times the lamp's own */
 typedef struct {
     int entry;
+    int entry2;                       /* port: a second entry of the same lamp (a police lamp's centre, 0: none) whose pixels give the halo too */
     int percent[LAMP_FLARE_LEVELS];   /* the lamp's colour added to the pixel: a soft glow stronger toward the lamp */
     int reach;                        /* port: the halo's radius in percent of the usual (0 or 100: usual); the headlights' and the police lights' are powerful lights, bigger */
 } FlareLamp;
 
-enum { BIG_REACH_HEADLIGHT = 180, BIG_REACH_POLICE = 260 };
+enum { BIG_REACH_HEADLIGHT = 180, BIG_REACH_POLICE = 260, FLARE_NEAR_Z = 64 };   /* FLARE_NEAR_Z: the camera z (16.16 units) below which a vertex does not give the car's rectangle */
 
 /* a halo of `lamp`'s colour at (cx, cy), `radius` pixels: the pixels it covers go to the palette's entry nearest their colour plus the lamp's (the lamp's own colour stays) */
 static void flare_halo(const QuadTarget *t, const uint8_t palette[768], const FlareLamp *lamp, int cx, int cy, int radius)
@@ -1333,6 +1614,7 @@ static void flare_lamp(const QuadTarget *t, const uint8_t palette[768], const in
 {
     uint8_t member[256] = { 0 };
     member[lamp->entry] = 1;
+    if (lamp->entry2 != 0) member[lamp->entry2] = 1;
     LampBlob blobs[LAMP_FLARE_BLOBS];
     const int count = lamp_blobs(t->pixels, t->pitch, rect[0], rect[1], rect[2], rect[3], member, blobs, LAMP_FLARE_BLOBS);
     for (int i = 0; i < count; i++)
@@ -1341,7 +1623,7 @@ static void flare_lamp(const QuadTarget *t, const uint8_t palette[768], const in
 
 static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, const uint8_t palette[768])
 {
-    const Object3D *body = vc->model.body;
+    const Object3D *body = car->far != 0 ? vc->model.far : vc->model.body;   /* the model this pass drew: the other one's screen corners are another view's */
     if (!flare_on || palette == NULL || body == NULL || body->screen == NULL) return;
     /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (psx_flares) */
     const int cop = port_police_glow() && police_flash_on && police_lights_on(shadow_race, car);
@@ -1352,35 +1634,41 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     int n = 0;
     const int brake = drive_lamps_lit_entry(car->index, LAMP_BRAKE), reverse = drive_lamps_lit_entry(car->index, LAMP_REVERSE),
               head = drive_lamps_lit_entry(car->index, LAMP_HEADLIGHT);
-    if (brake != 0) lamps[n++] = (FlareLamp){ brake, { 30, 60, 100 }, 100 };
-    if (reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
-    if (head != 0) lamps[n++] = (FlareLamp){ head, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
+    if (brake != 0) lamps[n++] = (FlareLamp){ brake, 0, { 30, 60, 100 }, 100 };
+    if (reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, 0, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
+    if (head != 0) lamps[n++] = (FlareLamp){ head, 0, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
     const int police = police_flash_on && police_lights_on(shadow_race, car);
     const int red = police ? police_lights_own_entry(1) : 0, blue = police ? police_lights_own_entry(0) : 0;
     if (n == 0 && red == 0 && blue == 0) return;
     int rect[4] = { INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN };
+    int behind = 0;   /* vertices at or before the near plane: their screen corners are not a place (the mirror, a car just beside the camera) */
     for (uint32_t v = 0; v < body->vertex_count; v++) {
+        if (body->camera != NULL && body->camera[v][2] < FLARE_NEAR_Z) {
+            behind = 1;
+            continue;
+        }
         if (body->screen[v][0] < rect[0]) rect[0] = body->screen[v][0];
         if (body->screen[v][0] > rect[2]) rect[2] = body->screen[v][0];
         if (body->screen[v][1] < rect[1]) rect[1] = body->screen[v][1];
         if (body->screen[v][1] > rect[3]) rect[3] = body->screen[v][1];
     }
+    if (rect[0] > rect[2] || rect[1] > rect[3]) return;   /* nothing of the car is in front of the camera */
     if (rect[0] < t->clip_left) rect[0] = t->clip_left;
     if (rect[1] < t->clip_top) rect[1] = t->clip_top;
     if (rect[2] >= t->clip_right) rect[2] = t->clip_right - 1;
     if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
     const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
-    const FlareLamp copred = { red, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, BIG_REACH_POLICE };
-    const FlareLamp copblue = { blue, { copred.percent[0], copred.percent[1], copred.percent[2] }, BIG_REACH_POLICE };
-    if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, { 30, 60, 100 }, 100 };
-    if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, { 30, 60, 100 }, 100 };
+    const FlareLamp copred = { red, red != 0 ? police_lights_own_centre(1) : 0, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, BIG_REACH_POLICE };
+    const FlareLamp copblue = { blue, blue != 0 ? police_lights_own_centre(0) : 0, { copred.percent[0], copred.percent[1], copred.percent[2] }, BIG_REACH_POLICE };
+    if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, 0, { 30, 60, 100 }, 100 };
+    if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, 0, { 30, 60, 100 }, 100 };
     for (int i = 0; i < n; i++) flare_lamp(t, palette, rect, &lamps[i]);
-    if (far_police && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
+    if (far_police && !behind && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
         const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
         const int radius = w * 7 / 10 < 8 ? 8 : w * 7 / 10 > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : w * 7 / 10;
         const int cy = rect[1] + h / 4;
-        const FlareLamp left = { phase == 0 ? red : blue, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, { 70, 120, 180 }, 100 };
+        const FlareLamp left = { phase == 0 ? red : blue, 0, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, 0, { 70, 120, 180 }, 100 };
         if (left.entry != 0) flare_halo(t, palette, &left, rect[0] + w / 3, cy, radius);
         if (right.entry != 0) flare_halo(t, palette, &right, rect[0] + w * 2 / 3, cy, radius);
     }
@@ -1406,9 +1694,10 @@ static void row_draw(void *ctx, Car *car, int pass)
         if (cars[i].ok && cars[i].car == car) {
             object_sink_set_light(car_table(car, object_pixels.palette));
             body_shine_begin(object_pixels.palette, model_view.camera_matrix);
+            const unsigned drawn = body_draws;
             render_slot(&cars[i], car, pass, &model_view, &sink, object_pixels.target);
             body_shine_end();
-            draw_flare(&cars[i], car, object_pixels.target, object_pixels.palette);
+            if (body_draws != drawn) draw_flare(&cars[i], car, object_pixels.target, object_pixels.palette);
             object_sink_set_light(NULL);
         }
 }
@@ -1425,9 +1714,10 @@ int ported_view_render_car(Car *car, const ModelView *mv, int mirror, const Quad
     if (slot < 0 || slot >= PORTED_VIEW_CARS || !cars[slot].ok) return 0;
     object_sink_set_light(car_table(car, palette));
     body_shine_begin(palette, mv->camera_matrix);
+    const unsigned drawn = body_draws;
     render_slot(&cars[slot], car, mirror, mv, &sink, target);
     body_shine_end();
-    draw_flare(&cars[slot], car, target, palette);
+    if (body_draws != drawn) draw_flare(&cars[slot], car, target, palette);
     object_sink_set_light(NULL);
     return 1;
 }
@@ -1449,17 +1739,19 @@ static void draw_cars(void *user, int32_t node)
         const RowCarsOps ops = { NULL, row_prepare, row_draw, row_unseen };
         const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->drawn, race->drawn_count, followed_car(),
                                    race->chase.kind, 0 };
+        if (rain_spray_on) spray_row(node, 1);   /* port (rain v5): the water farther off than its car, first */
         cars_on_row(&ops, &in, node);
         if (arm_drawing) {   /* port: the rows behind the camera's node, which the exe's pass reads as the end of the ring */
             const RowCarsBehindInputs back = { race->chase.node, race->segments, behind_rows, race->drawn, race->drawn_count, followed_car() };
             cars_on_row_behind(&ops, &back, node);
         }
+        if (rain_spray_on) spray_row(node, 0);   /* and the nearer, after the cars */
         return;
     }
     const Object3DSink sink = object_sink(&object_pixels);
     for (int i = 0; i < car_count; i++)
         if (cars[i].ok && cars[i].node == node) {
-            object_sink_set_light(car_light(node, object_pixels.palette));
+            object_sink_set_light(car_light(node, NULL, -1, object_pixels.palette));
             car_draw(&cars[i].model, &cars[i].pose, &model_view, 0, &sink);
             object_sink_set_light(NULL);
         }
@@ -1644,6 +1936,7 @@ void ported_view_forget_track(void)
     render.tri = NULL;
     ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
+    road_tunnels_forget();
 }
 
 void ported_view_set_reach(int32_t segments)
@@ -1741,6 +2034,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon.scale, stage.line, ctx.clip.y1);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
+    drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (rain_lightning): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
                                            &view, cam.matrix);
@@ -1853,6 +2147,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
+    rain_spray_on = wt != NULL && weather == WEATHER_RAIN && port_rain_fx() && shadow_race != NULL;
+    if (rain_spray_on) {   /* port (rain v5) */
+        rain_open = rain_open_at(shadow_race->chase.node);
+        spray_tables_set(wt);
+        spray_update();
+    }
     int ahead = 1;   /* the exe's pass draws the track */
     if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
         follow_arm_window(&render, follow_arm_segments());
@@ -1866,6 +2166,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     tunnel_flare_count = 0;
     if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    rain_spray_on = 0;
     track_light_hook = NULL;
     lit_active = 0;
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
@@ -1875,17 +2176,24 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        spray_paint(pixels, screen_w, box, wt);
-        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
-                             drive_light_night(), wt->rain4);
+        if (!rain_wet_off()) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
+            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE };
+            bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
+        }
+        rain_cars_paint(pixels, screen_w, box, wt);
+        int32_t vanish[2] = { view.centre_x, view.centre_y };
+        rain_vanishing_point(vanish);
+        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view.focal_x,
+                             drive_light_night(), rain_open, wt->rain4);
+        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
     } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
-    if (wt != NULL && weather == WEATHER_RAIN && port_rain_lightning() && weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)))   /* port (rain_lightning): one frame lifted */
-        for (int32_t y = box[1] < 0 ? 0 : box[1]; y < (box[3] < screen_h ? box[3] : screen_h); y++)
-            for (int32_t x = box[0] < 0 ? 0 : box[0]; x < (box[2] < screen_w ? box[2] : screen_w); x++) {
-                uint8_t *p = pixels + (size_t)y * (size_t)screen_w + (size_t)x;
-                *p = wt->flash[*p];
-            }
+}
+
+static int storm_flash_level(void)
+{
+    if (weather != WEATHER_RAIN || !port_rain_lightning()) return 0;
+    return weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick));
 }
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)

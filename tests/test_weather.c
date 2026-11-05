@@ -1,7 +1,10 @@
 /* The weather's pure parts (weather.h): names, the rain's determinism and bounds. No game or CD data. */
 #include "game/race/weather.h"
+#include "game/race/headlight_pool.h"
 #include "test.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -47,6 +50,8 @@ static void test_rain_bounds_and_scale(void)
     CHECK_EQ_INT(weather_rain_width(0), 1);
     CHECK_EQ_INT(weather_rain_count(0, 480), 0);
     CHECK(weather_rain_count(1280, 960) == 4 * weather_rain_count(640, 480));
+    CHECK(weather_rain_count_fx(640, 480) * 10 < weather_rain_count(640, 480) * 7 && weather_rain_count_fx(640, 480) > 0);   /* the speed-following rain is sparser */
+    CHECK(weather_rain_blend(0) == 0.0f && weather_rain_blend(WEATHER_SPOKE_TURNED << 16) == 1.0f && weather_rain_blend(6 << 16) > 0.0f);
     CHECK(weather_rain_count(1, 1) >= 1 && weather_rain_count(100000, 100000) <= 2000);
 }
 
@@ -105,7 +110,7 @@ static int span2(const int32_t s[4]) { return (s[2] - s[0]) * (s[2] - s[0]) + (s
 static void test_rain_spokes_follow_the_speed(void)
 {
     const int32_t vx = 320, vy = 200;
-    int level, still_falls = 0, radial = 0, longer = 0, n = 0;
+    int level, still_falls = 0, radial = 0, n = 0, wedge = 0, shown = 0;
     for (int drop = 0; drop < 240; drop++) {
         int32_t a[4], f[4], g[4];
         weather_rain_spoke(drop, 50, 0, 640, 480, vx, vy, 500.0f, 0, a, &level);
@@ -118,23 +123,87 @@ static void test_rain_spokes_follow_the_speed(void)
         n++;
         const int64_t outward = (int64_t)(f[2] - vx) * (f[2] - f[0]) + (int64_t)(f[3] - vy) * (f[3] - f[1]);   /* the head is farther out than the tail */
         if (outward > 0) radial++;
-        if (span2(f) > span2(a)) longer++;
+        CHECK(span2(f) <= 80 * 80);                                                      /* short: no more than a sixth of the view */
+        const double dist = sqrt((double)(f[2] - vx) * (f[2] - vx) + (double)(f[3] - vy) * (f[3] - vy));
+        if (level >= 0 && dist > 4 && (f[3] - vy) / dist >= 0.8) wedge++;                /* the wedge straight down: some drops, not none, and not many */
+        if (level >= 0) shown++;
     }
+    CHECK(wedge > 0 && wedge * 100 < shown * 20);
     CHECK(still_falls > 230);
-    CHECK(n > 200 && radial * 100 > n * 97);
-    CHECK(longer * 100 > 240 * 55);   /* most are longer (the ones just born are cut by the origin) */
+    CHECK(n > 150 && radial * 100 > n * 97);
     int32_t slow[4], mid[4];
     weather_rain_spoke(9, 50, 5 << 16, 640, 480, vx, vy, 500.0f, 0, slow, &level);   /* it changes smoothly with the speed */
-    weather_rain_spoke(9, 50, 6 << 16, 640, 480, vx, vy, 500.0f, 0, mid, &level);
+    weather_rain_spoke(9, 50, (5 << 16) + 6554, 640, 480, vx, vy, 500.0f, 0, mid, &level);   /* a tenth of a metre a second more */
     CHECK(abs(slow[2] - mid[2]) + abs(slow[3] - mid[3]) < 40);
+}
+
+/* rain v3: a drop keeps its side of the vanishing point as the speed grows (the direction is turned per drop, none crosses over), and a wide view is wet to its right edge */
+static void test_rain_keeps_its_side_and_fills_a_wide_view(void)
+{
+    const int32_t vx = 560, vy = 200;   /* a 21:9 box 1120 x 480 */
+    int level, flips = 0, tested = 0, right = 0, seen = 0;
+    for (int drop = 0; drop < 400; drop++) {
+        int prev = 0;
+        for (int m = 0; m <= 40; m += 2) {
+            int32_t s[4];
+            weather_rain_spoke(drop, 20, m << 16, 1120, 480, vx, vy, 500.0f, 0, s, &level);
+            if (level < 0 || abs(s[2] - vx) < 60) continue;   /* gone, or at the vanishing point itself: no side */
+            const int side = s[2] > vx ? 1 : -1;
+            if (prev != 0 && side != prev) flips++;
+            prev = side;
+            tested++;
+        }
+        for (uint32_t tick = 0; tick < 40; tick += 3) {   /* standing: where the heads are */
+            int32_t s[4];
+            weather_rain_spoke(drop, tick, 0, 1120, 480, vx, vy, 500.0f, 0, s, &level);
+            seen++;
+            if (s[2] > 1120 * 85 / 100 && s[2] < 1120 && s[3] > 0 && s[3] < 480) right++;
+        }
+    }
+    CHECK(tested > 2000 && flips * 100 < tested);   /* no drop crosses from one side to the other */
+    CHECK(right * 100 > seen * 6);                  /* the right 15 % is not dry (it was, with columns over the box alone) */
+}
+
+/* rain v3: drops on the lens land, stay, slide a little and fade; a pure function, inside the box, not always there, never moving fast */
+static void test_lens_drops(void)
+{
+    CHECK(weather_lens_count(640, 480) == WEATHER_LENS_PER_640x480 && weather_lens_count(1120, 480) > weather_lens_count(640, 480) && weather_lens_count(0, 480) == 0);
+    int here = 0, total = 0, grew = 0, faded = 0;
+    for (int drop = 0; drop < weather_lens_count(1120, 480); drop++) {
+        int32_t prev[4] = { 0 };
+        int had = 0;
+        for (uint32_t tick = 0; tick < 600; tick++) {
+            int32_t a[4], b[4];
+            const int ia = weather_lens_drop(drop, tick, 0, 1120, 480, 560, 200, a), ib = weather_lens_drop(drop, tick, 0, 1120, 480, 560, 200, b);
+            CHECK(ia == ib && (!ia || memcmp(a, b, sizeof a) == 0));   /* a pure function */
+            total++;
+            if (!ia) { had = 0; continue; }
+            here++;
+            CHECK(a[0] >= 0 && a[0] < 1120 && a[1] >= 0 && a[1] < 480 && a[2] >= 1 && a[2] <= 7 && a[3] >= 1 && a[3] <= 16);
+            const int new_life = a[3] == 16 && prev[3] < 8 && a[2] <= prev[2] + 3;   /* a life that begins as the last one ended: its own place */
+            if (had && !new_life) {
+                CHECK(abs(a[0] - prev[0]) + abs(a[1] - prev[1]) <= 2);   /* it sticks: a pixel or two a frame at most */
+                if (a[2] > prev[2]) grew++;
+                if (a[3] < prev[3]) faded++;
+            }
+            memcpy(prev, a, sizeof prev), had = 1;
+        }
+    }
+    CHECK(here * 100 > total * 25 && here * 100 < total * 85);   /* the glass is wet part of the time */
+    CHECK(grew > 0 && faded > 0);                                 /* they land (grow) and go (fade) */
 }
 
 static void test_rain_cone_lights_the_drops(void)
 {
     CHECK(weather_rain_cone_weight(15.0f, 0.0f, 1.0f) > 200);   /* ahead of the nose */
-    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 12.0f, 1.0f), 0);   /* far to the side */
-    CHECK_EQ_INT(weather_rain_cone_weight(-5.0f, 0.0f, 1.0f), 0);    /* behind */
-    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 0.0f, 6.0f), 0);    /* high above */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 40.0f, 1.0f), 0);   /* far to the side */
+    CHECK_EQ_INT(weather_rain_cone_weight(-25.0f, 0.0f, 1.0f), 0);    /* well behind: past the glow round the car */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 0.0f, 20.0f), 0);    /* high above */
+    CHECK_EQ_INT(weather_rain_cone_weight(150.0f, 0.0f, 1.0f), 0);    /* beyond the reach */
+    CHECK_EQ_INT(weather_rain_cone_weight(8.0f, 3.0f, 1.0f), weather_rain_cone_weight(8.0f, -3.0f, 1.0f));   /* symmetric */
+    /* it is the cone's own weight, the eye half a metre ahead of the car's centre */
+    CHECK_EQ_INT(weather_rain_cone_weight(15.0f, 4.0f, 2.0f), headlight_cone_weight_local(15.5, 4.0, 2.0));
+    CHECK(weather_rain_cone_weight(30.0f, 0.0f, 1.0f) < weather_rain_cone_weight(15.0f, 0.0f, 1.0f));   /* it fades with the distance */
     int dark = 0, bright = 0, level;
     for (int drop = 0; drop < 240; drop++) {
         int32_t s[4];
@@ -143,7 +212,7 @@ static void test_rain_cone_lights_the_drops(void)
         if (level == 0) dark++;
         if (level >= 2) bright++;
     }
-    CHECK(dark > 0 && bright > 0 && dark > bright);   /* a few in the beam, most outside it */
+    CHECK(dark > 0 && bright > dark);   /* the cone is a broad patch: most drops are in it, a few outside */
     CHECK(weather_rain_level_fog(0) < weather_rain_level_fog(1) && weather_rain_level_fog(2) < weather_rain_level_fog(3));
 }
 
@@ -169,36 +238,101 @@ static void test_rain_spray_plume(void)
     }
     CHECK(live >= WEATHER_SPRAY_PUFFS - 2);
     CHECK(far_fast > far_slow);                                                     /* the plume is longer the faster */
+    int32_t r0[3], r1[3], r2[3], z0, z1, z2;                                        /* a puff grows as it goes from the wheel, up to a cap */
+    weather_rain_spray_puff(1, 1, 5, 30 << 16, 1, r0, &z0);
+    weather_rain_spray_puff(10, 1, 5, 30 << 16, 1, r1, &z1);
+    CHECK(z1 > z0);
+    int biggest = 0;
+    for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++)
+        for (int side = -1; side <= 1; side += 2) {
+            weather_rain_spray_puff(k, side, 9, 45 << 16, 1, r2, &z2);
+            if (z2 > biggest) biggest = z2;
+        }
+    CHECK(biggest <= (int)(256.0f * WEATHER_SPRAY_CAP) && biggest > 256);
+    weather_rain_spray_puff(WEATHER_SPRAY_PUFFS - 1, 1, 5, 30 << 16, 1, r0, &z0);   /* and the trail's end is not thinner than a puff near the wheel */
+    CHECK(z0 > 0);
 }
 
-/* rain_lightning: the storm's clock */
+/* rain_lightning: the storm's clock: a strike is full on its first tick and decays; one or two a slot, the second weaker and well apart */
 static void test_storm_clock(void)
 {
-    int flashes = 0, doubles = 0, quiet_slots = 0;
+    int strikes = 0, doubles = 0, quiet_slots = 0;
     for (uint32_t t = 0; t < 150; t++) CHECK_EQ_INT(weather_rain_flash(t), 0);   /* none in the first 5 seconds */
-    for (uint32_t slot = 0; slot < 40; slot++) {
-        int n = 0;
+    for (uint32_t slot = 0; slot < 60; slot++) {
+        int lit = 0, peaks = 0, last = 0;
         for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) {
             const int f = weather_rain_flash(t);
-            CHECK_EQ_INT(f, weather_rain_flash(t));   /* a pure function of the tick */
-            if (f) n++, flashes++;
-            if (f && weather_rain_flash(t + 1) && weather_rain_flash(t + 2)) CHECK(0);   /* two ticks, never three in a row */
+            CHECK_EQ_INT(f, weather_rain_flash(t));                                   /* a pure function of the tick */
+            CHECK(f >= 0 && f <= WEATHER_FLASH_PEAK);
+            if (f) lit++;
+            if (f > last && last == 0) peaks++;                                       /* a rise from dark: a flash begins */
+            if (f > 0 && last > 0) CHECK(f <= last);                                  /* then it only decays */
+            last = f;
         }
-        if (n == 0 && slot > 0) quiet_slots++;
-        CHECK(n == 0 || n == 2 || n == 4);            /* a flash is two ticks; a double four */
-        if (n == 4) doubles++;
-        
+        CHECK(peaks <= 2);                                                            /* one or two flashes a strike */
+        if (slot > 0 && lit == 0) quiet_slots++;
+        if (peaks == 2) doubles++;
+        if (peaks > 0) strikes++;
+        if (peaks > 0) {
+            int top = 0;
+            for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) top = weather_rain_flash(t) > top ? weather_rain_flash(t) : top;
+            CHECK_EQ_INT(top, WEATHER_FLASH_PEAK);                                    /* the sky goes white at the strike */
+        }
     }
-    CHECK(flashes > 40 && flashes < 160);   /* a storm, not a strobe: about a flash a slot */
-    CHECK(doubles > 3);
+    CHECK(strikes > 30 && strikes < 56);   /* three slots in four */
+    CHECK(doubles > 2 && doubles * 2 < strikes);
     CHECK(quiet_slots > 2);
+}
+
+static void test_spokes_from_a_vanishing_point_off_the_screen(void)
+{
+    /* the outside cameras: the vanishing point (the projection of the car's velocity) may be off the box; the spokes then leave it nearly parallel, all inside the box, none through it */
+    const int32_t vx = 2600, vy = 900;   /* far to the lower right of a 640 x 480 box */
+    int inside = 0, shown = 0, parallel = 0;
+    for (int drop = 0; drop < weather_rain_count_fx(640, 480); drop++)
+        for (uint32_t tick = 0; tick < 40; tick += 7) {
+            int32_t s[4];
+            int level;
+            weather_rain_spoke(drop, tick, 40 << 16, 640, 480, vx, vy, 500.0f, 0, s, &level);
+            if (level < 0) continue;
+            shown++;
+            if (s[2] >= -2 && s[2] <= 642 && s[3] >= -2 && s[3] <= 482) inside++;
+            const float dx = (float)(s[2] - s[0]), dy = (float)(s[3] - s[1]), n = sqrtf(dx * dx + dy * dy);
+            if (n > 6.0f && dx / n < -0.5f && dy / n < -0.1f) parallel++;   /* they flow away from the point: toward the upper left */
+        }
+    CHECK(shown > 100);
+    CHECK(inside * 100 >= shown * 95);     /* the heads stay in the view (the few that begin as a place just outside the box, for the wide views, are clipped by the drawing) */
+    CHECK(parallel * 100 >= shown * 85);   /* and stream away from the point */
+}
+
+static void test_reflection_weight(void)
+{
+    CHECK_EQ_INT(weather_reflection_weight(1.0f, 10.0f), 100);     /* a car facing the camera, near: full */
+    CHECK_EQ_INT(weather_reflection_weight(-1.0f, 10.0f), 100);    /* the rear: the same weight (the caller picks the lamp) */
+    CHECK_EQ_INT(weather_reflection_weight(0.2f, 10.0f), 0);       /* a side view: none */
+    CHECK_EQ_INT(weather_reflection_weight(-0.29f, 10.0f), 0);
+    CHECK_EQ_INT(weather_reflection_weight(0.5f, 10.0f), 50);      /* half way between 0.3 and 0.7 */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 25.0f), 100);     /* full to 25 m */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 50.0f), 50);      /* half way to 75 m */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 75.0f), 0);       /* gone by 75 m */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 150.0f), 0);
+    int last = 101;
+    for (float d = 20.0f; d <= 80.0f; d += 2.0f) {                  /* the fade only falls with distance */
+        const int w = weather_reflection_weight(0.9f, d);
+        CHECK(w <= last);
+        last = w;
+    }
 }
 
 int main(void)
 {
+    test_reflection_weight();
     test_storm_clock();
     test_rain_spray_plume();
     test_rain_spokes_follow_the_speed();
+    test_rain_keeps_its_side_and_fills_a_wide_view();
+    test_lens_drops();
+    test_spokes_from_a_vanishing_point_off_the_screen();
     test_rain_cone_lights_the_drops();
     test_fog_curve_default();
     test_fog_for_tint();

@@ -29,6 +29,7 @@ typedef struct {
     uint32_t ring;                 /* the track's nodes: a node ahead wraps round it */
     int cone;                      /* port (headlight_cone): 1 the beam is each car's cone (below) in metres, not the nodes' pool; 0 the nodes' pool as it was */
     double cone_x[HEADLIGHT_MAX], cone_z[HEADLIGHT_MAX];    /* each car's place on the ground, metres */
+    int8_t cone_car[HEADLIGHT_MAX];                         /* the race slot of the car of each patch (headlight_pool_car_lift_xz tells a car its own patch from the others') */
     double cone_hx[HEADLIGHT_MAX], cone_hz[HEADLIGHT_MAX];  /* and its heading, a unit vector (the nose, not the track's direction) */
     const int32_t *node_xz;        /* cone: the nodes' centres (x, z) in 16.16 metres, two per node: what a caller that knows only a node is lit at; NULL when not known */
     const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, psx_light_synth_tunnels); NULL when not known */
@@ -59,11 +60,32 @@ int headlight_pool_beam(const HeadlightPool *pool, uint32_t node);
 /* `value` (0..255) scaled by `gain` (256 = whole). */
 uint8_t headlight_pool_apply(uint8_t value, int gain);
 
-/* port (headlight_cone): how much of the beam (0..256) a ground point (x, z) in metres gets from the cars' cones: ahead of a car's nose from METRES_PER_NODE x HEADLIGHT_START,
- * the same rise, hold and fall as the pool's nodes (6 m a node), widening with the distance (half-width CONE_WIDTH_BASE + CONE_WIDTH_SLOPE x along) and falling smoothly to
- * nothing at its edge; the best of the cars. Nothing behind a car. */
-enum { CONE_METRES_PER_NODE = 6, CONE_WIDTH_BASE = 6, CONE_WIDTH_PERCENT = 50 };
+/* port (headlight_cone): how much of the beam (0..256) a ground point (x, z) in metres gets from the cars' lights, as one patch that travels with each car: a fan ahead of its nose,
+ * brightest close to it, full to CONE_HOLD_M and falling smoothly to nothing at CONE_REACH_M, as wide as CONE_WIDTH_BASE + CONE_WIDTH_PERCENT of the distance each side and fading
+ * across; and a faint glow (CONE_GLOW_SHARE of the beam, radius CONE_GLOW_M) round the car and behind it. Smooth in metres everywhere, so no row of the road shows it; the best of the cars. */
+enum { CONE_HOLD_M = 12, CONE_REACH_M = 100, CONE_WIDTH_BASE = 10, CONE_WIDTH_PERCENT = 60, CONE_BACK_M = 8, CONE_GLOW_M = 14, CONE_GLOW_SHARE = 80 };
 int headlight_pool_lift_xz(const HeadlightPool *pool, double x, double z);
+
+/* port (headlight_cone): one car's patch of light at a point in the car's own frame, metres: forward along its nose, lateral (either sign, symmetric), height above the ground. 0..256,
+ * pure (no track, node or world lookup). Height thins it: full to CONE_HEIGHT_FULL_M, none from CONE_HEIGHT_END_M. headlight_pool_lift_xz is this per car at ground level. */
+enum { CONE_HEIGHT_FULL_M = 3, CONE_HEIGHT_END_M = 12 };
+int headlight_cone_weight_local(double forward_m, double lateral_m, double height_m);
+
+/* port (headlight_cone): how much light (0..256) a car at the ground point (x, z) takes, the car in race slot `car`: its own patch limited to CONE_OWN_SHARE of 256 (the lamps lighting the nose
+ * that carries them, not a floodlight on it), plus the best of the OTHER cars' patches there, at most 256. So a car alone is darker than the road ahead of it, and one with a rival's lights on it
+ * is lighter. `car` -1 (or a car with no patch): the best of all, as headlight_pool_lift_xz. The ground is not given this: it keeps the best of the patches. */
+enum { CONE_OWN_SHARE = 160 };
+int headlight_pool_car_lift_xz(const HeadlightPool *pool, int car, double x, double z);
+
+/* the lamps' places in the car's own frame (the nose's two lamps, metres): forward of the car's centre, to each side of its axis, above the ground */
+enum { CONE_LAMP_FORWARD_CM = 220, CONE_LAMP_LATERAL_CM = 70, CONE_LAMP_HEIGHT_CM = 65 };
+
+/* port (headlight_cone): whether a car other than the player's lights the road this frame. A car whose body was drawn lately always does; with the cone, one that was not drawn also does
+ * while it is at most HEADLIGHT_UNDRAWN_NODES nodes behind the player (`behind` the nodes the car is behind the player's, negative: ahead of it, wrapped to the ring): it is only behind the
+ * camera, and its patch lights the road in front of the view whether or not its body is on the screen. A car ahead and not drawn is too far to be there yet (no lit road far from a car that is
+ * not there), and without the cone nothing changes. */
+enum { HEADLIGHT_UNDRAWN_NODES = 20 };
+int headlight_car_lights(int drawn_lately, int32_t behind, int cone);
 
 /* The beam's gain at `lift` (0..256) of the beam: floor + (256 - floor) x lift / 256, the gain a node takes at that lift. */
 int headlight_pool_gain_at_lift(int floor, int lift);

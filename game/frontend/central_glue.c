@@ -966,6 +966,7 @@ static int32_t controls_bgnd(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROL
     return glue_own_bgnd(pixels, palette);
 }
 static void own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y);
+static void own_note_text(void *ctx, const char *text, int32_t x, int32_t y);
 static int32_t plus_key_down(void *ctx, int32_t scancode) { (void)ctx; return platform_key_down(scancode); }
 static int32_t plus_key_name(void *ctx, int32_t scancode, char *out, size_t size)
 {
@@ -996,7 +997,7 @@ static void controls(void *ctx, int32_t mode)
         /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
         controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text,
         /* port: the keyboard page's capture and key names, and the pages' subtitle */
-        plus_key_down, plus_key_name, own_subtitle_text };
+        plus_key_down, plus_key_name, own_subtitle_text, own_note_text };
     controls_menu(&st, mode, &ops);
     controls_in();
 }
@@ -1213,6 +1214,19 @@ void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int
         free(cover);
     }
     own_panel_text(ctx, style_id, text, x, y);
+}
+
+/* port: a small note over the Graphics-style background: own_plus_text's cover, at 3/5 of the size */
+static void own_note_text(void *ctx, const char *text, int32_t x, int32_t y)
+{
+    enum { NUM = 3, DEN = 5, MARGIN = 2, SHADOW_ROOM = 6 };
+    if (own_shape != NULL) {
+        const int w = text_width_scaled(text, NUM, DEN) + MARGIN + SHADOW_ROOM, h = text_line_height() * NUM / DEN + MARGIN + SHADOW_ROOM;
+        uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
+        if (cover != NULL && config_bgnd_shape(own_pixels, x - MARGIN, y - MARGIN, w, h, cover) != 0) ea_blit_own(cover);
+        free(cover);
+    }
+    glue_plus_text_scaled(ctx, 0, text, x, y, NUM, DEN);
 }
 
 /* port: the titles in the original titles' letters (title_art.h), cut from the CD the first time each is drawn and

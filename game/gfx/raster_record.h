@@ -14,7 +14,7 @@
 
 enum {
     RASTER_RECORD_MAX = 8192,   /* a full list is flushed before the next command is added */
-    RASTER_CMD_INTS = 24        /* uv, screen / points, camera-space corners: most any primitive's */
+    RASTER_CMD_INTS = 32        /* uv, screen / points, camera-space corners: most any primitive's; a lit road cell's darkness, heat and warm-table pointer after them */
 };
 
 typedef struct RasterCmd RasterCmd;

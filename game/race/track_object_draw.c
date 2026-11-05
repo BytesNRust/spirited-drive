@@ -33,6 +33,7 @@ static const uint8_t LEVEL[TRACK_OBJECT_BANDS] = {
 };
 
 int track_port_wide_board;
+const int32_t *track_port_object_at;
 int track_port_close_boxes;
 
 static int32_t rd32(const uint8_t *p)
@@ -273,21 +274,25 @@ void track_object_draw(TrackObjectDraw *d, int32_t band, int visible)
     const uint8_t *record = w->records + (uint32_t)w->cursor * TRACK_WALK_RECORD_SIZE;
     const uint8_t *desc = w->descriptors + (uint32_t)record[4] * TRACK_WALK_RECORD_SIZE;
     const int32_t node = rd32(record);
+    track_port_object_at = NULL;
     if (desc[1] == MODEL) {
         const int32_t at = --w->vertex_cursor;
         const uint8_t *n = d->nodes + ((uint32_t)w->node & w->node_mask) * TRACK_BUILD_NODE_SIZE;
         const int32_t heading = (int16_t)(n[0x18] | n[0x19] << 8);
         if (at >= 0 && at < d->object_capacity) {  /* port guard */
             const int32_t position[3] = { d->object_world[at][0], d->object_world[at][1], d->object_world[at][2] };
+            track_port_object_at = d->object_world[at];
             d->ops.model(d->ops.user, desc[2], position, x_add((int32_t)record[5] << 16, x_shl(heading, 10)));
         }
     } else {
         const int32_t at = w->vertex_cursor = x_sub(w->vertex_cursor, desc[1]);
         const int near = !deep(d, at, 4);
         if (visible && (!near || (d->ops.port_near_camera != NULL && at >= 0 && at + desc[1] <= d->object_capacity))) {
+            if (at >= 0 && at < d->object_capacity) track_port_object_at = d->object_world[at];
             if (desc[1] == BILLBOARD) draw_billboard(d, record, desc, band, at, near);
             else if (desc[1] == TWO_SIDED) draw_two_sided(d, desc, band, at, near);
         }
     }
+    track_port_object_at = NULL;
     previous_object(w, node);
 }

@@ -26,13 +26,13 @@ static const char *const ACTION_KEY[ACT_COUNT] = {
 
 static const char *const KEY_KEY[PKEY_COUNT] = {
     "key_left", "key_right", "key_gas", "key_brake", "key_gear_up", "key_gear_down", "key_handbrake", "key_horn",
-    "key_camera", "key_look_back" };
+    "key_camera", "key_nitro", "key_look_back" };
 static const char *const KEY_WORD[PKEY_COUNT] = {
-    "Steer left", "Steer right", "Accelerate", "Brake", "Gear up", "Gear down", "Handbrake", "Horn", "Camera", "Look back" };
+    "Steer left", "Steer right", "Accelerate", "Brake", "Gear up", "Gear down", "Handbrake", "Horn", "Camera", "Nitro", "Look back" };
 /* the config.dat short of each (input_setup.c: words 3..12 go to the codes in this order, the hold key's before the
  * handbrake's) */
-static const int KEY_WORD_AT[PKEY_COUNT] = { 3, 4, 5, 6, 7, 8, 9, 11, 10, -1 };   /* -1: the port's own key, no word */
-enum { SCANCODE_B = 0x30 };
+static const int KEY_WORD_AT[PKEY_COUNT] = { 3, 4, 5, 6, 7, 8, 9, 11, 10, -1, -1 };   /* -1: the port's own key, no word */
+enum { SCANCODE_B = 0x30, SCANCODE_N = 0x31 };
 
 const char *port_controls_key_name(PortKey key) { return key >= 0 && key < PKEY_COUNT ? KEY_WORD[key] : ""; }
 
@@ -52,6 +52,7 @@ PortControls port_controls_defaults(void)
     c.bind[ACT_NITRO][0] = (ControlSource){ SRC_BUTTON, PAD_RIGHT_SHOULDER, 0, 0 };   /* the face buttons are taken */
     c.bind[ACT_LOOK_BACK][0] = (ControlSource){ SRC_BUTTON, PAD_LEFT_SHOULDER, 0, 0 };
     c.key[PKEY_LOOK_BACK] = SCANCODE_B;   /* a controls.cfg of the player's keys from before has no line for it */
+    c.key[PKEY_NITRO] = SCANCODE_N;       /* nor for this one */
     return c;
 }
 
@@ -295,7 +296,7 @@ size_t port_controls_format(const PortControls *c, char *out, size_t size)
 void port_controls_key_defaults(const int16_t *config, int german, int out[PKEY_COUNT])
 {
     for (int k = 0; k < PKEY_COUNT; k++)
-        out[k] = KEY_WORD_AT[k] < 0 ? SCANCODE_B : key_code((uint16_t)key_layout(config[KEY_WORD_AT[k]], german));
+        out[k] = k == PKEY_NITRO ? SCANCODE_N : KEY_WORD_AT[k] < 0 ? SCANCODE_B : key_code((uint16_t)key_layout(config[KEY_WORD_AT[k]], german));
 }
 
 int port_controls_key(const PortControls *c, const int defaults[PKEY_COUNT], PortKey key)
@@ -331,6 +332,7 @@ void port_controls_reset_keys(PortControls *c)
 {
     memset(c->key, 0, sizeof c->key);
     c->key[PKEY_LOOK_BACK] = SCANCODE_B;
+    c->key[PKEY_NITRO] = SCANCODE_N;
     c->keys_custom = 0;
 }
 
@@ -350,6 +352,11 @@ void port_controls_apply_keys(const PortControls *c, int32_t codes[PKEY_RACE_COU
 int port_controls_look_back_key(const PortControls *c)
 {
     return c->keys_custom ? c->key[PKEY_LOOK_BACK] : SCANCODE_B;
+}
+
+int port_controls_nitro_key(const PortControls *c)
+{
+    return c->keys_custom ? c->key[PKEY_NITRO] : SCANCODE_N;
 }
 
 PortControls port_controls_load(void)

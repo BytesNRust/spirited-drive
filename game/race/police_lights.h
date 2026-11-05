@@ -41,6 +41,9 @@ void police_lights_set_found(const uint8_t entry[4], int found);
 /* The entry set aside for the flash's red (red = 1) or blue (0), 0 when there is none. */
 int police_lights_own_entry(int red);
 
+/* The same for the lamp's centre (the light tint's entry, near white with police_glow): 0 when there is none. */
+int police_lights_own_centre(int red);
+
 /* `out` (256 bytes): `base` (NULL for the identity) with the four light entries sent to the red and blue entries of `palette` as the phase of `tick` says. */
 void police_lights_table(const uint8_t *base, const uint8_t palette[768], int32_t tick, uint8_t out[256]);
 

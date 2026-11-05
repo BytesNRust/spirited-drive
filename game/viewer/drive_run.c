@@ -307,6 +307,18 @@ static void police_keep(RaceState *race)
     cop->flags_175 |= 4;
 }
 
+/* port (dev, env only): TNFS_RIVAL_BEHIND=N, in a --drive with a rival (--racers 2 or more, or TNFS_OPPONENT): the first rival (cars[1]) is put N nodes behind the player on the road,
+ * active, so its headlights light the player's car (the headlight cone's captures). Negative N: that many ahead. Unset, or no rival, nothing changes. */
+static void rival_behind(RaceState *race, double player_node)
+{
+    const char *v = getenv("TNFS_RIVAL_BEHIND");
+    Car *const rival = race->cars[1];
+    if (v == NULL || rival == NULL || race->car_count < 2) return;
+    ai_respawn(rival, race, (int32_t)player_node - atoi(v), 1, 0, 1);
+    rival->flags_51a |= 4;   /* active */
+    port_log("TNFS_RIVAL_BEHIND: the rival at node %d, %d behind the player\n", rival->node, atoi(v));
+}
+
 static void start_at_node(RaceState *race)
 {
     const char *at = getenv("TNFS_START_NODE");
@@ -316,7 +328,10 @@ static void start_at_node(RaceState *race)
         police_near(race, (double)car->node);
         return;
     }
-    if (at == NULL) return;
+    if (at == NULL) {
+        rival_behind(race, (double)car->node);
+        return;
+    }
     const double where = strtod(at, NULL);   /* a fraction goes on along the road: a car between two nodes */
     place_car(car, race, where);
     const char *const turn = getenv("TNFS_START_TURN");
@@ -324,8 +339,16 @@ static void start_at_node(RaceState *race)
         for (int row = 0; row < 3; row++) car->matrix[3 * row] = -car->matrix[3 * row], car->matrix[3 * row + 2] = -car->matrix[3 * row + 2];
         car->yaw = (int32_t)((uint32_t)car->yaw + 0x800000u) & 0xffffff;
     }
+    if (turn != NULL && turn[0] == '2') {   /* port (dev, env only): TNFS_START_TURN=2 turns it a quarter, across the road */
+        for (int row = 0; row < 3; row++) {
+            const int32_t a = car->matrix[3 * row], c = car->matrix[3 * row + 2];
+            car->matrix[3 * row] = c, car->matrix[3 * row + 2] = -a;
+        }
+        car->yaw = (int32_t)((uint32_t)car->yaw + 0x400000u) & 0xffffff;
+    }
     port_log("TNFS_START_NODE: the player car at node %d\n", car->node);
     police_near(race, where);
+    rival_behind(race, where);
 }
 
 static void run_laps(void *ctx, int32_t nodes, int32_t laps) { (void)ctx, (void)nodes, (void)laps; start_at_node(&drive_sim.race); }  /* race_sim_start_field's laps; the dev start */
@@ -391,8 +414,8 @@ static void run_frame(void *ctx, int32_t frame)
     }
     env_buttons(frame);
     drive_input_read_keys(&drive_input);
-    start_keys_fill(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
-                    drive_sim.race.port_nitro_start);  /* the exe's keyboard handler's flags, read each step */
+    start_keys_fill_key(drive_sim.race.start_keys, drive_input.keys, drive_sim.race.start_input, drive_sim.race.playback,
+                        drive_sim.race.port_nitro_start, drive_input.nitro_key);  /* the exe's keyboard handler's flags, read each step */
     drive_audio_music_pump();  /* 0045597c: 00464240 with 00524e63 set, before the schedule */
     drive_pause.detail = drive_keys.state.detail;
     drive_pause_frame(&drive_pause, &drive_input, &drive_sim.race, &drive_hud, (int16_t)drive_sim.race.tick);
