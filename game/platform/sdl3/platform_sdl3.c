@@ -11,6 +11,7 @@
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <string.h>
 
 #ifdef __EMSCRIPTEN__
@@ -941,17 +942,83 @@ static const char *user_path(const char *name, char *out, size_t out_size)
     return out;
 }
 
+/* port (perf): the settings' .cfg files are read by every port_*() accessor, many times a frame (from the band threads
+ * too), each an open, read and mkdir. A copy of the bytes is kept for CFG_CACHE_MS: a write or remove through this layer
+ * drops it at once, so a menu's change applies immediately, and a file edited from outside is seen within the interval. */
+enum { CFG_CACHE_SLOTS = 4, CFG_CACHE_MS = 50 };
+static struct {
+    char path[1024];
+    uint8_t *data;
+    size_t size;
+    Uint64 at;
+} cfg_cache[CFG_CACHE_SLOTS];
+static atomic_flag cfg_lock = ATOMIC_FLAG_INIT;
+
+static void cfg_lock_take(void) { while (atomic_flag_test_and_set_explicit(&cfg_lock, memory_order_acquire)) {} }
+static void cfg_lock_give(void) { atomic_flag_clear_explicit(&cfg_lock, memory_order_release); }
+
+static int cfg_cacheable(const char *name)
+{
+    const size_t n = strlen(name);
+    return n > 4 && strcmp(name + n - 4, ".cfg") == 0;
+}
+
+static void cfg_cache_drop(const char *path)   /* with the lock held */
+{
+    for (int i = 0; i < CFG_CACHE_SLOTS; i++)
+        if (cfg_cache[i].data != NULL && strcmp(cfg_cache[i].path, path) == 0) {
+            SDL_free(cfg_cache[i].data);
+            cfg_cache[i].data = NULL;
+        }
+}
+
+static void cfg_cache_forget(const char *path)
+{
+    cfg_lock_take();
+    cfg_cache_drop(path);
+    cfg_lock_give();
+}
+
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
     char path[1024];
     if (user_path(name, path, sizeof path) == NULL) return NULL;
-    return SDL_LoadFile(path, size);
+    if (!cfg_cacheable(name)) return SDL_LoadFile(path, size);
+    const Uint64 now = SDL_GetTicks();
+    cfg_lock_take();
+    for (int i = 0; i < CFG_CACHE_SLOTS; i++) {
+        if (cfg_cache[i].data == NULL || strcmp(cfg_cache[i].path, path) != 0 || now - cfg_cache[i].at >= CFG_CACHE_MS) continue;
+        uint8_t *copy = SDL_malloc(cfg_cache[i].size + 1);
+        if (copy != NULL) {
+            memcpy(copy, cfg_cache[i].data, cfg_cache[i].size + 1);
+            *size = cfg_cache[i].size;
+        }
+        cfg_lock_give();
+        return copy;
+    }
+    cfg_lock_give();
+    uint8_t *data = SDL_LoadFile(path, size);
+    cfg_lock_take();
+    cfg_cache_drop(path);
+    uint8_t *keep = data != NULL ? SDL_malloc(*size + 1) : NULL;
+    if (keep != NULL) {
+        int slot = 0;
+        for (int i = 0; i < CFG_CACHE_SLOTS; i++)
+            if (cfg_cache[i].data == NULL) { slot = i; break; }
+        memcpy(keep, data, *size + 1);   /* SDL_LoadFile's buffer has a terminating zero past the size */
+        SDL_free(cfg_cache[slot].data);
+        SDL_snprintf(cfg_cache[slot].path, sizeof cfg_cache[slot].path, "%s", path);
+        cfg_cache[slot].data = keep, cfg_cache[slot].size = *size, cfg_cache[slot].at = now;
+    }
+    cfg_lock_give();
+    return data;
 }
 
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
     char path[1024], temp[1100];
     if (user_path(name, path, sizeof path) == NULL) return false;
+    cfg_cache_forget(path);
     /* Write beside the target and rename, so a crash cannot truncate a good file. */
     SDL_snprintf(temp, sizeof temp, "%s.tmp", path);
     if (!SDL_SaveFile(temp, data, size)) {
@@ -962,13 +1029,16 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
         port_log("platform: cannot rename %s: %s\n", temp, SDL_GetError());
         return false;
     }
+    cfg_cache_forget(path);   /* a read that began before the rename may have kept the old bytes */
     return true;
 }
 
 bool platform_remove_user_file(const char *name)
 {
     char path[1024];
-    return user_path(name, path, sizeof path) != NULL && SDL_RemovePath(path);
+    if (user_path(name, path, sizeof path) == NULL) return false;
+    cfg_cache_forget(path);
+    return SDL_RemovePath(path);
 }
 
 bool platform_user_file_exists(const char *name)
