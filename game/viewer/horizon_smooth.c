@@ -61,7 +61,8 @@ typedef struct {
     const ClipRect *clip;
 } Draw;
 
-/* 004829b0 over the clip's width, clipped to its rows (as horizon.c's) */
+/* 004829b0 over the clip's width, clipped to its rows (as horizon.c's); the colour through the map as every texel is (the PS1 sky's texels index a palette of their own:
+ * the raw index was a screen entry of the cars' fit, a red block under the art) */
 static void smooth_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t rows, uint8_t colour)
 {
     const Draw *d = user;
@@ -69,7 +70,7 @@ static void smooth_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t row
     if (y < d->clip->y0) rows -= d->clip->y0 - y, y = d->clip->y0;
     if (y + rows > d->clip->y1) rows = d->clip->y1 - y;
     for (int32_t r = 0; r < rows; r++)
-        memset(d->target->pixels + (size_t)(y + r) * d->target->pitch + d->clip->x0, colour,
+        memset(d->target->pixels + (size_t)(y + r) * d->target->pitch + d->clip->x0, d->s->map[colour],
                (size_t)(d->clip->x1 - d->clip->x0));
 }
 

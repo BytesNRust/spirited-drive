@@ -2,6 +2,7 @@
 
 #include "game/race/weather.h"
 
+#include <math.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -51,7 +52,9 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
 {
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
     const int width = weather_rain_width(scale);
-    const int drops = weather_rain_count(w, h);
+    const int drops = weather_rain_count_fx(w, h);
+    static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    const float turned = weather_rain_blend(speed), fade_r = 0.12f * (float)h;   /* a spoke is faded in over the first 12 % of the box's height from the vanishing point */
     for (int i = 0; i < drops; i++) {
         int32_t s[4];
         int level;
@@ -61,6 +64,11 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
         for (int32_t k = 0; k <= steps; k++) {
             const int32_t x = s[0] + (int32_t)((int64_t)(s[2] - s[0]) * k / steps), y = s[1] + (int32_t)((int64_t)(s[3] - s[1]) * k / steps);
             if (y < 0 || y >= h) continue;
+            if (turned > 0.0f) {   /* no empty disc at the vanishing point: the streaks thin out toward it, by a dither, instead of beginning at a radius */
+                const float d = hypotf((float)(x - vx), (float)(y - vy)) / fade_r;
+                const float keep = 1.0f - turned * (d >= 1.0f ? 0.0f : 1.0f - d);
+                if (keep * 16.0f <= (float)BAYER[y & 3][x & 3]) continue;
+            }
             for (int j = 0; j < width; j++) {
                 const int32_t px = x + j;
                 if (px < 0 || px >= w) continue;

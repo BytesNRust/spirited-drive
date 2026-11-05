@@ -81,6 +81,7 @@ static int transparent(const FshEntry *texture)
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 static uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];   /* port (lamp_pool_tint): the tables of a street lamp's pool, by class: the lit ones with a warm tint, the more the nearer the lamp */
 static int pool_ready;
+enum { POOL_CLASSES = 4 };   /* the lamp pool's classes 1..4 (psx_light_tunnel_class 2..5): the warmth at class c is c / POOL_CLASSES */
 static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
 static int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
@@ -259,7 +260,7 @@ typedef struct {
     int sky_low, sky_high;
     float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
-    uint8_t flash[256];   /* port (rain_lightning): the picture lifted toward the lightning's colour */
+    uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (rain_lightning): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
 } WeatherTables;
 
@@ -294,7 +295,7 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
     weather_flash_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
-    memcpy(wt.flash, scratch[WEATHER_FLASH_LEVEL], sizeof wt.flash);
+    for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
     wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
@@ -322,6 +323,8 @@ static WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int3
                          { (float)c[0] * k, (float)c[1] * k, (float)c[2] * k } };
 }
 
+static int storm_flash_level(void);   /* port (rain_lightning): the lightning's brightness this frame, 0 none */
+
 static void weather_sky_band(void *user, int top, int bottom)
 {
     const WeatherSky *s = user;
@@ -329,6 +332,8 @@ static void weather_sky_band(void *user, int top, int bottom)
         weather_sky_fade(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->levels, s->wt->sky_low, s->wt->sky_high,
                          s->cx, s->cy, s->focal, s->up);
     else weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->sky);
+    const int flash = storm_flash_level();   /* the lightning: the sky, drawn before the scenery, goes (nearly) white, the silhouettes of what stands against it kept */
+    if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
 }
 int ported_view_modern(void) { return modern; }
 
@@ -391,18 +396,27 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
                         const int32_t *const cam[4])
 {
     if (lit_active && (lit_tinted || lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255)) {
-        /* the intensities at the polygon's corners (texture (0,0), (w,0), (w,h), (0,h)) across the cell by its uv, a
-         * darkness a pixel takes between two of the tables */
+        /* the intensities at the polygon's corners: cam's corner i is the polygon's own corner i (uv is only the polygon's piece of its texture, a lane's quarter of a strip's, so the light is not
+         * found by uv across the whole texture: it stopped short of the corners and the next polygon's edge started at another value, a hard step of the cone's light at every row) */
         float dark[4];
-        const float w = (float)(int16_t)texture->width * 65536.0f, h = (float)(int16_t)texture->height * 65536.0f;
-        for (int i = 0; i < 4; i++) {
-            const float a = fminf(fmaxf(uv[2 * i] / w, 0), 1), b = fminf(fmaxf(uv[2 * i + 1] / h, 0), 1);
-            const float top = lit_corner[0] + (lit_corner[1] - lit_corner[0]) * a;
-            const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
-            dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
-        }
+        for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
         if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
-        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
+        const uint8_t (*tables)[256] = lit_tables_for(texture);
+        if (pool_ready && track_light_xz_ok && track_light_tunnel != 1 && psx_light != NULL && (tables == lit_tables || (track_light_tunnel >= 2 && tables == pool_tables[(track_light_tunnel - 2) & 3]))) {
+            /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the
+             * darkness is: the warmth fades along the road with the lamp's classes, no polygon with a table of its own */
+            float heat[4];
+            for (int k = 0; k < 4; k++) {
+                const int cls = psx_light_tunnel_class(psx_light, track_light_node[k]);
+                heat[k] = cls >= 2 ? (float)(cls - 1) / POOL_CLASSES : 0.0f;
+            }
+            const float *const corner = heat;
+            if (corner[0] > 0 || corner[1] > 0 || corner[2] > 0 || corner[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */
+                modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, pool_tables[POOL_CLASSES - 1], heat);
+                return;
+            }
+        }
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), tables, dark);
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
@@ -1800,6 +1814,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon.scale, stage.line, ctx.clip.y1);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
+    drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (rain_lightning): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
                                            &view, cam.matrix);
@@ -1939,12 +1954,12 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                              drive_light_night(), wt->rain4);
     } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
-    if (wt != NULL && weather == WEATHER_RAIN && port_rain_lightning() && weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)))   /* port (rain_lightning): one frame lifted */
-        for (int32_t y = box[1] < 0 ? 0 : box[1]; y < (box[3] < screen_h ? box[3] : screen_h); y++)
-            for (int32_t x = box[0] < 0 ? 0 : box[0]; x < (box[2] < screen_w ? box[2] : screen_w); x++) {
-                uint8_t *p = pixels + (size_t)y * (size_t)screen_w + (size_t)x;
-                *p = wt->flash[*p];
-            }
+}
+
+static int storm_flash_level(void)
+{
+    if (weather != WEATHER_RAIN || !port_rain_lightning()) return 0;
+    return weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick));
 }
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)

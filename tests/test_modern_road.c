@@ -211,8 +211,61 @@ static void test_t_junction_covered(void)
     CHECK_EQ_INT(drawn, 100 * 100);
 }
 
+/* port (lamp_pool_tint): a lit road cell with a warmth at each corner takes the warm tables where the interpolated warmth and the dither say. No warmth (NULL, or zero at every corner)
+ * is the lit tables alone, to the pixel; the SSE four-pixel path and the scalar tail give the same pixels (a one-column clip is all tail) */
+static uint8_t lit_tab[16][256], warm_tab[16][256];
+
+static void draw_lit(const View *view, const QuadTarget *q, const FshEntry *t, const float dark[4], const float *heat)
+{
+    static int32_t c[4][3];
+    const int32_t corners[4][3] = { { -20, -10, 200 }, { 20, -10, 200 }, { 20, -10, 20 }, { -20, -10, 20 } };
+    memcpy(c, corners, sizeof c);
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    const int32_t uv[8] = { 0, 255 << 16, 255 << 16, 255 << 16, 255 << 16, 0, 0, 0 };
+    modern_road_cell_lit_warm(q, view, t, uv, cam, 0, lit_tab, dark, heat != NULL ? warm_tab : NULL, heat);
+}
+
+static void test_lit_warm(void)
+{
+    for (int l = 0; l < 16; l++)
+        for (int c = 0; c < 256; c++) lit_tab[l][c] = (uint8_t)((c + l) % 200), warm_tab[l][c] = (uint8_t)((c + l + 100) % 200);
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    const FshEntry t = texture();
+    static uint8_t plain[W * H], none[W * H], whole[W * H], warm_all[W * H];
+    const float dark[4] = { 2.0f, 9.0f, 9.0f, 2.0f }, zero[4] = { 0, 0, 0, 0 }, one[4] = { 1, 1, 1, 1 }, ramp[4] = { 0.2f, 0.9f, 0.9f, 0.2f };
+    QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, dark, NULL), memcpy(plain, screen, sizeof plain);
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, dark, zero), memcpy(none, screen, sizeof none);
+    CHECK(memcmp(plain, none, sizeof plain) == 0);   /* no warmth at any corner: the lit tables alone */
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, dark, one), memcpy(warm_all, screen, sizeof warm_all);
+    CHECK(memcmp(plain, warm_all, sizeof plain) != 0);   /* full warmth: the warm tables */
+    int taken = 0;
+    for (int i = 0; i < W * H; i++) taken += plain[i] != UNTOUCHED && warm_all[i] != plain[i];
+    CHECK(taken > 1000);
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, dark, ramp), memcpy(whole, screen, sizeof whole);
+    int lit_px = 0, warm_px = 0;   /* a ramp takes some pixels from each */
+    for (int i = 0; i < W * H; i++) {
+        if (whole[i] == UNTOUCHED) continue;
+        lit_px += whole[i] == plain[i], warm_px += whole[i] == warm_all[i];
+    }
+    CHECK(lit_px > 1000 && warm_px > 1000);
+    /* the four-pixel path against the scalar tail: every column drawn alone (a span of one pixel is all tail) */
+    memset(screen, UNTOUCHED, sizeof screen);
+    for (int x = 0; x < W; x++) {
+        q.clip_left = x, q.clip_right = x + 1;
+        draw_lit(&view, &q, &t, dark, ramp);
+    }
+    CHECK(memcmp(screen, whole, sizeof whole) == 0);
+}
+
 int main(void)
 {
+    test_lit_warm();
     test_t_junction_covered();
     test_perspective_correct();
     test_near_clip_and_box();

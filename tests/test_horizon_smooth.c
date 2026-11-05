@@ -125,6 +125,9 @@ static void test_sky_palettes(void)
     draw(&s);
     CHECK_EQ_INT(screen[200 * W + 100], 2 + 12);   /* a texel's own colour, through the map */
     CHECK_EQ_INT(screen[200 * W + 640 - 1], 2 + 12);
+    /* the fills above and under the art are the bitmap's texel 0 and its last, through the same map: not the raw index as a screen entry (a car's red) */
+    CHECK_EQ_INT(screen[0 * W + 100], 2 + 12);
+    CHECK_EQ_INT(screen[(H - 1) * W + 100], 2 + 12);
 }
 
 /* the band cache: any sequence of draws, the inputs changed one at a time (in place too: the same bitmap address with other
@@ -196,7 +199,7 @@ static void ref_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t rows, 
     (void)x, (void)w;
     if (y < d->clip->y0) rows -= d->clip->y0 - y, y = d->clip->y0;
     if (y + rows > d->clip->y1) rows = d->clip->y1 - y;
-    for (int32_t r = 0; r < rows; r++) memset(d->pixels + (size_t)(y + r) * W + d->clip->x0, colour, (size_t)(d->clip->x1 - d->clip->x0));
+    for (int32_t r = 0; r < rows; r++) memset(d->pixels + (size_t)(y + r) * W + d->clip->x0, d->s->map[colour], (size_t)(d->clip->x1 - d->clip->x0));
 }
 
 static int32_t ref_wrap(int32_t c, int32_t w)

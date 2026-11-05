@@ -7,6 +7,7 @@
 
 enum {
     DROPS_640x480 = 240,       /* the count in a 640 x 480 view; more pixels, more drops */
+    DROPS_FX_640x480 = 140,     /* rain_fx: far fewer, so a fast car's spokes do not cover the view */
     DROPS_MAX = 2000,
     FALL_MIN = 5200,           /* a streak's fall a tick, of 65536 box heights: 7 to 12 ticks across */
     FALL_RANGE = 3600,
@@ -98,6 +99,13 @@ int weather_rain_count(int32_t box_w, int32_t box_h)
     return n > DROPS_MAX ? DROPS_MAX : n < 1 ? 1 : (int)n;
 }
 
+int weather_rain_count_fx(int32_t box_w, int32_t box_h)
+{
+    if (box_w <= 0 || box_h <= 0) return 0;
+    const int64_t n = (int64_t)DROPS_FX_640x480 * box_w * box_h / (640 * 480);
+    return n > DROPS_MAX ? DROPS_MAX : n < 1 ? 1 : (int)n;
+}
+
 int weather_rain_width(int scale)
 {
     return scale < 1 ? 1 : scale;
@@ -136,6 +144,13 @@ int weather_rain_level_fog(int level)
     return FOG[level < 0 ? 0 : level >= WEATHER_RAIN_LEVELS ? WEATHER_RAIN_LEVELS - 1 : level];
 }
 
+float weather_rain_blend(int32_t speed)
+{
+    const float metres = (float)((speed < 0 ? -(int64_t)speed : speed) >> 16);
+    const float t = clampf(metres / WEATHER_SPOKE_TURNED, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);   /* smooth: a streak's direction turns to the spoke's by WEATHER_SPOKE_TURNED m/s, so they do not cross at the speeds between */
+}
+
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level)
 {
     const uint32_t d = (uint32_t)drop;
@@ -143,19 +158,21 @@ void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, i
     const float column = (float)((int64_t)(hash(d, 3) & 0xffff) * box_w >> 16);
     const float base = (float)(box_h * (LENGTH_MIN + (int32_t)(hash(d, 4) % LENGTH_RANGE)) / 480);
     const float metres = (float)((speed < 0 ? -(int64_t)speed : speed) >> 16);
-    const float s = clampf(metres / WEATHER_SPOKE_FULL, 0.0f, 1.0f);
+    const float s = clampf(metres / WEATHER_SPOKE_FULL, 0.0f, 1.0f);   /* how stretched */
+    const float b = weather_rain_blend(speed);                          /* how far turned to the spoke */
     const float p = (float)((phase + fall * tick) & 0xffff) / 65536.0f;
-    const float theta = (float)(hash(d, 5) & 0xffff) * (6.2831853f / 65536.0f);
-    /* the direction: a falling streak's (today's slant) turned to the spoke's, from the drop's own angle about the vanishing point */
-    float dx = (1.0f - s) * -0.196f + s * cosf(theta), dy = (1.0f - s) * 0.981f + s * sinf(theta) * 0.8f;
+    /* a spoke's angle about the vanishing point: any but the wedge straight down, where the road ahead is (a streak never crosses it) */
+    const float theta = (145.0f + 250.0f * (float)(hash(d, 5) & 0xffff) / 65536.0f) * (3.14159265f / 180.0f);
+    float dx = (1.0f - b) * -0.196f + b * cosf(theta), dy = (1.0f - b) * 0.981f + b * sinf(theta);
     const float n = sqrtf(dx * dx + dy * dy);
     dx /= n, dy /= n;
-    const float ox = (1.0f - s) * column + s * (float)vx, oy = s * (float)vy;
+    const float ox = (1.0f - b) * column + b * (float)vx, oy = b * (float)vy;
     const float reach = (float)box_h * (1.0f + 0.6f * s);
-    const float near_end = 0.12f * reach * s;   /* a spoke is born a little way from the vanishing point, not at it */
-    const float head = near_end + (reach - near_end) * powf(p, 1.0f + s);
-    const float len = base * (1.0f + 2.5f * s) * (0.3f + p * s + (1.0f - s) * 0.7f);
-    const float tail = head - len > near_end ? head - len : near_end;
+    const float head = reach * powf(p, 1.0f + 0.5f * b);
+    /* short: a falling streak as today's, a spoke a fraction of the base that stretches (to about the base) with the speed and the way out; it begins at the vanishing point and is
+     * faded in there by the drawing (weather_rain_draw_fx), so there is no empty disc */
+    const float len = base * ((1.0f - b) * 0.7f + b * (0.3f + 1.0f * s * p));
+    const float tail = head - len > 0.0f ? head - len : 0.0f;
     out[0] = (int32_t)(ox + dx * tail), out[1] = (int32_t)(oy + dy * tail);
     out[2] = (int32_t)(ox + dx * head), out[3] = (int32_t)(oy + dy * head);
     int l = WEATHER_RAIN_DAY_LEVEL;
@@ -178,11 +195,11 @@ int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int w
     const float jitter = (float)(h & 0xff) / 255.0f - 0.5f, jitter2 = (float)((h >> 8) & 0xff) / 255.0f - 0.5f;
     const float reach = clampf(metres / 30.0f, 0.4f, 1.6f);                  /* the plume's length grows with the speed */
     const float t = (float)k / (float)(WEATHER_SPRAY_PUFFS - 1);            /* 0 at the wheel .. 1 at the plume's end */
-    const float behind = 0.3f + 2.4f * reach * t + jitter * 0.3f;   /* a chase camera sits only a few metres behind: a plume longer than that is behind the lens */
+    const float behind = 0.3f + 3.0f * reach * t + jitter * 0.3f;   /* a chase camera sits only a few metres behind: a plume longer than that is behind the lens */
     const float sideways = (float)side * (0.3f + 1.6f * t) + jitter2 * 0.4f;
     const float up = 0.2f + 1.2f * t + jitter * 0.2f;
     out[0] = (int32_t)(behind * 65536.0f), out[1] = (int32_t)(sideways * 65536.0f), out[2] = (int32_t)(up * 65536.0f);
-    const float grow = 0.5f + 1.1f * t, thin = 1.0f - t * t * 0.85f;           /* swells, then thins out */
+    const float grow = fminf(0.45f + 1.5f * t, WEATHER_SPRAY_CAP), thin = t > 0.85f ? 1.0f - (t - 0.85f) / 0.15f * 0.6f : 1.0f;   /* a puff grows as it goes from the wheel, up to a cap, and fades at the trail's end */
     const float speedy = clampf(metres / 40.0f, 0.5f, 1.0f);
     *size = (int32_t)(256.0f * grow * thin * speedy);
     return *size > 0;
@@ -193,19 +210,23 @@ int weather_rain_spray_level(int night)
     return night ? 1 : WEATHER_RAIN_LEVELS - 1;
 }
 
+/* the lightning's brightness a tick after its strike: full at once, then decaying (of WEATHER_FLASH_PEAK) */
+static const uint8_t FLASH_DECAY[WEATHER_FLASH_TICKS] = { 15, 14, 11, 8, 6, 4, 3, 2, 1, 1 };
+
 int weather_rain_flash(uint32_t tick)
 {
     if (tick < 150) return 0;
     const uint32_t slot = tick / WEATHER_STORM_SLOT, at = tick - slot * WEATHER_STORM_SLOT;
     const uint32_t h = hash(slot, 11);
     if ((h & 3) == 0) return 0;                                     /* one slot in four is quiet */
-    const uint32_t start = (h >> 4) % (WEATHER_STORM_SLOT - WEATHER_STORM_DOUBLE - 1);
-    const int twice = (h >> 12) & 1;
-    /* two ticks a flash: the race's tick goes up by two a drawn frame in the drive run, so a one-tick flash could fall between frames */
-    return at - start < 2 || (twice && at - start - WEATHER_STORM_DOUBLE < 2);
+    const uint32_t start = (h >> 4) % (WEATHER_STORM_SLOT - WEATHER_STORM_DOUBLE - WEATHER_FLASH_TICKS - 1);
+    const int twice = (h >> 12) % 3 == 0;                           /* one strike in three flashes a second time, a little weaker */
+    if (at >= start && at - start < WEATHER_FLASH_TICKS) return FLASH_DECAY[at - start];
+    if (twice && at >= start + WEATHER_STORM_DOUBLE && at - start - WEATHER_STORM_DOUBLE < WEATHER_FLASH_TICKS) return FLASH_DECAY[at - start - WEATHER_STORM_DOUBLE] * 3 / 4;
+    return 0;
 }
 
 void weather_flash_colour(uint8_t out[3])
 {
-    out[0] = 205, out[1] = 220, out[2] = 255;
+    out[0] = 248, out[1] = 250, out[2] = 255;
 }
