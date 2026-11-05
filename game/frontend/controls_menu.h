@@ -88,6 +88,8 @@ typedef struct ControlsMenuOps {
     int32_t (*plus_key_down)(void *ctx, int32_t scancode);
     int32_t (*plus_key_name)(void *ctx, int32_t scancode, char *out, size_t size);
     void (*plus_subtitle)(void *ctx, const char *text, int32_t x, int32_t y);
+    /* port: a row's small note beside its label, at 3/5 of the size, the background put back under it. NULL: no note */
+    void (*plus_note)(void *ctx, const char *text, int32_t x, int32_t y);
 } ControlsMenuOps;
 
 /* port: the bindings the added pages edit */
