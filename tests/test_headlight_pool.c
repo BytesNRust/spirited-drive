@@ -341,7 +341,7 @@ static void test_the_beam_adds_on_top_of_a_lifted_floor(void)
     for (int i = 0; i < 40; i++) xz[2 * i] = 0, xz[2 * i + 1] = i * 6 * 65536;
     HeadlightPool p = cone_of(0, 0, 0, 1);
     p.ring = 40, p.node_xz = xz;
-    PsxLight light = { .data = rows, .nodes = 40, .pool = &p, .night_lift = 120 };
+    PsxLight light = { .data = rows, .nodes = 40, .pool = &p, .night_lift = 120, .beam_on_top = 1 };
     const int floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 120 / 256;
     double z = 14;
     while (z < 120 && (headlight_pool_lift_xz(&p, 0, z) > 156 || headlight_pool_lift_xz(&p, 0, z) < 100)) z += 0.5;
@@ -353,6 +353,9 @@ static void test_the_beam_adds_on_top_of_a_lifted_floor(void)
     const double behind[2] = { 0, -40 };
     CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), headlight_pool_apply(255, floor));                                 /* away from the beam: the floor */
     CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(floor, lift));                    /* the cells' gain agrees */
+    light.beam_on_top = 0;                                                                                                 /* city_lift 1 and 2, vegas_lift: the larger of the beam's gain and the floor, as it was */
+    const int alone = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);
+    CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), alone > floor ? alone : floor);
     light.night_lift = 0;                                                                                                  /* no lift: the exe's */
     CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift));
 }

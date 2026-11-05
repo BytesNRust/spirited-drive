@@ -273,6 +273,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light.pool = headlights_on ? &headlight_pool : NULL;
     city_night3 = headlights_on && is_city(track) && port_city_lift() >= 3;
     light.lamp_bright = headlights_on ? (port_lamp_pool_bright() || city_night3) : 0;   /* port (lamp_pool_bright; city_lift 3 has it in the City: the lamps' pools stand out of the darker base) */
+    light.beam_on_top = city_night3;   /* port (city_lift 3): the beam adds over the raised floor */
     light.lamp_local = city_night3;   /* port (city_lift 3): local lamp pools */
     light.beam_open = city_night3 ? CITY_BEAM_OPEN : 0;   /* port (city_lift 3): a visible patch of the beams on the dark City road */
     light.tunnel_floor = headlights_on && is_city(track) && port_city_lift() >= 3 ? CITY_TUNNEL_FLOOR : 0;   /* port (city_lift 3): brighter tunnels */

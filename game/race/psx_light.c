@@ -152,7 +152,7 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
         const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
         const int lamp_floor = psx_light_lamp_floor(light, node);   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
         if (lamp_floor > floor) floor = lamp_floor;
-        if (light->night_lift > 0) gain = headlight_pool_gain_at_lift(floor, lift);   /* and the beam adds on top of the lifted floor: it is not lost under it */
+        if (light->night_lift > 0 && light->beam_on_top) gain = headlight_pool_gain_at_lift(floor, lift);   /* port (city_lift 3): the beam adds on top of the lifted floor, it is not lost under it */
         if (gain < floor) gain = floor;
         uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
         if (light->beam_open > 0) {   /* port (city_lift 3): a visible patch where the rows are dark: the beam lights the ground to beam_open at its full, not only a share of the row's own light */
@@ -190,7 +190,7 @@ int psx_light_open_gain_floor(const PsxLight *light, int lift, int lamp_floor)
     int floor = HEADLIGHT_FLOOR;
     if (light->night_lift > 0) floor += (256 - floor) * light->night_lift / 256;
     if (lamp_floor > floor) floor = lamp_floor;
-    if (light->night_lift > 0) gain = headlight_pool_gain_at_lift(floor, lift);   /* the beam on top of the lifted floor, as light_at_dark */
+    if (light->night_lift > 0 && light->beam_on_top) gain = headlight_pool_gain_at_lift(floor, lift);   /* the beam on top of the lifted floor, as light_at_dark */
     if (gain < floor) gain = floor;
     return gain;
 }
