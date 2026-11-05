@@ -181,6 +181,16 @@ static int city_beam_open(const char *track)
 }
 static int is_lost_vegas(const char *track);
 
+/* port (city_lift 3): the open ground's light of the City's made night, a share (of 256) of the terrain's, a track a share: the CD's own rows of CY2 and CY3 (narrow roads between walls) are darker than
+ * CY1's, the made rows (the terrain's sky share) are not as dark; fitted to the CD's frames (mean road luminance). TNFS_CITY_MADE_SCALE=n (1..256) takes it for the fit */
+static const int CITY_MADE_SCALE[3] = { 256, 96, 86 };
+static int city_made_scale(const char *track)
+{
+    const char *env = getenv("TNFS_CITY_MADE_SCALE");
+    if (env != NULL && atoi(env) > 0) return atoi(env) > 256 ? 256 : atoi(env);
+    return track != NULL && track[2] >= '1' && track[2] <= '3' ? CITY_MADE_SCALE[track[2] - '1'] : 256;
+}
+
 /* port (city_lift): the light's City fields, the same for the CD's light and for the one made from the terrain (a player with no PS1 disc) */
 static void city_fields(PsxLight *l, const char *track)
 {
@@ -483,6 +493,13 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     PsxLight made = { 0 };
     if (!make_light(tri, track, &made)) return;
     if (port_forest_dark()) psx_light_forest_apply(&made, track);
+    if (city_night3 && made.data != NULL) {   /* port (city_lift 3): the open rows darkened to the CD's; a tunnel's own light stays */
+        const int share = city_made_scale(track);
+        if (share < 256)
+            for (uint32_t n = 0; n < made.nodes; n++)
+                if (made.tunnel == NULL || made.tunnel[n] == 0)
+                    for (int p = 0; p < PSX_LIGHT_POINTS; p++) made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] = (uint8_t)(made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] * share / 256);
+    }
     light = made;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
