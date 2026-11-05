@@ -303,13 +303,20 @@ static void text_right(const GraphicsMenuOps *o, int32_t style, const char *text
     own_text(o, style, text, right - o->plus_text_width(o->ctx, text), y);
 }
 
+/* the mode holds the row, wherever the screen was opened from */
+static int held_by_mode(const Screen *s, int row)
+{
+    const GraphicsPlus *const plus = s->st->plus;
+    return plus != NULL && row < GRAPHICS_OWN_SETTINGS && ROW_KEY[row] != NULL && !port_profile_key_free((Profile)plus->port->profile, ROW_KEY[row]);
+}
+
 /* whether the row can be changed here: every row is, from Options; in the race's pause menu the next race's rows are
  * not (their values are shown, dimmed, with a note) */
 static int editable(const Screen *s, int row)
 {
     const GraphicsPlus *const plus = s->st->plus;
     if (plus == NULL) return 1;
-    if (row < GRAPHICS_OWN_SETTINGS && ROW_KEY[row] != NULL && !port_profile_key_free((Profile)plus->port->profile, ROW_KEY[row])) return 0;   /* the mode holds it */
+    if (held_by_mode(s, row)) return 0;
     if (!plus->race) return 1;
     if (row == GRAPHICS_OWN_VIEW) return graphics_own_view_live(plus->f3_ultra, view_of(s->st), plus->port->view_ultra);
     return graphics_own_live_in_race(row, view_of(s->st), plus->port->view_ultra);
@@ -349,7 +356,7 @@ static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
         graphics_own_view_value(view_of(s->st), s->st->plus->port->view_ultra, value);
     else
         graphics_own_value(s->st->plus->port, row, value);
-    if (live)
+    if (live || held_by_mode(s, row))
         snprintf(shown, sizeof shown, "%s", value);
     else
         snprintf(shown, sizeof shown, "%s (next race)", value);

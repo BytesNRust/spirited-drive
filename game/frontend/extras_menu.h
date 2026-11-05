@@ -128,8 +128,7 @@ typedef struct ExtrasMenuOps {
     void (*open_log_folder)(void *ctx);
     /* port (modes): the Profile in use: a row its mode does not leave free is dimmed, shows the mode's value and does not change */
     int profile;
-    /* port (modes): the Restore row's action: asked first with `ask`, then the mode's file emptied and `e` set to what it now reads. NULL: the row does nothing */
-    int32_t (*ask)(void *ctx, const char *text);
+    /* port (modes): the Restore row's action, on the second Return: the mode's file emptied and `e` set to what it now reads. NULL: the row does nothing */
     void (*reset_profile)(void *ctx, PortExtras *e);
 } ExtrasMenuOps;
 

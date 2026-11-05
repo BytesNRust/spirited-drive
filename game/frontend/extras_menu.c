@@ -163,12 +163,14 @@ typedef struct Page {
     int32_t rest;
     int result;   /* 1 Done, 0 Cancel / Escape, -1 still running */
     int nav_lit;  /* port: the page indicator's triangle the pointer is on (page_arrows.h), 0 none */
+    int confirming;   /* port (modes): the Restore row asks for its second Return; moving off the row forgets it */
 } Page;
 
 static void select_row(Page *p, int row, const ExtrasMenuOps *o)
 {
     if (p->selected == row) return;
     p->selected = (int16_t)row;
+    p->confirming = 0;
     p->redraw = 1;
     o->sound(o->ctx, MOVED);
 }
@@ -186,6 +188,7 @@ static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
 {
     p->page = page;
     p->selected = (int16_t)row;
+    p->confirming = 0;
     p->redraw = 1;
     o->sound(o->ctx, CHOSEN);
     pointer_to(p, o);
@@ -266,9 +269,10 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
     } else if (p->page == 2 && p->selected == log_row()) {   /* port: the log folder opens in the file browser */
         o->sound(o->ctx, CHOSEN);
         if (o->open_log_folder != NULL) o->open_log_folder(o->ctx);
-    } else if (p->page == 2 && p->selected == reset_row()) {   /* port (modes): after a Yes, since it forgets what was changed in this mode */
+    } else if (p->page == 2 && p->selected == reset_row()) {   /* port (modes): on the second Return, since it forgets what was changed in this mode */
         o->sound(o->ctx, CHOSEN);
-        if (o->reset_profile != NULL && (o->ask == NULL || o->ask(o->ctx, "Restore defaults ?"))) o->reset_profile(o->ctx, e);
+        if (p->confirming && o->reset_profile != NULL) o->reset_profile(o->ctx, e);
+        p->confirming = !p->confirming;
         p->redraw = 1;
     } else {
         change(p, e, unlock, 1, o);
@@ -365,6 +369,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
         char v[16];
         const int lit = p->selected == row;
         value(e, unlock, p->page, row, v);
+        if (p->page == 2 && row == reset_row() && p->confirming) snprintf(v, sizeof v, "Return again");
         const int y = line_y(p->page, line_of(p->page, row));
         const int held = fixed_by_level(e, unlock, p->page, row) || fixed_by_mode(o, p->page, row);
         text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
@@ -405,7 +410,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
 {
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
-    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0 };   /* not released: the click that opened it may still be down */
+    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0, 0 };   /* not released: the click that opened it may still be down */
     static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);

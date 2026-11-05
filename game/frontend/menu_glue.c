@@ -805,7 +805,6 @@ int32_t glue_extras_screen(int16_t unlock)
         own_panel_arrow,    /* plus_arrow */
         open_log_folder_glue, /* open_log_folder: the Open the log folder row */
         port_settings_profile(), /* profile: the mode in use, which says what can be changed */
-        yes_no,             /* ask: before the Restore row's action */
         extras_reset_glue,  /* reset_profile: the Restore row's action */
     };
     mode_extras_screen = ea_screen();

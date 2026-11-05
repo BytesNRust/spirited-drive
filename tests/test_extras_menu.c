@@ -53,9 +53,7 @@ typedef struct Fake {
     int titles;           /* titles drawn through the title op */
     int headers;          /* headers drawn through the header op */
     int32_t header_width; /* the last one's underline */
-    int no_ask;           /* no question op */
-    int answer;           /* the question's answer */
-    int asks, resets;     /* questions put, Restore's actions run */
+    int resets;           /* Restore's actions run */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -230,14 +228,6 @@ enum { LINE = 20 };
 /* the pitch the rows are set at (extras_menu.c's ROW_PITCH): the spacing between two rows of a group */
 enum { PITCH = 20 };
 
-static int32_t f_ask(void *ctx, const char *text)
-{
-    Fake *f = ctx;
-    (void)text;
-    f->asks++;
-    return f->answer;
-}
-
 static void f_reset(void *ctx, PortExtras *e)
 {
     Fake *f = ctx;
@@ -279,7 +269,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log, .profile = r->profile, .ask = r->fake.no_ask ? NULL : f_ask, .reset_profile = f_reset };
+        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log, .profile = r->profile, .reset_profile = f_reset };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
@@ -674,23 +664,33 @@ static void test_the_mode_holds_its_rows(void)
     }
 }
 
-/* Restore profile defaults: after a Yes, the mode's values on screen; No leaves everything */
-static void test_restore_asks_and_resets(void)
+/* Restore profile defaults: the first Return says what the second does; the second acts; moving off the row forgets */
+static void test_restore_takes_two_returns(void)
 {
-    for (int answer = 0; answer <= 1; answer++) {
-        Rig r;
-        int keys[64];
-        int n = keys_to_row(keys, ROW_RESET);
-        keys[n++] = ENTER;
-        keys[n++] = ESCAPE;
-        setup(&r);
-        r.fake.answer = answer;
-        r.e.units = UNITS_KMH;
-        run(&r, keys, n);
-        CHECK_EQ_INT(r.fake.asks, 1);
-        CHECK_EQ_INT(r.fake.resets, answer);
-        CHECK(shown(&r.fake, "Restore profile defaults"));
-    }
+    Rig r;
+    int keys[64];
+    int n = keys_to_row(keys, ROW_RESET);
+    keys[n++] = ENTER;
+    keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.resets, 0);
+    CHECK(shown(&r.fake, "Return again"));
+
+    n = keys_to_row(keys, ROW_RESET);
+    keys[n++] = ENTER, keys[n++] = ENTER;
+    keys[n++] = ESCAPE;
+    setup(&r);
+    r.e.units = UNITS_KMH;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.resets, 1);
+
+    n = keys_to_row(keys, ROW_RESET);
+    keys[n++] = ENTER, keys[n++] = UP, keys[n++] = DOWN, keys[n++] = ENTER;
+    keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.resets, 0);
 }
 
 static void test_page_three_is_miscellaneous(void)
@@ -1312,7 +1312,7 @@ int main(void)
     test_mirror_toggle_excludes_rally();
     test_the_radar_row_name();
     test_the_mode_holds_its_rows();
-    test_restore_asks_and_resets();
+    test_restore_takes_two_returns();
     test_page_three_is_miscellaneous();
     test_extras_has_open_log_folder_row();
     test_the_log_folder_row_without_the_op();

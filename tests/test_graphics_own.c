@@ -943,6 +943,7 @@ static void test_the_mode_holds_its_rows(void)
         run_script(&r, script_walk(STOCK_HELD[i], RIGHT, 1, GRAPHICS_OWN_DONE));
         CHECK(memcmp(&r.port, &was, sizeof was) == 0);
         CHECK(r.f.dim_draws > 0);
+        CHECK(!drew(&r.f, "Off (next race)") && !drew(&r.f, "4:3 (next race)"));   /* the mode's, not the next race's */
     }
     Rig full;
     rig_init(&full);
