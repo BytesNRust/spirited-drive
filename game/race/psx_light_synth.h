@@ -33,6 +33,9 @@ enum { PSX_SYNTH_DAWN = 0, PSX_SYNTH_DAY = 1, PSX_SYNTH_DUSK = 2, PSX_SYNTH_NIGH
 
 /* 1 on node `i` of `property` (`count` bytes, a ring when `ring`) when it is in a run of PSX_SYNTH_MIN_RUN or more nodes with the tunnel bit; `flags` gets
  * 0 or 1 per node. A ring joins a run across node 0. */
+/* port (rain_fx): 1 on the nodes of a run of PSX_SYNTH_MIN_RUN or more with a roof over the road for the rain: the tunnel bit, open to the side or not (Coastal's galleries, property 7: the base
+ * 3 with the tunnel bit; the bare 5 of TR7's truss bridge is open sky). The lighting does not use it. */
+void psx_light_synth_rain_cover(const uint8_t *property, uint32_t count, int ring, uint8_t *flags);
 void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags);
 
 /* The rows of a light for the nodes with `flags` (count of them) at `time` (PSX_SYNTH_*): a tunnel's rows, the doors', the open road's 255. `data` is

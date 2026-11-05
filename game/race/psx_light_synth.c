@@ -33,6 +33,17 @@ static void mark_runs(const uint8_t *property, uint32_t count, int ring, int (*i
     }
 }
 
+static int is_rain_cover(uint8_t property)
+{
+    return (property & PSX_SYNTH_PROPERTY_TUNNEL) != 0 && ((property & PSX_SYNTH_PROPERTY_OPEN) == 0 || (property & 2) != 0);
+}
+
+void psx_light_synth_rain_cover(const uint8_t *property, uint32_t count, int ring, uint8_t *flags)
+{
+    for (uint32_t i = 0; i < count; i++) flags[i] = 0;
+    mark_runs(property, count, ring, is_rain_cover, PSX_SYNTH_PROPERTY_TUNNEL, 1, flags);
+}
+
 void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags)
 {
     for (uint32_t i = 0; i < count; i++) flags[i] = 0;
