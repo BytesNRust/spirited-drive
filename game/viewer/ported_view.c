@@ -962,7 +962,7 @@ enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100
 /* port (rain_fx, rain v4): what a wet road does round every car on the screen (the followed one and the rivals ahead): spray, a cloud of grainy dithered dots behind the rear wheels (a
  * plume from weather_rain_spray_puff: a puff's scatter of dots, thicker at its heart, widening and thinning toward the plume's end; some dots dark, so it is grit and not a lit
  * disc), and the tail lights' reflections, a short dithered streak of their red under each lamp. Painted once the frame's 3D is whole (the recorder replayed), as the streaks are. */
-enum { RAIN_MOOD_SHARE = 7 };   /* of 16 (a 4x4 ordered dither): how much of the picture is moved toward the rain's grey */
+enum { RAIN_MOOD_SHARE = 7, RAIN_MOOD_SHARE_NIGHT = 10 };   /* of 16 (a 4x4 ordered dither): how much of the picture is moved toward the rain's grey; at night the grey lifts the dark picture, so more of it keeps the rain no darker than the dry night */
 
 /* port (rain v4, dev env only): TNFS_RAIN_WET_OFF=1 leaves the grey scene and the tail reflections out, for the before / after captures */
 static int rain_wet_off(void)
@@ -1031,7 +1031,7 @@ static void tail_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32
         foot[2] = mirror[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
         foot[1] = car->y - 0x5000, mirror[1] = car->y - 0x5000 - 0xc000;   /* the road, and the lamp as the road shows it (a wet road smears it longer than the lamp is high) */
         if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
-        const int32_t half = 0x38400 / c0[2] * 220 / SPRAY_DIV + 1;
+        const int32_t half = (0x38400 / c0[2] * 220 / SPRAY_DIV + 1) * (night ? 3 : 2) / 2;   /* wider at night: the lamps are the light */
         const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
         if (steps < 1) continue;
         for (int32_t t = 0; t <= steps; t++) {
@@ -1039,7 +1039,7 @@ static void tail_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32
             const int32_t w = half * (steps - t / 2) / steps;   /* a little narrower toward the end */
             const int32_t keep = (night ? 100 : 75) * (steps - t) / steps + 10;   /* and thinner */
             for (int32_t x = -w; x <= w; x++)
-                if ((int32_t)(rain_hash((uint32_t)((cx + x) * 31 + cy), 5u) % 100u) < keep && ((cy + t) % 3) != 0) rain_dot(pixels, pitch, box, cx + x, cy, wt->tail);
+                if ((int32_t)(rain_hash((uint32_t)((cx + x) * 31 + cy), 5u) % 100u) < keep && (night || ((cy + t) % 3) != 0)) rain_dot(pixels, pitch, box, cx + x, cy, wt->tail);
         }
     }
 }
@@ -1995,7 +1995,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        if (!rain_wet_off()) weather_mood_rows(pixels, screen_w, box, wt->mood, RAIN_MOOD_SHARE);   /* port (rain v4): the grey, low-contrast scene of rain */
+        if (!rain_wet_off()) weather_mood_rows(pixels, screen_w, box, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE);   /* port (rain v4): the grey, low-contrast scene of rain */
         rain_cars_paint(pixels, screen_w, box, wt);
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
                              drive_light_night(), wt->rain4);
