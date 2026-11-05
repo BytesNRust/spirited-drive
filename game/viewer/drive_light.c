@@ -163,9 +163,11 @@ static const float LOST_VEGAS_DARKEN = 0.9f;
 static const int VEGAS_OBJECT_LIGHT = 245;   /* port (vegas_objects): the light of 255 its buildings and objects keep, so the windows and the neon stand out */
 
 /* port (city_lift, vegas_lift): level 0, 1, 2. The ceiling the City and Lost Vegas nights' tint is brought under (NIGHT_TINT_CEILING at 0) and how far the open night's dark floor is lifted (of 256) */
-static const float CITY_CEILING[3] = { 0.35f, 0.50f, 0.70f };
+static const float CITY_CEILING[4] = { 0.35f, 0.50f, 0.70f, 0.42f };   /* level 3: darker than 1, with the beams, the tunnels and the lamps standing out of it */
 static const float VEGAS_CEILING[3] = { 0.35f, 0.55f, 0.80f };
-static const int CITY_FLOOR_LIFT[3] = { 0, 120, 190 }, VEGAS_FLOOR_LIFT[3] = { 0, 90, 170 };   /* the open night's dark floor lifted (of 256) */
+static const int CITY_FLOOR_LIFT[4] = { 0, 120, 190, 30 }, CITY_TUNNEL_FLOOR = 215, CITY_BEAM_OPEN = 190, VEGAS_FLOOR_LIFT[3] = { 0, 90, 170 };   /* the open night's dark floor lifted (of 256) */
+
+static int city_night3;   /* port (city_lift 3): this track is a City night with level 3 */
 
 static int is_city(const char *track) { return track != NULL && strncasecmp(track, "CY", 2) == 0; }
 static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp(track, "TR4") == 0; }
@@ -269,7 +271,10 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
-    light.lamp_bright = headlights_on ? port_lamp_pool_bright() : 0;   /* port (lamp_pool_bright) */
+    city_night3 = headlights_on && is_city(track) && port_city_lift() >= 3;
+    light.lamp_bright = headlights_on ? (port_lamp_pool_bright() || city_night3) : 0;   /* port (lamp_pool_bright; city_lift 3 has it in the City: the lamps' pools stand out of the darker base) */
+    light.beam_open = city_night3 ? CITY_BEAM_OPEN : 0;   /* port (city_lift 3): a visible patch of the beams on the dark City road */
+    light.tunnel_floor = headlights_on && is_city(track) && port_city_lift() >= 3 ? CITY_TUNNEL_FLOOR : 0;   /* port (city_lift 3): brighter tunnels */
     light.night_lift = !headlights_on ? 0 : is_city(track) ? CITY_FLOOR_LIFT[port_city_lift()] : is_lost_vegas(track) ? VEGAS_FLOOR_LIFT[port_vegas_lift()] : 0;   /* port (city_lift, vegas_lift) */
     load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
     if (is_lost_vegas(track))
@@ -440,7 +445,7 @@ static void pool_cd_light(const Tri *tri)
 static void lay_cd_pools(void)
 {
     if (cd_lamp_count == 0 || light.data == NULL || light.pooled) return;
-    if (psx_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_lamp_pools(), port_lamp_pools() && port_lamp_pool_tint(), port_lamp_car_shade() || port_lamp_pool_bright()))
+    if (psx_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_lamp_pools(), port_lamp_pools() && port_lamp_pool_tint(), port_lamp_car_shade() || port_lamp_pool_bright() || city_night3))
         port_log("psx_light: %zu street lamp pools over the CD's light\n", cd_lamp_count);
     cd_lamp_count = 0;
 }

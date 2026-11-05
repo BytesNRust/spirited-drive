@@ -190,7 +190,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->reverse_rows = (int)n;
     } else if (strcmp(key, "city_lift") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 2)
+        if (parse_int(value, &n) && n >= 0 && n <= 3)
             s->city_lift = (int)n;
     } else if (strcmp(key, "vegas_lift") == 0) {
         if (parse_int(value, &n) && n >= 0 && n <= 2)
@@ -685,7 +685,7 @@ int port_city_lift(void)
 {
     if (!port_psx_light()) return 0;
     const char *v = getenv("TNFS_CITY_LIFT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().city_lift;
 }
 

@@ -30,7 +30,9 @@ typedef struct {
     int forest_road;    /* port (forest_neutral): 1 and the file's nodes forest_from..forest_to, which the rows mark as a tunnel (a forest's shade), are drawn with the road's tables, not a tunnel's cast */
     uint32_t forest_from, forest_to;
     int lamp_bright;    /* port (lamp_pool_bright): a street lamp's pool (car_pool's classes) is not dimmed by the night's dark floor; 0 it is */
-    int night_lift;     /* port (city_lift, vegas_lift): 0..256, how far toward full the open night's dark floor is lifted (0 none: the pools' own floor) */
+    int night_lift;     /* port (city_lift, vegas_lift): 0..256, how far toward full the open night's dark floor is lifted (0 none: the pools' own floor); with it the beam's cone is added on top of the lifted floor, not taken as the more of the two */
+    int beam_open;      /* port (city_lift 3): the light out of 255 the headlight beam gives the open ground at its full, where the night's own rows are darker (the City's are about 98); 0 the beam only scales the row's light */
+    int tunnel_floor;   /* port (city_lift 3): a tunnel's dark floor (of 256) in place of TUNNEL_FLOOR, so its lamps stand out against a darker open night; 0 TUNNEL_FLOOR */
     uint8_t object_floor;   /* port (vegas_objects): the least light (of 255) a 3D object (a building, a sign) takes from its node; 0 none, the node's own light */
     int gate_board;     /* port (finish_gate_light): the stage gate's scenery board plus one, which keeps full light at night (finish_gate_light.h); 0 none */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */

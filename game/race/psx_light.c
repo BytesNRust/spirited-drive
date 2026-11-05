@@ -148,15 +148,17 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
     if (!psx_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node)) {
         int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
         int floor = HEADLIGHT_FLOOR;
-        if (light->night_lift > 0) {   /* port (city_lift, vegas_lift): the dark of the open night is less deep, a lit pool keeps its full light */
-            floor += (256 - floor) * light->night_lift / 256;
-            if (gain < floor) gain = floor;
-        }
+        if (light->night_lift > 0) floor += (256 - floor) * light->night_lift / 256;   /* port (city_lift, vegas_lift): the dark of the open night is less deep, a lit pool keeps its full light */
         const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
         const int lamp_floor = psx_light_lamp_floor(light, node);   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
         if (lamp_floor > floor) floor = lamp_floor;
+        if (light->night_lift > 0) gain = headlight_pool_gain_at_lift(floor, lift);   /* and the beam adds on top of the lifted floor: it is not lost under it */
         if (gain < floor) gain = floor;
-        const uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
+        uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
+        if (light->beam_open > 0) {   /* port (city_lift 3): a visible patch where the rows are dark: the beam lights the ground to beam_open at its full, not only a share of the row's own light */
+            const int lit = light->beam_open * lift / 256 * share / 256;
+            if (lit > open) open = (uint8_t)lit;
+        }
         if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (tunnel_headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * lift / 256;
             return hall_lit > open ? (uint8_t)hall_lit : open;
@@ -164,7 +166,7 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
         return open;
     }
     /* a tunnel: less dark than the open night (its own lamps), and the beam lights it to TUNNEL_BEAM where its own rows are darker (a tunnel with no lamps is black) */
-    const uint8_t scaled = made_tunnel(light, node) ? v : headlight_pool_apply(v, headlight_pool_gain_at_lift(TUNNEL_FLOOR, lift));   /* a made light's tunnel (made_tunnels) keeps the dusk's light its rows carry: the night's floor is the open road's */
+    const uint8_t scaled = made_tunnel(light, node) ? v : headlight_pool_apply(v, headlight_pool_gain_at_lift(light->tunnel_floor > 0 ? light->tunnel_floor : TUNNEL_FLOOR, lift));   /* a made light's tunnel (made_tunnels) keeps the dusk's light its rows carry: the night's floor is the open road's */
     const int lit = (light->beam_tunnel > 0 ? light->beam_tunnel : TUNNEL_BEAM) * lift / 256;
     return lit > scaled ? (uint8_t)lit : scaled;
 }
@@ -181,11 +183,9 @@ int psx_light_open_gain_floor(const PsxLight *light, int lift, int lamp_floor)
     if (light == NULL || light->pool == NULL) return 256;
     int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);
     int floor = HEADLIGHT_FLOOR;
-    if (light->night_lift > 0) {
-        floor += (256 - floor) * light->night_lift / 256;
-        if (gain < floor) gain = floor;
-    }
+    if (light->night_lift > 0) floor += (256 - floor) * light->night_lift / 256;
     if (lamp_floor > floor) floor = lamp_floor;
+    if (light->night_lift > 0) gain = headlight_pool_gain_at_lift(floor, lift);   /* the beam on top of the lifted floor, as light_at_dark */
     if (gain < floor) gain = floor;
     return gain;
 }

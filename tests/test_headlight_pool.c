@@ -327,6 +327,31 @@ static void test_the_relight_of_vertices(void)
     CHECK_EQ_INT(keep[2], 7);
 }
 
+/* city_lift's lifted open floor: the beam adds on top of it (it is not lost under it), and 0 lift is the exe's max-of-the-two */
+static void test_the_beam_adds_on_top_of_a_lifted_floor(void)
+{
+    uint8_t rows[40 * PSX_LIGHT_POINTS];
+    memset(rows, 255, sizeof rows);
+    int32_t xz[2 * 40];
+    for (int i = 0; i < 40; i++) xz[2 * i] = 0, xz[2 * i + 1] = i * 6 * 65536;
+    HeadlightPool p = cone_of(0, 0, 0, 1);
+    p.ring = 40, p.node_xz = xz;
+    PsxLight light = { .data = rows, .nodes = 40, .pool = &p, .night_lift = 120 };
+    const int floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 120 / 256;
+    double z = 14;
+    while (z < 120 && (headlight_pool_lift_xz(&p, 0, z) > 156 || headlight_pool_lift_xz(&p, 0, z) < 100)) z += 0.5;
+    const int lift = headlight_pool_lift_xz(&p, 0, z);
+    CHECK(lift >= 100 && lift <= 156);
+    const double at[2] = { 0, z };
+    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, at), headlight_pool_apply(255, headlight_pool_gain_at_lift(floor, lift)));   /* the floor and the beam added */
+    CHECK(headlight_pool_gain_at_lift(floor, lift) > HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * lift / 256);              /* more than the beam alone */
+    const double behind[2] = { 0, -40 };
+    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), headlight_pool_apply(255, floor));                                 /* away from the beam: the floor */
+    CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(floor, lift));                    /* the cells' gain agrees */
+    light.night_lift = 0;                                                                                                  /* no lift: the exe's */
+    CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift));
+}
+
 int main(void)
 {
     test_the_pool_ahead_of_a_car();
@@ -343,6 +368,7 @@ int main(void)
     test_the_light_bytes_with_the_cone();
     test_an_undrawn_car_just_behind_still_lights_the_road();
     test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own();
+    test_the_beam_adds_on_top_of_a_lifted_floor();
     test_the_lamp_floor();
     test_the_relight_of_vertices();
     return TEST_REPORT();
