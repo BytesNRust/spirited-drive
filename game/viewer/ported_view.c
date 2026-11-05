@@ -497,21 +497,33 @@ static int ratio_of(int32_t node, float out[3]);
 
 /* port (psx_headlights): the nodes the road itself marks a tunnel (its property bit, runs of PSX_SYNTH_MIN_RUN and more: the wooden tunnels and sheds the CD's light
  * rows do not all mark), made once for the track; NULL when it has no data */
+/* two callers ask with different counts (the light script's and the ring's): a slot each, or they would remake the flags every call, every frame;
+ * dropped when the track is forgotten (the next track's race may sit at the same address with as many nodes) */
+enum { TUNNEL_SLOTS = 2 };
+static struct { uint8_t *flags; uint32_t have; const RaceState *race; } tunnel_slot[TUNNEL_SLOTS];
+static int tunnel_next;
+
+static void road_tunnels_forget(void)
+{
+    for (int i = 0; i < TUNNEL_SLOTS; i++) free(tunnel_slot[i].flags), tunnel_slot[i].flags = NULL;
+}
+
 static const uint8_t *road_tunnels(const RaceState *race, uint32_t nodes)
 {
-    static uint8_t *flags;
-    static uint32_t have;
-    static const RaceState *for_race;
     if (nodes == 0) return NULL;
-    if (flags != NULL && have == nodes && for_race == race) return flags;
-    free(flags);
-    flags = malloc(nodes);
+    for (int i = 0; i < TUNNEL_SLOTS; i++)
+        if (tunnel_slot[i].flags != NULL && tunnel_slot[i].have == nodes && tunnel_slot[i].race == race) return tunnel_slot[i].flags;
+    const int at = tunnel_next;
+    tunnel_next = (tunnel_next + 1) % TUNNEL_SLOTS;
+    free(tunnel_slot[at].flags);
+    tunnel_slot[at].flags = NULL;
+    uint8_t *flags = malloc(nodes);
     uint8_t *property = malloc(nodes);
-    if (flags == NULL || property == NULL) { free(property); free(flags); flags = NULL; return NULL; }
+    if (flags == NULL || property == NULL) { free(property); free(flags); return NULL; }
     for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
     psx_light_synth_tunnels(property, nodes, 1, flags);
     free(property);
-    have = nodes, for_race = race;
+    tunnel_slot[at].flags = flags, tunnel_slot[at].have = nodes, tunnel_slot[at].race = race;
     return flags;
 }
 
@@ -1874,6 +1886,7 @@ void ported_view_forget_track(void)
     render.tri = NULL;
     ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
+    road_tunnels_forget();
 }
 
 void ported_view_set_reach(int32_t segments)
