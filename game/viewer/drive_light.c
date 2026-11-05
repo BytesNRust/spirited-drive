@@ -199,10 +199,44 @@ static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp
 static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.55f, 0.46f } };
 
 
-static void use_fallback_tint(int time)
+/* port (night tone, dev env only: TNFS_NIGHT_TONE): the night's flat tint with no PS1 light. 0 the fallback above; 1 a tone a track: the CD's own night tint of each track as the
+ * owner's disc logs it (city_lift 1, vegas_lift 2: already under their ceilings, so none is applied over them); 2 one neutral cool blue-grey for all (also final). */
+static const struct { const char *track; float tint[3]; } NIGHT_TONE[] = {
+    { "CY1", { 0.55f, 0.32f, 0.40f } }, { "CY2", { 0.31f, 0.45f, 0.50f } }, { "CY3", { 0.34f, 0.35f, 0.57f } },
+    { "CL1", { 0.40f, 0.35f, 0.30f } }, { "CL2", { 0.48f, 0.28f, 0.29f } }, { "CL3", { 0.44f, 0.30f, 0.32f } },
+    { "AL1", { 0.44f, 0.33f, 0.29f } }, { "AL2", { 0.52f, 0.29f, 0.25f } }, { "AL3", { 0.52f, 0.29f, 0.23f } },
+    { "TR1", { 0.45f, 0.35f, 0.25f } }, { "TR2", { 0.47f, 0.36f, 0.23f } }, { "TR3", { 0.39f, 0.30f, 0.36f } },
+    { "TR4", { 0.63f, 0.75f, 0.78f } },
+};
+static const float NIGHT_TONE_COOL[3] = { 0.40f, 0.44f, 0.52f };
+
+static int night_tone_mode(void)
+{
+    const char *v = getenv("TNFS_NIGHT_TONE");
+    return v != NULL && (v[0] == '1' || v[0] == '2') && v[1] == '\0' ? v[0] - '0' : 0;
+}
+
+/* the tint the mode gives this track's night; NULL for mode 0 and for a track the table has none for */
+static const float *night_tone_tint(const char *track)
+{
+    const int mode = night_tone_mode();
+    if (mode == 2) return NIGHT_TONE_COOL;
+    if (mode == 1 && track != NULL)
+        for (size_t i = 0; i < sizeof NIGHT_TONE / sizeof NIGHT_TONE[0]; i++)
+            if (strcasecmp(track, NIGHT_TONE[i].track) == 0) return NIGHT_TONE[i].tint;
+    return NULL;
+}
+
+static void use_fallback_tint(int time, const char *track)
 {
     const float *f = FALLBACK_TINT[time == PSX_TIME_DUSK || time == PSX_TIME_NIGHT];
     for (int k = 0; k < 3; k++) tint[k] = f[k] * (time != PSX_TIME_NIGHT ? 1.0f : headlights_on && (synth_wanted || made_wanted) ? NIGHT_PALETTE[k] : psx_night_light[k]);   /* a made light carries the night in its nodes with the pools */
+    const float *tone = time == PSX_TIME_NIGHT ? night_tone_tint(track) : NULL;
+    if (tone != NULL) {
+        for (int k = 0; k < 3; k++) tint[k] = tone[k];
+        port_log("psx_light: night tone %d: tint %.2f %.2f %.2f\n", night_tone_mode(), tint[0], tint[1], tint[2]);
+        return;   /* final: under the ceiling already, the City's and Vegas' lifts not applied over it */
+    }
     if (time == PSX_TIME_NIGHT && city_level > 0) {   /* port (city_lift): the City's ceiling over the made night's tint too, as over the CD's; level 0 stays as it was */
         const float k = psx_night_ceiling_scale(tint, CITY_CEILING[city_level]);
         for (int c = 0; c < 3; c++) tint[c] *= k;
@@ -271,8 +305,8 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         if (have_dir) port_log("psx_light: no %s\n", path);
         else port_log("psx_light: no PS1 directory, the port's own effects only\n");
         made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
-        if (time != PSX_TIME_DAY) use_fallback_tint(time);
-        if (time == PSX_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night()) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
+        if (time != PSX_TIME_DAY) use_fallback_tint(time, track);
+        if (time == PSX_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night() && night_tone_tint(track) == NULL) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
             static const float VEGAS_NIGHT[3] = { 0.27f, 0.33f, 0.34f };
             const float lift_k = VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[0];   /* port (vegas_lift): the CD's tint rides its ceiling (the CD's own is above every level's); level 0 is as it was */
             for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c] * lift_k;
@@ -290,7 +324,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (!ok) {
         port_log("psx_light: %s does not fit the track (%u nodes)\n", path, ring_nodes);
         made_wanted = 1;
-        if (time != PSX_TIME_DAY) use_fallback_tint(time);
+        if (time != PSX_TIME_DAY) use_fallback_tint(time, track);
         return;
     }
     if (port_forest_dark()) psx_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
