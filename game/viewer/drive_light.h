@@ -41,6 +41,10 @@ void drive_light_lamps_night(TrackArt *art);
 int drive_light_street_lamp_entries(void);
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768]);
 
+/* port (rain_lightning): the lightning's brightness this frame (0 none .. 15), set by the render: drive_light_palette then goes that far (of 15) from the time of day's tint to the
+ * palette's own colours, so the 3D, the cars too, shows full bright for the instant of a flash and decays with it. 0 leaves the palette as it was. */
+void drive_light_set_flash(int level);
+
 /* A race's frame: `frame` (count pixels) is the 3D when it is done and the 2D layer (HUD, dash, menus over it) not yet drawn. */
 void drive_light_world_done(const uint8_t *frame, size_t count);
 /* The 2D layer's own marks (640 x 480 wide, as the compose makes them): per layer pixel PSX_CLASS_DASH (the dash's art, the wheel, the

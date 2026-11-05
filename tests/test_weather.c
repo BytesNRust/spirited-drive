@@ -3,6 +3,7 @@
 #include "game/race/headlight_pool.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -48,6 +49,8 @@ static void test_rain_bounds_and_scale(void)
     CHECK_EQ_INT(weather_rain_width(0), 1);
     CHECK_EQ_INT(weather_rain_count(0, 480), 0);
     CHECK(weather_rain_count(1280, 960) == 4 * weather_rain_count(640, 480));
+    CHECK(weather_rain_count_fx(640, 480) * 10 < weather_rain_count(640, 480) * 7 && weather_rain_count_fx(640, 480) > 0);   /* the speed-following rain is sparser */
+    CHECK(weather_rain_blend(0) == 0.0f && weather_rain_blend(WEATHER_SPOKE_TURNED << 16) == 1.0f && weather_rain_blend(6 << 16) > 0.0f);
     CHECK(weather_rain_count(1, 1) >= 1 && weather_rain_count(100000, 100000) <= 2000);
 }
 
@@ -106,7 +109,7 @@ static int span2(const int32_t s[4]) { return (s[2] - s[0]) * (s[2] - s[0]) + (s
 static void test_rain_spokes_follow_the_speed(void)
 {
     const int32_t vx = 320, vy = 200;
-    int level, still_falls = 0, radial = 0, longer = 0, n = 0;
+    int level, still_falls = 0, radial = 0, n = 0;
     for (int drop = 0; drop < 240; drop++) {
         int32_t a[4], f[4], g[4];
         weather_rain_spoke(drop, 50, 0, 640, 480, vx, vy, 500.0f, 0, a, &level);
@@ -119,14 +122,15 @@ static void test_rain_spokes_follow_the_speed(void)
         n++;
         const int64_t outward = (int64_t)(f[2] - vx) * (f[2] - f[0]) + (int64_t)(f[3] - vy) * (f[3] - f[1]);   /* the head is farther out than the tail */
         if (outward > 0) radial++;
-        if (span2(f) > span2(a)) longer++;
+        CHECK(span2(f) <= 80 * 80);                                                      /* short: no more than a sixth of the view */
+        const double dist = sqrt((double)(f[2] - vx) * (f[2] - vx) + (double)(f[3] - vy) * (f[3] - vy));
+        if (dist > 4) CHECK((f[3] - vy) / dist < 0.6);                                   /* never in the wedge straight down: the road ahead */
     }
     CHECK(still_falls > 230);
-    CHECK(n > 200 && radial * 100 > n * 97);
-    CHECK(longer * 100 > 240 * 55);   /* most are longer (the ones just born are cut by the origin) */
+    CHECK(n > 150 && radial * 100 > n * 97);
     int32_t slow[4], mid[4];
     weather_rain_spoke(9, 50, 5 << 16, 640, 480, vx, vy, 500.0f, 0, slow, &level);   /* it changes smoothly with the speed */
-    weather_rain_spoke(9, 50, 6 << 16, 640, 480, vx, vy, 500.0f, 0, mid, &level);
+    weather_rain_spoke(9, 50, (5 << 16) + 6554, 640, 480, vx, vy, 500.0f, 0, mid, &level);   /* a tenth of a metre a second more */
     CHECK(abs(slow[2] - mid[2]) + abs(slow[3] - mid[3]) < 40);
 }
 
@@ -175,28 +179,49 @@ static void test_rain_spray_plume(void)
     }
     CHECK(live >= WEATHER_SPRAY_PUFFS - 2);
     CHECK(far_fast > far_slow);                                                     /* the plume is longer the faster */
+    int32_t r0[3], r1[3], r2[3], z0, z1, z2;                                        /* a puff grows as it goes from the wheel, up to a cap */
+    weather_rain_spray_puff(1, 1, 5, 30 << 16, 1, r0, &z0);
+    weather_rain_spray_puff(10, 1, 5, 30 << 16, 1, r1, &z1);
+    CHECK(z1 > z0);
+    int biggest = 0;
+    for (int k = 0; k < WEATHER_SPRAY_PUFFS; k++)
+        for (int side = -1; side <= 1; side += 2) {
+            weather_rain_spray_puff(k, side, 9, 45 << 16, 1, r2, &z2);
+            if (z2 > biggest) biggest = z2;
+        }
+    CHECK(biggest <= (int)(256.0f * WEATHER_SPRAY_CAP) && biggest > 256);
+    weather_rain_spray_puff(WEATHER_SPRAY_PUFFS - 1, 1, 5, 30 << 16, 1, r0, &z0);   /* and the trail's end is not thinner than a puff near the wheel */
+    CHECK(z0 > 0);
 }
 
-/* rain_lightning: the storm's clock */
+/* rain_lightning: the storm's clock: a strike is full on its first tick and decays; one or two a slot, the second weaker and well apart */
 static void test_storm_clock(void)
 {
-    int flashes = 0, doubles = 0, quiet_slots = 0;
+    int strikes = 0, doubles = 0, quiet_slots = 0;
     for (uint32_t t = 0; t < 150; t++) CHECK_EQ_INT(weather_rain_flash(t), 0);   /* none in the first 5 seconds */
-    for (uint32_t slot = 0; slot < 40; slot++) {
-        int n = 0;
+    for (uint32_t slot = 0; slot < 60; slot++) {
+        int lit = 0, peaks = 0, last = 0;
         for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) {
             const int f = weather_rain_flash(t);
-            CHECK_EQ_INT(f, weather_rain_flash(t));   /* a pure function of the tick */
-            if (f) n++, flashes++;
-            if (f && weather_rain_flash(t + 1) && weather_rain_flash(t + 2)) CHECK(0);   /* two ticks, never three in a row */
+            CHECK_EQ_INT(f, weather_rain_flash(t));                                   /* a pure function of the tick */
+            CHECK(f >= 0 && f <= WEATHER_FLASH_PEAK);
+            if (f) lit++;
+            if (f > last && last == 0) peaks++;                                       /* a rise from dark: a flash begins */
+            if (f > 0 && last > 0) CHECK(f <= last);                                  /* then it only decays */
+            last = f;
         }
-        if (n == 0 && slot > 0) quiet_slots++;
-        CHECK(n == 0 || n == 2 || n == 4);            /* a flash is two ticks; a double four */
-        if (n == 4) doubles++;
-        
+        CHECK(peaks <= 2);                                                            /* one or two flashes a strike */
+        if (slot > 0 && lit == 0) quiet_slots++;
+        if (peaks == 2) doubles++;
+        if (peaks > 0) strikes++;
+        if (peaks > 0) {
+            int top = 0;
+            for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) top = weather_rain_flash(t) > top ? weather_rain_flash(t) : top;
+            CHECK_EQ_INT(top, WEATHER_FLASH_PEAK);                                    /* the sky goes white at the strike */
+        }
     }
-    CHECK(flashes > 40 && flashes < 160);   /* a storm, not a strobe: about a flash a slot */
-    CHECK(doubles > 3);
+    CHECK(strikes > 30 && strikes < 56);   /* three slots in four */
+    CHECK(doubles > 2 && doubles * 2 < strikes);
     CHECK(quiet_slots > 2);
 }
 
