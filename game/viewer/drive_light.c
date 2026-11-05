@@ -221,19 +221,16 @@ static const struct { const char *track; float tint[3], gain; } NIGHT_TONE[] = {
 };
 static const float NIGHT_TONE_COOL[3] = { 0.40f, 0.44f, 0.52f };
 
-static int night_tone_mode(void)
-{
-    const char *v = getenv("TNFS_NIGHT_TONE");
-    return v != NULL && (v[0] == '1' || v[0] == '2') && v[1] == '\0' ? v[0] - '0' : 0;
-}
+static int night_tone_mode(void) { return port_night_tone(); }
 
 /* port (night tone): the tint the mode gives this track's night, under the ceiling the CD path would bring it to (the City's, Lost Vegas' with its darkening, or the night's);
  * 0 when the mode has none (mode 0, or a track the table lacks) */
 static int night_tone_tint(const char *track, float out[3])
 {
     const int mode = night_tone_mode();
-    if (mode == 2) {
-        memcpy(out, NIGHT_TONE_COOL, sizeof NIGHT_TONE_COOL);
+    if (mode == 2) {   /* the cool tone as the owner saw it (city_lift 3, vegas_lift 2), the City's and Lost Vegas' following their level's ceiling from there; the other tracks as seen */
+        const float scale = is_city(track) ? CITY_CEILING[port_city_lift()] / CITY_CEILING[3] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[2] : 1.0f;
+        for (int k = 0; k < 3; k++) out[k] = NIGHT_TONE_COOL[k] * scale;
         return 1;
     }
     if (mode != 1 || track == NULL) return 0;
