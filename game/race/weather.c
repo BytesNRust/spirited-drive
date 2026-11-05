@@ -301,3 +301,16 @@ void weather_flash_colour(uint8_t out[3])
 {
     out[0] = 248, out[1] = 250, out[2] = 255;
 }
+
+static float smooth_step(float a, float b, float x)
+{
+    const float t = x <= a ? 0.0f : x >= b ? 1.0f : (x - a) / (b - a);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+int weather_reflection_weight(float dot, float distance)
+{
+    const float facing = smooth_step(0.3f, 0.7f, dot < 0.0f ? -dot : dot);
+    const float near = 1.0f - smooth_step((float)WEATHER_REFLECT_NEAR_M, (float)WEATHER_REFLECT_FAR_M, distance);
+    return (int)(100.0f * facing * near + 0.5f);
+}
