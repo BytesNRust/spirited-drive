@@ -1444,10 +1444,11 @@ static void lamp_state(const Car *car)
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
     ratio_of_car(car, ratio);
     drive_light_tint(tint);
-    if ((flare_on && weather == WEATHER_FOG) || (weather == WEATHER_RAIN && port_rain_lamps()))   /* port (psx_flares): the lamps glow in fog too; port (rain_lamps): and in rain, day included */
+    if (flare_on && weather == WEATHER_FOG)   /* port (psx_flares): the lamps glow in fog too */
         drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
-    else
-        drive_lamps_light(car->index, car->node, tint, ratio, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
+    else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */
+        drive_lamps_light_forced(car->index, car->node, tint, ratio, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR,
+                                 weather == WEATHER_RAIN && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */
@@ -1663,9 +1664,10 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     int n = 0;
     const int brake = drive_lamps_lit_entry(car->index, LAMP_BRAKE), reverse = drive_lamps_lit_entry(car->index, LAMP_REVERSE),
               head = drive_lamps_lit_entry(car->index, LAMP_HEADLIGHT);
-    if (brake != 0) lamps[n++] = (FlareLamp){ brake, 0, { 30, 60, 100 }, 100 };
-    if (reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, 0, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
-    if (head != 0) lamps[n++] = (FlareLamp){ head, 0, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
+    const int no_halo = drive_lamps_no_halo(car->index);   /* port (rain_lamps): lit only by the rain by day: the texels, no halo */
+    if (!no_halo && brake != 0) lamps[n++] = (FlareLamp){ brake, 0, { 30, 60, 100 }, 100 };
+    if (!no_halo && reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, 0, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
+    if (!no_halo && head != 0) lamps[n++] = (FlareLamp){ head, 0, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
     const int police = police_flash_on && police_lights_on(shadow_race, car);
     const int red = police ? police_lights_own_entry(1) : 0, blue = police ? police_lights_own_entry(0) : 0;
     if (n == 0 && red == 0 && blue == 0) return;

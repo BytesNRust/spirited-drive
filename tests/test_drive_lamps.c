@@ -164,6 +164,25 @@ static void run(const char *root)
         CHECK_MEM(cfm, original, size);
     }
 
+    /* rain_lamps: forced on by day (force 2) the texels are lit but there is no halo; at low light (a tunnel) forced 1 keeps its halo */
+    {
+        const float sun[3] = { 1, 1, 1 }, tunnel[3] = { 0.5f, 0.5f, 0.5f };
+        drive_lamps_arm();
+        drive_lamps_light_forced(0, 0, sun, sun, 0, 0, 2);
+        for (int i = 10; i < 20; i++) CHECK_EQ_INT(rsid_texels[i], 0xa2);   /* the texels glow */
+        CHECK_EQ_INT(drive_lamps_no_halo(0), 1);                /* the halo does not */
+        drive_lamps_light_forced(0, 0, sun, sun, 0, 0, 1);      /* forced, the light day: still no halo */
+        CHECK_EQ_INT(drive_lamps_no_halo(0), 1);
+        drive_lamps_frame(0, 0, 0, 0);   /* the day's texels back before arming again */
+        drive_lamps_arm();
+        drive_lamps_light_forced(0, 0, sun, tunnel, 0, 0, 1);   /* the light itself says low: the halo stays */
+        CHECK_EQ_INT(drive_lamps_no_halo(0), 0);
+        drive_lamps_light_forced(0, 0, sun, tunnel, 0, 0, 0);
+        CHECK_EQ_INT(drive_lamps_no_halo(0), 0);
+        drive_lamps_frame(0, 0, 0, 0);   /* back to the day's texels */
+        drive_lamps_arm();
+    }
+
     drive_lamps_clear(0);
     CHECK_EQ_INT(drive_lamps_find(0, "TSupra", cfm, size), 0);   /* no mask for that car: no lamps, nothing written */
     drive_lamps_arm();
