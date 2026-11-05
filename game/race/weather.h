@@ -51,6 +51,7 @@ enum {
  * relative to the box (the ends may lie outside it; the caller clips). The box is in the pixels of the buffer drawn, so at a render
  * scale the same drop is the same fraction of the box and its length grows with the box; only its width is `scale` pixels. */
 int weather_rain_count(int32_t box_w, int32_t box_h);
+int weather_rain_count_fx(int32_t box_w, int32_t box_h);   /* port (rain_fx): the same box's far fewer streaks of the speed-following rain */
 void weather_rain_streak(int drop, uint32_t tick, int32_t box_w, int32_t box_h, int32_t out[4]);
 int weather_rain_width(int scale);   /* pixels across */
 
@@ -60,7 +61,8 @@ int weather_rain_width(int scale);   /* pixels across */
  * as weather_rain_streak's. A pure function of its arguments: the drop's own numbers do not depend on the speed, so it changes smoothly as the speed does.
  * The streak's brightness `*level` (0 dark .. WEATHER_RAIN_LEVELS - 1 white): by day WEATHER_RAIN_DAY_LEVEL (the phase 1 colour); at night (`night`) by how much of the
  * headlight cone the drop is in (weather_rain_cone_weight at the place the drop is taken to be). */
-enum { WEATHER_SPOKE_FULL = 40, WEATHER_RAIN_LEVELS = 4, WEATHER_RAIN_DAY_LEVEL = 2 };
+enum { WEATHER_SPOKE_FULL = 40, WEATHER_SPOKE_TURNED = 12, WEATHER_RAIN_LEVELS = 4, WEATHER_RAIN_DAY_LEVEL = 2 };
+float weather_rain_blend(int32_t speed);   /* 0 a standing car's falling streak .. 1 a spoke (smooth in the speed, 16.16 m/s); the drawing fades the streaks in near the vanishing point by it */
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level);
 
 /* port (rain_fx): the spray a car at `speed` (16.16 m/s) throws from each rear wheel: WEATHER_SPRAY_PUFFS puffs per wheel strung out behind it, a plume that hangs in the
@@ -68,13 +70,15 @@ void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, i
  * `out` its place relative to the wheel in 16.16 metres { behind, to the side (outward), up } and `*size` (0x100 a standard puff, 0 none). It has none below 8 m/s, on the
  * shoulder or in the air (`wet_road` 0). The plume lengthens with the speed and thins out along its length; the same arguments give the same puff. */
 enum { WEATHER_SPRAY_PUFFS = 22 };
+#define WEATHER_SPRAY_CAP 1.5f   /* a puff grows as it goes from the wheel up to this many times the standard size */
 int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size);
 
-/* port (rain_lightning, extras "Rain with storm"): the storm's clock. 1 when `tick` (30 a second) is a lightning frame, 0 otherwise: a pure function of the tick, so a replay or a
- * screenshot at the same tick flashes the same. Every WEATHER_STORM_SLOT ticks (15 s) three slots in four have a flash at a place of its own in the slot, one in two a double
- * (the second flash WEATHER_STORM_DOUBLE ticks after the first, the frames between dark); none in the first 5 seconds. */
-enum { WEATHER_STORM_SLOT = 450, WEATHER_STORM_DOUBLE = 5, WEATHER_FLASH_LEVEL = 7 };   /* the flash lifts the picture WEATHER_FLASH_LEVEL of the fog's 15 toward its colour */
-int weather_rain_flash(uint32_t tick);   /* a flash is two consecutive ticks (one drawn frame at the race's two-ticks-a-frame step) */
+/* port (rain_lightning, extras "Rain with storm"): the storm's clock. The lightning's brightness at `tick` (30 a second), 0 (none) .. WEATHER_FLASH_PEAK (the whole sky white): full on the
+ * strike's first tick, then decaying over WEATHER_FLASH_TICKS. A pure function of the tick, so a replay or a screenshot at the same tick flashes the same. Every WEATHER_STORM_SLOT ticks
+ * (15 s) three slots in four have a strike at a place of its own in the slot, one in three flashing a second, weaker time WEATHER_STORM_DOUBLE ticks after the first; none in the first 5
+ * seconds. The sky is painted white by it, and the palette goes toward full bright by it (drive_light_set_flash). */
+enum { WEATHER_STORM_SLOT = 450, WEATHER_STORM_DOUBLE = 18, WEATHER_FLASH_TICKS = 10, WEATHER_FLASH_PEAK = 15 };
+int weather_rain_flash(uint32_t tick);
 void weather_flash_colour(uint8_t out[3]);   /* the lightning's: a cold white-blue */
 
 /* The brightness level (0..WEATHER_RAIN_LEVELS - 1) a spray puff is drawn at: by day white, at night a mid level (it lies behind the car, outside the headlights' cone). */

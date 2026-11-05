@@ -612,9 +612,15 @@ void drive_light_lamps_night(TrackArt *art)
     port_log("night_lamps: %d of %d lamp colours in entries of their own (brightest first), %zu texels\n", used, n, texels);
 }
 
+static int storm_flash;   /* port (rain_lightning): 0 none .. 15 */
+
+void drive_light_set_flash(int level) { storm_flash = level < 0 ? 0 : level > 15 ? 15 : level; }
+
 void drive_light_palette(const uint8_t palette[768], uint8_t out[768])
 {
     psx_tint_palette(palette, tint, out);
+    if (storm_flash > 0)
+        for (int i = 0; i < 768; i++) out[i] = (uint8_t)((out[i] * (15 - storm_flash) + palette[i] * storm_flash + 7) / 15);
 }
 
 /* the 3D as it was when it was done, and the mask of a shown frame against it */
