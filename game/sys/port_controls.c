@@ -26,9 +26,9 @@ static const char *const ACTION_KEY[ACT_COUNT] = {
 
 static const char *const KEY_KEY[PKEY_COUNT] = {
     "key_left", "key_right", "key_gas", "key_brake", "key_gear_up", "key_gear_down", "key_handbrake", "key_horn",
-    "key_camera", "key_look_back", "key_nitro" };
+    "key_camera", "key_nitro", "key_look_back" };
 static const char *const KEY_WORD[PKEY_COUNT] = {
-    "Steer left", "Steer right", "Accelerate", "Brake", "Gear up", "Gear down", "Handbrake", "Horn", "Camera", "Look back", "Nitro" };
+    "Steer left", "Steer right", "Accelerate", "Brake", "Gear up", "Gear down", "Handbrake", "Horn", "Camera", "Nitro", "Look back" };
 /* the config.dat short of each (input_setup.c: words 3..12 go to the codes in this order, the hold key's before the
  * handbrake's) */
 static const int KEY_WORD_AT[PKEY_COUNT] = { 3, 4, 5, 6, 7, 8, 9, 11, 10, -1, -1 };   /* -1: the port's own key, no word */

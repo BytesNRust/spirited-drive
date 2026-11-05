@@ -31,8 +31,8 @@ typedef enum {
 typedef enum {
     PKEY_LEFT, PKEY_RIGHT, PKEY_GAS, PKEY_BRAKE, PKEY_GEAR_UP, PKEY_GEAR_DOWN, PKEY_HANDBRAKE, PKEY_HORN, PKEY_CAMERA,
     PKEY_RACE_COUNT,   /* the keys above are the race's key codes (input_setup.h); config.dat has a word for each */
-    PKEY_LOOK_BACK = PKEY_RACE_COUNT,   /* the port's own: the 360 camera's look back, B until it is the player's */
-    PKEY_NITRO,                         /* the port's own: the NITRO cheat's start (start_keys.h), N until it is the player's */
+    PKEY_NITRO = PKEY_RACE_COUNT,       /* the port's own: the NITRO cheat's start (start_keys.h), N until it is the player's */
+    PKEY_LOOK_BACK,                     /* the port's own: the 360 camera's look back, B until it is the player's. Last, so hiding its row leaves no gap */
     PKEY_COUNT
 } PortKey;
 
@@ -63,7 +63,7 @@ PortControls port_controls_defaults(void);
 PortControls port_controls_parse(const char *text, size_t size);
 size_t port_controls_format(const PortControls *c, char *out, size_t size);   /* 0 when it does not fit */
 /* The keyboard's keys: "key_left", "key_right", "key_gas", "key_brake", "key_gear_up", "key_gear_down",
- * "key_handbrake", "key_horn", "key_camera", "key_look_back", "key_nitro" a line each with a scancode (decimal, or 0x..; empty or 0 for none); the
+ * "key_handbrake", "key_horn", "key_camera", "key_nitro", "key_look_back" a line each with a scancode (decimal, or 0x..; empty or 0 for none); the
  * file has them all once any is the player's (keys_custom), and none otherwise. */
 const char *port_controls_key_name(PortKey key);   /* the screen's word for it: "Steer left" */
 /* config.dat's keys (the exe's Controls page, the 13 shorts 0052ad26..: words 3..12) as scancodes, what the race uses
