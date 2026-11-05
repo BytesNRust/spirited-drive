@@ -962,6 +962,16 @@ enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100
 /* port (rain_fx, rain v4): what a wet road does round every car on the screen (the followed one and the rivals ahead): spray, a cloud of grainy dithered dots behind the rear wheels (a
  * plume from weather_rain_spray_puff: a puff's scatter of dots, thicker at its heart, widening and thinning toward the plume's end; some dots dark, so it is grit and not a lit
  * disc), and the tail lights' reflections, a short dithered streak of their red under each lamp. Painted once the frame's 3D is whole (the recorder replayed), as the streaks are. */
+enum { RAIN_MOOD_SHARE = 7 };   /* of 16 (a 4x4 ordered dither): how much of the picture is moved toward the rain's grey */
+
+/* port (rain v4, dev env only): TNFS_RAIN_WET_OFF=1 leaves the grey scene and the tail reflections out, for the before / after captures */
+static int rain_wet_off(void)
+{
+    static int off = -1;
+    if (off < 0) off = getenv("TNFS_RAIN_WET_OFF") != NULL;
+    return off;
+}
+
 static uint32_t rain_hash(uint32_t a, uint32_t b)
 {
     uint32_t h = a * 0x9e3779b1u ^ (b + 0x7f4a7c15u) * 0x85ebca6bu;
@@ -1044,7 +1054,7 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
         spray_car(car, pixels, pitch, box, wt);
-        tail_car(car, pixels, pitch, box, wt);
+        if (!rain_wet_off()) tail_car(car, pixels, pitch, box, wt);
     }
 }
 
@@ -1985,7 +1995,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        weather_mood_rows(pixels, screen_w, box, wt->mood, drive_light_night() ? 7 : 7);   /* port (rain v4): the grey, low-contrast scene of rain */
+        if (!rain_wet_off()) weather_mood_rows(pixels, screen_w, box, wt->mood, RAIN_MOOD_SHARE);   /* port (rain v4): the grey, low-contrast scene of rain */
         rain_cars_paint(pixels, screen_w, box, wt);
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
                              drive_light_night(), wt->rain4);
