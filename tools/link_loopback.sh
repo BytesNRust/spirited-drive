@@ -41,11 +41,11 @@ cd "$(dirname "$0")/.."
 [ -x "$exe" ] || { echo "no $exe" >&2; exit 2; }
 
 # Game Mode: Network; the service; host or join; the host starts the race (the menus' Start at 40, 450)
-nav="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,14000:DOWN,16000:ENTER"
+nav="1000:ESC,2500:ESC,7000:DOWN,8000:ENTER,10000:ENTER,14000:DOWN,16000:ENTER"
 host="$nav,20000:ENTER,$((55000 + late)):CLICK:40:450"
 client="$nav,22000:ENTER"
 # a viewer: View only (below Select game) turned on, then Select game and the game
-viewer="1000:ESC,2500:ESC,6000:DOWN,7000:DOWN,8000:ENTER,10000:ENTER,12000:DOWN,13000:DOWN,14000:ENTER,15000:UP,16000:ENTER,22000:ENTER"
+viewer="1000:ESC,2500:ESC,7000:DOWN,8000:ENTER,10000:ENTER,12000:DOWN,13000:DOWN,14000:ENTER,15000:UP,16000:ENTER,22000:ENTER"
 
 # The steps after the race, at the host's times (the client's DELAY s earlier)
 case $mode in
@@ -54,7 +54,7 @@ continue) after="0:ENTER,20000:ENTER"; secs=$((at / 1000 + ${TAIL:-300})) ;;
 quit | quitclick)
           yes=Y
           [ "$mode" = quitclick ] && yes=CLICK:230:262  # the box's Yes
-          after="0:ENTER,18000:CLICK:320:403,28000:$yes,40000:DOWN,41000:DOWN,42000:DOWN,44000:ENTER,47000:Y"
+          after="0:ENTER,18000:CLICK:320:403,28000:$yes,41000:DOWN,42000:DOWN,44000:ENTER,47000:Y"
           secs=$((at / 1000 + 70)) ;;
 *) echo "mode: finish, continue, quit or quitclick" >&2; exit 2 ;;
 esac

@@ -83,8 +83,8 @@ An older `port.cfg` that still carries settings moves once to the mode's file, w
 | `city_lift` | 0 | 0 | 0, 1, 2, 3 (with the PS1 light and headlights the City nights CY1..CY3 are brightened: 1 mild, 2 more, by raising the night tint's ceiling and the open night's dark floor, the beams added on top of that floor; 3 a darker base than 1 with brighter tunnels and lamp pools, so the beams stand out; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 1 | `psx_light` |
 | `vegas_lift` | 0 | 0 | 0, 1, 2 (the same for Lost Vegas' night: 1 mild, 2 more; 0 the exe's) | none | `TNFS_VEGAS_LIFT` | 0 / 0 / 2 | `psx_light` |
 | `night_tone` | 0 | 0 | 0, 1, 2 (the night's flat tint of a track with no PS1 light, i.e. with no disc or no light file for it: 0 the fallback's warm brown-green; 1 each track's own CD night tint (constants, no PS1 data), brought under the City's and Lost Vegas' lift ceilings as on the CD path, with a brightness match to the CD's road; 2 one neutral cool blue-grey, the City's and Lost Vegas' following `city_lift` and `vegas_lift` from the look at city_lift 3 / vegas_lift 2; the CD's own light and tints are never changed) | none | `TNFS_NIGHT_TONE` | 0 / 0 / 2 | `psx_light`, night |
-| `rain_lamps` | 0 | 0 | 0, 1 (with `weather=rain` every car drives with its headlights on, day included: lit front lamps and their warm reflections on the wet road; no night beam or pools by day) | none | `TNFS_RAIN_LAMPS` | 0 / 0 / 0 | `weather=rain` |
-| `gauge_exterior` | 0 | 0 | 0, 1 (with `gauge_light`, the gauges are lit whenever the exterior lights are on: night, dusk, and rain with `rain_lamps`; by day dry they stay unlit; 0 at night only) | none | `TNFS_GAUGE_EXTERIOR` | 0 / 0 / 0 | `gauge_light` |
+| `rain_lamps` | 0 | 0 | 0, 1 (with `weather=rain` or `storm` every car drives with its headlights on, day included: lit front lamps and their warm reflections on the wet road; no night beam or pools by day) | none | `TNFS_RAIN_LAMPS` | 0 / 0 / 0 | `weather=rain` |
+| `gauge_exterior` | 0 | 0 | 0, 1 (with `gauge_light`, the gauges are lit whenever the exterior lights are on: night, dusk, and rain or storm with `rain_lamps`; by day dry they stay unlit; 0 at night only) | none | `TNFS_GAUGE_EXTERIOR` | 0 / 0 / 0 | `gauge_light` |
 | `tunnel_headlight` | 0 | 0 | 0, 1 (with the PS1 headlights at night, the beam lights a tunnel's walls and road, and a lit hall's, to 180 of 255; 0 the exe's 150 in a tunnel, nothing in a hall) | none | `TNFS_TUNNEL_HEADLIGHT` | 0 / 0 / 1 | `psx_light` |
 | `parking_dark` | 0 | 0 | 0, 1 (with car_tunnel_light, the car stays at the darkest tone of the hall in TR7's whole parking, nodes 465..570, with no alternating light; 0 the lamps' alternation) | none | `TNFS_PARKING_DARK` | 0 / 0 / 1 | `psx_light` |
 | `forest_neutral` | 0 | 0 | 0, 1 (with the PS1 light, Vertigo Ridge's forest road, nodes 852..943 (the CD's rows mark its shade like a tunnel), is drawn with the road's neutral light instead of the tunnel's olive-orange cast; 0 the cast, yellow/orange asphalt) | none | `TNFS_FOREST_NEUTRAL` | 0 / 0 / 1 | `psx_light` |
@@ -153,7 +153,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 43 columns of the table, in file order. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 64 columns of the table, in file order. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
