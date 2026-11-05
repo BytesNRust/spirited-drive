@@ -29,6 +29,7 @@ static double screen_extent(const View *view, const int32_t *const cam[4])
 int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], const PsxLight *light, const uint8_t corner[4],
                     const double xz[4][2], const uint32_t node[4])
 {
+    (void)texture;   /* the polygon's own corners: its piece of the texture does not place the light */
     if (light == NULL || light->pool == NULL || !light->pool->cone) return 0;
     static int on = -1;
     if (on < 0) on = getenv("TNFS_CELL_ON") != NULL;   /* dev: the cells are off by default (+5..8 % a frame at night on CY1); on to see them */
@@ -68,14 +69,13 @@ int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, cons
         lamp[k] = psx_light_lamp_floor(light, node[k]);
         base[k] = corner[k] * 256.0 / psx_light_open_gain_floor(light, lift[k], (int)lamp[k]);
     }
-    const double w = (double)(int16_t)texture->width * 65536.0, h = (double)(int16_t)texture->height * 65536.0;
     g->n = n;
     for (int j = 0; j <= n; j++)
         for (int i = 0; i <= n; i++) {
             const double s = (double)i / n, t = (double)j / n;
             for (int c = 0; c < 3; c++) g->cam[j][i][c] = (int32_t)lrint(lerp(lerp(cam[0][c], cam[1][c], s), lerp(cam[3][c], cam[2][c], s), t));
             for (int c = 0; c < 2; c++) g->uv[j][i][c] = (int32_t)lrint(lerp(lerp(uv[c], uv[2 + c], s), lerp(uv[6 + c], uv[4 + c], s), t));
-            const double a = fmin(fmax(g->uv[j][i][0] / w, 0), 1), b = fmin(fmax(g->uv[j][i][1] / h, 0), 1);
+            const double a = s, b = t;   /* the place in the polygon (uv is only its piece of the texture) */
             const double x = lerp(lerp(xz[0][0], xz[1][0], a), lerp(xz[3][0], xz[2][0], a), b);
             const double z = lerp(lerp(xz[0][1], xz[1][1], a), lerp(xz[3][1], xz[2][1], a), b);
             const double bv = lerp(lerp(base[0], base[1], a), lerp(base[3], base[2], a), b);

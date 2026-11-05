@@ -81,6 +81,7 @@ static int transparent(const FshEntry *texture)
 static uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 static uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];   /* port (lamp_pool_tint): the tables of a street lamp's pool, by class: the lit ones with a warm tint, the more the nearer the lamp */
 static int pool_ready;
+enum { POOL_CLASSES = 4 };   /* the lamp pool's classes 1..4 (psx_light_tunnel_class 2..5): the warmth at class c is c / POOL_CLASSES */
 static uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 static int lit_level;
 static int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
@@ -395,18 +396,27 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
                         const int32_t *const cam[4])
 {
     if (lit_active && (lit_tinted || lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255)) {
-        /* the intensities at the polygon's corners (texture (0,0), (w,0), (w,h), (0,h)) across the cell by its uv, a
-         * darkness a pixel takes between two of the tables */
+        /* the intensities at the polygon's corners: cam's corner i is the polygon's own corner i (uv is only the polygon's piece of its texture, a lane's quarter of a strip's, so the light is not
+         * found by uv across the whole texture: it stopped short of the corners and the next polygon's edge started at another value, a hard step of the cone's light at every row) */
         float dark[4];
-        const float w = (float)(int16_t)texture->width * 65536.0f, h = (float)(int16_t)texture->height * 65536.0f;
-        for (int i = 0; i < 4; i++) {
-            const float a = fminf(fmaxf(uv[2 * i] / w, 0), 1), b = fminf(fmaxf(uv[2 * i + 1] / h, 0), 1);
-            const float top = lit_corner[0] + (lit_corner[1] - lit_corner[0]) * a;
-            const float bottom = lit_corner[3] + (lit_corner[2] - lit_corner[3]) * a;
-            dark[i] = (255.0f - (top + (bottom - top) * b)) * (MODERN_FOG_LEVELS - 1) / 255.0f;
-        }
+        for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
         if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
-        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), dark);
+        const uint8_t (*tables)[256] = lit_tables_for(texture);
+        if (pool_ready && track_light_xz_ok && track_light_tunnel != 1 && psx_light != NULL && (tables == lit_tables || (track_light_tunnel >= 2 && tables == pool_tables[(track_light_tunnel - 2) & 3]))) {
+            /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the
+             * darkness is: the warmth fades along the road with the lamp's classes, no polygon with a table of its own */
+            float heat[4];
+            for (int k = 0; k < 4; k++) {
+                const int cls = psx_light_tunnel_class(psx_light, track_light_node[k]);
+                heat[k] = cls >= 2 ? (float)(cls - 1) / POOL_CLASSES : 0.0f;
+            }
+            const float *const corner = heat;
+            if (corner[0] > 0 || corner[1] > 0 || corner[2] > 0 || corner[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */
+                modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, pool_tables[POOL_CLASSES - 1], heat);
+                return;
+            }
+        }
+        modern_road_cell_lit(user, view, texture, uv, cam, transparent(texture), tables, dark);
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 

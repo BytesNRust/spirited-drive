@@ -104,6 +104,26 @@ static void test_a_grid_whose_corners_are_the_polygons(void)
     CHECK(graded);
 }
 
+/* a polygon that is a quarter of its texture (a lane of a strip: uv 16..32 of 64) still carries its own corners' bytes at its corners: the light is placed by the polygon, not by uv across the whole texture
+ * (which stopped it short of the corners, so the next polygon's edge began at another value: a hard step at every row) */
+static void test_a_piece_of_a_texture_keeps_its_corners(void)
+{
+    Poly p = poly_of(1);
+    const int32_t uv[8] = { 16 << 16, 0, 31 << 16, 0, 31 << 16, 63 << 16, 16 << 16, 63 << 16 };
+    memcpy(p.uv, uv, sizeof uv);
+    p.corner[0] = 250, p.corner[1] = 60, p.corner[2] = 60, p.corner[3] = 250;
+    HeadlightPool h = cone_at(0, 0, 0, 1);
+    PsxLight light = { .pool = &h };
+    ConeGrid g;
+    const int n = plan(&p, &light, &g);
+    CHECK(n >= 2);
+    const int at[4][2] = { { 0, 0 }, { 0, n }, { n, n }, { n, 0 } };
+    for (int k = 0; k < 4; k++) {
+        const float want = (255 - p.corner[k]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        CHECK(g.dark[at[k][0]][at[k][1]] > want - 1.0f && g.dark[at[k][0]][at[k][1]] < want + 1.0f);   /* within the beam's own change at that corner */
+    }
+}
+
 static void test_a_polygon_small_on_the_screen_is_not_cut(void)
 {
     Poly p = poly_of(1000);                                                /* the same ground, a thousand times farther in the view: a few pixels */
@@ -122,6 +142,7 @@ int main(void)
     test_without_a_cone_nothing_is_cut();
     test_a_polygon_the_beam_does_not_touch_or_covers_is_left_whole();
     test_a_grid_whose_corners_are_the_polygons();
+    test_a_piece_of_a_texture_keeps_its_corners();
     test_a_polygon_small_on_the_screen_is_not_cut();
     return TEST_REPORT();
 }
