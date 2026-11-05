@@ -467,6 +467,19 @@ static void keep(RasterCmd *c, const View *view, const int32_t uv[8], const int3
     c->table = view, c->count = corners;
     memcpy(c->v, uv, 8 * sizeof *uv);
     for (int i = 0; i < corners; i++) memcpy(c->v + 8 + 3 * i, cam[i], 3 * sizeof *cam[i]);
+    /* the rows it can touch, so a band that cannot see it skips its set-up too (the projection, the planes of each triangle): the corners' screen rows as draw_clipped takes them, a few rows
+     * over (its own edges reach a pixel past, EDGE_GROW less); a polygon the near plane clips is left unbounded */
+    float lo = 0, hi = 0;
+    const float near_z = (float)view->near_z, focal = (float)view->focal_x;
+    for (int i = 0; i < corners; i++) {
+        const float z = (float)cam[i][2];
+        if (!(z >= near_z) || !(z > 0.0f)) return;
+        const float y = view->centre_y - (float)cam[i][1] * focal * (1.0f / z);
+        if (i == 0 || y < lo) lo = y;
+        if (i == 0 || y > hi) hi = y;
+    }
+    if (!(lo > -1.0e9f && hi < 1.0e9f)) return;
+    c->top = (int32_t)floorf(lo) - 3, c->bottom = (int32_t)ceilf(hi) + 4;
 }
 
 static void cam_of(const RasterCmd *c, const int32_t *cam[4])
