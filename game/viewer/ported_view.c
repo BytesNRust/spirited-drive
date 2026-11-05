@@ -1136,7 +1136,7 @@ static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const in
         const int32_t across = (int32_t)(((int64_t)width * 9 * side) / 25);   /* 0.36 of the width out */
         foot[0] = mirror[0] = car->x + (int32_t)(((int64_t)forward[0] * along) >> 16) + (int32_t)(((int64_t)forward[1] * across) >> 16);
         foot[2] = mirror[2] = car->z + (int32_t)(((int64_t)forward[1] * along) >> 16) - (int32_t)(((int64_t)forward[0] * across) >> 16);
-        foot[1] = car->y - 0x5000, mirror[1] = car->y - 0x5000 - 0xc000;   /* the road, and the lamp as the road shows it (a wet road smears it longer than the lamp is high) */
+        foot[1] = car->road_point_heading[1] != 0 ? car->road_point_heading[1] : car->y, mirror[1] = foot[1] - 0xc000;   /* the road under the lamp (the car's origin is on the road), and the lamp as the road shows it, below it (a wet road smears it longer than the lamp is high) */
         if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
         const int32_t half = (0x38400 / c0[2] * 220 / SPRAY_DIV + 1) * (night ? 3 : 2) / 2;   /* wider at night: the lamps are the light */
         const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
