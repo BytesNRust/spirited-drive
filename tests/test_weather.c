@@ -4,6 +4,7 @@
 #include "test.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -283,6 +284,27 @@ static void test_storm_clock(void)
     CHECK(quiet_slots > 2);
 }
 
+static void test_spokes_from_a_vanishing_point_off_the_screen(void)
+{
+    /* the outside cameras: the vanishing point (the projection of the car's velocity) may be off the box; the spokes then leave it nearly parallel, all inside the box, none through it */
+    const int32_t vx = 2600, vy = 900;   /* far to the lower right of a 640 x 480 box */
+    int inside = 0, shown = 0, parallel = 0;
+    for (int drop = 0; drop < weather_rain_count_fx(640, 480); drop++)
+        for (uint32_t tick = 0; tick < 40; tick += 7) {
+            int32_t s[4];
+            int level;
+            weather_rain_spoke(drop, tick, 40 << 16, 640, 480, vx, vy, 500.0f, 0, s, &level);
+            if (level < 0) continue;
+            shown++;
+            if (s[2] >= -2 && s[2] <= 642 && s[3] >= -2 && s[3] <= 482) inside++;
+            const float dx = (float)(s[2] - s[0]), dy = (float)(s[3] - s[1]), n = sqrtf(dx * dx + dy * dy);
+            if (n > 6.0f && dx / n < -0.5f && dy / n < -0.1f) parallel++;   /* they flow away from the point: toward the upper left */
+        }
+    CHECK(shown > 100);
+    CHECK(inside * 100 >= shown * 95);     /* the heads stay in the view (the few that begin as a place just outside the box, for the wide views, are clipped by the drawing) */
+    CHECK(parallel * 100 >= shown * 85);   /* and stream away from the point */
+}
+
 int main(void)
 {
     test_storm_clock();
@@ -290,6 +312,7 @@ int main(void)
     test_rain_spokes_follow_the_speed();
     test_rain_keeps_its_side_and_fills_a_wide_view();
     test_lens_drops();
+    test_spokes_from_a_vanishing_point_off_the_screen();
     test_rain_cone_lights_the_drops();
     test_fog_curve_default();
     test_fog_for_tint();
