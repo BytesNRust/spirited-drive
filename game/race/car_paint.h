@@ -56,4 +56,14 @@ void car_paint_recolour(uint8_t *palette, int type, const uint8_t *entries, int 
  * player's paint (`player_paint`) when another is to be had. */
 int car_paint_pick(uint32_t seed, int slot, int car, int player_car, int player_paint, int catalogue, int ps1);
 
+/* The paint seed of a race: the race's own seed, except for the 2nd and 3rd segment of a stage set (AL, CL, CY: "CY2" after "CY1"
+ * or "CY2"), which keep the one the set's earlier segment drew, so the rivals' colours hold from stage to stage. `keep` is the
+ * caller's, one per game; another track (or no earlier segment of the set) takes `race_seed` and starts the set anew. */
+typedef struct CarPaintSeedKeep {
+    char family[3];
+    int have;
+    uint32_t seed;
+} CarPaintSeedKeep;
+uint32_t car_paint_seed(CarPaintSeedKeep *keep, const char *track, uint32_t race_seed);
+
 #endif

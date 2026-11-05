@@ -164,8 +164,27 @@ static void test_the_catalogue_black(void)
     }
 }
 
+/* The rivals' colours hold across a stage set's segments: segment 1 draws the paint seed, 2 and 3 of the same set keep it. */
+static void test_stage_seed(void)
+{
+    CarPaintSeedKeep k;
+    memset(&k, 0, sizeof k);
+    CHECK(car_paint_seed(&k, "CY1", 100) == 100);
+    CHECK(car_paint_seed(&k, "CY2", 200) == 100);   /* the next segment of the set keeps stage 1's */
+    CHECK(car_paint_seed(&k, "CY3", 300) == 100);
+    CHECK(car_paint_seed(&k, "CY1", 400) == 400);   /* a new set */
+    CHECK(car_paint_seed(&k, "CL2", 500) == 500);   /* another set's segment 2 with no segment 1 before it: its own */
+    CHECK(car_paint_seed(&k, "CL3", 600) == 500);
+    CHECK(car_paint_seed(&k, "TR1", 700) == 700);   /* a circuit: its own, and it ends the set */
+    CHECK(car_paint_seed(&k, "TR1", 800) == 800);
+    CHECK(car_paint_seed(&k, "CY2", 900) == 900);
+    CHECK(car_paint_seed(&k, "cy1", 10) == 10 && car_paint_seed(&k, "cy2", 11) == 10);   /* the menus' stems are lower case */
+    CHECK(car_paint_seed(NULL, "CY2", 5) == 5 && car_paint_seed(&k, NULL, 6) == 6);
+}
+
 int main(void)
 {
+    test_stage_seed();
     test_the_catalogue_black();
     test_bright_paint_keeps_steps();
     test_table();

@@ -309,16 +309,18 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
  * the player's car wears the paint the box picked, whether the PS1 livery (needs port.cfg's psx_dir files) or a catalogue paint
  * (car_paint.h); every rival draws its own from the race's seed, so a replay of the seed shows the same colours, and is never the
  * player's when it drives the same car. Off, nobody is repainted. */
-static int rival_paint_choice(const RaceField *field, int slot, int player_car, int player_paint, const char *psx_dir)
+static int rival_paint_choice(const RaceField *field, uint32_t paint_seed, int slot, int player_car, int player_paint, const char *psx_dir)
 {
     const int car = field->entries[slot].car;
     uint16_t swatch[2];
     const int ps1 = psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(psx_dir, car_model_names[car], swatch);
-    return car_paint_pick(field->seed, slot, car, player_car, player_paint, car_paint_count(car), ps1);
+    return car_paint_pick(paint_seed, slot, car, player_car, player_paint, car_paint_count(car), ps1);
 }
 
-static void rival_liveries(const RaceField *field, int player)
+static void rival_liveries(const RaceField *field, int player, const char *track, int replay)
 {
+    static CarPaintSeedKeep seed_keep;   /* port: the rivals' colours hold from one stage of a set to the next (car_paint_seed) */
+    const uint32_t paint_seed = replay ? field->seed : car_paint_seed(&seed_keep, track, field->seed);
     const PortExtras extras = port_extras_load();
     const PortSettings settings = port_settings_load();
     memset(drive_cars.livery, 0, sizeof drive_cars.livery);
@@ -334,7 +336,7 @@ static void rival_liveries(const RaceField *field, int player)
         player_paint = PAINT_OWN;   /* a choice the files or the table no longer have */
     for (int i = 0; i < field->racers && i < RACE_CARS; i++) {
         const int car = field->entries[i].car;
-        const int paint = i == player ? player_paint : rival_paint_choice(field, i, player_car, player_paint, settings.psx_dir);
+        const int paint = i == player ? player_paint : rival_paint_choice(field, paint_seed, i, player_car, player_paint, settings.psx_dir);
         drive_cars.model[i] = car;
         drive_cars.livery[i] = paint == PAINT_PS1;
         drive_cars.fixed_black[i] = 1;
@@ -457,7 +459,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const int wanted = replay_of == NULL && !drive_link_on ? port_laps() : 0;
     const int laps = wanted > 0 ? wanted : exe_laps;
     const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
-    rival_liveries(&field, drive_link_on ? drive_link.slot : 0);
+    rival_liveries(&field, drive_link_on ? drive_link.slot : 0, name, replay_of != NULL);
     field.port_reverse = t->reversed;   /* port: the grid is placed at the start, before the race knows its direction otherwise */
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
     drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);

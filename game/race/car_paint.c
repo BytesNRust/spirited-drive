@@ -247,3 +247,22 @@ int car_paint_pick(uint32_t seed, int slot, int car, int player_car, int player_
     if (count == 0) return 0;
     return allowed[(mix(seed, slot) >> 8) % (uint32_t)count];
 }
+
+/* a stage set's segment: "AL2", "CL1", "CY3" */
+static int stage_segment(const char *track)
+{
+    if (track == NULL || strlen(track) != 3) return 0;
+    const char a = (char)(track[0] & ~0x20), b = (char)(track[1] & ~0x20);   /* either case */
+    const int set = (a == 'A' && b == 'L') || (a == 'C' && (b == 'L' || b == 'Y'));
+    return set && track[2] >= '1' && track[2] <= '3' ? track[2] - '0' : 0;
+}
+
+uint32_t car_paint_seed(CarPaintSeedKeep *keep, const char *track, uint32_t race_seed)
+{
+    if (keep == NULL) return race_seed;
+    const int segment = stage_segment(track);
+    if (segment > 1 && keep->have && keep->family[0] == (char)(track[0] & ~0x20) && keep->family[1] == (char)(track[1] & ~0x20)) return keep->seed;
+    keep->have = segment != 0;
+    if (segment != 0) keep->family[0] = (char)(track[0] & ~0x20), keep->family[1] = (char)(track[1] & ~0x20), keep->family[2] = '\0', keep->seed = race_seed;
+    return race_seed;
+}
