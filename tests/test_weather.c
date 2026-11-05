@@ -305,8 +305,28 @@ static void test_spokes_from_a_vanishing_point_off_the_screen(void)
     CHECK(parallel * 100 >= shown * 85);   /* and stream away from the point */
 }
 
+static void test_reflection_weight(void)
+{
+    CHECK_EQ_INT(weather_reflection_weight(1.0f, 10.0f), 100);     /* a car facing the camera, near: full */
+    CHECK_EQ_INT(weather_reflection_weight(-1.0f, 10.0f), 100);    /* the rear: the same weight (the caller picks the lamp) */
+    CHECK_EQ_INT(weather_reflection_weight(0.2f, 10.0f), 0);       /* a side view: none */
+    CHECK_EQ_INT(weather_reflection_weight(-0.29f, 10.0f), 0);
+    CHECK_EQ_INT(weather_reflection_weight(0.5f, 10.0f), 50);      /* half way between 0.3 and 0.7 */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 25.0f), 100);     /* full to 25 m */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 50.0f), 50);      /* half way to 75 m */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 75.0f), 0);       /* gone by 75 m */
+    CHECK_EQ_INT(weather_reflection_weight(0.8f, 150.0f), 0);
+    int last = 101;
+    for (float d = 20.0f; d <= 80.0f; d += 2.0f) {                  /* the fade only falls with distance */
+        const int w = weather_reflection_weight(0.9f, d);
+        CHECK(w <= last);
+        last = w;
+    }
+}
+
 int main(void)
 {
+    test_reflection_weight();
     test_storm_clock();
     test_rain_spray_plume();
     test_rain_spokes_follow_the_speed();

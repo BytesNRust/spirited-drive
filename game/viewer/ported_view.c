@@ -265,6 +265,7 @@ typedef struct {
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
     uint8_t mood[256];   /* port (rain v4): the whole picture moved toward a dark grey: rain's desaturated, lower contrast light */
     uint8_t tail[256];   /* port (rain v4): a road pixel under a tail light, moved toward its red */
+    uint8_t head[256];   /* port (rain_fx): a road pixel under a lit headlight, moved toward its warm white */
     uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
 } WeatherTables;
 
@@ -304,7 +305,10 @@ static const WeatherTables *weather_tables(const TrackArt *art)
       modern_fog_tables(art->palette, grey, scratch);
       memcpy(wt.mood, scratch[drive_light_night() ? 4 : 5], 256);
       modern_fog_tables(art->palette, red, scratch);
-      memcpy(wt.tail, scratch[9], 256); }
+      memcpy(wt.tail, scratch[9], 256);
+      const uint8_t warm[3] = { 255, 226, 160 };
+      modern_fog_tables(art->palette, warm, scratch);
+      memcpy(wt.head, scratch[9], 256); }
     weather_flash_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
     for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
@@ -1088,19 +1092,51 @@ static void spray_row(int32_t node, int far_side)
     }
 }
 
-/* The tail lights' reflections: each lamp (0.7 m out, 2 m behind the car's centre, a little above it) is mirrored in the road below it: a short vertical dithered streak from the lamp's
- * foot to the mirrored lamp, wider at the top and thinning, the road's pixels there taken through the red table (brighter at night, when the lamps are the light). */
-static void tail_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+/* The lamps' reflections on a wet road: each lamp (at the car's bumper, 0.36 of its width out, a little above the road) is mirrored in the road below it, a short vertical dithered streak from
+ * the lamp's ground point (its x and z, the road's y) towards the viewer, wider at the top and thinning. A wet road is a mirror: it shows a lamp only when the lamp faces the viewer, so the
+ * tail lights' (red) show when the car's rear is toward the camera and the headlights' (warm white, lit ones only) when its front is, both gone at a side view (the dot of the car's forward
+ * vector with the car-to-camera one, |dot| 0.3 .. 0.7 smooth) and with distance (full to 25 m, none from 75 m). The car's own heading as it is drawn (traffic draws with its matrix, not the
+ * yaw) and its own length and width place the lamps. */
+enum { REFLECT_DEFAULT_LENGTH = 0x48000, REFLECT_DEFAULT_WIDTH = 0x1cccc };   /* a car's length and width (16.16) when the model gives none */
+
+/* The reflection's strength in percent for `car` seen from the camera (0 none), and whether it is the front that faces the camera. */
+static int reflection_weight(const Car *car, int32_t forward[2], int *front)
+{
+    int32_t fx, fz;
+    if (car->use_matrix) fx = car->matrix[6], fz = car->matrix[8];
+    else {
+        const int32_t angle = (car->yaw >> 8) & 0xffff;
+        fx = fx_sin16(angle), fz = fx_cos16(angle);
+    }
+    const double len = sqrt((double)fx * fx + (double)fz * fz);
+    if (len < 1.0) return 0;
+    const double ux = fx / len, uz = fz / len;
+    const double dx = ((double)model_view.camera_position[0] - car->x) / 65536.0, dz = ((double)model_view.camera_position[2] - car->z) / 65536.0;
+    const double dist = sqrt(dx * dx + dz * dz);
+    if (dist < 0.5 || dist >= WEATHER_REFLECT_FAR_M) return 0;
+    const double dot = (ux * dx + uz * dz) / dist;
+    forward[0] = (int32_t)(ux * 65536.0), forward[1] = (int32_t)(uz * 65536.0);
+    *front = dot > 0;
+    return weather_reflection_weight((float)dot, (float)dist);
+}
+
+static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
 {
     const int night = drive_light_night();
-    const int32_t angle = (car->yaw >> 8) & 0xffff;
-    const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);
+    int32_t forward[2];
+    int front = 0;
+    const int weight = reflection_weight(car, forward, &front);
+    if (weight <= 0) return;
+    if (front && drive_lamps_lit_entry(car->index, LAMP_HEADLIGHT) == 0) return;   /* the headlights' only when they are lit */
+    const uint8_t *table = front ? wt->head : wt->tail;
+    const int32_t length = car->model_length > 0 ? car->model_length : REFLECT_DEFAULT_LENGTH, width = car->model_width > 0 ? car->model_width : REFLECT_DEFAULT_WIDTH;
+    const int32_t along = (int32_t)(((int64_t)length * (front ? 19 : -19)) / 40);   /* the bumper: 0.475 of the length from the centre */
     for (int side = -1; side <= 1; side += 2) {
         int32_t foot[3], mirror[3], c0[3], c1[3], s0[2], s1[2];
-        const int32_t behind = 0x20000, across = side * 0xb000;
-        foot[0] = mirror[0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * across) >> 16);
-        foot[2] = mirror[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
-        foot[1] = car->y - 0x5000, mirror[1] = car->y - 0x5000 - 0xc000;   /* the road, and the lamp as the road shows it (a wet road smears it longer than the lamp is high) */
+        const int32_t across = (int32_t)(((int64_t)width * 9 * side) / 25);   /* 0.36 of the width out */
+        foot[0] = mirror[0] = car->x + (int32_t)(((int64_t)forward[0] * along) >> 16) + (int32_t)(((int64_t)forward[1] * across) >> 16);
+        foot[2] = mirror[2] = car->z + (int32_t)(((int64_t)forward[1] * along) >> 16) - (int32_t)(((int64_t)forward[0] * across) >> 16);
+        foot[1] = car->road_point_heading[1] != 0 ? car->road_point_heading[1] : car->y, mirror[1] = foot[1] - 0xc000;   /* the road under the lamp (the car's origin is on the road), and the lamp as the road shows it, below it (a wet road smears it longer than the lamp is high) */
         if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
         const int32_t half = (0x38400 / c0[2] * 220 / SPRAY_DIV + 1) * (night ? 3 : 2) / 2;   /* wider at night: the lamps are the light */
         const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
@@ -1108,9 +1144,9 @@ static void tail_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32
         for (int32_t t = 0; t <= steps; t++) {
             const int32_t cy = s0[1] + (s1[1] - s0[1]) * t / steps, cx = s0[0] + (s1[0] - s0[0]) * t / steps;
             const int32_t w = half * (steps - t / 2) / steps;   /* a little narrower toward the end */
-            const int32_t keep = (night ? 100 : 75) * (steps - t) / steps + 10;   /* and thinner */
+            const int32_t keep = ((night ? 100 : 75) * (steps - t) / steps + 10) * weight / 100;   /* and thinner, and thinner still where the weight is low */
             for (int32_t x = -w; x <= w; x++)
-                if ((int32_t)(rain_hash((uint32_t)((cx + x) * 31 + cy), 5u) % 100u) < keep && (night || ((cy + t) % 3) != 0)) rain_dot(pixels, pitch, box, cx + x, cy, wt->tail);
+                if ((int32_t)(rain_hash((uint32_t)((cx + x) * 31 + cy), 5u) % 100u) < keep && (night || ((cy + t) % 3) != 0)) rain_dot(pixels, pitch, box, cx + x, cy, table);
         }
     }
 }
@@ -1151,7 +1187,7 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
         const Car *car = shadow_race->cars[i];
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
-        if (!rain_wet_off()) tail_car(car, pixels, pitch, box, wt);
+        if (!rain_wet_off()) reflect_car(car, pixels, pitch, box, wt);
     }
 }
 

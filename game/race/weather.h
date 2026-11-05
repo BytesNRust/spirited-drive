@@ -98,4 +98,9 @@ int weather_rain_level_fog(int level);
  * at that point in the car's own frame (the eye taken EYE_FORWARD_M ahead of the car's centre): the drops are lit where the road is. */
 int weather_rain_cone_weight(float ahead, float lateral, float height);
 
+/* A lamp's reflection on a wet road, in percent (0..100): it shows only while the lamp faces the viewer and near it. `dot` is the car's forward vector with the car-to-camera one (> 0 the front
+ * faces the camera, < 0 the rear): the weight is smooth in |dot| from 0.3 (none, a side view) to 0.7 (full), and `distance` (metres) is full to WEATHER_REFLECT_NEAR_M and none from WEATHER_REFLECT_FAR_M. */
+enum { WEATHER_REFLECT_NEAR_M = 25, WEATHER_REFLECT_FAR_M = 75 };
+int weather_reflection_weight(float dot, float distance);
+
 #endif
