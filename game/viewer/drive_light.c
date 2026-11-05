@@ -183,7 +183,7 @@ static int is_lost_vegas(const char *track);
 
 /* port (city_lift 3): the open ground's light of the City's made night, a share (of 256) of the terrain's, a track a share: the CD's own rows of CY2 and CY3 (narrow roads between walls) are darker than
  * CY1's, the made rows (the terrain's sky share) are not as dark; fitted to the CD's frames (mean road luminance). TNFS_CITY_MADE_SCALE=n (1..256) takes it for the fit */
-static const int CITY_MADE_SCALE[3] = { 256, 96, 86 };
+static const int CITY_MADE_SCALE[3] = { 196, 96, 86 };
 static int city_made_scale(const char *track)
 {
     const char *env = getenv("TNFS_CITY_MADE_SCALE");
