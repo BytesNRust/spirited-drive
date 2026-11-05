@@ -15,6 +15,16 @@ void weather_sky_rows(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
     }
 }
 
+void weather_mood_rows(uint8_t *pixels, int32_t pitch, const int32_t box[4], const uint8_t table[256], int share)
+{
+    static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    for (int32_t y = box[1]; y < box[3]; y++) {
+        uint8_t *row = pixels + (size_t)y * (size_t)pitch;
+        for (int32_t x = box[0]; x < box[2]; x++)
+            if (BAYER[y & 3][x & 3] < share) row[x] = table[row[x]];
+    }
+}
+
 void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, int32_t top, int32_t bottom,
                       const uint8_t tables[][256], int low, int high, int32_t cx, int32_t cy, float focal, const float up[3])
 {

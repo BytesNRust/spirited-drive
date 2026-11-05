@@ -262,6 +262,8 @@ typedef struct {
     uint8_t rain[256];   /* a streak's lightening */
     uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (rain_lightning): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
+    uint8_t mood[256];   /* port (rain v4): the whole picture moved toward a dark grey: rain's desaturated, lower contrast light */
+    uint8_t tail[256];   /* port (rain v4): a road pixel under a tail light, moved toward its red */
     uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
 } WeatherTables;
 
@@ -296,7 +298,12 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
     { const uint8_t dark[3] = { 20, 26, 36 };
       modern_fog_tables(art->palette, dark, scratch);
-      memcpy(wt.lens, scratch[6], 256);   /* port (rain v3) */ }
+      memcpy(wt.lens, scratch[6], 256);   /* port (rain v3) */
+      const uint8_t grey[3] = { 92, 98, 108 }, red[3] = { 255, 34, 24 };   /* port (rain v4) */
+      modern_fog_tables(art->palette, grey, scratch);
+      memcpy(wt.mood, scratch[drive_light_night() ? 4 : 5], 256);
+      modern_fog_tables(art->palette, red, scratch);
+      memcpy(wt.tail, scratch[9], 256); }
     weather_flash_colour(rain);
     modern_fog_tables(art->palette, rain, scratch);
     for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
@@ -954,7 +961,7 @@ enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100
 
 /* port (rain_fx, rain v4): what a wet road does round every car on the screen (the followed one and the rivals ahead): spray, a cloud of grainy dithered dots behind the rear wheels (a
  * plume from weather_rain_spray_puff: a puff's scatter of dots, thicker at its heart, widening and thinning toward the plume's end; some dots dark, so it is grit and not a lit
- * disc). Painted once the frame's 3D is whole (the recorder replayed), as the streaks are. */
+ * disc), and the tail lights' reflections, a short dithered streak of their red under each lamp. Painted once the frame's 3D is whole (the recorder replayed), as the streaks are. */
 static uint32_t rain_hash(uint32_t a, uint32_t b)
 {
     uint32_t h = a * 0x9e3779b1u ^ (b + 0x7f4a7c15u) * 0x85ebca6bu;
@@ -1000,6 +1007,33 @@ static void spray_car(const Car *car, uint8_t *pixels, int32_t pitch, const int3
         }
 }
 
+/* The tail lights' reflections: each lamp (0.7 m out, 2 m behind the car's centre, a little above it) is mirrored in the road below it: a short vertical dithered streak from the lamp's
+ * foot to the mirrored lamp, wider at the top and thinning, the road's pixels there taken through the red table (brighter at night, when the lamps are the light). */
+static void tail_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
+{
+    const int night = drive_light_night();
+    const int32_t angle = (car->yaw >> 8) & 0xffff;
+    const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);
+    for (int side = -1; side <= 1; side += 2) {
+        int32_t foot[3], mirror[3], c0[3], c1[3], s0[2], s1[2];
+        const int32_t behind = 0x20000, across = side * 0xb000;
+        foot[0] = mirror[0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * across) >> 16);
+        foot[2] = mirror[2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * across) >> 16);
+        foot[1] = car->y - 0x5000, mirror[1] = car->y - 0x5000 - 0xc000;   /* the road, and the lamp as the road shows it (a wet road smears it longer than the lamp is high) */
+        if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
+        const int32_t half = 0x38400 / c0[2] * 220 / SPRAY_DIV + 1;
+        const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
+        if (steps < 1) continue;
+        for (int32_t t = 0; t <= steps; t++) {
+            const int32_t cy = s0[1] + (s1[1] - s0[1]) * t / steps, cx = s0[0] + (s1[0] - s0[0]) * t / steps;
+            const int32_t w = half * (steps - t / 2) / steps;   /* a little narrower toward the end */
+            const int32_t keep = (night ? 100 : 75) * (steps - t) / steps + 10;   /* and thinner */
+            for (int32_t x = -w; x <= w; x++)
+                if ((int32_t)(rain_hash((uint32_t)((cx + x) * 31 + cy), 5u) % 100u) < keep && ((cy + t) % 3) != 0) rain_dot(pixels, pitch, box, cx + x, cy, wt->tail);
+        }
+    }
+}
+
 static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
 {
     if (shadow_race == NULL) return;
@@ -1010,6 +1044,7 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
         spray_car(car, pixels, pitch, box, wt);
+        tail_car(car, pixels, pitch, box, wt);
     }
 }
 
@@ -1950,6 +1985,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
+        weather_mood_rows(pixels, screen_w, box, wt->mood, drive_light_night() ? 7 : 7);   /* port (rain v4): the grey, low-contrast scene of rain */
         rain_cars_paint(pixels, screen_w, box, wt);
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, view.centre_x - box[0], view.centre_y - box[1], (float)view.focal_x,
                              drive_light_night(), wt->rain4);
