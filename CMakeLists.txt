@@ -1189,5 +1189,8 @@ if(NOT EMSCRIPTEN)
         # the anonymous counters of a "release" version run with --mods: the flag in <mods>/user, nothing in the pref dir, nothing when Off
         add_test(NAME stats_mods_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/stats_mods_isolation -P ${CMAKE_SOURCE_DIR}/tests/stats_mods_isolation.cmake)
         set_tests_properties(stats_mods_isolation PROPERTIES TIMEOUT 60)
+        # the bumper view at night in rain with the headlights: the same frame each run, no sanitizer error (the tunnel flags read after being freed)
+        add_test(NAME rain_night_headlights COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_night_headlights -P ${CMAKE_SOURCE_DIR}/tests/rain_night_headlights.cmake)
+        set_tests_properties(rain_night_headlights PROPERTIES TIMEOUT 400)
     endif()
 endif()
