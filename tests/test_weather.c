@@ -363,6 +363,17 @@ static void test_rain_v2(void)
     CHECK_EQ_INT(weather_on_carriageway(-6 * 65536, 56, 40), 1);        /* a wider left side (a third lane): its own verge */
     CHECK_EQ_INT(weather_on_carriageway(7 * 65536, 56, 40), 0);         /* but the right is still 5 m */
     CHECK_EQ_INT(weather_on_carriageway(9 * 65536, 0, 0), 1);           /* no verge known: as before */
+    /* the sideways distance of a ground point from a node's centre line (car_walls' `across`: negative left, positive right): the road runs along (sin a, cos a)
+     * in (x, z), so it is the point's offset's share across that, not along it (car_lateral's is the along-road one, and a check made on it let the shoulder through) */
+    CHECK_EQ_INT(weather_across_road(0, 3 * 65536, 40 * 65536), 3 * 65536);         /* heading +z: 3 m to +x, 40 m on along: 3 m across */
+    CHECK_EQ_INT(weather_across_road(0, -3 * 65536, -40 * 65536), -3 * 65536);
+    CHECK_EQ_INT(weather_across_road(0, 0, 9 * 65536), 0);                          /* along the road only: on its centre line */
+    CHECK_EQ_INT(weather_across_road(0x4000, 40 * 65536, -3 * 65536), 3 * 65536);   /* heading +x: 3 m to -z is the same side */
+    CHECK_EQ_INT(weather_across_road(0x4000, 7 * 65536, 0), 0);
+    CHECK(abs(weather_across_road(0x2000, 4 * 65536, 4 * 65536)) < 64);             /* heading diagonal: the diagonal is along */
+    /* a lamp 6 m across on a 5 m verge is off the carriageway wherever along the node it is; 2 m across never is */
+    CHECK_EQ_INT(weather_on_carriageway(weather_across_road(0, 6 * 65536, 3 * 65536), 40, 40), 0);
+    CHECK_EQ_INT(weather_on_carriageway(weather_across_road(0, 2 * 65536, 12 * 65536), 40, 40), 1);
     int low = 0, high = 0;   /* the delays use the whole range */
     for (uint32_t t = 150; t < 50000; t++) {
         const int d = weather_thunder_delay(t);

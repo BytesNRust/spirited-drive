@@ -124,5 +124,8 @@ int weather_reflection_weight(float dot, float distance);
 /* port (rain_v2): whether a point `lateral` (16.16 m, negative left of the road's centre, as car_lateral has it) is on the carriageway: within the node's verge on its side
  * (`left_verge` / `right_verge` in 1/8 m, the node's own bytes). A node with no verge on that side counts as on it. */
 int weather_on_carriageway(int32_t lateral, int left_verge, int right_verge);
+/* port (rain_v2): the sideways distance (16.16 m, negative left, positive right: car_walls' `across`) of a point whose offset from the node is (dx, dz) (16.16), the road heading `angle` (the node's
+ * orientation * 4, 0x10000 a turn) along (sin, cos) in (x, z). Not car_lateral's value, which is the distance along the road. */
+int32_t weather_across_road(int32_t angle, int32_t dx, int32_t dz);
 
 #endif

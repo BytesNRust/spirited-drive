@@ -1,5 +1,6 @@
 #include "game/race/weather.h"
 #include "game/race/headlight_pool.h"
+#include "game/sys/fixed_math.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -343,6 +344,11 @@ int weather_on_carriageway(int32_t lateral, int left_verge, int right_verge)
     const int64_t verge = (int64_t)(lateral < 0 ? left_verge : right_verge) * 0x2000;
     const int64_t side = lateral < 0 ? -(int64_t)lateral : lateral;
     return verge <= 0 || side <= verge;
+}
+
+int32_t weather_across_road(int32_t angle, int32_t dx, int32_t dz)
+{
+    return fx_mul_round(fx_cos16(angle), dx) - fx_mul_round(fx_sin16(angle), dz);
 }
 
 int weather_reflection_weight(float dot, float distance)

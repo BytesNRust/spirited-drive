@@ -271,7 +271,8 @@ static void place_car(Car *car, RaceState *race, double where)
     const int32_t node = (int32_t)((uint32_t)where % race->tri->ring_nodes);
     car->node = node;
     car->progress = node;
-    car->ai_target_lateral = 0;
+    const char *const side = getenv("TNFS_START_SIDE");   /* port (dev, env only): TNFS_START_SIDE=M puts the car M metres (negative: left) across the road from its centre line, for the captures at the road's edge */
+    car->ai_target_lateral = side != NULL ? (int32_t)(strtod(side, NULL) * 65536.0) : 0;
     car->steer = 0;
     ai_snap_to_road(car, race);
     car->yaw = (int32_t)((uint32_t)fx_atan2(car->matrix[6], car->matrix[8]) << 8);   /* as car_prepare takes the heading from the matrix */
