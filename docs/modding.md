@@ -7,7 +7,7 @@ How to change the game's data without touching the CD: where files live, what a 
 | Folder | What it is | Written by the game? |
 |--------|------------|----------------------|
 | **Game data** (`--data DIR`, or the player's copy `<player folder>/gamedata/`, or `./original` in a development build) | The original CD's files: `SIMDATA/`, `GAMEDATA/`, `FRONTEND/`, the `NFS_WIN.EXE`. Read only. | Never |
-| **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
+| **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
 | **The player's folder** | `port.cfg`, `stock.cfg`, `restored.cfg`, `restomod.cfg`, `controls.cfg`, `extras.cfg`, `records.dat`, `config.dat`, `Replay.rpl`, saved games, `tnfs.log`, `gamedata/`, `mods/`. | Yes: all of it |
 | **A mod** (`--mods DIR`, else `<player folder>/mods/`) | A folder of files that replace the game's. One overlay. | Never |
 
@@ -31,19 +31,19 @@ Example, a changed track:
 
 [modding/track-layout.md](modding/track-layout.md) and [modding/limitations.md](modding/limitations.md) cover building tracks and what the engine cannot do; `tnfs-studio slot replace` puts a track or a car into a mod's folder with the checks.
 
-The port's own files (track light, car masks, dash masks, sounds) are looked up differently, below. Only the track light has a place in the mod so far.
+The port's own files (track light, car masks, dash masks, sounds, the car environment map) go through the same overlay: **a mod's `<mod>/<path>` is tried first, where `<path>` is the path under `data/`** (`track_light/CY1N.txt`, `car_masks/<CAR>/<tex>_mask.png`, `dash_masks/<CAR>/dash_mask.png`, `sounds/thunder.wav`, `car_envmap.png`), then the port's own `data/`. The `TNFS_CAR_MASKS` and `TNFS_DASH_MASKS` variables, for trying a folder, still win over both.
 
 ## Track light
 
-`data/track_light/<TRACK><A|B|C|N>.txt`, one file for each track and time of day (A dawn, B day, C dusk, N night). In Restomod '26, with no PS1 disc, the light of a track is this file, whole. A mod can carry its own copy: **`<mod>/track_light/<file>` is tried first**, then `data/track_light/<file>`. A file is a few lines per run of nodes (`filas` the light rows, tunnel and lamp lines, `brillo N N P` to dim or lift a stretch, `tono_coche` the car's tone). Stock '96 and Restored '96 never read these files.
+`data/track_light/<TRACK><A|B|C|N>.txt`, one file for each track and time of day (A dawn, B day, C dusk, N night). In Restomod '26, with no PS1 disc, the light of a track is this file, whole. A mod can carry its own copy: **`<mod>/track_light/<file>` is tried first**, then `data/track_light/<file>`. A file is a few lines per run of nodes (`rows` the light rows, tunnel and lamp lines, `brightness N N P` to dim or lift a stretch, `car_tone` the car's tone). Stock '96 and Restored '96 never read these files.
 
     # a stretch of the night track at 70 percent of its light, then the car warmer there
-    brillo 120 180 70
-    tono_coche 120 180 ff8020:60
+    brightness 120 180 70
+    car_tone 120 180 ff8020:60
 
-The **live mode** `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1` for one run) shows in a race the node the car is at, which file it reads and the values there. **F10** holds the race where it is, **F11** copies a `brillo N N 100` line to the clipboard, and saving the file reloads the light within a second without leaving the race.
+The **live mode** `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1` for one run) shows in a race the node the car is at, which file it reads and the values there. **F10** holds the race where it is, **F11** copies a `brightness N N 100` line to the clipboard, and saving the file reloads the light within a second without leaving the race.
 
-The keywords are in Spanish today (`pista`, `hora`, `nodos`, `filas`, `tunel`, `pozo`, `brillo`, `tono_coche`...). *[English names: to be filled in from the track-light branch when it lands; [track-light.md](track-light.md) will be the reference.]* The generator is `tools/export_track_light.sh`; regenerating keeps hand edits (see the page).
+The keywords are English: `track time nodes flags` (the header), `rows`, `present`, `tunnel hall car_dim canyon`, `pool car_pool`, `car_disc`, `cast neutral city`, `tunnel_tone day|night`, `brightness`, `car_tone`; [track-light.md](track-light.md) is the reference. Files written with the first, Spanish words (`pista hora nodos banderas filas tunel pozo brillo tono_coche`...) still load: the port reads each as its English word. The generator is `tools/export_track_light.sh`; regenerating keeps hand edits (see the page).
 
 ## Car masks
 
@@ -63,7 +63,7 @@ The masks are made from layered PSDs: `tools/car_mask_psd.py` writes a PSD per t
 | cyan `00ffff` | reversing light, lit only in reverse gear, in any light |
 | white (anything else) | keeps its colour, no shine: plastics, trim, plate, badges, vents |
 
-The layer's own opacity is ignored. A low detail texture's PSD is named `<tex>_lo.psd`. Needs `pip install psd-tools Pillow`. To try a folder of masks without installing them: `TNFS_CAR_MASKS=<dir of <CAR>/<tex>_mask.png>`; the log's `car mask:` lines say which file each texture used.
+The layer's own opacity is ignored. A low detail texture's PSD is named `<tex>_lo.psd`. Needs `pip install psd-tools Pillow`. A mod puts its masks in `<mod>/car_masks/<CAR>/`. To try a folder of masks without installing them: `TNFS_CAR_MASKS=<dir of <CAR>/<tex>_mask.png>`; the log's `car mask:` lines say which file each texture used.
 
 ## Dash masks
 
@@ -85,7 +85,7 @@ The **`color`** layer: paint over the lit parts in the colour each is to glow (t
 
 ## Sounds
 
-`data/sounds/` holds the sounds the port added (so far the storm's `thunder.wav`, mono 16-bit PCM). Only CC0 or public-domain samples go in the repository, each with its source, author and licence written in [`data/sounds/LICENSES.md`](../data/sounds/LICENSES.md): add the entry there in the same change as the file (what it is made from, what was changed, the URL, the author, the licence and the date it was checked on the page). A mod of your own is free to use any sound it has the right to.
+`data/sounds/` holds the sounds the port added (so far the storm's `thunder.wav`, mono 16-bit PCM). A mod's `<mod>/sounds/thunder.wav` is used instead of it. Only CC0 or public-domain samples go in the repository, each with its source, author and licence written in [`data/sounds/LICENSES.md`](../data/sounds/LICENSES.md): add the entry there in the same change as the file (what it is made from, what was changed, the URL, the author, the licence and the date it was checked on the page). A mod of your own is free to use any sound it has the right to.
 
 ## Settings and launchers
 
