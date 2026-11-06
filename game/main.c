@@ -35,6 +35,7 @@
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
 #include "game/race/race_sim.h"
+#include "game/race/track_light_file.h"
 #include "platform/platform.h"
 #include "tnfs_version.h"
 #include "viewer/asset_viewer.h"
@@ -289,6 +290,7 @@ int main(int argc, char **argv)
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
+    track_light_set_mod_dir(opt.mods);   /* port (track_light_file): a mod's own track_light/ files come before the game's */
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to <mods>/user with --mods */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
