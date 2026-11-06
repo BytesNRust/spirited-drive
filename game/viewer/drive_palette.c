@@ -315,6 +315,25 @@ static void shade_off_set_aside(const RacePalette *p, uint8_t *shade, const uint
     }
 }
 
+/* port: and the entries the cars' lamps and the police's lights took (palette_emissive: set aside before the shade table's darker colours were looked at by anyone but night_lamps): a colour whose darker one is
+ * one of them (a skid mark or a shadow came out lamp-red, police-red or police-blue over such a texel) takes the nearest still enabled. An emissive entry's own row is left as it is. */
+static void shade_off_emissive(const RacePalette *p, uint8_t *shade)
+{
+    if (shade == NULL) return;
+    const uint8_t *const lit = palette_emissive();
+    uint8_t to_fix[RACE_PALETTE_COLOURS];
+    int any = 0;
+    for (int i = 0; i < RACE_PALETTE_COLOURS; i++) any |= to_fix[i] = lit[shade[i]] && !lit[i];
+    if (!any) return;
+    for (int i = 0; i < RACE_PALETTE_COLOURS; i++) {
+        if (!to_fix[i]) continue;
+        const uint8_t to = shade[i];
+        const uint32_t rgb = (uint32_t)p->screen_rgbx[4 * to] | (uint32_t)p->screen_rgbx[4 * to + 1] << 8 | (uint32_t)p->screen_rgbx[4 * to + 2] << 16;
+        const PaletteMatch m = { p->inverse, p->screen_rgbx, p->enabled };
+        shade[i] = (uint8_t)palette_match_rgb(&m, rgb);
+    }
+}
+
 static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
                         const uint8_t *track, const uint8_t *dash_bank, uint8_t *shade)
 {
@@ -413,6 +432,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     emissive_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
     night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL, hud != NULL && hud->ready ? hud->shade : NULL);
+    if (hud != NULL && hud->ready) shade_off_emissive(&p, hud->shade);
     /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out
      * lamp-amber. Matched again on the palette as it now stands. */
     if (late != NULL && late->after_banks != NULL) late->after_banks(late->ctx, &p);
