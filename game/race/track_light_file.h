@@ -4,17 +4,17 @@
  * lamp alternation and the tunnel casts. A line a run, '#' starts a comment:
  *
  *   # tnfs track light 1
- *   pista CY1 hora N nodos 1024 banderas 3fff   (the header: the file is read only for this track, time, node count and the port flags it was made with)
- *   filas 0 63 255 255 255 255 255 255 255 255 255 255 255    (nodes 0..63 have this row of 11 points)
- *   tunel 76 107          (road tunnel nodes; sala: a lit hall's; coche_tenue: the car keeps its dim tone; canon: TR6's canyon)
- *   pozo 130 136 3        (the street lamps' pool class 1..4 of the nodes, for the road's warm tint; pozo_coche: the same under a car)
- *   coche_disco 1 <even r g b> <odd r g b>   (the CD's own car ratios in a tunnel's lamp alternation, as C hex floats)
- *   reparto neutro 0 ciudad 1                (the tunnel's cast: neutral_cast, city_tunnel)
+ *   track CY1 time N nodes 1024 flags 3fff   (the header: the file is read only for this track, time, node count and the port flags it was made with)
+ *   rows 0 63 255 255 255 255 255 255 255 255 255 255 255    (nodes 0..63 have this row of 11 points)
+ *   tunnel 76 107          (road tunnel nodes; hall: a lit hall's; car_dim: the car keeps its dim tone; canyon: TR6's canyon)
+ *   pool 130 136 3        (the street lamps' pool class 1..4 of the nodes, for the road's warm tint; car_pool: the same under a car)
+ *   car_disc 1 <even r g b> <odd r g b>   (the CD's own car ratios in a tunnel's lamp alternation, as C hex floats)
+ *   cast neutral 0 city 1                (the tunnel's cast: neutral_cast, city_tunnel)
  *
  * and the lines added by hand (all lines count the same):
- *   tono_tunel noche 1 0.35 0.05 174   (a warm tunnel's cast, red green blue, and its light in percent; dia is the day's. The file starts with the values the code has)
- *   brillo 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
- *   tono_coche ff8020:60               (the car's tone on the whole track: a colour in hex and its intensity 0..100, as the palette allows; tono_coche 120 180 ff8020:60 for nodes 120..180 only)
+ *   tunnel_tone night 1 0.35 0.05 174   (a warm tunnel's cast, red green blue, and its light in percent; day is the day's. The file starts with the values the code has)
+ *   brightness 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
+ *   car_tone ff8020:60               (the car's tone on the whole track: a colour in hex and its intensity 0..100, as the palette allows; car_tone 120 180 ff8020:60 for nodes 120..180 only)
  *
  * The header's flags are a record of which of the port's settings the rows were generated with. In Restomod '26 the file rules whatever they say (a difference is one log line, track_light_diff names it);
  * Stock and Restored do not read the files. See docs/track-light.md.
@@ -45,9 +45,9 @@ typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCar
 typedef struct {
     TrackLightBrightness brightness[TRACK_LIGHT_MAX_BRIGHT];
     int brightness_count;
-    TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* tono_coche: in file order, later lines over earlier ones */
+    TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* car_tone: in file order, later lines over earlier ones */
     int car_tone_count;
-    int warm_set[2];            /* [0] the day's, [1] the night's: tono_tunel given */
+    int warm_set[2];            /* [0] the day's, [1] the night's: tunnel_tone given */
     float warm_cast[2][3];
     int warm_percent[2];
 } TrackLightTweaks;
