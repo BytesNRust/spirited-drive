@@ -1,7 +1,7 @@
 /* port (light_edit): the live editor of a track's light. With light_edit=1 in port.cfg (or TNFS_LIGHT_EDIT=1 for a launcher) a race with a made light shows, in the top-left corner,
  * the node the car is at and the values the light has there, and what the track light file did (read, or the light made in code and which of the port's settings differ from the ones
  * the file was made with: its retouches count either way). F10 holds the car where it is (the race stands still, the picture goes on: the light is looked at, not driven past);
- * F11 copies the node's retouch line ("brillo 120 120 100") to the clipboard to paste into data/track_light/<TRACK><A|B|C|N>.txt. The file is read again a second after it is
+ * F11 copies the node's retouch line ("brightness 120 120 100") to the clipboard to paste into data/track_light/<TRACK><A|B|C|N>.txt. The file is read again a second after it is
  * saved, without leaving the race. Presentation only: drawn into a copy of the frame as the stats overlay is (race_stats.h). */
 #ifndef TNFS_LIGHT_EDIT_H
 #define TNFS_LIGHT_EDIT_H

@@ -18,9 +18,25 @@ usage: track_light_merge.py MINE BASE THEIRS OUT      (BASE may be a .gz; with n
 import gzip
 import sys
 
-FLAG_KEYS = ("tunel", "sala", "coche_tenue", "canon")
-CLASS_KEYS = ("pozo", "pozo_coche")
-SCALARS = ("coche_disco", "reparto", "tono_tunel dia", "tono_tunel noche")
+FLAG_KEYS = ("tunnel", "hall", "car_dim", "canyon")
+CLASS_KEYS = ("pool", "car_pool")
+SCALARS = ("car_disc", "cast", "tunnel_tone day", "tunnel_tone night")
+
+# the format's first version was Spanish; every word of a file is read as its English one and the merge writes English
+ENGLISH = {
+    "pista": "track", "hora": "time", "nodos": "nodes", "banderas": "flags", "filas": "rows", "presente": "present", "tunel": "tunnel", "sala": "hall",
+    "coche_tenue": "car_dim", "canon": "canyon", "pozo": "pool", "pozo_coche": "car_pool", "coche_disco": "car_disc", "reparto": "cast", "neutro": "neutral",
+    "ciudad": "city", "tono_tunel": "tunnel_tone", "dia": "day", "noche": "night", "brillo": "brightness", "tono_coche": "car_tone",
+}
+
+
+def english(line):
+    """`line` with each Spanish word of it put into English (a comment, after '#', is left as it is)."""
+    code, hash_, comment = line.partition("#")
+    words = code.split()
+    if not words:
+        return line
+    return " ".join(ENGLISH.get(w, w) for w in words) + (" " + hash_ + comment if hash_ else "")
 
 
 class Model:
@@ -46,33 +62,33 @@ def read_text(path):
 def parse(text):
     m = Model()
     for raw in text.split("\n"):
-        line = raw.strip()
+        line = english(raw.strip())
         if not line:
             continue
         w = line.split()
         key = w[0]
         if line == "# tnfs track light 1":
             continue
-        if key == "pista":
+        if key == "track":
             m.header = line
             m.nodes = int(w[5])
-        elif key == "filas":
+        elif key == "rows":
             a, b, row = int(w[1]), int(w[2]), tuple(int(v) for v in w[3:14])
             for n in range(a, b + 1):
                 m.rows[n] = row
-        elif key == "presente":
+        elif key == "present":
             m.present.add(w[1])
         elif key in FLAG_KEYS:
             m.flags[key].update(range(int(w[1]), int(w[2]) + 1))
         elif key in CLASS_KEYS:
             for n in range(int(w[1]), int(w[2]) + 1):
                 m.classes[key][n] = int(w[3])
-        elif key in ("coche_disco", "reparto"):
+        elif key in ("car_disc", "cast"):
             m.scalars[key] = line
-        elif key == "tono_tunel" and len(w) > 1 and w[1] in ("dia", "noche"):
-            m.scalars["tono_tunel " + w[1]] = line
+        elif key == "tunnel_tone" and len(w) > 1 and w[1] in ("day", "night"):
+            m.scalars["tunnel_tone " + w[1]] = line
         else:
-            m.extras.append(line)   # brillo, tono_coche, comments, anything else
+            m.extras.append(line)   # brightness, car_tone, comments, anything else
     return m
 
 
@@ -124,10 +140,10 @@ def format_model(m):
     lines = ["# tnfs track light 1", m.header]
     rows = sorted(n for n in m.rows if m.rows[n] is not None)
     for a, b in runs(rows, lambda x, first: m.rows[x] == m.rows[first]):
-        lines.append("filas %d %d %s" % (a, b, " ".join(str(v) for v in m.rows[a])))
+        lines.append("rows %d %d %s" % (a, b, " ".join(str(v) for v in m.rows[a])))
     for k in FLAG_KEYS + CLASS_KEYS:
         if k in m.present:
-            lines.append("presente " + k)
+            lines.append("present " + k)
     for k in FLAG_KEYS:
         for a, b in runs(sorted(m.flags[k]), lambda x, first: True):
             lines.append("%s %d %d" % (k, a, b))

@@ -734,7 +734,7 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 static const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
     if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL) || psx_light->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
-    static struct { int key[7]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's tono_coche) */
+    static struct { int key[7]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3];
@@ -744,7 +744,7 @@ static const uint8_t *car_light(int32_t node, const double *xz, int car, const u
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;
     }
-    if (psx_light->car_tone != NULL && psx_light->nodes > 0) {   /* port (track light file, tono_coche): the car's own tone at this node */
+    if (psx_light->car_tone != NULL && psx_light->nodes > 0) {   /* port (track light file, car_tone): the car's own tone at this node */
         const uint8_t *tone = psx_light->car_tone + 4 * (size_t)psx_ring_node(node, psx_light->nodes);
         if (tone[3] > 0) {
             for (int k = 0; k < 4; k++) key[3 + k] = tone[k];

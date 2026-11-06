@@ -64,39 +64,54 @@ int track_light_format(const PsxLight *light, const char *track, char letter, ui
     if (light == NULL || track == NULL || light->data == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
     Buffer b = { 0 };
     put(&b, "# tnfs track light 1\n");
-    put(&b, "pista %s hora %c nodos %u banderas %x\n", track, letter, light->nodes, flags);
+    put(&b, "track %s time %c nodes %u flags %x\n", track, letter, light->nodes, flags);
     for (uint32_t n = 0; n < light->nodes;) {
         const uint8_t *row = &light->data[(size_t)n * PSX_LIGHT_POINTS];
         uint32_t end = n;
         while (end + 1 < light->nodes && memcmp(row, &light->data[(size_t)(end + 1) * PSX_LIGHT_POINTS], PSX_LIGHT_POINTS) == 0) end++;
-        put(&b, "filas %u %u", n, end);
+        put(&b, "rows %u %u", n, end);
         for (int p = 0; p < PSX_LIGHT_POINTS; p++) put(&b, " %u", row[p]);
         put(&b, "\n");
         n = end + 1;
     }
     /* an array that is there but empty is not an array that is not (the rows decide a tunnel without one): named first */
-    const struct { const char *key; const uint8_t *array; } arrays[] = { { "tunel", light->tunnel }, { "sala", light->hall }, { "coche_tenue", light->car_dim }, { "canon", light->canyon },
-                                                                         { "pozo", light->pool_class }, { "pozo_coche", light->car_pool } };
+    const struct { const char *key; const uint8_t *array; } arrays[] = { { "tunnel", light->tunnel }, { "hall", light->hall }, { "car_dim", light->car_dim }, { "canyon", light->canyon },
+                                                                         { "pool", light->pool_class }, { "car_pool", light->car_pool } };
     for (size_t i = 0; i < sizeof arrays / sizeof *arrays; i++)
-        if (arrays[i].array != NULL) put(&b, "presente %s\n", arrays[i].key);
-    put_ranges(&b, "tunel", light->tunnel, light->nodes);
-    put_ranges(&b, "sala", light->hall, light->nodes);
-    put_ranges(&b, "coche_tenue", light->car_dim, light->nodes);
-    put_ranges(&b, "canon", light->canyon, light->nodes);
-    put_classes(&b, "pozo", light->pool_class, light->nodes);
-    put_classes(&b, "pozo_coche", light->car_pool, light->nodes);
+        if (arrays[i].array != NULL) put(&b, "present %s\n", arrays[i].key);
+    put_ranges(&b, "tunnel", light->tunnel, light->nodes);
+    put_ranges(&b, "hall", light->hall, light->nodes);
+    put_ranges(&b, "car_dim", light->car_dim, light->nodes);
+    put_ranges(&b, "canyon", light->canyon, light->nodes);
+    put_classes(&b, "pool", light->pool_class, light->nodes);
+    put_classes(&b, "car_pool", light->car_pool, light->nodes);
     if (light->car_disc)
-        put(&b, "coche_disco 1 %a %a %a %a %a %a\n", (double)light->car_even[0], (double)light->car_even[1], (double)light->car_even[2], (double)light->car_odd[0], (double)light->car_odd[1], (double)light->car_odd[2]);
-    put(&b, "reparto neutro %d ciudad %d\n", light->neutral_cast, light->city_tunnel);
+        put(&b, "car_disc 1 %a %a %a %a %a %a\n", (double)light->car_even[0], (double)light->car_even[1], (double)light->car_even[2], (double)light->car_odd[0], (double)light->car_odd[1], (double)light->car_odd[2]);
+    put(&b, "cast neutral %d city %d\n", light->neutral_cast, light->city_tunnel);
     for (int dark = 0; dark < 2; dark++)
         if (light->warm_percent[dark] > 0)
-            put(&b, "tono_tunel %s %a %a %a %d\n", dark ? "noche" : "dia", (double)light->warm_cast[dark][0], (double)light->warm_cast[dark][1], (double)light->warm_cast[dark][2], light->warm_percent[dark]);
+            put(&b, "tunnel_tone %s %a %a %a %d\n", dark ? "night" : "day", (double)light->warm_cast[dark][0], (double)light->warm_cast[dark][1], (double)light->warm_cast[dark][2], light->warm_percent[dark]);
     if (b.failed) {
         free(b.text);
         return 0;
     }
     *text = b.text, *size = b.size;
     return 1;
+}
+
+/* The words a file may use are English; the first version of the format was Spanish and those files (the owner's edited ones included) still load: each Spanish word
+ * is the English one (tools/track_light_merge.py writes the files out in English). A word that is neither is returned as it is. */
+static const char *english(const char *word)
+{
+    static const char *const WORDS[][2] = {
+        { "pista", "track" }, { "hora", "time" }, { "nodos", "nodes" }, { "banderas", "flags" }, { "filas", "rows" }, { "presente", "present" },
+        { "tunel", "tunnel" }, { "sala", "hall" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" }, { "pozo", "pool" }, { "pozo_coche", "car_pool" },
+        { "coche_disco", "car_disc" }, { "reparto", "cast" }, { "neutro", "neutral" }, { "ciudad", "city" }, { "tono_tunel", "tunnel_tone" },
+        { "dia", "day" }, { "noche", "night" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" },
+    };
+    for (size_t i = 0; i < sizeof WORDS / sizeof WORDS[0]; i++)
+        if (strcmp(word, WORDS[i][0]) == 0) return WORDS[i][1];
+    return word;
 }
 
 static uint8_t *flag_array(uint8_t **slot, uint32_t nodes)
@@ -108,20 +123,22 @@ static uint8_t *flag_array(uint8_t **slot, uint32_t nodes)
 /* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
 static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
 {
-    char key[32];
+    char word[32];
     int used = 0;
-    if (sscanf(line, "%31s%n", key, &used) != 1) return 1;   /* blank */
+    if (sscanf(line, "%31s%n", word, &used) != 1) return 1;   /* blank */
+    const char *const key = english(word);
     const char *rest = line + used;
     const uint32_t nodes = light->nodes;
     unsigned a, b, c;
-    if (strcmp(key, "presente") == 0) {
-        char what[32];
-        if (sscanf(rest, "%31s", what) != 1) return 0;
-        uint8_t **slot = strcmp(what, "tunel") == 0 ? &light->tunnel : strcmp(what, "sala") == 0 ? &light->hall : strcmp(what, "coche_tenue") == 0 ? &light->car_dim
-                         : strcmp(what, "canon") == 0 ? &light->canyon : strcmp(what, "pozo") == 0 ? &light->pool_class : strcmp(what, "pozo_coche") == 0 ? &light->car_pool : NULL;
+    if (strcmp(key, "present") == 0) {
+        char spoken[32];
+        if (sscanf(rest, "%31s", spoken) != 1) return 0;
+        const char *const what = english(spoken);
+        uint8_t **slot = strcmp(what, "tunnel") == 0 ? &light->tunnel : strcmp(what, "hall") == 0 ? &light->hall : strcmp(what, "car_dim") == 0 ? &light->car_dim
+                         : strcmp(what, "canyon") == 0 ? &light->canyon : strcmp(what, "pool") == 0 ? &light->pool_class : strcmp(what, "car_pool") == 0 ? &light->car_pool : NULL;
         return slot != NULL && flag_array(slot, nodes) != NULL;
     }
-    if (strcmp(key, "filas") == 0) {
+    if (strcmp(key, "rows") == 0) {
         unsigned v[PSX_LIGHT_POINTS];
         int n = 0;
         if (sscanf(rest, "%u %u%n", &a, &b, &n) != 2) return 0;
@@ -136,8 +153,8 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         *seen += b - a + 1;
         return 1;
     }
-    uint8_t **range_slot = strcmp(key, "tunel") == 0 ? &light->tunnel : strcmp(key, "sala") == 0 ? &light->hall : strcmp(key, "coche_tenue") == 0 ? &light->car_dim
-                           : strcmp(key, "canon") == 0 ? &light->canyon : NULL;
+    uint8_t **range_slot = strcmp(key, "tunnel") == 0 ? &light->tunnel : strcmp(key, "hall") == 0 ? &light->hall : strcmp(key, "car_dim") == 0 ? &light->car_dim
+                           : strcmp(key, "canyon") == 0 ? &light->canyon : NULL;
     if (range_slot != NULL) {
         if (sscanf(rest, "%u %u", &a, &b) != 2 || a > b || b >= nodes) return 0;
         uint8_t *flag = flag_array(range_slot, nodes);
@@ -145,7 +162,7 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         memset(flag + a, 1, b - a + 1);
         return 1;
     }
-    uint8_t **class_slot = strcmp(key, "pozo") == 0 ? &light->pool_class : strcmp(key, "pozo_coche") == 0 ? &light->car_pool : NULL;
+    uint8_t **class_slot = strcmp(key, "pool") == 0 ? &light->pool_class : strcmp(key, "car_pool") == 0 ? &light->car_pool : NULL;
     if (class_slot != NULL) {
         if (sscanf(rest, "%u %u %u", &a, &b, &c) != 3 || a > b || b >= nodes || c < 1 || c > 4) return 0;
         uint8_t *cls = flag_array(class_slot, nodes);
@@ -153,7 +170,7 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         memset(cls + a, (int)c, b - a + 1);
         return 1;
     }
-    if (strcmp(key, "coche_disco") == 0) {
+    if (strcmp(key, "car_disc") == 0) {
         double v[6];
         int flag = 0, n = 0;
         if (sscanf(rest, "%d%n", &flag, &n) != 1) return 0;
@@ -168,12 +185,12 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         for (int i = 0; i < 3; i++) light->car_even[i] = (float)v[i], light->car_odd[i] = (float)v[3 + i];
         return 1;
     }
-    if (strcmp(key, "brillo") == 0) {
+    if (strcmp(key, "brightness") == 0) {
         if (sscanf(rest, "%u %u %u", &a, &b, &c) != 3 || a > b || b >= nodes || c > 1000 || tweaks->brightness_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
         tweaks->brightness[tweaks->brightness_count++] = (TrackLightBrightness){ a, b, (int)c };
         return 1;
     }
-    if (strcmp(key, "tono_coche") == 0) {
+    if (strcmp(key, "car_tone") == 0) {
         unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
         int percent = 0;
         if (sscanf(rest, "%u %u %x:%d", &from, &to, &rgb, &percent) != 4) {   /* no nodes: the whole track */
@@ -184,10 +201,12 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         tweaks->car_tone[tweaks->car_tone_count++] = (TrackLightCarTone){ from, to, { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, percent };
         return 1;
     }
-    if (strcmp(key, "tono_tunel") == 0) {
-        char when[16];
+    if (strcmp(key, "tunnel_tone") == 0) {
+        char spoken[16];
         int n = 0, percent;
-        if (sscanf(rest, "%15s%n", when, &n) != 1 || (strcmp(when, "dia") != 0 && strcmp(when, "noche") != 0)) return 0;
+        if (sscanf(rest, "%15s%n", spoken, &n) != 1) return 0;
+        const char *const when = english(spoken);
+        if (strcmp(when, "day") != 0 && strcmp(when, "night") != 0) return 0;
         const int dark = when[0] == 'n';
         float cast[3];
         rest += n;
@@ -203,10 +222,10 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         tweaks->warm_set[dark] = 1;
         return 1;
     }
-    if (strcmp(key, "reparto") == 0) {
+    if (strcmp(key, "cast") == 0) {
         char n1[16], n2[16];
         int neutral, city;
-        if (sscanf(rest, "%15s %d %15s %d", n1, &neutral, n2, &city) != 4 || strcmp(n1, "neutro") != 0 || strcmp(n2, "ciudad") != 0) return 0;
+        if (sscanf(rest, "%15s %d %15s %d", n1, &neutral, n2, &city) != 4 || strcmp(english(n1), "neutral") != 0 || strcmp(english(n2), "city") != 0) return 0;
         light->neutral_cast = neutral, light->city_tunnel = city;
         return 1;
     }
@@ -234,10 +253,12 @@ int track_light_parse(const char *text, size_t size, const char *track, char let
         char *hash = strchr(line, '#');
         if (hash != NULL) *hash = '\0';
         if (!header) {
-            char file_track[32], file_letter;
+            char file_track[32], file_letter, w_track[16], w_time[16], w_nodes[16], w_flags[16];
             unsigned file_nodes, file_flags;
             if (line[strspn(line, " \t\r")] == '\0') continue;
-            if (sscanf(line, " pista %31s hora %c nodos %u banderas %x", file_track, &file_letter, &file_nodes, &file_flags) != 4) goto bad;
+            if (sscanf(line, " %15s %31s %15s %c %15s %u %15s %x", w_track, file_track, w_time, &file_letter, w_nodes, &file_nodes, w_flags, &file_flags) != 8 ||
+                strcmp(english(w_track), "track") != 0 || strcmp(english(w_time), "time") != 0 || strcmp(english(w_nodes), "nodes") != 0 || strcmp(english(w_flags), "flags") != 0)
+                goto bad;
             if (strcmp(file_track, track) != 0 || file_letter != letter || file_nodes != expected_nodes) { track_light_file_free(&file); return 0; }
             file.flags = file_flags;
             file.base = flags == TRACK_LIGHT_ANY_FLAGS || file_flags == flags;

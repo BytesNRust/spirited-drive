@@ -52,7 +52,7 @@ static void test_round_trip(void)
     CHECK(b.neutral_cast == 1 && b.city_tunnel == 2);
     CHECK(b.nodes == NODES);
     /* the file is by runs: the first ten identical rows are one line */
-    CHECK(strstr(text, "filas 0 9 ") != NULL);
+    CHECK(strstr(text, "rows 0 9 ") != NULL);
     psx_light_free(&a), track_light_file_free(&f);
     free(text);
 }
@@ -108,10 +108,47 @@ static void test_tweaks_stay_with_other_flags(void)
     track_light_file_free(&f);
 }
 
+static PsxLight applied(const char *text, int *warm)
+{
+    TrackLightFile f = { 0 };
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 0x2, &f, NULL));
+    PsxLight l = { 0 };
+    l.nodes = NODES;
+    l.data = malloc((size_t)NODES * PSX_LIGHT_POINTS);
+    memset(l.data, 100, (size_t)NODES * PSX_LIGHT_POINTS);
+    track_light_apply(&f.tweaks, &l);
+    *warm = f.tweaks.warm_percent[1];
+    track_light_file_free(&f);
+    return l;
+}
+
+static void test_english_and_spanish_words_load_the_same(void)
+{
+    const char *english = "track CY1 time N nodes 40 flags 1\nrows 0 39 200 200 200 200 200 200 200 200 200 200 200\nbrightness 10 19 50\ntunnel_tone night 1 0.5 0.25 130\ncar_tone ff8020:60\ntunnel 5 9\ncast neutral 1 city 0\n";
+    const char *spanish = "pista CY1 hora N nodos 40 banderas 1\nfilas 0 39 200 200 200 200 200 200 200 200 200 200 200\nbrillo 10 19 50\ntono_tunel noche 1 0.5 0.25 130\ntono_coche ff8020:60\ntunel 5 9\nreparto neutro 1 ciudad 0\n";
+    int we = 0, ws = 0;
+    PsxLight e = applied(english, &we), s = applied(spanish, &ws);
+    CHECK(we == 130 && ws == 130);
+    CHECK(memcmp(e.data, s.data, (size_t)NODES * PSX_LIGHT_POINTS) == 0 && e.data[10 * PSX_LIGHT_POINTS] == 50);
+    CHECK(e.car_tone != NULL && s.car_tone != NULL && memcmp(e.car_tone, s.car_tone, (size_t)NODES * 4) == 0);
+    psx_light_free(&e), psx_light_free(&s);
+
+    /* the writer says English only */
+    PsxLight a = make();
+    char *text = NULL;
+    size_t size = 0;
+    CHECK(track_light_format(&a, "CY1", 'N', 0x3fff, &text, &size));
+    CHECK(strstr(text, "track CY1 time N nodes ") != NULL && strstr(text, "flags ") != NULL);
+    CHECK(strstr(text, "pista") == NULL && strstr(text, "hora ") == NULL && strstr(text, "filas") == NULL && strstr(text, "presente") == NULL && strstr(text, "reparto") == NULL);
+    free(text);
+    psx_light_free(&a);
+}
+
 int main(void)
 {
     test_round_trip();
     test_header_and_bad_lines();
     test_tweaks_stay_with_other_flags();
+    test_english_and_spanish_words_load_the_same();
     return TEST_REPORT();
 }

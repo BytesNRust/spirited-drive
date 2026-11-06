@@ -49,8 +49,8 @@ void light_edit_keys(LightEdit *e, const uint8_t *keys, uint32_t node, uint32_t 
     }
     if (copy && !e->copy_down) {
         char line[64];
-        snprintf(line, sizeof line, "brillo %u %u 100\n", node, node);
-        say(e, platform_set_clipboard_text(line) ? "copied: brillo (node)" : "no clipboard here", now_ms);
+        snprintf(line, sizeof line, "brightness %u %u 100\n", node, node);
+        say(e, platform_set_clipboard_text(line) ? "copied: brightness (node)" : "no clipboard here", now_ms);
     }
     e->freeze_down = freeze, e->copy_down = copy;
 }
