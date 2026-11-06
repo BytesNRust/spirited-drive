@@ -86,6 +86,7 @@ struct RaceField {
     int port_rain_grip;                 /* port: RaceState's port_rain_grip for this race (port_rain_grip_active) */
     int port_lunar_gravity;             /* port: RaceState's port_lunar_gravity for this race (lunar_gravity_active) */
     int port_rally_gravel;              /* port: RaceState's port_rally_gravel for this race (rally_gravel_kind) */
+    int port_analog_pad;                /* port: RaceState's port_analog_pad for this race (the mode's analog_pad) */
     int port_rally_road;                /* port: RaceState's port_rally_road: the race is a rally (dirt) */
     int port_rally_shoulder_sound;      /* port: RaceState's port_rally_shoulder_sound for this race (port.cfg's rally_gravel_shoulder) */
     int port_chase_height;              /* port: RaceState's port_chase_height for this race (port.cfg's chase_height) */

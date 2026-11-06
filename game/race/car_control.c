@@ -1,5 +1,6 @@
 #include "game/race/car_control.h"
 
+#include "game/race/analog_pad.h"
 #include "game/sys/fixed_math.h"
 
 enum {
@@ -367,12 +368,13 @@ void car_player_control(Car *car, const CarSpecs *specs, RaceState *race)
     if (abs32(aim) > AIM_MAX) aim = 0;
     const uint32_t input = race->inputs[car->player & (RACE_PLAYERS - 1)];
     const ControlSetup *setup = &race->controls[car->player & (RACE_PLAYERS - 1)];
-    if (setup->analog_steering == 0) {
+    const int pad_steer = analog_pad_steering(race->port_analog_pad, input), pad_pedal = analog_pad_pedal(race->port_analog_pad, input);   /* port (analog_pad): a pad's deflection keeps its travel, a key its full lock */
+    if (setup->analog_steering == 0 && !pad_steer) {
         key_steering(car, specs, input, aim);
     } else {
         analog_steering(car, input, aim);
     }
-    if (setup->pedals == 1) {
+    if (setup->pedals == 1 || pad_pedal) {
         analog_pedals(car, specs, race, input);
     } else {
         key_pedals(car, specs, race, input);
