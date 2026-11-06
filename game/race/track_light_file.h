@@ -19,7 +19,7 @@
  * The header's flags are a record of which of the port's settings the rows were generated with. In Restomod '26 the file rules whatever they say (a difference is one log line, track_light_diff names it);
  * Stock and Restored do not read the files. See docs/track-light.md.
  *
- * track_light_find looks for the file first in a mod's folder (mods/<mod>/track_light/<file>, track_light_set_mod_dir), then in the game's data. */
+ * track_light_find looks for the file first in a mod's folder (<mods folder>/track_light/<file>, data_path_set_mod), then in the game's data. */
 #ifndef TNFS_TRACK_LIGHT_FILE_H
 #define TNFS_TRACK_LIGHT_FILE_H
 
@@ -69,9 +69,6 @@ void track_light_file_free(TrackLightFile *file);
 
 /* The tweaks over a made light: the brightness runs scale its rows, the tunnel looks are its warm_cast / warm_percent. */
 void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light);
-
-/* The folder a mod keeps its own copy of the files in (<mod dir>/track_light/), NULL or "" for none. */
-void track_light_set_mod_dir(const char *dir);
 
 /* Where the file `<TRACK><letter>.txt` is: `out` takes the path of the first that exists (the mod's, then the data folders: data_path.h), 1 when there is one. */
 int track_light_find(const char *track, char letter, char *out, size_t out_size);

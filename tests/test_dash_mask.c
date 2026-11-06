@@ -2,6 +2,7 @@
  * scaled by nearest neighbour, the lookup finds <root>/<CAR>/dash_mask.png (as given or in upper case), and what is not a PNG is refused. */
 #include "formats/png.h"
 #include "game/race/dash_mask.h"
+#include "game/sys/data_path.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -97,10 +98,49 @@ static void test_lookup(void)
     CHECK(dash_mask_load(NULL) == NULL);
 }
 
+static void put(const char *dir, const char *text)   /* <dir>/dash_masks/TORDER/note.txt (or <dir>/TORDER/note.txt for the env override's root) holding `text` */
+{
+    char path[256], parent[256];
+    for (size_t i = 1; dir[i] != '\0'; i++)
+        if (dir[i] == '/') snprintf(parent, sizeof parent, "%.*s", (int)i, dir), mkdir(parent, 0755);
+    mkdir(dir, 0755);
+    snprintf(path, sizeof path, "%s/note.txt", dir);
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) fputs(text, f), fclose(f);
+}
+
+static int note_is(const char *text)
+{
+    size_t size = 0;
+    uint8_t *file = dash_asset_read("TORDER", "note.txt", &size);
+    const int same = file != NULL && size == strlen(text) && memcmp(file, text, size) == 0;
+    free(file);
+    return same;
+}
+
+/* the lookup order: TNFS_DASH_MASKS (a dev override) first, then the mods folder's dash_masks/, then the port's data/ */
+static void test_mod_before_data(void)
+{
+    put(ROOT "/order/base/data/dash_masks/TORDER", "base");
+    data_path_set_base(ROOT "/order/base");
+    unsetenv("TNFS_DASH_MASKS");
+    CHECK(note_is("base"));   /* no mod: the port's */
+    put(ROOT "/order/mod/dash_masks/TORDER", "mod");
+    data_path_set_mod(ROOT "/order/mod");
+    CHECK(note_is("mod"));    /* the mod's first */
+    put(ROOT "/order/env/TORDER", "env");
+    setenv("TNFS_DASH_MASKS", ROOT "/order/env", 1);
+    CHECK(note_is("env"));    /* the env override before both */
+    unsetenv("TNFS_DASH_MASKS");
+    data_path_set_mod(NULL), data_path_set_base(NULL);
+}
+
 int main(void)
 {
     test_colours();
     test_round_trip_and_scale();
     test_lookup();
+    test_mod_before_data();
     return TEST_REPORT();
 }
