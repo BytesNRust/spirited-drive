@@ -1,6 +1,6 @@
 /* Entry point.
  *
- *   tnfs [--data DIR] [--mods DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]...
+ *   tnfs [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]...
  *                                          run the game (00437540); files of the mod in DIR replace the CD's; the
  *                                          network game binds UDP port N (15000 by default) and also asks each
  *                                          --net-host (up to 8) for games besides the LAN's broadcast
@@ -51,6 +51,7 @@ typedef struct {
     const char *data_root;
     int data_explicit;   /* --data was given */
     const char *mods;
+    const char *user;   /* --user DIR: the player's folder */
     int german;
     const char *view;
     const char *track;
@@ -69,7 +70,7 @@ typedef struct {
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
-    *opt = (Options){ "original", 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
+    *opt = (Options){ "original", 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
                       0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
@@ -78,6 +79,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->data_explicit = 1;
         } else if (strcmp(argv[i], "--mods") == 0 && has_value) {
             opt->mods = argv[++i];
+        } else if (strcmp(argv[i], "--user") == 0 && has_value) {
+            opt->user = argv[++i];
         } else if (strcmp(argv[i], "--german") == 0) {
             opt->german = 1;
         } else if (strcmp(argv[i], "--verbose") == 0) {
@@ -107,7 +110,7 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else if (strcmp(argv[i], "--net-host") == 0 && has_value && opt->net_host_count < NET_UDP_HOSTS) {
             opt->net_hosts[opt->net_host_count++] = argv[++i];
         } else {
-            port_fatal("usage: %s [--data DIR] [--mods DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
+            port_fatal("usage: %s [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                             "       %s [--data DIR] --replay FILE.RPL\n"
@@ -255,7 +258,7 @@ static int resolve_data_root(const Options *opt, char *out, size_t out_size, int
         port_fatal("no game data: run it once without --data on a machine with a display and choose the CD's folder, or give --data DIR\n");
         return 0;
     }
-    *data_copied = 1;   /* port: counted as data_ready once --mods is in place (below), so a --mods run writes nothing to the pref dir */
+    *data_copied = 1;   /* port: counted as data_ready once the mods directory is in place (below) */
     snprintf(out, out_size, "%s", copy);
     return 1;
 }
@@ -283,16 +286,17 @@ int main(int argc, char **argv)
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
     port_settings_set_display_probe(platform_desktop_size);   /* the profiles' widescreen is the display's own shape */
     set_stats_sender();
+    platform_set_user_dir(opt.user);   /* port: before the log opens in it */
     platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in tnfs.log too */
     int ok;
     static char data_root[1024];
     int data_copied = 0;
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
-    if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
-    track_light_set_mod_dir(opt.mods);   /* port (track_light_file): a mod's own track_light/ files come before the game's */
+    if (!platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, else <user folder>/mods/ when it exists */
+    track_light_set_mod_dir(platform_mods_dir());   /* port (track_light_file): a mod's own track_light/ files come before the game's */
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
-    if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to <mods>/user with --mods */
+    if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to the player's folder (--user DIR) */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
     else if (opt.movie != NULL) ok = run_movie(&opt);

@@ -13,7 +13,7 @@ for case in "TR1 1 400" "TR1 0 400" "AL1 0 1200"; do
     set -- ${=case}
     for time in day a; do
         printf "psx_dir=$work/psx\n" > $work/mods/user/port.cfg
-        env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PSX_LIGHT=1 TNFS_PSX_TIME=$time TNFS_VIEW=$2 timeout -k 5 120 ${bin:a} --data $data --mods $work/mods --drive $1 --entry $3 --screenshot $work/$1_$2_$time.ppm >/dev/null 2>&1
+        env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PSX_LIGHT=1 TNFS_PSX_TIME=$time TNFS_VIEW=$2 timeout -k 5 120 ${bin:a} --data $data --user $work/mods/user --drive $1 --entry $3 --screenshot $work/$1_$2_$time.ppm >/dev/null 2>&1
     done
     if cmp -s $work/$1_$2_day.ppm $work/$1_$2_a.ppm; then echo "same  $1 view $2"; else echo "DIFF  $1 view $2"; bad=1; fi
 done

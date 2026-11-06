@@ -41,7 +41,7 @@ fi
 
 tmp=$(mktemp -d -t golden_frames.XXXXXX) || exit 1
 trap 'rm -rf $tmp' EXIT INT TERM   # zsh: $tmp is read when the trap fires, so the dir is always the one above
-# the player's own files stay out: an empty mods dir holds the user files, so the frames are Stock '96's, the exe's
+# the player's own files stay out: an empty --user dir holds them, so the frames are Stock '96's, the exe's
 mkdir -p $tmp/mods || exit 1
 missing=0
 lines=()
@@ -51,7 +51,7 @@ for track in $TRACKS; do
     ppm=$tmp/${track}_v${view}.ppm
     log=$tmp/${track}_v${view}.log
     SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_VIEW=$view timeout -k 5 $secs \
-      $bin --mods $tmp/mods --drive $track --entry $ticks --screenshot $ppm >$log 2>&1
+      $bin --user $tmp/mods --drive $track --entry $ticks --screenshot $ppm >$log 2>&1
     if [[ ! -s $ppm ]]; then
       print -u2 -- "golden_frames.sh: no ${track}_v${view}.ppm (see below)"
       cat $log >&2

@@ -3,7 +3,7 @@
 # sanitizer error. The road's tunnel flags (road_tunnels) were read after they were freed in this setup (the rain's lookup freed the headlight pool's array):
 # an ASan build stops on it, any other build showed a different mirror from run to run.
 file(REMOVE_RECURSE "${WORK}")
-file(MAKE_DIRECTORY "${WORK}/mods/user" "${WORK}/pref")
+file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 # the night rain setup of an owner's settings, in Restomod's file (the lights, the rain, the street lamps), 21:9 at render scale 2: fewer keys did not show it
 set(keys "format=21:9" "render_scale=2" "psx_time=night" "weather=clear"
     "scale=fill"
@@ -64,7 +64,7 @@ set(keys "format=21:9" "render_scale=2" "psx_time=night" "weather=clear"
     "forest_dark=1"
 )
 string(REPLACE ";" "\n" cfg "${keys}")
-file(WRITE "${WORK}/mods/user/port.cfg" "profile=restomod\npsx_dir=\n")
+file(WRITE "${WORK}/user/port.cfg" "profile=restomod\npsx_dir=\n")
 # and its extras: the bumper view with its mirror (bumper_mirror) is what draws the road behind
 set(extras
     "start=central"
@@ -100,12 +100,12 @@ set(extras
     "difficulty=1"
 )
 string(REPLACE ";" "\n" extras_text "${extras}")
-file(WRITE "${WORK}/mods/user/restomod.cfg" "${cfg}\n${extras_text}\n")
+file(WRITE "${WORK}/user/restomod.cfg" "${cfg}\n${extras_text}\n")
 set(first "")
 foreach(run 1 2 3 4)
     execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0
                             TNFS_PSX_TIME=night TNFS_WEATHER=rain TNFS_VIEW=1 TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_BANDS=0
-                            ${TNFS} --data ${REPO}/original --mods ${WORK}/mods --drive CY2 --node 240 --screenshot ${WORK}/end${run}.ppm
+                            ${TNFS} --data ${REPO}/original --user ${WORK}/user --drive CY2 --node 240 --screenshot ${WORK}/end${run}.ppm
                     WORKING_DIRECTORY "${REPO}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 100)
     if(err MATCHES "AddressSanitizer|runtime error")
         message(FATAL_ERROR "run ${run}: sanitizer error: ${err}")

@@ -103,16 +103,24 @@ bool platform_mouse(int *x, int *y, unsigned *buttons);
  * from `data_root`. A mod file is validated against the original executable's limits first (formats/validate.h):
  * an invalid one is not handed to the game, and platform_mods_error() says which file failed and why. Names
  * that would leave the mods directory (.. components, absolute names, symbolic links out of it) are refused.
- * User files (config, saves, replays) go to <mods>/user/ and are read from there, so the CD data and the mod's
- * own files are never written. Returns false when the directory does not exist. */
+ * mods_dir NULL or "": the default, <user folder>/mods/ when that folder exists (no folder, no mods). The mods directory
+ * only says where mods are: the player's files (config, saves, replays) go to the player's folder, below, so the CD data and
+ * the mod's own files are never written. Returns false when a given directory does not exist. */
 bool platform_set_mods(const char *data_root, const char *mods_dir);
-/* The player's writable folder with its trailing '/': <mods>/user/ with a mods directory, else $TNFS_PREF_DIR (tests, modders), else the OS's own (SDL_GetPrefPath).
- * False when there is none. */
+/* The mods directory in use (given or the default), or NULL when there is none. */
+const char *platform_mods_dir(void);
+/* --user DIR: the player's folder is DIR (a portable install, a test); call before platform_open_log. NULL or "": not set. */
+void platform_set_user_dir(const char *dir);
+/* The player's writable folder with its trailing '/': --user DIR, else $TNFS_PREF_DIR (tests, modders), else the OS's own, one folder named "TNFS Restomod"
+ * (SDL_GetPrefPath with no organisation: ~/Library/Application Support/TNFS Restomod/ on macOS). False when there is none. */
 bool platform_user_dir(char *out, size_t out_size);
 /* Opens that folder (the one holding tnfs.log) in the OS file browser, for bug reports. 1 when the OS took the request, 0 when there is no folder or it could not. */
 int platform_open_user_dir(void);
-/* Opens tnfs.log in that folder at once (the program calls it first, with its --mods directory or NULL), so a run that stops before platform_init (no game data) still
- * leaves its report. platform_init opens it too when this was not called. */
+/* Moves what `from` holds into `to` once: an item `to` lacks is moved (a folder item by item), one it has stays, and the old copy with it. Returns the items moved
+ * (0 when `from` is not there). The program uses it for the folder this one replaced (tnfs/tnfs) and for <mods>/user/. */
+int platform_move_user_files(const char *from, const char *to);
+/* Opens tnfs.log in the player's folder at once (the program calls it first, with its --mods directory or NULL), so a run that stops before platform_init (no game data) still
+ * leaves its report, and moves the files of the older folders there (said in the log). platform_init opens the log too when this was not called. */
 void platform_open_log(const char *mods_dir);
 /* The last mod file refused, with the reason; "" when none. */
 const char *platform_mods_error(void);

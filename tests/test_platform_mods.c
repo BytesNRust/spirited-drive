@@ -1,7 +1,7 @@
 /* The mods overlay of the platform layer (BYTES-0009 AC8), on a scratch directory: the mod's copy replaces the
  * data root's, everything else comes from the data root, an invalid mod file is refused with the file and the
- * reason, nothing can leave the mods directory, and the player's files go beside the mod, never into the data
- * root. No window is opened. */
+ * reason, nothing can leave the mods directory, and the player's files go to the player's folder (never beside the mod, never into the data
+ * root), which --user moves and the older folders feed once. No window is opened. */
 #include "platform/platform.h"
 #include "test.h"
 
@@ -87,6 +87,9 @@ int main(void)
     snprintf(path, sizeof path, "%s/ESCAPE.TXT", mod_misc);
     CHECK(symlink(secret, path) == 0);                              /* the mod's file is a link out of the mods directory */
     const uint32_t cd_before = tree_sum(cd);
+    char pref[400];
+    snprintf(pref, sizeof pref, "%s/pref", base);
+    setenv("TNFS_PREF_DIR", pref, 1);                                /* the player's folder: scratch */
 
     size_t size = 0;
     uint8_t *d;
@@ -132,12 +135,14 @@ int main(void)
     CHECK(same(d, size, "secret"));
     platform_free_file(d);
 
-    /* the player's files go beside the mod */
+    /* the player's files go to the player's folder, not beside the mod */
     const uint8_t cfg[3] = { 1, 2, 3 };
     CHECK(platform_write_user_file("config.dat", cfg, sizeof cfg));
-    snprintf(path, sizeof path, "%s/user/config.dat", mods);
+    snprintf(path, sizeof path, "%s/config.dat", pref);
     struct stat st;
     CHECK(stat(path, &st) == 0 && st.st_size == 3);
+    snprintf(path, sizeof path, "%s/user", mods);
+    CHECK(stat(path, &st) != 0);                                                               /* the mods directory got no user/ */
     d = platform_read_user_file("config.dat", &size);
     CHECK(d != NULL && size == 3 && memcmp(d, cfg, 3) == 0);
     platform_free_file(d);
@@ -157,6 +162,57 @@ int main(void)
     CHECK(platform_remove_user_file("ZED.SAV") && !platform_user_file_exists("ZED.SAV"));
     CHECK(!platform_remove_user_file("../config.dat"));
     CHECK(platform_remove_user_file("amy.sav"));
+
+    /* --user DIR: the folder is that one */
+    char portable[400], got[1300];
+    snprintf(portable, sizeof portable, "%s/portable", base);
+    platform_set_user_dir(portable);
+    CHECK(platform_user_dir(got, sizeof got) && strcmp(got, (snprintf(path, sizeof path, "%s/", portable), path)) == 0);
+    CHECK(platform_write_user_file("port.cfg", cfg, sizeof cfg));
+    snprintf(path, sizeof path, "%s/port.cfg", portable);
+    CHECK(stat(path, &st) == 0);
+    platform_set_user_dir(NULL);
+    CHECK(platform_user_dir(got, sizeof got) && strncmp(got, pref, strlen(pref)) == 0);
+
+    /* the folders move once: what the destination lacks comes, what it has stays and the old copy is left alone */
+    char old_dir[400], new_dir[400];
+    snprintf(old_dir, sizeof old_dir, "%s/old", base);
+    snprintf(new_dir, sizeof new_dir, "%s/new", base);
+    char old_sub[420];
+    snprintf(old_sub, sizeof old_sub, "%s/sub", old_dir);
+    write_file(old_dir, "a.cfg", "old a", 5);
+    write_file(old_dir, "c.cfg", "old c", 5);
+    write_file(old_sub, "b.dat", "old b", 5);
+    write_file(new_dir, "c.cfg", "new c", 5);
+    CHECK_EQ_INT(platform_move_user_files(old_dir, new_dir), 2);                               /* a.cfg and sub/ */
+    snprintf(path, sizeof path, "%s/a.cfg", new_dir);
+    CHECK(stat(path, &st) == 0);
+    snprintf(path, sizeof path, "%s/sub/b.dat", new_dir);
+    CHECK(stat(path, &st) == 0);
+    snprintf(path, sizeof path, "%s/a.cfg", old_dir);
+    CHECK(stat(path, &st) != 0);                                                               /* moved, not copied */
+    snprintf(path, sizeof path, "%s/c.cfg", new_dir);
+    FILE *kept = fopen(path, "rb");
+    char text[8] = "";
+    CHECK(kept != NULL && fread(text, 1, 5, kept) == 5 && memcmp(text, "new c", 5) == 0);      /* the destination's */
+    if (kept) fclose(kept);
+    snprintf(path, sizeof path, "%s/c.cfg", old_dir);
+    CHECK(stat(path, &st) == 0);                                                               /* and the old one intact */
+    CHECK_EQ_INT(platform_move_user_files(old_dir, new_dir), 0);                               /* once: nothing more to move */
+    CHECK_EQ_INT(platform_move_user_files("/nonexistent_tnfs_dir", new_dir), 0);
+
+    /* the default mods directory: <user folder>/mods/ when it is there */
+    char default_misc[420];
+    snprintf(default_misc, sizeof default_misc, "%s/mods/SIMDATA/MISC", pref);
+    CHECK(platform_set_mods(cd, NULL) && platform_mods_dir() == NULL);                        /* no folder, no mods */
+    write_file(default_misc, "NOTE.TXT", "from the default mods", 21);
+    CHECK(platform_set_mods(cd, NULL) && platform_mods_dir() != NULL);
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NOTE.TXT", cd);
+    d = platform_read_file(asked, &size);
+    CHECK(same(d, size, "from the default mods"));
+    platform_free_file(d);
+    snprintf(path, sizeof path, "%s/NOTE.TXT", default_misc);
+    unlink(path);                                                                              /* the folder stays, empty: the CD's again */
 
     /* the data root was not written */
     CHECK(tree_sum(cd) == cd_before);
