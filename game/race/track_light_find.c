@@ -8,13 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static char mod_dir[DATA_PATH_MAX];
-
-void track_light_set_mod_dir(const char *dir)
-{
-    snprintf(mod_dir, sizeof mod_dir, "%s", dir != NULL ? dir : "");
-}
-
 int track_light_find(const char *track, char letter, char *out, size_t out_size)
 {
     if (track == NULL || out == NULL || out_size == 0) return 0;
@@ -22,16 +15,13 @@ int track_light_find(const char *track, char letter, char *out, size_t out_size)
     snprintf(relative, sizeof relative, "track_light/%s%c.txt", track, letter);
     char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
     (void)data_path_candidates(relative, found);
-    char candidates[1 + DATA_PATH_CANDIDATES][DATA_PATH_MAX];
-    snprintf(candidates[0], sizeof candidates[0], "%s%s%s", mod_dir, mod_dir[0] != '\0' && mod_dir[strlen(mod_dir) - 1] != '/' ? "/" : "", mod_dir[0] != '\0' ? relative : "");   /* a mod's own copy first */
-    for (int i = 0; i < DATA_PATH_CANDIDATES; i++) snprintf(candidates[1 + i], sizeof candidates[1 + i], "%s", found[i]);
-    for (int i = 0; i < 1 + DATA_PATH_CANDIDATES; i++) {
-        if (candidates[i][0] == '\0') continue;
+    for (int i = 0; i < DATA_PATH_CANDIDATES; i++) {   /* a mod's own copy first (data_path.h) */
+        if (found[i][0] == '\0') continue;
         size_t size = 0;
-        uint8_t *file = platform_read_file(candidates[i], &size);
+        uint8_t *file = platform_read_file(found[i], &size);
         if (file == NULL) continue;
         platform_free_file(file);
-        snprintf(out, out_size, "%s", candidates[i]);
+        snprintf(out, out_size, "%s", found[i]);
         return 1;
     }
     return 0;

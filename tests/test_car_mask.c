@@ -2,6 +2,7 @@
  * to the texture's by nearest neighbour, colours are classed, and what is not a PNG is refused. */
 #include "formats/png.h"
 #include "game/race/car_mask.h"
+#include "game/sys/data_path.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -184,10 +185,10 @@ static void test_refused(void)
 
 #define ROOT "car_mask_test_masks"   /* the directory the test makes in the working directory */
 
-static void write_mask(const char *car, const char *file, const uint8_t *mask, int width, int height)
+static void write_mask_in(const char *dir, const char *car, const char *file, const uint8_t *mask, int width, int height)
 {
     char path[256];
-    snprintf(path, sizeof path, "%s/%s/%s", ROOT, car, file);
+    snprintf(path, sizeof path, "%s/%s/%s", dir, car, file);
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK(car_mask_write(mask, width, height, &png, &len));
@@ -198,6 +199,22 @@ static void write_mask(const char *car, const char *file, const uint8_t *mask, i
         fclose(f);
     }
     png_free(png);
+}
+
+static void write_mask(const char *car, const char *file, const uint8_t *mask, int width, int height)
+{
+    write_mask_in(ROOT, car, file, mask, width, height);
+}
+
+static void make_dirs(const char *path)   /* mkdir -p, every step ignoring "exists" */
+{
+    char part[256];
+    for (size_t i = 1; path[i] != '\0'; i++) {
+        if (path[i] != '/') continue;
+        snprintf(part, sizeof part, "%.*s", (int)i, path);
+        mkdir(part, 0755);
+    }
+    mkdir(path, 0755);
 }
 
 /* the high detail level reads <tex>_mask.png, the low one <tex>_lo_mask.png, and never the other's file: the low texture is of
@@ -225,6 +242,33 @@ static void test_lookup_by_level(void)
     CHECK(car_mask_load("THigh", "rsid", 1, 2, 2) == NULL);   /* only the high detail's file: the low detail has none */
 }
 
+/* the lookup order: TNFS_CAR_MASKS (a dev override) first, then the mods folder's car_masks/, then the port's data/ */
+static void test_mod_before_data(void)
+{
+    const char *const stem = "TOrder";
+    uint8_t paint[W * H], shine[W * H], matte[W * H];
+    memset(paint, CAR_MASK_PAINT, sizeof paint), memset(shine, CAR_MASK_SHINE, sizeof shine), memset(matte, CAR_MASK_MATTE, sizeof matte);
+    make_dirs(ROOT "/mod/car_masks/TOrder"), make_dirs(ROOT "/base/data/car_masks/TOrder"), make_dirs(ROOT "/env/TOrder");
+    write_mask_in(ROOT "/base/data/car_masks", stem, "rsid_mask.png", matte, W, H);   /* the port's own */
+    data_path_set_base(ROOT "/base");
+    unsetenv("TNFS_CAR_MASKS");
+    uint8_t *m = car_mask_load(stem, "rsid", 0, W, H);
+    CHECK(m != NULL && m[0] == CAR_MASK_MATTE);   /* no mod: the port's */
+    free(m);
+    write_mask_in(ROOT "/mod/car_masks", stem, "rsid_mask.png", paint, W, H);
+    data_path_set_mod(ROOT "/mod");
+    m = car_mask_load(stem, "rsid", 0, W, H);
+    CHECK(m != NULL && m[0] == CAR_MASK_PAINT);   /* the mod's first */
+    free(m);
+    write_mask_in(ROOT "/env", stem, "rsid_mask.png", shine, W, H);
+    setenv("TNFS_CAR_MASKS", ROOT "/env", 1);
+    m = car_mask_load(stem, "rsid", 0, W, H);
+    CHECK(m != NULL && m[0] == CAR_MASK_SHINE);   /* the env override before both */
+    free(m);
+    unsetenv("TNFS_CAR_MASKS");
+    data_path_set_mod(NULL), data_path_set_base(NULL);
+}
+
 int main(void)
 {
     test_round_trip();
@@ -236,5 +280,6 @@ int main(void)
     test_scaled();
     test_refused();
     test_lookup_by_level();
+    test_mod_before_data();
     return TEST_REPORT();
 }
