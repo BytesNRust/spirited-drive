@@ -14,6 +14,8 @@
 #include "game/race/window_lights.h"
 #include "game/race/psx_light_make.h"
 #include "game/race/psx_light_synth.h"
+#include "game/race/track_light_file.h"
+#include "game/sys/reverse_track.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 
@@ -421,7 +423,7 @@ static void apply_rules_file(const char *track, PsxLight *made)
     port_log("psx_light: %d rules from %s\n", n, name);
 }
 
-static int make_light(const Tri *tri, const char *track, PsxLight *out)
+static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
 {
     PsxLight made = { 0 };
     static uint32_t lamp_nodes[MAX_LAMP_NODES];
@@ -507,6 +509,49 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         if (port_car_tunnel_light()) made.car_disc = psx_light_synth_disc_car(track, synth_time, made.car_even, made.car_odd);   /* the City's tunnels: the CD's own car ratio, orange in CY2 and CY3 */   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
     }
     psx_light_free(&tunnels);
+    *out = made;
+    return 1;
+}
+
+/* the port's flags that make_light_code reads (and the direction the track runs), as the bits a track light file is made for: a file is read only where they are the same */
+static uint32_t track_light_flags(void)
+{
+    const int bits[] = { port_trans_shadows(), port_made_tunnels(), port_car_tunnel_light(), port_hall_light(), port_parking_dark(), port_cavern_dark(), port_canyon_shade(),
+                         port_lamp_pool_tint(), port_lamp_car_shade(), port_lamp_pool_bright(), city_night3, street_lamp_on, reverse_track_wanted() };
+    uint32_t flags = 0;
+    for (size_t i = 0; i < sizeof bits / sizeof *bits; i++) flags |= (bits[i] != 0 ? 1u : 0u) << i;
+    return flags;
+}
+
+/* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the track's own rules
+ * go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh); TNFS_TRACK_LIGHT_FILE=0 makes it in code as before. */
+static int make_light(const Tri *tri, const char *track, PsxLight *out)
+{
+    const char *off = getenv("TNFS_TRACK_LIGHT_FILE");
+    const uint32_t flags = track_light_flags();
+    PsxLight made = { 0 };
+    const uint32_t nodes = tri != NULL ? tri->node_count : 0;
+    if ((off == NULL || off[0] != '0') && track_light_load(track, light_letter, nodes, flags, &made)) {
+        *out = made;
+        apply_rules_file(track, out);
+        return 1;
+    }
+    if (!make_light_code(tri, track, &made)) return 0;
+    const char *dir = getenv("TNFS_EXPORT_TRACK_LIGHT");
+    if (dir != NULL && dir[0] != '\0') {
+        char *text = NULL, path[1024];
+        size_t size = 0;
+        snprintf(path, sizeof path, "%s/%s%c.txt", dir, track, light_letter);
+        if (track_light_format(&made, track, light_letter, flags, &text, &size)) {
+            FILE *f = fopen(path, "wb");
+            if (f != NULL) {
+                fwrite(text, 1, size, f);
+                fclose(f);
+                port_log("track light: wrote %s\n", path);
+            }
+            free(text);
+        }
+    }
     apply_rules_file(track, &made);
     *out = made;
     return 1;
