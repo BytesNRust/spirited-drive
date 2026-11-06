@@ -267,10 +267,10 @@ static int32_t f_deadline_passed(void *ctx)
  * after them. */
 static const char *const LABEL[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
                                      "Light Effects", "Field Of View", "Screen Format", "Refresh Rate", "Full Screen",
-                                     "Scaling", "Render Threads", "Render Scale" };
+                                     "Scaling", "Render Threads", "Render Scale", "Gauge Light" };
 static const int LABEL_ROW[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG,
                                  GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH,
-                                 GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE };
+                                 GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE, GRAPHICS_OWN_GAUGES };
 static int row_of(const char *text)
 {
     for (size_t row = 0; row < sizeof LABEL / sizeof *LABEL; row++)
@@ -505,8 +505,8 @@ static void test_rows_in_order(void)
 
     static const char *const want[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
                                         "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
-                                        "Full Screen", "Scaling", "Render Threads", "Render Scale" };
-    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 12);
+                                        "Full Screen", "Scaling", "Render Threads", "Render Scale", "Gauge Light" };
+    CHECK_EQ_INT(GRAPHICS_OWN_SETTINGS, 13);
     for (int row = 0; row < GRAPHICS_OWN_SETTINGS; row++) {
         CHECK(drew(&r.f, want[row]));
         /* each label drawn at the same left edge: the labels are a column */
@@ -1243,7 +1243,7 @@ static void test_render_threads_row_on_the_page(void)
      * Done/Cancel band, which starts at 0x1a4 (420) -- a row's band must not run into it, or that row and the
      * buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 365);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_BANDS], 335);
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_BANDS] <= 0x1a4);
 }
 
@@ -1272,8 +1272,37 @@ static void test_render_scale_row_on_the_page(void)
      * eleventh row's, and it ends above the Done/Cancel band, which starts at 0x1a4 (420) -- the rows' band must not
      * run into it, or the last row and the buttons would share their rows. */
     CHECK(r.f.band_best >= GRAPHICS_OWN_SETTINGS);
-    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 391);
+    CHECK_EQ_INT(r.f.band_best_tops[GRAPHICS_OWN_SCALE], 358);   /* 13 rows at a 23 pitch: label 368, band ten above */
     CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_SCALE] <= 0x1a4);
+}
+
+/* Gauge Light (gauge_light 0..5): the six words, the step wraps both ways and writes only its own setting, the last row's band ends above Done's */
+static void test_gauge_light_row(void)
+{
+    static const char *const WORD[6] = { "Off", "Green", "Red", "Orange", "Blue", "Car" };
+    PortSettings s = port_settings_defaults();
+    char out[16];
+    for (int v = 0; v < 6; v++) {
+        s.gauge_light = v;
+        graphics_own_value(&s, GRAPHICS_OWN_GAUGES, out);
+        CHECK(strcmp(out, WORD[v]) == 0);
+    }
+    s = port_settings_defaults();
+    graphics_own_step(&s, GRAPHICS_OWN_GAUGES, -1, SCREEN_4_3);
+    CHECK_EQ_INT(s.gauge_light, 5);   /* Off back to Car */
+    graphics_own_step(&s, GRAPHICS_OWN_GAUGES, 1, SCREEN_4_3);
+    CHECK_EQ_INT(s.gauge_light, 0);   /* Car on to Off */
+    graphics_own_step(&s, GRAPHICS_OWN_GAUGES, 1, SCREEN_4_3);
+    CHECK_EQ_INT(s.gauge_light, 1);
+    CHECK_EQ_INT(s.render_scale, port_settings_defaults().render_scale);
+    CHECK(graphics_own_live_in_race(GRAPHICS_OWN_GAUGES, 0, 0));   /* the gauges are lit live: the pause menu changes it */
+
+    Rig r;
+    rig_init(&r);
+    run_script(&r, script_walk(GRAPHICS_OWN_GAUGES, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(r.port.gauge_light, 1);
+    CHECK_EQ_INT(r.f.saves, 1);
+    CHECK(r.f.band_best_bottoms[GRAPHICS_OWN_GAUGES] <= 0x1a4);
 }
 
 /* the eleventh row is reachable and its step writes the setting */
@@ -1373,7 +1402,7 @@ static void test_reorganised_screen(void)
     run_script(&r, 1);
     static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
                                          "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
-                                         "Full Screen", "Scaling", "Render Threads", "Render Scale" };
+                                         "Full Screen", "Scaling", "Render Threads", "Render Scale", "Gauge Light" };
     int last_y = -1;
     for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
         int y = -1;
@@ -1399,7 +1428,7 @@ static void test_rows_are_evenly_spaced(void)
     run_script(&r, 1);
     static const char *const order[] = { "Perspective Correction", "Texture Filter", "View Distance", "Distance Fog",
                                          "Light Effects", "Field Of View", "Screen Format", "Refresh Rate",
-                                         "Full Screen", "Scaling", "Render Threads", "Render Scale" };
+                                         "Full Screen", "Scaling", "Render Threads", "Render Scale", "Gauge Light" };
     int last_y = -1, pitch = -1;
     for (size_t i = 0; i < sizeof order / sizeof *order; i++) {
         int y = -1;
@@ -1455,6 +1484,7 @@ int main(void)
     test_render_scale_step();
     test_render_scale_row_on_the_page();
     test_render_scale_row_is_reachable();
+    test_gauge_light_row();
     test_step_writes_only_its_row();
     test_the_mode_holds_its_rows();
     test_fullscreen_takes_desktop_format();
