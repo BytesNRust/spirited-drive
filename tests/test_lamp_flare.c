@@ -118,8 +118,20 @@ static void test_draw(void)
     CHECK_EQ_INT(px[12 * W + 10], 3);
 }
 
+static void test_far_fade(void)
+{
+    CHECK_EQ_INT(lamp_far_fade(0, 6400), 100);        /* the near model's range: all of it */
+    CHECK_EQ_INT(lamp_far_fade(6400, 6400), 100);     /* at the change of model: still all of it (no step there) */
+    CHECK_EQ_INT(lamp_far_fade(9600, 6400), 50);      /* half way out */
+    CHECK_EQ_INT(lamp_far_fade(12800, 6400), 0);      /* twice: gone */
+    CHECK_EQ_INT(lamp_far_fade(40000, 6400), 0);
+    CHECK_EQ_INT(lamp_far_fade(7000, 6400) > lamp_far_fade(8000, 6400), 1);   /* falls steadily with the distance */
+    CHECK_EQ_INT(lamp_far_fade(9999, 0), 100);        /* no far distance known: all of it */
+}
+
 int main(void)
 {
+    test_far_fade();
     test_blobs();
     test_radius();
     test_level();
