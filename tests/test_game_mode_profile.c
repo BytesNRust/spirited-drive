@@ -17,7 +17,7 @@ typedef struct Fake {
     int drawn_profile;
     int exits_asked, apply_asked;
     int said_multiplayer, said_customize, said_single, said_exit;
-    int foot_big, foot_small, foot_low, foot_high_y, foot_right, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
+    int foot_big, foot_small, foot_low, foot_high_y, foot_right, foot_left, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
 } Fake;
 
 static int32_t f_key(void *c)
@@ -91,6 +91,7 @@ static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w)
     if (y >= 0x191) f->foot_low++;
     if (y > f->foot_high_y) f->foot_high_y = y;
     if (x + w > f->foot_right) f->foot_right = x + w;
+    if (f->foot_left == 0 || x < f->foot_left) f->foot_left = x;
     if (t[0] == 'v') f->version_y = y; else f->notice_y = y;
 }
 static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
@@ -257,16 +258,20 @@ static void test_the_pointer_bands(void)
     CHECK(f.key_calls > 2);
 }
 
-/* the version and the update notice: at the foot, full size, the notice above the version */
+/* the version and the update notice: at the foot in the small subtitle size, with a margin from the left edge and the bottom, the notice above the version */
 static void test_the_foot_lines(void)
 {
     Fake f;
     const int none[] = { ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
     run_with(&f, none, 1, 1, 1);
-    CHECK(f.foot_big >= 2);
-    CHECK_EQ_INT(f.foot_small, 0);
+    CHECK_EQ_INT(f.foot_big, 0);   /* not the big letters */
+    CHECK(f.foot_small >= 2);
     CHECK(f.foot_low >= 2);
+    CHECK(f.foot_left >= 12);   /* a margin from the left edge */
+    CHECK(f.version_y + 20 <= 480 - 10);   /* and from the bottom, the small line being about 17 high */
+    CHECK(f.notice_y < f.version_y);
+    CHECK(f.version_y - f.notice_y >= 17);   /* the lines do not touch */
 }
 
 int main(void)
