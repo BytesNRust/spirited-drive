@@ -182,8 +182,16 @@ static void test_stage_seed(void)
     CHECK(car_paint_seed(NULL, "CY2", 5) == 5 && car_paint_seed(&k, NULL, 6) == 6);
 }
 
+/* a rival's colours follow the car its file is (race_models.c's value of its slot), not its field entry's: a pack against a CZR1 is DVIPER, CZR1, P911 */
+static void race_cars(void)
+{
+    CHECK(car_paint_race_car(200 + 3) == 3 && car_paint_race_car(100 + 2) == 2 && car_paint_race_car(100 + 5) == 5);
+    CHECK(car_paint_race_car(7) == -1 && car_paint_race_car(400 + 2) == -1 && car_paint_race_car(-1) == -1);   /* traffic, police */
+}
+
 int main(void)
 {
+    race_cars();
     test_stage_seed();
     test_the_catalogue_black();
     test_bright_paint_keeps_steps();
