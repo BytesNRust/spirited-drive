@@ -189,8 +189,19 @@ static void race_cars(void)
     CHECK(car_paint_race_car(7) == -1 && car_paint_race_car(400 + 2) == -1 && car_paint_race_car(-1) == -1);   /* traffic, police */
 }
 
+/* port (replay colours): a replay's paint comes back as it was where this machine can show it, else the car's own; nothing recorded leaves the pick to the rules */
+static void replayed(void)
+{
+    CHECK(car_paint_replayed(0xff, 3, 1) == -1 && car_paint_replayed(-1, 3, 1) == -1);
+    CHECK(car_paint_replayed(0, 3, 1) == 0);
+    CHECK(car_paint_replayed(1, 3, 1) == 1 && car_paint_replayed(1, 3, 0) == 0);   /* the PS1 livery needs its files */
+    CHECK(car_paint_replayed(2 + car_paint_count(3) - 1, 3, 0) == 2 + car_paint_count(3) - 1);
+    CHECK(car_paint_replayed(2 + car_paint_count(3), 3, 1) == 0);   /* a catalogue paint the table no longer has */
+}
+
 int main(void)
 {
+    replayed();
     race_cars();
     test_stage_seed();
     test_the_catalogue_black();
