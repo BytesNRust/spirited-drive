@@ -31,6 +31,7 @@ static Stored *slot_for(const char *name)
 
 static void clear_files(void)
 {
+    port_settings_forget();
     memset(stored, 0, sizeof stored);
 }
 
@@ -40,6 +41,7 @@ static void put_file(const char *name, const char *text)
     snprintf((char *)s->bytes, sizeof s->bytes, "%s", text);
     s->size = strlen(text);
     s->present = 1;
+    port_settings_forget();   /* the settings keep what they read */
 }
 
 uint8_t *platform_read_user_file(const char *name, size_t *size)

@@ -40,10 +40,12 @@ static void put_file(const char *name, const char *text)
     snprintf((char *)s->bytes, sizeof s->bytes, "%s", text);
     s->size = strlen(text);
     s->present = 1;
+    port_settings_forget();   /* the settings keep what they read */
 }
 
 static void clear_files(void)
 {
+    port_settings_forget();
     for (int i = 0; i < 2; i++) {
         stored[i].name[0] = '\0';
         stored[i].size = 0;
