@@ -29,6 +29,30 @@ static void test_runs_and_short_runs(void)
     }
 }
 
+/* the City's tunnels' car ratio from the CD's LGT: CY3's lamps are orange (the blue channel a third of the red), CY1's are grey and brighter at night; the car factor follows the node's parity and the light's own */
+static void test_city_car_ratios_are_the_discs(void)
+{
+    float even[3], odd[3];
+    CHECK(!psx_light_synth_disc_car("TR7", PSX_SYNTH_DAY, even, odd) && !psx_light_synth_disc_car(NULL, PSX_SYNTH_DAY, even, odd));
+    CHECK(psx_light_synth_disc_car("CY3", PSX_SYNTH_DAY, even, odd));
+    CHECK(even[0] > even[1] && even[1] > even[2] && fabsf(even[2] - 0.188f) < 0.001f && odd[0] < even[0]);
+    CHECK(!psx_light_synth_disc_car("CY3", PSX_SYNTH_NIGHT, even, odd) && !psx_light_synth_disc_car("CY2", PSX_SYNTH_DUSK, even, odd) && psx_light_synth_disc_car("CY2", PSX_SYNTH_DAY, even, odd));
+    CHECK(psx_light_synth_disc_car("CY3", PSX_SYNTH_DAY, even, odd));
+    float night_even[3], night_odd[3];
+    CHECK(psx_light_synth_disc_car("cy1", PSX_SYNTH_NIGHT, night_even, night_odd));
+    CHECK(night_even[0] == night_even[2] && night_even[0] > 0.9f && night_odd[0] < night_even[0]);
+    CHECK(psx_light_synth_disc_car("CY1", PSX_SYNTH_DAY, even, odd) && even[0] < night_even[0]);
+    uint8_t tunnel[8] = { 1, 1, 1, 1, 1, 1, 1, 1 };
+    PsxLight light = { 0 };
+    light.nodes = 8, light.tunnel = tunnel;
+    float plain[3], disc[3];
+    psx_light_synth_car_tunnel(&light, 4, plain);
+    CHECK(psx_light_synth_disc_car("CY3", PSX_SYNTH_DAY, light.car_even, light.car_odd));
+    light.car_disc = 1;
+    psx_light_synth_car_tunnel(&light, 4, disc);
+    CHECK(disc[0] > disc[2] && fabsf(disc[2] - light.car_even[2]) < 0.001f && plain[2] != disc[2]);   /* in a tunnel (dark 1) the car takes the lamp factor itself */
+}
+
 /* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
 static void test_hall_is_a_tunnel(void)
 {
@@ -367,6 +391,7 @@ int main(void)
     test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();
+    test_city_car_ratios_are_the_discs();
     test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();
