@@ -2843,5 +2843,4 @@ pozo_coche 2014 2015 2
 pozo_coche 2016 2016 1
 reparto neutro 0 ciudad 2
 tono_tunel dia 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 115
-tono_tunel noche 0x1p+0 0x1.d70a3ep-1 0x1.b33334p-1 120
-tono_coche ff8020:80
+tono_tunel noche 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 90
