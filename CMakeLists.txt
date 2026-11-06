@@ -1093,6 +1093,7 @@ if(NOT EMSCRIPTEN)
     if(TNFS_PYTHON3)
         add_test(NAME car_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_psd.py")
         add_test(NAME dash_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_mask_psd.py")
+        add_test(NAME dash_psd_update COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_psd_update.py")
     endif()
 
     file(GLOB_RECURSE TNFS_MODEL_FILES
