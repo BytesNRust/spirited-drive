@@ -14,6 +14,7 @@
 #include "viewer/drive_lamps.h"
 #include "viewer/drive_light.h"
 #include "game/race/psx_lamps.h"
+#include "game/viewer/shade_fit.h"
 #include <string.h>
 
 enum {
@@ -174,7 +175,7 @@ static void reserve_for_lights(RacePalette *p, const RaceState *race, uint8_t us
  * it, the entries it and the dash show are kept, and the cars' slots are fitted to the rest; the fitted entries are then the cars' alone for the
  * port's tables of the world (palette_world_hide), and the search a car is mapped by is made again for the new colours */
 static void fit_after_world(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const uint8_t *carpal, const Chunk *fam,
-                            const Chunk *terrain, const uint8_t *track, const uint8_t *dash_bank)
+                            const Chunk *terrain, const uint8_t *track, const uint8_t *dash_bank, uint8_t *before_out)
 {
     uint8_t used[RACE_PALETTE_COLOURS] = { 0 }, table[RACE_PALETTE_COLOURS], before[sizeof p->screen_rgbx], hidden[RACE_PALETTE_COLOURS] = { 0 };
     memcpy(table, p->table, sizeof table);
@@ -188,6 +189,7 @@ static void fit_after_world(RacePalette *p, const RaceState *race, CarLoad *cons
     for (int e = 0; e < RACE_PALETTE_COLOURS; e++) hidden[e] = memcmp(before + 4 * e, p->screen_rgbx + 4 * e, 3) != 0;
     palette_world_hide(hidden);
     if (p->inverse != NULL) race_palette_inverse(p);
+    if (before_out != NULL) memcpy(before_out, before, sizeof before);
 }
 
 /* the search set without the entries the fit gave the cars (the inverse made again for it, where there is one) */
@@ -418,8 +420,10 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     else
         race_palette_enable(&p, race);
     const int fitted = port_car_colours();
+    uint8_t before_fit[sizeof p.screen_rgbx];
     palette_world_hide(NULL);
-    if (fitted) fit_after_world(&p, race, cars, carpal, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
+    if (fitted) fit_after_world(&p, race, cars, carpal, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL,
+                                  before_fit);
     remap_cars(&p, race, cars);
     if (!fitted) map_world(&p, fam, &terrain, track, NULL);
     uint8_t enabled[RACE_PALETTE_COLOURS];
@@ -432,6 +436,10 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     emissive_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
     night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL, hud != NULL && hud->ready ? hud->shade : NULL);
+    if (hud != NULL && hud->ready && fitted) {   /* the shade table is copied from the cockpit colours in drive_hud_start, after the fit: its targets the fit gave the cars take the nearest usable entry to their old colour */
+        const int moved = shade_refit(hud->shade, before_fit, palette_world_hidden(), p.enabled);
+        port_log("car_colours: %d shade rows pointed at entries given to the cars, matched again\n", moved);
+    }
     if (hud != NULL && hud->ready) shade_off_emissive(&p, hud->shade);
     /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out
      * lamp-amber. Matched again on the palette as it now stands. */
