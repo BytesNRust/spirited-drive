@@ -524,7 +524,25 @@ typedef struct {
     const uint8_t *wheel_t, *wheel_s, *wheel_w;
     int lights_left, lights_top, lights_w, lights_h;
     int in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed;
+    const uint8_t *dials;   /* gauge_dials: per pixel GAUGE_ELLIPSE (inside a dial's box's ellipse), GAUGE_DIAL (inside the smaller dial) */
 } ClassJob;
+
+/* port (frame budget): the ellipses of the two dials are a function of the cockpit alone, so each pixel's two tests (four ellipse sums a pixel) are made once per cockpit, not per frame */
+enum { GAUGE_ELLIPSE = 1, GAUGE_DIAL = 2 };
+
+static const uint8_t *gauge_dials(const Cockpit *k)
+{
+    static uint8_t flags[SCREEN_W * SCREEN_H];
+    static int key[8], made;
+    const int now[8] = { k->tach_x, k->tach_y, k->tach_w, k->tach_h, k->sped_x, k->sped_y, k->sped_w, k->sped_h };
+    if (made && memcmp(key, now, sizeof key) == 0) return flags;
+    for (int y = 0; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++)
+            flags[y * SCREEN_W + x] = (uint8_t)((in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h) ? GAUGE_ELLIPSE : 0) |
+                                                (in_dial(k, x, y) ? GAUGE_DIAL : 0));
+    memcpy(key, now, sizeof key), made = 1;
+    return flags;
+}
 
 static void class_band(void *user, int top, int bottom)
 {
@@ -533,8 +551,8 @@ static void class_band(void *user, int top, int bottom)
     const DashColour *const colour = j->colour;
     const uint8_t *const wheel_t = j->wheel_t, *const wheel_s = j->wheel_s, *const wheel_w = j->wheel_w;
     uint8_t *const classes = j->classes;
-    const Cockpit *const k = j->k;
     const int lights_left = j->lights_left, lights_top = j->lights_top, lights_w = j->lights_w, lights_h = j->lights_h;
+    const uint8_t *const dials = j->dials;
     const int in_car = j->in_car, map_on = j->map_on, dim_tach = j->dim_tach, wheel_gauge = j->wheel_gauge,
               wheel_masked = j->wheel_masked, lit_keyed = j->lit_keyed;
     for (int y = top; y < bottom; y++)
@@ -546,7 +564,7 @@ static void class_band(void *user, int top, int bottom)
             }
             int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
             hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
-            int gauge = in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+            int gauge = dials[y * SCREEN_W + x] & GAUGE_ELLIPSE;
             if (gauge && wheel_gauge && (wheel_front_pixel(wheel_t, x, y) || wheel_front_pixel(wheel_s, x, y))) gauge = 0;   /* port (gauge_wheel): the wheel in front of the dials is the dash's */
             hud = hud || gauge;
             if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
@@ -559,7 +577,7 @@ static void class_band(void *user, int top, int bottom)
                     if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
                     else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = PSX_CLASS_LIT;
                 } else if (class == PSX_CLASS_HUD && gauge) {
-                    if (!in_dial(k, x, y)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
+                    if (!(dials[y * SCREEN_W + x] & GAUGE_DIAL)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
                     else if (lit_pixel(v)) class = PSX_CLASS_LIT;
                 }
             }
@@ -607,7 +625,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     const uint8_t *const wheel_s = wheel_any ? wheel_front_shape(k, 1, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const uint8_t *const wheel_w = wheel_masked ? wheel_front_shape(k, 2, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const ClassJob job = { frame, art, k, dash_mask, colour, classes, wheel_t, wheel_s, wheel_w, lights_left, lights_top, lights_w, lights_h,
-                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed };
+                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed, gauge_dials(k) };
     bands_rows(0, SCREEN_H, class_band, (void *)&job);
     memset(shadow, LAYER_KEY, out);
     shadow_out = shadow;
