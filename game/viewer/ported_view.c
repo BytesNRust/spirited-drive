@@ -1246,6 +1246,7 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
         const Car *car = shadow_race->cars[i];
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
+        if (shadow_race->port_rally_road != 0 && port_rally_dry_lamps()) continue;   /* port (rally_dry_lamps): dirt is no mirror, no lamp reflections (an early skip at the call, reflect_car itself untouched) */
         if (!rain_wet_off()) reflect_car(car, pixels, pitch, box, wt);
     }
 }

@@ -439,6 +439,7 @@ typedef struct {
     RaceDifficulty port_difficulty;  /* port: the race's difficulty (the mode's file's difficulty, difficulty.h); all Original (0) the exe's */
     int32_t port_rain_grip;         /* port: a wet race (port.cfg's rain_grip with weather=rain, track_gravity.h): the road grips at four fifths; 0 the exe's */
     int32_t port_lunar_gravity;     /* port: the moon's race (the mode's file's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
+    int32_t port_rally_road;        /* port: 1 in a rally (the `r` variant, dirt roads), whatever port_rally_gravel is; 0 the exe's track */
     int32_t port_rally_gravel;      /* port: RALLY_GRAVEL_* (rally_gravel.h), the rally's gravel noise and dust; 0 the exe's */
     int32_t port_rally_shoulder_sound;   /* port: with port_rally_gravel, the rolling car strikes the gravel sample as the shoulder does (race_sound.c), not the crunch's faster double strike; 0 the crunch */
     int32_t port_chase_height;      /* port: with port_follow_camera, the chase eye behind the car keeps the flat chase's height above the road at its own place on slopes (race_chase.c); 0 the exe's lift */
