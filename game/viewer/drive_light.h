@@ -80,4 +80,12 @@ void drive_light_world_rect(int width, int x, int y, int w, int h);
  * give platform_present_split with drive_light_palette's and _half's; NULL when there is no light script or no 3D was kept for this size. */
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count);
 
+/* port (track_light_file): one line on what the track light file did for this race (read, or made in code and why), "" before a race */
+const char *drive_light_track_light_status(void);
+/* the light editor (light_edit.h): the made light made again from the track light file as it is now (1 when it was), the file's path and a checksum of its text (0 when there is none; 1 when the
+ * race's light is a made one), and the lines it shows for a node (their count) */
+int drive_light_reload(void);
+int drive_light_file_state(char *path, size_t path_size, uint32_t *hash);
+int drive_light_edit_lines(uint32_t node, char lines[][96], int max);
+
 #endif

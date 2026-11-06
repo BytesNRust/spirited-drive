@@ -523,35 +523,62 @@ static uint32_t track_light_flags(void)
     return flags;
 }
 
-/* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the track's own rules
- * go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh); TNFS_TRACK_LIGHT_FILE=0 makes it in code as before. */
+static char track_light_status[200] = "";   /* what the track light file did for this race, for the light editor's screen (drive_light_track_light_status) */
+
+const char *drive_light_track_light_status(void)
+{
+    return track_light_status;
+}
+
+/* port (made_tunnels): a made light's warm tunnels take the look of their kind (psx_light_synth_warm_look), which a track light file's retouches then change */
+static void warm_looks(PsxLight *made)
+{
+    for (int dark = 0; dark < 2 && made->city_tunnel != 0; dark++)
+        (void)psx_light_synth_warm_look(made->city_tunnel, dark, made->warm_cast[dark], &made->warm_percent[dark]);
+}
+
+/* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches
+ * (brightness, tunnel look) and the track's own rules go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh);
+ * TNFS_TRACK_LIGHT_FILE=0 makes it in code as before, ignoring the files. */
 static int make_light(const Tri *tri, const char *track, PsxLight *out)
 {
     const char *off = getenv("TNFS_TRACK_LIGHT_FILE");
     const uint32_t flags = track_light_flags();
     PsxLight made = { 0 };
+    TrackLightFile file = { 0 };
+    char path[1024] = "", why[160] = "";
     const uint32_t nodes = tri != NULL ? tri->node_count : 0;
-    if ((off == NULL || off[0] != '0') && track_light_load(track, light_letter, nodes, flags, &made)) {
-        *out = made;
-        apply_rules_file(track, out);
-        return 1;
-    }
-    if (!make_light_code(tri, track, &made)) return 0;
-    const char *dir = getenv("TNFS_EXPORT_TRACK_LIGHT");
-    if (dir != NULL && dir[0] != '\0') {
-        char *text = NULL, path[1024];
-        size_t size = 0;
-        snprintf(path, sizeof path, "%s/%s%c.txt", dir, track, light_letter);
-        if (track_light_format(&made, track, light_letter, flags, &text, &size)) {
-            FILE *f = fopen(path, "wb");
-            if (f != NULL) {
-                fwrite(text, 1, size, f);
-                fclose(f);
-                port_log("track light: wrote %s\n", path);
+    const int have = (off == NULL || off[0] != '0') && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why);
+    if (have && file.base) {
+        made = file.light;
+        memset(&file.light, 0, sizeof file.light);
+        snprintf(track_light_status, sizeof track_light_status, "track light: file %s", path);
+    } else {
+        if (!make_light_code(tri, track, &made)) {
+            track_light_file_free(&file);
+            return 0;
+        }
+        warm_looks(&made);
+        if (have) snprintf(track_light_status, sizeof track_light_status, "track light: made in code (%s in %s); its retouches count", why, path);
+        else snprintf(track_light_status, sizeof track_light_status, "track light: made in code (no file for %s%c)", track, light_letter);
+        const char *dir = getenv("TNFS_EXPORT_TRACK_LIGHT");
+        if (dir != NULL && dir[0] != '\0') {
+            char *text = NULL, file_path[1024];
+            size_t size = 0;
+            snprintf(file_path, sizeof file_path, "%s/%s%c.txt", dir, track, light_letter);
+            if (track_light_format(&made, track, light_letter, flags, &text, &size)) {
+                FILE *f = fopen(file_path, "wb");
+                if (f != NULL) {
+                    fwrite(text, 1, size, f);
+                    fclose(f);
+                    port_log("track light: wrote %s\n", file_path);
+                }
+                free(text);
             }
-            free(text);
         }
     }
+    if (have) track_light_apply(&file.tweaks, &made);
+    track_light_file_free(&file);
     apply_rules_file(track, &made);
     *out = made;
     return 1;
@@ -580,22 +607,20 @@ static void lay_cd_pools(void)
     cd_lamp_count = 0;
 }
 
-void drive_light_load_synth(const Tri *tri, const char *track)
+/* the made light of `track` installed as the race's light (the first load's, or a reload's: the one it replaces is freed): the forest's and the City's changes over it, the fields the made light
+ * has as the CD's has, the pools; `made` is taken */
+static void install_made(PsxLight *made, const char *track, int tunnel_track)
 {
-    pool_cd_light(tri);
-    const int tunnel_track = synth_wanted && psx_light_synth_track(track);
-    if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
-    PsxLight made = { 0 };
-    if (!make_light(tri, track, &made)) return;
-    if (port_forest_dark()) psx_light_forest_apply(&made, track);
-    if (city_night3 && made.data != NULL) {   /* port (city_lift 3): the open rows darkened to the CD's; a tunnel's own light stays */
+    if (port_forest_dark()) psx_light_forest_apply(made, track);
+    if (city_night3 && made->data != NULL) {   /* port (city_lift 3): the open rows darkened to the CD's; a tunnel's own light stays */
         const int share = city_made_scale(track);
         if (share < 256)
-            for (uint32_t n = 0; n < made.nodes; n++)
-                if (made.tunnel == NULL || made.tunnel[n] == 0)
-                    for (int p = 0; p < PSX_LIGHT_POINTS; p++) made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] = (uint8_t)(made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] * share / 256);
+            for (uint32_t n = 0; n < made->nodes; n++)
+                if (made->tunnel == NULL || made->tunnel[n] == 0)
+                    for (int p = 0; p < PSX_LIGHT_POINTS; p++) made->data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] = (uint8_t)(made->data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] * share / 256);
     }
-    light = made;
+    psx_light_free(&light);
+    light = *made;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
@@ -605,7 +630,72 @@ void drive_light_load_synth(const Tri *tri, const char *track)
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);
     ported_view_set_psx_synth(tunnel_track || (light.tunnel != NULL && port_car_tunnel_light()));   /* the tunnel tracks' car and dash light follows their tunnels; so does any made light's that has tunnels (car_tunnel_light), as the CD's rows do */
+}
+
+static const Tri *made_tri;       /* the race's track, kept for the light editor's reload (drive_light_reload) */
+static char made_track[16];
+static int made_tunnel_track;
+
+void drive_light_load_synth(const Tri *tri, const char *track)
+{
+    pool_cd_light(tri);
+    const int tunnel_track = synth_wanted && psx_light_synth_track(track);
+    if ((!tunnel_track && !made_wanted) || light.data != NULL || tri == NULL) return;
+    PsxLight made = { 0 };
+    if (!make_light(tri, track, &made)) return;
+    made_tri = tri, made_tunnel_track = tunnel_track;
+    snprintf(made_track, sizeof made_track, "%s", track);
+    install_made(&made, track, tunnel_track);
     port_log("psx_light: %s has no light on the CD, made from its terrain%s (%u nodes)\n", track, tunnel_track ? " and the road's tunnels" : "", light.nodes);
+}
+
+int drive_light_reload(void)
+{
+    if (made_tri == NULL || !synth_on) return 0;
+    PsxLight made = { 0 };
+    if (!make_light(made_tri, made_track, &made)) return 0;
+    install_made(&made, made_track, made_tunnel_track);
+    port_log("psx_light: %s's light made again\n", made_track);
+    return 1;
+}
+
+int drive_light_file_state(char *path, size_t path_size, uint32_t *hash)
+{
+    if (made_tri == NULL || !synth_on) return 0;
+    char found[1024];
+    if (!track_light_find(made_track, light_letter, found, sizeof found)) {
+        if (hash != NULL) *hash = 0;
+        if (path != NULL && path_size > 0) path[0] = '\0';
+        return 1;
+    }
+    size_t size = 0;
+    uint8_t *file = platform_read_file(found, &size);
+    uint32_t h = 2166136261u;
+    for (size_t i = 0; file != NULL && i < size; i++) h = (h ^ file[i]) * 16777619u;
+    if (file != NULL) platform_free_file(file);
+    if (hash != NULL) *hash = h;
+    if (path != NULL && path_size > 0) snprintf(path, path_size, "%s", found);
+    return 1;
+}
+
+/* the light editor's lines for `node` (light_edit.h): the track and time, what the file did, and the values the made light has there */
+int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
+{
+    if (made_tri == NULL || !synth_on || light.data == NULL || node >= light.nodes || max < 6) return 0;
+    int n = 0;
+    snprintf(lines[n++], 96, "LIGHT EDIT  %s%c  node %u of %u", made_track, light_letter, node, light.nodes);
+    snprintf(lines[n++], 96, "%s", track_light_status);
+    const uint8_t *row = &light.data[(size_t)node * PSX_LIGHT_POINTS];
+    snprintf(lines[n++], 96, "row %u %u %u %u %u %u %u %u %u %u %u", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10]);
+    snprintf(lines[n++], 96, "tunnel %d  hall %d  dim car %d  canyon %d  pool %d  car pool %d", light.tunnel != NULL && light.tunnel[node], light.hall != NULL && light.hall[node],
+             light.car_dim != NULL && light.car_dim[node], light.canyon != NULL && light.canyon[node], light.pool_class != NULL ? light.pool_class[node] : 0,
+             light.car_pool != NULL ? light.car_pool[node] : 0);
+    if (light.warm_percent[0] > 0 || light.warm_percent[1] > 0)
+        snprintf(lines[n++], 96, "tunnel look day %.2f %.2f %.2f x%d  night %.2f %.2f %.2f x%d", (double)light.warm_cast[0][0], (double)light.warm_cast[0][1], (double)light.warm_cast[0][2], light.warm_percent[0],
+                 (double)light.warm_cast[1][0], (double)light.warm_cast[1][1], (double)light.warm_cast[1][2], light.warm_percent[1]);
+    else
+        snprintf(lines[n++], 96, "tunnel look: the made tunnel's own");
+    return n;
 }
 
 /* the PC's alternative sky (NTRACKFM/<TRACK>_T01.FAM, the art the original's morning / evening race ran on) for a dawn or dusk the CD has no PS1 sky for:

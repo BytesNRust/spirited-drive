@@ -118,15 +118,6 @@ static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
 /* the tunnel's dim road and walls on the PS1 are olive / amber, never the texture's own grey: green and blue lost on every darkened level
  * (fitted to the clip's road, (38,34,16) for a grey texture) */
 static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
-/* port (made_tunnels): the tunnels of the tracks whose PS1 light is warm, as the CD's light shows them, measured on the disc's frames against the made ones (the scene's mean red and
- * green and blue over red, the car's luminance and red over blue): [kind][0 day, 1 night] with kind 0 CY1, 1 CY2 and CY3, 2 TR3. CY1 at night is orange (green over red 0.42, blue over red 0.20);
- * CY2 and CY3 at night are dim and yellow; by day all are yellower. percent is the gain over the light a made tunnel takes (TUNNEL_LIGHT). */
-typedef struct { float cast[3]; int percent; } WarmTunnel;
-static const WarmTunnel WARM_TUNNEL[3][2] = {
-    { { { 1.0f, 0.68f, 0.28f }, 115 }, { { 1.0f, 0.35f, 0.05f }, 174 } },
-    { { { 1.0f, 0.68f, 0.28f }, 115 }, { { 1.0f, 0.68f, 0.28f }, 90 } },
-    { { { 1.0f, 0.62f, 0.12f }, 125 }, { { 1.0f, 0.42f, 0.08f }, 100 } },
-};
 /* the least light a tunnel's surfaces take (the dusk's mean): its own lamps light it, the night's tint and its ceiling do not darken it below */
 static const float TUNNEL_LIGHT = 0.6f;
 
@@ -2203,23 +2194,26 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         float warm_shown[3];
         drive_light_tint(warm_shown);
         const int warm_dark = (warm_shown[0] + warm_shown[1] + warm_shown[2]) / 3.0f < TUNNEL_LIGHT;
-        const WarmTunnel *look = warm ? &WARM_TUNNEL[psx_light->city_tunnel - 1][warm_dark] : NULL;
-        const int cast = warm ? 3 + (psx_light->city_tunnel - 1) * 2 + warm_dark : psx_light != NULL && psx_light->neutral_cast ? 2 : lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
+        const float *warm_cast = warm && psx_light->warm_percent[warm_dark] > 0 ? psx_light->warm_cast[warm_dark] : NULL;   /* the made light's look of this kind of tunnel (a track light file's retouch or psx_light_synth_warm_look) */
+        const int warm_percent = warm_cast != NULL ? psx_light->warm_percent[warm_dark] : 0;
+        const int cast = warm_cast != NULL ? 3 + warm_dark + (psx_light->city_tunnel - 1) * 2 : psx_light != NULL && psx_light->neutral_cast ? 2 : lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
         /* a made light's tunnel: the palette shown is the night's (drive_light_palette), so its tables are made brighter by as much as the palette takes off, to TUNNEL_LIGHT on the screen */
         float tunnel_tint[3] = { lit_tint[0], lit_tint[1], lit_tint[2] };
         if (psx_light->tunnel != NULL) {
             float shown[3];
             drive_light_tint(shown);
-            const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f, base = mean > 0.05f && mean < TUNNEL_LIGHT ? TUNNEL_LIGHT / mean : 1.0f, gain = look != NULL ? base * (float)look->percent / 100.0f : base;
+            const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f, base = mean > 0.05f && mean < TUNNEL_LIGHT ? TUNNEL_LIGHT / mean : 1.0f, gain = warm_cast != NULL ? base * (float)warm_percent / 100.0f : base;
             tunnel_tint[0] = tunnel_tint[1] = tunnel_tint[2] = gain;
         }
-        static float made_tunnel_tint[3];
+        static float made_tunnel_tint[3], made_warm[4];
         static int made_pool;
+        const float warm_now[4] = { warm_cast != NULL ? warm_cast[0] : 0, warm_cast != NULL ? warm_cast[1] : 0, warm_cast != NULL ? warm_cast[2] : 0, (float)warm_percent };
         const int has_pool = psx_light->pool_class != NULL;
-        if (!made || made_pool != has_pool || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0) {
+        if (!made || made_pool != has_pool || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0 || memcmp(made_warm, warm_now, sizeof made_warm) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
             memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
-            if (cast) modern_tunnel_tables(art->palette, tunnel_tint, look != NULL ? look->cast : cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
+            memcpy(made_warm, warm_now, sizeof made_warm);
+            if (cast) modern_tunnel_tables(art->palette, tunnel_tint, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
             else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
             if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
                 static const float WARM[3] = { 1.0f, 0.9f, 0.55f };

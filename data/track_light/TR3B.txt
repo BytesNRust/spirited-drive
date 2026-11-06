@@ -944,3 +944,5 @@ tunel 525 540
 canon 184 195
 canon 600 615
 reparto neutro 0 ciudad 3
+tono_tunel dia 0x1p+0 0x1.3d70a4p-1 0x1.eb851ep-4 125
+tono_tunel noche 0x1p+0 0x1.ae147ap-2 0x1.47ae14p-4 100

@@ -2426,3 +2426,5 @@ pozo_coche 1631 1631 3
 pozo_coche 1632 1633 2
 pozo_coche 1634 1634 1
 reparto neutro 0 ciudad 2
+tono_tunel dia 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 115
+tono_tunel noche 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 90

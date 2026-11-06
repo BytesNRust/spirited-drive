@@ -34,9 +34,14 @@ static void test_round_trip(void)
     PsxLight a = make(), b = { 0 };
     char *text = NULL;
     size_t size = 0;
+    a.warm_percent[1] = 174, a.warm_cast[1][0] = 1.0f, a.warm_cast[1][1] = 0.35f, a.warm_cast[1][2] = 0.05f;
     CHECK(track_light_format(&a, "CY1", 'N', 0x3fff, &text, &size));
     int bad = -1;
-    CHECK(track_light_parse(text, size, "CY1", 'N', NODES, 0x3fff, &b, &bad));
+    TrackLightFile f = { 0 };
+    CHECK(track_light_parse(text, size, "CY1", 'N', NODES, 0x3fff, &f, &bad));
+    CHECK(f.base);
+    b = f.light;
+    CHECK(f.tweaks.warm_set[1] && !f.tweaks.warm_set[0] && f.tweaks.warm_percent[1] == 174 && f.tweaks.warm_cast[1][1] == 0.35f);   /* the look's floats exactly */
     CHECK(memcmp(a.data, b.data, (size_t)NODES * PSX_LIGHT_POINTS) == 0);
     CHECK(b.tunnel != NULL && memcmp(a.tunnel, b.tunnel, NODES) == 0);
     CHECK(b.hall != NULL && memcmp(a.hall, b.hall, NODES) == 0);   /* present and empty stays present */
@@ -48,36 +53,62 @@ static void test_round_trip(void)
     CHECK(b.nodes == NODES);
     /* the file is by runs: the first ten identical rows are one line */
     CHECK(strstr(text, "filas 0 9 ") != NULL);
-    psx_light_free(&a), psx_light_free(&b);
+    psx_light_free(&a), track_light_file_free(&f);
     free(text);
 }
 
 static void test_header_and_bad_lines(void)
 {
-    PsxLight a = make(), b = { 0 };
+    PsxLight a = make();
+    TrackLightFile f = { 0 };
     char *text = NULL;
     size_t size = 0;
     CHECK(track_light_format(&a, "CY1", 'N', 0x3fff, &text, &size));
-    CHECK(!track_light_parse(text, size, "CY2", 'N', NODES, 0x3fff, &b, NULL));   /* another track */
-    CHECK(!track_light_parse(text, size, "CY1", 'B', NODES, 0x3fff, &b, NULL));   /* another time */
-    CHECK(!track_light_parse(text, size, "CY1", 'N', NODES + 1, 0x3fff, &b, NULL));   /* another node count */
-    CHECK(!track_light_parse(text, size, "CY1", 'N', NODES, 0x3ffe, &b, NULL));   /* made with other flags */
-    CHECK(b.data == NULL);
+    CHECK(!track_light_parse(text, size, "CY2", 'N', NODES, 0x3fff, &f, NULL));   /* another track */
+    CHECK(!track_light_parse(text, size, "CY1", 'B', NODES, 0x3fff, &f, NULL));   /* another time */
+    CHECK(!track_light_parse(text, size, "CY1", 'N', NODES + 1, 0x3fff, &f, NULL));   /* another node count */
+    CHECK(track_light_parse(text, size, "CY1", 'N', NODES, 0x3ffe, &f, NULL) && !f.base && f.light.data == NULL);   /* other flags: no base, the file still read */
+    track_light_file_free(&f);
     char *bad_text = malloc(size + 32);
     memcpy(bad_text, text, size);
     memcpy(bad_text + size, "tunel 5 99\n", 12);   /* past the track */
     int bad = 0;
-    CHECK(!track_light_parse(bad_text, size + 11, "CY1", 'N', NODES, 0x3fff, &b, &bad));
+    CHECK(!track_light_parse(bad_text, size + 11, "CY1", 'N', NODES, 0x3fff, &f, &bad));
     CHECK(bad > 2);
     char *missing = strdup("pista CY1 hora N nodos 40 banderas 3fff\nfilas 0 9 1 1 1 1 1 1 1 1 1 1 1\n");
-    CHECK(!track_light_parse(missing, strlen(missing), "CY1", 'N', NODES, 0x3fff, &b, NULL));   /* nodes without a row */
+    CHECK(!track_light_parse(missing, strlen(missing), "CY1", 'N', NODES, 0x3fff, &f, NULL));   /* nodes without a row */
     free(missing), free(bad_text), free(text);
     psx_light_free(&a);
+}
+
+static void test_tweaks_stay_with_other_flags(void)
+{
+    /* a file made with other flags: its rows are not used, but its retouches are read and apply over a light made some other way */
+    const char *text = "pista CY1 hora N nodos 40 banderas 1\nfilas 0 39 200 200 200 200 200 200 200 200 200 200 200\nbrillo 10 19 50\nbrillo 30 30 300\ntono_tunel dia 1 0.5 0.25 130\n";
+    TrackLightFile f = { 0 };
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 0x2, &f, NULL));
+    CHECK(!f.base);
+    PsxLight l = { 0 };
+    l.nodes = NODES;
+    l.data = malloc((size_t)NODES * PSX_LIGHT_POINTS);
+    memset(l.data, 100, (size_t)NODES * PSX_LIGHT_POINTS);
+    track_light_apply(&f.tweaks, &l);
+    CHECK(l.data[9 * PSX_LIGHT_POINTS] == 100 && l.data[10 * PSX_LIGHT_POINTS] == 50 && l.data[19 * PSX_LIGHT_POINTS + 10] == 50 && l.data[20 * PSX_LIGHT_POINTS] == 100);
+    CHECK(l.data[30 * PSX_LIGHT_POINTS] == 255);   /* clamped */
+    CHECK(l.warm_percent[0] == 130 && l.warm_cast[0][2] == 0.25f && l.warm_percent[1] == 0);
+    char names[128];
+    track_light_diff(0x1, 0x2, names, sizeof names);
+    CHECK(strstr(names, "trans_shadows=off") != NULL && strstr(names, "made_tunnels=on") != NULL);
+    track_light_diff(0x2, 0x2, names, sizeof names);
+    CHECK(names[0] == '\0');
+    psx_light_free(&l);
+    track_light_file_free(&f);
 }
 
 int main(void)
 {
     test_round_trip();
     test_header_and_bad_lines();
+    test_tweaks_stay_with_other_flags();
     return TEST_REPORT();
 }

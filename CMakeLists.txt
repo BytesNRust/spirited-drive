@@ -495,6 +495,7 @@ add_executable(tnfs
     game/viewer/drive_input.c
     game/viewer/drive_interp.c
     game/viewer/drive_clock.c
+    game/viewer/light_edit.c
     game/viewer/race_stats.c
     game/viewer/race_stats_draw.c
     game/viewer/draw_rands.c

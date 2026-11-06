@@ -1304,3 +1304,5 @@ tunel 592 767
 tunel 1012 1023
 coche_disco 1 0x1.4p-1 0x1.4p-1 0x1.4p-1 0x1.9fbe76p-1 0x1.8p-1 0x1.810624p-3
 reparto neutro 0 ciudad 2
+tono_tunel dia 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 115
+tono_tunel noche 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 90

@@ -37,17 +37,29 @@ int track_light_find(const char *track, char letter, char *out, size_t out_size)
     return 0;
 }
 
-int track_light_load(const char *track, char letter, uint32_t expected_nodes, uint32_t flags, PsxLight *out)
+int track_light_load(const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, char *path, size_t path_size, char *why, size_t why_size)
 {
-    char path[DATA_PATH_MAX];
-    if (!track_light_find(track, letter, path, sizeof path)) return 0;
+    char found[DATA_PATH_MAX];
+    if (why != NULL && why_size > 0) why[0] = '\0';
+    if (!track_light_find(track, letter, found, sizeof found)) return 0;
     size_t size = 0;
-    uint8_t *file = platform_read_file(path, &size);
+    uint8_t *file = platform_read_file(found, &size);
     if (file == NULL) return 0;
     int bad = 0;
     const int ok = track_light_parse((const char *)file, size, track, letter, expected_nodes, flags, out, &bad);
     platform_free_file(file);
-    if (ok) port_log("track light: %s\n", path);
-    else if (bad != 0) port_log("track light: %s is not well-formed (line %d), the light is made as before\n", path, bad);
-    return ok;
+    if (path != NULL && path_size > 0) snprintf(path, path_size, "%s", found);
+    if (!ok) {
+        if (bad != 0) port_log("track light: %s is not well-formed (line %d), the light is made as before\n", found, bad);
+        return 0;
+    }
+    if (out->base) {
+        port_log("track light: %s\n", found);
+    } else {
+        char names[160];
+        track_light_diff(out->flags, flags, names, sizeof names);
+        port_log("track light: %s was made with other settings (%s): the light is made in code, its retouches stay\n", found, names);
+        if (why != NULL && why_size > 0) snprintf(why, why_size, "settings differ: %s", names);
+    }
+    return 1;
 }

@@ -88,6 +88,9 @@ int track_light_format(const PsxLight *light, const char *track, char letter, ui
     if (light->car_disc)
         put(&b, "coche_disco 1 %a %a %a %a %a %a\n", (double)light->car_even[0], (double)light->car_even[1], (double)light->car_even[2], (double)light->car_odd[0], (double)light->car_odd[1], (double)light->car_odd[2]);
     put(&b, "reparto neutro %d ciudad %d\n", light->neutral_cast, light->city_tunnel);
+    for (int dark = 0; dark < 2; dark++)
+        if (light->warm_percent[dark] > 0)
+            put(&b, "tono_tunel %s %a %a %a %d\n", dark ? "noche" : "dia", (double)light->warm_cast[dark][0], (double)light->warm_cast[dark][1], (double)light->warm_cast[dark][2], light->warm_percent[dark]);
     if (b.failed) {
         free(b.text);
         return 0;
@@ -103,7 +106,7 @@ static uint8_t *flag_array(uint8_t **slot, uint32_t nodes)
 }
 
 /* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
-static int parse_line(const char *line, PsxLight *light, uint32_t *seen)
+static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
 {
     char key[32];
     int used = 0;
@@ -165,6 +168,30 @@ static int parse_line(const char *line, PsxLight *light, uint32_t *seen)
         for (int i = 0; i < 3; i++) light->car_even[i] = (float)v[i], light->car_odd[i] = (float)v[3 + i];
         return 1;
     }
+    if (strcmp(key, "brillo") == 0) {
+        if (sscanf(rest, "%u %u %u", &a, &b, &c) != 3 || a > b || b >= nodes || c > 1000 || tweaks->brightness_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
+        tweaks->brightness[tweaks->brightness_count++] = (TrackLightBrightness){ a, b, (int)c };
+        return 1;
+    }
+    if (strcmp(key, "tono_tunel") == 0) {
+        char when[16];
+        int n = 0, percent;
+        if (sscanf(rest, "%15s%n", when, &n) != 1 || (strcmp(when, "dia") != 0 && strcmp(when, "noche") != 0)) return 0;
+        const int dark = when[0] == 'n';
+        float cast[3];
+        rest += n;
+        for (int i = 0; i < 3; i++) {
+            char *end = NULL;
+            cast[i] = (float)strtod(rest, &end);
+            if (end == rest || cast[i] < 0.0f || cast[i] > 4.0f) return 0;
+            rest = end;
+        }
+        if (sscanf(rest, "%d", &percent) != 1 || percent < 1 || percent > 1000) return 0;
+        memcpy(tweaks->warm_cast[dark], cast, sizeof cast);
+        tweaks->warm_percent[dark] = percent;
+        tweaks->warm_set[dark] = 1;
+        return 1;
+    }
     if (strcmp(key, "reparto") == 0) {
         char n1[16], n2[16];
         int neutral, city;
@@ -175,11 +202,11 @@ static int parse_line(const char *line, PsxLight *light, uint32_t *seen)
     return 0;
 }
 
-int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, PsxLight *out, int *bad_line)
+int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line)
 {
     if (bad_line != NULL) *bad_line = 0;
     if (text == NULL || track == NULL || out == NULL || expected_nodes == 0) return 0;
-    PsxLight light = { 0 };
+    TrackLightFile file = { 0 };
     uint32_t seen = 0;
     int header = 0, line_no = 0;
     size_t at = 0;
@@ -200,23 +227,67 @@ int track_light_parse(const char *text, size_t size, const char *track, char let
             unsigned file_nodes, file_flags;
             if (line[strspn(line, " \t\r")] == '\0') continue;
             if (sscanf(line, " pista %31s hora %c nodos %u banderas %x", file_track, &file_letter, &file_nodes, &file_flags) != 4) goto bad;
-            if (strcmp(file_track, track) != 0 || file_letter != letter || file_nodes != expected_nodes || file_flags != flags) { psx_light_free(&light); return 0; }
-            light.nodes = expected_nodes;
-            light.data = calloc((size_t)expected_nodes * PSX_LIGHT_POINTS, 1);
-            if (light.data == NULL) return 0;
+            if (strcmp(file_track, track) != 0 || file_letter != letter || file_nodes != expected_nodes) { track_light_file_free(&file); return 0; }
+            file.flags = file_flags;
+            file.base = file_flags == flags;
+            file.light.nodes = expected_nodes;
+            file.light.data = calloc((size_t)expected_nodes * PSX_LIGHT_POINTS, 1);   /* parsed even when it is not the base: its lines are still checked */
+            if (file.light.data == NULL) return 0;
             header = 1;
             continue;
         }
-        if (!parse_line(line, &light, &seen)) goto bad;
+        if (!parse_line(line, &file.light, &file.tweaks, &seen)) goto bad;
     }
     if (!header || seen != expected_nodes) {
         line_no = 0;
         goto bad;
     }
-    *out = light;
+    if (!file.base) psx_light_free(&file.light);
+    *out = file;
     return 1;
 bad:
     if (bad_line != NULL) *bad_line = line_no;
-    psx_light_free(&light);
+    track_light_file_free(&file);
     return 0;
+}
+
+void track_light_file_free(TrackLightFile *file)
+{
+    if (file == NULL) return;
+    psx_light_free(&file->light);
+    memset(file, 0, sizeof *file);
+}
+
+void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light)
+{
+    if (tweaks == NULL || light == NULL) return;
+    for (int i = 0; i < tweaks->brightness_count && light->data != NULL; i++) {
+        const TrackLightBrightness *r = &tweaks->brightness[i];
+        for (uint32_t n = r->from; n <= r->to && n < light->nodes; n++)
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+                uint8_t *at = &light->data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p];
+                const int scaled = *at * r->percent / 100;
+                *at = (uint8_t)(scaled > 255 ? 255 : scaled);
+            }
+    }
+    for (int dark = 0; dark < 2; dark++)
+        if (tweaks->warm_set[dark]) {
+            memcpy(light->warm_cast[dark], tweaks->warm_cast[dark], sizeof light->warm_cast[dark]);
+            light->warm_percent[dark] = tweaks->warm_percent[dark];
+        }
+}
+
+void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size)
+{
+    static const char *const NAMES[TLF_COUNT] = { "trans_shadows", "made_tunnels", "car_tunnel_light", "hall_light", "parking_dark", "cavern_dark", "canyon_shade", "lamp_pool_tint",
+                                                  "lamp_car_shade", "lamp_pool_bright", "city_lift 3", "street lamps", "reverse" };
+    if (out == NULL || out_size == 0) return;
+    out[0] = '\0';
+    size_t len = 0;
+    for (int bit = 0; bit < TLF_COUNT; bit++) {
+        if (((file ^ now) >> bit & 1u) == 0) continue;
+        const int n = snprintf(out + len, out_size - len, "%s%s=%s", len ? ", " : "", NAMES[bit], (now >> bit & 1u) ? "on" : "off");
+        if (n < 0 || (size_t)n >= out_size - len) break;
+        len += (size_t)n;
+    }
 }

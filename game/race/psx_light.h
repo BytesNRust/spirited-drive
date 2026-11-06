@@ -27,6 +27,8 @@ typedef struct {
     int car_disc;       /* port (made_tunnels, car_tunnel_light): 1 where car_even / car_odd are the CD's own car ratios in a road tunnel's lamp alternation (psx_light_synth_disc_car), else CY1's day context */
     float car_even[3], car_odd[3];
     int city_tunnel;    /* port (made_tunnels): 1 CY1, 2 CY2 and CY3, 3 TR3: the road tunnels' tables take the CD's warm cast and the light it needs (ported_view.c) */
+    float warm_cast[2][3];   /* port (made_tunnels): city_tunnel's tunnel look [0 day, 1 night]: the cast of the dim levels (red, green, blue) ... */
+    int warm_percent[2];     /* ... and its light, the gain over the made tunnel's own in percent (psx_light_synth_warm_look; 0 none) */
     int neutral_cast;   /* port (made_tunnels, i074): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */
