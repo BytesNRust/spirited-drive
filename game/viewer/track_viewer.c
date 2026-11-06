@@ -450,6 +450,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = port_extras_load();
         field.port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
+        field.port_rally_road = arcade != 0;
+        field.port_analog_pad = port_analog_pad();
         field.port_rally_shoulder_sound = port_rally_gravel_shoulder();
         field.port_chase_height = port_chase_height();
     }

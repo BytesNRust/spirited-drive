@@ -76,6 +76,11 @@ typedef struct {
     int night_tone;   /* 0, 1, 2: the night's flat tint with no PS1 light (no CD .LGS): 0 the fallback's warm brown-green, 1 each track's CD tint, 2 one neutral cool blue-grey; the CD's own light is never touched */
     int rain_lamps;    /* 1: with weather=rain every car drives with its headlights on, day included: the lamp texels glow and the wet road shows their reflections; the night beam and pools stay the night's (no cone by day); 0: the exe's (the lamps follow the light only) */
     int gauge_exterior;    /* 1: with gauge_light the gauges are lit whenever the exterior lights are on (night, dusk, and rain with rain_lamps), not at night only; by day dry they stay unlit; 0: at night only, as now */
+    int traffic_spray;    /* with weather=rain, the water a traffic or police car throws up is a short wisp (one particle a tick, a tenth of a second) not the long plume; the player's and the rivals' stay; 0 the exe's plume */
+    int rally_dry_lamps;    /* with weather=rain in a rally (dirt) race the cars' lamps are not mirrored in the road (dirt is no mirror): the headlights' and tail lights' reflections are left out; 0 the exe's wet-asphalt reflections */
+    int traffic_halo;    /* with the PS1 flares at night, the traffic's lit headlights and brake lights get their halo as the racers' do (the port draws it only for the racers and the police car); 0 as now */
+    int police_halo;    /* the police car's roof lights' halo size: 0 the port's now, 1..3 progressively bigger, near and far */
+    int analog_pad;    /* 1: a control bound to an axis (a pad's stick or trigger, a wheel, pedals) steers and works the pedals in proportion, one bound to a key or button keeps its full lock and full pedal (analog_pad.h); 0 the exe's key paths */
     int sign_glow;         /* 1: at night, with the PS1 headlights, the City's matrix sign (CY1: EXPRESS LANES CLOSED) has its amber bulbs lit like the windows (window_lights.h); 0 the exe's */
     int lamp_pool_bright;  /* 1: with the PS1 headlights at night, a street lamp's pool is not dimmed by the night's dark floor: under the lamp the road, its shoulders and the scenery take the lamp's light in full, fading with the pool (the headlights' gain no longer swallows it); 0: the pool lifts the light the gain then dims, as now */
     int headlight_cone;    /* 1: with the PS1 headlights at night, the car's beam is a cone from its position and heading, per vertex of the road and scenery (it follows the nose, a turn, a U-turn); 0: the pool along the track's nodes as it was */
@@ -219,6 +224,21 @@ int port_rain_lamps(void);
 int port_gauge_exterior(void);
 /* 1 when sign_glow: TNFS_SIGN_GLOW=0/1 when set, else the mode's; never without port_psx_headlights(). */
 int port_sign_glow(void);
+
+/* 1 when analog_pad: TNFS_ANALOG_PAD=0..1 when set, else the mode's. */
+int port_analog_pad(void);
+
+/* the police roof halo's size 0..3: TNFS_POLICE_HALO=0..3 when set, else the mode's. */
+int port_police_halo(void);
+
+/* 1 when traffic_halo: TNFS_TRAFFIC_HALO=0..1 when set, else the mode's. */
+int port_traffic_halo(void);
+
+/* 1 when rally_dry_lamps: TNFS_RALLY_DRY_LAMPS=0..1 when set, else the mode's. */
+int port_rally_dry_lamps(void);
+
+/* 1 when traffic_spray: the traffic's and the police's spray is short: TNFS_TRAFFIC_SPRAY=0..1 when set, else the mode's. */
+int port_traffic_spray(void);
 /* 1 for a wet race: rain_grip on and the weather rain or storm (the grip is reduced and the race's records are not kept; track_gravity.h). */
 int port_rain_grip_active(void);
 /* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else the mode's; never without port_psx_light. */

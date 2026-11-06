@@ -61,12 +61,17 @@ typedef struct {
     int canyon_shade, tunnel_headlight, parking_dark, forest_neutral, cavern_dark, vegas_objects, close_houses;   /* port.cfg's, appended */
     int brake_over_gas, lamp_pools, lamp_car_shade, reverse_rows, city_lift, vegas_lift, headlight_cone, rain_fx, rain_grip, gauge_light, finish_gate_light, lamp_pool_bright;   /* port.cfg's, appended */
     int night_tone, rain_lamps, gauge_exterior, sign_glow;   /* port.cfg's, appended */
+    int traffic_spray;   /* port.cfg's, appended */
+    int rally_dry_lamps;   /* port.cfg's, appended */
+    int traffic_halo;   /* port.cfg's, appended */
+    int police_halo;   /* port.cfg's, appended */
+    int analog_pad;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 0, 1, 0, 2, 0, 0, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 0, 1, 0, 2, 0, 0, 1, 0, 0, 0, 0, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
@@ -174,7 +179,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.gauge_wheel = t->gauge_wheel;
     s.police_glow = t->police_glow;
     s.car_tunnel_light = t->car_tunnel_light, s.vegas_car_night = t->vegas_car_night, s.rally_gravel_shoulder = t->rally_gravel_shoulder;
-    s.chase_height = t->chase_height, s.lamp_pool_tint = t->lamp_pool_tint, s.trans_shadows = t->trans_shadows, s.canyon_shade = t->canyon_shade, s.tunnel_headlight = t->tunnel_headlight, s.parking_dark = t->parking_dark, s.forest_neutral = t->forest_neutral, s.cavern_dark = t->cavern_dark, s.vegas_objects = t->vegas_objects, s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.lamp_pools = t->lamp_pools, s.lamp_car_shade = t->lamp_car_shade, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.headlight_cone = t->headlight_cone, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light, s.lamp_pool_bright = t->lamp_pool_bright, s.night_tone = t->night_tone, s.rain_lamps = t->rain_lamps, s.gauge_exterior = t->gauge_exterior, s.sign_glow = t->sign_glow;
+    s.chase_height = t->chase_height, s.lamp_pool_tint = t->lamp_pool_tint, s.trans_shadows = t->trans_shadows, s.canyon_shade = t->canyon_shade, s.tunnel_headlight = t->tunnel_headlight, s.parking_dark = t->parking_dark, s.forest_neutral = t->forest_neutral, s.cavern_dark = t->cavern_dark, s.vegas_objects = t->vegas_objects, s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.lamp_pools = t->lamp_pools, s.lamp_car_shade = t->lamp_car_shade, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.headlight_cone = t->headlight_cone, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light, s.lamp_pool_bright = t->lamp_pool_bright, s.night_tone = t->night_tone, s.rain_lamps = t->rain_lamps, s.gauge_exterior = t->gauge_exterior, s.sign_glow = t->sign_glow, s.analog_pad = t->analog_pad, s.police_halo = t->police_halo, s.traffic_halo = t->traffic_halo, s.rally_dry_lamps = t->rally_dry_lamps, s.traffic_spray = t->traffic_spray;
     return s;
 }
 

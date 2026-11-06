@@ -76,6 +76,11 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
 | `lamp_pool_bright` | 0 | 0 | 0, 1 (a street lamp's pool is not dimmed by the night's dark floor: under the lamp the light is full, fading with the pool; 0 the pool is dimmed by the headlights' gain) | none | `TNFS_LAMP_POOL_BRIGHT` | 0 / 0 / 0 | `psx_headlights` |
 | `sign_glow` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 1 | `psx_headlights`, CY1 |
+| `analog_pad` | 0 | 0 | 0, 1 (a control bound to an axis (pad stick or trigger, wheel, pedals) steers and works the pedals in proportion, a key or button keeps full travel; 0 the exe's key paths) | none | `TNFS_ANALOG_PAD` | 1 / 1 / 1 | a game controller |
+| `police_halo` | 0 | 0 | 0..3 (the police roof lights' halo size: 0 as now, 1..3 progressively bigger (near and far)) | none | `TNFS_POLICE_HALO` | 0 / 0 / 0 | `police_glow`, `psx_flares` |
+| `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 0 | `psx_flares`, night |
+| `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 0 | `weather=rain`, `rain_fx`, a rally race |
+| `traffic_spray` | 0 | 0 | 0..1 (the traffic's and the police's rain spray is a short wisp, not the long plume; the player's and the rivals' keep theirs; 0 the exe's) | none | `TNFS_TRAFFIC_SPRAY` | 0 / 0 / 0 | `weather=rain`, `rain_fx` |
 | `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `psx_headlights`, `perspective` (without Perspective Correction the cone counts as 0: the node pool) |
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
 | `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 1 | `weather=rain` |
@@ -216,6 +221,11 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `finish_gate_light` | settings | 0 | 0 | 1 |
 | `lamp_pool_bright` | settings | 0 | 0 | 0 |
 | `sign_glow` | settings | 0 | 0 | 1 |
+| `analog_pad` | settings | 1 | 1 | 1 |
+| `police_halo` | settings | 0 | 0 | 0 |
+| `traffic_halo` | settings | 0 | 0 | 0 |
+| `rally_dry_lamps` | settings | 0 | 0 | 0 |
+| `traffic_spray` | settings | 0 | 0 | 0 |
 | `reverse_rows` | settings | 0 | 0 | 1 |
 | `city_lift` | settings | 0 | 0 | 1 |
 | `vegas_lift` | settings | 0 | 0 | 2 |

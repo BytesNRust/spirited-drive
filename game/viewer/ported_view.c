@@ -1121,7 +1121,11 @@ static void spray_update(void)
             wheel[w][2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * a) >> 16);
         }
         const int32_t right[2] = { fz, -fx };
-        rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, car->airborne_ticks == 0 && car->off_road == 0);
+        const int wet = car->airborne_ticks == 0 && car->off_road == 0;
+        if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
+            rain_spray_step_wisp(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
+        else
+            rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
     }
 }
 
@@ -1242,6 +1246,7 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
         const Car *car = shadow_race->cars[i];
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
+        if (shadow_race->port_rally_road != 0 && port_rally_dry_lamps()) continue;   /* port (rally_dry_lamps): dirt is no mirror, no lamp reflections (an early skip at the call, reflect_car itself untouched) */
         if (!rain_wet_off()) reflect_car(car, pixels, pitch, box, wt);
     }
 }
@@ -1657,7 +1662,8 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     if (!flare_on || palette == NULL || body == NULL || body->screen == NULL) return;
     /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (psx_flares) */
     const int cop = port_police_glow() && police_flash_on && police_lights_on(shadow_race, car);
-    if (car->index < 0 || car->index >= RACE_CARS || (car->index >= shadow_race->finish_cars && !cop)) return;
+    const int traffic_ok = port_traffic_halo() && drive_light_night();   /* port (traffic_halo): the traffic's lit lamps get their halo too, at night */
+    if (car->index < 0 || car->index >= RACE_CARS || (car->index >= shadow_race->finish_cars && !cop && !traffic_ok)) return;
     const int far_police = car->far != 0 && police_flash_on && police_lights_on(shadow_race, car);   /* the low detail model has no light texels: a far police car flashes by its rectangle */
     if (car->far != 0 && !far_police) return;
     FlareLamp lamps[5];
@@ -1690,14 +1696,17 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
     const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
-    const FlareLamp copred = { red, red != 0 ? police_lights_own_centre(1) : 0, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, BIG_REACH_POLICE };
-    const FlareLamp copblue = { blue, blue != 0 ? police_lights_own_centre(0) : 0, { copred.percent[0], copred.percent[1], copred.percent[2] }, BIG_REACH_POLICE };
+    static const int POLICE_REACH[4] = { BIG_REACH_POLICE, 400, 600, 900 }, POLICE_FAR[4] = { 100, 160, 240, 360 };   /* port (police_halo): the roof lights' halo size, near (percent of the lamp) and far (percent of the pair's) */
+    const int size = port_police_halo() < 0 ? 0 : port_police_halo() > 3 ? 3 : port_police_halo();
+    const FlareLamp copred = { red, red != 0 ? police_lights_own_centre(1) : 0, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, POLICE_REACH[size] };
+    const FlareLamp copblue = { blue, blue != 0 ? police_lights_own_centre(0) : 0, { copred.percent[0], copred.percent[1], copred.percent[2] }, POLICE_REACH[size] };
     if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, 0, { 30, 60, 100 }, 100 };
     if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, 0, { 30, 60, 100 }, 100 };
     for (int i = 0; i < n; i++) flare_lamp(t, palette, rect, &lamps[i]);
     if (far_police && !behind && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
         const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
-        const int radius = w * 7 / 10 < 8 ? 8 : w * 7 / 10 > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : w * 7 / 10;
+        int radius = w * 7 / 10 < 8 ? 8 : w * 7 / 10 > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : w * 7 / 10;
+        radius = radius * POLICE_FAR[size] / 100 > LAMP_FLARE_BIG_RADIUS ? LAMP_FLARE_BIG_RADIUS : radius * POLICE_FAR[size] / 100;
         const int cy = rect[1] + h / 4;
         const FlareLamp left = { phase == 0 ? red : blue, 0, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, 0, { 70, 120, 180 }, 100 };
         if (left.entry != 0) flare_halo(t, palette, &left, rect[0] + w / 3, cy, radius);
