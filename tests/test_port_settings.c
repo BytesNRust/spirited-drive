@@ -218,6 +218,14 @@ static void test_round_trip(void)
 
 /* the render threads: the number of threads the bands use, 0 for off (the plain path) and -1 for "auto" (as many as
  * the logical cores, at most eight). The file names them "render_bands=0|auto|2|4". */
+static void test_gauge_light_values(void)
+{
+    const char *car = "gauge_light=5\n", *over = "gauge_light=6\n", *four = "gauge_light=4\n";
+    CHECK_EQ_INT(port_settings_parse(car, strlen(car)).gauge_light, 5);    /* "Del coche": the dash's own colours */
+    CHECK_EQ_INT(port_settings_parse(four, strlen(four)).gauge_light, 4);
+    CHECK_EQ_INT(port_settings_parse(over, strlen(over)).gauge_light, 0);  /* out of range: the default */
+}
+
 static void test_fog_sample_values(void)
 {
     const char *const on = "fog_sample=1\n", *const bad = "fog_sample=2\n";
@@ -594,7 +602,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.headlight_cone, 1);
     CHECK_EQ_INT(back.rain_fx, 1);
     CHECK_EQ_INT(back.rain_grip, 1);
-    CHECK_EQ_INT(back.gauge_light, 3);   /* a level 0..4 */
+    CHECK_EQ_INT(back.gauge_light, 3);   /* a level 0..5 */
     CHECK_EQ_INT(back.finish_gate_light, 1);
     CHECK_EQ_INT(back.reverse_rows, 1);
     CHECK_EQ_INT(back.city_lift, 2)   /* a level 0..2, not a flag */;
@@ -661,6 +669,7 @@ int main(void)
     test_bad_input_keeps_defaults();
     test_render_bands_values();
     test_free_records_values();
+    test_gauge_light_values();
     test_fog_sample_values();
     test_sky_fill_values();
     test_replay_no_ffb_values();

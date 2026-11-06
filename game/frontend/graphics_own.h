@@ -11,12 +11,12 @@
 
 #include "game/frontend/graphics_menu.h"
 
-/* the twelve settings, in the owner's order, then the two buttons. DONE restarts from SETTINGS, as graphics_plus.h's
+/* the twelve settings, in the owner's order, then GAUGES (port: "Gauge Light", gauge_light's six values, last so no row's number moves), then the two buttons. DONE restarts from SETTINGS, as graphics_plus.h's
  * ROW_DONE does: without it the two buttons would start one row after the settings' count. A row's number is also its
  * place in the labels' table. LIGHT is "Light effects": psx_light and psx_shadow together. */
 enum { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_VIEW, GRAPHICS_OWN_FOG, GRAPHICS_OWN_LIGHT,
        GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_FULLSCREEN, GRAPHICS_OWN_SCALING,
-       GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE, GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_DONE = GRAPHICS_OWN_SETTINGS,
+       GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE, GRAPHICS_OWN_GAUGES, GRAPHICS_OWN_SETTINGS, GRAPHICS_OWN_DONE = GRAPHICS_OWN_SETTINGS,
        GRAPHICS_OWN_CANCEL, GRAPHICS_OWN_ROWS };
 
 /* the clean background's size, as config_bgnd.h's CONFIG_BGND_W and _H */

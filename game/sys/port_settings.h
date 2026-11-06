@@ -91,7 +91,7 @@ typedef struct {
     int rain_fx;    /* with weather=rain, the rain's streaks follow the car's speed (spokes from the vanishing point) and are lit by the headlights at night; 0 phase 1's fixed streaks */
     int rain_grip;    /* with weather=rain, the road's grip is reduced; records of a wet race are kept apart */
     int finish_gate_light;    /* 1: at night the stage tracks' CHECKPOINT / FINISH gate banner keeps its daylight look, lit against the dark (finish_gate_light.h); 0 the exe's */
-    int gauge_light;    /* 0..4: at night the lit parts of the dash gauges take a colour (1 greenish, 2 reddish, 3 orange, 4 bluish); 0 the exe's untinted white */
+    int gauge_light;    /* 0..5: at night the lit parts of the dash gauges take a colour (1 greenish, 2 reddish, 3 orange, 4 bluish, 5 the car's: the colours painted in the dash's dash_color.png, orange where none); 0 the exe's untinted white */
     int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
                               * (psx_light_synth_trans); 0: the made light as it was */
     int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own

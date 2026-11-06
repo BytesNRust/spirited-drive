@@ -28,4 +28,8 @@ int dash_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, s
  * $TNFS_DASH_MASKS, data/dash_masks and the source tree's that has <stem>/dash_mask.png. malloc'd; NULL when there is none or it does not read. */
 uint8_t *dash_mask_load(const char *stem);
 
+/* The bytes of <root>/<stem>/<name> (stem as given), from the first of $TNFS_DASH_MASKS, data/dash_masks and the source tree's that has it: the dash's hand-made files
+ * (dash_mask.png, dash_color.png). Freed with platform_free_file; NULL when there is none. */
+uint8_t *dash_asset_read(const char *stem, const char *name, size_t *size);
+
 #endif

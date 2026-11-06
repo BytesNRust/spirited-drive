@@ -50,10 +50,13 @@ void drive_light_world_done(const uint8_t *frame, size_t count);
 /* The 2D layer's own marks (640 x 480 wide, as the compose makes them): per layer pixel PSX_CLASS_DASH (the dash's art, the wheel, the
  * pillars, the mirror's housing: half the tint), PSX_CLASS_HUD (the top bar, the map, the gauges' dials and needles: none) or
  * LAYER_KEY (the 3D shows: whole). `width` x `height` the layer's size, `scale` the output's over it. Over what the diff finds. */
-enum { PSX_CLASS_DASH = 1, PSX_CLASS_HUD = 2, PSX_CLASS_LIT = 3 };   /* LIT (port, gauge_light): a gauge's lit part at night, through its own palette (drive_light_palette_lit) */
+enum { PSX_CLASS_DASH = 1, PSX_CLASS_HUD = 2, PSX_CLASS_LIT = 3, PSX_CLASS_LIT_COLOUR = 4, PSX_CLASS_LIT_COLOURS = 12 };   /* LIT_COLOUR + slot, slot < LIT_COLOURS (dash_color.h) */   /* LIT (port, gauge_light): a gauge's lit part at night, through its own palette (drive_light_palette_lit) */
 /* port (gauge_light): the palette of the gauges' lit parts: `palette` (the plain one, as the HUD shows) brightened and tinted by gauge_light's colour (1 greenish, 2 reddish, 3 orange,
  * 4 bluish); 0 when the key is 0 or the race is not at night (`out` untouched), 1 when made. Mask value 3 goes through it. */
 int drive_light_palette_lit(const uint8_t palette[768], uint8_t out[768]);
+/* port (gauge_light = 5): a lit part painted with the colour `rgb` (dash_color.h): PSX_CLASS_LIT_COLOUR + slot goes through this. `palette` brightened as drive_light_palette_lit does,
+ * the colour's strongest channel taken as 1 (it sets the hue, the art the brightness). 1 when made, 0 when the key is not 5 or the gauges are not lit. */
+int drive_light_palette_lit_colour(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[768]);
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
 /* 1 when the race loaded is at night (the night's sky and dash). */
 int drive_light_night(void);
