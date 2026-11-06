@@ -1,4 +1,6 @@
 #include "viewer/ported_view.h"
+#include "game/race/car_progress.h"
+#include "game/race/race_chase.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/bands.h"
 #include "game/gfx/raster_record.h"
@@ -1179,6 +1181,22 @@ static int reflection_weight(const Car *car, int32_t forward[2], int *front)
     return weather_reflection_weight((float)dot, (float)dist);
 }
 
+/* Whether the road between the camera and `foot` (a lamp's point on the road) rises above the line of sight: the lamp is behind a crest, and its reflection, painted over the finished frame with no
+ * depth, would hang over the road in front of the crest. The road's height is sampled at eight points of the line (the plane of the node each lies in, as the car's shadow takes it). */
+static int foot_behind_crest(const Car *car, const int32_t foot[3])
+{
+    const int32_t eye[3] = { model_view.camera_position[0], model_view.camera_position[1], model_view.camera_position[2] };
+    const int32_t margin = 0x2666;   /* 0.15 m: the plane under the mesh's own steps */
+    int32_t node = car->node;
+    for (int k = 7; k >= 1; k--) {
+        int32_t at[3];
+        for (int i = 0; i < 3; i++) at[i] = (int32_t)(eye[i] + (int64_t)(foot[i] - eye[i]) * k / 8);
+        point_find_node(at, shadow_race, &node);
+        if (race_chase_road_height(shadow_race, node, at) > at[1] + margin) return 1;
+    }
+    return 0;
+}
+
 static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
 {
     const int night = drive_light_night();
@@ -1195,7 +1213,10 @@ static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const in
         const int32_t across = (int32_t)(((int64_t)width * 9 * side) / 25);   /* 0.36 of the width out */
         foot[0] = mirror[0] = car->x + (int32_t)(((int64_t)forward[0] * along) >> 16) + (int32_t)(((int64_t)forward[1] * across) >> 16);
         foot[2] = mirror[2] = car->z + (int32_t)(((int64_t)forward[1] * along) >> 16) - (int32_t)(((int64_t)forward[0] * across) >> 16);
-        foot[1] = car->road_point_heading[1] != 0 ? car->road_point_heading[1] : car->y, mirror[1] = foot[1] - 0xc000;   /* the road under the lamp (the car's origin is on the road), and the lamp as the road shows it, below it (a wet road smears it longer than the lamp is high) */
+        /* the road under the lamp: its own height there (the bumper is a couple of metres off the car's origin, which is on a slope) */
+        foot[1] = race_chase_road_height(shadow_race, car->node, foot);
+        mirror[1] = foot[1] - 0xc000;   /* and the lamp as the road shows it, below it (a wet road smears it longer than the lamp is high) */
+        if (foot_behind_crest(car, foot)) continue;   /* behind a crest the road does not show it */
         if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
         const int32_t half = (0x38400 / c0[2] * 220 / SPRAY_DIV + 1) * (night ? 3 : 2) / 2;   /* wider at night: the lamps are the light */
         const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
