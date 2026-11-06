@@ -96,6 +96,7 @@ static void test_tables(void)
     const PortSettings base = port_settings_defaults();
     PortSettings s = port_profile_settings(PROFILE_STOCK, base, SCREEN_21_9);
     CHECK_EQ_INT(s.analog_pad, 1);   /* the owner: an axis-bound control is analog in all three, as the exe was with a joystick */
+    CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* the exe's lamp pools */
     CHECK_EQ_INT(s.format, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 30);   /* the exe's 30 steps a second, drawn once each */
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
@@ -114,6 +115,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.analog_pad, 1);
+    CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* the exe's lamp pools */
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
@@ -159,7 +161,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.gauge_light, 5);   /* the owner: the dash's own colours ("Car") are Restomod's default; orange where the car paints none */
     CHECK_EQ_INT(s.police_halo, 1);   /* the owner: one size under the 2 he tried */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
-    CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* not until the owner approves it */
+    CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */
     CHECK_EQ_INT(s.city_lift, 3);   /* the owner: the new City night is Restomod's default */
     CHECK_EQ_INT(s.night_tone, 2);   /* the owner picked the cool night (2) for the night with no disc */
     CHECK_EQ_INT(s.rain_lamps, 0);   /* not until the owner approves it */
