@@ -671,6 +671,25 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
         for (int k = 0; k < 3; k++) out[k] *= gain;
         if (port_lamp_car_shade()) (void)psx_light_car_pool(psx_light, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
+    if (!found && psx_light != NULL && psx_light->car_pool != NULL && port_lamp_car_shade()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
+        static int mode = -1;
+        if (mode < 0) mode = getenv("TNFS_LAMP_CAR_MODE") ? atoi(getenv("TNFS_LAMP_CAR_MODE")) : 1;
+        const uint32_t at = psx_ring_node(node, psx_light->nodes);
+        out[0] = out[1] = out[2] = 1.0f;
+        if (mode == 2) {   /* steady: the nearest lamp is within 8 nodes either side, the lift is the weakest pool's all the way along the lamps' stretch */
+            int near = 0;
+            for (int d = -8; d <= 8 && !near; d++) near = psx_light->car_pool[psx_ring_node((int32_t)at + d, psx_light->nodes)] != 0;
+            if (near) {
+                PsxLight steady = *psx_light;
+                uint8_t keep = 2;
+                steady.car_pool = &keep;
+                steady.nodes = 1;
+                return psx_light_car_pool(&steady, 0, out);
+            }
+            return 0;
+        }
+        return psx_light_car_pool(psx_light, at, out);
+    }
     return found;
 }
 
@@ -712,7 +731,7 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 /* the table for a car at `node`, NULL when its ambient is the world's */
 static const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
-    if (!(ambient_on || synth_on) || psx_light == NULL || palette == NULL) return NULL;
+    if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL))) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
     static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
     static uint8_t made_for[768];
     static int next, valid;
