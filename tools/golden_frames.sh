@@ -41,8 +41,7 @@ fi
 
 tmp=$(mktemp -d -t golden_frames.XXXXXX) || exit 1
 trap 'rm -rf $tmp' EXIT INT TERM   # zsh: $tmp is read when the trap fires, so the dir is always the one above
-# the player's own port.cfg (format, field of view, distance) stays out: an empty mods dir holds the user files, so
-# the frames take the defaults
+# the player's own files stay out: an empty mods dir holds the user files, so the frames are Stock '96's, the exe's
 mkdir -p $tmp/mods || exit 1
 missing=0
 lines=()

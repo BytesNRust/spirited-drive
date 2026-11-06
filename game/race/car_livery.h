@@ -1,4 +1,4 @@
-/* port: the PS1 second livery of a car (extras.cfg psx_liveries). The PS1 CD has two body liveries for each of the
+/* port: the PS1 second livery of a car (the mode's file psx_liveries). The PS1 CD has two body liveries for each of the
  * eight drivable cars, Z<CAR>.VSM (the colour the PC has) and Z<CAR>.WSM (the alternate). Their textures are repainted
  * copies of one another, so the alternate is taken as a colour map: the body colours the normal livery uses that the
  * alternate does not, matched by luminance rank onto the alternate's own, weight for weight. The map is applied to a

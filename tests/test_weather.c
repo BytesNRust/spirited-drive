@@ -13,6 +13,8 @@ static void test_names(void)
     CHECK_EQ_INT(weather_named("clear"), WEATHER_CLEAR);
     CHECK_EQ_INT(weather_named("Fog"), WEATHER_FOG);
     CHECK_EQ_INT(weather_named("RAIN"), WEATHER_RAIN);
+    CHECK_EQ_INT(weather_named("storm"), WEATHER_STORM);
+    CHECK(weather_wet(WEATHER_RAIN) && weather_wet(WEATHER_STORM) && !weather_wet(WEATHER_FOG) && !weather_wet(WEATHER_CLEAR));
     CHECK_EQ_INT(weather_named("snow"), -1);
     CHECK_EQ_INT(weather_named(""), -1);
     CHECK_EQ_INT(weather_named("clearclearclear"), -1);
@@ -253,7 +255,7 @@ static void test_rain_spray_plume(void)
     CHECK(z0 > 0);
 }
 
-/* rain_lightning: the storm's clock: a strike is full on its first tick and decays; one or two a slot, the second weaker and well apart */
+/* WEATHER_STORM: the storm's clock: a strike is full on its first tick and decays; one or two a slot, the second weaker and well apart */
 static void test_storm_clock(void)
 {
     int strikes = 0, doubles = 0, quiet_slots = 0;

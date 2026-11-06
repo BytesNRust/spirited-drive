@@ -13,7 +13,13 @@ static size_t stored_size;
 
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
-    (void)name;
+    if (strcmp(name, "port.cfg") == 0) {   /* the mode that leaves everything free; port_profile's test has the others */
+        static const char MODE[] = "profile=restomod\n";
+        uint8_t *mode = malloc(sizeof MODE);
+        memcpy(mode, MODE, sizeof MODE);
+        *size = sizeof MODE - 1;
+        return mode;
+    }
     if (stored_size == 0) return NULL;
     uint8_t *copy = malloc(stored_size);
     memcpy(copy, stored, stored_size);
@@ -23,7 +29,7 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
 
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
-    (void)name;
+    if (strcmp(name, "port.cfg") == 0) return true;   /* the mode stays */
     memcpy(stored, data, size);
     stored_size = size;
     return true;

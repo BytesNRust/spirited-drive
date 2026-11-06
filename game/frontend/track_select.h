@@ -86,7 +86,7 @@ typedef struct TrackSelectInputs {
 typedef struct TrackSelectPlus {
     int unlock_m, unlock_r;           /* 004fbad8's and 004fbadc's variants offered (central's unlocks) */
     int32_t *variant_m, *variant_r;   /* 004fbad8, 004fbadc: the flags, as the cheats set them */
-    int variant_time;                 /* extras.cfg's: the time of day offered with a variant too */
+    int variant_time;                 /* the mode's file's: the time of day offered with a variant too */
     /* port_track_weather (0 is the exe's screen): the weather row, item 10, under the time of day on every track. */
     int port_track_weather;
     int *weather;                     /* the row's value, a WEATHER_* (weather.h): port.cfg's weather; with port_track_weather */

@@ -147,20 +147,10 @@ static void test_select(void)
     p = port_extras_parse(bad, strlen(bad));
     CHECK_EQ_INT(p.car_paint[0], 1);
     CHECK_EQ_INT(p.car_paint[2], 0);
-    const char *old = "psx_livery_cars=2056\n";   /* bits 3 and 11 */
-    p = port_extras_parse(old, strlen(old));
-    CHECK_EQ_INT(p.car_paint[3], PAINT_PS1);
-    CHECK_EQ_INT(p.car_paint[11], PAINT_PS1);
-    CHECK_EQ_INT(p.car_paint[4], PAINT_OWN);
-    const char *both = "psx_livery_cars=2056\ncar_paint=000000000000\n";   /* the new key rules: the choices were changed back */
-    CHECK_EQ_INT(port_extras_parse(both, strlen(both)).car_paint[3], PAINT_OWN);
-    const char *big = "psx_livery_cars=4096\n";
-    CHECK_EQ_INT(port_extras_parse(big, strlen(big)).car_paint[0], PAINT_OWN);
-    d.car_paint[2] = 4, d.car_paint[11] = PAINT_PS1, d.psx_livery_cars = 2056;
+    d.car_paint[2] = 4, d.car_paint[11] = PAINT_PS1;
     char text[512];
     CHECK(port_extras_format(&d, text, sizeof text) > 0);
     CHECK(strstr(text, "car_paint=004000000001\n") != NULL);
-    CHECK(strstr(text, "psx_livery_cars") == NULL);   /* the old key is no longer written */
     CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[2], 4);
     CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[11], PAINT_PS1);
 

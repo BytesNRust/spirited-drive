@@ -38,7 +38,7 @@ static int32_t glue_config_load(void *ctx)
     return defaults;
 }
 static void glue_title(void *ctx, int32_t state) { (void)ctx; glue_title_screen(state); }
-/* port: the first time, extras.cfg's start screen instead of Game Mode (menu_glue.c) */
+/* port: the first time, the mode's file's start screen instead of Game Mode (menu_glue.c) */
 static int32_t glue_main_menu(void *ctx)
 {
     static int started;

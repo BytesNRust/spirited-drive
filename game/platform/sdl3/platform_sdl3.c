@@ -18,6 +18,7 @@
 #include <emscripten.h>
 #endif
 #if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <unistd.h>   /* fsync */
 #include <limits.h>   /* realpath: symbolic links out of the mods directory are refused */
 #define TNFS_HAVE_REALPATH 1
 #endif
@@ -945,7 +946,7 @@ static const char *user_path(const char *name, char *out, size_t out_size)
 /* port (perf): the settings' .cfg files are read by every port_*() accessor, many times a frame (from the band threads
  * too), each an open, read and mkdir. A copy of the bytes is kept for CFG_CACHE_MS: a write or remove through this layer
  * drops it at once, so a menu's change applies immediately, and a file edited from outside is seen within the interval. */
-enum { CFG_CACHE_SLOTS = 4, CFG_CACHE_MS = 50 };
+enum { CFG_CACHE_SLOTS = 8, CFG_CACHE_MS = 50 };   /* port.cfg, the three modes' files, controls.cfg and room */
 static struct {
     char path[1024];
     uint8_t *data;
@@ -953,6 +954,7 @@ static struct {
     Uint64 at;
 } cfg_cache[CFG_CACHE_SLOTS];
 static atomic_flag cfg_lock = ATOMIC_FLAG_INIT;
+static Uint64 cfg_writes;   /* with the lock: a read that spans a write does not keep what it read */
 
 static void cfg_lock_take(void) { while (atomic_flag_test_and_set_explicit(&cfg_lock, memory_order_acquire)) {} }
 static void cfg_lock_give(void) { atomic_flag_clear_explicit(&cfg_lock, memory_order_release); }
@@ -975,6 +977,7 @@ static void cfg_cache_drop(const char *path)   /* with the lock held */
 static void cfg_cache_forget(const char *path)
 {
     cfg_lock_take();
+    cfg_writes++;
     cfg_cache_drop(path);
     cfg_lock_give();
 }
@@ -996,9 +999,14 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
         cfg_lock_give();
         return copy;
     }
+    const Uint64 writes_before = cfg_writes;
     cfg_lock_give();
     uint8_t *data = SDL_LoadFile(path, size);
     cfg_lock_take();
+    if (cfg_writes != writes_before) {
+        cfg_lock_give();
+        return data;
+    }
     cfg_cache_drop(path);
     uint8_t *keep = data != NULL ? SDL_malloc(*size + 1) : NULL;
     if (keep != NULL) {
@@ -1014,19 +1022,34 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
     return data;
 }
 
+/* the bytes in `path`, on the disk and not only in the system's buffers when it returns true */
+static bool write_to_disk(const char *path, const uint8_t *data, size_t size)
+{
+    SDL_IOStream *io = SDL_IOFromFile(path, "wb");
+    if (io == NULL) return false;
+    bool ok = SDL_WriteIO(io, data, size) == size && SDL_FlushIO(io);
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+    FILE *file = SDL_GetPointerProperty(SDL_GetIOProperties(io), SDL_PROP_IOSTREAM_STDIO_FILE_POINTER, NULL);
+    if (ok && file != NULL) ok = fsync(fileno(file)) == 0;
+#endif
+    return SDL_CloseIO(io) && ok;
+}
+
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
     char path[1024], temp[1100];
     if (user_path(name, path, sizeof path) == NULL) return false;
     cfg_cache_forget(path);
-    /* Write beside the target and rename, so a crash cannot truncate a good file. */
-    SDL_snprintf(temp, sizeof temp, "%s.tmp", path);
-    if (!SDL_SaveFile(temp, data, size)) {
+    /* Write beside the target and rename, so a crash cannot truncate a good file. The name is this write's own: two running games do not mix their bytes. */
+    SDL_snprintf(temp, sizeof temp, "%s.%llx.%llx.tmp", path, (unsigned long long)SDL_GetCurrentThreadID(), (unsigned long long)SDL_GetPerformanceCounter());
+    if (!write_to_disk(temp, data, size)) {
         port_log("platform: cannot write %s: %s\n", temp, SDL_GetError());
+        SDL_RemovePath(temp);
         return false;
     }
     if (!SDL_RenamePath(temp, path)) {
         port_log("platform: cannot rename %s: %s\n", temp, SDL_GetError());
+        SDL_RemovePath(temp);
         return false;
     }
     cfg_cache_forget(path);   /* a read that began before the rename may have kept the old bytes */

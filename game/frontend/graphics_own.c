@@ -6,6 +6,7 @@
 
 #include "core/formats/fsh.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -28,6 +29,12 @@ static const char *const LABEL[ROW_IDS] = {
     [GRAPHICS_OWN_FOV] = "Field Of View", [GRAPHICS_OWN_FORMAT] = "Screen Format", [GRAPHICS_OWN_REFRESH] = "Refresh Rate",
     [GRAPHICS_OWN_FULLSCREEN] = "Full Screen", [GRAPHICS_OWN_SCALING] = "Scaling", [GRAPHICS_OWN_BANDS] = "Render Threads",
     [GRAPHICS_OWN_SCALE] = "Render Scale",
+};
+/* the file key that says whether a row is free in the mode (port_profile_key_free); the view distance is config.dat's, free in every mode (Ultra is view_ultra's) */
+static const char *const ROW_KEY[GRAPHICS_OWN_SETTINGS] = {
+    [GRAPHICS_OWN_PERSPECTIVE] = "perspective", [GRAPHICS_OWN_FILTER] = "texture_filter", [GRAPHICS_OWN_VIEW] = NULL, [GRAPHICS_OWN_FOG] = "fog", [GRAPHICS_OWN_LIGHT] = "psx_light",
+    [GRAPHICS_OWN_FOV] = "fov_adjust", [GRAPHICS_OWN_FORMAT] = "format", [GRAPHICS_OWN_REFRESH] = "refresh_hz", [GRAPHICS_OWN_FULLSCREEN] = "fullscreen", [GRAPHICS_OWN_SCALING] = "scale",
+    [GRAPHICS_OWN_BANDS] = "render_bands", [GRAPHICS_OWN_SCALE] = "render_scale",
 };
 static const char *const TITLE = "Graphics Detail";   /* title case, as "Game Mode": the font makes the rest small capitals */
 static const char *const FORMAT_TEXT[3] = { "4:3", "16:9", "21:9" };
@@ -149,7 +156,7 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
     }
     case GRAPHICS_OWN_FULLSCREEN:
         s->fullscreen ^= 1;
-        if (s->fullscreen) s->format = fullscreen_format;
+        if (s->fullscreen && port_profile_key_free((Profile)s->profile, "format")) s->format = fullscreen_format;   /* not where the mode holds the format */
         break;
     case GRAPHICS_OWN_FOV: {
         const int steps = (FOV_MAX - FOV_MIN) / FOV_STEP + 1;
@@ -296,12 +303,21 @@ static void text_right(const GraphicsMenuOps *o, int32_t style, const char *text
     own_text(o, style, text, right - o->plus_text_width(o->ctx, text), y);
 }
 
+/* the mode holds the row, wherever the screen was opened from */
+static int held_by_mode(const Screen *s, int row)
+{
+    const GraphicsPlus *const plus = s->st->plus;
+    return plus != NULL && row < GRAPHICS_OWN_SETTINGS && ROW_KEY[row] != NULL && !port_profile_key_free((Profile)plus->port->profile, ROW_KEY[row]);
+}
+
 /* whether the row can be changed here: every row is, from Options; in the race's pause menu the next race's rows are
  * not (their values are shown, dimmed, with a note) */
 static int editable(const Screen *s, int row)
 {
     const GraphicsPlus *const plus = s->st->plus;
-    if (plus == NULL || !plus->race) return 1;
+    if (plus == NULL) return 1;
+    if (held_by_mode(s, row)) return 0;
+    if (!plus->race) return 1;
     if (row == GRAPHICS_OWN_VIEW) return graphics_own_view_live(plus->f3_ultra, view_of(s->st), plus->port->view_ultra);
     return graphics_own_live_in_race(row, view_of(s->st), plus->port->view_ultra);
 }
@@ -340,7 +356,7 @@ static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
         graphics_own_view_value(view_of(s->st), s->st->plus->port->view_ultra, value);
     else
         graphics_own_value(s->st->plus->port, row, value);
-    if (live)
+    if (live || held_by_mode(s, row))
         snprintf(shown, sizeof shown, "%s", value);
     else
         snprintf(shown, sizeof shown, "%s (next race)", value);
@@ -424,7 +440,8 @@ static void step_row(Screen *s, const GraphicsMenuOps *o, int row, int direction
         if (s->st->plus->race)
             graphics_own_race_view_step_for(s->st->plus->f3_ultra, &view, &port->view_ultra);
         else
-            graphics_own_view_step(&view, &port->view_ultra);
+            if (port_profile_key_free((Profile)port->profile, "view_ultra")) graphics_own_view_step(&view, &port->view_ultra);
+            else graphics_own_race_view_step(&view, &port->view_ultra);   /* the exe's three, no Ultra */
         view_to(s->st, view);
     } else {
         graphics_own_step(port, row, direction, s->st->plus->fullscreen_format);

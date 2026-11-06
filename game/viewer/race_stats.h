@@ -1,4 +1,4 @@
-/* port: the race's stats overlay, F12 in a race (extras.cfg's stats_overlay, Off by default): the "3D render stats", the
+/* port: the race's stats overlay, F12 in a race (the mode's file's stats_overlay, Off by default): the "3D render stats", the
  * rendering figures only: frames a second, the frame time, the refresh, the interp, the render's size and format, the
  * view distance's segments, and Modern 3D with its Texture Filter and Fog. In the top-left corner under the HUD's top
  * row, in the CD's small face (text_small_*). Presentation only: it is drawn into a copy of the frame just before the
@@ -58,11 +58,11 @@ typedef struct {
     char line[RACE_STATS_LINES][RACE_STATS_LINE_LEN];
 } RaceStatsText;
 
-/* A race starts with the saved state (extras.cfg's stats_overlay): `on` */
+/* A race starts with the saved state (the mode's file's stats_overlay): `on` */
 void race_stats_start(RaceStats *s, int on);
 /* 1 when F12 was pressed this frame (the edge, not the hold) and the overlay has been toggled */
 int race_stats_key(RaceStats *s, int down);
-/* race_stats_key, and on a toggle the new value is written to extras.cfg; 1 when it toggled */
+/* race_stats_key, and on a toggle the new value is written to the mode's file; 1 when it toggled */
 int race_stats_key_save(RaceStats *s, int down);
 /* One presented frame at `now_ms`; every frame counts, shown or not */
 void race_stats_sample(RaceStats *s, uint32_t now_ms);

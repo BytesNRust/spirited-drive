@@ -1,4 +1,4 @@
-/* port: the moon's gravity and grip (lunar_springs.h, extras.cfg's lunar_gravity). In the moon's race (RaceState's
+/* port: the moon's gravity and grip (lunar_springs.h, the mode's file's lunar_gravity). In the moon's race (RaceState's
  * port_lunar_gravity) a car is pulled down a third as hard as the exe's pull (the unit and its half, car_vertical.c) and
  * its surfaces grip at two thirds of their own. Both are identity with the flag at 0, so the exe's numbers stay byte for
  * byte; the exe's own TRACK_FLAG_LOW_GRAVITY (a track's smaller pull) is left as it is. */

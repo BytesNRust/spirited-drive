@@ -1,4 +1,4 @@
-/* port (extras.cfg's rally_gravel): the rally's loose road made to feel like one. In the exe the rally only makes every surface loose
+/* port (the mode's file's rally_gravel): the rally's loose road made to feel like one. In the exe the rally only makes every surface loose
  * (race_surfaces_init): its tyres throw dirt and mark the road only when they slide, and its gravel sound is a track 5 off-road
  * oddity. With the switch the rally rolls on a gravel noise all along, and by what the track is made of:
  *   compacted gravel (City, Coastal, Alpine): the exe's dirt, when the tyres slide, nothing more
@@ -14,7 +14,7 @@
 enum { RALLY_GRAVEL_OFF = 0, RALLY_GRAVEL_COMPACT, RALLY_GRAVEL_DUST, RALLY_GRAVEL_REGOLITH };
 
 /* The kind of a race: RALLY_GRAVEL_OFF unless the race is a rally (`variant_r`) and `enabled`; `track` is race_sim_track_index's,
- * `lunar` extras.cfg's lunar_springs (the rally on Rusty Springs, track 3, is then the moon's). */
+ * `lunar` the mode's file's lunar_springs (the rally on Rusty Springs, track 3, is then the moon's). */
 int rally_gravel_kind(int track, int variant_r, int lunar, int enabled);
 
 /* The road noise's level (0..0x7f) as the rolling gravel gives it: lower than the exe's off-road scrape. `level` as race_sound.c's

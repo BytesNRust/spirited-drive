@@ -13,8 +13,8 @@ static size_t extras_size, port_size;
 
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
-    const char *src = strcmp(name, "extras.cfg") == 0 ? extras : port;
-    const size_t n = strcmp(name, "extras.cfg") == 0 ? extras_size : port_size;
+    const char *src = strcmp(name, "restomod.cfg") == 0 ? extras : port;
+    const size_t n = strcmp(name, "restomod.cfg") == 0 ? extras_size : port_size;
     if (n == 0) return NULL;
     uint8_t *copy = malloc(n);
     memcpy(copy, src, n);
@@ -24,7 +24,7 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
 
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
-    if (strcmp(name, "extras.cfg") == 0) memcpy(extras, data, size), extras_size = size;
+    if (strcmp(name, "restomod.cfg") == 0) memcpy(extras, data, size), extras_size = size;
     else memcpy(port, data, size), port_size = size;
     return true;
 }
@@ -52,6 +52,8 @@ static void set_extras(const char *text)
 
 int main(void)
 {
+    strcpy(port, "profile=restomod\n");   /* the mode with the car colours */
+    port_size = strlen(port);
     const CarVariantCanvas canvas = { NULL, fill, 0, 0, 1, 1 };
     set_extras("psx_liveries=0\n");
     CHECK_EQ_INT(car_variant_choices(showcase_variants, showcase_variant_count, 3), 0);   /* the switch off: no box */

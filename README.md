@@ -102,9 +102,9 @@ directory (SDL's pref path, `~/Library/Application Support/tnfs/tnfs/` on macOS;
 
 | File | Contents |
 |------|----------|
-| `port.cfg` | Graphics (format, scaling, refresh, FOV, view distance, 3D options, render threads, render scale) |
+| `port.cfg` | The mode in use (Stock, Restored or Restomod) and the PS1 folder |
+| `stock.cfg`, `restored.cfg`, `restomod.cfg` | What the player changed in that mode, and only that |
 | `controls.cfg` | the bindings and axis settings |
-| `extras.cfg` | the Customize Game switches |
 | `records.dat` | the records the original has no place for: variants and the cheats table |
 
 ## Network game

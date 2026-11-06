@@ -1,4 +1,4 @@
-/* port: a rival's PS1 livery at load (extras.cfg psx_liveries, car_livery.h). The PS1 files are the user's own, read from
+/* port: a rival's PS1 livery at load (the mode's file psx_liveries, car_livery.h). The PS1 files are the user's own, read from
  * port.cfg's psx_dir (a folder of the CD's Z<CAR>.VSM and Z<CAR>.WSM); with the key unset or a file missing the car keeps
  * its normal colours. */
 #ifndef TNFS_DRIVE_LIVERY_H

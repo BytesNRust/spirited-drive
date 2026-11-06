@@ -51,6 +51,7 @@
 #include "game/frontend/menu_race.h"
 #include "game/frontend/palette_put.h"
 #include "game/frontend/options_menu.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "game/frontend/race_settings.h"
 #include "game/frontend/random_pick.h"
@@ -179,19 +180,19 @@ static void extras_flags(ExtrasFlags *f)
 }
 
 /* port: the Warrior-as-rival switch is a separate flag (no equivalent in the original's globals), read by the
- * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with extras.cfg by extras_apply. */
+ * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with the mode's file by extras_apply. */
 static ExtrasSession extras_session;
 static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
 
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
- * tournament. With extras.cfg absent this reads the defaults and changes nothing. */
+ * tournament. With the mode's file absent this reads the defaults and changes nothing. */
 static void extras_apply(void)
 {
     ExtrasFlags f;
     extras_flags(&f);
     const PortExtras e = port_extras_load();
     /* port: the level, the switches and the cheats typed in the session decide what is on: a switch turned off in
-     * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to extras.cfg (the
+     * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to the mode's file (the
      * switch is the player's default, not a veto on the cheat); Mirror and Rally both on stay both on */
     extras_settle(&e, g.unlock_level, &f, &extras_session);
     /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
@@ -494,11 +495,11 @@ static void track_select(void *ctx)
     /* port: the weather row, and with the PS1 look the time-of-day item on its psx_time; both written to port.cfg
      * when the screen leaves them changed (the race reads them there, as it does today) */
     int weather = port_weather(), psx_time = port_psx_time();
-    int reverse = reverse_track_picked();   /* port: extras.cfg's reverse offers the row; the pick is the session's, not saved */
+    int reverse = reverse_track_picked();   /* port: the mode's file's reverse offers the row; the pick is the session's, not saved */
     const PortExtras extras = port_extras_load();
     TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
-                             1, &weather, port_psx_light() ? &psx_time : NULL, extras.reverse ? &reverse : NULL };
+                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_psx_light() ? &psx_time : NULL, extras.reverse ? &reverse : NULL };
     const int was_weather = weather, was_psx_time = psx_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette, &plus };
     int x, y;
@@ -652,7 +653,7 @@ static void drive(void *ctx, int32_t argc, char *const *argv)
     for (size_t i = 0; i + 1 < sizeof name && argv[1][i] != 0; i++)
         name[i] = (char)(argv[1][i] >= 'a' && argv[1][i] <= 'z' ? argv[1][i] - 0x20 : argv[1][i]);
     /* 004275f8: 004fbadc on track 3 races "tr5" (004ae1e0); port: with both variants on — g's own pair, the state
-     * being raced, not extras.cfg — the rally's own track is the one raced, the mirror keeping the geometry
+     * being raced, not the mode's file — the rally's own track is the one raced, the mirror keeping the geometry
      * (variant_rule.h) */
     const char *const stem = rally_track_stem(name, g.variant_m, g.variant_r, g.variant_m != 0 && g.variant_r != 0);
     if (stem != name) memcpy(name, stem, 4);
@@ -982,7 +983,7 @@ static void controls(void *ctx, int32_t mode)
     const int16_t german = (int16_t)resource_german();
     int32_t *const screen = ea_screen_slot();
     PortControls port = port_controls_load();
-    ControlsPlus plus = { &port, 1 };   /* port: the three pages, the exe's left out (input_read.c reads the keys and the pad together) */
+    ControlsPlus plus = { &port, 1, port_settings_profile() != PROFILE_RESTOMOD };   /* port: the three pages, the exe's left out (input_read.c reads the keys and the pad together) */
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
                                    pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit,
@@ -1633,7 +1634,7 @@ static int32_t next_segment(void *ctx)
     return go_on;
 }
 
-/* port: the Extras row opens the EXTRAS screen over this screen's picture; Done writes extras.cfg and the unlock
+/* port: the Extras row opens the EXTRAS screen over this screen's picture; Done writes the mode's file and the unlock
  * level back into config.dat, and extras_apply re-reads it for Control Central (the cheats, mirror, ghosts). */
 static void options_extras(void *ctx)
 {
@@ -1680,8 +1681,7 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel, port_profile_ui() ? glue_profile : NULL,
-        glue_plus_text_scaled, glue_plus_text_width_scaled };
+        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],

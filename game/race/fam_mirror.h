@@ -1,5 +1,5 @@
 /* port: the art of a race the CD holds no FAM for: both variants on (the mirror's geometry, the rally's _R01 art), or
- * a variant at another time of day (the _T01 art; extras.cfg's variant_time). The CD's mirror art (_M01) holds the
+ * a variant at another time of day (the _T01 art; the mode's file's variant_time). The CD's mirror art (_M01) holds the
  * signs flipped so they read on the mirrored track; the rally and evening art were never made for it, and there is
  * no evening rally art at all. */
 #ifndef TNFS_FAM_MIRROR_H

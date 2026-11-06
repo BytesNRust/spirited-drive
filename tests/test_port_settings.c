@@ -1,4 +1,5 @@
 /* The port's own settings file (port.cfg): defaults, text round trip, and what a damaged file leaves alone. */
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
 
@@ -458,7 +459,7 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.weather, WEATHER_CLEAR);
     const char *foggy = "weather=Fog\n", *stormy = "weather=storm\n";
     CHECK_EQ_INT(port_settings_parse(foggy, strlen(foggy)).weather, WEATHER_FOG);
-    CHECK_EQ_INT(port_settings_parse(stormy, strlen(stormy)).weather, WEATHER_CLEAR);
+    CHECK_EQ_INT(port_settings_parse(stormy, strlen(stormy)).weather, WEATHER_STORM);
     const char *scaled = "render_scale=2\n";
     CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
     CHECK_EQ_INT(s.psx_light, 0);
@@ -517,61 +518,13 @@ static void test_bad_input_keeps_defaults(void)
 
 static void test_load_save(void)
 {
-    check_same(port_settings_load(), port_settings_defaults());   /* no file yet */
-    const PortSettings s = { .format = SCREEN_16_9, .refresh_hz = 120, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = 15, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1,
-                             .render_scale = 2, .render_bands = 2 };
+    clear_files();
+    put_file("port.cfg", "profile=restomod\n");   /* the mode that leaves everything free; port_profile's test has the others */
+    PortSettings s = port_settings_load();
+    CHECK_EQ_INT(s.profile, PROFILE_RESTOMOD);
+    s.format = SCREEN_21_9, s.refresh_hz = 120, s.scale_integer = 1, s.fullscreen = 0, s.fov_adjust = 15, s.view_ultra = 0, s.perspective = 0, s.texture_filter = 0, s.fog = 0, s.render_scale = 3, s.render_bands = 2;
     CHECK(port_settings_save(&s));
     check_same(port_settings_load(), s);
-}
-
-/* The three settings that moved in from EXTRAS (perspective correction, texture filter, fog) live in port.cfg now,
- * but an extras.cfg written before the move keeps its value: only when port.cfg has no key for one does its value
- * come from extras.cfg. A key in port.cfg always wins, so a save from Graphics is not undone by a stale extras.cfg. */
-static void test_moved_settings_fall_back_to_extras(void)
-{
-    clear_files();
-
-    /* neither file: the defaults */
-    check_same(port_settings_load(), port_settings_defaults());
-
-    /* extras.cfg alone: its three values are taken */
-    put_file("extras.cfg", "modern_3d=1\ntexture_filter=1\nfog=0\n");
-    PortSettings s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 1);
-    CHECK_EQ_INT(s.texture_filter, 1);
-    CHECK_EQ_INT(s.fog, 0);
-
-    /* port.cfg names them: it wins over extras.cfg */
-    put_file("port.cfg", "perspective=0\ntexture_filter=0\nfog=1\n");
-    s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 0);
-    CHECK_EQ_INT(s.texture_filter, 0);
-    CHECK_EQ_INT(s.fog, 1);
-
-    /* port.cfg names one and not the others: the named one wins, the rest still come from extras.cfg */
-    put_file("port.cfg", "fog=1\n");
-    s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 1);   /* from extras.cfg */
-    CHECK_EQ_INT(s.texture_filter, 1);   /* from extras.cfg */
-    CHECK_EQ_INT(s.fog, 1);              /* from port.cfg */
-
-    /* saving from Graphics writes all three to port.cfg, and they survive the fallback afterwards */
-    s.perspective = 0;
-    s.texture_filter = 0;
-    s.fog = 0;
-    CHECK(port_settings_save(&s));
-    /* the saved text carries all three, so a later load never has to consult extras.cfg for them */
-    char text[PORT_CFG_TEXT_MAX] = "";
-    CHECK(port_settings_format(&s, text, sizeof text) > 0);
-    CHECK(strstr(text, "perspective=") != NULL);
-    CHECK(strstr(text, "texture_filter=") != NULL);
-    CHECK(strstr(text, "fog=") != NULL);
-    s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 0);
-    CHECK_EQ_INT(s.texture_filter, 0);
-    CHECK_EQ_INT(s.fog, 0);
-
     clear_files();
 }
 
@@ -719,7 +672,6 @@ int main(void)
     test_bad_render_scale_keeps_the_default();
     test_the_environment_wins_over_the_setting();
     test_load_save();
-    test_moved_settings_fall_back_to_extras();
     test_a_longest_psx_dir_round_trips();
     test_two_sided_is_automatic();
     return TEST_REPORT();

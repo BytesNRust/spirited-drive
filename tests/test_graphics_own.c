@@ -12,6 +12,7 @@
 #include "game/frontend/graphics_menu.h"
 #include "game/frontend/graphics_own.h"
 #include "game/race/weather.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
 
@@ -395,6 +396,7 @@ static void rig_init(Rig *r)
     memset(r, 0, sizeof *r);
     r->f.pointer_row = -1;
     r->port = port_settings_defaults();
+    r->port.profile = PROFILE_RESTOMOD;   /* the mode that leaves every row free */
     r->f.kept = r->port;
     r->net_off = 1;   /* the Options art, not check/graphics.fsh */
     r->st.config = r->config;
@@ -927,14 +929,59 @@ static void test_step_writes_only_its_row(void)
     CHECK_EQ_INT(s.view_ultra, before.view_ultra);
 }
 
+/* what each mode holds: dimmed, not changed; Stock leaves only Full Screen and the view distance without Ultra */
+static void test_the_mode_holds_its_rows(void)
+{
+    static const int STOCK_HELD[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_FOG, GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_SCALING,
+                                      GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE };
+    static const int RESTORED_FREE[] = { GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS };
+    for (size_t i = 0; i < sizeof STOCK_HELD / sizeof STOCK_HELD[0]; i++) {
+        Rig r;
+        rig_init(&r);
+        r.port.profile = PROFILE_STOCK;
+        const PortSettings was = r.port;
+        run_script(&r, script_walk(STOCK_HELD[i], RIGHT, 1, GRAPHICS_OWN_DONE));
+        CHECK(memcmp(&r.port, &was, sizeof was) == 0);
+        CHECK(r.f.dim_draws > 0);
+        CHECK(!drew(&r.f, "Off (next race)") && !drew(&r.f, "4:3 (next race)"));   /* the mode's, not the next race's */
+    }
+    Rig full;
+    rig_init(&full);
+    full.port.profile = PROFILE_STOCK;
+    run_script(&full, script_walk(GRAPHICS_OWN_FULLSCREEN, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(full.port.fullscreen, 1);
+    for (size_t i = 0; i < sizeof RESTORED_FREE / sizeof RESTORED_FREE[0]; i++) {
+        Rig r;
+        rig_init(&r);
+        r.port.profile = PROFILE_RESTORED;
+        const PortSettings was = r.port;
+        run_script(&r, script_walk(RESTORED_FREE[i], RIGHT, 1, GRAPHICS_OWN_DONE));
+        CHECK(memcmp(&r.port, &was, sizeof was) != 0);
+    }
+    /* the view distance: Far, Medium, Close and round, no Ultra, in Stock */
+    for (int p = PROFILE_STOCK; p <= PROFILE_RESTOMOD; p++) {
+        Rig r;
+        rig_init(&r);
+        r.port.profile = p;
+        run_script(&r, script_walk(GRAPHICS_OWN_VIEW, RIGHT, 3, GRAPHICS_OWN_DONE));
+        CHECK_EQ_INT(r.port.view_ultra, p == PROFILE_RESTOMOD);
+    }
+}
+
 /* 11: turning full screen on takes the desktop's format */
 static void test_fullscreen_takes_desktop_format(void)
 {
     PortSettings s = port_settings_defaults();
-    s.format = SCREEN_4_3;
+    s.format = SCREEN_4_3, s.profile = PROFILE_RESTOMOD;
     graphics_own_step(&s, GRAPHICS_OWN_FULLSCREEN, 1, SCREEN_21_9);
     CHECK_EQ_INT(s.fullscreen, 1);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
+    /* not where the mode holds the format */
+    s = port_settings_defaults();
+    s.format = SCREEN_4_3, s.profile = PROFILE_STOCK;
+    graphics_own_step(&s, GRAPHICS_OWN_FULLSCREEN, 1, SCREEN_21_9);
+    CHECK_EQ_INT(s.fullscreen, 1);
+    CHECK_EQ_INT(s.format, SCREEN_4_3);
 }
 
 /* 12: port: 00423d28 leaves through one door, and only Cancel says no. Its loop ends on Done, on Cancel, and on the
@@ -1409,6 +1456,7 @@ int main(void)
     test_render_scale_row_on_the_page();
     test_render_scale_row_is_reachable();
     test_step_writes_only_its_row();
+    test_the_mode_holds_its_rows();
     test_fullscreen_takes_desktop_format();
     test_the_three_exits_that_are_not_a_decision_save();
     test_no_clean_background_runs_over_the_originals();

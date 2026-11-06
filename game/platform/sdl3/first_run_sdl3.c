@@ -196,7 +196,7 @@ bool first_run_setup(const char *dest)
         const char *const root = kind == WIZARD_ISO ? c.root : (c.root[0] != '\0' ? c.root : chosen);
         ok = copy_with_bar(kind, kind == WIZARD_ISO ? chosen : root, kind == WIZARD_ISO ? c.root : "", dest);
         if (ok && c.matched != c.total) (void)data_mark_accepted(dest, &c);   /* Use it anyway: the next start must not ask again */
-        if (ok && port_settings_profile() == PROFILE_CUSTOM) choose_profile();   /* a file that already names a profile (a reinstall) keeps it */
+        if (ok && !port_settings_profile_chosen()) choose_profile();   /* a file that already names a profile (a reinstall) keeps it */
         if (!ok) {
             static const char *const OK[] = { "OK" };
             char text[1500];

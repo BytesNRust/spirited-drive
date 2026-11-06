@@ -261,7 +261,7 @@ typedef struct {
     int sky_low, sky_high;
     float tint[3];       /* the time of day's tint the fog colour was made for */
     uint8_t rain[256];   /* a streak's lightening */
-    uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (rain_lightning): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
+    uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (WEATHER_STORM): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
     uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
     uint8_t mood[256];   /* port (rain v4): the whole picture moved toward a dark grey: rain's desaturated, lower contrast light */
     uint8_t tail[256];   /* port (rain v4): a road pixel under a tail light, moved toward its red */
@@ -290,8 +290,8 @@ static const WeatherTables *weather_tables(const TrackArt *art)
     weather_sky_colour(weather, wt.fog, sky);
     modern_look_weather_fog(&look, sky, sky);          /* the rain's own sky colour: dark as well */
     modern_fog_tables(art->palette, sky, scratch);
-    wt.sky_low = weather == WEATHER_RAIN ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
-    wt.sky_high = weather == WEATHER_RAIN ? wt.sky_low : MODERN_FOG_LEVELS - 1;
+    wt.sky_low = weather_wet(weather) ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
+    wt.sky_high = weather_wet(weather) ? wt.sky_low : MODERN_FOG_LEVELS - 1;
     memcpy(wt.sky, scratch[wt.sky_low], sizeof wt.sky);
     memcpy(wt.levels, scratch, sizeof wt.levels);
     weather_rain_colour(rain);
@@ -353,7 +353,7 @@ static void rain_mood_band(void *user, int top, int bottom)
     weather_mood_rows(m->pixels, m->pitch, box, m->table, m->share);
 }
 
-static int storm_flash_level(void);   /* port (rain_lightning): the lightning's brightness this frame, 0 none */
+static int storm_flash_level(void);   /* port (WEATHER_STORM): the lightning's brightness this frame, 0 none */
 
 static void weather_sky_band(void *user, int top, int bottom)
 {
@@ -366,7 +366,7 @@ static void weather_sky_band(void *user, int top, int bottom)
     if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
 }
 int ported_view_modern(void) { return modern; }
-int ported_view_rain(void) { return weather == WEATHER_RAIN; }
+int ported_view_rain(void) { return weather_wet(weather); }
 
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
@@ -1448,7 +1448,7 @@ static void lamp_state(const Car *car)
         drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
     else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */
         drive_lamps_light_forced(car->index, car->node, tint, ratio, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR,
-                                 weather == WEATHER_RAIN && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
+                                 weather_wet(weather) && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */
@@ -2065,7 +2065,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon.scale, stage.line, ctx.clip.y1);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
-    drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (rain_lightning): the palette goes bright with the flash, the sky white below */
+    drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
                                            &view, cam.matrix);
@@ -2178,7 +2178,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     }
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
-    rain_spray_on = wt != NULL && weather == WEATHER_RAIN && port_rain_fx() && shadow_race != NULL;
+    rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     if (rain_spray_on) {   /* port (rain v5) */
         rain_open = rain_open_at(shadow_race->chase.node);
         spray_tables_set(wt);
@@ -2203,7 +2203,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
     tunnel_flare_draw(&quad, art->palette);
-    if (wt != NULL && weather == WEATHER_RAIN && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
+    if (wt != NULL && weather_wet(weather) && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
@@ -2215,15 +2215,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         int32_t vanish[2] = { view.centre_x, view.centre_y };
         rain_vanishing_point(vanish);
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view.focal_x,
-                             drive_light_night(), rain_open, wt->rain4);
+                             drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM);
         weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
-    } else if (wt != NULL && weather == WEATHER_RAIN)   /* port (weather): the streaks over the whole view, under the 2D layer */
-        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain);
+    } else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
+        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM);
 }
 
 static int storm_flash_level(void)
 {
-    if (weather != WEATHER_RAIN || !port_rain_lightning()) return 0;
+    if (weather != WEATHER_STORM) return 0;
     return weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick));
 }
 

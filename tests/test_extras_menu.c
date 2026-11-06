@@ -2,6 +2,7 @@
  * are exercised with fake ops and a key script, the same shape as test_graphics_plus.c. */
 #include "game/frontend/extras_menu.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -52,7 +53,7 @@ typedef struct Fake {
     int titles;           /* titles drawn through the title op */
     int headers;          /* headers drawn through the header op */
     int32_t header_width; /* the last one's underline */
-    int radar_all_views;  /* port_radar_all_views, as the glue reports it */
+    int resets;           /* Restore's actions run */
 } Fake;
 
 static int32_t f_key(void *ctx)
@@ -227,17 +228,26 @@ enum { LINE = 20 };
 /* the pitch the rows are set at (extras_menu.c's ROW_PITCH): the spacing between two rows of a group */
 enum { PITCH = 20 };
 
+static void f_reset(void *ctx, PortExtras *e)
+{
+    Fake *f = ctx;
+    f->resets++;
+    e->units = UNITS_MPH;   /* what the mode's values have */
+}
+
 typedef struct Rig {
     Fake fake;
     PortExtras e;
     int16_t unlock;
     PortExtras saved;
     int16_t saved_unlock;
+    int profile;
 } Rig;
 
 static void setup(Rig *r)
 {
     memset(r, 0, sizeof *r);
+    r->profile = PROFILE_RESTOMOD;   /* the mode that leaves every row free */
     r->e = port_extras_defaults();
     r->unlock = 0;
     r->fake.bgnd_ok = 1;   /* the CD has the configuration screens */
@@ -259,7 +269,7 @@ static void run_with(Rig *r, const int *keys, int count, void (*smooth)(void *, 
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .radar_all_views = r->fake.radar_all_views, .ctx = &r->fake, .open_log_folder = f_open_log };
+        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log, .profile = r->profile, .reset_profile = f_reset };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
@@ -435,10 +445,6 @@ static void test_the_graphics_settings_are_gone(void)
     CHECK(!shown(&r.fake, "Texture Filter"));
     CHECK(!shown(&r.fake, "Fog"));
     CHECK_EQ_INT(r.fake.saved.no_movies, 1);
-    /* nothing on either page may write them any more */
-    CHECK_EQ_INT(r.fake.saved.modern_3d, 0);
-    CHECK_EQ_INT(r.fake.saved.texture_filter, 0);
-    CHECK_EQ_INT(r.fake.saved.fog, 0);
 }
 
 /* port: the screen opens over the configuration screens' clean background, not over the caller's picture: asked
@@ -534,7 +540,7 @@ static void test_page_one_has_thirteen_rows(void)
     int keys[48];
     int n = downs(keys, 0, ROWS_P1);                       /* down to Done, past the thirteen */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P1, 13);
+    CHECK_EQ_INT(ROWS_P1, 12);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Explode mode"));
@@ -547,7 +553,7 @@ static void test_page_one_has_thirteen_rows(void)
     CHECK(shown(&r.fake, "Lost Vegas Track"));
     CHECK(shown(&r.fake, "Lunar Springs Track"));
     CHECK(shown(&r.fake, "Unlock Level"));
-    CHECK(shown(&r.fake, "Time with variants"));
+    CHECK(!shown(&r.fake, "Time with variants"));
     CHECK(shown(&r.fake, "Car Colours"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
@@ -577,13 +583,13 @@ static void test_page_two_has_ten_rows(void)
     int n = keys_to_row(keys, ROW_FIRST_P2);
     n = downs(keys, n, ROWS_P2);                           /* down to Done (the row past the eleven) */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P2, 11);
+    CHECK_EQ_INT(ROWS_P2, 10);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Speed units"));
     CHECK(shown(&r.fake, "No driving assists"));
     CHECK(shown(&r.fake, "Bumper view mirror"));
-    CHECK(shown(&r.fake, "Bumper view police radar"));
+    CHECK(shown(&r.fake, "Exterior views police radar"));
     CHECK(shown(&r.fake, "Replay cameras in race mode"));
     CHECK(shown(&r.fake, "Rival car markers"));
     CHECK(shown(&r.fake, "3D render stats"));
@@ -595,22 +601,96 @@ static void test_page_two_has_ten_rows(void)
 }
 
 /* page 3 is the whole Miscellaneous section: Start Screen, Intro video, Updates and anonymous stats, Open the log folder; four rows */
-/* radar_all_views: the radar's row says "Police radar" (it shows in every outside view), else the bumper view's name */
-static void test_radar_row_label_follows_the_flag(void)
+/* the radar's row has one name now: it shows in every outside view */
+static void test_the_radar_row_name(void)
 {
-    for (int all = 0; all <= 1; all++) {
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_FIRST_P2);
+    n = downs(keys, n, ROWS_P2);
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Exterior views police radar"));
+    CHECK(!shown(&r.fake, "Bumper view police radar"));
+    CHECK(!shown(&r.fake, "Rain with storm"));
+}
+
+/* a walk over row `row` of the whole list: change it with the arrows, then Done */
+static void change_then_done(Rig *r, int row, int profile)
+{
+    int keys[64];
+    int n = keys_to_row(keys, row);
+    keys[n++] = RIGHT;
+    const int first = row >= ROW_FIRST_P3 ? ROW_FIRST_P3 : row >= ROW_FIRST_P2 ? ROW_FIRST_P2 : 0;
+    const int rows = first == ROW_FIRST_P3 ? ROWS_P3 : first == ROW_FIRST_P2 ? ROWS_P2 : ROWS_P1;
+    n = downs(keys, n, rows - (row - first));
+    keys[n++] = ENTER;
+    setup(r);
+    r->profile = profile;
+    run(r, keys, n);
+}
+
+/* what a mode holds is dimmed, keeps its value and does not change; what it leaves free does */
+static void test_the_mode_holds_its_rows(void)
+{
+    static const int HELD_IN_STOCK[] = { ROW_RIVAL, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_PSX_LIVERY, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS, ROW_STATS, ROW_DASH_BOX,
+                                         ROW_FOLLOW_CAMERA, ROW_DIFFICULTY, ROW_START, ROW_MOVIES };
+    static const int FREE_IN_STOCK[] = { ROW_EXPLODE, ROW_NITRO, ROW_TURBO, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_UNITS, ROW_UPDATE };
+    for (size_t i = 0; i < sizeof HELD_IN_STOCK / sizeof HELD_IN_STOCK[0]; i++) {
         Rig r;
-        int keys[48];
-        int n = keys_to_row(keys, ROW_FIRST_P2);
-        n = downs(keys, n, ROWS_P2);
-        keys[n++] = ENTER;
-        setup(&r);
-        r.fake.radar_all_views = all;
-        run(&r, keys, n);
-        CHECK_EQ_INT(shown(&r.fake, "Police radar") != 0, all);
-        CHECK_EQ_INT(shown(&r.fake, "Bumper view police radar") != 0, !all);
-        CHECK(shown(&r.fake, "Bumper view mirror"));   /* the mirror's row is the bumper view's either way */
+        change_then_done(&r, HELD_IN_STOCK[i], PROFILE_STOCK);
+        CHECK_EQ_INT(r.fake.saves, 1);
+        Rig was;
+        setup(&was);
+        CHECK(memcmp(&r.fake.saved, &was.e, sizeof was.e) == 0);   /* Done saves it as it was */
     }
+    for (size_t i = 0; i < sizeof FREE_IN_STOCK / sizeof FREE_IN_STOCK[0]; i++) {
+        Rig r;
+        change_then_done(&r, FREE_IN_STOCK[i], PROFILE_STOCK);
+        Rig was;
+        setup(&was);
+        CHECK(memcmp(&r.fake.saved, &was.e, sizeof was.e) != 0);
+    }
+    Rig restored;
+    change_then_done(&restored, ROW_STATS, PROFILE_RESTORED);   /* the one Restored adds here */
+    CHECK_EQ_INT(restored.fake.saved.stats_overlay, 1);
+    for (size_t i = 0; i < sizeof HELD_IN_STOCK / sizeof HELD_IN_STOCK[0]; i++) {
+        Rig r;
+        change_then_done(&r, HELD_IN_STOCK[i], PROFILE_RESTOMOD);
+        Rig was;
+        setup(&was);
+        CHECK(memcmp(&r.fake.saved, &was.e, sizeof was.e) != 0);   /* Restomod leaves them all free */
+    }
+}
+
+/* Restore profile defaults: the first Return says what the second does; the second acts; moving off the row forgets */
+static void test_restore_takes_two_returns(void)
+{
+    Rig r;
+    int keys[64];
+    int n = keys_to_row(keys, ROW_RESET);
+    keys[n++] = ENTER;
+    keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.resets, 0);
+    CHECK(shown(&r.fake, "Return again"));
+
+    n = keys_to_row(keys, ROW_RESET);
+    keys[n++] = ENTER, keys[n++] = ENTER;
+    keys[n++] = ESCAPE;
+    setup(&r);
+    r.e.units = UNITS_KMH;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.resets, 1);
+
+    n = keys_to_row(keys, ROW_RESET);
+    keys[n++] = ENTER, keys[n++] = UP, keys[n++] = DOWN, keys[n++] = ENTER;
+    keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.resets, 0);
 }
 
 static void test_page_three_is_miscellaneous(void)
@@ -620,7 +700,7 @@ static void test_page_three_is_miscellaneous(void)
     int n = keys_to_row(keys, ROW_FIRST_P3);
     n = downs(keys, n, ROWS_P3);
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P3, 4);
+    CHECK_EQ_INT(ROWS_P3, 5);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Miscellaneous"));
@@ -741,7 +821,6 @@ static void test_the_rows_sit_under_their_groups(void)
     CHECK(y_in(&one.fake, "Warrior Player Car") < y_in(&one.fake, "Unlocks & mods"));
     CHECK(y_in(&one.fake, "Unlocks & mods") < y_in(&one.fake, "Warrior Rival Car"));
     CHECK(y_in(&one.fake, "Warrior Rival Car") < y_in(&one.fake, "Unlock Level"));
-    CHECK(y_in(&one.fake, "Unlock Level") < y_in(&one.fake, "Time with variants"));
 
     Rig two;
     setup(&two);
@@ -810,7 +889,7 @@ static void test_the_page_fits_between_the_title_and_the_buttons(void)
     /* the page's first and last words, as the text's own top and its bottom */
     CHECK(y_in(&one.fake, "Cheats") >= TITLE_BOTTOM);
     CHECK(y_in(&one.fake, "Car Colours") + LINE < BUTTONS_TOP);
-    CHECK(y_in(&one.fake, "Time with variants") < y_in(&one.fake, "Car Colours"));   /* the group's last row */
+    CHECK(y_in(&one.fake, "Unlock Level") < y_in(&one.fake, "Car Colours"));   /* the group's last row */
 
     Rig two;
     setup(&two);
@@ -965,10 +1044,12 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     int n = keys_to_row(keys, ROW_FIRST_P3);               /* page 3, its first row */
     n = downs(keys, n, ROWS_P3);                           /* page 3's Done */
     keys[n++] = RIGHT;                                     /* page 3's Cancel */
-    keys[n++] = UP;                                        /* Open the log folder, the last row */
+    keys[n++] = UP;                                        /* Restore profile defaults, the last row */
+    keys[n++] = UP;                                        /* Open the log folder */
     keys[n++] = UP;                                        /* Updates and anonymous stats, the last switch */
     keys[n++] = RIGHT;                                     /* off */
     keys[n++] = DOWN;                                      /* the log folder row */
+    keys[n++] = DOWN;                                      /* the Restore row */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
@@ -1199,7 +1280,7 @@ static void test_extras_has_open_log_folder_row(void)
     CHECK(shown(&r.fake, "Miscellaneous"));
     CHECK_EQ_INT(r.fake.log_opens, 1);
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(ROW_LOG_FOLDER, EXTRAS_ROWS - 1);
+    CHECK_EQ_INT(ROW_RESET, EXTRAS_ROWS - 1);
 }
 
 /* without the op the row does nothing and the screen goes on */
@@ -1209,7 +1290,7 @@ static void test_the_log_folder_row_without_the_op(void)
     int keys[48];
     int n = keys_to_row(keys, ROW_LOG_FOLDER);
     keys[n++] = ENTER;
-    keys[n++] = DOWN, keys[n++] = ENTER;
+    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = ENTER;
     setup(&r);
     r.fake.keys = keys;
     r.fake.key_count = n;
@@ -1229,7 +1310,9 @@ int main(void)
 {
     test_check_for_updates_switch();
     test_mirror_toggle_excludes_rally();
-    test_radar_row_label_follows_the_flag();
+    test_the_radar_row_name();
+    test_the_mode_holds_its_rows();
+    test_restore_takes_two_returns();
     test_page_three_is_miscellaneous();
     test_extras_has_open_log_folder_row();
     test_the_log_folder_row_without_the_op();

@@ -18,6 +18,7 @@
 #include "viewer/drive_interp.h"
 #include "viewer/race_stats.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
 
 #include "game/race/race_follow.h"
 #include "game/sys/port_controls.h"
@@ -426,12 +427,13 @@ static void run_frame(void *ctx, int32_t frame)
     }
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
-    race_stats_key_save(&race_stats, drive_input.keys[RACE_STATS_KEY] != 0);  /* port: F12, written to extras.cfg on a toggle */
+    race_stats_key_save(&race_stats, drive_input.keys[RACE_STATS_KEY] != 0);  /* port: F12, written to the mode's file on a toggle */
     take_detail(&drive_keys.detail_pending);
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
-    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0, drive_input.keys[KEY_F2] != 0);
+    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_mirror"),
+                      drive_input.keys[KEY_F2] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_radar"));   /* port (modes): only where the mode leaves them free */
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
@@ -574,7 +576,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
     if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
     drive_clock = r.clock;
-    race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as extras.cfg has it */
+    race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as the mode's file has it */
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: port.cfg's rate; the variable overrides it for the checks */

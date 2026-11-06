@@ -5,9 +5,13 @@
 
 #include <stdint.h>
 
-enum { WEATHER_CLEAR = 0, WEATHER_FOG = 1, WEATHER_RAIN = 2, WEATHER_COUNT = 3 };
+enum { WEATHER_CLEAR = 0, WEATHER_FOG = 1, WEATHER_RAIN = 2, WEATHER_STORM = 3, WEATHER_COUNT = 4 };   /* the storm: the rain, heavier (WEATHER_STORM_DROPS), with lightning (weather_rain_flash) */
+enum { WEATHER_STORM_DROPS = 3 };   /* how many times the rain's streaks */
 
-/* The weather a name stands for ("clear", "fog", "rain", any case), or -1. */
+/* 1 for what falls as rain: the rain and the storm, with the wet road, the haze and the rain's grip. */
+int weather_wet(int weather);
+
+/* The weather a name stands for ("clear", "fog", "rain", "storm", any case), or -1. */
 int weather_named(const char *name);
 const char *weather_name(int weather);   /* "clear" for a value out of range */
 
@@ -80,7 +84,7 @@ enum { WEATHER_SPRAY_PUFFS = 22 };
 #define WEATHER_SPRAY_CAP 1.5f   /* a puff grows as it goes from the wheel up to this many times the standard size */
 int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size);
 
-/* port (rain_lightning, extras "Rain with storm"): the storm's clock. The lightning's brightness at `tick` (30 a second), 0 (none) .. WEATHER_FLASH_PEAK (the whole sky white): full on the
+/* port (WEATHER_STORM): the storm's clock. The lightning's brightness at `tick` (30 a second), 0 (none) .. WEATHER_FLASH_PEAK (the whole sky white): full on the
  * strike's first tick, then decaying over WEATHER_FLASH_TICKS. A pure function of the tick, so a replay or a screenshot at the same tick flashes the same. Every WEATHER_STORM_SLOT ticks
  * (15 s) three slots in four have a strike at a place of its own in the slot, one in three flashing a second, weaker time WEATHER_STORM_DOUBLE ticks after the first; none in the first 5
  * seconds. The sky is painted white by it, and the palette goes toward full bright by it (drive_light_set_flash). */

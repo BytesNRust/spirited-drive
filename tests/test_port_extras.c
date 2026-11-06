@@ -1,6 +1,7 @@
 /* The port's extras file (extras.cfg): defaults, text round trip, what a damaged file leaves alone, and the
  * cheat marks a race is filed under. */
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -16,6 +17,13 @@ static int stored_present;
 
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
+    if (strcmp(name, "port.cfg") == 0) {   /* the mode that leaves everything free; port_profile's test has the others */
+        static const char MODE[] = "profile=restomod\n";
+        uint8_t *mode = malloc(sizeof MODE);
+        memcpy(mode, MODE, sizeof MODE);
+        *size = sizeof MODE - 1;
+        return mode;
+    }
     if (!stored_present || strcmp(name, stored_name) != 0)
         return NULL;
     uint8_t *copy = malloc(stored_size);
@@ -26,6 +34,7 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
 
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
+    if (strcmp(name, "port.cfg") == 0) return true;   /* the mode stays */
     if (size > sizeof stored)
         return false;
     snprintf(stored_name, sizeof stored_name, "%s", name);
@@ -50,9 +59,6 @@ static void check_same(PortExtras a, PortExtras b)
     CHECK_EQ_INT(a.warrior_rival, b.warrior_rival);
     CHECK_EQ_INT(a.no_movies, b.no_movies);
     CHECK_EQ_INT(a.no_assists, b.no_assists);
-    CHECK_EQ_INT(a.modern_3d, b.modern_3d);
-    CHECK_EQ_INT(a.texture_filter, b.texture_filter);
-    CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.bumper_mirror, b.bumper_mirror);
     CHECK_EQ_INT(a.bumper_radar, b.bumper_radar);
     CHECK_EQ_INT(a.variant_time, b.variant_time);
@@ -173,8 +179,8 @@ static void test_units_round_trip(void)
 static void test_round_trip(void)
 {
     const PortExtras e = { .mirror = 1, .rally = 1, .warrior = 1, .vegas = 1, .explode = 1, .nitro = 1, .turbo = 1,
-                            .replay_cameras = 1, .warrior_rival = 1, .no_movies = 1, .no_assists = 1, .modern_3d = 1,
-                            .texture_filter = 1, .fog = 1, .bumper_mirror = 1, .bumper_radar = 1, .variant_time = 1,
+                            .replay_cameras = 1, .warrior_rival = 1, .no_movies = 1, .no_assists = 1,
+                            .bumper_mirror = 1, .bumper_radar = 1, .variant_time = 1,
                             .stats_overlay = 1, .car_markers = 1, .follow_camera = 1, .start = START_CENTRAL };
     char text[512];
     const size_t n = port_extras_format(&e, text, sizeof text);
@@ -185,17 +191,14 @@ static void test_round_trip(void)
 
 static void test_parse_keys(void)
 {
-    const char *text = "mirror=1\nturbo=1\nmodern_3d=1\ntexture_filter=1\nfog=1\nbumper_radar=1\nstart=network\n";
+    const char *text = "mirror=1\nturbo=1\nbumper_radar=1\nstart=network\n";
     const PortExtras e = port_extras_parse(text, strlen(text));
-    CHECK_EQ_INT(e.texture_filter, 1);
-    CHECK_EQ_INT(e.fog, 1);
     CHECK_EQ_INT(e.bumper_radar, 1);
     CHECK_EQ_INT(e.bumper_mirror, 0);
     CHECK_EQ_INT(e.variant_time, 0);
     CHECK_EQ_INT(port_extras_parse("variant_time=1\n", 15).variant_time, 1);
     CHECK_EQ_INT(e.mirror, 1);
     CHECK_EQ_INT(e.turbo, 1);
-    CHECK_EQ_INT(e.modern_3d, 1);
     CHECK_EQ_INT(e.rally, 0);          /* untouched keys keep the default */
     CHECK_EQ_INT(e.start, START_NETWORK);
 }
@@ -224,11 +227,11 @@ static void test_cheat_marks(void)
 
 static void test_load_save(void)
 {
-    check_same(port_extras_load(), port_extras_defaults());   /* no file yet */
-    const PortExtras e = { .mirror = 1, .explode = 1, .nitro = 1, .turbo = 1, .replay_cameras = 1, .no_assists = 1,
-                            .modern_3d = 1, .fog = 1, .bumper_mirror = 1, .stats_overlay = 1, .start = START_NETWORK };
+    check_same(port_extras_load(), port_profile_extras(PROFILE_RESTOMOD, port_extras_defaults()));   /* no file yet: the mode's */
+    PortExtras e = port_extras_load();
+    e.mirror = 1, e.explode = 1, e.nitro = 1, e.turbo = 1, e.replay_cameras = 1, e.no_assists = 1, e.stats_overlay = 1, e.start = START_NETWORK;
     CHECK(port_extras_save(&e));
-    CHECK(strcmp(stored_name, "extras.cfg") == 0);
+    CHECK(strcmp(stored_name, "restomod.cfg") == 0);
     check_same(port_extras_load(), e);
 }
 
@@ -238,7 +241,7 @@ static void test_fullest_file_saves(void)
     PortExtras e = port_extras_defaults();
     e.start = START_NETWORK, e.units = UNITS_KMH, e.dash_box = DASH_BOX_HIDDEN, e.difficulty = 2;
     int *const flags[] = { &e.mirror, &e.rally, &e.warrior, &e.vegas, &e.explode, &e.nitro, &e.turbo, &e.replay_cameras, &e.warrior_rival,
-                           &e.no_movies, &e.no_assists, &e.modern_3d, &e.texture_filter, &e.fog, &e.bumper_mirror, &e.bumper_radar,
+                           &e.no_movies, &e.no_assists, &e.bumper_mirror, &e.bumper_radar,
                            &e.variant_time, &e.stats_overlay, &e.car_markers, &e.lunar_springs, &e.movies_wide, &e.follow_camera,
                            &e.psx_liveries, &e.reverse, &e.lunar_gravity };
     for (size_t i = 0; i < sizeof flags / sizeof flags[0]; i++) *flags[i] = 1;
@@ -269,24 +272,8 @@ static void test_update_check(void)
     CHECK_EQ_INT(port_extras_parse(out, n).update_check, 0);
 }
 
-/* "Rain with storm" (rain_lightning): off by default and in an old file, an On is written and read back */
-static void test_rain_lightning(void)
-{
-    CHECK_EQ_INT(port_extras_defaults().rain_lightning, 0);
-    CHECK_EQ_INT(port_extras_parse("", 0).rain_lightning, 0);
-    CHECK_EQ_INT(port_extras_parse("rain_lightning=1\n", 17).rain_lightning, 1);
-    CHECK_EQ_INT(port_extras_parse("rain_lightning=2\n", 17).rain_lightning, 0);
-    PortExtras e = port_extras_defaults();
-    e.rain_lightning = 1;
-    char out[1024];
-    const size_t n = port_extras_format(&e, out, sizeof out);
-    CHECK(n > 0 && strstr(out, "rain_lightning=1") != NULL);
-    CHECK_EQ_INT(port_extras_parse(out, n).rain_lightning, 1);
-}
-
 int main(void)
 {
-    test_rain_lightning();
     test_update_check();
     test_defaults();
     test_movies_wide();

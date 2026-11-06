@@ -69,7 +69,7 @@ run() {
 }
 
 # menu NAME SCRIPT: the full game with SCRIPT after the way to Control Central, on a copy of MODS
-TO_CENTRAL="0:CLICK:600:30,0:CLICK:310:145,0:CLICK:600:30"   # the intro, Single player, the name box (a click is Enter)
+TO_CENTRAL="0:CLICK:310:218,0:CLICK:310:218,0:CLICK:600:30"   # the intro, Single player, the name box (a click is Enter)
 OPTIONS="3000:CLICK:215:450"
 OUT_OF_CENTRAL="3000:CLICK:575:450,3000:CLICK:310:366"       # Cancel, then Game Mode's Exit
 menu() {

@@ -429,6 +429,7 @@ add_library(tnfs_game STATIC
     game/sys/palette.c
     game/sys/text_soft.c
     game/sys/port_settings.c
+    game/sys/port_old_files.c
     game/sys/port_profile.c
     game/sys/free_laps.c
     game/sys/reverse_track.c
@@ -578,7 +579,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights rally_gravel rally_gravel_volume dash_mask lamp_flare key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray)
+foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights rally_gravel rally_gravel_volume dash_mask lamp_flare key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1192,5 +1193,10 @@ if(NOT EMSCRIPTEN)
         # the bumper view at night in rain with the headlights: the same frame each run, no sanitizer error (the tunnel flags read after being freed)
         add_test(NAME rain_night_headlights COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_night_headlights -P ${CMAKE_SOURCE_DIR}/tests/rain_night_headlights.cmake)
         set_tests_properties(rain_night_headlights PROPERTIES TIMEOUT 400)
+        # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
+        add_test(NAME rain_lamps_masked COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_lamps_masked -P ${CMAKE_SOURCE_DIR}/tests/rain_lamps_masked.cmake)
+        set_tests_properties(rain_lamps_masked PROPERTIES TIMEOUT 400)
+        add_test(NAME old_files_startup COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/old_files_startup -P ${CMAKE_SOURCE_DIR}/tests/old_files_startup.cmake)
+        set_tests_properties(old_files_startup PROPERTIES TIMEOUT 200)
     endif()
 endif()

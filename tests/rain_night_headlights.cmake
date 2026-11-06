@@ -4,8 +4,8 @@
 # an ASan build stops on it, any other build showed a different mirror from run to run.
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/mods/user" "${WORK}/pref")
-# the night rain setup of an owner's port.cfg (the lights, the rain, the street lamps), 21:9 at render scale 2: fewer keys did not show it
-set(keys "format=21:9" "render_scale=2" "profile=custom" "psx_time=night" "weather=clear"
+# the night rain setup of an owner's settings, in Restomod's file (the lights, the rain, the street lamps), 21:9 at render scale 2: fewer keys did not show it
+set(keys "format=21:9" "render_scale=2" "psx_time=night" "weather=clear"
     "scale=fill"
     "fov_adjust=10"
     "view_ultra=1"
@@ -64,7 +64,7 @@ set(keys "format=21:9" "render_scale=2" "profile=custom" "psx_time=night" "weath
     "forest_dark=1"
 )
 string(REPLACE ";" "\n" cfg "${keys}")
-file(WRITE "${WORK}/mods/user/port.cfg" "${cfg}\n")
+file(WRITE "${WORK}/mods/user/port.cfg" "profile=restomod\npsx_dir=\n")
 # and its extras: the bumper view with its mirror (bumper_mirror) is what draws the road behind
 set(extras
     "start=central"
@@ -81,7 +81,6 @@ set(extras
     "warrior_rival=1"
     "no_movies=1"
     "no_assists=1"
-    "modern_3d=1"
     "texture_filter=1"
     "fog=1"
     "bumper_mirror=1"
@@ -97,12 +96,11 @@ set(extras
     "lunar_gravity=1"
     "rally_gravel=1"
     "update_check=1"
-    "rain_lightning=1"
     "car_paint=004405000000"
     "difficulty=1"
 )
 string(REPLACE ";" "\n" extras_text "${extras}")
-file(WRITE "${WORK}/mods/user/extras.cfg" "${extras_text}\n")
+file(WRITE "${WORK}/mods/user/restomod.cfg" "${cfg}\n${extras_text}\n")
 set(first "")
 foreach(run 1 2 3 4)
     execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0

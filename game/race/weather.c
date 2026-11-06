@@ -28,9 +28,11 @@ int weather_named(const char *name)
     return -1;
 }
 
+int weather_wet(int weather) { return weather == WEATHER_RAIN || weather == WEATHER_STORM; }
+
 const char *weather_name(int weather)
 {
-    static const char *const NAMES[WEATHER_COUNT] = { "clear", "fog", "rain" };
+    static const char *const NAMES[WEATHER_COUNT] = { "clear", "fog", "rain", "storm" };
     return weather >= 0 && weather < WEATHER_COUNT ? NAMES[weather] : NAMES[0];
 }
 
@@ -42,13 +44,13 @@ static void mix(const uint8_t a[3], const uint8_t b[3], int percent, uint8_t out
 void weather_fog_colour(int weather, const uint8_t base[3], uint8_t out[3])
 {
     static const uint8_t FOG_GREY[3] = { 196, 198, 204 }, RAIN_GREY[3] = { 104, 110, 120 };
-    mix(base, weather == WEATHER_RAIN ? RAIN_GREY : FOG_GREY, weather == WEATHER_RAIN ? 60 : 55, out);
+    mix(base, weather_wet(weather) ? RAIN_GREY : FOG_GREY, weather_wet(weather) ? 60 : 55, out);
 }
 
 void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3])
 {
     static const uint8_t RAIN_SKY[3] = { 62, 68, 78 };
-    if (weather == WEATHER_RAIN) memcpy(out, RAIN_SKY, 3);
+    if (weather_wet(weather)) memcpy(out, RAIN_SKY, 3);
     else memcpy(out, fog, 3);
 }
 

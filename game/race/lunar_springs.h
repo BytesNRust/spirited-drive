@@ -2,7 +2,7 @@
  * parts (the moon's textures NTRACKFM/TR8_R01.FAM, its Control Central picture FRONTEND/GART/CONTROL/MOON.QFS and its
  * voices FRONTEND/SPEECH/LUNARWEL.EAS and LUNARGOL.EAS) but not the moon's own geometry (no MISC/TR8.TRI), and the PS1
  * disc has no moon file at all. So the rally keeps Rusty's geometry (MISC/TR5.TRI, which is Rusty's own) and only the
- * moon's art is used. With extras.cfg's lunar_springs on, the rally on Rusty Springs runs those textures and shows
+ * moon's art is used. With the mode's file's lunar_springs on, the rally on Rusty Springs runs those textures and shows
  * that picture; nothing else changes, and the records stay Rusty's. */
 #ifndef TNFS_LUNAR_SPRINGS_H
 #define TNFS_LUNAR_SPRINGS_H
@@ -16,7 +16,7 @@ enum { LUNAR_TRACK_RUSTY = 3, LUNAR_ART_SPRINGSR = 22 };
 /* 1 when the race is Rusty Springs' rally (track `track` with variant_r set) and `lunar` is on: the moon's race. */
 int lunar_springs_active(int track, int variant_r, int lunar);
 
-/* 1 when the moon's race also takes the moon's gravity and grip (track_gravity.h): the moon's race with extras.cfg's
+/* 1 when the moon's race also takes the moon's gravity and grip (track_gravity.h): the moon's race with the mode's file's
  * lunar_gravity on, 0 otherwise. */
 int lunar_gravity_active(int track, int variant_r, int lunar, int lunar_gravity);
 
