@@ -190,6 +190,33 @@ static void test_reversed(void)
     CHECK_EQ_INT(psx_light_old_node(NULL, 5), 5);
 }
 
+/* port (shoulder_light): the shoulder's far edge (points 2 and 7) is as lit as the road beside it before the beam scales it, so a car's beam lights it */
+static void test_shoulder_light(void)
+{
+    uint8_t rows[3 * PSX_LIGHT_POINTS];
+    memset(rows, 20, sizeof rows);
+    for (int n = 0; n < 3; n++) rows[n * PSX_LIGHT_POINTS + 0] = rows[n * PSX_LIGHT_POINTS + 1] = rows[n * PSX_LIGHT_POINTS + 6] = 95;   /* the road */
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;   /* a car at the origin facing +z */
+    PsxLight off = { .data = rows, .nodes = 3, .pool = &pool };
+    PsxLight on = off;
+    on.shoulder_road = 1;
+    const double at[2] = { 0.0, 8.0 };   /* in the beam */
+    const int road = psx_light_at_xz(&on, 1, 1, at), edge_off = psx_light_at_xz(&off, 1, 7, at), edge_on = psx_light_at_xz(&on, 1, 7, at);
+    CHECK(edge_off < road / 2);                                        /* as it was: near black next to the lit road */
+    CHECK(edge_on >= road - 2 && edge_on <= road + 2);                 /* the road's light, the beam on it alike */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 2, at), psx_light_at_xz(&on, 1, 1, at));   /* the right side's point 2 too (points 1 and 2 share the road's) */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 3, at), psx_light_at_xz(&off, 1, 3, at));  /* the terrain beyond is its own */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 0, at), psx_light_at_xz(&off, 1, 0, at));  /* the road is untouched */
+    const double far_at[2] = { 0.0, 150.0 };   /* beyond the beam's reach */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 7, far_at), psx_light_at_xz(&off, 1, 7, far_at));   /* where there is no beam the row is as it was */
+    PsxLight dark = on;
+    dark.pool = NULL;
+    CHECK_EQ_INT(psx_light_at_xz(&dark, 1, 7, at), 20);                /* by day (no pool) the row as it is */
+}
+
 int main(void)
 {
     test_tunnel_road();
@@ -199,5 +226,6 @@ int main(void)
     test_object_floor_lifts_only_the_points_beyond_the_road();
     test_rejected_files();
     test_reversed();
+    test_shoulder_light();
     return TEST_REPORT();
 }

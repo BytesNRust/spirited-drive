@@ -197,6 +197,7 @@ static int city_made_scale(const char *track)
 /* port (city_lift): the light's City fields, the same for the CD's light and for the one made from the terrain (a player with no PS1 disc) */
 static void city_fields(PsxLight *l, const char *track)
 {
+    l->shoulder_road = headlights_on ? port_shoulder_light() : 0;   /* shoulder_light */
     l->lamp_bright = headlights_on ? (port_lamp_pool_bright() || city_night3) : 0;   /* lamp_pool_bright; city_lift 3 has it in the City: the lamps' pools stand out of the darker base */
     l->beam_on_top = city_night3;   /* the beam adds over the raised floor */
     l->lamp_local = city_night3;   /* local lamp pools */

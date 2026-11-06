@@ -142,9 +142,13 @@ static int made_tunnel(const PsxLight *light, uint32_t node)
 /* xz: the point's place on the ground in metres, or NULL when only the node is known (the node's centre is used with headlight_cone) */
 static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, const double *xz)
 {
-    const uint8_t v = light_at(light, node, point);
+    uint8_t v = light_at(light, node, point);
     if (light == NULL || light->pool == NULL) return v;
     const int lift = light->pool->cone && xz != NULL ? headlight_pool_lift_xz(light->pool, xz[0], xz[1]) : headlight_pool_beam(light->pool, node);   /* port (headlight_cone): the beam at the point itself */
+    if (light->shoulder_road && (point == 2 || point == 7) && !psx_light_tunnel(light, node)) {   /* port (shoulder_light): where the beam is, the shoulder's far edge takes the road's light (the made rows leave it near black and the beam only scales the row's light); the more of the beam, the more of it, so far ground is as it was */
+        const int road = light_at(light, node, point == 2 ? 1 : 6);
+        if (road > v) v = (uint8_t)(v + (road - v) * (lift * lift / 256) / 256);   /* the beam's weight squared: the far, faint end of the cone leaves the row alone */
+    }
     if (!psx_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node)) {
         int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
         int floor = HEADLIGHT_FLOOR;

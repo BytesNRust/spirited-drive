@@ -32,6 +32,7 @@ typedef struct {
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */
     int forest_road;    /* port (forest_neutral): 1 and the file's nodes forest_from..forest_to, which the rows mark as a tunnel (a forest's shade), are drawn with the road's tables, not a tunnel's cast */
     uint32_t forest_from, forest_to;
+    int shoulder_road;  /* port (shoulder_light): the shoulder's far edge (points 2 and 7) takes at least the road's light (1 or 6) before the beam and the lamps scale it, in the open night; 0 its own row */
     int lamp_bright;    /* port (lamp_pool_bright): a street lamp's pool (car_pool's classes) is not dimmed by the night's dark floor; 0 it is */
     int night_lift;     /* port (city_lift, vegas_lift): 0..256, how far toward full the open night's dark floor is lifted (0 none: the pools' own floor) */
     int beam_on_top;    /* port (city_lift 3): with night_lift the beam's gain is taken on top of the lifted floor, not as the larger of the two; 0 the larger (city_lift 1 and 2, vegas_lift) */
