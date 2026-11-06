@@ -190,6 +190,32 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         tweaks->brightness[tweaks->brightness_count++] = (TrackLightBrightness){ a, b, (int)c };
         return 1;
     }
+    if (strcmp(key, "tone") == 0) {
+        unsigned from, to, rgb = 0, mask = 0;
+        int n = 0, percent = 0;
+        if (sscanf(rest, "%u %u%n", &from, &to, &n) != 2 || from > to || to >= nodes) return 0;
+        rest += n;
+        for (;;) {   /* the side strip's points, p0..p10, before the colour */
+            unsigned point;
+            int used = 0;
+            if (sscanf(rest, " p%u%n", &point, &used) != 1) break;
+            if (point >= PSX_LIGHT_POINTS) return 0;
+            mask |= 1u << point, rest += used;
+        }
+        if (sscanf(rest, " %x:%d", &rgb, &percent) != 2 || rgb > 0xffffffu || percent < 0 || percent > 100 || tweaks->tone_run_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
+        if (mask == 0) mask = (1u << PSX_LIGHT_POINTS) - 1u;
+        const PsxLightTone tone = { { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, (uint8_t)percent };
+        int id = -1;
+        for (int i = 0; i < tweaks->tone_count; i++)
+            if (memcmp(&tweaks->tones[i], &tone, sizeof tone) == 0) id = i;
+        if (id < 0) {
+            if (tweaks->tone_count >= PSX_LIGHT_TONES) return 0;   /* a 17th distinct tone */
+            id = tweaks->tone_count;
+            tweaks->tones[tweaks->tone_count++] = tone;
+        }
+        tweaks->tone_runs[tweaks->tone_run_count++] = (TrackLightToneRun){ from, to, (uint16_t)mask, (uint8_t)id };
+        return 1;
+    }
     if (strcmp(key, "car_tone") == 0) {
         unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
         int percent = 0;
@@ -301,6 +327,21 @@ void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light)
                 const int scaled = *at * r->percent / 100;
                 *at = (uint8_t)(scaled > 255 ? 255 : scaled);
             }
+    }
+    if (tweaks->tone_run_count > 0 && light->nodes > 0) {   /* the scene tones: a node's tone is its last line's */
+        free(light->tone_id), free(light->tone_mask);
+        light->tone_id = calloc(light->nodes, 1), light->tone_mask = calloc(light->nodes, sizeof *light->tone_mask);
+        if (light->tone_id == NULL || light->tone_mask == NULL) {
+            free(light->tone_id), free(light->tone_mask);
+            light->tone_id = NULL, light->tone_mask = NULL, light->tone_count = 0;
+        } else {
+            memcpy(light->tone, tweaks->tones, sizeof light->tone);
+            light->tone_count = tweaks->tone_count;
+            for (int i = 0; i < tweaks->tone_run_count; i++) {
+                const TrackLightToneRun *r = &tweaks->tone_runs[i];
+                for (uint32_t n = r->from; n <= r->to && n < light->nodes; n++) light->tone_id[n] = (uint8_t)(r->tone + 1), light->tone_mask[n] = r->mask;
+            }
+        }
     }
     if (tweaks->car_tone_count > 0 && light->nodes > 0) {
         free(light->car_tone);

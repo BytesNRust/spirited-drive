@@ -56,17 +56,21 @@ static inline void track_light_set(const TrackFenceInputs *in, int32_t first, co
             track_light_node[k] = in->node != NULL ? in->node[first + corner[k]] : PSX_LIGHT_NO_NODE;
         }
     in->light_now[4] = 1;
-    in->light_now[5] = 0;   /* 1 a tunnel's polygon (all four corners), 2..5 a lamp's pool (psx_light_tunnel_class: the weakest of the four, none mixed with a tunnel) */
+    in->light_now[5] = 0;   /* 1 a tunnel's polygon (all four corners), 2..5 a lamp's pool (psx_light_tunnel_class: the weakest of the four, none mixed with a tunnel); above the low 3 bits the polygon's scene tone, when all four corners have the same (`tone`) */
     if (in->tunnel != NULL) {
         uint8_t low = 255;
         int tunnels = 0;
+        const int tone = in->tunnel[first + corner[0]] >> 3;
+        int same_tone = 1;
         for (int k = 0; k < 4; k++) {
-            const uint8_t v = in->tunnel[first + corner[k]];
+            const uint8_t v = in->tunnel[first + corner[k]] & 7;
+            same_tone = same_tone && (in->tunnel[first + corner[k]] >> 3) == tone;
             tunnels += v == 1;
             if (v < low) low = v;
         }
         if (tunnels == 4) in->light_now[5] = 1;
         else if (tunnels == 0 && low >= 2) in->light_now[5] = low;
+        if (same_tone) in->light_now[5] = (uint8_t)(in->light_now[5] | tone << 3);
     }
 }
 

@@ -696,6 +696,16 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     snprintf(lines[n++], 96, "tunnel %d  hall %d  dim car %d  canyon %d  pool %d  car pool %d", light.tunnel != NULL && light.tunnel[node], light.hall != NULL && light.hall[node],
              light.car_dim != NULL && light.car_dim[node], light.canyon != NULL && light.canyon[node], light.pool_class != NULL ? light.pool_class[node] : 0,
              light.car_pool != NULL ? light.car_pool[node] : 0);
+    if (light.tone_id != NULL && light.tone_id[node] > 0 && light.tone_id[node] <= light.tone_count && n < max) {   /* the scene tone of the stretch (`tone`) */
+        const PsxLightTone *t = &light.tone[light.tone_id[node] - 1];
+        char strip[64] = "";
+        if (light.tone_mask[node] != (1u << PSX_LIGHT_POINTS) - 1u)
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+                if (light.tone_mask[node] >> p & 1u) snprintf(strip + strlen(strip), sizeof strip - strlen(strip), " p%d", p);
+        snprintf(lines[n++], 96, "scene tone %d of %d: %02x%02x%02x at %d%%%s", light.tone_id[node], light.tone_count, t->rgb[0], t->rgb[1], t->rgb[2], t->percent, strip);
+    } else if (n < max) {
+        snprintf(lines[n++], 96, "scene tone: none");
+    }
     if (light.warm_percent[0] > 0 || light.warm_percent[1] > 0)
         snprintf(lines[n++], 96, "tunnel look day %.2f %.2f %.2f x%d  night %.2f %.2f %.2f x%d", (double)light.warm_cast[0][0], (double)light.warm_cast[0][1], (double)light.warm_cast[0][2], light.warm_percent[0],
                  (double)light.warm_cast[1][0], (double)light.warm_cast[1][1], (double)light.warm_cast[1][2], light.warm_percent[1]);

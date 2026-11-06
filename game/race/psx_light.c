@@ -32,6 +32,9 @@ void psx_light_free(PsxLight *light)
     free(light->pool_class);
     free(light->car_pool);
     free(light->car_tone);
+    free(light->tone_id);
+    free(light->tone_mask);
+    light->tone_id = NULL, light->tone_mask = NULL, light->tone_count = 0;
     light->car_tone = NULL;
     light->car_pool = NULL;
     light->pool_class = NULL;
@@ -110,6 +113,17 @@ int psx_light_tunnel_class(const PsxLight *light, uint32_t node)
     if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
     const uint8_t c = light->pool_class[node % light->nodes];
     return c > 0 ? 1 + c : 0;
+}
+
+int psx_light_vertex_class(const PsxLight *light, uint32_t node, int point)
+{
+    int cls = psx_light_tunnel_class(light, node);
+    if (light != NULL && light->tone_id != NULL && light->nodes > 0 && point >= 0 && point < PSX_LIGHT_POINTS) {
+        const uint32_t at = psx_light_old_node(light, node) % light->nodes;
+        const int id = light->tone_id[at];
+        if (id > 0 && id <= PSX_LIGHT_TONES && (light->tone_mask[at] >> old_point(light, point) & 1u)) cls |= id << PSX_TONE_BASE_BITS;
+    }
+    return cls;
 }
 
 static uint8_t light_at(const PsxLight *light, uint32_t node, int point)

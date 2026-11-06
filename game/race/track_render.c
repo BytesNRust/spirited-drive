@@ -123,7 +123,7 @@ void track_render_relight(TrackRender *r)
         } else {
             r->light_vertex[i] = psx_light_at(r->psx, r->vertex_node[i], r->vertex_point[i]);
         }
-        r->tunnel_vertex[i] = (uint8_t)psx_light_tunnel_class(r->psx, r->vertex_node[i]);
+        r->tunnel_vertex[i] = (uint8_t)psx_light_vertex_class(r->psx, r->vertex_node[i], r->vertex_point[i]);
     }
 }
 

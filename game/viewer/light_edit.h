@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { LIGHT_EDIT_KEY_FREEZE = 0x44, LIGHT_EDIT_KEY_COPY = 0x57, LIGHT_EDIT_CHECK_MS = 1000, LIGHT_EDIT_LINES = 8, LIGHT_EDIT_MESSAGE_MS = 3000 };   /* F10, F11 (set-1 codes) */
+enum { LIGHT_EDIT_KEY_FREEZE = 0x44, LIGHT_EDIT_KEY_COPY = 0x57, LIGHT_EDIT_CHECK_MS = 1000, LIGHT_EDIT_LINES = 9, LIGHT_EDIT_MESSAGE_MS = 3000 };   /* F10, F11 (set-1 codes) */
 
 typedef struct {
     int on;
