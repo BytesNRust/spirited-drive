@@ -173,6 +173,17 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         tweaks->brightness[tweaks->brightness_count++] = (TrackLightBrightness){ a, b, (int)c };
         return 1;
     }
+    if (strcmp(key, "tono_coche") == 0) {
+        unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
+        int percent = 0;
+        if (sscanf(rest, "%u %u %x:%d", &from, &to, &rgb, &percent) != 4) {   /* no nodes: the whole track */
+            from = 0, to = nodes > 0 ? nodes - 1 : 0;
+            if (sscanf(rest, "%x:%d", &rgb, &percent) != 2) return 0;
+        }
+        if (from > to || to >= nodes || rgb > 0xffffffu || percent < 0 || percent > 100 || tweaks->car_tone_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
+        tweaks->car_tone[tweaks->car_tone_count++] = (TrackLightCarTone){ from, to, { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, percent };
+        return 1;
+    }
     if (strcmp(key, "tono_tunel") == 0) {
         char when[16];
         int n = 0, percent;
@@ -269,6 +280,17 @@ void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light)
                 const int scaled = *at * r->percent / 100;
                 *at = (uint8_t)(scaled > 255 ? 255 : scaled);
             }
+    }
+    if (tweaks->car_tone_count > 0 && light->nodes > 0) {
+        free(light->car_tone);
+        light->car_tone = calloc((size_t)light->nodes, 4);
+        for (int i = 0; light->car_tone != NULL && i < tweaks->car_tone_count; i++) {
+            const TrackLightCarTone *t = &tweaks->car_tone[i];
+            for (uint32_t n = t->from; n <= t->to && n < light->nodes; n++) {
+                uint8_t *at = &light->car_tone[4 * (size_t)n];
+                at[0] = t->rgb[0], at[1] = t->rgb[1], at[2] = t->rgb[2], at[3] = (uint8_t)t->percent;
+            }
+        }
     }
     for (int dark = 0; dark < 2; dark++)
         if (tweaks->warm_set[dark]) {

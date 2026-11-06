@@ -731,16 +731,23 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 /* the table for a car at `node`, NULL when its ambient is the world's */
 static const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
-    if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL))) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
-    static struct { int key[3]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];
+    if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL) || psx_light->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
+    static struct { int key[7]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's tono_coche) */
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3];
     ratio_at_xz(node, xz, car, ratio);
-    int key[3], neutral = 1;
+    int key[7] = { 0 }, neutral = 1;
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;
+    }
+    if (psx_light->car_tone != NULL && psx_light->nodes > 0) {   /* port (track light file, tono_coche): the car's own tone at this node */
+        const uint8_t *tone = psx_light->car_tone + 4 * (size_t)psx_ring_node(node, psx_light->nodes);
+        if (tone[3] > 0) {
+            for (int k = 0; k < 4; k++) key[3 + k] = tone[k];
+            neutral = 0;
+        }
     }
     if (neutral) return NULL;
     if (!valid || memcmp(made_for, palette, sizeof made_for) != 0) {   /* a fade changed the palette */
@@ -753,6 +760,10 @@ static const uint8_t *car_light(int32_t node, const double *xz, int car, const u
     next = (next + 1) % AMBIENT_TABLES;
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
     psx_lit_table(palette, ratio, cache[slot].table);
+    if (key[6] > 0) {
+        const uint8_t rgb[3] = { (uint8_t)key[3], (uint8_t)key[4], (uint8_t)key[5] };
+        psx_car_tone_table(palette, cache[slot].table, rgb, key[6], cache[slot].table);   /* in place: each entry reads only its own */
+    }
     return cache[slot].table;
 }
 

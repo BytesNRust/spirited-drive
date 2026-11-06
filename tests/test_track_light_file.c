@@ -84,7 +84,7 @@ static void test_header_and_bad_lines(void)
 static void test_tweaks_stay_with_other_flags(void)
 {
     /* a file made with other flags: its rows are not used, but its retouches are read and apply over a light made some other way */
-    const char *text = "pista CY1 hora N nodos 40 banderas 1\nfilas 0 39 200 200 200 200 200 200 200 200 200 200 200\nbrillo 10 19 50\nbrillo 30 30 300\ntono_tunel dia 1 0.5 0.25 130\n";
+    const char *text = "pista CY1 hora N nodos 40 banderas 1\nfilas 0 39 200 200 200 200 200 200 200 200 200 200 200\nbrillo 10 19 50\nbrillo 30 30 300\ntono_tunel dia 1 0.5 0.25 130\ntono_coche ff8020:60\ntono_coche 5 7 000000:0\n";
     TrackLightFile f = { 0 };
     CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 0x2, &f, NULL));
     CHECK(!f.base);
@@ -95,6 +95,7 @@ static void test_tweaks_stay_with_other_flags(void)
     track_light_apply(&f.tweaks, &l);
     CHECK(l.data[9 * PSX_LIGHT_POINTS] == 100 && l.data[10 * PSX_LIGHT_POINTS] == 50 && l.data[19 * PSX_LIGHT_POINTS + 10] == 50 && l.data[20 * PSX_LIGHT_POINTS] == 100);
     CHECK(l.data[30 * PSX_LIGHT_POINTS] == 255);   /* clamped */
+    CHECK(l.car_tone != NULL && l.car_tone[4 * 4] == 0xff && l.car_tone[4 * 4 + 1] == 0x80 && l.car_tone[4 * 4 + 3] == 60 && l.car_tone[4 * 6 + 3] == 0 && l.car_tone[4 * 8 + 3] == 60);   /* the car's tone: whole track, then 5..7 off */
     CHECK(l.warm_percent[0] == 130 && l.warm_cast[0][2] == 0.25f && l.warm_percent[1] == 0);
     char names[128];
     track_light_diff(0x1, 0x2, names, sizeof names);

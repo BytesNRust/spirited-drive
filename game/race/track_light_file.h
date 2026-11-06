@@ -14,6 +14,7 @@
  * and the retouches, which count whatever made the light (the file's rows or the code's, see TrackLightFile.base):
  *   tono_tunel noche 1 0.35 0.05 174   (a warm tunnel's cast, red green blue, and its light in percent; dia is the day's. The file starts with the values the code has)
  *   brillo 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
+ *   tono_coche ff8020:60               (the car's tone on the whole track: a colour in hex and its intensity 0..100, as the palette allows; tono_coche 120 180 ff8020:60 for nodes 120..180 only)
  *
  * The header's flags say which of the port's settings the rows were made with: with others the rows are not the file's to give, and the light is made in code, but the retouches
  * stay (track_light_diff names what differs).
@@ -40,9 +41,12 @@ void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size);
 
 enum { TRACK_LIGHT_MAX_BRIGHT = 64 };
 typedef struct { uint32_t from, to; int percent; } TrackLightBrightness;
+typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
 typedef struct {
     TrackLightBrightness brightness[TRACK_LIGHT_MAX_BRIGHT];
     int brightness_count;
+    TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* tono_coche: in file order, later lines over earlier ones */
+    int car_tone_count;
     int warm_set[2];            /* [0] the day's, [1] the night's: tono_tunel given */
     float warm_cast[2][3];
     int warm_percent[2];

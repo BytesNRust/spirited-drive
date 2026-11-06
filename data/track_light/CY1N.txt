@@ -3111,4 +3111,5 @@ pozo_coche 1822 1822 1
 coche_disco 1 0x1.e0418ap-1 0x1.e0418ap-1 0x1.e0418ap-1 0x1.4p-1 0x1.4p-1 0x1.4p-1
 reparto neutro 0 ciudad 1
 tono_tunel dia 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 115
-tono_tunel noche 0x1p+0 0x1.666666p-2 0x1.99999ap-5 174
+tono_tunel noche 0x1p+0 0x1.d70a3ep-1 0x1.b33334p-1 165
+tono_coche ff8020:80

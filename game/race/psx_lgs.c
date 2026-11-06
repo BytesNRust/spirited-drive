@@ -190,6 +190,37 @@ void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out
     }
 }
 
+void psx_car_tone_table(const uint8_t palette[768], const uint8_t *base, const uint8_t rgb[3], int percent, uint8_t out[256])
+{
+    enum { CHOICES = 0xfe };
+    const uint8_t *usable = palette_usable();
+    const uint8_t *emissive = palette_emissive();
+    const float p = (float)(percent < 0 ? 0 : percent > 100 ? 100 : percent) / 100.0f;
+    const float tone_lum = 0.30f * rgb[0] + 0.59f * rgb[1] + 0.11f * rgb[2];
+    for (int c = 0; c < 256; c++) {
+        const int from = base != NULL ? base[c] : c;
+        if (c >= CHOICES || emissive[c] || from >= CHOICES || p <= 0.0f || tone_lum < 1.0f) {
+            out[c] = (uint8_t)from;
+            continue;
+        }
+        const float lum = 0.30f * palette[3 * from] + 0.59f * palette[3 * from + 1] + 0.11f * palette[3 * from + 2];
+        float want[3];
+        for (int k = 0; k < 3; k++) {
+            const float target = (float)rgb[k] * lum / tone_lum;
+            want[k] = (float)palette[3 * from + k] * (1.0f - p) + target * p;
+        }
+        int best = from;
+        float best_d = 1e30f;
+        for (int i = 0; i < CHOICES; i++) {
+            if (!usable[i]) continue;
+            const float dr = (float)palette[3 * i] - want[0], dg = (float)palette[3 * i + 1] - want[1], db = (float)palette[3 * i + 2] - want[2];
+            const float d = dr * dr + dg * dg + db * db;
+            if (d < best_d) best = i, best_d = d;
+        }
+        out[c] = (uint8_t)best;
+    }
+}
+
 void psx_tint_palette(const uint8_t palette[768], const float tint[3], uint8_t out[768])
 {
     const uint8_t *emissive = palette_emissive();
