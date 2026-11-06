@@ -71,6 +71,7 @@ typedef struct {
     char text[16]; /* TEXT events */
     uint32_t delay; /* TNFS_INPUT_SETTLE: ms after the event before it */
     bool placed;    /* CLICK: the pointer moved there, the press due on the next read */
+    bool latched;   /* a key's press latched, as the event of a real one does */
 } ScriptEvent;
 static ScriptEvent script[SCRIPT_MAX];
 static int script_count;
@@ -414,6 +415,9 @@ static void watch_keys_check(void)
     }
 }
 
+static SDL_Scancode from_set1(int scancode);
+static void script_latch_presses(void);
+
 bool platform_poll_events(void)
 {
     static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
@@ -422,6 +426,7 @@ bool platform_poll_events(void)
     /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
     if (joy_refresh != NULL) joy_refresh();
     key_latch_pump();
+    if (script_count > 0) script_latch_presses();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
@@ -521,7 +526,7 @@ static void load_script(void)
     char *save = NULL;
     for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
          item = SDL_strtok_r(NULL, ",", &save)) {
-        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false };
+        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false, false };
         char name[16] = "";
         if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
@@ -576,6 +581,7 @@ static void script_sequence(void)
 static bool script_key_down(int scancode)
 {
     script_sequence();
+    script_latch_presses();   /* the press is latched as its event is pumped, before the read that sees it */
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         ScriptEvent *e = &script[i];
@@ -628,6 +634,19 @@ static void apply_script_mouse(void)
             mouse_buttons &= ~(unsigned)PLATFORM_MOUSE_LEFT;
             script[i].seen = true;
         }
+    }
+}
+
+/* a scripted key press latches as a real one does (its KEY_DOWN event), so the script walks the same paths a finger does */
+static void script_latch_presses(void)
+{
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    for (int i = 0; i < script_count; i++) {
+        ScriptEvent *e = &script[i];
+        if (e->latched || e->scancode <= 0 || now < e->at_ms) continue;
+        const SDL_Scancode sc = from_set1(e->scancode);
+        if (sc != SDL_SCANCODE_UNKNOWN) key_latch_press((int)sc);
+        e->latched = true;
     }
 }
 
@@ -1123,13 +1142,34 @@ static void capture_frame(void)
     fclose(f);
 }
 
+/* One step of the pacing: the time of the next boundary (`next`, 0 at the first), after one `period`; resynced when more than a period behind. *wait_ns is how long to sleep from `now`. */
+static uint64_t pace_step(uint64_t next, uint64_t now, uint64_t period, uint64_t *wait_ns)
+{
+    if (next == 0 || now > next + period) next = now;  /* resync after stalls */
+    next += period;
+    *wait_ns = next > now ? next - now : 0;
+    return next;
+}
+
 void platform_wait_vblank(void)
 {
-    const uint64_t period = platform_refresh_period_ns();
-    const uint64_t now = SDL_GetTicksNS();
-    if (next_vblank_ns == 0 || now > next_vblank_ns + period) next_vblank_ns = now;  /* resync after stalls */
-    next_vblank_ns += period;
-    if (next_vblank_ns > now) platform_sleep_ms((uint32_t)((next_vblank_ns - now) / SDL_NS_PER_MS));
+    uint64_t wait_ns;
+    next_vblank_ns = pace_step(next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
+    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
+}
+
+uint64_t platform_frontend_period_ns(void)
+{
+    return SDL_NS_PER_SECOND / PLATFORM_FRONTEND_HZ;
+}
+
+static uint64_t next_frontend_ns;
+
+void platform_wait_frontend_frame(void)
+{
+    uint64_t wait_ns;
+    next_frontend_ns = pace_step(next_frontend_ns, SDL_GetTicksNS(), platform_frontend_period_ns(), &wait_ns);
+    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
 }
 
 typedef struct {

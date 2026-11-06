@@ -1,6 +1,7 @@
 #include "game/sys/video.h"
 
 #include "game/sys/backdrop.h"
+#include "game/sys/key_latch.h"
 #include "game/sys/palette.h"
 #include "game/viewer/screen_layout.h"
 #include "platform/platform.h"
@@ -207,7 +208,7 @@ void video_flip(void)
 
 void video_wait_vblank(void)
 {
-    platform_wait_vblank();
+    platform_wait_frontend_frame();   /* port: the exe's 60 a second, not the race's refresh rate */
 }
 
 void video_set_palette(int first, int count, const uint8_t *rgb)
@@ -240,6 +241,9 @@ void video_fade_in(int first, int count, const uint8_t *target)
 
 void video_fade_out(int first, int count)
 {
+    /* port: a screen leaves on a key it has read, and the latch of a tap (pumps, not time, wear it out) would
+     * otherwise outlast the fade and be read again by the next screen: Escape out of Controls took Options with it */
+    key_latch_clear();
     uint8_t start[PALETTE_BYTES], scaled[PALETTE_BYTES];
     video_get_palette(start);
     for (int frame = 0; frame < PALETTE_FADE_STEPS; frame++) {

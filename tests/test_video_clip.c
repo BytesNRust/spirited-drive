@@ -1,11 +1,13 @@
 /* 0047383c's box on the blits (video_set_clip), opened again by 00473680 (video_select_target). */
 #include "game/platform/platform.h"
+#include "game/sys/key_latch.h"
 #include "game/sys/palette.h"
 #include "game/sys/video.h"
 #include "test.h"
 
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]) { (void)pixels, (void)palette; }
 void platform_wait_vblank(void) {}
+void platform_wait_frontend_frame(void) {}
 void platform_framebuffer_size(int *width, int *height) { *width = 640, *height = 480; }
 
 enum { W = 16, H = 8 };
@@ -121,6 +123,16 @@ static void test_a_partial_fade_out_is_not_dark(void)
     CHECK_EQ_INT(video_display_is_dark(), 1);
 }
 
+/* Escape out of Controls read again by Options: the tap's latch is worn by pumps, which a fade does not make */
+static void test_a_tap_does_not_outlast_the_screen_fade(void)
+{
+    lit_palette();
+    key_latch_press(41);
+    CHECK_EQ_INT(key_latch_down(41), 1);
+    video_fade_out(0, PALETTE_COLORS);
+    CHECK_EQ_INT(key_latch_down(41), 0);
+}
+
 int main(void)
 {
     if (!video_init()) return 1;
@@ -130,6 +142,7 @@ int main(void)
     test_a_full_fade_out_leaves_the_display_dark();
     test_light_on_the_display_clears_it();
     test_a_partial_fade_out_is_not_dark();
+    test_a_tap_does_not_outlast_the_screen_fade();
     video_select_target(NULL, 0, 0);
     video_shutdown();
     return TEST_REPORT();

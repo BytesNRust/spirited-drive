@@ -19,7 +19,7 @@ static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0 };
 enum { PROFILE_LEFT = 0xd5, PROFILE_RIGHT = 0x1ab };
 static const char *const WORDS[OPTIONS] = { NULL, "Single Player", "Multiplayer", "Exit" };
 
-enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 8, FOOTER_Y = 452, FOOTER_STEP = 28 };
+enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 14, FOOTER_Y = 448, FOOTER_STEP = 20, FOOTER_NUM = 3, FOOTER_DEN = 5 };   /* the small subtitle size (3/5) of the profile's lines, 14 pixels in from the left and the bottom */
 
 typedef struct Menu {
     int32_t bank;
@@ -102,7 +102,7 @@ static void rows_draw(const Menu *m, const GameModeOps *o)
 /* port: where foot line i (its text) goes and how wide it is */
 static void footer_place(const GameModeOps *o, int32_t i, const char *text, int32_t *x, int32_t *y, int32_t *w)
 {
-    *w = o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
+    *w = o->plus_text_width_scaled != NULL ? o->plus_text_width_scaled(o->ctx, text, FOOTER_NUM, FOOTER_DEN) : o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
     *x = FOOTER_X, *y = FOOTER_Y - i * FOOTER_STEP;
 }
 
@@ -115,7 +115,8 @@ static void footer_draw(Menu *m, const GameModeOps *o)
         if (m->footer[i][0] == 0) continue;
         int32_t x, y, w;
         footer_place(o, i, m->footer[i], &x, &y, &w);
-        o->plus_text(o->ctx, 0, m->footer[i], x, y);
+        if (o->plus_text_scaled != NULL) o->plus_text_scaled(o->ctx, 0, m->footer[i], x, y, FOOTER_NUM, FOOTER_DEN);
+        else o->plus_text(o->ctx, 0, m->footer[i], x, y);
     }
 }
 
@@ -134,7 +135,7 @@ static int footer_stale(const Menu *m, const GameModeOps *o)
 /* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row) */
 static int on_notice(const Menu *m, const GameModeOps *o)
 {
-    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28 };
+    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 20 };
     if (o->open_notice == NULL || o->footer == NULL || m->footer[1][0] == 0) return 0;
     int32_t x, y, w;
     footer_place(o, 1, m->footer[1], &x, &y, &w);
