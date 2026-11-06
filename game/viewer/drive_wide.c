@@ -412,6 +412,18 @@ static int in_dial(const Cockpit *k, int x, int y)
            in_ellipse(x, y, k->sped_x + k->sped_w / 12, k->sped_y + k->sped_h / 12, k->sped_w - k->sped_w / 6, k->sped_h - k->sped_h / 6);
 }
 
+/* a 640 x 480 picture of palette indices as <dir>/<stem>.<what>.pgm (dash_dump) */
+static void dash_dump_pgm(const char *dir, const char *stem, const char *what, const uint8_t *pixels)
+{
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s.%s.pgm", dir, stem, what);
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) return;
+    fprintf(f, "P5\n%d %d\n255\n", SCREEN_W, SCREEN_H);
+    fwrite(pixels, 1, (size_t)SCREEN_W * SCREEN_H, f);
+    fclose(f);
+}
+
 /* port (dev, env only): TNFS_DASH_DUMP=<dir> writes each dash's 2D layer as <dir>/<STEM>.ppm (the dash art in the track's palette, the windshield black, and black too
  * wherever the steering wheel is in some pose: the wheel is drawn over the dash later, so the template does not hold it; wheel_front_zone) and a draft mask
  * <dir>/<STEM>.mask.png (the two gauge ellipses as DIAL), once per dash, for tools/dash_mask_psd.py's drafts */
@@ -461,6 +473,32 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     if ((f = fopen(path, "wb")) != NULL) {
         fprintf(f, "P5\n%d %d\n255\n", SCREEN_W, SCREEN_H);
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) fputc(zone[i] && art[i] != LAYER_KEY ? 255 : 0, f);
+        fclose(f);
+    }
+    /* the inputs of tools/dash_rebuild.py, which gives the layer the dash behind the wheel from the steering frames: the art's palette indices (<STEM>.art.pgm), the 'w' frames'
+     * ('w'l and 'w'r, each steering frame: <STEM>.w<row>_<frame>.pgm, 255 where a frame draws nothing), the dials over the wheel (<STEM>.dials.pgm, 255 elsewhere) and the palette (<STEM>.pal) */
+    dash_dump_pgm(dir, done, "art", art);
+    static uint8_t dial_only[SCREEN_W * SCREEN_H];
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        const int x = i % SCREEN_W, y = i / SCREEN_W;
+        const int dial = dials[i] != LAYER_KEY && (in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h));
+        dial_only[i] = dial ? dials[i] : 255;
+    }
+    dash_dump_pgm(dir, done, "dials", dial_only);
+    for (int row = 0; row < 2; row++)
+        for (int frame = 0; frame < COCKPIT_FRAMES; frame++) {
+            const uint8_t *shape = k->frames[row][frame];
+            if (shape == NULL) continue;
+            static uint8_t pic[SCREEN_W * SCREEN_H];
+            for (int y = 0; y < SCREEN_H; y++)
+                for (int x = 0; x < SCREEN_W; x++) pic[y * SCREEN_W + x] = wheel_front_pixel(shape, x, y) ? shape[0x10 + (y - (int16_t)(shape[0xe] | shape[0xf] << 8)) * (int16_t)(shape[4] | shape[5] << 8) + (x - (int16_t)(shape[0xc] | shape[0xd] << 8))] : 255;
+            char what[16];
+            snprintf(what, sizeof what, "w%d_%d", row, frame);
+            dash_dump_pgm(dir, done, what, pic);
+        }
+    snprintf(path, sizeof path, "%s/%s.pal", dir, done);
+    if ((f = fopen(path, "wb")) != NULL) {
+        fwrite(lit_palette, 1, 768, f);
         fclose(f);
     }
     static uint8_t draft[SCREEN_W * SCREEN_H];

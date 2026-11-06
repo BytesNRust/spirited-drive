@@ -83,7 +83,8 @@ def channel_data(plane):
 
 def write_psd(path, rgb, keep, base_name="texture", guide=None):
     """rgb: RGB Image; keep: 'L' Image of classes (class_of), 0 paint, 128 kept with a shine, 192 as the body, 224 the fixed black, 240..252 the lamps, 255 kept without.
-    guide: None, or (name, RGB Image, 'L' Image alpha): a hidden, locked layer between the texture and the mask (the dash's wheel)."""
+    guide: None, a hidden, locked layer between the texture and the mask (the dash's wheel) as (name, RGB Image, 'L' Image alpha), or a list of layers, each (name, RGB Image,
+    'L' Image alpha[, hidden[, opacity 0..255]]) (hidden by default, opacity 255), bottom first."""
     width, height = rgb.size
     if keep.size != rgb.size:
         raise ValueError("mask and texture sizes differ")
@@ -95,13 +96,16 @@ def write_psd(path, rgb, keep, base_name="texture", guide=None):
     records = layer_record(base_name, width, height, 255, True, texture_channels)
     data = b"".join(channel_data(p) for p in (r, g, b))
     count = 2
-    if guide is not None:
-        gname, grgb, galpha = guide
+    guides = [] if guide is None else [guide] if isinstance(guide, tuple) else list(guide)
+    for entry in guides:
+        gname, grgb, galpha = entry[:3]
+        ghidden = entry[3] if len(entry) > 3 else True
+        gopacity = entry[4] if len(entry) > 4 else 255
         if grgb.size != rgb.size or galpha.size != rgb.size:
             raise ValueError("guide and texture sizes differ")
-        records += layer_record(gname, width, height, 255, True, mask_channels, hidden=True)
+        records += layer_record(gname, width, height, gopacity, True, mask_channels, hidden=ghidden)
         data += b"".join(channel_data(bytes(p)) for p in (galpha.tobytes(),) + tuple(band.tobytes() for band in grgb.split()))
-        count = 3
+        count += 1
     records += layer_record("mask", width, height, MASK_OPACITY, False, mask_channels)
     data += b"".join(channel_data(p) for p in (alpha, red, green, blue))
     layer_info = struct.pack(">h", count) + records + data
