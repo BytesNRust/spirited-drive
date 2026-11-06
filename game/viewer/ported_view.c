@@ -1232,15 +1232,14 @@ static int foot_behind_crest(const Car *car, const int32_t foot[3])
     return 0;
 }
 
-/* port (rain_v2): whether a ground point (16.16) is on the carriageway of the node: its sideways distance from the road's centre (car_lateral's) is within the verge on its side
+/* port (rain_v2): whether a ground point (16.16) is on the carriageway of the node: its sideways distance from the road's centre (weather_across_road) is within the verge on its side
  * (the node's left or right verge, in 1/8 m). Where the node gives no verge the point counts as on it. */
 static int foot_on_carriageway(const int32_t foot[3], int32_t node)
 {
     if (shadow_race == NULL) return 1;
     const TriNode n = race_node(shadow_race, node);
-    const int32_t angle = n.orientation * 4;
-    const int32_t lateral = -fx_mul_round(fx_sin16(angle), n.position.x - foot[0]) - fx_mul_round(fx_cos16(angle), n.position.z - foot[2]);
-    return weather_on_carriageway(lateral, n.left_verge, n.right_verge);
+    const int32_t across = weather_across_road(n.orientation * 4, foot[0] - n.position.x, foot[2] - n.position.z);   /* not car_lateral's: that one is the distance along the road */
+    return weather_on_carriageway(across, n.left_verge, n.right_verge);
 }
 
 static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
