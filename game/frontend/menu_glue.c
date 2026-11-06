@@ -468,7 +468,7 @@ static int variant_draw(void *ctx, int car, int lit, uint8_t *palette)
     if (car_variant_can_step(showcase_variants, showcase_variant_count, model, 1))
         variant_triangle(VARIANT_RIGHT - BORDER - TRIANGLE_INSET, middle, 0);
     text_select(lit ? TEXT_YELLOW : TEXT_CREAM);   /* the photos' captions: bottom left inside the frame */
-    text_draw_shadowed("COLOR", VARIANT_LEFT + BORDER + LABEL_INSET, VARIANT_BOTTOM - BORDER - text_line_height() - 2);
+    text_draw_shadowed("Color", VARIANT_LEFT + BORDER + LABEL_INSET, VARIANT_BOTTOM - BORDER - text_line_height() - 2);
     box.palette = NULL;
     return box.added;
 }
