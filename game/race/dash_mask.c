@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { MAX_SIDE = 4096, WHITE_FROM = 192 };
+enum { MAX_SIDE = 4096, WHITE_FROM = 192, YELLOW_BLUE_MAX = 64 };
 
 int dash_mask_class(const uint8_t c[3])
 {
@@ -19,6 +19,7 @@ int dash_mask_class(const uint8_t c[3])
     const int low = c[0] < c[1] ? (c[0] < c[2] ? c[0] : c[2]) : (c[1] < c[2] ? c[1] : c[2]);
     if (top < 64) return DASH_MASK_AUTO;                                       /* black */
     if (low >= WHITE_FROM) return DASH_MASK_LIT;                               /* white */
+    if (c[0] >= WHITE_FROM && c[1] >= WHITE_FROM && c[2] <= YELLOW_BLUE_MAX) return DASH_MASK_LIT;   /* yellow: reads on the dash where white does not */
     if (c[2] > c[0] && c[2] > c[1]) return DASH_MASK_DASH;                     /* blue */
     if (c[1] > c[0] && c[1] > c[2]) return DASH_MASK_DIAL;                     /* green */
     return DASH_MASK_AUTO;                                                     /* any other colour: not marked */

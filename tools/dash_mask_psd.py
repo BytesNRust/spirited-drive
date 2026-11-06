@@ -10,7 +10,7 @@ Each dash becomes one PSD at 640 x 480, 8-bit RGB, with these layers (the first 
            transparent   not marked: the cockpit's own gauge ellipses decide, as without a mask
            green (0,255,0)     inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not
            blue (0,0,255)      the dash's art: never lit (the speedo's rim)
-           white               lit whatever its brightness (a warning lamp)
+           white (yellow ffff00 reads the same, and contrasts better)   lit whatever its brightness (a warning lamp)
 The draft's green is the cockpit's two gauge ellipses (the game's own guess): paint it to the dials' real outline, and the dials the game does not find (the small
 gauges), then tools/dash_mask_from_psd.py reads the "mask" layer into data/dash_masks/<CAR>/dash_mask.png.
 

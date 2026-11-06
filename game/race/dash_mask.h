@@ -3,7 +3,8 @@
  *   black   0   AUTO  not marked: the cockpit's own gauge ellipses decide, as without a mask
  *   blue   64   DASH  the dash's art: never lit (the speedo's rim, the dash round a dial)
  *   green 128   DIAL  inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not
- *   white 255   LIT   lit whatever its brightness (a warning lamp, a lit window)
+ *   yellow or white 255   LIT   lit whatever its brightness (a warning lamp, a lit window); yellow (red and green >= 192, blue <= 64) contrasts on the dash, white still reads
+ *                         for what was painted with it
  * A pixel the needle's colour draws is never lit. The masks hold no colour of the art. A dash with a mask is decided by it alone (the automatic
  * lit marks are off); one without keeps the automatic rules. */
 #ifndef TNFS_DASH_MASK_H

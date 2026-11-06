@@ -4,7 +4,8 @@ data/dash_masks/<CAR>/dash_color.png (game/race/dash_color.h), the colours of th
 
 The PSD is a dash's 640 x 480 2D layer (tools/dash_mask_psd.py makes the drafts) with a layer named "mask" painted over it. A pixel of the mask layer is classed by its alpha and colour:
   alpha < 128, or black (brightest channel < 64)   0    AUTO: not marked, the cockpit's own gauge ellipses decide
-  white or light grey (every channel >= 192)       255  LIT: lit whatever its brightness (a warning lamp)
+  yellow (red and green >= 192, blue <= 64), or white or light grey (every channel >= 192)
+                                                   255  LIT: lit whatever its brightness (a warning lamp). Paint it yellow ffff00: it contrasts on the dash; white still works
   blue-dominant (blue > red, green)                64   DASH: the dash's art, never lit (the speedo's rim)
   green-dominant (green > red, blue)               128  DIAL: inside a dial, its bright marks (numerals, ticks) are lit, its dark face is not
   anything else                                    0    AUTO
@@ -16,7 +17,7 @@ or a black one (every channel < 24) has no colour: a lit part there glows orange
 make lit stays unlit whatever the colour. The game folds the colours into 12 flat ones (a colour within 48 of an earlier one, by the sum of its channels' differences, shares its
 slot), so paint with a few flat colours. The layer's opacity is ignored. The file is RGBA, the layer's colour and 255 or 0 for its alpha; a dash whose PSD has no "color" layer
 gets no dash_color.png (an old one is deleted).
- The PNG is indexed (black, blue, green, white), the colours dash_mask.h reads.
+ The PNG is indexed (black, blue, green, white: a yellow LIT is written white), the colours dash_mask.h reads.
 A PSD of another size is written at its own size (the game scales a mask to 640 x 480 by nearest neighbour).
 
 usage: dash_mask_from_psd.py <dir of CAR/dash.psd> [<output dir, default data/dash_masks next to tools/>]
@@ -39,7 +40,7 @@ def mask_class(r, g, b, a=255):
     """The class of a mask layer's pixel (colour and alpha), as dash_mask.c's dash_mask_class reads a painted PNG."""
     if a < 128 or max(r, g, b) < 64:
         return AUTO
-    if min(r, g, b) >= 192:
+    if min(r, g, b) >= 192 or (r >= 192 and g >= 192 and b <= 64):   # white, or yellow (ffff00)
         return LIT
     if b > r and b > g:
         return DASH
