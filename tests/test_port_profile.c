@@ -157,7 +157,8 @@ static void test_tables(void)
     CHECK_EQ_INT(s.night_sky_hue, 1);
     CHECK_EQ_INT(s.rain_grip, 1);   /* the owner: less grip in the rain is Restomod's default */
     CHECK_EQ_INT(s.gauge_light, 5);   /* the owner: the dash's own colours ("Car") are Restomod's default; orange where the car paints none */
-    CHECK_EQ_INT(s.police_halo, 1);   /* the owner: one size under the 2 he tried */
+    CHECK_EQ_INT(s.police_halo, 1);
+    CHECK_EQ_INT(s.rain_v2, 1);   /* the owner: the lighter rain, the storm's thunder, the carriageway reflections */   /* the owner: one size under the 2 he tried */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
     CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* not until the owner approves it */
     CHECK_EQ_INT(s.city_lift, 3);   /* the owner: the new City night is Restomod's default */

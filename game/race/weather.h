@@ -8,6 +8,12 @@
 enum { WEATHER_CLEAR = 0, WEATHER_FOG = 1, WEATHER_RAIN = 2, WEATHER_STORM = 3, WEATHER_COUNT = 4 };   /* the storm: the rain, heavier (WEATHER_STORM_DROPS), with lightning (weather_rain_flash) */
 enum { WEATHER_STORM_DROPS = 3 };   /* how many times the rain's streaks */
 
+/* port (rain_v2): the streaks' share of the base count, in percent: v2 0 the rain's 100 and the storm's WEATHER_STORM_DROPS x 100 as before; v2 1 the rain half and the storm a quarter over the old rain. */
+enum { WEATHER_RAIN_V2_PERCENT = 50, WEATHER_STORM_V2_PERCENT = 125 };
+int weather_rain_percent(int storm, int v2);
+/* how many streaks of a count the base gives, as the percent says */
+int weather_rain_scaled(int base, int storm, int v2);
+
 /* 1 for what falls as rain: the rain and the storm, with the wet road, the haze and the rain's grip. */
 int weather_wet(int weather);
 
@@ -90,7 +96,15 @@ int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int w
  * seconds. The sky is painted white by it, and the palette goes toward full bright by it (drive_light_set_flash). */
 enum { WEATHER_STORM_SLOT = 450, WEATHER_STORM_DOUBLE = 18, WEATHER_FLASH_TICKS = 10, WEATHER_FLASH_PEAK = 15 };
 int weather_rain_flash(uint32_t tick);
-void weather_flash_colour(uint8_t out[3]);   /* the lightning's: a cold white-blue */
+void weather_flash_colour(uint8_t out[3]);
+
+/* port (rain_v2): the thunder after each lightning. weather_thunder_strike is 1 at the tick a strike begins (the flash rises: the first of a double too). The thunder follows
+ * weather_thunder_delay(strike tick) ticks later, WEATHER_THUNDER_MIN_TICKS..WEATHER_THUNDER_MAX_TICKS (0.5 to 4 s at 30 a second), a pure function of the tick so a replay sounds the same,
+ * at weather_thunder_volume(delay) percent: full at the shortest delay, WEATHER_THUNDER_FAR_PERCENT at the longest. */
+enum { WEATHER_THUNDER_MIN_TICKS = 15, WEATHER_THUNDER_MAX_TICKS = 120, WEATHER_THUNDER_FAR_PERCENT = 35 };
+int weather_thunder_strike(uint32_t tick);
+int weather_thunder_delay(uint32_t tick);
+int weather_thunder_volume(int delay);   /* the lightning's: a cold white-blue */
 
 /* The brightness level (0..WEATHER_RAIN_LEVELS - 1) a spray puff is drawn at: by day white, at night a mid level (it lies behind the car, outside the headlights' cone). */
 int weather_rain_spray_level(int night);
@@ -106,5 +120,9 @@ int weather_rain_cone_weight(float ahead, float lateral, float height);
  * faces the camera, < 0 the rear): the weight is smooth in |dot| from 0.3 (none, a side view) to 0.7 (full), and `distance` (metres) is full to WEATHER_REFLECT_NEAR_M and none from WEATHER_REFLECT_FAR_M. */
 enum { WEATHER_REFLECT_NEAR_M = 25, WEATHER_REFLECT_FAR_M = 75 };
 int weather_reflection_weight(float dot, float distance);
+
+/* port (rain_v2): whether a point `lateral` (16.16 m, negative left of the road's centre, as car_lateral has it) is on the carriageway: within the node's verge on its side
+ * (`left_verge` / `right_verge` in 1/8 m, the node's own bytes). A node with no verge on that side counts as on it. */
+int weather_on_carriageway(int32_t lateral, int left_verge, int right_verge);
 
 #endif

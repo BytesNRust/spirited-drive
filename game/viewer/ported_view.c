@@ -42,6 +42,7 @@
 #include "viewer/object_sink.h"
 #include "viewer/body_shine.h"
 #include "game/sys/port_settings.h"
+#include "game/viewer/drive_audio.h"
 #include "viewer/soft_shadow.h"
 #include "viewer/raster.h"
 #include "viewer/sky_smooth.h"
@@ -364,6 +365,7 @@ static void rain_mood_band(void *user, int top, int bottom)
     weather_mood_rows(m->pixels, m->pitch, box, m->table, m->share);
 }
 
+static void storm_thunder_update(void);   /* port (rain_v2): the thunder after each strike */
 static int storm_flash_level(void);   /* port (WEATHER_STORM): the lightning's brightness this frame, 0 none */
 
 static void weather_sky_band(void *user, int top, int bottom)
@@ -1152,7 +1154,9 @@ static void spray_update(void)
         }
         const int32_t right[2] = { fz, -fx };
         const int wet = car->airborne_ticks == 0 && car->off_road == 0;
-        if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
+        if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
+            rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
+        else if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
             rain_spray_step_wisp(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
         else
             rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
@@ -1186,6 +1190,7 @@ static void spray_row(int32_t node, int far_side)
  * tail lights' (red) show when the car's rear is toward the camera and the headlights' (warm white, lit ones only) when its front is, both gone at a side view (the dot of the car's forward
  * vector with the car-to-camera one, |dot| 0.3 .. 0.7 smooth) and with distance (full to 25 m, none from 75 m). The car's own heading as it is drawn (traffic draws with its matrix, not the
  * yaw) and its own length and width place the lamps. */
+enum { RAIN_V2_RAISE_DIV = 8 };   /* port (rain_v2): the streaks' vanishing point is raised by this fraction of the view's height */
 enum { REFLECT_DEFAULT_LENGTH = 0x48000, REFLECT_DEFAULT_WIDTH = 0x1cccc };   /* a car's length and width (16.16) when the model gives none */
 
 /* The reflection's strength in percent for `car` seen from the camera (0 none), and whether it is the front that faces the camera. */
@@ -1225,6 +1230,17 @@ static int foot_behind_crest(const Car *car, const int32_t foot[3])
     return 0;
 }
 
+/* port (rain_v2): whether a ground point (16.16) is on the carriageway of the node: its sideways distance from the road's centre (car_lateral's) is within the verge on its side
+ * (the node's left or right verge, in 1/8 m). Where the node gives no verge the point counts as on it. */
+static int foot_on_carriageway(const int32_t foot[3], int32_t node)
+{
+    if (shadow_race == NULL) return 1;
+    const TriNode n = race_node(shadow_race, node);
+    const int32_t angle = n.orientation * 4;
+    const int32_t lateral = -fx_mul_round(fx_sin16(angle), n.position.x - foot[0]) - fx_mul_round(fx_cos16(angle), n.position.z - foot[2]);
+    return weather_on_carriageway(lateral, n.left_verge, n.right_verge);
+}
+
 static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const int32_t box[4], const WeatherTables *wt)
 {
     const int night = drive_light_night();
@@ -1245,6 +1261,7 @@ static void reflect_car(const Car *car, uint8_t *pixels, int32_t pitch, const in
         foot[1] = race_chase_road_height(shadow_race, car->node, foot);
         mirror[1] = foot[1] - 0xc000;   /* and the lamp as the road shows it, below it (a wet road smears it longer than the lamp is high) */
         if (foot_behind_crest(car, foot)) continue;   /* behind a crest the road does not show it */
+        if (port_rain_v2() && !foot_on_carriageway(foot, car->node)) continue;   /* port (rain_v2): the shoulder is no mirror: the reflection stays on the carriageway */
         if (!world_screen(foot, c0, s0) || c0[2] < 64 || !world_screen(mirror, c1, s1) || c1[2] < 64) continue;
         const int32_t half = (0x38400 / c0[2] * 220 / SPRAY_DIV + 1) * (night ? 3 : 2) / 2;   /* wider at night: the lamps are the light */
         const int32_t steps = abs(s1[1] - s0[1]) > 48 ? 48 : abs(s1[1] - s0[1]);
@@ -2156,6 +2173,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon.scale, stage.line, ctx.clip.y1);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
+    storm_thunder_update();
     drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
@@ -2310,11 +2328,35 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         rain_cars_paint(pixels, screen_w, box, wt);
         int32_t vanish[2] = { view.centre_x, view.centre_y };
         rain_vanishing_point(vanish);
+        if (port_rain_v2()) vanish[1] -= (box[3] - box[1]) / RAIN_V2_RAISE_DIV;   /* port (rain_v2): the rain falls from above: the streaks leave a point higher up */
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view.focal_x,
-                             drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM);
+                             drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM, port_rain_v2());
         weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
     } else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
-        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM);
+        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
+}
+
+/* port (rain_v2): the thunder after each strike. Every race tick since the last frame is looked at (a frame can span several); a strike schedules its clap weather_thunder_delay ticks
+ * on at weather_thunder_volume. The first call, a clock gone back, or a jump of more than a few seconds starts afresh (no claps for ticks nobody saw). */
+static void storm_thunder_update(void)
+{
+    static uint32_t last;
+    static int have;
+    if (weather != WEATHER_STORM || !port_rain_v2()) {
+        have = 0;
+        return;
+    }
+    const uint32_t tick = (uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick);
+    if (!have || tick < last || tick - last > 90) {
+        last = tick, have = 1;
+        return;
+    }
+    for (uint32_t t = last + 1; t <= tick; t++) {
+        if (!weather_thunder_strike(t)) continue;
+        const int delay = weather_thunder_delay(t);
+        drive_audio_thunder(delay, weather_thunder_volume(delay));
+    }
+    last = tick;
 }
 
 static int storm_flash_level(void)

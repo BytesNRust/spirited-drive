@@ -190,6 +190,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.rally_dry_lamps, 0);
     CHECK_EQ_INT(d.traffic_halo, 0);
     CHECK_EQ_INT(d.police_halo, 0);
+    CHECK_EQ_INT(d.rain_v2, 0);   /* as it was, until asked */
     CHECK_EQ_INT(d.analog_pad, 0);   /* the exe's key paths, until a profile or the file asks */
     CHECK_EQ_INT(d.city_lift, 0);   /* as the exe has it, until asked */
     CHECK_EQ_INT(d.reverse_rows, 0);   /* as the exe has it, until asked */
