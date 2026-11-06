@@ -439,7 +439,8 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     PsxLight tunnels = { 0 };
     uint32_t open_from = 1, open_to = 0;
     const int trans = port_trans_shadows() && psx_light_synth_trans(track, &open_from, &open_to);
-    if (psx_light_synth(tri, synth_time, &tunnels) && tunnels.nodes == made.nodes) {
+    const int gallery = port_made_tunnels() && port_car_tunnel_light() && psx_light_synth_gallery_track(track);   /* port (made_tunnels, car_tunnel_light): CL2's galleries (property 7) are tunnels of its light, as the CD's is */
+    if (psx_light_synth_ex(tri, synth_time, gallery, &tunnels) && tunnels.nodes == made.nodes) {
         uint32_t hall_from = 1, hall_to = 0;
         const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
         for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) {
@@ -501,7 +502,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         uint32_t hall_from = 1, hall_to = 0;
         const int hall_range = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
         psx_light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
-        made.neutral_cast = psx_light_synth_mine(track);   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
+        made.neutral_cast = psx_light_synth_mine(track) || gallery;   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
     }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);
