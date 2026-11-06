@@ -20,6 +20,7 @@
 #include "game/race/car_livery.h"
 #include "game/race/car_paint.h"
 #include "viewer/drive_livery.h"
+#include "viewer/drive_replay.h"
 #include "viewer/drive_light.h"
 #include "viewer/drive_lamps.h"
 #include "game/race/weather.h"
@@ -326,12 +327,25 @@ static int rival_paint_choice(uint32_t paint_seed, int slot, int car, int player
     return car_paint_pick(paint_seed, slot, car, player_car, player_paint, car_paint_count(car), ps1);
 }
 
-/* the colours of `slot`, which drives `car` (a race model, car_model_names' order) */
+static uint8_t race_paint[RACE_PLAYERS];   /* port (replay colours): the paint each slot wears this race, written with its replay (drive_replay_set_paints) */
+
+/* the colours of `slot`, which drives `car` (a race model, car_model_names' order). In a replay whose file recorded them they are the race's own: the seed a stage set keeps, the player's choice
+ * and the PS1 files may be other now, and a draw again would give other colours. */
 static void slot_colours(int slot, int car)
 {
     const int is_player = slot == drive_cars.colours.player_slot;
-    const int paint = is_player ? drive_cars.colours.player_paint
-                                : rival_paint_choice(drive_cars.colours.seed, slot, car, drive_cars.colours.player_car, drive_cars.colours.player_paint, drive_cars.psx_dir);
+    int paint = is_player ? drive_cars.colours.player_paint
+                          : rival_paint_choice(drive_cars.colours.seed, slot, car, drive_cars.colours.player_car, drive_cars.colours.player_paint, drive_cars.psx_dir);
+    if (replay_of != NULL && replay_of->paint_known && slot < RACE_PLAYERS) {
+        uint16_t swatch[2];
+        const int ps1 = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
+        const int saved = car_paint_replayed(replay_of->paint[slot], car, ps1);
+        if (saved >= 0) paint = saved;
+    }
+    if (slot < RACE_PLAYERS) {
+        race_paint[slot] = (uint8_t)paint;
+        drive_replay_set_paints(race_paint);
+    }
     drive_cars.model[slot] = car;
     drive_cars.livery[slot] = paint == PAINT_PS1;
     drive_cars.fixed_black[slot] = 1;
@@ -353,6 +367,8 @@ static void rival_liveries(const RaceField *field, int player, const char *track
     memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
     memset(drive_cars.fixed_black, 0, sizeof drive_cars.fixed_black);
     memset(&drive_cars.colours, 0, sizeof drive_cars.colours);
+    memset(race_paint, REPLAY_PAINT_NONE, sizeof race_paint);
+    drive_replay_set_paints(race_paint);   /* none until a slot's colours are decided (the colours off: none) */
     drive_cars.dash_rgb_on = 0;
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
     port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
@@ -758,11 +774,12 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
 int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, size_t size, int request)
 {
     static ReplayRace race;
-    if (file == NULL || size != REPLAY_FILE_SIZE || !race_replay_image_race(file, &race)) {
+    if (file == NULL || size < REPLAY_FILE_SIZE || !race_replay_image_race(file, &race)) {
         port_log("track_viewer: not a replay\n");
         drive_menus_on = 0;
         return 0;
     }
+    race.paint_known = race_replay_paint_get(file, size, race.paint);   /* port (replay colours): the paints the race wore; a CD's or older file has none */
     replay_of = &race, replay_file = file, replay_request = request;
     const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);
     replay_of = NULL, replay_file = NULL;
