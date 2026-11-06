@@ -1,5 +1,6 @@
 /* The track light file (track_light_file.h): a made light written and read back is the same light, the header keeps a file to its track, time, nodes and flags, a bad line
  * is refused, and the mod's folder is looked in first. Made-up rows, no game data. */
+#include "game/race/track_fence.h"
 #include "game/race/track_light_file.h"
 #include "test.h"
 
@@ -144,8 +145,51 @@ static void test_english_and_spanish_words_load_the_same(void)
     psx_light_free(&a);
 }
 
+/* the scene tones: a stretch's, a side strip's, the 16 distinct a track has at most, and the class a polygon takes from its four corners */
+static void test_tones(void)
+{
+    const char *text = "track CY1 time N nodes 40 flags 1\nrows 0 39 200 200 200 200 200 200 200 200 200 200 200\ntone 10 19 ffe080:50\ntone 15 25 p6 p7 ff2020:60\ntone 30 31 ffe080:50\n";
+    TrackLightFile f = { 0 };
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 0x2, &f, NULL));
+    CHECK(f.tweaks.tone_count == 2 && f.tweaks.tone_run_count == 3);   /* ffe080:50 twice is one tone */
+    PsxLight l = { 0 };
+    l.nodes = NODES;
+    l.data = calloc((size_t)NODES * PSX_LIGHT_POINTS, 1);
+    track_light_apply(&f.tweaks, &l);
+    CHECK(l.tone_count == 2 && l.tone[0].rgb[0] == 0xff && l.tone[0].rgb[1] == 0xe0 && l.tone[0].percent == 50 && l.tone[1].rgb[1] == 0x20);
+    CHECK(l.tone_id[9] == 0 && l.tone_id[10] == 1 && l.tone_mask[10] == 0x7ff);          /* a stretch: every point */
+    CHECK(l.tone_id[17] == 2 && l.tone_mask[17] == ((1u << 6) | (1u << 7)));             /* the later line over the same nodes: its strip only */
+    CHECK(l.tone_id[30] == 1 && l.tone_id[32] == 0);
+    CHECK(psx_light_vertex_class(&l, 12, 3) == (1 << PSX_TONE_BASE_BITS) && psx_light_vertex_class(&l, 9, 3) == 0);
+    CHECK(psx_light_vertex_class(&l, 17, 6) == (2 << PSX_TONE_BASE_BITS) && psx_light_vertex_class(&l, 17, 5) == 0);   /* the strip's points p6, p7 only */
+    /* a polygon takes a tone when its four corners have the same one; the class of the road is kept under it */
+    uint8_t cls[8] = { 0 }, now[6] = { 0 }, light_row[8] = { 0 };
+    TrackFenceInputs in = { .tunnel = cls, .light = light_row, .light_now = now };
+    const uint8_t corner[4] = { 0, 1, 2, 3 };
+    cls[0] = cls[1] = cls[2] = cls[3] = (uint8_t)(1 << PSX_TONE_BASE_BITS);
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == (1 << PSX_TONE_BASE_BITS));
+    cls[3] = 0;
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == 0);   /* one corner out of the tone: the polygon is the road's */
+    cls[0] = cls[1] = cls[2] = cls[3] = (uint8_t)(1 | 3 << PSX_TONE_BASE_BITS);   /* a tunnel's polygon with a tone */
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == (1 | 3 << PSX_TONE_BASE_BITS));
+    psx_light_free(&l);
+    track_light_file_free(&f);
+    /* bad lines: a point past p10, a 17th distinct tone, nodes past the track */
+    TrackLightFile g = { 0 };
+    int bad = 0;
+    { const char *t = "track CY1 time N nodes 40 flags 1\nrows 0 39 1 1 1 1 1 1 1 1 1 1 1\ntone 1 2 p11 ff0000:10\n"; CHECK(!track_light_parse(t, strlen(t), "CY1", 'N', NODES, 0x2, &g, &bad) && bad == 3); }
+    char many[1024] = "track CY1 time N nodes 40 flags 1\nrows 0 39 1 1 1 1 1 1 1 1 1 1 1\n";
+    for (int i = 0; i < 17; i++) snprintf(many + strlen(many), sizeof many - strlen(many), "tone %d %d %02x0000:%d\n", i, i, i + 1, 10 + i);
+    CHECK(!track_light_parse(many, strlen(many), "CY1", 'N', NODES, 0x2, &g, &bad) && bad == 2 + 17);
+    { const char *t = "track CY1 time N nodes 40 flags 1\nrows 0 39 1 1 1 1 1 1 1 1 1 1 1\ntone 38 40 ff0000:10\n"; CHECK(!track_light_parse(t, strlen(t), "CY1", 'N', NODES, 0x2, &g, &bad) && bad == 3); }
+}
+
 int main(void)
 {
+    test_tones();
     test_round_trip();
     test_header_and_bad_lines();
     test_tweaks_stay_with_other_flags();

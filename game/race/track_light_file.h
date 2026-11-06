@@ -14,6 +14,8 @@
  * and the lines added by hand (all lines count the same):
  *   tunnel_tone night 1 0.35 0.05 174   (a warm tunnel's cast, red green blue, and its light in percent; day is the day's. The file starts with the values the code has)
  *   brightness 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
+ *   tone 120 180 ffe080:50            (scene tone: nodes 120..180 are seen through a colour (hex) at 0..100 strength; `tone 120 180 p6 p7 ff2020:60` only the row points p6 p7 (a side strip);
+ *                                      16 distinct tones a track at most; a later line over the same nodes replaces the earlier)
  *   car_tone ff8020:60               (the car's tone on the whole track: a colour in hex and its intensity 0..100, as the palette allows; car_tone 120 180 ff8020:60 for nodes 120..180 only)
  *
  * The header's flags are a record of which of the port's settings the rows were generated with. In Restomod '26 the file rules whatever they say (a difference is one log line, track_light_diff names it);
@@ -42,11 +44,17 @@ void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size);
 enum { TRACK_LIGHT_MAX_BRIGHT = 64 };
 typedef struct { uint32_t from, to; int percent; } TrackLightBrightness;
 typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
+/* a `tone` line: nodes from..to, the points of their rows it is on (bit p; 0x7ff all), and the tone's number in the file's list of distinct tones */
+typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
 typedef struct {
     TrackLightBrightness brightness[TRACK_LIGHT_MAX_BRIGHT];
     int brightness_count;
     TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* car_tone: in file order, later lines over earlier ones */
     int car_tone_count;
+    PsxLightTone tones[PSX_LIGHT_TONES];   /* the distinct tones the `tone` lines use (at most PSX_LIGHT_TONES: a line past that is refused) */
+    int tone_count;
+    TrackLightToneRun tone_runs[TRACK_LIGHT_MAX_BRIGHT];
+    int tone_run_count;
     int warm_set[2];            /* [0] the day's, [1] the night's: tunnel_tone given */
     float warm_cast[2][3];
     int warm_percent[2];

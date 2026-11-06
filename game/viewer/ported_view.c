@@ -211,12 +211,50 @@ static int lamp_of(const FshEntry *texture)
     return -1;
 }
 
-/* the tables of the polygon being drawn: a tunnel's (track_light_tunnel 1), a lamp pool's (2..5), the road's */
+/* port (track light file, `tone`): the tables of a scene tone, one set for the open road and one for a tunnel's polygons, each made when its first polygon asks (a track has 16 tones at most:
+ * 4 KB a set, about 2.5 ms to make) from what the table block below saved (the palette and the tints it was made with); the block drops them all when any of that changes */
+static uint8_t tone_tables[PSX_LIGHT_TONES][2][MODERN_FOG_LEVELS][256];
+static uint8_t tone_made[PSX_LIGHT_TONES][2];
+static uint8_t tone_palette[768];
+static float tone_lit_tint[3], tone_tunnel_tint[3], tone_cast[3];
+static int tone_have_cast, tone_min_light_zero;
+
+/* the tint a tone gives: each channel 1 at no strength, the tone's own (0..1) at full */
+static void tone_tint_of(const PsxLightTone *tone, float out[3])
+{
+    const float p = (float)tone->percent / 100.0f;
+    for (int k = 0; k < 3; k++) out[k] = 1.0f + ((float)tone->rgb[k] / 255.0f - 1.0f) * p;
+}
+
+static uint8_t (*tone_get(int id, int in_tunnel))[256]
+{
+    if (psx_light == NULL || id < 0 || id >= psx_light->tone_count) return NULL;
+    uint8_t (*t)[256] = tone_tables[id][in_tunnel != 0];
+    if (tone_made[id][in_tunnel != 0]) return t;
+    float tint[3];
+    tone_tint_of(&psx_light->tone[id], tint);
+    if (in_tunnel && tone_have_cast) {   /* a tunnel's polygon: its own cast through the tone */
+        const float cast[3] = { tone_cast[0] * tint[0], tone_cast[1] * tint[1], tone_cast[2] * tint[2] };
+        modern_tunnel_tables(tone_palette, tone_tunnel_tint, cast, tone_min_light_zero ? 0.0f : TUNNEL_LIGHT, t);
+    } else {
+        const float lit[3] = { tone_lit_tint[0] * tint[0], tone_lit_tint[1] * tint[1], tone_lit_tint[2] * tint[2] };
+        modern_light_tables(tone_palette, lit, t);
+    }
+    tone_made[id][in_tunnel != 0] = 1;
+    return t;
+}
+
+/* the tables of the polygon being drawn: its scene tone's (`tone`, above the class's 3 bits), a tunnel's (track_light_tunnel 1), a lamp pool's (2..5), the road's */
 static uint8_t (*light_tables(void))[256]
 {
-    if (track_light_tunnel == 1) return tunnel_tables;
-    if (track_light_tunnel >= 2 && pool_ready) return pool_tables[(track_light_tunnel - 2) & 3];
-    return track_light_tunnel ? tunnel_tables : lit_tables;
+    const int base = track_light_tunnel & 7, tone = track_light_tunnel >> 3;
+    if (tone > 0) {
+        uint8_t (*t)[256] = tone_get(tone - 1, base == 1);
+        if (t != NULL) return t;
+    }
+    if (base == 1) return tunnel_tables;
+    if (base >= 2 && pool_ready) return pool_tables[(base - 2) & 3];
+    return base ? tunnel_tables : lit_tables;
 }
 
 static const uint8_t (*lit_tables_for(const FshEntry *texture))[256]
@@ -435,9 +473,9 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
          * found by uv across the whole texture: it stopped short of the corners and the next polygon's edge started at another value, a hard step of the cone's light at every row) */
         float dark[4];
         for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
-        if (track_light_xz_ok && track_light_tunnel == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
+        if (track_light_xz_ok && (track_light_tunnel & 7) == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
         const uint8_t (*tables)[256] = lit_tables_for(texture);
-        if (pool_ready && track_light_xz_ok && track_light_tunnel != 1 && psx_light != NULL && (tables == lit_tables || (track_light_tunnel >= 2 && tables == pool_tables[(track_light_tunnel - 2) & 3]))) {
+        if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && psx_light != NULL && (tables == lit_tables || ((track_light_tunnel & 7) >= 2 && tables == pool_tables[((track_light_tunnel & 7) - 2) & 3]))) {
             /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the
              * darkness is: the warmth fades along the road with the lamp's classes, no polygon with a table of its own */
             float heat[4];
@@ -2243,12 +2281,20 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         }
         static float made_tunnel_tint[3], made_warm[4];
         static int made_pool;
+        static PsxLightTone made_tone[PSX_LIGHT_TONES];
+        static int made_tone_count;
         const float warm_now[4] = { warm_cast != NULL ? warm_cast[0] : 0, warm_cast != NULL ? warm_cast[1] : 0, warm_cast != NULL ? warm_cast[2] : 0, (float)warm_percent };
         const int has_pool = psx_light->pool_class != NULL;
-        if (!made || made_pool != has_pool || made_cast != cast || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0 || memcmp(made_warm, warm_now, sizeof made_warm) != 0) {
+        if (!made || made_pool != has_pool || made_cast != cast || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0 || memcmp(made_warm, warm_now, sizeof made_warm) != 0) {
             modern_light_tables(art->palette, lit_tint, lit_tables);
             memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
             memcpy(made_warm, warm_now, sizeof made_warm);
+            memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
+            memset(tone_made, 0, sizeof tone_made);
+            memcpy(tone_palette, art->palette, sizeof tone_palette);
+            memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, tunnel_tint, sizeof tone_tunnel_tint);
+            tone_have_cast = cast != 0, tone_min_light_zero = psx_light->tunnel != NULL;
+            memcpy(tone_cast, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, sizeof tone_cast);
             if (cast) modern_tunnel_tables(art->palette, tunnel_tint, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
             else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
             if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
