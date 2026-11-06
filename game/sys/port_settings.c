@@ -766,6 +766,8 @@ int port_rain_v2(void)
     const char *v = getenv("TNFS_RAIN_V2");
     if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().rain_v2;
+}
+
 int port_shoulder_light(void)
 {
     const char *v = getenv("TNFS_SHOULDER_LIGHT");
