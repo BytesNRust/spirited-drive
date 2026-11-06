@@ -24,7 +24,7 @@ typedef enum {
 
 void resource_init(const char *data_root, int german);
 int resource_german(void);  /* 0052b31c: language, 0 English, 1 German */
-/* port: the speed's units, apart from the language: the player's own choice (extras.cfg's units, mph until made). Set once from extras.cfg, and again when the screen saves. */
+/* port: the speed's units, apart from the language: the player's own choice (the mode's file's units, mph until made). Set once from the mode's file, and again when the screen saves. */
 void resource_set_units(SpeedUnits units);
 /* port: 1 when the speeds, the distances and the cockpit's dial are in km/h (the choice),
  * 0 for mph and miles. The words of the screens stay with resource_german. */

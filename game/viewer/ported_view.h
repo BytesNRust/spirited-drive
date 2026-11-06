@@ -91,6 +91,8 @@ void ported_view_set_modern(int on);
 int ported_view_mirror_weather(const TrackArt *art);
 /* 1 when the weather draws something in the mirror (not clear, Modern 3D on): the sky's recorder is only stopped and restarted then */
 int ported_view_mirror_weather_on(void);
+/* 1 when the weather is rain or storm (the lamps and the gauges follow it: rain_lamps, gauge_exterior) */
+int ported_view_rain(void);
 void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9]);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */

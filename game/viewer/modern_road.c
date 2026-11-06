@@ -217,6 +217,9 @@ static inline __m128i dark_levels(__m128 d, int x, int y)
 
 static inline __m128i fog_levels(__m128 z, int x, int y, const float fog_start, const float fog_span)
 {
+    /* port (perf): four depths at or before the fog's start are level 0 whatever the dither: fog_depth gives z itself there, t = (z - start) / span is not above 0 (span > 0), so
+     * t * (levels - 1) + bayer is below 1 (bayer < 1): the floor is 0 or less, and a level below 0 is 0. A NaN depth is not "at or before": it takes the path below. */
+    if (fog_span > 0.0f && _mm_movemask_ps(_mm_cmple_ps(z, _mm_set1_ps(fog_start))) == 0xF) return _mm_setzero_si128();
     if (style.fog_exp > 0) {   /* the curve a lane at a time, then the line's levels */
         float d[4];
         _mm_storeu_ps(d, z);

@@ -3,7 +3,8 @@
  *   black   0   AUTO  not marked: the cockpit's own gauge ellipses decide, as without a mask
  *   blue   64   DASH  the dash's art: never lit (the speedo's rim, the dash round a dial)
  *   green 128   DIAL  inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not
- *   white 255   LIT   lit whatever its brightness (a warning lamp, a lit window)
+ *   yellow or white 255   LIT   lit whatever its brightness (a warning lamp, a lit window); yellow (red and green >= 192, blue <= 64) contrasts on the dash, white still reads
+ *                         for what was painted with it
  * A pixel the needle's colour draws is never lit. The masks hold no colour of the art. A dash with a mask is decided by it alone (the automatic
  * lit marks are off); one without keeps the automatic rules. */
 #ifndef TNFS_DASH_MASK_H
@@ -27,5 +28,9 @@ int dash_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, s
 /* The mask of the dash `stem` ("TSUPRA", as the dash's files are named; tried as given and in upper case) at DASH_MASK_W x DASH_MASK_H, from the first of
  * $TNFS_DASH_MASKS, data/dash_masks and the source tree's that has <stem>/dash_mask.png. malloc'd; NULL when there is none or it does not read. */
 uint8_t *dash_mask_load(const char *stem);
+
+/* The bytes of <root>/<stem>/<name> (stem as given), from the first of $TNFS_DASH_MASKS, data/dash_masks and the source tree's that has it: the dash's hand-made files
+ * (dash_mask.png, dash_color.png). Freed with platform_free_file; NULL when there is none. */
+uint8_t *dash_asset_read(const char *stem, const char *name, size_t *size);
 
 #endif

@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { MAX_SIDE = 4096, WHITE_FROM = 192 };
+enum { MAX_SIDE = 4096, WHITE_FROM = 192, YELLOW_BLUE_MAX = 64 };
 
 int dash_mask_class(const uint8_t c[3])
 {
@@ -19,6 +19,7 @@ int dash_mask_class(const uint8_t c[3])
     const int low = c[0] < c[1] ? (c[0] < c[2] ? c[0] : c[2]) : (c[1] < c[2] ? c[1] : c[2]);
     if (top < 64) return DASH_MASK_AUTO;                                       /* black */
     if (low >= WHITE_FROM) return DASH_MASK_LIT;                               /* white */
+    if (c[0] >= WHITE_FROM && c[1] >= WHITE_FROM && c[2] <= YELLOW_BLUE_MAX) return DASH_MASK_LIT;   /* yellow: reads on the dash where white does not */
     if (c[2] > c[0] && c[2] > c[1]) return DASH_MASK_DASH;                     /* blue */
     if (c[1] > c[0] && c[1] > c[2]) return DASH_MASK_DIAL;                     /* green */
     return DASH_MASK_AUTO;                                                     /* any other colour: not marked */
@@ -59,34 +60,41 @@ int dash_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, s
     return r == PNG_OK;
 }
 
-static uint8_t *load_stem(const char *stem)
+uint8_t *dash_asset_read(const char *stem, const char *name, size_t *size)
 {
     const char *env = getenv("TNFS_DASH_MASKS");
     char file_name[256], found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
-    snprintf(file_name, sizeof file_name, "dash_masks/%s/dash_mask.png", stem);
+    snprintf(file_name, sizeof file_name, "dash_masks/%s/%s", stem, name);
     const int dev = env != NULL && env[0] != '\0';   /* a dev override first: TNFS_DASH_MASKS=<dir of <CAR>/dash_mask.png> */
     (void)data_path_candidates(file_name, found);
     for (int r = 0; r < 1 + DATA_PATH_CANDIDATES; r++) {
         char path[DATA_PATH_MAX];
         if (r == 0) {
             if (!dev) continue;
-            snprintf(path, sizeof path, "%s/%s/dash_mask.png", env, stem);
+            snprintf(path, sizeof path, "%s/%s/%s", env, stem, name);
         } else {
             if (found[r - 1][0] == '\0') continue;
             snprintf(path, sizeof path, "%s", found[r - 1]);
         }
-        size_t size = 0;
-        uint8_t *file = platform_read_file(path, &size);
-        if (file == NULL) continue;
-        uint8_t *mask = malloc((size_t)DASH_MASK_W * DASH_MASK_H);
-        const int ok = mask != NULL && dash_mask_parse(file, size, DASH_MASK_W, DASH_MASK_H, mask);
-        platform_free_file(file);
-        if (ok) {
-            port_log("dash mask: %s\n", path);
-            return mask;
+        uint8_t *file = platform_read_file(path, size);
+        if (file != NULL) {
+            port_log("dash %s: %s\n", name, path);
+            return file;
         }
-        free(mask);
     }
+    return NULL;
+}
+
+static uint8_t *load_stem(const char *stem)
+{
+    size_t size = 0;
+    uint8_t *file = dash_asset_read(stem, "dash_mask.png", &size);
+    if (file == NULL) return NULL;
+    uint8_t *mask = malloc((size_t)DASH_MASK_W * DASH_MASK_H);
+    const int ok = mask != NULL && dash_mask_parse(file, size, DASH_MASK_W, DASH_MASK_H, mask);
+    platform_free_file(file);
+    if (ok) return mask;
+    free(mask);
     return NULL;
 }
 

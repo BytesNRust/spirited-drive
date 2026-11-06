@@ -6,16 +6,15 @@ emulate -L zsh
 set -u
 export PATH=/nix/var/nix/profiles/default/bin:$PATH
 bin=${1:?usage: bench_matrix.sh BIN [REPO]}; bin=${bin:A}; repo=${2:-${0:A:h:h}}   # REPO: where original/ is
-S=$(mktemp -d -t bench_matrix.XXXXXX); user_cfg="$HOME/Library/Application Support/tnfs/tnfs"
+S=$(mktemp -d -t bench_matrix.XXXXXX)
 TRACKS=(${=TRACKS:-TR1 CY1}); CASES=(${=CASES:-0:21:9 1:4:3}); LOOKS=(${=LOOKS:-exe modern})
 BANDS=(${=BANDS:-0 2 auto}); SCALES=(${=SCALES:-1 2 3}); ROUNDS=${ROUNDS:-3}
 TIMEFMT='%U %S %E'
 mods() {   # mods FORMAT MODERN
   local d=$S/mods_matrix; [[ -d $d ]] && find $d -delete; mkdir -p $d/user
-  printf 'format=%s\nscale=integer\nrefresh_hz=120\nf3_ultra=1\nview_ultra=1\n' $1 > $d/user/port.cfg
-  if (( $2 )); then cp "$user_cfg/extras.cfg" $d/user/extras.cfg
-  else grep -vE '^(modern_3d|texture_filter|fog)=' "$user_cfg/extras.cfg" > $d/user/extras.cfg
-       printf 'modern_3d=0\ntexture_filter=0\nfog=0\n' >> $d/user/extras.cfg; fi
+  print 'profile=restomod' > $d/user/port.cfg   # the real mode, with only what this case changes
+  printf 'format=%s\nscale=integer\nrefresh_hz=120\nrender_scale=1\n' $1 > $d/user/restomod.cfg
+  if (( ! $2 )); then printf 'perspective=0\ntexture_filter=0\nfog=0\n' >> $d/user/restomod.cfg; fi
   print -r -- $d
 }
 one() {   # one MODS TRACK VIEW FRAMES BANDS SCALE -> "cpu_s wall_s"

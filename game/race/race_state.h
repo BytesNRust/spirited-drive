@@ -435,10 +435,12 @@ typedef struct {
     RaceSounds sounds;
     int32_t port_last_camera;       /* port (last_camera): 1 the race's intro fly-over lands on the camera the player last used, and the live player's view changes are kept in port_start_camera; 0 the exe's */
     int32_t port_start_camera;      /* port: that camera's chase kind + 1 (0 none yet); read and written by race_chase.c, loaded and saved by the viewer */
-    int32_t port_replay_cameras;    /* port: the extra (extras.cfg): the own live car's view key goes the replay's way */
-    RaceDifficulty port_difficulty;  /* port: the race's difficulty (extras.cfg's difficulty, difficulty.h); all Original (0) the exe's */
+    int32_t port_replay_cameras;    /* port: the extra (the mode's file): the own live car's view key goes the replay's way */
+    RaceDifficulty port_difficulty;  /* port: the race's difficulty (the mode's file's difficulty, difficulty.h); all Original (0) the exe's */
     int32_t port_rain_grip;         /* port: a wet race (port.cfg's rain_grip with weather=rain, track_gravity.h): the road grips at four fifths; 0 the exe's */
-    int32_t port_lunar_gravity;     /* port: the moon's race (extras.cfg's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
+    int32_t port_lunar_gravity;     /* port: the moon's race (the mode's file's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
+    int32_t port_analog_pad;        /* port: 1 a pad's axis words steer and work the pedals in proportion (analog_pad.h); 0 the exe's key paths unless config.dat asks for the pad */
+    int32_t port_rally_road;        /* port: 1 in a rally (the `r` variant, dirt roads), whatever port_rally_gravel is; 0 the exe's track */
     int32_t port_rally_gravel;      /* port: RALLY_GRAVEL_* (rally_gravel.h), the rally's gravel noise and dust; 0 the exe's */
     int32_t port_rally_shoulder_sound;   /* port: with port_rally_gravel, the rolling car strikes the gravel sample as the shoulder does (race_sound.c), not the crunch's faster double strike; 0 the crunch */
     int32_t port_chase_height;      /* port: with port_follow_camera, the chase eye behind the car keeps the flat chase's height above the road at its own place on slopes (race_chase.c); 0 the exe's lift */

@@ -14,7 +14,7 @@ void rain_spray_clear(RainSpray *s)
     memset(s, 0, sizeof *s);
 }
 
-static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t wheel[3], const int32_t right[2], int32_t node, int32_t metres)
+static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t wheel[3], const int32_t right[2], int32_t node, int32_t metres, int life)
 {
     const uint32_t h = hash2((uint32_t)car * 2u + (side > 0 ? 1u : 0u), tick);
     RainSprayParticle *p = &s->p[s->next];
@@ -27,9 +27,10 @@ static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t w
     p->size = (uint8_t)(metres >= 40 ? 255 : 120 + (metres - 8) * 135 / 32);
     p->car = (uint8_t)car;
     p->live = 1;
+    p->life = (uint8_t)life;
 }
 
-int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
+static int step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet, int wisp)
 {
     if (car < 0 || car >= RAIN_SPRAY_CARS) return 0;
     if (s->has_tick[car] && tick < s->last_tick[car]) {   /* the clock went back (a restart, a replay): the old trail is of another time */
@@ -39,16 +40,31 @@ int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3],
     const int64_t v = speed < 0 ? -(int64_t)speed : speed;
     const int32_t metres = (int32_t)(v >> 16);
     if (!wet || metres < 8) return 0;
-    drop(s, car, -1, tick, left, right, node, metres);
-    drop(s, car, 1, tick, right_wheel, right, node, metres);
+    if (wisp) {
+        const int32_t mid[3] = { left[0] / 2 + right_wheel[0] / 2, left[1] / 2 + right_wheel[1] / 2, left[2] / 2 + right_wheel[2] / 2 };
+        drop(s, car, 0, tick, mid, right, node, metres, RAIN_SPRAY_WISP_LIFE);
+        return 1;
+    }
+    drop(s, car, -1, tick, left, right, node, metres, RAIN_SPRAY_LIFE);
+    drop(s, car, 1, tick, right_wheel, right, node, metres, RAIN_SPRAY_LIFE);
     return 2;
+}
+
+int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
+{
+    return step(s, car, tick, left, right_wheel, right, node, speed, wet, 0);
+}
+
+int rain_spray_step_wisp(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
+{
+    return step(s, car, tick, left, right_wheel, right, node, speed, wet, 1);
 }
 
 int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t place[3], int32_t *radius, int *density)
 {
-    if (!p->live || tick < p->born || tick - p->born >= RAIN_SPRAY_LIFE) return 0;
+    if (!p->live || tick < p->born || tick - p->born >= p->life) return 0;
     const int age = (int)(tick - p->born);
-    const float f = (float)age / (float)RAIN_SPRAY_LIFE, grow = 0.45f + 1.3f * f;   /* metres */
+    const float f = (float)age / (float)p->life, grow = 0.45f + 1.3f * f;   /* metres */
     const float big = 0.55f + 0.45f * (float)p->size / 255.0f;
     const float o = open < 0 ? 0.0f : open > 16 ? 1.0f : (float)open / 16.0f;
     place[0] = p->x + (int32_t)((float)p->drift_x * f), place[2] = p->z + (int32_t)((float)p->drift_z * f);

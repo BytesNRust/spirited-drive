@@ -5,8 +5,7 @@
  * and the race's pause menu open this screen. In the race (GraphicsPlus.race) the rows the next race reads are shown
  * dimmed and cannot be changed (graphics_own_live_in_race).
  *
- * The rows edit port.cfg, all of them. The three that used to live in EXTRAS (perspective correction, texture filter,
- * fog) are on this screen now and port.cfg has them; extras.cfg is only read for the ones port.cfg does not name. */
+ * The rows edit the mode's settings; what the mode holds is dimmed, shows its value and does not change (port_profile.h). */
 #ifndef TNFS_GRAPHICS_OWN_H
 #define TNFS_GRAPHICS_OWN_H
 

@@ -1,5 +1,5 @@
 /* port: the dash's box where the exe puts the map (0x206, 0x130, 116 x 142): which of the map, the gear lever and the
- * plain dash it holds, by extras.cfg's dash_box (port_extras.h) and the race's own state. */
+ * plain dash it holds, by the mode's file's dash_box (port_extras.h) and the race's own state. */
 #ifndef TNFS_DASH_BOX_H
 #define TNFS_DASH_BOX_H
 

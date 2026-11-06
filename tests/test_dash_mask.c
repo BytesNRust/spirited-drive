@@ -31,6 +31,7 @@ static void test_colours(void)
 {
     const uint8_t black[3] = { 0, 0, 0 }, dim[3] = { 30, 40, 50 }, blue[3] = { 0, 0, 255 }, paleblue[3] = { 90, 120, 230 }, green[3] = { 0, 255, 0 };
     const uint8_t white[3] = { 255, 255, 255 }, grey[3] = { 200, 200, 200 }, red[3] = { 255, 0, 0 }, yellow[3] = { 255, 255, 0 }, midgrey[3] = { 128, 128, 128 };
+    const uint8_t paleyellow[3] = { 200, 195, 60 }, orange[3] = { 255, 160, 0 }, olive[3] = { 150, 150, 0 }, greenish[3] = { 120, 255, 0 };
     CHECK_EQ_INT(dash_mask_class(black), DASH_MASK_AUTO);
     CHECK_EQ_INT(dash_mask_class(dim), DASH_MASK_AUTO);       /* a dark colour is not a mark */
     CHECK_EQ_INT(dash_mask_class(blue), DASH_MASK_DASH);
@@ -39,7 +40,11 @@ static void test_colours(void)
     CHECK_EQ_INT(dash_mask_class(white), DASH_MASK_LIT);
     CHECK_EQ_INT(dash_mask_class(grey), DASH_MASK_LIT);
     CHECK_EQ_INT(dash_mask_class(red), DASH_MASK_AUTO);       /* any other colour: not marked */
-    CHECK_EQ_INT(dash_mask_class(yellow), DASH_MASK_AUTO);
+    CHECK_EQ_INT(dash_mask_class(yellow), DASH_MASK_LIT);     /* yellow ffff00 is LIT too: it contrasts on the dash */
+    CHECK_EQ_INT(dash_mask_class(paleyellow), DASH_MASK_LIT);
+    CHECK_EQ_INT(dash_mask_class(orange), DASH_MASK_AUTO);    /* a yellow with blue to spare, or too little green, is not */
+    CHECK_EQ_INT(dash_mask_class(olive), DASH_MASK_AUTO);
+    CHECK_EQ_INT(dash_mask_class(greenish), DASH_MASK_DIAL);  /* a green with some red stays a dial */
     CHECK_EQ_INT(dash_mask_class(midgrey), DASH_MASK_AUTO);
 }
 

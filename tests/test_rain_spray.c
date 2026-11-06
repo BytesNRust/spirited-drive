@@ -35,6 +35,26 @@ static void test_dropped_once_a_tick_and_left_behind(void)
     CHECK(!rain_spray_look(&first, 99, 16, place, &radius, &density));                          /* and not before it was dropped */
 }
 
+static void test_a_wisp_is_one_short_particle(void)
+{
+    static RainSpray s;
+    rain_spray_clear(&s);
+    const int32_t right[2] = { 0, -65536 };
+    const int32_t left[3] = { -65536, 0, 0 }, wheel[3] = { 65536, 0, 0 };
+    CHECK_EQ_INT(rain_spray_step_wisp(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 1);
+    CHECK_EQ_INT(rain_spray_step_wisp(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 0);   /* the same tick again: nothing new */
+    CHECK_EQ_INT(rain_spray_step_wisp(&s, 0, 101, left, wheel, right, 5, 5 << 16, 1), 0);    /* slow: nothing */
+    CHECK_EQ_INT(live_count(&s), 1);
+    int32_t place[3], radius;
+    int density;
+    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE - 1, 16, place, &radius, &density));
+    CHECK(!rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE, 16, place, &radius, &density));   /* gone in a tenth of a second */
+    CHECK(abs(s.p[0].x) < (1 << 16));        /* dropped between the wheels */
+    rain_spray_clear(&s);
+    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 2);   /* the plume is as before */
+    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_LIFE - 1, 16, place, &radius, &density));
+}
+
 static void test_nothing_dry_or_slow(void)
 {
     static RainSpray s;
@@ -74,6 +94,7 @@ static void test_a_clock_that_goes_back_clears_the_trail(void)
 int main(void)
 {
     test_dropped_once_a_tick_and_left_behind();
+    test_a_wisp_is_one_short_particle();
     test_nothing_dry_or_slow();
     test_a_tunnel_leaves_road_water_only();
     test_a_clock_that_goes_back_clears_the_trail();

@@ -142,8 +142,8 @@ static void test_weather_row(void)
     run(cycle, 5, &weather, &psx_time, 0);
     CHECK_EQ_INT(weather, 2);
     weather = 0;
-    const uint16_t wrap[] = { UP, ENTER, ENTER, ENTER, DOWN, ENTER };
-    run(wrap, 6, &weather, &psx_time, 0);
+    const uint16_t wrap[] = { UP, ENTER, ENTER, ENTER, ENTER, DOWN, ENTER };
+    run(wrap, 7, &weather, &psx_time, 0);
     CHECK_EQ_INT(weather, 0);   /* round */
 }
 

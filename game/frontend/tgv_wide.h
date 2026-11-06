@@ -1,4 +1,4 @@
-/* port: a movie on a wide screen (extras.cfg movies_wide). The exe draws a movie's picture twice the size in the 640 x 480
+/* port: a movie on a wide screen (the mode's file movies_wide). The exe draws a movie's picture twice the size in the 640 x 480
  * frame, which a wide screen shows boxed in the middle over its dimmed backdrop. Here the picture is scaled to the
  * screen's width and cropped at the top and bottom to its height (nearest: it is a palette picture), as long as the
  * crop is small (16:9: 32 rows of 480, 6.7 %). Where it would cut more than TGV_WIDE_MAX_CROP_PERCENT of the height

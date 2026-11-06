@@ -209,7 +209,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         if (m != NULL) fam_mirror_signs(t->fam_file, fam_size, t->fam_file, fam_size, m, mirror_size);
         platform_free_file(m);
     } else if (look->time_of_day != 1 && (look->variant_m || look->variant_r)) {
-        /* port: a variant at another time of day (extras.cfg's variant_time), on the _T01 art: the rally's own
+        /* port: a variant at another time of day (the mode's file's variant_time), on the _T01 art: the rally's own
          * bitmaps darkened into it, then the mirror's signs flipped */
         size_t day_size = 0, other_size = 0;
         uint8_t *const day = read_fam_variant(data_root, name, look, 0, 0, &day_size);
@@ -347,12 +347,17 @@ void track_viewer_free(Track *t)
 }
 
 int track_viewer_write_ppm_split(const char *path, const uint8_t *pixels, int w, int h, const uint8_t *rgb, const uint8_t *world_rgb,
-                                 const uint8_t *half_rgb, const uint8_t *lit_rgb, const uint8_t *mask)
+                                 const uint8_t *half_rgb, const uint8_t *lit_rgb, const uint8_t *mask, const uint8_t *colour_rgb, int colours)
 {
     FILE *f = fopen(path, "wb");
     if (f == NULL) return 0;
     int ok = fprintf(f, "P6\n%d %d\n255\n", w, h) > 0;
-    for (int i = 0; ok && i < w * h; i++) ok = fwrite((mask[i] == 1 ? world_rgb : mask[i] == 2 ? half_rgb : mask[i] == 3 && lit_rgb != NULL ? lit_rgb : rgb) + 3 * pixels[i], 1, 3, f) == 3;
+    for (int i = 0; ok && i < w * h; i++) {
+        const uint8_t m = mask[i];
+        const uint8_t *pal = m == 1 ? world_rgb : m == 2 ? half_rgb : m >= 3 && lit_rgb != NULL ? lit_rgb : rgb;
+        if (m >= 4 && m - 4 < colours && colour_rgb != NULL) pal = colour_rgb + 768 * (m - 4);
+        ok = fwrite(pal + 3 * pixels[i], 1, 3, f) == 3;
+    }
     return fclose(f) == 0 && ok;
 }
 

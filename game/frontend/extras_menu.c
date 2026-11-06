@@ -7,6 +7,7 @@
 #include "game/frontend/extras_menu.h"
 #include "game/frontend/page_arrows.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
 
 #include <stdio.h>
 
@@ -64,10 +65,12 @@ static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
 /* Speed units is the other, with its own values: mph (until chosen) and km/h. It sits
  * on page 2, the first row. */
 static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
-/* Difficulty is the last with three values on page 2: Easy, Original, Hard (extras.cfg's difficulty 0, 1, 2) */
+/* Difficulty is the last with three values on page 2: Easy, Original, Hard (the mode's file's difficulty 0, 1, 2) */
 static int difficulty_row(void) { return ROW_DIFFICULTY - ROW_FIRST_P2; }
 /* Open the log folder is an action row: no value, Return runs it */
 static int log_row(void) { return ROW_LOG_FOLDER - ROW_FIRST_P3; }
+/* Restore profile defaults too */
+static int reset_row(void) { return ROW_RESET - ROW_FIRST_P3; }
 static int shows_kmh(const PortExtras *e) { return e->units == UNITS_KMH; }
 
 /* port: the switches' words, in extras_menu.h's order, which is the owner's order: page 1 is the first ROWS_P1 of
@@ -75,17 +78,21 @@ static int shows_kmh(const PortExtras *e) { return e->units == UNITS_KMH; }
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car",
     "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track", "Lunar Gravity",
-    "Unlock Level", "Time with variants", "Car Colours",
-    "Speed units", "No driving assists", "Bumper view mirror", "Bumper view police radar",
-    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty", "Rain with storm",
-    "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder"
+    "Unlock Level", "Car Colours",
+    "Speed units", "No driving assists", "Bumper view mirror", "Exterior views police radar",
+    "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
+    "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder", "Restore profile defaults"
 };
 
-/* port (radar_all_views): the radar's switch shows in every outside view then, and says so */
-static const char *label_of(const ExtrasMenuOps *o, int index)
-{
-    return index == ROW_BUMPER_RADAR && o->radar_all_views ? "Police radar" : LABEL[index];
-}
+/* the file key that says whether a row is free in the mode (port_profile_key_free); NULL: in every mode. Unlock Level is config.dat's, shared */
+static const char *const ROW_KEY[EXTRAS_ROWS] = {
+    "explode", "nitro", "turbo", "warrior",
+    "warrior_rival", "mirror", "rally", "vegas", "lunar_springs", "lunar_gravity",
+    NULL, "psx_liveries",
+    "units", "no_assists", "bumper_mirror", "bumper_radar",
+    "replay_cameras", "car_markers", "stats_overlay", "dash_box", "follow_camera", "difficulty",
+    "start", "no_movies", "update_check", NULL, NULL
+};
 
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
 static int *flag_of(PortExtras *e, int page, int row)
@@ -93,14 +100,13 @@ static int *flag_of(PortExtras *e, int page, int row)
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior,
                                   &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs, &e->lunar_gravity,
-                                  NULL /* Unlock Level */, &e->variant_time, &e->psx_liveries };
+                                  NULL /* Unlock Level */, &e->psx_liveries };
         return p1[row];
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
-                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */, &e->rain_lightning,
-                               };
+                               &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */ };
     if (page == 1) return p2[row];
-    int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */ };
+    int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */, NULL /* Restore: an action */ };
     return p3[row];
 }
 
@@ -111,13 +117,20 @@ static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
     return page == 0 && unlock >= 1 && flag_of(e, page, row) == &e->warrior;
 }
 
+/* port (modes): the mode does not leave the row free: dimmed, its value the mode's */
+static int fixed_by_mode(const ExtrasMenuOps *o, int page, int row)
+{
+    const char *const key = ROW_KEY[first_of(page) + row];
+    return key != NULL && !port_profile_key_free((Profile)o->profile, key);
+}
+
 static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16])
 {
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     static const char *const DASH_BOX[3] = { "Map", "Gear lever", "Hidden" };
     static const char *const DIFFICULTY[3] = { "Easy", "Original", "Hard" };
     const int *const flag = flag_of(e, page, row);
-    /* port: the movies switch reads the other way round, "Intro video" On while extras.cfg's no_movies is 0, so the
+    /* port: the movies switch reads the other way round, "Intro video" On while the mode's file's no_movies is 0, so the
      * file keeps its meaning */
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
     if (fixed_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
@@ -126,7 +139,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
-    else if (page == 2 && row == log_row()) out[0] = '\0';
+    else if (page == 2 && (row == log_row() || row == reset_row())) out[0] = '\0';
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -150,12 +163,14 @@ typedef struct Page {
     int32_t rest;
     int result;   /* 1 Done, 0 Cancel / Escape, -1 still running */
     int nav_lit;  /* port: the page indicator's triangle the pointer is on (page_arrows.h), 0 none */
+    int confirming;   /* port (modes): the Restore row asks for its second Return; moving off the row forgets it */
 } Page;
 
 static void select_row(Page *p, int row, const ExtrasMenuOps *o)
 {
     if (p->selected == row) return;
     p->selected = (int16_t)row;
+    p->confirming = 0;
     p->redraw = 1;
     o->sound(o->ctx, MOVED);
 }
@@ -173,6 +188,7 @@ static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
 {
     p->page = page;
     p->selected = (int16_t)row;
+    p->confirming = 0;
     p->redraw = 1;
     o->sound(o->ctx, CHOSEN);
     pointer_to(p, o);
@@ -209,9 +225,9 @@ static void follow(Page *p, const ExtrasMenuOps *o)
 static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const ExtrasMenuOps *o)
 {
     int *const flag = flag_of(e, p->page, p->selected);
-    if (p->page == 2 && p->selected == log_row()) return;   /* an action: only Return, Space or a click run it (choose) */
-    if (fixed_by_level(e, *unlock, p->page, p->selected)) {
-        o->sound(o->ctx, MOVED);   /* the level holds it: nothing to change */
+    if (p->page == 2 && (p->selected == log_row() || p->selected == reset_row())) return;   /* an action: only Return, Space or a click run it (choose) */
+    if (fixed_by_level(e, *unlock, p->page, p->selected) || fixed_by_mode(o, p->page, p->selected)) {
+        o->sound(o->ctx, MOVED);   /* the level or the mode holds it: nothing to change */
         return;
     }
     if (flag != NULL) {
@@ -253,6 +269,11 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
     } else if (p->page == 2 && p->selected == log_row()) {   /* port: the log folder opens in the file browser */
         o->sound(o->ctx, CHOSEN);
         if (o->open_log_folder != NULL) o->open_log_folder(o->ctx);
+    } else if (p->page == 2 && p->selected == reset_row()) {   /* port (modes): on the second Return, since it forgets what was changed in this mode */
+        o->sound(o->ctx, CHOSEN);
+        if (p->confirming && o->reset_profile != NULL) o->reset_profile(o->ctx, e);
+        p->confirming = !p->confirming;
+        p->redraw = 1;
     } else {
         change(p, e, unlock, 1, o);
     }
@@ -348,9 +369,10 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
         char v[16];
         const int lit = p->selected == row;
         value(e, unlock, p->page, row, v);
+        if (p->page == 2 && row == reset_row() && p->confirming) snprintf(v, sizeof v, "Return again");
         const int y = line_y(p->page, line_of(p->page, row));
-        const int held = fixed_by_level(e, unlock, p->page, row);
-        text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, label_of(o, first_of(p->page) + row), LABEL_X, y);
+        const int held = fixed_by_level(e, unlock, p->page, row) || fixed_by_mode(o, p->page, row);
+        text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
         if (held) text(o, lit ? STYLE_YELLOW : STYLE_DIM, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), y);
         else text_right(o, lit, v, VALUE_RIGHT, y);
     }
@@ -388,7 +410,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
 {
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
-    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0 };   /* not released: the click that opened it may still be down */
+    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0, 0 };   /* not released: the click that opened it may still be down */
     static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);

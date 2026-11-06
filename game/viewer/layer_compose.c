@@ -15,12 +15,17 @@ static void put(const LayerCompose *c, uint8_t *wide, int x, int y, uint8_t p)
 enum { MASK_W = 640, MASK_H = 480 };
 static BANDS_THREAD_LOCAL uint8_t piece_mask[MASK_W * MASK_H];   /* port (render bands): per thread */
 
-static void mark_pieces(const LayerCompose *c, uint8_t on)
+/* port (perf): only the layer rows [lo, hi) the band reads are marked (every band marked every piece's whole rect before), the thread's mask once in a local (a
+ * thread local read per pixel is a call on macOS) and a row of it set at a time. The mask outside [lo, hi) stays 0 (every mark is cleared with the same rows). */
+static void mark_pieces(const LayerCompose *c, uint8_t on, int lo, int hi)
 {
+    uint8_t *const mask = piece_mask;
     for (int i = 0; i < c->piece_count; i++) {
         const LayerRect *r = &c->pieces[i].from;
-        for (int y = r->top < 0 ? 0 : r->top; y < r->bottom && y < c->layer_h; y++)
-            for (int x = r->left < 0 ? 0 : r->left; x < r->right && x < c->layer_w; x++) piece_mask[y * c->layer_w + x] = on;
+        const int left = r->left < 0 ? 0 : r->left, right = r->right < c->layer_w ? r->right : c->layer_w;
+        const int top = r->top < lo ? lo : r->top, bottom = r->bottom < hi ? r->bottom : hi;
+        if (left >= right) continue;
+        for (int y = top; y < bottom; y++) memset(mask + y * c->layer_w + left, on, (size_t)(right - left));
     }
 }
 
@@ -29,28 +34,35 @@ static void mark_pieces(const LayerCompose *c, uint8_t on)
 static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int top, int bottom)
 {
     if (c->layer_w > MASK_W || c->layer_h > MASK_H) return;
-    mark_pieces(c, 1);
+    uint8_t *const mask = piece_mask;
     if (!c->in_car) {
+        const int lo = top < 0 ? 0 : top, hi = bottom < c->layer_h ? bottom : c->layer_h;   /* the layer rows this band reads: its own */
+        mark_pieces(c, 1, lo, hi);
         const int dx = (c->width - c->layer_w) / 2;
         for (int y = top; y < bottom; y++)
             for (int x = 0; x < c->layer_w; x++)
-                if (!piece_mask[y * c->layer_w + x]) put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
-        mark_pieces(c, 0);
+                if (!mask[y * c->layer_w + x]) put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
+        mark_pieces(c, 0, lo, hi);
         return;
     }
+    /* the dash: the band's rows are the layer rows screen_dash_y gives (it never goes back as y goes down, so its ends are the range's) when the frame is wider than the layer */
+    int first = top, last = bottom - 1;
+    if (c->width > c->layer_w && bottom > top) first = screen_dash_y(top), last = screen_dash_y(bottom - 1);
+    const int lo = first < 0 ? 0 : first, hi = last + 1 < c->layer_h ? last + 1 : c->layer_h;
+    mark_pieces(c, 1, lo, hi);
     const int width = c->width < SCREEN_DASH_MOST_WIDTH ? c->width : SCREEN_DASH_MOST_WIDTH;
     const int *column = screen_dash_columns(c->width);
     for (int y = top; y < bottom; y++) {
         const int sy = c->width > c->layer_w ? screen_dash_y(y) : y;
         if (sy < 0 || sy >= c->layer_h) continue;
-        const uint8_t *row = layer + sy * c->layer_w, *masked = piece_mask + sy * c->layer_w;
+        const uint8_t *row = layer + sy * c->layer_w, *masked = mask + sy * c->layer_w;
         uint8_t *out = wide + (int64_t)y * c->width;
         for (int x = 0; x < width; x++) {
             const int sx = column[x];
             if (sx < c->layer_w && !masked[sx] && row[sx] != LAYER_KEY) out[x] = row[sx];
         }
     }
-    mark_pieces(c, 0);
+    mark_pieces(c, 0, lo, hi);
 }
 
 static int dash_column(int width, int x)

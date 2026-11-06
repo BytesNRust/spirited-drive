@@ -33,7 +33,16 @@ enum { PSX_SYNTH_DAWN = 0, PSX_SYNTH_DAY = 1, PSX_SYNTH_DUSK = 2, PSX_SYNTH_NIGH
 
 /* 1 on node `i` of `property` (`count` bytes, a ring when `ring`) when it is in a run of PSX_SYNTH_MIN_RUN or more nodes with the tunnel bit; `flags` gets
  * 0 or 1 per node. A ring joins a run across node 0. */
+/* port (rain_fx): 1 on the nodes of a run of PSX_SYNTH_MIN_RUN or more with a roof over the road for the rain: the tunnel bit, open to the side or not (Coastal's galleries, property 7: the base
+ * 3 with the tunnel bit; the bare 5 of TR7's truss bridge is open sky). The lighting does not use it. */
+void psx_light_synth_rain_cover(const uint8_t *property, uint32_t count, int ring, uint8_t *flags);
 void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags);
+
+/* port (made_tunnels, car_tunnel_light): the same with `gallery` 1 also marking the runs of property 7 (CL2's galleries: a roof with one side open) */
+void psx_light_synth_tunnels_ex(const uint8_t *property, uint32_t count, int ring, int gallery, uint8_t *flags);
+
+/* 1 for the track whose galleries (property 7) are tunnels of the CD's light: CL2 */
+int psx_light_synth_gallery_track(const char *track);
 
 /* The rows of a light for the nodes with `flags` (count of them) at `time` (PSX_SYNTH_*): a tunnel's rows, the doors', the open road's 255. `data` is
  * count * PSX_LIGHT_POINTS bytes. CY1's tunnel inside: road 255 by day, 215 at dawn, 214 at dusk; wall foot 130, 196, 106 (dusk's two sides, 14 and 198, averaged). */
@@ -41,6 +50,9 @@ void psx_light_synth_rows(const uint8_t *flags, uint32_t count, int ring, int ti
 
 /* A PsxLight of the track's tunnels (its nodes node_count, the data owned: psx_light_free). 1 when the track has a tunnel, else 0 and `out` is untouched. */
 int psx_light_synth(const Tri *tri, int time, PsxLight *out);
+
+/* as psx_light_synth, with `gallery` 1 the galleries of psx_light_synth_tunnels_ex count */
+int psx_light_synth_ex(const Tri *tri, int time, int gallery, PsxLight *out);
 
 /* port (made_tunnels): the road's tunnel nodes of `tunnels` (psx_light_synth's, its `tunnel` flags taken over) become `made`'s own: each takes the tunnel's rows (under a roof
  * the terrain's light does not fall) and is flagged, except a hall's (made->hall) and the nodes hall_from..hall_to (an empty range when hall_from > hall_to), which stay as the
@@ -73,7 +85,13 @@ int psx_light_synth_parking(const char *track, uint32_t *from, uint32_t *to);
 int psx_light_synth_cavern(const char *track, uint32_t *from, uint32_t *to);
 
 /* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
+/* 1 for CY1, 2 for CY2 and CY3, 3 for TR3, 0 for any other track: the tunnels the CD's light colours orange or yellow */
+int psx_light_synth_city_track(const char *track);
+
 int psx_light_synth_mine(const char *track);
+
+/* port (car_tunnel_light): the CD's car ratio (three channels) in the City's tunnels at `time` (PSX_SYNTH_*), under a lamp (even nodes) and between (odd). 1 for CY1, CY2 and CY3, else 0 and the outputs untouched. */
+int psx_light_synth_disc_car(const char *track, int time, float even[3], float odd[3]);
 
 /* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel (`out`, 3): 1 on the open road, in a tunnel the CD's lamp
  * alternation (a RAMP context takes its first colour on even nodes and its second on odd ones: CY1's 266..292 is 128,115,96 then 60,60,60 through the exe's

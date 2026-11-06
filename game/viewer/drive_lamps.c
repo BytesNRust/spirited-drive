@@ -13,6 +13,7 @@ typedef struct {
     int armed;
     LampState state;
     LampLight light;
+    int no_halo;
 } Slot;
 
 static Slot slots[DRIVE_LAMP_SLOTS];
@@ -122,6 +123,16 @@ void drive_lamps_frame(int slot, int low, int braking, int reversing)
 
 void drive_lamps_light(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing)
 {
+    drive_lamps_light_forced(slot, node, tint, ratio, braking, reversing, 0);
+}
+
+int drive_lamps_no_halo(int slot)
+{
+    return valid(slot) && slots[slot].armed && slots[slot].no_halo;
+}
+
+void drive_lamps_light_forced(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing, int force)
+{
     if (!valid(slot) || !slots[slot].armed) return;
     Slot *s = &slots[slot];
     const int was = s->light.low, low = lamp_light_step(&s->light, tint, ratio);
@@ -129,5 +140,6 @@ void drive_lamps_light(int slot, int node, const float tint[3], const float rati
         port_log("lamps: slot %d node %d %s: tint %.2f %.2f %.2f, ratio %.2f %.2f %.2f\n", slot, node, low ? "ON" : "OFF", tint != NULL ? tint[0] : 1.0f,
                  tint != NULL ? tint[1] : 1.0f, tint != NULL ? tint[2] : 1.0f, ratio != NULL ? ratio[0] : 1.0f, ratio != NULL ? ratio[1] : 1.0f,
                  ratio != NULL ? ratio[2] : 1.0f);
-    drive_lamps_frame(slot, low, braking, reversing);
+    s->no_halo = force == 2 || (force && !low);   /* lit only because it was forced (rain by day): the texels glow, the halo does not */
+    drive_lamps_frame(slot, low || force, braking, reversing);
 }

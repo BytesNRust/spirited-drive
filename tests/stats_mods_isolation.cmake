@@ -24,7 +24,7 @@ endif()
 # the Off switch: nothing, not even the flag file
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/mods/user" "${WORK}/pref")
-file(WRITE "${WORK}/mods/user/extras.cfg" "update_check=0\n")
+file(WRITE "${WORK}/mods/user/stock.cfg" "update_check=0\n")
 execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref TNFS_STATS_DRYRUN=0.9.0 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy
                         ${TNFS} --mods ${WORK}/mods
                 WORKING_DIRECTORY "${REPO}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 12)

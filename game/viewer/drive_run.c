@@ -18,6 +18,7 @@
 #include "viewer/drive_interp.h"
 #include "viewer/race_stats.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_profile.h"
 
 #include "game/race/race_follow.h"
 #include "game/sys/port_controls.h"
@@ -426,12 +427,13 @@ static void run_frame(void *ctx, int32_t frame)
     }
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
-    race_stats_key_save(&race_stats, drive_input.keys[RACE_STATS_KEY] != 0);  /* port: F12, written to extras.cfg on a toggle */
+    race_stats_key_save(&race_stats, drive_input.keys[RACE_STATS_KEY] != 0);  /* port: F12, written to the mode's file on a toggle */
     take_detail(&drive_keys.detail_pending);
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
-    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0, drive_input.keys[KEY_F2] != 0);
+    drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_mirror"),
+                      drive_input.keys[KEY_F2] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_radar"));   /* port (modes): only where the mode leaves them free */
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
@@ -443,23 +445,39 @@ static void light_dash_node(void)
     drive_light_dash_ratio(ported_view_car_ratio(car, ratio) ? ratio : NULL);
 }
 
+/* port (gauge_light = 5): a palette for each colour the dash paints (drive_wide_lit_colours), `palette` lit through it; how many */
+static int lit_colour_palettes(const uint8_t *palette, uint8_t out[PLATFORM_LIT_SLOTS][768])
+{
+    uint8_t rgb[PLATFORM_LIT_SLOTS][3];
+    const int n = drive_wide_lit_colours(rgb, PLATFORM_LIT_SLOTS);
+    int made = 0;
+    for (int i = 0; i < n; i++)
+        if (!drive_light_palette_lit_colour(palette, rgb[i], out[made])) break;
+        else made++;
+    return made == n ? n : 0;
+}
+
 /* port: the PS1 light's time of day tints the 3D's pixels only (drive_light.h), the picture as the window shows it */
 static int write_drive_ppm(const char *path, const uint8_t *shown, int width, const uint8_t *palette)
 {
     const int height = drive_output_height();
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
     if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
-    uint8_t world[768], half[768], lit[768];
+    uint8_t world[768], half[768], lit[768], colours[PLATFORM_LIT_SLOTS][768];
     light_dash_node();
     drive_light_palette(palette, world);
     drive_light_palette_half(palette, half);
-    return track_viewer_write_ppm_split(path, shown, width, height, palette, world, half, drive_light_palette_lit(palette, lit) ? lit : NULL, mask);
+    const int n = lit_colour_palettes(palette, colours);
+    return track_viewer_write_ppm_split(path, shown, width, height, palette, world, half, drive_light_palette_lit(palette, lit) ? lit : NULL, mask,
+                                        n > 0 ? colours[0] : NULL, n);
 }
 
 static void present_drive(const Track *t, uint8_t *pixels)
 {
     PlatformColor palette[256], world[256], half[256];
     static PlatformColor lit[256];   /* port (gauge_light): kept for platform_set_lit_palette */
+    static PlatformColor lit_colour[PLATFORM_LIT_SLOTS][256];   /* port (gauge_light = 5): one per painted colour, kept for platform_set_lit_colours */
+    uint8_t colour_palettes[PLATFORM_LIT_SLOTS][768];
     uint8_t world_palette[768], half_palette[768], lit_palette[768];
     light_dash_node();
     drive_light_palette(t->art.palette, world_palette);   /* port: the PS1 light's time of day, for the 3D's pixels */
@@ -473,6 +491,11 @@ static void present_drive(const Track *t, uint8_t *pixels)
         for (int i = 0; i < 256; i++) lit[i] = (PlatformColor){ lit_palette[3 * i], lit_palette[3 * i + 1], lit_palette[3 * i + 2] };
         platform_set_lit_palette(lit);
     } else platform_set_lit_palette(NULL);
+    const int colours = lit_colour_palettes(t->art.palette, colour_palettes);
+    for (int k = 0; k < colours; k++)
+        for (int i = 0; i < 256; i++)
+            lit_colour[k][i] = (PlatformColor){ colour_palettes[k][3 * i], colour_palettes[k][3 * i + 1], colour_palettes[k][3 * i + 2] };
+    platform_set_lit_colours(colours > 0 ? (const PlatformColor (*)[256])lit_colour : NULL, colours);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
     /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
@@ -574,7 +597,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
     if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
     drive_clock = r.clock;
-    race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as extras.cfg has it */
+    race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as the mode's file has it */
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: port.cfg's rate; the variable overrides it for the checks */

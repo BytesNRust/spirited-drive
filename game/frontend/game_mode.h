@@ -55,18 +55,14 @@ typedef struct GameModeOps {
     void (*sound_free)(void *ctx);                                           /* 004649c8 */
     void (*free)(void *ctx, int32_t bank);                                   /* 00475260 (cdecl) */
     void *ctx;
-    /* port, after ctx so the original's initializers leave them NULL: the Modem item opens the EXTRAS screen
-     * (without the name box) and is labelled "Customize game" over its art. NULL: the original's Modem. */
-    void (*extras)(void *ctx);
+    /* port, after ctx so the original's initializers leave them NULL */
     void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
     int32_t (*plus_text_width)(void *ctx, const char *text);
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
-    /* port (profiles): a fifth item under Exit, "Profile < name >" with two lines about it. step 0 reads the one in use; GAME_MODE_PROFILE_PEEK + n reads the one n steps
-     * along the cycle (n -3..3: three profiles, and Custom before them) without changing anything, and returns 2 when that is not the one in use, 1 when it is (the cycle came round); GAME_MODE_PROFILE_APPLY + n
-     * makes that one the profile, which rewrites the settings it controls. text[0] the name, text[1] and text[2] the lines; returns 1 when there is a profile row at all.
-     * NULL: the original's four items, their bands as they were. */
+    /* port (modes): the Profile row, "<  name  >" with two lines about it. step 0 reads the mode in use; GAME_MODE_PROFILE_PEEK + n reads the one n steps along the cycle (n -2..2) without changing anything, and returns 2 when that
+     * is not the one in use, 1 when it is (the cycle came round); GAME_MODE_PROFILE_APPLY + n makes it the mode. text[0] the name, text[1] and text[2] the lines. */
     int32_t (*profile)(void *ctx, int32_t step, const char *text[3]);
     /* port (profiles): the same text at num/den of its size, for the two lines under the name (the long ones are wider than the screen at full size) */
     void (*plus_text_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);

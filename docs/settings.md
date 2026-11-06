@@ -1,17 +1,22 @@
-# Settings reference: port.cfg, extras.cfg and the profiles
+# Settings reference: the modes and their files
 
 Every key the port reads from its two files, its default, the value that reproduces the exe, its range, where a menu shows it, its `TNFS_*` variable, and what each profile sets. Read from `game/sys/port_settings.{c,h}`, `game/sys/port_extras.{c,h}`, `game/sys/port_profile.c` (`TABLES`) and the menus in `game/frontend/`, at `origin/combo/c45` (95d989a2). Every key added to the port since (`police_glow`, `radar_all_views`, `tach_dim`, `gauge_wheel`, `replay_no_ffb`, `last_camera`/`camera_kind`, `sky_fill_below`, `chase_height`, `lamp_pool_tint`, `trans_shadows`, `car_tunnel_light`, `vegas_car_night`, `rally_gravel_shoulder`) is in the tables, with its value in each profile; a key that is in no profile column says "not set" (`camera_kind` and the player's own matters below).
 
-Both files are plain `key=value` lines in the user folder. An unknown key, or a value out of range, is ignored (the default stays). A key in `port.cfg` wins over the same key in `extras.cfg`.
+`port.cfg` holds only `profile=` and `psx_dir=`. `stock.cfg`, `restored.cfg` and `restomod.cfg` hold what the player changed in that mode, and only that. No file means Stock. All are plain `key=value` lines in the user folder. An unknown key, or a value out of range, is ignored. `config.dat` and `controls.cfg` are shared by the modes.
+
+An older `port.cfg` that still carries settings moves once at startup to the mode's file (`game/sys/port_old_files.c`), with `extras.cfg`. Copies stay as `port.cfg.bak` and `extras.cfg.bak`, and `extras.cfg` goes. A copy already there is kept.
+
+- A named mode keeps its name. Its lines at a table column are not pinned: the old game ignored them, so the table's value stays and a later table reaches the player. What it left alone moves if it is free in the mode.
+- `custom`, or no `profile` line, becomes Restomod. Every key the file set stays set in `restomod.cfg`, even at the table's value, and survives later saves. A key the file did not set takes Restomod's value.
 
 ## How the pieces fit
 
 - **`TNFS_*` variable.** Where a key has one, the variable wins over the file when it is set (`0`/`1` unless noted). Most are for A/B comparisons.
-- **Profiles** (`profile=stock|restored|restomod|custom`). A profile other than `custom` takes the values of its `TABLES` row for the keys in the table below at load. Keys that are not in the table are the player's own and no profile touches them. `custom` (no `profile=` line) keeps every value as it is.
+- **Modes** (`profile=stock|restored|restomod`). A mode starts from its `TABLES` row for the keys in the table below. Its file's value counts only for a key that is free in the mode. Free in all three: `fullscreen`, `explode`, `nitro`, `turbo`, `warrior`, `mirror`, `rally`, `vegas`, `units`, `update_check`. Restored adds `format`, `refresh_hz`, `scale`, `render_bands`, `stats_overlay`. Restomod leaves every key free but `profile` and `psx_dir`.
 - **"Exe"** is the value that gives the original game's behaviour (the `Stock` profile, where the key is in it). Where the default is not the exe's, the column says so.
 - Many look keys do nothing without another: the ones marked "needs" are inert unless that key is on.
 
-## port.cfg
+## Settings (`port_settings`)
 
 ### Screen and speed
 
@@ -35,7 +40,7 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `texture_filter` | 0 | 0 | 0, 1 | Graphics Detail: Texture Filter | `TNFS_TEXTURE_FILTER` | 0 / 0 / 1 |
 | `fog` | 0 | 0 | 0, 1 (the port's distance fog) | Graphics Detail: Distance Fog | `TNFS_FOG` | 0 / 0 / 1 |
 | `fog_sample` | 0 | 0 | 0, 1 (the fog's colour from the band round the horizon, not the art's last rows) | none | `TNFS_FOG_SAMPLE` (`TNFS_FOG_LIFT` 0..100, dev) | 0 / 0 / 1 |
-| `weather` | `clear` | `clear` | `clear`, `fog`, `rain` | Track Select: Weather | `TNFS_WEATHER` | not set |
+| `weather` | `clear` | `clear` | `clear`, `fog`, `rain`, `storm` (Restomod only) | Track Select: Weather | `TNFS_WEATHER` | not set |
 | `body_shine` | 0 | 0 | 0..4 (1 subtle, 2 default look, 3 strong, 4 the envmap; 0 the exe's frames) | none | `TNFS_BODY_SHINE` | 0 / 0 / 4 |
 | `car_colours` | 0 | 0 | 0, 1 (the screen palette's car slots fitted to the colours the cars show; up to 12 palette entries are kept out of the fit for the police lights, the cars' lamps and the night lamps) | none (the CUSTOMIZE "Car Colours" row is extras.cfg's `psx_liveries`) | `TNFS_CAR_COLOURS` | 0 / 0 / 1 |
 | `laps` | 0 | 0 (the exe's laps) | 0, 1..99 | none (the track screen's lap count follows it) | `TNFS_LAPS` | not set |
@@ -70,15 +75,24 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 | `brake_over_gas` | 0 | 0 | 0, 1 (a pad's brake past its dead zone beats the gas: the car brakes and the brake light lights; 0 sums them as the exe does) | none | `TNFS_BRAKE_OVER_GAS` | 0 / 0 / 1 | none |
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
 | `lamp_pool_bright` | 0 | 0 | 0, 1 (a street lamp's pool is not dimmed by the night's dark floor: under the lamp the light is full, fading with the pool; 0 the pool is dimmed by the headlights' gain) | none | `TNFS_LAMP_POOL_BRIGHT` | 0 / 0 / 0 | `psx_headlights` |
+| `sign_glow` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 1 | `psx_headlights`, CY1 |
+| `analog_pad` | 0 | 0 | 0, 1 (a control bound to an axis (pad stick or trigger, wheel, pedals) steers and works the pedals in proportion, a key or button keeps full travel; 0 the exe's key paths) | none | `TNFS_ANALOG_PAD` | 1 / 1 / 1 | a game controller |
+| `police_halo` | 0 | 0 | 0..3 (the police roof lights' halo size: 0 as now, 1..3 progressively bigger (near and far)) | none | `TNFS_POLICE_HALO` | 0 / 0 / 1 | `police_glow`, `psx_flares` |
+| `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 0 | `psx_flares`, night |
+| `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 0 | `weather=rain`, `rain_fx`, a rally race |
+| `traffic_spray` | 0 | 0 | 0..1 (the traffic's and the police's rain spray is a short wisp, not the long plume; the player's and the rivals' keep theirs; 0 the exe's) | none | `TNFS_TRAFFIC_SPRAY` | 0 / 0 / 0 | `weather=rain`, `rain_fx` |
 | `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `psx_headlights`, `perspective` (without Perspective Correction the cone counts as 0: the node pool) |
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
 | `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 1 | `weather=rain` |
-| `gauge_light` | 0 | 0 | 0..4 (at night the lit parts of the dash gauges take a colour: 1 greenish, 2 reddish, 3 orange, 4 bluish; 0 the exe's untinted white; Graphics options page; a hand-made mask per dash, `data/dash_masks/<CAR>/dash_mask.png` or `$TNFS_DASH_MASKS`, from `tools/dash_mask_from_psd.py`, marks the lit parts: blue the dash, green a dial, white always lit) | none | `TNFS_GAUGE_LIGHT` | 0 / 0 / 0 | `weather=rain` |
+| `gauge_light` | 0 | 0 | 0..5 (at night the lit parts of the dash gauges take a colour: 1 greenish, 2 reddish, 3 orange, 4 bluish, 5 "Del coche": the colour painted at each pixel in the dash's `dash_color.png` (below), orange where none or the car has no file; 0 the exe's untinted white; Graphics options page; a hand-made mask per dash, `data/dash_masks/<CAR>/dash_mask.png` or `$TNFS_DASH_MASKS`, from `tools/dash_mask_from_psd.py`, marks the lit parts: blue the dash, green a dial, yellow ffff00 or white always lit. The optional PSD layer "color" gives `data/dash_masks/<CAR>/dash_color.png` (same tool, `$TNFS_DASH_MASKS` too): paint the lit parts in the colour each is to glow, a different one per dial if wanted; only the strongest channel sets the hue, the dash's art the brightness; transparent or black = no colour (orange); up to 12 distinct colours; no menu row: the player does not pick it, the car's own colours do; Restomod defaults to 5) | none | `TNFS_GAUGE_LIGHT` | 0 / 0 / 5 | `weather=rain` |
 | `finish_gate_light` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the stage tracks' gate that ends a stage (CY, CL, AL; CHECKPOINT, FINISH on the third stage) keeps its daylight light against the dark; 0 the exe's) | none | `TNFS_FINISH_GATE_LIGHT` | 0 / 0 / 1 | `psx_headlights`, CY/CL/AL |
 | `lamp_car_shade` | 0 | 0 | 0, 1 (a car under a street lamp is lit by its pool: warmer and lighter, fading as it leaves) | none | `TNFS_LAMP_CAR_SHADE` | 0 / 0 / 1 | `psx_headlights` |
 | `reverse_rows` | 0 | 0 | 0, 1 (a reversed circuit's rows are read the way the forward circuit's are (the exe's reverse swaps the two chains of each row, which bends a tunnel's roof into a slab and lays its wall down as a hillside): the tunnels keep their walls and roof; 0 the rows swapped as the exe's reverse has them) | none | `TNFS_REVERSE_ROWS` | 0 / 0 / 1 | none |
 | `city_lift` | 0 | 0 | 0, 1, 2, 3 (with the PS1 light and headlights the City nights CY1..CY3 are brightened: 1 mild, 2 more, by raising the night tint's ceiling and the open night's dark floor, the beams added on top of that floor; 3 a darker base than 1 with brighter tunnels and lamp pools, so the beams stand out; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 1 | `psx_light` |
 | `vegas_lift` | 0 | 0 | 0, 1, 2 (the same for Lost Vegas' night: 1 mild, 2 more; 0 the exe's) | none | `TNFS_VEGAS_LIFT` | 0 / 0 / 2 | `psx_light` |
+| `night_tone` | 0 | 0 | 0, 1, 2 (the night's flat tint of a track with no PS1 light, i.e. with no disc or no light file for it: 0 the fallback's warm brown-green; 1 each track's own CD night tint (constants, no PS1 data), brought under the City's and Lost Vegas' lift ceilings as on the CD path, with a brightness match to the CD's road; 2 one neutral cool blue-grey, the City's and Lost Vegas' following `city_lift` and `vegas_lift` from the look at city_lift 3 / vegas_lift 2; the CD's own light and tints are never changed) | none | `TNFS_NIGHT_TONE` | 0 / 0 / 2 | `psx_light`, night |
+| `rain_lamps` | 0 | 0 | 0, 1 (with `weather=rain` or `storm` every car drives with its headlights on, day included: lit front lamps and their warm reflections on the wet road; no night beam or pools by day) | none | `TNFS_RAIN_LAMPS` | 0 / 0 / 0 | `weather=rain` |
+| `gauge_exterior` | 0 | 0 | 0, 1 (with `gauge_light`, the gauges are lit whenever the exterior lights are on: night, dusk, and rain or storm with `rain_lamps`; by day dry they stay unlit; 0 at night only) | none | `TNFS_GAUGE_EXTERIOR` | 0 / 0 / 0 | `gauge_light` |
 | `tunnel_headlight` | 0 | 0 | 0, 1 (with the PS1 headlights at night, the beam lights a tunnel's walls and road, and a lit hall's, to 180 of 255; 0 the exe's 150 in a tunnel, nothing in a hall) | none | `TNFS_TUNNEL_HEADLIGHT` | 0 / 0 / 1 | `psx_light` |
 | `parking_dark` | 0 | 0 | 0, 1 (with car_tunnel_light, the car stays at the darkest tone of the hall in TR7's whole parking, nodes 465..570, with no alternating light; 0 the lamps' alternation) | none | `TNFS_PARKING_DARK` | 0 / 0 / 1 | `psx_light` |
 | `forest_neutral` | 0 | 0 | 0, 1 (with the PS1 light, Vertigo Ridge's forest road, nodes 852..943 (the CD's rows mark its shade like a tunnel), is drawn with the road's neutral light instead of the tunnel's olive-orange cast; 0 the cast, yellow/orange asphalt) | none | `TNFS_FOREST_NEUTRAL` | 0 / 0 / 1 | `psx_light` |
@@ -102,10 +116,9 @@ Both files are plain `key=value` lines in the user folder. An unknown key, or a 
 
 | key | default | exe | range | menu | env | note |
 |---|---|---|---|---|---|---|
-| `profile` | `custom` (no line) | `stock` | `custom`, `stock`, `restored`, `restomod` | Options and Game Mode: Profile | none | the table below |
-| `port_profile_ui` | 1 | 0 (the exe's menus, no Profile row) | 0, 1 | none | `TNFS_PROFILE_UI` | not controlled by a profile |
+| `profile` | `stock` (no line) | `stock` | `stock`, `restored`, `restomod` | Game Mode: Profile | none | the table below |
 
-## extras.cfg
+## Switches (`port_extras`)
 
 Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
@@ -121,7 +134,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 | `vegas` | 0 | 0 | page 1: Lost Vegas Track | | not set |
 | `lunar_springs` | 0 | 0 | page 1: Lunar Springs Track | | not set |
 | `lunar_gravity` | 0 | 0 | page 1: Lunar Gravity | a third of the pull, two thirds of the grip, on the moon | not set |
-| `variant_time` | 0 | 0 | page 1: Time with variants | the time of day offered with Mirror or Rally | not set |
+| `variant_time` | 0 | 0 | none | the time of day offered with Mirror or Rally; set by the mode (Restomod only) | not set |
 | `psx_liveries` | 0 | 0 | page 1: Car Colours | catalogue paints for every car, the PS1 second livery with `psx_dir`; the player's pick is `car_paint` | 0 / 0 / 1 |
 | `units` | `mph` | `mph` | page 2: Speed units | `mph`, `kmh`; an old `language` reads as `mph` | not set |
 | `no_assists` | 0 | 0 | page 2: No driving assists | | not set |
@@ -143,80 +156,86 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 |---|---|---|---|---|---|
 | `reverse` | 0 | 0 | Track Select: Reverse (offered when this is on); `TNFS_REVERSE=0\|1` overrides | circuits run the other way round; the tunnel/LOD byte and the models are handled in `tri_reverse` | not set |
 | `rally_gravel` | 0 | 0 | none | gravel noise all along the rally and dust from the desert's tyres | 0 / 0 / 1 |
-| `rain_lightning` | 0 | 0 | EXTRAS (In-race options): Rain with storm; `TNFS_RAIN_LIGHTNING=0\|1` overrides | with `weather=rain`, lightning flashes of one frame; off in every profile (not set) | not set |
 | `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 1 / 1 |
 | `car_paint` | all 0 | all 0 | the car showcase's Color box | one hex digit a car (cars 0..11): 0 own, 1 PS1 livery, 2+ the catalogue's paints | not set |
-| `psx_livery_cars` | 0 | 0 | none | the old per-car mask; read, never written (becomes `car_paint`'s 1) | not set |
-| `modern_3d`, `texture_filter`, `fog` | 0 | 0 | none | legacy copies of port.cfg's `perspective`, `texture_filter`, `fog`; port.cfg's key wins | not set |
 
 ## What each profile sets (`TABLES`)
 
-All 43 columns of the table, in file order. A column that is not here is not touched by any profile. "file" is the file the key is written to.
+All 64 columns of the table, in file order. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
-| column | file | Stock | Restored | Restomod |
+| column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
-| `widescreen` (sets `format`) | port.cfg | 0 (4:3) | 1 (monitor's) | 1 (monitor's) |
-| `refresh_hz` | port.cfg | 30 | 144 | 144 |
-| `view_ultra` | port.cfg | 0 | 0 | 1 |
-| `perspective` | port.cfg | 0 | 0 | 1 |
-| `texture_filter` | port.cfg | 0 | 0 | 1 |
-| `fog` | port.cfg | 0 | 0 | 1 |
-| `f3_ultra` | port.cfg | 0 | 0 | 1 |
-| `render_scale` | port.cfg | 1 | 1 | 2 |
-| `psx_light` | port.cfg | 0 | 0 | 1 |
-| `psx_headlights` | port.cfg | 0 | 0 | 1 |
-| `psx_shadow` | port.cfg | 0 | 0 | 1 |
-| `psx_flares` | port.cfg | 0 | 0 | 1 |
-| `body_shine` | port.cfg | 0 | 0 | 4 |
-| `car_colours` | port.cfg | 0 | 0 | 1 |
-| `fog_sample` | port.cfg | 0 | 0 | 1 |
-| `sky_fill` | port.cfg | 0 | 0 | 1 |
-| `movies_wide` | extras.cfg | 0 | 1 | 1 |
-| `psx_liveries` | extras.cfg | 0 | 0 | 1 |
-| `rally_gravel` | extras.cfg | 0 | 0 | 1 |
-| `made_tunnels` | port.cfg | 0 | 0 | 1 |
-| `hall_light` | port.cfg | 0 | 0 | 1 |
-| `headlight_relight` | port.cfg | 0 | 0 | 1 |
-| `night_stretch_clean` | port.cfg | 0 | 0 | 1 |
-| `forest_dark` | port.cfg | 0 | 0 | 1 |
-| `night_sky_hue` | port.cfg | 0 | 0 | 1 |
-| `bumper_mirror` | extras.cfg | 0 | 0 | 1 |
-| `bumper_radar` | extras.cfg | 0 | 0 | 1 |
-| `follow_camera` | extras.cfg | 0 | 0 | 1 |
-| `scale_integer` (`scale=integer`) | port.cfg | 1 | 1 | 0 |
-| `last_camera` | port.cfg | 0 | 0 | 1 |
-| `replay_no_ffb` | port.cfg | 0 | 0 | 1 |
-| `sky_fill_below` | port.cfg | 0 | 0 | 1 |
-| `radar_all_views` | port.cfg | 0 | 0 | 1 |
-| `tach_dim` | port.cfg | 0 | 0 | 1 |
-| `gauge_wheel` | port.cfg | 0 | 0 | 1 |
-| `police_glow` | port.cfg | 0 | 0 | 1 |
-| `car_tunnel_light` | port.cfg | 0 | 0 | 1 |
-| `vegas_car_night` | port.cfg | 0 | 0 | 1 |
-| `rally_gravel_shoulder` | port.cfg | 0 | 0 | 1 |
-| `chase_height` | port.cfg | 0 | 0 | 1 |
-| `lamp_pool_tint` | port.cfg | 0 | 0 | 1 |
-| `trans_shadows` | port.cfg | 0 | 0 | 1 |
-| `tunnel_headlight` | port.cfg | 0 | 0 | 1 |
-| `parking_dark` | port.cfg | 0 | 0 | 1 |
-| `forest_neutral` | port.cfg | 0 | 0 | 1 |
-| `cavern_dark` | port.cfg | 0 | 0 | 1 |
-| `vegas_objects` | port.cfg | 0 | 0 | 1 |
-| `close_houses` | port.cfg | 0 | 0 | 1 |
-| `lamp_car_shade` | port.cfg | 0 | 0 | 1 |
-| `headlight_cone` | port.cfg | 0 | 0 | 1 |
-| `rain_fx` | port.cfg | 0 | 0 | 1 |
-| `rain_grip` | port.cfg | 0 | 0 | 1 |
-| `gauge_light` | port.cfg | 0 | 0 | 0 |
-| `finish_gate_light` | port.cfg | 0 | 0 | 1 |
-| `lamp_pool_bright` | port.cfg | 0 | 0 | 0 |
-| `reverse_rows` | port.cfg | 0 | 0 | 1 |
-| `city_lift` | port.cfg | 0 | 0 | 1 |
-| `vegas_lift` | port.cfg | 0 | 0 | 2 |
-| `lamp_pools` | port.cfg | 0 | 0 | 1 |
-| `brake_over_gas` | port.cfg | 0 | 0 | 1 |
+| `widescreen` (sets `format`) | settings | 0 (4:3) | 1 (monitor's) | 1 (monitor's) |
+| `refresh_hz` | settings | 30 | 144 | 144 |
+| `view_ultra` | settings | 0 | 0 | 1 |
+| `perspective` | settings | 0 | 0 | 1 |
+| `texture_filter` | settings | 0 | 0 | 1 |
+| `fog` | settings | 0 | 0 | 1 |
+| `f3_ultra` | settings | 0 | 0 | 1 |
+| `render_scale` | settings | 1 | 1 | 2 |
+| `psx_light` | settings | 0 | 0 | 1 |
+| `psx_headlights` | settings | 0 | 0 | 1 |
+| `psx_shadow` | settings | 0 | 0 | 1 |
+| `psx_flares` | settings | 0 | 0 | 1 |
+| `body_shine` | settings | 0 | 0 | 4 |
+| `car_colours` | settings | 0 | 0 | 1 |
+| `fog_sample` | settings | 0 | 0 | 1 |
+| `sky_fill` | settings | 0 | 0 | 1 |
+| `movies_wide` | switches | 0 | 1 | 1 |
+| `psx_liveries` | switches | 0 | 0 | 1 |
+| `rally_gravel` | switches | 0 | 0 | 1 |
+| `made_tunnels` | settings | 0 | 0 | 1 |
+| `hall_light` | settings | 0 | 0 | 1 |
+| `headlight_relight` | settings | 0 | 0 | 1 |
+| `night_stretch_clean` | settings | 0 | 0 | 1 |
+| `forest_dark` | settings | 0 | 0 | 1 |
+| `night_sky_hue` | settings | 0 | 0 | 1 |
+| `bumper_mirror` | switches | 0 | 0 | 1 |
+| `bumper_radar` | switches | 0 | 0 | 1 |
+| `follow_camera` | switches | 0 | 0 | 1 |
+| `scale_integer` (`scale=integer`) | settings | 1 | 1 | 0 |
+| `last_camera` | settings | 0 | 0 | 1 |
+| `replay_no_ffb` | settings | 0 | 0 | 1 |
+| `sky_fill_below` | settings | 0 | 0 | 1 |
+| `radar_all_views` | settings | 0 | 0 | 1 |
+| `tach_dim` | settings | 0 | 0 | 1 |
+| `gauge_wheel` | settings | 0 | 0 | 1 |
+| `police_glow` | settings | 0 | 0 | 1 |
+| `car_tunnel_light` | settings | 0 | 0 | 1 |
+| `vegas_car_night` | settings | 0 | 0 | 1 |
+| `rally_gravel_shoulder` | settings | 0 | 0 | 1 |
+| `chase_height` | settings | 0 | 0 | 1 |
+| `lamp_pool_tint` | settings | 0 | 0 | 1 |
+| `trans_shadows` | settings | 0 | 0 | 1 |
+| `tunnel_headlight` | settings | 0 | 0 | 1 |
+| `parking_dark` | settings | 0 | 0 | 1 |
+| `forest_neutral` | settings | 0 | 0 | 1 |
+| `cavern_dark` | settings | 0 | 0 | 1 |
+| `vegas_objects` | settings | 0 | 0 | 1 |
+| `close_houses` | settings | 0 | 0 | 1 |
+| `lamp_car_shade` | settings | 0 | 0 | 1 |
+| `headlight_cone` | settings | 0 | 0 | 1 |
+| `rain_fx` | settings | 0 | 0 | 1 |
+| `rain_grip` | settings | 0 | 0 | 1 |
+| `gauge_light` | settings | 0 | 0 | 5 |
+| `finish_gate_light` | settings | 0 | 0 | 1 |
+| `lamp_pool_bright` | settings | 0 | 0 | 0 |
+| `sign_glow` | settings | 0 | 0 | 1 |
+| `analog_pad` | settings | 1 | 1 | 1 |
+| `police_halo` | settings | 0 | 0 | 1 |
+| `traffic_halo` | settings | 0 | 0 | 0 |
+| `rally_dry_lamps` | settings | 0 | 0 | 0 |
+| `traffic_spray` | settings | 0 | 0 | 0 |
+| `reverse_rows` | settings | 0 | 0 | 1 |
+| `city_lift` | settings | 0 | 0 | 1 |
+| `vegas_lift` | settings | 0 | 0 | 2 |
+| `night_tone` | settings | 0 | 0 | 2 |
+| `rain_lamps` | settings | 0 | 0 | 0 |
+| `gauge_exterior` | settings | 0 | 0 | 0 |
+| `lamp_pools` | settings | 0 | 0 | 1 |
+| `brake_over_gas` | settings | 0 | 0 | 1 |
 
-The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `port_profile_ui`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
+The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 
 ## Development-only variables
 

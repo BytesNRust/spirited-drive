@@ -1,4 +1,5 @@
 /* The port's own settings file (port.cfg): defaults, text round trip, and what a damaged file leaves alone. */
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
 
@@ -131,6 +132,10 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.reverse_rows, b.reverse_rows);
     CHECK_EQ_INT(a.city_lift, b.city_lift);
     CHECK_EQ_INT(a.vegas_lift, b.vegas_lift);
+    CHECK_EQ_INT(a.night_tone, b.night_tone);
+    CHECK_EQ_INT(a.rain_lamps, b.rain_lamps);
+    CHECK_EQ_INT(a.gauge_exterior, b.gauge_exterior);
+    CHECK_EQ_INT(a.sign_glow, b.sign_glow);
     CHECK_EQ_INT(a.headlight_cone, b.headlight_cone);
     CHECK_EQ_INT(a.lamp_pool_bright, b.lamp_pool_bright);
     CHECK_EQ_INT(a.lamp_pools, b.lamp_pools);
@@ -177,6 +182,15 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.headlight_cone, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.lamp_pool_bright, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.vegas_lift, 0);   /* as the exe has it, until asked */
+    CHECK_EQ_INT(d.night_tone, 0);   /* the fallback night, until asked */
+    CHECK_EQ_INT(d.rain_lamps, 0);   /* the exe's, until asked */
+    CHECK_EQ_INT(d.gauge_exterior, 0);   /* the exe's, until asked */
+    CHECK_EQ_INT(d.sign_glow, 0);   /* the exe's, until asked */
+    CHECK_EQ_INT(d.traffic_spray, 0);
+    CHECK_EQ_INT(d.rally_dry_lamps, 0);
+    CHECK_EQ_INT(d.traffic_halo, 0);
+    CHECK_EQ_INT(d.police_halo, 0);
+    CHECK_EQ_INT(d.analog_pad, 0);   /* the exe's key paths, until a profile or the file asks */
     CHECK_EQ_INT(d.city_lift, 0);   /* as the exe has it, until asked */
     CHECK_EQ_INT(d.reverse_rows, 0);   /* as the exe has it, until asked */
     CHECK_EQ_INT(d.lamp_car_shade, 0);   /* the exe's, until asked */
@@ -204,6 +218,14 @@ static void test_round_trip(void)
 
 /* the render threads: the number of threads the bands use, 0 for off (the plain path) and -1 for "auto" (as many as
  * the logical cores, at most eight). The file names them "render_bands=0|auto|2|4". */
+static void test_gauge_light_values(void)
+{
+    const char *car = "gauge_light=5\n", *over = "gauge_light=6\n", *four = "gauge_light=4\n";
+    CHECK_EQ_INT(port_settings_parse(car, strlen(car)).gauge_light, 5);    /* "Del coche": the dash's own colours */
+    CHECK_EQ_INT(port_settings_parse(four, strlen(four)).gauge_light, 4);
+    CHECK_EQ_INT(port_settings_parse(over, strlen(over)).gauge_light, 0);  /* out of range: the default */
+}
+
 static void test_fog_sample_values(void)
 {
     const char *const on = "fog_sample=1\n", *const bad = "fog_sample=2\n";
@@ -450,7 +472,7 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.weather, WEATHER_CLEAR);
     const char *foggy = "weather=Fog\n", *stormy = "weather=storm\n";
     CHECK_EQ_INT(port_settings_parse(foggy, strlen(foggy)).weather, WEATHER_FOG);
-    CHECK_EQ_INT(port_settings_parse(stormy, strlen(stormy)).weather, WEATHER_CLEAR);
+    CHECK_EQ_INT(port_settings_parse(stormy, strlen(stormy)).weather, WEATHER_STORM);
     const char *scaled = "render_scale=2\n";
     CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
     CHECK_EQ_INT(s.psx_light, 0);
@@ -509,61 +531,13 @@ static void test_bad_input_keeps_defaults(void)
 
 static void test_load_save(void)
 {
-    check_same(port_settings_load(), port_settings_defaults());   /* no file yet */
-    const PortSettings s = { .format = SCREEN_16_9, .refresh_hz = 120, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = 15, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1,
-                             .render_scale = 2, .render_bands = 2 };
+    clear_files();
+    put_file("port.cfg", "profile=restomod\n");   /* the mode that leaves everything free; port_profile's test has the others */
+    PortSettings s = port_settings_load();
+    CHECK_EQ_INT(s.profile, PROFILE_RESTOMOD);
+    s.format = SCREEN_21_9, s.refresh_hz = 120, s.scale_integer = 1, s.fullscreen = 0, s.fov_adjust = 15, s.view_ultra = 0, s.perspective = 0, s.texture_filter = 0, s.fog = 0, s.render_scale = 3, s.render_bands = 2;
     CHECK(port_settings_save(&s));
     check_same(port_settings_load(), s);
-}
-
-/* The three settings that moved in from EXTRAS (perspective correction, texture filter, fog) live in port.cfg now,
- * but an extras.cfg written before the move keeps its value: only when port.cfg has no key for one does its value
- * come from extras.cfg. A key in port.cfg always wins, so a save from Graphics is not undone by a stale extras.cfg. */
-static void test_moved_settings_fall_back_to_extras(void)
-{
-    clear_files();
-
-    /* neither file: the defaults */
-    check_same(port_settings_load(), port_settings_defaults());
-
-    /* extras.cfg alone: its three values are taken */
-    put_file("extras.cfg", "modern_3d=1\ntexture_filter=1\nfog=0\n");
-    PortSettings s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 1);
-    CHECK_EQ_INT(s.texture_filter, 1);
-    CHECK_EQ_INT(s.fog, 0);
-
-    /* port.cfg names them: it wins over extras.cfg */
-    put_file("port.cfg", "perspective=0\ntexture_filter=0\nfog=1\n");
-    s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 0);
-    CHECK_EQ_INT(s.texture_filter, 0);
-    CHECK_EQ_INT(s.fog, 1);
-
-    /* port.cfg names one and not the others: the named one wins, the rest still come from extras.cfg */
-    put_file("port.cfg", "fog=1\n");
-    s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 1);   /* from extras.cfg */
-    CHECK_EQ_INT(s.texture_filter, 1);   /* from extras.cfg */
-    CHECK_EQ_INT(s.fog, 1);              /* from port.cfg */
-
-    /* saving from Graphics writes all three to port.cfg, and they survive the fallback afterwards */
-    s.perspective = 0;
-    s.texture_filter = 0;
-    s.fog = 0;
-    CHECK(port_settings_save(&s));
-    /* the saved text carries all three, so a later load never has to consult extras.cfg for them */
-    char text[PORT_CFG_TEXT_MAX] = "";
-    CHECK(port_settings_format(&s, text, sizeof text) > 0);
-    CHECK(strstr(text, "perspective=") != NULL);
-    CHECK(strstr(text, "texture_filter=") != NULL);
-    CHECK(strstr(text, "fog=") != NULL);
-    s = port_settings_load();
-    CHECK_EQ_INT(s.perspective, 0);
-    CHECK_EQ_INT(s.texture_filter, 0);
-    CHECK_EQ_INT(s.fog, 0);
-
     clear_files();
 }
 
@@ -593,7 +567,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .canyon_shade = 1, .tunnel_headlight = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .canyon_shade = 1, .tunnel_headlight = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -628,11 +602,15 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.headlight_cone, 1);
     CHECK_EQ_INT(back.rain_fx, 1);
     CHECK_EQ_INT(back.rain_grip, 1);
-    CHECK_EQ_INT(back.gauge_light, 3);   /* a level 0..4 */
+    CHECK_EQ_INT(back.gauge_light, 3);   /* a level 0..5 */
     CHECK_EQ_INT(back.finish_gate_light, 1);
     CHECK_EQ_INT(back.reverse_rows, 1);
     CHECK_EQ_INT(back.city_lift, 2)   /* a level 0..2, not a flag */;
     CHECK_EQ_INT(back.vegas_lift, 1);
+    CHECK_EQ_INT(back.night_tone, 2);   /* a value 0..2 */
+    CHECK_EQ_INT(back.rain_lamps, 1);
+    CHECK_EQ_INT(back.gauge_exterior, 1);
+    CHECK_EQ_INT(back.sign_glow, 1);
     CHECK_EQ_INT(back.headlight_cone, 1);
     CHECK_EQ_INT(back.lamp_pool_bright, 1);
     CHECK_EQ_INT(back.lamp_pools, 1);
@@ -691,6 +669,7 @@ int main(void)
     test_bad_input_keeps_defaults();
     test_render_bands_values();
     test_free_records_values();
+    test_gauge_light_values();
     test_fog_sample_values();
     test_sky_fill_values();
     test_replay_no_ffb_values();
@@ -707,7 +686,6 @@ int main(void)
     test_bad_render_scale_keeps_the_default();
     test_the_environment_wins_over_the_setting();
     test_load_save();
-    test_moved_settings_fall_back_to_extras();
     test_a_longest_psx_dir_round_trips();
     test_two_sided_is_automatic();
     return TEST_REPORT();

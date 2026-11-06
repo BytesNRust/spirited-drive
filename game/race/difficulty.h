@@ -1,4 +1,4 @@
-/* port (extras.cfg's difficulty): the race's difficulty, three axes (the rivals', the police's, the traffic's), each Easy, Original or
+/* port (the mode's file's difficulty): the race's difficulty, three axes (the rivals', the police's, the traffic's), each Easy, Original or
  * Hard. Original, the zero, is the exe's, bit for bit: every function here hands back what it is given. A race's value is fixed at its
  * start (RaceField, RaceState port_difficulty); a replay stores it in its setup and plays it back, a link race and a replay without a
  * stamp (the CD's demos too) run Original. */
@@ -15,7 +15,7 @@ typedef struct {
     int32_t traffic;   /* how many cars, how fast */
 } RaceDifficulty;
 
-/* extras.cfg's difficulty=0|1|2 (Easy, Original, Hard; anything else Original) as all three axes */
+/* the mode's file's difficulty=0|1|2 (Easy, Original, Hard; anything else Original) as all three axes */
 RaceDifficulty difficulty_from_extras(int level);
 
 /* 1 when every axis is Original: the one question the records' code asks */
@@ -25,7 +25,7 @@ int difficulty_is_original(const RaceDifficulty *d);
 void difficulty_running_set(const RaceDifficulty *d);
 int difficulty_running_original(void);
 
-/* The race's difficulty: Original in a link race, the replay's own (NULL: a race, not a replay) in a replay, else extras.cfg's level */
+/* The race's difficulty: Original in a link race, the replay's own (NULL: a race, not a replay) in a replay, else the mode's file's level */
 RaceDifficulty difficulty_resolve(int extras_level, const RaceDifficulty *replay, int linked);
 
 /* The replay setup's stamp (bits 2..7 of the port's cheat byte: two bits an axis, 0 Original) and its reading back */

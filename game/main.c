@@ -26,6 +26,7 @@
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_old_files.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/port_stats.h"
 #include "game/sys/port_icon.h"
@@ -180,7 +181,7 @@ static int run_drive(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
-    resource_set_units(port_extras_load().units);   /* port: the speed's units from extras.cfg, the language's by default */
+    resource_set_units(port_extras_load().units);   /* port: the speed's units from the mode's file, the language's by default */
     timer_init();
     pointer_load(0);
     text_init();
@@ -212,7 +213,7 @@ static int run_game(const Options *opt)
     }
     resource_init(opt->data_root, opt->german);
     port_icon_apply();   /* port: the CD's NFSICONN.ICO on the window */
-    /* port: the speed's units from extras.cfg from the first screen (run_drive and the headless frame set them; the menus' game never did, so km/h in the file
+    /* port: the speed's units from the mode's file from the first screen (run_drive and the headless frame set them; the menus' game never did, so km/h in the file
      * read mph until CUSTOMIZE's Done was pressed in the session) */
     resource_set_units(port_extras_load().units);
     port_log("units: %s\n", resource_kmh() ? "km/h" : "mph");
@@ -288,6 +289,7 @@ int main(int argc, char **argv)
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
     if (opt.mods != NULL && !platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;
+    port_old_files_migrate();   /* before any setting is read, and before there are threads */
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to <mods>/user with --mods */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);

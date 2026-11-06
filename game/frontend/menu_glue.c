@@ -468,7 +468,7 @@ static int variant_draw(void *ctx, int car, int lit, uint8_t *palette)
     if (car_variant_can_step(showcase_variants, showcase_variant_count, model, 1))
         variant_triangle(VARIANT_RIGHT - BORDER - TRIANGLE_INSET, middle, 0);
     text_select(lit ? TEXT_YELLOW : TEXT_CREAM);   /* the photos' captions: bottom left inside the frame */
-    text_draw_shadowed("COLOR", VARIANT_LEFT + BORDER + LABEL_INSET, VARIANT_BOTTOM - BORDER - text_line_height() - 2);
+    text_draw_shadowed("Color", VARIANT_LEFT + BORDER + LABEL_INSET, VARIANT_BOTTOM - BORDER - text_line_height() - 2);
     box.palette = NULL;
     return box.added;
 }
@@ -614,11 +614,10 @@ static int32_t mode_network_game(void *ctx)
 }
 
 /* port: the EXTRAS dispatcher the Game Mode's MODEM slot calls when the original modem flow is gone. It opens the
- * EXTRAS screen over the live Game Mode picture and saves extras.cfg and the unlock level on Done. */
+ * EXTRAS screen over the live Game Mode picture and saves the mode's file and the unlock level on Done. */
 
 /* the Game Mode screen's current picture (set before the menu is entered) */
 static int32_t mode_extras_screen;
-static int16_t mode_extras_unlock;
 
 /* port: the Open the log folder row of the EXTRAS screen: the file browser on the user folder, where tnfs.log is */
 static void open_log_folder_glue(void *ctx)
@@ -634,7 +633,6 @@ static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
     resource_set_units(e->units);   /* the speeds and distances on the screens and in the race, as saved */
     config_dat_set_unlock_level(config_current(), unlock);
     config_save();   /* port: Done stores the level now, not whenever the menus next save config.dat */
-    mode_extras_unlock = unlock;
 }
 
 /* each frame starts with select(0): the back buffer with the calling menu's picture blitted on it, so the EXTRAS
@@ -734,6 +732,27 @@ static int32_t extras_text_width_glue(void *ctx, const char *text)
 }
 static int32_t extras_deadline_passed_glue(void *ctx) { (void)ctx; return 0; }
 
+/* port (modes): a change of the window's shape, scaling, full screen or rate is taken by the window at once */
+static void window_follows(const PortSettings *was)
+{
+    const PortSettings now = port_settings_load();
+    if (was->format != now.format || was->refresh_hz != now.refresh_hz || was->scale_integer != now.scale_integer || was->fullscreen != now.fullscreen) {
+        const PlatformConfig config = port_platform_config(NULL);
+        if (!platform_reconfigure(&config)) port_log("profile: the window keeps its old settings\n");
+    }
+}
+
+/* port (modes): the Restore row: the mode in use back to its own values, what is on screen with it */
+static void extras_reset_glue(void *ctx, PortExtras *e)
+{
+    (void)ctx;
+    const PortSettings was = port_settings_load();
+    if (!port_profile_reset(was.profile)) port_log("profile: %s could not be emptied\n", port_profile_file((Profile)was.profile));
+    *e = port_extras_load();
+    resource_set_units(e->units);
+    window_follows(&was);
+}
+
 /* port: the EXTRAS screen over whichever menu's live picture called it (Game Mode's Modem slot, Options' Extras
  * row). `unlock` is the caller's level: the one config.dat holds. Returns 1 on Done, 0 on Cancel / Escape. */
 int32_t glue_extras_screen(int16_t unlock)
@@ -781,11 +800,12 @@ int32_t glue_extras_screen(int16_t unlock)
         own_header_text,    /* plus_header */
         extras_save_glue,   /* extras_save */
         1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
-        port_radar_all_views(),  /* radar_all_views: the radar's row reads "Police radar" when it shows in every outside view */
         NULL,               /* ctx */
         glue_plus_arrow_size, /* plus_arrow_size: the page indicator's triangles */
         own_panel_arrow,    /* plus_arrow */
         open_log_folder_glue, /* open_log_folder: the Open the log folder row */
+        port_settings_profile(), /* profile: the mode in use, which says what can be changed */
+        extras_reset_glue,  /* reset_profile: the Restore row's action */
     };
     mode_extras_screen = ea_screen();
     /* port: the page keys, so PageDown turns the page as the screen's own words promise (extras_menu.c's header).
@@ -796,13 +816,6 @@ int32_t glue_extras_screen(int16_t unlock)
     input_page_keys(0);
     ea_bank_free(options_bank);
     return result;
-}
-
-/* Game Mode's Modem item with the extras op: no name box, back to the menu */
-static void mode_extras(void *ctx)
-{
-    (void)ctx;
-    glue_extras_screen(mode_extras_unlock);
 }
 
 /* port: the Modem item's words covered with the configuration screens' clean background in Game Mode's palette,
@@ -828,24 +841,19 @@ static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
     free(cover);
 }
 
-/* port (profiles): the profile `steps` along the cycle from `profile` (Stock, Restored, Restomod, round). Custom is not on it: it shows after a hand-made change, and the
- * first step goes on from the nearest of the three (forward: Stock, back: Restomod) */
+/* port (modes): the mode `steps` along the cycle from `profile` (Stock, Restored, Restomod, round) */
 static int profile_cycled(int profile, int steps)
 {
-    for (; steps > 0; steps--) profile = profile == PROFILE_RESTOMOD || profile == PROFILE_CUSTOM ? PROFILE_STOCK : profile + 1;
-    for (; steps < 0; steps++) profile = profile <= PROFILE_STOCK ? PROFILE_RESTOMOD : profile - 1;
-    return profile;
+    const int along = (profile + steps) % PROFILE_COUNT;
+    return along < 0 ? along + PROFILE_COUNT : along;
 }
 
-/* port (profiles): `profile` made the one in use (its settings written); a change of the window's shape or rate is taken by the window at once */
+/* port (modes): `profile` made the one in use (only its name is written: each mode keeps its own) */
 static void profile_apply(int profile, const PortSettings *was)
 {
-    if (!port_profile_select(profile)) port_log("profile: the files could not be saved\n");
-    const PortSettings now = port_settings_load();
-    if (was->format != now.format || was->refresh_hz != now.refresh_hz) {
-        const PlatformConfig config = port_platform_config(NULL);
-        if (!platform_reconfigure(&config)) port_log("profile: the window keeps its old settings\n");
-    }
+    if (!port_profile_select(profile)) port_log("profile: the file could not be saved\n");
+    window_follows(was);
+    resource_set_units(port_extras_load().units);   /* each mode has its own */
 }
 
 /* port (profiles): the profile rows of Game Mode and Options read, peek at or step the profile (game_mode.h and options_menu.h say which step is which) */
@@ -856,23 +864,6 @@ int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
     const PortSettings was = port_settings_load();
     int profile = was.profile;
     int32_t shown = 1;
-    if (step == OPTIONS_PROFILE_BEGIN) {
-        port_profile_undo_begin();
-        return 1;
-    }
-    if (step == OPTIONS_PROFILE_END) {
-        port_profile_undo_end();
-        return 1;
-    }
-    if (step == OPTIONS_PROFILE_CANCEL) {   /* Options left by Cancel: the files as they were on entry, the window to match */
-        if (port_profile_undo_restore() < 0) port_log("profile: the files could not be put back\n");
-        const PortSettings back = port_settings_load();
-        if (was.format != back.format || was.refresh_hz != back.refresh_hz) {
-            const PlatformConfig config = port_platform_config(NULL);
-            if (!platform_reconfigure(&config)) port_log("profile: the window keeps its settings\n");
-        }
-        return 1;
-    }
     if (step >= GAME_MODE_PROFILE_PEEK - REACH && step <= GAME_MODE_PROFILE_PEEK + REACH) {   /* Game Mode: shown, not applied */
         profile = profile_cycled(profile, step - GAME_MODE_PROFILE_PEEK);
         shown = profile != was.profile ? 2 : 1;
@@ -914,13 +905,12 @@ static void mode_open_notice(void *ctx)
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
-    mode_extras_unlock = (int16_t)config_dat_unlock_level(config_current());
     const GameModeOps ops = { palette_clear, move_to, sound_load, load_art, music_feed, shape, palette_set, nothing,
                               in_rect, select_picture, blit_own, select_default, nothing, nothing, picture_shape,
                               nothing, flip, show, buttons, fade_in, nothing, banner_wait, deadline_set, sound, key,
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
-                              mode_extras, extras_text_glue, extras_text_width_glue, mode_cover, port_profile_ui() ? glue_profile : NULL,
+                              extras_text_glue, extras_text_width_glue, mode_cover, glue_profile,
                               glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
@@ -956,7 +946,7 @@ static int32_t name_asked_over_game_mode(void)
     return taken;
 }
 
-/* port: extras.cfg's `start`: the screen the front end opens on instead of Game Mode, what choosing it there does
+/* port: the mode's file's `start`: the screen the front end opens on instead of Game Mode, what choosing it there does
  * (004376ac's choose) without showing Game Mode first. Network and Control Central go straight on when the
  * player's own config.dat was read (its name, 00524df0), else the name box comes first. Returns the front end's state (0 to race)
  * or -1 when Game Mode is to be shown (the default, or the choice was taken back: no network service, the name box

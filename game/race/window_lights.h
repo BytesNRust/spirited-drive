@@ -43,4 +43,17 @@ int window_darks_for(const char *track, const WindowDark **out);
  * nothing; a board of another size is left alone (0). */
 size_t window_dark_paint(const WindowDark *board, uint8_t *pixels, int width, int height, const uint8_t *palette, uint8_t entry, uint32_t seed);
 
+/* port (sign_glow): the City's matrix sign (CY1's board 7: "EXPRESS LANES CLOSED" in amber bulbs on a dark grid, 128 x 63). Its bulbs are the texels
+ * whose palette colour is amber (red 150+, green 120+, blue 40 or less: the bulb's body and its centre); the grid stays as it is. */
+typedef struct {
+    int scenery;
+    int width, height;
+} WindowSign;
+
+/* The track's lit signs (any case): their count, `*out` pointing at them; 0 for a track with none. */
+int window_signs_for(const char *track, const WindowSign **out);
+
+/* Paints the board's amber texels in `entry` (`palette` is 3 bytes per index); returns the texels lit. Painting again changes nothing; a board of another size is left alone (0). */
+size_t window_sign_paint(const WindowSign *sign, uint8_t *pixels, int width, int height, const uint8_t *palette, uint8_t entry);
+
 #endif

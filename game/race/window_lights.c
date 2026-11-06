@@ -182,3 +182,31 @@ size_t window_dark_paint(const WindowDark *board, uint8_t *pixels, int width, in
         }
     return lit;
 }
+
+/* port (sign_glow): the City's matrix sign, "EXPRESS LANES CLOSED" in amber bulbs (CY1 board 7, 128 x 63, two placements from node 1185; CY3 keeps a copy of
+ * it as board 15 that no node places, and CY2 has none) */
+static const WindowSign CY1_SIGNS[] = { { 7, 128, 63 } };
+
+int window_signs_for(const char *track, const WindowSign **out)
+{
+    if (track == NULL || out == NULL) return 0;
+    if (is_track(track, "CY1")) {
+        *out = CY1_SIGNS;
+        return 1;
+    }
+    return 0;
+}
+
+size_t window_sign_paint(const WindowSign *sign, uint8_t *pixels, int width, int height, const uint8_t *palette, uint8_t entry)
+{
+    if (sign == NULL || pixels == NULL || palette == NULL || width != sign->width || height != sign->height) return 0;
+    uint8_t amber[256];
+    for (int i = 0; i < 256; i++) {
+        const uint8_t *c = palette + 3 * i;
+        amber[i] = i != entry && c[0] >= 150 && c[1] >= 120 && c[2] <= 40;
+    }
+    size_t lit = 0;
+    for (size_t i = 0; i < (size_t)width * (size_t)height; i++)
+        if (amber[pixels[i]]) pixels[i] = entry, lit++;
+    return lit;
+}
