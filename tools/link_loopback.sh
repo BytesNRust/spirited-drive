@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A link race on one machine: two tnfs instances (the host on UDP 15000, the
-# client on 15001), each with its own --mods scratch directory and the SDL
+# client on 15001), each with its own --user scratch directory and the SDL
 # dummy drivers, driven by input scripts through the network menus into a race
 # on the network game's default track (Coastal, segmented), the humans driven
 # by TNFS_AUTOPILOT=1 (a test harness only). Then, by MODE:
@@ -75,7 +75,7 @@ run() {  # name script secs port [args...]
     [ -n "${CAPTURE_EVERY:-}" ] && mkdir -p "$out/$name/cap"
     set +e
     TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
-        timeout -k 5 "$secs" "$exe" --mods "$out/$name/mods" --net-port "$port" "$@" >"$out/$name/log" 2>&1
+        timeout -k 5 "$secs" "$exe" --user "$out/$name/mods/user" --net-port "$port" "$@" >"$out/$name/log" 2>&1
     echo $? >"$out/$name/rc"
 }
 

@@ -23,7 +23,7 @@ printf 'profile=restomod\npsx_dir=\n' > "$mods/user/port.cfg"
 for track in $tracks; do
   for time in dawn day dusk night; do
     TNFS_EXPORT_TRACK_LIGHT="$new" TNFS_TRACK_LIGHT_FILE=0 TNFS_PSX_TIME=$time TNFS_AUTOPILOT=1 TNFS_FRAMES=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
-      timeout -k 5 300 "$bin" --data "$original" --mods "$mods" --drive "$track" --node 30 --screenshot "$mods/shot.ppm" > /dev/null 2>&1 || echo "failed: $track $time" >&2
+      timeout -k 5 300 "$bin" --data "$original" --user "$mods/user" --drive "$track" --node 30 --screenshot "$mods/shot.ppm" > /dev/null 2>&1 || echo "failed: $track $time" >&2
   done
 done
 find "$mods" -delete

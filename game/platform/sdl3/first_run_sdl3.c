@@ -16,7 +16,7 @@
 bool first_run_user_copy(char *out, size_t out_size)
 {
     char dir[1024];
-    if (!platform_user_dir(dir, sizeof dir)) return false;   /* the --mods folder's user/, $TNFS_PREF_DIR or the OS's: the same one as the settings and the log */
+    if (!platform_user_dir(dir, sizeof dir)) return false;   /* --user DIR, $TNFS_PREF_DIR or the OS's: the same one as the settings and the log */
     snprintf(out, out_size, "%sgamedata", dir);
     return true;
 }

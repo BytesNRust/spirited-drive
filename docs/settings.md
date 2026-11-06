@@ -243,7 +243,7 @@ The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `p
 
 ## Development-only variables
 
-Not a setting: a way to drive the headless runs and the checks. They are not stable and none is written anywhere. Headless runs go with the dummy SDL drivers, `timeout -k`, and `--mods <scratch>`.
+Not a setting: a way to drive the headless runs and the checks. They are not stable and none is written anywhere. Headless runs go with the dummy SDL drivers, `timeout -k`, and `--user <scratch>` (the player's folder: `--mods` no longer holds it).
 
 - **Place and time:** `TNFS_START_NODE=N` (start the player on node N), `TNFS_FRAMES=N`, `TNFS_SHOTS=prefix:every` (screenshots during a run), `TNFS_MIDDAY=1`, `TNFS_DRIVE_TIME`, `TNFS_RUN`, `TNFS_RALLY=1`, `TNFS_OPPONENT=<car>`, `TNFS_REPLAY_REQUEST`.
 - **Cars and cameras:** `TNFS_FOLLOW_CAR=<slot>` (the chase follows that car, 2 is the police), `TNFS_POLICE_NEAR=N` (the police N nodes behind the player, chasing; race type 1), `TNFS_VIEW`, `TNFS_LOOK_BACK_AT=from:to`, `TNFS_STEER=left|right`, `TNFS_SCRIPT=spin`, `TNFS_CAR=NAME` (`--track` stand-in).
@@ -251,5 +251,5 @@ Not a setting: a way to drive the headless runs and the checks. They are not sta
 - **Capture and dumps:** `TNFS_CAPTURE_DIR` with `TNFS_CAPTURE_EVERY` and `TNFS_CAPTURE_FROM` (every presented frame: set the interval, a capture of every frame fills the disk), `TNFS_AUDIO_DUMP=file.wav`, `TNFS_SCENERY_DUMP`, `TNFS_SCENERY_DUMP_NIGHT`, `TNFS_SLOT_DUMP`.
 - **Traces:** `TNFS_VERBOSE=1` (or `--verbose`), `TNFS_TRACE_FAM`, `TNFS_TRACE_PLAYER=N`, `TNFS_FRAME_TIMES=1`, `TNFS_NOTICE=1|2`.
 - **A/B overrides of automatic behaviour:** `TNFS_TWO_SIDED`, `TNFS_CLOSE_BOXES` (both automatic with a reversed track or the 360 camera), `TNFS_CAR_DRAW_DISTANCE=0` (the exe's distances at render scale 2 or 3), `TNFS_WIDE_BOARD=0`, `TNFS_EMISSIVE_LAMPS`, `TNFS_FOG_CURVE=line`, `TNFS_FOG_LIFT`, `TNFS_SKY_FILL_MODE`, `TNFS_STAND_IN`.
-- **Data and folders:** `TNFS_PREF_DIR` (the user folder, for tests and modders), `TNFS_CAR_ENVMAP`, `TNFS_CAR_MASKS`.
+- **Data and folders:** `TNFS_PREF_DIR` (the player's folder, for tests and modders; `--user DIR` does it for one run), `TNFS_CAR_ENVMAP`, `TNFS_CAR_MASKS`.
 - **Development builds only:** `TNFS_STATS_DRYRUN=<version>`, `TNFS_UPDATE_FAKE=9.9.9`; a release build ignores them.

@@ -20,7 +20,7 @@ mods() {   # mods FORMAT MODERN
 one() {   # one MODS TRACK VIEW FRAMES BANDS SCALE -> "cpu_s wall_s"
   local t
   t=$( { time ( cd $repo && SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VIEW=$3 TNFS_FRAMES=$4 TNFS_BANDS=$5 TNFS_RENDER_SCALE=$6 \
-        timeout -k 5 600 $bin --data original --mods $1 --drive $2 --entry 1000 --screenshot $S/matrix_shot.ppm >/dev/null 2>&1 ) } 2>&1 )
+        timeout -k 5 600 $bin --data original --user $1/user --drive $2 --entry 1000 --screenshot $S/matrix_shot.ppm >/dev/null 2>&1 ) } 2>&1 )
   print -r -- $t | awk '{printf "%.4f %.4f\n", $1+$2, $3}'
 }
 printf "track\tview\tfmt\tlook\tbands\tscale\tcpu_ms\twall_ms\tload\n"

@@ -1189,14 +1189,14 @@ if(NOT EMSCRIPTEN)
     foreach(t IN LISTS tnfs_all_tests)
         set_property(TEST ${t} APPEND PROPERTY ENVIRONMENT "TNFS_PREF_DIR=${CMAKE_BINARY_DIR}/test_pref")
     endforeach()
-    # a run with --mods keeps every user file in <mods>/user/ and touches nothing in the pref dir, the log included, even a run that stops for want of game data
+    # --user keeps every user file in its folder and touches nothing in the pref dir, the log included, even a run that stops for want of game data; --mods holds none of them (the old <mods>/user/ moves once)
     add_test(NAME pref_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DWORK=${CMAKE_BINARY_DIR}/pref_isolation -P ${CMAKE_SOURCE_DIR}/tests/pref_isolation.cmake)
     set_tests_properties(pref_isolation PROPERTIES TIMEOUT 60)
     # a development build run from the repository with no --data takes ./original (tools/golden_frames.sh runs so)
     if(NOT TNFS_RELEASE AND EXISTS "${CMAKE_SOURCE_DIR}/original/NFS_WIN.EXE")
         add_test(NAME dev_data_default COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/dev_data_default -P ${CMAKE_SOURCE_DIR}/tests/dev_data_default.cmake)
         set_tests_properties(dev_data_default PROPERTIES TIMEOUT 120)
-        # the anonymous counters of a "release" version run with --mods: the flag in <mods>/user, nothing in the pref dir, nothing when Off
+        # the anonymous counters of a "release" version run with --mods: the flag in the --user folder, nothing in the pref dir, nothing when Off
         add_test(NAME stats_mods_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/stats_mods_isolation -P ${CMAKE_SOURCE_DIR}/tests/stats_mods_isolation.cmake)
         set_tests_properties(stats_mods_isolation PROPERTIES TIMEOUT 60)
         # the bumper view at night in rain with the headlights: the same frame each run, no sanitizer error (the tunnel flags read after being freed)
