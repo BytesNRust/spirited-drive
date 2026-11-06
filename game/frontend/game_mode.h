@@ -9,7 +9,7 @@
 enum { GAME_MODE_PALETTE = 0x300 };
 
 /* the profile op's steps for a profile n steps along without (PEEK) and with (APPLY) changing it; a step is the code + n, n from -3 to 3 */
-enum { GAME_MODE_PROFILE_PEEK = 0x100, GAME_MODE_PROFILE_APPLY = 0x200 };
+enum { GAME_MODE_PROFILE_PEEK = 0x100, GAME_MODE_PROFILE_APPLY = 0x200, GAME_MODE_PROFILE_LOOK = 0x300 };
 
 typedef struct GameModeOps {
     void (*palette_clear)(void *ctx, uint8_t *rgb);                          /* 00463df0: eax */
@@ -73,6 +73,12 @@ typedef struct GameModeOps {
     /* port: a left click on the update notice opens the releases page (the notice is inside Exit's band, so it is
      * taken before the choosing). NULL: the notice is not clickable */
     void (*open_notice)(void *ctx);
+    /* port (modes): the arrows apply the mode on the row once they rest. clock_ms: a monotonic clock in ms (NULL: apply at once). GAME_MODE_PROFILE_LOOK + n
+     * returns 1 when applying the mode n steps along changes the image's format or its internal resolution, which the short fades (a fade out of the whole
+     * screen, and the fade in of the next draw; NULL: none) cover */
+    uint32_t (*clock_ms)(void *ctx);
+    void (*fade_out_quick)(void *ctx);
+    void (*fade_in_quick)(void *ctx, const uint8_t *rgb);
 } GameModeOps;
 
 typedef struct GameModeState {

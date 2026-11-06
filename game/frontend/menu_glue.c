@@ -870,6 +870,11 @@ int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
     } else if (step >= GAME_MODE_PROFILE_APPLY - REACH && step <= GAME_MODE_PROFILE_APPLY + REACH) {   /* Game Mode: applied after its Yes */
         profile = profile_cycled(profile, step - GAME_MODE_PROFILE_APPLY);
         if (profile != was.profile) profile_apply(profile, &was);
+    } else if (step >= GAME_MODE_PROFILE_LOOK - REACH && step <= GAME_MODE_PROFILE_LOOK + REACH) {   /* Game Mode: does applying it change the picture? */
+        profile = profile_cycled(profile, step - GAME_MODE_PROFILE_LOOK);
+        const PortSettings next = port_settings_of_profile(profile);
+        shown = next.format != was.format || next.render_scale != was.render_scale;
+        profile = was.profile;   /* nothing is changed */
     } else if (step == 1 || step == -1) {   /* Options: a step applies at once (its Cancel puts the files back) */
         profile = profile_cycled(profile, step);
         profile_apply(profile, &was);
@@ -896,6 +901,10 @@ static int32_t mode_footer(void *ctx, int32_t line, char *text, size_t cap)
     return version_footer_line(text, cap, line, TNFS_VERSION, state, latest);
 }
 
+static uint32_t mode_clock_ms(void *ctx) { (void)ctx; return platform_ticks_ms(); }
+static void mode_fade_out_quick(void *ctx) { (void)ctx; video_fade_out_quick(0, 0x100); }
+static void mode_fade_in_quick(void *ctx, const uint8_t *rgb) { (void)ctx; video_fade_in_quick(0, 0x100, rgb); }
+
 static void mode_open_notice(void *ctx)
 {
     (void)ctx;
@@ -911,7 +920,8 @@ int32_t glue_game_mode(void)
                               ticks, activate, click, name_box, fade_out, pointer_away, back_to_menu, mode_network_found,
                               mode_network_game, yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
                               extras_text_glue, extras_text_width_glue, mode_cover, glue_profile,
-                              glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice };
+                              glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice,
+                              mode_clock_ms, mode_fade_out_quick, mode_fade_in_quick };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

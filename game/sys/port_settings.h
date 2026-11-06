@@ -297,6 +297,8 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 PortSettings port_mode_values(int p, const char *psx_dir);
 void port_settings_take(void *to, const char *key, const char *value);
 bool port_machine_save(int profile, const char *psx_dir);
+/* the settings the mode `profile` would have (its values and its file's), whichever is in use: what applying it would change */
+PortSettings port_settings_of_profile(int profile);
 PortSettings port_settings_load(void);
 /* the mode's name and folder as `s` has them, and in the file of `s`'s mode what differs from its values and is free in it. */
 bool port_settings_save(const PortSettings *s);

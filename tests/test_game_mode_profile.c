@@ -1,4 +1,4 @@
-/* Game Mode with the modes (game_mode.c): Profile, Single Player, Multiplayer, Exit, in the game's text; the cursor starts on Single Player, the arrows show a mode, Return applies it with no question, the version at the foot. */
+/* Game Mode with the modes (game_mode.c): Profile, Single Player, Multiplayer, Exit, in the game's text; the cursor starts on Single Player, the arrows show a mode and apply it once they rest (a short fade only when the picture changes), the version at the foot. */
 #include "game/frontend/game_mode.h"
 #include "test.h"
 
@@ -17,12 +17,15 @@ typedef struct Fake {
     int drawn_profile;
     int exits_asked, apply_asked;
     int said_multiplayer, said_customize, said_single, said_exit;
+    uint32_t clock, ms_per_call;   /* the fake clock: it advances with every ask for a key */
+    int look, no_clock, fade_outs, fade_ins, said_return;   /* look: applying the mode changes the picture */
     int foot_big, foot_small, foot_low, foot_high_y, foot_right, foot_left, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
 } Fake;
 
 static int32_t f_key(void *c)
 {
     Fake *f = c;
+    f->clock += f->ms_per_call;
     const int turn = f->key_calls++ / 2;   /* a key, then a turn with none (the menu takes a key only once the last one is let go) */
     if (turn % 2 != 0) return 0;
     return turn / 2 < f->key_count ? f->keys[turn / 2] : ESCAPE;
@@ -83,6 +86,7 @@ static int32_t f_width(void *c, const char *t) { (void)c; return (int32_t)strlen
 static void f_text_scaled(void *c, int32_t s, const char *t, int32_t x, int32_t y, int32_t n, int32_t d)
 {
     (void)s;
+    ((Fake *)c)->said_return += strstr(t, "Return") != NULL;
     if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) note_foot(c, t, x, y, (int32_t)strlen(t) * 8 * n / d);
 }
 static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w)
@@ -110,6 +114,7 @@ static int32_t f_profile(void *c, int32_t step, const char *text[3])
     Fake *f = c;
     f->profile_reads++;
     text[0] = "Stock '96", text[1] = "line one", text[2] = "line two";
+    if (step >= GAME_MODE_PROFILE_LOOK - 3 && step <= GAME_MODE_PROFILE_LOOK + 3) return f->look;
     if (step >= GAME_MODE_PROFILE_APPLY - 3 && step <= GAME_MODE_PROFILE_APPLY + 3) {
         f->profile_steps++, f->profile_net += step - GAME_MODE_PROFILE_APPLY;
         return 1;
@@ -120,6 +125,9 @@ static int32_t f_profile(void *c, int32_t step, const char *text[3])
     }
     return 1;
 }
+static uint32_t f_clock(void *c) { return ((Fake *)c)->clock; }
+static void f_quick_out(void *c) { ((Fake *)c)->fade_outs++; }
+static void f_quick_in(void *c, const uint8_t *rgb) { (void)rgb; ((Fake *)c)->fade_ins++; }
 static int32_t f_buttons(void *c)
 {
     const Fake *f = c;
@@ -143,6 +151,7 @@ static int32_t run_with(Fake *f, const int *keys, int count, int with_profile, i
         .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_zero, .sound_free = f_void, .free = f_free, .ctx = f,
         .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover };
     if (with_profile) ops.profile = f_profile, ops.plus_text_scaled = f_text_scaled, ops.plus_text_width_scaled = f_width_scaled;
+    if (with_profile && !f->no_clock) ops.clock_ms = f_clock, ops.fade_out_quick = f_quick_out, ops.fade_in_quick = f_quick_in;
     if (with_footer) ops.footer = f_footer, ops.open_notice = f_open;
     return game_mode_menu(0, &st, &ops);
 }
@@ -152,6 +161,7 @@ static void rig(Fake *f, int x, int y, int pinned)
 {
     memset(f, 0, sizeof *f);
     f->pointer_x = x, f->pointer_y = y, f->pinned = pinned;
+    f->ms_per_call = 25;   /* a key and the turn after it with none are 100 ms */
 }
 
 enum { ROW_PROFILE = 0x91, ROW_SINGLE = 0xda, ROW_MULTI = 0x122, ROW_EXIT = 0x16f };
@@ -186,43 +196,86 @@ static void test_the_words(void)
     CHECK_EQ_INT(f.said_customize, 0);   /* Customize is Options' now */
 }
 
-/* the arrows only show a mode (+1 +1 -1: one along); Return applies it, with no question: nothing is lost */
-static void test_the_arrows_show_and_return_applies(void)
+/* rapid arrows (+1 +1 -1: one along) change the row at once and apply the mode once, after they rest 400 ms: nothing is lost */
+static void test_the_arrows_apply_once_they_rest(void)
 {
     Fake f;
-    const int keys[] = { RIGHT, RIGHT, LEFT, ENTER };
+    const int keys[] = { RIGHT, RIGHT, LEFT, 0, 0, 0, 0, 0, 0, 0, 0 };
     rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, keys, 4, 1);
+    run(&f, keys, 11, 1);
     CHECK_EQ_INT(f.profile_steps, 1);
     CHECK_EQ_INT(f.profile_net, 1);
     CHECK_EQ_INT(f.apply_asked, 0);
+    CHECK(f.peeks >= 3);   /* every press showed its mode at once */
 }
 
-/* three steps come round to the one in use: Return applies nothing */
+/* a mode is not applied before the arrows have rested */
+static void test_it_waits_for_the_arrows_to_rest(void)
+{
+    Fake f;
+    const int keys[] = { RIGHT, 0 };
+    rig(&f, 320, ROW_PROFILE, 1);
+    run(&f, keys, 2, 1);
+    CHECK_EQ_INT(f.profile_steps, 0);
+    CHECK_EQ_INT(f.said_return, 0);   /* and the row no longer says Return applies it */
+}
+
+/* with no clock the arrow applies at once */
+static void test_no_clock_applies_at_once(void)
+{
+    Fake f;
+    const int keys[] = { RIGHT, ENTER };
+    rig(&f, 320, ROW_PROFILE, 1);
+    f.no_clock = 1;
+    run(&f, keys, 2, 1);
+    CHECK_EQ_INT(f.profile_steps, 1);
+    CHECK_EQ_INT(f.profile_net, 1);
+}
+
+/* three steps come round to the one in use: nothing applies */
 static void test_round_applies_nothing(void)
 {
     Fake f;
-    const int keys[] = { RIGHT, RIGHT, RIGHT, ENTER };
+    const int keys[] = { RIGHT, RIGHT, RIGHT, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, keys, 4, 1);
+    run(&f, keys, 12, 1);
     CHECK_EQ_INT(f.profile_steps, 0);
-    const int back[] = { LEFT, LEFT, ENTER };
+    const int back[] = { LEFT, LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, back, 3, 1);
+    run(&f, back, 11, 1);
     CHECK_EQ_INT(f.profile_net, -2);
 }
 
-/* leaving the row forgets a mode not applied */
-static void test_leaving_the_row_forgets(void)
+/* leaving the row applies what it shows */
+static void test_leaving_the_row_applies(void)
 {
     Fake f;
     const int keys[] = { UP, RIGHT, DOWN, UP, ENTER };
     rig(&f, 320, ROW_SINGLE, 0);
     run(&f, keys, 5, 1);
-    CHECK_EQ_INT(f.profile_steps, 0);
+    CHECK_EQ_INT(f.profile_steps, 1);
 }
 
-/* a click on the row's left third shows the previous, on the right third the next, on the name it applies what is shown */
+/* the short fade, out and back in, only when the mode changes the image's format or resolution */
+static void test_the_fade_only_when_the_picture_changes(void)
+{
+    Fake f;
+    const int keys[] = { RIGHT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    rig(&f, 320, ROW_PROFILE, 1);
+    f.look = 1;
+    run(&f, keys, 12, 1);
+    CHECK_EQ_INT(f.profile_steps, 1);
+    CHECK_EQ_INT(f.fade_outs, 1);
+    CHECK_EQ_INT(f.fade_ins, 1);
+    rig(&f, 320, ROW_PROFILE, 1);
+    f.look = 0;
+    run(&f, keys, 12, 1);
+    CHECK_EQ_INT(f.profile_steps, 1);
+    CHECK_EQ_INT(f.fade_outs, 0);
+    CHECK_EQ_INT(f.fade_ins, 0);
+}
+
+/* a click on the row's left third shows the previous, on the right third the next, and both apply once they rest; on the name it applies what is shown */
 static void test_clicks_show_and_the_name_applies(void)
 {
     Fake f;
@@ -231,7 +284,7 @@ static void test_clicks_show_and_the_name_applies(void)
     f.clicks = 1 << 3;
     run(&f, idle, 4, 1);
     CHECK_EQ_INT(f.last_peek, -1);
-    CHECK_EQ_INT(f.profile_steps, 0);
+    CHECK_EQ_INT(f.profile_steps, 0);   /* not yet: the arrows have not rested */
     rig(&f, 600, ROW_PROFILE, 1);
     f.clicks = 1 << 3;
     run(&f, idle, 4, 1);
@@ -239,7 +292,7 @@ static void test_clicks_show_and_the_name_applies(void)
     CHECK_EQ_INT(f.profile_steps, 0);
     const int right[] = { RIGHT, 0, 0, 0 };
     rig(&f, 320, ROW_PROFILE, 1);
-    f.clicks = 1 << 5;
+    f.clicks = 1 << 5;   /* the click on the name: the mode shown applies without waiting */
     run(&f, right, 4, 1);
     CHECK_EQ_INT(f.profile_steps, 1);
     CHECK_EQ_INT(f.profile_net, 1);
@@ -278,9 +331,12 @@ int main(void)
 {
     test_the_order();
     test_the_words();
-    test_the_arrows_show_and_return_applies();
+    test_the_arrows_apply_once_they_rest();
+    test_it_waits_for_the_arrows_to_rest();
+    test_no_clock_applies_at_once();
     test_round_applies_nothing();
-    test_leaving_the_row_forgets();
+    test_leaving_the_row_applies();
+    test_the_fade_only_when_the_picture_changes();
     test_clicks_show_and_the_name_applies();
     test_the_pointer_bands();
     test_the_foot_lines();

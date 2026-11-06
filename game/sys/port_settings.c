@@ -390,17 +390,19 @@ PortSettings port_mode_values(int p, const char *psx_dir)
 
 void port_settings_take(void *to, const char *key, const char *value) { apply(to, key, value); }
 
-PortSettings port_settings_load(void)
+PortSettings port_settings_of_profile(int profile)
 {
     const PortSettings machine = machine_load();
-    PortSettings s = port_mode_values(machine.profile, machine.psx_dir);
+    PortSettings s = port_mode_values(profile, machine.psx_dir);
     size_t size = 0;
-    uint8_t *data = platform_read_user_file(port_profile_file((Profile)machine.profile), &size);
+    uint8_t *data = platform_read_user_file(port_profile_file((Profile)profile), &size);
     if (data == NULL) return s;
-    port_profile_read_free((Profile)machine.profile, (const char *)data, size, port_settings_take, &s);
+    port_profile_read_free((Profile)profile, (const char *)data, size, port_settings_take, &s);
     platform_free_file(data);
     return s;
 }
+
+PortSettings port_settings_load(void) { return port_settings_of_profile(machine_load().profile); }
 
 int port_settings_profile(void) { return machine_load().profile; }
 
