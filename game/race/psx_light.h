@@ -24,6 +24,9 @@ typedef struct {
                          * keeps the nodes up to date; the light reads it through a const PsxLight) */
     uint8_t *hall;      /* port (made light): per node (owned), 1 where the node is a lit hall's (psx_light_synth.h: the car takes the lamps' alternation there); NULL none */
     uint8_t *tunnel;    /* port (made_tunnels): 1 per node the road marks a tunnel (owned), the made light's; NULL none (then the rows decide: psx_light_tunnel) */
+    int car_disc;       /* port (made_tunnels, car_tunnel_light): 1 where car_even / car_odd are the CD's own car ratios in a road tunnel's lamp alternation (psx_light_synth_disc_car), else CY1's day context */
+    float car_even[3], car_odd[3];
+    int city_tunnel;    /* port (made_tunnels): 1 CY1, 2 CY2 and CY3, 3 TR3: the road tunnels' tables take the CD's warm cast and the light it needs (ported_view.c) */
     int neutral_cast;   /* port (made_tunnels, i074): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */

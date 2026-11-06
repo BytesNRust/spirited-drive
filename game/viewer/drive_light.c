@@ -503,6 +503,8 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
         const int hall_range = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
         psx_light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
         made.neutral_cast = psx_light_synth_mine(track) || gallery;   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
+        made.city_tunnel = psx_light_synth_city_track(track);   /* 1 CY1, 2 CY2/CY3, 0 else */
+        if (port_car_tunnel_light()) made.car_disc = psx_light_synth_disc_car(track, synth_time, made.car_even, made.car_odd);   /* the City's tunnels: the CD's own car ratio, orange in CY2 and CY3 */   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
     }
     psx_light_free(&tunnels);
     apply_rules_file(track, &made);
