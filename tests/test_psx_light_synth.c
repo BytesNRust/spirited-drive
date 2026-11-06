@@ -30,6 +30,13 @@ static void test_runs_and_short_runs(void)
 }
 
 /* the City's tunnels' car ratio from the CD's LGT: CY3's lamps are orange (the blue channel a third of the red), CY1's are grey and brighter at night; the car factor follows the node's parity and the light's own */
+static void test_warm_tunnel_tracks(void)
+{
+    CHECK(psx_light_synth_city_track("CY1") == 1 && psx_light_synth_city_track("cy2") == 2 && psx_light_synth_city_track("CY3") == 2);
+    CHECK(psx_light_synth_city_track("TR3") == 3);
+    CHECK(psx_light_synth_city_track("TR6") == 0 && psx_light_synth_city_track("TR7") == 0 && psx_light_synth_city_track("CL2") == 0 && psx_light_synth_city_track(NULL) == 0);
+}
+
 static void test_city_car_ratios_are_the_discs(void)
 {
     float even[3], odd[3];
@@ -391,6 +398,7 @@ int main(void)
     test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();
+    test_warm_tunnel_tracks();
     test_city_car_ratios_are_the_discs();
     test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();

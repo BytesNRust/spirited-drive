@@ -163,6 +163,14 @@ int psx_light_synth_parking(const char *track, uint32_t *from, uint32_t *to)
     return 1;
 }
 
+int psx_light_synth_city_track(const char *track)
+{
+    if (track == NULL) return 0;
+    if (strcasecmp(track, "CY1") == 0) return 1;
+    if (strcasecmp(track, "CY2") == 0 || strcasecmp(track, "CY3") == 0) return 2;
+    return strcasecmp(track, "TR3") == 0 ? 3 : 0;
+}
+
 int psx_light_synth_mine(const char *track)
 {
     return track != NULL && strcasecmp(track, "TR6") == 0;

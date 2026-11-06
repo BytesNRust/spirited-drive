@@ -76,6 +76,9 @@ int psx_light_synth_parking(const char *track, uint32_t *from, uint32_t *to);
 int psx_light_synth_cavern(const char *track, uint32_t *from, uint32_t *to);
 
 /* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
+/* 1 for CY1, 2 for CY2 and CY3, 3 for TR3, 0 for any other track: the tunnels the CD's light colours orange or yellow */
+int psx_light_synth_city_track(const char *track);
+
 int psx_light_synth_mine(const char *track);
 
 /* port (car_tunnel_light): the CD's car ratio (three channels) in the City's tunnels at `time` (PSX_SYNTH_*), under a lamp (even nodes) and between (odd). 1 for CY1, CY2 and CY3, else 0 and the outputs untouched. */
