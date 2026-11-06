@@ -32,6 +32,10 @@ int lamp_flare_radius(int area);
 enum { LAMP_FLARE_BIG_RADIUS = 110 };
 int lamp_flare_radius_scaled(int area, int percent);
 
+/* port (traffic_halo): how much of a far car's headlight halo shows, in percent, at camera depth `z` when the near model ends at `far_z`: all of it from `far_z` in, falling
+ * in a straight line to nothing at twice `far_z`, so a lamp comes up with the distance and does not appear whole when the car changes model. `far_z` <= 0: all of it. */
+int lamp_far_fade(int32_t z, int32_t far_z);
+
 /* The halo's dither level (0 none .. LAMP_FLARE_LEVELS) at (dx, dy) from the centre: the intensity falls off with the square of the distance
  * from 1 at the centre to 0 at `radius`, and a 4 x 4 ordered dither picks the level. */
 int lamp_halo_level(int dx, int dy, int radius);

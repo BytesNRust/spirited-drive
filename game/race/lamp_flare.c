@@ -98,3 +98,10 @@ void lamp_halo_draw(uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, 
         }
     }
 }
+
+int lamp_far_fade(int32_t z, int32_t far_z)
+{
+    if (far_z <= 0 || z <= far_z) return 100;
+    if (z >= 2 * far_z) return 0;
+    return (int)((int64_t)(2 * far_z - z) * 100 / far_z);
+}
