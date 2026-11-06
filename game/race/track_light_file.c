@@ -240,7 +240,7 @@ int track_light_parse(const char *text, size_t size, const char *track, char let
             if (sscanf(line, " pista %31s hora %c nodos %u banderas %x", file_track, &file_letter, &file_nodes, &file_flags) != 4) goto bad;
             if (strcmp(file_track, track) != 0 || file_letter != letter || file_nodes != expected_nodes) { track_light_file_free(&file); return 0; }
             file.flags = file_flags;
-            file.base = file_flags == flags;
+            file.base = flags == TRACK_LIGHT_ANY_FLAGS || file_flags == flags;
             file.light.nodes = expected_nodes;
             file.light.data = calloc((size_t)expected_nodes * PSX_LIGHT_POINTS, 1);   /* parsed even when it is not the base: its lines are still checked */
             if (file.light.data == NULL) return 0;

@@ -46,20 +46,19 @@ int track_light_load(const char *track, char letter, uint32_t expected_nodes, ui
     uint8_t *file = platform_read_file(found, &size);
     if (file == NULL) return 0;
     int bad = 0;
-    const int ok = track_light_parse((const char *)file, size, track, letter, expected_nodes, flags, out, &bad);
+    const int ok = track_light_parse((const char *)file, size, track, letter, expected_nodes, TRACK_LIGHT_ANY_FLAGS, out, &bad);   /* the file rules: its header's flags are a record only */
     platform_free_file(file);
     if (path != NULL && path_size > 0) snprintf(path, path_size, "%s", found);
     if (!ok) {
         if (bad != 0) port_log("track light: %s is not well-formed (line %d), the light is made as before\n", found, bad);
         return 0;
     }
-    if (out->base) {
-        port_log("track light: %s\n", found);
-    } else {
+    port_log("track light: %s\n", found);
+    if (out->flags != flags) {   /* one line of warning: the file is used all the same */
         char names[160];
         track_light_diff(out->flags, flags, names, sizeof names);
-        port_log("track light: %s was made with other settings (%s): the light is made in code, its retouches stay\n", found, names);
-        if (why != NULL && why_size > 0) snprintf(why, why_size, "settings differ: %s", names);
+        port_log("track light: %s was made with other settings (%s)\n", found, names);
+        if (why != NULL && why_size > 0) snprintf(why, why_size, "made with other settings: %s", names);
     }
     return 1;
 }

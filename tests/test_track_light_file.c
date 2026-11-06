@@ -69,6 +69,8 @@ static void test_header_and_bad_lines(void)
     CHECK(!track_light_parse(text, size, "CY1", 'N', NODES + 1, 0x3fff, &f, NULL));   /* another node count */
     CHECK(track_light_parse(text, size, "CY1", 'N', NODES, 0x3ffe, &f, NULL) && !f.base && f.light.data == NULL);   /* other flags: no base, the file still read */
     track_light_file_free(&f);
+    CHECK(track_light_parse(text, size, "CY1", 'N', NODES, TRACK_LIGHT_ANY_FLAGS, &f, NULL) && f.base && f.light.data != NULL && f.flags != 0x3ffe);   /* the file rules: its flags are a record */
+    track_light_file_free(&f);
     char *bad_text = malloc(size + 32);
     memcpy(bad_text, text, size);
     memcpy(bad_text + size, "tunel 5 99\n", 12);   /* past the track */

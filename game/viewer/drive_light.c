@@ -17,6 +17,7 @@
 #include "game/race/track_light_file.h"
 #include "game/sys/reverse_track.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 
 #include <ctype.h>
@@ -523,6 +524,7 @@ static uint32_t track_light_flags(void)
     return flags;
 }
 
+static char track_light_note[160] = "";   /* a small line for the editor when the file was made with other settings than now (a record: the file is used all the same) */
 static char track_light_status[200] = "";   /* what the track light file did for this race, for the light editor's screen (drive_light_track_light_status) */
 
 const char *drive_light_track_light_status(void)
@@ -548,19 +550,21 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     TrackLightFile file = { 0 };
     char path[1024] = "", why[160] = "";
     const uint32_t nodes = tri != NULL ? tri->node_count : 0;
-    const int have = (off == NULL || off[0] != '0') && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why);
-    if (have && file.base) {
+    track_light_note[0] = '\0';
+    const int have = port_settings_profile() == PROFILE_RESTOMOD && (off == NULL || off[0] != '0') && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why);   /* the file only in Restomod '26: Stock and Restored make the light in code */
+    if (have) {
         made = file.light;
         memset(&file.light, 0, sizeof file.light);
+        made.from_file = 1;
         snprintf(track_light_status, sizeof track_light_status, "track light: file %s", path);
+        snprintf(track_light_note, sizeof track_light_note, "%s", why);
     } else {
         if (!make_light_code(tri, track, &made)) {
             track_light_file_free(&file);
             return 0;
         }
         warm_looks(&made);
-        if (have) snprintf(track_light_status, sizeof track_light_status, "track light: made in code (%s in %s); its retouches count", why, path);
-        else snprintf(track_light_status, sizeof track_light_status, "track light: made in code (no file for %s%c)", track, light_letter);
+        snprintf(track_light_status, sizeof track_light_status, "track light: made in code (no file for %s%c)", track, light_letter);
         const char *dir = getenv("TNFS_EXPORT_TRACK_LIGHT");
         if (dir != NULL && dir[0] != '\0') {
             char *text = NULL, file_path[1024];
@@ -577,7 +581,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             }
         }
     }
-    if (have) track_light_apply(&file.tweaks, &made);
+    if (have) track_light_apply(&file.tweaks, &made);   /* a file's own retouches (the code's light has none) */
     track_light_file_free(&file);
     apply_rules_file(track, &made);
     *out = made;
@@ -685,6 +689,7 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     int n = 0;
     snprintf(lines[n++], 96, "LIGHT EDIT  %s%c  node %u of %u", made_track, light_letter, node, light.nodes);
     snprintf(lines[n++], 96, "%s", track_light_status);
+    if (track_light_note[0] != '\0' && n < max) snprintf(lines[n++], 96, "%s", track_light_note);
     const uint8_t *row = &light.data[(size_t)node * PSX_LIGHT_POINTS];
     snprintf(lines[n++], 96, "row %u %u %u %u %u %u %u %u %u %u %u", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10]);
     snprintf(lines[n++], 96, "tunnel %d  hall %d  dim car %d  canyon %d  pool %d  car pool %d", light.tunnel != NULL && light.tunnel[node], light.hall != NULL && light.hall[node],

@@ -11,13 +11,13 @@
  *   coche_disco 1 <even r g b> <odd r g b>   (the CD's own car ratios in a tunnel's lamp alternation, as C hex floats)
  *   reparto neutro 0 ciudad 1                (the tunnel's cast: neutral_cast, city_tunnel)
  *
- * and the retouches, which count whatever made the light (the file's rows or the code's, see TrackLightFile.base):
+ * and the lines added by hand (all lines count the same):
  *   tono_tunel noche 1 0.35 0.05 174   (a warm tunnel's cast, red green blue, and its light in percent; dia is the day's. The file starts with the values the code has)
  *   brillo 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
  *   tono_coche ff8020:60               (the car's tone on the whole track: a colour in hex and its intensity 0..100, as the palette allows; tono_coche 120 180 ff8020:60 for nodes 120..180 only)
  *
- * The header's flags say which of the port's settings the rows were made with: with others the rows are not the file's to give, and the light is made in code, but the retouches
- * stay (track_light_diff names what differs).
+ * The header's flags are a record of which of the port's settings the rows were generated with. In Restomod '26 the file rules whatever they say (a difference is one log line, track_light_diff names it);
+ * Stock and Restored do not read the files. See docs/track-light.md.
  *
  * track_light_find looks for the file first in a mod's folder (mods/<mod>/track_light/<file>, track_light_set_mod_dir), then in the game's data. */
 #ifndef TNFS_TRACK_LIGHT_FILE_H
@@ -59,8 +59,11 @@ typedef struct {
     TrackLightTweaks tweaks;
 } TrackLightFile;
 
+/* `flags` for track_light_parse that takes the file's rows whatever settings its header says it was made with (the header's flags are a record: TrackLightFile.flags) */
+#define TRACK_LIGHT_ANY_FLAGS 0xffffffffu
+
 /* The file in `text`: its header must name `track`, `letter` and `expected_nodes` (else 0: it is another file), and every line must be well-formed (else 0, with the line number in
- * *bad_line when it is not NULL). `out` is untouched unless 1; with other flags than `flags` its base is 0 and only the tweaks are read. */
+ * *bad_line when it is not NULL). `out` is untouched unless 1; with other flags than `flags` (unless TRACK_LIGHT_ANY_FLAGS) its base is 0 and only the tweaks are read. */
 int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line);
 void track_light_file_free(TrackLightFile *file);
 
@@ -73,8 +76,8 @@ void track_light_set_mod_dir(const char *dir);
 /* Where the file `<TRACK><letter>.txt` is: `out` takes the path of the first that exists (the mod's, then the data folders: data_path.h), 1 when there is one. */
 int track_light_find(const char *track, char letter, char *out, size_t out_size);
 
-/* The file of `track` at `letter`, parsed (see track_light_parse), 0 when there is none or it is not for this light. `path` (NULL for none) takes the file's path; `why` (NULL for none)
- * says why the base is not the file's when it is not ("" when it is): which settings differ. */
+/* The file of `track` at `letter`, parsed (see track_light_parse), 0 when there is none or it is not for this light. Its rows are always the base: `flags` (the settings now) is only compared with the
+ * header's record, and a difference is one line in the log and in `why` (NULL for none; "" when they are the same). `path` (NULL for none) takes the file's path. */
 int track_light_load(const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, char *path, size_t path_size, char *why, size_t why_size);
 
 #endif
