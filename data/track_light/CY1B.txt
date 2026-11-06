@@ -1,5 +1,5 @@
 # tnfs track light 1
-pista CY1 hora B nodos 1920 banderas 1ff
+pista CY1 hora B nodos 1920 banderas 3ff
 filas 0 0 255 255 242 239 218 162 255 242 239 218 166
 filas 1 1 255 255 242 239 218 162 255 242 239 217 166
 filas 2 2 255 255 242 241 219 162 255 242 241 217 166

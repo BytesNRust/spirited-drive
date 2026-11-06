@@ -1,5 +1,5 @@
 # tnfs track light 1
-pista TR2 hora B nodos 1024 banderas 1ff
+pista TR2 hora B nodos 1024 banderas 3ff
 filas 0 0 255 255 245 245 245 162 255 245 144 2 166
 filas 1 3 255 255 245 245 245 162 255 245 150 4 166
 filas 4 10 255 255 245 245 245 162 255 245 149 4 166

@@ -1,5 +1,5 @@
 # tnfs track light 1
-pista CY3 hora C nodos 2200 banderas 1ff
+pista CY3 hora C nodos 2200 banderas 3ff
 filas 0 45 255 255 204 0 0 142 255 204 115 145 175
 filas 46 49 255 255 204 115 0 142 255 204 115 145 175
 filas 50 50 255 255 204 117 0 142 255 204 117 145 175

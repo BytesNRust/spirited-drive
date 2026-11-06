@@ -1738,6 +1738,14 @@ static int faces_camera(const Object3D *o)
 }
 
 
+/* port (plate_light): 1 when the model's nose (+z) is farther from the camera than its tail: the rear is what the camera sees, so a lit headlight-class texel in view is the rear plate's (the owner paints
+ * two or three in it), not a headlight: it shines as a texel and gives no halo. 0 when there is no depth to tell */
+static int faces_away(const Object3D *o)
+{
+    if (o->vertex_count == 0 || o->model == NULL || o->camera == NULL) return 0;
+    return !faces_camera(o);
+}
+
 static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, const uint8_t palette[768])
 {
     const Object3D *body = car->far != 0 ? vc->model.far : vc->model.body;   /* the model this pass drew: the other one's screen corners are another view's */
@@ -1756,7 +1764,7 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     const int no_halo = drive_lamps_no_halo(car->index);   /* port (rain_lamps): lit only by the rain by day: the texels, no halo */
     if (!no_halo && brake != 0) lamps[n++] = (FlareLamp){ brake, 0, { 30, 60, 100 }, 100 };
     if (!no_halo && reverse != 0 && drive_lamps_low(car->index)) lamps[n++] = (FlareLamp){ reverse, 0, { 20, 40, 70 }, 100 };   /* white: softer than the brake's red, which reads on dark paint */
-    if (!no_halo && head != 0) lamps[n++] = (FlareLamp){ head, 0, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
+    if (!no_halo && head != 0 && !faces_away(body)) lamps[n++] = (FlareLamp){ head, 0, { 30, 65, 110 }, BIG_REACH_HEADLIGHT };
     const int police = police_flash_on && police_lights_on(shadow_race, car);
     const int red = police ? police_lights_own_entry(1) : 0, blue = police ? police_lights_own_entry(0) : 0;
     if (n == 0 && red == 0 && blue == 0) return;

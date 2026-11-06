@@ -1,5 +1,5 @@
 # tnfs track light 1
-pista CL3 hora N nodos 1840 banderas 1ff
+pista CL3 hora N nodos 1840 banderas 3ff
 filas 0 0 255 255 56 54 50 49 255 45 51 60 64
 filas 1 1 255 255 55 52 47 46 255 43 49 59 63
 filas 2 2 255 255 54 50 44 43 255 42 49 59 63

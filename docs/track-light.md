@@ -36,12 +36,19 @@ a white one to orange, a dark blue one stays bluish where the palette has no dar
 The generated lines (`filas`, `tunel`, `sala`, `coche_tenue`, `canon`, `pozo`, `pozo_coche`, `coche_disco`, `reparto`, and the `tono_tunel` the code starts with) are what the export writes.
 `brillo` and `tono_coche` are lines added by hand; the editor's F11 writes a `brillo` line. All of them count the same.
 
-## Regenerating the files (to do: do not step on the owner's edits)
+## Regenerating the files (the owner's edits survive)
 
-When a change to the engine alters the light it generates, the files are regenerated with `tools/export_track_light.sh`, which today writes over whatever is in the folder, hand edits too.
-Proposal, not built: the script writes to a scratch folder and merges: for each file, the generated lines (`filas` ... `reparto`) are taken from the new export, and the hand-edited lines
-(`brillo`, `tono_coche`, a `tono_tunel` that differs from the code's, and any `filas`/`canon` run the owner changed, found by diffing the old file against the previous export that
-`git log` keeps) are kept. Until then: export to another folder (`export_track_light.sh <bin> <original> /tmp/new`) and `diff` by hand.
+When a change to the engine alters the light it generates, the files are regenerated with `tools/export_track_light.sh <bin> <original/> [dir]`. The export does not write over the files:
+it goes to a scratch folder and `tools/track_light_merge.py` merges it with the file in `dir`, a three-way merge against the last export, which is kept gzipped in `dir/generated/<file>.gz`:
+
+* a thing that differs from the last export is the owner's edit and stays: a node's row, a node's membership of `tunel` / `sala` / `coche_tenue` / `canon`, a node's `pozo` / `pozo_coche` class,
+  the `coche_disco`, `reparto` and `tono_tunel` lines, and every line the export never writes (`brillo`, `tono_coche`, comments);
+* what he did not touch is the new export's, so its news arrive (a longer tunnel, a moved lamp pool, new rows);
+* the header (`banderas`) is the new export's, the record of the settings it was made with;
+* a file with no last export on record keeps its content and only renews its header (with a warning); `FORCE=1` writes the new export over everything, as the first export did;
+* the new export becomes the record, so commit `generated/` with the files.
+
+If the node count changed the merge stops for that file (it is kept as it is and named): regenerate it by hand. `tests/test_track_light_merge.py` keeps a hand-edited file alive through a regeneration.
 
 ## Light editor
 
