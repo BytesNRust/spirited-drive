@@ -90,6 +90,10 @@ int psx_light_synth_city_track(const char *track);
 
 int psx_light_synth_mine(const char *track);
 
+/* port (made_tunnels): the look of the warm tunnels of `kind` (psx_light_synth_city_track: 1 CY1, 2 CY2 and CY3, 3 TR3) by day (`dark` 0) or at night (1), as the CD's light shows them, measured on the disc's
+ * frames against the made ones: the cast of the dim levels (red, green, blue) and the percent of the made tunnel's light. 1 for a kind, else 0 and the outputs untouched. */
+int psx_light_synth_warm_look(int kind, int dark, float cast[3], int *percent);
+
 /* port (car_tunnel_light): the CD's car ratio (three channels) in the City's tunnels at `time` (PSX_SYNTH_*), under a lamp (even nodes) and between (odd). 1 for CY1, CY2 and CY3, else 0 and the outputs untouched. */
 int psx_light_synth_disc_car(const char *track, int time, float even[3], float odd[3]);
 

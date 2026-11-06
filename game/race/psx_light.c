@@ -31,6 +31,8 @@ void psx_light_free(PsxLight *light)
     light->canyon = NULL;
     free(light->pool_class);
     free(light->car_pool);
+    free(light->car_tone);
+    light->car_tone = NULL;
     light->car_pool = NULL;
     light->pool_class = NULL;
     light->data = NULL;

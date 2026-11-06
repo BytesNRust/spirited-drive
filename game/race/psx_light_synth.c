@@ -293,3 +293,19 @@ void psx_light_synth_made_tunnels(PsxLight *made, PsxLight *tunnels, uint32_t ha
     made->tunnel = tunnels->tunnel;
     tunnels->tunnel = NULL;
 }
+
+int psx_light_synth_warm_look(int kind, int dark, float cast[3], int *percent)
+{
+    typedef struct { float cast[3]; int percent; } Look;
+    /* CY1 at night is orange (green over red 0.42, blue over red 0.20); CY2 and CY3 at night are dim and yellow; by day all are yellower; TR3's are its own */
+    static const Look LOOK[3][2] = {
+        { { { 1.0f, 0.68f, 0.28f }, 115 }, { { 1.0f, 0.35f, 0.05f }, 174 } },
+        { { { 1.0f, 0.68f, 0.28f }, 115 }, { { 1.0f, 0.68f, 0.28f }, 90 } },
+        { { { 1.0f, 0.62f, 0.12f }, 125 }, { { 1.0f, 0.42f, 0.08f }, 100 } },
+    };
+    if (kind < 1 || kind > 3 || cast == NULL || percent == NULL) return 0;
+    const Look *look = &LOOK[kind - 1][dark != 0];
+    memcpy(cast, look->cast, sizeof look->cast);
+    *percent = look->percent;
+    return 1;
+}

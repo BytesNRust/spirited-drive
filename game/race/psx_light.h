@@ -27,6 +27,8 @@ typedef struct {
     int car_disc;       /* port (made_tunnels, car_tunnel_light): 1 where car_even / car_odd are the CD's own car ratios in a road tunnel's lamp alternation (psx_light_synth_disc_car), else CY1's day context */
     float car_even[3], car_odd[3];
     int city_tunnel;    /* port (made_tunnels): 1 CY1, 2 CY2 and CY3, 3 TR3: the road tunnels' tables take the CD's warm cast and the light it needs (ported_view.c) */
+    float warm_cast[2][3];   /* port (made_tunnels): city_tunnel's tunnel look [0 day, 1 night]: the cast of the dim levels (red, green, blue) ... */
+    int warm_percent[2];     /* ... and its light, the gain over the made tunnel's own in percent (psx_light_synth_warm_look; 0 none) */
     int neutral_cast;   /* port (made_tunnels, i074): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */
@@ -43,6 +45,8 @@ typedef struct {
     int gate_board;     /* port (finish_gate_light): the stage gate's scenery board plus one, which keeps full light at night (finish_gate_light.h); 0 none */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
+    int from_file;      /* port (track light file): the light is a file's, whatever the port's flags: its canyon and tunnel nodes count without canyon_shade / car_tunnel_light on */
+    uint8_t *car_tone;  /* port (track light file, tono_coche): per node 4 bytes (owned), the car's tone there: red, green, blue and its intensity 0..100; NULL none (psx_car_tone_table) */
     uint8_t *car_pool;  /* port (lamp_car_shade): per node (owned), 0 none, 1..4 how strong a street lamp's pool is under a car there (the new node's); NULL none */
     int pooled;         /* port (lamp_pools): the street lamps' pools are in `data` already (psx_light_add_pools) */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the

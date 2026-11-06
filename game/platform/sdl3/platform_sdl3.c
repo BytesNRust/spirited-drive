@@ -767,6 +767,11 @@ bool platform_joy_virtual_down(int scancode)
     return false;
 }
 
+bool platform_set_clipboard_text(const char *text)
+{
+    return text != NULL && SDL_SetClipboardText(text);
+}
+
 bool platform_key_down(int scancode)
 {
     if (script_count > 0 && script_key_down(scancode)) return true;

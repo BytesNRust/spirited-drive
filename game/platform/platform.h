@@ -208,6 +208,8 @@ void platform_forces_enable(bool on);
 void platform_forces_clear(void);
 
 uint32_t platform_ticks_ms(void);
+/* The text on the system's clipboard (the light editor's copy of a node's line); false when there is none to set. */
+bool platform_set_clipboard_text(const char *text);
 
 /* Yields to the OS (and to the browser event loop on the web build). */
 void platform_sleep_ms(uint32_t ms);
