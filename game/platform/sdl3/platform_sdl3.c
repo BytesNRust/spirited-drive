@@ -1118,13 +1118,34 @@ static void capture_frame(void)
     fclose(f);
 }
 
+/* One step of the pacing: the time of the next boundary (`next`, 0 at the first), after one `period`; resynced when more than a period behind. *wait_ns is how long to sleep from `now`. */
+static uint64_t pace_step(uint64_t next, uint64_t now, uint64_t period, uint64_t *wait_ns)
+{
+    if (next == 0 || now > next + period) next = now;  /* resync after stalls */
+    next += period;
+    *wait_ns = next > now ? next - now : 0;
+    return next;
+}
+
 void platform_wait_vblank(void)
 {
-    const uint64_t period = platform_refresh_period_ns();
-    const uint64_t now = SDL_GetTicksNS();
-    if (next_vblank_ns == 0 || now > next_vblank_ns + period) next_vblank_ns = now;  /* resync after stalls */
-    next_vblank_ns += period;
-    if (next_vblank_ns > now) platform_sleep_ms((uint32_t)((next_vblank_ns - now) / SDL_NS_PER_MS));
+    uint64_t wait_ns;
+    next_vblank_ns = pace_step(next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
+    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
+}
+
+uint64_t platform_frontend_period_ns(void)
+{
+    return SDL_NS_PER_SECOND / PLATFORM_FRONTEND_HZ;
+}
+
+static uint64_t next_frontend_ns;
+
+void platform_wait_frontend_frame(void)
+{
+    uint64_t wait_ns;
+    next_frontend_ns = pace_step(next_frontend_ns, SDL_GetTicksNS(), platform_frontend_period_ns(), &wait_ns);
+    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
 }
 
 typedef struct {

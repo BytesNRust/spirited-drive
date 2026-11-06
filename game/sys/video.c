@@ -207,7 +207,7 @@ void video_flip(void)
 
 void video_wait_vblank(void)
 {
-    platform_wait_vblank();
+    platform_wait_frontend_frame();   /* port: the exe's 60 a second, not the race's refresh rate */
 }
 
 void video_set_palette(int first, int count, const uint8_t *rgb)

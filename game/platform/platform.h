@@ -154,6 +154,12 @@ void platform_present_split(const uint8_t *pixels, const PlatformColor palette[2
  * The original waited on DirectDraw's WaitForVerticalBlank. */
 void platform_wait_vblank(void);
 
+/* The front end's frame (its fades, its intro and boot screens count these): paced at PLATFORM_FRONTEND_HZ, the exe's own 60 a second, whatever config->refresh_hz is. The race's refresh
+ * (platform_wait_vblank) is the player's; the menus' fades are not: counted in refreshes, a fade took twice as long at 30 and 2.4 times less at 144. */
+enum { PLATFORM_FRONTEND_HZ = 60 };
+void platform_wait_frontend_frame(void);
+uint64_t platform_frontend_period_ns(void);
+
 /* Sound out: 16-bit stereo frames at `rate` Hz, pulled from `fill` on the
  * device's own thread as it needs them (the original's mixer ran on its own
  * thread into DirectSound's buffer, so a load on the game's thread never
