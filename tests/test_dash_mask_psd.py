@@ -58,6 +58,42 @@ with tempfile.TemporaryDirectory() as tmp:
     check("saved: lit is white", back.getpixel((6, 4)), (255, 255, 255))
     check("saved: auto is black", back.getpixel((0, 0)), (0, 0, 0))
 
+# the optional "color" layer (dash_color.h): painted RGB kept, transparent dropped, placed and clipped like the mask, no layer is all transparent
+paint = Image.new("RGBA", (3, 2), (0, 0, 0, 0))
+paint.putpixel((0, 0), (255, 128, 0, 255))
+paint.putpixel((1, 0), (0, 200, 255, 60))     # faint: dropped
+paint.putpixel((2, 1), (0, 255, 0, 200))
+colours = tool.color_image(8, 6, paint, 4, 3)
+check("colour: orange at (4, 3)", colours.getpixel((4, 3)), (255, 128, 0, 255))
+check("colour: faint pixel dropped", colours.getpixel((5, 3)), (0, 0, 0, 0))
+check("colour: green made opaque at (6, 4)", colours.getpixel((6, 4)), (0, 255, 0, 255))
+check("colour: elsewhere transparent", colours.getpixel((0, 0)), (0, 0, 0, 0))
+check("colour: clipped without error", tool.color_image(8, 6, paint, 7, 5).getpixel((7, 5)), (255, 128, 0, 255))
+check("colour: no layer is all transparent", tool.color_image(4, 4, None, 0, 0).getextrema()[3], (0, 0))
+
+
+class FakeLayer:
+    def __init__(self, name, group=()):
+        self.name, self.group = name, list(group)
+
+    def is_group(self):
+        return bool(self.group)
+
+    def __iter__(self):
+        return iter(self.group)
+
+
+check("layer lookup: Color found (case, spaces, in a group)", tool.find_layer([FakeLayer("a"), FakeLayer("g", [FakeLayer(" Color ")])], tool.COLOR_LAYERS).name, " Color ")
+check("layer lookup: colour spelling", tool.find_layer([FakeLayer("COLOUR")], tool.COLOR_LAYERS).name, "COLOUR")
+check("layer lookup: none", tool.find_layer([FakeLayer("mask")], tool.COLOR_LAYERS), None)
+
+with tempfile.TemporaryDirectory() as tmp:
+    path = os.path.join(tmp, "dash_color.png")
+    colours.save(path, optimize=True)
+    back = Image.open(path).convert("RGBA")
+    check("colour saved: orange", back.getpixel((4, 3)), (255, 128, 0, 255))
+    check("colour saved: none", back.getpixel((0, 0))[3], 0)
+
 if failures:
     sys.exit(1)
 print("test_dash_mask_psd: ok")

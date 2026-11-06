@@ -803,12 +803,26 @@ int drive_light_palette_lit(const uint8_t palette[768], uint8_t out[768])
 {
     /* the key's colours, per channel (the strongest 1): the mock's soft green, red, amber and light blue */
     static const float COLOUR[5][3] = { { 1, 1, 1 }, { 0.55f, 1.0f, 0.6f }, { 1.0f, 0.45f, 0.4f }, { 1.0f, 0.7f, 0.25f }, { 0.5f, 0.75f, 1.0f } };
-    const int key = port_gauge_light();
+    int key = port_gauge_light();
+    if (key == 5) key = 3;   /* the car's colours: orange where the dash paints none */
     if (key <= 0 || key > 4 || !drive_light_gauges_lit()) return 0;
     for (int i = 0; i < 256; i++) {
         const float lum = (palette[3 * i] + palette[3 * i + 1] + palette[3 * i + 2]) / 3.0f;
         const float lit = lum * 1.6f + 20.0f > 255.0f ? 255.0f : lum * 1.6f + 20.0f;   /* a lit dial is brighter than the unlit art */
         for (int k = 0; k < 3; k++) out[3 * i + k] = (uint8_t)(lit * COLOUR[key][k] + 0.5f);
+    }
+    return 1;
+}
+
+int drive_light_palette_lit_colour(const uint8_t palette[768], const uint8_t rgb[3], uint8_t out[768])
+{
+    if (port_gauge_light() != 5 || !drive_light_gauges_lit()) return 0;
+    const int top = rgb[0] > rgb[1] ? (rgb[0] > rgb[2] ? rgb[0] : rgb[2]) : (rgb[1] > rgb[2] ? rgb[1] : rgb[2]);
+    if (top <= 0) return 0;
+    for (int i = 0; i < 256; i++) {
+        const float lum = (palette[3 * i] + palette[3 * i + 1] + palette[3 * i + 2]) / 3.0f;
+        const float lit = lum * 1.6f + 20.0f > 255.0f ? 255.0f : lum * 1.6f + 20.0f;
+        for (int k = 0; k < 3; k++) out[3 * i + k] = (uint8_t)(lit * (float)rgb[k] / (float)top + 0.5f);
     }
     return 1;
 }
@@ -831,7 +845,7 @@ const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
                 const uint8_t c = row[x / (size_t)class_scale];
                 if (c == PSX_CLASS_DASH) world_mask[y * (size_t)rect_width + x] = 2;
                 else if (c == PSX_CLASS_HUD) world_mask[y * (size_t)rect_width + x] = 0;
-                else if (c == PSX_CLASS_LIT) world_mask[y * (size_t)rect_width + x] = 3;
+                else if (c >= PSX_CLASS_LIT && c < PSX_CLASS_LIT_COLOUR + PSX_CLASS_LIT_COLOURS) world_mask[y * (size_t)rect_width + x] = c;   /* LIT, and LIT_COLOUR + slot: the platform's mask 3, 4 + slot */
             }
         }
     }

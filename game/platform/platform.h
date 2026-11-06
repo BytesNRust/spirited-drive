@@ -143,6 +143,10 @@ void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);
 /* port (gauge_light): the palette a pixel with mask value 3 goes through (the dash gauges' lit parts, coloured); NULL, or never set: `palette`. The caller keeps the
  * array alive until the frame is shown. */
 void platform_set_lit_palette(const PlatformColor lit[256]);
+/* port (gauge_light = 5): the palettes of a pixel with mask value 4 + k (k < PLATFORM_LIT_SLOTS), one per colour the car's dash paints; `count` of them, `lit[k]` for slot k (a slot
+ * past `count`, or none set: the mask-3 palette). NULL or 0 clears them. The caller keeps the arrays alive until the frame is shown. */
+enum { PLATFORM_LIT_SLOTS = 12, PLATFORM_MASK_LIT_FIRST = 4 };
+void platform_set_lit_colours(const PlatformColor (*lit)[256], int count);
 void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
                             const PlatformColor half_palette[256], const uint8_t *mask);
 

@@ -1136,6 +1136,9 @@ typedef struct {
     size_t stride;   /* out's row, in pixels (the texture's pitch may be wider than width) */
 } LutJob;
 
+/* the masks a pixel can have: 0 plain, 1 world, 2 half, 3 lit, then one per colour slot (PLATFORM_LIT_SLOTS) */
+enum { MASK_KINDS = PLATFORM_MASK_LIT_FIRST + PLATFORM_LIT_SLOTS };
+
 static void lut_band(void *ctx, int index)
 {
     const LutJob *j = ctx;
@@ -1147,7 +1150,7 @@ static void lut_band(void *ctx, int index)
             for (int x = 0; x < j->width; x++) row[x] = j->lut[in[x]];
         } else {
             const uint8_t *m = j->mask + (size_t)y * (size_t)j->width;
-            for (int x = 0; x < j->width; x++) row[x] = j->lut[(m[x] > 3 ? 0 : m[x]) * 256 + in[x]];
+            for (int x = 0; x < j->width; x++) row[x] = j->lut[(m[x] >= MASK_KINDS ? 0 : m[x]) * 256 + in[x]];
         }
     }
 }
@@ -1171,13 +1174,24 @@ static const PlatformColor *lit_palette;
 
 void platform_set_lit_palette(const PlatformColor lit[256]) { lit_palette = lit; }
 
+static const PlatformColor (*lit_colours)[256];
+static int lit_colour_count;
+
+void platform_set_lit_colours(const PlatformColor (*lit)[256], int count)
+{
+    lit_colours = lit;
+    lit_colour_count = lit != NULL && count > 0 ? (count > PLATFORM_LIT_SLOTS ? PLATFORM_LIT_SLOTS : count) : 0;
+}
+
 void platform_palette_to_xrgb_split_pitch(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
                                           const PlatformColor half_palette[256], const uint8_t *mask, void *out, int pitch, int width,
                                           int height, int threads)
 {
-    uint32_t lut[4 * 256];
-    const PlatformColor *const by_mask[4] = { palette, world_palette, half_palette, lit_palette != NULL ? lit_palette : palette };
-    for (int m = 0; m < 4; m++)
+    uint32_t lut[MASK_KINDS * 256];
+    const PlatformColor *by_mask[MASK_KINDS] = { palette, world_palette, half_palette, lit_palette != NULL ? lit_palette : palette };
+    for (int m = PLATFORM_MASK_LIT_FIRST; m < MASK_KINDS; m++)
+        by_mask[m] = m - PLATFORM_MASK_LIT_FIRST < lit_colour_count ? lit_colours[m - PLATFORM_MASK_LIT_FIRST] : by_mask[3];
+    for (int m = 0; m < MASK_KINDS; m++)
         for (int i = 0; i < 256; i++)
             lut[m * 256 + i] = ((uint32_t)by_mask[m][i].r << 16) | ((uint32_t)by_mask[m][i].g << 8) | by_mask[m][i].b;
     enum { MIN_ROWS = 32 };

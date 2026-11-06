@@ -11,6 +11,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/race/car_draw.h"
+#include "game/race/dash_color.h"
 #include "game/race/dash_mask.h"
 #include "game/race/tach_dim.h"
 #include "game/race/wheel_front.h"
@@ -379,6 +380,31 @@ static const uint8_t *dash_mask_now(void)
     return mask;
 }
 
+/* port (gauge_light = 5): the colours painted for the dash on screen (dash_color.h), loaded once per dash; NULL when it paints none */
+static const DashColour *dash_colour_now(void)
+{
+    static DashColour colour;
+    static char loaded[sizeof drive_hud.dash_stem];
+    static int tried;
+    if (!tried || strcmp(loaded, drive_hud.dash_stem) != 0) {
+        dash_color_free(&colour);
+        (void)dash_color_load(drive_hud.dash_stem, &colour);
+        snprintf(loaded, sizeof loaded, "%s", drive_hud.dash_stem);
+        tried = 1;
+    }
+    return colour.slot != NULL && colour.count > 0 ? &colour : NULL;
+}
+
+typedef char lit_colour_classes_are_the_dash_slots[DASH_COLOUR_SLOTS == PSX_CLASS_LIT_COLOURS && DASH_COLOUR_SLOTS == PLATFORM_LIT_SLOTS ? 1 : -1];
+
+int drive_wide_lit_colours(uint8_t (*rgb)[3], int max)
+{
+    const DashColour *c = port_gauge_light() == 5 && drive_light_gauges_lit() ? dash_colour_now() : NULL;
+    const int n = c == NULL ? 0 : c->count < max ? c->count : max;
+    for (int i = 0; i < n; i++) memcpy(rgb[i], c->rgb[i], 3);
+    return n;
+}
+
 /* port (gauge_light): inside a dial proper: the gauge's ellipse inset by a twelfth of its size each side (the rim is the dash's art) */
 static int in_dial(const Cockpit *k, int x, int y)
 {
@@ -455,6 +481,7 @@ typedef struct {
     const uint8_t *frame, *art;
     const Cockpit *k;
     const uint8_t *dash_mask;
+    const DashColour *colour;   /* gauge_light 5: the car's colours, or NULL */
     uint8_t *classes;
     const uint8_t *wheel_t, *wheel_s, *wheel_w;
     int lights_left, lights_top, lights_w, lights_h;
@@ -465,6 +492,7 @@ static void class_band(void *user, int top, int bottom)
 {
     const ClassJob *j = user;
     const uint8_t *const frame = j->frame, *const art = j->art, *const dash_mask = j->dash_mask;
+    const DashColour *const colour = j->colour;
     const uint8_t *const wheel_t = j->wheel_t, *const wheel_s = j->wheel_s, *const wheel_w = j->wheel_w;
     uint8_t *const classes = j->classes;
     const Cockpit *const k = j->k;
@@ -497,6 +525,8 @@ static void class_band(void *user, int top, int bottom)
                     else if (lit_pixel(v)) class = PSX_CLASS_LIT;
                 }
             }
+            if (class == PSX_CLASS_LIT && colour != NULL && colour->slot[y * SCREEN_W + x] != 0)
+                class = (uint8_t)(PSX_CLASS_LIT_COLOUR + colour->slot[y * SCREEN_W + x] - 1);   /* painted: its own colour; else the orange of gauge_light 3 */
             classes[y * SCREEN_W + x] = class;
         }
 }
@@ -527,6 +557,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     const int lights_w = lights_right - lights_left + LIGHTS_PAD_RIGHT, lights_h = LIGHTS_PAD_TOP + LIGHTS_PAD_BOTTOM;
     const int lit_keyed = in_car && drive_light_gauges_lit() && port_gauge_light() > 0;   /* port (gauge_light) */
     const uint8_t *const dash_mask = lit_keyed ? dash_mask_now() : NULL;
+    const DashColour *const colour = lit_keyed && port_gauge_light() == 5 ? dash_colour_now() : NULL;
     const int dim_tach = !in_car && drive_hud.police.screen == NULL && port_tach_dim();   /* port (tach_dim) */
     /* port (gauge_wheel): the 't' and 's' frames of this steering frame, the wheel drawn over the dials */
     const Car *const driven = drive_sim.race.player >= 0 && drive_sim.race.player < RACE_CARS ? drive_sim.race.cars[drive_sim.race.player] : NULL;
@@ -537,7 +568,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     const uint8_t *const wheel_t = wheel_any ? wheel_front_shape(k, 0, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const uint8_t *const wheel_s = wheel_any ? wheel_front_shape(k, 1, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const uint8_t *const wheel_w = wheel_masked ? wheel_front_shape(k, 2, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
-    const ClassJob job = { frame, art, k, dash_mask, classes, wheel_t, wheel_s, wheel_w, lights_left, lights_top, lights_w, lights_h,
+    const ClassJob job = { frame, art, k, dash_mask, colour, classes, wheel_t, wheel_s, wheel_w, lights_left, lights_top, lights_w, lights_h,
                            in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed };
     bands_rows(0, SCREEN_H, class_band, (void *)&job);
     memset(shadow, LAYER_KEY, out);

@@ -230,7 +230,7 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (parse_int(value, &n) && (n == 0 || n == 1))
             s->finish_gate_light = (int)n;
     } else if (strcmp(key, "gauge_light") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 4)
+        if (parse_int(value, &n) && n >= 0 && n <= 5)
             s->gauge_light = (int)n;
     } else if (strcmp(key, "canyon_shade") == 0) {
         if (parse_int(value, &n) && (n == 0 || n == 1))
@@ -671,7 +671,7 @@ int port_rain_grip_active(void)
 int port_gauge_light(void)
 {
     const char *v = getenv("TNFS_GAUGE_LIGHT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '4' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '5' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().gauge_light;
 }
 
