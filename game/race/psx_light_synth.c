@@ -44,11 +44,25 @@ void psx_light_synth_rain_cover(const uint8_t *property, uint32_t count, int rin
     mark_runs(property, count, ring, is_rain_cover, PSX_SYNTH_PROPERTY_TUNNEL, 1, flags);
 }
 
-void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags)
+/* CL2's galleries (nodes 1144..1175 and 1464..1575, property 7): the tunnel bit with the open bit and the one beside it, a roof over the road with the sea open to one side. The CD's light darkens them as tunnels */
+static int is_gallery(uint8_t property) { return (property & 7) == 7; }
+
+void psx_light_synth_tunnels_ex(const uint8_t *property, uint32_t count, int ring, int gallery, uint8_t *flags)
 {
     for (uint32_t i = 0; i < count; i++) flags[i] = 0;
     mark_runs(property, count, ring, is_hall, PSX_SYNTH_PROPERTY_HALL, PSX_SYNTH_FLAG_HALL, flags);
     mark_runs(property, count, ring, is_tunnel, PSX_SYNTH_PROPERTY_TUNNEL, PSX_SYNTH_FLAG_TUNNEL, flags);
+    if (gallery) mark_runs(property, count, ring, is_gallery, PSX_SYNTH_PROPERTY_TUNNEL, PSX_SYNTH_FLAG_TUNNEL, flags);
+}
+
+void psx_light_synth_tunnels(const uint8_t *property, uint32_t count, int ring, uint8_t *flags)
+{
+    psx_light_synth_tunnels_ex(property, count, ring, 0, flags);
+}
+
+int psx_light_synth_gallery_track(const char *track)
+{
+    return track != NULL && strcasecmp(track, "CL2") == 0;
 }
 
 /* the distance from node i forward (ahead along the nodes) to the nearest flagged one, and back to it, up to `limit` (limit + 1 when none is that near) */
@@ -109,7 +123,7 @@ void psx_light_synth_rows(const uint8_t *flags, uint32_t count, int ring, int ti
     }
 }
 
-int psx_light_synth(const Tri *tri, int time, PsxLight *out)
+int psx_light_synth_ex(const Tri *tri, int time, int gallery, PsxLight *out)
 {
     const uint32_t count = tri->node_count;
     if (count < 2) return 0;
@@ -120,7 +134,7 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out)
             TriNode node;
             property[i] = tri_node(tri, i, &node) == TRI_OK ? node.property : 0;
         }
-        psx_light_synth_tunnels(property, count, tri_is_circuit(tri), flags);
+        psx_light_synth_tunnels_ex(property, count, tri_is_circuit(tri), gallery, flags);
         for (uint32_t i = 0; i < count; i++) any |= flags[i] != 0;
         if (any) {
             psx_light_synth_rows(flags, count, tri_is_circuit(tri), time, data);
@@ -135,6 +149,11 @@ int psx_light_synth(const Tri *tri, int time, PsxLight *out)
     }
     free(property), free(flags), free(data);
     return any;
+}
+
+int psx_light_synth(const Tri *tri, int time, PsxLight *out)
+{
+    return psx_light_synth_ex(tri, time, 0, out);
 }
 
 int psx_light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to)

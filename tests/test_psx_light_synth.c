@@ -29,6 +29,24 @@ static void test_runs_and_short_runs(void)
     }
 }
 
+/* CL2's galleries (property 7: the tunnel bit with the open one and the one beside it): not a tunnel as the CD's light is not asked, a tunnel when it is; TR7's open truss (property 5) never is */
+static void test_gallery_is_a_tunnel_when_asked(void)
+{
+    uint8_t property[NODES] = { 0 }, flags[NODES];
+    for (int i = 8; i < 8 + PSX_SYNTH_MIN_RUN; i++) property[i] = 7;
+    for (int i = 40; i < 40 + PSX_SYNTH_MIN_RUN; i++) property[i] = 5;
+    psx_light_synth_tunnels(property, NODES, 0, flags);
+    CHECK_EQ_INT(flags[8], 0);
+    psx_light_synth_tunnels_ex(property, NODES, 0, 0, flags);
+    CHECK_EQ_INT(flags[8], 0);
+    psx_light_synth_tunnels_ex(property, NODES, 0, 1, flags);
+    CHECK_EQ_INT(flags[8], PSX_SYNTH_FLAG_TUNNEL);
+    CHECK_EQ_INT(flags[8 + PSX_SYNTH_MIN_RUN - 1], PSX_SYNTH_FLAG_TUNNEL);
+    CHECK_EQ_INT(flags[8 + PSX_SYNTH_MIN_RUN], 0);
+    CHECK_EQ_INT(flags[40], 0);   /* the truss stays open */
+    CHECK(psx_light_synth_gallery_track("CL2") && psx_light_synth_gallery_track("cl2") && !psx_light_synth_gallery_track("CL1") && !psx_light_synth_gallery_track(NULL));
+}
+
 /* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
 static void test_hall_is_a_tunnel(void)
 {
@@ -367,6 +385,7 @@ int main(void)
     test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();
+    test_gallery_is_a_tunnel_when_asked();
     test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();
