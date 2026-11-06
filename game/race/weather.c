@@ -299,6 +299,34 @@ int weather_rain_flash(uint32_t tick)
     return 0;
 }
 
+int weather_thunder_strike(uint32_t tick)
+{
+    return tick > 0 && weather_rain_flash(tick) > weather_rain_flash(tick - 1);
+}
+
+int weather_thunder_delay(uint32_t tick)
+{
+    return WEATHER_THUNDER_MIN_TICKS + (int)(hash(tick, 23) % (uint32_t)(WEATHER_THUNDER_MAX_TICKS - WEATHER_THUNDER_MIN_TICKS + 1));
+}
+
+int weather_thunder_volume(int delay)
+{
+    const int d = delay < WEATHER_THUNDER_MIN_TICKS ? WEATHER_THUNDER_MIN_TICKS : delay > WEATHER_THUNDER_MAX_TICKS ? WEATHER_THUNDER_MAX_TICKS : delay;
+    return 100 - (100 - WEATHER_THUNDER_FAR_PERCENT) * (d - WEATHER_THUNDER_MIN_TICKS) / (WEATHER_THUNDER_MAX_TICKS - WEATHER_THUNDER_MIN_TICKS);
+}
+
+int weather_rain_percent(int storm, int v2)
+{
+    if (v2) return storm ? WEATHER_STORM_V2_PERCENT : WEATHER_RAIN_V2_PERCENT;
+    return storm ? 100 * WEATHER_STORM_DROPS : 100;
+}
+
+int weather_rain_scaled(int base, int storm, int v2)
+{
+    const int n = (int)((int64_t)base * weather_rain_percent(storm, v2) / 100);
+    return n < 1 && base > 0 ? 1 : n;
+}
+
 void weather_flash_colour(uint8_t out[3])
 {
     out[0] = 248, out[1] = 250, out[2] = 255;
@@ -308,6 +336,13 @@ static float smooth_step(float a, float b, float x)
 {
     const float t = x <= a ? 0.0f : x >= b ? 1.0f : (x - a) / (b - a);
     return t * t * (3.0f - 2.0f * t);
+}
+
+int weather_on_carriageway(int32_t lateral, int left_verge, int right_verge)
+{
+    const int64_t verge = (int64_t)(lateral < 0 ? left_verge : right_verge) * 0x2000;
+    const int64_t side = lateral < 0 ? -(int64_t)lateral : lateral;
+    return verge <= 0 || side <= verge;
 }
 
 int weather_reflection_weight(float dot, float distance)

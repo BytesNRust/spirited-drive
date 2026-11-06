@@ -91,6 +91,27 @@ static void test_a_clock_that_goes_back_clears_the_trail(void)
     CHECK_EQ_INT(live_count(&s), 2);                          /* only the new ones */
 }
 
+static void test_wisp2(void)
+{
+    RainSpray s;
+    rain_spray_clear(&s);
+    const int32_t left[3] = { 0, 0, 0 }, wheel[3] = { 0x20000, 0, 0 }, right[2] = { 0x10000, 0 };
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 100, left, wheel, right, 5, 2 << 16, 1), 2);   /* slow, still a wisp: two metres a second */
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 100, left, wheel, right, 5, 2 << 16, 1), 0);   /* the same tick again */
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 101, left, wheel, right, 5, 1 << 15, 1), 0);   /* under a metre a second: none */
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 102, left, wheel, right, 5, 20 << 16, 0), 0);  /* off the wet road: none */
+    int32_t place[3], radius, density;
+    int alive = 0;
+    for (int i = 0; i < RAIN_SPRAY_MAX; i++)
+        if (s.p[i].live) {
+            CHECK_EQ_INT(s.p[i].life, RAIN_SPRAY_WISP2_LIFE);   /* longer than the wisp's, shorter than the plume's */
+            CHECK(RAIN_SPRAY_WISP2_LIFE > RAIN_SPRAY_WISP_LIFE && RAIN_SPRAY_WISP2_LIFE < RAIN_SPRAY_LIFE);
+            CHECK(s.p[i].size >= 120);   /* the slow one is not a speck */
+            alive += rain_spray_look(&s.p[i], 100, 16, place, &radius, &density);
+        }
+    CHECK_EQ_INT(alive, 2);
+}
+
 int main(void)
 {
     test_dropped_once_a_tick_and_left_behind();
@@ -98,5 +119,6 @@ int main(void)
     test_nothing_dry_or_slow();
     test_a_tunnel_leaves_road_water_only();
     test_a_clock_that_goes_back_clears_the_trail();
+    test_wisp2();
     return TEST_REPORT();
 }

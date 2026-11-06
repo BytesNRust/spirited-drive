@@ -326,6 +326,51 @@ static void test_reflection_weight(void)
     }
 }
 
+static void test_rain_v2(void)
+{
+    /* the counts: v2 0 as before (rain x1, storm x3), v2 1 half and a quarter over the old rain */
+    CHECK_EQ_INT(weather_rain_scaled(200, 0, 0), 200);
+    CHECK_EQ_INT(weather_rain_scaled(200, 1, 0), 200 * WEATHER_STORM_DROPS);
+    CHECK_EQ_INT(weather_rain_scaled(200, 0, 1), 100);
+    CHECK_EQ_INT(weather_rain_scaled(200, 1, 1), 250);
+    CHECK_EQ_INT(weather_rain_scaled(1, 0, 1), 1);   /* never none */
+    CHECK_EQ_INT(weather_rain_scaled(0, 0, 1), 0);
+    /* the thunder: a strike is a flash that rises, once per flash, a delay of 0.5..4 s that is the tick's alone, quieter the later */
+    int strikes = 0;
+    for (uint32_t t = 0; t < 20 * WEATHER_STORM_SLOT; t++) {
+        const int s = weather_thunder_strike(t);
+        CHECK_EQ_INT(s, weather_thunder_strike(t));
+        if (!s) continue;
+        strikes++;
+        CHECK(weather_rain_flash(t) > 0);
+        const int d = weather_thunder_delay(t);
+        CHECK(d >= WEATHER_THUNDER_MIN_TICKS && d <= WEATHER_THUNDER_MAX_TICKS);
+        CHECK_EQ_INT(d, weather_thunder_delay(t));
+        const int v = weather_thunder_volume(d);
+        CHECK(v >= WEATHER_THUNDER_FAR_PERCENT && v <= 100);
+    }
+    CHECK(strikes >= 10);
+    CHECK_EQ_INT(weather_thunder_strike(0), 0);
+    CHECK_EQ_INT(weather_thunder_volume(WEATHER_THUNDER_MIN_TICKS), 100);
+    CHECK_EQ_INT(weather_thunder_volume(WEATHER_THUNDER_MAX_TICKS), WEATHER_THUNDER_FAR_PERCENT);
+    CHECK(weather_thunder_volume(60) > weather_thunder_volume(90));   /* later, quieter */
+    /* the lamps' reflections stay on the carriageway: a verge of 40 eighths is 5 m */
+    CHECK_EQ_INT(weather_on_carriageway(-2 * 65536, 40, 40), 1);        /* the left lane */
+    CHECK_EQ_INT(weather_on_carriageway(4 * 65536, 40, 40), 1);         /* the right lane */
+    CHECK_EQ_INT(weather_on_carriageway(5 * 65536, 40, 40), 1);         /* the line itself */
+    CHECK_EQ_INT(weather_on_carriageway(6 * 65536, 40, 40), 0);         /* the right shoulder */
+    CHECK_EQ_INT(weather_on_carriageway(-6 * 65536, 40, 40), 0);        /* the left shoulder */
+    CHECK_EQ_INT(weather_on_carriageway(-6 * 65536, 56, 40), 1);        /* a wider left side (a third lane): its own verge */
+    CHECK_EQ_INT(weather_on_carriageway(7 * 65536, 56, 40), 0);         /* but the right is still 5 m */
+    CHECK_EQ_INT(weather_on_carriageway(9 * 65536, 0, 0), 1);           /* no verge known: as before */
+    int low = 0, high = 0;   /* the delays use the whole range */
+    for (uint32_t t = 150; t < 50000; t++) {
+        const int d = weather_thunder_delay(t);
+        low |= d < 40, high |= d > 95;
+    }
+    CHECK(low && high);
+}
+
 int main(void)
 {
     test_reflection_weight();
@@ -342,5 +387,6 @@ int main(void)
     test_rain_is_a_function_of_drop_and_tick();
     test_rain_bounds_and_scale();
     test_sky_meets_the_fog_at_the_horizon();
+    test_rain_v2();
     return TEST_REPORT();
 }

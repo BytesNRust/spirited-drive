@@ -24,7 +24,7 @@ static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t w
     const int32_t out = side * 0x7000 + (int32_t)(h >> 16 & 0xff) * 0x40 - 0x2000;   /* about half a metre outward by its end, a little at random */
     p->drift_x = (int32_t)(((int64_t)right[0] * out) >> 16), p->drift_z = (int32_t)(((int64_t)right[1] * out) >> 16);
     p->node = node, p->born = tick;
-    p->size = (uint8_t)(metres >= 40 ? 255 : 120 + (metres - 8) * 135 / 32);
+    p->size = (uint8_t)(metres >= 40 ? 255 : metres <= 8 ? 120 : 120 + (metres - 8) * 135 / 32);
     p->car = (uint8_t)car;
     p->live = 1;
     p->life = (uint8_t)life;
@@ -39,7 +39,12 @@ static int step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], con
     s->last_tick[car] = tick, s->has_tick[car] = 1;
     const int64_t v = speed < 0 ? -(int64_t)speed : speed;
     const int32_t metres = (int32_t)(v >> 16);
-    if (!wet || metres < 8) return 0;
+    if (!wet || metres < (wisp == 2 ? RAIN_SPRAY_WISP2_MIN_SPEED : 8)) return 0;
+    if (wisp == 2) {   /* rain_v2: a wisp from each wheel, a little longer, at any pace */
+        drop(s, car, -1, tick, left, right, node, metres, RAIN_SPRAY_WISP2_LIFE);
+        drop(s, car, 1, tick, right_wheel, right, node, metres, RAIN_SPRAY_WISP2_LIFE);
+        return 2;
+    }
     if (wisp) {
         const int32_t mid[3] = { left[0] / 2 + right_wheel[0] / 2, left[1] / 2 + right_wheel[1] / 2, left[2] / 2 + right_wheel[2] / 2 };
         drop(s, car, 0, tick, mid, right, node, metres, RAIN_SPRAY_WISP_LIFE);
@@ -58,6 +63,11 @@ int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3],
 int rain_spray_step_wisp(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
 {
     return step(s, car, tick, left, right_wheel, right, node, speed, wet, 1);
+}
+
+int rain_spray_step_wisp2(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
+{
+    return step(s, car, tick, left, right_wheel, right, node, speed, wet, 2);
 }
 
 int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t place[3], int32_t *radius, int *density)

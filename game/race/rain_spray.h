@@ -11,6 +11,8 @@ enum {
     RAIN_SPRAY_MAX = 768,    /* the ring: 8 cars x 2 wheels x the life, with room over */
     RAIN_SPRAY_LIFE = 20,    /* ticks (30 a second): two thirds of a second */
     RAIN_SPRAY_WISP_LIFE = 3,/* a wisp's (traffic_spray): a tenth of a second, so one to three sprites of a car on the road at once */
+    RAIN_SPRAY_WISP2_LIFE = 6,     /* a rain_v2 wisp's: a fifth of a second, still far under the plume's two thirds */
+    RAIN_SPRAY_WISP2_MIN_SPEED = 1,/* metres a second: a car that moves at all leaves one */
     RAIN_SPRAY_CARS = 16,
     RAIN_SPRAY_LEVELS = 4    /* the density steps a particle's look has (the drawing has a shape for each) */
 };
@@ -42,6 +44,9 @@ int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3],
 
 /* The same for a wisp (port traffic_spray): one particle a tick, from the middle of the two wheels, living RAIN_SPRAY_WISP_LIFE ticks. Returns how many were dropped (1, or 0 as above). */
 int rain_spray_step_wisp(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet);
+
+/* The same for rain_v2's wisp: one particle a tick from each wheel living RAIN_SPRAY_WISP2_LIFE ticks, from RAIN_SPRAY_WISP2_MIN_SPEED m/s up. Returns how many were dropped (2, or 0 as above). */
+int rain_spray_step_wisp2(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet);
 
 /* How a particle looks at `tick`: its place (16.16 m: dropped, drifted, risen a little), its radius (16.16 m: widening) and its density 0..RAIN_SPRAY_LEVELS - 1 (thinning; 0 the
  * faintest). 0 when it is not alive (never emitted, or past its life). `open` (0..16) thins and lowers it in a tunnel (road water only). */
