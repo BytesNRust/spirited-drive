@@ -45,6 +45,43 @@ static void test_bands_make_the_whole(void)
 }
 
 
+/* port (perf): the pieces' mask is set only over the rows a band reads. Pieces reaching past the layer's right and bottom edges (a piece's own draw reads only inside it), bands cut anywhere, a second frame with other pieces after the
+ * first on the same thread (a mask row left set would show): every banding is the whole compose, byte for byte */
+static void test_mask_rows_follow_the_band(void)
+{
+    enum { WIDE_MAX = 1120, PIECES = 5 };
+    static uint8_t rnd_layer[LW * H], background[WIDE_MAX * H], whole[WIDE_MAX * H], banded[WIDE_MAX * H];
+    uint32_t seed = 777;
+    for (int i = 0; i < LW * H; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        rnd_layer[i] = (seed >> 24) % 7 == 0 ? LAYER_KEY : (uint8_t)(seed >> 16);
+    }
+    for (int i = 0; i < WIDE_MAX * H; i++) seed = seed * 1664525u + 1013904223u, background[i] = (uint8_t)(seed >> 8);
+    const LayerPiece sets[2][PIECES] = {
+        { { { 0, 0, 30, 10 }, 0, 0, 0, 0 }, { { 600, 460, 700, 500 }, 500, 440, 0, 0 }, { { 100, 100, 100, 200 }, 0, 0, 0, 0 }, { { 0, 0, 640, 12 }, 0, 0, 0, 0 }, { { 300, 470, 340, 480 }, 300, 470, 0, 0 } },
+        { { { 20, 150, 220, 151 }, 20, 150, 0, 0 }, { { 400, 0, 410, 480 }, 400, 0, 0, 0 }, { { 7, 7, 8, 8 }, 7, 7, 0, 0 }, { { 630, 300, 700, 400 }, 630, 300, 0, 0 }, { { 0, 479, 640, 700 }, 0, 479, 0, 0 } } };
+    static const int widths[3] = { 640, 854, 1120 };
+    for (int frame = 0; frame < 2; frame++)
+        for (int w = 0; w < 3; w++)
+            for (int in_car = 0; in_car < 2; in_car++) {
+                const int32_t scale = (int32_t)(((int64_t)widths[w] << 16) / LW);
+                const LayerCompose c = { LW, H, widths[w], scale, in_car, sets[frame], PIECES };
+                memcpy(whole, background, sizeof whole);
+                layer_compose(&c, rnd_layer, whole);
+                for (int run = 0; run < 6; run++) {
+                    memcpy(banded, background, sizeof banded);
+                    int cut = 0;
+                    while (cut < H) {   /* bands of 1 .. 120 rows, any size */
+                        seed = seed * 1664525u + 1013904223u;
+                        const int next = cut + 1 + (int)((seed >> 16) % 120);
+                        layer_compose_rows(&c, rnd_layer, banded, cut, next < H ? next : H);
+                        cut = next;
+                    }
+                    CHECK_MEM(whole, banded, sizeof whole);
+                }
+            }
+}
+
 /* port (render scale): the upscale of the layer is every drawn pixel as a scale x scale block, LAYER_KEY leaving the 3D
  * as it was; against the per-pixel definition, for layers of runs of both, odd widths, every scale */
 static uint32_t rnd_state = 12345;
@@ -170,5 +207,6 @@ int main(void)
     CHECK(same_as_frame);
     CHECK(holes > 0);
     test_bands_make_the_whole();
+    test_mask_rows_follow_the_band();
     return TEST_REPORT();
 }
