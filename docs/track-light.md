@@ -144,4 +144,4 @@ The road's own roofed bits are the stand-in only for a track without a places fi
 ## Light editor
 
 `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1` as a launcher) shows, in a race with a made light, the node the car is at, `track light: file <path>` or `track light: made in code (no file for ...)`,
-and the values there. F10 holds the race where it is, F11 copies a `brightness N N 100` line to the clipboard. Saving the file reloads the light within a second, without leaving the race.
+and the values there. F10 holds the race where it is, F11 copies a `brightness N N 100` line to the clipboard. Saving the light file **or the track's places file** (`data/track/<TRACK>.txt`: its `tunnel`, `canyon`, `car_dim` lines) reloads the light within a second, without leaving the race, and the dry zones with it (where the rain falls and the tyres lose grip: `wet zones: <TRACK> made again` in the log). `snow` and `snow_map` change textures when the track loads: after editing them, restart the race (the editor's message says so). Without the editor nothing is watched.

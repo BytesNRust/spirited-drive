@@ -69,7 +69,7 @@ int light_edit_poll(LightEdit *e, uint32_t now_ms)
     if (hash == e->hash) return 0;
     e->hash = hash;
     if (!drive_light_reload()) return 0;
-    say(e, "the file changed: the light is made again", now_ms);
+    say(e, "a file changed: the light is made again (snow: restart)", now_ms);
     return 1;
 }
 
