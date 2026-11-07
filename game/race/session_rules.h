@@ -7,8 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { SESSION_STOCK = 0, SESSION_RESTORED = 1, SESSION_RESTOMOD = 2, SESSION_SLOTS = 8, SESSION_RULES_VERSION = 1 };
-enum { SESSION_VERSION_AT = 8, SESSION_MODE_AT = 9, SESSION_DIFFICULTY_AT = 10, SESSION_WEATHER_AT = 11, SESSION_PAINT_AT = 21, SESSION_RULES_SIZE = 29 };
+enum { SESSION_STOCK = 0, SESSION_RESTORED = 1, SESSION_RESTOMOD = 2, SESSION_SLOTS = 8, SESSION_RULES_VERSION = 2 };
+enum { SESSION_VERSION_AT = 8, SESSION_MODE_AT = 9, SESSION_DIFFICULTY_AT = 10, SESSION_WEATHER_AT = 11, SESSION_PAINT_AT = 21, SESSION_SNOW_AT = 29, SESSION_RULES_SIZE_V1 = 29, SESSION_RULES_SIZE = 30 };   /* version 2 added the snow at the end */
 
 typedef struct {
     uint8_t mode;            /* SESSION_*: the host's mode, which governs the session's shared rules */
@@ -23,6 +23,7 @@ typedef struct {
     uint8_t liveries;        /* the car colours (CUSTOMIZE) are on: every machine draws the paints below; off, the exe's colours */
     uint8_t time_of_day;     /* the exe's: 0 morning, 1 midday, 2 evening */
     uint8_t psx_time;        /* the PS1 light's: PSX_TIME_* (port_settings.h) */
+    uint8_t snow_weather;    /* (version 2) the snow of a snowy track (weather_snow.h) and its rally on snow (rally_gravel.h): the host's, since it changes the grip; 0 from a version 1 host */
     uint8_t paint[SESSION_SLOTS];   /* each slot's paint (PAINT_OWN 0, PAINT_PS1 1, PAINT_CATALOGUE + k; 0xff: the race's own draw) */
 } SessionRules;
 

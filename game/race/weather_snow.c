@@ -23,6 +23,14 @@ int weather_snow_level(int weather, int track_snow, int enabled)
     return weather == WEATHER_RAIN ? SNOW_LIGHT : weather == WEATHER_STORM ? SNOW_HEAVY : SNOW_NONE;
 }
 
+int snow_race_wanted(int in_replay, int replay_snow, int local) { return in_replay ? replay_snow != 0 : local != 0; }
+
+static int snow_grip;
+void snow_grip_set(int on) { snow_grip = on != 0; }
+int snow_grip_get(void) { return snow_grip; }
+
+int race_grip_nonstandard(int rain_grip_active, int snow_grip) { return rain_grip_active != 0 || snow_grip != 0; }
+
 int weather_snow_count(int32_t box_w, int32_t box_h, int level)
 {
     if (box_w <= 0 || box_h <= 0 || (level != SNOW_LIGHT && level != SNOW_HEAVY)) return 0;

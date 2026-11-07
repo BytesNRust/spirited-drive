@@ -18,4 +18,15 @@ enum { SNOW_PER_640x480 = 160, SNOW_HEAVY_TIMES = 3, SNOW_MAX = 1400, SNOW_SIZE_
 int weather_snow_count(int32_t box_w, int32_t box_h, int level);
 void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t out[3]);
 
+/* Where a race's snow comes from: `in_replay` a replay's own record (`replay_snow`, 0 for a file that has none), else `local`, the setting or the host's (port_snow_weather). The snow decides the grip, so a
+ * replay is played as it was recorded. */
+int snow_race_wanted(int in_replay, int replay_snow, int local);
+
+/* The last race's grip: 1 when it ran on the snow's (a rally on a snowy track with the snow on). Set when the race starts, read by the records glue. */
+void snow_grip_set(int on);
+int snow_grip_get(void);
+
+/* 1 when this race's grip is not the standard one (a wet race, rain_grip, or a rally on snow): it keeps no time or record (records_glue_route) */
+int race_grip_nonstandard(int rain_grip_active, int snow_grip);
+
 #endif

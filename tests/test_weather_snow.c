@@ -79,8 +79,22 @@ static void test_the_storm_leans_one_way(void)
     CHECK(labs(still / 300) < labs(lean / 300));                      /* the snow's own sway has no mean */
 }
 
+/* where the race's snow comes from: a replay's own record (whatever this machine has on), else the host's or the local setting (port_snow_weather) */
+static void test_the_replay_has_the_say(void)
+{
+    CHECK_EQ_INT(snow_race_wanted(1, 1, 0), 1);   /* recorded on snow, local switch off: snow grip all the same */
+    CHECK_EQ_INT(snow_race_wanted(1, 0, 1), 0);   /* recorded without, local switch on: as it was recorded */
+    CHECK_EQ_INT(snow_race_wanted(0, 0, 1), 1);   /* a race, not a replay: the setting's */
+    CHECK_EQ_INT(snow_race_wanted(0, 1, 0), 0);
+    CHECK_EQ_INT(race_grip_nonstandard(0, 0), 0); /* records: kept for a dry race that is not on snow */
+    CHECK_EQ_INT(race_grip_nonstandard(1, 0), 1); /* wet */
+    CHECK_EQ_INT(race_grip_nonstandard(0, 1), 1); /* snow */
+    CHECK_EQ_INT(race_grip_nonstandard(1, 1), 1);
+}
+
 int main(void)
 {
+    test_the_replay_has_the_say();
     test_level();
     test_count();
     test_flakes_stay_in_the_box_and_repeat();

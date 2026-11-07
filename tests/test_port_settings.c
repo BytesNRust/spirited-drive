@@ -843,8 +843,22 @@ static void test_every_int_key_round_trips(void)
     }
 }
 
+/* the host's value wins in a link race (port_snow_weather), as the rain's grip does; the local setting rules without one */
+static void test_the_host_decides_the_snow(void)
+{
+    unsetenv("TNFS_SNOW_WEATHER");
+    SessionRules r = { .mode = SESSION_RESTOMOD, .snow_weather = 1 };
+    session_rules_set(&r);
+    CHECK_EQ_INT(port_snow_weather(), 1);
+    r.snow_weather = 0;
+    session_rules_set(&r);
+    CHECK_EQ_INT(port_snow_weather(), 0);
+    session_rules_set(NULL);
+}
+
 int main(void)
 {
+    test_the_host_decides_the_snow();
     test_every_int_key_round_trips();
     test_a_save_during_a_race_keeps_the_machines_weather();
     test_a_menu_change_between_two_races_takes_effect();

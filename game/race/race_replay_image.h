@@ -28,6 +28,12 @@ void race_replay_paint_put(const uint8_t paint[RACE_PLAYERS], uint8_t out[REPLAY
 /* 1 when `file` (size bytes) is a replay's with its colours: `paint` gets them; 0 and REPLAY_PAINT_NONE everywhere otherwise */
 int race_replay_paint_get(const uint8_t *file, size_t size, uint8_t paint[RACE_PLAYERS]);
 
+/* port (snow_weather): after the paints, the 8 bytes "TNFSSNW1", 1 when the race ran on snow (grip and all: weather_snow.h) else 0, and padding. A file without it (the CD's, an older port's) has no snow. */
+enum { REPLAY_SNOW_TRAILER_SIZE = 16 };
+void race_replay_snow_put(int snow, uint8_t out[REPLAY_SNOW_TRAILER_SIZE]);
+/* 1 when `file` has the snow record (after the paint trailer): `*snow` is it; else 0 and `*snow` 0 */
+int race_replay_snow_get(const uint8_t *file, size_t size, int *snow);
+
 /* A replay's race as its setup tells it */
 typedef struct {
     char stem[REPLAY_TRACK_NAME + 1];  /* upper case, as the CD's names */
@@ -38,6 +44,7 @@ typedef struct {
     int arcade;                        /* 004fbadc (the field holds 004fbad8) */
     int nitro;                         /* port: 004faa50, the NITRO cheat, stamped beside it: the start the recording holds launches */
     uint8_t paint[RACE_PLAYERS];       /* port (replay colours): each slot's paint as the race wore it, REPLAY_PAINT_NONE where the file has none */
+    int snow, snow_known;              /* port (snow_weather): the race ran on snow (race_replay_snow_get), when the file says */
     int paint_known;                   /* ... 1 when the file has them (race_replay_paint_get) */
     int explode;                       /* port: 004c5cd4, the race's EXPLODE cheat, stamped in the setup's two bytes at
                                         * +0x3c (0 in the CD's replays and the exe's own); the horn then spins out cars */

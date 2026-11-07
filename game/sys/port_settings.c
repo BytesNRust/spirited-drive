@@ -941,5 +941,6 @@ int port_snow_weather(void)
 {
     const char *v = getenv("TNFS_SNOW_WEATHER");
     if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().snow_weather;
+    const SessionRules *host = session_rules_active();   /* port (online): the host's snow: it changes the grip */
+    return host != NULL ? host->snow_weather : port_settings_load().snow_weather;
 }

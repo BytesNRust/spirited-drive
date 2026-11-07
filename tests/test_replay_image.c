@@ -153,8 +153,28 @@ static void paints(void)
     CHECK(race_replay_paint_get(NULL, 0, got) == 0);
 }
 
+/* port (snow_weather): the replay says whether its race ran on snow, after the paints; a file without that (the CD's, an older port's) means no snow, whatever this machine has on */
+static void snow_trailer(void)
+{
+    static uint8_t file[REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE];
+    uint8_t wore[RACE_PLAYERS] = { 0 };
+    race_replay_paint_put(wore, file + REPLAY_FILE_SIZE);
+    int snow = 7;
+    CHECK(race_replay_snow_get(file, REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE, &snow) == 0 && snow == 0);   /* paints only: no snow */
+    race_replay_snow_put(1, file + REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE);
+    CHECK(race_replay_snow_get(file, sizeof file, &snow) == 1 && snow == 1);
+    race_replay_snow_put(0, file + REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE);
+    CHECK(race_replay_snow_get(file, sizeof file, &snow) == 1 && snow == 0);   /* recorded as not snow */
+    race_replay_snow_put(1, file + REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE);
+    file[REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE] ^= 1;
+    CHECK(race_replay_snow_get(file, sizeof file, &snow) == 0 && snow == 0);   /* not our marker */
+    CHECK(race_replay_snow_get(NULL, 0, &snow) == 0);
+    CHECK(race_replay_snow_get(file, REPLAY_FILE_SIZE, &snow) == 0);          /* the exe's size */
+}
+
 int main(int argc, char **argv)
 {
+    snow_trailer();
     paints();
     synthetic();
     controls();
