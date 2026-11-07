@@ -305,6 +305,7 @@ static void test_a_made_look_and_its_file_agree(void)
         free(text);
     }
     free(made.tunnel);
+}
 
 #define LAMP_HEAD "track CY1 time N nodes 40 flags 1\nrows 0 39 100 100 100 100 100 100 100 100 100 100 100\n"
 
