@@ -2089,7 +2089,8 @@ static void sky_stage_band(void *user, int top, int bottom)
     }
 }
 
-void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
+/* The track from `cam`, with the car (set by ported_view_set_car) at `pose` drawn with the row of `car_node`; car_node -1 leaves it out. */
+static void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
                              const CarPose *pose, int32_t pose_node, uint8_t *pixels)
 {
     const PortedCar one = { pose != NULL ? *pose : (CarPose){ { 0, 0, 0 }, 0, 0, 0, NULL, 1 },
@@ -2186,6 +2187,158 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
 }
 
+/* port: the lamps', the street lamps' and the lit windows' tables from the world's tables just made, and the textures they are drawn on */
+static void lamp_street_window_tables(const TrackArt *art)
+{
+    for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
+        for (int v = 0; v < LAMP_VARIANTS; v++) {
+            const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
+                                        ? &art->slots[lamp_spec[i].slot][v] : NULL;
+            lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
+        }
+    for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
+        const FshEntry *t = lamp_bitmap[i][0];
+        uint8_t exempt[256];
+        psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
+        psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+        memcpy(lamp_exempt_set[i], exempt, sizeof exempt);
+        int best = -1, best_sum = -1;
+        for (int c = 0; c < 256; c++) {
+            const uint8_t *const q = art->palette + 3 * c;
+        const int hi = q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2]), lo = q[0] < q[1] ? (q[0] < q[2] ? q[0] : q[2]) : (q[1] < q[2] ? q[1] : q[2]);
+        const int sum = exempt[c] ? q[0] + q[1] + q[2] + 3 * (hi - lo) : -1;
+            if (sum > best_sum) best = c, best_sum = sum;
+        }
+        lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
+    }
+    if (street_count > 0) {   /* the street lamps' boards: their entries kept */
+        uint8_t exempt[256] = { 0 };
+        for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
+        for (int i = 0; i < street_count; i++)
+            street_bitmap[i] = street_scenery[i] >= 0 && street_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery[i]].present
+                                   ? &art->scenery[street_scenery[i]].bitmap : NULL;
+        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
+    }
+    if (window_count > 0) {   /* the lit windows' boards: their entry kept */
+        uint8_t exempt[256] = { 0 };
+        exempt[window_entry] = 1;
+        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
+        for (int i = 0; i < window_count; i++)
+            window_bitmap[i] = window_scenery[i] >= 0 && window_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[window_scenery[i]].present
+                                   ? &art->scenery[window_scenery[i]].bitmap : NULL;
+    }
+}
+
+/* port (PS1 light): the tables of this frame's light (the lit, tunnel, pool, tone, lamp, street and window tables), made again only when the palette or the tint moved (a fade changes the palette), and the polygon hook set */
+static void light_tables_prepare(const TrackArt *art)
+{
+    /* the tables again only when the palette or the tint moved (a fade changes the palette) */
+    static uint8_t made_for[768];
+    static float made_tint[3];
+    static int made, made_cast;
+    const int warm = psx_light->city_tunnel != 0 && psx_light->tunnel != NULL && !psx_light->neutral_cast;
+    float warm_shown[3];
+    drive_light_tint(warm_shown);
+    const int warm_dark = (warm_shown[0] + warm_shown[1] + warm_shown[2]) / 3.0f < TUNNEL_LIGHT;
+    const float *warm_cast = warm && psx_light->warm_percent[warm_dark] > 0 ? psx_light->warm_cast[warm_dark] : NULL;   /* the made light's look of this kind of tunnel (a track light file's retouch or psx_light_synth_warm_look) */
+    const int warm_percent = warm_cast != NULL ? psx_light->warm_percent[warm_dark] : 0;
+    const int cast = warm_cast != NULL ? 3 + warm_dark + (psx_light->city_tunnel - 1) * 2 : psx_light != NULL && psx_light->neutral_cast ? 2 : lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
+    /* a made light's tunnel: the palette shown is the night's (drive_light_palette), so its tables are made brighter by as much as the palette takes off, to TUNNEL_LIGHT on the screen */
+    float tunnel_tint[3] = { lit_tint[0], lit_tint[1], lit_tint[2] };
+    if (psx_light->tunnel != NULL) {
+        float shown[3];
+        drive_light_tint(shown);
+        const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f, base = mean > 0.05f && mean < TUNNEL_LIGHT ? TUNNEL_LIGHT / mean : 1.0f, gain = warm_cast != NULL ? base * (float)warm_percent / 100.0f : base;
+        tunnel_tint[0] = tunnel_tint[1] = tunnel_tint[2] = gain;
+    }
+    static float made_tunnel_tint[3], made_warm[4];
+    static int made_pool;
+    static PsxLightTone made_tone[PSX_LIGHT_TONES];
+    static int made_tone_count;
+    const float warm_now[4] = { warm_cast != NULL ? warm_cast[0] : 0, warm_cast != NULL ? warm_cast[1] : 0, warm_cast != NULL ? warm_cast[2] : 0, (float)warm_percent };
+    const int has_pool = psx_light->pool_class != NULL;
+    if (!made || made_pool != has_pool || made_cast != cast || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0 || memcmp(made_warm, warm_now, sizeof made_warm) != 0) {
+        modern_light_tables(art->palette, lit_tint, lit_tables);
+        memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
+        memcpy(made_warm, warm_now, sizeof made_warm);
+        memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
+        memset(tone_made, 0, sizeof tone_made);
+        memcpy(tone_palette, art->palette, sizeof tone_palette);
+        memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, tunnel_tint, sizeof tone_tunnel_tint);
+        tone_have_cast = cast != 0, tone_min_light_zero = psx_light->tunnel != NULL;
+        memcpy(tone_cast, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, sizeof tone_cast);
+        if (cast) modern_tunnel_tables(art->palette, tunnel_tint, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
+        else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
+        if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
+            static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
+            for (int k = 0; k < 4; k++) {
+                float tint[3];
+                for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
+                modern_light_tables(art->palette, tint, pool_tables[k]);
+            }
+        }
+        pool_ready = has_pool, made_pool = has_pool;
+        memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
+    }
+    lamp_street_window_tables(art);
+    track_light_hook = light_hook;
+    tables_made = 1;
+}
+
+/* port: the sky over the view before the track covers it: the horizon art (or the PS1 sky, or the ring), stretched up and down where the switches say, drawn in bands */
+static void draw_sky(const TrackArt *art, const TrackInfo *info, const PortedCamera *pc, uint8_t *pixels, QuadTarget *quad, RasterTarget *target, View *view, HorizonTables *horizon,
+                     DrawContext *ctx, TrackCamera *cam, const int32_t box[4])
+{
+    const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
+    if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
+    PsxSkyDraw *const own = psx_sky;   /* port: the PS1 sky (psx_sky_draw.h) in place of the track's, on the flat horizon */
+    if (own != NULL) {
+        uint8_t shown[768];
+        drive_light_palette(art->palette, shown);
+        psx_sky_draw_target(own, shown);
+    }
+    /* the PC's alternative sky (drive_light.c) is the morning / evening 3D ring of its INFO, on its own horizon */
+    const int alt_ring = own != NULL && psx_sky_info != NULL && psx_sky_info->ring != 0;
+    const TrackInfo *const sky_info = alt_ring ? psx_sky_info : info;
+    const FshEntry *const ring_horz = alt_ring ? &own->horz : &art->horizon;
+    const int ring = alt_ring || (own == NULL && art->has_horizon && info->ring != 0);
+    if (ring) sky_ring_build(&sky_ring, sky_info, ring_horz);
+    SkyStage stage = { pixels, quad, target, view, horizon, &ctx->clip, art, sky_info, cam, pc,
+                       own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon, ring_horz,
+                       box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
+    if (stage.flat) stage.line = horizon_line(view, WORLD_SHIFT, pc->yaw, cam->matrix);
+    static SkyStretch stretch;   /* port (sky_fill): the art reaching the view's top, built once a frame for all the bands */
+    /* port (night): the flat colour over the art would be the day's navy beside the night's sky; at night the art is carried up to the top of the view as the
+     * sky_fill switch does (every column takes its top rows' colour), whether the switch is on or not */
+    const int night_fill = drive_light_night();
+    if (stage.flat && (port_sky_fill() || night_fill))
+        stage.horz = sky_stretch(&stretch, stage.horz, horizon->scale, stage.line, ctx->clip.y0,
+                                 night_fill && port_night_stretch_clean() ? SKY_FILL_COLUMN_QUIET : port_sky_fill() ? port_sky_fill_mode() : SKY_FILL_COLUMN,
+                                 night_fill && port_night_stretch_clean() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
+    static SkyStretch below;   /* port (sky_fill_below): and downward, to the view's bottom, in 16:9 and 21:9 */
+    if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon->scale, stage.line, ctx->clip.y1);
+    bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
+}
+
+/* port: the track pass, by which way the camera looks (follow_off_road): the exe's pass ahead, or follow_behind's; returns whether the exe's pass was the one drawn */
+static int draw_track(const Tri *tri, const PortedCamera *pc, TrackCamera *cam, DrawContext *ctx)
+{
+    int ahead = 1;   /* the exe's pass draws the track */
+    if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
+        follow_arm_window(&render, follow_arm_segments());
+        ahead = follow_off_road(pc) <= FOLLOW_EXE_BELOW;
+        if (!ahead) {
+            const FollowArm arm = { &render, cam, ctx, tri_is_circuit(tri), anim_tick, view_mirrored(), 0 };
+            arm_drawing = 1;
+            follow_behind_draw(&arm, follow_arm_segments(), render.draw_segments - 2);
+            arm_drawing = 0;
+        }
+    }
+    tunnel_flare_count = 0;
+    if (ahead) track_render_draw(&render, cam, ctx, view_mirrored(), anim_tick);
+    return ahead;
+}
+
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
                              const PortedCar *list, int count, uint8_t *pixels)
 {
@@ -2212,35 +2365,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */
-    const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
-    if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
-    PsxSkyDraw *const own = psx_sky;   /* port: the PS1 sky (psx_sky_draw.h) in place of the track's, on the flat horizon */
-    if (own != NULL) {
-        uint8_t shown[768];
-        drive_light_palette(art->palette, shown);
-        psx_sky_draw_target(own, shown);
-    }
-    /* the PC's alternative sky (drive_light.c) is the morning / evening 3D ring of its INFO, on its own horizon */
-    const int alt_ring = own != NULL && psx_sky_info != NULL && psx_sky_info->ring != 0;
-    const TrackInfo *const sky_info = alt_ring ? psx_sky_info : info;
-    const FshEntry *const ring_horz = alt_ring ? &own->horz : &art->horizon;
-    const int ring = alt_ring || (own == NULL && art->has_horizon && info->ring != 0);
-    if (ring) sky_ring_build(&sky_ring, sky_info, ring_horz);
-    SkyStage stage = { pixels, &quad, &target, &view, &horizon, &ctx.clip, art, sky_info, &cam, pc,
-                       own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon, ring_horz,
-                       box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
-    if (stage.flat) stage.line = horizon_line(&view, WORLD_SHIFT, pc->yaw, cam.matrix);
-    static SkyStretch stretch;   /* port (sky_fill): the art reaching the view's top, built once a frame for all the bands */
-    /* port (night): the flat colour over the art would be the day's navy beside the night's sky; at night the art is carried up to the top of the view as the
-     * sky_fill switch does (every column takes its top rows' colour), whether the switch is on or not */
-    const int night_fill = drive_light_night();
-    if (stage.flat && (port_sky_fill() || night_fill))
-        stage.horz = sky_stretch(&stretch, stage.horz, horizon.scale, stage.line, ctx.clip.y0,
-                                 night_fill && port_night_stretch_clean() ? SKY_FILL_COLUMN_QUIET : port_sky_fill() ? port_sky_fill_mode() : SKY_FILL_COLUMN,
-                                 night_fill && port_night_stretch_clean() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
-    static SkyStretch below;   /* port (sky_fill_below): and downward, to the view's bottom, in 16:9 and 21:9 */
-    if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon.scale, stage.line, ctx.clip.y1);
-    bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
+    draw_sky(art, info, pc, pixels, &quad, &target, &view, &horizon, &ctx, &cam, box);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
     storm_thunder_update();
     drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
@@ -2281,95 +2406,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         raster_record_begin(&recorder, pixels);
     }
     if (psx_light == NULL && flare_on && lamp_count > 0) lamp_flare_textures(art);
-    if (psx_light != NULL) {
-        /* the tables again only when the palette or the tint moved (a fade changes the palette) */
-        static uint8_t made_for[768];
-        static float made_tint[3];
-        static int made, made_cast;
-        const int warm = psx_light->city_tunnel != 0 && psx_light->tunnel != NULL && !psx_light->neutral_cast;
-        float warm_shown[3];
-        drive_light_tint(warm_shown);
-        const int warm_dark = (warm_shown[0] + warm_shown[1] + warm_shown[2]) / 3.0f < TUNNEL_LIGHT;
-        const float *warm_cast = warm && psx_light->warm_percent[warm_dark] > 0 ? psx_light->warm_cast[warm_dark] : NULL;   /* the made light's look of this kind of tunnel (a track light file's retouch or psx_light_synth_warm_look) */
-        const int warm_percent = warm_cast != NULL ? psx_light->warm_percent[warm_dark] : 0;
-        const int cast = warm_cast != NULL ? 3 + warm_dark + (psx_light->city_tunnel - 1) * 2 : psx_light != NULL && psx_light->neutral_cast ? 2 : lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
-        /* a made light's tunnel: the palette shown is the night's (drive_light_palette), so its tables are made brighter by as much as the palette takes off, to TUNNEL_LIGHT on the screen */
-        float tunnel_tint[3] = { lit_tint[0], lit_tint[1], lit_tint[2] };
-        if (psx_light->tunnel != NULL) {
-            float shown[3];
-            drive_light_tint(shown);
-            const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f, base = mean > 0.05f && mean < TUNNEL_LIGHT ? TUNNEL_LIGHT / mean : 1.0f, gain = warm_cast != NULL ? base * (float)warm_percent / 100.0f : base;
-            tunnel_tint[0] = tunnel_tint[1] = tunnel_tint[2] = gain;
-        }
-        static float made_tunnel_tint[3], made_warm[4];
-        static int made_pool;
-        static PsxLightTone made_tone[PSX_LIGHT_TONES];
-        static int made_tone_count;
-        const float warm_now[4] = { warm_cast != NULL ? warm_cast[0] : 0, warm_cast != NULL ? warm_cast[1] : 0, warm_cast != NULL ? warm_cast[2] : 0, (float)warm_percent };
-        const int has_pool = psx_light->pool_class != NULL;
-        if (!made || made_pool != has_pool || made_cast != cast || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0 || memcmp(made_warm, warm_now, sizeof made_warm) != 0) {
-            modern_light_tables(art->palette, lit_tint, lit_tables);
-            memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
-            memcpy(made_warm, warm_now, sizeof made_warm);
-            memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
-            memset(tone_made, 0, sizeof tone_made);
-            memcpy(tone_palette, art->palette, sizeof tone_palette);
-            memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, tunnel_tint, sizeof tone_tunnel_tint);
-            tone_have_cast = cast != 0, tone_min_light_zero = psx_light->tunnel != NULL;
-            memcpy(tone_cast, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, sizeof tone_cast);
-            if (cast) modern_tunnel_tables(art->palette, tunnel_tint, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
-            else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
-            if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
-                static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
-                for (int k = 0; k < 4; k++) {
-                    float tint[3];
-                    for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
-                    modern_light_tables(art->palette, tint, pool_tables[k]);
-                }
-            }
-            pool_ready = has_pool, made_pool = has_pool;
-            memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
-        }
-        for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
-            for (int v = 0; v < LAMP_VARIANTS; v++) {
-                const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
-                                            ? &art->slots[lamp_spec[i].slot][v] : NULL;
-                lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
-            }
-        for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
-            const FshEntry *t = lamp_bitmap[i][0];
-            uint8_t exempt[256];
-            psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
-            psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
-            memcpy(lamp_exempt_set[i], exempt, sizeof exempt);
-            int best = -1, best_sum = -1;
-            for (int c = 0; c < 256; c++) {
-                const uint8_t *const q = art->palette + 3 * c;
-            const int hi = q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2]), lo = q[0] < q[1] ? (q[0] < q[2] ? q[0] : q[2]) : (q[1] < q[2] ? q[1] : q[2]);
-            const int sum = exempt[c] ? q[0] + q[1] + q[2] + 3 * (hi - lo) : -1;
-                if (sum > best_sum) best = c, best_sum = sum;
-            }
-            lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
-        }
-        if (street_count > 0) {   /* the street lamps' boards: their entries kept */
-            uint8_t exempt[256] = { 0 };
-            for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
-            for (int i = 0; i < street_count; i++)
-                street_bitmap[i] = street_scenery[i] >= 0 && street_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery[i]].present
-                                       ? &art->scenery[street_scenery[i]].bitmap : NULL;
-            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
-        }
-        if (window_count > 0) {   /* the lit windows' boards: their entry kept */
-            uint8_t exempt[256] = { 0 };
-            exempt[window_entry] = 1;
-            psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
-            for (int i = 0; i < window_count; i++)
-                window_bitmap[i] = window_scenery[i] >= 0 && window_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[window_scenery[i]].present
-                                       ? &art->scenery[window_scenery[i]].bitmap : NULL;
-        }
-        track_light_hook = light_hook;
-        tables_made = 1;
-    }
+    if (psx_light != NULL) light_tables_prepare(art);
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
@@ -2378,19 +2415,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
         spray_tables_set(wt);
         spray_update();
     }
-    int ahead = 1;   /* the exe's pass draws the track */
-    if (shadow_race != NULL && shadow_race->port_follow_camera) {   /* port: the camera may look along the track either way */
-        follow_arm_window(&render, follow_arm_segments());
-        ahead = follow_off_road(pc) <= FOLLOW_EXE_BELOW;
-        if (!ahead) {
-            const FollowArm arm = { &render, &cam, &ctx, tri_is_circuit(tri), anim_tick, view_mirrored(), 0 };
-            arm_drawing = 1;
-            follow_behind_draw(&arm, follow_arm_segments(), render.draw_segments - 2);
-            arm_drawing = 0;
-        }
-    }
-    tunnel_flare_count = 0;
-    if (ahead) track_render_draw(&render, &cam, &ctx, view_mirrored(), anim_tick);
+    const int ahead = draw_track(tri, pc, &cam, &ctx);
     rain_spray_on = 0;
     track_light_hook = NULL;
     lit_active = 0;

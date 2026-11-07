@@ -406,6 +406,12 @@ int drive_wide_lit_colours(uint8_t (*rgb)[3], int max)
 }
 
 /* port (gauge_light): inside a dial proper: the gauge's ellipse inset by a twelfth of its size each side (the rim is the dash's art) */
+/* the ellipse of either dial's box */
+static int in_gauge(const Cockpit *k, int x, int y)
+{
+    return in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+}
+
 static int in_dial(const Cockpit *k, int x, int y)
 {
     return in_ellipse(x, y, k->tach_x + k->tach_w / 12, k->tach_y + k->tach_h / 12, k->tach_w - k->tach_w / 6, k->tach_h - k->tach_h / 6) ||
@@ -445,7 +451,7 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++) {
             const int i = y * SCREEN_W + x;
-            const int dial = dials[i] != LAYER_KEY && (in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h));
+            const int dial = dials[i] != LAYER_KEY && in_gauge(k, x, y);
             out[i] = zone[i] ? (dial ? dials[i] : LAYER_KEY) : art[i];
         }
     FILE *f = fopen(path, "wb");
@@ -481,7 +487,7 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     static uint8_t dial_only[SCREEN_W * SCREEN_H];
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         const int x = i % SCREEN_W, y = i / SCREEN_W;
-        const int dial = dials[i] != LAYER_KEY && (in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h));
+        const int dial = dials[i] != LAYER_KEY && in_gauge(k, x, y);
         dial_only[i] = dial ? dials[i] : 255;
     }
     dash_dump_pgm(dir, done, "dials", dial_only);
@@ -538,7 +544,7 @@ static const uint8_t *gauge_dials(const Cockpit *k)
     if (made && memcmp(key, now, sizeof key) == 0) return flags;
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++)
-            flags[y * SCREEN_W + x] = (uint8_t)((in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h) ? GAUGE_ELLIPSE : 0) |
+            flags[y * SCREEN_W + x] = (uint8_t)((in_gauge(k, x, y) ? GAUGE_ELLIPSE : 0) |
                                                 (in_dial(k, x, y) ? GAUGE_DIAL : 0));
     memcpy(key, now, sizeof key), made = 1;
     return flags;
