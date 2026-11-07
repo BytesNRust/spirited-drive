@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-_Static_assert(PSX_LIGHT_SNOW_SLOTS == TRACK_TEXTURE_SLOTS, "the places file's snow map is a texture slot table");
 
 static TrackArt *make_art(void)
 {
@@ -48,6 +47,11 @@ static void test_a_chain_of_pairs_reads_every_slot_as_it_was(void)
     CHECK_EQ_INT(art->slots[3][0].bitmap.height, 64 + 4);
     CHECK_EQ_INT(art->slots[4][0].bitmap.height, 64 + 5);
     free(art);
+}
+
+static void test_the_places_files_map_is_a_texture_slot_table(void)
+{
+    CHECK_EQ_INT(PSX_LIGHT_SNOW_SLOTS, TRACK_TEXTURE_SLOTS);
 }
 
 static void test_no_map_changes_nothing(void)
@@ -152,6 +156,7 @@ int main(void)
 {
     test_a_mapped_slot_takes_the_snows_bitmaps();
     test_a_chain_of_pairs_reads_every_slot_as_it_was();
+    test_the_places_files_map_is_a_texture_slot_table();
     test_no_map_changes_nothing();
     test_the_snow_road_loses_its_green();
     test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is();
