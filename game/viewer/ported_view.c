@@ -2312,44 +2312,60 @@ static void lamp_street_window_tables(const TrackArt *art)
     }
 }
 
+/* port (PS1 light): what the tables in force were made from; they are made again only when one of these moved (a fade changes the palette). One unit: the tone cache below
+ * (tone_*) is reset together with it */
+static struct {
+    uint8_t palette[768];
+    float tint[3];
+    PsxTunnelLook look;
+    int made, pool;
+    PsxLightTone tone[PSX_LIGHT_TONES];
+    int tone_count;
+} light_made;
+
+/* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
+static void pool_tables_make(const TrackArt *art)
+{
+    static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
+    for (int k = 0; k < 4; k++) {
+        float tint[3];
+        for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
+        modern_light_tables(art->palette, tint, pool_tables[k]);
+    }
+}
+
+/* port (PS1 light): the lit, tunnel and pool tables again, and the scene tones' and the lamps' caches reset from the same inputs */
+static void light_tables_make(const TrackArt *art, const PsxTunnelLook *look, int has_pool)
+{
+    modern_light_tables(art->palette, lit_tint, lit_tables);
+    memcpy(light_made.tone, psx_light->tone, sizeof light_made.tone), light_made.tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
+    memset(tone_made, 0, sizeof tone_made);
+    lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
+    memcpy(tone_palette, art->palette, sizeof tone_palette);
+    memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look->tint, sizeof tone_tunnel_tint);
+    tone_have_cast = look->cast_on, tone_min_light = look->min_light;
+    memcpy(tone_cast, look->cast, sizeof tone_cast);
+    if (look->cast_on) modern_tunnel_tables(art->palette, look->tint, look->cast, look->min_light, tunnel_tables);
+    else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
+    if (has_pool) pool_tables_make(art);
+    pool_ready = has_pool;
+}
+
 /* port (PS1 light): the tables of this frame's light (the lit, tunnel, pool, tone, lamp, street and window tables), made again only when the palette or the tint moved (a fade changes the palette), and the polygon hook set */
 static void light_tables_prepare(const TrackArt *art)
 {
-    /* the tables again only when the palette or the tint moved (a fade changes the palette) */
-    static uint8_t made_for[768];
-    static float made_tint[3];
-    static int made;
-    static PsxTunnelLook made_look;
     float shown[3];
     drive_light_tint(shown);
     PsxTunnelLook look;
     psx_light_tunnel_look(psx_light, shown, lit_tint, lamp_count, &look);   /* the tunnel's tables: the file's look, else the made light's (psx_light.h) */
-    static int made_pool;
-    static PsxLightTone made_tone[PSX_LIGHT_TONES];
-    static int made_tone_count;
     const int has_pool = psx_light->pool_class != NULL;
-    if (!made || made_pool != has_pool || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(&made_look, &look, sizeof look) != 0) {
-        modern_light_tables(art->palette, lit_tint, lit_tables);
-        made_look = look;
-        memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
-        memset(tone_made, 0, sizeof tone_made);
-        lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
-        memcpy(tone_palette, art->palette, sizeof tone_palette);
-        memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look.tint, sizeof tone_tunnel_tint);
-        tone_have_cast = look.cast_on, tone_min_light = look.min_light;
-        memcpy(tone_cast, look.cast, sizeof tone_cast);
-        if (look.cast_on) modern_tunnel_tables(art->palette, look.tint, look.cast, look.min_light, tunnel_tables);
-        else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
-        if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
-            static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
-            for (int k = 0; k < 4; k++) {
-                float tint[3];
-                for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
-                modern_light_tables(art->palette, tint, pool_tables[k]);
-            }
-        }
-        pool_ready = has_pool, made_pool = has_pool;
-        memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1;
+    if (!light_made.made || light_made.pool != has_pool || light_made.tone_count != psx_light->tone_count || memcmp(light_made.tone, psx_light->tone, sizeof light_made.tone) != 0
+        || memcmp(light_made.palette, art->palette, sizeof light_made.palette) != 0 || memcmp(light_made.tint, lit_tint, sizeof light_made.tint) != 0
+        || memcmp(&light_made.look, &look, sizeof look) != 0) {
+        light_made.look = look;
+        light_tables_make(art, &look, has_pool);
+        light_made.pool = has_pool;
+        memcpy(light_made.palette, art->palette, sizeof light_made.palette), memcpy(light_made.tint, lit_tint, sizeof light_made.tint), light_made.made = 1;
     }
     lamp_street_window_tables(art);
     track_light_hook = light_hook;
