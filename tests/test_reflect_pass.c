@@ -38,6 +38,16 @@ static void test_a_texture_is_registered_once_and_found_by_its_pixels(void)
     CHECK(reflect_pass_copy(&other) == NULL);
 }
 
+static void test_a_blank_mask_is_not_registered(void)
+{
+    setup();
+    uint8_t blank[W * H] = { 0 };
+    CHECK_EQ_INT(reflect_pass_add(&bitmap, blank, W, H), 0);
+    CHECK_EQ_INT(reflect_pass_count(), 0);
+    uint8_t small[2 * 2] = { 0, 0, 0, 1 };   /* a smaller mask is resampled to the bitmap's size, any-of */
+    CHECK_EQ_INT(reflect_pass_add(&bitmap, small, 2, 2), 1);
+}
+
 static void test_the_copy_keeps_the_masked_texels_and_hides_the_rest(void)
 {
     setup();
@@ -102,6 +112,7 @@ static void test_each_family_takes_its_own_ramp_and_the_level_a_step(void)
 int main(void)
 {
     test_a_texture_is_registered_once_and_found_by_its_pixels();
+    test_a_blank_mask_is_not_registered();
     test_the_copy_keeps_the_masked_texels_and_hides_the_rest();
     test_the_pass_runs_only_with_lamps_dark_and_entries();
     test_the_gain_follows_the_lamps_heading();

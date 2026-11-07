@@ -53,6 +53,12 @@ int reflect_pass_add(const FshEntry *bitmap, const uint8_t *mask, int mw, int mh
     }
     if (mw == bitmap->width && mh == bitmap->height) memcpy(e.mask, mask, count);
     else reflector_mask_scale(mask, mw, mh, e.mask, bitmap->width, bitmap->height);
+    size_t shining = 0;
+    for (size_t i = 0; i < count; i++) shining += e.mask[i] != 0;
+    if (shining == 0) {   /* a mask with nothing in it (a texture the owner left blank): no second pass for it */
+        free(e.mask), free(e.pixels);
+        return 0;
+    }
     e.copy.payload = e.pixels, e.copy.payload_size = count;
     entries[entry_count++] = e;
     return 1;

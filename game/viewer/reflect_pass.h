@@ -11,7 +11,7 @@
 /* forgets every texture and mask */
 void reflect_pass_reset(void);
 
-/* registers `bitmap` (any size) with a mask of `mw` x `mh` bytes (1 = reflective); the mask is copied, and resampled any-of when the sizes differ. Returns 1 when registered. */
+/* registers `bitmap` (any size) with a mask of `mw` x `mh` bytes (1 = reflective); the mask is copied, and resampled any-of when the sizes differ. Returns 1 when registered; 0 when it was not (no room, a mask with no texel set, the bitmap already there). */
 int reflect_pass_add(const FshEntry *bitmap, const uint8_t *mask, int mw, int mh);
 
 int reflect_pass_count(void);
