@@ -139,6 +139,21 @@ static void test_wisp2(void)
     CHECK_EQ_INT(alive, 2);
 }
 
+static void test_a_car_without_a_speed_goes_by_its_velocity(void)
+{
+    /* the traffic's physics never runs: its `speed` (0x070) stays 0 while it drives along the road at the pace of its velocity (AL1: about (-4, 16) m/s) */
+    CHECK_EQ_INT(rain_spray_speed(20 << 16, 0, 0), 20 << 16);                      /* a car with a speed keeps it (the player's, a rival's) */
+    CHECK_EQ_INT(rain_spray_speed(0, -4 * 65536, 16 << 16), (16 << 16) + (4 << 16) / 4); /* 00430cb0's: the larger component and a quarter of the smaller */
+    CHECK_EQ_INT(rain_spray_speed(0, 16 << 16, -4 * 65536), (16 << 16) + (4 << 16) / 4); /* whichever way it points */
+    CHECK_EQ_INT(rain_spray_speed(0, 0, 0), 0);                                    /* a car that stands is still */
+    static RainSpray s;
+    rain_spray_clear(&s);
+    const int32_t right[2] = { 0, -65536 };
+    const int32_t left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
+    CHECK_EQ_INT(rain_spray_step_wisp(&s, 2, 100, left, wheel, right, 5, rain_spray_speed(0, -4 * 65536, 16 << 16), 1), 1);   /* so the traffic's wisp is dropped */
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 3, 100, left, wheel, right, 5, rain_spray_speed(0, -4 * 65536, 16 << 16), 1), 2);
+}
+
 int main(void)
 {
     test_dropped_once_a_tick_and_left_behind();
@@ -148,5 +163,6 @@ int main(void)
     test_a_tunnel_leaves_no_spray();
     test_a_clock_that_goes_back_clears_the_trail();
     test_wisp2();
+    test_a_car_without_a_speed_goes_by_its_velocity();
     return TEST_REPORT();
 }

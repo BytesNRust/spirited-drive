@@ -1291,12 +1291,13 @@ static void spray_update(void)
         rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);   /* a rival is drawn with its matrix and its yaw stays 0 */
         rain_spray_wheels(at, forward, wheel, right);
         const int wet = car->airborne_ticks == 0 && car->off_road == 0 && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone */
+        const int32_t pace = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);   /* the traffic's physics does not run: its speed is 0 while it drives */
         if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
-            rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
+            rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
         else if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
-            rain_spray_step_wisp(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
+            rain_spray_step_wisp(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
         else
-            rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
+            rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
     }
 }
 
