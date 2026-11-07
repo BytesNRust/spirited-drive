@@ -888,11 +888,12 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     }
     double look_light = 0.0;
     float look_cast[3];
-    if (psx_light_zone_look_at(&light, node, &look_light, look_cast) && n < max) {   /* the tunnel's look here: its zone's own (a `tunnel a b light colour` line) or the time's `tunnel_tone`: its light as a percent of full light, and its colour */
+    const int zone_look = psx_light_zone_look_at(&light, node, &look_light, look_cast);
+    if (zone_look && n < max) {   /* the tunnel's look here: its zone's own (a `tunnel a b light colour` line) or the time's `tunnel_tone`: its light as a percent of full light, and its colour */
         snprintf(lines[n++], 96, "tunnel look: light %.4g%%  colour %02x%02x%02x%s%s", look_light, (unsigned)(look_cast[0] * 255.0f + 0.5f), (unsigned)(look_cast[1] * 255.0f + 0.5f),
                  (unsigned)(look_cast[2] * 255.0f + 0.5f), zone_slot ? "  (this zone's own)" : "", light.hall != NULL && light.hall[node] ? "  (a hall: lit by its lamps)" : "");
     }
-    else
+    else if (!zone_look && n < max)
         snprintf(lines[n++], 96, "tunnel look: the made tunnel's own");
     return n;
 }

@@ -1220,6 +1220,9 @@ if(NOT EMSCRIPTEN)
         # the bumper view at night in rain with the headlights: the same frame each run, no sanitizer error (the tunnel flags read after being freed)
         add_test(NAME rain_night_headlights COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_night_headlights -P ${CMAKE_SOURCE_DIR}/tests/rain_night_headlights.cmake)
         set_tests_properties(rain_night_headlights PROPERTIES TIMEOUT 400)
+        # the light editor: saving the light file mid-race must not overrun the lines it draws
+        add_test(NAME light_edit_reload COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_reload.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_reload)
+        set_tests_properties(light_edit_reload PROPERTIES TIMEOUT 120)
         # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
         add_test(NAME rain_lamps_masked COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_lamps_masked -P ${CMAKE_SOURCE_DIR}/tests/rain_lamps_masked.cmake)
         set_tests_properties(rain_lamps_masked PROPERTIES TIMEOUT 400)
