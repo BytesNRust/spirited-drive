@@ -2,7 +2,7 @@
  * the node the car is at and the values the light has there, and what the track light file did (read, or the light made in code and which of the port's settings differ from the ones
  * the file was made with: its retouches count either way). F10 holds the car where it is (the race stands still, the picture goes on: the light is looked at, not driven past);
  * F11 copies the node's retouch line ("brightness 120 120 100") to the clipboard to paste into data/track_light/<TRACK><A|B|C|N>.txt. The file is read again a second after it is
- * saved, without leaving the race. Presentation only: drawn into a copy of the frame as the stats overlay is (race_stats.h). */
+ * saved, without leaving the race, and so is the track's places file (the light and the dry zones are made again; `snow` and `snow_map` change textures at load and want the race restarted). Presentation only: drawn into a copy of the frame as the stats overlay is (race_stats.h). */
 #ifndef TNFS_LIGHT_EDIT_H
 #define TNFS_LIGHT_EDIT_H
 
@@ -29,7 +29,7 @@ int light_edit_wanted(void);
 void light_edit_start(LightEdit *e, int on);
 /* the keys of a frame (the set-1 key table of the race's input) with the node the followed car is at, at `now_ms` */
 void light_edit_keys(LightEdit *e, const uint8_t *keys, uint32_t node, uint32_t now_ms);
-/* once a frame: 1 when the file changed since the last look and the light was made again */
+/* once a frame: 1 when the light file or the places file changed since the last look and the light was made again */
 int light_edit_poll(LightEdit *e, uint32_t now_ms);
 /* the frame with the editor's lines drawn on a copy of it when on; `frame` itself when off. Valid until the next call. */
 const uint8_t *light_edit_compose(LightEdit *e, const uint8_t *frame, int width, int height, const uint8_t palette[768], uint32_t node);

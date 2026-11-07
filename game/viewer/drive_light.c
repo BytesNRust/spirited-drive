@@ -828,22 +828,25 @@ int drive_light_reload(void)
     return 1;
 }
 
+/* the FNV-1a of a file folded into `h` (a missing file adds nothing) */
+static uint32_t hash_file(const char *path, uint32_t h)
+{
+    size_t size = 0;
+    uint8_t *file = platform_read_file(path, &size);
+    for (size_t i = 0; file != NULL && i < size; i++) h = (h ^ file[i]) * 16777619u;
+    if (file != NULL) platform_free_file(file);
+    return h;
+}
+
+/* the editor's watch: the checksum of the light file and the places file together (either saved changes it); `path` the light file's */
 int drive_light_file_state(char *path, size_t path_size, uint32_t *hash)
 {
     if (made_tri == NULL || !synth_on) return 0;
-    char found[1024];
-    if (!track_light_find(made_track, light_letter, found, sizeof found)) {
-        if (hash != NULL) *hash = 0;
-        if (path != NULL && path_size > 0) path[0] = '\0';
-        return 1;
-    }
-    size_t size = 0;
-    uint8_t *file = platform_read_file(found, &size);
-    uint32_t h = 2166136261u;
-    for (size_t i = 0; file != NULL && i < size; i++) h = (h ^ file[i]) * 16777619u;
-    if (file != NULL) platform_free_file(file);
-    if (hash != NULL) *hash = h;
-    if (path != NULL && path_size > 0) snprintf(path, path_size, "%s", found);
+    char found[1024], places[1024];
+    const int have_light = track_light_find(made_track, light_letter, found, sizeof found);
+    const int have_places = track_light_place_find(made_track, places, sizeof places);
+    if (hash != NULL) *hash = have_light || have_places ? hash_file(have_places ? places : "", hash_file(have_light ? found : "", 2166136261u)) : 0;
+    if (path != NULL && path_size > 0) snprintf(path, path_size, "%s", have_light ? found : "");
     return 1;
 }
 

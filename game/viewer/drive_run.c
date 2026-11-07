@@ -436,7 +436,7 @@ static void run_frame(void *ctx, int32_t frame)
         const Car *followed = drive_sim.race.cars[race_slot(drive_sim.race.player)];
         const uint32_t now = platform_ticks_ms();
         light_edit_keys(&light_edit, drive_input.keys, followed != NULL ? (uint32_t)followed->node : 0, now);
-        light_edit_poll(&light_edit, now);
+        if (light_edit_poll(&light_edit, now)) drive_wet_reload();   /* the places file is watched too: the dry zones follow it */
         static uint32_t held_at;   /* the real time the hold last counted */
         if (light_edit.on && light_edit.frozen) {   /* the clock stands still while the race does */
             if (held_at == 0) held_at = now;

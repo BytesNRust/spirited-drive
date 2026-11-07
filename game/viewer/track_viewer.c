@@ -449,11 +449,30 @@ static uint8_t *drive_wet_open;
 
 static int drive_snow;   /* port (snow_weather): this race's track is a snowy one (its places file's `snow 1`) and the switch is on; set before the field is made */
 
+static const Tri *drive_wet_tri;   /* what drive_wet_open was made from, for the light editor's reload (drive_wet_reload) */
+static char drive_wet_name[16];
+static int drive_wet_reversed;
+
 static const uint8_t *drive_wet_open_make(const Tri *tri, const char *name, int reversed)
 {
     free(drive_wet_open);
     drive_wet_open = wet_zones_for_track(tri, name, reversed);
+    drive_wet_tri = tri, drive_wet_reversed = reversed;
+    snprintf(drive_wet_name, sizeof drive_wet_name, "%s", name);
     return drive_wet_open;
+}
+
+/* port (light_edit): the places file saved in the race: the dry zones are made again from it, over the same array (the race holds its pointer; the ring's length does not change), the new ones freed after the copy.
+ * 0 with no zones made. Only the light editor calls it: without it nothing changes. */
+int drive_wet_reload(void)
+{
+    if (drive_wet_open == NULL || drive_wet_tri == NULL) return 0;
+    uint8_t *again = wet_zones_for_track(drive_wet_tri, drive_wet_name, drive_wet_reversed);
+    if (again == NULL) return 0;
+    memcpy(drive_wet_open, again, drive_wet_tri->ring_nodes);
+    free(again);
+    port_log("wet zones: %s made again\n", drive_wet_name);
+    return 1;
 }
 
 static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
