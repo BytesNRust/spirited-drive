@@ -755,16 +755,11 @@ static void extras_reset_glue(void *ctx, PortExtras *e)
 
 /* port: the EXTRAS screen over whichever menu's live picture called it (Game Mode's Modem slot, Options' Extras
  * row). `unlock` is the caller's level: the one config.dat holds. Returns 1 on Done, 0 on Cancel / Escape. */
-int32_t glue_extras_screen(int16_t unlock)
+/* the ops table: most slots are statics from this file's glue; the EXTRAS-specific ones (text/panel/save and
+ * the select that restores the caller's picture to the back buffer) live next to glue_extras_screen */
+static ExtrasMenuOps extras_menu_ops(void)
 {
-    PortExtras e = port_extras_load();
-    /* the Done/Cancel art (donl/canl/dond/cand) lives in the Options bank; load it before draw_page blits and free it
-     * afterwards. The Options menu loaded its bank before calling here too, but a separate load keeps each side
-     * independent. */
-    const int32_t options_bank = load_art(NULL, "option/options.qfs");
-    /* the ops table: most slots are statics from this file's glue; the EXTRAS-specific ones (text/panel/save and
-     * the select that restores the caller's picture to the back buffer) live next to this function */
-    const ExtrasMenuOps ops = {
+    return (ExtrasMenuOps){
         move_to,            /* pointer_move_to */
         load_art,           /* load_art */
         shape,              /* shape */
@@ -807,6 +802,16 @@ int32_t glue_extras_screen(int16_t unlock)
         port_settings_profile(), /* profile: the mode in use, which says what can be changed */
         extras_reset_glue,  /* reset_profile: the Restore row's action */
     };
+}
+
+int32_t glue_extras_screen(int16_t unlock)
+{
+    PortExtras e = port_extras_load();
+    /* the Done/Cancel art (donl/canl/dond/cand) lives in the Options bank; load it before draw_page blits and free it
+     * afterwards. The Options menu loaded its bank before calling here too, but a separate load keeps each side
+     * independent. */
+    const int32_t options_bank = load_art(NULL, "option/options.qfs");
+    const ExtrasMenuOps ops = extras_menu_ops();
     mode_extras_screen = ea_screen();
     /* port: the page keys, so PageDown turns the page as the screen's own words promise (extras_menu.c's header).
      * They were read for the Graphics screen alone (central_glue.c's graphics()); without this the PageDown branch

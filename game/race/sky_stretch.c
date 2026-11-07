@@ -88,6 +88,29 @@ static int bayer(int32_t x, int32_t y)
     return M[y & 3][x & 3];
 }
 
+/* row `r` of the `added` rows put on top of the art: the column colours (the first row; the rest copy it), or the mean colour with the top row's pixels dithered in */
+static void fill_added_row(SkyStretch *s, const FshEntry *horz, int32_t w, int32_t above, int32_t added, int32_t r, int mode, const uint8_t *palette, uint8_t mean)
+{
+    uint8_t *const row = s->pixels + (size_t)r * w;
+    if (mode == SKY_FILL_COLUMN || mode == SKY_FILL_COLUMN_QUIET) {
+        if (r == 0) {   /* the first added row carries the column colours; the rest copy it */
+            const int32_t sample = above < SKY_FILL_COLUMN_ROWS ? above : SKY_FILL_COLUMN_ROWS;
+            for (int32_t x = 0; x < w; x++) row[x] = column_colour(horz, w, sample, x);
+            if (mode == SKY_FILL_COLUMN_QUIET) quiet_stars(horz, w, palette, row);
+        } else {
+            memcpy(row, s->pixels, (size_t)w);
+        }
+        return;
+    }
+    /* the mean colour, taking in the top row's pixel more and more over the last rows before the art */
+    const int32_t d = added - r;   /* 1 on the row just above the art */
+    for (int32_t x = 0; x < w; x++) {
+        const uint8_t p = horz->payload[x];
+        const int share = d >= SKY_FILL_BLEND_ROWS ? 0 : (SKY_FILL_BLEND_ROWS - d + 1) * 16 / (SKY_FILL_BLEND_ROWS + 1);
+        row[x] = p != 0xff && bayer(x, r) < share ? p : mean;
+    }
+}
+
 const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, int32_t line, int32_t top, int mode,
                             const uint8_t *palette)
 {
@@ -110,26 +133,7 @@ const FshEntry *sky_stretch(SkyStretch *s, const FshEntry *horz, int32_t scale, 
     }
     const int32_t added = grown - above;   /* the rows put on top of the art's own */
     const uint8_t mean = mode == SKY_FILL_BLEND ? mean_colour(horz, w, palette) : 0;
-    for (int32_t r = 0; r < added; r++) {
-        uint8_t *const row = s->pixels + (size_t)r * w;
-        if (mode == SKY_FILL_COLUMN || mode == SKY_FILL_COLUMN_QUIET) {
-            if (r == 0) {   /* the first added row carries the column colours; the rest copy it */
-                const int32_t sample = above < SKY_FILL_COLUMN_ROWS ? above : SKY_FILL_COLUMN_ROWS;
-                for (int32_t x = 0; x < w; x++) row[x] = column_colour(horz, w, sample, x);
-                if (mode == SKY_FILL_COLUMN_QUIET) quiet_stars(horz, w, palette, row);
-            } else {
-                memcpy(row, s->pixels, (size_t)w);
-            }
-            continue;
-        }
-        /* the mean colour, taking in the top row's pixel more and more over the last rows before the art */
-        const int32_t d = added - r;   /* 1 on the row just above the art */
-        for (int32_t x = 0; x < w; x++) {
-            const uint8_t p = horz->payload[x];
-            const int share = d >= SKY_FILL_BLEND_ROWS ? 0 : (SKY_FILL_BLEND_ROWS - d + 1) * 16 / (SKY_FILL_BLEND_ROWS + 1);
-            row[x] = p != 0xff && bayer(x, r) < share ? p : mean;
-        }
-    }
+    for (int32_t r = 0; r < added; r++) fill_added_row(s, horz, w, above, added, r, mode, palette, mean);
     memcpy(s->pixels + (size_t)added * w, horz->payload, (size_t)above * w);
     memcpy(s->pixels + (size_t)grown * w, horz->payload + (size_t)above * w, (size_t)(h - above) * w);
     s->entry = *horz;

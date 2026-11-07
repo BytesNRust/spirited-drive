@@ -68,6 +68,18 @@ typedef struct {
     int net_host_count;
 } Options;
 
+/* the usage message, as a fatal; returns 0 for a caller that goes on */
+static int bad_usage(const char *program)
+{
+    port_fatal("usage: %s [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
+                    "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
+                    "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
+                    "       %s [--data DIR] --replay FILE.RPL\n"
+                    "       %s [--data DIR] --movie FILE.TGV\n",
+            program, program, program, program, program);
+    return 0;
+}
+
 static int parse_args(int argc, char **argv, Options *opt)
 {
     *opt = (Options){ "original", 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
@@ -110,13 +122,7 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else if (strcmp(argv[i], "--net-host") == 0 && has_value && opt->net_host_count < NET_UDP_HOSTS) {
             opt->net_hosts[opt->net_host_count++] = argv[++i];
         } else {
-            port_fatal("usage: %s [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
-                            "       %s [--data DIR] --replay FILE.RPL\n"
-                            "       %s [--data DIR] --movie FILE.TGV\n",
-                    argv[0], argv[0], argv[0], argv[0], argv[0]);
-            return 0;
+            return bad_usage(argv[0]);
         }
     }
     return 1;
