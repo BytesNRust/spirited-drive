@@ -561,6 +561,7 @@ static uint32_t track_light_flags(void)
 }
 
 static char track_light_note[160] = "";   /* a small line for the editor when the file was made with other settings than now (a record: the file is used all the same) */
+static char track_light_places[200] = "";   /* and the track's places file, when there is one */
 static char track_light_status[200] = "";   /* what the track light file did for this race, for the light editor's screen (drive_light_edit_lines) */
 
 /* port (made_tunnels): a made light's warm tunnels take the look of their kind (psx_light_synth_warm_look), which a track light file's retouches then change */
@@ -582,12 +583,14 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     char path[1024] = "", why[160] = "";
     const uint32_t nodes = tri != NULL ? tri->node_count : 0;
     track_light_note[0] = '\0';
+    track_light_places[0] = '\0';
     const int have = port_settings_profile() == PROFILE_RESTOMOD && (off == NULL || off[0] != '0') && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why);   /* the file only in Restomod '26: Stock and Restored make the light in code */
     if (have) {
         made = file.light;
         memset(&file.light, 0, sizeof file.light);
         made.from_file = 1;
         snprintf(track_light_status, sizeof track_light_status, "track light: file %s", path);
+        snprintf(track_light_places, sizeof track_light_places, "%s", file.place_path[0] != '\0' ? file.place_path : "no places file");
         snprintf(track_light_note, sizeof track_light_note, "%s", why);
     } else {
         if (!make_light_code(tri, track, &made)) {
@@ -601,12 +604,42 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             char *text = NULL, file_path[1024];
             size_t size = 0;
             snprintf(file_path, sizeof file_path, "%s/%s%c.txt", dir, track, light_letter);
-            if (track_light_format(&made, track, light_letter, flags, &text, &size)) {
+            PsxLight exported = made;   /* a shallow copy: the file's look is worked out from the made light's own (psx_light_tunnel_look), as a percent of full light at this time */
+            float shown[3];
+            drive_light_tint(shown);
+            PsxTunnelLook look;
+            psx_light_tunnel_look(&made, shown, shown, 0, &look);
+            if (look.cast_on) {
+                const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f;
+                exported.look_set = 1;
+                const double exact = (double)look.tint[0] * (double)(mean > 0.05f ? mean : 1.0f) * 100.0;
+                exported.look_light = exact;
+                for (int digits = 1; digits <= 12; digits++) {   /* the shortest number a person would write that gives the very same gain at run time (psx_light_tunnel_look) */
+                    char text[32];
+                    snprintf(text, sizeof text, "%.*g", digits, exact);
+                    const double shorter = strtod(text, NULL);
+                    if ((float)(mean > 0.05f ? shorter / 100.0 / (double)mean : shorter / 100.0) == look.tint[0]) {
+                        exported.look_light = shorter;
+                        break;
+                    }
+                }
+                memcpy(exported.look_cast, look.cast, sizeof exported.look_cast);
+            }
+            if (track_light_format(&exported, track, light_letter, flags, &text, &size)) {
                 FILE *f = fopen(file_path, "wb");
                 if (f != NULL) {
                     fwrite(text, 1, size, f);
                     fclose(f);
                     port_log("track light: wrote %s\n", file_path);
+                }
+                free(text);
+            }
+            snprintf(file_path, sizeof file_path, "%s/%s.places.txt", dir, track);   /* the places are the same at every time of day: the export script keeps one */
+            if (track_light_place_format(&made, track, &text, &size)) {
+                FILE *f = fopen(file_path, "wb");
+                if (f != NULL) {
+                    fwrite(text, 1, size, f);
+                    fclose(f);
                 }
                 free(text);
             }
@@ -720,6 +753,7 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     int n = 0;
     snprintf(lines[n++], 96, "LIGHT EDIT  %s%c  node %u of %u", made_track, light_letter, node, light.nodes);
     snprintf(lines[n++], 96, "%s", track_light_status);
+    if (track_light_places[0] != '\0' && n < max) snprintf(lines[n++], 96, "places: %s", track_light_places);
     if (track_light_note[0] != '\0' && n < max) snprintf(lines[n++], 96, "%s", track_light_note);
     const uint8_t *row = &light.data[(size_t)node * PSX_LIGHT_POINTS];
     snprintf(lines[n++], 96, "row %u %u %u %u %u %u %u %u %u %u %u", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10]);
@@ -740,9 +774,10 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     } else if (n < max) {
         snprintf(lines[n++], 96, "scene tone: none");
     }
-    if (light.warm_percent[0] > 0 || light.warm_percent[1] > 0)
-        snprintf(lines[n++], 96, "tunnel look day %.2f %.2f %.2f x%d  night %.2f %.2f %.2f x%d", (double)light.warm_cast[0][0], (double)light.warm_cast[0][1], (double)light.warm_cast[0][2], light.warm_percent[0],
-                 (double)light.warm_cast[1][0], (double)light.warm_cast[1][1], (double)light.warm_cast[1][2], light.warm_percent[1]);
+    if (light.look_set && n < max) {   /* the tunnels' look this time (`tunnel_tone`): its light as a percent of full light, and its colour */
+        snprintf(lines[n++], 96, "tunnel look: light %.4g%%  colour %02x%02x%02x%s", light.look_light, (unsigned)(light.look_cast[0] * 255.0f + 0.5f), (unsigned)(light.look_cast[1] * 255.0f + 0.5f),
+                 (unsigned)(light.look_cast[2] * 255.0f + 0.5f), light.hall != NULL && light.hall[node] ? "  (a hall: lit by its lamps)" : "");
+    }
     else
         snprintf(lines[n++], 96, "tunnel look: the made tunnel's own");
     return n;

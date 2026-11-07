@@ -1584,13 +1584,8 @@ rows 2189 2196 255 255 54 56 61 64 255 54 56 61 64
 rows 2197 2197 255 255 55 57 61 64 255 54 56 61 64
 rows 2198 2198 255 255 55 57 62 64 255 54 57 61 64
 rows 2199 2199 255 255 56 58 62 64 255 55 57 61 64
-present tunnel
-present hall
-present canyon
 present pool
 present car_pool
-tunnel 276 483
-tunnel 1596 1843
 pool 4 4 1
 pool 5 6 2
 pool 7 7 3
@@ -2841,6 +2836,4 @@ car_pool 2008 2012 4
 car_pool 2013 2013 3
 car_pool 2014 2015 2
 car_pool 2016 2016 1
-cast neutral 0 city 2
-tunnel_tone day 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 115
-tunnel_tone night 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 90
+tunnel_tone 54 1/0.68/0.28

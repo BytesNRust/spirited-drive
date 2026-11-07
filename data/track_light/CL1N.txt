@@ -1808,4 +1808,3 @@ car_pool 560 564 4
 car_pool 565 565 3
 car_pool 566 567 2
 car_pool 568 568 1
-cast neutral 0 city 0

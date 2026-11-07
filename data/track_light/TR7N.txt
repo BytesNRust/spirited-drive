@@ -518,17 +518,10 @@ rows 1020 1020 255 255 184 193 202 205 255 186 186 191 200
 rows 1021 1021 255 255 193 202 211 214 255 195 196 200 208
 rows 1022 1022 255 255 196 205 214 217 255 198 199 203 211
 rows 1023 1023 255 255 193 202 211 214 255 195 196 200 208
-present tunnel
-present hall
-present car_dim
 present pool
 present car_pool
-tunnel 465 470
-tunnel 571 609
-tunnel 682 695
-hall 1 62
-hall 1011 1023
-car_dim 465 570
+tunnel 1 62 lit
+tunnel 1011 1023 lit
 pool 0 0 4
 pool 1 1 3
 pool 2 3 2
@@ -765,4 +758,4 @@ car_pool 1016 1016 1
 car_pool 1017 1018 2
 car_pool 1019 1019 3
 car_pool 1020 1023 4
-cast neutral 0 city 0
+tunnel_tone 60 1/0.8/0.15

@@ -110,8 +110,38 @@ int psx_light_weather_closed(const PsxLight *light, uint32_t node)
     if (light == NULL || light->nodes == 0) return 0;
     const uint32_t at = psx_light_old_node(light, node) % light->nodes;
     if (light->canyon != NULL && light->canyon[at]) return 0;
+    if (light->hall != NULL && light->hall[at]) return 1;   /* a hall is a tunnel with a lot of light: it has a roof */
     if (light->tunnel != NULL) return light->tunnel[at] != 0;
     return psx_light_tunnel(light, node);
+}
+
+void psx_light_tunnel_look(const PsxLight *light, const float shown[3], const float lit_tint[3], int lamp_count, PsxTunnelLook *out)
+{
+    static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
+    static const float LEAST = 0.6f;   /* the least light a tunnel's surfaces take (the dusk's mean): its own lamps light it */
+    memset(out, 0, sizeof *out);
+    for (int k = 0; k < 3; k++) out->tint[k] = lit_tint[k];
+    if (light == NULL) return;
+    const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f;
+    out->min_light = light->tunnel != NULL ? 0.0f : LEAST;
+    if (light->look_set) {   /* the file's: its light is of full light at any time of day, so the tables take it over the time's own tint */
+        const float gain = (float)(mean > 0.05f ? light->look_light / 100.0 / (double)mean : light->look_light / 100.0);
+        out->cast_on = 1;
+        out->tint[0] = out->tint[1] = out->tint[2] = gain;
+        memcpy(out->cast, light->look_cast, sizeof out->cast);
+        return;
+    }
+    const int dark = mean < LEAST;
+    const int warm = light->city_tunnel != 0 && light->tunnel != NULL && !light->neutral_cast;
+    const float *warm_cast = warm && light->warm_percent[dark] > 0 ? light->warm_cast[dark] : NULL;   /* the made light's look of this kind of tunnel */
+    const int percent = warm_cast != NULL ? light->warm_percent[dark] : 0;
+    const int kind = warm_cast != NULL ? 3 : light->neutral_cast ? 2 : lamp_count > 0 || light->tunnel != NULL;   /* a tunnel track: its darkened levels take the olive cast and the tunnel's least light */
+    if (light->tunnel != NULL) {   /* the palette shown is the night's, so the tables are made brighter by as much as it takes off, to LEAST on the screen */
+        const float base = mean > 0.05f && mean < LEAST ? LEAST / mean : 1.0f, gain = warm_cast != NULL ? base * (float)percent / 100.0f : base;
+        out->tint[0] = out->tint[1] = out->tint[2] = gain;
+    }
+    out->cast_on = kind != 0;
+    memcpy(out->cast, warm_cast != NULL ? warm_cast : kind == 2 ? NO_CAST : TUNNEL_CAST, sizeof out->cast);
 }
 
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node)

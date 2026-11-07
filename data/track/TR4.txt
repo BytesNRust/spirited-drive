@@ -1,0 +1,6 @@
+# tnfs track places 1
+track TR4
+present tunnel
+present canyon
+tunnel 0 15
+tunnel 1016 1023

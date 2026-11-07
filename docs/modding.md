@@ -7,7 +7,7 @@ How to change the game's data without touching the CD: where files live, what a 
 | Folder | What it is | Written by the game? |
 |--------|------------|----------------------|
 | **Game data** (`--data DIR`, or the player's copy `<player folder>/gamedata/`, or `./original` in a development build) | The original CD's files: `SIMDATA/`, `GAMEDATA/`, `FRONTEND/`, the `NFS_WIN.EXE`. Read only. | Never |
-| **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
+| **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
 | **The player's folder** | `port.cfg`, `stock.cfg`, `restored.cfg`, `restomod.cfg`, `controls.cfg`, `extras.cfg`, `records.dat`, `config.dat`, `Replay.rpl`, saved games, `tnfs.log`, `gamedata/`, `mods/`. | Yes: all of it |
 | **A mod** (`--mods DIR`, else `<player folder>/mods/`) | A folder of files that replace the game's. One overlay. | Never |
 
@@ -31,7 +31,7 @@ Example, a changed track:
 
 [modding/track-layout.md](modding/track-layout.md) and [modding/limitations.md](modding/limitations.md) cover building tracks and what the engine cannot do; `tnfs-studio slot replace` puts a track or a car into a mod's folder with the checks.
 
-The port's own files (track light, car masks, dash masks, sounds, the car environment map) go through the same overlay: **a mod's `<mod>/<path>` is tried first, where `<path>` is the path under `data/`** (`track_light/CY1N.txt`, `car_masks/<CAR>/<tex>_mask.png`, `dash_masks/<CAR>/dash_mask.png`, `sounds/thunder.wav`, `car_envmap.png`), then the port's own `data/`. The `TNFS_CAR_MASKS` and `TNFS_DASH_MASKS` variables, for trying a folder, still win over both.
+The port's own files (track light, car masks, dash masks, sounds, the car environment map) go through the same overlay: **a mod's `<mod>/<path>` is tried first, where `<path>` is the path under `data/`** (`track_light/CY1N.txt`, `track/CY1.txt`, `car_masks/<CAR>/<tex>_mask.png`, `dash_masks/<CAR>/dash_mask.png`, `sounds/thunder.wav`, `car_envmap.png`), then the port's own `data/`. The `TNFS_CAR_MASKS` and `TNFS_DASH_MASKS` variables, for trying a folder, still win over both.
 
 ## Track light
 
@@ -43,7 +43,11 @@ The port's own files (track light, car masks, dash masks, sounds, the car enviro
 
 The **live mode** `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1` for one run) shows in a race the node the car is at, which file it reads and the values there. **F10** holds the race where it is, **F11** copies a `brightness N N 100` line to the clipboard, and saving the file reloads the light within a second without leaving the race.
 
-The keywords are English: `track time nodes flags` (the header), `rows`, `present`, `tunnel hall car_dim canyon`, `pool car_pool`, `car_disc`, `cast neutral city`, `tunnel_tone day|night`, `brightness`, `car_tone`; [track-light.md](track-light.md) is the reference. Files written with the first, Spanish words (`pista hora nodos banderas filas tunel pozo brillo tono_coche`...) still load: the port reads each as its English word. The generator is `tools/export_track_light.sh`; regenerating keeps hand edits (see the page).
+The keywords are English: `track time nodes flags` (the header), `rows`, `present`, `pool car_pool`, `car_disc`, `tunnel` (a zone: `tunnel a b [light] [colour | lit]`), `tunnel_tone <light> [colour]`, `brightness`, `tone`, `car_tone`; [track-light.md](track-light.md) is the reference. Files written with the first, Spanish words (`pista hora nodos banderas filas tunel pozo brillo tono_coche`...) still load: the port reads each as its English word. The generator is `tools/export_track_light.sh`; it writes over the shipped files, so a retouch lives in a mod's folder.
+
+### Track places
+
+`data/track/<TRACK>.txt` holds the physical facts of a track, the same at every time of day, and is the home for other per-track data later: a header `track AL1`, then `tunnel a b`, `canyon a b` and `car_dim a b` lines (and `present <key>` for an array that is there but empty); a word the format does not know is a bad line. It goes through the same overlay as the light files: **`<mod>/track/<TRACK>.txt` is tried first**, then `data/track/<TRACK>.txt`. The time's light file (`track_light/<TRACK><A|B|C|N>.txt`) adds to it: its `tunnel a b lit` says a stretch is a hall, and its `tunnel_tone` the tunnels' light and colour at that time. A track with no places file has no tunnels, canyon or `car_dim` nodes for its light; the log says so.
 
 ## Car masks
 
