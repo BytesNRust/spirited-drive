@@ -14,8 +14,9 @@
 #   looks    exe, modern (Stock with TNFS_MODERN_3D=1 TNFS_TEXTURE_FILTER=1 TNFS_FOG=1)   (LOOKS=...)
 # 90 frames each way with the defaults; set the lists shorter for a quick check.
 #
-# DATA: the game's data, $TNFS_DATA or $PWD/original. OUT_DIR keeps the pictures (the default is a temp dir deleted at
-# the end).
+# DATA: the game's data, $TNFS_DATA or $PWD/original. OUT_DIR keeps the pictures when the check finds a difference or a
+# missing one (the default is a temp dir deleted at the end); a check that passes deletes its PPMs and keeps the logs
+# (90 pairs are about 400 MB, and nobody looks at pictures that are identical).
 set -u
 export PATH=/nix/var/nix/profiles/default/bin:$PATH
 
@@ -65,4 +66,8 @@ for track in $TRACKS; do for view in $VIEWS; do for format in $FORMATS; do for l
 done; done; done; done
 
 print -u2 -- "frame_compare.sh: $total pictures, $different differ, $missing missing (A: ${env_a:-none}, B: ${env_b:-none})"
-[[ $different == 0 && $missing == 0 ]]
+if [[ $different == 0 && $missing == 0 ]]; then
+  if [[ -n $keep ]]; then for ppm in $tmp/*.ppm(N); do rm -f -- $ppm; done; fi   # passed: the identical pictures are not kept (a failing check keeps them)
+  exit 0
+fi
+exit 1
