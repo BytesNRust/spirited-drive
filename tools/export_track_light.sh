@@ -3,9 +3,10 @@
 # no PS1 disc (the made light, game/viewer/drive_light.c make_light_code; track_light_file.h has the format), and data/track/<TRACK>.txt, the track's places (its tunnels, canyon, car_dim), the same at
 # every time of day. The game reads these files instead of making the light when the port's flags are the ones they were made with. The PS1 disc's own light is never written: it is EA's and Sony's data.
 #
-# The export writes over the files: edit them after it, or keep the edit in a mod's folder (a mod's copy of a file goes first).
+# The export writes only the files that are missing: a file that exists is kept ("kept <file> (exists; FORCE=1 to overwrite)"), since it may hold hand edits. FORCE=1 rewrites them all and loses those
+# edits. A mod's copy of a file goes first all the same.
 #
-# usage: tools/export_track_light.sh <tnfs binary> <original/ dir> [data dir, default data]
+# usage: [FORCE=1] tools/export_track_light.sh <tnfs binary> <original/ dir> [data dir, default data]
 # Takes a few minutes: one headless run a track and time. TRACKS="CY1 TR3" restricts the tracks.
 set -eu
 bin=$1
@@ -29,7 +30,6 @@ for track in $tracks; do
   done
 done
 find "$mods" -delete
-for file in "$new"/*.keep; do [ -f "$file" ] && cp "$file" "$data/track/$(basename "$file" .places.keep).txt"; done
-for file in "$new"/[A-Z]*[ABCN].txt; do [ -f "$file" ] && cp "$file" "$data/track_light/$(basename "$file")"; done
+sh "$(dirname "$0")/export_track_light_install.sh" "$new" "$data"   # keeps the files that exist unless FORCE=1
 find "$new" -delete
 ls "$data/track_light"/*.txt "$data/track"/*.txt | wc -l

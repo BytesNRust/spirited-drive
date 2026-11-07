@@ -341,6 +341,22 @@ int weather_fog_open(int open, float start, float *end, float *cap)
     return 1;
 }
 
+void weather_open_nodes(const uint8_t *closed, uint32_t nodes, uint8_t *open_out)
+{
+    for (uint32_t n = 0; n < nodes; n++) {
+        int nearest = -1;
+        for (int d = 0; d < WEATHER_MOUTH_NODES && nearest < 0; d++)
+            if (closed[(n + (uint32_t)d) % nodes] || closed[(n + nodes - (uint32_t)d % nodes) % nodes]) nearest = d;
+        open_out[n] = (uint8_t)weather_open_for_distance(nearest);
+    }
+}
+
+int32_t weather_wet_grip(int32_t dry, int32_t wet, int open)
+{
+    const int o = open < 0 ? 0 : open > 16 ? 16 : open;
+    return dry + (wet - dry) * o / 16;
+}
+
 int weather_rain_percent(int storm, int v2)
 {
     if (v2) return storm ? WEATHER_STORM_V2_PERCENT : WEATHER_RAIN_V2_PERCENT;

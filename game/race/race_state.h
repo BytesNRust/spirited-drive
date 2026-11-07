@@ -438,6 +438,8 @@ typedef struct {
     int32_t port_start_camera;      /* port: that camera's chase kind + 1 (0 none yet); read and written by race_chase.c, loaded and saved by the viewer */
     int32_t port_replay_cameras;    /* port: the extra (the mode's file): the own live car's view key goes the replay's way */
     RaceDifficulty port_difficulty;  /* port: the race's difficulty (the mode's file's difficulty, difficulty.h); all Original (0) the exe's */
+    int32_t port_grip_dry[RACE_SURFACES];   /* port (tunnel_dry): each surface's grip before the wet road's (race_surfaces_init); a car inside a closed zone has this */
+    const uint8_t *port_open;       /* port (tunnel_dry): per ring node 0..16, how wet the road is there (weather_open_nodes: 0 inside a closed zone); NULL all wet. Owned by whoever set the race up; the same on every machine */
     int32_t port_rain_grip;         /* port: a wet race (port.cfg's rain_grip with weather=rain, track_gravity.h): the road grips at four fifths; 0 the exe's */
     int32_t port_lunar_gravity;     /* port: the moon's race (the mode's file's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
     int32_t port_analog_pad;        /* port: 1 a pad's axis words steer and work the pedals in proportion (analog_pad.h); 0 the exe's key paths unless config.dat asks for the pad */
@@ -529,5 +531,9 @@ void race_dash_values(RaceState *race, int32_t a, int32_t b, int32_t c, int32_t 
 
 /* The road node under a node index, masked like the original (& 00504208). */
 TriNode race_node(const RaceState *race, int32_t node);
+
+/* port (tunnel_dry): the grip `car` has on its surface at its own node: the surface's, dry inside a closed zone with a ramp at the mouths when the race is wet (port_rain_grip). A function of the car's node and
+ * the race alone, so the player, the AI and the other humans get the same at the same node, on every machine. */
+int32_t race_car_grip(const RaceState *race, const Car *car);
 
 #endif

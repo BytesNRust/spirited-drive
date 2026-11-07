@@ -66,18 +66,19 @@ static void test_nothing_dry_or_slow(void)
     CHECK_EQ_INT(rain_spray_step(&s, 99, 12, w, w, right, 1, 20 << 16, 1), 0);  /* a car that does not exist */
 }
 
-static void test_a_tunnel_leaves_road_water_only(void)
+static void test_a_tunnel_leaves_no_spray(void)
 {
     static RainSpray s;
     rain_spray_clear(&s);
     const int32_t right[2] = { 65536, 0 }, w[3] = { 0, 0, 0 };
     rain_spray_step(&s, 0, 10, w, w, right, 1, 30 << 16, 1);
-    int32_t open_place[3], shut_place[3], open_radius, shut_radius;
-    int open_density, shut_density;
+    int32_t open_place[3], mouth_place[3], shut_place[3], open_radius, mouth_radius, shut_radius;
+    int open_density, mouth_density, shut_density;
     CHECK(rain_spray_look(&s.p[0], 18, 16, open_place, &open_radius, &open_density));
-    CHECK(rain_spray_look(&s.p[0], 18, 0, shut_place, &shut_radius, &shut_density));
-    CHECK(shut_radius < open_radius && shut_density <= open_density);   /* smaller and thinner */
-    CHECK(shut_place[1] <= open_place[1]);                              /* and lower */
+    CHECK(rain_spray_look(&s.p[0], 18, 8, mouth_place, &mouth_radius, &mouth_density));
+    CHECK(mouth_radius < open_radius && mouth_density <= open_density);   /* at a mouth: smaller and thinner */
+    CHECK(mouth_place[1] <= open_place[1]);                               /* and lower */
+    CHECK(!rain_spray_look(&s.p[0], 18, 0, shut_place, &shut_radius, &shut_density));   /* port (tunnel_dry): inside a closed zone the road is dry, there is none */
 }
 
 static void test_a_clock_that_goes_back_clears_the_trail(void)
@@ -117,7 +118,7 @@ int main(void)
     test_dropped_once_a_tick_and_left_behind();
     test_a_wisp_is_one_short_particle();
     test_nothing_dry_or_slow();
-    test_a_tunnel_leaves_road_water_only();
+    test_a_tunnel_leaves_no_spray();
     test_a_clock_that_goes_back_clears_the_trail();
     test_wisp2();
     return TEST_REPORT();

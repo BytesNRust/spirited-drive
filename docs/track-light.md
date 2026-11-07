@@ -119,8 +119,13 @@ A tunnel (the places' `tunnel` nodes) or a hall (`tunnel a b lit`) is a closed z
 ## Regenerating the files
 
 When a change to the engine alters the light it generates, the files are regenerated with `tools/export_track_light.sh <bin> <original/> [data dir]`: one headless run a track and time, writing `data/track_light/<TRACK><A|B|C|N>.txt`
-and `data/track/<TRACK>.txt` (the places are the same at the four times: the script says if they are not). The export **writes over** the files, so an edit to a shipped file is lost: keep a retouch in a mod's folder
-(`<mod>/track_light/<file>` goes first) or re-apply it after the export.
+and `data/track/<TRACK>.txt` (the places are the same at the four times: the script says if they are not). The export writes **only the files that are missing**: an existing file is kept ("kept <file> (exists; FORCE=1 to overwrite)"), since it may hold your edits (tunnels, tones, lamps, rows). `FORCE=1 tools/export_track_light.sh ...` rewrites them all and loses those edits.
+A retouch can also live in a mod's folder (`<mod>/track_light/<file>` goes first). The placing step is `tools/export_track_light_install.sh`, tested by `tests/export_keeps_edits.sh`.
+
+## The places file decides what is closed
+
+The closed zones (where it does not rain: the weather's looks, the spray and the lamps' mirrors, the car's grip) are the places file's `tunnel` lines (halls included; a `canyon` is open air), nothing else: Coastal's galleries are `tunnel` lines of `data/track/CL2.txt`.
+The road's own roofed bits are the stand-in only for a track without a places file. When the road roofs a run the file does not close, the game logs `wet zones: <track>: the road's own roof covers N nodes the places file does not close: a..b` (verbose): the rain falls there until the file says `tunnel a b`.
 
 ## Light editor
 

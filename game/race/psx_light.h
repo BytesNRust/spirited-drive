@@ -56,6 +56,7 @@ typedef struct {
     int gate_board;     /* port (finish_gate_light): the stage gate's scenery board plus one, which keeps full light at night (finish_gate_light.h); 0 none */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
+    int from_places;    /* port (tunnel_dry): the tunnel / canyon / car_dim arrays are a places file's (track_light_place_parse): the only source of the closed zones, the road's bits are not added to them */
     int from_file;      /* port (track light file): the light is a file's, whatever the port's flags: its canyon and tunnel nodes count without canyon_shade / car_tunnel_light on */
     PsxLightTone tone[PSX_LIGHT_TONES];   /* port (`tone`): the track's scene tones, tone_count of them */
     int tone_count;

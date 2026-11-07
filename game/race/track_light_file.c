@@ -490,7 +490,7 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
         memset(flag + a, 1, b - a + 1);
     }
     if (!header) { line_no = 0; goto bad; }
-    out->tunnel = places.tunnel, out->canyon = places.canyon, out->car_dim = places.car_dim;   /* the caller's light had none of them */
+    out->tunnel = places.tunnel, out->canyon = places.canyon, out->car_dim = places.car_dim, out->from_places = 1;   /* the caller's light had none of them */
     return 1;
 bad:
     if (bad_line != NULL) *bad_line = line_no;
