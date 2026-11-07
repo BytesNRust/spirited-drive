@@ -1783,6 +1783,56 @@ static int faces_away(const Object3D *o)
     return !faces_camera(o);
 }
 
+/* the screen rectangle of the body's vertices that are in front of the camera, clipped to the target: 0 when nothing of the car is. *behind: some vertex is at or before the near plane
+ * (their screen corners are not a place: the mirror, a car just beside the camera) */
+static int flare_body_rect(const Object3D *body, const QuadTarget *t, int rect[4], int *behind)
+{
+    rect[0] = rect[1] = INT32_MAX;
+    rect[2] = rect[3] = INT32_MIN;
+    *behind = 0;
+    for (uint32_t v = 0; v < body->vertex_count; v++) {
+        if (body->camera != NULL && body->camera[v][2] < FLARE_NEAR_Z) {
+            *behind = 1;
+            continue;
+        }
+        if (body->screen[v][0] < rect[0]) rect[0] = body->screen[v][0];
+        if (body->screen[v][0] > rect[2]) rect[2] = body->screen[v][0];
+        if (body->screen[v][1] < rect[1]) rect[1] = body->screen[v][1];
+        if (body->screen[v][1] > rect[3]) rect[3] = body->screen[v][1];
+    }
+    if (rect[0] > rect[2] || rect[1] > rect[3]) return 0;   /* nothing of the car is in front of the camera */
+    if (rect[0] < t->clip_left) rect[0] = t->clip_left;
+    if (rect[1] < t->clip_top) rect[1] = t->clip_top;
+    if (rect[2] >= t->clip_right) rect[2] = t->clip_right - 1;
+    if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
+    return 1;
+}
+
+/* port (traffic_halo): the far model has no lamp texels: the pair of headlights by the car's rectangle, faded by distance */
+static void flare_far_traffic_pair(const QuadTarget *t, const uint8_t palette[768], const int rect[4], int head, const Car *car)
+{
+    const int fade = lamp_far_fade(car->camera_position[2], car_draw_far_z(car_draw_distance_scale()));
+    if (fade <= 0) return;
+    const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, base = w / 2 < 6 ? 6 : w / 2 > 11 ? 11 : w / 2;
+    const int radius = base * fade / 100 < 2 ? 2 : base * fade / 100;
+    const FlareLamp lamp = { head, 0, { 30 * fade / 100, 65 * fade / 100, 110 * fade / 100 }, 100 };
+    const int cy = rect[1] + h * 2 / 3;
+    flare_halo(t, palette, &lamp, rect[0] + w / 4, cy, radius);
+    flare_halo(t, palette, &lamp, rect[0] + w * 3 / 4, cy, radius);
+}
+
+/* port (police_halo): a strong red and blue pair over the roof by the car's rectangle, as big as its width reads at that distance; far_percent is the size setting's */
+static void flare_far_police_pair(const QuadTarget *t, const uint8_t palette[768], const int rect[4], int red, int blue, int far_percent)
+{
+    const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
+    int radius = w * 7 / 10 < 8 ? 8 : w * 7 / 10 > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : w * 7 / 10;
+    radius = radius * far_percent / 100 > LAMP_FLARE_BIG_RADIUS ? LAMP_FLARE_BIG_RADIUS : radius * far_percent / 100;
+    const int cy = rect[1] + h / 4;
+    const FlareLamp left = { phase == 0 ? red : blue, 0, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, 0, { 70, 120, 180 }, 100 };
+    if (left.entry != 0) flare_halo(t, palette, &left, rect[0] + w / 3, cy, radius);
+    if (right.entry != 0) flare_halo(t, palette, &right, rect[0] + w * 2 / 3, cy, radius);
+}
+
 static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, const uint8_t palette[768])
 {
     const Object3D *body = car->far != 0 ? vc->model.far : vc->model.body;   /* the model this pass drew: the other one's screen corners are another view's */
@@ -1805,23 +1855,8 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
     const int police = police_flash_on && police_lights_on(shadow_race, car);
     const int red = police ? police_lights_own_entry(1) : 0, blue = police ? police_lights_own_entry(0) : 0;
     if (n == 0 && red == 0 && blue == 0) return;
-    int rect[4] = { INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN };
-    int behind = 0;   /* vertices at or before the near plane: their screen corners are not a place (the mirror, a car just beside the camera) */
-    for (uint32_t v = 0; v < body->vertex_count; v++) {
-        if (body->camera != NULL && body->camera[v][2] < FLARE_NEAR_Z) {
-            behind = 1;
-            continue;
-        }
-        if (body->screen[v][0] < rect[0]) rect[0] = body->screen[v][0];
-        if (body->screen[v][0] > rect[2]) rect[2] = body->screen[v][0];
-        if (body->screen[v][1] < rect[1]) rect[1] = body->screen[v][1];
-        if (body->screen[v][1] > rect[3]) rect[3] = body->screen[v][1];
-    }
-    if (rect[0] > rect[2] || rect[1] > rect[3]) return;   /* nothing of the car is in front of the camera */
-    if (rect[0] < t->clip_left) rect[0] = t->clip_left;
-    if (rect[1] < t->clip_top) rect[1] = t->clip_top;
-    if (rect[2] >= t->clip_right) rect[2] = t->clip_right - 1;
-    if (rect[3] >= t->clip_bottom) rect[3] = t->clip_bottom - 1;
+    int rect[4], behind;
+    if (!flare_body_rect(body, t, rect, &behind)) return;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
     const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
     static const int POLICE_REACH[4] = { BIG_REACH_POLICE, 400, 600, 900 }, POLICE_FAR[4] = { 100, 160, 240, 360 };   /* port (police_halo): the roof lights' halo size, near (percent of the lamp) and far (percent of the pair's) */
@@ -1836,28 +1871,11 @@ static void draw_flare(const ViewCar *vc, const Car *car, const QuadTarget *t, c
         const int found = flare_lamp(t, palette, rect, &lamps[i]);
         if (lamps[i].entry != 0 && (lamps[i].entry == red || lamps[i].entry == blue)) siren_blobs += found;
     }
-    if (far_traffic && head != 0 && !no_halo && !behind && faces_camera(body) && rect[2] > rect[0] && rect[3] > rect[1]) {
-        const int fade = lamp_far_fade(car->camera_position[2], car_draw_far_z(car_draw_distance_scale()));
-        if (fade > 0) {
-            const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, base = w / 2 < 6 ? 6 : w / 2 > 11 ? 11 : w / 2;
-            const int radius = base * fade / 100 < 2 ? 2 : base * fade / 100;
-            const FlareLamp lamp = { head, 0, { 30 * fade / 100, 65 * fade / 100, 110 * fade / 100 }, 100 };
-            const int cy = rect[1] + h * 2 / 3;
-            flare_halo(t, palette, &lamp, rect[0] + w / 4, cy, radius);
-            flare_halo(t, palette, &lamp, rect[0] + w * 3 / 4, cy, radius);
-        }
-    }
+    if (far_traffic && head != 0 && !no_halo && !behind && faces_camera(body) && rect[2] > rect[0] && rect[3] > rect[1]) flare_far_traffic_pair(t, palette, rect, head, car);
     /* port (police_halo): the siren's lamp texels are a pixel or two a long way off and then nothing is found, while the headlights' still are: a lit police car whose
      * lights gave no blob has the pair halo by its rectangle, as the low detail model does, so the siren shows as far as the headlights */
-    if ((far_police || (cop && !far_traffic && siren_blobs == 0 && (red != 0 || blue != 0))) && !behind && rect[2] > rect[0] && rect[3] > rect[1]) {   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
-        const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
-        int radius = w * 7 / 10 < 8 ? 8 : w * 7 / 10 > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : w * 7 / 10;
-        radius = radius * POLICE_FAR[size] / 100 > LAMP_FLARE_BIG_RADIUS ? LAMP_FLARE_BIG_RADIUS : radius * POLICE_FAR[size] / 100;
-        const int cy = rect[1] + h / 4;
-        const FlareLamp left = { phase == 0 ? red : blue, 0, { 70, 120, 180 }, 100 }, right = { phase == 0 ? blue : red, 0, { 70, 120, 180 }, 100 };
-        if (left.entry != 0) flare_halo(t, palette, &left, rect[0] + w / 3, cy, radius);
-        if (right.entry != 0) flare_halo(t, palette, &right, rect[0] + w * 2 / 3, cy, radius);
-    }
+    if ((far_police || (cop && !far_traffic && siren_blobs == 0 && (red != 0 || blue != 0))) && !behind && rect[2] > rect[0] && rect[3] > rect[1])   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
+        flare_far_police_pair(t, palette, rect, red, blue, POLICE_FAR[size]);
 }
 
 static void render_slot(ViewCar *vc, Car *car, int pass, const ModelView *mv, const Object3DSink *sink,
