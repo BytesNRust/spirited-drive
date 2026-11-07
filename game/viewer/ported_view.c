@@ -15,6 +15,9 @@
 #include "game/race/view.h"
 #include "game/viewer/cone_cells.h"
 #include "game/race/track_fence.h"
+#include "game/race/track_object_draw.h"
+#include "game/race/reflector.h"
+#include "game/viewer/reflect_pass.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
@@ -352,13 +355,81 @@ static const uint8_t *lit_table_for(const FshEntry *texture)
 
 static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? light_tables()[lit_level] : NULL; }
 
+/* port (reflectors): the masks come from the track (track_mask.h's track_mask_for, set by the loader); the textures are registered once per loaded art, the lamps' state each frame */
+static const uint8_t *(*reflect_mask_for)(const TrackTexture *t);
+static const TrackArt *reflect_registered;
+static int reflect_lamps_on, reflect_dark;
+static double reflect_x, reflect_z, reflect_hx, reflect_hz;
+
+void ported_view_set_reflect_masks(const uint8_t *(*mask_for)(const TrackTexture *t))
+{
+    reflect_mask_for = mask_for;
+    reflect_registered = NULL;
+}
+
+static void reflect_register(const TrackArt *art)
+{
+    if (art == reflect_registered) return;
+    reflect_registered = art;
+    reflect_pass_reset();
+    if (art == NULL || reflect_mask_for == NULL) return;
+    for (int s = 0; s < TRACK_TEXTURE_SLOTS; s++) {   /* a road slot: its variants are the same picture smaller (the mask is the base's, resampled) */
+        const TrackTexture *base = &art->slots[s][0];
+        const uint8_t *mask = base->present ? reflect_mask_for(base) : NULL;
+        for (int v = 0; mask != NULL && v < TRACK_TEXTURE_VARIANTS; v++)
+            if (art->slots[s][v].present) reflect_pass_add(&art->slots[s][v].bitmap, mask, base->bitmap.width, base->bitmap.height);
+    }
+    for (int i = 0; i < TRACK_SCENERY_TEXTURES; i++) {
+        const TrackTexture *t = &art->scenery[i];
+        const uint8_t *mask = t->present ? reflect_mask_for(t) : NULL;
+        if (mask != NULL) reflect_pass_add(&t->bitmap, mask, t->bitmap.width, t->bitmap.height);
+    }
+    port_log("reflectors: %d textures with a mask\n", reflect_pass_count());
+}
+
+/* the frame's state, before the track is drawn */
+static void reflect_frame(const TrackArt *art)
+{
+    if (!port_reflectors() || art == NULL) {
+        if (reflect_registered != NULL) reflect_pass_reset(), reflect_registered = NULL;
+        reflect_pass_frame(0, 0, 0, 1, 0, 0, NULL);
+        return;
+    }
+    reflect_register(art);
+    reflect_pass_frame(reflect_lamps_on, reflect_x, reflect_z, reflect_hx, reflect_hz, reflect_dark, art->palette);
+}
+
+/* port (reflectors, reflect_pass.h): the step of shine (0 none) of the polygon being drawn: an object at its own place, a road polygon at the mean of its corners' ground places */
+static int reflect_level_here(void)
+{
+    if (!reflect_pass_active()) return 0;
+    double x, z, height = 0.0;
+    if (track_port_object_at != NULL) {
+        x = track_port_object_at[0] / 65536.0, z = track_port_object_at[2] / 65536.0;
+        height = 1.0;   /* a sign's face is about this far over the foot the object is placed by */
+    } else if (track_light_xz_ok) {
+        x = (track_light_xz[0][0] + track_light_xz[1][0] + track_light_xz[2][0] + track_light_xz[3][0]) / 4.0;
+        z = (track_light_xz[0][1] + track_light_xz[1][1] + track_light_xz[2][1] + track_light_xz[3][1]) / 4.0;
+    } else return 0;
+    return reflector_level(reflect_pass_gain(x, z, height));
+}
+
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
-static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
+static void draw_uv_base(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
     tunnel_flare_note(texture, uv, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
     else quad_draw(user, texture, uv, screen, transparent(texture));
+}
+
+static void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
+{
+    draw_uv_base(user, texture, uv, screen);
+    if (!reflect_pass_active()) return;
+    const FshEntry *copy = reflect_pass_copy(texture);
+    const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) quad_draw_mode(user, copy, uv, screen, MAP_REMAP_TRANSPARENT, reflect_pass_table(level));   /* port (reflectors) */
 }
 
 static int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */
@@ -550,7 +621,7 @@ static int wide_board_on(void)
 static const View *modern_view(const View *view) { return modern ? view : NULL; }
 
 /* port: the near road clipped, unsnapped and perspective-correct (Modern 3D) */
-static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
+static void draw_camera_base(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
                         const int32_t *const cam[4])
 {
     if (lit_active && (lit_tinted || lit_corner[0] < 255 || lit_corner[1] < 255 || lit_corner[2] < 255 || lit_corner[3] < 255)) {
@@ -584,8 +655,21 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
     } else modern_road_cell(user, view, texture, uv, cam, transparent(texture));
 }
 
+static void draw_camera(void *user, const View *view, const FshEntry *texture, const int32_t uv[8],
+                        const int32_t *const cam[4])
+{
+    draw_camera_base(user, view, texture, uv, cam);
+    if (!reflect_pass_active()) return;
+    const FshEntry *copy = reflect_pass_copy(texture);
+    const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) {   /* port (reflectors): the masked texels again, lit by the lamps and not by the dark */
+        static const float no_dark[4] = { 0, 0, 0, 0 };
+        modern_road_cell_lit(user, view, copy, uv, cam, 1, reflect_pass_rows(level, MODERN_FOG_LEVELS), no_dark);
+    }
+}
+
 /* 004f9e9c = 00425590 -> 004251d0: the whole texture as two triangles */
-static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
+static void draw_full_base(void *user, const FshEntry *texture, const int32_t screen[8])
 {
     tunnel_flare_note_full(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
@@ -599,8 +683,24 @@ static void draw_full(void *user, const FshEntry *texture, const int32_t screen[
     } else quad_draw_full_tri(user, texture, screen, transparent(texture));
 }
 
+static void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
+{
+    draw_full_base(user, texture, screen);
+    if (!reflect_pass_active()) return;
+    const FshEntry *copy = reflect_pass_copy(texture);
+    const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) {   /* port (reflectors) */
+        const uint8_t *lit = reflect_pass_table(level);
+        const int32_t right = (int32_t)(int16_t)copy->width - 2, bottom = (int32_t)(int16_t)copy->height - 2;
+        const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom }, uv_b[6] = { right, bottom, 1, bottom, 1, 1 };
+        const int32_t scr_b[6] = { screen[4], screen[5], screen[6], screen[7], screen[0], screen[1] };
+        tri_draw_mode(user, copy, uv_a, screen, MAP_REMAP_TRANSPARENT, lit);
+        tri_draw_mode(user, copy, uv_b, scr_b, MAP_REMAP_TRANSPARENT, lit);
+    }
+}
+
 /* 004f9e90 = 00425558 -> 00425250: the whole texture as one quad */
-static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
+static void draw_full_alt_base(void *user, const FshEntry *texture, const int32_t screen[8])
 {
     tunnel_flare_note_full(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
@@ -609,6 +709,19 @@ static void draw_full_alt(void *user, const FshEntry *texture, const int32_t scr
         const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
         quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);
     } else quad_draw_full(user, texture, screen, transparent(texture));
+}
+
+static void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
+{
+    draw_full_alt_base(user, texture, screen);
+    if (!reflect_pass_active()) return;
+    const FshEntry *copy = reflect_pass_copy(texture);
+    const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) {   /* port (reflectors) */
+        const int32_t right = ((int32_t)(int16_t)copy->width << 16) - 1, bottom = ((int32_t)(int16_t)copy->height << 16) - 1;
+        const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+        quad_draw_mode(user, copy, uv, screen, MAP_REMAP_TRANSPARENT, reflect_pass_table(level));
+    }
 }
 
 /* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
@@ -752,6 +865,7 @@ static void headlights_update(void)
     static uint32_t of_ring;
     pool->count = 0;
     pool->ring = psx_light->nodes;
+    reflect_lamps_on = 0;   /* port (reflectors): only the player's lamps */
     if (shadow_race == NULL) return;
     const int32_t ring = (int32_t)pool->ring;
     if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel);   /* another track */
@@ -777,6 +891,12 @@ static void headlights_update(void)
         if (pool->cone) {   /* port (headlight_cone): the cone from the car's place along its nose */
             pool->cone_x[pool->count] = car->x / 65536.0, pool->cone_z[pool->count] = car->z / 65536.0;
             cone_heading(car, &pool->cone_hx[pool->count], &pool->cone_hz[pool->count]);
+        }
+        if (i == race_slot(shadow_race->player)) {   /* port (reflectors) */
+            double hx, hz;
+            cone_heading(car, &hx, &hz);
+            reflect_lamps_on = 1, reflect_x = car->x / 65536.0, reflect_z = car->z / 65536.0, reflect_hx = hx, reflect_hz = hz;
+            reflect_dark = drive_light_night() || headlight_pool_tunnel(pool, (uint32_t)car->node);
         }
         pool->cone_car[pool->count] = (int8_t)i;
         pool->sub[pool->count] = headlight_frac(shadow_race, car);
@@ -2556,6 +2676,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     }
     if (psx_light == NULL && flare_on && lamp_count > 0) lamp_flare_textures(art);
     if (psx_light != NULL) light_tables_prepare(art);
+    reflect_frame(art);
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;

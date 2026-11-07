@@ -62,6 +62,9 @@ void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entr
 /* port (night; window_lights.h): the scenery boards whose lit windows' `entry` the light tables leave alone (at most WINDOW_BOARDS_MAX); none with n 0 */
 enum { WINDOW_BOARDS_MAX = 12 };
 void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry);
+
+/* port (reflectors, reflect_pass.h): where the track's masks come from (track_mask.h's track_mask_for: a texture's w x h bytes, 1 reflective, or NULL); NULL: none, and nothing shines */
+void ported_view_set_reflect_masks(const uint8_t *(*mask_for)(const TrackTexture *t));
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
 
 /* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
