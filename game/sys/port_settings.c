@@ -909,6 +909,12 @@ int port_sky_fill_below(void)
     return sky_fill_below_applies(&s);
 }
 
+int port_host_allows_radar_and_camera(void)
+{
+    const SessionRules *host = session_rules_active();
+    return host == NULL || host->mode == SESSION_RESTOMOD;
+}
+
 int port_radar_all_views(void)
 {
     const char *v = getenv("TNFS_RADAR_ALL_VIEWS");

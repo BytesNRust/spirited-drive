@@ -120,7 +120,7 @@ static void drive_wide_setup(void)
      * TNFS_BANDS environment variable wins over the file's value, and "auto" is as many as the logical cores. */
     bands_apply(ps.render_bands);
     drive_bumper_start(&drive_bumper, env_switch("TNFS_BUMPER_MIRROR", extras.bumper_mirror),
-                       env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar));
+                       env_switch("TNFS_BUMPER_RADAR", extras.bumper_radar && port_host_allows_radar_and_camera()));   /* port (online): not under a Stock/Restored host */
     drive_mirror_free(&bumper_mirror);  /* the last track's horizon with it */
     drive_mirror_start_own(&bumper_mirror, DRIVE_BUMPER_MIRROR_PERCENT);
     race_detail_set_ceiling(ultra || f3 ? DRAW_SEGMENTS_ULTRA : 0);
@@ -554,7 +554,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         const PortSettings cam = port_settings_load();
         if (cam.camera_kind >= 0 && cam.camera_kind <= 5) drive_sim.race.port_start_camera = cam.camera_kind + 1;
     }
-    drive_sim.race.port_follow_camera = port_extras_load().follow_camera;   /* port: the mode's file's Follow camera (CUSTOMIZE, Unlocks & mods) */
+    drive_sim.race.port_follow_camera = port_extras_load().follow_camera && port_host_allows_radar_and_camera();   /* port: the mode's file's Follow camera (CUSTOMIZE, Unlocks & mods) */
     drive_sim.race.port_follow_ring = drive_sim.race.port_follow_camera != 0;   /* port: and its arm behind, a longer one, in a bigger cache */
     if (drive_menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
         const PortExtras cheats = race_extras();

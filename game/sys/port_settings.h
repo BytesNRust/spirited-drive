@@ -147,6 +147,10 @@ int port_tach_dim(void);
 int port_sky_fill_below(void);
 /* the flag `s` has, and the format it is for: on, and not 4:3, where the exe's fill stays whatever the flag says */
 int sky_fill_below_applies(const PortSettings *s);
+/* port (online): 0 while a link race runs under a Stock or Restored host's rules (session_rules.h): the police radar and the 360 camera are off for everyone then, whatever
+ * each player's own file says; 1 otherwise (a Restomod host, no link race, an older host). Never saved, nothing in the files changes; the rules end with the race. */
+int port_host_allows_radar_and_camera(void);
+
 /* 1 when the police radar shows in every outside view: TNFS_RADAR_ALL_VIEWS=0/1 when set, else the mode's radar_all_views. */
 int port_radar_all_views(void);
 /* 1 when the night's sky is re-hued blue-black (psx_sky_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else the mode's night_sky_hue. */

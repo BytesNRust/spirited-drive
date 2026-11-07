@@ -451,7 +451,7 @@ static void run_frame(void *ctx, int32_t frame)
     ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
     drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_mirror"),
-                      drive_input.keys[KEY_F2] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_radar"));   /* port (modes): only where the mode leaves them free */
+                      drive_input.keys[KEY_F2] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_radar") && port_host_allows_radar_and_camera());   /* port (modes): only where the mode leaves them free */
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 

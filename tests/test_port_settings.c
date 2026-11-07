@@ -1,4 +1,5 @@
 /* The port's own settings file (port.cfg): defaults, text round trip, and what a damaged file leaves alone. */
+#include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
@@ -691,6 +692,66 @@ static void test_the_hosts_rules_win_while_set(void)
     CHECK_EQ_INT(reverse_track_wanted(), reverse);
 }
 
+/* port (online): radar and the 360 camera run in a link race only under a Restomod host; the machine's file is never changed by that, and its own values return after */
+static void start_restomod_with(int weather);
+
+static void restomod_with_radar_and_camera(void)
+{
+    start_restomod_with(WEATHER_CLEAR);
+    PortExtras e = port_extras_load();
+    e.bumper_radar = 1, e.follow_camera = 1;
+    CHECK(port_extras_save(&e));
+    unsetenv("TNFS_BUMPER_RADAR");
+}
+
+static void host_of(uint8_t mode, SessionRules *r)
+{
+    memset(r, 0, sizeof *r);
+    r->mode = mode;
+    session_rules_set(r);
+}
+
+static void test_a_stock_or_restored_host_turns_radar_and_the_360_camera_off(void)
+{
+    restomod_with_radar_and_camera();
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 1);
+    SessionRules host;
+    for (uint8_t mode = SESSION_STOCK; mode <= SESSION_RESTORED; mode++) {
+        host_of(mode, &host);
+        CHECK_EQ_INT(port_host_allows_radar_and_camera(), 0);
+            const PortExtras e = port_extras_load();   /* the machine's own file is as it was */
+        CHECK_EQ_INT(e.bumper_radar, 1);
+        CHECK_EQ_INT(e.follow_camera, 1);
+    }
+    session_rules_set(NULL);
+    clear_files();
+}
+
+static void test_a_restomod_host_leaves_radar_and_the_360_camera_to_each_player(void)
+{
+    restomod_with_radar_and_camera();
+    SessionRules host;
+    host_of(SESSION_RESTOMOD, &host);
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 1);
+    session_rules_set(NULL);
+    clear_files();
+}
+
+static void test_the_local_radar_and_camera_come_back_after_the_race(void)
+{
+    restomod_with_radar_and_camera();
+    SessionRules host;
+    host_of(SESSION_STOCK, &host);
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 0);
+    PortSettings now = port_settings_load();   /* the race's end saves the settings */
+    now.camera_kind = 2;
+    CHECK(port_settings_save(&now));
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 1);
+    CHECK_EQ_INT(port_extras_load().bumper_radar, 1);
+    clear_files();
+}
+
 /* port (online): the frame-budget cache and the host's session rules (session_rules.h) */
 static void start_restomod_with(int weather)
 {
@@ -749,6 +810,9 @@ int main(void)
     test_a_save_during_a_race_keeps_the_machines_weather();
     test_a_menu_change_between_two_races_takes_effect();
     test_the_hosts_rules_win_while_set();
+    test_a_stock_or_restored_host_turns_radar_and_the_360_camera_off();
+    test_a_restomod_host_leaves_radar_and_the_360_camera_to_each_player();
+    test_the_local_radar_and_camera_come_back_after_the_race();
     test_rain_grip_needs_the_rain();
     clear_files();
     test_defaults();
