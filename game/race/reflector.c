@@ -70,3 +70,19 @@ size_t reflector_paint(uint8_t *pixels, const uint8_t *mask, size_t count, const
     }
     return n;
 }
+
+ReflectorFamily reflector_family(const uint8_t rgb[3])
+{
+    const int r = rgb[0], g = rgb[1], b = rgb[2];
+    const int mx = r > g ? (r > b ? r : b) : (g > b ? g : b), mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    if (mx == 0 || (mx - mn) * 100 < mx * 25) return REFLECTOR_WHITE;
+    return r == mx && g * 100 < r * 45 && b * 100 < r * 45 ? REFLECTOR_RED : REFLECTOR_WARM;
+}
+
+int reflector_step(int level, int steps)
+{
+    if (steps <= 1) return 0;
+    if (level < 1) level = 1;
+    if (level > REFLECTOR_LEVELS - 1) level = REFLECTOR_LEVELS - 1;
+    return (level - 1) * steps / (REFLECTOR_LEVELS - 1) >= steps ? steps - 1 : (level - 1) * steps / (REFLECTOR_LEVELS - 1);
+}

@@ -30,6 +30,8 @@ int drive_lamps_reached(int slot, const Object3D *obj);
 int drive_lamps_count(int slot);
 
 /* The shared glowing entries (0: none): the lit brake light, the position light, the headlight and the reversing light. */
+/* the entries set (lit brake, position, headlight, reversing): 0 for one that is not there */
+LampEntries drive_lamps_get_entries(void);
 void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headlight, uint8_t reverse);
 /* Points the slot's texels at the glowing entries or the day's, by the light at its car, its brake and its gear (`reversing`: the reversing light is lit, in any
  * light). Cheap when nothing changed. */

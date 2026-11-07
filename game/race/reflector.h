@@ -23,6 +23,14 @@ enum {
  * the cone and (`dark` 0) in the light of day. Smooth in all three, so a sign does not blink on at the cone's edge. */
 int reflector_gain(double forward_m, double lateral_m, double height_m, int dark);
 
+/* A masked texel shines in one of three families of the entries the night already has lit (no palette entry of its own is spent): white (a grey or white texel), red (a red one), warm (any other
+ * saturated colour: yellow, orange, green, blue shine in the lamps' warm tones). */
+typedef enum { REFLECTOR_WHITE, REFLECTOR_RED, REFLECTOR_WARM, REFLECTOR_FAMILIES } ReflectorFamily;
+ReflectorFamily reflector_family(const uint8_t rgb[3]);
+
+/* the step (0 .. steps - 1) of a ramp of `steps` entries a polygon of `level` (1 .. REFLECTOR_LEVELS - 1) takes: the dimmest at level 1, the brightest at the top level; 0 for steps <= 1 */
+int reflector_step(int level, int steps);
+
 /* the step (0..REFLECTOR_LEVELS - 1) of a gain: 0 only for a gain of 0 */
 int reflector_level(int gain);
 

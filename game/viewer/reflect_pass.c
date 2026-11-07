@@ -1,6 +1,5 @@
 #include "game/viewer/reflect_pass.h"
 
-#include "game/race/psx_lgs.h"
 #include "game/race/headlight_pool.h"
 #include "game/race/reflector.h"
 #include "game/race/track_art.h"
@@ -27,6 +26,8 @@ static int palette_made;
 static uint8_t tables[REFLECTOR_LEVELS][256];
 static uint8_t row_tables[REFLECTOR_LEVELS][ROWS_MAX][256];   /* the same, a row for each darkness step of the road's per-pixel path */
 static int tables_fresh;
+static uint8_t ramp[REFLECTOR_FAMILIES][4];   /* each family's entries, dimmest first */
+static int ramp_len[REFLECTOR_FAMILIES];
 
 void reflect_pass_reset(void)
 {
@@ -68,7 +69,7 @@ void reflect_pass_frame(int on, double x, double z, double hx, double hz, int da
     }
 }
 
-int reflect_pass_active(void) { return entry_count > 0 && lamps_on && dark_now && palette_made; }
+int reflect_pass_active(void) { return entry_count > 0 && lamps_on && dark_now && palette_made && (ramp_len[0] | ramp_len[1] | ramp_len[2]) != 0; }
 
 int reflect_pass_gain(double x, double z, double height)
 {
@@ -93,16 +94,38 @@ const FshEntry *reflect_pass_copy(const FshEntry *t)
     return NULL;
 }
 
+static void add_entry(ReflectorFamily family, uint8_t entry)
+{
+    if (entry != 0 && ramp_len[family] < 4) ramp[family][ramp_len[family]++] = entry;
+}
+
+void reflect_pass_set_entries(const uint8_t street[3], uint8_t window, uint8_t brake_lit, uint8_t position, uint8_t headlight, uint8_t reverse)
+{
+    uint8_t before[sizeof ramp];
+    int before_len[REFLECTOR_FAMILIES];
+    memcpy(before, ramp, sizeof ramp), memcpy(before_len, ramp_len, sizeof ramp_len);
+    memset(ramp, 0, sizeof ramp), memset(ramp_len, 0, sizeof ramp_len);
+    add_entry(REFLECTOR_RED, position), add_entry(REFLECTOR_RED, brake_lit);
+    if (street != NULL) add_entry(REFLECTOR_WARM, street[2]), add_entry(REFLECTOR_WARM, street[1]), add_entry(REFLECTOR_WARM, street[0]);
+    else add_entry(REFLECTOR_WARM, window);
+    add_entry(REFLECTOR_WHITE, headlight), add_entry(REFLECTOR_WHITE, reverse);
+    for (int f = 0; f < REFLECTOR_FAMILIES; f++)   /* a family with none borrows the first family that has */
+        if (ramp_len[f] == 0)
+            for (int o = 0; o < REFLECTOR_FAMILIES && ramp_len[f] == 0; o++)
+                if (ramp_len[o] > 0) memcpy(ramp[f], ramp[o], sizeof ramp[f]), ramp_len[f] = ramp_len[o];
+    if (memcmp(before, ramp, sizeof ramp) != 0 || memcmp(before_len, ramp_len, sizeof ramp_len) != 0) tables_fresh = 0;
+}
+
 const uint8_t *reflect_pass_table(int level)
 {
     if (level < 1) level = 1;
     if (level >= REFLECTOR_LEVELS) level = REFLECTOR_LEVELS - 1;
     if (!tables_fresh) {
-        for (int l = 1; l < REFLECTOR_LEVELS; l++) {
-            const float r = 0.15f + 1.15f * (float)l / (float)(REFLECTOR_LEVELS - 1);   /* from a little over the dark base to a little over the day's own colour */
-            const float ratio[3] = { r, r, r };
-            psx_lit_table(made_palette, ratio, tables[l]);
-        }
+        for (int l = 1; l < REFLECTOR_LEVELS; l++)
+            for (int c = 0; c < 256; c++) {
+                const ReflectorFamily f = reflector_family(made_palette + 3 * c);
+                tables[l][c] = ramp_len[f] > 0 ? ramp[f][reflector_step(l, ramp_len[f])] : (uint8_t)c;
+            }
         tables_fresh = 1;
     }
     return tables[level];

@@ -16,8 +16,12 @@ int reflect_pass_add(const FshEntry *bitmap, const uint8_t *mask, int mw, int mh
 
 int reflect_pass_count(void);
 
+/* the entries the night already has lit (palette indices, 0 = not there): the street lamp's three, dimmest first (NULL: none), the windows', and the cars' lit brake, position, head and reversing lights.
+ * A polygon's shine takes one of them by the texel's colour family and its own step; no entry of the pass's own is spent. */
+void reflect_pass_set_entries(const uint8_t street[3], uint8_t window, uint8_t brake_lit, uint8_t position, uint8_t headlight, uint8_t reverse);
+
 /* the frame's state: the player's lamps lit (`on`) at the ground place (x, z) in metres, heading the unit vector (hx, hz), and whether it is dark (night, or a dark tunnel). The palette
- * the copies and the tables follow (768 bytes; a change remakes them). */
+ * the copies and the tables follow (768 bytes, the world's own colours; a change remakes them). */
 void reflect_pass_frame(int on, double x, double z, double hx, double hz, int dark, const uint8_t palette[768]);
 
 /* 1 when anything can shine this frame: a texture registered, the lamps lit, in the dark */

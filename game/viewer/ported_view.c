@@ -396,6 +396,8 @@ static void reflect_frame(const TrackArt *art)
         return;
     }
     reflect_register(art);
+    const LampEntries lamps = drive_lamps_get_entries();
+    reflect_pass_set_entries(street_count > 0 ? street_entry : NULL, window_count > 0 ? window_entry : 0, lamps.brake_lit, lamps.position, lamps.headlight, lamps.reverse);
     reflect_pass_frame(reflect_lamps_on, reflect_x, reflect_z, reflect_hx, reflect_hz, reflect_dark, art->palette);
 }
 
