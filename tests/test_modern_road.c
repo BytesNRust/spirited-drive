@@ -6,6 +6,7 @@
 #include "test.h"
 
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 enum { W = 640, H = 480, TEX = 256, UNTOUCHED = 3 };
@@ -263,9 +264,43 @@ static void test_lit_warm(void)
     CHECK(memcmp(screen, whole, sizeof whole) == 0);
 }
 
+/* a darkness out of the int range (an extrapolated pixel of a polygon that reaches behind the camera: lz * r with r = 1 / IZ_MIN) is level 0 on every path: the four-pixel path (the
+ * truncating convert gives the lowest int) and the scalar tail (it was a float to int overflow, undefined; UBSan: "3.38e9 is outside the range of type int") */
+static void test_lit_darkness_out_of_range(void)
+{
+    for (int l = 0; l < 16; l++)
+        for (int c = 0; c < 256; c++) lit_tab[l][c] = (uint8_t)((c + l) % 200);
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    const FshEntry t = texture();
+    static uint8_t level0[W * H], vector[W * H], tail[W * H];
+    const float zero[4] = { 0, 0, 0, 0 }, huge[4] = { 3.38e9f, 3.38e9f, 3.38e9f, 3.38e9f }, nan[4] = { NAN, NAN, NAN, NAN };
+    QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, zero, NULL), memcpy(level0, screen, sizeof level0);
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, huge, NULL), memcpy(vector, screen, sizeof vector);
+    CHECK(memcmp(level0, vector, sizeof level0) == 0);
+    memset(screen, UNTOUCHED, sizeof screen);
+    for (int x = 0; x < W; x++) {   /* every column alone: all scalar tail */
+        q.clip_left = x, q.clip_right = x + 1;
+        draw_lit(&view, &q, &t, huge, NULL);
+    }
+    memcpy(tail, screen, sizeof tail);
+    CHECK(memcmp(level0, tail, sizeof level0) == 0);
+    q.clip_left = 0, q.clip_right = W;
+    memset(screen, UNTOUCHED, sizeof screen);
+    for (int x = 0; x < W; x++) {
+        q.clip_left = x, q.clip_right = x + 1;
+        draw_lit(&view, &q, &t, nan, NULL);
+    }
+    CHECK(memcmp(level0, screen, sizeof level0) == 0);
+}
+
 int main(void)
 {
     test_lit_warm();
+    test_lit_darkness_out_of_range();
     test_t_junction_covered();
     test_perspective_correct();
     test_near_clip_and_box();

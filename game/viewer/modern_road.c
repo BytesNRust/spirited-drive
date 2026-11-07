@@ -176,7 +176,11 @@ static int fog_level(float z, int x, int y)
 /* port (PS1 light): the level of a pixel whose interpolated darkness is d, a dither between two levels as the fog's */
 static int dark_level(float d, int x, int y)
 {
-    const int l = (int)floorf(d + BAYER[y & 3][x & 3]);
+    const float f = d + BAYER[y & 3][x & 3];
+    /* a darkness out of the int range (or NaN: a pixel extrapolated past the polygon toward the camera, lz * r with r = 1 / IZ_MIN) is level 0, as dark_levels' truncating convert
+     * gives it (the lowest int): the float to int cast was undefined here, and gave another level on other CPUs */
+    if (!(f > -2147483648.0f && f < 2147483648.0f)) return 0;
+    const int l = (int)floorf(f);
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 

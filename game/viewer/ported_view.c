@@ -2164,6 +2164,28 @@ static void draw_followed_car(const PortedCamera *pc, int ahead_drawn)
     row_draw(NULL, car, 0);
 }
 
+/* port (weather): the rain over the drawn view, under the 2D layer: the speed-following streaks and the lens at night (rain_fx), else the plain streaks */
+static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *view, int32_t rs, const WeatherTables *wt)
+{
+    if (wt != NULL && weather_wet(weather) && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
+        const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
+        const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
+        const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
+        if (!rain_wet_off()) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
+            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE };
+            bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
+        }
+        rain_cars_paint(pixels, screen_w, box, wt);
+        int32_t vanish[2] = { view->centre_x, view->centre_y };
+        rain_vanishing_point(vanish);
+        if (port_rain_v2()) vanish[1] -= (box[3] - box[1]) / RAIN_V2_RAISE_DIV;   /* port (rain_v2): the rain falls from above: the streaks leave a point higher up */
+        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view->focal_x,
+                             drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM, port_rain_v2());
+        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
+    } else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
+        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
+}
+
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
                              const PortedCar *list, int count, uint8_t *pixels)
 {
@@ -2375,23 +2397,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
     tunnel_flare_draw(&quad, art->palette);
-    if (wt != NULL && weather_wet(weather) && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
-        const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
-        const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
-        const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        if (!rain_wet_off()) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
-            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE };
-            bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
-        }
-        rain_cars_paint(pixels, screen_w, box, wt);
-        int32_t vanish[2] = { view.centre_x, view.centre_y };
-        rain_vanishing_point(vanish);
-        if (port_rain_v2()) vanish[1] -= (box[3] - box[1]) / RAIN_V2_RAISE_DIV;   /* port (rain_v2): the rain falls from above: the streaks leave a point higher up */
-        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view.focal_x,
-                             drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM, port_rain_v2());
-        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
-    } else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
-        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
+    rain_over_view(pixels, box, &view, rs, wt);
 }
 
 /* port (rain_v2): the thunder after each strike. Every race tick since the last frame is looked at (a frame can span several); a strike schedules its clap weather_thunder_delay ticks
