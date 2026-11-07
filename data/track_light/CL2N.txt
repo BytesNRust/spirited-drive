@@ -1435,9 +1435,4 @@ rows 1836 1836 255 255 53 44 23 6 255 40 44 53 61
 rows 1837 1837 255 255 53 45 24 8 255 39 44 53 61
 rows 1838 1838 255 255 54 46 25 9 255 40 44 54 62
 rows 1839 1839 255 255 54 47 27 10 255 40 44 54 62
-present tunnel
-present hall
-present canyon
-tunnel 1144 1175
-tunnel 1464 1575
-cast neutral 1 city 0
+tunnel_tone 60 ffffff

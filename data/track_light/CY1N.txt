@@ -1730,12 +1730,8 @@ rows 1916 1916 255 255 60 60 61 63 255 60 60 62 63
 rows 1917 1917 255 255 60 60 61 63 255 60 61 62 63
 rows 1918 1918 255 255 60 61 62 63 255 60 61 62 63
 rows 1919 1919 255 255 61 61 62 63 255 61 61 62 63
-present tunnel
-present hall
-present canyon
 present pool
 present car_pool
-tunnel 1064 1171
 pool 13 13 1
 pool 14 15 2
 pool 16 16 3
@@ -3109,6 +3105,4 @@ car_pool 1819 1819 3
 car_pool 1820 1821 2
 car_pool 1822 1822 1
 car_disc 1 0x1.e0418ap-1 0x1.e0418ap-1 0x1.e0418ap-1 0x1.4p-1 0x1.4p-1 0x1.4p-1
-cast neutral 0 city 1
-tunnel_tone day 0x1p+0 0x1.5c28f6p-1 0x1.1eb852p-2 115
-tunnel_tone night 0x1p+0 0x1.666666p-2 0x1.99999ap-5 174
+tunnel_tone 104.4 1/0.35/0.05

@@ -1,0 +1,6 @@
+# tnfs track places 1
+track CY3
+present tunnel
+present canyon
+tunnel 276 483
+tunnel 1596 1843

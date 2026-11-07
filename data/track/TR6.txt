@@ -1,0 +1,8 @@
+# tnfs track places 1
+track TR6
+present tunnel
+present canyon
+present car_dim
+tunnel 199 546
+canyon 547 585
+car_dim 322 546

@@ -32,6 +32,12 @@
 
 /* The file's text for `light` (a made light): malloc'ed in *text, its length in *size. 1 on success. `flags` is the port flags' fingerprint the light was made with. */
 int track_light_format(const PsxLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size);
+/* The track's places as a file (data/track/<TRACK>.txt): `track AL1`, then the nodes that are physical facts of the track, whatever the time: `tunnel a b` (the road's tunnels and its halls),
+ * `canyon a b`, `car_dim a b`, and `present <key>` for an array that is there but empty. The same for every time of day. */
+int track_light_place_format(const PsxLight *light, const char *track, char **text, size_t *size);
+/* The places file in `text` for `track`, its lines checked against `expected_nodes`: its tunnel, canyon and car_dim arrays go to `out` (which has none). 0 when it is not for this track or a line
+ * is bad (the number in *bad_line). */
+int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, PsxLight *out, int *bad_line);
 
 /* the port's settings the rows are made with, one bit each, in this order (drive_light.c track_light_flags) */
 enum {
@@ -46,6 +52,7 @@ typedef struct { uint32_t from, to; int percent; } TrackLightBrightness;
 typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
 /* a `tone` line: nodes from..to, the points of their rows it is on (bit p; 0x7ff all), and the tone's number in the file's list of distinct tones */
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
+typedef struct { uint32_t from, to; int lit; } TrackLightZone;   /* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps) */
 typedef struct {
     TrackLightBrightness brightness[TRACK_LIGHT_MAX_BRIGHT];
     int brightness_count;
@@ -55,9 +62,11 @@ typedef struct {
     int tone_count;
     TrackLightToneRun tone_runs[TRACK_LIGHT_MAX_BRIGHT];
     int tone_run_count;
-    int warm_set[2];            /* [0] the day's, [1] the night's: tunnel_tone given */
-    float warm_cast[2][3];
-    int warm_percent[2];
+    int look_has_light, look_has_colour;   /* the tunnels' look this time: `tunnel_tone` or a zone line's light and colour (one look a track: a zone with another is a bad line) */
+    double look_light;                     /* percent of full light (100 is row 255 at any time of day) */
+    float look_cast[3];                    /* the colour as the factor on each channel, 0..1 (the file's RRGGBB[:strength]) */
+    TrackLightZone zones[TRACK_LIGHT_MAX_BRIGHT];   /* the `tunnel a b ...` lines: they add to the places' tunnels, and `lit` makes the nodes a hall */
+    int zone_count;
 } TrackLightTweaks;
 
 typedef struct {
@@ -65,6 +74,7 @@ typedef struct {
     uint32_t flags;             /* the flags the file was made with */
     PsxLight light;
     TrackLightTweaks tweaks;
+    char place_path[512];       /* the places file the light's tunnels, canyon and car_dim came from ("" none) */
 } TrackLightFile;
 
 /* `flags` for track_light_parse that takes the file's rows whatever settings its header says it was made with (the header's flags are a record: TrackLightFile.flags) */
@@ -80,6 +90,8 @@ void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light);
 
 /* Where the file `<TRACK><letter>.txt` is: `out` takes the path of the first that exists (the mod's, then the data folders: data_path.h), 1 when there is one. */
 int track_light_find(const char *track, char letter, char *out, size_t out_size);
+/* Where the track's places file `track/<TRACK>.txt` is (the mod's, then the data folders), 1 when there is one. */
+int track_light_place_find(const char *track, char *out, size_t out_size);
 
 /* The file of `track` at `letter`, parsed (see track_light_parse), 0 when there is none or it is not for this light. Its rows are always the base: `flags` (the settings now) is only compared with the
  * header's record, and a difference is one line in the log and in `why` (NULL for none; "" when they are the same). `path` (NULL for none) takes the file's path. */

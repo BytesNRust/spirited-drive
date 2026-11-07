@@ -1,0 +1,9 @@
+# tnfs track places 1
+track TR3
+present tunnel
+present canyon
+tunnel 76 107
+tunnel 328 351
+tunnel 525 540
+canyon 184 195
+canyon 600 615

@@ -1,0 +1,8 @@
+# tnfs track places 1
+track AL3
+present tunnel
+present canyon
+tunnel 616 639
+tunnel 1080 1119
+tunnel 1240 1303
+tunnel 1812 1851

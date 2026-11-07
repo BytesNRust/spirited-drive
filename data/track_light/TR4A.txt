@@ -970,9 +970,4 @@ rows 1013 1013 225 225 211 11 11 11 225 179 11 11 11
 rows 1014 1014 220 220 203 0 0 0 220 177 0 0 0
 rows 1015 1015 216 216 198 0 0 0 216 176 0 0 0
 rows 1016 1023 215 215 196 0 0 0 215 196 0 0 0
-present tunnel
-present hall
-present canyon
-tunnel 0 15
-tunnel 1016 1023
-cast neutral 0 city 0
+tunnel_tone 67.333335 1/0.8/0.15

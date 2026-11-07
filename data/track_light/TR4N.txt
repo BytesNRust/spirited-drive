@@ -596,13 +596,8 @@ rows 1013 1013 255 255 49 11 11 11 255 47 11 11 11
 rows 1014 1014 255 255 49 0 0 0 255 48 0 0 0
 rows 1015 1015 255 255 49 0 0 0 255 49 0 0 0
 rows 1016 1023 255 255 255 0 0 0 255 255 0 0 0
-present tunnel
-present hall
-present canyon
 present pool
 present car_pool
-tunnel 0 15
-tunnel 1016 1023
 pool 434 434 1
 pool 435 436 2
 pool 437 437 3
@@ -693,4 +688,4 @@ car_pool 821 834 4
 car_pool 835 835 3
 car_pool 836 837 2
 car_pool 838 838 1
-cast neutral 0 city 0
+tunnel_tone 60 1/0.8/0.15

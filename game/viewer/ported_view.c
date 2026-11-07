@@ -116,11 +116,7 @@ static PsxLamp lamp_spec[LAMPS_MAX];
 static int lamp_count;
 static const FshEntry *lamp_bitmap[LAMPS_MAX][LAMP_VARIANTS];
 static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
-/* the tunnel's dim road and walls on the PS1 are olive / amber, never the texture's own grey: green and blue lost on every darkened level
- * (fitted to the clip's road, (38,34,16) for a grey texture) */
-static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
-/* the least light a tunnel's surfaces take (the dusk's mean): its own lamps light it, the night's tint and its ceiling do not darken it below */
-static const float TUNNEL_LIGHT = 0.6f;
+static const float NO_CAST[3] = { 1, 1, 1 };   /* (the tunnel's own cast and least light: psx_light_tunnel_look) */
 
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
 {
@@ -217,7 +213,8 @@ static uint8_t tone_tables[PSX_LIGHT_TONES][2][MODERN_FOG_LEVELS][256];
 static uint8_t tone_made[PSX_LIGHT_TONES][2];
 static uint8_t tone_palette[768];
 static float tone_lit_tint[3], tone_tunnel_tint[3], tone_cast[3];
-static int tone_have_cast, tone_min_light_zero;
+static int tone_have_cast;
+static float tone_min_light;
 
 /* the tint a tone gives: each channel 1 at no strength, the tone's own (0..1) at full */
 static void tone_tint_of(const PsxLightTone *tone, float out[3])
@@ -235,7 +232,7 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
     tone_tint_of(&psx_light->tone[id], tint);
     if (in_tunnel && tone_have_cast) {   /* a tunnel's polygon: its own cast through the tone */
         const float cast[3] = { tone_cast[0] * tint[0], tone_cast[1] * tint[1], tone_cast[2] * tint[2] };
-        modern_tunnel_tables(tone_palette, tone_tunnel_tint, cast, tone_min_light_zero ? 0.0f : TUNNEL_LIGHT, t);
+        modern_tunnel_tables(tone_palette, tone_tunnel_tint, cast, tone_min_light, t);
     } else {
         const float lit[3] = { tone_lit_tint[0] * tint[0], tone_lit_tint[1] * tint[1], tone_lit_tint[2] * tint[2] };
         modern_light_tables(tone_palette, lit, t);
@@ -2260,39 +2257,26 @@ static void light_tables_prepare(const TrackArt *art)
     /* the tables again only when the palette or the tint moved (a fade changes the palette) */
     static uint8_t made_for[768];
     static float made_tint[3];
-    static int made, made_cast;
-    const int warm = psx_light->city_tunnel != 0 && psx_light->tunnel != NULL && !psx_light->neutral_cast;
-    float warm_shown[3];
-    drive_light_tint(warm_shown);
-    const int warm_dark = (warm_shown[0] + warm_shown[1] + warm_shown[2]) / 3.0f < TUNNEL_LIGHT;
-    const float *warm_cast = warm && psx_light->warm_percent[warm_dark] > 0 ? psx_light->warm_cast[warm_dark] : NULL;   /* the made light's look of this kind of tunnel (a track light file's retouch or psx_light_synth_warm_look) */
-    const int warm_percent = warm_cast != NULL ? psx_light->warm_percent[warm_dark] : 0;
-    const int cast = warm_cast != NULL ? 3 + warm_dark + (psx_light->city_tunnel - 1) * 2 : psx_light != NULL && psx_light->neutral_cast ? 2 : lamp_count > 0 || (psx_light != NULL && psx_light->tunnel != NULL);   /* a tunnel track (the CD's lamps, or a made light's road tunnels): its darkened levels take the olive cast and the tunnel's least light */
-    /* a made light's tunnel: the palette shown is the night's (drive_light_palette), so its tables are made brighter by as much as the palette takes off, to TUNNEL_LIGHT on the screen */
-    float tunnel_tint[3] = { lit_tint[0], lit_tint[1], lit_tint[2] };
-    if (psx_light->tunnel != NULL) {
-        float shown[3];
-        drive_light_tint(shown);
-        const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f, base = mean > 0.05f && mean < TUNNEL_LIGHT ? TUNNEL_LIGHT / mean : 1.0f, gain = warm_cast != NULL ? base * (float)warm_percent / 100.0f : base;
-        tunnel_tint[0] = tunnel_tint[1] = tunnel_tint[2] = gain;
-    }
-    static float made_tunnel_tint[3], made_warm[4];
+    static int made;
+    static PsxTunnelLook made_look;
+    float shown[3];
+    drive_light_tint(shown);
+    PsxTunnelLook look;
+    psx_light_tunnel_look(psx_light, shown, lit_tint, lamp_count, &look);   /* the tunnel's tables: the file's look, else the made light's (psx_light.h) */
     static int made_pool;
     static PsxLightTone made_tone[PSX_LIGHT_TONES];
     static int made_tone_count;
-    const float warm_now[4] = { warm_cast != NULL ? warm_cast[0] : 0, warm_cast != NULL ? warm_cast[1] : 0, warm_cast != NULL ? warm_cast[2] : 0, (float)warm_percent };
     const int has_pool = psx_light->pool_class != NULL;
-    if (!made || made_pool != has_pool || made_cast != cast || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint) != 0 || memcmp(made_warm, warm_now, sizeof made_warm) != 0) {
+    if (!made || made_pool != has_pool || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(&made_look, &look, sizeof look) != 0) {
         modern_light_tables(art->palette, lit_tint, lit_tables);
-        memcpy(made_tunnel_tint, tunnel_tint, sizeof made_tunnel_tint);
-        memcpy(made_warm, warm_now, sizeof made_warm);
+        made_look = look;
         memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
         memset(tone_made, 0, sizeof tone_made);
         memcpy(tone_palette, art->palette, sizeof tone_palette);
-        memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, tunnel_tint, sizeof tone_tunnel_tint);
-        tone_have_cast = cast != 0, tone_min_light_zero = psx_light->tunnel != NULL;
-        memcpy(tone_cast, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, sizeof tone_cast);
-        if (cast) modern_tunnel_tables(art->palette, tunnel_tint, warm_cast != NULL ? warm_cast : cast == 2 ? NO_CAST : TUNNEL_CAST, psx_light->tunnel != NULL ? 0.0f : TUNNEL_LIGHT, tunnel_tables);
+        memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look.tint, sizeof tone_tunnel_tint);
+        tone_have_cast = look.cast_on, tone_min_light = look.min_light;
+        memcpy(tone_cast, look.cast, sizeof tone_cast);
+        if (look.cast_on) modern_tunnel_tables(art->palette, look.tint, look.cast, look.min_light, tunnel_tables);
         else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
         if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
             static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
@@ -2303,7 +2287,7 @@ static void light_tables_prepare(const TrackArt *art)
             }
         }
         pool_ready = has_pool, made_pool = has_pool;
-        memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
+        memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1;
     }
     lamp_street_window_tables(art);
     track_light_hook = light_hook;

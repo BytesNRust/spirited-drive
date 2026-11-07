@@ -2,6 +2,7 @@
 #include "game/race/track_light_file.h"
 
 
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +60,52 @@ static void put_classes(Buffer *b, const char *key, const uint8_t *cls, uint32_t
     }
 }
 
+/* a colour as the file writes it: RRGGBB when the bytes give the same factors exactly, else r/g/b, the factors written out (the export's, for the made looks whose factors 8 bits cannot hold) */
+static void colour_text(const float cast[3], char out[64])
+{
+    int exact = 1;
+    unsigned v8[3];
+    for (int k = 0; k < 3; k++) {
+        const double c = cast[k] < 0.0f ? 0.0 : cast[k] > 1.0f ? 1.0 : (double)cast[k];
+        v8[k] = (unsigned)(c * 255.0 + 0.5);
+        if ((float)((double)v8[k] / 255.0) != cast[k]) exact = 0;
+    }
+    if (exact) snprintf(out, 64, "%02x%02x%02x", v8[0], v8[1], v8[2]);
+    else {   /* each factor with the fewest digits that read back as the very same float */
+        char part[3][16];
+        for (int k = 0; k < 3; k++)
+            for (int digits = 1; digits <= 9; digits++) {
+                snprintf(part[k], sizeof part[k], "%.*g", digits, (double)cast[k]);
+                if ((float)strtod(part[k], NULL) == cast[k]) break;
+            }
+        snprintf(out, 64, "%s/%s/%s", part[0], part[1], part[2]);
+    }
+}
+
+int track_light_place_format(const PsxLight *light, const char *track, char **text, size_t *size)
+{
+    if (light == NULL || track == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
+    Buffer b = { 0 };
+    put(&b, "# tnfs track places 1\n");
+    put(&b, "track %s\n", track);
+    if (light->tunnel != NULL || light->hall != NULL) put(&b, "present tunnel\n");   /* an array that is there but empty is not an array that is not (the rows decide a tunnel without one) */
+    if (light->canyon != NULL) put(&b, "present canyon\n");
+    if (light->car_dim != NULL) put(&b, "present car_dim\n");
+    uint8_t *both = calloc(light->nodes, 1);   /* the road's tunnels and the halls: a hall is a tunnel here, and its time's file says it is lit */
+    if (both == NULL) return 0;
+    for (uint32_t n = 0; n < light->nodes; n++) both[n] = (light->tunnel != NULL && light->tunnel[n]) || (light->hall != NULL && light->hall[n]);
+    put_ranges(&b, "tunnel", both, light->nodes);
+    free(both);
+    put_ranges(&b, "canyon", light->canyon, light->nodes);
+    put_ranges(&b, "car_dim", light->car_dim, light->nodes);
+    if (b.failed) {
+        free(b.text);
+        return 0;
+    }
+    *text = b.text, *size = b.size;
+    return 1;
+}
+
 int track_light_format(const PsxLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size)
 {
     if (light == NULL || track == NULL || light->data == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
@@ -74,23 +121,25 @@ int track_light_format(const PsxLight *light, const char *track, char letter, ui
         put(&b, "\n");
         n = end + 1;
     }
-    /* an array that is there but empty is not an array that is not (the rows decide a tunnel without one): named first */
-    const struct { const char *key; const uint8_t *array; } arrays[] = { { "tunnel", light->tunnel }, { "hall", light->hall }, { "car_dim", light->car_dim }, { "canyon", light->canyon },
-                                                                         { "pool", light->pool_class }, { "car_pool", light->car_pool } };
-    for (size_t i = 0; i < sizeof arrays / sizeof *arrays; i++)
-        if (arrays[i].array != NULL) put(&b, "present %s\n", arrays[i].key);
-    put_ranges(&b, "tunnel", light->tunnel, light->nodes);
-    put_ranges(&b, "hall", light->hall, light->nodes);
-    put_ranges(&b, "car_dim", light->car_dim, light->nodes);
-    put_ranges(&b, "canyon", light->canyon, light->nodes);
+    /* the places (tunnels, canyon, car_dim) are the track's file (track_light_place_format); this file holds the time's light: the pools' arrays are there but empty is not an array that is not */
+    if (light->pool_class != NULL) put(&b, "present pool\n");
+    if (light->car_pool != NULL) put(&b, "present car_pool\n");
+    for (uint32_t n = 0; light->hall != NULL && n < light->nodes;) {   /* a hall is a tunnel with a lot of light: lit by its own lamps */
+        if (!light->hall[n]) { n++; continue; }
+        uint32_t end = n;
+        while (end + 1 < light->nodes && light->hall[end + 1]) end++;
+        put(&b, "tunnel %u %u lit\n", n, end);
+        n = end + 1;
+    }
     put_classes(&b, "pool", light->pool_class, light->nodes);
     put_classes(&b, "car_pool", light->car_pool, light->nodes);
     if (light->car_disc)
         put(&b, "car_disc 1 %a %a %a %a %a %a\n", (double)light->car_even[0], (double)light->car_even[1], (double)light->car_even[2], (double)light->car_odd[0], (double)light->car_odd[1], (double)light->car_odd[2]);
-    put(&b, "cast neutral %d city %d\n", light->neutral_cast, light->city_tunnel);
-    for (int dark = 0; dark < 2; dark++)
-        if (light->warm_percent[dark] > 0)
-            put(&b, "tunnel_tone %s %a %a %a %d\n", dark ? "night" : "day", (double)light->warm_cast[dark][0], (double)light->warm_cast[dark][1], (double)light->warm_cast[dark][2], light->warm_percent[dark]);
+    if (light->look_set) {   /* the tunnels' look: its light as a percent of full light at this time, and its colour */
+        char colour[64];
+        colour_text(light->look_cast, colour);
+        put(&b, "tunnel_tone %.12g %s\n", light->look_light, colour);
+    }
     if (b.failed) {
         free(b.text);
         return 0;
@@ -105,9 +154,8 @@ static const char *english(const char *word)
 {
     static const char *const WORDS[][2] = {
         { "pista", "track" }, { "hora", "time" }, { "nodos", "nodes" }, { "banderas", "flags" }, { "filas", "rows" }, { "presente", "present" },
-        { "tunel", "tunnel" }, { "sala", "hall" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" }, { "pozo", "pool" }, { "pozo_coche", "car_pool" },
-        { "coche_disco", "car_disc" }, { "reparto", "cast" }, { "neutro", "neutral" }, { "ciudad", "city" }, { "tono_tunel", "tunnel_tone" },
-        { "dia", "day" }, { "noche", "night" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" },
+        { "tunel", "tunnel" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" }, { "pozo", "pool" }, { "pozo_coche", "car_pool" },
+        { "coche_disco", "car_disc" }, { "tono_tunel", "tunnel_tone" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" },
     };
     for (size_t i = 0; i < sizeof WORDS / sizeof WORDS[0]; i++)
         if (strcmp(word, WORDS[i][0]) == 0) return WORDS[i][1];
@@ -118,6 +166,79 @@ static uint8_t *flag_array(uint8_t **slot, uint32_t nodes)
 {
     if (*slot == NULL) *slot = calloc(nodes, 1);
     return *slot;
+}
+
+/* a colour: RRGGBB (6 hex digits), or r/g/b, the three factors written out (the export's, where 8 bits do not hold a made look's exactly), then an optional :strength (0..100, 100 whole). The
+ * factor on each channel is the colour (0..1) at full strength and 1 (no change) at none, as a `tone` is. */
+static int parse_colour(const char *token, float cast[3])
+{
+    const size_t colon = strcspn(token, ":");
+    double strength = 100.0;
+    if (token[colon] == ':') {
+        char *end = NULL;
+        strength = strtod(token + colon + 1, &end);
+        if (end == token + colon + 1 || *end != '\0' || strength < 0.0 || strength > 100.0) return 0;
+    }
+    double full[3];
+    if (memchr(token, '/', colon) != NULL) {   /* r/g/b: the three factors (0..1) as they are, for the made looks 8 bits cannot hold exactly */
+        char part[48];
+        if (colon >= sizeof part) return 0;
+        memcpy(part, token, colon), part[colon] = '\0';
+        char *at = part, *end = NULL;
+        for (int k = 0; k < 3; k++) {
+            full[k] = strtod(at, &end);
+            if (end == at || full[k] < 0.0 || full[k] > 1.0 || (k < 2 ? *end != '/' : *end != '\0')) return 0;
+            at = end + 1;
+        }
+    } else {
+        if (colon != 6) return 0;
+        for (size_t i = 0; i < colon; i++)
+            if (!isxdigit((unsigned char)token[i])) return 0;
+        for (int k = 0; k < 3; k++) {
+            char part[3] = { token[2 * k], token[2 * k + 1], '\0' };
+            full[k] = (double)strtoul(part, NULL, 16) / 255.0;
+        }
+    }
+    for (int k = 0; k < 3; k++) cast[k] = (strength == 100.0 ? (float)full[k] : (float)(1.0 + (full[k] - 1.0) * strength / 100.0));
+    return 1;
+}
+
+/* the rest of a tunnel line, `[light] [colour | lit]` (a zone may say `lit`; tunnel_tone may not): the light is a number (percent of full light, 100 is row 255), a token of 6 hex digits or r/g/b is
+ * a colour. 1 when well-formed. */
+static int parse_look(const char *rest, int zone, int *lit, int *has_light, double *light, int *has_colour, float cast[3])
+{
+    char token[48];
+    int used = 0;
+    *lit = *has_light = *has_colour = 0;
+    while (sscanf(rest, "%47s%n", token, &used) == 1) {
+        rest += used;
+        if (zone && strcmp(token, "lit") == 0) {
+            if (*lit) return 0;
+            *lit = 1;
+        } else if (parse_colour(token, cast) && !*has_colour) {
+            *has_colour = 1;
+        } else {
+            char *end = NULL;
+            const double v = strtod(token, &end);
+            if (*has_light || *has_colour || end == token || *end != '\0' || v < 0.0 || v > 10000.0) return 0;
+            *light = v, *has_light = 1;
+        }
+    }
+    return !*lit || (!*has_light && !*has_colour);   /* a hall is lit by its own lamps: no light or colour of its own */
+}
+
+/* a look a line gave goes into the time's one look; a second that differs is refused */
+static int take_look(TrackLightTweaks *tweaks, int has_light, double light, int has_colour, const float cast[3])
+{
+    if (has_light) {
+        if (tweaks->look_has_light && tweaks->look_light != light) return 0;
+        tweaks->look_has_light = 1, tweaks->look_light = light;
+    }
+    if (has_colour) {
+        if (tweaks->look_has_colour && memcmp(tweaks->look_cast, cast, sizeof tweaks->look_cast) != 0) return 0;
+        tweaks->look_has_colour = 1, memcpy(tweaks->look_cast, cast, sizeof tweaks->look_cast);
+    }
+    return 1;
 }
 
 /* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
@@ -134,8 +255,7 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         char spoken[32];
         if (sscanf(rest, "%31s", spoken) != 1) return 0;
         const char *const what = english(spoken);
-        uint8_t **slot = strcmp(what, "tunnel") == 0 ? &light->tunnel : strcmp(what, "hall") == 0 ? &light->hall : strcmp(what, "car_dim") == 0 ? &light->car_dim
-                         : strcmp(what, "canyon") == 0 ? &light->canyon : strcmp(what, "pool") == 0 ? &light->pool_class : strcmp(what, "car_pool") == 0 ? &light->car_pool : NULL;
+        uint8_t **slot = strcmp(what, "pool") == 0 ? &light->pool_class : strcmp(what, "car_pool") == 0 ? &light->car_pool : NULL;   /* the places' arrays are the track file's (track_light_place_parse) */
         return slot != NULL && flag_array(slot, nodes) != NULL;
     }
     if (strcmp(key, "rows") == 0) {
@@ -153,13 +273,14 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         *seen += b - a + 1;
         return 1;
     }
-    uint8_t **range_slot = strcmp(key, "tunnel") == 0 ? &light->tunnel : strcmp(key, "hall") == 0 ? &light->hall : strcmp(key, "car_dim") == 0 ? &light->car_dim
-                           : strcmp(key, "canyon") == 0 ? &light->canyon : NULL;
-    if (range_slot != NULL) {
-        if (sscanf(rest, "%u %u", &a, &b) != 2 || a > b || b >= nodes) return 0;
-        uint8_t *flag = flag_array(range_slot, nodes);
-        if (flag == NULL) return 0;
-        memset(flag + a, 1, b - a + 1);
+    if (strcmp(key, "tunnel") == 0) {   /* a zone: nodes a..b are a tunnel (added to the track file's), with this time's light and colour, or a hall when `lit` */
+        int n = 0;
+        if (sscanf(rest, "%u %u%n", &a, &b, &n) != 2 || a > b || b >= nodes || tweaks->zone_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
+        int lit = 0, has_light = 0, has_colour = 0;
+        double value = 0.0;
+        float cast[3];
+        if (!parse_look(rest + n, 1, &lit, &has_light, &value, &has_colour, cast) || !take_look(tweaks, has_light, value, has_colour, cast)) return 0;
+        tweaks->zones[tweaks->zone_count++] = (TrackLightZone){ a, b, lit };
         return 1;
     }
     uint8_t **class_slot = strcmp(key, "pool") == 0 ? &light->pool_class : strcmp(key, "car_pool") == 0 ? &light->car_pool : NULL;
@@ -227,33 +348,11 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         tweaks->car_tone[tweaks->car_tone_count++] = (TrackLightCarTone){ from, to, { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, percent };
         return 1;
     }
-    if (strcmp(key, "tunnel_tone") == 0) {
-        char spoken[16];
-        int n = 0, percent;
-        if (sscanf(rest, "%15s%n", spoken, &n) != 1) return 0;
-        const char *const when = english(spoken);
-        if (strcmp(when, "day") != 0 && strcmp(when, "night") != 0) return 0;
-        const int dark = when[0] == 'n';
+    if (strcmp(key, "tunnel_tone") == 0) {   /* the tunnels' look this time: tunnel_tone <light> [RRGGBB[:strength]] */
+        int lit = 0, has_light = 0, has_colour = 0;
+        double value = 0.0;
         float cast[3];
-        rest += n;
-        for (int i = 0; i < 3; i++) {
-            char *end = NULL;
-            cast[i] = (float)strtod(rest, &end);
-            if (end == rest || cast[i] < 0.0f || cast[i] > 4.0f) return 0;
-            rest = end;
-        }
-        if (sscanf(rest, "%d", &percent) != 1 || percent < 1 || percent > 1000) return 0;
-        memcpy(tweaks->warm_cast[dark], cast, sizeof cast);
-        tweaks->warm_percent[dark] = percent;
-        tweaks->warm_set[dark] = 1;
-        return 1;
-    }
-    if (strcmp(key, "cast") == 0) {
-        char n1[16], n2[16];
-        int neutral, city;
-        if (sscanf(rest, "%15s %d %15s %d", n1, &neutral, n2, &city) != 4 || strcmp(english(n1), "neutral") != 0 || strcmp(english(n2), "city") != 0) return 0;
-        light->neutral_cast = neutral, light->city_tunnel = city;
-        return 1;
+        return parse_look(rest, 0, &lit, &has_light, &value, &has_colour, cast) && has_light && take_look(tweaks, has_light, value, has_colour, cast);
     }
     return 0;
 }
@@ -309,6 +408,62 @@ bad:
     return 0;
 }
 
+int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, PsxLight *out, int *bad_line)
+{
+    if (bad_line != NULL) *bad_line = 0;
+    if (text == NULL || track == NULL || out == NULL || expected_nodes == 0) return 0;
+    PsxLight places = { 0 };
+    places.nodes = expected_nodes;
+    int header = 0, line_no = 0;
+    size_t at = 0;
+    while (at < size) {
+        char line[MAX_LINE];
+        size_t n = 0;
+        while (at < size && text[at] != '\n') {
+            if (n + 1 < sizeof line) line[n++] = text[at];
+            at++;
+        }
+        at++;
+        line[n] = '\0';
+        line_no++;
+        char *hash = strchr(line, '#');
+        if (hash != NULL) *hash = '\0';
+        char word[32], what[32];
+        int used = 0;
+        if (sscanf(line, "%31s%n", word, &used) != 1) continue;
+        const char *rest = line + used;
+        const char *const key = english(word);
+        unsigned a, b;
+        if (!header) {
+            char file_track[32];
+            if (strcmp(key, "track") != 0 || sscanf(rest, "%31s", file_track) != 1 || strchr(rest + strspn(rest, " \t"), ' ') != NULL) goto bad;
+            if (strcmp(file_track, track) != 0) { psx_light_free(&places); return 0; }
+            header = 1;
+            continue;
+        }
+        uint8_t **slot = strcmp(key, "tunnel") == 0 ? &places.tunnel : strcmp(key, "canyon") == 0 ? &places.canyon : strcmp(key, "car_dim") == 0 ? &places.car_dim : NULL;
+        if (slot == NULL && strcmp(key, "present") != 0) goto bad;
+        if (strcmp(key, "present") == 0) {
+            if (sscanf(rest, "%31s", what) != 1) goto bad;
+            const char *const w = english(what);
+            uint8_t **pslot = strcmp(w, "tunnel") == 0 ? &places.tunnel : strcmp(w, "canyon") == 0 ? &places.canyon : strcmp(w, "car_dim") == 0 ? &places.car_dim : NULL;
+            if (pslot == NULL || flag_array(pslot, expected_nodes) == NULL) goto bad;
+            continue;
+        }
+        if (sscanf(rest, "%u %u", &a, &b) != 2 || a > b || b >= expected_nodes) goto bad;
+        uint8_t *flag = flag_array(slot, expected_nodes);
+        if (flag == NULL) goto bad;
+        memset(flag + a, 1, b - a + 1);
+    }
+    if (!header) { line_no = 0; goto bad; }
+    out->tunnel = places.tunnel, out->canyon = places.canyon, out->car_dim = places.car_dim;   /* the caller's light had none of them */
+    return 1;
+bad:
+    if (bad_line != NULL) *bad_line = line_no;
+    psx_light_free(&places);
+    return 0;
+}
+
 void track_light_file_free(TrackLightFile *file)
 {
     if (file == NULL) return;
@@ -354,11 +509,18 @@ void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light)
             }
         }
     }
-    for (int dark = 0; dark < 2; dark++)
-        if (tweaks->warm_set[dark]) {
-            memcpy(light->warm_cast[dark], tweaks->warm_cast[dark], sizeof light->warm_cast[dark]);
-            light->warm_percent[dark] = tweaks->warm_percent[dark];
+    for (int i = 0; i < tweaks->zone_count; i++) {   /* the zones over the places: a tunnel, or a hall (a tunnel with a lot of light: its own lamps) */
+        const TrackLightZone *z = &tweaks->zones[i];
+        uint8_t *const tunnel = flag_array(&light->tunnel, light->nodes);
+        uint8_t *const hall = z->lit ? flag_array(&light->hall, light->nodes) : light->hall;
+        for (uint32_t n = z->from; n <= z->to && n < light->nodes; n++) {
+            if (z->lit && hall != NULL) hall[n] = 1, tunnel != NULL ? (void)(tunnel[n] = 0) : (void)0;
+            else if (tunnel != NULL) tunnel[n] = 1, hall != NULL ? (void)(hall[n] = 0) : (void)0;
         }
+    }
+    light->look_set = 1;   /* a file's light always has the tunnels' look: its own, or the dark default (10 % of full light, no colour) */
+    light->look_light = tweaks->look_has_light ? tweaks->look_light : 10.0;
+    for (int k = 0; k < 3; k++) light->look_cast[k] = tweaks->look_has_colour ? tweaks->look_cast[k] : 1.0f;
 }
 
 void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size)

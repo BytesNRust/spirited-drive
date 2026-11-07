@@ -31,6 +31,9 @@ typedef struct {
     int car_disc;       /* port (made_tunnels, car_tunnel_light): 1 where car_even / car_odd are the CD's own car ratios in a road tunnel's lamp alternation (psx_light_synth_disc_car), else CY1's day context */
     float car_even[3], car_odd[3];
     int city_tunnel;    /* port (made_tunnels): 1 CY1, 2 CY2 and CY3, 3 TR3: the road tunnels' tables take the CD's warm cast and the light it needs (ported_view.c) */
+    int look_set;       /* port (track light file): 1 the file gives the tunnels' look: look_light (percent of full light: 100 is row 255, at any time of day) and look_cast (the colour, 0..1 a channel); 0 the made light's own (warm_*, neutral_cast) */
+    double look_light;
+    float look_cast[3];
     float warm_cast[2][3];   /* port (made_tunnels): city_tunnel's tunnel look [0 day, 1 night]: the cast of the dim levels (red, green, blue) ... */
     int warm_percent[2];     /* ... and its light, the gain over the made tunnel's own in percent (psx_light_synth_warm_look; 0 none) */
     int neutral_cast;   /* port (made_tunnels, i074): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
@@ -85,9 +88,15 @@ uint32_t psx_light_old_node(const PsxLight *light, uint32_t node);
  * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
 int psx_light_tunnel(const PsxLight *light, uint32_t node);
 
-/* port (weather_zones): 1 when `node` is a closed zone for the weather (no rain, fog or lightning inside): the file's `tunnel` nodes (a made light's road tunnels), or the rows' tunnel
- * where the light has no tunnel array. A hall is not one, and a node the light marks `canyon` is open air. */
+/* port (weather_zones): 1 when `node` is a closed zone for the weather (no rain, fog or lightning inside): the file's `tunnel` nodes (a made light's road tunnels) and its halls (a tunnel with a lot of light), or the rows' tunnel
+ * where the light has no tunnel array. A node the light marks `canyon` is open air. */
 int psx_light_weather_closed(const PsxLight *light, uint32_t node);
+
+/* port (track light file): how the polygons of a tunnel are tabled for the time whose ambient tint is `shown` (drive_light_tint): the tables' tint (three equal channels in a tunnel's own light), the
+ * cast of its darkened levels and the least light, or no cast at all (`cast_on` 0: the open road's tables). `lit_tint` is the open road's. `lamp_count`: the CD's lamps the track has. The look is the file's
+ * (look_set: the light's percent is of full light, so the gain is it over the time's own tint) else the made light's (psx_light_synth_warm_look, the mine's, the olive default). */
+typedef struct { int cast_on; float tint[3]; float cast[3]; float min_light; } PsxTunnelLook;
+void psx_light_tunnel_look(const PsxLight *light, const float shown[3], const float lit_tint[3], int lamp_count, PsxTunnelLook *out);
 
 /* port (`tone`): the class of the point `point` (a row's point as psx_light_at takes it) of node `node`: psx_light_tunnel_class in the low PSX_TONE_BASE_BITS bits and the point's tone (1..PSX_LIGHT_TONES, 0 none) above them */
 int psx_light_vertex_class(const PsxLight *light, uint32_t node, int point);
