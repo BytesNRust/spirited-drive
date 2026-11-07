@@ -11,7 +11,7 @@
 enum {
     REFLECTOR_REACH_M = 200,        /* the farthest a reflector shines */
     REFLECTOR_NEAR_M = 6,           /* nearer than this the shine is full (before the axis and height take their share) */
-    REFLECTOR_HALF_WIDTH_PERCENT = 22, /* the sideways reach at a distance, % of it: the cone's edge, where the shine is gone */
+    REFLECTOR_HALF_WIDTH_PERCENT = 35, /* the sideways reach at a distance, % of it: the cone's edge, where the shine is gone (a sign on the shoulder, 10 m to the side, shines from about 30 m on) */
     REFLECTOR_EYE_CM = 65,          /* the lamps' height above the ground */
     REFLECTOR_UP_FULL_PERCENT = 6,  /* a point this far above the lamps' level (% of the distance) still shines in full ... */
     REFLECTOR_UP_END_PERCENT = 16,  /* ... and none from this */
