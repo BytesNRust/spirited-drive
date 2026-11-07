@@ -93,6 +93,7 @@ typedef struct {
     int16_t port_pause_up_wait; /* port: back from the pause, P counts only once it has been up (the frame's keys
                                  * still hold the P that left it, and the cleared `last` no longer covers it) */
     int16_t port_was_racing, port_left;  /* port: the race's phase last frame, and that it has been left since */
+    int16_t port_menu_after_pause;       /* port: ESC left the pause, so the in-race menu opens at the next keys call */
 } RaceMenuKeysState;
 
 /* 004557f4 (watcall (frame), from 0045597c each frame): tick < 0x3c: pending
@@ -139,6 +140,7 @@ typedef struct {
     int32_t tick;               /* 00513e70 */
     int32_t port_resume_keys;   /* port: 1 clears `last` on the way out, so ESC works at once; 0 the exe's (the tick:
                                  * ESC dead for MENU_GAP ticks after the pause) */
+    uint8_t esc;                /* port: 004c693d, key 1; with port_resume_keys it ends the pause and opens the menu */
 } RacePauseInputs;
 
 /* 00455600 (004b90dc[1], from 00410b04): 004fcdac = 1; 0041eba4, 004437c8,

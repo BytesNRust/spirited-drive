@@ -35,6 +35,7 @@ typedef struct {
     RacePauseInputs *pinned_in;
     int service_calls;
     uint8_t pause_sequence[8];
+    uint8_t esc_sequence[8];
     int pause_len;
 } PauseTrack;
 
@@ -83,7 +84,10 @@ static void tk_service_pause_walk(void *ctx)
 {
     PauseTrack *t = (PauseTrack *)ctx;
     t->service_calls++;
-    if (t->service_calls - 1 < t->pause_len) t->pinned_in->pause = t->pause_sequence[t->service_calls - 1];
+    if (t->service_calls - 1 < t->pause_len) {
+        t->pinned_in->pause = t->pause_sequence[t->service_calls - 1];
+        t->pinned_in->esc = t->esc_sequence[t->service_calls - 1];
+    }
 }
 
 /* Start-of-race reset is the regression baseline: tick in the KEYS_RESET_BEFORE window clears pending + last. */
@@ -243,8 +247,80 @@ static void pause_return_needs_p_up(void)
     CHECK_EQ_INT(mt.set_calls, 0);
 }
 
+/* port: ESC while paused ends the pause (the exe waits for P alone) and the in-race menu opens at the next keys call */
+static void esc_walk(int port, PauseTrack *pt, RaceMenuKeysState *st)
+{
+    *st = (RaceMenuKeysState){ .last = 5000 };
+    RacePauseInputs in = { .pause = 1, .follow_kind = 0x1234, .tick = 5050, .port_resume_keys = port };
+    memset(pt, 0, sizeof *pt);
+    pt->pinned_in = &in;
+    pt->pause_len = 4;
+    pt->esc_sequence[1] = 1;   /* service 2: ESC down while waiting for the second P */
+    pt->pause_sequence[2] = 1; /* exe path: P pressed again at service 3, released at 4 */
+    RacePauseOps pops = { .ctx = pt, .sound_pause = tk_sound_pause, .voices_off = tk_voices_off,
+                          .end_43cbcc = tk_end_43cbcc, .movie = tk_movie, .service = tk_service_pause_walk,
+                          .hud_clear = tk_hud_clear, .take = tk_take, .wait_screen = tk_wait_screen,
+                          .net_send = tk_net_send, .net_wait = tk_net_wait, .music_on = tk_music_on,
+                          .setup_43cbe0 = tk_setup_43cbe0 };
+    int32_t loading = 0;
+    race_pause(&pops, &in, st, &loading);
+    CHECK_EQ_INT(loading, 0);
+}
+
+static void esc_while_paused_opens_menu(void)
+{
+    PauseTrack pt;
+    RaceMenuKeysState st;
+    esc_walk(1, &pt, &st);
+    CHECK_EQ_INT(pt.service_calls, 2);   /* ended at the ESC, not waiting for P */
+    CHECK_EQ_INT(pt.music_on_calls, 1);
+    CHECK_EQ_INT(st.pending, 0);
+    CHECK_EQ_INT(st.port_menu_after_pause, 1);
+
+    MenuTrack mt = { 0 };
+    RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+    /* ESC still down, MENU_GAP not over: the menu is scheduled anyway, once */
+    RaceMenuKeysInputs in = { .tick = 5051, .phase = PHASE_RACING, .esc = 1 };
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 1);
+    CHECK_EQ_INT(mt.set_which, RACE_SCHEDULE_MENU);
+    CHECK_EQ_INT((int)mt.set_frame, 5052);
+    CHECK_EQ_INT(st.pending, 1);
+    CHECK_EQ_INT(st.port_menu_after_pause, 0);
+    /* closing the menu (race_menu_keys_resumed) leaves ESC needing a new press, and the race runs on */
+    st.pending = 0;
+    race_menu_keys_resumed(&st, 5100, 1);
+    in.tick = 5101;
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 1);
+}
+
+static void esc_while_paused_is_ignored_in_the_exe(void)
+{
+    PauseTrack pt;
+    RaceMenuKeysState st;
+    esc_walk(0, &pt, &st);
+    CHECK_EQ_INT(pt.service_calls, 4);   /* waited for P: pressed at 3, released at 4 */
+    CHECK_EQ_INT(st.port_menu_after_pause, 0);
+    MenuTrack mt = { 0 };
+    RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+    RaceMenuKeysInputs in = { .tick = 5051, .phase = PHASE_RACING, .esc = 1 };
+    race_menu_keys(&mops, &in, &st, (int16_t)in.tick);
+    CHECK_EQ_INT(mt.set_calls, 0);
+}
+
+static void p_still_resumes_without_a_menu(void)
+{
+    RaceMenuKeysState st;
+    pause_return(1, &st);
+    CHECK_EQ_INT(st.port_menu_after_pause, 0);
+}
+
 int main(void)
 {
+    esc_while_paused_opens_menu();
+    esc_while_paused_is_ignored_in_the_exe();
+    p_still_resumes_without_a_menu();
     start_of_race_resets_last();
     menu_gap_still_blocks_without_pause();
     pause_return_allows_immediate_esc();
