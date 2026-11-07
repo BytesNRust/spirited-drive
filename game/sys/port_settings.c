@@ -359,7 +359,23 @@ ScreenFormat port_monitor_format(ScreenFormat fallback)
 }
 
 /* port.cfg: the mode's name and the machine's folder */
-static PortSettings machine_load(void)
+/* port (frame budget): the settings getters (port_car_tunnel_light ...) run per row of a drawn frame and each read port.cfg and the mode's file, parsed them, and made the user folder.
+ * The two reads are kept until a writer here changes a file (settings_written): the values are the ones the files had when last written by the game. */
+static struct {
+    bool machine_have;
+    PortSettings machine;
+    bool mode_have[PROFILE_COUNT];
+    PortSettings mode[PROFILE_COUNT];
+} kept;
+
+/* a file of settings was written or reset (or a test changed what the platform reads): the next read goes to the files */
+void port_settings_forget(void)
+{
+    memset(&kept.machine_have, 0, sizeof kept.machine_have);
+    memset(kept.mode_have, 0, sizeof kept.mode_have);
+}
+
+static PortSettings machine_read(void)
 {
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
@@ -367,6 +383,12 @@ static PortSettings machine_load(void)
     const PortSettings s = port_settings_parse((const char *)data, size);
     platform_free_file(data);
     return s;
+}
+
+static PortSettings machine_load(void)
+{
+    if (!kept.machine_have) kept.machine = machine_read(), kept.machine_have = true;
+    return kept.machine;
 }
 
 bool port_machine_save(int profile, const char *psx_dir)
@@ -377,7 +399,9 @@ bool port_machine_save(int profile, const char *psx_dir)
         return false;
     }
     const int n = snprintf(text, sizeof text, "profile=%s\npsx_dir=%s\n", port_profile_key((Profile)profile), psx_dir);
-    return n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+    const bool written = n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+    port_settings_forget();
+    return written;
 }
 
 /* the values of mode `p`'s table, with the machine's own */
@@ -391,7 +415,7 @@ PortSettings port_mode_values(int p, const char *psx_dir)
 
 void port_settings_take(void *to, const char *key, const char *value) { apply(to, key, value); }
 
-PortSettings port_settings_of_profile(int profile)
+static PortSettings mode_read(int profile)
 {
     const PortSettings machine = machine_load();
     PortSettings s = port_mode_values(profile, machine.psx_dir);
@@ -401,6 +425,13 @@ PortSettings port_settings_of_profile(int profile)
     port_profile_read_free((Profile)profile, (const char *)data, size, port_settings_take, &s);
     platform_free_file(data);
     return s;
+}
+
+PortSettings port_settings_of_profile(int profile)
+{
+    if (profile < 0 || profile >= PROFILE_COUNT) return mode_read(profile);
+    if (!kept.mode_have[profile]) kept.mode[profile] = mode_read(profile), kept.mode_have[profile] = true;
+    return kept.mode[profile];
 }
 
 PortSettings port_settings_load(void) { return port_settings_of_profile(machine_load().profile); }
@@ -432,7 +463,9 @@ bool port_mode_write(const PortSettings *s, const PortExtras *e, const char *kee
     if (extras < 0) return false;
     size_t n = (size_t)settings + (size_t)extras;
     if (n == 0) out[n++] = '\n';   /* nothing changed: an empty file, the mode's values */
-    return platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
+    const bool written = platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
+    port_settings_forget();
+    return written;
 }
 
 bool port_mode_save(const PortSettings *s, const PortExtras *e)
@@ -473,7 +506,9 @@ bool port_profile_reset(int p)
 {
     if (p < 0 || p >= PROFILE_COUNT) return false;
     static const uint8_t EMPTY[] = "\n";
-    return platform_write_user_file(port_profile_file((Profile)p), EMPTY, 1);
+    const bool written = platform_write_user_file(port_profile_file((Profile)p), EMPTY, 1);
+    port_settings_forget();
+    return written;
 }
 
 PlatformConfig port_platform_config(const char *title)

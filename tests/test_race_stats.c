@@ -4,6 +4,7 @@
 #include "test.h"
 
 #include "game/platform/platform.h"
+#include "game/sys/port_settings.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -80,16 +81,19 @@ static void test_stock_holds_the_key(void)
     RaceStats s;
     stored_present = 0;
     mode = "profile=stock\n";
+    port_settings_forget();
     race_stats_start(&s, 0);
     CHECK_EQ_INT(race_stats_key_save(&s, 1), 0);
     CHECK_EQ_INT(s.on, 0);
     CHECK(!stored_present);
     mode = "profile=restored\n";
+    port_settings_forget();
     race_stats_start(&s, 0);
     CHECK_EQ_INT(race_stats_key_save(&s, 1), 1);
     CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_STATS), 1);
     stored_present = 0;
     mode = "profile=restomod\n";
+    port_settings_forget();
 }
 
 /* F12 writes the new value to the mode's file, and only on a toggle */
