@@ -437,6 +437,65 @@ static void apply_rules_file(const char *track, PsxLight *made)
     port_log("psx_light: %d rules from %s\n", n, name);
 }
 
+/* port (lamp_pool_tint, lamp_car_shade, lamp_pool_bright): which nodes a street lamp's pool lies on, for the road's warm tint and for the car's light */
+static void lamp_pool_classes(const Tri *tri, PsxLight *made, const uint32_t *lamp_nodes, size_t lamps)
+{
+    if (lamps > 0 && port_lamp_pool_tint()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
+        made->pool_class = malloc(made->nodes);
+        if (made->pool_class != NULL) psx_light_lamp_classes(made->pool_class, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
+    }
+    if (lamps > 0 && (port_lamp_car_shade() || port_lamp_pool_bright() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
+        made->car_pool = malloc(made->nodes);
+        if (made->car_pool != NULL) psx_light_lamp_classes(made->car_pool, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
+    }
+}
+
+/* port (trans_shadows): the parking's deck roofs nodes 465..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
+static void trans_closed_run(PsxLight *made, PsxLight *tunnels, const char *track, int trans)
+{
+    uint32_t closed_from = 1, closed_to = 0, closed_row = 0;
+    if (trans && psx_light_synth_trans_closed(track, &closed_from, &closed_to, &closed_row) && tunnels->data != NULL && tunnels->nodes == made->nodes && closed_to < made->nodes) {
+        uint32_t hall_from = 1, hall_to = 0;   /* port (trans_shadows): the parking's deck roofs nodes 465..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
+        const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
+        for (uint32_t n = closed_from; n <= closed_to; n++)
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+                const int beyond = p == 3 || p == 4 || p == 5 || p >= 8;
+                const uint8_t row = tunnels->data[(size_t)closed_row * PSX_LIGHT_POINTS + (size_t)p];
+                uint8_t *at = &made->data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p];
+                if (!(hall && beyond) && row < *at) *at = row;
+            }
+        if (tunnels->tunnel != NULL)
+            for (uint32_t n = closed_from; n <= closed_to; n++) tunnels->tunnel[n] = PSX_SYNTH_FLAG_TUNNEL;
+    }
+}
+
+/* port (parking_dark, cavern_dark): the car keeps one dim tone through the parking's decks and TR6's cavern */
+static void car_dim_runs(PsxLight *made, const char *track)
+{
+    uint32_t park_from = 1, park_to = 0;
+    if (port_parking_dark() && psx_light_synth_parking(track, &park_from, &park_to) && park_to < made->nodes) {   /* port (parking_dark): the car keeps the hall's dark tone from the deck's first node to the exit tunnel */
+        made->car_dim = calloc(made->nodes, 1);
+        if (made->car_dim != NULL) memset(made->car_dim + park_from, 1, park_to - park_from + 1);
+    }
+    uint32_t cave_from = 1, cave_to = 0;
+    if (port_cavern_dark() && psx_light_synth_cavern(track, &cave_from, &cave_to) && cave_to < made->nodes) {   /* port (cavern_dark): the car keeps one dim tone through TR6's cavern */
+        if (made->car_dim == NULL) made->car_dim = calloc(made->nodes, 1);
+        if (made->car_dim != NULL) memset(made->car_dim + cave_from, 1, cave_to - cave_from + 1);
+    }
+}
+
+/* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
+static void open_approach(PsxLight *made, int trans, uint32_t open_from, uint32_t open_to)
+{
+    if (trans && open_to < made->nodes) {   /* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
+        uint8_t open_level = 0;
+        for (size_t i = 0; i < (size_t)made->nodes * PSX_LIGHT_POINTS; i++) open_level = made->data[i] > open_level ? made->data[i] : open_level;
+        for (uint32_t n = open_from; n <= open_to; n++)
+            for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+                if (p != 0 && p != 1 && p != 6) made->data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] = open_level;
+    }
+}
+
 static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
 {
     PsxLight made = { 0 };
@@ -444,14 +503,7 @@ static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
     const size_t lamps = synth_time == PSX_SYNTH_NIGHT ? street_lamp_pool_nodes(tri, lamp_nodes) : 0;
     if (!psx_light_make_lit(tri, synth_time, lamp_nodes, (int)lamps, &made)) return 0;
     if (lamps > 0) port_log("psx_light: %zu street lamp pools\n", lamps);
-    if (lamps > 0 && port_lamp_pool_tint()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
-        made.pool_class = malloc(made.nodes);
-        if (made.pool_class != NULL) psx_light_lamp_classes(made.pool_class, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
-    }
-    if (lamps > 0 && (port_lamp_car_shade() || port_lamp_pool_bright() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
-        made.car_pool = malloc(made.nodes);
-        if (made.car_pool != NULL) psx_light_lamp_classes(made.car_pool, made.nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
-    }
+    lamp_pool_classes(tri, &made, lamp_nodes, lamps);
     PsxLight tunnels = { 0 };
     uint32_t open_from = 1, open_to = 0;
     const int trans = port_trans_shadows() && psx_light_synth_trans(track, &open_from, &open_to);
@@ -466,37 +518,9 @@ static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
         }
     }
-    uint32_t closed_from = 1, closed_to = 0, closed_row = 0;
-    if (trans && psx_light_synth_trans_closed(track, &closed_from, &closed_to, &closed_row) && tunnels.data != NULL && tunnels.nodes == made.nodes && closed_to < made.nodes) {
-        uint32_t hall_from = 1, hall_to = 0;   /* port (trans_shadows): the parking's deck roofs nodes 465..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
-        const int hall = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
-        for (uint32_t n = closed_from; n <= closed_to; n++)
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-                const int beyond = p == 3 || p == 4 || p == 5 || p >= 8;
-                const uint8_t row = tunnels.data[(size_t)closed_row * PSX_LIGHT_POINTS + (size_t)p];
-                uint8_t *at = &made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p];
-                if (!(hall && beyond) && row < *at) *at = row;
-            }
-        if (tunnels.tunnel != NULL)
-            for (uint32_t n = closed_from; n <= closed_to; n++) tunnels.tunnel[n] = PSX_SYNTH_FLAG_TUNNEL;
-    }
-    uint32_t park_from = 1, park_to = 0;
-    if (port_parking_dark() && psx_light_synth_parking(track, &park_from, &park_to) && park_to < made.nodes) {   /* port (parking_dark): the car keeps the hall's dark tone from the deck's first node to the exit tunnel */
-        made.car_dim = calloc(made.nodes, 1);
-        if (made.car_dim != NULL) memset(made.car_dim + park_from, 1, park_to - park_from + 1);
-    }
-    uint32_t cave_from = 1, cave_to = 0;
-    if (port_cavern_dark() && psx_light_synth_cavern(track, &cave_from, &cave_to) && cave_to < made.nodes) {   /* port (cavern_dark): the car keeps one dim tone through TR6's cavern */
-        if (made.car_dim == NULL) made.car_dim = calloc(made.nodes, 1);
-        if (made.car_dim != NULL) memset(made.car_dim + cave_from, 1, cave_to - cave_from + 1);
-    }
-    if (trans && open_to < made.nodes) {   /* port (trans_shadows): the airport's approach is open road: the scenery beside it keeps the open light, not the walls' shade */
-        uint8_t open_level = 0;
-        for (size_t i = 0; i < (size_t)made.nodes * PSX_LIGHT_POINTS; i++) open_level = made.data[i] > open_level ? made.data[i] : open_level;
-        for (uint32_t n = open_from; n <= open_to; n++)
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++)
-                if (p != 0 && p != 1 && p != 6) made.data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p] = open_level;
-    }
+    trans_closed_run(&made, &tunnels, track, trans);
+    car_dim_runs(&made, track);
+    open_approach(&made, trans, open_from, open_to);
     if (tunnels.data != NULL && tunnels.nodes == made.nodes) {   /* port: the hall nodes' flag (the mark in the synth's row is lost to the terrain's lower light above) */
         made.hall = calloc(made.nodes, 1);
         if (made.hall != NULL)
@@ -507,7 +531,6 @@ static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
             made.canyon = calloc(made.nodes, 1);
             if (made.canyon != NULL)
                 for (uint32_t n = 0; n < made.nodes; n++) made.canyon[n] = tunnels.tunnel[n] == PSX_SYNTH_FLAG_HALL;
-            if (made.canyon != NULL) { uint32_t a = 0, b = 0, c = 0; for (uint32_t n = 0; n < made.nodes; n++) if (made.canyon[n]) { if (c++ == 0) a = n; b = n; } port_log("canyon: %u nodes, %u..%u\n", c, a, b); }
         }
         if (made.hall != NULL) memset(made.hall, 0, made.nodes);
         if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes)
