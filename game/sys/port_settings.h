@@ -296,6 +296,14 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 /* what port_old_files.c builds a mode's file from: mode `p`'s values with the machine's folder, one key=value over a PortSettings, and port.cfg's two lines */
 PortSettings port_mode_values(int p, const char *psx_dir);
 void port_settings_take(void *to, const char *key, const char *value);
+/* port: the keys that are a whole number in a range (name, where the int field is in PortSettings, lowest and highest value), for the test that walks them all */
+typedef struct {
+    const char *key;
+    size_t offset;
+    int min, max;
+} PortSettingsKey;
+const PortSettingsKey *port_settings_int_keys(int *count);
+
 bool port_machine_save(int profile, const char *psx_dir);
 /* the settings the mode `profile` would have (its values and its file's), whichever is in use: what applying it would change */
 PortSettings port_settings_of_profile(int profile);

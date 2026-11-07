@@ -51,7 +51,86 @@ static bool parse_int(const char *value, long *out)
     return end != value && *end == '\0';
 }
 
-static void apply(PortSettings *s, const char *key, const char *value)
+/* port: the keys that are a whole number in a range, by name and where the field is; a value that is not a number, or is out of the range, leaves the field as it was.
+ * (A plain list, so a new key is one line, and test_port_settings walks it: each one is written by port_settings_format and read back.) */
+static const PortSettingsKey INT_KEYS[] = {
+    { "fullscreen", offsetof(PortSettings, fullscreen), 0, 1 },
+    { "fov_adjust", offsetof(PortSettings, fov_adjust), FOV_MIN, FOV_MAX },
+    { "view_ultra", offsetof(PortSettings, view_ultra), 0, 1 },
+    { "f3_ultra", offsetof(PortSettings, f3_ultra), 0, 1 },
+    { "render_scale", offsetof(PortSettings, render_scale), 1, 3 },
+    { "laps", offsetof(PortSettings, laps), 0, 99 },
+    { "perspective", offsetof(PortSettings, perspective), 0, 1 },
+    { "texture_filter", offsetof(PortSettings, texture_filter), 0, 1 },
+    { "fog", offsetof(PortSettings, fog), 0, 1 },
+    { "psx_light", offsetof(PortSettings, psx_light), 0, 1 },
+    { "psx_headlights", offsetof(PortSettings, psx_headlights), 0, 1 },
+    { "psx_shadow", offsetof(PortSettings, psx_shadow), 0, 1 },
+    { "free_records", offsetof(PortSettings, free_records), 0, 1 },
+    { "fog_sample", offsetof(PortSettings, fog_sample), 0, 1 },
+    { "made_tunnels", offsetof(PortSettings, made_tunnels), 0, 1 },
+    { "psx_flares", offsetof(PortSettings, psx_flares), 0, 1 },
+    { "sky_fill_below", offsetof(PortSettings, sky_fill_below), 0, 1 },
+    { "radar_all_views", offsetof(PortSettings, radar_all_views), 0, 1 },
+    { "tach_dim", offsetof(PortSettings, tach_dim), 0, 1 },
+    { "gauge_wheel", offsetof(PortSettings, gauge_wheel), 0, 1 },
+    { "police_glow", offsetof(PortSettings, police_glow), 0, 1 },
+    { "car_tunnel_light", offsetof(PortSettings, car_tunnel_light), 0, 1 },
+    { "vegas_car_night", offsetof(PortSettings, vegas_car_night), 0, 1 },
+    { "rally_gravel_shoulder", offsetof(PortSettings, rally_gravel_shoulder), 0, 1 },
+    { "chase_height", offsetof(PortSettings, chase_height), 0, 1 },
+    { "lamp_pool_tint", offsetof(PortSettings, lamp_pool_tint), 0, 1 },
+    { "brake_over_gas", offsetof(PortSettings, brake_over_gas), 0, 1 },
+    { "lamp_pools", offsetof(PortSettings, lamp_pools), 0, 1 },
+    { "lamp_pool_bright", offsetof(PortSettings, lamp_pool_bright), 0, 1 },
+    { "headlight_cone", offsetof(PortSettings, headlight_cone), 0, 1 },
+    { "lamp_car_shade", offsetof(PortSettings, lamp_car_shade), 0, 1 },
+    { "tunnel_headlight", offsetof(PortSettings, tunnel_headlight), 0, 1 },
+    { "parking_dark", offsetof(PortSettings, parking_dark), 0, 1 },
+    { "forest_neutral", offsetof(PortSettings, forest_neutral), 0, 1 },
+    { "cavern_dark", offsetof(PortSettings, cavern_dark), 0, 1 },
+    { "vegas_objects", offsetof(PortSettings, vegas_objects), 0, 1 },
+    { "close_houses", offsetof(PortSettings, close_houses), 0, 1 },
+    { "reverse_rows", offsetof(PortSettings, reverse_rows), 0, 1 },
+    { "rain_lamps", offsetof(PortSettings, rain_lamps), 0, 1 },
+    { "gauge_exterior", offsetof(PortSettings, gauge_exterior), 0, 1 },
+    { "traffic_spray", offsetof(PortSettings, traffic_spray), 0, 1 },
+    { "rally_dry_lamps", offsetof(PortSettings, rally_dry_lamps), 0, 1 },
+    { "traffic_halo", offsetof(PortSettings, traffic_halo), 0, 1 },
+    { "police_halo", offsetof(PortSettings, police_halo), 0, 3 },
+    { "rain_v2", offsetof(PortSettings, rain_v2), 0, 1 },
+    { "shoulder_light", offsetof(PortSettings, shoulder_light), 0, 1 },
+    { "analog_pad", offsetof(PortSettings, analog_pad), 0, 1 },
+    { "sign_glow", offsetof(PortSettings, sign_glow), 0, 1 },
+    { "night_tone", offsetof(PortSettings, night_tone), 0, 2 },
+    { "city_lift", offsetof(PortSettings, city_lift), 0, 3 },
+    { "vegas_lift", offsetof(PortSettings, vegas_lift), 0, 2 },
+    { "rain_fx", offsetof(PortSettings, rain_fx), 0, 1 },
+    { "rain_grip", offsetof(PortSettings, rain_grip), 0, 1 },
+    { "finish_gate_light", offsetof(PortSettings, finish_gate_light), 0, 1 },
+    { "gauge_light", offsetof(PortSettings, gauge_light), 0, 5 },
+    { "canyon_shade", offsetof(PortSettings, canyon_shade), 0, 1 },
+    { "trans_shadows", offsetof(PortSettings, trans_shadows), 0, 1 },
+    { "headlight_relight", offsetof(PortSettings, headlight_relight), 0, 1 },
+    { "hall_light", offsetof(PortSettings, hall_light), 0, 1 },
+    { "replay_no_ffb", offsetof(PortSettings, replay_no_ffb), 0, 1 },
+    { "last_camera", offsetof(PortSettings, last_camera), 0, 1 },
+    { "camera_kind", offsetof(PortSettings, camera_kind), -1, 5 },
+    { "sky_fill", offsetof(PortSettings, sky_fill), 0, 1 },
+    { "night_sky_hue", offsetof(PortSettings, night_sky_hue), 0, 1 },
+    { "forest_dark", offsetof(PortSettings, forest_dark), 0, 1 },
+    { "night_stretch_clean", offsetof(PortSettings, night_stretch_clean), 0, 1 },
+    { "car_colours", offsetof(PortSettings, car_colours), 0, 1 },
+};
+
+const PortSettingsKey *port_settings_int_keys(int *count)
+{
+    *count = (int)(sizeof INT_KEYS / sizeof INT_KEYS[0]);
+    return INT_KEYS;
+}
+
+/* the keys that are not a plain range: a name, a set of values, a text, or a table of their own */
+static void apply_named(PortSettings *s, const char *key, const char *value)
 {
     long n;
     if (strcmp(key, "format") == 0) {
@@ -66,215 +145,14 @@ static void apply(PortSettings *s, const char *key, const char *value)
             s->scale_integer = 0;
         else if (strcmp(value, "integer") == 0)
             s->scale_integer = 1;
-    } else if (strcmp(key, "fullscreen") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->fullscreen = (int)n;
-    } else if (strcmp(key, "fov_adjust") == 0) {
-        if (parse_int(value, &n) && n >= FOV_MIN && n <= FOV_MAX)
-            s->fov_adjust = (int)n;
-    } else if (strcmp(key, "view_ultra") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->view_ultra = (int)n;
-    } else if (strcmp(key, "f3_ultra") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->f3_ultra = (int)n;
-    } else if (strcmp(key, "render_scale") == 0) {
-        if (parse_int(value, &n) && n >= 1 && n <= 3)
-            s->render_scale = (int)n;
-    } else if (strcmp(key, "laps") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 99)
-            s->laps = (int)n;
     } else if (strcmp(key, "weather") == 0) {
         const int w = weather_named(value);
         if (w >= 0) s->weather = w;
-    } else if (strcmp(key, "perspective") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->perspective = (int)n;
-    } else if (strcmp(key, "texture_filter") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->texture_filter = (int)n;
-    } else if (strcmp(key, "fog") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->fog = (int)n;
-    } else if (strcmp(key, "psx_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_light = (int)n;
-    } else if (strcmp(key, "psx_headlights") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_headlights = (int)n;
-    } else if (strcmp(key, "psx_shadow") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_shadow = (int)n;
     } else if (strcmp(key, "psx_time") == 0) {
         const int t = psx_time_named(value);
         if (t >= 0) s->psx_time = t;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
-    } else if (strcmp(key, "free_records") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->free_records = (int)n;
-    } else if (strcmp(key, "fog_sample") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->fog_sample = (int)n;
-    } else if (strcmp(key, "made_tunnels") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->made_tunnels = (int)n;
-    } else if (strcmp(key, "psx_flares") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_flares = (int)n;
-    } else if (strcmp(key, "sky_fill_below") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->sky_fill_below = (int)n;
-    } else if (strcmp(key, "radar_all_views") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->radar_all_views = (int)n;
-    } else if (strcmp(key, "tach_dim") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->tach_dim = (int)n;
-    } else if (strcmp(key, "gauge_wheel") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->gauge_wheel = (int)n;
-    } else if (strcmp(key, "police_glow") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->police_glow = (int)n;
-    } else if (strcmp(key, "car_tunnel_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->car_tunnel_light = (int)n;
-    } else if (strcmp(key, "vegas_car_night") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->vegas_car_night = (int)n;
-    } else if (strcmp(key, "rally_gravel_shoulder") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rally_gravel_shoulder = (int)n;
-    } else if (strcmp(key, "chase_height") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->chase_height = (int)n;
-    } else if (strcmp(key, "lamp_pool_tint") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_pool_tint = (int)n;
-    } else if (strcmp(key, "brake_over_gas") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->brake_over_gas = (int)n;
-    } else if (strcmp(key, "lamp_pools") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_pools = (int)n;
-    } else if (strcmp(key, "lamp_pool_bright") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_pool_bright = (int)n;
-    } else if (strcmp(key, "headlight_cone") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->headlight_cone = (int)n;
-    } else if (strcmp(key, "lamp_car_shade") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_car_shade = (int)n;
-    } else if (strcmp(key, "tunnel_headlight") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->tunnel_headlight = (int)n;
-    } else if (strcmp(key, "parking_dark") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->parking_dark = (int)n;
-    } else if (strcmp(key, "forest_neutral") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->forest_neutral = (int)n;
-    } else if (strcmp(key, "cavern_dark") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->cavern_dark = (int)n;
-    } else if (strcmp(key, "vegas_objects") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->vegas_objects = (int)n;
-    } else if (strcmp(key, "close_houses") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->close_houses = (int)n;
-    } else if (strcmp(key, "reverse_rows") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->reverse_rows = (int)n;
-    } else if (strcmp(key, "rain_lamps") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_lamps = (int)n;
-    } else if (strcmp(key, "gauge_exterior") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->gauge_exterior = (int)n;
-    } else if (strcmp(key, "traffic_spray") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->traffic_spray = (int)n;
-    } else if (strcmp(key, "rally_dry_lamps") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rally_dry_lamps = (int)n;
-    } else if (strcmp(key, "traffic_halo") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->traffic_halo = (int)n;
-    } else if (strcmp(key, "police_halo") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 3)
-            s->police_halo = (int)n;
-    } else if (strcmp(key, "rain_v2") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_v2 = (int)n;
-    } else if (strcmp(key, "shoulder_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->shoulder_light = (int)n;
-    } else if (strcmp(key, "analog_pad") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->analog_pad = (int)n;
-    } else if (strcmp(key, "sign_glow") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->sign_glow = (int)n;
-    } else if (strcmp(key, "night_tone") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 2)
-            s->night_tone = (int)n;
-    } else if (strcmp(key, "city_lift") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 3)
-            s->city_lift = (int)n;
-    } else if (strcmp(key, "vegas_lift") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 2)
-            s->vegas_lift = (int)n;
-    } else if (strcmp(key, "rain_fx") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_fx = (int)n;
-    } else if (strcmp(key, "rain_grip") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_grip = (int)n;
-    } else if (strcmp(key, "finish_gate_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->finish_gate_light = (int)n;
-    } else if (strcmp(key, "gauge_light") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 5)
-            s->gauge_light = (int)n;
-    } else if (strcmp(key, "canyon_shade") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->canyon_shade = (int)n;
-    } else if (strcmp(key, "trans_shadows") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->trans_shadows = (int)n;
-    } else if (strcmp(key, "headlight_relight") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->headlight_relight = (int)n;
-    } else if (strcmp(key, "hall_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->hall_light = (int)n;
-    } else if (strcmp(key, "replay_no_ffb") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->replay_no_ffb = (int)n;
-    } else if (strcmp(key, "last_camera") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->last_camera = (int)n;
-    } else if (strcmp(key, "camera_kind") == 0) {
-        if (parse_int(value, &n) && n >= -1 && n <= 5)
-            s->camera_kind = (int)n;
-    } else if (strcmp(key, "sky_fill") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->sky_fill = (int)n;
-    } else if (strcmp(key, "night_sky_hue") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->night_sky_hue = (int)n;
-    } else if (strcmp(key, "forest_dark") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->forest_dark = (int)n;
-    } else if (strcmp(key, "night_stretch_clean") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->night_stretch_clean = (int)n;
-    } else if (strcmp(key, "car_colours") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->car_colours = (int)n;
     } else if (strcmp(key, "render_bands") == 0) {
         /* the render threads: "auto" for as many as the logical cores, or a count. Anything else keeps the default
          * (auto), so a damaged file cannot turn the threads off by accident. */
@@ -289,6 +167,20 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (parse_int(value, &n) && n >= 0 && n <= 4)
             s->body_shine = n == 0 ? 0 : 4;   /* off or the envmap: the strengths 1..3 of an older file are the envmap now */
     }
+}
+
+static void apply(PortSettings *s, const char *key, const char *value)
+{
+    for (size_t i = 0; i < sizeof INT_KEYS / sizeof INT_KEYS[0]; i++) {
+        if (strcmp(key, INT_KEYS[i].key) != 0) continue;
+        long n;
+        if (parse_int(value, &n) && n >= INT_KEYS[i].min && n <= INT_KEYS[i].max) {
+            int *const field = (int *)(void *)((char *)s + INT_KEYS[i].offset);
+            *field = (int)n;
+        }
+        return;
+    }
+    apply_named(s, key, value);
 }
 
 PortSettings port_settings_parse(const char *text, size_t size)
