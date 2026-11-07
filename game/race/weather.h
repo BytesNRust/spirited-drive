@@ -104,7 +104,16 @@ void weather_flash_colour(uint8_t out[3]);
 enum { WEATHER_THUNDER_MIN_TICKS = 15, WEATHER_THUNDER_MAX_TICKS = 120, WEATHER_THUNDER_FAR_PERCENT = 35 };
 int weather_thunder_strike(uint32_t tick);
 int weather_thunder_delay(uint32_t tick);
-int weather_thunder_volume(int delay);   /* the lightning's: a cold white-blue */
+int weather_thunder_volume(int delay);   /* (below, weather_thunder_inside) */
+
+/* port (weather_zones): how much of the weather there is at the eye, `open` 0..16 (16 in the open, 0 inside a closed zone, in between over the mouth). weather_open_for_distance:
+ * `nearest` is how many nodes away the nearest closed node is (negative: none within WEATHER_MOUTH_NODES). weather_flash_open: the lightning's level (0..15) seen from there.
+ * weather_thunder_inside: a clap's volume (percent) muffled to WEATHER_THUNDER_INSIDE_PERCENT inside. weather_fog_open: the fog's end and cap for the openness; 0 when there is no fog at all. */
+enum { WEATHER_MOUTH_NODES = 6, WEATHER_THUNDER_INSIDE_PERCENT = 40 };
+int weather_open_for_distance(int nearest);
+int weather_flash_open(int level, int open);
+int weather_thunder_inside(int volume, int open);
+int weather_fog_open(int open, float start, float *end, float *cap);   /* the lightning's: a cold white-blue */
 
 /* The brightness level (0..WEATHER_RAIN_LEVELS - 1) a spray puff is drawn at: by day white, at night a mid level (it lies behind the car, outside the headlights' cone). */
 int weather_rain_spray_level(int night);

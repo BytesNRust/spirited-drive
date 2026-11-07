@@ -55,6 +55,12 @@ The generated lines (`rows`, `tunnel`, `hall`, `car_dim`, `canyon`, `pool`, `car
 
 `brightness` and `car_tone` are lines added by hand; the editor's F11 writes a `brightness` line. All of them count the same.
 
+## The weather and the tunnels (Restomod)
+
+A `tunnel` line is also a closed zone for the weather: inside it there is no rain, no fog, no rain's haze, no lens drops and no lightning, and the thunder is muffled to 40 %. All of it fades in over the 6 nodes outside a mouth
+(the light editor shows `weather: open|closed N/16` for the node). Coastal's galleries, which the road marks but the files do not, count as closed zones too. A `hall` is not a closed zone (TR7's steelworks, `hall 1 62` and `hall 1011 1023`,
+has rain; its tunnels, `tunnel 465 470`, `571 609` and `682 695`, do not), and a `canyon` is open air (Alpine's, `canyon 600 771`, rains). Stock and Restored have no weather of their own and are not changed.
+
 ## Regenerating the files (the owner's edits survive)
 
 When a change to the engine alters the light it generates, the files are regenerated with `tools/export_track_light.sh <bin> <original/> [dir]`. The export does not write over the files:
