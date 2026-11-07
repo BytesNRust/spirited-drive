@@ -120,8 +120,8 @@ static void load_scenery(TrackArt *art, const Chunk *root)
     }
 }
 
-/* the palette index a texel of index `i` is painted with: a green one becomes a grey (the snow-white one for PURE, the one of its own luma for GREY), others stay */
-static void snow_road_table(const uint8_t *pal, SnowRoad mode, uint8_t lut[256])
+/* the palette index a texel of index `i` is painted with: a green one becomes the snow-white grey (the lightest, a little lighter the brighter the green was), others stay */
+static void snow_road_table(const uint8_t *pal, uint8_t lut[256])
 {
     int luma[256], grey[256];
     for (int i = 0; i < 256; i++) {
@@ -134,7 +134,7 @@ static void snow_road_table(const uint8_t *pal, SnowRoad mode, uint8_t lut[256])
         const int r = pal[i * 3], g = pal[i * 3 + 1], b = pal[i * 3 + 2];
         lut[i] = (uint8_t)i;
         if (i == 0xFF || g < r + 6 || g < b + 6) continue;   /* the transparent index and what is not green */
-        const int want = mode == SNOW_ROAD_PURE ? 215 + (luma[i] >> 3) : luma[i];
+        const int want = 215 + (luma[i] >> 3);
         int best = -1, best_d = 1 << 30;
         for (int k = 0; k < 256; k++) {
             const int d = abs(luma[k] - want);
@@ -144,7 +144,7 @@ static void snow_road_table(const uint8_t *pal, SnowRoad mode, uint8_t lut[256])
     }
 }
 
-int track_art_remap_slots_as(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS], SnowRoad mode)
+int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS])
 {
     int taken = 0;
     if (art == NULL || map == NULL) return 0;
@@ -152,8 +152,7 @@ int track_art_remap_slots_as(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOT
     if (before == NULL) return 0;
     memcpy(before, art->slots, sizeof art->slots);
     uint8_t lut[256];
-    const int paint = art->has_palette && (mode == SNOW_ROAD_PURE || mode == SNOW_ROAD_GREY);
-    if (paint) snow_road_table(art->palette, mode, lut);
+    if (art->has_palette) snow_road_table(art->palette, lut);
     for (int from = 0; from < TRACK_TEXTURE_SLOTS; from++) {
         const int to = (int)map[from] - 1;
         if (to < 0 || to >= TRACK_TEXTURE_SLOTS || to == from || !before[to * TRACK_TEXTURE_VARIANTS].present) continue;
@@ -161,7 +160,7 @@ int track_art_remap_slots_as(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOT
             const TrackTexture *own = &before[from * TRACK_TEXTURE_VARIANTS + v], *snow = &before[to * TRACK_TEXTURE_VARIANTS + v];
             TrackTexture t = *snow;
             const size_t n = (size_t)snow->bitmap.width * snow->bitmap.height;
-            if (paint && own->present && snow->present && own->bitmap.payload != snow->bitmap.payload && n <= own->bitmap.payload_size && n <= snow->bitmap.payload_size) {
+            if (art->has_palette && own->present && snow->present && own->bitmap.payload != snow->bitmap.payload && n <= own->bitmap.payload_size && n <= snow->bitmap.payload_size) {
                 uint8_t *dst = (uint8_t *)(uintptr_t)own->bitmap.payload;   /* the track's bank: a file the loader owns and the palette remap rewrites in place */
                 for (size_t k = 0; k < n; k++) dst[k] = lut[snow->bitmap.payload[k]];
                 t.bitmap.payload = dst, t.bitmap.payload_size = own->bitmap.payload_size;
@@ -172,11 +171,6 @@ int track_art_remap_slots_as(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOT
     }
     free(before);
     return taken;
-}
-
-int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS])
-{
-    return track_art_remap_slots_as(art, map, SNOW_ROAD_AS_IS);
 }
 
 int track_art_load(TrackArt *art, const Chunk *root)

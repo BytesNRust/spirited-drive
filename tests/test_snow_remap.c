@@ -118,49 +118,33 @@ static void test_the_snow_road_loses_its_green(void)
     uint8_t own[TRACK_TEXTURE_VARIANTS][4], map[TRACK_TEXTURE_SLOTS];
     TrackArt *art = calloc(1, sizeof *art);
     snow_road_art(art, snow, own, 4, map);
-    CHECK_EQ_INT(track_art_remap_slots_as(art, map, SNOW_ROAD_GREY), 1);
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
     for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
         CHECK(art->slots[3][v].bitmap.payload == own[v]);       /* the road keeps its own place in the track's bank (the palette remap reaches it there) */
-        CHECK_EQ_INT(own[v][0], 3);      /* the green is the grey of its own brightness */
+        CHECK_EQ_INT(art->slots[3][v].bitmap.width, 4);          /* the snow's size is the slot's */
+        CHECK_EQ_INT(own[v][0], 2);      /* the green is snow-white */
         CHECK_EQ_INT(own[v][1], 2);      /* what was not green is as it was */
         CHECK_EQ_INT(own[v][2], 3);
         CHECK_EQ_INT(own[v][3], 0xFF);   /* and a transparent pixel stays one */
     }
-    CHECK_EQ_INT(art->slots[3][0].bitmap.width, 4);   /* the snow's size is the slot's */
     CHECK_EQ_INT(snow[0], 1);            /* the snow slot the scenery uses is not touched */
     free(art);
 }
 
-static void test_the_pure_snow_road_is_white(void)
-{
-    const uint8_t snow[4] = { 1, 2, 3, 0xFF };
-    uint8_t own[TRACK_TEXTURE_VARIANTS][4], map[TRACK_TEXTURE_SLOTS];
-    TrackArt *art = calloc(1, sizeof *art);
-    snow_road_art(art, snow, own, 4, map);
-    CHECK_EQ_INT(track_art_remap_slots_as(art, map, SNOW_ROAD_PURE), 1);
-    CHECK_EQ_INT(own[0][0], 2);          /* the green is snow-white */
-    CHECK_EQ_INT(own[0][2], 3);          /* the rest is as it was */
-    free(art);
-}
-
-static void test_a_road_with_no_room_or_no_mode_takes_the_snow_as_it_is(void)
+static void test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is(void)
 {
     const uint8_t snow[4] = { 1, 2, 3, 0xFF };
     uint8_t own[TRACK_TEXTURE_VARIANTS][4], map[TRACK_TEXTURE_SLOTS];
     TrackArt *art = calloc(1, sizeof *art);
     snow_road_art(art, snow, own, 2, map);   /* its own bitmap has no room for the snow's pixels */
-    CHECK_EQ_INT(track_art_remap_slots_as(art, map, SNOW_ROAD_GREY), 1);
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
     CHECK(art->slots[3][0].bitmap.payload == snow);
     CHECK_EQ_INT(own[0][0], 9);
     snow_road_art(art, snow, own, 4, map);
-    CHECK_EQ_INT(track_art_remap_slots_as(art, map, SNOW_ROAD_AS_IS), 1);
-    CHECK(art->slots[3][0].bitmap.payload == snow);
-    CHECK_EQ_INT(own[0][0], 9);
     art->has_palette = 0;                    /* no palette: nothing to tell green by */
-    snow_road_art(art, snow, own, 4, map);
-    art->has_palette = 0;
-    CHECK_EQ_INT(track_art_remap_slots_as(art, map, SNOW_ROAD_GREY), 1);
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
     CHECK(art->slots[3][0].bitmap.payload == snow);
+    CHECK_EQ_INT(own[0][0], 9);
     free(art);
 }
 
@@ -170,8 +154,7 @@ int main(void)
     test_a_chain_of_pairs_reads_every_slot_as_it_was();
     test_no_map_changes_nothing();
     test_the_snow_road_loses_its_green();
-    test_the_pure_snow_road_is_white();
-    test_a_road_with_no_room_or_no_mode_takes_the_snow_as_it_is();
+    test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is();
     test_the_places_file_gives_the_map();
     return TEST_REPORT();
 }
