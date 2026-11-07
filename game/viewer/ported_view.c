@@ -252,10 +252,11 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
     return t;
 }
 
-/* port (track light file, `lamp`): the tables a street lamp's light is: the lit tables with the lamp's colour ADDED (a light, not a tint: nothing is darkened), for a colour (to 1/16 a channel, its strongest
- * channel 1) and a strength bucket (the most the lamps give there, in lamps at 100 percent). Made when a polygon asks, from what the table block saved for the tones (the palette and the lit tint), and kept
- * in a small ring; the block drops them when it makes its own again. */
-enum { LAMP_CACHE = 12, LAMP_BUCKETS = 5, LAMP_NEAR = 24 };
+/* port (track light file, `lamp`): the tables a street lamp's light is: the lit tables with the lamp's colour ADDED (a light, not a tint: nothing is darkened), for a colour (to 1/LAMP_KEY_STEPS a channel, its strongest
+ * channel 1) and a strength bucket (the most the lamps give there, in lamps at 100 percent). Made when a polygon asks (2 ms each), from what the table block saved for the tones (the palette and the lit tint), and kept
+ * in a ring of LAMP_CACHE: plain lamps all give one colour, so a handful serve, but neons of other colours mixed in make every polygon's mean colour another one (a stretch of them wants some 60: at 12 every polygon
+ * rebuilt a table, 45 ms a frame); the block drops them when it makes its own again. */
+enum { LAMP_CACHE = 128, LAMP_BUCKETS = 5, LAMP_NEAR = 24, LAMP_KEY_STEPS = 16 };
 static const float LAMP_BUCKET[LAMP_BUCKETS] = { 1.0f, 2.0f, 3.0f, 5.0f, 10.0f };
 static struct { uint8_t key[4]; uint8_t tables[MODERN_FOG_LEVELS][256]; } lamp_cache[LAMP_CACHE];
 static int lamp_cache_used, lamp_cache_next;
@@ -263,14 +264,14 @@ static int lamp_cache_used, lamp_cache_next;
 static const uint8_t (*lamp_add_get(const float rgb[3], int bucket))[256]
 {
     uint8_t key[4];
-    for (int k = 0; k < 3; k++) key[k] = (uint8_t)(rgb[k] * 16.0f + 0.5f);
+    for (int k = 0; k < 3; k++) key[k] = (uint8_t)(rgb[k] * LAMP_KEY_STEPS + 0.5f);
     key[3] = (uint8_t)bucket;
     for (int i = 0; i < lamp_cache_used; i++)
         if (memcmp(lamp_cache[i].key, key, sizeof key) == 0) return lamp_cache[i].tables;
     const int slot = lamp_cache_used < LAMP_CACHE ? lamp_cache_used++ : lamp_cache_next;
     if (slot == lamp_cache_next && lamp_cache_used == LAMP_CACHE) lamp_cache_next = (lamp_cache_next + 1) % LAMP_CACHE;
     float add[3];
-    for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / 16.0f;
+    for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / LAMP_KEY_STEPS;
     memcpy(lamp_cache[slot].key, key, sizeof key);
     modern_light_tables_add(tone_palette, tone_lit_tint, add, lamp_cache[slot].tables);
     return lamp_cache[slot].tables;
