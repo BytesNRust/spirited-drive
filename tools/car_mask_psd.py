@@ -81,10 +81,11 @@ def channel_data(plane):
     return struct.pack(">H", 0) + plane   # raw
 
 
-def write_psd(path, rgb, keep, base_name="texture", guide=None):
+def write_psd(path, rgb, keep, base_name="texture", guide=None, above=None):
     """rgb: RGB Image; keep: 'L' Image of classes (class_of), 0 paint, 128 kept with a shine, 192 as the body, 224 the fixed black, 240..252 the lamps, 255 kept without.
     guide: None, a hidden, locked layer between the texture and the mask (the dash's wheel) as (name, RGB Image, 'L' Image alpha), or a list of layers, each (name, RGB Image,
-    'L' Image alpha[, hidden[, opacity 0..255]]) (hidden by default, opacity 255), bottom first."""
+    'L' Image alpha[, hidden[, opacity 0..255]]) (hidden by default, opacity 255), bottom first.
+    above: the same kind of list for layers over the mask (the track masks' auto `draft`): hidden by default, opacity 255, and not locked."""
     width, height = rgb.size
     if keep.size != rgb.size:
         raise ValueError("mask and texture sizes differ")
@@ -108,6 +109,15 @@ def write_psd(path, rgb, keep, base_name="texture", guide=None):
         count += 1
     records += layer_record("mask", width, height, MASK_OPACITY, False, mask_channels)
     data += b"".join(channel_data(p) for p in (alpha, red, green, blue))
+    for entry in [] if above is None else list(above):
+        aname, argb, aalpha = entry[:3]
+        ahidden = entry[3] if len(entry) > 3 else True
+        aopacity = entry[4] if len(entry) > 4 else 255
+        if argb.size != rgb.size or aalpha.size != rgb.size:
+            raise ValueError("layer and texture sizes differ")
+        records += layer_record(aname, width, height, aopacity, False, mask_channels, hidden=ahidden)
+        data += b"".join(channel_data(bytes(p)) for p in (aalpha.tobytes(),) + tuple(band.tobytes() for band in argb.split()))
+        count += 1
     layer_info = struct.pack(">h", count) + records + data
     if len(layer_info) % 2:
         layer_info += b"\0"
