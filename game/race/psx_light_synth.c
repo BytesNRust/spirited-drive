@@ -255,9 +255,10 @@ static void car_tunnel_look(const PsxLight *light, uint32_t node, float out[3])
         float cast[3];
         psx_light_zone_look_at(light, zone, &percent, cast);
         const float dark = 1.0f - (float)d / (float)PSX_SYNTH_LOOK_RAMP, gap = (node & 1u) ? (float)PSX_SYNTH_LAMP_GAP_PERCENT / 100.0f : 1.0f;
+        const float road = psx_light_road_light(light, node);   /* the look is a table's gain; how lit the place is comes from its rows: the car never has more than the road around it */
         for (int k = 0; k < 3; k++) {
             float lit = (float)(percent / 100.0) * cast[k];
-            lit = (lit > 1.0f ? 1.0f : lit) * gap;
+            lit = (lit > 1.0f ? 1.0f : lit) * road * gap;
             out[k] = 1.0f - (1.0f - lit) * dark;
         }
         return;

@@ -99,6 +99,40 @@ static void test_car_takes_the_zones_look(void)
     CHECK(out[0] > out[1] && out[1] > out[2]);
 }
 
+/* the car is never brighter than the road around it: its zone's look is taken over the light the road gets at its node (the rows' road points, a tunnel's road capped as the world's: TR6's, CL2's and
+ * CY1's rows say 255 and the world shows 100 of 255) */
+static void test_car_is_no_brighter_than_the_road(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, data[N * PSX_LIGHT_POINTS];
+    memset(tunnel + 20, 1, 21);
+    for (int n = 0; n < N; n++) {   /* the rows of TR6's tunnel: the road 255, the foot 130, the walls 0 (the world takes the walls to 128 and the road to 100); the open road's all 255 */
+        static const uint8_t ROW[PSX_LIGHT_POINTS] = { 255, 255, 130, 0, 0, 0, 255, 130, 0, 0, 0 };
+        if (tunnel[n]) memcpy(data + (size_t)n * PSX_LIGHT_POINTS, ROW, PSX_LIGHT_POINTS);
+        else memset(data + (size_t)n * PSX_LIGHT_POINTS, 255, PSX_LIGHT_POINTS);
+    }
+    PsxLight light = { 0 };
+    light.nodes = N, light.data = data, light.tunnel = tunnel, light.look_set = 1, light.look_light = 100.0;
+    light.look_cast[0] = light.look_cast[1] = light.look_cast[2] = 1.0f;
+    float out[3];
+    psx_light_synth_car_tunnel(&light, 30, out);   /* under a lamp: the road's 100 of 255, not the look's full */
+    CHECK(fabsf(out[0] - 100.0f / 255.0f) < 1e-4f && out[0] == out[1] && out[1] == out[2]);
+    psx_light_synth_car_tunnel(&light, 31, out);   /* between: 40 % of that */
+    CHECK(fabsf(out[0] - 0.4f * 100.0f / 255.0f) < 1e-4f);
+    float road = psx_light_road_light(&light, 30);
+    CHECK(fabsf(road - 100.0f / 255.0f) < 1e-4f);
+    CHECK(psx_light_road_light(&light, 5) == 1.0f);   /* the open road's rows: the road points at 255 */
+    light.look_light = 50.0, light.look_cast[1] = 0.5f;   /* a dimmer, orange zone: its look, then the road's share of it */
+    psx_light_synth_car_tunnel(&light, 30, out);
+    CHECK(fabsf(out[0] - 0.5f * 100.0f / 255.0f) < 1e-4f && fabsf(out[1] - 0.25f * 100.0f / 255.0f) < 1e-4f);
+    CHECK(out[0] <= road && out[1] <= road && out[2] <= road);
+    light.look_light = 400.0;   /* a look brighter than full is capped at 1 before the road's share: still no brighter than the road */
+    psx_light_synth_car_tunnel(&light, 30, out);
+    CHECK(out[0] <= road + 1e-5f && out[1] <= road + 1e-5f);
+    psx_light_synth_car_tunnel(&light, 14, out);   /* 6 nodes from the mouth: the open road */
+    CHECK(out[0] == 1.0f);
+}
+
 /* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
 static void test_hall_is_a_tunnel(void)
 {
@@ -440,6 +474,7 @@ int main(void)
     test_gallery_is_a_tunnel_when_asked();
     test_warm_tunnel_tracks();
     test_car_takes_the_zones_look();
+    test_car_is_no_brighter_than_the_road();
     test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();

@@ -102,6 +102,10 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node);
  * where the light has no tunnel array. A node the light marks `canyon` is open air. */
 int psx_light_weather_closed(const PsxLight *light, uint32_t node);
 
+/* port (tunnel zone looks): the light the road gets at `node` (the game's node), 0..1: the mean of the row's road points (0, 1 and 6) as the world takes them (a tunnel's road is capped at
+ * PSX_LIGHT_TUNNEL_ROAD of 255), without the headlights' pools; 1 with no rows. A car in a tunnel is never brighter than this. */
+float psx_light_road_light(const PsxLight *light, uint32_t node);
+
 /* port (tunnel zone looks): the look of the tunnel at file node `at` (the node as the file numbers it, 0..nodes - 1): the light (percent of full light) and the colour its zone gives, or the time's
  * tunnel_tone when the zone has none of its own. 0 (outputs untouched) when the light has no look (look_set 0). */
 int psx_light_zone_look_at(const PsxLight *light, uint32_t at, double *percent, float cast[3]);
