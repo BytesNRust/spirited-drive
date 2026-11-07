@@ -132,7 +132,8 @@ void car_keep_draw_state(Car *car)
     car->draw_roll = car->roll;
 }
 
-void car_reset(Car *car, uint32_t handle)
+/* car_reset, part 1: the motion, the engine and the controls back to rest */
+static void car_reset_motion(Car *car)
 {
     car->speed = 0;
     car->x = START_X;
@@ -160,6 +161,11 @@ void car_reset(Car *car, uint32_t handle)
     car->shift_timer = -1;
     car->on_ground = 1;
     car->airborne_ticks = 0;
+}
+
+/* car_reset, part 2: the zone, the AI targets and the road frame */
+static void car_reset_road(Car *car)
+{
     car->zone = 0;
     car->ai_speed = car->ai_target_speed = car->ai_target_lateral = 0;
     car->use_matrix = 0;
@@ -169,6 +175,11 @@ void car_reset(Car *car, uint32_t handle)
     car->unknown_439 = 0;
     car->unknown_431 = 0x111eb;
     car->unknown_435 = 0x111eb;
+}
+
+/* car_reset, part 3: the attitude, the flags, the body extents and the suspension */
+static void car_reset_body(Car *car, uint32_t handle)
+{
     car->gear_key = 0;
     car->pitch = car->roll = car->yaw = 0;
     car->tilt_z = car->tilt_x = 0;
@@ -194,6 +205,13 @@ void car_reset(Car *car, uint32_t handle)
     car->node_flag_4c6 = car->node_flag_4ca = car->node_flag_4ce = 0;
     car->auto_offset = car->auto_ticks = car->auto_mode = car->auto_steer = 0;
     car->lateral = car->index * 10;
+}
+
+void car_reset(Car *car, uint32_t handle)
+{
+    car_reset_motion(car);
+    car_reset_road(car);
+    car_reset_body(car, handle);
 }
 
 void car_enter(Car *car, CarSpecs *specs, uint32_t handle, RaceState *race)

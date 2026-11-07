@@ -190,21 +190,9 @@ static void shine_register(void *user, int level, const char name[4], int width,
 
 static void slot_colours(int slot, int car);
 
-static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
+/* port: the slot's car file as the livery, paint and lamps masks leave it, before the loader reads it. */
+static void drive_load_textures(const RaceState *race, int slot, const char *stem, size_t size)
 {
-    (void)user;
-    const int slot = car->index;
-    if (slot < 0 || slot >= RACE_CARS) return NULL;
-    char dir[CAR_LOAD_PATH], path[CAR_LOAD_PATH], stem[16];
-    snprintf(dir, sizeof dir, "%s/SIMDATA/CARFAMS/", drive_cars.data_root);
-    if (!car_load_path(car, race, dir, path, stem)) return NULL;
-    size_t size = 0;
-    drive_cars.file[slot] = read_named(path, strlen(dir), &size);
-    if (drive_cars.colours.on && slot != drive_cars.colours.player_slot && slot < drive_cars.colours.racers) {   /* port: a rival's colours, by the car its file is */
-        const int32_t m = race->models[slot];
-        const int real = car_paint_race_car(m);
-        if (real >= 0 && real < CAR_MODELS) slot_colours(slot, real);
-    }
     shine_class_drop_slot(slot);
     if (drive_cars.file[slot] != NULL && port_body_shine()) {   /* port (body shine): the paint texels, from the colours as the file has them */
         int owner = slot;
@@ -231,6 +219,24 @@ static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     }
     drive_lamps_clear(slot);   /* port (emissive lamps): the texels the masks mark as lamps, before the loader reads the file */
     if (drive_cars.file[slot] != NULL) drive_lamps_find(slot, stem, drive_cars.file[slot], size);
+}
+
+static const CarPdn *drive_load(void *user, Car *car, RaceState *race)
+{
+    (void)user;
+    const int slot = car->index;
+    if (slot < 0 || slot >= RACE_CARS) return NULL;
+    char dir[CAR_LOAD_PATH], path[CAR_LOAD_PATH], stem[16];
+    snprintf(dir, sizeof dir, "%s/SIMDATA/CARFAMS/", drive_cars.data_root);
+    if (!car_load_path(car, race, dir, path, stem)) return NULL;
+    size_t size = 0;
+    drive_cars.file[slot] = read_named(path, strlen(dir), &size);
+    if (drive_cars.colours.on && slot != drive_cars.colours.player_slot && slot < drive_cars.colours.racers) {   /* port: a rival's colours, by the car its file is */
+        const int32_t m = race->models[slot];
+        const int real = car_paint_race_car(m);
+        if (real >= 0 && real < CAR_MODELS) slot_colours(slot, real);
+    }
+    drive_load_textures(race, slot, stem, size);
     const CarLoadResult r = drive_cars.file[slot] == NULL ? CAR_LOAD_FILE
         : car_load_setup(car, race, &drive_cars.tint, NULL, &drive_cars.load[slot], drive_cars.file[slot], size);
     drive_cars.loaded[slot] = r == CAR_LOAD_OK;
@@ -447,106 +453,103 @@ static const uint8_t *drive_wet_open_make(const Tri *tri, const char *name, int 
     return drive_wet_open;
 }
 
-static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
+static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
+
+/* The race field for a race: its racers, type and counts, seed, flags and mirroring; the racer count the field settles on. */
+static int drive_field_init(RaceField *field, const char *name, int racers, int race_type, uint32_t seed, uint32_t flags)
 {
-    static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
-    /* 004fb7f4: 004275f8's time(0), the race's random seed (00428fe0); --drive alone keeps a fixed one */
-    uint32_t seed = drive_menus_on ? (uint32_t)time(NULL) : DRIVE_SEED;
-    uint32_t flags = drive_menus_on ? drive_menus.track_flags : 0;  /* 004fb7d8: 0042702c's copy of 0052b306 */
-    const uint8_t *entries = NULL;   /* the host's setup's, 004fb7fa */
-    if (drive_link_on && early.done) entries = early.entries, seed = early.seed, flags = early.flags;
-    else if (drive_link_on) entries = link_entries(model, &seed, &flags);
-    if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
-    CarSpecs specs;
-    if (!load_specs(data_root, model, &specs)) return 0;
-    int own = model;  /* the dash (0041f9a0) is this machine's car's: in a link race its slot's in the setup */
-    if (entries != NULL) memcpy(&own, entries + sizeof(RaceEntry) * (size_t)drive_link.slot + offsetof(RaceEntry, car), sizeof own);
-    char stem[16];
-    car_stem(own, stem);
-    RaceField field;
-    memset(&field, 0, sizeof field);
-    field.racers = racers;
-    field.race_type = racers > 1 ? SINGLE_RACE : 0;
+    memset(field, 0, sizeof *field);
+    field->racers = racers;
+    field->race_type = racers > 1 ? SINGLE_RACE : 0;
     if (race_type >= 0) {
-        field.race_type = race_type;
-        race_field_counts(&field, race_sim_track_index(name), flags, drive_link_on);  /* 0052b312: no police in a link game */
-        racers = field.racers;
+        field->race_type = race_type;
+        race_field_counts(field, race_sim_track_index(name), flags, drive_link_on);  /* 0052b312: no police in a link game */
+        racers = field->racers;
     }
-    field.seed = seed;
-    field.track_flags = flags;
-    field.mirrored = drive_menus_on ? drive_menus.variant_m != 0 : 0;  /* 004fbad8 / 004fbadc: the cheats' and track select's */
-    /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace and the rally gravel's captures */
-    int arcade = drive_menus_on ? drive_menus.variant_r != 0 : getenv("TNFS_RALLY") != NULL;
-    field.load = drive_load;
-    field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
+    field->seed = seed;
+    field->track_flags = flags;
+    field->mirrored = drive_menus_on ? drive_menus.variant_m != 0 : 0;  /* 004fbad8 / 004fbadc: the cheats' and track select's */
+    return racers;
+}
+
+/* The field's entries: the racers' names and cars, the menus' and the opponent's picks, the link machines' entries and specs; 0 if a human's specs do not load. */
+static int drive_field_entries(RaceField *field, const char *data_root, int model, int racers, const uint8_t *entries)
+{
     drive_cars.data_root = data_root;
     drive_cars.tint.tint = (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     drive_cars.tint.tint_ready = 1;
     for (int i = 0, next = 0; i < racers; i++) {
         if (i > 0 && next == model) next++;
         const int m = i == 0 ? model : next++;  /* the others: the 8 race models in order */
-        if (i == 0) snprintf(field.entries[i].name, sizeof field.entries[i].name, "%s",
+        if (i == 0) snprintf(field->entries[i].name, sizeof field->entries[i].name, "%s",
                              drive_menus_on && drive_menus.name != NULL ? drive_menus.name : "Player");
-        else snprintf(field.entries[i].name, sizeof field.entries[i].name, "%s", car_model_names[m]);
-        field.entries[i].car = m;
-        field.entries[i].automatic = 1;
+        else snprintf(field->entries[i].name, sizeof field->entries[i].name, "%s", car_model_names[m]);
+        field->entries[i].car = m;
+        field->entries[i].automatic = 1;
     }
     if (drive_menus_on) {
-        field.entries[0].automatic = drive_menus.automatic, field.entries[0].anti_lock = drive_menus.anti_lock;
-        field.entries[0].traction = drive_menus.traction;
-        if (field.race_type == HEAD_TO_HEAD && racers > 1) field.entries[1].car = drive_menus.opponent;
+        field->entries[0].automatic = drive_menus.automatic, field->entries[0].anti_lock = drive_menus.anti_lock;
+        field->entries[0].traction = drive_menus.traction;
+        if (field->race_type == HEAD_TO_HEAD && racers > 1) field->entries[1].car = drive_menus.opponent;
     }
     /* port, for the checks: TNFS_OPPONENT=<car 0..7, 11> the head to head opponent without the menus */
     const char *opponent = getenv("TNFS_OPPONENT");
-    if (!drive_menus_on && opponent != NULL && field.race_type == HEAD_TO_HEAD && racers > 1) {
+    if (!drive_menus_on && opponent != NULL && field->race_type == HEAD_TO_HEAD && racers > 1) {
         const int car = atoi(opponent);
-        if ((car >= 0 && car <= 7) || car == WARRIOR_CAR) field.entries[1].car = car;
+        if ((car >= 0 && car <= 7) || car == WARRIOR_CAR) field->entries[1].car = car;
     }
     /* A single race with the other entry's car 8 gets 00457870's field of eight different cars (004c5628); any other
      * car there races seven copies of it. The menus' pick (0042702c's second record) is that entry; --drive without
      * them stands in with the whole field. */
-    if (field.race_type == SINGLE_RACE && racers > 1 && !drive_link_on)
-        field.entries[1].car = single_rival_car(drive_menus_on, drive_menus.opponent);
+    if (field->race_type == SINGLE_RACE && racers > 1 && !drive_link_on)
+        field->entries[1].car = single_rival_car(drive_menus_on, drive_menus.opponent);
     for (int i = 0; entries != NULL && i < drive_link.humans && i < racers; i++) {  /* the machines' entries */
-        memcpy(&field.entries[i], entries + sizeof(RaceEntry) * (size_t)i, sizeof field.entries[i]);
-        if (i > 0 && !load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
-        field.specs[i] = i > 0 ? &human_specs[i] : NULL;
+        memcpy(&field->entries[i], entries + sizeof(RaceEntry) * (size_t)i, sizeof field->entries[i]);
+        if (i > 0 && !load_specs(data_root, field->entries[i].car, &human_specs[i])) return 0;
+        field->specs[i] = i > 0 ? &human_specs[i] : NULL;
     }
-    if (drive_link_on) field.humans = drive_link.humans;
+    if (drive_link_on) field->humans = drive_link.humans;
+    return 1;
+}
+
+/* A replay's own field takes the place of the one built, with its humans' specs; 0 if they do not load. */
+static int drive_field_replay(RaceField *field, int *arcade, const char *data_root)
+{
     if (replay_of != NULL) {  /* the replay's own field (0044d3b0's setup), with its seed and its humans' specs */
-        field = replay_of->field;
-        field.track_flags = replay_of->track_flags;
-        arcade = replay_of->arcade;
-        field.load = drive_load;
-        field.slide = drive_menus_on ? drive_slide : NULL;
-        for (int i = 1; i < field.humans && i < RACE_PLAYERS; i++) {
-            if (!load_specs(data_root, field.entries[i].car, &human_specs[i])) return 0;
-            field.specs[i] = &human_specs[i];
+        *field = replay_of->field;
+        field->track_flags = replay_of->track_flags;
+        *arcade = replay_of->arcade;
+        field->load = drive_load;
+        field->slide = drive_menus_on ? drive_slide : NULL;
+        for (int i = 1; i < field->humans && i < RACE_PLAYERS; i++) {
+            if (!load_specs(data_root, field->entries[i].car, &human_specs[i])) return 0;
+            field->specs[i] = &human_specs[i];
         }
     }
-    field.port_lunar_gravity = lunar_gravity_race(name, arcade);
-    field.port_rain_grip = port_rain_grip_active();
-    field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
+    return 1;
+}
+
+/* The field's port words: the moon's gravity, the rain's grip, the difficulty, the gravel and the pad's, chase's settings. */
+static void drive_field_port(RaceField *field, const char *name, int arcade)
+{
+    field->port_lunar_gravity = lunar_gravity_race(name, arcade);
+    field->port_rain_grip = port_rain_grip_active();
     /* port (difficulty.h): the mode's file's level; Original in a link race, a replay's own (the CD's demos: Original) */
-    field.port_difficulty = drive_link_on && session_rules_active() != NULL ? difficulty_from_extras(race_extras().difficulty)   /* port (online): the host's */
+    field->port_difficulty = drive_link_on && session_rules_active() != NULL ? difficulty_from_extras(race_extras().difficulty)   /* port (online): the host's */
         : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = race_extras();
-        field.port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
-        field.port_rally_road = arcade != 0;
-        field.port_analog_pad = port_analog_pad();
-        field.port_rally_shoulder_sound = port_rally_gravel_shoulder();
-        field.port_chase_height = port_chase_height();
+        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
+        field->port_rally_road = arcade != 0;
+        field->port_analog_pad = port_analog_pad();
+        field->port_rally_shoulder_sound = port_rally_gravel_shoulder();
+        field->port_chase_height = port_chase_height();
     }
-    const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
-    /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
-     * a race whose laps are not the exe's for its track and difficulty is a free one, and guards what the lap count outgrows */
-    const int wanted = replay_of == NULL && !drive_link_on ? port_laps() : 0;
-    const int laps = wanted > 0 ? wanted : exe_laps;
-    const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
-    rival_liveries(&field, drive_link_on ? drive_link.slot : 0, name, replay_of != NULL);
-    field.port_reverse = t->reversed;   /* port: the grid is placed at the start, before the race knows its direction otherwise */
-    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
+}
+
+/* After the field starts: the light, the track's direction and walls, and the free laps. */
+static void drive_start_world(const Track *t, const char *data_root, const char *name, RaceField *field, int laps, int exe_laps, int free_race)
+{
     drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
     drive_light_load_synth(&t->tri, name);   /* port: Burnt Sienna and Transtropolis, which the CD has no light for */
     drive_light_load_alt_sky(data_root, name);
@@ -556,10 +559,15 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     reverse_track_set(t->reversed);
     track_wall_set_inner(t->reversed);   /* the walls where they were */
     track_wall_set_rows(port_reverse_rows());   /* port (reverse_rows) */
-    difficulty_running_set(&field.port_difficulty);
+    difficulty_running_set(&field->port_difficulty);
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
     if (free_race) port_log("free laps: %d laps (the exe's would be %d), no record is kept\n", laps, exe_laps);
+}
+
+/* The race's port words: the camera, the cheats, the replay's launch and the config.dat words it reads in place. */
+static void drive_start_race_words(const char *name, int laps)
+{
     drive_sim.race.port_last_camera = replay_of == NULL ? port_last_camera() : 0;   /* port: the race starts in the last camera used */
     drive_sim.race.port_start_camera = 0;
     if (drive_sim.race.port_last_camera != 0) {
@@ -585,6 +593,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
      * results and records are left alone, 0045af80) with 00524ea1 the laps above it */
     drive_sim.race.frontend_track = drive_menus_on && replay_of == NULL ? drive_menus.track : race_sim_track_index(name);
     drive_sim.race.frontend_laps_word = (int32_t)((uint32_t)(uint16_t)laps << 16) | (replay_of != NULL ? REPLAY_KIND : 0);
+}
+
+/* The race's players and their controls: the link's side, the joystick, the menus' game state, the entries' controls and the link's queues. */
+static void drive_start_input(void)
+{
     if (drive_link_on) {  /* 004275f8 in a link game: 0052b312 1, this machine's car followed and viewed, its side */
         RaceState *race = &drive_sim.race;
         race->playback = 1, race->player = race->viewed = drive_link.slot;
@@ -611,6 +624,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_link.racing(drive_input.queues, drive_sim.race.players, drive_link_stand_in);
         drive_sim.race.sounds.start_line = race_stand_in;
     }
+}
+
+/* The keys, the pause, the views and the replay's recording, as the race starts. */
+static void drive_start_views(uint32_t seed)
+{
     drive_keys_start(&drive_keys);
     drive_pause_start(&drive_pause);
     memcpy(drive_views.layouts, race_view_layouts, sizeof drive_views.layouts);
@@ -627,8 +645,13 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     } else if (!drive_replay_start(&drive_replay, &drive_sim, &drive_views)) {
         port_log("track_viewer: no replay recording\n");
     }
-    drive_replay.seed = field.seed;
+    drive_replay.seed = seed;
     if (replay_of != NULL) replay_begin();
+}
+
+/* The frame's words, the cars' palette file, the HUD and the dash, the smoke and the race palette. */
+static void drive_start_hud(Track *t, const char *data_root, const char *stem)
+{
     /* 0044cc74's words before any frame; race_run's 0044d2c4 (drive_frame_setup) sets the race's start on them */
     drive_frame = (FrameDraw){ 0 };
     if (drive_menus_on && drive_menus.options != NULL) track_viewer_options_from_settings(drive_menus.options);
@@ -658,6 +681,47 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     else drive_light_lamps_night(&t->art);   /* port (night): the tunnel lamps' colours in entries of their own */
     if (getenv("TNFS_SCENERY_DUMP_NIGHT") != NULL) scenery_dump(t, getenv("TNFS_SCENERY_DUMP_NIGHT"));   /* port (dev): the boards as the night leaves them */
     if (drive_smoke.ready) ported_view_set_puffs(&drive_smoke.art, &drive_smoke.blend, drive_draw_rand, NULL, &drive_sim.race.trail);
+}
+
+static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
+{
+    /* 004fb7f4: 004275f8's time(0), the race's random seed (00428fe0); --drive alone keeps a fixed one */
+    uint32_t seed = drive_menus_on ? (uint32_t)time(NULL) : DRIVE_SEED;
+    uint32_t flags = drive_menus_on ? drive_menus.track_flags : 0;  /* 004fb7d8: 0042702c's copy of 0052b306 */
+    const uint8_t *entries = NULL;   /* the host's setup's, 004fb7fa */
+    if (drive_link_on && early.done) entries = early.entries, seed = early.seed, flags = early.flags;
+    else if (drive_link_on) entries = link_entries(model, &seed, &flags);
+    if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
+    CarSpecs specs;
+    if (!load_specs(data_root, model, &specs)) return 0;
+    int own = model;  /* the dash (0041f9a0) is this machine's car's: in a link race its slot's in the setup */
+    if (entries != NULL) memcpy(&own, entries + sizeof(RaceEntry) * (size_t)drive_link.slot + offsetof(RaceEntry, car), sizeof own);
+    char stem[16];
+    car_stem(own, stem);
+    RaceField field;
+    racers = drive_field_init(&field, name, racers, race_type, seed, flags);
+    /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace and the rally gravel's captures */
+    int arcade = drive_menus_on ? drive_menus.variant_r != 0 : getenv("TNFS_RALLY") != NULL;
+    field.load = drive_load;
+    field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
+    if (!drive_field_entries(&field, data_root, model, racers, entries)) return 0;
+    if (!drive_field_replay(&field, &arcade, data_root)) return 0;
+    drive_field_port(&field, name, arcade);
+    field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
+    const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
+    /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
+     * a race whose laps are not the exe's for its track and difficulty is a free one, and guards what the lap count outgrows */
+    const int wanted = replay_of == NULL && !drive_link_on ? port_laps() : 0;
+    const int laps = wanted > 0 ? wanted : exe_laps;
+    const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
+    rival_liveries(&field, drive_link_on ? drive_link.slot : 0, name, replay_of != NULL);
+    field.port_reverse = t->reversed;   /* port: the grid is placed at the start, before the race knows its direction otherwise */
+    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
+    drive_start_world(t, data_root, name, &field, laps, exe_laps, free_race);
+    drive_start_race_words(name, laps);
+    drive_start_input();
+    drive_start_views(field.seed);
+    drive_start_hud(t, data_root, stem);
     return 1;
 }
 
@@ -768,11 +832,9 @@ void drive_end(void)
     port_log("mark:race_over\n");   /* port: the test harness waits for it (after the standings above) */
 }
 
-int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
-                       const char *screenshot)
+/* port (online): a link game takes the exchange first, then the track the host's rules describe; else no rules. */
+static void drive_early_link(int model)
 {
-    drive_time_of_day = 1;
-    early.done = 0;
     if (!drive_link_on) session_rules_set(NULL);
     else if (replay_file == NULL && model >= 0 && model < CAR_MODELS) {   /* port (online): the exchange first, then the track the host's rules describe */
         early.seed = drive_menus_on ? (uint32_t)time(NULL) : DRIVE_SEED, early.flags = drive_menus_on ? drive_menus.track_flags : 0;
@@ -780,37 +842,51 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
         const SessionRules *rules = session_rules_active();
         if (rules != NULL && drive_menus_on) drive_menus.time_of_day = rules->time_of_day;
     }
+}
+
+/* The track's art inputs (variant, time of day, direction) from the replay, the menus or the files on disk. */
+static void drive_look_fill(TrackFamInputs *look, const char *data_root, const char *name)
+{
+    look->port_lunar = race_extras().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
+    look->port_reverse = replay_file == NULL && (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted());   /* port: the circuit backwards (not a replay's; a link game's is the host's) */
+    if (replay_file != NULL) {
+        const int32_t track = le32_at(replay_file + 6);
+        look->variant_m = le32_at(replay_file + 0x31c), look->variant_r = le32_at(replay_file + 0x320), look->track = track;
+        /* port: the replay's art as its race had it: both variants together, and the time of day with a variant
+         * (the mode's file's variant_time), each where the exe takes the mirror's art and midday */
+        look->port_both_variants = look->variant_m != 0 && look->variant_r != 0;
+        const int32_t time = track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
+        drive_time_of_day = time;
+        look->time_of_day = track_fam_time_of(track, look->variant_m, look->variant_r, port_extras_load().variant_time,
+                                             time);
+    } else if (drive_menus_on) {
+        look->variant_m = drive_menus.variant_m, look->variant_r = drive_menus.variant_r;
+        /* port: the menus' own pair is the combined state when both are on — the race reads the rally's FAM, the
+         * mirror keeping the geometry (variant_rule.h's rule). Asking the mode's file instead would miss a race the
+         * frontend reached with both on but no the mode's file on disk, which is every --drive NAME mr run.
+         * A replay takes the same rule on its own pair (above). */
+        look->port_both_variants = drive_menus.variant_m != 0 && drive_menus.variant_r != 0;
+        /* port: the mode's file's variant_time keeps the time of day with a variant (fam_mirror.h makes its art) */
+        look->time_of_day = track_fam_time_of(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
+                                             port_extras_load().variant_time, drive_menus.time_of_day);
+        drive_time_of_day = drive_menus.time_of_day;
+    } else if (track_viewer_fam_missing(data_root, name, look) || getenv("TNFS_MIDDAY") != NULL) {
+        look->time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the PS1 look */
+    }
+}
+
+int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
+                       const char *screenshot)
+{
+    drive_time_of_day = 1;
+    early.done = 0;
+    drive_early_link(model);
     static Track t;
     /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
      * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
     TrackFamInputs look = { .time_of_day = 0, .variant_m = 0, .variant_r = 0, .track = race_sim_track_index(name),
                             .stem = NULL, .dir = NULL, .dir_midday = NULL, .port_both_variants = 0 };
-    look.port_lunar = race_extras().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
-    look.port_reverse = replay_file == NULL && (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted());   /* port: the circuit backwards (not a replay's; a link game's is the host's) */
-    if (replay_file != NULL) {
-        const int32_t track = le32_at(replay_file + 6);
-        look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;
-        /* port: the replay's art as its race had it: both variants together, and the time of day with a variant
-         * (the mode's file's variant_time), each where the exe takes the mirror's art and midday */
-        look.port_both_variants = look.variant_m != 0 && look.variant_r != 0;
-        const int32_t time = track >= 0 && track < 9 ? le32_at(replay_file + 0x324 + 4 * track) : 1;  /* port guard */
-        drive_time_of_day = time;
-        look.time_of_day = track_fam_time_of(track, look.variant_m, look.variant_r, port_extras_load().variant_time,
-                                             time);
-    } else if (drive_menus_on) {
-        look.variant_m = drive_menus.variant_m, look.variant_r = drive_menus.variant_r;
-        /* port: the menus' own pair is the combined state when both are on — the race reads the rally's FAM, the
-         * mirror keeping the geometry (variant_rule.h's rule). Asking the mode's file instead would miss a race the
-         * frontend reached with both on but no the mode's file on disk, which is every --drive NAME mr run.
-         * A replay takes the same rule on its own pair (above). */
-        look.port_both_variants = drive_menus.variant_m != 0 && drive_menus.variant_r != 0;
-        /* port: the mode's file's variant_time keeps the time of day with a variant (fam_mirror.h makes its art) */
-        look.time_of_day = track_fam_time_of(drive_menus.track, drive_menus.variant_m, drive_menus.variant_r,
-                                             port_extras_load().variant_time, drive_menus.time_of_day);
-        drive_time_of_day = drive_menus.time_of_day;
-    } else if (track_viewer_fam_missing(data_root, name, &look) || getenv("TNFS_MIDDAY") != NULL) {
-        look.time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the PS1 look */
-    }
+    drive_look_fill(&look, data_root, name);
     int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
              track_viewer_load(&t, data_root, name, &look);
     ok = ok && start_drive(&t, data_root, name, model, racers, race_type);

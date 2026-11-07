@@ -2312,44 +2312,60 @@ static void lamp_street_window_tables(const TrackArt *art)
     }
 }
 
+/* port (PS1 light): what the tables in force were made from; they are made again only when one of these moved (a fade changes the palette). One unit: the tone cache below
+ * (tone_*) is reset together with it */
+static struct {
+    uint8_t palette[768];
+    float tint[3];
+    PsxTunnelLook look;
+    int made, pool;
+    PsxLightTone tone[PSX_LIGHT_TONES];
+    int tone_count;
+} light_made;
+
+/* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
+static void pool_tables_make(const TrackArt *art)
+{
+    static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
+    for (int k = 0; k < 4; k++) {
+        float tint[3];
+        for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
+        modern_light_tables(art->palette, tint, pool_tables[k]);
+    }
+}
+
+/* port (PS1 light): the lit, tunnel and pool tables again, and the scene tones' and the lamps' caches reset from the same inputs */
+static void light_tables_make(const TrackArt *art, const PsxTunnelLook *look, int has_pool)
+{
+    modern_light_tables(art->palette, lit_tint, lit_tables);
+    memcpy(light_made.tone, psx_light->tone, sizeof light_made.tone), light_made.tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
+    memset(tone_made, 0, sizeof tone_made);
+    lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
+    memcpy(tone_palette, art->palette, sizeof tone_palette);
+    memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look->tint, sizeof tone_tunnel_tint);
+    tone_have_cast = look->cast_on, tone_min_light = look->min_light;
+    memcpy(tone_cast, look->cast, sizeof tone_cast);
+    if (look->cast_on) modern_tunnel_tables(art->palette, look->tint, look->cast, look->min_light, tunnel_tables);
+    else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
+    if (has_pool) pool_tables_make(art);
+    pool_ready = has_pool;
+}
+
 /* port (PS1 light): the tables of this frame's light (the lit, tunnel, pool, tone, lamp, street and window tables), made again only when the palette or the tint moved (a fade changes the palette), and the polygon hook set */
 static void light_tables_prepare(const TrackArt *art)
 {
-    /* the tables again only when the palette or the tint moved (a fade changes the palette) */
-    static uint8_t made_for[768];
-    static float made_tint[3];
-    static int made;
-    static PsxTunnelLook made_look;
     float shown[3];
     drive_light_tint(shown);
     PsxTunnelLook look;
     psx_light_tunnel_look(psx_light, shown, lit_tint, lamp_count, &look);   /* the tunnel's tables: the file's look, else the made light's (psx_light.h) */
-    static int made_pool;
-    static PsxLightTone made_tone[PSX_LIGHT_TONES];
-    static int made_tone_count;
     const int has_pool = psx_light->pool_class != NULL;
-    if (!made || made_pool != has_pool || made_tone_count != psx_light->tone_count || memcmp(made_tone, psx_light->tone, sizeof made_tone) != 0 || memcmp(made_for, art->palette, sizeof made_for) != 0 || memcmp(made_tint, lit_tint, sizeof made_tint) != 0 || memcmp(&made_look, &look, sizeof look) != 0) {
-        modern_light_tables(art->palette, lit_tint, lit_tables);
-        made_look = look;
-        memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
-        memset(tone_made, 0, sizeof tone_made);
-        lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
-        memcpy(tone_palette, art->palette, sizeof tone_palette);
-        memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look.tint, sizeof tone_tunnel_tint);
-        tone_have_cast = look.cast_on, tone_min_light = look.min_light;
-        memcpy(tone_cast, look.cast, sizeof tone_cast);
-        if (look.cast_on) modern_tunnel_tables(art->palette, look.tint, look.cast, look.min_light, tunnel_tables);
-        else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
-        if (has_pool) {   /* port (lamp_pool_tint): the lit tables again with the pool's warm tint, by class */
-            static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
-            for (int k = 0; k < 4; k++) {
-                float tint[3];
-                for (int c = 0; c < 3; c++) tint[c] = lit_tint[c] * (1.0f + (WARM[c] - 1.0f) * (float)(k + 1) / 4.0f);
-                modern_light_tables(art->palette, tint, pool_tables[k]);
-            }
-        }
-        pool_ready = has_pool, made_pool = has_pool;
-        memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1;
+    if (!light_made.made || light_made.pool != has_pool || light_made.tone_count != psx_light->tone_count || memcmp(light_made.tone, psx_light->tone, sizeof light_made.tone) != 0
+        || memcmp(light_made.palette, art->palette, sizeof light_made.palette) != 0 || memcmp(light_made.tint, lit_tint, sizeof light_made.tint) != 0
+        || memcmp(&light_made.look, &look, sizeof look) != 0) {
+        light_made.look = look;
+        light_tables_make(art, &look, has_pool);
+        light_made.pool = has_pool;
+        memcpy(light_made.palette, art->palette, sizeof light_made.palette), memcpy(light_made.tint, lit_tint, sizeof light_made.tint), light_made.made = 1;
     }
     lamp_street_window_tables(art);
     track_light_hook = light_hook;
@@ -2410,6 +2426,78 @@ static int draw_track(const Tri *tri, const PortedCamera *pc, TrackCamera *cam, 
     return ahead;
 }
 
+/* port (render bands P2, P3): the frame's recorder */
+static struct RasterRecorder recorder;
+
+/* The storm's thunder and flash, and (port, weather) the sky toward its colour before the track covers it. */
+static void cars_weather_sky(const WeatherTables *wt, uint8_t *pixels, const int32_t box[4], View *view, const TrackCamera *cam)
+{
+    storm_thunder_update();
+    rain_roll_update();
+    drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
+    if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
+        const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
+                                           view, cam->matrix);
+        bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, weather_sky_band, (void *)&sky);
+    }
+}
+
+/* The frame's track streaming and the modern road's style (weather, fog or none). */
+static void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedCamera *pc, const WeatherTables *wt)
+{
+    stream(tri, art, pc->node);
+    if (!modern) modern_road_set_style(NULL);
+    else if (wt != NULL) weather_style(art, wt);
+    else {
+        modern_look_set_sample(&look, port_fog_sample(), port_fog_lift());
+        modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
+    }
+}
+
+/* The headlights' pools, the track's rows transformed for the camera, and the models' view of it. */
+static void cars_transform(TrackCamera *cam, DrawContext *ctx, View *view)
+{
+    headlights_update();   /* port (psx_headlights): the pools of the cars with their lights on, before the rows are built */
+    if (port_headlight_relight() || (psx_light != NULL && psx_light->pool != NULL && psx_light->pool->cone)) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
+    track_render_transform(&render, cam, ctx);
+    memcpy(last_near_dir, ctx->near_dir, sizeof last_near_dir);
+    last_near = ctx->near;
+    model_view = (ModelView){ view, cam->position, cam->matrix,
+                              shadow_race != NULL && model_draw_half_side(shadow_race->track, shadow_race->track_variant), 1 };
+}
+
+/* The cars of the frame, and the object sink their shapes are drawn through. */
+static void cars_take_list(const TrackArt *art, const PortedCar *list, int count, QuadTarget *quad, View *view)
+{
+    car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
+    for (int i = 0; i < car_count; i++) {
+        cars[i].pose = list[i].pose;
+        cars[i].car = list[i].car;
+        cars[i].node = list[i].node;
+    }
+    static uint8_t shade[256];
+    if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
+    object_pixels = (ObjectSink){ quad, art->palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(view) };
+}
+
+/* The frame's recording by bands (with threads), the lamps' and the light's tables, and the rain's spray. */
+static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8_t *pixels)
+{
+    if (bands_threads() != 0) {
+        raster_record_set_runner(bands_rows);
+        raster_record_begin(&recorder, pixels);
+    }
+    if (psx_light == NULL && flare_on && lamp_count > 0) lamp_flare_textures(art);
+    if (psx_light != NULL) light_tables_prepare(art);
+    lit_level = 0;
+    memset(lit_corner, 255, sizeof lit_corner);
+    rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
+    if (rain_spray_on) {   /* port (rain v5) */
+        spray_tables_set(wt);
+        spray_update();
+    }
+}
+
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
                              const PortedCar *list, int count, uint8_t *pixels)
 {
@@ -2439,54 +2527,14 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     rain_open = weather != WEATHER_CLEAR && shadow_race != NULL ? rain_open_at(shadow_race->chase.node) : 16;   /* port (weather_zones): once a frame, before anything of the weather */
     draw_sky(art, info, pc, pixels, &quad, &target, &view, &horizon, &ctx, &cam, box);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
-    storm_thunder_update();
-    rain_roll_update();
-    drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
-    if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
-        const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
-                                           &view, cam.matrix);
-        bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, weather_sky_band, (void *)&sky);
-    }
-    stream(tri, art, pc->node);
-    if (!modern) modern_road_set_style(NULL);
-    else if (wt != NULL) weather_style(art, wt);
-    else {
-        modern_look_set_sample(&look, port_fog_sample(), port_fog_lift());
-        modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
-    }
-    headlights_update();   /* port (psx_headlights): the pools of the cars with their lights on, before the rows are built */
-    if (port_headlight_relight() || (psx_light != NULL && psx_light->pool != NULL && psx_light->pool->cone)) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
-    track_render_transform(&render, &cam, &ctx);
-    memcpy(last_near_dir, ctx.near_dir, sizeof last_near_dir);
-    last_near = ctx.near;
-    model_view = (ModelView){ &view, cam.position, cam.matrix,
-                              shadow_race != NULL && model_draw_half_side(shadow_race->track, shadow_race->track_variant), 1 };
-    car_count = count < 0 ? 0 : count > PORTED_VIEW_CARS ? PORTED_VIEW_CARS : count;
-    for (int i = 0; i < car_count; i++) {
-        cars[i].pose = list[i].pose;
-        cars[i].car = list[i].car;
-        cars[i].node = list[i].node;
-    }
-    static uint8_t shade[256];
-    if (shadow_remap == NULL) object_sink_shade(art->palette, shade);
-    object_pixels = (ObjectSink){ &quad, art->palette, shadow_remap != NULL ? shadow_remap : shade, modern_view(&view) };
+    cars_weather_sky(wt, pixels, box, &view, &cam);
+    cars_stream_style(tri, art, pc, wt);
+    cars_transform(&cam, &ctx, &view);
+    cars_take_list(art, list, count, &quad, &view);
     skid_node = pc->node;
     /* port (render bands P2, P3): with threads the track's draws (road, scenery, cars, shadows, skid marks, smoke) are
      * recorded by the rasterizers, which find the recorder in the target, and replayed by bands at the end, in order */
-    static struct RasterRecorder recorder;
-    if (bands_threads() != 0) {
-        raster_record_set_runner(bands_rows);
-        raster_record_begin(&recorder, pixels);
-    }
-    if (psx_light == NULL && flare_on && lamp_count > 0) lamp_flare_textures(art);
-    if (psx_light != NULL) light_tables_prepare(art);
-    lit_level = 0;
-    memset(lit_corner, 255, sizeof lit_corner);
-    rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
-    if (rain_spray_on) {   /* port (rain v5) */
-        spray_tables_set(wt);
-        spray_update();
-    }
+    cars_frame_begin(art, wt, pixels);
     const int ahead = draw_track(tri, pc, &cam, &ctx);
     rain_spray_on = 0;
     track_light_hook = NULL;

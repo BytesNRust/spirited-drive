@@ -129,6 +129,38 @@ int graphics_own_live_in_race(int setting, int16_t view, int ultra)
     }
 }
 
+/* the value that follows `current` in `values` (the first when it is not among them, the last match when it is repeated), wrapping at both ends */
+static int cycle(const int values[], int count, int current, int direction)
+{
+    int at = 0;
+    for (int i = 0; i < count; i++)
+        if (values[i] == current) at = i;
+    return values[wrap(at, direction, count)];
+}
+
+/* the render threads: Off, Auto, 2 and 4, wrapping at both ends. "Auto" is the -1 sentinel, the one the file
+ * writes as "auto" and the bands' code reads as the logical cores. */
+static void step_bands(PortSettings *s, int direction)
+{
+    static const int VALUES[4] = { 0, -1, 2, 4 };
+    s->render_bands = cycle(VALUES, 4, s->render_bands, direction);
+}
+
+/* the render scale: 1x, 2x and 3x, wrapping at both ends. The number is the many times the world is drawn
+ * over the frame's size, which is what the race's framebuffer is sized by. */
+static void step_scale(PortSettings *s, int direction)
+{
+    static const int VALUES[3] = { 1, 2, 3 };
+    s->render_scale = cycle(VALUES, 3, s->render_scale, direction);
+}
+
+/* both keys together; a port.cfg that has them mixed shows Off, so the step turns both on */
+static void step_light(PortSettings *s)
+{
+    const int on = !(s->psx_light && s->psx_shadow);
+    s->psx_light = s->psx_shadow = on;
+}
+
 void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat fullscreen_format)
 {
     switch (setting) {
@@ -147,13 +179,9 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
     case GRAPHICS_OWN_FORMAT:
         s->format = (ScreenFormat)wrap((int)s->format, direction, 3);
         break;
-    case GRAPHICS_OWN_REFRESH: {
-        int at = 0;
-        for (int i = 0; i < 4; i++)
-            if (REFRESH[i] == s->refresh_hz) at = i;
-        s->refresh_hz = REFRESH[wrap(at, direction, 4)];
+    case GRAPHICS_OWN_REFRESH:
+        s->refresh_hz = cycle(REFRESH, 4, s->refresh_hz, direction);
         break;
-    }
     case GRAPHICS_OWN_FULLSCREEN:
         s->fullscreen ^= 1;
         if (s->fullscreen && port_profile_key_free((Profile)s->profile, "format")) s->format = fullscreen_format;   /* not where the mode holds the format */
@@ -163,32 +191,15 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
         s->fov_adjust = FOV_MIN + FOV_STEP * wrap((s->fov_adjust - FOV_MIN) / FOV_STEP, direction, steps);
         break;
     }
-    case GRAPHICS_OWN_BANDS: {
-        /* the render threads: Off, Auto, 2 and 4, wrapping at both ends. "Auto" is the -1 sentinel, the one the file
-         * writes as "auto" and the bands' code reads as the logical cores. */
-        static const int VALUES[4] = { 0, -1, 2, 4 };
-        int at = 0;
-        for (int i = 0; i < 4; i++)
-            if (VALUES[i] == s->render_bands) at = i;
-        s->render_bands = VALUES[wrap(at, direction, 4)];
+    case GRAPHICS_OWN_BANDS:
+        step_bands(s, direction);
         break;
-    }
-    case GRAPHICS_OWN_SCALE: {
-        /* the render scale: 1x, 2x and 3x, wrapping at both ends. The number is the many times the world is drawn
-         * over the frame's size, which is what the race's framebuffer is sized by. */
-        static const int VALUES[3] = { 1, 2, 3 };
-        int at = 0;
-        for (int i = 0; i < 3; i++)
-            if (VALUES[i] == s->render_scale) at = i;
-        s->render_scale = VALUES[wrap(at, direction, 3)];
+    case GRAPHICS_OWN_SCALE:
+        step_scale(s, direction);
         break;
-    }
-    case GRAPHICS_OWN_LIGHT: {
-        /* both keys together; a port.cfg that has them mixed shows Off, so the step turns both on */
-        const int on = !(s->psx_light && s->psx_shadow);
-        s->psx_light = s->psx_shadow = on;
+    case GRAPHICS_OWN_LIGHT:
+        step_light(s);
         break;
-    }
     default:
         break;   /* the view distance steps through config.dat's own short, not here */
     }
@@ -364,6 +375,42 @@ static void row_text(Screen *s, int row, const GraphicsMenuOps *o)
     text_right(o, style, shown, GRAPHICS_OWN_VALUE_RIGHT, TEXT_Y[row]);
 }
 
+/* the screen put up on the display: the picture, the palette (once, with its fade) and the pointer back */
+static void draw_present(Screen *s, const GraphicsMenuOps *o)
+{
+    o->select_default(o->ctx);
+    o->pointer_hide(o->ctx);
+    o->unlock(o->ctx);
+    o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *s->st->screen));
+    o->unlock(o->ctx);
+    /* port: the palette on the display, once, and in this order. fade_in ramps whatever is ON the display --
+     * video_set_palette presents on every step -- not the backbuffer, so it cannot run before the flip: it would put
+     * the caller's last picture back up in this screen's palette for all seventeen steps, and the menu that opened
+     * this one would come up pale (the capture showed Options' own art climbing out of black, then a hard cut to
+     * this page). So the caller's picture goes out in its own palette, the page is put up on the black display, and
+     * only then does this screen's palette ramp over it -- the order extras_menu.c's page takes.
+     *
+     * A caller that has already faded the display out leaves nothing there to fade, and the seventeen vblanks of it
+     * are black on black: the walk from Options (check_options.c's choose) is the one that does. So the fade is
+     * asked about rather than assumed -- plus_display_dark is the video layer's own answer for its palette, right
+     * whoever faded it, and a caller that cannot say (NULL) gets the fade, which is the safe direction: a fade
+     * skipped over a lit display shows the caller's picture in this screen's palette. */
+    if (!s->palette_on) {
+        /* the palette that matches the picture on the screen: the clean background's own, or -- when there is no
+         * clean background -- the original's, which is the one the words are read in */
+        if (o->plus_display_dark == NULL || !o->plus_display_dark(o->ctx)) o->fade_out(o->ctx, 0, 0x100);
+        o->flip(o->ctx);
+        o->fade_in(o->ctx, 0, 0x100, s->have_burnt_in ? s->burnt_in_pal : s->palette);
+        if (s->have_burnt_in) o->text_styles(o->ctx);
+        s->palette_on = 1;
+    } else {
+        o->flip(o->ctx);
+    }
+    o->pointer_show(o->ctx);
+    o->deadline_set(o->ctx, WAIT);
+    s->redraw = 0;
+}
+
 /* the clean background is a picture of the screen, so it is blitted whole, then its palette put on before the
  * letters are drawn over it: the text styles are a ramp matched to the palette that is showing, which is why the
  * glue builds them from `s->palette` rather than from the one on screen. */
@@ -396,37 +443,7 @@ static void draw(Screen *s, const GraphicsMenuOps *o)
         if (done != NULL) o->blit_own(o->ctx, done);
         if (cancel != NULL) o->blit_own(o->ctx, cancel);
     }
-    o->select_default(o->ctx);
-    o->pointer_hide(o->ctx);
-    o->unlock(o->ctx);
-    o->blit_own(o->ctx, (const uint8_t *)(intptr_t)o->picture_shape(o->ctx, *s->st->screen));
-    o->unlock(o->ctx);
-    /* port: the palette on the display, once, and in this order. fade_in ramps whatever is ON the display --
-     * video_set_palette presents on every step -- not the backbuffer, so it cannot run before the flip: it would put
-     * the caller's last picture back up in this screen's palette for all seventeen steps, and the menu that opened
-     * this one would come up pale (the capture showed Options' own art climbing out of black, then a hard cut to
-     * this page). So the caller's picture goes out in its own palette, the page is put up on the black display, and
-     * only then does this screen's palette ramp over it -- the order extras_menu.c's page takes.
-     *
-     * A caller that has already faded the display out leaves nothing there to fade, and the seventeen vblanks of it
-     * are black on black: the walk from Options (check_options.c's choose) is the one that does. So the fade is
-     * asked about rather than assumed -- plus_display_dark is the video layer's own answer for its palette, right
-     * whoever faded it, and a caller that cannot say (NULL) gets the fade, which is the safe direction: a fade
-     * skipped over a lit display shows the caller's picture in this screen's palette. */
-    if (!s->palette_on) {
-        /* the palette that matches the picture on the screen: the clean background's own, or -- when there is no
-         * clean background -- the original's, which is the one the words are read in */
-        if (o->plus_display_dark == NULL || !o->plus_display_dark(o->ctx)) o->fade_out(o->ctx, 0, 0x100);
-        o->flip(o->ctx);
-        o->fade_in(o->ctx, 0, 0x100, s->have_burnt_in ? s->burnt_in_pal : s->palette);
-        if (s->have_burnt_in) o->text_styles(o->ctx);
-        s->palette_on = 1;
-    } else {
-        o->flip(o->ctx);
-    }
-    o->pointer_show(o->ctx);
-    o->deadline_set(o->ctx, WAIT);
-    s->redraw = 0;
+    draw_present(s, o);
 }
 
 /* the row a step acts on: the view distance goes through config.dat's own short, the rest through port.cfg */
@@ -493,22 +510,51 @@ static void step(Screen *s, uint16_t k, const GraphicsMenuOps *o)
     s->rest = 0;
 }
 
+/* the screen opened: its art, the original's own picture and the first row selected */
+static void open_screen(Screen *s, const GraphicsMenuState *st, const GraphicsMenuOps *ops)
+{
+    memset(s, 0, sizeof *s);
+    s->st = st, s->redraw = 1, s->result = -1;
+    s->bank = ops->load_art(ops->ctx, "option/options.qfs");
+    *st->showing = 1;
+    /* the original's own screen, as 00423d28's open_screen has it up: the picture the words go over, and -- when
+     * there is no clean background -- the palette they are read in */
+    s->burnt_in = ops->load_art(ops->ctx, *st->net_off ? "check/graphics.fsh" : "option/graphics.qfs");
+    *st->inverse = ops->load_inverse(ops->ctx, *st->net_off ? "check/graphics.inv" : "option/graphics.inv");
+    ops->music_feed(ops->ctx);
+    background(s, ops);
+    burnt_in(s, ops);
+    move_to(s->selected, ops);
+}
+
+/* the screen left: faded out, its art freed, the settings saved (1) or put back (0) */
+static int32_t close_screen(Screen *s, const GraphicsMenuState *st, const GraphicsMenuOps *ops)
+{
+    *st->showing = 0;
+    /* port: the whole display faded out as the screen leaves, the way 00423d28's close_screen does. Without it the
+     * screen left the previous one showing in this one's palette, and the caller had a menu it could not read. */
+    ops->fade_out(ops->ctx, 0, 0x100);
+    ops->music_feed(ops->ctx);
+    ops->free_inverse(ops->ctx);
+    if (s->burnt_in != 0) ops->free(ops->ctx, s->burnt_in);
+    if (s->bank != 0) ops->free(ops->ctx, s->bank);
+    /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends, and so do the deadline, the right button
+     * and the quit flag, which reach the same place through result 1. */
+    if (s->result != 0) {
+        if (ops->plus_save != NULL) ops->plus_save(ops->ctx, st->plus->port);
+        return 1;
+    }
+    /* Cancel or Escape: put the settings back as they were on entry, the way graphics_menu.c puts config.dat's
+     * image back */
+    if (ops->plus_put_back != NULL) ops->plus_put_back(ops->ctx, st->plus->port);
+    return 0;
+}
+
 int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
 {
     /* not armed: the key that opened the screen may still be down */
     static Screen s;   /* its background is 300 KB: not on the stack, the web build's is 64 KB */
-    memset(&s, 0, sizeof s);
-    s.st = st, s.redraw = 1, s.result = -1;
-    s.bank = ops->load_art(ops->ctx, "option/options.qfs");
-    *st->showing = 1;
-    /* the original's own screen, as 00423d28's open_screen has it up: the picture the words go over, and -- when
-     * there is no clean background -- the palette they are read in */
-    s.burnt_in = ops->load_art(ops->ctx, *st->net_off ? "check/graphics.fsh" : "option/graphics.qfs");
-    *st->inverse = ops->load_inverse(ops->ctx, *st->net_off ? "check/graphics.inv" : "option/graphics.inv");
-    ops->music_feed(ops->ctx);
-    background(&s, ops);
-    burnt_in(&s, ops);
-    move_to(s.selected, ops);
+    open_screen(&s, st, ops);
     do {
         follow(&s, ops);
         if (s.redraw) draw(&s, ops);
@@ -537,22 +583,5 @@ int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
             s.result = 1;
         }
     } while (s.result < 0);
-    *st->showing = 0;
-    /* port: the whole display faded out as the screen leaves, the way 00423d28's close_screen does. Without it the
-     * screen left the previous one showing in this one's palette, and the caller had a menu it could not read. */
-    ops->fade_out(ops->ctx, 0, 0x100);
-    ops->music_feed(ops->ctx);
-    ops->free_inverse(ops->ctx);
-    if (s.burnt_in != 0) ops->free(ops->ctx, s.burnt_in);
-    if (s.bank != 0) ops->free(ops->ctx, s.bank);
-    /* Done saves, the way graphics_menu.c (00423d28) does it once its loop ends, and so do the deadline, the right button
-     * and the quit flag, which reach the same place through result 1. */
-    if (s.result != 0) {
-        if (ops->plus_save != NULL) ops->plus_save(ops->ctx, st->plus->port);
-        return 1;
-    }
-    /* Cancel or Escape: put the settings back as they were on entry, the way graphics_menu.c puts config.dat's
-     * image back */
-    if (ops->plus_put_back != NULL) ops->plus_put_back(ops->ctx, st->plus->port);
-    return 0;
+    return close_screen(&s, st, ops);
 }

@@ -327,11 +327,9 @@ static void load_without_cd_light(int time, const char *track, int have_dir, con
     if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = own_lamps, night_lamp_count = own_count;   /* the lamps' own colours are kept lit in the night's palette */
 }
 
-void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
+/* The light effects of the track at this time of day: the headlights, the city's lift, the street lamps, the boards, the synth's time and the dark fog. */
+static void light_effects_set(int time, const char *track)
 {
-    reset_for_load(enabled, time, track);
-    if (!enabled) return;
-    const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
     headlights_on = (time == PSX_TIME_NIGHT || is_lost_vegas(track)) && port_psx_headlights();
     city_night3 = headlights_on && is_city(track) && port_city_lift() >= 3;
     city_level = headlights_on && time == PSX_TIME_NIGHT && is_city(track) ? port_city_lift() : 0;
@@ -345,6 +343,35 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     synth_wanted = psx_light_synth_track(track);
     synth_time = time == PSX_TIME_DAWN ? PSX_SYNTH_DAWN : time == PSX_TIME_DUSK ? PSX_SYNTH_DUSK : time == PSX_TIME_NIGHT ? PSX_SYNTH_NIGHT : PSX_SYNTH_DAY;   /* the night: the dusk's doors, a tunnel not darker than the road */
     if (is_lost_vegas(track) || time == PSX_TIME_NIGHT) ported_view_set_dark_fog(1);   /* the night's fog is dark as Lost Vegas' */
+}
+
+/* The parsed CD light taken as the race's: the port's flags on it, its tint, and the ambient script. */
+static void light_adopt(const PsxLight *parsed, const char *track, const char *psx_dir, char letter, int time, uint32_t ring_nodes)
+{
+    light = *parsed;
+    light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
+    light.forest_road = port_forest_neutral() && psx_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
+    light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
+    light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
+    light.pool = headlights_on ? &headlight_pool : NULL;
+    city_fields(&light, track);   /* port (city_lift) */
+    load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
+    if (is_lost_vegas(track))
+        for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
+    ambient_nodes = ring_nodes;
+    if (ambient_ok) {
+        ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
+        psx_light_set_script(&light, &ambient);   /* the exe's light of the track's points */
+        split = 1;
+    }
+}
+
+void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
+{
+    reset_for_load(enabled, time, track);
+    if (!enabled) return;
+    const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
+    light_effects_set(time, track);
     const char letter = LETTERS[time >= PSX_TIME_DAY && time <= PSX_TIME_NIGHT ? time : PSX_TIME_DAY];
     light_letter = time == PSX_TIME_NIGHT ? 'N' : letter;   /* the night has its own rules (the CD's C is the dusk) */
     if (time != PSX_TIME_DAY && have_dir) load_sky(psx_dir, track, letter);
@@ -370,22 +397,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         return;
     }
     if (port_forest_dark()) psx_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
-    light = parsed;
-    light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
-    light.forest_road = port_forest_neutral() && psx_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
-    light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
-    light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
-    light.pool = headlights_on ? &headlight_pool : NULL;
-    city_fields(&light, track);   /* port (city_lift) */
-    load_tint(psx_dir, track, letter, time == PSX_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
-    if (is_lost_vegas(track))
-        for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
-    ambient_nodes = ring_nodes;
-    if (ambient_ok) {
-        ported_view_set_psx_ambient(&ambient, ring_nodes, tint);
-        psx_light_set_script(&light, &ambient);   /* the exe's light of the track's points */
-        split = 1;
-    }
+    light_adopt(&parsed, track, psx_dir, letter, time, ring_nodes);
     const PsxLamp *lamps = NULL;
     const int lamp_count = psx_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
     ported_view_set_psx_lamps(lamps, lamp_count);
@@ -501,6 +513,27 @@ static void open_approach(PsxLight *made, int trans, uint32_t open_from, uint32_
     }
 }
 
+/* port: the hall nodes' flag and the canyon's nodes of the made light, from the synth's tunnel rows. */
+static void made_hall_canyon(PsxLight *made, PsxLight *tunnels, const char *track)
+{
+    if (tunnels->data != NULL && tunnels->nodes == made->nodes) {   /* port: the hall nodes' flag (the mark in the synth's row is lost to the terrain's lower light above) */
+        made->hall = calloc(made->nodes, 1);
+        if (made->hall != NULL)
+            for (uint32_t n = 0; n < made->nodes; n++) made->hall[n] = tunnels->data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
+    }
+    if (port_car_tunnel_light() && !psx_light_synth_hall(track, NULL, NULL)) {   /* port (car_tunnel_light): only TR7 has a hall; TR6's property-16 stretch after the mine is open road in the sun, not an orange hall */
+        if (port_canyon_shade() && tunnels->tunnel != NULL && tunnels->nodes == made->nodes) {   /* port (canyon_shade): remember the canyon's nodes before the flag is cleared */
+            made->canyon = calloc(made->nodes, 1);
+            if (made->canyon != NULL)
+                for (uint32_t n = 0; n < made->nodes; n++) made->canyon[n] = tunnels->tunnel[n] == PSX_SYNTH_FLAG_HALL;
+        }
+        if (made->hall != NULL) memset(made->hall, 0, made->nodes);
+        if (tunnels->tunnel != NULL && tunnels->nodes == made->nodes)
+            for (uint32_t n = 0; n < made->nodes; n++)
+                if (tunnels->tunnel[n] == PSX_SYNTH_FLAG_HALL) tunnels->tunnel[n] = 0;
+    }
+}
+
 static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
 {
     PsxLight made = { 0 };
@@ -526,22 +559,7 @@ static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
     trans_closed_run(&made, &tunnels, track, trans);
     car_dim_runs(&made, track);
     open_approach(&made, trans, open_from, open_to);
-    if (tunnels.data != NULL && tunnels.nodes == made.nodes) {   /* port: the hall nodes' flag (the mark in the synth's row is lost to the terrain's lower light above) */
-        made.hall = calloc(made.nodes, 1);
-        if (made.hall != NULL)
-            for (uint32_t n = 0; n < made.nodes; n++) made.hall[n] = tunnels.data[(size_t)n * PSX_LIGHT_POINTS + PSX_SYNTH_HALL_POINT] == PSX_SYNTH_HALL_MARK;
-    }
-    if (port_car_tunnel_light() && !psx_light_synth_hall(track, NULL, NULL)) {   /* port (car_tunnel_light): only TR7 has a hall; TR6's property-16 stretch after the mine is open road in the sun, not an orange hall */
-        if (port_canyon_shade() && tunnels.tunnel != NULL && tunnels.nodes == made.nodes) {   /* port (canyon_shade): remember the canyon's nodes before the flag is cleared */
-            made.canyon = calloc(made.nodes, 1);
-            if (made.canyon != NULL)
-                for (uint32_t n = 0; n < made.nodes; n++) made.canyon[n] = tunnels.tunnel[n] == PSX_SYNTH_FLAG_HALL;
-        }
-        if (made.hall != NULL) memset(made.hall, 0, made.nodes);
-        if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes)
-            for (uint32_t n = 0; n < made.nodes; n++)
-                if (tunnels.tunnel[n] == PSX_SYNTH_FLAG_HALL) tunnels.tunnel[n] = 0;
-    }
+    made_hall_canyon(&made, &tunnels, track);
     if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes && port_made_tunnels()) {   /* port (made_tunnels): the road's own tunnel nodes, as the PS1 files' rows mark theirs */
         uint32_t hall_from = 1, hall_to = 0;
         const int hall_range = port_hall_light() && psx_light_synth_hall(track, &hall_from, &hall_to);
