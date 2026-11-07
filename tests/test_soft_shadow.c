@@ -25,6 +25,22 @@ static void test_half(void)
     for (int i = 1; i < 256; i++) CHECK(half[i] <= i && half[i] >= full[i]);
 }
 
+/* port (lamp_shadow): the half-way entry is found in the palette as it is shown. The night palette tints some entries and leaves others (the lit board's cream) as they are, so the
+ * art's palette can name a bright entry for a darkened road: under a street lamp the shadow was a flat cream box. Entry 1 is the lit road, 2 its shade; 3 is the untinted cream whose art
+ * colour is the half-way one, 4 the tinted entry whose shown colour is. */
+static void test_half_shown(void)
+{
+    uint8_t art[768] = { 0 }, shown[768] = { 0 }, full[256] = { 0 }, half[256];
+    const uint8_t a[5][3] = { { 0, 0, 0 }, { 200, 200, 200 }, { 60, 60, 60 }, { 130, 130, 130 }, { 131, 131, 131 } };
+    const uint8_t n[5][3] = { { 0, 0, 0 }, { 80, 80, 80 }, { 24, 24, 24 }, { 130, 130, 130 }, { 52, 52, 52 } };
+    memcpy(art, a, sizeof a), memcpy(shown, n, sizeof n);
+    full[1] = 2;
+    soft_shadow_half(art, full, half);
+    CHECK_EQ_INT(half[1], 3);   /* the art's palette: the cream, 130 on screen where the road is 80 */
+    soft_shadow_half(shown, full, half);
+    CHECK_EQ_INT(half[1], 4);   /* the shown one: 52, between 80 and 24 */
+}
+
 static void test_level(void)
 {
     CHECK_EQ_INT(soft_shadow_level(255), SOFT_SHADOW_BRIGHT);
@@ -89,6 +105,7 @@ static void test_draw(void)
 int main(void)
 {
     test_half();
+    test_half_shown();
     test_level();
     test_shrink();
     test_draw();

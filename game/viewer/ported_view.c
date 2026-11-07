@@ -1488,6 +1488,30 @@ static const uint8_t *soft_half(void)
     return half;
 }
 
+/* port (lamp_shadow): the half-way remap made in the palette as it is shown (drive_light_palette), not the art's. The night palette leaves some entries (the lit board's cream) as they are while it darkens the rest,
+ * so the entry nearest the half-way colour in the art's palette can be a bright one on screen: under a lamp, where the road's indexes are the bright ones, that made the shadow a flat cream box. */
+static const uint8_t *soft_half_shown(void)
+{
+    static uint8_t half[256], made_from[256], made_for[768];
+    static int valid;
+    uint8_t shown[768];
+    drive_light_palette(object_pixels.palette, shown);
+    if (!valid || memcmp(made_from, shadow_remap, sizeof made_from) != 0 || memcmp(made_for, shown, sizeof made_for) != 0) {
+        soft_shadow_half(shown, shadow_remap, half);
+        memcpy(made_from, shadow_remap, sizeof made_from), memcpy(made_for, shown, sizeof made_for);
+        valid = 1;
+    }
+    return half;
+}
+
+/* port (lamp_shadow): the car stands in a street lamp's light (the same test as the car's own lamp light, psx_light_lamp_car) */
+static int lamp_on_car(const Car *car)
+{
+    if (psx_light == NULL || psx_light->lamp_n <= 0) return 0;
+    float lit[3] = { 1.0f, 1.0f, 1.0f };
+    return psx_light_lamp_car(psx_light, psx_ring_node(car->node, psx_light->nodes), car->x / 65536.0, car->z / 65536.0, lit);
+}
+
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
 {
@@ -1497,7 +1521,7 @@ static void row_prepare(void *ctx, Car *car, int pass)
     if (soft_shadow_on && shadow_remap != NULL && object_pixels.palette != NULL) {   /* port: the quad's corners, the shade not drawn (remap NULL) */
         const CarShadowOps cut = { NULL, shadow_contact, shadow_followed, follow_arm_clip_quad, 1 };   /* and the quad cut at the near plane, not lost */
         if (car_prepare(&cut, car, &model_view, pass, car == followed_car(), object_pixels.target, NULL, screen))
-            soft_shadow_draw(object_pixels.target, shadow_remap, soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
+            soft_shadow_draw(object_pixels.target, shadow_remap, lamp_on_car(car) ? soft_half_shown() : soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
         return;
     }
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
