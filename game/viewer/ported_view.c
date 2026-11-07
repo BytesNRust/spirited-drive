@@ -36,6 +36,7 @@
 #include "game/race/rally_gravel.h"
 #include "game/race/weather_snow.h"
 #include "game/race/rain_roll.h"
+#include "game/race/snow_roll.h"
 #include "game/viewer/follow_arm.h"
 #include "game/viewer/follow_behind.h"
 #include "viewer/horizon_smooth.h"
@@ -458,6 +459,7 @@ static void rain_mood_band(void *user, int top, int bottom)
 
 static void storm_thunder_update(void);   /* port (rain_v2): the thunder after each strike */
 static void rain_roll_update(void);       /* port (rain_tyre_roll): the wet-tyre roll of the followed car */
+static void snow_roll_update(void);       /* port (snow crunch): the snowy rally's crunch of the followed car */
 static int storm_flash_level(void);   /* port (WEATHER_STORM): the lightning's brightness this frame, 0 none */
 
 static void weather_sky_band(void *user, int top, int bottom)
@@ -2455,6 +2457,7 @@ static void cars_weather_sky(const WeatherTables *wt, uint8_t *pixels, const int
 {
     storm_thunder_update();
     rain_roll_update();
+    snow_roll_update();
     drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
@@ -2603,6 +2606,21 @@ static void rain_roll_update(void)
         }
     }
     drive_audio_wet_roll(percent, pitch);
+}
+
+/* port (snow crunch): the crunch of the car the camera follows on the snowy rally (RALLY_GRAVEL_SNOW), once a frame: its level and pitch by its speed (snow_roll.h), the gravel roll's curve; the exe's gravel
+ * sample is not struck there (race_sound.c). The voice falls silent by itself when the frames stop. */
+static void snow_roll_update(void)
+{
+    int percent = 0, pitch = SNOW_ROLL_PITCH_SLOW;
+    if (shadow_race != NULL && shadow_race->port_rally_gravel == RALLY_GRAVEL_SNOW) {
+        const Car *const car = shadow_race->cars[race_slot(shadow_race->viewed)];
+        if (car != NULL) {
+            percent = snow_roll_volume(shadow_race->port_rally_gravel, car->speed, car->airborne_ticks == 0);
+            pitch = snow_roll_pitch(car->speed);
+        }
+    }
+    drive_audio_snow_roll(percent, pitch);
 }
 
 static int storm_flash_level(void)

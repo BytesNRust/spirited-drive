@@ -19,3 +19,12 @@ Only CC0 or public domain samples go here, each with its source, author and lice
 - Author: goose278 (https://freesound.org/people/goose278/), uploaded 2013-01-19
 - Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
 - Checked on the page on 2026-11-07: the licence listed is Creative Commons 0, the description is "field recording from roadside with cars passing by from left and right. tires on a wet pavement".
+
+## snow_crunch.wav
+
+- What: the crunch of packed snow under a car on the snowy rally (Alpine 3's `RALLY_GRAVEL_SNOW`), a seamless loop, mono, 16-bit, 22050 Hz, 6.5 s. It is played in place of the exe's gravel sample on that rally, at the gravel roll's level and with a pitch that rises with speed.
+- Made from: "snow.wav" (the page's `-hq.mp3` preview, https://cdn.freesound.org/previews/261/261615_2028587-hq.mp3, 25.2 s, a person walking on thin snow, recorded with an iPhone), seconds 11.25 to 18.25 of the file, the stretch with the most even crunching, down-mixed to mono, resampled to 22050 Hz, and looped: the last 0.5 s is cross-faded (equal power) into the first 0.5 s so the end meets the start, and the level is set to a peak of half full scale. Nothing else changed.
+- Source: https://freesound.org/people/mannhawks/sounds/261615/
+- Author: mannhawks (https://freesound.org/people/mannhawks/), uploaded 2015-01-19
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-07: the licence listed is Creative Commons 0 ("You can copy, modify, distribute and perform the sound, even for commercial purposes, all without the need of asking permission to the author").
