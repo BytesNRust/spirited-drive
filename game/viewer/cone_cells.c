@@ -26,6 +26,27 @@ static double screen_extent(const View *view, const int32_t *const cam[4])
     return fabs(best);
 }
 
+/* The grid's points: the camera space, the uv and the light's darkness of each, from the corners'. */
+static void cone_grid_fill(ConeGrid *g, int n, const int32_t uv[8], const int32_t *const cam[4], const double xz[4][2], const double base[4],
+                           const double lamp[4], const PsxLight *light)
+{
+    g->n = n;
+    for (int j = 0; j <= n; j++)
+        for (int i = 0; i <= n; i++) {
+            const double s = (double)i / n, t = (double)j / n;
+            for (int c = 0; c < 3; c++) g->cam[j][i][c] = (int32_t)lrint(lerp(lerp(cam[0][c], cam[1][c], s), lerp(cam[3][c], cam[2][c], s), t));
+            for (int c = 0; c < 2; c++) g->uv[j][i][c] = (int32_t)lrint(lerp(lerp(uv[c], uv[2 + c], s), lerp(uv[6 + c], uv[4 + c], s), t));
+            const double a = s, b = t;   /* the place in the polygon (uv is only its piece of the texture) */
+            const double x = lerp(lerp(xz[0][0], xz[1][0], a), lerp(xz[3][0], xz[2][0], a), b);
+            const double z = lerp(lerp(xz[0][1], xz[1][1], a), lerp(xz[3][1], xz[2][1], a), b);
+            const double bv = lerp(lerp(base[0], base[1], a), lerp(base[3], base[2], a), b);
+            const double lf = lerp(lerp(lamp[0], lamp[1], a), lerp(lamp[3], lamp[2], a), b);
+            double v = bv * psx_light_open_gain_floor(light, headlight_pool_lift_xz(light->pool, x, z), (int)lf) / 256.0;
+            if (v > 255.0) v = 255.0;
+            g->dark[j][i] = (float)((255.0 - v) * (MODERN_FOG_LEVELS - 1) / 255.0);
+        }
+}
+
 int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], const PsxLight *light, const uint8_t corner[4],
                     const double xz[4][2], const uint32_t node[4])
 {
@@ -69,21 +90,7 @@ int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, cons
         lamp[k] = psx_light_lamp_floor(light, node[k]);
         base[k] = corner[k] * 256.0 / psx_light_open_gain_floor(light, lift[k], (int)lamp[k]);
     }
-    g->n = n;
-    for (int j = 0; j <= n; j++)
-        for (int i = 0; i <= n; i++) {
-            const double s = (double)i / n, t = (double)j / n;
-            for (int c = 0; c < 3; c++) g->cam[j][i][c] = (int32_t)lrint(lerp(lerp(cam[0][c], cam[1][c], s), lerp(cam[3][c], cam[2][c], s), t));
-            for (int c = 0; c < 2; c++) g->uv[j][i][c] = (int32_t)lrint(lerp(lerp(uv[c], uv[2 + c], s), lerp(uv[6 + c], uv[4 + c], s), t));
-            const double a = s, b = t;   /* the place in the polygon (uv is only its piece of the texture) */
-            const double x = lerp(lerp(xz[0][0], xz[1][0], a), lerp(xz[3][0], xz[2][0], a), b);
-            const double z = lerp(lerp(xz[0][1], xz[1][1], a), lerp(xz[3][1], xz[2][1], a), b);
-            const double bv = lerp(lerp(base[0], base[1], a), lerp(base[3], base[2], a), b);
-            const double lf = lerp(lerp(lamp[0], lamp[1], a), lerp(lamp[3], lamp[2], a), b);
-            double v = bv * psx_light_open_gain_floor(light, headlight_pool_lift_xz(light->pool, x, z), (int)lf) / 256.0;
-            if (v > 255.0) v = 255.0;
-            g->dark[j][i] = (float)((255.0 - v) * (MODERN_FOG_LEVELS - 1) / 255.0);
-        }
+    cone_grid_fill(g, n, uv, cam, xz, base, lamp, light);
     return n;
 }
 
