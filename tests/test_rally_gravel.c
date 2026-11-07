@@ -2,6 +2,7 @@
  * the road noise lower; the exe's own numbers when it is off. */#include "game/race/dust_trail.h"
 #include "game/race/rally_gravel.h"
 #include "game/race/race_state.h"
+#include "game/race/weather_snow.h"
 #include "test.h"
 
 #include <string.h>
@@ -236,6 +237,21 @@ static void test_snow_grip(void)
     for (int i = 0; i < RACE_SURFACES; i++) CHECK(wet_gravel.surfaces[i].grip < 0x180);               /* gravel in rain still loses grip: unchanged */
 }
 
+/* the whole way: the race's snow (a replay's own record, else the local or host's setting) -> the rally's kind -> the surfaces' grip, as track_viewer chains them for Alpine, track 2 */
+static int grip_of_race(int in_replay, int replay_snow, int local)
+{
+    const int snow = snow_race_wanted(in_replay, replay_snow, local);   /* (the places file's `snow 1` is taken as read here) */
+    return snow_race(rally_gravel_kind(2, 1, 0, 1, snow), 0).surfaces[0].grip;
+}
+
+static void test_the_replays_snow_reaches_the_surfaces(void)
+{
+    CHECK_EQ_INT(grip_of_race(1, 1, 0), RALLY_SNOW_GRIP);   /* recorded on snow, local flag off: the snow grip */
+    CHECK_EQ_INT(grip_of_race(1, 0, 1), 0x180);             /* recorded without, local flag on: the gravel's, as it ran */
+    CHECK_EQ_INT(grip_of_race(0, 0, 1), RALLY_SNOW_GRIP);   /* a plain race with the flag on (or the host's): snow */
+    CHECK_EQ_INT(grip_of_race(0, 1, 0), 0x180);             /* a plain race with it off: gravel */
+}
+
 int main(void)
 {
     test_tyre_skid();
@@ -244,6 +260,7 @@ int main(void)
     test_kinds();
     test_snow_kind();
     test_snow_grip();
+    test_the_replays_snow_reaches_the_surfaces();
     test_level_and_dust();
     test_crunch();
     test_trail();
