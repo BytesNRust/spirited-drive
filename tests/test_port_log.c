@@ -3,6 +3,7 @@
 #include "test.h"
 
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -68,8 +69,37 @@ static void test_log_file(void)
     rmdir(dir);
 }
 
+/* the scripted input's WAIT: a line containing the text, logged after the watch was armed, from any of the three, quiet or not */
+static void test_watch(void)
+{
+    port_log_set_verbose(0);
+    port_log("mark:before\n");
+    port_log_watch("mark:before");
+    CHECK_EQ_INT(port_log_watch_hit(), 0);                   /* lines logged before arming do not count */
+    port_log("something else %d\n", 3);
+    CHECK_EQ_INT(port_log_watch_hit(), 0);
+    port_log("mark:before humans=2\n");
+    CHECK_EQ_INT(port_log_watch_hit(), 1);                   /* a substring of a line, though the console is quiet */
+    port_log_watch("mark:out");
+    CHECK_EQ_INT(port_log_watch_hit(), 0);                   /* arming again clears it */
+    port_out("mark:out\n");
+    CHECK_EQ_INT(port_log_watch_hit(), 1);
+    port_log_watch("mark:fatal");
+    fflush(NULL);
+    const int saved = dup(2);
+    const int quiet = open("/dev/null", 1);
+    dup2(quiet, 2);
+    port_fatal("mark:fatal\n");
+    dup2(saved, 2), close(saved), close(quiet);
+    CHECK_EQ_INT(port_log_watch_hit(), 1);
+    port_log_watch("");
+    port_log("x\n");
+    CHECK_EQ_INT(port_log_watch_hit(), 0);                   /* nothing watched */
+}
+
 int main(void)
 {
+    test_watch();
     unsetenv("TNFS_VERBOSE");
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_verbose(), 0);

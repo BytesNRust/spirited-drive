@@ -59,7 +59,11 @@ static int key_count;
  * has been read all that time with no gap over SCRIPT_READ_GAP_MS (the menus present only on a change and poll
  * the pointer while they wait, so that is a screen waiting for its input, however slow the build runs; a load
  * presents nothing either, but reads no pointer) or, on a screen that never stills (a movie, a blinking
- * cursor), after SCRIPT_SETTLE_CAP_MS. */
+ * cursor), after SCRIPT_SETTLE_CAP_MS.
+ * ms:WAIT:text:secs (with TNFS_INPUT_SETTLE only): the script holds there, ms after the event before it, until the game logs a line
+ * containing `text` (port_log_watch, armed at that moment: a line logged before does not count) -- the game's marks are the
+ * "mark:..." lines (tools/link_loopback.sh) -- and goes on; if no such line comes in `secs` seconds the process says which step
+ * it stopped at ("input script: step N: WAIT text timed out after S s") and exits with status 3. */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000, SCRIPT_READ_GAP_MS = 250 };
 typedef struct {
     uint32_t at_ms;
@@ -68,7 +72,7 @@ typedef struct {
     bool seen;     /* held until the game has read it at least once */
     bool queued;   /* text / editing code already pushed to the text queue */
     bool keyed;    /* pushed to the key queue, as a real press is */
-    char text[16]; /* TEXT events */
+    char text[32]; /* TEXT events; WAIT: the log line's text */
     uint32_t delay; /* TNFS_INPUT_SETTLE: ms after the event before it */
     bool placed;    /* CLICK: the pointer moved there, the press due on the next read */
     bool latched;   /* a key's press latched, as the event of a real one does */
@@ -528,7 +532,14 @@ static void load_script(void)
          item = SDL_strtok_r(NULL, ",", &save)) {
         ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false, false };
         char name[16] = "";
-        if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
+        const char *wait = SDL_strstr(item, ":WAIT:");
+        const char *last = wait != NULL ? SDL_strrchr(item, ':') : NULL;   /* WAIT: ms:WAIT:text:secs, the text may hold colons */
+        if (wait != NULL && last > wait + 6 && last - (wait + 6) < (int)sizeof e.text && SDL_sscanf(item, "%u:", &e.at_ms) == 1 &&
+            SDL_sscanf(last + 1, "%d", &e.x) == 1 && e.x > 0) {   /* x: the seconds */
+            SDL_memcpy(e.text, wait + 6, (size_t)(last - (wait + 6)));
+            e.scancode = -4;
+            script[script_count++] = e;
+        } else if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
         } else if (SDL_sscanf(item, "%u:CLICK:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             e.scancode = -3;
@@ -545,13 +556,18 @@ static void load_script(void)
     script_start_ms = (uint32_t)SDL_GetTicks();
     const char *settle = SDL_getenv("TNFS_INPUT_SETTLE");
     settle_ms = settle != NULL ? (uint32_t)SDL_atoi(settle) : 0;
-    if (settle_ms == 0) return;
+    if (settle_ms == 0) {
+        for (int i = 0; i < script_count; i++)
+            if (script[i].scancode == -4) port_log("platform: WAIT %s in TNFS_INPUT_SCRIPT needs TNFS_INPUT_SETTLE; it does nothing\n", script[i].text);
+        return;
+    }
     for (int i = 0; i < script_count; i++) script[i].delay = script[i].at_ms, script[i].at_ms = UINT32_MAX;
 }
 
 static bool script_done(const ScriptEvent *e, uint32_t now)
 {
     if (e->scancode == -1) return true;                       /* a mouse move, consumed */
+    if (e->scancode == -4) return port_log_watch_hit() != 0;  /* WAIT: the game logged its line */
     if (e->scancode == -3 || e->scancode == -2) return e->seen || (e->scancode == -2 && e->queued);
     return now >= e->at_ms + SCRIPT_HOLD_MS && (e->seen || e->keyed || e->queued);
 }
@@ -565,7 +581,15 @@ static void script_sequence(void)
     while (script_next < script_count) {
         ScriptEvent *e = &script[script_next];
         if (e->at_ms != UINT32_MAX) {
-            if (!script_done(e, now)) return;
+            if (!script_done(e, now)) {
+                if (e->scancode == -4 && now - e->at_ms > (uint32_t)e->x * 1000u) {   /* the step the script stopped at, named */
+                    port_log("input script: step %d: WAIT %s timed out after %d s\n", script_next + 1, e->text, e->x);
+                    if (!port_log_verbose()) fprintf(stderr, "input script: step %d: WAIT %s timed out after %d s\n", script_next + 1, e->text, e->x);
+                    exit(3);
+                }
+                return;
+            }
+            if (e->scancode == -4) port_log("input script: step %d: %s came\n", script_next + 1, e->text);
             script_next++, script_last_ms = now;
             continue;
         }
@@ -574,6 +598,10 @@ static void script_sequence(void)
         const bool still = now - last_present_ms >= settle_ms && now - reading_since_ms >= settle_ms;
         if (now < due || (pointer && !still && now < due + SCRIPT_SETTLE_CAP_MS)) return;
         e->at_ms = now;
+        if (e->scancode == -4) {   /* WAIT: from now on (its own line first: it holds the text it waits for) */
+            port_log("input script: step %d: waiting for %s\n", script_next + 1, e->text);
+            port_log_watch(e->text);
+        }
         return;
     }
 }

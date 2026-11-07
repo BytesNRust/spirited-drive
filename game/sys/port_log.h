@@ -20,6 +20,12 @@ enum { PORT_LOG_FILE_MAX = 4 * 1024 * 1024 };
 int port_log_open_file(const char *path);
 void port_log_close_file(void);
 
+/* port (test harness): the scripted input (TNFS_INPUT_SCRIPT's WAIT, platform_sdl3.c) waits for a line the game logs. port_log_watch arms a watch for `text` (at most 63 bytes);
+ * port_log_watch_hit is 1 once a line containing it has gone through port_log, port_out or port_fatal since, whether or not the console shows it. Lines logged before the watch was
+ * armed do not count. */
+void port_log_watch(const char *text);
+int port_log_watch_hit(void);
+
 /* 1 when TNFS_VERBOSE is set to anything but "" or "0" (read once), or port_log_set_verbose(1) was called */
 int port_log_verbose(void);
 void port_log_set_verbose(int on);

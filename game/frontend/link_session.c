@@ -5,6 +5,7 @@
 #include "game/frontend/frontend.h"
 #include "game/frontend/menu_glue.h"
 #include "game/platform/platform.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
 
@@ -109,6 +110,7 @@ int32_t link_host(const char *name)
     L->unknown_4bc6ac = h.unknown_4bc6ac, menu_words.intro_seen = h.unknown_4fbb0c, L->joined = h.joined;
     L->counts = h.counts, L->queue.head = h.queue_head, L->queue.tail = h.unknown_50a36c;
     L->queue.count = h.queue_count, L->unknown_50a360 = h.unknown_50a360;
+    if (r != 0) port_log("mark:game_hosted\n");   /* port: the test harness starts the guests once the game is up */
     return r;
 }
 
