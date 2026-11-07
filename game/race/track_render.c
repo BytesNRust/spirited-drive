@@ -468,6 +468,8 @@ static void object_light_on(const Glue *g, int32_t resource)
     const double at[2] = { cone ? track_port_object_at[0] / 65536.0 : 0.0, cone ? track_port_object_at[2] / 65536.0 : 0.0 };
     uint8_t v = cone ? psx_light_node_xz(g->r->psx, node, at) : psx_light_node(g->r->psx, node);
     if (g->r->psx->object_floor > v) v = g->r->psx->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
+    if (g->r->psx->lamp_n > 0 && track_port_object_at != NULL)   /* port (`lamp`): the object at its own place in the lamps' pools, the rows' bake only reaching its terrain's points */
+        v = psx_light_object_lamp(g->r->psx, node, track_port_object_at[0] / 65536.0, track_port_object_at[2] / 65536.0, v);
     v = finish_gate_light_level(g->r->psx->gate_board, resource, v);   /* port (finish_gate_light): the stage gate keeps its light */
     const uint8_t corners[4] = { v, v, v, v };
     track_light_hook(corners);
