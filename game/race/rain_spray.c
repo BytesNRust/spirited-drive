@@ -92,6 +92,15 @@ int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t
     return 1;
 }
 
+int32_t rain_spray_speed(int32_t speed, int32_t vx, int32_t vz)
+{
+    if (speed != 0) return speed;
+    const int64_t ax = vx < 0 ? -(int64_t)vx : vx, az = vz < 0 ? -(int64_t)vz : vz;
+    const int64_t big = ax > az ? ax : az, small = ax > az ? az : ax;
+    const int64_t v = big + small / 4;
+    return v > INT32_MAX ? INT32_MAX : (int32_t)v;
+}
+
 void rain_spray_heading(int use_matrix, int32_t yaw, int32_t matrix6, int32_t matrix8, int32_t forward[2])
 {
     const double len = sqrt((double)matrix6 * matrix6 + (double)matrix8 * matrix8);
