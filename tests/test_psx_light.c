@@ -260,6 +260,31 @@ static void test_radial_lamps(void)
     CHECK(bright[0] <= 2.0f);   /* the old pool's ceiling */
 }
 
+/* an object beside a lamp: raised to what the lamp gives at its own place, less what the rows' bake already put on its terrain's points (not added twice) */
+static void test_object_lamp(void)
+{
+    PsxLightLamp lamp[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f } } };
+    static uint8_t lift[128 * PSX_LIGHT_POINTS];
+    PsxLight l = { 0 };
+    l.nodes = 128, l.lamps = lamp, l.lamp_n = 1, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 100), 100);   /* no bake (lamp_lift NULL): the rows are as they were */
+    l.lamp_lift = lift;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 100), 255);   /* under the lamp, nothing baked there: full */
+    const int half = psx_light_object_lamp(&l, 10, 15.0, 0.0, 100);    /* a quarter of the lamp at 15 m: a quarter of the way to full */
+    CHECK(half > 100 && half < 255 && half == 100 + (int)(155 * 0.25f + 0.5f));
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, -40.0, 0.0, 100), 100);   /* beyond the reach */
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 60, 0.0, 0.0, 100), 100);     /* a node no lamp is near */
+    CHECK_EQ_INT(psx_light_object_lamp(&l, PSX_LIGHT_NO_NODE, 0.0, 0.0, 100), 100);
+    for (int n = 0; n < 128; n++)   /* the terrain's points fully baked: the object has nothing more to take */
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) lift[n * PSX_LIGHT_POINTS + p] = 255;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 100), 100);
+    for (int n = 0; n < 128; n++)   /* half baked: under the lamp it takes the rest of the way, at 15 m (a quarter) it is already past it */
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) lift[n * PSX_LIGHT_POINTS + p] = 128;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 180), 255);
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 15.0, 0.0, 180), 180);
+    CHECK_EQ_INT(psx_light_object_lamp(NULL, 10, 0.0, 0.0, 77), 77);
+}
+
 int main(void)
 {
     test_tunnel_road();
@@ -271,5 +296,6 @@ int main(void)
     test_reversed();
     test_shoulder_light();
     test_radial_lamps();
+    test_object_lamp();
     return TEST_REPORT();
 }

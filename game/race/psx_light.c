@@ -360,6 +360,27 @@ float psx_light_lamp_at(const PsxLight *light, const int idx[], int n, double x,
     return top;
 }
 
+uint8_t psx_light_object_lamp(const PsxLight *light, uint32_t node, double x, double z, uint8_t level)
+{
+    static const int TERRAIN[] = { 2, 3, 4, 5, 7, 8, 9, 10 };   /* psx_light_node_xz's points */
+    enum { NEAR_MAX = 24 };
+    if (light == NULL || light->lamp_lift == NULL || light->lamps == NULL || light->lamp_n <= 0 || !light->lamp_placed || light->nodes == 0 || node == PSX_LIGHT_NO_NODE) return level;
+    const uint32_t nodes[4] = { node, node, node, node };
+    int idx[NEAR_MAX];
+    const int n = psx_light_lamps_near(light, nodes, idx, NEAR_MAX);
+    if (n == 0) return level;
+    float rgb[3];
+    float own = LAMP_BAKE * psx_light_lamp_at(light, idx, n, x, z, rgb);
+    if (own > 1.0f) own = 1.0f;
+    const size_t base = (size_t)(psx_light_old_node(light, node) % light->nodes) * PSX_LIGHT_POINTS;
+    unsigned sum = 0;
+    for (size_t i = 0; i < sizeof TERRAIN / sizeof *TERRAIN; i++) sum += light->lamp_lift[base + (size_t)old_point(light, TERRAIN[i])];
+    const float baked = (float)sum / (255.0f * (float)(sizeof TERRAIN / sizeof *TERRAIN));
+    if (own <= baked || baked >= 1.0f) return level;
+    const float lift = (own - baked) / (1.0f - baked);
+    return (uint8_t)((float)level + (float)(PSX_LIGHT_FULL - level) * lift + 0.5f);
+}
+
 int psx_light_lamp_car(const PsxLight *light, uint32_t node, double x, double z, float out[3])
 {
     enum { RATIO_MAX = 2, NEAR_MAX = 16 };

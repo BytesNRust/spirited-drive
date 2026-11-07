@@ -134,6 +134,12 @@ float psx_light_lamp_at(const PsxLight *light, const int idx[], int n, double x,
 #define LAMP_BAKE 1.0f       /* how far toward full light a lamp at 100 percent lifts the rows and the night's floor under it */
 int psx_light_lamp_car(const PsxLight *light, uint32_t node, double x, double z, float out[3]);
 
+/* port (`lamp`): the light level `level` of an object at the ground point x, z (metres) beside node `node` (its terrain's mean, as psx_light_node), raised to what the lamps' pool gives there. The rows' bake lifts the
+ * terrain points of the node by the lamps' falloff at each point's own place (lamp_lift), and an object takes their mean: where the object's own place is lit more than that mean (a building nearer the lamp than the
+ * verge's points are), the level rises by the difference, as the bake would have put it (the same toward-full lift, not added twice). Unchanged with no lamps, no bake (lamp_lift NULL), or where the lamps give the
+ * object no more than its terrain's. */
+uint8_t psx_light_object_lamp(const PsxLight *light, uint32_t node, double x, double z, uint8_t level);
+
 /* port (lamp_pool_tint): what the light of the polygons at `node` is tabled by: 1 a tunnel (psx_light_tunnel), 2..5 a street lamp's pool of class 1..4 (the road there takes a warm tint), 0 else. */
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node);
 
