@@ -63,7 +63,7 @@ void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entr
 enum { WINDOW_BOARDS_MAX = 12 };
 void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry);
 
-/* port (reflectors, reflect_pass.h): where the track's masks come from (track_mask.h's track_mask_for: a texture's w x h bytes, 1 reflective, or NULL); NULL: none, and nothing shines */
+/* port (reflectors, reflect_pass.h): where the track's masks come from (track_mask.h's track_mask_for: a texture's w x h bytes, 1 reflective, or NULL); NULL: none, and nothing shines. The default is track_mask_for (a test or a tool sets its own) */
 void ported_view_set_reflect_masks(const uint8_t *(*mask_for)(const TrackTexture *t));
 void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
 

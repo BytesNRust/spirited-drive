@@ -17,6 +17,7 @@
 #include "game/race/track_fence.h"
 #include "game/race/track_object_draw.h"
 #include "game/race/reflector.h"
+#include "game/race/track_mask.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
@@ -355,8 +356,8 @@ static const uint8_t *lit_table_for(const FshEntry *texture)
 
 static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || lit_tinted) ? light_tables()[lit_level] : NULL; }
 
-/* port (reflectors): the masks come from the track (track_mask.h's track_mask_for, set by the loader); the textures are registered once per loaded art, the lamps' state each frame */
-static const uint8_t *(*reflect_mask_for)(const TrackTexture *t);
+/* port (reflectors): the masks come from the track (track_mask.h's track_mask_for, which the loader fills); the textures are registered once per loaded art, the lamps' state each frame */
+static const uint8_t *(*reflect_mask_for)(const TrackTexture *t) = track_mask_for;
 static const TrackArt *reflect_registered;
 static int reflect_lamps_on, reflect_dark;
 static double reflect_x, reflect_z, reflect_hx, reflect_hz;
