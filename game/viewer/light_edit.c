@@ -79,7 +79,7 @@ const uint8_t *light_edit_compose(LightEdit *e, const uint8_t *frame, int width,
     char lines[LIGHT_EDIT_LINES][96];
     int n = drive_light_edit_lines(node, lines, LIGHT_EDIT_LINES - 1);
     if (n <= 0) return frame;
-    if (e->message[0] != '\0' && platform_ticks_ms() - e->message_ms < LIGHT_EDIT_MESSAGE_MS) snprintf(lines[n++], 96, "%s", e->message);
+    if (n < LIGHT_EDIT_LINES && e->message[0] != '\0' && platform_ticks_ms() - e->message_ms < LIGHT_EDIT_MESSAGE_MS) snprintf(lines[n++], 96, "%s", e->message);
     if (!e->text_ready) e->text_ready = text_small_init();
     if (!e->text_ready) return frame;
     if (!e->palette_known || memcmp(e->palette, palette, 768) != 0) {
