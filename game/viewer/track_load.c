@@ -5,6 +5,7 @@
 
 #include "race/fam_mirror.h"
 #include "race/lunar_springs.h"
+#include "game/race/track_mask.h"
 
 #include "sys/resource.h"
 
@@ -248,6 +249,12 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     if (look->variant_r && look->port_snow) {   /* port (snow_weather): the snowy track's rally road is the track's own snow textures (the places file's `snow_map`) */
         uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS];
         if (track_snow_for(&t->tri, name, snow_map)) port_log("track_viewer: %s: snow: %d road texture slots take the snow's\n", name, track_art_remap_slots(&t->art, snow_map));
+    }
+    {   /* port: the reflective masks of this track's textures (track_mask.h), by its stem in capitals */
+        char stem[16] = { 0 };
+        for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof stem; i++) stem[i] = (char)toupper((unsigned char)name[i]);
+        const int found = track_masks_set(stem, &t->art);
+        if (found > 0) port_log("track_viewer: %s: %d reflective masks\n", stem, found);
     }
     char info_path[512];
     size_t info_size = 0;
