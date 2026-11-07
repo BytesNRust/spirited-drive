@@ -2187,6 +2187,48 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
 }
 
+/* port: the lamps', the street lamps' and the lit windows' tables from the world's tables just made, and the textures they are drawn on */
+static void lamp_street_window_tables(const TrackArt *art)
+{
+    for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
+        for (int v = 0; v < LAMP_VARIANTS; v++) {
+            const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
+                                        ? &art->slots[lamp_spec[i].slot][v] : NULL;
+            lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
+        }
+    for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
+        const FshEntry *t = lamp_bitmap[i][0];
+        uint8_t exempt[256];
+        psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
+        psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+        memcpy(lamp_exempt_set[i], exempt, sizeof exempt);
+        int best = -1, best_sum = -1;
+        for (int c = 0; c < 256; c++) {
+            const uint8_t *const q = art->palette + 3 * c;
+        const int hi = q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2]), lo = q[0] < q[1] ? (q[0] < q[2] ? q[0] : q[2]) : (q[1] < q[2] ? q[1] : q[2]);
+        const int sum = exempt[c] ? q[0] + q[1] + q[2] + 3 * (hi - lo) : -1;
+            if (sum > best_sum) best = c, best_sum = sum;
+        }
+        lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
+    }
+    if (street_count > 0) {   /* the street lamps' boards: their entries kept */
+        uint8_t exempt[256] = { 0 };
+        for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
+        for (int i = 0; i < street_count; i++)
+            street_bitmap[i] = street_scenery[i] >= 0 && street_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery[i]].present
+                                   ? &art->scenery[street_scenery[i]].bitmap : NULL;
+        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
+    }
+    if (window_count > 0) {   /* the lit windows' boards: their entry kept */
+        uint8_t exempt[256] = { 0 };
+        exempt[window_entry] = 1;
+        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
+        for (int i = 0; i < window_count; i++)
+            window_bitmap[i] = window_scenery[i] >= 0 && window_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[window_scenery[i]].present
+                                   ? &art->scenery[window_scenery[i]].bitmap : NULL;
+    }
+}
+
 /* port (PS1 light): the tables of this frame's light (the lit, tunnel, pool, tone, lamp, street and window tables), made again only when the palette or the tint moved (a fade changes the palette), and the polygon hook set */
 static void light_tables_prepare(const TrackArt *art)
 {
@@ -2238,43 +2280,7 @@ static void light_tables_prepare(const TrackArt *art)
         pool_ready = has_pool, made_pool = has_pool;
         memcpy(made_for, art->palette, sizeof made_for), memcpy(made_tint, lit_tint, sizeof made_tint), made = 1, made_cast = cast;
     }
-    for (int i = 0; i < lamp_count; i++)   /* the lamp textures of this track, in each of their variants */
-        for (int v = 0; v < LAMP_VARIANTS; v++) {
-            const TrackTexture *t = lamp_spec[i].slot >= 0 && lamp_spec[i].slot < TRACK_TEXTURE_SLOTS && v < TRACK_TEXTURE_VARIANTS
-                                        ? &art->slots[lamp_spec[i].slot][v] : NULL;
-            lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
-        }
-    for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
-        const FshEntry *t = lamp_bitmap[i][0];
-        uint8_t exempt[256];
-        psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
-        psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
-        memcpy(lamp_exempt_set[i], exempt, sizeof exempt);
-        int best = -1, best_sum = -1;
-        for (int c = 0; c < 256; c++) {
-            const uint8_t *const q = art->palette + 3 * c;
-        const int hi = q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2]), lo = q[0] < q[1] ? (q[0] < q[2] ? q[0] : q[2]) : (q[1] < q[2] ? q[1] : q[2]);
-        const int sum = exempt[c] ? q[0] + q[1] + q[2] + 3 * (hi - lo) : -1;
-            if (sum > best_sum) best = c, best_sum = sum;
-        }
-        lamp_glow[i] = (uint8_t)(best >= 0 ? best : 0);
-    }
-    if (street_count > 0) {   /* the street lamps' boards: their entries kept */
-        uint8_t exempt[256] = { 0 };
-        for (int k = 0; k < 3; k++) exempt[street_entry[k]] = 1;
-        for (int i = 0; i < street_count; i++)
-            street_bitmap[i] = street_scenery[i] >= 0 && street_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery[i]].present
-                                   ? &art->scenery[street_scenery[i]].bitmap : NULL;
-        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
-    }
-    if (window_count > 0) {   /* the lit windows' boards: their entry kept */
-        uint8_t exempt[256] = { 0 };
-        exempt[window_entry] = 1;
-        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
-        for (int i = 0; i < window_count; i++)
-            window_bitmap[i] = window_scenery[i] >= 0 && window_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[window_scenery[i]].present
-                                   ? &art->scenery[window_scenery[i]].bitmap : NULL;
-    }
+    lamp_street_window_tables(art);
     track_light_hook = light_hook;
     tables_made = 1;
 }
