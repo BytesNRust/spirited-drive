@@ -133,6 +133,38 @@ static void test_car_is_no_brighter_than_the_road(void)
     CHECK(out[0] == 1.0f);
 }
 
+/* a reversed track: the file's arrays (tunnel, hall, car_dim) are of its own direction; the car asks them at the node the file has (psx_light_old_node), not the game's: file node n is game node (nodes - n) */
+static void test_a_reversed_track_has_its_places_mirrored_for_the_car(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, hall[N] = { 0 }, dim[N] = { 0 };
+    memset(tunnel + 10, 1, 11);   /* the file's 10..20, the game's 44..54 */
+    memset(hall + 40, 1, 3);      /* the file's 40..42, the game's 22..24 */
+    memset(dim + 50, 1, 3);       /* the file's 50..52, the game's 12..14 */
+    PsxLight light = { 0 };
+    light.nodes = N, light.tunnel = tunnel, light.hall = hall, light.car_dim = dim, light.reversed = 1;
+    float out[3];
+    psx_light_synth_car_tunnel(&light, 48, out);   /* the file's 16: in the tunnel (even node, under a lamp) */
+    CHECK(out[0] < 0.7f);
+    psx_light_synth_car_tunnel(&light, 16, out);   /* the file's 48: open road, whatever the game's node 16 would be unmirrored */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
+    psx_light_synth_car_tunnel(&light, 24, out);   /* the file's 40: the hall's lamps, warm */
+    CHECK(out[0] > 0.9f && out[0] > out[1] && out[1] > out[2]);
+    psx_light_synth_car_tunnel(&light, 40, out);   /* the file's 24: not the hall */
+    CHECK(out[0] == 1.0f);
+    psx_light_synth_car_tunnel(&light, 13, out);   /* the file's 51: the car keeps its dim tone */
+    CHECK(fabsf(out[0] - 62.0f / 160.0f) < 1e-5f);
+    psx_light_synth_car_tunnel(&light, 50, out);   /* the file's 14 (even: under a lamp): not the dim one but the tunnel's */
+    CHECK(fabsf(out[0] - 62.0f / 160.0f) > 1e-3f);
+    uint8_t flags[N] = { 0 };   /* the same light with no tunnel array: psx_light_synth_car's own hall lookup */
+    light.tunnel = NULL;
+    psx_light_synth_car(&light, 24, out);   /* the file's 40, a hall node */
+    CHECK(out[0] > 0.9f && out[0] > out[1]);
+    psx_light_synth_car(&light, 41, out);   /* the file's 23 */
+    CHECK(out[0] == 1.0f);
+    (void)flags;
+}
+
 /* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
 static void test_hall_is_a_tunnel(void)
 {
@@ -475,6 +507,7 @@ int main(void)
     test_warm_tunnel_tracks();
     test_car_takes_the_zones_look();
     test_car_is_no_brighter_than_the_road();
+    test_a_reversed_track_has_its_places_mirrored_for_the_car();
     test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();
