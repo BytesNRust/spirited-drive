@@ -691,8 +691,63 @@ static void test_the_hosts_rules_win_while_set(void)
     CHECK_EQ_INT(reverse_track_wanted(), reverse);
 }
 
+/* port (online): the frame-budget cache and the host's session rules (session_rules.h) */
+static void start_restomod_with(int weather)
+{
+    clear_files();
+    unsetenv("TNFS_WEATHER");
+    put_file("port.cfg", "profile=restomod\n");
+    session_rules_set(NULL);
+    PortSettings s = port_settings_load();   /* the cache is filled */
+    s.weather = weather;
+    CHECK(port_settings_save(&s));
+}
+
+/* rules active, then a save (the race's end keeps the camera): the file keeps the machine's weather, not the host's */
+static void test_a_save_during_a_race_keeps_the_machines_weather(void)
+{
+    start_restomod_with(WEATHER_CLEAR);
+    SessionRules host;
+    memset(&host, 0, sizeof host);
+    host.weather = WEATHER_RAIN;
+    session_rules_set(&host);
+    CHECK_EQ_INT(port_weather(), WEATHER_RAIN);
+    PortSettings now = port_settings_load();
+    now.camera_kind = 3;
+    CHECK(port_settings_save(&now));
+    CHECK_EQ_INT(port_settings_load().weather, WEATHER_CLEAR);
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
+    clear_files();
+}
+
+/* race 1's rules, cleared, a menu save, race 2's rules, cleared: each read is the one in force */
+static void test_a_menu_change_between_two_races_takes_effect(void)
+{
+    start_restomod_with(WEATHER_CLEAR);
+    SessionRules host;
+    memset(&host, 0, sizeof host);
+    host.weather = WEATHER_RAIN;
+    session_rules_set(&host);
+    CHECK_EQ_INT(port_weather(), WEATHER_RAIN);
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
+    PortSettings menu = port_settings_load();
+    menu.weather = WEATHER_FOG;
+    CHECK(port_settings_save(&menu));
+    CHECK_EQ_INT(port_weather(), WEATHER_FOG);   /* at once: the writers drop the cache */
+    host.weather = WEATHER_STORM;
+    session_rules_set(&host);
+    CHECK_EQ_INT(port_weather(), WEATHER_STORM);
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), WEATHER_FOG);
+    clear_files();
+}
+
 int main(void)
 {
+    test_a_save_during_a_race_keeps_the_machines_weather();
+    test_a_menu_change_between_two_races_takes_effect();
     test_the_hosts_rules_win_while_set();
     test_rain_grip_needs_the_rain();
     clear_files();
