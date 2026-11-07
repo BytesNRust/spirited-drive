@@ -67,7 +67,7 @@ void dust_trail_step(DustTrail *trail, int32_t tick, int kind, int drop, const i
     }
     int32_t from = trail->last_tick + 1;
     if (tick - from + 1 > MAX_STEPS) from = tick - MAX_STEPS + 1;
-    if (drop && (kind == RALLY_GRAVEL_DUST || kind == RALLY_GRAVEL_REGOLITH))
+    if (drop && (kind == RALLY_GRAVEL_DUST || kind == RALLY_GRAVEL_REGOLITH || kind == RALLY_GRAVEL_SNOW))
         for (int32_t t = from; t <= tick; t++) drop_at(trail, t, car, yaw, (int32_t)((int64_t)speed * (tick - t) / TICKS_A_SECOND));
     trail->last_tick = tick;
 }

@@ -11,6 +11,8 @@
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_settings.h"
+#include "game/race/wet_zones.h"
 #include "formats/tri_reverse.h"
 
 #include <ctype.h>
@@ -243,6 +245,10 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         return 0;
     }
     track_art_load_animated(&t->art, &t->fam, t->tri.data);  /* 0044c36c's "ga%d0" */
+    if (look->variant_r && look->port_snow) {   /* port (snow_weather): the snowy track's rally road is the track's own snow textures (the places file's `snow_map`) */
+        uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS];
+        if (track_snow_for(&t->tri, name, snow_map)) port_log("track_viewer: %s: snow: %d road texture slots take the snow's\n", name, track_art_remap_slots(&t->art, snow_map));
+    }
     char info_path[512];
     size_t info_size = 0;
     snprintf(info_path, sizeof info_path, "%s/SIMDATA/MISC/%sINFO", data_root, name);

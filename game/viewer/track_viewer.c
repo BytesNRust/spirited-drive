@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include "game/viewer/scenery_dump.h"
 #include "game/race/wet_zones.h"
+#include "game/race/weather_snow.h"
 #include <string.h>
 #include <time.h>
 
@@ -446,6 +447,8 @@ static int lunar_gravity_race(const char *name, int arcade)
 /* port (tunnel_dry): how much rain reaches each node, from the road's own property bytes (wet_zones.h): the places file's tunnels and Coastal's galleries, as the weather's looks; kept for the race's life, the next drive frees it */
 static uint8_t *drive_wet_open;
 
+static int drive_snow;   /* port (snow_weather): this race's track is a snowy one (its places file's `snow 1`) and the switch is on; set before the field is made */
+
 static const uint8_t *drive_wet_open_make(const Tri *tri, const char *name, int reversed)
 {
     free(drive_wet_open);
@@ -539,7 +542,7 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
         : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = race_extras();
-        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
+        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
         field->port_rally_road = arcade != 0;
         field->port_analog_pad = port_analog_pad();
         field->port_rally_shoulder_sound = port_rally_gravel_shoulder();
@@ -706,7 +709,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
     if (!drive_field_entries(&field, data_root, model, racers, entries)) return 0;
     if (!drive_field_replay(&field, &arcade, data_root)) return 0;
+    drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
+    ported_view_set_snow(drive_snow);
+    drive_replay_set_snow(drive_snow);
     drive_field_port(&field, name, arcade);
+    snow_grip_set(field.port_rally_gravel == RALLY_GRAVEL_SNOW);   /* port (snow_weather): this race's grip is the snow's: no time or record (records_glue_route) */
     field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
     /* port (free laps, free_laps.h): `laps=N` is the race's lap count (not a link game's, nor a replay's: those carry their own);
@@ -873,6 +880,11 @@ static void drive_look_fill(TrackFamInputs *look, const char *data_root, const c
     } else if (track_viewer_fam_missing(data_root, name, look) || getenv("TNFS_MIDDAY") != NULL) {
         look->time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the PS1 look */
     }
+    look->port_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather());   /* port (snow_weather) */
+    if (replay_file == NULL && !drive_menus_on && getenv("TNFS_RALLY_ART") != NULL) {   /* port (dev, env only): the headless --drive with the rally's art, as the menus' rally has it (with TNFS_RALLY for the rally's physics) */
+        look->variant_r = 1;
+        look->time_of_day = track_fam_time_of(look->track, 0, 1, port_extras_load().variant_time, 1);
+    }
 }
 
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
@@ -916,6 +928,7 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
         drive_menus_on = 0;
         return 0;
     }
+    race.snow_known = race_replay_snow_get(file, size, &race.snow);   /* port (snow_weather): whether it ran on snow; a CD's or older file: no */
     race.paint_known = race_replay_paint_get(file, size, race.paint);   /* port (replay colours): the paints the race wore; a CD's or older file has none */
     replay_of = &race, replay_file = file, replay_request = request;
     const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);

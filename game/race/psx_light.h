@@ -15,6 +15,8 @@
 
 enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LIGHT_WALL_FOOT = 64, PSX_LIGHT_TUNNEL_ROAD = 100 };
 
+enum { PSX_LIGHT_SNOW_SLOTS = 144 };   /* TRACK_TEXTURE_SLOTS (track_art.h), checked in track_light_file.c */
+
 /* port (track light file, `tone`): a scene tone a track's stretch takes: a colour and how strongly (0..100) the stretch's polygons are seen through it. At most PSX_LIGHT_TONES distinct ones a track. */
 enum { PSX_LIGHT_TONES = 16, PSX_TONE_BASE_BITS = 3 };   /* a vertex class's scene tone field is 5 bits: 1..16 the tones */
 
@@ -56,6 +58,8 @@ typedef struct {
     int gate_board;     /* port (finish_gate_light): the stage gate's scenery board plus one, which keeps full light at night (finish_gate_light.h); 0 none */
     int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
+    uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS];   /* port (snow_weather): the places file's `snow_map from to` lines: texture slot `from` is drawn with slot `to`'s bitmaps in the rally (track_art_remap_slots); to + 1, 0 none */
+    int snow;           /* port (snow_weather): the places file's `snow 1`: the track's rain is snow (weather_snow.h), and its rally road is covered in it (rally_gravel.h) */
     int from_places;    /* port (tunnel_dry): the tunnel / canyon / car_dim arrays are a places file's (track_light_place_parse): the only source of the closed zones, the road's bits are not added to them */
     int from_file;      /* port (track light file): the light is a file's, whatever the port's flags: its canyon and tunnel nodes count without canyon_shade / car_tunnel_light on */
     PsxLightTone tone[PSX_LIGHT_TONES];   /* port (`tone`): the track's scene tones, tone_count of them */

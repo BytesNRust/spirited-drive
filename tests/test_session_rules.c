@@ -10,6 +10,7 @@ static SessionRules sample(void)
     SessionRules r;
     memset(&r, 0, sizeof r);
     r.mode = SESSION_RESTOMOD, r.difficulty = 2, r.weather = 2, r.reverse = 1, r.lunar_springs = 1, r.lunar_gravity = 1, r.rally_gravel = 1, r.cheats = 5, r.rain_grip = 1, r.liveries = 1, r.time_of_day = 2, r.psx_time = 1;
+    r.snow_weather = 1;
     for (int i = 0; i < SESSION_SLOTS; i++) r.paint[i] = (uint8_t)(i + 1);
     return r;
 }
@@ -49,6 +50,32 @@ static void test_refuses_what_is_not_the_record(void)
     buf[19] = 3;                                                               /* a time of day that does not exist */
     CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 0);
     CHECK_EQ_INT(got.mode, 0x55);                                              /* a refused record leaves the output alone */
+}
+
+/* port (snow_weather): the host's snow rides at the record's end (version 2); a version 1 record, an older host's, has none and means no snow */
+static void test_snow_weather_rides_at_the_end(void)
+{
+    uint8_t buf[SESSION_RULES_SIZE];
+    SessionRules r = sample(), got;
+    session_rules_put(&r, buf);
+    CHECK_EQ_INT(buf[SESSION_VERSION_AT], 2);
+    CHECK_EQ_INT(buf[SESSION_SNOW_AT], 1);
+    CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 1);
+    CHECK_EQ_INT(got.snow_weather, 1);
+    r.snow_weather = 0;
+    session_rules_put(&r, buf);
+    CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 1);
+    CHECK_EQ_INT(got.snow_weather, 0);
+    buf[SESSION_SNOW_AT] = 2;                                          /* not a switch */
+    CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 0);
+    r = sample();
+    session_rules_put(&r, buf);
+    buf[SESSION_VERSION_AT] = 1;                                       /* an older host's record: 29 bytes, no snow, however the last byte reads */
+    got.snow_weather = 7;
+    CHECK_EQ_INT(session_rules_get(buf, SESSION_RULES_SIZE_V1, &got), 1);
+    CHECK_EQ_INT(got.snow_weather, 0);
+    buf[SESSION_VERSION_AT] = 2;
+    CHECK_EQ_INT(session_rules_get(buf, SESSION_RULES_SIZE_V1, &got), 0);   /* a version 2 record cut short */
 }
 
 static void test_a_later_version_still_reads(void)
@@ -137,6 +164,7 @@ int main(void)
 {
     test_round_trip();
     test_refuses_what_is_not_the_record();
+    test_snow_weather_rides_at_the_end();
     test_a_later_version_still_reads();
     test_the_trailer_follows_the_setup_and_is_ignored_by_old_receivers();
     test_a_host_without_the_trailer_clears_a_stale_one();

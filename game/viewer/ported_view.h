@@ -86,6 +86,7 @@ struct PsxSkyDraw;
 void ported_view_set_psx_sky(struct PsxSkyDraw *sky);
 /* port (weather.h): the race's weather, WEATHER_CLEAR (the default) draws as it always did; fog needs Modern 3D on */
 void ported_view_set_weather(int weather);
+void ported_view_set_snow(int snow);   /* port (snow_weather): the race's track is a snowy one with the switch on: the rain falls as snow (weather_snow.h) */
 void ported_view_set_modern(int on);
 /* port (weather): the mirror's road style for the weather (0: clear weather, nothing set) and its sky, drawn by then */
 int ported_view_mirror_weather(const TrackArt *art);

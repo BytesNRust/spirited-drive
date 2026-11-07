@@ -50,6 +50,10 @@ typedef struct {
  * which must outlive the TrackArt. Returns 0 when the layout is unexpected. */
 int track_art_load(TrackArt *art, const Chunk *root);
 
+/* port (snow_weather): the snow textures laid over the road's: slot `from` takes the bitmaps of slot `to` (all its variants) for every pair in the map (`map[from]` is to + 1, 0 none), so the polygons that
+ * used the one are drawn with the other. No pixel is new: both are the track's own art. A pair whose `to` slot has no bitmap is left alone. Returns how many slots were taken over. */
+int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS]);
+
 /* 0044c36c's "ga%d0" on a circuit (one terrain SHPI): with id the TRI header's short +0x28 / 3, slot id * 3 + k
  * (k 0..2) takes "ga<k>0".."ga<k>7" over what track_art_load gave it, when "ga<k>0" is there. Nothing on a stage. */
 void track_art_load_animated(TrackArt *art, const Chunk *root, const uint8_t *tri_header);

@@ -30,6 +30,7 @@ void link_rules_compose(const uint8_t *records, int humans, SessionRules *out)
     out->lunar_springs = e.lunar_springs != 0, out->lunar_gravity = e.lunar_gravity != 0, out->rally_gravel = e.rally_gravel != 0;
     out->cheats = (uint8_t)(port_extras_cheat_marks(&e) & 7);
     out->rain_grip = port_rain_grip() != 0;
+    out->snow_weather = port_snow_weather() != 0;
     out->liveries = e.psx_liveries != 0;
     out->time_of_day = clamp(drive_menus_on ? drive_menus.time_of_day : 1, 2);
     out->psx_time = clamp(port_psx_time(), 2);

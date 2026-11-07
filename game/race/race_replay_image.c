@@ -88,6 +88,24 @@ int race_replay_paint_get(const uint8_t *file, size_t size, uint8_t paint[RACE_P
     return 1;
 }
 
+static const char SNOW_MAGIC[8] = { 'T', 'N', 'F', 'S', 'S', 'N', 'W', '1' };
+
+void race_replay_snow_put(int snow, uint8_t out[REPLAY_SNOW_TRAILER_SIZE])
+{
+    memset(out, 0, REPLAY_SNOW_TRAILER_SIZE);
+    memcpy(out, SNOW_MAGIC, sizeof SNOW_MAGIC);
+    out[sizeof SNOW_MAGIC] = snow != 0;
+}
+
+int race_replay_snow_get(const uint8_t *file, size_t size, int *snow)
+{
+    const size_t at = (size_t)REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE;
+    *snow = 0;
+    if (file == NULL || size < at + REPLAY_SNOW_TRAILER_SIZE || memcmp(file + at, SNOW_MAGIC, sizeof SNOW_MAGIC) != 0) return 0;
+    *snow = file[at + sizeof SNOW_MAGIC] == 1;
+    return 1;
+}
+
 void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay)
 {
     race->unknown_4c5cd4 = replay->explode;

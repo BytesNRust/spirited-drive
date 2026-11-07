@@ -31,6 +31,7 @@ static PsxLight make(void)
     memset(l.tone_id + 12, 1, 5), memset(l.tone_mask + 12, 0xff, 5 * sizeof *l.tone_mask);
     l.tone_count = 1, l.tone[0].rgb[0] = l.tone[0].rgb[1] = l.tone[0].rgb[2] = 255, l.tone[0].look = 1, l.tone[0].light = 80.0f;
     l.tone[0].cast[0] = 1.0f, l.tone[0].cast[1] = 0.5f, l.tone[0].cast[2] = 0.25f;
+    l.snow = 1;   /* a snowy track: the places file's `snow 1` */
     l.look_set = 1, l.look_light = 104.4, l.look_cast[0] = 1.0f, l.look_cast[1] = 0.68f, l.look_cast[2] = 0.28f;   /* CY1's day: a made look the bytes cannot hold exactly */
     return l;
 }
@@ -55,6 +56,7 @@ static void test_round_trip(void)
     CHECK(b.hall != NULL && memcmp(a.hall, b.hall, NODES) == 0);   /* a hall is a place's tunnel the time's file calls lit */
     CHECK(b.car_dim != NULL && memcmp(a.car_dim, b.car_dim, NODES) == 0 && b.car_pool == NULL);   /* absent stays absent */
     CHECK(b.canyon != NULL && memcmp(a.canyon, b.canyon, NODES) == 0);
+    CHECK(b.snow == 1 && strstr(places, "snow 1") != NULL && strstr(text, "snow") == NULL);   /* a place of the track, not of the time */
     CHECK(b.pool_class == NULL && b.car_pool == NULL);   /* the pools are the lamps' (`lamp` lines): a file has no pool runs */
     CHECK(strstr(text, "car_disc") == NULL);   /* gone: the car takes the zone's look */
     CHECK(strstr(text, "tunnel 12 16 80 1/0.5/0.25") != NULL);   /* the zone's own look is a line of the time's file ... */

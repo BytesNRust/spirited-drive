@@ -121,6 +121,15 @@ node's centre.
 A tunnel (the places' `tunnel` nodes) or a hall (`tunnel a b lit`) is a closed zone for the weather: inside it there is no rain, no fog, no rain's haze, no lens drops and no lightning, and the thunder is muffled to 40 %. All of it fades in over the 6 nodes outside a mouth
 (the light editor shows `weather: open|closed N/16` for the node). Coastal's galleries, which the road marks but the files do not, count as closed zones too. A hall is a tunnel with a lot of light and has a roof (TR7's steelworks, `tunnel 1 62 lit` and `tunnel 1011 1023 lit`, and its tunnels, `tunnel 465 470`, `571 609` and `682 695`, have no rain); a `canyon` is open air (Alpine's, `canyon 600 771`, rains). Stock and Restored have no weather of their own and are not changed.
 
+## Snow (Restomod)
+
+A track opts in to snow with `snow 1` in its places file (`data/track/<TRACK>.txt`; Alpine 3's has it, a mod's copy of any track can). With `snow_weather` on (Restomod '26's default; `TNFS_SNOW_WEATHER=0|1`):
+
+- the weather *rain* is snow: white flakes that fall slowly (9 to 22 percent of the view's height a second) and sway sideways, with the weather's openness (none inside a closed zone, thinned out at its mouths); the *storm* is heavier snow (three times the flakes, a wind that leans them all one way) with no lightning and no thunder. The lens has no drops. The road stays wet as in rain: the reflections, the spray behind the tyres, the wet tyre sound and the rain's grip are all `weather_wet`'s, which the snow does not change;
+- the rally of the track (`variant_r`) is on snow, `RALLY_GRAVEL_SNOW` (`rally_gravel.h`): the places file's `snow_map FROM TO` lines make texture slot FROM draw with the bitmaps of slot TO (slots are `id * 3 + letter`, `TRACK_TEXTURE_SLOTS` = 144, as the segments' texture bytes have them), so the road and the shoulder are covered in the track's own snow textures and nothing new is stored. Alpine 3's are `snow_map 3 36` and `snow_map 4 37` (its road and its shoulder). A track with `snow 1` and no `snow_map` keeps its road art. The grip is `RALLY_SNOW_GRIP` 0xc0, half the rally gravel's 0x180 (packed snow's friction is about 0.3 against gravel's 0.6), and it rolls half as hard again (0xc0 against 0x80); the rain's grip factor is not put on it a second time, the number being the wet snow's. The tyres throw a white powder puff instead of dirt, and the rolling noise is the gravel's.
+
+`tools/export_track_light.sh` writes the places from the light the port makes, which knows nothing of snow: `FORCE=1` over a file with these lines would lose them.
+
 ## Regenerating the files
 
 When a change to the engine alters the light it generates, the files are regenerated with `tools/export_track_light.sh <bin> <original/> [data dir]`: one headless run a track and time, writing `data/track_light/<TRACK><A|B|C|N>.txt`

@@ -19,4 +19,8 @@ uint8_t *wet_zones_make(const PsxLight *places, const uint8_t *property, uint32_
  * long; `reversed` is the track's direction. NULL when the road has no data. */
 uint8_t *wet_zones_for_track(const Tri *tri, const char *name, int reversed);
 
+/* port (snow_weather): 1 when the track's places file (the same one, found the same way) says `snow 1`: its rain is snow (weather_snow.h) and its rally road is covered in it (rally_gravel.h). 0 with no file
+ * or no such line; `snow_map` (NULL: not wanted) is the file's `snow_map` lines, as PsxLight has them (zeros when none); a mod's places file for the track that leaves it out makes the track a plain one. */
+int track_snow_for(const Tri *tri, const char *name, uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS]);
+
 #endif
