@@ -54,6 +54,15 @@ int track_art_load(TrackArt *art, const Chunk *root);
  * used the one are drawn with the other. No pixel is new: both are the track's own art. A pair whose `to` slot has no bitmap is left alone. Returns how many slots were taken over. */
 int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS]);
 
+/* port (snow_weather): the snow road's grass. The snow textures the road takes are the track's own snow-with-grass patches, and the owner does not want the grass under the road:
+ * SNOW_ROAD_PURE paints every green texel of what the road takes snow-white, SNOW_ROAD_GREY gives it the grey of its own brightness; texels that are not green and the transparent ones
+ * are as they were (green: the track's own '!pal', 8 bits, before the race's palette is made). The road's own bitmap, the one the track's bank holds for the slot, is overwritten with the
+ * snow's pixels so changed (the road's is the bigger one, 128x256 against 80x80 on AL3: the snow's size is the slot's from then on), and the slot keeps pointing there: the race's in-place palette remap and its colour scan then reach them as they reach every other
+ * bitmap, and the snow slot the scenery uses is not touched. A road bitmap with no room for the snow's pixels, no palette or SNOW_ROAD_AS_IS: the slot takes the snow's bitmap as it is. The pixels are
+ * made from the track's own art when it loads, none are stored. track_art_remap_slots is SNOW_ROAD_AS_IS. Returns how many slots were taken over. */
+typedef enum { SNOW_ROAD_AS_IS = 0, SNOW_ROAD_PURE = 1, SNOW_ROAD_GREY = 2 } SnowRoad;
+int track_art_remap_slots_as(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS], SnowRoad mode);
+
 /* 0044c36c's "ga%d0" on a circuit (one terrain SHPI): with id the TRI header's short +0x28 / 3, slot id * 3 + k
  * (k 0..2) takes "ga<k>0".."ga<k>7" over what track_art_load gave it, when "ga<k>0" is there. Nothing on a stage. */
 void track_art_load_animated(TrackArt *art, const Chunk *root, const uint8_t *tri_header);

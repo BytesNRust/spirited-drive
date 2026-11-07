@@ -247,7 +247,11 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     track_art_load_animated(&t->art, &t->fam, t->tri.data);  /* 0044c36c's "ga%d0" */
     if (look->variant_r && look->port_snow) {   /* port (snow_weather): the snowy track's rally road is the track's own snow textures (the places file's `snow_map`) */
         uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS];
-        if (track_snow_for(&t->tri, name, snow_map)) port_log("track_viewer: %s: snow: %d road texture slots take the snow's\n", name, track_art_remap_slots(&t->art, snow_map));
+        if (track_snow_for(&t->tri, name, snow_map)) {
+            const char *road = getenv("TNFS_SNOW_ROAD");   /* dev, until the owner picks: "pure" or "grey" */
+            const SnowRoad mode = road != NULL && strcmp(road, "pure") == 0 ? SNOW_ROAD_PURE : road != NULL && strcmp(road, "grey") == 0 ? SNOW_ROAD_GREY : SNOW_ROAD_AS_IS;
+            port_log("track_viewer: %s: snow: %d road texture slots take the snow's\n", name, track_art_remap_slots_as(&t->art, snow_map, mode));
+        }
     }
     char info_path[512];
     size_t info_size = 0;
