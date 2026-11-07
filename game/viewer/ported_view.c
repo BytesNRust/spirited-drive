@@ -258,30 +258,41 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
  * channel 1) and a strength bucket (the most the lamps give there, in lamps at 100 percent). Made when a polygon asks (2 ms each), from what the table block saved for the tones (the palette and the lit tint), and kept
  * in a ring of LAMP_CACHE: plain lamps all give one colour, so a handful serve, but neons of other colours mixed in make every polygon's mean colour another one (a stretch of them wants some 60: at 12 every polygon
  * rebuilt a table, 45 ms a frame); the block drops them when it makes its own again. */
-enum { LAMP_CACHE = 128, LAMP_BUCKETS = 5, LAMP_NEAR = 24, LAMP_KEY_STEPS = 16 };
+enum { LAMP_CACHE = 128, LAMP_BUCKETS = 5, LAMP_NEAR = 24, LAMP_KEY_STEPS = 16, LAMP_STEPS = 12 };
 static const float LAMP_BUCKET[LAMP_BUCKETS] = { 1.0f, 2.0f, 3.0f, 5.0f, 10.0f };
-static struct { uint8_t key[4]; uint8_t tables[MODERN_FOG_LEVELS][256]; } lamp_cache[LAMP_CACHE];
+/* port (`lamp`): no dither between the lit tables and the lamp's: the pool is graded in LAMP_STEPS even steps of the colour added (step s: s / LAMP_STEPS of it), a pixel taking the step its heat rounds to, as the
+ * headlights' pool grades (cone_cells: levels, not a random choice). A slot holds a block per step, each made the first time a polygon needs it (`made` is a bit a step). */
+static struct { uint8_t key[4]; uint32_t made; uint8_t tables[LAMP_STEPS][MODERN_FOG_LEVELS][256]; } lamp_cache[LAMP_CACHE];
 static int lamp_cache_used, lamp_cache_next;
 
-static const uint8_t (*lamp_add_get(const float rgb[3], int bucket))[256]
+/* the blocks of steps 1 .. steps for a colour and bucket, in one run (block s - 1 the step s); NULL when steps is 0 */
+static const uint8_t (*lamp_add_get(const float rgb[3], int bucket, int steps))[256]
 {
     uint8_t key[4];
     for (int k = 0; k < 3; k++) key[k] = (uint8_t)(rgb[k] * LAMP_KEY_STEPS + 0.5f);
     key[3] = (uint8_t)bucket;
-    for (int i = 0; i < lamp_cache_used; i++)
-        if (memcmp(lamp_cache[i].key, key, sizeof key) == 0) return lamp_cache[i].tables;
-    const int slot = lamp_cache_used < LAMP_CACHE ? lamp_cache_used++ : lamp_cache_next;
-    if (slot == lamp_cache_next && lamp_cache_used == LAMP_CACHE) lamp_cache_next = (lamp_cache_next + 1) % LAMP_CACHE;
-    float add[3];
-    for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / LAMP_KEY_STEPS;
-    memcpy(lamp_cache[slot].key, key, sizeof key);
-    modern_light_tables_add(tone_palette, tone_lit_tint, add, lamp_cache[slot].tables);
-    return lamp_cache[slot].tables;
+    int slot = -1;
+    for (int i = 0; i < lamp_cache_used && slot < 0; i++)
+        if (memcmp(lamp_cache[i].key, key, sizeof key) == 0) slot = i;
+    if (slot < 0) {
+        slot = lamp_cache_used < LAMP_CACHE ? lamp_cache_used++ : lamp_cache_next;
+        if (slot == lamp_cache_next && lamp_cache_used == LAMP_CACHE) lamp_cache_next = (lamp_cache_next + 1) % LAMP_CACHE;
+        memcpy(lamp_cache[slot].key, key, sizeof key);
+        lamp_cache[slot].made = 0;
+    }
+    for (int s = 1; s <= steps; s++) {
+        if (lamp_cache[slot].made >> s & 1) continue;
+        float add[3];
+        for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / LAMP_KEY_STEPS * (float)s / LAMP_STEPS;
+        modern_light_tables_add(tone_palette, tone_lit_tint, add, lamp_cache[slot].tables[s - 1]);
+        lamp_cache[slot].made |= 1u << s;
+    }
+    return lamp_cache[slot].tables[0];
 }
 
-/* port (`lamp`): the heat of the lamps at the polygon being drawn's four corners (the sum of their falloffs at each corner's place in the world, 0 none; a bucket's share of 1), and the table of the lamps'
- * colour at the strength the polygon's strongest corner takes. 0 when no lamp reaches it, or it is a tunnel's or a tone's: those keep their own tables. The light then grades per pixel between the
- * lit tables and these as the heat does between the corners. */
+/* port (`lamp`): the heat of the lamps at the polygon being drawn's four corners (the sum of their falloffs at each corner's place in the world, 0 none; a bucket's share of 1), and the step tables of the lamps'
+ * colour at the strength the polygon's strongest corner takes (as many as its hottest corner reaches). 0 when no lamp reaches it, or it is a tunnel's or a tone's: those keep their own tables. The light then
+ * grades per pixel through the steps as the heat does between the corners. */
 static int lamp_polygon(float heat[4], const uint8_t (**top)[256])
 {
     if (psx_light == NULL || psx_light->lamp_n <= 0 || !track_light_xz_ok || (track_light_tunnel & 7) == 1 || !tables_made) return 0;
@@ -300,8 +311,14 @@ static int lamp_polygon(float heat[4], const uint8_t (**top)[256])
     for (int c = 0; c < 3; c++) mean[c] /= top_channel;
     int bucket = 0;
     while (bucket < LAMP_BUCKETS - 1 && LAMP_BUCKET[bucket] < strongest) bucket++;
-    for (int k = 0; k < 4; k++) heat[k] = heat[k] / LAMP_BUCKET[bucket] < 1.0f ? heat[k] / LAMP_BUCKET[bucket] : 1.0f;
-    *top = lamp_add_get(mean, bucket);
+    float hottest = 0.0f;
+    for (int k = 0; k < 4; k++) {
+        heat[k] = heat[k] / LAMP_BUCKET[bucket] < 1.0f ? heat[k] / LAMP_BUCKET[bucket] : 1.0f;
+        hottest = heat[k] > hottest ? heat[k] : hottest;
+    }
+    const int steps = (int)(hottest * LAMP_STEPS + 0.5f);
+    if (steps < 1) return 0;   /* under half a step everywhere: the lit tables, as the pixels would take them */
+    *top = lamp_add_get(mean, bucket, steps);
     return 1;
 }
 
@@ -546,7 +563,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
         float lamp_heat[4];
         const uint8_t (*lamp_top)[256] = NULL;
         if (tables == lit_tables && lamp_polygon(lamp_heat, &lamp_top)) {   /* port (`lamp`): the street lamps' light, radial and per pixel: the lit tables and the lamps' graded by the heat at each corner */
-            modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, lamp_top, lamp_heat);
+            modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;
         }
         if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && psx_light != NULL
@@ -559,7 +576,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
                 heat[k] = cls >= 2 ? (float)(cls - 1) / POOL_CLASSES : 0.0f;
             }
             if (heat[0] > 0 || heat[1] > 0 || heat[2] > 0 || heat[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */
-                modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, pool_tables[POOL_CLASSES - 1], heat);
+                modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, pool_tables[POOL_CLASSES - 1], heat, 0);
                 return;
             }
         }
