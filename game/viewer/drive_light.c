@@ -271,7 +271,8 @@ static void use_fallback_tint(int time, const char *track)
 
 int drive_light_time_tinted(void) { return time_tinted || split; }
 
-void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
+/* port: every state drive_light_load sets, back to nothing for a race with no light (or before the light's own) */
+static void reset_for_load(int enabled, int time, const char *track)
 {
     time_tinted = enabled && time != PSX_TIME_DAY;
     night_sky = time == PSX_TIME_NIGHT;
@@ -302,6 +303,30 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     psx_light_free(&light);
     synth_on = 0;
     tint[0] = tint[1] = tint[2] = 1.0f;
+}
+
+/* port: the race has no CD light file (or no PS1 folder): the light is made from the terrain, with the fallback tint of the time */
+static void load_without_cd_light(int time, const char *track, int have_dir, const char *path)
+{
+    if (have_dir) port_log("psx_light: no %s\n", path);
+    else port_log("psx_light: no PS1 directory, the port's own effects only\n");
+    made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
+    if (time != PSX_TIME_DAY) use_fallback_tint(time, track);
+    if (time == PSX_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night() && night_tone_mode() == 0) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
+        static const float VEGAS_NIGHT[3] = { 0.27f, 0.33f, 0.34f };
+        const float lift_k = VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[0];   /* port (vegas_lift): the CD's tint rides its ceiling (the CD's own is above every level's); level 0 is as it was */
+        for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c] * lift_k;
+        port_log("psx_light: Lost Vegas' night tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
+    }
+    const PsxLamp *own_lamps = NULL;
+    const int own_count = psx_lamps_for(track, &own_lamps);
+    ported_view_set_psx_lamps(own_lamps, own_count);   /* the lamps' glow (psx_flares) needs them known even with no light */
+    if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = own_lamps, night_lamp_count = own_count;   /* the lamps' own colours are kept lit in the night's palette */
+}
+
+void drive_light_load(int enabled, int time, const char *psx_dir, const char *track, uint32_t ring_nodes)
+{
+    reset_for_load(enabled, time, track);
     if (!enabled) return;
     const int have_dir = psx_dir != NULL && psx_dir[0] != '\0';   /* port: with no PS1 disc the light's own effects (pools, lamps, windows, the made light, fallback tints) still run */
     headlights_on = (time == PSX_TIME_NIGHT || is_lost_vegas(track)) && port_psx_headlights();
@@ -329,20 +354,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         file = platform_read_file(path, &size);
     }
     if (file == NULL) {
-        if (have_dir) port_log("psx_light: no %s\n", path);
-        else port_log("psx_light: no PS1 directory, the port's own effects only\n");
-        made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
-        if (time != PSX_TIME_DAY) use_fallback_tint(time, track);
-        if (time == PSX_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night() && night_tone_mode() == 0) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
-            static const float VEGAS_NIGHT[3] = { 0.27f, 0.33f, 0.34f };
-            const float lift_k = VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[0];   /* port (vegas_lift): the CD's tint rides its ceiling (the CD's own is above every level's); level 0 is as it was */
-            for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c] * lift_k;
-            port_log("psx_light: Lost Vegas' night tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
-        }
-        const PsxLamp *own_lamps = NULL;
-        const int own_count = psx_lamps_for(track, &own_lamps);
-        ported_view_set_psx_lamps(own_lamps, own_count);   /* the lamps' glow (psx_flares) needs them known even with no light */
-        if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = own_lamps, night_lamp_count = own_count;   /* the lamps' own colours are kept lit in the night's palette */
+        load_without_cd_light(time, track, have_dir, path);
         return;
     }
     PsxLight parsed = { 0 };
@@ -526,12 +538,7 @@ static uint32_t track_light_flags(void)
 }
 
 static char track_light_note[160] = "";   /* a small line for the editor when the file was made with other settings than now (a record: the file is used all the same) */
-static char track_light_status[200] = "";   /* what the track light file did for this race, for the light editor's screen (drive_light_track_light_status) */
-
-const char *drive_light_track_light_status(void)
-{
-    return track_light_status;
-}
+static char track_light_status[200] = "";   /* what the track light file did for this race, for the light editor's screen (drive_light_edit_lines) */
 
 /* port (made_tunnels): a made light's warm tunnels take the look of their kind (psx_light_synth_warm_look), which a track light file's retouches then change */
 static void warm_looks(PsxLight *made)
