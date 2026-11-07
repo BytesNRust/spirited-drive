@@ -24,6 +24,8 @@ int drive_audio_device_open(const char *data_root);
 int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pitch);
 /* port (rain_v2): a thunder clap `delay_ticks` (30 a second) from now at `volume_percent`, over the race's own mix; nothing without a device or without data/sounds/thunder.wav */
 void drive_audio_thunder(int delay_ticks, int volume_percent);
+/* port (rain_tyre_roll): the wet-tyre roll (rain_roll.h) at `volume_percent` (0 silent) and `pitch_permille` of its own rate, eased; nothing without a device or without data/sounds/rain_tyre_roll.wav */
+void drive_audio_wet_roll(int volume_percent, int pitch_permille);
 
 /* 00473c68 on the driver: the voice stopped */
 void drive_audio_voice_stop(int32_t voice);

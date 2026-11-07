@@ -34,6 +34,7 @@
 #include "game/race/tyre_smoke.h"
 #include "game/race/dust_trail.h"
 #include "game/race/rally_gravel.h"
+#include "game/race/rain_roll.h"
 #include "game/viewer/follow_arm.h"
 #include "game/viewer/follow_behind.h"
 #include "viewer/horizon_smooth.h"
@@ -442,6 +443,7 @@ static void rain_mood_band(void *user, int top, int bottom)
 }
 
 static void storm_thunder_update(void);   /* port (rain_v2): the thunder after each strike */
+static void rain_roll_update(void);       /* port (rain_tyre_roll): the wet-tyre roll of the followed car */
 static int storm_flash_level(void);   /* port (WEATHER_STORM): the lightning's brightness this frame, 0 none */
 
 static void weather_sky_band(void *user, int top, int bottom)
@@ -2442,6 +2444,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     draw_sky(art, info, pc, pixels, &quad, &target, &view, &horizon, &ctx, &cam, box);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
     storm_thunder_update();
+    rain_roll_update();
     drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
@@ -2519,6 +2522,22 @@ static void storm_thunder_update(void)
         drive_audio_thunder(delay, weather_thunder_inside(weather_thunder_volume(delay), rain_open));
     }
     last = tick;
+}
+
+/* port (rain_tyre_roll): the wet-tyre roll of the car the camera follows (as the tyre sounds are), once a frame: its level and pitch by its speed (rain_roll.h), only in rain or a storm with rain_v2,
+ * on open asphalt (not the rally's gravel, a road shoulder or the air) and by the rain's openness (silent inside a closed zone). The voice falls silent by itself when the frames stop. */
+static void rain_roll_update(void)
+{
+    int percent = 0, pitch = RAIN_ROLL_PITCH_SLOW;
+    if (shadow_race != NULL && port_rain_tyre_roll() && port_rain_v2() && weather_wet(weather)) {
+        const Car *const car = shadow_race->cars[race_slot(shadow_race->viewed)];
+        if (car != NULL) {
+            const int asphalt = car->airborne_ticks == 0 && shadow_race->port_rally_gravel == 0 && (uint32_t)car->surface < RACE_SURFACES && shadow_race->surfaces[car->surface].off_road == 0;
+            percent = rain_roll_volume(1, rain_open, car->speed, asphalt);
+            pitch = rain_roll_pitch(car->speed);
+        }
+    }
+    drive_audio_wet_roll(percent, pitch);
 }
 
 static int storm_flash_level(void)
